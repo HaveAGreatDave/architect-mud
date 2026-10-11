@@ -12,7 +12,7 @@
 // It proves the view RUNS and that its outcomes match the sim's. It does not look at
 // pixels and is not meant to.
 //
-// Run:  node scripts/shapes/rink-smoke.mjs [206|25]
+// Run:  node scripts/shapes/rink-smoke.mjs [13|1010]
 
 import fs from 'fs';
 import { __install } from './rink-dom-stub.mjs';
@@ -39,9 +39,15 @@ const block = (k) => (src.split(`::${k}`)[1]?.split(`::end${k}`)[0] || '').split
 const pools = {};
 { let key = null; for (const raw of src.split(/\r?\n/)) { const l = raw.trim(); if (l.startsWith('::lines ')) { key = l.slice(8).trim(); pools[key] = []; continue; } if (l.startsWith('::')) { key = null; continue; } if (key && l && !l.startsWith('#')) pools[key].push(l); } }
 const teams = block('teams'), players = block('players');
+// the clubs' identities, as the broadcast row carries them, so the kits and crests are
+// dressed and drawn the way a viewer's client draws them once tv_clubs has answered
+const clubs = JSON.parse(fs.readFileSync(new URL('../../content/media_broadcasts/bc_cluster_puck.json', import.meta.url), 'utf8')).sports_pools?.clubs || null;
+const { setClubs, clubOf } = await import('../../client/game/js/panels/club-crest.js');
+if (clubs) setClubs('hockey', 'smoke', clubs);
+check('every club in the league has an identity', teams.every((t) => !!clubOf(t)), teams.filter((t) => !clubOf(t)).join(', '));
 
 function gameLines(slot) {
-  const matchup = { away: teams[slot % teams.length], home: teams[(slot * 7 + 5) % teams.length], teams };
+  const matchup = { away: teams[slot % teams.length], home: teams[(slot * 7 + 5) % teams.length], teams, clubs };
   const seed = sportsHash(slot, 0);
   const game = HOCKEY.simGame(matchup, players, sportsRng(seed));
   const nrng = sportsRng(seed ^ 0x9e3779b9);
@@ -58,8 +64,10 @@ function gameLines(slot) {
 }
 
 // ── one game through the view ──────────────────────────────────────────────────
-// Slot 206 has eight goals, five fights, a severed arm and a death in overtime; slot 25
-// has a pulled goalie. Between them every beat type the sim emits is staged.
+// Slot 1010 (Marquee Marauders at the Coldwater Highlanders) stages every beat type,
+// a pulled goalie and a death in overtime among them; slot 13 (the Docks Boarders at the
+// Westside Warlords) has the fights, the scrums and the injuries. Between them the tartan
+// kit and the gem stripe are dressed and drawn.
 const seen = new Set();
 // a replay's stand-in world has the men, the puck and a camera of its own
 const src0ok = (RP) => { const s = RP.source; return s.bodies().length >= 10 && Number.isFinite(s.puck.x) && s.cam.mode === 'replay'; };
@@ -255,11 +263,11 @@ async function play(slot) {
 
 // Run bare, it plays both games. The push gate runs each game as its own gate (a slot number
 // as the argument), side by side, so neither carries the other's CPU. Between them every
-// beat type is staged: 206 has everything but a pulled goalie, 25 everything but a death.
+// beat type is staged: 1010 has all of them, 13 everything but a pulled goalie and a death.
 const ALL = ['faceoff', 'chance', 'goal', 'boards', 'fight', 'scrum', 'injury', 'death', 'pull', 'intermission'];
-const EXPECT = { 206: ALL.filter((t) => t !== 'pull'), 25: ALL.filter((t) => t !== 'death') };
+const EXPECT = { 13: ALL.filter((t) => t !== 'pull' && t !== 'death'), 1010: ALL };
 const slots = process.argv.slice(2).map(Number).filter((n) => EXPECT[n]);
-for (const slot of slots.length ? slots : [206, 25]) await play(slot);
+for (const slot of slots.length ? slots : [13, 1010]) await play(slot);
 for (const t of slots.length ? [...new Set(slots.flatMap((n) => EXPECT[n]))] : ALL) {
   check(`a "${t}" was staged`, seen.has(t), [...seen].join(','));
 }

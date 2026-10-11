@@ -21,6 +21,7 @@
 // man on the broadcast camera and a 300px man in the fight close-up.
 
 import { TAU, V, clamp, lerp, shade, hull, hash } from './util.js';
+import { paintCrest } from '../club-crest.js';
 
 const INK = '#0b0e13';
 const SL = [-0.52, -0.85];                     // screen-space direction toward the key light
@@ -231,7 +232,8 @@ export function drawBody(ctx, P, J, o) {
       limb(J[hip], J[kn], 0.48, 0.44, '#e3e6e9', (a, b) => ringAt(J[hip], J[kn], 0.48, 0.44, 0.7, K.jersey, 0.12));
     } else {
       limb3(J[kn], A, 0.3, 0.26, 0.2, K.sock, () => {
-        ringAt(J[kn], A, 0.3, 0.2, 0.3, K.trim, 0.11); ringAt(J[kn], A, 0.3, 0.2, 0.45, K.trim, 0.11);
+        if (K.socks) for (const sb of K.socks) ringAt(J[kn], A, 0.3, 0.2, sb.at, sb.col, sb.w);
+        else { ringAt(J[kn], A, 0.3, 0.2, 0.3, K.trim, 0.11); ringAt(J[kn], A, 0.3, 0.2, 0.45, K.trim, 0.11); }
       }, 0, 0.4);
       // the cap of the shin pad stands out at the front of the knee under the sock
       limb(V.add(J[kn], V.add(V.mul(F, 0.17), [0, 0, 0.12])), V.add(J[kn], V.add(V.mul(F, 0.18), [0, 0, -0.2])), 0.14, 0.12, K.sock, null, -0.015);
@@ -335,7 +337,8 @@ export function drawBody(ctx, P, J, o) {
       }
       ctx.stroke(); ctx.lineCap = 'round';
     };
-    hem(0.0, K.trim, 0.13); hem(0.1, K.trim, 0.06);
+    if (K.hem) for (const hb of K.hem) hem(hb.at + hb.w / 2 - 0.03, hb.col, hb.w * 1.3);
+    else { hem(0.0, K.trim, 0.13); hem(0.1, K.trim, 0.06); }
     // a surface frame at angle `a` round the chest ring: origin, reading direction, down
     const surf = (ri, a, lift) => {
       const r = rings[ri], n = V.norm(V.add(V.mul(r.S, Math.cos(a)), V.mul(r.F, Math.sin(a))));
@@ -360,15 +363,17 @@ export function drawBody(ctx, P, J, o) {
         ctx.font = NUM_FONT; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         ctx.save(); ctx.scale(0.0072, 0.0082);
         ctx.lineJoin = 'round'; ctx.lineWidth = 22; ctx.strokeStyle = shade(K.jersey, -0.55); ctx.strokeText(String(o.num ?? ''), 0, 8);
-        ctx.fillStyle = K.trim; ctx.fillText(String(o.num ?? ''), 0, 8);
+        ctx.fillStyle = K.number || K.trim; ctx.fillText(String(o.num ?? ''), 0, 8);
         ctx.restore();
       });
       if (lod === 2 && o.name) decal(surf(4, -Math.PI / 2, -0.06), 0.8, 0.2, () => {
         ctx.font = NAME_FONT; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        ctx.save(); ctx.scale(0.0022, 0.0024); ctx.fillStyle = K.trim; ctx.fillText(String(o.name).toUpperCase(), 0, 0, 380); ctx.restore();
+        ctx.save(); ctx.scale(0.0022, 0.0024); ctx.fillStyle = K.number || K.trim; ctx.fillText(String(o.name).toUpperCase(), 0, 0, 380); ctx.restore();
       });
       // the crest on the chest
       decal(surf(2, Math.PI / 2, 0.02), 0.6, 0.6, () => {
+        // a club with an identity wears its own crest (the small drawing, at this size)
+        if (K.badge && paintCrest(ctx, K.club, 0, 0, 0.74, { small: true })) return;
         ctx.fillStyle = K.trim; ctx.beginPath(); ctx.arc(0, 0, 0.33, 0, TAU); ctx.fill();
         ctx.lineWidth = 0.05; ctx.strokeStyle = shade(K.jersey, -0.4); ctx.stroke();
         ctx.fillStyle = K.jersey; ctx.beginPath();
@@ -412,7 +417,7 @@ export function drawBody(ctx, P, J, o) {
     } : null;
     limb(V.add(S, V.mul(U, 0.04)), E, 0.28 * ar, 0.23 * ar, K.jersey, sleeveLines);
     if (missing[side > 0 ? 'armL' : 'armR'] && !gk) { stump(V.add(E, V.mul(V.norm(V.sub(H, E)), 0.15)), 0.2); continue; }
-    limb3(E, wrist, 0.23 * ar, 0.2 * ar, 0.23 * ar, K.jersey, K.stripes ? sleeveLines : () => { ringAt(E, wrist, 0.23 * ar, 0.23 * ar, 0.3, K.trim, 0.1); ringAt(E, wrist, 0.23 * ar, 0.23 * ar, 0.48, K.trim, 0.06); }, 0, 0.25);
+    limb3(E, wrist, 0.23 * ar, 0.2 * ar, 0.23 * ar, K.jersey, K.stripes ? sleeveLines : K.sleeve ? () => { for (const sb of K.sleeve) ringAt(E, wrist, 0.23 * ar, 0.23 * ar, sb.at, sb.col, sb.w); } : () => { ringAt(E, wrist, 0.23 * ar, 0.23 * ar, 0.3, K.trim, 0.1); ringAt(E, wrist, 0.23 * ar, 0.23 * ar, 0.48, K.trim, 0.06); }, 0, 0.25);
     if (gk && side > 0) {
       // the trapper: a disc in the plane facing the shooter, with a laced pocket
       const nrm = F, [a1, a2] = perp(nrm), c = V.add(H, V.mul(dir, 0.15));

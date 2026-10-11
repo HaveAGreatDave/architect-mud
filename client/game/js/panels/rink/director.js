@@ -24,6 +24,7 @@ import { RL, RW, MID_Y, GOAL_X, NET_HALF, NET_H, DOT_FT, BOARD_H, GLASS_H, attac
 import { SHOTS, releaseAt, bladeWorld, skaterRig } from './rig.js';
 import { makeBody } from './sim.js';
 import { createReplay } from './replay.js';
+import { clubOf } from '../club-crest.js';
 
 // What each outcome is called on screen. The broadcast regress checks every save kind the
 // sim can emit has an entry here.
@@ -48,6 +49,19 @@ const lum = (hex) => { const n = parseInt(String(hex).slice(1, 7), 16); return (
 // A club's two colours as a kit. The home side wears its colour; the road side wears white
 // with its colour as trim, which is what keeps two dark clubs apart on the ice.
 export function kitFor(colours, side, name) {
+  // A club with an authored identity wears its own designed kit: home at home, road
+  // away. `badge` is its crest and `club` the whole identity (the tartan lives there).
+  const club = clubOf(name, 'hockey');
+  const k = club?.kit?.[side === 'a' ? 'road' : 'home'];
+  if (k && k.jersey) {
+    return {
+      jersey: k.jersey, trim: k.trim || '#ffffff', pants: k.pants || hexMix(k.jersey, -0.6), sock: k.sock || k.jersey,
+      glove: k.glove || hexMix(k.jersey, -0.3), helmet: k.helmet || k.jersey, crest: 'o',
+      number: k.number || k.trim, numberEdge: k.numberEdge || null, yoke: k.yoke || k.trim,
+      hem: Array.isArray(k.hem) ? k.hem : null, sleeve: Array.isArray(k.sleeve) ? k.sleeve : null, socks: Array.isArray(k.socks) ? k.socks : null,
+      body: k.body || null, badge: club.crest || null, club, clubName: name,
+    };
+  }
   const [c0, c1raw] = Array.isArray(colours) && colours.length ? colours : side === 'a' ? ['#c8382f', '#f2e4d0'] : ['#2f6fd0', '#e8f1fb'];
   const c1 = lum(c1raw || '#ffffff') > 0.6 ? c1raw : '#f1efe8';
   const crest = ['v', 'd', 'o'][hash(name || side) % 3];
@@ -122,13 +136,19 @@ export function createDirector(W, opts = {}) {
   const tagSide = (tag) => (tag === 'att' ? 'a' : tag === 'def' ? 'h' : null);
 
   function dress(p) {
-    const key = `${p.awayTeam || ''}|${p.homeTeam || ''}`;
+    // the identities can land after the first payload: dress again when they do
+    const dressed = `${clubOf(p.awayTeam, 'hockey') ? 1 : 0}${clubOf(p.homeTeam, 'hockey') ? 1 : 0}`;
+    const key = `${p.awayTeam || ''}|${p.homeTeam || ''}|${dressed}`;
     if (key === D.kitsFor) return;
+    const sameClubs = D.kitsFor.startsWith(`${p.awayTeam || ''}|${p.homeTeam || ''}|`);
     D.kitsFor = key;
     W.kits.a = kitFor(p.awayColours, 'a', p.awayTeam);
     W.kits.h = kitFor(p.homeColours, 'h', p.homeTeam);
+    // a re-dress mid-game changes sweaters, not the men in them
+    if (sameClubs) return;
+    const teams = `${p.awayTeam || ''}|${p.homeTeam || ''}`;
     D.names.a.clear(); D.names.h.clear();
-    for (const side of ['a', 'h']) W.team[side].forEach((b) => { b.name = ''; b.num = numFor(`${key}${side}${b.slot}`); });
+    for (const side of ['a', 'h']) W.team[side].forEach((b) => { b.name = ''; b.num = numFor(`${teams}${side}${b.slot}`); });
   }
 
   // ── beats ─────────────────────────────────────────────────────────────────

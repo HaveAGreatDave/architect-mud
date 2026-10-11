@@ -837,9 +837,11 @@ so a narrator cannot read the other league's records.
   stable, disjoint six by sorting the league and shuffling the pool with a fixed seed —
   a pure function of the *league*, not the game, stored nowhere. The pool must hold at
   least `clubs × 6` names (regress asserts it); below that it degrades to sharing men.
-- **Clubs differ.** `clubProfile(name)` derives shooting / goaltending / discipline /
-  violence + a colour pair from the club NAME, then **nudges by keyword** — a club called
+- **Clubs differ.** `clubProfile(name, identity)` derives shooting / goaltending /
+  discipline / violence from the club NAME, then **nudges by keyword** — a club called
   the Goons cannot come out as the league's gentlest side because its name hashed low.
+  Its colour pair comes from the club's authored identity (below), or from the name's
+  hash for a club nobody has dressed.
   Measured over 480 games: the most-penalised club takes ~341 to the least's ~121, with
   goals/game holding at ~6.4.
 - **Every club has exactly one rival**, `rivalOf(team, teams)`, derived from the league
@@ -852,7 +854,8 @@ so a narrator cannot read the other league's records.
   looks like that.
 - **Barn colour.** Booth chatter looks for `chatter.<first word of the home club>` and
   falls back to the general `chatter` pool — authoring a building is optional, and a club
-  with nothing written behaves exactly as before. Ashway, Docks and Longwatch have one.
+  with nothing written behaves exactly as before. Every club has one; the District 9
+  Goons' is `chatter.district`.
 - **Every barn's horn is its own.** The goal horn is seeded from a hash of the scoring
   club's name (`hornSeed` on the payload) through the soundset's existing `variant()`,
   so no per-club audio is authored and a barn sounds like itself forever.
@@ -904,6 +907,58 @@ so a narrator cannot read the other league's records.
   payload's line, and the director does each thing as its line airs. A rush plays only
   the touches the booth calls, and one running behind its lines catches up rather than
   letting the words get ahead.
+
+### The CPhL's clubs (as built)
+
+Eight clubs, every one a neighbourhood side. None is named for or tied to an order or a
+corp ([systems-ideologies.md](systems-ideologies.md), [systems-corps.md](systems-corps.md)),
+which is why the Longwatch Goons became the District 9 Goons and the Government Whips and
+Civic Center Wardens went.
+
+| Club | Home | Colours | Crest |
+|---|---|---|---|
+| Westside Warlords | the Glasshouse | black and gold | a W of two rifles and two rocket launchers inside a gem-set bezel; the same stones run along the sweater stripe |
+| Boomtown Bulldogs | the Rust Quarter | orange and black | a scowling bulldog bursting out of a rusted cog, chain collar, dog tags stamped RC |
+| Marquee Marauders | the Marquee | navy and white | a great helm with a plume on a heater shield |
+| Coldwater Highlanders | the Marrow | the Malcolm tartan | a roaring ginger highlander in the Malcolm kilt and sash, woad on half his face, stick raised overhead like a claymore, on a tartan ring |
+| District 9 Goons | District 9 | bruise purple and bone | a taped, bloodied fist in an octagon, D9 in marker on the tape |
+| Docks Boarders | the Docks | teal and navy | an anchor over crossed sticks in a rope ring |
+| Ashway Zambonis | the Ashway | ash grey and hi-vis lime | an ice resurfacer laying fresh ice, on a haul-road plate |
+| Yards Icehaulers | the Yards | maroon and steel | ice tongs biting a block, on a hexagon |
+
+The Highlanders' tartan is the Malcolm sett as W. & A. Smith recorded it in 1850
+(`K/4 Y4 K4 G24 K24 DB24 R4 DB4 R4 DB24 K24 G24 K4 LB/4`, 344 threads), transcribed from
+the Tartan Dictionary and not yet checked against the Scottish Register of Tartans.
+
+**Where it lives.** The look of a club is content: `sports_pools.clubs` on the Cluster Puck
+broadcast row, keyed by club name, holding `district`, `home`, `colours`, `crest`,
+`kit.home`, `kit.road`, and `sett` or `gems` where a club has them. Its authoring source
+is [scripts/content/build-cphl-clubs.mjs](../scripts/content/build-cphl-clubs.mjs), which
+builds the crests from rules (the bezel's 24 stones, the chain's links, a weapon laid
+along a stroke) and writes `clubs` into the row and nothing else. Run it after editing a
+club; `--check` fails if the row is behind the script. `build-cluster-puck.mjs` carries
+`clubs` across when it rebuilds the row from the `.bsm`.
+
+The client side is engine: [club-crest.js](../client/game/js/panels/club-crest.js) knows
+no club. It keeps the set the server sent, draws a crest from layered paths as inline SVG
+(`crestSvg`) or onto a canvas (`paintCrest`, Path2D), and weaves a sett from its ticket.
+A crest is `{ box: 100, layers, small }`: `small` is a simpler drawing used under 34px,
+because the full one turns to mush in a score bug. A layer's fill can be `'sett'`.
+
+**How it reaches a viewer.** Payloads never carry the set. Every hockey score bug and
+gameday payload carries `clubsRev`, a short stamp of it (`clubsRevOf`). A client without
+that revision sends `tv_clubs` once; the plugin answers with `{ type: 'tv_clubs', sport,
+rev, clubs }` (about 50 KB), and the client keeps it in memory and in `localStorage` for
+the next visit.
+
+**Where the look shows.** Score bug and both standings tables (crest beside the name),
+the matchup, rivalry, Cup, goal and fight cards, Rinkside's header, jumbotron cards,
+intermission board and fight HUD. `kitFor` in `director.js` dresses a side in its club's
+authored kit (home at home, road away). GLASS 2's jersey atlas paints the kit's hem bands,
+yoke, crest (the small drawing), number colours, the Warlords' gem row and the
+Highlanders' tartan body; `arena-mesh.js` takes the kit's sleeve and sock bands; the 2-D
+`figure.js` takes the bands, number colours and crest decal. Centre ice still carries the
+CPhL mark.
 
 ### Leagues (`sportsleague`)
 
@@ -1123,7 +1178,8 @@ whatever the Zamboni got through.
 
 - `W.script` belongs to the director. Ambient hockey stands down while `W.puckScripted`
   or `W.frozen` is set.
-- Kit colours must be hex. `figure.js` shades them with `parseInt`.
+- Kit colours must be hex. `figure.js` shades them with `parseInt`. That holds for a club's
+  authored kit and its bands too.
 - Anything that moves a man farther than he could skate should cut the camera, and a cut
   finishes every outstanding walk-off and stretcher.
 - Cosmetic randomness is seeded from the payload. A `rand()` call added to the sim to

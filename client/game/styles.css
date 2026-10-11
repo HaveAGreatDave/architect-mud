@@ -12555,6 +12555,14 @@ html[data-density="compact"][data-pane-claimed] #mobile-hud { display: none; }
 .tv-fx-mu-team.home { transform: translateX(26px); animation: tv-mu-in 0.5s ease-out 0.28s forwards; }
 .tv-fx-mu-team .nm { font-weight: 900; font-size: clamp(20px, 5vw, 34px); color: #fff; text-shadow: 0 0 12px var(--tv-header-color); }
 .tv-fx-mu-team .rec { font-size: 0.875rem; color: var(--tv-header-color); font-variant-numeric: tabular-nums; }
+/* Club crests (club-crest.js) beside a club's name on the bug, the tables and the cards */
+.tv-crest { display: inline-flex; flex: none; line-height: 0; vertical-align: middle; }
+.tv-sb-crest + .tv-sb-team { margin-right: auto; margin-left: -6px; }
+.tv-st-crest, .tv-stp-crest { margin-right: 6px; }
+.tv-fx-mu-crest { align-self: center; filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.6)); }
+.tv-fx-club { filter: drop-shadow(0 2px 10px rgba(0, 0, 0, 0.55)); }
+.gdr-crest { display: inline-flex; flex: none; line-height: 0; vertical-align: middle; margin: 0 5px; }
+.gdri .gdr-crest { margin: 0 4px 0 0; }
 .tv-fx-mu-vs { font-family: var(--font-mono); font-size: 0.8125rem; letter-spacing: 3px; text-transform: uppercase; color: rgba(220, 240, 235, 0.5); }
 @keyframes tv-mu-in { to { opacity: 1; transform: translateX(0); } }
 

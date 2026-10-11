@@ -167,30 +167,23 @@
 </svg>
 ::endasset
 
-# --- The sixteen. Fourteen are real Coldwater districts; Bayside and Sewerline --
-# --- are neighbourhood-scale inventions in the same register. ------------------
+# --- The eight. Every club is a neighbourhood side, and none plays for an order or
+# --- a corp. Each club's district, colours, kits and crest live in content
+# --- (sports_pools.clubs, built by scripts/content/build-cphl-clubs.mjs). ---------
 ::teams
-North City Icebreakers
-Government Whips
-Civic Center Wardens
-Marquee Snipers
-Media District Jammers
+Westside Warlords
+Boomtown Bulldogs
+Marquee Marauders
+Coldwater Highlanders
+District 9 Goons
 Docks Boarders
-Bayside Slush
-Industrial Flats Smelters
-Slaglands Slashers
 Ashway Zambonis
-Sprawl Grinders
-Redline Muckers
-Wastes Drifters
-Sewerline Benders
 Yards Icehaulers
-Longwatch Goons
 ::endteams
 
 # --- Surnames. Dealt into season rosters by rosterFor() (sports/hockey.js), so a
 # --- man belongs to ONE club permanently and the scoring race means something.
-# --- SIXTEEN CLUBS x SIX MEN = 96 MINIMUM. Below that the deal starts sharing
+# --- EIGHT CLUBS x SIX MEN = 48 MINIMUM. Below that the deal starts sharing
 # --- skaters between clubs — it degrades rather than crashing, and regress asserts
 # --- the pool is big enough, so add names in sixes if you add a club. -----------
 ::players
@@ -728,10 +721,39 @@ The Docks barn floods twice a winter. They play through it. There is a line pain
 Half this crowd came straight off a shift and half of them are still wearing the hard hats. The hats are not for the hockey.
 ::endlines
 
-::lines chatter.longwatch
-Longwatch is the only club with a barn OUTSIDE the wall. Away sides travel in convoy and they do not stop for anything on the road.
-There's a gun rack in the lobby here. Coats and firearms, same counter, same attendant, one ticket.
-The crowd here doesn't cheer, it just gets quieter. That is worse and every visiting club will tell you so.
+::lines chatter.district
+The Goons' lobby has a gun rack. Coats and firearms, same counter, same attendant, one ticket.
+The crowd here doesn't cheer. It gets quieter, and every visiting club will tell you that's worse.
+District 9 numbers its streets and not its buildings. The away bus parks with its engine running.
+::endlines
+
+::lines chatter.westside
+The Glasshouse barn has a climate curtain over every door and the coldest ice in the league. The seats are heated.
+Season tickets at Westside are inherited. There's a waiting list, and it's mostly lawyers.
+Westside warm up to a string quartet. Same four players for eleven years. They wear earplugs for the third period.
+::endlines
+
+::lines chatter.boomtown
+The Boomtown barn was a foundry. Some nights you can still smell the casting sand.
+Every Bulldogs home game starts with the anvil. A man in an apron hits it once and the building goes quiet.
+The rail along the boards here is pipe from the old works, painted orange. It rings when somebody goes into it.
+::endlines
+
+::lines chatter.marquee
+The Marquee barn shares a wall with a nightclub. Third period, you can feel the bass through the glass.
+Half the crowd at the Marquee came out in costume for something else. They stay for the fights.
+The scoreboard here used to be a cinema sign. Two of its letters have been missing for forty years.
+::endlines
+
+::lines chatter.coldwater
+The Highlanders walk out to a piper. He isn't good. He's played every home game for fourteen years.
+Marrow Street pulls its shutters down an hour before puck drop. Everybody on it is in here.
+The Highlanders' sweaters are woven on a loom above a chip shop on Marrow Street. It's a real clan sett, the Malcolm.
+::endlines
+
+::lines chatter.yards
+The Yards barn is a cold store with seats bolted in. The ice was here first.
+The tannoy here came out of a freight shed. In the second intermission it still reads out bay numbers.
 ::endlines
 
 ::lines final

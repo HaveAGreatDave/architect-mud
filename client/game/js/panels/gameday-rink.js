@@ -19,11 +19,17 @@
 // The sim on the server decides everything. Nothing here can change a score.
 
 import { cphlMark, cphlLockup } from './cphl-brand.js';
+import { crestSvg, clubOf, onClubs } from './club-crest.js';
 import { GEO, DOTS } from './rink/geo.js';
 import { DT } from './rink/rig.js';
 import { SAVE, createDirector } from './rink/director.js';
 
 function _esc(s) { return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+// A club's crest beside its name, when the league's identities have arrived (club-crest.js).
+function _crest(name, size, cls = '') {
+  const c = clubOf(name, 'hockey');
+  return c ? `<span class="gdr-crest ${cls}">${crestSvg(c, size, { title: name })}</span>` : '';
+}
 
 // The CPhL soundset (client/shared/hockey-sfx.js) is procedural and preset-addressed, so
 // the rink names the EVENT and the soundset owns what it sounds like. Silent if the file or
@@ -44,14 +50,14 @@ const SFX_GAP = { stop: 0.35, boards: 0.12, receive: 0.2, drop: 0.2, check: 0.15
 // Jumbotron cards: the same sportsfx graphics tv.js would take the whole screen with,
 // rendered compact over the rink so the ice stays visible.
 const CARD = {
-  hockeygoal: (fx) => ({ title: fx.hattrick ? 'HAT TRICK' : 'GOAL', cls: 'hot',
+  hockeygoal: (fx) => ({ title: fx.hattrick ? 'HAT TRICK' : 'GOAL', cls: 'hot', club: fx.team,
     sub: [fx.shooter, fx.assist ? `assist ${fx.assist}` : '', { pp: 'POWER PLAY', sh: 'SHORTHANDED', en: 'EMPTY NET' }[fx.strength] || ''].filter(Boolean).join(' · ') }),
-  hockeyfight: (fx) => ({ title: 'GLOVES OFF', sub: `${fx.winner} def. ${fx.loser}`, cls: 'out' }),
+  hockeyfight: (fx) => ({ title: 'GLOVES OFF', sub: `${fx.winner} def. ${fx.loser}`, cls: 'out', club: fx.team }),
   hockeydeath: (fx) => ({ title: 'SUDDEN DEATH', sub: fx.player || '', cls: 'dead' }),
   hockeycup: (fx) => ({ title: 'COLDWATER CUP', sub: (fx.away && fx.home) ? `${fx.away} vs ${fx.home}` : '', cls: 'hot' }),
   matchup: (fx) => ({ title: 'CLUSTER PUCK', sub: (fx.away && fx.home) ? `${fx.away} vs ${fx.home}` : '', cls: '' }),
-  gamewin: (fx) => ({ title: 'FINAL', sub: fx.winner ? `${fx.winner} ${fx.winScore}–${fx.loseScore}` : '', cls: 'final' }),
-  champion: (fx) => ({ title: '🏆 CHAMPIONS', sub: fx.winner || '', cls: 'hot' }),
+  gamewin: (fx) => ({ title: 'FINAL', sub: fx.winner ? `${fx.winner} ${fx.winScore}–${fx.loseScore}` : '', cls: 'final', club: fx.winner }),
+  champion: (fx) => ({ title: '🏆 CHAMPIONS', sub: fx.winner || '', cls: 'hot', club: fx.winner }),
 };
 
 export function createRinkView(host, opts = {}) {
@@ -94,11 +100,14 @@ export function createRinkView(host, opts = {}) {
       `<div class="gdr-cap"><span class="gdr-cap-text">${_esc(caption)}</span></div>` +
     `</div>`;
   }
+  // the header redraws with crests when the club identities turn up mid-game
+  let offClubs = null;
   function head(p) {
+    if (!offClubs) offClubs = onClubs(() => { if (last && host) head(last); });
     const el = host?.querySelector('.gdr-head'); if (!el) return;
     el.innerHTML =
       `<span class="gdr-head-badge">${cphlMark('17px')}<i>CPhL</i></span>` +
-      `<span class="gdr-head-score">${_esc(p.awayAbbr || p.awayTeam || 'AWY')} <b>${p.awayScore | 0}</b>: <b>${p.homeScore | 0}</b> ${_esc(p.homeAbbr || p.homeTeam || 'HOM')}</span>` +
+      `<span class="gdr-head-score">${_crest(p.awayTeam, 16)}${_esc(p.awayAbbr || p.awayTeam || 'AWY')} <b>${p.awayScore | 0}</b>: <b>${p.homeScore | 0}</b> ${_esc(p.homeAbbr || p.homeTeam || 'HOM')}${_crest(p.homeTeam, 16)}</span>` +
       `<span class="gdr-head-clock">${p.type === 'intermission' ? 'INTERMISSION' : `${_esc(p.section || '')} ${_esc(p.clock || '')}`}</span>` +
       (p.rivalry ? '<span class="gdr-head-rival">RIVALRY</span>' : '') +
       (p.strength && p.strength !== 'even' && p.type !== 'intermission' ? `<span class="gdr-head-str ${_esc(p.strength)}">${_esc(p.strength.toUpperCase())}</span>` : '');
@@ -119,13 +128,13 @@ export function createRinkView(host, opts = {}) {
     const goals = Array.isArray(p.goals) ? p.goals : [];
     const rows = goals.length
       ? goals.map((g) => `<div class="gdri-goal"><span class="t">${_esc(g.clockStr || '')}</span><span class="n">${_esc(g.shooter || '')}</span>` +
-          `<span class="a">${g.assist ? `from ${_esc(g.assist)}` : 'unassisted'}</span><span class="c">${_esc(g.teamName || '')}</span>` +
+          `<span class="a">${g.assist ? `from ${_esc(g.assist)}` : 'unassisted'}</span><span class="c">${_crest(g.teamName, 14)}${_esc(g.teamName || '')}</span>` +
           (g.strength && g.strength !== 'even' ? `<span class="s">${_esc(String(g.strength).toUpperCase())}</span>` : '') + `</div>`).join('')
       : `<div class="gdri-none">No goals in the ${_esc(p.section || 'period')}.</div>`;
     const cas = (p.casualties || []).length ? `<div class="gdri-cas">Carried off: ${(p.casualties || []).map(_esc).join(', ')}. No replacements.</div>` : '';
     const stand = Array.isArray(p.standings) && p.standings.length
       ? `<div class="gdri-stand"><div class="gdri-stand-head">CPhL · PTS</div>` + p.standings.slice(0, 6).map((r, i) =>
-          `<div class="gdri-stand-row${r.team === p.awayTeam || r.team === p.homeTeam ? ' me' : ''}"><span class="r">${i + 1}</span><span class="t">${_esc(r.team)}</span><span class="p">${r.points ?? 0}</span></div>`).join('') + `</div>` : '';
+          `<div class="gdri-stand-row${r.team === p.awayTeam || r.team === p.homeTeam ? ' me' : ''}"><span class="r">${i + 1}</span><span class="t">${_crest(r.team, 14)}${_esc(r.team)}</span><span class="p">${r.points ?? 0}</span></div>`).join('') + `</div>` : '';
     const el = doc.createElement('div');
     el.className = 'gdri over';
     el.innerHTML = `<div class="gdri-main">` +
@@ -264,7 +273,7 @@ export function createRinkView(host, opts = {}) {
     const wrap = host.querySelector('.gdr-wrap') || host;
     let el = host.querySelector('.gdr-jumbo');
     if (!el) { el = doc.createElement('div'); el.className = 'gdr-jumbo'; wrap.appendChild(el); }
-    el.innerHTML = `<div class="gdr-jumbo-brand">${cphlMark('20px')}</div>` +
+    el.innerHTML = `<div class="gdr-jumbo-brand">${(m.club && _crest(m.club, 40)) || cphlMark('20px')}</div>` +
       `<div class="gdr-jumbo-title">${_esc(m.title)}</div>${m.sub ? `<div class="gdr-jumbo-sub">${_esc(m.sub)}</div>` : ''}`;
     el.className = `gdr-jumbo ${m.cls}`; void el.offsetWidth; el.classList.add('in');
     if (cardTimer) clearTimeout(cardTimer);
@@ -294,6 +303,7 @@ export function createRinkView(host, opts = {}) {
 
   function clear() {
     stop(); clearCard();
+    if (offClubs) { offClubs(); offClubs = null; }
     if (holdTimer) { clearTimeout(holdTimer); holdTimer = null; }
     if (host) host.innerHTML = '';
     mounted = false; canvas = null; W = null; D = null; R = null; ice = null;

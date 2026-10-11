@@ -277,7 +277,8 @@ export function buildBody(b, bt, J, o) {
       tube(b, J[hip], J[kn], 0.48, 0.44, rgb('#e3e6e9'), seg);
     } else {
       tube3(b, J[kn], A, 0.3, 0.26, 0.2, sock, 0.4, seg);
-      band(b, J[kn], A, 0.3, 0.2, 0.3, 0.11, trim, seg); band(b, J[kn], A, 0.3, 0.2, 0.45, 0.11, trim, seg);
+      if (K.socks) for (const sb of K.socks) band(b, J[kn], A, 0.3, 0.2, sb.at, sb.w, rgb(sb.col), seg);
+      else { band(b, J[kn], A, 0.3, 0.2, 0.3, 0.11, trim, seg); band(b, J[kn], A, 0.3, 0.2, 0.45, 0.11, trim, seg); }
       const thighEnd = V.lerp(J[hip], J[kn], 0.9);
       tube(b, J[hip], thighEnd, 0.46, 0.41, pants, seg);
       band(b, J[hip], thighEnd, 0.46, 0.41, 0.95, 0.08, mix(pants, -0.45), seg);
@@ -315,7 +316,8 @@ export function buildBody(b, bt, J, o) {
     tube3(b, E, wrist, 0.23 * ar, 0.2 * ar, 0.23 * ar, jersey, 0.25, seg);
     // the elbow pad under the sleeve
     if (det && !gk) ellipsoid(b, V.sub(E, V.mul(dir, 0.02)), dir, Ss, F, [0.22, 0.25, 0.25], jersey, 8, 5);
-    if (!K.stripes) { band(b, E, wrist, 0.23 * ar, 0.23 * ar, 0.3, 0.1, trim, seg); band(b, E, wrist, 0.23 * ar, 0.23 * ar, 0.48, 0.06, trim, seg); }
+    if (K.sleeve) { for (const sb of K.sleeve) band(b, E, wrist, 0.23 * ar, 0.23 * ar, sb.at, sb.w, rgb(sb.col), seg); }
+    else if (!K.stripes) { band(b, E, wrist, 0.23 * ar, 0.23 * ar, 0.3, 0.1, trim, seg); band(b, E, wrist, 0.23 * ar, 0.23 * ar, 0.48, 0.06, trim, seg); }
     if (gk && side > 0) {
       // the trapper: the cuff, the round pocket, the deep mitt
       const tc = V.add(H, V.mul(dir, 0.15));

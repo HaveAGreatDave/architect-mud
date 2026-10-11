@@ -2296,6 +2296,32 @@ export default async function regress({ check, run, getPlayer }) {
     check('hockey: the script still parses', teams.length >= 2 && players.length > 0 && Object.keys(pools).length > 10,
       `teams=${teams.length} players=${players.length} pools=${Object.keys(pools).length}`);
 
+    // ── club identities: content dresses every club ───────────────────────────
+    // The look of a club (colours, kits, crest) is authored into the broadcast row by
+    // scripts/content/build-cphl-clubs.mjs. A club in the .bsm with no identity would
+    // play in hashed colours with no crest, and nothing else would notice.
+    {
+      const row = JSON.parse(fs.readFileSync(url.fileURLToPath(new URL('../../content/media_broadcasts/bc_cluster_puck.json', import.meta.url)), 'utf8'));
+      const idents = row.sports_pools?.clubs || {};
+      check('hockey: the row carries the .bsm league', JSON.stringify(row.sports_pools?.teams) === JSON.stringify(teams), (row.sports_pools?.teams || []).join(','));
+      check('hockey: every club has an identity', teams.every(t => idents[t]), teams.filter(t => !idents[t]).join(','));
+      const HEX = /^#[0-9a-f]{6}$/i;
+      const badKit = [];
+      for (const t of teams) for (const side of ['home', 'road']) {
+        const k = idents[t]?.kit?.[side];
+        if (!k) { badKit.push(`${t} ${side}: none`); continue; }
+        for (const f of ['jersey', 'trim', 'pants', 'sock', 'glove', 'helmet']) if (!HEX.test(k[f] || '')) badKit.push(`${t} ${side}.${f}`);
+        for (const b of [...(k.hem || []), ...(k.sleeve || []), ...(k.socks || [])]) if (!HEX.test(b.col || '')) badKit.push(`${t} ${side} band`);
+      }
+      check('hockey: every kit is in hex (figure.js shades with parseInt)', badKit.length === 0, badKit.slice(0, 4).join(', '));
+      const badCrest = teams.filter(t => !(idents[t]?.crest?.layers?.length && idents[t]?.crest?.small?.length));
+      check('hockey: every club has a crest and a small crest', badCrest.length === 0, badCrest.join(','));
+      // no faction teams: no club is named for one of the orders
+      const orders = fs.readdirSync(url.fileURLToPath(new URL('../../content/orgs/', import.meta.url))).filter(f => f.startsWith('ideology_')).map(f => f.slice(9, -5).replace(/_/g, ''));
+      const factional = teams.filter(t => orders.some(o => t.toLowerCase().replace(/[^a-z]/g, '').includes(o)));
+      check('hockey: no club is named for an order', factional.length === 0, factional.join(','));
+    }
+
     // ── rosters: a man belongs to ONE club ────────────────────────────────────
     check('hockey: the pool covers every club', players.length >= teams.length * 6,
       `${players.length} names for ${teams.length} clubs (need ${teams.length * 6})`);
@@ -2503,10 +2529,11 @@ export default async function regress({ check, run, getPlayer }) {
       const base = rosterFor(teams[0], teams, players);
       narrateSlot(9, { matchup: { away: teams[0], home: teams[1], teams }, unavailable: new Set([base[0], base[2]]) });
     }
-    // A club whose BARN has authored chatter, so chatter.<club> is exercised. The
-    // synthetic pairing above never makes these clubs the home side.
-    for (const barn of ['Ashway Zambonis', 'Docks Boarders', 'Longwatch Goons']) {
-      if (teams.includes(barn)) narrateSlot(13, { matchup: { away: teams.find(t => t !== barn), home: barn, teams } });
+    // Every club whose BARN has authored chatter is played at home once, so each
+    // chatter.<club> is exercised. The synthetic pairings above don't reach them all.
+    const barnKey = (name) => `chatter.${String(name).trim().split(/\s+/)[0].toLowerCase().replace(/[^a-z0-9]/g, '')}`;
+    for (const barn of teams.filter(t => pools[barnKey(t)])) {
+      narrateSlot(13, { matchup: { away: teams.find(t => t !== barn), home: barn, teams } });
     }
     // The Cup: a final is the same sim with `ws`, which unlocks the cup.* pools.
     narrateSlot(11, { ws: true, matchup: { away: teams[0], home: teams[1], teams } });

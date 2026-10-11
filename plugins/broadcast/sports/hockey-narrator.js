@@ -66,8 +66,12 @@ export function narrate(ctx) {
   // viewer who tunes in during the second period should be able to tell why these two
   // have taken nine penalties, and the sim really did make it a nastier game.
   const rivalry = !!game.rivalry;
+  // The club identities' revision rides on every bug and payload; a client that hasn't
+  // got this one asks for the set once (tv_clubs) and draws crests and kits from it.
+  const clubsRev = ctx.sport?.clubsRevOf?.(script?.clubs) || '';
   const bug = (status, aScore, hScore, strength) => ({
     sport: 'hockey',
+    ...(clubsRev ? { clubsRev } : {}),
     away: away.name, home: home.name, awayAbbr, homeAbbr,
     awayScore: aScore ?? 0, homeScore: hScore ?? 0, status,
     shotsAway: sogAway, shotsHome: sogHome,
@@ -160,9 +164,9 @@ export function narrate(ctx) {
     // beat, and a header that flipped with them would look like the score had swapped.
     awayTeam: away.name, homeTeam: home.name,
     awayAbbr, homeAbbr,
-    // Club colours, so the rink dresses the two sides in their own sweaters instead
-    // of a generic gold-and-blue. Derived from the club name by the sim, so the
-    // client needs no palette of its own and can never disagree about who is who.
+    // Club colours, so the rink dresses the two sides even before the club identities
+    // (kits, crests) have arrived; `clubsRev` says which identities to dress them in.
+    clubsRev,
     awayColours: away.profile?.colours || null,
     homeColours: home.profile?.colours || null,
     rivalry,
@@ -245,7 +249,7 @@ export function narrate(ctx) {
   // ── pre-game ──────────────────────────────────────────────────────────────
   const awayRecord = recordOf(away.name), homeRecord = recordOf(home.name);
   // A club that's in the table but hasn't played reads '0-0-0', which is not a record
-  // worth saying out loud — "the 0-0-0 Slaglands Slashers" on opening night is the
+  // worth saying out loud — "the 0-0-0 Yards Icehaulers" on opening night is the
   // announcer sounding like a database. Any all-zero record counts as no record.
   const hasRecord = (r) => /[1-9]/.test(String(r || ''));
   const hasRecords = hasRecord(awayRecord) || hasRecord(homeRecord);

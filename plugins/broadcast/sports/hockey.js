@@ -116,12 +116,17 @@ const INJURY_SLOTS_MAX = 16;   // two game-days — a genuinely season-shaping l
 export const INJURY_MAX_SLOTS = INJURY_SLOTS_MAX;
 
 // ── club identity ────────────────────────────────────────────────────────────
-// Sixteen clubs that behave identically are sixteen names. A club's character is
-// derived from its NAME — so it costs no authoring, needs no storage, is identical
-// on every server forever, and a club added to the .bsm arrives with a personality
-// already formed. The traits are deliberately narrow multipliers: wide enough that
-// the Longwatch Goons visibly fight more and the Ashway Zambonis visibly can't
-// finish, narrow enough that no club is unwatchable.
+// Clubs that behave identically are just names. A club's character is derived from its
+// NAME, so it costs no authoring, needs no storage, is identical on every server
+// forever, and a club added to the .bsm arrives with a personality already formed. The
+// traits are deliberately narrow multipliers: wide enough that the District 9 Goons
+// visibly fight more and the Ashway Zambonis visibly can't finish, narrow enough that
+// no club is unwatchable.
+//
+// Its LOOK is authored. The league's content row carries `clubs` (district, colours,
+// kits, crest; see scripts/content/build-cphl-clubs.mjs), and a club with an identity
+// wears its own colours. The hashed palette below is only for a club nobody has
+// dressed yet.
 //
 // This is the ONE place the league stops being uniform, so it's worth being precise
 // about what each knob does:
@@ -137,7 +142,7 @@ const CLUB_COLOURS = [
 ];
 // Hash the name once and spend the bits on separate traits, so two clubs whose names
 // happen to hash close together don't come out as the same club.
-export function clubProfile(name) {
+export function clubProfile(name, identity = null) {
   const h = sportsHash(0, 0);   // seeds the mixer; the name is folded in below
   let x = h >>> 0;
   for (let i = 0; i < String(name).length; i++) x = (Math.imul(x ^ String(name).charCodeAt(i), 16777619) >>> 0);
@@ -148,22 +153,38 @@ export function clubProfile(name) {
     goaltending: 0.86 + bits(6, 0.30),     // 0.86 … 1.16 (higher = harder to beat)
     discipline: 0.62 + bits(12, 0.86),     // 0.62 … 1.48 (lower = more penalties)
     violence: 0.55 + bits(18, 1.25),       // 0.55 … 1.80
-    colours: CLUB_COLOURS[x % CLUB_COLOURS.length],
+    colours: (Array.isArray(identity?.colours) && identity.colours.length >= 2) ? identity.colours.slice(0, 2) : CLUB_COLOURS[x % CLUB_COLOURS.length],
   };
   // A pure hash can't read, and these club names were AUTHORED to mean something —
-  // it is absurd for the Longwatch Goons to come out as the league's gentlest side
+  // it is absurd for the District 9 Goons to come out as the league's gentlest side
   // because their name happened to hash low. So the name nudges its own trait after
   // the roll: the hash still decides where in the band a club sits, the word decides
   // which band. Additive and clamped, so a nudge tilts a club without flattening the
   // spread into "every club called Goons is identical".
   const n = String(name).toLowerCase();
   const nudge = (words, key, by) => { if (words.some(w => n.includes(w))) p[key] = Math.max(0.5, Math.min(1.9, p[key] + by)); };
-  nudge(['goon', 'slasher', 'grinder', 'boarder', 'bender', 'mucker'], 'violence', 0.32);
-  nudge(['goon', 'slasher', 'bender'], 'discipline', -0.26);        // they get caught, too
-  nudge(['sniper', 'icehauler'], 'shooting', 0.09);
-  nudge(['warden', 'whip', 'watch'], 'goaltending', 0.08);
-  nudge(['slush', 'drifter', 'zamboni'], 'shooting', -0.07);        // clubs named for the ice, not the game
+  nudge(['goon', 'warlord', 'bulldog', 'highlander', 'boarder'], 'violence', 0.32);
+  nudge(['goon', 'highlander'], 'discipline', -0.26);              // they get caught, too
+  nudge(['marauder', 'icehauler'], 'shooting', 0.09);
+  nudge(['bulldog'], 'goaltending', 0.08);
+  nudge(['zamboni'], 'shooting', -0.07);                           // a club named for the ice, not the game
   return p;
+}
+
+// A short stamp for a league's club identities, so a client can tell whether the set it
+// holds is current without being sent the set with every payload.
+const _revs = new WeakMap();
+export function clubsRevOf(clubs) {
+  if (!clubs || typeof clubs !== 'object') return '';
+  let r = _revs.get(clubs);
+  if (r == null) {
+    const str = JSON.stringify(clubs);
+    let x = 0x811c9dc5;
+    for (let i = 0; i < str.length; i++) x = Math.imul(x ^ str.charCodeAt(i), 16777619) >>> 0;
+    r = `${str.length.toString(36)}${x.toString(36)}`;
+    _revs.set(clubs, r);
+  }
+  return r;
 }
 
 // ── rivalries ────────────────────────────────────────────────────────────────
@@ -513,7 +534,7 @@ export function simGame(matchup, players, rand = Math.random, opts = {}) {
       // Five skaters + a goalie, the same six every night. `out` players are gone for
       // the rest of the game and are NOT replaced — that is what makes an injury cost
       // more than a penalty.
-      profile: clubProfile(name),
+      profile: clubProfile(name, matchup?.clubs?.[name] || null),
       skaters: POSITIONS.map((pos, k) => ({ name: roster[k], pos, goals: 0, assists: 0, out: false, dead: false, callup: !!dressed[k].callup, replacing: dressed[k].replacing || '' })),
       goalie: roster[POSITIONS.length],
       box: [],            // [{ name, until }] — penalties currently being served
@@ -913,6 +934,8 @@ export const HOCKEY = {
   narrate,
   // Holds by line length, and the cue times the rink syncs to.
   paceCalls,
+  // The stamp a client checks its club identities against.
+  clubsRevOf,
 };
 
 export default HOCKEY;

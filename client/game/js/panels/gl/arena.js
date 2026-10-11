@@ -31,6 +31,7 @@ import { createRinkCamera, matrices } from '../rink/camera.js';
 import { bodyOpts, drawHud, hudActive } from '../rink/hud.js';
 import { TAU, clamp, hash, rng } from '../rink/util.js';
 import * as M from './arena-mesh.js';
+import { paintCrest, settCanvas } from '../club-crest.js';
 import { makeVertexStream } from './stream.js';
 import { declareProgram, prewarmPrograms, takeWarm } from './programs.js';
 import { createMirrorLayer, MIRROR_SCALE } from './mirror.js';
@@ -370,7 +371,7 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
     const slots = new Map();
     function jerseySlot(o) {
       const K = o.kit;
-      const key = [K.jersey, K.trim, K.stripes ? 1 : 0, K.crest || '', o.num ?? '', o.name || '', Math.round((o.blood || 0) * 4), o.goalie ? 1 : 0].join('|');
+      const key = [K.clubName || '', K.jersey, K.trim, K.stripes ? 1 : 0, K.crest || '', o.num ?? '', o.name || '', Math.round((o.blood || 0) * 4), o.goalie ? 1 : 0].join('|');
       let s = slots.get(key);
       if (!s) {
         let i = slots.size;
@@ -400,6 +401,8 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
       if (K.stripes) {
         c.fillStyle = '#141414';
         for (let x = 0; x < S; x += 8) c.fillRect(x, 0, 3.4, S);
+      } else if (K.club) {
+        paintClubJersey(o, vy);
       } else {
         c.fillStyle = K.trim; c.fillRect(0, vy(0.0) - 3, S, 6); c.fillRect(0, vy(0.1) - 1.5, S, 3);
         // the shoulder yoke, across the top of the sweater above the nameplate
@@ -414,13 +417,7 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
         c.closePath(); c.fill();
         // a laced V at the collar
         c.fillStyle = K.trim; c.beginPath(); c.moveTo(cx - 6, 0); c.lineTo(cx, 11); c.lineTo(cx + 6, 0); c.closePath(); c.fill();
-        // the number on the back, the name over it
-        c.save(); c.translate(S * 0.75, vy(0.58)); c.scale(-1, 1);
-        c.font = `800 34px ${FACE}`; c.textAlign = 'center'; c.textBaseline = 'middle';
-        c.lineJoin = 'round'; c.lineWidth = 4; c.strokeStyle = 'rgba(0,0,0,0.45)'; c.strokeText(String(o.num ?? ''), 0, 1, 40);
-        c.fillStyle = K.trim; c.fillText(String(o.num ?? ''), 0, 1, 40);
-        if (o.name) { c.font = `700 9px ${FACE}`; c.fillText(String(o.name).toUpperCase(), 0, vy(0.9) - vy(0.58), 38); }
-        c.restore();
+        backLettering(o, vy, K.trim, 'rgba(0,0,0,0.45)');
       }
       if ((o.blood || 0) > 0.05) {
         const r = rng(hash(o.name || o.num || 'x'));
@@ -430,6 +427,58 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
           c.beginPath(); c.ellipse(x, y, rr, rr * 1.3, 0, 0, TAU); c.fill();
           c.fillRect(x - rr * 0.2, y, rr * 0.4, rr * (2 + r() * 3));
         }
+      }
+    }
+
+    // the number on the back, the name over it, mirrored (u runs right to left there)
+    function backLettering(o, vy, fill, edge) {
+      const c = sctx, S = SLOT;
+      c.save(); c.translate(S * 0.75, vy(0.58)); c.scale(-1, 1);
+      c.font = `800 34px ${FACE}`; c.textAlign = 'center'; c.textBaseline = 'middle';
+      c.lineJoin = 'round'; c.lineWidth = 4; c.strokeStyle = edge; c.strokeText(String(o.num ?? ''), 0, 1, 40);
+      c.fillStyle = fill; c.fillText(String(o.num ?? ''), 0, 1, 40);
+      if (o.name) { c.font = `700 9px ${FACE}`; c.lineWidth = 2.4; c.strokeText(String(o.name).toUpperCase(), 0, vy(0.9) - vy(0.58), 38); c.fillText(String(o.name).toUpperCase(), 0, vy(0.9) - vy(0.58), 38); }
+      c.restore();
+    }
+    // A club's designed sweater (club-crest.js keeps the identity): the body, woven in
+    // the club's sett if it has one, its own bands at the hem, the yoke, the club crest
+    // on the chest and its own lettering. A band's pattern is 'gems' (a row of set
+    // stones, the Warlords' stripe) or 'sett' (a band of the tartan).
+    const _setts = new WeakMap();
+    function settFill(sett) {
+      let p = _setts.get(sett);
+      if (p === undefined) { const cv = settCanvas(sett, 0.18); p = cv ? sctx.createPattern(cv, 'repeat') : null; _setts.set(sett, p); }
+      return p;
+    }
+    function paintClubJersey(o, vy) {
+      const K = o.kit, c = sctx, S = SLOT, club = K.club;
+      if (K.body === 'sett' && club.sett) { const p = settFill(club.sett); if (p) { c.fillStyle = p; c.fillRect(0, 0, S, S); } }
+      // bands: `at` and `w` run from the hem (0) to the collar (1); the first band sits
+      // on the hem itself, so it starts a little below 0
+      const bandY = (b) => [vy(b.at + b.w - 0.04), vy(b.at - 0.04)];
+      for (const b of K.hem || []) {
+        const [y0, y1] = bandY(b), h = Math.max(1, y1 - y0);
+        if (b.pattern === 'sett' && club.sett) { const p = settFill(club.sett); c.fillStyle = p || b.col; }
+        else c.fillStyle = b.col;
+        c.fillRect(0, y0, S, h);
+        if (b.pattern === 'gems') gemRow(c, y0, h, club.gems || {});
+      }
+      if (K.yoke) { c.fillStyle = K.yoke; c.fillRect(0, vy(0.99) - 2, S, 4.5); }
+      // the laced V at the collar, in the yoke's colour
+      const cx = S * 0.25, cy = vy(0.63);
+      c.fillStyle = K.yoke || K.trim; c.beginPath(); c.moveTo(cx - 6, 0); c.lineTo(cx, 11); c.lineTo(cx + 6, 0); c.closePath(); c.fill();
+      if (K.badge) paintCrest(c, club, cx, cy, 30, { small: true });
+      backLettering(o, vy, K.number || K.trim, K.numberEdge || 'rgba(0,0,0,0.45)');
+    }
+    // a row of stones set in a band, edged above and below: the bezel of the Warlords'
+    // crest, run round the sweater
+    function gemRow(c, y0, h, g) {
+      const S = SLOT, r = Math.max(1, h * 0.3), step = Math.max(4, h * 1.25), y = y0 + h / 2;
+      c.fillStyle = g.edge || '#000'; c.fillRect(0, y0, S, Math.max(0.8, h * 0.1)); c.fillRect(0, y0 + h - Math.max(0.8, h * 0.1), S, Math.max(0.8, h * 0.1));
+      for (let x = step / 2; x < S; x += step) {
+        c.fillStyle = g.edge || '#000'; c.beginPath(); c.arc(x, y, r + 0.7, 0, TAU); c.fill();
+        c.fillStyle = g.gem || '#fff'; c.beginPath(); c.arc(x, y, r, 0, TAU); c.fill();
+        c.fillStyle = 'rgba(150,200,235,0.9)'; c.beginPath(); c.arc(x + r * 0.15, y + r * 0.15, r * 0.45, 0, TAU); c.fill();
       }
     }
 

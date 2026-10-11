@@ -61,6 +61,7 @@ export const GROUPS = [
     // Content files carry no runtime columns and no dangling references.
     gates: [
       'scripts/content/lint.mjs',
+      'scripts/content/build-cphl-clubs.mjs --check',   // the CPhL clubs in the row match their authoring script
     ],
   },
   {
@@ -195,8 +196,8 @@ export const GROUPS = [
       'scripts/shapes/groundcontact.mjs',
       'scripts/shapes/yacht.mjs',
       'scripts/shapes/chess3d-smoke.mjs',
-      'scripts/shapes/rink-smoke.mjs 206',   // one game each, side by side (see the file)
-      'scripts/shapes/rink-smoke.mjs 25',
+      'scripts/shapes/rink-smoke.mjs 13',    // one game each, side by side (see the file)
+      'scripts/shapes/rink-smoke.mjs 1010',
       'scripts/shapes/arena-smoke.mjs',      // GLASS 2 rink: matrices match the 2-D camera, meshes sound, ice tiles listed
       'scripts/shapes/bolt.mjs',
       'scripts/shapes/weatherfx-smoke.mjs',

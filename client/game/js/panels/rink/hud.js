@@ -3,6 +3,7 @@
 // over the picture in 2-D. render.js draws the HUD onto its own canvas; gl/arena.js onto a
 // 2-D canvas laid over the WebGL one.
 
+import { paintCrest } from '../club-crest.js';
 import { TAU, clamp } from './util.js';
 
 const FACE = '"Saira Condensed", "Arial Narrow", "Roboto Condensed", sans-serif';
@@ -47,8 +48,10 @@ export function drawHud(ctx, W, w, h, u) {
       const K = W.kits[b.side] || W.kits.a, x = left ? pad : w - pad - pw;
       ctx.fillStyle = 'rgba(6,9,12,0.78)'; ctx.fillRect(x, pad, pw, ph);
       ctx.fillStyle = K.jersey; ctx.fillRect(left ? x : x + pw - 6 * u, pad, 6 * u, ph);
+      // his club's crest beside the colour strip, when the club has one
+      const cw = K.badge && paintCrest(ctx, K.club, left ? x + 14 * u + ph * 0.4 : x + pw - 14 * u - ph * 0.4, pad + ph * 0.5, ph * 0.8, { small: true }) ? ph * 0.9 : 0;
       ctx.fillStyle = '#f4efe2'; ctx.font = `800 ${16 * u}px ${FACE}`; ctx.textBaseline = 'middle'; ctx.textAlign = left ? 'left' : 'right';
-      ctx.fillText(`${String(b.name || '').toUpperCase()}  #${b.num}`, left ? x + 14 * u : x + pw - 14 * u, pad + ph * 0.5, pw * 0.6);
+      ctx.fillText(`${String(b.name || '').toUpperCase()}  #${b.num}`, left ? x + 14 * u + cw : x + pw - 14 * u - cw, pad + ph * 0.5, pw * 0.6 - cw);
       const shown = F.pipShow[b.seed] ?? 5;
       for (let i = 0; i < 5; i++) {
         const cx = left ? x + pw - 16 * u - i * 15 * u : x + 16 * u + i * 15 * u, cy = pad + ph * 0.5;

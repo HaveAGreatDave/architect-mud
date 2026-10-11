@@ -47,7 +47,7 @@
   <div class="stage">
     <div class="label">CPhL GAMEDAY · RINK — real sim, real narrator, real view</div>
     <div id="tv-window" data-theme="crt" class="frame">
-      <div id="tv-gameday"></div>
+      <div id="tv-gameday" class="on"></div>
     </div>
     <div class="bar">
       <button id="prev">◀ prev</button>
@@ -73,6 +73,7 @@
     import { HOCKEY } from '../plugins/broadcast/sports/hockey.js';
     import { sportsRng, sportsHash, sportsPick, sportsFill } from '../plugins/broadcast/rng.js';
     import { createRinkView } from '../client/game/js/panels/gameday-rink.js';
+    import { setClubs } from '../client/game/js/panels/club-crest.js';
 
     const view = createRinkView(document.getElementById('tv-gameday'));
     view.showIdle();
@@ -107,7 +108,9 @@
     function buildGame() {
       const seed = sportsHash(slot >>> 0, 0x00);
       const t = script.teams;
-      const matchup = { away: t[(slot * 3) % t.length], home: t[(slot * 7 + 5) % t.length] };
+      // ?away=…&home=… pins the matchup (a club name, or the start of one)
+      const q = new URLSearchParams(location.search), find = (k) => q.get(k) && t.find((n) => n.toLowerCase().startsWith(q.get(k).toLowerCase()));
+      const matchup = { away: find('away') || t[(slot * 3) % t.length], home: find('home') || t[(slot * 7 + 5) % t.length], teams: t, clubs: script.clubs };
       if (matchup.away === matchup.home) matchup.home = t[(t.indexOf(matchup.away) + 1) % t.length];
       const game = HOCKEY.simGame(matchup, script.players, sportsRng(seed));
       const nrng = sportsRng(seed ^ 0x9e3779b9);
@@ -119,7 +122,7 @@
         if (gd) out.push({ gd, text, graphic: graphic || null });
       };
       HOCKEY.narrate({
-        script: { title: 'cphl_title' }, game, gs: { seed, game }, slot, ws: false,
+        script: { title: 'cphl_title', clubs: script.clubs }, game, gs: { seed, game }, slot, ws: false,
         announcer: 'Tug Brennan', pools: script.pools, nrng, sport: HOCKEY,
         add: () => {}, say, pick,
         abbr: (n) => String(n || '').replace(/[^A-Za-z ]/g, '').split(/\s+/).map(w => w[0] || '').join('').slice(0, 3).toUpperCase(),
@@ -160,8 +163,18 @@
     };
 
     script = await loadScript();
+    // The clubs' identities (kits, crests) as the broadcast row carries them; on air they
+    // arrive once over tv_clubs.
+    try {
+      const row = await (await fetch('../content/media_broadcasts/bc_cluster_puck.json')).json();
+      script.clubs = row.sports_pools?.clubs || null;
+      if (script.clubs) setClubs('hockey', 'sandbox', script.clubs);
+    } catch { /* plays in hashed colours without them */ }
+    const q0 = new URLSearchParams(location.search);
+    if (q0.get('slot')) slot = +q0.get('slot');
     beats = buildGame();
-    show(0);
+    if (q0.get('beat')) document.getElementById('filter').value = q0.get('beat');
+    show(+(q0.get('i') || 0));
   </script>
 </body>
 </html>

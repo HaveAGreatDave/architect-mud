@@ -217,6 +217,21 @@ on('tv.standings', ({ playerId }) => {
   sendTvStandings(playerId).catch(err => console.error('[broadcast] sendTvStandings error:', err.message));
 });
 
+// A viewer's client asks for a league's club identities (colours, kits, crests) when a
+// payload names a revision it hasn't got. Content owns them (sports_pools.clubs); this
+// sends the set once and the client keeps it, so payloads only ever carry the stamp.
+on('tv.clubs', ({ playerId, sport }) => {
+  sendTvClubs(playerId, sport).catch(err => console.error('[broadcast] sendTvClubs error:', err.message));
+});
+async function sendTvClubs(playerId, sport) {
+  const id = typeof sport === 'string' && sport ? sport : 'hockey';
+  const script = await anySportsScript(id);
+  const clubs = script?.clubs && typeof script.clubs === 'object' ? script.clubs : null;
+  if (!clubs) return;
+  const mod = sportOf(script);
+  sendToPlayer(playerId, { type: 'tv_clubs', sport: id, rev: mod.clubsRevOf ? mod.clubsRevOf(clubs) : '', clubs });
+}
+
 // Press-and-hold on the power button is the deliberate "switch it off" — turns the
 // shared set off for the whole room.
 on('tv.poweroff', ({ playerId }) => {
@@ -2300,6 +2315,8 @@ function sportsGameForSlot(script, slot, override, unavailable) {
   // than to the game (hockey deals each club a disjoint, permanent six) can't derive
   // them from two team names alone; baseball ignores it.
   matchup.teams = sportsTeamNames(script.teams);
+  // And each club's authored identity, so the sim's profile wears the club's colours.
+  if (script.clubs) matchup.clubs = script.clubs;
   // `unavailable` is the injury chain's answer for this slot. Passing it in explicitly
   // (rather than looking it up here) is what stops the chain recursing into itself
   // while it is being built.
