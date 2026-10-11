@@ -26,6 +26,8 @@ How it got here, all on 2026-10-11:
   tiles, six buildings and Vetch Green, which are set aside for later use rather than deleted; and
   sim v2 goes in as soon as it's ready, without waiting for a new season. A first site at full scale
   took 41 buildings and was turned down.
+- Later the same day, the city round the park on TV became a set composed for the cameras from the
+  map's buildings, in place of the map bent round the park.
 
 Read with [systems-broadcast.md](../systems-broadcast.md#sports--two-codes-one-pipeline) (the sports
 pipeline, Rinkside and the CPhL's clubs), [bsm-format.md](../bsm-format.md) (how the booth's lines
@@ -77,13 +79,14 @@ the older 2-D-only `gameday-rink.js`. That work has to reach `main` before Phase
   with light shafts and instanced, vertex-animated crowds of procedural people. It has no GPU
   skinning, no normal maps, no sRGB textures and no spotlight shadows; this plan adds them as engine
   pieces any view can use.
-- **Coldwater beyond the outfield:** the park faces north-west, so the Spire and Halcyon Towers
-  stand over centre field, the estate's tower row along the West Curtain over left field. On TV the
-  park is full size, so the city is parted round it: every building keeps its true bearing from home
-  plate and moves out just far enough to clear the stands. The buildings are GLASS's own baked
-  shapes, drawn for close range: facades with lit rooms, streets with lamps, cars and people walking
-  to the game, and the park's own brick exterior. The sky follows Coldwater's clock and the weather
-  at the park.
+- **Coldwater beyond the outfield:** on TV the park is full size, and the city round it is a set
+  composed for the cameras, not a copy of the map: a street grid in a rectangle of three straight
+  Curtain walls and a straight shore, with each of the map's buildings on a plot near its true
+  bearing from home plate. The park faces north-west, so the Spire and Halcyon Towers stand over
+  centre field and right-centre, and the estate's tower row along the West Curtain over left. The
+  buildings are GLASS's own baked shapes, drawn for close range: facades with lit rooms, streets with
+  lamps, cars and people walking to the game, and the park's own brick exterior. The sky follows
+  Coldwater's clock and the weather at the park.
 - **The fallback:** today's 2-D Gameday view.
 - **The server:** the sim stays as it is until sim v2 switches on at a recorded slot, and every game
   before that slot replays exactly as it aired. The payload gains a small cosmetic play description
@@ -287,24 +290,26 @@ them. What it showed:
 - **Coldwater works as a backdrop.** A second pass placed all 224 of the city's buildings from
   GLASS's baked shapes around the park's site at true scale. The Spire and Halcyon Towers read at a
   glance, and the blue hour at first pitch is the strongest frame of the set.
-- **A full-size park fits a nine-tile block once the city is parted.** At GLASS's scale a ballpark
-  and its stands need about 10 tiles by 9, and the first site took 41 buildings. Pushing every
-  building out along its bearing from home plate by the difference between the full park's outline
-  and the block's edge keeps the whole city in the picture, the skyline where it belongs, and the
-  map's footprint at nine tiles. The cost shows only from the air: the West Curtain bows round the
-  park.
+- **Outside the walls, a set works better than the map.** At GLASS's scale a ballpark and its stands
+  need about 10 tiles by 9, and the map gives the park nine. Bending the map round a full-size park
+  kept every bearing but bowed the West Curtain and curved the streets. Composing the city instead (a
+  street grid inside straight walls, each building on a plot near its bearing) kept the skyline where
+  a viewer expects it, and it reads as a city from every camera, the air included.
+- **The main gate wants a corner.** With the ring streets meeting behind home plate, the gate looks
+  across a small plaza to a crossing, and the street camera stands across it. A lamp post beside that
+  camera's lens filled a third of the frame, so the set keeps tall things 48 ft clear of street-level
+  cameras.
 - **Inside the Curtain the city is close, so it has to hold up close.** With the park in Halcyon
-  Fields the nearest buildings stand just outside the stands, and the towers about 450 ft past the
-  outfield wall. A
-  window pattern and dark ground didn't survive that, so the city gained:
+  Fields the nearest buildings stand just outside the stands, and the towers about 400 ft past the
+  outfield wall. A window pattern and dark ground didn't survive that, so the city gained:
   - facades with mullions, lit rooms that are brighter at the ceiling, blinds half down, now and then
-    the blue of a set left on, and lobbies and shopfronts on the ground floor;
+    the blue of a television left on, and lobbies and shopfronts on the ground floor;
   - the estate's chrome as dark brushed steel, which catches the floods without going white;
   - streets from each road tile's arms: kerbs, pavement slabs, a double yellow line, broken lane
     lines and crossings at the junctions;
   - cobra-head sodium lamps with pools of light, parked cars at the kerbs and some moving with their
     lights on;
-  - about 750 people walking to the gates, thick near the main gate and thinning out with distance;
+  - about 1,900 people walking to the gates, thick near the main gate and thinning out with distance;
   - the park's own exterior: brick piers, an arcade lit from the concourse, the club level's arched
     windows, an open steel tier under the upper deck, flags along the top and the name over the main
     gate.
@@ -407,6 +412,7 @@ ports what it uses to `gl/spectacle.js` rather than importing the windshield.
 | `gl/crowd.js` | GLASS | The instanced crowd on `actors.js`'s vertex-animation approach. |
 | `gl/broadcast.js` | GLASS | Depth of field, the arcade grade and the tube glass, and the broadcast preset (chroma, fringing, smear). |
 | `gl/cityscape.js` | GLASS | A city drawn far: buildings from the baked shapes, facades, lights, the Curtain. Names no region. New. |
+| `client/shared/city-set.js` | GLASS | Composes the set round a site: the superblock, the street grid, a plot for each building by bearing, filler, straight edges. Pure, so the gate runs it in Node. Names no region. New. |
 | `client/shared/building-lights.js` | GLASS data | Generated by the shapes bake: each model's lights. New. |
 | `client/shared/sky-keys.js` | THOMAS | The clock's sky keyframes, moved out of `windshield.js` so other views can read them. |
 | `gl/spectacle.js` | GLASS | GPU particles: fireworks, confetti, contact sparks, trails. New. |
@@ -745,31 +751,65 @@ of the estate's central block.
   landmark compressed on the map (a 21-storey office stands on one tile), so the park does the same:
   the map's model is a compact bowl fitted to its nine tiles.
 
-**On TV the park is full size, and the city is parted round it.** Every point of the city keeps its
-bearing from home plate and moves out by the difference, in that direction, between the full park's
-outline and the block's edge. Inside the block the ground scales up to fill the full outline, so the
-parting is continuous and nothing tears.
+### On TV the city is a set
 
-- Every building on the map is in the picture, at its true bearing. Only its distance changes: the
-  buildings next to the block end up just outside the stands, and the Spire, about 510 ft away on the
-  map, stands about 770 ft away on TV.
-- The streets bend round the park. The corner of Sorrel Way and Kettle Lane, a step from the main
-  gate on the map, is the plaza outside the main gate on TV.
-- From the air the West Curtain bows round the park. Aerials frame from behind home plate, where
-  the bend reads as distance.
+The broadcast's park is full size, so it can't sit in the map's nine tiles, and what the cameras
+show outside its walls is an abstraction: a city composed for television from the map's buildings,
+not a copy of the map. A first try bent the map round the full-size park instead. It kept every
+building's bearing, but the West Curtain bowed and the streets curved, and from the air it looked
+wrong. A set keeps what a viewer reads (the landmarks over the outfield, the Curtain round the city,
+the bay to the north) and lays out the rest cleanly.
+
+It's composed from three inputs:
+
+- the park's outline at full size, from the park model;
+- the buildings within reach of the site, from the manifest under *What it costs*;
+- the distances from home plate to the West, South and East Curtains and to the shore, from the map.
+
+And six rules:
+
+1. **The park stands in a superblock**, the tiles its outline touches. Between the park's walls and
+   the streets round it is a paved plaza, with lamp standards along the walls and the crowd thick at
+   the gates.
+2. **Streets run every third tile** out from the superblock on each side, so a block is two plots by
+   two. The ring streets meet behind home plate, so the main gate looks across the plaza to a
+   corner.
+3. **The edges are straight.** The three Curtain walls and the shore stand at the map's distances,
+   pushed out past the park like everything else (rule 4) and put on tile lines, so the city is a
+   rectangle. A lane runs inside the South Curtain and a road along the shore. Past the walls is red
+   rock to the horizon; past the shore, the bay.
+4. **Each building gets a plot near its bearing.** Its target is its place on the map, pushed out
+   along its bearing from home plate by the difference, in that direction, between the full park's
+   outline and the block's edge, so nothing lands inside the park. Nearest first, each takes the
+   free plot closest to its target. Piers and landing stages stay on the water, as far off the set's
+   shore as they stand off the map's, and buildings outside the Curtain stay outside it.
+5. **Plots no building claims get filler**: plain blocks in the quarter's style, chrome and glass to
+   the west, brick and works to the east, lower near the park.
+6. **The set is dressed for its cameras.** Nothing tall stands within 48 ft of a street-level
+   camera.
+
+Composing is a pure function of those inputs, so every client builds the same set and a gate checks
+it in Node. In the look-dev it placed all 218 buildings within reach and filled 129 plots. Bearings
+moved by 1.6° at the median; the worst within 900 ft was 22°, Fairweather Marina on the waterfront,
+where the straight shore takes up the slack. The Spire, about 510 ft from home plate on the map,
+stands about 790 ft away on TV.
 
 From home plate on TV:
 
-- **Over centre field**, the Spire, the Shrine and the Ascension Gate, with Top Brass in front of
-  them.
+- **Over centre field**, the Spire and the Shrine, with Top Brass in front of them and the Ascension
+  Gate to their right.
 - **Over right-centre and right**, Halcyon Towers and Voltage's sky beam, with the boulevard's towers
   (Rising Sums, Bent Double, Curve Appeal) in front.
 - **Over left-centre and left**, the estate's tower row along the West Curtain (Common Ground, Rising
   Damp, Quiet Enjoyment), with the Curtain's glow behind them; Long Lease and Light Relief stand past
   the third-base stands.
-- **Behind the plate**, Sorrel Way, Chain Free and the rest of the estate, then the South Curtain.
+- **Behind the plate**, the corner outside the main gate, Chain Free and the rest of the estate, then
+  the South Curtain.
 
 The scoreboard stands on legs behind the right-centre bleachers.
+
+The set and the map needn't agree beyond those bearings. The map is where players walk, ride and fly,
+and it has its own compact park (*The park on the map*); the set is only ever seen on TV.
 
 ### Drawing the city
 
@@ -784,12 +824,11 @@ importing `windshield.js` ([world-rendering.md](../reference/world-rendering.md)
   per-tile jitter (`buildingScaleFor`) moves into that module too, so a tower is the same height on
   the TV as from the cockpit.
 - It skips the buildings on the park's block (until Phase 6 sets them aside, the manifest still
-  carries them), then parts the rest round the full-size park as above: each building moves as a
-  whole with its centre, and the ground, roads, lamps and the Curtain move point by point, subdivided
-  near the park so the streets bend smoothly.
+  carries them), composes the set as above with `client/shared/city-set.js`, and stands each
+  building on its plot.
 - It builds one static vertex buffer when the venue loads. Each frame sets uniforms and nothing else.
-- In the look-dev all 218 remaining buildings resolved, and with the streets, lamps and cars the city
-  came to about 170,000 triangles.
+- In the look-dev all 218 buildings within reach resolved, and with the set's streets, about 900
+  lamps, 1,750 cars and 1,900 people, the city came to about 240,000 triangles.
 
 **Facades are drawn by one shader** from bay and storey coordinates:
 
@@ -800,13 +839,14 @@ importing `windshield.js` ([world-rendering.md](../reference/world-rendering.md)
 - Windows have mullions, two or three panes to a bay.
 - A share of windows is lit. Offices light a floor zone at a time; homes light window by window. A lit
   room is brighter near its ceiling, some have a blind half down, and now and then one shows the blue
-  of a set left on. The ground floor is lobbies and shopfronts, mostly lit.
+  of a television left on. The ground floor is lobbies and shopfronts, mostly lit.
 - Once a window is smaller than a pixel, the pattern is averaged to its mean colour, so far towers
   don't shimmer.
 
-**Streets.** Each road tile is drawn from its arms (`rd`): carriageway and pavement, a pale kerb,
-slabs about five feet square, a double yellow line and broken lane lines on straight tiles, and
-crossings on every arm of a junction. Plots and plazas are paved; parks are grass.
+**Streets.** Each of the set's road tiles is drawn from its arms, the road tiles beside it:
+carriageway and pavement, a pale kerb, slabs about five feet square, a double yellow line and broken
+lane lines on straight tiles, and crossings on every arm of a junction. Plots and the plaza are
+paved.
 
 **Lights.**
 
@@ -833,12 +873,12 @@ open steel tier under the upper deck with its ceiling lamps showing, cast-stone 
 cornice, flags along the top, and the name over the main gate behind home plate. Round the outfield
 it drops to the bleachers' height. From inside the park its back is plain.
 
-**The Curtain** uses [gl/curtain.js](../../client/game/js/panels/gl/curtain.js)'s shader on the
-Curtain's tiles, at `CURTAIN_H`: its four-stop body, scan bands, rain streaks and crown line.
+**The Curtain** is the set's three walls, drawn with
+[gl/curtain.js](../../client/game/js/panels/gl/curtain.js)'s shader at `CURTAIN_H`: its four-stop
+body, scan bands, rain streaks and crown line.
 
-**Ground and sea.** Outside the walls the tiles are flat ground coloured by biome, with the
-tablelands raised to GLASS's own height (`CLIFF_H`, about 30 ft, varied per tile). The bay is dark
-water.
+**Ground and sea.** Past the walls the ground is red rock, flat to the horizon. Past the shore is the
+bay, dark water, with the quay's face where the city stops.
 
 **Tuning.** The searchlights and the Curtain come well down from their windshield strengths, because
 the field has to stay the brightest thing in the picture.
@@ -865,12 +905,13 @@ the field has to stay the brightest thing in the picture.
 
 - **Data.** The manifest is what the cold open already sends (`coldwaterSkyline()` in
   [plugins/prologue/index.js](../../plugins/prologue/index.js)): 224 buildings, about 15 KB as JSON
-  and 4 KB gzipped, plus the road tiles and their arms, about 3 KB more. It goes with the venue once
-  per client per content revision, inside the venue's 64 KB budget. The server helper that builds it
-  takes a site and a radius and names no region; the prologue's function becomes one of its callers.
+  and 4 KB gzipped, plus the four distances that place the set's edges. The set makes its own
+  streets, so no road tiles go with it. It goes with the venue once per client per content revision,
+  inside the venue's 64 KB budget. The server helper that builds it takes a site and a radius and
+  names no region; the prologue's function becomes one of its callers.
 - **Code.** `building-shapes.js` is 284 KB (31 KB gzipped). It loads with the ballpark's modules on
   first mount, and the browser caches it.
-- **GPU.** One static buffer of about 170,000 triangles in four draws: facades and streets, lights,
+- **GPU.** One static buffer of about 240,000 triangles in four draws: facades and streets, lights,
   the lamps' pools, and the glow of the Curtain and beams. The people walking in share the crowd's
   instancing. The facade shader is the only real per-pixel cost, and the city covers a third of the
   frame at most.
@@ -1071,7 +1112,7 @@ game built on THOMAS keep it byte-for-byte?
 |---|---|---|
 | `gl/skin.js`, `gl/spotshadow.js`, `gl/broadcast.js`, `gl/crowd.js` | GLASS (engine) | General capabilities: skinning, spotlight shadows, a lens and period pictures, a crowd. Any view could use them. |
 | `gl/ballpark.js`, `gl/ballpark-mesh.js` | GLASS (engine) | Draw a baseball park and players from data; they mustn't name Deadball, Coldwater or a club. |
-| `gl/cityscape.js`, the light bake, `sky-keys.js` | GLASS and THOMAS (engine) | Any city around any site, from shapes and a manifest. A second game's city works the same way. |
+| `gl/cityscape.js`, `city-set.js`, the light bake, `sky-keys.js` | GLASS and THOMAS (engine) | Any city set round any site, from shapes, a manifest and four edges. A second game's city works the same way. |
 | The skyline manifest helper | THOMAS (engine) | Builds the buildings around a site and radius from the in-memory world; names no region. |
 | The park's site and bearing | Architect (content) | `sports_pools.venue.site`. |
 | The arcade graphics package and the particles | THOMAS and GLASS (engine) | `diamond/hud.js` draws panels, lamps, cards and splash words from a theme, and `gl/spectacle.js` draws particles. Neither names Deadball. |
@@ -1272,7 +1313,7 @@ reference machine and on an integrated laptop GPU and writes the numbers into
 | `plugins/broadcast/regress.js`, sim v2 | regress | Every slot before the switch matches the recorded v1 hash; a slot after it gives the same game twice; the standings fold across the switch counts each side once; errors, steals and the rest add up in the box score. |
 | `scripts/content/guard-sim-switch.mjs` | pre-push | A push that sets or moves `sim.v2FromSlot` names a slot that hasn't aired yet. |
 | `scripts/shapes/smoke.mjs` and `sitecheck.mjs`, the park | shapes, content | Phase 6: every slice of the park draws without throwing, and every gate has its street. |
-| `scripts/shapes/cityscape-smoke.mjs` | shapes | Pure: every building in the venue's manifest resolves to a shape, sizes match the windshield's, after the parting nothing stands inside the park's outline and no ground tile folds over another, every bearing from home plate is kept, every road tile's arms draw, the light bake is fresh. |
+| `scripts/shapes/cityscape-smoke.mjs` | shapes | Pure: composes the set from the content tree's manifest. Every building within reach resolves to a shape at the windshield's size and gets a plot or its place on the water, none inside the park's outline; bearings move under 3° at the median and under 25° within 900 ft; the edges are straight and on tile lines; every road tile's arms draw; nothing tall stands within 48 ft of a street-level camera; the light bake is fresh. |
 | `plugins/broadcast/regress.js` | regress | `sport`, `bats`, `throws`, `hold` present; `play` consistent with the kind; standings once a game; bare pools direction-free; a recorded hash of a hundred seeded games unchanged. |
 
 `client:smoke` and `imports:smoke` cover new files without being asked. Each gate stays inside the 60
@@ -1308,8 +1349,8 @@ Phase 3, or with sim v2 if that comes later.
 - The arcade graphics package, still: panels, lamps, cards, the zone marker, the leaders table.
 - Players as static, posed meshes at final quality, so lighting and materials are judged on the
   real models.
-- The park's site and the skyline manifest; `gl/cityscape.js` with the facades, the streets, the
-  lamps and the Curtain, at a fixed hour; the park's exterior.
+- The park's site and the skyline manifest; `city-set.js`, and `gl/cityscape.js` with the facades,
+  the streets, the lamps and the Curtain, at a fixed hour; the park's exterior.
 - Tested by: `ballpark-smoke`, `cityscape-smoke`, sandbox screenshots, GPU timings on two machines.
 
 **Phase 2: skinned players and the pitch.** Behind the flag.
@@ -1387,8 +1428,9 @@ power grid.
 - **Content set aside.** The park takes six buildings (11 rooms, 4 NPCs) and Vetch Green out of play
   from a campaign that shipped recently. Nothing is deleted. The risk is player rows that point into
   those zones; the check before the move finds them.
-- **The parting shows from the air.** On TV the West Curtain bows round the park and the streets
-  bend. Shots from inside the park don't show it, and aerials frame from behind home plate.
+- **The set isn't the map.** A player who knows the estate will see streets on TV that the map
+  doesn't have. The landmarks keep their bearings and the Curtain and the bay are where they should
+  be, and the set is only ever seen on TV.
 - **Sim v2 changes results.** Errors and steals change scores, and the standings re-simulate every
   past slot, so the switch is a slot that's always in the future when it ships, and the v1 hash in
   regress proves no game before it moved.
@@ -1405,6 +1447,8 @@ Decided on 2026-10-11:
 - **The buildings it displaces:** six buildings and Vetch Green, set aside for later use, as under
   *The park on the map*.
 - **Sim v2:** in as soon as it's ready, switched on at a recorded slot rather than at a new season.
+- **The city on TV:** an abstraction, a set composed for the cameras round the full-size park (*On
+  TV the city is a set*), not the map bent round it.
 
 Still open:
 
