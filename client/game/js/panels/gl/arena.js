@@ -443,7 +443,8 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
     // A club's designed sweater (club-crest.js keeps the identity): the body, woven in
     // the club's sett if it has one, its own bands at the hem, the yoke, the club crest
     // on the chest and its own lettering. A band's pattern is 'gems' (a row of set
-    // stones, the Warlords' stripe) or 'sett' (a band of the tartan).
+    // stones, the Warlords' stripe), 'sett' (a band of the tartan) or 'dice' (squares of
+    // the band's colour and its `alt`, `rows` deep: the chequer on a police cap).
     const _setts = new WeakMap();
     function settFill(sett) {
       let p = _setts.get(sett);
@@ -462,6 +463,7 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
         else c.fillStyle = b.col;
         c.fillRect(0, y0, S, h);
         if (b.pattern === 'gems') gemRow(c, y0, h, club.gems || {});
+        if (b.pattern === 'dice') diceRow(c, y0, h, b.alt || K.trim, b.rows || 2);
       }
       if (K.yoke) { c.fillStyle = K.yoke; c.fillRect(0, vy(0.99) - 2, S, 4.5); }
       // the laced V at the collar, in the yoke's colour
@@ -480,6 +482,14 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
         c.fillStyle = g.gem || '#fff'; c.beginPath(); c.arc(x, y, r, 0, TAU); c.fill();
         c.fillStyle = 'rgba(150,200,235,0.9)'; c.beginPath(); c.arc(x + r * 0.15, y + r * 0.15, r * 0.45, 0, TAU); c.fill();
       }
+    }
+
+    // squares of `alt` over a band, `rows` deep, sized so a whole number of pairs runs
+    // round the body and the seam at the back doesn't show
+    function diceRow(c, y0, h, alt, rows) {
+      const S = SLOT, n = Math.max(1, rows | 0), ch = h / n, pairs = Math.max(1, Math.round(S / (2 * ch))), cw = S / (2 * pairs);
+      c.fillStyle = alt;
+      for (let r = 0; r < n; r++) for (let x = (r % 2) * cw; x < S; x += 2 * cw) c.fillRect(x, y0 + r * ch, cw, ch);
     }
 
     // ── cracks and blood on the far glass ─────────────────────────────────────

@@ -2311,7 +2311,7 @@ export default async function regress({ check, run, getPlayer }) {
         const k = idents[t]?.kit?.[side];
         if (!k) { badKit.push(`${t} ${side}: none`); continue; }
         for (const f of ['jersey', 'trim', 'pants', 'sock', 'glove', 'helmet']) if (!HEX.test(k[f] || '')) badKit.push(`${t} ${side}.${f}`);
-        for (const b of [...(k.hem || []), ...(k.sleeve || []), ...(k.socks || [])]) if (!HEX.test(b.col || '')) badKit.push(`${t} ${side} band`);
+        for (const b of [...(k.hem || []), ...(k.sleeve || []), ...(k.socks || [])]) if (!HEX.test(b.col || '') || (b.alt && !HEX.test(b.alt))) badKit.push(`${t} ${side} band`);
       }
       check('hockey: every kit is in hex (figure.js shades with parseInt)', badKit.length === 0, badKit.slice(0, 4).join(', '));
       const badCrest = teams.filter(t => !(idents[t]?.crest?.layers?.length && idents[t]?.crest?.small?.length));

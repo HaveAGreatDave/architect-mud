@@ -1204,10 +1204,12 @@ const MALCOLM = {
 // A kit is what a body wears. `jersey`/`trim`/`pants`/`sock`/`glove`/`helmet` are the
 // solid colours every renderer understands. `number` and `numberEdge` letter the back.
 // `hem`, `sleeve` and `socks` are bands: `at` and `w` as fractions of the hem-to-collar,
-// elbow-to-wrist or knee-to-ankle run, `col` the colour, and `pattern` ('gems', 'sett')
-// a richer fill where the renderer can paint one. `yoke` is the shoulder band's colour.
+// elbow-to-wrist or knee-to-ankle run, `col` the colour, and `pattern` ('gems', 'sett',
+// or 'dice' with an `alt` colour and `rows`) a richer fill where the renderer can paint
+// one: the sweater's atlas paints them on the hem; sleeves and socks are flat rings on
+// the mesh, so bands there must not overlap. `yoke` is the shoulder band's colour.
 // `body: 'sett'` weaves the whole sweater in the club's tartan.
-const band = (at, w, col, pattern) => (pattern ? { at, w, col, pattern } : { at, w, col });
+const band = (at, w, col, pattern, more) => (pattern ? { at, w, col, pattern, ...more } : { at, w, col });
 
 function kit(o) { return o; }
 
@@ -1263,11 +1265,17 @@ export const CLUBS = {
     district: null, home: 'District 9',
     colours: ['#4b2a72', '#efe5d2'],
     crest: goons(),
+    // a police kit: dark shoulders, a chequered band at the hem like a cap's, and two
+    // stripes on every cuff and sock
     kit: {
       home: kit({ jersey: '#4b2a72', trim: '#efe5d2', number: '#efe5d2', numberEdge: '#121014', pants: '#121014', sock: '#4b2a72', glove: '#121014', helmet: '#121014',
-        yoke: '#121014', hem: [band(0.0, 0.07, '#121014'), band(0.075, 0.03, '#efe5d2')], sleeve: [band(0.28, 0.1, '#121014'), band(0.38, 0.05, '#efe5d2')], socks: [band(0.26, 0.11, '#121014'), band(0.37, 0.05, '#efe5d2')] }),
+        yoke: '#121014', hem: [band(0.0, 0.03, '#121014'), band(0.03, 0.1, '#121014', 'dice', { alt: '#efe5d2', rows: 2 }), band(0.13, 0.015, '#efe5d2')],
+        sleeve: [band(0.26, 0.04, '#121014'), band(0.3, 0.03, '#efe5d2'), band(0.33, 0.04, '#121014'), band(0.37, 0.03, '#efe5d2'), band(0.4, 0.04, '#121014')],
+        socks: [band(0.24, 0.04, '#121014'), band(0.28, 0.03, '#efe5d2'), band(0.31, 0.04, '#121014'), band(0.35, 0.03, '#efe5d2'), band(0.38, 0.04, '#121014')] }),
       road: kit({ jersey: '#efe5d2', trim: '#4b2a72', number: '#4b2a72', numberEdge: '#121014', pants: '#121014', sock: '#efe5d2', glove: '#121014', helmet: '#121014',
-        yoke: '#4b2a72', hem: [band(0.0, 0.07, '#4b2a72'), band(0.075, 0.03, '#121014')], sleeve: [band(0.28, 0.1, '#4b2a72'), band(0.38, 0.05, '#121014')], socks: [band(0.26, 0.11, '#4b2a72'), band(0.37, 0.05, '#121014')] }),
+        yoke: '#4b2a72', hem: [band(0.0, 0.03, '#4b2a72'), band(0.03, 0.1, '#4b2a72', 'dice', { alt: '#efe5d2', rows: 2 }), band(0.13, 0.015, '#121014')],
+        sleeve: [band(0.26, 0.04, '#4b2a72'), band(0.3, 0.03, '#efe5d2'), band(0.33, 0.04, '#4b2a72'), band(0.37, 0.03, '#efe5d2'), band(0.4, 0.04, '#4b2a72')],
+        socks: [band(0.24, 0.04, '#4b2a72'), band(0.28, 0.03, '#efe5d2'), band(0.31, 0.04, '#4b2a72'), band(0.35, 0.03, '#efe5d2'), band(0.38, 0.04, '#4b2a72')] }),
     },
   },
   'Waterfront Wharf Rats': {
