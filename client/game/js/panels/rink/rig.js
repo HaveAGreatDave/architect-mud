@@ -253,6 +253,8 @@ function standRig(s, T) {
   // knees bent with the work, but never into a squat: the stride's share is capped
   let crouch = s.crouch + Math.min(0.55, 0.4 * a * (1 - wBack) + 0.35 * wBack + 0.06 * wCross + 0.12 * wStart + 0.1 * wGlide) + s.duck * 0.5;
   let lean = (official ? 0.08 : 0.24) + 0.42 * a + 0.12 * crouch + 0.3 * wStart - 0.2 * wBack;
+  // into the acceleration, back against the braking: weight moves with the speed change
+  lean += clamp((s.accel || 0) * 0.012, -0.22, 0.26) * (1 - wBack);
   let twist = -0.16 * stridePush;
   let tilt = official ? 0 : clamp(turn * sp * 0.014, -0.42, 0.42);
   let shiftV = 0.36 * stridePush;

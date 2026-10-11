@@ -386,7 +386,10 @@ export function narrate(ctx) {
     const who = (i) => names[((i | 0) % names.length + names.length) % names.length] || '';
     const mids = [];
     for (let i = 1; i <= L - 3; i++) mids.push(i);
-    const keep = new Set(loud ? mids.slice(-3) : mids.slice(-1));
+    // The play builds the way it does on the ice: a near-miss or a goal gets up to five of
+    // its touches called, a routine chance three; past the first, a routine chance's are
+    // optional, so a short slot trims the build-up before it trims the shot.
+    const keep = new Set(loud ? mids.slice(-5) : mids.slice(-3));
     let holder = who(nodes[0].carrier), first = true, wonNext = false;
     // Off a loose puck (a rebound, a kick-out, a block) he has to go and get it first, and
     // the rink shows him doing it, so the booth says so and the breakout follows when he has it.
@@ -476,7 +479,10 @@ export function narrate(ctx) {
       case 'goal': {
         const key = b.strength === 'pp' ? 'goal.pp' : b.strength === 'sh' ? 'goal.sh' : b.strength === 'en' ? 'goal.en' : 'goal';
         const gd = gameday(b, idx);
+        // some goals are a man in alone: the rink stages them that way and the booth says so
+        gd.breakaway = !b.strength || b.strength === 'even' ? ['wrist', 'backhand', 'snap'].includes(b.shotType) && nrng() < 0.22 : false;
         const rushed = callRush(b, t, sb, gd, true);
+        if (gd.breakaway) call('pbp.breakaway', t, null, sb, { cue: { ev: 'alone' } });
         callShot(b, t, sb, rushed ? null : gd);
         call('pbp.goal', t, { team: b.teamName }, sb, { cue: { ev: 'out' } }, null, goalFx(b));
         // What the rink shows next: the lamp, the scorer peeling away, the pile-on, the
@@ -485,6 +491,12 @@ export function narrate(ctx) {
         call('pbp.goal.celebrate', t, { shooter: b.shooter }, sb, { opt: true });
         call('pbp.goal.mob', t, { shooter: b.shooter }, sb, { opt: true });
         if (b.goalie && nrng() < 0.6) call('pbp.goal.slump', t, { goalie: b.goalie }, sb, { opt: true });
+        // and the replay: the rink runs it back slowly as the booth walks through it
+        if (call('pbp.replay.start', t, null, sb, { cue: { ev: 'replay' } })) {
+          call(b.assist ? 'pbp.replay.assist' : 'pbp.replay.solo', t, { assist: b.assist }, sb);
+          call('pbp.replay.shot', t, null, sb, { opt: true });
+          if (b.goalie) call('pbp.replay.goalie', t, null, sb, { opt: true });
+        }
         say(pick(key, 'goal'), t, sb); said++;
         say(pick('score.update'), t, sb); said++;
         break;
@@ -520,6 +532,7 @@ export function narrate(ctx) {
         // Every shot is called: the rush, the release, the result.
         const gd = gameday(b, idx);
         const rushed = callRush(b, t, sb, gd, loud);
+        if (b.kind === 'breakaway') call('pbp.breakaway', t, null, sb, { cue: { ev: 'alone' } });
         callShot(b, t, sb, rushed ? null : gd);
         call(`pbp.out.${b.kind}`, t, null, sb, { cue: { ev: 'out' } });
         // Then where the puck went, which the rink plays out: held, kicked to the corner,

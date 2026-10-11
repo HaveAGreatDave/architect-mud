@@ -1282,4 +1282,47 @@ After it into the corner.
 Footrace.
 ::endlines
 
+::lines pbp.breakaway
+Breakaway!
+He's in alone!
+{shooter} is clear!
+Nobody near him. Breakaway!
+{shooter} behind everybody!
+::endlines
+
+::lines pbp.replay.start
+Let's see that again.
+Here's the replay.
+Once more.
+Run it back.
+Watch this again.
+::endlines
+
+::lines pbp.replay.assist
+Watch {assist} find him.
+{assist} sees it first.
+Look at the pass from {assist}.
+{assist} threads it through.
+::endlines
+
+::lines pbp.replay.solo
+He does it all himself.
+Watch him take it in.
+All him, start to finish.
+::endlines
+
+::lines pbp.replay.shot
+{shooter} picks his spot.
+Look where {shooter} put it.
+{shooter} doesn't miss from there.
+Quick release. Gone.
+::endlines
+
+::lines pbp.replay.goalie
+{goalie} never saw it.
+{goalie} is down too early.
+{goalie} guesses wrong.
+Nothing {goalie} could do.
+::endlines
+
 END

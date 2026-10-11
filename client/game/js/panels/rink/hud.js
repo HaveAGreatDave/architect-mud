@@ -22,10 +22,23 @@ export function bodyOpts(W, b) {
 // cleared the rest of the time.
 export function hudActive(W) {
   const B = W.banner;
-  return !!((W.fight && W.fight.hud) || (B && W.t - B.t0 < (B.dur || 1.3)));
+  return !!(W.replayOn || (W.fight && W.fight.hud) || (B && W.t - B.t0 < (B.dur || 1.3)));
 }
 
 export function drawHud(ctx, W, w, h, u) {
+  if (W.replayOn) {
+    // the replay: letterboxed, with the bug in the corner and its light blinking
+    const bar = h * 0.07;
+    ctx.fillStyle = 'rgba(0,0,0,0.85)'; ctx.fillRect(0, 0, w, bar); ctx.fillRect(0, h - bar, w, bar);
+    const bx = 14 * u, by = bar + 12 * u, bw = 132 * u, bh = 30 * u;
+    ctx.save(); ctx.transform(1, 0, -0.18, 1, by * 0.18, 0);
+    ctx.fillStyle = '#c8141c'; ctx.fillRect(bx, by, bw, bh);
+    ctx.fillStyle = '#f4efe2'; ctx.fillRect(bx + bw, by, 6 * u, bh);
+    ctx.font = `800 ${19 * u}px ${FACE}`; ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
+    ctx.fillText('REPLAY', bx + 30 * u, by + bh * 0.53);
+    if (Math.sin((W.t || 0) * 9) > -0.2) { ctx.beginPath(); ctx.arc(bx + 16 * u, by + bh / 2, 5 * u, 0, TAU); ctx.fill(); }
+    ctx.restore();
+  }
   const F = W.fight;
   if (F && F.hud) {
     const pw = Math.min(w * 0.4, 330 * u), ph = 34 * u, pad = 12 * u;

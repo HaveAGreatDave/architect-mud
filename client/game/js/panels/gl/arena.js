@@ -225,7 +225,9 @@ const ATLAS = 1024, SLOT = 128, SLOTS = (ATLAS / SLOT) ** 2;
 const GPX = 16;                                   // glass decal texels per foot
 const LIGHTS = [40, 70, 100, 130, 160].map((x) => [x, MID_Y - 4, 46]);
 
-export function createArenaRenderer(canvas, overlay, W, ice) {
+export function createArenaRenderer(canvas, overlay, W0, ice) {
+  // the world it draws: the live one, or the replay's stand-in while a replay runs
+  let W = W0, rcam = null;
   const doc = canvas.ownerDocument;
   let gl = null;
   try { gl = canvas.getContext('webgl2', { antialias: true, alpha: false, premultipliedAlpha: true, depth: true, powerPreference: 'high-performance' }); } catch { gl = null; }
@@ -400,6 +402,8 @@ export function createArenaRenderer(canvas, overlay, W, ice) {
         for (let x = 0; x < S; x += 8) c.fillRect(x, 0, 3.4, S);
       } else {
         c.fillStyle = K.trim; c.fillRect(0, vy(0.0) - 3, S, 6); c.fillRect(0, vy(0.1) - 1.5, S, 3);
+        // the shoulder yoke, across the top of the sweater above the nameplate
+        c.fillRect(0, vy(0.985) - 1.5, S, 3);
         // the crest on the chest
         const cx = S * 0.25, cy = vy(0.64);
         c.beginPath(); c.arc(cx, cy, 12, 0, TAU); c.fill();
@@ -619,10 +623,13 @@ export function createArenaRenderer(canvas, overlay, W, ice) {
       if (lost) return;
       frame++;
       const { w, h, u } = fit();
+      const rp = W0.replay && W0.replay.active ? W0.replay : null;
+      W = rp ? rp.frame() : W0;
+      const cm = rp ? (rcam ??= createRinkCamera(rp.source)) : camera;
       camera.view = api.view;
-      const { C, P } = camera.update(w, h, now);
+      const { C, P } = cm.update(w, h, now);
       api.lastP = P;
-      if (camera.flash) { flash = camera.flash; camera.flash = 0; }
+      if (cm.flash) { flash = cm.flash; cm.flash = 0; }
       const crowdTex = W.crowd > 0.45 ? texUp : texSit;
       const sh = W.shake * 5 * u, sx = sh * (Math.sin(W.t * 47) + 0.5 * Math.sin(W.t * 83 + 1)) / 1.5, sy = sh * (Math.sin(W.t * 59 + 2) + 0.5 * Math.sin(W.t * 97)) / 1.5;
       const shake = [2 * sx / w, -2 * sy / h];

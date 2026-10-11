@@ -432,6 +432,13 @@
         "Nobody has it.",
         "Sticks and elbows in the corner."
       ],
+      "pbp.breakaway": [
+        "Breakaway!",
+        "He's in alone!",
+        "{shooter} is clear!",
+        "Nobody near him. Breakaway!",
+        "{shooter} behind everybody!"
+      ],
       "pbp.breakout": [
         "{player} has it behind his own net.",
         "{player} picks it up deep.",
@@ -746,6 +753,36 @@
         "Rebound, and it's cleared.",
         "Juicy rebound. Nobody home.",
         "Rebound to the corner."
+      ],
+      "pbp.replay.assist": [
+        "Watch {assist} find him.",
+        "{assist} sees it first.",
+        "Look at the pass from {assist}.",
+        "{assist} threads it through."
+      ],
+      "pbp.replay.goalie": [
+        "{goalie} never saw it.",
+        "{goalie} is down too early.",
+        "{goalie} guesses wrong.",
+        "Nothing {goalie} could do."
+      ],
+      "pbp.replay.shot": [
+        "{shooter} picks his spot.",
+        "Look where {shooter} put it.",
+        "{shooter} doesn't miss from there.",
+        "Quick release. Gone."
+      ],
+      "pbp.replay.solo": [
+        "He does it all himself.",
+        "Watch him take it in.",
+        "All him, start to finish."
+      ],
+      "pbp.replay.start": [
+        "Let's see that again.",
+        "Here's the replay.",
+        "Once more.",
+        "Run it back.",
+        "Watch this again."
       ],
       "pbp.retrieve": [
         "{player} goes back for it.",

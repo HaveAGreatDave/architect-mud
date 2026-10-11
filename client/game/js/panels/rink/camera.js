@@ -6,8 +6,8 @@
 // a pitch, which `matrices()` writes out by hand so it can be read against `P` line for line.
 //
 // THE NHL 99 CAMERA. The default framing is the one the old EA games played on: high on the
-// near side, close enough that the players are big, panning with the puck and leading it a
-// little in the direction it's going. It isn't fixed: whenever the play is in a zone, or the
+// near side, close enough that the players are big, panning with the puck and leading it
+// well ahead in the direction it's going. It isn't fixed: whenever the play is in a zone, or the
 // director says a shot is coming (`W.cam.net`, the x of the net it's going at), the camera
 // widens and slides until that net is in frame as well as the puck, so a shot is never taken
 // at a goal the viewer can't see.
@@ -54,7 +54,7 @@ export function createRinkCamera(W) {
 
   // The framing for this instant: the puck (or whatever the director is following), led a
   // little in the direction it's going, and the net it's going at when that matters.
-  function target(dt) {
+  function target(dt, aspect) {
     const c = W.cam, f = c.focus;
     if (pf && dt > 0) {
       const k = 1 - Math.exp(-dt * 3);
@@ -65,18 +65,21 @@ export function createRinkCamera(W) {
       case 'fight': return { lx: f[0], ly: f[1], lz: 3.0, dist: 17.5, pitch: 0.1, fm: 0.95 };
       case 'zoom': return { lx: f[0], ly: f[1] - 2, lz: 1.5, dist: 40, pitch: 0.4, fm: 1 };
       case 'push': return { lx: f[0], ly: f[1], lz: 2.0, dist: 30, pitch: 0.32, fm: 1 };
+      // the replay: down at ice level and close, following the puck a beat behind; never
+      // backed up behind the near boards
+      case 'replay': return { lx: f[0] + clamp(fv[0] * 0.3, -10, 10), ly: clamp(f[1] + 3, 24, RW - 4), lz: 1.4, dist: 24, pitch: 0.2, fm: 1 };
       case 'zam':
         if (api.view === 'low') return { lx: clamp(f[0], 30, RL - 30), ly: 39, lz: 0.4, dist: 38, pitch: 0.105, fm: 1 };
         return { lx: clamp(f[0], 44, RL - 44), ly: clamp(f[1] * 0.45 + 22, 28, 46), lz: 0, dist: 60, pitch: 0.5, fm: 1 };
       case 'death': return { lx: clamp(f[0], 44, RL - 44), ly: clamp(f[1], 14, RW - 6), lz: 0.8, dist: 28 - Math.min(8, (W.t - (c.since || W.t)) * 0.6), pitch: 0.42, fm: 1 };
-      default: return broadcast(f, c);
+      default: return broadcast(f, c, aspect);
     }
   }
-  function broadcast(f, c) {
+  function broadcast(f, c, aspect) {
     const low = api.view === 'low';
     // the action, led toward where it's going
-    const ax = f[0] + clamp(fv[0] * 0.4, -16, 16), ay = f[1] + clamp(fv[1] * 0.25, -6, 6);
-    let x0 = Math.min(f[0], ax) - 9, x1 = Math.max(f[0], ax) + 9;
+    const ax = f[0] + clamp(fv[0] * 0.75, -28, 28), ay = f[1] + clamp(fv[1] * 0.4, -9, 9);
+    let x0 = Math.min(f[0], ax) - 7, x1 = Math.max(f[0], ax) + 7;
     // the net: the one a shot is going at, or the one whose zone the play is in
     let net = c.net != null ? c.net : null;
     if (net == null) for (const gx of GOAL_X) if (Math.abs(f[0] - gx) < 62) net = gx;
@@ -91,10 +94,24 @@ export function createRinkCamera(W) {
       const fm = clamp(38 * 0.5 / Math.max(1, hw), 0.55, 1);
       return { lx: clamp(lx, 24, RL - 24), ly: 39, lz: 0.4, dist: 38, pitch: 0.105, fm };
     }
-    // close, the way the old games framed it, pulling back only as far as the net needs
-    const dist = clamp(2 * hw * 1.08, 54, 84);
-    const ly = clamp(ay * 0.5 + 21, 27, 48) + (dist - 54) * 0.08;
-    return { lx: clamp(lx, 22, RL - 22), ly, lz: 0, dist, pitch: 0.52 - (dist - 54) * 0.0015, fm: 1 };
+    // Close, the way the old games framed it (closer still on a breakaway, `W.cam.drama`),
+    // then solved: slid across the ice and pulled back only as far as it takes for every
+    // point that must be seen (the action, and the net when it matters) to land inside the
+    // picture, whatever shape the screen is.
+    const must = [[f[0], f[1], 0], [ax, ay, 0]];
+    if (net != null) must.push([net, 39.5, 4], [net, 45.5, 0], [net + (net < RL / 2 ? -4 : 4), 42.5, 0]);
+    let dist = clamp(2 * hw * 1.08, c.drama ? 38 : 44, 140);
+    let ly = clamp((Math.min(ay, f[1]) + Math.max(ay, f[1])) / 2 * 0.6 + 16, 12, 52);
+    const X = clamp(lx, 20, RL - 20), vlo = -0.36 / aspect, vhi = 0.46 / aspect;
+    for (let it = 0; it < 14; it++) {
+      const pitch = 0.54 - (dist - 44) * 0.0015, cp = Math.cos(pitch), sp = Math.sin(pitch), cy0 = ly - dist * cp, cz = dist * sp;
+      let um = 0, v0 = 1e9, v1 = -1e9;
+      for (const q of must) { const dy = q[1] - cy0, dz = q[2] - cz, d = dy * cp - dz * sp, up = dy * sp + dz * cp; um = Math.max(um, Math.abs(q[0] - X) / d); v0 = Math.min(v0, up / d); v1 = Math.max(v1, up / d); }
+      if (um > 0.44 || v1 - v0 > (vhi - vlo) * 0.92) { if (dist >= 140) break; dist = Math.min(140, dist * 1.08); continue; }
+      if (v0 < vlo) ly -= 2.5; else if (v1 > vhi) ly += 2.5; else break;
+      ly = clamp(ly, 6, 60);
+    }
+    return { lx: X, ly, lz: 0, dist, pitch: 0.54 - (dist - 44) * 0.0015, fm: 1 };
   }
 
   // Ease toward the framing (or snap on a cut) and return this frame's camera for a w×h view:
@@ -104,7 +121,7 @@ export function createRinkCamera(W) {
   api.update = (w, h, now) => {
     const clock = now != null ? now / 1000 : W.t;
     const dt = lastNow == null ? 0 : Math.min(0.1, Math.max(0, clock - lastNow)); lastNow = clock;
-    const tg = target(dt);
+    const tg = target(dt, w / Math.max(1, h));
     if (lastCut !== W.cam.cut) {
       lastCut = W.cam.cut; Object.assign(cam, tg); for (const k of KEYS) vel[k].v = 0; fv = [0, 0];
       api.flash = W.cam.flash === false ? 0 : 1;

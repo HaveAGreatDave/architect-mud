@@ -27,7 +27,9 @@ const FACE = '"Saira Condensed", "Arial Narrow", "Roboto Condensed", sans-serif'
 function quad(ctx, a, b, c, d) { ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.lineTo(c.x, c.y); ctx.lineTo(d.x, d.y); ctx.closePath(); }
 function line(ctx, a, b, w, col) { ctx.strokeStyle = col; ctx.lineWidth = w; ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x + 0.01, b.y); ctx.stroke(); }
 
-export function createRenderer(canvas, W, ice) {
+export function createRenderer(canvas, W0, ice) {
+  // the world it draws: the live one, or the replay's stand-in while a replay runs
+  let W = W0, rcam = null;
   const main = canvas.getContext('2d');
   let ctx = main;                       // swapped to the reflection canvas for that pass
   const doc = canvas.ownerDocument;
@@ -48,9 +50,12 @@ export function createRenderer(canvas, W, ice) {
 
   function render(now) {
     const { w, h, u } = fit();
+    const rp = W0.replay && W0.replay.active ? W0.replay : null;
+    W = rp ? rp.frame() : W0;
+    const cm = rp ? (rcam ??= createRinkCamera(rp.source)) : camera;
     camera.view = api.view;
-    const { C, P, camPos } = camera.update(w, h, now);
-    if (camera.flash) { flash = camera.flash; camera.flash = 0; }
+    const { C, P, camPos } = cm.update(w, h, now);
+    if (cm.flash) { flash = cm.flash; cm.flash = 0; }
     P0 = P;
 
     ctx.setTransform(1, 0, 0, 1, 0, 0);

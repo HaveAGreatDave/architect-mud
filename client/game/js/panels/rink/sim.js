@@ -307,7 +307,9 @@ export function createWorld(ice, seedKey) {
       const c = pk.carrier;
       if (!c.active || c.rag || !c.stick) { W.loose(c.vx * 0.6, c.vy * 0.6); }
       else if ((() => { const bw = bladeWorld(c, W.t, true); return Math.hypot(bw[0] - pk.x, bw[1] - pk.y) > 6; })()) {
-        // moved off it (a change, a man put somewhere): it's his to collect, not to yank
+        // moved off it (a change, a man put somewhere): it's his to collect, not to yank.
+        // (He lets go of it first; `collect` does nothing for the man already carrying it.)
+        c.carrying = false; c.puckAt = null; pk.carrier = null;
         W.collect(c);
       } else {
         if (dribble(c, pk, W.t, dt, rand) && W.t - (W.tickAt || 0) > 0.12) { W.tickAt = W.t; W.sfx('tick', { quiet: true }); }
@@ -504,6 +506,9 @@ export function createWorld(ice, seedKey) {
       if (dv > maxdv) { dvx *= maxdv / dv; dvy *= maxdv / dv; }
       b.vx += dvx; b.vy += dvy; b.x += b.vx * dt; b.y += b.vy * dt;
       const sp = Math.hypot(b.vx, b.vy);
+      // how hard he's speeding up or braking along his line, smoothed, for the lean
+      const along = sp > 0.5 ? (dvx * b.vx + dvy * b.vy) / (sp * dt) : 0;
+      b.accel = lerp(b.accel || 0, along, 1 - Math.exp(-dt * 6));
       const pushing = dv > maxdv * 0.6 && want > sp - 0.5;
       b.effort = lerp(b.effort, pushing ? 1 : 0.3, 1 - Math.exp(-dt * 3));
       const ampWant = b.kind === 'official' || b.kind === 'medic' ? clamp(sp / 18, 0, 0.8) : clamp(sp / 22, 0, 1) * b.effort;
@@ -511,7 +516,8 @@ export function createWorld(ice, seedKey) {
       // a skater's cadence is slow and long next to a runner's: about one stride a second
       // cruising, quicker only on the first few pushes from a stop
       b.phase += dt * (0.42 + sp * 0.03 + 0.7 * b.effort * clamp(1 - sp / 13, 0, 1) * (sp > 0.8 ? 1 : 0));
-      const wantH = b.face != null ? b.face : (sp > 1.5 ? Math.atan2(b.vy, b.vx) : b.h);
+      // in a hockey stop he's turned side-on to where he was going, skidding on both edges
+      const wantH = b.act === 'stop' && b.stopH != null ? b.stopH : b.face != null ? b.face : (sp > 1.5 ? Math.atan2(b.vy, b.vx) : b.h);
       // turned toward where he's going, easing into the new heading rather than stopping dead on it
       b.h += clamp(angWrap(wantH - b.h) * (1 - Math.exp(-dt * 10)), -7 * dt, 7 * dt);
       // how hard he is turning: drives the lean and the crossovers in the rig
@@ -522,14 +528,20 @@ export function createWorld(ice, seedKey) {
       if (c) { b.x = c.x; b.y = c.y; const vn = b.vx * c.nx + b.vy * c.ny; if (vn < 0) { b.vx -= vn * c.nx; b.vy -= vn * c.ny; } }
       // a hard stop throws snow, and shaves a fan of it off the sheet
       if (dv / dt > 20 && sp > 7 && !pushing && W.t - b.sprayAt > 0.25 && b.kind !== 'medic') {
-        b.sprayAt = W.t; W.burst('spray', b.x + b.vx * 0.05, b.y + b.vy * 0.05, 0.2, 7, 5, [b.vx * 0.4, b.vy * 0.4, 2.5]);
+        b.sprayAt = W.t;
+        // a real stop, not just a slowing: side-on, knees bent, on the edges
+        if (!b.act && !b.carrying && b.kind === 'skater' && sp > 11) {
+          const side = Math.sign(angWrap(Math.atan2(b.ty - b.y, b.tx - b.x) - Math.atan2(b.vy, b.vx))) || 1;
+          b.stopH = Math.atan2(b.vy, b.vx) + side * 1.25;
+          W.act(b, 'stop', 0.5, side);
+        } W.burst('spray', b.x + b.vx * 0.05, b.y + b.vy * 0.05, 0.2, 7, 5, [b.vx * 0.4, b.vy * 0.4, 2.5]);
         W.ice.scrape(b.x - Math.sin(b.h) * 0.4, b.y + Math.cos(b.h) * 0.4, b.vx, b.vy, clamp(sp * 0.22, 1.6, 4.5), (W.t * 977) | 0);
         if (sp > 14 && rand() < 0.4) W.sfx('stop', { x: b.x });
       }
       // THE BLADES SCORE THE ICE, from where the blades actually are. Each skate's runner is
       // traced while it is down, so the marks are the real push arcs and crossovers the
       // stride makes, and a lifted skate leaves a gap. A man missing a leg drags the stump.
-      if (sp > 3 && W.t - b.cutAt > 0.05 && b.kind !== 'medic') {
+      if (sp > 3 && W.t - b.cutAt > 0.07 && b.kind !== 'medic') {
         b.cutAt = W.t;
         const J = W.rigOf(b), a = b.missing.legL || b.missing.legR ? 0.3 : 0.11;
         b.feet = b.feet || [null, null];
@@ -621,6 +633,65 @@ export function createWorld(ice, seedKey) {
     for (const b of list) { if (b === except || b.rag || b.scripted || !b.active) continue; const d = Math.hypot(b.x - x, b.y - y); if (d < bd) { bd = d; best = b; } }
     return best;
   }
+  // ── positions ─────────────────────────────────────────────────────────────
+  // Hockey is played in positions, and the between-plays game plays them: wingers in their
+  // lanes, a centre, two defencemen, each with a job that depends on who has the puck and
+  // where it is. `assignRoles` hands out the jobs that go to whoever's best placed (the
+  // forward nearest the puck supports it, the next goes to the net), and `systemSpot` says
+  // where a man with a given job stands.
+  const isDef = (m) => m.slot === 3 || m.slot === 4;
+  const laneSign = (side, slot) => Math.sign(laneY(side, slot) - MID_Y) || 0;
+  function assignRoles(team, side, carrier) {
+    const pk = W.puck, fw = team.filter((m) => !isDef(m) && m !== carrier && !m.rag);
+    fw.sort((a, b) => Math.hypot(a.x - pk.x, a.y - pk.y) - Math.hypot(b.x - pk.x, b.y - pk.y));
+    const r = new Map();
+    fw.forEach((m, i) => r.set(m, ['support', 'net', 'high'][Math.min(i, 2)]));
+    // the defenceman on the puck's side of the ice is the one who steps up to it
+    const ds = team.filter(isDef);
+    const strong = ds.reduce((best, d) => (!best || Math.abs(laneY(side, d.slot) - pk.y) < Math.abs(laneY(side, best.slot) - pk.y) ? d : best), null);
+    for (const d of ds) r.set(d, d === strong ? 'strongD' : 'weakD');
+    return r;
+  }
+  function systemSpot(m, side, phase, carrier, roles) {
+    const pk = W.puck, dir = attackDir(side), px = pk.x, py = pk.y;
+    const gOff = offGoal(side), gOwn = ownGoal(side), bOff = offBlue(side), bOwn = offBlue(side === 'a' ? 'h' : 'a');
+    const role = roles.get(m) || 'high', ls = laneSign(side, m.slot), pSide = Math.sign(py - MID_Y) || 1;
+    const inOffZone = (px - bOff) * dir > 0, inOwnZone = (bOwn - px) * dir > 0;
+    if (phase === 'attack') {
+      if (inOffZone) {
+        // set up in the zone: the D on the points, a man at the net, one low in support,
+        // one in the high slot; the point men slide toward the puck's side
+        if (isDef(m)) return { tx: bOff + dir * 3, ty: MID_Y + ls * 17 + (py - MID_Y) * 0.22, mv: 16, face: dir > 0 ? 0 : Math.PI };
+        if (role === 'net') return { tx: gOff - dir * 7, ty: MID_Y - pSide * 3, mv: 18 };
+        if (role === 'support') return { tx: lerp(px, gOff - dir * 18, 0.45), ty: lerp(py, MID_Y, 0.35), mv: 20 };
+        return { tx: gOff - dir * 27, ty: MID_Y - (py - MID_Y) * 0.3, mv: 18 };
+      }
+      // the rush: wingers wide in their lanes and ahead of the puck, but onside (not into
+      // the zone before it); the centre in support through the middle; the D trailing
+      const onside = (x) => ((x - bOff) * dir > -1 ? bOff - dir * 1.5 : x);
+      if (isDef(m)) return { tx: clamp(px - dir * 20, Math.min(gOwn, gOff) + 12, Math.max(gOwn, gOff) - 12), ty: MID_Y + ls * 11, mv: 20 };
+      if (m.slot === 1 || role === 'high') return { tx: onside(px + dir * 6), ty: lerp(MID_Y, py, 0.25) + (m.slot === 1 ? 0 : ls * 8), mv: 22 };
+      return { tx: onside(px + dir * 17), ty: MID_Y + ls * 23, mv: 23 };
+    }
+    // defending
+    if (inOwnZone) {
+      // in our end: the strong-side D takes the puck carrier in the corner, the other holds
+      // the front of the net; the centre covers low; the wingers take the points
+      const corner = Math.abs(px - gOwn) < 26 && Math.abs(py - MID_Y) > 11;
+      if (isDef(m)) {
+        if (role === 'strongD' && corner) return { tx: px + dir * 2, ty: py - pSide * 2, mv: 20, face: Math.atan2(py - m.y, px - m.x) };
+        return { tx: gOwn + dir * 8, ty: MID_Y + (role === 'strongD' ? pSide : -pSide) * 4, mv: 18, face: Math.atan2(py - m.y, px - m.x) };
+      }
+      if (m.slot === 1) return { tx: gOwn + dir * 17, ty: lerp(MID_Y, py, 0.3), mv: 19, face: Math.atan2(py - m.y, px - m.x) };
+      return { tx: bOwn - dir * 7, ty: MID_Y + ls * 16, mv: 19, face: Math.atan2(py - m.y, px - m.x) };
+    }
+    // the neutral zone and theirs: a 1-2-2. One man goes (the forechecker, handled above),
+    // two forwards hold the middle lanes a stride back, the D hold our blue line
+    if (isDef(m)) return { tx: (inOffZone ? bOff - dir * 22 : clamp(px - dir * 28, Math.min(bOwn, bOff) - 30, Math.max(bOwn, bOff) + 30)), ty: MID_Y + ls * 11, mv: 19, face: dir > 0 ? Math.PI : 0 };
+    return { tx: px - dir * 14, ty: MID_Y + ls * 14 + (py - MID_Y) * 0.3, mv: 21 };
+  }
+  const roles = { a: new Map(), h: new Map() }, roleAt = {};
+
   function ambient(dt) {
     const pk = W.puck, A = W.amb;
     const carrier = pk.carrier;
@@ -641,6 +712,8 @@ export function createWorld(ice, seedKey) {
       if (!fore || !fore.active || fore.rag || fore.scripted || W.t - (A.foreAt?.[side] || 0) > 2.5) {
         fore = nearestOf(team, pk.x, pk.y); A.fore[side] = fore; A.foreAt = A.foreAt || {}; A.foreAt[side] = W.t;
       }
+      // the jobs are handed out five times a second, not every step: nobody changes role faster
+      if (W.t - (roleAt[side] ?? -9) > 0.2) { roleAt[side] = W.t; roles[side] = assignRoles(team, side, carrier); }
       for (const m of team) {
         if (m.scripted || m.rag || m.blend) continue;
         const isD = m.slot === 3 || m.slot === 4;
@@ -652,7 +725,11 @@ export function createWorld(ice, seedKey) {
         } else if (m === carrier) {
           const inZone = (m.x - offBlue(side)) * dir > 0;
           if (!inZone) { tx = m.x + dir * 30; ty = laneY(side, m.slot) * 0.6 + MID_Y * 0.4 + Math.sin(W.t * 0.9 + m.seed) * 9; mv = 23; }
-          else {
+          else if (isD) {
+            // a defenceman with it in the zone walks the line, looking for a lane
+            tx = offBlue(side) + dir * 4; ty = MID_Y + Math.sin(W.t * 0.7 + m.seed) * 17; mv = 12;
+            m.face = dir > 0 ? 0 : Math.PI;
+          } else {
             // cycle: down the wall to below the dots, behind the net line, back up the half-wall
             const ph = (W.t * 0.18 + m.seed * 0.1) % 1;
             const wall = m.y > MID_Y ? RW - 9 : 9;
@@ -662,30 +739,14 @@ export function createWorld(ice, seedKey) {
           }
         } else if (loose && (m === fore || Math.hypot(m.x - pk.x, m.y - pk.y) < 10)) {
           tx = pk.x + pk.vx * 0.3; ty = pk.y + pk.vy * 0.3; mv = 26;
-        } else if (attacking) {
-          const inZone = (pk.x - offBlue(side)) * dir > 0;
-          if (isD) {
-            tx = inZone ? offBlue(side) + dir * 4 : pk.x - dir * 22; ty = laneY(side, m.slot);
-            if (inZone) m.face = dir > 0 ? 0 : Math.PI;
-          } else {
-            tx = clamp(pk.x + dir * (8 + 6 * (m.slot === 1 ? 0.5 : 1)), Math.min(ownGoal(side), offGoal(side)) + 14, Math.max(ownGoal(side), offGoal(side)) - 14);
-            if (inZone) tx = offGoal(side) - dir * (14 + (m.slot === 1 ? 10 : 4));
-            ty = laneY(side, m.slot) + Math.sin(W.t * 0.7 + m.seed) * 5;
-          }
-          mv = 21;
-        } else if (m === fore) {
+        } else if (m === fore && !attacking) {
+          // the forechecker: on the man with the puck
           const c2 = carrier || pk;
           tx = c2.x - dir * 1.5; ty = c2.y; mv = 24;
         } else {
-          // mark: stand between your man and your own net, the D closer to the net
-          const man = opp.find((o) => o.slot === m.slot) || opp[m.slot % Math.max(1, opp.length)];
-          const g = ownGoal(side);
-          if (man) {
-            const k = isD ? 0.45 : 0.22;
-            tx = lerp(man.x, g + dir * 8, k); ty = lerp(man.y, MID_Y, k);
-            if (isD) { m.face = Math.atan2(pk.y - m.y, pk.x - m.x); }
-          } else { tx = g + dir * 20; ty = laneY(side, m.slot); }
-          mv = 20;
+          // everyone else plays his position (see `systemSpot`)
+          const sp = systemSpot(m, side, attacking ? 'attack' : 'defend', carrier, roles[side]);
+          tx = sp.tx; ty = sp.ty; mv = sp.mv; if (sp.face != null) m.face = sp.face;
         }
         const c = insideRink(tx, ty, 2.5); if (c) { tx = c.x; ty = c.y; }
         m.tx = tx; m.ty = ty; m.maxV = mv; m.acc = 26;
@@ -731,7 +792,9 @@ export function createWorld(ice, seedKey) {
     // the carrier moves it
     const side = carrier.side, dir = attackDir(side);
     if (W.t > A.nextPass) {
-      A.nextPass = W.t + 1.3 + rand() * 2.2;
+      // in the zone it moves quicker, man to man; through the neutral zone a carrier skates more
+      const zone = (carrier.x - offBlue(side)) * dir > 0;
+      A.nextPass = W.t + (zone ? 0.9 + rand() * 1.5 : 1.3 + rand() * 2.2);
       const team = W.mates(side).filter((m) => m !== carrier && !m.scripted && !m.rag && !m.blend && m.stick);
       const opp = W.mates(side === 'a' ? 'h' : 'a');
       const neutral = Math.abs(carrier.x - RL / 2) < 18;
@@ -749,7 +812,11 @@ export function createWorld(ice, seedKey) {
         const fwd = (m.x - carrier.x) * dir;
         const d = Math.hypot(m.x - carrier.x, m.y - carrier.y);
         if (d < 8 || d > 70) continue;
-        const sc = open * 1.2 + clamp(fwd, -20, 25) * 0.4 + rand() * 6;
+        // the plays: in the zone, back to the points, D to D, low to high; through the neutral
+        // zone, the stretch pass to a winger in his lane
+        let sc = open * 1.2 + rand() * 6;
+        if (zone) sc += (isDef(m) && !isDef(carrier) ? 9 : 0) + (isDef(m) && isDef(carrier) ? 11 : 0) + (!isDef(m) && isDef(carrier) && Math.abs(m.x - offGoal(side)) < 30 ? 6 : 0);
+        else sc += clamp(fwd, -20, 25) * 0.4 + (m.slot === 0 || m.slot === 2 ? 4 : 0);
         if (sc > bs) { bs = sc; best = m; }
       }
       // a man standing him up in front: beat him with the hands instead of moving it
@@ -769,12 +836,13 @@ export function createWorld(ice, seedKey) {
         const lu = (to.x - carrier.x) * Math.cos(carrier.h) + (to.y - carrier.y) * Math.sin(carrier.h);
         const lv = -(to.x - carrier.x) * Math.sin(carrier.h) + (to.y - carrier.y) * Math.cos(carrier.h);
         const lane = opp.some((o) => { const t = clamp(((o.x - carrier.x) * (to.x - carrier.x) + (o.y - carrier.y) * (to.y - carrier.y)) / ((to.x - carrier.x) ** 2 + (to.y - carrier.y) ** 2 || 1), 0, 1); return Math.hypot(carrier.x + (to.x - carrier.x) * t - o.x, carrier.y + (to.y - carrier.y) * t - o.y) < 3; });
-        const kind = lu < -3 ? 'drop' : lane ? 'saucer' : lv < -4 && lu < 8 ? 'backpass' : 'pass';
+        const pd = Math.hypot(to.x - carrier.x, to.y - carrier.y);
+        const kind = lu < -3 && pd < 14 ? 'drop' : lane ? 'saucer' : (lv < -4 && lu < 8) || lu < -3 ? 'backpass' : 'pass';
         W.act(carrier, kind, kind === 'drop' ? 0.32 : 0.32);
         carrier.look = [to.x, to.y, 1];
         W.schedule(0.11, () => {
           if (W.puck.carrier !== carrier) return;
-          const spd = kind === 'drop' ? 18 : 62 + rand() * 18;
+          const spd = kind === 'drop' ? clamp(pd * 1.8, 16, 28) : 62 + rand() * 18;
           W.pass(carrier, to, spd);
           if (kind === 'saucer') W.puck.vz = 7;
           const tt = Math.hypot(to.x - carrier.x, to.y - carrier.y) / spd;

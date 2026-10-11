@@ -12,7 +12,7 @@
 // It proves the view RUNS and that its outcomes match the sim's. It does not look at
 // pixels and is not meant to.
 //
-// Run:  node scripts/shapes/rink-smoke.mjs
+// Run:  node scripts/shapes/rink-smoke.mjs [206|25]
 
 import fs from 'fs';
 import { __install } from './rink-dom-stub.mjs';
@@ -61,6 +61,8 @@ function gameLines(slot) {
 // Slot 206 has eight goals, five fights, a severed arm and a death in overtime; slot 25
 // has a pulled goalie. Between them every beat type the sim emits is staged.
 const seen = new Set();
+// a replay's stand-in world has the men, the puck and a camera of its own
+const src0ok = (RP) => { const s = RP.source; return s.bodies().length >= 10 && Number.isFinite(s.puck.x) && s.cam.mode === 'replay'; };
 async function play(slot) {
   const host = stub.makeHost();
   const view = createRinkView(host);
@@ -74,7 +76,7 @@ async function play(slot) {
   W.emit = (n, d) => { if (n === 'goalIn') goalsIn++; emit(n, d); };
   const resurfaced = { n: 0 };
   const rs = W.ice.resurface; W.ice.resurface = (...a) => { resurfaced.n++; return rs(...a); };
-  let lastFight = null, tApply = 0, landedAt = null, grabAt = null, boxAt = null;
+  let lastFight = null, tApply = 0, landedAt = null, grabAt = null, boxAt = null, sawBreakaway = false;
   // THE PUCK NEVER SNAPS. Outside a camera cut it never moves farther in a step than a
   // shot carries it, and nobody gains it from beyond a stick's reach.
   const jumps = [], snaps = [], pendingGives = [];
@@ -96,8 +98,8 @@ async function play(slot) {
     for (const k of cams) {
       if (W.cam.mode !== 'broadcast') continue;
       const pk = W.puck;
-      if (!inFrame(k.P, netX, MID_Y, 2)) unseen.push(`${k.view}: net at ${netX} out of frame ${when} (${(W.t - tApply).toFixed(2)}s)`);
-      else if (!inFrame(k.P, pk.x, pk.y, pk.z)) unseen.push(`${k.view}: puck out of frame ${when} (${(W.t - tApply).toFixed(2)}s)`);
+      if (!inFrame(k.P, netX, MID_Y, 2)) unseen.push(`${k.view}: net at ${netX} out of frame ${when} (${(W.t - tApply).toFixed(2)}s, puck ${pk.x.toFixed(0)},${pk.y.toFixed(0)}, cam ${k.c.cam.lx.toFixed(0)}/${k.c.cam.dist.toFixed(0)}, net cue ${W.cam.net})`);
+      else if (!inFrame(k.P, pk.x, pk.y, pk.z)) unseen.push(`${k.view}: puck out of frame ${when} (${(W.t - tApply).toFixed(2)}s, puck ${pk.x.toFixed(0)},${pk.y.toFixed(0)},${pk.z.toFixed(1)}, cam ${k.c.cam.lx.toFixed(0)}/${k.c.cam.ly.toFixed(0)}/${k.c.cam.dist.toFixed(0)}, mode ${W.cam.mode})`);
     }
   };
   const shoot0 = W.shoot;
@@ -126,8 +128,9 @@ async function play(slot) {
       if (W.fight) lastFight = W.fight;
       if (landedAt == null && D.state.beat && D.state.beat.landed) landedAt = W.t - tApply;
       if (grabAt == null && D.state.beat && D.state.beat.grab) grabAt = W.t - tApply;
+      if (W.banner && W.banner.text === 'BREAKAWAY!') sawBreakaway = true;
       if (boxAt == null && D.state.beat && D.state.beat.toBox) boxAt = W.t - tApply;
-      if (W.t >= next) { next = W.t + 4; view.renderer.render(W.t * 1000); renders++; }
+      if (W.t >= next) { next = W.t + 6; view.renderer.render(W.t * 1000); renders++; }
       if (until && until()) break;
     }
     stub.runTimers(0);
@@ -142,7 +145,8 @@ async function play(slot) {
     seen.add(g.type);
     const label = `${slot}: ${g.type}${g.kind && g.kind !== g.type ? `/${g.kind}` : ''} at ${g.section} ${g.clock}`;
     let ok = true;
-    tApply = W.t; landedAt = null; grabAt = null; boxAt = null;
+    tApply = W.t; landedAt = null; grabAt = null; boxAt = null; sawBreakaway = false;
+    const replays0 = W.replay.count;
     try { view.apply(g); } catch (e) { check(`${label} stages`, false, e.stack.split('\n').slice(0, 2).join(' ')); ok = false; }
     if (!ok) continue;
     const before = { inNet: W.puck.inNet, goals: goalsIn, on: { a: W.mates('a').length, h: W.mates('h').length }, broken: W.broken.size };
@@ -186,6 +190,28 @@ async function play(slot) {
     if ((g.type === 'chance' || g.type === 'goal') && cueT('out') != null && g.kind !== 'breakaway') check(`${label}: the puck arrives as the outcome is called`, landedAt != null && landedAt > cueT('shot') && Math.abs(landedAt - cueT('out')) < (g.type === 'goal' ? 2.4 : 1.2), `${g.shotType}: landed ${landedAt?.toFixed(2)}s, outcome line ${cueT('out')}s`);
     check(`${label} resolves`, !D.busy() || g.type === 'intermission', `still ${D.kind()} after ${limit}s`);
     if (g.type === 'goal') check(`${label}: it goes in`, goalsIn > before.goals && !!W.puck.inNet, `inNet=${W.puck.inNet}`);
+    if (g.kind === 'breakaway' || g.breakaway) check(`${label}: the breakaway gets its banner`, sawBreakaway);
+    // THE REPLAY. A goal the booth calls a replay on is run back: it starts on its cue, the
+    // picture comes from the recording (interpolated, every joint finite), the renderer
+    // draws it, and it hands back to the live game when it's done.
+    const rc = cueT('replay');
+    if (g.type === 'goal' && rc != null) {
+      const RP = W.replay;
+      // (it can start while the celebration is still going, before the beat resolves)
+      if (RP.count === replays0) run(Math.max(0.5, rc + 2 - (W.t - tApply)), () => RP.count > replays0);
+      check(`${label}: the replay starts on its cue`, RP.count > replays0);
+      let bad = 0, frames = 0, drew = 0;
+      const rs = W.t;
+      while (RP.active && W.t - rs < 20) {
+        run(0.5);
+        if (!RP.active) break;
+        const src = RP.frame(); frames++;
+        for (const b of src.bodies()) for (const p of src.rigOf(b)) if (p && !p.every(Number.isFinite)) bad++;
+        if (frames % 6 === 1) { view.renderer.render(W.t * 1000); drew++; }
+      }
+      check(`${label}: the replay plays back sound frames`, frames > 8 && bad === 0 && src0ok(RP), `${frames} frames, ${bad} bad joints`);
+      check(`${label}: the replay ends and hands back to live`, !RP.active && drew > 0);
+    }
     if (g.type === 'chance') check(`${label}: a ${g.kind} stays out`, goalsIn === before.goals);
     if (g.type === 'fight') {
       const F = lastFight; lastFight = null;
@@ -227,9 +253,14 @@ async function play(slot) {
   check(`${slot}: clear empties the host`, host.children.length === 0);
 }
 
-await play(206);
-await play(25);
-for (const t of ['faceoff', 'chance', 'goal', 'boards', 'fight', 'scrum', 'injury', 'death', 'pull', 'intermission']) {
+// Run bare, it plays both games. The push gate runs each game as its own gate (a slot number
+// as the argument), side by side, so neither carries the other's CPU. Between them every
+// beat type is staged: 206 has everything but a pulled goalie, 25 everything but a death.
+const ALL = ['faceoff', 'chance', 'goal', 'boards', 'fight', 'scrum', 'injury', 'death', 'pull', 'intermission'];
+const EXPECT = { 206: ALL.filter((t) => t !== 'pull'), 25: ALL.filter((t) => t !== 'death') };
+const slots = process.argv.slice(2).map(Number).filter((n) => EXPECT[n]);
+for (const slot of slots.length ? slots : [206, 25]) await play(slot);
+for (const t of slots.length ? [...new Set(slots.flatMap((n) => EXPECT[n]))] : ALL) {
   check(`a "${t}" was staged`, seen.has(t), [...seen].join(','));
 }
 for (const k of ['save', 'glove', 'pad', 'blocked', 'wide', 'post', 'breakaway', 'goal']) check(`SAVE has "${k}"`, !!__test.SAVE[k]);

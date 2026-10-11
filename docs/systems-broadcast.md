@@ -879,7 +879,7 @@ so a narrator cannot read the other league's records.
   by touch (`rushNames` on the beat says who each carrier index is), the release, the
   save, the draw and who won it, each punch, the hit as it lands. The `pbp.*` pools hold
   them, and 80% are eight words or fewer, so a screen reader finishes one before the next
-  arrives. The longer pools ride along as colour. A game runs to about 900 lines.
+  arrives. The longer pools ride along as colour. A game generates about 1,150 lines and airs about 1,000 in an hour slot.
 - **What the rink shows after the play is called too.** The drop of every draw, where a
   saved puck went (held, kicked to the corner, loose in the slot, rattled off the post),
   the lamp, the scorer wheeling away, the pile-on and the goalie's slump, the glass a hit
@@ -937,7 +937,8 @@ board, the sound mapping and the frame loop. The work is in `client/game/js/pane
 | `director.js` | One payload in, choreography out. `SAVE` and `kitFor` live here. |
 | `camera.js` | The broadcast camera both renderers draw through: its modes, the easing, the projection `P`, and `matrices()`, the same camera as GL matrices. |
 | `render.js` | The 2-D renderer: Mode-7 ice, the bowl, the boards, the reflections, the overlays. The fallback when there's no WebGL2. |
-| `hud.js` | What both renderers share besides the camera: the officials' and medics' kits, `bodyOpts`, and the fight pips and banner. |
+| `hud.js` | What both renderers share besides the camera: the officials' and medics' kits, `bodyOpts`, the fight pips, the banner and the REPLAY bug. |
+| `replay.js` | The instant replay: the last ten seconds of what the renderers draw, and the stand-in world they draw from while it plays. |
 | `rig.js` | The 21-joint skeleton: skating strides, shots, passes, dekes, checks, punches, goalie saves, ragdolls, the stick solver. |
 | `figure.js` | Bodies drawn as volumes: tapered limbs, a padded torso, kit, cage or visor, gloves, skates, blood. |
 | `textures.js` | The ice canvas and everything painted into it, the dasherboard ads and the crowd. |
@@ -1005,6 +1006,45 @@ on the `fetched` cue), and a dump or battle is followed by `pbp.chase`. The rink
 fails on any visible step of the puck over 1.6 ft outside a cut and any gain from beyond
 reach.
 
+**Positions and plays.** Between beats, and around whoever the director is scripting, the
+men play their positions (`assignRoles` and `systemSpot` in sim.js). On the rush the
+wingers are wide in their lanes and stay onside, the centre supports through the middle,
+and the D trail. In the zone the D hold the points (a D carrying it walks the line), one
+forward goes to the net, the nearest supports low and the third sits in the high slot. In
+their own end the strong-side D takes the corner, the other holds the front of the net, the
+centre covers low and the wingers take the points; through the neutral zone it's a 1-2-2.
+Passing follows the zone: back to the points, D to D and low to high in the zone, the
+stretch pass to a winger through the middle. A drop pass is only for a man right behind;
+farther back the pass is played firmly. In a scripted rush, a touch goes to the man in that
+slot unless he's out of the play (40 ft off), when the nearest teammate takes it and the
+name the booth gives it. The booth calls up to five touches of a near-miss or a goal and
+three of a routine chance, so the build-up is on air as well as on the ice.
+
+**Breakaways.** A breakaway chance, or a goal the narrator stages as one (`gd.breakaway`,
+about one even-strength goal in five), gets `pbp.breakaway` ("He's in alone!") on an
+`alone` cue. On it the rink puts up a BREAKAWAY banner with the shooter's name, moves the
+camera in (`W.cam.drama`), and has the nearest two defenders chase from behind and lose
+ground.
+
+**Instant replay.** [replay.js](../client/game/js/panels/rink/replay.js) keeps the last ten
+seconds of what the renderers draw, thirty times a second: every man's joints and kit,
+the puck and its tail, the loose gear, the lamp. It keeps nothing of the sim, so a replay
+can't change anything; the world plays on underneath it. On a goal the booth says
+`pbp.replay.start` ("Let's see that again.") on a `replay` cue, then walks through it
+(`pbp.replay.assist` or `.solo`, `.shot`, `.goalie`). On the cue the director runs the five
+seconds before the goal and a moment after at half speed. The renderers draw the replay's
+stand-in world, interpolated between frames, through a camera of their own at ice level
+(`replay` mode), letterboxed with a REPLAY bug. It ends on its own or when the next play
+comes in, and cuts back to live. The rink smoke checks every goal's replay starts, plays
+sound frames, draws and hands back.
+
+**Motion.** A skater leans into acceleration and sits back under braking (`b.accel`), and a
+hard stop at speed turns him side-on into a proper hockey stop. Up close (GLASS 2's
+`detail`) a man has gauntlet gloves with finger rolls and a thumb, a ridged helmet with ear
+guards and a chin strap, shoulder caps and elbow pads under the sweater, a stripe down the
+pants, a tongue and tendon guard on the skates, a curved blade, and a shoulder yoke on the
+jersey; a goalie has a trapper.
+
 **A shot leaves a tail.** `W.shoot(from, tgt, spd, type)` starts `pk.tail`: the puck's
 last fifth of a second of flight, faded by speed. Both renderers draw it as a faint slate
 streak (a white one vanishes on the ice), strongest at the puck and strongest of all on a
@@ -1015,11 +1055,15 @@ is a line of constant depth across the sheet and the whole ice texture maps to t
 with one `drawImage` per row. It lives in `camera.js` so both renderers frame a shot the
 same way; `matrices()` writes it out by hand for GL, mirror included.
 
-**The broadcast framing is NHL 99's.** High on the near side and close (54 ft back, so the
-players are big), panning with the puck and leading it a little the way it's going. When
+**The broadcast framing is NHL 99's.** High on the near side and close (44 ft back, 38 on
+a breakaway, so the players are big), panning with the puck and leading it well ahead the
+way it's going (three quarters of a second of its travel, up to 28 ft). When
 the play is within about 60 ft of a goal line, or the director says a shot is coming
 (`W.cam.net`, set when a rush reaches its shot leg and cleared when the beat ends), the
-camera widens and slides until that net is in frame with the puck. Every number follows
+camera widens and slides until that net is in frame with the puck. That framing is solved,
+not guessed: given the points that must be seen (the action, and the net when it matters),
+it slides across the ice and pulls back, up to 140 ft for a shot from centre, until every
+one projects inside the picture for the screen's own aspect ratio. Every number follows
 its target on a critically damped spring, on real time (`camera.update(w, h, now)`), so it
 starts and stops without a jolt and keeps moving through a hit-stop. The rail view widens
 its lens for a net in its zone and rises to the broadcast framing whenever a shot is
@@ -1110,7 +1154,7 @@ by the score bug, the full-screen graphics, the rink header, the idle screen and
 Gameday toggle itself, which wears a puck on a hockey night and a baseball otherwise
 (`_brandGamedayBtn` in tv.js).
 
-[scripts/shapes/rink-smoke.mjs](../scripts/shapes/rink-smoke.mjs) runs in `pretest:regress`.
+[scripts/shapes/rink-smoke.mjs](../scripts/shapes/rink-smoke.mjs) runs in `pretest:regress`, as two gates, one game each (`rink-smoke.mjs 206` and `rink-smoke.mjs 25`), side by side; run bare, it plays both.
 It plays two real games (the sim and the narrator, slots 206 and 25, which between them
 emit every beat type) through the view over a hand-cranked DOM, clock and canvas
 ([rink-dom-stub.mjs](../scripts/shapes/rink-dom-stub.mjs)). It checks that every beat

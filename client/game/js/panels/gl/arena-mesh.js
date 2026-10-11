@@ -241,7 +241,7 @@ function loft(b, rings, c, slot, seg = 16) {
 export function buildBody(b, bt, J, o) {
   for (let i = 0; i < 18; i++) if (!J[i] || !Number.isFinite(J[i][0])) return;
   const K = o.kit, gk = !!o.goalie, missing = o.missing || {}, det = o.detail ?? 1;
-  const seg = det ? 8 : 6;
+  const seg = det ? 10 : 6;
   const jersey = rgb(K.jersey), trim = rgb(K.trim), pants = rgb(K.pants), sock = rgb(K.sock), glove = rgb(K.glove), helmet = rgb(gk ? '#eef0f2' : K.helmet), skin = rgb(o.skin || '#e0b08c');
   const U = V.norm(V.sub(J[2], J[0]));
   const ortho = (v) => V.norm(V.sub(v, V.mul(U, V.dot(v, U))));
@@ -265,6 +265,11 @@ export function buildBody(b, bt, J, o) {
     tube(b, V.add(A, [0, 0, 0.05]), [A[0] + fw[0] * 0.12, A[1] + fw[1] * 0.12, 0.34], 0.19, 0.16, BOOT, seg);
     box(b, [heel[0], heel[1], 0.1], [toeC[0], toeC[1], 0.09], 0.035, 0.07, HOLDER, [0, 0, 1]);
     box(b, [heel[0] - fw[0] * 0.08, heel[1] - fw[1] * 0.08, 0.025], [toeC[0] + fw[0] * 0.14, toeC[1] + fw[1] * 0.14, 0.025], 0.012, 0.025, STEEL, [0, 0, 1]);
+    if (det) {
+      // the tongue up the front of the boot, and the tendon guard at the back
+      box(b, [A[0] + fw[0] * 0.14, A[1] + fw[1] * 0.14, 0.24], [A[0] + fw[0] * 0.2, A[1] + fw[1] * 0.2, 0.52], 0.1, 0.03, mix(BOOT, 0.25), fw);
+      box(b, [heel[0] - fw[0] * 0.04, heel[1] - fw[1] * 0.04, 0.32], [heel[0] - fw[0] * 0.07, heel[1] - fw[1] * 0.07, 0.62], 0.06, 0.025, mix(BOOT, 0.15), fw);
+    }
     if (gk) {
       const top = V.add(J[kn], [0, 0, 0.35]), bot = V.add(A, [0, 0, -0.15]);
       tube(b, top, bot, 0.5, 0.46, PAD, seg);
@@ -276,6 +281,8 @@ export function buildBody(b, bt, J, o) {
       const thighEnd = V.lerp(J[hip], J[kn], 0.9);
       tube(b, J[hip], thighEnd, 0.46, 0.41, pants, seg);
       band(b, J[hip], thighEnd, 0.46, 0.41, 0.95, 0.08, mix(pants, -0.45), seg);
+      // the stripe down the outside of the thigh
+      if (det) { const out = V.mul(ortho(V.sub(J[hip], V.lerp(J[10], J[13], 0.5))), 0.44); box(b, V.add(J[hip], out), V.add(thighEnd, V.mul(out, 0.92)), 0.06, 0.02, trim, out); }
       if (det) tube(b, V.add(J[kn], V.add(V.mul(F, 0.17), [0, 0, 0.12])), V.add(J[kn], V.add(V.mul(F, 0.18), [0, 0, -0.2])), 0.14, 0.12, sock, 6);
     }
   }
@@ -302,19 +309,34 @@ export function buildBody(b, bt, J, o) {
     const dir = V.norm(V.sub(H, E));
     const wrist = V.sub(H, V.mul(dir, gk ? 0.15 : 0.2));
     tube(b, V.add(S, V.mul(U, 0.04)), E, 0.28 * ar, 0.23 * ar, jersey, seg);
-    ellipsoid(b, V.add(S, V.mul(U, 0.02)), Ss, F, U, [0.3 * ar, 0.3 * ar, 0.28 * ar], jersey, 8, 5);
+    // the shoulder pad under the sweater: a cap that sits up and out over the joint
+    ellipsoid(b, V.add(V.add(S, V.mul(U, 0.06)), V.mul(Ss, side * 0.05)), Ss, F, U, [0.36 * ar, 0.34 * ar, 0.3 * ar], jersey, det ? 10 : 8, det ? 6 : 5);
     if (missing[side > 0 ? 'armL' : 'armR'] && !gk) { stump(V.add(E, V.mul(dir, 0.15)), dir, 0.2); continue; }
     tube3(b, E, wrist, 0.23 * ar, 0.2 * ar, 0.23 * ar, jersey, 0.25, seg);
+    // the elbow pad under the sleeve
+    if (det && !gk) ellipsoid(b, V.sub(E, V.mul(dir, 0.02)), dir, Ss, F, [0.22, 0.25, 0.25], jersey, 8, 5);
     if (!K.stripes) { band(b, E, wrist, 0.23 * ar, 0.23 * ar, 0.3, 0.1, trim, seg); band(b, E, wrist, 0.23 * ar, 0.23 * ar, 0.48, 0.06, trim, seg); }
     if (gk && side > 0) {
-      disc(b, V.add(H, V.mul(dir, 0.15)), F, 0.66, mix(trim, -0.05), 16, 0.12);
+      // the trapper: the cuff, the round pocket, the deep mitt
+      const tc = V.add(H, V.mul(dir, 0.15));
+      tube(b, V.sub(wrist, V.mul(dir, 0.2)), wrist, 0.32, 0.3, mix(trim, -0.05), seg);
+      disc(b, tc, F, 0.62, mix(trim, -0.05), 18, 0.12);
+      ellipsoid(b, V.add(tc, V.mul(F, 0.08)), V.cross(F, dir), dir, F, [0.42, 0.5, 0.16], mix(trim, 0.15), 10, 5);
     } else if (gk) {
       const up = V.norm(V.sub(U, V.mul(F, V.dot(U, F))));
       boxAxes(b, V.add(H, V.mul(F, 0.12)), V.cross(F, up), up, F, 0.38, 0.58, 0.06, rgb('#eceef1'));
     } else if (o.gloves !== false) {
-      const cuff0 = V.sub(wrist, V.mul(dir, 0.14)), palm = V.add(H, V.mul(dir, 0.13));
-      tube(b, cuff0, wrist, 0.22, 0.26, glove, seg);
+      // a hockey glove: the gauntlet flaring open toward the elbow, a trim band round it,
+      // the padded back of the hand with its finger rolls, and the thumb
+      const cuff0 = V.sub(wrist, V.mul(dir, 0.3)), palm = V.add(H, V.mul(dir, 0.14));
+      tube(b, cuff0, wrist, 0.3, 0.24, glove, seg);
+      band(b, cuff0, wrist, 0.3, 0.24, 0.3, 0.07, trim, seg);
       box(b, wrist, palm, 0.21, 0.17, mix(glove, 0.05));
+      if (det) {
+        const [p1, p2] = perp(dir);
+        for (let f = 0; f < 3; f++) { const at2 = V.add(V.lerp(wrist, palm, 0.35 + f * 0.25), V.mul(p2, 0.17)); box(b, V.sub(at2, V.mul(p1, 0.19)), V.add(at2, V.mul(p1, 0.19)), 0.045, 0.035, mix(glove, -0.18)); }
+        tube(b, V.add(V.lerp(wrist, palm, 0.3), V.mul(p1, 0.2)), V.add(V.lerp(wrist, palm, 0.75), V.mul(p1, 0.26)), 0.07, 0.065, mix(glove, -0.08), 6);
+      }
     } else {
       tube(b, wrist, H, 0.15, 0.14, skin, seg);
       box(b, V.sub(H, V.mul(dir, 0.05)), V.add(H, V.mul(dir, 0.22)), 0.15, 0.13, skin);
@@ -335,7 +357,14 @@ export function buildBody(b, bt, J, o) {
       sphere(b, Hc, R * 0.86, skin, det ? 10 : 7, det ? 7 : 5);
       ellipsoid(b, V.frame(Hc, Fh, -0.08, Uh, 0.1), Fh, Sd, Uh, [R * 0.88, R * 0.9, R * 0.74], rgb(o.hair || '#2a1c14'), det ? 10 : 7, 5);
     } else {
-      ellipsoid(b, V.frame(Hc, Fh, -0.06, Uh, 0.05), Fh, Sd, Uh, [R, R, R * 0.92], helmet, det ? 12 : 8, det ? 8 : 5);
+      ellipsoid(b, V.frame(Hc, Fh, -0.06, Uh, 0.05), Fh, Sd, Uh, [R, R, R * 0.92], helmet, det ? 14 : 8, det ? 9 : 5);
+      if (det && !gk) {
+        // the ridge over the crown, the ear guards, the chin strap
+        ellipsoid(b, V.frame(Hc, Fh, -0.08, Uh, 0.05 + R * 0.86), Fh, Sd, Uh, [R * 0.8, R * 0.22, R * 0.12], mix(helmet, 0.1), 10, 4);
+        for (const sd of [1, -1]) disc(b, V.frame(Hc, Fh, 0.02, Sd, sd * R * 0.93, Uh, -0.14), V.mul(Sd, sd), 0.17, mix(helmet, -0.15), 10, 0.06);
+        tube(b, V.frame(Hc, Fh, 0.02, Sd, R * 0.9, Uh, -0.24), V.frame(Hc, Fh, 0.3, Uh, -0.6), 0.02, 0.02, rgb('#16171b'), 4);
+        tube(b, V.frame(Hc, Fh, 0.02, Sd, -R * 0.9, Uh, -0.24), V.frame(Hc, Fh, 0.3, Uh, -0.6), 0.02, 0.02, rgb('#16171b'), 4);
+      }
     }
     if (det) {
       for (const sd of [0.13, -0.13]) sphere(b, V.frame(Hc, Fh, 0.43, Sd, sd, Uh, -0.16), 0.04, EYE, 6, 4);
@@ -358,8 +387,12 @@ export function buildBody(b, bt, J, o) {
     if (bend) { tube(b, J[18], bend, 0.07, 0.065, STICK, 6); tube(b, bend, J[19], 0.065, gk ? 0.09 : 0.06, STICK, 6); }
     else tube(b, J[18], J[19], 0.07, gk ? 0.09 : 0.06, STICK, 6);
     tube(b, J[18], V.lerp(J[18], J[19], 0.06), 0.08, 0.077, TAPE, 6);
-    box(b, V.add(J[19], [0, 0, 0.13]), V.add(J[20], [0, 0, 0.13]), 0.03, 0.13, STICK, [0, 0, 1]);
-    if (det) box(b, V.add(V.lerp(J[19], J[20], 0.15), [0, 0, 0.13]), V.add(V.lerp(J[19], J[20], 0.82), [0, 0, 0.13]), 0.034, 0.12, TAPE, [0, 0, 1]);
+    // the blade, curved: straight from the heel, then bending toward the toe
+    const mid = V.lerp(J[19], J[20], 0.55), bl = V.sub(J[20], J[19]), nrm = V.norm([-bl[1], bl[0], 0]);
+    const toe = V.add(J[20], V.mul(nrm, 0.12));
+    box(b, V.add(J[19], [0, 0, 0.13]), V.add(mid, [0, 0, 0.13]), 0.03, 0.13, STICK, [0, 0, 1]);
+    box(b, V.add(mid, [0, 0, 0.13]), V.add(toe, [0, 0, 0.12]), 0.03, 0.12, STICK, [0, 0, 1]);
+    if (det) { box(b, V.add(V.lerp(J[19], J[20], 0.15), [0, 0, 0.13]), V.add(mid, [0, 0, 0.13]), 0.034, 0.12, TAPE, [0, 0, 1]); box(b, V.add(mid, [0, 0, 0.13]), V.add(V.lerp(mid, toe, 0.7), [0, 0, 0.125]), 0.034, 0.115, TAPE, [0, 0, 1]); }
   }
   if (J.meta && J.meta.bottle) tube(b, J.meta.bottle, V.add(J.meta.bottle, [0, 0, -0.75]), 0.12, 0.13, rgb('#468cdc'), 8);
 }

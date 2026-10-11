@@ -23,6 +23,7 @@ import { clamp, lerp, angWrap, rng, hash } from './util.js';
 import { RL, RW, MID_Y, GOAL_X, NET_HALF, NET_H, DOT_FT, BOARD_H, GLASS_H, attackDir, insideRink, panelAt } from './geo.js';
 import { SHOTS, releaseAt, bladeWorld, skaterRig } from './rig.js';
 import { makeBody } from './sim.js';
+import { createReplay } from './replay.js';
 
 // What each outcome is called on screen. The broadcast regress checks every save kind the
 // sim can emit has an entry here.
@@ -60,6 +61,9 @@ export function createDirector(W, opts = {}) {
   // Things that outlive the beat that started them: a man skating to the box, a stretcher
   // on its way off. They tick until done, and a camera cut finishes them on the spot,
   // since nobody sees the jump.
+  // the instant replay: it keeps the last ten seconds as they're played (see replay.js)
+  const replay = createReplay(W);
+  W.replay = replay;
   const medics = [0, 1].map((i) => { const m = makeBody('medic', 'o', i, 4242 + i); m.active = false; m.stick = false; m.maxV = 14; W.extras.push(m); return m; });
 
   // default dress and numbers, so the first frame is a hockey game
@@ -134,7 +138,7 @@ export function createDirector(W, opts = {}) {
     W.clearSchedule();
     const B = { kind, t0: W.t, update: null, cleanup: null, landed: false, locked: new Set(), ownsCam: false };
     D.beat = B;
-    W.cam.net = null;
+    W.cam.net = null; W.cam.drama = false;
     return B;
   }
   const at = (B, dt, fn) => W.schedule(dt, () => { if (D.beat === B) fn(); });
@@ -144,7 +148,7 @@ export function createDirector(W, opts = {}) {
     land(B);
     B.finishTo?.();
     D.beat = null;
-    W.cam.net = null;
+    W.cam.net = null; W.cam.drama = false;
     releaseAll();
     opts.onDone?.(B.kind);
   }
@@ -342,6 +346,19 @@ export function createDirector(W, opts = {}) {
     }
     D.needCut = false;
     const slotBody = (k) => W.mates(att).find((m) => m.slot === k) || null;
+    // The man who takes a touch: the one in that slot, unless he's out of the play (40 ft or
+    // more from it), when it's whoever of his side is nearest. Either way he wears the name
+    // the booth gives that touch, so the call and the sweater agree. Chosen once per touch.
+    const touchBody = (nd) => {
+      if (nd.carrier < 0) return null;
+      if (nd.body !== undefined) return nd.body;
+      let b = slotBody(nd.carrier);
+      if (!b || b.rag || Math.hypot(b.x - nd.x, b.y - nd.y) > 40) b = W.nearestOf(W.mates(att).filter((m) => m !== cur), nd.x, nd.y) || b;
+      const names = Array.isArray(p.rushNames) ? p.rushNames : null;
+      if (b && names && names.length) nameBody(b, names[((nd.carrier % names.length) + names.length) % names.length]);
+      nd.body = b;
+      return b;
+    };
     let li = 1, leg = null, lastPasser = null;
     script(cur);
 
@@ -353,7 +370,7 @@ export function createDirector(W, opts = {}) {
       // the line for this touch hasn't aired yet: move toward it, timed to arrive with it
       const want = cueOf(p, 'node', 'i', nodes[li].oi);
       if (want != null && W.t - B.t0 < want - 0.05) {
-        const nd = nodes[li], tb = nd.carrier >= 0 ? slotBody(nd.carrier) : null;
+        const nd = nodes[li], tb = touchBody(nd);
         const passing = tb && tb !== cur && nd.ev !== 'battle' && nd.ev !== 'dump';
         if (passing) { script(tb); cur.tx = lerp(cur.x, nd.x, 0.25); cur.ty = lerp(cur.y, nd.y, 0.25); }
         leg = { kind: 'wait', until: want, mover: passing ? tb : cur, tx: nd.x, ty: nd.y, t: 0 };
@@ -361,7 +378,7 @@ export function createDirector(W, opts = {}) {
       }
       const nd = nodes[li], nx = nodes[li + 1];
       li++;
-      const tb = nd.carrier >= 0 ? slotBody(nd.carrier) : null;
+      const tb = touchBody(nd);
       if (nd.ev === 'battle' || nd.ev === 'dump') {
         // whoever can get there first goes after it (the man the booth names on the next
         // touch, if he's about as close), so the puck is run down rather than waited for
@@ -403,11 +420,13 @@ export function createDirector(W, opts = {}) {
         tb.tx = nd.x; tb.ty = nd.y; tb.maxV = 22;
         const lu = (tb.x - cur.x) * Math.cos(cur.h) + (tb.y - cur.y) * Math.sin(cur.h);
         const lv = -(tb.x - cur.x) * Math.sin(cur.h) + (tb.y - cur.y) * Math.cos(cur.h);
-        const pkind = lu < -3 ? 'drop' : lv < -4 && lu < 8 ? 'backpass' : r() < 0.15 ? 'saucer' : 'pass';
+        // a drop pass is for a man right behind him; farther back it's played firmly
+        const pd = Math.hypot(tb.x - cur.x, tb.y - cur.y);
+        const pkind = lu < -3 && pd < 14 ? 'drop' : (lv < -4 && lu < 8) || lu < -3 ? 'backpass' : r() < 0.15 ? 'saucer' : 'pass';
         W.act(cur, pkind, 0.32); cur.look = [tb.x, tb.y, 1];
         const from = cur;
         at(B, 0.11, () => {
-          W.give(from); W.pass(from, tb, pkind === 'drop' ? 20 : 64 + r() * 14);
+          W.give(from); W.pass(from, tb, pkind === 'drop' ? clamp(pd * 1.8, 16, 28) : 64 + r() * 14);
           if (pkind === 'saucer') pk.vz = 7;
           W.act(tb, 'receive', 0.6, [from.x, from.y]);
         });
@@ -429,6 +448,14 @@ export function createDirector(W, opts = {}) {
       const sn = nodes[nodes.length - 2];
       // a shot is coming: the camera brings the net into frame now, before the puck is away
       W.cam.net = netX;
+      // in alone: the banner goes up as the booth calls it, the camera moves in, and the
+      // nearest two defenders chase from behind
+      if (kind === 'breakaway' || (kind === 'goal' && p.breakaway)) {
+        const al = cueOf(p, 'alone'), wait = al != null ? Math.max(0, al - (W.t - B.t0)) : 0;
+        at(B, wait, () => { W.banner = { text: 'BREAKAWAY!', sub: surname(p.shooter).toUpperCase(), t0: W.t, dur: 1.9, col: '#f0bd4c' }; W.crowd = 1; W.cam.drama = true; W.sfx('roar'); });
+        B.chasers = W.mates(def).filter((m) => !m.rag).sort((a2, b2) => Math.hypot(a2.x - cur.x, a2.y - cur.y) - Math.hypot(b2.x - cur.x, b2.y - cur.y)).slice(0, 2);
+        B.chasers.forEach((m) => script(m));
+      }
       let shooter = cur, setup = null;
       if ((type === 'onetimer' || type === 'tip') && W.mates(att).length > 1) {
         // a one-timer and a tip need somebody else to put it there
@@ -577,6 +604,14 @@ export function createDirector(W, opts = {}) {
       at(B, 0.6, () => { W.cam.mode = 'push'; });
       B.celebrate = sh;
       at(B, 4.2, () => finish(B));
+      // the replay, when the booth calls for it: the last five seconds and a moment after,
+      // at half speed. Scheduled on the world, not the beat, which finishes first; a new
+      // play coming in cancels it.
+      const rc = cueOf(p, 'replay');
+      if (rc != null) {
+        const goalT = W.t, seq = D.seq, wait = Math.max(1.7, B.t0 + rc - W.t);
+        W.schedule(wait, () => { if (D.seq === seq && replay.start(goalT - 5, goalT + 1.5, 0.5)) { W.cam.flash = true; } });
+      }
     }
 
     B.onEvent = (name) => { if (name === 'goalIn' && kind === 'goal' && !B.scored) { B.scored = true; goal(); } };
@@ -611,7 +646,8 @@ export function createDirector(W, opts = {}) {
       // next touch's line, the touch in progress finishes now.
       if (callCue != null && rel >= callCue && !['approach', 'shooting', 'wrapIn', 'feed'].includes(leg.kind)) {
         if (leg.foe) leg.foe.scripted = false;
-        if (leg.kind === 'pass' && leg.to) cur = leg.to;
+        // (only to the man a pass is actually on its way to; one never made stays with the passer)
+        if (leg.kind === 'pass' && leg.to && (pk.target === leg.to || pk.carrier === leg.to || pk.home === leg.to)) cur = leg.to;
         if (leg.kind === 'chase' && leg.chaser) cur = leg.chaser;
         script(cur);
         if (pk.carrier !== cur && pk.home !== cur) W.collect(cur, true);
@@ -665,6 +701,8 @@ export function createDirector(W, opts = {}) {
         }
       } else if (leg.kind === 'approach') {
         const sh = leg.shooter;
+        // on a breakaway the defenders are a stride or two behind him, and losing ground
+        if (B.chasers) B.chasers.forEach((m, i) => { m.tx = sh.x - dir * (7 + i * 5); m.ty = sh.y + (i ? 4 : -4); m.maxV = Math.max(8, Math.hypot(sh.vx, sh.vy) - 1.5); });
         if (leg.breakaway && g) { g.scripted = true; g.tx = g.x; g.ty = g.y; }
         if (shotCue != null) {
           // he lets it go as the shot is called, given a moment to get somewhere he can
@@ -1274,6 +1312,11 @@ export function createDirector(W, opts = {}) {
   // ── the entry point ───────────────────────────────────────────────────────
   function stage(p) {
     if (!p) return null;
+    D.seq = (D.seq || 0) + 1;
+    if (replay.active) { replay.stop(); W.cam.cut++; W.cam.flash = true; }
+    // only a goal is ever replayed, so only a goal's play is recorded: keeping every man's
+    // joints thirty times a second all game would be work nobody watches
+    D.recording = p.type === 'goal';
     dress(p);
     if (D.intermission && p.type !== 'intermission') { if (D.beat) D.beat.cleanup = null; endIntermission(); }
     switch (p.type) {
@@ -1294,6 +1337,8 @@ export function createDirector(W, opts = {}) {
 
   // the director's own tick, run by the world before anything else each step
   W.script = (dt) => {
+    // the replay: kept every step; played on the world's clock, back to live when it ends
+    if (replay.active) { if (!replay.tick(dt)) { W.cam.cut++; W.cam.flash = true; } } else if (D.recording) replay.record();
     const B = D.beat;
     if (B && B.update) B.update(dt, W.t - B.t0);
     if (!B || !B.ownsCam) W.cam.focus = [pk.x, pk.y];

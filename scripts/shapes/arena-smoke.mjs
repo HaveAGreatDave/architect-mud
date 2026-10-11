@@ -99,7 +99,9 @@ function body(b, label, mut, budget) {
   }
 }
 const skaters = W.bodies().filter((b) => b.kind === 'skater');
-const BUD = [1500, 2600], BUD_GK = [1700, 2800];
+// close up (det1) a man has gauntlets, a ridged helmet, ear guards and elbow pads, so his
+// budget is higher than a man at broadcast distance (det0)
+const BUD = [1500, 3200], BUD_GK = [1700, 3400];
 body(skaters[0], 'skater', null, BUD);
 body(W.goalie.a, 'goalie', null, BUD_GK);
 body(W.officials[0], 'official', null, BUD);
@@ -191,6 +193,34 @@ body(skaters[8], 'skater missing his head', null, BUD);
   worst = watch(5);
   check('a netted puck comes out through the mouth to him', pk.carrier === m && !pk.inNet, `carrier ${pk.carrier && pk.carrier.name}, inNet ${pk.inNet}`);
   check('coming out of the net it never jumps', worst < 1.6, `${worst.toFixed(2)} ft in a step`);
+}
+
+// ── positions ────────────────────────────────────────────────────────────────
+// Between plays the men play their positions. Set a club up with the puck deep in the
+// other end and they should be on the points, at the net and in support, with the other
+// side's defence in front of their goal; carry it through the neutral zone and the wingers
+// are wide in their lanes and onside.
+{
+  const W3 = createWorld(createIce(document), 'positions');
+  createDirector(W3, {});
+  W3.script = null; W3.puckScripted = false; W3.frozen = false;
+  const atk = 'a', dir = 1, offBlue = W3.offBlue(atk), offGoal = W3.offGoal(atk);
+  const fwd = W3.mates(atk).find((m) => m.slot === 0);
+  const hold = () => { const pk = W3.puck; if (pk.carrier !== fwd) { pk.x = fwd.x + 2; pk.y = fwd.y; pk.z = 0; pk.vx = pk.vy = 0; W3.give(fwd, true); } W3.amb.nextPass = W3.t + 99; W3.amb.lastTurn = W3.t; };
+  // in the zone
+  fwd.x = offGoal - 20; fwd.y = 12; hold();
+  for (let i = 0; i < 5 / DT; i++) { hold(); W3.step(DT); }
+  const ds = W3.mates(atk).filter((m) => m.slot === 3 || m.slot === 4);
+  check('in the zone: both D are on the points', ds.length === 2 && ds.every((d) => Math.abs(d.x - offBlue) < 9), ds.map((d) => d.x.toFixed(0)).join(','));
+  check('in the zone: a forward is at the net', W3.mates(atk).some((m) => m !== fwd && Math.hypot(m.x - (offGoal - 7), m.y - 42.5) < 8));
+  const dd = W3.mates('h').filter((m) => m.slot === 3 || m.slot === 4);
+  check('defending: a D is in front of the net', dd.some((d) => Math.hypot(d.x - (W3.ownGoal('h') - 8), d.y - 42.5) < 10), dd.map((d) => `${d.x.toFixed(0)},${d.y.toFixed(0)}`).join(' '));
+  // through the neutral zone
+  fwd.x = 92; fwd.y = 42; hold();
+  for (let i = 0; i < 6 / DT; i++) { hold(); fwd.x = Math.min(fwd.x, 100); W3.step(DT); }
+  const wings = W3.mates(atk).filter((m) => (m.slot === 0 || m.slot === 2) && m !== fwd);
+  check('on the rush: the winger is wide in his lane', wings.length > 0 && wings.every((m) => Math.abs(m.y - 42.5) > 14), wings.map((m) => m.y.toFixed(0)).join(','));
+  check('on the rush: nobody is offside', W3.mates(atk).every((m) => m === fwd || (m.x - offBlue) * dir < 2), W3.mates(atk).map((m) => m.x.toFixed(0)).join(','));
 }
 
 // ── 3. the ice lists what changed ────────────────────────────────────────────
