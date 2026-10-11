@@ -1,13 +1,14 @@
 # Deadball in GLASS 2
 
-**Status: design, revised 2026-10-11.** A plan for giving Deadball a 3-D sub-screen the way Cluster
-Puck got Rinkside, at the highest fidelity the engine can reach. Deadball is a live sport on KSAB,
-and the broadcast borrows the look of a 1990s arcade baseball game. That means skinned, detailed
-players, authored animation with a wide spread of plays, light from the park's own towers and a crowd
-that fills the stands. Around them go chunky chrome lettering, splash words, trails and fireworks, an
-announcer over a full synthesised sound bank, a playoff package, and a park inside the Curtain on
-Halcyon Fields. No code for it exists yet, apart from the audio engine work on its own branch. The
-questions that need an answer before Phase 1 are at the end.
+**Status: Phase 0 and sim v2 built; Phase 1 under way behind a flag, with the park in 3-D built
+(1a).** A plan for giving Deadball a 3-D sub-screen the way Cluster Puck got Rinkside, at the
+highest fidelity the engine can reach. Deadball is a live sport on KSAB, and the broadcast borrows
+the look of a 1990s arcade baseball game. That means skinned, detailed players, authored animation
+with a wide spread of plays, light from the park's own towers and a crowd that fills the stands.
+Around them go chunky chrome lettering, splash words, trails and fireworks, an announcer over a full
+synthesised sound bank, a playoff package, and a park inside the Curtain on Halcyon Fields. What's
+built is in [systems-broadcast.md](../systems-broadcast.md#the-park-in-3-d-the-grandstand-behind-a-flag)
+and under Phases below. The audio engine work is on its own branch.
 
 How it got here, all on 2026-10-11:
 
@@ -42,7 +43,8 @@ are authored), [glass-notes.md](../reference/glass-notes.md) (GLASS 2's traps),
 ([gl/arena.js](../../client/game/js/panels/gl/arena.js)), the club seam
 ([club-crest.js](../../client/game/js/panels/club-crest.js)), the CPhL build script and the
 hockey pacing are on `cphl-club-identities` and `ccr-91a64fd1-pbqpbt`, not on `main`. Main has
-the older 2-D-only `gameday-rink.js`. That work has to reach `main` before Phase 1 starts.
+the older 2-D-only `gameday-rink.js`. This branch is built on that work, so it reaches `main` with
+this branch or ahead of it.
 
 ## The short version
 
@@ -416,6 +418,7 @@ ports what it uses to `gl/spectacle.js` rather than importing the windshield.
 | `diamond/anim.js` | THOMAS | The clip player: sampling, blending, root motion, IK and contact layers. |
 | `diamond/camera.js`, `diamond/replay.js`, `diamond/hud.js` | THOMAS | Shots and cuts; the replay buffer; the arcade graphics package. |
 | `diamond/dirt.js` | THOMAS | The infield canvas and what's painted into it. |
+| `diamond/board.js` | THOMAS | Which of the scoreboard's lamps are lit: the line score, the count and the names. |
 | `gl/ballpark.js` | GLASS | The renderer: passes, lights, materials. Returns null without WebGL2. |
 | `gl/ballpark-mesh.js` | GLASS | Pure builders for the park from venue data and for equipment. Node-runnable. |
 | `gl/skin.js` | GLASS | GPU skinning: bone palettes in a float texture, four weights a vertex, dual-quaternion option. New to GLASS. |
@@ -1388,6 +1391,17 @@ Phase 3, or with sim v2 if that comes later.
 - The park's site and the skyline manifest; `city-set.js`, and `gl/cityscape.js` with the facades,
   the streets, the lamps and the Curtain, at a fixed hour; the park's exterior.
 - Tested by: `ballpark-smoke`, `cityscape-smoke`, sandbox screenshots, GPU timings on two machines.
+- **1a built:** the park from the venue's defaults (`gl/ballpark-mesh.js`, about 54,000 triangles
+  and 5,100 fans, the crowd instanced at its far level of 196 triangles a figure); `gl/ballpark.js`
+  on `hdr.js` with the towers as the only lights, the painted field and the dirt canvas, bloom and
+  ACES taken in linear light (it uses `hdr.resolve()` and grades its own frame); the scoreboard lit
+  from the payloads; the shots with their matrices held to the pinhole; the HTML score bug, line
+  and cards; `ballpark-smoke`; the sandbox's `?park=3d`. The flag is the localStorage key
+  `deadball.grandstand`. Two things changed on the way: the wall's distances lie along the wall,
+  not square to the bearing (in the gaps the fence runs at a slant, and a plate square to the
+  bearing sank an end into the padding, so 375 read as 75, in the look-dev too); and a shot fits a
+  wide screen by closing its vertical lens by the square root of the extra width, except the
+  batting view, which keeps its height so the plate stays in frame.
 
 **Phase 2: skinned players and the pitch.** Behind the flag.
 - `gl/skin.js`, the rig, `diamond/anim.js`, the Pose Lab, the pitching, batting, catching and

@@ -367,15 +367,10 @@ export function createHDRLayer(gl) {
     gl.useProgram(prog);
   };
 
-  // Resolve, gather the bloom and grade it onto the default framebuffer. Returns what it did, or
-  // null if there was nothing bound to resolve.
-  function composite(opts = {}) {
-    if (!bound) return null;
-    bound = false;
-
-    // ⚠ THE STATE THE SCENE LEFT BEHIND HAS TO GO BEFORE ANY OF THIS. A full-screen pass with the
-    // depth test still enabled is tested against whatever the city wrote, which on a frame with a
-    // building in the middle of it means the composite is drawn everywhere EXCEPT where the city is.
+  // ⚠ THE STATE THE SCENE LEFT BEHIND HAS TO GO BEFORE ANY OF THIS. A full-screen pass with the
+  // depth test still enabled is tested against whatever the city wrote, which on a frame with a
+  // building in the middle of it means the composite is drawn everywhere EXCEPT where the city is.
+  function resolveScene() {
     gl.disable(gl.DEPTH_TEST);
     gl.depthMask(false);
     gl.disable(gl.BLEND);
@@ -388,40 +383,49 @@ export function createHDRLayer(gl) {
     gl.blitFramebuffer(0, 0, W, H, 0, 0, W, H, gl.COLOR_BUFFER_BIT, gl.NEAREST);
     gl.bindFramebuffer(gl.READ_FRAMEBUFFER, null);
     gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
+  }
 
+  // 2. Bright-pass into the first octave, then each later octave downsamples the one above it.
+  function gatherBloom(opts) {
+    for (let i = 0; i < chain.length; i++) {
+      const c = chain[i];
+      if (i === 0) {
+        use(bright, c.bright.fbo, c.bright.w, c.bright.h);
+        gl.bindTexture(gl.TEXTURE_2D, resolved.tex);
+        gl.uniform1i(u.brightSrc, 0);
+        gl.uniform1f(u.brightT, opts.threshold == null ? 1 : opts.threshold);
+        gl.uniform1f(u.brightK, opts.knee == null ? 0.5 : opts.knee);
+        gl.uniform1f(u.brightLin, opts.linear > 0 ? 1 : 0);
+      } else {
+        use(down, c.bright.fbo, c.bright.w, c.bright.h);
+        gl.bindTexture(gl.TEXTURE_2D, chain[i - 1].b.tex);
+        gl.uniform1i(u.downSrc, 0);
+        gl.uniform2f(u.downStep, 0.5 / chain[i - 1].b.w, 0.5 / chain[i - 1].b.h);
+      }
+      fullscreen();
+      // 3. Separable blur, horizontal then vertical.
+      use(blur, c.a.fbo, c.a.w, c.a.h);
+      gl.bindTexture(gl.TEXTURE_2D, c.bright.tex);
+      gl.uniform1i(u.blurSrc, 0);
+      gl.uniform2f(u.blurStep, 1 / c.a.w, 0);
+      fullscreen();
+      use(blur, c.b.fbo, c.b.w, c.b.h);
+      gl.bindTexture(gl.TEXTURE_2D, c.a.tex);
+      gl.uniform1i(u.blurSrc, 0);
+      gl.uniform2f(u.blurStep, 0, 1 / c.b.h);
+      fullscreen();
+    }
+  }
+
+  // Resolve, gather the bloom and grade it onto the default framebuffer. Returns what it did, or
+  // null if there was nothing bound to resolve.
+  function composite(opts = {}) {
+    if (!bound) return null;
+    bound = false;
+    resolveScene();
     const bloomOn = opts.bloom > 0;
     gl.activeTexture(gl.TEXTURE0);
-    if (bloomOn) {
-      // 2. Bright-pass into the first octave, then each later octave downsamples the one above it.
-      for (let i = 0; i < chain.length; i++) {
-        const c = chain[i];
-        if (i === 0) {
-          use(bright, c.bright.fbo, c.bright.w, c.bright.h);
-          gl.bindTexture(gl.TEXTURE_2D, resolved.tex);
-          gl.uniform1i(u.brightSrc, 0);
-          gl.uniform1f(u.brightT, opts.threshold == null ? 1 : opts.threshold);
-          gl.uniform1f(u.brightK, opts.knee == null ? 0.5 : opts.knee);
-          gl.uniform1f(u.brightLin, opts.linear > 0 ? 1 : 0);
-        } else {
-          use(down, c.bright.fbo, c.bright.w, c.bright.h);
-          gl.bindTexture(gl.TEXTURE_2D, chain[i - 1].b.tex);
-          gl.uniform1i(u.downSrc, 0);
-          gl.uniform2f(u.downStep, 0.5 / chain[i - 1].b.w, 0.5 / chain[i - 1].b.h);
-        }
-        fullscreen();
-        // 3. Separable blur, horizontal then vertical.
-        use(blur, c.a.fbo, c.a.w, c.a.h);
-        gl.bindTexture(gl.TEXTURE_2D, c.bright.tex);
-        gl.uniform1i(u.blurSrc, 0);
-        gl.uniform2f(u.blurStep, 1 / c.a.w, 0);
-        fullscreen();
-        use(blur, c.b.fbo, c.b.w, c.b.h);
-        gl.bindTexture(gl.TEXTURE_2D, c.a.tex);
-        gl.uniform1i(u.blurSrc, 0);
-        gl.uniform2f(u.blurStep, 0, 1 / c.b.h);
-        fullscreen();
-      }
-    }
+    if (bloomOn) gatherBloom(opts);
 
     // 4. Grade onto the canvas — or, with FXAA, into an eight-bit target that pass then reads.
     // ⚠ Built lazily and kept, so a frame with FXAA off allocates nothing new.
@@ -459,6 +463,24 @@ export function createHDRLayer(gl) {
     return { samples, octaves: chain.length, fxaa: aa };
   }
 
+  // For a renderer that grades its own frame (gl/ballpark.js): resolve the scene and gather the
+  // bloom as the composite would, then hand back the textures instead of drawing them. The caller
+  // draws its final pass onto the canvas and owns the curve. Null if there was nothing bound.
+  // ⚠ The textures are this layer's own and are overwritten by the next frame's resolve.
+  function resolve(opts = {}) {
+    if (!bound) return null;
+    bound = false;
+    resolveScene();
+    const bloomOn = opts.bloom > 0;
+    gl.activeTexture(gl.TEXTURE0);
+    if (bloomOn) gatherBloom(opts);
+    gl.bindVertexArray(null);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.viewport(0, 0, W, H);
+    gl.depthMask(true);
+    return { scene: resolved.tex, bloom: bloomOn ? chain.map((c) => c.b.tex) : null, w: W, h: H, samples };
+  }
+
   // ── WHAT IS ACTUALLY IN THE BUFFER ─────────────────────────────────────────
   //
   // ⚠ A DIAGNOSTIC, AND IT EXISTS BECAUSE THE BLOOM READ 0.0% AT EVERY STRENGTH AND THERE WAS NO WAY
@@ -490,7 +512,7 @@ export function createHDRLayer(gl) {
       overOnePct: +(over / (W * H) * 100).toFixed(2) };
   }
 
-  return { bind, composite, peak, dispose, get size() { return [W, H]; }, get samples() { return samples; },
+  return { bind, composite, resolve, peak, dispose, get size() { return [W, H]; }, get samples() { return samples; },
     // The framebuffer the scene is drawing into while bound, so a pass that has to rebind it after
     // drawing somewhere else can say so without asking the driver (see cloudvol.js).
     get drawFbo() { return bound ? msFbo : null; } };

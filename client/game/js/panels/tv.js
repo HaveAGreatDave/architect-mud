@@ -19,10 +19,12 @@ import { crestSvg, clubOf, wantClubs, onClubs } from './club-crest.js';
 // The two sports sub-screens (gameday.js, gameday-rink.js) are about 209 KB, and they
 // were in the boot download for every player. They load on the first sports broadcast
 // instead, which is when the Gameday button appears; opening it awaits the same promise.
+// Baseball mounts through gameday-grandstand.js, which is the 2-D Gameday unless its flag
+// turns on the 3-D park.
 let _gamedayViews = null;
 function loadGamedayViews() {
-  return (_gamedayViews ??= Promise.all([import('./gameday.js'), import('./gameday-rink.js')])
-    .then(([g, r]) => ({ createGamedayView: g.createGamedayView, createRinkView: r.createRinkView }))
+  return (_gamedayViews ??= Promise.all([import('./gameday-grandstand.js'), import('./gameday-rink.js')])
+    .then(([g, r]) => ({ createGrandstandView: g.createGrandstandView, createRinkView: r.createRinkView }))
     .catch((err) => { _gamedayViews = null; throw err; }));   // a failed fetch retries next time
 }
 
@@ -899,12 +901,12 @@ export function createTvView(root, opts = {}) {
   // Async because the views load on demand (loadGamedayViews). Everything after the
   // await runs in one turn, so two calls can't both mount a view.
   async function _gamedayViewFor(gd, hostEl) {
-    const { createGamedayView, createRinkView } = await loadGamedayViews();
+    const { createGrandstandView, createRinkView } = await loadGamedayViews();
     const want = gd && gd.sport === 'hockey' ? 'hockey' : 'baseball';
     if (_gamedayView && _gamedaySport === want) return _gamedayView;
     _gamedayView?.clear();
     _gamedaySport = want;
-    _gamedayView = want === 'hockey' ? createRinkView(hostEl) : createGamedayView(hostEl);
+    _gamedayView = want === 'hockey' ? createRinkView(hostEl) : createGrandstandView(hostEl);
     return _gamedayView;
   }
 

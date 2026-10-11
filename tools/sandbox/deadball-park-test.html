@@ -15,8 +15,10 @@
   and this page shows them all, and the game is the script's clubs and players but not
   the one that aired in a slot, which also needs the server's schedule and injury chain.
 
-  Today it shows the 2-D Gameday (client/game/js/panels/gameday.js). The 3-D park joins
-  it in Phase 1.
+  It shows the 2-D Gameday (client/game/js/panels/gameday.js), or with ?park=3d the
+  Grandstand, the park in 3-D (gameday-grandstand.js, Phase 1 of the plan), which in the
+  game sits behind the deadball.grandstand flag. ?shot= holds one of its cameras (bat, cf,
+  high, side, bag, mound, sky) and ?w= sets the frame's width in CSS pixels.
 
   Serve the repo root over HTTP and open /sandbox/deadball-park-test.html (a file://
   page can't fetch the .bsm or load the modules). ?slot=N picks the game, ?sim=2 plays
@@ -76,8 +78,15 @@
     import { gamedayPayloads } from '../plugins/broadcast/sports/baseball-gameday.js';
     import { sportsRng, sportsHash, sportsPick, sportsFill } from '../plugins/broadcast/rng.js';
     import { createGamedayView } from '../client/game/js/panels/gameday.js';
+    import { createGrandstandView } from '../client/game/js/panels/gameday-grandstand.js';
 
-    const view = createGamedayView(document.getElementById('tv-gameday'));
+    const Q = new URLSearchParams(location.search);
+    if (Q.get('w')) document.getElementById('tv-window').style.width = `${+Q.get('w')}px`;
+    const host = document.getElementById('tv-gameday');
+    const view = Q.get('park') === '3d'
+      ? createGrandstandView(host, { force: true, preserve: true, shot: Q.get('shot') || undefined })
+      : createGamedayView(host);
+    window.__view = view;
     view.showIdle();
 
     // The broadcast's own formatters (sportsAbbr and sportsOrdinal in plugins/broadcast/index.js),
@@ -222,7 +231,7 @@
     };
 
     script = await loadScript();
-    const q = new URLSearchParams(location.search);
+    const q = Q;
     if (q.get('slot')) slot = +q.get('slot');
     if (q.get('sim') === '2') simV = 2;
     plays = buildGame();

@@ -797,7 +797,7 @@ sport module**; nothing else in the pipeline may branch on it.
 Deadball's sub-screen is the 2-D Gameday view ([gameday.js](../client/game/js/panels/gameday.js)).
 A high-fidelity 3-D one on Rinkside's pattern, with a 1990s arcade look and the park inside the
 Curtain on Halcyon Fields, is planned in [proposals/deadball-glass2.md](proposals/deadball-glass2.md)
-(design; Phase 0 under way).
+(Phase 0 and sim v2 built; Phase 1 under way, behind a flag: see the Grandstand below).
 
 **The Gameday payload** is built by a pure module,
 [sports/baseball-gameday.js](../plugins/broadcast/sports/baseball-gameday.js), which the
@@ -831,6 +831,43 @@ pitch, hash to a recorded value, because the standings and the recaps re-simulat
 have already aired. A viewer with the sub-screen open is sent about 91 payloads a game, about
 85 KB with the weather (measured over eight graphs on 2026-10-11). It was 116 KB when the
 table rode every payload.
+
+### The park in 3-D (the Grandstand, behind a flag)
+
+tv.js mounts baseball through
+[gameday-grandstand.js](../client/game/js/panels/gameday-grandstand.js). With the flag off it
+returns the 2-D Gameday and nothing else runs. To turn it on in a browser, set the localStorage
+key `deadball.grandstand` to `'1'` (in the console:
+`localStorage.setItem('deadball.grandstand', '1')`) and reopen the Gameday. It has the same five
+methods as the other two views. When the 3-D view can't draw (no WebGL2, no float target, a
+shader that won't build, a lost context), it hands over to the 2-D view with the last payload and
+the booth's line.
+
+Built so far (Phase 1a of the plan):
+
+- the park from the venue's defaults, built by the pure
+  [gl/ballpark-mesh.js](../client/game/js/panels/gl/ballpark-mesh.js) from
+  [diamond/geo.js](../client/game/js/panels/diamond/geo.js): the field, the padded wall with its
+  distances, the foul poles, the bleachers and the batter's eye, the lower bowl, the upper deck,
+  the backstop net, six light towers whose lamps the venue says work or not, and the scoreboard;
+- [gl/ballpark.js](../client/game/js/panels/gl/ballpark.js), the WebGL2 renderer: the towers as
+  the only lights, GGX in linear light into `hdr.js`'s multisampled float target, the field painted
+  in the shader under the infield canvas ([diamond/dirt.js](../client/game/js/panels/diamond/dirt.js)),
+  the crowd instanced over the seats, then bloom and a filmic curve. It takes `hdr.resolve()`, not
+  `composite()`, so it grades its own frame;
+- the scoreboard's lamps lit from the payloads by [diamond/board.js](../client/game/js/panels/diamond/board.js):
+  the line score, the count and the names, in a 5×7 matrix face;
+- the shots in [diamond/camera.js](../client/game/js/panels/diamond/camera.js) (batting view,
+  centre field, high home, the first-base camera, the bag, the third-base camera, the sky), each
+  with its GL matrices and the same pinhole worked out by hand;
+- a score bug, the booth's line and the cards in HTML over the canvas.
+
+There are no players yet, and nothing moves: a frame is drawn when the game changes, so the GPU
+idles between pitches. The count ticks through each at-bat on the 2-D view's clock
+(`GAMEDAY_CLOCK`), so the held line lands when the 2-D view would land it.
+`scripts/shapes/ballpark-smoke.mjs` builds the park from the defaults and from a venue of its
+own, holds every shot's matrices to its pinhole on three screen shapes, reads the board's lamps
+and checks the fallback. The sandbox page takes `?park=3d` and `?shot=`.
 
 ### Sim v2
 

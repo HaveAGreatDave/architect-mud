@@ -36,6 +36,9 @@ const OUTCOME_GAP_MS = 480;   // beat between the final pitch landing and the pl
 
 // Motion durations for the field animation.
 const T_PITCH = 340, T_THROW = 380, T_RUN = 680, T_FLY = 1150, T_HOMER = 1500;
+// The at-bat's clock, for the 3-D view (gameday-grandstand.js), which lands each play when
+// this one would, so the booth's held line goes up at the same moment in either.
+export const GAMEDAY_CLOCK = Object.freeze({ REVEAL_STEP_MS, REVEAL_MAX_MS, OUTCOME_GAP_MS, T_PITCH, T_THROW, T_RUN, T_FLY, T_HOMER });
 
 // ── Field geometry (fractions of the .gd-field box; home bottom-centre) ──────────
 // The box is a touch wider than tall (aspect ~1.18), so an extended outfield fits with
@@ -268,6 +271,23 @@ function _standingsHtml(rows, awayName, homeName) {
   }).join('');
   return `<div class="gd-stand">${body}</div>`;
 }
+
+// Gameday-native jumbotron card. The server fires the same `sportsfx` graphics that
+// normally take over the whole TV; while Gameday is open, tv.js routes them here so
+// they render as a compact banner OVER the field instead — the field stays visible.
+export const GAMEDAY_CARDS = {
+  homerun: (fx) => ({ title: fx.grand ? 'GRAND SLAM' : 'HOME RUN', sub: [fx.batter, fx.team].filter(Boolean).join(' · '), cls: 'hot' }),
+  walkoff: (fx) => ({ title: 'WALK-OFF!', sub: [fx.batter, fx.team].filter(Boolean).join(' · '), cls: 'hot' }),
+  doubleplay: () => ({ title: 'DOUBLE PLAY', sub: 'Two down', cls: 'out' }),
+  // Not a server sportsfx — the changeover renders this one itself.
+  half: (fx) => ({ title: `${String(fx.inningOrd || '').toUpperCase()}${fx.half === 'top' ? ' ▲' : ' ▼'}`, sub: fx.batting ? `${fx.batting} batting` : '', cls: '' }),
+  tripleplay: () => ({ title: 'TRIPLE PLAY', sub: 'Three down, one pitch', cls: 'hot' }),
+  extras: (fx) => ({ title: 'EXTRA INNINGS', sub: fx.inningOrd ? `${fx.inningOrd} · Free Baseball` : 'Free Baseball', cls: '' }),
+  gamewin: (fx) => ({ title: 'FINAL', sub: fx.winner ? `${fx.winner} ${fx.winScore}–${fx.loseScore}` : '', cls: 'final' }),
+  matchup: (fx) => ({ title: 'DEADBALL', sub: (fx.away && fx.home) ? `${fx.away} vs ${fx.home}` : '', cls: '' }),
+  worldseries: (fx) => ({ title: 'WORLD SERIES', sub: (fx.away && fx.home) ? `${fx.away} vs ${fx.home}` : '', cls: 'hot' }),
+  champion: (fx) => ({ title: '🏆 CHAMPIONS', sub: fx.winner || '', cls: 'hot' }),
+};
 
 export function createGamedayView(host) {
   let timers = [];
@@ -811,25 +831,9 @@ export function createGamedayView(host) {
     }
   }
 
-  // Gameday-native jumbotron card. The server fires the same `sportsfx` graphics that
-  // normally take over the whole TV; while Gameday is open, tv.js routes them here so
-  // they render as a compact banner OVER the field instead — the field stays visible.
-  const CARD = {
-    homerun: (fx) => ({ title: fx.grand ? 'GRAND SLAM' : 'HOME RUN', sub: [fx.batter, fx.team].filter(Boolean).join(' · '), cls: 'hot' }),
-    walkoff: (fx) => ({ title: 'WALK-OFF!', sub: [fx.batter, fx.team].filter(Boolean).join(' · '), cls: 'hot' }),
-    doubleplay: () => ({ title: 'DOUBLE PLAY', sub: 'Two down', cls: 'out' }),
-    // Not a server sportsfx — the changeover renders this one itself.
-    half: (fx) => ({ title: `${String(fx.inningOrd || '').toUpperCase()}${fx.half === 'top' ? ' ▲' : ' ▼'}`, sub: fx.batting ? `${fx.batting} batting` : '', cls: '' }),
-    tripleplay: () => ({ title: 'TRIPLE PLAY', sub: 'Three down, one pitch', cls: 'hot' }),
-    extras: (fx) => ({ title: 'EXTRA INNINGS', sub: fx.inningOrd ? `${fx.inningOrd} · Free Baseball` : 'Free Baseball', cls: '' }),
-    gamewin: (fx) => ({ title: 'FINAL', sub: fx.winner ? `${fx.winner} ${fx.winScore}–${fx.loseScore}` : '', cls: 'final' }),
-    matchup: (fx) => ({ title: 'DEADBALL', sub: (fx.away && fx.home) ? `${fx.away} vs ${fx.home}` : '', cls: '' }),
-    worldseries: (fx) => ({ title: 'WORLD SERIES', sub: (fx.away && fx.home) ? `${fx.away} vs ${fx.home}` : '', cls: 'hot' }),
-    champion: (fx) => ({ title: '🏆 CHAMPIONS', sub: fx.winner || '', cls: 'hot' }),
-  };
   function _renderCard(fx) {
-    if (!host || !fx || !CARD[fx.kind]) return;
-    const m = CARD[fx.kind](fx);
+    if (!host || !fx || !GAMEDAY_CARDS[fx.kind]) return;
+    const m = GAMEDAY_CARDS[fx.kind](fx);
     let el = host.querySelector('.gd-jumbo');
     if (!el) { el = document.createElement('div'); el.className = 'gd-jumbo'; host.appendChild(el); }
     el.innerHTML = `<div class="gd-jumbo-title">${_esc(m.title)}</div>${m.sub ? `<div class="gd-jumbo-sub">${_esc(m.sub)}</div>` : ''}`;
@@ -842,7 +846,7 @@ export function createGamedayView(host) {
   // card until it lands (apply()'s reveal shows it, in step with Chip's call); otherwise
   // — a game-level card between at-bats (matchup / FINAL / extras) — show it right away.
   function showCard(fx) {
-    if (!host || !fx || !CARD[fx.kind]) return;
+    if (!host || !fx || !GAMEDAY_CARDS[fx.kind]) return;
     if (playAnimating) pendingCard = fx;
     else _renderCard(fx);
   }

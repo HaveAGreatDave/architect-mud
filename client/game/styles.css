@@ -12312,6 +12312,69 @@ html[data-density="compact"][data-pane-claimed] #mobile-hud { display: none; }
 /* The score-bug mark: quiet, left of the scores, never louder than the numbers. */
 .tv-sb-brand { display: flex; align-items: center; padding: 0 7px; opacity: 0.8; border-right: 1px solid rgba(255, 255, 255, 0.08); }
 
+/* ── Gameday · Grandstand (Deadball in 3-D) ────────────────────────────────────
+   The park drawn by GLASS 2 (gameday-grandstand.js), behind the deadball.grandstand
+   flag while it's built. One canvas fills `.gds-park`; the bug, the cards and the idle
+   word sit over it, and the booth's line runs underneath. */
+.gds-wrap { position: absolute; inset: 0; display: flex; flex-direction: column; gap: 6px; padding: 6px; min-height: 0; }
+.gds-park {
+	position: relative; flex: 1 1 auto; min-height: 0; align-self: stretch; width: 100%; overflow: hidden;
+	border-radius: 6px; background: #020304; box-shadow: inset 0 0 34px rgba(0, 0, 0, 0.75), 0 0 18px rgba(0, 0, 0, 0.5);
+}
+.gds-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.gds-bug {
+	position: absolute; left: 8px; top: 8px; z-index: 5; display: flex; align-items: center; gap: 8px; padding: 4px 9px;
+	background: linear-gradient(#34456e, #1b2848 48%, #121c36 52%, #0c1428); border: 1px solid rgba(217, 225, 242, 0.7);
+	border-radius: 2px; box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.45);
+	font-family: var(--font-mono); font-size: 0.6875rem; color: #e7ecf7;
+}
+.gds-bug:empty { display: none; }
+.gds-team { display: flex; gap: 5px; align-items: baseline; }
+.gds-team b { font-weight: 900; letter-spacing: 1px; }
+.gds-team em { font-style: normal; font-weight: 900; font-size: 0.875rem; color: #ffd94a; font-variant-numeric: tabular-nums; }
+.gds-team.lead b { color: #fff; }
+.gds-inn, .gds-count { letter-spacing: 1px; font-variant-numeric: tabular-nums; }
+.gds-outs { display: flex; gap: 3px; }
+.gds-out { width: 7px; height: 7px; border-radius: 50%; border: 1.5px solid #ffd94a; box-sizing: border-box; }
+.gds-out.on { background: #ffd94a; }
+.gds-bags { position: relative; width: 26px; height: 18px; }
+.gds-bag { position: absolute; width: 7px; height: 7px; transform: rotate(45deg); border: 1.5px solid #ffd94a; background: rgba(255, 255, 255, 0.12); }
+.gds-bag.on { background: #ffd94a; }
+.gds-bag.b2 { left: 9px; top: 1px; }
+.gds-bag.b3 { left: 2px; top: 8px; }
+.gds-bag.b1 { left: 16px; top: 8px; }
+.gds-cap {
+	flex: 0 0 auto; display: flex; align-items: center; gap: 9px; min-height: 44px; padding: 5px 10px 5px 6px;
+	border-radius: 3px; background: rgba(0, 0, 0, 0.6); border: 1px solid var(--tv-border, rgba(0, 220, 180, 0.25));
+}
+.gds-cap-tag {
+	flex: 0 0 auto; font-size: 0.5625rem; font-weight: bold; letter-spacing: 1.5px; text-transform: uppercase;
+	color: #041008; background: var(--tv-header-color, #37d67a); padding: 3px 8px; border-radius: 2px;
+}
+.gds-cap-text {
+	flex: 1 1 auto; font-size: 0.75rem; line-height: 1.35; color: var(--tv-text); overflow: hidden;
+	display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2;
+}
+.gds-cap-text.in { animation: gd-cap-in 0.3s ease-out; }
+.gds-jumbo {
+	position: absolute; left: 50%; top: 38%; transform: translate(-50%, -50%);
+	z-index: 9; pointer-events: none; text-align: center; padding: 10px 26px; border-radius: 4px;
+	background: rgba(4, 10, 8, 0.86); border: 1px solid var(--tv-header-color, #37d67a);
+	box-shadow: 0 0 22px rgba(0, 220, 180, 0.35), inset 0 0 20px rgba(0, 0, 0, 0.5);
+	opacity: 0; transition: opacity 0.35s ease-out;
+}
+.gds-jumbo.in { opacity: 1; animation: gd-jumbo-in 0.45s cubic-bezier(0.2,1.3,0.4,1); }
+.gds-jumbo-title { font-size: 1.625rem; font-weight: bold; letter-spacing: 4px; color: var(--tv-header-color, #37d67a); text-shadow: 0 0 14px currentColor; line-height: 1.1; }
+.gds-jumbo-sub { font-size: 0.625rem; letter-spacing: 2.5px; text-transform: uppercase; color: var(--tv-text); margin-top: 4px; }
+.gds-jumbo.hot { border-color: #ffd23e; box-shadow: 0 0 26px rgba(255, 210, 62, 0.5), inset 0 0 20px rgba(0, 0, 0, 0.5); }
+.gds-jumbo.hot .gds-jumbo-title { color: #ffd23e; }
+.gds-jumbo.out { border-color: #ff4a5b; box-shadow: 0 0 22px rgba(255, 74, 91, 0.45), inset 0 0 20px rgba(0, 0, 0, 0.5); }
+.gds-jumbo.out .gds-jumbo-title { color: #ff5a6b; }
+.gds-jumbo.final .gds-jumbo-title { color: #fff; }
+.gds-idle { position: absolute; inset: 0; z-index: 7; background: rgba(2, 4, 6, 0.45); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; }
+.gds-idle-title { font-family: var(--font-mono); font-size: 1.25rem; font-weight: bold; letter-spacing: 6px; color: var(--tv-header-color, #37d67a); text-shadow: 0 0 14px currentColor; }
+.gds-idle-sub { font-family: var(--font-mono); font-size: 0.6875rem; letter-spacing: 3px; color: rgba(220, 240, 235, 0.5); }
+
 /* ── Gameday · Rink (CPhL) ─────────────────────────────────────────────────────
    The hockey sub-screen. Deliberately a COLD sheet against Deadball's warm green
    field: the two sports share the panel and the set, so the palette is the fastest
