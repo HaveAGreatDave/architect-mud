@@ -11,9 +11,11 @@
 // which bases are lit, and whether the play has landed.
 //
 // The games are found, not hand-picked: the first seeds that between them hold a triple
-// play, a double play that scores a run, a sacrifice fly, a productive out, a walk with a
-// runner on second and first open, a grand slam, a walk-off and extra innings. A plain
-// slate almost never shows most of those, and they are the plays with the runner logic.
+// play, a double play that scores a run, an inning-ending double play that clears a man
+// off third, a sacrifice fly, a productive out, a walk with a runner on second and first
+// open, a grand slam, a walk-off, extra innings, and the sim's one-swing finish (a
+// single that scores a run with nobody on). A plain slate almost never shows most of
+// those, and they are the plays with the runner logic.
 //
 // It proves the view RUNS and that its runners agree with the sim. It does not look at
 // pixels and is not meant to.
@@ -49,12 +51,14 @@ const HOLD_MS = 35000, STEP_MS = 100;
 const WANT = {
   tripleplay: (b) => b.kind === 'tripleplay',
   dpScores: (b) => b.kind === 'doubleplay' && b.rbi > 0,
+  dpEndsInning: (b, before) => b.kind === 'doubleplay' && b.outs === 3 && before[2],
   sacfly: (b) => b.kind === 'sacfly',
   productout: (b) => b.kind === 'productout',
   walkUnforced: (b, before) => b.kind === 'walk' && before[1] && !before[0],
   grandSlam: (b) => b.kind === 'homerun' && b.rbi === 4,
   walkoff: (b) => b.walkoff,
   extras: (b) => b.inning >= 10,
+  oneSwingFinish: (b) => (b.kind === 'single' || b.kind === 'double') && !b.bases.some(Boolean),
 };
 const found = new Map();
 for (let seed = 1; seed < 40000 && found.size < Object.keys(WANT).length; seed++) {

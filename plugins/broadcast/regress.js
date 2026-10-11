@@ -2786,6 +2786,43 @@ export default async function regress({ check, run, getPlayer }) {
       check('gameday: the table rides the game\'s first payload', Array.isArray(inOrder[0]?.standings), 'first payload has no standings');
       check('gameday: …and no other', inOrder.slice(1).every(g => !('standings' in g)), `${inOrder.slice(1).filter(g => 'standings' in g).length} payloads still carry the table`);
       check('gameday: the first payload carries the season', inOrder[0]?.season?.phase === 'regular', JSON.stringify(inOrder[0]?.season));
+
+      // Every man's fate on every play. The 2-D view moved each runner a fixed number
+      // of bags per kind of play, so a man the sim scored from second on a single
+      // stopped at third. The payload says where each one goes now, and these are the
+      // rules that has to keep in any game: the runners end on the bags the sim left
+      // occupied, as many cross the plate as it scored, every runner and the batter has
+      // exactly one fate, and nobody passes anybody or runs backwards.
+      check('gameday: every at-bat says where each runner and the batter go',
+        atbats.every(g => Array.isArray(g.moves) && g.moves.length === g.basesBefore.filter(Boolean).length + 1), 'an at-bat without its moves');
+      {
+        const { runnerMoves } = await import('./sports/baseball-gameday.js');
+        const { simGame: sim } = await import('./sports/baseball.js');
+        const { sportsRng: rngOf } = await import('./rng.js');
+        let plays = 0;
+        const wrong = [];
+        const side = (x) => (x.half === 'top' ? x.awayScore : x.homeScore);
+        for (let s = 1; s <= 600 && wrong.length < 3; s++) {
+          let before = [false, false, false], score = 0;
+          for (const b of sim({ away: 'Rats', home: 'Kings' }, null, rngOf(s * 2654435761 + 7)).beats) {
+            if (b.type === 'half_start') { before = [false, false, false]; score = side(b); continue; }
+            if (b.type !== 'atbat') continue;
+            plays++;
+            const runs = side(b) - score;
+            score = side(b);
+            const m = runnerMoves(before, b.bases, b.kind, runs);
+            const dest = m.filter(x => x.to != null).map(x => x.to);
+            const ok = dest.filter(t => t < 4).join('') === [3, 2, 1].filter(n => b.bases[n - 1]).join('')
+              && dest.filter(t => t === 4).length === runs
+              && m.length === before.filter(Boolean).length + 1
+              && m.every(x => x.to == null || x.to >= x.from)
+              && dest.every((t, i) => i === 0 || t < dest[i - 1] || (t === 4 && dest[i - 1] === 4));
+            if (!ok) wrong.push(`${b.kind} ${before.map(Number).join('')}→${b.bases.map(Number).join('')} runs ${runs}: ${JSON.stringify(m)}`);
+            before = b.bases;
+          }
+        }
+        check('gameday: every play\'s runners end where the sim left them and score its runs', !wrong.length, `${wrong.length} of ${plays}: ${wrong.join(' | ')}`);
+      }
     }
 
     // ── Base/out-aware outs ───────────────────────────────────────────────────

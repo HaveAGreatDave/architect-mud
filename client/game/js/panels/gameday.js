@@ -409,8 +409,12 @@ export function createGamedayView(host) {
     }
 
     // ── Runners ──
-    const adv = { single: 1, double: 2, triple: 3, homerun: 4, walk: 1 }[p.kind] || 0;
-    const before = p.basesBefore || [false, false, false];
+    // Every man's fate rides the payload (`moves`, worked out by
+    // plugins/broadcast/sports/baseball-gameday.js): each runner on base and the batter
+    // goes to a bag, scores, is put out at a bag, or walks off when the play ended the
+    // inning. The view only animates it. It used to move everyone a fixed number of
+    // bags per kind of play, which stopped at third a man the sim had scored from second.
+    const moves = Array.isArray(p.moves) ? p.moves : [];
     // clear pre-play lit; runner arrivals re-light below
     [0, 1, 2, 3].forEach(n => _litBase(n, false));
 
@@ -436,44 +440,35 @@ export function createGamedayView(host) {
       });
     };
 
-    // Pre-existing runners advance lead-first.
-    for (let b = 3; b >= 1; b--) {
-      if (!before[b - 1]) continue;
-      const r = ctx.runners[b];
+    // The runners on base, lead first. Forces go lead runner first, half a throw apart:
+    // a triple play is three outs round the horn, not one event, and staggering them
+    // is what lets the eye follow the ball.
+    const lead = traj.mode === 'ground' ? 120 : 60;
+    const forces = moves.filter(m => m.from > 0 && m.out);
+    for (const m of moves) {
+      const r = m.from > 0 ? ctx.runners[m.from] : null;
       if (!r) continue;
-      let steps = adv;
-      if (adv === 0) {   // an out — a few situational advances
-        if (p.kind === 'sacfly' && b === 3) steps = 1;
-        else if (p.kind === 'productout') steps = 1;
-        // A double play is not a freeze-frame for everyone else. The man on third
-        // scores on a 6-4-3 — unless it was the third out, which is what rbi tells us.
-        else if (p.kind === 'doubleplay' && b === 3) steps = p.rbi > 0 ? 1 : 0;
-        else if (p.kind === 'doubleplay' && b === 2) steps = 1;   // forced up to third by the batter-runner
-        else if (p.kind === 'doubleplay' && b === 1) { _t(T_THROW * 2, () => { _crossBase(1); r.classList.add('outed'); _t(300, () => r.remove()); }); continue; }
-        // Triple play: the lead force at third goes first, then second, then the throw
-        // across. Staggering them is the whole read of the play — three separate outs,
-        // not one event, so the eye can follow the ball around the horn.
-        else if (p.kind === 'tripleplay' && (b === 1 || b === 2)) {
-          const at = b === 2 ? T_THROW : T_THROW * 2;
-          _t(at, () => { _crossBase(b); r.classList.add('outed'); _t(300, () => r.remove()); });
-          continue;
-        }
-        else steps = 0;
-      }
-      if (steps > 0) runBases(r, b, steps, traj.mode === 'ground' ? 120 : 60);
-      else _t(30, () => _litBase(b, true));   // held — stays put, stays lit
+      if (m.out) {
+        const at = T_THROW * (1 + forces.indexOf(m) / 2);
+        const [ax, ay] = BASE_POS[m.from], [bx, by] = BASE_POS[m.out];
+        _move(r, [ax + (bx - ax) * 0.7, ay + (by - ay) * 0.7], at, 'linear');   // the ball beats him to the bag
+        _t(at, () => { _crossBase(m.out); r.classList.add('outed'); _t(300, () => r.remove()); });
+      } else if (m.off) {
+        // Cleared by the inning's last out: he walks off without scoring.
+        _t(lead + T_RUN / 2, () => { r.style.transition = 'opacity 0.3s ease'; r.style.opacity = '0'; _t(300, () => r.remove()); });
+      } else if (m.to > m.from) runBases(r, m.from, m.to - m.from, lead);
+      else _t(30, () => _litBase(m.from, true));   // held: stays put, stays lit
     }
 
-    // Batter-runner — out of the box and around the bags one at a time.
-    if (adv >= 1) {
-      const dest = Math.min(adv, 4);
-      runBases(batter, 0, dest, 0, dest >= 4 ? T_RUN * 0.8 : T_RUN);
-    } else if (p.out && (p.kind === 'groundout' || p.kind === 'doubleplay' || p.kind === 'tripleplay' || p.kind === 'productout')) {
+    // Batter-runner: out of the box and round the bags one at a time.
+    const bm = moves.find(m => m.from === 0);
+    if (bm && bm.to) runBases(batter, 0, bm.to, 0, bm.to >= 4 ? T_RUN * 0.8 : T_RUN);
+    else if (bm && bm.out === 1) {
       // grounder: batter runs it out, thrown out at first
       _move(batter, 'b1', T_RUN, 'linear');
       _t(T_RUN, () => { batter.classList.add('outed'); _dust('b1'); });
-    } else {
-      // fly / pop / K — batter doesn't reach
+    } else if (bm) {
+      // fly / pop / K: batter doesn't reach
       _t(200, () => batter.classList.add('outed'));
     }
 

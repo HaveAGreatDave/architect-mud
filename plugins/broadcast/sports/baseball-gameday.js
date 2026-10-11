@@ -56,6 +56,47 @@ function lineSnapshots(halves) {
   return snap;
 }
 
+// Where every man on a play ends up: each runner on base before it, and the batter.
+// A v1 game keeps only which bags are occupied, so this works it out from the bags
+// before and after, the kind of play and the runs it scored. The runs are the change
+// in the batting side's score, not the RBI, because a run can score with none (on a
+// double play in real scoring; v1 happens to count them the same). Runners can't pass each
+// other, so the lead runners are the ones who come home and the rest fill the bags
+// occupied afterwards, in order. That makes the answer unique. Lead runner first,
+// the batter last:
+//
+//   { from, to }    from 0 (the batter) or a bag 1-3, to a bag 1-3 or 4 for a run.
+//                   to === from is a runner who held.
+//   { from, out }   put out at that bag; 0 is a batter who never left the box.
+//   { from, off }   cleared by a play that ended the inning (an inning-ending
+//                   double play, a triple play): he walks off without scoring.
+//
+// Sim v2 names its runners and hands over its own moves; this is for v1 games.
+const BATTER_TO = { walk: 1, single: 1, double: 2, triple: 3, homerun: 4 };
+const FORCED_AT = { doubleplay: { 1: 2 }, tripleplay: { 2: 3, 1: 2 } };   // a runner's bag -> where he's forced out
+const RAN_IT_OUT = new Set(['groundout', 'productout', 'doubleplay', 'tripleplay']);
+export function runnerMoves(before, after, kind, scored) {
+  const forced = FORCED_AT[kind] || {};
+  let batterTo = BATTER_TO[kind] || 0;
+  // A hit with his bag empty afterwards is the sim's one-swing extra-inning finish,
+  // which scores a run with nobody on: the batter scored it himself.
+  if (batterTo && batterTo < 4 && !after[batterTo - 1]) batterTo = 4;
+  let runs = (scored || 0) - (batterTo === 4 ? 1 : 0);
+  const on = [3, 2, 1].filter((n) => before[n - 1]);
+  const staying = on.filter((n) => !forced[n]);
+  const bags = [3, 2, 1].filter((n) => after[n - 1] && n !== batterTo);
+  const leave = staying.length - bags.length;
+  const moves = on.map((n) => {
+    if (forced[n]) return { from: n, out: forced[n] };
+    const i = staying.indexOf(n);
+    if (i >= leave) return { from: n, to: bags[i - leave] };
+    if (runs > 0) { runs--; return { from: n, to: 4 }; }
+    return { from: n, off: true };
+  });
+  moves.push(batterTo ? { from: 0, to: batterTo } : { from: 0, out: RAN_IT_OUT.has(kind) ? 1 : 0 });
+  return moves;
+}
+
 // Every payload for one game. `abbr` and `ordinal` are the broadcast's own formatters
 // (the score bug's team tags and "3rd"), passed in so the payloads match its lines.
 // Returns { halves, atbat: Map(beat -> payload), half: Map(half_start -> payload),
@@ -82,7 +123,12 @@ export function gamedayPayloads(game, seed, { abbr, ordinal }) {
     };
     half.set(s, hp); order.push(hp);
     let prev = [false, false, false];
+    // The batting side's score, so a play's runs are what it put on the board.
+    let score = s.half === 'top' ? s.awayScore : s.homeScore;
     h.atbats.forEach((b, idx) => {
+      const now = b.half === 'top' ? b.awayScore : b.homeScore;
+      const scored = Number.isFinite(now) && Number.isFinite(score) ? now - score : (b.rbi ?? 0);
+      score = now;
       const p = {
         sport: 'baseball',
         batter: b.batter || '', pitcher: b.pitcher || '',
@@ -95,6 +141,7 @@ export function gamedayPayloads(game, seed, { abbr, ordinal }) {
         outs: b.outs ?? 0, rbi: b.rbi ?? 0, kind: b.kind, out: !!b.out, walkoff: !!b.walkoff,
         basesBefore: prev,
         basesAfter: b.bases || [false, false, false],
+        moves: runnerMoves(prev, b.bases || [false, false, false], b.kind, scored),
         awayScore: b.awayScore, homeScore: b.homeScore,
         desc: playDesc(b),
         pitches: synthPitches(sportsHash(seed, b.inning * 2 + (b.half === 'bottom' ? 1 : 0), idx >>> 0), b.kind),

@@ -805,6 +805,13 @@ broadcast attaches to the line that calls each play and which the gates run with
 An at-bat payload carries the batter and pitcher, the play's kind, outs and RBI, the bases
 before and after, the pitches, the line score so far, `sport`, and `bats` and `throws` (from
 the names, so a player is the same in every game; a switch hitter also gets `switchHitter`).
+It also carries `moves`, every man's fate on the play, lead runner first and the batter last:
+`{ from, to }` to a bag or `to: 4` for a run, `{ from, out }` put out at a bag (0 for a
+batter who never left the box), or `{ from, off }` for a runner cleared by an inning-ending
+play. A v1 game keeps only which bags are occupied, so `runnerMoves` works the moves out from
+the bags before and after, the kind and the change in the batting side's score (not the RBI: a
+run can score without one). Runners can't pass each other, which makes the answer unique. The views only animate them, and `scripts/shapes/gameday-smoke.mjs` plays
+real games through the 2-D view and checks its runners end where the sim left them.
 A half-inning break carries `phase: 'half'` and nothing to animate. The broadcast adds `hold`
 (how long the line holds, in ms) to every payload, and the league table and `season` (its
 number, `regular` or `final`, and the seeds in a final) to the game's first payload only.

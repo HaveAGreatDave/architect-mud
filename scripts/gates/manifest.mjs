@@ -199,6 +199,7 @@ export const GROUPS = [
       'scripts/shapes/rink-smoke.mjs 13',    // one game each, side by side (see the file)
       'scripts/shapes/rink-smoke.mjs 1010',
       'scripts/shapes/arena-smoke.mjs',      // GLASS 2 rink: matrices match the 2-D camera, meshes sound, ice tiles listed
+      'scripts/shapes/gameday-smoke.mjs',    // Deadball's 2-D Gameday: real games, every play lands, the runners end where the sim left them
       'scripts/shapes/bolt.mjs',
       'scripts/shapes/weatherfx-smoke.mjs',
       'scripts/shapes/drugfx-smoke.mjs',
