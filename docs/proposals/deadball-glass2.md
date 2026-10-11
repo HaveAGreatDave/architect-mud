@@ -1,12 +1,21 @@
-# Deadball in GLASS 2: a 90s ballpark
+# Deadball in GLASS 2
 
-**Status: design, 2026-10-11.** A plan for giving Deadball a 3-D sub-screen the way Cluster Puck
-got Rinkside, drawn to look like a mid-to-late-1990s baseball game on a television of the time.
-No code for it exists yet. The questions that need an answer before Phase 1 are at the end.
+**Status: design, revised 2026-10-11.** A plan for giving Deadball a 3-D sub-screen the way Cluster
+Puck got Rinkside, at the highest fidelity GLASS 2 can reach: skinned, detailed players, authored
+animation, physically based lighting from the park's own light towers, and a crowd that fills the
+stands. The 1990s character lives in the broadcast around the game: the period's graphics package,
+its camera grammar and the picture of broadcast video at the time. No code for it exists yet. The
+questions that need an answer before Phase 1 are at the end.
+
+The first draft of this plan (the same day) aimed at a 1990s video-game look: a 320×240 picture with
+wobbling textures and dithering. The direction changed to high fidelity, and that look survives only
+as an optional "throwback night" preset.
 
 Read with [systems-broadcast.md](../systems-broadcast.md#sports--two-codes-one-pipeline) (the sports
 pipeline, Rinkside and the CPhL's clubs), [bsm-format.md](../bsm-format.md) (how the booth's lines
-are authored), [glass-notes.md](../reference/glass-notes.md) (GLASS 2's traps) and
+are authored), [glass-notes.md](../reference/glass-notes.md) (GLASS 2's traps),
+[world-rendering.md](../reference/world-rendering.md) (the street figures this builds on),
+[street-figure-heads.md](street-figure-heads.md), [glass-materials.md](glass-materials.md) and
 [engine-plugin-boundary.md](engine-plugin-boundary.md).
 
 **It depends on the Cluster Puck branch.** Rinkside's GLASS 2 renderer
@@ -17,25 +26,31 @@ the older 2-D-only `gameday-rink.js`. That work has to reach `main` before Phase
 
 ## The short version
 
-- **The look:** recommend the 32-bit console look (look A below): a 320×240 picture with wobbling
-  textures, jittering vertices, 15-bit colour with ordered dithering, Gouraud lighting and the
-  ballpark's own radioactive haze as the fog. Scale it up with sharp bilinear, keep the period's
-  broadcast graphics, and draw text at the screen's own resolution so it stays readable.
-- **The shape:** the same as Rinkside. A view shell with the same five methods, a world, a
-  director that stages one payload, a camera, replays, a frame governor and smoke gates that
-  play real games headlessly. The renderer is new (`gl/ballpark.js`) and the 90s pipeline is a
-  separate GLASS piece any view can use (`gl/retro.js`).
-- **The fallback:** today's 2-D Gameday view. It already works, so it becomes the no-WebGL2 path
-  and keeps its place as a player option if you want one.
-- **The server:** the sim stays as it is. The payload gains a small cosmetic play description
-  (where the ball goes, who fields it) chosen on the server, so the booth's line and the picture
-  can't disagree, plus a handful of small fields. Sending the standings once a game instead of on
-  every at-bat cuts about 40% of the bytes the sub-screen costs, which more than pays for
-  everything added.
-- **The clubs:** yes, Deadball should use the club seam: caps, home whites, road greys and a
-  crest each, built by a script the way the CPhL's are. At 320×240 a uniform is the only way to
-  tell the two sides apart.
-- **Five phases**, the first two behind a flag. Each ends with a gate that plays real games.
+- **Fidelity:** players of 12,000 to 20,000 triangles up close, skinned on the GPU, with faces from
+  the street-figure head work, cloth with fabric normal maps, and dirt that collects on uniforms over
+  a game. Animation from an authored clip library with IK for every contact (glove to ball, hands to
+  bat, feet to dirt), gated by tests that measure foot slide and contact error.
+- **Light:** four of the park's six light towers cast real shadows, so every player stands on a star
+  of soft shadows the way he does under stadium lights. HDR, ambient occlusion, bloom, haze with
+  light shafts, and a lens that throws the crowd out of focus behind a close-up.
+- **The 1990s:** the score box, pitch speed and lower thirds of the time; the long-lens centre-field
+  camera; and the picture of broadcast video then: lifted blacks, soft colour, aperture sharpening,
+  and bright lamps that streak the way the period's cameras made them. A strength setting runs from
+  full period to a clean modern picture.
+- **The shape:** Rinkside's. A view shell with the same five methods, a world, a director that
+  stages one payload, a camera, replays, a frame governor, and smoke gates that play real games.
+- **What GLASS 2 has and what it needs:** it already has an HDR chain, ambient occlusion, height fog
+  with light shafts and instanced, vertex-animated crowds of procedural people. It has no GPU
+  skinning, no normal maps, no sRGB textures and no spotlight shadows; this plan adds them as engine
+  pieces any view can use.
+- **The fallback:** today's 2-D Gameday view.
+- **The server:** the sim stays as it is. The payload gains a small cosmetic play description chosen
+  on the server, so the booth's line and the picture can't disagree. Sending the standings once a
+  game instead of on every at-bat cuts about a third of the bytes the sub-screen costs.
+- **The clubs:** yes, through the club seam, with crests and wordmarks drawn at texture resolutions
+  that hold up in a close-up.
+- **Six phases**, the first three behind a flag. A look-dev render of the target is on the review
+  page.
 
 ## What exists today
 
@@ -53,28 +68,44 @@ The work is in [panels/rink/](../../client/game/js/panels/rink/):
 - `camera.js` never yaws or rolls, solves its framing so the puck and the net are both in shot,
   and writes the same camera out as GL matrices.
 - `replay.js` keeps the last ten seconds of what's drawn at 30 Hz and plays it at half speed.
-- `rig.js` is a 21-joint skeleton with strides, shots, punches and ragdolls.
+- `rig.js` is a 21-joint procedural skeleton with strides, shots, punches and ragdolls.
 - `figure.js` and `render.js` are the 2-D canvas renderer used when there's no WebGL2.
 
-GLASS 2 draws it through [gl/arena.js](../../client/game/js/panels/gl/arena.js) and
-[gl/arena-mesh.js](../../client/game/js/panels/gl/arena-mesh.js) (bodies rebuilt from the joints
-every frame, a 1024² jersey atlas), with [gl/mirror.js](../../client/game/js/panels/gl/mirror.js)
-for the ice, [gl/stream.js](../../client/game/js/panels/gl/stream.js) for vertex streams and
-[gl/programs.js](../../client/game/js/panels/gl/programs.js) for shader prewarming. The frame
-governor steps down resolution, then mirror size, then bodies in the reflection, on a smoothed
-frame time (over 24 ms for 1.2 s steps down; under 15 ms for 8 s steps up).
+[gl/arena.js](../../client/game/js/panels/gl/arena.js) draws it. Bodies are rebuilt on the CPU every
+frame from the joints, at 946 triangles for a skater at broadcast distance and 2,684 close up;
+jerseys come from a 1024² atlas of 128² slots. Its lit shader is one fixed key light, a hemisphere
+and a Blinn-Phong highlight, with no shadow maps, HDR or ambient occlusion. Two gates cover it:
+[rink-smoke.mjs](../../scripts/shapes/rink-smoke.mjs) plays two real games through the view over a
+DOM stub and checks the picture agrees with the sim; [arena-smoke.mjs](../../scripts/shapes/arena-smoke.mjs)
+checks matrices, mesh budgets and the no-WebGL2 path without a GPU.
 
-Two gates cover it. [rink-smoke.mjs](../../scripts/shapes/rink-smoke.mjs) plays two real games
-(the real sim and narrator) through the view over a DOM stub with no WebGL, so it drives the 2-D
-renderer, and checks that the picture agrees with the sim. [arena-smoke.mjs](../../scripts/shapes/arena-smoke.mjs)
-checks what GLASS 2 stands on without a GPU: the GL matrices match the 2-D projection to a
-hundredth of a pixel, every body builds finite and inside its triangle budget, and the renderer
-returns null when there's no WebGL2.
+Things Rinkside doesn't do, which this plan does and could hand back: it never calls `loseContext()`
+when it's closed (a page gets 16 contexts; see
+[glass-notes.md](../reference/glass-notes.md#releasing-gl-scenes-2026-09-17)), it keeps drawing while
+the tab is hidden, and it doesn't read `prefersReducedMotion()`.
 
-Things Rinkside doesn't do, which this plan does and could hand back: it never calls
-`loseContext()` when it's closed (the browser caps a page at 16 contexts; see
-[glass-notes.md](../reference/glass-notes.md#releasing-gl-scenes-2026-09-17)), it keeps drawing
-while the tab is hidden, and it doesn't read `prefersReducedMotion()`.
+### What GLASS 2 already has
+
+Every layer is a factory that takes a `gl`, so a separate view can create them on its own context.
+What ties most of them to the city is the camera: they read a GLASS camera's scalars rather than a
+matrix.
+
+| Module | What it gives the ballpark | What it needs |
+|---|---|---|
+| [hdr.js](../../client/game/js/panels/gl/hdr.js) | RGBA16F target with 4× MSAA, bloom, ACES tone curve, exposure | Nothing; it imports only `programs.js` and `colour.js`. Needs `EXT_color_buffer_float`. |
+| [ssao.js](../../client/game/js/panels/gl/ssao.js) | 12-tap hemisphere occlusion with a blur, 0.6 to 1.3 ms in the city | A variant that reconstructs position from a projection matrix instead of the city camera's scalars. |
+| [fog.js](../../client/game/js/panels/gl/fog.js) | Analytic height fog and per-light in-scatter (light shafts) as GLSL | Nothing; pure strings. |
+| [envcube.js](../../client/game/js/panels/gl/envcube.js) | A small reflection cube | A larger cube and a GGX prefilter for glossy helmets and shin guards. |
+| [shadow.js](../../client/game/js/panels/gl/shadow.js) | One 2048² sun map fitted to the scene | Spotlight maps for several towers at once. New. |
+| [actors.js](../../client/game/js/panels/gl/actors.js) with [actor3d.js](../../client/game/js/panels/actor3d.js) | Procedural people on a 19-bone skeleton, baked into vertex-animation textures and drawn instanced: 4,780 triangles near, 626 far, eight hand-written clips | Seated, standing and cheering clips for a crowd. The approach is the crowd. |
+| [cloth.js](../../client/game/js/panels/gl/cloth.js) | Baked cloth animation for flags and shelters | Pennants and the centre-field flag. |
+| [street-figure-heads.md](street-figure-heads.md) | Head meshes at 1,840 / 696 / 232 triangles and a 2048×1280 face atlas, built but not yet drawn in the game | Drawing it, which this view would be first to do. |
+
+Nothing in the client does GPU skinning, normal mapping or sRGB texture decoding, and only the rink's
+ice uses anisotropic filtering. GGX lighting and the environment cube exist and are off by default
+([glass-materials.md](glass-materials.md)). The Modelshop edits buildings and vehicles; it has no
+character, pose or clip tools, and its Actor Lab only views a bake. Every frame time in the docs comes
+from one machine with a discrete NVIDIA card; integrated GPUs and phones are untested.
 
 ### Deadball's Gameday view
 
@@ -87,8 +118,7 @@ beside a 176 px rail (count, pitch plot, matchup, play card, standings). Per pay
   (`_hitTrajectory`): an angle, a depth from the kind, and a fielder picked by angle;
 - runs the bases one at a time, peels scoring runners off to the dugout, and lights the bases to
   match `basesAfter` once it settles;
-- holds the caption and any card until the play lands, then idles (pitcher jitter, fielders
-  shifting) until the next payload;
+- holds the caption and any card until the play lands, then idles until the next payload;
 - plays nine inline SIREN layers (`mitt`, `crack`, `whiff`, `glove`, `base`, `run`, `homer`,
   `strikeout`, `out`) on the `tv` category.
 
@@ -98,20 +128,19 @@ The sim, [baseball.js](../../plugins/broadcast/sports/baseball.js), resolves pla
 only: thirteen kinds (strikeout, groundout, flyout, popout, single, walk, double, triple, home
 run, double play, triple play, sac fly, productive out), base advances, extra innings and
 walk-offs. It has no pitches, hit direction, fielders, errors, steals or substitutions.
-`synthPitches` makes the pitches afterwards, as cosmetic keyframes seeded from the game, ending on
-the pitch the kind needs. The assembler, `assembleSportsGraph` in
-[index.js](../../plugins/broadcast/index.js), puts a `gameday` payload (`beatGameday`) on the
-lead line of each called at-bat and a `phase: 'half'` payload on each half-inning's framing line.
-Baseball has no `narrate`, no `paceCalls` and no cues: every game line holds the same time.
+`synthPitches` makes the pitches afterwards, as cosmetic keyframes seeded from the game. The
+assembler, `assembleSportsGraph` in [index.js](../../plugins/broadcast/index.js), puts a `gameday`
+payload on the lead line of each called at-bat and a `phase: 'half'` payload on each half-inning's
+framing line. Baseball has no `narrate`, no `paceCalls` and no cues: every game line holds the same
+time.
 
 ### The club seam
 
 `sports_pools.clubs` on a broadcast row holds each club's identity: colours, a vector crest,
 `kit.home` and `kit.road`, and optionally a tartan sett. [build-cphl-clubs.mjs](../../scripts/content/build-cphl-clubs.mjs)
-writes the CPhL's and fails `--check` when the row is stale. Payloads carry a `clubsRev` stamp,
-the client asks once with `tv_clubs` and keeps the set in localStorage per sport. Only hockey
-uses it: `clubsRevOf` lives in `hockey.js`, and `sendTvClubs` assumes hockey when no sport is
-given. Deadball's row has teams and no clubs.
+writes the CPhL's and fails `--check` when the row is stale. Payloads carry a `clubsRev` stamp; the
+client asks once with `tv_clubs` and keeps the set in localStorage per sport. Only hockey uses it:
+`clubsRevOf` lives in `hockey.js`, and `sendTvClubs` assumes hockey when no sport is given.
 
 ### Measured
 
@@ -126,85 +155,64 @@ Assembled from the Deadball content row over six slots (3, 50, 101, 222, 777, 12
 | Payload size, standings left out | about 0.8 KB, 1.4 KB at most |
 | Payload size with the 8-row standings | 1.1 to 1.9 KB, about 1.4 KB typical |
 
-So a game is about 87 payloads, not 300, and about 115 KB per viewer with the sub-screen open.
-The standings in every payload are the same rows all game (`gdStandings` is computed once when the
-graph is assembled), about 0.5 KB each time.
+So a game is about 87 payloads, not 300, and about 115 KB per viewer with the sub-screen open. The
+standings are the same rows all game (`gdStandings` is computed once when the graph is assembled),
+about 0.5 KB each time. A line holds `slot × 0.85 ÷ lines`, between 10 and 90 seconds: about 66 s at
+`timeScale` 1 and 22 s at `timeScale` 3. The 3-D view has that long for each at-bat.
 
-A line holds `slot × 0.85 ÷ lines`, between 10 and 90 seconds. At `timeScale` 1 (a three-hour
-slot) that's about 66 s a line; at `timeScale` 3 (one hour) about 22 s. The 3-D view has that long
-for each at-bat and then waits for the next one.
+The TV window is at most 760×520 CSS pixels, and a 4:3 picture beside the stats rail comes to about
+400×300. There's no full-screen or big-screen path for the TV today.
 
 ## The look
 
-### What "90s" means here
+### High fidelity, 1990s broadcast
 
-The parts of mid-to-late-1990s 3-D baseball games, and of the TV they imitated, worth having:
+Two layers, kept apart so each can be tuned on its own.
 
-- low-poly players built from rigid segments (a box or prism per limb, 200 to 400 triangles);
-- flat or Gouraud (per-vertex) shading, lights that pool on vertices;
-- small textures (16 to 64 px) with nearest-neighbour sampling, and on 32-bit consoles, affine
-  texture mapping (textures swim across big polygons) and vertices snapped to whole pixels
-  (geometry jitters as the camera moves);
-- 15-bit colour with ordered dithering;
-- fog and a short draw distance;
-- a low internal resolution (320×240) scaled up into big pixels;
-- a 4:3 picture, and a CRT's scanlines and soft glow;
-- the broadcast graphics of the time: a bevelled score box, pitch speed, the count, the batter's
-  lower third, a REPLAY bug, and the centre-field camera behind the pitcher.
+**The game itself is drawn as well as GLASS 2 can draw it.** Detailed players and equipment,
+authored motion, physically based materials, the light towers as the only lights at night, real
+shadows and occlusion, and a park full of people. Nothing is made deliberately crude.
 
-What we don't copy: any real game's interface, any real league, team, player, wordmark or network
-graphics package. The score box is a generic bevelled panel; the clubs are Deadball's.
+**The broadcast around it is the 1990s.** Three parts:
 
-### Three looks
+- *The graphics package*: a bevelled score box with team chips, the inning, count, outs and runners;
+  a pitch-speed box; lower thirds with a batter's number and line; a REPLAY bug; the channel's
+  corner bug. All original, all drawn at the screen's own resolution.
+- *The camera grammar*: the long-lens centre-field camera behind the pitcher, high home for balls in
+  play, the low first- and third-base cameras, isolated replays. A long lens compresses depth and
+  throws the crowd out of focus, which is most of what makes a baseball broadcast look like one.
+- *The picture*: broadcast video of the time had lifted blacks, softer colour than detail (composite
+  video carried colour at lower resolution), visible edge sharpening, a little lens fringing at the
+  corners, and CCD cameras that streaked very bright lamps vertically. Each is a small step in the
+  final pass, and a strength setting runs from full period to off.
 
-A throwaway mockup (one HTML file, kept out of the repo) drew the same park and eleven figures
-(pitcher, batter, catcher, umpire and seven fielders) three ways in headless Chromium. The frames
-are on the review page.
+The look-dev on the review page shows the same frames with the period picture on and off.
 
-| | A. 32-bit console | B. 64-bit console | C. Arcade cabinet |
-|---|---|---|---|
-| Period | PlayStation era, mid-90s | N64 era, late-90s | arcade boards, mid-90s |
-| Internal picture | 320×240 | 320×240 | 512×384 |
-| Textures | nearest, no mips, affine (they swim) | bilinear, mipmapped, perspective-correct | nearest, perspective-correct |
-| Vertices | snapped to whole pixels (jitter) | smooth | smooth |
-| Shading | Gouraud | Gouraud | flat, per face |
-| Colour | 15-bit, 4×4 ordered dither | 15-bit, light dither | 24-bit, saturated |
-| Fog | the haze, from about 260 ft | thick, from about 110 ft | thin, far |
-| Scaling up | sharp bilinear | bilinear (soft) | sharp bilinear |
-| Graphics | bevelled box top left, speed bottom right | a strip along the bottom | big chunky digits |
-| What it's good at | the most recognisably 90s; the haze reads as the park's | calm, soft, easy on the eye | the crispest; the ball is easiest to see |
-| What's against it | wobble and jitter can bother people; dither is noisy at small sizes | soft at the TV's size; looks low-res more than retro | the least lo-fi; at the TV's size it barely looks blocky |
+### Look-dev
 
-**Recommendation: A, tempered.** It's the one people will recognise, and two of its features fit
-what the booth already says: Chip's chatter has the haze rolling in over the left-field wall and
-the lights working "maybe sixty percent of the time", so the fog and the dead light banks are the
-park's own. Tempered means: affine mapping on, kept in check by subdividing big polygons (the
-period's own fix); vertex snapping at half strength by default, with full strength as an option;
-dithering on; no CRT at the TV's normal size. The three looks are one set of knobs (resolution,
-snap, affine, filter, colour bits, dither, fog, shading), so B and C stay one preset away.
+A throwaway WebGL2 page, kept out of the repo, rendered the target in headless Chromium on a software
+renderer: seventeen procedural players at about 12,300 triangles each, 4,853 instanced fans at about
+420 triangles each, 2.4 million triangles in all, four 2048² tower shadow maps, a 4× MSAA RGBA16F
+target, half-resolution ambient occlusion, a 28-tap depth of field, a six-level bloom and the
+broadcast pass. The players are stand-ins built for the review (lofted tubes posed by IK); the plan's
+own models go well past them. What it showed:
 
-### Readable at the TV's size
-
-The TV window is at most 760×520 CSS px, and the sub-screen's picture area beside the rail comes to
-about 400×300 for a 4:3 picture. The mockup was rendered at that size too. What it showed:
-
-- **Scale by a whole number, then smooth the rest.** 320×240 into 400×300 is 1.25×. Nearest
-  neighbour makes every fourth row and column double width, which reads as a fault. Sharp bilinear
-  (nearest to the largest whole multiple that fits, then bilinear for the remainder) keeps the
-  pixels square and even. At 1× it's plain bilinear; on a 2× display it's 2× nearest plus a little.
-- **Scanlines need room.** At 1.25 device pixels per line they beat against the screen grid into
-  moiré bands. Draw them only at 3 or more device pixels per line (big screen, a large window on a
-  high-density display), and use a faint vignette and mask otherwise.
-- **The ball is one or two pixels.** Draw it two to three times its real size, with a blob shadow on
-  the grass the whole way, as the period's games did. The shadow is how a viewer judges a fly ball.
-- **A real centre-field camera can't work here.** Television puts it 400 ft out on a long lens;
-  with a short draw distance it would be looking through 400 ft of haze. About 120 ft back and
-  15 ft up with a 19° lens frames pitcher, batter, catcher and umpire, and keeps the plate clear of
-  the pitcher's body. The period's games did the same.
-- **Text is drawn at the screen's resolution, never in the 320×240 picture.** The score box, pitch
-  speed and lower thirds go on a 2-D canvas over the GL one (as Rinkside's `.gdr-hud` does), in a
-  bitmap font scaled by whole numbers, no smaller than 10 CSS px. The rail and the header stay HTML
-  and stay the source a screen reader reads.
+- **The towers make the look.** Four shadowed lights give each player the overlapping soft shadows of
+  a night game, and the spill falling off into the stands keeps the field the brightest thing in the
+  picture without a separate grade.
+- **Depth of field is worth its cost.** The crowd softens behind the batter in the first-base close-up
+  and behind the plate from centre field, the way a broadcast long lens renders it, and it hides how
+  simple crowd figures are at close range.
+- **A real centre-field camera works.** About 445 ft out and 62 ft up with a 3.7° lens frames
+  pitcher, batter, catcher and umpire with the plate clear, and the pitch reads as a few pixels, which
+  is what television shows.
+- **The front row needs a parapet.** Seat backs hide the legs of each row from the one behind it, but
+  the first row needs a wall in front or its fans appear to be standing.
+- **At the TV's size** (400×300 CSS pixels, rendered at 2×) players, count and pitch speed read
+  clearly; the graphics have to be sized against the sub-screen with minimums, not scaled down from
+  a full-screen design.
+- **Grass needs restraint.** At grazing angles its specular sheen washes the near field out; a high
+  roughness and a low reflectance keep the mowing pattern and the colour.
 
 ## Architecture
 
@@ -213,47 +221,153 @@ about 400×300 for a 4:3 picture. The mockup was rendered at that size too. What
 | Piece | Carry over? | Notes |
 |---|---|---|
 | View shell and its five methods | yes | `gameday-grandstand.js` (working name Grandstand). tv.js changes one line: baseball mounts it, and it falls back to the 2-D view on its own. |
-| Lazy loading | yes | Heavy modules load on first mount, as Rinkside's do, so tv.js stays cheap. |
-| World stepped on a fixed clock | adapted | 60 Hz is enough: the fastest thing is a pitch at about 140 ft/s, 2.3 ft a step, and contact is scripted. |
-| Director: one payload in, `onLand` out | yes | The core of it. Stagers per kind instead of per hockey beat. |
+| Lazy loading | yes | Heavy modules load on first mount, as Rinkside's do. |
+| World stepped on a fixed clock | yes, 120 Hz | Slow-motion replays of a pitch need the sim's fine steps. |
+| Director: one payload in, `onLand` out | yes | Stagers per play kind instead of per hockey beat. |
 | "Nothing on the field decides anything" | yes | Between beats nobody throws a pitch, since a pitch changes the count. |
-| Names on bodies, numbers from names | yes | Batter and pitcher numbers come from their names, so every viewer sees the same back. |
-| Cosmetic randomness seeded from the payload | yes | Same rule, same trap: a `rand()` added to the sim replays the season. |
+| Numbers from names, randomness seeded from the payload | yes | Same rules, same trap: a `rand()` added to the sim replays the season. |
 | Camera that never rolls, framing solved from points | yes | Points to frame: ball, fielder, target base. Long moves cut. |
 | Camera written out as GL matrices, checked against a pure projection | yes | The arena-smoke pattern. |
-| Replay buffer, 30 Hz, half speed, own camera | yes | Different triggers: home runs, double plays, triples, walk-offs. |
-| Frame governor with renderer-supplied rungs | yes | Different rungs (below). |
-| Vertex streams, programs prewarm | yes | `stream.js`, `programs.js` unchanged. |
+| Replay buffer | yes, richer | Bone poses at 60 Hz, ball position and spin. |
+| Frame governor with renderer-supplied rungs | yes | Rungs below. |
+| Vertex streams, programs prewarm | yes | `stream.js`, `programs.js`. |
+| CPU-rebuilt bodies | no | GPU skinning instead (below). |
+| Procedural 21-joint rig | partly | Its IK and contact rules carry over; the motion comes from authored clips. |
+| Painted ice with dirty tiles | yes, as dirt | The infield keeps the game (below). |
 | Mirror pass | no | Grass doesn't reflect. |
-| Ice canvas with dirty tiles | no | A park's dirt could take marks (slides, spikes) later; not needed. |
-| 21-joint procedural rig, IK, ragdolls | no | A smaller rig with keyframed poses suits the period. |
 | 2-D renderer of the same world | no | The fallback is the existing Gameday view. |
-| HUD canvas over the GL canvas | yes | Same layering, period graphics. |
-| Smoke gates over a DOM stub | yes | Two new gates on the same pattern, plus one for the 2-D view. |
+| Smoke gates over a DOM stub | yes | Plus animation-quality and texture-budget gates. |
 
 ### Files
 
 | File | Side | What it holds |
 |---|---|---|
-| `client/game/js/panels/gameday-grandstand.js` | THOMAS | The shell: same interface, frame loop, governor, fallback, caption and cards. |
-| `client/game/js/panels/diamond/geo.js` | THOMAS | The field in feet: plate at the origin, bases, mound, foul lines, a fence profile read from the venue data. |
-| `diamond/world.js` | THOMAS | Bodies, the ball, the bases' occupancy, events. Between beats: rituals, never a pitch. |
+| `client/game/js/panels/gameday-grandstand.js` | THOMAS | The shell: interface, frame loop, governor, fallback, caption and cards. |
+| `client/game/js/panels/diamond/geo.js` | THOMAS | The field in feet, the fence profile read from venue data. |
+| `diamond/world.js` | THOMAS | Bodies, the ball, the bases, events, the rituals between beats. |
 | `diamond/director.js` | THOMAS | Stages a payload: walk-up, pitches, the play, running, landing, reconciling. |
-| `diamond/rig.js` | THOMAS | About 15 joints and a pose library: stance, set, windup, stretch, delivery, swing, take, crouch, run, throw, catch, dive, slide. |
-| `diamond/camera.js` | THOMAS | Shots and cuts (below), and `matrices()`. |
-| `diamond/replay.js` | THOMAS | The replay buffer and its stand-in world. |
-| `diamond/hud.js` | THOMAS | The period graphics on the HUD canvas, drawn from data. |
-| `gl/retro.js` | GLASS | The 90s pipeline as a reusable piece: low-res target, shader snippets for snapping and affine mapping, colour quantising and dither, sharp-bilinear upscale, CRT pass. |
-| `gl/ballpark.js` | GLASS | The renderer: park, crowd, bodies, ball, shadows, through `retro.js`. Returns null without WebGL2. |
-| `gl/ballpark-mesh.js` | GLASS | Pure builders (no WebGL), so the gate runs them in node: park from venue data, bodies from joints, ball, bat, shadows. |
-| `client/shared/deadball-sfx.js` | Architect | The Deadball sound bank, moved out of gameday.js (see Audio). |
+| `diamond/anim.js` | THOMAS | The clip player: sampling, blending, root motion, IK and contact layers. |
+| `diamond/camera.js`, `diamond/replay.js`, `diamond/hud.js` | THOMAS | Shots and cuts; the replay buffer; the period graphics. |
+| `diamond/dirt.js` | THOMAS | The infield canvas and what's painted into it. |
+| `gl/ballpark.js` | GLASS | The renderer: passes, lights, materials. Returns null without WebGL2. |
+| `gl/ballpark-mesh.js` | GLASS | Pure builders for the park from venue data and for equipment. Node-runnable. |
+| `gl/skin.js` | GLASS | GPU skinning: bone palettes in a float texture, four weights a vertex, dual-quaternion option. New to GLASS. |
+| `gl/spotshadow.js` | GLASS | Perspective shadow maps for several lights, PCF lookup as a GLSL chunk. New. |
+| `gl/crowd.js` | GLASS | The instanced crowd on `actors.js`'s vertex-animation approach. |
+| `gl/broadcast.js` | GLASS | Depth of field, the period picture (chroma, sharpening, fringing, smear) and its strength setting. |
+| `client/shared/deadball-sfx.js` | Architect | The Deadball sound bank, moved out of gameday.js. |
+| `content/animation_clips/*.json` | THOMAS data | The clip library, authored in the Pose Lab (below). |
 
 ### The 2-D fallback
 
-With no WebGL2, a shader that won't build or a lost context, the Grandstand mounts the existing
-`createGamedayView` in its own host and re-applies the last payload. A play in progress restarts in
-2-D; nothing is lost but the half-second it was showing. The 2-D view stays maintained, and Phase 0
-gives it the gate it never had.
+With no WebGL2, no `EXT_color_buffer_float`, a shader that won't build or a lost context, the
+Grandstand mounts the existing `createGamedayView` in its own host and re-applies the last payload. A
+play in progress restarts in 2-D. The 2-D view stays maintained, and Phase 0 gives it a gate.
+
+## Models
+
+### Players
+
+- **One body, many players.** A single topology with blend shapes for build (height, weight,
+  shoulders, a pitcher's long frame, a catcher's thick one), chosen from the name so a player looks
+  the same all season. Built procedurally the way [actor3d.js](../../client/game/js/panels/actor3d.js)
+  builds street figures (lofted torso, limbs as continuous tubes through the joints, so elbows and
+  knees bend without seams), then skinned.
+- **Levels of detail.** About 18,000 triangles for the close cameras (the batter from first base, the
+  pitcher in a replay), 7,000 at broadcast distance, 1,500 for outfielders in the wide shot, chosen by
+  projected height the way actors are.
+- **Faces.** The street-figure heads at their highest level with the face atlas, plus eye black,
+  stubble and beards from the name. Under a cap brim at broadcast distance a face is mostly shadow,
+  so the close cameras are where faces have to hold up.
+- **Uniforms.** Separate meshes for jersey, undershirt, pants, belt, stirrup socks and cleats, cut
+  the way the period wore them: pants to below the knee with stirrups showing, or full length by
+  player. Jerseys carry pinstripes or flannel weave, piping, a chest wordmark and tackle-twill
+  numbers with a stitched edge in a normal map.
+- **Wear over a game.** A per-player dirt mask on knees, seat and chest, raised by slides, dives and
+  the catcher's crouch, so a uniform in the ninth shows the game.
+
+### Equipment
+
+Caps with a curved bill, a crown in panels, a button and an embroidered crest. Batting helmets in
+glossy shell with an ear flap on the pitcher's side and a decal. Fielders' gloves with laced webbing,
+a first baseman's mitt and the catcher's round mitt. The catcher's helmet, mask, chest protector and
+shin guards; the plate umpire's mask and protector under his shirt. Bats with grain, a darker handle
+and the knob. The ball with its red seams in a normal map, so spin reads in a slow-motion replay.
+
+### The park
+
+Field, walls, stands, bleachers, batter's eye, light towers, dugouts, scoreboard and foul poles built
+from venue data by `gl/ballpark-mesh.js`, with rows of seats, seat backs, a parapet in front of the
+first row, aisles and the crater in section nine from Chip's chatter. Static lighting on the
+structure (occlusion under the upper deck, the seats' own shadowing) is baked into vertex colours
+when the venue is built.
+
+### Textures
+
+- **sRGB decoding** for every colour texture (new to GLASS; the city does the conversion in its
+  shaders), mipmaps everywhere, anisotropic filtering on the field and the uniforms.
+- **Normal and roughness maps**, new to GLASS: fabric weave, numbers and lettering, glove leather,
+  ball seams, wall padding, the dirt's grain.
+- **The infield keeps the game.** The dirt is one painted canvas, as the rink's ice is: chalk lines
+  that cleats scuff, the batter's box dug out over nine innings, the pitcher's landing spot, slide
+  marks, footprints, and the grounds crew raking it smooth in the fifth. Only the touched tiles
+  upload, the arena's rule.
+- **Grass** from a detail texture and the venue's mowing pattern, shaded so the stripes change with
+  the camera's direction as real mowing does.
+- **Budget**: player and equipment atlases at 2048², one 4096² field canvas pair (colour and
+  roughness) where `MAX_TEXTURE_SIZE` allows, 2048 otherwise. About 150 MB of GPU memory at full
+  quality, 60 MB on the phone tier.
+
+## Animation
+
+### The rig
+
+About 40 bones: pelvis, three spine, neck, head, clavicles, shoulders, elbows, forearm twist, wrists,
+a few finger groups for grips, hips, knees, ankles and toes, plus attachment points for the bat, the
+glove and the ball. Four weights a vertex, dual quaternions for the forearm and shoulder so they
+don't collapse when twisted.
+
+### The clip library
+
+Authored clips, about 120 to start:
+
+- *Pitching*: windup and stretch per arm slot (over the top, three-quarter, sidearm), pickoff throws,
+  the follow-through, fielding position after the pitch, warm-up tosses.
+- *Batting*: stances, the load, swing paths for each contact height and direction, takes, check
+  swings, fouls off, the bunt, the follow-through and bat drop, stepping out.
+- *Catching and umpiring*: the catcher's setups, receiving and framing, the throw back, blocking; the
+  plate umpire's stance, his calls and the punch-out (a few styles, one per umpire).
+- *Fielding*: ready steps timed to the pitch, grounders forehand, backhand and charging, fly balls
+  drifting and camping, diving and leaping catches, the double-play pivot, throws by distance.
+- *Running*: leads, the first step, turning a base, slides feet-first and head-first, the trot after a
+  home run, the walk-off mob.
+- *Between beats*: stepping out, gloves, signs, the mound visit, jogging on and off.
+
+### Layers over the clips
+
+- **IK for every contact.** The glove meets the ball at the catch frame, both hands stay on the bat,
+  feet stay where they land, the ball leaves the hand at the release frame.
+- **Look-at.** Heads and eyes track the ball.
+- **Speed matching.** Runs and drifts pick the cycle and stride that fit the distance and the time
+  the director gives them, so the ball and the fielder arrive together.
+- **Variation from the name.** Arm slot, leg kick, stance, batting-glove colour, walk-up habits. Stable
+  all season, so regular viewers recognise players.
+- **Secondary motion.** Jersey and pants flutter in the vertex shader from velocity, caps and helmet
+  flaps settle.
+
+### Authoring
+
+There's no motion capture. Clips are keyed in a **Pose Lab**, a new Modelshop page that poses the rig
+against reference frames, keys clips, previews them on a player and writes `content/animation_clips/`.
+Timings come from published biomechanics (a delivery is about 1.4 s from leg lift to release, arm
+acceleration about 50 ms; a swing about 150 ms from launch to contact). The look-dev's six-frame
+delivery is the blocking a Pose Lab session starts from.
+
+### Ball flight
+
+A cosmetic path with drag and spin (Magnus), fitted so it ends exactly where the play says: the
+pitch at its plate location, a fly at its landing spot. Spin axis and rate by pitch type, so a
+four-seamer and a curve look different in slow motion.
 
 ## What baseball needs that hockey didn't
 
@@ -262,172 +376,121 @@ gives it the gate it never had.
 The payload already carries everything a pitch needs: type, speed, where it crosses the plate (`x`,
 `y`), the result (ball, called strike, swinging strike, foul, in play) and the count after it.
 
-- **Location is exact.** The pitch is a curve from the release point (about 54 ft from the plate,
-  6 ft up, on the pitcher's throwing side) to the payload's `x`, `y` mapped onto the plate and the
-  batter's zone. The curve's middle bends by pitch type (a slider sweeps, a curve drops, a sinker
-  runs), and its end doesn't move. The gate checks every pitch crosses within 0.05 ft of its spot.
-- **Speed is real.** 54 ft at 95 mph is 0.39 s; at 75 mph, 0.49 s. Never slow the ball down to fit
-  a hold; cut rituals instead.
-- **Each result has its own picture.** Ball: no swing, the catcher takes it. Called strike: no swing,
-  the umpire calls it, with the period's punch-out on strike three. Swinging strike: swing and miss,
-  the ball in the mitt. Foul: contact, the ball back into the screen or over a dugout into the
-  stands, chosen from the pitch's seed. In play: the play.
+- **Location is exact.** The ball flies from the release point to the payload's `x`, `y` mapped onto
+  the plate and the batter's zone. The gate checks every pitch crosses within 0.05 ft of its spot.
+- **Speed is real.** 54 ft at 95 mph is 0.39 s; at 75 mph, 0.49 s. Never slow the ball to fit a hold;
+  cut rituals instead.
+- **Each result has its own picture.** Ball, called strike (with the punch-out on strike three),
+  swinging strike, foul (into the screen or the stands, from the pitch's seed), in play.
 - **The plot and the picture mirror each other.** The rail's pitch plot is the catcher's view; the
   centre-field camera looks the other way, so a pitch on the plot's left crosses on the screen's
   right. That's how television does it. Don't flip either one to make them agree.
-- **Handedness comes from the name.** The sim doesn't say who bats left. A hash of the name gives
-  bats and throws, the same all season. It decides the batter's box, the pitcher's arm, which way a
-  breaking ball breaks, and the batter's pull side. The server works it out once and puts `bats`
-  and `throws` on the payload, so client and server can't disagree.
+- **Handedness comes from the name.** The server works out bats and throws once and puts them on the
+  payload.
 
 ### Pacing an at-bat
 
-A pitch with its rituals (the set, the delivery, the reaction, the throw back) is about 4 s. Four
-pitches with their rituals and an outcome fit easily in a 66 s hold; in 13 s the rituals have to
-go, as they do in the 2-D view today. The director gets a budget of 0.45 × `hold`, kept between
-13 s (today's figure, and the budget when a payload carries no `hold`) and 26 s, and spends it in
-this order: pitches at real speed first, then reactions, then the set, then the throw back. Late joiners
-(a catch-up payload) get the short version. The play lands, `onLand` fires, the caption and the
-card go up, and the rest of the hold is replays and dead time.
+A pitch with its rituals is about 4 s. The director gets a budget of 0.45 × `hold`, kept between 13 s
+(today's figure, and the budget when a payload carries no `hold`) and 26 s, and spends it in this
+order: pitches at real speed first, then reactions, then the set, then the throw back. The play
+lands, `onLand` fires, the caption and the card go up, and the rest of the hold is replays and dead
+time.
 
-The booth keeps one line per at-bat: no new lines, no new egress. The rail shows each pitch as it's
-thrown ("88 SLIDER, swinging, 1-2"), generated from the payload the picture uses, so a viewer who
-can't see the picture still gets every pitch. A pitch-by-pitch booth (Chip calling "the 1-2
-pitch... swung on and missed", timed by cues the way Cluster Puck's touches are) is Phase 5 and a
-question for you: it's the more authentic broadcast and about three times the lines in the log.
+The booth keeps one line per at-bat. The rail shows each pitch as it's thrown ("88 SLIDER, swinging,
+1-2"), generated from the payload the picture uses. A pitch-by-pitch booth (Chip calling each pitch,
+timed by cues the way Cluster Puck's touches are) is a question for you: it's the more authentic
+broadcast and about three times the lines in the log.
 
 ### The people
 
-- **Pitcher, catcher, batter and plate umpire** are always in shot from centre field, so they get the
-  most detail: the close tier (about 700 triangles) on the low cameras, 400 elsewhere.
-- **The seven other fielders** play straight-up positions by default, shaded toward the batter's
-  pull side. Their numbers come from team and position, stable for the game. Lineups aren't in the payload and
-  the picture doesn't need them.
-- **Runners** take leads, run on contact and slide. The sim's bases are three booleans, so runners
-  carry no names. Base coaches and an on-deck batter are optional dressing.
-- **Base umpires** (one at first and one at third is enough at this resolution) make the out and
-  safe calls.
-
-The rig is about 15 joints with each limb a rigid segment, and poses come from a small library of
-keyframes. A look knob samples poses at 15 Hz while positions and the camera stay smooth: the
-period's games animated on twos, and it reads as theirs immediately.
+Pitcher, catcher, batter and plate umpire are always in the main shot and get the close level of
+detail. The seven other fielders play straight-up positions shaded toward the batter's pull side,
+with numbers from team and position. Runners take leads, run on contact and slide; the sim's bases
+are three booleans, so runners carry no names. Base coaches, an on-deck hitter and base umpires dress
+the field.
 
 ### Balls in play
 
-The server chooses the cosmetic play (see Server changes) and the director stages it:
-
 | Kind | What the picture does |
 |---|---|
-| Groundout | Grounder to the named infielder, fielded, thrown to first ahead of the runner. A first baseman's ball is unassisted. |
-| Flyout, sac fly | Fly to the named outfielder at the named depth; he drifts under it and catches it. On a sac fly the runner on third tags and scores. |
-| Popout | Pop-up to an infielder or the catcher, fair or foul. A foul pop near the stands is the drama. |
-| Single | Grounder through a hole, a liner or a bloop. The outfielder fields it and throws to the cutoff. |
-| Double | To a gap or down a line, off the wall or rolling to it. Throw to second, the batter in standing or sliding. |
+| Groundout | Grounder to the named infielder, fielded, thrown to first ahead of the runner. |
+| Flyout, sac fly | Fly to the named outfielder at the named depth, caught. On a sac fly the runner on third tags and scores. |
+| Popout | Pop-up to an infielder or the catcher, fair or foul. |
+| Single | Through a hole, a liner or a bloop; fielded and thrown to the cutoff. |
+| Double | To a gap or down a line, off the wall or rolling to it; a slide into second. |
 | Triple | Into a corner or splitting the outfielders, a carom, a slide into third. |
-| Home run | Over the fence at the chosen spot and depth into the stands. The outfielder goes back to the wall and watches it go. |
-| Double play | 6-4-3, 4-6-3 or 5-4-3 as chosen, with a pivot at second. A runner on third scores when the sim says so. |
-| Triple play | Always 5-4-3, around the horn. Two of the script's four triple-play lines say so (a ground ball to the left side; third, second, first) and the other two don't say where. |
+| Home run | Over the fence at the chosen spot; the outfielder goes back to the wall and watches it go. |
+| Double play | 6-4-3, 4-6-3 or 5-4-3 as chosen, with the pivot at second. |
+| Triple play | Always 5-4-3. Two of the script's four triple-play lines say so (a ground ball to the left side; third, second, first) and the other two don't say where. |
 | Productive out | A grounder that moves the runners up. One of the three lines puts it on the right side, so that line airs only when the play goes there. |
-| Walk | The batter drops the bat and jogs to first; forced runners move up. |
-| Strikeout | The punch-out or the swing. With nobody on, the infield throws it around the horn. |
-
-Ball flight is a parabola with drag shaping, bounces with energy loss, and caroms off the wall from
-the fence profile, all from the play's seed. The ball goes where the play says because the play
-fixes where it lands; physics only shapes the path between.
+| Walk | The bat dropped, a jog to first; forced runners move up. |
+| Strikeout | The punch-out or the swing; with nobody on, the infield throws it around the horn. |
 
 ### Running the bases and keeping in step with the sim
 
 Runners advance from `basesBefore` to `basesAfter`, and the number crossing home is the change in
-the batting side's score, not `rbi` (a run scores on a double play with no RBI). The 2-D view's
-rules for who goes where already work and carry over.
-
-The booth doesn't call every at-bat, so the field the picture is showing and the next payload's
-`basesBefore`, outs and batter often disagree. When they do, the director cuts (to a crowd shot or
-the wide camera), places everyone, and cuts back. Rinkside's rule applies: anything that moves a
-man farther than he could run happens on a cut.
-
-The half-inning payload clears the field: the side that was in the field jogs off, the other side
-takes the field, the new pitcher throws warm-up pitches (which decide nothing) and the camera shows the scoreboard and
-the crowd. The 2-D view's half card stays as the rail's card.
+the batting side's score, not `rbi` (a run scores on a double play with no RBI). The booth doesn't
+call every at-bat, so the field the picture is showing and the next payload often disagree. When
+they do, the director cuts to a crowd shot or the wide camera, places everyone, and cuts back.
+Rinkside's rule applies: anything that moves a man farther than he could run happens on a cut. The
+half-inning payload changes sides: one team jogs off, the other takes the field, the new pitcher
+throws warm-up pitches.
 
 ### Home runs and the fence
 
-The fence comes from the venue data: distances at the lines, the alleys and centre, and wall
-heights. A home run's landing spot is chosen beyond it, and the gate checks it lands there. The
-period's graphics can show an estimated distance; it's computed from the landing spot, so it
-agrees with the picture. A walk-off gets the mob at home plate.
+The fence comes from the venue data. A home run's landing spot is chosen beyond it, and the gate
+checks it lands there. The distance graphic is computed from that spot. A walk-off gets the mob at
+home plate.
 
 ### Cameras
 
-The period's broadcast grammar, kept small:
-
 | Shot | When |
 |---|---|
-| Centre field, behind the pitcher | Every pitch. Offset to left-centre so the pitcher doesn't hide the plate. |
-| High home | Balls in play: follows the ball, then frames the fielder and the base the throw goes to. |
-| Fly-ball follow | Long flies: from behind the fielder as the ball comes down to him, shadow first. |
-| First-base side | Plays at first and double plays. |
+| Centre field, long lens | Every pitch. About 445 ft out and 62 ft up, offset to left-centre. |
+| High home | Balls in play: follows the ball, then frames the fielder and the base. |
+| Fly-ball follow | Long flies, from behind the fielder as the ball comes down. |
+| First- and third-base cameras | Close-ups of the batter and the pitcher; plays at first and double plays. |
 | Low home | Walk-ups, plays at the plate, the walk-off mob. |
-| Cutaways | Crowd, dugout, scoreboard, the light towers, the haze over the left-field wall. Dead time and reconciling cuts. |
-| Replay | Reverse angles at half speed. |
+| Cutaways | Crowd, dugout, scoreboard, the light towers, the haze. Dead time and reconciling cuts. |
+| Replay | Reverse angles, slow motion with the ball's spin. |
 
-The camera never rolls. A big move is a cut. Framing is solved from the points that must be seen,
-as Rinkside's is, and the gate fails if the ball and the fielder aren't both in frame at contact and
-at the catch.
+The camera never rolls; a big move is a cut; framing is solved from the points that must be seen.
+Focus follows the subject, and depth of field is set per shot from the lens.
 
-### Between beats
+### Between beats and replays
 
 A hold is mostly dead time, which is real baseball. The world fills it with things that decide
-nothing: the batter steps out and adjusts his gloves, the catcher sets up, the pitcher shakes off a
-sign, a throw over to first that the runner beats back, a mound visit, the next batter in the
-on-deck circle, cutaways. No pitch is thrown and no runner moves up between payloads.
+nothing: stepping out, signs, a throw over to first that the runner beats back, a mound visit, the
+on-deck hitter, the crowd, cutaways. Home runs, double and triple plays, triples, walk-offs and close
+plays get a slow-motion replay from a second angle with the REPLAY bug.
 
-### Replays
+## Lighting and the frame
 
-Home runs, double and triple plays, triples and walk-offs get a replay from a second angle at half
-speed after the play lands, with the REPLAY bug. The buffer keeps poses, ball and kit like Rinkside's,
-and the world plays on underneath it.
+At night the six light towers are the only lights. Each is a bank of lamps, and the venue says which
+lamps work: Chip says the lights work about sixty percent of the time, so dead lamps are part of the
+park and each tower's output follows its live count.
 
-## The 90s look in GLASS 2
+The frame, in order:
 
-Everything here is a knob in a look preset, so the three looks above are three presets.
+1. **Shadows.** Four spotlight shadow maps (2048², the nearest towers to the play), players and the
+   ball only, 12-tap PCF. The field and stands take their static shading from the bake.
+2. **Depth prepass** at full resolution, for occlusion and the lens.
+3. **Main pass** into `hdr.js`'s RGBA16F target with 4× MSAA: sky, park, players, crowd, then the
+   backstop netting and the ball's motion blur.
+4. **Ambient occlusion** at half resolution from the depth, blurred.
+5. **Depth of field** from the depth and the shot's focus, before the tone curve.
+6. **Bloom** on the lamps and the bright uniforms, plus the period's vertical smear on the lamps.
+7. **Tone curve** (ACES, as `hdr.js` has) and the broadcast pass: chroma softening, sharpening,
+   fringing, lifted blacks, the strength setting.
+8. **Graphics** on a 2-D canvas at the screen's resolution.
 
-- **Low-res target.** Draw into an RGBA8 texture and a DEPTH16 renderbuffer at the preset's size
-  (320×240), with no antialiasing. Fill is tiny: 77k pixels.
-- **Vertex snapping.** In the vertex shader, round clip-space `xy / w` to the target's pixel grid and
-  multiply back by `w`. Strength 0 is off, 1 is whole pixels, 0.5 half pixels. Camera-locked things
-  (the HUD) never snap.
-- **Affine textures.** GLSL ES 3.00 has no `noperspective`. Pass `uv × w` and `w` as ordinary
-  varyings and divide in the fragment shader; the perspective terms cancel and leave screen-linear
-  coordinates. Subdivide the ground (a 40 ft grid) and the walls so the swim stays at period size.
-- **Gouraud or flat.** Light per vertex in the vertex shader: ambient, the sky, and the light towers
-  as a few point lights, so light pools on vertices. `flat` varyings give the cabinet look.
-- **Fog.** Per vertex, linear in distance, coloured as the haze. The far plane sits just past the
-  outfield stands.
-- **Colour.** Quantise to 5 bits a channel in the fragment shader, with a 4×4 Bayer offset taken
-  from the target's own pixel coordinates, so the dither scales up as blocks the way the hardware's
-  did. An optional palette lookup (a 32³ texture) gives a stronger limited palette.
-- **Textures.** Painted on small canvases (16 to 64 px) into two 256² atlases, one for the park
-  (grass, dirt, wall pads, signs, the crowd's two frames, the scoreboard) and one for kits (64 slots
-  of 32×32, LRU like Rinkside's). Nearest filtering with no mipmaps for look A, bilinear with mipmaps
-  for B. Never `UNPACK_SKIP_PIXELS` (Rinkside's SwiftShader trap).
-- **Ground in painter's order.** Grass, dirt, lines and bases draw first with no depth test, then
-  everything else with it. At 16-bit depth, layered decals would fight.
-- **Shadows.** A dark blob under each player and the ball, blended. No shadow maps.
-- **Crowd.** Textured tiers with two frames that swap when the crowd reacts, and a few sprite
-  figures in the front rows.
-- **Upscale.** Sharp bilinear into the canvas's backing store, letterboxed to 4:3.
-- **CRT pass (optional).** Scanlines only at 3 or more device pixels per line, a faint aperture mask
-  and vignette. No curvature (it crops the graphics) and no flicker.
-- **HUD.** A 2-D canvas at device resolution over the GL canvas, period bevels, a bitmap font at
-  whole-number scales.
+Materials are GGX with roughness by surface: matte cloth with a sheen, skin with a wrap for light
+through it, glossy helmets and shin guards with the reflection cube, leather, wood, chalk, wet and dry
+dirt. Fog is `fog.js`'s height fog with its light-shaft in-scatter, so the towers glow in the haze
+over the left-field wall.
 
-The order of a frame: world into the low-res target, then quantise and dither (in the same pass),
-upscale into the canvas, CRT if on, then the HUD canvas on top.
-
-GLASS 2's traps all apply: fall back on any GL failure, save GL state before building a framebuffer
-(a feedback loop drops draws without an error), call `loseContext()` on `clear()`, and keep any
-texture under 2048 px. Check [glass-notes.md](../reference/glass-notes.md) before writing the renderer.
+Unlike the city's shaders, which saturate at 1.0 (so only emissive decals bloom there), the
+ballpark lights in real HDR values, so bloom and the tone curve have something to work with.
 
 ## Server changes
 
@@ -444,7 +507,7 @@ texture under 2048 px. Check [glass-notes.md](../reference/glass-notes.md) befor
 | Where the ball goes and who fields it | derived on the client from a hash, so it can contradict the line | add `play`, chosen on the server |
 | Bats and throws | missing | add `bats`, `throws`, from the names |
 | How long the line holds | missing | add `hold` (ms) |
-| Club identity stamp | missing | add `clubsRev` once Deadball has clubs (Phase 4) |
+| Club identity stamp | missing | add `clubsRev` once Deadball has clubs |
 | Standings | the same 8 rows on every payload | send once a game (first payload and catch-up) |
 
 ### The play, and lines that agree with it
@@ -452,32 +515,27 @@ texture under 2048 px. Check [glass-notes.md](../reference/glass-notes.md) befor
 The booth's lines name directions: "rolls out to the right side", "laces one to the wall", "splits
 the outfielders", "around the horn: third, second, first". The 2-D view's hashed trajectory ignores
 them, so today the picture and the line can disagree. Hockey solved the same problem by having the
-narrator decide cosmetic facts (a shattered pane, a helmet off) so the line and the picture agree.
+narrator decide cosmetic facts so the line and the picture agree.
 
-- **`synthPlay(seed, kind, bases, bats)`** in baseball.js returns the cosmetic play: the zone
-  (pull, centre or opposite field; which hole or gap), the trajectory (grounder, liner, fly, pop),
-  the depth, the fielders in order (`[6, 4, 3]`), a landing spot for a home run. It's seeded from
-  `sportsHash` with its own salt, like the pitches, and never touches the sim's random stream, so
-  no game in the season changes.
+- **`synthPlay(seed, kind, bases, bats)`** in baseball.js returns the cosmetic play: the zone, the
+  trajectory, the depth, the fielders in order (`[6, 4, 3]`), a landing spot for a home run. It's
+  seeded from `sportsHash` with its own salt, like the pitches, and never touches the sim's random
+  stream, so no game in the season changes.
 - **Pools gain optional direction suffixes.** `atbat.groundout.right`, `atbat.double.wall`,
   `atbat.single.gap` and so on, falling back to the bare pool. The assembler picks the play first,
   then a line from the matching suffixed pool if it has any, else from the bare pool. No `.bsm`
   syntax changes; only pool keys.
 - **The bare pools must be direction-free.** A regress check reads every bare pool for direction
   words (left, right, centre, gap, wall, line, deep, shallow, short, around the horn) and fails on
-  one, so a new line can't quietly contradict the picture. The current lines that name a direction
-  move into suffixed pools in Phase 2.
-
-This adds about 60 to 80 bytes to an at-bat payload.
+  one. The current lines that name a direction move into suffixed pools.
 
 ### Egress and read tiers
 
 Nothing here touches a hot path or adds a query. The graph is assembled once per slot and cached
-(`getSportsGraph`); `synthPlay`, handedness and the hold are computed during assembly from data
-already in memory. The club set and the venue come from the broadcast row the script is already
-loaded from.
+(`getSportsGraph`); everything new is computed during assembly from data already in memory. The club
+set and the venue come from the broadcast row the script is loaded from.
 
-Per viewer with the sub-screen open, per game, at today's sizes:
+Per viewer with the sub-screen open, per game:
 
 | | Today | After |
 |---|---|---|
@@ -485,13 +543,11 @@ Per viewer with the sub-screen open, per game, at today's sizes:
 | Play, handedness, hold, sport | none | about 87 × 0.1 KB = 9 KB |
 | Everything else | about 70 KB | about 70 KB |
 | Total | about 115 KB | about 80 KB |
-| Club set and venue | none | once per client per revision, held under 48 KB |
+| Club set and venue | none | once per client per revision, held under 64 KB |
 
-The CPhL's eight clubs are 57 KB, mostly crest path data. Sixteen Deadball clubs drawn the same way
-would be about 110 KB, so the build script gets a size budget and simpler crests: a monogram and a
-shape, which is what a 1990s cap carried anyway.
-
-Log-rung viewers get none of the payloads today and get none after.
+The rendering's weight is all on the client: textures and clips ship with the client code, not per
+broadcast. The CPhL's eight clubs are 57 KB as data, mostly crest paths; Deadball's sixteen get a size
+budget and simpler crests.
 
 ## Engine and content
 
@@ -500,117 +556,106 @@ game built on THOMAS keep it byte-for-byte?
 
 | Piece | Side | Why |
 |---|---|---|
-| `gl/retro.js` | GLASS (engine) | A low-res, dithered, snapped pipeline knows nothing about baseball. Any view could use it. |
-| `gl/ballpark.js`, `gl/ballpark-mesh.js` | GLASS (engine) | Draw a baseball park and players from data. They mustn't name Deadball, Coldwater or a club. |
-| `panels/diamond/`, `gameday-grandstand.js` | THOMAS (engine) | Baseball, not Deadball: a second game with a baseball broadcast keeps them. |
+| `gl/skin.js`, `gl/spotshadow.js`, `gl/broadcast.js`, `gl/crowd.js` | GLASS (engine) | General capabilities: skinning, spotlight shadows, a lens and a period picture, a crowd. Any view could use them. |
+| `gl/ballpark.js`, `gl/ballpark-mesh.js` | GLASS (engine) | Draw a baseball park and players from data; they mustn't name Deadball, Coldwater or a club. |
+| `panels/diamond/`, `gameday-grandstand.js`, the clip library | THOMAS (engine) | Baseball, not Deadball: a second game with a baseball broadcast keeps them. |
 | `baseball.js` including `synthPlay` | broadcast plugin | The sport module, as now. |
-| The look preset's values | Architect (content) | Deadball's art direction. Defaults live in code; Deadball's values live in its venue data. |
-| The venue: fence profile, wall colours, signs, scoreboard, light towers and dead banks, the haze | Architect (content) | `sports_pools.venue` on the Deadball row, written by the build script and served with the club set under the same revision. |
-| Clubs: colours, caps, uniforms, crests | Architect (content) | `sports_pools.clubs`, through the existing seam. |
-| Lines and pools | Architect (content) | `baseball.bsm`, as now. |
-| The sound bank's presets | Architect (content) | `deadball-sfx.js`, editable in the dev panel and overridable by `interface_sfx`. |
+| The venue: fence, walls, signs, scoreboard, towers and their dead lamps, the haze, the crater | Architect (content) | `sports_pools.venue`, written by the build script and served with the club set. |
+| The broadcast-picture preset and its default strength | Architect (content) | Deadball's art direction. Defaults live in code. |
+| Clubs: colours, caps, uniforms, crests, wordmarks | Architect (content) | `sports_pools.clubs`, through the existing seam. |
+| Lines and pools; the sound bank's presets | Architect (content) | As now. |
 
 Two existing leaks not to copy: Rinkside's sponsor names (`HOARDINGS` in `rink/textures.js`) and the
-2-D view's "DEADBALL · GAMEDAY" and "◆ Chip Vega" strings are content inside engine files. The
-Grandstand takes its brand, announcer and signage from the payload or the venue data.
+2-D view's "DEADBALL · GAMEDAY" and "◆ Chip Vega" strings are content inside engine files.
 
 ### Should Deadball's clubs use the seam?
 
-Yes, in Phase 4.
+Yes. Identities are what make a high-fidelity picture read as a league rather than a demo, and the
+seam is already sport-neutral on the client and proven by Rinkside. Baseball's convention fits it:
+`kit.home` is whites with club trim, `kit.road` is greys, and the cap and helmet carry the colour and
+the crest. Crests and wordmarks are painted from the vector data at the resolution a close-up needs,
+which is where vector crests pay off. Until then, kits are hashed from team names, as Rinkside's
+fallback does.
 
-- In 3-D at 320×240 a uniform is the only way to tell the sides apart. The 2-D view labels its
-  tokens; the 3-D view can't.
-- The seam is already sport-neutral on the client (`club-crest.js` keeps a store per sport), and
-  Rinkside proved the whole round trip.
-- Baseball's convention fits the existing shape: `kit.home` is whites with club trim, `kit.road`
-  is greys, and the cap and batting helmet carry the club colour and a small crest.
-- Without it the Grandstand uses hashed two-colour kits from the team names, the same fallback
-  `kitFor` uses. That's fine for Phases 1 to 3.
-
-What it takes: `scripts/content/build-deadball-clubs.mjs` for sixteen clubs with a `--check` gate
-and a size budget; `clubsRevOf` moved out of hockey.js to a shared module and exported by both
-sports; `sendTvClubs` told the sport instead of assuming hockey; `clubsRev` on Deadball's payloads.
-Baseball kit fields: jersey, trim, pants, cap, bill, helmet, undershirt, stirrups, number, number
-edge, and a chest wordmark (text and colour).
-
-Deadball's teams are named for districts, as several CPhL clubs are (Ashway, Yards, Docklands,
-Coldwater). Taking a club's colours from its district's palette in
-[building-styles.md](../reference/building-styles.md) would make the city consistent; it would also
-make two clubs from one district look alike across the two leagues. That's a question for you.
+What it takes: `scripts/content/build-deadball-clubs.mjs` for sixteen clubs with a `--check` gate and
+a size budget; `clubsRevOf` moved out of hockey.js to a shared module; `sendTvClubs` told the sport;
+`clubsRev` on Deadball's payloads. Baseball kit fields: jersey, fabric (pinstripe, flannel, plain),
+trim, pants, cap, bill, helmet, undershirt, stirrups, number and edge, chest wordmark.
 
 ## Text parity and accessibility
 
-- **The line and the picture agree**, by construction (the play is chosen first, the line matches it)
-  and by test (the bare-pool word check and the smoke gate). Baseball gets the parity rule hockey
-  has.
-- **Every pitch is text.** The rail's ticker is generated from the same pitch data the picture
-  draws, in a polite `aria-live` region that a player can switch off.
-- **Read Aloud speaks on landing**, as both views do now: the `speak` thunk from tv.js fires on
-  `onLand`.
-- **Reduced motion.** When `prefersReducedMotion()` is true: no vertex snapping or affine swim, no
-  camera pans (hard cuts between still shots), no shake, no cut flashes, no fireworks, replays as
-  still frames with the play described. Read it each time, never cached.
-- **No flashing.** The light towers' dead banks go out and stay out; any flicker stays under three
-  flashes a second. The CRT pass has no flicker at all.
-- **The canvases are labelled.** The GL canvas gets an `aria-label`; the HUD canvas is
-  `aria-hidden`, since everything on it is also in the rail or the header.
-- **Colour isn't the only signal.** Abbreviations sit beside every colour chip; home whites and road
-  greys differ in lightness, not only hue.
+- **The line and the picture agree**, by construction and by test. Baseball gets the parity rule
+  hockey has.
+- **Every pitch is text** in the rail's ticker, generated from the same data the picture draws, in a
+  polite `aria-live` region a player can switch off.
+- **Read Aloud speaks on landing**, as both views do now.
+- **Reduced motion**, read from `prefersReducedMotion()` each time: no camera moves (hard cuts
+  between still shots), no lens breathing, no shake, no cut flashes, no fireworks, no smear, replays
+  as stills with the play described.
+- **No flashing.** Dead lamps stay dead; any flicker stays under three flashes a second.
+- **The canvases are labelled**; the graphics canvas is `aria-hidden`, since everything on it is also
+  in the rail or the header.
+- **Colour isn't the only signal**: abbreviations beside every chip, home whites and road greys
+  different in lightness.
 
 ## Audio
 
-- **Move the nine inline SIREN layers** out of gameday.js into `client/shared/deadball-sfx.js`, a
-  bank like `hockey-sfx.js` (group `deadball`), so the dev panel can edit them. The bank's
-  `<script>` has to come before `sfx-catalog.js` in both index.html files. Both views play from it.
-- **Add:** a crowd bed that swells on a deep fly, roars on a home run and groans when the home side
-  hits into a double play; bat-crack variants by contact quality; the fence thud; glove pops; slides;
-  an organ sting or two (original riffs through the tracker); the umpire's calls and a public-address
-  voice ("Now batting, number twenty-seven...") through ORACLE with the hall reverb; a vendor in the
-  stands now and then.
-- **Sound Detail decides how much:** `off` plays none of it, `limited` plays the events (crack, mitt,
-  roar), `full` adds the bed, the organ and the PA.
-- **Chip stays on top.** The bed ducks while Read Aloud speaks.
-- **Rate limits** per sound, as Rinkside's `SFX_GAP` does, on the `tv` category.
-- A period touch that needs no engine change: low-pass the bank's presets around 9 kHz, the sound of
-  1990s sample memory.
+- Move the nine inline SIREN layers into `client/shared/deadball-sfx.js`, a bank like `hockey-sfx.js`
+  (group `deadball`), loaded before `sfx-catalog.js` in both index.html files.
+- Add a crowd bed that follows the play, bat cracks by contact, the fence, gloves and slides, organ
+  stings (original riffs through the tracker), the umpire and a public-address voice through ORACLE
+  with the hall reverb, a vendor now and then.
+- Sound Detail decides how much: `off`, `limited` (the events), `full` (the bed, the organ, the PA).
+  The bed ducks while Read Aloud speaks. Rate limits per sound on the `tv` category.
 
-## Performance budgets
+## Performance
 
-| | Budget |
-|---|---|
-| Internal picture | 320×240 (77k pixels) |
-| Triangles per frame | 16k (park 6k, up to 22 bodies at 400, the close tier at 700) |
-| Draw calls per frame | 25 |
-| Textures and targets | two 256² atlases (512 KB) and the 320×240 target with its depth (450 KB), plus the canvas |
-| Frame rate | 30 fps by default (the period's own rate), 60 as an option |
-| JavaScript per frame | 4 ms on a mid-range laptop |
-| Hidden | no frames while the tab is hidden or the sub-screen is closed |
-| Closed | `loseContext()` on `clear()` |
-| Download | the Grandstand's modules load on first mount, after the 2-D view's |
+### Budgets by tier
 
-The mockup's park and eleven figures came to 2,771 triangles. The governor's rungs, in order:
-CRT pass off, 60 to 30 fps, crowd animation off, shadows off. Resolution is the look, so it isn't a
-rung.
+| | Full | Laptop | Phone |
+|---|---|---|---|
+| Resolution | the box × device pixels, up to 2× | up to 1.5× | 1× |
+| MSAA | 4× | 4× | off |
+| Players | close level for the four in the main shot | broadcast level | far level, 3,000 triangles |
+| Shadows | 4 towers at 2048² | 2 towers at 2048² | blobs |
+| Ambient occlusion | half resolution, 16 taps | quarter resolution | off |
+| Depth of field | 28 taps | 12 taps | off |
+| Crowd | 5,000 instanced fans | 3,000 | 1,500, far level |
+| Triangles per frame | 2.5 million | 1.2 million | 300,000 |
+| Frame time, GPU | 8 ms | 12 ms | 16 ms at 30 fps |
+| GPU memory | 250 MB | 180 MB | 90 MB |
+
+The sub-screen is small (about 400×300 CSS pixels), so per-pixel work is cheap next to the city's
+full-window frame; geometry and the crowd are what cost. Tiers follow GLASS's phone tier (a coarse
+pointer and a short side under 600 CSS pixels) and the governor.
+
+### The governor
+
+Rinkside's pattern, with these rungs in order: depth of field to 12 taps, ambient occlusion to quarter
+resolution, shadows to two towers, crowd to the far level, players down one level, MSAA off,
+resolution down a step. The loop pauses while the tab is hidden or the sub-screen is closed, and
+`clear()` calls `loseContext()`.
+
+The look-dev ran on a software renderer, so it gives no GPU timings. Phase 1 measures on the
+reference machine and on an integrated laptop GPU and writes the numbers into
+[systems-broadcast.md](../systems-broadcast.md).
 
 ## Gates and tests
 
 | Gate | Group | What it checks |
 |---|---|---|
-| `scripts/shapes/gameday-smoke.mjs` (Phase 0) | shapes | Real Deadball games through the 2-D view: every payload resolves, runners end on `basesAfter`, nothing throws. It's the fallback, so it needs a gate. |
-| `scripts/shapes/ballpark-smoke.mjs` (Phase 1) | shapes | Pure, no GPU: meshes finite and inside budget for every pose and the park, GL matrices match the pure projection to 0.01 px for every shot, the snapping, dither and upscale maths, kit UVs inside their slots, null without WebGL2. |
-| `scripts/shapes/diamond-smoke.mjs <slot>` (Phase 1, grows in 2 and 3) | shapes, one game per gate | Real games through the world and director over the DOM stub: pitch count, each pitch at its spot, the terminal pitch matches the kind, the count shown, caption held until `onLand`, fielders as the play names them, outs at the right base, runners end on `basesAfter`, runs equal the score change, home runs land past the fence, no runner moves faster than he could run outside a cut, ball and fielder in frame, replays start and hand back, sounds played. |
-| `scripts/content/build-deadball-clubs.mjs --check` (Phase 4) | content | The row matches the script, sizes inside budget, colours hex. |
-| `plugins/broadcast/regress.js` | regress | `sport`, `bats`, `throws`, `hold` present; `play` consistent with the kind; standings once a game; bare pools direction-free; a recorded hash of a hundred seeded games unchanged, so `synthPlay` can't have shifted the season. |
+| `scripts/shapes/gameday-smoke.mjs` (Phase 0) | shapes | Real Deadball games through the 2-D view: every payload resolves, runners end on `basesAfter`, nothing throws. |
+| `scripts/shapes/ballpark-smoke.mjs` | shapes | Pure, no GPU: meshes finite and inside each level's budget, the park from venue data, GL matrices against the pure projection, skin weights summing to one, texture budgets. |
+| `scripts/shapes/anim-smoke.mjs` | shapes | Every clip: joint limits, no velocity spikes at blend points, planted feet sliding under 0.1 ft, hands on the bat within 0.05 ft, the glove at the ball within 0.1 ft on the catch frame, release at the release frame. |
+| `scripts/shapes/diamond-smoke.mjs <slot>` | shapes, one game per gate | Real games through the world and director over the DOM stub: pitch count, each pitch at its spot, the terminal pitch matches the kind, captions held until `onLand`, fielders as the play names them, outs at the right base, runners end on `basesAfter`, runs equal the score change, home runs land past the fence, no runner faster than he could run outside a cut, ball and fielder in frame, replays start and hand back, sounds played. |
+| `scripts/content/build-deadball-clubs.mjs --check` | content | The row matches the script, sizes inside budget, colours hex. |
+| `plugins/broadcast/regress.js` | regress | `sport`, `bats`, `throws`, `hold` present; `play` consistent with the kind; standings once a game; bare pools direction-free; a recorded hash of a hundred seeded games unchanged. |
 
-`client:smoke` and `imports:smoke` cover the new files without being asked. Each gate stays inside
-the 60 s CPU budget: the smoke drives the director to idle and then applies the next payload without
-waiting out the hold. Two slots that between them produce every kind go in the manifest (a triple
-play comes up in about one game in 540, so the gate also feeds one synthesised triple-play payload).
-
-The headless DOM stub has no WebGL, so no gate draws a real frame. A sandbox page,
-`tools/sandbox/deadball-park-test.html`, runs the real sim and assembler into the real view with
-`?slot=&i=&look=` and knobs for the look, for screenshots and tuning by hand, as
-`hockey-rink-test.html` does.
+`client:smoke` and `imports:smoke` cover new files without being asked. Each gate stays inside the 60
+s CPU budget. A triple play comes up in about one game in 540, so the diamond gate also feeds one
+synthesised triple-play payload. No gate draws a real frame (the DOM stub has no WebGL), so a sandbox
+page, `tools/sandbox/deadball-park-test.html`, runs the real sim and assembler into the real view for
+screenshots and tuning by hand, as `hockey-rink-test.html` does.
 
 ## Phases
 
@@ -618,81 +663,73 @@ Each phase ends with its gates green and the sandbox showing it.
 
 **Phase 0: groundwork.** No visible change.
 - Standings once a game; `sport`, `bats`, `throws` and `hold` on payloads.
-- The sound bank moved out of gameday.js.
-- `gameday-smoke.mjs` for the 2-D view.
-- The sandbox page.
-- Tested by: broadcast regress, the new gate, the egress figures re-measured.
+- The sound bank moved out of gameday.js; `gameday-smoke.mjs`; the sandbox page.
+- Tested by: broadcast regress, the new gate, egress re-measured.
 
-**Phase 1: the park and the pitch.** Behind a flag (a localStorage key), off by default.
-- `gl/retro.js`, `gl/ballpark.js`, `gl/ballpark-mesh.js`, the shell, geo, world, rig, director and
-  camera, with the venue's defaults in code.
-- Walk-ups and every pitch result; strikeouts and walks staged in full; a ball in play cuts to the
-  wide camera with the runners placed.
-- The centre-field camera, the score box, pitch speed and count, blob shadows, the haze, the light
-  towers.
-- Fallback to the 2-D view, `loseContext()`, the hidden-tab pause, the frame cap.
-- Tested by: `ballpark-smoke`, `diamond-smoke` (pitches, counts, captions), sandbox screenshots of
-  the chosen look.
+**Phase 1: the park and the light.** Behind a flag (a localStorage key).
+- `gl/ballpark.js` on `hdr.js`, `fog.js` and a matrix-based `ssao.js`; `gl/spotshadow.js`; sRGB,
+  normal and roughness maps; the park from venue defaults; the dirt canvas; the broadcast pass; the
+  cameras.
+- Players as static, posed meshes at final quality, so lighting and materials are judged on the
+  real models.
+- Tested by: `ballpark-smoke`, sandbox screenshots, GPU timings on two machines.
 
-**Phase 2: balls in play.** Still behind the flag.
-- `synthPlay`, suffixed pools, the direction-word check, and the lines that name a direction moved.
-- Fielders, ball flight, bounces and caroms, fielding, throws, pivots, running, slides, home runs
-  over the fence, the walk-off mob, reconciling cuts, the half-inning changeover.
-- High home, fly-ball follow and first-base cameras.
+**Phase 2: skinned players and the pitch.** Behind the flag.
+- `gl/skin.js`, the rig, `diamond/anim.js`, the Pose Lab, the pitching, batting, catching and
+  umpiring clips; every pitch result staged; strikeouts and walks in full.
+- Tested by: `anim-smoke`, `diamond-smoke` (pitches, counts, captions).
+
+**Phase 3: balls in play.** Behind the flag.
+- `synthPlay` and the suffixed pools; fielding, throwing, running and sliding clips; ball flight with
+  spin; reconciling cuts; the half-inning changeover; the play cameras.
 - Tested by: `diamond-smoke` in full, regress for the play and the season hash.
 
-**Phase 3: the broadcast.** On by default wherever WebGL2 works.
-- Replays, dead-time rituals and cutaways.
-- The crowd bed, PA, organ and umpire.
-- Reduced motion, the CRT option and the governor's rungs.
-- A performance pass on a low-end laptop and a phone, with the numbers written into
-  systems-broadcast.md as the Grandstand's as-built section.
-- Tested by: `diamond-smoke` (replays, sounds, the reduced-motion path through the stub), measured
-  frame times.
+**Phase 4: the broadcast.** On by default wherever WebGL2 and float targets work.
+- `gl/crowd.js` with seated and reaction clips; replays in slow motion; dead-time rituals; the grounds
+  crew in the fifth; audio; reduced motion; the tiers and the governor.
+- Tested by: `diamond-smoke` (replays, sounds, reduced motion), measured frame times written into the
+  docs.
 
-**Phase 4: the clubs.** Sixteen identities through the seam.
-- The build script and its gate, the shared `clubsRevOf`, the `tv_clubs` sport fix.
-- Caps, uniforms, wordmarks and crests in the kit atlas, crests in the header and score box.
-- The 2-D view picks up club colours too.
-- Tested by: `--check`, `ballpark-smoke` (atlas), regress (`clubsRev` on payloads).
+**Phase 5: the clubs.** Sixteen identities through the seam; caps, uniforms, wordmarks and crests in
+the atlases; the 2-D view picks up the colours too. Tested by `--check`, `ballpark-smoke`, regress.
 
-**Phase 5: optional.** A pitch-by-pitch booth with cues; a park per club; the batter's season line in
-a lower third; the same look as an option for Rinkside.
+**Phase 6: optional.** A pitch-by-pitch booth with cues; a park per club; the batter's season line;
+a throwback-night preset in the first draft's 1990s video-game look; the same lighting for Rinkside.
 
 ## Risks
 
-- **The director is the big piece.** Rinkside's is 1,379 lines. Baseball's plays are discrete, which
-  helps, but thirteen kinds times the camera grammar is a lot of cases. Phase 1 stages only pitches
-  for that reason.
-- **The line and the picture disagreeing** is the bug a viewer notices first. The suffixed pools and
-  the word check exist for it; the first Phase 2 job is moving the lines that name a direction.
-- **A blurry, tiny ball.** The oversized ball, its shadow and the follow camera are the answer;
-  check them in the sandbox at 400×300 before Phase 2's cameras are final.
-- **Wobble and jitter can make people queasy.** Half-strength snapping by default, and none under
-  reduced motion.
-- **Two looks on one channel.** KSAB-TV airs both sports at 18:00 on alternate days; a modern rink
-  next to a 1990s ballpark is either a joke that works or an inconsistency. Your call.
-- **Two Deadball views to maintain.** The 2-D view stays as the fallback, so it needs its gate
-  (Phase 0) and the payload changes have to keep it working.
-- **Trademarks.** Original clubs, marks and graphics only. The bevelled score box is generic; don't
-  model it on any network's package.
+- **The art and animation are the work.** A rig, a Pose Lab and about 120 keyed clips is more effort
+  than all the code around them, with no motion capture to start from. Phase 2 stages only pitches so
+  the pipeline is proved on the motion viewers see most.
+- **Faces in close-ups.** The street-figure heads have never been drawn in the game. If they don't
+  hold up at the first-base camera's distance, close shots stay on the uniform and the action.
+- **Hardware.** Every GLASS number comes from one discrete GPU. A ballpark that needs float targets
+  and four shadow maps has to be measured on integrated laptops and phones before it goes on by
+  default; the 2-D view is the floor.
+- **The line and the picture disagreeing** is the first thing a viewer notices. The suffixed pools and
+  the word check exist for it.
+- **Memory.** A sub-screen holding 250 MB is a lot next to a city scene; the governor and `loseContext()`
+  on close keep it honest.
 - **Determinism.** `synthPlay` and handedness must not draw from the sim's random stream. The season
   hash in regress catches it.
+- **Trademarks.** Original clubs, marks and graphics only; the score box is a generic bevelled panel.
 
 ## Questions for you
 
-1. **Which look?** A (recommended), B or C. And how much jitter: none, half (recommended) or the full
-   period effect?
-2. **CRT effect:** off at the TV's normal size and on in bigger views (recommended), always on, or
-   never?
-3. **Layout:** a 4:3 picture beside the existing stats rail (recommended), or the picture across the
-   full width with the stats inside it?
-4. **The booth:** keep one line per at-bat with a pitch ticker in the rail (recommended for now), or
-   plan for Chip calling every pitch?
-5. **Clubs:** author all sixteen in Phase 4? Should a club's colours follow its district, even where
-   that makes it look like the CPhL club from the same district?
-6. **Parks:** one league ballpark (recommended), or a park per club later?
-7. **Frame rate:** 30 fps like the period (recommended) or 60?
-8. **The 2-D Gameday:** keep it as a "classic" option players can pick, or only as the fallback?
-9. **Name:** "Grandstand" is a working name for the view, as "Rinkside" is the rink's. Keep it or
-   pick another.
+1. **How strong is the 1990s picture?** Full period (recommended), a light touch, or a clean modern
+   picture with only the period's graphics?
+2. **Animation authoring.** Keyed clips in a new Pose Lab (recommended), or procedural motion like the
+   rink's, which is quicker to build and looks less natural?
+3. **Size.** Should the TV get a full-window mode for the ballpark? At 400×300 most of this detail is
+   only visible in close-ups.
+4. **Layout:** a 4:3 picture beside the stats rail (recommended), or full width with the stats inside
+   the picture?
+5. **The booth:** one line per at-bat with a pitch ticker (recommended for now), or Chip calling every
+   pitch?
+6. **Clubs:** author all sixteen? Should a club's colours follow its district, even where that matches
+   the CPhL club from the same district?
+7. **Parks:** one league ballpark (recommended), or a park per club later?
+8. **Night only?** The airtime starts at 18:00. Dusk at first pitch with the lights coming up through
+   the early innings (recommended), or always full night?
+9. **The 2-D Gameday:** keep it as a "classic" option players can pick, or only as the fallback?
+10. **Name:** "Grandstand" is a working name for the view, as "Rinkside" is the rink's.

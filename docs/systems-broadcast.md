@@ -792,7 +792,7 @@ script declares its code with `@sport`, and **that is the only thing that select
 sport module**; nothing else in the pipeline may branch on it.
 
 Deadball's sub-screen is the 2-D Gameday view ([gameday.js](../client/game/js/panels/gameday.js)).
-A 3-D one on Rinkside's pattern, drawn to look like a 1990s baseball game, is planned in
+A high-fidelity 3-D one on Rinkside's pattern, presented as a 1990s broadcast, is planned in
 [proposals/deadball-glass2.md](proposals/deadball-glass2.md) (design).
 
 ### The sport registry
