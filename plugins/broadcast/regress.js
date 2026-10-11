@@ -2422,7 +2422,7 @@ export default async function regress({ check, run, getPlayer }) {
         const out = [], nrng = sportsRng(seed ^ 0x9e3779b9);
         HOCKEY.narrate({
           script: {}, game, gs: { seed, game }, slot, ws: false, announcer: 'Tug Brennan', pools, nrng, sport: HOCKEY, add: () => {},
-          say: (l, t, sb, fx, gd, meta) => { if (l) out.push({ text: sportsFill(l, t).trim(), graphic: fx || null, gameday: gd || null, _cue: meta && meta.cue, _opt: (meta && meta.opt) || false }); },
+          say: (l, t, sb, fx, gd, meta) => { if (l) out.push({ text: sportsFill(l, t).trim(), bug: sb || null, graphic: fx || null, gameday: gd || null, _cue: meta && meta.cue, _opt: (meta && meta.opt) || false }); },
           pick: (...keys) => { for (const k of keys) if (pools[k]?.length) { usedPools.add(k); break; } return sportsPick(pools, nrng, ...keys); },
           abbr: (n) => String(n).slice(0, 3).toUpperCase(), recordOf: () => '8-4-1', lastId: () => null,
         });
@@ -2442,6 +2442,19 @@ export default async function regress({ check, run, getPlayer }) {
         if (ms.some((m, i) => i && m < ms[i - 1])) bad.push(`${g.type} ${g.clock} cues out of order`);
       }
       check('hockey: shots carry their cues, in order', bad.length === 0, bad.slice(0, 3).join(' | '));
+      // The bug doesn't call a goal early: the rush and the shot show the score before the
+      // goal, and the goal call shows the new one.
+      const early = [];
+      let goalGd = null;
+      for (const l of all) {
+        if (l.gameday && l.gameday.type === 'goal') goalGd = l.gameday;
+        if (!goalGd) continue;
+        const scored = (l._cue || {}).ev === 'out';
+        const want = scored ? { away: goalGd.awayScore, home: goalGd.homeScore } : goalGd.scoreBefore;
+        if (!want || !l.bug || l.bug.awayScore !== want.away || l.bug.homeScore !== want.home) early.push(`${goalGd.clock} "${l.text}" shows ${l.bug ? `${l.bug.awayScore}-${l.bug.homeScore}` : 'no bug'}`);
+        if (scored) goalGd = null;
+      }
+      check('hockey: the score bug never calls a goal before it goes in', early.length === 0 && game.beats.some((b) => b.type === 'goal'), early.slice(0, 3).join(' | '));
       const air = [...holds.values()].reduce((a, b) => a + b, 0);
       check('hockey: an hour slot holds the whole game', air <= 3600 * 1000 * 0.85 * 1.05, `${(air / 60000).toFixed(1)} min`);
       const half = narrateLines();
