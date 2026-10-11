@@ -30,10 +30,25 @@ An instrument is a reusable synth voice. Songs reference instruments by ID via `
 | Field | Type | Default | Notes |
 |---|---|---|---|
 | `name` | string | required | Human label shown in AMP and devpanel |
-| `category` | string | `"misc"` | `ui` `combat` `cyberpunk` `environment` `tv` `misc` |
+| `category` | string | `"misc"` | `ui` `combat` `cyberpunk` `environment` `tv` `tv_fx` `misc`, or `voice` for a saved voice (below) |
 | `waveform` | string | `"square"` | `square` `sine` `triangle` `sawtooth` `noise` |
 | `enabled` | int | `1` | `0` = skipped during export/playback |
 | `config` | object | `{}` | Synth recipe — see **Config shape** below |
+
+### Saved voices
+
+The Voice Lab saves a tuned ORACLE voice as an instrument row with `category: "voice"` and
+`waveform: "voice"`, so it ships as a file under `content/audio_instruments/` with no table of its
+own. Its id is `voice_` plus the name, and its config holds the seed and only the knobs that
+differ from what the seed rolls:
+
+```json
+{ "id": "voice_rink_announcer", "name": "Rink Announcer", "category": "voice", "waveform": "voice",
+  "config": { "seed": "Deadball PA", "voice": { "f0": 150, "drive": 0.3 } } }
+```
+
+It isn't an instrument. The Audio tab, its song editor and its Verify check leave voice rows out,
+and nothing in the game reads them yet: the Voice Lab saves and loads them.
 
 ---
 
@@ -141,12 +156,16 @@ A one-shot sound effect. Self-contained — no instrument reference needed.
 | Field | Type | Default | Notes |
 |---|---|---|---|
 | `name` | string | required | |
-| `category` | string | `"misc"` | |
+| `category` | string | `"misc"` | Picks the bus: `tv` the tv bus, `tv_fx` its effects sub-gain, `ui` the dry ui bus, anything else sfx |
 | `priority` | int | `5` | Voice-stealing priority |
 | `enabled` | int | `1` | |
 | `config` | object | `{}` | Synth recipe — see **Config shape** |
 
 `config.duration` (seconds) determines how long the engine holds before releasing. Required for SFX; ignored for ambient loops.
+
+`config.send` (0–1) overrides the bus's reverb send for this cue alone: `0` is fully dry, `1` is
+what the sfx and ambient buses carry. Leave it out and the bus decides, as every existing cue
+does. It's a cue-level key, beside `duration`, and ambient beds take it too.
 
 ---
 
@@ -214,9 +233,15 @@ The `config` object is the synth recipe passed directly to the Web Audio layer b
 | `adsr.d` | float | `0.05` | Decay time in seconds |
 | `adsr.s` | float | `0.7` | Sustain level (0–1, fraction of peak gain) |
 | `adsr.r` | float | `0.15` | Release time in seconds |
-| `filter.type` | string | `"lowpass"` | `lowpass` `highpass` `bandpass` `notch` |
+| `filter.type` | string | `"lowpass"` | `lowpass` `highpass` `bandpass` `notch` `peaking` `lowshelf` `highshelf` `allpass` |
 | `filter.freq` | float | `4000` | Filter cutoff frequency in Hz |
 | `filter.q` | float | `1` | Filter resonance / Q factor |
+| `filter.gain` | float | — | Boost or cut in dB, for `peaking`, `lowshelf` and `highshelf` only. The other types ignore it |
+| `formants` | array | — | A bank of parallel bandpass resonators in place of `filter`: bare Hz (`[700, 1220, 2600]` is roughly /ɑ/) or `{freq, q, gain}` objects |
+| `noise` | string | `"white"` | The noise colour for `noiseMix`: `white`, `pink` (-3 dB/octave) or `brown` (-6 dB/octave). All three play at the same level |
+| `noiseSeed` | int | — | Pins where in the noise buffer this layer starts. Without it each noise layer starts at its own offset |
+| `width` | float | `0` | Stereo spread of the layer's noise, 0–1. `0` is mono, as before; `1` is fully decorrelated |
+| `pan` | float | `0` | Where the layer sits, `-1` left to `1` right |
 | `vibrato.rate` | float | `0` | LFO frequency in Hz (0 = off) |
 | `vibrato.depth` | float | `0` | Pitch modulation depth in cents |
 | `tremolo.rate` | float | `0` | Amplitude LFO frequency in Hz (0 = off) |
@@ -315,7 +340,7 @@ specified, and a ratio-of-a-ratio compounds into numbers nobody can author.
 ```
 
 Small `op2` numbers go a long way, because the index compounds through the operator below it.
-Each operator is another oscillator per voice against a 16-voice pool, so a stack on a cue that
+Each operator is another oscillator per voice against a 32-voice pool, so a stack on a cue that
 fires thirty layers at once is not free — see the voice budget below.
 
 ### Echo
@@ -369,6 +394,9 @@ The key addition over a flat config is **`delay`**: a per-layer start offset in 
 |---|---|---|---|
 | `delay` | float | `0` | Seconds before this layer starts, relative to SFX fire time |
 
+`pan`, `width`, `noise` and `noiseSeed` are per layer, so one cue can put a pink crowd wide across
+both ears and a white hiss hard left. `send` and `duration` are per cue.
+
 **Rules:**
 - Each element in `layers` is a full config object; nested `layers` are not supported.
 - `duration` lives at the top level of the config (not inside each layer) and controls the overall hold time before release.
@@ -401,6 +429,8 @@ The Audio tab can import Amiga/ProTracker `.mod` modules (Songs tab → Import M
 
 ## Voice budget
 
-The engine runs a shared 16-voice pool across all asset types. When all voices are busy, incoming sounds steal the lowest-priority oldest voice. If the incoming sound's priority is lower than all active voices, it is dropped silently.
+The engine runs a shared 32-voice pool across all asset types. A whole cue is one voice however many layers it has; a song takes one per channel it's sounding. When all voices are busy, incoming sounds steal the lowest-priority oldest voice. If the incoming sound's priority is lower than all active voices, it is dropped silently.
+
+Stealing a synth one-shot frees its slot but doesn't cut it short: its release was scheduled when it started, so it plays out underneath the cue that took its place.
 
 Priority scale: `1` (background ambience) → `10` (critical UI). Songs default to `5`, SFX default to `5`, ambient defaults to `1`.
