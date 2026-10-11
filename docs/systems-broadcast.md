@@ -812,6 +812,8 @@ play. A v1 game keeps only which bags are occupied, so `runnerMoves` works the m
 the bags before and after, the kind and the change in the batting side's score (not the RBI: a
 run can score without one). Runners can't pass each other, which makes the answer unique. The views only animate them, and `scripts/shapes/gameday-smoke.mjs` plays
 real games through the 2-D view and checks its runners end where the sim left them.
+`tools/sandbox/deadball-park-test.html` plays the same in a browser, with the script's lines,
+for screenshots and tuning by hand.
 A half-inning break carries `phase: 'half'` and nothing to animate. The broadcast adds `hold`
 (how long the line holds, in ms) to every payload, and the league table and `season` (its
 number, `regular` or `final`, and the seeds in a final) to the game's first payload only.

@@ -85,7 +85,7 @@ function play(seed) {
   const bad = [];
   for (const p of order) {
     try {
-      view.setCaption('A line.', { held: !p.phase });
+      view.setCaption('A line.', { held: true });   // tv.js holds every line that carries a payload
       view.apply(p);
       // In steps, not one jump: a timer set while the clock is mid-jump is scheduled from
       // the far end of it, and the view's plays are chains of timers.
