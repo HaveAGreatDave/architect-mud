@@ -345,6 +345,9 @@
         "Champions crowned, season buried. Chip Vega signing off on the World Series. Same dirt tomorrow, but tonight belongs to the {leader}."
       ]
     },
+    "sim": {
+      "version": 2
+    },
     "sport": "baseball",
     "teams": [
       "Rustpile Rats",

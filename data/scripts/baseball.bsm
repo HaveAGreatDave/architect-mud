@@ -3,6 +3,7 @@
 @category sport
 @type sports
 @sport baseball
+@sim 2
 @announcer "Chip Vega"
 @airtime 19
 @length 300
