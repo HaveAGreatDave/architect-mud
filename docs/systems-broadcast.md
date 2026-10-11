@@ -924,7 +924,7 @@ Civic Center Wardens went.
 | Coldwater Highlanders | the Marrow | the Malcolm tartan | a roaring ginger highlander in the Malcolm kilt and sash, woad on half his face, stick raised overhead like a claymore, on a tartan ring |
 | District 9 Goons | District 9 | bruise purple and bone | a taped, bloodied fist in an octagon, D9 in marker on the tape |
 | Docks Boarders | the Docks | teal and navy | an anchor over crossed sticks in a rope ring |
-| St Garneau Guillotines | Nine Elms | red, white and blue | a bold G whose crossbar carries a guillotine: its posts stand on the bar, its beam runs on from the G's top, its blade hangs raised |
+| St Garneau Guillotines | Nine Elms | red, white and blue | a script G, written with a pointed pen, and standing on its crossbar where a G keeps its serif, a guillotine in silhouette |
 | Yards Icehaulers | the Yards | maroon and steel | ice tongs biting a block, on a hexagon |
 
 The St Garneau Guillotines are Father Jerome's pet project, the parish club of St Garneau's
@@ -940,7 +940,7 @@ broadcast row, keyed by club name, holding `district`, `home`, `colours`, `crest
 `kit.home`, `kit.road`, and `sett` or `gems` where a club has them. Its authoring source
 is [scripts/content/build-cphl-clubs.mjs](../scripts/content/build-cphl-clubs.mjs), which
 builds the crests from rules (the bezel's 24 stones, the chain's links, a weapon laid
-along a stroke) and writes `clubs` into the row and nothing else. Run it after editing a
+along a stroke, script lettering run through a pointed pen, `pen()`) and writes `clubs` into the row and nothing else. Run it after editing a
 club; `--check` fails if the row is behind the script. `build-cluster-puck.mjs` carries
 `clubs` across when it rebuilds the row from the `.bsm`.
 

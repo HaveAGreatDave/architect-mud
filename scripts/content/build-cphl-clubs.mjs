@@ -105,6 +105,32 @@ function bar(x0, y0, x1, y1, w) {
   const dx = x1 - x0, dy = y1 - y0, L = Math.hypot(dx, dy) || 1, nx = (-dy / L) * w / 2, ny = (dx / L) * w / 2;
   return poly([[x0 + nx, y0 + ny], [x1 + nx, y1 + ny], [x1 - nx, y1 - ny], [x0 - nx, y0 - ny]]);
 }
+// A pointed-pen stroke: a centreline of cubic segments [p0, c1, c2, p1], inked the way a
+// pointed nib inks it, full on the way down the page and a hairline on the way up or
+// across, tapering in and out. Returns a closed outline, so script lettering is drawn
+// from where the pen went rather than outlined by hand.
+function pen(segs, { thin = 1.3, thick = 8, taperIn = 0.08, taperOut = 0.1, n = 28 } = {}) {
+  const pts = [];
+  segs.forEach(([p0, c1, c2, p1], si) => {
+    for (let i = si ? 1 : 0; i <= n; i++) {
+      const t = i / n, u = 1 - t;
+      const bx = (k) => u * u * u * p0[k] + 3 * u * u * t * c1[k] + 3 * u * t * t * c2[k] + t * t * t * p1[k];
+      const dk = (k) => 3 * u * u * (c1[k] - p0[k]) + 6 * u * t * (c2[k] - c1[k]) + 3 * t * t * (p1[k] - c2[k]);
+      pts.push([bx(0), bx(1), dk(0), dk(1)]);
+    }
+  });
+  const N = pts.length, left = [], right = [];
+  pts.forEach(([x, y, dx, dy], i) => {
+    const l = Math.hypot(dx, dy) || 1, tx = dx / l, ty = dy / l;
+    let w = thin + (thick - thin) * Math.pow(Math.max(0, ty), 1.6);
+    const f = i / (N - 1);
+    if (f < taperIn) w = thin + (w - thin) * (f / taperIn);
+    if (f > 1 - taperOut) w = thin * 0.6 + (w - thin * 0.6) * ((1 - f) / taperOut);
+    left.push([x - ty * w / 2, y + tx * w / 2]);
+    right.push([x + ty * w / 2, y - tx * w / 2]);
+  });
+  return poly([...left, ...right.reverse()]);
+}
 // a regular polygon / star
 const ngon = (cx, cy, r, n, rot = -Math.PI / 2) => poly(Array.from({ length: n }, (_, i) => [cx + r * Math.cos(rot + (i / n) * TAU), cy + r * Math.sin(rot + (i / n) * TAU)]));
 const star = (cx, cy, r0, r1, n, rot = -Math.PI / 2) => poly(Array.from({ length: n * 2 }, (_, i) => { const r = i % 2 ? r0 : r1, a = rot + (i / (n * 2)) * TAU; return [cx + r * Math.cos(a), cy + r * Math.sin(a)]; }));
@@ -622,51 +648,49 @@ function docks() {
   return { box: 100, layers, small };
 }
 
-// ST GARNEAU GUILLOTINES. Father Jerome's club, out of St Garneau's in Nine Elms. A bold
-// G whose crossbar carries a guillotine: the posts stand on the bar where a G keeps its
-// serif, the beam closes the G's open jaw, and the blade hangs raised between them.
-const SG = { red: '#af1e2d', redDeep: '#7d1520', blue: '#192168', blueDeep: '#0f1440', white: '#ffffff', steel: '#d6dce3', steelDeep: '#8f9aa6' };
+// ST GARNEAU GUILLOTINES. Father Jerome's club, out of St Garneau's in Nine Elms. A script
+// G written with a pointed pen, and standing on its crossbar, where a G keeps its serif,
+// a guillotine in silhouette.
+const SG = { red: '#af1e2d', blue: '#192168', white: '#ffffff' };
 function guillotines() {
-  const C = 50, cy = 53.5, R = 33.5, r = 18.5;
-  const at = (a, rad) => [C + rad * Math.cos(a), cy + rad * Math.sin(a)];
-  // the G: a ring from its crossbar (3 o'clock) round the bottom, the left and the top to
-  // its upper terminal, plus the bar itself, squared off at the jaw
-  // the upper terminal is cut square, on the line the guillotine's left post stands on
-  const cut = C + 6.5;
-  const o1x = cut, o1y = cy - Math.sqrt(R * R - (cut - C) ** 2), i1x = cut, i1y = cy - Math.sqrt(r * r - (cut - C) ** 2);
-  const [o0x, o0y] = at(0, R), [i0x, i0y] = at(0, r);
-  const ringD = `M${P(o0x, o0y)}A${n2(R)} ${n2(R)} 0 1 1 ${P(o1x, o1y)}L${P(i1x, i1y)}A${n2(r)} ${n2(r)} 0 1 0 ${P(i0x, i0y)}Z`;
-  const barD = poly([[C + 2, cy - 3], [C + R, cy - 3], [C + R, cy + 11], [C + 2, cy + 11]]);
-  const G = ringD + barD;
-  // the guillotine, standing on the bar
-  // the beam runs on from the G's top, so the guillotine reads as the G's serif
-  const pl = [C + 9.5, C + 12.5], pr = [C + 23.5, C + 26.5], beamTop = cy - Math.sqrt(R * R - (cut - C) ** 2), top = beamTop + 4;
-  const posts = poly([[pl[0], cy - 3], [pl[1], cy - 3], [pl[1], top], [pl[0], top]]) + poly([[pr[0], cy - 3], [pr[1], cy - 3], [pr[1], top], [pr[0], top]]);
-  const beam = poly([[cut, beamTop], [C + 29, beamTop], [C + 29, top + 0.5], [cut, top + 0.5]]);
-  const blade = poly([[pl[1], top], [pr[0], top], [pr[0], cy - 22.5], [pl[1], cy - 17.5]]);
-  const edge = poly([[pl[1], cy - 19.4], [pr[0], cy - 24.4], [pr[0], cy - 22.5], [pl[1], cy - 17.5]]);
-  const lunette = poly([[pl[1], cy - 11], [pr[0], cy - 11], [pr[0], cy - 6], [pl[1], cy - 6]]);
-  const neck = circle((pl[1] + pr[0]) / 2, cy - 8.5, 1.9);
-  const field = (k) => circle(50, 50, k);
+  // the G, as the pen goes: a ball terminal, up and over the top, down the left in one
+  // full stroke and round the bottom; then the crossbar, drawn in towards the bowl; then
+  // the right side, one downstroke from the crossbar that curves into the chin
+  const bowl = pen([
+    [[61, 26], [64, 18], [58.5, 12.5], [49.5, 12.5]],
+    [[49.5, 12.5], [35, 12.5], [21, 25], [18.5, 43]],
+    [[18.5, 43], [16, 63], [28.5, 83], [46.5, 83]],
+    [[46.5, 83], [53, 83], [59.4, 81.8], [64, 79]],
+  ], { thin: 1.6, thick: 10.5 });
+  const cross = pen([[[57.5, 60], [63, 57.4], [71, 56], [80.4, 55.9]]], { thin: 2.4, thick: 3, taperIn: 0.35, taperOut: 0.02 });
+  const stem = pen([
+    [[76.4, 55.6], [77.2, 63], [76.4, 72.6], [71.8, 78.2]],
+    [[71.8, 78.2], [68.6, 81.8], [63.4, 83.4], [55.4, 83.4]],
+  ], { thin: 1.6, thick: 8.6, taperIn: 0.02, taperOut: 0.12 });
+  const ball = circle(61.8, 27.6, 3.4);
+  const G = bowl + cross + stem + ball;
+  // the guillotine, one colour, standing on the crossbar over the stem: two posts, the
+  // beam with its capped ends, the blade raised between the posts, the lunette low down
+  const xl = 71, xr = 82, base = 55.2, top = 29;
+  const posts = poly([[xl - 0.4, base], [xl + 2.2, base], [xl + 2, top], [xl, top]]) + poly([[xr - 2.2, base], [xr + 0.4, base], [xr, top], [xr - 2, top]]);
+  const beam = poly([[xl - 2.4, top - 3.2], [xr + 2.4, top - 3.2], [xr + 2.4, top - 2.2], [xr + 1.4, top - 1.6], [xr + 1.4, top + 0.6], [xl - 1.4, top + 0.6], [xl - 1.4, top - 1.6], [xl - 2.4, top - 2.2]]);
+  const blade = poly([[xl + 2, top + 0.6], [xr - 2, top + 0.6], [xr - 2, top + 7.4], [xl + 2, top + 11.4]]);
+  // the polygons here wind clockwise, so the neck hole is the anticlockwise circle
+  const lunette = poly([[xl + 2, base - 9], [xr - 2, base - 9], [xr - 2, base - 5], [xl + 2, base - 5]]) + circle((xl + xr) / 2, base - 7, 1.6);
+  const frame = posts + beam + blade + lunette;
   const layers = [
-    L(field(49.5), SG.blue),
-    L(field(45.6), SG.white),
-    L(ring(50, 50, 41.4, 43.2), SG.red),
-    L(G, SG.blue, { stroke: SG.blue, sw: 5 }),
+    L(circle(50, 50, 49.5), SG.blue),
+    L(circle(50, 50, 46), SG.white),
+    L(ring(50, 50, 42.6, 43.8), SG.red),
     L(G, SG.red),
-    L(posts + beam, SG.blue, { stroke: SG.blue, sw: 1 }),
-    L(blade, SG.steel, { stroke: SG.blueDeep, sw: 1.1 }),
-    L(edge, SG.steelDeep),
-    L(lunette, SG.blue),
-    L(neck, SG.white),
+    L(frame, SG.blue),
   ];
-  // small: the same G and frame, heavier, without the keylines and the lunette
+  // small: the same marks, the pen a touch heavier so the hairlines survive
   const small = [
-    L(field(49.5), SG.blue),
-    L(field(44), SG.white),
-    L(G, SG.red, { stroke: SG.red, sw: 2 }),
-    L(posts + beam, SG.blue, { stroke: SG.blue, sw: 2.6 }),
-    L(blade, SG.steelDeep),
+    L(circle(50, 50, 49.5), SG.blue),
+    L(circle(50, 50, 45), SG.white),
+    L(G, SG.red, { stroke: SG.red, sw: 2.4 }),
+    L(posts + beam + blade, SG.blue, { stroke: SG.blue, sw: 1.6 }),
   ];
   return { box: 100, layers, small };
 }
