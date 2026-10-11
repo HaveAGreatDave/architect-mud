@@ -636,7 +636,7 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
     }
     const PCOL = { spray: [245 / 255, 250 / 255, 1, 0.7], tooth: M.rgb('#f4f1e6'), sweat: [220 / 255, 235 / 255, 1, 0.7], shard: [200 / 255, 232 / 255, 250 / 255, 0.85] };
     function particles() {
-      const need = (W.parts.length + 8) * PT_STRIDE;
+      const need = (W.parts.length + (W.spray ? W.spray.length : 0) + 8) * PT_STRIDE;
       if (ptData.length < need) ptData = new Float32Array(need * 2);
       let n = 0;
       const pt = (x, y, z, c, s) => { const o = n * PT_STRIDE; ptData[o] = x; ptData[o + 1] = y; ptData[o + 2] = z; ptData[o + 3] = c[0]; ptData[o + 4] = c[1]; ptData[o + 5] = c[2]; ptData[o + 6] = c[3]; ptData[o + 7] = s; n++; };
@@ -644,6 +644,7 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
         if (p.type === 'blood') pt(p.x, p.y, p.z, M.rgb(p.col), p.size * 1.6);
         else pt(p.x, p.y, p.z, PCOL[p.type] || PCOL.shard, p.size * 2);
       }
+      if (W.spray) for (const p of W.spray) pt(p.x, p.y, p.z, PCOL.spray, p.size * 2);
       // a few phones going off in the stands when the building is up
       if (W.crowd > 0.5 && W.mourning < 0.2) for (let i = 0; i < 6; i++) { if (Math.random() > W.crowd * 0.5) continue; pt(CX0 + Math.random() * (CX1 - CX0), 89 + Math.random() * 40, 6 + Math.random() * 30, [1, 1, 1, 0.9], 0.3 + Math.random() * 0.3); }
       return n;

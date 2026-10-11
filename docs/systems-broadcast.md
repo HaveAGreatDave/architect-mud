@@ -1101,12 +1101,36 @@ stand-in world, interpolated between frames, through a camera of their own at ic
 comes in, and cuts back to live. The rink smoke checks every goal's replay starts, plays
 sound frames, draws and hands back.
 
-**Motion.** A skater leans into acceleration and sits back under braking (`b.accel`), and a
-hard stop at speed turns him side-on into a proper hockey stop. Up close (GLASS 2's
+**Motion.** A skater leans into acceleration and sits back under braking (`b.accel`), and
+banks into a turn by his speed times his turn rate. Each skate's blade points the way that
+foot is travelling, so a push goes out to the side and back on its edge while the glide
+foot carries his weight. Stride rate (`cadence()` in rig.js, which the sim also uses to
+step `b.phase`) climbs with effort while he gets up to speed and settles once he's there.
+A hard stop at speed turns him side-on with both blades across his line and throws snow
+off the edges (`W.snow` into `W.spray`, drawn by both renderers). Up close (GLASS 2's
 `detail`) a man has gauntlet gloves with finger rolls and a thumb, a ridged helmet with ear
 guards and a chin strap, shoulder caps and elbow pads under the sweater, a stripe down the
 pants, a tongue and tendon guard on the skates, a curved blade, and a shoulder yoke on the
 jersey; a goalie has a trapper.
+
+**Every man shoots one way.** Two in five shoot right, chosen from his name, so every
+viewer sees the same man shoot the same way. A right-hand shot is the left-hand rig
+mirrored (`mirrorOf` in rig.js) with the joints swapped back, so joint 6 is always his left
+hand. `bladeLocal` mirrors the blade with him and the sim's carry leash follows it.
+Officials and medics are never mirrored. The gloves close round the shaft: `gripFrame` in
+arena-mesh.js lays the knuckles along it with the back of the hand out. `footFrame` in
+util.js stands each skate on its edge under the shin, and the 2-D figure and the mesh both
+build the boot from it.
+
+**A shot goes through the puck.** The blade comes back on the wind-up, through the puck in
+the next tenth of the shot (`SWING`), and out to the follow-through. A wrist shot,
+backhand, wraparound or pass carries the puck on the blade through the wind-up
+(`sweeps()`); a slap shot, one-timer or snap shot lifts the blade, leaves the puck lying
+and comes down on it. `releaseAt(type)` is the one
+place that says when a shot or pass leaves the stick, and the director, the sim's own
+passes and its dumps all release on it. The goalie's stick is a fixed 2.45 ft from glove
+to heel and stays on the ice; his butterfly drops fast and comes back up slowly. A replay
+interpolates the joints and then puts the stick back at its length off the top hand.
 
 **A shot leaves a tail.** `W.shoot(from, tgt, spd, type)` starts `pk.tail`: the puck's
 last fifth of a second of flight, faded by speed. Both renderers draw it as a faint slate
@@ -1191,7 +1215,14 @@ whatever the Zamboni got through.
 - Anything that moves a man farther than he could skate should cut the camera, and a cut
   finishes every outstanding walk-off and stretcher.
 - Cosmetic randomness is seeded from the payload. A `rand()` call added to the sim to
-  decorate a beat replays the whole season with different results.
+  decorate a beat replays the whole season with different results. Snow and other
+  particles draw from `fxRand`, a stream of their own.
+- The rig is a pure function of a body's state and the time. What it eases from frame to
+  frame (the blade, the goalie's butterfly) is cached on the body keyed by `T`, and it never
+  calls `W.rand`. New joints go on the end, from 21.
+- A director callback scheduled with `at()` outlives the leg that scheduled it. Check the
+  leg is still current before acting, as the pass does (`leg !== pass`): a shot called
+  in the moment before a pass leaves takes the leg over, and the passer keeps the puck.
 - The heavy modules (`textures.js`, `render.js`, `gl/arena.js`) load on first mount, so
   tv.js's import of the view stays cheap.
 - A new kind of mark painted into the ice has to `touch` its tiles, or the GL sheet goes

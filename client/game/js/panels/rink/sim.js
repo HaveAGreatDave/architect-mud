@@ -16,7 +16,7 @@ import {
   RL, RW, RC, MID_Y, BOARD_H, GLASS_H, GOAL_X, BLUE_X, NET_HALF, NET_DEPTH, NET_H,
   insideRink, attackDir, panelAt, PANELS, PANEL_X0, PANEL_W,
 } from './geo.js';
-import { DT, G, skaterRig, goalieRig, bladeWorld, bladeLocal, keepOut, makeRag, stepRag, makeLimb, stepLimb, SEVER, SHOTS } from './rig.js';
+import { DT, G, skaterRig, goalieRig, bladeWorld, bladeLocal, keepOut, makeRag, stepRag, makeLimb, stepLimb, SEVER, SHOTS, sweeps, cadence, releaseAt } from './rig.js';
 
 // ── stickhandling ─────────────────────────────────────────────────────────────
 // THE PUCK IS ITS OWN OBJECT. Welded to the blade it read as part of the man; a real
@@ -48,26 +48,34 @@ export function dribble(c, pk, T, dt, rand = Math.random) {
   // THE LEASH. A carrier does not lose the puck on his own: it is only ever taken off him
   // (a poke, a rub-out, a hit) or let go (a pass, a shot). So however a touch lands, the
   // puck is drawn back softly if it strays past a short gap from where his blade is.
-  const gap = shooting ? 1.0 : sp > 18 ? 1.9 : 1.2;
+  // (a slapshot's puck sits right where the blade comes down; a sweep carries it, below)
+  const gap = shooting ? (sweeps(SHOTS[c.act]) ? 1.0 : 0.3) : sp > 18 ? 1.9 : 1.2;
   if (d > gap) {
     // (eased, and never faster than a hard pass: the puck slides back, it doesn't jump)
     const k = Math.min((1 - Math.exp(-dt * 14)) * (d - gap), 45 * dt) / d;
     pk.x += (bw[0] - pk.x) * k; pk.y += (bw[1] - pk.y) * k;
     pk.vx = lerp(pk.vx, c.vx || 0, k); pk.vy = lerp(pk.vy, c.vy || 0, k);
   }
+  // cradled in the pocket and dragged with the blade
+  const cradle = () => {
+    // once it's in the pocket it rides exactly on the blade; from farther it's drawn in
+    const k = d < 0.6 ? 1 : 1 - Math.exp(-dt * 40), nx = lerp(pk.x, bw[0], k), ny = lerp(pk.y, bw[1], k);
+    pk.vx = (nx - pk.x) / dt + (c.vx || 0) * (1 - k); pk.vy = (ny - pk.y) / dt + (c.vy || 0) * (1 - k);
+    pk.x = nx - pk.vx * dt; pk.y = ny - pk.vy * dt;          // the caller's integration step lands it on nx, ny
+    c.touchT = 0.08;
+    return false;
+  };
   if (shooting) {
-    // it goes on at his pace and sits where the blade will come through
+    // a wrist shot, a backhand or a pass carries it on the blade, back and through; a
+    // slapshot leaves it on the ice, going on at his pace, where the blade will come down
+    if (sweeps(SHOTS[c.act]) && d < 3) return cradle();
     pk.vx = lerp(pk.vx, c.vx || 0, 1 - Math.exp(-dt * 6)); pk.vy = lerp(pk.vy, c.vy || 0, 1 - Math.exp(-dt * 6));
     return false;
   }
   const deke = c.act === 'toedrag' || c.act === 'deke' || c.act === 'drag' || c.act === 'fake';
   if (deke && d < 3) {
-    // through a deke it never leaves the blade: cradled in the pocket and dragged with it
-    const k = 1 - Math.exp(-dt * 40), nx = lerp(pk.x, bw[0], k), ny = lerp(pk.y, bw[1], k);
-    pk.vx = (nx - pk.x) / dt + (c.vx || 0) * (1 - k); pk.vy = (ny - pk.y) / dt + (c.vy || 0) * (1 - k);
-    pk.x = nx - pk.vx * dt; pk.y = ny - pk.vy * dt;          // the caller's integration step lands it on nx, ny
-    c.touchT = 0.08;
-    return false;
+    // through a deke it never leaves the blade
+    return cradle();
   }
   const iv = deke ? 0.1 : c.protect ? 0.17 : sp > 21 ? 0.36 + rand() * 0.08 : 0.22 + rand() * 0.12;
   const reach = sp > 18 ? 3.2 : 2.4;
@@ -97,6 +105,8 @@ export function makeBody(kind, side, slot, seed) {
   const r = rng(seed);
   return {
     kind, side, slot, seed: seed % 997, role: ROLE[slot] || 'F',
+    // which way he shoots: a named man's is his own (the director sets it with the name)
+    hand: seed % 5 < 2 ? 'R' : 'L',
     x: 100, y: MID_Y, vx: 0, vy: 0, h: 0, phase: r(), amp: 0, effort: 0.4, crouch: 0.12,
     tx: 100, ty: MID_Y, maxV: 20, acc: 26, face: null,
     act: null, actT: 0, actDur: 1, actData: null,
@@ -112,11 +122,15 @@ export function makeBody(kind, side, slot, seed) {
 
 export function createWorld(ice, seedKey) {
   const rand = rng(hash(seedKey || 'rink'));
+  // ⚠ COSMETICS DRAW FROM THEIR OWN DICE. Every rand() call moves the world's stream along, so
+  // snow thrown off a skate from `rand` would reshuffle everything after it. The snow is in
+  // W.spray, off `fxRand`, and nothing in the sim reads it.
+  const fxRand = rng(hash('fx:' + (seedKey || 'rink')));
   const W = {
     t: 0, rand, ice,
     team: { a: [], h: [] }, goalie: { a: null, h: null }, officials: [], extras: [],
     puck: { x: 100, y: MID_Y, z: 0, vx: 0, vy: 0, vz: 0, carrier: null, target: null, held: null, passT0: 0, inNet: null, owner: null, home: null, tail: null },
-    parts: [], debris: [], limbs: [], stretcher: null, zamboni: null,
+    parts: [], spray: [], debris: [], limbs: [], stretcher: null, zamboni: null,
     flex: new Float32Array(PANELS), cracks: [], glassBlood: [], broken: new Set(),
     crowd: 0.15, shake: 0, boardShake: 0, hitstop: 0, lamp: 0, lampSide: null, mourning: 0, dim: 0,
     banner: null, fight: null,
@@ -375,6 +389,22 @@ export function createWorld(ice, seedKey) {
     }
     if (W.parts.length > 800) W.parts.splice(0, W.parts.length - 800);
   };
+  // snow off a skate: thrown out along the slide, low and fast, and gone when it lands
+  W.snow = (x, y, n, vx, vy) => {
+    for (let i = 0; i < n; i++) {
+      const r1 = fxRand(), r2 = fxRand(), r3 = fxRand();
+      W.spray.push({ type: 'spray', x: x + (r1 - 0.5) * 0.5, y: y + (r2 - 0.5) * 0.5, z: 0.1, vx: vx * (0.45 + r3 * 0.35) + (r2 - 0.5) * 3, vy: vy * (0.45 + r1 * 0.35) + (r3 - 0.5) * 3, vz: 1.2 + r2 * 2.2, life: 0, max: 0.3 + r3 * 0.3, size: 0.05 + r1 * 0.09 });
+    }
+    if (W.spray.length > 300) W.spray.splice(0, W.spray.length - 300);
+  };
+  function stepSpray(dt) {
+    const S = W.spray;
+    for (let i = S.length - 1; i >= 0; i--) {
+      const p = S[i]; p.life += dt; p.vx *= 0.93; p.vy *= 0.93; p.vz -= 10 * dt;
+      p.x += p.vx * dt; p.y += p.vy * dt; p.z += p.vz * dt;
+      if (p.z <= 0 || p.life > p.max) { const last = S.pop(); if (i < S.length) S[i] = last; }
+    }
+  }
   function stepParts(dt) {
     // removal swaps the last particle into the hole: order doesn't matter, and a splice
     // per landed drop was quadratic in a burst
@@ -512,14 +542,19 @@ export function createWorld(ice, seedKey) {
       const pushing = dv > maxdv * 0.6 && want > sp - 0.5;
       b.effort = lerp(b.effort, pushing ? 1 : 0.3, 1 - Math.exp(-dt * 3));
       const ampWant = b.kind === 'official' || b.kind === 'medic' ? clamp(sp / 18, 0, 0.8) : clamp(sp / 22, 0, 1) * b.effort;
+      // (how fast the stride is widening or settling, and how fast he's turning, are kept for
+      // the rig, which turns each skate along its real track over the ice)
+      const amp0 = b.amp;
       b.amp = lerp(b.amp, b.guard ? 0 : ampWant, 1 - Math.exp(-dt * 5));
+      b.ampRate = (b.amp - amp0) / dt;
       // a skater's cadence is slow and long next to a runner's: about one stride a second
       // cruising, quicker only on the first few pushes from a stop
-      b.phase += dt * (0.42 + sp * 0.03 + 0.7 * b.effort * clamp(1 - sp / 13, 0, 1) * (sp > 0.8 ? 1 : 0));
+      b.phase += dt * cadence(sp, b.effort);
       // in a hockey stop he's turned side-on to where he was going, skidding on both edges
       const wantH = b.act === 'stop' && b.stopH != null ? b.stopH : b.face != null ? b.face : (sp > 1.5 ? Math.atan2(b.vy, b.vx) : b.h);
       // turned toward where he's going, easing into the new heading rather than stopping dead on it
-      b.h += clamp(angWrap(wantH - b.h) * (1 - Math.exp(-dt * 10)), -7 * dt, 7 * dt);
+      const dh = clamp(angWrap(wantH - b.h) * (1 - Math.exp(-dt * 10)), -7 * dt, 7 * dt);
+      b.h += dh; b.hRate = dh / dt;
       // how hard he is turning: drives the lean and the crossovers in the rig
       const va = sp > 2 ? Math.atan2(b.vy, b.vx) : null;
       const tr = va != null && b._va != null ? angWrap(va - b._va) / dt : 0;
@@ -549,6 +584,8 @@ export function createWorld(ice, seedKey) {
           const A = J[an], T = J[to];
           if (!A || !T || T[2] > 0.27) { b.feet[k] = null; continue; }
           const f = [(A[0] + T[0]) / 2, (A[1] + T[1]) / 2], prev = b.feet[k];
+          // a hockey stop throws snow off both blades for as long as he's sliding
+          if (b.act === 'stop' && sp > 5) W.snow(f[0], f[1], sp > 12 ? 5 : 3, b.vx, b.vy);
           if (prev && Math.hypot(f[0] - prev[0], f[1] - prev[1]) < 4) W.ice.cut(prev[0], prev[1], f[0], f[1], a);
           b.feet[k] = f;
         }
@@ -802,8 +839,9 @@ export function createWorld(ice, seedKey) {
       if (neutral && press && rand() < 0.35) {
         // dump it in and go get it
         const cy = carrier.y > MID_Y ? RW - 6 : 6;
-        W.act(carrier, 'dump', 0.45);
-        W.schedule(0.2, () => { if (W.puck.carrier === carrier) W.dumpTo(carrier, offGoal(side) + dir * 4, cy, 64); });
+        // released at contact, as every shot is, so it leaves the blade
+        W.act(carrier, 'dump', SHOTS.dump.dur);
+        W.schedule(releaseAt('dump'), () => { if (W.puck.carrier === carrier) W.dumpTo(carrier, offGoal(side) + dir * 4, cy, 64); });
         return;
       }
       let best = null, bs = -1e9;
@@ -838,9 +876,9 @@ export function createWorld(ice, seedKey) {
         const lane = opp.some((o) => { const t = clamp(((o.x - carrier.x) * (to.x - carrier.x) + (o.y - carrier.y) * (to.y - carrier.y)) / ((to.x - carrier.x) ** 2 + (to.y - carrier.y) ** 2 || 1), 0, 1); return Math.hypot(carrier.x + (to.x - carrier.x) * t - o.x, carrier.y + (to.y - carrier.y) * t - o.y) < 3; });
         const pd = Math.hypot(to.x - carrier.x, to.y - carrier.y);
         const kind = lu < -3 && pd < 14 ? 'drop' : lane ? 'saucer' : (lv < -4 && lu < 8) || lu < -3 ? 'backpass' : 'pass';
-        W.act(carrier, kind, kind === 'drop' ? 0.32 : 0.32);
+        W.act(carrier, kind, SHOTS[kind].dur);
         carrier.look = [to.x, to.y, 1];
-        W.schedule(0.11, () => {
+        W.schedule(releaseAt(kind), () => {
           if (W.puck.carrier !== carrier) return;
           const spd = kind === 'drop' ? clamp(pd * 1.8, 16, 28) : 62 + rand() * 18;
           W.pass(carrier, to, spd);
@@ -926,7 +964,7 @@ export function createWorld(ice, seedKey) {
     stepPuck(dt);
     stepDebris(dt);
     stepLimbs(dt);
-    stepParts(dt);
+    stepParts(dt); stepSpray(dt);
     stepZamboni(dt);
     W.ice.dry(dt);
     for (let i = 0; i < PANELS; i++) W.flex[i] *= Math.exp(-dt * 7);

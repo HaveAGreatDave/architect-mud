@@ -101,6 +101,20 @@ export function createReplay(W) {
     for (const ba of a.bodies) {
       const bb = b.bodies.find((x) => x.seed === ba.seed && x.kind === ba.kind) || ba;
       const J = ba.J.map((p, j) => L3(p, bb.J[j]));
+      // ⚠ A STICK DOESN'T SHRINK IN A REPLAY. Lerped straight across a fast swing the shaft cut
+      // the corner and got shorter between frames; it goes back to its own length off the
+      // hand, pointing where the lerp says.
+      const d3 = (p, q) => Math.hypot(p[0] - q[0], p[1] - q[1], p[2] - q[2]);
+      // the top hand is the one at the knob: the right on a lefty, the left on a righty
+      const th = ba.J[18] && ba.J[6] && ba.J[9] && d3(ba.J[6], ba.J[18]) < d3(ba.J[9], ba.J[18]) ? 6 : 9;
+      if (J[th] && J[18] && J[19] && ba.J[th] && ba.J[18] && ba.J[19] && bb.J[th] && bb.J[18] && bb.J[19]) {
+        const len = lerp(d3(ba.J[19], ba.J[th]), d3(bb.J[19], bb.J[th]), k), bu = lerp(d3(ba.J[18], ba.J[th]), d3(bb.J[18], bb.J[th]), k);
+        const h = J[th], s0 = [J[19][0] - h[0], J[19][1] - h[1], J[19][2] - h[2]], sl = Math.hypot(s0[0], s0[1], s0[2]) || 1, u = [s0[0] / sl, s0[1] / sl, s0[2] / sl];
+        const toe = J[20] ? [J[20][0] - J[19][0], J[20][1] - J[19][1], J[20][2] - J[19][2]] : null;
+        J[19] = [h[0] + u[0] * len, h[1] + u[1] * len, h[2] + u[2] * len];
+        J[18] = [h[0] - u[0] * bu, h[1] - u[1] * bu, h[2] - u[2] * bu];
+        if (toe) J[20] = [J[19][0] + toe[0], J[19][1] + toe[1], J[19][2] + toe[2]];
+      }
       if (ba.J.meta) J.meta = { bend: L3(ba.J.meta.bend, bb.J.meta && bb.J.meta.bend), look: ba.J.meta.look, bottle: L3(ba.J.meta.bottle, bb.J.meta && bb.J.meta.bottle) };
       bodies.push({ ...ba, x: lerp(ba.x, bb.x, k), y: lerp(ba.y, bb.y, k), rag: ba.rag && bb.rag ? { pts: [{ x: lerp(ba.rag.pts[0].x, bb.rag.pts[0].x, k), y: lerp(ba.rag.pts[0].y, bb.rag.pts[0].y, k) }] } : ba.rag, _J: J });
     }

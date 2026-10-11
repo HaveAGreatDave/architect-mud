@@ -44,6 +44,26 @@ export const V = {
 };
 export const rotZ = (p, a) => { const c = Math.cos(a), s = Math.sin(a); return [p[0] * c - p[1] * s, p[0] * s + p[1] * c, p[2]]; };
 
+// THE SKATE IN THE FOOT'S OWN FRAME. The rig gives an ankle A and a toe T (and the knee K);
+// the boot, holder and steel are built about them instead of at fixed heights off the ice,
+// so a lifted skate lifts and a skate on its edge leans. Standing, A is 0.55 up and T is
+// 0.74 ahead and 0.3 down, which gives exactly the old fixed-height skate. X runs heel to toe
+// along the blade, Z up the boot, Y across it (to its left); the boot rolls toward the shin's
+// sideways lean, onto its edge. `at(x, y, z)` places a point in that frame, the ankle at 0.
+const FOOT_B = Math.atan2(0.3, 0.74), FOOT_C = Math.cos(FOOT_B), FOOT_S = Math.sin(FOOT_B);
+export function footFrame(A, T, K) {
+  const d = V.sub(T, A), dn = V.norm(d);
+  let up = [0, 0, 1];
+  if (K) {
+    const xh = V.norm([d[0], d[1], 0]), yh = [-xh[1], xh[0], 0], lat = clamp(V.dot(V.norm(V.sub(K, A)), yh), -0.6, 0.6);
+    up = V.norm(V.add(up, V.mul(yh, lat * 0.8)));
+  }
+  let N = V.sub(up, V.mul(dn, V.dot(up, dn)));
+  N = V.len(N) < 1e-4 ? V.norm(V.cross(dn, [-dn[1], dn[0], 0.01])) : V.norm(N);
+  const X = V.add(V.mul(dn, FOOT_C), V.mul(N, FOOT_S)), Z = V.add(V.mul(dn, -FOOT_S), V.mul(N, FOOT_C)), Y = V.cross(Z, X);
+  return { X, Y, Z, at: (x, y, z) => V.frame(A, X, x, Y, y, Z, z) };
+}
+
 // Two-bone IK. Returns [middle joint, end]; the end is pulled in if the target is out of reach.
 export function ik(A, T, l1, l2, pole) {
   let d = V.sub(T, A), dist = V.len(d);

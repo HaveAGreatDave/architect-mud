@@ -13,7 +13,7 @@
 // weight (1). A zero normal means UNLIT (the crowd, the ads, a beacon): the shader takes
 // the colour as it is. Texture weight 1 multiplies the colour by the batch's texture.
 
-import { V, clamp, lerp, rotZ } from '../rink/util.js';
+import { V, clamp, lerp, rotZ, footFrame } from '../rink/util.js';
 
 export const STRIDE = 13;
 
@@ -235,6 +235,20 @@ function loft(b, rings, c, slot, seg = 16) {
   emitGrid(b, g, S, last, c, slot || null, vrow);
 }
 
+// The frame of a glove closed round the stick, or null when the hand isn't on it: p1 runs
+// along the knuckles (the shaft, squared to the forearm), p2 out of the back of the hand.
+function gripFrame(J, H, dir) {
+  if (!J[18] || !J[19]) return null;
+  const s = V.norm(V.sub(J[19], J[18])), w = V.sub(H, J[18]), off = V.sub(w, V.mul(s, V.dot(w, s)));
+  if (V.len(off) > 0.25) return null;
+  let p1 = V.sub(s, V.mul(dir, V.dot(s, dir)));
+  if (V.len(p1) < 0.15) return null;
+  p1 = V.norm(p1);
+  let p2 = V.cross(dir, p1);
+  if (V.dot(p2, V.sub(H, J[1])) < 0) { p2 = V.mul(p2, -1); p1 = V.mul(p1, -1); }
+  return [p1, p2];
+}
+
 // One skater, goalie, official or medic. `b` takes everything but the jersey; `bt` (the
 // textured batch) takes the torso. `o` is the same options object figure.js reads, plus
 // `slot` (the atlas rectangle) and `detail` (0 far, 1 near) for the small things.
@@ -259,16 +273,18 @@ export function buildBody(b, bt, J, o) {
       stump(J[kn], V.norm(V.sub(J[kn], J[hip])), 0.24);
       continue;
     }
-    const fw = V.norm([T[0] - A[0], T[1] - A[1], 0]);
-    const heel = [A[0] - fw[0] * 0.24, A[1] - fw[1] * 0.24, 0.3], toeC = [T[0] + fw[0] * 0.02, T[1] + fw[1] * 0.02, 0.19];
+    // the skate in the foot's own frame (rink/util.js): lifted with the foot, rolled onto its
+    // edge with the shin. Standing, these are the old fixed heights.
+    const fr = footFrame(A, T, J[kn]), at = fr.at;
+    const heel = at(-0.24, 0, -0.25), toeC = at(0.76, 0, -0.36);
     tube(b, heel, toeC, 0.16, 0.12, BOOT, seg);
-    tube(b, V.add(A, [0, 0, 0.05]), [A[0] + fw[0] * 0.12, A[1] + fw[1] * 0.12, 0.34], 0.19, 0.16, BOOT, seg);
-    box(b, [heel[0], heel[1], 0.1], [toeC[0], toeC[1], 0.09], 0.035, 0.07, HOLDER, [0, 0, 1]);
-    box(b, [heel[0] - fw[0] * 0.08, heel[1] - fw[1] * 0.08, 0.025], [toeC[0] + fw[0] * 0.14, toeC[1] + fw[1] * 0.14, 0.025], 0.012, 0.025, STEEL, [0, 0, 1]);
+    tube(b, at(0, 0, 0.05), at(0.12, 0, -0.21), 0.19, 0.16, BOOT, seg);
+    box(b, at(-0.24, 0, -0.45), at(0.76, 0, -0.46), 0.035, 0.07, HOLDER, fr.Z);
+    box(b, at(-0.32, 0, -0.525), at(0.9, 0, -0.525), 0.012, 0.025, STEEL, fr.Z);
     if (det) {
       // the tongue up the front of the boot, and the tendon guard at the back
-      box(b, [A[0] + fw[0] * 0.14, A[1] + fw[1] * 0.14, 0.24], [A[0] + fw[0] * 0.2, A[1] + fw[1] * 0.2, 0.52], 0.1, 0.03, mix(BOOT, 0.25), fw);
-      box(b, [heel[0] - fw[0] * 0.04, heel[1] - fw[1] * 0.04, 0.32], [heel[0] - fw[0] * 0.07, heel[1] - fw[1] * 0.07, 0.62], 0.06, 0.025, mix(BOOT, 0.15), fw);
+      box(b, at(0.14, 0, -0.31), at(0.2, 0, -0.03), 0.1, 0.03, mix(BOOT, 0.25), fr.X);
+      box(b, at(-0.28, 0, -0.23), at(-0.31, 0, 0.07), 0.06, 0.025, mix(BOOT, 0.15), fr.X);
     }
     if (gk) {
       const top = V.add(J[kn], [0, 0, 0.35]), bot = V.add(A, [0, 0, -0.15]);
@@ -333,9 +349,12 @@ export function buildBody(b, bt, J, o) {
       const cuff0 = V.sub(wrist, V.mul(dir, 0.3)), palm = V.add(H, V.mul(dir, 0.14));
       tube(b, cuff0, wrist, 0.3, 0.24, glove, seg);
       band(b, cuff0, wrist, 0.3, 0.24, 0.3, 0.07, trim, seg);
-      box(b, wrist, palm, 0.21, 0.17, mix(glove, 0.05));
+      // a glove gripping the stick: the knuckles run along the shaft and the back of the hand
+      // faces out of the plane of forearm and shaft, so the fist closes round the stick
+      const grip = gripFrame(J, H, dir);
+      box(b, wrist, palm, 0.21, 0.17, mix(glove, 0.05), grip ? grip[1] : undefined);
       if (det) {
-        const [p1, p2] = perp(dir);
+        const [p1, p2] = grip || perp(dir);
         for (let f = 0; f < 3; f++) { const at2 = V.add(V.lerp(wrist, palm, 0.35 + f * 0.25), V.mul(p2, 0.17)); box(b, V.sub(at2, V.mul(p1, 0.19)), V.add(at2, V.mul(p1, 0.19)), 0.045, 0.035, mix(glove, -0.18)); }
         tube(b, V.add(V.lerp(wrist, palm, 0.3), V.mul(p1, 0.2)), V.add(V.lerp(wrist, palm, 0.75), V.mul(p1, 0.26)), 0.07, 0.065, mix(glove, -0.08), 6);
       }
@@ -389,12 +408,16 @@ export function buildBody(b, bt, J, o) {
     if (bend) { tube(b, J[18], bend, 0.07, 0.065, STICK, 6); tube(b, bend, J[19], 0.065, gk ? 0.09 : 0.06, STICK, 6); }
     else tube(b, J[18], J[19], 0.07, gk ? 0.09 : 0.06, STICK, 6);
     tube(b, J[18], V.lerp(J[18], J[19], 0.06), 0.08, 0.077, TAPE, 6);
-    // the blade, curved: straight from the heel, then bending toward the toe
+    // the blade, curved: straight from the heel, then bending toward the toe. It lies in the
+    // shaft's plane (blade and shaft are one piece), so it tips with the stick instead of
+    // standing bolt upright whatever the stick is doing.
     const mid = V.lerp(J[19], J[20], 0.55), bl = V.sub(J[20], J[19]), nrm = V.norm([-bl[1], bl[0], 0]);
     const toe = V.add(J[20], V.mul(nrm, 0.12));
-    box(b, V.add(J[19], [0, 0, 0.13]), V.add(mid, [0, 0, 0.13]), 0.03, 0.13, STICK, [0, 0, 1]);
-    box(b, V.add(mid, [0, 0, 0.13]), V.add(toe, [0, 0, 0.12]), 0.03, 0.12, STICK, [0, 0, 1]);
-    if (det) { box(b, V.add(V.lerp(J[19], J[20], 0.15), [0, 0, 0.13]), V.add(mid, [0, 0, 0.13]), 0.034, 0.12, TAPE, [0, 0, 1]); box(b, V.add(mid, [0, 0, 0.13]), V.add(V.lerp(mid, toe, 0.7), [0, 0, 0.125]), 0.034, 0.115, TAPE, [0, 0, 1]); }
+    const blU = V.norm(bl), shU = V.norm(V.sub(J[18], J[19])), upR = V.sub(shU, V.mul(blU, V.dot(shU, blU)));
+    const bu = V.len(upR) > 0.2 ? V.norm(upR) : [0, 0, 1], o13 = V.mul(bu, 0.13), o12 = V.mul(bu, 0.12), o125 = V.mul(bu, 0.125);
+    box(b, V.add(J[19], o13), V.add(mid, o13), 0.03, 0.13, STICK, bu);
+    box(b, V.add(mid, o13), V.add(toe, o12), 0.03, 0.12, STICK, bu);
+    if (det) { box(b, V.add(V.lerp(J[19], J[20], 0.15), o13), V.add(mid, o13), 0.034, 0.12, TAPE, bu); box(b, V.add(mid, o13), V.add(V.lerp(mid, toe, 0.7), o125), 0.034, 0.115, TAPE, bu); }
   }
   if (J.meta && J.meta.bottle) tube(b, J.meta.bottle, V.add(J.meta.bottle, [0, 0, -0.75]), 0.12, 0.13, rgb('#468cdc'), 8);
 }

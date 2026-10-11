@@ -385,10 +385,10 @@ export function createRenderer(canvas, W0, ice) {
   // hundred is a handful of draw calls. They are small and quick; one drawn over a body it is
   // behind for a frame or two is not something anyone sees.
   function particles(P) {
-    if (!W.parts.length) return;
+    if (!W.parts.length && !(W.spray && W.spray.length)) return;
     const streak = new Map(), dots = new Map();
     const add = (m, k) => { let a = m.get(k); if (!a) { a = []; m.set(k, a); } return a; };
-    for (const p of W.parts) {
+    for (const p of W.spray ? W.parts.concat(W.spray) : W.parts) {
       const c = P(p.x, p.y, p.z); if (!c) continue;
       if (p.type === 'blood') {
         const b = P(p.x - p.vx * 0.025, p.y - p.vy * 0.025, p.z - p.vz * 0.025);

@@ -20,7 +20,7 @@
 // arrive together.
 
 import { clamp, lerp, angWrap, rng, hash } from './util.js';
-import { RL, RW, MID_Y, GOAL_X, NET_HALF, NET_H, DOT_FT, BOARD_H, GLASS_H, attackDir, insideRink, panelAt } from './geo.js';
+import { RL, RW, MID_Y, GOAL_X, NET_HALF, NET_H, DOT_FT, BOARD_H, GLASS_H, attackDir, insideRink, panelAt, PANEL_W, PANEL_X0, PANELS } from './geo.js';
 import { SHOTS, releaseAt, bladeWorld, skaterRig } from './rig.js';
 import { makeBody } from './sim.js';
 import { createReplay } from './replay.js';
@@ -101,6 +101,8 @@ export function createDirector(W, opts = {}) {
     if (prev && prev !== b) { prev.name = ''; prev.num = numFor(`${prev.side}${prev.slot}${prev.seed}`); }
     map.set(name, b);
     b.name = surname(name); b.num = numFor(name);
+    // he shoots the way he always has: about two in five of the league are righties
+    b.hand = hash('hand:' + name) % 5 < 2 ? 'R' : 'L';
     if (D.beat) D.beat.locked.add(b);
     return b;
   }
@@ -443,15 +445,17 @@ export function createDirector(W, opts = {}) {
         // a drop pass is for a man right behind him; farther back it's played firmly
         const pd = Math.hypot(tb.x - cur.x, tb.y - cur.y);
         const pkind = lu < -3 && pd < 14 ? 'drop' : (lv < -4 && lu < 8) || lu < -3 ? 'backpass' : r() < 0.15 ? 'saucer' : 'pass';
-        W.act(cur, pkind, 0.32); cur.look = [tb.x, tb.y, 1];
-        const from = cur;
-        at(B, 0.11, () => {
+        W.act(cur, pkind, SHOTS[pkind].dur); cur.look = [tb.x, tb.y, 1];
+        const from = cur, pass = { kind: 'pass', to: tb, from: cur, t: 0 };
+        // (a shot called before it's away takes the leg over, and he keeps the puck to shoot)
+        at(B, releaseAt(pkind), () => {
+          if (leg !== pass) return;
           W.give(from); W.pass(from, tb, pkind === 'drop' ? clamp(pd * 1.8, 16, 28) : 64 + r() * 14);
           if (pkind === 'saucer') pk.vz = 7;
           W.act(tb, 'receive', 0.6, [from.x, from.y]);
         });
         lastPasser = cur;
-        leg = { kind: 'pass', to: tb, from: cur, t: 0 };
+        leg = pass;
         return;
       }
       // carry it there himself; a deke beats the man standing him up on the way
@@ -741,9 +745,9 @@ export function createDirector(W, opts = {}) {
         const sh = leg.shooter;
         if (!leg.fed && (shotCue != null ? rel >= shotCue - 0.5 : (leg.t > 0.7 || Math.hypot(sh.tx - sh.x, sh.ty - sh.y) < 4))) {
           leg.fed = true; const from = cur;
-          W.act(from, 'pass', 0.32);
+          W.act(from, 'pass', SHOTS.pass.dur);
           if (type === 'onetimer') W.act(sh, 'onetimerReady', 0.8);
-          at(B, 0.11, () => {
+          at(B, releaseAt('pass'), () => {
             if (type === 'tip') {
               // the point shot is the setup; the tip is the shot that counts
               const bw = bladeWorld(sh, W.t + 0.35, true);
@@ -903,8 +907,21 @@ export function createDirector(W, opts = {}) {
           // the booth said whether the glass went; without a call it's a coin toss
           const roll = r() < 0.5;
           victim.shatterNext = (p.shatter != null ? !!p.shatter : roll) || fatal === 'head';
-          // a called shatter happens even if he hits the pane too softly to break it
-          if (p.shatter && !fatal) at(B, 0.5, () => { const i = panelAt(victim.x); if (!W.broken.has(i)) W.glassHit(victim.x, (BOARD_H + GLASS_H) / 2, 22, true); });
+          // a called shatter happens even if he hits the pane too softly to break it. If the pane
+          // he hit went earlier in the night, he goes into the nearest one still standing; if he
+          // broke one himself on the way in, that was the call
+          if (p.shatter && !fatal) {
+            const nb = W.broken.size;
+            at(B, 0.5, () => {
+              if (W.broken.size > nb) return;
+              let i = panelAt(victim.x);
+              for (let d = 1; W.broken.has(i) && d < PANELS; d++) {
+                if (i + d < PANELS && !W.broken.has(i + d)) i += d;
+                else if (i - d >= 0 && !W.broken.has(i - d)) i -= d;
+              }
+              if (!W.broken.has(i)) W.glassHit(W.broken.has(panelAt(victim.x)) ? PANEL_X0 + (i + 0.5) * PANEL_W : victim.x, (BOARD_H + GLASS_H) / 2, 22, true);
+            });
+          }
           break;
         }
         case 'behind': impU = [hv[0] * 0.3 + vdir * 2, 27, 2]; impL = [hv[0] * 0.2, 6, 0.5]; break;
@@ -1305,7 +1322,7 @@ export function createDirector(W, opts = {}) {
     for (const b of [...W.team.a, ...W.team.h, W.goalie.a, W.goalie.h, ...W.officials]) if (b) { b.active = false; b.hold = null; }
     medics.forEach((m) => { m.active = false; }); W.stretcher = null;
     pk.hidden = true; pk.carrier = null; pk.held = null; pk.inNet = null; pk.vx = pk.vy = 0;
-    W.debris = []; W.limbs = []; W.parts = []; W.fight = null; W.lamp = 0;
+    W.debris = []; W.limbs = []; W.parts = []; W.spray = []; W.fight = null; W.lamp = 0;
     W.pulled.a = W.pulled.h = false;
     W.startZamboni(opts.zamboniSpeed || 22);
     cut('zam', [W.zamboni.x, W.zamboni.y]);
