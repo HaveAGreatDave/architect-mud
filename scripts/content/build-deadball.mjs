@@ -21,6 +21,7 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { canonicalJson } from './lib.mjs';
 
 const ROOT = fileURLToPath(new URL('../..', import.meta.url));
 const rd = (p) => fs.readFileSync(path.join(ROOT, p), 'utf8');
@@ -57,12 +58,15 @@ const GRAPHIC_FILE = `content/media_graphics/${meta.titlecard}.json`;
 
 const patch = (rel, fields) => {
   const p = path.join(ROOT, rel);
-  const row = JSON.parse(fs.readFileSync(p, 'utf8'));
-  const before = JSON.stringify(row);
+  const raw = fs.readFileSync(p, 'utf8');
+  const row = JSON.parse(raw);
   Object.assign(row, fields);
-  const after = `${JSON.stringify(row, null, 2)}\n`;
-  fs.writeFileSync(p, after, 'utf8');
-  console.log(`  ${before === JSON.stringify(row) ? 'unchanged' : 'updated  '} ${rel}`);
+  // The export's own serialization (sorted keys, 2-space indent, LF), so a rebuild of an
+  // unchanged script writes the bytes the export wrote. With plain JSON.stringify every
+  // rebuild reordered the whole row into the compiler's key order.
+  const after = canonicalJson(row);
+  if (after !== raw) fs.writeFileSync(p, after, 'utf8');
+  console.log(`  ${after === raw ? 'unchanged' : 'updated  '} ${rel}`);
 };
 
 // The park (sports_pools.venue: its site, and later the venue data the GLASS 2 park is
