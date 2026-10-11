@@ -991,6 +991,15 @@ into belongs to the sport module (`SEASON` in `sports/<name>.js`):
 A postseason takeover applies **only to its own sport** (`overrideFor(script)`) —
 handing the World Series' finalists to the hockey sim would put two ballclubs on the ice.
 
+**A new roster starts a fresh season.** Each league in `LEAGUES` can name an `era`, and a
+season records the era it opened in (`sports_season.era`). When they differ, the next
+season tick closes the open season with no champion and opens a fresh one, whatever phase
+it was in, so the new clubs start at 0-0 on the deploy that ships them and a Cup final
+seeded with clubs that no longer exist never airs. The CPhL is on `cphl-8`, the eight
+neighbourhood clubs above; every hockey season opened before that has no era and closes on
+the first tick after the deploy. Change the era only when the roster changes. Deadball has
+none and is never reset this way.
+
 ### The rink sub-screen (Rinkside, as built)
 
 [client/game/js/panels/gameday-rink.js](../client/game/js/panels/gameday-rink.js) is the

@@ -68,6 +68,17 @@ export default async function regress({ run, check }) {
   check('hockey crowns the Coldwater Cup', _test.LEAGUES.hockey.final === 'COLDWATER CUP', _test.LEAGUES.hockey.final);
   check('baseball still crowns the World Series', _test.LEAGUES.baseball.final === 'WORLD SERIES', _test.LEAGUES.baseball.final);
 
+  // ── Eras ────────────────────────────────────────────────────────────────────
+  // A league's era names its roster. A season opened under any other one (or before eras
+  // existed) closes with no champion on the next tick, and baseball, which has none, never does.
+  const era = _test.LEAGUES.hockey.era;
+  check('the CPhL has an era', typeof era === 'string' && era.length > 0, String(era));
+  check('a hockey season from before eras is stale', _test.staleEra('hockey', { season_no: 3, era: null }) === true, 'null era');
+  check('a hockey season in the current era is not', _test.staleEra('hockey', { season_no: 4, era }) === false, era);
+  check('a hockey season from another era is stale', _test.staleEra('hockey', { season_no: 4, era: 'cphl-0' }) === true, 'old era');
+  check('baseball is never reset by an era', !_test.LEAGUES.baseball.era && _test.staleEra('baseball', { season_no: 9, era: null }) === false, 'baseball');
+  check('no season is never stale', _test.staleEra('hockey', null) === false, 'null season');
+
   // The Cup command routes, and `standings hockey` scopes to one league.
   const cup = await run('cup');
   check('cup routed', cup?.type === 'output', cup?.message);

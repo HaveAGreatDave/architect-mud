@@ -2736,6 +2736,10 @@ export const SCHEMA_SQL = `
   ALTER TABLE sports_season ADD COLUMN IF NOT EXISTS sport TEXT NOT NULL DEFAULT 'baseball';
   ALTER TABLE sports_season DROP CONSTRAINT IF EXISTS sports_season_pkey;
   ALTER TABLE sports_season ADD CONSTRAINT sports_season_pkey PRIMARY KEY (sport, season_no);
+  -- The roster era a season was opened in (LEAGUES[sport].era in plugins/sportsleague).
+  -- When a league's era moves on, its open season closes with no champion and a fresh one
+  -- opens, so a new roster starts at 0-0. NULL on every season opened before eras existed.
+  ALTER TABLE sports_season ADD COLUMN IF NOT EXISTS era TEXT;
 
   -- Staging for aired games so they book into the standings at END of their airing
   -- window (resolve_at), not at air-start. The game_id primary key makes booking
