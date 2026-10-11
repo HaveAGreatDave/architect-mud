@@ -28,6 +28,8 @@ How it got here, all on 2026-10-11:
   took 41 buildings and was turned down.
 - Later the same day, the city round the park on TV became a set composed for the cameras from the
   map's buildings, in place of the map bent round the park.
+- Then the players got the Modelshop's heads: the street figure's head and its face atlas, with caps
+  and helmets fitted to the skull.
 
 Read with [systems-broadcast.md](../systems-broadcast.md#sports--two-codes-one-pipeline) (the sports
 pipeline, Rinkside and the CPhL's clubs), [bsm-format.md](../bsm-format.md) (how the booth's lines
@@ -44,8 +46,8 @@ the older 2-D-only `gameday-rink.js`. That work has to reach `main` before Phase
 
 ## The short version
 
-- **Fidelity:** players of 12,000 to 20,000 triangles up close, skinned on the GPU, with faces from
-  the street-figure head work, cloth with fabric normal maps, and dirt that collects on uniforms over
+- **Fidelity:** players of 12,000 to 20,000 triangles up close, skinned on the GPU, with the
+  Modelshop's street-figure heads and painted faces under caps and helmets fitted to the skull, cloth with fabric normal maps, and dirt that collects on uniforms over
   a game. Animation from an authored clip library with IK for every contact (glove to ball, hands to
   bat, feet to dirt), gated by tests that measure foot slide and contact error.
 - **Light:** four of the park's six light towers cast real shadows, so every player stands on a star
@@ -144,7 +146,7 @@ matrix.
 | [shadow.js](../../client/game/js/panels/gl/shadow.js) | One 2048² sun map fitted to the scene | Spotlight maps for several towers at once. New. |
 | [actors.js](../../client/game/js/panels/gl/actors.js) with [actor3d.js](../../client/game/js/panels/actor3d.js) | Procedural people on a 19-bone skeleton, baked into vertex-animation textures and drawn instanced: 4,780 triangles near, 626 far, eight hand-written clips | Seated, standing and cheering clips for a crowd. The approach is the crowd. |
 | [cloth.js](../../client/game/js/panels/gl/cloth.js) | Baked cloth animation for flags and shelters | Pennants and the centre-field flag. |
-| [street-figure-heads.md](street-figure-heads.md) | Head meshes at 1,840 / 696 / 232 triangles and a 2048×1280 face atlas, built but not yet drawn in the game | Drawing it, which this view would be first to do. |
+| [street-figure-heads.md](street-figure-heads.md) | Head meshes at 1,840 / 696 / 232 triangles and a 2048×1280 face atlas, built but not yet drawn in the game | Drawing it, which this view would be first to do, and `skullPoint` exported from `actor-head.js` so headwear can be fitted to the skull. |
 
 Nothing in the client does GPU skinning, normal mapping or sRGB texture decoding, and only the rink's
 ice uses anisotropic filtering. GGX lighting and the environment cube exist and are off by default
@@ -330,6 +332,15 @@ them. What it showed:
   in by a tenth when it's on.
 - **A sellout costs triangles.** With every seat filled the look-dev crowd reached about 6 million
   triangles. The real crowd needs its far level and cards for the distant rows (see Performance).
+- **The Modelshop's heads make ballplayers.** The street figure's head at level 0, with its face from
+  the atlas, replaced the look-dev's painted eggs: brows, irises with catchlights, a nose, lips and
+  ears read from a head-and-shoulders portrait out to the first-base camera. Three changes made them
+  athletes: a thicker neck and a slightly broader jaw; no makeup layouts and nobody past forty; and
+  lips taken halfway back to the skin, because the atlas's lip colour read as lipstick under the
+  floods.
+- **Headwear has to fit the skull.** Caps and helmets sized as ellipsoids round the old egg covered
+  the eyes. Grown off the skull's own surface to a band line, the cap's band sits above the brow and
+  the bill shades the eyes without hiding them.
 
 ## Using the whole engine
 
@@ -438,9 +449,24 @@ play in progress restarts in 2-D. The 2-D view stays maintained, and Phase 0 giv
 - **Levels of detail.** About 18,000 triangles for the close cameras (the batter from first base, the
   pitcher in a replay), 7,000 at broadcast distance, 1,500 for outfielders in the wide shot, chosen by
   projected height the way actors are.
-- **Faces.** The street-figure heads at their highest level with the face atlas, plus eye black,
-  stubble and beards from the name. Under a cap brim at broadcast distance a face is mostly shadow,
-  so the close cameras are where faces have to hold up.
+- **Heads and faces.** The street figure's head from the Modelshop work
+  ([actor-head.js](../../client/game/js/panels/actor-head.js),
+  [street-figure-heads.md](street-figure-heads.md)): a skull whose edge loops sit on the face's
+  landmarks, shaped ears, a neck and five hair styles, at its three levels by projected height (L0,
+  1,840 triangles, for the close cameras). The face is a layout from the baked atlas
+  ([actor-faces.js](../../client/game/js/panels/actor-faces.js)) tinted with the player's own skin,
+  hair, lips and eyes by `FACE_GLSL`, the scalp painted to the hairline by `HAIRLINE_GLSL`, as the
+  Actor Lab draws them. Under a cap brim at broadcast distance a face is mostly shadow, so the close
+  cameras are where faces have to hold up, and the matchup card can carry a live portrait of each
+  face. For a ballplayer:
+  - the pick comes from the player's name, so a player's face is the same all season, with no makeup
+    layouts, nobody past forty and stubble or a beard on about 45%; umpires can be any age;
+  - the neck is thicker than the street figure's, most of all at the collar, and the jaw a little
+    broader;
+  - the lips are taken halfway back to the skin;
+  - about 30% wear eye black, an oval smudge on each cheekbone, painted in the face shader rather than
+    the atlas;
+  - under a cap only the cropped, neat and long styles fit, so the long one shows as a mullet.
 - **Uniforms.** Separate meshes for jersey, undershirt, pants, belt, stirrup socks and cleats, cut
   the way the period wore them: pants to below the knee with stirrups showing, or full length by
   player. Jerseys carry pinstripes or flannel weave, piping, a chest wordmark and tackle-twill
@@ -450,8 +476,12 @@ play in progress restarts in 2-D. The 2-D view stays maintained, and Phase 0 giv
 
 ### Equipment
 
-Caps with a curved bill, a crown in panels, a button and an embroidered crest. Batting helmets in
-glossy shell with an ear flap on the pitcher's side and a decal. Fielders' gloves with laced webbing,
+Every piece of headwear is fitted to the head's own skull, not sized round it: a shell grown off
+`skullPoint` a set distance out, down to a band line that runs round the head, so the band sits above
+the brow and the eyes show. Caps with a curved bill, a crown in panels, a button and an embroidered
+crest, the band at the forehead falling toward the nape. Batting helmets in glossy shell with a padded
+inside, an ear flap over the pitcher-side ear that stops behind the cheekbone, a short bill and a
+decal. Fielders' gloves with laced webbing,
 a first baseman's mitt and the catcher's round mitt. The catcher's helmet, mask, chest protector and
 shin guards; the plate umpire's mask and the protector under the shirt. Bats with grain, a darker handle
 and the knob. The ball with its red seams in a normal map, so spin reads in a slow-motion replay.
@@ -1303,7 +1333,7 @@ reference machine and on an integrated laptop GPU and writes the numbers into
 | Gate | Group | What it checks |
 |---|---|---|
 | `scripts/shapes/gameday-smoke.mjs` (Phase 0) | shapes | Real Deadball games through the 2-D view: every payload resolves, runners end on `basesAfter`, nothing throws. |
-| `scripts/shapes/ballpark-smoke.mjs` | shapes | Pure, no GPU: meshes finite and inside each level's budget, the park from venue data, GL matrices against the pure projection, skin weights summing to one, texture budgets. |
+| `scripts/shapes/ballpark-smoke.mjs` | shapes | Pure, no GPU: meshes finite and inside each level's budget, the park from venue data, GL matrices against the pure projection, skin weights summing to one, texture budgets; every cap, helmet and mask clears the skull and the ears and leaves both eyes open; every player's face pick is the same twice and never a makeup layout. |
 | `scripts/shapes/anim-smoke.mjs` | shapes | Every clip: joint limits, no velocity spikes at blend points, planted feet sliding under 0.1 ft, hands on the bat within 0.05 ft, the glove at the ball within 0.1 ft on the catch frame, release at the release frame. |
 | `scripts/shapes/diamond-smoke.mjs <slot>` | shapes, one game per gate | Real games through the world and director over the DOM stub: pitch count, each pitch at its spot, the terminal pitch matches the kind, captions held until `onLand`, fielders as the play names them, outs at the right base, runners end on `basesAfter`, runs equal the score change, home runs land past the fence, no runner faster than a runner could go outside a cut, ball and fielder in frame, replays start and hand back, sounds played. |
 | `scripts/shapes/variety-smoke.mjs` | shapes | Over a season of seeded plays: directions spread by handedness, exit speeds cover their range, every fielding grade and, under v2, every new event appears, and every clip in the library is reached. |
@@ -1347,8 +1377,8 @@ Phase 3, or with sim v2 if that comes later.
   normal and roughness maps; the park from venue defaults; the dirt canvas; the arcade grade and the
   tube glass; the cameras, starting with the batting view.
 - The arcade graphics package, still: panels, lamps, cards, the zone marker, the leaders table.
-- Players as static, posed meshes at final quality, so lighting and materials are judged on the
-  real models.
+- Players as static, posed meshes at final quality, with their heads, faces and fitted headwear, so
+  lighting and materials are judged on the real models.
 - The park's site and the skyline manifest; `city-set.js`, and `gl/cityscape.js` with the facades,
   the streets, the lamps and the Curtain, at a fixed hour; the park's exterior.
 - Tested by: `ballpark-smoke`, `cityscape-smoke`, sandbox screenshots, GPU timings on two machines.
@@ -1402,8 +1432,10 @@ power grid.
 - **The art and animation are the work.** A rig, a Pose Lab and about 120 keyed clips is more effort
   than all the code around them, with no motion capture to start from. Phase 2 stages only pitches so
   the pipeline is proved on the motion viewers see most.
-- **Faces in close-ups.** The street-figure heads have never been drawn in the game. If they don't
-  hold up at the first-base camera's distance, close shots stay on the uniform and the action.
+- **Faces in close-ups.** The street-figure heads have never been drawn in the game. The look-dev drew
+  them from a head-and-shoulders portrait out to the first-base camera and they held up. The open
+  question is variety: 32 layouts for a league of 16 clubs, about 400 players, which skin, hair, eyes,
+  hair style and eye black stretch.
 - **Hardware.** Every GLASS number comes from one discrete GPU. A ballpark that needs float targets
   and four shadow maps has to be measured on integrated laptops and phones before it goes on by
   default; the 2-D view is the floor.
