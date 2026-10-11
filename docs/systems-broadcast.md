@@ -1022,6 +1022,8 @@ board, the sound mapping and the frame loop. The work is in `client/game/js/pane
 | `textures.js` | The ice canvas and everything painted into it, the dasherboard ads and the crowd. |
 | `../gl/arena.js` | The GLASS 2 renderer (WebGL2), the one the view prefers. See *Two renderers* below. |
 | `../gl/arena-mesh.js` | Bodies, nets, the Zamboni, the puck, debris and limbs as triangles, built each frame from the joints. Pure, so the smoke gate runs it in node. |
+| `../gl/arena-heads.js` | The heads: the street figures' generator, drawn from the records `arena-mesh.js` leaves. |
+| `faces.js` | Which face, eyes and haircut a man gets, off his name. |
 
 **Frames.** The sim's payloads speak fractions of the sheet (`x` along it, `y` across it);
 `geo.js` converts to feet once. `y = 0` is the camera side. The away club attacks `+x`
@@ -1198,9 +1200,18 @@ lit triangles with a depth buffer:
 
 - Bodies are meshes from `arena-mesh.js`, rebuilt every frame from the 21 joints with
   `figure.js`'s proportions: about 1,000 triangles for a man at broadcast distance and
-  2,000 close up, where the cage bars, eyes and blade tape come in. Each jersey is a slot
-  in one 1024² atlas (number and name on the back, crest, hem stripes, blood), painted once
-  per kit, number, name and blood level.
+  2,000 close up, where the cage bars, ear guards and blade tape come in. Each jersey is a
+  slot in one 1024² atlas (number and name on the back, crest, hem stripes, blood), painted
+  once per kit, number, name and blood level.
+- A head is the street figures' generator's ([street-figure-heads.md](proposals/street-figure-heads.md)):
+  actor-head.js's skull, ears and hair at one of its three levels by the head's size on
+  screen, with a face from actor-faces.js's atlas tinted with the man's skin, hair and
+  eyes. The body leaves a record (a matrix, the level, the face, the blood) and
+  `arena-heads.js` draws it, two small indexed draws a head, lit the way the bodies are; the
+  helmet, open at the face, the cage and the visor are built round it. A face comes off the
+  name (`faces.js`), so Lindqvist has the same one every night, in the replay too; nobody on
+  the ice gets a makeup layout, and the layouts lean to stubble and beards. A severed head
+  keeps its face, and the heads are in the reflection.
 - The ice is the same painted canvas, kept as a texture. `textures.js` lists the 125-texel
   tiles each mark touches (`ice.dirty`), and the arena re-uploads only those.
 - The reflection is the boards, the props and the men drawn again through `matrices(C,
@@ -1252,6 +1263,14 @@ whatever the Zamboni got through.
   as stripes, not as a reflection.
 - The arena draws with no face culling. The mesh builders don't keep one winding, and the
   lit shader lights whichever side faces the eye.
+- The helmet is placed for the generator's head (`HELM_C`, the opening and the brim in
+  `arena-mesh.js`), and the cage and the visor hang from its brim (`faceRad`). Move any of
+  them and run `arena-smoke.mjs`: it checks the skull and every haircut clear the shell and
+  the face is behind the cage. A quiff stands out of any helmet, so under one it's drawn
+  cropped.
+- If the head program won't build, the arena keeps going with the old primitive heads
+  (`o.heads` is null and `arena-mesh.js` makes its own); only a failure in the others sends
+  the view to 2-D. The 2-D renderer never had the generator's heads.
 
 **The booth calls the rush.** `describeRush` in [hockey.js](../plugins/broadcast/sports/hockey.js)
 reads the possession keyframes into one sentence, which rides the payload as `rush` and
@@ -1286,8 +1305,11 @@ stands on without a GPU. `matrices()` matches `P` to a hundredth of a pixel in e
 mode, both views and two screen shapes, and so does the mirror against `P(x, y, -z)`. Every
 body state (ragdoll, missing an arm, a leg or the head, gloves or helmet off, jersey over the
 head, visor) builds finite and inside its triangle budget, along with limbs, debris, nets,
-the Zamboni and the stretcher. Each kind of ice mark lists its tile. With no WebGL2,
-`createArenaRenderer` returns null rather than throwing.
+the Zamboni and the stretcher. Each body leaves one head record (none with the jersey over
+it or the head gone), its matrix a rigid map, its face never a makeup layout and the same for
+the same name; the helmet's fit is measured against every haircut and the cage against the
+face. Each kind of ice mark lists its tile. With no WebGL2, `createArenaRenderer` returns
+null rather than throwing.
 
 ### Sound banks
 

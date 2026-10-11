@@ -14,8 +14,47 @@
 // the colour as it is. Texture weight 1 multiplies the colour by the batch's texture.
 
 import { V, clamp, lerp, rotZ, footFrame } from '../rink/util.js';
+import { rinkFace } from '../rink/faces.js';
 
 export const STRIDE = 13;
+
+// ── THE HEAD, FROM THE STREET FIGURES' GENERATOR ──────────────────────────────────────────────
+// When the renderer hands over `o.heads`, a body's head is a record for gl/arena-heads.js to draw
+// (actor-head.js's skull, ears and hair, with a face from the atlas in actor-faces.js) instead of
+// the primitives below, which stay for the smoke gate and anything else that asks for no records.
+// The helmet, the cage and the visor are still built here, round the head.
+// HEAD_S takes the generator's metres to the rink's feet, a little over life size so the head
+// fills the helmet the old one was made for; HEAD_A is the point of the bind-space head that sits
+// on the rig's head joint (the middle of the skull, between chin and crown).
+export const HEAD_S = 3.2808 * 1.15;
+const HEAD_A = [0, 1.635, -0.006];
+// Where HEAD_A goes, forward and up of the head joint, in feet.
+export const HEAD_AT = [0.02, -0.03];
+// The helmet round it: the shell's middle (forward, up of the head joint), the front opening
+// (the shell's quads facing further forward than HELM_OPEN and lower than the brow are left out)
+// and the brim's height, which the cage and the visor hang from. ⚠ The arena smoke measures every
+// haircut against this shell: move one number and run it.
+export const HELM_C = [-0.02, 0.08], HELM_OPEN = 0.45, HELM_BROW = 0.15, HELM_BROW_GK = 0.12, BRIM_U = 0.12;
+// How far in front of the head joint the cage and the visor stand at height `u`: off the face,
+// pulled in toward the chin, and in to the shell at the brim.
+export function faceRad(R, u) {
+  return u > -0.05 ? R * (1.12 - 0.5 * (u + 0.05)) : R * 1.12 * (1 - Math.max(0, -u - 0.2) * 0.35);
+}
+// actor-head.js's hair styles are numbered: cropped, neat and parted, tousled, long, a quiff.
+const QUIFF = 4;
+// The record: `M` takes a bind-space point (metres, Y up, facing +Z, left hand on +X) to the rink
+// (feet, Z up), column-major for GL; `lv` is the level, `face` the player's pick (rink/faces.js),
+// `hs` the hair mesh to draw. Under a helmet a quiff is cropped, since it stands out of the shell.
+// Fh, Sd and Uh are the head's forward, left and up, so the map has no mirror in it.
+export function headRecord(C, Fh, Sd, Uh, o, lv = 1, blood = 0, helmet = false) {
+  const s = HEAD_S, X = V.mul(Sd, s), Y = V.mul(Uh, s), Z = V.mul(Fh, s);
+  const T = V.sub(C, V.add(V.add(V.mul(X, HEAD_A[0]), V.mul(Y, HEAD_A[1])), V.mul(Z, HEAD_A[2])));
+  const face = rinkFace(o);
+  return {
+    M: new Float32Array([X[0], X[1], X[2], 0, Y[0], Y[1], Y[2], 0, Z[0], Z[1], Z[2], 0, T[0], T[1], T[2], 1]),
+    lv, face, blood, hs: helmet && face.style === QUIFF ? 0 : face.style,
+  };
+}
 
 const _rgb = new Map();
 export function rgb(hex) {
@@ -141,7 +180,7 @@ export function band(b, A, B, ra, rb, t, w, c, seg = 8) {
 // triangles by copying: each grid point is shared by six triangles.
 let _g = new Float32Array(6 * 256);
 function gridBuf(n) { if (_g.length < n * 6) _g = new Float32Array(n * 6 * 2); return _g; }
-function emitGrid(b, g, S, rows, c, uv, vrow) {
+function emitGrid(b, g, S, rows, c, uv, vrow, skip = null) {
   const d = b.data;
   const put = (k, ri, ci) => {
     const o = b.n * STRIDE, q = k * 6;
@@ -153,6 +192,7 @@ function emitGrid(b, g, S, rows, c, uv, vrow) {
   };
   for (let j = 0; j < rows; j++) for (let i = 0; i < S - 1; i++) {
     const k00 = j * S + i, k10 = k00 + 1, k01 = k00 + S, k11 = k01 + 1;
+    if (skip && skip(k00, k11)) continue;
     put(k00, j, i); put(k01, j + 1, i); put(k11, j + 1, i + 1);
     put(k00, j, i); put(k11, j + 1, i + 1); put(k10, j, i + 1);
   }
@@ -174,6 +214,25 @@ export function ellipsoid(b, C, ax, ay, az, r, c, seg = 10, rings = 7) {
   emitGrid(b, g, S, rings, c, null);
 }
 export const sphere = (b, C, r, c, seg = 10, rings = 7) => ellipsoid(b, C, [1, 0, 0], [0, 1, 0], [0, 0, 1], [r, r, r], c, seg, rings);
+
+// A helmet shell: the ellipsoid in the head's frame (forward, side, up) with the face open below
+// the brow and the bottom open where the head comes in. `open` is how far forward the opening
+// starts (0 is the sides, 1 straight ahead) and `brow` how high it reaches, both on the unit
+// sphere. The generator's head goes inside it, so the face shows through the cage.
+export function helmetShell(b, C, ax, ay, az, r, c, seg = 14, rings = 9, open = 0.45, brow = 0.15) {
+  grow(b, seg * rings * 6);
+  const T = sph(seg, rings), S = seg + 1, N = S * (rings + 1), g = gridBuf(N);
+  for (let k = 0; k < N; k++) {
+    const x = T[k * 3], y = T[k * 3 + 1], z = T[k * 3 + 2], q = k * 6;
+    const p = V.frame(C, ax, x * r[0], ay, y * r[1], az, z * r[2]);
+    const n = V.norm(V.add(V.add(V.mul(ax, x / r[0]), V.mul(ay, y / r[1])), V.mul(az, z / r[2])));
+    g[q] = p[0]; g[q + 1] = p[1]; g[q + 2] = p[2]; g[q + 3] = n[0]; g[q + 4] = n[1]; g[q + 5] = n[2];
+  }
+  emitGrid(b, g, S, rings, c, null, null, (k00, k11) => {
+    const x = (T[k00 * 3] + T[k11 * 3]) / 2, z = (T[k00 * 3 + 2] + T[k11 * 3 + 2]) / 2;
+    return z < -0.6 || (x > open && z < brow);
+  });
+}
 // An oriented box: centre, three unit axes, three half-sizes.
 export function boxAxes(b, C, ax, ay, az, hx, hy, hz, c) {
   const P = (x, y, z) => V.frame(C, ax, x * hx, ay, y * hy, az, z * hz);
@@ -213,7 +272,7 @@ export function disc(b, C, n, r, c, seg = 14, thick = 0.08) {
 const SK_RINGS = [[-0.14, 0.6, 0.42, 0.03], [0.3, 0.53, 0.38, 0.04], [0.64, 0.66, 0.45, 0.04], [0.78, 0.78, 0.5, -0.06], [0.9, 0.86, 0.44, -0.03], [1.03, 0.44, 0.32, -0.02]];
 const GK_RINGS = [[-0.14, 0.72, 0.52, 0.04], [0.3, 0.72, 0.56, 0.08], [0.64, 0.86, 0.62, 0.1], [0.78, 0.98, 0.62, -0.02], [0.9, 1.08, 0.56, 0.02], [1.04, 0.52, 0.4, 0]];
 const BOOT = rgb('#16171b'), HOLDER = rgb('#e7eaed'), STEEL = rgb('#cfd6dd'), STICK = rgb('#24262d'), TAPE = rgb('#f1f0ea'), RAW = rgb('#7a0a10'), BONE = rgb('#e9e1cf');
-const CAGE = rgb('#c6ccd2'), CAGE_GK = rgb('#1b1e23'), PAD = rgb('#eef0f2'), EYE = rgb('#1b1012');
+const CAGE = rgb('#c6ccd2'), CAGE_GK = rgb('#1b1e23'), PAD = rgb('#eef0f2'), EYE = rgb('#1b1012'), LINER = rgb('#141518');
 
 // The torso as a loft of elliptical rings, UV-mapped so the batch's texture (the jersey
 // atlas) puts the number on the back and the crest on the chest. `slot` is the atlas
@@ -372,31 +431,49 @@ export function buildBody(b, bt, J, o) {
     const look = J.meta && J.meta.look ? V.norm(J.meta.look) : V.norm([F[0], F[1], F[2] * 0.4 - 0.05]);
     const Fh = look, Sd = V.norm(V.cross([0, 0, 1], Fh)), Uh = V.cross(Fh, Sd);
     const R = gk ? 0.52 : 0.46;
-    // the face pokes forward of the shell, which sits back and up on the skull
-    ellipsoid(b, V.frame(Hc, Fh, 0.16, Uh, -0.2), Fh, Sd, Uh, [0.3, 0.3, 0.36], skin, det ? 10 : 7, det ? 7 : 5);
+    // The shell's middle. It sits forward and up of the head joint so the generator's brow and
+    // crown and four of its five haircuts clear it (a quiff is drawn cropped, headRecord), and
+    // the cage and the visor hang from its brim.
+    const C0 = V.frame(Hc, Fh, HELM_C[0], Uh, HELM_C[1]);
+    // a bloody nose and mouth when he's been hit, or is bleeding
+    const bloody = (o.react || 0) > 0.15 || (o.blood || 0) > 0.25;
+    // the generator's head as a record, or the old face poking forward of the shell
+    if (o.heads) o.heads.push(headRecord(V.frame(Hc, Fh, HEAD_AT[0], Uh, HEAD_AT[1]), Fh, Sd, Uh, o, o.headLv ?? 1, bloody ? Math.min(1, 0.55 + (o.blood || 0)) : 0, o.helmet !== false));
+    else ellipsoid(b, V.frame(Hc, Fh, 0.16, Uh, -0.2), Fh, Sd, Uh, [0.3, 0.3, 0.36], skin, det ? 10 : 7, det ? 7 : 5);
     if (o.helmet === false) {
-      sphere(b, Hc, R * 0.86, skin, det ? 10 : 7, det ? 7 : 5);
-      ellipsoid(b, V.frame(Hc, Fh, -0.08, Uh, 0.1), Fh, Sd, Uh, [R * 0.88, R * 0.9, R * 0.74], rgb(o.hair || '#2a1c14'), det ? 10 : 7, 5);
+      if (!o.heads) {
+        sphere(b, Hc, R * 0.86, skin, det ? 10 : 7, det ? 7 : 5);
+        ellipsoid(b, V.frame(Hc, Fh, -0.08, Uh, 0.1), Fh, Sd, Uh, [R * 0.88, R * 0.9, R * 0.74], rgb(o.hair || '#2a1c14'), det ? 10 : 7, 5);
+      }
+    } else if (o.heads) {
+      // open at the face, the generator's head inside it, the dark liner showing round the
+      // opening. A goalie wears the same, a little bigger, behind his heavier cage.
+      const brow = gk ? HELM_BROW_GK : HELM_BROW;
+      helmetShell(b, C0, Fh, Sd, Uh, [R, R, R * 0.92], helmet, det ? 16 : 10, det ? 10 : 6, HELM_OPEN, brow);
+      if (det) helmetShell(b, C0, Fh, Sd, Uh, [R * 0.95, R * 0.95, R * 0.87], LINER, 12, 8, HELM_OPEN, brow);
     } else {
-      ellipsoid(b, V.frame(Hc, Fh, -0.06, Uh, 0.05), Fh, Sd, Uh, [R, R, R * 0.92], helmet, det ? 14 : 8, det ? 9 : 5);
+      ellipsoid(b, C0, Fh, Sd, Uh, [R, R, R * 0.92], helmet, det ? 14 : 8, det ? 9 : 5);
+    }
+    if (o.helmet !== false) {
       if (det && !gk) {
-        // the ridge over the crown, the ear guards, the chin strap
-        ellipsoid(b, V.frame(Hc, Fh, -0.08, Uh, 0.05 + R * 0.86), Fh, Sd, Uh, [R * 0.8, R * 0.22, R * 0.12], mix(helmet, 0.1), 10, 4);
-        for (const sd of [1, -1]) disc(b, V.frame(Hc, Fh, 0.02, Sd, sd * R * 0.93, Uh, -0.14), V.mul(Sd, sd), 0.17, mix(helmet, -0.15), 10, 0.06);
-        tube(b, V.frame(Hc, Fh, 0.02, Sd, R * 0.9, Uh, -0.24), V.frame(Hc, Fh, 0.3, Uh, -0.6), 0.02, 0.02, rgb('#16171b'), 4);
-        tube(b, V.frame(Hc, Fh, 0.02, Sd, -R * 0.9, Uh, -0.24), V.frame(Hc, Fh, 0.3, Uh, -0.6), 0.02, 0.02, rgb('#16171b'), 4);
+        // the ridge over the crown, the ear guards over the ears, the strap under the chin
+        ellipsoid(b, V.frame(C0, Fh, -0.02, Uh, R * 0.86), Fh, Sd, Uh, [R * 0.8, R * 0.22, R * 0.12], mix(helmet, 0.1), 10, 4);
+        for (const sd of [1, -1]) disc(b, V.frame(Hc, Fh, -0.01, Sd, sd * R * 0.93, Uh, -0.09), V.mul(Sd, sd), 0.17, mix(helmet, -0.15), 10, 0.06);
+        for (const sd of [1, -1]) tube(b, V.frame(Hc, Fh, 0, Sd, sd * R * 0.9, Uh, -0.24), V.frame(Hc, Fh, 0.2, Uh, -0.49), 0.02, 0.02, rgb('#16171b'), 4);
       }
     }
     if (det) {
-      for (const sd of [0.13, -0.13]) sphere(b, V.frame(Hc, Fh, 0.43, Sd, sd, Uh, -0.16), 0.04, EYE, 6, 4);
-      sphere(b, V.frame(Hc, Fh, 0.47, Uh, -0.3), 0.07, mix(skin, -0.12), 6, 4);
-      if ((o.react || 0) > 0.15 || (o.blood || 0) > 0.25) box(b, V.frame(Hc, Fh, 0.46, Uh, -0.34), V.frame(Hc, Fh, 0.42, Uh, -0.62), 0.03, 0.02, rgb('#96080e'));
+      if (!o.heads) {
+        for (const sd of [0.13, -0.13]) sphere(b, V.frame(Hc, Fh, 0.43, Sd, sd, Uh, -0.16), 0.04, EYE, 6, 4);
+        sphere(b, V.frame(Hc, Fh, 0.47, Uh, -0.3), 0.07, mix(skin, -0.12), 6, 4);
+        if (bloody) box(b, V.frame(Hc, Fh, 0.46, Uh, -0.34), V.frame(Hc, Fh, 0.42, Uh, -0.62), 0.03, 0.02, rgb('#96080e'));
+      }
       if (o.helmet !== false && o.face !== 'visor') {
-        // the cage: bars over the face, in the head's frame
-        const R2 = R * 1.12, col = gk ? CAGE_GK : CAGE;
-        const pt = (ang, u) => { const rad = R2 * (1 - Math.max(0, -u - 0.2) * 0.35); return V.frame(Hc, Fh, Math.cos(ang) * rad, Sd, Math.sin(ang) * rad, Uh, u); };
-        for (const a of [-0.95, -0.55, -0.18, 0.18, 0.55, 0.95]) for (let u = -0.05; u > -0.6; u -= 0.15) tube(b, pt(a, u), pt(a, u - 0.15), 0.018, 0.018, col, 4);
-        for (const u of [-0.08, -0.3, -0.5, -0.64]) for (let a = -1.05; a < 1.04; a += 0.3) tube(b, pt(a, u), pt(a + 0.3, u), 0.018, 0.018, col, 4);
+        // the cage: bars over the face, in the head's frame, clipped to the brim at the top
+        const col = gk ? CAGE_GK : CAGE;
+        const pt = (ang, u) => { const rad = faceRad(R, u); return V.frame(Hc, Fh, Math.cos(ang) * rad, Sd, Math.sin(ang) * rad, Uh, u); };
+        for (const a of [-0.95, -0.55, -0.18, 0.18, 0.55, 0.95]) for (let i = 0; i < 5; i++) tube(b, pt(a, BRIM_U - i * 0.155), pt(a, BRIM_U - (i + 1) * 0.155), 0.018, 0.018, col, 4);
+        for (const u of [BRIM_U, -0.1, -0.3, -0.5, -0.64]) for (let a = -1.05; a < 1.04; a += 0.3) tube(b, pt(a, u), pt(a + 0.3, u), 0.018, 0.018, col, 4);
       }
     }
     o._visor = o.helmet !== false && o.face === 'visor' ? { Hc, Fh, Sd, Uh, R } : null;
@@ -425,11 +502,13 @@ export function buildBody(b, bt, J, o) {
 // A visor is see-through, so it goes in the transparent batch after the body is built.
 export function buildVisor(b, o) {
   const v = o._visor; if (!v) return;
-  const { Hc, Fh, Sd, Uh, R } = v, R2 = R * 1.12, c = [0.75, 0.88, 0.98, 0.22];
-  const pt = (a, u) => V.frame(Hc, Fh, Math.cos(a) * R2, Sd, Math.sin(a) * R2, Uh, u);
+  const { Hc, Fh, Sd, Uh, R } = v, c = [0.75, 0.88, 0.98, 0.22];
+  const pt = (a, u) => { const rad = faceRad(R, u); return V.frame(Hc, Fh, Math.cos(a) * rad, Sd, Math.sin(a) * rad, Uh, u); };
+  // from the brim to the tip of the nose, curving in at the top to meet the shell
   for (let i = 0; i < 8; i++) {
     const a0 = -1.15 + (i / 8) * 2.3, a1 = -1.15 + ((i + 1) / 8) * 2.3;
-    quad(b, pt(a0, -0.3), pt(a1, -0.3), pt(a1, -0.04), pt(a0, -0.04), c, null, null);
+    quad(b, pt(a0, -0.05), pt(a1, -0.05), pt(a1, BRIM_U), pt(a0, BRIM_U), c, null, null);
+    quad(b, pt(a0, -0.26), pt(a1, -0.26), pt(a1, -0.05), pt(a0, -0.05), c, null, null);
   }
 }
 
@@ -439,9 +518,16 @@ export function buildSevered(b, l, o) {
   if (pts.some((p) => !Number.isFinite(p[0]))) return;
   if (l.part === 'head') {
     const c = pts[0];
-    sphere(b, c, 0.47, o.helmet === false ? skin : rgb(K.helmet), 10, 7);
-    const f = [Math.cos(l.rot || 0), Math.sin(l.rot || 0), 0];
-    ellipsoid(b, V.add(c, V.mul(f, 0.2)), f, V.norm(V.cross([0, 0, 1], f)), [0, 0, 1], [0.28, 0.3, 0.34], skin, 8, 6);
+    const f = [Math.cos(l.rot || 0), Math.sin(l.rot || 0), 0], sd = V.norm(V.cross([0, 0, 1], f)), up = [0, 0, 1];
+    if (o.heads) {
+      // the generator's head, bloodied, in his helmet as it sat on him, so the face shows
+      const helm = o.helmet !== false;
+      o.heads.push(headRecord(V.frame(c, f, HEAD_AT[0], up, HEAD_AT[1]), f, sd, up, o, 1, 1, helm));
+      if (helm) helmetShell(b, V.frame(c, f, HELM_C[0], up, HELM_C[1]), f, sd, up, [0.46, 0.46, 0.42], rgb(K.helmet), 10, 6, HELM_OPEN, HELM_BROW);
+    } else {
+      sphere(b, c, 0.47, o.helmet === false ? skin : rgb(K.helmet), 10, 7);
+      ellipsoid(b, V.add(c, V.mul(f, 0.2)), f, sd, up, [0.28, 0.3, 0.34], skin, 8, 6);
+    }
     disc(b, V.add(c, [0, 0, -0.42]), [0, 0, -1], 0.2, RAW, 10, 0.05);
     return;
   }

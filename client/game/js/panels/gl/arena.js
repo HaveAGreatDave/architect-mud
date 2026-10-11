@@ -35,6 +35,7 @@ import { paintCrest, settCanvas } from '../club-crest.js';
 import { makeVertexStream } from './stream.js';
 import { declareProgram, prewarmPrograms, takeWarm } from './programs.js';
 import { createMirrorLayer, MIRROR_SCALE } from './mirror.js';
+import { createRinkHeads, HEAD_VS, HEAD_FS } from './arena-heads.js';
 
 const FACE = '"Saira Condensed", "Arial Narrow", "Roboto Condensed", sans-serif';
 
@@ -211,6 +212,7 @@ declareProgram(LIT_VS, LIT_FS);
 declareProgram(ICE_VS, ICE_FS);
 declareProgram(PT_VS, PT_FS);
 declareProgram(POST_VS, POST_FS);
+declareProgram(HEAD_VS, HEAD_FS);
 
 // The quality rungs the view's frame-time governor steps through (gameday-rink.js).
 export const ARENA_RUNGS = [
@@ -253,6 +255,12 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
       return { p, u: (n) => (u[n] ??= gl.getUniformLocation(p, n)) };
     };
     const LIT = prog(LIT_VS, LIT_FS), ICE = prog(ICE_VS, ICE_FS), PT = prog(PT_VS, PT_FS), POST = prog(POST_VS, POST_FS);
+    // The heads: the street figures' generator, drawn per body from a record arena-mesh.js leaves
+    // in `headList` (gl/arena-heads.js). If its program won't build, the bodies keep the old
+    // heads arena-mesh.js makes itself, rather than the whole arena going to 2-D.
+    let heads = null;
+    try { heads = createRinkHeads(gl, prog, doc); } catch (err) { console.warn('[rink] generator heads unavailable, drawing the old ones:', err && err.message); }
+    const headList = [], headsTo = () => (heads ? headList : null);
 
     // ── textures ──────────────────────────────────────────────────────────────
     const T2 = gl.TEXTURE_2D;
@@ -561,6 +569,7 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
     let propsN = 0;
     function buildFrame(P, eye) {
       for (const k of ['rows', 'dyn', 'jers', 'label', 'tr', 'netm', 'gdec', 'shad']) M.reset(B[k]);
+      headList.length = 0;
       const d = B.dyn;
       // the crowd rows, standing when the building is up
       const up = W.crowd > 0.45, H = CROWS * ROWH;
@@ -579,6 +588,8 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
         if (!o.kit) continue;
         const J = W.rigOf(b), hp = J[3] && P(J[3][0], J[3][1], J[3][2]);
         o.detail = hp && hp.s > 24 ? 1 : 0;
+        // the head's level by its size on screen: a head is about 0.9 ft, so L0 from about 32 px
+        o.heads = headsTo(); o.headLv = !hp ? 2 : hp.s > 36 ? 0 : hp.s > 9 ? 1 : 2;
         o.slot = jerseySlot(o);
         M.buildBody(d, B.jers, J, o);
         M.buildVisor(B.tr, o);
@@ -587,7 +598,7 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
       }
       if (!W.puck.hidden) { M.buildPuck(d, W.puck); shadow(W.puck.x, W.puck.y, 0.35); tail(eye); }
       for (const x of W.debris) M.buildDebris(d, x, W.kits[x.side] || W.kits.a);
-      for (const l of W.limbs) { const o = bodyOpts(W, l.owner || { side: l.side }); if (o.kit) M.buildSevered(d, l, o); }
+      for (const l of W.limbs) { const o = bodyOpts(W, l.owner || { side: l.side }); if (o.kit) { o.heads = headsTo(); M.buildSevered(d, l, o); } }
       if (W.stretcher) M.buildStretcher(d, W.stretcher);
       if (W.zamboni) shadow(W.zamboni.x, W.zamboni.y, 6.5);
       farGlass();
@@ -705,12 +716,14 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
       const MR = matrices(C, true), eyeR = [C.x, C.y, -C.z];
       const hasMir = mirror.bind(w, h, api.quality.mirror);
       if (hasMir) {
-        useLit(new Float32Array(MR.viewProj), eyeR, shake, -0.05);
+        const vpR = new Float32Array(MR.viewProj);
+        useLit(vpR, eyeR, shake, -0.05);
         gl.depthMask(true);
         // the boards and their ads; not the crowd, which is dim against a lit sheet
         draw(L.stat); draw(L.ads, texAds);
         if (api.quality.reflBodies) { draw(L.dyn); draw(L.jers, atlas); } else draw(L.dyn, null, 0, propsN);
         draw(L.label, texLabel);
+        if (heads && api.quality.reflBodies) heads.draw(headList, vpR, eyeR, shake, -0.05, W.mourning, st);
         mirror.release();
       }
 
@@ -725,6 +738,7 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
       useLit(vp, eye, shake, -1e9);
       draw(L.stands, crowdTex); draw(L.rows, crowdTex); draw(L.stat); draw(L.ads, texAds);
       draw(L.dyn); draw(L.jers, atlas); draw(L.label, texLabel);
+      if (heads) heads.draw(headList, vp, eye, shake, -1e9, W.mourning, st);
 
       gl.useProgram(ICE.p);
       gl.uniformMatrix4fv(ICE.u('uVP'), false, vp);

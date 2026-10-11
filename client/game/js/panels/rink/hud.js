@@ -14,7 +14,7 @@ export const kitOf = (W, b) => (b.kind === 'official' ? OFFICIAL_KIT : b.kind ==
 
 // The options figure.js (and arena-mesh.js) build a body from.
 export function bodyOpts(W, b) {
-  return { kit: kitOf(W, b), goalie: b.kind === 'goalie', num: b.num, name: b.name, skin: b.skin, hair: b.hair,
+  return { kit: kitOf(W, b), goalie: b.kind === 'goalie', kind: b.kind, seed: b.seed, num: b.num, name: b.name, skin: b.skin, hair: b.hair,
     gloves: b.gloves !== false, helmet: b.helmet !== false, jerseyUp: b.jerseyUp || 0, react: b.react || 0, blood: b.blood || 0,
     face: b.faceGear, missing: b.missing || {} };
 }

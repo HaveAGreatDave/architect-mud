@@ -12,7 +12,9 @@
 //      medics; ragdolled, missing an arm, a leg or the head, gloves off, helmet off,
 //      jersey over the head, a visor), the severed limbs, debris, the Zamboni, the nets,
 //      the puck, the stretcher: built by arena-mesh.js, every float finite, nothing
-//      empty, and the frame inside its triangle budget.
+//      empty, and the frame inside its triangle budget. Each body's head record (the
+//      street figures' generator's head, drawn by gl/arena-heads.js) is sound, and the
+//      helmet clears the skull and every haircut.
 //   3. THE ICE LISTS WHAT CHANGED. GLASS 2 uploads only the tiles a paint touched, so a
 //      mark that forgets to list its tile leaves the GL sheet stale while the 2-D one is
 //      right. Each kind of mark is checked against the tile it lands in.
@@ -167,6 +169,84 @@ body(skaters[8], 'skater missing his head', null, BUD);
   let ok = true;
   for (let i = 0; i < t.n; i++) { const o = i * M.STRIDE, u = t.data[o + 10], v = t.data[o + 11]; if (u < 0.25 - 1e-6 || u > 0.375 + 1e-6 || v < 0.5 - 1e-6 || v > 0.625 + 1e-6) { ok = false; break; } }
   check('jersey UVs stay inside their slot', ok);
+}
+
+// ── the heads ────────────────────────────────────────────────────────────────
+// Handed `heads`, a body leaves its head as a record for gl/arena-heads.js to draw from the
+// street figures' generator: one a body that has a head to show, its matrix a rigid map at
+// HEAD_S, and a face from a layout without makeup. The helmet is built round it, so the
+// skull and every haircut it can wear under one must clear the shell, and the face the cage.
+{
+  const { headMesh, hairMesh, HEAD_FEAT } = await import(R + 'actor-head.js');
+  const { FACE_LAYOUTS } = await import(R + 'actor-faces.js');
+  const { rinkFace } = await import(R + 'rink/faces.js');
+  const near = (a, b, e = 1e-4) => Math.abs(a - b) < e;
+  const rigid = (m) => {
+    const c = [0, 4, 8].map((k) => [m[k], m[k + 1], m[k + 2]]), dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+    const det = dot(c[0], [c[1][1] * c[2][2] - c[1][2] * c[2][1], c[1][2] * c[2][0] - c[1][0] * c[2][2], c[1][0] * c[2][1] - c[1][1] * c[2][0]]);
+    return m.every(Number.isFinite) && c.every((v) => near(Math.hypot(...v), M.HEAD_S)) && near(dot(c[0], c[1]), 0) && near(dot(c[1], c[2]), 0) && near(dot(c[0], c[2]), 0) && det > 0;
+  };
+  const d = M.createBatch(), t = M.createBatch();
+  const heads = (b, mut, det = 1) => {
+    const out = [];
+    M.reset(d); M.reset(t);
+    M.buildBody(d, t, W.rigOf(b), { ...bodyOpts(W, b), detail: det, slot: SLOT, heads: out, headLv: det ? 0 : 2, ...(mut || {}) });
+    return out;
+  };
+  for (const [label, b, mut] of [['skater', skaters[0]], ['goalie', W.goalie.a], ['official', W.officials[0]], ['helmet off', skaters[1], { helmet: false }], ['visor', skaters[3], { face: 'visor' }], ['bloodied', skaters[4], { blood: 1, react: 1 }], ['ragdoll', skaters[5]]]) {
+    for (const det of [0, 1]) {
+      const hs = heads(b, mut, det), h = hs[0];
+      check(`head ${label} det${det}: one record`, hs.length === 1, `${hs.length}`);
+      if (!h) continue;
+      check(`head ${label} det${det}: a rigid map at HEAD_S`, rigid(h.M));
+      check(`head ${label} det${det}: its level`, h.lv === (det ? 0 : 2));
+      check(`head ${label} det${det}: a face without makeup`, !FACE_LAYOUTS[h.face.layout].makeup);
+      check(`head ${label} det${det}: a hair mesh that exists`, Number.isInteger(h.hs) && h.hs >= 0 && h.hs < 5);
+      check(`head ${label} det${det}: blood only when he's bleeding`, (h.blood > 0) === (label === 'bloodied'), `${h.blood}`);
+    }
+  }
+  check('no head record for a jersey over the head', heads(skaters[2], { jerseyUp: 1 }).length === 0);
+  check('no head record for a man missing his head', heads(skaters[8]).length === 0);
+  {
+    const o = { ...bodyOpts(W, skaters[0]) }, quiff = (helmet) => M.headRecord([0, 0, 6], [1, 0, 0], [0, 1, 0], [0, 0, 1], { ...o, name: 'Test5' }, 0, 0, helmet);
+    check('a quiff is drawn bare-headed', quiff(false).face.style === 4 && quiff(false).hs === 4);
+    check('a quiff is cropped under a helmet', quiff(true).hs === 0);
+  }
+  {
+    const lim = W.limbs.find((l) => l.part === 'head'), b = M.createBatch(), out = [];
+    M.buildSevered(b, lim, { ...bodyOpts(W, lim.owner), heads: out });
+    check('a severed head leaves one record and a shell', out.length === 1 && rigid(out[0].M) && b.n > 0 && finite(b));
+  }
+  // The same name is the same face whatever body he's in; no player or official is given makeup.
+  {
+    const a = rinkFace({ name: 'Lindqvist', seed: 3, skin: '#e0b08c', hair: '#2a1c14' }), z = rinkFace({ name: 'Lindqvist', seed: 41, skin: '#e0b08c', hair: '#2a1c14' });
+    check('a face follows the name, not the body', a.layout === z.layout && a.style === z.style);
+    let made = 0;
+    for (const kind of ['skater', 'goalie', 'official']) for (let i = 0; i < 300; i++) if (FACE_LAYOUTS[rinkFace({ name: `${kind}${i}`, kind }).layout].makeup) made++;
+    check('no player or official wears a makeup layout', made === 0, `${made}`);
+  }
+  // The fit, in the head's own frame: every skull and hair vertex under the shell is inside its
+  // liner (0.95), so no facet of the shell cuts through, and the face is behind the cage.
+  for (const [who, R0, brow] of [['skater', 0.46, M.HELM_BROW], ['goalie', 0.52, M.HELM_BROW_GK]]) {
+    const rec = M.headRecord([M.HEAD_AT[0], 0, M.HEAD_AT[1]], [1, 0, 0], [0, 1, 0], [0, 0, 1], { name: 'Fit' }, 0, 0, true), m = rec.M;
+    const at = (P, i) => [0, 1, 2].map((k) => m[k] * P[i * 3] + m[4 + k] * P[i * 3 + 1] + m[8 + k] * P[i * 3 + 2] + m[12 + k]);
+    let worst = 0, worstStyle = -1, cageWorst = -1;
+    const scan = (src, style) => {
+      for (let i = 0; i < src.P.length / 3; i++) {
+        if (src.F[i] === HEAD_FEAT.neck) continue;
+        const w = at(src.P, i);
+        const x = (w[0] - M.HELM_C[0]) / R0, y = w[1] / R0, z = (w[2] - M.HELM_C[1]) / (R0 * 0.92), r = Math.hypot(x, y, z);
+        const shell = !(z / r < -0.6 || (x / r > M.HELM_OPEN && z / r < brow));
+        if (shell && r > worst) { worst = r; worstStyle = style; }
+        const a = Math.atan2(w[1], w[0]);
+        if (style < 0 && Math.abs(a) < 1.05 && w[2] < M.BRIM_U && w[2] > -0.64) cageWorst = Math.max(cageWorst, Math.hypot(w[0], w[1]) - (M.faceRad(R0, w[2]) - 0.018));
+      }
+    };
+    scan(headMesh(0), -1);
+    for (let s = 0; s < 5; s++) scan(hairMesh(s === 4 ? 0 : s, 0), s);
+    check(`${who} helmet: the skull and every haircut clear the shell`, worst < 0.95, `r ${worst.toFixed(3)}, style ${worstStyle}`);
+    check(`${who} helmet: the face is behind the cage`, cageWorst < 0, `${cageWorst.toFixed(3)} ft through`);
+  }
 }
 
 // ── the puck is never put on a stick ─────────────────────────────────────────
