@@ -14,7 +14,7 @@ import { registerCommand } from '../../server/engine/plugins.js';
 import { apiDeleteZone } from '../../server/api/routes.js';
 import { registerViewerChecker, registerNpcScheduleChecker, registerNpcNextShiftLookup, registerNpcStudioZoneLookup, registerZoneWatchedChecker, hasChannelViewers, isNpcScheduledNow, getNpcStudioZone } from '../../server/engine/broadcast-bridge.js';
 import { registerAICondition, registerAIAction } from '../../server/engine/ai-behaviour.js';
-import { getEnvironmentState, getZonePowerStatus, recomputePower, resyncAllLightingStates, fixZonePowerConnections, fixBuildingPowerConnections, markPowerTopologyDirty } from '../../server/engine/environment.js';
+import { getEnvironmentState, getZonePowerStatus, recomputePower, resyncAllLightingStates, fixZonePowerConnections, fixBuildingPowerConnections, markPowerTopologyDirty, getWeatherTypeAtGrid, getPrecipAtGrid, getWeatherEvent } from '../../server/engine/environment.js';
 import { getSongDefByName, getSfxDefByName, getAmbientDefByName, getSampleDefByName } from '../audio/index.js';
 import { getFlag, setFlag } from '../../server/engine/flags.js';
 import { awardSkillUse, effectiveSkill } from '../../server/engine/skills.js';
@@ -2691,6 +2691,10 @@ function assembleSportsGraph(script, broadcastId, slot, override) {
   // reveals it over the airing). Stash the outcome so the tick can announce it to
   // the betting system — the result is known at bet-lock time, paid at air's end.
   graph._game = { away: away.name, home: home.name, awayScore, homeScore, winner: winner() };
+  // Where the park stands, when the script names it (sports_pools.venue.site), so each
+  // line's payload can carry the weather over it as the line airs (gamedayOnAir).
+  const site = script.venue?.site;
+  graph._venueSite = Number.isFinite(site?.x) && Number.isFinite(site?.y) ? { x: site.x, y: site.y } : null;
   return graph;
 }
 
@@ -2808,6 +2812,20 @@ function gamedayStandings(sport) {
   if (sport !== 'baseball') return [];
   return ((_standingsCaches.get('baseball') || {}).rows || []).slice(0, 8)
     .map(r => ({ team: r.team, wins: r.wins, losses: r.losses, rd: (r.runs_for || 0) - (r.runs_against || 0) }));
+}
+
+// A Gameday payload as its line goes on air. A park with a site gets the weather over it
+// (`wx`): the tile's weather word, what's falling and how hard, and any city-wide event such
+// as an ion storm. It's read when the line airs, not when the game is assembled, because
+// rain falls only under a weather cell and the cells drift across the city during a game.
+// Sync and query-free (the cells are in memory), once per aired line.
+function gamedayOnAir(gd, graph) {
+  const site = graph && graph._venueSite;
+  if (!site) return gd;
+  const { precipType, precipRate } = getPrecipAtGrid(site.x, site.y);
+  const event = getWeatherEvent()?.type;
+  const wx = { word: getWeatherTypeAtGrid(site.x, site.y), precip: precipType, rate: Math.round((precipRate || 0) * 100) / 100, ...(event ? { event } : {}) };
+  return { ...gd, wx };
 }
 
 // A team's record from its own league's cached standings, or '0-0' if it hasn't played.
@@ -7305,7 +7323,7 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
           : (!isVerbatim && !isNarration && !isAmbient && bb.npcAnchor ? `${bb.npcAnchor} says, "${raw}"` : raw);
         // Verbatim lines (microreel dialogue) leak as speech without needing an anchor.
         const isSpeech = (!isNarration && !isAmbient && style_say !== 'ticker' && !!bb.npcAnchor) || isVerbatim;
-        return { text: text_say, key: key_say, style: isAmbient ? 'ambient' : 'raw', duration: holdMs_say / 1000, ...(isSpeech ? { speech: true, speechText: text_say } : {}), ...(node.data?.scorebug ? { scorebug: node.data.scorebug } : {}), ...(node.data?.graphic ? { graphic: node.data.graphic } : {}), ...(node.data?.gameday ? { gameday: node.data.gameday } : {}) };
+        return { text: text_say, key: key_say, style: isAmbient ? 'ambient' : 'raw', duration: holdMs_say / 1000, ...(isSpeech ? { speech: true, speechText: text_say } : {}), ...(node.data?.scorebug ? { scorebug: node.data.scorebug } : {}), ...(node.data?.graphic ? { graphic: node.data.graphic } : {}), ...(node.data?.gameday ? { gameday: gamedayOnAir(node.data.gameday, graph) } : {}) };
       }
 
       case 'music': {
@@ -10126,7 +10144,7 @@ export const _test = {
   envTimeScale: () => getEnvironmentState()?.timeScale || 1,
   staffCallSlot: _staffCallSlot, staffCallLeadGameSec: _staffCallLeadGameSec, STAFF_CALL_LEAD_REAL_MIN,
   morningPlug: _morningPlug, RUNTIME_TOKENS,
-  channelRuntime, recordBeat: _recordBeat, sendCatchUp,
+  channelRuntime, recordBeat: _recordBeat, sendCatchUp, gamedayOnAir,
   filmDayMask,
   // The call-sheet graph an actor is actually given. Exposed because the only other
   // way to see an actor performing off-shift is to watch a channel at 08:00 and

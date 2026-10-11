@@ -65,6 +65,14 @@ const patch = (rel, fields) => {
   console.log(`  ${before === JSON.stringify(row) ? 'unchanged' : 'updated  '} ${rel}`);
 };
 
+// The park (sports_pools.venue: its site, and later the venue data the GLASS 2 park is
+// built from) isn't in the .bsm, so a rebuild carries it over, as build-cluster-puck.mjs
+// does for hockey's clubs.
+{
+  const venue = JSON.parse(fs.readFileSync(path.join(ROOT, BROADCAST_FILE), 'utf8')).sports_pools?.venue;
+  if (venue) sportsScript.venue = venue;
+}
+
 patch(BROADCAST_FILE, {
   name: meta.broadcast || meta.name,
   category: meta.category || 'sport',

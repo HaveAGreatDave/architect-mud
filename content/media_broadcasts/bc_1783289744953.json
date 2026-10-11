@@ -303,7 +303,20 @@
       "Bunker Hill Bruisers",
       "Static Saints"
     ],
-    "title": "bb_deadball_title"
+    "title": "bb_deadball_title",
+    "venue": {
+      "site": {
+        "x": 897.55,
+        "y": 913.55,
+        "bearing": 315,
+        "block": {
+          "x0": 895,
+          "y0": 911,
+          "x1": 897,
+          "y1": 913
+        }
+      }
+    }
   },
   "tags": [],
   "talkshow_pools": null,

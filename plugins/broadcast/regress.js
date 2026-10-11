@@ -2823,6 +2823,21 @@ export default async function regress({ check, run, getPlayer }) {
         }
         check('gameday: every play\'s runners end where the sim left them and score its runs', !wrong.length, `${wrong.length} of ${plays}: ${wrong.join(' | ')}`);
       }
+
+      // The park's weather rides each payload as its line airs, read from the weather
+      // cells over the site the script names (sports_pools.venue.site). It's never baked
+      // into the assembled game, whose payloads last the hour while the cells drift, and a
+      // script with no site, like hockey's indoor rink, sends none.
+      {
+        const { WEATHER_TYPES } = await import('../../server/engine/environment.js');
+        const sited = _test.assembleSportsGraph({ ...script, venue: { site: { x: 897.55, y: 913.55, bearing: 315 } } }, 'bc_regress_wx', 12345, null);
+        const gd0 = Object.values(sited.nodes).map(n => n.data && n.data.gameday).find(Boolean);
+        const aired = _test.gamedayOnAir(gd0, sited);
+        check('gameday: a park with a site sends the weather over it as each line airs',
+          WEATHER_TYPES.includes(aired.wx?.word) && typeof aired.wx.precip === 'string' && aired.wx.rate >= 0 && aired.wx.rate <= 1, JSON.stringify(aired.wx));
+        check('gameday: …read on air, never baked into the game', !Object.values(sited.nodes).some(n => n.data?.gameday && 'wx' in n.data.gameday), 'a payload was assembled with wx');
+        check('gameday: a script with no site sends no weather', !('wx' in _test.gamedayOnAir(gd0, graph)), 'wx without a site');
+      }
     }
 
     // ── Base/out-aware outs ───────────────────────────────────────────────────
