@@ -18,7 +18,7 @@
  * but the shape is what a second sport plugs into, so it exists now rather than
  * being retrofitted around hockey later.
  */
-import { sportsRng, sportsShuffle } from '../rng.js';
+import { sportsRng, sportsShuffle, sportsHash } from '../rng.js';
 
 // ── At-bat outcomes ──────────────────────────────────────────────────────────
 // One plate appearance → an outcome. Weights are tuned to real MLB per-PA rates:
@@ -66,6 +66,24 @@ const EXTRAS_DECIDE_STEP = 0.34;     // +34%/inning past the 10th; forced-decisi
 const MAX_INNINGS = 20;              // safety cap; a winner is forced if it's ever reached
 
 export const DEFAULT_NAMES = ['Rodriguez', 'Kane', 'Okafor', 'Bishop', 'Hale', 'Vance', 'Cruz', 'Doyle', 'Reyes', 'Park', 'Sato', 'Mundt', 'Nagy', 'Flynn', 'Ruiz', 'Abara', 'Cole', 'Voss', 'Dunn', 'Marsh'];
+
+// ── Handedness ───────────────────────────────────────────────────────────────
+// Which side a player bats from and which arm he throws with, from his name alone, so
+// he is the same in every game and on every TV. Cosmetic: the sim never reads it, since
+// a platoon split would change games that have already aired. The mix is the 1990s
+// one: about six in ten bat right, three left and one both ways; a quarter throw left.
+const nameHash = (name, salt) => sportsHash(...[...String(name || '')].map((c) => c.charCodeAt(0)), salt);
+export function handOf(name) {
+  const h = nameHash(name, 0x4a4e);
+  const b = (h & 0xffff) / 65536, t = (h >>> 16) / 65536;
+  return { bats: b < 0.6 ? 'R' : b < 0.9 ? 'L' : 'S', throws: t < 0.75 ? 'R' : 'L' };
+}
+// The side a batter stands on against this pitcher: a switch hitter bats from the side
+// away from the pitcher's arm.
+export function battingSide(batter, pitcher) {
+  const b = handOf(batter).bats;
+  return b !== 'S' ? b : (handOf(pitcher).throws === 'L' ? 'R' : 'L');
+}
 
 // ── Gameday: synthesized pitch-by-pitch + play descriptions ───────────────────
 // The DEADBALL sim resolves at the AT-BAT level — it has no pitch data. For the
@@ -406,6 +424,8 @@ export const BASEBALL = {
   simGame,
   synthDetail: synthPitches,
   playDesc,
+  handOf,
+  battingSide,
   defaultNames: DEFAULT_NAMES,
 };
 

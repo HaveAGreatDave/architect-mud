@@ -119,6 +119,36 @@ export default async function regress({ check, run, getPlayer }) {
     a.game.away.name !== c.game.away.name || a.game.home.name !== c.game.home.name || a.game.awayScore !== c.game.awayScore || a.game.homeScore !== c.game.homeScore,
     'adjacent slots differ');
 
+  // ── The v1 fingerprint ──────────────────────────────────────────────────────
+  // A hundred seeded games and four finals, every at-bat and every synthesised pitch,
+  // hashed. The standings, the recap reel and the team cards all re-simulate past
+  // slots, so a change that moves any of these rewrites games that have already aired.
+  // A new version of the sim switches on at a recorded slot instead
+  // (docs/proposals/deadball-glass2.md); this pins v1 for every slot before it. If it
+  // fails, the sim or the pitch synthesis changed for games already played.
+  {
+    const { sportsHash } = await import('./rng.js');
+    const { BASEBALL } = await import('./sports/baseball.js');
+    const fnv = (s) => { let h = 2166136261 >>> 0; for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619) >>> 0; return h.toString(16).padStart(8, '0'); };
+    const fpGame = (slot, override) => {
+      const gs = _test.sportsGameForSlot(script, slot, override || null);
+      const g = gs.game, ab = [];
+      let idx = 0;
+      for (const bt of g.beats) {
+        if (bt.type === 'half_start') { idx = 0; continue; }
+        if (bt.type !== 'atbat') continue;
+        const pitches = BASEBALL.synthDetail(sportsHash(gs.seed, bt.inning * 2 + (bt.half === 'bottom' ? 1 : 0), idx++ >>> 0), bt.kind);
+        ab.push([bt.inning, bt.half, bt.batter, bt.pitcher, bt.kind, bt.outs, bt.rbi, bt.bases.map(Number).join(''), bt.walkoff ? 1 : 0,
+          pitches.map((p) => `${p.type}|${p.velo}|${p.x}|${p.y}|${p.result}`).join(';')]);
+      }
+      return JSON.stringify([g.away.name, g.home.name, g.awayScore, g.homeScore, g.innings, ab]);
+    };
+    let all = '';
+    for (let k = 0; k < 100; k++) all += fpGame(40000 + k * 97);
+    for (let k = 0; k < 4; k++) all += fpGame(50000 + k * 13, { worldSeries: true, teams: ['Rats', 'Kings'] });
+    check('deadball v1: a hundred seeded games play exactly as they aired', fnv(all) === '11e200d9', `fingerprint ${fnv(all)}`);
+  }
+
   // A round-robin round has every team exactly once (balanced schedule, not random).
   const rounds = _test.roundRobinRounds(8);
   check('round-robin: N-1 rounds', rounds.length === 7, String(rounds.length));
@@ -1586,10 +1616,28 @@ export default async function regress({ check, run, getPlayer }) {
         state.lastBeat = { text: 'Next line.', style: 'raw', programName: null, duration: null, hasGameday: false, graphic: null };
         _test.sendCatchUp(player.id, cid);
         check('a live score-bug IS replayed', got.some(m => m?.overlay?.overlayType === 'scorebug'), JSON.stringify(got));
+
+        // A game's league table rides only its first Gameday payload, so a viewer who
+        // tunes in mid-game gets it with the catch-up instead.
+        got.length = 0;
+        const table = [{ team: 'Rats', wins: 9, losses: 2, rd: 14 }];
+        _test.recordBeat(state, { text: 'Top of the 1st.', style: 'raw' }, null, null, { overlayType: 'gameday', sport: 'baseball', phase: 'half', standings: table }, Date.now());
+        _test.recordBeat(state, { text: 'He grounds out.', style: 'raw' }, null, null, { overlayType: 'gameday', sport: 'baseball', kind: 'groundout' }, Date.now());
+        _test.sendCatchUp(player.id, cid);
+        const gdc = got.find(m => m?.overlay?.overlayType === 'gameday');
+        check('a late tuner gets the game\'s table with the catch-up', gdc?.overlay?.kind === 'groundout' && gdc.overlay.standings?.[0]?.team === 'Rats', JSON.stringify(gdc).slice(0, 200));
+        // Hockey on the same channel next: its payloads carry no table, and Deadball's
+        // kept one mustn't be pinned onto them.
+        got.length = 0;
+        _test.recordBeat(state, { text: 'Puck drop.', style: 'raw' }, null, null, { overlayType: 'gameday', sport: 'hockey', type: 'faceoff' }, Date.now());
+        _test.sendCatchUp(player.id, cid);
+        const gdh = got.find(m => m?.overlay?.overlayType === 'gameday');
+        check("a hockey catch-up isn't sent Deadball's table", gdh?.overlay?.sport === 'hockey' && !('standings' in gdh.overlay), JSON.stringify(gdh).slice(0, 200));
       } finally {
         setBroadcast(orig3);
         state.lastBeat = savedBeat;
         delete state.lastScorebug; delete state.lastScorebugAt;
+        delete state.lastGameday; delete state.lastGamedayAt; delete state.lastStandings;
       }
     }
   }
@@ -2712,6 +2760,32 @@ export default async function regress({ check, run, getPlayer }) {
       check('gameday: …but keeping the linescore alive', halves.every(g => g.line && Array.isArray(g.line.away) && g.line.away.length), 'half payload has no line snapshot');
       check('gameday: …and naming who is batting', halves.every(g => g.battingTeam && g.inningOrd && (g.half === 'top' || g.half === 'bottom')), 'half payload is missing its framing');
       check('gameday: at-bat payloads are untouched by all this', atbats.length > 0 && atbats.every(g => Array.isArray(g.pitches)), `${atbats.length} at-bat payloads`);
+
+      // What the 3-D view needs that the 2-D one never did (docs/proposals/
+      // deadball-glass2.md, Phase 0). Every payload names its sport and says how long
+      // its line holds; an at-bat carries the batter's side and the pitcher's arm,
+      // taken from their names so a player is the same in every game.
+      const { handOf, battingSide } = await import('./sports/baseball.js');
+      check('gameday: every payload names its sport', gds.every(g => g.sport === 'baseball'), [...new Set(gds.map(g => g.sport))].join(','));
+      check('gameday: every payload says how long its line holds', gds.every(g => Number.isFinite(g.hold) && g.hold >= 5000), gds.map(g => g.hold).slice(0, 6).join(','));
+      check('gameday: an at-bat carries the batter\'s side and the pitcher\'s arm',
+        atbats.every(g => /^[LR]$/.test(g.bats) && /^[LR]$/.test(g.throws)), JSON.stringify(atbats.find(g => !/^[LR]$/.test(g.bats) || !/^[LR]$/.test(g.throws)) || {}).slice(0, 120));
+      check('gameday: …the same for a name every time', atbats.every(g => g.throws === handOf(g.pitcher).throws && g.bats === battingSide(g.batter, g.pitcher)), 'handedness drifted');
+      {
+        const counts = { R: 0, L: 0, S: 0 };
+        for (let i = 0; i < 2000; i++) counts[handOf(`Player ${i}`).bats]++;
+        check('gameday: about six in ten bat right, three left, one both ways',
+          counts.R > 1080 && counts.R < 1320 && counts.L > 480 && counts.L < 720 && counts.S > 120 && counts.S < 280, JSON.stringify(counts));
+      }
+      // The league table rode every payload, about 43 KB a game per viewer. It rides the
+      // game's first payload now, with the season, and the catch-up carries it to a late
+      // tuner.
+      const order = [];
+      for (let id = graph._start; id; id = (graph.edges.find(e => e.fromNode === id && e.fromPort === 'next') || {}).toNode) order.push(graph.nodes[id]);
+      const inOrder = order.map(n => n.data && n.data.gameday).filter(Boolean);
+      check('gameday: the table rides the game\'s first payload', Array.isArray(inOrder[0]?.standings), 'first payload has no standings');
+      check('gameday: …and no other', inOrder.slice(1).every(g => !('standings' in g)), `${inOrder.slice(1).filter(g => 'standings' in g).length} payloads still carry the table`);
+      check('gameday: the first payload carries the season', inOrder[0]?.season?.phase === 'regular', JSON.stringify(inOrder[0]?.season));
     }
 
     // ── Base/out-aware outs ───────────────────────────────────────────────────

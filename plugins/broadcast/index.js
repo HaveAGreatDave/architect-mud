@@ -24,6 +24,7 @@ import { sportsRng, sportsHash, sportsPick, sportsFill, sportsShuffle } from './
 // Sport modules. One entry today; the registry shape is what a second sport plugs
 // into, so it exists now rather than being retrofitted around hockey later.
 import { BASEBALL } from './sports/baseball.js';
+import { gamedayPayloads } from './sports/baseball-gameday.js';
 import { HOCKEY } from './sports/hockey.js';
 import {
   gameshowAiring, gameshowDayBucket, getGameshowGraph, gameshowOpenRound, gameshowResolveRound,
@@ -2425,46 +2426,15 @@ function assembleSportsGraph(script, broadcastId, slot, override) {
   // Rich per-at-bat snapshot for the animated Gameday sub-screen. Rides one say node
   // per beat (the lead line) exactly like the score-bug/FX, and is pushed to watchers
   // when that line airs; the client animates it. Carries the same structured data Chip
-  // is narrating (batter/pitcher/kind/bases before→after) plus a synthesized pitch
-  // sequence seeded off the game seed so every TV renders it identically.
-  // Progressive line score, snapshotted per at-bat below (after the halves are grouped),
-  // and a compact standings snapshot — both ride the gameday payload so the replay's
-  // line-score strip + standings dock reveal in step with the play and can't disagree
-  // with what viewers saw. Populated once `halves` exists; read here at call time.
-  const lineSnap = new Map();   // beat -> { away:[perInningRuns], home:[…], hAway, hHome }
-  const gdStandings = ((_standingsCaches.get('baseball') || {}).rows || []).slice(0, 8)
-    .map(r => ({ team: r.team, wins: r.wins, losses: r.losses, rd: (r.runs_for || 0) - (r.runs_against || 0) }));
-  const beatGameday = (b, basesBefore, idx) => ({
-    batter: b.batter || '', pitcher: b.pitcher || '',
-    battingTeam: b.battingName, fieldingTeam: b.fieldingName,
-    battingAbbr: sportsAbbr(b.battingName), fieldingAbbr: sportsAbbr(b.fieldingName),
-    inning: b.inning, inningOrd: sportsOrdinal(b.inning), half: b.half,
-    outs: b.outs ?? 0, rbi: b.rbi ?? 0, kind: b.kind, out: !!b.out, walkoff: !!b.walkoff,
-    basesBefore: basesBefore || [false, false, false],
-    basesAfter: b.bases || [false, false, false],
-    awayScore: b.awayScore, homeScore: b.homeScore,
-    desc: sportsPlayDesc(script, b),
-    pitches: sportOf(script).synthDetail(sportsHash(gs.seed, b.inning * 2 + (b.half === 'bottom' ? 1 : 0), idx >>> 0), b.kind),
-    line: lineSnap.get(b) || null,
-    standings: gdStandings,
-  });
-  // The half-inning break. Until this existed the Gameday sub-screen only ever heard
-  // about at-bats, so through the whole changeover it held the LAST PLAY'S FINAL FRAME
-  // — a batter still flagged out standing on first, three outs lit — while Chip talked
-  // over a photograph. This is deliberately not an at-bat payload: `phase: 'half'` is
-  // the marker, and everything an at-bat needs to animate (pitches, bases, kind) is
-  // absent rather than faked, so a client that doesn't know the phase renders nothing
-  // instead of a wrong play.
-  const halfGameday = (b) => ({
-    phase: 'half',
-    battingTeam: b.battingName, fieldingTeam: b.fieldingName,
-    battingAbbr: sportsAbbr(b.battingName), fieldingAbbr: sportsAbbr(b.fieldingName),
-    inning: b.inning, inningOrd: sportsOrdinal(b.inning), half: b.half,
-    pitcher: b.pitcher || '',
-    awayScore: b.awayScore, homeScore: b.homeScore,
-    line: lineSnap.get(b) || null,
-    standings: gdStandings,
-  });
+  // is narrating (batter/pitcher/kind/bases before→after), the line score so far and a
+  // pitch sequence seeded off the game seed, so every TV renders it identically. Built
+  // by a pure module the gates can run without a server (sports/baseball-gameday.js);
+  // the league table and the season ride only the first payload (see below).
+  const GD = gamedayPayloads(game, gs.seed, { abbr: sportsAbbr, ordinal: sportsOrdinal });
+  const gdStandings = gamedayStandings('baseball');
+  const beatGameday = (b) => GD.atbat.get(b);
+  // The half-inning break: `phase: 'half'`, so a client never animates it as a play.
+  const halfGameday = (b) => GD.half.get(b);
   const hrGraphic = (b) => ({ overlayType: 'sportsfx', kind: 'homerun', batter: b.batter || '', team: b.battingName || '', grand: b.rbi >= 4, duration: 3.8 });
   const walkoffGraphic = (b) => ({ overlayType: 'sportsfx', kind: 'walkoff', batter: b.batter || '', team: b.battingName || '', home: home.name, away: away.name, homeScore: b.homeScore, awayScore: b.awayScore, duration: 4.4 });
   const dpGraphic = (b) => ({ overlayType: 'sportsfx', kind: 'doubleplay', batter: b.batter || '', duration: 2.4 });
@@ -2485,43 +2455,11 @@ function assembleSportsGraph(script, broadcastId, slot, override) {
     : { overlayType: 'sportsfx', kind: 'matchup', away: away.name, home: home.name, awayRecord, homeRecord, duration: 4.0 };
   say(pick(...(ws ? ['worldseries.matchup', 'matchup.records', 'matchup'] : (hasRecords ? ['matchup.records', 'matchup'] : ['matchup']))), gameTok, pregameBug, muGraphic);
 
-  // Group the flat beat list into halves so each half-inning can be narrated as a
-  // full "stage": EVERY one of the three outs is called, scoring plays are always
-  // called, and booth chatter is threaded between the outs. Baseball is long and dry,
-  // so we aim for ~6–8 spoken lines per half (the half framing counts as the first).
-  const halves = [];
-  let curHalf = null;
-  for (const b of beats) {
-    if (b.type === 'half_start') { curHalf = { start: b, atbats: [], end: null }; halves.push(curHalf); }
-    else if (b.type === 'half_end') { if (curHalf) curHalf.end = b; }
-    else if (curHalf) curHalf.atbats.push(b);
-  }
-
-  // Build the progressive line score. Walk every at-bat in game order, attributing the
-  // change in each team's running score to its inning (exact regardless of RBI vs. run
-  // semantics), and tallying hits. Snapshot the line-so-far per at-bat, so a payload
-  // aired mid-game shows the correct line up to that play and never spoils later innings.
-  {
-    const la = [], lh = [];
-    let pa = 0, ph = 0, ha = 0, hh = 0;
-    const HIT = new Set(['single', 'double', 'triple', 'homerun']);
-    for (const h of halves) {
-      const inn = h.start.inning;
-      while (la.length < inn) { la.push(0); lh.push(0); }
-      // Snapshot the half's OPENING state too, not just its at-bats. The changeover
-      // payload rides h.start, and without this the Gameday linescore blanks out for
-      // the whole inning break — the one moment a viewer is actually reading it.
-      lineSnap.set(h.start, { away: la.slice(), home: lh.slice(), hAway: ha, hHome: hh });
-      for (const b of h.atbats) {
-        const a = Number.isFinite(b.awayScore) ? b.awayScore : pa;
-        const hm = Number.isFinite(b.homeScore) ? b.homeScore : ph;
-        la[inn - 1] += Math.max(0, a - pa); lh[inn - 1] += Math.max(0, hm - ph);
-        pa = a; ph = hm;
-        if (HIT.has(b.kind)) { if (h.start.half === 'top') ha++; else hh++; }
-        lineSnap.set(b, { away: la.slice(), home: lh.slice(), hAway: ha, hHome: hh });
-      }
-    }
-  }
+  // The half-innings, so each can be narrated as a full "stage": EVERY one of the three
+  // outs is called, scoring plays are always called, and booth chatter is threaded
+  // between the outs. Baseball is long and dry, so we aim for ~6–8 spoken lines per
+  // half (the half framing counts as the first).
+  const halves = GD.halves;
 
   // Regulation (innings 1–9) is narrated full and dry. Extras are narrated as tight
   // "cut to the drama" innings below — only the plays that matter.
@@ -2536,11 +2474,9 @@ function assembleSportsGraph(script, broadcastId, slot, override) {
     let walkoffHalf = false;
     const chatter = (b) => { const line = pick('chatter'); if (line) { say(line, beatTok(b), beatBug(b)); spoken++; } };
 
-    let abIdx = 0, prevBases = [false, false, false];
     for (const b of h.atbats) {
       const tok = beatTok(b), sb = beatBug(b);
-      const gd = beatGameday(b, prevBases, abIdx++);
-      prevBases = b.bases || [false, false, false];
+      const gd = beatGameday(b);
       if (b.kind === 'homerun') {
         const key = b.rbi >= 4 ? 'hr.grand' : (b.rbi === 1 ? 'hr.solo' : 'hr');
         say(pick(key, 'hr'), tok, sb, hrGraphic(b), gd); spoken++;
@@ -2599,9 +2535,7 @@ function assembleSportsGraph(script, broadcastId, slot, override) {
   if (extraHalves.length) {
     const narrateScore = (b, h) => {
       const tok = beatTok(b), sb = beatBug(b);
-      const idx = h ? h.atbats.indexOf(b) : 0;
-      const basesBefore = (h && idx > 0) ? h.atbats[idx - 1].bases : [false, false, false];
-      const gd = beatGameday(b, basesBefore, idx);
+      const gd = beatGameday(b);
       if (b.kind === 'homerun') { const key = b.rbi >= 4 ? 'hr.grand' : (b.rbi === 1 ? 'hr.solo' : 'hr'); say(pick(key, 'hr'), tok, sb, hrGraphic(b), gd); }
       else if (b.kind === 'sacfly') say(pick('atbat.sacfly'), tok, sb, null, gd);
       else if (b.kind === 'productout') say(pick('atbat.productout', 'atbat.groundout'), tok, sb, null, gd);
@@ -2644,6 +2578,23 @@ function assembleSportsGraph(script, broadcastId, slot, override) {
   say(pick(...(ws ? ['worldseries.final', 'final'] : ['final'])), finalTok, finalBug, winGraphic);
   outroId = prevId;
   say(pick(...(ws ? ['worldseries.outro', 'outro'] : ['outro'])), finalTok, finalBug);
+
+  // The league table rides the game's first Gameday payload only: the view keeps it
+  // for the game, and a late tuner gets it with the catch-up (sendCatchUp). That one
+  // payload also carries the season: its number, regular season or final, and in a
+  // final each side's seed.
+  {
+    const s = seasonOf(sportMod.id);
+    const seedOf = (team) => (team === s.finalistA ? 1 : team === s.finalistB ? 2 : null);
+    const season = { n: s.seasonNo ?? null, phase: ws ? 'final' : 'regular', ...(ws ? { seedAway: seedOf(away.name), seedHome: seedOf(home.name) } : {}) };
+    let first = true;
+    for (let id = startId; id; id = nodes[id].next) {
+      const gd = nodes[id].gameday;
+      if (!gd) continue;
+      nodes[id].gameday = first ? { ...gd, standings: gdStandings, season } : { ...gd };
+      first = false;
+    }
+  }
   }
   // ── end of the baseball body. Deliberately not re-indented: it is unchanged
   // from before the seam existed, and re-indenting 230 lines would have buried a
@@ -2725,6 +2676,11 @@ function assembleSportsGraph(script, broadcastId, slot, override) {
   const played = Object.values(nodes).reduce((sum, nd) => sum + holdOf(nd), 0);
   const tail = nodes[prevId] || nodes[outroId];
   if (tail) tail.holdMs = Math.max(lastFloor, slotMs - (played - holdOf(tail)));
+  // Each Gameday payload says how long its line holds, so a view can pace the play to it.
+  for (const id of Object.keys(nodes)) {
+    const nd = nodes[id];
+    if (nd.gameday && nd.holdMs) nd.gameday = { ...nd.gameday, hold: holdOf(nd) };
+  }
 
   // When the chain ends the walker restarts at _start on its own. Keying _broadcastId
   // to the global slot resets the blackboard when the slot rolls, so the shared graph
@@ -2846,6 +2802,14 @@ async function refreshStandings(nowMs, sport = 'baseball') {
   _standingsCaches.set(sport, { at: nowMs, rows });
   return rows;
 }
+// The compact table a baseball Gameday payload carries: the top eight, with run
+// differential. Empty for another sport, whose narrator builds its own.
+function gamedayStandings(sport) {
+  if (sport !== 'baseball') return [];
+  return ((_standingsCaches.get('baseball') || {}).rows || []).slice(0, 8)
+    .map(r => ({ team: r.team, wins: r.wins, losses: r.losses, rd: (r.runs_for || 0) - (r.runs_against || 0) }));
+}
+
 // A team's record from its own league's cached standings, or '0-0' if it hasn't played.
 // Hockey reads W-L-OTL, because a record that hides the overtime losses isn't a hockey
 // club's record — and the announcer says this line out loud.
@@ -2863,14 +2827,14 @@ function recordOf(team, sport = 'baseball') {
 // One season per sport — Deadball's pennant and the CPhL's Cup run on their own
 // clocks over their own schedules and must never see each other's finalists.
 const _seasonCaches = new Map();   // sport -> { at, phase, finalistA, finalistB, wsSlot }
-const EMPTY_SEASON = { at: 0, phase: 'regular', finalistA: null, finalistB: null, wsSlot: null, startSlot: null };
+const EMPTY_SEASON = { at: 0, phase: 'regular', finalistA: null, finalistB: null, wsSlot: null, startSlot: null, seasonNo: null };
 const seasonOf = (sport) => _seasonCaches.get(sport) || EMPTY_SEASON;
 async function refreshSeason(nowMs, sport = 'baseball') {
   const cur = seasonOf(sport);
   if (nowMs - cur.at < STANDINGS_CACHE_MS) return cur;
   const res = await dispatchAction({ type: 'sportsleague.getSeason', params: { sport } }).catch(() => null);
   const next = (res && typeof res.phase === 'string')
-    ? { at: nowMs, phase: res.phase, finalistA: res.finalistA, finalistB: res.finalistB, wsSlot: res.wsSlot ?? null, startSlot: res.startSlot ?? null }
+    ? { at: nowMs, phase: res.phase, finalistA: res.finalistA, finalistB: res.finalistB, wsSlot: res.wsSlot ?? null, startSlot: res.startSlot ?? null, seasonNo: res.seasonNo ?? null }
     : { ...cur, at: nowMs };
   _seasonCaches.set(sport, next);
   return next;
@@ -5619,7 +5583,12 @@ function _recordBeat(state, result, programName, scorebugOverlay, gamedayOverlay
   // late tuner needs it — but only while it's still current. A stale bug from the
   // last airing must never sit over a talk show.
   if (scorebugOverlay) { state.lastScorebug = scorebugOverlay; state.lastScorebugAt = nowMs; }
-  if (gamedayOverlay)  { state.lastGameday  = gamedayOverlay;  state.lastGamedayAt  = nowMs; }
+  if (gamedayOverlay)  {
+    state.lastGameday  = gamedayOverlay;  state.lastGamedayAt  = nowMs;
+    // A game's table rides only its first payload, so keep it for whoever tunes in later,
+    // with its sport: a hockey game after Deadball on the same channel isn't sent it.
+    if (Array.isArray(gamedayOverlay.standings)) state.lastStandings = { sport: gamedayOverlay.sport, rows: gamedayOverlay.standings };
+  }
 }
 
 const CATCHUP_BUG_MAX_AGE_MS = 90_000;   // a score-bug older than this is last night's
@@ -5657,8 +5626,14 @@ function sendCatchUp(playerId, channelId) {
   const now = Date.now();
   if (state.lastScorebug && now - (state.lastScorebugAt || 0) < CATCHUP_BUG_MAX_AGE_MS)
     sendToPlayer(playerId, { type: 'tv_overlay', channelId, overlay: state.lastScorebug });
-  if (state.lastGameday && now - (state.lastGamedayAt || 0) < CATCHUP_BUG_MAX_AGE_MS)
-    sendToPlayer(playerId, { type: 'tv_overlay', channelId, overlay: state.lastGameday });
+  if (state.lastGameday && now - (state.lastGamedayAt || 0) < CATCHUP_BUG_MAX_AGE_MS) {
+    // The game's table rides only its first payload, so a late tuner gets it here.
+    const gd = state.lastGameday;
+    const kept = state.lastStandings;
+    const table = kept && kept.sport === gd.sport ? kept.rows : gamedayStandings(gd.sport);
+    const standings = Array.isArray(gd.standings) || !table.length ? null : table;
+    sendToPlayer(playerId, { type: 'tv_overlay', channelId, overlay: standings ? { ...gd, standings } : gd });
+  }
 }
 
 // ── Dynamic news ─────────────────────────────────────────────────────────────

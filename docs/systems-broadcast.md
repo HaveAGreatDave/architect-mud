@@ -232,6 +232,9 @@ read-aloud is already part-way through airing to everyone else. Tickers, overlay
 `state.lastBeat` is nulled whenever a channel drops to `wasActive = false` so a dead
 channel replays nothing. The persistent score-bug / gameday overlays ride along only
 while they're **fresher than 90 s** — a stale bug must never sit over a talk show.
+Deadball's league table rides only a game's first Gameday payload, so the catch-up adds
+it to the replayed payload (`state.lastStandings`, else the cached table). The kept table
+carries its sport, so a hockey game that follows on the same channel isn't sent it.
 
 ### `getCurrentMessage()`
 
@@ -794,7 +797,20 @@ sport module**; nothing else in the pipeline may branch on it.
 Deadball's sub-screen is the 2-D Gameday view ([gameday.js](../client/game/js/panels/gameday.js)).
 A high-fidelity 3-D one on Rinkside's pattern, with a 1990s arcade look and the park inside the
 Curtain on Halcyon Fields, is planned in [proposals/deadball-glass2.md](proposals/deadball-glass2.md)
-(design).
+(design; Phase 0 under way).
+
+**The Gameday payload** is built by a pure module,
+[sports/baseball-gameday.js](../plugins/broadcast/sports/baseball-gameday.js), which the
+broadcast attaches to the line that calls each play and which the gates run without a server.
+An at-bat payload carries the batter and pitcher, the play's kind, outs and RBI, the bases
+before and after, the pitches, the line score so far, `sport`, and `bats` and `throws` (from
+the names, so a player is the same in every game; a switch hitter also gets `switchHitter`).
+A half-inning break carries `phase: 'half'` and nothing to animate. The broadcast adds `hold`
+(how long the line holds, in ms) to every payload, and the league table and `season` (its
+number, `regular` or `final`, and the seeds in a final) to the game's first payload only.
+Regress pins the sim itself: a hundred seeded games and four finals, every at-bat and every
+pitch, hash to a recorded value, because the standings and the recaps re-simulate games that
+have already aired.
 
 ### The sport registry
 
