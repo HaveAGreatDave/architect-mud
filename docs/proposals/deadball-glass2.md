@@ -1,7 +1,7 @@
 # Deadball in GLASS 2
 
-**Status: Phase 0 and sim v2 built; Phase 1 under way behind a flag, with the park in 3-D built
-(1a).** A plan for giving Deadball a 3-D sub-screen the way Cluster Puck got Rinkside, at the
+**Status: Phase 0 and sim v2 built; Phase 1 under way behind a flag, with the park in 3-D and its
+light, air, lens and grade built (1a and 1b).** A plan for giving Deadball a 3-D sub-screen the way Cluster Puck got Rinkside, at the
 highest fidelity the engine can reach. Deadball is a live sport on KSAB, and the broadcast borrows
 the look of a 1990s arcade baseball game. That means skinned, detailed players, authored animation
 with a wide spread of plays, light from the park's own towers and a crowd that fills the stands.
@@ -1402,6 +1402,15 @@ Phase 3, or with sim v2 if that comes later.
   bearing sank an end into the padding, so 375 read as 75, in the look-dev too); and a shot fits a
   wide screen by closing its vertical lens by the square root of the extra width, except the
   batting view, which keeps its height so the plate stays in frame.
+- **1b built:** `gl/spotshadow.js` (four perspective maps from the field-side towers, 12-tap PCF,
+  always bound because WebGL2 refuses a shadow sampler with nothing behind it; nothing casts until
+  the players arrive in 1c); `fog.js`'s height fog and light shafts in every lit pass and the sky;
+  the depth blitted out of the multisampled target, occlusion from it at half size through a new
+  `createDepthSSAO` in `ssao.js` (with a slope-scaled bias the city doesn't use, because the field
+  at a grazing angle self-occluded in rows); and `gl/broadcast.js` with the depth of field (28
+  taps, per shot), the arcade grade, sharpening and the vignette, the broadcast preset and the
+  tube glass. The tower lamps take a gentler bloom than the look-dev's (0.18 over `hdr.js`'s two
+  octaves), which keeps each bank's lamps apart.
 
 **Phase 2: skinned players and the pitch.** Behind the flag.
 - `gl/skin.js`, the rig, `diamond/anim.js`, the Pose Lab, the pitching, batting, catching and

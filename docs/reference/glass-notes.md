@@ -134,6 +134,7 @@ Engineering notes for the GLASS renderer (`client/game/js/panels/windshield.js` 
 - [District cost bench](#district-cost-bench)
 - [Truss web LOD](#truss-web-lod)
 - [Cliff massifs](#cliff-massifs)
+- [The ballpark (`gl/ballpark.js`)](#the-ballpark-glballparkjs)
 
 ## Big screen and seat layout
 
@@ -1848,3 +1849,15 @@ Measured: strokes 1563 → 1316 at Halcyon, 953 → 837 at Marrow, 592 → 503 a
 - **The caprock was darker than the plain.** Its palette comment claims *"the caprock top takes the sun"* and *"both sit deliberately in the redrock family"*, but `plateau` had luminance 55 against redrock's 99, so a cliff tile's cap came out at 73 and every massif read as a dark stain. A mesa top is the same rock as the plain; the face is what's dark. The cap is now 96 against the plain's 99, faces stay at 61 and 79.
 
 `cliffrelief.mjs` was run by nothing (an npm name in neither list and no chain, the `gl:neighbour` case). It's now in `pretest:regress` and `shapes:smoke`, plus `npm run gl:cliff`. It makes four claims: each knob against its own control (relief 1 is a power of 1, rough 0 removes the term), and roughness staying out of the level, which is why they were split. Mutation-tested 5 of 5. Trap: "1 is exactly what shipped" went out of date in the commit that made the split; relief 1 is still the identity but no longer the shipped massif.
+
+## The ballpark (`gl/ballpark.js`)
+
+Deadball's 3-D park, behind the `deadball.grandstand` flag (see [systems-broadcast.md](../systems-broadcast.md#the-park-in-3-d-the-grandstand-behind-a-flag)). It has its own WebGL2 context and lights in real HDR values, so unlike the city it takes `hdr.resolve()` rather than `composite()` and grades its own frame in [gl/broadcast.js](../../client/game/js/panels/gl/broadcast.js). `ballpark-smoke.mjs` checks the park, the shots' matrices, the shadow maps' fit, the depth read-back and the lens without a GPU; the sandbox page with `?park=3d` is for looking.
+
+- **The shadow samplers are always bound.** The lit shader declares four `sampler2DShadow`s. WebGL2 refuses a draw whose shadow sampler reads a texture with no compare mode, or shares a unit with an ordinary sampler, and every sampler starts on unit 0. So [gl/spotshadow.js](../../client/game/js/panels/gl/spotshadow.js) always makes its maps (a 1×1 set if the full ones won't allocate), they're bound every frame, and `uSpotN` says how many hold anything.
+- **A shadow map stops short of its lamp.** A wide shot's shadow sphere (300 ft round centre field) reaches past the near towers, and a perspective map can't hold what's behind its own lamp. `spotReach` fits the sphere to 0.8 of the lamp's distance.
+- **The depth comes from the multisampled target by a blit**, not a prepass: `blitFramebuffer` with `DEPTH_BUFFER_BIT` and `NEAREST` from `hdr.drawFbo` into a `DEPTH_COMPONENT24` texture, before `resolve()` unbinds it. The lens and the occlusion both read it.
+- **The field needs a slope-scaled occlusion bias.** At a grazing angle one pixel of the half-size occlusion target spans feet of grass, and a sample just above the ground reads the texel beside it as in front, which greyed half the batting view in rows. `ssao.js` has `uSlopeBias` (0 for the city, so the city's term is unchanged): the bias grows with how far the depth changes across a pixel. The ballpark uses 3; at 1.5 rows of grey were left in the near field.
+- **The CCD smear is for lamps, not chalk.** The broadcast preset streaks whatever the bloom's first octave holds, and lit chalk near the plate is past white. It subtracts 0.5 from the octave first, which keeps the towers and drops the lines.
+- **The wall's distances lie along the wall.** Off centre the fence runs at a slant to the circle round the plate (its distance changes by about 90 ft a radian in the gaps), so a plate square to the bearing sank an end into the padding and 375 read as 75. The look-dev had the same fault.
+

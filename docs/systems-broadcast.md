@@ -843,7 +843,7 @@ methods as the other two views. When the 3-D view can't draw (no WebGL2, no floa
 shader that won't build, a lost context), it hands over to the 2-D view with the last payload and
 the booth's line.
 
-Built so far (Phase 1a of the plan):
+Built so far (Phases 1a and 1b of the plan):
 
 - the park from the venue's defaults, built by the pure
   [gl/ballpark-mesh.js](../client/game/js/panels/gl/ballpark-mesh.js) from
@@ -860,14 +860,27 @@ Built so far (Phase 1a of the plan):
 - the shots in [diamond/camera.js](../client/game/js/panels/diamond/camera.js) (batting view,
   centre field, high home, the first-base camera, the bag, the third-base camera, the sky), each
   with its GL matrices and the same pinhole worked out by hand;
-- a score bug, the booth's line and the cards in HTML over the canvas.
+- a score bug, the booth's line and the cards in HTML over the canvas;
+- the frame round it (Phase 1b): four of the towers draw shadow maps of whatever casts
+  ([gl/spotshadow.js](../client/game/js/panels/gl/spotshadow.js); the players will, in 1c), the
+  night air is `fog.js`'s height fog with each tower's light scattered in it, the depth the frame
+  was drawn with is blitted out of the multisampled target for ambient occlusion at half size
+  (`createDepthSSAO` in `ssao.js`) and for the lens, and
+  [gl/broadcast.js](../client/game/js/panels/gl/broadcast.js) draws the lens (depth of field per
+  shot: the long lens softens the crowd), the curve and the grade. The grade is `arcade` (full
+  saturation, a contrast curve, warm highlights over cool shadows, sharpening, a vignette),
+  `broadcast` (the period's video: lifted blacks, soft colour, aperture correction, the CCD's
+  smear off the lamps) or `none`, and tube glass can go over either. The sandbox takes `?grade=`
+  and `?tube=1`.
 
 There are no players yet, and nothing moves: a frame is drawn when the game changes, so the GPU
 idles between pitches. The count ticks through each at-bat on the 2-D view's clock
 (`GAMEDAY_CLOCK`), so the held line lands when the 2-D view would land it.
 `scripts/shapes/ballpark-smoke.mjs` builds the park from the defaults and from a venue of its
-own, holds every shot's matrices to its pinhole on three screen shapes, reads the board's lamps
-and checks the fallback. The sandbox page takes `?park=3d` and `?shot=`.
+own, holds every shot's matrices to its pinhole on three screen shapes, reads the board's lamps,
+checks the fallback, fits each tower's shadow map to the shot, reads depth back through the
+occlusion's constants, and holds the lens sharp at its focus. The sandbox page takes `?park=3d`
+and `?shot=`. The renderer's traps are in [glass-notes.md](reference/glass-notes.md#the-ballpark-glballparkjs).
 
 ### Sim v2
 

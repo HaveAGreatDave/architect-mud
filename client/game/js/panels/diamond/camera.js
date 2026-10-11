@@ -20,24 +20,26 @@
 
 import { DEG } from './geo.js';
 
-// The shots. `near` defaults by lens: a long lens starts its depth range far out.
+// The shots. `near` defaults by lens: a long lens starts its depth range far out. `dof` is how
+// strongly the lens blurs what's off its focus, which is what it looks at (0, everything sharp);
+// `shadow` is the sphere, a centre and a radius in feet, the towers' shadow maps are fitted to.
 export const SHOTS = Object.freeze({
   // every pitch: behind and above the plate, the pitcher and the park beyond. It keeps its
   // whole height on a wide screen (`fit: 'v'`), so the plate stays at the foot of the frame.
-  bat: Object.freeze({ eye: [0, 13, -25], at: [0, 2.6, 45], fov: 40, fit: 'v' }),
+  bat: Object.freeze({ eye: [0, 13, -25], at: [0, 2.6, 45], fov: 40, fit: 'v', shadow: [[0, 0, 30], 70] }),
   // the long lens from centre field, offset to left-centre: replays, and every pitch when the
-  // batting view is off
-  cf: Object.freeze({ eye: [42, 62, 445], at: [0.3, 3.9, 2.5], fov: 3.7 }),
+  // batting view is off. The crowd behind the plate goes soft, as a broadcast long lens has it.
+  cf: Object.freeze({ eye: [42, 62, 445], at: [0.3, 3.9, 2.5], fov: 3.7, dof: 12000, shadow: [[0, 0, 30], 75] }),
   // high home: balls in play
-  high: Object.freeze({ eye: [0, 74, -104], at: [0, 4, 185], fov: 42 }),
+  high: Object.freeze({ eye: [0, 74, -104], at: [0, 4, 185], fov: 42, shadow: [[0, 0, 140], 300] }),
   // the first-base camera on the batter
-  side: Object.freeze({ eye: [-66, 5.4, 26], at: [2.6, 3.7, -0.4], fov: 8.6 }),
+  side: Object.freeze({ eye: [-66, 5.4, 26], at: [2.6, 3.7, -0.4], fov: 8.6, dof: 780, shadow: [[0, 0, 0], 40] }),
   // the bag at second, low from the first-base side with a 16° lens: steals and pickoffs
-  bag: Object.freeze({ eye: [-26.5, 3.4, 154.6], at: [-1.4, 1.9, 126.2], fov: 16.5 }),
+  bag: Object.freeze({ eye: [-26.5, 3.4, 154.6], at: [-1.4, 1.9, 126.2], fov: 16.5, dof: 520, shadow: [[0, 0, 127], 26] }),
   // the third-base camera on the pitcher
-  mound: Object.freeze({ eye: [64, 7, 33], at: [0, 4.4, 58.8], fov: 10.5 }),
+  mound: Object.freeze({ eye: [64, 7, 33], at: [0, 4.4, 58.8], fov: 10.5, dof: 700, shadow: [[0, 0, 60], 35] }),
   // high behind home with the city beyond: back from a break and between innings
-  sky: Object.freeze({ eye: [0, 118, -176], at: [-40, 130, 1200], fov: 50 }),
+  sky: Object.freeze({ eye: [0, 118, -176], at: [-40, 130, 1200], fov: 50, shadow: [[0, 0, 140], 300] }),
 });
 export const FAR = 40000;
 
@@ -59,7 +61,8 @@ export function fovFor(fov, aspect, fit) {
 // A shot by name or as given, with its depth range filled in and its lens fitted to the screen.
 export function shotOf(s, aspect = DESIGN_ASPECT) {
   const shot = typeof s === 'string' ? SHOTS[s] || SHOTS.bat : s || SHOTS.bat;
-  return { eye: shot.eye, at: shot.at, fov: fovFor(shot.fov, aspect, shot.fit), near: shot.near ?? (shot.fov < 10 ? 40 : 1), far: shot.far ?? FAR };
+  return { eye: shot.eye, at: shot.at, fov: fovFor(shot.fov, aspect, shot.fit), near: shot.near ?? (shot.fov < 10 ? 40 : 1), far: shot.far ?? FAR,
+    dof: shot.dof || 0, shadow: shot.shadow || null };
 }
 
 // The camera's own axes: right, up and forward (toward what it looks at).

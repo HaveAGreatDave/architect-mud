@@ -90,7 +90,7 @@ export function createGrandstandView(host, opts = {}) {
     host.innerHTML = shell();
     canvas = host.querySelector('.gds-canvas');
     size();
-    R = mods.createBallparkRenderer(canvas, { ads: opts.ads || ADS, preserve: !!opts.preserve, crowd: opts.crowd });
+    R = mods.createBallparkRenderer(canvas, { ads: opts.ads || ADS, preserve: !!opts.preserve, crowd: opts.crowd, grade: opts.grade, tube: opts.tube });
     if (!R) { fallback('no WebGL2 or float target'); return false; }
     mounted = true;
     const box = host.querySelector('.gds-park');

@@ -14,6 +14,15 @@
 //   · the scoreboard is a face of lamps lit from a 240×84 mask of the line score
 //     (diamond/board.js), redrawn when the game changes.
 //
+// The frame, in order (docs/proposals/deadball-glass2.md, Lighting and the frame):
+//
+//   1. shadows: four of the towers draw perspective maps of whatever casts (gl/spotshadow.js);
+//   2. the main pass into hdr.js's target: the sky, the park, the crowd, the backstop net, each
+//      through the night air, which is height fog with the towers' light scattered in it (fog.js);
+//   3. the depth the frame was drawn with, resolved into a texture for the lens and the occlusion;
+//   4. ambient occlusion from that depth at half size (ssao.js);
+//   5. bloom off the lamps (hdr.js), then the lens, the curve and the grade (gl/broadcast.js).
+//
 // Nothing here decides anything: it draws the park through a shot (diamond/camera.js).
 // `createBallparkRenderer` returns null with no WebGL2, no float target, or a shader that won't
 // build, and the view falls back to the 2-D Gameday.
@@ -24,8 +33,12 @@
 import { buildPark, crowdMesh, STRIDE, CROWD_STRIDE, CROWD_VERTEX, MAT } from './ballpark-mesh.js';
 import { paintInfield, DIRT_RECT } from '../diamond/dirt.js';
 import { boardLamps, BOARD_W, BOARD_H } from '../diamond/board.js';
-import { shotMatrices, inv4 } from '../diamond/camera.js';
+import { shotMatrices, shotOf, inv4 } from '../diamond/camera.js';
 import { createHDRLayer } from './hdr.js';
+import { HEIGHT_FOG_GLSL, LIGHT_SHAFT_GLSL } from './fog.js';
+import { createSpotShadows, SPOT_SHADOW_GLSL } from './spotshadow.js';
+import { createDepthSSAO, ssaoConstants } from './ssao.js';
+import { createBroadcastPass } from './broadcast.js';
 import { makeVertexStream } from './stream.js';
 import { declareProgram, prewarmPrograms, takeWarm } from './programs.js';
 
@@ -42,13 +55,24 @@ uniform mat4 uVP;
 out vec3 vPos; out vec3 vNrm; out vec2 vUv; out vec3 vCol; flat out int vMat;
 void main() { vPos = aPos; vNrm = aNrm; vUv = aUv; vCol = aCol; vMat = int(aMat + 0.5); gl_Position = uVP * vec4(aPos, 1.0); }`;
 
-// What every lit pass shares: the six towers and the sky's ambient.
+// What every lit pass shares: the six towers, the sky's ambient, and the night air.
 const LIGHTS_GLSL = `
 const float PI = 3.14159265;
 uniform vec3 uLPos[6]; uniform vec3 uLCol[6]; uniform vec3 uLDir[6];
 uniform vec3 uEye; uniform vec3 uSkyUp; uniform vec3 uSkyDn;
+uniform vec3 uFogCol; uniform float uFogDens; uniform float uFogH; uniform float uShaft; uniform float uShaftReach;
 // a flood's cone: full inside 32° of its axis, falling to a spill at 63°
 float spotOf(int i, vec3 L, float spill) { return mix(spill, 1.0, smoothstep(0.45, 0.85, dot(-L, uLDir[i]))); }
+${HEIGHT_FOG_GLSL}
+${LIGHT_SHAFT_GLSL}
+// The air between the eye and P: the haze, thicker near the ground, and each tower's light
+// scattered toward the eye. fog.js works with height on z, so the points go in as xzy.
+vec3 airOf(vec3 c, vec3 P) {
+  float f = heightFog(uEye.y, P.y, length(P - uEye), uFogDens, uFogH);
+  vec3 sc = vec3(0.0);
+  for (int i = 0; i < 6; i++) sc += uLCol[i] * lightShaft(uEye.xzy, P.xzy, uLPos[i].xzy, uShaftReach, uFogDens, uFogH);
+  return mix(c, uFogCol, f) + sc * uShaft;
+}
 `;
 
 const LIT_FS = `#version 300 es
@@ -57,8 +81,10 @@ in vec3 vPos; in vec3 vNrm; in vec2 vUv; in vec3 vCol; flat in int vMat;
 uniform sampler2D uTex; uniform sampler2D uDirt; uniform sampler2D uGrass; uniform sampler2D uBoard;
 uniform int uTextured; uniform float uAlphaTest; uniform float uAlpha; uniform float uEmis;
 uniform vec3 uFence; uniform vec2 uBoardRes; uniform vec3 uBoardOn;
+uniform int uLSh[6]; uniform int uSpotN;
 out vec4 o;
 ${LIGHTS_GLSL}
+${SPOT_SHADOW_GLSL}
 float ggxD(float NoH, float a) { float a2 = a * a; float d = NoH * NoH * (a2 - 1.0) + 1.0; return a2 / (PI * d * d); }
 float visSG(float NoV, float NoL, float a) { float a2 = a * a; float gv = NoL * sqrt(NoV * NoV * (1.0 - a2) + a2); float gl = NoV * sqrt(NoL * NoL * (1.0 - a2) + a2); return 0.5 / max(gv + gl, 1e-4); }
 // the fence's distance at a bearing from straight-away centre: the venue's line, centre and curve
@@ -69,7 +95,7 @@ void main() {
   vec4 tex = vec4(1.0);
   if (uTextured == 1) { tex = texture(uTex, vUv); if (tex.a < uAlphaTest) discard; }
   vec3 alb = vCol * tex.rgb;
-  if (vMat == ${MAT.EMISSIVE}) { o = vec4(alb * uEmis, uAlpha * tex.a); return; }
+  if (vMat == ${MAT.EMISSIVE}) { o = vec4(airOf(alb * uEmis, vPos), uAlpha * tex.a); return; }
   if (vMat == ${MAT.BOARD}) {
     // a face of lamps: each cell of the grid is one lamp, lit where the mask says
     vec2 g = vUv * uBoardRes, f = fract(g) - 0.5;
@@ -77,7 +103,7 @@ void main() {
     float fw = max(fwidth(g.x), fwidth(g.y));
     float disc = 1.0 - smoothstep(0.3 - fw * 0.5, 0.4 + fw * 0.5, length(f));
     disc = mix(disc, 0.42, smoothstep(0.6, 1.4, fw));
-    o = vec4(mix(vec3(0.02, 0.01, 0.004), uBoardOn, on) * disc + vec3(0.003) * (1.0 - disc), 1.0);
+    o = vec4(airOf(mix(vec3(0.02, 0.01, 0.004), uBoardOn, on) * disc + vec3(0.003) * (1.0 - disc), vPos), 1.0);
     return;
   }
   float rough = 0.85, metal = 0.0, wrap = 0.0, f0s = 0.04, ao = 1.0;
@@ -143,13 +169,15 @@ void main() {
     vec3 H = normalize(L + V); float NoH = max(dot(N, H), 0.0), VoH = max(dot(V, H), 0.0);
     vec3 F = f0 + (1.0 - f0) * pow(1.0 - VoH, 5.0);
     vec3 spec = ggxD(NoH, a) * visSG(NoV, nl, a) * F;
-    vec3 rad = uLCol[i] * spotOf(i, L, 0.05) * exp(-max(d - 700.0, 0.0) / 240.0);
+    // the four towers that cast throw this point into shadow where a caster stands between
+    float sh = (uLSh[i] >= 0 && uLSh[i] < uSpotN) ? spotShadow(uLSh[i], vPos + N * 0.04) : 1.0;
+    vec3 rad = uLCol[i] * spotOf(i, L, 0.05) * mix(sh, 1.0, 0.08) * exp(-max(d - 700.0, 0.0) / 240.0);
     col += (dif / PI * wd * (vMat == ${MAT.GROUND} ? 0.45 + 0.55 * ao : 1.0) + spec * nl) * rad;
     if (vMat == ${MAT.SKIN}) col += alb * vec3(0.10, 0.025, 0.01) * max(wd - nl, 0.0) * rad;
   }
   // cloth has a sheen at grazing angles
   if (vMat == ${MAT.CLOTH}) col += dif * pow(1.0 - NoV, 4.0) * 0.05 * uSkyUp;
-  o = vec4(col, uAlpha * tex.a);
+  o = vec4(airOf(col, vPos), uAlpha * tex.a);
 }`;
 
 const CROWD_VS = `#version 300 es
@@ -175,7 +203,7 @@ void main() {
   vec3 N = normalize(vN);
   vec3 col = vAlb * mix(uSkyDn, uSkyUp, N.y * 0.5 + 0.5) * 0.5;
   for (int i = 0; i < 6; i++) { vec3 L = normalize(uLPos[i] - vPos); col += vAlb / PI * max(dot(N, L) * 0.8 + 0.2, 0.0) * uLCol[i] * spotOf(i, L, 0.04) * 0.55; }
-  o = vec4(col, 1.0);
+  o = vec4(airOf(col, vPos), 1.0);
 }`;
 
 // A full-screen triangle with no vertex buffer, as hdr.js draws its passes.
@@ -186,14 +214,16 @@ void main() { vec2 p = vec2((gl_VertexID << 1) & 2, gl_VertexID & 2); vUV = p; g
 const SKY_FS = `#version 300 es
 precision highp float;
 in vec2 vUV; out vec4 o;
-uniform mat4 uInvVP; uniform vec3 uEye; uniform vec3 uZen; uniform vec3 uHor; uniform vec3 uGlow; uniform float uStars;
+uniform mat4 uInvVP; uniform vec3 uZen; uniform vec3 uHor; uniform vec3 uGlow; uniform float uStars;
+${LIGHTS_GLSL}
 void main() {
   vec4 p = uInvVP * vec4(vUV * 2.0 - 1.0, 1.0, 1.0); vec3 rd = normalize(p.xyz / p.w - uEye);
   float el = rd.y;
   vec3 col = mix(uHor, uZen, smoothstep(-0.02, 0.55, el)) + uGlow * exp(-max(el, 0.0) * 12.0);
   vec3 q = floor(rd * 520.0); float h = fract(sin(dot(q, vec3(12.9898, 78.233, 37.719))) * 43758.5453);
   col += vec3(step(0.9982, h)) * 0.06 * smoothstep(0.05, 0.35, el) * uStars;
-  o = vec4(col, 1.0);
+  // the sky is a long way off through the same air: the haze at the horizon, the towers' glow
+  o = vec4(airOf(col, uEye + rd * 4000.0), 1.0);
 }`;
 // The last pass: the bloom added in linear light, the filmic curve, and the encode.
 const FINAL_FS = `#version 300 es
@@ -210,14 +240,19 @@ void main() {
 
 for (const [vs, fs] of [[LIT_VS, LIT_FS], [CROWD_VS, CROWD_FS], [FULL_VS, SKY_FS], [FULL_VS, FINAL_FS]]) declareProgram(vs, fs);
 
-// The night: the sky's colours, its ambient, and how hard the towers burn.
+// The night: the sky's colours, its ambient, how hard the towers burn, and the air: a haze that
+// thins over 160 ft of height, and how much of the towers' light it scatters.
 const NIGHT = {
   up: [0.006, 0.008, 0.016], dn: [0.024, 0.032, 0.017], zen: [0.0018, 0.0024, 0.0065], hor: [0.005, 0.006, 0.009],
   glow: [0.010, 0.008, 0.006], towers: 3.6,
+  fog: [0.004, 0.0045, 0.0055], fogDens: 0.00022, fogH: 160, shaft: 1.0, shaftReach: 260,
 };
 
-// The quality rungs the view's governor steps through.
-export const BALLPARK_RUNGS = [{ dpr: 2 }, { dpr: 1.5 }, { dpr: 1.25 }, { dpr: 1 }];
+// The quality rungs the view's governor steps through, cheapest last: the lens's taps, the
+// occlusion, then the resolution.
+export const BALLPARK_RUNGS = [
+  { dpr: 2, dof: 28, ao: true }, { dpr: 2, dof: 12, ao: true }, { dpr: 1.5, dof: 12, ao: false }, { dpr: 1.25, dof: 0, ao: false }, { dpr: 1, dof: 0, ao: false },
+];
 
 // ── textures, painted on canvases ───────────────────────────────────────────
 // Value noise at several scales into the channels: fine blades in R, the macro mottle in G,
@@ -320,6 +355,14 @@ export function createBallparkRenderer(canvas, opts = {}) {
     prewarmPrograms(gl);
     const hdr = createHDRLayer(gl);
     if (!hdr) return null;
+    // ⚠ THE SHADOW MAPS ARE NOT OPTIONAL. The lit shader declares four shadow samplers, and WebGL2
+    // refuses a draw whose shadow sampler reads a texture with no compare mode, or shares a unit
+    // with an ordinary sampler. So the maps always exist (a 1×1 set if a full one won't allocate)
+    // and are always bound, and `uSpotN` says how many hold anything this frame.
+    const shadows = createSpotShadows(gl) || createSpotShadows(gl, { size: 1 });
+    if (!shadows) return null;
+    const ssao = createDepthSSAO(gl);
+    const bc = createBroadcastPass(gl);
     const prog = (vs, fs) => {
       let p = takeWarm(gl, vs, fs);
       if (!p) {
@@ -417,6 +460,30 @@ export function createBallparkRenderer(canvas, opts = {}) {
       LPos.set(T.lamp, i * 3); LCol.set([k, k * 0.965, k * 0.9], i * 3); LDir.set(T.dir, i * 3);
     });
     const fence = park.field.fence;
+    // the four towers on the field side cast; the two behind the plate don't
+    const LSh = new Int32Array(6).fill(-1);
+    { let k = 0; park.field.towers.slice(0, 6).forEach((T, i) => { if (T.base[2] >= 0 && k < shadows.count) LSh[i] = k++; }); }
+    const casting = park.field.towers.filter((T, i) => LSh[i] >= 0);
+
+    // The depth the frame was drawn with, resolved into a texture the lens and the occlusion read.
+    // A blit from the multisampled target costs no second pass over the park.
+    let depth = null;
+    function depthTarget(w, h) {
+      if (depth && depth.w === w && depth.h === h) return depth;
+      if (depth) { gl.deleteFramebuffer(depth.fbo); gl.deleteTexture(depth.tex); depth = null; }
+      const tex = gl.createTexture();
+      gl.bindTexture(T2, tex);
+      gl.texStorage2D(T2, 1, gl.DEPTH_COMPONENT24, w, h);
+      for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.NEAREST], [gl.TEXTURE_MAG_FILTER, gl.NEAREST], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(T2, k, v);
+      const fbo = gl.createFramebuffer();
+      gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, T2, tex, 0);
+      gl.drawBuffers([gl.NONE]); gl.readBuffer(gl.NONE);
+      const ok = gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE;
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      if (!ok) { gl.deleteFramebuffer(fbo); gl.deleteTexture(tex); return null; }
+      return (depth = { tex, fbo, w, h });
+    }
 
     let lost = false;
     canvas.addEventListener?.('webglcontextlost', (e) => { e.preventDefault(); lost = true; api.lost = true; });
@@ -425,6 +492,9 @@ export function createBallparkRenderer(canvas, opts = {}) {
     function lights(P, eye) {
       gl.uniform3fv(P.u('uLPos'), LPos); gl.uniform3fv(P.u('uLCol'), LCol); gl.uniform3fv(P.u('uLDir'), LDir);
       gl.uniform3fv(P.u('uEye'), eye); gl.uniform3fv(P.u('uSkyUp'), NIGHT.up); gl.uniform3fv(P.u('uSkyDn'), NIGHT.dn);
+      const q = api.quality;
+      gl.uniform3fv(P.u('uFogCol'), NIGHT.fog); gl.uniform1f(P.u('uFogDens'), q.fog ? NIGHT.fogDens : 0); gl.uniform1f(P.u('uFogH'), NIGHT.fogH);
+      gl.uniform1f(P.u('uShaft'), q.fog ? NIGHT.shaft : 0); gl.uniform1f(P.u('uShaftReach'), NIGHT.shaftReach);
     }
 
     // ── a frame ───────────────────────────────────────────────────────────────
@@ -432,9 +502,22 @@ export function createBallparkRenderer(canvas, opts = {}) {
       if (lost) return false;
       const t0 = (typeof performance !== 'undefined' ? performance.now() : 0);
       const w = canvas.width, h = canvas.height;
-      if (!(w > 0 && h > 0) || !hdr.bind(w, h)) return false;
-      const M = shotMatrices(shot, w / h);
+      if (!(w > 0 && h > 0)) return false;
+      const M = shotMatrices(shot, w / h), q = api.quality;
       let tris = 0, draws = 0;
+
+      // 1. the towers' shadows, of whatever casts
+      let spotN = 0;
+      const casters = api.casters;
+      if (q.shadows && casters.length) {
+        const [focus, radius] = M.shadow || [[0, 0, 60], 80];
+        spotN = shadows.render(casting.map((T) => ({ lamp: T.lamp, focus, radius })), () => {
+          for (const c of casters) { gl.bindVertexArray(c.vao); gl.drawArrays(gl.TRIANGLES, 0, c.n); }
+          gl.bindVertexArray(null);
+        });
+      }
+
+      if (!hdr.bind(w, h)) return false;
       gl.clearColor(0, 0, 0, 1); gl.clearDepth(1);
       gl.depthMask(true);
       gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -443,7 +526,8 @@ export function createBallparkRenderer(canvas, opts = {}) {
       // the sky, behind everything
       gl.disable(gl.DEPTH_TEST);
       gl.useProgram(SKY.p);
-      gl.uniformMatrix4fv(SKY.u('uInvVP'), false, inv4(M.viewProj)); gl.uniform3fv(SKY.u('uEye'), M.eye);
+      lights(SKY, M.eye);
+      gl.uniformMatrix4fv(SKY.u('uInvVP'), false, inv4(M.viewProj));
       gl.uniform3fv(SKY.u('uZen'), NIGHT.zen); gl.uniform3fv(SKY.u('uHor'), NIGHT.hor); gl.uniform3fv(SKY.u('uGlow'), NIGHT.glow); gl.uniform1f(SKY.u('uStars'), 1);
       gl.bindVertexArray(emptyVao); gl.drawArrays(gl.TRIANGLES, 0, 3); draws++;
 
@@ -458,6 +542,8 @@ export function createBallparkRenderer(canvas, opts = {}) {
       gl.activeTexture(gl.TEXTURE1); gl.bindTexture(T2, TEX.dirt);
       gl.activeTexture(gl.TEXTURE2); gl.bindTexture(T2, TEX.grass);
       gl.activeTexture(gl.TEXTURE3); gl.bindTexture(T2, boardTex);
+      shadows.bind(LIT.u, 4);
+      gl.uniform1iv(LIT.u('uLSh'), LSh); gl.uniform1i(LIT.u('uSpotN'), spotN);
       const drawSet = (list, alpha) => {
         for (const d of list) {
           const t = TEX[d.key];
@@ -487,9 +573,33 @@ export function createBallparkRenderer(canvas, opts = {}) {
       gl.depthMask(true); gl.disable(gl.BLEND);
       gl.bindVertexArray(null);
 
-      // resolve, gather the bloom off the lamps, and grade onto the canvas
+      // 3. the depth, out of the multisampled target before it's resolved
+      const D = (q.ao || q.dof > 0) ? depthTarget(w, h) : null;
+      if (D) {
+        gl.bindFramebuffer(gl.READ_FRAMEBUFFER, hdr.drawFbo);
+        gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, D.fbo);
+        gl.blitFramebuffer(0, 0, w, h, 0, 0, w, h, gl.DEPTH_BUFFER_BIT, gl.NEAREST);
+        gl.bindFramebuffer(gl.READ_FRAMEBUFFER, null); gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
+      }
+
+      // resolve, and gather the bloom off the lamps
       const res = hdr.resolve({ bloom: 1, threshold: 1.0, knee: 0.5, linear: 0 });
       if (!res) return false;
+
+      // 4. the occlusion, at half size
+      const ao = D && q.ao && ssao ? ssao.render(D.tex, Math.max(1, w >> 1), Math.max(1, h >> 1), ssaoConstants(M.proj), { radius: 2.0, bias: 0.05, slope: 3 }) : null;
+
+      // 5. the lens, the curve and the grade onto the canvas
+      if (bc && bc.render({
+        scene: res.scene, bloom: res.bloom, depth: D ? D.tex : null, ao, w, h, near: M.near, far: M.far,
+        focus: Math.hypot(M.at[0] - M.eye[0], M.at[1] - M.eye[1], M.at[2] - M.eye[2]), dof: M.dof || 0, taps: q.dof,
+        exposure: q.exposure, bloomK: q.bloom, aoK: q.aoK ?? 0.75, grade: q.grade, tube: q.tube, seed: 3.7,
+      })) {
+        stats.tris = Math.round(tris); stats.draws = draws + 2;
+        stats.ms = (typeof performance !== 'undefined' ? performance.now() : 0) - t0;
+        return true;
+      }
+      // no broadcast pass: the plain curve
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
       gl.viewport(0, 0, w, h);
       gl.disable(gl.DEPTH_TEST);
@@ -510,6 +620,8 @@ export function createBallparkRenderer(canvas, opts = {}) {
 
     function dispose() {
       try {
+        shadows.dispose(); ssao?.dispose(); bc?.dispose();
+        if (depth) { gl.deleteFramebuffer(depth.fbo); gl.deleteTexture(depth.tex); depth = null; }
         for (const t of Object.values(TEX)) gl.deleteTexture(t);
         gl.deleteTexture(boardTex);
         for (const d of [...opaque, ...translucent]) { gl.deleteVertexArray(d.vao); gl.deleteBuffer(d.st.buf); }
@@ -522,7 +634,10 @@ export function createBallparkRenderer(canvas, opts = {}) {
 
     const api = {
       kind: 'gl', lost: false, rungs: BALLPARK_RUNGS,
-      quality: { dpr: 2, bloom: 0.35, exposure: 1.0 },
+      // grade: 'arcade', 'broadcast' or 'none'; tube: the tube glass; dof: the lens's taps (0 off)
+      quality: { dpr: 2, bloom: 0.18, exposure: 1.0, grade: opts.grade || 'arcade', tube: !!opts.tube, ao: true, dof: 28, shadows: true, fog: true },
+      // what casts the towers' shadows: [{ vao, n }] with positions at location 0 (the players, Phase 1c)
+      casters: [],
       render, setBoard, dispose, stats,
       get park() { return park; },
     };

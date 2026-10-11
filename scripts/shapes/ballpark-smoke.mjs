@@ -19,6 +19,9 @@
 //   4. THE FALLBACK HOLDS. With the flag off the view IS the 2-D Gameday. Forced on with no
 //      WebGL2, `createBallparkRenderer` returns null rather than throwing, the view gives way
 //      to the 2-D Gameday, and the booth's held line still lands with the play.
+//   5. THE LIGHT AND THE LENS. Each casting tower's shadow map holds the shot's shadow sphere;
+//      the occlusion reads depth back through the perspective's constants to where it was; the
+//      lens is sharp at its focus and softer away from it.
 //
 // It proves the park builds and the cameras agree. It doesn't draw a frame: the sandbox page
 // (tools/sandbox/deadball-park-test.html?park=3d) is for looking.
@@ -36,6 +39,9 @@ const C = await import(P + 'diamond/camera.js');
 const { boardLamps, BOARD_W, BOARD_H } = await import(P + 'diamond/board.js');
 const { paintInfield } = await import(P + 'diamond/dirt.js');
 const { createBallparkRenderer } = await import(P + 'gl/ballpark.js');
+const { spotMatrix, spotReach } = await import(P + 'gl/spotshadow.js');
+const { ssaoConstants, RECONSTRUCT } = await import(P + 'gl/ssao.js');
+const { cocOf, DOF_MAX } = await import(P + 'gl/broadcast.js');
 const { createGrandstandView } = await import(P + 'gameday-grandstand.js');
 
 let failures = 0, passes = 0;
@@ -227,6 +233,51 @@ for (const kind of ['sit', 'stand', 'cheer']) for (const far of [false, true]) {
   check('forced on, no WebGL2: the held line lands with the play', !!cap && cap.textContent === 'Halvorsen lines one into right.', cap && cap.textContent);
   v.clear();
   check('cleared', h2.children.length === 0);
+}
+
+// ── 5. the light and the lens ────────────────────────────────────────────────
+{
+  // Each casting tower's shadow map holds the shot's shadow sphere: the sphere's centre maps to
+  // the middle of the map, and points round its rim land inside the map and inside its depth.
+  const field = base.field;
+  for (const name of Object.keys(C.SHOTS)) {
+    const shot = C.shotOf(name);
+    const [focus, radius] = shot.shadow || [[0, 0, 60], 80];
+    for (const T of field.towers.filter((t) => t.base[2] >= 0)) {
+      const m = spotMatrix(T.lamp, focus, radius), r = spotReach(T.lamp, focus, radius);
+      const c = C.projectGL(m, 2, 2, focus);
+      let out = 0;
+      for (let i = 0; i < 64; i++) {
+        const a = i / 64 * Math.PI * 2, b = (i % 8) / 8 * Math.PI - Math.PI / 2;
+        const p = [focus[0] + Math.cos(a) * Math.cos(b) * r, focus[1] + Math.sin(b) * r, focus[2] + Math.sin(a) * Math.cos(b) * r];
+        const q = C.projectGL(m, 2, 2, p);
+        if (!q || q.x < 0 || q.x > 2 || q.y < 0 || q.y > 2 || q.z < -1 || q.z > 1) out++;
+      }
+      check(`spot shadow ${name} from (${T.base[0]}, ${T.base[2]}): the sphere is on the map`, !!c && Math.abs(c.x - 1) < 1e-6 && Math.abs(c.y - 1) < 1e-6 && out === 0, `${out} rim points off it`);
+      check(`spot shadow ${name} from (${T.base[0]}, ${T.base[2]}): holds at least 25 ft round the play`, r >= Math.min(radius, 25), r.toFixed(1));
+    }
+  }
+  // The occlusion reads depth through the five constants: a point through the GL matrix and back
+  // through RECONSTRUCT comes out where it went in.
+  let worst = 0;
+  for (const name of Object.keys(C.SHOTS)) for (const aspect of [4 / 3, 2.3]) {
+    const m = C.shotMatrices(name, aspect), k = ssaoConstants(m.proj);
+    for (let i = 0; i < 50; i++) {
+      // a view-space point in front of the eye: x right, y up, z behind (GL), forward w = -z
+      const w = m.near * 1.5 + i * 37, x = (i % 7 - 3) * w * 0.05, y = (i % 5 - 2) * w * 0.04;
+      const cz = m.proj[10] * -w + m.proj[14], cw = w;
+      const dz = (cz / cw + 1) / 2;   // the depth buffer's 0..1
+      const back = RECONSTRUCT.dist(dz, k.A, k.B);
+      const ndcX = m.proj[0] * x / w, ndcY = m.proj[5] * y / w;
+      const v = RECONSTRUCT.view(ndcX, ndcY, back, k.fxn, k.fyn, k.cy0);
+      worst = Math.max(worst, Math.abs(back - w) / w, Math.abs(v[0] - x) / w, Math.abs(v[1] - y) / w);
+    }
+  }
+  check('occlusion: depth reads back through the perspective constants', worst < 1e-6, worst.toExponential(2));
+  // The lens: nothing blurs at its focus, the blur grows away from it and is capped.
+  check('lens: sharp at the focus', cocOf(400, 400, 12000) === 0);
+  check('lens: softer the further behind', cocOf(800, 400, 12000) > cocOf(500, 400, 12000) && cocOf(500, 400, 12000) > 0);
+  check('lens: capped', cocOf(1e9, 1, 1e9) === DOF_MAX);
 }
 
 console.log(`ballpark-smoke: ${passes}/${passes + failures} passed · park ${Math.round(baseTris)} triangles, built in ${ms.toFixed(0)} ms`);

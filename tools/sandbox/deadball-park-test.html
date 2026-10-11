@@ -18,7 +18,8 @@
   It shows the 2-D Gameday (client/game/js/panels/gameday.js), or with ?park=3d the
   Grandstand, the park in 3-D (gameday-grandstand.js, Phase 1 of the plan), which in the
   game sits behind the deadball.grandstand flag. ?shot= holds one of its cameras (bat, cf,
-  high, side, bag, mound, sky) and ?w= sets the frame's width in CSS pixels.
+  high, side, bag, mound, sky), ?grade= picks the picture (arcade, broadcast or none),
+  ?tube=1 puts it behind tube glass, and ?w= sets the frame's width in CSS pixels.
 
   Serve the repo root over HTTP and open /sandbox/deadball-park-test.html (a file://
   page can't fetch the .bsm or load the modules). ?slot=N picks the game, ?sim=2 plays
@@ -84,7 +85,7 @@
     if (Q.get('w')) document.getElementById('tv-window').style.width = `${+Q.get('w')}px`;
     const host = document.getElementById('tv-gameday');
     const view = Q.get('park') === '3d'
-      ? createGrandstandView(host, { force: true, preserve: true, shot: Q.get('shot') || undefined })
+      ? createGrandstandView(host, { force: true, preserve: true, shot: Q.get('shot') || undefined, grade: Q.get('grade') || undefined, tube: Q.get('tube') === '1' })
       : createGamedayView(host);
     window.__view = view;
     view.showIdle();
