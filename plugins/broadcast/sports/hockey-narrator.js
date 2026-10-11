@@ -41,6 +41,8 @@ const barnKey = (name) => `chatter.${String(name || '').trim().split(/\s+/)[0].t
 // Chances that are always worth a line: they're the near-misses a period is
 // remembered for.
 const LOUD_CHANCE = new Set(['post', 'breakaway']);
+// Chances that end with the puck loose on the ice rather than held or in the net.
+const LOOSE_AFTER = new Set(['save', 'pad', 'blocked', 'wide', 'post', 'breakaway']);
 
 export function narrate(ctx) {
   const {
@@ -386,7 +388,12 @@ export function narrate(ctx) {
     for (let i = 1; i <= L - 3; i++) mids.push(i);
     const keep = new Set(loud ? mids.slice(-3) : mids.slice(-1));
     let holder = who(nodes[0].carrier), first = true, wonNext = false;
-    call('pbp.breakout', t, { player: holder }, sb, null, gd);
+    // Off a loose puck (a rebound, a kick-out, a block) he has to go and get it first, and
+    // the rink shows him doing it, so the booth says so and the breakout follows when he has it.
+    const prev = beats[idx - 2];
+    if (gd && prev && prev.type === 'chance' && !prev.frozen && LOOSE_AFTER.has(prev.kind) && call('pbp.retrieve', t, { player: holder }, sb, null, gd)) {
+      call('pbp.breakout', t, { player: holder }, sb, { cue: { ev: 'fetched' } });
+    } else call('pbp.breakout', t, { player: holder }, sb, null, gd);
     for (const i of mids) {
       const n = nodes[i], man = n.carrier >= 0 ? who(n.carrier) : null;
       let key = null, extra = null;
@@ -397,6 +404,8 @@ export function narrate(ctx) {
       if (!key || !pools[key]) continue;
       if (!keep.has(i)) continue;
       call(key, t, extra, sb, { cue: { ev: 'node', i }, opt: !loud && !first });
+      // a puck put in or knocked loose has to be run down, and the picture takes the time
+      if (n.ev === 'dump' || n.ev === 'battle') call('pbp.chase', t, null, sb, { opt: true });
       first = false;
     }
     return true;

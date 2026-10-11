@@ -442,6 +442,12 @@
         "{player} wheels out from behind the net.",
         "{player} starts it up the ice."
       ],
+      "pbp.chase": [
+        "Race for it.",
+        "Chasing it down.",
+        "After it into the corner.",
+        "Footrace."
+      ],
       "pbp.cycle": [
         "{player} works it low.",
         "{player} behind the net.",
@@ -740,6 +746,13 @@
         "Rebound, and it's cleared.",
         "Juicy rebound. Nobody home.",
         "Rebound to the corner."
+      ],
+      "pbp.retrieve": [
+        "{player} goes back for it.",
+        "{player} retrieves it.",
+        "{player} gathers up the loose puck.",
+        "{player} picks it up.",
+        "{player} runs it down."
       ],
       "pbp.scrum.apart": [
         "Officials pull them apart.",

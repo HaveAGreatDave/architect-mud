@@ -347,9 +347,11 @@ function standRig(s, T) {
     const [bu, bv] = bladeLocal(s, T, carrying);
     // base: blade on the ice ahead, top hand at the hip swinging a little across with the stride
     let bBlade = [bu, bv, 0.08];
-    if (carrying && s.puckAt) {
-      // the blade goes to the puck, cupping it from his side, wherever it has slid to
-      const pl = toLocal(s.puckAt[0], s.puckAt[1], 0), r = Math.hypot(pl[0], pl[1]);
+    // the blade goes to the puck, cupping it from his side, wherever it has slid to; and
+    // reaches for one that's coming to him, so it's already there when it arrives
+    const aimAt = carrying && s.puckAt ? s.puckAt : !carrying && s.reachTo ? s.reachTo : null;
+    if (aimAt) {
+      const pl = toLocal(aimAt[0], aimAt[1], 0), r = Math.hypot(pl[0], pl[1]);
       if (r < 4.2) {
         const k = 0.12 / (r || 1);
         bBlade = [clamp(pl[0] - pl[0] * k, 0.7, 3.5), clamp(pl[1] - pl[1] * k, -2.2, 2.2), 0.06];
@@ -368,6 +370,16 @@ function standRig(s, T) {
       if (fast) bR = [0.95, -0.25, zp + 0.55];
       bL = [0.55 + 0.35 * stridePush, 0.95 - 0.75 * Math.max(0, stridePush), zp + 0.35 + 0.25 * Math.abs(stridePush)];
     }
+    // ⚠ THE BLADE EASES, IT NEVER JUMPS. Taking or losing the puck changes where the pose
+    // wants the blade by a foot or two in one step, which read as the stick snapping. The
+    // rig is a pure function of the body and the time, so the eased blade is kept on the
+    // body against the time it was worked out for: asked twice for the same instant (the
+    // picture and its reflection), it eases once.
+    if (s.bladeT != null && s.bladeE && T > s.bladeT && T - s.bladeT < 0.25) {
+      const k = 1 - Math.exp(-(T - s.bladeT) * 16);
+      bBlade = [lerp(s.bladeE[0], bBlade[0], k), lerp(s.bladeE[1], bBlade[1], k), lerp(s.bladeE[2], bBlade[2], k)];
+    } else if (s.bladeT === T && s.bladeE) bBlade = s.bladeE.slice();
+    if (s.bladeT !== T) { s.bladeE = bBlade.slice(); s.bladeT = T; }
     // action targets
     let aBlade = null, aR = null, aL = null;
     if (shot) {

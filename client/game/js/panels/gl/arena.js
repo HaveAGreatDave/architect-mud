@@ -496,7 +496,7 @@ export function createArenaRenderer(canvas, overlay, W, ice) {
 
     // ── this frame's geometry ─────────────────────────────────────────────────
     let propsN = 0;
-    function buildFrame(P) {
+    function buildFrame(P, eye) {
       for (const k of ['rows', 'dyn', 'jers', 'label', 'tr', 'netm', 'gdec', 'shad']) M.reset(B[k]);
       const d = B.dyn;
       // the crowd rows, standing when the building is up
@@ -522,13 +522,22 @@ export function createArenaRenderer(canvas, overlay, W, ice) {
         const p = b.rag ? b.rag.pts[0] : b;
         shadow(p.x, p.y, b.rag ? 2.6 : b.kind === 'goalie' ? 1.7 : 1.3);
       }
-      if (!W.puck.hidden) { M.buildPuck(d, W.puck); shadow(W.puck.x, W.puck.y, 0.35); }
+      if (!W.puck.hidden) { M.buildPuck(d, W.puck); shadow(W.puck.x, W.puck.y, 0.35); tail(eye); }
       for (const x of W.debris) M.buildDebris(d, x, W.kits[x.side] || W.kits.a);
       for (const l of W.limbs) { const o = bodyOpts(W, l.owner || { side: l.side }); if (o.kit) M.buildSevered(d, l, o); }
       if (W.stretcher) M.buildStretcher(d, W.stretcher);
       if (W.zamboni) shadow(W.zamboni.x, W.zamboni.y, 6.5);
       farGlass();
       return particles();
+    }
+    // The light tail behind a shot: a faint slate streak (the ice is white, so a white tail
+    // vanishes on it) through the puck's last fifth of a second, nothing at the old end,
+    // strongest at the puck, and strongest of all on a snap shot.
+    function tail(eye) {
+      const T = W.puck.tail;
+      if (!T || T.pts.length < 2 || !(T.fade > 0)) return;
+      const pk = W.puck, pts = [...T.pts, [pk.x, pk.y, pk.z + 0.06]], a = 0.5 * T.k * T.fade;
+      M.ribbon(B.tr, pts, eye, 0.04, 0.26 + 0.2 * T.k, [0.3, 0.4, 0.55, 0], [0.24, 0.33, 0.47, a]);
     }
     function shadow(x, y, r) {
       for (const [ox, oy, a] of [[0, 0, 0.3], [1.3, 0.9, 0.1], [-1.3, 0.9, 0.1]]) {
@@ -612,13 +621,14 @@ export function createArenaRenderer(canvas, overlay, W, ice) {
       const { w, h, u } = fit();
       camera.view = api.view;
       const { C, P } = camera.update(w, h);
+      api.lastP = P;
       if (camera.flash) { flash = camera.flash; camera.flash = 0; }
       const crowdTex = W.crowd > 0.45 ? texUp : texSit;
       const sh = W.shake * 5 * u, sx = sh * (Math.sin(W.t * 47) + 0.5 * Math.sin(W.t * 83 + 1)) / 1.5, sy = sh * (Math.sin(W.t * 59 + 2) + 0.5 * Math.sin(W.t * 97)) / 1.5;
       const shake = [2 * sx / w, -2 * sy / h];
       st.draws = 0; st.tris = 0;
 
-      const nPts = buildFrame(P);
+      const nPts = buildFrame(P, [C.x, C.y, C.z]);
       for (const k of ['rows', 'dyn', 'jers', 'label', 'tr', 'netm', 'gdec', 'shad']) put(L[k], B[k]);
       L.pts.st.write(ptData, nPts * PT_STRIDE); L.pts.n = nPts;
       uploadIce();

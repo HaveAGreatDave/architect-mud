@@ -1267,4 +1267,19 @@ Another lap.
 The Zamboni goes round again.
 ::endlines
 
+::lines pbp.retrieve
+{player} goes back for it.
+{player} retrieves it.
+{player} gathers up the loose puck.
+{player} picks it up.
+{player} runs it down.
+::endlines
+
+::lines pbp.chase
+Race for it.
+Chasing it down.
+After it into the corner.
+Footrace.
+::endlines
+
 END

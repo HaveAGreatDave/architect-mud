@@ -19,7 +19,7 @@ import { __install } from './rink-dom-stub.mjs';
 
 const stub = __install();
 const { createRinkView, __test } = await import('../../client/game/js/panels/gameday-rink.js');
-const { DT } = await import('../../client/game/js/panels/rink/rig.js');
+const { DT, bladeWorld } = await import('../../client/game/js/panels/rink/rig.js');
 const { GOAL_X, DOT_FT } = await import('../../client/game/js/panels/rink/geo.js');
 const { sportsRng, sportsHash, sportsPick, sportsFill } = await import('../../plugins/broadcast/rng.js');
 const HOCKEY = (await import('../../plugins/broadcast/sports/hockey.js')).default;
@@ -74,15 +74,34 @@ async function play(slot) {
   const resurfaced = { n: 0 };
   const rs = W.ice.resurface; W.ice.resurface = (...a) => { resurfaced.n++; return rs(...a); };
   let lastFight = null, tApply = 0, landedAt = null, grabAt = null, boxAt = null;
+  // THE PUCK NEVER SNAPS. Outside a camera cut it never moves farther in a step than a
+  // shot carries it, and nobody gains it from beyond a stick's reach.
+  const jumps = [], snaps = [], pendingGives = [];
+  const give0 = W.give;
+  W.give = (b, force) => {
+    const pk = W.puck, bw = b ? bladeWorld(b, W.t, true) : null, d = bw ? Math.hypot(bw[0] - pk.x, bw[1] - pk.y) : 0, hidden = pk.hidden;
+    const ok = give0(b, force);
+    if (ok && b && d > 3.2 && !hidden) pendingGives.push(`${b.name || b.kind} from ${d.toFixed(1)} ft at ${(W.t - tApply).toFixed(2)}s`);
+    return ok;
+  };
+  // a frame every four seconds of play, counted across calls: reset per call, it drew
+  // once per caption line and was half the gate's CPU
+  let next = W.t;
   const run = (secs, until) => {
-    const t0 = W.t; let next = W.t;
+    const t0 = W.t;
     while (W.t - t0 < secs) {
+      const pk = W.puck, cut0 = W.cam.cut, x0 = pk.x, y0 = pk.y, h0 = pk.hidden;
       W.step(DT);
+      if (W.cam.cut === cut0) {
+        if (!h0 && !pk.hidden && Math.hypot(pk.x - x0, pk.y - y0) > 1.6) jumps.push(`${Math.hypot(pk.x - x0, pk.y - y0).toFixed(1)} ft at ${(W.t - tApply).toFixed(2)}s (${D.kind() || 'between plays'}) from ${x0.toFixed(1)},${y0.toFixed(1)}`);
+        snaps.push(...pendingGives);
+      }
+      pendingGives.length = 0;
       if (W.fight) lastFight = W.fight;
       if (landedAt == null && D.state.beat && D.state.beat.landed) landedAt = W.t - tApply;
       if (grabAt == null && D.state.beat && D.state.beat.grab) grabAt = W.t - tApply;
       if (boxAt == null && D.state.beat && D.state.beat.toBox) boxAt = W.t - tApply;
-      if (W.t >= next) { next = W.t + 2.5; view.renderer.render(W.t * 1000); renders++; }
+      if (W.t >= next) { next = W.t + 4; view.renderer.render(W.t * 1000); renders++; }
       if (until && until()) break;
     }
     stub.runTimers(0);
@@ -172,6 +191,8 @@ async function play(slot) {
     check(`${label}: skaters on the ice`, n >= 8 && n <= 12 || g.type === 'intermission', `${n}`);
   }
   check(`${slot}: no position ever went non-finite`, nan === 0, `${nan}`);
+  check(`${slot}: the puck never jumps outside a cut`, jumps.length === 0, `${jumps.length}: ${jumps.slice(0, 4).join(', ')}`);
+  check(`${slot}: nobody gains the puck from beyond his reach`, snaps.length === 0, `${snaps.length}: ${snaps.slice(0, 4).join(', ')}`);
   check(`${slot}: the renderer drew`, renders > 100 && stub.drawn.images > 1000, `${renders} frames, ${stub.drawn.images} images`);
   check(`${slot}: the held caption went up`, String(host.find('.gdr-cap-text')?.textContent || '').length > 0);
   check(`${slot}: sounds played`, stub.sounds.length > 20, `${stub.sounds.length}`);

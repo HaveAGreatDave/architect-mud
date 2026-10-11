@@ -145,6 +145,10 @@ body(skaters[8], 'skater missing his head', null, BUD);
   check('the Zamboni is out', !!W.zamboni);
   if (W.zamboni) { n0 = b.n; const t1 = t.n; M.buildZamboni(b, t, W.zamboni, W.t); check('Zamboni: body and lettering built', b.n > n0 && t.n > t1); }
   check('furniture: finite', finite(b) && finite(t));
+  // the tail a shot leaves: a ribbon through its last points, faced to the camera
+  const tl = M.createBatch();
+  M.ribbon(tl, [[100, 40, 0.1], [101.5, 40.2, 0.15], [103, 40.4, 0.3], [104.5, 40.6, 0.5]], [100, -30, 30], 0.04, 0.5, [1, 1, 1, 0], [1, 1, 1, 0.5]);
+  check('shot tail: a ribbon of three segments', tl.n === 18 && finite(tl), `${tl.n} verts`);
 }
 // a whole frame, every man near the camera
 {
@@ -161,6 +165,32 @@ body(skaters[8], 'skater missing his head', null, BUD);
   let ok = true;
   for (let i = 0; i < t.n; i++) { const o = i * M.STRIDE, u = t.data[o + 10], v = t.data[o + 11]; if (u < 0.25 - 1e-6 || u > 0.375 + 1e-6 || v < 0.5 - 1e-6 || v > 0.625 + 1e-6) { ok = false; break; } }
   check('jersey UVs stay inside their slot', ok);
+}
+
+// ── the puck is never put on a stick ─────────────────────────────────────────
+// It's collected: slid or fetched to the blade, out of the net through the mouth, and
+// never farther in a step than a hard shot carries it.
+{
+  const W2 = createWorld(createIce(document), 'collect');
+  createDirector(W2, {});
+  for (let i = 0; i < 60; i++) W2.step(DT);
+  const pk = W2.puck, m = W2.skaters().find((b) => b.active && b.stick);
+  const watch = (secs) => { let worst = 0; for (let i = 0; i < secs / DT && pk.carrier !== m; i++) { const x = pk.x, y = pk.y; W2.step(DT); worst = Math.max(worst, Math.hypot(pk.x - x, pk.y - y)); } return worst; };
+  W2.puckScripted = true; W2.frozen = true;
+  // from 40 feet: a give becomes a collect, and it arrives
+  if (pk.carrier) W2.loose(0, 0);
+  pk.x = m.x + 40; pk.y = Math.min(RW - 5, Math.max(5, m.y)); pk.z = 0; pk.vx = pk.vy = 0;
+  check('a give from 40 ft is refused', W2.give(m) === false && pk.carrier !== m);
+  let worst = watch(4);
+  check('a collected puck arrives on his stick', pk.carrier === m);
+  check('a collected puck never jumps', worst < 1.6, `${worst.toFixed(2)} ft in a step`);
+  // out of the net: through the mouth, not the mesh
+  W2.loose(0, 0); pk.x = GOAL_X[1] + 1.6; pk.y = MID_Y; pk.z = 0; pk.inNet = 'h';
+  m.x = GOAL_X[1] - 14; m.y = MID_Y; m.vx = m.vy = 0;
+  W2.give(m);
+  worst = watch(5);
+  check('a netted puck comes out through the mouth to him', pk.carrier === m && !pk.inNet, `carrier ${pk.carrier && pk.carrier.name}, inNet ${pk.inNet}`);
+  check('coming out of the net it never jumps', worst < 1.6, `${worst.toFixed(2)} ft in a step`);
 }
 
 // ── 3. the ice lists what changed ────────────────────────────────────────────

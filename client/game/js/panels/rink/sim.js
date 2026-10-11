@@ -37,7 +37,11 @@ export function dribble(c, pk, T, dt, rand = Math.random) {
   {
     const ch = Math.cos(c.h), sn = Math.sin(c.h), dx = pk.x - c.x, dy = pk.y - c.y;
     const lu = dx * ch + dy * sn, lv = -dx * sn + dy * ch, [ku, kv] = keepOut(lu, lv, 0.15);
-    if (ku !== lu || kv !== lv) { pk.x = c.x + ku * ch - kv * sn; pk.y = c.y + ku * sn + kv * ch; pk.vx = lerp(pk.vx, c.vx || 0, 0.5); pk.vy = lerp(pk.vy, c.vy || 0, 0.5); }
+    if (ku !== lu || kv !== lv) {
+      // eased out, a few inches a step, rather than jumped clear
+      const tx = c.x + ku * ch - kv * sn, ty = c.y + ku * sn + kv * ch, dd = Math.hypot(tx - pk.x, ty - pk.y), m = Math.min(1, 30 * dt / (dd || 1));
+      pk.x += (tx - pk.x) * m; pk.y += (ty - pk.y) * m; pk.vx = lerp(pk.vx, c.vx || 0, 0.5); pk.vy = lerp(pk.vy, c.vy || 0, 0.5);
+    }
   }
   const bw = bladeWorld(c, T, true);
   const d = Math.hypot(pk.x - bw[0], pk.y - bw[1]);
@@ -46,7 +50,8 @@ export function dribble(c, pk, T, dt, rand = Math.random) {
   // puck is drawn back softly if it strays past a short gap from where his blade is.
   const gap = shooting ? 1.0 : sp > 18 ? 1.9 : 1.2;
   if (d > gap) {
-    const k = (1 - Math.exp(-dt * 14)) * (d - gap) / d;
+    // (eased, and never faster than a hard pass: the puck slides back, it doesn't jump)
+    const k = Math.min((1 - Math.exp(-dt * 14)) * (d - gap), 45 * dt) / d;
     pk.x += (bw[0] - pk.x) * k; pk.y += (bw[1] - pk.y) * k;
     pk.vx = lerp(pk.vx, c.vx || 0, k); pk.vy = lerp(pk.vy, c.vy || 0, k);
   }
@@ -110,7 +115,7 @@ export function createWorld(ice, seedKey) {
   const W = {
     t: 0, rand, ice,
     team: { a: [], h: [] }, goalie: { a: null, h: null }, officials: [], extras: [],
-    puck: { x: 100, y: MID_Y, z: 0, vx: 0, vy: 0, vz: 0, carrier: null, target: null, held: null, passT0: 0, inNet: null, owner: null },
+    puck: { x: 100, y: MID_Y, z: 0, vx: 0, vy: 0, vz: 0, carrier: null, target: null, held: null, passT0: 0, inNet: null, owner: null, home: null, tail: null },
     parts: [], debris: [], limbs: [], stretcher: null, zamboni: null,
     flex: new Float32Array(PANELS), cracks: [], glassBlood: [], broken: new Set(),
     crowd: 0.15, shake: 0, boardShake: 0, hitstop: 0, lamp: 0, lampSide: null, mourning: 0, dim: 0,
@@ -145,20 +150,54 @@ export function createWorld(ice, seedKey) {
   W.sfx = (key, opts) => W.emit('sfx', { key, ...(opts || {}) });
 
   // ── the puck ───────────────────────────────────────────────────────────────
-  W.give = (b) => {
+  // ⚠ THE PUCK NEVER JUMPS TO A STICK. Possession is only ever taken within reach of the
+  // blade. Asked to hand it to a man it's farther from than that, `give` collects instead:
+  // the puck is fetched (he skates to it, if he's scripted and `drive` is set) and swept in
+  // the last few feet, and possession passes when it arrives. A caller that has just moved
+  // the puck under a camera cut, where nobody sees the jump, passes `force`.
+  const REACH = 3.0;
+  W.give = (b, force) => {
     const pk = W.puck;
+    if (b && !force && !pk.hidden) {
+      // nobody fishes a puck out of the net through the mesh: it's collected, out the mouth
+      if (pk.inNet) { W.collect(b); return false; }
+      const bw = bladeWorld(b, W.t, true);
+      if (Math.hypot(bw[0] - pk.x, bw[1] - pk.y) > REACH || pk.z > 1.2) { W.collect(b); return false; }
+    }
     if (pk.carrier) pk.carrier.carrying = false;
-    pk.carrier = b; pk.target = null; pk.held = null; pk.inNet = null;
-    if (b) { b.touchT = 0; b.puckAt = [pk.x, pk.y]; }
+    pk.carrier = b; pk.target = null; pk.held = null; pk.inNet = null; pk.home = null;
+    if (b) { b.touchT = 0; b.puckAt = [pk.x, pk.y]; b.reachTo = null; endFetch(b); }
     if (b) { b.carrying = true; pk.owner = b.side; if (b.kind === 'skater') W.amb.poss = b.side; }
+    return true;
   };
+  // Send the puck to a man without teleporting it. With `drive`, a scripted man skates to
+  // it first and the puck only comes to him over the last few feet (or after a couple of
+  // seconds, if he can't get there); without, it slides to his blade like a pass.
+  W.collect = (b, drive = false) => {
+    const pk = W.puck;
+    if (!b) return;
+    if (pk.carrier && pk.carrier !== b) { pk.carrier.carrying = false; pk.carrier.puckAt = null; pk.carrier = null; }
+    if (pk.carrier === b) return;
+    pk.target = null; pk.held = null;
+    if (pk.home && pk.home !== b) endFetch(pk.home);
+    pk.home = b; pk.homeT0 = W.t; pk.homeDrive = !!(drive && b.scripted);
+    if (pk.homeDrive && !b.fetchPrev) b.fetchPrev = { tx: b.tx, ty: b.ty, maxV: b.maxV };
+  };
+  function endFetch(b) {
+    if (b.fetchPrev) { b.tx = b.fetchPrev.tx; b.ty = b.fetchPrev.ty; b.maxV = b.fetchPrev.maxV; b.fetchPrev = null; }
+    b.reachTo = null;
+  }
   W.loose = (vx, vy, vz = 0) => {
     const pk = W.puck;
     if (pk.carrier) { pk.carrier.carrying = false; pk.carrier.puckAt = null; }
-    pk.carrier = null; pk.target = null; pk.held = null; pk.vx = vx; pk.vy = vy; pk.vz = vz;
+    if (pk.home) { endFetch(pk.home); pk.home = null; }
+    pk.carrier = null; pk.target = null; pk.held = null; pk.vx = vx; pk.vy = vy; pk.vz = vz; pk.drag = 0;
   };
+  // Only a man with the puck on his stick can pass it. Asked to pass it from out of reach,
+  // he collects it instead and the pass isn't made.
   W.pass = (from, to, spd = 70) => {
     const pk = W.puck;
+    if (from && pk.carrier !== from) { const bw = bladeWorld(from, W.t, true); if (Math.hypot(bw[0] - pk.x, bw[1] - pk.y) > REACH) { W.collect(from); return false; } }
     W.loose(0, 0);
     let tx = to.x, ty = to.y;
     for (let i = 0; i < 3; i++) {
@@ -171,21 +210,30 @@ export function createWorld(ice, seedKey) {
     pk.vx = (tx - pk.x) / d * spd; pk.vy = (ty - pk.y) / d * spd; pk.vz = 0;
     pk.target = to; pk.passT0 = W.t;
     W.sfx('pass');
+    return true;
   };
-  W.shoot = (from, tgt, spd) => {
+  // A shot leaves a light tail behind it, brightest on a snap shot.
+  const TAIL = { snap: 1, slap: 0.75, onetimer: 0.7, wrist: 0.5, tip: 0.45, backhand: 0.4, wrap: 0.35 };
+  W.shoot = (from, tgt, spd, type) => {
     const pk = W.puck;
     W.loose(0, 0);
+    pk.tail = { t0: W.t, k: TAIL[type] ?? 0.5, pts: [] };
     const d = Math.hypot(tgt[0] - pk.x, tgt[1] - pk.y) || 1, tt = d / spd;
     pk.vx = (tgt[0] - pk.x) / d * spd; pk.vy = (tgt[1] - pk.y) / d * spd; pk.vz = (tgt[2] - pk.z) / tt + (G / 2) * tt; pk.z = Math.max(pk.z, 0.05);
     W.burst('spray', pk.x, pk.y, 0.2, 8, 5, [0, 0, 2]);
     W.crowd = Math.max(W.crowd, 0.5);
     return tt;
   };
+  // A loose puck that should come to rest near (x, y): more drag on it until it does.
+  W.settleAt = (x, y) => { const pk = W.puck, d = Math.hypot(x - pk.x, y - pk.y), v = Math.hypot(pk.vx, pk.vy); pk.drag = clamp(v / Math.max(3, d), 0.35, 4); };
   W.dumpTo = (from, x, y, spd = 62) => {
     const pk = W.puck;
     W.loose(0, 0);
     const d = Math.hypot(x - pk.x, y - pk.y) || 1;
     pk.vx = (x - pk.x) / d * spd; pk.vy = (y - pk.y) / d * spd; pk.vz = 3;
+    // it's put in to a spot, not down the length of the rink: the boards and the snow bleed
+    // its speed so it settles about where it was aimed, where the man chasing it can get it
+    W.settleAt(x, y);
     W.sfx('shot', { soft: true });
   };
 
@@ -198,39 +246,79 @@ export function createWorld(ice, seedKey) {
       const x0 = Math.min(n.gx, n.gx + n.dir * NET_DEPTH), x1 = Math.max(n.gx, n.gx + n.dir * NET_DEPTH);
       const y0 = MID_Y - NET_HALF, y1 = MID_Y + NET_HALF;
       if (pk.inNet === n.side) {
+        // being collected, it comes back out through the mouth, and is out once it's past it
+        if (pk.home && (pk.x - n.gx) * n.dir < 0) { pk.inNet = null; continue; }
+        let lo = x0 + 0.15, hi = x1 - 0.15;
+        if (pk.home) { if (n.dir > 0) lo = -Infinity; else hi = Infinity; }
         // inside: stop against the mesh
-        const bx = clamp(pk.x, x0 + 0.15, x1 - 0.15), by = clamp(pk.y, y0 + 0.15, y1 - 0.15);
+        const bx = clamp(pk.x, lo, hi), by = clamp(pk.y, y0 + 0.15, y1 - 0.15);
         if (bx !== pk.x || by !== pk.y) { pk.x = bx; pk.y = by; pk.vx *= -0.15; pk.vy *= -0.15; W.netBulge[n.side] = 1; }
         pk.z = Math.min(pk.z, NET_H - 0.3);
         continue;
       }
-      if (pk.z > NET_H + 0.2) continue;
       const inside = pk.x > x0 - 0.2 && pk.x < x1 + 0.2 && pk.y > y0 - 0.2 && pk.y < y1 + 0.2;
       if (!inside) continue;
+      // a puck coming down on the net bounces off the roof rather than dropping inside it
+      if ((pk.lz ?? pk.z) > NET_H + 0.2) { if (pk.z < NET_H + 0.2 && pk.vz < 0) { pk.z = NET_H + 0.2; pk.vz = -pk.vz * 0.3; W.netBulge[n.side] = 0.4; } continue; }
       // it came in through the mouth if, a step ago, it was still on the ice side of the line
       const fromMouth = ((pk.lx ?? pk.x) - n.gx) * n.dir < 0.3 && pk.vx * n.dir > 0;
       if (fromMouth && W.allowGoal === n.side) { pk.inNet = n.side; W.netBulge[n.side] = 1; W.emit('goalIn', { side: n.side }); continue; }
       // the frame and the mesh push it back out the way it came
-      if (fromMouth) { pk.vx = -pk.vx * 0.35; pk.x = n.gx - n.dir * 0.3; }
-      else if (Math.abs(pk.y - MID_Y) > NET_HALF - 0.3) { pk.vy = -pk.vy * 0.5; pk.y = pk.y > MID_Y ? y1 + 0.3 : y0 - 0.3; }
+      // (out through whichever face it's nearest, so a puck nudged in at the front comes
+      // back out the front rather than appearing behind the net)
+      const back = n.dir > 0 ? x1 : x0, lx = pk.lx ?? pk.x, ly = pk.ly ?? pk.y;
+      let dF = Math.abs(pk.x - n.gx), dB = Math.abs(pk.x - back), dS = NET_HALF - Math.abs(pk.y - MID_Y);
+      // the face it came through, judged from where it was a step ago, wins
+      if ((lx - n.gx) * n.dir < 0) dF = -1; else if ((lx - back) * n.dir > 0) dB = -1; else if (Math.abs(ly - MID_Y) > NET_HALF) dS = -1;
+      if (fromMouth || (dF <= dB && dF <= dS)) { pk.vx = -pk.vx * 0.35; pk.x = n.gx - n.dir * 0.3; }
+      else if (dS <= dB) { pk.vy = -pk.vy * 0.5; pk.y = pk.y > MID_Y ? y1 + 0.3 : y0 - 0.3; }
       else { pk.vx = -pk.vx * 0.5; pk.x = n.dir > 0 ? x1 + 0.3 : x0 - 0.3; }
     }
   }
   function stepPuck(dt) {
     const pk = W.puck;
-    if (pk.held) { const J = goalieRig(pk.held, W.t); const hnd = J[6]; pk.x = hnd[0]; pk.y = hnd[1]; pk.z = hnd[2]; pk.vx = pk.vy = pk.vz = 0; return; }
+    if (pk.held) {
+      // into the goalie's hand: glided there if it isn't already, then held
+      const J = goalieRig(pk.held, W.t), hnd = J[6], d = Math.hypot(hnd[0] - pk.x, hnd[1] - pk.y, hnd[2] - pk.z);
+      const k = d > 0.5 ? Math.min(1 - Math.exp(-dt * 10), 70 * dt / d) : 1;
+      pk.x += (hnd[0] - pk.x) * k; pk.y += (hnd[1] - pk.y) * k; pk.z += (hnd[2] - pk.z) * k; pk.vx = pk.vy = pk.vz = 0;
+      pk.tail = null;
+      if (pk.home) { endFetch(pk.home); pk.home = null; }
+      return;
+    }
+    if (pk.home && !pk.carrier) {
+      const h = pk.home;
+      if (!h.active || h.rag || !h.stick) { endFetch(h); pk.home = null; }
+      else {
+        const bl = bladeWorld(h, W.t, true), net = pk.inNet ? NETS.find((q) => q.side === pk.inNet) : null;
+        // out of the net, it's steered to the mouth first
+        const b = net ? [net.gx - net.dir * 1.2, MID_Y] : bl, dx = b[0] - pk.x, dy = b[1] - pk.y, d = Math.hypot(dx, dy) || 1e-6;
+        if (d < 4.5 && !net) h.reachTo = [pk.x, pk.y];
+        if (d < 2.4 && pk.z < 0.8 && !net) { const was = h; W.give(was, true); W.sfx('receive'); }
+        else if (net || !pk.homeDrive || d < 7 || W.t - pk.homeT0 > 2.4) {
+          // swept or slid to him: re-aimed every step, quick from far and soft on arrival
+          const sp = Math.min(55, 8 + d * 3.2), tvx = dx / d * sp + (h.vx || 0), tvy = dy / d * sp + (h.vy || 0);
+          const k = 1 - Math.exp(-dt * 6);
+          pk.vx += (tvx - pk.vx) * k; pk.vy += (tvy - pk.vy) * k;
+        }
+      }
+    }
     if (pk.carrier) {
       const c = pk.carrier;
       if (!c.active || c.rag || !c.stick) { W.loose(c.vx * 0.6, c.vy * 0.6); }
-      else {
+      else if ((() => { const bw = bladeWorld(c, W.t, true); return Math.hypot(bw[0] - pk.x, bw[1] - pk.y) > 6; })()) {
+        // moved off it (a change, a man put somewhere): it's his to collect, not to yank
+        W.collect(c);
+      } else {
         if (dribble(c, pk, W.t, dt, rand) && W.t - (W.tickAt || 0) > 0.12) { W.tickAt = W.t; W.sfx('tick', { quiet: true }); }
 
       }
     }
     pk.rot = (pk.rot || 0) + (pk.spin || 0) * dt; pk.spin = (pk.spin || 0) * Math.exp(-dt * 0.8);
+    pk.lz = pk.z;
     pk.vz -= G * dt; pk.z += pk.vz * dt;
     if (pk.z < 0) { pk.z = 0; pk.vz = pk.vz < -6 ? -pk.vz * 0.3 : 0; }
-    if (pk.z === 0) { const f = Math.exp(-(pk.inNet ? 3 : 0.35) * dt); pk.vx *= f; pk.vy *= f; }
+    if (pk.z === 0) { const f = Math.exp(-(pk.inNet ? 3 : pk.drag || 0.35) * dt); pk.vx *= f; pk.vy *= f; }
     pk.lx = pk.x; pk.ly = pk.y;
     pk.x += pk.vx * dt; pk.y += pk.vy * dt;
     const c = insideRink(pk.x, pk.y, 0.3);
@@ -245,6 +333,16 @@ export function createWorld(ice, seedKey) {
     }
     puckNets(pk);
     if (pk.carrier) pk.carrier.puckAt = [pk.x, pk.y];
+    if (pk.tail) {
+      // the tail: the last fifth of a second of flight, while it's flying
+      const T = pk.tail, sp = Math.hypot(pk.vx, pk.vy, pk.vz);
+      if (pk.carrier || pk.inNet || W.t - T.t0 > 2 || (sp < 20 && !T.pts.length)) pk.tail = null;
+      else {
+        if (!T.at || W.t - T.at >= 1 / 60) { T.at = W.t; T.pts.push([pk.x, pk.y, pk.z + 0.06]); if (T.pts.length > 12) T.pts.shift(); }
+        T.fade = Math.min(1, Math.max(0, (sp - 20) / 45));
+        if (T.fade <= 0 && T.pts.length) T.pts.shift();
+      }
+    }
     for (const d of W.limbs) {
       // the puck can hit what's lying on the ice
       for (const p of d.pts) {
@@ -254,7 +352,11 @@ export function createWorld(ice, seedKey) {
     }
     if (pk.target) {
       const tg = pk.target, b = bladeWorld(tg, W.t, true);
-      if ((Math.hypot(b[0] - pk.x, b[1] - pk.y) < 2.6 && pk.z < 1.2) || W.t - pk.passT0 > 1.6) { if (tg.active && !tg.rag && tg.stick) { W.give(tg); W.sfx('receive'); } else pk.target = null; }
+      const d = Math.hypot(b[0] - pk.x, b[1] - pk.y);
+      if (d < 4.5) tg.reachTo = [pk.x, pk.y];
+      // a pass that misses him isn't put on his stick: it's collected, over however far
+      if (d < 2.6 && pk.z < 1.2) { if (tg.active && !tg.rag && tg.stick) { W.give(tg); W.sfx('receive'); } else pk.target = null; }
+      else if (W.t - pk.passT0 > 1.6) { if (tg.active && !tg.rag && tg.stick) W.collect(tg); else { tg.reachTo = null; pk.target = null; } }
     }
   }
 
@@ -594,7 +696,7 @@ export function createWorld(ice, seedKey) {
       }
       if (!free) continue;
       // possession: pick up a loose puck
-      if (loose && pk.z < 1) {
+      if (loose && pk.z < 1 && !pk.inNet) {
         for (const m of team) {
           if (m.scripted || m.rag || m.blend || !m.stick) continue;
           const b = bladeWorld(m, W.t, true);
@@ -737,6 +839,8 @@ export function createWorld(ice, seedKey) {
     W.t += dt;
     while (W.ev.length && W.ev[0].t <= W.t) W.ev.shift().fn();
     if (W.script) W.script(dt);
+    // a man fetching the puck skates to it, whatever his script last asked of him
+    { const pk = W.puck, h = pk.home; if (h && pk.homeDrive && !pk.carrier) { const d = Math.hypot(pk.x - h.x, pk.y - h.y), sp = Math.hypot(pk.vx, pk.vy); h.tx = pk.x + pk.vx * 0.3; h.ty = pk.y + pk.vy * 0.3; h.maxV = clamp(Math.max(sp + 4, d * 2.2), 8, 25); } }
     ambient(dt);
     officials(dt);
     for (const b of bodies()) if (b.kind !== 'goalie') stepBody(b, dt);

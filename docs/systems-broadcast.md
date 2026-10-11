@@ -989,6 +989,27 @@ first time a payload mentions them, and the number comes from the name, so every
 sees the same sweater. The home club wears its colour and the road club wears white with
 its colour as trim, which keeps two dark clubs apart.
 
+**The puck never jumps to a stick.** Possession only passes within reach of the blade
+(3 ft). `W.give(b)` on a puck farther off than that calls `W.collect(b)` instead: with
+`drive`, a scripted man skates to it (easing up so he meets it rather than overruns it)
+and it's swept in over the last few feet; without, it slides to his blade like a pass,
+never faster than 55 ft/s. A pass that misses its man is collected the same way, a man
+moved away from his own puck loses it to a collect, and the carry leash, the skate
+keep-out and the goalie's catch are all speed-capped. Only a caller that has just moved
+the puck under a camera cut passes `force`. The director plays nothing in a rush until
+the man it needs actually has the puck (a `fetch` leg), a dump is aimed at the next touch
+and bleeds speed to settle there (`W.settleAt`), the nearest teammate chases it, and a
+missed goal is steered in through the mouth rather than placed in the net. The booth
+covers the time: a rush off a loose puck opens with `pbp.retrieve` (the breakout follows
+on the `fetched` cue), and a dump or battle is followed by `pbp.chase`. The rink smoke
+fails on any visible step of the puck over 1.6 ft outside a cut and any gain from beyond
+reach.
+
+**A shot leaves a tail.** `W.shoot(from, tgt, spd, type)` starts `pk.tail`: the puck's
+last fifth of a second of flight, faded by speed. Both renderers draw it as a faint slate
+streak (a white one vanishes on the ice), strongest at the puck and strongest of all on a
+snap shot (`TAIL` in sim.js: snap 1, slap 0.75, one-timer 0.7, wrist 0.5).
+
 **The camera never yaws or rolls.** It pans, climbs, tilts and zooms, so every screen row
 is a line of constant depth across the sheet and the whole ice texture maps to the screen
 with one `drawImage` per row. It lives in `camera.js` so both renderers frame a shot the

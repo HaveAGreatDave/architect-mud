@@ -309,6 +309,7 @@ export function createDirector(W, opts = {}) {
     const g = W.goalie[def];
     if (g && g.active) { g.name = surname(p.goalie); g.num = 30 + (hash(p.goalie || def) % 9); }
     W.puckScripted = true; W.frozen = false;
+    const script = (b) => { b.scripted = true; B.locked.add(b); return b; };
 
     const n0 = nodes[0];
     let cur;
@@ -318,24 +319,34 @@ export function createDirector(W, opts = {}) {
       cur = W.mates(att).find((m) => m.slot === n0.carrier) || W.mates(att)[0];
       setUp(att, n0.x, n0.y, cur);
       fresh(cur); place(cur, n0.x, n0.y, dir > 0 ? 0 : Math.PI);
-      pk.inNet = null; pk.held = null; pk.hidden = false;
-      const bw = bladeWorld(cur, W.t, true); pk.x = bw[0]; pk.y = bw[1]; pk.z = 0; pk.vx = pk.vy = pk.vz = 0;
-      W.give(cur);
+      pk.inNet = null; pk.held = null; pk.hidden = false; pk.tail = null;
+      if (cueOf(p, 'fetched') != null) {
+        // the booth has him going back for it: it lies a few strides off, toward his own net
+        pk.x = clamp(n0.x - dir * 9, 6, RL - 6); pk.y = clamp(n0.y + (n0.y > MID_Y ? -4 : 4), 4, RW - 4); pk.z = 0; pk.vx = pk.vy = pk.vz = 0;
+        if (pk.carrier) W.loose(0, 0);
+        W.collect(cur, true);
+      } else {
+        const bw = bladeWorld(cur, W.t, true); pk.x = bw[0]; pk.y = bw[1]; pk.z = 0; pk.vx = pk.vy = pk.vz = 0;
+        W.give(cur, true);
+      }
       cut('broadcast', [n0.x, n0.y]);
     } else {
-      // carry on from the live picture: whoever of his side is nearest the puck takes it
+      // carry on from the live picture: whoever of his side is nearest the puck goes and
+      // gets it. It's never put on his stick from where it lies.
       cur = W.nearestOf(W.mates(att), pk.x, pk.y) || W.mates(att)[0];
       if (pk.carrier && pk.carrier.side !== att) { W.act(cur, 'poke', 0.35); W.sfx('stick'); }
-      W.give(cur);
+      script(cur);
+      if (!W.give(cur)) W.collect(cur, true);
     }
     D.needCut = false;
     const slotBody = (k) => W.mates(att).find((m) => m.slot === k) || null;
     let li = 1, leg = null, lastPasser = null;
-    const script = (b) => { b.scripted = true; B.locked.add(b); return b; };
     script(cur);
 
     function nextLeg() {
       if (D.beat !== B) return;
+      // nothing is played until he actually has it: a puck on its way to him is fetched
+      if (pk.carrier !== cur) { if (pk.home !== cur) W.collect(cur, true); leg = { kind: 'fetch', t: 0 }; return; }
       if (li >= nodes.length - 2) { shotLeg(); return; }
       // the line for this touch hasn't aired yet: move toward it, timed to arrive with it
       const want = cueOf(p, 'node', 'i', nodes[li].oi);
@@ -350,11 +361,24 @@ export function createDirector(W, opts = {}) {
       li++;
       const tb = nd.carrier >= 0 ? slotBody(nd.carrier) : null;
       if (nd.ev === 'battle' || nd.ev === 'dump') {
-        const chaser = (nx.carrier >= 0 && slotBody(nx.carrier)) || W.nearestOf(W.mates(att).filter((m) => m !== cur), nd.x, nd.y) || cur;
+        // whoever can get there first goes after it (the man the booth names on the next
+        // touch, if he's about as close), so the puck is run down rather than waited for
+        // A dump is put in from where he stands (the node) to where it's next touched, or
+        // deep into the corner if that's no distance; a battle squirts it to the node.
+        let gx = nd.x, gy = nd.y;
+        if (nd.ev === 'dump') {
+          if (Math.hypot(nx.x - nd.x, nx.y - nd.y) > 20) { gx = nx.x; gy = nx.y; }
+          else { gx = clamp(netX + dir * 5, 8, RL - 8); gy = nd.y > MID_Y ? RW - 7 : 7; }
+        }
+        const named = nx.carrier >= 0 ? slotBody(nx.carrier) : null;
+        const reachT = (m) => Math.hypot(m.x - gx, m.y - gy) / 22 - (m === named ? 0.6 : 0) + (m === cur ? 0.8 : 0);
+        const chaser = W.mates(att).filter((m) => !m.rag).reduce((best, m) => (!best || reachT(m) < reachT(best) ? m : best), null) || cur;
         const foe = W.nearestOf(W.mates(def), nd.x, nd.y);
         if (nd.ev === 'dump') {
           W.act(cur, 'dump', 0.45);
-          at(B, 0.2, () => W.dumpTo(cur, nd.x, nd.y, 62));
+          // the chase only starts once it's left his stick
+          const dumper = cur;
+          at(B, 0.2, () => { if (!leg || leg.kind !== 'chase' || pk.carrier !== dumper) return; W.dumpTo(dumper, gx, gy, 62); leg.armed = true; });
         } else {
           // rubbed off it: the puck squirts toward where the battle is
           const nearFoe = W.nearestOf(W.mates(def), cur.x, cur.y);
@@ -362,12 +386,13 @@ export function createDirector(W, opts = {}) {
           W.act(cur, 'stagger', 0.5); cur.react = 0.4;
           const d = Math.hypot(nd.x - pk.x, nd.y - pk.y) || 1, sp = clamp(d * 1.4, 14, 50);
           W.loose((nd.x - pk.x) / d * sp, (nd.y - pk.y) / d * sp, 0);
+          W.settleAt(nd.x, nd.y);
           W.sfx('stick');
         }
         cur.scripted = false;
         script(chaser);
         if (foe) script(foe);
-        leg = { kind: 'chase', chaser, foe, t: 0 };
+        leg = { kind: 'chase', chaser, foe, t: 0, armed: nd.ev !== 'dump' };
         return;
       }
       if (tb && tb !== cur) {
@@ -450,16 +475,25 @@ export function createDirector(W, opts = {}) {
         at(B, 1.8, () => finish(B));
         return;
       }
+      // he can only shoot what's on his stick: a puck still on its way to him is fetched first
+      if (pk.carrier !== shooter) {
+        const bw0 = bladeWorld(shooter, W.t, true);
+        if (Math.hypot(bw0[0] - pk.x, bw0[1] - pk.y) > 3.5 && (B.shotWait = (B.shotWait || 0) + 1) < 30) {
+          if (pk.home !== shooter) W.collect(shooter, true);
+          at(B, 0.1, () => shoot(shooter));
+          return;
+        }
+      }
       W.act(shooter, T, SHOTS[T].dur);
       if (T === 'slap' || T === 'onetimer') { shooter.tx = shooter.x + shooter.vx * 0.5; shooter.ty = shooter.y + shooter.vy * 0.5; shooter.maxV = 8; }
       if (leg && leg.blocker) W.act(leg.blocker, 'block', 0.9);
       at(B, releaseAt(T), () => {
-        if (pk.carrier !== shooter) { const bw = bladeWorld(shooter, W.t, true); pk.x = bw[0]; pk.y = bw[1]; pk.z = 0; W.give(shooter); }
+        if (pk.carrier !== shooter) W.give(shooter, true);
         let a;
         if (kind === 'blocked' && leg && leg.blocker) { const bl = leg.blocker; a = { tgt: [bl.x - dir * 0.8, bl.y, 0.3] }; }
         else a = aim(kind, shooter, def, T, r);
         if (kind === 'goal') W.allowGoal = def;
-        const tt = W.shoot(shooter, a.tgt, SPEED[T] || 80);
+        const tt = W.shoot(shooter, a.tgt, SPEED[T] || 80, T);
         W.sfx('shot', { type: T });
         react(a, tt);
       });
@@ -476,7 +510,10 @@ export function createDirector(W, opts = {}) {
         case 'goal':
           if (gl) at(B, lead * 0.6, () => { if (a.low) { W.act(gl, 'glove', 0.6); gl.gloveTarget = [gl.x + fwd[0], gl.y + fwd[1], 3.6]; gl.gloveW = 0.8; } else { W.act(gl, 'butterfly', 1.2, sideOf(a.tgt)); } });
           // whatever the puck did on the way, a goal ends in the net
-          at(B, tt + 1.2, () => { if (!B.scored) { B.scored = true; pk.x = netX + dir * 1.6; pk.y = MID_Y; pk.z = 0.3; pk.vx = pk.vy = pk.vz = 0; pk.inNet = def; W.netBulge[def] = 1; goal(); } });
+          // whatever the puck did on the way, a goal ends in the net: steered in through the
+          // mouth if it hasn't gone in, and only put there outright if even that fails
+          at(B, tt + 1.2, () => { if (!B.scored) { B.seekNet = true; if (pk.carrier || pk.held) W.loose(pk.vx, pk.vy); } });
+          at(B, tt + 3.0, () => { if (!B.scored) { B.scored = true; B.seekNet = false; pk.x = netX + dir * 1.6; pk.y = MID_Y; pk.z = 0.3; pk.vx = pk.vy = pk.vz = 0; pk.inNet = def; W.netBulge[def] = 1; goal(); } });
           break;
         case 'glove':
           if (gl) { gl.gloveTarget = a.tgt; gl.gloveHold = true; B.gloveRamp = { g: gl, from: W.t + lead * 0.5, dur: Math.max(0.12, tt * 0.7) }; }
@@ -542,6 +579,13 @@ export function createDirector(W, opts = {}) {
 
     B.update = (dt) => {
       W.cam.focus = [pk.x, pk.y];
+      if (B.seekNet && !B.scored) {
+        // to a point in front of the mouth first if it's wide or behind, then in
+        const front = (netX - pk.x) * dir > 1.5 && Math.abs(pk.y - MID_Y) < NET_HALF - 0.6;
+        const tx = front ? netX + dir * 1.6 : netX - dir * 4, ty = MID_Y;
+        const dx = tx - pk.x, dy = ty - pk.y, d = Math.hypot(dx, dy) || 1, k = 1 - Math.exp(-dt * 8);
+        pk.vx += (dx / d * 45 - pk.vx) * k; pk.vy += (dy / d * 45 - pk.vy) * k; pk.vz = Math.min(pk.vz, 0);
+      }
       if (B.celebrate) {
         const sh = B.celebrate;
         W.cam.focus = [sh.x, sh.y];
@@ -565,14 +609,19 @@ export function createDirector(W, opts = {}) {
         if (leg.foe) leg.foe.scripted = false;
         if (leg.kind === 'pass' && leg.to) cur = leg.to;
         if (leg.kind === 'chase' && leg.chaser) cur = leg.chaser;
-        if (pk.carrier !== cur) { const bw = bladeWorld(cur, W.t, true); pk.x = bw[0]; pk.y = bw[1]; pk.z = 0; pk.vx = cur.vx; pk.vy = cur.vy; W.give(cur); }
-        script(cur); li = nodes.length - 2; leg = null; shotLeg();
+        script(cur);
+        if (pk.carrier !== cur && pk.home !== cur) W.collect(cur, true);
+        li = nodes.length - 2; leg = null; shotLeg();
         return;
       }
       const nextCue = nodes[li] ? cueOf(p, 'node', 'i', nodes[li].oi) : null;
       if (nextCue != null && rel >= nextCue + 0.3 && (leg.kind === 'carry' || leg.kind === 'chase')) {
-        if (leg.kind === 'chase') { const c = leg.chaser, bw = bladeWorld(c, W.t, true); pk.x = bw[0]; pk.y = bw[1]; pk.z = 0; pk.vx = c.vx; pk.vy = c.vy; W.give(c); if (leg.foe) leg.foe.scripted = false; cur.scripted = false; cur = c; script(cur); }
+        if (leg.kind === 'chase') { const c = leg.chaser; if (leg.foe) leg.foe.scripted = false; if (cur !== c) cur.scripted = false; cur = c; script(cur); }
         leg = null; nextLeg();
+        return;
+      }
+      if (leg.kind === 'fetch') {
+        if (pk.carrier === cur) { leg = null; nextLeg(); }
         return;
       }
       if (leg.kind === 'wait') {
@@ -594,18 +643,21 @@ export function createDirector(W, opts = {}) {
         if (Math.hypot(cur.tx - cur.x, cur.ty - cur.y) < 4 || leg.t > leg.dist / 17 + 0.6) { leg = null; nextLeg(); }
       } else if (leg.kind === 'pass') {
         if (pk.carrier === leg.to) { leg.from.scripted = false; cur = leg.to; leg = null; nextLeg(); }
-        else if (leg.t > 2.2) { const bw = bladeWorld(leg.to, W.t, true); pk.x = bw[0]; pk.y = bw[1]; W.give(leg.to); }
-      } else if (leg.kind === 'chase') {
+        else if (leg.t > 2.2 && !leg.collecting) { leg.collecting = true; W.collect(leg.to); }
+      } else if (leg.kind === 'chase' && leg.armed) {
         const c = leg.chaser;
-        c.tx = pk.x + pk.vx * 0.25; c.ty = pk.y + pk.vy * 0.25; c.maxV = 25;
+        // he runs it down, easing up as he gets there so he meets it rather than overruns it
+        const bw = bladeWorld(c, W.t, true), dd = Math.hypot(bw[0] - pk.x, bw[1] - pk.y);
+        if (!leg.collecting) { c.tx = pk.x + pk.vx * 0.25; c.ty = pk.y + pk.vy * 0.25; c.maxV = clamp(Math.max(Math.hypot(pk.vx, pk.vy) + 5, dd * 2.4), 8, 25); }
         if (leg.foe) { leg.foe.tx = pk.x + pk.vx * 0.2 - Math.cos(c.h) * 2; leg.foe.ty = pk.y + pk.vy * 0.2; leg.foe.maxV = 23; }
-        const bw = bladeWorld(c, W.t, true);
-        if ((Math.hypot(bw[0] - pk.x, bw[1] - pk.y) < 2.6 && pk.z < 1) || leg.t > 3.4) {
-          if (leg.t > 3.4) { pk.x = bw[0]; pk.y = bw[1]; pk.vx = c.vx; pk.vy = c.vy; }
-          W.give(c); W.sfx('receive');
+        if (dd < 2.6 && pk.z < 1 && pk.carrier !== c) W.give(c);
+        else if (leg.t > 3.4 && !leg.collecting && pk.carrier !== c) { leg.collecting = true; W.collect(c, true); }
+        if (pk.carrier === c) {
+          W.sfx('receive');
           if (pk.y < 9 || pk.y > RW - 9) { W.boardShake = Math.max(W.boardShake, 0.35); W.sfx('boards'); }
           if (leg.foe) leg.foe.scripted = false;
-          cur.scripted = false; cur = c; leg = null; nextLeg();
+          if (cur !== c) cur.scripted = false;
+          cur = c; script(cur); leg = null; nextLeg();
         }
       } else if (leg.kind === 'approach') {
         const sh = leg.shooter;
@@ -633,7 +685,7 @@ export function createDirector(W, opts = {}) {
             if (type === 'tip') {
               // the point shot is the setup; the tip is the shot that counts
               const bw = bladeWorld(sh, W.t + 0.35, true);
-              W.shoot(from, [bw[0], bw[1], 0.4], 75); W.sfx('shot', { type: 'wrist' });
+              W.shoot(from, [bw[0], bw[1], 0.4], 75, 'wrist'); W.sfx('shot', { type: 'wrist' });
               leg.tipAt = W.t + 0.3;
             } else W.pass(from, sh, 78);
           });
@@ -641,9 +693,9 @@ export function createDirector(W, opts = {}) {
         if (leg.fed && type === 'onetimer' && (pk.carrier === sh || (pk.target === sh && Math.hypot(pk.x - sh.x, pk.y - sh.y) < 9))) { leg.kind = 'shooting'; shoot(sh); }
         if (leg.fed && type === 'tip' && leg.tipAt && W.t >= leg.tipAt) {
           leg.kind = 'shooting';
-          const bw = bladeWorld(sh, W.t, true); pk.x = bw[0]; pk.y = bw[1]; pk.z = 0.3; W.give(sh);
+          W.give(sh, true);
           W.act(sh, 'tip', SHOTS.tip.dur);
-          W.schedule(0.02, () => { if (D.beat !== B) return; const a = aim(kind, sh, def, 'tip', r); if (kind === 'goal') W.allowGoal = def; const tt = W.shoot(sh, a.tgt, SPEED.tip); W.sfx('stick'); react(a, tt); });
+          W.schedule(0.02, () => { if (D.beat !== B) return; const a = aim(kind, sh, def, 'tip', r); if (kind === 'goal') W.allowGoal = def; const tt = W.shoot(sh, a.tgt, SPEED.tip, 'tip'); W.sfx('stick'); react(a, tt); });
         }
         if (leg && leg.t > 3 && (shotCue == null || rel > shotCue + 1)) { leg.kind = 'shooting'; shoot(sh); }
       }
@@ -694,7 +746,13 @@ export function createDirector(W, opts = {}) {
       : won != null ? Math.max(1.35, won - 0.7) : 1.35;
     at(B, dropAt - 0.85, () => { if (winC) W.act(winC, 'faceoff', 1.6); if (loseC) W.act(loseC, 'faceoff', 1.6); });
     at(B, dropAt - 0.1, () => { if (lin) W.act(lin, 'point', 0.4); });
-    at(B, dropAt, () => { pk.hidden = false; pk.x = dx; pk.y = dy; pk.z = 4.2; pk.vz = -2; W.sfx('drop'); B.dropped = true; });
+    // dropped from his hand, falling onto the dot rather than appearing on it
+    at(B, dropAt, () => {
+      pk.hidden = false; pk.vz = -2;
+      const tf = (-pk.vz + Math.sqrt(pk.vz * pk.vz + 2 * 32 * Math.max(0.1, pk.z))) / 32;
+      pk.vx = (dx - pk.x) / tf; pk.vy = (dy - pk.y) / tf;
+      W.sfx('drop'); B.dropped = true;
+    });
     B.update = () => {
       W.cam.focus = [dx, dy];
       if (lin) { lin.carrying = false; if (!B.dropped) { pk.x = lin.x + 0.6; pk.y = lin.y + 0.9; pk.z = 4.4; pk.vx = pk.vy = pk.vz = 0; } }
@@ -739,8 +797,9 @@ export function createDirector(W, opts = {}) {
       cut('broadcast', [x0, y0 - 8]);
     }
     D.needCut = false;
-    const bw = bladeWorld(victim, W.t, true); pk.x = bw[0]; pk.y = bw[1]; pk.z = 0; pk.vx = victim.vx; pk.vy = victim.vy;
-    W.give(victim);
+    if (far) { const bw = bladeWorld(victim, W.t, true); pk.x = bw[0]; pk.y = bw[1]; pk.z = 0; pk.vx = victim.vx; pk.vy = victim.vy; pk.tail = null; }
+    // under a cut it's already on his stick; otherwise it's passed up to him
+    W.give(victim, far);
     victim.scripted = true; hitter.scripted = true; B.locked.add(victim); B.locked.add(hitter);
     victim.maxV = 20; hitter.maxV = 27; hitter.acc = 34;
     if (style === 'behind') { victim.tx = x0; victim.ty = y0 + 0.4; victim.maxV = 12; }
@@ -1022,8 +1081,9 @@ export function createDirector(W, opts = {}) {
     place(L, cx - 2.6, cy, 0); place(R, cx + 2.6, cy, Math.PI);
     L.foe = R; R.foe = L; L.face = 0; R.face = Math.PI; L.maxV = R.maxV = 7; L.scripted = R.scripted = true;
     L.stance = R.stance = 0.5;
-    if (pk.carrier) W.loose(0, 0);
-    pk.x = cx + 26; pk.y = cy - 12; pk.vx = pk.vy = 0;
+    // the puck is left to slide away from it; under a cut it's simply over there
+    if (far) { if (pk.carrier) W.loose(0, 0); pk.x = cx + 26; pk.y = cy - 12; pk.vx = pk.vy = 0; pk.tail = null; }
+    else { const dx = cx + 26 - pk.x, dy = cy - 12 - pk.y, d = Math.hypot(dx, dy) || 1; W.loose(dx / d * Math.min(14, d * 0.35), dy / d * Math.min(14, d * 0.35), 0); }
     // the rest stand round and watch
     const ring = W.skaters().filter((m) => m !== L && m !== R);
     ring.forEach((m, k) => { const a = 0.15 * Math.PI + (k / Math.max(1, ring.length - 1)) * 0.7 * Math.PI; m.ring = { a, rad: 20 + (k % 3) * 3 }; m.scripted = true; m.maxV = 9; });

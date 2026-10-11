@@ -400,6 +400,30 @@ export function buildSevered(b, l, o) {
   disc(b, k, V.norm(V.sub(k, a)), 0.25, RAW, 10, 0.05);
 }
 
+// A flat ribbon through `pts`, turned to face `eye`, tapering from `w0` at the first point
+// to `w1` at the last and fading from `c0` to `c1`. Unlit; for the tail a shot leaves.
+export function ribbon(b, pts, eye, w0, w1, c0, c1) {
+  const n = pts.length;
+  if (n < 2) return;
+  grow(b, (n - 1) * 6);
+  const side = (i) => {
+    const a = pts[Math.max(0, i - 1)], c = pts[Math.min(n - 1, i + 1)], p = pts[i];
+    const d = V.norm(V.sub(c, a)), e = V.norm(V.sub(eye, p)), s = V.cross(d, e), l = V.len(s);
+    return l > 1e-4 ? V.mul(s, 1 / l) : [0, 0, 1];
+  };
+  let pa = null, pb = null, ca = null;
+  for (let i = 0; i < n; i++) {
+    const t = i / (n - 1), w = lerp(w0, w1, t) / 2, sd = side(i);
+    const qa = V.add(pts[i], V.mul(sd, w)), qb = V.sub(pts[i], V.mul(sd, w));
+    const cc = [lerp(c0[0], c1[0], t), lerp(c0[1], c1[1], t), lerp(c0[2], c1[2], t), lerp(c0[3], c1[3], t)];
+    if (pa) {
+      vert(b, pa, N0, ca); vert(b, pb, N0, ca); vert(b, qb, N0, cc);
+      vert(b, pa, N0, ca); vert(b, qb, N0, cc); vert(b, qa, N0, cc);
+    }
+    pa = qa; pb = qb; ca = cc;
+  }
+}
+
 // ── the arena's furniture ────────────────────────────────────────────────────
 export function buildPuck(b, pk) {
   disc(b, [pk.x, pk.y, pk.z + 0.06], [0, 0, 1], 0.21, rgb('#0b0c0f'), 14, 0.11);

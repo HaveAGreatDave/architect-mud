@@ -335,7 +335,18 @@ export function createRenderer(canvas, W, ice) {
     if (!e || !f) return;
     const rx = Math.max(1.6, Math.abs(e.x - c.x)), ry = Math.max(0.9, Math.abs(f.y - c.y));
     const spd = Math.hypot(pk.vx, pk.vy);
-    if (spd > 30 && !pk.carrier && !pk.held) {
+    const T = pk.tail;
+    if (T && T.pts.length > 1 && T.fade > 0) {
+      // the light tail behind a shot: a faint slate streak (a white one vanishes on the
+      // ice), strongest at the puck, and strongest of all on a snap shot
+      const pts = [...T.pts, [pk.x, pk.y, pk.z + 0.08]].map((q) => P(q[0], q[1], q[2])), n = pts.length;
+      ctx.lineCap = 'round';
+      for (let i = 1; i < n; i++) {
+        const a = pts[i - 1], b = pts[i]; if (!a || !b) continue;
+        const t = i / (n - 1);
+        line(ctx, a, b, Math.max(0.8, rx * (0.3 + (0.6 + 0.4 * T.k) * t)), `rgba(62,84,120,${(0.5 * T.k * T.fade * t).toFixed(3)})`);
+      }
+    } else if (spd > 30 && !pk.carrier && !pk.held) {
       const b = P(pk.x - pk.vx * 0.05, pk.y - pk.vy * 0.05, pk.z + 0.08);
       if (b) { const g = ctx.createLinearGradient(b.x, b.y, c.x, c.y); g.addColorStop(0, 'rgba(20,24,30,0)'); g.addColorStop(1, 'rgba(20,24,30,0.45)'); line(ctx, b, c, rx * 1.6, g); }
     }
