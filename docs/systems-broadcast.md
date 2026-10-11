@@ -791,6 +791,10 @@ Deadball Mon/Wed/Fri, Cluster Puck **Tue + Thu + Sun**, Jackpot Protocol Saturda
 script declares its code with `@sport`, and **that is the only thing that selects a
 sport module**; nothing else in the pipeline may branch on it.
 
+Deadball's sub-screen is the 2-D Gameday view ([gameday.js](../client/game/js/panels/gameday.js)).
+A 3-D one on Rinkside's pattern, drawn to look like a 1990s baseball game, is planned in
+[proposals/deadball-glass2.md](proposals/deadball-glass2.md) (design).
+
 ### The sport registry
 
 `SPORTS = { baseball, hockey }` in [plugins/broadcast/index.js](../plugins/broadcast/index.js),
