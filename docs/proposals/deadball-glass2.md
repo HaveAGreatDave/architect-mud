@@ -1,7 +1,8 @@
 # Deadball in GLASS 2
 
 **Status: Phase 0 and sim v2 built; Phase 1 under way behind a flag, with the park in 3-D, its
-light, air, lens and grade, and the players posed with their heads built (1a to 1c).** A plan for giving Deadball a 3-D sub-screen the way Cluster Puck got Rinkside, at the
+light, air, lens and grade, the players posed with their heads, and the arcade graphics built
+(1a to 1d).** A plan for giving Deadball a 3-D sub-screen the way Cluster Puck got Rinkside, at the
 highest fidelity the engine can reach. Deadball is a live sport on KSAB, and the broadcast borrows
 the look of a 1990s arcade baseball game. That means skinned, detailed players, authored animation
 with a wide spread of plays, light from the park's own towers and a crowd that fills the stands.
@@ -1133,8 +1134,9 @@ Per viewer with the sub-screen open, per game:
 | Standings | about 87 × 0.5 KB = 43 KB | about 0.5 KB |
 | Play, handedness, hold, sport | none | about 87 × 0.1 KB = 9 KB |
 | Weather at the park | none | about 87 × 40 bytes = 3.5 KB |
+| The men's lines and the leaders (built in 1d) | none | about 87 × 37 bytes + 1.6 KB once = 4.8 KB |
 | Everything else | about 70 KB | about 70 KB |
-| Total | about 115 KB | about 83 KB |
+| Total | about 115 KB | about 88 KB |
 | Club set and venue, with the skyline manifest | none | once per client per revision, held under 64 KB (the manifest is about 15 KB) |
 
 The rendering's weight is all on the client: textures and clips ship with the client code, not per
@@ -1420,6 +1422,22 @@ Phase 3, or with sim v2 if that comes later.
   mirror. Fewer players have long hair than the look-dev gave them, and no umpire does. The
   players cast the towers' shadows, and the faces shade as the Actor Lab's do. Their colours stay
   placeholders (cream and navy at home, grey and rust away) until Phase 5 brings the clubs'.
+- **1d built:** `diamond/hud.js`, the arcade package as a canvas over the picture, a pure layout
+  the gate checks at the wall TV's, the tablet's and the sandbox's sizes and a painter: the score
+  with the bases, the count as lamps, the pitch speed, the zone with the last pitch (through the
+  tube's bulge when the glass is on), a matchup card as each man comes up, the steal's card and
+  clocks, splash words for the cards the broadcast already throws, and between innings the
+  leaders' table, one race at a time; the final's gold; the title-safe area and the glass's
+  scanlines. No word is set under 6 px, which on the tablet's small TV beats scaling down. The
+  numbers are real: the season fold (`foldGame`) now counts steals and the pitchers' wins,
+  losses, outs, earned runs and strikeouts; every play carries the batter's and pitcher's lines
+  as they stood before it, the first payload the leaders, and a steal the clocks from the traits
+  that decided it. Two things moved from the look-dev: the pitch speed sits below the park's
+  scoreboard, which the batting view puts top right on a wide screen, and the matchup card shows
+  for the first seconds of a plate appearance rather than all of it, because at the TV's size it
+  covers the batter. The HTML score bug and cards are gone, and the score is written out for a
+  screen reader. The theme's words, colours and bug are code defaults until the venue carries
+  them (Phase 5); tv.js passes the station's name.
 
 **Phase 2: skinned players and the pitch.** Behind the flag.
 - `gl/skin.js`, the rig, `diamond/anim.js`, the Pose Lab, the pitching, batting, catching and

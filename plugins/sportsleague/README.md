@@ -40,7 +40,8 @@ Each sport folds its own leaderboard alongside the table, out of the beats the s
 ALREADY emits — no second simulation, no stored rows, and the leaders can never
 disagree with the games that aired, because they are folded from the same games.
 
-- **DEADBALL** — batting average, home runs and RBI (`SEASON.foldExtras` in
+- **DEADBALL** — batting average, home runs, RBI, stolen bases and the pitchers'
+  strikeouts (`SEASON.foldExtras` in
   [sports/baseball.js](../broadcast/sports/baseball.js)). Scoring follows real rules:
   a **walk** and a **sacrifice fly** are plate appearances but **not at-bats**, while a
   double play or a productive out is. Count those two as at-bats and every average in

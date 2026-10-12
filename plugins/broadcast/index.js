@@ -24,7 +24,7 @@ import { sportsRng, sportsHash, sportsPick, sportsFill, sportsShuffle } from './
 // Sport modules. One entry today; the registry shape is what a second sport plugs
 // into, so it exists now rather than being retrofitted around hockey later.
 import { BASEBALL } from './sports/baseball.js';
-import { gamedayPayloads } from './sports/baseball-gameday.js';
+import { gamedayPayloads, gamedayLeaders } from './sports/baseball-gameday.js';
 import { HOCKEY } from './sports/hockey.js';
 import {
   gameshowAiring, gameshowDayBucket, getGameshowGraph, gameshowOpenRound, gameshowResolveRound,
@@ -2501,9 +2501,11 @@ function assembleSportsGraph(script, broadcastId, slot, override) {
   // is narrating (batter/pitcher/kind/bases before→after), the line score so far and a
   // pitch sequence seeded off the game seed, so every TV renders it identically. Built
   // by a pure module the gates can run without a server (sports/baseball-gameday.js);
-  // the league table and the season ride only the first payload (see below).
-  const GD = gamedayPayloads(game, gs.seed, { abbr: sportsAbbr, ordinal: sportsOrdinal });
+  // the league table, the leaders and the season ride only the first payload (see below),
+  // and every play carries the batter's and pitcher's lines, folded from the same season.
+  const GD = gamedayPayloads(game, gs.seed, { abbr: sportsAbbr, ordinal: sportsOrdinal, ledger: gamedayLedger('baseball') });
   const gdStandings = gamedayStandings('baseball');
+  const gdLeaders = gamedayLeadersFor('baseball');
   const beatGameday = (b) => GD.atbat.get(b);
   // The half-inning break: `phase: 'half'`, so a client never animates it as a play.
   const halfGameday = (b) => GD.half.get(b);
@@ -2688,8 +2690,8 @@ function assembleSportsGraph(script, broadcastId, slot, override) {
 
   // The league table rides the game's first Gameday payload only: the view keeps it
   // for the game, and a late tuner gets it with the catch-up (sendCatchUp). That one
-  // payload also carries the season: its number, regular season or final, and in a
-  // final each side's seed.
+  // payload also carries the leaders and the season: its number, regular season or
+  // final, and in a final each side's seed.
   {
     const s = seasonOf(sportMod.id);
     const seedOf = (team) => (team === s.finalistA ? 1 : team === s.finalistB ? 2 : null);
@@ -2698,7 +2700,7 @@ function assembleSportsGraph(script, broadcastId, slot, override) {
     for (let id = startId; id; id = nodes[id].next) {
       const gd = nodes[id].gameday;
       if (!gd) continue;
-      nodes[id].gameday = first ? { ...gd, standings: gdStandings, season } : { ...gd };
+      nodes[id].gameday = first ? { ...gd, standings: gdStandings, leaders: gdLeaders, season } : { ...gd };
       first = false;
     }
   }
@@ -2886,7 +2888,7 @@ const STANDINGS_BUG_EVERY_MS = 45000;   // how often the standings graphic flash
 // Cached PER SPORT. A single shared cache meant `recordOf` answered every question out
 // of the baseball table, so a CPhL club was permanently '0-0' no matter how many games
 // its league had played — and the announcer's records line could never fire for hockey.
-const _standingsCaches = new Map();     // sport -> { at, rows }
+const _standingsCaches = new Map();     // sport -> { at, rows, extras }
 const _lastStandingsBug = new Map();    // channelId -> last push ms
 
 // Overheard background-TV lines are throttled so a chatty channel doesn't spam the
@@ -2911,7 +2913,10 @@ async function refreshStandings(nowMs, sport = 'baseball') {
   if (nowMs - cur.at < STANDINGS_CACHE_MS) return cur.rows;
   const res = await dispatchAction({ type: 'sportsleague.getStandings', params: { sport } }).catch(() => null);
   const rows = Array.isArray(res?.rows) ? res.rows : cur.rows;
-  _standingsCaches.set(sport, { at: nowMs, rows });
+  // Everything else the sport's fold returned (Deadball's races and its every-man ledger),
+  // kept beside the table so the Gameday payloads read the same fold.
+  const { rows: _rows, sport: _sport, ...extras } = res || {};
+  _standingsCaches.set(sport, { at: nowMs, rows, extras: res ? extras : cur.extras });
   return rows;
 }
 // The compact table a baseball Gameday payload carries: the top eight, with run
@@ -2920,6 +2925,15 @@ function gamedayStandings(sport) {
   if (sport !== 'baseball') return [];
   return ((_standingsCaches.get('baseball') || {}).rows || []).slice(0, 8)
     .map(r => ({ team: r.team, wins: r.wins, losses: r.losses, rd: (r.runs_for || 0) - (r.runs_against || 0) }));
+}
+// The league's leaders a baseball Gameday payload carries (gamedayLeaders in
+// sports/baseball-gameday.js), off the same fold as the table. Null for another sport.
+function gamedayLeadersFor(sport) {
+  return sport === 'baseball' ? gamedayLeaders((_standingsCaches.get('baseball') || {}).extras || {}) : null;
+}
+// The season so far, every man's line, that a game's payloads start their lines from.
+function gamedayLedger(sport) {
+  return sport === 'baseball' ? ((_standingsCaches.get('baseball') || {}).extras || {}).ledger || null : null;
 }
 
 // A Gameday payload as its line goes on air. A park with a site gets the weather over it
@@ -5712,8 +5726,11 @@ function _recordBeat(state, result, programName, scorebugOverlay, gamedayOverlay
   if (gamedayOverlay)  {
     state.lastGameday  = gamedayOverlay;  state.lastGamedayAt  = nowMs;
     // A game's table rides only its first payload, so keep it for whoever tunes in later,
-    // with its sport: a hockey game after Deadball on the same channel isn't sent it.
-    if (Array.isArray(gamedayOverlay.standings)) state.lastStandings = { sport: gamedayOverlay.sport, rows: gamedayOverlay.standings };
+    // with its sport: a hockey game after Deadball on the same channel isn't sent it. The
+    // leaders and the season ride with it and are kept the same way.
+    if (Array.isArray(gamedayOverlay.standings)) {
+      state.lastStandings = { sport: gamedayOverlay.sport, rows: gamedayOverlay.standings, leaders: gamedayOverlay.leaders || null, season: gamedayOverlay.season || null };
+    }
   }
 }
 
@@ -5753,12 +5770,16 @@ function sendCatchUp(playerId, channelId) {
   if (state.lastScorebug && now - (state.lastScorebugAt || 0) < CATCHUP_BUG_MAX_AGE_MS)
     sendToPlayer(playerId, { type: 'tv_overlay', channelId, overlay: state.lastScorebug });
   if (state.lastGameday && now - (state.lastGamedayAt || 0) < CATCHUP_BUG_MAX_AGE_MS) {
-    // The game's table rides only its first payload, so a late tuner gets it here.
+    // The game's table, leaders and season ride only its first payload, so a late tuner
+    // gets them here.
     const gd = state.lastGameday;
-    const kept = state.lastStandings;
-    const table = kept && kept.sport === gd.sport ? kept.rows : gamedayStandings(gd.sport);
-    const standings = Array.isArray(gd.standings) || !table.length ? null : table;
-    sendToPlayer(playerId, { type: 'tv_overlay', channelId, overlay: standings ? { ...gd, standings } : gd });
+    const kept = state.lastStandings && state.lastStandings.sport === gd.sport ? state.lastStandings : null;
+    const table = kept ? kept.rows : gamedayStandings(gd.sport);
+    const once = {};
+    if (!Array.isArray(gd.standings) && table.length) once.standings = table;
+    if (!gd.leaders && kept?.leaders) once.leaders = kept.leaders;
+    if (!gd.season && kept?.season) once.season = kept.season;
+    sendToPlayer(playerId, { type: 'tv_overlay', channelId, overlay: Object.keys(once).length ? { ...gd, ...once } : gd });
   }
 }
 

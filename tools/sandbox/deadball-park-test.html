@@ -19,7 +19,10 @@
   Grandstand, the park in 3-D (gameday-grandstand.js, Phase 1 of the plan), which in the
   game sits behind the deadball.grandstand flag. ?shot= holds one of its cameras (bat, cf,
   high, side, bag, mound, sky), ?grade= picks the picture (arcade, broadcast or none),
-  ?tube=1 puts it behind tube glass, and ?w= sets the frame's width in CSS pixels.
+  ?tube=1 puts it behind tube glass, ?w= sets the frame's width in CSS pixels, ?bug= the
+  station's bug in the corner (KSAB by default) and ?po=1 dresses the graphics for a final.
+  The season the payloads' lines and leaders come from is a few dozen games between the
+  script's clubs, folded as the standings fold them.
 
   Serve the repo root over HTTP and open /sandbox/deadball-park-test.html (a file://
   page can't fetch the .bsm or load the modules). ?slot=N picks the game, ?sim=2 plays
@@ -75,8 +78,8 @@
   <!-- Classic script: sets window.AudioEngine so the Gameday SFX and the voice play here. -->
   <script src="../client/shared/audio-engine.js"></script>
   <script type="module">
-    import { simGame, simGameV2, playTokens } from '../plugins/broadcast/sports/baseball.js';
-    import { gamedayPayloads } from '../plugins/broadcast/sports/baseball-gameday.js';
+    import { simGame, simGameV2, playTokens, SEASON } from '../plugins/broadcast/sports/baseball.js';
+    import { gamedayPayloads, gamedayLeaders } from '../plugins/broadcast/sports/baseball-gameday.js';
     import { sportsRng, sportsHash, sportsPick, sportsFill } from '../plugins/broadcast/rng.js';
     import { createGamedayView } from '../client/game/js/panels/gameday.js';
     import { createGrandstandView } from '../client/game/js/panels/gameday-grandstand.js';
@@ -85,7 +88,7 @@
     if (Q.get('w')) document.getElementById('tv-window').style.width = `${+Q.get('w')}px`;
     const host = document.getElementById('tv-gameday');
     const view = Q.get('park') === '3d'
-      ? createGrandstandView(host, { force: true, preserve: true, shot: Q.get('shot') || undefined, grade: Q.get('grade') || undefined, tube: Q.get('tube') === '1' })
+      ? createGrandstandView(host, { force: true, preserve: true, shot: Q.get('shot') || undefined, grade: Q.get('grade') || undefined, tube: Q.get('tube') === '1', station: Q.get('bug') ?? 'KSAB' })
       : createGamedayView(host);
     window.__view = view;
     view.showIdle();
@@ -167,6 +170,21 @@
       return [...rows.values()].sort((x, y) => (y.wins - y.losses) - (x.wins - x.losses) || y.rd - x.rd).slice(0, 8);
     }
 
+    // The season so far, as the standings fold it (SEASON in baseball.js): ninety-six games
+    // between the script's clubs, for the leaders and every man's line.
+    let seasonX = null;
+    function seasonOf(teams, players) {
+      if (seasonX) return seasonX;
+      const acc = {};
+      for (let g = 0; g < 96; g++) {
+        const away = teams[g % teams.length], home = teams[(g * 5 + 3) % teams.length];
+        if (away === home) continue;
+        const seed = sportsHash(1000 + g, 0x5ea5);
+        SEASON.foldExtras(acc, simV === 2 ? simGameV2({ away, home }, players, sportsRng(seed), { seed }) : simGame({ away, home }, players, sportsRng(seed)));
+      }
+      return (seasonX = SEASON.summariseExtras(acc));
+    }
+
     let script = null, plays = [], idx = 0, autoTimer = null, slot = 1, simV = 1;
 
     function buildGame() {
@@ -176,8 +194,13 @@
       if (home === away) home = t[(t.indexOf(away) + 1) % t.length];
       const seed = sportsHash(slot >>> 0, 0x00);   // the broadcast's seed for a slot
       const game = simV === 2 ? simGameV2({ away, home }, script.players, sportsRng(seed), { seed }) : simGame({ away, home }, script.players, sportsRng(seed));
-      const { order } = gamedayPayloads(game, seed, { abbr, ordinal });
+      const x = seasonOf(t, script.players);
+      const { order } = gamedayPayloads(game, seed, { abbr, ordinal, ledger: x.ledger });
       if (order[0]) order[0] = { ...order[0], standings: tableFor(t) };
+      // the leaders and the season ride the first payload on air, and a late tuner's catch-up;
+      // here every break carries them, so a break reached by the filter has its table
+      const leaders = gamedayLeaders(x), season = { n: 3, phase: Q.get('po') === '1' ? 'final' : 'regular' };
+      for (let i = 0; i < order.length; i++) if (i === 0 || order[i].phase === 'half') order[i] = { ...order[i], leaders, season };
       const nrng = sportsRng(seed ^ 0x9e3779b9);
       const pick = (...keys) => sportsPick(script.pools, nrng, ...keys);
       const out = order.map((p) => ({ p, text: sportsFill(callFor(p, pick) || p.desc || '', tokOf(p, away, home)).trim() || p.desc || '', card: cardFor(p) }));

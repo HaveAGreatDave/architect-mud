@@ -26,6 +26,12 @@
 //      is its original in a mirror; the cast puts everyone where the payload has them; every
 //      player's face pick is the same twice and never a makeup layout; every cap, helmet and
 //      mask clears the brow and the ears and leaves both eyes open.
+//   7. THE GRAPHICS. diamond/hud.js lays out the arcade package on the wall TV's sub-screen, the
+//      tablet's and the sandbox's, with and without the tube glass: everything inside the frame
+//      (inside the title-safe area behind the glass), no word below the floor or cut short for
+//      the script's longest names, no panel over another, the zone over the plate with a pitch
+//      inside it or out, the tube's bulge undone, the numbers written as a scoreboard writes
+//      them, every mark painted, a card animated in, and no league named in the engine file.
 //
 // It proves the park builds and the cameras agree. It doesn't draw a frame: the sandbox page
 // (tools/sandbox/deadball-park-test.html?park=3d) is for looking.
@@ -387,6 +393,142 @@ for (const kind of ['sit', 'stand', 'cheer']) for (const far of [false, true]) {
   for (let y = MASK_BARS.rows[0]; y < MASK_BARS.size; y += MASK_BARS.rows[1]) near = Math.min(near, Math.abs(y - v));
   check('mask: the crossbars miss the eyes', near > MASK_BARS.width / 2 + 6, `${near.toFixed(1)} texels`);
   console.log(`  · players: the heaviest pose ${worstTris} triangles`);
+}
+
+// ── 7. the graphics ──────────────────────────────────────────────────────────
+{
+  const H = await import(P + 'diamond/hud.js');
+  const { readFileSync } = await import('node:fs');
+  // the wall TV's sub-screen, the tablet's (and a phone's), and the sandbox's biggest
+  const SCREENS = [['wall TV', 730, 328], ['tablet', 330, 160], ['sandbox', 1180, 885]];
+  // the script's longest names (data/scripts/baseball.bsm)
+  const MAN = '"Wheels" McGraw', CLUB = 'Coldwater Kingfishers', CLUB2 = 'Precinct 9 Enforcers';
+  const batRows = Array.from({ length: 5 }, (_, i) => ({ name: i ? `Halvorsen ${i}` : MAN, team: i % 2 ? CLUB : CLUB2, hr: 31 - i, rbi: 88 - i, avg: 0.331 - i / 100, sb: 41 - i }));
+  const armRows = Array.from({ length: 5 }, (_, i) => ({ name: i ? `Okafor ${i}` : MAN, team: i % 2 ? CLUB : CLUB2, w: 14 - i, l: 6 + i, era: 2.81 + i / 10, k: 201 - i }));
+  const base = {
+    score: { away: 'CK', home: 'P9E', aScore: 12, hScore: 10, half: 'bottom', inning: 11, bases: [true, true, true], awayTeam: CLUB, homeTeam: CLUB2 },
+    count: { balls: 3, strikes: 2, outs: 2 }, pitch: { velo: 101, type: 'Four-Seam Fastball', x: 0.5, y: 0.5, result: 'called' }, zone: true, bats: 'R',
+  };
+  const STATES = {
+    'at-bat': { ...base, matchup: { batter: MAN, pitcher: MAN, bNum: 27, pNum: 31, bl: [612, 188, 44, 131, 41], pl: [14, 6, 612, 61, 201], batTeam: CLUB, pitchTeam: CLUB2 } },
+    steal: { ...base, steal: { kind: 'caughtstealing', runner: MAN, num: 9, sb: 13, plate: 1.42, pop: 2.09, base: 3, team: CLUB } },
+    splash: { ...base, splash: { kind: 'grandslam', word: 'GRAND SLAM', sub: `${MAN} · ${CLUB}` } },
+    'the final': { ...base, gold: true, splash: { kind: 'walkoff', word: 'WALK-OFF!', sub: `${MAN} · ${CLUB}` } },
+    'the leaders': { ...base, leaders: { race: 'hr', rows: batRows, season: 12, foot: `${CLUB} 12  ·  ${CLUB2} 10  ·  BOTTOM OF THE 11TH` } },
+    'the strikeouts': { ...base, leaders: { race: 'k', rows: armRows, season: 12, foot: `TONIGHT  ·  ${CLUB} AT ${CLUB2}` } },
+  };
+  // a mark's box, the words measured the way a face sets capitals (FACE_ADVANCE)
+  const wordW = (m, size) => String(m.s).length * H.FACE_ADVANCE[m.face] * size + Math.abs(m.skew ?? 0.2) * size * 0.75;
+  const fitted = (m) => { const w = wordW(m, m.size); return !m.maxW || w <= m.maxW ? m.size : Math.max(m.min, m.size * m.maxW / w); };
+  function boxOf(m) {
+    switch (m.t) {
+      case 'panel': case 'chip': case 'band': case 'box': return [m.x, m.y, m.x + m.w, m.y + m.h];
+      case 'text': {
+        const size = fitted(m), w = Math.min(wordW(m, size), m.maxW || Infinity);
+        const x0 = m.align === 'center' ? m.x - w / 2 : m.align === 'right' ? m.x - w : m.x;
+        return [x0, m.y - size * 0.8, x0 + w, m.y + size * 0.2];
+      }
+      case 'bulb': case 'bag': case 'disc': case 'burst': return [m.x - m.r, m.y - m.r, m.x + m.r, m.y + m.r];
+      case 'rule': return [m.x1, m.y, m.x2, m.y + m.width];
+      default: return null;   // the zone, its mark, the veil and the rays belong to the picture
+    }
+  }
+  const overlap = (a, b) => Math.min(a[2], b[2]) - Math.max(a[0], b[0]) > 0.5 && Math.min(a[3], b[3]) - Math.max(a[1], b[1]) > 0.5;
+  const PERSIST = new Set(['score', 'count', 'speed', 'bug']);
+  for (const [sname, w, h] of SCREENS) for (const safe of [false, true]) for (const [st, state] of Object.entries(STATES)) {
+    const where = `${sname}${safe ? ' behind the glass' : ''}, ${st}`;
+    const L = H.layoutHud(state, w, h, { theme: { bug: 'KSAB' }, safe, project: (p) => C.project('bat', w, h, p) });
+    const [x0, y0, x1, y1] = safe ? [w * 0.05, h * 0.05, w * 0.95, h * 0.95] : [0, 0, w, h];
+    const out = [], small = [], cut = [];
+    for (const m of L.marks) {
+      const b = boxOf(m);
+      if (b && (b[0] < x0 - 0.5 || b[1] < y0 - 0.5 || b[2] > x1 + 0.5 || b[3] > y1 + 0.5)) out.push(`${m.t}:${m.g}${m.s ? ` '${m.s}'` : ''}`);
+      if (m.t === 'text') {
+        if (m.min < H.TEXT_FLOOR || m.size < H.TEXT_FLOOR) small.push(`'${m.s}' ${m.min.toFixed(1)}px`);
+        if (m.maxW && wordW(m, m.min) > m.maxW + 0.5) cut.push(`'${m.s}' ${wordW(m, m.min).toFixed(0)}/${m.maxW.toFixed(0)}`);
+      }
+    }
+    check(`graphics (${where}): inside the ${safe ? 'title-safe area' : 'frame'}`, !out.length, out.slice(0, 4).join(', '));
+    check(`graphics (${where}): no word under the floor`, !small.length, small.slice(0, 3).join(', '));
+    check(`graphics (${where}): the longest names fit without cutting`, !cut.length, cut.slice(0, 3).join(', '));
+    // the panels that stay up don't cover each other, and a card covers none of them
+    const panels = L.marks.filter((m) => m.t === 'panel' || m.t === 'box').map((m) => ({ g: m.g, b: boxOf(m) }));
+    const hit = [];
+    for (let i = 0; i < panels.length; i++) for (let j = i + 1; j < panels.length; j++) {
+      const a = panels[i], c = panels[j];
+      if (a.g === c.g || (!PERSIST.has(a.g) && !PERSIST.has(c.g))) continue;
+      if (overlap(a.b, c.b)) hit.push(`${a.g}/${c.g}`);
+    }
+    check(`graphics (${where}): no panel over another`, !hit.length, hit.join(', '));
+    if (st === 'the leaders' || st === 'the strikeouts') {
+      const words = L.marks.filter((m) => m.t === 'text' && m.g === 'table').map((m) => m.s);
+      check(`graphics (${where}): the table has its five and its lit column`, words.includes('5') && words.some((s) => s.endsWith('▼')) && !L.marks.some((m) => m.g === 'score'), words.slice(0, 6).join(' '));
+    }
+  }
+  // The zone over the plate in the batting view, and a pitch in it or out of it.
+  {
+    const w = 730, h = 328, proj = (p) => C.project('bat', w, h, p);
+    const L = H.layoutHud(base, w, h, { project: proj });
+    const zone = L.marks.find((m) => m.t === 'zone'), mark = L.marks.find((m) => m.t === 'mark');
+    const xs = zone ? zone.pts.map((q) => q[0]) : [], ys = zone ? zone.pts.map((q) => q[1]) : [];
+    check('zone: over the plate, in the lower middle of the batting view',
+      !!zone && Math.abs((Math.min(...xs) + Math.max(...xs)) / 2 - w / 2) < 3 && Math.min(...ys) > h * 0.6 && Math.max(...ys) < h, zone && zone.pts.map((q) => q.map(Math.round).join(',')).join(' '));
+    const inZone = (pt) => pt.x > Math.min(...xs) && pt.x < Math.max(...xs) && pt.y > Math.min(...ys) && pt.y < Math.max(...ys);
+    check('zone: a pitch down the middle marks inside it', !!mark && inZone(mark));
+    const wide = proj(H.pitchPoint({ x: 0.1, y: 0.5, result: 'ball' }));
+    check('zone: a pitch well off the plate marks outside it', !!wide && !inZone(wide));
+    // the 2-D plot's zone edges land on the zone's
+    const edge = H.pitchPoint({ x: 0.25, y: 0.22 });
+    check('zone: the plot\'s zone corner is the zone\'s corner (the catcher\'s left is +x)', Math.abs(edge[0] - H.ZONE.half) < 1e-9 && Math.abs(edge[1] - H.ZONE.high) < 1e-9, edge.join(','));
+    const hbpR = H.pitchPoint({ x: 0.96, y: 0.5, result: 'hbp' }, 'R'), hbpL = H.pitchPoint({ x: 0.04, y: 0.5, result: 'hbp' }, 'L');
+    check('zone: a pitch that hits him is on his side of the plate', hbpR[0] > H.ZONE.half && hbpL[0] < -H.ZONE.half, `${hbpR[0].toFixed(2)} ${hbpL[0].toFixed(2)}`);
+    // behind the glass the zone follows the picture: the tube's bulge undone
+    let worst = 0;
+    for (let i = 0; i < 40; i++) {
+      const pt = { x: (i * 37) % w, y: (i * 53) % h }, q = H.throughTube(pt, w, h);
+      const dx = q.x / w - 0.5, dy = q.y / h - 0.5, k = 1 + (dx * dx + dy * dy) * 0.05;
+      worst = Math.max(worst, Math.abs((0.5 + dx * k) * w - pt.x), Math.abs((0.5 + dy * k) * h - pt.y));
+    }
+    check('zone: through the tube, the bulge undone', worst < 1e-3, worst.toExponential(2));
+  }
+  // A card the broadcast throws shows whatever else is up: over the leaders' table (extra
+  // innings at a break), and before the game has a score (the pre-game matchup).
+  {
+    const sp = { kind: 'extras', word: 'EXTRA INNINGS', sub: '10th' };
+    const over = H.layoutHud({ ...STATES['the leaders'], splash: sp }, 730, 328, {});
+    const groups = over.marks.map((m) => m.g);
+    check('graphics: a splash goes over the leaders\' table', groups.includes('table') && groups.lastIndexOf('splash') > groups.lastIndexOf('table'));
+    const alone = H.layoutHud({ splash: { kind: 'matchup', word: 'DEADBALL', sub: 'Rats vs Kings' } }, 730, 328, { theme: { bug: 'KSAB' } });
+    const words = alone.marks.filter((m) => m.t === 'text').map((m) => m.s);
+    check('graphics: a card before the first pitch is all there is, in the theme\'s word', [...new Set(alone.marks.map((m) => m.g))].join(',') === 'bug,splash' && words.includes('PLAY BALL!'), words.join(' | '));
+  }
+  // the numbers as a scoreboard writes them
+  check('numbers: an average', H.fmtAvg(60, 212) === '.283' && H.fmtAvg(3, 3) === '1.000' && H.fmtAvg(0, 0) === '.000', H.fmtAvg(60, 212));
+  check('numbers: an ERA, and dashes before an out', H.fmtEra(20, 186) === '2.90' && H.fmtEra(0, 0) === '-.--', H.fmtEra(20, 186));
+  check('numbers: the matchup lines', H.batLine([212, 60, 8, 22, 3]) === '.283   8 HR   22 RBI' && H.armLine([5, 2, 186, 20, 44]) === '5–2   2.90 ERA   44 K', H.armLine([5, 2, 186, 20, 44]));
+  // every kind of card the grandstand puts up has its words
+  const W = H.HUD_THEME.words;
+  check('theme: a word for every splash and steal', ['homerun', 'grandslam', 'walkoff', 'doubleplay', 'tripleplay', 'extras', 'gamewin', 'champion', 'matchup', 'steal', 'caughtstealing', 'doublesteal'].every((k) => W[k]));
+  // the painter runs every mark, and a card comes in and settles on the hand-cranked clock
+  {
+    const cv = document.createElement('canvas');
+    const hud = H.createHud(cv, { theme: { bug: 'KSAB' }, project: (p, w, h) => C.project('bat', w, h, p), safe: () => true, motion: () => true });
+    let threw = null;
+    try {
+      for (const state of Object.values(STATES)) { hud.set(state); stub.runFrames(30); }
+    } catch (e) { threw = e.message; }
+    check('graphics: every mark paints', !threw, threw);
+    const kinds = new Set();
+    for (const state of Object.values(STATES)) for (const m of H.layoutHud(state, 730, 328, { project: (p) => C.project('bat', 730, 328, p), theme: { bug: 'KSAB' } }).marks) kinds.add(m.t);
+    check('graphics: the states between them use every kind of mark', ['panel', 'text', 'bulb', 'chip', 'bag', 'zone', 'mark', 'burst', 'disc', 'rays', 'veil', 'band', 'rule', 'box'].every((k) => kinds.has(k)), [...kinds].join(','));
+    hud.set(STATES['at-bat']);
+    stub.runFrames(30);
+    check('graphics: a card animates in and the loop stops', hud.layout.marks.some((m) => m.g === 'matchup'));
+    hud.dispose();
+  }
+  // the engine file names no league, club or network: those ride in with a theme
+  const src = readFileSync(new URL(P + 'diamond/hud.js', import.meta.url), 'utf8').replace(/deadball-glass2\.md/g, '');
+  check('graphics: hud.js names no league, club or network', !/deadball|ksab|coldwater|kingfisher/i.test(src), (src.match(/deadball|ksab|coldwater|kingfisher/i) || [])[0]);
 }
 
 console.log(`ballpark-smoke: ${passes}/${passes + failures} passed · park ${Math.round(baseTris)} triangles, built in ${ms.toFixed(0)} ms`);

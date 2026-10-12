@@ -134,6 +134,7 @@ export function createTvView(root, opts = {}) {
   let _fxTimer = null;
   let _gamedayView = null;
   let _gamedaySport = null;   // which sport the mounted sub-screen renders
+  let _stationName = '';      // the tuned station's name, for a sub-screen's corner bug
   let _gamedayOpen = false;
   let _lastGameday = null;
   let _scheduleOpen = false;
@@ -430,7 +431,8 @@ export function createTvView(root, opts = {}) {
     _tvChannelList = Array.isArray(data.channelList) ? data.channelList : [];
 
     const stationEl = el('station-name');
-    if (stationEl) stationEl.textContent = data.stationName || data.channelName || '——';
+    _stationName = data.stationName || data.channelName || '';
+    if (stationEl) stationEl.textContent = _stationName || '——';
     setAll('channel-num', data.deckInput ? 'CH 0' : (data.channelNumber > 0) ? `CH ${data.channelNumber}` : '——');
     const pnEl = el('program-name');
     if (pnEl) { pnEl.textContent = ''; pnEl.style.opacity = ''; }
@@ -906,7 +908,7 @@ export function createTvView(root, opts = {}) {
     if (_gamedayView && _gamedaySport === want) return _gamedayView;
     _gamedayView?.clear();
     _gamedaySport = want;
-    _gamedayView = want === 'hockey' ? createRinkView(hostEl) : createGrandstandView(hostEl);
+    _gamedayView = want === 'hockey' ? createRinkView(hostEl) : createGrandstandView(hostEl, { station: _stationName });
     return _gamedayView;
   }
 

@@ -96,6 +96,8 @@ async function leagueScreen(player, code) {
     pushRace(races, 'Batting', standings?.batters, (r) => `${fmtAvg(r.avg)} avg · ${r.hits} H in ${r.ab} AB`);
     pushRace(races, 'Home runs', standings?.homers, (r) => `${r.hr} HR · ${r.rbi} RBI`);
     pushRace(races, 'Runs batted in', standings?.rbis, (r) => `${r.rbi} RBI · ${r.hr} HR`);
+    pushRace(races, 'Stolen bases', standings?.steals, (r) => `${r.sb} SB · ${r.cs} CS`);
+    pushRace(races, 'Strikeouts', standings?.strikeouts, (r) => `${r.k} K · ${r.w}-${r.l} · ${(r.era || 0).toFixed(2)} ERA`);
     if (standings?.minAb) races.push({ note: `Qualified: ${standings.minAb}+ at-bats.` });
   } else {
     pushRace(races, 'Scoring', standings?.scorers, (r) => `${r.points} pts · ${r.goals} G, ${r.assists} A`);

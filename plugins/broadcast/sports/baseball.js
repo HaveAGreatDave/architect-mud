@@ -641,6 +641,105 @@ function simGameFor(matchup, players, rand, opts) {
 // What counts as a hit. Deliberately a set rather than a regex: a new at-bat
 // outcome must be classified on purpose, not caught by accident.
 const HIT_KINDS = new Set(['single', 'double', 'triple', 'homerun']);
+// The plays on the bases that count as a man running: a steal, or caught at it.
+const STEAL_PLAYS = new Set(['steal', 'caughtstealing', 'doublesteal']);
+
+// ── The season's ledger ──────────────────────────────────────────────────────
+// Every man's season, folded play by play out of one game's beats into `acc`:
+//
+//   acc.bats: name -> { name, team, pa, ab, hits, hr, rbi, sb, cs }
+//   acc.arms: name -> { name, team, w, l, outs, er, k }
+//
+// SEASON.foldExtras runs it over every game in the window; the Gameday payloads run it
+// over one game on top of the season so far, with `before` and `after` called round
+// each play, to read each man's line as it stood (sports/baseball-gameday.js).
+//
+// SCORING RULES beyond the hitting race's (see SEASON):
+//   • A STOLEN BASE is a man who took the bag he ran for. On a double steal, if either
+//     man is thrown out, neither is credited with one; the man thrown out is caught
+//     stealing. A pickoff isn't a caught stealing.
+//   • A pitcher's OUTS are the outs made while he's on the mound (an inning is three).
+//     Each side's pitcher goes the distance, so the winning side's takes the win.
+//   • EARNED RUNS, the way a scorer rebuilds an inning without its errors: a run is
+//     unearned when it scores on an error or a passed ball, when the man scoring reached
+//     on an error, or when the errors, counted as outs, would already have ended the
+//     inning. A v1 game has no errors, so all its runs are earned.
+export function foldGame(acc, game, { before, after } = {}) {
+  acc.bats = acc.bats || new Map();
+  acc.arms = acc.arms || new Map();
+  // Last team seen wins: the pool is shuffled per game, so a name can turn out for
+  // either side across a season and the recent one reads truer.
+  const bat = (name, team) => {
+    let r = acc.bats.get(name);
+    if (!r) { r = { name, team, pa: 0, ab: 0, hits: 0, hr: 0, rbi: 0, sb: 0, cs: 0 }; acc.bats.set(name, r); }
+    r.team = team || r.team;
+    return r;
+  };
+  const arm = (name, team) => {
+    let r = acc.arms.get(name);
+    if (!r) { r = { name, team, w: 0, l: 0, outs: 0, er: 0, k: 0 }; acc.arms.set(name, r); }
+    r.team = team || r.team;
+    return r;
+  };
+  // the half so far: its outs, the errors that should have been outs, who reached on one
+  let outs = 0, errOuts = 0;
+  const onError = new Set();
+  const pitcherOf = {};   // team -> the man pitching for it
+  for (const b of game.beats || []) {
+    if (b.type === 'half_start') {
+      outs = 0; errOuts = 0; onError.clear();
+      if (b.pitcher && b.fieldingName) pitcherOf[b.fieldingName] = b.pitcher;
+      continue;
+    }
+    if (b.type !== 'atbat' && b.type !== 'run') continue;
+    before?.(b);
+    if (b.pitcher && b.fieldingName && !pitcherOf[b.fieldingName]) pitcherOf[b.fieldingName] = b.pitcher;
+    // the runs on the play, and which of them were earned
+    const runs = Number.isFinite(b.runs) ? b.runs : (b.rbi || 0);
+    let earned = runs;
+    if (runs > 0 && Array.isArray(b.moves)) {
+      earned = outs + errOuts >= 3 || b.kind === 'error' || b.kind === 'passedball' ? 0
+        : Math.min(runs, b.moves.filter((m) => m.to === 4 && !onError.has(m.name)).length);
+    }
+    if (b.kind === 'error' && b.batter) { errOuts += 1; onError.add(b.batter); }
+    const made = Number.isFinite(b.outs) ? Math.max(0, b.outs - outs) : 0;
+    if (Number.isFinite(b.outs)) outs = b.outs;
+    if (b.pitcher) {
+      const p = arm(b.pitcher, b.fieldingName);
+      p.outs += made; p.er += earned;
+      if (b.type === 'atbat' && b.kind === 'strikeout') p.k += 1;
+    }
+    if (b.type === 'atbat' && b.batter) {
+      const r = bat(b.batter, b.battingName);
+      r.pa += 1;
+      if (b.kind !== 'walk' && b.kind !== 'sacfly' && b.kind !== 'hitbypitch') r.ab += 1;
+      if (HIT_KINDS.has(b.kind)) r.hits += 1;
+      if (b.kind === 'homerun') r.hr += 1;
+      r.rbi += b.rbi || 0;
+    } else if (b.type === 'run' && STEAL_PLAYS.has(b.kind)) {
+      // who ran: the play's named moves, or the runner alone when it has none
+      const ran = Array.isArray(b.moves) && b.moves.some((m) => m.name) ? b.moves.filter((m) => m.name)
+        : b.runner ? [b.kind === 'caughtstealing' ? { name: b.runner, out: true } : { name: b.runner, from: 0, to: 1 }] : [];
+      const caught = ran.some((m) => m.out != null);
+      for (const m of ran) {
+        if (m.out != null) bat(m.name, b.battingName).cs += 1;
+        else if (!caught && m.to > m.from) bat(m.name, b.battingName).sb += 1;
+      }
+    }
+    after?.(b);
+  }
+  // the decision
+  const { awayScore: a, homeScore: h } = game;
+  const away = game.away?.name, home = game.home?.name;
+  if (Number.isFinite(a) && Number.isFinite(h) && a !== h && away && home) {
+    const [win, lose] = a > h ? [away, home] : [home, away];
+    if (pitcherOf[win]) arm(pitcherOf[win], win).w += 1;
+    if (pitcherOf[lose]) arm(pitcherOf[lose], lose).l += 1;
+  }
+  return acc;
+}
+// A pitcher's earned run average: earned runs a nine innings, so 27 outs.
+export const eraOf = (r) => (r && r.outs ? (r.er * 27) / r.outs : 0);
 
 export const SEASON = {
   finalName: 'World Series',
@@ -688,22 +787,9 @@ export const SEASON = {
   //   • Everything else (including a double play or a productive out, which are
   //     just outs the batter is charged with) is an at-bat.
   // Get those two exclusions wrong and every average in the league reads low.
+  // The steals and the pitchers' lines come off the same walk (foldGame has their rules).
   foldExtras(acc, game) {
-    acc.bats = acc.bats || new Map();
-    for (const b of game.beats || []) {
-      if (b.type !== 'atbat' || !b.batter) continue;
-      const r = acc.bats.get(b.batter)
-        || { name: b.batter, team: b.battingName, pa: 0, ab: 0, hits: 0, hr: 0, rbi: 0 };
-      // Last team seen wins — the pool is shuffled per game, so a name can turn
-      // out for either side across a season and the recent one reads truer.
-      r.team = b.battingName || r.team;
-      r.pa += 1;
-      if (b.kind !== 'walk' && b.kind !== 'sacfly' && b.kind !== 'hitbypitch') r.ab += 1;
-      if (HIT_KINDS.has(b.kind)) r.hits += 1;
-      if (b.kind === 'homerun') r.hr += 1;
-      r.rbi += b.rbi || 0;
-      acc.bats.set(b.batter, r);
-    }
+    foldGame(acc, game);
   },
   summariseExtras(acc) {
     const all = [...(acc.bats || new Map()).values()];
@@ -716,11 +802,21 @@ export const SEASON = {
     const qualified = all.filter(r => r.ab >= minAb);
     const pool = qualified.length ? qualified : all;   // never show an empty race
     const top = (key, cmp) => [...pool].sort(cmp).slice(0, 5).map(r => ({ ...r, avg: avg(r) }));
+    // Steals and strikeouts are counted, not averaged, so they need no qualifier; a man
+    // with none isn't in the race.
+    const arms = [...(acc.arms || new Map()).values()];
     return {
       batters: top('avg', (a, b) => avg(b) - avg(a) || b.hits - a.hits || a.name.localeCompare(b.name)),
       homers:  top('hr',  (a, b) => b.hr - a.hr || avg(b) - avg(a) || a.name.localeCompare(b.name)),
       rbis:    top('rbi', (a, b) => b.rbi - a.rbi || b.hits - a.hits || a.name.localeCompare(b.name)),
+      steals: all.filter(r => r.sb > 0).sort((a, b) => b.sb - a.sb || a.cs - b.cs || a.name.localeCompare(b.name))
+        .slice(0, 5).map(r => ({ ...r, avg: avg(r) })),
+      strikeouts: arms.filter(r => r.k > 0).sort((a, b) => b.k - a.k || a.outs - b.outs || a.name.localeCompare(b.name))
+        .slice(0, 5).map(r => ({ ...r, era: eraOf(r) })),
       minAb,
+      // Every man's line, for the Gameday payloads' matchup lines. It stays on the
+      // server: the payloads carry only the lines of the men on the field.
+      ledger: { bats: acc.bats || new Map(), arms: acc.arms || new Map() },
     };
   },
 };

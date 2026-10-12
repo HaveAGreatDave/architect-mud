@@ -2793,6 +2793,9 @@ export default async function regress({ check, run, getPlayer }) {
       check('gameday: the table rides the game\'s first payload', Array.isArray(inOrder[0]?.standings), 'first payload has no standings');
       check('gameday: …and no other', inOrder.slice(1).every(g => !('standings' in g)), `${inOrder.slice(1).filter(g => 'standings' in g).length} payloads still carry the table`);
       check('gameday: the first payload carries the season', inOrder[0]?.season?.phase === 'regular', JSON.stringify(inOrder[0]?.season));
+      check('gameday: the leaders ride the first payload and no other',
+        ['hr', 'avg', 'sb', 'k'].every((k) => Array.isArray(inOrder[0]?.leaders?.[k])) && inOrder.slice(1).every(g => !('leaders' in g)),
+        JSON.stringify(inOrder[0]?.leaders).slice(0, 120));
 
       // Every man's fate on every play. The 2-D view moved each runner a fixed number
       // of bags per kind of play, so a man the sim scored from second on a single
@@ -3034,6 +3037,100 @@ export default async function regress({ check, run, getPlayer }) {
     const cole = acc.bats.get('Cole');
     check('deadball v2: a hit batter is a plate appearance but no at-bat', cole.pa === 2 && cole.ab === 1, JSON.stringify(cole));
     check('deadball v2: an error is an at-bat with no hit and no RBI', cole.hits === 0 && cole.rbi === 0, JSON.stringify(cole));
+
+    // The ledger's scoring rules on innings built by hand. Earned runs: the errors counted
+    // as outs would have ended this half before the home run, so its runs are unearned,
+    // and so is the man who reached on the error. A double steal with a man thrown out
+    // credits nobody with a steal.
+    {
+      const P = 'Arm', T = 'Kings', BT = 'Rats';
+      const play = (o) => ({ type: 'atbat', inning: 1, half: 'top', battingName: BT, fieldingName: T, pitcher: P, out: false, rbi: 0, runs: 0, ...o });
+      const L = B.foldGame({}, { away: { name: BT }, home: { name: T }, awayScore: 3, homeScore: 4, beats: [
+        { type: 'half_start', inning: 1, half: 'top', battingName: BT, fieldingName: T, pitcher: P },
+        play({ batter: 'Ash', kind: 'strikeout', outs: 1, out: true }),
+        play({ batter: 'Bly', kind: 'error', outs: 1, moves: [{ from: 0, to: 1, name: 'Bly' }] }),
+        play({ batter: 'Cat', kind: 'flyout', outs: 2, out: true, moves: [{ from: 1, to: 1, name: 'Bly' }, { from: 0, out: 0, name: 'Cat' }] }),
+        play({ batter: 'Dax', kind: 'homerun', outs: 2, rbi: 2, runs: 2, moves: [{ from: 1, to: 4, name: 'Bly' }, { from: 0, to: 4, name: 'Dax' }] }),
+        { type: 'run', inning: 1, half: 'top', battingName: BT, fieldingName: T, pitcher: P, batter: 'Eve', kind: 'doublesteal', runner: 'Fay', out: true, outs: 3, runs: 0,
+          moves: [{ from: 2, out: 3, name: 'Fay' }, { from: 1, to: 2, name: 'Gus' }] },
+      ] });
+      const arm = L.arms.get(P);
+      check('deadball ledger: runs the errors would have stopped are unearned', arm.er === 0 && arm.outs === 3 && arm.k === 1, JSON.stringify(arm));
+      check('deadball ledger: the side that won gives its pitcher the win', arm.w === 1 && arm.l === 0, JSON.stringify(arm));
+      check('deadball ledger: a double steal with a man thrown out credits no steal',
+        L.bats.get('Fay')?.cs === 1 && !L.bats.get('Gus')?.sb, JSON.stringify([L.bats.get('Fay'), L.bats.get('Gus')]));
+      const clean = B.foldGame({}, { beats: [
+        { type: 'half_start', inning: 1, half: 'top', battingName: BT, fieldingName: T, pitcher: P },
+        play({ batter: 'Ash', kind: 'single', outs: 0, moves: [{ from: 0, to: 1, name: 'Ash' }] }),
+        play({ batter: 'Bly', kind: 'homerun', outs: 0, rbi: 2, runs: 2, moves: [{ from: 1, to: 4, name: 'Ash' }, { from: 0, to: 4, name: 'Bly' }] }),
+      ] });
+      check('deadball ledger: runs with no error behind them are earned', clean.arms.get(P).er === 2, JSON.stringify(clean.arms.get(P)));
+    }
+
+    // The ledger over real games: a win and a loss a game, every strikeout and every out
+    // made counted once, earned runs no more than the runs, and the steals the plays made.
+    {
+      const L = {};
+      let games = 0, ks = 0, outs = 0, runs = 0, sb = 0, cs = 0;
+      for (let s = 1; s <= 120; s++) {
+        const seed = hashOf(s, 3);
+        const g = B.simGameV2(M, null, rngOf(seed), { seed });
+        B.SEASON.foldExtras(L, g); games++;
+        runs += g.awayScore + g.homeScore;
+        let o = 0;
+        for (const b of g.beats) {
+          if (b.type === 'half_start') { o = 0; continue; }
+          if (b.type !== 'atbat' && b.type !== 'run') continue;
+          outs += b.outs - o; o = b.outs;
+          if (b.type === 'atbat' && b.kind === 'strikeout') ks++;
+          if (b.kind === 'steal') sb++;
+          if (b.kind === 'caughtstealing') cs++;
+          if (b.kind === 'doublesteal') { if (b.out) cs++; else sb += 2; }
+        }
+      }
+      const arms = [...L.arms.values()], bats = [...L.bats.values()];
+      const sum = (a, k) => a.reduce((t, r) => t + r[k], 0);
+      check('deadball ledger: a win and a loss a game', sum(arms, 'w') === games && sum(arms, 'l') === games, `${sum(arms, 'w')}-${sum(arms, 'l')} over ${games}`);
+      check('deadball ledger: every strikeout and every out counted once', sum(arms, 'k') === ks && sum(arms, 'outs') === outs, `${sum(arms, 'k')}/${ks} K, ${sum(arms, 'outs')}/${outs} outs`);
+      check('deadball ledger: earned runs are most of the runs, never more', sum(arms, 'er') <= runs && sum(arms, 'er') > runs * 0.85, `${sum(arms, 'er')} of ${runs}`);
+      check('deadball ledger: the steals the plays made', sum(bats, 'sb') === sb && sum(bats, 'cs') === cs, `${sum(bats, 'sb')}/${sb} SB, ${sum(bats, 'cs')}/${cs} CS`);
+      const x = B.SEASON.summariseExtras(L);
+      check('deadball ledger: the steals and strikeout races lead with the most',
+        x.steals.length === 5 && x.steals[0].sb >= x.steals[4].sb && x.strikeouts.length === 5 && x.strikeouts[0].k >= x.strikeouts[4].k && x.strikeouts[0].era > 0,
+        JSON.stringify([x.steals[0], x.strikeouts[0]]));
+
+      // The payloads read it: with the season so far, each play carries the batter's and
+      // the pitcher's lines as they stood before it, the ledger stays as it was, a steal
+      // carries the runner's count with it and the clocks it was run against, and with no
+      // season the payloads carry no lines at all.
+      const before = JSON.stringify([...x.ledger.bats.entries()]);
+      const fmt = { abbr: (n) => String(n).slice(0, 3), ordinal: (n) => `${n}th` };
+      let seen = 0, stealPays = 0;
+      const bad = [];
+      for (let s = 200; s < 260; s++) {
+        const seed = hashOf(s, 3);
+        const g = B.simGameV2(M, null, rngOf(seed), { seed });
+        const pays = gamedayPayloads(g, seed, { ...fmt, ledger: x.ledger }).order.filter((p) => p.phase !== 'half');
+        const tonight = new Map();
+        for (const p of pays) {
+          const base = x.ledger.bats.get(p.batter);
+          const t = tonight.get(p.batter) || 0;
+          if (!p.phase && base && p.bl[0] !== base.ab + t) bad.push(`${p.batter} AB ${p.bl[0]} not ${base.ab}+${t}`);
+          if (!p.phase && !['walk', 'sacfly', 'hitbypitch'].includes(p.kind)) tonight.set(p.batter, t + 1);
+          if (!Array.isArray(p.bl) || !Array.isArray(p.pl) || p.bl.length !== 5 || p.pl.length !== 5) bad.push(`${p.kind} without its lines`);
+          if (p.kind === 'steal' || p.kind === 'caughtstealing' || p.kind === 'doublesteal') {
+            stealPays++;
+            if (!(p.plate >= 1.2 && p.plate <= 1.6 && p.pop >= 1.85 && p.pop <= 2.15)) bad.push(`clocks ${p.plate}/${p.pop}`);
+            if (p.kind === 'steal' && !(p.sb >= 1)) bad.push(`a steal with sb ${p.sb}`);
+          }
+          seen++;
+        }
+      }
+      check('gameday: each play carries the men\'s lines as they stood before it', !bad.length && seen > 1000 && stealPays > 0, bad.slice(0, 3).join(' | ') || `${seen} plays, ${stealPays} steals`);
+      check('gameday: the lines never write to the season they start from', JSON.stringify([...x.ledger.bats.entries()]) === before, 'the ledger changed');
+      const bare = gamedayPayloads(B.simGameV2(M, null, rngOf(hashOf(9, 3)), { seed: hashOf(9, 3) }), hashOf(9, 3), fmt).order;
+      check('gameday: with no season, no lines', bare.every((p) => !('bl' in p) && !('pl' in p)), 'a line from tonight alone');
+    }
     const hbp = B.synthPitches(12345, 'hitbypitch');
     const last = hbp[hbp.length - 1], prev = hbp[hbp.length - 2] || { balls: 0, strikes: 0 };
     check('deadball v2: a hit batter\'s last pitch hits him and counts as neither', last.result === 'hbp' && last.balls === prev.balls && last.strikes === prev.strikes, JSON.stringify(last));

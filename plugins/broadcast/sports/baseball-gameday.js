@@ -12,11 +12,12 @@
  * their own (`sportsHash` of the game seed, the half and the at-bat), so building
  * payloads can't change a game.
  *
- * What the broadcast adds on top, because only it knows them: the league table and the
- * season on the game's first payload, and how long each payload's line holds.
+ * What the broadcast adds on top, because only it knows them: the league table, the
+ * leaders and the season on the game's first payload, the season so far (`ledger`) that
+ * the men's lines start from, and how long each payload's line holds.
  */
 import { sportsHash } from '../rng.js';
-import { synthPitches, playDesc, handOf, battingSide } from './baseball.js';
+import { synthPitches, playDesc, handOf, battingSide, foldGame, quicknessOf, armOf, LINEUP_POSITIONS } from './baseball.js';
 
 const HIT = new Set(['single', 'double', 'triple', 'homerun']);
 
@@ -101,15 +102,82 @@ export function runnerMoves(before, after, kind, scored) {
   return moves;
 }
 
+// Each man's season line as it stood before each play: the season so far (`ledger`, the
+// standings fold's every-man ledger from SEASON.summariseExtras) folded forward through
+// this game. Only the men in this game are copied, and the ledger itself is never touched,
+// because it's the standings cache's own. Returns Map(beat -> fields):
+//
+//   bl   the batter's [AB, H, HR, RBI, SB]
+//   pl   the pitcher's [W, L, outs, ER, K]
+//   sb   on a steal, the runner's steals with this one (the lead runner's on a double steal)
+const NO_LINE = Object.freeze([0, 0, 0, 0, 0]);
+function nightLines(game, ledger) {
+  const names = new Set();
+  for (const b of game.beats || []) {
+    if (b.batter) names.add(b.batter);
+    if (b.pitcher) names.add(b.pitcher);
+    if (b.runner) names.add(b.runner);
+  }
+  const acc = { bats: new Map(), arms: new Map() };
+  for (const n of names) {
+    const r = ledger.bats?.get(n), a = ledger.arms?.get(n);
+    if (r) acc.bats.set(n, { ...r });
+    if (a) acc.arms.set(n, { ...a });
+  }
+  const out = new Map();
+  foldGame(acc, game, {
+    before(b) {
+      const r = acc.bats.get(b.batter), a = acc.arms.get(b.pitcher);
+      out.set(b, {
+        bl: r ? [r.ab, r.hits, r.hr, r.rbi, r.sb] : NO_LINE,
+        pl: a ? [a.w, a.l, a.outs, a.er, a.k] : NO_LINE,
+      });
+    },
+    after(b) {
+      const stole = b.kind === 'steal' || (b.kind === 'doublesteal' && !b.out);
+      if (b.type === 'run' && stole && b.runner) out.get(b).sb = acc.bats.get(b.runner)?.sb ?? 0;
+    },
+  });
+  return out;
+}
+
+// The league's leaders as a Gameday payload carries them, for the 3-D view's table between
+// innings: five a race (home runs, average and steals for the hitters, strikeouts for the
+// pitchers), trimmed to what the table shows. `x` is what SEASON.summariseExtras returned.
+export function gamedayLeaders(x = {}) {
+  const bat = (r) => ({ name: r.name, team: r.team, hr: r.hr, rbi: r.rbi, avg: Math.round((r.avg || 0) * 1000) / 1000, sb: r.sb || 0 });
+  const arm = (r) => ({ name: r.name, team: r.team, w: r.w, l: r.l, era: Math.round((r.era || 0) * 100) / 100, k: r.k });
+  return { hr: (x.homers || []).map(bat), avg: (x.batters || []).map(bat), sb: (x.steals || []).map(bat), k: (x.strikeouts || []).map(arm) };
+}
+
+// The clocks a steal is run against, from the traits that decided it in the sim: the
+// pitcher's time to the plate (quicknessOf) and the catcher's pop time to the bag (armOf),
+// in seconds. A quick pitcher is about 1.2 to the plate and a strong arm about 1.85.
+const STEAL_PLAYS = new Set(['steal', 'caughtstealing', 'doublesteal']);
+const CATCHER = LINEUP_POSITIONS.indexOf('C');
+function stealClock(game, b) {
+  const side = game.home?.name === b.fieldingName ? game.home : game.away?.name === b.fieldingName ? game.away : null;
+  const catcher = side?.lineup?.[CATCHER];
+  const r2 = (v) => Math.round(v * 100) / 100;
+  return {
+    ...(b.pitcher ? { plate: r2(1.2 + 0.4 * (1 - quicknessOf(b.pitcher))) } : {}),
+    ...(catcher ? { pop: r2(1.85 + 0.3 * (1 - armOf(catcher))) } : {}),
+  };
+}
+
 // Every payload for one game. `abbr` and `ordinal` are the broadcast's own formatters
 // (the score bug's team tags and "3rd"), passed in so the payloads match its lines.
+// With `ledger` (the season so far), every play also carries the batter's and the
+// pitcher's lines as they stood before it (nightLines); without one it carries none,
+// since a line counted from tonight alone isn't a season.
 // Returns { halves, atbat: Map(beat -> payload), half: Map(half_start -> payload),
 // order: [every payload in game order] }. `atbat` holds every play's payload: the
 // at-bats, and in a sim v2 game the plays on the bases too.
-export function gamedayPayloads(game, seed, { abbr, ordinal }) {
+export function gamedayPayloads(game, seed, { abbr, ordinal, ledger = null }) {
   const halves = gamedayHalves(game.beats);
   const v2 = game.version === 2;
   const line = lineSnapshots(halves, { errors: v2 });
+  const lines = ledger ? nightLines(game, ledger) : null;
   const atbat = new Map(), half = new Map(), order = [];
   for (const h of halves) {
     const s = h.start;
@@ -162,6 +230,8 @@ export function gamedayPayloads(game, seed, { abbr, ordinal }) {
           awayScore: b.awayScore, homeScore: b.homeScore,
           desc: playDesc(b),
           line: line.get(b) || null,
+          ...(STEAL_PLAYS.has(b.kind) ? stealClock(game, b) : {}),
+          ...(lines?.get(b) || {}),
         }
         : {
           ...common,
@@ -173,6 +243,7 @@ export function gamedayPayloads(game, seed, { abbr, ordinal }) {
           desc: playDesc(b),
           pitches: synthPitches(sportsHash(seed, b.inning * 2 + (b.half === 'bottom' ? 1 : 0), abIdx++ >>> 0), b.kind),
           line: line.get(b) || null,
+          ...(lines?.get(b) || {}),
         };
       prev = after;
       atbat.set(b, p); order.push(p);

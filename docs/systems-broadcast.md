@@ -816,8 +816,18 @@ run can score without one). Runners can't pass each other, which makes the answe
 views only animate them.
 
 The broadcast adds `hold` (how long the line holds, in ms) to every payload, and the league
-table and `season` (its number, `regular` or `final`, and the seeds in a final) to the game's
-first payload only. As each line airs, `gamedayOnAir` adds `wx`, the weather over the park's
+table, `leaders` and `season` (its number, `regular` or `final`, and the seeds in a final) to the
+game's first payload only; a late tuner's catch-up carries all three. `leaders` is five a race
+from the season's fold (`gamedayLeaders`): `hr`, `avg` and `sb` for the hitters, `k` for the
+pitchers.
+
+Every play also carries the batter's and the pitcher's season lines as they stood before it:
+`bl` is [AB, H, HR, RBI, SB] and `pl` is [W, L, outs, ER, K]. They start from the standings
+fold's every-man ledger (the games before this one) and are folded forward through this game
+(`nightLines`), so a late tuner's numbers match everyone else's. A steal, a caught stealing and
+a double steal carry `plate` and `pop`, the pitcher's time to the plate and the catcher's pop
+time in seconds, from the quickness and the arm that decided the play, and a steal carries `sb`,
+the runner's steals with this one. As each line airs, `gamedayOnAir` adds `wx`, the weather over the park's
 site (`sports_pools.venue.site`, carried over a rebuild by `build-deadball.mjs`): the tile's
 weather `word`, `precip` and `rate` from the in-memory weather cells, and any city-wide `event`
 such as an ion storm. It's read on air rather than at assembly because the cells drift across
@@ -829,8 +839,8 @@ plays the same in a browser, with the script's lines, for screenshots and tuning
 Regress pins the sim itself: a hundred seeded games and four finals, every at-bat and every
 pitch, hash to a recorded value, because the standings and the recaps re-simulate games that
 have already aired. A viewer with the sub-screen open is sent about 91 payloads a game, about
-85 KB with the weather (measured over eight graphs on 2026-10-11). It was 116 KB when the
-table rode every payload.
+85 KB with the weather (measured over eight graphs on 2026-10-11), and about 5 KB more with the
+men's lines and the leaders (37 bytes a payload and 1.6 KB once, measured on 2026-10-12). It was 116 KB when the table rode every payload.
 
 ### The park in 3-D (the Grandstand, behind a flag)
 
@@ -843,7 +853,7 @@ methods as the other two views. When the 3-D view can't draw (no WebGL2, no floa
 shader that won't build, a lost context), it hands over to the 2-D view with the last payload and
 the booth's line.
 
-Built so far (Phases 1a to 1c of the plan):
+Built so far (Phases 1a to 1d of the plan):
 
 - the park from the venue's defaults, built by the pure
   [gl/ballpark-mesh.js](../client/game/js/panels/gl/ballpark-mesh.js) from
@@ -882,7 +892,17 @@ Built so far (Phases 1a to 1c of the plan):
   doesn't name him, and [diamond/kits.js](../client/game/js/panels/diamond/kits.js) paints the
   kits: the clubs' nicknames and the numbers on placeholder colours until the clubs bring their
   own (Phase 5). A new cast is built a few bodies a frame, and only who's changed is rebuilt.
-  The players cast the towers' shadows.
+  The players cast the towers' shadows;
+- the arcade graphics (Phase 1d), a canvas over the picture drawn by
+  [diamond/hud.js](../client/game/js/panels/diamond/hud.js) in the client's display faces: the
+  score with the bases, the count as lamps, the pitch speed and type, and in the batting view the
+  zone over the plate with the last pitch marked. As each man comes up a matchup card shows his
+  number and season line against the pitcher's, with VS on a starburst; a steal shows its card and
+  its clocks; the cards the broadcast throws (home run, walk-off, double play and the rest) are
+  splash words; and each half-inning break is a high-score table of the leaders, one race at a
+  time, over the live picture. The final dresses it all in gold. The HTML score bug and cards
+  are gone; the score is written out for a screen reader instead. The words, the colours and the
+  station's bug come from a theme (tv.js passes the station's name), so `hud.js` names no league.
 
 Nothing moves yet: a frame is drawn when the game changes, so the GPU idles between pitches. The count ticks through each at-bat on the 2-D view's clock
 (`GAMEDAY_CLOCK`), so the held line lands when the 2-D view would land it.
@@ -890,9 +910,11 @@ Nothing moves yet: a frame is drawn when the game changes, so the GPU idles betw
 own, holds every shot's matrices to its pinhole on three screen shapes, reads the board's lamps,
 checks the fallback, fits each tower's shadow map to the shot, reads depth back through the
 occlusion's constants, holds the lens sharp at its focus, builds every pose for both hands,
-places a cast, and holds every face pick steady and every cap, helmet and mask clear of the brow,
-the ears and the eyes. The sandbox page takes `?park=3d`
-and `?shot=`. The renderer's traps are in [glass-notes.md](reference/glass-notes.md#the-ballpark-glballparkjs).
+places a cast, holds every face pick steady and every cap, helmet and mask clear of the brow,
+the ears and the eyes, and lays the graphics out on the wall TV's, the tablet's and the
+sandbox's screens with and without the tube glass: everything inside the frame, nothing under
+6 px or cut short for the script's longest names, no panel over another. The sandbox page takes
+`?park=3d`, `?shot=`, `?bug=` and `?po=1` (the final's dressing). The renderer's traps are in [glass-notes.md](reference/glass-notes.md#the-ballpark-glballparkjs).
 
 ### Sim v2
 
@@ -924,6 +946,13 @@ single's share of the at-bat table and a hit batter out of the walk's.
   the sport's `playTokens`. A throw over is colour; everything else on the bases is called.
 - **The hitting race.** A hit batter is a plate appearance and no at-bat; an error is an at-bat
   with no hit.
+- **The steals and the pitchers.** The same walk over the beats (`foldGame` in `baseball.js`)
+  counts each man's steals and caught stealings, and each pitcher's wins, losses, outs, earned
+  runs and strikeouts. On a double steal with a man thrown out nobody is credited with a steal.
+  Each side's pitcher goes the distance, so the winning side's takes the win. A run is unearned
+  when it scores on an error or a passed ball, when the man scoring reached on an error, or when
+  the errors, counted as outs, would already have ended the inning. The `standings` command and
+  the tablet's Sports app show the steals and strikeout races.
 
 **The switch.** A game that has aired must replay as it aired, so v2 plays from a slot the
 server records once, not from a slot written into content: the slot comes from the in-game clock,

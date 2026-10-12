@@ -324,6 +324,10 @@ function formatExtras(extras, sport) {
       (r) => [String(r.hr).padStart(4), String(r.rbi).padStart(4)]);
     race('RUNS BATTED IN', [['RBI', 4], ['HR', 4]], extras.rbis,
       (r) => [String(r.rbi).padStart(4), String(r.hr).padStart(4)]);
+    race('STOLEN BASES', [['SB', 4], ['CS', 4]], extras.steals,
+      (r) => [String(r.sb).padStart(4), String(r.cs).padStart(4)]);
+    race('STRIKEOUTS', [['K', 4], ['W-L', 6], ['ERA', 6]], extras.strikeouts,
+      (r) => [String(r.k).padStart(4), `${r.w}-${r.l}`.padStart(6), (r.era || 0).toFixed(2).padStart(6)]);
     // Say the bar. A leaderboard that quietly drops a .600 hitter for want of
     // at-bats looks broken unless it tells you why.
     if (out.length && extras.minAb) out.push('', `  Qualified: ${extras.minAb}+ at-bats.`);
