@@ -122,6 +122,18 @@ export const throwTime = (n, from, to) => Math.hypot(to[0] - from[0], to[2] - fr
 // Home to first, for a man whose legs are `speed` (0 to 1) batting from `bats`: a left-hander
 // starts a step nearer.
 export const toFirst = (speed, bats) => 4.55 - 0.55 * speed - (bats === 'L' ? 0.1 : 0);
+// A man's legs, 0 to 1, off his name, the same in every game. It's the sim's speedOf
+// (plugins/broadcast/sports/baseball.js) worked the same way, which the server can't share with the
+// browser, so a runner the sim sends runs at the pace it judged him by; diamond-smoke holds the two
+// to each other.
+export function legsOf(name) {
+  let h = 2166136261 >>> 0;
+  for (const ch of String(name || '')) h = Math.imul(h ^ ch.charCodeAt(0), 16777619);
+  h = Math.imul(h ^ 0x5350, 16777619) >>> 0;
+  return (h & 0xffff) / 65536;
+}
+// The fastest a man runs the bases, feet a second, by his legs.
+export const topSpeed = (legs) => 25 + 4.5 * legs;
 // How long the first baseman takes to get to the bag himself from `at`.
 const toBag = (at) => Math.hypot(BAGS[1][0] - at[0], BAGS[1][2] - at[2]) / 20 + 0.1;
 

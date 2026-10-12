@@ -1,0 +1,41 @@
+{
+  "id": "run_lead",
+  "role": "runner",
+  "duration": 2.4,
+  "loop": true,
+  "note": "A man on base with his lead: crouched over his feet, hands loose, watching the pitcher, breathing.",
+  "events": [],
+  "plants": [
+    { "foot": "L", "from": 0, "to": 2.4 },
+    { "foot": "R", "from": 0, "to": 2.4 }
+  ],
+  "keys": [
+    {
+      "t": 0,
+      "pose": {
+        "pelvis": [0, 2.65, -0.1], "pitch": 26, "spine": [10, 0, 0], "neck": [-24, 0, 0], "head": [-16, 0, 0],
+        "ankL": [1.55, 0.1], "toeL": [0.5, 0, 1], "kneeL": [0.6, 0.2, 1], "ankR": [-1.55, 0], "toeR": [-0.4, 0, 1], "kneeR": [-0.6, 0.2, 1],
+        "wrL": [0.55, 2.35, 0.95], "handL": [0, -1, 0.2],
+        "wrR": [-0.55, 2.35, 0.95], "handR": [0, -1, 0.2]
+      }
+    },
+    {
+      "t": 1.2,
+      "pose": {
+        "pelvis": [0, 2.615, -0.1], "pitch": 27.5, "spine": [11, 0, 0], "neck": [-24, 0, 0], "head": [-16, 0, 0],
+        "ankL": [1.55, 0.1], "toeL": [0.5, 0, 1], "kneeL": [0.6, 0.2, 1], "ankR": [-1.55, 0], "toeR": [-0.4, 0, 1], "kneeR": [-0.6, 0.2, 1],
+        "wrL": [0.55, 2.31, 0.97], "handL": [0, -1, 0.2],
+        "wrR": [-0.55, 2.31, 0.97], "handR": [0, -1, 0.2]
+      }
+    },
+    {
+      "t": 2.4,
+      "pose": {
+        "pelvis": [0, 2.65, -0.1], "pitch": 26, "spine": [10, 0, 0], "neck": [-24, 0, 0], "head": [-16, 0, 0],
+        "ankL": [1.55, 0.1], "toeL": [0.5, 0, 1], "kneeL": [0.6, 0.2, 1], "ankR": [-1.55, 0], "toeR": [-0.4, 0, 1], "kneeR": [-0.6, 0.2, 1],
+        "wrL": [0.55, 2.35, 0.95], "handL": [0, -1, 0.2],
+        "wrR": [-0.55, 2.35, 0.95], "handR": [0, -1, 0.2]
+      }
+    }
+  ]
+}

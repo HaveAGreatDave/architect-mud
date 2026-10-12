@@ -14,67 +14,33 @@
 // clip begins, and a run with a long way round turns on the way. A throw is turned so the hand's
 // own way at the release points at its target; it leaves the hand at the release and is in the
 // receiver's glove at his catch. A reach layer takes the glove the last inches to the ball, and
-// the ball rides in the hand from the catch to the throw. The batter comes out of the box with
-// the clip for his side and runs to first at his own legs' pace (play.js toFirst), and the base
-// umpire calls it there.
+// the ball rides in the hand from the catch to the throw. The men on the bases and the batter run
+// it out in diamond/bases.js, planned around the fielding: a throw to a bag a man's safe at waits
+// for him, and a man forced out gets there after the ball. The base umpires call what's close.
 //
 // `planPlay` is arithmetic over the clips: what every body plays, when and from where, the ball's
 // flights and holds, the reaches and looks, the cuts, the sounds and when the play lands. The
 // director (diamond/director.js) schedules it on the world's clock, and diamond-smoke holds the
-// ball to every glove it meets. Not here yet: the runners on the bags and the batter rounding
-// first (Phase 3d).
+// ball to every glove it meets and every man to his bags.
 //
 // Pure: no DOM and no GL.
 
 import { CLIPS } from './clips.js';
 import { catchPoint, handAt, rootAt, sampleClip } from './anim.js';
 import { solvePose } from './rig.js';
-import { BAGS, DEG, groundHeight } from './geo.js';
+import { BAGS, DEG } from './geo.js';
 import { toPark as onLine, rollAlong, rollTime, hangTime, toFirst, fenceAt, throwTime, firstStep, POSITIONS } from './play.js';
 import { groundPath, flyPath, throwPath, fitPath, BALL_R, GRAVITY } from './flight.js';
 import { carried, toPark } from './world.js';
+import { planBases } from './bases.js';
+import {
+  clamp, add, sub, mul, flat, wrap, faceTo, turn, ahead, HOME, hashStr, cycleFor, PLAYBACK, FADE, RUN_MAX, shortBy,
+  timeFor, STOP, STOP_LEN, groundOf, sideOf, makeBody, runTo, settle, pullUp,
+} from './bodies.js';
 
-const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
-const add = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
-const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
-const mul = (a, s) => [a[0] * s, a[1] * s, a[2] * s];
-const flat = (a, b) => Math.hypot(a[0] - b[0], a[2] - b[2]);
-const wrap = (a) => ((((a + 180) % 360) + 360) % 360) - 180;
-// facing from p toward q, in degrees about the vertical (0 faces +z), as cast.js has it
-const faceTo = (p, q) => Math.atan2(q[0] - p[0], q[2] - p[2]) / DEG;
-// a frame's point turned by its yaw, as world.js toPark turns it
-const turn = (v, yaw) => { const c = Math.cos(yaw * DEG), s = Math.sin(yaw * DEG); return [c * v[0] + s * v[2], v[1], -s * v[0] + c * v[2]]; };
-const ahead = (yaw, d) => [Math.sin(yaw * DEG) * d, 0, Math.cos(yaw * DEG) * d];
-const HOME = Object.freeze([0, 0, 0]);
-function hashStr(s) { let h = 2166136261; for (const ch of String(s)) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; }
-
-// The run cycles and how fast each goes (its root over a lap).
-const CYCLES = ['run_jog', 'run_run', 'run_sprint'].map((id) => { const c = CLIPS[id], end = c.root[c.root.length - 1].at; return { id, v: Math.hypot(end[0], end[1]) / c.duration }; });
-const cycleFor = (v) => CYCLES.reduce((best, c) => (Math.abs(c.v - v) < Math.abs(best.v - v) ? c : best));
-// The fastest and slowest a run cycle is played, as a share of its own speed.
-const PLAYBACK = Object.freeze([0.72, 1.3]);
-// How long a clip takes to mix into the next, and the most a body turns across one mix: a run
-// that has to turn further takes its first strides at half the angle.
-const FADE = 0.2, TURN = 80;
-// The fastest a fielder runs to a ball on the ground, feet a second.
-const RUN_MAX = 27;
-// How far short of a clip's start he'd be, L feet from it with T seconds to get there: a step or
-// two (3 ft) the mix takes up, and anything more a run, which takes a quarter of a second at least
-// (runTo makes no shorter one).
-const shortBy = (L, T) => (L <= 3 ? 0 : T < 0.25 ? L - 2 : Math.max(0, L - 3 - RUN_MAX * T));
-// How far a cycle has carried him at clip time `tau`, and the clip time it carries him `L` feet.
-const runOf = (id, tau) => rootAt(CLIPS[id], tau).at[1];
-function timeFor(id, L) {
-  let a = 0, b = Math.max(0.05, L / 10 + 1);
-  for (let k = 0; k < 40; k++) { const m = (a + b) / 2; if (runOf(id, m) < L) a = m; else b = m; }
-  return (a + b) / 2;
-}
-// How far pulling up (run_stop) carries him, and when the ready set's hop lands (its last step).
-const STOP = CLIPS.run_stop, STOP_LEN = rootAt(STOP, STOP.duration).at[1];
+// When the ready set's hop lands (its last step).
 const READY_STEP = (id) => Math.max(...CLIPS[id].events.filter((e) => e.kind === 'step').map((e) => e.t));
 
-// The ground under a frame, as the world has it (world.js groundOf).
-const groundOf = (F) => (x, z) => { const q = toPark(F, [x, 0, z]); return groundHeight(q[0], q[2]) - F.at[1]; };
 // A ball on the ground that comes up off its last hop to height y at tC, into a glove keyed to
 // take it there (every fielding clip's catch is a little off the grass), and down again after it
 // for one that gets by him: `path` as it was everywhere else.
@@ -95,43 +61,7 @@ function toRest(from, to, t0, T) {
   at.t0 = t0; at.T = T;
   return at;
 }
-// the hand a clip names, on a left-hander who does it in a mirror
-const sideOf = (B, h) => (B.mirror ? (h === 'L' ? 'R' : 'L') : h);
 
-// ── a body's plan ──────────────────────────────────────────────────────────────
-// What one body plays: each clip with when it starts, its speed, its mix and the frame it starts
-// from, worked out as the world will (a clip that travels carries the next one's frame unless it's
-// given one). A clip takes over at `on`: when it's issued, which is its start unless it's taken up
-// part way through (`from`) or issued early to hold its first frame (`issue`, the ready set from
-// the cut in). `free` is when he's next free to be sent somewhere.
-const onOf = (e) => e.issue ?? e.from ?? e.start;
-function makeBody(o) {
-  const B = { n: o.n, id: o.id, slot: o.slot, role: o.role, mirror: !!o.mirror, scale: o.scale || 1, base: { at: o.at.slice(), yaw: o.yaw }, clips: [], free: -Infinity, place: !!o.place };
-  if (o.clip) B.clips.push({ clip: o.clip, start: o.start, speed: o.speed || 1, fade: 0, F: { at: o.at.slice(), yaw: o.yaw }, prior: true });
-  B.play = (clip, start, p = {}) => {
-    const last = B.clips[B.clips.length - 1], e = { clip, start, speed: p.speed || 1, fade: p.fade || 0, given: !!p.frame };
-    if (p.from != null) e.from = p.from;
-    if (p.issue != null) e.issue = p.issue;
-    if (p.carry) e.carry = true;
-    if (last && onOf(e) < onOf(last) - 1e-6) throw new Error(`plays: ${B.id} plays ${clip} at ${onOf(e).toFixed(3)}, before ${last.clip} at ${onOf(last).toFixed(3)}`);
-    e.F = p.frame ? { at: [p.frame.at[0], p.frame.at[1] ?? 0, p.frame.at[2]], yaw: p.frame.yaw }
-      : last ? carried(last.F, CLIPS[last.clip], last.start, last.speed, start, B.mirror) : { at: B.base.at.slice(), yaw: B.base.yaw };
-    B.clips.push(e);
-    return e;
-  };
-  B.entryAt = (t) => { let e = B.clips[0] || null; for (const c of B.clips) { if (onOf(c) > t + 1e-9) break; e = c; } return e; };
-  B.frameAt = (t) => { const e = B.entryAt(t); return e ? carried(e.F, CLIPS[e.clip], e.start, e.speed, t, B.mirror) : { at: B.base.at.slice(), yaw: B.base.yaw }; };
-  // his pose at t as the clip alone has it (no mix, no layers), and the frame it's in
-  B.poseAt = (t) => {
-    const e = B.entryAt(t), F = B.frameAt(t);
-    if (!e) return null;
-    return { P: sampleClip(CLIPS[e.clip], (t - e.start) * e.speed, { mirror: B.mirror, scale: B.scale, ground: groundOf(F) }), F };
-  };
-  // where he is on the ground (under his pelvis) and which way he faces
-  B.spotAt = (t) => { const s = B.poseAt(t); if (!s) return B.base.at.slice(); const q = toPark(s.F, s.P.pelvis); return [q[0], 0, q[2]]; };
-  B.facingAt = (t) => { const s = B.poseAt(t); return s ? s.F.yaw + (s.P.twist || 0) : B.base.yaw; };
-  return B;
-}
 
 // Where clip `id`'s catch puts the glove for B, in the frame it starts from (kept: the planner
 // asks for it hundreds of times a play).
@@ -187,50 +117,6 @@ function throwHeading(id, mirror) {
   return v;
 }
 
-// ── moving him ─────────────────────────────────────────────────────────────────
-// He runs from where he is at t0 to frame `to` (`{ at, yaw }`), getting there at t1: a run cycle
-// at the speed it takes, played no slower or faster than PLAYBACK allows (a run that can't go
-// slow enough sets off later; one that can't go fast enough gets as close as it can and the mix
-// takes up the rest), facing the way he goes. A turn of more than TURN takes its first strides at
-// half the angle, the cycle carried on round the turn. Nothing for a step or two, which the next
-// clip's mix takes up.
-//
-// ⚠ A MIX BETWEEN A MAN AT REST AND A RUN SURGES. Mixed out of a still pose, a run that starts
-// where he stands drags him ahead at nearly twice its speed half way through the mix, and a run
-// mixed into a clip that starts at rest runs on past it and comes back. So the run's frame starts
-// half a mix's travel behind him, and one going into a clip that starts at rest (`o.rest`) ends
-// half a mix's travel short of it: the mix then takes him up to speed and down again without a
-// surge. One going into a clip that starts running (`o.enter`, its speed) runs in at that speed
-// where he has the time, so the mix doesn't change his pace as well as his stride.
-// Returns { start, cycle, speed, v } or null.
-function runTo(B, to, t0, t1, o = {}) {
-  t0 = Math.max(t0, B.free);
-  const P0 = B.spotAt(t0), T = t1 - t0;
-  if (flat(P0, to.at) < (o.min ?? 3) || T < 0.25) return null;
-  const face0 = B.facingAt(t0), dTurn = wrap(faceTo(P0, to.at) - face0), bend = Math.abs(dTurn) > TURN && flat(P0, to.at) > 12;
-  const h1 = bend ? face0 + dTurn / 2 : faceTo(P0, to.at), rest = !!o.rest;
-  let v = Math.max(flat(P0, to.at) / T, (o.enter || 0) * 0.95), c = null, speed = 1, S = P0, E = to.at, d1 = 0, total = 0;
-  for (let k = 0; k < 3; k++) {
-    c = cycleFor(Math.max(v, o.atLeast || 0)); speed = clamp(v / c.v, PLAYBACK[0], PLAYBACK[1]);
-    const lead = c.v * speed * (o.fade ?? FADE) / 2;
-    S = sub(P0, ahead(h1, lead));
-    const hEnd = faceTo(bend ? add(S, ahead(h1, Math.min(8, flat(S, to.at) * 0.3))) : S, to.at);
-    E = rest ? sub(to.at, ahead(hEnd, lead)) : to.at;
-    d1 = bend ? Math.min(8, flat(S, E) * 0.3) + lead : flat(S, E);
-    total = bend ? d1 + flat(add(S, ahead(h1, d1)), E) : d1;
-    v = Math.max(total / T, (o.enter || 0) * 0.95);
-  }
-  const start = Math.max(t0, t1 - timeFor(c.id, total) / speed);
-  B.play(c.id, start, { frame: { at: S, yaw: bend ? h1 : faceTo(S, E) }, speed, fade: o.fade ?? FADE });
-  if (bend) {
-    // carried on round the turn: the same stride, the new way, the two legs crossing half way
-    // through the mix (crossing where it starts, the mix would swing him wide)
-    const s2 = start + timeFor(c.id, d1) / speed, tm = s2 + 0.075, ph = (tm - start) * speed, r = rootAt(CLIPS[c.id], ph), here = B.frameAt(tm).at;
-    const yaw = faceTo(here, E) - (r.yaw || 0), at2 = sub(here, turn([r.at[0], 0, r.at[1]], yaw));
-    B.play(c.id, start, { frame: { at: [at2[0], 0, at2[2]], yaw }, speed, fade: 0.15, from: s2 });
-  }
-  return { start, cycle: c.id, speed, v: c.v * speed };
-}
 
 // He runs from where he is at t0 into clip `id` from frame `fr` for its catch at tC: taken from
 // its start where he can get there in time, or taken up part way through (`from`), as late as
@@ -259,15 +145,6 @@ function runInto(B, id, fr, tC, t0) {
   return B.play(id, tS, { frame: fr, fade: FADE, ...(on > tS + 1e-6 ? { from: on, carry: !ran } : {}) });
 }
 
-// He comes to rest where he is, in a fielder's set (the last fifth of the ready clip), facing `yaw`
-// or the way he faces: for a clip that ends moving with nothing after it.
-function settle(B, t, yaw = null) {
-  const id = 'field_ready_in', tau = 0.78, r = rootAt(CLIPS[id], tau), y = yaw ?? B.facingAt(t), at = sub(B.spotAt(t), turn([r.at[0], 0, r.at[1]], y));
-  return B.play(id, t - tau, { frame: { at: [at[0], 0, at[2]], yaw: y - (r.yaw || 0) }, fade: 0.3, from: t });
-}
-
-// He pulls up from a run, at the speed he's going (`v`, feet a second).
-const pullUp = (B, t, v = 21, o = {}) => B.play('run_stop', t, { speed: clamp(v / 21, 0.5, 1.3), fade: o.fade ?? 0.15 });
 
 // ── the plan ───────────────────────────────────────────────────────────────────
 // `ctx` is { p (the payload), cast (cast.js castOf), tIn (the last pitch's cut in), tBat (contact),
@@ -361,55 +238,81 @@ export function planPlay(ctx) {
   fly(tBat, path0);
 
   // when the hitter gets to first at his own pace (play.js toFirst): a throw that has to be late
-  // waits for it, and he's held to it below
+  // waits for it, and he's held to it (bases.js)
   const tLegs = tBat + toFirst(Number.isFinite(pl.sp) ? pl.sp : 0.5, bats);
+
+  // ── the men on base and the batter ──
+  // In their leads from the cut in and out of the box, before the fielding, so a throw to a bag a
+  // man is safe at can wait for him (bases.js safeAt); laid out after it.
+  const outsBy = kind === 'tripleplay' ? 3 : kind === 'doubleplay' ? 2 : 1;
+  const outsBefore = Math.max(0, (p.outs | 0) - (p.out ? outsBy : 0));
+  const bases = planBases(ctx, { tBat, kind, isOut, isHR, outs: outsBefore, seed, tLegs });
+  const H = bases.batter;
 
   // ── the plays ──
   const throwChain = [];
+  let airEntry = null;
   if (isHR) homeRun();
   else if (!ground && isOut) airOut();
   else if (ground) groundBall();
   else airHit();
 
-  // ── the hitter: out of the box and down the line ──
-  // He gets there at his own pace, but never ahead of the ball on an out at first, or behind it
-  // on a throw the server says he beat, where his legs can make it.
+  // ── the runners and the batter, now the fielding's known ──
+  // A man is forced out where the ball beat him there: a throw's catch at that bag, the man who
+  // fielded it stepping on second himself, or the third baseman gloving it at his bag.
+  const first = log.fielders[0];
+  const forceAt = (bag) => {
+    const th = throwChain.find((x) => x.bag === bag && !x.error);
+    if (th) return th.catch.t;
+    if (first && bag === 2 && kind === 'doubleplay') return first.t + 0.35;
+    if (first && bag === 3 && kind === 'tripleplay') return first.t + 0.1;
+    return null;
+  };
+  const homeThrow = kind === 'sacfly' && pl.th === 'home';
+  const settled = Math.max(-Infinity, ...log.fielders.map((x) => x.t), ...throwChain.map((x) => x.catch.t)) + 0.3;
+  const laid = bases.lay({
+    chain: throwChain, airCatch: log.airCatch, dropAt: pl.e === 'drop' && first ? first.t : null, forceAt, settled,
+    slideAt: (bag) => (bag === 4 && homeThrow ? 'slide_feet' : null),
+  });
+  log.batter = bases.log.batter; log.runners = bases.log.runners;
+  land = Math.max(land, laid.land);
+  // a sac fly that's close: the throw home, just behind him
+  if (homeThrow && airEntry) {
+    const run = bases.log.runners.find((r) => r.to === 4);
+    if (run && run.bags[4] != null) throwOn(airEntry.B, airEntry.e, airEntry.e.clip, 2, { last: true, home: true, after: run.bags[4] + 0.12 });
+  }
   const atFirst = throwChain.find((x) => x.bag === 1 && x.last);
-  const H = makeBody({ ...ctx.batter, n: 0, role: 'batter' });
-  const outId = bats === 'L' ? 'bat_run_out_lefty' : 'bat_run_out', tOut = tBat + 0.15;
-  H.play(outId, tOut, { fade: 0.1 });
-  const tCyc = tOut + CLIPS[outId].duration - 0.12, here = H.frameAt(tCyc), toBag = flat(here.at, BAGS[1]);
-  let tFirst = tLegs;
-  if (atFirst && !atFirst.error && isOut) tFirst = Math.max(tFirst, atFirst.catch.t + 0.15);
-  if (atFirst && !atFirst.error && !isOut && pl.th === 'late') tFirst = Math.max(tCyc + toBag / (CYCLES[2].v * PLAYBACK[1]), Math.min(tFirst, atFirst.catch.t - 0.12));
-  const need = toBag / Math.max(0.6, tFirst - tCyc);
-  const cyc = isHR ? CYCLES[0] : cycleFor(need), cSpeed = isHR ? 1 : clamp(need / cyc.v, PLAYBACK[0], PLAYBACK[1]);
-  // the cycle carried on from where the run out has him (turned to first by the end of it)
-  H.play(cyc.id, tCyc, { frame: { at: here.at, yaw: faceTo(here.at, BAGS[1]) }, speed: cSpeed, fade: 0.12 });
-  const tReach = tCyc + timeFor(cyc.id, toBag) / cSpeed;
-  log.batter = { slot: H.slot, out: outId, cycle: cyc.id, speed: cSpeed, tFirst: tReach, legs: tLegs };
-  // a hit isn't over until he's on the bag; he pulls up through it, or when the ball's caught
-  if (!isOut && !isHR) land = Math.max(land, tReach + 0.3);
+  const tReach = log.batter ? log.batter.tFirst : tLegs;
+  // A man still on his way once the ball's back in a glove gets the camera at the bag he's going
+  // to, if there's time to see him get there: the last run in at the plate before anything else,
+  // then a man into third, then into second. One cut: the rest of the play is off the screen, as
+  // it would be.
   if (!isHR) {
-    const tStop = log.airCatch != null ? clamp(log.airCatch + 0.2, tCyc + 0.3, tReach) : tReach + 0.05;
-    pullUp(H, Math.max(tCyc + 0.2, tStop), cyc.v * cSpeed);
-    log.batter.stop = tStop;
+    const done = settled - 0.3, BAG_SHOT = { 2: 'bag', 3: 'third', 4: 'plate' };
+    const going = [...(log.runners || []).map((r) => [r.to, r.to != null ? r.bags[r.to] : null]), ...(log.batter ? [[log.batter.to, log.batter.bags?.[log.batter.to]]] : [])]
+      .filter(([to, t]) => BAG_SHOT[to] && t != null && t > done + 1)
+      .sort((a, b) => b[0] - a[0] || b[1] - a[1]);
+    const [to, t] = going[0] || [];
+    if (to) cuts.push({ at: Math.max(done + 0.25, t - 1.8), shot: BAG_SHOT[to] });
   }
 
-  // ── the base umpire's call at first, on a play there ──
-  const U1 = (ctx.cast || []).find((c) => c.id === 'ump:1B');
-  let UB = null;
-  if (U1 && atFirst && !atFirst.error) {
-    const out = isOut, tCall = Math.max(atFirst.catch.t, tReach) + 0.15;
-    UB = makeBody({ n: -1, id: U1.id, slot: U1.look.slot, role: 'ump', at: U1.at, yaw: U1.yaw, mirror: U1.mirror, scale: U1.scale, place: true });
+  // ── the base umpires' calls: at first on a play there, and a force or a close one elsewhere ──
+  const umps = [];
+  const call = (who, out, tCall) => {
+    const U = (ctx.cast || []).find((c) => c.id === who);
+    if (!U || umps.some((b) => b.id === who)) return null;
+    const UB = makeBody({ n: -1 - umps.length, id: U.id, slot: U.look.slot, role: 'ump', at: U.at, yaw: U.yaw, mirror: U.mirror, scale: U.scale, place: true });
     const id = out ? 'ump_out_base' : 'ump_safe_base', ev = CLIPS[id].events.find((e) => e.kind === 'call').t;
     UB.play(id, tCall - ev, { frame: UB.base });
-    log.ump = { slot: UB.slot, clip: id, t: tCall, out };
+    umps.push(UB);
     land = Math.max(land, tCall + 0.25);
-  }
+    return { slot: UB.slot, clip: id, t: tCall, out };
+  };
+  if (atFirst && !atFirst.error) log.ump = call('ump:1B', isOut, Math.max(atFirst.catch.t, tReach) + 0.15);
+  log.calls = laid.calls.map((c) => ({ ...c, ...(call(c.ump, c.out, c.t) || {}) }));
 
   // every head on the field follows the ball from the crack to the landing
-  for (const B of [...bodies.values(), ...(UB ? [UB] : [])]) looks.push({ slot: B.slot, from: tBat - 0.05, full: tBat + 0.35, hold: land + 0.6, to: land + 1.2 });
+  for (const B of [...bodies.values(), ...bases.bodies.filter((b) => b !== H), ...umps]) looks.push({ slot: B.slot, from: tBat - 0.05, full: tBat + 0.35, hold: land + 0.6, to: land + 1.2 });
   // the ball's segments run end to end, and the cameras that follow it follow them
   balls.sort((a, b) => a.from - b.from);
   balls.forEach((s, i) => { s.to = i + 1 < balls.length ? balls[i + 1].from : Infinity; });
@@ -418,7 +321,7 @@ export function planPlay(ctx) {
     .map((c) => ({ at: c.at, shot: c.shot === 'high' ? { shot: 'high', track } : typeof c.shot === 'object' ? { ...c.shot, track } : c.shot }));
   log.throws = throwChain;
   return {
-    bodies: [H, ...bodies.values(), ...(UB ? [UB] : [])].filter((b) => b.clips.some((c) => !c.prior)),
+    bodies: [...bases.bodies, ...bodies.values(), ...umps].filter((b) => b.clips.some((c) => !c.prior)),
     balls, reaches, looks, cuts: shots, sounds, landAt: land, log, track,
   };
 
@@ -558,7 +461,7 @@ export function planPlay(ctx) {
     const R = fielder(n);
     if (!R) return null;
     const dp = (kind === 'doubleplay' || kind === 'tripleplay') && !o.last;
-    const bag = n === 3 || (n === 1 && o.last) ? 1 : dp ? 2 : n === 5 && kind === 'triple' ? 3 : null;
+    const bag = o.home ? 4 : n === 3 || (n === 1 && o.last) ? 1 : dp ? 2 : n === 5 && kind === 'triple' ? 3 : null;
     // the cutoff on a ball to the outfield stands out between the ball and the infield, as far
     // out on that line as he can get before a throw in the outfielder's own clip arrives
     const ownThrow = CLIPS[id].events.some((x) => x.kind === 'release');
@@ -576,7 +479,7 @@ export function planPlay(ctx) {
       // nowhere on the line in time (he's getting up from a dive): he takes it where he is
       return best.late <= 0 ? best.q : me;
     };
-    const target = bag ? [BAGS[bag][0], 0, BAGS[bag][2]] : cutoffSpot();
+    const target = bag === 4 ? HOME.slice() : bag ? [BAGS[bag][0], 0, BAGS[bag][2]] : cutoffSpot();
     // the receiver: on his bag facing the throw, or out where the cutoff stands
     const recvId = n === 3 || (bag === 1) ? (pl.th === 'dirt' && o.last ? 'field_scoop' : n === 1 ? 'catch_run' : 'field_stretch') : bag === 2 ? (n === 6 ? 'pivot_ss' : 'pivot_2b') : 'field_stretch';
     const ct = catchOf(R, recvId);
@@ -620,8 +523,11 @@ export function planPlay(ctx) {
       const tid = id === 'field_dive_left' || id === 'field_dive_right' ? 'throw_knees' : short ? 'throw_flip' : B.n >= 7 ? 'throw_crow' : 'throw_over';
       let t0 = tEnd - (tid === 'throw_knees' ? 0.1 : 0.15) + (o.late ? 0.35 : 0);
       const relT = CLIPS[tid].events.find((x) => x.kind === 'release').t, guess = receive(src);
-      // a throw the batter beats (th: late) arrives just after he does
-      const due = Math.max(readyAt(guess.frR) + ct.t + 0.05, o.last && pl.th === 'late' && bag === 1 ? tLegs + 0.15 : -Infinity);
+      // a throw the batter beats (th: late) arrives just after he does, and so does one to a bag
+      // a man's safe at (bases.js safeAt), or one he's told to be behind (`o.after`)
+      const safeBy = bag && bag !== 1 ? bases.safeAt(bag) : null;
+      const due = Math.max(readyAt(guess.frR) + ct.t + 0.05, o.last && pl.th === 'late' && bag === 1 ? tLegs + 0.15 : -Infinity,
+        safeBy != null ? safeBy + 0.25 : -Infinity, o.after ?? -Infinity);
       const wait = due - (t0 + relT + throwTime(B.n, src, guess.gl));
       if (wait > 0.05) { settle(B, t0); t0 += wait; }
       te = throwFrom(B, tid, t0, target);
@@ -734,6 +640,7 @@ export function planPlay(ctx) {
     else { campUnder(B, fr, react(n0), tS); e = B.play(id, tS, { frame: fr, fade: FADE }); }
     const drop = pl.e === 'drop';
     caught(B, e, ball, tC, { miss: drop });
+    if (!drop) airEntry = { B, e };
     if (id === 'catch_run') pullUp(B, tS + 1.0, 21);
     log.airCatch = tC;
     land = tC + 0.5;

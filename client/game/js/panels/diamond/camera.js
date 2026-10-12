@@ -41,8 +41,13 @@ export const SHOTS = Object.freeze({
   // the camera has his face; the director cuts to it for his reaction and the umpire's call
   side: Object.freeze({ eye: [-66, 5.4, 26], at: [2.6, 3.7, -0.4], fov: 8.6, dof: 780, shadow: [[0, 0, 0], 40] }),
   sideL: Object.freeze({ eye: [66, 5.4, 26], at: [-2.6, 3.7, -0.4], fov: 8.6, dof: 780, shadow: [[0, 0, 0], 40] }),
-  // the bag at second, low from the first-base side with a 16° lens: steals and pickoffs
+  // the bag at second, low from the first-base side with a 16° lens: steals and pickoffs, and a
+  // man sliding in there once the ball's back in
   bag: Object.freeze({ eye: [-26.5, 3.4, 154.6], at: [-1.4, 1.9, 126.2], fov: 16.5, dof: 520, shadow: [[0, 0, 127], 26] }),
+  // third base from the camera well on that side, out toward second: a man coming in there
+  third: Object.freeze({ eye: [74, 7, 20], at: [48, 2.2, 82], fov: 30, dof: 640, shadow: [[45, 0, 85], 42] }),
+  // the plate from the well on the first-base side, the last strides from third coming in: a run
+  plate: Object.freeze({ eye: [-46, 8, 14], at: [8, 2.6, 8], fov: 34, dof: 640, shadow: [[10, 0, 10], 36] }),
   // the third-base camera on the pitcher
   mound: Object.freeze({ eye: [64, 7, 33], at: [0, 4.4, 58.8], fov: 10.5, dof: 700, shadow: [[0, 0, 60], 35] }),
   // high behind home with the city beyond: back from a break and between innings

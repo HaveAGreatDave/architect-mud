@@ -977,9 +977,16 @@ Built so far (Phases 1 and 2 of the plan):
   the legs to the man behind, dropped out of the glove, past the first baseman or into the
   stands. The high camera from home follows the ball, tilting up for a pop-up and closing in on
   one far out; a play at first cuts to the first-base camera as the throw goes, and a long fly to
-  a camera behind the man under it. Runners on the bags hold still and the batter stops at first
-  until Phase 3d, so when the next at-bat starts from bags the picture didn't leave, it opens on
-  the wide shot over the city while everyone takes their places;
+  a camera behind the man under it. The men on the bags run the payload's `moves` (Phase 3d,
+  [diamond/bases.js](../client/game/js/panels/diamond/bases.js)) at their own legs' pace, the
+  sim's speedOf: round the bags on a bowed turn, into a slide where the play says, home over the
+  plate and off toward their dugout. A man holding goes back to his bag; one tagging up leaves it
+  on the catch; one forced out gets there after the ball, and the base umpire calls it. The batter
+  rounds first on a single to the outfield and comes back, and trots round on a home run. A throw
+  to a bag a man's safe at waits for him, and the play lands with every man on his bag and every
+  run in; a man still running once the ball's back in gets the camera at the bag he's going to
+  (the plate, third or second). When the booth skips an at-bat and the next one starts from
+  other bags, it opens on the wide shot over the city while everyone takes their places;
 - the arcade graphics (Phase 1d), a canvas over the picture drawn by
   [diamond/hud.js](../client/game/js/panels/diamond/hud.js) in the client's display faces: the
   score with the bases, the count as lamps, the pitch speed and type, and in the batting view the
@@ -1060,7 +1067,11 @@ done by then. Every ball in play has each catch's clip on its catch with the glo
 and the fielder inside his joints, each throw out of the thrower's hand, the call at first
 agreeing with the ball and the batter, nobody moving faster than 52 ft/s outside a cut, the ball
 above the grass and never faster than the hardest-hit ball, and the high camera keeping it in
-frame. It feeds the view with a recording renderer to hold each line until its play lands and to
+frame. Every man on the bases goes over every bag on his way, is on his bag by the landing and
+stands on it at the end, a man forced out gets there after the ball and one safe at a bag a throw
+goes to gets there first, no two men come within 2.5 ft of each other, and the runs that cross
+the plate are the play's; a runner's legs in the picture are the sim's (play.js legsOf against
+speedOf). It feeds the view with a recording renderer to hold each line until its play lands and to
 open an at-bat on the cutaway when its bags differ from the picture's. The sandbox page takes
 `?park=3d`, `?play=inplay` (balls in play only), `?shot=`, `?bug=`, `?po=1` (the final's
 dressing), `?hud=0` (the picture alone), `?city=0`, `?hold=` (each line's hold in milliseconds,

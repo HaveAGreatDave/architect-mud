@@ -16,19 +16,22 @@
 // seconds (`budgetOf`), and `planViews` spends it in the plan's order: every pitch at real speed,
 // cut in at the stride; then each one's reaction, the hitter in close-up; then the pitcher's motion
 // from its start, and the set before it; then the throw back and the walk up to the rubber. A long
-// at-bat on a short hold leaves pitches out of the middle, and the count goes through them. Every
+// at-bat on a short hold leaves pitches out of the middle, and the count goes through them. A ball
+// in play is never hurried to fit: a play that needs more than the budget leaves out the first
+// pitch too, and if the last pitch and the play still don't fit, they run over (`floor`). Every
 // jump from one moment to another is under a cut (`shot`), so nobody pops.
 //
 // A BALL IN PLAY IS PLAYED OUT (diamond/plays.js): the fielders set as the last pitch comes, the
-// ball where the server sent it, the man who fields it, the throws and the catches, the batter
-// down the line and the base umpire's call, with the high camera following the ball and the
-// first-base camera on a play there. The play is planned once for the budget and again on the
-// clock; it's the same plan both times, moved.
+// ball where the server sent it, the man who fields it, the throws and the catches, every man on
+// the bases and the batter round to where the play leaves them (diamond/bases.js), and the base
+// umpires' calls, with the high camera following the ball and the first-base camera on a play
+// there. The play is planned once for the budget and again on the clock; it's the same plan both
+// times, moved.
 //
 // A PICTURE THAT DISAGREES WITH THE NEXT PAYLOAD IS FIXED ON A CUTAWAY. The booth doesn't call
-// every at-bat and Phase 3c doesn't move the runners, so the bags the picture last showed and the
-// ones the next payload starts from often differ; then the at-bat opens on the wide shot over the
-// city for a beat (`cutaway`), and everyone is in their new places when it cuts in.
+// every at-bat, so the bags the picture last showed and the ones the next payload starts from
+// often differ; then the at-bat opens on the wide shot over the city for a beat (`cutaway`), and
+// everyone is in their new places when it cuts in.
 //
 // `onLand` fires when the play lands: the umpire's call on a called third strike, the ball in the
 // mitt on a swinging one or on ball four, the ball hitting him, or the ball put in play resolved.
@@ -242,8 +245,10 @@ function planViews(S, budget, lead = 0) {
   const total = () => timeline(S, views, PACE.in + lead).landAt;
   // the last pitch, the first, then the rest from the end
   const order = [N - 1, 0, ...Array.from({ length: Math.max(0, N - 2) }, (_, k) => N - 2 - k)].filter((i, k, a) => i >= 0 && a.indexOf(i) === k);
-  // a long at-bat on a short hold: pitches out of the middle, from the end, until the rest fit
+  // a long at-bat on a short hold: pitches out of the middle, from the end, until the rest fit,
+  // and the first one too for a play that needs the time
   for (let i = N - 2; i >= 1 && total() > budget + 1e-9; i--) views[i].show = false;
+  if (N > 1 && total() > budget + 1e-9) views[0].show = false;
   const fuller = (i, k, val) => { const was = views[i][k]; views[i][k] = val; if (total() > budget + 1e-9) views[i][k] = was; };
   for (const i of order) if (i < N - 1 && views[i].show) fuller(i, 'react', true);
   for (const i of order) if (views[i].show) fuller(i, 'lead', 'core');
@@ -280,7 +285,9 @@ export function createDirector(W, opts = {}) {
     const t0 = W.t + PACE.in + lead;
     D.views = views;
     const TL = timeline(S, views, t0);
-    Object.assign(D, { t0, budget, landAt: TL.landAt, cutaway: !!lead, squeezed: !!o.cutaway && !lead });
+    // the shortest this at-bat can be: its last pitch and what comes of it, from the cut in
+    const floor = timeline(S, S.pitches.map((q, i) => ({ show: i === S.pitches.length - 1, lead: 'quick', react: false, ritual: false })), PACE.in).landAt;
+    Object.assign(D, { t0, budget, floor, landAt: TL.landAt, cutaway: !!lead, squeezed: !!o.cutaway && !lead });
     if (lead) W.at(W.t, () => emit('shot', 'sky'));
     const { P, C, H, U, tempo, delivery, hand, bats, from } = S;
     const side = sideShot(bats);
@@ -464,13 +471,15 @@ export function createDirector(W, opts = {}) {
   return D;
 }
 
-// The bags the picture shows taken once a payload has played: the runners where they started
-// (Phase 3c doesn't move them) and the batter on first if he got there. The view opens the next
-// at-bat on a cutaway when its bags differ (`stage`'s `o.cutaway`).
+// The bags the picture shows taken once a payload has played: on a ball in play every man runs
+// his move (bases.js), so the bags the play left; otherwise the runners where they started and
+// the batter on first if he got there. The view opens the next at-bat on a cutaway when its bags
+// differ (`stage`'s `o.cutaway`).
 const REACHED = new Set(['single', 'double', 'triple', 'error', 'fielderschoice', 'walk', 'hitbypitch']);
 export function pictureAfter(p) {
-  const bags = [0, 1, 2].map((i) => !!(Array.isArray(p?.basesBefore) && p.basesBefore[i]));
   if (p?.phase === 'half') return [false, false, false];
+  if (!p?.phase && p?.play && Array.isArray(p.basesAfter)) return [0, 1, 2].map((i) => !!p.basesAfter[i]);
+  const bags = [0, 1, 2].map((i) => !!(Array.isArray(p?.basesBefore) && p.basesBefore[i]));
   if (!p?.phase && REACHED.has(p?.kind)) bags[0] = true;
   return bags;
 }

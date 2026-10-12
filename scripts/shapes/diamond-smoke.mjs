@@ -26,9 +26,14 @@
 //      him); nobody's pelvis faster than 52 ft/s outside a cut, sampled at 30 Hz (a sprint is 36,
 //      a mix between two clips going different ways runs a little over, and a pop is hundreds);
 //      the ball finite, never under the grass and never faster than the hardest-hit ball; the high
-//      camera keeping the ball in its frame;
+//      camera keeping the ball in its frame; the men on the bases (diamond/bases.js): each over
+//      every bag on his way (3 ft, his feet and hands counted for a slide), on his bag by the
+//      landing and standing on it at the end (4 ft), a man forced out there after the ball and one
+//      safe at a bag a throw goes to there before it, no two of them within 2.5 ft, and the runs
+//      that cross the plate the play's;
 //      and the game has a ground ball thrown to first on the first-base camera, a ball caught in
-//      the air and a ball run down in the outfield.
+//      the air, a ball run down in the outfield, a run scored on a ball in the park and a man
+//      rounding first for second.
 //   2. THE VIEW, with a recording renderer in place of the GL park and the hand-cranked clock:
 //      payloads fed the way tv.js feeds them, each after its held line; the line stays the last
 //      one until the play lands and is this one after; the count on the board is the last
@@ -37,6 +42,9 @@
 //      and the play its own; once everyone's at rest the frames stop; an at-bat whose bags differ
 //      from the ones the picture left opens on the cutaway, and one that agrees doesn't; and with
 //      no frames at all (a hidden tab) the line still goes up once the play's time has passed.
+//
+// A runner's legs in the picture are checked against the sim's (play.js legsOf works speedOf over
+// again for the browser).
 //
 // It proves the staging RUNS and agrees with the sim. It doesn't look at pixels: the sandbox
 // page (tools/sandbox/deadball-park-test.html?park=3d) is for looking.
@@ -54,9 +62,11 @@ const { pitchPoint } = await import(P + 'diamond/hud.js');
 const { solvePose } = await import(P + 'diamond/rig.js');
 const { handPoint, limitBreaks, eventTime } = await import(P + 'diamond/anim.js');
 const { isShot, shotAt, project } = await import(P + 'diamond/camera.js');
+const { BAGS } = await import(P + 'diamond/geo.js');
+const { legsOf } = await import(P + 'diamond/play.js');
 const { createGrandstandView } = await import(P + 'gameday-grandstand.js');
 const { sportsRng } = await import('../../plugins/broadcast/rng.js');
-const { simGameV2 } = await import('../../plugins/broadcast/sports/baseball.js');
+const { simGameV2, speedOf } = await import('../../plugins/broadcast/sports/baseball.js');
 const { gamedayPayloads } = await import('../../plugins/broadcast/sports/baseball-gameday.js');
 
 let failures = 0, passes = 0;
@@ -81,9 +91,15 @@ const game = simGameV2({ away: 'Rats', home: 'Kings' }, null, sportsRng(SEED * 2
 const order = gamedayPayloads(game, SEED, { abbr, ordinal }).order;
 const atBats = order.filter((p) => !p.phase && (p.pitches || []).length);
 const T0 = Date.now();
+const flatD = (a, b) => Math.hypot(a[0] - b[0], a[2] - b[2]);
+const bagAt = (b) => (b === 4 ? [0, 0, 0] : BAGS[b]);
+
+// A runner's legs in the picture are the sim's: play.js legsOf works its speedOf over again, which
+// the browser can't import.
+for (const p of order) for (const m of p.moves || []) if (m && m.name) check('a runner\'s legs in the picture are the sim\'s (play.js legsOf)', legsOf(m.name) === speedOf(m.name), m.name);
 
 // ── 1. the director ──────────────────────────────────────────────────────────
-const seen = { skip: 0, ritual: 0, block: 0, check: 0, punchout: 0, hbp: 0, lefty: 0, sideL: 0, toFirst: 0, air: 0, rundown: 0 };
+const seen = { skip: 0, ritual: 0, block: 0, check: 0, punchout: 0, hbp: 0, lefty: 0, sideL: 0, toFirst: 0, air: 0, rundown: 0, scored: 0, round: 0 };
 const W = createWorld();
 for (const hold of [undefined, 45000]) {
   for (const p0 of atBats) {
@@ -152,7 +168,8 @@ for (const hold of [undefined, 45000]) {
     }
     // ── 1b. the ball in play ──
     const plan = !hold ? D.log[N - 1].play : null;
-    const moving = [], cam = { n: 0, out: 0 };
+    const moving = [], cam = { n: 0, out: 0 }, menOn = [];
+    let closest = { d: Infinity };
     let tPlay = Infinity;
     if (plan) {
       tPlay = D.log[N - 1].contact.t;
@@ -191,6 +208,9 @@ for (const hold of [undefined, 45000]) {
       if (plan.log.fielders.some((f) => f.clip === 'field_of_throw' && !f.miss)) seen.rundown++;
       // the bodies that do more than set: their pelvises are watched for jumps
       for (const B of plan.bodies) if (B.role === 'batter' || B.role === 'ump' || B.clips.filter((c) => !c.prior).length > 1) moving.push({ slot: B.slot, last: null, at: -1 });
+      // the men on the bases (bases.js), watched round the bags
+      for (const r of plan.log.runners || []) menOn.push({ r, who: `the man from ${r.from}`, near: {}, last: null });
+      if (plan.log.batter) menOn.push({ r: { ...plan.log.batter, end: plan.log.batter.to >= 1 && plan.log.batter.to <= 3 ? plan.log.batter.to : null }, who: 'the batter', near: {}, last: null });
     }
     due.sort((a, b) => a[0] - b[0]);
     // the clock, and every pose finite now and then on the way
@@ -219,6 +239,24 @@ for (const hold of [undefined, 45000]) {
           }
           m.last = pv; m.at = W.t;
         }
+        // how near each man on the bases comes to each bag: his pelvis, or near one his feet and
+        // hands too (a slide gets there with them); and how near any two come to each other
+        for (const g of menOn) {
+          const Q = W.pose(g.r.slot);
+          if (!Q) continue;
+          const pv = toPark(Q, Q.pelvis);
+          g.last = pv;
+          let ends = null;
+          for (const b of [1, 2, 3, 4]) {
+            let d = flatD(pv, bagAt(b));
+            if (d < 6) { ends ??= ['toeL', 'toeR', 'wrL', 'wrR'].map((j) => solvePose(Q).J[j]); for (const q of ends) d = Math.min(d, flatD(q, bagAt(b))); }
+            g.near[b] = Math.min(g.near[b] ?? Infinity, d);
+          }
+        }
+        for (let i = 0; i < menOn.length; i++) for (let j = i + 1; j < menOn.length; j++) {
+          const a = menOn[i].last, b = menOn[j].last;
+          if (a && b && flatD(a, b) < closest.d) closest = { d: flatD(a, b), at: W.t, who: `${menOn[i].who} and ${menOn[j].who}` };
+        }
         const ball = W.ballAt();
         if (ball) {
           check('a play: the ball finite and above the grass', ball.every(Number.isFinite) && ball[1] >= -1e-6, `${label}: [${ball.map((v) => v.toFixed(2))}]`);
@@ -234,9 +272,38 @@ for (const hold of [undefined, 45000]) {
       }
     }
     if (plan && cam.n) check('a play: the high camera keeps the ball in its frame (95%)', cam.out <= cam.n * 0.05, `${label}: out of frame ${cam.out} of ${cam.n}`);
+    if (plan) {
+      // every man round the bags his move takes him, on his bag by the landing and on it at the end
+      for (const g of menOn) {
+        const r = g.r;
+        for (const [b, t] of Object.entries(r.bags || {})) {
+          if (t == null) continue;
+          check('a play: every man on the bases goes over every bag on his way (3 ft)', (g.near[b] ?? Infinity) <= 3, `${label}: ${g.who}, bag ${b} by ${(g.near[b] ?? Infinity).toFixed(2)} ft`);
+        }
+        if (r.end) {
+          const d = g.last ? flatD(g.last, bagAt(r.end)) : Infinity;
+          check('a play: every man ends on the bag the play gives him (4 ft)', d <= 4, `${label}: ${g.who}, ${d.toFixed(1)} ft from ${r.end}`);
+          const got = r.bags?.[r.end];
+          if (got != null) check('a play: every man is on his bag by the landing', got <= D.landAt + 1e-6, `${label}: ${g.who} at +${(got - tPlay).toFixed(2)} s, lands +${(D.landAt - tPlay).toFixed(2)}`);
+        }
+        if (r.forced != null && r.bags?.[r.out] != null) check('a play: a man forced out gets there after the ball', r.bags[r.out] >= r.forced, `${label}: ${g.who} at +${(r.bags[r.out] - tPlay).toFixed(2)}, the ball +${(r.forced - tPlay).toFixed(2)}`);
+        if (r.bags?.[1] != null && r.bags?.[2] != null) seen.round++;
+      }
+      // the runs: every man the play sends home over the plate, by the landing but on a home run
+      const homeMen = menOn.filter((g) => g.r.to === 4), inBy = homeMen.filter((g) => (g.near[4] ?? Infinity) <= 3 && (p.kind === 'homerun' || g.r.bags[4] <= D.landAt + 1e-6)).length;
+      if (Number.isFinite(p.runs)) check('a play: the runs that cross the plate are the play\'s', inBy === p.runs, `${label}: ${inBy} for ${p.runs}`);
+      if (p.kind !== 'homerun') seen.scored += inBy;
+      // a man safe at a bag a throw goes to gets there first
+      for (const th of plan.log.throws) {
+        if (!th.bag || th.bag === 1 || th.error || !th.last) continue;
+        const g = menOn.find((x) => x.r.to === th.bag);
+        if (g && g.r.bags?.[th.bag] != null) check('a play: a man safe at a bag gets there before the throw', g.r.bags[th.bag] < th.catch.t, `${label}: ${g.who} at +${(g.r.bags[th.bag] - tPlay).toFixed(2)}, the ball +${(th.catch.t - tPlay).toFixed(2)}`);
+      }
+      if (menOn.length > 1) check('a play: no two men on the bases run into each other (2.5 ft)', closest.d >= 2.5, `${label}: ${closest.who} ${closest.d.toFixed(2)} ft apart at +${(closest.at - tPlay).toFixed(2)} s`);
+    }
     check('onLand fires once', landed === 1, `${label}: ${landed}`);
     check('it lands when the director said', landT != null && landT - D.landAt <= DT + 1e-9 && landT >= D.landAt - 1e-9, `${label}: ${landT} for ${D.landAt}`);
-    check('the play lands inside its budget (0.45 of the hold, 13 to 26 s)', D.landAt - t0 <= budget + 1e-9, `${label}: ${(D.landAt - t0).toFixed(2)} of ${budget} s`);
+    check('the play lands inside its budget (0.45 of the hold, 13 to 26 s), or as soon as its last pitch and the play allow', D.landAt - t0 <= Math.max(budget, D.floor) + 1e-9, `${label}: ${(D.landAt - t0).toFixed(2)} of ${budget} s`);
     check('the count goes through every pitch, in order, by the landing', counts.length === N && counts.every((c, j) => c.i === j) && counts[N - 1].t <= D.landAt + DT, `${label}: ${counts.map((c) => c.i)}`);
     for (const s of shots) check('every shot is a camera', isShot(s), `${label}: ${JSON.stringify(s)}`);
     if (shots.includes('sideL')) seen.sideL++;
@@ -263,6 +330,8 @@ check('a left-handed hitter gets the third-base camera', seen.lefty === 0 || see
 check('the game has a ground ball thrown out at first on the first-base camera', seen.toFirst > 0);
 check('the game has a ball caught in the air', seen.air > 0);
 check('the game has a ball run down in the outfield', seen.rundown > 0);
+check('the game has a run scored on a ball in the park', seen.scored > 0);
+check('the game has a man rounding first for second', seen.round > 0);
 
 // ── 2. the view ──────────────────────────────────────────────────────────────
 // A renderer that records what it's handed: the cast, the poses by slot, the ball, the shots.
@@ -312,7 +381,7 @@ const renderer = () => ({
         if (!D.landed && capText() !== prevLine) held = false;
       }
       check('the line is held until the play lands', held, `${label}: "${capText()}" before the landing`);
-      check('the play lands in the view inside its budget', D.landed && W2.t - start <= budget + 0.1, `${label}: ${(W2.t - start).toFixed(2)} of ${budget} s`);
+      check('the play lands in the view inside its budget, or as soon as its last pitch and the play allow', D.landed && W2.t - start <= Math.max(budget, D.floor) + 0.1, `${label}: ${(W2.t - start).toFixed(2)} of ${budget} s`);
       check('the line goes up when the play lands', capText() === line, `${label}: "${capText()}"`);
       const S = v.state, last = p.pitches[p.pitches.length - 1];
       check('the board has the last pitch\'s count, without a fourth ball or a third strike', S.balls === Math.min(3, last.balls) && S.strikes === Math.min(2, last.strikes) && S.pitch === last, `${label}: ${S.balls}-${S.strikes}`);
@@ -323,8 +392,8 @@ const renderer = () => ({
       const shown = D.log.filter((r) => r.shown).length;
       check('a sound for every pitch shown, and the play\'s own', stub.sounds.length - sounds0 >= shown + 1, `${label}: ${stub.sounds.length - sounds0} for ${shown} pitches`);
       check('the view\'s camera is a shot', isShot(v.shot), `${label}: ${JSON.stringify(v.shot)}`);
-      // then everyone comes to rest and the frames stop
-      for (let i = 0; i < 300 && v.busy(); i++) stub.runFrames(1, 1000 / 30);
+      // then everyone comes to rest and the frames stop (a home run's trot is the longest, 23 s)
+      for (let i = 0; i < 900 && v.busy(); i++) stub.runFrames(1, 1000 / 30);
       const frames = rec.frames;
       stub.runFrames(20, 1000 / 30);
       check('at rest, the frames stop', !v.busy() && rec.frames === frames, `${label}: ${rec.frames - frames} more frames`);

@@ -5,9 +5,10 @@ flag: the park in 3-D with its light, air, lens and grade, the arcade graphics, 
 the park as a set with the park's own outside (1a to 1e); skinned players who pitch, swing, catch
 and call every pitch at its real speed and spot, and the Pose Lab their clips are keyed in (2a to
 2e); every ball in play decided on the server, with the booth's lines sorted to agree with it
-(3a), the clips to play it with, players who travel as they move (3b), and every ball in play
-played out in the park with its cameras and its cutaways (3c). The changeover and plays on the
-bases (3d) and the spectacle (3e) are design.** A plan for giving Deadball a 3-D sub-screen the way Cluster Puck got Rinkside, at the
+(3a), the clips to play it with, players who travel as they move (3b), every ball in play
+played out in the park with its cameras and its cutaways (3c), and the men on the bases running
+it out (3d's first part). The rest of 3d (walks, the changeover and the plays on the bases) and
+the spectacle (3e) are design.** A plan for giving Deadball a 3-D sub-screen the way Cluster Puck got Rinkside, at the
 highest fidelity the engine can reach. Deadball is a live sport on KSAB, and the broadcast borrows
 the look of a 1990s arcade baseball game. That means skinned, detailed players, authored animation
 with a wide spread of plays, light from the park's own towers and a crowd that fills the stands.
@@ -1644,6 +1645,26 @@ Phase 3, or with sim v2 if that comes later.
   its ball, every throw to its hand, the call at first to the picture, every pelvis under 52 ft/s
   outside a cut and the ball in the high camera's frame, over two games; the planner takes about
   5 ms an at-bat.
+
+- **3d built so far, the men on the bases:** on a ball in play every man runs the payload's
+  `moves` at his own legs' pace ([diamond/bases.js](../../client/game/js/panels/diamond/bases.js);
+  play.js `legsOf` is the sim's speedOf, which the browser can't import). His way round a bag is a
+  bowed turn through it, and the run cycle is carried round it a few degrees at a time, changing
+  from the run to the sprint at the same point in the stride as he comes up to speed. A man
+  holding stays in his lead (a new clip, `run_lead`) on the ground and goes back to his bag on a
+  ball in the air; one tagging up leaves on the catch, and a close sac fly gets the throw home
+  behind him and his slide. A man forced out gets there after the ball and slides, and the base
+  umpire calls it; the batter runs through first on a play there, rounds it and comes back on a
+  single to the outfield, slides into second or third where the play says, and trots round on a
+  home run. A man who scores goes on over the plate past the catcher and jogs off toward his
+  dugout. A throw to a bag a man's safe at waits for him, and the play lands with every man on
+  his bag and every run in; a man still running once the ball's back in gets one cut to the bag
+  he's going to, two of them new cameras (the plate, third). A play never hurries to fit its
+  budget: a long one leaves out the first pitch too, and the last pitch and the play run over if
+  they must, by a quarter of a second at most over 25 games. The picture now leaves the bags the
+  play left, so a cutaway is only for an at-bat the booth skipped. `diamond-smoke` holds every
+  man over every bag on his way, on his bag by the landing and at the end, the forced man after
+  the ball and the safe man before the throw, no two men within 2.5 ft and the runs to the play's.
 
 **Phase 4: the broadcast.** On by default wherever WebGL2 and float targets work.
 - `gl/crowd.js` with seated and reaction clips; replays in slow motion; dead-time rituals; the grounds

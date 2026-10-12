@@ -205,6 +205,8 @@ for (const kind of ['sit', 'stand', 'cheer']) for (const far of [false, true]) {
   check('batting view: still has the plate on the TV letterbox', on('bat', [0, 0, 0.7], 1480, 640));
   check('centre field: the plate and the mound in frame', on('cf', [0, 0, 0.7]) && on('cf', [0, 3, 60.5]));
   check('the bag: second base in frame', on('bag', G.BAGS[2]));
+  check('third: the bag and the way in from second in frame', on('third', G.BAGS[3]) && on('third', [42.4, 0, 84.8]) && on('third', [21.2, 0, 106]));
+  check('the plate: the plate and the last strides from third in frame', on('plate', [0, 0, 0]) && on('plate', [28.3, 0, 28.3]));
   check('high home: all three bases in frame', [1, 2, 3].every((k) => on('high', G.BAGS[k])));
   check('a wide screen narrows a long lens', C.shotOf('cf', 2.3).fov < C.SHOTS.cf.fov && C.shotOf('cf', 4 / 3).fov === C.SHOTS.cf.fov);
   check('the batting view keeps its height on a wide screen', C.shotOf('bat', 2.3).fov === C.SHOTS.bat.fov);
