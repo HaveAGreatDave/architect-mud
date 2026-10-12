@@ -6,7 +6,7 @@
 @announcer "Tug Brennan"
 # The booth's own voice, over the station's: no ring modulator and no drive. Both are
 # texture, and both cost words: measured, the clean voice is understood about 10% better.
-@voice ring=0 drive=0
+@voice ring=0 drive=0 vs=1
 @airtime 18
 @length 300
 @titlecard cphl_title
@@ -342,7 +342,7 @@ zephariah    Z EH F ER * AY AX
 ::endsay
 
 ::lines intro
-Good evening from Coldwater and welcome to CLUSTER PUCK. I'm Tug Brennan, nobody made me do this, and we're under way.
+Good evening from Coldwater and welcome to CLUSTER PUCK. I'm Tug Brennan, and nobody made me do this.
 CPhL hockey tonight, brought to you by whoever is still paying, and I have been told not to name them on air.
 Evening. Tug Brennan with you. The scheduler says these two are playing, so these two are playing.
 Welcome in. The ice is down, the lights are on, and the insurance has lapsed. Let's go.
@@ -360,16 +360,16 @@ The {away} in from out of district to meet the {home}. Sixty minutes, whatever's
 # The sim really does make these games nastier — more penalties, more fights — so
 # these lines are reporting a fact, not selling a storyline.
 ::lines rivalry.intro
-Evening. Tug Brennan, and you know what tonight is. These two don't like each other and they have never needed a reason.
-Welcome in. It's one of THOSE nights. The scheduler put these two together again and the building knew before I did.
-Good evening from Coldwater, where the ice is down and both of these clubs turned up early to stand around looking at each other.
+Evening, Tug Brennan with you, and it's a rivalry night. The medics have a second stretcher parked by the gate.
+Good evening from Coldwater. These two clubs can't stand each other, and the officials have been told to keep their whistles handy.
+Welcome in. When these two meet, the penalty minutes run about half again what they do on any other night.
 ::endlines
 
 ::lines rivalry.matchup
-{away} at {home}, and this one has history nobody wrote down. Bring a bucket.
-The {away} and the {home}. There's no trophy for this and they'll both bleed for it anyway.
-It's {away}–{home}. Whatever this is, it started before the records did, and the records don't exist.
-{away} into {home}'s barn. Last time these two met the officials went home early.
+{away} at {home}, the meanest pairing on the schedule. The gloves come off nearly twice as often when these two meet.
+The {away} and the {home}. Both benches have dressed their heavyweights tonight.
+{away} into the {home}'s barn. The crowd has been on its feet since the warm-up, mostly shouting at the visitors' bench.
+{away} versus {home}. The officials gave both captains a talk at the morning skate. Nobody listened last time either.
 ::endlines
 
 ::lines matchup.records
@@ -393,9 +393,9 @@ No {player} tonight, still out, and the club brings up {callup}. This league doe
 
 # ── periods ───────────────────────────────────────────────────────────────────
 ::lines section.start
-Here we go with the {sectionOrd}. {away} attacking twice, {home} once more after that.
-{sectionOrd} period under way. Two blasts from the official and the puck is down.
-Fresh sheet, {sectionOrd} period. It won't stay fresh.
+Here comes the {sectionOrd} period. Both teams are back out.
+The {sectionOrd} period, and the linesman is skating the puck out to centre.
+Back for the {sectionOrd}. The ice is wet where the Zamboni got to.
 ::endlines
 
 ::lines section.end
@@ -1107,7 +1107,7 @@ He buries it!
 
 ::lines pbp.faceoff.center
 Faceoff at centre.
-Puck down at centre ice.
+They line up at centre ice.
 Centre-ice draw.
 ::endlines
 
@@ -1245,9 +1245,16 @@ In it goes.
 ::endlines
 
 ::lines pbp.period.out
-Fresh sheet.
 Teams are out.
-Clean ice. Not for long.
+Both benches are full.
+The Zamboni's gone back through its gate.
+::endlines
+
+# Said once the first draw of a period has been won: the period is under way.
+::lines pbp.period.go
+And we're under way.
+Under way.
+Play's on.
 ::endlines
 
 ::lines pbp.after.glove

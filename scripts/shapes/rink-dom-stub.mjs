@@ -64,6 +64,10 @@ class El {
   get offsetWidth() { return this.__w ?? 520; }
   set offsetWidth(v) { this.__w = v; }
   setAttribute(k, v) { this.attrs.set(String(k), String(v)); }
+  // listeners are kept and can be fired, so a control the view wires up can be pressed
+  addEventListener(type, fn) { ((this.__on ??= {})[type] ??= []).push(fn); }
+  removeEventListener(type, fn) { const l = this.__on?.[type]; if (l) this.__on[type] = l.filter((f) => f !== fn); }
+  click() { for (const fn of this.__on?.click || []) fn({ type: 'click', target: this }); }
   getAttribute(k) { const v = this.attrs.get(String(k)); return v == null ? null : v; }
   removeAttribute(k) { this.attrs.delete(String(k)); }
   hasAttribute(k) { return this.attrs.has(String(k)); }

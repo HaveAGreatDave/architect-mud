@@ -129,12 +129,12 @@ export function createWorld(ice, seedKey) {
   const W = {
     t: 0, rand, ice,
     team: { a: [], h: [] }, goalie: { a: null, h: null }, officials: [], extras: [],
-    puck: { x: 100, y: MID_Y, z: 0, vx: 0, vy: 0, vz: 0, carrier: null, target: null, held: null, passT0: 0, inNet: null, owner: null, home: null, tail: null },
+    puck: { x: 100, y: MID_Y, z: 0, vx: 0, vy: 0, vz: 0, carrier: null, target: null, held: null, passT0: 0, inNet: null, owner: null, home: null, tail: null, drawn: null, drawn0: null },
     parts: [], spray: [], debris: [], limbs: [], stretcher: null, zamboni: null,
     flex: new Float32Array(PANELS), cracks: [], glassBlood: [], broken: new Set(),
     crowd: 0.15, shake: 0, boardShake: 0, hitstop: 0, lamp: 0, lampSide: null, mourning: 0, dim: 0,
     banner: null, fight: null,
-    cam: { mode: 'broadcast', focus: [100, MID_Y], cut: 0, zoom: 1, net: null },
+    cam: { mode: 'broadcast', focus: [100, MID_Y], zoom: 1, net: null },
     ev: [], script: null, puckScripted: false, allowGoal: false, frozen: false,
     amb: { poss: 'a', nextPass: 1.5, lastTurn: 0, holdUntil: 0, fore: { a: null, h: null } },
     emit: () => {},
@@ -167,8 +167,9 @@ export function createWorld(ice, seedKey) {
   // ⚠ THE PUCK NEVER JUMPS TO A STICK. Possession is only ever taken within reach of the
   // blade. Asked to hand it to a man it's farther from than that, `give` collects instead:
   // the puck is fetched (he skates to it, if he's scripted and `drive` is set) and swept in
-  // the last few feet, and possession passes when it arrives. A caller that has just moved
-  // the puck under a camera cut, where nobody sees the jump, passes `force`.
+  // the last few feet, and possession passes when it arrives. A caller that knows the puck
+  // is at the stick already (the shot's release, a tip, a catch) passes `force`; the carry
+  // leash is speed-capped, so even then the puck slides the last inch rather than jumping.
   const REACH = 3.0;
   W.give = (b, force) => {
     const pk = W.puck;
@@ -233,7 +234,9 @@ export function createWorld(ice, seedKey) {
     W.loose(0, 0);
     pk.tail = { t0: W.t, k: TAIL[type] ?? 0.5, pts: [] };
     const d = Math.hypot(tgt[0] - pk.x, tgt[1] - pk.y) || 1, tt = d / spd;
-    pk.vx = (tgt[0] - pk.x) / d * spd; pk.vy = (tgt[1] - pk.y) / d * spd; pk.vz = (tgt[2] - pk.z) / tt + (G / 2) * tt; pk.z = Math.max(pk.z, 0.05);
+    // (lifted no higher than a shot is: from a long way out, slowly, it would have to be lobbed
+    // over the glass to come down on its spot, so it comes in low and slides the rest)
+    pk.vx = (tgt[0] - pk.x) / d * spd; pk.vy = (tgt[1] - pk.y) / d * spd; pk.vz = Math.min(16, (tgt[2] - pk.z) / tt + (G / 2) * tt); pk.z = Math.max(pk.z, 0.05);
     W.burst('spray', pk.x, pk.y, 0.2, 8, 5, [0, 0, 2]);
     W.crowd = Math.max(W.crowd, 0.5);
     return tt;
@@ -292,11 +295,16 @@ export function createWorld(ice, seedKey) {
   function stepPuck(dt) {
     const pk = W.puck;
     if (pk.held) {
-      // into the goalie's hand: glided there if it isn't already, then held
-      const J = goalieRig(pk.held, W.t), hnd = J[6], d = Math.hypot(hnd[0] - pk.x, hnd[1] - pk.y, hnd[2] - pk.z);
-      const k = d > 0.5 ? Math.min(1 - Math.exp(-dt * 10), 70 * dt / d) : 1;
+      // In a hand: the goalie's glove, or a linesman's right hand while he carries it to a
+      // dot. Glided there if it isn't already, then held. A linesman who has left the ice
+      // has it in his pocket.
+      const hb = pk.held, J = hb.kind === 'goalie' ? goalieRig(hb, W.t) : skaterRig(hb, W.t), hnd = hb.kind === 'goalie' ? J[6] : J[9];
+      const d = Math.hypot(hnd[0] - pk.x, hnd[1] - pk.y, hnd[2] - pk.z), pocket = pk.hidden;
+      // (out of sight it's simply where his hand is, so he comes back on with it in his hand)
+      const k = d > 0.5 && !pocket ? Math.min(1 - Math.exp(-dt * 10), 70 * dt / d) : 1;
       pk.x += (hnd[0] - pk.x) * k; pk.y += (hnd[1] - pk.y) * k; pk.z += (hnd[2] - pk.z) * k; pk.vx = pk.vy = pk.vz = 0;
       pk.tail = null;
+      if (hb.kind === 'official') pk.hidden = !hb.active;
       if (pk.home) { endFetch(pk.home); pk.home = null; }
       return;
     }
@@ -607,6 +615,14 @@ export function createWorld(ice, seedKey) {
     if (g.rag) { stepBody(g, dt); return; }
     const pk = W.puck, dir = attackDir(g.side), gx = g.side === 'a' ? GOAL_X[0] : GOAL_X[1];
     const gx0 = g.x, gy0 = g.y;
+    // He eases onto his spot, but never faster than a goalie skates: from the bench or a
+    // long way out of his net he comes back across the ice, he isn't snapped there.
+    const glide = (tx, ty, kx, ky) => {
+      let mx = (tx - g.x) * (1 - Math.exp(-dt * kx)), my = (ty - g.y) * (1 - Math.exp(-dt * ky));
+      const m = Math.hypot(mx, my), cap = 24 * dt;
+      if (m > cap) { mx *= cap / m; my *= cap / m; }
+      g.x += mx; g.y += my;
+    };
     g.track = [pk.x, pk.y, pk.z];
     if (!g.scripted) {
       // out to cut the angle when the play is far, back to the post when it's in tight
@@ -614,14 +630,14 @@ export function createWorld(ice, seedKey) {
       const out = clamp(dist * 0.08, 1.2, 4.2);
       const ang = Math.atan2(pk.y - MID_Y, (pk.x - gx) * dir);
       const tx = gx + dir * Math.cos(clamp(ang, -1.2, 1.2)) * out, ty = MID_Y + Math.sin(clamp(ang, -1.2, 1.2)) * out * 0.9;
-      g.x += (tx - g.x) * (1 - Math.exp(-dt * 7)); g.y += (ty - g.y) * (1 - Math.exp(-dt * 8));
+      glide(tx, ty, 7, 8);
       const base = dir > 0 ? 0 : Math.PI;
       const wantH = base + clamp(angWrap(Math.atan2(pk.y - g.y, pk.x - g.x) - base), -0.8, 0.8);
       g.h += clamp(angWrap(wantH - g.h), -6 * dt, 6 * dt);
       const near = Math.hypot(pk.x - g.x, pk.y - g.y) < 22;
       g.bfly = lerp(g.bfly, near && pk.z < 0.5 && !pk.carrier ? 0.25 : 0, 1 - Math.exp(-dt * 4));
     } else {
-      g.x += (g.tx - g.x) * (1 - Math.exp(-dt * 9)); g.y += (g.ty - g.y) * (1 - Math.exp(-dt * 9));
+      glide(g.tx, g.ty, 9, 9);
       if (g.face != null) g.h += clamp(angWrap(g.face - g.h), -7 * dt, 7 * dt);
     }
     g.vx = lerp(g.vx || 0, (g.x - gx0) / dt, 1 - Math.exp(-dt * 10)); g.vy = lerp(g.vy || 0, (g.y - gy0) / dt, 1 - Math.exp(-dt * 10));
@@ -631,19 +647,25 @@ export function createWorld(ice, seedKey) {
     g.phase += dt * 0.3;
     if (g.act) { g.actT += dt / g.actDur; if (g.actT >= 1) { g.act = g.actHold ? g.act : null; if (!g.actHold) g.actT = 0; else g.actT = 1; } }
   }
-  function separate() {
-    const sk = bodies().filter((b) => b.kind !== 'goalie');
+  // An official (or a medic) steps round a player rather than moving him, so a centre set on
+  // the dot stays on it; and he's slimmer than a man in pads, so he can step between two.
+  const yields = (q) => q.kind === 'official' || q.kind === 'medic';
+  function separate(on) {
+    const sk = on.filter((b) => b.kind !== 'goalie');
     for (let i = 0; i < sk.length; i++) for (let j = i + 1; j < sk.length; j++) {
       const a = sk[i], b = sk[j];
+      const dx = b.x - a.x, dy = b.y - a.y;
+      if (dx > 2.4 || dx < -2.4 || dy > 2.4 || dy < -2.4) continue;
       if (a.rag || b.rag || a.foe === b || a.target === b || b.target === a) continue;
-      const dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy);
+      const d = Math.hypot(dx, dy);
       // eased apart over a few steps, and their closing speed taken off, rather than shoved
       // clear in one: two men bumping shouldn't twitch
-      if (d < 2.4 && d > 0.01) {
-        const k = (2.4 - d) / d * 0.5 * Math.min(1, DT * 25), nx = dx / d, ny = dy / d;
-        a.x -= dx * k; a.y -= dy * k; b.x += dx * k; b.y += dy * k;
+      const wa = yields(a) && !yields(b) ? 1 : yields(b) && !yields(a) ? 0 : 0.5, wb = 1 - wa, R = wa === 0.5 ? 2.4 : 1.5;
+      if (d < R && d > 0.01) {
+        const k = (R - d) / d * Math.min(1, DT * 25), nx = dx / d, ny = dy / d;
+        a.x -= dx * k * wa; a.y -= dy * k * wa; b.x += dx * k * wb; b.y += dy * k * wb;
         const vn = (b.vx - a.vx) * nx + (b.vy - a.vy) * ny;
-        if (vn < 0) { a.vx += vn * nx * 0.5; a.vy += vn * ny * 0.5; b.vx -= vn * nx * 0.5; b.vy -= vn * ny * 0.5; }
+        if (vn < 0) { a.vx += vn * nx * wa; a.vy += vn * ny * wa; b.vx -= vn * nx * wb; b.vy -= vn * ny * wb; }
       }
     }
     // nobody skates through a net or stands in it
@@ -734,7 +756,7 @@ export function createWorld(ice, seedKey) {
     const carrier = pk.carrier;
     const free = !W.puckScripted && !W.frozen;
     // a goalie with it plays it up to a defenceman
-    if (free && pk.held && W.t > A.holdUntil) {
+    if (free && pk.held && pk.held.kind === 'goalie' && W.t > A.holdUntil) {
       const g = pk.held; const d = nearestOf(W.mates(g.side).filter((b) => b.slot >= 3), g.x, g.y);
       if (d) { pk.held = null; g.gloveW = 0; W.pass(g, d, 50); }
     }
@@ -902,6 +924,8 @@ export function createWorld(ice, seedKey) {
     const pk = W.puck;
     W.officials.forEach((o, i) => {
       if (o.scripted || o.rag) return;
+      // a linesman with the puck in his hand is waiting for a draw, not following it
+      if (pk.held === o) { o.tx = o.x; o.ty = o.y; return; }
       const far = i === 0;
       const tx = clamp(pk.x + (far ? -14 : 16), 30, RL - 30), ty = far ? RW - 6 : 6.5;
       o.tx = tx; o.ty = ty; o.maxV = 18; o.face = Math.atan2(pk.y - o.y, pk.x - o.x);
@@ -925,11 +949,28 @@ export function createWorld(ice, seedKey) {
     seg(x0, y1 - r, x0, y0 + r); arc(x0 + r, y0 + r, Math.PI);
     return pts;
   }
+  // It comes on and goes off through the gate in an end wall, clear of the net (`GATE_Y`),
+  // and is never simply there: on, it drives in and joins its first lap on that end; called
+  // off (`W.zamboniOff`, the period about to start), it drives to the nearer gate and out.
+  const GATE_Y = 52.5, GATE_OUT = 16;
   W.startZamboni = (speed = 22) => {
-    const route = [];
-    for (let d = 4.8; d < MID_Y - ZW * 0.4; d += ZW) route.push(...zamboniPath(d));
+    // every lap starts and ends on the left end by the gate, so each one steps in from the
+    // last there, clear of the net
+    const route = [[-GATE_OUT, GATE_Y], [-6, GATE_Y]];
+    for (let d = 4.8; d < MID_Y - ZW * 0.4; d += ZW) {
+      const L = zamboniPath(d);
+      let j = 0, bd = Infinity;
+      L.forEach((q, k) => { if (Math.abs(q[0] - d) < 0.5 && Math.abs(q[1] - GATE_Y) < bd) { bd = Math.abs(q[1] - GATE_Y); j = k; } });
+      route.push(...L.slice(j), ...L.slice(0, j));
+    }
     route.push([RC + 6, MID_Y], [RL - RC - 6, MID_Y]);
     W.zamboni = { t: 0, route, i: 0, x: route[0][0], y: route[0][1], h: 0, speed, done: false, wake: [] };
+  };
+  W.zamboniOff = () => {
+    const z = W.zamboni; if (!z || z.leaving) return;
+    const gx = z.x < RL / 2 ? 0 : RL, out = gx ? 1 : -1;
+    z.route = [[z.x, z.y], [gx - out * 14, GATE_Y], [gx - out * 4, GATE_Y], [gx + out * GATE_OUT, GATE_Y]];
+    z.i = 0; z.done = false; z.leaving = true; z.speed = Math.max(z.speed, 26);
   };
   function stepZamboni(dt) {
     const z = W.zamboni; if (!z) return;
@@ -940,28 +981,73 @@ export function createWorld(ice, seedKey) {
       const [tx, ty] = z.route[z.i + 1], d = Math.hypot(tx - z.x, ty - z.y);
       if (d <= move) { z.x = tx; z.y = ty; z.i++; move -= d; } else { z.x += (tx - z.x) / d * move; z.y += (ty - z.y) / d * move; move = 0; }
     }
-    if (z.i >= z.route.length - 1) { z.done = true; return; }
+    if (z.i >= z.route.length - 1) { if (z.leaving) W.zamboni = null; else z.done = true; return; }
     const [tx, ty] = z.route[Math.min(z.route.length - 1, z.i + 2)];
     z.h += angWrap(Math.atan2(ty - z.y, tx - z.x) - z.h) * (1 - Math.exp(-dt * 5));
-    if (z.t - (z.paintAt || 0) > 0.04) {
+    const on = z.x > 2 && z.x < RL - 2;
+    if (on && z.t - (z.paintAt || 0) > 0.04) {
       z.paintAt = z.t;
       W.ice.resurface(z.x - Math.cos(z.h) * 5.6, z.y - Math.sin(z.h) * 5.6, ZW / 2, z.h);
       if (rand() < 0.4) W.burst('spray', z.x - Math.cos(z.h) * 5.8, z.y - Math.sin(z.h) * 5.8, 0.4, 1, 1.5, [0, 0, 0.6]);
+      // what's left lying on the ice goes in under the front of it: sticks, gloves, and the rest
+      const fx = z.x + Math.cos(z.h) * 4, fy = z.y + Math.sin(z.h) * 4, under = (x, y) => Math.hypot(x - fx, y - fy) < ZW * 0.6;
+      if (W.debris.some((d) => under(d.x, d.y))) W.debris = W.debris.filter((d) => !under(d.x, d.y));
+      if (W.limbs.some((l) => under(l.pts[0].x, l.pts[0].y))) W.limbs = W.limbs.filter((l) => !under(l.pts[0].x, l.pts[0].y));
     }
   }
 
+  // ── what the renderers draw ───────────────────────────────────────────────
+  // THE PUCK AS DRAWN NEVER JUMPS. It is the sim's puck, except that it can't move farther in
+  // a step than the hardest shot carries it (a slapshot is 108 ft/s): a puck put somewhere
+  // instead of carried there is flown to it over a few frames, never cut to. And the world
+  // is drawn between its last two steps (`W.alpha`, set by the view each frame), so a 120 Hz
+  // world on a screen at any other rate moves evenly rather than in uneven hops: the puck
+  // from `drawn0` to `drawn`, a man from `x0, y0` to `x, y`.
+  const FASTEST = 150;
+  function stepDrawn(dt) {
+    const pk = W.puck, d = pk.drawn;
+    if (!d || pk.hidden) { pk.drawn = [pk.x, pk.y, pk.z]; pk.drawn0 = [pk.x, pk.y, pk.z]; pk.trail = []; return; }
+    pk.drawn0[0] = d[0]; pk.drawn0[1] = d[1]; pk.drawn0[2] = d[2];
+    const ex = pk.x - d[0], ey = pk.y - d[1], ez = pk.z - d[2], e = Math.hypot(ex, ey, ez), lim = FASTEST * dt;
+    if (e <= lim) { d[0] = pk.x; d[1] = pk.y; d[2] = pk.z; }
+    else {
+      // closed at the limit plus a share of what's left, so even a long way is flown in a
+      // fraction of a second
+      const k = Math.min(1, (lim + e * (1 - Math.exp(-dt * 10))) / e);
+      d[0] += ex * k; d[1] += ey * k; d[2] += ez * k;
+    }
+    // where it was drawn over the last quarter second, and how fast it was going: the
+    // glowing puck's comet tail (hud.js)
+    if (W.t - (pk.trailAt ?? -1) >= 1 / 60) {
+      pk.trailAt = W.t;
+      const tr = pk.trail || (pk.trail = []);
+      tr.push([d[0], d[1], d[2] + 0.08, Math.hypot(d[0] - pk.drawn0[0], d[1] - pk.drawn0[1], d[2] - pk.drawn0[2]) / dt]);
+      if (tr.length > 15) tr.shift();
+    }
+  }
+  W.alpha = 1;
+  // where to draw the puck this frame
+  W.puckAt = () => {
+    const pk = W.puck, d = pk.drawn, d0 = pk.drawn0, a = clamp(W.alpha ?? 1, 0, 1);
+    return d && d0 ? [lerp(d0[0], d[0], a), lerp(d0[1], d[1], a), lerp(d0[2], d[2], a)] : [pk.x, pk.y, pk.z];
+  };
+
   W.step = (dt) => {
     W.t += dt;
+    for (const b of bodies()) { b.x0 = b.x; b.y0 = b.y; }
     while (W.ev.length && W.ev[0].t <= W.t) W.ev.shift().fn();
     if (W.script) W.script(dt);
     // a man fetching the puck skates to it, whatever his script last asked of him
     { const pk = W.puck, h = pk.home; if (h && pk.homeDrive && !pk.carrier) { const d = Math.hypot(pk.x - h.x, pk.y - h.y), sp = Math.hypot(pk.vx, pk.vy); h.tx = pk.x + pk.vx * 0.3; h.ty = pk.y + pk.vy * 0.3; h.maxV = clamp(Math.max(sp + 4, d * 2.2), 8, 25); } }
     ambient(dt);
     officials(dt);
-    for (const b of bodies()) if (b.kind !== 'goalie') stepBody(b, dt);
-    separate();
+    // (the men on the ice don't change between here and the end of the step: listed once)
+    const on = bodies();
+    for (const b of on) if (b.kind !== 'goalie') stepBody(b, dt);
+    separate(on);
     stepGoalie(W.goalie.a, dt); stepGoalie(W.goalie.h, dt);
     stepPuck(dt);
+    stepDrawn(dt);
     stepDebris(dt);
     stepLimbs(dt);
     stepParts(dt); stepSpray(dt);

@@ -12339,6 +12339,15 @@ html[data-density="compact"][data-pane-claimed] #mobile-hud { display: none; }
 }
 .gdr-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 .gdr-hud { position: absolute; inset: 0; width: 100%; height: 100%; display: block; pointer-events: none; }
+/* The glowing-puck toggle (gameday-rink.js), small in the bottom corner of the picture,
+   lit while the glow is on. */
+.gdr-glow {
+	position: absolute; right: 8px; bottom: 8px; z-index: 8; width: 28px; height: 28px; padding: 0;
+	display: flex; align-items: center; justify-content: center; cursor: pointer;
+	border-radius: 50%; border: 1px solid rgba(160,190,220,0.35); background: rgba(6,10,16,0.62); color: #6b7a8a;
+}
+.gdr-glow:hover, .gdr-glow:focus-visible { border-color: rgba(159,228,255,0.8); }
+.gdr-glow[aria-pressed="true"] { color: #6bb8ff; border-color: rgba(107,184,255,0.85); box-shadow: 0 0 10px rgba(107,184,255,0.55); }
 .gdr-head:empty, .gdr-strip:empty { display: none; }
 /* the card sits high on the ice, clear of the play under it */
 .gdr-rink .gdr-jumbo { top: 40%; }
@@ -12441,6 +12450,10 @@ html[data-density="compact"][data-pane-claimed] #mobile-hud { display: none; }
 	/* the board stops above the caption, and has the corner to itself */
 	.gdri.over { max-height: calc(100% - 20px - 3.4rem); }
 	.gdr-wrap:has(.gdri.over) .gdr-head { visibility: hidden; }
+	/* the caption has the bottom edge, so the glowing-puck button takes the top-left
+	   corner, and gives it up to the board */
+	.gdr-glow { top: 10px; left: 10px; right: auto; bottom: auto; }
+	.gdr-wrap:has(.gdri.over) .gdr-glow { visibility: hidden; }
 }
 
 /* ── Sports graphics (full-screen FX) ──────────────────────────────────────────

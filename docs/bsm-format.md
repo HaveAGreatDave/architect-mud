@@ -669,7 +669,7 @@ A goal nobody set up uses `goal.solo` and, at the intermission, `intermission.go
 **How the booth speaks** is authored in the script too, and rides every line to the client:
 
 ```
-@voice ring=0 drive=0
+@voice ring=0 drive=0 vs=1
 
 ::say
 oyelaran     OW Y EH L * AA R AA N
@@ -677,7 +677,7 @@ okonkwo      OW K * AA NG K W OW
 ::endsay
 ```
 
-- `@voice` sets ORACLE voice parameters over the ones the station's name seeds, as `key=value` numbers (`ring`, `drive`, `f0`, `speed`, `oq` and the rest of `voiceFromName`'s fields). The CPhL booth uses it to drop the ring modulator and drive, which measured about 10% fewer words understood.
+- `@voice` sets ORACLE voice parameters over the ones the station's name seeds, as `key=value` numbers (`ring`, `drive`, `f0`, `speed`, `oq` and the rest of `voiceFromName`'s fields). The CPhL booth uses it to drop the ring modulator and drive, which measured about 10% fewer words understood. `vs=1` makes an en dash between two names read as "versus", so "{away}–{home}" is said "Wharf Rats versus Warlords"; without it the dash is a pause, and a hyphen is never read that way ("Smith-Jones" is one name).
 - `::say` gives the pronunciation of a word no dictionary carries: the word, then its phonemes in ORACLE's alphabet (CMUdict's, with `*` before the stressed vowel and `AX` for schwa). A spoken line carries only the entries for the words in it, a possessive takes its stem's, and anything not listed comes from the dictionary or, failing that, the letter rules. It is for names and coinages: the shipped dictionary already holds every word in every `.bsm` that upstream CMUdict knows (see [Rebuilding the dictionary](systems-library.md#rebuilding-the-dictionary)), so add a line when you add a name it doesn't. The voice smoke fails an entry with a phoneme the synth hasn't got or no stressed vowel, and the broadcast regress fails a row whose `say` or `voice` has drifted from the script.
 
 ---

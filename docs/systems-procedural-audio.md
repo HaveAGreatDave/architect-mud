@@ -462,6 +462,11 @@ tilt and a more pressed source (no change), and swallowing word-final releases (
 speech releases them). Ring modulation and drive both cost words. The hockey booth turns them
 off with `@voice`; every other voice keeps its own.
 
+A voice with `vs` among its parameters (the hockey booth's `@voice` sets `vs=1`) reads an en
+dash between two names as "versus": "Wharf Rats–Warlords" is "Wharf Rats versus Warlords"
+(`readMatchups`). For every other voice the dash stays a pause, since in a book "the
+London–Paris express" is a route, and a hyphen or a dash between figures never changes.
+
 `speak(text, { trace: [] })` fills the array with each phoneme's scheduled start, which is how
 the measurements found the segments, and `TUNING.compRatio` is the compressor's ratio.
 

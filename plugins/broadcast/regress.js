@@ -2351,6 +2351,8 @@ export default async function regress({ check, run, getPlayer }) {
       const voiceBsm = Object.fromEntries(voiceLine.split(/\s+/).filter(Boolean).map(kv => { const [k, v] = kv.split('='); return [k, +v]; }));
       check('hockey: the row carries the script\'s pronunciations', JSON.stringify(row.sports_pools?.say) === JSON.stringify(sayBsm), `${Object.keys(row.sports_pools?.say || {}).length} vs ${Object.keys(sayBsm).length}`);
       check('hockey: the row carries the script\'s booth voice', JSON.stringify(row.sports_pools?.voice) === JSON.stringify(voiceBsm), JSON.stringify(row.sports_pools?.voice));
+      // vs=1: "{away}–{home}" is said "away versus home", not "away, home" (readMatchups)
+      check('hockey: the booth reads a matchup as versus', voiceBsm.vs === 1, voiceLine);
       const script = row.sports_pools, wrong = [];
       let withLex = 0, sayNodes = 0, voiced = 0;
       for (const slot of [3, 41, 206]) {

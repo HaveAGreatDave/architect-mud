@@ -216,6 +216,18 @@ export function narrate(ctx) {
     const n = beats[idx];
     return b.type === 'boards' && n && n.type === 'injury' && n.player === b.victim ? n : null;
   };
+  // The draw that follows a beat, when one does: a goal, a frozen puck, a fight, a scrum, a
+  // man carried off and a penalty each stop play, and the sim's next beat is the faceoff on
+  // the dot the rule sends it to. The rink sends everybody there while the booth is still
+  // talking about the whistle, so the draw goes down when its line airs. '' when play goes on.
+  const nextDot = (idx) => {
+    for (let k = idx; k < beats.length; k++) {
+      const n = beats[k];
+      if (n.type === 'faceoff') return n.dot || '';
+      if (n.type !== 'hattrick') return '';
+    }
+    return '';
+  };
   const gameday = (b, idx) => ({
     sport: 'hockey',
     shooter: b.shooter || b.player || '', goalie: b.goalie || '',
@@ -257,6 +269,7 @@ export function narrate(ctx) {
     // name the booth just said.
     rushNames: Array.isArray(b.rushNames) ? b.rushNames.slice() : null,
     frozen: !!b.frozen,
+    nextDot: nextDot(idx),
     // Faceoff facts, so the view can put the right two men on the right dot. `winnerSide`
     // is which of the two on-ice sides won it, in the view's own att/def frame.
     dot: b.dot || '', reason: b.reason || '',
@@ -557,8 +570,10 @@ export function narrate(ctx) {
       case 'period_start':
         routine = 0;
         per = freshPeriod(b.section);
-        if (b.sudden) say(pick('ot.intro'), t, sb);
-        else say(pick('section.start', 'section'), t, sb);
+        // (cued: on an intermission's payload this is when the period comes back, so the
+        // rink sends the Zamboni off and brings the teams out in time for the opening draw)
+        if (b.sudden) say(pick('ot.intro'), t, sb, null, null, { cue: { ev: 'resume' } });
+        else say(pick('section.start', 'section'), t, sb, null, null, { cue: { ev: 'resume' } });
         said++;
         break;
 
@@ -619,6 +634,8 @@ export function narrate(ctx) {
         call('pbp.faceoff.drop', t, null, sb, { cue: { ev: 'drop' }, opt: !loud });
         if (nrng() < (loud ? 0.6 : 0.25)) { say(pick(`faceoff.${sub}`, 'faceoff'), t, sb, null, null, { cue: { ev: 'won' }, opt: !loud && 'colour' }); said++; }
         else call('pbp.faceoff.win', t, null, sb, { cue: { ev: 'won' }, opt: !loud });
+        // and only now is the period under way: never before its first draw is won
+        if (b.reason === 'period') call('pbp.period.go', t, null, sb, { opt: true });
         break;
       }
 
@@ -648,7 +665,8 @@ export function narrate(ctx) {
       }
 
       case 'penalty':
-        say(pick(b.penaltyMin >= 5 ? 'penalty.major' : 'penalty', 'penalty'), t, sb); said++;
+        // the rink shows the whistle and the man going to the box (its `penalty` beat)
+        say(pick(b.penaltyMin >= 5 ? 'penalty.major' : 'penalty', 'penalty'), t, sb, null, gameday(b, idx)); said++;
         // The team that DIDN'T take it goes on the power play.
         boxes.push({ against: b.teamName, until: b.clock - b.penaltyMin * 60 });
         say(pick('powerplay.start'), { ...t, team: b.teamName === away.name ? home.name : away.name }, sb); said++;

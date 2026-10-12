@@ -3064,6 +3064,14 @@ return out;
     let live = [];
     function cancel(){ live.forEach(n => { try { n.stop(); } catch { /* already stopped */ } }); live = []; }
 
+    // ── A matchup, said the way a booth says it ──────────────────────────────
+    // "Wharf Rats–Warlords" is two clubs, and a booth reads it "Wharf Rats versus
+    // Warlords". An en dash between two names reads that way only for a voice that
+    // asks (`vs` among its parameters: the CPhL booth's @voice). In a book the same
+    // dash is a route or a span ("the London–Paris express") and says nothing, and a
+    // hyphen never does: "Smith-Jones" is one name.
+    const readMatchups = (text) => String(text).replace(/(\p{L})\s*–\s*(?=\p{Lu})/gu, '$1 versus ');
+
     // speak(text, { seed, voice, lex, accent, pa, channel, excite, budget }). `excite` is how
     // hard the line is being sold, -1 (grave) to 1 (a goal call); see deliveryFor. The
     // hockey booth sends one with every line; nothing else does, and 0 changes nothing.
@@ -3086,6 +3094,7 @@ return out;
       // happened to roll them, which is not tuning, it is fishing. The dev panel's
       // voice lab drives this; the values it prints go straight into NAMED_VOICES.
       const V = Object.assign(voiceFromName(opt.seed || text), opt.voice || null);
+      if (V.vs) text = readMatchups(text);
       // How hard the line is sold (deliveryFor). Never on the accessibility channel: a
       // screen reader that gets excited about a goal is harder to follow, not livelier.
       const D = deliveryFor(ui ? 0 : Math.max(-1, Math.min(1, (+opt.excite || 0) * TUNING.excitement)));
@@ -4014,6 +4023,7 @@ return out;
     // accent applied. Read-only and side-effect free.
     const phonemesFor = (text, opt = {}) => {
       _lex = opt.lex || null;
+      if (opt.voice && opt.voice.vs) text = readMatchups(text);
       try {
         let ph = applyAssimilation(applyAccent(textToPhonemes(text), opt.accent));
         if (opt.accent !== 'rp') ph = applyFlap(ph);

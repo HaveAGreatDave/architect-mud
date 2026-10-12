@@ -28,12 +28,12 @@ export function createReplay(W) {
   // the world as the renderers see it, while a replay is on
   const src = {
     t: 0, replayOn: true, kits: W.kits, rand: Math.random,
-    cam: { mode: 'replay', focus: [100, 42], cut: 0, net: null, flash: false, since: 0 },
+    cam: { mode: 'replay', focus: [100, 42], cut: 0, net: null, since: 0 },
     puck: { x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, hidden: false, tail: null, carrier: null, held: null, inNet: null, rot: 0 },
     debris: [], limbs: [], parts: [], glassBlood: [], cracks: [],
     flex: new Array(PANELS).fill(0), broken: new Set(), netBulge: { a: 0, h: 0 },
     lamp: 0, lampSide: null, crowd: 0.5, mourning: 0, shake: 0, boardShake: 0,
-    zamboni: null, stretcher: null, fight: null, banner: null, _bodies: [],
+    zamboni: null, stretcher: null, fight: null, banner: null, _bodies: [], live: W,
     bodies() { return this._bodies; },
     rigOf(b) { return b._J; },
   };
@@ -77,10 +77,13 @@ export function createReplay(W) {
     R.from = Math.max(from, frames[0].t); R.to = Math.min(to, frames[frames.length - 1].t);
     if (R.to - R.from < 1) return false;
     R.rt = R.from; R.speed = speed; R.active = true; R.count++;
-    src.cam.cut++; src.cam.since = 0; src.cam.flash = true;
+    // the replay's camera starts on its framing (the switch is behind the director's wipe)
+    src.cam.cut++; src.cam.since = 0;
     return true;
   };
   R.stop = () => { R.active = false; };
+  // world seconds until it ends by itself
+  R.left = () => (R.active ? Math.max(0, (R.to - R.rt) / R.speed) : 0);
   // advance with the world's clock; true while it's still playing
   R.tick = (dt) => {
     if (!R.active) return false;

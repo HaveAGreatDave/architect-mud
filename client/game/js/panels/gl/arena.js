@@ -14,8 +14,9 @@
 //   · the reflection is a real one: the same buffers through a camera flipped about the
 //     ice, into gl/mirror.js's half-size target, read back by the ice shader at its own
 //     screen position, with the light banks' highlights worked out per pixel;
-//   · the lamp, the vignette, the mourning and the flash are one full-screen pass, and the
-//     HUD text is a 2-D canvas laid over the top (rink/hud.js, shared with render.js).
+//   · the lamp, the vignette and the mourning are one full-screen pass, and the HUD (text,
+//     the replay's wipe) is a 2-D canvas laid over the top (rink/hud.js, shared with
+//     render.js).
 //
 // Nothing here changes what happens: it reads the world and draws it. `createArenaRenderer`
 // returns null when there is no WebGL2 (or a shader won't build), and the view falls back
@@ -28,7 +29,7 @@
 import { RL, RW, BOARD_H, GLASS_H, GOAL_X, MID_Y, NET_HALF, NET_DEPTH, NET_H, SEGS, PANELS, PANEL_X0, PANEL_W } from '../rink/geo.js';
 import { CX0, CX1, CROWS, ROWH, sharedTextures } from '../rink/textures.js';
 import { createRinkCamera, matrices } from '../rink/camera.js';
-import { bodyOpts, drawHud, hudActive, maskColours } from '../rink/hud.js';
+import { bodyOpts, drawHud, hudActive, maskColours, drawnJoints, drawnAt, drawnPuck, glowTail, GLOW } from '../rink/hud.js';
 import { TAU, clamp, hash, rng } from '../rink/util.js';
 import * as M from './arena-mesh.js';
 import { paintCrest, paintLayers, settCanvas } from '../club-crest.js';
@@ -148,6 +149,8 @@ void main() {
   outColor = vec4(rgb, 1.0);
 }`;
 
+// A negative alpha marks a soft point: a glow (the glowing puck's halo), added to what's
+// under it and fading to nothing at its edge, and allowed to be bigger on screen.
 const PT_VS = `#version 300 es
 layout(location = 0) in vec3 aPos;
 layout(location = 2) in vec4 aCol;
@@ -156,30 +159,34 @@ uniform mat4 uVP;
 uniform vec2 uShake;
 uniform float uF;
 out vec4 vCol;
+out float vSoft;
 void main() {
   vec4 p = uVP * vec4(aPos, 1.0);
   p.xy += uShake * p.w;
   gl_Position = p;
-  gl_PointSize = clamp(aSize * uF / max(p.w, 0.1), 1.0, 48.0);
-  vCol = aCol;
+  vSoft = aCol.a < 0.0 ? 1.0 : 0.0;
+  gl_PointSize = clamp(aSize * uF / max(p.w, 0.1), 1.0, vSoft > 0.5 ? 160.0 : 48.0);
+  vCol = vec4(aCol.rgb, abs(aCol.a));
 }`;
 const PT_FS = `#version 300 es
 precision mediump float;
 in vec4 vCol;
+in float vSoft;
 uniform float uMourn;
 out vec4 outColor;
 void main() {
   vec2 d = gl_PointCoord - 0.5;
-  if (dot(d, d) > 0.25) discard;
+  float r2 = dot(d, d) * 4.0;
+  if (r2 > 1.0) discard;
   vec3 rgb = vCol.rgb;
   float g = dot(rgb, vec3(0.299, 0.587, 0.114));
   rgb = mix(rgb, vec3(g), uMourn * 0.75);
+  if (vSoft > 0.5) { float k = 1.0 - r2; outColor = vec4(rgb * vCol.a * k * k, 0.0); return; }
   outColor = vec4(rgb * vCol.a, vCol.a);
 }`;
 
 // One full-screen triangle over everything: the lamp behind the net, its red wash over
-// the building, the vignette, a death's darkening and the cut's white flash, composited
-// in that order.
+// the building, the vignette and a death's darkening, composited in that order.
 const POST_VS = `#version 300 es
 void main() {
   vec2 p = vec2((gl_VertexID << 1) & 2, gl_VertexID & 2);
@@ -192,7 +199,6 @@ uniform vec4 uWash;
 uniform vec3 uLamp;
 uniform float uVig;
 uniform float uDark;
-uniform float uFlash;
 out vec4 outColor;
 vec4 over(vec4 top, vec4 under) { return top + under * (1.0 - top.a); }
 void main() {
@@ -204,7 +210,6 @@ void main() {
   float vg = smoothstep(uRes.y * 0.35, uRes.x * 0.62, d) * uVig;
   acc = over(vec4(0.0, 0.0, 0.0, vg), acc);
   acc = over(vec4(0.0, 0.0, 0.0, uDark), acc);
-  acc = over(vec4(vec3(uFlash), uFlash), acc);
   outColor = acc;
 }`;
 
@@ -343,7 +348,7 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
     canvas.addEventListener?.('webglcontextlost', (e) => { e.preventDefault(); lost = true; api.lost = true; });
 
     const camera = createRinkCamera(W);
-    let flash = 0, frame = 0, hudShown = false;
+    let frame = 0, hudShown = false, nHalo = 0;
     const st = { tris: 0, draws: 0, tiles: 0 };
 
     // ── the building, once ────────────────────────────────────────────────────
@@ -697,7 +702,7 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
       for (const b of W.bodies()) {
         const o = bodyOpts(W, b);
         if (!o.kit) continue;
-        const J = W.rigOf(b), hp = J[3] && P(J[3][0], J[3][1], J[3][2]);
+        const J = drawnJoints(W, b), hp = J[3] && P(J[3][0], J[3][1], J[3][2]);
         o.detail = hp && hp.s > 24 ? 1 : 0;
         // the head's level by its size on screen: a head is about 0.9 ft, so L0 from about 32 px
         o.heads = headsTo(); o.headLv = !hp ? 2 : hp.s > 36 ? 0 : hp.s > 9 ? 1 : 2;
@@ -705,10 +710,10 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
         if (o.goalie) { o.maskSlot = maskSlot(o); o.maskBatch = B.masks; }
         M.buildBody(d, B.jers, J, o);
         M.buildVisor(B.tr, o);
-        const p = b.rag ? b.rag.pts[0] : b;
-        shadow(p.x, p.y, b.rag ? 2.6 : b.kind === 'goalie' ? 1.7 : 1.3);
+        const p = drawnAt(W, b);
+        shadow(p[0], p[1], b.rag ? 2.6 : b.kind === 'goalie' ? 1.7 : 1.3);
       }
-      if (!W.puck.hidden) { M.buildPuck(d, W.puck); shadow(W.puck.x, W.puck.y, 0.35); tail(eye); }
+      if (!W.puck.hidden) { const pp = drawnPuck(W); M.buildPuck(d, { x: pp[0], y: pp[1], z: pp[2] }); shadow(pp[0], pp[1], 0.35); tail(eye, pp); }
       for (const x of W.debris) M.buildDebris(d, x, W.kits[x.side] || W.kits.a);
       for (const l of W.limbs) { const o = bodyOpts(W, l.owner || { side: l.side }); if (o.kit) { o.heads = headsTo(); if (o.goalie) { o.maskSlot = maskSlot(o); o.maskBatch = B.masks; } M.buildSevered(d, l, o, B.jers); } }
       if (W.stretcher) M.buildStretcher(d, W.stretcher);
@@ -718,11 +723,18 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
     }
     // The light tail behind a shot: a faint slate streak (the ice is white, so a white tail
     // vanishes on it) through the puck's last fifth of a second, nothing at the old end,
-    // strongest at the puck, and strongest of all on a snap shot.
-    function tail(eye) {
+    // strongest at the puck, and strongest of all on a snap shot. With the glowing puck on,
+    // its comet tail instead (hud.js), lifted clear of the ice by its own half width.
+    function tail(eye, pp) {
+      const gt = api.glow ? glowTail(W) : null;
+      if (gt) {
+        const lift = (q) => [q[0], q[1], q[2] + 0.22];
+        M.ribbon(B.tr, gt.pts.map(lift), eye, 0.06, 0.44, [...gt.col, 0], [...gt.col, 0.85]);
+        return;
+      }
       const T = W.puck.tail;
       if (!T || T.pts.length < 2 || !(T.fade > 0)) return;
-      const pk = W.puck, pts = [...T.pts, [pk.x, pk.y, pk.z + 0.06]], a = 0.5 * T.k * T.fade;
+      const pts = [...T.pts, [pp[0], pp[1], pp[2] + 0.06]], a = 0.5 * T.k * T.fade;
       M.ribbon(B.tr, pts, eye, 0.04, 0.26 + 0.2 * T.k, [0.3, 0.4, 0.55, 0], [0.24, 0.33, 0.47, a]);
     }
     function shadow(x, y, r) {
@@ -770,6 +782,10 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
       if (W.spray) for (const p of W.spray) pt(p.x, p.y, p.z, PCOL.spray, p.size * 2);
       // a few phones going off in the stands when the building is up
       if (W.crowd > 0.5 && W.mourning < 0.2) for (let i = 0; i < 6; i++) { if (Math.random() > W.crowd * 0.5) continue; pt(CX0 + Math.random() * (CX1 - CX0), 89 + Math.random() * 40, 6 + Math.random() * 30, [1, 1, 1, 0.9], 0.3 + Math.random() * 0.3); }
+      // the glowing puck's halo goes last: it's drawn over whatever is in front of the puck,
+      // the way the broadcast's glow was
+      nHalo = 0;
+      if (api.glow && !W.puck.hidden) { const pp = drawnPuck(W); pt(pp[0], pp[1], pp[2] + 0.1, [...GLOW.halo, -0.95], 2.6); nHalo = 1; }
       return n;
     }
 
@@ -808,11 +824,11 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
       const { w, h, u } = fit();
       const rp = W0.replay && W0.replay.active ? W0.replay : null;
       W = rp ? rp.frame() : W0;
-      const cm = rp ? (rcam ??= createRinkCamera(rp.source)) : camera;
       camera.view = api.view;
-      const { C, P } = cm.update(w, h, now);
+      // the live camera keeps following the play under a replay, so it's on it when it ends
+      const live = camera.update(w, h, now);
+      const { C, P } = rp ? (rcam ??= createRinkCamera(rp.source, { snap: true })).update(w, h, now) : live;
       api.lastP = P;
-      if (cm.flash) { flash = cm.flash; cm.flash = 0; }
       const crowdTex = W.crowd > 0.45 ? texUp : texSit;
       const sh = W.shake * 5 * u, sx = sh * (Math.sin(W.t * 47) + 0.5 * Math.sin(W.t * 83 + 1)) / 1.5, sy = sh * (Math.sin(W.t * 59 + 2) + 0.5 * Math.sin(W.t * 97)) / 1.5;
       const shake = [2 * sx / w, -2 * sy / h];
@@ -883,7 +899,8 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
         gl.uniform2fv(PT.u('uShake'), shake);
         gl.uniform1f(PT.u('uF'), C.f);
         gl.uniform1f(PT.u('uMourn'), W.mourning || 0);
-        gl.bindVertexArray(L.pts.vao); gl.drawArrays(gl.POINTS, 0, nPts); st.draws++;
+        gl.bindVertexArray(L.pts.vao); gl.drawArrays(gl.POINTS, 0, nPts - nHalo); st.draws++;
+        if (nHalo) { gl.disable(gl.DEPTH_TEST); gl.drawArrays(gl.POINTS, nPts - nHalo, nHalo); gl.enable(gl.DEPTH_TEST); st.draws++; }
       }
 
       // the light over the top of it all
@@ -902,25 +919,23 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
       gl.uniform3fv(POST.u('uLamp'), lamp);
       gl.uniform1f(POST.u('uVig'), 0.42 + 0.3 * (W.mourning || 0));
       gl.uniform1f(POST.u('uDark'), 0.22 * (W.mourning || 0));
-      gl.uniform1f(POST.u('uFlash'), flash * 0.5);
-      flash = Math.max(0, flash - 0.12);
       gl.bindVertexArray(postVao); gl.drawArrays(gl.TRIANGLES, 0, 3); st.draws++;
       gl.bindVertexArray(null);
       gl.depthMask(true); gl.enable(gl.DEPTH_TEST);
 
       // the HUD, in 2-D over the top, and only while there's any
       if (overlay) {
-        const on = hudActive(W);
+        const on = hudActive(W, W0);
         if (on || hudShown) {
           const o = overlay.getContext('2d');
           o.setTransform(1, 0, 0, 1, 0, 0); o.clearRect(0, 0, w, h);
-          if (on) drawHud(o, W, w, h, u);
+          if (on) drawHud(o, W, w, h, u, W0);
           hudShown = on;
         }
       }
     }
 
-    const api = { render, stats: st, cam: camera.cam, view: 'broadcast', kind: 'gl', lost: false, rungs: ARENA_RUNGS, quality: { ...ARENA_RUNGS[0] },
+    const api = { render, stats: st, cam: camera.cam, view: 'broadcast', glow: false, kind: 'gl', lost: false, rungs: ARENA_RUNGS, quality: { ...ARENA_RUNGS[0] },
       // the reflection buffer, for a bench that wants to know it isn't empty
       mirrorPeak: () => mirror.peak() };
     return api;

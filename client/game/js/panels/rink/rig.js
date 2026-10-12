@@ -821,7 +821,9 @@ export function makeLimb(part, J, vel) {
   pts.forEach((p, k) => { const sv = 1 + k * 0.35; p.px = p.x - vel[0] * sv * DT; p.py = p.y - vel[1] * sv * DT; p.pz = p.z - vel[2] * DT; });
   const cons = [];
   for (let i = 0; i + 1 < pts.length; i++) cons.push([i, i + 1, Math.hypot(pts[i].x - pts[i + 1].x, pts[i].y - pts[i + 1].y, pts[i].z - pts[i + 1].z)]);
-  return { part, pts, cons, age: 0, spin: (Math.random() - 0.5) * 18, rot: 0 };
+  // (the spin from where it came off, not Math.random: the world plays the same every time)
+  const sp = Math.sin(pts[0].x * 12.9898 + pts[0].y * 78.233) * 43758.5453;
+  return { part, pts, cons, age: 0, spin: (sp - Math.floor(sp) - 0.5) * 18, rot: 0 };
 }
 export function stepLimb(l, dt) {
   l.age += dt;

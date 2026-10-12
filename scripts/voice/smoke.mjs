@@ -180,6 +180,19 @@ has('an interjection with no vowel stays a sound', 'shh', 'SH');
 lacks('…and is not spelled', 'psst', 'EH S');
 has('-es after a sibilant is its own syllable', 'blesses', 'IH Z');
 
+// ── a matchup is "versus", for a voice that asks ────────────────────────────
+// The CPhL booth's @voice carries vs=1, so "Wharf Rats–Warlords" is said "Wharf
+// Rats versus Warlords". Only an en dash between names does it: elsewhere the dash
+// is a pause, a hyphenated name stays one name, and a dash between figures is a span.
+{
+  const vs = { voice: { vs: 1 } };
+  const versus = (t, opt) => say(t, opt).includes('V * ER S AX S');
+  check('an en dash between two clubs is "versus" in the booth', versus('Wharf Rats–Warlords', vs), say('Wharf Rats–Warlords', vs));
+  check('…and a pause for any other voice', !versus('Wharf Rats–Warlords'), say('Wharf Rats–Warlords'));
+  check('…never a hyphen: Smith-Jones is one name', !versus('Smith-Jones', vs), say('Smith-Jones', vs));
+  check('…never between figures: 10–12 is a span', !versus('pages 10–12', vs), say('pages 10–12', vs));
+}
+
 // ── weak forms keep the sounds that carry them ──────────────────────────────
 has('he weakens to a short /i/, not /ɪ/ ("his scores")', 'he scores', 'HH IY');
 has('on keeps its vowel', 'off on the ice', 'AA N');

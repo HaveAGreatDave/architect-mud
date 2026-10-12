@@ -9,6 +9,9 @@
 // the fight's loser ends with nothing left, a man carried off is gone, a death stops the
 // building, the Zamboni lays fresh ice.
 //
+// And that NOTHING TELEPORTS: the puck never moves farther in a step than a shot carries
+// it, no man does either (except coming on over the boards), and the camera never jumps.
+//
 // It proves the view RUNS and that its outcomes match the sim's. It does not look at
 // pixels and is not meant to.
 //
@@ -83,10 +86,18 @@ async function play(slot) {
   W.emit = (n, d) => { if (n === 'goalIn') goalsIn++; emit(n, d); };
   const resurfaced = { n: 0 };
   const rs = W.ice.resurface; W.ice.resurface = (...a) => { resurfaced.n++; return rs(...a); };
-  let lastFight = null, tApply = 0, landedAt = null, grabAt = null, boxAt = null, sawBreakaway = false;
-  // THE PUCK NEVER SNAPS. Outside a camera cut it never moves farther in a step than a
-  // shot carries it, and nobody gains it from beyond a stick's reach.
+  let lastFight = null, tApply = 0, landedAt = null, grabAt = null, boxAt = null, sawBreakaway = false, wearAtBreak = 0;
+  const draws = { n: 0, onCue: 0 };
+  // THE PUCK NEVER SNAPS. It never moves farther in a step than a shot carries it, and
+  // nobody gains it from beyond a stick's reach. There are no camera cuts to hide a jump.
   const jumps = [], snaps = [], pendingGives = [];
+  // NOBODY TELEPORTS EITHER: a man on the ice never moves farther in a step than a skater
+  // can (a ragdoll thrown into the boards included), and the only place one appears is
+  // the near boards, coming on from the bench.
+  const leaps = [], pops = [], onIce = new Set();
+  // AND THE CAMERA NEVER CUTS: from one 60 Hz frame to the next it moves no farther than
+  // its springs allow.
+  const camJumps = [];
   const give0 = W.give;
   W.give = (b, force) => {
     const pk = W.puck, bw = b ? bladeWorld(b, W.t, true) : null, d = bw ? Math.hypot(bw[0] - pk.x, bw[1] - pk.y) : 0, hidden = pk.hidden;
@@ -97,7 +108,7 @@ async function play(slot) {
   // NO SHOT AT A NET THE VIEWER CAN'T SEE. The camera is run here at 60 Hz, in both views,
   // and at every release and half a second after it, the puck and the net it's going at
   // must both be in frame.
-  const cams = ['broadcast', 'low'].map((view) => { const c = createRinkCamera(W); c.view = view; return { view, c, P: null }; });
+  const cams = ['broadcast', 'low'].map((view) => { const c = createRinkCamera(W); c.view = view; return { view, c, P: null, last: null }; });
   let camAt = -1;
   const unseen = [], shotChecks = [];
   const inFrame = (P, x, y, z) => { const q = P && P(x, y, z); return !!q && q.x > 900 * 0.02 && q.x < 900 * 0.98 && q.y > 506 * 0.04 && q.y < 506 * 0.96; };
@@ -123,21 +134,36 @@ async function play(slot) {
   const run = (secs, until) => {
     const t0 = W.t;
     while (W.t - t0 < secs) {
-      const pk = W.puck, cut0 = W.cam.cut, x0 = pk.x, y0 = pk.y, h0 = pk.hidden;
+      const pk = W.puck, x0 = pk.x, y0 = pk.y, h0 = pk.hidden;
       W.step(DT);
-      if (W.t - camAt >= 1 / 60 - 1e-9) { camAt = W.t; for (const k of cams) k.P = k.c.update(900, 506, W.t * 1000).P; }
-      while (shotChecks.length && W.t >= shotChecks[0].at) seeShot(shotChecks.shift().netX, 'as it arrives');
-      if (W.cam.cut === cut0) {
-        if (!h0 && !pk.hidden && Math.hypot(pk.x - x0, pk.y - y0) > 1.6) jumps.push(`${Math.hypot(pk.x - x0, pk.y - y0).toFixed(1)} ft at ${(W.t - tApply).toFixed(2)}s (${D.kind() || 'between plays'}) from ${x0.toFixed(1)},${y0.toFixed(1)}`);
-        snaps.push(...pendingGives);
+      if (W.t - camAt >= 1 / 60 - 1e-9) {
+        camAt = W.t;
+        for (const k of cams) {
+          k.P = k.c.update(900, 506, W.t * 1000).P;
+          const c = k.c.cam, l = k.last;
+          // (its springs cap a pan at 140 ft/s and a pull back at 60: 2.3 and 1 ft a frame)
+          if (l && (Math.abs(c.lx - l.lx) > 3 || Math.abs(c.ly - l.ly) > 3 || Math.abs(c.dist - l.dist) > 3 || Math.abs(c.pitch - l.pitch) > 0.08)) camJumps.push(`${k.view}: ${Math.abs(c.lx - l.lx).toFixed(1)}/${Math.abs(c.ly - l.ly).toFixed(1)}/${Math.abs(c.dist - l.dist).toFixed(1)} ft at ${(W.t - tApply).toFixed(2)}s (${D.kind() || 'between plays'}, ${W.cam.mode})`);
+          k.last = { ...c };
+        }
       }
+      while (shotChecks.length && W.t >= shotChecks[0].at) seeShot(shotChecks.shift().netX, 'as it arrives');
+      if (!h0 && !pk.hidden && Math.hypot(pk.x - x0, pk.y - y0) > 1.6) jumps.push(`${Math.hypot(pk.x - x0, pk.y - y0).toFixed(1)} ft at ${(W.t - tApply).toFixed(2)}s (${D.kind() || 'between plays'}) from ${x0.toFixed(1)},${y0.toFixed(1)}`);
+      snaps.push(...pendingGives);
       pendingGives.length = 0;
+      // (each man's position at the start of the step is his x0, y0: see sim.js)
+      const now = W.bodies();
+      for (const b of now) {
+        if (!onIce.has(b)) { if (onIce.size && b.y > 3 && b.kind !== 'medic') pops.push(`${b.kind} ${b.side}${b.slot} appeared at ${b.x.toFixed(0)},${b.y.toFixed(0)} at ${(W.t - tApply).toFixed(2)}s (${D.kind() || 'between plays'})`); continue; }
+        const d = Math.hypot(b.x - b.x0, b.y - b.y0);
+        if (d > 0.75) leaps.push(`${b.kind} ${b.side}${b.slot} ${d.toFixed(1)} ft at ${(W.t - tApply).toFixed(2)}s (${D.kind() || 'between plays'})`);
+      }
+      onIce.clear(); for (const b of now) onIce.add(b);
       if (W.fight) lastFight = W.fight;
       if (landedAt == null && D.state.beat && D.state.beat.landed) landedAt = W.t - tApply;
       if (grabAt == null && D.state.beat && D.state.beat.grab) grabAt = W.t - tApply;
       if (W.banner && W.banner.text === 'BREAKAWAY!') sawBreakaway = true;
       if (boxAt == null && D.state.beat && D.state.beat.toBox) boxAt = W.t - tApply;
-      if (W.t >= next) { next = W.t + 6; view.renderer.render(W.t * 1000); renders++; }
+      if (W.t >= next) { next = W.t + 10; view.renderer.render(W.t * 1000); renders++; }
       if (until && until()) break;
     }
     stub.runTimers(0);
@@ -148,7 +174,9 @@ async function play(slot) {
     const g = l.gd;
     view.setCaption(l.text, { held: !!g });
     if (l.fx) view.showCard(l.fx);
-    if (!g) { run(0.4); continue; }
+    // A line with no play runs as long as the booth holds it, as on air: that's the time a
+    // stoppage has for everybody to get to the next draw.
+    if (!g) { run((l.hold || 400) / 1000); continue; }
     seen.add(g.type);
     const label = `${slot}: ${g.type}${g.kind && g.kind !== g.type ? `/${g.kind}` : ''} at ${g.section} ${g.clock}`;
     let ok = true;
@@ -165,13 +193,16 @@ async function play(slot) {
       const h0 = headSays();
       check(`${label}: the header shows the score before the goal until it goes in`, h0.score === `${g.scoreBefore.away}-${g.scoreBefore.home}` && h0.desc === 'Live', `${h0.score} / ${h0.desc}`);
     }
+    const fb = g.type === 'faceoff' ? D.state.beat : null;
     if (g.type === 'faceoff') {
-      // the draw is taken on the named dot, by the two men the sim named
+      // the draw is taken on the named dot, by the two men the sim named, with the puck
+      // brought there in the linesman's hand
       const [dx, dy] = DOT_FT[g.dot];
-      run(1.3);
+      run(16, () => D.state.beat && D.state.beat.dropped);
       const c = W.skaters().filter((m) => Math.hypot(m.x - dx, m.y - dy) < 3.2);
       check(`${label}: two centres on the dot`, c.length === 2, `${c.length} men`);
       check(`${label}: the winner wears his name`, c.some((m) => m.name === String(g.winner).split(' ').pop()));
+      check(`${label}: the linesman drops it on the dot`, Math.hypot(W.puck.x - dx, W.puck.y - dy) < 3.5 && W.officials[0].active, `puck ${W.puck.x.toFixed(1)},${W.puck.y.toFixed(1)}`);
     }
     if (g.type === 'boards') {
       const victim = () => W.skaters().find((m) => m.name === String(g.victim).split(' ').pop()) || null;
@@ -188,14 +219,31 @@ async function play(slot) {
     }
     // the play is timed to its lines now, so it runs as long as its last cue plus the finish
     const lastCue = Math.max(0, ...(g.cues || []).map((c) => c.ms / 1000));
-    const limit = Math.max({ injury: 22, death: 16, fight: 16, intermission: 3 }[g.type] || 14, lastCue + 10);
+    // (an intermission's one cue is the period coming back, a minute on: the lines after it
+    // carry the time to then)
+    const limit = g.type === 'intermission' ? 3 : Math.max({ injury: 22, death: 16, fight: 16 }[g.type] || 14, lastCue + 10);
+    if (g.type === 'intermission') wearAtBreak = W.ice.wear;
     run(limit, () => !D.busy());
     // a draw and a hit land when their line airs
     const cueT = (ev) => { const c = (g.cues || []).find((q) => q.ev === ev); return c ? c.ms / 1000 : null; };
     // with a drop line the puck goes down on it and the win line confirms it; without one
     // the draw is won as the win line airs
-    if (g.type === 'faceoff' && cueT('drop') != null) check(`${label}: the puck drops as it is called`, landedAt != null && landedAt >= cueT('drop') && landedAt <= (cueT('won') ?? cueT('drop') + 2) + 0.3, `won at ${landedAt?.toFixed(2)}s, drop line ${cueT('drop')}s, win line ${cueT('won')}s`);
-    else if (g.type === 'faceoff' && cueT('won') != null) check(`${label}: the draw is won as it is called`, landedAt != null && Math.abs(landedAt - cueT('won')) < 0.8, `won at ${landedAt?.toFixed(2)}s, line at ${cueT('won')}s`);
+    // NEVER BEFORE ITS LINE, AND NO LATER THAN IT CAN BE. Nobody is put on a dot any more: the
+    // men skate there and the linesman brings the puck. After a whistle they're usually set
+    // before the line (and most draws are counted below); when the booth gives a stoppage a
+    // second or two and the dot is the length of the ice away, it goes down as soon as they
+    // are, never held after that.
+    const setAt = fb && fb.readyAt != null ? fb.readyAt : null;
+    const prompt = landedAt != null && setAt != null && landedAt <= Math.max(setAt, fb.dropAt) + 1.6;
+    if (g.type === 'faceoff' && cueT('drop') != null) {
+      const onCue = landedAt != null && landedAt >= cueT('drop') && landedAt <= (cueT('won') ?? cueT('drop') + 2) + 0.3;
+      draws.n++; if (onCue) draws.onCue++;
+      check(`${label}: the puck drops as it is called, or as soon as they're set`, landedAt != null && landedAt >= cueT('drop') && (onCue || prompt), `won at ${landedAt?.toFixed(2)}s, set at ${setAt?.toFixed(2)}s, drop line ${cueT('drop')}s, win line ${cueT('won')}s, after a ${g.reason}`);
+    } else if (g.type === 'faceoff' && cueT('won') != null) {
+      const onCue = landedAt != null && Math.abs(landedAt - cueT('won')) < 0.8;
+      draws.n++; if (onCue) draws.onCue++;
+      check(`${label}: the draw is won as it is called, or as soon as they're set`, landedAt != null && landedAt > cueT('won') - 0.8 && (onCue || prompt), `won at ${landedAt?.toFixed(2)}s, set at ${setAt?.toFixed(2)}s, line at ${cueT('won')}s, after a ${g.reason}`);
+    }
     if (g.type === 'fight' && cueT('grab') != null) {
       const p0 = (g.cues || []).find((q) => q.ev === 'punch');
       check(`${label}: they grab on before the first punch`, grabAt != null && (!p0 || grabAt <= p0.ms / 1000 + 0.2), `grab ${grabAt?.toFixed(2)}s, line ${cueT('grab')}s`);
@@ -256,13 +304,23 @@ async function play(slot) {
       check(`${label}: the Zamboni is out`, !!W.zamboni && resurfaced.n > 50, `${resurfaced.n} passes`);
       check(`${label}: the ice is wet behind it`, W.ice.wetness > 0.5);
     }
-    if (g.type === 'faceoff' && g.reason === 'period') check(`${label}: a fresh sheet and no Zamboni`, !W.zamboni && W.ice.wear < 0.05);
+    // the period starts on resurfaced ice, the Zamboni gone off through its gate (driven,
+    // not removed: it has the length of the draw to get there)
+    if (g.type === 'faceoff' && g.reason === 'period') {
+      if (W.zamboni) run(8, () => !W.zamboni);
+      check(`${label}: resurfaced ice and the Zamboni gone`, !W.zamboni && W.ice.wear < Math.max(0.05, wearAtBreak * 0.7), `zamboni ${W.zamboni ? `${W.zamboni.x.toFixed(0)},${W.zamboni.y.toFixed(0)}` : 'off'}, wear ${wearAtBreak.toFixed(3)} → ${W.ice.wear.toFixed(3)}`);
+    }
     // ten men dressed, whatever has happened (unless a goalie is pulled or a man is short)
     const n = W.mates('a').length + W.mates('h').length;
     check(`${label}: skaters on the ice`, n >= 8 && n <= 12 || g.type === 'intermission', `${n}`);
   }
+  // most draws with a line of their own go down right on it
+  check(`${slot}: most draws go down as their line airs`, draws.n === 0 || draws.onCue / draws.n >= 0.75, `${draws.onCue}/${draws.n}`);
   check(`${slot}: no position ever went non-finite`, nan === 0, `${nan}`);
-  check(`${slot}: the puck never jumps outside a cut`, jumps.length === 0, `${jumps.length}: ${jumps.slice(0, 4).join(', ')}`);
+  check(`${slot}: the puck never jumps`, jumps.length === 0, `${jumps.length}: ${jumps.slice(0, 4).join(', ')}`);
+  check(`${slot}: nobody on the ice jumps`, leaps.length === 0, `${leaps.length}: ${leaps.slice(0, 4).join(', ')}`);
+  check(`${slot}: nobody appears except over the near boards`, pops.length === 0, `${pops.length}: ${pops.slice(0, 4).join(', ')}`);
+  check(`${slot}: the camera never jumps`, camJumps.length === 0, `${camJumps.length}: ${camJumps.slice(0, 4).join(', ')}`);
   check(`${slot}: every shot is taken with its net in frame`, unseen.length === 0, `${unseen.length}: ${unseen.slice(0, 4).join(', ')}`);
   check(`${slot}: nobody gains the puck from beyond his reach`, snaps.length === 0, `${snaps.length}: ${snaps.slice(0, 4).join(', ')}`);
   check(`${slot}: the renderer drew`, renders > 100 && stub.drawn.images > 1000, `${renders} frames, ${stub.drawn.images} images`);

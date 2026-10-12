@@ -60,9 +60,17 @@ const CARD = {
   champion: (fx) => ({ title: '🏆 CHAMPIONS', sub: fx.winner || '', cls: 'hot', club: fx.winner }),
 };
 
+// THE GLOWING PUCK is a viewer's own setting, kept in this browser: a blue halo round the
+// puck and a comet tail behind a fast one (rink/hud.js draws it), for anyone who loses a
+// small black puck against the boards and the crowd. The button on the picture toggles it.
+const GLOW_KEY = 'rinkGlowPuck';
+function glowSaved(win) { try { return win?.localStorage?.getItem(GLOW_KEY) === '1'; } catch { return false; } }
+function glowSave(win, on) { try { win?.localStorage?.setItem(GLOW_KEY, on ? '1' : '0'); } catch { /* storage blocked */ } }
+
 export function createRinkView(host, opts = {}) {
   const doc = host ? host.ownerDocument : null;
   const win = doc ? doc.defaultView : null;
+  let glow = opts.glow != null ? !!opts.glow : glowSaved(win);
   let caption = '', pendingCaption = null, pendingCard = null, cardTimer = null, holdTimer = null;
   let last = null, landed = true, raf = 0, lastFrame = 0, frameAvg = 0, acc = 0, mounted = false, speed = opts.speed || 1;
   let W = null, D = null, R = null, ice = null, canvas = null, modsP = null, mods = null;
@@ -94,7 +102,10 @@ export function createRinkView(host, opts = {}) {
   function shell() {
     return `<div class="gdr-wrap">` +
       `<div class="gdr-head"></div>` +
-      `<div class="gdr-rink"><canvas class="gdr-canvas" aria-label="Rinkside: the play on the ice"></canvas><canvas class="gdr-hud" aria-hidden="true"></canvas></div>` +
+      `<div class="gdr-rink"><canvas class="gdr-canvas" aria-label="Rinkside: the play on the ice"></canvas><canvas class="gdr-hud" aria-hidden="true"></canvas>` +
+        `<button type="button" class="gdr-glow" aria-pressed="${glow}" title="Glowing puck" aria-label="Glowing puck">` +
+          `<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="currentColor" opacity="0.28"/><ellipse cx="12" cy="13" rx="6" ry="3.4" fill="#0b0c0f"/><ellipse cx="12" cy="11.6" rx="6" ry="3.4" fill="#2c2f36"/></svg>` +
+        `</button></div>` +
       `<div class="gdr-strip"></div>` +
       `<div class="gdr-rush" hidden></div>` +
       `<div class="gdr-cap"><span class="gdr-cap-text">${_esc(caption)}</span></div>` +
@@ -172,6 +183,9 @@ export function createRinkView(host, opts = {}) {
     let n = 0;
     while (acc >= DT && n < 24) { W.step(DT); acc -= DT; n++; }
     if (n === 24) acc = 0;
+    // drawn between the last two steps by what's left over, so the screen's rate and the
+    // world's never beat against each other (see sim.js)
+    W.alpha = acc / DT;
     if (R.lost) fallback();
     R.render(now);
     govern(raw);
@@ -199,16 +213,23 @@ export function createRinkView(host, opts = {}) {
     R = gl || mods.createRenderer(canvas, W, ice);
     rung = 0; slow = quick = 0;
     if (opts.camera) R.view = opts.camera;
+    R.glow = glow;
+  }
+  function setGlow(on) {
+    glow = !!on;
+    if (R) R.glow = glow;
+    host?.querySelector('.gdr-glow')?.setAttribute('aria-pressed', String(glow));
   }
   // A lost WebGL context doesn't come back as a 2-D one: the canvas is replaced, and the
   // 2-D renderer carries on with the same world and camera framing.
   function fallback() {
-    const view = R.view, fresh = doc.createElement('canvas');
+    const view = R.view, framed = { ...R.cam }, fresh = doc.createElement('canvas');
     fresh.className = canvas.className;
     fresh.setAttribute('aria-label', canvas.getAttribute('aria-label') || '');
     canvas.replaceWith(fresh); canvas = fresh;
-    R = mods.createRenderer(canvas, W, ice);
-    R.view = view; rung = 0;
+    // the same framing, so the picture carries on rather than jumping
+    R = mods.createRenderer(canvas, W, ice, { cam: framed });
+    R.view = view; R.glow = glow; rung = 0;
     ice.dirtyAll = true;
   }
   function start() { if (!raf && win) { lastFrame = 0; raf = win.requestAnimationFrame(frame); } }
@@ -219,6 +240,7 @@ export function createRinkView(host, opts = {}) {
     mounted = true;
     host.innerHTML = shell();
     canvas = host.querySelector('.gdr-canvas');
+    host.querySelector('.gdr-glow')?.addEventListener('click', () => { setGlow(!glow); glowSave(win, glow); });
     const { createIce, createWorld } = mods;
     ice = createIce(doc);
     W = createWorld(ice, 'rinkside');
@@ -326,6 +348,7 @@ export function createRinkView(host, opts = {}) {
     get world() { return W; }, get director() { return D; }, get renderer() { return R; },
     busy: () => !!(D && D.busy()),
     setSpeed(k) { speed = k; },
+    setGlow, get glow() { return glow; },
     ready: () => loadMods(),
   };
 }

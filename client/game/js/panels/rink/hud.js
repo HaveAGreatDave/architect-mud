@@ -39,14 +39,80 @@ export function bodyOpts(W, b) {
     face: b.faceGear, missing: b.missing || {} };
 }
 
-// True while the HUD has anything to draw, so a renderer with its own overlay can leave it
-// cleared the rest of the time.
-export function hudActive(W) {
-  const B = W.banner;
-  return !!(W.replayOn || (W.fight && W.fight.hud) || (B && W.t - B.t0 < (B.dur || 1.3)));
+// ── between steps ───────────────────────────────────────────────────────────
+// The world steps at 120 Hz and the screen draws at its own rate, so each frame is drawn
+// between the world's last two steps (`W.alpha`, see sim.js). A man is moved back along
+// his last step; the puck has its own drawn position, which also never jumps. A replay's
+// stand-in world has neither and is drawn as it is.
+const shiftOf = (W, b) => {
+  const a = W.alpha;
+  if (a == null || a >= 1 || b.x0 == null) return null;
+  const dx = (b.x0 - b.x) * (1 - a), dy = (b.y0 - b.y) * (1 - a);
+  // (a man who has just come on, or a step that was a jump, is drawn where he is)
+  return (dx || dy) && Math.abs(dx) + Math.abs(dy) < 4 ? [dx, dy] : null;
+};
+export function drawnJoints(W, b) {
+  const J = W.rigOf(b), d = shiftOf(W, b);
+  if (!d) return J;
+  const mv = (p) => (p ? [p[0] + d[0], p[1] + d[1], p[2]] : p);
+  const out = J.map(mv);
+  if (J.meta) out.meta = { ...J.meta, bend: mv(J.meta.bend), bottle: mv(J.meta.bottle) };
+  return out;
+}
+export function drawnAt(W, b) {
+  const p = b.rag ? b.rag.pts[0] : b, d = shiftOf(W, b);
+  return d ? [p.x + d[0], p.y + d[1]] : [p.x, p.y];
+}
+export const drawnPuck = (W) => (W.puckAt ? W.puckAt() : [W.puck.x, W.puck.y, W.puck.z]);
+
+// ── the glowing puck ───────────────────────────────────────────────────────
+// A viewer's option (the button on the picture): a blue halo round the puck so it can't be
+// lost against the boards and the crowd, and behind a fast one a comet tail, blue, going
+// red over 100 ft/s (a slapshot or a one-timer). Both renderers draw it from this.
+export const GLOW = { halo: [0.42, 0.72, 1], fast: [1, 0.24, 0.16], slow: [0.38, 0.66, 1], tailFrom: 40, red: 100 };
+// The comet tail: the drawn puck's last quarter second, while it's moving fast. Points
+// [x, y, z] oldest first, ending at the puck, and how fast it's going.
+export function glowTail(W) {
+  const tr = W.puck.trail;
+  if (!tr || tr.length < 2 || W.puck.hidden) return null;
+  let i = tr.length - 1;
+  while (i > 0 && tr[i - 1][3] > GLOW.tailFrom) i--;
+  const pts = tr.slice(i).map((q) => [q[0], q[1], q[2]]);
+  const sp = tr[tr.length - 1][3];
+  if (pts.length < 2 || sp < GLOW.tailFrom) return null;
+  pts.push(drawnPuck(W));
+  const k = Math.min(1, Math.max(0, (sp - GLOW.tailFrom) / (GLOW.red - GLOW.tailFrom)));
+  return { pts, sp, col: GLOW.slow.map((c, j) => c + (GLOW.fast[j] - c) * (sp >= GLOW.red ? 1 : k * 0.35)) };
 }
 
-export function drawHud(ctx, W, w, h, u) {
+// True while the HUD has anything to draw, so a renderer with its own overlay can leave it
+// cleared the rest of the time. `live` is the world being played, whose wipe it draws even
+// while a replay is on the screen.
+export function hudActive(W, live = W) {
+  const B = W.banner, Wp = live.wipe;
+  return !!(W.replayOn || (W.fight && W.fight.hud) || (B && W.t - B.t0 < (B.dur || 1.3)) || (Wp && live.t - Wp.t0 < Wp.dur));
+}
+
+// THE WIPE: the league's band swept across the picture, in and out of a replay. It covers
+// the whole frame at its midpoint, which is when the director switches the picture.
+function drawWipe(ctx, live, w, h, u) {
+  const Wp = live.wipe; if (!Wp) return;
+  const k = (live.t - Wp.t0) / Wp.dur;
+  if (k <= 0 || k >= 1) return;
+  const slant = h * 0.35, span = w + 2 * slant, lead = -slant + k * 2 * span, tail = lead - span;
+  ctx.save();
+  const band = (x0, x1, col) => { ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(x0 + slant, 0); ctx.lineTo(x1 + slant, 0); ctx.lineTo(x1, h); ctx.lineTo(x0, h); ctx.closePath(); ctx.fill(); };
+  band(tail - 18 * u, lead + 18 * u, '#f4efe2');
+  band(tail, lead, '#c8141c');
+  band(tail + span * 0.42, tail + span * 0.58, '#141414');
+  const cx = tail + span / 2 + slant / 2;
+  ctx.font = `800 ${Math.min(120, h * 0.28)}px ${FACE}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.transform(1, 0, -0.18, 1, h * 0.5 * 0.18, 0);
+  ctx.fillStyle = '#f4efe2'; ctx.fillText('CPhL', cx, h * 0.5);
+  ctx.restore();
+}
+
+export function drawHud(ctx, W, w, h, u, live = W) {
   if (W.replayOn) {
     // the replay: letterboxed, with the bug in the corner and its light blinking
     const bar = h * 0.07;
@@ -94,4 +160,5 @@ export function drawHud(ctx, W, w, h, u) {
       ctx.restore();
     }
   }
+  drawWipe(ctx, live, w, h, u);
 }

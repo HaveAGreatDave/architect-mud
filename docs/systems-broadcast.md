@@ -1090,27 +1090,47 @@ the puck it needs, walks them through the beat and hands them back to the ambien
   rush starts late when the whole chain would run past about five seconds. The shot is the sim's `shotType` with its own
   wind-up; a one-timer and a tip are fed by a teammate. Where the puck goes comes from the
   outcome: into the net for a goal, into the glove, the chest, the pad, off the post, wide,
-  into a defender who drops to block it, or poked off the stick on a breakaway.
-- *Faceoffs* line both sides up on the named dot, put the two named centres on it, and
-  have the linesman drop the puck. The winner draws it back to his defence.
+  into a defender who drops to block it, or poked off the stick on a breakaway. A save
+  the sim marks `frozen` is a goalie under pressure: the two nearest attackers crash his
+  crease as he covers it, the whistle goes and the draw is in that end. A save he holds
+  with nobody on him he plays to a defenceman.
+- *Faceoffs* line both sides up on the named dot with the two named centres on it. The
+  linesman brings the puck in his hand: out of the goalie's glove (the goalie tosses it
+  to him), out of the net, off the man who had it (he flips it over), or off the ice,
+  where the nearest skater picks it up for him. He steps in once the centres are set and
+  drops it as the drop line airs, never before. The winner draws it back to his defence.
+- *Stoppages.* A beat that ends in a whistle (a goal, a frozen puck, a penalty, a fight, a
+  scrum, a man carried off) carries `nextDot`, the dot of the draw that follows it, which
+  the narrator reads off the next beat. On the whistle the beat stops play (`stopPlay`)
+  and everyone skates to that dot while the booth talks, so the faceoff's own beat usually
+  finds them set. A play that arrives before the puck is down waits for the drop
+  (`D.queued`, three seconds at most, the draw hurrying) and keeps the time it arrived,
+  so it catches up with its lines rather than trailing them.
 - *Boards hits* happen on the far wall, where the glass is in shot, in the sim's
   `hitStyle`: shoulder, glass (which can break a pane), from behind, hip check, elbow.
   The man hit becomes a ragdoll, so where and how hard he meets the boards decides how he
   falls. A man who is hurt stays down, with play stopped, until the injury beat comes.
 - *Injuries* bring two medics out with a stretcher. A severed limb comes off at the hit.
-- *Fights* drop the gloves on the ice, cut to a side-on close-up with a health bar per
-  man, and throw the sim's exchange punch for punch. The ending is the sim's: a
+- *Fights* drop the gloves on the ice, bring the camera in to a side-on close-up with a
+  health bar per man, and throw the sim's exchange punch for punch. The ending is the sim's: a
   knockdown, the sweater over the head, or the linesmen. Both men skate to the box and the
   spare comes on.
 - *A death* drains the colour out of the picture, silences the crowd, pushes the camera in
   slowly, and the players take their helmets off.
-- *Scrums*, *the pulled goalie* (he skates to the bench and a sixth skater comes on) and
-  *the intermission* (everyone off, the Zamboni on) each have their own.
+- *Penalties*: the referee's arm goes up and the whistle goes, and the man skates to the
+  box. His side plays a man short until a play's strength says otherwise (`lineUp`).
+- *The intermission*: everyone skates off, the linesman taking the puck with him, and the
+  Zamboni comes on through the gate in the end wall. The booth's line that says the period
+  is back carries a `resume` cue: eleven seconds before it the Zamboni drives off through
+  its gate, and six seconds before it both teams come back on over the boards, so the
+  opening draw finds them lined up.
+- *Scrums* and *the pulled goalie* (he skates to the bench and a sixth skater comes on)
+  each have their own.
 
 `onLand` fires the moment the play lands and is when a held caption and any held card go
 up. A payload with cues is the first line of a play called as it happens, so its line is
-never held. A walk to the box or a stretcher on its way off outlives the beat that started it;
-a camera cut finishes it on the spot, since nobody sees the jump. Names go on bodies the
+never held. A walk to the box or a stretcher on its way off outlives the beat that started it
+and finishes on its own. Names go on bodies the
 first time a payload mentions them, and the number comes from the name, so every viewer
 sees the same sweater. The home club wears its colour and the road club wears white with
 its colour as trim, which keeps two dark clubs apart.
@@ -1121,15 +1141,39 @@ its colour as trim, which keeps two dark clubs apart.
 and it's swept in over the last few feet; without, it slides to his blade like a pass,
 never faster than 55 ft/s. A pass that misses its man is collected the same way, a man
 moved away from his own puck loses it to a collect, and the carry leash, the skate
-keep-out and the goalie's catch are all speed-capped. Only a caller that has just moved
-the puck under a camera cut passes `force`. The director plays nothing in a rush until
+keep-out and the goalie's catch are all speed-capped. A caller that knows the puck is at
+the stick already (the release, a tip, a catch) passes `force`. The director plays nothing in a rush until
 the man it needs actually has the puck (a `fetch` leg), a dump is aimed at the next touch
 and bleeds speed to settle there (`W.settleAt`), the nearest teammate chases it, and a
 missed goal is steered in through the mouth rather than placed in the net. The booth
 covers the time: a rush off a loose puck opens with `pbp.retrieve` (the breakout follows
 on the `fetched` cue), and a dump or battle is followed by `pbp.chase`. The rink smoke
-fails on any visible step of the puck over 1.6 ft outside a cut and any gain from beyond
-reach.
+fails on any step of the puck over 1.6 ft and any gain from beyond reach.
+
+**Nothing teleports, and the live picture never cuts.** Every change of shot (a fight's
+close-up, the Zamboni, a death's slow push in) is the camera's springs easing to it. Nobody
+is put anywhere either: a man skates to where a play needs him, one coming on climbs over
+the near boards by the benches (`overBoards`, the one place anybody appears), and the puck
+is carried, passed, tossed or held. Between plays the linesman carries it in his right hand
+(`pk.held` on an official), so it reaches the next dot when he does. The instant replay is
+the one change of picture, and it is made behind a wipe: the league's band sweeps across
+the screen and the switch happens while it covers it.
+
+The world is drawn between its last two 120 Hz steps (`W.alpha`, set by the view's frame
+loop): each man from `x0, y0` to `x, y`, the puck from `drawn0` to `drawn`. So it moves
+evenly on a screen at any rate rather than in uneven hops. The puck as drawn also can't
+move faster than 150 ft/s, quicker than the hardest shot, so anything that moves the sim's
+puck farther in a step is flown there over a few frames. The rink smoke fails on any step
+of the puck over 1.6 ft, any man moving farther in a step than a skater can, anybody
+appearing anywhere but the near boards, and any 60 Hz frame in which either camera moves
+farther than its springs allow.
+
+**The glowing puck.** A button on the picture (`.gdr-glow`) puts a blue halo round the
+puck, about two feet across at any distance, and a comet tail behind it above 40 ft/s,
+turning red at 100 (a slapshot or a one-timer), in the manner of the FoxTrax puck. Both
+renderers draw it from `GLOW` and `glowTail` in `hud.js`; the arena draws the halo last,
+over whatever is in front of the puck. It's a viewer's own setting, kept in that browser's
+`localStorage` (`rinkGlowPuck`), and off by default.
 
 **Positions and plays.** Between beats, and around whoever the director is scripting, the
 men play their positions (`assignRoles` and `systemSpot` in sim.js). On the rush the
@@ -1160,7 +1204,7 @@ can't change anything; the world plays on underneath it. On a goal the booth say
 seconds before the goal and a moment after at half speed. The renderers draw the replay's
 stand-in world, interpolated between frames, through a camera of their own at ice level
 (`replay` mode), letterboxed with a REPLAY bug. It ends on its own or when the next play
-comes in, and cuts back to live. The rink smoke checks every goal's replay starts, plays
+comes in, and goes back to live behind the wipe too. The rink smoke checks every goal's replay starts, plays
 sound frames, draws and hands back.
 
 **Motion.** A skater leans into acceleration and sits back under braking (`b.accel`), and
@@ -1222,8 +1266,7 @@ on about 300 shots a game.
 
 Player motion is eased too: a skater turns into a new heading rather than stopping dead
 on it, two men who bump are eased apart over a few steps with their closing speed taken
-off, and a man pushed out of a net slides out. Fighters skate in to square up unless
-there's a cut. The view steps frames that arrive within 4 ms of the running average as
+off, and a man pushed out of a net slides out. Fighters skate in to square up. The view steps frames that arrive within 4 ms of the running average as
 the average, so vsync jitter doesn't make the 120 Hz world alternate one step and three. Its modes are broadcast, zoom, push (a goal), fight, death,
 and a framing that follows the Zamboni. `renderer.view = 'low'` puts it on the rail just
 inside the near glass at head height, which is where the reflections show best.
@@ -1273,18 +1316,20 @@ lit triangles with a depth buffer:
   ice shader reads it back at its own screen position, stronger at grazing angles and on
   wet ice, and works out the five light banks' highlights per pixel, so they streak towards
   the camera the way they do on television.
-- The lamp, its red wash, the vignette, a death's darkening and the cut's flash are one
-  full-screen pass. Mourning desaturates in every shader. The HUD text is a 2-D canvas
+- The lamp, its red wash, the vignette and a death's darkening are one full-screen pass. Mourning desaturates in every shader. The HUD text is a 2-D canvas
   (`.gdr-hud`) over the WebGL one, cleared and left alone while there's no HUD.
 
 The frame governor in `gameday-rink.js` steps through the renderer's own `rungs`: for the
 arena, resolution, then the mirror's size, then the men in the reflection.
 
-The Zamboni laps the sheet inside the boards, each lap a strip further in, then runs down
-the middle. Its conditioner paints a clean copy of the sheet back over its strip, so the
-lines and logos survive, and leaves a wet mask the renderer draws as darker, glossier ice
-that freezes off over about forty seconds. The next period starts on a fresh sheet
-whatever the Zamboni got through.
+The Zamboni comes on through a gate in the end wall, clear of the net (`GATE_Y`), and laps
+the sheet inside the boards, each lap a strip further in and starting by the gate, then
+runs down the middle. Whatever is left lying in its path (a stick, a glove, a limb) goes
+in under the front of it. Its conditioner paints a clean copy of the sheet back over its
+strip, so the lines and logos survive, and leaves a wet mask the renderer draws as darker,
+glossier ice that freezes off over about forty seconds. Called off (`W.zamboniOff`), it
+drives out through the nearer gate. The next period starts on the ice it left: fresh where
+it got to, and still marked where it didn't.
 
 **Things that trip people up.**
 
@@ -1292,8 +1337,11 @@ whatever the Zamboni got through.
   or `W.frozen` is set.
 - Kit colours must be hex. `figure.js` shades them with `parseInt`. That holds for a club's
   authored kit and its bands too.
-- Anything that moves a man farther than he could skate should cut the camera, and a cut
-  finishes every outstanding walk-off and stretcher.
+- Nothing may move a man farther than he could skate, or the puck farther than it could
+  travel. A man who has to be somewhere skates there, one who has to come on comes over
+  the boards (`overBoards`), and the smoke fails anything else.
+- A beat that stops play passes the payload's `nextDot` to `stopPlay`. Without it the
+  men coast to a stop and the faceoff's beat has to bring them all the way to the dot.
 - Cosmetic randomness is seeded from the payload. A `rand()` call added to the sim to
   decorate a beat replays the whole season with different results. Snow and other
   particles draw from `fxRand`, a stream of their own.
@@ -1365,8 +1413,16 @@ the entries for the words in its line (`sportsLexFor` in [rng.js](../plugins/bro
 the `broadcast` message carries them as `voice` and `lex`, and dispatch bundles them with
 `excite` into one delivery that tv.js hands to `AudioEngine.speak()`. The goal call is written
 drawn out ("He SCOOOOOOORES!!!"), which the voice holds for its letters; see
-[Drawn-out words](systems-procedural-audio.md#drawn-out-words). The broadcast regress fails a
-line that names a `::say` word without its entry and a row that has drifted from the script.
+[Drawn-out words](systems-procedural-audio.md#drawn-out-words). The booth's `@voice` also
+carries `vs=1`, so a matchup written with an en dash ("Wharf Rats–Warlords") is said "Wharf
+Rats versus Warlords" (`readMatchups` in audio-engine.js); for any other voice the dash is a
+pause. The broadcast regress fails a line that names a `::say` word without its entry and a
+row that has drifted from the script.
+
+**A period is under way when its first draw is won, not before.** No intro or period-start
+line says play has started. `pbp.period.go` ("And we're under way.") follows the win line of
+a period's opening faceoff, and the period-start line carries the `resume` cue that brings
+the teams back out.
 
 Branding lives in [cphl-brand.js](../client/game/js/panels/cphl-brand.js): one mark, drawn
 by the score bug, the full-screen graphics, the rink header, the idle screen and the
@@ -1378,9 +1434,11 @@ It plays two real games (the sim and the narrator, slots 37 and 914, which betwe
 emit every beat type) through the view over a hand-cranked DOM, clock and canvas
 ([rink-dom-stub.mjs](../scripts/shapes/rink-dom-stub.mjs)). It checks that every beat
 resolves, every goal goes in and no save does, the faceoff is taken on the named dot by
-the named centres, a fight's loser ends with nothing left, a man carried off is gone, a
-death stops the building, the pulled goalie leaves an empty net and a sixth skater, the
-Zamboni lays wet ice and the next period starts on a fresh sheet. It proves the view runs
+the named centres with the puck dropped from the linesman's hand (three in four as the
+line airs), a fight's loser ends with nothing left, a man carried off is gone, a death
+stops the building, the pulled goalie leaves an empty net and a sixth skater, and the
+Zamboni lays wet ice and is gone through its gate before the period's first draw. Nothing
+teleports: not the puck, not a man, not the camera. It proves the view runs
 and agrees with the sim, not that it looks right. The stub has no WebGL, so it drives the
 2-D renderer.
 
