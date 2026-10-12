@@ -46,11 +46,13 @@ export function createWorld() {
   const W = { t: 0, bodies: new Map(), ball: null, queue: [], seq: 0 };
 
   // A body: who he is and where he stands. `slot` is his kit slot (diamond/cast.js), which the
-  // renderer knows him by. Placing him again moves his frame and leaves his clip running; a new
-  // man in the slot gets his own way of doing things.
+  // renderer knows him by. Placing him again puts him there as a still until something plays
+  // him: a clip left running would carry him on from the new spot by however far it had already
+  // taken him. A new man in the slot gets his own way of doing things.
   W.place = (slot, o) => {
     const b = W.bodies.get(slot) || { slot, clip: null, start: 0, speed: 1, prev: null, layers: {} };
     const id = o.id ?? b.id;
+    b.clip = null; b.prev = null;
     Object.assign(b, {
       id, role: o.role ?? b.role, at: (o.at ?? b.at ?? [0, 0, 0]).slice(), yaw: o.yaw ?? b.yaw ?? 0,
       scale: o.scale ?? b.scale ?? 1, mirror: !!(o.mirror ?? b.mirror),
@@ -62,15 +64,20 @@ export function createWorld() {
   W.drop = (slot) => W.bodies.delete(slot);
 
   // He starts `clipId` at world time `at` (now if not given), at `speed`, mixing out of what he was
-  // doing over `fade` seconds (0 for a clip that starts where the last one ends). It starts where
-  // the last one had carried him by then (a clip that travels), and the last one mixes out from
-  // where it carries him on to.
+  // doing over `fade` seconds (0 for a clip that starts where the last one ends), from `from` if
+  // he takes it up part way through (a run carried on round a turn). It starts where the last one
+  // had carried him by then (a clip that travels), or from `frame` ({ at, yaw }) if given (a
+  // fielder sent off toward a ball), and the last one mixes out from where it carries him on to.
+  // With `carry`, the last one rides the new clip's frame through the mix instead, where it was
+  // when the mix began: a man at rest taking up a clip already moving goes with it from the
+  // first frame, where mixing him in place would leave him behind and then surge him after it.
   W.play = (slot, clipId, o = {}) => {
     const b = W.bodies.get(slot), clip = CLIPS[clipId];
     if (!b || !clip) return null;
-    const start = o.at ?? W.t, base = { at: b.at, yaw: b.yaw };
-    b.prev = b.clip && o.fade > 0 ? { clip: b.clip, start: b.start, speed: b.speed, from: start, fade: o.fade, base } : null;
-    const here = carried(base, b.clip, b.start, b.speed, start, b.mirror);
+    const start = o.at ?? W.t, base = { at: b.at, yaw: b.yaw }, from = o.from ?? start;
+    b.prev = b.clip && o.fade > 0 ? { clip: b.clip, start: b.start, speed: b.speed, from, fade: o.fade, base } : null;
+    const here = o.frame ? { at: [o.frame.at[0], o.frame.at.length === 3 ? o.frame.at[1] : b.at[1], o.frame.at[o.frame.at.length - 1]], yaw: o.frame.yaw } : carried(base, b.clip, b.start, b.speed, start, b.mirror);
+    if (b.prev && o.carry) b.prev.rel = relOf(carried(base, b.clip, b.start, b.speed, from, b.mirror), carried(here, clip, start, o.speed || 1, from, b.mirror));
     b.at = here.at.slice(); b.yaw = here.yaw;
     b.clip = clip; b.start = start; b.speed = o.speed || 1;
     return clip;
@@ -93,19 +100,20 @@ export function createWorld() {
   const groundOf = (F) => (x, z) => { const p = toPark(F, [x, 0, z]); return groundHeight(p[0], p[2]) - F.at[1]; };
   const optsOf = (b, F) => ({ ground: groundOf(F), scale: b.scale, traits: b.traits, mirror: b.mirror });
   // frame A as frame B sees it, for anim.js rebase
-  const relOf = (A, B) => { const q = toLocal(B, A.at); return { at: [q[0], q[2]], yaw: A.yaw - B.yaw }; };
+  const relOf = (A, B) => { const q = toLocal(B, A.at); return { at: [q[0], q[2]], y: q[1], yaw: A.yaw - B.yaw }; };
 
   // His pose at world time t (now if not given): the clip, mixed out of the last one, with his own
   // way and his mirror, then the layers. Ready for the renderer with `at`, `yaw` and `scale`, his
-  // frame where his clip has carried him.
-  W.pose = (slot, t = W.t) => {
+  // frame where his clip has carried him. `o.look: false` leaves the head as the clip has it: the
+  // ball in his own hand asks where the hand is, and his head looking at the ball would ask back.
+  W.pose = (slot, t = W.t, o = {}) => {
     const b = W.bodies.get(slot);
     if (!b || !b.clip) return null;
     const F = carried({ at: b.at, yaw: b.yaw }, b.clip, b.start, b.speed, t, b.mirror), opts = optsOf(b, F);
     let P = sampleClip(b.clip, (t - b.start) * b.speed, opts);
     if (b.prev && t < b.prev.from + b.prev.fade) {
       const pv = b.prev, G = carried(pv.base, pv.clip, pv.start, pv.speed, t, b.mirror);
-      const Q = rebase(sampleClip(pv.clip, (t - pv.start) * pv.speed, optsOf(b, G)), relOf(G, F));
+      const Q = rebase(sampleClip(pv.clip, (t - pv.start) * pv.speed, optsOf(b, G)), pv.rel || relOf(G, F));
       P = mixPose(Q, P, smooth((t - pv.from) / pv.fade), opts);
     }
     const r = b.layers.reach;
@@ -118,7 +126,7 @@ export function createWorld() {
       const w = weight(a, t);
       if (w > 0) P = aimBat(P, toLocal(F, targetOf(a, t)), w, { reach: a.reach, follow: a.follow, scale: b.scale, ground: opts.ground });
     }
-    const l = b.layers.look;
+    const l = o.look !== false && b.layers.look;
     if (l) {
       const w = weight(l, t);
       if (w > 0) P = lookAt(P, toLocal(F, targetOf(l, t)), w, b.scale);

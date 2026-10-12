@@ -90,6 +90,13 @@ export function rollTime(ev, la, d) {
 }
 // How far it gets before it stops.
 export const rollStop = (ev, la) => { const { v0, k } = roll(ev, la); return (0.99 * v0) / k; };
+// How far it has got `tau` seconds off the bat: rollTime turned round, nothing while a chopper's
+// first bounce is in the air. The 3-D ball runs on it (diamond/flight.js groundPath), so it
+// reaches a fielder where and when the server said it would.
+export function rollAlong(ev, la) {
+  const { v0, k, lag } = roll(ev, la);
+  return (tau) => (tau <= lag ? 0 : (v0 / k) * (1 - Math.exp(-k * (tau - lag))));
+}
 
 // ── the fielders ──────────────────────────────────────────────────────────────
 // Each position's first step (seconds), his speed (feet a second) and what a dive or a stretch
@@ -98,8 +105,9 @@ const LEGS = Object.freeze({
   1: [0.5, 14, 3], 2: [0.55, 15, 3], 3: [0.35, 18, 5], 4: [0.3, 20, 6], 5: [0.3, 18, 5], 6: [0.3, 21, 6],
   7: [0.45, 25, 7], 8: [0.4, 27, 8], 9: [0.45, 25, 7],
 });
-// How far a fielder can get from his spot in `t` seconds.
+// How far a fielder can get from his spot in `t` seconds, and how long he takes to move at all.
 export const reachIn = (n, t) => { const [r, v, x] = LEGS[n] || LEGS[4]; return Math.max(0, t - r) * v + x; };
+export const firstStep = (n) => (LEGS[n] || LEGS[4])[0];
 
 // A play's grade is the share of his reach it took: up to about a third is routine, to three
 // quarters he's ranging, and past that it takes the dive.

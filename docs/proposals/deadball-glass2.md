@@ -1,11 +1,13 @@
 # Deadball in GLASS 2
 
-**Status: Phase 0, sim v2, Phases 1 and 2 and the plays and clips of Phase 3 built, behind a
+**Status: Phase 0, sim v2, Phases 1 and 2 and Phase 3 to its balls in play built, behind a
 flag: the park in 3-D with its light, air, lens and grade, the arcade graphics, and the city round
 the park as a set with the park's own outside (1a to 1e); skinned players who pitch, swing, catch
 and call every pitch at its real speed and spot, and the Pose Lab their clips are keyed in (2a to
 2e); every ball in play decided on the server, with the booth's lines sorted to agree with it
-(3a), and the clips to play it with, players who travel as they move (3b).** A plan for giving Deadball a 3-D sub-screen the way Cluster Puck got Rinkside, at the
+(3a), the clips to play it with, players who travel as they move (3b), and every ball in play
+played out in the park with its cameras and its cutaways (3c). The changeover and plays on the
+bases (3d) and the spectacle (3e) are design.** A plan for giving Deadball a 3-D sub-screen the way Cluster Puck got Rinkside, at the
 highest fidelity the engine can reach. Deadball is a live sport on KSAB, and the broadcast borrows
 the look of a 1990s arcade baseball game. That means skinned, detailed players, authored animation
 with a wide spread of plays, light from the park's own towers and a crowd that fills the stands.
@@ -1621,6 +1623,27 @@ Phase 3, or with sim v2 if that comes later.
   over them) rather than by hand, then held to the gate: `anim-smoke` plays all 67 at 120 frames
   a second, at a third of its CPU budget once its save check stopped baking the library once a
   clip. Turning a run round a bag is the director's path for 3d, not a clip.
+
+- **3c built:** every ball in play played out in the park as the server decided it.
+  [diamond/plays.js](../../client/game/js/panels/diamond/plays.js) plans it from the payload's
+  `play` and the director stages it on the world's clock. The ball goes where and when the
+  server said: on the ground on play.js's own roll, up off its last hop into the glove; in the
+  air down in its hang time; over the fence into the seats. The seven set as the pitch comes and
+  every head follows the ball. Each fielding clip is placed so its catch lands on the ball, the
+  run to it a run cycle at the speed it takes (carried round a sharp turn, and offset half a mix
+  at each end so starting and stopping don't surge), and a clip with no time for its first steps
+  is taken up part way through. The throws go man to man, each turned so the hand's way at the
+  release points at its man and held until he can be there: to first, through the pivot at second
+  and on, to the cutoff. The batter runs to first at his own legs' pace and never beats the ball
+  on an out there; a throw he beats waits for him; the base umpire calls it. Errors play as
+  their kind: booted and picked up, through the legs, dropped, past the bag or into the stands.
+  The high camera follows the ball, a play at first cuts to the first-base camera as the throw
+  goes, and a long fly cuts to a camera behind the man under it. Runners and the batter's turn
+  at first are 3d's, so an at-bat that starts from bags the picture didn't leave opens on the
+  wide shot over the city while everyone takes their places. `diamond-smoke` holds every glove to
+  its ball, every throw to its hand, the call at first to the picture, every pelvis under 52 ft/s
+  outside a cut and the ball in the high camera's frame, over two games; the planner takes about
+  5 ms an at-bat.
 
 **Phase 4: the broadcast.** On by default wherever WebGL2 and float targets work.
 - `gl/crowd.js` with seated and reaction clips; replays in slow motion; dead-time rituals; the grounds

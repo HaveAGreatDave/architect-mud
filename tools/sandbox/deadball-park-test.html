@@ -34,7 +34,7 @@
   Serve the repo root over HTTP and open /sandbox/deadball-park-test.html (a file://
   page can't fetch the .bsm or load the modules). ?slot=N picks the game, ?sim=2 plays
   it under sim v2 (errors, hit batters, steals, pickoffs, wild pitches), ?play= a filter
-  below (runs, hits, dp, walk, k, bases, errors, half) and ?i=N a payload within it.
+  below (runs, hits, dp, walk, k, bases, errors, half, inplay) and ?i=N a payload within it.
 -->
 <style>
   html, body { margin: 0; background: radial-gradient(ellipse at 50% 20%, #202329, #0a0b0d 70%); }
@@ -76,6 +76,7 @@
         <option value="bases">plays on the bases (v2)</option>
         <option value="errors">errors and hit batters (v2)</option>
         <option value="half">half-inning breaks</option>
+        <option value="inplay">balls in play</option>
       </select>
       <button id="reroll">⟳ new game</button>
     </div>
@@ -235,6 +236,7 @@
       bases: (p) => p.phase === 'run',
       errors: (p) => p.kind === 'error' || p.kind === 'hitbypitch',
       half: (p) => p.phase === 'half',
+      inplay: (p) => !p.phase && !!p.play,
     };
     const filtered = () => { const f = FILTERS[document.getElementById('filter').value]; return f ? plays.filter(x => f(x.p)) : plays; };
 

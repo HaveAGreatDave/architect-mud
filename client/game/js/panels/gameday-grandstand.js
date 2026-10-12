@@ -73,6 +73,9 @@ export function createGrandstandView(host, opts = {}) {
   // `cur` the at-bat it's playing; `speed` is the world's clock against the wall's (1 live, a
   // quarter for a slow look, 0 stopped so the sandbox can step it by hand)
   let W = null, D = null, live = false, cur = null, acc = 0, lastNow = 0, speed = Number.isFinite(opts.speed) ? opts.speed : 1;
+  // the bags the picture last left taken (director.js pictureAfter): an at-bat that starts from
+  // others opens on a cutaway while everyone takes their places
+  let shown = null;
   // what the graphics and the board show: the score, the count, the outs and the bags, and the
   // cards that come and go (matchup, steal, splash) and the leaders' table between innings
   const S = {
@@ -92,7 +95,7 @@ export function createGrandstandView(host, opts = {}) {
     return (modsP ??= Promise.all([import('./gl/ballpark.js'), import('./diamond/hud.js'), import('./diamond/camera.js'), import('./diamond/cast.js'),
       import('./diamond/world.js'), import('./diamond/director.js')])
       .then(([park, hudMod, cam, cast, world, director]) => (mods = {
-        ...park, hud: hudMod, project: cam.project, numberOf: cast.numberOf,
+        ...park, hud: hudMod, project: cam.project, shotAt: cam.shotAt, numberOf: cast.numberOf, pictureAfter: director.pictureAfter,
         createWorld: world.createWorld, DT: world.DT, createDirector: director.createDirector,
       })));
   }
@@ -146,7 +149,7 @@ export function createGrandstandView(host, opts = {}) {
     D = mods.createDirector(W, { onLand: () => landPlay(cur), emit: fromDirector });
     hud = mods.hud.createHud(host.querySelector('.gds-hud'), {
       theme: theme(),
-      project: (p, w, h) => mods.project(shot, w, h, p),
+      project: (p, w, h) => mods.project(view(), w, h, p),
       safe: () => !!R?.quality?.tube,
       motion: () => !prefersReducedMotion(),
     });
@@ -197,13 +200,16 @@ export function createGrandstandView(host, opts = {}) {
     }
     lastNow = now;
     size();
-    if (!R.render(shot) && R.lost) { fallback('the WebGL context was lost'); return; }
+    if (!R.render(view()) && R.lost) { fallback('the WebGL context was lost'); return; }
     // on to the next frame while the at-bat plays; once everyone's at rest the last one stays up.
     // A stopped clock draws only when something asks.
     if (live && D.busy()) { if (speed > 0) draw(); }
     else live = false;
   }
   function stopWorld() { D?.stop(); live = false; cur = null; }
+  // The camera this frame: the director's shot, which may follow the ball (diamond/camera.js
+  // shotAt), at the world's time, the same for the park and the graphics.
+  const view = () => (mods && shot && typeof shot === 'object' ? mods.shotAt(shot, W ? W.t : 0) : shot);
   // Who's on the field for this payload, and the clubs whose kits they wear.
   function castFor(p) {
     const top = p.half === 'top', cast = mods.castOf(p);
@@ -355,6 +361,7 @@ export function createGrandstandView(host, opts = {}) {
     if (p.phase === 'half') {
       // a fresh half: nobody on, nobody out, and the leaders over the picture
       sides(p);
+      shown = mods.pictureAfter(p);
       Object.assign(S, { balls: 0, strikes: 0, outs: 0, bases: [false, false, false], batter: '', desc: '', lastBatter: '' });
       dropHolds();
       shot = opts.shot || 'high';
@@ -384,6 +391,7 @@ export function createGrandstandView(host, opts = {}) {
     };
     if (p.phase === 'run') {
       // a play on the bases while he's up: no pitches of its own, and a steal shows its card
+      shown = mods.pictureAfter(p);
       matchupFor(p);
       paint();
       const landAt = p.kind === 'pickoff' || p.kind === 'throwover' ? 260 + T_THROW : T_PITCH + T_THROW;
@@ -403,7 +411,10 @@ export function createGrandstandView(host, opts = {}) {
     cur = { p, settle, landed: false };
     const mine = cur;
     live = true; acc = 0;
-    D.stage(p, cast);
+    const cutaway = !!shown && shown.some((b, i) => b !== !!before[i]);
+    D.stage(p, cast, { cutaway });
+    if (D.cutaway && !opts.shot) shot = 'sky';
+    shown = mods.pictureAfter(p);
     // while frames run the world lands it; if they've stopped (a hidden tab) this does
     const watch = () => {
       if (mine.landed || mine !== cur) return;
@@ -465,7 +476,7 @@ export function createGrandstandView(host, opts = {}) {
     hud?.dispose();
     if (host) host.innerHTML = '';
     R = null; hud = null; canvas = null; mounted = false; W = null; D = null;
-    last = null; caption = ''; pendingCaption = null; pendingCard = null; playing = false;
+    last = null; caption = ''; pendingCaption = null; pendingCard = null; playing = false; shown = null;
   }
 
   return {

@@ -99,6 +99,69 @@ export function throwPath(from, to, t0, T) {
   return fitPath(from, to, t0, T, [0, -GRAVITY, 0], { bounce: false });
 }
 
+// ── balls in play (Phase 3) ────────────────────────────────────────────────────
+// The spray direction as a unit vector on the ground: degrees from straightaway centre, negative
+// toward the left-field line (+x), as diamond/play.js has it.
+export const sprayVec = (dir) => [-Math.sin(dir * Math.PI / 180), 0, Math.cos(dir * Math.PI / 180)];
+
+// A ball on the ground: off the bat at `from` at t0, along the spray `dir`, as far along it at each
+// moment as `along(tau)` says (play.js rollAlong, so it reaches a fielder where and when the server
+// judged it would). It goes down off the bat at its launch angle, then hops, each about half the
+// last, until it rolls; it starts at the bat and is on the spray line through the plate within
+// 0.4 s. `mph` and `la` are the exit speed and launch angle.
+export function groundPath(from, dir, mph, la, t0, along) {
+  const u = sprayVec(dir), s0 = Math.hypot(from[0], from[2]);
+  const off = [from[0] - u[0] * s0, from[2] - u[2] * s0];
+  // down to the dirt: from its height at its launch angle's speed, a chopper straight down
+  const vy0 = Math.min(0, mph * MPH * Math.sin(Math.min(0, la) * Math.PI / 180));
+  const h = Math.max(0, from[1] - BALL_R), tDown = (vy0 + Math.sqrt(vy0 * vy0 + 2 * GRAVITY * h)) / GRAVITY;
+  // the hops: a chopper's first is the time play.js says it loses in the air; otherwise off the
+  // speed it comes down at, half of it back up
+  const hops = [];
+  let t = tDown, air = la < -10 ? 0.45 : Math.min(0.5, (-vy0 + GRAVITY * tDown) * 0.5 * 2 / GRAVITY);
+  for (let k = 0; k < 6 && air > 0.03; k++) { hops.push([t, air]); t += air; air *= 0.5; }
+  const at = (tt) => {
+    const tau = Math.max(0, tt - t0), s = Math.max(s0 * Math.max(0, 1 - tau / 0.3), along(tau)), k = Math.max(0, 1 - tau / 0.4);
+    let y = BALL_R;
+    if (tau < tDown) y = Math.max(BALL_R, from[1] + vy0 * tau - 0.5 * GRAVITY * tau * tau);
+    else for (const [a, T] of hops) if (tau >= a && tau <= a + T) { const v = tau - a; y = BALL_R + 0.5 * GRAVITY * v * (T - v); break; }
+    return [u[0] * s + off[0] * k, y, u[2] * s + off[1] * k];
+  };
+  at.t0 = t0; at.dir = dir; at.along = along;
+  return at;
+}
+
+// A ball in the air off the bat at `from` at t0, coming down at `to` (on the ground: y is the
+// ball's radius) after T seconds, slowed along its way by the air, and after it lands, if `roll`
+// says how, on along the ground to a stop no further than `roll.max` feet from the plate (the
+// wall): a ball that drops in for a hit. `at.when(y)` is the time it comes down through height y.
+export function flyPath(from, to, t0, T, roll = null) {
+  const dx = to[0] - from[0], dz = to[2] - from[2], hl = Math.hypot(dx, dz) || 1, drag = 7;
+  const acc = [-dx / hl * drag, -GRAVITY, -dz / hl * drag];
+  const fly = fitPath(from, to, t0, T, acc, { bounce: false });
+  const v0 = fly.v0, land = t0 + T;
+  // off the grass: the speed along the ground it lands with, a third of it kept, slowing to a stop
+  const u = [dx / hl, 0, dz / hl], vLand = Math.hypot(v0[0] + acc[0] * T, v0[2] + acc[2] * T) / 3;
+  const k = 1.1, d0 = Math.hypot(to[0], to[2]), room = roll ? Math.max(0, (roll.max ?? Infinity) - d0) : 0;
+  const along = (tau) => Math.min(room, (vLand / k) * (1 - Math.exp(-k * tau)));
+  const at = (t) => {
+    if (t <= land || !roll) return fly(Math.min(t, land));
+    const tau = t - land, s = along(tau), hop = 0.25 * Math.max(0, 1 - tau / 0.6);
+    return [to[0] + u[0] * s, BALL_R + hop * Math.abs(Math.sin(tau * 9)), to[2] + u[2] * s];
+  };
+  at.t0 = t0; at.T = T; at.v0 = v0; at.acc = acc; at.land = land;
+  // when it comes down through height y on its way (or null if it never gets that high)
+  at.when = (y) => {
+    const a = 0.5 * acc[1], b = v0[1], c = from[1] - y, d = b * b - 4 * a * c;
+    if (d < 0) return null;
+    const r = Math.max((-b - Math.sqrt(d)) / (2 * a), (-b + Math.sqrt(d)) / (2 * a));
+    return r > 0 ? t0 + r : null;
+  };
+  // where it is along the ground after landing, and when it stops
+  at.rollFrom = land; at.rollStop = roll ? land + 3 / k : land;
+  return at;
+}
+
 // A hit ball: off the bat at `from`, out at `mph` in the direction of `dir` (a unit vector), with
 // the air's drag and gravity, for the cosmetic flight of a foul or a ball in play.
 export function hitPath(from, dir, mph, t0) {

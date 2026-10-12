@@ -30,8 +30,13 @@ export const SHOTS = Object.freeze({
   // the long lens from centre field, offset to left-centre: replays, and every pitch when the
   // batting view is off. The crowd behind the plate goes soft, as a broadcast long lens has it.
   cf: Object.freeze({ eye: [42, 62, 445], at: [0.3, 3.9, 2.5], fov: 3.7, dof: 12000, shadow: [[0, 0, 30], 75] }),
-  // high home: balls in play
+  // high home: balls in play, following the ball (`shotAt`)
   high: Object.freeze({ eye: [0, 74, -104], at: [0, 4, 185], fov: 42, shadow: [[0, 0, 140], 300] }),
+  // the first-base camera on a play at first: from the well on the home side, inside the coach's
+  // box so he isn't in the way, the bag, the last strides up the line and the base umpire beyond
+  first: Object.freeze({ eye: [-50, 7.5, 18], at: [-66, 3.4, 67], fov: 30, dof: 640, shadow: [[-64, 0, 66], 34] }),
+  // a long fly coming down, from behind the man under it: the director places it (`fly` specs)
+  fly: Object.freeze({ eye: [0, 26, 400], at: [0, 5, 315], fov: 30, dof: 900, shadow: [[0, 0, 315], 60] }),
   // the first-base camera on a right-handed batter, and the third-base one on a left-hander, so
   // the camera has his face; the director cuts to it for his reaction and the umpire's call
   side: Object.freeze({ eye: [-66, 5.4, 26], at: [2.6, 3.7, -0.4], fov: 8.6, dof: 780, shadow: [[0, 0, 0], 40] }),
@@ -59,6 +64,32 @@ export function fovFor(fov, aspect, fit) {
   if (fit === 'v' || !(aspect > DESIGN_ASPECT)) return fov;
   return 2 * Math.atan(Math.tan(fov * DEG / 2) / Math.sqrt(aspect / DESIGN_ASPECT)) / DEG;
 }
+
+// A shot that moves: `{ shot, track }` follows the ball's way (`track(t)`, a point, plays.js
+// trackOf). The high camera turns toward it, less of the way while it's near the plate so a
+// grounder keeps the infield in the picture, and closes its lens on a ball far out; the camera
+// behind a long fly (`{ shot: 'fly', eye, at }`) keeps the catch in the frame and tilts up
+// toward the ball, `follow` of the way. Anything else is a camera by name or a shot as given, and
+// comes back as it was. Pure in t, so the renderer and the graphics resolve the same picture.
+export function shotAt(s, t) {
+  if (!s || typeof s !== 'object' || typeof s.track !== 'function') return s;
+  const base = SHOTS[s.shot] || SHOTS.high, q = s.track(t);
+  if (s.shot === 'fly') {
+    const at = s.at || base.at, k = s.follow ?? 0.45;
+    const to = q ? [at[0] + (q[0] - at[0]) * k * 0.4, at[1] + (Math.min(q[1], 90) - at[1]) * k, at[2] + (q[2] - at[2]) * k * 0.4] : at;
+    return { eye: s.eye || base.eye, at: to, fov: s.fov || base.fov, dof: base.dof, shadow: [[at[0], 0, at[2]], 60] };
+  }
+  if (!q) return base;
+  // out past the infield it turns to the ball; a pop-up near the plate it tilts up after
+  const out = Math.hypot(q[0], q[2]), up = Math.min(1, Math.max(0, (q[1] - 25) / 40));
+  const w = Math.max(Math.min(1, Math.max(0, (out - 50) / 130)), up);
+  const look = [q[0], q[1] * (0.35 + 0.6 * up), q[2]];
+  const at = [base.at[0] + (look[0] - base.at[0]) * w, base.at[1] + (look[1] - base.at[1]) * w, base.at[2] + (look[2] - base.at[2]) * w];
+  const far = Math.hypot(at[0] - base.eye[0], at[1] - base.eye[1], at[2] - base.eye[2]), near0 = Math.hypot(base.at[0] - base.eye[0], base.at[1] - base.eye[1], base.at[2] - base.eye[2]);
+  return { eye: base.eye, at, fov: base.fov * Math.min(1, Math.max(0.55, near0 / far)), shadow: base.shadow };
+}
+// Whether a shot is one the director may cut to: a camera by name, or one that moves on one.
+export const isShot = (s) => (typeof s === 'string' ? !!SHOTS[s] : !!(s && SHOTS[s.shot] && typeof s.track === 'function'));
 
 // A shot by name or as given, with its depth range filled in and its lens fitted to the screen.
 export function shotOf(s, aspect = DESIGN_ASPECT) {

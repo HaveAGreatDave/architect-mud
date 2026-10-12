@@ -200,19 +200,22 @@ const turnY = (v, deg) => { const c = Math.cos(deg / DEG), s = Math.sin(deg / DE
 const outOf = (F, q) => { const r = turnY(q, F.yaw); return [r[0] + F.at[0], r[1], r[2] + F.at[1]]; };
 const into = (F, p) => turnY([p[0] - F.at[0], p[1], p[2] - F.at[1]], -F.yaw);
 // A pose keyed in one frame, said in another: `rel` is the first frame as the second sees it
-// (`{ at: [x, z], yaw }`). Points move and turn, directions turn, the pelvis's twist takes the
-// turn, and everything above the pelvis rides it. A crossfade between two clips whose frames
-// have moved apart mixes them in one frame.
+// (`{ at: [x, z], y, yaw }`, `y` how much higher the first stands). Points move and turn,
+// directions turn, the pelvis's twist takes the turn, and everything above the pelvis rides it. A
+// crossfade between two clips whose frames have moved apart mixes them in one frame: a pitcher's
+// frame is on the rubber and the one he fields from is on the grass.
 export function rebase(P, rel) {
-  if (!rel || (!rel.yaw && !rel.at[0] && !rel.at[1])) return P;
+  const dy = (rel && rel.y) || 0;
+  if (!rel || (!rel.yaw && !rel.at[0] && !rel.at[1] && !dy)) return P;
+  const up = (q) => (dy ? [q[0], q[1] + dy, q[2]] : q);
   const out = { ...P, twist: (P.twist || 0) + rel.yaw };
-  for (const k of POINTS) out[k] = outOf(rel, P[k]);
+  for (const k of POINTS) out[k] = up(outOf(rel, P[k]));
   for (const S of FEET) {
     const a = P['ank' + S];
-    if (a.length === 2) { const q = outOf(rel, [a[0], 0, a[1]]); out['ank' + S] = [q[0], q[2]]; } else out['ank' + S] = outOf(rel, a);
+    if (a.length === 2) { const q = outOf(rel, [a[0], 0, a[1]]); out['ank' + S] = [q[0], q[2]]; } else out['ank' + S] = up(outOf(rel, a));
   }
   for (const k of DIRS) out[k] = turnY(P[k], rel.yaw);
-  if (P.bat) out.bat = { ...P.bat, knob: outOf(rel, P.bat.knob), dir: turnY(P.bat.dir, rel.yaw) };
+  if (P.bat) out.bat = { ...P.bat, knob: up(outOf(rel, P.bat.knob)), dir: turnY(P.bat.dir, rel.yaw) };
   return out;
 }
 
@@ -442,6 +445,26 @@ export function handPoint(P, S, kind = 'glove', s = 1) {
   const wr = P['wr' + S], hd = P['hand' + S], pm = P['palm' + S];
   const along = kind === 'mitt' ? 0.27 : kind === 'glove' ? 0.3 : 0.17, out = kind === 'bare' ? 0 : 0.05;
   return [wr[0] + (hd[0] * along + pm[0] * out) * s, wr[1] + (hd[1] * along + pm[1] * out) * s, wr[2] + (hd[2] * along + pm[2] * out) * s];
+}
+// Where a clip has the point of the hand that makes its catch, at the catch, in the frame the clip
+// started in (a clip that travels carries it there): `{ t, at, event }`, or null for a clip with no
+// catch. The director places a fielding clip by it, so the glove comes to the ball; a mirrored
+// clip's is the mirror, and `scale` is the player's size. It's where the arm really puts the hand
+// (`handAt`): a stretch keyed at full length is softened short of its key, and a ball put at the
+// key has the reach pull the body after it.
+export function catchPoint(clip, opts = {}) {
+  const e = (clip.events || []).find((x) => x.kind === 'catch');
+  if (!e) return null;
+  const kind = opts.kind || (clip.role === 'catcher' ? 'mitt' : e.hand === 'R' ? 'bare' : 'glove'), s = opts.scale || 1;
+  const P = sampleClip(clip, e.t, { scale: s }), h = handAt(P, e.hand, kind, s), r = rootAt(clip, e.t);
+  const q = outOf(r, h), at = opts.mirror ? [-q[0], q[1], q[2]] : q;
+  return { t: e.t, at, event: e };
+}
+// The point of hand S as the arm really holds it: handPoint from the wrist the solver reaches,
+// which a limb keyed past its soft limit (rig.js IK_SOFT) falls short of. In the pose's frame.
+export function handAt(P, S, kind = 'glove', s = 1) {
+  const J = solvePose({ ...P, at: [0, 0, 0], yaw: 0, scale: s }).J;
+  return handPoint({ ...P, ['wr' + S]: J['wr' + S] }, S, kind, s);
 }
 // Moves hand S so its `kind` point meets `target` (in the pose's real frame), `w` of the way: the
 // director ramps `w` up to 1 at the catch and back down after it. The further the reach takes the

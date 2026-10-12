@@ -958,7 +958,28 @@ Built so far (Phases 1 and 2 of the plan):
   four and a hit batsman are played in full, the hitter walking off or heading to first, and a
   strikeout and a walk get their splash words. The 2-D view's cues
   ([client/shared/deadball-sfx.js](../client/shared/deadball-sfx.js)) play on the moment: the
-  mitt, the crack of the bat, a miss's whiff, and the play's own sound as it lands;
+  mitt, the crack of the bat, a miss's whiff, the ball into a glove, and the play's own sound as
+  it lands;
+- the ball in play (Phase 3c): [diamond/plays.js](../client/game/js/panels/diamond/plays.js)
+  plays out the payload's `play` as the server decided it. The ball goes off the bat on the
+  spray, at the exit speed and launch angle the server drew: one on the ground rolls on play.js's
+  own roll and comes up off its last hop into the glove, one in the air comes down in its hang
+  time, and one over the fence lands in the seats. The seven set as the pitch comes and every
+  head follows the ball. The man who fields it runs to where his clip puts the glove on the ball
+  at the moment the server said, in the clip for his grade: the ground ball taken routine,
+  backhand, forehand, diving or barehanded, the catch camped, running, diving, sliding, at the
+  wall or over the rail, the catcher's pop-up, or the outfielder running a hit down. The throws
+  go man to man (to first, to the pivot at second and on, to the cutoff), each turned so the
+  hand's own way at the release points at its man, out of the hand at the release and into the
+  glove at his catch, and held until he can be there. The batter comes out of the box and runs
+  to first at his own legs' pace, never ahead of the ball on an out there, and pulls up through
+  the bag; the base umpire calls it. Errors play too: the ball booted and picked up again, through
+  the legs to the man behind, dropped out of the glove, past the first baseman or into the
+  stands. The high camera from home follows the ball, tilting up for a pop-up and closing in on
+  one far out; a play at first cuts to the first-base camera as the throw goes, and a long fly to
+  a camera behind the man under it. Runners on the bags hold still and the batter stops at first
+  until Phase 3d, so when the next at-bat starts from bags the picture didn't leave, it opens on
+  the wide shot over the city while everyone takes their places;
 - the arcade graphics (Phase 1d), a canvas over the picture drawn by
   [diamond/hud.js](../client/game/js/panels/diamond/hud.js) in the client's display faces: the
   score with the bases, the count as lamps, the pitch speed and type, and in the batting view the
@@ -1007,11 +1028,12 @@ and floors of its filler. `tallFloors` is where tall starts.
 Frames run while an at-bat plays and stop once everyone's at rest, so the GPU idles between
 at-bats. The count goes up as the director decides each pitch, and the booth's held line and any
 card go up when the play lands (`onLand`): the umpire's call on a called third strike, the ball
-in the mitt, the ball hitting the batter, or a ball put in play coming down about as long after
-contact as a real one would. A line comes just before its payload; one that arrives while the
+in the mitt, the ball hitting the batter, or a ball put in play settled: the out at first called,
+the catch made, a hit back in from the outfield with the batter on the bag. A line comes just
+before its payload; one that arrives while the
 last play is still in the air (a hidden tab stops the frames) lands that play first, and a
 timer lands a play whose frames have stopped. Plays on the bases and the changeovers are still
-stills on the 2-D view's clock (`GAMEDAY_CLOCK`) until Phase 3.
+stills on the 2-D view's clock (`GAMEDAY_CLOCK`) until Phase 3d.
 `scripts/shapes/ballpark-smoke.mjs` builds the park from the defaults and from a venue of its
 own, holds every shot's matrices to its pinhole on three screen shapes, reads the board's lamps,
 checks the fallback, fits each tower's shadow map to the shot, reads depth back through the
@@ -1034,8 +1056,13 @@ its catch covers and the ball leaving the hand at its fastest, and fails a stale
 pitch through the plate within 0.05 ft of its spot, every clip on its event as the ball arrives,
 the mitt and the bat's barrel on the ball with both hands on the bat, the joints inside their
 limits, each at-bat ending as the sim ended it, `onLand` on time inside the budget with the count
-done by then; and it feeds the view with a recording renderer to hold each line until its play
-lands. The sandbox page takes `?park=3d`, `?shot=`, `?bug=`, `?po=1` (the final's
+done by then. Every ball in play has each catch's clip on its catch with the glove on the ball
+and the fielder inside his joints, each throw out of the thrower's hand, the call at first
+agreeing with the ball and the batter, nobody moving faster than 52 ft/s outside a cut, the ball
+above the grass and never faster than the hardest-hit ball, and the high camera keeping it in
+frame. It feeds the view with a recording renderer to hold each line until its play lands and to
+open an at-bat on the cutaway when its bags differ from the picture's. The sandbox page takes
+`?park=3d`, `?play=inplay` (balls in play only), `?shot=`, `?bug=`, `?po=1` (the final's
 dressing), `?hud=0` (the picture alone), `?city=0`, `?hold=` (each line's hold in milliseconds,
 35000 by default) and `?speed=` (0.25 for a slow look, 0 to stop the park's clock); its city comes from the flight sim's
 baked world, so it can trail the live map by a bake. The renderer's traps are in [glass-notes.md](reference/glass-notes.md#the-ballpark-glballparkjs).

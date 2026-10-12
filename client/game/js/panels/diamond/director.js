@@ -19,19 +19,31 @@
 // at-bat on a short hold leaves pitches out of the middle, and the count goes through them. Every
 // jump from one moment to another is under a cut (`shot`), so nobody pops.
 //
+// A BALL IN PLAY IS PLAYED OUT (diamond/plays.js): the fielders set as the last pitch comes, the
+// ball where the server sent it, the man who fields it, the throws and the catches, the batter
+// down the line and the base umpire's call, with the high camera following the ball and the
+// first-base camera on a play there. The play is planned once for the budget and again on the
+// clock; it's the same plan both times, moved.
+//
+// A PICTURE THAT DISAGREES WITH THE NEXT PAYLOAD IS FIXED ON A CUTAWAY. The booth doesn't call
+// every at-bat and Phase 3c doesn't move the runners, so the bags the picture last showed and the
+// ones the next payload starts from often differ; then the at-bat opens on the wide shot over the
+// city for a beat (`cutaway`), and everyone is in their new places when it cuts in.
+//
 // `onLand` fires when the play lands: the umpire's call on a called third strike, the ball in the
-// mitt on a swinging one or on ball four, the ball hitting him, or the ball put in play arriving.
+// mitt on a swinging one or on ball four, the ball hitting him, or the ball put in play resolved.
 // The view holds the booth's line and the card until then.
 //
 // Pure: no DOM and no GL, so the gates run it.
 
-import { eventTime, SWEET_SPOT } from './anim.js';
+import { eventTime, SWEET_SPOT, handPoint } from './anim.js';
 import { solvePose } from './rig.js';
 import { pitchPoint } from './hud.js';
 import { pitchPath, throwPath, hitPath, BALL_R } from './flight.js';
 import { CLIPS } from './clips.js';
 import { castOf } from './cast.js';
 import { toPark } from './world.js';
+import { planPlay } from './plays.js';
 
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
 const add = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
@@ -46,12 +58,13 @@ export const budgetOf = (p) => clamp(BUDGET.share * (Number.isFinite(p?.hold) ? 
 // The pieces of a pitch's time, in seconds: from the payload to the first cut (`in`); a quick
 // pitch cut in this long before the release (`quick`); after a pitch with no reaction, to the next
 // (`after`); after one with its reaction, the hitter in close-up from `reactCut` on (`react`); the
-// pitcher on the rubber before a windup (`windupHold`); the throw back's flight (`lob`), and how
-// long before it reaches the pitcher the ritual's shot comes in (`ritualIn`).
-export const PACE = Object.freeze({ in: 0.05, quick: 0.5, after: 0.55, react: 1.35, reactCut: 0.3, windupHold: 1.0, lob: 0.95, ritualIn: 0.4 });
-// How long from the bat to the play's landing, by what was hit: about a grounder's time to an
-// infielder and his throw to first, a fly's hang time, a home run's carry. Phase 3 stages the
-// plays themselves.
+// pitcher on the rubber before a windup (`windupHold`); the throw back's flight (`lob`), how long
+// before it reaches the pitcher the ritual's shot comes in (`ritualIn`), and the wide shot an
+// at-bat opens on when the picture disagrees with it (`cutaway`).
+export const PACE = Object.freeze({ in: 0.05, quick: 0.5, after: 0.55, react: 1.35, reactCut: 0.3, windupHold: 1.0, lob: 0.95, ritualIn: 0.4, cutaway: 1.4 });
+// How long from the bat to the play's landing for a ball in play the payload doesn't describe
+// (one from before synthPlay): about a grounder's time to an infielder and his throw to first, a
+// fly's hang time, a home run's carry. A payload's `play` is played out instead (plays.js).
 const GROUND = new Set(['groundout', 'doubleplay', 'tripleplay', 'productout', 'error', 'fielderschoice']);
 const flightOf = (kind) => (kind === 'homerun' ? 4.2 : GROUND.has(kind) ? 2.4 : 3.0);
 // The umpire's ways of ringing up strike three; each umpire has his own, off the game.
@@ -137,13 +150,33 @@ function prepare(W, p, cast) {
       decided: hbp ? path.T : contact ? tBat : tMitt,
     };
   });
-  return {
-    p, pitches, who, P, C, H, U, hand, bats, windup, tempo, delivery, from, zBat, zMitt, shapes,
+  const S = {
+    p, cast, pitches, who, P, C, H, U, hand, bats, windup, tempo, delivery, from, zBat, zMitt, shapes,
     REL: eventTime(delivery, 'release') / tempo, MOTION: (windup ? 0 : 0.3) / tempo,
     setLen: windup ? PACE.windupHold : CLIPS.pitch_set.duration / tempo,
     retCatch: eventTime(CLIPS.pitch_return, 'catch') / tempo, retDur: CLIPS.pitch_return.duration / tempo,
     throwRel: eventTime(CLIPS.catch_throwback, 'release'),
     umpStyle: PUNCHOUTS[hashStr('ump:' + (p.fieldingTeam || '') + '|' + (p.battingTeam || '') + '|' + (p.inning | 0)) % PUNCHOUTS.length],
+  };
+  // a ball in play: the play worked out with the last pitch released at 0, for how long it runs
+  const last = shapes[shapes.length - 1];
+  if (last.q.result === 'inplay' && p.play) {
+    const probe = planPlay(playCtx(S, 0, -1));
+    if (probe) S.playSpan = probe.landAt - last.tBat;
+  }
+  return S;
+}
+
+// What plays.js needs to plan the ball in play off the last pitch released at `tRel` and cut in at
+// `tIn`: the battery and the hitter as the world has them, and the clips the pitcher and catcher
+// are in when it's hit.
+function playCtx(S, tRel, tIn) {
+  const sh = S.shapes[S.shapes.length - 1], who = (b) => ({ slot: b.slot, id: b.id, at: b.at.slice(), yaw: b.yaw, mirror: b.mirror, scale: b.scale });
+  return {
+    p: S.p, cast: S.cast, tIn, tBat: tRel + sh.tBat, at: sh.path(sh.tBat),
+    pitcher: { ...who(S.P), clip: S.delivery.id, start: tRel - S.REL, speed: S.tempo },
+    catcher: { ...who(S.C), at: [CATCHER_AT[0] + sh.setupX, CATCHER_AT[1], CATCHER_AT[2]], clip: sh.catchClip.id, start: tRel + sh.tMitt - sh.catchT, speed: 1 },
+    batter: who(S.H),
   };
 }
 
@@ -163,7 +196,7 @@ function terminalOf(S) {
   if (kind === 'strikeout') return 0.2;
   if (kind === 'walk') return 0.4;
   if (kind === 'hitbypitch') return 0.1;
-  if (q.result === 'inplay') return flightOf(kind);
+  if (q.result === 'inplay') return S.playSpan ?? flightOf(kind);
   return 0.5;
 }
 
@@ -203,10 +236,10 @@ function timeline(S, views, t0 = 0) {
 
 // How each pitch is shown, given the at-bat and the budget, in the plan's order (see the top of
 // the file). Pure arithmetic over the clips' own timings and the pitches' flights.
-function planViews(S, budget) {
+function planViews(S, budget, lead = 0) {
   const N = S.pitches.length;
   const views = S.pitches.map(() => ({ show: true, lead: 'quick', react: false, ritual: false }));
-  const total = () => timeline(S, views, PACE.in).landAt;
+  const total = () => timeline(S, views, PACE.in + lead).landAt;
   // the last pitch, the first, then the rest from the end
   const order = [N - 1, 0, ...Array.from({ length: Math.max(0, N - 2) }, (_, k) => N - 2 - k)].filter((i, k, a) => i >= 0 && a.indexOf(i) === k);
   // a long at-bat on a short hold: pitches out of the middle, from the end, until the rest fit
@@ -228,15 +261,27 @@ export function createDirector(W, opts = {}) {
   const emit = (n, d) => opts.emit?.(n, d);
   const D = { log: [], played: [], views: null, landed: true, landAt: 0, until: 0, t0: 0, budget: 0, payload: null };
 
-  D.stage = (p, cast = castOf(p)) => {
-    D.payload = p; D.log = []; D.played = []; D.views = null; D.landed = false;
+  // `o.cutaway`: the picture disagrees with this payload (pictureAfter), so it opens on the wide
+  // shot while everyone takes their places.
+  D.stage = (p, cast = castOf(p), o = {}) => {
+    D.payload = p; D.log = []; D.played = []; D.views = null; D.landed = false; D.play = null;
     W.clearQueue();
     const S = prepare(W, p, cast || []);
     if (!S) { D.landed = true; D.landAt = D.until = W.t; opts.onLand?.(); return; }
-    const t0 = W.t + PACE.in, budget = budgetOf(p);
-    const views = D.views = planViews(S, budget);
+    // the cutaway gives way to the play: shortened where the at-bat can't fit round it, and left
+    // out (`squeezed`) where even a third of a second won't fit
+    const budget = budgetOf(p);
+    let lead = o.cutaway ? PACE.cutaway : 0, views = planViews(S, budget, lead);
+    const over = timeline(S, views, PACE.in + lead).landAt - budget;
+    if (lead && over > 0) {
+      lead = lead - over >= 0.3 ? lead - over : 0;
+      views = planViews(S, budget, lead);
+    }
+    const t0 = W.t + PACE.in + lead;
+    D.views = views;
     const TL = timeline(S, views, t0);
-    Object.assign(D, { t0, budget, landAt: TL.landAt });
+    Object.assign(D, { t0, budget, landAt: TL.landAt, cutaway: !!lead, squeezed: !!o.cutaway && !lead });
+    if (lead) W.at(W.t, () => emit('shot', 'sky'));
     const { P, C, H, U, tempo, delivery, hand, bats, from } = S;
     const side = sideShot(bats);
     let until = TL.landAt + 0.5;
@@ -246,7 +291,7 @@ export function createDirector(W, opts = {}) {
       if (!b) return;
       const speed = o.speed || 1;
       until = Math.max(until, start + CLIPS[clipId].duration / speed);
-      W.at(at, () => { W.play(b.slot, clipId, { at: start, speed, fade: o.fade }); D.played.push({ t: at, role: b.role, clip: clipId, start }); });
+      W.at(at, () => { W.play(b.slot, clipId, { at: start, speed, fade: o.fade, frame: o.frame, from: o.from, carry: o.carry }); D.played.push({ t: at, role: b.role, slot: b.slot, clip: clipId, start }); });
     };
     const cut = (at, shot) => W.at(at, () => emit('shot', shot));
     // the ball on a path until `end`, when it's gone unless something else has it by then
@@ -340,11 +385,18 @@ export function createDirector(W, opts = {}) {
       };
       rec.plateAt = rec.tPlate != null ? path(rec.tPlate) : null;
       if (sh.contact) {
-        // off the bat: back over the screen for a foul, out into the park for a ball in play
+        // off the bat: back over the screen for a foul, out into the park for a ball in play,
+        // played out where the payload says (plays.js)
         const at = path(T.tBat);
-        const dir = q.result === 'foul' ? norm([(hashStr('f' + i + p.batter) & 1) ? 0.35 : -0.35, 0.75, -0.55]) : dirFor(p.kind, hashStr('ip' + p.batter + i));
-        const out = hitPath(at, dir, q.result === 'foul' ? 70 : 95, T.tBat);
-        W.at(T.tBat, () => ballFor(out, q.result === 'foul' ? T.tBat + 1.2 : TL.landAt + 0.5));
+        const plan = last && q.result === 'inplay' && S.playSpan != null ? planPlay(playCtx(S, T.tRel, T.tIn)) : null;
+        if (plan) {
+          stagePlay(plan, T);
+          rec.play = plan;
+        } else {
+          const dir = q.result === 'foul' ? norm([(hashStr('f' + i + p.batter) & 1) ? 0.35 : -0.35, 0.75, -0.55]) : dirFor(p.kind, hashStr('ip' + p.batter + i));
+          const out = hitPath(at, dir, q.result === 'foul' ? 70 : 95, T.tBat);
+          W.at(T.tBat, () => ballFor(out, q.result === 'foul' ? T.tBat + 1.2 : TL.landAt + 0.5));
+        }
         sound(T.tBat, 'crack');
         rec.contact = { t: T.tBat, at, swing: swing.id };
       } else if (sh.hbp) {
@@ -379,6 +431,31 @@ export function createDirector(W, opts = {}) {
       W.at(TL.landAt, () => { if (!D.landed) { D.landed = true; opts.onLand?.(); } });
     });
     D.until = until;
+
+    // The ball in play, from its plan: the seven placed at the cut in and set, every clip at its
+    // time from its frame, the hands' reaches and the heads on the ball, the ball's flights and the
+    // hands it rides in, the cuts and the sounds.
+    function stagePlay(plan, T) {
+      D.play = plan;
+      for (const B of plan.bodies) {
+        if (B.place) W.at(T.tIn, () => { W.place(B.slot, { id: B.id, role: B.role, at: B.base.at, yaw: B.base.yaw, scale: B.scale, mirror: B.mirror }); W.clearLayers(B.slot); });
+        for (const e of B.clips) {
+          if (e.prior) continue;
+          play({ slot: B.slot, role: B.role }, e.clip, e.issue ?? e.from ?? e.start, e.start, { speed: e.speed, fade: e.fade, frame: e.given ? e.F : undefined, from: e.from, carry: e.carry });
+        }
+      }
+      for (const r of plan.reaches) W.at(Math.max(T.tIn, r.from - 0.02), () => W.layer(r.slot, 'reach', { hand: r.hand, kind: r.kind, target: r.target, follow: r.follow, from: r.from, full: r.full, hold: r.hold, to: r.to }));
+      // every head on the field asks where the ball is each frame: once a frame is enough
+      let seen = null, seenAt = NaN;
+      const ballNow = (t) => { if (t !== seenAt) { seenAt = t; seen = W.ballAt(t) || seen; } return seen; };
+      for (const l of plan.looks) W.at(Math.max(T.tIn, l.from - 0.02), () => W.layer(l.slot, 'look', { target: ballNow, from: l.from, full: l.full, hold: l.hold, to: l.to }));
+      for (const b of plan.balls) {
+        const fn = b.path || ((t) => { const Q = W.pose(b.hold.slot, t, { look: false }); return Q ? toPark(Q, handPoint(Q, b.hold.hand, b.hold.kind, Q.scale)) : b.at; });
+        W.at(b.from, () => W.setBall(fn));
+      }
+      for (const c of plan.cuts) cut(c.at, c.shot);
+      for (const x of plan.sounds) sound(x.at, x.cue);
+    }
   };
 
   D.busy = () => !D.landed || W.t < D.until;
@@ -387,8 +464,19 @@ export function createDirector(W, opts = {}) {
   return D;
 }
 
+// The bags the picture shows taken once a payload has played: the runners where they started
+// (Phase 3c doesn't move them) and the batter on first if he got there. The view opens the next
+// at-bat on a cutaway when its bags differ (`stage`'s `o.cutaway`).
+const REACHED = new Set(['single', 'double', 'triple', 'error', 'fielderschoice', 'walk', 'hitbypitch']);
+export function pictureAfter(p) {
+  const bags = [0, 1, 2].map((i) => !!(Array.isArray(p?.basesBefore) && p.basesBefore[i]));
+  if (p?.phase === 'half') return [false, false, false];
+  if (!p?.phase && REACHED.has(p?.kind)) bags[0] = true;
+  return bags;
+}
+
 // which way a ball put in play goes, roughly by what came of it, for the second or two before it
-// lands: Phase 3 gives every play its own direction
+// lands, for a payload from before synthPlay
 function dirFor(kind, h) {
   const across = ((h % 1000) / 1000 - 0.5) * 1.2;
   if (kind === 'homerun' || kind === 'flyout' || kind === 'sacfly') return norm([across, 0.62, 1]);
