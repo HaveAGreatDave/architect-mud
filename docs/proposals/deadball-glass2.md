@@ -1507,6 +1507,24 @@ Phase 3, or with sim v2 if that comes later.
   at the ball within 0.1 ft across its box, the release within a frame of the hand's top speed,
   and the pitcher on the real mound both ways round. Root motion waits for the running clips in
   Phase 3; until then a clip moves within its own frame and the director places the frame.
+- **2c built:** the pitch's clips, thirty in all, each keyed to pass the gate. The pitcher's: a
+  delivery from the stretch and one from the windup for each arm slot (over the top,
+  three-quarters, sidearm: the throwing arm turned about its shoulder, the trunk's lean easing as
+  the slot drops), coming set, and taking the throw back and walking up to the rubber. The
+  hitter's: the stance, the load and stride, a swing for each contact height (the sweet spot at
+  2.1, 3.0 and 3.8 ft), the take, the check swing, ball four (the bat tossed, off to first),
+  strike three (the walk off) and the hit by pitch. The catcher's: the signs and target, the
+  receive, the throw back and the block. The plate umpire's: set, the rise after a ball, the
+  strike, three strikeout calls (the hammer, the bow and arrow and the point; the director gives
+  each umpire his own), the foul and the dead ball. The hand is at 102 to 108 ft/s at each
+  release and the sweet spot at 107 to 108 ft/s at contact. The arm slot is now a choice of clip,
+  so `vary` keeps only the kick and the stance; and each clip has to hold up done every player's
+  way, at the ends of each trait's range, which `anim-smoke` checks too (277 checks). Three things
+  came in with them: a catch says which way the ball comes (`from`), so its box stands across the
+  ball's line; a bat let go at a key hands the wrists over where the bat really had them, at the
+  same speed; and the bake refuses a key that turns more than half round from the last, which is
+  always the long way round. The walks off are keyed step by step for now; the running clips of
+  Phase 3 and the Pose Lab will do them better.
 
 **Phase 3: balls in play.** Behind the flag.
 - `synthPlay` with direction, exit speed and fielding grade, and the suffixed pools; fielding,

@@ -11,14 +11,15 @@
 //   · sampling (`sampleClip`): every number in a pose runs on a Catmull-Rom curve through the keys,
 //     so a joint's speed carries smoothly through each one; a clip starts and ends at rest, and a
 //     loop runs on round its end; directions are put back to unit length; a bat is held between
-//     two keys that both have it, and taken up or let go at a key;
+//     two keys that both have it, and taken up or let go at a key, the hands handed over smoothly
+//     (`batHandoff`);
 //   · plants: while a foot is planted it's held where it was put down, on the ground, so nothing
 //     slides; a foot coming down meets the ground where it really is (`ground`), easing onto its
 //     spot and off it; and where a planted foot is out of its leg's reach the pelvis drops until
 //     it isn't (`fitPlants`), so the pitcher's drive off the rubber sinks him onto the back leg
 //     instead of dragging the foot;
-//   · his own way of doing it (`vary`, off his name: the arm slot, the leg kick, the stance), and
-//     a left-hander's mirror, are part of the sample;
+//   · his own way of doing it (`vary`, off his name: the leg kick, the stance), and a left-hander's
+//     mirror, are part of the sample; his arm slot is which delivery he's played;
 //   · layers over a sampled pose, in the pose's real frame: `reach` brings a hand to a point (the
 //     glove to the ball), the body following where the arm alone can't get there; `lookAt` turns
 //     the neck and head toward one;
@@ -172,11 +173,44 @@ export function sampleClip(clip, t, opts = {}) {
   const s = opts.scale || 1, real = opts.ground || flatGround, mirror = !!opts.mirror;
   const ground = mirror ? (x, z) => real(-x, z) : real;
   t = clip.loop ? ((t % clip.duration) + clip.duration) % clip.duration : clamp(t, 0, clip.duration);
-  const holds = {};
-  let P = planted(clip, curve(clip, t, ground, s), t, ground, s, holds);
-  if (opts.traits) P = vary(P, opts.traits, clip.role);
-  P = fitPlants(P, ground, s, holds);
+  const run = (tt) => {
+    const holds = {};
+    let P = planted(clip, curve(clip, tt, ground, s), tt, ground, s, holds);
+    if (opts.traits) P = vary(P, opts.traits, clip.role);
+    return fitPlants(P, ground, s, holds);
+  };
+  const P = batHandoff(clip, t, run(t), run, s);
   return mirror ? mirrorPose(P) : P;
+}
+
+// A bat let go at a key, or taken up at one: the hands' own curve, between that key and the next
+// (or the one before), starts where the bat had the wrists in this very sample and going as fast,
+// and eases onto the keys' over the segment. Without it the hands would jump, because the bat
+// puts them by where the chest really is (after the plants are fitted and the player's own way is
+// done), and the key only knows where it was keyed.
+const BAT_EPS = 1e-4;
+function batHandoff(clip, t, P, run, s) {
+  if (clip.keys.length < 2) return P;
+  const { k1, k2, u } = bracket(clip, t);
+  const release = k1.pose.bat && !k2.pose.bat && u > 0, pickup = !k1.pose.bat && k2.pose.bat && u < 1;
+  if (!release && !pickup) return P;
+  const k = release ? k1 : k2, side = release ? -1 : 1, dt = k2.t - k1.t;
+  // the wrists the bat gives at the key and just to its bat side, and the hands' curve at the key
+  // and just to the other side
+  const wr = (Q) => { const { J } = solvePose({ ...Q, at: [0, 0, 0], yaw: 0, scale: s }); return { L: J.wrL, R: J.wrR }; };
+  const atBat = wr(run(k.t)), nearBat = wr(run(k.t + side * BAT_EPS));
+  const cur = run(k.t - side * BAT_EPS), here = run(k.t);
+  // `here` has the bat in it, so the curve's own wrists at the key are the key's, taken off the curve
+  const curveAt = { L: here.wrL, R: here.wrR }, curveNear = { L: cur.wrL, R: cur.wrR };
+  const h = release ? u : 1 - u, h00 = 2 * h * h * h - 3 * h * h + 1, h10 = h * h * h - 2 * h * h + h;
+  const out = { ...P };
+  for (const S of FEET) {
+    const d = [0, 1, 2].map((i) => atBat[S][i] - curveAt[S][i]);
+    // how much faster the bat moves the wrist than the curve does, along the segment's way
+    const dv = [0, 1, 2].map((i) => ((nearBat[S][i] - atBat[S][i]) + (curveNear[S][i] - curveAt[S][i])) / (side * BAT_EPS));
+    out['wr' + S] = [0, 1, 2].map((i) => P['wr' + S][i] + d[i] * h00 + dv[i] * dt * h10 * (release ? 1 : -1));
+  }
+  return out;
 }
 
 // The keys' curves alone, before the plants hold the feet.
@@ -307,7 +341,10 @@ export function mixPose(a, b, w, opts = {}) {
 }
 
 // ── events ─────────────────────────────────────────────────────────────────────
-// When a clip's first event of a kind happens (release, contact, catch, call, step), or null: the
+// Where on the bat it meets the ball: the sweet spot, this far from the knob along the bat.
+export const SWEET_SPOT = 2.35;
+
+// When a clip's first event of a kind happens (release, contact, catch, call, step, hit), or null: the
 // director lines a clip up on it (the release on the pitch's start, the contact on the ball).
 export const eventTime = (clip, kind) => { const e = (clip.events || []).find((x) => x.kind === kind); return e ? e.t : null; };
 // The events a clip plays past going from `t0` to `t1` (after t0, up to and including t1).
@@ -363,6 +400,15 @@ export function reach(P, S, target, w = 1, opts = {}) {
   return { ...out, ['wr' + S]: [wr[0] + (target[0] - at[0]) * w, wr[1] + (target[1] - at[1]) * w, wr[2] + (target[2] - at[2]) * w] };
 }
 
+// Where a catch's `reach` box puts a ball at (x, y): on the plane across the ball's line (`from`,
+// default straight at him) through `home`, the glove's point at the catch; x runs along his left as
+// he faces the ball, from the pose frame's origin, and y is the height off the ground.
+export function catchTarget(home, x, y, from = [0, 0, 1]) {
+  const h = Math.hypot(from[0], from[2]) || 1, across = [from[2] / h, 0, -from[0] / h];
+  const off = x - (home[0] * across[0] + home[2] * across[2]);
+  return [home[0] + across[0] * off, y, home[2] + across[2] * off];
+}
+
 // The neck and head turned toward `target` (the pose's real frame), `w` of the way, the turn shared
 // between them and held inside what a neck can do: 75 degrees round each way and 40 up or down in
 // all, the head taking two parts in five.
@@ -383,8 +429,8 @@ export function lookAt(P, target, w = 1, s = 1) {
 
 // ── his own way ────────────────────────────────────────────────────────────────
 // A player's own way of doing things, off his name, so a regular viewer knows him by it: the
-// pitcher's arm slot and leg kick, the hitter's stance width, crouch and bat angle, and how quick
-// he is about it. Stable all season.
+// pitcher's arm slot (which delivery the director plays him) and leg kick, the hitter's stance
+// width, crouch and bat angle, and how quick he is about it. Stable all season.
 export function traitsOf(id) {
   const h = hashStr('traits:' + id), r = (k) => ((h >>> (k * 3)) & 1023) / 1023;
   return {
@@ -396,27 +442,19 @@ export function traitsOf(id) {
     tempo: 0.92 + 0.16 * r(5),
   };
 }
+// The ends of each trait's range, for the gate: every clip has to hold up done either way.
+export const TRAIT_RANGE = Object.freeze({ kick: [0.8, 1.2], width: [0.88, 1.12], crouch: [0.85, 1.15], batAngle: [-12, 12] });
 // A pose done his way: `role` says which traits apply. sampleClip calls this before it fits the
-// plants, so a wider stance still has its feet in reach.
+// plants, so a wider stance still has its feet in reach. The arm slot isn't here: each slot is a
+// delivery of its own (pitch_stretch_over, _three, _side).
 export function vary(P, traits, role) {
   if (!traits) return P;
   const out = { ...P };
   if (role === 'pitcher') {
-    // The clips are keyed for a right-hander, who throws with R and whose throwing side at the
-    // release is +z. As the slot drops, the throwing hand's path above the shoulder swings down
-    // and out to that side; the kick lifts higher or lower.
-    const tilt = { over: 0, three: 25, side: 55 }[traits.armSlot] / DEG, SH = 4.4;
-    const w = out.wrR;
-    if (w[1] > SH) {
-      const r = w[1] - SH;
-      out.wrR = [w[0], SH + r * Math.cos(tilt), w[2] + r * Math.sin(tilt)];
-    }
-    for (const S of FEET) {
-      if (out['plant' + S] === false && out['ank' + S].length === 3) {
-        const a = out['ank' + S];
-        out['ank' + S] = [a[0], ANKLE_UP + (a[1] - ANKLE_UP) * traits.kick, a[2]];
-      }
-    }
+    // the leg kick lifts the stride foot (his left, the clips being a right-hander's) higher or
+    // lower; the back foot's drag after the release is the delivery's, not his
+    const a = out.ankL;
+    if (a.length === 3) out.ankL = [a[0], ANKLE_UP + (a[1] - ANKLE_UP) * traits.kick, a[2]];
   } else if (role === 'batter') {
     // a wider or narrower base, sitting lower or taller in it, the bat laid back or held up
     for (const S of FEET) {
@@ -426,9 +464,11 @@ export function vary(P, traits, role) {
     out.pelvis = [out.pelvis[0], out.pelvis[1] - (traits.crouch - 1) * 0.6, out.pelvis[2]];
     if (out.bat) {
       // about the axis from his chest to the plate (his z), so the barrel lies back toward the
-      // catcher or stands up
-      const t = traits.batAngle / DEG, d = out.bat.dir, c = Math.cos(t), sn = Math.sin(t);
-      out.bat = { ...out.bat, dir: norm([d[0] * c - d[1] * sn, d[0] * sn + d[1] * c, d[2]]) };
+      // catcher or stands up: how he holds it waiting, so it fades as the bat comes down out of
+      // the upright, and the swing is the swing
+      const d = out.bat.dir, up = clamp((d[1] - 0.3) / 0.4, 0, 1);
+      const t = traits.batAngle / DEG * up * up * (3 - 2 * up), c = Math.cos(t), sn = Math.sin(t);
+      if (t) out.bat = { ...out.bat, dir: norm([d[0] * c - d[1] * sn, d[0] * sn + d[1] * c, d[2]]) };
     }
   }
   return out;

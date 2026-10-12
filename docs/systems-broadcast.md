@@ -900,7 +900,10 @@ Built so far (Phases 1a to 1e of the plan):
   Their motion is the clip library (Phase 2b): [diamond/anim.js](../client/game/js/panels/diamond/anim.js)
   plays clips keyed in the rig's pose language, from `content/animation_clips/` baked to
   `diamond/clips.js` by `npm run clips:bake`, with the glove reaching for the ball, the head
-  turning to it and each player's own way of doing it off his name. The director that stages a
+  turning to it and each player's own way of doing it off his name. The library holds the pitch
+  (Phase 2c): the pitcher's deliveries from the stretch and the windup for each arm slot, the
+  hitter's load, swings, take and check swing, the catcher's receive, block and throw back, and
+  the umpire's calls, three ways to ring up strike three among them. The director that stages a
   pitch with them is Phase 2d, so for now the players still stand in their stills;
 - the arcade graphics (Phase 1d), a canvas over the picture drawn by
   [diamond/hud.js](../client/game/js/panels/diamond/hud.js) in the client's display faces: the

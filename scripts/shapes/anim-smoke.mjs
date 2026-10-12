@@ -27,7 +27,10 @@
 //        · at a catch, the glove within 0.1 ft of every ball in the box the catch says it covers
 //          (its `reach`), the body inside its limits;
 //        · at a release, the hand at its fastest within a frame (1/60 s), at nine tenths of that
-//          speed or more, and going within 30 degrees of the way the ball goes.
+//          speed or more, and going within 30 degrees of the way the ball goes; at a contact, the
+//          bat's sweet spot the same;
+//        · and done each player's own way (anim.js TRAIT_RANGE, at the ends of each range), still
+//          a body that can make every frame, the planted feet still and the hands on the bat.
 //      And the player itself: a loop is the same a lap later; a left-hander is a right-hander in a
 //      mirror; the head turns no further than a neck can; the pitcher on the real mound, both
 //      ways round, keeps his planted feet on its slope.
@@ -336,8 +339,9 @@ for (const clip of Object.values(CLIPS)) {
     const kind = clip.role === 'catcher' ? 'mitt' : 'glove', box = e.reach;
     const P0 = A.sampleClip(clip, e.t), home = A.handPoint(P0, e.hand, kind);
     const targets = [];
-    if (box) for (let i = 0; i <= 8; i++) for (let k = 0; k <= 10; k++) targets.push([box.x[0] + (box.x[1] - box.x[0]) * i / 8, box.y[0] + (box.y[1] - box.y[0]) * k / 10, home[2]]);
-    else for (const d of [[0, 0], [0.4, 0], [-0.4, 0], [0, 0.4], [0, -0.4]]) targets.push([home[0] + d[0], home[1] + d[1], home[2]]);
+    const from = e.from || [0, 0, 1], h0 = Math.hypot(from[0], from[2]), x0 = (home[0] * from[2] - home[2] * from[0]) / h0;
+    if (box) for (let i = 0; i <= 8; i++) for (let k = 0; k <= 10; k++) targets.push(A.catchTarget(home, box.x[0] + (box.x[1] - box.x[0]) * i / 8, box.y[0] + (box.y[1] - box.y[0]) * k / 10, from));
+    else for (const d of [[0, 0], [0.4, 0], [-0.4, 0], [0, 0.4], [0, -0.4]]) targets.push(A.catchTarget(home, x0 + d[0], home[1] + d[1], from));
     let worst = { d: 0 }, bent = null;
     for (const T of targets) {
       const Q = A.reach(P0, e.hand, T, 1, { kind, follow: box ? box.follow : 0.3 }), sol = solveAt0(Q), J = sol.J;
@@ -349,6 +353,34 @@ for (const clip of Object.values(CLIPS)) {
     }
     check(`clip ${clip.id}: the glove at the ball on the catch frame, within 0.1 ft (${targets.length} places)`, worst.d < 0.1, `${worst.d.toFixed(3)} ft at [${worst.T?.map((v) => v.toFixed(2))}]`);
     check(`clip ${clip.id}: a body that can make every catch`, !bent, bent);
+  }
+  // the contact: the barrel's sweet spot at its fastest
+  for (const e of clip.events.filter((x) => x.kind === 'contact')) {
+    const spot = (t) => { const J = solveAt0(A.sampleClip(clip, t)).J; return J.batKnob ? J.batKnob.map((v, i) => v + J.batDir[i] * A.SWEET_SPOT) : null; };
+    const vAt = (t) => { const q = 5e-4, a = spot(t - q), b = spot(t + q); return a && b ? len3(sub(b, a)) / (2 * q) : 0; };
+    let top = { v: 0 };
+    for (let t = Math.max(1e-3, e.t - 0.06); t <= Math.min(D - 1e-3, e.t + 0.06); t += 1e-3) { const v = vAt(t); if (v > top.v) top = { v, t }; }
+    const sp = vAt(e.t);
+    check(`clip ${clip.id}: the bat meets the ball at its fastest, within a frame`, !!spot(e.t) && Math.abs(top.t - e.t) <= 1 / 60 + 1e-9 && sp >= 0.9 * top.v, `${sp.toFixed(0)} ft/s at the contact, ${top.v.toFixed(0)} at ${top.t?.toFixed(3)} s`);
+  }
+  // done his own way, at the ends of each trait's range
+  {
+    const R = A.TRAIT_RANGE, base = A.traitsOf('anyone');
+    const ways = clip.role === 'pitcher' ? [{ kick: R.kick[0] }, { kick: R.kick[1] }]
+      : clip.role === 'batter' ? [{ width: R.width[0], crouch: R.crouch[0], batAngle: R.batAngle[0] }, { width: R.width[1], crouch: R.crouch[1], batAngle: R.batAngle[1] },
+        { width: R.width[0], crouch: R.crouch[1], batAngle: R.batAngle[1] }, { width: R.width[1], crouch: R.crouch[0], batAngle: R.batAngle[0] }] : [];
+    const bad = [];
+    let wgrip = 0, wslide = 0;
+    for (const way of ways) {
+      const traits = { ...base, ...way }, spot = new Map();
+      for (let t = 0; t <= D + 1e-9; t += 1 / 60) {
+        const pose = A.sampleClip(clip, t, { traits }), sol = solveAt0(pose), J = sol.J;
+        if (bad.length < 2) for (const b of A.limitBreaks(pose, sol)) if (bad.length < 2) bad.push(`${b} at ${t.toFixed(3)} s with ${JSON.stringify(way)}`);
+        if (pose.bat) for (const S of ['L', 'R']) wgrip = Math.max(wgrip, len3(sub(J['wr' + S], J['wrT' + S])));
+        for (const p of clip.plants) { if (t < p.from - 1e-9 || t > p.to + 1e-9) continue; const k = p.foot + p.from, a = J['an' + p.foot]; if (!spot.has(k)) spot.set(k, a); wslide = Math.max(wslide, len3(sub(a, spot.get(k)))); }
+      }
+    }
+    if (ways.length) check(`clip ${clip.id}: done each player's own way, still a body that can, feet still and hands on the bat`, !bad.length && wgrip < 0.05 && wslide < 0.1, `${bad.join('; ')} grip ${wgrip.toFixed(3)} ft, slide ${wslide.toFixed(3)} ft`);
   }
   // the release: the hand at its fastest, going the way the ball goes
   for (const e of clip.events.filter((x) => x.kind === 'release')) {
@@ -366,7 +398,7 @@ const clipsMs = clock.now() - tc;
   const loop = Object.values(CLIPS).find((c) => c.loop);
   const a = loop && A.sampleClip(loop, 0.37), b = loop && A.sampleClip(loop, 0.37 + loop.duration);
   check('player: a loop is the same a lap later', loop && JSON.stringify(a) === JSON.stringify(b));
-  const pitch = Object.values(CLIPS).find((c) => c.role === 'pitcher');
+  const pitch = Object.values(CLIPS).find((c) => c.role === 'pitcher' && A.eventTime(c, 'release') !== null && c.plants.length);
   let mirrorOff = 0;
   for (const t of [0.2, 0.9, 1.3, 1.44, 2.2]) {
     const m = A.sampleClip(pitch, t, { mirror: true }), r = RIG.mirrorPose(A.sampleClip(pitch, t));

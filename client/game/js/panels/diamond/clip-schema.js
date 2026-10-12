@@ -26,19 +26,24 @@ import { completePose, limitBreaks, FEET, DIRS } from './anim.js';
 
 export const CLIP_ROLES = Object.freeze(['pitcher', 'batter', 'catcher', 'ump', 'fielder', 'runner', 'coach', 'any']);
 // An event's kind and what else it carries: the hand that lets go of or takes the ball, the way a
-// throw goes (in the pose's frame), the umpire's call, the foot that lands. A catch may say where
-// its glove can take the ball, `reach: { x: [lo, hi], y: [lo, hi], follow }`: the box across the
-// glove's own plane at the catch (feet, the pose's frame) and how far the body may follow it
-// (diamond/anim.js reach). The gate holds the clip to it, and the director sends a ball outside it
-// to another clip.
+// throw goes (in the pose's frame), the umpire's call, the foot that lands; a `hit` is the pitch
+// striking the batter, and a `contact` the bat meeting the ball. A catch says which way the ball
+// comes from, `from` (a direction in the pose's frame; [0, 0, 1], straight at him, if it doesn't
+// say), and may say where its glove can take it, `reach: { x: [lo, hi], y: [lo, hi], follow }`: a
+// box standing across the ball's line through the glove at the catch, x along the catcher's left
+// as he faces the ball (from the pose frame's origin) and y up from the ground, in feet, and how
+// far the body may follow it (diamond/anim.js reach). The gate holds the clip to it, and the
+// director sends a ball outside it to another clip.
 export const CLIP_EVENTS = Object.freeze({
   release: Object.freeze(['hand', 'dir']),
   contact: Object.freeze([]),
-  catch: Object.freeze(['hand', 'reach']),
+  catch: Object.freeze(['hand', 'from', 'reach']),
   call: Object.freeze(['call']),
   step: Object.freeze(['foot']),
+  hit: Object.freeze([]),
 });
-export const CALLS = Object.freeze(['strike', 'ball', 'out', 'safe', 'foul']);
+// The umpire's calls: `dead` is a dead ball, as when a pitch hits the batter.
+export const CALLS = Object.freeze(['strike', 'ball', 'out', 'safe', 'foul', 'dead']);
 export const MAX_DURATION = 20;
 export const MAX_KEYS = 64;
 // Most a direction may turn from one key to the next. Directions are mixed by their parts, so one
@@ -136,6 +141,7 @@ export function validateClip(doc, file = '<clip>') {
     if (want.includes('hand') && e.hand !== 'L' && e.hand !== 'R') err(`${where}: a ${e.kind} names its hand, 'L' or 'R'`);
     if (want.includes('foot') && e.foot !== 'L' && e.foot !== 'R') err(`${where}: a ${e.kind} names its foot, 'L' or 'R'`);
     if (want.includes('dir') && !(isVec(e.dir, 3) && nonZero(e.dir))) err(`${where}: a ${e.kind} says which way the ball goes, a direction in the pose's frame`);
+    if ('from' in e && !(isVec(e.from, 3) && Math.hypot(e.from[0], e.from[2]) > 1e-6)) err(`${where}: from is the way the ball comes, a direction in the pose's frame with some of it along the ground`);
     if (want.includes('call') && !CALLS.includes(e.call)) err(`${where}: a call is one of ${CALLS.join(', ')}`);
     if ('reach' in e) {
       const r = e.reach, span = (v) => isVec(v, 2) && v[0] < v[1];
@@ -171,6 +177,9 @@ export function validateClip(doc, file = '<clip>') {
     for (const m of limitBreaks(P, solvePose({ ...P, at: [0, 0, 0], yaw: 0 }))) err(`key ${i} at ${keys[i].t} s: ${m}`);
     if (i) {
       for (const k of DIRS) { const a = turn(done[i - 1][k], P[k]); if (a > MAX_TURN) err(`key ${i} at ${keys[i].t} s: ${k} turns ${a.toFixed(0)}° from the key before (most ${MAX_TURN})`); }
+      // an angle is mixed as a number, so a turn of more than half round is the long way round:
+      // -80 to 180 spins him 260 degrees, where -80 to -180 turns him 100
+      for (const k of ['pitch', 'twist', 'roll']) { const a = Math.abs(P[k] - done[i - 1][k]); if (a > 180) err(`key ${i} at ${keys[i].t} s: ${k} goes ${a.toFixed(0)}° from the key before, the long way round (most 180; key a turn between)`); }
       const A = done[i - 1].bat, B = P.bat;
       if (A && B) {
         if (A.bottom !== B.bottom) err(`key ${i} at ${keys[i].t} s: the bottom hand on the bat changes from the key before`);
