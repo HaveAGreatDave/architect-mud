@@ -4,12 +4,22 @@
 // A clip is a run of poses in the rig's pose language (diamond/rig.js) at times, with its events
 // and its plants:
 //
-//   { id, role, duration, loop?, note?,
+//   { id, role, duration, loop?, moving?, note?,
 //     keys:   [{ t, tension?, pose }],        t from 0 to the duration, in order; tension as in
 //                                             diamond/anim.js (below 0 the motion goes through
 //                                             the key faster, at 1 it stops there)
 //     events: [{ t, kind, ... }],             what the director waits on (CLIP_EVENTS)
-//     plants: [{ foot, from, to }] }          when a foot is held on the ground
+//     plants: [{ foot, from, to, ease? }],    when a foot is held on the ground, and how long it
+//                                             takes going on and off it (diamond/anim.js
+//                                             PLANT_EASE unless it says)
+//     root?:  [{ t, at: [x, z], yaw? }] }     a clip that travels: where its frame has got to, in
+//                                             the frame it started in (diamond/anim.js rootAt),
+//                                             from [0, 0] facing 0 at 0 s to the duration; a
+//                                             loop's laps run straight, so its last key faces 0
+//
+// `moving` ('start', 'end' or 'both') is for a clip played out of or into another without a stop:
+// at that end its motion carries on at the speed it has instead of coming to rest (anim.js
+// movingEnds). A loop has no ends to say it of.
 //
 // Clips are keyed for a right-hander: a left-hander does them in a mirror (diamond/anim.js
 // sampleClip). A pitcher's are keyed as he stands on the rubber, side-on with +x toward the plate;
@@ -46,6 +56,8 @@ export const CLIP_EVENTS = Object.freeze({
 export const CALLS = Object.freeze(['strike', 'ball', 'out', 'safe', 'foul', 'dead']);
 export const MAX_DURATION = 20;
 export const MAX_KEYS = 64;
+// The fastest a clip's frame may travel, feet a second: a sprint is about 28.
+export const ROOT_TOP_SPEED = 33;
 // Most a direction may turn from one key to the next. Directions are mixed by their parts, so one
 // that turns right round passes through nothing on the way.
 export const MAX_TURN = 150;
@@ -61,6 +73,8 @@ const POSE_LINES = [
 export const POSE_FIELDS = Object.freeze(POSE_LINES.flat());
 
 export const clipFileName = (id) => id + '.json';
+// The ends a clip may say it's moving through (anim.js movingEnds).
+export const MOVING = Object.freeze(['start', 'end', 'both']);
 const ID_RE = /^[a-z][a-z0-9_]*$/;
 
 const isNum = (v) => typeof v === 'number' && Number.isFinite(v);
@@ -104,12 +118,14 @@ export function validateClip(doc, file = '<clip>') {
   const errors = [], warnings = [];
   const err = (m) => errors.push(`${file}: ${m}`);
   if (!doc || typeof doc !== 'object' || Array.isArray(doc)) { err('a clip is an object'); return { errors, warnings }; }
-  for (const k of Object.keys(doc)) if (!['id', 'role', 'duration', 'loop', 'note', 'keys', 'events', 'plants'].includes(k)) err(`'${k}' isn't part of a clip`);
+  for (const k of Object.keys(doc)) if (!['id', 'role', 'duration', 'loop', 'moving', 'note', 'keys', 'events', 'plants', 'root'].includes(k)) err(`'${k}' isn't part of a clip`);
   if (typeof doc.id !== 'string' || !ID_RE.test(doc.id)) err('id is lower case letters, digits and underscores, starting with a letter');
   else if (file !== '<clip>' && file !== clipFileName(doc.id)) err(`a clip called ${doc.id} lives in ${clipFileName(doc.id)}`);
   if (!CLIP_ROLES.includes(doc.role)) err(`role is one of ${CLIP_ROLES.join(', ')}`);
   if (!isNum(doc.duration) || doc.duration <= 0 || doc.duration > MAX_DURATION) err(`duration is seconds, more than 0 and at most ${MAX_DURATION}`);
   if ('loop' in doc && typeof doc.loop !== 'boolean') err('loop is true or false');
+  if ('moving' in doc && !MOVING.includes(doc.moving)) err(`moving is one of ${MOVING.join(', ')}: the ends the clip goes through without stopping`);
+  if (doc.moving && doc.loop) err('a loop has no ends to be moving at');
   if ('note' in doc && typeof doc.note !== 'string') err('note is words');
   const keys = doc.keys;
   if (!Array.isArray(keys) || !keys.length || keys.length > MAX_KEYS) { err(`keys is a list of 1 to ${MAX_KEYS} { t, pose }`); return { errors, warnings }; }
@@ -154,13 +170,41 @@ export function validateClip(doc, file = '<clip>') {
   if (!Array.isArray(plants)) err('plants is a list');
   else {
     plants.forEach((p, i) => {
-      if (!p || typeof p !== 'object' || (p.foot !== 'L' && p.foot !== 'R') || !isNum(p.from) || !isNum(p.to)) { err(`plant ${i} is { foot: 'L' or 'R', from, to }`); return; }
-      for (const x of Object.keys(p)) if (!['foot', 'from', 'to'].includes(x)) err(`plant ${i}: '${x}' isn't part of a plant`);
+      if (!p || typeof p !== 'object' || (p.foot !== 'L' && p.foot !== 'R') || !isNum(p.from) || !isNum(p.to)) { err(`plant ${i} is { foot: 'L' or 'R', from, to, ease? }`); return; }
+      for (const x of Object.keys(p)) if (!['foot', 'from', 'to', 'ease'].includes(x)) err(`plant ${i}: '${x}' isn't part of a plant`);
+      if ('ease' in p && !(isNum(p.ease) && p.ease >= 0.01 && p.ease <= 0.3)) err(`plant ${i}: ease is seconds, 0.01 to 0.3`);
       if (!(p.from >= 0 && p.to <= D && p.from < p.to)) err(`plant ${i}: from comes before to, both within 0 to ${D} s`);
     });
     for (const S of FEET) {
       const mine = plants.filter((p) => p && p.foot === S && isNum(p.from)).sort((a, b) => a.from - b.from);
       for (let i = 1; i < mine.length; i++) if (mine[i].from <= mine[i - 1].to) err(`foot ${S} is planted twice at once, ${mine[i - 1].from} to ${mine[i - 1].to} and from ${mine[i].from}`);
+    }
+  }
+  // the frame's travel: in order from where the clip starts to its end, a turn of no more than
+  // half round between two keys, a loop's laps straight, and no faster than a man runs
+  if ('root' in doc) {
+    const R = doc.root;
+    if (!Array.isArray(R) || R.length < 2 || R.length > MAX_KEYS) err(`root is a list of 2 to ${MAX_KEYS} { t, at: [x, z], yaw? }`);
+    else {
+      let prev = null;
+      R.forEach((k, i) => {
+        const where = `root key ${i}`;
+        if (!k || typeof k !== 'object' || !isNum(k.t) || !isVec(k.at, 2) || ('yaw' in k && !isNum(k.yaw))) { err(`${where} is { t, at: [x, z], yaw? }`); prev = null; return; }
+        for (const x of Object.keys(k)) if (!['t', 'at', 'yaw'].includes(x)) err(`${where}: '${x}' isn't part of a root key`);
+        if (prev) {
+          if (k.t <= prev.t) err(`${where} at ${k.t} s comes before the root key ahead of it`);
+          else {
+            const v = Math.hypot(k.at[0] - prev.at[0], k.at[1] - prev.at[1]) / (k.t - prev.t);
+            if (v > ROOT_TOP_SPEED) err(`${where} at ${k.t} s: the frame goes ${v.toFixed(1)} ft/s to get there (most ${ROOT_TOP_SPEED})`);
+          }
+          if (Math.abs((k.yaw || 0) - (prev.yaw || 0)) > 180) err(`${where} at ${k.t} s: the frame turns more than half round from the key before`);
+        }
+        prev = k;
+      });
+      const a = R[0], z = R[R.length - 1];
+      if (a && !(a.t === 0 && a.at?.[0] === 0 && a.at?.[1] === 0 && !(a.yaw || 0))) err('root starts at 0 s at [0, 0], facing 0');
+      if (z && z.t !== D) err(`root ends at the duration, ${D} s`);
+      if (doc.loop && z && (z.yaw || 0) !== 0) err('a loop\'s laps run straight: its last root key faces 0');
     }
   }
   if (!shapeOk) return { errors, warnings };
@@ -213,13 +257,14 @@ function poseText(P, pad) {
   return '{\n' + lines.map((l) => pad + '  ' + l).join(',\n') + '\n' + pad + '}';
 }
 export function formatClip(doc) {
-  const head = ['id', 'role', 'duration', 'loop', 'note'].filter((k) => k in doc).map((k) => `  ${JSON.stringify(k)}: ${lit(doc[k])}`);
+  const head = ['id', 'role', 'duration', 'loop', 'moving', 'note'].filter((k) => k in doc).map((k) => `  ${JSON.stringify(k)}: ${lit(doc[k])}`);
   const list = (xs) => (xs.length ? '[\n' + xs.map((x) => '    ' + lit(x)).join(',\n') + '\n  ]' : '[]');
   if ('events' in doc) head.push(`  "events": ${list(doc.events)}`);
   if ('plants' in doc) head.push(`  "plants": ${list(doc.plants)}`);
+  if ('root' in doc) head.push(`  "root": ${list(doc.root)}`);
   const keys = doc.keys.map((k) => `    {\n      "t": ${num(k.t)},\n${'tension' in k ? `      "tension": ${num(k.tension)},\n` : ''}      "pose": ${poseText(k.pose, '      ')}\n    }`);
   head.push(`  "keys": [\n${keys.join(',\n')}\n  ]`);
-  const rest = Object.keys(doc).filter((k) => !['id', 'role', 'duration', 'loop', 'note', 'events', 'plants', 'keys'].includes(k)).sort();
+  const rest = Object.keys(doc).filter((k) => !['id', 'role', 'duration', 'loop', 'moving', 'note', 'events', 'plants', 'root', 'keys'].includes(k)).sort();
   for (const k of rest) head.push(`  ${JSON.stringify(k)}: ${lit(doc[k])}`);
   return '{\n' + head.join(',\n') + '\n}\n';
 }

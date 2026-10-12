@@ -1628,8 +1628,15 @@ the real park ([gl/ballpark.js](../../client/game/js/panels/gl/ballpark.js)), st
 role stands, with a cast round him as stills. Its code and notes are in
 [pose-lab.js](pose-lab.js).
 
-- **The clip:** its id, role, duration (changing it stretches every key, event and plant with
-  it), whether it loops, and a note. Events and plants are JSON lists, checked as you type.
+- **The clip:** its id, role, duration (changing it stretches every key, event, plant and root
+  key with it), whether it loops, whether it goes through an end without stopping (*moving*, for a
+  clip played out of or into another), and a note. Events, plants and the root are JSON lists,
+  checked as you type; a plant may say how long its foot takes going on and off its spot (`ease`).
+- **A clip that travels** has a root: where its frame has got to, `{ "t", "at": [x, z], "yaw" }`
+  keys in the frame it started in, with the keys posed in that moving frame. It carries the
+  player across the park as it plays, a loop lap after lap and back to the start after a base
+  path, and the camera goes with him. Under it the Lab says how far the clip goes and how fast. A
+  travelling clip with no place of its own starts a step out of the box, facing first.
 - **The keys:** pick one in the list, on the timeline or with the arrow keys. *+ at playhead*
   adds a key in the pose the clip has there, *pose from playhead* gives the selected key that
   pose, and *copy* puts a copy halfway to the next key. A key's tension runs from -1 (through it

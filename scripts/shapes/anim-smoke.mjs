@@ -22,7 +22,9 @@
 //          a snap between two blend points shows (a knee straightening into a hard stop, say);
 //        · no velocity spikes at the blend points (each key, each plant's ease on and off, a loop's
 //          seam): the jump in each joint's velocity across one, taken to zero time, under 1 ft/s;
-//        · a planted foot moves less than 0.1 ft while it's planted;
+//        · a planted foot moves less than 0.1 ft while it's planted, on the ground: a clip that
+//          travels (its `root`) is measured in the frame it started in, where its feet land;
+//        · a clip that travels no faster than a man runs and no quicker to change speed;
 //        · both hands within 0.05 ft of the bat wherever there's one;
 //        · at a catch, the glove within 0.1 ft of every ball in the box the catch says it covers
 //          (its `reach`), the body inside its limits;
@@ -280,14 +282,19 @@ const GEO = await import(P + 'diamond/geo.js');
   // The Pose Lab's save (bake-clips.mjs planSave), worked out in memory: each clip saved as it is
   // writes back its own file to the byte and today's module, so a save is never a whole-file
   // diff; a key out of order is refused with nothing to write; a new clip bakes in beside the rest.
+  // A save's text is formatClip's (planSave checks the clip, then writes that), and a text that
+  // reads back as its own file leaves the library as it is, so one whole save stands for the
+  // module and each clip is held to its text: a save per clip would bake the library once a clip.
   const { join } = await import('node:path');
   let same = 0, first = '';
   for (const f of files) {
-    const plan = BAKE.planSave(files, f.doc);
-    if (!plan.errors.length && plan.text === readFileSync(join(BAKE.CLIP_DIR, f.file), 'utf8').replace(/\r\n/g, '\n') && plan.module.replace(/\r\n/g, '\n') === onDisk) same++;
+    const v = SCH.validateClip(f.doc, f.file);
+    if (!v.errors.length && SCH.formatClip(f.doc) === readFileSync(join(BAKE.CLIP_DIR, f.file), 'utf8').replace(/\r\n/g, '\n')) same++;
     else first ||= f.file;
   }
-  check('pose lab: every clip saved unchanged writes back its own file and the same clips.js', same === files.length, `${same}/${files.length}, first ${first}`);
+  check('pose lab: every clip saved unchanged writes back its own file', same === files.length, `${same}/${files.length}, first ${first}`);
+  const whole = BAKE.planSave(files, files[0].doc);
+  check('pose lab: a save of a clip unchanged writes back the same clips.js', !whole.errors.length && whole.text === SCH.formatClip(files[0].doc) && whole.module.replace(/\r\n/g, '\n') === onDisk, whole.errors[0]);
   const take = files.find((f) => f.doc.id === 'bat_take').doc;
   const late = JSON.parse(JSON.stringify(take));
   late.keys[1].t = late.keys[2].t + 0.1;
@@ -306,7 +313,16 @@ const TOP_SPEED = { pelvis: 25, head: 60, wrL: 170, wrR: 170, elL: 140, elR: 140
 // twice what the library asks for (the throwing hand 7,200 at the release, a knee 1,200), so a knee
 // snapping straight (2,600) stands out
 const TOP_ACCEL = { pelvis: 1500, head: 3000, wrL: 12000, wrR: 12000, elL: 10000, elR: 10000, knL: 2000, knR: 2000, anL: 2500, anR: 2500, toeL: 3000, toeR: 3000 };
-const jointsAt = (clip, t) => { const J = solveAt0(A.sampleClip(clip, t)).J; return TRACK.map((k) => J[k]); };
+// A clip that travels keys its poses in its moving frame; the ground is the frame it started in.
+const onGround = (clip, t, v) => {
+  if (!clip.root) return v;
+  const r = A.rootAt(clip, t), c = Math.cos(r.yaw * Math.PI / 180), s = Math.sin(r.yaw * Math.PI / 180);
+  return [c * v[0] + s * v[2] + r.at[0], v[1], -s * v[0] + c * v[2] + r.at[1]];
+};
+// the frame's own most, in feet a second and feet a second each second: a sprint is about 28 ft/s,
+// and a slide sheds it in about half a second
+const ROOT_TOP_SPEED = 33, ROOT_TOP_ACCEL = 90;
+const jointsAt = (clip, t) => { const J = solveAt0(A.sampleClip(clip, t)).J; return TRACK.map((k) => onGround(clip, t, J[k])); };
 const tc = clock.now();
 for (const clip of Object.values(CLIPS)) {
   const D = clip.duration, N = Math.max(1, Math.ceil(D * 120)), dt = D / N;
@@ -319,7 +335,7 @@ for (const clip of Object.values(CLIPS)) {
     if (pose.bat) for (const S of ['L', 'R']) grip = Math.max(grip, len3(sub(J['wr' + S], J['wrT' + S])));
     for (const p of clip.plants) {
       if (t < p.from - 1e-9 || t > p.to + 1e-9) continue;
-      const k = p.foot + p.from, a = J['an' + p.foot];
+      const k = p.foot + p.from, a = onGround(clip, t, J['an' + p.foot]);
       if (!spot.has(k)) spot.set(k, a);
       const d = len3(sub(a, spot.get(k)));
       if (d > slide.d) slide = { d, t, foot: p.foot };
@@ -341,10 +357,23 @@ for (const clip of Object.values(CLIPS)) {
   check(`clip ${clip.id}: no joint faster than a body moves`, fast.length === 0, fast.join('; '));
   check(`clip ${clip.id}: no joint changing speed quicker than a body can`, sharp.length === 0, sharp.join('; '));
   check(`clip ${clip.id}: planted feet stay put, within 0.1 ft`, slide.d < 0.1, `${slide.d.toFixed(3)} ft, foot ${slide.foot} at ${slide.t?.toFixed(3)} s`);
+  if (clip.root) {
+    let top = { v: 0 }, hard = { a: 0 }, pv = null;
+    for (let i = 1; i <= N; i++) {
+      const a = A.rootAt(clip, (i - 1) * dt).at, b = A.rootAt(clip, i * dt).at, v = [(b[0] - a[0]) / dt, (b[1] - a[1]) / dt];
+      const sp = Math.hypot(v[0], v[1]);
+      if (sp > top.v) top = { v: sp, t: i * dt };
+      if (pv) { const ac = Math.hypot(v[0] - pv[0], v[1] - pv[1]) / dt; if (ac > hard.a) hard = { a: ac, t: i * dt }; }
+      pv = v;
+    }
+    check(`clip ${clip.id}: it travels no faster than a man runs`, top.v <= ROOT_TOP_SPEED, `${top.v.toFixed(1)} ft/s at ${top.t?.toFixed(3)} s`);
+    check(`clip ${clip.id}: it travels no quicker to change speed than a man can`, hard.a <= ROOT_TOP_ACCEL, `${hard.a.toFixed(0)} ft/s² at ${hard.t?.toFixed(3)} s`);
+  }
   check(`clip ${clip.id}: both hands on the bat, within 0.05 ft`, grip < 0.05, `${grip.toFixed(3)} ft`);
   // the blend points; the jump in velocity across each, by two step sizes taken to zero
   const blends = new Set(clip.keys.map((k) => k.t));
-  for (const p of clip.plants) for (const x of [p.from, p.to, p.from - A.PLANT_EASE, p.to + A.PLANT_EASE]) blends.add(+x.toFixed(6));
+  for (const p of clip.plants) for (const x of [p.from, p.to, p.from - A.easeOf(p), p.to + A.easeOf(p)]) blends.add(+x.toFixed(6));
+  for (const k of clip.root || []) blends.add(k.t);
   let kink = { v: 0 };
   const jumpAt = (tb, h) => { const [a, b, c] = [tb - h, tb, tb + h].map((t) => jointsAt(clip, t)); return b.map((pb, j) => sub(sub(c[j], pb), sub(pb, a[j])).map((x) => x / h)); };
   for (const tb of blends) {
@@ -397,7 +426,7 @@ for (const clip of Object.values(CLIPS)) {
         const pose = A.sampleClip(clip, t, { traits }), sol = solveAt0(pose), J = sol.J;
         if (bad.length < 2) for (const b of A.limitBreaks(pose, sol)) if (bad.length < 2) bad.push(`${b} at ${t.toFixed(3)} s with ${JSON.stringify(way)}`);
         if (pose.bat) for (const S of ['L', 'R']) wgrip = Math.max(wgrip, len3(sub(J['wr' + S], J['wrT' + S])));
-        for (const p of clip.plants) { if (t < p.from - 1e-9 || t > p.to + 1e-9) continue; const k = p.foot + p.from, a = J['an' + p.foot]; if (!spot.has(k)) spot.set(k, a); wslide = Math.max(wslide, len3(sub(a, spot.get(k)))); }
+        for (const p of clip.plants) { if (t < p.from - 1e-9 || t > p.to + 1e-9) continue; const k = p.foot + p.from, a = onGround(clip, t, J['an' + p.foot]); if (!spot.has(k)) spot.set(k, a); wslide = Math.max(wslide, len3(sub(a, spot.get(k)))); }
       }
     }
     if (ways.length) check(`clip ${clip.id}: done each player's own way, still a body that can, feet still and hands on the bat`, !bad.length && wgrip < 0.05 && wslide < 0.1, `${bad.join('; ')} grip ${wgrip.toFixed(3)} ft, slide ${wslide.toFixed(3)} ft`);

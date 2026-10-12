@@ -9,8 +9,9 @@
 // (`completePose`) so that playback only interpolates.
 //
 //   · sampling (`sampleClip`): every number in a pose runs on a Catmull-Rom curve through the keys,
-//     so a joint's speed carries smoothly through each one; a clip starts and ends at rest, and a
-//     loop runs on round its end; directions are put back to unit length; a bat is held between
+//     so a joint's speed carries smoothly through each one; a clip starts and ends at rest unless
+//     it says it's `moving` at that end (a run that goes on into a slide), and a loop runs on
+//     round its end; directions are put back to unit length; a bat is held between
 //     two keys that both have it, and taken up or let go at a key, the hands handed over smoothly
 //     (`batHandoff`);
 //   · plants: while a foot is planted it's held where it was put down, on the ground, so nothing
@@ -18,6 +19,10 @@
 //     spot and off it; and where a planted foot is out of its leg's reach the pelvis drops until
 //     it isn't (`fitPlants`), so the pitcher's drive off the rubber sinks him onto the back leg
 //     instead of dragging the foot;
+//   · root motion: a clip that travels (a run, a dive, a slide) carries its frame's path, `root`,
+//     and is keyed in the moving frame; its planted feet are held where they landed on the ground
+//     (`rootAt`), and `rebase` says a pose in another frame, for a crossfade between two clips
+//     whose frames have moved apart;
 //   · his own way of doing it (`vary`, off his name: the leg kick, the stance), and a left-hander's
 //     mirror, are part of the sample; his arm slot is which delivery he's played;
 //   · layers over a sampled pose, in the pose's real frame: `reach` brings a hand to a point (the
@@ -112,14 +117,20 @@ const ankle3 = (a, ground, s) => (a.length === 2 ? [a[0], ground(a[0], a[1]) + A
 // a key's slope is its neighbours' over the time between them, times (1 - its tension): a key's
 // `tension` (Kochanek-Bartels; 0 if it has none) below 0 carries the motion through it faster, as a
 // throwing hand goes through the release, and 1 stops it there. A missing neighbour (null) is the
-// end of a clip, where the slope is zero, so a clip comes to rest at its ends.
-function cr(p0, p1, p2, p3, t0, t1, t2, t3, u, k1 = 1, k2 = 1) {
+// end of a clip, where the slope is zero, so a clip comes to rest at its ends; at an end the clip
+// says it's moving through (`ends`, from `movingEnds`) the slope is the segment's own, so the
+// motion goes on at the speed it has.
+function cr(p0, p1, p2, p3, t0, t1, t2, t3, u, k1 = 1, k2 = 1, ends = NO_ENDS) {
   const dt = t2 - t1 || 1e-6;
-  const m1 = p0 === null ? 0 : (p2 - p0) / (t2 - t0) * dt * k1;
-  const m2 = p3 === null ? 0 : (p3 - p1) / (t3 - t1) * dt * k2;
+  const m1 = p0 === null ? (ends.start ? p2 - p1 : 0) : (p2 - p0) / (t2 - t0) * dt * k1;
+  const m2 = p3 === null ? (ends.end ? p2 - p1 : 0) : (p3 - p1) / (t3 - t1) * dt * k2;
   const u2 = u * u, u3 = u2 * u;
   return (2 * u3 - 3 * u2 + 1) * p1 + (u3 - 2 * u2 + u) * m1 + (-2 * u3 + 3 * u2) * p2 + (u3 - u2) * m2;
 }
+
+// Which ends of a clip it's moving through (`moving`: 'start', 'end' or 'both'); a loop has none.
+const NO_ENDS = Object.freeze({ start: false, end: false });
+export const movingEnds = (clip) => (clip.loop || !clip.moving ? NO_ENDS : { start: clip.moving !== 'end', end: clip.moving !== 'start' });
 
 // The keys either side of `t`, and the two beyond them for the slopes: null past a clip's ends, and
 // round the end of a loop, whose last key is its first again.
@@ -138,19 +149,89 @@ function bracket(clip, t) {
   return { k0: beyond(i - 1), k1, k2, k3: beyond(i + 2), u };
 }
 
+// ── root motion ────────────────────────────────────────────────────────────────
+// A clip that travels (a run, a dive, a slide) carries `root`: where its own frame has got to,
+// keyed at times like the poses, `{ t, at: [x, z], yaw }` in the frame the clip started in, so
+// its first key is at [0, 0] facing 0. Its poses are keyed in the moving frame, and a planted foot
+// is held where it landed on the ground, so the frame moves on and the foot stays put. A loop's
+// frame carries on from where its last lap ended (its laps run straight: its last key faces 0).
+//
+// The frame moves on a cubic through the keys, each key's speed its neighbours' as for the poses
+// but carried on through the ends rather than stopped, so a slide starts at the speed of the run
+// that went into it. `rootAt(clip, t)` is the frame at clip time t, from the clip's start: `at`
+// on the ground and `yaw` in degrees, turning as a pose's `yaw` does. A left-hander's is the
+// mirror (`mirror`).
+const rootYaw = (k) => k.yaw || 0;
+function rootLap(clip, t) {
+  const R = clip.root, n = R.length, D = clip.duration, lap = R[n - 1].at;
+  // the keys beyond the ends: a loop's from the laps either side, anything else on the same line
+  const beyond = (j) => {
+    if (j >= 0 && j < n) return { t: R[j].t, x: R[j].at[0], z: R[j].at[1], y: rootYaw(R[j]) };
+    if (!clip.loop) return null;
+    const k = j < 0 ? R[j + n - 1] : R[j - n + 1], sg = j < 0 ? -1 : 1;
+    return { t: k.t + sg * D, x: k.at[0] + sg * lap[0], z: k.at[1] + sg * lap[1], y: rootYaw(k) };
+  };
+  let i = 0;
+  while (i < n - 2 && R[i + 1].t <= t) i++;
+  const a = beyond(i), b = beyond(i + 1), p = beyond(i - 1), q = beyond(i + 2);
+  const dt = b.t - a.t || 1e-6, u = clamp((t - a.t) / dt, 0, 1);
+  const at = (f) => {
+    // at a key, its neighbours' slope; at an end with nothing beyond, the segment's own
+    const y0 = f(a), y1 = f(b);
+    const m0 = p ? (y1 - f(p)) / (b.t - p.t) : (y1 - y0) / dt, m1 = q ? (f(q) - y0) / (q.t - a.t) : (y1 - y0) / dt;
+    const u2 = u * u, u3 = u2 * u;
+    return (2 * u3 - 3 * u2 + 1) * y0 + (u3 - 2 * u2 + u) * m0 * dt + (-2 * u3 + 3 * u2) * y1 + (u3 - u2) * m1 * dt;
+  };
+  return { at: [at((k) => k.x), at((k) => k.z)], yaw: at((k) => k.y) };
+}
+export function rootAt(clip, t, opts = {}) {
+  if (!clip.root || !clip.root.length) return { at: [0, 0], yaw: 0 };
+  let r;
+  if (clip.loop) {
+    const D = clip.duration, laps = Math.floor(t / D), lap = clip.root[clip.root.length - 1].at;
+    const w = rootLap(clip, t - laps * D);
+    r = { at: [w.at[0] + laps * lap[0], w.at[1] + laps * lap[1]], yaw: w.yaw };
+  } else r = rootLap(clip, clamp(t, 0, clip.duration));
+  return opts.mirror ? { at: [-r.at[0], r.at[1]], yaw: -r.yaw } : r;
+}
+// A frame's point and turn: the point q in frame F (`{ at: [x, z], yaw }`) where it is in the
+// frame F stands in, and back.
+const turnY = (v, deg) => { const c = Math.cos(deg / DEG), s = Math.sin(deg / DEG); return [c * v[0] + s * v[2], v[1], -s * v[0] + c * v[2]]; };
+const outOf = (F, q) => { const r = turnY(q, F.yaw); return [r[0] + F.at[0], r[1], r[2] + F.at[1]]; };
+const into = (F, p) => turnY([p[0] - F.at[0], p[1], p[2] - F.at[1]], -F.yaw);
+// A pose keyed in one frame, said in another: `rel` is the first frame as the second sees it
+// (`{ at: [x, z], yaw }`). Points move and turn, directions turn, the pelvis's twist takes the
+// turn, and everything above the pelvis rides it. A crossfade between two clips whose frames
+// have moved apart mixes them in one frame.
+export function rebase(P, rel) {
+  if (!rel || (!rel.yaw && !rel.at[0] && !rel.at[1])) return P;
+  const out = { ...P, twist: (P.twist || 0) + rel.yaw };
+  for (const k of POINTS) out[k] = outOf(rel, P[k]);
+  for (const S of FEET) {
+    const a = P['ank' + S];
+    if (a.length === 2) { const q = outOf(rel, [a[0], 0, a[1]]); out['ank' + S] = [q[0], q[2]]; } else out['ank' + S] = outOf(rel, a);
+  }
+  for (const k of DIRS) out[k] = turnY(P[k], rel.yaw);
+  if (P.bat) out.bat = { ...P.bat, knob: outOf(rel, P.bat.knob), dir: turnY(P.bat.dir, rel.yaw) };
+  return out;
+}
+
 // Whether a foot is planted at `t`: inside one of the clip's plants.
 export const plantAt = (clip, S, t) => (clip.plants || []).find((p) => p.foot === S && t >= p.from - 1e-9 && t <= p.to + 1e-9) || null;
-// How firmly a foot is held at `t`: 1 through a plant, easing in over PLANT_EASE before it and out
-// over PLANT_EASE after it (less where the clip's end or the same foot's next plant is nearer), so
-// a foot glides onto and off its spot and the pelvis follows smoothly.
+// How firmly a foot is held at `t`: 1 through a plant, easing in over the plant's `ease` (PLANT_EASE
+// unless it says) before it and out over it after (less where the clip's end or the same foot's
+// next plant is nearer), so a foot glides onto and off its spot and the pelvis follows smoothly. A
+// run's stance is shorter than that, and its keys already have the foot going back with the ground,
+// so its plants ease over a few hundredths.
 export const PLANT_EASE = 0.1;
+export const easeOf = (p) => (Number.isFinite(p.ease) ? p.ease : PLANT_EASE);
 function holdOf(clip, S, t) {
   let best = { w: 0, p: null };
   const mine = (clip.plants || []).filter((p) => p.foot === S);
   for (let i = 0; i < mine.length; i++) {
     const p = mine[i], prev = mine[i - 1], next = mine[i + 1];
-    const e = Math.min(PLANT_EASE, Math.max(0, p.from), prev ? (p.from - prev.to) / 2 : Infinity);
-    const f = Math.min(PLANT_EASE, Math.max(0, clip.duration - p.to), next ? (next.from - p.to) / 2 : Infinity);
+    const e = Math.min(easeOf(p), Math.max(0, p.from), prev ? (p.from - prev.to) / 2 : Infinity);
+    const f = Math.min(easeOf(p), Math.max(0, clip.duration - p.to), next ? (next.from - p.to) / 2 : Infinity);
     let w = 0;
     if (t >= p.from && t <= p.to) w = 1;
     else if (t < p.from && e > 0 && t > p.from - e) w = 1 - (p.from - t) / e;
@@ -176,7 +257,7 @@ export function sampleClip(clip, t, opts = {}) {
   const run = (tt) => {
     const holds = {};
     let P = planted(clip, curve(clip, tt, ground, s), tt, ground, s, holds);
-    if (opts.traits) P = vary(P, opts.traits, clip.role);
+    if (opts.traits) P = vary(P, opts.traits, clip.role, clip.root ? rootAt(clip, tt) : null);
     return fitPlants(P, ground, s, holds);
   };
   const P = batHandoff(clip, t, run(t), run, s);
@@ -223,15 +304,15 @@ function curve(clip, t, ground, s) {
   }
   const { k0, k1, k2, k3, u } = bracket(clip, t);
   const a = k1.pose, b = k2.pose;
-  const t0 = k0 ? k0.t : 0, t3 = k3 ? k3.t : 0, q1 = 1 - (k1.tension || 0), q2 = 1 - (k2.tension || 0);
-  const at4 = (get) => cr(k0 ? get(k0.pose) : null, get(a), get(b), k3 ? get(k3.pose) : null, t0, k1.t, k2.t, t3, u, q1, q2);
+  const t0 = k0 ? k0.t : 0, t3 = k3 ? k3.t : 0, q1 = 1 - (k1.tension || 0), q2 = 1 - (k2.tension || 0), ends = movingEnds(clip);
+  const at4 = (get) => cr(k0 ? get(k0.pose) : null, get(a), get(b), k3 ? get(k3.pose) : null, t0, k1.t, k2.t, t3, u, q1, q2, ends);
   const P = {};
   for (const k of ANGLES) P[k] = at4((q) => q[k]);
   for (const k of [...POINTS, ...ANGLES3]) P[k] = [0, 1, 2].map((i) => at4((q) => q[k][i]));
   for (const k of DIRS) P[k] = norm([0, 1, 2].map((i) => at4((q) => q[k][i])));
   for (const S of FEET) {
     const A = [k0, k1, k2, k3].map((k) => (k ? ankle3(k.pose['ank' + S], ground, s) : null));
-    P['ank' + S] = [0, 1, 2].map((i) => cr(A[0] && A[0][i], A[1][i], A[2][i], A[3] && A[3][i], t0, k1.t, k2.t, t3, u, q1, q2));
+    P['ank' + S] = [0, 1, 2].map((i) => cr(A[0] && A[0][i], A[1][i], A[2][i], A[3] && A[3][i], t0, k1.t, k2.t, t3, u, q1, q2, ends));
     // planted only while a plant holds it (`planted`): a key's flag is for a still
     P['plant' + S] = false;
   }
@@ -239,8 +320,8 @@ function curve(clip, t, ground, s) {
   // key that has it, so it's taken up or let go there, where the wrists already are
   if (a.bat && b.bat) {
     P.bat = {
-      knob: [0, 1, 2].map((i) => cr(k0 ? (k0.pose.bat || a.bat).knob[i] : null, a.bat.knob[i], b.bat.knob[i], k3 ? (k3.pose.bat || b.bat).knob[i] : null, t0, k1.t, k2.t, t3, u, q1, q2)),
-      dir: norm([0, 1, 2].map((i) => cr(k0 ? (k0.pose.bat || a.bat).dir[i] : null, a.bat.dir[i], b.bat.dir[i], k3 ? (k3.pose.bat || b.bat).dir[i] : null, t0, k1.t, k2.t, t3, u, q1, q2))),
+      knob: [0, 1, 2].map((i) => cr(k0 ? (k0.pose.bat || a.bat).knob[i] : null, a.bat.knob[i], b.bat.knob[i], k3 ? (k3.pose.bat || b.bat).knob[i] : null, t0, k1.t, k2.t, t3, u, q1, q2, ends)),
+      dir: norm([0, 1, 2].map((i) => cr(k0 ? (k0.pose.bat || a.bat).dir[i] : null, a.bat.dir[i], b.bat.dir[i], k3 ? (k3.pose.bat || b.bat).dir[i] : null, t0, k1.t, k2.t, t3, u, q1, q2, ends))),
       bottom: a.bat.bottom || 'L',
     };
   } else if (a.bat && u <= 0) P.bat = copy(a.bat);
@@ -286,9 +367,11 @@ export function fitPlants(P, ground = flatGround, s = 1, holds = null) {
 
 // A planted foot held where it was put down, on the ground; a free one as the curve has it. Where
 // each plant put its foot is worked out once a clip and kept beside it (the clips are shared and
-// may be frozen, so not on it).
+// may be frozen, so not on it). A clip that travels keeps the spot in the frame it started in, so
+// the foot stays where it landed as the frame moves on (rootAt).
 const PLANTED = new WeakMap();
 function planted(clip, P, t, ground, s, holds = {}) {
+  const here = clip.root ? rootAt(clip, t) : null;
   for (const S of FEET) {
     const { w, p } = holdOf(clip, S, t);
     holds[S] = w;
@@ -296,12 +379,14 @@ function planted(clip, P, t, ground, s, holds = {}) {
     let memo = PLANTED.get(clip);
     if (!memo) PLANTED.set(clip, (memo = new Map()));
     const key = `${S}:${p.from}`;
-    let at = memo.get(key);
-    if (!at) {
+    let landed = memo.get(key);
+    if (!landed) {
       const q = curve(clip, p.from, ground, s)['ank' + S];
-      at = [q[0], q[2]];
-      memo.set(key, at);
+      if (clip.root) { const g = outOf(rootAt(clip, p.from), [q[0], 0, q[2]]); landed = [g[0], g[2]]; } else landed = [q[0], q[2]];
+      memo.set(key, landed);
     }
+    let at = landed;
+    if (here) { const l = into(here, [landed[0], 0, landed[1]]); at = [l[0], l[2]]; }
     // on the spot, or easing on or off it: between where the curve has the foot and the spot, on
     // the ground, the toe coming down flat as it lands, onto the ground under the toe
     const gy = ground(at[0], at[1]), d = P['toe' + S], h = Math.hypot(d[0], d[2]) || 1;
@@ -494,8 +579,12 @@ export function traitsOf(id) {
 export const TRAIT_RANGE = Object.freeze({ kick: [0.8, 1.2], width: [0.88, 1.12], crouch: [0.85, 1.15], batAngle: [-12, 12] });
 // A pose done his way: `role` says which traits apply. sampleClip calls this before it fits the
 // plants, so a wider stance still has its feet in reach. The arm slot isn't here: each slot is a
-// delivery of its own (pitch_stretch_over, _three, _side).
-export function vary(P, traits, role) {
+// delivery of its own (pitch_stretch_over, _three, _side). `here` is where a clip that travels has
+// carried its frame (rootAt): a hitter's stance is the box's, so his width and crouch ease out
+// over his first LEAVE_BOX feet out of it, the width taken across the box as he stood in it, so a
+// foot still on its spot stays there.
+const LEAVE_BOX = 3;
+export function vary(P, traits, role, here = null) {
   if (!traits) return P;
   const out = { ...P };
   if (role === 'pitcher') {
@@ -505,11 +594,15 @@ export function vary(P, traits, role) {
     if (a.length === 3) out.ankL = [a[0], ANKLE_UP + (a[1] - ANKLE_UP) * traits.kick, a[2]];
   } else if (role === 'batter') {
     // a wider or narrower base, sitting lower or taller in it, the bat laid back or held up
+    const far = here ? clamp(Math.hypot(here.at[0], here.at[1]) / LEAVE_BOX, 0, 1) : 0, k = 1 - far * far * (3 - 2 * far);
+    const width = 1 + (traits.width - 1) * k, crouch = 1 + (traits.crouch - 1) * k;
     for (const S of FEET) {
       const a = out['ank' + S];
-      out['ank' + S] = a.length === 2 ? [a[0] * traits.width, a[1]] : [a[0] * traits.width, a[1], a[2]];
+      if (!here) { out['ank' + S] = a.length === 2 ? [a[0] * width, a[1]] : [a[0] * width, a[1], a[2]]; continue; }
+      const g = outOf(here, a.length === 2 ? [a[0], 0, a[1]] : a), q = into(here, [g[0] * width, g[1], g[2]]);
+      out['ank' + S] = a.length === 2 ? [q[0], q[2]] : q;
     }
-    out.pelvis = [out.pelvis[0], out.pelvis[1] - (traits.crouch - 1) * 0.6, out.pelvis[2]];
+    out.pelvis = [out.pelvis[0], out.pelvis[1] - (crouch - 1) * 0.6, out.pelvis[2]];
     if (out.bat) {
       // about the axis from his chest to the plate (his z), so the barrel lies back toward the
       // catcher or stands up: how he holds it waiting, so it fades as the bat comes down out of

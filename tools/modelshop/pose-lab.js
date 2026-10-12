@@ -7,7 +7,8 @@
 // tension, every field of each key's pose (the rig's pose language, diamond/rig.js), its events
 // and its plants. A reference frame, a photo of the motion, can sit over the picture to pose
 // against. The player can be a left-hander, or done at either end of the traits' ranges, which is
-// where anim-smoke plays every clip too.
+// where anim-smoke plays every clip too. A clip that travels (its `root`) carries him across the
+// park as it plays, and the camera goes with him.
 //
 // Every edit is checked against the schema the bake uses (diamond/clip-schema.js validateClip),
 // and the selected key against what a body can do. Save sends the clip to PUT /api/clips, which
@@ -24,6 +25,7 @@ import { solvePose, POSES } from '/client/game/js/panels/diamond/rig.js';
 import { validateClip, clipFileName, CLIP_ROLES, CLIP_EVENTS, POSE_FIELDS } from '/client/game/js/panels/diamond/clip-schema.js';
 import { groundHeight, DEG } from '/client/game/js/panels/diamond/geo.js';
 import { SHOTS } from '/client/game/js/panels/diamond/camera.js';
+import { carried } from '/client/game/js/panels/diamond/world.js';
 
 const $ = (id) => document.getElementById(id);
 const copy = (v) => JSON.parse(JSON.stringify(v));
@@ -37,16 +39,20 @@ let saved = '';              // the clip as last loaded or saved, to tell an edi
 let baked = null;            // `doc` ready to play: every key's pose completed (as the bake does)
 let sel = 0;                 // the selected key
 let t = 0, playing = false, speed = 1;
+let laps = 0;                // how many laps a travelling loop has run since it started
 const undo = [], redo = [];
 let before = null;           // the clip as it was when a number started moving under the wheel
 
-// The clip as the player plays it, or null while a key isn't a pose yet.
+// The clip as the player plays it, or null while a key isn't a pose yet. A root that isn't one yet
+// is left off, so the clip plays where it stands until it is.
+const rootOk = (R) => Array.isArray(R) && R.length >= 2 && R.every((k) => k && Number.isFinite(k.t) && Array.isArray(k.at) && k.at.length === 2 && k.at.every(Number.isFinite) && Number.isFinite(k.yaw || 0));
 function bake(d) {
   try {
     return {
-      id: d.id, role: d.role, duration: d.duration, loop: !!d.loop,
+      id: d.id, role: d.role, duration: d.duration, loop: !!d.loop, ...(d.moving ? { moving: d.moving } : {}),
       events: (d.events || []).map((e) => ({ ...e })).sort((a, b) => a.t - b.t),
       plants: (d.plants || []).map((p) => ({ ...p })).sort((a, b) => a.from - b.from),
+      ...(rootOk(d.root) ? { root: d.root.map((k) => ({ t: k.t, at: k.at.slice(), ...(k.yaw ? { yaw: k.yaw } : {}) })) } : {}),
       keys: d.keys.map((k) => ({ t: k.t, ...(k.tension ? { tension: k.tension } : {}), pose: completePose(k.pose) })),
     };
   } catch { return null; }
@@ -77,9 +83,9 @@ function changed() {
 function step(from, to) {
   if (!from.length) return;
   to.push(JSON.stringify(doc));
-  const role = doc.role;
+  const role = doc.role, travels = !!doc.root;
   doc = JSON.parse(from.pop());
-  if (doc.role !== role) place();
+  if (doc.role !== role || !!doc.root !== travels) place();
   changed();
 }
 
@@ -104,10 +110,15 @@ function fillClip() {
   $('role').value = doc.role;
   $('duration').value = doc.duration;
   $('loop').checked = !!doc.loop;
+  $('moving').value = doc.moving || '';
   $('note').value = doc.note || '';
   $('events').value = JSON.stringify(doc.events || [], null, 1).replace(/\n\s*/g, ' ').replace(/\}, \{/g, '},\n{');
   $('plants').value = JSON.stringify(doc.plants || [], null, 1).replace(/\n\s*/g, ' ').replace(/\}, \{/g, '},\n{');
-  $('events').classList.remove('bad'); $('plants').classList.remove('bad');
+  $('root').value = doc.root ? JSON.stringify(doc.root, null, 1).replace(/\n\s*/g, ' ').replace(/\}, \{/g, '},\n{') : '';
+  $('events').classList.remove('bad'); $('plants').classList.remove('bad'); $('root').classList.remove('bad');
+  // how far it goes and how fast, to match against the ground the keys have the feet cover
+  const end = rootOk(doc.root) ? doc.root[doc.root.length - 1] : null, far = end ? Math.hypot(end.at[0], end.at[1]) : 0;
+  $('roothint').textContent = end ? `it travels ${far.toFixed(2)} ft${doc.loop ? ' a lap' : ''}, ${(far / doc.duration).toFixed(1)} ft/s on average, and turns ${end.yaw || 0}°` : 'empty: the clip stays where it starts';
 }
 $('id').onchange = (e) => edit((d) => { d.id = e.target.value.trim(); });
 $('role').onchange = (e) => edit((d) => { d.role = e.target.value; place(); });
@@ -121,17 +132,26 @@ $('duration').onchange = (e) => {
     for (const x of d.events || []) x.t = r4(x.t * k);
     for (const x of d.plants || []) { x.from = r4(x.from * k); x.to = Math.min(D, r4(x.to * k)); }
     if (d.keys.length > 1) d.keys[d.keys.length - 1].t = D;
+    // the frame covers the same ground in the new time
+    if (Array.isArray(d.root)) { for (const x of d.root) if (x && Number.isFinite(x.t)) x.t = r4(x.t * k); if (d.root.length > 1) d.root[d.root.length - 1].t = D; }
     d.duration = D;
   });
 };
 $('loop').onchange = (e) => edit((d) => { if (e.target.checked) d.loop = true; else delete d.loop; });
+$('moving').onchange = (e) => edit((d) => { if (e.target.value) d.moving = e.target.value; else delete d.moving; });
 $('note').onchange = (e) => edit((d) => { if (e.target.value.trim()) d.note = e.target.value.trim(); else delete d.note; });
-for (const id of ['events', 'plants']) {
+for (const id of ['events', 'plants', 'root']) {
   $(id).onchange = (e) => {
-    let v;
-    try { v = JSON.parse(e.target.value); } catch { e.target.classList.add('bad'); return; }
-    if (!Array.isArray(v)) { e.target.classList.add('bad'); return; }
-    edit((d) => { d[id] = v; });
+    const travels = !!doc.root;
+    // an empty root is a clip that doesn't travel
+    if (id === 'root' && !e.target.value.trim()) edit((d) => { delete d.root; });
+    else {
+      let v;
+      try { v = JSON.parse(e.target.value); } catch { e.target.classList.add('bad'); return; }
+      if (!Array.isArray(v)) { e.target.classList.add('bad'); return; }
+      edit((d) => { d[id] = v; });
+    }
+    if (!!doc.root !== travels) place();
   };
 }
 $('role').innerHTML = CLIP_ROLES.map((r) => `<option>${r}</option>`).join('');
@@ -146,8 +166,8 @@ function fillKeys() {
 $('keys').onclick = (e) => {
   const li = e.target.closest('li');
   if (!li || e.target.tagName === 'INPUT') return;
-  sel = +li.dataset.i; t = doc.keys[sel].t;
-  syncTime(); fillKeys(); fillPose(); check(); drawTimeline(); draw();
+  sel = +li.dataset.i; seek(doc.keys[sel].t);
+  fillKeys(); fillPose(); check(); drawTimeline(); draw();
 };
 $('keys').onchange = (e) => {
   const li = e.target.closest('li'), i = +li.dataset.i, v = Number(e.target.value);
@@ -273,7 +293,7 @@ $('pose').addEventListener('input', (e) => {
   else if (KIND[f][0] === 'ang' && KIND[f][1] === 1) Q[f] = v;
   else if (Array.isArray(Q[f])) Q[f][+e.target.dataset.i] = v;
   baked = bake(doc);
-  t = doc.keys[sel].t; syncTime();
+  seek(doc.keys[sel].t);
   draw();
 });
 
@@ -281,9 +301,10 @@ $('pose').addEventListener('input', (e) => {
 const canvas = $('view');
 let R = null, raf = 0, lastNow = 0, frameOf = null, castNow = null;
 const lab = { lefty: false, traits: 'none' };
-// Where the clip's player stands and which body he is: the cast's own man for the battery's roles,
-// and for a role with no place of its own yet (a fielder, a runner, a coach) the batter's body out
-// on the grass in front of the plate, facing it.
+// Where the clip's player stands and which body he is: the cast's own man for a role that has one
+// on the field, and for a role with nobody there (a runner with the bases empty, anyone) the
+// batter's body: out on the grass in front of the plate, facing it, or for a clip that travels a
+// step out of the box, facing first, with the base path to run down.
 function place() {
   if (!R) return;
   const p = { half: 'top', inning: 1, batter: 'Pose Lab', pitcher: 'Pose Lab Arm', bats: lab.lefty ? 'L' : 'R', throws: lab.lefty ? 'L' : 'R', battingTeam: 'Rats', fieldingTeam: 'Kings', basesBefore: [false, false, false] };
@@ -294,7 +315,8 @@ function place() {
   const own = role === 'ump' ? castNow.find((c) => c.id === 'ump:plate') : by(role);
   const c = own || by('batter');
   frameOf = own ? { slot: c.look.slot, at: c.at, yaw: c.yaw, scale: c.scale, mirror: c.mirror }
-    : { slot: c.look.slot, at: [0, 0, 22], yaw: 180, scale: 1, mirror: lab.lefty };
+    : doc?.root ? { slot: c.look.slot, at: [-2, 0, 2], yaw: -45, scale: 1, mirror: lab.lefty }
+      : { slot: c.look.slot, at: [0, 0, 22], yaw: 180, scale: 1, mirror: lab.lefty };
   aim();
   draw();
 }
@@ -307,9 +329,17 @@ function traitsNow() {
   const end = lab.traits === 'low' ? 0 : 1;
   return Object.fromEntries(Object.entries(TRAIT_RANGE).map(([k, v]) => [k, v[end]]));
 }
-// The camera: an orbit round the player, or one of the broadcast's shots by name.
+// Where the clip has carried him by the playhead (world.js carried): his place, for a clip that
+// doesn't travel. A travelling loop runs lap after lap while it plays, and starts again from his
+// place once the next lap would take it more than a base path from there; moving the playhead by
+// hand starts it again too.
+const RUN_ROOM = 90;
+function seek(s) { t = s; laps = 0; syncTime(); }
+const carriedNow = () => (frameOf && baked ? { ...frameOf, ...carried(frameOf, baked, 0, 1, laps * baked.duration + t, frameOf.mirror) } : frameOf);
+// The camera: an orbit round the player, going with him as he travels, or one of the broadcast's
+// shots by name.
 const cam = { az: 0, el: 10, dist: 13, shot: null, focus: [0, 3, 0] };
-function aim() { if (frameOf) cam.focus = [frameOf.at[0], frameOf.at[1] + 3, frameOf.at[2]]; }
+function aim() { const f = carriedNow(); if (f) cam.focus = [f.at[0], f.at[1] + 3, f.at[2]]; }
 function shotNow() {
   if (cam.shot) return cam.shot;
   const a = cam.az * DEG, e = cam.el * DEG, f = cam.focus;
@@ -319,7 +349,7 @@ function shotNow() {
 function view(name) {
   if (SHOTS[name]) { cam.shot = name; return draw(); }
   cam.shot = null;
-  const yaw = frameOf ? frameOf.yaw : 0;
+  const yaw = carriedNow()?.yaw ?? 0;
   ({ front: () => { cam.az = yaw; cam.el = 8; }, left: () => { cam.az = yaw + 90; cam.el = 8; }, back: () => { cam.az = yaw + 180; cam.el = 8; },
     right: () => { cam.az = yaw - 90; cam.el = 8; }, top: () => { cam.el = 82; } })[name]?.();
   draw();
@@ -345,11 +375,19 @@ function frame(now) {
   lastNow = now;
   if (playing && baked) {
     t += dt * speed;
-    if (t > baked.duration) t = baked.loop ? t % baked.duration : 0;
+    if (t > baked.duration) {
+      if (baked.loop) {
+        laps += Math.floor(t / baked.duration);
+        t %= baked.duration;
+        const end = baked.root?.[baked.root.length - 1].at, lap = end ? Math.hypot(end[0], end[1]) : 0;
+        if (!lap || (laps + 1) * lap > RUN_ROOM) laps = 0;
+      } else t = 0;
+    }
     syncTime();
   }
   if (baked && frameOf) {
-    const f = frameOf;
+    const f = carriedNow();
+    if (baked.root && !cam.shot) cam.focus = [f.at[0], f.at[1] + 3, f.at[2]];
     try {
       const P = sampleClip(baked, t, { ground: groundFor(f), scale: f.scale, traits: traitsNow(), mirror: f.mirror });
       R.setPose(f.slot, { ...P, at: f.at, yaw: f.yaw, scale: f.scale });
@@ -390,7 +428,7 @@ function drawTimeline() {
 }
 function scrubTo(e) {
   const r = tl.getBoundingClientRect(), s = ((e.clientX - r.left) - 10) / (r.width - 20) * doc.duration;
-  t = Math.max(0, Math.min(doc.duration, s));
+  t = Math.max(0, Math.min(doc.duration, s)); laps = 0;
   const near = doc.keys.findIndex((k) => Math.abs(((k.t / doc.duration) * (r.width - 20)) - (e.clientX - r.left - 10)) < 5);
   if (near >= 0 && near !== sel) { sel = near; t = doc.keys[near].t; fillKeys(); fillPose(); check(); }
   syncTime(); drawTimeline(); draw();
@@ -435,7 +473,7 @@ function open(d) {
   doc = copy(d);
   saved = JSON.stringify(doc);
   undo.length = 0; redo.length = 0;
-  sel = 0; t = 0;
+  sel = 0; t = 0; laps = 0;
   place();
   changed();
   view('front');
@@ -493,7 +531,7 @@ document.addEventListener('keydown', (e) => {
   else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
     // to the key before or after
     const i = Math.max(0, Math.min(doc.keys.length - 1, sel + (e.key === 'ArrowLeft' ? -1 : 1)));
-    sel = i; t = doc.keys[i].t; syncTime(); fillKeys(); fillPose(); check(); draw();
+    sel = i; seek(doc.keys[i].t); fillKeys(); fillPose(); check(); draw();
   }
 });
 window.addEventListener('beforeunload', (e) => { if (doc && JSON.stringify(doc) !== saved) e.preventDefault(); });
@@ -507,4 +545,4 @@ const first = new URLSearchParams(location.search).get('clip');
 const pick = library.find((c) => c.doc.id === first) || library[0];
 if (pick) { $('clip').value = pick.doc.id; open(pick.doc); }
 // for a look from a script: which clip is open, the playhead, and the renderer
-window.__lab = { get doc() { return doc; }, get t() { return t; }, set t(v) { t = v; syncTime(); draw(); }, view, get renderer() { return R; } };
+window.__lab = { get doc() { return doc; }, get t() { return t; }, set t(v) { seek(v); draw(); }, set laps(v) { laps = v; draw(); }, view, get renderer() { return R; } };

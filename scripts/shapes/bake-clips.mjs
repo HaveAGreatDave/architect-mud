@@ -36,9 +36,10 @@ export function bakeClips(files = readClipFiles()) {
     if (v.errors.length) continue;
     if (clips[doc.id]) { errors.push(`${file}: ${doc.id} is keyed twice`); continue; }
     clips[doc.id] = {
-      id: doc.id, role: doc.role, duration: doc.duration, loop: !!doc.loop,
+      id: doc.id, role: doc.role, duration: doc.duration, loop: !!doc.loop, ...(doc.moving ? { moving: doc.moving } : {}),
       events: (doc.events || []).map((e) => ({ ...e })).sort((a, b) => a.t - b.t),
       plants: (doc.plants || []).map((p) => ({ ...p })).sort((a, b) => a.from - b.from),
+      ...(doc.root ? { root: doc.root.map((k) => ({ t: k.t, at: k.at.slice(), ...(k.yaw ? { yaw: k.yaw } : {}) })) } : {}),
       keys: doc.keys.map((k) => ({ t: k.t, ...(k.tension ? { tension: k.tension } : {}), pose: completePose(k.pose) })),
     };
   }
@@ -68,9 +69,10 @@ export function renderModule({ clips }) {
   for (const id of Object.keys(clips).sort()) {
     const c = clips[id];
     out.push(`  ${JSON.stringify(id)}: {`);
-    out.push(`    id: ${JSON.stringify(c.id)}, role: ${JSON.stringify(c.role)}, duration: ${lit(c.duration)}, loop: ${c.loop},`);
+    out.push(`    id: ${JSON.stringify(c.id)}, role: ${JSON.stringify(c.role)}, duration: ${lit(c.duration)}, loop: ${c.loop},${c.moving ? ` moving: ${JSON.stringify(c.moving)},` : ''}`);
     out.push(`    events: ${lit(c.events)},`);
     out.push(`    plants: ${lit(c.plants)},`);
+    if (c.root) out.push(`    root: ${lit(c.root)},`);
     out.push('    keys: [');
     for (const k of c.keys) out.push(`      { t: ${lit(k.t)}, ${k.tension ? `tension: ${lit(k.tension)}, ` : ''}pose: ${lit(k.pose)} },`);
     out.push('    ],');

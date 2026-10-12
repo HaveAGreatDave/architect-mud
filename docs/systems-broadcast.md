@@ -934,7 +934,14 @@ Built so far (Phases 1 and 2 of the plan):
   turning to it and each player's own way of doing it off his name. The library holds the pitch
   (Phase 2c): the pitcher's deliveries from the stretch and the windup for each arm slot, the
   hitter's load, swings, take and check swing, the catcher's receive, block and throw back, and
-  the umpire's calls, three ways to ring up strike three among them;
+  the umpire's calls, three ways to ring up strike three among them. It holds the play too
+  (Phase 3b): the runs (a jog, a run and a sprint), pulling up, the hitter out of the box for
+  each hand, three slides; ground balls taken routine, backhand, forehand, diving either way and
+  barehanded; the throws over the top, from the knees, the flip and the crow hop; the first
+  baseman's stretch and scoop, both double-play pivots and the relay; the outfielder's charge
+  and throw; catches camped, running, diving, sliding, at the wall and over the rail, and the
+  catcher's pop-up; a fielder watching one go; and the base umpires' safe and out. A clip that
+  travels carries its frame with it (`root`), and the world carries the player on by it;
 - the pitch (Phase 2d): [diamond/director.js](../client/game/js/panels/diamond/director.js) stages
   each at-bat in a world ([diamond/world.js](../client/game/js/panels/diamond/world.js)) stepped
   at 120 Hz while it plays. The ball flies from the pitcher's hand at its real speed to exactly
@@ -1020,8 +1027,9 @@ road tile drawn from its arms, nothing tall beside a street-level camera, and no
 in the engine files. `scripts/shapes/anim-smoke.mjs` skins the players on the CPU with the
 shader's own sum and holds every pose to the posed build's surface, the head vertex for vertex
 and the hands on the bat; then it plays every clip, holding each frame to what a body can do,
-the planted feet still, the hands on the bat, the glove to the ball across the box its catch
-covers and the ball leaving the hand at its fastest, and fails a stale `clips.js`.
+the planted feet still (on the ground he started on, for a clip that travels), a travelling
+clip's frame no faster than a sprint, the hands on the bat, the glove to the ball across the box
+its catch covers and the ball leaving the hand at its fastest, and fails a stale `clips.js`.
 `scripts/shapes/diamond-smoke.mjs` stages two sim v2 games at a short hold and a long one: every
 pitch through the plate within 0.05 ft of its spot, every clip on its event as the ball arrives,
 the mitt and the bat's barrel on the ball with both hands on the bat, the joints inside their

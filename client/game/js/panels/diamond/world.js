@@ -10,11 +10,12 @@
 // Positions are the park's (diamond/geo.js: feet, home plate at the origin, +z to centre field,
 // +x toward third). A body's clip runs in its own frame, placed by `at` and `yaw` as a still is;
 // a left-hander's is mirrored, and the ground under him is the park's, so a pitcher's stride
-// comes down on the slope of the mound.
+// comes down on the slope of the mound. A clip that travels (anim.js rootAt) carries its frame on
+// from there, and the next clip starts where it got to.
 //
 // Pure: no WebGL and no DOM, so the gates run it.
 
-import { sampleClip, mixPose, reach, lookAt, aimBat, traitsOf } from './anim.js';
+import { sampleClip, mixPose, reach, lookAt, aimBat, traitsOf, rootAt, rebase } from './anim.js';
 import { groundHeight, DEG } from './geo.js';
 import { CLIPS } from './clips.js';
 
@@ -29,6 +30,16 @@ export function toLocal(b, p) {
 export function toPark(b, q) {
   const c = Math.cos(b.yaw * DEG), s = Math.sin(b.yaw * DEG);
   return [b.at[0] + c * q[0] + s * q[2], b.at[1] + q[1], b.at[2] - s * q[0] + c * q[2]];
+}
+
+// Where a clip started at `start` and played at `speed` has carried a frame `base` (`{ at, yaw }`)
+// by world time t: the base itself for a clip that doesn't travel. The Pose Lab carries its player
+// with it too.
+export function carried(base, clip, start, speed, t, mirror) {
+  if (!clip?.root) return base;
+  const r = rootAt(clip, Math.max(0, (t - start) * speed), { mirror });
+  const p = toPark(base, [r.at[0], 0, r.at[1]]);
+  return { at: [p[0], base.at[1], p[2]], yaw: base.yaw + r.yaw };
 }
 
 export function createWorld() {
@@ -51,15 +62,21 @@ export function createWorld() {
   W.drop = (slot) => W.bodies.delete(slot);
 
   // He starts `clipId` at world time `at` (now if not given), at `speed`, mixing out of what he was
-  // doing over `fade` seconds (0 for a clip that starts where the last one ends).
+  // doing over `fade` seconds (0 for a clip that starts where the last one ends). It starts where
+  // the last one had carried him by then (a clip that travels), and the last one mixes out from
+  // where it carries him on to.
   W.play = (slot, clipId, o = {}) => {
     const b = W.bodies.get(slot), clip = CLIPS[clipId];
     if (!b || !clip) return null;
-    const start = o.at ?? W.t;
-    b.prev = b.clip && o.fade > 0 ? { clip: b.clip, start: b.start, speed: b.speed, from: start, fade: o.fade } : null;
+    const start = o.at ?? W.t, base = { at: b.at, yaw: b.yaw };
+    b.prev = b.clip && o.fade > 0 ? { clip: b.clip, start: b.start, speed: b.speed, from: start, fade: o.fade, base } : null;
+    const here = carried(base, b.clip, b.start, b.speed, start, b.mirror);
+    b.at = here.at.slice(); b.yaw = here.yaw;
     b.clip = clip; b.start = start; b.speed = o.speed || 1;
     return clip;
   };
+  // Where his frame is at world time t: where he was placed, carried on by his clip.
+  W.frame = (slot, t = W.t) => { const b = W.bodies.get(slot); return b ? carried({ at: b.at, yaw: b.yaw }, b.clip, b.start, b.speed, t, b.mirror) : null; };
   // the clip time a body is at, at world time t
   W.clipTime = (b, t = W.t) => (t - b.start) * b.speed;
 
@@ -72,44 +89,50 @@ export function createWorld() {
   const weight = (L, t) => (t < L.from || t > L.to ? 0 : t < L.full ? smooth((t - L.from) / Math.max(1e-6, L.full - L.from)) : t <= L.hold ? 1 : 1 - smooth((t - L.hold) / Math.max(1e-6, L.to - L.hold)));
   const targetOf = (L, t) => (typeof L.target === 'function' ? L.target(t) : L.target);
 
-  // the ground under a body, in his own frame: the park's, less the height he stands at
-  const groundOf = (b) => (x, z) => { const p = toPark(b, [x, 0, z]); return groundHeight(p[0], p[2]) - b.at[1]; };
-  const optsOf = (b) => ({ ground: groundOf(b), scale: b.scale, traits: b.traits, mirror: b.mirror });
+  // the ground under a body, in his own frame F: the park's, less the height he stands at
+  const groundOf = (F) => (x, z) => { const p = toPark(F, [x, 0, z]); return groundHeight(p[0], p[2]) - F.at[1]; };
+  const optsOf = (b, F) => ({ ground: groundOf(F), scale: b.scale, traits: b.traits, mirror: b.mirror });
+  // frame A as frame B sees it, for anim.js rebase
+  const relOf = (A, B) => { const q = toLocal(B, A.at); return { at: [q[0], q[2]], yaw: A.yaw - B.yaw }; };
 
   // His pose at world time t (now if not given): the clip, mixed out of the last one, with his own
-  // way and his mirror, then the layers. Ready for the renderer with `at`, `yaw` and `scale`.
+  // way and his mirror, then the layers. Ready for the renderer with `at`, `yaw` and `scale`, his
+  // frame where his clip has carried him.
   W.pose = (slot, t = W.t) => {
     const b = W.bodies.get(slot);
     if (!b || !b.clip) return null;
-    const opts = optsOf(b);
+    const F = carried({ at: b.at, yaw: b.yaw }, b.clip, b.start, b.speed, t, b.mirror), opts = optsOf(b, F);
     let P = sampleClip(b.clip, (t - b.start) * b.speed, opts);
     if (b.prev && t < b.prev.from + b.prev.fade) {
-      const Q = sampleClip(b.prev.clip, (t - b.prev.start) * b.prev.speed, opts);
-      P = mixPose(Q, P, smooth((t - b.prev.from) / b.prev.fade), opts);
+      const pv = b.prev, G = carried(pv.base, pv.clip, pv.start, pv.speed, t, b.mirror);
+      const Q = rebase(sampleClip(pv.clip, (t - pv.start) * pv.speed, optsOf(b, G)), relOf(G, F));
+      P = mixPose(Q, P, smooth((t - pv.from) / pv.fade), opts);
     }
     const r = b.layers.reach;
     if (r) {
       const w = weight(r, t);
-      if (w > 0) P = reach(P, r.hand, toLocal(b, targetOf(r, t)), w, { kind: r.kind, follow: r.follow, scale: b.scale, ground: opts.ground });
+      if (w > 0) P = reach(P, r.hand, toLocal(F, targetOf(r, t)), w, { kind: r.kind, follow: r.follow, scale: b.scale, ground: opts.ground });
     }
     const a = b.layers.aim;
     if (a && P.bat) {
       const w = weight(a, t);
-      if (w > 0) P = aimBat(P, toLocal(b, targetOf(a, t)), w, { reach: a.reach, follow: a.follow, scale: b.scale, ground: opts.ground });
+      if (w > 0) P = aimBat(P, toLocal(F, targetOf(a, t)), w, { reach: a.reach, follow: a.follow, scale: b.scale, ground: opts.ground });
     }
     const l = b.layers.look;
     if (l) {
       const w = weight(l, t);
-      if (w > 0) P = lookAt(P, toLocal(b, targetOf(l, t)), w, b.scale);
+      if (w > 0) P = lookAt(P, toLocal(F, targetOf(l, t)), w, b.scale);
     }
-    return { ...P, at: b.at, yaw: b.yaw, scale: b.scale };
+    return { ...P, at: F.at, yaw: F.yaw, scale: b.scale };
   };
-  // A clip's pose for a body at clip time `tau`, as he'd do it where he stands, without touching
-  // what he's doing: for working out ahead where a hand or a chest will be.
+  // A clip's pose for a body at clip time `tau`, as he'd do it from where he stands, without
+  // touching what he's doing: for working out ahead where a hand or a chest will be. A clip that
+  // travels has him where it's carried him by then.
   W.sample = (slot, clipId, tau) => {
     const b = W.bodies.get(slot), clip = CLIPS[clipId];
     if (!b || !clip) return null;
-    return { ...sampleClip(clip, tau, optsOf(b)), at: b.at, yaw: b.yaw, scale: b.scale };
+    const F = carried({ at: b.at, yaw: b.yaw }, clip, 0, 1, tau, b.mirror);
+    return { ...sampleClip(clip, tau, optsOf(b, F)), at: F.at, yaw: F.yaw, scale: b.scale };
   };
 
   // Things to happen at world times, in order (ties in the order they were asked for).

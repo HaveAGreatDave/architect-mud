@@ -1,10 +1,11 @@
 # Deadball in GLASS 2
 
-**Status: Phase 0, sim v2, Phases 1 and 2 and the plays of Phase 3 built, behind a flag: the
-park in 3-D with its light, air, lens and grade, the arcade graphics, and the city round the park
-as a set with the park's own outside (1a to 1e); skinned players who pitch, swing, catch and call
-every pitch at its real speed and spot, and the Pose Lab their clips are keyed in (2a to 2e);
-every ball in play decided on the server, with the booth's lines sorted to agree with it (3a).** A plan for giving Deadball a 3-D sub-screen the way Cluster Puck got Rinkside, at the
+**Status: Phase 0, sim v2, Phases 1 and 2 and the plays and clips of Phase 3 built, behind a
+flag: the park in 3-D with its light, air, lens and grade, the arcade graphics, and the city round
+the park as a set with the park's own outside (1a to 1e); skinned players who pitch, swing, catch
+and call every pitch at its real speed and spot, and the Pose Lab their clips are keyed in (2a to
+2e); every ball in play decided on the server, with the booth's lines sorted to agree with it
+(3a), and the clips to play it with, players who travel as they move (3b).** A plan for giving Deadball a 3-D sub-screen the way Cluster Puck got Rinkside, at the
 highest fidelity the engine can reach. Deadball is a live sport on KSAB, and the broadcast borrows
 the look of a 1990s arcade baseball game. That means skinned, detailed players, authored animation
 with a wide spread of plays, light from the park's own towers and a crowd that fills the stands.
@@ -1601,6 +1602,25 @@ Phase 3, or with sim v2 if that comes later.
   draws the play: the ball to the man it names and on through the bags the outs were made at.
   Tested by `variety-smoke`, regress (every play against its kind and the sim, the payloads
   leaving the game as it was, the bare pools, the tags) and `gameday-smoke`'s ball check.
+- **3b built:** the clips to play a ball in play with, 37 of them, 67 in the library. A clip that
+  travels carries its own path (`root`), keyed in the frame that moves with him; its planted
+  feet stay where they landed, the world carries the body's frame on by it, a crossfade between
+  two clips mixes them in one frame, and a clip played out of or into another can say it's
+  `moving` at that end, so its legs don't stop at the seam. The runs (a jog, a run, a sprint),
+  pulling up, the hitter out of the box for each hand (first base is 43 degrees round for a
+  right-hander and 134 for a left-hander, so each has his own clip), and the slides feet first,
+  head first and hooked. Ground balls taken routine, backhand, forehand, diving either way and up
+  onto the knees, and barehanded with the throw sidearm on the run; the throws over the top, from
+  the knees, the flip and the crow hop, the infielders' borrowing the pitcher's arm; the first
+  baseman's stretch and scoop, both pivots at second and the relay; the outfielder's charge,
+  pickup and throw. Catches camped, running, diving, sliding, up at the wall and over the rail,
+  the catcher's pop-up, a fielder watching one go, and the base umpires' safe and out. Every
+  catch says where its glove can take the ball, and the gate holds it to every ball in that box.
+  The Pose Lab plays a travelling clip across the park and edits its root. The clips were keyed
+  by a footstep planner (each foot's spots on the ground, the swings between them, the body
+  over them) rather than by hand, then held to the gate: `anim-smoke` plays all 67 at 120 frames
+  a second, at a third of its CPU budget once its save check stopped baking the library once a
+  clip. Turning a run round a bag is the director's path for 3d, not a clip.
 
 **Phase 4: the broadcast.** On by default wherever WebGL2 and float targets work.
 - `gl/crowd.js` with seated and reaction clips; replays in slow motion; dead-time rituals; the grounds
