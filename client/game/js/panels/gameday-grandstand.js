@@ -11,9 +11,11 @@
 // 3-D one can't: no WebGL2, no float target, a shader that won't build, or a lost context. The
 // last payload and the booth's line go with it.
 //
-// What's built (Phases 1a to 1d of docs/proposals/deadball-glass2.md): the park from the venue's
+// What's built (Phases 1a to 1e of docs/proposals/deadball-glass2.md): the park from the venue's
 // defaults through the batting view, lit by its towers, the scoreboard lit with the game, the
-// players posed where each payload has them, and the arcade graphics over the picture
+// city round it as a set composed from the league's venue (venue.js), with the park's own brick
+// outside and its name over the gate, the players posed where each payload has them, and the
+// arcade graphics over the picture
 // (diamond/hud.js): the score and the count as lamps, the pitch speed, the zone with the last
 // pitch, a matchup card as each man comes up, a steal's card, splash words for the cards the
 // broadcast throws, and between innings the league's leaders as a high-score table. The booth's
@@ -25,6 +27,7 @@
 // The sim on the server decides everything. Nothing here can change a score.
 
 import { createGamedayView, GAMEDAY_CLOCK, GAMEDAY_CARDS } from './gameday.js';
+import { venueOf, onVenue } from './venue.js';
 import { prefersReducedMotion } from '../../../shared/settings.js';
 
 export const GRANDSTAND_FLAG = 'deadball.grandstand';
@@ -61,7 +64,7 @@ export function createGrandstandView(host, opts = {}) {
   if (!opts.force && !grandstandOn(win)) return createGamedayView(host);
 
   let flat = null;              // the 2-D view, once the 3-D one has given way to it
-  let R = null, hud = null, canvas = null, mounted = false, modsP = null, mods = null, ro = null, raf = 0;
+  let R = null, hud = null, canvas = null, mounted = false, modsP = null, mods = null, ro = null, raf = 0, unVenue = null;
   let last = null, caption = '', pendingCaption = null, pendingCard = null, playing = false;
   let timers = [], tableTimer = null, shot = opts.shot || 'high';
   // what the graphics and the board show: the score, the count, the outs and the bags, and the
@@ -87,6 +90,7 @@ export function createGrandstandView(host, opts = {}) {
     if (flat) return;
     if (why) console.warn('[grandstand] drawing in 2-D:', why);
     stopTimers(); stopLoop(); stopTable(); dropHolds();
+    unVenue?.(); unVenue = null;
     try { R?.dispose(); } catch { /* already gone */ }
     hud?.dispose();
     R = null; hud = null; canvas = null; mounted = false;
@@ -133,7 +137,15 @@ export function createGrandstandView(host, opts = {}) {
     });
     const box = host.querySelector('.gds-park');
     if (win?.ResizeObserver && box) { ro = new win.ResizeObserver(() => { if (size()) draw(); hud?.paint(); }); ro.observe(box); }
+    // the city round the park: the venue this browser holds, then any newer one the server sends
+    setCity();
+    unVenue = onVenue((sport) => { if (sport === 'baseball') { setCity(); draw(); } });
     return true;
+  }
+  function setCity() {
+    const v = opts.venue || venueOf('baseball');
+    if (!v || !R) return;
+    try { R.setVenue(v); } catch (err) { console.warn('[grandstand] the city round the park would not build:', err && err.message); }
   }
   // The backing store follows the box at the device's pixel ratio, capped by the renderer's rung.
   function size() {
@@ -373,6 +385,7 @@ export function createGrandstandView(host, opts = {}) {
   function clear() {
     if (flat) { flat.clear(); flat = null; }
     stopTimers(); stopLoop(); stopTable(); dropHolds();
+    unVenue?.(); unVenue = null;
     ro?.disconnect(); ro = null;
     try { R?.dispose(); } catch { /* already gone */ }
     hud?.dispose();

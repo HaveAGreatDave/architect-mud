@@ -1,0 +1,233 @@
+// Cityscape smoke: the city round Deadball's park, composed and built without a GPU.
+//
+// The broadcast's park is full size, so the city the cameras see past its walls is a set built
+// from the map's buildings (docs/proposals/deadball-glass2.md, On TV the city is a set). This
+// builds it the way a client does, from the content tree instead of the server's memory:
+//
+//   1. THE SKYLINE. The buildings within reach of the venue's site, and the edges round it, from
+//      the content tree's zones (client/shared/skyline-manifest.js, with the engine's own rule
+//      for a building's door).
+//   2. THE SET. client/shared/city-set.js composes it round the full park's outline: every
+//      building gets a plot, its place on the water or its place past a wall, none inside the
+//      park; bearings from home plate move under 3° at the median and under 25° within 900 ft;
+//      the edges are straight and on tile lines; every plot fronts a street or backs onto the
+//      set's edge; the park stands in its superblock; nothing tall stands within 48 ft of a
+//      street-level camera.
+//   3. THE CITY. gl/cityscape.js builds it: every building resolves to a shape at the flight
+//      sim's size, every float finite and every material one the park's shader knows, every road
+//      tile drawn from its arms, the lamps outside the park, the Curtain on the walls, and the
+//      lot inside its triangle budget.
+//   4. NO REGION NAMED. The engine files say nothing about Coldwater: the site, the skyline and
+//      the venue's art direction say it all.
+//
+// It proves the set composes and the city builds. It doesn't draw a frame: the sandbox page
+// (tools/sandbox/deadball-park-test.html?park=3d) is for looking.
+//
+// Run:  node scripts/shapes/cityscape-smoke.mjs
+
+import { readdirSync, readFileSync } from 'node:fs';
+import { performance as clock } from 'node:perf_hooks';
+
+const ROOT = new URL('../../', import.meta.url);
+const P = '../../client/game/js/panels/';
+const { skylineFrom } = await import('../../client/shared/skyline-manifest.js');
+const { composeSet, insidePoly, SET_STYLES } = await import('../../client/shared/city-set.js');
+const { CURTAIN_H } = await import('../../client/shared/skyline-scale.js');
+const { buildingEntranceDir } = await import('../../server/engine/world.js');
+const { parkOutline, venueField } = await import(P + 'diamond/geo.js');
+const M = await import(P + 'gl/ballpark-mesh.js');
+const { buildCityscape, cityShape } = await import(P + 'gl/cityscape.js');
+
+let failures = 0, passes = 0;
+const check = (label, ok, detail) => {
+  if (ok) { passes++; return; }
+  failures++;
+  console.log(`  FAIL ${label}${detail ? ` (${detail})` : ''}`);
+};
+
+// ── 1. the skyline ───────────────────────────────────────────────────────────
+const t0 = clock.now();
+const zones = [];
+const zdir = new URL('content/zones/', ROOT);
+for (const f of readdirSync(zdir)) {
+  if (!f.endsWith('.json')) continue;
+  const z = JSON.parse(readFileSync(new URL(f, zdir), 'utf8'));
+  if (z.map_id === 'map_world') zones.push(z);
+}
+const row = JSON.parse(readFileSync(new URL('content/media_broadcasts/bc_1783289744953.json', ROOT), 'utf8'));
+const venue = row.sports_pools?.venue;
+check('the venue has a site', Number.isFinite(venue?.site?.x) && Number.isFinite(venue?.site?.y) && Number.isFinite(venue?.site?.bearing) && !!venue?.site?.block);
+check('the venue has a name for its sign', typeof venue?.name === 'string' && venue.name.trim().length > 0);
+const REACH = 40;
+const sky = skylineFrom(zones, venue.site, { radius: REACH, entranceOf: buildingEntranceDir });
+check('the skyline has its buildings', sky.buildings.length > 150, `${sky.buildings.length}`);
+check('the skyline has an edge on every side', ['w', 'e', 'n', 's'].every((s) => sky.edges[s]), JSON.stringify(Object.keys(sky.edges)));
+check('every skyline row has a tile and a type', sky.buildings.every((b) => Number.isInteger(b.x) && Number.isInteger(b.y) && typeof b.t === 'string' && b.t));
+check('the skyline is nearest first', sky.buildings.every((b, i, a) => i === 0 || Math.hypot(a[i - 1].x + 0.5 - venue.site.x, a[i - 1].y + 0.5 - venue.site.y) <= Math.hypot(b.x + 0.5 - venue.site.x, b.y + 0.5 - venue.site.y) + 1e-9));
+check('the skyline is small enough to send', JSON.stringify(sky).length < 40000, `${JSON.stringify(sky).length} bytes`);
+
+// ── 2. the set ───────────────────────────────────────────────────────────────
+const outline = parkOutline(venueField(venue));
+const blk = venue.site.block;
+const inBlock = (b) => b.x >= blk.x0 && b.x <= blk.x1 && b.y >= blk.y0 && b.y <= blk.y1;
+// street-level cameras: on the crossing outside the main gate and two corners of the plaza
+const probe = composeSet({ site: venue.site, skyline: sky, outline, art: venue.city });
+const roadsNear = [...probe.cells].filter(([, t]) => t === 'road').map(([k]) => k.split(',').map(Number))
+  .map(([i, j]) => probe.cellPt(i, j)).sort((a, b) => Math.hypot(a[0], a[2] + 320) - Math.hypot(b[0], b[2] + 320));
+const cameras = roadsNear.slice(0, 3).map((p) => [p[0], 6, p[2]]);
+const t1 = clock.now();
+const set = composeSet({ site: venue.site, skyline: sky, outline, art: venue.city, cameras });
+const composeMs = clock.now() - t1;
+const T = set.T;
+const want = sky.buildings.filter((b) => !inBlock(b));
+check('every building outside the park block is placed', set.unplaced.length === 0 && set.placed.length === want.length, `${set.placed.length} of ${want.length}; unplaced ${set.unplaced.join(', ')}`);
+check('no building on the park block', set.placed.every(({ b }) => !inBlock(b)));
+{
+  let inside = [];
+  for (const { b, at } of set.placed) if (insidePoly(outline, at, T * 0.5)) inside.push(b.n || b.t);
+  check('no building inside the park', inside.length === 0, inside.slice(0, 5).join(', '));
+}
+{
+  const used = new Set(), twice = [], notPlot = [];
+  for (const p of set.placed) {
+    if (!p.cell) continue;
+    const k = p.cell.join(',');
+    if (used.has(k)) twice.push(k);
+    used.add(k);
+    if (set.cells.get(k) !== 'plot') notPlot.push(k);
+  }
+  check('a building a plot, and only on a plot', twice.length === 0 && notPlot.length === 0, `twice ${twice.length}, not a plot ${notPlot.length}`);
+  check('every building has a plot, the water or its own place', set.placed.every((p) => p.cell || p.loose));
+}
+{
+  const wet = set.placed.filter((p) => p.wet), side = ['n', 's', 'w', 'e'].find((s) => set.walls.kinds[s] === 'shore');
+  const off = (p) => { const [u, v] = set.uvOf(p.at); return side === 'n' ? v - set.walls.vN : side === 's' ? set.walls.vS - v : side === 'w' ? set.walls.uW - u : u - set.walls.uE; };
+  check('what stands on the water stands past the shore', !side || wet.every((p) => off(p) > 0), wet.filter((p) => off(p) <= 0).map((p) => p.b.n || p.b.t).join(', '));
+  check('the water has its piers', !side || wet.length > 0, `${wet.length}`);
+}
+check('bearings move under 3° at the median', set.bearing.median < 3, `${set.bearing.median.toFixed(2)}°`);
+check('bearings move under 25° within 900 ft', !set.bearing.worstNear || set.bearing.worstNear.d < 25, JSON.stringify(set.bearing.worstNear));
+{
+  const { uW, uE, vN, vS, kinds } = set.walls;
+  const onLine = (w) => Math.abs(w / T - Math.round(w / T)) < 1e-9;
+  check('the edges are on tile lines', [uW, uE, vN, vS].every(onLine), JSON.stringify(set.walls));
+  check('the edges stand round the park', uW < 0 && uE > 0 && vS < 0 && vN > 0);
+  check('the edges are the map\'s', ['w', 'e', 'n', 's'].every((s) => kinds[s] === (sky.edges[s]?.wall != null ? 'wall' : sky.edges[s]?.shore ? 'shore' : null)), JSON.stringify(kinds));
+  const { iMin, iMax, jMin, jMax } = set.grid;
+  check('the set is a rectangle of cells', set.cells.size === (iMax - iMin + 1) * (jMax - jMin + 1), `${set.cells.size} cells`);
+  // past every edge the outline's far point stays inside
+  let out = 0;
+  for (const p of outline) { const [u, v] = set.uvOf(p); if (u <= uW || u >= uE || v <= vS || v >= vN) out++; }
+  check('the park is inside the edges', out === 0, `${out} outline points outside`);
+}
+{
+  // every plot fronts a street, or backs onto the set's edge (the towers along a wall), so a
+  // block is plots with streets round them
+  const K = (i, j) => set.cells.get(i + ',' + j);
+  let landlocked = 0, park = 0, parkWrong = 0;
+  for (const [k, t] of set.cells) {
+    const [i, j] = k.split(',').map(Number);
+    if (t === 'plot' && ![[0, -1], [1, 0], [0, 1], [-1, 0]].some(([di, dj]) => { const n = K(i + di, j + dj); return n === 'road' || n === undefined; })) landlocked++;
+    if (insidePoly(outline, set.cellPt(i, j))) { park++; if (t !== 'park') parkWrong++; }
+  }
+  check('every plot fronts a street or the edge', landlocked === 0, `${landlocked} plots`);
+  check('the park stands in its superblock', park > 30 && parkWrong === 0, `${parkWrong} of ${park} cells under the park aren't the park's`);
+}
+{
+  // nothing tall within 48 ft of a street-level camera
+  const near = (p) => cameras.some((e) => Math.hypot(p[0] - e[0], p[2] - e[2]) <= 48);
+  const tall = set.placed.filter((p) => !p.loose && (p.b.f || 0) >= 5 && near(p.at)).map((p) => p.b.n || p.b.t);
+  const tallFill = set.fill.filter((f) => f.floors > 4 && near(f.at));
+  check('nothing tall beside a street-level camera', cameras.length === 3 && tall.length === 0 && tallFill.length === 0, `${tall.join(', ')}; ${tallFill.length} filler`);
+}
+check('the filler is in the venue\'s styles', set.fill.length > 40 && set.fill.every((f) => SET_STYLES.includes(f.style) && f.floors >= 1), `${set.fill.length}`);
+check('the same set twice', (() => {
+  const again = composeSet({ site: venue.site, skyline: sky, outline, art: venue.city, cameras });
+  return again.placed.length === set.placed.length && again.placed.every((p, i) => p.at.every((v, k) => v === set.placed[i].at[k])) && again.fill.length === set.fill.length;
+})());
+
+// ── 3. the city ──────────────────────────────────────────────────────────────
+const t2 = clock.now();
+const city = buildCityscape(set, { art: venue.city, outline });
+const buildMs = clock.now() - t2;
+const { stats } = city;
+check('every building resolves to a shape', stats.missing.length === 0 && stats.buildings === set.placed.length, stats.missing.slice(0, 5).join(', '));
+check('every building has a storey', set.placed.every(({ b }) => { const s = cityShape(b); return s && s.segs.length > 0 && s.storey > 0; }));
+const KNOWN = new Set(Object.values(M.MAT));
+let tris = 0;
+{
+  let bad = 0, badMat = 0, badN = 0, empty = 0;
+  for (const m of [city.opaque, city.glow]) for (const [, b] of m) {
+    if (!(b.n > 0 && b.n % 3 === 0)) empty++;
+    tris += b.n / 3;
+    const d = b.data;
+    for (let v = 0; v < b.n; v++) {
+      const o = v * M.STRIDE;
+      for (let k = 0; k < M.STRIDE; k++) if (!Number.isFinite(d[o + k])) bad++;
+      if (!KNOWN.has(d[o + 11])) badMat++;
+      if (Math.abs(Math.hypot(d[o + 3], d[o + 4], d[o + 5]) - 1) > 1e-3) badN++;
+    }
+  }
+  check('every batch has whole triangles', empty === 0, `${empty} batches`);
+  check('every float finite', bad === 0, `${bad} not finite`);
+  check('every material known to the park\'s shader', badMat === 0, `${badMat} vertices`);
+  check('every normal a unit', badN === 0, `${badN} vertices`);
+}
+check('the facades are the shader\'s', city.opaque.get('city')?.n > 0 && (() => { const b = city.opaque.get('city'); for (let v = 0; v < b.n; v++) if (b.data[v * M.STRIDE + 11] !== M.MAT.FACADE) return false; return true; })());
+{
+  // every road tile drawn from its arms: its own quad, its arms what the cells beside it are
+  const b = city.opaque.get('streets'), drawn = new Map();
+  for (let v = 0; v < b.n; v += 6) {
+    const o = v * M.STRIDE;
+    if (b.data[o + 11] !== M.MAT.STREET || b.data[o + 9] !== 1) continue;
+    const cx = (b.data[o] + b.data[o + 2 * M.STRIDE]) / 2, cz = (b.data[o + 2] + b.data[o + 2 * M.STRIDE + 2]) / 2;
+    const [u, w] = set.uvOf([cx, 0, cz]);
+    drawn.set(Math.floor(u / T) + ',' + Math.floor(-w / T), Math.round(b.data[o + 8] * 16));
+  }
+  const K = (i, j) => set.cells.get(i + ',' + j) === 'road';
+  let missing = 0, wrong = 0, alone = 0, roads = 0;
+  for (const [k, t] of set.cells) {
+    if (t !== 'road') continue;
+    roads++;
+    const [i, j] = k.split(',').map(Number);
+    const mask = (K(i, j - 1) ? 1 : 0) | (K(i + 1, j) ? 2 : 0) | (K(i, j + 1) ? 4 : 0) | (K(i - 1, j) ? 8 : 0);
+    if (!drawn.has(k)) missing++;
+    else if (drawn.get(k) !== mask) wrong++;
+    if (!mask) alone++;
+  }
+  check('every road tile drawn from its arms', roads === stats.roads && missing === 0 && wrong === 0, `${missing} missing, ${wrong} with the wrong arms of ${roads}`);
+  check('no road tile stands alone', alone === 0, `${alone}`);
+}
+{
+  // the lamps light the streets and the plaza, never the park
+  const pools = city.glow.get('pool');
+  let inside = 0;
+  for (let v = 0; v < pools.n; v += 6) {
+    const o = v * M.STRIDE, c = [(pools.data[o] + pools.data[o + 2 * M.STRIDE]) / 2, 0, (pools.data[o + 2] + pools.data[o + 2 * M.STRIDE + 2]) / 2];
+    if (insidePoly(outline, c)) inside++;
+  }
+  check('a lamp and its pool on the streets', stats.lamps > 300 && pools.n / 6 === stats.lamps, `${stats.lamps} lamps, ${pools.n / 6} pools`);
+  check('no lamp inside the park', inside === 0, `${inside}`);
+  check('a beacon on the tall roofs', stats.beacons > 10, `${stats.beacons}`);
+}
+{
+  // the Curtain on every wall, straight along it and at the flight sim's height
+  const walls = Object.values(set.walls.kinds).filter((k) => k === 'wall').length;
+  const along = city.curtain.every(({ a, b }) => { const [ua, va] = set.uvOf(a), [ub, vb] = set.uvOf(b); return Math.abs(ua - ub) < 1e-6 || Math.abs(va - vb) < 1e-6; });
+  check('the Curtain stands on every wall', city.curtain.length === walls && walls > 0, `${city.curtain.length} of ${walls}`);
+  check('the Curtain runs straight, at its height', along && city.curtain.every((c) => Math.abs(c.h - CURTAIN_H * T) < 1e-9));
+}
+const TRI_BUDGET = 120000;
+check('inside the triangle budget', tris > 20000 && tris <= TRI_BUDGET, `${Math.round(tris)} triangles`);
+check('composes and builds in under 1.5 s', composeMs + buildMs < 1500, `${(composeMs + buildMs).toFixed(0)} ms`);
+
+// ── 4. no region named ───────────────────────────────────────────────────────
+for (const file of ['client/shared/city-set.js', 'client/shared/skyline-manifest.js', 'client/game/js/panels/gl/cityscape.js', 'server/engine/skyline.js']) {
+  const src = readFileSync(new URL(file, ROOT), 'utf8').replace(/deadball-glass2\.md/g, '');
+  const hit = src.match(/coldwater|halcyon|scarlet|wildland|basin|deadball|ksab/i);
+  check(`${file} names no region`, !hit, hit && hit[0]);
+}
+
+console.log(`cityscape-smoke: ${passes}/${passes + failures} passed · ${set.placed.length} buildings, ${set.fill.length} filler, ${stats.lamps} lamps, ` +
+  `${Math.round(tris)} triangles; composed in ${composeMs.toFixed(0)} ms, built in ${buildMs.toFixed(0)} ms (${(clock.now() - t0).toFixed(0)} ms in all)`);
+process.exit(failures ? 1 : 0);

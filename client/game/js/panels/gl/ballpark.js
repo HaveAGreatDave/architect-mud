@@ -15,13 +15,20 @@
 //     (diamond/board.js), redrawn when the game changes;
 //   · the players are posed bodies (gl/ballplayer-mesh.js) for the cast of each payload
 //     (diamond/cast.js), built a few a frame so a new cast never stalls the page, with the street
-//     figure's heads shaded with their faces from the atlas as the Actor Lab shades them.
+//     figure's heads shaded with their faces from the atlas as the Actor Lab shades them;
+//   · outside, the park's brick wall is painted in the shader (EXTERIOR), and its name is lit
+//     over the main gate once the venue says it;
+//   · the city round it is a set composed from the league's venue (client/shared/city-set.js)
+//     and built once (gl/cityscape.js): facades and streets painted from their coordinates,
+//     sodium lamps with their pools added over the ground, and the Curtain on the set's walls
+//     in gl/curtain.js's own look. The towers reach it through a narrower beam.
 //
 // The frame, in order (docs/proposals/deadball-glass2.md, Lighting and the frame):
 //
 //   1. shadows: four of the towers draw perspective maps of whatever casts (gl/spotshadow.js);
-//   2. the main pass into hdr.js's target: the sky, the park, the crowd, the backstop net, each
-//      through the night air, which is height fog with the towers' light scattered in it (fog.js);
+//   2. the main pass into hdr.js's target: the sky, the park, the city, the crowd, the backstop
+//      net, then the lamps' pools and the Curtain added over them, each through the night air,
+//      which is height fog with the towers' light scattered in it (fog.js);
 //   3. the depth the frame was drawn with, resolved into a texture for the lens and the occlusion;
 //   4. ambient occlusion from that depth at half size (ssao.js);
 //   5. bloom off the lamps (hdr.js), then the lens, the curve and the grade (gl/broadcast.js).
@@ -51,6 +58,11 @@ export { castOf } from '../diamond/cast.js';
 import { paintKitAtlas, paintLogos, paintLeather, paintWood, paintMask } from '../diamond/kits.js';
 import { FACE_GLSL, FACE_ATLAS } from '../actor-faces.js';
 import { HAIRLINE_GLSL } from '../actor-head.js';
+import { buildCityscape, FACADE_GLSL, STREET_GLSL } from './cityscape.js';
+import { composeSet } from '../../../../shared/city-set.js';
+import { CURTAIN_FRAG } from './curtain.js';
+import { applyLinOut } from './colour.js';
+import { HUD_FACES, loadHudFaces } from '../diamond/hud.js';
 
 const FACE = '"Arial Narrow", "Roboto Condensed", Arial, sans-serif';
 
@@ -83,6 +95,8 @@ vec3 airOf(vec3 c, vec3 P) {
   for (int i = 0; i < 6; i++) sc += uLCol[i] * lightShaft(uEye.xzy, P.xzy, uLPos[i].xzy, uShaftReach, uFogDens, uFogH);
   return mix(c, uFogCol, f) + sc * uShaft;
 }
+// How much of a light added over the frame the air between hides.
+float hazeOf(vec3 P) { return heightFog(uEye.y, P.y, length(P - uEye), uFogDens, uFogH); }
 `;
 
 // A player's head, as the Actor Lab shades the street figure's (actor-head.js, actor-faces.js): in
@@ -150,12 +164,82 @@ void headShade(inout vec3 alb, inout float rough, inout float f0s, inout float w
 }
 `;
 
+// The park's outer wall (ballpark-mesh.js buildExterior), in the manner of the city ballparks of
+// the early 1990s: brick piers, a ground arcade lit from the concourse, a band of arched windows
+// with the club level lit behind, an open steel tier under the upper deck with its ceiling lamps
+// showing, cast-stone bands and a cornice, and the floods at its foot washing the brick. vUv is
+// (feet along, feet up); vCol is (seed, height / 100, 1 for the outfield's lower wall).
+const EXTERIOR_GLSL = `
+float wallHash(vec2 p) { vec3 p3 = fract(vec3(p.xyx) * 0.1031); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.x + p3.y) * p3.z); }
+void exterior(out vec3 alb, out float rough, out float f0s, out vec3 emis) {
+  float u = vUv.x, v = vUv.y, H = vCol.g * 100.0; bool outfield = vCol.b > 0.5;
+  const float BAY = 26.0; float bu = (fract(u / BAY) - 0.5) * BAY; float bayI = floor(u / BAY);
+  vec2 fw = fwidth(vUv) + 1e-3;
+  vec4 n1 = texture(uGrass, vUv / 6.0);
+  // brick, coursed, the coursing fading out with distance
+  float course = abs(fract(v / 0.22) - 0.5), cfw = fwidth(v / 0.22);
+  float mortar = (1.0 - smoothstep(0.38, 0.38 + cfw * 1.5, course)) * (1.0 - smoothstep(0.2, 0.6, cfw));
+  vec3 brick = vec3(0.20, 0.068, 0.040) * (0.82 + 0.3 * n1.r) * (1.0 - 0.25 * (1.0 - mortar));
+  vec3 stone = vec3(0.34, 0.30, 0.24) * (0.9 + 0.15 * n1.g);
+  vec3 steel = vec3(0.020, 0.060, 0.045);
+  alb = brick; rough = 0.86; f0s = 0.03; emis = vec3(0.0);
+  // the piers stand between the openings, at the bay's ends
+  float pier = smoothstep(9.5, 9.5 + fw.x * 2.0, abs(bu));
+  // the arcade: openings about seventeen feet wide, round heads springing at sixteen feet
+  float aw = 8.6, spring = 16.0;
+  float dA = (v < spring) ? abs(bu) - aw : length(vec2(bu, v - spring)) - aw;
+  float arch = 1.0 - smoothstep(-fw.x, fw.x, dA);
+  float voussoir = (1.0 - smoothstep(0.0, 1.6, abs(dA - 0.8))) * step(spring - 1.0, v);
+  alb = mix(alb, stone, voussoir * 0.85);
+  // the concourse behind the arches, lit from its ceiling, people moving against it
+  float ceilG = smoothstep(2.0, spring + aw, v);
+  float crowd = step(v, 6.4) * smoothstep(0.3, 0.7, wallHash(vec2(floor(u / 1.6), 3.0)));
+  vec3 inside = vec3(1.0, 0.70, 0.40) * (0.35 + 0.9 * ceilG) * (1.0 - 0.75 * crowd);
+  alb = mix(alb, vec3(0.02), arch); rough = mix(rough, 0.6, arch);
+  emis += inside * arch * 0.12;
+  // cast-stone bands over the arcade and at the cornice
+  float band1 = step(abs(v - 26.0), 1.2), corn = step(H - 3.5, v);
+  alb = mix(alb, stone, max(band1, corn));
+  if (!outfield && H > 60.0) {
+    // arched windows on the second tier, the club level lit behind them
+    float wv = 31.0, wt = 41.0, ww = 4.2;
+    float dW = (v < wt) ? max(abs(bu) - ww, wv - v) : length(vec2(bu, v - wt)) - ww;
+    float win = 1.0 - smoothstep(-fw.x, fw.x, dW);
+    float clubLit = step(0.25, wallHash(vec2(bayI, 11.0)));
+    alb = mix(alb, vec3(0.015, 0.017, 0.02), win); rough = mix(rough, 0.12, win); f0s = mix(f0s, 0.06, win);
+    emis += vec3(1.0, 0.82, 0.58) * win * clubLit * (0.05 + 0.1 * smoothstep(wv, wt + ww, v));
+    alb = mix(alb, stone, step(abs(v - 50.0), 1.0));
+    // the open steel tier: green columns and braces, and behind them the upper concourse in
+    // shadow, its ceiling lamps in a row and the deck's underside catching their light
+    if (v > 52.0 && v < H - 4.0) {
+      float col = 1.0 - smoothstep(1.4, 1.4 + fw.x * 2.0, abs(bu));
+      float brace = (1.0 - smoothstep(0.5, 0.5 + fw.x * 2.0, abs(abs(bu) - (v - 52.0) * 0.5))) * step(v, 76.0);
+      float rail = step(abs(v - 56.0), 0.35) + step(abs(v - 59.0), 0.25);
+      float frame = clamp(col + brace + rail, 0.0, 1.0);
+      vec2 lp = vec2(fract(u / 13.0) - 0.5, v - (H - 9.0));
+      float lampDot = exp(-dot(lp * vec2(13.0, 1.0), lp * vec2(13.0, 1.0)) / 0.5);
+      float soffit = smoothstep(H - 16.0, H - 6.0, v);
+      vec3 upper = vec3(1.0, 0.84, 0.62) * (0.012 + 0.05 * soffit + 1.6 * lampDot);
+      alb = mix(vec3(0.01), steel, frame); rough = mix(0.7, 0.45, frame);
+      emis += upper * (1.0 - frame);
+    }
+  }
+  // the piers stay brick through the arcade
+  alb = mix(alb, brick * 1.08, pier * (1.0 - band1) * (1.0 - corn) * step(v, 50.0) * (1.0 - voussoir));
+  emis *= 1.0 - pier * step(v, 50.0);
+  // the floods at the wall's foot: warm light up the brick, strongest on the piers
+  float wash = exp(-v / 34.0) * (0.55 + 0.45 * pier) * (0.8 + 0.2 * cos(bu * 0.24));
+  emis += alb * vec3(1.0, 0.78, 0.55) * wash * 2.4 * (1.0 - arch);
+}
+`;
+
 const LIT_FS = `#version 300 es
 precision highp float;
 in vec3 vPos; in vec3 vNrm; in vec2 vUv; in vec3 vCol; flat in int vMat;
 uniform sampler2D uTex; uniform sampler2D uDirt; uniform sampler2D uGrass; uniform sampler2D uBoard;
 uniform int uTextured; uniform float uAlphaTest; uniform float uAlpha; uniform float uEmis;
 uniform vec3 uFence; uniform vec2 uBoardRes; uniform vec3 uBoardOn;
+uniform float uCityLit; uniform float uPoolK;
 uniform int uLSh[6]; uniform int uSpotN;
 uniform sampler2D uFaceAtlas;
 uniform vec4 uHeadA[28];
@@ -166,6 +250,9 @@ out vec4 o;
 ${LIGHTS_GLSL}
 ${SPOT_SHADOW_GLSL}
 ${HEAD_GLSL}
+${FACADE_GLSL}
+${STREET_GLSL}
+${EXTERIOR_GLSL}
 float ggxD(float NoH, float a) { float a2 = a * a; float d = NoH * NoH * (a2 - 1.0) + 1.0; return a2 / (PI * d * d); }
 float visSG(float NoV, float NoL, float a) { float a2 = a * a; float gv = NoL * sqrt(NoV * NoV * (1.0 - a2) + a2); float gl = NoV * sqrt(NoL * NoL * (1.0 - a2) + a2); return 0.5 / max(gv + gl, 1e-4); }
 // the fence's distance at a bearing from straight-away centre: the venue's line, centre and curve
@@ -177,6 +264,14 @@ void main() {
   if (uTextured == 1) { tex = texture(uTex, vUv); if (tex.a < uAlphaTest) discard; }
   vec3 alb = vCol * tex.rgb;
   if (vMat == ${MAT.EMISSIVE}) { o = vec4(airOf(alb * uEmis, vPos), uAlpha * tex.a); return; }
+  if (vMat == ${MAT.POOL}) {
+    // a pool of lamplight, added over the ground: the light under a lamp 26 ft up across a quad
+    // 38 ft round (gl/cityscape.js), faded at its rim
+    vec2 q = vUv * 2.0 - 1.0; float d2 = dot(q, q), h = 26.0 / 38.0;
+    float E = pow(h * h / (d2 + h * h), 1.5) * (1.0 - smoothstep(0.6, 1.0, sqrt(d2)));
+    o = vec4(vCol * E * uPoolK * (1.0 - hazeOf(vPos)), 1.0);
+    return;
+  }
   if (vMat == ${MAT.BOARD}) {
     // a face of lamps: each cell of the grid is one lamp, lit where the mask says
     vec2 g = vUv * uBoardRes, f = fract(g) - 0.5;
@@ -188,7 +283,17 @@ void main() {
     return;
   }
   float rough = 0.85, metal = 0.0, wrap = 0.0, f0s = 0.04, ao = 1.0;
-  if (vMat == ${MAT.GROUND}) {
+  vec3 emis = vec3(0.0);
+  // the city and the park's outside stand past where the floods are aimed (below)
+  bool far = vMat == ${MAT.FACADE} || vMat == ${MAT.STREET} || vMat == ${MAT.EXTERIOR};
+  if (vMat == ${MAT.FACADE}) { facade(alb, rough, f0s, emis, metal); ao = mix(0.62, 1.0, smoothstep(0.0, 1.6, vPos.y)); }
+  else if (vMat == ${MAT.STREET}) { street(alb, rough, f0s); }
+  else if (vMat == ${MAT.EXTERIOR}) {
+    // from inside the park its back is plain
+    if (dot(N, V) < 0.0) { alb = vec3(0.022, 0.021, 0.02); rough = 0.95; N = -N; }
+    else exterior(alb, rough, f0s, emis);
+    ao = mix(0.62, 1.0, smoothstep(0.0, 1.6, vPos.y));
+  } else if (vMat == ${MAT.GROUND}) {
     // the field, painted: grass and its mowing, the track, the lines, then the infield canvas
     vec2 xz = vPos.xz;
     vec2 duv = (xz - vec2(${DIRT_RECT.x0.toFixed(1)}, ${DIRT_RECT.z0.toFixed(1)})) / ${DIRT_RECT.size.toFixed(1)};
@@ -254,13 +359,18 @@ void main() {
     vec3 spec = ggxD(NoH, a) * visSG(NoV, nl, a) * F;
     // the four towers that cast throw this point into shadow where a caster stands between
     float sh = (uLSh[i] >= 0 && uLSh[i] < uSpotN) ? spotShadow(uLSh[i], vPos + N * 0.04) : 1.0;
-    vec3 rad = uLCol[i] * spotOf(i, L, 0.05) * mix(sh, 1.0, 0.08) * exp(-max(d - 700.0, 0.0) / 240.0);
+    vec3 rad = uLCol[i] * spotOf(i, L, far ? 0.012 : 0.05) * mix(sh, 1.0, 0.08) * exp(-max(d - 700.0, 0.0) / 240.0);
+    // past the field: a narrower beam and the inverse square, so the faces toward the park catch
+    // some light and no more
+    if (far) rad *= smoothstep(0.80, 0.97, dot(-L, uLDir[i])) * 0.9 + 0.12 * min(1.0, pow(260.0 / d, 2.0));
     col += (dif / PI * wd * (vMat == ${MAT.GROUND} ? 0.45 + 0.55 * ao : 1.0) + spec * nl) * rad;
     // light through skin: a warm wrap past the terminator
     if (vMat == ${MAT.SKIN} || vMat == ${MAT.HEAD} || vMat == ${MAT.EAR} || vMat == ${MAT.NECK}) col += alb * vec3(0.10, 0.025, 0.01) * max(wd - nl, 0.0) * rad;
   }
   // cloth has a sheen at grazing angles
   if (vMat == ${MAT.CLOTH}) col += dif * pow(1.0 - NoV, 4.0) * 0.05 * uSkyUp;
+  // what lights itself: windows, the arcade, the floods at the wall's foot
+  col += emis * uCityLit;
   o = vec4(airOf(col, vPos), uAlpha * tex.a);
 }`;
 
@@ -322,7 +432,15 @@ void main() {
   o = vec4(oetf(aces(max(c, 0.0) * uExp)), 1.0);
 }`;
 
-for (const [vs, fs] of [[LIT_VS, LIT_FS], [CROWD_VS, CROWD_FS], [FULL_VS, SKY_FS], [FULL_VS, FINAL_FS]]) declareProgram(vs, fs);
+// The Curtain round the city, with gl/curtain.js's own look over the park's frame: pos3, uv2 (0..1
+// along a panel, 0 at the crown to 1 at the ground), its strength and the lockdown's red.
+const CURTAIN_VS = `#version 300 es
+layout(location = 0) in vec3 aPos; layout(location = 1) in vec2 aUV; layout(location = 2) in float aAlpha; layout(location = 3) in float aRed;
+uniform mat4 uVP;
+out vec2 vUV; out float vAlpha; out float vRed;
+void main() { vUV = aUV; vAlpha = aAlpha; vRed = aRed; gl_Position = uVP * vec4(aPos, 1.0); }`;
+
+for (const [vs, fs] of [[LIT_VS, LIT_FS], [CROWD_VS, CROWD_FS], [FULL_VS, SKY_FS], [FULL_VS, FINAL_FS], [CURTAIN_VS, CURTAIN_FRAG]]) declareProgram(vs, fs);
 
 // The textures whose clear texels are holes: the wall's distances, the monograms, the masks' bars.
 const ALPHA_TEST = new Set(['nums', 'logo', 'mask']);
@@ -333,6 +451,9 @@ const NIGHT = {
   up: [0.006, 0.008, 0.016], dn: [0.024, 0.032, 0.017], zen: [0.0018, 0.0024, 0.0065], hor: [0.005, 0.006, 0.009],
   glow: [0.010, 0.008, 0.006], towers: 3.6,
   fog: [0.004, 0.0045, 0.0055], fogDens: 0.00022, fogH: 160, shaft: 1.0, shaftReach: 260,
+  // the city: its windows and the park's arcade, the lamps' pools, the Curtain (well down from the
+  // flight sim's strength, so the field stays the brightest thing in the picture), the park's sign
+  cityLit: 1.5, pool: 0.032, curtain: 0.32, sign: 9,
 };
 
 // The quality rungs the view's governor steps through, cheapest last: the lens's taps, the
@@ -466,6 +587,7 @@ export function createBallparkRenderer(canvas, opts = {}) {
       return { p, u: (n) => (u[n] ??= gl.getUniformLocation(p, n)) };
     };
     const LIT = prog(LIT_VS, LIT_FS), CROWD = prog(CROWD_VS, CROWD_FS), SKY = prog(FULL_VS, SKY_FS), FINAL = prog(FULL_VS, FINAL_FS);
+    const CURT = prog(CURTAIN_VS, CURTAIN_FRAG);
 
     // ── textures ──────────────────────────────────────────────────────────────
     const T2 = gl.TEXTURE_2D;
@@ -634,6 +756,74 @@ export function createBallparkRenderer(canvas, opts = {}) {
       for (const pl of players.values()) for (const b of pl.batches) api.casters.push({ vao: b.vao, n: b.n });
     }
 
+    // ── the city round the park, and the park's name over its gate ─────────────
+    // From the league's venue (venue.js): the content's site and art direction and the server's
+    // skyline. The set is composed round this park's own outline (client/shared/city-set.js) and
+    // built once (gl/cityscape.js), then each frame only draws it. A new venue replaces it.
+    let city = null, cityVenue = null;
+    TEX.sign = null;
+    function setVenue(v) {
+      if (lost || !v || v === cityVenue) return city?.stats || null;
+      cityVenue = v;
+      dropCity();
+      if (v.site && v.skyline) {
+        const art = v.city || null;
+        const set = composeSet({ site: v.site, skyline: v.skyline, outline: park.outline, art });
+        const c = buildCityscape(set, { art, outline: park.outline });
+        city = {
+          opaque: [...c.opaque].map(([key, b]) => ({ key, ...upload(b) })),
+          glow: [...c.glow].map(([key, b]) => ({ key, ...upload(b) })),
+          curtain: uploadCurtain(c.curtain, set.T),
+          stats: { ...c.stats, placed: set.placed.length, unplaced: set.unplaced.length, bearing: set.bearing.median },
+        };
+      }
+      paintSign(v.name);
+      return city?.stats || null;
+    }
+    function dropCity() {
+      if (!city) return;
+      for (const d of [...city.opaque, ...city.glow]) { gl.deleteVertexArray(d.vao); gl.deleteBuffer(d.st.buf); }
+      if (city.curtain) { gl.deleteVertexArray(city.curtain.vao); gl.deleteBuffer(city.curtain.st.buf); }
+      city = null;
+    }
+    // The Curtain's walls cut into panels a tile long, as the flight sim draws it a tile at a time,
+    // so its rain streaks fall as densely.
+    function uploadCurtain(walls, tile) {
+      if (!walls.length) return null;
+      const out = [];
+      const put = (p, y, u, v) => out.push(p[0], y, p[2], u, v, NIGHT.curtain, 0);
+      for (const { a, b, h } of walls) {
+        const L = Math.hypot(b[0] - a[0], b[2] - a[2]), n = Math.max(1, Math.round(L / tile));
+        for (let k = 0; k < n; k++) {
+          const p = [a[0] + (b[0] - a[0]) * k / n, 0, a[2] + (b[2] - a[2]) * k / n], q = [a[0] + (b[0] - a[0]) * (k + 1) / n, 0, a[2] + (b[2] - a[2]) * (k + 1) / n];
+          put(p, h, 0, 0); put(q, h, 1, 0); put(q, -0.35, 1, 1); put(p, h, 0, 0); put(q, -0.35, 1, 1); put(p, -0.35, 0, 1);
+        }
+      }
+      const vao = gl.createVertexArray(), st = makeVertexStream(gl, vao, 7, [[0, 3, 0], [1, 2, 12], [2, 1, 20], [3, 1, 24]]);
+      st.write(new Float32Array(out), out.length);
+      return { vao, st, n: out.length / 7 };
+    }
+    // The name in lit letters on a dark face, in the graphics' own face once it has loaded.
+    function paintSign(name) {
+      if (TEX.sign) { gl.deleteTexture(TEX.sign); TEX.sign = null; }
+      const text = String(name || '').trim().toUpperCase();
+      if (!text) return;
+      const draw = () => canvasOf(doc, 2048, 264, (g) => {
+        g.fillStyle = '#0c0e12'; g.fillRect(0, 0, 2048, 264);
+        g.strokeStyle = '#ffbe5a'; g.lineWidth = 6; g.strokeRect(10, 10, 2028, 244);
+        g.font = HUD_FACES.big(150); g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#ffd68c';
+        g.fillText(text, 1024, 140, 1900);
+      });
+      TEX.sign = texture(draw(), { repeat: false, af: 16 });
+      loadHudFaces(doc).then((ok) => {
+        if (!ok || lost || cityVenue?.name !== name || !TEX.sign) return;
+        gl.deleteTexture(TEX.sign);
+        TEX.sign = texture(draw(), { repeat: false, af: 16 });
+        opts.onAsset?.();
+      });
+    }
+    const signDraw = { key: 'sign', ...upload(park.sign) };
+
     // ── the lights ────────────────────────────────────────────────────────────
     // Each tower burns in proportion to its working lamps; the two behind the plate are
     // smaller banks.
@@ -722,6 +912,7 @@ export function createBallparkRenderer(canvas, opts = {}) {
       gl.uniform1i(LIT.u('uTex'), 0); gl.uniform1i(LIT.u('uDirt'), 1); gl.uniform1i(LIT.u('uGrass'), 2); gl.uniform1i(LIT.u('uBoard'), 3);
       gl.uniform3f(LIT.u('uFence'), fence.line, fence.centre, fence.curve);
       gl.uniform2f(LIT.u('uBoardRes'), BOARD_W, BOARD_H); gl.uniform3f(LIT.u('uBoardOn'), 6.0, 3.0, 0.7);
+      gl.uniform1f(LIT.u('uCityLit'), NIGHT.cityLit); gl.uniform1f(LIT.u('uPoolK'), NIGHT.pool);
       gl.activeTexture(gl.TEXTURE1); gl.bindTexture(T2, TEX.dirt);
       gl.activeTexture(gl.TEXTURE2); gl.bindTexture(T2, TEX.grass);
       gl.activeTexture(gl.TEXTURE3); gl.bindTexture(T2, boardTex);
@@ -734,12 +925,14 @@ export function createBallparkRenderer(canvas, opts = {}) {
           gl.uniform1i(LIT.u('uTextured'), t ? 1 : 0);
           gl.uniform1f(LIT.u('uAlphaTest'), ALPHA_TEST.has(d.key) ? 0.5 : -1);
           gl.uniform1f(LIT.u('uAlpha'), alpha);
-          gl.uniform1f(LIT.u('uEmis'), 1);
+          gl.uniform1f(LIT.u('uEmis'), d.key === 'sign' ? NIGHT.sign : 1);
           gl.bindVertexArray(d.vao); gl.drawArrays(gl.TRIANGLES, 0, d.n);
           tris += d.n / 3; draws++;
         }
       };
       drawSet(opaque, 1);
+      if (TEX.sign) drawSet([signDraw], 1);
+      if (city) drawSet(city.opaque, 1);
       // the players, their faces from the atlas on unit 8
       gl.activeTexture(gl.TEXTURE8); gl.bindTexture(T2, TEX.faces); gl.uniform1i(LIT.u('uFaceAtlas'), 8);
       gl.uniform4fv(LIT.u('uHeadA'), HA); gl.uniform4fv(LIT.u('uHeadB'), HB); gl.uniform4fv(LIT.u('uHeadC'), HC); gl.uniform4fv(LIT.u('uHeadD'), HD);
@@ -757,6 +950,18 @@ export function createBallparkRenderer(canvas, opts = {}) {
       gl.useProgram(LIT.p);
       gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); gl.depthMask(false);
       drawSet(translucent, 0.32);
+      // light added over the frame: the lamps' pools on the streets, then the Curtain
+      if (city) {
+        gl.blendFunc(gl.ONE, gl.ONE);
+        drawSet(city.glow, 1);
+        if (city.curtain) {
+          gl.useProgram(CURT.p); applyLinOut(gl, CURT.p, 1);
+          gl.uniformMatrix4fv(CURT.u('uVP'), false, M.viewProj);
+          gl.uniform1f(CURT.u('uTime'), 0);
+          gl.bindVertexArray(city.curtain.vao); gl.drawArrays(gl.TRIANGLES, 0, city.curtain.n);
+          tris += city.curtain.n / 3; draws++;
+        }
+      }
       gl.depthMask(true); gl.disable(gl.BLEND);
       gl.bindVertexArray(null);
 
@@ -811,7 +1016,8 @@ export function createBallparkRenderer(canvas, opts = {}) {
         if (depth) { gl.deleteFramebuffer(depth.fbo); gl.deleteTexture(depth.tex); depth = null; }
         for (const t of Object.values(TEX)) gl.deleteTexture(t);
         gl.deleteTexture(boardTex);
-        for (const d of [...opaque, ...translucent]) { gl.deleteVertexArray(d.vao); gl.deleteBuffer(d.st.buf); }
+        for (const d of [...opaque, ...translucent, signDraw]) { gl.deleteVertexArray(d.vao); gl.deleteBuffer(d.st.buf); }
+        dropCity();
         for (const d of crowd) { gl.deleteVertexArray(d.vao); for (const b of d.buffers) gl.deleteBuffer(b); }
         for (const pl of players.values()) for (const b of pl.batches) { gl.deleteVertexArray(b.vao); gl.deleteBuffer(b.st.buf); }
         players.clear();
@@ -827,9 +1033,11 @@ export function createBallparkRenderer(canvas, opts = {}) {
       quality: { dpr: 2, bloom: 0.18, exposure: 1.0, grade: opts.grade || 'arcade', tube: !!opts.tube, ao: true, dof: 28, shadows: true, fog: true },
       // what casts the towers' shadows: [{ vao, n }] with positions at location 0 (the players, Phase 1c)
       casters: [],
-      render, setBoard, setCast, pump, dispose, stats,
+      render, setBoard, setCast, pump, setVenue, dispose, stats,
       pending: () => queue.length,
       get park() { return park; },
+      // what the city came to: { buildings, filler, lamps, tris, placed, bearing, … }, or null
+      get city() { return city?.stats || null; },
       get players() { return players.size; },
     };
     return api;

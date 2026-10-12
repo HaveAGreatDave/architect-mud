@@ -853,7 +853,7 @@ methods as the other two views. When the 3-D view can't draw (no WebGL2, no floa
 shader that won't build, a lost context), it hands over to the 2-D view with the last payload and
 the booth's line.
 
-Built so far (Phases 1a to 1d of the plan):
+Built so far (Phases 1a to 1e of the plan):
 
 - the park from the venue's defaults, built by the pure
   [gl/ballpark-mesh.js](../client/game/js/panels/gl/ballpark-mesh.js) from
@@ -902,7 +902,41 @@ Built so far (Phases 1a to 1d of the plan):
   splash words; and each half-inning break is a high-score table of the leaders, one race at a
   time, over the live picture. The final dresses it all in gold. The HTML score bug and cards
   are gone; the score is written out for a screen reader instead. The words, the colours and the
-  station's bug come from a theme (tv.js passes the station's name), so `hud.js` names no league.
+  station's bug come from a theme (tv.js passes the station's name), so `hud.js` names no league;
+- the city round the park (Phase 1e), a set composed for television: the park is full size and the
+  map's park is three tiles by three, so what the cameras see past the walls is the map's
+  buildings laid out again round it. [client/shared/city-set.js](../client/shared/city-set.js)
+  stands the park in a superblock with a paved plaza, runs streets every third tile out from it,
+  puts the set's edges on the map's Curtain and shore, gives each building the free plot nearest
+  its true bearing from home plate (a pier stays on the water), and fills the rest in the
+  quarter's style. [gl/cityscape.js](../client/game/js/panels/gl/cityscape.js) builds it from
+  the buildings' baked shapes at the flight sim's size (`buildingScale` in
+  [skyline-scale.js](../client/shared/skyline-scale.js), which the windshield now reads too):
+  facades shaded from bays and storeys with lit windows, streets from each road tile's arms,
+  cobra-head sodium lamps with pools of light, beacons on the tall roofs, the Curtain in
+  `curtain.js`'s own look, red rock past the walls and the bay past the shore. The park has its
+  outside too: a brick wall along its outline with a lit arcade, the club level's windows and
+  the steel tier, flags along the grandstand, and the venue's `name` lit over the main gate.
+  The towers reach the city through a narrower beam, so the field stays the brightest thing in
+  the picture.
+
+**How the venue reaches a viewer.** Like the clubs, it never rides a payload. A game's first
+payload (and a late tuner's catch-up) carries `venueRev`, a short stamp of the venue as the
+server would send it. A client without that revision sends `tv_venue` once
+([venue.js](../client/game/js/panels/venue.js)), and the plugin answers with `{ type:
+'tv_venue', sport, rev, venue }`: the content's venue (`site`, the city's art direction in
+`city`, `name`) with `skyline`, built from the in-memory map by
+[server/engine/skyline.js](../server/engine/skyline.js) over
+[client/shared/skyline-manifest.js](../client/shared/skyline-manifest.js): the buildings
+within 40 tiles of the site and the edges round it, a Curtain line or a shore per side. It's
+about 18 KB, 5 KB gzipped, kept ten minutes on the server and in `localStorage`
+(`thomas.venue.<sport>`) on the client. The cold open's flythrough reads the same building rows.
+
+**The city's art direction** is `sports_pools.venue.city` on the Deadball row: `styles` maps a
+building type to a facade style (glass, concrete, brick, ribbon, works, farm, stone, ruin,
+chrome), and `quarters` are tile rectangles, first match wins, each with the style for its tall
+and low buildings, `all` to dress a whole quarter alike (Old Coldwater's ruin), and the styles
+and floors of its filler. `tallFloors` is where tall starts.
 
 Nothing moves yet: a frame is drawn when the game changes, so the GPU idles between pitches. The count ticks through each at-bat on the 2-D view's clock
 (`GAMEDAY_CLOCK`), so the held line lands when the 2-D view would land it.
@@ -913,8 +947,14 @@ occlusion's constants, holds the lens sharp at its focus, builds every pose for 
 places a cast, holds every face pick steady and every cap, helmet and mask clear of the brow,
 the ears and the eyes, and lays the graphics out on the wall TV's, the tablet's and the
 sandbox's screens with and without the tube glass: everything inside the frame, nothing under
-6 px or cut short for the script's longest names, no panel over another. The sandbox page takes
-`?park=3d`, `?shot=`, `?bug=` and `?po=1` (the final's dressing). The renderer's traps are in [glass-notes.md](reference/glass-notes.md#the-ballpark-glballparkjs).
+6 px or cut short for the script's longest names, no panel over another, and checks the outer
+wall faces out all round with the sign outside it. `scripts/shapes/cityscape-smoke.mjs`
+composes the set from the content tree's skyline and builds the city: every building placed
+and resolved to a shape, none inside the park, bearings held, the edges on tile lines, every
+road tile drawn from its arms, nothing tall beside a street-level camera, and no region named
+in the engine files. The sandbox page takes `?park=3d`, `?shot=`, `?bug=`, `?po=1` (the final's
+dressing), `?hud=0` (the picture alone) and `?city=0`; its city comes from the flight sim's
+baked world, so it can trail the live map by a bake. The renderer's traps are in [glass-notes.md](reference/glass-notes.md#the-ballpark-glballparkjs).
 
 ### Sim v2
 

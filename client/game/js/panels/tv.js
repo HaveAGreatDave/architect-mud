@@ -15,6 +15,7 @@ import { sendCmdSilent, sendRaw } from '../net.js';
 import { renderMarkup } from '../markup.js';
 import { cphlMark, cphlLockup } from './cphl-brand.js';
 import { crestSvg, clubOf, wantClubs, onClubs } from './club-crest.js';
+import { wantVenue } from './venue.js';
 
 // The two sports sub-screens (gameday.js, gameday-rink.js) are about 209 KB, and they
 // were in the boot download for every player. They load on the first sports broadcast
@@ -708,6 +709,8 @@ export function createTvView(root, opts = {}) {
   function applyOverlay(overlay) {
     // Every CPhL payload carries the stamp of the club identities it was built with.
     if (overlay?.clubsRev && wantClubs(overlay.sport || 'hockey', overlay.clubsRev)) sendRaw({ type: 'tv_clubs', sport: overlay.sport || 'hockey' });
+    // A baseball game's first payload carries its venue's stamp, for the 3-D park's city.
+    if (overlay?.venueRev && wantVenue(overlay.sport || 'baseball', overlay.venueRev)) sendRaw({ type: 'tv_venue', sport: overlay.sport || 'baseball' });
     // The score-bug is a persistent layer (updated in place, its own container) —
     // it must not be wiped by transient overlays, nor auto-dismiss on a timer.
     if (overlay && overlay.overlayType === 'scorebug') { _applyScorebug(overlay); return; }

@@ -18,6 +18,10 @@
 //   EMISSIVE  a lamp that works: its colour is its light
 //   BOARD     the scoreboard: lamps drawn from a small mask of the line score
 //   HEAD, EAR, HAIR, NECK  a player's head, shaded as the Actor Lab shades the street figure's
+//   EXTERIOR  the park's outer wall, brick and arcade, painted in the shader from feet along
+//             and feet up (uv) and its height (colour)
+//   FACADE, STREET, POOL  the city round the park (gl/cityscape.js): facades and streets
+//             painted from their coordinates, and the pool of light under a street lamp
 //
 // Feet, home plate at the origin, +z out to centre field, +x toward third base, y up.
 //
@@ -31,6 +35,10 @@ export const MAT = Object.freeze({
   CONCRETE: 8, PAD: 9, BOARD: 10, PLATE: 11, MATTE: 13,
   // a player's head (gl/ballplayer-mesh.js): the face, the ears, the hair and the neck
   HEAD: 20, EAR: 21, HAIR: 22, NECK: 23,
+  // the park's outer wall
+  EXTERIOR: 24,
+  // the city round the park (gl/cityscape.js)
+  FACADE: 30, STREET: 31, POOL: 32,
 });
 
 // ── colour ──────────────────────────────────────────────────────────────────
@@ -291,8 +299,10 @@ export function wallNumbers(fence) {
 // texture key, the translucent ones, the crowd's instances, the towers and the field.
 //
 //   opaque: plain (untextured), pad, concrete, seat, ads, nums (the wall's distances,
-//           alpha-tested, one cell of a four-cell atlas each), board (the scoreboard)
+//           alpha-tested, one cell of a four-cell atlas each), board (the scoreboard),
+//           exterior (the outer wall)
 //   translucent: net (the backstop)
+//   sign: the face over the main gate the park's name is painted on
 export function buildPark(venue, opts = {}) {
   const field = venueField(venue);
   const outline = parkOutline(field);
@@ -374,8 +384,62 @@ export function buildPark(venue, opts = {}) {
     box(B('plain'), madd(c, n, -2.5), [w + 3, h + 3, 2], yaw, lin('#1d1f22'), MAT.CONCRETE);
     for (const a of [-40, 40]) box(B('plain'), madd(add(add([c[0], 0, c[2]], mul(t, a)), [0, 22.5, 0]), n, -2.5), [2, 22.5, 2], yaw, lin('#55585c'), MAT.METAL);
   }
-  return { opaque, translucent, crowd: { sit: new Float32Array(crowd.sit), stand: new Float32Array(crowd.stand), cheer: new Float32Array(crowd.cheer) },
+  // the outer wall, the flags along the grandstand, and the sign for the park's name
+  const sign = buildExterior(B, outline);
+  return { opaque, translucent, sign, crowd: { sit: new Float32Array(crowd.sit), stand: new Float32Array(crowd.stand), cheer: new Float32Array(crowd.cheer) },
     field, outline, numbers: texts, board };
+}
+
+// ── the outer wall ──────────────────────────────────────────────────────────
+// Brick along the outline in the manner of the city ballparks of the early 1990s: 94 ft round
+// the grandstand, 48 along the lines, 42 round the outfield and 36 behind the batter's eye. The
+// heights follow parkOutline's own shape (diamond/geo.js): `s` runs along a foul line and `d`
+// off it into foul ground.
+export const EXTERIOR_H = Object.freeze({ stand: 94, line: 48, outfield: 42, eye: 36 });
+export function exteriorHeight(p) {
+  const r = Math.hypot(p[0], p[2]), th = Math.atan2(p[0], p[2]);
+  const s = (Math.abs(p[0]) + p[2]) / Math.SQRT2, d = (Math.abs(p[0]) - p[2]) / Math.SQRT2;
+  if (Math.abs(th) <= 45 * DEG && r > 300) return Math.abs(th) < 8 * DEG ? EXTERIOR_H.eye : EXTERIOR_H.outfield;
+  if (d > 130 || r < 200 || (s < 252 && d > 100)) return EXTERIOR_H.stand;
+  return EXTERIOR_H.line;
+}
+// The sign over the main gate behind home plate: its middle, half-width and half-height.
+export const PARK_SIGN = Object.freeze({ c: [0, 63, -197.5], w: 66, h: 8.5 });
+// One face a segment of the outline, facing out. The shader (EXTERIOR) paints the piers, the
+// arcade, the club level's windows and the steel tier from feet along (uv.x) and feet up (uv.y),
+// with the wall's height in the colour, and paints the back plain. A coping on top gives the
+// wall its thickness from above. Returns the sign's own batch, which the renderer draws once the
+// venue's name is painted for it.
+function buildExterior(B, outline) {
+  const O = outline;
+  let area = 0;
+  for (let i = 0; i < O.length; i++) { const a = O[i], b = O[(i + 1) % O.length]; area += a[0] * b[2] - b[0] * a[2]; }
+  const sg = area > 0 ? 1 : -1;
+  let u = 0;
+  for (let i = 0; i < O.length; i++) {
+    const a = O[i], c = O[(i + 1) % O.length], L = Math.hypot(c[0] - a[0], c[2] - a[2]);
+    if (L < 0.01) continue;
+    const ha = exteriorHeight(a), hc = exteriorHeight(c), hm = exteriorHeight([(a[0] + c[0]) / 2, 0, (a[2] + c[2]) / 2]);
+    const H = Math.min(ha, hc, hm) === EXTERIOR_H.stand ? EXTERIOR_H.stand : Math.max(Math.min(ha, hc), Math.min(hm, EXTERIOR_H.line));
+    const dx = (c[0] - a[0]) / L, dz = (c[2] - a[2]) / L, n = [sg * dz, 0, -sg * dx];
+    quad(B('exterior'), [a[0], 0, a[2]], [c[0], 0, c[2]], [c[0], H, c[2]], [a[0], H, a[2]], n, [0.4, H / 100, H < 45 ? 1 : 0], MAT.EXTERIOR,
+      [[u, 0], [u + L, 0], [u + L, H], [u, H]]);
+    const t = 2.5;
+    quad(B('plain'), [a[0], H, a[2]], [c[0], H, c[2]], [c[0] - n[0] * t, H, c[2] - n[2] * t], [a[0] - n[0] * t, H, a[2] - n[2] * t], [0, 1, 0], lin('#6b6152'), MAT.CONCRETE);
+    u += L;
+  }
+  // flagpoles along the top of the grandstand, and their flags
+  const FLAGS = ['#16264a', '#1d8a8c', '#f2f0e8', '#b04a1c'].map(lin);
+  for (let k = -6; k <= 6; k++) {
+    const th = (180 + k * 9) * DEG, p = [Math.sin(th) * 189, EXTERIOR_H.stand, Math.cos(th) * 189], tg = [Math.cos(th), 0, -Math.sin(th)];
+    cylinder(B('plain'), p, 26, 0.35, lin('#d9d9d4'), MAT.METAL, 6);
+    quad(B('plain'), add(p, [0, 19, 0]), add(madd(p, tg, 9), [0, 19.5, 0]), add(madd(p, tg, 9), [0, 25.5, 0]), add(p, [0, 25.6, 0]), [Math.sin(th), 0, Math.cos(th)], FLAGS[(k + 8) % 4], MAT.PAD);
+  }
+  // the sign: a lit face, the name painted on it, readable from outside the gate
+  const sign = createBatch(16), { c, w, h } = PARK_SIGN;
+  quad(sign, [c[0] + w, c[1] - h, c[2]], [c[0] - w, c[1] - h, c[2]], [c[0] - w, c[1] + h, c[2]], [c[0] + w, c[1] + h, c[2]], [0, 0, -1], WHITE, MAT.EMISSIVE,
+    [[0, 1], [1, 1], [1, 0], [0, 0]]);
+  return sign;
 }
 
 // Where the scoreboard hangs and which way it faces: centre, normal (toward the plate),

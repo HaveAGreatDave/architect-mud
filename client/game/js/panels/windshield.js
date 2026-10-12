@@ -49,7 +49,7 @@ import { veilHTML, VEIL_CSS, veilHold, veilPainted, veilReset } from './glass-ve
 import { setVehicleParams, clearVehicleParams, vehicleParamBase, vehicleParamIds, aircraftFaces, wingtipStation, meshLamps, vehicleLamps, liveryPalette, faceBaseRgb, shadeRgb, hex2rgb, drawRotorFX, PROP_STATIONS, drawCockpitProp, glassSheen, drawNoseArt, drawTruckDoorArt, drawBoatHullArt, boatExhaustPorts, deflectSurface, hingeVisorFace, visorHidden, jazzTex, jazzUV, overlayJazz, drawCanopyGlass, sortTruckFaces, _resetTruckOrder, JAZZ_ROLE, OCCLUDE_ROLE, VIPER_SCALE, depthPassBuild, depthPassCommit , truckMeta, rotorsFor, hasMainRotor, meshParams, meshIds } from './aircraft3d.js';
 import { rasterDepth, depthTarget, lightBasis, rasterShadow, shadeRaster, readPixels, depthWinAt } from './model-raster.js';
 import { playThunderSample } from './engine-audio.js';
-import { FLOOR_Z, BUILDING_FOOT, floorsFor } from '../../../shared/skyline-scale.js';
+import { FLOOR_Z, BUILDING_FOOT, floorsFor, BUILDING_TUNE, buildingScale, CURTAIN_H } from '../../../shared/skyline-scale.js';
 import { fireworksAround, aaLive, AA_FIRE_MS } from './world-feed.js';   // world events kept by tile, whatever seat is open
 import { drawAAEmplacement } from './glass/aa-emplacement.js';   // the four AA batteries (drawAAMark)
 import { skylineFar, SKYLINE_BASE_FAR } from '../../../shared/skyline-tall.js';
@@ -1994,9 +1994,9 @@ export const RENDER_TUNE = {
   vlKeyDay: '#c69654', vlKeyNight: '#c22f86',       // sun/key-lit accent (upper wall, lit side)
   vlSkyDay: '#969e96', vlSkyNight: '#1f74b4',       // sky/neon catch (upper wall, shadow side)
   vlShadowDay: '#222836', vlShadowNight: '#0a0f2e', // base ambient-occlusion shadow
-  bldgH: 1.40,        // building height scale (from the user's tuned screenshot)
-  bldgStretch: 5.0,   // extra VERTICAL stretch on top of bldgH — makes buildings stand tall instead of pancakes; live 'Vert stretch' slider
-  bldgFoot: 1.0,      // building footprint (width) scale — 1.0 fills most of the tile (a building owns its whole zone)
+  bldgH: BUILDING_TUNE.bldgH,              // building height scale (from the user's tuned screenshot); defaults in skyline-scale.js
+  bldgStretch: BUILDING_TUNE.bldgStretch,  // extra VERTICAL stretch on top of bldgH — makes buildings stand tall instead of pancakes; live 'Vert stretch' slider
+  bldgFoot: BUILDING_TUNE.bldgFoot,        // building footprint (width) scale — 1.0 fills most of the tile (a building owns its whole zone)
   texRes: 1.0,        // building texture resolution (higher = crisper, lower = chunkier)
   // ── THE NEON TONE, AS ONE RATIO ─────────────────────────────────────────────────────────────
   // What separates this city at night from a cyberpunk reference board is not the paint, it is the
@@ -19579,11 +19579,10 @@ export function buildingHeightZ(wx, wy, cell) {
 // an author's model actually has to survive. The RENDER_TUNE multipliers are in for the
 // same reason — a tuning slider that moved the game and not the preview would make the
 // preview a lie.
+// The formula lives in client/shared/skyline-scale.js (buildingScale), so the broadcast's city
+// draws a building at the sim's own size; the sim passes its live sliders.
 export function buildingScaleFor(floors, seed = 0) {
-  return {
-    fh: (BUILDING_FOOT + frac(seed + 2) * 0.06) * (RENDER_TUNE.bldgFoot || 1),
-    h: Math.max(1, floors) * FLOOR_Z * (0.9 + frac(seed) * 0.2) * RENDER_TUNE.bldgH * (RENDER_TUNE.bldgStretch || 1),
-  };
+  return buildingScale(floors, seed, RENDER_TUNE);
 }
 
 export const FT_PER_FLOOR = 12;   // realistic storey height (ft) — still the floors↔feet rule for anything that asks about STOREYS
@@ -28231,7 +28230,7 @@ function draw3DBox(ctx, cam, dx, dy, fh, wz, biome, seed, night, alpha) {
 // is ONLY that, on every screen: there is no move gate on it (grep registerMoveGate). The actual seal
 // is 133 authored walls between the frontier tiles (`blocked: true`, named "the Architect's Curtain"),
 // so the wall you can see and the wall you cannot walk through are two separate facts about one place.
-export const CURTAIN_H = 0.9;   // world-z — taller than any district building, an imposing barrier
+export { CURTAIN_H };   // world-z, from skyline-scale.js, where the broadcast's city reads it too
 
 // ── THE FIELD'S OWN COLOURS, IN ONE TABLE ────────────────────────────────────
 //

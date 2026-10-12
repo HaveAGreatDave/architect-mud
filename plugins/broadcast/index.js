@@ -25,6 +25,7 @@ import { sportsRng, sportsHash, sportsPick, sportsFill, sportsShuffle } from './
 // into, so it exists now rather than being retrofitted around hockey later.
 import { BASEBALL } from './sports/baseball.js';
 import { gamedayPayloads, gamedayLeaders } from './sports/baseball-gameday.js';
+import { skylineAround } from '../../server/engine/skyline.js';
 import { HOCKEY } from './sports/hockey.js';
 import {
   gameshowAiring, gameshowDayBucket, getGameshowGraph, gameshowOpenRound, gameshowResolveRound,
@@ -231,6 +232,38 @@ async function sendTvClubs(playerId, sport) {
   if (!clubs) return;
   const mod = sportOf(script);
   sendToPlayer(playerId, { type: 'tv_clubs', sport: id, rev: mod.clubsRevOf ? mod.clubsRevOf(clubs) : '', clubs });
+}
+
+// The same for a league's venue: where its park stands (sports_pools.venue) and the skyline
+// round it, which a 3-D view composes its city from (client/shared/city-set.js). About 18 KB
+// (5 KB gzipped), sent once a revision; a game's first payload carries `venueRev`.
+on('tv.venue', ({ playerId, sport }) => {
+  sendTvVenue(playerId, sport).catch(err => console.error('[broadcast] sendTvVenue error:', err.message));
+});
+async function sendTvVenue(playerId, sport) {
+  const id = typeof sport === 'string' && sport ? sport : 'baseball';
+  const v = venueFor(await anySportsScript(id));
+  if (v) sendToPlayer(playerId, { type: 'tv_venue', sport: id, rev: v.rev, venue: v.venue });
+}
+// A venue with a site, and its skyline, built from the in-memory world. Kept a few minutes,
+// so a run of viewers asking at once walks the world's tiles once; the stamp is a hash of
+// what's sent, so a map change reaches the next game's payloads.
+const VENUE_REACH = 40;   // tiles round the site
+const VENUE_KEEP_MS = 10 * 60 * 1000;
+const _venues = new Map();   // site key -> { at, rev, venue }
+function venueFor(script) {
+  const venue = script?.venue, site = venue?.site;
+  if (!Number.isFinite(site?.x) || !Number.isFinite(site?.y)) return null;
+  const key = JSON.stringify(venue);
+  const hit = _venues.get(key);
+  if (hit && Date.now() - hit.at < VENUE_KEEP_MS) return hit;
+  const full = { ...venue, skyline: skylineAround(site, { radius: VENUE_REACH }) };
+  const str = JSON.stringify(full);
+  let x = 0x811c9dc5;
+  for (let i = 0; i < str.length; i++) x = Math.imul(x ^ str.charCodeAt(i), 16777619) >>> 0;
+  const v = { at: Date.now(), rev: `${str.length.toString(36)}${x.toString(36)}`, venue: full };
+  _venues.set(key, v);
+  return v;
 }
 
 // Press-and-hold on the power button is the deliberate "switch it off" — turns the
@@ -2690,17 +2723,19 @@ function assembleSportsGraph(script, broadcastId, slot, override) {
 
   // The league table rides the game's first Gameday payload only: the view keeps it
   // for the game, and a late tuner gets it with the catch-up (sendCatchUp). That one
-  // payload also carries the leaders and the season: its number, regular season or
-  // final, and in a final each side's seed.
+  // payload also carries the leaders, the venue's stamp and the season: its number,
+  // regular season or final, and in a final each side's seed.
   {
     const s = seasonOf(sportMod.id);
     const seedOf = (team) => (team === s.finalistA ? 1 : team === s.finalistB ? 2 : null);
+    // the venue's stamp: a client without that revision asks for it once (tv_venue)
+    const venueRev = venueFor(script)?.rev || '';
     const season = { n: s.seasonNo ?? null, phase: ws ? 'final' : 'regular', ...(ws ? { seedAway: seedOf(away.name), seedHome: seedOf(home.name) } : {}) };
     let first = true;
     for (let id = startId; id; id = nodes[id].next) {
       const gd = nodes[id].gameday;
       if (!gd) continue;
-      nodes[id].gameday = first ? { ...gd, standings: gdStandings, leaders: gdLeaders, season } : { ...gd };
+      nodes[id].gameday = first ? { ...gd, standings: gdStandings, leaders: gdLeaders, season, ...(venueRev ? { venueRev } : {}) } : { ...gd };
       first = false;
     }
   }
@@ -5729,7 +5764,7 @@ function _recordBeat(state, result, programName, scorebugOverlay, gamedayOverlay
     // with its sport: a hockey game after Deadball on the same channel isn't sent it. The
     // leaders and the season ride with it and are kept the same way.
     if (Array.isArray(gamedayOverlay.standings)) {
-      state.lastStandings = { sport: gamedayOverlay.sport, rows: gamedayOverlay.standings, leaders: gamedayOverlay.leaders || null, season: gamedayOverlay.season || null };
+      state.lastStandings = { sport: gamedayOverlay.sport, rows: gamedayOverlay.standings, leaders: gamedayOverlay.leaders || null, season: gamedayOverlay.season || null, venueRev: gamedayOverlay.venueRev || null };
     }
   }
 }
@@ -5770,8 +5805,8 @@ function sendCatchUp(playerId, channelId) {
   if (state.lastScorebug && now - (state.lastScorebugAt || 0) < CATCHUP_BUG_MAX_AGE_MS)
     sendToPlayer(playerId, { type: 'tv_overlay', channelId, overlay: state.lastScorebug });
   if (state.lastGameday && now - (state.lastGamedayAt || 0) < CATCHUP_BUG_MAX_AGE_MS) {
-    // The game's table, leaders and season ride only its first payload, so a late tuner
-    // gets them here.
+    // The game's table, leaders, season and venue stamp ride only its first payload, so a
+    // late tuner gets them here.
     const gd = state.lastGameday;
     const kept = state.lastStandings && state.lastStandings.sport === gd.sport ? state.lastStandings : null;
     const table = kept ? kept.rows : gamedayStandings(gd.sport);
@@ -5779,6 +5814,7 @@ function sendCatchUp(playerId, channelId) {
     if (!Array.isArray(gd.standings) && table.length) once.standings = table;
     if (!gd.leaders && kept?.leaders) once.leaders = kept.leaders;
     if (!gd.season && kept?.season) once.season = kept.season;
+    if (!gd.venueRev && kept?.venueRev) once.venueRev = kept.venueRev;
     sendToPlayer(playerId, { type: 'tv_overlay', channelId, overlay: Object.keys(once).length ? { ...gd, ...once } : gd });
   }
 }
@@ -10236,6 +10272,8 @@ export const _test = {
   // Exported so regress can assert what actually rides the wire to the Gameday
   // sub-screen — the half-inning changeover payload has no other observable.
   assembleSportsGraph,
+  // the sport's script as the venue and club handlers find it
+  anySportsScript,
   sportsGameForSlot, sportsMatchupForSlot, roundRobinRounds, sportsSlotIndex,
   sportsSlotMs, sportsAiring, SPORTS_GAMES_PER_DAY, nextAirSlot,
   assembleNewsGraph, newsFill, newsSceneNames,

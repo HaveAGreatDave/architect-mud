@@ -369,6 +369,128 @@
     ],
     "title": "bb_deadball_title",
     "venue": {
+      "city": {
+        "quarters": [
+          {
+            "all": "ruin",
+            "fill": [
+              "ruin"
+            ],
+            "floors": [
+              1,
+              3
+            ],
+            "x": [
+              919,
+              999
+            ],
+            "y": [
+              914,
+              999
+            ]
+          },
+          {
+            "fill": [
+              "brick",
+              "brick",
+              "brick",
+              "works",
+              "works"
+            ],
+            "floors": [
+              2,
+              7
+            ],
+            "low": "works",
+            "tall": "brick",
+            "x": [
+              915,
+              999
+            ]
+          },
+          {
+            "fill": [
+              "chrome",
+              "chrome",
+              "glass",
+              "glass",
+              "concrete"
+            ],
+            "floors": [
+              2,
+              12
+            ],
+            "low": "concrete",
+            "tall": "glass"
+          }
+        ],
+        "styles": {
+          "apartment": "brick",
+          "asc_clinic": "stone",
+          "asc_gate": "stone",
+          "asc_shrine": "stone",
+          "asc_spire": "stone",
+          "asc_vats": "stone",
+          "asc_weave": "stone",
+          "atrium_court": "ribbon",
+          "bank": "concrete",
+          "bead_tower": "chrome",
+          "cascade_block": "concrete",
+          "chrome_arch": "chrome",
+          "chrome_slab": "chrome",
+          "chrome_tower": "chrome",
+          "church": "stone",
+          "civic": "concrete",
+          "clinic": "concrete",
+          "cold_storage": "works",
+          "concert_hall": "ribbon",
+          "container_yard": "works",
+          "cooling_plant": "works",
+          "corporate_office": "glass",
+          "dynamo": "works",
+          "exchange": "concrete",
+          "fabrication": "works",
+          "flophouse": "brick",
+          "foundry": "works",
+          "freight_office": "brick",
+          "fuel_yard": "works",
+          "gasholder": "works",
+          "glass_prism": "glass",
+          "greenhouse": "farm",
+          "hangar": "works",
+          "harbour_office": "brick",
+          "hostel": "brick",
+          "hotel": "brick",
+          "hydro": "works",
+          "incinerator": "works",
+          "industrial": "works",
+          "institute": "ribbon",
+          "junkyard": "works",
+          "land_office": "concrete",
+          "lens_hall": "ribbon",
+          "museum": "ribbon",
+          "office": "concrete",
+          "police": "concrete",
+          "power": "works",
+          "pumping_station": "works",
+          "residential": "brick",
+          "ruin": "ruin",
+          "ruins": "ruin",
+          "shell_tower": "glass",
+          "sky_court": "glass",
+          "substation": "works",
+          "torque_tower": "chrome",
+          "truck_depot": "works",
+          "vehicle_pound": "works",
+          "vertical_farm": "farm",
+          "warehouse": "works",
+          "weigh_station": "works",
+          "wharf": "brick",
+          "winter_garden": "farm"
+        },
+        "tallFloors": 6
+      },
+      "name": "Halcyon Field",
       "site": {
         "bearing": 315,
         "block": {

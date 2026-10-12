@@ -1673,6 +1673,52 @@ export default async function regress({ check, run, getPlayer }) {
       JSON.stringify(st?.rows?.slice(0, 2)));
   }
 
+  // ── The venue and its skyline ───────────────────────────────────────────────
+  // A league's park and the city round it go to a viewer once a revision (tv_venue), for
+  // the 3-D park's set. The skyline is built from the map's own tiles and names no region:
+  // tried on tiles built by hand, then on Deadball's own venue in the world.
+  {
+    const { skylineFrom } = await import('../../client/shared/skyline-manifest.js');
+    const zones = [];
+    const tile = (x, y, flags = {}) => zones.push({ id: `t${x}_${y}`, map_id: 'map_world', grid_x: x, grid_y: y, grid_z: 0, flags });
+    for (let x = 0; x <= 30; x++) for (let y = 0; y <= 30; y++) {
+      if (x === 2 || x === 26 || y === 26) tile(x, y, { curtain: true });
+      else if (y < 6) tile(x, y, { terrain: 'water' });
+      else tile(x, y, { terrain: 'concrete' });
+    }
+    tile(15, 15, { building_type: 'office', floors: 9, building_name: 'Near', facade: true, entrance: 'south' });
+    tile(20, 22, { building_type: 'office', floors: 3 });
+    tile(9, 4, { building_type: 'pier', terrain: 'water' });
+    const sk = skylineFrom(zones, { x: 14.5, y: 14.5 }, { radius: 12 });
+    check('skyline: the Curtain on three sides, a shore on the fourth',
+      sk.edges.w?.wall === 2.5 && sk.edges.e?.wall === 26.5 && sk.edges.s?.wall === 26.5 && sk.edges.n?.shore?.length === 23 && sk.edges.n.shore.every(([, y]) => y === 6),
+      JSON.stringify(sk.edges).slice(0, 200));
+    check('skyline: the buildings in reach, nearest first, a pier on the water, a door from its facade',
+      sk.buildings.map((b) => b.t).join() === 'office,office,pier' && sk.buildings[0].e === 'south' && sk.buildings[2].w === 1,
+      JSON.stringify(sk.buildings));
+    check('skyline: none past the radius', !skylineFrom(zones, { x: 14.5, y: 14.5 }, { radius: 4 }).buildings.some((b) => b.t === 'pier'));
+
+    const deadball = await _test.anySportsScript('baseball');
+    if (deadball?.venue?.site) {
+      const orig3 = getBroadcast();
+      const got = [];
+      setBroadcast((zoneId, payload, exclude, toPlayer) => {
+        if (toPlayer === player.id && payload?.type === 'tv_venue') got.push(payload);
+        return orig3?.(zoneId, payload, exclude, toPlayer);
+      });
+      try {
+        emit('tv.venue', { playerId: player.id, sport: 'baseball' });
+        await new Promise(r => setTimeout(r, 120));
+      } finally { setBroadcast(orig3); }
+      const v = got[0]?.venue;
+      check('tv.venue answers with the park\'s site and the skyline round it',
+        got.length === 1 && typeof got[0].rev === 'string' && got[0].rev.length > 4 && v?.site?.bearing != null && v.skyline.buildings.length > 100,
+        JSON.stringify(got[0] || null).slice(0, 160));
+      check('tv.venue: the set\'s edges come from the map', !!v && ['w', 'e', 's', 'n'].every((k) => v.skyline.edges[k]), JSON.stringify(v?.skyline?.edges || null).slice(0, 160));
+      check('tv.venue: the skyline stays a few dozen kilobytes', !!got[0] && JSON.stringify(got[0]).length < 40000, String(JSON.stringify(got[0] || '').length));
+    }
+  }
+
   // ── Live-text {token} substitution for scripted broadcasts ──────────────────
   // The Quiet Hour (and any scripted graph) may embed {clock}/{weather}/{viewers}/…
   // which resolve at airtime. Guard the safety properties: no-brace text is untouched,
@@ -2796,6 +2842,18 @@ export default async function regress({ check, run, getPlayer }) {
       check('gameday: the leaders ride the first payload and no other',
         ['hr', 'avg', 'sb', 'k'].every((k) => Array.isArray(inOrder[0]?.leaders?.[k])) && inOrder.slice(1).every(g => !('leaders' in g)),
         JSON.stringify(inOrder[0]?.leaders).slice(0, 120));
+      // A script with a venue stamps the game's first payload with it, so a client asks for
+      // the park's city once (tv_venue); a script without one stamps nothing.
+      {
+        const withVenue = { ...script, venue: { site: { x: 897.55, y: 913.55, bearing: 315, block: { x0: 895, x1: 897, y0: 911, y1: 913 } } } };
+        const g2 = _test.assembleSportsGraph(withVenue, 'bc_regress_venue', 12345, null);
+        const ord2 = [];
+        for (let id = g2._start; id; id = (g2.edges.find(e => e.fromNode === id && e.fromPort === 'next') || {}).toNode) ord2.push(g2.nodes[id]);
+        const gd2 = ord2.map(n => n.data && n.data.gameday).filter(Boolean);
+        check('gameday: a venue\'s stamp rides the first payload and no other',
+          typeof gd2[0]?.venueRev === 'string' && gd2[0].venueRev.length > 4 && gd2.slice(1).every(g => !('venueRev' in g)) && !('venueRev' in (inOrder[0] || {})),
+          JSON.stringify({ first: gd2[0]?.venueRev, later: gd2.slice(1).filter(g => 'venueRev' in g).length, without: inOrder[0]?.venueRev }));
+      }
 
       // Every man's fate on every play. The 2-D view moved each runner a fixed number
       // of bags per kind of play, so a man the sim scored from second on a single

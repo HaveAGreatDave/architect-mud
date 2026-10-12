@@ -8,7 +8,8 @@
 //      knows, every normal a unit, the ground inside the park's outline, the crowd in the
 //      seats, and the whole inside its triangle budget. A venue's fence moves the wall, its
 //      distances and the warning track's uniform; its board moves the board; its towers
-//      their lamps.
+//      their lamps. The outer wall faces out along the whole outline at the heights it's
+//      given, and the sign for the park's name hangs outside it behind home plate.
 //   2. THE MATRICES AGREE WITH THE PINHOLE. camera.js writes each shot out as GL matrices
 //      and works the same shot out from the camera's own axes. If they drift, the director
 //      (which frames with `project`) and the picture disagree about what's in shot. Every
@@ -69,7 +70,7 @@ const check = (label, ok, detail) => {
 // ── 1. the park ──────────────────────────────────────────────────────────────
 const KNOWN = new Set(Object.values(M.MAT));
 // The park without its crowd, and the crowd's seats. The look-dev's park was about 54,000
-// triangles and 5,100 fans; these leave room for the dugouts and the exterior.
+// triangles and 5,100 fans with its outer wall; these leave room for the dugouts.
 const TRI_BUDGET = 90000, FANS = [3000, 8000];
 function auditPark(label, park) {
   let tris = 0, bad = 0, badMat = 0, badN = 0, outside = 0, groundV = 0;
@@ -125,6 +126,24 @@ const lit = base.field.towers.reduce((s, t) => s + t.live.filter(Boolean).length
 check('defaults: about sixty percent of the lamps work', lit > 0.45 && lit < 0.8, lit.toFixed(2));
 check('defaults: the same park twice', (() => { const b = M.buildPark(null); return b.crowd.sit.length === base.crowd.sit.length && b.opaque.get('plain').n === base.opaque.get('plain').n; })());
 check('defaults: the board inside the outline', G.insideOutline(base.outline, base.board.c, 12));
+{
+  // the outer wall: a face along every edge of the outline, facing out, at the heights it's given
+  const b = base.opaque.get('exterior'), heights = new Set();
+  let faces = 0, inward = 0, len = 0, per = 0;
+  for (let v = 0; v < b.n; v += 6) {
+    const o = v * M.STRIDE, q = o + M.STRIDE, top = b.data[o + 2 * M.STRIDE + 1];
+    const mid = [(b.data[o] + b.data[q]) / 2, 0, (b.data[o + 2] + b.data[q + 2]) / 2], n = [b.data[o + 3], 0, b.data[o + 5]];
+    faces++; heights.add(top); len += Math.hypot(b.data[q] - b.data[o], b.data[q + 2] - b.data[o + 2]);
+    if (G.insideOutline(base.outline, [mid[0] + n[0] * 2, 0, mid[2] + n[2] * 2]) || !G.insideOutline(base.outline, [mid[0] - n[0] * 2, 0, mid[2] - n[2] * 2])) inward++;
+  }
+  for (let i = 0; i < base.outline.length; i++) { const a = base.outline[i], c = base.outline[(i + 1) % base.outline.length]; per += Math.hypot(c[0] - a[0], c[2] - a[2]); }
+  check('defaults: the outer wall faces out all round', faces > 50 && inward === 0 && Math.abs(len - per) < 0.5, `${inward} of ${faces} face in; ${len.toFixed(0)} ft of a ${per.toFixed(0)} ft outline`);
+  const H = M.EXTERIOR_H;
+  check('defaults: the outer wall at its four heights', [...heights].every((h) => [H.stand, H.line, H.outfield, H.eye].includes(h)) && heights.has(H.stand) && heights.has(H.outfield) && heights.has(H.eye), [...heights].join(','));
+  check('defaults: the grandstand\'s wall behind the plate, the batter\'s eye\'s in centre', M.exteriorHeight([0, 0, -192]) === H.stand && M.exteriorHeight([0, 0, G.fenceDistance(0, base.field.fence) + 12]) === H.eye);
+  const { c } = M.PARK_SIGN;
+  check('defaults: the sign hangs outside the wall behind the plate', base.sign.n === 6 && c[2] < 0 && !G.insideOutline(base.outline, c) && G.insideOutline(base.outline, c, 8) && base.sign.data[5] === -1);
+}
 
 // A venue of its own: a short porch, a deep centre field, a high wall, the board in left-centre.
 const venue = { fence: { line: 315, centre: 412, height: 14 }, board: { bearing: 28 }, lampsLit: 0.9 };

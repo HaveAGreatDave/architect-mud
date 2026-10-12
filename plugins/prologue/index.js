@@ -33,7 +33,8 @@ import { sendToPlayer, teachVerb, pointAt, beaconOn, beaconOff, beaconClear } fr
 import { registerMoveGate } from '../../server/engine/movement-gates.js';
 import { maxHpForEndurance, invalidateSkillCache } from '../../server/engine/ip.js';
 import { registerAction } from '../../server/engine/actions.js';
-import { getZone, getMinimapData, getLivePlayer, getAllZones, buildingEntranceDir } from '../../server/engine/world.js';
+import { getZone, getMinimapData, getLivePlayer, getAllZones } from '../../server/engine/world.js';
+import { skylineEntry } from '../../server/engine/skyline.js';
 import { describeZone } from '../../server/engine/commands/describe.js';
 import { cmdExamine } from '../../server/engine/commands/world.js';
 import { escAttr } from '../../server/engine/text.js';
@@ -142,6 +143,8 @@ async function grantArchitectInterfaceIp(player) {
 // model (Halcyon's helical slab rather than the generic office box), and the entrance
 // is the frame every model's geometry is laid out in — without it a portico, a loading
 // bay or a marquee faces an arbitrary direction. See client/shared/building-shapes.js.
+// A row is server/engine/skyline.js's `skylineEntry`, the same row the broadcast's city
+// set is built from.
 let _skyline = null;
 function coldwaterSkyline() {
   if (_skyline) return _skyline;
@@ -158,11 +161,7 @@ function coldwaterSkyline() {
       const region = z.flags?.region_id;
       if (region && region !== 'region_coldwater') continue;
       if (z.grid_y > 960) continue;
-      out.push({
-        x: z.grid_x, y: z.grid_y, t: bt, f: Number(z.flags?.floors) || 0,
-        n: z.flags?.building_name || undefined,
-        e: buildingEntranceDir(z) || undefined,
-      });
+      out.push(skylineEntry(z));
     }
   } catch (e) {
     console.error('[prologue] skyline build failed:', e.message);

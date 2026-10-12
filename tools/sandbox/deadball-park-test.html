@@ -21,6 +21,10 @@
   high, side, bag, mound, sky), ?grade= picks the picture (arcade, broadcast or none),
   ?tube=1 puts it behind tube glass, ?w= sets the frame's width in CSS pixels, ?bug= the
   station's bug in the corner (KSAB by default) and ?po=1 dresses the graphics for a final.
+  The city round the park is the league's venue from content with a skyline built the
+  server's way (client/shared/skyline-manifest.js) over the flight sim's baked world
+  (client/game/flightsim-world.json), so it can trail the live map by a bake; ?city=0
+  leaves it out, and ?hud=0 hides the graphics so the picture can be judged on its own.
   The season the payloads' lines and leaders come from is a few dozen games between the
   script's clubs, folded as the standings fold them.
 
@@ -83,9 +87,12 @@
     import { sportsRng, sportsHash, sportsPick, sportsFill } from '../plugins/broadcast/rng.js';
     import { createGamedayView } from '../client/game/js/panels/gameday.js';
     import { createGrandstandView } from '../client/game/js/panels/gameday-grandstand.js';
+    import { setVenue } from '../client/game/js/panels/venue.js';
+    import { skylineFrom } from '../client/shared/skyline-manifest.js';
 
     const Q = new URLSearchParams(location.search);
     if (Q.get('w')) document.getElementById('tv-window').style.width = `${+Q.get('w')}px`;
+    if (Q.get('hud') === '0') document.head.insertAdjacentHTML('beforeend', '<style>.gds-hud { display: none; }</style>');
     const host = document.getElementById('tv-gameday');
     const view = Q.get('park') === '3d'
       ? createGrandstandView(host, { force: true, preserve: true, shot: Q.get('shot') || undefined, grade: Q.get('grade') || undefined, tube: Q.get('tube') === '1', station: Q.get('bug') ?? 'KSAB' })
@@ -253,6 +260,24 @@
       e.target.textContent = '⏸ pause';
       autoTimer = setTimeout(auto, holdFor(filtered()[idx]?.p || {}));
     };
+
+    // The venue as the server sends it (tv_venue): the content's venue with the skyline round its
+    // site. Here the map is the flight sim's bake, its cells read back as the zone rows they came from.
+    async function loadVenue() {
+      const [row, world] = await Promise.all([
+        fetch('../content/media_broadcasts/bc_1783289744953.json').then((r) => r.json()),
+        fetch('../client/game/flightsim-world.json').then((r) => r.json()),
+      ]);
+      const venue = row?.sports_pools?.venue;
+      if (!venue?.site) return;
+      const zones = Object.entries(world.cells || {}).map(([k, c]) => {
+        const [x, y] = k.split(',').map(Number);
+        return { map_id: 'map_world', grid_x: x, grid_y: y, grid_z: 0,
+          flags: { terrain: c.biome, building_type: c.bt, building_name: c.bn, floors: c.flr, entrance: c.ent, curtain: c.cur ? 1 : undefined } };
+      });
+      setVenue('baseball', 'sandbox', { ...venue, skyline: skylineFrom(zones, venue.site, { radius: 40 }) });
+    }
+    if (Q.get('park') === '3d' && Q.get('city') !== '0') loadVenue().catch((err) => console.warn('[sandbox] no city:', err && err.message));
 
     script = await loadScript();
     const q = Q;

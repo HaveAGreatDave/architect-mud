@@ -1,8 +1,8 @@
 # Deadball in GLASS 2
 
-**Status: Phase 0 and sim v2 built; Phase 1 under way behind a flag, with the park in 3-D, its
-light, air, lens and grade, the players posed with their heads, and the arcade graphics built
-(1a to 1d).** A plan for giving Deadball a 3-D sub-screen the way Cluster Puck got Rinkside, at the
+**Status: Phase 0, sim v2 and Phase 1 built, behind a flag: the park in 3-D with its light, air,
+lens and grade, the players posed with their heads, the arcade graphics, and the city round the
+park as a set with the park's own outside (1a to 1e).** A plan for giving Deadball a 3-D sub-screen the way Cluster Puck got Rinkside, at the
 highest fidelity the engine can reach. Deadball is a live sport on KSAB, and the broadcast borrows
 the look of a 1990s arcade baseball game. That means skinned, detailed players, authored animation
 with a wide spread of plays, light from the park's own towers and a crowd that fills the stands.
@@ -1137,7 +1137,7 @@ Per viewer with the sub-screen open, per game:
 | The men's lines and the leaders (built in 1d) | none | about 87 × 37 bytes + 1.6 KB once = 4.8 KB |
 | Everything else | about 70 KB | about 70 KB |
 | Total | about 115 KB | about 88 KB |
-| Club set and venue, with the skyline manifest | none | once per client per revision, held under 64 KB (the manifest is about 15 KB) |
+| Club set and venue, with the skyline manifest | none | once per client per revision, held under 64 KB (the venue with its manifest is 18 KB, 5 KB gzipped, built in 1e) |
 
 The rendering's weight is all on the client: textures and clips ship with the client code, not per
 broadcast. The CPhL's eight clubs are 57 KB as data, mostly crest paths; Deadball's sixteen get a size
@@ -1352,7 +1352,7 @@ reference machine and on an integrated laptop GPU and writes the numbers into
 | `plugins/broadcast/regress.js`, the postseason | regress | `season` with its phase and the seeds on payloads, the final scheduled on an air day, the #1 seed at home. |
 | `plugins/broadcast/regress.js`, sim v2 | regress | Built: the v1 hash holds; v2 with its new plays off is the v1 game; every v2 play's moves account for every man, the runs and the outs; the rates; the switch by slot; the payloads; the hitting race; a line for every new play. |
 | `scripts/shapes/smoke.mjs` and `sitecheck.mjs`, the park | shapes, content | Phase 6: every slice of the park draws without throwing, and every gate has its street. |
-| `scripts/shapes/cityscape-smoke.mjs` | shapes | Pure: composes the set from the content tree's manifest. Every building within reach resolves to a shape at the windshield's size and gets a plot or its place on the water, none inside the park's outline; bearings move under 3° at the median and under 25° within 900 ft; the edges are straight and on tile lines; every road tile's arms draw; nothing tall stands within 48 ft of a street-level camera; the light bake is fresh. |
+| `scripts/shapes/cityscape-smoke.mjs` | shapes | Built: pure, composes the set from the content tree's manifest. Every building within reach resolves to a shape at the windshield's size and gets a plot or its place on the water, none inside the park's outline; bearings move under 3° at the median and under 25° within 900 ft; the edges are straight and on tile lines; every plot fronts a street or backs onto the set's edge; every road tile's arms draw; nothing tall stands within 48 ft of a street-level camera; the engine files name no region. Phase 4 adds that the light bake is fresh. |
 | `plugins/broadcast/regress.js` | regress | `sport`, `bats`, `throws`, `hold` present; `play` consistent with the kind; standings once a game; bare pools direction-free; a recorded hash of a hundred seeded games unchanged. |
 
 `client:smoke` and `imports:smoke` cover new files without being asked. Each gate stays inside the 60
@@ -1438,6 +1438,28 @@ Phase 3, or with sim v2 if that comes later.
   covers the batter. The HTML score bug and cards are gone, and the score is written out for a
   screen reader. The theme's words, colours and bug are code defaults until the venue carries
   them (Phase 5); tv.js passes the station's name.
+- **1e built:** the skyline manifest as a pure `client/shared/skyline-manifest.js` (the buildings
+  within reach of a site and an edge per side, a Curtain line or a shore), which the server builds
+  from the in-memory map with the engine's own rule for a building's door
+  (`server/engine/skyline.js`; the cold open's `coldwaterSkyline()` builds its rows with the
+  same `skylineEntry`);
+  the venue on the wire as `tv_venue` once per revision, stamped `venueRev` on a game's first
+  payload, 18 KB and 5 KB gzipped; `client/shared/city-set.js` composing the set; and
+  `gl/cityscape.js` building it: 218 buildings from their baked shapes, 136 filler plots, 838
+  cobra-head lamps with their pools and 36 aircraft beacons, about 75,000 triangles, composed in
+  about 20 ms and built in about 90 ms. Bearings move 1.65° at the median, and the worst within
+  900 ft is still Fairweather Marina at 19°. The windshield's per-tile jitter and `CURTAIN_H`
+  moved into `skyline-scale.js` as `buildingScale`, so a tower is the same height in the cockpit
+  and on TV. The art direction is content (`sports_pools.venue.city`), and so is the park's
+  `name`, lit over the main gate. Outside, the park has its brick wall, flags and sign, its back
+  plain from inside. Three things changed on the way. The look-dev's arcade had its piers where
+  the openings were, so the arches drew as dark brick and the club level's windows never showed;
+  the openings now glow from the concourse. Where a block is three plots deep (beside the ring street and the
+  north and south edges, where a cross street is dropped), its middle plot in the column against
+  the West Curtain has no street of its own and backs onto the wall; the gate allows that and
+  no other plot without a street. And the light bake isn't part of
+  `cityscape-smoke` yet, because it comes with Phase 4. GPU timings on real machines are still to
+  be taken: the sandbox's screenshots here come from SwiftShader.
 
 **Phase 2: skinned players and the pitch.** Behind the flag.
 - `gl/skin.js`, the rig, `diamond/anim.js`, the Pose Lab, the pitching, batting, catching and
