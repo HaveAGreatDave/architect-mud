@@ -38,9 +38,17 @@ const EUL = (e) => (e ? m3m(RZ(e[2] || 0), m3m(RX(e[0] || 0), RY(e[1] || 0))) : 
 // ── the solver ─────────────────────────────────────────────────────────────────
 // Local pose space: x is the player's left, y up, z his forward. A foot given as [x, z] stands on
 // the ground; given as [x, y, z] it's where it is.
+//
+// A limb by two-bone IK: from the joint at A toward the target T, bending toward `pole`. Near full
+// stretch the reach is softened: past IK_SOFT short of the limb's length the distance eases toward
+// full length rather than meeting it, so a knee or elbow straightens smoothly as a target moves
+// out of reach and never snaps, at the cost of falling a hair short of a target at arm's length
+// (0.02 ft for a leg asked for exactly its length). A target inside that is met exactly.
+export const IK_SOFT = 0.02;
 function ik2(A, T, l1, l2, pole) {
   const d = sub(T, A), dist = Math.max(1e-4, len(d)), dir = mul(d, 1 / dist);
-  const D = clamp(dist, Math.abs(l1 - l2) + 1e-3, l1 + l2 - 1e-3);
+  const L = l1 + l2, sw = L * IK_SOFT, da = L - sw;
+  const D = clamp(dist > da ? da + sw * (1 - Math.exp(-(dist - da) / sw)) : dist, Math.abs(l1 - l2) + 1e-3, L - 1e-5);
   const a = Math.acos(clamp((l1 * l1 + D * D - l2 * l2) / (2 * l1 * D), -1, 1));
   let p = sub(pole, mul(dir, dot(pole, dir)));
   if (len(p) < 1e-5) p = Math.abs(dir[1]) < 0.9 ? cross(dir, [0, 1, 0]) : cross(dir, [1, 0, 0]);
@@ -49,11 +57,12 @@ function ik2(A, T, l1, l2, pole) {
   return [mid, add(mid, mul(norm(sub(T, mid)), l2))];
 }
 
-export function solvePose(P) {
-  const s = P.scale || 1;
+// The torso and head alone, by forward kinematics, with the shoulders and hips: what a layer that
+// needs only the hips, the chest or the eyes can have without solving the limbs.
+export function solveTorso(P) {
+  const s = P.scale || 1, at = P.at || [0, 0, 0];
   const Yw = RY(P.yaw || 0);
-  const toW = (v) => add(P.at, m3v(Yw, v));
-  const dirW = (v) => norm(m3v(Yw, v));
+  const toW = (v) => add(at, m3v(Yw, v));
   const J = {}, W = {};
   W.pelvis = m3m(Yw, m3m(RY(P.twist || 0), m3m(RX(P.pitch || 0), RZ(P.roll || 0))));
   J.pelvis = toW(P.pelvis);
@@ -64,13 +73,23 @@ export function solvePose(P) {
   for (const [S, sg] of [['L', 1], ['R', -1]]) {
     J['sh' + S] = add(J.chest, m3v(W.chest, [sg * 0.64 * s, 0.43 * s, -0.04 * s]));
     J['hip' + S] = add(J.pelvis, m3v(W.pelvis, [sg * 0.31 * s, -0.10 * s, 0]));
+  }
+  return { J, W, s, Yw, toW };
+}
+
+// The whole pose: the torso, then each leg and arm by two-bone IK to its target. `J.anT` and
+// `J.wrT` are where each ankle and wrist was asked to be, so a gate can see a limb fall short.
+export function solvePose(P) {
+  const { J, W, s, Yw, toW } = solveTorso(P);
+  const dirW = (v) => norm(m3v(Yw, v));
+  for (const S of ['L', 'R']) {
     const a = P['ank' + S];
     let an;
     if (a.length === 2) { const w = toW([a[0], 0, a[1]]); an = [w[0], groundHeight(w[0], w[2]) + 0.28 * s, w[2]]; }
     else an = toW(a);
     const kp = dirW(P['knee' + S] || [0, 0, 1]);
     const [kn, an2] = ik2(J['hip' + S], an, 1.55 * s, 1.50 * s, kp);
-    J['kn' + S] = kn; J['an' + S] = an2; J['kpole' + S] = kp;
+    J['kn' + S] = kn; J['an' + S] = an2; J['anT' + S] = an; J['kpole' + S] = kp;
     const td = dirW(P['toe' + S] || [0, 0, 1]);
     const toe = add(an2, mul(td, 0.62 * s));
     if (P['plant' + S] !== false && a.length === 2) toe[1] = groundHeight(toe[0], toe[2]) + 0.07;
@@ -96,7 +115,7 @@ export function solvePose(P) {
     const T = hands[S] || toW(P['wr' + S]);
     const ep = dirW(P['elb' + S] || [sg * 0.4, -0.2, -1]);
     const [el, wr] = ik2(J['sh' + S], T, 0.98 * s, 0.90 * s, ep);
-    J['el' + S] = el; J['wr' + S] = wr; J['epole' + S] = ep;
+    J['el' + S] = el; J['wr' + S] = wr; J['wrT' + S] = T; J['epole' + S] = ep;
     if (!J['hand' + S]) {
       const hd = P['hand' + S] ? dirW(P['hand' + S]) : norm(sub(wr, el));
       J['hand' + S] = add(wr, mul(hd, 0.17 * s));

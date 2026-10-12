@@ -896,7 +896,12 @@ Built so far (Phases 1a to 1e of the plan):
   twenty bones from the pelvis to the bat) with four bone weights a vertex, and the GPU moves it
   into any pose ([gl/skin.js](../client/game/js/panels/gl/skin.js), a palette of bones in a float
   texture, a row a kit slot). A body is kept for who a player is and what he wears, not where he
-  stands, so a runner keeps his round the bases and a new payload builds only its new people;
+  stands, so a runner keeps his round the bases and a new payload builds only its new people.
+  Their motion is the clip library (Phase 2b): [diamond/anim.js](../client/game/js/panels/diamond/anim.js)
+  plays clips keyed in the rig's pose language, from `content/animation_clips/` baked to
+  `diamond/clips.js` by `npm run clips:bake`, with the glove reaching for the ball, the head
+  turning to it and each player's own way of doing it off his name. The director that stages a
+  pitch with them is Phase 2d, so for now the players still stand in their stills;
 - the arcade graphics (Phase 1d), a canvas over the picture drawn by
   [diamond/hud.js](../client/game/js/panels/diamond/hud.js) in the client's display faces: the
   score with the bases, the count as lamps, the pitch speed and type, and in the batting view the
@@ -958,7 +963,9 @@ and resolved to a shape, none inside the park, bearings held, the edges on tile 
 road tile drawn from its arms, nothing tall beside a street-level camera, and no region named
 in the engine files. `scripts/shapes/anim-smoke.mjs` skins the players on the CPU with the
 shader's own sum and holds every pose to the posed build's surface, the head vertex for vertex
-and the hands on the bat. The sandbox page takes `?park=3d`, `?shot=`, `?bug=`, `?po=1` (the final's
+and the hands on the bat; then it plays every clip, holding each frame to what a body can do,
+the planted feet still, the hands on the bat, the glove to the ball across the box its catch
+covers and the ball leaving the hand at its fastest, and fails a stale `clips.js`. The sandbox page takes `?park=3d`, `?shot=`, `?bug=`, `?po=1` (the final's
 dressing), `?hud=0` (the picture alone) and `?city=0`; its city comes from the flight sim's
 baked world, so it can trail the live map by a bake. The renderer's traps are in [glass-notes.md](reference/glass-notes.md#the-ballpark-glballparkjs).
 

@@ -84,6 +84,7 @@
     "mesh": "node scripts/shapes/mesh.mjs",
     "gl:meshes": "node scripts/shapes/meshes.mjs",
     "fauna:bake": "node scripts/shapes/bake-fauna.mjs",
+    "clips:bake": "node scripts/shapes/bake-clips.mjs",
     "models:diff": "node scripts/shapes/modeldiff.mjs",
     "models:survey": "node scripts/shapes/autoport.mjs --survey",
     "content:status": "node scripts/content/status.mjs",

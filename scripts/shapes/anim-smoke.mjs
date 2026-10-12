@@ -14,6 +14,23 @@
 //   3. THE HANDS ON THE BAT. In every pose with a bat, either hand's fist and the bat within
 //      0.05 ft of where the posed build puts them, and the open hands folded away.
 //   4. THE PALETTE. Three texels a bone, and the shader's chunk reading the rows the rig writes.
+//   5. THE CLIPS (diamond/anim.js plays them). The library in content/animation_clips/ checks out
+//      with nothing to warn about, and diamond/clips.js is its bake as it stands. Then every clip,
+//      played at 120 frames a second:
+//        · every frame a pose a body can make (anim.js JOINT_LIMITS), and no joint faster or
+//          quicker to change speed than a body is (TOP_SPEED, TOP_ACCEL), which is where a pop or
+//          a snap between two blend points shows (a knee straightening into a hard stop, say);
+//        · no velocity spikes at the blend points (each key, each plant's ease on and off, a loop's
+//          seam): the jump in each joint's velocity across one, taken to zero time, under 1 ft/s;
+//        · a planted foot moves less than 0.1 ft while it's planted;
+//        · both hands within 0.05 ft of the bat wherever there's one;
+//        · at a catch, the glove within 0.1 ft of every ball in the box the catch says it covers
+//          (its `reach`), the body inside its limits;
+//        · at a release, the hand at its fastest within a frame (1/60 s), at nine tenths of that
+//          speed or more, and going within 30 degrees of the way the ball goes.
+//      And the player itself: a loop is the same a lap later; a left-hander is a right-hander in a
+//      mirror; the head turns no further than a neck can; the pitcher on the real mound, both
+//      ways round, keeps his planted feet on its slope.
 //
 // Run:  node scripts/shapes/anim-smoke.mjs
 
@@ -240,5 +257,159 @@ check('palette: the shader reads three rows of four a bone', /mat3x4\(texelFetch
   check('palette: the sum turns, moves and blends', Math.hypot(a[0] - 1, a[1] - 3, a[2] - 3) < 1e-9 && Math.abs(h[0] - (128 * 1 + 127 * 1) / 255) < 1e-9 && Math.abs(h[1] - 128 * 3 / 255) < 1e-9);
 }
 
-console.log(`anim-smoke: ${passes}/${passes + failures} passed · a skinned body built in ${buildMs.toFixed(0)} ms on average · ${((clock.now() - t0) / 1000).toFixed(1)} s in all`);
+// ── 5. the clips ─────────────────────────────────────────────────────────────
+const A = await import(P + 'diamond/anim.js');
+const SCH = await import(P + 'diamond/clip-schema.js');
+const { CLIPS } = await import(P + 'diamond/clips.js');
+const BAKE = await import('./bake-clips.mjs');
+const GEO = await import(P + 'diamond/geo.js');
+{
+  const files = BAKE.readClipFiles();
+  const res = BAKE.bakeClips(files);
+  check('clips: the library checks out', files.length > 0 && res.errors.length === 0, res.errors.slice(0, 3).join('; '));
+  check('clips: nothing in it to warn about', res.warnings.length === 0, res.warnings.slice(0, 3).join('; '));
+  const { readFileSync } = await import('node:fs');
+  const onDisk = readFileSync(BAKE.CLIP_MODULE, 'utf8').replace(/\r\n/g, '\n');
+  check('clips: diamond/clips.js is the bake of content/animation_clips/ (npm run clips:bake)', !res.errors.length && onDisk === BAKE.renderModule(res).replace(/\r\n/g, '\n'));
+  check('clips: the module holds every clip', Object.keys(CLIPS).sort().join() === Object.keys(res.clips).sort().join());
+}
+const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+const len3 = (a) => Math.hypot(a[0], a[1], a[2]);
+const solveAt0 = (pose) => RIG.solvePose({ ...pose, at: [0, 0, 0], yaw: 0 });
+// the joints the clip checks follow, and the most each may move in feet a second
+const TRACK = ['pelvis', 'head', 'wrL', 'wrR', 'elL', 'elR', 'knL', 'knR', 'anL', 'anR', 'toeL', 'toeR'];
+const TOP_SPEED = { pelvis: 25, head: 60, wrL: 170, wrR: 170, elL: 140, elR: 140, knL: 50, knR: 50, anL: 50, anR: 50, toeL: 60, toeR: 60 };
+// and the most each may change speed, in feet a second each second, at 120 frames a second: about
+// twice what the library asks for (the throwing hand 7,200 at the release, a knee 1,200), so a knee
+// snapping straight (2,600) stands out
+const TOP_ACCEL = { pelvis: 1500, head: 3000, wrL: 12000, wrR: 12000, elL: 10000, elR: 10000, knL: 2000, knR: 2000, anL: 2500, anR: 2500, toeL: 3000, toeR: 3000 };
+const jointsAt = (clip, t) => { const J = solveAt0(A.sampleClip(clip, t)).J; return TRACK.map((k) => J[k]); };
+const tc = clock.now();
+for (const clip of Object.values(CLIPS)) {
+  const D = clip.duration, N = Math.max(1, Math.ceil(D * 120)), dt = D / N;
+  const breaks = [], fast = [], sharp = [];
+  let grip = 0, slide = { d: 0 }, prev = null, prevV = null;
+  const spot = new Map();
+  for (let i = 0; i <= N; i++) {
+    const t = i * dt, pose = A.sampleClip(clip, t), sol = solveAt0(pose), J = sol.J;
+    if (breaks.length < 3) for (const b of A.limitBreaks(pose, sol)) if (breaks.length < 3) breaks.push(`${b} at ${t.toFixed(3)} s`);
+    if (pose.bat) for (const S of ['L', 'R']) grip = Math.max(grip, len3(sub(J['wr' + S], J['wrT' + S])));
+    for (const p of clip.plants) {
+      if (t < p.from - 1e-9 || t > p.to + 1e-9) continue;
+      const k = p.foot + p.from, a = J['an' + p.foot];
+      if (!spot.has(k)) spot.set(k, a);
+      const d = len3(sub(a, spot.get(k)));
+      if (d > slide.d) slide = { d, t, foot: p.foot };
+    }
+    const cur = TRACK.map((k) => J[k]);
+    if (prev) {
+      const vel = cur.map((p, j) => sub(p, prev[j]).map((x) => x / dt));
+      vel.forEach((v, j) => {
+        const sp = len3(v), k = TRACK[j];
+        if (sp > TOP_SPEED[k] && fast.length < 3) fast.push(`${k} at ${sp.toFixed(0)} ft/s at ${t.toFixed(3)} s`);
+        const ac = prevV ? len3(sub(v, prevV[j])) / dt : 0;
+        if (ac > TOP_ACCEL[k] && sharp.length < 3) sharp.push(`${k} at ${ac.toFixed(0)} ft/s² at ${t.toFixed(3)} s`);
+      });
+      prevV = vel;
+    }
+    prev = cur;
+  }
+  check(`clip ${clip.id}: every frame a pose a body can make`, breaks.length === 0, breaks.join('; '));
+  check(`clip ${clip.id}: no joint faster than a body moves`, fast.length === 0, fast.join('; '));
+  check(`clip ${clip.id}: no joint changing speed quicker than a body can`, sharp.length === 0, sharp.join('; '));
+  check(`clip ${clip.id}: planted feet stay put, within 0.1 ft`, slide.d < 0.1, `${slide.d.toFixed(3)} ft, foot ${slide.foot} at ${slide.t?.toFixed(3)} s`);
+  check(`clip ${clip.id}: both hands on the bat, within 0.05 ft`, grip < 0.05, `${grip.toFixed(3)} ft`);
+  // the blend points; the jump in velocity across each, by two step sizes taken to zero
+  const blends = new Set(clip.keys.map((k) => k.t));
+  for (const p of clip.plants) for (const x of [p.from, p.to, p.from - A.PLANT_EASE, p.to + A.PLANT_EASE]) blends.add(+x.toFixed(6));
+  let kink = { v: 0 };
+  const jumpAt = (tb, h) => { const [a, b, c] = [tb - h, tb, tb + h].map((t) => jointsAt(clip, t)); return b.map((pb, j) => sub(sub(c[j], pb), sub(pb, a[j])).map((x) => x / h)); };
+  for (const tb of blends) {
+    if (!clip.loop && !(tb > 1e-3 && tb < D - 1e-3)) continue;
+    const big = jumpAt(tb, 5e-4), half = jumpAt(tb, 2.5e-4);
+    big.forEach((g, j) => { const v = len3(sub(half[j].map((x) => 2 * x), g)); if (v > kink.v) kink = { v, t: tb, joint: TRACK[j] }; });
+  }
+  check(`clip ${clip.id}: no velocity spikes at the blend points`, kink.v < 1, `${kink.v.toFixed(2)} ft/s, ${kink.joint} at ${kink.t} s`);
+  // the catch: the glove to the ball anywhere in the box the catch says it covers, or a hand's
+  // width round where the clip has it
+  for (const e of clip.events.filter((x) => x.kind === 'catch')) {
+    const kind = clip.role === 'catcher' ? 'mitt' : 'glove', box = e.reach;
+    const P0 = A.sampleClip(clip, e.t), home = A.handPoint(P0, e.hand, kind);
+    const targets = [];
+    if (box) for (let i = 0; i <= 8; i++) for (let k = 0; k <= 10; k++) targets.push([box.x[0] + (box.x[1] - box.x[0]) * i / 8, box.y[0] + (box.y[1] - box.y[0]) * k / 10, home[2]]);
+    else for (const d of [[0, 0], [0.4, 0], [-0.4, 0], [0, 0.4], [0, -0.4]]) targets.push([home[0] + d[0], home[1] + d[1], home[2]]);
+    let worst = { d: 0 }, bent = null;
+    for (const T of targets) {
+      const Q = A.reach(P0, e.hand, T, 1, { kind, follow: box ? box.follow : 0.3 }), sol = solveAt0(Q), J = sol.J;
+      const hd = J['hdir' + e.hand], pm = J['palm' + e.hand], wr = J['wr' + e.hand], along = kind === 'mitt' ? 0.27 : 0.3;
+      const d = len3(sub([wr[0] + hd[0] * along + pm[0] * 0.05, wr[1] + hd[1] * along + pm[1] * 0.05, wr[2] + hd[2] * along + pm[2] * 0.05], T));
+      if (d > worst.d) worst = { d, T };
+      const br = A.limitBreaks(Q, sol);
+      if (br.length && !bent) bent = `${br[0]} reaching to [${T.map((v) => v.toFixed(2))}]`;
+    }
+    check(`clip ${clip.id}: the glove at the ball on the catch frame, within 0.1 ft (${targets.length} places)`, worst.d < 0.1, `${worst.d.toFixed(3)} ft at [${worst.T?.map((v) => v.toFixed(2))}]`);
+    check(`clip ${clip.id}: a body that can make every catch`, !bent, bent);
+  }
+  // the release: the hand at its fastest, going the way the ball goes
+  for (const e of clip.events.filter((x) => x.kind === 'release')) {
+    const vAt = (t) => { const q = 5e-4; return sub(solveAt0(A.sampleClip(clip, t + q)).J['wr' + e.hand], solveAt0(A.sampleClip(clip, t - q)).J['wr' + e.hand]).map((x) => x / (2 * q)); };
+    let top = { v: 0 };
+    for (let t = Math.max(1e-3, e.t - 0.06); t <= Math.min(D - 1e-3, e.t + 0.06); t += 1e-3) { const v = len3(vAt(t)); if (v > top.v) top = { v, t }; }
+    const v = vAt(e.t), sp = len3(v), d = e.dir, off = Math.acos(Math.max(-1, Math.min(1, (v[0] * d[0] + v[1] * d[1] + v[2] * d[2]) / (sp * len3(d))))) * 180 / Math.PI;
+    check(`clip ${clip.id}: the ball leaves the hand at its fastest, within a frame`, Math.abs(top.t - e.t) <= 1 / 60 + 1e-9 && sp >= 0.9 * top.v, `${sp.toFixed(0)} ft/s at the release, ${top.v.toFixed(0)} at ${top.t.toFixed(3)} s`);
+    check(`clip ${clip.id}: the hand going the way the ball goes at the release`, off <= 30, `${off.toFixed(0)}° off`);
+  }
+}
+const clipsMs = clock.now() - tc;
+// the player
+{
+  const loop = Object.values(CLIPS).find((c) => c.loop);
+  const a = loop && A.sampleClip(loop, 0.37), b = loop && A.sampleClip(loop, 0.37 + loop.duration);
+  check('player: a loop is the same a lap later', loop && JSON.stringify(a) === JSON.stringify(b));
+  const pitch = Object.values(CLIPS).find((c) => c.role === 'pitcher');
+  let mirrorOff = 0;
+  for (const t of [0.2, 0.9, 1.3, 1.44, 2.2]) {
+    const m = A.sampleClip(pitch, t, { mirror: true }), r = RIG.mirrorPose(A.sampleClip(pitch, t));
+    const Jm = solveAt0(m).J, Jr = solveAt0(r).J;
+    for (const k of TRACK) mirrorOff = Math.max(mirrorOff, len3(sub(Jm[k], Jr[k])));
+  }
+  check('player: a left-hander is a right-hander in a mirror', mirrorOff < 1e-9, `${mirrorOff.toExponential(2)} ft`);
+  const P0 = A.sampleClip(pitch, 0.1), look = A.lookAt(P0, [0, 4, -40]);
+  check('player: the head turns no further than a neck can', Math.abs(look.neck[1]) <= A.LOOK_LIMIT.yaw * 0.6 + 1e-9 && Math.abs(look.head[1]) <= A.LOOK_LIMIT.yaw * 0.4 + 1e-9 && Math.abs(look.neck[1]) > 30, `neck ${look.neck[1].toFixed(1)}°, head ${look.head[1].toFixed(1)}°`);
+  const ev = A.eventsBetween(pitch, 1.0, A.eventTime(pitch, 'release'));
+  check('player: the events a clip plays past, the end included', ev.length === 1 && ev[0].kind === 'release' && A.eventsBetween(pitch, A.eventTime(pitch, 'release'), 2).length === 0);
+  // on the mound, both ways round: the director's ground in the pose's own frame is the park's
+  // ground there, less the height he stands at
+  let worst = { d: 0 }, slid = 0, jump = { d: 0 };
+  for (const lefty of [false, true]) {
+    const at = GEO.RUBBER, yaw = lefty ? -90 : 90, c = Math.cos(yaw * Math.PI / 180), sn = Math.sin(yaw * Math.PI / 180);
+    const toW = (x, z) => [at[0] + c * x + sn * z, at[2] - sn * x + c * z];
+    const ground = (x, z) => { const w = toW(x, z); return GEO.groundHeight(w[0], w[1]) - at[1]; };
+    const spot = new Map();
+    for (let t = 0; t <= pitch.duration + 1e-9; t += 1 / 120) {
+      const J = RIG.solvePose({ ...A.sampleClip(pitch, t, { ground, mirror: lefty }), at, yaw }).J;
+      for (const p of pitch.plants) {
+        if (t < p.from || t > p.to) continue;
+        const S = lefty ? (p.foot === 'L' ? 'R' : 'L') : p.foot, an = J['an' + S], d = Math.abs(an[1] - (GEO.groundHeight(an[0], an[2]) + 0.28));
+        if (d > worst.d) worst = { d, t, S, lefty };
+        const k = S + p.from;
+        if (!spot.has(k)) spot.set(k, an);
+        slid = Math.max(slid, len3(sub(an, spot.get(k))));
+      }
+    }
+    // and the foot onto and off the ground without a jump, where the slope says the ground is
+    for (const p of pitch.plants) for (const tb of [p.from, p.to]) {
+      if (!(tb > 1e-3 && tb < pitch.duration - 1e-3)) continue;
+      const S = lefty ? (p.foot === 'L' ? 'R' : 'L') : p.foot;
+      const [a, b] = [tb - 1e-4, tb + 1e-4].map((t) => RIG.solvePose({ ...A.sampleClip(pitch, t, { ground, mirror: lefty }), at, yaw }).J['an' + S]);
+      const d = len3(sub(a, b));
+      if (d > jump.d) jump = { d, t: tb, S, lefty };
+    }
+  }
+  check('player: on the mound, both ways round, planted feet on its slope', worst.d < 0.01, `${worst.d.toFixed(3)} ft off, ${worst.lefty ? 'left' : 'right'}-hander's ${worst.S} at ${worst.t?.toFixed(3)} s`);
+  check('player: on the mound, both ways round, planted feet stay put', slid < 0.1, `${slid.toFixed(3)} ft`);
+  check('player: on the mound, both ways round, a foot comes down onto the slope and up off it without a jump', jump.d < 0.01, `${jump.d.toFixed(3)} ft, ${jump.lefty ? 'left' : 'right'}-hander's ${jump.S} at ${jump.t} s`);
+}
+
+console.log(`anim-smoke: ${passes}/${passes + failures} passed · a skinned body built in ${buildMs.toFixed(0)} ms on average · ${Object.keys(CLIPS).length} clips in ${(clipsMs / 1000).toFixed(1)} s · ${((clock.now() - t0) / 1000).toFixed(1)} s in all`);
 process.exit(failures ? 1 : 0);

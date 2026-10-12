@@ -343,7 +343,11 @@ export function isRuntimeResidueId(table, id) {
 //
 // `liveries` is the same shape without the suffix: whole paint sets per vehicle model, baked by
 // scripts/shapes/bake-liveries.mjs into client/shared/liveries.js and gated by shapes/liveries.mjs.
-export const NON_TABLE_DIRS = new Set(['map', 'building_models', 'vehicle_models', 'fauna_models', 'liveries']);
+//
+// `animation_clips` is Deadball's clip library, one keyed motion a file, baked by
+// scripts/shapes/bake-clips.mjs into client/game/js/panels/diamond/clips.js and gated by
+// shapes/anim-smoke.mjs.
+export const NON_TABLE_DIRS = new Set(['map', 'building_models', 'vehicle_models', 'fauna_models', 'liveries', 'animation_clips']);
 
 // ── Asset refs ──────────────────────────────────────────────────────────────
 //

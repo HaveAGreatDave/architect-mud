@@ -1484,6 +1484,29 @@ Phase 3, or with sim v2 if that comes later.
   or a forearm twist; and linear blending without the dual-quaternion option, because each limb
   is its own tube that turns whole with its bone, so there's no twist to collapse. Both can come
   in behind `gl/skin.js` when a clip needs them.
+- **2b built:** the clip player, `diamond/anim.js`, and the library's format. A clip is a file
+  under `content/animation_clips/` ([clip-schema.js](../../client/game/js/panels/diamond/clip-schema.js)
+  says what it may hold): poses in the rig's language at times, the events the director waits on
+  (`release`, `contact`, `catch`, `call`, `step`) and the stretches a foot is planted.
+  `npm run clips:bake` checks each file, fills in every key's pose and writes `diamond/clips.js`.
+  Playback runs every number on a Catmull-Rom curve through the keys, with a Kochanek-Bartels
+  tension a key (the release key at -1 carries the hand through it at full speed); a clip starts
+  and ends at rest, and a loop runs on round its end. A planted foot is held on its spot, easing
+  on and off over a tenth of a second with its toe laid flat, and where a held foot is out of
+  reach the pelvis sinks, smoothly. The rig's IK now softens near full stretch, so a knee
+  straightens without snapping. The layers: `reach` brings a glove to the ball, turning the hand
+  along the arm and moving the body by up to the catch's `follow`; `lookAt`; `vary`, a player's
+  own way off his name; a left-hander's mirror; and `mixPose` for a crossfade. A catch says the
+  box its glove covers, so the director can send a ball outside it to another clip. Four clips to
+  start, each keyed to pass the gate: the delivery from the set (the look-dev's frames re-keyed to
+  the rig's legs: a 4.4 ft stride, the pelvis down to 2.5 ft at foot strike, the hand at 111 ft/s
+  at the release), the hitter's stance with a waggle, the catcher's receive and the plate umpire
+  set. `anim-smoke` plays every clip (84 checks in all): the joint limits on every frame, caps on
+  each joint's speed and acceleration, no jump in velocity at a blend point (under 1 ft/s, taken
+  to zero time), planted feet still within 0.1 ft, the hands on the bat within 0.05 ft, the glove
+  at the ball within 0.1 ft across its box, the release within a frame of the hand's top speed,
+  and the pitcher on the real mound both ways round. Root motion waits for the running clips in
+  Phase 3; until then a clip moves within its own frame and the director places the frame.
 
 **Phase 3: balls in play.** Behind the flag.
 - `synthPlay` with direction, exit speed and fielding grade, and the suffixed pools; fielding,
