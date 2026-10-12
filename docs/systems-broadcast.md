@@ -882,7 +882,7 @@ Built so far (Phases 1a to 1e of the plan):
   `broadcast` (the period's video: lifted blacks, soft colour, aperture correction, the CCD's
   smear off the lamps) or `none`, and tube glass can go over either. The sandbox takes `?grade=`
   and `?tube=1`;
-- the players (Phase 1c), still posed: [diamond/cast.js](../client/game/js/panels/diamond/cast.js)
+- the players (Phase 1c): [diamond/cast.js](../client/game/js/panels/diamond/cast.js)
   puts each payload's people where they stand (the nine in the field, the batter in the box for his
   side of the plate, the men on base leading off, on deck, the coaches and four umpires), and
   [gl/ballplayer-mesh.js](../client/game/js/panels/gl/ballplayer-mesh.js) builds each one's body
@@ -891,8 +891,12 @@ Built so far (Phases 1a to 1e of the plan):
   looks like and his number come off his name, or off his club and position where the payload
   doesn't name him, and [diamond/kits.js](../client/game/js/panels/diamond/kits.js) paints the
   kits: the clubs' nicknames and the numbers on placeholder colours until the clubs bring their
-  own (Phase 5). A new cast is built a few bodies a frame, and only who's changed is rebuilt.
-  The players cast the towers' shadows;
+  own (Phase 5). The players cast the towers' shadows. Since Phase 2a they're skinned: each body
+  is built once in the rig's bind pose ([diamond/rig.js](../client/game/js/panels/diamond/rig.js),
+  twenty bones from the pelvis to the bat) with four bone weights a vertex, and the GPU moves it
+  into any pose ([gl/skin.js](../client/game/js/panels/gl/skin.js), a palette of bones in a float
+  texture, a row a kit slot). A body is kept for who a player is and what he wears, not where he
+  stands, so a runner keeps his round the bases and a new payload builds only its new people;
 - the arcade graphics (Phase 1d), a canvas over the picture drawn by
   [diamond/hud.js](../client/game/js/panels/diamond/hud.js) in the client's display faces: the
   score with the bases, the count as lamps, the pitch speed and type, and in the batting view the
@@ -945,14 +949,16 @@ own, holds every shot's matrices to its pinhole on three screen shapes, reads th
 checks the fallback, fits each tower's shadow map to the shot, reads depth back through the
 occlusion's constants, holds the lens sharp at its focus, builds every pose for both hands,
 places a cast, holds every face pick steady and every cap, helmet and mask clear of the brow,
-the ears and the eyes, and lays the graphics out on the wall TV's, the tablet's and the
+the ears and the eyes, keeps a runner's body from bag to bag, and lays the graphics out on the wall TV's, the tablet's and the
 sandbox's screens with and without the tube glass: everything inside the frame, nothing under
 6 px or cut short for the script's longest names, no panel over another, and checks the outer
 wall faces out all round with the sign outside it. `scripts/shapes/cityscape-smoke.mjs`
 composes the set from the content tree's skyline and builds the city: every building placed
 and resolved to a shape, none inside the park, bearings held, the edges on tile lines, every
 road tile drawn from its arms, nothing tall beside a street-level camera, and no region named
-in the engine files. The sandbox page takes `?park=3d`, `?shot=`, `?bug=`, `?po=1` (the final's
+in the engine files. `scripts/shapes/anim-smoke.mjs` skins the players on the CPU with the
+shader's own sum and holds every pose to the posed build's surface, the head vertex for vertex
+and the hands on the bat. The sandbox page takes `?park=3d`, `?shot=`, `?bug=`, `?po=1` (the final's
 dressing), `?hud=0` (the picture alone) and `?city=0`; its city comes from the flight sim's
 baked world, so it can trail the live map by a bake. The renderer's traps are in [glass-notes.md](reference/glass-notes.md#the-ballpark-glballparkjs).
 

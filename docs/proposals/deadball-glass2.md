@@ -1466,6 +1466,24 @@ Phase 3, or with sim v2 if that comes later.
   umpiring clips; every pitch result staged; strikeouts and walks in full, with their calls and
   splash words.
 - Tested by: `anim-smoke`, `diamond-smoke` (pitches, counts, captions).
+- **2a built:** the rig, `diamond/rig.js`: the pose language and its solver moved out of
+  `ballplayer-mesh.js`, the look-dev's whole delivery and its slide, tag and safe added to the
+  pose table, and twenty bones (the spine's five, three a leg, three an arm, two fists and the bat)
+  whose frames are read off a solved pose. `buildBody` builds a player once in a bind pose with
+  four bone weights a vertex: the torso's rings blend along the spine's frames, a limb's across
+  its knee or elbow and into the pelvis or chest at its root, the head between the neck and the
+  skull, and everything else rides one bone. A hitter's fists and bat are built in a batting
+  stance on bones of their own that fold to nothing while his hands are free, as the open hands
+  do while they grip. `gl/skin.js` keeps the bones in a float texture, a row a kit slot, and the
+  shaders skin by it, the towers' shadows too; the jersey's cell and the face's slot come from the
+  draw, so a body is kept for who a player is, not where he stands. Skinned on the CPU with the
+  shader's own sum, every pose lies within 0.25 ft of the posed build's surface, the head lands
+  vertex for vertex and the grips stay within 0.05 ft of the bat's axis (`anim-smoke`, 45
+  checks). Two things are smaller than this section asked: twenty bones rather than about forty,
+  because a grip is a fist of its own rather than finger bones and nothing yet needs a clavicle
+  or a forearm twist; and linear blending without the dual-quaternion option, because each limb
+  is its own tube that turns whole with its bone, so there's no twist to collapse. Both can come
+  in behind `gl/skin.js` when a clip needs them.
 
 **Phase 3: balls in play.** Behind the flag.
 - `synthPlay` with direction, exit speed and fielding grade, and the suffixed pools; fielding,

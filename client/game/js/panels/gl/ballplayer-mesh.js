@@ -1,13 +1,10 @@
 // GLASS 2 · BALLPLAYERS, AS TRIANGLES.
 //
 // Deadball's people in the 3-D park (the Grandstand): the nine in the field, the batter, the men
-// on base, the on-deck hitter, the coaches and the umpires, each a posed body at the park's full
-// quality. Phase 1c of docs/proposals/deadball-glass2.md: the poses are still (the rig and its
-// clips are Phase 2), so a body is built once for where it stands and how.
+// on base, the on-deck hitter, the coaches and the umpires, at the park's full quality.
 //
-//   · the skeleton is solved from a pose: the torso and head by forward kinematics, the limbs by
-//     two-bone IK to where the pose puts the hands and feet, and a bat in two hands decides where
-//     the hands go;
+//   · the skeleton is solved from a pose by the rig (diamond/rig.js): the torso and head by
+//     forward kinematics, the limbs by two-bone IK to where the pose puts the hands and feet;
 //   · the body is lofted round it: a torso of rings, tubes down the limbs that bend round the
 //     knee and the elbow, shoes, hands that wrap a bat with ridged fingers, gloves, the bat;
 //   · the head is the street figure's (actor-head.js, level 0) with its face from the baked atlas
@@ -18,12 +15,23 @@
 // Everything a player looks like comes off his name (or, for a fielder the payload doesn't name,
 // his club and position), so he's the same in every game and on every TV.
 //
+// Two ways to build one. `buildPlayer` lofts him round a solved pose, a still (the gate builds
+// every pose that way). `buildBody` builds him once in the rig's bind pose with four bone weights
+// a vertex, and the GPU skins him into any pose after (gl/skin.js): the torso's rings blend
+// between the spine's frames, a limb's between its two bones across the knee or elbow, the head
+// between the neck and the skull, and the hands, feet, gloves, headwear and bat ride one bone
+// each. A hitter also gets his two fists and his bat, built in a batting stance on bones of their
+// own that fold away while his hands are free.
+//
 // ⚠ NOTHING HERE TOUCHES WEBGL OR THE DOM: it fills ballpark-mesh.js's batches, so the gate builds
 // every pose in node. Units are feet in the park's frame (diamond/geo.js); the head is built in its
 // own bind space (metres, y up, facing +z) and scaled onto the head joint.
 
-import { createBatch, vtx, MAT } from './ballpark-mesh.js';
-import { groundHeight, DEG } from '../diamond/geo.js';
+import { createBatch, vtx, MAT, STRIDE } from './ballpark-mesh.js';
+import { DEG } from '../diamond/geo.js';
+import { solvePose, mirrorPose, POSES, BONE, bindPoses } from '../diamond/rig.js';
+// the pose language moved to the rig; the gates and the renderer still find it here
+export { solvePose, mirrorPose, POSES };
 import { headMesh, hairMesh, skullPoint, ZC as SKULL_ZC } from '../actor-head.js';
 import { FACE_LAYOUTS, actorFace, faceHair, faceLip } from '../actor-faces.js';
 
@@ -42,10 +50,6 @@ const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t
 // 3×3 matrices as three column vectors
 const m3v = (m, v) => [m[0][0] * v[0] + m[1][0] * v[1] + m[2][0] * v[2], m[0][1] * v[0] + m[1][1] * v[1] + m[2][1] * v[2], m[0][2] * v[0] + m[1][2] * v[1] + m[2][2] * v[2]];
 const m3m = (a, b) => [m3v(a, b[0]), m3v(a, b[1]), m3v(a, b[2])];
-const RX = (d) => { const t = d * DEG, c = Math.cos(t), s = Math.sin(t); return [[1, 0, 0], [0, c, s], [0, -s, c]]; };
-const RY = (d) => { const t = d * DEG, c = Math.cos(t), s = Math.sin(t); return [[c, 0, -s], [0, 1, 0], [s, 0, c]]; };
-const RZ = (d) => { const t = d * DEG, c = Math.cos(t), s = Math.sin(t); return [[c, s, 0], [-s, c, 0], [0, 0, 1]]; };
-const EUL = (e) => (e ? m3m(RZ(e[2] || 0), m3m(RX(e[0] || 0), RY(e[1] || 0))) : [[1, 0, 0], [0, 1, 0], [0, 0, 1]]);
 export function rng(seed) { let a = seed >>> 0; return () => { a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
 export function hashStr(s) { let h = 2166136261; for (const ch of String(s)) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; }
 const decode = (c) => (c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4));
@@ -70,102 +74,54 @@ export const KIT_PANTS = { home: [0, 7 / 8, 1 / 4, 1 / 8], away: [1 / 4, 7 / 8, 
 export const KIT_SOCKS = { home: [2 / 4, 7 / 8, 1 / 4, 1 / 8], away: [3 / 4, 7 / 8, 1 / 4, 1 / 8] };
 // A cell's uv from a part's own 0..1, kept a texel or two inside so the slots don't bleed.
 const inCell = (c, u, v) => [c[0] + (0.004 + clamp(u, 0, 1) * 0.992) * c[2], c[1] + (0.008 + clamp(v, 0, 1) * 0.984) * c[3]];
+// A skinned body is built once and stands in any slot, so its jersey's uv is the cell's own 0..1
+// moved two to the right, and the shader puts it in the slot's cell (uKitCell in gl/ballpark.js).
+export const KIT_REL = Object.freeze([2, 0, 1, 1]);
 
-// ── the skeleton ───────────────────────────────────────────────────────────────
-// Local pose space: x is the player's left, y up, z his forward. A foot given as [x, z] stands on
-// the ground; given as [x, y, z] it's where it is.
-function ik2(A, T, l1, l2, pole) {
-  const d = sub(T, A), dist = Math.max(1e-4, len(d)), dir = mul(d, 1 / dist);
-  const D = clamp(dist, Math.abs(l1 - l2) + 1e-3, l1 + l2 - 1e-3);
-  const a = Math.acos(clamp((l1 * l1 + D * D - l2 * l2) / (2 * l1 * D), -1, 1));
-  let p = sub(pole, mul(dir, dot(pole, dir)));
-  if (len(p) < 1e-5) p = Math.abs(dir[1]) < 0.9 ? cross(dir, [0, 1, 0]) : cross(dir, [1, 0, 0]);
-  p = norm(p);
-  const mid = add(A, add(mul(dir, l1 * Math.cos(a)), mul(p, l1 * Math.sin(a))));
-  return [mid, add(mid, mul(norm(sub(T, mid)), l2))];
+// ── skinned vertices ─────────────────────────────────────────────────────────────
+// A skinned vertex is ballpark-mesh.js's twelve floats and two more words: four bone indices and
+// four weights, a byte each, the weights summing to 255.
+export const SKIN_STRIDE = STRIDE + 2;
+export function createSkinBatch(cap = 4096) { const data = new Float32Array(cap * SKIN_STRIDE); return { data, u8: new Uint8Array(data.buffer), n: 0, skin: true }; }
+function growSkin(b, more) {
+  const need = (b.n + more) * SKIN_STRIDE;
+  if (need <= b.data.length) return;
+  const d = new Float32Array(Math.max(need, b.data.length * 2));
+  d.set(b.data.subarray(0, b.n * SKIN_STRIDE));
+  b.data = d; b.u8 = new Uint8Array(d.buffer);
 }
-
-export function solvePose(P) {
-  const s = P.scale || 1;
-  const Yw = RY(P.yaw || 0);
-  const toW = (v) => add(P.at, m3v(Yw, v));
-  const dirW = (v) => norm(m3v(Yw, v));
-  const J = {}, W = {};
-  W.pelvis = m3m(Yw, m3m(RY(P.twist || 0), m3m(RX(P.pitch || 0), RZ(P.roll || 0))));
-  J.pelvis = toW(P.pelvis);
-  W.spine = m3m(W.pelvis, EUL(P.spine)); J.spine = add(J.pelvis, m3v(W.pelvis, [0, 0.35 * s, 0]));
-  W.chest = m3m(W.spine, EUL(P.chest)); J.chest = add(J.spine, m3v(W.spine, [0, 0.55 * s, -0.02 * s]));
-  W.neck = m3m(W.chest, EUL(P.neck)); J.neck = add(J.chest, m3v(W.chest, [0, 0.60 * s, 0]));
-  W.head = m3m(W.neck, EUL(P.head)); J.head = add(J.neck, m3v(W.neck, [0, 0.34 * s, 0.03 * s]));
-  for (const [S, sg] of [['L', 1], ['R', -1]]) {
-    J['sh' + S] = add(J.chest, m3v(W.chest, [sg * 0.64 * s, 0.43 * s, -0.04 * s]));
-    J['hip' + S] = add(J.pelvis, m3v(W.pelvis, [sg * 0.31 * s, -0.10 * s, 0]));
-    const a = P['ank' + S];
-    let an;
-    if (a.length === 2) { const w = toW([a[0], 0, a[1]]); an = [w[0], groundHeight(w[0], w[2]) + 0.28 * s, w[2]]; }
-    else an = toW(a);
-    const [kn, an2] = ik2(J['hip' + S], an, 1.55 * s, 1.50 * s, dirW(P['knee' + S] || [0, 0, 1]));
-    J['kn' + S] = kn; J['an' + S] = an2;
-    const td = dirW(P['toe' + S] || [0, 0, 1]);
-    const toe = add(an2, mul(td, 0.62 * s));
-    if (P['plant' + S] !== false && a.length === 2) toe[1] = groundHeight(toe[0], toe[2]) + 0.07;
-    else if (P['plant' + S] !== false) toe[1] = Math.min(toe[1], an2[1]);
-    J['toe' + S] = toe;
+// `w` is [[bone, weight], …]: up to four, any weights, kept as bytes that sum to 255.
+export function vtxSkin(b, p, n, uv, col, mat, w) {
+  growSkin(b, 1);
+  const o = b.n * SKIN_STRIDE, d = b.data;
+  d[o] = p[0]; d[o + 1] = p[1]; d[o + 2] = p[2];
+  d[o + 3] = n[0]; d[o + 4] = n[1]; d[o + 5] = n[2];
+  d[o + 6] = uv[0]; d[o + 7] = uv[1];
+  d[o + 8] = col[0]; d[o + 9] = col[1]; d[o + 10] = col[2];
+  d[o + 11] = mat;
+  const list = w.filter(([, x]) => x > 0).sort((a, c) => c[1] - a[1]).slice(0, 4);
+  const sum = list.reduce((t, [, x]) => t + x, 0) || 1, by = (o + STRIDE) * 4;
+  let left = 255;
+  for (let k = 0; k < 4; k++) {
+    const e = list[k];
+    const q = !e ? 0 : k === list.length - 1 ? left : Math.round(e[1] / sum * 255);
+    b.u8[by + k] = e ? e[0] : 0; b.u8[by + 4 + k] = q;
+    left -= q;
   }
-  // a bat in two hands decides where the hands go: the bottom hand against the knob, the top
-  // hand touching it, as a hitter holds a bat
-  const hands = {};
-  if (P.bat) {
-    const knob = toW(P.bat.knob), bd = dirW(P.bat.dir);
-    J.batKnob = knob; J.batDir = bd;
-    const lo = add(knob, mul(bd, 0.17 * s)), hi = add(knob, mul(bd, 0.45 * s));
-    const bottom = P.bat.bottom || 'L', top = bottom === 'L' ? 'R' : 'L';
-    const chestC = add(J.chest, m3v(W.chest, [0, 0.2 * s, 0.25 * s]));
-    for (const [S, hc] of [[bottom, lo], [top, hi]]) {
-      let v = sub(chestC, hc); v = norm(sub(v, mul(bd, dot(v, bd))));
-      J['hand' + S] = hc; J['grip' + S] = true;
-      hands[S] = add(add(hc, mul(v, 0.19 * s)), mul(bd, -0.06 * s));
-    }
-  }
-  for (const [S, sg] of [['L', 1], ['R', -1]]) {
-    const T = hands[S] || toW(P['wr' + S]);
-    const [el, wr] = ik2(J['sh' + S], T, 0.98 * s, 0.90 * s, dirW(P['elb' + S] || [sg * 0.4, -0.2, -1]));
-    J['el' + S] = el; J['wr' + S] = wr;
-    if (!J['hand' + S]) {
-      const hd = P['hand' + S] ? dirW(P['hand' + S]) : norm(sub(wr, el));
-      J['hand' + S] = add(wr, mul(hd, 0.17 * s));
-      J['hdir' + S] = hd;
-      J['palm' + S] = P['palm' + S] ? dirW(P['palm' + S]) : norm(cross(hd, m3v(W.chest, [0, 1, 0])));
-    }
-  }
-  return { J, W, s };
-}
-
-// A pose for the other hand: the same stance seen in a mirror, left for right. A left-handed
-// batter stands in the other box with this; a left-handed pitcher throws with it.
-export function mirrorPose(P) {
-  const fx = (v) => (v ? [-v[0], ...v.slice(1)] : v);
-  const fe = (e) => (e ? [e[0] || 0, -(e[1] || 0), -(e[2] || 0)] : e);
-  const out = { ...P, twist: -(P.twist || 0), roll: -(P.roll || 0), pelvis: fx(P.pelvis), spine: fe(P.spine), chest: fe(P.chest), neck: fe(P.neck), head: fe(P.head) };
-  for (const k of ['ank', 'toe', 'knee', 'wr', 'elb', 'hand', 'palm', 'plant']) {
-    const L = P[k + 'L'], R = P[k + 'R'];
-    const f = k === 'plant' ? (x) => x : (v) => (v && v.length === 2 ? [-v[0], v[1]] : fx(v));
-    out[k + 'L'] = f(R); out[k + 'R'] = f(L);
-    if (out[k + 'L'] === undefined) delete out[k + 'L'];
-    if (out[k + 'R'] === undefined) delete out[k + 'R'];
-  }
-  if (P.bat) out.bat = { knob: fx(P.bat.knob), dir: fx(P.bat.dir), bottom: (P.bat.bottom || 'L') === 'L' ? 'R' : 'L' };
-  return out;
+  b.n++;
 }
 
 // ── building ───────────────────────────────────────────────────────────────────
 // `G.B(key)` hands back the batch for a texture key: 'plain', 'kit', 'leather', 'wood', 'logo',
 // 'mask'. Vertices are ballpark-mesh.js's: position, normal, uv, linear colour, material.
-function tri(b, a, c, d) { for (const q of [a, c, d]) vtx(b, q.p, q.n, q.uv, q.col, q.mat); }
+function tri(b, a, c, d) {
+  if (b.skin) for (const q of [a, c, d]) vtxSkin(b, q.p, q.n, q.uv, q.col, q.mat, q.w);
+  else for (const q of [a, c, d]) vtx(b, q.p, q.n, q.uv, q.col, q.mat);
+}
 // A parametric surface, rows i and columns j, joined round when `wrap`. `key`, `mat` and `col` may
 // be per row (a function of i); `col` may also be per point.
 function emitGrid(G, rows, cols, pos, opt) {
-  const { wrap = true, uv = (i, j) => [j / cols, i / (rows - 1)], col, mat, key, centre, flip = false } = opt;
+  const { wrap = true, uv = (i, j) => [j / cols, i / (rows - 1)], col, mat, key, centre, flip = false, wts } = opt;
   const P = [];
   for (let i = 0; i < rows; i++) for (let j = 0; j < cols; j++) P.push(pos(i, j));
   const at = (i, j) => P[i * cols + (wrap ? ((j % cols) + cols) % cols : clamp(j, 0, cols - 1))];
@@ -185,7 +141,7 @@ function emitGrid(G, rows, cols, pos, opt) {
       const q = (ii, jj) => {
         const idx = ii * cols + (wrap ? jj % cols : jj);
         const c = typeof col === 'function' ? col(ii, jj % cols, P[idx], i) : col;
-        return { p: P[idx], n: mul(N[idx], sign), uv: uv(ii, jj), col: c, mat: m };
+        return { p: P[idx], n: mul(N[idx], sign), uv: uv(ii, jj), col: c, mat: m, w: wts ? wts(ii) : G.cur };
       };
       const a = q(i, j), bq = q(i, j + 1), c = q(i + 1, j + 1), d = q(i + 1, j);
       tri(b, a, bq, c); tri(b, a, c, d);
@@ -228,8 +184,10 @@ function sampleProfile(prof, n0 = 3) {
   out.push(prof[prof.length - 1]);
   return out;
 }
-// A tube down a two-bone chain that bends round the middle joint.
-function limb(G, J0, J1, J2, ref, prof, s, keyOf, colOf, matOf, uvOf) {
+// A tube down a two-bone chain that bends round the middle joint. `rig` is its bones for a
+// skinned body: { a, b } the upper and lower bone, and `root` [from, to, most] how much of the top
+// rides the parent (the pelvis or the chest) so a hip or shoulder bends without a crease.
+function limb(G, J0, J1, J2, ref, prof, s, keyOf, colOf, matOf, uvOf, rig = null) {
   const rings = sampleProfile(prof);
   const L1 = len(sub(J1, J0)), T1 = norm(sub(J1, J0)), T2 = norm(sub(J2, J1));
   const w = 0.16 * s;
@@ -242,6 +200,10 @@ function limb(G, J0, J1, J2, ref, prof, s, keyOf, colOf, matOf, uvOf) {
   };
   const tanAt = (sv) => norm(lerp(T1, T2, smooth(L1 - w, L1 + w, sv)));
   const cols = 22, rows = rings.length;
+  const wOf = rig ? (sv) => {
+    const t = smooth(L1 - w, L1 + w, sv), up = rig.root ? rig.root[2] * (1 - smooth(rig.root[0] * s, rig.root[1] * s, sv)) : 0;
+    return [[rig.parent, up], [rig.a, (1 - t) * (1 - up)], [rig.b, t * (1 - up)]];
+  } : null;
   emitGrid(G, rows, cols, (i, j) => {
     const [sv0, rx, rz] = rings[i], sv = sv0 * s, c = centreAt(sv), t = tanAt(sv);
     let zA = sub(ref, mul(t, dot(ref, t)));
@@ -252,12 +214,17 @@ function limb(G, J0, J1, J2, ref, prof, s, keyOf, colOf, matOf, uvOf) {
   }, {
     key: (i) => keyOf(rings[i][3]), col: (ii) => colOf(rings[Math.min(ii, rows - 1)][3]), mat: (i) => matOf(rings[i][3]),
     uv: (i, j) => uvOf(rings[i][3], j / cols, rings[i][0] / prof[prof.length - 1][0]), centre: lerp(J0, J2, 0.5),
+    wts: wOf ? (ii) => wOf(rings[Math.min(ii, rows - 1)][0] * s) : undefined,
   });
 }
+// The torso's frames as bones, for a skinned body.
+const FRAME_BONE = { pelvis: BONE.pelvis, spine: BONE.spine, chest: BONE.chest, neck: BONE.neck };
+const LEG_RIG = { L: { a: BONE.thighL, b: BONE.shinL, parent: BONE.pelvis, root: [-0.24, 0.25, 0.5] }, R: { a: BONE.thighR, b: BONE.shinR, parent: BONE.pelvis, root: [-0.24, 0.25, 0.5] } };
+const ARM_RIG = { L: { a: BONE.upperArmL, b: BONE.forearmL, parent: BONE.chest, root: [-0.18, 0.2, 0.35] }, R: { a: BONE.upperArmR, b: BONE.forearmR, parent: BONE.chest, root: [-0.18, 0.2, 0.35] } };
 function torso(G, J, W, s, keyOf, colOf, matOf, uvOf, extra = 0, front = 0) {
   const R = TORSO.map(([f, o, w, d, part]) => {
     const M = W[f];
-    return { c: add(J[f], m3v(M, mul(o, s))), X: M[0], Z: M[2], w: (w + extra) * s, d: (d + extra + (part === 'jersey' ? front : 0)) * s, part };
+    return { f, c: add(J[f], m3v(M, mul(o, s))), X: M[0], Z: M[2], w: (w + extra) * s, d: (d + extra + (part === 'jersey' ? front : 0)) * s, part };
   });
   const rings = [];
   for (let i = 0; i < R.length - 1; i++) {
@@ -266,11 +233,11 @@ function torso(G, J, W, s, keyOf, colOf, matOf, uvOf, extra = 0, front = 0) {
       const t = k / 3, p0 = R[Math.max(0, i - 1)].c, p3 = R[Math.min(R.length - 1, i + 2)].c, t2 = t * t, t3 = t2 * t;
       // Catmull-Rom through the ring centres
       const c = [0, 1, 2].map((q) => 0.5 * ((2 * a.c[q]) + (-p0[q] + b.c[q]) * t + (2 * p0[q] - 5 * a.c[q] + 4 * b.c[q] - p3[q]) * t2 + (-p0[q] + 3 * a.c[q] - 3 * b.c[q] + p3[q]) * t3));
-      rings.push({ c, X: norm(lerp(a.X, b.X, t)), Z: norm(lerp(a.Z, b.Z, t)), w: a.w + (b.w - a.w) * t, d: a.d + (b.d - a.d) * t, part: a.part, v: (i + t) / (R.length - 1) });
+      rings.push({ c, X: norm(lerp(a.X, b.X, t)), Z: norm(lerp(a.Z, b.Z, t)), w: a.w + (b.w - a.w) * t, d: a.d + (b.d - a.d) * t, part: a.part, v: (i + t) / (R.length - 1), f0: a.f, f1: b.f, t });
     }
   }
   const L = R[R.length - 1];
-  rings.push({ c: L.c, X: L.X, Z: L.Z, w: L.w, d: L.d, part: L.part, v: 1 });
+  rings.push({ c: L.c, X: L.X, Z: L.Z, w: L.w, d: L.d, part: L.part, v: 1, f0: L.f, f1: L.f, t: 0 });
   const cols = 32, pw = 2.5, sp = (x) => Math.sign(x) * Math.pow(Math.abs(x), 2 / pw);
   emitGrid(G, rings.length, cols, (i, j) => {
     const r = rings[i], a = (j / cols - 0.25) * TAU;
@@ -278,6 +245,7 @@ function torso(G, J, W, s, keyOf, colOf, matOf, uvOf, extra = 0, front = 0) {
   }, {
     key: (i) => keyOf(rings[i].part), col: (ii) => colOf(rings[Math.min(ii, rings.length - 1)].part), mat: (i) => matOf(rings[i].part),
     uv: (i, j) => uvOf(rings[i].part, j / cols, rings[i].v), centre: J.chest,
+    wts: (ii) => { const r = rings[Math.min(ii, rings.length - 1)]; return r.f0 === r.f1 ? [[FRAME_BONE[r.f0], 1]] : [[FRAME_BONE[r.f0], 1 - r.t], [FRAME_BONE[r.f1], r.t]]; },
   });
 }
 function shoe(G, J, S, s, col) {
@@ -384,7 +352,7 @@ function head(G, J, W, s, look) {
       const f = M.F[i], mat = f === 7 ? MAT.HEAD : f === 8 ? MAT.EAR : f === 9 ? MAT.HAIR : MAT.NECK;
       // the colour carries what the head's shader needs: the bind point's depth, the rest normal's z
       // (or an ear's hollow), and which player this is
-      V.push({ p, n, uv: [M.UV[i * 2], M.UV[i * 2 + 1]], col: [M.P[i * 3 + 2], f === 8 ? M.X[i] : n0[2], idx], mat });
+      V.push({ p, n, uv: [M.UV[i * 2], M.UV[i * 2 + 1]], col: [M.P[i * 3 + 2], f === 8 ? M.X[i] : n0[2], idx], mat, w: [[BONE.neck, 1 - w], [BONE.head, w]] });
     }
     for (let t = 0; t < M.I.length; t += 3) tri(b, V[M.I[t]], V[M.I[t + 1]], V[M.I[t + 2]]);
   };
@@ -469,12 +437,12 @@ function catcherGear(G, J, W, s, look, col) {
   mask(G, W, s, look);
   for (const S of ['L', 'R']) {
     limb(G, J['hip' + S], J['kn' + S], J['an' + S], m3v(W.pelvis, [0, 0, 1]), [[1.35, 0.255, 0.28, 'g'], [1.6, 0.265, 0.29, 'g'], [2.0, 0.215, 0.235, 'g'], [2.6, 0.185, 0.2, 'g'], [3.05, 0.17, 0.18, 'g']], s,
-      () => 'plain', () => col, () => MAT.GLOSS, () => [0, 0]);
+      () => 'plain', () => col, () => MAT.GLOSS, () => [0, 0], LEG_RIG[S]);
   }
   const pad = hex('#1a2b52');
   const pts = TORSO.slice(5, 12).map(([f, o, w, d]) => ({ c: add(J[f], m3v(W[f], mul(o, s))), X: W[f][0], Z: W[f][2], w: (w + 0.05) * s, d: (d + 0.09) * s }));
   emitGrid(G, pts.length, 12, (i, j) => { const r = pts[i], a = (j / 11 - 0.5) * 190 * DEG; return add(r.c, add(mul(r.X, Math.sin(a) * r.w), mul(r.Z, Math.pow(Math.max(0, Math.cos(a)), 0.7) * r.d))); },
-    { key: 'plain', col: (ii, jj) => mul(pad, jj % 3 === 0 ? 0.75 : 1), mat: MAT.CLOTH, wrap: false, centre: J.chest });
+    { key: 'plain', col: (ii, jj) => mul(pad, jj % 3 === 0 ? 0.75 : 1), mat: MAT.CLOTH, wrap: false, centre: J.chest, wts: (ii) => [[FRAME_BONE[TORSO[5 + Math.min(ii, pts.length - 1)][0]], 1]] });
 }
 
 // ── one player ─────────────────────────────────────────────────────────────────
@@ -497,7 +465,7 @@ export function buildPlayer(G, pose, look) {
   const ump = look.role === 'ump', side = look.side === 'away' ? 'away' : 'home', kit = KITS[side];
   const navyU = hex('#1d2740'), greyU = hex('#7d8186');
   const under = ump ? navyU : hex(kit.ink), trim = ump ? navyU : hex(kit.trim), skin = hex(look.skin);
-  const jersey = kitCell(look.slot ?? 0), pants = KIT_PANTS[side], socks = KIT_SOCKS[side];
+  const jersey = G.skin ? KIT_REL : kitCell(look.slot ?? 0), pants = KIT_PANTS[side], socks = KIT_SOCKS[side];
   const keyOf = (p) => (ump ? 'plain' : (p === 'jersey' || p === 'sleeve' || p === 'pants' || p === 'sock') ? 'kit' : 'plain');
   const colOf = (p) => ump ? (p === 'pants' ? greyU : p === 'skin' ? skin : p === 'belt' ? hex('#111111') : navyU)
     : (p === 'jersey' || p === 'sleeve' || p === 'pants' || p === 'sock') ? [1, 1, 1] : p === 'belt' ? hex(kit.belt) : p === 'under' ? under : p === 'trim' ? trim : p === 'skin' ? skin : [1, 0, 1];
@@ -509,70 +477,52 @@ export function buildPlayer(G, pose, look) {
   // down the leg: the sock runs down the shin
   const legUv = (p, u, v) => p === 'sock' ? inCell(socks, u, (v - 0.62) / 0.38) : p === 'pants' ? inCell(pants, u, v * 1.5) : [u, v];
   for (const S of ['L', 'R']) {
-    limb(G, J['hip' + S], J['kn' + S], J['an' + S], m3v(W.pelvis, [0, 0, 1]), ump ? SLACKS : LEG, s, keyOf, colOf, matOf, legUv);
-    limb(G, J['sh' + S], J['el' + S], J['wr' + S], m3v(W.chest, [0, 0, -1]), ARM, s, keyOf, colOf, matOf, uvOf);
+    limb(G, J['hip' + S], J['kn' + S], J['an' + S], m3v(W.pelvis, [0, 0, 1]), ump ? SLACKS : LEG, s, keyOf, colOf, matOf, legUv, LEG_RIG[S]);
+    limb(G, J['sh' + S], J['el' + S], J['wr' + S], m3v(W.chest, [0, 0, -1]), ARM, s, keyOf, colOf, matOf, uvOf, ARM_RIG[S]);
+    G.cur = [[BONE['foot' + S], 1]];
     shoe(G, J, S, s, ump ? hex('#0e0e0e') : hex('#151515'));
   }
   torso(G, J, W, s, keyOf, colOf, matOf, uvOf, look.girth || 0, ump ? 0.07 : 0);
   head(G, J, W, s, look);
   look.s = s;
   const logo = side === 'home' ? 0 : 1;
+  G.cur = [[BONE.head, 1]];
   if (look.role === 'catcher') catcherGear(G, J, W, s, look, hex(kit.helmet));
   else if (ump) { cap(G, W, s, look, hex('#111317'), hex('#0a0a0c'), null); if (look.mask) mask(G, W, s, look); }
   else if (look.helmet) helmet(G, W, s, look, look.flapSide || 1, hex(kit.helmet), logo);
   else cap(G, W, s, look, hex(kit.cap), hex(kit.under), logo);
   for (const S of ['L', 'R']) {
     // a hand on a bat holds the bat, glove or no glove
+    G.cur = [[BONE[(J['grip' + S] ? 'fist' : 'hand') + S], 1]];
     if (look.glove === S && !J['grip' + S]) glove(G, J, S, s, look.role === 'catcher' ? 'catcher' : 'fielder');
     else hand(G, J, S, s, look.battingGloves ? hex(look.battingGloves) : skin, look.battingGloves ? MAT.LEATHER : MAT.SKIN);
   }
+  G.cur = [[BONE.bat, 1]];
   if (pose.bat) bat(G, J, s);
   return { J, W, s, feet: [J.anL, J.anR, J.toeL, J.toeR] };
 }
 
-// A set of batches to build players into, and the heads' face records in the order built.
-export function createPlayerSet() {
-  const batches = new Map(), heads = [];
-  return { batches, heads, B: (key) => { let b = batches.get(key); if (!b) { b = createBatch(1 << 14); batches.set(key, b); } return b; } };
+// One player for the GPU to skin: built once, in the rig's bind pose (diamond/rig.js bindPoses),
+// into a set made with `{ skin: true }`. A hitter (anyone in a helmet) also gets his fists and his
+// bat, built in the rig's batting stance on their own bones. The jersey's uv is relative to its
+// cell (KIT_REL) and the face's slot is the draw's, so one body stands in any slot all game.
+export function buildBody(G, look) {
+  if (!G.skin) throw new Error('buildBody wants a skinned set: createPlayerSet({ skin: true })');
+  const { body, grip } = bindPoses(look.scale || 1);
+  const res = buildPlayer(G, body, { ...look, headIndex: 0 });
+  if (look.helmet) {
+    const { J, s } = solvePose(grip), col = look.battingGloves ? hex(look.battingGloves) : hex(look.skin);
+    for (const S of ['L', 'R']) { G.cur = [[BONE['fist' + S], 1]]; hand(G, J, S, s, col, look.battingGloves ? MAT.LEATHER : MAT.SKIN); }
+    G.cur = [[BONE.bat, 1]];
+    bat(G, J, s);
+  }
+  return res;
 }
 
-// ── the poses ──────────────────────────────────────────────────────────────────
-// Local: x is the player's left, z his forward. The pitcher's are drawn facing first base with +x
-// toward the plate (yaw 90), all in one frame, as the look-dev posed them.
-export const POSES = {
-  stand: () => ({ pelvis: [0, 3.42, 0], pitch: 2, spine: [2, 0, 0], chest: [2, 0, 0],
-    ankL: [0.42, 0.05], ankR: [-0.42, 0.05], toeL: [0.15, 0, 1], toeR: [-0.15, 0, 1],
-    wrL: [0.84, 2.95, 0.12], wrR: [-0.84, 2.95, 0.12], handL: [0.05, -1, 0.1], palmL: [-1, 0, 0], handR: [-0.05, -1, 0.1], palmR: [1, 0, 0] }),
-  batStance: () => ({ pelvis: [0.05, 3.08, -0.08], pitch: 12, twist: -6, spine: [8, -4, 2], chest: [6, -8, 0], neck: [-6, 32, 0], head: [2, 44, 6],
-    ankL: [1.32, 0.18], ankR: [-1.32, -0.02], toeL: [0.3, 0, 1], toeR: [0.05, 0, 1], kneeL: [0.25, 0.2, 1], kneeR: [-0.25, 0.2, 1],
-    bat: { knob: [-0.62, 4.5, 1.02], dir: [-0.3, 0.86, -0.42] }, elbL: [0.45, -1, 0.75], elbR: [-1, 0.15, -0.35] }),
-  batLoad: () => ({ pelvis: [-0.1, 3.0, -0.1], pitch: 13, twist: -14, spine: [8, -8, 2], chest: [6, -14, 0], neck: [-6, 38, 0], head: [2, 46, 6],
-    ankL: [1.95, 0.22], ankR: [-1.3, -0.02], toeL: [0.6, 0, 1], toeR: [0.05, 0, 1], kneeL: [-0.1, 0.2, 1], kneeR: [-0.25, 0.2, 1],
-    bat: { knob: [-0.82, 4.55, 0.82], dir: [-0.45, 0.76, -0.47] }, elbL: [0.5, -1, 0.7], elbR: [-1, 0.2, -0.4] }),
-  catcher: () => ({ pelvis: [0, 1.55, -0.3], pitch: 16, spine: [12, 0, 0], chest: [8, 0, 0], neck: [-22, 0, 0], head: [-14, 0, 0],
-    ankL: [1.05, 0.1], ankR: [-1.05, 0.1], toeL: [0.45, 0, 1], toeR: [-0.45, 0, 1], kneeL: [0.7, 0.5, 1], kneeR: [-0.7, 0.5, 1],
-    wrL: [0.42, 2.45, 1.55], elbL: [1, -0.6, -0.2], handL: [0.05, 1, 0.25], palmL: [0, 0.1, 1],
-    wrR: [-0.6, 2.25, -0.55], elbR: [-1, 0, 0.2], handR: [0, -1, -0.3], palmR: [1, 0, 0] }),
-  umpire: () => ({ pelvis: [0, 2.35, -0.45], pitch: 34, spine: [10, 0, 0], chest: [6, 0, 0], neck: [-30, 0, 0], head: [-22, 0, 0],
-    ankL: [1.15, -0.1], ankR: [-1.05, -0.3], toeL: [0.4, 0, 1], toeR: [-0.4, 0, 1], kneeL: [0.6, 0.2, 1], kneeR: [-0.6, 0.2, 1],
-    wrL: [0.88, 2.15, 0.55], wrR: [-0.86, 2.15, 0.5], elbL: [1, 0, -0.4], elbR: [-1, 0, -0.4], handL: [0, -1, 0.4], palmL: [0, 0, -1], handR: [0, -1, 0.4], palmR: [0, 0, -1] }),
-  infield: () => ({ pelvis: [0, 2.55, -0.15], pitch: 28, spine: [14, 0, 0], chest: [8, 0, 0], neck: [-26, 0, 0], head: [-20, 0, 0],
-    ankL: [1.3, 0.2], ankR: [-1.3, 0.2], toeL: [0.45, 0, 1], toeR: [-0.45, 0, 1], kneeL: [0.55, 0.2, 1], kneeR: [-0.55, 0.2, 1],
-    wrL: [0.5, 2.15, 1.5], elbL: [1, -0.3, -0.2], handL: [0.1, -0.6, 1], palmL: [0, 0.5, 0.9], wrR: [-0.45, 2.2, 1.45], elbR: [-1, -0.3, -0.2], handR: [0, -0.6, 1], palmR: [0.5, 0.3, 0.8] }),
-  outfield: () => ({ pelvis: [0, 3.0, -0.1], pitch: 20, spine: [10, 0, 0], neck: [-18, 0, 0], head: [-12, 0, 0],
-    ankL: [0.95, 0.15], ankR: [-0.95, 0.15], toeL: [0.3, 0, 1], toeR: [-0.3, 0, 1], kneeL: [0.4, 0.2, 1], kneeR: [-0.4, 0.2, 1],
-    wrL: [0.72, 2.3, 0.82], wrR: [-0.72, 2.3, 0.82], elbL: [1, 0, -0.3], elbR: [-1, 0, -0.3], handL: [0, -1, 0.3], palmL: [-0.3, 0, -1], handR: [0, -1, 0.3], palmR: [0.3, 0, -1] }),
-  runner: () => ({ pelvis: [0, 2.65, -0.1], pitch: 26, spine: [10, 0, 0], neck: [-24, 0, 0], head: [-16, 0, 0],
-    ankL: [1.55, 0.1], ankR: [-1.55, 0.0], toeL: [0.5, 0, 1], toeR: [-0.4, 0, 1], kneeL: [0.6, 0.2, 1], kneeR: [-0.6, 0.2, 1],
-    wrL: [0.55, 2.35, 0.95], wrR: [-0.55, 2.35, 0.95], handL: [0, -1, 0.2], handR: [0, -1, 0.2] }),
-  coach: () => ({ pelvis: [0, 3.38, 0], pitch: 5, spine: [3, 0, 0], neck: [0, 0, 0],
-    ankL: [0.6, 0.0], ankR: [-0.6, 0.0], toeL: [0.25, 0, 1], toeR: [-0.25, 0, 1],
-    wrL: [0.12, 4.05, 0.82], wrR: [-0.12, 4.05, 0.84], elbL: [1, -0.5, 0], elbR: [-1, -0.5, 0], handL: [-0.3, 0.8, 0.3], palmL: [-1, 0, 0], handR: [0.3, 0.8, 0.3], palmR: [1, 0, 0] }),
-  ondeck: () => ({ pelvis: [0, 1.95, -0.35], pitch: 6, spine: [4, 0, 0], neck: [-4, -10, 0],
-    ankL: [0.6, 0.55], ankR: [-0.5, 0.3, -1.55], plantR: false, toeL: [0.2, 0, 1], toeR: [0, -0.4, -1], kneeL: [0.2, 0.6, 1], kneeR: [0, -1, 0.6],
-    bat: { knob: [-0.1, 2.9, 0.85], dir: [-0.15, 0.92, -0.38] }, elbL: [0.6, -1, 0.3], elbR: [-0.8, -1, 0.2] }),
-  // the pitcher, set: yaw 90, so +x local is toward the plate
-  pSet: () => ({ pelvis: [0.3, 3.4, 0], pitch: 3, spine: [2, 0, 0], neck: [-2, 48, 0], head: [0, 40, 0],
-    ankL: [1.3, 0.08], ankR: [-0.2, 0.0], toeL: [0.35, 0, 1], toeR: [0, 0, 1], kneeL: [0.2, 0.2, 1], kneeR: [0, 0.2, 1],
-    wrL: [0.42, 3.95, 0.72], wrR: [0.18, 3.92, 0.7], elbL: [1, -0.4, -0.3], elbR: [-1, -0.4, -0.3], handL: [-0.6, 0.6, 0.5], palmL: [-1, 0, 0.2], handR: [0.6, 0.5, 0.4], palmR: [1, 0, 0] }),
-};
+// A set of batches to build players into, and the heads' face records in the order built. A
+// skinned set's batches carry bone weights (buildBody).
+export function createPlayerSet({ skin = false } = {}) {
+  const batches = new Map(), heads = [];
+  const make = () => (skin ? createSkinBatch(1 << 13) : createBatch(1 << 14));
+  return { batches, heads, skin, cur: [[BONE.pelvis, 1]], B: (key) => { let b = batches.get(key); if (!b) { b = make(); batches.set(key, b); } return b; } };
+}

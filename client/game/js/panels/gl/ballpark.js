@@ -13,9 +13,11 @@
 //   · the crowd is one figure per pose, instanced over every occupied seat;
 //   · the scoreboard is a face of lamps lit from a 240×84 mask of the line score
 //     (diamond/board.js), redrawn when the game changes;
-//   · the players are posed bodies (gl/ballplayer-mesh.js) for the cast of each payload
-//     (diamond/cast.js), built a few a frame so a new cast never stalls the page, with the street
-//     figure's heads shaded with their faces from the atlas as the Actor Lab shades them;
+//   · the players are skinned: a body per player, built once in the rig's bind pose
+//     (gl/ballplayer-mesh.js buildBody, diamond/rig.js) a few a frame so a new cast never stalls
+//     the page, and moved by its bones on the GPU (gl/skin.js) into the pose the cast gives it
+//     (diamond/cast.js) or `setPose` does; the street figure's heads are shaded with their faces
+//     from the atlas as the Actor Lab shades them;
 //   · outside, the park's brick wall is painted in the shader (EXTERIOR), and its name is lit
 //     over the main gate once the venue says it;
 //   · the city round it is a set composed from the league's venue (client/shared/city-set.js)
@@ -25,7 +27,7 @@
 //
 // The frame, in order (docs/proposals/deadball-glass2.md, Lighting and the frame):
 //
-//   1. shadows: four of the towers draw perspective maps of whatever casts (gl/spotshadow.js);
+//   1. shadows: four of the towers draw perspective maps of the players, skinned (gl/spotshadow.js);
 //   2. the main pass into hdr.js's target: the sky, the park, the city, the crowd, the backstop
 //      net, then the lamps' pools and the Curtain added over them, each through the night air,
 //      which is height fog with the towers' light scattered in it (fog.js);
@@ -51,8 +53,10 @@ import { createDepthSSAO, ssaoConstants } from './ssao.js';
 import { createBroadcastPass } from './broadcast.js';
 import { makeVertexStream } from './stream.js';
 import { declareProgram, prewarmPrograms, takeWarm } from './programs.js';
-import { createPlayerSet, buildPlayer, POSES, mirrorPose, lookOf, faceFor } from './ballplayer-mesh.js';
-import { castKey } from '../diamond/cast.js';
+import { createPlayerSet, buildBody, POSES, mirrorPose, lookOf, faceFor, kitCell, SKIN_STRIDE } from './ballplayer-mesh.js';
+import { solvePose, boneFrames, bindFrames, skinRows, BONES, FRAME_FLOATS } from '../diamond/rig.js';
+import { SKIN_GLSL, createBonePalette } from './skin.js';
+import { bodyKey } from '../diamond/cast.js';
 // the view loads this module lazily and takes the cast from it, so the 2-D path never fetches it
 export { castOf } from '../diamond/cast.js';
 import { paintKitAtlas, paintLogos, paintLeather, paintWood, paintMask } from '../diamond/kits.js';
@@ -76,6 +80,31 @@ layout(location = 4) in float aMat;
 uniform mat4 uVP;
 out vec3 vPos; out vec3 vNrm; out vec2 vUv; out vec3 vCol; flat out int vMat;
 void main() { vPos = aPos; vNrm = aNrm; vUv = aUv; vCol = aCol; vMat = int(aMat + 0.5); gl_Position = uVP * vec4(aPos, 1.0); }`;
+// The players: the same, skinned by their bones (gl/skin.js). A folded bone's vertices have no
+// normal, and draw nothing.
+const SKIN_VS = `#version 300 es
+layout(location = 0) in vec3 aPos;
+layout(location = 1) in vec3 aNrm;
+layout(location = 2) in vec2 aUv;
+layout(location = 3) in vec3 aCol;
+layout(location = 4) in float aMat;
+${SKIN_GLSL}
+uniform mat4 uVP;
+out vec3 vPos; out vec3 vNrm; out vec2 vUv; out vec3 vCol; flat out int vMat;
+void main() {
+  vec3 p = skinPos(aPos), n = skinDir(aNrm);
+  vPos = p; vNrm = dot(n, n) > 1e-12 ? normalize(n) : vec3(0.0, 1.0, 0.0); vUv = aUv; vCol = aCol; vMat = int(aMat + 0.5);
+  gl_Position = uVP * vec4(p, 1.0);
+}`;
+// The players into the towers' shadow maps, skinned the same way.
+const SKIN_DEPTH_VS = `#version 300 es
+layout(location = 0) in vec3 aPos;
+${SKIN_GLSL}
+uniform mat4 uVP;
+void main() { gl_Position = uVP * vec4(skinPos(aPos), 1.0); }`;
+const DEPTH_FS = `#version 300 es
+precision mediump float;
+void main() { }`;
 
 // What every lit pass shares: the six towers, the sky's ambient, and the night air.
 const LIGHTS_GLSL = `
@@ -120,7 +149,7 @@ vec3 hairAtP(vec3 r, float psi, vec3 hairC, int style, float seed) {
   return hairC * (0.68 + 0.6 * strand);
 }
 void headShade(inout vec3 alb, inout float rough, inout float f0s, inout float wrap, inout float ao) {
-  int pi = clamp(int(vCol.b + 0.5), 0, 27);
+  int pi = clamp(int(vCol.b + 0.5) + uHeadSlot, 0, 27);
   vec4 A = uHeadA[pi], Bh = uHeadB[pi], C = uHeadC[pi], D = uHeadD[pi];
   vec3 skin = A.rgb; int lay = int(A.a + 0.5); vec3 hairC = Bh.rgb; int style = int(Bh.a + 0.5);
   vec3 iris = C.rgb; float eyeBlack = C.a; vec3 lip = D.rgb; float seed = D.a;
@@ -242,6 +271,9 @@ uniform vec3 uFence; uniform vec2 uBoardRes; uniform vec3 uBoardOn;
 uniform float uCityLit; uniform float uPoolK;
 uniform int uLSh[6]; uniform int uSpotN;
 uniform sampler2D uFaceAtlas;
+// a skinned player's slot: his face's place in the head arrays, and his jersey's cell in the kit
+// atlas (gl/ballplayer-mesh.js KIT_REL); 0 and no cell for everything else
+uniform int uHeadSlot; uniform vec4 uKitCell;
 uniform vec4 uHeadA[28];
 uniform vec4 uHeadB[28];
 uniform vec4 uHeadC[28];
@@ -261,7 +293,10 @@ void main() {
   vec3 N = normalize(vNrm);
   vec3 V = normalize(uEye - vPos);
   vec4 tex = vec4(1.0);
-  if (uTextured == 1) { tex = texture(uTex, vUv); if (tex.a < uAlphaTest) discard; }
+  if (uTextured == 1) {
+    vec2 uvT = (uKitCell.z > 0.0 && vUv.x >= 2.0) ? uKitCell.xy + (vUv - vec2(2.0, 0.0)) * uKitCell.zw : vUv;
+    tex = texture(uTex, uvT); if (tex.a < uAlphaTest) discard;
+  }
   vec3 alb = vCol * tex.rgb;
   if (vMat == ${MAT.EMISSIVE}) { o = vec4(airOf(alb * uEmis, vPos), uAlpha * tex.a); return; }
   if (vMat == ${MAT.POOL}) {
@@ -440,7 +475,7 @@ uniform mat4 uVP;
 out vec2 vUV; out float vAlpha; out float vRed;
 void main() { vUV = aUV; vAlpha = aAlpha; vRed = aRed; gl_Position = uVP * vec4(aPos, 1.0); }`;
 
-for (const [vs, fs] of [[LIT_VS, LIT_FS], [CROWD_VS, CROWD_FS], [FULL_VS, SKY_FS], [FULL_VS, FINAL_FS], [CURTAIN_VS, CURTAIN_FRAG]]) declareProgram(vs, fs);
+for (const [vs, fs] of [[LIT_VS, LIT_FS], [SKIN_VS, LIT_FS], [SKIN_DEPTH_VS, DEPTH_FS], [CROWD_VS, CROWD_FS], [FULL_VS, SKY_FS], [FULL_VS, FINAL_FS], [CURTAIN_VS, CURTAIN_FRAG]]) declareProgram(vs, fs);
 
 // The textures whose clear texels are holes: the wall's distances, the monograms, the masks' bars.
 const ALPHA_TEST = new Set(['nums', 'logo', 'mask']);
@@ -588,6 +623,7 @@ export function createBallparkRenderer(canvas, opts = {}) {
     };
     const LIT = prog(LIT_VS, LIT_FS), CROWD = prog(CROWD_VS, CROWD_FS), SKY = prog(FULL_VS, SKY_FS), FINAL = prog(FULL_VS, FINAL_FS);
     const CURT = prog(CURTAIN_VS, CURTAIN_FRAG);
+    const SKLIT = prog(SKIN_VS, LIT_FS), SKD = prog(SKIN_DEPTH_VS, DEPTH_FS);
 
     // ── textures ──────────────────────────────────────────────────────────────
     const T2 = gl.TEXTURE_2D;
@@ -699,12 +735,39 @@ export function createBallparkRenderer(canvas, opts = {}) {
     const emptyVao = gl.createVertexArray();
 
     // ── the players ───────────────────────────────────────────────────────────
-    // A body per cast member, keyed by what it looks like and where it stands (castKey), so a
-    // new payload rebuilds only who's changed. Bodies are built a few a frame (pump), and the
-    // heads' faces go into four uniform arrays by kit slot.
-    const players = new Map();       // castKey → { batches: [{ key, vao, n, st }], slot }
+    // A body per player, built once in the rig's bind pose (ballplayer-mesh.js buildBody) and
+    // skinned on the GPU (gl/skin.js) into whatever pose the cast gives him. Bodies are keyed by who
+    // a player is and what he wears (cast.js bodyKey), not where he stands, so a runner keeps his
+    // body round the bases. Each one's pose goes into the palette's row for his kit slot, his
+    // jersey's cell and face come from the same slot, and the heads' faces go into four uniform
+    // arrays by slot. Bodies are built a few a frame (pump).
+    const palette = createBonePalette(gl, 28);
+    if (!palette) return null;
+    const bodies = new Map();        // bodyKey → { batches: [{ key, vao, buf, n }] }
+    let members = [];                // the cast now: [{ key, slot }]
     let queue = [];
     const HA = new Float32Array(28 * 4), HB = new Float32Array(28 * 4), HC = new Float32Array(28 * 4), HD = new Float32Array(28 * 4);
+    const SKIN_ATTRS = [...LIT_ATTRS];
+    function uploadSkin(b) {
+      const vao = gl.createVertexArray(), buf = gl.createBuffer(), S = SKIN_STRIDE * 4;
+      gl.bindVertexArray(vao);
+      gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+      gl.bufferData(gl.ARRAY_BUFFER, new Uint8Array(b.data.buffer, 0, b.n * S), gl.STATIC_DRAW);
+      for (const [l, n, off] of SKIN_ATTRS) { gl.enableVertexAttribArray(l); gl.vertexAttribPointer(l, n, gl.FLOAT, false, S, off); }
+      gl.enableVertexAttribArray(5); gl.vertexAttribPointer(5, 4, gl.UNSIGNED_BYTE, false, S, STRIDE * 4);
+      gl.enableVertexAttribArray(6); gl.vertexAttribPointer(6, 4, gl.UNSIGNED_BYTE, true, S, STRIDE * 4 + 4);
+      gl.bindVertexArray(null);
+      return { vao, buf, n: b.n };
+    }
+    const dropBody = (body) => { for (const b of body.batches) { gl.deleteVertexArray(b.vao); gl.deleteBuffer(b.buf); } };
+    // the bind frames by build scale (a pitcher stands a little taller)
+    const binds = new Map();
+    const bindOf = (scale) => { let b = binds.get(scale); if (!b) binds.set(scale, (b = bindFrames(scale))); return b; };
+    const frames = new Float32Array(BONES.length * FRAME_FLOATS), skinBuf = new Float32Array(BONES.length * 12);
+    // A pose into a slot's row of the palette: a pose table entry with `at`, `yaw` and `scale`.
+    function setPose(slot, pose) {
+      palette.write(slot, skinRows(boneFrames(solvePose(pose), frames), bindOf(pose.scale || 1), skinBuf));
+    }
     function setCast(cast, teams) {
       // the kits for whoever's new, and each side's monogram
       const res = paintKitAtlas(doc, cast, teams, kits);
@@ -725,14 +788,17 @@ export function createBallparkRenderer(canvas, opts = {}) {
         TEX.logo = texture(paintLogos(doc, teams), { repeat: false });
       }
       // who stays, who goes, who's to be built
-      const want = new Map(cast.map((c) => [castKey(c), c]));
-      for (const [k, pl] of players) if (!want.has(k)) { for (const b of pl.batches) { gl.deleteVertexArray(b.vao); gl.deleteBuffer(b.st.buf); } players.delete(k); }
-      queue = [...want].filter(([k]) => !players.has(k));
+      const want = new Map(cast.map((c) => [bodyKey(c), c]));
+      for (const [k, body] of bodies) if (!want.has(k)) { dropBody(body); bodies.delete(k); }
+      queue = [...want].filter(([k]) => !bodies.has(k));
+      members = cast.map((c) => ({ key: bodyKey(c), slot: c.look.slot }));
       HA.fill(0); HB.fill(0); HC.fill(0); HD.fill(0);
       for (const c of cast) {
         const look = lookOf({ ...c.look });
         const f = faceFor(look), i = c.look.slot * 4;
         HA.set([...f.skin, f.layout], i); HB.set([...f.hair, f.style], i); HC.set([...f.iris, f.eyeBlack], i); HD.set([...f.lip, f.seed], i);
+        // each where the cast stands him, until something moves him
+        setPose(c.look.slot, Object.assign(c.mirror ? mirrorPose(POSES[c.pose]()) : POSES[c.pose](), { at: c.at, yaw: c.yaw, scale: c.scale }));
       }
       refreshCasters();
       return queue.length;
@@ -742,18 +808,16 @@ export function createBallparkRenderer(canvas, opts = {}) {
       const t0 = performance.now();
       while (queue.length && performance.now() - t0 < budget) {
         const [key, c] = queue.shift();
-        const G = createPlayerSet();
-        const pose = Object.assign(c.mirror ? mirrorPose(POSES[c.pose]()) : POSES[c.pose](), { at: c.at, yaw: c.yaw, scale: c.scale });
-        buildPlayer(G, pose, lookOf({ ...c.look, headIndex: c.look.slot }));
-        const batches = [...G.batches].map(([k, b]) => ({ key: k, ...upload(b) }));
-        players.set(key, { batches, slot: c.look.slot });
+        const G = createPlayerSet({ skin: true });
+        buildBody(G, lookOf({ ...c.look, scale: c.scale }));
+        bodies.set(key, { batches: [...G.batches].map(([k, b]) => ({ key: k, ...uploadSkin(b) })) });
       }
       refreshCasters();
       return queue.length;
     }
+    // what casts the towers' shadows: each player with his body, in his row of the palette
     function refreshCasters() {
-      api.casters = [];
-      for (const pl of players.values()) for (const b of pl.batches) api.casters.push({ vao: b.vao, n: b.n });
+      api.casters = members.filter((m) => bodies.has(m.key)).map((m) => ({ slot: m.slot, batches: bodies.get(m.key).batches }));
     }
 
     // ── the city round the park, and the park's name over its gate ─────────────
@@ -879,14 +943,24 @@ export function createBallparkRenderer(canvas, opts = {}) {
       const M = shotMatrices(shot, w / h), q = api.quality;
       let tris = 0, draws = 0;
 
-      // 1. the towers' shadows, of whatever casts
+      // the players' poses, sent once for the shadows and the picture both
+      palette.upload();
+
+      // 1. the towers' shadows, of whatever casts: the players, skinned
       let spotN = 0;
       const casters = api.casters;
       if (q.shadows && casters.length) {
         const [focus, radius] = M.shadow || [[0, 0, 60], 80];
-        spotN = shadows.render(casting.map((T) => ({ lamp: T.lamp, focus, radius })), () => {
-          for (const c of casters) { gl.bindVertexArray(c.vao); gl.drawArrays(gl.TRIANGLES, 0, c.n); }
+        spotN = shadows.render(casting.map((T) => ({ lamp: T.lamp, focus, radius })), (vp, own) => {
+          gl.useProgram(SKD.p);
+          gl.uniformMatrix4fv(SKD.u('uVP'), false, vp);
+          palette.bind(9); gl.uniform1i(SKD.u('uBones'), 9);
+          for (const c of casters) {
+            gl.uniform1i(SKD.u('uBoneRow'), c.slot);
+            for (const b of c.batches) { gl.bindVertexArray(b.vao); gl.drawArrays(gl.TRIANGLES, 0, b.n); }
+          }
           gl.bindVertexArray(null);
+          gl.useProgram(own);
         });
       }
 
@@ -904,39 +978,54 @@ export function createBallparkRenderer(canvas, opts = {}) {
       gl.uniform3fv(SKY.u('uZen'), NIGHT.zen); gl.uniform3fv(SKY.u('uHor'), NIGHT.hor); gl.uniform3fv(SKY.u('uGlow'), NIGHT.glow); gl.uniform1f(SKY.u('uStars'), 1);
       gl.bindVertexArray(emptyVao); gl.drawArrays(gl.TRIANGLES, 0, 3); draws++;
 
-      // the park
+      // the park, and then the players: the same lit shader, the players' skinned
       gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.LESS);
-      gl.useProgram(LIT.p);
-      lights(LIT, M.eye);
-      gl.uniformMatrix4fv(LIT.u('uVP'), false, M.viewProj);
-      gl.uniform1i(LIT.u('uTex'), 0); gl.uniform1i(LIT.u('uDirt'), 1); gl.uniform1i(LIT.u('uGrass'), 2); gl.uniform1i(LIT.u('uBoard'), 3);
-      gl.uniform3f(LIT.u('uFence'), fence.line, fence.centre, fence.curve);
-      gl.uniform2f(LIT.u('uBoardRes'), BOARD_W, BOARD_H); gl.uniform3f(LIT.u('uBoardOn'), 6.0, 3.0, 0.7);
-      gl.uniform1f(LIT.u('uCityLit'), NIGHT.cityLit); gl.uniform1f(LIT.u('uPoolK'), NIGHT.pool);
       gl.activeTexture(gl.TEXTURE1); gl.bindTexture(T2, TEX.dirt);
       gl.activeTexture(gl.TEXTURE2); gl.bindTexture(T2, TEX.grass);
       gl.activeTexture(gl.TEXTURE3); gl.bindTexture(T2, boardTex);
-      shadows.bind(LIT.u, 4);
-      gl.uniform1iv(LIT.u('uLSh'), LSh); gl.uniform1i(LIT.u('uSpotN'), spotN);
-      const drawSet = (list, alpha) => {
+      gl.activeTexture(gl.TEXTURE8); gl.bindTexture(T2, TEX.faces);
+      palette.bind(9);
+      const litSetup = (P) => {
+        gl.useProgram(P.p);
+        lights(P, M.eye);
+        gl.uniformMatrix4fv(P.u('uVP'), false, M.viewProj);
+        gl.uniform1i(P.u('uTex'), 0); gl.uniform1i(P.u('uDirt'), 1); gl.uniform1i(P.u('uGrass'), 2); gl.uniform1i(P.u('uBoard'), 3);
+        gl.uniform3f(P.u('uFence'), fence.line, fence.centre, fence.curve);
+        gl.uniform2f(P.u('uBoardRes'), BOARD_W, BOARD_H); gl.uniform3f(P.u('uBoardOn'), 6.0, 3.0, 0.7);
+        gl.uniform1f(P.u('uCityLit'), NIGHT.cityLit); gl.uniform1f(P.u('uPoolK'), NIGHT.pool);
+        shadows.bind(P.u, 4);
+        gl.uniform1iv(P.u('uLSh'), LSh); gl.uniform1i(P.u('uSpotN'), spotN);
+        gl.uniform1i(P.u('uHeadSlot'), 0); gl.uniform4f(P.u('uKitCell'), 0, 0, 0, 0);
+      };
+      const drawSet = (list, alpha, P = LIT) => {
         for (const d of list) {
           const t = TEX[d.key];
           gl.activeTexture(gl.TEXTURE0); gl.bindTexture(T2, t || null);
-          gl.uniform1i(LIT.u('uTextured'), t ? 1 : 0);
-          gl.uniform1f(LIT.u('uAlphaTest'), ALPHA_TEST.has(d.key) ? 0.5 : -1);
-          gl.uniform1f(LIT.u('uAlpha'), alpha);
-          gl.uniform1f(LIT.u('uEmis'), d.key === 'sign' ? NIGHT.sign : 1);
+          gl.uniform1i(P.u('uTextured'), t ? 1 : 0);
+          gl.uniform1f(P.u('uAlphaTest'), ALPHA_TEST.has(d.key) ? 0.5 : -1);
+          gl.uniform1f(P.u('uAlpha'), alpha);
+          gl.uniform1f(P.u('uEmis'), d.key === 'sign' ? NIGHT.sign : 1);
           gl.bindVertexArray(d.vao); gl.drawArrays(gl.TRIANGLES, 0, d.n);
           tris += d.n / 3; draws++;
         }
       };
+      litSetup(LIT);
       drawSet(opaque, 1);
       if (TEX.sign) drawSet([signDraw], 1);
       if (city) drawSet(city.opaque, 1);
-      // the players, their faces from the atlas on unit 8
-      gl.activeTexture(gl.TEXTURE8); gl.bindTexture(T2, TEX.faces); gl.uniform1i(LIT.u('uFaceAtlas'), 8);
-      gl.uniform4fv(LIT.u('uHeadA'), HA); gl.uniform4fv(LIT.u('uHeadB'), HB); gl.uniform4fv(LIT.u('uHeadC'), HC); gl.uniform4fv(LIT.u('uHeadD'), HD);
-      for (const pl of players.values()) drawSet(pl.batches, 1);
+      // the players: each one's bones from his row of the palette (unit 9), his face from the atlas
+      // (unit 8) and the head arrays, his jersey from his slot's cell
+      litSetup(SKLIT);
+      gl.uniform1i(SKLIT.u('uFaceAtlas'), 8); gl.uniform1i(SKLIT.u('uBones'), 9);
+      gl.uniform4fv(SKLIT.u('uHeadA'), HA); gl.uniform4fv(SKLIT.u('uHeadB'), HB); gl.uniform4fv(SKLIT.u('uHeadC'), HC); gl.uniform4fv(SKLIT.u('uHeadD'), HD);
+      for (const m of members) {
+        const body = bodies.get(m.key);
+        if (!body) continue;
+        const cell = kitCell(m.slot);
+        gl.uniform1i(SKLIT.u('uBoneRow'), m.slot); gl.uniform1i(SKLIT.u('uHeadSlot'), m.slot);
+        gl.uniform4f(SKLIT.u('uKitCell'), cell[0], cell[1], cell[2], cell[3]);
+        drawSet(body.batches, 1, SKLIT);
+      }
 
       // the crowd
       if (crowd.length) {
@@ -1019,8 +1108,9 @@ export function createBallparkRenderer(canvas, opts = {}) {
         for (const d of [...opaque, ...translucent, signDraw]) { gl.deleteVertexArray(d.vao); gl.deleteBuffer(d.st.buf); }
         dropCity();
         for (const d of crowd) { gl.deleteVertexArray(d.vao); for (const b of d.buffers) gl.deleteBuffer(b); }
-        for (const pl of players.values()) for (const b of pl.batches) { gl.deleteVertexArray(b.vao); gl.deleteBuffer(b.st.buf); }
-        players.clear();
+        for (const body of bodies.values()) dropBody(body);
+        bodies.clear();
+        palette.dispose();
         hdr.dispose();
         gl.getExtension('WEBGL_lose_context')?.loseContext();
       } catch { /* a lost context has nothing left to free */ }
@@ -1031,14 +1121,15 @@ export function createBallparkRenderer(canvas, opts = {}) {
       kind: 'gl', lost: false, rungs: BALLPARK_RUNGS,
       // grade: 'arcade', 'broadcast' or 'none'; tube: the tube glass; dof: the lens's taps (0 off)
       quality: { dpr: 2, bloom: 0.18, exposure: 1.0, grade: opts.grade || 'arcade', tube: !!opts.tube, ao: true, dof: 28, shadows: true, fog: true },
-      // what casts the towers' shadows: [{ vao, n }] with positions at location 0 (the players, Phase 1c)
+      // what casts the towers' shadows: the players, [{ slot, batches }], skinned from the palette
       casters: [],
-      render, setBoard, setCast, pump, setVenue, dispose, stats,
+      // setPose(slot, pose): a player into a pose from the rig's pose language, with at, yaw, scale
+      render, setBoard, setCast, setPose, pump, setVenue, dispose, stats,
       pending: () => queue.length,
       get park() { return park; },
       // what the city came to: { buildings, filler, lamps, tris, placed, bearing, … }, or null
       get city() { return city?.stats || null; },
-      get players() { return players.size; },
+      get players() { return bodies.size; },
     };
     return api;
   }

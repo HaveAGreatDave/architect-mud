@@ -54,7 +54,7 @@ const { spotMatrix, spotReach } = await import(P + 'gl/spotshadow.js');
 const { ssaoConstants, RECONSTRUCT } = await import(P + 'gl/ssao.js');
 const { cocOf, DOF_MAX } = await import(P + 'gl/broadcast.js');
 const PM = await import(P + 'gl/ballplayer-mesh.js');
-const { castOf, castKey, leadOff } = await import(P + 'diamond/cast.js');
+const { castOf, castKey, bodyKey, leadOff } = await import(P + 'diamond/cast.js');
 const { FACE } = await import(P + 'actor-head.js');
 const { FACE_LAYOUTS } = await import(P + 'actor-faces.js');
 const { MASK_BARS, nicknameOf } = await import(P + 'diamond/kits.js');
@@ -371,6 +371,14 @@ for (const kind of ['sit', 'stand', 'cheer']) for (const far of [false, true]) {
   const changed = next.filter((c, i) => castKey(c) !== castKey(cast[i])).map((c) => c.look.role);
   check('cast: a new batter rebuilds the batter and nobody else', changed.length === 1 && changed[0] === 'batter', changed.join());
   check('cast: a half-inning break has no batter', !castOf({ ...p, phase: 'half' }).some((c) => c.look.role === 'batter'));
+  // a skinned body is who he is and what he wears: a new batter is one new body, and a runner who
+  // moves up keeps his
+  const keysOf = (q) => new Set(castOf(q).map(bodyKey));
+  const before = keysOf(p), newBatter = [...keysOf({ ...p, batter: 'Okafor', bats: 'R' })].filter((k) => !before.has(k));
+  check('cast: a new batter is one new body', newBatter.length === 1 && JSON.parse(newBatter[0])[0] === 'Okafor', newBatter.join(' '));
+  const onFirst = castOf({ ...p, basesBefore: [true, false, false], moves: [{ from: 1, to: 2, name: 'Halvorsen' }] }).find((c) => c.id === 'Halvorsen');
+  const onSecond = castOf({ ...p, basesBefore: [false, true, false], moves: [{ from: 2, to: 3, name: 'Halvorsen' }] }).find((c) => c.id === 'Halvorsen');
+  check('cast: a runner keeps his body from bag to bag', onFirst && onSecond && bodyKey(onFirst) === bodyKey(onSecond) && onFirst.look.slot !== onSecond.look.slot);
   check('kits: a club wears its nickname', nicknameOf('Precinct 9 Enforcers') === 'Enforcers');
   // faces: the same twice, never a makeup layout, and no ballplayer past forty
   let unstable = 0, makeup = 0, old = 0;

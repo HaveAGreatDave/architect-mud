@@ -78,7 +78,9 @@ export function castOf(p) {
   for (const bag of [1, 2, 3]) {
     if (!before[bag - 1]) continue;
     const at = leadOff(bag);
-    person(bag, names[bag] || `${batTeam}:R${bag}`, batSide, 'runner', 'runner', at, faceAt(at, RUBBER) + 25, { helmet: true, flapSide: bag === 1 ? -1 : 1 });
+    // his helmet's flap and his batting gloves stay his own from bag to bag, so he keeps his body
+    const id = names[bag] || `${batTeam}:R${bag}`;
+    person(bag, id, batSide, 'runner', 'runner', at, faceAt(at, RUBBER) + 25, { helmet: true, flapSide: hashStr('flap:' + id) % 10 < 4 ? -1 : 1, battingGloves: '#c9c4b8' });
   }
   if (p.phase !== 'half') {
     // the on-deck hitter by his own side's dugout: the visitors' is on the third-base side
@@ -96,6 +98,10 @@ export function castOf(p) {
   return out;
 }
 
-// A key for one cast member's body: what he looks like, how he stands and where. Two payloads that
-// share a key share a body, so only who's changed gets rebuilt.
+// A key for one cast member as a still: what he looks like, how he stands and where. Two payloads
+// that share a key share a posed body (gl/ballplayer-mesh.js buildPlayer).
 export const castKey = (c) => JSON.stringify([c.id, c.pose, c.at, Math.round(c.yaw * 100), c.mirror, c.scale, c.look.side, c.look.slot, c.look.glove, c.look.helmet, c.look.flapSide, c.look.mask]);
+// A key for his skinned body (buildBody), which the GPU poses: who he is and what he wears, not
+// where he stands or which slot he's in, so a man keeps his body from one payload to the next.
+export const bodyKey = (c) => JSON.stringify([c.id, c.scale, c.look.side, c.look.role === 'catcher' || c.look.role === 'ump' ? c.look.role : '',
+  c.look.glove, c.look.helmet, c.look.flapSide, c.look.mask, c.look.battingGloves, c.look.girth]);
