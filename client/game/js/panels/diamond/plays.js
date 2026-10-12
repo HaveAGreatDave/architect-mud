@@ -28,7 +28,7 @@
 import { CLIPS } from './clips.js';
 import { catchPoint, handAt, rootAt, sampleClip } from './anim.js';
 import { solvePose } from './rig.js';
-import { BAGS, DEG } from './geo.js';
+import { BAGS, DEG, MOUND as MOUND_AT } from './geo.js';
 import { toPark as onLine, rollAlong, rollTime, hangTime, toFirst, fenceAt, throwTime, firstStep, POSITIONS } from './play.js';
 import { groundPath, flyPath, throwPath, fitPath, BALL_R, GRAVITY } from './flight.js';
 import { carried, toPark } from './world.js';
@@ -270,8 +270,10 @@ export function planPlay(ctx) {
   };
   const homeThrow = kind === 'sacfly' && pl.th === 'home';
   const settled = Math.max(-Infinity, ...log.fielders.map((x) => x.t), ...throwChain.map((x) => x.catch.t)) + 0.3;
+  const outAtFirst = throwChain.find((x) => x.bag === 1 && x.last && !x.error);
   const laid = bases.lay({
     chain: throwChain, airCatch: log.airCatch, dropAt: pl.e === 'drop' && first ? first.t : null, forceAt, settled,
+    firstOff: outAtFirst ? outAtFirst.catch.t + 1.7 : null,
     slideAt: (bag) => (bag === 4 && homeThrow ? 'slide_feet' : null),
   });
   log.batter = bases.log.batter; log.runners = bases.log.runners;
@@ -554,7 +556,16 @@ export function planPlay(ctx) {
       land = Math.max(land, tC + 0.4);
     }
     if (recvId === 'catch_run') pullUp(R, tRs + 0.95, 21);
-    else if (recvId === 'field_stretch' || recvId === 'field_scoop') R.free = tC + 0.3;
+    else if (recvId === 'field_stretch' || recvId === 'field_scoop') {
+      R.free = tC + 0.3;
+      // the last out at first: he steps off the bag toward the mound, so a man who held there can
+      // come back to it
+      if (bag === 1 && o.last && !error) {
+        const off = add(target, mul(sub([MOUND_AT[0], 0, MOUND_AT[1]], target), 7 / flat(target, [MOUND_AT[0], 0, MOUND_AT[1]])));
+        if (runTo(R, { at: off, yaw: faceTo(off, HOME) }, tC + 0.7, tC + 1.7, { rest: true, min: 2 })) settle(R, tC + 1.7, faceTo(off, HOME));
+        R.free = tC + 1.9;
+      }
+    }
     throwChain.push({ from: B.n, to: n, bag, last: !!o.last, error, clip: recvId, throwClip: te.clip, release: rel, catch: { t: tC, at: gl } });
     if (bag === 1 && o.last) cuts.push({ at: Math.max(rel.t - 0.05, tBat + 0.8), shot: 'first' });
     return { R, recv };

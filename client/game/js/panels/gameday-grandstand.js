@@ -365,6 +365,9 @@ export function createGrandstandView(host, opts = {}) {
       Object.assign(S, { balls: 0, strikes: 0, outs: 0, bases: [false, false, false], batter: '', desc: '', lastBatter: '' });
       dropHolds();
       shot = opts.shot || 'high';
+      // the new side takes the field under the break's graphics, and the pitcher warms up
+      live = true; acc = 0;
+      D.changeover(p, cast);
       paint();
       if (!startTable(p)) renderCard({ kind: 'half', inningOrd: p.inningOrd, half: p.half, batting: p.battingTeam, duration: 3.4 });
       // a changeover has no ball to land, so its line goes up a beat in

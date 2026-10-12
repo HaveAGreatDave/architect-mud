@@ -7,8 +7,8 @@ and call every pitch at its real speed and spot, and the Pose Lab their clips ar
 2e); every ball in play decided on the server, with the booth's lines sorted to agree with it
 (3a), the clips to play it with, players who travel as they move (3b), every ball in play
 played out in the park with its cameras and its cutaways (3c), and the men on the bases running
-it out (3d's first part). The rest of 3d (walks, the changeover and the plays on the bases) and
-the spectacle (3e) are design.** A plan for giving Deadball a 3-D sub-screen the way Cluster Puck got Rinkside, at the
+it out and trotting up after ball four, and the changeover (3d so far). The rest of 3d (the
+plays on the bases) and the spectacle (3e) are design.** A plan for giving Deadball a 3-D sub-screen the way Cluster Puck got Rinkside, at the
 highest fidelity the engine can reach. Deadball is a live sport on KSAB, and the broadcast borrows
 the look of a 1990s arcade baseball game. That means skinned, detailed players, authored animation
 with a wide spread of plays, light from the park's own towers and a crowd that fills the stands.
@@ -1665,6 +1665,18 @@ Phase 3, or with sim v2 if that comes later.
   play left, so a cutaway is only for an at-bat the booth skipped. `diamond-smoke` holds every
   man over every bag on his way, on his bag by the landing and at the end, the forced man after
   the ball and the safe man before the throw, no two men within 2.5 ft and the runs to the play's.
+
+  Then walks and the changeover. On ball four or a hit batsman the batter trots to first once
+  he's away, every man forced trots up a bag and a man not forced walks back to his. On the third
+  out every man on the field jogs off to his side's dugout, planned from the world once the play's
+  landed, and the high camera watches them go; at the break the side taking the field runs out of
+  its dugout and the pitcher throws his warm-ups, as many as the hold has room for. A dugout is a
+  row of spots in foul ground up the line, handed out by when the men get there, the first in to
+  the end furthest from the field, and a man holds back where he'd pass too close to one gone
+  before him. The first baseman steps off the bag after the last out there, so a man who held
+  first can go back to it. `diamond-smoke` holds everyone going off to his own dugout and 2 ft
+  clear of everyone else, and at every changeover each man to his spot and each warm-up to the
+  pitcher's hand and the catcher's mitt.
 
 **Phase 4: the broadcast.** On by default wherever WebGL2 and float targets work.
 - `gl/crowd.js` with seated and reaction clips; replays in slow motion; dead-time rituals; the grounds

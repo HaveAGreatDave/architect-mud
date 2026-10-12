@@ -88,6 +88,14 @@ export function makeBody(o) {
   return B;
 }
 
+// A copy of a body's plan to try something on without touching his own.
+export function cloneBody(B) {
+  const C = makeBody({ n: B.n, id: B.id, slot: B.slot, role: B.role, mirror: B.mirror, scale: B.scale, at: B.base.at, yaw: B.base.yaw, place: B.place });
+  C.clips = B.clips.map((e) => ({ ...e }));
+  C.free = B.free;
+  return C;
+}
+
 // ── moving him ─────────────────────────────────────────────────────────────────
 // He runs from where he is at t0 to frame `to` (`{ at, yaw }`), getting there at t1: a run cycle
 // at the speed it takes, played no slower or faster than PLAYBACK allows (a run that can't go

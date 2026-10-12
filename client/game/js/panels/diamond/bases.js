@@ -1,4 +1,5 @@
-// DEADBALL · THE BASES. The men on them and the batter, on a ball in play.
+// DEADBALL · THE BASES. The men on them and the batter, on a ball in play, ball four and a hit
+// batsman; and each side's way to and from its dugout at the changeover.
 //
 // The payload's `moves` say where every man ends up (plugins/broadcast/sports/baseball-gameday.js
 // runnerMoves, or sim v2's own): each runner on a bag before the pitch and then the batter, lead
@@ -22,6 +23,14 @@
 // outfield, slides into second or third where the play says he slid (`sl`), and trots round on a
 // home run.
 //
+// BALL FOUR OR A HIT BATSMAN (`planTrot`): the batter trots to first and every man forced trots up
+// a bag, after the play's landed; a man not forced walks back to his bag.
+//
+// THE CHANGEOVER. Each side's dugout is a row of spots in foul ground up the line (`dugoutSpot`).
+// The side taking the field runs out from it to its places (`planTakeField`), and on the third out
+// every man goes off to his own (`jogToDugout`, which the director plans from the world once the
+// play's landed).
+//
 // Pure: no DOM and no GL.
 
 import { CLIPS } from './clips.js';
@@ -31,7 +40,7 @@ import { BAGS, DEG, RUBBER } from './geo.js';
 import { legsOf, topSpeed } from './play.js';
 import {
   clamp, add, sub, mul, flat, faceTo, turn, ahead, HOME, hashStr, CYCLES, cycleFor, PLAYBACK, FADE, timeFor, STOP, STOP_LEN,
-  makeBody, runTo, pullUp,
+  makeBody, runTo, pullUp, settle,
 } from './bodies.js';
 
 const bagAt = (n) => (n === 0 || n === 4 ? HOME : BAGS[n]);
@@ -203,43 +212,23 @@ function stopAt(B, path, t0, sStop, o) {
 // `safeAt` is when the first man safe at a bag gets there (none for a man tagging up, who waits on
 // the catch), for a throw there to wait for him. `lay(F)` plans the rest once the fielding is
 // known: F is { chain (plays.js throwChain), airCatch, dropAt, settled (when the ball's last in a
-// glove), forceAt(bag), slideAt(bag) (a slide for a runner at a bag a throw is coming to) }. It
+// glove), firstOff (when the first baseman's off the bag after an out there), forceAt(bag),
+// slideAt(bag) (a slide for a runner at a bag a throw is coming to) }. It
 // returns { land, calls (base umpires' calls: { ump, out, t }) }.
 export function planBases(ctx, o) {
   const p = ctx.p, pl = p.play || {}, tBat = o.tBat;
   const rand = (k) => (hashStr(o.seed + ':bases:' + k) % 10007) / 10007;
   const air = !!pl.t && pl.t !== 'gb', twoOut = (o.outs | 0) >= 2;
-  // the batting side's dugout: the visitors' is on the third-base side (+x), as cast.js has it
-  const dug = p.half === 'top' ? 1 : -1;
+  const dug = dugoutOf(p);
   // when the batter's through first and stopped, for a man holding there to go back to it
   let clearOfFirst = -Infinity;
-  // He's scored: from where he's pulled up past the plate he jogs off toward his dugout, the first
-  // man in furthest along, so nobody who scores after him runs through him.
-  // His way goes round behind the umpire where it would pass the catcher or the umpire.
-  const offHome = (B, t, k) => {
-    const spot = [dug * (37 - 6 * k), 0, -21 + 2.5 * k], from = B.spotAt(t);
-    if (flat(from, spot) < STOP_LEN + 6) return;
-    const pts = [from];
-    if (BEHIND_THE_PLATE.some((q) => toSegment(q, from, spot) < 5)) pts.push([0, 0, -17]);
-    pts.push(spot);
-    const way = wayPath(pts), run = runAlong(B, way, t + 0.2, way.len - STOP_LEN, { v: 11 });
-    pullUp(B, run.tEnd, run.vEnd);
-  };
+  const offHome = (B, t, k) => jogOff(B, t, k, dug);
   const bodies = [], log = { runners: [], batter: null };
   const moves = Array.isArray(p.moves) ? p.moves : [];
 
   // the men on base, in their leads from the cut in
-  const men = [];
-  for (const m of moves) {
-    if (!m || !(m.from >= 1 && m.from <= 3)) continue;
-    const c = runnerAt(ctx.cast, m.from);
-    if (!c) continue;
-    const B = makeBody({ n: 10 + m.from, id: c.id, slot: c.look.slot, role: 'runner', at: c.at, yaw: c.yaw, mirror: c.mirror, scale: c.scale, place: true });
-    const tIn = Number.isFinite(ctx.tIn) ? ctx.tIn : tBat - 1;
-    B.play('run_lead', tIn - rand('lap' + m.from) * CLIPS.run_lead.duration, { frame: B.base, issue: tIn });
-    men.push({ m, B, v: o.isHR ? TROT : topSpeed(legsOf(c.id)) });
-    bodies.push(B);
-  }
+  const men = menOn(ctx, moves, Number.isFinite(ctx.tIn) ? ctx.tIn : tBat - 1, rand).map((x) => ({ ...x, v: o.isHR ? TROT : x.v }));
+  for (const x of men) bodies.push(x.B);
   // when a man sets off: on contact on the ground or with two out, a beat later on a liner or a
   // fly, and on a home run once it's gone; one tagging up goes from his bag on the catch
   const goOf = (man) => tBat + (o.isHR ? 1.1 : !air || twoOut ? 0.18 + 0.12 * rand('go' + man.m.from) : pl.t === 'ld' ? 0.45 : 0.7);
@@ -312,7 +301,7 @@ export function planBases(ctx, o) {
     // holding: in his lead on the ground, back to his bag on a ball in the air
     if (m.off || to == null || to <= m.from) {
       if (air && !o.isHR) standOn(B, m.from, tBat + 0.3);
-      else if (!o.isHR) standOn(B, m.from, Math.max(tBat + 1, F.settled ?? tBat + 2.5, m.from === 1 ? clearOfFirst : -Infinity));
+      else if (!o.isHR) standOn(B, m.from, Math.max(tBat + 1, F.settled ?? tBat + 2.5, m.from === 1 ? Math.max(clearOfFirst, (F.firstOff ?? -Infinity)) : -Infinity));
       rec.end = m.from;
       return rec;
     }
@@ -430,6 +419,117 @@ export function planBases(ctx, o) {
     if (th && ump && rec.bags[hTo] != null && th.catch.t - rec.bags[hTo] < 0.8) calls.push({ ump, out: false, t: Math.max(th.catch.t, rec.bags[hTo]) + 0.2 });
     return rec;
   }
+}
+
+// ── the shared pieces ──────────────────────────────────────────────────────────
+// The batting side's dugout, +1 on the third-base side (the visitors', as cast.js has it) and -1
+// on the first-base side.
+export const dugoutOf = (p) => (p.half === 'top' ? 1 : -1);
+// The men on base for `moves`, in their leads from the cut in (tIn): [{ m, B, v }], `v` his top speed.
+function menOn(ctx, moves, tIn, rand) {
+  const men = [];
+  for (const m of moves) {
+    if (!m || !(m.from >= 1 && m.from <= 3)) continue;
+    const c = runnerAt(ctx.cast, m.from);
+    if (!c) continue;
+    const B = makeBody({ n: 10 + m.from, id: c.id, slot: c.look.slot, role: 'runner', at: c.at, yaw: c.yaw, mirror: c.mirror, scale: c.scale, place: true });
+    B.play('run_lead', tIn - rand('lap' + m.from) * CLIPS.run_lead.duration, { frame: B.base, issue: tIn });
+    men.push({ m, B, v: topSpeed(legsOf(c.id)) });
+  }
+  return men;
+}
+// He's scored: from where he's pulled up past the plate he jogs off toward his dugout (`dug`, the
+// side), the k-th man in a stride short of the last, so nobody who scores after him runs through
+// him; his way goes round behind the umpire where it would pass the catcher or the umpire.
+function jogOff(B, t, k, dug) {
+  const spot = [dug * (37 - 6 * k), 0, -21 + 2.5 * k], from = B.spotAt(t);
+  if (flat(from, spot) < STOP_LEN + 6) return;
+  const pts = [from];
+  if (BEHIND_THE_PLATE.some((q) => toSegment(q, from, spot) < 5)) pts.push([0, 0, -17]);
+  pts.push(spot);
+  const way = wayPath(pts), run = runAlong(B, way, t + 0.2, way.len - STOP_LEN, { v: 11 });
+  pullUp(B, run.tEnd, run.vEnd);
+}
+
+// ── ball four, or hit by the pitch ─────────────────────────────────────────────
+// The batter trots to first once his clip has him away (bat_walk or bat_hbp, `o.clip` from
+// `o.start`, which the director plays), and every man forced trots up a bag, setting off at
+// `o.tFour` (ball four, or the pitch hitting him); a man not forced walks back to his bag. All of
+// it after the play's landed. Returns { bodies, log } as planBases does (the batter's clip is his
+// prior entry, played by the director).
+const JOG = 11.5;
+export function planTrot(ctx, o) {
+  const p = ctx.p, moves = Array.isArray(p.moves) ? p.moves : [], dug = dugoutOf(p);
+  const rand = (k) => (hashStr(`${p.batter}|${p.inning}|${p.half}|trot:${k}`) % 10007) / 10007;
+  const men = menOn(ctx, moves, Number.isFinite(ctx.tIn) ? ctx.tIn : o.tFour - 2, rand), log = { runners: [], batter: null }, home = [];
+  for (const { m, B } of men) {
+    const rec = { slot: B.slot, id: B.id, from: m.from, to: m.to ?? null, out: null, off: false, bags: {}, done: null, end: m.from };
+    log.runners.push(rec);
+    // a man not forced walks back to his bag
+    if (m.to == null || m.to <= m.from) { standOn(B, m.from, o.tFour + 1 + 0.5 * rand('back' + m.from)); continue; }
+    const toHome = m.to === 4, path = basePath(B.base.at, routeOf(m.from, m.to), toHome ? OVER_THE_PLATE : {});
+    const r = stopAt(B, path, o.tFour + 0.5 + 0.3 * rand('go' + m.from), toHome ? path.len : path.bags[m.to], { v: JOG });
+    rec.bags[m.to] = toHome ? r.run.timeAt(path.bags[4]) : r.on;
+    rec.end = toHome ? null : m.to;
+    if (toHome) home.push({ B, on: r.on });
+  }
+  home.forEach((x, k) => jogOff(x.B, x.on, k, dug));
+  const H = ctx.batter ? makeBody({ ...ctx.batter, n: 0, role: 'batter', clip: o.clip, start: o.start }) : null;
+  if (H) {
+    const tGo = o.start + CLIPS[o.clip].duration - 0.25, path = basePath(H.spotAt(tGo), [1]);
+    const r = stopAt(H, path, tGo, path.bags[1], { v: JOG });
+    log.batter = { slot: H.slot, to: 1, end: 1, bags: { 1: r.on }, done: null };
+  }
+  return { bodies: [...(H ? [H] : []), ...men.map((x) => x.B)], log };
+}
+
+// ── the changeover ─────────────────────────────────────────────────────────────
+// Each side's dugout, where a side takes the field from and goes off to: in foul ground 30 ft up
+// the line, a row of spots five feet apart running out across the way the men come and go, the
+// k-th man's the k-th.
+export const dugoutSpot = (side, k) => [side * (42 + 5 * k), 0, 30];
+// The spots for men at `from` (points), handed out so the ways to them are shortest in all, a pair
+// swapped while that shortens them: then no two straight ways cross. Returns each man's spot index.
+export function spotsFor(from, side) {
+  const ks = from.map((_, j) => j), d = (i, k) => flat(from[i], dugoutSpot(side, k));
+  for (let better = true; better;) {
+    better = false;
+    for (let i = 0; i < ks.length; i++) for (let j = i + 1; j < ks.length; j++) {
+      if (d(i, ks[j]) + d(j, ks[i]) < d(i, ks[i]) + d(j, ks[j]) - 1e-6) { [ks[i], ks[j]] = [ks[j], ks[i]]; better = true; }
+    }
+  }
+  return ks;
+}
+// The side taking the field (`ctx.cast`, a half payload's), out of its dugout to its spots at a
+// jog, a man every third of a second: the catcher to his spot behind the plate and the pitcher to
+// a stride short of the rubber, the rest turned to the plate in their sets once they're there.
+// From `o.t0`. Returns { bodies, at: Map(slot -> when he's there) }.
+export function planTakeField(ctx, o) {
+  const side = -dugoutOf(ctx.p), t0 = o.t0;
+  const order = ['catcher', 'pitcher', 'fielder'], men = (ctx.cast || []).filter((c) => order.includes(c.look?.role))
+    .sort((a, b) => order.indexOf(a.look.role) - order.indexOf(b.look.role));
+  const bodies = [], at = new Map(), ks = spotsFor(men.map((c) => [c.at[0], 0, c.at[2]]), side);
+  men.forEach((c, k) => {
+    const start = dugoutSpot(side, ks[k]), spot = [c.at[0], 0, c.at[2]];
+    const to = c.look.role === 'pitcher' ? sub(spot, mul(unit(sub(spot, start)), 2.5)) : spot;
+    const B = makeBody({ n: 30 + k, id: c.id, slot: c.look.slot, role: c.look.role, at: start, yaw: faceTo(start, to), mirror: c.mirror, scale: c.scale, place: true });
+    const way = wayPath([start, to]), r = stopAt(B, way, t0 + 0.3 + 0.33 * k, way.len, { v: flat(start, to) > 150 ? 17 : 13 });
+    if (c.look.role === 'fielder') settle(B, r.on + 0.4, faceTo(spot, HOME));
+    at.set(c.look.slot, r.on);
+    bodies.push(B);
+  });
+  return { bodies, at };
+}
+// The inning's over: a man jogs off from where he is at t to his side's dugout (`side`, +1 the
+// third-base side), the k-th man's spot in the crowd there. `B` is his plan so far (a body
+// seeded with whatever he's playing). Returns when he's there.
+export function jogToDugout(B, t, side, k) {
+  const from = B.spotAt(t), spot = dugoutSpot(side, k), pts = [from];
+  if (BEHIND_THE_PLATE.some((q) => toSegment(q, from, spot) < 5)) pts.push([0, 0, -17]);
+  pts.push(spot);
+  const way = wayPath(pts);
+  if (way.len < STOP_LEN + 4) return t;
+  return stopAt(B, way, t, way.len, { v: way.len > 150 ? 16 : 12 }).on;
 }
 
 // The cast's man leading off `bag` (cast.js puts him at leadOff(bag)).

@@ -30,18 +30,28 @@
 //      every bag on his way (3 ft, his feet and hands counted for a slide), on his bag by the
 //      landing and standing on it at the end (4 ft), a man forced out there after the ball and one
 //      safe at a bag a throw goes to there before it, no two of them within 2.5 ft, and the runs
-//      that cross the plate the play's;
+//      that cross the plate the play's; the same, bar the landing (the trot comes after it), for
+//      ball four and a hit batsman, the batter to first and every man forced up a bag (bases.js
+//      planTrot); after a third out everyone on the field ends by his own dugout (4 ft, or where
+//      he was if that was within 14), with nobody faster than 52 ft/s going off and no two within
+//      2 ft;
 //      and the game has a ground ball thrown to first on the first-base camera, a ball caught in
-//      the air, a ball run down in the outfield, a run scored on a ball in the park and a man
-//      rounding first for second.
+//      the air, a ball run down in the outfield, a run scored on a ball in the park, a man
+//      rounding first for second, a trot to first and a side going off after its third out.
+//   1c. THE CHANGEOVER, every half payload: the side taking the field out of its dugout, each man
+//      ending where he plays (4 ft) and nobody faster than 52 ft/s; every warm-up out of the
+//      pitcher's hand (0.05 ft), the catcher's receive lined up on it and the mitt on the ball
+//      (0.1 ft); and the game's changeovers have warm-ups.
 //   2. THE VIEW, with a recording renderer in place of the GL park and the hand-cranked clock:
 //      payloads fed the way tv.js feeds them, each after its held line; the line stays the last
 //      one until the play lands and is this one after; the count on the board is the last
 //      pitch's (never a fourth ball or a third strike); a strikeout or a walk gets its splash;
 //      the battery's poses and the ball reach the renderer; every pitch shown makes its sound
 //      and the play its own; once everyone's at rest the frames stop; an at-bat whose bags differ
-//      from the ones the picture left opens on the cutaway, and one that agrees doesn't; and with
-//      no frames at all (a hidden tab) the line still goes up once the play's time has passed.
+//      from the ones the picture left opens on the cutaway, and one that agrees doesn't (the feed
+//      leaves out one at-bat that moves the bags, as the booth does, so there's one that differs);
+//      and with no frames at all (a hidden tab) the line still goes up once the play's time has
+//      passed.
 //
 // A runner's legs in the picture are checked against the sim's (play.js legsOf works speedOf over
 // again for the browser).
@@ -64,6 +74,7 @@ const { handPoint, limitBreaks, eventTime } = await import(P + 'diamond/anim.js'
 const { isShot, shotAt, project } = await import(P + 'diamond/camera.js');
 const { BAGS } = await import(P + 'diamond/geo.js');
 const { legsOf } = await import(P + 'diamond/play.js');
+const { dugoutSpot, dugoutOf } = await import(P + 'diamond/bases.js');
 const { createGrandstandView } = await import(P + 'gameday-grandstand.js');
 const { sportsRng } = await import('../../plugins/broadcast/rng.js');
 const { simGameV2, speedOf } = await import('../../plugins/broadcast/sports/baseball.js');
@@ -99,7 +110,7 @@ const bagAt = (b) => (b === 4 ? [0, 0, 0] : BAGS[b]);
 for (const p of order) for (const m of p.moves || []) if (m && m.name) check('a runner\'s legs in the picture are the sim\'s (play.js legsOf)', legsOf(m.name) === speedOf(m.name), m.name);
 
 // ── 1. the director ──────────────────────────────────────────────────────────
-const seen = { skip: 0, ritual: 0, block: 0, check: 0, punchout: 0, hbp: 0, lefty: 0, sideL: 0, toFirst: 0, air: 0, rundown: 0, scored: 0, round: 0 };
+const seen = { skip: 0, ritual: 0, block: 0, check: 0, punchout: 0, hbp: 0, lefty: 0, sideL: 0, toFirst: 0, air: 0, rundown: 0, scored: 0, round: 0, trot: 0, off: 0, warmup: 0 };
 const W = createWorld();
 for (const hold of [undefined, 45000]) {
   for (const p0 of atBats) {
@@ -168,6 +179,8 @@ for (const hold of [undefined, 45000]) {
     }
     // ── 1b. the ball in play ──
     const plan = !hold ? D.log[N - 1].play : null;
+    // ball four or a hit batsman: the trot to first and the men forced up a bag (bases.js planTrot)
+    const trot = !hold ? D.log[N - 1].trot : null, moved = plan || trot;
     const moving = [], cam = { n: 0, out: 0 }, menOn = [];
     let closest = { d: Infinity };
     let tPlay = Infinity;
@@ -206,13 +219,20 @@ for (const hold of [undefined, 45000]) {
       }
       if (plan.log.airCatch != null) seen.air++;
       if (plan.log.fielders.some((f) => f.clip === 'field_of_throw' && !f.miss)) seen.rundown++;
+    }
+    if (trot) { tPlay = D.log[N - 1].decided; seen.trot++; }
+    if (moved) {
       // the bodies that do more than set: their pelvises are watched for jumps
-      for (const B of plan.bodies) if (B.role === 'batter' || B.role === 'ump' || B.clips.filter((c) => !c.prior).length > 1) moving.push({ slot: B.slot, last: null, at: -1 });
+      for (const B of moved.bodies) if (B.role === 'batter' || B.role === 'ump' || B.clips.filter((c) => !c.prior).length > 1) moving.push({ slot: B.slot, last: null, at: -1 });
       // the men on the bases (bases.js), watched round the bags
-      for (const r of plan.log.runners || []) menOn.push({ r, who: `the man from ${r.from}`, near: {}, last: null });
-      if (plan.log.batter) menOn.push({ r: { ...plan.log.batter, end: plan.log.batter.to >= 1 && plan.log.batter.to <= 3 ? plan.log.batter.to : null }, who: 'the batter', near: {}, last: null });
+      for (const r of moved.log.runners || []) menOn.push({ r, who: `the man from ${r.from}`, near: {}, last: null });
+      const lb = moved.log.batter;
+      if (lb) menOn.push({ r: { ...lb, end: lb.to >= 1 && lb.to <= 3 ? lb.to : null }, who: 'the batter', near: {}, last: null });
     }
     due.sort((a, b) => a[0] - b[0]);
+    // the third out: everyone on the field jogs off, watched for jumps from when they set off
+    const off = D.inningOver ? cast.filter((c) => ['pitcher', 'catcher', 'fielder', 'batter', 'runner'].includes(c.look.role)).map((c) => ({ c, last: null, at: -1 })) : [];
+    let offClosest = { d: Infinity };
     // the clock, and every pose finite now and then on the way
     let k = 0, lastBall = null;
     while (W.t < Math.max(D.until, D.landAt) + 0.1) {
@@ -226,7 +246,21 @@ for (const hold of [undefined, 45000]) {
           if (!Object.values(J).every((v) => !Array.isArray(v) || v.every(Number.isFinite))) { check('every pose finite', false, `${label}: slot ${s} at ${(W.t - t0).toFixed(2)} s`); break; }
         }
       }
-      if (plan && W.t >= tPlay && k % 4 === 0) {
+      if (off.length && W.t >= D.landAt + 0.6 && k % 4 === 0) {
+        for (const m of off) {
+          const Q = W.pose(m.c.look.slot);
+          if (!Q) continue;
+          const pv = toPark(Q, Q.pelvis);
+          if (m.last && m.at > cutAt) check('the third out: nobody jumps (52 ft/s) going off', dist(pv, m.last) / (W.t - m.at) <= 52, `${label}: ${m.c.id} ${(dist(pv, m.last) / (W.t - m.at)).toFixed(0)} ft/s`);
+          if (m.from == null) m.from = pv;
+          m.last = pv; m.at = W.t;
+        }
+        for (let i = 0; i < off.length; i++) for (let j = i + 1; j < off.length; j++) {
+          const a = off[i].last, b = off[j].last;
+          if (a && b && flatD(a, b) < offClosest.d) offClosest = { d: flatD(a, b), who: `${off[i].c.id} and ${off[j].c.id}`, at: W.t };
+        }
+      }
+      if (moved && W.t >= tPlay && k % 4 === 0) {
         // 30 Hz through the play: no jumps outside a cut, the ball above the grass and in the high camera's frame
         for (const m of moving) {
           const Q = W.pose(m.slot);
@@ -241,9 +275,10 @@ for (const hold of [undefined, 45000]) {
         }
         // how near each man on the bases comes to each bag: his pelvis, or near one his feet and
         // hands too (a slide gets there with them); and how near any two come to each other
+        const going = D.inningOver && W.t >= D.landAt + 0.6;
         for (const g of menOn) {
           const Q = W.pose(g.r.slot);
-          if (!Q) continue;
+          if (!Q || going) continue;
           const pv = toPark(Q, Q.pelvis);
           g.last = pv;
           let ends = null;
@@ -253,11 +288,11 @@ for (const hold of [undefined, 45000]) {
             g.near[b] = Math.min(g.near[b] ?? Infinity, d);
           }
         }
-        for (let i = 0; i < menOn.length; i++) for (let j = i + 1; j < menOn.length; j++) {
+        for (let i = 0; i < menOn.length && !going; i++) for (let j = i + 1; j < menOn.length; j++) {
           const a = menOn[i].last, b = menOn[j].last;
           if (a && b && flatD(a, b) < closest.d) closest = { d: flatD(a, b), at: W.t, who: `${menOn[i].who} and ${menOn[j].who}` };
         }
-        const ball = W.ballAt();
+        const ball = plan ? W.ballAt() : null;
         if (ball) {
           check('a play: the ball finite and above the grass', ball.every(Number.isFinite) && ball[1] >= -1e-6, `${label}: [${ball.map((v) => v.toFixed(2))}]`);
           // the hardest-hit ball leaves the bat at 118 mph, 173 ft/s
@@ -272,29 +307,42 @@ for (const hold of [undefined, 45000]) {
       }
     }
     if (plan && cam.n) check('a play: the high camera keeps the ball in its frame (95%)', cam.out <= cam.n * 0.05, `${label}: out of frame ${cam.out} of ${cam.n}`);
-    if (plan) {
+    if (off.length) {
+      // every man ends in his side's crowd by its dugout
+      const side = dugoutOf(p);
+      for (const m of off) {
+        const Q = W.pose(m.c.look.slot), at = Q ? toPark(Q, Q.pelvis) : m.c.at, field = ['pitcher', 'catcher', 'fielder'].includes(m.c.look.role);
+        const nearOf = (q) => Math.min(...Array.from({ length: 12 }, (_, j) => flatD(q, dugoutSpot(field ? -side : side, j))));
+        const near = nearOf(at), had = m.from ? nearOf(m.from) : Infinity;
+        check('the third out: everyone ends by his own dugout (4 ft, or where he was if that was within 14)', near <= 4 || (had <= 14 && near <= had + 0.5), `${label}: ${m.c.id} ${near.toFixed(1)} ft off`);
+      }
+      check('the third out: nobody runs into anybody going off (2 ft)', offClosest.d >= 2, `${label}: ${offClosest.who} ${offClosest.d.toFixed(2)} ft apart`);
+      seen.off++;
+    }
+    if (moved) {
       // every man round the bags his move takes him, on his bag by the landing and on it at the end
+      // (a trot after ball four is after the landing)
       for (const g of menOn) {
         const r = g.r;
         for (const [b, t] of Object.entries(r.bags || {})) {
           if (t == null) continue;
           check('a play: every man on the bases goes over every bag on his way (3 ft)', (g.near[b] ?? Infinity) <= 3, `${label}: ${g.who}, bag ${b} by ${(g.near[b] ?? Infinity).toFixed(2)} ft`);
         }
-        if (r.end) {
+        if (r.end && !D.inningOver) {
           const d = g.last ? flatD(g.last, bagAt(r.end)) : Infinity;
           check('a play: every man ends on the bag the play gives him (4 ft)', d <= 4, `${label}: ${g.who}, ${d.toFixed(1)} ft from ${r.end}`);
           const got = r.bags?.[r.end];
-          if (got != null) check('a play: every man is on his bag by the landing', got <= D.landAt + 1e-6, `${label}: ${g.who} at +${(got - tPlay).toFixed(2)} s, lands +${(D.landAt - tPlay).toFixed(2)}`);
+          if (got != null && plan) check('a play: every man is on his bag by the landing', got <= D.landAt + 1e-6, `${label}: ${g.who} at +${(got - tPlay).toFixed(2)} s, lands +${(D.landAt - tPlay).toFixed(2)}`);
         }
         if (r.forced != null && r.bags?.[r.out] != null) check('a play: a man forced out gets there after the ball', r.bags[r.out] >= r.forced, `${label}: ${g.who} at +${(r.bags[r.out] - tPlay).toFixed(2)}, the ball +${(r.forced - tPlay).toFixed(2)}`);
         if (r.bags?.[1] != null && r.bags?.[2] != null) seen.round++;
       }
       // the runs: every man the play sends home over the plate, by the landing but on a home run
-      const homeMen = menOn.filter((g) => g.r.to === 4), inBy = homeMen.filter((g) => (g.near[4] ?? Infinity) <= 3 && (p.kind === 'homerun' || g.r.bags[4] <= D.landAt + 1e-6)).length;
+      const homeMen = menOn.filter((g) => g.r.to === 4), inBy = homeMen.filter((g) => (g.near[4] ?? Infinity) <= 3 && (p.kind === 'homerun' || trot || g.r.bags[4] <= D.landAt + 1e-6)).length;
       if (Number.isFinite(p.runs)) check('a play: the runs that cross the plate are the play\'s', inBy === p.runs, `${label}: ${inBy} for ${p.runs}`);
       if (p.kind !== 'homerun') seen.scored += inBy;
       // a man safe at a bag a throw goes to gets there first
-      for (const th of plan.log.throws) {
+      for (const th of plan?.log.throws || []) {
         if (!th.bag || th.bag === 1 || th.error || !th.last) continue;
         const g = menOn.find((x) => x.r.to === th.bag);
         if (g && g.r.bags?.[th.bag] != null) check('a play: a man safe at a bag gets there before the throw', g.r.bags[th.bag] < th.catch.t, `${label}: ${g.who} at +${(g.r.bags[th.bag] - tPlay).toFixed(2)}, the ball +${(th.catch.t - tPlay).toFixed(2)}`);
@@ -332,6 +380,51 @@ check('the game has a ball caught in the air', seen.air > 0);
 check('the game has a ball run down in the outfield', seen.rundown > 0);
 check('the game has a run scored on a ball in the park', seen.scored > 0);
 check('the game has a man rounding first for second', seen.round > 0);
+check('the game has a trot to first after ball four or a hit batsman', seen.trot > 0);
+check('the game has a side going off after its third out', seen.off > 0);
+
+// ── 1c. the changeover ───────────────────────────────────────────────────────
+// Every half payload: the side taking the field out of its dugout to its spots, and the pitcher's
+// warm-ups, each ball out of his hand at the release and into the catcher's mitt at the catch.
+for (const p of order.filter((x) => x.phase === 'half')) {
+  const label = `seed ${SEED}: the changeover before the ${p.inning}${p.half[0]}`;
+  const cast = castOf(p);
+  let cutAt = -Infinity;
+  const D = createDirector(W, { emit: (n) => { if (n === 'shot') cutAt = W.t; } });
+  D.changeover(p, cast);
+  const men = cast.filter((c) => ['pitcher', 'catcher', 'fielder'].includes(c.look.role)).map((c) => ({ c, last: null, at: -1 }));
+  const sP = cast.find((c) => c.look.role === 'pitcher').look.slot, sC = cast.find((c) => c.look.role === 'catcher').look.slot;
+  const due = [];
+  for (const w of D.log.filter((x) => x.warmup != null)) {
+    seen.warmup++;
+    due.push([w.release, () => {
+      const J = solvePose(W.pose(sP, w.release)).J, h = p.throws === 'L' ? 'L' : 'R', at = J['wr' + h].map((v, i) => v + J['hdir' + h][i] * 0.2);
+      check('a warm-up leaves his hand (0.05 ft)', dist(at, w.from) <= 0.05, `${label} #${w.warmup}: ${dist(at, w.from).toFixed(3)} ft`);
+    }]);
+    due.push([w.catch.t, () => {
+      const b = W.bodies.get(sC), Q = W.pose(sC, w.catch.t);
+      check('a warm-up: the receive lined up on the ball', b.clip?.id === 'catch_receive' && Math.abs(W.clipTime(b, w.catch.t) - eventTime(b.clip, 'catch')) <= 1e-6, `${label} #${w.warmup}`);
+      const d = Q ? dist(toPark(Q, handPoint(Q, 'L', 'mitt', Q.scale)), w.catch.at) : Infinity;
+      check('a warm-up: the mitt meets the ball (0.1 ft)', d <= 0.1, `${label} #${w.warmup}: ${d.toFixed(3)} ft`);
+    }]);
+  }
+  due.sort((a, b) => a[0] - b[0]);
+  let k = 0;
+  while (W.t < D.until + 0.1) {
+    W.step(DT);
+    while (due.length && due[0][0] <= W.t) due.shift()[1]();
+    if (++k % 4) continue;
+    for (const m of men) {
+      const Q = W.pose(m.c.look.slot);
+      if (!Q) continue;
+      const pv = toPark(Q, Q.pelvis);
+      if (m.last && m.at > cutAt) check('the changeover: nobody jumps (52 ft/s)', dist(pv, m.last) / (W.t - m.at) <= 52, `${label}: ${m.c.id} ${(dist(pv, m.last) / (W.t - m.at)).toFixed(0)} ft/s`);
+      m.last = pv; m.at = W.t;
+    }
+  }
+  for (const m of men) check('the changeover: every man ends where he plays (4 ft)', !!m.last && flatD(m.last, m.c.at) <= 4, `${label}: ${m.c.id} ${m.last ? flatD(m.last, m.c.at).toFixed(1) : '?'} ft off`);
+}
+check('the game\'s changeovers have warm-ups', seen.warmup > 0);
 
 // ── 2. the view ──────────────────────────────────────────────────────────────
 // A renderer that records what it's handed: the cast, the poses by slot, the ball, the shots.
@@ -349,10 +442,15 @@ const renderer = () => ({
   const v = createGrandstandView(host, { force: true, renderer });
   await v.ready();
   const capText = () => host.querySelector('.gds-cap-text')?.textContent ?? '';
-  // the first payloads in order, as far as two half-innings and a strikeout, a walk and a hit batsman
+  // the first payloads in order, as far as two half-innings and a strikeout, a walk and a hit
+  // batsman, with one at-bat that changes the bags left out, as the booth leaves some out: the
+  // next one starts from bags the picture didn't leave
   const feed = [];
   const want = new Set(['strikeout', 'walk', 'hitbypitch']);
-  for (const p of order) {
+  let skipped = false;
+  for (let i = 0; i < order.length; i++) {
+    const p = order[i], next = order[i + 1];
+    if (!skipped && !p.phase && next && !next.phase && !want.has(p.kind) && String(p.basesBefore) !== String(p.basesAfter)) { skipped = true; continue; }
     feed.push(p);
     if (!p.phase) want.delete(p.kind);
     if (feed.length >= 24 && !want.size) break;
@@ -392,8 +490,9 @@ const renderer = () => ({
       const shown = D.log.filter((r) => r.shown).length;
       check('a sound for every pitch shown, and the play\'s own', stub.sounds.length - sounds0 >= shown + 1, `${label}: ${stub.sounds.length - sounds0} for ${shown} pitches`);
       check('the view\'s camera is a shot', isShot(v.shot), `${label}: ${JSON.stringify(v.shot)}`);
-      // then everyone comes to rest and the frames stop (a home run's trot is the longest, 23 s)
-      for (let i = 0; i < 900 && v.busy(); i++) stub.runFrames(1, 1000 / 30);
+      // then everyone comes to rest and the frames stop (a home run's trot is 23 s, and a side
+      // going off after its third out can take longer)
+      for (let i = 0; i < 1200 && v.busy(); i++) stub.runFrames(1, 1000 / 30);
       const frames = rec.frames;
       stub.runFrames(20, 1000 / 30);
       check('at rest, the frames stop', !v.busy() && rec.frames === frames, `${label}: ${rec.frames - frames} more frames`);

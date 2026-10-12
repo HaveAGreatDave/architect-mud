@@ -985,8 +985,19 @@ Built so far (Phases 1 and 2 of the plan):
   rounds first on a single to the outfield and comes back, and trots round on a home run. A throw
   to a bag a man's safe at waits for him, and the play lands with every man on his bag and every
   run in; a man still running once the ball's back in gets the camera at the bag he's going to
-  (the plate, third or second). When the booth skips an at-bat and the next one starts from
-  other bags, it opens on the wide shot over the city while everyone takes their places;
+  (the plate, third or second). On ball four or a hit batsman the batter trots to first, every
+  man forced trots up a bag and a man not forced walks back to his. When the booth skips an
+  at-bat and the next one starts from other bags, it opens on the wide shot over the city while
+  everyone takes their places;
+- the changeover (Phase 3d): on the third out, once the play's landed, every man on the field
+  jogs off to his side's dugout, the fielders to theirs and the men on the bases to their own,
+  and the high camera watches them go. A dugout is a row of spots in foul ground up the line
+  (the visitors' on the third-base side), handed out by when the men get there, the first man in
+  to the end furthest from the field, and a man holds back a beat where he'd pass too close to
+  one gone before him. At the break the side taking the field runs out of its dugout, the
+  catcher first and then the pitcher and the rest a third of a second apart, and the pitcher
+  throws his warm-ups to the catcher and takes the ball back, as many as the hold has room for
+  (four at most), under the break's graphics;
 - the arcade graphics (Phase 1d), a canvas over the picture drawn by
   [diamond/hud.js](../client/game/js/panels/diamond/hud.js) in the client's display faces: the
   score with the bases, the count as lamps, the pitch speed and type, and in the batting view the
@@ -1039,8 +1050,9 @@ in the mitt, the ball hitting the batter, or a ball put in play settled: the out
 the catch made, a hit back in from the outfield with the batter on the bag. A line comes just
 before its payload; one that arrives while the
 last play is still in the air (a hidden tab stops the frames) lands that play first, and a
-timer lands a play whose frames have stopped. Plays on the bases and the changeovers are still
-stills on the 2-D view's clock (`GAMEDAY_CLOCK`) until Phase 3d.
+timer lands a play whose frames have stopped. A changeover has nothing to land, so its line goes
+up a beat in. Plays on the bases (steals, pickoffs, wild pitches) are still stills on the 2-D
+view's clock (`GAMEDAY_CLOCK`) until the rest of Phase 3d.
 `scripts/shapes/ballpark-smoke.mjs` builds the park from the defaults and from a venue of its
 own, holds every shot's matrices to its pinhole on three screen shapes, reads the board's lamps,
 checks the fallback, fits each tower's shadow map to the shot, reads depth back through the
@@ -1070,9 +1082,13 @@ above the grass and never faster than the hardest-hit ball, and the high camera 
 frame. Every man on the bases goes over every bag on his way, is on his bag by the landing and
 stands on it at the end, a man forced out gets there after the ball and one safe at a bag a throw
 goes to gets there first, no two men come within 2.5 ft of each other, and the runs that cross
-the plate are the play's; a runner's legs in the picture are the sim's (play.js legsOf against
-speedOf). It feeds the view with a recording renderer to hold each line until its play lands and to
-open an at-bat on the cutaway when its bags differ from the picture's. The sandbox page takes
+the plate are the play's, after ball four too; a runner's legs in the picture are the sim's
+(play.js legsOf against speedOf). After a third out everyone ends by his own dugout and nobody
+comes within 2 ft of anybody going off; at every changeover each man ends where he plays, nobody
+moves faster than 52 ft/s, and every warm-up leaves the pitcher's hand and meets the catcher's
+mitt. It feeds the view with a recording renderer to hold each line until its play lands, and
+leaves out one at-bat that moves the bags, as the booth does, to open the next on the cutaway
+because its bags differ from the picture's. The sandbox page takes
 `?park=3d`, `?play=inplay` (balls in play only), `?shot=`, `?bug=`, `?po=1` (the final's
 dressing), `?hud=0` (the picture alone), `?city=0`, `?hold=` (each line's hold in milliseconds,
 35000 by default) and `?speed=` (0.25 for a slow look, 0 to stop the park's clock); its city comes from the flight sim's
