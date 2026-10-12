@@ -638,6 +638,8 @@ The client renderer (`_applyScorebug` in [tv.js](../client/game/js/panels/tv.js)
     pools:   { [key]: [line,…] },// ::lines blocks
     title:   '',                 // @titlecard graphic id
     airSlots: [6],               // @airtime → in-game 3h block indices, or null for continuous
+    say:     { [word]: 'PH …' }, // ::say block, only when there is one
+    voice:   { ring: 0, … },     // @voice, only when there is one
   }
   ```
 - **Import** ([broadcast.js](../client/devpanel/js/panels/broadcast.js) `_bcImportSave`): saved with `playback_mode = 'sports'`, `loop = 1`, `override_duration = @length`, `sports_pools` = the `sportsScript` (new `media_broadcasts.sports_pools` JSONB column). No studio/host is created — asset-only.
@@ -661,6 +663,22 @@ Three rules a hockey library must respect:
 The touch-by-touch call (`pbp.*`) is written the way a booth calls a game: who, where, what. Two tokens exist only there. `{where}` is where the touch is ("at the left point", "in the slot", "on the right wall", "through centre", "in his own end"), and `{from}` is where a shot came from ("from the slot"). Both come from the possession keyframe the rink plays the touch at (`rinkSpot` in [hockey.js](../plugins/broadcast/sports/hockey.js)), with left and right as the carrier skates, so a line can't put a man somewhere the picture doesn't. `{where}` is filled for `pbp.breakout`, `pbp.retrieve`, `pbp.pass` (the receiver), `pbp.entry`, `pbp.cycle`, `pbp.deke`, `pbp.dump`, `pbp.battle` and `pbp.won`; `{from}` for `pbp.shot` and its `pbp.shot.*` kinds. A token a call doesn't supply is blanked, not left in braces, and the broadcast regress fails on what that leaves behind ("from , and").
 
 A goal nobody set up uses `goal.solo` and, at the intermission, `intermission.goal.solo`, because the plain `goal` and `intermission.goal` lines name the helper. A word in CAPS is the one the voice leans on, and every line also carries how hard it's sold (`excite`, from the pool it came from), which the voice reads; see [Selling a line](systems-procedural-audio.md#selling-a-line-excite).
+
+**A held letter is a held sound.** Write a drawn-out call the way a caller makes it: "He SCOOOOORES!!!" holds the o of "scores" about a sixth of a second a letter (three or more letters make a hold), and "!!" or more is a harder shout than "!". The word is still said as the word it is. The `pbp.goal` pool is written this way; see [Drawn-out words](systems-procedural-audio.md#drawn-out-words).
+
+**How the booth speaks** is authored in the script too, and rides every line to the client:
+
+```
+@voice ring=0 drive=0
+
+::say
+oyelaran     OW Y EH L * AA R AA N
+okonkwo      OW K * AA NG K W OW
+::endsay
+```
+
+- `@voice` sets ORACLE voice parameters over the ones the station's name seeds, as `key=value` numbers (`ring`, `drive`, `f0`, `speed`, `oq` and the rest of `voiceFromName`'s fields). The CPhL booth uses it to drop the ring modulator and drive, which measured about 10% fewer words understood.
+- `::say` gives the pronunciation of a word no dictionary carries: the word, then its phonemes in ORACLE's alphabet (CMUdict's, with `*` before the stressed vowel and `AX` for schwa). A spoken line carries only the entries for the words in it, a possessive takes its stem's, and anything not listed comes from the dictionary or, failing that, the letter rules. It is for names and coinages: the shipped dictionary already holds every word in every `.bsm` that upstream CMUdict knows (see [Rebuilding the dictionary](systems-library.md#rebuilding-the-dictionary)), so add a line when you add a name it doesn't. The voice smoke fails an entry with a phoneme the synth hasn't got or no stressed vowel, and the broadcast regress fails a row whose `say` or `voice` has drifted from the script.
 
 ---
 

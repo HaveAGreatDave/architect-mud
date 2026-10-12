@@ -675,6 +675,42 @@ function driveCurveOf(d) {
     check('a grave line is slower', grave.dur > plain.dur, `${grave.dur.toFixed(2)} vs ${plain.dur.toFixed(2)}s`);
     const uiGoal = run(line, { channel: 'ui', excite: 1 }), uiPlain = run(line, { channel: 'ui' });
     check('the reading voice is never sold', JSON.stringify(uiGoal.v) === JSON.stringify(uiPlain.v) && uiGoal.dur === uiPlain.dur);
+
+    // DRAWN OUT. "He SCOOOOOORES!!!" holds its vowel for its letters, climbs past where
+    // the plain call peaks and wavers on the way: the second jitter oscillator's depth
+    // (a gain into the glottal frequency) is turned up for the hold. Not sold, a held
+    // vowel sags instead ("Noooo...").
+    const waver = (text, more) => {
+      nodes = [];
+      A.speak(text, { seed: 'contour', ...more });
+      const g = nodes.filter(n => n.kind === 'osc').find(o => o.frequency.log.length > 3);
+      const into = nodes.filter(n => n.kind === 'gain' && n.out.includes(g.frequency));
+      // the deepest SCHEDULED waver, as a fraction of the voice's F0
+      return Math.max(0, ...into.flatMap(n => n.gain.log.map(e => e.value))) / g.frequency.value;
+    };
+    const drawn = run('He SCOOOOOORES!!!', { excite: 1 }), called = run('He SCORES!', { excite: 1 });
+    check('a drawn-out call holds its vowel', drawn.dur > called.dur + 0.6, `${drawn.dur.toFixed(2)} vs ${called.dur.toFixed(2)}s`);
+    check('a drawn-out call climbs past the plain call', drawn.peak > called.peak * 1.1, `${drawn.peak.toFixed(0)} vs ${called.peak.toFixed(0)} Hz`);
+    const wv = waver('He SCOOOOOORES!!!', { excite: 1 }), wp = waver('He SCORES!', { excite: 1 });
+    check('a drawn-out call wavers (vibrato on the hold)', wv >= 0.015 && wp < 0.015, `${(wv * 100).toFixed(1)}% vs ${(wp * 100).toFixed(1)}% of F0`);
+    const sag = run('Noooooo.', { excite: -0.7 }), no = run('No.', { excite: -0.7 });
+    check('a drawn-out vowel in grief sags', Math.min(...sag.v) < Math.min(...no.v), `${Math.min(...sag.v).toFixed(0)} vs ${Math.min(...no.v).toFixed(0)} Hz`);
+  }
+
+  // ── aspiration goes THROUGH the tract ─────────────────────────────────────
+  // Breath made at the glottis (/h/, the puff after /p t k/, a breathy voice) is shaped by
+  // the formants like the voice is, so the noise source must reach the same filter the
+  // glottal source does, through its own gain, and /h/ must open that gain.
+  {
+    nodes = [];
+    A.speak('a hat', { seed: 'aspiration' });
+    const nz = nodes.find(n => n.kind === 'buffersrc');
+    const glot = nodes.filter(n => n.kind === 'osc').find(o => o.frequency.log.length > 3);
+    const viaGain = (src) => new Set(src.out.filter(o => o?.kind === 'gain').flatMap(g => g.out));
+    const shared = [...viaGain(nz)].filter(x => x?.kind === 'filter' && viaGain(glot).has(x));
+    check('noise and voice meet at the tract (aspiration path)', shared.length === 1, `${shared.length} shared filters`);
+    const aspG = nz.out.find(o => o?.kind === 'gain' && o.out.includes(shared[0]));
+    check('/h/ opens the aspiration path', !!aspG && aspG.gain.log.some(e => e.value > 0.01), aspG && JSON.stringify(aspG.gain.log.slice(0, 4)));
   }
 
   // ── a burst has a SHAPE, not just a frequency ─────────────────────────────

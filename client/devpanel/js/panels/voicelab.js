@@ -34,6 +34,7 @@ const VL_KNOBS = [
   ['finalTaper', 'final taper', 0.1,  1,    0.05],
   ['lineGapMs',  'line gap ms', 0,    900,  10  ],
   ['excitement', 'excitement',  0,    2,    0.05],
+  ['compRatio',  'compressor',  1,    8,    0.5 ],
 ];
 
 // Per-voice character. Ranges are deliberately WIDER than the roll — the point of
@@ -67,7 +68,7 @@ const VL_PRESETS = [
   ['A shout', "GET DOWN!"],
   ['The hard words', "Tableland, rubbly, vestibule, Delacroix, architect."],
   ['Numbers', "That's 900 credits, level 7, at 12:30."],
-  ['A goal call', "He shoots. He SCORES!", 1],
+  ['A goal call', "He shoots, he SCOOOOOORES!!!", 1],
   ['A shot', "Polyester Grubb lets it go from the slot.", 0.6],
   ['A death', "He's not moving. The building goes quiet.", -0.8],
 ];

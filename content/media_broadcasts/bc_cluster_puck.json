@@ -145,6 +145,44 @@
       "Brennan-Wale",
       "Steve"
     ],
+    "say": {
+      "adebayo": "AA D EH B * AY OW",
+      "aitkenhead": "* EY T K AX N HH EH D",
+      "alferov": "* AE L F ER AA F",
+      "amankwah": "AA M * AA NG K W AA",
+      "bergqvist": "B * ER G K V IH S T",
+      "bhandari": "B AA N D * AA R IY",
+      "briain": "B R * IY AX N",
+      "danilenko": "D AE N IH L * EH NG K OW",
+      "dequarius": "D AX K W * EH R IY AX S",
+      "draganov": "D R * AA G AX N AO F",
+      "ganguly": "G * AA NG G UH L IY",
+      "kuznetsov": "K UW Z N EH T S * AO F",
+      "lindqvist": "L * IH N D K V IH S T",
+      "nkemelu": "EH NG K * EY M EH L UW",
+      "novikov": "N * OW V IH K AO F",
+      "okafor": "OW K * AA F AO R",
+      "okonkwo": "OW K * AA NG K W OW",
+      "onyekwere": "AA N Y EH K W * EH R EY",
+      "osei": "OW S * EY",
+      "oyelaran": "OW Y EH L * AA R AA N",
+      "ozymandias": "AA Z IH M * AE N D IY AX S",
+      "pankratov": "P AE NG K R * AA T AO F",
+      "petrosyan": "P EH T R * OW S IY AX N",
+      "petrov": "P * EH T R AO F",
+      "quintavius": "K W IH N T * EY V IY AX S",
+      "radzinsky": "R AE D Z * IH N S K IY",
+      "sorokin": "S AO R * OW K IH N",
+      "tarasenko": "T AE R AX S * EH NG K OW",
+      "torvaltus": "T AO R V * AE L T AX S",
+      "tvardovsky": "T V AA R D * AO F S K IY",
+      "vetrov": "V EH T R * AO F",
+      "zephariah": "Z EH F ER * AY AX"
+    },
+    "voice": {
+      "ring": 0,
+      "drive": 0
+    },
     "pools": {
       "boards": [
         "{hitter} finishes {victim} into the boards and the glass takes the rest.",
@@ -554,13 +592,13 @@
         "{goalie} smothers it."
       ],
       "pbp.goal": [
-        "He SCORES!",
-        "It's IN!",
-        "SCORES!",
+        "He SCOOOOOOORES!!!",
+        "SCOOOOOORES!!!",
+        "Top shelf! He SCOOOOOORES!!!",
+        "{shooter} SCOOOOORES!!!",
+        "He SCOOOORES! It's IN!",
+        "Five-hole! It's IN THERE!",
         "GOAL! {team}!",
-        "Top shelf! He SCORES!",
-        "Five-hole! It's IN!",
-        "{shooter} SCORES!",
         "He buries it!"
       ],
       "pbp.goal.celebrate": [

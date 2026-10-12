@@ -704,6 +704,14 @@ and the derivation stays reproducible.
   shipped subset is 27,421 curated words, and the whole file goes to every client
   on load. The script re-looks-up the *same* words rather than re-choosing them,
   and refuses to write if it kept under 98 % of them. The one deliberate addition is an explicit **contractions** list: the original subset had almost none, so every one of them fell through to the letter-guesser, which has no idea what an apostrophe means.
+- **The game's own words are added from upstream.** `gameWords()` reads every content
+  row's name and description and, since October 2026, every spoken line of every
+  broadcast script (`data/scripts/*.bsm`, minus asset blocks and comments), and adds each
+  word upstream knows. The scripts brought in 1,090: common words the curated cut had left
+  out (buries, zamboni, concussion) and most of the hockey roster's surnames (Arceneaux,
+  Szabo, Tremblay), all of which the booth was saying through the letter-guesser. 28,511
+  words, 465 kB. What upstream lacks goes in a script's `::say` block (see
+  [bsm-format.md](bsm-format.md#hockey-sport-hockey)).
 - Vowel tokens carry their stress digit, so the token set grew 39 → 69 while the
   blob stayed the same *length* — still one character per phone. 409 kB, +1 kB.
 - CMUdict is redistributed under its BSD-style licence; the attribution is written

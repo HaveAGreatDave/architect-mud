@@ -5,7 +5,7 @@ function compileBsm(text) {
   const lines = text.split('\n');
   let i = 0;
 
-  const meta = { name: '', channel: '', category: 'general', host: '', length: null, type: 'live', location: '', acted: false, sport: '', announcer: '', meteorologist: '', airSlots: null, anchors: [], reporters: [], sidekick: '', guestNpc: '', cohost: '', rounds: null, subject: '', presents: '', rating: '', director: '', airDays: [] };
+  const meta = { name: '', channel: '', category: 'general', host: '', length: null, type: 'live', location: '', acted: false, sport: '', announcer: '', meteorologist: '', airSlots: null, anchors: [], reporters: [], sidekick: '', guestNpc: '', cohost: '', rounds: null, subject: '', presents: '', rating: '', director: '', airDays: [], voice: null };
   const _debug = { unknownDirectives: [], nodeTypes: {}, unresolvedSpeakers: [], unterminatedBlocks: [] };
 
   // Pre-scan ::actors block to build alias map and actor list.
@@ -110,6 +110,7 @@ function compileBsm(text) {
   const weatherPools = {};    // pool_key → [line, …]  (only meaningful for @type weather AND @type sports — both use ::lines pools)
   const teams = [];           // team names from ::teams block  (only meaningful for @type sports)
   const players = [];         // player names from ::players block (only meaningful for @type sports)
+  const say = {};             // word → phonemes, from ::say blocks: how the voice says what no dictionary carries
   const guests = [];          // guest personas {name,title,theme} from ::guests block (only meaningful for @type talkshow)
   const contestants = [];     // plain contestant NAMES from ::contestants block (only meaningful for @type gameshow)
   const celebrants = [];      // {name,title,tag} from ::celebrants block (only meaningful for @type sermon)
@@ -232,6 +233,13 @@ function compileBsm(text) {
         // games all day). "@airtime 19" → the evening (18:00–21:00) game airs daily.
         else if (key === 'airtime') meta.airSlots = [...new Set(val.split(/[,\s]+/).map(Number).filter(n => Number.isFinite(n) && n >= 0 && n < 24).map(h => Math.floor(h / 3) % 8))];
         else if (key === 'titlecard') meta.titlecard = val;   // weather/news: graphic id shown before the report
+        // sports: the booth's voice, over the one the station's name seeds. key=value pairs
+        // of ORACLE voice parameters ("@voice ring=0 drive=0"); numbers only.
+        else if (key === 'voice') {
+          const v = {};
+          for (const kv of val.split(/\s+/)) { const m = /^([a-zA-Z]\w*)=(-?\d*\.?\d+)$/.exec(kv); if (m) v[m[1]] = +m[2]; }
+          if (Object.keys(v).length) meta.voice = v;
+        }
         else if (key === 'theme') meta.theme = unquote(val);  // news/talkshow: intro theme sting — an audio_songs.name OR an audio_samples.name (quote names with spaces)
         // talkshow: the REAL studio cast — npc_ ids, acted live on stage (unlike news/sports names).
         // @host = desk host, @sidekick = announcer/bandleader who does the intro, @guest = the
@@ -315,6 +323,20 @@ function compileBsm(text) {
       const content = collectBlock('::endteams');
       for (const s of content.split('\n').map(t => t.trim()).filter(t => t && !t.startsWith('#'))) {
         teams.push(unquote(s));
+      }
+      continue;
+    }
+
+    // ── Pronunciations (::say … ::endsay) ────────────────────────────────────
+    // One word per line, then its phonemes in ORACLE's alphabet: CMU's, with * before the
+    // stressed vowel and AX for schwa ("oyelaran OW Y EH L * AA R AA N"). For the names
+    // and coinages no dictionary carries; each spoken line takes the ones it uses.
+    if (ln === '::say') {
+      i++;
+      const content = collectBlock('::endsay');
+      for (const s of content.split('\n').map(t => t.trim()).filter(t => t && !t.startsWith('#'))) {
+        const m = /^([A-Za-z][A-Za-z'-]*)\s+(.+)$/.exec(s);
+        if (m) say[m[1].toLowerCase()] = m[2].trim().replace(/\s+/g, ' ');
       }
       continue;
     }
@@ -723,7 +745,8 @@ function compileBsm(text) {
   // server assembles a fresh simulated game each airing. The announcer is a plain name
   // string spoken as narration — deliberately NOT added to npcIds, so importing a sports
   // broadcast never spawns a studio NPC. See docs/bsm-format.md#sports-broadcasts-type-sports.
-  const sportsScript = { sport: meta.sport || 'baseball', announcer: meta.announcer, teams, players, pools: weatherPools, title: meta.titlecard || '', airSlots: (meta.airSlots && meta.airSlots.length) ? meta.airSlots : null };
+  const sportsScript = { sport: meta.sport || 'baseball', announcer: meta.announcer, teams, players, pools: weatherPools, title: meta.titlecard || '', airSlots: (meta.airSlots && meta.airSlots.length) ? meta.airSlots : null,
+    ...(Object.keys(say).length ? { say } : {}), ...(meta.voice ? { voice: meta.voice } : {}) };
 
   // News broadcasts (@type news) are the weather/sports siblings: a line library (::lines
   // pools) whose facts come from the live news generator each airing. Anchors, reporters,

@@ -106,16 +106,36 @@ async function gameWords() {
       for (const key of ['name', 'description']) {
         const v = row?.[key];
         if (typeof v !== 'string') continue;
-        for (const part of v.split(/[^A-Za-z'’-]+/)) {
-          // Strip a possessive and any leading/trailing punctuation, then keep
-          // only things that look like words — CMUdict is keyed lower-case.
-          const w = part.replace(/[’']s$/, '').replace(/^[-']+|[-']+$/g, '').toLowerCase();
-          if (/^[a-z][a-z'-]{2,}$/.test(w)) out.add(w);
-        }
+        addWords(out, v);
       }
     }
   }
+  // BROADCAST SCRIPTS. The most-spoken text in the game is the broadcasts: every line of
+  // every .bsm goes through the voice, and the hockey booth says its players' names
+  // hundreds of times a night. Upstream knows a great many surnames (Arceneaux, Szabo,
+  // Tremblay, Okafor's neighbours) and common words the curated cut left out (buries,
+  // zamboni, concussion), each of which was going through the letter-guesser on air.
+  // Asset blocks (SVG and ASCII art) are not spoken and comments are not read.
+  const sdir = join(ROOT, 'data', 'scripts');
+  let scripts = [];
+  try { scripts = await readdir(sdir); } catch { /* no scripts dir */ }
+  for (const f of scripts.sort()) {
+    if (!f.endsWith('.bsm')) continue;
+    const src = await readFile(join(sdir, f), 'utf8');
+    const spoken = src.replace(/^::asset[\s\S]*?^::endasset/gm, '')
+      .split('\n').filter(l => !/^\s*#/.test(l)).join('\n');
+    addWords(out, spoken);
+  }
   return out;
+}
+
+function addWords(out, text) {
+  for (const part of text.split(/[^A-Za-z'’-]+/)) {
+    // Strip a possessive and any leading/trailing punctuation, then keep
+    // only things that look like words — CMUdict is keyed lower-case.
+    const w = part.replace(/[’']s$/, '').replace(/^[-']+|[-']+$/g, '').toLowerCase();
+    if (/^[a-z][a-z'-]{2,}$/.test(w)) out.add(w);
+  }
 }
 
 async function main() {

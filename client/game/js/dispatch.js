@@ -646,8 +646,12 @@ const handlers = {
         // the screen isn't blank until the next one. Show it, don't narrate it —
         // its read-aloud is part-way through airing to everyone else. It's passed
         // through so the panel knows never to hold it back for the voice either.
-        v.appendMessage(msg.message, msg.style, msg.duration, msg.hasGameday, msg.catchUp, msg.excite);
-        if (!msg.catchUp) v.speak(msg.message, msg.style, msg.duration, msg.excite);
+        // How the line is to be said, when the broadcast says: excite, lex, voice.
+        const dl = (msg.excite || msg.lex || msg.voice)
+          ? { ...(msg.excite ? { excite: msg.excite } : {}), ...(msg.lex ? { lex: msg.lex } : {}), ...(msg.voice ? { voice: msg.voice } : {}) }
+          : undefined;
+        v.appendMessage(msg.message, msg.style, msg.duration, msg.hasGameday, msg.catchUp, dl);
+        if (!msg.catchUp) v.speak(msg.message, msg.style, msg.duration, dl);
       }
       if (msg.programName !== undefined) v.setProgramName(msg.programName);
     }

@@ -898,8 +898,9 @@ so a narrator cannot read the other league's records.
 - **A line holds as long as it takes to hear.** Other sports give every line the same
   hold. Hockey sets `paceCalls` on its module, and the assembler hands it the game's lines
   instead ([hockey-pacing.js](../plugins/broadcast/sports/hockey-pacing.js)): 95 ms a
-  character over a short floor, the read-aloud voice's own pace, then scaled to fill 85%
-  of the slot, no tighter than 0.8 (about 76 ms a character). A slot that can't fit the
+  character over a short floor, the read-aloud voice's own pace, and 60 ms more for each
+  held letter of a drawn-out word ("SCOOOOORES" is held a sixth of a second a letter), then
+  scaled to fill 85% of the slot, no tighter than 0.8 (about 76 ms a character). A slot that can't fit the
   game cuts lines the narrator marked optional: colour first (`opt: 'colour'`), then
   optional calls of the play (`opt: true`), longest first within each, and as a last
   resort compresses the holds. The line carrying a payload is never cut. An hour on the
@@ -1356,6 +1357,16 @@ overtime and a Cup final add a little to the play and nothing to the grief). It 
 `say` node and the `broadcast` message, and tv.js hands it to the voice, so Read Aloud and
 Rinkside speak a breakout calmly, a shot higher and quicker, a goal at full cry with the word
 held, and a death low and slow. See [Selling a line](systems-procedural-audio.md#selling-a-line-excite).
+
+**The booth has its own voice and says the names right.** The script's `@voice` (here no ring
+modulator and no drive) and `::say` pronunciations (the surnames no dictionary carries) ride
+the row as `sports_pools.voice` and `sports_pools.say`. Each `say` node carries the voice and
+the entries for the words in its line (`sportsLexFor` in [rng.js](../plugins/broadcast/rng.js)),
+the `broadcast` message carries them as `voice` and `lex`, and dispatch bundles them with
+`excite` into one delivery that tv.js hands to `AudioEngine.speak()`. The goal call is written
+drawn out ("He SCOOOOOOORES!!!"), which the voice holds for its letters; see
+[Drawn-out words](systems-procedural-audio.md#drawn-out-words). The broadcast regress fails a
+line that names a `::say` word without its entry and a row that has drifted from the script.
 
 Branding lives in [cphl-brand.js](../client/game/js/panels/cphl-brand.js): one mark, drawn
 by the score bug, the full-screen graphics, the rink header, the idle screen and the

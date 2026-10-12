@@ -2338,6 +2338,40 @@ export default async function regress({ check, run, getPlayer }) {
       check('hockey: no club is named for an order', factional.length === 0, factional.join(','));
     }
 
+    // ── how the booth speaks: its own voice, and the names said right ─────────
+    // The script's ::say block (pronunciations for names no dictionary has) and @voice
+    // ride every spoken line to the client, each line with only the entries it uses.
+    // The row is what ships, so it must agree with the script, and the real assembler
+    // must put them on the nodes, or the booth falls back to the letter-guesser and the
+    // station's ringing voice without anything failing.
+    {
+      const row = JSON.parse(fs.readFileSync(url.fileURLToPath(new URL('../../content/media_broadcasts/bc_cluster_puck.json', import.meta.url)), 'utf8'));
+      const sayBsm = Object.fromEntries(block('say').map(l => { const m = /^(\S+)\s+(.+)$/.exec(l); return m ? [m[1].toLowerCase(), m[2].replace(/\s+/g, ' ')] : null; }).filter(Boolean));
+      const voiceLine = (src.split(/\r?\n/).find(l => l.startsWith('@voice ')) || '').slice(7).trim();
+      const voiceBsm = Object.fromEntries(voiceLine.split(/\s+/).filter(Boolean).map(kv => { const [k, v] = kv.split('='); return [k, +v]; }));
+      check('hockey: the row carries the script\'s pronunciations', JSON.stringify(row.sports_pools?.say) === JSON.stringify(sayBsm), `${Object.keys(row.sports_pools?.say || {}).length} vs ${Object.keys(sayBsm).length}`);
+      check('hockey: the row carries the script\'s booth voice', JSON.stringify(row.sports_pools?.voice) === JSON.stringify(voiceBsm), JSON.stringify(row.sports_pools?.voice));
+      const script = row.sports_pools, wrong = [];
+      let withLex = 0, sayNodes = 0, voiced = 0;
+      for (const slot of [3, 41, 206]) {
+        const graph = _test.assembleSportsGraph(script, 'bc_regress_cphl', slot, null);
+        for (const n of Object.values(graph.nodes || {})) {
+          if (n.type !== 'say' || !n.data?.text) continue;
+          sayNodes++;
+          if (JSON.stringify(n.data.voice) === JSON.stringify(script.voice)) voiced++;
+          const words = new Set((n.data.text.toLowerCase().match(/[a-z][a-z'-]*/g) || []).map(w => w.replace(/'s$/, '')));
+          const want = [...words].filter(w => script.say[w]);
+          const got = Object.keys(n.data.lex || {});
+          if (got.length) withLex++;
+          if (want.some(w => n.data.lex?.[w] !== script.say[w]) || got.some(w => !words.has(w))) wrong.push(n.data.text);
+        }
+      }
+      check('hockey: every line carries the booth voice', sayNodes > 100 && voiced === sayNodes, `${voiced} of ${sayNodes}`);
+      check('hockey: a line naming a ::say word carries its pronunciation, and only what it uses', withLex > 0 && wrong.length === 0, `${withLex} with lex; wrong: ${wrong.slice(0, 2).join(' | ')}`);
+      const { holdFor } = await import('./sports/hockey-pacing.js');
+      check('hockey: a drawn-out call holds longer on air', holdFor('He SCOOOOOOORES!!!') >= holdFor('He SCORES!') + 500, `${holdFor('He SCOOOOOOORES!!!')} vs ${holdFor('He SCORES!')}`);
+    }
+
     // ── rosters: a man belongs to ONE club ────────────────────────────────────
     check('hockey: the pool covers every club', players.length >= teams.length * 6,
       `${players.length} names for ${teams.length} clubs (need ${teams.length * 6})`);
