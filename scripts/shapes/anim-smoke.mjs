@@ -33,7 +33,9 @@
 //          a body that can make every frame, the planted feet still and the hands on the bat.
 //      And the player itself: a loop is the same a lap later; a left-hander is a right-hander in a
 //      mirror; the head turns no further than a neck can; the pitcher on the real mound, both
-//      ways round, keeps his planted feet on its slope.
+//      ways round, keeps his planted feet on its slope. And the Pose Lab's save (bake-clips.mjs
+//      planSave): each clip saved unchanged writes back its own file and the same module, a key
+//      out of order is refused with nothing written, and a new clip bakes in beside the rest.
 //
 // Run:  node scripts/shapes/anim-smoke.mjs
 
@@ -275,6 +277,24 @@ const GEO = await import(P + 'diamond/geo.js');
   const onDisk = readFileSync(BAKE.CLIP_MODULE, 'utf8').replace(/\r\n/g, '\n');
   check('clips: diamond/clips.js is the bake of content/animation_clips/ (npm run clips:bake)', !res.errors.length && onDisk === BAKE.renderModule(res).replace(/\r\n/g, '\n'));
   check('clips: the module holds every clip', Object.keys(CLIPS).sort().join() === Object.keys(res.clips).sort().join());
+  // The Pose Lab's save (bake-clips.mjs planSave), worked out in memory: each clip saved as it is
+  // writes back its own file to the byte and today's module, so a save is never a whole-file
+  // diff; a key out of order is refused with nothing to write; a new clip bakes in beside the rest.
+  const { join } = await import('node:path');
+  let same = 0, first = '';
+  for (const f of files) {
+    const plan = BAKE.planSave(files, f.doc);
+    if (!plan.errors.length && plan.text === readFileSync(join(BAKE.CLIP_DIR, f.file), 'utf8').replace(/\r\n/g, '\n') && plan.module.replace(/\r\n/g, '\n') === onDisk) same++;
+    else first ||= f.file;
+  }
+  check('pose lab: every clip saved unchanged writes back its own file and the same clips.js', same === files.length, `${same}/${files.length}, first ${first}`);
+  const take = files.find((f) => f.doc.id === 'bat_take').doc;
+  const late = JSON.parse(JSON.stringify(take));
+  late.keys[1].t = late.keys[2].t + 0.1;
+  const refused = BAKE.planSave(files, late);
+  check('pose lab: a key out of order is refused, with nothing to write', refused.errors.length > 0 && !('text' in refused) && !('module' in refused), refused.errors[0]);
+  const added = BAKE.planSave(files, { ...JSON.parse(JSON.stringify(take)), id: 'bat_take_lab' });
+  check('pose lab: a new clip bakes in beside the rest', !added.errors.length && added.file === 'bat_take_lab.json' && added.module.includes('"bat_take_lab"') && Object.keys(res.clips).every((id) => added.module.includes(`"${id}"`)), added.errors[0]);
 }
 const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
 const len3 = (a) => Math.hypot(a[0], a[1], a[2]);

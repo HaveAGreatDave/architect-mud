@@ -1,9 +1,9 @@
 # Deadball in GLASS 2
 
-**Status: Phase 0, sim v2, Phase 1 and Phases 2a to 2d built, behind a flag: the park in 3-D
-with its light, air, lens and grade, the arcade graphics, and the city round the park as a set
-with the park's own outside (1a to 1e); skinned players who pitch, swing, catch and call every
-pitch at its real speed and spot (2a to 2d).** A plan for giving Deadball a 3-D sub-screen the way Cluster Puck got Rinkside, at the
+**Status: Phase 0, sim v2, Phase 1 and Phase 2 built, behind a flag: the park in 3-D with its
+light, air, lens and grade, the arcade graphics, and the city round the park as a set with the
+park's own outside (1a to 1e); skinned players who pitch, swing, catch and call every pitch at its
+real speed and spot, and the Pose Lab their clips are keyed in (2a to 2e).** A plan for giving Deadball a 3-D sub-screen the way Cluster Puck got Rinkside, at the
 highest fidelity the engine can reach. Deadball is a live sport on KSAB, and the broadcast borrows
 the look of a 1990s arcade baseball game. That means skinned, detailed players, authored animation
 with a wide spread of plays, light from the park's own towers and a crowd that fills the stands.
@@ -1555,6 +1555,17 @@ Phase 3, or with sim v2 if that comes later.
   out over fielders who stand still (Phase 3), the bank is still the 2-D view's (the fuller bank
   and the mix are Phase 4), and the umpire's and the announcer's voices wait on the
   `siren-fidelity` branch.
+- **2e built:** the Pose Lab, `/pose-lab.html` in the Modelshop
+  ([tools/modelshop/pose-lab.js](../../tools/modelshop/pose-lab.js)). It plays the clip under edit
+  on a skinned player in the real park, where his role stands, and edits everything in a clip
+  file: its fields, the keys and their tension, every field of a key's pose, the events and the
+  plants, with the schema's verdict and the selected key's joints shown as you go. It shows a
+  left-hander and the ends of each trait's range, and holds a reference frame over the picture to
+  pose against. A new clip starts from its role's still, a copy, or the look-dev's six-frame
+  delivery. Save goes through `planSave` in `bake-clips.mjs`, which bakes the library with the
+  clip in place before anything is written, so the Lab can't write a clip the gate refuses;
+  `anim-smoke` holds every clip on disk to the Lab's own format, so a save is a diff of what
+  changed.
 
 **Phase 3: balls in play.** Behind the flag.
 - `synthPlay` with direction, exit speed and fielding grade, and the suffixed pools; fielding,

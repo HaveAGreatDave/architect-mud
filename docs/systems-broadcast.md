@@ -797,7 +797,7 @@ sport module**; nothing else in the pipeline may branch on it.
 Deadball's sub-screen is the 2-D Gameday view ([gameday.js](../client/game/js/panels/gameday.js)).
 A high-fidelity 3-D one on Rinkside's pattern, with a 1990s arcade look and the park inside the
 Curtain on Halcyon Fields, is planned in [proposals/deadball-glass2.md](proposals/deadball-glass2.md)
-(Phase 0, sim v2, Phase 1 and Phases 2a to 2d built, behind a flag: see the Grandstand below).
+(Phase 0, sim v2, Phase 1 and Phase 2 built, behind a flag: see the Grandstand below).
 
 **The Gameday payload** is built by a pure module,
 [sports/baseball-gameday.js](../plugins/broadcast/sports/baseball-gameday.js), which the
@@ -853,7 +853,7 @@ methods as the other two views. When the 3-D view can't draw (no WebGL2, no floa
 shader that won't build, a lost context), it hands over to the 2-D view with the last payload and
 the booth's line.
 
-Built so far (Phases 1a to 2d of the plan):
+Built so far (Phases 1 and 2 of the plan):
 
 - the park from the venue's defaults, built by the pure
   [gl/ballpark-mesh.js](../client/game/js/panels/gl/ballpark-mesh.js) from
@@ -899,7 +899,8 @@ Built so far (Phases 1a to 2d of the plan):
   stands, so a runner keeps his round the bases and a new payload builds only its new people.
   Their motion is the clip library (Phase 2b): [diamond/anim.js](../client/game/js/panels/diamond/anim.js)
   plays clips keyed in the rig's pose language, from `content/animation_clips/` baked to
-  `diamond/clips.js` by `npm run clips:bake`, with the glove reaching for the ball, the head
+  `diamond/clips.js` by `npm run clips:bake` (the Modelshop's Pose Lab keys them, Phase 2e),
+  with the glove reaching for the ball, the head
   turning to it and each player's own way of doing it off his name. The library holds the pitch
   (Phase 2c): the pitcher's deliveries from the stretch and the windup for each arm slot, the
   hitter's load, swings, take and check swing, the catcher's receive, block and throw back, and

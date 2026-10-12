@@ -9,11 +9,12 @@
 // key's pose (diamond/anim.js completePose), so playback only interpolates.
 //
 // Re-run it after editing any file under content/animation_clips/. anim-smoke fails on a stale bake:
-// it bakes again in memory and compares.
+// it bakes again in memory and compares. The Modelshop's Pose Lab saves through `planSave`, which
+// bakes the library with the posted clip in place before anything's written.
 import { writeFileSync, readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { validateClip } from '../../client/game/js/panels/diamond/clip-schema.js';
+import { validateClip, formatClip, clipFileName } from '../../client/game/js/panels/diamond/clip-schema.js';
 import { completePose } from '../../client/game/js/panels/diamond/anim.js';
 
 const ROOT = fileURLToPath(new URL('../../', import.meta.url));
@@ -82,6 +83,20 @@ export function renderModule({ clips }) {
 export function bakeToString(files) {
   const res = bakeClips(files);
   return { ...res, text: res.errors.length ? null : renderModule(res) };
+}
+
+// A save from the Pose Lab, worked out whole before anything's written: the clip checked by the
+// schema, then the library baked with it in place of its own file. Returns { file, errors,
+// warnings } and, when there are no errors, `text` for the clip's file (formatClip, which reads
+// back as the same clip) and `module` for clips.js. Pure, so anim-smoke checks it.
+export function planSave(files, doc) {
+  const file = doc && typeof doc.id === 'string' ? clipFileName(doc.id) : '<posted>';
+  const pre = validateClip(doc, file);
+  if (pre.errors.length) return { file, errors: pre.errors, warnings: pre.warnings };
+  const text = formatClip(doc);
+  const next = [...files.filter((f) => f.file !== file), { file, doc: JSON.parse(text) }].sort((a, b) => (a.file < b.file ? -1 : 1));
+  const res = bakeToString(next);
+  return { file, errors: res.errors, warnings: res.warnings, ...(res.errors.length ? {} : { text, module: res.text }) };
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {

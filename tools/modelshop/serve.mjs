@@ -41,6 +41,7 @@ import { formatMesh } from '../../client/shared/vehicle-mesh.js';
 import { validateVehicleRow, vehicleFileName } from '../../client/shared/vehicle-model-schema.js';
 import { bakeFauna, readFaunaFiles, renderModule as renderFaunaModule } from '../../scripts/shapes/bake-fauna.mjs';
 import { validateFaunaRow, faunaFileName } from '../../client/shared/fauna-model-schema.js';
+import { readClipFiles, planSave, CLIP_DIR, CLIP_MODULE } from '../../scripts/shapes/bake-clips.mjs';
 // The canonical serialiser every content file in this repo is written with. Object keys sort,
 // ARRAY ORDER IS PRESERVED — which matters here, because a segment list is a paint order.
 import { canonicalJson } from '../../scripts/content/lib.mjs';
@@ -201,6 +202,10 @@ const server = createServer(async (req, res) => {
     // page to LOOK at, and scripts/shapes/cabtrinkets.mjs is what actually gates the shelf.
     if (req.method === 'GET' && path === '/cabtrinkets.html') {
       return send(res, 200, await readFile(join(HERE, 'cabtrinkets.html')), 'text/html; charset=utf-8');
+    }
+    // Deadball's clips keyed on the real rig and played on a real player (pose-lab.js says how).
+    if (req.method === 'GET' && path === '/pose-lab.html') {
+      return send(res, 200, await readFile(join(HERE, 'pose-lab.html')), 'text/html; charset=utf-8');
     }
     // Street figures, the shipping shader beside a proposed one, for judging the look by eye.
     // scripts/shapes/actors.mjs is what gates the bake; this is only a picture.
@@ -378,6 +383,24 @@ const server = createServer(async (req, res) => {
       }
       await writeFile(FAUNA_BAKE_OUT, renderFaunaModule({ rows }), 'utf8');
       return json(res, 200, { ok: true, file, warnings });
+    }
+
+    // Deadball's clips, for the Pose Lab. A save is worked out whole before anything's written
+    // (bake-clips.mjs planSave): the clip checked by the schema the bake uses, the library baked
+    // with it in place, and only then the clip's file and clips.js written. So there's nothing to
+    // roll back, and no clip on disk the build would refuse.
+    if (req.method === 'GET' && path === '/api/clips') {
+      return json(res, 200, { clips: readClipFiles(CLIP_DIR) });
+    }
+
+    if (req.method === 'PUT' && path === '/api/clips') {
+      const body = await readJson(req);
+      const plan = planSave(readClipFiles(CLIP_DIR), body.doc);
+      if (plan.errors.length) return json(res, 409, { errors: plan.errors, warnings: plan.warnings, saved: false });
+      await mkdir(CLIP_DIR, { recursive: true });
+      await writeFile(join(CLIP_DIR, plan.file), plan.text, 'utf8');
+      await writeFile(CLIP_MODULE, plan.module, 'utf8');
+      return json(res, 200, { ok: true, file: plan.file, warnings: plan.warnings });
     }
 
     // ── A FRAME, ON DISK ──────────────────────────────────────────────────────────────────────
