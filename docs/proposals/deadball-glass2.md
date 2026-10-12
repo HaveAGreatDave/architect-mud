@@ -1,8 +1,9 @@
 # Deadball in GLASS 2
 
-**Status: Phase 0, sim v2 and Phase 1 built, behind a flag: the park in 3-D with its light, air,
-lens and grade, the players posed with their heads, the arcade graphics, and the city round the
-park as a set with the park's own outside (1a to 1e).** A plan for giving Deadball a 3-D sub-screen the way Cluster Puck got Rinkside, at the
+**Status: Phase 0, sim v2, Phase 1 and Phases 2a to 2d built, behind a flag: the park in 3-D
+with its light, air, lens and grade, the arcade graphics, and the city round the park as a set
+with the park's own outside (1a to 1e); skinned players who pitch, swing, catch and call every
+pitch at its real speed and spot (2a to 2d).** A plan for giving Deadball a 3-D sub-screen the way Cluster Puck got Rinkside, at the
 highest fidelity the engine can reach. Deadball is a live sport on KSAB, and the broadcast borrows
 the look of a 1990s arcade baseball game. That means skinned, detailed players, authored animation
 with a wide spread of plays, light from the park's own towers and a crowd that fills the stands.
@@ -1525,6 +1526,35 @@ Phase 3, or with sim v2 if that comes later.
   same speed; and the bake refuses a key that turns more than half round from the last, which is
   always the long way round. The walks off are keyed step by step for now; the running clips of
   Phase 3 and the Pose Lab will do them better.
+- **2d built:** the director and the pitch. [diamond/director.js](../../client/game/js/panels/diamond/director.js)
+  takes an at-bat and works out the whole of it when the payload arrives, as times on the clock
+  of [diamond/world.js](../../client/game/js/panels/diamond/world.js), which keeps who's moving,
+  their layers, the ball and a queue, stepped at 120 Hz. Each pitch is a path fitted through its
+  plate spot at its real speed under gravity, drag and its type's spin
+  ([diamond/flight.js](../../client/game/js/panels/diamond/flight.js)), from where the delivery
+  has the hand at its release, and every clip is lined up on it: the release on the pitch's start,
+  the catch on the ball reaching the mitt (the catcher sets up across from it, and blocks a ball
+  that would come in under his box), the swing's contact on the ball reaching the bat, a miss 0.03
+  s off with the barrel over or under, the flinch on the ball reaching the batter. A swing meets
+  the ball where it's the sweet spot's length from the hands: out in front for a pitch in on him,
+  deeper for one away. The bat layer (`aimBat`) turns the barrel through it, carries the knob up
+  to 1.25 ft toward a pitch on the outer edge, and moves the body after a hand that would come
+  off the bat, bending at the waist for a low one. Heads follow the ball in. One timeline serves
+  both the plan and the staging, so the pacing the plan works out is the pacing played: the
+  pitches cut in at the stride first, then reactions (the hitter's camera, `side` or the new
+  `sideL` for a left-hander, with the umpire's call in it), then the motion and the set, then the
+  throw back and the walk up (`mound`), and a long at-bat on a short hold leaves out pitches from
+  the middle. The view (gameday-grandstand.js) runs frames while an at-bat plays: the battery's
+  poses and the ball (`setBall` in gl/ballpark.js, drawn at 1.4 times its size so it reads at
+  400 pixels) go to the renderer each frame, the count goes up as each pitch is decided, never
+  showing a fourth ball or a third strike, and the held line, the card and a strikeout's or a
+  walk's splash go up at `onLand`. The 2-D view's cues from the shared bank play on their moments:
+  the mitt's pop, the bat's crack, a miss's whiff, the ball into a glove, and the play's own sound
+  as it lands. `diamond-smoke` checks it all on two games at two holds (about 6,900 checks each),
+  and the view itself with a recording renderer. What it doesn't do yet: a ball put in play flies
+  out over fielders who stand still (Phase 3), the bank is still the 2-D view's (the fuller bank
+  and the mix are Phase 4), and the umpire's and the announcer's voices wait on the
+  `siren-fidelity` branch.
 
 **Phase 3: balls in play.** Behind the flag.
 - `synthPlay` with direction, exit speed and fielding grade, and the suffixed pools; fielding,

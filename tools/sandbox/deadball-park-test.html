@@ -21,6 +21,9 @@
   high, side, bag, mound, sky), ?grade= picks the picture (arcade, broadcast or none),
   ?tube=1 puts it behind tube glass, ?w= sets the frame's width in CSS pixels, ?bug= the
   station's bug in the corner (KSAB by default) and ?po=1 dresses the graphics for a final.
+  Each at-bat is staged pitch by pitch (diamond/director.js) within 0.45 of its line's hold;
+  every payload here holds ?hold= milliseconds (35000 by default, a line at the default clock),
+  and ?speed= runs the park's clock slower (0.25) or stops it (0) for a look at one moment.
   The city round the park is the league's venue from content with a skyline built the
   server's way (client/shared/skyline-manifest.js) over the flight sim's baked world
   (client/game/flightsim-world.json), so it can trail the live map by a bake; ?city=0
@@ -31,7 +34,7 @@
   Serve the repo root over HTTP and open /sandbox/deadball-park-test.html (a file://
   page can't fetch the .bsm or load the modules). ?slot=N picks the game, ?sim=2 plays
   it under sim v2 (errors, hit batters, steals, pickoffs, wild pitches), ?play= a filter
-  below (runs, hits, dp, walk, bases, errors, half) and ?i=N a payload within it.
+  below (runs, hits, dp, walk, k, bases, errors, half) and ?i=N a payload within it.
 -->
 <style>
   html, body { margin: 0; background: radial-gradient(ellipse at 50% 20%, #202329, #0a0b0d 70%); }
@@ -69,6 +72,7 @@
         <option value="hits">hits</option>
         <option value="dp">double and triple plays</option>
         <option value="walk">walks</option>
+        <option value="k">strikeouts</option>
         <option value="bases">plays on the bases (v2)</option>
         <option value="errors">errors and hit batters (v2)</option>
         <option value="half">half-inning breaks</option>
@@ -91,11 +95,13 @@
     import { skylineFrom } from '../client/shared/skyline-manifest.js';
 
     const Q = new URLSearchParams(location.search);
+    const HOLD_MS = Q.get('hold') ? +Q.get('hold') : 35000;
     if (Q.get('w')) document.getElementById('tv-window').style.width = `${+Q.get('w')}px`;
     if (Q.get('hud') === '0') document.head.insertAdjacentHTML('beforeend', '<style>.gds-hud { display: none; }</style>');
     const host = document.getElementById('tv-gameday');
     const view = Q.get('park') === '3d'
-      ? createGrandstandView(host, { force: true, preserve: true, shot: Q.get('shot') || undefined, grade: Q.get('grade') || undefined, tube: Q.get('tube') === '1', station: Q.get('bug') ?? 'KSAB' })
+      ? createGrandstandView(host, { force: true, preserve: true, shot: Q.get('shot') || undefined, grade: Q.get('grade') || undefined, tube: Q.get('tube') === '1', station: Q.get('bug') ?? 'KSAB',
+        speed: Q.get('speed') != null ? +Q.get('speed') : undefined })
       : createGamedayView(host);
     window.__view = view;
     view.showIdle();
@@ -208,6 +214,8 @@
       // here every break carries them, so a break reached by the filter has its table
       const leaders = gamedayLeaders(x), season = { n: 3, phase: Q.get('po') === '1' ? 'final' : 'regular' };
       for (let i = 0; i < order.length; i++) if (i === 0 || order[i].phase === 'half') order[i] = { ...order[i], leaders, season };
+      // how long each line holds on air, as the broadcast stamps it on the payload
+      for (let i = 0; i < order.length; i++) order[i] = { ...order[i], hold: HOLD_MS };
       const nrng = sportsRng(seed ^ 0x9e3779b9);
       const pick = (...keys) => sportsPick(script.pools, nrng, ...keys);
       const out = order.map((p) => ({ p, text: sportsFill(callFor(p, pick) || p.desc || '', tokOf(p, away, home)).trim() || p.desc || '', card: cardFor(p) }));
@@ -222,6 +230,7 @@
       hits: (p) => ['single', 'double', 'triple', 'homerun'].includes(p.kind),
       dp: (p) => p.kind === 'doubleplay' || p.kind === 'tripleplay',
       walk: (p) => p.kind === 'walk',
+      k: (p) => p.kind === 'strikeout',
       bases: (p) => p.phase === 'run',
       errors: (p) => p.kind === 'error' || p.kind === 'hitbypitch',
       half: (p) => p.phase === 'half',
@@ -243,8 +252,11 @@
     }
 
     // Auto-play paces each play the way a line holds on air: long enough for the pitches
-    // to reveal (up to 13 s) and the play to land and settle.
-    const holdFor = (p) => p.phase ? 6000 : Math.min(13000, 2600 * Math.max(0, (p.pitches?.length || 1) - 1)) + 6500;
+    // to reveal (up to 13 s in 2-D; in 3-D the director's 0.45 of the hold) and the play to land
+    // and settle.
+    const holdFor = (p) => p.phase ? 6000
+      : Q.get('park') === '3d' ? Math.min(26000, Math.max(13000, 0.45 * HOLD_MS)) / Math.max(0.05, view.speed ?? 1) + 4000
+      : Math.min(13000, 2600 * Math.max(0, (p.pitches?.length || 1) - 1)) + 6500;
     function auto() {
       show(idx + 1);
       autoTimer = setTimeout(auto, holdFor(filtered()[idx].p));

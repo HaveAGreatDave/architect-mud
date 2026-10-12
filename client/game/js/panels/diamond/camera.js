@@ -32,8 +32,10 @@ export const SHOTS = Object.freeze({
   cf: Object.freeze({ eye: [42, 62, 445], at: [0.3, 3.9, 2.5], fov: 3.7, dof: 12000, shadow: [[0, 0, 30], 75] }),
   // high home: balls in play
   high: Object.freeze({ eye: [0, 74, -104], at: [0, 4, 185], fov: 42, shadow: [[0, 0, 140], 300] }),
-  // the first-base camera on the batter
+  // the first-base camera on a right-handed batter, and the third-base one on a left-hander, so
+  // the camera has his face; the director cuts to it for his reaction and the umpire's call
   side: Object.freeze({ eye: [-66, 5.4, 26], at: [2.6, 3.7, -0.4], fov: 8.6, dof: 780, shadow: [[0, 0, 0], 40] }),
+  sideL: Object.freeze({ eye: [66, 5.4, 26], at: [-2.6, 3.7, -0.4], fov: 8.6, dof: 780, shadow: [[0, 0, 0], 40] }),
   // the bag at second, low from the first-base side with a 16° lens: steals and pickoffs
   bag: Object.freeze({ eye: [-26.5, 3.4, 154.6], at: [-1.4, 1.9, 126.2], fov: 16.5, dof: 520, shadow: [[0, 0, 127], 26] }),
   // the third-base camera on the pitcher

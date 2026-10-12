@@ -38,6 +38,7 @@ export const HUD_THEME = Object.freeze({
     homerun: 'HOME RUN!', grandslam: 'GRAND SLAM!', walkoff: 'WALK-OFF!', doubleplay: 'DOUBLE PLAY!',
     tripleplay: 'TRIPLE PLAY!', extras: 'EXTRA INNINGS', gamewin: 'FINAL', champion: 'CHAMPIONS!', matchup: 'PLAY BALL!',
     steal: 'STOLEN BASE', caughtstealing: 'CAUGHT STEALING', doublesteal: 'DOUBLE STEAL',
+    strikeout: 'STRIKE THREE!', walk: 'BALL FOUR!',
   }),
   races: Object.freeze({ hr: 'HOME RUNS', avg: 'BATTING AVERAGE', sb: 'STOLEN BASES', k: 'STRIKEOUTS' }),
   colourOf: null,

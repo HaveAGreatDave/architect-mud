@@ -11,22 +11,27 @@
 // 3-D one can't: no WebGL2, no float target, a shader that won't build, or a lost context. The
 // last payload and the booth's line go with it.
 //
-// What's built (Phases 1a to 1e of docs/proposals/deadball-glass2.md): the park from the venue's
+// What's built (Phases 1a to 2d of docs/proposals/deadball-glass2.md): the park from the venue's
 // defaults through the batting view, lit by its towers, the scoreboard lit with the game, the
 // city round it as a set composed from the league's venue (venue.js), with the park's own brick
-// outside and its name over the gate, the players posed where each payload has them, and the
-// arcade graphics over the picture
-// (diamond/hud.js): the score and the count as lamps, the pitch speed, the zone with the last
-// pitch, a matchup card as each man comes up, a steal's card, splash words for the cards the
-// broadcast throws, and between innings the league's leaders as a high-score table. The booth's
-// line runs under the picture. The pitch and the ball in play are later phases. Until then the
-// count ticks through each at-bat's pitches on the 2-D view's clock (GAMEDAY_CLOCK), so the held
-// line lands when the 2-D view would land it and the booth never calls a play the picture hasn't
-// reached.
+// outside and its name over the gate, the players where each payload has them, and the arcade
+// graphics over the picture (diamond/hud.js): the score and the count as lamps, the pitch speed,
+// the zone with the last pitch, a matchup card as each man comes up, a steal's card, splash words
+// for the cards the broadcast throws and for strikeouts and walks, and between innings the
+// league's leaders as a high-score table. The booth's line runs under the picture.
+//
+// Each at-bat is staged pitch by pitch (diamond/director.js) in a world stepped at 120 Hz
+// (diamond/world.js) while it plays: the battery's clips, the ball at its real speed to its exact
+// spot, the director's cuts. The count goes up as each pitch is decided, and the held line and the
+// card go up when the play lands, so the booth never calls a play the picture hasn't reached. A
+// ball put in play flies about as long as a real one before the play lands; Phase 3 stages the
+// plays. Plays on the bases and the changeovers are stills, on the 2-D view's clock
+// (GAMEDAY_CLOCK).
 //
 // The sim on the server decides everything. Nothing here can change a score.
 
 import { createGamedayView, GAMEDAY_CLOCK, GAMEDAY_CARDS } from './gameday.js';
+import { DEADBALL_SFX } from '../../../shared/deadball-sfx.js';
 import { venueOf, onVenue } from './venue.js';
 import { prefersReducedMotion } from '../../../shared/settings.js';
 
@@ -44,17 +49,14 @@ const ADS = ['KSAB-TV', 'DEADBALL', 'COLDWATER', 'KSAB-TV'];
 // clubs bring their own (Phase 5).
 const SIDE_COLOURS = { home: ['#36c4c4', '#145f63'], away: ['#e0702e', '#7c2f10'] };
 
-const { REVEAL_STEP_MS, REVEAL_MAX_MS, OUTCOME_GAP_MS, T_PITCH, T_THROW, T_FLY, T_HOMER } = GAMEDAY_CLOCK;
-const GROUND = new Set(['groundout', 'doubleplay', 'tripleplay', 'productout', 'error']);
-// How long after the play is decided the 2-D view says it has landed, by what was hit.
-function flightOf(kind) {
-  if (kind === 'strikeout' || kind === 'walk' || kind === 'hitbypitch') return 200;
-  if (kind === 'homerun') return T_HOMER;
-  return GROUND.has(kind) ? T_THROW * 2 : T_FLY;
-}
+const { T_PITCH, T_THROW } = GAMEDAY_CLOCK;
 // How long each graphic stays up: the matchup as a man comes up, a steal's card once it lands,
 // and each of the leaders' races between innings.
 const MATCHUP_MS = 4200, STEAL_MS = 4800, TABLE_CYCLE_MS = 8000;
+// A strikeout's and a walk's splash, and how long past the director's landing a play lands
+// anyway once the frames have stopped (a hidden tab), so the line and the card never wait on a
+// picture nobody's drawing.
+const OWN_SPLASH_MS = 2600, LAND_SLACK_MS = 1500;
 const RACES = ['hr', 'avg', 'sb', 'k'];
 const STEALS = new Set(['steal', 'caughtstealing', 'doublesteal']);
 
@@ -67,6 +69,10 @@ export function createGrandstandView(host, opts = {}) {
   let R = null, hud = null, canvas = null, mounted = false, modsP = null, mods = null, ro = null, raf = 0, unVenue = null;
   let last = null, caption = '', pendingCaption = null, pendingCard = null, playing = false;
   let timers = [], tableTimer = null, shot = opts.shot || 'high';
+  // the world the at-bats are staged in, and its director; `live` while the world has the battery,
+  // `cur` the at-bat it's playing; `speed` is the world's clock against the wall's (1 live, a
+  // quarter for a slow look, 0 stopped so the sandbox can step it by hand)
+  let W = null, D = null, live = false, cur = null, acc = 0, lastNow = 0, speed = Number.isFinite(opts.speed) ? opts.speed : 1;
   // what the graphics and the board show: the score, the count, the outs and the bags, and the
   // cards that come and go (matchup, steal, splash) and the leaders' table between innings
   const S = {
@@ -78,18 +84,24 @@ export function createGrandstandView(host, opts = {}) {
   const holds = {};
 
   const later = (ms, fn) => { timers.push(setTimeout(fn, Math.max(0, ms))); };
+  // a cue from the Deadball bank, on the TV's bus (nothing plays without the audio engine)
+  const sfx = (cue) => { if (DEADBALL_SFX[cue]) win?.AudioEngine?.playSfx?.(DEADBALL_SFX[cue]); };
   const stopTimers = () => { timers.forEach(clearTimeout); timers = []; };
 
   function loadMods() {
-    return (modsP ??= Promise.all([import('./gl/ballpark.js'), import('./diamond/hud.js'), import('./diamond/camera.js'), import('./diamond/cast.js')])
-      .then(([park, hudMod, cam, cast]) => (mods = { ...park, hud: hudMod, project: cam.project, numberOf: cast.numberOf })));
+    return (modsP ??= Promise.all([import('./gl/ballpark.js'), import('./diamond/hud.js'), import('./diamond/camera.js'), import('./diamond/cast.js'),
+      import('./diamond/world.js'), import('./diamond/director.js')])
+      .then(([park, hudMod, cam, cast, world, director]) => (mods = {
+        ...park, hud: hudMod, project: cam.project, numberOf: cast.numberOf,
+        createWorld: world.createWorld, DT: world.DT, createDirector: director.createDirector,
+      })));
   }
 
   // ── the 2-D view, when the 3-D one can't draw ──────────────────────────────
   function fallback(why) {
     if (flat) return;
     if (why) console.warn('[grandstand] drawing in 2-D:', why);
-    stopTimers(); stopLoop(); stopTable(); dropHolds();
+    stopTimers(); stopLoop(); stopTable(); dropHolds(); stopWorld();
     unVenue?.(); unVenue = null;
     try { R?.dispose(); } catch { /* already gone */ }
     hud?.dispose();
@@ -126,9 +138,12 @@ export function createGrandstandView(host, opts = {}) {
     host.innerHTML = shell();
     canvas = host.querySelector('.gds-canvas');
     size();
-    R = mods.createBallparkRenderer(canvas, { ads: opts.ads || ADS, preserve: !!opts.preserve, crowd: opts.crowd, grade: opts.grade, tube: opts.tube, onAsset: () => draw() });
+    // `opts.renderer` stands in for the GL park (the gates' recording renderer)
+    R = (opts.renderer || mods.createBallparkRenderer)(canvas, { ads: opts.ads || ADS, preserve: !!opts.preserve, crowd: opts.crowd, grade: opts.grade, tube: opts.tube, onAsset: () => draw() });
     if (!R) { fallback('no WebGL2 or float target'); return false; }
     mounted = true;
+    W = mods.createWorld();
+    D = mods.createDirector(W, { onLand: () => landPlay(cur), emit: fromDirector });
     hud = mods.hud.createHud(host.querySelector('.gds-hud'), {
       theme: theme(),
       project: (p, w, h) => mods.project(shot, w, h, p),
@@ -159,25 +174,41 @@ export function createGrandstandView(host, opts = {}) {
   }
 
   // ── drawing ────────────────────────────────────────────────────────────────
-  // The park only moves when the game does, so a frame is drawn when something changes and
-  // the GPU sits idle between pitches. A new cast is built a few bodies a frame, and the picture
-  // waits for all of them: the last frame stays up meanwhile, so nobody pops in. The graphics
-  // are their own canvas and repaint without the park.
+  // The park only moves when the game does: frames run while an at-bat plays and the GPU sits
+  // idle between them. A new cast is built a few bodies a frame, and the picture waits for all of
+  // them, the world's clock too: the last frame stays up meanwhile, so nobody pops in. While the
+  // world has the battery, each frame steps it in fixed steps to the frame's time and hands the
+  // renderer their poses and the ball. The graphics are their own canvas and repaint without the
+  // park.
   function draw() {
     if (!R || raf || !win) return;
-    raf = win.requestAnimationFrame(() => {
-      raf = 0;
-      if (!R || !canvas?.isConnected) return;
-      if (R.lost) { fallback('the WebGL context was lost'); return; }
-      if (R.pending() && R.pump(14)) { draw(); return; }
-      size();
-      if (!R.render(shot) && R.lost) fallback('the WebGL context was lost');
-    });
+    raf = win.requestAnimationFrame(frame);
   }
+  function frame(now) {
+    raf = 0;
+    if (!R || !canvas?.isConnected) return;
+    if (R.lost) { fallback('the WebGL context was lost'); return; }
+    if (R.pending() && R.pump(14)) { lastNow = now; draw(); return; }
+    if (live) {
+      acc += Math.min(0.25, Math.max(0, (now - (lastNow || now)) / 1000)) * speed;
+      while (acc >= mods.DT) { W.step(mods.DT); acc -= mods.DT; }
+      for (const b of W.bodies.values()) { const P = W.pose(b.slot); if (P) R.setPose(b.slot, P); }
+      R.setBall(W.ballAt());
+    }
+    lastNow = now;
+    size();
+    if (!R.render(shot) && R.lost) { fallback('the WebGL context was lost'); return; }
+    // on to the next frame while the at-bat plays; once everyone's at rest the last one stays up.
+    // A stopped clock draws only when something asks.
+    if (live && D.busy()) { if (speed > 0) draw(); }
+    else live = false;
+  }
+  function stopWorld() { D?.stop(); live = false; cur = null; }
   // Who's on the field for this payload, and the clubs whose kits they wear.
   function castFor(p) {
-    const top = p.half === 'top';
-    R?.setCast(mods.castOf(p), { home: top ? p.fieldingTeam : p.battingTeam, away: top ? p.battingTeam : p.fieldingTeam });
+    const top = p.half === 'top', cast = mods.castOf(p);
+    R?.setCast(cast, { home: top ? p.fieldingTeam : p.battingTeam, away: top ? p.battingTeam : p.fieldingTeam });
+    return cast;
   }
   function stopLoop() { if (raf && win) win.cancelAnimationFrame(raf); raf = 0; }
   function setShot(s) { shot = s; draw(); paintHud(); }
@@ -243,6 +274,39 @@ export function createGrandstandView(host, opts = {}) {
     const el = host?.querySelector('.gds-cap-text');
     if (el) { el.textContent = caption; el.classList.remove('in'); void el.offsetWidth; el.classList.add('in'); }
   }
+  // The director's at-bat landed (or its time came with the frames stopped): the board settles,
+  // a strikeout or a walk gets its splash, and the held line and any held card go up, the card
+  // over the splash.
+  function landPlay(c) {
+    if (!c || c.landed || c !== cur) return;
+    c.landed = true;
+    c.settle();
+    const p = c.p;
+    // the play's own sound, as the 2-D view plays it
+    const outs = p.kind === 'tripleplay' ? 3 : p.kind === 'doubleplay' ? 2 : 1;
+    if (p.kind === 'homerun') sfx('homer');
+    else if (p.rbi > 0) sfx('run');
+    else if (p.kind === 'strikeout') sfx('strikeout');
+    else if (p.out) { sfx('out'); for (let k = 1; k < outs; k++) later(150 * k, () => sfx('out')); }
+    else sfx('base');
+    if (p.kind === 'strikeout' || p.kind === 'walk') {
+      hold('splash', { kind: p.kind, sub: p.kind === 'strikeout' ? p.pitcher : p.batter }, OWN_SPLASH_MS);
+    }
+    land();
+  }
+  // What the director says as it stages: a cut to another camera, a sound on its moment, and each
+  // pitch as it's decided, for the count, the speed and the zone (the count never shows a fourth
+  // ball or a third strike).
+  function fromDirector(name, d) {
+    if (name === 'shot') { if (!opts.shot) setShot(d); return; }
+    if (name === 'sound') { sfx(d); return; }
+    if (name !== 'pitch' || !cur) return;
+    const q = d.pitch, last = d.i === (cur.p.pitches || []).length - 1;
+    S.balls = last ? Math.min(3, q.balls | 0) : q.balls | 0;
+    S.strikes = last ? Math.min(2, q.strikes | 0) : q.strikes | 0;
+    S.pitch = q;
+    paint();
+  }
   // The play landed: the held line and any held card go up now.
   function land() {
     playing = false;
@@ -284,9 +348,9 @@ export function createGrandstandView(host, opts = {}) {
     }, MATCHUP_MS);
   }
   function stage(p) {
-    stopTimers(); stopTable();
+    stopTimers(); stopTable(); stopWorld();
     const pend = pendingCaption;
-    castFor(p);
+    const cast = castFor(p);
     S.pitch = null; S.bats = p.bats || '';
     if (p.phase === 'half') {
       // a fresh half: nobody on, nobody out, and the leaders over the picture
@@ -331,16 +395,23 @@ export function createGrandstandView(host, opts = {}) {
       });
       return;
     }
-    const pitches = Array.isArray(p.pitches) ? p.pitches : [];
-    const N = pitches.length;
     Object.assign(S, { balls: 0, strikes: 0 });
     matchupFor(p);
     paint();
-    const step = N > 1 ? Math.min(REVEAL_STEP_MS, REVEAL_MAX_MS / (N - 1)) : REVEAL_STEP_MS;
-    for (let k = 1; k < N; k++) later((k - 1) * step, () => { S.balls = pitches[k - 1].balls; S.strikes = pitches[k - 1].strikes; S.pitch = pitches[k - 1]; paint(); });
-    const outMs = Math.max(0, N - 1) * step + OUTCOME_GAP_MS;
-    later(outMs, () => { if (N) S.pitch = pitches[N - 1]; settle(); });
-    later(outMs + flightOf(p.kind), land);
+    // the director stages it pitch by pitch, and the count goes up as each one's decided; the
+    // play lands when the director says, or if the frames have stopped, a beat after
+    cur = { p, settle, landed: false };
+    const mine = cur;
+    live = true; acc = 0;
+    D.stage(p, cast);
+    // while frames run the world lands it; if they've stopped (a hidden tab) this does
+    const watch = () => {
+      if (mine.landed || mine !== cur) return;
+      if (lastNow && (win?.performance || performance).now() - lastNow < LAND_SLACK_MS) later(LAND_SLACK_MS, watch);
+      else landPlay(mine);
+    };
+    if (speed > 0) later((D.landAt - W.t) * 1000 / speed + LAND_SLACK_MS, watch);
+    draw();
   }
 
   function apply(p) {
@@ -358,6 +429,9 @@ export function createGrandstandView(host, opts = {}) {
   function setCaption(text, o) {
     if (flat) { flat.setCaption(text, o); return; }
     const speak = o && o.speak;
+    // A play's line comes just before its payload. One that comes while the last play is still
+    // in the air (frames stopped in a hidden tab) lands that play first, so its line isn't lost.
+    if (o && o.held && pendingCaption && cur && !cur.landed) landPlay(cur);
     if (o && o.held) pendingCaption = { text: String(text || ''), speak };
     else { showCaption(text); speak?.(); }
   }
@@ -384,13 +458,13 @@ export function createGrandstandView(host, opts = {}) {
   }
   function clear() {
     if (flat) { flat.clear(); flat = null; }
-    stopTimers(); stopLoop(); stopTable(); dropHolds();
+    stopTimers(); stopLoop(); stopTable(); dropHolds(); stopWorld();
     unVenue?.(); unVenue = null;
     ro?.disconnect(); ro = null;
     try { R?.dispose(); } catch { /* already gone */ }
     hud?.dispose();
     if (host) host.innerHTML = '';
-    R = null; hud = null; canvas = null; mounted = false;
+    R = null; hud = null; canvas = null; mounted = false; W = null; D = null;
     last = null; caption = ''; pendingCaption = null; pendingCard = null; playing = false;
   }
 
@@ -399,6 +473,9 @@ export function createGrandstandView(host, opts = {}) {
     // for the sandbox and the gates
     setShot, ready: () => loadMods(),
     get renderer() { return R; }, get hud() { return hud; }, get flat() { return flat; }, get state() { return S; },
-    busy: () => playing,
+    get world() { return W; }, get director() { return D; }, get shot() { return shot; },
+    get speed() { return speed; }, set speed(k) { speed = Math.max(0, Number(k) || 0); draw(); },
+    redraw: () => draw(),
+    busy: () => playing || live,
   };
 }

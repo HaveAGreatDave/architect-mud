@@ -535,7 +535,7 @@ for (const kind of ['sit', 'stand', 'cheer']) for (const far of [false, true]) {
   check('numbers: the matchup lines', H.batLine([212, 60, 8, 22, 3]) === '.283   8 HR   22 RBI' && H.armLine([5, 2, 186, 20, 44]) === '5–2   2.90 ERA   44 K', H.armLine([5, 2, 186, 20, 44]));
   // every kind of card the grandstand puts up has its words
   const W = H.HUD_THEME.words;
-  check('theme: a word for every splash and steal', ['homerun', 'grandslam', 'walkoff', 'doubleplay', 'tripleplay', 'extras', 'gamewin', 'champion', 'matchup', 'steal', 'caughtstealing', 'doublesteal'].every((k) => W[k]));
+  check('theme: a word for every splash and steal', ['homerun', 'grandslam', 'walkoff', 'doubleplay', 'tripleplay', 'extras', 'gamewin', 'champion', 'matchup', 'steal', 'caughtstealing', 'doublesteal', 'strikeout', 'walk'].every((k) => W[k]));
   // the painter runs every mark, and a card comes in and settles on the hand-cranked clock
   {
     const cv = document.createElement('canvas');

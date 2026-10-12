@@ -1,9 +1,10 @@
 // THE DEADBALL SOUND BANK: the cues the Gameday views play, as data in SIREN's layer
 // schema (client/shared/audio-engine.js buildLayer), on the 'tv' bus.
 //
-// The 2-D Gameday view (client/game/js/panels/gameday.js) plays these today; the 3-D
-// view's fuller bank grows here too (docs/proposals/deadball-glass2.md, Sound), so
-// both views read one bank. Each cue is { category, priority, config }, the shape
+// Both Gameday views play these: the 2-D one (client/game/js/panels/gameday.js) and the
+// 3-D one (gameday-grandstand.js), on the moments its director stages. The 3-D view's
+// fuller bank grows here too (docs/proposals/deadball-glass2.md, Sound), so both views
+// read one bank. Each cue is { category, priority, config }, the shape
 // AudioEngine.playSfx takes.
 
 export const DEADBALL_SFX = {

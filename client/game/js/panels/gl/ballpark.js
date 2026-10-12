@@ -42,7 +42,7 @@
 // ⚠ NO FACE CULLING, as in arena.js: the builders don't keep one winding, and every material
 // here is lit from the side that faces the eye.
 
-import { buildPark, crowdMesh, STRIDE, CROWD_STRIDE, CROWD_VERTEX, MAT } from './ballpark-mesh.js';
+import { buildPark, crowdMesh, createBatch, ellipsoid, lin, STRIDE, CROWD_STRIDE, CROWD_VERTEX, MAT } from './ballpark-mesh.js';
 import { paintInfield, DIRT_RECT } from '../diamond/dirt.js';
 import { boardLamps, BOARD_W, BOARD_H } from '../diamond/board.js';
 import { shotMatrices, shotOf, inv4 } from '../diamond/camera.js';
@@ -55,6 +55,7 @@ import { makeVertexStream } from './stream.js';
 import { declareProgram, prewarmPrograms, takeWarm } from './programs.js';
 import { createPlayerSet, buildBody, POSES, mirrorPose, lookOf, faceFor, kitCell, SKIN_STRIDE } from './ballplayer-mesh.js';
 import { solvePose, boneFrames, bindFrames, skinRows, BONES, FRAME_FLOATS } from '../diamond/rig.js';
+import { BALL_R } from '../diamond/flight.js';
 import { SKIN_GLSL, createBonePalette } from './skin.js';
 import { bodyKey } from '../diamond/cast.js';
 // the view loads this module lazily and takes the cast from it, so the 2-D path never fetches it
@@ -888,6 +889,21 @@ export function createBallparkRenderer(canvas, opts = {}) {
     }
     const signDraw = { key: 'sign', ...upload(park.sign) };
 
+    // ── the ball ──────────────────────────────────────────────────────────────
+    // Where the director's world has it (diamond/world.js), or nowhere. A sphere a little over its
+    // real size, so a pitch reads on a 400-pixel screen, rewritten into one stream when it moves.
+    const BALL_DRAWN = BALL_R * 1.4;
+    const ballBatch = createBatch(256), ballDraw = { key: 'ball', ...upload(createBatch(1)) };
+    let ballAt = null;
+    function setBall(p) {
+      ballAt = p && p.every(Number.isFinite) ? p.slice() : null;
+      if (!ballAt) return;
+      ballBatch.n = 0;
+      ellipsoid(ballBatch, ballAt, [[1, 0, 0], [0, 1, 0], [0, 0, 1]], [BALL_DRAWN, BALL_DRAWN, BALL_DRAWN], 8, 12, lin('#f2efe6'), MAT.SATIN);
+      ballDraw.st.write(ballBatch.data, ballBatch.n * STRIDE);
+      ballDraw.n = ballBatch.n;
+    }
+
     // ── the lights ────────────────────────────────────────────────────────────
     // Each tower burns in proportion to its working lamps; the two behind the plate are
     // smaller banks.
@@ -1012,6 +1028,7 @@ export function createBallparkRenderer(canvas, opts = {}) {
       litSetup(LIT);
       drawSet(opaque, 1);
       if (TEX.sign) drawSet([signDraw], 1);
+      if (ballAt) drawSet([ballDraw], 1);
       if (city) drawSet(city.opaque, 1);
       // the players: each one's bones from his row of the palette (unit 9), his face from the atlas
       // (unit 8) and the head arrays, his jersey from his slot's cell
@@ -1105,7 +1122,7 @@ export function createBallparkRenderer(canvas, opts = {}) {
         if (depth) { gl.deleteFramebuffer(depth.fbo); gl.deleteTexture(depth.tex); depth = null; }
         for (const t of Object.values(TEX)) gl.deleteTexture(t);
         gl.deleteTexture(boardTex);
-        for (const d of [...opaque, ...translucent, signDraw]) { gl.deleteVertexArray(d.vao); gl.deleteBuffer(d.st.buf); }
+        for (const d of [...opaque, ...translucent, signDraw, ballDraw]) { gl.deleteVertexArray(d.vao); gl.deleteBuffer(d.st.buf); }
         dropCity();
         for (const d of crowd) { gl.deleteVertexArray(d.vao); for (const b of d.buffers) gl.deleteBuffer(b); }
         for (const body of bodies.values()) dropBody(body);
@@ -1123,8 +1140,9 @@ export function createBallparkRenderer(canvas, opts = {}) {
       quality: { dpr: 2, bloom: 0.18, exposure: 1.0, grade: opts.grade || 'arcade', tube: !!opts.tube, ao: true, dof: 28, shadows: true, fog: true },
       // what casts the towers' shadows: the players, [{ slot, batches }], skinned from the palette
       casters: [],
-      // setPose(slot, pose): a player into a pose from the rig's pose language, with at, yaw, scale
-      render, setBoard, setCast, setPose, pump, setVenue, dispose, stats,
+      // setPose(slot, pose): a player into a pose from the rig's pose language, with at, yaw, scale;
+      // setBall(point or null): the ball, in the park's feet
+      render, setBoard, setCast, setPose, setBall, pump, setVenue, dispose, stats,
       pending: () => queue.length,
       get park() { return park; },
       // what the city came to: { buildings, filler, lamps, tris, placed, bearing, … }, or null

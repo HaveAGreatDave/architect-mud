@@ -409,6 +409,54 @@ export function catchTarget(home, x, y, from = [0, 0, 1]) {
   return [home[0] + across[0] * off, y, home[2] + across[2] * off];
 }
 
+// The bat turned about its knob so the barrel comes through `target` (the pose's real frame), `w`
+// of the way: the swing's own path is a height, and this puts it on the pitch, in or out, up or
+// down. The hands follow the bat, as they always do. With `opts.reach`, the hands first carry the
+// knob along the ground toward the target (or back from it), by up to that many feet, until the
+// target is the sweet spot's length away: how a hitter gets the barrel to a pitch on the outer
+// edge. Wherever that or the turn leaves a hand short of the bat, the body goes toward it, by up
+// to `opts.follow` feet along the ground (the planted feet stay planted), and bends at the waist
+// for a hand short below, so both hands stay on. `scale` and `ground` as for sampleClip.
+export function aimBat(P, target, w = 1, opts = {}) {
+  if (!(w > 0) || !P.bat) return P;
+  const s = opts.scale || 1, ground = opts.ground || flatGround;
+  let k = P.bat.knob;
+  const most = (opts.reach || 0) * s;
+  if (most > 0) {
+    const d = sub(target, k), h = Math.hypot(d[0], d[2]), want = Math.sqrt(Math.max(0, SWEET_SPOT * SWEET_SPOT - d[1] * d[1]));
+    const by = clamp(h - want, -most, most) * w;
+    if (by && h > 1e-6) k = [k[0] + d[0] / h * by, k[1], k[2] + d[2] / h * by];
+  }
+  const d0 = P.bat.dir, to = norm(sub(target, k));
+  let out = { ...P, bat: { ...P.bat, knob: k, dir: norm([0, 1, 2].map((i) => lerp(d0[i], to[i], w))) } };
+  const follow = (opts.follow || 0) * s, limit = ARM * s * 0.98;
+  if (follow > 0) {
+    const pelvis0 = out.pelvis;
+    for (let pass = 0; pass < 4; pass++) {
+      const { J } = solvePose({ ...out, at: [0, 0, 0], yaw: 0, scale: s });
+      let worst = null;
+      for (const S of FEET) {
+        const v = sub(J['wrT' + S], J['sh' + S]), L = len(v);
+        if (L > limit && (!worst || L - limit > worst.over)) worst = { v, L, over: L - limit };
+      }
+      if (!worst) break;
+      const k2 = (worst.over + 0.01 * s) / worst.L;
+      // what's short below him, the waist bends for: the spine and chest forward, each up to 15
+      // degrees past the clip's, the shoulders swinging down about 1.4 ft out from the bend
+      const down = Math.max(0, -worst.v[1] * k2);
+      const bend = Math.min(15, Math.asin(Math.min(1, down / (1.4 * s))) * DEG);
+      const sp = out.spine, ch = out.chest;
+      out = { ...out, spine: [Math.min(sp[0] + bend * 0.5, P.spine[0] + 15), sp[1], sp[2]], chest: [Math.min(ch[0] + bend * 0.5, P.chest[0] + 15), ch[1], ch[2]] };
+      // the rest along the ground
+      let p = [out.pelvis[0] + worst.v[0] * k2, out.pelvis[1], out.pelvis[2] + worst.v[2] * k2];
+      const m = sub(p, pelvis0), ml = len(m);
+      if (ml > follow) p = [0, 1, 2].map((i) => pelvis0[i] + m[i] * follow / ml);
+      out = fitPlants({ ...out, pelvis: p }, ground, s);
+    }
+  }
+  return out;
+}
+
 // The neck and head turned toward `target` (the pose's real frame), `w` of the way, the turn shared
 // between them and held inside what a neck can do: 75 degrees round each way and 40 up or down in
 // all, the head taking two parts in five.

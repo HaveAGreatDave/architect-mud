@@ -797,7 +797,7 @@ sport module**; nothing else in the pipeline may branch on it.
 Deadball's sub-screen is the 2-D Gameday view ([gameday.js](../client/game/js/panels/gameday.js)).
 A high-fidelity 3-D one on Rinkside's pattern, with a 1990s arcade look and the park inside the
 Curtain on Halcyon Fields, is planned in [proposals/deadball-glass2.md](proposals/deadball-glass2.md)
-(Phase 0 and sim v2 built; Phase 1 under way, behind a flag: see the Grandstand below).
+(Phase 0, sim v2, Phase 1 and Phases 2a to 2d built, behind a flag: see the Grandstand below).
 
 **The Gameday payload** is built by a pure module,
 [sports/baseball-gameday.js](../plugins/broadcast/sports/baseball-gameday.js), which the
@@ -853,7 +853,7 @@ methods as the other two views. When the 3-D view can't draw (no WebGL2, no floa
 shader that won't build, a lost context), it hands over to the 2-D view with the last payload and
 the booth's line.
 
-Built so far (Phases 1a to 1e of the plan):
+Built so far (Phases 1a to 2d of the plan):
 
 - the park from the venue's defaults, built by the pure
   [gl/ballpark-mesh.js](../client/game/js/panels/gl/ballpark-mesh.js) from
@@ -903,8 +903,24 @@ Built so far (Phases 1a to 1e of the plan):
   turning to it and each player's own way of doing it off his name. The library holds the pitch
   (Phase 2c): the pitcher's deliveries from the stretch and the windup for each arm slot, the
   hitter's load, swings, take and check swing, the catcher's receive, block and throw back, and
-  the umpire's calls, three ways to ring up strike three among them. The director that stages a
-  pitch with them is Phase 2d, so for now the players still stand in their stills;
+  the umpire's calls, three ways to ring up strike three among them;
+- the pitch (Phase 2d): [diamond/director.js](../client/game/js/panels/diamond/director.js) stages
+  each at-bat in a world ([diamond/world.js](../client/game/js/panels/diamond/world.js)) stepped
+  at 120 Hz while it plays. The ball flies from the pitcher's hand at its real speed to exactly
+  where the payload says it crossed the plate, bending by its type
+  ([diamond/flight.js](../client/game/js/panels/diamond/flight.js)), and every clip is lined up on
+  it: the delivery's release, the swing's contact, the mitt's catch, the flinch of a hit batsman.
+  A swing meets an inside pitch out in front and lets an outside one travel, and the hands carry
+  the bat to the outer edge with the body leaning after them. The budget is 0.45 of the line's
+  hold, kept between 13 and 26 seconds, and the director spends it in the plan's order: every
+  pitch cut in at the stride, then each one's reaction (the hitter in close-up, with the umpire's
+  call), then the pitcher's whole motion and the set before it, then the throw back and the walk
+  up to the rubber. A long at-bat on a short hold leaves pitches out of the middle and the count
+  goes through them. Every jump from one moment to the next is under a cut. Strike three, ball
+  four and a hit batsman are played in full, the hitter walking off or heading to first, and a
+  strikeout and a walk get their splash words. The 2-D view's cues
+  ([client/shared/deadball-sfx.js](../client/shared/deadball-sfx.js)) play on the moment: the
+  mitt, the crack of the bat, a miss's whiff, and the play's own sound as it lands;
 - the arcade graphics (Phase 1d), a canvas over the picture drawn by
   [diamond/hud.js](../client/game/js/panels/diamond/hud.js) in the client's display faces: the
   score with the bases, the count as lamps, the pitch speed and type, and in the batting view the
@@ -950,8 +966,14 @@ chrome), and `quarters` are tile rectangles, first match wins, each with the sty
 and low buildings, `all` to dress a whole quarter alike (Old Coldwater's ruin), and the styles
 and floors of its filler. `tallFloors` is where tall starts.
 
-Nothing moves yet: a frame is drawn when the game changes, so the GPU idles between pitches. The count ticks through each at-bat on the 2-D view's clock
-(`GAMEDAY_CLOCK`), so the held line lands when the 2-D view would land it.
+Frames run while an at-bat plays and stop once everyone's at rest, so the GPU idles between
+at-bats. The count goes up as the director decides each pitch, and the booth's held line and any
+card go up when the play lands (`onLand`): the umpire's call on a called third strike, the ball
+in the mitt, the ball hitting the batter, or a ball put in play coming down about as long after
+contact as a real one would. A line comes just before its payload; one that arrives while the
+last play is still in the air (a hidden tab stops the frames) lands that play first, and a
+timer lands a play whose frames have stopped. Plays on the bases and the changeovers are still
+stills on the 2-D view's clock (`GAMEDAY_CLOCK`) until Phase 3.
 `scripts/shapes/ballpark-smoke.mjs` builds the park from the defaults and from a venue of its
 own, holds every shot's matrices to its pinhole on three screen shapes, reads the board's lamps,
 checks the fallback, fits each tower's shadow map to the shot, reads depth back through the
@@ -968,8 +990,15 @@ in the engine files. `scripts/shapes/anim-smoke.mjs` skins the players on the CP
 shader's own sum and holds every pose to the posed build's surface, the head vertex for vertex
 and the hands on the bat; then it plays every clip, holding each frame to what a body can do,
 the planted feet still, the hands on the bat, the glove to the ball across the box its catch
-covers and the ball leaving the hand at its fastest, and fails a stale `clips.js`. The sandbox page takes `?park=3d`, `?shot=`, `?bug=`, `?po=1` (the final's
-dressing), `?hud=0` (the picture alone) and `?city=0`; its city comes from the flight sim's
+covers and the ball leaving the hand at its fastest, and fails a stale `clips.js`.
+`scripts/shapes/diamond-smoke.mjs` stages two sim v2 games at a short hold and a long one: every
+pitch through the plate within 0.05 ft of its spot, every clip on its event as the ball arrives,
+the mitt and the bat's barrel on the ball with both hands on the bat, the joints inside their
+limits, each at-bat ending as the sim ended it, `onLand` on time inside the budget with the count
+done by then; and it feeds the view with a recording renderer to hold each line until its play
+lands. The sandbox page takes `?park=3d`, `?shot=`, `?bug=`, `?po=1` (the final's
+dressing), `?hud=0` (the picture alone), `?city=0`, `?hold=` (each line's hold in milliseconds,
+35000 by default) and `?speed=` (0.25 for a slow look, 0 to stop the park's clock); its city comes from the flight sim's
 baked world, so it can trail the live map by a bake. The renderer's traps are in [glass-notes.md](reference/glass-notes.md#the-ballpark-glballparkjs).
 
 ### Sim v2
