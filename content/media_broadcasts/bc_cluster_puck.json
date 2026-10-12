@@ -762,6 +762,11 @@
         "{player} drops it for {to}.",
         "{player} banks it off the wall to {to}."
       ],
+      "pbp.period.first": [
+        "The building's on its feet.",
+        "Both benches are standing.",
+        "Sticks down for the opening draw."
+      ],
       "pbp.period.out": [
         "Teams are out.",
         "Both benches are full.",
@@ -981,6 +986,11 @@
         "That's the {sectionOrd}. {home} {homeScore}, {away} {awayScore}.",
         "Horn goes on the {sectionOrd}. {away} {awayScore}, {home} {homeScore}, and the Zamboni comes out to hide the evidence.",
         "End of the {sectionOrd}. They'll resurface it, which is optimistic."
+      ],
+      "section.first": [
+        "Here comes the opening faceoff.",
+        "The linesman has the puck at centre for the opening draw.",
+        "Both teams are lined up for the opening draw."
       ],
       "section.start": [
         "Here comes the {sectionOrd} period. Both teams are back out.",

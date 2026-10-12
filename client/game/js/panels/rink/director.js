@@ -535,6 +535,15 @@ export function createDirector(W, opts = {}) {
         leg = { kind: 'wait', until: want, mover: passing ? tb : cur, tx: nd.x, ty: nd.y, t: 0 };
         return;
       }
+      // A dump goes in from about where the sim had it. From well short of that (his own
+      // end, when the play joined where the puck was) it would be icing, and it would leave
+      // his side chasing it the length of the ice: he carries it up there first.
+      if (nodes[li].ev === 'dump' && (nodes[li].x - cur.x) * dir > 30) {
+        const up = nodes[li];
+        cur.tx = up.x; cur.ty = up.y; cur.maxV = 24;
+        leg = { kind: 'carry', up: true, t: 0, dist: Math.hypot(up.x - cur.x, up.y - cur.y), tx: up.x, ty: up.y };
+        return;
+      }
       const nd = nodes[li], nx = nodes[li + 1];
       li++;
       const tb = touchBody(nd);
@@ -843,7 +852,8 @@ export function createDirector(W, opts = {}) {
         return;
       }
       const nextCue = nodes[li] ? cueOf(p, 'node', 'i', nodes[li].oi) : null;
-      if (nextCue != null && rel >= nextCue + 0.3 && (leg.kind === 'carry' || leg.kind === 'chase')) {
+      // (not a carry up to where a dump goes in from: dumped from short of there, it's icing)
+      if (nextCue != null && rel >= nextCue + 0.3 && ((leg.kind === 'carry' && !leg.up) || leg.kind === 'chase')) {
         if (leg.kind === 'chase') { const c = leg.chaser; if (leg.foe) leg.foe.scripted = false; if (cur !== c) cur.scripted = false; cur = c; script(cur); }
         leg = null; nextLeg();
         return;
@@ -1078,8 +1088,12 @@ export function createDirector(W, opts = {}) {
         } else {
           hitter.maxV = 27;
           const lead = Math.min(0.9, Math.hypot(hitter.x - victim.x, hitter.y - victim.y) / 32);
-          hitter.tx = victim.x + victim.vx * lead; hitter.ty = style === 'behind' ? victim.y - 1 : RW;
-          if (style === 'behind') { hitter.tx = victim.x - 0.5; hitter.ty = victim.y - 2; }
+          // into the boards where he'll be, or from behind, at his back...
+          const ax = style === 'behind' ? victim.x - 0.5 : victim.x + victim.vx * lead, ay = style === 'behind' ? victim.y : RW;
+          // ...and on through: a man skating at a point eases up as he gets there, and a
+          // check isn't eased into. Aimed short, the hit came as much as a second late.
+          const ex = ax - hitter.x, ey = ay - hitter.y, el = Math.hypot(ex, ey) || 1;
+          hitter.tx = ax + ex / el * 12; hitter.ty = ay + ey / el * 12;
         }
         W.cam.focus = [(victim.x + hitter.x) / 2, (victim.y + hitter.y) / 2 - 4];
         // running late, the hitter finds another gear and the man with it eases up into him
@@ -1126,6 +1140,8 @@ export function createDirector(W, opts = {}) {
       if (fatal === 'post') { impU = [vdir * 18, -6, 4]; impL = [vdir * 6, -2, 1]; }
       W.knock(victim, impU, impL);
       hitter.vx *= 0.3; hitter.vy *= 0.15;
+      // and he pulls up rather than drive on into the boards after him
+      hitter.tx = hitter.x; hitter.ty = Math.min(hitter.y, RW - 4);
       W.shake = Math.max(W.shake, style === 'glass' ? 1.2 : 0.9); W.crowd = 1; W.hitstop = style === 'glass' ? 0.1 : 0.07;
       W.sfx('check', { style });
       W.burst('spray', victim.x, victim.y, 0.3, 14, 7, [0, 4, 3]);

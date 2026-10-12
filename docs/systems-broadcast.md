@@ -1090,7 +1090,10 @@ the puck it needs, walks them through the beat and hands them back to the ambien
   rush starts late when the whole chain would run past about five seconds. The shot is the sim's `shotType` with its own
   wind-up; a one-timer and a tip are fed by a teammate. Where the puck goes comes from the
   outcome: into the net for a goal, into the glove, the chest, the pad, off the post, wide,
-  into a defender who drops to block it, or poked off the stick on a breakaway. A save
+  into a defender who drops to block it, or poked off the stick on a breakaway. A dump
+  goes in from about where the sim had it: when the play joined with the puck well short
+  of that (his own end, say), he carries it up first, since a dump from there would be
+  icing and leave his side chasing it the length of the ice. A save
   the sim marks `frozen` is a goalie under pressure: the two nearest attackers crash his
   crease as he covers it, the whistle goes and the draw is in that end. A save he holds
   with nobody on him he plays to a defenceman.
@@ -1109,7 +1112,10 @@ the puck it needs, walks them through the beat and hands them back to the ambien
 - *Boards hits* happen on the far wall, where the glass is in shot, in the sim's
   `hitStyle`: shoulder, glass (which can break a pane), from behind, hip check, elbow.
   The man hit becomes a ragdoll, so where and how hard he meets the boards decides how he
-  falls. A man who is hurt stays down, with play stopped, until the injury beat comes.
+  falls. The hitter commits as late as he can and still arrive as the hit is called, and
+  he skates at a point past the man rather than at him: aimed at the man, he'd ease up as
+  he got there, as anybody does, and the hit came as much as a second late. A man who is
+  hurt stays down, with play stopped, until the injury beat comes.
 - *Injuries* bring two medics out with a stretcher. A severed limb comes off at the hit.
 - *Fights* drop the gloves on the ice, bring the camera in to a side-on close-up with a
   health bar per man, and throw the sim's exchange punch for punch. The ending is the sim's: a
@@ -1340,6 +1346,10 @@ it got to, and still marked where it didn't.
 - Nothing may move a man farther than he could skate, or the puck farther than it could
   travel. A man who has to be somewhere skates there, one who has to come on comes over
   the boards (`overBoards`), and the smoke fails anything else.
+- Anything that changes what a body's `x, y` measures moves `x0, y0` with it. A man
+  knocked down is measured from his hips (the ragdoll's root) from then on, which can be
+  most of a foot from where he was skating, so `W.knock` shifts the step's start too;
+  without that the between-steps drawing showed him jump as he went down.
 - A beat that stops play passes the payload's `nextDot` to `stopPlay`. Without it the
   men coast to a stop and the faceoff's beat has to bring them all the way to the dot.
 - Cosmetic randomness is seeded from the payload. A `rand()` call added to the sim to
@@ -1422,7 +1432,9 @@ row that has drifted from the script.
 **A period is under way when its first draw is won, not before.** No intro or period-start
 line says play has started. `pbp.period.go` ("And we're under way.") follows the win line of
 a period's opening faceoff, and the period-start line carries the `resume` cue that brings
-the teams back out.
+the teams back out. The 1st period has lines of its own (`section.first`, and
+`pbp.period.first` before the drop), since nobody has been off the ice and there has been no
+Zamboni; `section.start` and `pbp.period.out` are for coming back from an intermission.
 
 Branding lives in [cphl-brand.js](../client/game/js/panels/cphl-brand.js): one mark, drawn
 by the score bug, the full-screen graphics, the rink header, the idle screen and the

@@ -495,6 +495,11 @@ export function createWorld(ice, seedKey) {
     }
     if (W.puck.carrier === b) W.loose(b.vx * 0.5 + impU[0] * 0.3, b.vy * 0.5 + impU[1] * 0.3);
     b.rag = makeRag(b, J, impU, impL);
+    // From here he's where his hips are (the ragdoll's root), which can be most of a foot
+    // from where he was skating. The step's start moves with him, so neither the renderers'
+    // between-steps drawing nor anything measuring his step sees a jump.
+    const p0 = b.rag.pts[0];
+    b.x0 = (b.x0 ?? b.x) + p0.x - b.x; b.y0 = (b.y0 ?? b.y) + p0.y - b.y; b.x = p0.x; b.y = p0.y;
     b.blend = null; b.act = null; b.guard = false; b.grab = null; b.carrying = false;
     W.sfx('fall');
   };

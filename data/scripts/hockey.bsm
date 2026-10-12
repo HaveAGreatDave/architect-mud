@@ -392,6 +392,14 @@ No {player} tonight, still out, and the club brings up {callup}. This league doe
 ::endlines
 
 # ── periods ───────────────────────────────────────────────────────────────────
+# The 1st period has its own: nobody has been off the ice yet and there has been no
+# Zamboni. section.start is the 2nd and the 3rd, after an intermission.
+::lines section.first
+Here comes the opening faceoff.
+The linesman has the puck at centre for the opening draw.
+Both teams are lined up for the opening draw.
+::endlines
+
 ::lines section.start
 Here comes the {sectionOrd} period. Both teams are back out.
 The {sectionOrd} period, and the linesman is skating the puck out to centre.
@@ -1242,6 +1250,14 @@ Puck's down.
 {winner} and {loser}. Dropped.
 {loser} and {winner}, and it's down.
 In it goes.
+::endlines
+
+# Said before the drop of a period's opening draw: pbp.period.first for the 1st, and
+# pbp.period.out after an intermission.
+::lines pbp.period.first
+The building's on its feet.
+Both benches are standing.
+Sticks down for the opening draw.
 ::endlines
 
 ::lines pbp.period.out

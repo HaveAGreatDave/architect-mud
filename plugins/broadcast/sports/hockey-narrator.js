@@ -73,7 +73,8 @@ const EXCITE = {
   'penalty': 0.2, 'powerplay': 0.3,
   // the frame of the night
   'intro': 0.25, 'rivalry.intro': 0.35, 'cup.intro': 0.4, 'matchup': 0.15, 'rivalry.matchup': 0.2, 'cup.matchup': 0.2,
-  'section.start': 0.3, 'ot.intro': 0.55, 'section.end': 0.1, 'pbp.period.out': 0.15, 'score.update': 0.1,
+  'section.first': 0.3, 'section.start': 0.3, 'ot.intro': 0.55, 'section.end': 0.1, 'score.update': 0.1,
+  'pbp.period.first': 0.15, 'pbp.period.out': 0.15, 'pbp.period.go': 0.3,
   'final': 0.2, 'cup.final': 0.5, 'outro': 0.05, 'cup.outro': 0.15,
   'chatter': 0, 'intermission': 0, 'pbp.zamboni': -0.1,
   // the cost
@@ -572,7 +573,9 @@ export function narrate(ctx) {
         per = freshPeriod(b.section);
         // (cued: on an intermission's payload this is when the period comes back, so the
         // rink sends the Zamboni off and brings the teams out in time for the opening draw)
+        // (the 1st has lines of its own: there has been no intermission to come back from)
         if (b.sudden) say(pick('ot.intro'), t, sb, null, null, { cue: { ev: 'resume' } });
+        else if (b.section === '1st') say(pick('section.first', 'section.start', 'section'), t, sb, null, null, { cue: { ev: 'resume' } });
         else say(pick('section.start', 'section'), t, sb, null, null, { cue: { ev: 'resume' } });
         said++;
         break;
@@ -628,9 +631,10 @@ export function narrate(ctx) {
         // Every draw is called now, in two short lines: where, then who won it. The old
         // one-sentence pools still air on the draws that mean something.
         call(`pbp.faceoff.${sub}`, t, null, sb, null, gameday(b, idx));
-        // The first draw of a period is on a fresh sheet; then the drop itself, which the
-        // linesman makes as the line airs.
-        if (b.reason === 'period') call('pbp.period.out', t, null, sb, { opt: true });
+        // The first draw of a period (the teams back out after an intermission, or the
+        // building on its feet for the 1st); then the drop itself, which the linesman
+        // makes as the line airs.
+        if (b.reason === 'period') call(b.section === '1st' ? ['pbp.period.first', 'pbp.period.out'] : 'pbp.period.out', t, null, sb, { opt: true });
         call('pbp.faceoff.drop', t, null, sb, { cue: { ev: 'drop' }, opt: !loud });
         if (nrng() < (loud ? 0.6 : 0.25)) { say(pick(`faceoff.${sub}`, 'faceoff'), t, sb, null, null, { cue: { ev: 'won' }, opt: !loud && 'colour' }); said++; }
         else call('pbp.faceoff.win', t, null, sb, { cue: { ev: 'won' }, opt: !loud });
