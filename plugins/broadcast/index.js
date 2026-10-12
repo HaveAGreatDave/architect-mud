@@ -20,11 +20,12 @@ import { getFlag, setFlag } from '../../server/engine/flags.js';
 import { awardSkillUse, effectiveSkill } from '../../server/engine/skills.js';
 import { hackDifficulty, breachMargin, hasHackDeck, damageHackDeck } from '../../server/engine/hack-gear.js';
 import { reloadItem, deleteItemCache, getItem } from '../../server/engine/items-cache.js';
-import { sportsRng, sportsHash, sportsPick, sportsFill, sportsShuffle } from './rng.js';
+import { sportsRng, sportsHash, sportsPick, sportsPickTagged, sportsFill, sportsShuffle } from './rng.js';
 // Sport modules. One entry today; the registry shape is what a second sport plugs
 // into, so it exists now rather than being retrofitted around hockey later.
 import { BASEBALL } from './sports/baseball.js';
 import { gamedayPayloads, gamedayLeaders } from './sports/baseball-gameday.js';
+import { venueField } from '../../client/game/js/panels/diamond/geo.js';
 import { skylineAround } from '../../server/engine/skyline.js';
 import { HOCKEY } from './sports/hockey.js';
 import {
@@ -2481,6 +2482,8 @@ function assembleSportsGraph(script, broadcastId, slot, override) {
     b.awayScore, b.homeScore, b.outs ?? 0, b.bases || [false, false, false],
   );
 
+  // A play's ball in play (sports/baseball-gameday.js), once the payloads are built below.
+  let playOf = () => null;
   const beatTok = (b) => ({
     announcer, away: away.name, home: home.name,
     team: b.battingName, batter: b.batter || '', pitcher: b.pitcher || '',
@@ -2488,8 +2491,9 @@ function assembleSportsGraph(script, broadcastId, slot, override) {
     section: 'inning', sectionOrd: sportsOrdinal(b.inning),
     outs: b.outs ?? '', rbi: b.rbi ?? 0, runs: b.runs ?? b.rbi ?? 0,
     // The sport's own words for a play, where it has them: Deadball's sim v2 names the
-    // man running, the bag in play and the fielder charged with an error.
-    ...(sportOf(script).playTokens?.(b) || {}),
+    // man running, the bag in play and the fielder charged with an error, and a ball in
+    // play names who fielded it.
+    ...(sportOf(script).playTokens?.(b, playOf(b)) || {}),
     awayScore: b.awayScore, homeScore: b.homeScore,
     battingScore: b.half === 'top' ? b.awayScore : b.homeScore,
     fieldingScore: b.half === 'top' ? b.homeScore : b.awayScore,
@@ -2536,10 +2540,18 @@ function assembleSportsGraph(script, broadcastId, slot, override) {
   // by a pure module the gates can run without a server (sports/baseball-gameday.js);
   // the league table, the leaders and the season ride only the first payload (see below),
   // and every play carries the batter's and pitcher's lines, folded from the same season.
-  const GD = gamedayPayloads(game, gs.seed, { abbr: sportsAbbr, ordinal: sportsOrdinal, ledger: gamedayLedger('baseball') });
+  const GD = gamedayPayloads(game, gs.seed, { abbr: sportsAbbr, ordinal: sportsOrdinal, ledger: gamedayLedger('baseball'), venue: script.venue || null });
   const gdStandings = gamedayStandings('baseball');
   const gdLeaders = gamedayLeadersFor('baseball');
   const beatGameday = (b) => GD.atbat.get(b);
+  playOf = (b) => GD.atbat.get(b)?.play || null;
+  // A ball in play's line agrees with its picture: the play's tags (where it went, how it was
+  // fielded) open the pools that say so, beside the bare pool (sportsPickTagged).
+  const fence = venueField(script.venue).fence;
+  const pickPlay = (b, ...keys) => {
+    const gd = GD.atbat.get(b);
+    return sportsPickTagged(pools, nrng, BASEBALL.playTags(b.kind, gd?.play, { bats: gd?.bats, fence }), ...keys);
+  };
   // The half-inning break: `phase: 'half'`, so a client never animates it as a play.
   const halfGameday = (b) => GD.half.get(b);
   // The score after a run. A level score has lines of its own: the leader line reads
@@ -2602,30 +2614,30 @@ function assembleSportsGraph(script, broadcastId, slot, override) {
       }
       if (b.kind === 'homerun') {
         const key = b.rbi >= 4 ? 'hr.grand' : (b.rbi === 1 ? 'hr.solo' : 'hr');
-        say(pick(key, 'hr'), tok, sb, hrGraphic(b), gd); spoken++;
+        say(pickPlay(b, key, 'hr'), tok, sb, hrGraphic(b), gd); spoken++;
         say(scoreUpdate(b), tok, sb); spoken++;
         if (b.walkoff) { say(pick('walkoff'), tok, sb, walkoffGraphic(b)); spoken++; walkoffHalf = true; }
       } else if (b.kind === 'sacfly') {
-        say(pick('atbat.sacfly'), tok, sb, null, gd); spoken++;
+        say(pickPlay(b, 'atbat.sacfly'), tok, sb, null, gd); spoken++;
         say(scoreUpdate(b), tok, sb); spoken++;
         if (b.walkoff) { say(pick('walkoff'), tok, sb, walkoffGraphic(b)); spoken++; walkoffHalf = true; }
       } else if (b.kind === 'productout') {
-        say(pick('atbat.productout', 'atbat.groundout'), tok, sb, null, gd); spoken++;
+        say(pickPlay(b, 'atbat.productout', 'atbat.groundout'), tok, sb, null, gd); spoken++;
         if ((b.runs ?? b.rbi) > 0) { say(scoreUpdate(b), tok, sb); spoken++; }
         if (b.walkoff) { say(pick('walkoff'), tok, sb, walkoffGraphic(b)); spoken++; walkoffHalf = true; }
       } else if (b.kind === 'tripleplay') {
         // Never chattered over and never padded past — a triple play ends the half and
         // is the only thing anyone in the park is going to talk about.
-        say(pick('atbat.tripleplay', 'atbat.doubleplay'), tok, sb, tpGraphic(b), gd); spoken++;
+        say(pickPlay(b, 'atbat.tripleplay', 'atbat.doubleplay'), tok, sb, tpGraphic(b), gd); spoken++;
       } else if (b.kind === 'doubleplay') {
-        say(pick('atbat.doubleplay'), tok, sb, dpGraphic(b), gd); spoken++;
+        say(pickPlay(b, 'atbat.doubleplay'), tok, sb, dpGraphic(b), gd); spoken++;
         // A double play can drive in a run (man on third, nobody out). The scoreboard
         // has to say so — the DP line itself never mentions it. (Sim v2 credits no RBI for
         // it, so it's the run that counts here.)
         if ((b.runs ?? b.rbi) > 0) { say(scoreUpdate(b), tok, sb); spoken++; }
       } else if (b.kind === 'error') {
         // Sim v2: an error is always called; it goes up on the board as an E.
-        say(pick(`atbat.error.${b.errorType}`, 'atbat.error'), tok, sb, null, gd); spoken++;
+        say(pickPlay(b, `atbat.error.${b.errorType}`, 'atbat.error'), tok, sb, null, gd); spoken++;
         if (b.runs > 0) { say(scoreUpdate(b), tok, sb); spoken++; }
         if (b.walkoff) { say(pick('walkoff'), tok, sb, walkoffGraphic(b)); spoken++; walkoffHalf = true; }
       } else if ((b.kind === 'hitbypitch' || b.kind === 'walk') && b.runs != null) {
@@ -2637,16 +2649,16 @@ function assembleSportsGraph(script, broadcastId, slot, override) {
           if (b.walkoff) { say(pick('walkoff'), tok, sb, walkoffGraphic(b)); spoken++; walkoffHalf = true; }
         }
       } else if (b.rbi > 0) {
-        say(pick('rbi'), tok, sb, null, gd); spoken++;
+        say(pickPlay(b, 'rbi'), tok, sb, null, gd); spoken++;
         say(scoreUpdate(b), tok, sb); spoken++;
         if (b.walkoff) { say(pick('walkoff'), tok, sb, walkoffGraphic(b)); spoken++; walkoffHalf = true; }
       } else if (b.out) {
         // Call every out. Thread a chatter line between outs (never after the 3rd).
-        say(pick(`atbat.${b.kind}`, 'atbat.out'), tok, sb, null, gd); spoken++;
+        say(pickPlay(b, `atbat.${b.kind}`, 'atbat.out'), tok, sb, null, gd); spoken++;
         if (b.outs < 3 && spoken < target) chatter(b);
       } else if (spoken < target) {
         // Non-scoring baserunner — colour, only when the half still needs lines.
-        say(pick(`atbat.${b.kind}`, 'atbat.single'), tok, sb, null, gd); spoken++;
+        say(pickPlay(b, `atbat.${b.kind}`, 'atbat.single'), tok, sb, null, gd); spoken++;
       }
     }
 
@@ -2676,12 +2688,12 @@ function assembleSportsGraph(script, broadcastId, slot, override) {
       // Sim v2's scoring plays that aren't hits: a play on the bases, an error, a run forced
       // in, a double play that scores.
       if (b.type === 'run') say(pick(`run.${b.kind}.score`, `run.${b.kind}`), tok, sb, null, gd);
-      else if (b.kind === 'error') say(pick(`atbat.error.${b.errorType}`, 'atbat.error'), tok, sb, null, gd);
-      else if ((b.kind === 'hitbypitch' || b.kind === 'walk' || b.kind === 'doubleplay') && b.runs != null) say(pick(`atbat.${b.kind}`, 'atbat.walk'), tok, sb, null, gd);
-      else if (b.kind === 'homerun') { const key = b.rbi >= 4 ? 'hr.grand' : (b.rbi === 1 ? 'hr.solo' : 'hr'); say(pick(key, 'hr'), tok, sb, hrGraphic(b), gd); }
-      else if (b.kind === 'sacfly') say(pick('atbat.sacfly'), tok, sb, null, gd);
-      else if (b.kind === 'productout') say(pick('atbat.productout', 'atbat.groundout'), tok, sb, null, gd);
-      else say(pick('rbi'), tok, sb, null, gd);
+      else if (b.kind === 'error') say(pickPlay(b, `atbat.error.${b.errorType}`, 'atbat.error'), tok, sb, null, gd);
+      else if ((b.kind === 'hitbypitch' || b.kind === 'walk' || b.kind === 'doubleplay') && b.runs != null) say(pickPlay(b, `atbat.${b.kind}`, 'atbat.walk'), tok, sb, null, gd);
+      else if (b.kind === 'homerun') { const key = b.rbi >= 4 ? 'hr.grand' : (b.rbi === 1 ? 'hr.solo' : 'hr'); say(pickPlay(b, key, 'hr'), tok, sb, hrGraphic(b), gd); }
+      else if (b.kind === 'sacfly') say(pickPlay(b, 'atbat.sacfly'), tok, sb, null, gd);
+      else if (b.kind === 'productout') say(pickPlay(b, 'atbat.productout', 'atbat.groundout'), tok, sb, null, gd);
+      else say(pickPlay(b, 'rbi'), tok, sb, null, gd);
       say(scoreUpdate(b), tok, sb);
       if (b.walkoff) say(pick('walkoff'), tok, sb, walkoffGraphic(b));
     };

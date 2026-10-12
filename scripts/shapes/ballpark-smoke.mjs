@@ -368,8 +368,17 @@ for (const kind of ['sit', 'stand', 'cheer']) for (const far of [false, true]) {
   check('cast: the man on first leads off toward second', (() => { const r = cast.find((c) => c.look.role === 'runner' && c.at[0] < 0); return r && Math.hypot(r.at[0] - leadOff(1)[0], r.at[2] - leadOff(1)[2]) < 1e-9; })());
   check('cast: the same payload, the same bodies', castOf(p).map(castKey).join() === cast.map(castKey).join());
   const next = castOf({ ...p, batter: 'Okafor', bats: 'R' });
-  const changed = next.filter((c, i) => castKey(c) !== castKey(cast[i])).map((c) => c.look.role);
-  check('cast: a new batter rebuilds the batter and nobody else', changed.length === 1 && changed[0] === 'batter', changed.join());
+  const rebuilt = next.filter((c, i) => bodyKey(c) !== bodyKey(cast[i])).map((c) => c.look.role);
+  check('cast: a new batter rebuilds the batter and nobody else', rebuilt.length === 1 && rebuilt[0] === 'batter', rebuilt.join());
+  // The fielders shade to the hitter's pull side (diamond/play.js fieldSpots), where the server's
+  // plays start them: a hitter from the other side moves the seven of them over, and nobody else.
+  const moved = next.filter((c, i) => castKey(c) !== castKey(cast[i])).map((c) => c.look.role);
+  check('cast: a hitter from the other side moves the fielders over, and nobody else',
+    moved.filter((r) => r === 'fielder').length === 7 && moved.every((r) => r === 'fielder' || r === 'batter'), moved.join());
+  const ss = (q) => q.find((c) => c.id.endsWith(':SS'));
+  check('cast: the shortstop shades toward third for a right-handed hitter', ss(next).at[0] > ss(cast).at[0], `${ss(cast).at[0].toFixed(1)} to ${ss(next).at[0].toFixed(1)}`);
+  const sameSide = castOf({ ...p, batter: 'Okafor' }).filter((c, i) => castKey(c) !== castKey(cast[i])).map((c) => c.look.role);
+  check('cast: a new hitter from the same side moves nobody', sameSide.length === 1 && sameSide[0] === 'batter', sameSide.join());
   check('cast: a half-inning break has no batter', !castOf({ ...p, phase: 'half' }).some((c) => c.look.role === 'batter'));
   // a skinned body is who he is and what he wears: a new batter is one new body, and a runner who
   // moves up keeps his

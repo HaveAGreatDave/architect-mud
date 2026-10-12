@@ -3250,6 +3250,110 @@ export default async function regress({ check, run, getPlayer }) {
     }
   }
 
+  // ── Deadball's balls in play ────────────────────────────────────────────────
+  // The server decides every ball in play (synthPlay) so the booth's line can agree with the
+  // picture. It's cosmetic and seeded on its own, so it can't move a game: the v1 hash above
+  // holds with it built. Here: every play agrees with its kind and the sim, building the
+  // payloads leaves the game as it was, and the bare line pools say nothing that only some
+  // plays of their kind show (docs/bsm-format.md).
+  {
+    const B = await import('./sports/baseball.js');
+    const { gamedayPayloads } = await import('./sports/baseball-gameday.js');
+    const { sportsRng: rngOf, sportsHash: hashOf } = await import('./rng.js');
+    const { fenceAt } = await import('../../client/game/js/panels/diamond/play.js');
+    const M = { away: 'Rats', home: 'Kings' };
+    const fmt = { abbr: (n) => String(n).slice(0, 3).toUpperCase(), ordinal: (n) => `${n}th` };
+    const KIND_T = {
+      groundout: ['gb'], productout: ['gb'], doubleplay: ['gb'], tripleplay: ['gb'], flyout: ['fb'], sacfly: ['fb'], popout: ['pu'],
+      single: ['gb', 'ld', 'fb'], double: ['gb', 'ld', 'fb'], triple: ['gb', 'ld', 'fb'], homerun: ['ld', 'fb'], error: ['gb', 'ld', 'fb'],
+    };
+    const GRADES = new Set(['routine', 'ranging', 'diving', 'sliding', 'leaping', 'barehand', 'rail']);
+    const POS = { P: 1, C: 2, '1B': 3, '2B': 4, '3B': 5, SS: 6, LF: 7, CF: 8, RF: 9 };
+    const bad = [];
+    let plays = 0, none = 0, untouched = 0, same = 0, games = 0;
+    const why = (play, b, msg) => bad.push(`${b.kind} ${JSON.stringify(play)}: ${msg}`);
+    for (let s = 1; s <= 160 && bad.length < 4; s++) {
+      const seed = hashOf(s, 11);
+      const game = s % 2 ? B.simGameV2(M, null, rngOf(seed), { seed }) : B.simGame(M, null, rngOf(seed));
+      const before = JSON.stringify(game);
+      const { atbat } = gamedayPayloads(game, seed, fmt);
+      games++;
+      if (JSON.stringify(game) === before) untouched++;
+      const again = gamedayPayloads(game, seed, fmt).atbat;
+      if ([...atbat].every(([b, p]) => JSON.stringify(p.play) === JSON.stringify(again.get(b).play))) same++;
+      for (const [b, p] of atbat) {
+        const play = p.play;
+        if (b.type === 'run' || !KIND_T[b.kind]) { if (play) why(play, b, 'nothing was put in play'); else none++; continue; }
+        plays++;
+        if (!play) { why({}, b, 'no play'); continue; }
+        const { t, dir, ev, la, d, f, g } = play;
+        const fence = fenceAt(dir);
+        if (!KIND_T[b.kind].includes(t)) why(play, b, `a ${t} isn't a ${b.kind}`);
+        if (!Array.isArray(f) || !f.length || f.some((n) => !(n >= 1 && n <= 9))) why(play, b, 'the fielders');
+        if (![dir, ev, la, d].every(Number.isInteger) || !(ev >= 40 && ev <= 120) || !(d > 0) || !(play.sp >= 0 && play.sp <= 1)) why(play, b, 'the numbers');
+        if (Math.abs(dir) > 45 && !(b.kind === 'popout' && play.foul)) why(play, b, 'foul');
+        if (g && !GRADES.has(g)) why(play, b, `grade ${g}`);
+        if ((b.kind === 'groundout' || b.kind === 'productout') && !(f.length === 1 ? f[0] === 3 : f[f.length - 1] === 3 || f.join('') === '31')) why(play, b, 'not out at first');
+        if (b.kind === 'doubleplay' && !(f[f.length - 1] === 3 && [4, 6].includes(f.length === 2 ? f[0] : f[1]))) why(play, b, 'not a double play turned at second');
+        if (b.kind === 'tripleplay' && f.join('') !== '543') why(play, b, 'not 5-4-3');
+        if ((b.kind === 'flyout' || b.kind === 'sacfly') && !(f[0] >= 7 && d <= fence + 3)) why(play, b, 'not caught in the outfield');
+        if (b.kind === 'popout' && !(f[0] <= 6)) why(play, b, 'not caught on the infield');
+        if (b.kind === 'homerun' && !(d > fence)) why(play, b, `lands at ${d}, inside the fence at ${Math.round(fence)}`);
+        if (!['homerun', 'flyout', 'sacfly'].includes(b.kind) && d > fence) why(play, b, 'past the fence');
+        if (['single', 'double', 'triple'].includes(b.kind) && g && !play.th) why(play, b, 'a hit somebody fielded');
+        if (b.kind === 'error' && f[0] !== POS[b.fielder]) why(play, b, `the sim charged ${b.fielder}`);
+        if (b.kind === 'error' && !(b.errorType === 'throwing' ? ['past', 'stands'] : ['boot', 'legs', 'drop']).includes(play.e)) why(play, b, `a ${b.errorType} error is ${play.e}`);
+      }
+    }
+    check('deadball plays: every ball in play agrees with its kind and the sim, and nothing else has one',
+      !bad.length && plays > 3000 && none > 1000, `${plays} plays, ${none} without; ${bad.slice(0, 3).join(' | ')}`);
+    check('deadball plays: building the payloads leaves the game as it was, and the same at-bat gets the same play',
+      untouched === games && same === games, `${untouched}/${games} untouched, ${same}/${games} the same`);
+
+    // The booth. A pool named for a kind of play airs on every play of that kind, so its lines
+    // can't name a direction, a depth, a kind of contact or a kind of catch: those live in a pool
+    // with the play's tag after it. Each word list below is what a bare line can't say, less what
+    // its kind always is (a groundout is always on the ground, a home run always over the wall).
+    const bsm = new Function(`${readFileSync(new URL('../../client/devpanel/js/bsm-compiler.js', import.meta.url), 'utf8')}\n;return compileBsm;`)();
+    const pools = bsm(readFileSync(new URL('../../data/scripts/baseball.bsm', import.meta.url), 'utf8')).sportsScript.pools;
+    const PICTURE = {
+      left: /\bleft\b(?! (?:on|standing|over|in|out)\b)/i,
+      right: /\bright\b(?! (?:past|through|there|now|away|here|back|off|on|into|in)\b)/i,
+      centre: /\bcent(?:re|er)\b/i, gap: /\bgaps?\b/i, wall: /\bwalls?\b/i, line: /\b(?:lines?|liners?|laces|laser)\b/i,
+      deep: /\bdeep\b/i, shallow: /\bshallow\b/i, short: /\bshort\b/i, horn: /\baround the horn\b/i, corner: /\bcorner\b/i,
+      track: /\btrack\b/i, hole: /\bhole\b/i, middle: /\bup the middle\b|\bcomebacker\b/i, infield: /\binfield/i, outfield: /\boutfield/i,
+      routine: /\broutine\b|\beasy\b|\bcamped\b|\btailor-made\b|\bright at\b/i, dive: /\bdiv(?:e|es|ing)\b|\bdove\b|\blays? out\b/i,
+      leap: /\bleap|\bjump/i, slide: /\bslid(?:e|es|ing)\b/i, barehand: /\bbare/i, standup: /\bstand(?:ing|-up)\b/i,
+      bloop: /\bbloop|\bflare\b/i, chop: /\bchop|\bdribbl|\btaps?\b|\broller\b/i, foul: /\bfoul\b|\bfair\b/i, pole: /\bpole\b/i,
+      seats: /\bseats\b|\bstands\b|\bfirst row\b/i, fence: /\bfence\b/i, pull: /\bpull|\bturns on\b|\bother way\b/i,
+      ground: /\bground(?:er|ers|s| ball)?\b|\bbounces?\b/i, fly: /\bfl(?:y|ies|ied)\b|\blifts?\b|\bskies\b/i, pop: /\bpop/i, up: /\bstraight up\b/i,
+    };
+    const ON_GROUND = ['ground', 'infield'], IN_AIR = ['fly', 'outfield'], OVER = ['deep', 'wall', 'fence'];
+    const BARE = {
+      'atbat.groundout': ON_GROUND, 'atbat.productout': ON_GROUND, 'atbat.doubleplay': ON_GROUND, 'atbat.tripleplay': ON_GROUND,
+      'atbat.flyout': IN_AIR, 'atbat.sacfly': [...IN_AIR, 'deep'], 'atbat.popout': ['pop'], 'atbat.out': [],
+      'atbat.single': [], 'atbat.double': [], 'atbat.triple': ['deep'], 'atbat.error': [], 'atbat.error.throwing': [],
+      rbi: [], hr: OVER, 'hr.solo': OVER, 'hr.grand': OVER,
+    };
+    const loose = [];
+    for (const [key, always] of Object.entries(BARE)) {
+      for (const line of pools[key] || []) {
+        const said = Object.entries(PICTURE).filter(([w, re]) => !always.includes(w) && re.test(line)).map(([w]) => w);
+        if (said.length) loose.push(`${key}: [${said.join(', ')}] "${line}"`);
+      }
+    }
+    check('deadball booth: a bare pool names no direction, depth or kind of catch', !loose.length, loose.slice(0, 3).join(' | '));
+    check('deadball booth: every bare pool has lines', Object.keys(BARE).every((k) => (pools[k] || []).length), Object.keys(BARE).filter((k) => !(pools[k] || []).length).join(', '));
+    // Each suffixed pool's suffix, after the longest bare pool it qualifies, is a tag a play
+    // carries: a misspelt tag would be a pool that never airs.
+    const keys = Object.keys(BARE).sort((a, b) => b.length - a.length);
+    const unknown = Object.keys(pools).filter((k) => {
+      const base = keys.find((b) => k.startsWith(`${b}.`));
+      return base && !BARE[k] && !B.PLAY_TAGS.has(k.slice(base.length + 1));
+    });
+    check('deadball booth: every suffixed pool is named for a tag a play carries', !unknown.length, unknown.join(', '));
+  }
+
   // ── Acted-live shows run on the REAL clock inside an in-game slot ────────────
   // A daily slot is authored in in-game seconds since midnight; an assembled show is a
   // real-time performance. Handing the seeker raw in-game seconds ran it `timeScale` laps

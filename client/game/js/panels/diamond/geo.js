@@ -16,6 +16,9 @@ const D = BASE_PATH / Math.SQRT2;
 export const BAGS = Object.freeze({ 1: [-D, 0, D], 2: [0, 0, 2 * D], 3: [D, 0, D] });
 // The mound's centre on the ground (x, z), and the rubber's centre in 3-D.
 export const MOUND = Object.freeze([0, 59.5]);
+// Foul ground: the lower bowl's rail stands this far off either line, and the backstop this far
+// behind the plate. The park's mesh builds them here and a foul pop comes down inside them.
+export const FOUL_GROUND = Object.freeze({ line: 44, back: 60 });
 export const RUBBER = Object.freeze([0, 0.86, 60.75]);
 
 // The mound: a ten-inch rise round the rubber falling off to the infield grass.

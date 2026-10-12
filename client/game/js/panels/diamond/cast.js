@@ -19,13 +19,9 @@
  */
 
 import { BAGS, DEG } from './geo.js';
+import { fieldSpots, POSITIONS } from './play.js';
 
 const RUBBER = [0, 0.833, 60.5];
-// The fielders' spots, the look-dev's: +x is the third-base side, so left field is +x.
-export const FIELD_SPOTS = Object.freeze({
-  '1B': [-66, 0, 61], '2B': [-36, 0, 136], SS: [33, 0, 140], '3B': [62, 0, 82],
-  LF: [135, 0, 262], CF: [-4, 0, 318], RF: [-128, 0, 255],
-});
 // Facing home from a spot, in degrees about the vertical (0 faces +z).
 export const faceHome = (p) => Math.atan2(-p[0], -p[2]) / DEG;
 const faceAt = (p, q) => Math.atan2(q[0] - p[0], q[2] - p[2]) / DEG;
@@ -62,8 +58,10 @@ export function castOf(p) {
   const lefty = p.throws === 'L';
   person(0, p.pitcher || `${fieldTeam}:P`, fieldSide, 'pitcher', 'pSet', RUBBER, lefty ? -90 : 90, { glove: lefty ? 'R' : 'L' }, { mirror: lefty, scale: 1.03 });
   person(1, `${fieldTeam}:C`, fieldSide, 'catcher', 'catcher', [0, 0, -2.75], 0, { glove: 'L' });
+  // the seven others where the play's fielders start (diamond/play.js), shaded to the hitter's pull side
+  const spots = fieldSpots(p.bats);
   ['1B', '2B', 'SS', '3B', 'LF', 'CF', 'RF'].forEach((pos, i) => {
-    const at = FIELD_SPOTS[pos];
+    const at = spots[POSITIONS.indexOf(pos)];
     person(2 + i, `${fieldTeam}:${pos}`, fieldSide, 'fielder', pos.length === 2 && /F$/.test(pos) ? 'outfield' : 'infield', at, faceHome(at), { glove: 'L' });
   });
   // the batter, in the box for his side; a play on the bases has him standing in it too

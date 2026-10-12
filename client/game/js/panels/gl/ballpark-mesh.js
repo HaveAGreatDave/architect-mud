@@ -27,7 +27,7 @@
 //
 // ⚠ NO FACE CULLING, as in arena.js: the builders don't keep one winding.
 
-import { DEG, BAGS, MOUND, RUBBER, moundHeight, venueField, fenceDistance, parkOutline, insideOutline, seeded } from '../diamond/geo.js';
+import { DEG, BAGS, MOUND, RUBBER, FOUL_GROUND, moundHeight, venueField, fenceDistance, parkOutline, insideOutline, seeded } from '../diamond/geo.js';
 
 export const STRIDE = 12;
 export const MAT = Object.freeze({
@@ -186,12 +186,12 @@ function buildField(B, outline) {
 export function bowlPath() {
   const pts = [];
   const d1 = norm([-1, 0, 1]), n1 = norm([-1, 0, -1]), d3 = norm([1, 0, 1]), n3 = norm([1, 0, -1]);
-  for (let s = 318; s > 62; s -= 8) pts.push(add(mul(d1, s), mul(n1, 44)));
+  for (let s = 318; s > 62; s -= 8) pts.push(add(mul(d1, s), mul(n1, FOUL_GROUND.line)));
   for (let i = 0; i <= 40; i++) {
     const a = (-80 - 200 * i / 40) * DEG, u = i / 40, rr = 75 - 15 * Math.sin(Math.PI * u);
     pts.push([rr * Math.sin(a), 0, rr * Math.cos(a)]);
   }
-  for (let s = 62; s <= 318; s += 8) pts.push(add(mul(d3, s), mul(n3, 44)));
+  for (let s = 62; s <= 318; s += 8) pts.push(add(mul(d3, s), mul(n3, FOUL_GROUND.line)));
   return pts;
 }
 
@@ -358,7 +358,7 @@ export function buildPark(venue, opts = {}) {
   // the backstop net, see-through
   into = translucent;
   const net = [];
-  for (let a = -140; a >= -220; a -= 4) { const t = a * DEG; net.push([Math.sin(t) * 61, 0, Math.cos(t) * 61]); }
+  for (let a = -140; a >= -220; a -= 4) { const t = a * DEG; net.push([Math.sin(t) * (FOUL_GROUND.back + 1), 0, Math.cos(t) * (FOUL_GROUND.back + 1)]); }
   strip(B('net'), net, 4.5, 36, WHITE, MAT.METAL, 1.2);
   into = opaque;
   // the light towers: a mast, a frame and a bank of 24 lamps, the working ones lit

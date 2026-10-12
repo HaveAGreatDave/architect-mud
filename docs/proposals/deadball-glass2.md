@@ -1,9 +1,10 @@
 # Deadball in GLASS 2
 
-**Status: Phase 0, sim v2, Phase 1 and Phase 2 built, behind a flag: the park in 3-D with its
-light, air, lens and grade, the arcade graphics, and the city round the park as a set with the
-park's own outside (1a to 1e); skinned players who pitch, swing, catch and call every pitch at its
-real speed and spot, and the Pose Lab their clips are keyed in (2a to 2e).** A plan for giving Deadball a 3-D sub-screen the way Cluster Puck got Rinkside, at the
+**Status: Phase 0, sim v2, Phases 1 and 2 and the plays of Phase 3 built, behind a flag: the
+park in 3-D with its light, air, lens and grade, the arcade graphics, and the city round the park
+as a set with the park's own outside (1a to 1e); skinned players who pitch, swing, catch and call
+every pitch at its real speed and spot, and the Pose Lab their clips are keyed in (2a to 2e);
+every ball in play decided on the server, with the booth's lines sorted to agree with it (3a).** A plan for giving Deadball a 3-D sub-screen the way Cluster Puck got Rinkside, at the
 highest fidelity the engine can reach. Deadball is a live sport on KSAB, and the broadcast borrows
 the look of a 1990s arcade baseball game. That means skinned, detailed players, authored animation
 with a wide spread of plays, light from the park's own towers and a crowd that fills the stands.
@@ -1122,6 +1123,16 @@ narrator decide cosmetic facts so the line and the picture agree.
   words (left, right, centre, gap, wall, line, deep, shallow, short, around the horn) and fails on
   one. The current lines that name a direction move into suffixed pools.
 
+**As built (3a).** `synthPlay(seed, kind, o)` decides more than the zone: the spray in degrees, the
+exit speed and launch angle, the fielding grade and the throw, judged on the field in
+[diamond/play.js](../../client/game/js/panels/diamond/play.js), which the 3-D park reads too. Two
+things changed from the above. A suffixed pool's lines join the bare pool's in one draw instead of
+replacing them, so a play's direction line airs often without crowding the rest out; the bare pool
+has to be true of every play either way. And the check reads more than direction: the contact (a
+liner, a chopper), the catch (routine, diving, at the wall) and the slide are also things only some
+plays of a kind show, so they're tags too. See
+[bsm-format.md](../bsm-format.md#lines-that-agree-with-the-play-baseball).
+
 ### Egress and read tiers
 
 Nothing here touches a hot path or adds a query. The graph is assembled once per slot and cached
@@ -1574,6 +1585,22 @@ Phase 3, or with sim v2 if that comes later.
 - `gl/spectacle.js`: trails, contact sparks and fireworks; the side-on home-run camera; splash words
   for every play that earns one.
 - Tested by: `diamond-smoke` in full, `variety-smoke`, regress for the play and the season hash.
+- **3a built:** every ball in play is decided on the server. `synthPlay` in
+  [baseball.js](../../plugins/broadcast/sports/baseball.js) gives each one its spray, exit speed
+  and launch angle, where it's fielded or comes down, the fielders it goes through, the fielding
+  grade and the throw, and for a hit the wall, the slide and any man who dove for it and missed,
+  and for a home run its kind. The field it's judged on is
+  [diamond/play.js](../../client/game/js/panels/diamond/play.js): where the nine stand, shaded to
+  the hitter's pull side (the 3-D cast stands them there too), how far a ball carries or rolls,
+  and how far a fielder gets in the time, so a grade is the share of his reach the play took.
+  Every candidate is drawn round the man who has to make the play and kept with the chance a play
+  that hard gets made, so about seven groundouts in ten are routine and one in fifty takes a
+  dive. The payload carries it as `play`, about 75 bytes. The booth's ball-in-play lines were
+  sorted into bare pools that are true of every play of their kind and 85 suffixed pools for what
+  only some plays show, and the assembler draws from both (`sportsPickTagged`). The 2-D view
+  draws the play: the ball to the man it names and on through the bags the outs were made at.
+  Tested by `variety-smoke`, regress (every play against its kind and the sim, the payloads
+  leaving the game as it was, the bare pools, the tags) and `gameday-smoke`'s ball check.
 
 **Phase 4: the broadcast.** On by default wherever WebGL2 and float targets work.
 - `gl/crowd.js` with seated and reaction clips; replays in slow motion; dead-time rituals; the grounds

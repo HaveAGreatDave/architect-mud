@@ -8,16 +8,17 @@
  * the gates build the very same payloads from the very same games with no server
  * (scripts/shapes/gameday-smoke.mjs).
  *
- * Pure, and it never touches the sim's random stream: the pitches come from seeds of
- * their own (`sportsHash` of the game seed, the half and the at-bat), so building
- * payloads can't change a game.
+ * Pure, and it never touches the sim's random stream: the pitches and the ball in play come
+ * from seeds of their own (`sportsHash` of the game seed, the half and the at-bat), so
+ * building payloads can't change a game.
  *
  * What the broadcast adds on top, because only it knows them: the league table, the
  * leaders and the season on the game's first payload, the season so far (`ledger`) that
  * the men's lines start from, and how long each payload's line holds.
  */
 import { sportsHash } from '../rng.js';
-import { synthPitches, playDesc, handOf, battingSide, foldGame, quicknessOf, armOf, LINEUP_POSITIONS } from './baseball.js';
+import { synthPitches, synthPlay, playDesc, handOf, battingSide, foldGame, quicknessOf, armOf, speedOf, LINEUP_POSITIONS } from './baseball.js';
+import { venueField } from '../../../client/game/js/panels/diamond/geo.js';
 
 const HIT = new Set(['single', 'double', 'triple', 'homerun']);
 
@@ -169,12 +170,15 @@ function stealClock(game, b) {
 // (the score bug's team tags and "3rd"), passed in so the payloads match its lines.
 // With `ledger` (the season so far), every play also carries the batter's and the
 // pitcher's lines as they stood before it (nightLines); without one it carries none,
-// since a line counted from tonight alone isn't a season.
+// since a line counted from tonight alone isn't a season. `venue` is the park
+// (sports_pools.venue): a ball in play is judged against its fence.
 // Returns { halves, atbat: Map(beat -> payload), half: Map(half_start -> payload),
 // order: [every payload in game order] }. `atbat` holds every play's payload: the
-// at-bats, and in a sim v2 game the plays on the bases too.
-export function gamedayPayloads(game, seed, { abbr, ordinal, ledger = null }) {
+// at-bats, and in a sim v2 game the plays on the bases too. An at-bat that put a ball in
+// play carries it as `play` (synthPlay in baseball.js).
+export function gamedayPayloads(game, seed, { abbr, ordinal, ledger = null, venue = null }) {
   const halves = gamedayHalves(game.beats);
+  const fence = venueField(venue).fence;
   const v2 = game.version === 2;
   const line = lineSnapshots(halves, { errors: v2 });
   const lines = ledger ? nightLines(game, ledger) : null;
@@ -207,11 +211,12 @@ export function gamedayPayloads(game, seed, { abbr, ordinal, ledger = null }) {
       const scored = Number.isFinite(now) && Number.isFinite(score) ? now - score : (b.rbi ?? 0);
       score = now;
       const after = b.bases || [false, false, false];
+      const bats = battingSide(b.batter, b.pitcher);
       const common = {
         sport: 'baseball',
         batter: b.batter || '', pitcher: b.pitcher || '',
         // The side he bats from against this pitcher, and the pitcher's arm, from their names.
-        bats: battingSide(b.batter, b.pitcher), throws: handOf(b.pitcher).throws,
+        bats, throws: handOf(b.pitcher).throws,
         ...(handOf(b.batter).bats === 'S' ? { switchHitter: true } : {}),
         battingTeam: b.battingName, fieldingTeam: b.fieldingName,
         battingAbbr: abbr(b.battingName), fieldingAbbr: abbr(b.fieldingName),
@@ -220,6 +225,10 @@ export function gamedayPayloads(game, seed, { abbr, ordinal, ledger = null }) {
       // A sim v2 game names its runners and hands over each man's fate; a v1 game's are
       // worked out from the bags.
       const moves = Array.isArray(b.moves) ? b.moves : runnerMoves(prev, after, b.kind, scored);
+      // The at-bat's seed: its pitches, and the ball he put in play, each salted its own way.
+      const abSeed = b.type === 'run' ? 0 : sportsHash(seed, b.inning * 2 + (b.half === 'bottom' ? 1 : 0), abIdx++ >>> 0);
+      const play = b.type === 'run' ? null
+        : synthPlay(abSeed, b.kind, { bats, before: prev, fielder: b.fielder, errorType: b.errorType, speed: speedOf(b.batter), fence });
       const p = b.type === 'run'
         // A play on the bases while the batter is up (sim v2): `phase: 'run'`, with the man
         // running and the bag in play, and no pitches of its own.
@@ -241,7 +250,8 @@ export function gamedayPayloads(game, seed, { abbr, ordinal, ledger = null }) {
           basesBefore: prev, basesAfter: after, moves,
           awayScore: b.awayScore, homeScore: b.homeScore,
           desc: playDesc(b),
-          pitches: synthPitches(sportsHash(seed, b.inning * 2 + (b.half === 'bottom' ? 1 : 0), abIdx++ >>> 0), b.kind),
+          pitches: synthPitches(abSeed, b.kind),
+          ...(play ? { play } : {}),
           line: line.get(b) || null,
           ...(lines?.get(b) || {}),
         };

@@ -19,6 +19,11 @@
  * being retrofitted around hockey later.
  */
 import { sportsRng, sportsShuffle, sportsHash } from '../rng.js';
+import {
+  fieldSpots, groundChances, airChances, carry, evFor, hangTime, gradeOf, toPark, sprayOf, fenceAt,
+  toFirst, throwTime, railRoom, RANGING, TRANSFER, POSITIONS,
+} from '../../../client/game/js/panels/diamond/play.js';
+import { BAGS } from '../../../client/game/js/panels/diamond/geo.js';
 
 // ── At-bat outcomes ──────────────────────────────────────────────────────────
 // One plate appearance → an outcome. Weights are tuned to real MLB per-PA rates:
@@ -171,6 +176,405 @@ export function synthPitches(seed, kind) {
       result, balls, strikes,
     };
   });
+}
+
+// ── The play ─────────────────────────────────────────────────────────────────
+// Where a ball in play goes and who fields it, decided here so the booth's line can agree with
+// the picture: the broadcast opens the line pools whose tags the play carries (playTags, and
+// docs/bsm-format.md), and the 3-D park stages it. The field it's judged on (where the nine
+// stand, how far a ball carries or rolls, how far a fielder can get) is
+// client/game/js/panels/diamond/play.js, which the picture reads too, so a play the server calls
+// a dive is one the park can show as a dive.
+//
+// Seeded from the at-bat's seed with a salt of its own, as the pitches are, so it never touches
+// the sim's stream and no game in the season changes. Cosmetic: nothing in the sim reads it.
+//
+// Every candidate is drawn round the man who has to make the play and kept with the chance a
+// play that hard gets made, so most outs are routine, a dive is rare, and a hit goes where
+// nobody could get to it.
+//
+// Returns null for a plate appearance with no ball in play, else:
+//
+//   t     off the bat: 'gb' a ground ball, 'ld' a line drive, 'fb' a fly, 'pu' a pop-up
+//   dir   spray in degrees: -45 the left-field line, 0 straightaway centre, +45 the right-field
+//         line, and past either in foul ground (a pop-up only)
+//   ev    exit speed (mph) and `la` launch angle (degrees)
+//   d     feet from the plate: where it's fielded on the ground, caught, or first comes down
+//   f     the fielders in the order the ball goes through them, numbered as a scorer numbers
+//         them: [6, 4, 3] is a 6-4-3 double play. The first fields it.
+//   g     how the first got to it: routine, ranging, diving, sliding, leaping (at the wall),
+//         barehand (a slow roller charged) or rail (a foul pop at the stands)
+//   mi    on a hit, the man who dove for it and missed
+//   th    the throw that decided it, where it wasn't clean: dirt (scooped), wide (pulled him
+//         off the bag), late (beaten out), home (to the plate on a sac fly)
+//   x     where an extra-base hit got to: wall (off it on the fly) or roll (rolled to it)
+//   sl    the batter slid into his bag
+//   hr    a home run: nodoubt, plain, scraper, leap (an outfielder jumping at the wall), pole
+//   foul  a pop-up caught in foul ground
+//   e     an error: boot, legs or drop when he fields it, past or stands when he throws it
+//   sp    the batter's legs (speedOf), which the picture runs him at
+//
+// `o` is { bats, before, fielder, errorType, speed, fence }: the side he bats from, the bags
+// before the play, sim v2's error, his legs and the venue's fence (diamond/geo.js venueField).
+const PLAY_SALT = 0x504c4159;
+const BATTED = new Set(['groundout', 'productout', 'doubleplay', 'tripleplay', 'flyout', 'sacfly', 'popout', 'single', 'double', 'triple', 'homerun', 'error']);
+// The double plays, by how often each comes up for a right-handed and a left-handed hitter. The
+// last throw is to first.
+const DP_TYPES = {
+  R: [['643', 34], ['463', 18], ['543', 16], ['163', 10], ['63', 7], ['363', 6], ['43', 3]],
+  L: [['463', 32], ['643', 20], ['363', 15], ['163', 10], ['543', 7], ['43', 6], ['63', 4]],
+};
+// Who fields a groundout and who catches a flyout, for a right-handed hitter; a left-hander's
+// are the mirror. Three grounders in five go to the pull side; fly balls spread more evenly.
+const GROUND_TO = [[6, 33], [5, 21], [4, 20], [3, 13], [1, 11], [2, 2]];
+const FLY_TO = [[7, 30], [8, 36], [9, 34]];
+const MIRROR = { 1: 1, 2: 2, 3: 5, 4: 6, 5: 3, 6: 4, 7: 9, 8: 8, 9: 7 };
+
+export function synthPlay(seed, kind, o = {}) {
+  if (!BATTED.has(kind)) return null;
+  const rand = sportsRng(sportsHash(seed >>> 0, PLAY_SALT));
+  const bats = o.bats === 'L' ? 'L' : 'R', pull = bats === 'L' ? 1 : -1;
+  const spots = fieldSpots(bats);
+  const speed = Number.isFinite(o.speed) ? o.speed : 0.5;
+  const legs = toFirst(speed, bats);
+  const U = (a, b) => a + (b - a) * rand();
+  const tri = (a, b) => a + ((b - a) * (rand() + rand())) / 2;
+  const coin = (p) => rand() < p;
+  const weighted = (list) => {
+    let r = rand() * list.reduce((s, [, w]) => s + w, 0);
+    for (const [k, w] of list) if ((r -= w) <= 0) return k;
+    return list[list.length - 1][0];
+  };
+  const mine = (list) => (bats === 'R' ? list : list.map(([n, w]) => [MIRROR[n], w]));
+  // The chance a play that took `ratio` of his reach gets made: certain to about a third, none at
+  // the end of it. A ball in the air can come down anywhere round him, so there are more far from
+  // him than near, and its chance is weighed against that.
+  const made = (ratio) => (ratio <= 0.3 ? 1 : Math.max(0, 1 - (ratio - 0.3) / 0.7) ** 1.4);
+  const caught = (ratio) => (ratio <= 0.3 ? 1 : Math.max(0, 1 - (ratio - 0.3) / 0.7) ** 1.6) * Math.min(1, 0.15 / Math.max(ratio, 0.01));
+  // A spray to the pull side `share` of the time, `lo` to `hi` degrees off centre.
+  const spray = (share, lo = 0, hi = 45) => Math.round((coin(share) ? pull : -pull) * U(lo, hi));
+  const depth = (n) => Math.hypot(spots[n][0], spots[n][2]);
+  const wallAt = (dir) => fenceAt(dir, o.fence);
+  // Who a ball in the outfield goes back in to: the shortstop on the left side, the second
+  // baseman on the right.
+  const cutoff = (dir) => (dir < -4 ? 6 : dir > 4 ? 4 : coin(0.5) ? 6 : 4);
+  const corner = (dir) => (dir < 0 ? 7 : 9);
+  const ev3 = (x) => Math.round(x);
+
+  // ── on the ground ──
+  const evGround = (slow) => ev3(slow ? U(46, 62) : coin(0.06) ? U(48, 62) : tri(64, 110));
+  const laGround = () => Math.round(tri(-22, 6));
+  // A ball on the ground that `n` gets to first and makes the play on, kept when `keep(chance, ev)`.
+  // It's drawn within `spread` degrees of `aim`, his own spot unless the play needs it somewhere.
+  const grounder = (n, keep, slow = false, aim = null, spread = 15) => {
+    const fdir = sprayOf(spots[n]), centre = aim ?? fdir;
+    for (let k = 0; k < 120; k++) {
+      const dir = Math.round(centre + U(-spread, spread)), ev = evGround(slow), la = laGround();
+      if (Math.abs(dir) > 45) continue;
+      const c = groundChances(spots, dir, ev, la)[0];
+      if (!c || c.n !== n || !c.can || rand() > made(c.ratio) || !keep(c, ev)) continue;
+      return { dir, ev, la, c };
+    }
+    // Nothing fitted: about at him.
+    const dir = Math.round(fdir + U(-3, 3)), ev = ev3(tri(76, 98)), la = Math.round(U(-8, 0));
+    const all = groundChances(spots, dir, ev, la);
+    return { dir, ev, la, c: all.find((x) => x.n === n && x.can) || all.find((x) => x.n === n) };
+  };
+  const groundGrade = (n, c, ev) => (ev < 63 && n !== 3 && depth(n) - c.s > 15 ? 'barehand' : gradeOf(c.ratio));
+  const onGround = (r, f, g, more = {}) => ({ t: 'gb', dir: r.dir, ev: r.ev, la: r.la, d: Math.round(r.c.s), f, g, ...more });
+  // A dribbler the catcher pounces on in front of the plate.
+  const dribbler = () => ({
+    t: 'gb', dir: Math.round(U(-38, 38)), ev: ev3(U(44, 58)), la: Math.round(U(-30, -16)), d: Math.round(U(6, 24)),
+    f: [2, 3], g: coin(0.55) ? 'barehand' : 'routine',
+  });
+  const groundout = (n) => {
+    if (n === 2) return dribbler();
+    const r = grounder(n, (c) => c.out < legs - 0.1);
+    const f = n === 3 ? (r.c.ratio <= 0.45 && coin(0.75) ? [3] : [3, 1]) : [n, 3];
+    return onGround(r, f, groundGrade(n, r.c, r.ev), f[0] !== 3 && coin(0.1) ? { th: 'dirt' } : {});
+  };
+  const doubleplay = () => {
+    const f = [...weighted(DP_TYPES[bats])].map(Number), n = f[0], pivot = f.length === 3 ? f[1] : n;
+    // the 6-3 and 4-3: he takes it to the bag himself, so it's hit near second
+    const self = f.length === 2;
+    const r = grounder(n, (c) => {
+      const bag = Math.hypot(BAGS[2][0] - c.at[0], BAGS[2][2] - c.at[2]);
+      if (self && bag > 20) return false;
+      const toSecond = self ? bag / 20 : throwTime(n, c.at, BAGS[2]);
+      return c.t + TRANSFER[gradeOf(c.ratio)] + toSecond + 0.35 + throwTime(pivot, BAGS[2], BAGS[1]) < legs + 0.3;
+    }, false, self ? 0 : null, self ? 9 : 15);
+    return onGround(r, f, gradeOf(r.c.ratio));
+  };
+  // Always 5-4-3: the third baseman gloves it at the bag and steps on it.
+  const tripleplay = () => {
+    const r = grounder(5, (c) => Math.hypot(BAGS[3][0] - c.at[0], BAGS[3][2] - c.at[2]) < 16);
+    return onGround(r, [5, 4, 3], gradeOf(r.c.ratio));
+  };
+
+  // ── in the air ──
+  // A fly ball that `n` catches, at least `minD` deep: drawn round him, kept with the chance a
+  // catch that hard is made, only if he's the man it's easiest for, and when `keep(chance, d, wall)`.
+  const flyTo = (n, minD = 170, keep = () => true) => {
+    const fdir = sprayOf(spots[n]), fd = depth(n);
+    for (let k = 0; k < 120; k++) {
+      const dir = Math.round(fdir + U(-24, 24));
+      if (Math.abs(dir) > 45) continue;
+      const wall = wallAt(dir), d = Math.round(fd + U(-110, 88));
+      if (d < minD || d > wall + 3) continue;
+      const la = Math.round(tri(22, 48)), ev = ev3(evFor(d, la));
+      if (!(ev >= 60 && ev <= 112)) continue;
+      const T = hangTime(ev, la), c = airChances(spots, toPark(dir, d), T, [7, 8, 9])[0];
+      if (c.n !== n || c.ratio > 1 || !keep(c, d, wall)) continue;
+      const atWall = d >= wall - 2;
+      if (rand() > caught(c.ratio) * (atWall ? 2.5 : 1) * (d > wall ? 0.4 : 1)) continue;
+      let g = atWall ? 'leaping' : gradeOf(c.ratio);
+      if (g === 'diving' && d < fd - 10 && la < 32) g = 'sliding';
+      return { t: 'fb', dir, ev, la, d, f: [n], g };
+    }
+    const dir = Math.round(fdir), d = Math.round(fd), ev = ev3(evFor(d, 34));
+    return { t: 'fb', dir, ev, la: 34, d, f: [n], g: 'routine' };
+  };
+  const popup = () => {
+    for (let k = 0; k < 160; k++) {
+      const foul = coin(0.55), back = foul && coin(0.3);
+      const dir = Math.round(!foul ? U(-45, 45) : (coin(0.5) ? -1 : 1) * (back ? U(140, 180) : U(47, 105)));
+      const la = Math.round(U(52, 72)), ev = ev3(tri(52, 90)), d = Math.round(carry(ev, la));
+      if (d < 15 || d > 175) continue;
+      // past the rail it's a foul ball in the seats, not an out, unless he reaches in for it
+      const room = foul ? railRoom(dir, d) : Infinity;
+      if (room < -2) continue;
+      // The infielders call for it: the catcher takes the ones round the plate and behind it, and
+      // the pitcher gets out of the way.
+      const T = hangTime(ev, la), near = d < 40 || Math.abs(dir) >= 90;
+      const lean = (c) => c.ratio * (c.n === 1 ? 4 : c.n === 2 && !near ? 1.6 : 1);
+      const c = airChances(spots, toPark(dir, d), T, [2, 3, 4, 5, 6, 1]).sort((a, b) => lean(a) - lean(b))[0];
+      if (c.ratio > 1 || rand() > caught(c.ratio) * (room < 10 ? 3 : 1)) continue;
+      const g = room <= 2 || (room < 10 && coin(0.6)) ? 'rail' : gradeOf(c.ratio);
+      return { t: 'pu', dir, ev, la, d, f: [c.n], g, ...(foul ? { foul: 1 } : {}) };
+    }
+    return { t: 'pu', dir: 10, ev: 70, la: 66, d: Math.round(carry(70, 66)), f: [6], g: 'routine' };
+  };
+
+  // ── base hits ──
+  // Whether a hit gets past the man with the best chance at it: a ball he'd make every time
+  // never does, and a dive that comes up empty is his `mi`.
+  const gotPast = (c, air = false) => {
+    if (!c || c.ratio > 1) return {};
+    if (rand() < (air ? caught(c.ratio) / Math.min(1, 0.15 / Math.max(c.ratio, 0.01)) : made(c.ratio))) return null;
+    return c.ratio > RANGING && c.ratio < 0.95 && coin(0.5) ? { mi: c.n } : {};
+  };
+  // The outfielder who picks up a ball that's come down at `at` `T` seconds after it was hit.
+  const pickUp = (at, T, who = [7, 8, 9]) => airChances(spots, at, T, who)[0].n;
+  const single = () => {
+    const how = weighted([['hole', 44], ['liner', 30], ['bloop', 13], ['infield', 10], ['wide', 3]]);
+    if (how === 'infield' || how === 'wide') {
+      const n = weighted(how === 'wide' ? [[6, 34], [5, 30], [4, 26], [1, 10]] : [[6, 32], [5, 28], [4, 22], [2, 8], [1, 5], [3, 5]]);
+      if (n === 2) return { ...dribbler(), th: 'late' };
+      // beaten out: a slow roller, or a ball deep enough in the hole that the throw can't get there
+      const late = how === 'infield', deep = late && coin(0.5);
+      const r = grounder(n, (c) => (late ? c.out > legs && (!deep || c.ratio > 0.45) : c.out < legs - 0.1), late && !deep);
+      return onGround(r, n === 3 ? [3, 1] : [n, 3], groundGrade(n, r.c, r.ev), { th: late ? 'late' : 'wide' });
+    }
+    for (let k = 0; k < 120; k++) {
+      if (how === 'hole') {
+        const dir = spray(0.6), ev = ev3(tri(72, 112)), la = Math.round(tri(-14, 6));
+        const past = gotPast(groundChances(spots, dir, ev, la).find((c) => c.can));
+        if (!past) continue;
+        // the outfielder comes in and meets it
+        const s = 250, n = pickUp(toPark(dir, s), 3, [7, 8, 9]);
+        const meet = Math.round(Math.hypot(spots[n][0], spots[n][2]) * Math.cos((dir - sprayOf(spots[n])) * Math.PI / 180) - U(15, 40));
+        return { t: 'gb', dir, ev, la, d: meet, f: [n, cutoff(dir)], ...past };
+      }
+      const liner = how === 'liner';
+      const dir = spray(liner ? 0.55 : 0.5, 0, 44);
+      const la = Math.round(liner ? U(7, 20) : U(24, 42)), ev = ev3(liner ? tri(80, 112) : U(55, 76)), d = Math.round(carry(ev, la));
+      if (d < 120 || d > (liner ? wallAt(dir) - 70 : 245)) continue;
+      const T = hangTime(ev, la), at = toPark(dir, d);
+      const past = gotPast(airChances(spots, at, T, liner ? [3, 4, 5, 6, 7, 8, 9] : [1, 3, 4, 5, 6, 7, 8, 9])[0], true);
+      if (!past) continue;
+      const n = pickUp(at, T + 1.5, liner ? [7, 8, 9] : [3, 4, 5, 6, 7, 8, 9]);
+      return { t: liner ? 'ld' : 'fb', dir, ev, la, d, f: n >= 7 ? [n, cutoff(dir)] : [n], ...past };
+    }
+    return { t: 'ld', dir: 0, ev: 92, la: 12, d: Math.round(carry(92, 12)), f: [8, 6] };
+  };
+  // Doubles and triples: into a gap, down a line into the corner, or over a man's head.
+  const extraBases = (bases) => {
+    const how = weighted(bases === 2 ? [['gap', 38], ['wall', 18], ['line', 32], ['over', 12]] : [['gap', 40], ['wall', 22], ['line', 38]]);
+    for (let k = 0; k < 160; k++) {
+      let dir, t, la, ev, d, past = {}, n, x;
+      if (how === 'line') {
+        dir = spray(0.62, 38, 45);
+        const wall = wallAt(dir);
+        if (coin(bases === 2 ? 0.4 : 0.3)) {
+          // a hard grounder past the man at the corner, rolling into it
+          t = 'gb'; ev = ev3(tri(92, 114)); la = Math.round(tri(-6, 6));
+          past = gotPast(groundChances(spots, dir, ev, la).find((c) => c.can));
+          if (!past) continue;
+          d = Math.round(wall - U(5, 20));
+        } else {
+          t = 'ld'; la = Math.round(U(9, 20)); ev = ev3(tri(88, 114)); d = Math.round(carry(ev, la));
+          if (d < 170 || d > wall - 4) continue;
+          past = gotPast(airChances(spots, toPark(dir, d), hangTime(ev, la), [3, 5, 7, 9])[0], true);
+          if (!past) continue;
+        }
+        n = corner(dir); x = 'roll';
+      } else if (how === 'wall') {
+        // a liner that hits the wall on the fly, short of the top
+        dir = spray(0.55, 0, 44);
+        const wall = wallAt(dir);
+        t = 'ld'; la = Math.round(U(13, 22)); ev = ev3(evFor(wall + U(0, 22), la));
+        if (!(ev >= 88 && ev <= 116)) continue;
+        d = Math.round(wall - 1); x = 'wall';
+        const T = hangTime(ev, la), c = airChances(spots, toPark(dir, wall), T, [7, 8, 9])[0];
+        past = gotPast(c, true);
+        if (!past) continue;
+        n = c.n;
+      } else {
+        dir = how === 'gap' ? spray(0.55, bases === 2 ? 8 : 6, bases === 2 ? 27 : 30) : spray(0.5, 0, 44);
+        const wall = wallAt(dir);
+        t = coin(how === 'gap' ? 0.55 : 0.2) ? 'ld' : 'fb';
+        la = Math.round(t === 'ld' ? U(12, 21) : U(21, 33));
+        const lo = how === 'over' ? Math.hypot(spots[8][0], spots[8][2]) : wall - (bases === 2 ? 80 : 40);
+        d = Math.round(U(lo, wall - 3));
+        ev = ev3(evFor(d, la));
+        if (!(ev >= 82 && ev <= 116)) continue;
+        const T = hangTime(ev, la), at = toPark(dir, d);
+        const c = airChances(spots, at, T, [7, 8, 9])[0];
+        if (how === 'over' && c.ratio <= 0.8) continue;
+        past = gotPast(c, true);
+        if (!past) continue;
+        x = d >= wall - 2 ? 'wall' : d >= wall - 60 && (bases === 3 || coin(0.7)) ? 'roll' : undefined;
+        n = pickUp(x ? toPark(dir, wall - 6) : at, T + 2);
+      }
+      const f = bases === 3 ? [n, cutoff(dir), 5] : [n, cutoff(dir)];
+      return { t, dir, ev, la, d, f, ...past, ...(x ? { x } : {}), ...(coin(bases === 3 ? 0.7 : 0.45) ? { sl: 1 } : {}) };
+    }
+    const d = Math.round(wallAt(18) - 20);
+    return { t: 'ld', dir: 18, ev: ev3(evFor(d, 18)), la: 18, d, f: bases === 3 ? [9, 4, 5] : [9, 4], x: 'roll' };
+  };
+  const homer = () => {
+    for (let k = 0; k < 80; k++) {
+      const hr = weighted([['nodoubt', 30], ['plain', 30], ['scraper', 18], ['leap', 14], ['pole', 8]]);
+      const dir = hr === 'pole' ? (coin(0.75) ? pull : -pull) * 45 : spray(0.62, 0, 44);
+      const wall = wallAt(dir);
+      const d = Math.round(wall + (hr === 'nodoubt' ? U(45, 95) : hr === 'plain' ? U(14, 44) : hr === 'scraper' ? U(1, 10) : hr === 'leap' ? U(1, 5) : U(2, 18)));
+      const la = Math.round(tri(19, 38)), ev = ev3(evFor(d, la));
+      if (!(ev >= 92 && ev <= 118)) continue;
+      // the outfielder who goes back to the wall and watches it go, or jumps for it
+      const c = airChances(spots, toPark(dir, wall), hangTime(ev, la), [7, 8, 9])[0];
+      if (hr === 'leap' && c.ratio > 1) continue;
+      return { t: la < 20 ? 'ld' : 'fb', dir, ev, la, d, f: [c.n], hr, ...(hr === 'leap' ? { g: 'leaping' } : {}) };
+    }
+    const d = Math.round(wallAt(0) + 30);
+    return { t: 'fb', dir: 0, ev: ev3(evFor(d, 28)), la: 28, d, f: [8], hr: 'plain' };
+  };
+  // Sim v2's error, on the man the sim charged: a makeable ball he boots, lets through his legs
+  // or drops, or fields and throws away.
+  const error = () => {
+    const n = POSITION_NUMBER[o.fielder] || 6, throwing = o.errorType === 'throwing';
+    if (n === 2) return { ...dribbler(), f: throwing ? [2, 3] : [2], e: throwing ? 'past' : 'boot' };
+    if (n >= 7) {
+      if (!throwing) return { ...flyTo(n, 170, (c, d, wall) => c.ratio <= RANGING && d < wall - 2), e: 'drop' };
+      // a base hit he fields clean and throws into the stands
+      const dir = Math.round(sprayOf(spots[n]) + U(-12, 12)), la = Math.round(U(8, 18)), ev = ev3(tri(84, 104));
+      return { t: 'ld', dir, ev, la, d: Math.round(carry(ev, la)), f: [n, cutoff(dir)], e: 'stands' };
+    }
+    const r = grounder(n, (c) => c.ratio <= RANGING);
+    const e = throwing ? (n === 3 || coin(0.38) ? 'stands' : 'past') : coin(0.6) ? 'boot' : 'legs';
+    return onGround(r, throwing ? [n, 3] : [n], groundGrade(n, r.c, r.ev), { e });
+  };
+
+  let p;
+  switch (kind) {
+    case 'groundout': p = groundout(weighted(mine(GROUND_TO))); break;
+    case 'productout': {
+      // With a man forced, the sure out at first; with nobody on first, behind the runner, on
+      // the right side, most of the time.
+      const right = !o.before?.[0] && coin(0.8);
+      p = groundout(right ? weighted([[3, 40], [4, 60]]) : weighted(mine(GROUND_TO.filter(([n]) => n !== 2))));
+      break;
+    }
+    case 'doubleplay': p = doubleplay(); break;
+    case 'tripleplay': p = tripleplay(); break;
+    case 'flyout': p = flyTo(weighted(mine(FLY_TO))); break;
+    case 'sacfly': { p = flyTo(weighted(mine(FLY_TO)), 230); if (p.d < 345) p.th = 'home'; break; }
+    case 'popout': p = popup(); break;
+    case 'single': p = single(); break;
+    case 'double': p = extraBases(2); break;
+    case 'triple': p = extraBases(3); break;
+    case 'homerun': p = homer(); break;
+    case 'error': p = error(); break;
+    default: return null;
+  }
+  return { ...p, sp: Math.round(speed * 100) / 100 };
+}
+
+// The tags a play gives the booth's line. A line pool suffixed with one, `atbat.double.wall`,
+// airs only on a play that carries it, beside the bare pool's lines, which have to be true of
+// every play of their kind (docs/bsm-format.md). `o` is { bats, fence }.
+//
+//   off the bat    ground, liner, fly, pop, bloop
+//   where          left, right, centre (an infield ball by who fields it); pull, oppo; gap, line,
+//                  hole, middle, infield, catcher, comebacker; foul, fair
+//   how deep       deep, track, wall (got to it, or caught at it), offwall (hit it on the fly),
+//                  shallow, robbed (a home run caught over the fence)
+//   the fielding   routine, ranging, diving, sliding, leaping, barehand, rail; dove (on a hit,
+//                  a dive that came up empty)
+//   the throw      dirt, wide, late, home
+//   the runner     slide, standup (doubles and triples)
+//   the kind       643, 463, 543, 363, 163, 63, 43 (double and triple plays); nodoubt,
+//                  scraper, leap, pole (home runs); boot, legs, drop, past, stands (errors)
+export const PLAY_TAGS = Object.freeze(new Set([
+  'ground', 'liner', 'fly', 'pop', 'bloop', 'left', 'right', 'centre', 'pull', 'oppo', 'gap', 'line', 'hole', 'middle',
+  'infield', 'catcher', 'comebacker', 'foul', 'fair', 'deep', 'track', 'wall', 'offwall', 'shallow', 'robbed',
+  'routine', 'ranging', 'diving', 'sliding', 'leaping', 'barehand', 'rail', 'dove', 'dirt', 'wide', 'late', 'home',
+  'slide', 'standup', '643', '463', '543', '363', '163', '63', '43', 'nodoubt', 'scraper', 'leap', 'pole',
+  'boot', 'legs', 'drop', 'past', 'stands',
+]));
+const HIT_PLAYS = new Set(['single', 'double', 'triple']);
+export function playTags(kind, play, o = {}) {
+  if (!play) return [];
+  const T = new Set();
+  const n = play.f?.[0] || 0, dir = play.dir, ad = Math.abs(dir), air = play.t !== 'gb';
+  const wall = fenceAt(dir, o.fence);
+  T.add({ gb: 'ground', ld: 'liner', fb: 'fly', pu: 'pop' }[play.t]);
+  if (kind === 'single' && play.t === 'fb') T.add('bloop');
+  // the side: an infield ball by who fields it, anything else by where it went
+  if (n && n <= 6 && (play.t === 'gb' || play.t === 'pu')) {
+    if (n === 5 || n === 6) T.add('left');
+    else if (n === 3 || n === 4) T.add('right');
+    if (n === 2) T.add('catcher');
+    // a pop-up in foul ground or out on the grass wasn't caught on the infield
+    else if (play.t === 'gb' || (!play.foul && play.d < 140)) T.add('infield');
+    if (n === 1 && play.t === 'gb') T.add('comebacker');
+  } else if (!play.foul) T.add(dir < -15 ? 'left' : dir > 15 ? 'right' : 'centre');
+  if (o.bats && ad >= 12 && !play.foul) T.add(Math.sign(dir) === (o.bats === 'L' ? 1 : -1) ? 'pull' : 'oppo');
+  if (play.t === 'pu') T.add(play.foul ? 'foul' : 'fair');
+  // where in the outfield
+  const outfield = air ? play.d >= 150 && !play.foul : n >= 7;
+  if (outfield && (air || kind === 'double' || kind === 'triple') && ad >= 9 && ad <= 21 && play.d >= 200) T.add('gap');
+  if (outfield && ad >= 36) T.add('line');
+  if (kind === 'single' && play.t === 'gb' && n >= 7) T.add(ad < 6 ? 'middle' : 'hole');
+  // how deep
+  if (kind !== 'homerun' && air && !play.foul) {
+    if (play.d >= 0.88 * wall) T.add('deep');
+    if (play.d >= wall - 2 && !HIT_PLAYS.has(kind)) T.add('wall');
+    else if (play.d >= wall - 16 && play.d < wall - 2) T.add('track');
+    if (play.d < 215 && kind !== 'double' && kind !== 'triple' && (outfield || (play.t === 'pu' && play.d >= 140))) T.add('shallow');
+    if (play.d > wall && play.g === 'leaping') T.add('robbed');
+  }
+  if (play.x) { T.add('wall'); if (play.x === 'wall') T.add('offwall'); }
+  // how it was fielded, and the throw
+  if (HIT_PLAYS.has(kind)) {
+    if (play.mi) T.add('dove');
+    if (play.th === 'late' && play.g) T.add(play.g);
+  } else if (play.g) T.add(play.g);
+  if (play.th) T.add(play.th);
+  if (kind === 'double' || kind === 'triple') T.add(play.sl ? 'slide' : 'standup');
+  if (kind === 'doubleplay' || kind === 'tripleplay') T.add(play.f.join(''));
+  if (play.hr && play.hr !== 'plain') T.add(play.hr);
+  if (play.e) T.add(play.e);
+  return [...T].filter(Boolean);
 }
 
 // ── The sim ──────────────────────────────────────────────────────────────────
@@ -617,8 +1021,16 @@ const FIELDER_WORDS = {
   P: 'the pitcher', C: 'the catcher', '1B': 'the first baseman', '2B': 'the second baseman', '3B': 'the third baseman',
   SS: 'the shortstop', LF: 'the left fielder', CF: 'the centre fielder', RF: 'the right fielder',
 };
-export function playTokens(b) {
-  return { runner: b.runner || '', base: BASE_WORDS[b.base] || '', fielder: FIELDER_WORDS[b.fielder] || '' };
+// A ball in play adds its own: {fielder} is the man who fields it (sim v2's error names him
+// itself), {diver} the one who dove for a hit and missed, and {feet} how far a home run went.
+export function playTokens(b, play) {
+  const by = (n) => FIELDER_WORDS[POSITIONS[n]] || '';
+  return {
+    runner: b.runner || '', base: BASE_WORDS[b.base] || '',
+    fielder: FIELDER_WORDS[b.fielder] || (play?.f ? by(play.f[0]) : ''),
+    diver: play?.mi ? by(play.mi) : '',
+    feet: b.kind === 'homerun' && play?.d ? play.d : '',
+  };
 }
 
 // The descriptor's sim: v2 when sportsGameForSlot says the slot plays it, else v1.
@@ -836,6 +1248,8 @@ export const BASEBALL = {
   // in broadcast/index.js.
   simVersions: [1, 2],
   synthDetail: synthPitches,
+  synthPlay,
+  playTags,
   playDesc,
   playTokens,
   handOf,

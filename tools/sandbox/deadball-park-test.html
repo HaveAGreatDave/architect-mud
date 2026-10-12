@@ -86,9 +86,9 @@
   <!-- Classic script: sets window.AudioEngine so the Gameday SFX and the voice play here. -->
   <script src="../client/shared/audio-engine.js"></script>
   <script type="module">
-    import { simGame, simGameV2, playTokens, SEASON } from '../plugins/broadcast/sports/baseball.js';
+    import { simGame, simGameV2, playTokens, playTags, SEASON } from '../plugins/broadcast/sports/baseball.js';
     import { gamedayPayloads, gamedayLeaders } from '../plugins/broadcast/sports/baseball-gameday.js';
-    import { sportsRng, sportsHash, sportsPick, sportsFill } from '../plugins/broadcast/rng.js';
+    import { sportsRng, sportsHash, sportsPickTagged, sportsFill } from '../plugins/broadcast/rng.js';
     import { createGamedayView } from '../client/game/js/panels/gameday.js';
     import { createGrandstandView } from '../client/game/js/panels/gameday-grandstand.js';
     import { setVenue } from '../client/game/js/panels/venue.js';
@@ -135,8 +135,9 @@
       return { pools, teams, players };
     }
 
-    // The line the broadcast would call a play with: the same pool keys, in the same order
-    // (assembleSportsGraph in plugins/broadcast/index.js).
+    // The line the broadcast would call a play with: the same pool keys, in the same order,
+    // and a ball in play's tags opening the pools that agree with it (assembleSportsGraph in
+    // plugins/broadcast/index.js).
     function callFor(p, pick) {
       if (p.phase === 'half') return pick(`half.${p.half}`, 'half');
       if (p.phase === 'run') {
@@ -159,7 +160,7 @@
       announcer: 'Chip Vega', away, home, team: p.battingTeam, batter: p.batter || '', pitcher: p.pitcher || '',
       inning: p.inning, inningOrd: p.inningOrd, half: p.half, section: 'inning', sectionOrd: p.inningOrd,
       outs: p.outs ?? '', rbi: p.rbi ?? 0, runs: p.runs ?? p.rbi ?? 0, awayScore: p.awayScore, homeScore: p.homeScore,
-      ...playTokens(p),
+      ...playTokens(p, p.play),
       battingScore: p.half === 'top' ? p.awayScore : p.homeScore, fieldingScore: p.half === 'top' ? p.homeScore : p.awayScore,
     });
     // The cards the broadcast throws with a play.
@@ -217,8 +218,8 @@
       // how long each line holds on air, as the broadcast stamps it on the payload
       for (let i = 0; i < order.length; i++) order[i] = { ...order[i], hold: HOLD_MS };
       const nrng = sportsRng(seed ^ 0x9e3779b9);
-      const pick = (...keys) => sportsPick(script.pools, nrng, ...keys);
-      const out = order.map((p) => ({ p, text: sportsFill(callFor(p, pick) || p.desc || '', tokOf(p, away, home)).trim() || p.desc || '', card: cardFor(p) }));
+      const pickFor = (p) => (...keys) => sportsPickTagged(script.pools, nrng, playTags(p.kind, p.play, { bats: p.bats }), ...keys);
+      const out = order.map((p) => ({ p, text: sportsFill(callFor(p, pickFor(p)) || p.desc || '', tokOf(p, away, home)).trim() || p.desc || '', card: cardFor(p) }));
       document.getElementById('head').textContent =
         `slot ${slot}${simV === 2 ? ' (sim v2)' : ''} · ${away} ${game.awayScore}, ${home} ${game.homeScore}` +
         `${game.innings > 9 ? ` (${game.innings})` : ''} · ${order.filter(p => !p.phase).length} at-bats`;

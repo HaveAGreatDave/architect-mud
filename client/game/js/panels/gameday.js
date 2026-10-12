@@ -13,6 +13,7 @@
 // and Chip's play-by-play captions run along the bottom.
 
 import { DEADBALL_SFX } from '../../../shared/deadball-sfx.js';
+import { fenceAt } from './diamond/play.js';
 
 function _esc(str) {
   return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -59,10 +60,34 @@ const ERROR_FIELDER = { P: 'P', C: 'C', '1B': 'F1B', '2B': 'F2B', '3B': 'F3B', S
 const SVGX = (fx) => (fx * 100).toFixed(1);
 const SVGY = (fy) => (fy * 100).toFixed(1);             // field SVG viewBox is 100×100, stretched to the box
 
-// ── Deterministic hit trajectory ─────────────────────────────────────────────────
-// The sim gives us the at-bat kind but no spray direction. We derive a plausible one
-// PURELY from the payload's server-synthed pitch data, so every viewer computes the
-// identical play with no server change. Angle: −45 (left-field line) … +45 (right).
+// ── The ball in play ───────────────────────────────────────────────────────────────
+// The server decides every ball in play (the payload's `play`, synthPlay in
+// plugins/broadcast/sports/baseball.js): where it went, who fielded it and who it went
+// through after him. It's the play the booth's line describes and the 3-D park stages, so
+// the picture can't contradict the call. Angle: −45 (left-field line) … +45 (right), and
+// the depth is the distance over the fence's at that angle.
+const BY_NUMBER = [null, 'P', 'C', 'F1B', 'F2B', 'F3B', 'SS', 'LF', 'CF', 'RF'];
+// Where the ball goes after the man who fielded it, through the bags the outs were made at.
+function _relayOf(kind, f) {
+  if (kind === 'tripleplay') return ['b3', 'b2', 'F1B'];
+  if (kind === 'doubleplay') return ['b2', 'F1B'];
+  if (f[0] === 3) return ['b1'];            // he takes it to the bag himself, or tosses it to the pitcher there
+  return ['F1B'];
+}
+function _fromPlay(p) {
+  const play = p.play, kind = p.kind || '';
+  const angle = play.dir, depth = play.d / fenceAt(play.dir);
+  const fielder = BY_NUMBER[play.f?.[0]] || 'SS';
+  if (kind === 'homerun') return { batted: true, mode: 'homer', angle, land: _spot(angle, Math.max(1.02, depth)) };
+  if (kind === 'error') return { batted: true, mode: 'error', angle, fielder: ERROR_FIELDER[p.fielder] || fielder, throwing: p.errorType === 'throwing' };
+  // fielded on the infield: on to the bags, an out or (an infield hit) not
+  if (play.t === 'gb' && play.f?.[0] <= 6) return { batted: true, mode: 'ground', angle, fielder, relay: _relayOf(kind, play.f) };
+  // in the air, or through to the outfield: a flyout, a pop-up or a sac fly is caught where it comes down
+  return { batted: true, mode: p.out ? 'fly' : 'hit', angle, land: _spot(angle, Math.min(depth, 1)), fielder, caught: !!p.out };
+}
+
+// A payload from before the server decided plays has none, so it gets a plausible one
+// hashed from its pitches, and every viewer still draws the same thing.
 function _hashStr(s) { let h = 2166136261 >>> 0; for (let i = 0; i < s.length; i++) { h = Math.imul(h ^ s.charCodeAt(i), 16777619); } return h >>> 0; }
 function _rng(seed) { let s = seed >>> 0; return () => { s = (s + 0x6d2b79f5) | 0; let t = Math.imul(s ^ (s >>> 15), 1 | s); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
 
@@ -85,6 +110,7 @@ function _outfielderForAngle(angle) { return angle < -15 ? 'LF' : (angle > 15 ? 
 function _hitTrajectory(p) {
   const kind = p.kind || '';
   if (kind === 'strikeout' || kind === 'walk' || kind === 'hitbypitch') return { batted: false };
+  if (p.play && Number.isFinite(p.play.dir)) return _fromPlay(p);
   const pitches = Array.isArray(p.pitches) ? p.pitches : [];
   const seed = _hashStr(`${p.batter}|${p.inning}|${p.half}|${pitches.map(x => `${x.velo}.${x.x}`).join(',')}`);
   const rng = _rng(seed);
@@ -487,7 +513,16 @@ export function createGamedayView(host) {
       } else if (traj.mode === 'ground') {
         _trail(POS.home, POS[traj.fielder], T_THROW);
         _move(ball, traj.fielder, T_THROW, 'linear');            // grounder to the infielder
-        _t(T_THROW, () => { _sfx(SFX.glove); _trail(POS[traj.fielder], POS.F1B, T_THROW); _move(ball, 'F1B', T_THROW, 'linear'); _move(field.querySelector(`.gd-fielder[data-pos="${traj.fielder}"]`), traj.fielder, 1, 'linear'); });
+        // then on through the bags the play went through (second, then first, on a double
+        // play), in the time one throw to first takes
+        const legs = traj.relay?.length ? traj.relay : ['F1B'], each = T_THROW / legs.length;
+        legs.forEach((to, i) => {
+          const from = i ? legs[i - 1] : traj.fielder;
+          _t(T_THROW + i * each, () => {
+            if (!i) { _sfx(SFX.glove); _move(field.querySelector(`.gd-fielder[data-pos="${traj.fielder}"]`), traj.fielder, 1, 'linear'); }
+            _trail(POS[from], POS[to], each); _move(ball, to, each, 'linear');
+          });
+        });
       } else if (traj.mode === 'error') {
         // Sim v2: to the fielder charged, and then away from him: off the glove on a
         // fielding error, past first on a throwing error.
@@ -878,4 +913,4 @@ export function createGamedayView(host) {
 }
 
 // Test hook — pure, DOM-independent pieces exercised by the offline harness.
-export const __test = { hitTrajectory: _hitTrajectory, REVEAL_STEP_MS, REVEAL_MAX_MS, OUTCOME_GAP_MS };
+export const __test = { hitTrajectory: _hitTrajectory, POS, BY_NUMBER, REVEAL_STEP_MS, REVEAL_MAX_MS, OUTCOME_GAP_MS };

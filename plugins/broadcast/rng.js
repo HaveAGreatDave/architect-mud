@@ -3,7 +3,7 @@
 // outcome AND its wording are generated from a seed, so all TVs render an
 // identical broadcast at the same instant with no per-episode DB rows.
 //
-// These five helpers are PURE — no module state, no clock, no world reads — which
+// These helpers are PURE — no module state, no clock, no world reads — which
 // is why they live here rather than in index.js: gameshow.js needs them too, and
 // importing them from index.js would be circular. The slot-clock functions
 // (sportsSlotOfDay and friends) stay in index.js because they read the
@@ -41,8 +41,31 @@ export function sportsPick(pools, rand, ...keys) {
   return null;
 }
 
+// A pick that agrees with the play: the first key with any lines, its own pool together with
+// every pool of it suffixed by one of the play's `tags` (`atbat.double` and `atbat.double.wall`
+// for a ball off the wall). The bare pool has to be true of every play of its kind; a suffixed
+// one only of the plays that carry its tag. One draw, like sportsPick, so the tags never move
+// another line. See docs/bsm-format.md.
+export function sportsPickTagged(pools, rand, tags, ...keys) {
+  const each = [...new Set(tags || [])];
+  for (const k of keys) {
+    let all = Array.isArray(pools[k]) ? pools[k] : [];
+    for (const t of each) {
+      const more = pools[`${k}.${t}`];
+      if (Array.isArray(more) && more.length) all = all.concat(more);
+    }
+    if (all.length) return all[Math.floor(rand() * all.length)];
+  }
+  return null;
+}
+
+// A token that opens a sentence takes a capital, so "{fielder} dives" reads "The shortstop
+// dives".
 export function sportsFill(line, tok) {
-  return line.replace(/\{(\w+)\}/g, (_, k) => (tok[k] !== undefined && tok[k] !== null ? String(tok[k]) : ''));
+  return line.replace(/\{(\w+)\}/g, (_, k, at, all) => {
+    const v = tok[k] !== undefined && tok[k] !== null ? String(tok[k]) : '';
+    return /^\s*$|[.!?]\s+$/.test(all.slice(0, at)) ? v.charAt(0).toUpperCase() + v.slice(1) : v;
+  });
 }
 
 export function sportsShuffle(arr, rand = Math.random) {

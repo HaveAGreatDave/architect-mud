@@ -20,15 +20,18 @@
 // a throw over, double steals with and without an out, a wild pitch that scores, a
 // passed ball, a hit batter, and both kinds of error. A v2 game's line score has an E.
 //
-// It proves the view RUNS and that its runners agree with the sim. It does not look at
-// pixels and is not meant to.
+// Every ball in play goes where the server's play (the payload's `play`) says: to the man
+// it names and on through the bags, or down where it came down.
+//
+// It proves the view RUNS and that its runners and the ball agree with the sim. It does not
+// look at pixels and is not meant to.
 //
 // Run:  node scripts/shapes/gameday-smoke.mjs
 
 import { __install } from './rink-dom-stub.mjs';
 
 const stub = __install();
-const { createGamedayView } = await import('../../client/game/js/panels/gameday.js');
+const { createGamedayView, __test: GD } = await import('../../client/game/js/panels/gameday.js');
 const { sportsRng } = await import('../../plugins/broadcast/rng.js');
 const { simGame, simGameV2 } = await import('../../plugins/broadcast/sports/baseball.js');
 const { gamedayPayloads } = await import('../../plugins/broadcast/sports/baseball-gameday.js');
@@ -112,15 +115,21 @@ function play(seed, v = 1) {
   const host = stub.makeHost();
   const view = createGamedayView(host);
   view.showIdle();
-  let applied = 0, landed = 0, tokensRight = 0, litRight = 0;
+  let applied = 0, landed = 0, tokensRight = 0, litRight = 0, inPlay = 0, ballRight = 0, landedAt = null;
   const bad = [];
   for (const p of order) {
     try {
       view.setCaption('A line.', { held: true });   // tv.js holds every line that carries a payload
       view.apply(p);
       // In steps, not one jump: a timer set while the clock is mid-jump is scheduled from
-      // the far end of it, and the view's plays are chains of timers.
-      for (let t = 0; t < HOLD_MS; t += STEP_MS) stub.runTimers(STEP_MS);
+      // the far end of it, and the view's plays are chains of timers. Where the ball is
+      // when the play lands is kept, since the idle loop takes it back to the mound after.
+      landedAt = null;
+      const f = host.find('.gd-field'), ball = host.find('.gd-ball');
+      for (let t = 0; t < HOLD_MS; t += STEP_MS) {
+        stub.runTimers(STEP_MS);
+        if (!landedAt && f && ball && !f.classList.contains('replaying')) landedAt = [ball.style.left, ball.style.top];
+      }
     } catch (e) {
       bad.push(`${p.inningOrd} ${p.half} ${p.kind || p.phase}: threw ${e.message}`);
       continue;
@@ -151,12 +160,24 @@ function play(seed, v = 1) {
     const lit = [1, 2, 3].filter((n) => host.find(`.gd-fbase[data-b="${n}"]`)?.classList.contains('lit'));
     if (JSON.stringify(lit) === JSON.stringify(want)) litRight++;
     else bad.push(`${p.inningOrd} ${p.half} ${p.kind}: lit ${JSON.stringify(lit)}, want ${JSON.stringify(want)}`);
+    // The ball went where the server's play says: the man it names fields it, and it ends at
+    // the last bag the play went through, or where it came down. An error goes off somewhere.
+    if (p.play) {
+      inPlay++;
+      const traj = GD.hitTrajectory(p);
+      const end = traj.mode === 'ground' ? GD.POS[traj.relay[traj.relay.length - 1]] : traj.land;
+      const at = (v) => `${(v * 100).toFixed(1)}%`;
+      const named = traj.mode === 'homer' || traj.mode === 'error' || traj.fielder === GD.BY_NUMBER[p.play.f[0]];
+      if (named && (!end || (landedAt && landedAt[0] === at(end[0]) && landedAt[1] === at(end[1])))) ballRight++;
+      else bad.push(`${p.inningOrd} ${p.half} ${p.kind} ${JSON.stringify(p.play)}: ball at ${landedAt} by ${traj.fielder}`);
+    } else if (!['strikeout', 'walk', 'hitbypitch'].includes(p.kind) && p.phase !== 'run') bad.push(`${p.inningOrd} ${p.half} ${p.kind}: no play`);
   }
   const atbats = order.filter((p) => p.phase !== 'half').length;   // every play: the at-bats and, in v2, the plays on the bases
   check(`${tag}: every payload applies`, applied === order.length, bad.filter((b) => /threw/.test(b)).slice(0, 3).join(' | '));
   check(`${tag}: every play lands inside a line's hold`, landed === atbats, bad.filter((b) => /replaying/.test(b)).slice(0, 3).join(' | '));
   check(`${tag}: the runners end where the play left them`, tokensRight === atbats, bad.filter((b) => /runners on/.test(b)).slice(0, 4).join(' | '));
   check(`${tag}: the lit bags agree`, litRight === atbats, bad.filter((b) => /lit /.test(b)).slice(0, 3).join(' | '));
+  check(`${tag}: every ball in play goes where its play says`, inPlay > 20 && ballRight === inPlay && !bad.some((b) => /no play$/.test(b)), bad.filter((b) => /ball at|no play/.test(b)).slice(0, 3).join(' | '));
   // A v2 game counts errors, so its line score has an E; a v1 game's has R and H only.
   const head = host.find('.gd-ls-head')?.textContent || '';
   check(`${tag}: the line score ends ${v === 2 ? 'R H E' : 'R H'}`, v === 2 ? /RHE$/.test(head) : /RH$/.test(head), head);

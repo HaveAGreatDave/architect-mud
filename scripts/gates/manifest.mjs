@@ -205,6 +205,7 @@ export const GROUPS = [
       'scripts/shapes/anim-smoke.mjs',       // Deadball's players skinned: the rig's frames, four weights a vertex, every pose on the posed build's surface, the hands on the bat
       'scripts/shapes/diamond-smoke.mjs 16', // Deadball's pitches staged in 3-D: each at its spot, every clip on the ball, the line held to the landing (one game each, side by side)
       'scripts/shapes/diamond-smoke.mjs 41',
+      'scripts/shapes/variety-smoke.mjs',    // Deadball's balls in play over a season: spray by handedness, every grade, every line pool reachable
       'scripts/shapes/bolt.mjs',
       'scripts/shapes/weatherfx-smoke.mjs',
       'scripts/shapes/drugfx-smoke.mjs',

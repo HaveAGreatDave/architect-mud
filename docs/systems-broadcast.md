@@ -797,7 +797,8 @@ sport module**; nothing else in the pipeline may branch on it.
 Deadball's sub-screen is the 2-D Gameday view ([gameday.js](../client/game/js/panels/gameday.js)).
 A high-fidelity 3-D one on Rinkside's pattern, with a 1990s arcade look and the park inside the
 Curtain on Halcyon Fields, is planned in [proposals/deadball-glass2.md](proposals/deadball-glass2.md)
-(Phase 0, sim v2, Phase 1 and Phase 2 built, behind a flag: see the Grandstand below).
+(Phase 0, sim v2, Phases 1 and 2 and the plays of Phase 3 built, behind a flag: see the
+Grandstand below).
 
 **The Gameday payload** is built by a pure module,
 [sports/baseball-gameday.js](../plugins/broadcast/sports/baseball-gameday.js), which the
@@ -814,6 +815,24 @@ play. A v1 game keeps only which bags are occupied, so `runnerMoves` works the m
 the bags before and after, the kind and the change in the batting side's score (not the RBI: a
 run can score without one). Runners can't pass each other, which makes the answer unique. The
 views only animate them.
+
+An at-bat that put a ball in play also carries `play`, decided on the server by `synthPlay` in
+[sports/baseball.js](../plugins/broadcast/sports/baseball.js) so the picture and the booth's line
+agree: what it was off the bat (`t`: a grounder, a liner, a fly or a pop-up), its spray (`dir`,
+degrees off centre, negative to left), the exit speed and launch angle (`ev`, `la`), how far out
+it was fielded or came down (`d`), the fielders in the order it went through them, numbered as a
+scorer numbers them (`f`, `[6, 4, 3]`), the fielding grade (`g`: routine, ranging, diving,
+sliding, leaping, barehand or rail), the batter's legs (`sp`), and where they apply the man who
+dove for a hit and missed, the throw, the wall, the slide, the kind of home run and the kind of
+error. It's seeded off the at-bat with a salt of its own, so it never touches the sim's stream.
+The field it's judged on (where the nine stand, shaded to the hitter's pull side, how far a ball
+carries or rolls, how far a fielder gets in the time) is
+[diamond/play.js](../client/game/js/panels/diamond/play.js), which the 3-D park reads too, so a
+play the server grades a dive is one the park can show as a dive. Every candidate is drawn round
+the man who has to make the play and kept with the chance a play that hard gets made, so most
+outs are routine and a hit goes where nobody could get to it. The play's tags open the line pools
+that agree with it ([bsm-format.md](bsm-format.md#lines-that-agree-with-the-play-baseball)), and
+the 2-D view draws the ball to the man it names and on through the bags the outs were made at.
 
 The broadcast adds `hold` (how long the line holds, in ms) to every payload, and the league
 table, `leaders` and `season` (its number, `regular` or `final`, and the seeds in a final) to the
@@ -834,13 +853,21 @@ such as an ion storm. It's read on air rather than at assembly because the cells
 the city during a game. A script with no site sends none.
 
 `scripts/shapes/gameday-smoke.mjs` plays real games through the 2-D view and checks that every
-play lands and its runners end where the sim left them. `tools/sandbox/deadball-park-test.html`
+play lands, its runners end where the sim left them, and every ball in play goes to the man its
+play names and ends where the play says. `scripts/shapes/variety-smoke.mjs` runs a season of
+seeded plays: grounders pulled about three times in five and fly balls spread more evenly, exit
+speeds from about 50 to 115 mph, every fielding grade, double play, kind of home run and error,
+and a play that opens every suffixed line pool. Regress checks every play against its kind and
+the sim, that building the payloads leaves the game as it was, and that a bare line pool names no
+direction. `tools/sandbox/deadball-park-test.html`
 plays the same in a browser, with the script's lines, for screenshots and tuning by hand.
 Regress pins the sim itself: a hundred seeded games and four finals, every at-bat and every
 pitch, hash to a recorded value, because the standings and the recaps re-simulate games that
 have already aired. A viewer with the sub-screen open is sent about 91 payloads a game, about
 85 KB with the weather (measured over eight graphs on 2026-10-11), and about 5 KB more with the
-men's lines and the leaders (37 bytes a payload and 1.6 KB once, measured on 2026-10-12). It was 116 KB when the table rode every payload.
+men's lines and the leaders (37 bytes a payload and 1.6 KB once, measured on 2026-10-12), and
+about 4 KB more with the plays (about 52 balls in play a game at about 75 bytes each, measured
+on 2026-10-12). It was 116 KB when the table rode every payload.
 
 ### The park in 3-D (the Grandstand, behind a flag)
 
@@ -896,7 +923,10 @@ Built so far (Phases 1 and 2 of the plan):
   twenty bones from the pelvis to the bat) with four bone weights a vertex, and the GPU moves it
   into any pose ([gl/skin.js](../client/game/js/panels/gl/skin.js), a palette of bones in a float
   texture, a row a kit slot). A body is kept for who a player is and what he wears, not where he
-  stands, so a runner keeps his round the bases and a new payload builds only its new people.
+  stands, so a runner keeps his round the bases and a new payload builds only its new people. The
+  fielders stand where the server's plays start them (`fieldSpots` in
+  [diamond/play.js](../client/game/js/panels/diamond/play.js)), shaded toward the hitter's pull
+  side, so a hitter from the other side moves them over.
   Their motion is the clip library (Phase 2b): [diamond/anim.js](../client/game/js/panels/diamond/anim.js)
   plays clips keyed in the rig's pose language, from `content/animation_clips/` baked to
   `diamond/clips.js` by `npm run clips:bake` (the Modelshop's Pose Lab keys them, Phase 2e),

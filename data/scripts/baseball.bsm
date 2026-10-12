@@ -207,6 +207,16 @@ Somewhere out past the outfield wall a dog is howling in perfect rhythm with the
 They retired a number here once. Not for a player. For a guy who survived a full season in the cheap seats. Brave soul.
 ::endlines
 
+# --- Balls in play ---------------------------------------------------------------
+# The server decides where every ball in play goes and who fields it, and the line has to
+# agree with the picture. A pool named for a kind of play (atbat.flyout) airs on every play
+# of that kind, so its lines say nothing that's true of only some of them: no direction,
+# depth or kind of catch. A pool with a tag after it (atbat.flyout.diving) airs only on a
+# play that carries the tag, in the draw beside the bare pool's lines. The tags are listed
+# in docs/bsm-format.md, and regress fails a bare line that names a direction.
+# {fielder} is the man who fielded it, as "the shortstop". {diver} is the man who dove for
+# a hit and missed. {feet} is how far a home run went.
+
 # --- Routine outs -------------------------------------------------------------
 ::lines atbat.strikeout
 {batter} goes down swinging. {pitcher} blows it right past him. That's {outs} away.
@@ -215,21 +225,139 @@ Strike three, {batter}'s frozen. {pitcher} owns him. {outs} down.
 ::endlines
 
 ::lines atbat.groundout
-{batter} chops it into the dirt. Routine, throw across, he's out. {outs} away.
+{batter} grounds out to {fielder}. {outs} away.
+Ground ball, {batter}, and {fielder} makes the play. {outs} down.
+{batter} puts it on the ground. {fielder} takes care of him. {outs} in the books.
+::endlines
+
+::lines atbat.groundout.routine
+{batter} hits it right at {fielder}. Routine, and he's out. {outs} away.
 Ground ball off the bat of {batter}, easy play, one more gone. {outs} down.
+::endlines
+
+::lines atbat.groundout.ranging
+{fielder} has to range for that one, and he gets there. {batter} is out. {outs} away.
+{batter} makes {fielder} run for it, and he still makes the play. {outs} down.
+::endlines
+
+::lines atbat.groundout.diving
+{fielder} dives, knocks it down, gets up and gets him! {outs} away.
+Diving stop by {fielder}! He gets {batter} by a step. {outs} down.
+::endlines
+
+::lines atbat.groundout.barehand
+Slow roller. {fielder} charges, picks it up bare-handed and throws him out. {outs} away.
+{batter} barely gets wood on it, and {fielder} comes in, bare hand, throws on the run. Out. {outs} down.
+::endlines
+
+::lines atbat.groundout.comebacker
+Comebacker to {pitcher}. He gloves it and lobs it to first. {outs} away.
+::endlines
+
+::lines atbat.groundout.catcher
+{batter} taps it in front of the plate. The catcher pounces and throws him out. {outs} down.
+::endlines
+
+::lines atbat.groundout.dirt
+The throw from {fielder} is in the dirt, and the first baseman digs it out. {outs} away.
+::endlines
+
+::lines atbat.groundout.pull
 {batter} rolls over on it. Grounder, out at first. {outs} in the books.
 ::endlines
 
+::lines atbat.groundout.left
+{batter} grounds one to the left side, and {fielder} throws him out. {outs} away.
+::endlines
+
+::lines atbat.groundout.right
+Ground ball to the right side. {fielder} handles it, and that's {outs}.
+::endlines
+
 ::lines atbat.flyout
-{batter} lifts it to the outfield. Camped under it, squeezed. {outs} away.
-Fly ball, {batter}, nothing on it. Caught. {outs} down.
+Fly ball, {batter}. {fielder} puts it away. {outs} down.
+{batter} lifts it to the outfield, and {fielder} makes the catch. {outs} away.
+{batter} flies out to {fielder}. {outs} gone.
+::endlines
+
+::lines atbat.flyout.routine
+{batter} lifts it to the outfield. {fielder} is camped under it. {outs} away.
 {batter} gets air but not enough. Run-of-the-mill flyout. {outs} gone.
+Fly ball, and {fielder} barely has to move. {outs} down.
+::endlines
+
+::lines atbat.flyout.ranging
+{fielder} gets on his horse and runs it down. {outs} away.
+{batter} makes {fielder} run a long way for it, and he gets there. {outs} down.
+::endlines
+
+::lines atbat.flyout.diving
+{fielder} lays out... and he CATCHES it! {batter} robbed of a hit. {outs} away.
+That's dropping in... no! {fielder} dives and comes up with it. {outs} down.
+::endlines
+
+::lines atbat.flyout.sliding
+{fielder} comes in hard, slides, and takes it off his shoe tops. {outs} away.
+::endlines
+
+::lines atbat.flyout.leaping
+{batter} drives it to the wall... {fielder} leaps... and pulls it down! {outs} away.
+::endlines
+
+::lines atbat.flyout.robbed
+That ball is gone... NO! {fielder} reaches over the wall and takes a home run away from {batter}! {outs} down.
+::endlines
+
+::lines atbat.flyout.track
+Way back, {fielder} on the track, and he gets it. {outs} away.
+::endlines
+
+::lines atbat.flyout.deep
+{batter} hits it a long way, but it stays in the yard. {fielder} catches it. {outs} down.
+::endlines
+
+::lines atbat.flyout.shallow
+Shallow fly. {fielder} comes in and takes it. {outs} gone.
+::endlines
+
+::lines atbat.flyout.gap
+{batter} hits it into the gap, but {fielder} gets over there. {outs} away.
+::endlines
+
+::lines atbat.flyout.line
+Fly ball toward the line. {fielder} drifts over and makes the catch. {outs} down.
 ::endlines
 
 ::lines atbat.popout
-{batter} pops it straight up. Infielder circles, gloves it. {outs} away.
+{batter} pops it up. {fielder} squeezes it. {outs} away.
+Pop-up off {batter}'s bat. {fielder} calls for it and takes it. {outs} down.
+{batter} gets under it. Pop-up to {fielder}, caught. {outs} in the frame.
+::endlines
+
+::lines atbat.popout.infield
+{batter} pops it straight up. {fielder} circles under it and gloves it. {outs} away.
+::endlines
+
+::lines atbat.popout.fair
 Little pop-up off {batter}'s bat, caught in fair territory. {outs} down.
-{batter} skies one shallow. Easy out. {outs} in the frame.
+::endlines
+
+::lines atbat.popout.foul
+{batter} lifts a pop foul, and {fielder} drifts over and takes it. {outs} away.
+Pop foul. {fielder} tracks it into foul ground and squeezes it. {outs} down.
+::endlines
+
+::lines atbat.popout.rail
+Pop foul toward the seats. {fielder} leans over the rail and catches it among the fans. {outs} down.
+{fielder} reaches into the first row for it, and he has it. Somebody's beer is gone. {outs} away.
+::endlines
+
+::lines atbat.popout.shallow
+{batter} skies one into the shallow outfield, and {fielder} goes back for it. {outs} in the frame.
+::endlines
+
+::lines atbat.popout.catcher
+The catcher throws off the mask, finds it, and squeezes it. {outs} away.
 ::endlines
 
 ::lines atbat.out
@@ -239,21 +367,129 @@ That's {batter} put out. {outs} down.
 
 # --- Non-scoring baserunners --------------------------------------------------
 ::lines atbat.single
+Base hit, {batter}. He's aboard.
+{batter} singles. The {team} have a runner.
+{batter} finds a way on. Single.
+::endlines
+
+::lines atbat.single.gap
 {batter} slaps a clean single into the gap and takes first.
+::endlines
+
+::lines atbat.single.late
 Base hit, {batter}! He beats it out and stands on first.
+{batter} legs it out. The throw's too late, and it's an infield hit.
+::endlines
+
+::lines atbat.single.hole
 {batter} punches one through the infield. Runner aboard.
+{batter} finds the hole. Base hit.
+::endlines
+
+::lines atbat.single.middle
+Right back up the middle! {batter} singles past {pitcher}.
+::endlines
+
+::lines atbat.single.liner
+{batter} lines one into the outfield for a base hit.
+::endlines
+
+::lines atbat.single.bloop
+{batter} bloops one in. Nobody's getting to that. Single.
+A little flare off the end of the bat drops in. Base hit, {batter}.
+::endlines
+
+::lines atbat.single.dove
+{batter} rips one past a diving {diver}. Base hit.
+{diver} lays out for it and comes up empty. {batter} has a single.
+::endlines
+
+::lines atbat.single.wide
+{fielder} makes the stop, but the throw pulls the first baseman off the bag. {batter} is safe.
+::endlines
+
+::lines atbat.single.barehand
+{fielder} barehands it and fires... too late. {batter} beats it out.
+::endlines
+
+::lines atbat.single.diving
+Diving stop by {fielder}, but there's no play. Infield hit, {batter}.
+::endlines
+
+::lines atbat.single.catcher
+{batter} dribbles one in front of the plate, and the catcher has no play.
+::endlines
+
+::lines atbat.single.comebacker
+{pitcher} knocks it down but can't make the play. Infield hit, {batter}.
+::endlines
+
+::lines atbat.single.line
+{batter} hits one down the line, and it's a single.
 ::endlines
 
 ::lines atbat.double
-{batter} rips it down the line, into the corner, he's got two! Standing double.
-{batter} laces one to the wall and pulls into second. Two-bagger.
-A screamer off {batter}'s bat rolls to the gap, and he cruises into second.
+Double for {batter}. He's in scoring position.
+{batter} gets two on it. Runner on second.
+That's extra bases for {batter}. A double.
+::endlines
+
+::lines atbat.double.line
+{batter} rips it down the line, into the corner, he's got two!
+::endlines
+
+::lines atbat.double.wall
+{batter} drives one to the wall and pulls into second. Two-bagger.
+::endlines
+
+::lines atbat.double.offwall
+Off the wall! {fielder} plays the carom, but {batter} is in at second.
+::endlines
+
+::lines atbat.double.gap
+Into the gap goes {batter}'s drive, and he's into second with a double.
+{batter} splits the outfielders. Double.
+::endlines
+
+::lines atbat.double.standup
+{batter} goes into second standing up. Standing double.
+::endlines
+
+::lines atbat.double.slide
+{batter} slides into second ahead of the throw. Double.
+::endlines
+
+::lines atbat.double.dove
+{diver} dives and misses, and {batter} is into second.
+::endlines
+
+::lines atbat.double.liner
+A screamer off {batter}'s bat, and he's into second with a double.
 ::endlines
 
 ::lines atbat.triple
+{batter} hits one to the deep part of the yard and keeps going. Triple!
+Triple for {batter}! He's ninety feet from home.
+::endlines
+
+::lines atbat.triple.slide
 {batter} drives it deep and wheels around, he's flying, and he slides into THIRD! Triple!
-Way back, off the wall, {batter} is churning. A stand-up triple!
+::endlines
+
+::lines atbat.triple.offwall
+Way back, off the wall, {batter} is churning, and he's in with a triple!
+::endlines
+
+::lines atbat.triple.standup
+{batter} goes into third standing up. A stand-up triple!
+::endlines
+
+::lines atbat.triple.gap
 {batter} splits the outfielders and doesn't stop till third. What a leg on him.
+::endlines
+
+::lines atbat.triple.line
+Down the line and into the corner! {batter} is around second and into third. Triple.
 ::endlines
 
 ::lines atbat.walk
@@ -264,7 +500,9 @@ Four wide ones, {batter} draws the walk. Free pass.
 
 # --- Sim v2: hit batters and errors (plate appearances) ------------------------
 # {fielder} is the fielder charged, as "the shortstop". The throwing error is its own
-# pool because the batter takes second on it; the bare pool keeps him at first.
+# pool because the batter takes second on it; the bare pool keeps him at first. A
+# fielding error is a grounder booted or through his legs, or a fly ball dropped, so the
+# bare pool says none of those.
 ::lines atbat.hitbypitch
 {pitcher} comes inside and plunks {batter}. He takes his base, slowly, and says something on the way.
 That one gets {batter} on the elbow. Hit by pitch. He shakes it off and jogs to first.
@@ -272,42 +510,112 @@ That one gets {batter} on the elbow. Hit by pitch. He shakes it off and jogs to 
 ::endlines
 
 ::lines atbat.error
+Error on {fielder}, and {batter} is on first.
+{fielder} can't handle it. {batter} is aboard on the error.
+::endlines
+
+::lines atbat.error.boot
 {batter} hits it right at {fielder}, and he boots it. Error, and {batter}'s aboard.
-Routine grounder, and {fielder} can't come up with it. {batter} reaches on the error.
+::endlines
+
+::lines atbat.error.ground
+Grounder to {fielder}, and he can't come up with it. {batter} reaches on the error.
+::endlines
+
+::lines atbat.error.legs
 It goes right through {fielder}'s legs. {batter} is safe at first, and the crowd lets {fielder} hear about it.
 ::endlines
 
+::lines atbat.error.drop
+Fly ball to {fielder}... and he drops it! {batter} is on with an error.
+{fielder} gets under it and it pops out of his glove. Error, and {batter} is aboard.
+::endlines
+
 ::lines atbat.error.throwing
+{fielder} gets to it, then throws it away. {batter} takes second on the error.
+Bad throw by {fielder}. {batter} is all the way to second.
+::endlines
+
+::lines atbat.error.throwing.stands
 {fielder} fields it clean and throws it into the stands. {batter} is waved on to second.
-The throw from {fielder} sails past first and rolls to the wall. {batter} takes second on the error.
+::endlines
+
+::lines atbat.error.throwing.past
+The throw from {fielder} sails past first and rolls toward the corner. {batter} takes second on the error.
 ::endlines
 
 # --- Situational outs: double plays, sac flies, productive groundouts -----------
 ::lines atbat.doubleplay
-Ground ball, and they turn TWO on {batter}! Around the horn, rally strangled in the crib. {outs} away.
-{batter} raps into a tailor-made double play. {pitcher} exhales; the whole frame's undone in one pitch. {outs} down.
 Two for the price of one. {batter} bounces into a double play. The {team} dugout deflates. {outs} gone.
-{batter} chops it right at 'em and they flip it around for a double play. Cruel game. {outs} away.
+Double play. {batter} erases the runner and himself. {outs} down.
+They turn two on {batter}. {outs} away.
 ::endlines
 
-# --- Triple play: roughly one game in four hundred. Chip has never seen one either.
+::lines atbat.doubleplay.routine
+{batter} raps into a tailor-made double play. {pitcher} exhales; the whole frame's undone in one pitch. {outs} down.
+{batter} hits it right at 'em and they flip it around for a double play. Cruel game. {outs} away.
+::endlines
+
+::lines atbat.doubleplay.ranging
+{fielder} ranges over for it, and they turn two anyway. {outs} down.
+::endlines
+
+::lines atbat.doubleplay.diving
+{fielder} dives, scrambles up, and they still turn two! {outs} away.
+::endlines
+
+::lines atbat.doubleplay.543
+Ground ball, and they turn TWO on {batter}! Around the horn, rally strangled in the crib. {outs} away.
+::endlines
+
+::lines atbat.doubleplay.643
+Short to second to first, and that's two. {outs} away.
+::endlines
+
+::lines atbat.doubleplay.463
+Second to short to first. They turn two on {batter}. {outs} down.
+::endlines
+
+::lines atbat.doubleplay.363
+First to short and back to first. A double play you don't see every night. {outs} away.
+::endlines
+
+::lines atbat.doubleplay.163
+Back to {pitcher}, who turns and throws to second, and on to first. Double play. {outs} down.
+::endlines
+
+# --- Triple play: roughly one game in five hundred. Chip has never seen one either.
+# It's always 5-4-3: the third baseman steps on third and throws round the horn.
 ::lines atbat.tripleplay
-Ground ball to the left side and... they got one, they got two, THEY GOT THREE. Triple play. {batter} into a triple play. I have called this game eleven years and I have never said that sentence.
 THREE. That's three outs on one pitch. {batter} hit into a triple play and the {team} bench doesn't know where to look. Nobody move. I need a minute.
-Around the horn: third, second, first, all of it, all at once. Triple play on {batter}. The inning is over and it never really started. {pitcher} just walks off like it is nothing. It isn't nothing.
 {batter} rolls one into the teeth of it and they turn a TRIPLE play. Folks, whatever you paid to get in here, you're square with the house. Inning over.
+::endlines
+
+::lines atbat.tripleplay.543
+Ground ball to the left side and... they got one, they got two, THEY GOT THREE. Triple play. {batter} into a triple play. I have called this game eleven years and I have never said that sentence.
+Around the horn: third, second, first, all of it, all at once. Triple play on {batter}. The inning is over and it never really started. {pitcher} just walks off like it is nothing. It isn't nothing.
 ::endlines
 
 ::lines atbat.sacfly
 Deep enough! {batter} lifts a sacrifice fly, the runner tags from third and scores. He's out, but it counts on the board. {outs} away.
-{batter} gives himself up, fly ball to the track, the runner trots home. Traded an out for a run. {outs} down.
 Sac fly off the bat of {batter}. {team} do it the ugly way. Run's in, {outs} away.
 ::endlines
 
+::lines atbat.sacfly.track
+{batter} gives himself up, fly ball to the track, the runner trots home. Traded an out for a run. {outs} down.
+::endlines
+
+::lines atbat.sacfly.home
+{fielder} makes the catch and throws home, but the runner beats it. Sac fly, {batter}. {outs} away.
+::endlines
+
 ::lines atbat.productout
-{batter} rolls out to the right side but pushes the runner up ninety feet. A productive out, if there's such a thing in this town. {outs} away.
 Groundout by {batter}, does his job, moves the runner over. {outs} down.
 {batter} grounds one that scoots the runner up. Nothing pretty, but it plays. {outs} in the frame.
+::endlines
+
+::lines atbat.productout.right
+{batter} rolls out to the right side but pushes the runner up ninety feet. A productive out, if there's such a thing in this town. {outs} away.
 ::endlines
 
 # --- Sim v2: the running game ---------------------------------------------------
@@ -366,19 +674,60 @@ Passed ball! It rolls to the screen and {runner} scores from third.
 ::endlines
 
 # --- Runs batted in (non-home-run scoring play) -------------------------------
+# A single, a double or a triple that scored runs: the bare lines say none of which.
 ::lines rbi
-{batter} lines one into the gap and {rbi} come around to score! The {team} put it on the board.
-Base knock for {batter}, {rbi} runs cross the plate! {team} cash in.
+Base knock for {batter}, and the {team} cash in.
 {batter} comes through with runners on. {rbi} in! Big swing for the {team}.
-Clutch hit, {batter}! {rbi} runs score for the {team}. The dugout's on its feet.
-{batter} drives {rbi} home with a shot to the corner. The {team} strike.
+Clutch hit, {batter}! That's {rbi} in for the {team}. The dugout's on its feet.
+::endlines
+
+::lines rbi.gap
+{batter} drives one into the gap, and that brings in {rbi}!
+::endlines
+
+::lines rbi.line
+{batter} drives {rbi} home with a shot down the line. The {team} strike.
+::endlines
+
+::lines rbi.wall
+{batter} goes to the wall with it, and the {team} score.
+::endlines
+
+::lines rbi.dove
+Past a diving {diver}, and the {team} score!
+::endlines
+
+::lines rbi.bloop
+{batter} bloops one in, and the {team} score. Ugly and effective.
+::endlines
+
+::lines rbi.late
+{batter} beats out the throw, and the {team} score on the play.
 ::endlines
 
 # --- Home runs ----------------------------------------------------------------
+# Every home run goes over the wall; the tags say how: nodoubt, scraper (just over),
+# pole (off the foul pole) and leap (an outfielder jumps for it at the wall).
 ::lines hr.solo
-{batter} turns on one and it's GONE! A solo shot, no doubt about it, and {team} tack on a run!
 SWING and a long drive by {batter}... see ya! Solo homer, over the wall for the {team}!
 {batter} launches it into the dark. Solo bomb. One run in for the {team}.
+::endlines
+
+::lines hr.solo.nodoubt
+{batter} crushes one and it's GONE! A solo shot, no doubt about it, and {team} tack on a run!
+{batter} hits it {feet} feet. Solo shot. The outfielders don't bother moving.
+::endlines
+
+::lines hr.solo.scraper
+{batter} hits it high and deep... it's got enough! Just over the wall. Solo home run.
+::endlines
+
+::lines hr.solo.pole
+Off the foul pole! That's a solo home run for {batter}.
+::endlines
+
+::lines hr.solo.leap
+{fielder} goes up at the wall... and it's over his glove! Solo home run, {batter}.
 ::endlines
 
 ::lines hr.grand
@@ -389,8 +738,24 @@ Bases loaded, and {batter} demolishes it! Grand slam! Four come around for the {
 
 ::lines hr
 {batter} crushes it. Outta here! A {rbi}-run homer for the {team}!
-Long gone! {batter} goes deep, {rbi} runs score for the {team}!
+Gone! {batter} goes deep, {rbi} runs score for the {team}!
 {batter} parks one over the fence, {rbi} in on the blast. {team} answer.
+::endlines
+
+::lines hr.nodoubt
+Long gone! {batter} hits it {feet} feet, and {rbi} runs score for the {team}!
+::endlines
+
+::lines hr.scraper
+{batter} hits it to the wall... and over! Barely. A {rbi}-run homer for the {team}.
+::endlines
+
+::lines hr.pole
+Off the foul pole! A {rbi}-run home run for {batter}!
+::endlines
+
+::lines hr.leap
+{fielder} jumps at the wall and comes down empty. {rbi}-run homer, {batter}!
 ::endlines
 
 # --- Running score, called after every scoring play ---------------------------
