@@ -350,9 +350,26 @@ export function synthPossession(seed, kind, side) {
       : r < 0.68 ? 'battle'
       : r < 0.84 ? 'deke'
       : 'dump';
+    const k = rand(), w = rand();
+    let x = startX + (netX - startX) * f * (0.72 + k * 0.5), y = 0.16 + w * 0.68;
+    // BACK TO THE POINT. Every touch used to be further up the ice than the last, so nobody
+    // ever passed the puck back, and the commonest play in a zone, working it down low and
+    // back out to a defenceman at the blue line, never happened. Now nearly half the passes
+    // two touches or more past the entry do that, after a touch that was a man's own (a pass,
+    // a carry, a deke; not a loose puck or a dump, which somebody chases from wherever he
+    // is): that touch goes deep, along the wall or into a corner, and the pass goes back out
+    // to a point, about one rush in eleven. It's decided and placed off the rolls already made,
+    // in the order they were made, so the chain's carriers (which the game's own dice read,
+    // in `describeRush`) are what they were and no result changes.
+    const prev = nodes[i - 1], depth = (q) => (side === 0 ? q.p[0] : 1 - q.p[0]), toX = (u) => (side === 0 ? u : 1 - u);
+    if (ev === 'pass' && i >= 3 && r < 0.14 && ['pass', 'cycle', 'deke'].includes(prev.ev)) {
+      if (depth(prev) < 0.76) prev.p[0] = toX(0.76 + (1 - k) * 0.12);
+      x = toX(0.635 + k * 0.04);
+      y = w < 0.5 ? 0.2 + w * 0.2 : 0.7 + (w - 0.5) * 0.2;
+    }
     nodes.push({
       t: Math.round(f * 0.8 * 100) / 100,
-      p: [startX + (netX - startX) * f * (0.72 + rand() * 0.5), 0.16 + rand() * 0.68],
+      p: [x, y],
       ev,
       // A loose puck belongs to nobody until somebody wins it — which is exactly what
       // `carrier: -1` already means everywhere else in this chain.
@@ -617,9 +634,13 @@ export function simGame(matchup, players, rand = Math.random, opts = {}) {
   // pass, so they are only reachable when the chain ends in one; a wraparound comes from
   // behind the net, so it needs the puck to have been down low. Rolling these blind would
   // put wraparounds on point shots.
-  function rollShot(nodes) {
-    const last = Array.isArray(nodes) ? nodes[nodes.length - 2] : null;
-    const offPass = !!last && last.ev === 'pass';
+  function rollShot(nodes, alone) {
+    // (the touch before the shot's own keyframe: reading the one second from the end read the
+    // shot itself, so no one-timer or tip was ever rolled and a wraparound hardly ever. A man
+    // in alone has nobody to feed him.)
+    const si = Array.isArray(nodes) ? nodes.findIndex((n) => n.ev === 'shot') : -1;
+    const last = si > 0 ? nodes[si - 1] : null;
+    const offPass = !alone && !!last && last.ev === 'pass';
     const downLow = !!last && Array.isArray(last.p) && (last.p[0] > 0.88 || last.p[0] < 0.12);
     const table = [
       { id: 'wrist', w: 300, label: 'wrist shot' },
@@ -810,7 +831,7 @@ export function simGame(matchup, players, rand = Math.random, opts = {}) {
         // live. This is what makes end-zone dots the commonest in the game.
         const frozen = (out.kind === 'save' || out.kind === 'glove') && rand() < FREEZE_ON_SAVE;
         const chanceNodes = synthPossession(Math.floor(rand() * 1e9), out.kind, attackAway ? 0 : 1);
-        const chanceShot = rollShot(chanceNodes);
+        const chanceShot = rollShot(chanceNodes, out.kind === 'breakaway');
         const chanceNames = live(att).map(s => s.name);
         push({ type: 'chance', kind: out.kind, shot: out.shot, shooter: shooter.name, goalie,
           teamName: att.name, oppName: def.name, strength, frozen, section: ordinal(period),

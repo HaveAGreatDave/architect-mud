@@ -62,6 +62,7 @@ const EXCITE = {
   'pbp.breakout': 0.3, 'pbp.retrieve': 0.25, 'pbp.pass': 0.35, 'pbp.won': 0.35, 'pbp.battle': 0.35, 'pbp.cycle': 0.3,
   'pbp.forecheck': 0.35, 'pbp.takeaway': 0.5,
   'pbp.dump': 0.3, 'pbp.chase': 0.3, 'pbp.entry': 0.4, 'pbp.deke': 0.55, 'pbp.shot': 0.6, 'pbp.rebound': 0.55,
+  'pbp.pass.stretch': 0.45, 'pbp.pass.saucer': 0.4, 'pbp.pass.give': 0.4, 'pbp.shot.onetimer': 0.7, 'pbp.shot.tip': 0.65,
   'pbp.out': 0.5, 'pbp.out.post': 0.75, 'pbp.out.wide': 0.35, 'pbp.after': 0.35, 'pbp.after.post': 0.5, 'pbp.freeze': 0.2,
   'shot': 0.25, 'shot.post': 0.4, 'pbp.replay': 0.35,
   // the draw
@@ -473,10 +474,12 @@ export function narrate(ctx) {
 
   // The rush, touch by touch, off the same keyframes the rink plays. A routine chance gets
   // the first touch and the last before the shot; a goal or a near-miss gets up to four.
+  let rushHolder = null;
   function callRush(b, t, sb, gd, loud) {
     const nodes = Array.isArray(b.possession) ? b.possession : [];
     const names = Array.isArray(b.rushNames) && b.rushNames.length ? b.rushNames : null;
     const L = nodes.length;
+    rushHolder = null;
     if (!names || L < 3) return false;
     const who = (i) => names[((i | 0) % names.length + names.length) % names.length] || '';
     const mids = [];
@@ -486,9 +489,28 @@ export function narrate(ctx) {
     // optional, so a short slot trims the build-up before it trims the shot.
     const keep = new Set(loud ? mids.slice(-5) : mids.slice(-3));
     let holder = who(nodes[0].carrier), first = true, wonNext = false;
+    // (where the man with it last had it, and who gave it to him: what kind of pass his next
+    // one is comes off the two)
+    let holderAt = nodes[0], passer = null;
     // Where each touch is, off the keyframe the rink plays it at: `{where}` in a line.
     const plus = b.teamName === away.name;
     const where = (n) => (mod && mod.rinkSpot ? mod.rinkSpot(n.p, plus).at : '') || 'up the ice';
+    // WHAT KIND OF PASS. Off the two keyframes, in feet, the way his side attacks: back toward
+    // his own end (a drop pass, or back out to the point), long up the ice, across it, or
+    // straight back to the man who'd just given it to him once he's gone on up the ice (a
+    // give-and-go; the men are dealt at random, so a return as such is common and is mostly
+    // just called a pass). A long one or one across is sometimes lifted over a stick. The
+    // kind rides on the line's cue, so the rink plays the pass the booth called (a saucer is
+    // lifted there only when it was called one).
+    const passKind = (from, to, back) => {
+      const dx = (to.p[0] - from.p[0]) * 200 * (plus ? 1 : -1), dy = Math.abs(to.p[1] - from.p[1]) * 85;
+      if (back && dx > 10 && nrng() < 0.5) return 'give';
+      if (dx < -6) return 'back';
+      if (dx > 55) return nrng() < 0.2 ? 'saucer' : 'stretch';
+      if (dy > 32) return nrng() < 0.15 ? 'saucer' : 'cross';
+      return 'short';
+    };
+    const hasPool = (key) => (Array.isArray(key) ? key.some((k) => pools[k]) : !!pools[key]);
     // Off a loose puck (a rebound, a kick-out, a block) he has to go and get it first, and
     // the rink shows him doing it, so the booth says so and the breakout follows when he has it.
     const prev = beats[idx - 2];
@@ -503,9 +525,12 @@ export function narrate(ctx) {
     // man on the boards) he has to go and get first, from whoever has got to it: the booth
     // says he goes in after it, and the breakout follows when he has it (`fetched`).
     const loose = prev && ((prev.type === 'chance' && !prev.frozen && LOOSE_AFTER.has(prev.kind)) || prev.type === 'boards');
+    // (off their shot it's loose in his own end, and he drops back for it; off his own side's,
+    // it's in theirs and he goes in after it)
+    const ownEnd = prev && prev.type === 'chance' && prev.teamName !== b.teamName;
     if (gd && theirs && call('pbp.forecheck', t, out0, sb, null, gd)) {
       call('pbp.takeaway', t, out0, sb, { cue: { ev: 'takeaway' } });
-    } else if (gd && loose && call('pbp.retrieve', t, out0, sb, null, gd)) {
+    } else if (gd && loose && call(ownEnd ? ['pbp.retrieve.back', 'pbp.retrieve'] : 'pbp.retrieve', t, out0, sb, null, gd)) {
       // (the line before named him, so this one needn't)
       call(['pbp.breakout.on', 'pbp.breakout'], t, out0, sb, { cue: { ev: 'fetched' } });
     } else call('pbp.breakout', t, out0, sb, null, gd);
@@ -517,17 +542,25 @@ export function narrate(ctx) {
     const plan = [];
     for (const i of mids) {
       const n = nodes[i], man = n.carrier >= 0 ? who(n.carrier) : null;
-      let key = null, extra = null;
+      let key = null, extra = null, pass = null;
       if (n.ev === 'battle') { key = 'pbp.battle'; extra = { where: where(n) }; wonNext = true; holder = null; }
-      else if (wonNext && man) { key = 'pbp.won'; extra = { player: man, where: where(n) }; wonNext = false; holder = man; }
-      else if (man && holder && man !== holder) { key = 'pbp.pass'; extra = { player: holder, to: man, where: where(n) }; holder = man; }
-      else if (man && n.ev !== 'pass') { key = `pbp.${n.ev}`; extra = { player: man, where: where(n) }; holder = man; }
-      if (!key || !pools[key]) continue;
+      else if (wonNext && man) { key = 'pbp.won'; extra = { player: man, where: where(n) }; wonNext = false; holder = man; holderAt = n; passer = null; }
+      else if (man && holder && man !== holder) {
+        pass = passKind(holderAt, n, man === passer);
+        key = pass === 'short' ? 'pbp.pass' : [`pbp.pass.${pass}`, 'pbp.pass'];
+        extra = { player: holder, to: man, where: where(n) };
+        passer = holder; holder = man; holderAt = n;
+      }
+      else if (man && n.ev !== 'pass') { key = `pbp.${n.ev}`; extra = { player: man, where: where(n) }; holder = man; holderAt = n; }
+      else if (man) holderAt = n;
+      if (!key || !hasPool(key)) continue;
       if (!keep.has(i)) continue;
-      plan.push({ i, key, extra, ev: n.ev });
+      plan.push({ i, key, extra, ev: n.ev, pass });
     }
+    // (who has it as the shot comes: the man who feeds a one-timer or a tip, when it is one)
+    rushHolder = holder;
     plan.forEach((c, k) => {
-      call(c.key, t, c.extra, sb, { cue: { ev: 'node', i: c.i }, opt: !loud && !first && k < plan.length - 1 });
+      call(c.key, t, c.extra, sb, { cue: { ev: 'node', i: c.i, ...(c.pass ? { pass: c.pass } : {}) }, opt: !loud && !first && k < plan.length - 1 });
       // a puck put in or knocked loose has to be run down, and the picture takes the time
       if (c.ev === 'dump' || c.ev === 'battle') call('pbp.chase', t, null, sb, { opt: true });
       first = false;
@@ -538,11 +571,19 @@ export function narrate(ctx) {
   // line follows it.
   function callShot(b, t, sb, gd) {
     const typeKey = `pbp.shot.${b.shotType || ''}`;
-    const generic = nrng() < 0.3 || !pools[typeKey];
+    // A ONE-TIMER OR A TIP IS THE PASS AS MUCH AS THE SHOT, so it's always called as one, and
+    // it names the man who fed it when the booth knows him: the goal's assist, or the man the
+    // rush left with the puck. The shot's cue carries his name, and the rink puts it on the
+    // man it has make that pass.
+    const fedKind = b.shotType === 'onetimer' || b.shotType === 'tip';
+    const generic = !fedKind && (nrng() < 0.3 || !pools[typeKey]);
+    const feeder = fedKind ? (b.assist || rushHolder || '') : '';
+    const fed = !!feeder && feeder !== b.shooter && !!pools[`${typeKey}.fed`];
     // where he let it go from, off the shot's own keyframe
     const shotNode = Array.isArray(b.possession) ? b.possession.find((n) => n.ev === 'shot') : null;
     const from = (shotNode && mod && mod.rinkSpot ? mod.rinkSpot(shotNode.p, b.teamName === away.name).from : '') || 'from in close';
-    call(generic ? 'pbp.shot' : [typeKey, 'pbp.shot'], t, { shooter: b.shooter, shotLabel: b.shotLabel || 'shot', from }, sb, { cue: { ev: 'shot' } }, gd);
+    const keys = generic ? 'pbp.shot' : fed ? [`${typeKey}.fed`, typeKey, 'pbp.shot'] : [typeKey, 'pbp.shot'];
+    call(keys, t, { shooter: b.shooter, shotLabel: b.shotLabel || 'shot', from, feeder }, sb, { cue: { ev: 'shot', ...(fed ? { feeder } : {}) } }, gd);
   }
 
   // Who is in each net, from the shots against it, so the pulled goalie can be named.

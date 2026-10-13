@@ -750,17 +750,13 @@
         "{player} to {to}.",
         "{player} feathers it to {to}.",
         "{player} threads it to {to} {where}.",
-        "Across to {to} {where}.",
         "{player} slides it over to {to}.",
         "{player} finds {to} {where}.",
         "{player} hits {to} in stride.",
         "{player} ladles it to {to}.",
-        "{player} saucers one over to {to}.",
-        "{player} chips it ahead to {to}.",
-        "Back to {to} {where}.",
         "Tape to tape, {to}.",
-        "{player} drops it for {to}.",
-        "{player} banks it off the wall to {to}."
+        "{player} puts it on {to}'s stick.",
+        "Quick touch to {to}."
       ],
       "pbp.period.first": [
         "The building's on its feet.",
@@ -843,7 +839,7 @@
         "Watch this again."
       ],
       "pbp.retrieve": [
-        "{player} goes back for it.",
+        "{player} jumps on it.",
         "{player} goes in after it.",
         "{player} runs it down.",
         "{player} chases it down.",
@@ -1129,6 +1125,77 @@
         "{player} picks his pocket.",
         "{player} wins the battle.",
         "And {player} comes away with it."
+      ],
+      "pbp.pass.back": [
+        "{player} drops it back to {to}.",
+        "Back to {to} {where}.",
+        "{player} works it back to {to}.",
+        "{player} leaves it for {to}.",
+        "{to} drops back for it.",
+        "Back out to {to} {where}.",
+        "Drop pass, {to}."
+      ],
+      "pbp.pass.cross": [
+        "Across to {to} {where}.",
+        "{player} swings it across to {to}.",
+        "Cross-ice to {to}.",
+        "{player} switches sides to {to}.",
+        "{player} finds {to} on the far side.",
+        "{player} sends it across to {to}."
+      ],
+      "pbp.pass.stretch": [
+        "{player} stretches it to {to}.",
+        "Long one up to {to}.",
+        "{player} springs {to} {where}.",
+        "{player} hits {to} with a long pass.",
+        "{player} sends {to} up the ice.",
+        "{player} chips it ahead to {to}."
+      ],
+      "pbp.pass.saucer": [
+        "{player} saucers it over to {to}.",
+        "{player} floats a saucer to {to}.",
+        "Saucer pass, {to} {where}.",
+        "{player} lifts it over a stick to {to}."
+      ],
+      "pbp.pass.give": [
+        "Right back to {to}.",
+        "{player} gives it back to {to}.",
+        "Give and go, {to} has it back.",
+        "Return feed to {to}.",
+        "And back to {to} {where}."
+      ],
+      "pbp.shot.onetimer": [
+        "One-timer, {shooter}!",
+        "{shooter} one-times it!",
+        "{shooter} right off the pass {from}!",
+        "{shooter} hammers the ONE-TIMER!",
+        "{shooter} on the one-timer {from}!"
+      ],
+      "pbp.shot.onetimer.fed": [
+        "{feeder} to {shooter}, ONE-TIMER!",
+        "{feeder} sets up {shooter}, one-timer!",
+        "{feeder} across to {shooter}, one-timer!",
+        "{feeder} feeds {shooter} for the one-timer!"
+      ],
+      "pbp.shot.tip": [
+        "{shooter} tips it!",
+        "Tipped, {shooter}!",
+        "{shooter} gets a stick on it!",
+        "Redirect, {shooter}!",
+        "{shooter} deflects it {from}!"
+      ],
+      "pbp.shot.tip.fed": [
+        "{feeder} shoots, {shooter} TIPS it!",
+        "{feeder} fires, {shooter} redirects it!",
+        "{feeder} from out high, {shooter} tips it!",
+        "{feeder} lets it go, {shooter} deflects it!"
+      ],
+      "pbp.retrieve.back": [
+        "{player} drops back for it.",
+        "{player} circles back to get it.",
+        "{player} heads back into his own end for it.",
+        "{player} turns back for the puck.",
+        "{player} goes back to pick it up."
       ]
     },
     "sport": "hockey",

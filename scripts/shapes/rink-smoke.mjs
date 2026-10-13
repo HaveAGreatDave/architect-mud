@@ -107,11 +107,22 @@ async function play(slot) {
   // he meets it, so nearly every pass in a rush gets to him rather than going by him.
   const passes = { n: 0, missed: 0, list: [] };
   let pending = null;
+  // AND PLAYED THE WAY THE BOOTH CALLED IT. The rink lifts a pass over a stick only when the
+  // booth called a saucer, and a one-timer or a tip is struck straight off the pass (or the
+  // shot it redirects), from the man the booth said fed it.
+  let curG = null, lastShot = null;
+  const lastPassTo = new Map(), unasked = [], fedShots = { n: 0, bad: [] };
   const pass0 = W.pass;
   W.pass = (from, to, spd, at) => {
     const ok = pass0(from, to, spd, at);
     if (ok && to && D.kind() === 'rush' && W.puck.target === to) { passes.n++; pending = { to, t: W.t }; }
+    if (ok && to) lastPassTo.set(to, { from, t: W.t });
     return ok;
+  };
+  const act0 = W.act;
+  W.act = (b, name, dur, data) => {
+    if (name === 'saucer' && b && b.scripted && D.kind() === 'rush' && !((curG && curG.cues) || []).some((c) => c.pass === 'saucer')) unasked.push(`${b.name || b.kind} at ${(W.t - tApply).toFixed(2)}s`);
+    return act0(b, name, dur, data);
   };
   const give0 = W.give;
   W.give = (b, force) => {
@@ -138,6 +149,14 @@ async function play(slot) {
   };
   const shoot0 = W.shoot;
   W.shoot = (from, tgt, spd, type) => {
+    if (type === 'onetimer' || type === 'tip') {
+      // (a tip redirects a shot; a one-timer is struck off a pass)
+      const fed = ((curG && curG.cues) || []).find((c) => c.ev === 'shot') || {}, lp = type === 'tip' ? lastShot : lastPassTo.get(from);
+      fedShots.n++;
+      if (!lp || W.t - lp.t > 1.2) fedShots.bad.push(`${type} by ${from.name} at ${(W.t - tApply).toFixed(2)}s off nothing`);
+      else if (fed.feeder && lp.from.name !== String(fed.feeder).split(' ').pop()) fedShots.bad.push(`${type} fed by ${lp.from.name || '?'}, called ${fed.feeder}`);
+    }
+    lastShot = { from, t: W.t };
     const tt = shoot0(from, tgt, spd, type);
     const netX = Math.abs(tgt[0] - GOAL_X[0]) < Math.abs(tgt[0] - GOAL_X[1]) ? GOAL_X[0] : GOAL_X[1];
     seeShot(netX, 'at the release');
@@ -206,6 +225,7 @@ async function play(slot) {
     let ok = true;
     tApply = W.t; landedAt = null; grabAt = null; boxAt = null; sawBreakaway = false; rushB = null;
     const replays0 = W.replay.count;
+    curG = g;
     try { view.apply(g); } catch (e) { check(`${label} stages`, false, e.stack.split('\n').slice(0, 2).join(' ')); ok = false; }
     if (!ok) continue;
     const before = { inNet: W.puck.inNet, goals: goalsIn, on: { a: W.mates('a').length, h: W.mates('h').length }, broken: W.broken.size };
@@ -357,6 +377,8 @@ async function play(slot) {
   check(`${slot}: the camera never jumps`, camJumps.length === 0, `${camJumps.length}: ${camJumps.slice(0, 4).join(', ')}`);
   check(`${slot}: every shot is taken with its net in frame`, unseen.length === 0, `${unseen.length}: ${unseen.slice(0, 4).join(', ')}`);
   check(`${slot}: nobody gains the puck from beyond his reach`, snaps.length === 0, `${snaps.length}: ${snaps.slice(0, 4).join(', ')}`);
+  check(`${slot}: the rink lifts a pass only when the booth called a saucer`, unasked.length === 0, `${unasked.length}: ${unasked.slice(0, 4).join(', ')}`);
+  check(`${slot}: a one-timer or a tip is struck off the pass, by the man the booth said fed it`, fedShots.n > 0 && fedShots.bad.length === 0, `${fedShots.bad.length} of ${fedShots.n}: ${fedShots.bad.slice(0, 4).join(', ')}`);
   check(`${slot}: rush passes get to the man they're for`, passes.n > 20 && passes.missed <= Math.max(2, passes.n * 0.05), `${passes.missed} of ${passes.n} went by him: ${passes.list.slice(0, 4).join(', ')}`);
   check(`${slot}: the renderer drew`, renders > 100 && stub.drawn.images > 1000, `${renders} frames, ${stub.drawn.images} images`);
   check(`${slot}: the held caption went up`, String(host.find('.gdr-cap-text')?.textContent || '').length > 0);

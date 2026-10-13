@@ -1087,8 +1087,13 @@ the puck it needs, walks them through the beat and hands them back to the ambien
 - *Chances and goals* play the possession keyframes: carries, passes to the man who carries
   the next touch, battles and dump-ins chased down, dekes past a man standing the carrier
   up. With cues on the payload each called touch happens as its line airs; without them a
-  rush starts late when the whole chain would run past about five seconds. The shot is the sim's `shotType` with its own
-  wind-up; a one-timer and a tip are fed by a teammate. Where the puck goes comes from the
+  rush starts late when the whole chain would run past about five seconds. A pass is played
+  the kind the booth called it (`pass` on the touch's cue): lifted over a stick only when
+  it was called a saucer. The shot is the sim's `shotType` with its own wind-up. A
+  one-timer is fed by a teammate, who waits in the stance and strikes it as the pass gets
+  to his stick. A tip redirects a teammate's shot from out high, aimed at his blade where
+  it'll be as it gets there and redirected when it reaches it. Either way the man who
+  feeds it wears the name the booth gave him (`feeder` on the `shot` cue). Where the puck goes comes from the
   outcome: into the net for a goal, into the glove, the chest, the pad, off the post, wide,
   into a defender who drops to block it, or poked off the stick on a breakaway. A dump
   goes in from about where the sim had it: when the play joined with the puck well short
@@ -1112,7 +1117,8 @@ the puck it needs, walks them through the beat and hands them back to the ambien
 - *Boards hits* happen on the far wall, where the glass is in shot, in the sim's
   `hitStyle`: shoulder, glass (which can break a pane), from behind, hip check, elbow.
   The man hit becomes a ragdoll, so where and how hard he meets the boards decides how he
-  falls. The hitter commits as late as he can and still arrive as the hit is called, and
+  falls. The man hit gets to the wall a stride before the hitter commits, at whatever pace
+  that takes from wherever he was. The hitter commits as late as he can and still arrive as the hit is called, and
   he skates at a point past the man rather than at him: aimed at the man, he'd ease up as
   he got there, as anybody does, and the hit came as much as a second late. A man who is
   hurt stays down, with play stopped, until the injury beat comes.
@@ -1448,6 +1454,24 @@ shows as a quiet line under the caption when the box is tall enough. The spoken 
 lines above, read off the same keyframes and names, so neither can disagree with the
 picture.
 
+**Passing plays, one-timers, and dropping back.** Each rush pass is read off its two
+keyframes (where the passer last had it and where it's taken), in feet the way his side
+attacks. It's called back toward his own end (`pbp.pass.back`: a drop pass, or back out to
+the point), long up the ice (`.stretch`), across it (`.cross`), lifted over a stick
+(`.saucer`, now and then, for a long one or one across), straight back to the man who gave
+it once he's gone on up the ice (`.give`), or a short one (`pbp.pass`). The kind rides on
+that touch's cue as `pass`, and the rink plays that pass. The keyframes work a puck down low
+and back out to a point in about one rush in eleven: `synthPossession` sends the touch
+before such a pass deep along the wall, off the rolls it already makes, so no result moves.
+`rollShot` reads the touch before the shot's own keyframe; it used to read the shot
+itself, so no one-timer or tip was ever rolled and a wraparound hardly ever. A breakaway
+is never one: a man in alone has nobody to feed him. A one-timer
+or a tip is always called as one, naming the man who fed it when there is one
+(`pbp.shot.onetimer.fed`, `pbp.shot.tip.fed`; `{feeder}` is the goal's assist, or the man
+the rush left with the puck), and the `shot` cue carries his name for the rink. A loose
+puck the other side's shot left in his own end is called as him dropping back for it
+(`pbp.retrieve.back`); in theirs, he goes in after it (`pbp.retrieve`).
+
 **Nothing calls a goal before it goes in.** A goal's beat carries the score after the
 goal, so the narrator gives the rush and shot lines a bug with the score before it
 (`scoreBefore`, also on the payload). The rink header shows that score and the strip reads
@@ -1498,7 +1522,9 @@ resolves, every goal goes in and no save does, the faceoff is taken on the named
 the named centres with the puck dropped from the linesman's hand (three in four as the
 line airs), a fight's loser ends with nothing left, a man carried off is gone, a death
 stops the building, the pulled goalie leaves an empty net and a sixth skater, and the
-Zamboni lays wet ice and is gone through its gate before the period's first draw. Nothing
+Zamboni lays wet ice and is gone through its gate before the period's first draw. A pass
+is lifted only when the booth called a saucer, and a one-timer or a tip is struck within
+1.2 s of the pass (or the shot it redirects) from the man the booth said fed it. Nothing
 teleports: not the puck, not a man, not the camera. It proves the view runs
 and agrees with the sim, not that it looks right. The stub has no WebGL, so it drives the
 2-D renderer.

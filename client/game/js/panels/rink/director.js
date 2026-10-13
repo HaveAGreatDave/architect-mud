@@ -136,8 +136,9 @@ export function createDirector(W, opts = {}) {
   // When the booth's line for `ev` airs, in seconds after the beat began, or null when the
   // payload carries no cue for it. The pacer writes these (sports/hockey-pacing.js), and the
   // director does each thing as its line airs.
+  const cueAt = (p, ev, key, val) => (Array.isArray(p.cues) ? p.cues.find((q) => q.ev === ev && (key == null || q[key] === val)) || null : null);
   const cueOf = (p, ev, key, val) => {
-    const c = Array.isArray(p.cues) ? p.cues.find((q) => q.ev === ev && (key == null || q[key] === val)) : null;
+    const c = cueAt(p, ev, key, val);
     return c ? c.ms / 1000 : null;
   };
   const sideOfTeam = (team, p) => (team && team === p.awayTeam ? 'a' : team && team === p.homeTeam ? 'h' : null);
@@ -647,9 +648,10 @@ export function createDirector(W, opts = {}) {
         tb.tx = nd.x; tb.ty = nd.y; tb.maxV = 22;
         const lu = (tb.x - cur.x) * Math.cos(cur.h) + (tb.y - cur.y) * Math.sin(cur.h);
         const lv = -(tb.x - cur.x) * Math.sin(cur.h) + (tb.y - cur.y) * Math.cos(cur.h);
-        // a drop pass is for a man right behind him; farther back it's played firmly
-        const pd = hyp(tb.x - cur.x, tb.y - cur.y);
-        const pkind = lu < -3 && pd < 14 ? 'drop' : (lv < -4 && lu < 8) || lu < -3 ? 'backpass' : r() < 0.15 ? 'saucer' : 'pass';
+        // a drop pass is for a man right behind him; farther back it's played firmly; and it's
+        // lifted only when the booth called a saucer (the kind rides on the touch's cue)
+        const pd = hyp(tb.x - cur.x, tb.y - cur.y), said = cueAt(p, 'node', 'i', nd.oi);
+        const pkind = said && said.pass === 'saucer' ? 'saucer' : lu < -3 && pd < 14 ? 'drop' : (lv < -4 && lu < 8) || lu < -3 ? 'backpass' : 'pass';
         W.act(cur, pkind, SHOTS[pkind].dur); cur.look = [tb.x, tb.y, 1];
         const from = cur, pass = { kind: 'pass', to: tb, from: cur, t: 0 };
         // (a shot called before it's away takes the leg over, and he keeps the puck to shoot)
@@ -713,7 +715,10 @@ export function createDirector(W, opts = {}) {
         }
       }
       nameBody(shooter, p.shooter);
-      if (p.assist && setup) nameBody(setup, p.assist);
+      // (the man who feeds a one-timer or a tip is the one the booth named: the shot's cue
+      // carries him when it named one)
+      const feeder = p.assist || (cueAt(p, 'shot') || {}).feeder;
+      if (feeder && setup) nameBody(setup, feeder);
       else if (p.assist && lastPasser && lastPasser !== shooter) nameBody(lastPasser, p.assist);
       if (type === 'wrap') {
         const sv = cur.y > MID_Y ? 1 : -1;
@@ -929,6 +934,13 @@ export function createDirector(W, opts = {}) {
         li = nodes.length - 2; leg = null; shotLeg();
         return;
       }
+      // A block needs a body in the lane: he takes the line from the shooter to the net, a few
+      // strides in front of him, wherever the shooter has got to. (The spot the sim had for it
+      // was behind a man already in close, and the shot went back up the ice into him.)
+      if (leg.blocker && (leg.kind === 'approach' || leg.kind === 'feed' || leg.kind === 'wrapIn')) {
+        const bl = leg.blocker, sh = leg.shooter || cur, dx = netX - sh.x, dy = MID_Y - sh.y, d = hyp(dx, dy) || 1, k = Math.min(0.5, 9 / d);
+        bl.tx = sh.x + dx * k; bl.ty = sh.y + dy * k; bl.face = Math.atan2(-dy, -dx);
+      }
       const nextCue = nodes[li] ? cueOf(p, 'node', 'i', nodes[li].oi) : null;
       // (not a carry up to where a dump goes in from: dumped from short of there, it's icing)
       if (nextCue != null && rel >= nextCue + 0.3 && ((leg.kind === 'carry' && !leg.up) || leg.kind === 'chase')) {
@@ -1123,25 +1135,40 @@ export function createDirector(W, opts = {}) {
         if (leg.round && (hyp(cur.tx - cur.x, cur.ty - cur.y) < 2 || leg.t > 2.2 || (late && leg.t - leg.roundAt > 0.5)) && (shotCue == null || rel >= shotCue)) { leg.kind = 'shooting'; shoot(cur); }
       } else if (leg.kind === 'feed') {
         const sh = leg.shooter;
+        // (a man waiting to tip a shot faces the man it'll come from, his stick out in its way:
+        // turning as he settled swung his blade four feet off where the shot was aimed)
+        if (type === 'tip') sh.face = Math.atan2(cur.y - sh.y, cur.x - sh.x);
         if (!leg.fed && (shotCue != null ? rel >= shotCue - 0.5 : (leg.t > 0.7 || hyp(sh.tx - sh.x, sh.ty - sh.y) < 4))) {
           leg.fed = true; const from = cur;
           W.act(from, 'pass', SHOTS.pass.dur);
           if (type === 'onetimer') W.act(sh, 'onetimerReady', 0.8);
           at(B, releaseAt('pass'), () => {
             if (type === 'tip') {
-              // the point shot is the setup; the tip is the shot that counts
-              const bw = bladeWorld(sh, W.t + 0.35, true);
+              // The point shot is the setup; the tip is the shot that counts. It's aimed at his
+              // blade where it'll be as the shot gets there, and he redirects it when it does
+              // (below), not a fixed beat after it's struck: one still feet short of him was put
+              // on his stick.
+              // (led along his line, no farther than his spot: he can still be getting there)
+              const sv = hyp(sh.vx, sh.vy) || 1, left = hyp(sh.tx - sh.x, sh.ty - sh.y);
+              const ahead = (tt) => { const bw = bladeWorld(sh, W.t + tt, true), s = Math.min(sv * tt, left); return [bw[0] + sh.vx / sv * s, bw[1] + sh.vy / sv * s]; };
+              let bw = ahead(0);
+              for (let i = 0; i < 3; i++) bw = ahead(hyp(bw[0] - pk.x, bw[1] - pk.y) / 75);
               W.shoot(from, [bw[0], bw[1], 0.4], 75, 'wrist'); W.sfx('shot', { type: 'wrist' });
-              leg.tipAt = W.t + 0.3;
+              leg.tipBy = W.t + hyp(bw[0] - pk.x, bw[1] - pk.y) / 75 + 0.5;
             } else W.pass(from, sh, 78);
           });
         }
-        if (leg.fed && type === 'onetimer' && (pk.carrier === sh || (pk.target === sh && hyp(pk.x - sh.x, pk.y - sh.y) < 9))) { leg.kind = 'shooting'; shoot(sh); }
-        if (leg.fed && type === 'tip' && leg.tipAt && W.t >= leg.tipAt) {
-          leg.kind = 'shooting';
-          W.give(sh, true);
-          W.act(sh, 'tip', SHOTS.tip.dur);
-          W.schedule(0.02, () => { if (D.beat !== B) return; const a = aim(kind, sh, def, 'tip', r); if (kind === 'goal') W.allowGoal = def; const tt = W.shoot(sh, a.tgt, SPEED.tip, 'tip'); W.sfx('stick'); react(a, tt); });
+        // (ready for it as it comes, and struck as it gets to his stick: shooting while it was
+        // still on its way made him go and get it, and the pass went by him)
+        if (leg.fed && type === 'onetimer' && pk.carrier === sh) { leg.kind = 'shooting'; shoot(sh); }
+        if (leg.fed && type === 'tip' && leg.tipBy) {
+          const bw = bladeWorld(sh, W.t, true), db = hyp(bw[0] - pk.x, bw[1] - pk.y);
+          if (db < 3 && pk.z < 2.5) {
+            leg.kind = 'shooting';
+            W.give(sh, true);
+            W.act(sh, 'tip', SHOTS.tip.dur);
+            W.schedule(0.02, () => { if (D.beat !== B) return; const a = aim(kind, sh, def, 'tip', r); if (kind === 'goal') W.allowGoal = def; const tt = W.shoot(sh, a.tgt, SPEED.tip, 'tip'); W.sfx('stick'); react(a, tt); });
+          } else if (W.t > leg.tipBy) { leg.kind = 'shooting'; shoot(sh); }   // (it missed his blade: he gathers it and shoots)
         }
         if (leg && leg.t > 3 && (shotCue == null || rel > shotCue + 1)) { leg.kind = 'shooting'; shoot(sh); }
       }
@@ -1267,10 +1294,13 @@ export function createDirector(W, opts = {}) {
     let hit = false;
     B.update = (dt, rel) => {
       if (!hit) {
+        // (there: on the wall, at or past the spot. Level with it but still out in the middle
+        // of the ice isn't: he cruised the 40 ft to the wall and the hit came 2 s late.)
+        const there = Math.abs(y0 - victim.y) < 3 && (victim.x - x0) * vdir > -1;
         if (style !== 'behind') {
           // (on the wall a stride before the hitter commits, so the hit comes as it's called;
           // once he's there he goes on up it at an easy pace, not skating away from the hit)
-          if (impT != null) { victim.tx = x0 + vdir * 6; victim.maxV = (victim.x - x0) * vdir > -1 ? 7 : clamp(hyp(x0 - victim.x, y0 - victim.y) / Math.max(0.5, impT - 1.1 - rel), 7, 24); }
+          if (impT != null) { victim.tx = x0 + vdir * 6; victim.maxV = there ? 7 : clamp(hyp(x0 - victim.x, y0 - victim.y) / Math.max(0.5, impT - 1.1 - rel), 7, 24); }
           else victim.tx = victim.x + vdir * 18;
           victim.ty = y0;
         } else {
@@ -1295,8 +1325,9 @@ export function createDirector(W, opts = {}) {
           hitter.tx = ax + ex / el * 12; hitter.ty = ay + ey / el * 12; hitter.charging = victim;
         }
         W.cam.focus = [(victim.x + hitter.x) / 2, (victim.y + hitter.y) / 2 - 4];
-        // running late, the hitter finds another gear and the man with it eases up into him
-        if (rel > (impT != null ? impT + 0.4 : 3.0)) { hitter.maxV = 34; hitter.acc = 60; victim.maxV = Math.min(victim.maxV, 6); }
+        // running late, the hitter finds another gear and the man with it, once he's on the
+        // wall, eases up into him (short of it he keeps going to it)
+        if (rel > (impT != null ? impT + 0.4 : 3.0)) { hitter.maxV = 34; hitter.acc = 60; if (there || style === 'behind') victim.maxV = Math.min(victim.maxV, 6); }
         if (charging && hyp(hitter.x - victim.x, hitter.y - victim.y) < 3.3) { hit = true; impact(); }
       } else {
         const v = victim.rag ? victim.rag.pts[0] : victim;
