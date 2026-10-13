@@ -24,13 +24,13 @@
 // (diamond/world.js) while it plays: the battery's clips, the ball at its real speed to its exact
 // spot, the director's cuts. The count goes up as each pitch is decided, and the held line and the
 // card go up when the play lands, so the booth never calls a play the picture hasn't reached. A
-// ball put in play flies about as long as a real one before the play lands; Phase 3 stages the
-// plays. Plays on the bases and the changeovers are stills, on the 2-D view's clock
-// (GAMEDAY_CLOCK).
+// ball in play is played out (diamond/plays.js), and so is a play on the bases (diamond/runs.js:
+// a steal, a throw over, a wild pitch), its steal card on the landing; at a changeover the new
+// side takes the field and the pitcher warms up.
 //
 // The sim on the server decides everything. Nothing here can change a score.
 
-import { createGamedayView, GAMEDAY_CLOCK, GAMEDAY_CARDS } from './gameday.js';
+import { createGamedayView, GAMEDAY_CARDS } from './gameday.js';
 import { DEADBALL_SFX } from '../../../shared/deadball-sfx.js';
 import { venueOf, onVenue } from './venue.js';
 import { prefersReducedMotion } from '../../../shared/settings.js';
@@ -49,7 +49,6 @@ const ADS = ['KSAB-TV', 'DEADBALL', 'COLDWATER', 'KSAB-TV'];
 // clubs bring their own (Phase 5).
 const SIDE_COLOURS = { home: ['#36c4c4', '#145f63'], away: ['#e0702e', '#7c2f10'] };
 
-const { T_PITCH, T_THROW } = GAMEDAY_CLOCK;
 // How long each graphic stays up: the matchup as a man comes up, a steal's card once it lands,
 // and each of the leaders' races between innings.
 const MATCHUP_MS = 4200, STEAL_MS = 4800, TABLE_CYCLE_MS = 8000;
@@ -291,12 +290,16 @@ export function createGrandstandView(host, opts = {}) {
     // the play's own sound, as the 2-D view plays it
     const outs = p.kind === 'tripleplay' ? 3 : p.kind === 'doubleplay' ? 2 : 1;
     if (p.kind === 'homerun') sfx('homer');
-    else if (p.rbi > 0) sfx('run');
+    else if (p.rbi > 0 || (p.phase === 'run' && p.runs > 0)) sfx('run');
     else if (p.kind === 'strikeout') sfx('strikeout');
     else if (p.out) { sfx('out'); for (let k = 1; k < outs; k++) later(150 * k, () => sfx('out')); }
     else sfx('base');
     if (p.kind === 'strikeout' || p.kind === 'walk') {
       hold('splash', { kind: p.kind, sub: p.kind === 'strikeout' ? p.pitcher : p.batter }, OWN_SPLASH_MS);
+    }
+    // a steal's card with its clocks, once the call's made
+    if (p.phase === 'run' && STEALS.has(p.kind)) {
+      hold('steal', { kind: p.kind === 'doublesteal' && p.out ? 'caughtstealing' : p.kind, runner: p.runner, num: mods.numberOf(p.runner), sb: p.sb, plate: p.plate, pop: p.pop, base: p.base, team: p.battingTeam }, STEAL_MS);
     }
     land();
   }
@@ -392,20 +395,8 @@ export function createGrandstandView(host, opts = {}) {
       Object.assign(S, { bases: (p.basesAfter || [false, false, false]).slice(), outs: outsAfter, aScore: aAfter | 0, hScore: hAfter | 0 });
       paint();
     };
-    if (p.phase === 'run') {
-      // a play on the bases while he's up: no pitches of its own, and a steal shows its card
-      shown = mods.pictureAfter(p);
-      matchupFor(p);
-      paint();
-      const landAt = p.kind === 'pickoff' || p.kind === 'throwover' ? 260 + T_THROW : T_PITCH + T_THROW;
-      later(landAt, () => {
-        settle(); land();
-        if (STEALS.has(p.kind)) {
-          hold('steal', { kind: p.kind === 'doublesteal' && p.out ? 'caughtstealing' : p.kind, runner: p.runner, num: mods.numberOf(p.runner), sb: p.sb, plate: p.plate, pop: p.pop, base: p.base, team: p.battingTeam }, STEAL_MS);
-        }
-      });
-      return;
-    }
+    // he's up and hasn't seen a pitch yet: a play on the bases comes before his at-bat (sim v2), and
+    // the director stages it as it does an at-bat (diamond/runs.js), its steal card on the landing
     Object.assign(S, { balls: 0, strikes: 0 });
     matchupFor(p);
     paint();

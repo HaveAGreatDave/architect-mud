@@ -39,7 +39,7 @@ import {
 } from './bodies.js';
 
 // When the ready set's hop lands (its last step).
-const READY_STEP = (id) => Math.max(...CLIPS[id].events.filter((e) => e.kind === 'step').map((e) => e.t));
+export const READY_STEP = (id) => Math.max(...CLIPS[id].events.filter((e) => e.kind === 'step').map((e) => e.t));
 
 // A ball on the ground that comes up off its last hop to height y at tC, into a glove keyed to
 // take it there (every fielding clip's catch is a little off the grass), and down again after it
@@ -55,7 +55,7 @@ function hopped(path, tC, y) {
   return Object.assign(at, path);
 }
 // A ball popped from `from` to rest on the ground at `to` in T seconds, and lying there after.
-function toRest(from, to, t0, T) {
+export function toRest(from, to, t0, T) {
   const down = [to[0], BALL_R, to[2]], arc = fitPath(from, down, t0, T, [0, -GRAVITY, 0], { bounce: false });
   const at = (t) => (t >= t0 + T ? down.slice() : arc(t));
   at.t0 = t0; at.T = T;
@@ -72,14 +72,14 @@ const catchOf = (B, id) => {
   return CATCHES.get(key);
 };
 // The frame clip `id` starts from for its catch to put the glove on `ball`, facing `yaw`.
-function frameOn(B, id, ball, yaw) {
+export function frameOn(B, id, ball, yaw) {
   const c = catchOf(B, id), q = turn(c.at, yaw);
   return { at: [ball[0] - q[0], 0, ball[2] - q[2]], yaw, t: c.t, glove: c.at };
 }
 // Where clip `id` from frame `fr` (started at tS) has the glove at its catch in the park, on the
 // ground under him as the world has it: on the mound's slope a pitcher's glove isn't where the
 // flat ground puts it.
-function gloveAt(B, id, fr, tS) {
+export function gloveAt(B, id, fr, tS) {
   const clip = CLIPS[id], ev = clip.events.find((x) => x.kind === 'catch'), F = carried(fr, clip, tS, 1, tS + ev.t, B.mirror);
   const P = sampleClip(clip, ev.t, { mirror: B.mirror, scale: B.scale, ground: groundOf(F) });
   return toPark(F, handAt(P, sideOf(B, ev.hand), ev.hand === 'R' ? 'bare' : B.role === 'catcher' ? 'mitt' : 'glove', B.scale));
@@ -97,7 +97,7 @@ function frameRunning(B, id, ball, from) {
 
 // Where the clip in entry `e` has his throwing hand at its release: the hand's centre a fifth of a
 // foot out along it, as the director's pitches have it.
-function releaseOf(B, e) {
+export function releaseOf(B, e) {
   const clip = CLIPS[e.clip], ev = clip.events.find((x) => x.kind === 'release'), t = e.start + ev.t / e.speed;
   const F = carried(e.F, clip, e.start, e.speed, t, B.mirror);
   const P = sampleClip(clip, ev.t, { mirror: B.mirror, scale: B.scale, ground: groundOf(F) });
@@ -122,7 +122,7 @@ function throwHeading(id, mirror) {
 // its start where he can get there in time, or taken up part way through (`from`), as late as
 // the run needs and no later than a third of a second before the catch. A clip that starts
 // running he runs into at its own speed. Returns the clip's entry.
-function runInto(B, id, fr, tC, t0) {
+export function runInto(B, id, fr, tC, t0) {
   const clip = CLIPS[id], tS = tC - fr.t, s0 = B.spotAt(Math.max(t0, B.free));
   const speedAt = (tau) => { const a = rootAt(clip, Math.max(0, tau - 0.02)), b = rootAt(clip, tau + 0.02); return Math.hypot(b.at[0] - a.at[0], b.at[1] - a.at[1]) / 0.04; };
   // somewhere he can get to in time and not behind him on the clip's way: the first such, or the

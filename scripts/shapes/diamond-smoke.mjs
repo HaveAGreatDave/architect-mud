@@ -42,12 +42,26 @@
 //      ending where he plays (4 ft) and nobody faster than 52 ft/s; every warm-up out of the
 //      pitcher's hand (0.05 ft), the catcher's receive lined up on it and the mitt on the ball
 //      (0.1 ft); and the game's changeovers have warm-ups.
+//   1d. THE PLAYS ON THE BASES (diamond/runs.js), every run payload, and the first of each kind the
+//      game hasn't got from the games after it (and of a third out on the bases), so every kind is
+//      staged on every seed: the
+//      delivery to the plate and the catcher's pop on the steal card's clocks (0.01 s); the throw
+//      out of his hand (0.05 ft) and into the cover man's glove (0.1 ft), each inside his joints
+//      there; the pitch in the mitt (0.1 ft); the call agreeing with the slide and the tag, and the
+//      runner's hand or foot on the bag at his touch (1 ft); a pitch that got by picked up where it
+//      stopped (0.15 ft), after it stopped, with every man on his bag by the landing; nobody
+//      faster than 52 ft/s outside a cut; every shot a camera and `onLand` once, on time; at the
+//      end (bar a third out, when the side goes off) a man safe standing on his bag (1.5 ft, or 4
+//      for one who held his), the man who took the throw back off it (4 ft) and no two men within
+//      2 ft; on a third out everyone off to his own dugout, no faster than 52 ft/s and never within
+//      2 ft of anybody; and the game has a man out on the bases and one safe.
 //   2. THE VIEW, with a recording renderer in place of the GL park and the hand-cranked clock:
-//      payloads fed the way tv.js feeds them, each after its held line; the line stays the last
-//      one until the play lands and is this one after; the count on the board is the last
-//      pitch's (never a fourth ball or a third strike); a strikeout or a walk gets its splash;
-//      the battery's poses and the ball reach the renderer; every pitch shown makes its sound
-//      and the play its own; once everyone's at rest the frames stop; an at-bat whose bags differ
+//      payloads fed the way tv.js feeds them, each after its held line, a play on the bases among
+//      them; the line stays the last one until the play lands and is this one after; the count on
+//      the board is the last pitch's (never a fourth ball or a third strike), and none on a play
+//      on the bases; a strikeout or a walk gets its splash and a steal its card; the battery's
+//      poses and the ball reach the renderer; every pitch shown makes its sound and the play its
+//      own; once everyone's at rest the frames stop; an at-bat whose bags differ
 //      from the ones the picture left opens on the cutaway, and one that agrees doesn't (the feed
 //      leaves out one at-bat that moves the bags, as the booth does, so there's one that differs);
 //      and with no frames at all (a hidden tab) the line still goes up once the play's time has
@@ -98,8 +112,8 @@ const abbr = (n) => String(n || '').replace(/[^A-Za-z]/g, '').slice(0, 3).toUppe
 const ORD = ['', '1st', '2nd', '3rd'];
 const ordinal = (n) => ORD[n] || `${n}th`;
 const SEED = Number(process.argv[2]) || 16;
-const game = simGameV2({ away: 'Rats', home: 'Kings' }, null, sportsRng(SEED * 2654435761 + 7), { seed: SEED });
-const order = gamedayPayloads(game, SEED, { abbr, ordinal }).order;
+const gameOf = (seed) => gamedayPayloads(simGameV2({ away: 'Rats', home: 'Kings' }, null, sportsRng(seed * 2654435761 + 7), { seed }), seed, { abbr, ordinal }).order;
+const order = gameOf(SEED);
 const atBats = order.filter((p) => !p.phase && (p.pitches || []).length);
 const T0 = Date.now();
 const flatD = (a, b) => Math.hypot(a[0] - b[0], a[2] - b[2]);
@@ -426,6 +440,152 @@ for (const p of order.filter((x) => x.phase === 'half')) {
 }
 check('the game\'s changeovers have warm-ups', seen.warmup > 0);
 
+// ── 1d. the plays on the bases ───────────────────────────────────────────────
+// Every run payload, and the first of each kind this game hasn't got from the games after it, and
+// of a third out on the bases, so every kind is staged on every seed (a game is about 5 ms of sim).
+const RUN_KINDS = ['steal', 'caughtstealing', 'doublesteal', 'throwover', 'pickoff', 'wildpitch', 'passedball'];
+const thirdOut = (p) => (p.outs | 0) >= 3 && !p.walkoff;
+const runs = order.filter((p) => p.phase === 'run').map((p) => ({ p, seed: SEED }));
+{
+  const have = new Set(runs.map((r) => r.p.kind));
+  let third = runs.some((r) => thirdOut(r.p));
+  for (let s = SEED + 1; s <= SEED + 30 && (have.size < RUN_KINDS.length || !third); s++) {
+    for (const p of gameOf(s)) {
+      if (p.phase !== 'run' || (have.has(p.kind) && (third || !thirdOut(p)))) continue;
+      have.add(p.kind); third ||= thirdOut(p);
+      runs.push({ p, seed: s });
+    }
+  }
+  check('every kind of play on the bases is staged (the game\'s, or the next games\' first)', RUN_KINDS.every((k) => have.has(k)), RUN_KINDS.filter((k) => !have.has(k)).join(', '));
+  check('a third out on the bases is staged (the game\'s, or the next games\' first)', third);
+  const own = runs.filter((r) => r.seed === SEED).map((r) => r.p);
+  check('the game has a man out on the bases, and one safe', own.some((p) => p.out) && own.some((p) => !p.out), own.map((p) => p.kind).join(', '));
+}
+for (const { p, seed } of runs) {
+  const label = `seed ${seed}: ${p.inning}${p.half[0]} ${p.kind} to ${p.base} [${(p.basesBefore || []).map((b) => (b ? 1 : 0)).join('')}]${p.out ? ' out' : ''}`;
+  const cast = castOf(p);
+  let landed = 0, landT = null, cutAt = -Infinity;
+  const shots = [];
+  const D = createDirector(W, { onLand: () => { landed++; landT = W.t; }, emit: (n, d) => { if (n === 'shot') { shots.push(d); cutAt = W.t; } } });
+  try { D.stage(p, cast); } catch (e) { check('a play on the bases stages', false, `${label}: ${e.stack.split('\n').slice(0, 3).join(' | ')}`); continue; }
+  const rec = D.log[0], plan = rec?.play, L = plan?.log;
+  check('a play on the bases is planned', !!L, label);
+  if (!L) continue;
+  // the steal card's clocks, as staged: the delivery's first move to the mitt, the mitt to the glove
+  if (L.clocks) {
+    check('a steal: the delivery reaches the mitt on the card\'s time to the plate (0.01 s)', Math.abs(L.clocks.plate - p.plate) <= 0.01, `${label}: ${L.clocks.plate.toFixed(3)} for ${p.plate}`);
+    check('a steal: the catcher\'s throw reaches the glove on the card\'s pop time (0.01 s)', Math.abs(L.clocks.pop - p.pop) <= 0.01, `${label}: ${L.clocks.pop.toFixed(3)} for ${p.pop}`);
+  }
+  const due = [];
+  const body = (role) => plan.bodies.find((b) => b.role === role);
+  if (L.throw) {
+    const thrower = plan.bodies.find((b) => b.clips.some((c) => c.clip === L.throw.clip)), h = L.throw.release.hand;
+    due.push([L.throw.release.t, () => {
+      const Q = W.pose(thrower.slot, L.throw.release.t), S = solvePose(Q), at = S.J['wr' + h].map((v, i) => v + S.J['hdir' + h][i] * 0.2);
+      check('a play on the bases: the throw leaves his hand (0.05 ft)', dist(at, L.throw.release.at) <= 0.05, `${label}: ${dist(at, L.throw.release.at).toFixed(3)} ft`);
+      const br = limitBreaks(Q, S);
+      check('a play on the bases: the thrower inside his joints at the release', !br.length, `${label}: ${br[0]}`);
+    }]);
+    due.push([L.throw.catch.t, () => {
+      const Q = W.pose(L.tag.slot, L.throw.catch.t), g = toPark(Q, handPoint(Q, 'L', 'glove', Q.scale));
+      check('a play on the bases: the cover man\'s glove meets the throw (0.1 ft)', dist(g, L.throw.catch.at) <= 0.1, `${label}: ${dist(g, L.throw.catch.at).toFixed(3)} ft`);
+      const br = limitBreaks(Q, solvePose(Q));
+      check('a play on the bases: the cover man inside his joints at the catch', !br.length, `${label}: ${br[0]}`);
+    }]);
+  }
+  if (rec.catch && !L.ball) due.push([rec.catch.t, () => {
+    const Q = W.pose(body('catcher').slot, rec.catch.t), m = toPark(Q, handPoint(Q, 'L', 'mitt', Q.scale));
+    check('a play on the bases: the mitt meets the pitch (0.1 ft)', dist(m, rec.catch.at) <= 0.1, `${label}: ${dist(m, rec.catch.at).toFixed(3)} ft`);
+  }]);
+  // a pitch that got by: picked up where it stopped, once it had, and every man on his bag by the
+  // landing
+  if (L.ball) {
+    check('a pitch that got by: picked up after it stops', L.ball.pick >= L.ball.rest, `${label}: ${(L.ball.pick - L.ball.rest).toFixed(2)} s`);
+    due.push([L.ball.pick, () => {
+      const Q = W.pose(body('catcher').slot, L.ball.pick), hd = toPark(Q, handPoint(Q, 'R', 'bare', Q.scale));
+      check('a pitch that got by: his hand on the ball where it lies (0.15 ft)', dist(hd, L.ball.at) <= 0.15, `${label}: ${dist(hd, L.ball.at).toFixed(3)} ft`);
+    }]);
+    for (const r of L.runners) for (const [b, t] of Object.entries(r.bags || {})) check('a pitch that got by: every man on his bag by the landing', t <= D.landAt + 1e-6, `${label}: from ${r.from} on ${b} ${(t - D.landAt).toFixed(2)} s late`);
+  }
+  // the call agrees with the slide and the tag, and his hand or foot is on the bag at his touch
+  const tagBag = p.kind === 'doublesteal' ? 3 : p.base;
+  for (const r of L.runners.filter((x) => x.touch != null && L.tag && (x.out != null || x.to === tagBag))) {
+    if (r.out != null) check('a play on the bases: a man called out touches the bag after the tag', r.touch > L.tag.t, `${label}: ${(r.touch - L.tag.t).toFixed(2)} s after it`);
+    else check('a play on the bases: a man called safe touches the bag before the tag', r.touch < L.tag.t, `${label}: ${(r.touch - L.tag.t).toFixed(2)} s after it`);
+    const bag = bagAt(r.out ?? r.to);
+    due.push([r.touch, () => {
+      const J = solvePose(W.pose(r.slot, r.touch)).J;
+      const pts = r.slide === 'slide_feet' ? [J.toeL] : r.slide === 'slide_head' ? [J.wrL, J.wrR] : [J.wrR];
+      const d = Math.min(...pts.map((q) => flatD(q, bag)));
+      check('a play on the bases: his hand or foot on the bag at his touch (1 ft)', d <= 1, `${label}: ${r.slide} ${d.toFixed(2)} ft`);
+    }]);
+  }
+  due.sort((a, b) => a[0] - b[0]);
+  const men = [...new Set(plan.bodies.map((b) => b.slot))].map((slot) => ({ slot, last: null, at: -1 }));
+  // a third out: everyone on the field jogs off, watched from when they set off
+  const off = D.inningOver ? cast.filter((c) => ['pitcher', 'catcher', 'fielder', 'batter', 'runner'].includes(c.look.role)).map((c) => ({ c, last: null, at: -1, from: null })) : [];
+  let offClosest = { d: Infinity };
+  let k = 0;
+  while (W.t < D.until + 0.1) {
+    W.step(DT);
+    while (due.length && due[0][0] <= W.t) due.shift()[1]();
+    if (++k % 4) continue;
+    for (const m of men) {
+      const Q = W.pose(m.slot);
+      if (!Q) continue;
+      const pv = toPark(Q, Q.pelvis);
+      if (!pv.every(Number.isFinite)) { check('a play on the bases: every pose finite', false, `${label}: slot ${m.slot}`); m.last = null; continue; }
+      if (m.last && m.at > cutAt) check('a play on the bases: nobody jumps (52 ft/s)', dist(pv, m.last) / (W.t - m.at) <= 52, `${label}: slot ${m.slot} ${(dist(pv, m.last) / (W.t - m.at)).toFixed(0)} ft/s`);
+      m.last = pv; m.at = W.t;
+    }
+    if (!off.length || W.t < D.landAt + 0.6) continue;
+    for (const m of off) {
+      const Q = W.pose(m.c.look.slot);
+      if (!Q) continue;
+      const pv = toPark(Q, Q.pelvis);
+      if (m.last && m.at > cutAt) check('a third out on the bases: nobody jumps (52 ft/s) going off', dist(pv, m.last) / (W.t - m.at) <= 52, `${label}: ${m.c.id} ${(dist(pv, m.last) / (W.t - m.at)).toFixed(0)} ft/s`);
+      m.from ??= pv;
+      m.last = pv; m.at = W.t;
+    }
+    for (let i = 0; i < off.length; i++) for (let j = i + 1; j < off.length; j++) {
+      const a = off[i].last, b = off[j].last;
+      if (a && b && flatD(a, b) < offClosest.d) offClosest = { d: flatD(a, b), who: `${off[i].c.id} and ${off[j].c.id}` };
+    }
+  }
+  if (off.length) {
+    // every man ends in his side's crowd by its dugout
+    const side = dugoutOf(p);
+    for (const m of off) {
+      const Q = W.pose(m.c.look.slot), at = Q ? toPark(Q, Q.pelvis) : m.c.at, field = ['pitcher', 'catcher', 'fielder'].includes(m.c.look.role);
+      const nearOf = (q) => Math.min(...Array.from({ length: 12 }, (_, j) => flatD(q, dugoutSpot(field ? -side : side, j))));
+      const near = nearOf(at), had = m.from ? nearOf(m.from) : Infinity;
+      check('a third out on the bases: everyone ends by his own dugout (4 ft, or where he was if that was within 14)', near <= 4 || (had <= 14 && near <= had + 0.5), `${label}: ${m.c.id} ${near.toFixed(1)} ft off`);
+    }
+    check('a third out on the bases: nobody runs into anybody going off (2 ft)', offClosest.d >= 2, `${label}: ${offClosest.who} ${offClosest.d.toFixed(2)} ft apart`);
+  }
+  // the end, unless the side's going off: the men safe on their bags, the man who took the throw off
+  // his, and nobody on top of anybody
+  if ((p.outs | 0) < 3) {
+    const at = (slot) => { const Q = W.pose(slot); return Q ? toPark(Q, Q.pelvis) : null; };
+    for (const r of L.runners) {
+      if (r.to == null || r.to === 4) continue;
+      const q = at(r.slot), held = !Object.keys(r.bags || {}).length, d = q ? flatD(q, bagAt(r.to)) : Infinity;
+      check('a play on the bases: a man safe ends on his bag (1.5 ft, or 4 holding it)', d <= (held ? 4 : 1.5), `${label}: from ${r.from} ${d.toFixed(2)} ft off ${r.to}`);
+    }
+    if (L.tag) {
+      const q = at(L.tag.slot), d = q ? flatD(q, bagAt(tagBag)) : 0;
+      check('a play on the bases: the man who took the throw ends off the bag (4 ft)', d >= 4, `${label}: ${d.toFixed(2)} ft`);
+    }
+    const ps = [...new Set(plan.bodies.map((b) => b.slot))].map((s) => [s, at(s)]).filter(([, q]) => q);
+    let close = { d: Infinity };
+    for (let i = 0; i < ps.length; i++) for (let j = i + 1; j < ps.length; j++) { const d = flatD(ps[i][1], ps[j][1]); if (d < close.d) close = { d, who: `slots ${ps[i][0]} and ${ps[j][0]}` }; }
+    check('a play on the bases: no two men end within 2 ft', close.d >= 2, `${label}: ${close.who} ${close.d.toFixed(2)} ft apart`);
+  }
+  for (const s of shots) check('every shot is a camera', isShot(s), `${label}: ${JSON.stringify(s)}`);
+  check('onLand fires once', landed === 1, `${label}: ${landed}`);
+  check('it lands when the director said', landT != null && landT - D.landAt <= DT + 1e-9 && landT >= D.landAt - 1e-9, `${label}: ${landT} for ${D.landAt}`);
+}
+
 // ── 2. the view ──────────────────────────────────────────────────────────────
 // A renderer that records what it's handed: the cast, the poses by slot, the ball, the shots.
 const rec = { poses: new Map(), balls: 0, frames: 0 };
@@ -456,6 +616,10 @@ const renderer = () => ({
     if (feed.length >= 24 && !want.size) break;
   }
   check('the view is fed a strikeout, a walk and a hit batsman', !want.size, [...want].join(', '));
+  // and a play on the bases: the game's first, if its first innings have none, out of its order as
+  // the booth might leave plays out
+  if (!feed.some((p) => p.phase === 'run')) { const r = order.find((p) => p.phase === 'run'); if (r) feed.push(r); }
+  check('the view is fed a play on the bases', feed.some((p) => p.phase === 'run'));
   let prevLine = '', picture = null, cutaways = 0;
   feed.forEach((p, k) => {
     const line = `line ${k}: ${p.desc || p.phase || p.kind}`;
@@ -465,25 +629,33 @@ const renderer = () => ({
     // the line first and then its payload, as the broadcast sends them
     v.setCaption(line, { held: true });
     v.apply(p);
-    const atBat = !p.phase && (p.pitches || []).length;
-    if (atBat) {
+    // an at-bat and a play on the bases are the director's, live; a changeover's line goes up a
+    // beat in
+    const run = p.phase === 'run';
+    if (run || (!p.phase && (p.pitches || []).length)) {
       const D = v.director, W2 = v.world, budget = budgetOf(p), start = W2.t;
-      check('the view hands the at-bat to the director', D && !D.landed && D.payload === p, label);
+      check('the view hands the at-bat or the play on the bases to the director', D && !D.landed && D.payload === p, label);
       const differs = !!picture && picture.some((b, i) => b !== !!(p.basesBefore || [])[i]);
       check('an at-bat opens on the cutaway when the picture\'s bags differ (unless the play has no time to spare), and only then', D.cutaway === (differs && !D.squeezed) && (!D.cutaway || v.shot === 'sky'), `${label}: picture ${picture} payload ${p.basesBefore}`);
       if (differs) cutaways++;
       // up to just before the landing, the last line is still up
       let held = true;
-      while (!D.landed && W2.t - start < budget + 2) {
+      while (!D.landed && W2.t - start < Math.max(budget, D.floor) + 2) {
         stub.runFrames(1, 1000 / 30);
         if (!D.landed && capText() !== prevLine) held = false;
       }
       check('the line is held until the play lands', held, `${label}: "${capText()}" before the landing`);
       check('the play lands in the view inside its budget, or as soon as its last pitch and the play allow', D.landed && W2.t - start <= Math.max(budget, D.floor) + 0.1, `${label}: ${(W2.t - start).toFixed(2)} of ${budget} s`);
       check('the line goes up when the play lands', capText() === line, `${label}: "${capText()}"`);
-      const S = v.state, last = p.pitches[p.pitches.length - 1];
-      check('the board has the last pitch\'s count, without a fourth ball or a third strike', S.balls === Math.min(3, last.balls) && S.strikes === Math.min(2, last.strikes) && S.pitch === last, `${label}: ${S.balls}-${S.strikes}`);
-      if (p.kind === 'strikeout' || p.kind === 'walk') check('a strikeout or a walk gets its splash', S.splash?.kind === p.kind, `${label}: ${S.splash?.kind}`);
+      const S = v.state;
+      if (run) {
+        check('a play on the bases: the board has no count and no pitch', S.balls === 0 && S.strikes === 0 && S.pitch == null, `${label}: ${S.balls}-${S.strikes}`);
+        if (['steal', 'caughtstealing', 'doublesteal'].includes(p.kind)) check('a steal gets its card once it lands', S.steal?.runner === p.runner, `${label}: ${S.steal?.runner}`);
+      } else {
+        const last = p.pitches[p.pitches.length - 1];
+        check('the board has the last pitch\'s count, without a fourth ball or a third strike', S.balls === Math.min(3, last.balls) && S.strikes === Math.min(2, last.strikes) && S.pitch === last, `${label}: ${S.balls}-${S.strikes}`);
+        if (p.kind === 'strikeout' || p.kind === 'walk') check('a strikeout or a walk gets its splash', S.splash?.kind === p.kind, `${label}: ${S.splash?.kind}`);
+      }
       const battery = ['pitcher', 'catcher', 'batter'].map((r) => p0slot(p, r));
       check('the battery\'s poses reach the renderer', battery.every((s) => rec.poses.has(s)), `${label}: ${[...rec.poses.keys()]}`);
       check('the ball reaches the renderer', rec.balls > 0, label);
@@ -498,7 +670,7 @@ const renderer = () => ({
       check('at rest, the frames stop', !v.busy() && rec.frames === frames, `${label}: ${rec.frames - frames} more frames`);
     } else {
       stub.runTimers(2500);
-      check('a play on the bases or a changeover: its line goes up', capText() === line, `${label}: "${capText()}"`);
+      check('a changeover: its line goes up', capText() === line, `${label}: "${capText()}"`);
     }
     prevLine = line;
     picture = pictureAfter(p);
@@ -520,5 +692,5 @@ const renderer = () => ({
 function p0slot(p, role) { return castOf(p).find((c) => c.look.role === role).look.slot; }
 
 const ms = Date.now() - T0;
-console.log(`diamond-smoke seed ${SEED}: ${atBats.length} at-bats twice, ${passes}/${passes + failures} passed (${(ms / 1000).toFixed(1)} s)`);
+console.log(`diamond-smoke seed ${SEED}: ${atBats.length} at-bats twice, ${runs.length} plays on the bases, ${passes}/${passes + failures} passed (${(ms / 1000).toFixed(1)} s)`);
 process.exit(failures ? 1 : 0);

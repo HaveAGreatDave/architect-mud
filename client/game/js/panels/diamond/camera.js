@@ -48,6 +48,9 @@ export const SHOTS = Object.freeze({
   third: Object.freeze({ eye: [74, 7, 20], at: [48, 2.2, 82], fov: 30, dof: 640, shadow: [[45, 0, 85], 42] }),
   // the plate from the well on the first-base side, the last strides from third coming in: a run
   plate: Object.freeze({ eye: [-46, 8, 14], at: [8, 2.6, 8], fov: 34, dof: 640, shadow: [[10, 0, 10], 36] }),
+  // the plate and the backstop behind it from the well on the first-base side, wide: a pitch that
+  // gets by, the catcher after it and a man coming home
+  backstop: Object.freeze({ eye: [-52, 10, 16], at: [6, 1.5, -24], fov: 44, dof: 640, shadow: [[0, 0, -22], 42] }),
   // the third-base camera on the pitcher
   mound: Object.freeze({ eye: [64, 7, 33], at: [0, 4.4, 58.8], fov: 10.5, dof: 700, shadow: [[0, 0, 60], 35] }),
   // high behind home with the city beyond: back from a break and between innings

@@ -425,6 +425,37 @@ export function mixPose(a, b, w, opts = {}) {
   }
   if (a.bat && b.bat) P.bat = { knob: [0, 1, 2].map((i) => lerp(a.bat.knob[i], b.bat.knob[i], w)), dir: norm([0, 1, 2].map((i) => lerp(a.bat.dir[i], b.bat.dir[i], w))), bottom: (w < 0.5 ? a : b).bat.bottom };
   else if ((w < 0.5 ? a : b).bat) P.bat = (w < 0.5 ? a : b).bat;
+  return guardMix(P);
+}
+// A mix lerps the hand's way apart from the forearm, which only the solve settles, and a free foot's
+// apart from the ground: half way between a mitt held up and a run's swinging arm the hand can be
+// bent further back than a wrist goes, and a foot swung through can dip its toe into the grass. Each
+// clip is a body that can on its own; this keeps the mix one too. A hand bent past MIX_WRIST is
+// turned back to it toward the forearm in the plane of the two, its palm kept square to it; a free
+// toe below the ground is raised to it.
+const MIX_WRIST = 96;
+function guardMix(P) {
+  const J = solvePose({ ...P, at: [0, 0, 0], yaw: 0 }).J;
+  for (const S of FEET) {
+    if (!J['grip' + S]) {
+      const f = norm(sub(J['wr' + S], J['el' + S])), h = norm(P['hand' + S]), c = clamp(f[0] * h[0] + f[1] * h[1] + f[2] * h[2], -1, 1);
+      if (Math.acos(c) * DEG > MIX_WRIST) {
+        const u0 = [h[0] - f[0] * c, h[1] - f[1] * c, h[2] - f[2] * c], ul = len(u0);
+        if (ul > 1e-4) {
+          const k = MIX_WRIST / DEG, nh = [0, 1, 2].map((i) => f[i] * Math.cos(k) + (u0[i] / ul) * Math.sin(k));
+          const p0 = P['palm' + S], d = p0[0] * nh[0] + p0[1] * nh[1] + p0[2] * nh[2];
+          P['hand' + S] = nh;
+          P['palm' + S] = norm([p0[0] - nh[0] * d, p0[1] - nh[1] * d, p0[2] - nh[2] * d]);
+        }
+      }
+    }
+    const a = P['ank' + S];
+    if (a.length === 3 && J['toe' + S][1] < JOINT_LIMITS.floor.toe + 0.02) {
+      // the toe's tip is TOE_LEN out from the ankle along the foot: tipped up until it clears
+      const d = norm(P['toe' + S]), least = (JOINT_LIMITS.floor.toe + 0.02 - J['an' + S][1]) / TOE_LEN, hz = Math.hypot(d[0], d[2]) || 1, k = Math.sqrt(Math.max(0, 1 - least * least));
+      if (least > d[1]) P['toe' + S] = [d[0] / hz * k, least, d[2] / hz * k];
+    }
+  }
   return P;
 }
 

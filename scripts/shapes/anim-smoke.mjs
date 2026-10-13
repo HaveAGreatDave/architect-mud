@@ -17,9 +17,11 @@
 //   5. THE CLIPS (diamond/anim.js plays them). The library in content/animation_clips/ checks out
 //      with nothing to warn about, and diamond/clips.js is its bake as it stands. Then every clip,
 //      played at 120 frames a second:
-//        · every frame a pose a body can make (anim.js JOINT_LIMITS), and no joint faster or
-//          quicker to change speed than a body is (TOP_SPEED, TOP_ACCEL), which is where a pop or
-//          a snap between two blend points shows (a knee straightening into a hard stop, say);
+//        · every frame a pose a body can make (anim.js JOINT_LIMITS), looked at 500 times a
+//          second, so a bend between two keys that frames 1/120 s apart would step over is caught;
+//          and no joint faster or quicker to change speed than a body is (TOP_SPEED, TOP_ACCEL),
+//          which is where a pop or a snap between two blend points shows (a knee straightening into
+//          a hard stop, say);
 //        · no velocity spikes at the blend points (each key, each plant's ease on and off, a loop's
 //          seam): the jump in each joint's velocity across one, taken to zero time, under 1 ft/s;
 //        · a planted foot moves less than 0.1 ft while it's planted, on the ground: a clip that
@@ -334,7 +336,6 @@ for (const clip of Object.values(CLIPS)) {
   const spot = new Map();
   for (let i = 0; i <= N; i++) {
     const t = i * dt, pose = A.sampleClip(clip, t), sol = solveAt0(pose), J = sol.J;
-    if (breaks.length < 3) for (const b of A.limitBreaks(pose, sol)) if (breaks.length < 3) breaks.push(`${b} at ${t.toFixed(3)} s`);
     if (pose.bat) for (const S of ['L', 'R']) grip = Math.max(grip, len3(sub(J['wr' + S], J['wrT' + S])));
     for (const p of clip.plants) {
       if (t < p.from - 1e-9 || t > p.to + 1e-9) continue;
@@ -355,6 +356,12 @@ for (const clip of Object.values(CLIPS)) {
       prevV = vel;
     }
     prev = cur;
+  }
+  // the limits at 500 a second: a mix between two keys can pass through a bend for a couple of
+  // milliseconds that frames 1/120 s apart step over, and the world plays clips at other speeds
+  for (let t = 0; t <= D + 1e-9 && breaks.length < 3; t += 1 / 500) {
+    const pose = A.sampleClip(clip, t);
+    for (const b of A.limitBreaks(pose, solveAt0(pose))) if (breaks.length < 3) breaks.push(`${b} at ${t.toFixed(3)} s`);
   }
   check(`clip ${clip.id}: every frame a pose a body can make`, breaks.length === 0, breaks.join('; '));
   check(`clip ${clip.id}: no joint faster than a body moves`, fast.length === 0, fast.join('; '));

@@ -1002,6 +1002,27 @@ Built so far (Phases 1 and 2 of the plan):
   catcher first and then the pitcher and the rest a third of a second apart, and the pitcher
   throws his warm-ups to the catcher and takes the ball back, as many as the hold has room for
   (four at most), under the break's graphics;
+- the plays on the bases (Phase 3d,
+  [diamond/runs.js](../client/game/js/panels/diamond/runs.js)): a `phase: 'run'` payload is
+  staged as an at-bat is, on its one pitch (`runPitch`: a fastball away for a steal, a breaking
+  ball in the dirt for a wild pitch, one on the far corner for a passed ball) or its one throw
+  over, with the board at no balls and no strikes, since the man's up and hasn't seen a pitch. A
+  steal's delivery from the stretch is played at the tempo that gets the ball to the mitt on the
+  card's time to the plate (`plate`), and the catcher throws in what's left of the pop time
+  (`pop`) once the ball's in his hand, so the card's clocks are the picture's. The man covering
+  (the second baseman with a right-hander up, the shortstop with a left-hander, the third baseman
+  at third) takes it astride the bag and puts the tag down, and the runner breaks so his slide is
+  in a beat before the tag when he's safe and just after it when he's out, his lead taking up
+  what no jump will. A throw over is the pitcher's pickoff move to the first baseman at the bag,
+  the runner diving back in time or, on a pickoff, a beat late. A wild pitch skips off the dirt
+  past the block and a passed ball goes off the end of the mitt; either rolls to the backstop and
+  the catcher picks it up where it stops, every man moving up a bag while he does and the pitcher
+  covering the plate when a man comes home. The base umpire calls it, a man out jogs off, and
+  once it's done the man who took the throw jogs back to where he plays and a man safe steps onto
+  his bag; on the third out the man who made the tag steps off past the bag, away from the man he
+  got, and everyone goes off once that man's up. The camera cuts to the bag as the throw goes
+  (first on a throw over), and to the backstop camera when a man scores on a pitch that got by; a
+  steal's card goes up with the call;
 - the arcade graphics (Phase 1d), a canvas over the picture drawn by
   [diamond/hud.js](../client/game/js/panels/diamond/hud.js) in the client's display faces: the
   score with the bases, the count as lamps, the pitch speed and type, and in the batting view the
@@ -1047,16 +1068,16 @@ chrome), and `quarters` are tile rectangles, first match wins, each with the sty
 and low buildings, `all` to dress a whole quarter alike (Old Coldwater's ruin), and the styles
 and floors of its filler. `tallFloors` is where tall starts.
 
-Frames run while an at-bat plays and stop once everyone's at rest, so the GPU idles between
-at-bats. The count goes up as the director decides each pitch, and the booth's held line and any
-card go up when the play lands (`onLand`): the umpire's call on a called third strike, the ball
-in the mitt, the ball hitting the batter, or a ball put in play settled: the out at first called,
-the catch made, a hit back in from the outfield with the batter on the bag. A line comes just
-before its payload; one that arrives while the
+Frames run while an at-bat or a play on the bases plays and stop once everyone's at rest, so the
+GPU idles between them. The count goes up as the director decides each pitch, and the booth's
+held line and any card go up when the play lands (`onLand`): the umpire's call on a called third
+strike, the ball in the mitt, the ball hitting the batter, or a ball put in play settled: the out
+at first called, the catch made, a hit back in from the outfield with the batter on the bag; on
+the bases, the base umpire's call, or every man on his bag after a pitch that got by. A line
+comes just before its payload; one that arrives while the
 last play is still in the air (a hidden tab stops the frames) lands that play first, and a
 timer lands a play whose frames have stopped. A changeover has nothing to land, so its line goes
-up a beat in. Plays on the bases (steals, pickoffs, wild pitches) are still stills on the 2-D
-view's clock (`GAMEDAY_CLOCK`) until the rest of Phase 3d.
+up a beat in.
 `scripts/shapes/ballpark-smoke.mjs` builds the park from the defaults and from a venue of its
 own, holds every shot's matrices to its pinhole on three screen shapes, reads the board's lamps,
 checks the fallback, fits each tower's shadow map to the shot, reads depth back through the
@@ -1090,10 +1111,17 @@ the plate are the play's, after ball four too; a runner's legs in the picture ar
 (play.js legsOf against speedOf). After a third out everyone ends by his own dugout and nobody
 comes within 2 ft of anybody going off; at every changeover each man ends where he plays, nobody
 moves faster than 52 ft/s, and every warm-up leaves the pitcher's hand and meets the catcher's
-mitt. It feeds the view with a recording renderer to hold each line until its play lands, and
-leaves out one at-bat that moves the bags, as the booth does, to open the next on the cutaway
-because its bags differ from the picture's. The sandbox page takes
-`?park=3d`, `?play=inplay` (balls in play only), `?shot=`, `?bug=`, `?po=1` (the final's
+mitt. Every play on the bases in the game, and the first of each kind it hasn't got from the
+games after it, has the delivery and the pop on the card's clocks (0.01 s), the throw out of the
+hand and into the cover man's glove, the pitch in the mitt, the call agreeing with the slide and
+the tag, the runner's hand or foot on the bag at his touch, a pitch that got by picked up where it
+stopped, and at the end a man safe on his bag, the man who took the throw off it and no two men
+within 2 ft; a third out on the bases (the game's, or the next games' first) takes everyone off
+to his own dugout without a jump or two men within 2 ft. It feeds the view with a recording renderer to hold each line until its play
+lands, a play on the bases among them with its steal card, and leaves out one at-bat that moves
+the bags, as the booth does, to open the next on the cutaway because its bags differ from the
+picture's. The sandbox page takes
+`?park=3d`, `?play=inplay` (balls in play only), `?play=bases` (the plays on the bases), `?shot=`, `?bug=`, `?po=1` (the final's
 dressing), `?hud=0` (the picture alone), `?city=0`, `?hold=` (each line's hold in milliseconds,
 35000 by default) and `?speed=` (0.25 for a slow look, 0 to stop the park's clock); its city comes from the flight sim's
 baked world, so it can trail the live map by a bake. The renderer's traps are in [glass-notes.md](reference/glass-notes.md#the-ballpark-glballparkjs).

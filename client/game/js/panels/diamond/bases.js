@@ -36,17 +36,17 @@
 import { CLIPS } from './clips.js';
 import { rootAt, sampleClip } from './anim.js';
 import { solvePose } from './rig.js';
-import { BAGS, DEG, RUBBER } from './geo.js';
+import { BAGS, DEG, RUBBER, MOUND } from './geo.js';
 import { legsOf, topSpeed } from './play.js';
 import {
-  clamp, add, sub, mul, flat, faceTo, turn, ahead, HOME, hashStr, CYCLES, cycleFor, PLAYBACK, FADE, timeFor, STOP, STOP_LEN,
+  clamp, add, sub, mul, flat, faceTo, turn, ahead, wrap, HOME, hashStr, CYCLES, cycleFor, PLAYBACK, FADE, timeFor, STOP, STOP_LEN,
   makeBody, runTo, pullUp, settle,
 } from './bodies.js';
 
-const bagAt = (n) => (n === 0 || n === 4 ? HOME : BAGS[n]);
+export const bagAt = (n) => (n === 0 || n === 4 ? HOME : BAGS[n]);
 const unit = (v) => { const l = Math.hypot(v[0], v[2]) || 1; return [v[0] / l, 0, v[2] / l]; };
 const CYCLE_IDS = new Set(CYCLES.map((c) => c.id));
-const routeOf = (from, to) => { const r = []; for (let b = from + 1; b <= to; b++) r.push(b); return r; };
+export const routeOf = (from, to) => { const r = []; for (let b = from + 1; b <= to; b++) r.push(b); return r; };
 // A home run's trot, feet a second.
 const TROT = 15.5;
 // Over the plate and on: bent off the line to his left, so he goes by the catcher squatting
@@ -55,6 +55,24 @@ const OVER_THE_PLATE = Object.freeze({ past: 16, pastTurn: 40 });
 // Where the catcher squats and the plate umpire stands (cast.js), for a man jogging off to go round.
 const BEHIND_THE_PLATE = [[0, 0, -2.75], [1.2, 0, -5.4]];
 const toSegment = (q, a, b) => { const ab = sub(b, a), L = ab[0] * ab[0] + ab[2] * ab[2], f = L ? clamp(((q[0] - a[0]) * ab[0] + (q[2] - a[2]) * ab[2]) / L, 0, 1) : 0; return flat(q, add(a, mul(ab, f))); };
+// A way across the infield kept off the mound: where a leg of it passes within a stride of the
+// mound's edge, a point out beside the mound on that leg's side. The slope under a running foot
+// bends the ankle past what it can do.
+const MOUND_CLEAR = 10.5;
+function roundMound(pts) {
+  const M = [MOUND[0], 0, MOUND[1]], out = [pts[0]];
+  for (let i = 1; i < pts.length; i++) {
+    const a = out[out.length - 1], b = pts[i];
+    if (toSegment(M, a, b) < MOUND_CLEAR && flat(b, M) > MOUND_CLEAR && flat(a, M) > MOUND_CLEAR) {
+      const ab = sub(b, a), L = ab[0] * ab[0] + ab[2] * ab[2], f = L ? clamp(((M[0] - a[0]) * ab[0] + (M[2] - a[2]) * ab[2]) / L, 0, 1) : 0;
+      let d = sub(add(a, mul(ab, f)), M);
+      if (Math.hypot(d[0], d[2]) < 0.5) d = [-ab[2], 0, ab[0]];
+      out.push(add(M, mul(unit(d), MOUND_CLEAR + 1.5)));
+    }
+    out.push(b);
+  }
+  return out;
+}
 // The clip time pulling up (run_stop) has him within half a foot of where it stops him.
 const STOP_ON = (() => { for (let t = 0; t <= STOP.duration; t += 0.01) if (rootAt(STOP, t).at[1] >= STOP_LEN - 0.5) return t; return STOP.duration; })();
 const stopSpeed = (v) => clamp(v / 21, 0.5, 1.3);
@@ -191,15 +209,24 @@ export function slideOf(id) {
   return out;
 }
 // He runs on along `path` and slides in, the touch on the bag at distance `sBag`: returns when.
-function slideIn(B, path, t0, sBag, id, o) {
+export function slideIn(B, path, t0, sBag, id, o) {
   const touch = slideOf(id), run = runAlong(B, path, t0, Math.max((o.s0 ?? 0) + 4, sBag - touch.z), o);
   const sp = clamp(run.vEnd / touch.v, 0.8, 1.25);
   B.play(id, run.tEnd, { speed: sp, fade: STRETCH_MIX });
   return { run, touch: run.tEnd + touch.t / sp };
 }
+// Up off the ground where his slide left him, once it's done and not before `t`: off the chest
+// after a head first slide or a dive back, off the hip after a feet first or a hook slide. Each
+// get-up is keyed from its slide's last pose (anim-smoke holds them to it); the dive and the hook
+// end near enough to theirs for the mix.
+const GET_UP = { slide_head: 'slide_up_head', run_dive_back: 'slide_up_head', slide_feet: 'slide_up_feet', slide_hook: 'slide_up_feet' };
+export function getUpAfter(B, slide, t) {
+  const e = B.clips[B.clips.length - 1], end = e.start + CLIPS[e.clip].duration / e.speed;
+  return B.play(GET_UP[slide] || 'slide_up_feet', Math.max(end, t), { fade: 0.25 });
+}
 // He runs on along `path` and pulls up, coming to rest at distance `sStop`: returns when he's
 // there.
-function stopAt(B, path, t0, sStop, o) {
+export function stopAt(B, path, t0, sStop, o) {
   const run = runAlong(B, path, t0, Math.max((o.s0 ?? 0) + 4, sStop - STOP_LEN), o);
   pullUp(B, run.tEnd, run.vEnd);
   return { run, on: run.tEnd + STOP_ON / stopSpeed(run.vEnd) };
@@ -325,6 +352,7 @@ export function planBases(ctx, o) {
       } else {
         const r = slideIn(B, path, t0, path.len, 'slide_feet', { v });
         rec.bags[m.out] = r.touch;
+        getUpAfter(B, 'slide_feet', (tForce ?? r.touch) + 0.6);
       }
       rec.forced = tForce;
       const ump = { 2: 'ump:2B', 3: 'ump:3B' }[m.out];
@@ -339,6 +367,7 @@ export function planBases(ctx, o) {
     if (slide) {
       r = slideIn(B, path, t0, sBag, slide, { v: man.v });
       rec.bags[to] = r.touch;
+      getUpAfter(B, slide, r.touch + 0.6);
     } else {
       r = stopAt(B, path, t0, toHome ? path.len : sBag, { v: man.v });
       rec.bags[to] = toHome ? r.run.timeAt(sBag) : r.on;
@@ -407,6 +436,7 @@ export function planBases(ctx, o) {
       for (const b of hRoute) if (b > 1 && b < hTo) rec.bags[b] = r.run.timeAt(hPath.bags[b]);
       rec.bags[hTo] = r.touch; rec.slide = hSlide;
       rec.done = r.touch + 0.3;
+      getUpAfter(H, hSlide, r.touch + 0.6);
     } else {
       const r = stopAt(H, hPath, first.tEnd, hPath.bags[hTo], on);
       for (const b of hRoute) if (b > 1 && b < hTo) rec.bags[b] = r.run.timeAt(hPath.bags[b]);
@@ -441,13 +471,13 @@ function menOn(ctx, moves, tIn, rand) {
 // He's scored: from where he's pulled up past the plate he jogs off toward his dugout (`dug`, the
 // side), the k-th man in a stride short of the last, so nobody who scores after him runs through
 // him; his way goes round behind the umpire where it would pass the catcher or the umpire.
-function jogOff(B, t, k, dug) {
+export function jogOff(B, t, k, dug) {
   const spot = [dug * (37 - 6 * k), 0, -21 + 2.5 * k], from = B.spotAt(t);
   if (flat(from, spot) < STOP_LEN + 6) return;
   const pts = [from];
   if (BEHIND_THE_PLATE.some((q) => toSegment(q, from, spot) < 5)) pts.push([0, 0, -17]);
   pts.push(spot);
-  const way = wayPath(pts), run = runAlong(B, way, t + 0.2, way.len - STOP_LEN, { v: 11 });
+  const way = wayPath(roundMound(pts)), run = runAlong(B, way, t + 0.2, way.len - STOP_LEN, { v: 11 });
   pullUp(B, run.tEnd, run.vEnd);
 }
 
@@ -513,7 +543,7 @@ export function planTakeField(ctx, o) {
     const start = dugoutSpot(side, ks[k]), spot = [c.at[0], 0, c.at[2]];
     const to = c.look.role === 'pitcher' ? sub(spot, mul(unit(sub(spot, start)), 2.5)) : spot;
     const B = makeBody({ n: 30 + k, id: c.id, slot: c.look.slot, role: c.look.role, at: start, yaw: faceTo(start, to), mirror: c.mirror, scale: c.scale, place: true });
-    const way = wayPath([start, to]), r = stopAt(B, way, t0 + 0.3 + 0.33 * k, way.len, { v: flat(start, to) > 150 ? 17 : 13 });
+    const way = wayPath(c.look.role === 'pitcher' ? [start, to] : roundMound([start, to])), r = stopAt(B, way, t0 + 0.3 + 0.33 * k, way.len, { v: flat(start, to) > 150 ? 17 : 13 });
     if (c.look.role === 'fielder') settle(B, r.on + 0.4, faceTo(spot, HOME));
     at.set(c.look.slot, r.on);
     bodies.push(B);
@@ -527,13 +557,13 @@ export function jogToDugout(B, t, side, k) {
   const from = B.spotAt(t), spot = dugoutSpot(side, k), pts = [from];
   if (BEHIND_THE_PLATE.some((q) => toSegment(q, from, spot) < 5)) pts.push([0, 0, -17]);
   pts.push(spot);
-  const way = wayPath(pts);
+  const way = wayPath(roundMound(pts));
   if (way.len < STOP_LEN + 4) return t;
   return stopAt(B, way, t, way.len, { v: way.len > 150 ? 16 : 12 }).on;
 }
 
 // The cast's man leading off `bag` (cast.js puts him at leadOff(bag)).
-function runnerAt(cast, bag) {
+export function runnerAt(cast, bag) {
   let best = null, d = Infinity;
   for (const c of cast || []) {
     if (c.look?.role !== 'runner') continue;
@@ -544,13 +574,16 @@ function runnerAt(cast, bag) {
 }
 
 // He goes back to his bag from where he is at t and stands on it facing the pitcher, ready to
-// go: a man holding on a ball in the air, or tagging up. Returns { at, t } where and when he's on it.
-function standOn(B, bag, t) {
-  const b = bagAt(bag), next = bagAt(Math.min(4, bag + 1)), spot = add(b, mul(unit(sub(next, b)), 1.2));
-  const yaw = faceTo(spot, [RUBBER[0], 0, RUBBER[2]]), d = flat(B.spotAt(t), spot);
-  if (d <= 2.5) return { at: spot, t };
-  const T = Math.max(0.6, d / 13), r = runTo(B, { at: spot, yaw }, t, t + T, { rest: true, min: 2 });
-  const tOn = r ? t + T : t;
+// go: a man holding on a ball in the air, or tagging up, a step off it; with `o.on`, a man up from a
+// slide he was safe on, a foot on it. Returns { at, t } where and when he's there.
+// His lead's stance is turned no more than 60 degrees from the way he comes in: mixed further, the
+// wide stance's legs cross on the way round.
+export function standOn(B, bag, t, o = {}) {
+  const b = bagAt(bag), next = bagAt(Math.min(4, bag + 1)), spot = add(b, mul(unit(sub(next, b)), o.on ? 0.6 : 1.2));
+  const want = faceTo(spot, [RUBBER[0], 0, RUBBER[2]]), d = flat(B.spotAt(t), spot), near = o.on ? 1 : 2;
+  if (d <= (o.on ? near : 2.5)) return { at: spot, t };
+  const T = Math.max(0.6, d / 13), r = runTo(B, { at: spot, yaw: want }, t, t + T, { rest: true, min: near });
+  const tOn = r ? t + T : t, came = B.facingAt(tOn), yaw = came + clamp(wrap(want - came), -60, 60);
   B.play('run_lead', tOn, { frame: { at: spot, yaw }, fade: 0.3 });
   return { at: spot, t: tOn };
 }

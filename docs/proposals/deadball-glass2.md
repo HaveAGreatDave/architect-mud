@@ -1,14 +1,14 @@
 # Deadball in GLASS 2
 
-**Status: Phase 0, sim v2, Phases 1 and 2 and Phase 3 to its balls in play built, behind a
+**Status: Phase 0, sim v2, Phases 1 and 2 and Phase 3 bar its spectacle built, behind a
 flag: the park in 3-D with its light, air, lens and grade, the arcade graphics, and the city round
 the park as a set with the park's own outside (1a to 1e); skinned players who pitch, swing, catch
 and call every pitch at its real speed and spot, and the Pose Lab their clips are keyed in (2a to
 2e); every ball in play decided on the server, with the booth's lines sorted to agree with it
 (3a), the clips to play it with, players who travel as they move (3b), every ball in play
 played out in the park with its cameras and its cutaways (3c), and the men on the bases running
-it out and trotting up after ball four, the changeover, and the clips for the plays on the bases
-(3d so far). The rest of 3d (staging the plays on the bases) and the spectacle (3e) are design.** A plan for giving Deadball a 3-D sub-screen the way Cluster Puck got Rinkside, at the
+it out and trotting up after ball four, the changeover, and the steals, throws over and wild
+pitches played on the bases (3d). The spectacle (3e) is design.** A plan for giving Deadball a 3-D sub-screen the way Cluster Puck got Rinkside, at the
 highest fidelity the engine can reach. Deadball is a live sport on KSAB, and the broadcast borrows
 the look of a 1990s arcade baseball game. That means skinned, detailed players, authored animation
 with a wide spread of plays, light from the park's own towers and a crowd that fills the stands.
@@ -1685,6 +1685,27 @@ Phase 3, or with sim v2 if that comes later.
   the ground from either slide, and a ball picked up where it lies. A tag is a new kind of event,
   and `anim-smoke` holds the glove at its lowest there; it checks every pitcher's clip on the
   mound in the frame the clip has carried him to, and each get-up from its slide's last pose.
+
+  Then the plays on the bases staged ([diamond/runs.js](../../client/game/js/panels/diamond/runs.js)).
+  A steal, a throw over, a wild pitch or a passed ball is played as an at-bat with one pitch or
+  one throw over, the board at no balls and no strikes. A steal's delivery is played at the
+  tempo that gets it to the mitt on the card's time to the plate, and the catcher throws in what's
+  left of the pop time, so the card's clocks are the picture's; the runner breaks so his slide is
+  in a beat before the tag when he's safe and just after it when he's out, and his lead takes up
+  what no jump would. A throw over places the first baseman by where his tag comes down and the
+  runner by where the dive back's hand does, and a pickoff's runner is a beat late. A pitch that
+  gets by rolls to the backstop, on a camera of its own when a man scores, and the catcher picks
+  it up where it stops while every man moves up. Once the call's made the man who took the throw
+  jogs back to his spot and a man safe steps onto his bag; on a third out the tagger steps off
+  past the bag, away from the man he got, and waits for him to get up before everyone goes off.
+  The going off now lets two men who start close (the batter and the catcher) part from where they
+  are, where one of them used to stand ten seconds first. A mix now turns back a wrist bent past
+  96 degrees and lifts a toe it took through the floor. `diamond-smoke` stages every play on the
+  bases in the game and the first of each kind it lacks from the games after it: the clocks to
+  0.01 s, the throw out of the hand and into the glove, the call against the tag and the touch,
+  the ball picked up where it lies, everyone where he should be at the end, and a third out on
+  the bases taking everyone off clear of each other; the view plays them live, with the steal's
+  card on the call.
 
 **Phase 4: the broadcast.** On by default wherever WebGL2 and float targets work.
 - `gl/crowd.js` with seated and reaction clips; replays in slow motion; dead-time rituals; the grounds
