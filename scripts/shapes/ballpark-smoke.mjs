@@ -28,11 +28,12 @@
 //      the occlusion reads depth back through the perspective's constants to where it was; the
 //      lens is sharp at its focus and softer away from it. The sky on the clock (diamond/sky.js) is
 //      the night the park was tuned at from 20:00, brighter back toward sunset and never past its
-//      cap, the windows and the stars coming on as it darkens, the warm horizon in the west
-//      whichever way the park faces, and the shared keyframes' first and last rows the same. The
-//      weather (diamond/weather.js): every word a look, a clear night the tuned night still, rain
-//      wet and hazy with the stars gone, the bolts the same twice and as many a minute as the
-//      weather says, out past the outfield, and a bolt's ribbon finite and standing on the ground.
+//      cap, the windows, the buildings' own lights and the stars coming on as it darkens, the warm
+//      horizon in the west whichever way the park faces, and the shared keyframes' first and last
+//      rows the same. The weather (diamond/weather.js): every word a look, a clear night the tuned
+//      night still, rain wet and hazy with the stars gone, the bolts the same twice and as many a
+//      minute as the weather says, out past the outfield, and a bolt's ribbon finite and standing
+//      on the ground.
 //   6. THE PLAYERS. Every pose builds, both hands, finite and inside its budget; a mirrored pose
 //      is its original in a mirror; the cast puts everyone where the payload has them, the
 //      grounds crew in their work clothes in the middle of the fifth and clear of the umpires; every
@@ -408,6 +409,8 @@ for (const kind of ['sit', 'stand', 'cheer']) for (const far of [false, true]) {
   check('the sky: every value finite at every quarter hour, and never brighter than its cap', bad === 0 && worst <= DUSK.cap + 1e-9 && worst > 10, `${bad} bad, ${worst.toFixed(1)}x`);
   check('the sky: the windows and the lamps come on and the stars come out as it darkens', at(18).cityLit < at(19).cityLit && at(19).cityLit < at(20).cityLit && at(20).cityLit === NIGHT.cityLit
     && at(18).pool < at(20).pool && at(18.5).stars === 0 && at(20).stars === 1, [18, 19, 20].map((h) => at(h).cityLit.toFixed(2)).join(' '));
+  check('the sky: the buildings\' own lights come on before the windows, and are full on at night', at(12).lights === 0 && at(18.5).lights > at(18.5).cityLit / NIGHT.cityLit
+    && at(19).lights > at(18.5).lights && at(20).lights === 1 && skyLook(21).lights === 1, [12, 18.5, 19, 20].map((h) => at(h).lights.toFixed(2)).join(' '));
   // the sun goes down in the west: toward third and left field for a park that faces north-west, and
   // straight out along third's side for one that faces north
   const w315 = at(19).sun, w0 = skyLook(19, { bearing: 0 }).sun;
@@ -428,7 +431,8 @@ for (const kind of ['sit', 'stand', 'cheer']) for (const far of [false, true]) {
   check('the weather: none, or a word it doesn\'t know, is a clear night, and a clear night is the tuned night', weatherOf(null).word === 'clear' && weatherOf({ word: 'locusts' }).word === 'clear'
     && KEYS.every((k) => same(skyLook(21, { wx: { word: 'clear' } })[k], NIGHT[k])));
   const wetL = skyLook(21, { wx: { word: 'rain', rate: 0.8 } });
-  check('the weather: rain wets the field, thickens the haze, hides the stars and dims the city', wetL.wet > 0.5 && wetL.fogDens > NIGHT.fogDens * 1.5 && wetL.stars === 0 && wetL.cityLit < NIGHT.cityLit && weatherOf({ word: 'rain' }).fall.kind === 'rain');
+  check('the weather: rain wets the field, thickens the haze, hides the stars and dims the city', wetL.wet > 0.5 && wetL.fogDens > NIGHT.fogDens * 1.5 && wetL.stars === 0 && wetL.cityLit < NIGHT.cityLit
+    && wetL.lights < 1 && weatherOf({ word: 'rain' }).fall.kind === 'rain');
   check('the weather: acid rain falls green, an ion storm strikes more often than a thunderstorm', weatherOf({ word: 'rain', event: 'acid_rain' }).fall.col[1] > weatherOf({ word: 'rain', event: 'acid_rain' }).fall.col[2]
     && weatherOf({ word: 'cloudy', event: 'ion_storm' }).bolts.n > weatherOf({ word: 'thunderstorm' }).bolts.n);
   const storm = weatherOf({ word: 'thunderstorm' }), tenMin = boltsBetween(storm, 0, 600);

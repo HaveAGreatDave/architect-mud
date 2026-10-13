@@ -43516,12 +43516,24 @@ export function canvasResidue(m, opts = {}) {
   const sv = {
     face: FACE_SINK, mesh: MESH_SINK, decal: DECAL_SINK, sprite: SPRITE_SINK, scatter: SCATTER_SINK, stroke: STROKE_SINK,
     cells: GL_CELLS, mass: MASS_OFF, flat: FLAT_OFF, tier: ADORN_TIER, tally: EMIT_TALLY, sign: _bladeSign, basis: _bladeBasis, pull: PULL_OFF,
-    duty: POWER_DUTY, win: POWER_WIN, pnb: POWER_NB,
+    duty: POWER_DUTY, win: POWER_WIN, pnb: POWER_NB, live: ARM_LIVE, lnow: ARM_NOW, lbad: ARM_LIVE_BAD,
+    tune: TUNE, dpr: _frameDpr,
   };
   const out = { canvas: {}, faces: 0, mesh: 0, decals: 0, sprites: 0, scatter: 0, threw: null };
+  // With `opts.live` the parts that move are recorded as calls, the way a kept building records
+  // them (armLiveCall). A sky beam and a plume come back as records of what they are (`out.live`,
+  // LIVE_RECORD) and what they pushed is cut out of the sinks handed back, because a frozen frame
+  // of either is not what it looks like. The light bake (scripts/shapes/bake.mjs) is the caller.
+  // ⚠ AND `opts.base` RUNS IT AT THE BASE TUNE AND A PIXEL RATIO OF 1, whatever frame ran last. A
+  // frame leaves its own resolved tune in TUNE and its ratio in `_frameDpr`, which every light's
+  // radius and every stroke's width is multiplied by: after the smoke's night street the bake came
+  // out with every lamp a tenth smaller than the same bake in a fresh process.
+  const live = opts.live ? [] : null;
   try {
     FACE_SINK = []; MESH_SINK = null; DECAL_SINK = []; SPRITE_SINK = []; SCATTER_SINK = []; STROKE_SINK = [];
     GL_CELLS = []; MASS_OFF = true; FLAT_OFF = true; ADORN_TIER = tier;
+    if (live) { ARM_LIVE = live; ARM_NOW = now; }
+    if (opts.base) { TUNE = RENDER_TUNE; _frameDpr = 1; }
     // ⚠ `who: false` IS FOR A CALLER THAT ONLY READS THE SINKS. The tally names every face and
     // stroke by walking the stack (emitWho), and that walk was about 90% of the gates that call
     // this in a loop. Off, `out.canvas` stays empty and strokes carry no `_who`, so a census must
@@ -43552,15 +43564,37 @@ export function canvasResidue(m, opts = {}) {
     // the caller is a gate that reads them and throws them away, and copying every corner of every
     // decal for the callers that do not ask is a cost for nobody.
     if (opts.collect) out.sink = { strokes: STROKE_SINK, sprites: SPRITE_SINK, decals: DECAL_SINK };
+    if (live) {
+      ARM_LIVE = null;
+      const cut = live.filter((L) => LIVE_RECORD[L.fn.name]);
+      out.live = cut.map((L) => LIVE_RECORD[L.fn.name](L.a));
+      if (opts.collect) out.sink = { strokes: armCut(STROKE_SINK, 0, cut, 1), sprites: armCut(SPRITE_SINK, 0, cut, 0), decals: armCut(DECAL_SINK, 0, cut, 2) };
+    }
   } catch (e) { out.threw = String(e && e.message || e); }
   finally {
     FACE_SINK = sv.face; MESH_SINK = sv.mesh; DECAL_SINK = sv.decal; SPRITE_SINK = sv.sprite; STROKE_SINK = sv.stroke;
     SCATTER_SINK = sv.scatter; GL_CELLS = sv.cells; MASS_OFF = sv.mass; FLAT_OFF = sv.flat;
     ADORN_TIER = sv.tier; EMIT_TALLY = sv.tally; _bladeSign = sv.sign; _bladeBasis = sv.basis; PULL_OFF = sv.pull;
-    POWER_DUTY = sv.duty; POWER_WIN = sv.win; POWER_NB = sv.pnb;
+    POWER_DUTY = sv.duty; POWER_WIN = sv.win; POWER_NB = sv.pnb; ARM_LIVE = sv.live; ARM_NOW = sv.lnow; ARM_LIVE_BAD = sv.lbad;
+    TUNE = sv.tune; _frameDpr = sv.dpr;
   }
   return out;
 }
+// What a moving part is, from the arguments its call was recorded with (canvasResidue's `live`):
+// a sky beam's lamp, its colour, how it sweeps and how far it reaches, its bearing turned into the
+// model's frame (skyBeam turns it by ct, st); a plume's mouth, colour, strength and seed.
+const LIVE_RECORD = {
+  skyBeam: (a) => {
+    const o = a[5] || {}, V = a[12], turn = Math.atan2(a[11] || 0, a[10] == null ? 1 : a[10]);
+    return {
+      k: 'beam', x: a[2], y: a[3], z: a[4], rgb: o.rgb || '196,220,255', at: (o.at || 0) - turn,
+      sweep: o.sweep == null ? 0.85 : o.sweep, tilt: o.tilt == null ? 1.0 : o.tilt, len: V(o.len), r: Math.max(0.01, V(o.r) || 0.09),
+      spread: o.spread == null ? 5.5 : o.spread, a: (o.a == null ? 0.42 : o.a) * a[7], fall: o.fall == null ? 1.4 : o.fall,
+      period: o.period || 11000, s: o.s || 26,
+    };
+  },
+  drawSmoke: (a) => ({ k: 'smoke', x: a[2], y: a[3], z: a[4], rgb: a[5], a: a[6], seed: a[8] }),
+};
 
 // ── THE SAME QUESTION, POINTED AT A VEHICLE ─────────────────────────────────
 //
@@ -52168,6 +52202,10 @@ function captureRawPass(m, fh, h, seed, dyOff) {
   // unpulled one second and so compared a contaminated list against a clean one, pairing by index:
   // that is the whole of its "stroke drawing through the building next door by up to 11.9 tiles".
   const savedStroke = STROKE_SINK, savedDecal = DECAL_SINK, savedSprite = SPRITE_SINK, savedMesh = MESH_SINK;
+  // And the record of a kept building's moving parts (ARM_LIVE), for the same reason: a capture
+  // that runs while a building is being recorded would add its smoke and beams, at the stub's
+  // standoff and at every solve scale, to the building's own.
+  const savedLive = ARM_LIVE;
   // ⚠ A FIRST CAPTURE CAN HAPPEN INSIDE A DRAW PASS, and a GL frame runs its arms with MASS_OFF on.
   // `drawWallTags` asks `shapeForModel` from the tile loop, and a primitive that checks
   // MASS_OFF ahead of SHAPE_SINK then records nothing: halcyontowers captured 1 segment instead of 27,
@@ -52187,7 +52225,7 @@ function captureRawPass(m, fh, h, seed, dyOff) {
     FACE_SINK = [];
     FOG_STATE = null; LIGHT_STATE = null;
     SHAPE_SINK = sink;
-    STROKE_SINK = null; DECAL_SINK = null; SPRITE_SINK = null; MESH_SINK = null;
+    STROKE_SINK = null; DECAL_SINK = null; SPRITE_SINK = null; MESH_SINK = null; ARM_LIVE = null;
     // ⚠ AN ARCHETYPE IS CAPTURED THE SAME WAY, and it is the reason this dispatches at all. A tile
     // whose building_type has no model of its own falls through to the shared biome set, drawn by
     // `drawBuilding` rather than by `drawTypeModel` — and everything downstream of capture asks
@@ -52201,7 +52239,7 @@ function captureRawPass(m, fh, h, seed, dyOff) {
     SHAPE_SINK = null; FACE_SINK = savedFace; FOG_STATE = savedFog; LIGHT_STATE = savedLight; _bladeSign = savedSign; _bladeBasis = savedBasis;
     SIGN_SEEN = savedSigns;
     STROKE_SINK = savedStroke; DECAL_SINK = savedDecal; SPRITE_SINK = savedSprite; MESH_SINK = savedMesh;
-    MASS_OFF = savedMass;
+    MASS_OFF = savedMass; ARM_LIVE = savedLive;
   }
   return sink;
 }

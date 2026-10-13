@@ -29,7 +29,7 @@
 //
 // Runs in node in about a second via scripts/shapes/dom-stub.mjs — no browser, no DB, no network.
 import { loadWindshield, stubCanvas } from './dom-stub.mjs';
-import { bakeShapes } from './bake.mjs';
+import { bakeShapes, bakeLights } from './bake.mjs';
 import { rasterSmoke } from './raster-smoke.mjs';
 import { rasterCount, shadeCount } from '../../client/game/js/panels/model-raster.js';
 import { truckFairingSmoke, truckLampSmoke, parkedStanceSmoke, truckNoseSliceSmoke, truckSortStabilitySmoke, truckOcclusionSmoke, LAMP_MIN_AREA, LAMP_MAX_RATIO } from './truck-lamps.mjs';
@@ -453,6 +453,22 @@ async function main() {
     }
   } catch (e) {
     problems.push(`could not read client/shared/building-shapes.js (${e.message}). Run: npm run shapes:bake`);
+  }
+  // The same for each model's lights (client/shared/building-lights.js), which the broadcast's city
+  // draws round its park.
+  try {
+    const baked = await import('../../client/shared/building-lights.js');
+    const fresh = bakeLights(ws);
+    const drifted = [];
+    for (const k of new Set([...Object.keys(fresh), ...Object.keys(baked.BUILDING_LIGHTS)])) {
+      if (JSON.stringify(fresh[k]) !== JSON.stringify(baked.BUILDING_LIGHTS[k])) drifted.push(k);
+    }
+    if (drifted.length) {
+      problems.push(`stale light bake: ${drifted.length} model(s) differ from client/shared/building-lights.js `
+        + `(${drifted.slice(0, 5).join(', ')}${drifted.length > 5 ? ', …' : ''}). Run: npm run shapes:bake`);
+    }
+  } catch (e) {
+    problems.push(`could not read client/shared/building-lights.js (${e.message}). Run: npm run shapes:bake`);
   }
 
   // ── AUTHORED VEHICLE ROWS ──

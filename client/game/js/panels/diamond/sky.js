@@ -33,9 +33,9 @@ export const NIGHT = Object.freeze({
 // The dusk: how much brighter than the night's the park's light may get (a cap on its luminance, so
 // the sunset doesn't wash the field out under the towers); how far the horizon away from the sun is
 // toward the zenith; how strongly a venue's own city glow (`city.glow`, an sRGB colour) shows at
-// full night; when the city's windows and its lamps come on and the stars come out (the sky's
-// `night`, 0 by day to 1).
-export const DUSK = Object.freeze({ cap: 60, away: 0.6, glow: 0.015, windows: [0.35, 0.95], lamps: [0.3, 0.7], stars: [0.9, 1] });
+// full night; when the city's windows, its lamps and its buildings' own lights (signs, beacons,
+// searchlights) come on and the stars come out (the sky's `night`, 0 by day to 1).
+export const DUSK = Object.freeze({ cap: 60, away: 0.6, glow: 0.015, windows: [0.35, 0.95], lamps: [0.3, 0.7], lights: [0.15, 0.6], stars: [0.9, 1] });
 
 const lin1 = (c) => { const x = Math.max(0, c) / 255; return x <= 0.04045 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4; };
 const lin = (c) => c.map(lin1);
@@ -54,7 +54,8 @@ function lift(night, c, n) {
 // centre field lies on, cast in the city set's way: city-set.js mapAxes); `o.glow` the venue's city
 // glow; `o.wx` the payload's weather. Returns NIGHT's keys, each for the hour and the weather, and
 // `horAway` (the horizon away from the sun), `sun` (the way to where the sun went down, in the
-// park's frame, a unit vector on the ground), `stars`, `night` and `wet` (0 dry to 1 soaked).
+// park's frame, a unit vector on the ground), `stars`, `night`, `wet` (0 dry to 1 soaked) and
+// `lights` (how lit the buildings' own lights are, 0 to 1, gl/citylights.js).
 export function skyLook(hour, o = {}) {
   const s = skyAt(Number.isFinite(hour) ? hour : 0), sun = sunAt(Number.isFinite(hour) ? hour : 0), n = AT_NIGHT;
   // away from the sun the horizon is nearer the zenith's colour
@@ -76,6 +77,7 @@ export function skyLook(hour, o = {}) {
     cityLit: NIGHT.cityLit * smooth(DUSK.windows[0], DUSK.windows[1], s.night) * we.city,
     pool: NIGHT.pool * smooth(DUSK.lamps[0], DUSK.lamps[1], s.night) * we.city,
     stars: smooth(DUSK.stars[0], DUSK.stars[1], s.night) * we.stars, night: s.night, wet: we.wet,
+    lights: smooth(DUSK.lights[0], DUSK.lights[1], s.night) * we.city,
     sun: [dir[0] / l, 0, dir[2] / l],
   };
 }

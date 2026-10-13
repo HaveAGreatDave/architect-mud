@@ -907,7 +907,8 @@ paved.
 - The baked shapes carry no lights. Phase 4 extends `scripts/shapes/bake.mjs` to record each model's
   lights beside its geometry into a generated `client/shared/building-lights.js`: a position as
   affine triples, a colour, and a kind (steady, blinking, beam, neon). The cold open and any far
-  view then get the same lights without the windshield.
+  view then get the same lights without the windshield. Built in 4e.3, with plumes as a fifth kind
+  and each light grouped by the heights it's lit at.
 - The park's floods reach the city through a narrower beam and the inverse square, so the faces
   toward the park catch some light and no more.
 
@@ -1372,7 +1373,7 @@ reference machine and on an integrated laptop GPU and writes the numbers into
 | `plugins/broadcast/regress.js`, the postseason | regress | `season` with its phase and the seeds on payloads, the final scheduled on an air day, the #1 seed at home. |
 | `plugins/broadcast/regress.js`, sim v2 | regress | Built: the v1 hash holds; v2 with its new plays off is the v1 game; every v2 play's moves account for every man, the runs and the outs; the rates; the switch by slot; the payloads; the hitting race; a line for every new play. |
 | `scripts/shapes/smoke.mjs` and `sitecheck.mjs`, the park | shapes, content | Phase 6: every slice of the park draws without throwing, and every gate has its street. |
-| `scripts/shapes/cityscape-smoke.mjs` | shapes | Built: pure, composes the set from the content tree's manifest. Every building within reach resolves to a shape at the windshield's size and gets a plot or its place on the water, none inside the park's outline; bearings move under 3° at the median and under 25° within 900 ft; the edges are straight and on tile lines; every plot fronts a street or backs onto the set's edge; every road tile's arms draw; nothing tall stands within 48 ft of a street-level camera; the engine files name no region. Phase 4 adds that the light bake is fresh. |
+| `scripts/shapes/cityscape-smoke.mjs` | shapes | Built: pure, composes the set from the content tree's manifest. Every building within reach resolves to a shape at the windshield's size and gets a plot or its place on the water, none inside the park's outline; bearings move under 3° at the median and under 25° within 900 ft; the edges are straight and on tile lines; every plot fronts a street or backs onto the set's edge; every road tile's arms draw; nothing tall stands within 48 ft of a street-level camera; the engine files name no region. Since 4e.3, every building is lit as its model is, every light finite, on its building and outside the park; `shapes:smoke` checks the light bake is fresh. |
 | `plugins/broadcast/regress.js` | regress | `sport`, `bats`, `throws`, `hold` present; `play` consistent with the kind; standings once a game; bare pools direction-free; a recorded hash of a hundred seeded games unchanged. |
 
 `client:smoke` and `imports:smoke` cover new files without being asked. Each gate stays inside the 60
@@ -1853,6 +1854,27 @@ Phase 3, or with sim v2 if that comes later.
   same twice and as many a minute as the weather says, and a bolt's ribbon; `diamond-smoke` that
   the weather reaches the renderer; broadcast regress that the park knows every weather word. The
   sandbox and the shot tool take `wx`, `rate` and `event`.
+
+- **4e.3 built, the light bake and the city's lights:** the shapes bake now writes each model's
+  lights beside its shape ([client/shared/building-lights.js](../../client/shared/building-lights.js),
+  `bakeLights` in [scripts/shapes/bake.mjs](../../scripts/shapes/bake.mjs)): every arm run through
+  the windshield's own sinks at night from all four sides and at five storey-stack heights, its
+  lamps and glows (a beacon with its blink), its neon runs chained end to end, its searchlights and
+  the plumes off its stacks, each light solved as a straight line in the height over the heights
+  it's lit at, 230 kB for 333 models. A searchlight and a plume come back from the windshield as
+  records of what they are, not frozen frames (`canvasResidue`'s `live`), and anything else that
+  moves between two moments of the clock is left out: the lighthouse keeps its lit eye and loses
+  its turning beam. [gl/cityscape.js](../../client/game/js/panels/gl/cityscape.js) places each
+  building's at its height and [gl/citylights.js](../../client/game/js/panels/gl/citylights.js) draws
+  them, four instanced draws worked out from the world's clock: lamps and glows that never shrink
+  under a pixel and a half, only dim, beacons blinking about once a second, neon as a lit core with
+  a glow, searchlights sweeping, and smoke and steam rising off the stacks, laid over and lit from
+  below by the city. They come on at dusk before the windows (sky.js `lights`) and dim through bad
+  weather, and a model with beacons of its own gets none of the city's. The renderer's
+  `quality.city` takes the smoke away at 1 and the searchlights at 0, for 4g's tiers.
+  `shapes:smoke` fails a stale light bake, `cityscape-smoke` checks every building lit, every light
+  finite, on its building and outside the park, and a beacon on every tall roof, and
+  `ballpark-smoke` the lights coming on before the windows and dimming in rain.
 
 **Phase 4: the broadcast.** On by default wherever WebGL2 and float targets work.
 - `gl/crowd.js` with seated and reaction clips; replays in slow motion; dead-time rituals; the grounds

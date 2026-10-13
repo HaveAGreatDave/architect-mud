@@ -1091,6 +1091,13 @@ Built so far (Phases 1 and 2 of the plan):
   thunderstorm, a storm or an ion storm puts bolts out past the outfield over the skyline, each
   flashing the sky once. The bolts are a function of the world's clock, so every TV strikes the
   same one at the same moment. With reduced motion the lightning doesn't flash;
+- the city's own lights (Phase 4e, [gl/citylights.js](../client/game/js/panels/gl/citylights.js)):
+  every building round the park is lit as its model is in the flight sim, from a bake of the
+  models' lights beside their shapes ([client/shared/building-lights.js](../client/shared/building-lights.js),
+  `npm run shapes:bake`): its lamps and beacons, its neon runs and edges, its searchlights sweeping
+  the sky and the smoke and steam off its stacks. They come on at dusk before the windows, dim
+  through bad weather, and a building with beacons of its own gets none of the city's. The
+  renderer's `quality.city` drops the smoke at 1 and the searchlights too at 0;
 - the grounds crew (Phase 4d, [diamond/crew.js](../client/game/js/panels/diamond/crew.js)): in the
   middle of the fifth, when the break holds 84 s or more (cast.js `crewDue`), four of them in
   work clothes drag the infield, two to a mat and the pairs side by side, in from foul ground

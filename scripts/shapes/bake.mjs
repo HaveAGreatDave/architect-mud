@@ -92,6 +92,217 @@ export const shapeVal = (p, fh, h) => p[0] * fh + p[1] * h + p[2];
 `;
 }
 
+// ── THE LIGHTS ──────────────────────────────────────────────────────────────
+// client/shared/building-lights.js: what each model lights at night, captured the way its shape is,
+// so a far view (the broadcast's city round its park, gl/cityscape.js) gets the same lights without
+// the windshield. Each arm is run against the stub with every sink open (canvasResidue), at night
+// and from all four sides, and what it lit is read back:
+//   · a point: a lamp, a glow, a beacon that blinks (the sprites);
+//   · a line: a neon run, a lit edge, a sign's tube (the strokes that glow, chained end to end);
+//   · a beam: a searchlight into the sky, which sweeps;
+//   · a plume: smoke or steam off a stack.
+// The last two come back as records of what they are (canvasResidue's `live`), since a frozen
+// frame of either isn't what it looks like.
+//
+// A model's lights change with its height, in number as well as place (a beacon over so many
+// storeys, a light a floor up a runner), so they're taken at five heights through the city's
+// range, at the city's footprint, and each run of heights that lights the same things the same way
+// is solved as a straight line in the height and checked at every height in it. A run of one
+// height is taken as proportional to it. A position is the shapes' affine triple with no constant
+// across: x and y in footprint half-widths plus a share of the height, z a share of the height
+// plus a constant.
+const LIGHTS_OUT = new URL('../../client/shared/building-lights.js', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1');
+const LIGHT_FH = 0.41;
+const LIGHT_H = [0.4, 0.8, 1.6, 3.2, 6.4];
+const LIGHT_SIDES = [[0, -8], [0, 8], [-8, 0], [8, 0]];
+const LIGHT_TOL = 2e-3;   // tiles: how far off its line a light may sit at any height in its run
+const r4 = (v) => Math.round(v * 1e4) / 1e4;
+const hexOf = (c) => (Array.isArray(c) ? c : String(c).split(',').map(Number))
+  .map((v) => Math.max(0, Math.min(255, Math.round(v || 0))).toString(16).padStart(2, '0')).join('');
+
+// One height's lights, from all four sides with each light once: { p, l, b, s }, each record
+// { pos: [[x, y, z], ...] in tiles, model-local, look: [...] }, plus `len` on a beam.
+function lightsAt(ws, m, h) {
+  const out = { p: [], l: [], b: [], s: [] };
+  // the same light seen from another side: the same look, every point within a hair (a key of
+  // rounded places would split a light that sits on a rounding boundary in two)
+  const same = (a, b) => JSON.stringify(a.look) === JSON.stringify(b.look) && a.pos.length === b.pos.length
+    && a.pos.every((q, i) => q.every((v, k) => Math.abs(v - b.pos[i][k]) < 1e-5));
+  const once = (kind, rec) => !out[kind].some((r) => same(r, rec));
+  const at = (dx, dy, now) => {
+    const r = ws.canvasResidue(m, { fh: LIGHT_FH, h, seed: 0, dx, dy, night: 1, collect: true, who: false, noPull: true, live: true, base: true, now });
+    if (r.threw) throw new Error(r.threw);
+    return r;
+  };
+  // What stays where it is across two moments of the clock, at its mean strength: a light that
+  // moves (a lighthouse's turning beam, a lamp on a crane's jib) is left out, since a frozen frame
+  // of it isn't what it looks like; one that pulses (a runner's wave) is kept. `place` is a
+  // record's points, `bare` its look without its strength and `k` where its strength is.
+  const still = (A, B, place, bare, k) => {
+    const used = new Set(), kept = [];
+    for (const a of A) {
+      const pa = place(a), la = JSON.stringify(bare(a));
+      const j = B.findIndex((b, i) => !used.has(i) && JSON.stringify(bare(b)) === la && place(b).every((q, n) => q.every((v, c) => Math.abs(v - pa[n][c]) < 1e-5)));
+      if (j < 0) continue;
+      used.add(j);
+      kept.push({ ...a, [k]: (a[k] + B[j][k]) / 2 });
+    }
+    return kept;
+  };
+  for (const [dx, dy] of LIGHT_SIDES) {
+    const r = at(dx, dy, 1e6), r2 = at(dx, dy, 1e6 + 4321);
+    const local = (q) => [q[0] - dx, q[1] - dy, q[2]];
+    const sprites = still(r.sink.sprites, r2.sink.sprites, (sp) => [[sp.x, sp.y, sp.z]], (sp) => [sp.r, sp.rgb, sp.hard, sp.add, sp.air, sp.wash, sp.bl], 'a');
+    for (const sp of sprites) {
+      const f = (sp.hard ? 1 : 0) | (sp.add ? 2 : 0) | (sp.air ? 4 : 0) | (sp.wash ? 8 : 0);
+      const rec = { pos: [local([sp.x, sp.y, sp.z])], look: [r4(sp.r / 100), hexOf(sp.rgb), r4(sp.a), f, ...(sp.bl ? [r4(sp.bl[0]), r4(sp.bl[1])] : [])] };
+      if (once('p', rec)) out.p.push(rec);
+    }
+    // the strokes that glow, end to end into runs
+    const glowing = (st) => st.filter((x) => x.glow > 0);
+    let run = null;
+    for (const st of still(glowing(r.sink.strokes), glowing(r2.sink.strokes), (x) => [x.a, x.b], (x) => [x.w, x.rgb, x.glow], 'alpha')) {
+      const a = local(st.a), b = local(st.b), look = [r4(st.w / 100), hexOf(st.rgb), r4(st.alpha), r4(st.glow / 100)];
+      const end = run && run.pos[run.pos.length - 1];
+      if (run && JSON.stringify(run.look) === JSON.stringify(look) && end.every((v, i) => Math.abs(v - a[i]) < 1e-9)) { run.pos.push(b); continue; }
+      run = { pos: [a, b], look };
+      out.l.push(run);
+    }
+    for (const L of r.live || []) {
+      const pos = [local([L.x, L.y, L.z])];
+      const rec = L.k === 'beam'
+        ? { pos, len: L.len, look: [hexOf(L.rgb), r4(L.at), r4(L.sweep), r4(L.tilt), r4(L.r / LIGHT_FH), r4(L.spread), r4(L.a), r4(L.fall), L.period, L.s] }
+        : { pos, look: [hexOf(L.rgb), r4(L.a), L.seed] };
+      if (once(L.k === 'beam' ? 'b' : 's', rec)) out[L.k === 'beam' ? 'b' : 's'].push(rec);
+    }
+  }
+  // the runs are told apart by their looks and their lengths, never their places
+  for (const L of out.l) L.look = [L.pos.length, ...L.look];
+  out.l = out.l.filter((L, i) => out.l.findIndex((M) => same(M, L)) === i);
+  return out;
+}
+
+// v = c + k·h through (h, v) pairs, by least squares; null if any pair is off the line.
+function lineThrough(hs, vs) {
+  const n = hs.length, hm = hs.reduce((a, b) => a + b, 0) / n, vm = vs.reduce((a, b) => a + b, 0) / n;
+  let num = 0, den = 0;
+  for (let i = 0; i < n; i++) { num += (hs[i] - hm) * (vs[i] - vm); den += (hs[i] - hm) ** 2; }
+  const k = den > 0 ? num / den : 0, c = vm - k * hm;
+  return hs.every((h, i) => Math.abs(c + k * h - vs[i]) <= LIGHT_TOL) ? { c, k } : null;
+}
+
+// One light through the heights it's lit at (`recs`, one a height in `hs`), solved into its record:
+// each position as [ax, bx, ay, by, bz, cz], then its look. Null if it isn't on a straight line.
+function solveLight(kind, recs, hs) {
+  const one = hs.length === 1, coef = [];
+  for (let j = 0; j < recs[0].pos.length; j++) {
+    if (one) { const [x, y, z] = recs[0].pos[j]; coef.push(r4(x / LIGHT_FH), 0, r4(y / LIGHT_FH), 0, r4(z / hs[0]), 0); continue; }
+    const X = lineThrough(hs, recs.map((r) => r.pos[j][0])), Y = lineThrough(hs, recs.map((r) => r.pos[j][1]));
+    const Z = lineThrough(hs, recs.map((r) => r.pos[j][2]));
+    if (!X || !Y || !Z) return null;
+    coef.push(r4(X.c / LIGHT_FH), r4(X.k), r4(Y.c / LIGHT_FH), r4(Y.k), r4(Z.k), r4(Z.c));
+  }
+  const look = recs[0].look;
+  if (kind === 'l') return [coef, ...look.slice(1)];
+  if (kind !== 'b') return [...coef, ...look];
+  const Ln = one ? { k: recs[0].len / hs[0], c: 0 } : lineThrough(hs, recs.map((r) => r.len));
+  return Ln ? [...coef, ...look.slice(0, 4), r4(Ln.k), r4(Ln.c), ...look.slice(4)] : null;
+}
+
+// Every model's lights: { key: [{ h: [lo, hi], p?, l?, b?, s? }, ...] }, a storey stack h tiles tall
+// lighting every group with lo <= h < hi; models that light nothing are left out. A light is
+// followed from height to height by its look and its place among the lights that look the same,
+// and each stretch of heights it's lit at, split where it leaves its straight line, reaches halfway
+// (by ratio) to the next height it isn't.
+export function bakeLights(ws) {
+  const out = {}, motion = ws.RENDER_TUNE.motion;
+  // the machines parked at their home poses, as the flight sim's Moving parts switch has them
+  ws.RENDER_TUNE.motion = 0;
+  try { bakeEach(ws, out); } finally { ws.RENDER_TUNE.motion = motion; }
+  return out;
+}
+function bakeEach(ws, out) {
+  const edge = (i) => (i <= 0 ? 0 : i >= LIGHT_H.length ? 1000 : r4(Math.sqrt(LIGHT_H[i - 1] * LIGHT_H[i])));
+  for (const { key, m } of ws.shapeModelRegistry()) {
+    const ats = LIGHT_H.map((h) => lightsAt(ws, m, h)), groups = new Map();
+    for (const kind of ['p', 'l', 'b', 's']) {
+      const tracks = new Map();
+      ats.forEach((at, bi) => {
+        const seen = new Map();
+        for (const rec of at[kind]) {
+          const lk = JSON.stringify(rec.look), k = seen.get(lk) || 0, id = lk + '#' + k;
+          seen.set(lk, k + 1);
+          if (!tracks.has(id)) tracks.set(id, Array(ats.length).fill(null));
+          tracks.get(id)[bi] = rec;
+        }
+      });
+      for (const recs of tracks.values()) {
+        let i = 0;
+        while (i < recs.length) {
+          if (!recs[i]) { i++; continue; }
+          let j = i + 1, fit = solveLight(kind, [recs[i]], [LIGHT_H[i]]);
+          for (; j < recs.length && recs[j]; j++) {
+            const f = solveLight(kind, recs.slice(i, j + 1), LIGHT_H.slice(i, j + 1));
+            if (!f) break;
+            fit = f;
+          }
+          const lo = edge(i), hi = edge(j), gk = lo + ',' + hi;
+          if (!groups.has(gk)) groups.set(gk, { h: [lo, hi] });
+          (groups.get(gk)[kind] ||= []).push(fit);
+          i = j;
+        }
+      }
+    }
+    if (groups.size) out[key] = [...groups.values()].sort((a, b) => a.h[0] - b.h[0] || a.h[1] - b.h[1]);
+  }
+}
+
+export function renderLightsModule(lights) {
+  const keys = Object.keys(lights).sort();
+  const body = keys.map((k) => `  ${JSON.stringify(k)}: ${JSON.stringify(lights[k])},`).join('\n');
+  return `// GENERATED by scripts/shapes/bake.mjs; do not edit by hand.
+//
+// What every Coldwater building lights at night, captured out of the flight-sim renderer
+// (client/game/js/panels/windshield.js) beside its shape (building-shapes.js), so a far view can
+// light the city without importing the renderer. The broadcast's city round its park
+// (client/game/js/panels/gl/cityscape.js) is the first reader.
+//
+// A model is a list of groups, { h: [lo, hi], p, l, b, s }: a storey stack h tiles tall has every
+// group with lo <= h < hi, each list there only if it has something in it:
+//   · p, points: [ax, bx, ay, by, bz, cz, r, rgb, a, f, blinkBase?, blinkSwing?]: a lamp or a glow
+//     r tiles across, its colour (hex), its strength (0 to 1) and flags (1 a hard-edged lamp, 2 added
+//     light, 4 lit air such as a beam's glow, 8 washing the wall behind it); a beacon that blinks
+//     carries its blink, as gl/sprites.js reads one;
+//   · l, lines: [[ax, bx, ay, by, bz, cz, ...], w, rgb, a, glow]: a neon run through its points,
+//     w tiles wide, with a glow round it (tiles);
+//   · b, beams: [ax, bx, ay, by, bz, cz, rgb, at, sweep, tilt, lenK, lenC, rK, spread, a, fall,
+//     period, s]: a searchlight from its lamp, on a bearing 'at' (radians round from the door's way
+//     to the right) swinging by 'sweep' either side over 'period' ms, 'tilt' above the level, as
+//     long as lenK·h + lenC and rK·fh across at its lamp, 'spread' times that at its end, its
+//     strength 'a' falling off along it as the power 'fall', its lamp's glow 's';
+//   · s, plumes: [ax, bx, ay, by, bz, cz, rgb, a, seed]: smoke or steam off a stack's mouth.
+// A position is the shapes' affine form with no constant across: x = ax·fh + bx·h,
+// y = ay·fh + by·h, z = bz·h + cz, in the model's own frame (x right of the door, y toward it).
+//
+// Regenerate with 'npm run shapes:bake'; 'npm run shapes:smoke' fails if this file is stale.
+import { bldgSlug } from './building-shapes.js';
+
+export const BUILDING_LIGHTS = {
+${body}
+};
+
+// The same resolution order as shapeFor (building-shapes.js): a building's own named model, then
+// its type's.
+export function lightsFor(name, buildingType) {
+  return BUILDING_LIGHTS['named:' + bldgSlug(name)] || BUILDING_LIGHTS['type:' + buildingType] || null;
+}
+// The groups that light a storey stack 'h' tiles tall.
+export const lightGroups = (groups, h) => (groups || []).filter((g) => h >= g.h[0] && h < g.h[1]);
+// A position in a record, from index i, at a footprint half-width and a stack height.
+export const lightAt = (r, i, fh, h) => [r[i] * fh + r[i + 1] * h, r[i + 2] * fh + r[i + 3] * h, r[i + 4] * h + r[i + 5]];
+`;
+}
+
 async function main() {
   const ws = await loadWindshield();
   const shapes = bakeShapes(ws);
@@ -100,6 +311,10 @@ async function main() {
   const text = renderModule(shapes);
   writeFileSync(OUT, text, 'utf8');
   console.log(`✓ shapes:bake — ${n} models, ${segs} segments → client/shared/building-shapes.js (${(text.length / 1024).toFixed(1)} kB)`);
+  const lights = bakeLights(ws);
+  const lt = renderLightsModule(lights), groups = Object.values(lights).reduce((a, g) => a + g.length, 0);
+  writeFileSync(LIGHTS_OUT, lt, 'utf8');
+  console.log(`✓ shapes:bake — ${Object.keys(lights).length} models lit, ${groups} groups → client/shared/building-lights.js (${(lt.length / 1024).toFixed(1)} kB)`);
 }
 
 import { fileURLToPath } from 'node:url';

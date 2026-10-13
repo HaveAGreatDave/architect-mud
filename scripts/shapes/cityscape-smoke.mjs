@@ -16,7 +16,9 @@
 //   3. THE CITY. gl/cityscape.js builds it: every building resolves to a shape at the flight
 //      sim's size, every float finite and every material one the park's shader knows, every road
 //      tile drawn from its arms, the lamps outside the park, the Curtain on the walls, and the
-//      lot inside its triangle budget.
+//      lot inside its triangle budget; and every building lit as its model is
+//      (client/shared/building-lights.js), its lamps, neon, searchlights and plumes finite, on
+//      the building and outside the park, and a beacon on every tall roof, its own or the city's.
 //   4. NO REGION NAMED. The engine files say nothing about Coldwater: the site, the skyline and
 //      the venue's art direction say it all.
 //
@@ -208,7 +210,31 @@ check('the facades are the shader\'s', city.opaque.get('city')?.n > 0 && (() => 
   }
   check('a lamp and its pool on the streets', stats.lamps > 300 && pools.n / 6 === stats.lamps, `${stats.lamps} lamps, ${pools.n / 6} pools`);
   check('no lamp inside the park', inside === 0, `${inside}`);
-  check('a beacon on the tall roofs', stats.beacons > 10, `${stats.beacons}`);
+  // the city's own on a tall roof, or the model's: a lamp that blinks
+  const S = city.lights.pts, blinkers = Array.from({ length: S.length / 12 }, (_, i) => i).filter((i) => (S[i * 12 + 7] & 1) && S[i * 12 + 9] > 0).length;
+  check('a beacon on the tall roofs', stats.beacons + blinkers > 10, `${stats.beacons} + ${blinkers} of the models' own`);
+}
+{
+  // the buildings' own lights (client/shared/building-lights.js): lamps, neon, searchlights and
+  // plumes, every one finite and on its building, none inside the park
+  const { pts, segs, beams, plumes } = city.lights, L = stats.lights;
+  check('the buildings light up as their models do', stats.lit > set.placed.length * 0.9 && L.pts > 500 && L.segs > 300 && L.beams > 0 && L.plumes > 0, JSON.stringify(L) + `, ${stats.lit} lit`);
+  const all = [pts, segs, beams, plumes];
+  check('every light finite', all.every((a) => a.every(Number.isFinite)));
+  const strides = { pts: 12, segs: 12, beams: 20, plumes: 8 };
+  // where each light is: a point, both ends of a neon segment, a searchlight's lamp, a plume's mouth
+  const where = [];
+  for (let i = 0; i < pts.length; i += strides.pts) where.push([pts[i], pts[i + 1], pts[i + 2]]);
+  for (let i = 0; i < segs.length; i += strides.segs) where.push([segs[i], segs[i + 1], segs[i + 2]], [segs[i + 3], segs[i + 4], segs[i + 5]]);
+  for (let i = 0; i < beams.length; i += strides.beams) where.push([beams[i], beams[i + 1], beams[i + 2]]);
+  for (let i = 0; i < plumes.length; i += strides.plumes) where.push([plumes[i], plumes[i + 1], plumes[i + 2]]);
+  const far = where.filter((p) => !set.placed.some(({ at }) => Math.hypot(p[0] - at[0], p[2] - at[2]) <= 1.6 * T) || p[1] < -2);
+  check('every light on its building', far.length === 0, `${far.length} of ${where.length} off`);
+  check('no light inside the park', where.every((p) => !insidePoly(outline, p)), `${where.filter((p) => insidePoly(outline, p)).length}`);
+  let dark = 0;
+  for (let i = 0; i < pts.length; i += strides.pts) if (!(pts[i + 3] > 0) || pts[i + 4] < 0 || pts[i + 5] < 0 || pts[i + 6] < 0) dark++;
+  for (let i = 0; i < segs.length; i += strides.segs) if (!(segs[i + 6] > 0) || segs[i + 7] < 0) dark++;
+  check('every light a size and a colour', dark === 0, `${dark}`);
 }
 {
   // the Curtain on every wall, straight along it and at the flight sim's height

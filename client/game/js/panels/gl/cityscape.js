@@ -2,10 +2,12 @@
 //
 // The city round a broadcast's park, built from a composed set (client/shared/city-set.js):
 // every building GLASS draws, at the flight sim's own size, from its baked shape
-// (client/shared/building-shapes.js); the filler the set puts on empty plots; the streets from
-// each road tile's arms; cobra-head sodium lamps with a pool of light under each; the Curtain's
-// walls; and past them red rock, or the bay past a shore. One static set of batches when the
-// venue arrives, drawn by gl/ballpark.js with its own light.
+// (client/shared/building-shapes.js), and with its own lights, baked beside it
+// (client/shared/building-lights.js): its lamps and beacons, its neon, its searchlights and the
+// smoke off its stacks; the filler the set puts on empty plots; the streets from each road tile's
+// arms; cobra-head sodium lamps with a pool of light under each; the Curtain's walls; and past them
+// red rock, or the bay past a shore. One static set of batches when the venue arrives, drawn by
+// gl/ballpark.js with its own light, and the buildings' lights drawn by gl/citylights.js.
 //
 // Facades and streets are shaded from coordinates, not textures (FACADE_GLSL, STREET_GLSL): a
 // facade's uv is bays across and storeys up, its colour (seed, style, share of windows lit); a
@@ -17,6 +19,7 @@
 
 import { createBatch, vtx, quad, MAT } from './ballpark-mesh.js';
 import { shapeFor, shapeVal } from '../../../../shared/building-shapes.js';
+import { lightsFor, lightGroups, lightAt } from '../../../../shared/building-lights.js';
 import { floorsFor, buildingScale, tileSeed, CURTAIN_H } from '../../../../shared/skyline-scale.js';
 import { styleOf, insidePoly, SET_STYLES } from '../../../../shared/city-set.js';
 
@@ -38,10 +41,14 @@ const norm = (a) => { const l = Math.hypot(a[0], a[1], a[2]) || 1; return [a[0] 
 const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 function hashStr(s) { let h = 2166136261; for (const ch of String(s)) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; }
 const unit = (s) => hashStr(s) / 4294967296;
+const lin1 = (c) => { const x = Math.max(0, c) / 255; return x <= 0.04045 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4; };
+const linHex = (s) => [0, 2, 4].map((i) => lin1(parseInt(String(s).slice(i, i + 2), 16) || 0));
 
 // A building's shape, resolved the way the flight sim sizes it: its segments as tile offsets
-// (east, south) from the tile's middle, heights in tiles, and the height of one storey. Null for
-// a building with no shape.
+// (east, south) from the tile's middle, heights in tiles, and the height of one storey; its
+// footprint half-width `fh` and storey stack `h` (tiles), and `local`, which turns a point in the
+// model's frame (right of the door, toward it) into a tile offset. Null for a building with no
+// shape.
 export function cityShape(b) {
   const list = shapeFor(b.n || '', b.t);
   if (!list) return null;
@@ -70,18 +77,20 @@ export function cityShape(b) {
       segs.push({ k: 'box', pts: [L(-hx, -hy), L(hx, -hy), L(hx, hy), L(-hx, hy)], z0, z1 });
     }
   }
-  return { segs, floors, storey: h / Math.max(1, floors) };
+  return { segs, floors, storey: h / Math.max(1, floors), fh, h, local: T };
 }
 
-// The city's batches from a composed set. Returns { opaque, glow, curtain, stats }: `opaque` and
-// `glow` (the lamps' pools, drawn adding light) map a key to a batch, `curtain` the walls as
-// { a, b, h } (park-frame ground points and a height) for the Curtain's own shader.
+// The city's batches from a composed set. Returns { opaque, glow, curtain, lights, stats }: `opaque`
+// and `glow` (the lamps' pools, drawn adding light) map a key to a batch, `curtain` the walls as
+// { a, b, h } (park-frame ground points and a height) for the Curtain's own shader, and `lights`
+// the buildings' own (LIGHT_STRIDE), in the park's frame and feet, for gl/citylights.js.
 export function buildCityscape(set, { art = null, outline = [] } = {}) {
   const T = set.T, EX = set.EX, EN = set.EN;
   const opaque = new Map(), glow = new Map();
   const B = (key, into = opaque) => { let b = into.get(key); if (!b) { b = createBatch(); into.set(key, b); } return b; };
-  const stats = { buildings: 0, missing: [], filler: 0, lamps: 0, beacons: 0, roads: 0 };
+  const stats = { buildings: 0, missing: [], filler: 0, lamps: 0, beacons: 0, roads: 0, lit: 0 };
   const G = -0.3;   // the city's ground, a hair under the park's
+  const LP = [], LS = [], LB = [], LK = [];
 
   // walls between rings of points, the facade's uv in bays and storeys
   const loft = (rings, look) => {
@@ -140,6 +149,37 @@ export function buildCityscape(set, { art = null, outline = [] } = {}) {
     }
   };
 
+  // A building's own lights, as its model has them at its height (client/shared/building-lights.js),
+  // into the park's frame and feet: points, the segments of its neon runs, its searchlights and its
+  // plumes. Returns how many of its lamps are beacons that blink.
+  const lightUp = (b, shape, P) => {
+    const groups = lightGroups(lightsFor(b.n || '', b.t), shape.h), id = 'l:' + b.x + ',' + b.y;
+    const at = (r, i) => { const [lx, ly, lz] = lightAt(r, i, shape.fh, shape.h), p = P(shape.local(lx, ly)); return [p[0], lz * T + G, p[2]]; };
+    const o = P([0, 0]), dirOf = (lx, ly) => norm(sub(P(shape.local(lx, ly)), o));
+    let blinks = 0, k = 0;
+    for (const g of groups) {
+      for (const r of g.p || []) {
+        const p = at(r, 0), c = linHex(r[7]), a = r[8], f = r[9], bl = r.length > 10;
+        if (bl && (f & 1)) blinks++;
+        LP.push(p[0], p[1], p[2], r[6] * T, c[0] * a, c[1] * a, c[2] * a, f, bl ? r[10] : 1, bl ? r[11] : 0, unit(id + ':' + k++) * Math.PI, 0);
+      }
+      for (const r of g.l || []) {
+        const c = linHex(r[2]), a = r[3];
+        for (let i = 0; i + 6 < r[0].length; i += 6) LS.push(...at(r[0], i), ...at(r[0], i + 6), r[1] * T, c[0] * a, c[1] * a, c[2] * a, r[4] * T, 0);
+      }
+      for (const r of g.b || []) {
+        const p = at(r, 0), c = linHex(r[6]), right = dirOf(1, 0), door = dirOf(0, 1);
+        LB.push(p[0], p[1], p[2], right[0], right[2], door[0], door[2], r[7], r[8], r[9], (r[10] * shape.h + r[11]) * T, r[12] * shape.fh * T, r[13],
+          c[0] * r[14], c[1] * r[14], c[2] * r[14], r[15], r[16] / 1000, unit(id + ':b' + k++), 0);
+        // its lamp, which is the only part of it that's a point
+        LP.push(p[0], p[1], p[2], (r[17] / 400) * T, c[0], c[1], c[2], 0, 1, 0, 0, 0);
+      }
+      for (const r of g.s || []) { const p = at(r, 0), c = linHex(r[6]); LK.push(p[0], p[1], p[2], c[0], c[1], c[2], r[7], unit(id + ':s' + k++)); }
+    }
+    if (groups.length) stats.lit++;
+    return blinks;
+  };
+
   // ── the buildings ──
   for (const { b, at } of set.placed) {
     const shape = cityShape(b);
@@ -148,13 +188,15 @@ export function buildCityscape(set, { art = null, outline = [] } = {}) {
     const style = styleOf(art, b), seed = unit('b:' + b.x + ',' + b.y);
     const look = { seed, style, lit: STYLE_LIT[style] * (0.7 + 0.6 * unit('lit:' + b.x + ',' + b.y)), bay: BAY[style] || 11.5, floor: Math.max(6, shape.storey * T) };
     const P = (p) => [at[0] + EX[0] * p[0] * T - EN[0] * p[1] * T, 0, at[2] + EX[2] * p[0] * T - EN[2] * p[1] * T];
+    // a model with beacons of its own (a mast's, a crown's) keeps them, and gets none here
+    const ownBeacons = lightUp(b, shape, P) > 0;
     let topY = 0, topAt = at;
     for (const s of shape.segs) {
       const y0 = s.z0 * T + G, y1 = s.z1 * T + G;
       if (s.k === 'mast') {
         const c = P(s.p);
         post(c, y0, y1, 0.9, [0.06, 0.06, 0.065]);
-        lamp([c[0], y1 + 2, c[2]], 1.3, RED); stats.beacons++;
+        if (!ownBeacons) { lamp([c[0], y1 + 2, c[2]], 1.3, RED); stats.beacons++; }
         if (y1 > topY) { topY = y1; topAt = c; }
         continue;
       }
@@ -176,7 +218,7 @@ export function buildCityscape(set, { art = null, outline = [] } = {}) {
       }
     }
     // an aircraft light on anything tall
-    if (topY > 230) { lamp([topAt[0], topY + 3, topAt[2]], topY > 600 ? 1.8 : 1.2, RED); stats.beacons++; }
+    if (topY > 230 && !ownBeacons) { lamp([topAt[0], topY + 3, topAt[2]], topY > 600 ? 1.8 : 1.2, RED); stats.beacons++; }
   }
 
   // ── the filler ──
@@ -279,8 +321,18 @@ export function buildCityscape(set, { art = null, outline = [] } = {}) {
   let tris = 0;
   for (const m of [opaque, glow]) for (const b of m.values()) tris += b.n / 3;
   stats.tris = Math.round(tris);
-  return { opaque, glow, curtain, stats };
+  const lights = { pts: new Float32Array(LP), segs: new Float32Array(LS), beams: new Float32Array(LB), plumes: new Float32Array(LK) };
+  stats.lights = { pts: LP.length / LIGHT_STRIDE.pts, segs: LS.length / LIGHT_STRIDE.segs, beams: LB.length / LIGHT_STRIDE.beams, plumes: LK.length / LIGHT_STRIDE.plumes };
+  return { opaque, glow, curtain, lights, stats };
 }
+// The buildings' lights, as buildCityscape hands them over (floats a record), in the park's frame
+// and feet, colours linear and with their strength in:
+//   pts: x, y, z, radius, r, g, b, flags (building-lights.js's), blink base, swing, phase, 0;
+//   segs: a neon run a segment at a time: from x, y, z, to x, y, z, width, r, g, b, glow, 0;
+//   beams: the lamp's x, y, z, the model's right and its door's way on the ground (x, z each),
+//     bearing, sweep, tilt, length, radius at the lamp, spread, r, g, b, fall, period (s), phase, 0;
+//   plumes: the stack's mouth x, y, z, r, g, b, strength, phase.
+export const LIGHT_STRIDE = Object.freeze({ pts: 12, segs: 12, beams: 20, plumes: 8 });
 
 // ── the shading ──
 // A hash the city's shaders share.

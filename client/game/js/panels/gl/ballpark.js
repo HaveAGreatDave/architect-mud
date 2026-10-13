@@ -36,7 +36,8 @@
 //      bat, fireworks: gl/spectacle.js) added over them, each through the night air, which is
 //      height fog with the towers' light scattered in it (fog.js);
 //      what falls on the park and lightning over the skyline go in with them (gl/weather.js), and
-//      the field is wet under rain;
+//      the field is wet under rain; and the buildings' own lights, their neon, searchlights and
+//      the smoke off their stacks (gl/citylights.js);
 //   3. the depth the frame was drawn with, resolved into a texture for the lens and the occlusion;
 //   4. ambient occlusion from that depth at half size (ssao.js);
 //   5. bloom off the lamps (hdr.js), then the lens, the curve and the grade (gl/broadcast.js).
@@ -78,6 +79,7 @@ import { HUD_FACES, loadHudFaces } from '../diamond/hud.js';
 import { createSpectacle } from './spectacle.js';
 import { NIGHT, skyLook } from '../diamond/sky.js';
 import { createWeather } from './weather.js';
+import { createCityLights, PLUME } from './citylights.js';
 
 const FACE = '"Arial Narrow", "Roboto Condensed", Arial, sans-serif';
 
@@ -626,6 +628,7 @@ export function createBallparkRenderer(canvas, opts = {}) {
     const SKLIT = prog(SKIN_VS, LIT_FS), SKD = prog(SKIN_DEPTH_VS, DEPTH_FS);
     const spectacle = createSpectacle(gl, prog);
     const weather = createWeather(gl, prog);
+    const cityLights = createCityLights(gl, prog);
 
     // ── textures ──────────────────────────────────────────────────────────────
     const T2 = gl.TEXTURE_2D;
@@ -852,6 +855,7 @@ export function createBallparkRenderer(canvas, opts = {}) {
           curtain: uploadCurtain(c.curtain, set.T),
           stats: { ...c.stats, placed: set.placed.length, unplaced: set.unplaced.length, bearing: set.bearing.median },
         };
+        cityLights.set(c.lights);
       }
       paintSign(v.name);
       return city?.stats || null;
@@ -860,6 +864,7 @@ export function createBallparkRenderer(canvas, opts = {}) {
       if (!city) return;
       for (const d of [...city.opaque, ...city.glow]) { gl.deleteVertexArray(d.vao); gl.deleteBuffer(d.st.buf); }
       if (city.curtain) { gl.deleteVertexArray(city.curtain.vao); gl.deleteBuffer(city.curtain.st.buf); }
+      cityLights.set(null);
       city = null;
     }
     // The Curtain's walls cut into panels a tile long, as the flight sim draws it a tile at a time,
@@ -1031,7 +1036,7 @@ export function createBallparkRenderer(canvas, opts = {}) {
 
     // The park's light at the hour the payload aired (setHour, diamond/sky.js), against the venue's
     // bearing and its city's glow; night until a payload says otherwise.
-    let hourNow = null, wxNow = null, look = skyLook(null);
+    let hourNow = null, wxNow = null, look = skyLook(null), worldT = 0;
     const relook = () => { look = skyLook(hourNow, { bearing: cityVenue?.site?.bearing, glow: cityVenue?.city?.glow, wx: wxNow }); };
     // The weather over the park (a payload's `wx`, diamond/weather.js): the look, what falls and the
     // lightning; and the world's time, which what falls and the bolts are drawn at.
@@ -1188,6 +1193,16 @@ export function createBallparkRenderer(canvas, opts = {}) {
           gl.bindVertexArray(city.curtain.vao); gl.drawArrays(gl.TRIANGLES, 0, city.curtain.n);
           tris += city.curtain.n / 3; draws++;
         }
+        // the buildings' own lights: all of them on the top tier, no smoke below it, and no
+        // searchlights at the bottom; a plume lit from below by the city once its lights are on,
+        // and by the sky
+        const tier = q.city ?? 2;
+        const cl = cityLights.draw(M, h, worldT, {
+          on: look.lights, fogDens: q.fog ? look.fogDens : 0, fogH: NIGHT.fogH,
+          lit: look.up.map((v, i) => v * 3 + look.glow[i] * 4 + PLUME.lit * look.lights), beams: tier >= 1, steam: tier >= 2,
+        });
+        tris += cl.tris; draws += cl.draws;
+        gl.blendFunc(gl.ONE, gl.ONE);
       }
       const fx = spectacle.draw(M, h);
       tris += fx.tris; draws += fx.draws;
@@ -1244,7 +1259,7 @@ export function createBallparkRenderer(canvas, opts = {}) {
 
     function dispose() {
       try {
-        shadows.dispose(); ssao?.dispose(); bc?.dispose(); spectacle.dispose(); weather.dispose();
+        shadows.dispose(); ssao?.dispose(); bc?.dispose(); spectacle.dispose(); weather.dispose(); cityLights.dispose();
         if (depth) { gl.deleteFramebuffer(depth.fbo); gl.deleteTexture(depth.tex); depth = null; }
         for (const t of Object.values(TEX)) gl.deleteTexture(t);
         gl.deleteTexture(boardTex);
@@ -1264,7 +1279,8 @@ export function createBallparkRenderer(canvas, opts = {}) {
     const api = {
       kind: 'gl', lost: false, rungs: BALLPARK_RUNGS,
       // grade: 'arcade', 'broadcast' or 'none'; tube: the tube glass; dof: the lens's taps (0 off)
-      quality: { dpr: 2, bloom: 0.18, exposure: 1.0, grade: opts.grade || 'arcade', tube: !!opts.tube, ao: true, dof: 28, shadows: true, fog: true },
+      // `city`: the city's own lights, 2 with smoke off the stacks, 1 without, 0 without searchlights
+      quality: { dpr: 2, bloom: 0.18, exposure: 1.0, grade: opts.grade || 'arcade', tube: !!opts.tube, ao: true, dof: 28, shadows: true, fog: true, city: 2 },
       // what casts the towers' shadows: the players, [{ slot, batches }], skinned from the palette
       casters: [],
       // setPose(slot, pose): a player into a pose from the rig's pose language, with at, yaw, scale;
@@ -1273,10 +1289,12 @@ export function createBallparkRenderer(canvas, opts = {}) {
       // markDirt(marks): the game's marks into the infield (diamond/marks.js), resetDirt() a fresh one;
       // setHour(h): the park's light at an in-game hour (diamond/sky.js), null for the night;
       // setWeather(wx, { flash }): the weather over the park (diamond/weather.js), with no lightning
-      // flash for less motion; setTime(t): the world's time, which what falls and the bolts are
-      // drawn at
+      // flash for less motion; setTime(t): the world's time, which what falls, the bolts and the
+      // city's moving lights are drawn at
       render, setBoard, setCast, setPose, setBall, setSpectacle: (fx, t) => spectacle.set(fx, t), pump, setVenue, dispose, stats,
-      markDirt, resetDirt, smoothDirt, setMats, dirtStats, setHour, setWeather, setTime: (t) => weather.setTime(t), get look() { return look; },
+      markDirt, resetDirt, smoothDirt, setMats, dirtStats, setHour, setWeather, get look() { return look; },
+      setTime: (t) => { worldT = Number.isFinite(t) ? t : 0; weather.setTime(worldT); },
+      get cityLights() { return cityLights.counts; },
       setCrowd: (levels, t, move = true) => { roar.home = +levels?.[0] || 0; roar.away = +levels?.[1] || 0; roar.t = +t || 0; roar.move = move ? 1 : 0; },
       pending: () => queue.length,
       get park() { return park; },
