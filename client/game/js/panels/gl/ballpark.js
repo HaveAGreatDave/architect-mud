@@ -74,6 +74,7 @@ import { CURTAIN_FRAG } from './curtain.js';
 import { applyLinOut } from './colour.js';
 import { HUD_FACES, loadHudFaces } from '../diamond/hud.js';
 import { createSpectacle } from './spectacle.js';
+import { NIGHT, skyLook } from '../diamond/sky.js';
 
 const FACE = '"Arial Narrow", "Roboto Condensed", Arial, sans-serif';
 
@@ -434,16 +435,19 @@ void main() {
 const FULL_VS = `#version 300 es
 out vec2 vUV;
 void main() { vec2 p = vec2((gl_VertexID << 1) & 2, gl_VertexID & 2); vUV = p; gl_Position = vec4(p * 2.0 - 1.0, 0.0, 1.0); }`;
-// The night sky: horizon to zenith, the city's glow low down, and a few stars.
+// The sky: horizon to zenith, warmer toward where the sun went down, the city's glow low down, and
+// a few stars once it's dark.
 const SKY_FS = `#version 300 es
 precision highp float;
 in vec2 vUV; out vec4 o;
-uniform mat4 uInvVP; uniform vec3 uZen; uniform vec3 uHor; uniform vec3 uGlow; uniform float uStars;
+uniform mat4 uInvVP; uniform vec3 uZen; uniform vec3 uHor; uniform vec3 uHorAway; uniform vec3 uSunDir; uniform vec3 uGlow; uniform float uStars;
 ${LIGHTS_GLSL}
 void main() {
   vec4 p = uInvVP * vec4(vUV * 2.0 - 1.0, 1.0, 1.0); vec3 rd = normalize(p.xyz / p.w - uEye);
-  float el = rd.y;
-  vec3 col = mix(uHor, uZen, smoothstep(-0.02, 0.55, el)) + uGlow * exp(-max(el, 0.0) * 12.0);
+  float el = rd.y, fl = length(rd.xz);
+  // the horizon toward where the sun went down, and away from it (the same at night)
+  float f = fl > 1e-4 ? dot(rd.xz / fl, uSunDir.xz) * 0.5 + 0.5 : 0.5;
+  vec3 col = mix(mix(uHorAway, uHor, f * f), uZen, smoothstep(-0.02, 0.55, el)) + uGlow * exp(-max(el, 0.0) * 12.0);
   vec3 q = floor(rd * 520.0); float h = fract(sin(dot(q, vec3(12.9898, 78.233, 37.719))) * 43758.5453);
   col += vec3(step(0.9982, h)) * 0.06 * smoothstep(0.05, 0.35, el) * uStars;
   // the sky is a long way off through the same air: the haze at the horizon, the towers' glow
@@ -475,16 +479,8 @@ for (const [vs, fs] of [[LIT_VS, LIT_FS], [SKIN_VS, LIT_FS], [SKIN_DEPTH_VS, DEP
 // The textures whose clear texels are holes: the wall's distances, the monograms, the masks' bars.
 const ALPHA_TEST = new Set(['nums', 'logo', 'mask']);
 
-// The night: the sky's colours, its ambient, how hard the towers burn, and the air: a haze that
-// thins over 160 ft of height, and how much of the towers' light it scatters.
-const NIGHT = {
-  up: [0.006, 0.008, 0.016], dn: [0.024, 0.032, 0.017], zen: [0.0018, 0.0024, 0.0065], hor: [0.005, 0.006, 0.009],
-  glow: [0.010, 0.008, 0.006], towers: 3.6,
-  fog: [0.004, 0.0045, 0.0055], fogDens: 0.00022, fogH: 160, shaft: 1.0, shaftReach: 260,
-  // the city: its windows and the park's arcade, the lamps' pools, the Curtain (well down from the
-  // flight sim's strength, so the field stays the brightest thing in the picture), the park's sign
-  cityLit: 1.5, pool: 0.032, curtain: 0.32, sign: 9,
-};
+// The night the park was tuned at, and the park's light at any hour (diamond/sky.js): the sky's
+// colours, its ambient, how hard the towers burn, the air, the city's windows and lamps.
 
 // The quality rungs the view's governor steps through, cheapest last: the lens's taps, the
 // occlusion, then the resolution.
@@ -834,6 +830,7 @@ export function createBallparkRenderer(canvas, opts = {}) {
     function setVenue(v) {
       if (lost || !v || v === cityVenue) return city?.stats || null;
       cityVenue = v;
+      relook();
       dropCity();
       if (v.site && v.skyline) {
         const art = v.city || null;
@@ -1022,15 +1019,27 @@ export function createBallparkRenderer(canvas, opts = {}) {
       return (depth = { tex, fbo, w, h });
     }
 
+    // The park's light at the hour the payload aired (setHour, diamond/sky.js), against the venue's
+    // bearing and its city's glow; night until a payload says otherwise.
+    let hourNow = null, look = skyLook(null);
+    const relook = () => { look = skyLook(hourNow, { bearing: cityVenue?.site?.bearing, glow: cityVenue?.city?.glow }); };
+    function setHour(h) {
+      const next = Number.isFinite(h) ? ((h % 24) + 24) % 24 : null;
+      if (next === hourNow) return look;
+      hourNow = next;
+      relook();
+      return look;
+    }
+
     let lost = false;
     canvas.addEventListener?.('webglcontextlost', (e) => { e.preventDefault(); lost = true; api.lost = true; });
     const stats = { tris: 0, draws: 0, ms: 0 };
 
     function lights(P, eye) {
       gl.uniform3fv(P.u('uLPos'), LPos); gl.uniform3fv(P.u('uLCol'), LCol); gl.uniform3fv(P.u('uLDir'), LDir);
-      gl.uniform3fv(P.u('uEye'), eye); gl.uniform3fv(P.u('uSkyUp'), NIGHT.up); gl.uniform3fv(P.u('uSkyDn'), NIGHT.dn);
+      gl.uniform3fv(P.u('uEye'), eye); gl.uniform3fv(P.u('uSkyUp'), look.up); gl.uniform3fv(P.u('uSkyDn'), look.dn);
       const q = api.quality;
-      gl.uniform3fv(P.u('uFogCol'), NIGHT.fog); gl.uniform1f(P.u('uFogDens'), q.fog ? NIGHT.fogDens : 0); gl.uniform1f(P.u('uFogH'), NIGHT.fogH);
+      gl.uniform3fv(P.u('uFogCol'), look.fog); gl.uniform1f(P.u('uFogDens'), q.fog ? NIGHT.fogDens : 0); gl.uniform1f(P.u('uFogH'), NIGHT.fogH);
       gl.uniform1f(P.u('uShaft'), q.fog ? NIGHT.shaft : 0); gl.uniform1f(P.u('uShaftReach'), NIGHT.shaftReach);
     }
 
@@ -1075,7 +1084,8 @@ export function createBallparkRenderer(canvas, opts = {}) {
       gl.useProgram(SKY.p);
       lights(SKY, M.eye);
       gl.uniformMatrix4fv(SKY.u('uInvVP'), false, inv4(M.viewProj));
-      gl.uniform3fv(SKY.u('uZen'), NIGHT.zen); gl.uniform3fv(SKY.u('uHor'), NIGHT.hor); gl.uniform3fv(SKY.u('uGlow'), NIGHT.glow); gl.uniform1f(SKY.u('uStars'), 1);
+      gl.uniform3fv(SKY.u('uZen'), look.zen); gl.uniform3fv(SKY.u('uHor'), look.hor); gl.uniform3fv(SKY.u('uHorAway'), look.horAway);
+      gl.uniform3fv(SKY.u('uSunDir'), look.sun); gl.uniform3fv(SKY.u('uGlow'), look.glow); gl.uniform1f(SKY.u('uStars'), look.stars);
       gl.bindVertexArray(emptyVao); gl.drawArrays(gl.TRIANGLES, 0, 3); draws++;
 
       // the park, and then the players: the same lit shader, the players' skinned
@@ -1092,7 +1102,7 @@ export function createBallparkRenderer(canvas, opts = {}) {
         gl.uniform1i(P.u('uTex'), 0); gl.uniform1i(P.u('uDirt'), 1); gl.uniform1i(P.u('uGrass'), 2); gl.uniform1i(P.u('uBoard'), 3);
         gl.uniform3f(P.u('uFence'), fence.line, fence.centre, fence.curve);
         gl.uniform2f(P.u('uBoardRes'), BOARD_W, BOARD_H); gl.uniform3f(P.u('uBoardOn'), 6.0, 3.0, 0.7);
-        gl.uniform1f(P.u('uCityLit'), NIGHT.cityLit); gl.uniform1f(P.u('uPoolK'), NIGHT.pool);
+        gl.uniform1f(P.u('uCityLit'), look.cityLit); gl.uniform1f(P.u('uPoolK'), look.pool);
         shadows.bind(P.u, 4);
         gl.uniform1iv(P.u('uLSh'), LSh); gl.uniform1i(P.u('uSpotN'), spotN);
         gl.uniform1i(P.u('uHeadSlot'), 0); gl.uniform4f(P.u('uKitCell'), 0, 0, 0, 0);
@@ -1232,9 +1242,10 @@ export function createBallparkRenderer(canvas, opts = {}) {
       // setPose(slot, pose): a player into a pose from the rig's pose language, with at, yaw, scale;
       // setBall(point or null): the ball, in the park's feet; setSpectacle(effects, t): the
       // payload's spectacle (diamond/spectacle.js) and the world's time to draw it at;
-      // markDirt(marks): the game's marks into the infield (diamond/marks.js), resetDirt() a fresh one
+      // markDirt(marks): the game's marks into the infield (diamond/marks.js), resetDirt() a fresh one;
+      // setHour(h): the park's light at an in-game hour (diamond/sky.js), null for the night
       render, setBoard, setCast, setPose, setBall, setSpectacle: (fx, t) => spectacle.set(fx, t), pump, setVenue, dispose, stats,
-      markDirt, resetDirt, smoothDirt, setMats, dirtStats,
+      markDirt, resetDirt, smoothDirt, setMats, dirtStats, setHour, get look() { return look; },
       setCrowd: (levels, t, move = true) => { roar.home = +levels?.[0] || 0; roar.away = +levels?.[1] || 0; roar.t = +t || 0; roar.move = move ? 1 : 0; },
       pending: () => queue.length,
       get park() { return park; },

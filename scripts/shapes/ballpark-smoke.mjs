@@ -26,7 +26,10 @@
 //      to the 2-D Gameday, and the booth's held line still lands with the play.
 //   5. THE LIGHT AND THE LENS. Each casting tower's shadow map holds the shot's shadow sphere;
 //      the occlusion reads depth back through the perspective's constants to where it was; the
-//      lens is sharp at its focus and softer away from it.
+//      lens is sharp at its focus and softer away from it. The sky on the clock (diamond/sky.js) is
+//      the night the park was tuned at from 20:00, brighter back toward sunset and never past its
+//      cap, the windows and the stars coming on as it darkens, the warm horizon in the west
+//      whichever way the park faces, and the shared keyframes' first and last rows the same.
 //   6. THE PLAYERS. Every pose builds, both hands, finite and inside its budget; a mirrored pose
 //      is its original in a mirror; the cast puts everyone where the payload has them, the
 //      grounds crew in their work clothes in the middle of the fifth and clear of the umpires; every
@@ -374,6 +377,44 @@ for (const kind of ['sit', 'stand', 'cheer']) for (const far of [false, true]) {
   check('lens: sharp at the focus', cocOf(400, 400, 12000) === 0);
   check('lens: softer the further behind', cocOf(800, 400, 12000) > cocOf(500, 400, 12000) && cocOf(500, 400, 12000) > 0);
   check('lens: capped', cocOf(1e9, 1, 1e9) === DOF_MAX);
+}
+
+// the sky on Coldwater's clock
+{
+  const { NIGHT, DUSK, skyLook } = await import(P + 'diamond/sky.js');
+  const { SKY } = await import('../../client/shared/sky-keys.js');
+  const KEYS = ['up', 'dn', 'zen', 'hor', 'glow', 'fog', 'cityLit', 'pool', 'towers', 'fogDens', 'curtain', 'sign'];
+  const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+  for (const h of [null, 0, 2, 20, 21.5, 23.9]) {
+    const L = skyLook(h);
+    check(`the sky: at ${h ?? 'no hour'} it's the night the park was tuned at`, KEYS.every((k) => same(L[k], NIGHT[k])) && same(L.horAway, NIGHT.hor) && L.stars === 1, KEYS.filter((k) => !same(L[k], NIGHT[k])).join(', '));
+  }
+  const lum = (c) => 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+  const at = (h) => skyLook(h, { bearing: 315 });
+  check('the sky: brighter back toward sunset', lum(at(18).zen) > lum(at(19).zen) && lum(at(19).zen) > lum(at(19.5).zen) && lum(at(19.5).zen) > lum(NIGHT.zen) && lum(at(18.5).hor) > lum(at(19).hor),
+    [18, 19, 19.5].map((h) => lum(at(h).zen).toFixed(4)).join(' '));
+  let worst = 0, bad = 0;
+  for (let h = 0; h < 24; h += 0.25) {
+    const L = at(h);
+    for (const k of ['up', 'dn', 'zen', 'hor', 'horAway', 'fog']) {
+      worst = Math.max(worst, lum(L[k]) / lum(NIGHT[k === 'horAway' ? 'hor' : k]));
+      for (const v of L[k]) if (!(v >= 0) || !Number.isFinite(v)) bad++;
+    }
+    for (const k of ['cityLit', 'pool', 'stars', 'night']) if (!(L[k] >= 0) || !Number.isFinite(L[k])) bad++;
+  }
+  check('the sky: every value finite at every quarter hour, and never brighter than its cap', bad === 0 && worst <= DUSK.cap + 1e-9 && worst > 10, `${bad} bad, ${worst.toFixed(1)}x`);
+  check('the sky: the windows and the lamps come on and the stars come out as it darkens', at(18).cityLit < at(19).cityLit && at(19).cityLit < at(20).cityLit && at(20).cityLit === NIGHT.cityLit
+    && at(18).pool < at(20).pool && at(18.5).stars === 0 && at(20).stars === 1, [18, 19, 20].map((h) => at(h).cityLit.toFixed(2)).join(' '));
+  // the sun goes down in the west: toward third and left field for a park that faces north-west, and
+  // straight out along third's side for one that faces north
+  const w315 = at(19).sun, w0 = skyLook(19, { bearing: 0 }).sun;
+  check('the sky: the warm horizon is in the west, whichever way the park faces', Math.abs(w315[0] - Math.SQRT1_2) < 1e-9 && Math.abs(w315[2] - Math.SQRT1_2) < 1e-9 && Math.abs(w0[0] - 1) < 1e-9 && Math.abs(w0[2]) < 1e-9, `${w315.map((v) => v.toFixed(3))} / ${w0.map((v) => v.toFixed(3))}`);
+  check('the sky: warmer toward the sun at dusk than away from it', at(18.5).hor[0] > at(18.5).horAway[0] && at(18.5).hor[2] / at(18.5).hor[0] < at(18.5).horAway[2] / at(18.5).horAway[0]);
+  const g = skyLook(21, { glow: [255, 96, 168] }).glow;
+  check('the sky: a venue\'s city glow, faint, at night', Math.abs(g[0] - DUSK.glow) < 1e-9 && g[0] > g[2] && g[2] > g[1], g.map((v) => v.toFixed(4)).join(','));
+  // the windshield's rule: the first and last rows the same, or the hours past the last extrapolate
+  const a = SKY[0], z = SKY[SKY.length - 1];
+  check('the sky: the keyframes\' first and last rows are the same', same([a.top, a.hor, a.g1, a.g2, a.night, a.sun], [z.top, z.hor, z.g1, z.g2, z.night, z.sun]));
 }
 
 // ── 6. the players ───────────────────────────────────────────────────────────

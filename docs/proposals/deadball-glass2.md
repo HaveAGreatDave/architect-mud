@@ -1824,6 +1824,21 @@ Phase 3, or with sim v2 if that comes later.
   and the crew in the crew camera's frame; `ballpark-smoke` checks the crew's dress builds, a mat
   and its ropes, and that the drag copies the dirt back inside its polygon only.
 
+- **4e.1 built, the sky on Coldwater's clock:** each payload carries the minute of the day it
+  aired at (`clock`, added on air beside `wx`), and the park's light follows it
+  ([diamond/sky.js](../../client/game/js/panels/diamond/sky.js)): the sky's zenith and horizon, the
+  ambient from above and below, the haze, the stars, the city's glow and its windows and lamps.
+  Deadball airs from 18:00, so a game starts as the sun goes down, the horizon warm in the west
+  (over left field at Halcyon Field, taken against the venue's bearing) and cooler away from it,
+  goes through the blue hour as the windows come on, and is the night the park was tuned at from
+  20:00. The keyframes moved out of the windshield to
+  [client/shared/sky-keys.js](../../client/shared/sky-keys.js), so both blend the same table, and the
+  night sky carries the city's own glow from the venue's art (`city.glow`, Coldwater's pink).
+  `ballpark-smoke` holds the night exact, the dusk brighter toward sunset and under its cap, the
+  windows and stars coming on, the warm horizon in the west whichever way a park faces;
+  `diamond-smoke` that a payload's minute reaches the renderer; broadcast regress that it's read on
+  air. The sandbox and the shot tool take `hour`.
+
 **Phase 4: the broadcast.** On by default wherever WebGL2 and float targets work.
 - `gl/crowd.js` with seated and reaction clips; replays in slow motion; dead-time rituals; the grounds
   crew in the fifth; reduced motion; the tiers and the governor.

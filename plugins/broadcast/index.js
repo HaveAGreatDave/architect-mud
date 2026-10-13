@@ -2985,16 +2985,19 @@ function gamedayLedger(sport) {
 
 // A Gameday payload as its line goes on air. A park with a site gets the weather over it
 // (`wx`): the tile's weather word, what's falling and how hard, and any city-wide event such
-// as an ion storm. It's read when the line airs, not when the game is assembled, because
-// rain falls only under a weather cell and the cells drift across the city during a game.
-// Sync and query-free (the cells are in memory), once per aired line.
+// as an ion storm; and the world's clock (`clock`, the minute of the day), which the 3-D
+// park's sky follows from sunset through the blue hour to night. Both are read when the line
+// airs, not when the game is assembled, because rain falls only under a weather cell, the cells
+// drift across the city during a game, and the sky darkens through it.
+// Sync and query-free (the cells and the clock are in memory), once per aired line.
 function gamedayOnAir(gd, graph) {
   const site = graph && graph._venueSite;
   if (!site) return gd;
   const { precipType, precipRate } = getPrecipAtGrid(site.x, site.y);
   const event = getWeatherEvent()?.type;
   const wx = { word: getWeatherTypeAtGrid(site.x, site.y), precip: precipType, rate: Math.round((precipRate || 0) * 100) / 100, ...(event ? { event } : {}) };
-  return { ...gd, wx };
+  const minutes = getEnvironmentState()?.minutes;
+  return { ...gd, wx, ...(Number.isFinite(minutes) ? { clock: Math.round(minutes) % 1440 } : {}) };
 }
 
 // A team's record from its own league's cached standings, or '0-0' if it hasn't played.

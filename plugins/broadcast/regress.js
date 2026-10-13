@@ -2903,8 +2903,12 @@ export default async function regress({ check, run, getPlayer }) {
         const aired = _test.gamedayOnAir(gd0, sited);
         check('gameday: a park with a site sends the weather over it as each line airs',
           WEATHER_TYPES.includes(aired.wx?.word) && typeof aired.wx.precip === 'string' && aired.wx.rate >= 0 && aired.wx.rate <= 1, JSON.stringify(aired.wx));
-        check('gameday: …read on air, never baked into the game', !Object.values(sited.nodes).some(n => n.data?.gameday && 'wx' in n.data.gameday), 'a payload was assembled with wx');
+        check('gameday: …read on air, never baked into the game', !Object.values(sited.nodes).some(n => n.data?.gameday && ('wx' in n.data.gameday || 'clock' in n.data.gameday)), 'a payload was assembled with wx or clock');
         check('gameday: a script with no site sends no weather', !('wx' in _test.gamedayOnAir(gd0, graph)), 'wx without a site');
+        // and the world's clock as it airs, for the park's sky
+        const { getEnvironmentState } = await import('../../server/engine/environment.js');
+        const mins = getEnvironmentState()?.minutes;
+        check('gameday: a park with a site sends the minute of the day it airs at', Number.isInteger(aired.clock) && aired.clock >= 0 && aired.clock < 1440 && (!Number.isFinite(mins) || aired.clock === Math.round(mins) % 1440), `${aired.clock} for ${mins}`);
       }
     }
 

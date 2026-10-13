@@ -849,8 +849,9 @@ time in seconds, from the quickness and the arm that decided the play, and a ste
 the runner's steals with this one. As each line airs, `gamedayOnAir` adds `wx`, the weather over the park's
 site (`sports_pools.venue.site`, carried over a rebuild by `build-deadball.mjs`): the tile's
 weather `word`, `precip` and `rate` from the in-memory weather cells, and any city-wide `event`
-such as an ion storm. It's read on air rather than at assembly because the cells drift across
-the city during a game. A script with no site sends none.
+such as an ion storm; and `clock`, the minute of the day it aired at, which the 3-D park's sky
+follows. Both are read on air rather than at assembly, because the cells drift across the city
+during a game and the sky darkens through it. A script with no site sends neither.
 
 `scripts/shapes/gameday-smoke.mjs` plays real games through the 2-D view and checks that every
 play lands, its runners end where the sim left them, and every ball in play goes to the man its
@@ -1074,6 +1075,14 @@ Built so far (Phases 1 and 2 of the plan):
   replay's done, and on a long hold round again, a cutaway every 9 s of the wide shot. The
   on-deck hitter takes practice swings through every at-bat. Frames run through the dead time; a
   payload with no `hold` gets none;
+- the sky on Coldwater's clock (Phase 4e, [diamond/sky.js](../client/game/js/panels/diamond/sky.js)):
+  each payload's `clock` sets the park's light. Deadball airs from 18:00, so a game starts as the
+  sun goes down, the horizon warm in the west over left field and cooler away from it, plays
+  through the blue hour with the city's windows and lamps coming on, and is in full night by about
+  20:00, when the park is the night it was tuned at. The colours are Coldwater's sky by the hour,
+  the same keyframes the windshield blends ([client/shared/sky-keys.js](../client/shared/sky-keys.js)),
+  and the night sky carries the city's own glow from the venue's art (`city.glow`). A payload with
+  no `clock` is at night;
 - the grounds crew (Phase 4d, [diamond/crew.js](../client/game/js/panels/diamond/crew.js)): in the
   middle of the fifth, when the break holds 84 s or more (cast.js `crewDue`), four of them in
   work clothes drag the infield, two to a mat and the pairs side by side, in from foul ground

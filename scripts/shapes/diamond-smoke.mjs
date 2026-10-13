@@ -1071,7 +1071,7 @@ for (const { p, seed } of runs) {
 
 // ── 2. the view ──────────────────────────────────────────────────────────────
 // A renderer that records what it's handed: the cast, the poses by slot, the ball, the shots.
-const rec = { poses: new Map(), balls: 0, frames: 0, roar: [0, 0], marks: 0, resets: 0 };
+const rec = { poses: new Map(), balls: 0, frames: 0, roar: [0, 0], marks: 0, resets: 0, hours: [] };
 const renderer = () => ({
   kind: 'stub', lost: false, quality: { dpr: 1, tube: false }, casters: [],
   setCast(cast) { rec.cast = cast; return 0; },
@@ -1079,7 +1079,7 @@ const renderer = () => ({
   setBall(p) { if (p) rec.balls++; },
   render() { rec.frames++; return true; },
   setCrowd(levels) { rec.roar = [Math.max(rec.roar[0], levels[0]), Math.max(rec.roar[1], levels[1])]; },
-  markDirt(list) { rec.marks += list.length; }, resetDirt() { rec.resets++; },
+  markDirt(list) { rec.marks += list.length; }, resetDirt() { rec.resets++; }, setHour(h) { rec.hours.push(h); },
   setBoard() {}, setVenue() { return null; }, pump() { return 0; }, pending: () => 0, dispose() {},
 });
 {
@@ -1254,6 +1254,15 @@ const renderer = () => ({
     check('the dirt: the same game\'s next at-bat keeps its marks', rec.resets === resets, `${rec.resets - resets} resets`);
     v.apply({ ...p, battingTeam: 'Precinct 9 Enforcers' });
     check('the dirt: another game starts on a fresh infield', rec.resets === resets + 1, `${rec.resets - resets} resets`);
+  }
+  // the sky: the minute a payload aired at reaches the renderer as an hour, and one without is night
+  {
+    const p = atBats[atBats.length - 1];
+    v.apply({ ...p, clock: 1150 });
+    const a = rec.hours[rec.hours.length - 1];
+    v.apply({ ...p });
+    const b = rec.hours[rec.hours.length - 1];
+    check('the sky: a payload\'s minute reaches the renderer as an hour, and one without is night', Math.abs(a - 1150 / 60) < 1e-9 && b === null, `${a} then ${b}`);
   }
   v.clear();
   check('cleared', host.children.length === 0);

@@ -634,6 +634,11 @@
     "title": "bb_deadball_title",
     "venue": {
       "city": {
+        "glow": [
+          255,
+          96,
+          168
+        ],
         "quarters": [
           {
             "all": "ruin",

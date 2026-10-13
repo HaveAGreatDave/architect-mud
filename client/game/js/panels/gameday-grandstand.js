@@ -32,7 +32,8 @@
 // the ball, the on-deck hitter swings and the cameras go round the park. The infield keeps
 // the game's marks, each stride, dig and slide painted into the dirt as it's made
 // (diamond/marks.js, gl/ballpark.js markDirt), till the grounds crew drag it in the middle of the
-// fifth (diamond/crew.js), the leaders' table down while they do. With reduced motion the
+// fifth (diamond/crew.js), the leaders' table down while they do. The sky follows the minute each
+// payload aired at, from sunset through the blue hour to night (diamond/sky.js). With reduced motion the
 // cameras hold still and a replay is a still; and everything the graphics say is in words too,
 // for a screen reader (Play by Play in the accessibility settings).
 //
@@ -503,6 +504,8 @@ export function createGrandstandView(host, opts = {}) {
     stopTimers(); stopTable(); stopWorld();
     const pend = pendingCaption;
     freshGame(p);
+    // the sky at the minute the line aired (diamond/sky.js); a payload without one is at night
+    R?.setHour?.(Number.isFinite(p.clock) ? p.clock / 60 : null);
     const cast = castFor(p);
     S.pitch = null; S.bats = p.bats || '';
     if (p.phase === 'half') {
