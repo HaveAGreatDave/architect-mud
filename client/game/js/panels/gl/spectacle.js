@@ -12,15 +12,17 @@
 //     frame, facing the eye, narrowing and fading to its end.
 //
 // Additive, tested against the park's depth and not written to it: a shell behind the stands is
-// hidden by them, and two bursts add. Neither gets thinner on the screen than `MIN_W` of its
-// distance, so a burst a few hundred feet out still reads as a line, not a lost pixel.
+// hidden by them, and two bursts add. Neither gets thinner on the screen than MIN_PX pixels, so a
+// burst a few hundred feet out still reads as a line, not a lost pixel; the floor is in pixels, not
+// feet, because a long lens (centre field's, 3.7 degrees, on a replay) would otherwise draw sparks
+// at the plate two feet wide.
 
 import { TEMPLATES, TEMPLATE_N, KINDS, TRAIL, DOWN, trailAt, endOf } from '../diamond/spectacle.js';
 import { makeVertexStream } from './stream.js';
 import { declareProgram } from './programs.js';
 
-// how thin a streak or the tail may get: this much of its distance from the eye, in feet
-const MIN_W = 0.0045;
+// how thin a streak or the tail may get on the screen, in pixels
+const MIN_PX = 1.6;
 
 const PART_VS = `#version 300 es
 layout(location = 0) in vec3 aDir;
@@ -149,7 +151,7 @@ export function createSpectacle(gl, prog) {
       const ex = eye[0] - p[0], ey = eye[1] - p[1], ez = eye[2] - p[2];
       let sx = ty * ez - tz * ey, sy = tz * ex - tx * ez, sz = tx * ey - ty * ex;
       const l = Math.hypot(sx, sy, sz) || 1, dist = Math.hypot(ex, ey, ez);
-      const w = Math.max(TRAIL.width, dist * MIN_W) * (1 - 0.85 * i / (n - 1)) * 0.5;
+      const w = Math.max(TRAIL.width, dist * minW) * (1 - 0.85 * i / (n - 1)) * 0.5;
       sx *= w / l; sy *= w / l; sz *= w / l;
       return [sx, sy, sz];
     };
@@ -165,10 +167,14 @@ export function createSpectacle(gl, prog) {
     return k / 6;
   }
 
-  // M: the frame's matrices and eye (camera.js shotMatrices). Returns { draws, tris }.
-  function draw(M) {
+  // M: the frame's matrices and eye (camera.js shotMatrices, its lens fitted to the screen); h: the
+  // canvas's height in pixels. Returns { draws, tris }.
+  let minW = 0;
+  function draw(M, h) {
     let draws = 0, tris = 0;
     if (!list.length) return { draws, tris };
+    // the thinnest a streak may be, in feet for each foot from the eye: MIN_PX of this lens's pixels
+    minW = MIN_PX * 2 * Math.tan((M.fov || 40) * Math.PI / 360) / Math.max(1, h || 1);
     for (const e of list) {
       if (e.kind === 'trail') {
         const n = trailTris(e, M.eye);
@@ -191,7 +197,7 @@ export function createSpectacle(gl, prog) {
       gl.uniform1f(P.u('uSpin'), e.spin || 0); gl.uniform1f(P.u('uScale'), e.scale || 1); gl.uniform1f(P.u('uTau'), tau);
       gl.uniform1f(P.u('uV'), K.v); gl.uniform1f(P.u('uDrag'), K.drag); gl.uniform1f(P.u('uG'), K.g); gl.uniform1f(P.u('uLife'), K.life);
       gl.uniform1f(P.u('uWidth'), K.width); gl.uniform1f(P.u('uStreak'), K.streak); gl.uniform1f(P.u('uGlow'), K.glow);
-      gl.uniform1f(P.u('uSpread'), K.spread || 0); gl.uniform1f(P.u('uRise'), K.rise || 0); gl.uniform1f(P.u('uMinW'), MIN_W); gl.uniform1f(P.u('uDown'), DOWN);
+      gl.uniform1f(P.u('uSpread'), K.spread || 0); gl.uniform1f(P.u('uRise'), K.rise || 0); gl.uniform1f(P.u('uMinW'), minW); gl.uniform1f(P.u('uDown'), DOWN);
       gl.uniform3fv(P.u('uCol'), e.colour || [1, 1, 1]); gl.uniform3fv(P.u('uCol2'), e.second || e.colour || [1, 1, 1]);
       gl.bindVertexArray(tvao);
       gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, Math.min(K.n, TEMPLATE_N));

@@ -456,6 +456,8 @@ for (const kind of ['sit', 'stand', 'cheer']) for (const far of [false, true]) {
     // a home run's distance in the speed's box, under its card; the longest of a play's own words
     'a home run': { ...base, dist: { ft: 487, ev: 118 }, splash: { kind: 'homerun', word: 'HOME RUN', sub: `${MAN} · ${CLUB}` } },
     'over the rail': { ...base, splash: { kind: 'railcatch', sub: 'CENTER FIELD' } },
+    // a replay's bug beside the score, with a home run's distance still up
+    'a replay': { ...base, replay: true, dist: { ft: 487, ev: 118 } },
     'the leaders': { ...base, leaders: { race: 'hr', rows: batRows, season: 12, foot: `${CLUB} 12  ·  ${CLUB2} 10  ·  BOTTOM OF THE 11TH` } },
     'the strikeouts': { ...base, leaders: { race: 'k', rows: armRows, season: 12, foot: `TONIGHT  ·  ${CLUB} AT ${CLUB2}` } },
   };
@@ -551,7 +553,7 @@ for (const kind of ['sit', 'stand', 'cheer']) for (const far of [false, true]) {
   // every kind of card the grandstand puts up has its words
   const W = H.HUD_THEME.words;
   check('theme: a word for every splash and steal', ['homerun', 'grandslam', 'walkoff', 'doubleplay', 'tripleplay', 'extras', 'gamewin', 'champion', 'matchup', 'steal', 'caughtstealing', 'doublesteal', 'strikeout', 'walk',
-    'hitbypitch', 'triple', 'error', 'robbed', 'wallcatch', 'divingcatch', 'slidingcatch', 'railcatch', 'divingstop', 'barehand', 'pickoff', 'wildpitch', 'passedball'].every((k) => W[k]));
+    'hitbypitch', 'triple', 'error', 'robbed', 'wallcatch', 'divingcatch', 'slidingcatch', 'railcatch', 'divingstop', 'barehand', 'pickoff', 'wildpitch', 'passedball', 'replay'].every((k) => W[k]));
   // the painter runs every mark, and a card comes in and settles on the hand-cranked clock
   {
     const cv = document.createElement('canvas');

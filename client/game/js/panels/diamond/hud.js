@@ -41,6 +41,7 @@ export const HUD_THEME = Object.freeze({
     strikeout: 'STRIKE THREE!', walk: 'BALL FOUR!', hitbypitch: 'HIT BY PITCH!', triple: 'TRIPLE!', error: 'ERROR!',
     robbed: 'ROBBED!', wallcatch: 'AT THE WALL!', divingcatch: 'DIVING CATCH!', slidingcatch: 'WHAT A CATCH!', railcatch: 'OVER THE RAIL!',
     divingstop: 'DIVING STOP!', barehand: 'BAREHANDED!', pickoff: 'PICKED OFF!', wildpitch: 'WILD PITCH!', passedball: 'PASSED BALL!',
+    replay: 'REPLAY',
   }),
   races: Object.freeze({ hr: 'HOME RUNS', avg: 'BATTING AVERAGE', sb: 'STOLEN BASES', k: 'STRIKEOUTS' }),
   colourOf: null,
@@ -159,6 +160,7 @@ export const TEXT_FLOOR = 6;
 //   steal    { kind, runner, num, sb, plate, pop, base, team }
 //   dist     { ft, ev }: a home run's distance and its speed off the bat, in the speed's place
 //   splash   { kind, word, sub }
+//   replay   true while a replay plays (diamond/replay.js): its bug beside the score
 //   leaders  { race: 'hr' | 'avg' | 'sb' | 'k', rows, season, foot (the line across the foot) }
 //   gold     true in a final
 //
@@ -210,6 +212,13 @@ export function layoutHud(state, w, h, o = {}) {
       text(String(ab || '').toUpperCase(), x + 19 * u, cy + 5.5 * u, 13 * u, 'big', chrome, { maxW: 39 * u, min: 10 * u, g: 'score' });
       text(runs | 0, x + 70 * u, cy + 6 * u, 15 * u, 'big', 'flame', { align: 'center', g: 'score' });
     });
+    // a replay's bug beside it, still: it's on for seconds and mustn't flash
+    if (S.replay) {
+      const rx = x + pw + 8 * u, rw = 78 * u;
+      panel(rx, y, rw, 20 * u, 8 * u, 'replay');
+      add({ t: 'disc', x: rx + 12 * u, y: y + 10 * u, r: 3.5 * u, fill: '#ff2a2a', edge: '#fff3c0', width: 1 * u, g: 'replay' });
+      text(words.replay, rx + 20 * u, y + 15 * u, 12 * u, 'big', 'flame', { maxW: rw - 26 * u, min: 9 * u, extrude: 1 * u, g: 'replay' });
+    }
     text(sc.half === 'bottom' ? 'BOT' : 'TOP', x + 92 * u, y + 15 * u, 7 * u, 'label', chrome, { align: 'center', skew: 0.1, extrude: 0, g: 'score' });
     text(sc.inning | 0, x + 92 * u, y + 34 * u, 14 * u, 'big', chrome, { align: 'center', g: 'score' });
     const bx = x + 114 * u, by = y + 21 * u, d = 7.5 * u, b = sc.bases || [];
@@ -377,7 +386,7 @@ const GOLDF = [[0, '#fff8d6'], [0.36, '#ffd75c'], [0.5, '#b07c18'], [0.55, '#7a4
 const FLAME = [[0, '#fffbe0'], [0.3, '#ffe04a'], [0.62, '#ff8c1a'], [1, '#d81e1e']];
 const FILLS = { chrome: CHROME, gold: GOLDF, flame: FLAME };
 // How each group comes in: the cards slide up, the splash punches in, the table fades up.
-const IN_MS = { matchup: 260, steal: 260, dist: 240, splash: 240, table: 300 };
+const IN_MS = { matchup: 260, steal: 260, dist: 240, splash: 240, table: 300, replay: 200 };
 const TAU = Math.PI * 2;
 
 // Paints a layout's marks with a 2-D context already scaled to CSS pixels. `t(group)` is how

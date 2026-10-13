@@ -1071,7 +1071,7 @@ export function createBallparkRenderer(canvas, opts = {}) {
           tris += city.curtain.n / 3; draws++;
         }
       }
-      const fx = spectacle.draw(M);
+      const fx = spectacle.draw(M, h);
       tris += fx.tris; draws += fx.draws;
       gl.depthMask(true); gl.disable(gl.BLEND);
       gl.bindVertexArray(null);

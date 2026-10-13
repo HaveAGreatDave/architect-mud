@@ -18,7 +18,9 @@
 //   - a play on the bases: coming set, the jump, the mitt, the catcher's throw, the tag, the call,
 //     the ball by the catcher and picked up;
 //   - a changeover: every --every seconds of it;
-//   - for all of them the landing, 1.5 s after it, and the side going off after a third out.
+//   - for all of them the landing, 1.5 s after it, and the side going off after a third out;
+//   - and a play that earns a replay (diamond/replay.js): its first frame, its moment and its last,
+//     the replay's own world stepped by hand.
 // --at 0.5,2,5 takes seconds after the payload's start instead.
 //
 // The graphics' cards and splashes come and go on the wall clock, not the park's, and a frame
@@ -155,6 +157,32 @@ for (let i = 0; i < n && shot < max; i++) {
     await page.locator('#tv-window').screenshot({ path: file, timeout: 180000 });
     const cam = await page.evaluate(() => { const s = window.__view.shot; return typeof s === 'string' ? s : s?.shot; });
     console.log(`  ${name.padEnd(9)} +${rel.toFixed(2)} s  ${cam}  ${file}`);
+  }
+  // the replay, if the play earned one: the live world on to when it starts, then its own world
+  const rp = at ? null : await page.evaluate(async () => {
+    const v = window.__view, W = v.world, due = v.replayDue;
+    if (!due) return null;
+    while (W.t < due.at) W.step(1 / 120);
+    v.redraw();
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    const r = v.replay;
+    return r ? { kind: r.kind, from: r.from, key: r.key, to: r.to, still: r.still } : null;
+  });
+  if (rp) {
+    console.log(`  a replay: ${rp.kind}${rp.still ? ' (still)' : ''}`);
+    for (const [name, t] of rp.still ? [['replay', rp.key]] : [['replay', rp.from], ['replay-key', rp.key], ['replay-end', rp.to - 0.05]]) {
+      await page.evaluate(async (target) => {
+        const v = window.__view, RW = v.replay?.W;
+        if (RW) while (RW.t < target - 1e-9) RW.step(1 / 120);
+        v.redraw();
+        await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+      }, t);
+      await page.waitForTimeout(300);
+      const file = join(out, `s${slot}-${String(only ?? i).padStart(2, '0')}-${info.kind}-${String(k++).padStart(2, '0')}-${name}.png`);
+      await page.locator('#tv-window').screenshot({ path: file, timeout: 180000 });
+      const cam = await page.evaluate(() => { const s = window.__view.shot; return typeof s === 'string' ? s : s?.shot; });
+      console.log(`  ${name.padEnd(10)} ${cam}  ${file}`);
+    }
   }
 }
 if (errors.length) console.log(`page errors:\n  ${errors.slice(0, 10).join('\n  ')}`);

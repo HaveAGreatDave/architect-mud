@@ -26,7 +26,10 @@
 // card go up when the play lands, so the booth never calls a play the picture hasn't reached. A
 // ball in play is played out (diamond/plays.js), and so is a play on the bases (diamond/runs.js:
 // a steal, a throw over, a wild pitch), its steal card on the landing; at a changeover the new
-// side takes the field and the pitcher warms up.
+// side takes the field and the pitcher warms up. A big play gets a slow-motion replay once its
+// line's up (diamond/replay.js), its own world shown in place of the live one. With reduced
+// motion the cameras hold still and a replay is a still; and everything the graphics say is in
+// words too, for a screen reader (Play by Play in the accessibility settings).
 //
 // The sim on the server decides everything. Nothing here can change a score.
 
@@ -49,6 +52,8 @@ const ADS = ['KSAB-TV', 'DEADBALL', 'COLDWATER', 'KSAB-TV'];
 // clubs bring their own (Phase 5).
 const SIDE_COLOURS = { home: ['#36c4c4', '#145f63'], away: ['#e0702e', '#7c2f10'] };
 
+// How long a replay leaves before the next payload's due (s), at the least.
+const REPLAY_MARGIN = 1;
 // How long each graphic stays up: the matchup as a man comes up, a steal's card once it lands,
 // and each of the leaders' races between innings.
 const MATCHUP_MS = 4200, STEAL_MS = 4800, DIST_MS = 6000, TABLE_CYCLE_MS = 8000;
@@ -75,6 +80,10 @@ export function createGrandstandView(host, opts = {}) {
   // `cur` the at-bat it's playing; `speed` is the world's clock against the wall's (1 live, a
   // quarter for a slow look, 0 stopped so the sandbox can step it by hand)
   let W = null, D = null, live = false, cur = null, acc = 0, lastNow = 0, speed = Number.isFinite(opts.speed) ? opts.speed : 1;
+  // a big play's replay (diamond/replay.js): `replayDue` once the play's landed and the hold has
+  // room ({ at: the live world's time to start, spec, p, calm }), `replay` while it plays, its own
+  // world in place of the live one; `liveShot` the live director's camera meanwhile
+  let replayDue = null, replay = null, liveShot = null;
   // the bags the picture last left taken (director.js pictureAfter): an at-bat that starts from
   // others opens on a cutaway while everyone takes their places
   let shown = null;
@@ -85,7 +94,7 @@ export function createGrandstandView(host, opts = {}) {
     away: '', home: '', awayTeam: '', homeTeam: '', aScore: 0, hScore: 0, inning: 0, half: '',
     balls: 0, strikes: 0, outs: 0, bases: [false, false, false], batter: '', pitcher: '', line: null, desc: '',
     pitch: null, bats: '', lastBatter: '', matchup: null, steal: null, dist: null, splash: null,
-    leaders: null, seasonN: null, gold: false, tableRace: null, tableFoot: '',
+    leaders: null, seasonN: null, gold: false, tableRace: null, tableFoot: '', replay: false,
   };
   const holds = {};
 
@@ -96,10 +105,11 @@ export function createGrandstandView(host, opts = {}) {
 
   function loadMods() {
     return (modsP ??= Promise.all([import('./gl/ballpark.js'), import('./diamond/hud.js'), import('./diamond/camera.js'), import('./diamond/cast.js'),
-      import('./diamond/world.js'), import('./diamond/director.js'), import('./diamond/spectacle.js')])
-      .then(([park, hudMod, cam, cast, world, director, fx]) => (mods = {
+      import('./diamond/world.js'), import('./diamond/director.js'), import('./diamond/spectacle.js'), import('./diamond/replay.js')])
+      .then(([park, hudMod, cam, cast, world, director, fx, rp]) => (mods = {
         ...park, hud: hudMod, project: cam.project, shotAt: cam.shotAt, numberOf: cast.numberOf, pictureAfter: director.pictureAfter,
         createWorld: world.createWorld, DT: world.DT, createDirector: director.createDirector, splashOf: fx.splashOf,
+        replayOf: rp.replayOf, stageReplay: rp.stageReplay, REPLAY: rp.REPLAY, fxEnd: fx.endOf,
       })));
   }
 
@@ -200,24 +210,57 @@ export function createGrandstandView(host, opts = {}) {
     if (R.lost) { fallback('the WebGL context was lost'); return; }
     if (R.pending() && R.pump(14)) { lastNow = now; draw(); return; }
     if (live) {
-      acc += Math.min(0.25, Math.max(0, (now - (lastNow || now)) / 1000)) * speed;
+      const dt = Math.min(0.25, Math.max(0, (now - (lastNow || now)) / 1000)) * speed;
+      acc += dt;
       while (acc >= mods.DT) { W.step(mods.DT); acc -= mods.DT; }
-      for (const b of W.bodies.values()) { const P = W.pose(b.slot); if (P) R.setPose(b.slot, P); }
-      R.setBall(W.ballAt());
-      R.setSpectacle?.(D.fx, W.t);
+      if (replayDue && W.t >= replayDue.at) startReplay();
+      // a replay plays its own world, slower; the live one carries on behind it
+      const RW = replay ? replay.W : W;
+      if (replay && !replay.still) {
+        replay.acc += dt * mods.REPLAY.rate;
+        while (replay.acc >= mods.DT && RW.t < replay.to) { RW.step(mods.DT); replay.acc -= mods.DT; }
+      }
+      for (const b of RW.bodies.values()) { const P = RW.pose(b.slot); if (P) R.setPose(b.slot, P); }
+      R.setBall(RW.ballAt());
+      R.setSpectacle?.(replay ? replay.D.fx : D.fx, RW.t);
+      if (replay && (replay.still ? W.t >= replay.until : RW.t >= replay.to - 1e-9)) endReplay();
     }
     lastNow = now;
     size();
     if (!R.render(view()) && R.lost) { fallback('the WebGL context was lost'); return; }
-    // on to the next frame while the at-bat plays; once everyone's at rest the last one stays up.
-    // A stopped clock draws only when something asks.
-    if (live && D.busy()) { if (speed > 0) draw(); }
+    // on to the next frame while the at-bat plays or a replay's due or playing; once everyone's
+    // at rest the last one stays up. A stopped clock draws only when something asks.
+    if (live && (D.busy() || replayDue || replay)) { if (speed > 0) draw(); }
     else live = false;
   }
-  function stopWorld() { D?.stop(); live = false; cur = null; }
+  function stopWorld() { D?.stop(); live = false; cur = null; stopReplay(); }
   // The camera this frame: the director's shot, which may follow the ball (diamond/camera.js
-  // shotAt), at the world's time, the same for the park and the graphics.
-  const view = () => (mods && shot && typeof shot === 'object' ? mods.shotAt(shot, W ? W.t : 0) : shot);
+  // shotAt), at the world's time (the replay's, while one plays), the same for the park and the
+  // graphics.
+  const view = () => (mods && shot && typeof shot === 'object' ? mods.shotAt(shot, replay ? replay.W.t : W ? W.t : 0) : shot);
+
+  // ── replays ───────────────────────────────────────────────────────────────
+  // The play staged again in its own world and played slower from its second camera, or with
+  // reduced motion held still on its moment, under the REPLAY bug; then back to the live camera.
+  function startReplay() {
+    const due = replayDue;
+    replayDue = null;
+    replay = mods.stageReplay(due.p, due.spec, { cast: due.cast, motion: !due.calm });
+    if (!replay) return;
+    replay.acc = 0;
+    if (replay.still) replay.until = W.t + mods.REPLAY.still;
+    S.replay = true;
+    if (!opts.shot) shot = replay.shot;
+    say(`Replay${replay.still ? '' : ', in slow motion'}: ${due.p.desc || mods.hud.HUD_THEME.words[due.p.kind] || 'the play'}`);
+    paintHud();
+  }
+  function endReplay() {
+    replay = null;
+    S.replay = false;
+    if (!opts.shot) shot = liveShot || 'high';
+    paintHud();
+  }
+  function stopReplay() { replayDue = null; if (replay) endReplay(); }
   // Who's on the field for this payload, and the clubs whose kits they wear.
   function castFor(p) {
     const top = p.half === 'top', cast = mods.castOf(p);
@@ -235,7 +278,7 @@ export function createGrandstandView(host, opts = {}) {
       score: { away: S.away, home: S.home, aScore: S.aScore, hScore: S.hScore, half: S.half, inning: S.inning, bases: S.bases, awayTeam: S.awayTeam, homeTeam: S.homeTeam },
       count: { balls: S.balls, strikes: S.strikes, outs: S.outs },
       pitch: S.pitch, bats: S.bats, zone: shot === 'bat' && !!S.pitch,
-      matchup: S.matchup, steal: S.steal, dist: S.dist, splash: S.splash, gold: S.gold,
+      matchup: S.matchup, steal: S.steal, dist: S.dist, splash: S.splash, gold: S.gold, replay: S.replay,
       leaders: S.tableRace ? { race: S.tableRace, rows: S.leaders?.[S.tableRace] || [], season: S.seasonN, foot: S.tableFoot } : null,
     };
   }
@@ -330,12 +373,21 @@ export function createGrandstandView(host, opts = {}) {
       say(mods.hud.stealSaid(S.steal));
     }
     land();
+    // a big play gets its replay once the line's up and any fireworks are out (it would hide
+    // them), if the hold has room for it before the next payload's due: a payload that doesn't say
+    // how long it holds gets none
+    const spec = c.cast && D.play ? mods.replayOf(p, D.play, D.log) : null;
+    if (spec && Number.isFinite(p.hold)) {
+      const calm = prefersReducedMotion(), long = calm ? mods.REPLAY.still : (spec.to - spec.from) / mods.REPLAY.rate;
+      const at = Math.max(W.t + mods.REPLAY.after, ...(D.fx || []).filter((e) => e.kind === 'burst').map(mods.fxEnd));
+      if (at + long <= c.t0 + p.hold / 1000 - REPLAY_MARGIN) replayDue = { at, spec, p, calm, cast: c.cast };
+    }
   }
   // What the director says as it stages: a cut to another camera, a sound on its moment, and each
   // pitch as it's decided, for the count, the speed and the zone (the count never shows a fourth
   // ball or a third strike).
   function fromDirector(name, d) {
-    if (name === 'shot') { if (!opts.shot) setShot(d); return; }
+    if (name === 'shot') { liveShot = d; if (!opts.shot && !replay) setShot(d); return; }
     if (name === 'sound') { sfx(d); return; }
     if (name !== 'pitch' || !cur) return;
     const q = d.pitch, last = d.i === (cur.p.pitches || []).length - 1;
@@ -434,7 +486,7 @@ export function createGrandstandView(host, opts = {}) {
     paint();
     // the director stages it pitch by pitch, and the count goes up as each one's decided; the
     // play lands when the director says, or if the frames have stopped, a beat after
-    cur = { p, settle, landed: false };
+    cur = { p, settle, landed: false, t0: W.t, cast };
     const mine = cur;
     live = true; acc = 0;
     const cutaway = !!shown && shown.some((b, i) => b !== !!before[i]);
@@ -510,9 +562,9 @@ export function createGrandstandView(host, opts = {}) {
     // for the sandbox and the gates
     setShot, ready: () => loadMods(),
     get renderer() { return R; }, get hud() { return hud; }, get flat() { return flat; }, get state() { return S; },
-    get world() { return W; }, get director() { return D; }, get shot() { return shot; },
+    get world() { return W; }, get director() { return D; }, get shot() { return shot; }, get replay() { return replay; }, get replayDue() { return replayDue; },
     get speed() { return speed; }, set speed(k) { speed = Math.max(0, Number(k) || 0); draw(); },
     redraw: () => draw(),
-    busy: () => playing || live,
+    busy: () => playing || live || !!replayDue || !!replay,
   };
 }

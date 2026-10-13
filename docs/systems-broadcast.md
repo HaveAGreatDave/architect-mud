@@ -1049,6 +1049,16 @@ Built so far (Phases 1 and 2 of the plan):
   matchup with both season lines, a steal's card with its clocks and a home run's distance, and
   its board in words carries the leaders' table between innings, so nothing on the hidden graphics
   canvas is only a picture;
+- replays (Phase 4b, [diamond/replay.js](../client/game/js/panels/diamond/replay.js)): a walk-off,
+  a home run, a triple or double play, a catch that took a dive, a slide or a leap, a triple and a
+  call at first closer than 0.15 s are shown again in slow motion. Staging is a pure function of
+  the payload, so the play is staged again in a world of its own (`stageReplay`), stepped to just
+  before its moment and played at 0.4 of its speed from a second camera, at most 3.4 s of play,
+  silent, under a REPLAY bug beside the score; the live world carries on behind it and a cut its
+  director makes meanwhile waits. It starts 1.8 s after the landing, or once the fireworks are out
+  after a home run or a walk-off, and only when it ends a second before the next payload's due (a
+  payload's `hold`; one without gets none). With reduced
+  motion it's a still of the moment for 3.2 s. The live text says "Replay" with the play;
 - the arcade graphics (Phase 1d), a canvas over the picture drawn by
   [diamond/hud.js](../client/game/js/panels/diamond/hud.js) in the client's display faces: the
   score with the bases, the count as lamps, the pitch speed and type, and in the batting view the
@@ -1152,11 +1162,16 @@ right tail, sparks and shells, every shell over the outfield with its sparks abo
 inside the wide shot's frame, never more than three shells in a second, the home-run camera
 keeping the ball in its frame from inside the park, the cuts in order, and none of it with reduced
 motion on. Every ball in play is staged again with reduced motion: every camera holds still and the
-ball is in the frame of the still that's up as each flight ends. It feeds the view with a recording renderer to hold each line until its play
+ball is in the frame of the still that's up as each flight ends. Every play that earns a replay
+(and a triple, a walk-off that isn't a home run and a triple play from the next games) is staged
+again in a world of its own and is the same play to a micron, with its moment in its camera's
+frame. It feeds the view with a recording renderer to hold each line until its play
 lands, a play on the bases among them with its steal card, and leaves out one at-bat that moves
 the bags, as the booth does, to open the next on the cutaway because its bags differ from the
 picture's; its live text says every pitch in order and the booth's line, says nothing with Play by
-Play off, and its board has the leaders' table between innings. `gameday-smoke` checks the 2-D
+Play off, and its board has the leaders' table between innings; and a home run with room in its
+hold plays its replay at 0.4 of the live clock with its bug up and its camera on, the live camera
+back after, and with reduced motion holds a still of the moment instead. `gameday-smoke` checks the 2-D
 view's live text the same way. The sandbox page takes
 `?park=3d`, `?play=inplay` (balls in play only), `?play=bases` (the plays on the bases), `?shot=`, `?bug=`, `?po=1` (the final's
 dressing), `?hud=0` (the picture alone), `?city=0`, `?hold=` (each line's hold in milliseconds,

@@ -9,8 +9,8 @@ played out in the park with its cameras and its cutaways (3c), and the men on th
 it out and trotting up after ball four, the changeover, and the steals, throws over and wild
 pitches played on the bases (3d), and the spectacle: the comet's tail, sparks off the bat,
 fireworks, the home-run camera and the splash words (3e); and from Phase 4, reduced motion and
-the play by play in words for a screen reader (4a). The rest of Phase 4 and Phases 5 to 7 are
-design.** A plan for giving Deadball a 3-D sub-screen the way Cluster Puck got Rinkside, at the
+the play by play in words for a screen reader (4a) and slow-motion replays (4b). The rest of Phase
+4 and Phases 5 to 7 are design.** A plan for giving Deadball a 3-D sub-screen the way Cluster Puck got Rinkside, at the
 highest fidelity the engine can reach. Deadball is a live sport on KSAB, and the broadcast borrows
 the look of a 1990s arcade baseball game. That means skinned, detailed players, authored animation
 with a wide spread of plays, light from the park's own towers and a crowd that fills the stands.
@@ -1739,6 +1739,23 @@ Phase 3, or with sim v2 if that comes later.
   as stills with the play described. `diamond-smoke` stages every ball in play again with reduced
   motion and checks every camera holds still with the ball in the frame as each flight ends, and
   that the live text says each pitch in order; `gameday-smoke` checks the 2-D view's.
+
+- **4b built, replays in slow motion:** a walk-off, a home run, a triple or double play, a catch
+  that took a dive, a slide or a leap, a triple and a call at first closer than 0.15 s each get a
+  replay ([diamond/replay.js](../../client/game/js/panels/diamond/replay.js)). Nothing is
+  recorded: staging is a pure function of the payload, so the play is staged again in a world of
+  its own, stepped to just before its moment and played at 0.4 of its speed from a second camera
+  (centre field's long lens on a swing, the bag at second for a double play, the plate for the
+  winning run, third for a triple, first for a close call, low beside the man for a catch), at most
+  3.4 s of play, silent, under a REPLAY bug beside the score. It starts 1.8 s after the play lands,
+  or once the fireworks are out after a home run or a walk-off, only if it ends a second before
+  the next payload's due, and the live world carries on behind it;
+  a cut the live director makes meanwhile waits for it. With reduced motion it's a still of the
+  moment for 3.2 s, and the live text says "Replay" with the play. `diamond-smoke` stages every
+  play in the game that earns one again (and a triple, a walk-off that isn't a home run and a
+  triple play from the next games) and checks it's the same play to a micron with its moment in
+  its camera's frame, and the view plays one, at 0.4 of the live clock, its bug up and its camera
+  on, and the live camera back after.
 
 **Phase 4: the broadcast.** On by default wherever WebGL2 and float targets work.
 - `gl/crowd.js` with seated and reaction clips; replays in slow motion; dead-time rituals; the grounds
