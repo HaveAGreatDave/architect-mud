@@ -54,8 +54,9 @@ const LOOSE_AFTER = new Set(['save', 'pad', 'blocked', 'wide', 'post', 'breakawa
 // way up on the goal, and down, slow and low, for a man who doesn't get up. A key not
 // listed falls back to its parent ('pbp.shot.slap' → 'pbp.shot'); an unknown one is 0.
 const EXCITE = {
-  // the goal, and what it sets off
-  'pbp.goal': 1, 'goal': 0.85, 'hattrick': 0.9, 'pbp.goal.lamp': 0.75, 'pbp.goal.celebrate': 0.6, 'pbp.goal.mob': 0.6, 'pbp.goal.slump': 0.15,
+  // the goal, and what it sets off (the credit, `goal`, comes after the replay, so it's said
+  // well down from the call)
+  'pbp.goal': 1, 'goal': 0.6, 'hattrick': 0.9, 'pbp.goal.lamp': 0.75, 'pbp.goal.celebrate': 0.6, 'pbp.goal.mob': 0.6, 'pbp.goal.slump': 0.15,
   'shootout.winner': 1, 'shootout.score': 0.95, 'shootout.miss': 0.5, 'shootout.intro': 0.45,
   'pbp.breakaway': 0.8, 'pbp.out.breakaway': 0.65, 'pbp.after.breakaway': 0.45, 'shot.breakaway': 0.55,
   // the build: a rush quickens as it gets to the net
@@ -474,12 +475,14 @@ export function narrate(ctx) {
 
   // The rush, touch by touch, off the same keyframes the rink plays. A routine chance gets
   // the first touch and the last before the shot; a goal or a near-miss gets up to four.
-  let rushHolder = null;
+  // (`rushPass` is the kind of the last touch before the shot when it was a pass, which a
+  // goal's replay walks through)
+  let rushHolder = null, rushPass = null;
   function callRush(b, t, sb, gd, loud) {
     const nodes = Array.isArray(b.possession) ? b.possession : [];
     const names = Array.isArray(b.rushNames) && b.rushNames.length ? b.rushNames : null;
     const L = nodes.length;
-    rushHolder = null;
+    rushHolder = null; rushPass = null;
     if (!names || L < 3) return false;
     const who = (i) => names[((i | 0) % names.length + names.length) % names.length] || '';
     const mids = [];
@@ -553,6 +556,7 @@ export function narrate(ctx) {
       }
       else if (man && n.ev !== 'pass') { key = `pbp.${n.ev}`; extra = { player: man, where: where(n) }; holder = man; holderAt = n; }
       else if (man) holderAt = n;
+      rushPass = pass;
       if (!key || !hasPool(key)) continue;
       if (!keep.has(i)) continue;
       plan.push({ i, key, extra, ev: n.ev, pass });
@@ -568,7 +572,7 @@ export function narrate(ctx) {
     return true;
   }
   // The shot, then what became of it. The shot line is when he releases it; the outcome
-  // line follows it.
+  // line follows it. Returns the man it named as feeding a one-timer or a tip, if any.
   function callShot(b, t, sb, gd) {
     const typeKey = `pbp.shot.${b.shotType || ''}`;
     // A ONE-TIMER OR A TIP IS THE PASS AS MUCH AS THE SHOT, so it's always called as one, and
@@ -584,6 +588,34 @@ export function narrate(ctx) {
     const from = (shotNode && mod && mod.rinkSpot ? mod.rinkSpot(shotNode.p, b.teamName === away.name).from : '') || 'from in close';
     const keys = generic ? 'pbp.shot' : fed ? [`${typeKey}.fed`, typeKey, 'pbp.shot'] : [typeKey, 'pbp.shot'];
     call(keys, t, { shooter: b.shooter, shotLabel: b.shotLabel || 'shot', from, feeder }, sb, { cue: { ev: 'shot', ...(fed ? { feeder } : {}) } }, gd);
+    return fed ? feeder : '';
+  }
+
+  // THE REPLAY. The rink runs a goal back slowly from the `replay` cue on the first of these
+  // lines to the `live` cue on the line after the last, so these are the only lines said over
+  // it, and each is a replay's: it walks through what the picture shows, in order, and never
+  // calls the goal again. How the chance was made (in alone, the feed for a one-timer or a
+  // tip, round the net, the last pass by its kind), then the shot by what he hit it with,
+  // then the goalie or the strength that left the room. None is optional, so the pacer
+  // never leaves a replay half said.
+  function callReplay(b, t, sb, how) {
+    if (!call('pbp.replay.start', t, null, sb, { cue: { ev: 'replay' } })) return false;
+    const x = { shooter: b.shooter, assist: b.assist, feeder: how.feeder || '', goalie: b.goalie };
+    const type = b.shotType || '';
+    const made = how.breakaway ? ['pbp.replay.alone']
+      : how.feeder ? [`pbp.replay.feed.${type}`]
+      : type === 'wrap' ? ['pbp.replay.wrap']
+      : how.pass && how.pass !== 'short' ? [`pbp.replay.pass.${how.pass}`, 'pbp.replay.pass']
+      : how.pass && !b.assist ? ['pbp.replay.pass']
+      : [];
+    call([...made, b.assist ? 'pbp.replay.assist' : 'pbp.replay.solo'], t, x, sb);
+    // (by what he hit it with; about one plain shot in three gets a line on the finish instead)
+    const plain = !['onetimer', 'tip', 'wrap'].includes(type) && nrng() < 0.3;
+    call(plain ? 'pbp.replay.shot' : [`pbp.replay.shot.${type}`, 'pbp.replay.shot'], t, x, sb);
+    const last = b.strength === 'en' ? 'pbp.replay.en' : b.strength === 'sh' ? 'pbp.replay.sh'
+      : b.strength === 'pp' && (!b.goalie || nrng() < 0.5) ? 'pbp.replay.pp' : b.goalie ? 'pbp.replay.goalie' : null;
+    if (last) call(last, t, x, sb);
+    return true;
   }
 
   // Who is in each net, from the shots against it, so the pulled goalie can be named.
@@ -654,7 +686,7 @@ export function narrate(ctx) {
         const before = scoreBefore(b), pre = beatBug({ ...b, awayScore: before.away, homeScore: before.home });
         const rushed = callRush(b, t, pre, gd, true);
         if (gd.breakaway) call('pbp.breakaway', t, null, pre, { cue: { ev: 'alone' } });
-        callShot(b, t, pre, rushed ? null : gd);
+        const feeder = callShot(b, t, pre, rushed ? null : gd);
         call('pbp.goal', t, { team: b.teamName }, sb, { cue: { ev: 'out' } }, null, goalFx(b));
         // What the rink shows next: the lamp, the scorer peeling away, the pile-on, the
         // goalie on his knees.
@@ -662,14 +694,11 @@ export function narrate(ctx) {
         call('pbp.goal.celebrate', t, { shooter: b.shooter }, sb, { opt: true });
         call('pbp.goal.mob', t, { shooter: b.shooter }, sb, { opt: true });
         if (b.goalie && nrng() < 0.6) call('pbp.goal.slump', t, { goalie: b.goalie }, sb, { opt: true });
-        // and the replay: the rink runs it back slowly as the booth walks through it
-        if (call('pbp.replay.start', t, null, sb, { cue: { ev: 'replay' } })) {
-          call(b.assist ? 'pbp.replay.assist' : 'pbp.replay.solo', t, { assist: b.assist }, sb);
-          call('pbp.replay.shot', t, null, sb, { opt: true });
-          if (b.goalie) call('pbp.replay.goalie', t, null, sb, { opt: true });
-        }
-        // the plain goal pool names the helper on some lines, so a solo goal takes its own
-        say(pick(...(b.assist || key !== 'goal' ? [key, 'goal'] : ['goal.solo', 'goal'])), t, sb); said++;
+        // then the replay, while the men line up at centre
+        const replayed = callReplay(b, t, sb, { breakaway: gd.breakaway, feeder, pass: rushPass });
+        // Back live: the credit, then the score. (The plain goal pool names the helper on some
+        // lines, so a solo goal takes its own.)
+        say(pick(...(b.assist || key !== 'goal' ? [key, 'goal'] : ['goal.solo', 'goal'])), t, sb, null, null, replayed ? { cue: { ev: 'live' } } : null); said++;
         say(pick('score.update'), t, sb); said++;
         break;
       }

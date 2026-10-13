@@ -305,10 +305,10 @@
         "Horn goes. {leader} take it {homeScore}–{awayScore}, and the cleanup crew earn theirs tonight."
       ],
       "goal": [
-        "{shooter} SCORES. {team} lead the noise, {home} {homeScore}, {away} {awayScore}.",
-        "IN. {shooter} beats {goalie}, and the horn does what the horn does.",
-        "{shooter} buries it. {assist} with the pass, and this building has come apart.",
-        "He shoots. HE SCORES. {shooter}, from {assist}, and {goalie} never had it."
+        "Goal, {shooter}. {team} lead the noise, {home} {homeScore}, {away} {awayScore}.",
+        "{shooter} beat {goalie}, and the horn did what the horn does.",
+        "{shooter} with the goal. {assist} with the pass, and this building has come apart.",
+        "That's {shooter}, from {assist}, and {goalie} never had it."
       ],
       "goal.en": [
         "Empty net, and {shooter} buries it from his own blue line. {home} {homeScore}, {away} {awayScore}. Turn the lights off on your way out.",
@@ -809,16 +809,18 @@
         "Loose in front!"
       ],
       "pbp.replay.assist": [
-        "Watch {assist} find him.",
+        "Watch {assist} find {shooter}.",
         "{assist} sees it first.",
         "Look at the pass from {assist}.",
-        "{assist} threads it through."
+        "{assist} threads it through to {shooter}.",
+        "Watch {assist} wait for the lane."
       ],
       "pbp.replay.goalie": [
         "{goalie} never saw it.",
-        "{goalie} is down too early.",
-        "{goalie} guesses wrong.",
-        "Nothing {goalie} could do."
+        "Watch {goalie} go down too early.",
+        "{goalie} guesses wrong. Look at him.",
+        "Nothing {goalie} could do about that.",
+        "{goalie} is a step late getting across."
       ],
       "pbp.replay.shot": [
         "{shooter} picks his spot.",
@@ -827,16 +829,19 @@
         "Quick release. Gone."
       ],
       "pbp.replay.solo": [
-        "He does it all himself.",
-        "Watch him take it in.",
-        "All him, start to finish."
+        "Watch {shooter} carry it in.",
+        "{shooter} keeps it and goes.",
+        "Look at {shooter} walk in with it.",
+        "{shooter} takes it to the net himself."
       ],
       "pbp.replay.start": [
         "Let's see that again.",
         "Here's the replay.",
         "Once more.",
         "Run it back.",
-        "Watch this again."
+        "Watch this again.",
+        "One more look.",
+        "Let's slow that down."
       ],
       "pbp.retrieve": [
         "{player} jumps on it.",
@@ -1098,10 +1103,10 @@
         "{shooter} for the {team}, {clock} on the clock. Nobody else touched it."
       ],
       "goal.solo": [
-        "{shooter} SCORES. {team} lead the noise, {home} {homeScore}, {away} {awayScore}.",
-        "IN. {shooter} beats {goalie}, and the horn does what the horn does.",
-        "He shoots. HE SCORES. {shooter}, all by himself, and {goalie} never had it.",
-        "{shooter} does it alone. Buries it, and this building has come apart."
+        "Goal, {shooter}. {team} lead the noise, {home} {homeScore}, {away} {awayScore}.",
+        "{shooter} beat {goalie}, and the horn did what the horn does.",
+        "That's {shooter}, and {goalie} never had it.",
+        "{shooter} with the goal, and this building has come apart."
       ],
       "pbp.breakout.on": [
         "Has it, and turns it up ice.",
@@ -1196,6 +1201,126 @@
         "{player} heads back into his own end for it.",
         "{player} turns back for the puck.",
         "{player} goes back to pick it up."
+      ],
+      "pbp.replay.alone": [
+        "Watch {shooter} get behind them.",
+        "Look at the jump {shooter} gets.",
+        "They're all caught going the wrong way.",
+        "Nobody within a stick of {shooter}.",
+        "Watch them chase. They never close."
+      ],
+      "pbp.replay.feed.onetimer": [
+        "Watch {feeder} lay it across.",
+        "Look at the feed from {feeder}.",
+        "{feeder} puts it right in his wheelhouse.",
+        "There's {feeder}, flat and on the tape.",
+        "Watch {feeder} wait, then slide it over."
+      ],
+      "pbp.replay.feed.tip": [
+        "Watch {feeder} throw it at the net.",
+        "{feeder} just gets it through to the front.",
+        "Look at {feeder} put it toward the crease.",
+        "{feeder} sends it in. Now watch the front."
+      ],
+      "pbp.replay.wrap": [
+        "Watch {shooter} take it behind the net.",
+        "{shooter} comes round the back of the cage.",
+        "Look at him circle the goal.",
+        "He goes behind, and nobody follows."
+      ],
+      "pbp.replay.pass": [
+        "Watch the pass come to {shooter}.",
+        "{shooter} takes the pass in stride.",
+        "Look at the pass. Right on his stick.",
+        "It comes to {shooter}, and he's ready."
+      ],
+      "pbp.replay.pass.cross": [
+        "Watch the pass go all the way across.",
+        "Look at it cross the ice to {shooter}.",
+        "Right across the slot, and they're all caught.",
+        "It goes across, and the whole box turns."
+      ],
+      "pbp.replay.pass.stretch": [
+        "Look at the stretch pass. Tape to tape.",
+        "Watch it go the length of the ice.",
+        "One long pass, and {shooter} is through.",
+        "That pass skips a whole zone."
+      ],
+      "pbp.replay.pass.saucer": [
+        "Watch the saucer. Over the stick, flat on landing.",
+        "Look at it float over the stick.",
+        "Up over the stick, down on the tape.",
+        "A saucer, right over the defender."
+      ],
+      "pbp.replay.pass.give": [
+        "The give-and-go. Gives it, goes, gets it back.",
+        "Watch {shooter} give it and go.",
+        "He gives it up, and he gets it back.",
+        "Look at the return. Nobody picks him up."
+      ],
+      "pbp.replay.pass.back": [
+        "Watch it go back to the point.",
+        "Back out to {shooter}, and look at the room.",
+        "It comes back up top to {shooter}.",
+        "They drop it back, and nobody steps out."
+      ],
+      "pbp.replay.shot.wrist": [
+        "Look at the wrists on {shooter}.",
+        "No wind-up. Just the wrists.",
+        "{shooter} pulls it in and lets it go.",
+        "Watch the wrists. That's all it takes."
+      ],
+      "pbp.replay.shot.snap": [
+        "Barely a backswing, and it's gone.",
+        "Look how quick {shooter} gets that off.",
+        "{shooter} snaps it before anyone's set.",
+        "Short backswing. Watch the release."
+      ],
+      "pbp.replay.shot.slap": [
+        "Look at the wind-up on {shooter}.",
+        "{shooter} leans all the way into it.",
+        "Full swing, and he means it.",
+        "Watch the stick bend on that one."
+      ],
+      "pbp.replay.shot.backhand": [
+        "On the backhand, and up it goes.",
+        "{shooter} goes to the backhand.",
+        "Watch him lift the backhand.",
+        "Look at the backhand from {shooter}."
+      ],
+      "pbp.replay.shot.onetimer": [
+        "He doesn't stop it. He just swings.",
+        "{shooter} hits it as it arrives.",
+        "Straight off the pass, never stopped.",
+        "Watch {shooter} meet it on the fly."
+      ],
+      "pbp.replay.shot.tip": [
+        "Just a touch from {shooter}.",
+        "Watch the blade. A tip, that's all.",
+        "{shooter} gets a stick on it in front.",
+        "Look at the redirect from {shooter}."
+      ],
+      "pbp.replay.shot.wrap": [
+        "Round the post before anyone gets across.",
+        "{shooter} tucks it in on the far side.",
+        "He stuffs it in at the post.",
+        "Watch {shooter} beat him to the post."
+      ],
+      "pbp.replay.pp": [
+        "Watch the box. Nobody picks him up.",
+        "Look at all the room on the power play.",
+        "Four can't cover five, and here's why.",
+        "Man advantage, and look at the space."
+      ],
+      "pbp.replay.sh": [
+        "They're a man short, and look who's caught.",
+        "Watch the power play get caught up ice.",
+        "Down a man, and they still get behind them."
+      ],
+      "pbp.replay.en": [
+        "Nobody home. It just slides in.",
+        "Watch it go all the way in. Empty net.",
+        "Not a soul in the crease."
       ]
     },
     "sport": "hockey",

@@ -907,7 +907,8 @@ so a narrator cannot read the other league's records.
   default clock cuts none in most games and a handful of colour lines in the busiest.
 - **The picture moves when the words do.** The narrator tags a line with the moment of
   play it describes (`cue`: a touch, the release, the drop and the won draw, the impact,
-  the clinch, a punch, the walk to the box, the medics). The pacer turns those into `cues` on the payload, in ms from the start of the
+  the clinch, a punch, the walk to the box, the medics, a goal's replay and the return to
+  live). The pacer turns those into `cues` on the payload, in ms from the start of the
   payload's line, and the director does each thing as its line airs. A rush plays only
   the touches the booth calls, and one running behind its lines catches up rather than
   letting the words get ahead.
@@ -1045,10 +1046,13 @@ text) do the rest:
 | The box | What changes |
 |---|---|
 | under 30rem tall | the strip and the rush go; the caption calls the same play |
-| under 32rem wide | a compact score line, a smaller goal card, a tighter intermission board |
+| under 32rem wide | a compact score line, smaller jumbotron cards, a tighter intermission board |
 | wider than 2:1, or under 15rem tall | the score line and the caption go over the picture, as a broadcast's graphics do |
 
-The goal card and the pre-game veil go on the picture (`.gdr-rink`), not the whole view.
+The jumbotron cards and the pre-game veil go on the picture (`.gdr-rink`), not the whole
+view. A goal gets no card there: the lamp, the horn and the wipe into the replay announce
+it, and a card sat over the scorer's celebration. The full-screen goal card still shows on
+a set with Rinkside shut.
 The set sits the view between its header and footer as they really are: tv.js measures them
 into `--tv-head-h` and `--tv-foot-h` on the window, since both are in rem and a phone's footer
 is shorter.
@@ -1259,13 +1263,17 @@ ground.
 seconds of what the renderers draw, thirty times a second: every man's joints and kit,
 the puck and its tail, the loose gear, the lamp. It keeps nothing of the sim, so a replay
 can't change anything; the world plays on underneath it. On a goal the booth says
-`pbp.replay.start` ("Let's see that again.") on a `replay` cue, then walks through it
-(`pbp.replay.assist` or `.solo`, `.shot`, `.goalie`). On the cue the director runs the five
-seconds before the goal and a moment after at half speed. The renderers draw the replay's
-stand-in world, interpolated between frames, through a camera of their own at ice level
-(`replay` mode), letterboxed with a REPLAY bug. It ends on its own or when the next play
-comes in, and goes back to live behind the wipe too. The rink smoke checks every goal's replay starts, plays
-sound frames, draws and hands back.
+`pbp.replay.start` ("Here's the replay.") on a `replay` cue, then talks the goal through in
+a replay's own words: how it was made, the shot, the goalie or the strength (the pools are
+in [bsm-format.md](bsm-format.md#hockey-sport-hockey)). The credit after them carries a
+`live` cue, and the director runs the replay from the one cue to the other, so only the
+replay's lines are said over it. The clip is about four and a half seconds before the
+goal and a moment after, slowed to between 0.4 and 0.75 of real speed to fill that time;
+a payload with no `live` cue gets the last five seconds at half speed. The renderers draw
+the replay's stand-in world, interpolated between frames, through a camera of their own at
+ice level (`replay` mode), letterboxed with a REPLAY bug. It goes in and comes back behind
+the wipe, and a new play stops it. The rink smoke checks every goal's replay starts, plays
+sound frames, draws, and hands back within half a second of the `live` cue.
 
 **Motion.** A skater leans into acceleration and sits back under braking (`b.accel`), and
 banks into a turn by his speed times his turn rate. Each skate's blade points the way that

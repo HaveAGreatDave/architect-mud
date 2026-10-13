@@ -547,19 +547,22 @@ Loose in the neutral zone, {shooter} is away, one on one, and {goalie} wins it.
 ::endlines
 
 # ── goals ─────────────────────────────────────────────────────────────────────
+# The credit, said once the replay is over and the picture is back live (the pbp.goal call
+# went up as it went in), so it tells you whose goal it was rather than calling it again.
 ::lines goal
-{shooter} SCORES. {team} lead the noise, {home} {homeScore}, {away} {awayScore}.
-IN. {shooter} beats {goalie}, and the horn does what the horn does.
-{shooter} buries it. {assist} with the pass, and this building has come apart.
-He shoots. HE SCORES. {shooter}, from {assist}, and {goalie} never had it.
+Goal, {shooter}. {team} lead the noise, {home} {homeScore}, {away} {awayScore}.
+{shooter} beat {goalie}, and the horn did what the horn does.
+{shooter} with the goal. {assist} with the pass, and this building has come apart.
+That's {shooter}, from {assist}, and {goalie} never had it.
 ::endlines
 
-# A goal with no assist. The two lines above that don't name a helper are here too.
+# A goal with no assist. The two lines above that don't name a helper are here too. None
+# says he did it alone: the rush may have had a pass in it all the same.
 ::lines goal.solo
-{shooter} SCORES. {team} lead the noise, {home} {homeScore}, {away} {awayScore}.
-IN. {shooter} beats {goalie}, and the horn does what the horn does.
-He shoots. HE SCORES. {shooter}, all by himself, and {goalie} never had it.
-{shooter} does it alone. Buries it, and this building has come apart.
+Goal, {shooter}. {team} lead the noise, {home} {homeScore}, {away} {awayScore}.
+{shooter} beat {goalie}, and the horn did what the horn does.
+That's {shooter}, and {goalie} never had it.
+{shooter} with the goal, and this building has come apart.
 ::endlines
 
 ::lines goal.pp
@@ -1565,27 +1568,114 @@ Nobody near him. Breakaway!
 {shooter} gets loose! Breakaway!
 ::endlines
 
+# THE REPLAY. The rink runs a goal back slowly from the first of these lines to the credit
+# that follows them (the `replay` and `live` cues), so nothing else is said over it, and
+# each line is a replay's own: what the picture is showing, in order, in the present tense,
+# the way an analyst takes a goal apart. Never the call again. The narrator picks the
+# setup off how the goal was made, the shot off what he hit it with, and the last line off
+# the goalie or the strength (callReplay in hockey-narrator.js).
 ::lines pbp.replay.start
 Let's see that again.
 Here's the replay.
 Once more.
 Run it back.
 Watch this again.
+One more look.
+Let's slow that down.
 ::endlines
 
+# How it was made. In alone: a goal the rink stages as a breakaway.
+::lines pbp.replay.alone
+Watch {shooter} get behind them.
+Look at the jump {shooter} gets.
+They're all caught going the wrong way.
+Nobody within a stick of {shooter}.
+Watch them chase. They never close.
+::endlines
+
+# Fed for a one-timer or a tip: {feeder} is the man the rink has make that pass.
+::lines pbp.replay.feed.onetimer
+Watch {feeder} lay it across.
+Look at the feed from {feeder}.
+{feeder} puts it right in his wheelhouse.
+There's {feeder}, flat and on the tape.
+Watch {feeder} wait, then slide it over.
+::endlines
+
+::lines pbp.replay.feed.tip
+Watch {feeder} throw it at the net.
+{feeder} just gets it through to the front.
+Look at {feeder} put it toward the crease.
+{feeder} sends it in. Now watch the front.
+::endlines
+
+::lines pbp.replay.wrap
+Watch {shooter} take it behind the net.
+{shooter} comes round the back of the cage.
+Look at him circle the goal.
+He goes behind, and nobody follows.
+::endlines
+
+# The last pass before the shot, by the kind the rush called it.
+::lines pbp.replay.pass
+Watch the pass come to {shooter}.
+{shooter} takes the pass in stride.
+Look at the pass. Right on his stick.
+It comes to {shooter}, and he's ready.
+::endlines
+
+::lines pbp.replay.pass.cross
+Watch the pass go all the way across.
+Look at it cross the ice to {shooter}.
+Right across the slot, and they're all caught.
+It goes across, and the whole box turns.
+::endlines
+
+::lines pbp.replay.pass.stretch
+Look at the stretch pass. Tape to tape.
+Watch it go the length of the ice.
+One long pass, and {shooter} is through.
+That pass skips a whole zone.
+::endlines
+
+::lines pbp.replay.pass.saucer
+Watch the saucer. Over the stick, flat on landing.
+Look at it float over the stick.
+Up over the stick, down on the tape.
+A saucer, right over the defender.
+::endlines
+
+::lines pbp.replay.pass.give
+The give-and-go. Gives it, goes, gets it back.
+Watch {shooter} give it and go.
+He gives it up, and he gets it back.
+Look at the return. Nobody picks him up.
+::endlines
+
+::lines pbp.replay.pass.back
+Watch it go back to the point.
+Back out to {shooter}, and look at the room.
+It comes back up top to {shooter}.
+They drop it back, and nobody steps out.
+::endlines
+
+# Anything else: the assist when there is one, else the man himself.
 ::lines pbp.replay.assist
-Watch {assist} find him.
+Watch {assist} find {shooter}.
 {assist} sees it first.
 Look at the pass from {assist}.
-{assist} threads it through.
+{assist} threads it through to {shooter}.
+Watch {assist} wait for the lane.
 ::endlines
 
 ::lines pbp.replay.solo
-He does it all himself.
-Watch him take it in.
-All him, start to finish.
+Watch {shooter} carry it in.
+{shooter} keeps it and goes.
+Look at {shooter} walk in with it.
+{shooter} takes it to the net himself.
 ::endlines
 
+# The shot, by what he hit it with.
 ::lines pbp.replay.shot
 {shooter} picks his spot.
 Look where {shooter} put it.
@@ -1593,11 +1683,81 @@ Look where {shooter} put it.
 Quick release. Gone.
 ::endlines
 
+::lines pbp.replay.shot.wrist
+Look at the wrists on {shooter}.
+No wind-up. Just the wrists.
+{shooter} pulls it in and lets it go.
+Watch the wrists. That's all it takes.
+::endlines
+
+::lines pbp.replay.shot.snap
+Barely a backswing, and it's gone.
+Look how quick {shooter} gets that off.
+{shooter} snaps it before anyone's set.
+Short backswing. Watch the release.
+::endlines
+
+::lines pbp.replay.shot.slap
+Look at the wind-up on {shooter}.
+{shooter} leans all the way into it.
+Full swing, and he means it.
+Watch the stick bend on that one.
+::endlines
+
+::lines pbp.replay.shot.backhand
+On the backhand, and up it goes.
+{shooter} goes to the backhand.
+Watch him lift the backhand.
+Look at the backhand from {shooter}.
+::endlines
+
+::lines pbp.replay.shot.onetimer
+He doesn't stop it. He just swings.
+{shooter} hits it as it arrives.
+Straight off the pass, never stopped.
+Watch {shooter} meet it on the fly.
+::endlines
+
+::lines pbp.replay.shot.tip
+Just a touch from {shooter}.
+Watch the blade. A tip, that's all.
+{shooter} gets a stick on it in front.
+Look at the redirect from {shooter}.
+::endlines
+
+::lines pbp.replay.shot.wrap
+Round the post before anyone gets across.
+{shooter} tucks it in on the far side.
+He stuffs it in at the post.
+Watch {shooter} beat him to the post.
+::endlines
+
+# Last, the man who couldn't stop it, or the strength that left the room.
 ::lines pbp.replay.goalie
 {goalie} never saw it.
-{goalie} is down too early.
-{goalie} guesses wrong.
-Nothing {goalie} could do.
+Watch {goalie} go down too early.
+{goalie} guesses wrong. Look at him.
+Nothing {goalie} could do about that.
+{goalie} is a step late getting across.
+::endlines
+
+::lines pbp.replay.pp
+Watch the box. Nobody picks him up.
+Look at all the room on the power play.
+Four can't cover five, and here's why.
+Man advantage, and look at the space.
+::endlines
+
+::lines pbp.replay.sh
+They're a man short, and look who's caught.
+Watch the power play get caught up ice.
+Down a man, and they still get behind them.
+::endlines
+
+::lines pbp.replay.en
+Nobody home. It just slides in.
+Watch it go all the way in. Empty net.
+Not a soul in the crease.
 ::endlines
 
 END

@@ -42,10 +42,10 @@ const SFX_GAP = { stop: 0.9, turn: 1.4, boards: 0.12, glass: 0.12, receive: 0.2,
 const CONTACT = new Set(['receive', 'pass', 'tick', 'stick', 'poke', 'boards', 'glass', 'stop', 'turn', 'sweep', 'block']);
 
 // Jumbotron cards: the same sportsfx graphics tv.js would take the whole screen with,
-// rendered compact over the rink so the ice stays visible.
+// rendered compact over the rink so the ice stays visible. A goal has none: the lamp, the
+// horn and the wipe into the replay announce it, and a card sat over the scorer's
+// celebration (the full-screen TV card still shows it).
 const CARD = {
-  hockeygoal: (fx) => ({ title: fx.hattrick ? 'HAT TRICK' : 'GOAL', cls: 'hot', club: fx.team,
-    sub: [fx.shooter, fx.assist ? `assist ${fx.assist}` : '', { pp: 'POWER PLAY', sh: 'SHORTHANDED', en: 'EMPTY NET' }[fx.strength] || ''].filter(Boolean).join(' · ') }),
   hockeyfight: (fx) => ({ title: 'GLOVES OFF', sub: `${fx.winner} def. ${fx.loser}`, cls: 'out', club: fx.team }),
   hockeydeath: (fx) => ({ title: 'SUDDEN DEATH', sub: fx.player || '', cls: 'dead' }),
   hockeycup: (fx) => ({ title: 'COLDWATER CUP', sub: (fx.away && fx.home) ? `${fx.away} vs ${fx.home}` : '', cls: 'hot' }),

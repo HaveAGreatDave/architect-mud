@@ -316,7 +316,8 @@ async function play(slot) {
     if (g.kind === 'breakaway' || g.breakaway) check(`${label}: the breakaway gets its banner`, sawBreakaway);
     // THE REPLAY. A goal the booth calls a replay on is run back: it starts on its cue, the
     // picture comes from the recording (interpolated, every joint finite), the renderer
-    // draws it, and it hands back to the live game when it's done.
+    // draws it, and it hands back to the live game as the booth does (the `live` cue on the
+    // credit after the replay's lines), so only the replay's lines are said over it.
     const rc = cueT('replay');
     if (g.type === 'goal' && rc != null) {
       const RP = W.replay;
@@ -326,14 +327,16 @@ async function play(slot) {
       let bad = 0, frames = 0, drew = 0;
       const rs = W.t;
       while (RP.active && W.t - rs < 20) {
-        run(0.5);
+        run(0.5, () => !RP.active);
         if (!RP.active) break;
         const src = RP.frame(); frames++;
         for (const b of src.bodies()) for (const p of src.rigOf(b)) if (p && !p.every(Number.isFinite)) bad++;
         if (frames % 6 === 1) { view.renderer.render(W.t * 1000); drew++; }
       }
+      const endAt = W.t - tApply, lc = cueT('live');
       check(`${label}: the replay plays back sound frames`, frames > 8 && bad === 0 && src0ok(RP), `${frames} frames, ${bad} bad joints`);
       check(`${label}: the replay ends and hands back to live`, !RP.active && drew > 0);
+      if (lc != null) check(`${label}: the replay hands back as the booth comes back live`, Math.abs(endAt - lc) < 0.5, `ended ${endAt.toFixed(2)}s, live line ${lc}s`);
     }
     if (g.type === 'chance') check(`${label}: a ${g.kind} stays out`, goalsIn === before.goals);
     if (g.type === 'fight') {

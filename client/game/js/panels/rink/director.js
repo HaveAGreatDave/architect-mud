@@ -864,10 +864,13 @@ export function createDirector(W, opts = {}) {
       // then back to centre for the draw, the linesman fishing the puck out of the net (a
       // goal that ends the game has no draw after it, and they just keep celebrating)
       at(B, 4.2, () => { W.cam.mode = 'broadcast'; stopPlay(B, p.nextDot === undefined ? 'C' : p.nextDot); });
-      // The replay, when the booth calls for it: the last five seconds and a moment after,
-      // at half speed, in and out behind a wipe. Scheduled on the world, not the beat; a new
-      // play coming in cancels it.
-      const rc = cueOf(p, 'replay');
+      // The replay, when the booth calls for it: the run-up and the shot again, slowly, in and
+      // out behind a wipe. It's on from the booth's `replay` cue to its `live` cue (the credit
+      // after the replay's own lines), so those lines are said over it and nothing else is:
+      // the clip is fitted to that, about four and a half seconds before the goal and a moment
+      // after, at 0.4 to 0.75 of real speed. Without a `live` cue it's the last five seconds
+      // at half speed. Scheduled on the world, not the beat; a new play coming in cancels it.
+      const rc = cueOf(p, 'replay'), lc = cueOf(p, 'live');
       // (the recording stops a moment after the goal, so the run-up is still there however
       // long the booth takes to call the replay)
       D.recordUntil = W.t + 2;
@@ -875,10 +878,26 @@ export function createDirector(W, opts = {}) {
         const goalT = W.t, seq = D.seq, wait = Math.max(1.7, B.t0 + rc - W.t);
         W.schedule(wait, () => {
           if (D.seq !== seq) return;
+          // (the booth already back live, or nearly: too late to be worth going to it)
+          const fill = lc != null ? B.t0 + lc - W.t - WIPE / 2 : null;
+          if (fill != null && fill < 2.5) return;
           wipe();
           W.schedule(WIPE / 2, () => {
-            if (D.seq !== seq || !replay.start(goalT - 5, goalT + 1.5, 0.5)) return;
-            W.schedule(Math.max(0, replay.left() - WIPE / 2), () => { if (D.seq === seq && replay.active) wipe(); });
+            if (D.seq !== seq) return;
+            if (fill == null) { if (!replay.start(goalT - 5, goalT + 1.5, 0.5)) return; }
+            else {
+              const speed = clamp(5.7 / fill, 0.4, 0.75);
+              if (!replay.start(goalT - clamp(fill * speed - 1.2, 2, 7.5), goalT + 1.2, speed)) return;
+              // (the recording can hold less than that: what there is, slowed to fill it)
+              replay.speed = clamp((replay.to - replay.from) / fill, 0.3, 0.8);
+            }
+            // back to live behind the wipe as the booth comes back, or when it runs out
+            const end = Math.min(replay.left(), fill ?? Infinity);
+            W.schedule(Math.max(0, end - WIPE / 2), () => {
+              if (D.seq !== seq || !replay.active) return;
+              wipe();
+              W.schedule(WIPE / 2, () => { if (D.seq === seq) replay.stop(); });
+            });
           });
         });
       }
