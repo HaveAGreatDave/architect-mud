@@ -189,3 +189,27 @@ export function splashOf(p) {
   }
   return null;
 }
+
+// ── the fans ────────────────────────────────────────────────────────────────
+// How the crowd takes a play (gl/crowd.js createRoar): { side, amp, hold, from }, or null for a
+// play nobody stands up for. `side` is whose fans cheer, 'bat' or 'field' (the view turns it into
+// the home fans or the visitors'); `amp` how loud, 0 to 1, so how many get up; `hold` how long it
+// lasts (s); `from` when it starts: 'contact' for a ball they can see is gone, else 'land'.
+const GLOVE = new Set(['robbed', 'wallcatch', 'divingcatch', 'slidingcatch', 'railcatch', 'divingstop', 'barehand']);
+export function cheerOf(p) {
+  if (!p || p.phase === 'half') return null;
+  const cheer = (side, amp, hold, from = 'land') => ({ side, amp, hold, from });
+  const runs = Number.isFinite(p.runs) ? p.runs : p.rbi | 0;
+  if (p.kind === 'homerun') return cheer('bat', p.walkoff || (p.rbi | 0) >= 4 ? 1 : 0.95, p.walkoff ? 7 : 5, 'contact');
+  if (p.walkoff) return cheer('bat', 1, 6);
+  const sp = splashOf(p);
+  if (sp && GLOVE.has(sp.kind)) return cheer('field', sp.kind === 'robbed' ? 0.95 : 0.65, 1.6);
+  if (p.phase === 'run') return p.out ? cheer('field', 0.45, 1.2) : runs > 0 ? cheer('bat', 0.6, 1.5) : cheer('bat', 0.3, 1);
+  if (runs > 0) return cheer('bat', 0.75, 2);
+  if (p.kind === 'tripleplay' || p.kind === 'doubleplay') return cheer('field', p.kind === 'tripleplay' ? 0.9 : 0.7, 1.6);
+  if (p.kind === 'strikeout') return cheer('field', (p.outs | 0) >= 3 ? 0.5 : 0.3, 1);
+  if (p.kind === 'triple') return cheer('bat', 0.6, 1.4);
+  if (p.kind === 'double') return cheer('bat', 0.45, 1.2);
+  if (p.kind === 'single' || p.kind === 'error') return cheer('bat', 0.3, 0.8);
+  return null;
+}

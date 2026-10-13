@@ -10,7 +10,8 @@
 //   · the field is painted in the shader: grass with mowing stripes that change with the
 //     camera's direction, the warning track, the foul lines, and the infield canvas
 //     (diamond/dirt.js) laid over it;
-//   · the crowd is one figure per pose, instanced over every occupied seat;
+//   · the crowd is one figure in three poses (gl/crowd.js), instanced over every occupied seat,
+//     each fan getting up and cheering as his side roars (setCrowd);
 //   · the scoreboard is a face of lamps lit from a 240×84 mask of the line score
 //     (diamond/board.js), redrawn when the game changes;
 //   · the players are skinned: a body per player, built once in the rig's bind pose
@@ -43,7 +44,8 @@
 // ⚠ NO FACE CULLING, as in arena.js: the builders don't keep one winding, and every material
 // here is lit from the side that faces the eye.
 
-import { buildPark, crowdMesh, createBatch, ellipsoid, lin, STRIDE, CROWD_STRIDE, CROWD_VERTEX, MAT } from './ballpark-mesh.js';
+import { buildPark, crowdMorph, createBatch, ellipsoid, lin, STRIDE, CROWD_STRIDE, CROWD_MORPH, MAT } from './ballpark-mesh.js';
+import { CROWD_VS } from './crowd.js';
 import { paintInfield, DIRT_RECT } from '../diamond/dirt.js';
 import { boardLamps, BOARD_W, BOARD_H } from '../diamond/board.js';
 import { shotMatrices, shotOf, inv4 } from '../diamond/camera.js';
@@ -412,20 +414,8 @@ void main() {
   o = vec4(airOf(col, vPos), uAlpha * tex.a);
 }`;
 
-const CROWD_VS = `#version 300 es
-layout(location = 0) in vec3 aPos; layout(location = 1) in vec3 aNrm; layout(location = 2) in float aPart;
-layout(location = 3) in vec4 iA; layout(location = 4) in vec4 iB; layout(location = 5) in vec3 iC;
-uniform mat4 uVP;
-out vec3 vPos; out vec3 vN; out vec3 vAlb;
-void main() {
-  float c = cos(iA.w), s = sin(iA.w); vec3 p = aPos * iB.w;
-  vec3 w = vec3(c * p.x + s * p.z, p.y, -s * p.x + c * p.z) + iA.xyz;
-  vN = vec3(c * aNrm.x + s * aNrm.z, aNrm.y, -s * aNrm.x + c * aNrm.z);
-  float h = fract(sin(dot(iA.xz, vec2(12.99, 78.23))) * 43758.5);
-  vec3 pants = mix(vec3(0.03, 0.04, 0.07), vec3(0.12, 0.10, 0.07), h);
-  vAlb = aPart < 0.5 ? iC : (aPart < 1.5 ? iB.rgb : (aPart < 2.5 ? pants : (aPart < 3.5 ? vec3(0.02, 0.016, 0.012) + 0.05 * h : vec3(0.82, 0.62, 0.16))));
-  vPos = w; gl_Position = uVP * vec4(w, 1.0);
-}`;
+// The crowd's vertex shader is gl/crowd.js's: each fan sits, stands or cheers by how loud his side
+// is. Its fragment shader lights him as the park is lit.
 const CROWD_FS = `#version 300 es
 precision highp float;
 in vec3 vPos; in vec3 vN; in vec3 vAlb;
@@ -716,26 +706,31 @@ export function createBallparkRenderer(canvas, opts = {}) {
     };
     const opaque = [...park.opaque].map(([key, b]) => ({ key, ...upload(b) }));
     const translucent = [...park.translucent].map(([key, b]) => ({ key, ...upload(b) }));
-    const crowd = [];
-    for (const kind of ['sit', 'stand', 'cheer']) {
+    // the crowd: one figure in its three poses (ballpark-mesh.js crowdMorph), drawn once for the fans
+    // who rest sitting, once standing and once cheering, each getting up as his side roars
+    const crowd = [], morph = crowdMorph({ far: opts.crowd !== 'near', towels: !!opts.towels });
+    const mb = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, mb); gl.bufferData(gl.ARRAY_BUFFER, morph, gl.STATIC_DRAW);
+    for (const [base, kind] of ['sit', 'stand', 'cheer'].entries()) {
       const inst = park.crowd[kind];
       if (!inst.length) continue;
-      const mesh = crowdMesh(kind, { far: opts.crowd !== 'near', towels: !!opts.towels });
       const vao = gl.createVertexArray();
       gl.bindVertexArray(vao);
-      const mb = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, mb); gl.bufferData(gl.ARRAY_BUFFER, mesh, gl.STATIC_DRAW);
-      const VS = CROWD_VERTEX * 4;
-      gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 3, gl.FLOAT, false, VS, 0);
-      gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 3, gl.FLOAT, false, VS, 12);
-      gl.enableVertexAttribArray(2); gl.vertexAttribPointer(2, 1, gl.FLOAT, false, VS, 24);
+      gl.bindBuffer(gl.ARRAY_BUFFER, mb);
+      const VS = CROWD_MORPH * 4;
+      for (const [loc, size, off] of [[0, 3, 0], [1, 3, 12], [2, 3, 24], [6, 3, 36], [7, 3, 48], [8, 3, 60], [9, 1, 72]]) {
+        gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, size, gl.FLOAT, false, VS, off);
+      }
       const ib = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, ib); gl.bufferData(gl.ARRAY_BUFFER, inst, gl.STATIC_DRAW);
       const IS = CROWD_STRIDE * 4;
       gl.enableVertexAttribArray(3); gl.vertexAttribPointer(3, 4, gl.FLOAT, false, IS, 0); gl.vertexAttribDivisor(3, 1);
       gl.enableVertexAttribArray(4); gl.vertexAttribPointer(4, 4, gl.FLOAT, false, IS, 16); gl.vertexAttribDivisor(4, 1);
       gl.enableVertexAttribArray(5); gl.vertexAttribPointer(5, 3, gl.FLOAT, false, IS, 32); gl.vertexAttribDivisor(5, 1);
       gl.bindVertexArray(null);
-      crowd.push({ vao, n: mesh.length / CROWD_VERTEX, count: inst.length / CROWD_STRIDE, buffers: [mb, ib] });
+      crowd.push({ vao, base, n: morph.length / CROWD_MORPH, count: inst.length / CROWD_STRIDE, buffers: [ib] });
     }
+    // how loud each side's fans are (gl/crowd.js createRoar), the clock their bouncing keeps, and
+    // whether they may bounce at all
+    const roar = { home: 0, away: 0, t: 0, move: 1 };
     const emptyVao = gl.createVertexArray();
 
     // ── the players ───────────────────────────────────────────────────────────
@@ -1052,7 +1047,8 @@ export function createBallparkRenderer(canvas, opts = {}) {
         gl.useProgram(CROWD.p);
         lights(CROWD, M.eye);
         gl.uniformMatrix4fv(CROWD.u('uVP'), false, M.viewProj);
-        for (const d of crowd) { gl.bindVertexArray(d.vao); gl.drawArraysInstanced(gl.TRIANGLES, 0, d.n, d.count); tris += d.n / 3 * d.count; draws++; }
+        gl.uniform2f(CROWD.u('uRoar'), roar.home, roar.away); gl.uniform1f(CROWD.u('uT'), roar.t); gl.uniform1f(CROWD.u('uMove'), roar.move);
+        for (const d of crowd) { gl.uniform1f(CROWD.u('uBase'), d.base); gl.bindVertexArray(d.vao); gl.drawArraysInstanced(gl.TRIANGLES, 0, d.n, d.count); tris += d.n / 3 * d.count; draws++; }
       }
 
       // the backstop net, see-through, over the rest
@@ -1130,6 +1126,7 @@ export function createBallparkRenderer(canvas, opts = {}) {
         for (const d of [...opaque, ...translucent, signDraw, ballDraw]) { gl.deleteVertexArray(d.vao); gl.deleteBuffer(d.st.buf); }
         dropCity();
         for (const d of crowd) { gl.deleteVertexArray(d.vao); for (const b of d.buffers) gl.deleteBuffer(b); }
+        gl.deleteBuffer(mb);
         for (const body of bodies.values()) dropBody(body);
         bodies.clear();
         palette.dispose();
@@ -1149,6 +1146,7 @@ export function createBallparkRenderer(canvas, opts = {}) {
       // setBall(point or null): the ball, in the park's feet; setSpectacle(effects, t): the
       // payload's spectacle (diamond/spectacle.js) and the world's time to draw it at
       render, setBoard, setCast, setPose, setBall, setSpectacle: (fx, t) => spectacle.set(fx, t), pump, setVenue, dispose, stats,
+      setCrowd: (levels, t, move = true) => { roar.home = +levels?.[0] || 0; roar.away = +levels?.[1] || 0; roar.t = +t || 0; roar.move = move ? 1 : 0; },
       pending: () => queue.length,
       get park() { return park; },
       // what the city came to: { buildings, filler, lamps, tris, placed, bearing, … }, or null

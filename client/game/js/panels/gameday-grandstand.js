@@ -84,6 +84,9 @@ export function createGrandstandView(host, opts = {}) {
   // room ({ at: the live world's time to start, spec, p, calm }), `replay` while it plays, its own
   // world in place of the live one; `liveShot` the live director's camera meanwhile
   let replayDue = null, replay = null, liveShot = null;
+  // the fans (gl/crowd.js createRoar): how loud each side is, on the live world's clock; `calm`
+  // while the viewer has asked for less motion, when they get up without bouncing
+  let roar = null, calm = false;
   // the bags the picture last left taken (director.js pictureAfter): an at-bat that starts from
   // others opens on a cutaway while everyone takes their places
   let shown = null;
@@ -105,11 +108,12 @@ export function createGrandstandView(host, opts = {}) {
 
   function loadMods() {
     return (modsP ??= Promise.all([import('./gl/ballpark.js'), import('./diamond/hud.js'), import('./diamond/camera.js'), import('./diamond/cast.js'),
-      import('./diamond/world.js'), import('./diamond/director.js'), import('./diamond/spectacle.js'), import('./diamond/replay.js')])
-      .then(([park, hudMod, cam, cast, world, director, fx, rp]) => (mods = {
+      import('./diamond/world.js'), import('./diamond/director.js'), import('./diamond/spectacle.js'), import('./diamond/replay.js'), import('./gl/crowd.js')])
+      .then(([park, hudMod, cam, cast, world, director, fx, rp, crowd]) => (mods = {
         ...park, hud: hudMod, project: cam.project, shotAt: cam.shotAt, numberOf: cast.numberOf, pictureAfter: director.pictureAfter,
         createWorld: world.createWorld, DT: world.DT, createDirector: director.createDirector, splashOf: fx.splashOf,
         replayOf: rp.replayOf, stageReplay: rp.stageReplay, REPLAY: rp.REPLAY, fxEnd: fx.endOf,
+        cheerOf: fx.cheerOf, createRoar: crowd.createRoar,
       })));
   }
 
@@ -164,6 +168,7 @@ export function createGrandstandView(host, opts = {}) {
     mounted = true;
     W = mods.createWorld();
     D = mods.createDirector(W, { onLand: () => landPlay(cur), emit: fromDirector });
+    roar = mods.createRoar();
     hud = mods.hud.createHud(host.querySelector('.gds-hud'), {
       theme: theme(),
       project: (p, w, h) => mods.project(view(), w, h, p),
@@ -223,6 +228,7 @@ export function createGrandstandView(host, opts = {}) {
       for (const b of RW.bodies.values()) { const P = RW.pose(b.slot); if (P) R.setPose(b.slot, P); }
       R.setBall(RW.ballAt());
       R.setSpectacle?.(replay ? replay.D.fx : D.fx, RW.t);
+      R.setCrowd?.(roar.at(W.t), W.t, !calm);
       if (replay && (replay.still ? W.t >= replay.until : RW.t >= replay.to - 1e-9)) endReplay();
     }
     lastNow = now;
@@ -261,6 +267,9 @@ export function createGrandstandView(host, opts = {}) {
     paintHud();
   }
   function stopReplay() { replayDue = null; if (replay) endReplay(); }
+  // Whose fans a side of a play is: 0 the home fans, 1 the visitors' (the home side bats in the
+  // bottom of an inning).
+  const fansOf = (p, side) => ((side === 'bat') === (p.half === 'bottom') ? 0 : 1);
   // Who's on the field for this payload, and the clubs whose kits they wear.
   function castFor(p) {
     const top = p.half === 'top', cast = mods.castOf(p);
@@ -373,6 +382,8 @@ export function createGrandstandView(host, opts = {}) {
       say(mods.hud.stealSaid(S.steal));
     }
     land();
+    // the fans whose play it was get up as it lands (a home run had them up off the bat)
+    if (c.cheer) roar.cheer(fansOf(p, c.cheer.side), c.cheer.amp, W.t, c.cheer.hold);
     // a big play gets its replay once the line's up and any fireworks are out (it would hide
     // them), if the hold has room for it before the next payload's due: a payload that doesn't say
     // how long it holds gets none
@@ -490,7 +501,13 @@ export function createGrandstandView(host, opts = {}) {
     const mine = cur;
     live = true; acc = 0;
     const cutaway = !!shown && shown.some((b, i) => b !== !!before[i]);
-    D.stage(p, cast, { cutaway, motion: !prefersReducedMotion() });
+    calm = prefersReducedMotion();
+    D.stage(p, cast, { cutaway, motion: !calm });
+    // the fans: a ball they can see is gone brings them up off the bat, anything else as it lands
+    const ch = mods.cheerOf(p), hit = D.log[D.log.length - 1]?.contact?.t;
+    roar.prune(W.t);
+    if (ch && ch.from === 'contact' && Number.isFinite(hit)) roar.cheer(fansOf(p, ch.side), ch.amp, hit + 0.35, ch.hold);
+    else cur.cheer = ch;
     if (D.cutaway && !opts.shot) shot = 'sky';
     shown = mods.pictureAfter(p);
     // while frames run the world lands it; if they've stopped (a hidden tab) this does

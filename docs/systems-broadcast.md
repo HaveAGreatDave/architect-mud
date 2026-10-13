@@ -1049,6 +1049,16 @@ Built so far (Phases 1 and 2 of the plan):
   matchup with both season lines, a steal's card with its clocks and a home run's distance, and
   its board in words carries the leaders' table between innings, so nothing on the hidden graphics
   canvas is only a picture;
+- the crowd (Phase 4c, [gl/crowd.js](../client/game/js/panels/gl/crowd.js)): every fan is one
+  figure in three poses, sitting, standing and cheering (`crowdMorph` pairs the poses vertex for
+  vertex), and the vertex shader moves him between them by how loud his side is. A play's cheer
+  (spectacle.js `cheerOf`) says whose fans, how loud and how long: a home run brings its side up
+  off the bat, a run, a double play, a great catch or a strikeout ending a half as it lands. Each
+  side's roar rises, holds and falls away (`createRoar`, a pure function of time), and each fan
+  gets up once it passes his own threshold, hashed from his seat, so a big play brings a whole
+  stand up and a small one a few; up, he bounces and sways on his own beat. Most fans are the home
+  side's, more of the visitors' up the third-base line by their dugout. With reduced motion they
+  still stand, without the bouncing;
 - replays (Phase 4b, [diamond/replay.js](../client/game/js/panels/diamond/replay.js)): a walk-off,
   a home run, a triple or double play, a catch that took a dive, a slide or a leap, a triple and a
   call at first closer than 0.15 s are shown again in slow motion. Staging is a pure function of

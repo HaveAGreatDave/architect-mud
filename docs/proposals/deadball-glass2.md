@@ -9,8 +9,8 @@ played out in the park with its cameras and its cutaways (3c), and the men on th
 it out and trotting up after ball four, the changeover, and the steals, throws over and wild
 pitches played on the bases (3d), and the spectacle: the comet's tail, sparks off the bat,
 fireworks, the home-run camera and the splash words (3e); and from Phase 4, reduced motion and
-the play by play in words for a screen reader (4a) and slow-motion replays (4b). The rest of Phase
-4 and Phases 5 to 7 are design.** A plan for giving Deadball a 3-D sub-screen the way Cluster Puck got Rinkside, at the
+the play by play in words for a screen reader (4a), slow-motion replays (4b) and a crowd that gets
+up for the plays (4c). The rest of Phase 4 and Phases 5 to 7 are design.** A plan for giving Deadball a 3-D sub-screen the way Cluster Puck got Rinkside, at the
 highest fidelity the engine can reach. Deadball is a live sport on KSAB, and the broadcast borrows
 the look of a 1990s arcade baseball game. That means skinned, detailed players, authored animation
 with a wide spread of plays, light from the park's own towers and a crowd that fills the stands.
@@ -1756,6 +1756,18 @@ Phase 3, or with sim v2 if that comes later.
   triple play from the next games) and checks it's the same play to a micron with its moment in
   its camera's frame, and the view plays one, at 0.4 of the live clock, its bug up and its camera
   on, and the live camera back after.
+
+- **4c built, the crowd that reacts:** every fan is one figure in three poses, sitting, standing
+  and cheering, which `crowdMorph` pairs vertex for vertex, and [gl/crowd.js](../../client/game/js/panels/gl/crowd.js)'s
+  vertex shader moves him between them by how loud his side is, drawn as the crowd already was, one
+  instanced draw for each pose a fan rests in. A play's cheer (`cheerOf`) gives the side, how loud and how long: a home
+  run brings its side's fans up off the bat, and a run, a double play, a great catch or a
+  strikeout ending a half as it lands. Each side's roar (`createRoar`) is a pure function of time,
+  and each fan gets up at his own threshold, hashed from his seat, then bounces and sways on his
+  own beat; with reduced motion he stands without the bouncing. Most fans are the home side's,
+  more of the visitors' up the third-base line. This is the plan's crowd without the
+  vertex-animation clips: a crowd seen from the cameras' distances reads by standing up, not by
+  what its hands do. The camera flashes at night are 4e's.
 
 **Phase 4: the broadcast.** On by default wherever WebGL2 and float targets work.
 - `gl/crowd.js` with seated and reaction clips; replays in slow motion; dead-time rituals; the grounds

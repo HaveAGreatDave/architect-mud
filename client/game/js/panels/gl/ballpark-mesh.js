@@ -501,3 +501,24 @@ export function crowdMesh(kind, { towels = false, far = false } = {}) {
   return new Float32Array(out);
 }
 export const CROWD_VERTEX = 7;
+
+// The three poses as one figure, so a fan can get up (gl/crowd.js): each vertex's place and
+// normal sitting, standing and cheering, then its part. crowdMesh builds every pose from the same
+// pieces in the same order, so their vertices pair up; the towel only the cheer holds is folded
+// into the hand in the other two.
+export const CROWD_MORPH = 19;
+const CROWD_HAND = { sit: [0.24, 1.95, 0.75], stand: [0.5, 2.95, 0.25] };
+export function crowdMorph(o = {}) {
+  const sit = crowdMesh('sit', { ...o, towels: false }), stand = crowdMesh('stand', { ...o, towels: false }), cheer = crowdMesh('cheer', o);
+  const V = CROWD_VERTEX, n = cheer.length / V, body = sit.length / V;
+  if (stand.length / V !== body || n < body) throw new Error('the crowd\'s poses no longer pair up');
+  const out = new Float32Array(n * CROWD_MORPH);
+  for (let i = 0; i < n; i++) {
+    const at = i * CROWD_MORPH, c = i * V;
+    if (i < body) { out.set(sit.subarray(c, c + 6), at); out.set(stand.subarray(c, c + 6), at + 6); }
+    else { out.set([...CROWD_HAND.sit, 0, 1, 0], at); out.set([...CROWD_HAND.stand, 0, 1, 0], at + 6); }
+    out.set(cheer.subarray(c, c + 6), at + 12);
+    out[at + 18] = cheer[c + 6];
+  }
+  return out;
+}

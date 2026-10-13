@@ -550,6 +550,22 @@ for (const kind of ['sit', 'stand', 'cheer']) for (const far of [false, true]) {
   check('numbers: an average', H.fmtAvg(60, 212) === '.283' && H.fmtAvg(3, 3) === '1.000' && H.fmtAvg(0, 0) === '.000', H.fmtAvg(60, 212));
   check('numbers: an ERA, and dashes before an out', H.fmtEra(20, 186) === '2.90' && H.fmtEra(0, 0) === '-.--', H.fmtEra(20, 186));
   check('numbers: the matchup lines', H.batLine([212, 60, 8, 22, 3]) === '.283   8 HR   22 RBI' && H.armLine([5, 2, 186, 20, 44]) === '5–2   2.90 ERA   44 K', H.armLine([5, 2, 186, 20, 44]));
+  // the crowd's one figure in three poses (gl/crowd.js gets a fan up through them): each pose the
+  // figure crowdMesh builds, vertex for vertex, and the towel only the cheer holds folded into the
+  // hand in the other two
+  {
+    const { crowdMesh, crowdMorph, CROWD_MORPH, CROWD_VERTEX } = await import('../../client/game/js/panels/gl/ballpark-mesh.js');
+    for (const far of [true, false]) {
+      const M = crowdMorph({ far, towels: true }), n = M.length / CROWD_MORPH, poses = ['sit', 'stand', 'cheer'].map((k) => crowdMesh(k, { far, towels: k === 'cheer' }));
+      let bad = 0, folded = 0;
+      for (let i = 0; i < n; i++) for (let k = 0; k < 3; k++) {
+        const src = poses[k], at = i * CROWD_VERTEX;
+        if (at < src.length) { for (let j = 0; j < 6; j++) if (M[i * CROWD_MORPH + k * 6 + j] !== src[at + j]) bad++; }
+        else folded++;
+      }
+      check(`crowd (${far ? 'far' : 'near'}): one figure in three poses, vertex for vertex`, !bad && n === poses[2].length / CROWD_VERTEX && folded === 2 * (n - poses[0].length / CROWD_VERTEX), `${bad} off, ${folded} folded`);
+    }
+  }
   // every kind of card the grandstand puts up has its words
   const W = H.HUD_THEME.words;
   check('theme: a word for every splash and steal', ['homerun', 'grandslam', 'walkoff', 'doubleplay', 'tripleplay', 'extras', 'gamewin', 'champion', 'matchup', 'steal', 'caughtstealing', 'doublesteal', 'strikeout', 'walk',

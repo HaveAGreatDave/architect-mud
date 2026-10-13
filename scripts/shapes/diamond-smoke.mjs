@@ -63,7 +63,9 @@
 //      its sparks above the stands, framed by the wide shot it's cut to once the ball's down, never
 //      more than three in a second, and the high camera back after the last; the home-run camera
 //      riding beside the ball, keeping it in frame (95%) from inside the park; and with reduced
-//      motion, no camera riding with it and nothing at all. Every play's own splash has its words.
+//      motion, no camera riding with it and nothing at all. Every play's own splash has its words,
+//      and every play's cheer (spectacle.js cheerOf) is a side, a level and a time; the roar
+//      (gl/crowd.js createRoar) rises, holds and falls as a cheer says.
 //   1f. REDUCED MOTION, every ball in play staged again with it, without running the world: every
 //      camera a still one (the same camera at every t), the ball in the frame of the still that's up
 //      as each of its flights ends, and nothing of the spectacle.
@@ -89,7 +91,7 @@
 //      innings. A home run with room in its hold plays its replay (diamond/replay.js): its bug up and
 //      its camera on while it plays, its world at REPLAY.rate of the live one to the end of its
 //      window, not before the fireworks are out, the live camera back after, and the live text
-//      saying so; and the same home run with
+//      saying so, and the batting side's fans up for it; and the same home run with
 //      reduced motion holds a still of its moment instead.
 //
 // A runner's legs in the picture are checked against the sim's (play.js legsOf works speedOf over
@@ -114,7 +116,8 @@ const { isShot, shotAt, project } = await import(P + 'diamond/camera.js');
 const { pitchText } = await import(P + 'gameday.js');
 const { BAGS } = await import(P + 'diamond/geo.js');
 const { legsOf, fenceAt, sprayOf } = await import(P + 'diamond/play.js');
-const { HARD, KINDS: FX, particleAt, trailAt, endOf: fxEnd, splashOf } = await import(P + 'diamond/spectacle.js');
+const { HARD, KINDS: FX, particleAt, trailAt, endOf: fxEnd, splashOf, cheerOf } = await import(P + 'diamond/spectacle.js');
+const { createRoar, ROAR } = await import(P + 'gl/crowd.js');
 const { replayOf, stageReplay, REPLAY } = await import(P + 'diamond/replay.js');
 const { HUD_THEME } = await import(P + 'diamond/hud.js');
 const { dugoutSpot, dugoutOf } = await import(P + 'diamond/bases.js');
@@ -748,6 +751,23 @@ for (const { p, seed } of runs) {
     const sp = splashOf(p);
     if (sp) check('every play\'s own splash has its words', !!HUD_THEME.words[sp.kind], `${p.kind}: ${sp.kind}`);
   }
+  // the fans (gl/crowd.js): every play's cheer is a side, a level and a time, a home run's off the
+  // bat; and the roar rises, holds and falls as a cheer says, the loudest of a side's at a time
+  for (const p of order) {
+    const ch = cheerOf(p);
+    if (ch) check('the fans: a play\'s cheer is a side, a level and a time', (ch.side === 'bat' || ch.side === 'field') && ch.amp > 0 && ch.amp <= 1 && ch.hold > 0 && (ch.from === 'land' || ch.from === 'contact'), `${p.kind}: ${JSON.stringify(ch)}`);
+  }
+  check('the fans: a home run brings them up off the bat', cheerOf({ kind: 'homerun', play: {} })?.from === 'contact');
+  {
+    const R = createRoar();
+    R.cheer(0, 0.8, 10, 2); R.cheer(0, 0.5, 11, 0); R.cheer(1, 0.6, 20, 1);
+    const at = (t) => R.at(t), near = (a, b) => Math.abs(a - b) < 1e-9;
+    const ok = at(9.99)[0] === 0 && near(at(10 + ROAR.rise / 2)[0], 0.4) && at(10 + ROAR.rise + 1)[0] === 0.8 && near(at(10 + ROAR.rise + 2 + ROAR.fall / 2)[0], 0.4)
+      && at(10 + ROAR.rise + 2 + ROAR.fall + 0.01)[0] === 0 && at(12)[1] === 0 && at(20 + ROAR.rise)[1] === 0.6;
+    check('the fans: a cheer rises, holds and falls away, the loudest of a side\'s at a time', ok, JSON.stringify([at(10.1), at(12), at(20.4)]));
+    R.prune(40);
+    check('the fans: a cheer that\'s over is forgotten', R.size === 0, String(R.size));
+  }
 }
 
 // ── 1f. reduced motion ───────────────────────────────────────────────────────
@@ -821,13 +841,14 @@ for (const { p, seed } of runs) {
 
 // ── 2. the view ──────────────────────────────────────────────────────────────
 // A renderer that records what it's handed: the cast, the poses by slot, the ball, the shots.
-const rec = { poses: new Map(), balls: 0, frames: 0 };
+const rec = { poses: new Map(), balls: 0, frames: 0, roar: [0, 0] };
 const renderer = () => ({
   kind: 'stub', lost: false, quality: { dpr: 1, tube: false }, casters: [],
   setCast(cast) { rec.cast = cast; return 0; },
   setPose(slot, pose) { rec.poses.set(slot, pose); },
   setBall(p) { if (p) rec.balls++; },
   render() { rec.frames++; return true; },
+  setCrowd(levels) { rec.roar = [Math.max(rec.roar[0], levels[0]), Math.max(rec.roar[1], levels[1])]; },
   setBoard() {}, setVenue() { return null; }, pump() { return 0; }, pending: () => 0, dispose() {},
 });
 {
@@ -882,7 +903,7 @@ const renderer = () => ({
   feed.forEach((p, k) => {
     const line = `line ${k}: ${p.desc || p.phase || p.kind}`;
     const label = `seed ${SEED} view #${k} ${p.phase || p.kind}`;
-    rec.poses.clear(); rec.balls = 0;
+    rec.poses.clear(); rec.balls = 0; rec.roar = [0, 0];
     const sounds0 = stub.sounds.length, said0 = said.length, quiet = k === quietAt, calm = calmAt.has(k);
     if (calm) globalThis.document.documentElement.setAttribute('data-motion', 'off');
     if (quiet) globalThis.document.documentElement.setAttribute('data-play-by-play', 'off');
@@ -963,6 +984,8 @@ const renderer = () => ({
             check('a replay: slow motion, its world at REPLAY.rate of the live one, to the end of its window', !r.still && Math.abs(rate - REPLAY.rate) < 0.03 && r.W.t >= r.to - 1e-6, `${label}: ${rate.toFixed(3)}, ${(r.W.t - r.to).toFixed(3)} s from its end`);
           }
           check('a replay: the live text says so', said.slice(said0).some((x) => /^Replay/.test(x)), label);
+          const fans = p.half === 'bottom' ? 0 : 1;
+          check('the fans: a home run gets the batting side\'s fans up', rec.roar[fans] >= 0.9, `${label}: ${rec.roar.map((x) => x.toFixed(2))}`);
           const shellsOut = Math.max(-Infinity, ...(D.fx || []).filter((e) => e.kind === 'burst').map(fxEnd));
           check('a replay: it waits for the fireworks to be out', live0 >= shellsOut - 1e-6, `${label}: ${(shellsOut - live0).toFixed(2)} s early`);
         }
