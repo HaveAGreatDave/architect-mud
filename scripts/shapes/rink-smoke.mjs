@@ -119,6 +119,11 @@ async function play(slot) {
     if (ok && to) lastPassTo.set(to, { from, t: W.t });
     return ok;
   };
+  // EVERY SOUND THE RINK ASKS FOR IS ONE THE SOUNDSET KNOWS (the event table in
+  // client/shared/hockey-sfx.js): a key it doesn't know is a sound that never plays.
+  const sfxKeys = new Set(Object.keys(globalThis.window.HockeySfx.EVENTS)), unknownSfx = new Set();
+  const sfx0 = W.sfx;
+  W.sfx = (key, o) => { if (!sfxKeys.has(key)) unknownSfx.add(key); return sfx0(key, o); };
   const act0 = W.act;
   W.act = (b, name, dur, data) => {
     if (name === 'saucer' && b && b.scripted && D.kind() === 'rush' && !((curG && curG.cues) || []).some((c) => c.pass === 'saucer')) unasked.push(`${b.name || b.kind} at ${(W.t - tApply).toFixed(2)}s`);
@@ -383,6 +388,7 @@ async function play(slot) {
   check(`${slot}: the renderer drew`, renders > 100 && stub.drawn.images > 1000, `${renders} frames, ${stub.drawn.images} images`);
   check(`${slot}: the held caption went up`, String(host.find('.gdr-cap-text')?.textContent || '').length > 0);
   check(`${slot}: sounds played`, stub.sounds.length > 20, `${stub.sounds.length}`);
+  check(`${slot}: every sound the rink asks for is in the soundset`, unknownSfx.size === 0, [...unknownSfx].join(', '));
   view.clear();
   check(`${slot}: clear empties the host`, host.children.length === 0);
 }

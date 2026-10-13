@@ -474,7 +474,7 @@ export function createWorld(ice, seedKey) {
       pk.x = c.x; pk.y = c.y;
       if (vn < 0) {
         pk.vx -= 1.55 * vn * c.nx; pk.vy -= 1.55 * vn * c.ny;
-        if (-vn > 18) { W.sfx(pk.z > BOARD_H ? 'glass' : 'boards'); W.boardShake = Math.max(W.boardShake, Math.min(0.5, -vn / 120)); }
+        if (-vn > 18) { W.sfx(pk.z > BOARD_H ? 'glass' : 'boards', { puck: true, speed: -vn, x: pk.x }); W.boardShake = Math.max(W.boardShake, Math.min(0.5, -vn / 120)); }
         if (-vn > 30 && pk.z < 0.5) W.ice.puckMark(pk.x, pk.y, -c.nx, -c.ny);
       }
     }
@@ -617,10 +617,10 @@ export function createWorld(ice, seedKey) {
       if (shatter && !W.broken.has(i)) {
         W.broken.add(i);
         W.burst('shard', x, RW - 0.4, (BOARD_H + GLASS_H) / 2, 60, 9, [0, -2, 3]);
-        W.sfx('shatter');
+        W.sfx('shatter', { x });
       } else if (speed > 14 && W.cracks.length < 8) W.cracks.push({ x, z: clamp(z, BOARD_H + 0.8, GLASS_H - 0.8), seed: (x * 997) | 0 });
-      W.sfx('glass');
-    } else W.sfx('boards');
+      W.sfx('glass', { speed, x });
+    } else W.sfx('boards', { speed, x });
     W.burst('spray', x, Math.min(RW - 1, Math.max(1, 0)), 0.3, 6, 6, [0, 0, 3]);
   };
   W.bloodOnGlass = (x, z, r) => { if (x > PANEL_X0 && x < RL - PANEL_X0) W.glassBlood.push({ x, z: clamp(z, BOARD_H + 0.5, GLASS_H - 0.4), r, seed: (x * 31 + z * 7) | 0 }); if (W.glassBlood.length > 30) W.glassBlood.shift(); };
@@ -792,6 +792,10 @@ export function createWorld(ice, seedKey) {
         W.ice.scrape(b.x - Math.sin(b.h) * 0.4, b.y + Math.cos(b.h) * 0.4, b.vx, b.vy, clamp(sp * 0.22, 1.6, 4.5), (W.t * 977) | 0);
         if (sp > 14 && rand() < 0.4) W.sfx('stop', { x: b.x });
       }
+      // a hard turn at speed scrapes: now and then, not every man every step (a second and a
+      // bit between one man's, and the rink spaces them all out; no dice, so the play's own
+      // rolls aren't moved)
+      if (sp > 12 && Math.abs(b.turnRate) > 2.6 && W.t - (b.turnSfxAt || -9) > 1.2 && b.kind === 'skater') { b.turnSfxAt = W.t; W.sfx('turn', { x: b.x }); }
       // THE BLADES SCORE THE ICE, from where the blades actually are. Each skate's runner is
       // traced while it is down, so the marks are the real push arcs and crossovers the
       // stride makes, and a lifted skate leaves a gap. A man missing a leg drags the stump.

@@ -217,6 +217,7 @@ function renderInterfaceSfxSection() {
       <div style="padding:5px 16px;background:var(--bg3);border-top:1px solid var(--border);border-bottom:1px solid var(--border)">
         <span style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--accent)">${GROUP_LABELS[g] || g}</span>
       </div>
+      ${g === 'hockey' ? renderHockeyBoard(sfxByGroup[g]) : ''}
       <table><thead><tr><th>Cue</th><th>ID</th><th style="text-align:center;width:60px">Priority</th><th style="text-align:center;width:50px">State</th><th></th></tr></thead><tbody>${rows}</tbody></table>
     </div>`;
   }).join('');
@@ -229,6 +230,89 @@ function renderInterfaceSfxSection() {
 }
 
 function _sfxEntry(id) { return _sfxEntries.find(e => e.id === id); }
+
+// ── The hockey sound board ───────────────────────────────────────────────────
+// Over the hockey group: any patch at a chosen take and intensity, the moments of a game in
+// sequence and all at once, the live crowd bed driven through its states, and a WAV of a
+// patch rendered offline by this browser. It plays what the catalog plays (an edit saved
+// here is what you hear). docs/systems-hockey-sound.md is the reference.
+function renderHockeyBoard(entries) {
+  if (!window.HockeySfx) return '';
+  const opts = (entries || []).map(e => `<option value="${e.id}">${e.name}</option>`).join('');
+  const btn = (label, js, title = '') => `<button class="action-btn" style="font-size:10px;padding:3px 9px" onclick="${js}" title="${title}">${label}</button>`;
+  const states = Object.keys(window.HockeySfx.CROWD_STATES || {}).map(st => btn(st, `hkCrowd('state','${st}')`)).join(' ');
+  return `<div style="padding:10px 16px;border-bottom:1px solid var(--border);display:grid;gap:8px;font-size:11px">
+    <div style="color:var(--text-dim)">Sound board: a take of any patch, the moments of a game, and the live crowd. Takes are seeded, so a number is the same take every time.</div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+      <select id="hk-patch" style="max-width:260px">${opts}</select>
+      <label>Take <input id="hk-seed" type="number" value="1" style="width:64px"></label>
+      <label>Intensity <input id="hk-int" type="range" min="0" max="1" step="0.05" value="1" style="width:110px"></label>
+      ${btn('▶ Play', 'hkPlay()')} ${btn('▶ Next take', 'hkPlay(1)')} ${btn('▶ Three takes', 'hkTakes()')} ${btn('⬇ WAV', 'hkWav()', 'Render this take offline and save it')}
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center"><span style="color:var(--text-dim)">Moments:</span>
+      ${btn('A rush', "hkMoment('rush')")} ${btn('A goal', "hkMoment('goal')")} ${btn('A big hit', "hkMoment('hit')")} ${btn('End of a period', "hkMoment('period')")} ${btn('All at once', "hkMoment('all')", 'The busiest moment: horn, whistle, a check, the crowd and a scramble of contacts')}
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center"><span style="color:var(--text-dim)">Crowd:</span>
+      ${btn('Start', "hkCrowd('start')")} ${states} ${btn('Gasp', "hkCrowd('gasp')")} ${btn('Cheer', "hkCrowd('cheer')")} ${btn('Celebrate', "hkCrowd('celebrate')")} ${btn('Duck', "hkCrowd('duck')")} ${btn('Stop', "hkCrowd('stop')")}
+    </div>
+  </div>`;
+}
+function _hkTake(id, seed, intensity) {
+  const H = window.HockeySfx, def = window.SFXCatalog?.get ? window.SFXCatalog.get(id) : H.get(id);
+  return def ? H.variant(def, seed, 1, intensity) : null;
+}
+function _hkFire(id, seed, intensity, gain) {
+  const t = _hkTake(id, seed ?? ((Math.random() * 1e6) | 0), intensity ?? 1);
+  if (!t) return;
+  try { window.AudioEngine.init(); window.AudioEngine.playSfx(t, gain ?? 1); } catch { toast('Audio engine not ready', true); }
+}
+window.hkPlay = function (next) {
+  const seedEl = document.getElementById('hk-seed');
+  if (next) seedEl.value = (parseInt(seedEl.value, 10) || 0) + 1;
+  _hkFire(document.getElementById('hk-patch').value, parseInt(seedEl.value, 10) || 0, parseFloat(document.getElementById('hk-int').value));
+};
+window.hkTakes = function () {
+  const id = document.getElementById('hk-patch').value, base = parseInt(document.getElementById('hk-seed').value, 10) || 0;
+  const gap = Math.max(0.35, (window.HockeySfx.get(id)?.config?.duration || 0.2) + 0.3);
+  [0, 1, 2].forEach(k => setTimeout(() => _hkFire(id, base + k, parseFloat(document.getElementById('hk-int').value)), k * gap * 1000));
+};
+window.hkWav = async function () {
+  const id = document.getElementById('hk-patch').value, seed = parseInt(document.getElementById('hk-seed').value, 10) || 0;
+  const take = _hkTake(id, seed, parseFloat(document.getElementById('hk-int').value));
+  const buf = take && await window.AudioEngine.renderSfx(take);
+  if (!buf) { toast('This browser cannot render offline', true); return; }
+  const url = URL.createObjectURL(new Blob([window.AudioEngine.wavBytes(buf)], { type: 'audio/wav' }));
+  const a = document.createElement('a'); a.href = url; a.download = `${id}-take${seed}.wav`; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+};
+// The moments, as the rink sequences them: [seconds, patch, intensity] and crowd calls.
+const HK_MOMENTS = {
+  rush: [[0, 'hk-faceoff-drop'], [0.25, 'hk-stick-hit'], [0.7, 'hk-skate-turn', 0.8], [1.0, 'hk-pass'], [1.3, 'hk-puck-stick'], [1.75, 'hk-boards', 0.9], [2.1, 'hk-skate-stop', 0.8],
+    [2.4, 'hk-puck-stick-hard'], [2.75, 'hk-shot-wrist'], [2.95, 'hk-pad-save'], [3.6, 'hk-whistle-short']],
+  goal: [[0, 'hk-pass'], [0.35, 'hk-puck-slap'], [0.5, 'hk-net'], [0.55, 'hk-goal-horn'], [0.55, 'crowd:duck'], [0.75, 'crowd:celebrate']],
+  hit: [[0, 'hk-skate-turn'], [0.45, 'hk-check-boards'], [0.55, 'crowd:cheer'], [1.5, 'hk-whistle']],
+  period: [[0, 'hk-whistle'], [0.7, 'hk-period-horn'], [0.7, 'crowd:duck']],
+  all: [[0, 'hk-goal-horn'], [0.02, 'hk-whistle-short'], [0.1, 'hk-check-boards'], [0.2, 'crowd:celebrate'],
+    ...['hk-puck-stick-hard', 'hk-boards-hard', 'hk-stick-hit', 'hk-puck-stick', 'hk-boards', 'hk-pass', 'hk-skate-stop', 'hk-puck-body'].map((id, k) => [0.05 + k * 0.05, id, 1, 0.6])],
+};
+let _hkCrowd = null;
+window.hkCrowd = function (what, arg) {
+  const H = window.HockeySfx;
+  if (!_hkCrowd && what !== 'stop') { try { window.AudioEngine.init(); } catch {} _hkCrowd = H.crowdBed(); if (!_hkCrowd) { toast('Audio engine not ready', true); return; } _hkCrowd.start().setState('active'); }
+  if (!_hkCrowd) return;
+  if (what === 'state') _hkCrowd.setState(arg);
+  else if (what === 'duck') _hkCrowd.duck(5, 0.6);
+  else if (what === 'stop') { _hkCrowd.stop(); _hkCrowd = null; }
+  else if (what !== 'start') _hkCrowd[what]();
+};
+window.hkMoment = function (name) {
+  for (const [t, what, intensity, gain] of HK_MOMENTS[name] || []) {
+    setTimeout(() => {
+      if (what.startsWith('crowd:')) window.hkCrowd(what.slice(6));
+      else _hkFire(what, null, intensity ?? 1, gain ?? 1);
+    }, t * 1000);
+  }
+};
 
 // Play a synth def through the shared audio engine — a click is a valid gesture
 // to unlock the AudioContext. Priority + config come from the entry (or a live
@@ -273,6 +357,10 @@ function editSfx(id) {
       <div class="field"><label>Priority (1-10)${_help('When too many sounds play at once, lower-priority SFX are dropped first (voice-stealing).')}</label><input id="am-priority" type="number" min="1" max="10" value="${e.priority}"></div>
       <div class="field"><label>Duration (sec)${_help('Total length of the SFX; layers play within this window.')}</label><input id="am-sfx-duration" type="number" step="0.05" min="0.05" value="${e.config?.duration ?? 0.4}"></div>
     </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 2fr;gap:12px;margin-bottom:6px">
+      <div class="field"><label>Retro rate (Hz)${_help('Sample-and-hold: each sample held for 1/rate of a second, the grit of an 8–16 kHz cartridge sample. 0 is off. The output rate never changes.')}</label><input id="am-retro-rate" type="number" step="500" min="0" value="${e.config?.retro?.rate ?? 0}"></div>
+      <div class="field"><label>Retro bits${_help('Rounds what is held to this many bits, relative to the cue\'s own full scale (8 is gritty, 10 mild). 0 is off.')}</label><input id="am-retro-bits" type="number" step="1" min="0" max="16" value="${e.config?.retro?.bits ?? 0}"></div>
+    </div>
     <div style="font-size:11px;color:var(--text-dim);margin-bottom:12px">
       <code style="color:var(--text-dim)">${e.id}</code> · group <span style="color:var(--accent)">${GROUP_LABELS[e.group] || e.group}</span> · built-in default priority ${e.defaultPriority}. Use ↺ in the list to discard edits.
     </div>
@@ -292,6 +380,8 @@ function editSfx(id) {
     const layers = _sfxReadAllLayers();
     const duration = parseFloat(document.getElementById('am-sfx-duration').value) || 0.4;
     const config = layers.length === 1 ? { ...layers[0], duration } : { layers, duration };
+    const retro = _sfxReadRetro();
+    if (retro) config.retro = retro;
     const body = {
       name: document.getElementById('am-name').value.trim() || e.defaultName,
       grp: e.group,
@@ -551,7 +641,17 @@ function _previewSfxForm() {
   const layers = _sfxReadAllLayers();
   const duration = parseFloat(document.getElementById('am-sfx-duration')?.value) || 0.4;
   const config = layers.length === 1 ? { ...layers[0], duration } : { layers, duration };
+  const retro = _sfxReadRetro();
+  if (retro) config.retro = retro;
   window.AudioEngine.playSfx({ priority: 9, category: 'sfx', config });
+}
+
+// The cue's retro stage (sample-and-hold rate and bit depth; see AudioEngine's retroStage),
+// read from the editor when it shows the fields: null when both are off.
+function _sfxReadRetro() {
+  const rate = parseFloat(document.getElementById('am-retro-rate')?.value), bits = parseFloat(document.getElementById('am-retro-bits')?.value);
+  if (!(rate > 0) && !(bits > 0)) return null;
+  return { ...(rate > 0 ? { rate } : {}), ...(bits > 0 ? { bits } : {}) };
 }
 
 // ── Import / Export (JSON presets — never real audio files, see note above) ──
@@ -1370,6 +1470,9 @@ function _sfxRenderLayers() {
           <div class="field"><label>Delay (s) <span style="color:var(--text-dim);font-weight:400" title="Seconds before this layer starts, relative to when the SFX plays">⏱</span></label>
             <input id="${p}-delay" type="number" step="0.01" min="0" value="${layer.delay ?? 0}">
           </div>
+          <div class="field"><label>Envelope${_help('Linear ramps, or exponential: a struck sound dies exponentially, a hard transient then a short tail (decay = about where it is 26 dB down).')}</label>
+            <select id="${p}-curve"><option value="linear" ${layer.adsr?.curve === 'exp' ? '' : 'selected'}>linear</option><option value="exp" ${layer.adsr?.curve === 'exp' ? 'selected' : ''}>exponential</option></select>
+          </div>
         </div>
         ${instrumentLikeConfigFields(layer, p)}
       </div>
@@ -1418,7 +1521,9 @@ function _sfxSaveOpenLayers() {
     layer.delay = num(`${p}-delay`, 0);
     const fm = _readFmBlock(p);
     const echoMix = num(`${p}-echomix`, 0);
-    layer.adsr = { a: num(`${p}-a`, 0.01), d: num(`${p}-d`, 0.05), s: num(`${p}-s`, 0.7), r: num(`${p}-r`, 0.15) };
+    // (the curve is kept: a struck sound decays exponentially, `curve: 'exp'`)
+    const curve = document.getElementById(`${p}-curve`)?.value;
+    layer.adsr = { a: num(`${p}-a`, 0.01), d: num(`${p}-d`, 0.05), s: num(`${p}-s`, 0.7), r: num(`${p}-r`, 0.15), ...(curve === 'exp' ? { curve: 'exp' } : {}) };
     layer.filter = { type: document.getElementById(`${p}-filtertype`)?.value || 'lowpass', freq: num(`${p}-filterfreq`, 4000), q: num(`${p}-filterq`, 1),
       ...(num(`${p}-filterto`, 0) > 0 ? { to: num(`${p}-filterto`, 0), time: num(`${p}-filtertime`, 0.2) } : {}) };
     layer.vibrato = { rate: num(`${p}-vibrate`, 0), depth: num(`${p}-vibdepth`, 0) };

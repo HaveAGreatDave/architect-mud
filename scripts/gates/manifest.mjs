@@ -248,11 +248,12 @@ export const GROUPS = [
   },
   {
     name: 'audio',
-    // SIREN scenes: the sea, the boat, the murmuration.
+    // SIREN scenes: the sea, the boat, the murmuration; and the CPhL soundset, rendered.
     gates: [
       'scripts/audio/sea-smoke.mjs',
       'scripts/audio/boat-smoke.mjs',
       'scripts/audio/murmur-smoke.mjs',
+      'scripts/audio/hockey-smoke.mjs',
     ],
   },
   {

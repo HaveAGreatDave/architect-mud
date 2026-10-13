@@ -11,6 +11,16 @@
 // the right fix is to add it — a stub that quietly answers everything hides the fact
 // that it's answering wrongly.
 
+import { readFileSync } from 'node:fs';
+
+// The real soundset (client/shared/hockey-sfx.js), so the rink's events go through the same
+// table that picks their sounds in a browser. It needs no AudioContext to say what to play.
+const HOCKEY_SFX = (() => {
+  const g = {};
+  new Function('globalThis', 'window', readFileSync(new URL('../../client/shared/hockey-sfx.js', import.meta.url), 'utf8'))(g, g);
+  return g.HockeySfx;
+})();
+
 // ── parsing ─────────────────────────────────────────────────────────────────────
 const VOID_TAGS = new Set(['br', 'img', 'input', 'hr', 'meta', 'link', 'use', 'path', 'circle', 'rect', 'line', 'ellipse', 'polygon', 'polyline', 'stop']);
 
@@ -198,8 +208,8 @@ export function __install() {
   // the view reaches the window through its host's document, and plays sound through it
   const sounds = [];
   globalThis.window = doc.defaultView = {
-    AudioEngine: { playSfx: (d) => sounds.push(d && d.id) }, HockeySfx: null,
-    SFXCatalog: { get: (id) => ({ id }) },
+    AudioEngine: { playSfx: (d) => sounds.push(d && d.id) }, HockeySfx: HOCKEY_SFX,
+    SFXCatalog: { get: (id) => HOCKEY_SFX.get(id) },
     requestAnimationFrame: raf, cancelAnimationFrame: caf, performance: perf, devicePixelRatio: 1,
   };
 

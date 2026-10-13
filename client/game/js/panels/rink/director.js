@@ -239,7 +239,8 @@ export function createDirector(W, opts = {}) {
     W.reequip(b); b.rag = null; b.blend = null; b.hold = null; b.down = false; b.missing = {}; b.blood = 0; b.bleeding = 0; b.fountain = null;
     b.jerseyUp = 0; b.react = 0; b.act = null; b.scripted = false; b.shatterNext = false;
   }
-  function whistle() { W.sfx('whistle'); W.frozen = true; }
+  // (a long one stops play for a penalty or a man down; a short blast is any other stoppage)
+  function whistle(long) { W.sfx('whistle', long ? { long: true } : undefined); W.frozen = true; }
   // Back on his feet, he picks his stick up off the ice if it's at his feet. One that flew
   // farther stays where it is (he has a spare from the bench) for the referee to collect.
   function pickUpStick(b) {
@@ -1391,7 +1392,7 @@ export function createDirector(W, opts = {}) {
       if (hurt) {
         // he stays down and play stays stopped until the injury beat comes for him
         victim.down = true;
-        at(B, 1.6, () => whistle());
+        at(B, 1.6, () => whistle(true));
         if (fatal) return;
         at(B, 3.0, () => { B.waiting = true; opts.onDone?.(B.kind); });
       } else {
@@ -1495,7 +1496,7 @@ export function createDirector(W, opts = {}) {
       W.knock(victim, [(r() - 0.5) * 6, (r() - 0.5) * 6, 4], [0, 0, 0]);
       victim.bleeding = 5; victim.blood = 0.7;
       W.burst('blood', victim.x, victim.y, 4.6, 20, 6, [0, 0, 4]);
-      whistle();
+      whistle(true);
     }
     if (p.sever && p.woundPart && !victim.missing[p.woundPart]) at(B, 0.1, () => W.sever(victim, p.woundPart, [8, 6, 8]));
     victim.down = true;
@@ -1825,7 +1826,7 @@ export function createDirector(W, opts = {}) {
     const B = begin('penalty');
     const side = tagSide(p.victimSide) || sideOfTeam(p.victimTeam, p) || 'a';
     const man = bodyFor(side, p.victim || p.player, W.nearestOf(W.mates(side), pk.x, pk.y));
-    whistle(); land(B);
+    whistle(true); land(B);
     const ref = W.officials[1];
     if (ref && ref.active && !ref.rag) W.act(ref, 'point', 1.4);
     if (man) leave(man, clamp(man.x, 85, RL - 85), false);
@@ -1839,6 +1840,8 @@ export function createDirector(W, opts = {}) {
   // sweeps up whatever was left lying on it, until the period's opening draw calls it off.
   function stageIntermission(p) {
     const B = begin('intermission');
+    // the period is over: the buzzer
+    W.sfx('periodHorn');
     D.intermission = { on: [...W.team.a, ...W.team.h].filter((b) => b.active) };
     W.frozen = true; W.puckScripted = true;
     W.fight = null; W.lamp = 0;

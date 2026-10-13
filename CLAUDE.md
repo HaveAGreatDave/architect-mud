@@ -121,6 +121,7 @@ Entries marked **(as built)** describe what actually ships and outrank design in
 - [docs/systems-atm.md](docs/systems-atm.md): ATMs: networks, fees, hacking, replenish, power
 - [docs/systems-instruments.md](docs/systems-instruments.md): playable instruments (as built). Notes use the `instrument_note` route, not dispatch
 - [docs/systems-procedural-audio.md](docs/systems-procedural-audio.md): generated sound: parameters+seed wire format, material tables, the `sfxDetail` tiers (as built)
+- [docs/systems-hockey-sound.md](docs/systems-hockey-sound.md): the CPhL's NHL '96-style FM soundset, its event table and crowd bed (as built). Avoid FM ratios 1 and 0.5 on anything that lasts: they put a sideband at 0 Hz
 - [docs/systems-senses.md](docs/systems-senses.md): smell/listen/sight hooks and their in-memory-only contract (as built)
 - [docs/systems-durability.md](docs/systems-durability.md): item wear and repair (as built). `wear()` is sync; zero condition destroys the item
 - [docs/systems-ascension.md](docs/systems-ascension.md): the Ascendant defection arc and the Long Watch mirror (as built). The Rite must refuse a wanted player

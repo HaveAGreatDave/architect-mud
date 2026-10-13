@@ -91,6 +91,8 @@
     uiGain.connect(masterGain);
     buildReverb();
     _applyGains();
+    // the retro stage's worklet, loaded now so it's ready long before a cue asks for it
+    loadRetro(ctx);
     return ctx;
   }
 
@@ -218,15 +220,90 @@
     }, 90);
   }
 
+  // SEEDED, so a cue renders the same samples every time: a WAV exported for listening and a
+  // check that reads samples (scripts/audio/hockey-smoke.mjs) have to be reproducible, and
+  // Math.random was the one thing in a cue that wasn't. It's the same white noise as before.
+  // A layer's `noiseSeed` starts it somewhere else in the buffer (buildLayer), so two noise
+  // layers, or two takes of one cue, aren't the same grain.
   function getNoiseBuffer() {
     if (_noiseBuffer) return _noiseBuffer;
     const c = ensureContext();
     const length = c.sampleRate * 2;
     const buf = c.createBuffer(1, length, c.sampleRate);
     const data = buf.getChannelData(0);
-    for (let i = 0; i < length; i++) data[i] = Math.random() * 2 - 1;
+    let s = 0x2545f491;
+    for (let i = 0; i < length; i++) { s ^= s << 13; s ^= s >>> 17; s ^= s << 5; data[i] = (s >>> 0) / 2147483648 - 1; }
     _noiseBuffer = buf;
     return buf;
+  }
+  // Where in the noise buffer a seeded layer starts, in seconds (the buffer is 2 s long).
+  const noiseOffset = (seed) => ((Math.imul((seed | 0) ^ 0x5bd1e995, 2654435761) >>> 0) / 4294967296) * 1.6;
+
+  // ── The retro stage: sample-and-hold and bit depth, per cue ────────────────
+  //
+  // A cue with `config.retro: { rate, bits }` goes through it on its way to the bus. `rate`
+  // holds each sample for 1/rate of a second, the way a cartridge's 8–16 kHz samples
+  // stepped (the steps are the grit; nothing smooths them), and `bits` rounds what's held
+  // to that many bits. Both are relative to the cue's own full scale (`ref`, by default the
+  // sum of its layers' peak levels), so 8 bits means a normalised 8-bit sample played at the
+  // cue's volume, and a quiet tail gets grittier as it decays, as one did.
+  //
+  // The engine's output rate never changes: this colours one cue. The hold needs an
+  // AudioWorklet (audio-retro-worklet.js, loaded from beside this file once per context);
+  // until it's loaded, or where there are no worklets, bits alone go through a WaveShaper
+  // staircase and the hold is skipped, so a cue never goes silent for want of it.
+  const _SELF_SRC = (typeof document !== 'undefined' && document.currentScript && document.currentScript.src) || '';
+  let _retroUrl = _SELF_SRC ? new URL('audio-retro-worklet.js', _SELF_SRC).href : '';
+  const _retroState = new WeakMap();   // context -> true (ready) | false (unavailable) | Promise
+  function loadRetro(c) {
+    if (!c || !c.audioWorklet || !_retroUrl) return Promise.resolve(false);
+    if (_retroState.has(c)) return Promise.resolve(_retroState.get(c));
+    const p = c.audioWorklet.addModule(_retroUrl).then(() => { _retroState.set(c, true); return true; },
+      (e) => { _retroState.set(c, false); console.warn('[audio] retro stage unavailable:', e && e.message); return false; });
+    _retroState.set(c, p);
+    return p;
+  }
+  const _stairCurves = new Map();
+  function stairCurve(bits) {
+    const b = Math.max(2, Math.min(16, bits | 0));
+    let c = _stairCurves.get(b);
+    if (c) return c;
+    // 8,192 points so each step is many points wide: a WaveShaper interpolates between
+    // points, and a curve as coarse as its own steps would be a slope, not a staircase.
+    const n = 8192, q = Math.pow(2, b - 1);
+    c = new Float32Array(n);
+    for (let i = 0; i < n; i++) { const x = (i / (n - 1)) * 2 - 1; c[i] = (x >= 0 ? Math.floor(x * q + 0.5) : -Math.floor(-x * q + 0.5)) / q; }
+    _stairCurves.set(b, c);
+    return c;
+  }
+  // Builds the stage into `dest` and hands back what the cue's layers connect to. `until` is
+  // when the cue ends (context time): the worklet stays up till then, even across a gap
+  // between its layers.
+  function retroStage(c, retro, config, dest, until) {
+    const rate = +retro.rate || 0, bits = +retro.bits || 0;
+    if (!(rate > 0 || bits > 0)) return dest;
+    const layers = Array.isArray(config.layers) && config.layers.length ? config.layers : [config];
+    // (a driven layer comes out of its clipper louder than its gain: tanh's own level, at the
+    // drive driveCurve rounds to)
+    const amp = (l) => {
+      const g = Math.abs(l.gain ?? 1);
+      if (!(l.drive > 0)) return g;
+      const k = 1 + (Math.round(Math.min(1, l.drive) * 20) / 20) * 24;
+      return Math.tanh(k * g) / Math.tanh(k);
+    };
+    const ref = Math.max(1e-3, +retro.ref || layers.reduce((s, l) => s + amp(l), 0));
+    let mid = null;
+    if (_retroState.get(c) === true && typeof global.AudioWorkletNode === 'function') {
+      mid = new global.AudioWorkletNode(c, 'siren-retro', { numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [1],
+        channelCount: 1, channelCountMode: 'explicit', processorOptions: { rate, bits, until: until || 0 } });
+    } else if (bits > 0) {
+      mid = c.createWaveShaper();
+      mid.curve = stairCurve(bits);
+    } else return dest;
+    const pre = c.createGain(), post = c.createGain();
+    pre.gain.value = 1 / ref; post.gain.value = ref;
+    pre.connect(mid).connect(post).connect(dest);
+    return pre;
   }
 
   // Browsers refuse to start an AudioContext until a user gesture. Anything the
@@ -630,6 +707,9 @@
       noiseSrc = ctx.createBufferSource();
       noiseSrc.buffer = getNoiseBuffer();
       noiseSrc.loop = true;
+      // `noiseRate` plays it slower or faster: below 1 it's darker, the way hiss sampled at a
+      // low rate was, and two beds at different rates don't repeat together
+      if (layer.noiseRate > 0) noiseSrc.playbackRate.value = layer.noiseRate;
     }
 
     let mixPoint = gain;
@@ -732,16 +812,23 @@
       const noiseGain = ctx.createGain();
       noiseGain.gain.value = noiseMix;
       noiseSrc.connect(noiseGain).connect(gain);
-      noiseSrc.start(time);
+      if (layer.noiseSeed != null) noiseSrc.start(time, noiseOffset(layer.noiseSeed));
+      else noiseSrc.start(time);
       nodes.push(noiseSrc);
     }
 
-    // ADSR
+    // ADSR. `curve: 'exp'` decays and releases exponentially (exp(-t/τ), τ = d/3, so after
+    // `d` it's 5% of the way from peak to sustain), which is how a struck thing dies: a hard
+    // transient and then a short tail, not a straight line to silence. The timing is the
+    // linear envelope's: only the shape differs.
     const peak = layer.gain ?? 1;
     const sustainLevel = peak * (adsr.s ?? 0.7);
+    const expo = adsr.curve === 'exp';
+    const tau = Math.max(0.001, (adsr.d ?? 0.05) / 3);
     gain.gain.setValueAtTime(0, time);
     gain.gain.linearRampToValueAtTime(peak, time + (adsr.a ?? 0.01));
-    gain.gain.linearRampToValueAtTime(sustainLevel, time + (adsr.a ?? 0.01) + (adsr.d ?? 0.05));
+    if (expo) gain.gain.setTargetAtTime(sustainLevel, time + (adsr.a ?? 0.01), tau);
+    else gain.gain.linearRampToValueAtTime(sustainLevel, time + (adsr.a ?? 0.01) + (adsr.d ?? 0.05));
 
     const releaseTime = adsr.r ?? 0.15;
     const attackEnd = time + (adsr.a ?? 0.01);
@@ -764,6 +851,7 @@
     function envelopeAt(t) {
       if (t <= time) return 0;
       if (t < attackEnd) return peak * ((t - time) / Math.max(1e-6, attackEnd - time));
+      if (expo) return sustainLevel + (peak - sustainLevel) * Math.exp(-(t - attackEnd) / tau);
       if (t < decayEnd) {
         const k = (t - attackEnd) / Math.max(1e-6, decayEnd - attackEnd);
         return peak + (sustainLevel - peak) * k;
@@ -777,8 +865,17 @@
       released = true;
       const t = Math.max(atTime, ctx.currentTime);
       gain.gain.cancelScheduledValues(t);
-      gain.gain.setValueAtTime(envelopeAt(t), t);
-      gain.gain.linearRampToValueAtTime(0, t + releaseTime);
+      if (expo) {
+        // down an exponential to -80 dB of where it was, then to zero: the last step is
+        // inaudible, and the envelope ends rather than approaching zero for ever
+        const v0 = Math.max(1e-5, envelopeAt(t));
+        gain.gain.setValueAtTime(v0, t);
+        gain.gain.exponentialRampToValueAtTime(Math.min(v0, v0 * 1e-4 + 1e-6), t + releaseTime);
+        gain.gain.setValueAtTime(0, t + releaseTime);
+      } else {
+        gain.gain.setValueAtTime(envelopeAt(t), t);
+        gain.gain.linearRampToValueAtTime(0, t + releaseTime);
+      }
       for (const n of nodes) {
         try { n.stop(t + releaseTime + 0.02); } catch { /* lfo already stopped */ }
       }
@@ -1041,7 +1138,9 @@
       destination = g;
     }
     const sustain = opts.sustain === true;
-    const sound = buildSound(def.config, destination, time, sustain ? null : duration);
+    // (a cue with `retro` goes through the sample-and-hold and bit-depth stage first)
+    const into = def.config.retro ? retroStage(c, def.config.retro, def.config, destination, time + duration + cueTail(def.config)) : destination;
+    const sound = buildSound(def.config, into, time, sustain ? null : duration);
     const voiceToken = occupyVoice(idx, priority, () => sound.release(c.currentTime));
     if (sustain) {
       let done = false;
@@ -1067,6 +1166,48 @@
       ...(def.config.layers || []).map(l => (l.delay ?? 0) + (l.adsr?.r ?? 0)), 0.15);
     setTimeout(() => freeVoice(idx, voiceToken), (duration + tail + 0.1) * 1000);
     return null;
+  }
+
+  // ── Offline render ─────────────────────────────────────────────────────────
+  // One cue rendered into an AudioBuffer through the very graph playSfx builds (the layers,
+  // the retro stage, the cue's gain), by the browser's own audio engine at the live rate:
+  // for a WAV to listen to on other speakers, and for a check that reads samples rather
+  // than schedules. The live context is swapped out only for the synchronous build, so
+  // nothing playing is touched. `opts`: { seconds, sampleRate, gain }.
+  function cueTail(config) {
+    const layers = Array.isArray(config.layers) && config.layers.length ? config.layers : [config];
+    return Math.max(0.15, ...layers.map((l) => (l.delay ?? 0) + (l.adsr?.a ?? 0.01) + (l.adsr?.d ?? 0.05) + (l.adsr?.r ?? 0.15)));
+  }
+  async function renderSfx(def, opts = {}) {
+    const OAC = global.OfflineAudioContext || global.webkitOfflineAudioContext;
+    const config = def && def.config;
+    if (!OAC || !config) return null;
+    const sr = opts.sampleRate || (ctx && ctx.sampleRate) || 48000;
+    const duration = config.duration ?? 0.4;
+    const seconds = opts.seconds || duration + cueTail(config) + 0.05;
+    const off = new OAC(1, Math.max(1, Math.ceil(sr * seconds)), sr);
+    if (config.retro) await loadRetro(off);
+    const live = ctx;
+    ctx = off;
+    try {
+      let dest = off.destination;
+      if (opts.gain != null && opts.gain !== 1) { const g = off.createGain(); g.gain.value = opts.gain; g.connect(dest); dest = g; }
+      const into = config.retro ? retroStage(off, config.retro, config, dest, seconds) : dest;
+      buildSound(config, into, 0, duration);
+    } finally { ctx = live; }
+    return off.startRendering();
+  }
+  // 16-bit mono WAV bytes from a rendered buffer, for a download link.
+  function wavBytes(buffer) {
+    const d = buffer.getChannelData(0), n = d.length, sr = buffer.sampleRate;
+    const out = new DataView(new ArrayBuffer(44 + n * 2));
+    const str = (o, s) => { for (let i = 0; i < s.length; i++) out.setUint8(o + i, s.charCodeAt(i)); };
+    str(0, 'RIFF'); out.setUint32(4, 36 + n * 2, true); str(8, 'WAVE'); str(12, 'fmt ');
+    out.setUint32(16, 16, true); out.setUint16(20, 1, true); out.setUint16(22, 1, true);
+    out.setUint32(24, sr, true); out.setUint32(28, sr * 2, true); out.setUint16(32, 2, true); out.setUint16(34, 16, true);
+    str(36, 'data'); out.setUint32(40, n * 2, true);
+    for (let i = 0; i < n; i++) { const v = Math.max(-1, Math.min(1, d[i])); out.setInt16(44 + i * 2, v < 0 ? v * 32768 : v * 32767, true); }
+    return out.buffer;
   }
 
   // ── Ambience / arbitrary loops ─────────────────────────────────────────────
@@ -4036,6 +4177,18 @@ return out;
   global.AudioEngine = {
     init, onUnlock, applyVolumeSettings, setMonoAudio,
     playSfx, lastSfxAt, playSample, clearSampleCache,
+    // a cue rendered offline through the same graph (a Promise of an AudioBuffer), and a
+    // rendered buffer as WAV bytes
+    renderSfx, wavBytes,
+    // whether the retro stage's worklet is loaded in the live context (true once it is), and
+    // where to load it from when this file wasn't loaded by a <script> tag
+    retroReady: () => (ctx ? _retroState.get(ctx) === true : false),
+    _setRetroUrl: (url) => { _retroUrl = url || ''; },
+    // the retro stage for a live synth of its own (the crowd bed): what to connect into, on
+    // its way to `dest`. `retro.ref` is the synth's full scale.
+    retroInsert: (c, retro, dest) => retroStage(c, retro || {}, {}, dest),
+    // the retro stage's worklet for another context (an offline one): a Promise of true once loaded
+    loadRetro,
     loopSound, stopLoop, setLoopGain, duckLoop, setEcho,
     playMusic, stopMusic, stopMusicOwnedBy, pauseMusic, resumeMusic, queueMusic, fadeTo, crossFade, setLayerWeight,
     stop,
@@ -4052,7 +4205,7 @@ return out;
     // What the voice pool is doing. A dropped cue is silent and a cue nobody
     // asked for is also silent, so without counters "is 32 enough?" is not a
     // question anyone can answer from the outside.
-    _voiceStats: () => ({ ...vstat, size: MAX_VOICES, live: voices.filter(Boolean).length }),
+    _voiceStats: () => ({ ...vstat, size: MAX_VOICES, live: voices.filter(Boolean).length, priorities: voices.filter(Boolean).map((v) => v.priority) }),
     speak: (text, opt) => Speech.speak(text, opt),
     cancelSpeech: () => Speech.cancel(),
     // Live tunables — see the TUNING block in Speech. Mutate and the next line

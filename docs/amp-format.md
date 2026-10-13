@@ -209,11 +209,14 @@ The `config` object is the synth recipe passed directly to the Web Audio layer b
 | `duration` | float | `0.4` | Seconds. SFX only — how long before the release phase |
 | `gain` | float | `1.0` | Output level scalar (0–1) |
 | `noiseMix` | float | `0.0` | 0 = pure oscillator, 1 = pure noise, fractional = blend |
+| `noiseSeed` | int | none | Where in the (seeded) noise buffer this layer's noise starts, so two layers or two takes aren't the same grain |
+| `noiseRate` | float | `1` | Plays the noise slower or faster: below 1 is darker, the way hiss sampled at a low rate was |
 | `detune` | float | `0` | Cents offset applied to the oscillator (synth) or sample playback (sample-backed). Set by the `.MOD` importer to carry per-sample finetune |
 | `adsr.a` | float | `0.01` | Attack time in seconds |
 | `adsr.d` | float | `0.05` | Decay time in seconds |
 | `adsr.s` | float | `0.7` | Sustain level (0–1, fraction of peak gain) |
 | `adsr.r` | float | `0.15` | Release time in seconds |
+| `adsr.curve` | string | linear | `"exp"` decays and releases exponentially (time constant `d`/3, so after `d` it's 26 dB down), the shape of a struck sound. The timing is the linear envelope's |
 | `filter.type` | string | `"lowpass"` | `lowpass` `highpass` `bandpass` `notch` |
 | `filter.freq` | float | `4000` | Filter cutoff frequency in Hz |
 | `filter.q` | float | `1` | Filter resonance / Q factor |
@@ -238,6 +241,19 @@ The `config` object is the synth recipe passed directly to the Web Audio layer b
 | `echo.feedback` | float | `0.35` | Feedback gain (0–0.95); values near 1 create long reverb tails |
 | `pitchBend.to` | float | — | Target frequency in Hz at end of bend |
 | `pitchBend.time` | float | `0.2` | Bend duration in seconds |
+
+### Retro stage (SFX)
+
+A cue-level `retro: { rate, bits }` (beside `duration` and `layers`, not in a layer) sends the whole cue
+through sample-and-hold and bit depth on its way to the bus: each sample held for 1/`rate` of a second
+(the grit of an 8–16 kHz cartridge sample), then rounded to `bits`, both relative to the cue's own full
+scale (`ref`, by default the sum of its layers' gains, a driven layer counted at its clipper's level).
+The output rate never changes. It runs in an AudioWorklet (`client/shared/audio-retro-worklet.js`);
+without one, `bits` alone goes through a WaveShaper staircase. The CPhL soundset uses it throughout:
+see [systems-hockey-sound.md](systems-hockey-sound.md).
+
+`AudioEngine.renderSfx(def)` renders a cue offline through the same graph (a Promise of an
+AudioBuffer), and `AudioEngine.wavBytes(buffer)` turns one into a 16-bit WAV.
 
 ### FM modulation
 

@@ -1545,8 +1545,9 @@ club's mask: its colours in hex and every layer's path in what Path2D reads.
 ### Sound banks
 
 `sfx-catalog.js` folds in **banks**: a separate file authoring a themed preset set in the
-catalog's own shape (`client/shared/hockey-sfx.js`, 29 CPhL presets under group `hockey`).
-Folding them in is what makes them dev-panel editable and `interface_sfx`-overridable.
+catalog's own shape (`client/shared/hockey-sfx.js`, 49 CPhL presets under group `hockey`).
+Folding them in is what makes them dev-panel editable and `interface_sfx`-overridable. The CPhL's
+sound, its event table and its crowd bed are in [systems-hockey-sound.md](systems-hockey-sound.md).
 **Load-order contract: a bank's `<script>` must come BEFORE `sfx-catalog.js`** in both
 `client/game/index.html` and `client/devpanel/index.html` — otherwise the bank still
 plays but the dev panel can't see it.
