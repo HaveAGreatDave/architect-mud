@@ -1098,6 +1098,21 @@ Built so far (Phases 1 and 2 of the plan):
   the sky and the smoke and steam off its stacks. They come on at dusk before the windows, dim
   through bad weather, and a building with beacons of its own gets none of the city's. The
   renderer's `quality.city` drops the smoke at 1 and the searchlights too at 0;
+- the streets round the park (Phase 4e, [diamond/streets.js](../client/game/js/panels/diamond/streets.js),
+  [gl/streetlife.js](../client/game/js/panels/gl/streetlife.js)): cars parked at the kerbs near
+  the park, cars going by with their lamps on and about a thousand people walking in to the
+  gates, thickest across the plaza to the main gate. Where each one is is a function of the
+  world's clock, so every TV has the same street. Before a game's first pitch the view opens on
+  the street camera: the main gate from the crossing outside it, with the crowd going in (the
+  wide shot over the outfield when the first payload's lead is under 2.2 s);
+- birds (Phase 4e, [gl/parkbirds.js](../client/game/js/panels/gl/parkbirds.js)): gulls wheeling over
+  the outfield, white beneath in the floods' light, and at dusk a murmuration of starlings over
+  the skyline toward the sunset, gone to roost by full dark. Neither flies in rain, snow or
+  lightning;
+- the crowd's camera flashes at night (Phase 4e, [gl/crowd.js](../client/game/js/panels/gl/crowd.js)
+  `flashesAt`): a small hard point at a fan's face, a few a minute when the park's quiet and most
+  seconds when it's loud, never more than two in a second, and none with reduced motion. The
+  renderer's `quality.birds` and `quality.flashes` leave out the birds and the flashes;
 - the grounds crew (Phase 4d, [diamond/crew.js](../client/game/js/panels/diamond/crew.js)): in the
   middle of the fifth, when the break holds 84 s or more (cast.js `crewDue`), four of them in
   work clothes drag the infield, two to a mat and the pairs side by side, in from foul ground

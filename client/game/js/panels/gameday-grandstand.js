@@ -125,7 +125,7 @@ export function createGrandstandView(host, opts = {}) {
       import('./diamond/world.js'), import('./diamond/director.js'), import('./diamond/spectacle.js'), import('./diamond/replay.js'), import('./gl/crowd.js'),
       import('./diamond/crew.js')])
       .then(([park, hudMod, cam, cast, world, director, fx, rp, crowd, crew]) => (mods = {
-        ...park, hud: hudMod, project: cam.project, shotAt: cam.shotAt, numberOf: cast.numberOf, pictureAfter: director.pictureAfter,
+        ...park, hud: hudMod, project: cam.project, shotAt: cam.shotAt, numberOf: cast.numberOf, pictureAfter: director.pictureAfter, opensGame: director.opensGame,
         createWorld: world.createWorld, DT: world.DT, createDirector: director.createDirector, splashOf: fx.splashOf,
         replayOf: rp.replayOf, stageReplay: rp.stageReplay, REPLAY: rp.REPLAY, fxEnd: fx.endOf,
         cheerOf: fx.cheerOf, createRoar: crowd.createRoar, matAt: crew.matAt, sweptAlong: crew.sweptAlong,
@@ -561,7 +561,10 @@ export function createGrandstandView(host, opts = {}) {
     cur = { p, settle, landed: false, t0: W.t, cast };
     const mine = cur;
     live = true; acc = 0;
-    const cutaway = !!shown && shown.some((b, i) => b !== !!before[i]);
+    // a game's first at-bat opens on the main gate from the street, the crowd still going in, when
+    // there's a city round the park to stand in; any other whose bags the picture didn't leave, on
+    // the wide shot over the city
+    const cutaway = mods.opensGame(p) && R?.city ? 'street' : !!shown && shown.some((b, i) => b !== !!before[i]);
     calm = prefersReducedMotion();
     D.stage(p, cast, { cutaway, motion: !calm });
     // the fans: a ball they can see is gone brings them up off the bat, anything else as it lands
@@ -569,7 +572,7 @@ export function createGrandstandView(host, opts = {}) {
     roar.prune(W.t);
     if (ch && ch.from === 'contact' && Number.isFinite(hit)) roar.cheer(fansOf(p, ch.side), ch.amp, hit + 0.35, ch.hold);
     else cur.cheer = ch;
-    if (D.cutaway && !opts.shot) shot = 'sky';
+    if (D.cutaway && !opts.shot) shot = D.opening || 'sky';
     shown = mods.pictureAfter(p);
     // while frames run the world lands it; if they've stopped (a hidden tab) this does
     const watch = () => {

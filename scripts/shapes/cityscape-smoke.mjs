@@ -12,14 +12,19 @@
 //      park; bearings from home plate move under 3° at the median and under 25° within 900 ft;
 //      the edges are straight and on tile lines; every plot fronts a street or backs onto the
 //      set's edge; the park stands in its superblock; nothing tall stands within 48 ft of a
-//      street-level camera.
+//      street-level camera. It's composed as the broadcast composes it (diamond/streets.js
+//      venueSet), so the cameras are the street cameras the renderer uses.
 //   3. THE CITY. gl/cityscape.js builds it: every building resolves to a shape at the flight
 //      sim's size, every float finite and every material one the park's shader knows, every road
 //      tile drawn from its arms, the lamps outside the park, the Curtain on the walls, and the
 //      lot inside its triangle budget; and every building lit as its model is
 //      (client/shared/building-lights.js), its lamps, neon, searchlights and plumes finite, on
 //      the building and outside the park, and a beacon on every tall roof, its own or the city's.
-//   4. NO REGION NAMED. The engine files say nothing about Coldwater: the site, the skyline and
+//   4. THE STREETS. diamond/streets.js: the street camera on a pavement corner of the crossing
+//      outside the main gate with nothing built between it and the sign; cars parked on the kerbs
+//      and going by in their lanes, people walking in to the gates, every one of them finite,
+//      outside the park, on a road or the plaza wherever it is on its way, and clear of the lens.
+//   5. NO REGION NAMED. The engine files say nothing about Coldwater: the site, the skyline and
 //      the venue's art direction say it all.
 //
 // It proves the set composes and the city builds. It doesn't draw a frame: the sandbox page
@@ -39,6 +44,7 @@ const { buildingEntranceDir } = await import('../../server/engine/world.js');
 const { parkOutline, venueField } = await import(P + 'diamond/geo.js');
 const M = await import(P + 'gl/ballpark-mesh.js');
 const { buildCityscape, cityShape } = await import(P + 'gl/cityscape.js');
+const { venueSet, streetShot, streetEyes, streetLife, along, gatesOf, STREETS, STREET_EYE, CAR_STRIDE, WALKER_STRIDE } = await import(P + 'diamond/streets.js');
 
 let failures = 0, passes = 0;
 const check = (label, ok, detail) => {
@@ -72,14 +78,12 @@ check('the skyline is small enough to send', JSON.stringify(sky).length < 40000,
 const outline = parkOutline(venueField(venue));
 const blk = venue.site.block;
 const inBlock = (b) => b.x >= blk.x0 && b.x <= blk.x1 && b.y >= blk.y0 && b.y <= blk.y1;
-// street-level cameras: on the crossing outside the main gate and two corners of the plaza
-const probe = composeSet({ site: venue.site, skyline: sky, outline, art: venue.city });
-const roadsNear = [...probe.cells].filter(([, t]) => t === 'road').map(([k]) => k.split(',').map(Number))
-  .map(([i, j]) => probe.cellPt(i, j)).sort((a, b) => Math.hypot(a[0], a[2] + 320) - Math.hypot(b[0], b[2] + 320));
-const cameras = roadsNear.slice(0, 3).map((p) => [p[0], 6, p[2]]);
+// composed as the broadcast composes it: once to find the street cameras on the crossing outside
+// the main gate and the road tiles next nearest it, then again keeping tall things clear of them
 const t1 = clock.now();
-const set = composeSet({ site: venue.site, skyline: sky, outline, art: venue.city, cameras });
+const set = venueSet({ site: venue.site, skyline: sky, outline, art: venue.city });
 const composeMs = clock.now() - t1;
+const cameras = set.cameras;
 const T = set.T;
 const want = sky.buildings.filter((b) => !inBlock(b));
 check('every building outside the park block is placed', set.unplaced.length === 0 && set.placed.length === want.length, `${set.placed.length} of ${want.length}; unplaced ${set.unplaced.join(', ')}`);
@@ -144,7 +148,7 @@ check('bearings move under 25° within 900 ft', !set.bearing.worstNear || set.be
 }
 check('the filler is in the venue\'s styles', set.fill.length > 40 && set.fill.every((f) => SET_STYLES.includes(f.style) && f.floors >= 1), `${set.fill.length}`);
 check('the same set twice', (() => {
-  const again = composeSet({ site: venue.site, skyline: sky, outline, art: venue.city, cameras });
+  const again = venueSet({ site: venue.site, skyline: sky, outline, art: venue.city });
   return again.placed.length === set.placed.length && again.placed.every((p, i) => p.at.every((v, k) => v === set.placed[i].at[k])) && again.fill.length === set.fill.length;
 })());
 
@@ -247,13 +251,77 @@ const TRI_BUDGET = 120000;
 check('inside the triangle budget', tris > 20000 && tris <= TRI_BUDGET, `${Math.round(tris)} triangles`);
 check('composes and builds in under 1.5 s', composeMs + buildMs < 1500, `${(composeMs + buildMs).toFixed(0)} ms`);
 
-// ── 4. no region named ───────────────────────────────────────────────────────
-for (const file of ['client/shared/city-set.js', 'client/shared/skyline-manifest.js', 'client/game/js/panels/gl/cityscape.js', 'server/engine/skyline.js']) {
+// ── 4. the streets ───────────────────────────────────────────────────────────
+let life;
+{
+  const cellOf = (p) => { const [u, w] = set.uvOf(p); return set.cells.get(Math.floor(u / T) + ',' + Math.floor(-w / T)); };
+  const shot = streetShot(set), eyes = streetEyes(set);
+  check('the street cameras are the ones the set kept clear', eyes.length === 3 && eyes.every((e, i) => e.every((v, k) => v === cameras[i][k])));
+  check('the street camera stands on the crossing outside the main gate, on the pavement, at a street camera\'s height', !!shot && cellOf(shot.eye) === 'road' && shot.eye[1] === STREET_EYE.y
+    && shot.eye[2] < 0 && !insidePoly(outline, shot.eye, 12), shot && shot.eye.map((v) => v.toFixed(1)).join(','));
+  // the sign over the main gate in view: nothing placed between the lens and it
+  const [e, a] = [shot.eye, shot.at], blocked = set.placed.filter(({ at }) => {
+    const ex = a[0] - e[0], ez = a[2] - e[2], L2 = ex * ex + ez * ez, t = Math.max(0, Math.min(1, ((at[0] - e[0]) * ex + (at[2] - e[2]) * ez) / L2));
+    return Math.hypot(e[0] + ex * t - at[0], e[2] + ez * t - at[2]) < T * 0.5;
+  });
+  check('the street camera sees the main gate: nothing built in the way', blocked.length === 0, blocked.map((p) => p.b.n || p.b.t).join(', '));
+  const t3 = clock.now();
+  life = streetLife(set, outline);
+  const lifeMs = clock.now() - t3;
+  const { cars, walkers, stats: ls } = life;
+  check('the streets have their cars and their people', ls.parked > 300 && ls.moving > 50 && ls.walking > STREETS.walkers * 0.4
+    && cars.length === (ls.parked + ls.moving) * CAR_STRIDE && walkers.length === ls.walking * WALKER_STRIDE, JSON.stringify(ls));
+  check('every car and walker finite', cars.every(Number.isFinite) && walkers.every(Number.isFinite));
+  // wherever each one is on its way: outside the park, a car on a road, a walker on a road, the
+  // plaza or the park's own ground outside its wall, and none in front of a street camera's lens
+  const lens = (p, r) => eyes.some((q) => Math.hypot(p[0] - q[0], p[2] - q[2]) < r);
+  let carOff = 0, carIn = 0, carLens = 0, walkOff = 0, walkIn = 0, walkLens = 0, parkedLens = 0, shows = 0;
+  const TIMES = [0, 7.3, 19.1, 41.7, 66.2, 103.9];
+  for (let o = 0; o < cars.length; o += CAR_STRIDE) for (const t of TIMES) {
+    const q = along(cars, o, t), p = [q.x, 0, q.z], moves = cars[o + 4] > 0;
+    if (!(q.show >= 0 && q.show <= 1)) shows++;
+    if (cellOf(p) !== 'road') carOff++;
+    if (insidePoly(outline, p)) carIn++;
+    if (moves && q.show > 0 && lens(p, 14)) carLens++;
+    if (!moves && lens(p, 46)) parkedLens++;
+    if (!moves) break;
+  }
+  const gates = gatesOf(outline);
+  for (let o = 0; o < walkers.length; o += WALKER_STRIDE) for (const t of [...TIMES, 1e6]) {
+    // and the end of his way, at the gate
+    const q = t < 1e6 ? along(walkers, o, t) : { x: walkers[o] + walkers[o + 2] * walkers[o + 4], z: walkers[o + 1] + walkers[o + 3] * walkers[o + 4], show: 0 };
+    const p = [q.x, 0, q.z], c = cellOf(p);
+    if (!(q.show >= 0 && q.show <= 1)) shows++;
+    if (c !== 'road' && c !== 'plaza' && c !== 'park') walkOff++;
+    if (insidePoly(outline, p)) walkIn++;
+    if (q.show > 0 && lens(p, 14)) walkLens++;
+  }
+  check('every car on a road wherever it is, none in the park', carOff === 0 && carIn === 0, `${carOff} off the road, ${carIn} in the park`);
+  check('every walker on a road, the plaza or the park\'s ground wherever he is, and outside the wall', walkOff === 0 && walkIn === 0, `${walkOff} off, ${walkIn} inside the wall`);
+  check('nothing parked within 46 ft of a street camera, and nothing going by within 14 ft of one', parkedLens === 0 && carLens === 0 && walkLens === 0, `${parkedLens} parked, ${carLens} cars, ${walkLens} walkers`);
+  check('every one shows between nothing and all of it', shows === 0, `${shows}`);
+  // most of the crowd comes in by the main gate
+  const byGate = gates.map(() => 0);
+  for (let o = 0; o < walkers.length; o += WALKER_STRIDE) {
+    const L = walkers[o + 4], end = [walkers[o] + walkers[o + 2] * L, walkers[o + 1] + walkers[o + 3] * L];
+    let best = 0, bd = Infinity;
+    gates.forEach((g, i) => { const d = Math.hypot(end[0] - g.at[0], end[1] - g.at[2]); if (d < bd) { bd = d; best = i; } });
+    if (bd < 60) byGate[best]++;
+  }
+  check('the main gate takes the most of the crowd', byGate[0] > Math.max(...byGate.slice(1)) && byGate.slice(1).every((n) => n > 0), byGate.join(' / '));
+  const again = streetLife(set, outline);
+  check('the same streets twice', again.cars.length === cars.length && again.cars.every((v, i) => v === cars[i]) && again.walkers.every((v, i) => v === walkers[i]));
+  check('the streets in under 200 ms', lifeMs < 200, `${lifeMs.toFixed(0)} ms`);
+}
+
+// ── 5. no region named ───────────────────────────────────────────────────────
+for (const file of ['client/shared/city-set.js', 'client/shared/skyline-manifest.js', 'client/game/js/panels/gl/cityscape.js', 'server/engine/skyline.js', 'client/game/js/panels/gl/streetlife.js', 'client/game/js/panels/gl/parkbirds.js']) {
   const src = readFileSync(new URL(file, ROOT), 'utf8').replace(/deadball-glass2\.md/g, '');
   const hit = src.match(/coldwater|halcyon|scarlet|wildland|basin|deadball|ksab/i);
   check(`${file} names no region`, !hit, hit && hit[0]);
 }
 
 console.log(`cityscape-smoke: ${passes}/${passes + failures} passed · ${set.placed.length} buildings, ${set.fill.length} filler, ${stats.lamps} lamps, ` +
+  `${life.stats.parked + life.stats.moving} cars, ${life.stats.walking} walking, ` +
   `${Math.round(tris)} triangles; composed in ${composeMs.toFixed(0)} ms, built in ${buildMs.toFixed(0)} ms (${(clock.now() - t0).toFixed(0)} ms in all)`);
 process.exit(failures ? 1 : 0);

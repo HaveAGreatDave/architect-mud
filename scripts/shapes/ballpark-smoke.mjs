@@ -446,6 +446,43 @@ for (const kind of ['sit', 'stand', 'cheer']) for (const far of [false, true]) {
     low = Math.min(low, rib[i + 1]); high = Math.max(high, rib[i + 1]); near = Math.min(near, Math.hypot(rib[i], rib[i + 2]));
   }
   check('the weather: a bolt\'s ribbon is finite, stands on the ground and reaches the cloud, out past the outfield', n > 30 && ribBad === 0 && low < 10 && high > tenMin[0].dist * 0.25 && near > 600, `${n / 5} vertices, ${low.toFixed(0)} to ${high.toFixed(0)} ft up, ${near.toFixed(0)} ft out`);
+  // the birds (gl/parkbirds.js): the gulls up where gulls fly, clear of every tower's lamps and every
+  // camera, over the park; the starlings up through the dusk and out toward the sunset
+  const B = await import(P + 'gl/parkbirds.js');
+  const circ = B.gullCircuits(), lamps = base.field.towers.map((T) => T.lamp), eyes = Object.values(C.SHOTS).map((s) => s.eye);
+  let gBad = 0, gLo = Infinity, gHi = -Infinity, nearLamp = Infinity, nearEye = Infinity, gOut = 0;
+  for (let i = 0; i < B.GULLS.n; i++) for (let t = 0; t < 600; t += 0.25) {
+    const g = B.gullAt(circ, i, t);
+    if (!g.every(Number.isFinite)) { gBad++; continue; }
+    gLo = Math.min(gLo, g[1]); gHi = Math.max(gHi, g[1]);
+    for (const l of lamps) nearLamp = Math.min(nearLamp, Math.hypot(g[0] - l[0], g[1] - l[1], g[2] - l[2]));
+    for (const e of eyes) nearEye = Math.min(nearEye, Math.hypot(g[0] - e[0], g[1] - e[1], g[2] - e[2]));
+    if (!G.insideOutline(base.outline, g, 0)) gOut++;
+  }
+  check('the birds: the gulls wheel over the park, up where gulls fly, clear of the towers\' lamps and the cameras', gBad === 0 && gLo >= 85 && gHi <= 180 && nearLamp >= 30 && nearEye >= 40 && gOut === 0,
+    `${gLo.toFixed(0)} to ${gHi.toFixed(0)} ft up; ${nearLamp.toFixed(0)} ft from a lamp, ${nearEye.toFixed(0)} from a camera; ${gOut} over the wall`);
+  const up = (h, evening = true) => B.starlingsUp(at(h).night, evening);
+  check('the birds: the starlings are up at dusk, roosted by dark, and never up by day or at dawn', up(12) === 0 && up(17.5) > 0.9 && up(19.5) === 0 && up(22) === 0 && up(6, false) === 0,
+    [12, 16.5, 17.5, 18.5, 19.5].map((h) => up(h).toFixed(2)).join(' '));
+  const lean = (sun) => { const c = B.starlingsOver(sun); return [(Math.atan2(c[0], c[2]) * 180) / Math.PI, Math.hypot(c[0], c[2]), c[1]]; };
+  const [a315, r315] = lean(at(18).sun), [a270] = lean(skyLook(18, { bearing: 270 }).sun), [a90] = lean(skyLook(18, { bearing: 90 }).sun);
+  check('the birds: the starlings lean toward the sunset, no further off centre field than the sky camera looks', Math.abs(a315 - B.STARLINGS.lean) < 1e-9 && Math.abs(a270) < 1e-9 && Math.abs(Math.abs(a90) - B.STARLINGS.lean) < 1e-9
+    && Math.abs(r315 - B.STARLINGS.reach) < 1e-6 && (() => { const q = C.project('sky', 1280, 720, B.starlingsOver(at(18).sun)); return !!q && q.x > 0 && q.x < 1280 && q.y > 0 && q.y < 720; })(), `${a315.toFixed(1)}°, ${a270.toFixed(1)}°, ${a90.toFixed(1)}°`);
+  // the crowd's camera flashes (gl/crowd.js): never more than two in any second, a few a minute in a
+  // quiet park and most windows in a loud one, and the same on every TV
+  const { FLASH, flashesAt } = await import(P + 'gl/crowd.js');
+  const born = (loud) => {
+    const seen = new Map();
+    for (let t = 0; t < 600; t += 0.01) for (const f of flashesAt(t, loud, 9000)) { const k = Math.round((t - f.age) * 1000); if (!seen.has(k)) seen.set(k, f.i); }
+    return [...seen.keys()].sort((a, b) => a - b).map((k) => k / 1000);
+  };
+  const quiet = born(0), loud = born(1);
+  let most = 0;
+  for (const list of [quiet, loud]) for (let i = 0; i < list.length; i++) { let n = 1; while (i + n < list.length && list[i + n] - list[i] < 1) n++; most = Math.max(most, n); }
+  check('the crowd: never more than two camera flashes in a second, a few a minute when it\'s quiet and most windows when it\'s loud', most <= 2 && quiet.length / 10 > 2 && quiet.length / 10 < 8 && loud.length / (600 / FLASH.window) > 0.8,
+    `${most} at most; ${(quiet.length / 10).toFixed(1)} and ${(loud.length / 10).toFixed(1)} a minute`);
+  check('the crowd: the same flashes twice, on a fan in the stands', JSON.stringify(flashesAt(123.4, 0.7, 9000)) === JSON.stringify(flashesAt(123.4, 0.7, 9000)) && flashesAt(5, 1, 0).length === 0
+    && Array.from({ length: 2000 }, (_, k) => flashesAt(k * 0.3, 1, 9000)).flat().every((f) => Number.isInteger(f.i) && f.i >= 0 && f.i < 9000 && f.age >= 0 && f.age < FLASH.life));
 }
 
 // ── 6. the players ───────────────────────────────────────────────────────────

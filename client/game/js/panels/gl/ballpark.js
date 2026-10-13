@@ -50,7 +50,7 @@
 // here is lit from the side that faces the eye.
 
 import { buildPark, crowdMorph, createBatch, ellipsoid, dragMat, lin, STRIDE, CROWD_STRIDE, CROWD_MORPH, MAT } from './ballpark-mesh.js';
-import { CROWD_VS } from './crowd.js';
+import { CROWD_VS, flashesAt } from './crowd.js';
 import { paintInfield, paintMark, smoothPoly, DIRT_RECT } from '../diamond/dirt.js';
 import { boardLamps, BOARD_W, BOARD_H } from '../diamond/board.js';
 import { shotMatrices, shotOf, inv4 } from '../diamond/camera.js';
@@ -71,8 +71,7 @@ export { castOf } from '../diamond/cast.js';
 import { paintKitAtlas, paintLogos, paintLeather, paintWood, paintMask } from '../diamond/kits.js';
 import { FACE_GLSL, FACE_ATLAS } from '../actor-faces.js';
 import { HAIRLINE_GLSL } from '../actor-head.js';
-import { buildCityscape, FACADE_GLSL, STREET_GLSL } from './cityscape.js';
-import { composeSet } from '../../../../shared/city-set.js';
+import { buildCityscape, FACADE_GLSL, STREET_GLSL, LIGHT_STRIDE } from './cityscape.js';
 import { CURTAIN_FRAG } from './curtain.js';
 import { applyLinOut } from './colour.js';
 import { HUD_FACES, loadHudFaces } from '../diamond/hud.js';
@@ -80,6 +79,9 @@ import { createSpectacle } from './spectacle.js';
 import { NIGHT, skyLook } from '../diamond/sky.js';
 import { createWeather } from './weather.js';
 import { createCityLights, PLUME } from './citylights.js';
+import { createStreetLife } from './streetlife.js';
+import { createParkBirds } from './parkbirds.js';
+import { venueSet, streetLife, streetShot } from '../diamond/streets.js';
 
 const FACE = '"Arial Narrow", "Roboto Condensed", Arial, sans-serif';
 
@@ -629,6 +631,8 @@ export function createBallparkRenderer(canvas, opts = {}) {
     const spectacle = createSpectacle(gl, prog);
     const weather = createWeather(gl, prog);
     const cityLights = createCityLights(gl, prog);
+    const streets = createStreetLife(gl, prog);
+    const birds = createParkBirds(gl, prog);
 
     // ── textures ──────────────────────────────────────────────────────────────
     const T2 = gl.TEXTURE_2D;
@@ -742,6 +746,29 @@ export function createBallparkRenderer(canvas, opts = {}) {
     // how loud each side's fans are (gl/crowd.js createRoar), the clock their bouncing keeps, and
     // whether they may bounce at all
     const roar = { home: 0, away: 0, t: 0, move: 1 };
+    // where every fan sits, which way he faces and the pose he rests in (0 sit, 1 stand, 2 cheer),
+    // for the camera flashes in the crowd at night (gl/crowd.js flashesAt): a small hard point of
+    // light in front of his face, seated or up as the roar has him, never for a viewer who's asked
+    // for less motion, and drawn with the city's lights
+    const seats = (() => {
+      const out = [];
+      ['sit', 'stand', 'cheer'].forEach((kind, base) => { const a = park.crowd[kind] || []; for (let i = 0; i < a.length; i += CROWD_STRIDE) out.push(a[i], a[i + 1], a[i + 2], a[i + 3], base); });
+      return new Float32Array(out);
+    })();
+    const FACE_Y = [3.8, 5.4];
+    const flashBuf = new Float32Array(LIGHT_STRIDE.pts * 4);
+    function flashPoints() {
+      if (!roar.move || !(look.lights > 0.3) || api.quality.flashes === false) return 0;
+      const loud = Math.max(roar.home, roar.away), up = Math.min(1, Math.max(0, (loud - 0.4) / 0.4));
+      let k = 0;
+      for (const { i, age } of flashesAt(roar.t, loud, seats.length / 5)) {
+        if (k >= 4) break;
+        const o = i * 5, face = seats[o + 3], g = Math.exp(-age / 0.035), y = FACE_Y[0] + (FACE_Y[1] - FACE_Y[0]) * Math.max(Math.min(1, seats[o + 4]), up);
+        flashBuf.set([seats[o] + Math.sin(face) * 0.7, seats[o + 1] + y, seats[o + 2] + Math.cos(face) * 0.7, 0.35, g, g, 1.1 * g, 1, 1, 0, 0, 0], k * LIGHT_STRIDE.pts);
+        k++;
+      }
+      return k;
+    }
     const emptyVao = gl.createVertexArray();
 
     // ── the players ───────────────────────────────────────────────────────────
@@ -838,7 +865,7 @@ export function createBallparkRenderer(canvas, opts = {}) {
     // From the league's venue (venue.js): the content's site and art direction and the server's
     // skyline. The set is composed round this park's own outline (client/shared/city-set.js) and
     // built once (gl/cityscape.js), then each frame only draws it. A new venue replaces it.
-    let city = null, cityVenue = null;
+    let city = null, cityVenue = null, streetCam = null;
     TEX.sign = null;
     function setVenue(v) {
       if (lost || !v || v === cityVenue) return city?.stats || null;
@@ -847,7 +874,8 @@ export function createBallparkRenderer(canvas, opts = {}) {
       dropCity();
       if (v.site && v.skyline) {
         const art = v.city || null;
-        const set = composeSet({ site: v.site, skyline: v.skyline, outline: park.outline, art });
+        // composed as diamond/streets.js has it, keeping tall things clear of the street camera
+        const set = venueSet({ site: v.site, skyline: v.skyline, outline: park.outline, art });
         const c = buildCityscape(set, { art, outline: park.outline });
         city = {
           opaque: [...c.opaque].map(([key, b]) => ({ key, ...upload(b) })),
@@ -856,6 +884,12 @@ export function createBallparkRenderer(canvas, opts = {}) {
           stats: { ...c.stats, placed: set.placed.length, unplaced: set.unplaced.length, bearing: set.bearing.median },
         };
         cityLights.set(c.lights);
+        // the cars and the people on the streets round it, and the camera on the crossing outside
+        // the main gate
+        const life = streetLife(set, park.outline);
+        streets.set(life);
+        streetCam = streetShot(set);
+        city.stats.streets = life.stats;
       }
       paintSign(v.name);
       return city?.stats || null;
@@ -865,6 +899,8 @@ export function createBallparkRenderer(canvas, opts = {}) {
       for (const d of [...city.opaque, ...city.glow]) { gl.deleteVertexArray(d.vao); gl.deleteBuffer(d.st.buf); }
       if (city.curtain) { gl.deleteVertexArray(city.curtain.vao); gl.deleteBuffer(city.curtain.st.buf); }
       cityLights.set(null);
+      streets.set(null);
+      streetCam = null;
       city = null;
     }
     // The Curtain's walls cut into panels a tile long, as the flight sim draws it a tile at a time,
@@ -1056,6 +1092,24 @@ export function createBallparkRenderer(canvas, opts = {}) {
 
     // this frame's ambient from above and sky, with any bolt's flash in them
     let frameUp = look.up, frameZen = look.zen, frameHor = look.hor, frameAway = look.horAway;
+    // the light on the streets: the sky's, and the sodium lamps' once they're on (gl/streetlife.js)
+    const SODIUM_FILL = [1.0, 0.46, 0.13];
+    const streetLook = (q) => ({
+      up: frameUp, dn: look.dn, fill: SODIUM_FILL.map((v) => v * look.pool * 2.4), lamps: look.lights,
+      fogDens: q.fog ? look.fogDens : 0, fogH: NIGHT.fogH, fogCol: look.fog,
+    });
+    // the birds (gl/parkbirds.js): the gulls lit from below by the share of the towers' light the
+    // field throws back up, and the starlings out toward the sunset in the evening; both down out
+    // of the rain, the snow and the lightning
+    const BIRD_FLOOD = 0.12;
+    const birdFlood = [0, 1, 2].map((c) => { let s = 0; for (let i = 0; i < 6; i++) s += LCol[i * 3 + c]; return (s / 6) * BIRD_FLOOD; });
+    const birdLook = (q) => {
+      const aloft = q.birds !== false && !weather.look.fall && !weather.look.bolts;
+      return {
+        up: frameUp, dn: look.dn, flood: birdFlood, night: look.night, sun: look.sun, evening: hourNow == null || hourNow >= 12,
+        fogDens: q.fog ? look.fogDens : 0, fogH: NIGHT.fogH, fogCol: look.fog, gulls: aloft, starlings: aloft,
+      };
+    };
 
     let lost = false;
     canvas.addEventListener?.('webglcontextlost', (e) => { e.preventDefault(); lost = true; api.lost = true; });
@@ -1076,6 +1130,8 @@ export function createBallparkRenderer(canvas, opts = {}) {
       const t0 = (typeof performance !== 'undefined' ? performance.now() : 0);
       const w = canvas.width, h = canvas.height;
       if (!(w > 0 && h > 0)) return false;
+      // the street camera stands on this venue's own crossing
+      if (shot === 'street' && streetCam) shot = { ...streetCam, shadow: [[streetCam.at[0], 0, streetCam.at[2] - 30], 140] };
       const M = shotMatrices(shot, w / h), q = api.quality;
       let tris = 0, draws = 0;
       const flash = weather.flashAt(), add3 = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
@@ -1154,7 +1210,14 @@ export function createBallparkRenderer(canvas, opts = {}) {
       if (TEX.sign) drawSet([signDraw], 1);
       if (ballAt) drawSet([ballDraw], 1);
       if (matDraw.n) drawSet([matDraw], 1);
-      if (city) drawSet(city.opaque, 1);
+      if (city) {
+        drawSet(city.opaque, 1);
+        // the cars and the people on the streets, lit by the sky and, once they're on, the lamps
+        const sl = streets.draw(M, h, worldT, streetLook(q));
+        tris += sl.tris; draws += sl.draws;
+      }
+      // the gulls wheeling over the outfield
+      { const gb = birds.drawGulls(M, h, worldT, birdLook(q)); tris += gb.tris; draws += gb.draws; }
       // the players: each one's bones from his row of the palette (unit 9), his face from the atlas
       // (unit 8) and the head arrays, his jersey from his slot's cell
       litSetup(SKLIT);
@@ -1193,15 +1256,24 @@ export function createBallparkRenderer(canvas, opts = {}) {
           gl.bindVertexArray(city.curtain.vao); gl.drawArrays(gl.TRIANGLES, 0, city.curtain.n);
           tris += city.curtain.n / 3; draws++;
         }
+      }
+      {
         // the buildings' own lights: all of them on the top tier, no smoke below it, and no
         // searchlights at the bottom; a plume lit from below by the city once its lights are on,
-        // and by the sky
+        // and by the sky; and the crowd's camera flashes, with a city round the park or without
         const tier = q.city ?? 2;
         const cl = cityLights.draw(M, h, worldT, {
           on: look.lights, fogDens: q.fog ? look.fogDens : 0, fogH: NIGHT.fogH,
           lit: look.up.map((v, i) => v * 3 + look.glow[i] * 4 + PLUME.lit * look.lights), beams: tier >= 1, steam: tier >= 2,
+          extra: flashBuf, extraN: flashPoints(),
         });
         tris += cl.tris; draws += cl.draws;
+        // the lamps of the cars going by
+        const sl = streets.drawLamps(M, h, worldT, streetLook(q));
+        tris += sl.tris; draws += sl.draws;
+        // the starlings over the city at dusk, dark against the sky
+        const sb = birds.drawStarlings(M, h, worldT, birdLook(q));
+        tris += sb.tris; draws += sb.draws;
         gl.blendFunc(gl.ONE, gl.ONE);
       }
       const fx = spectacle.draw(M, h);
@@ -1259,7 +1331,7 @@ export function createBallparkRenderer(canvas, opts = {}) {
 
     function dispose() {
       try {
-        shadows.dispose(); ssao?.dispose(); bc?.dispose(); spectacle.dispose(); weather.dispose(); cityLights.dispose();
+        shadows.dispose(); ssao?.dispose(); bc?.dispose(); spectacle.dispose(); weather.dispose(); cityLights.dispose(); streets.dispose(); birds.dispose();
         if (depth) { gl.deleteFramebuffer(depth.fbo); gl.deleteTexture(depth.tex); depth = null; }
         for (const t of Object.values(TEX)) gl.deleteTexture(t);
         gl.deleteTexture(boardTex);
@@ -1279,7 +1351,8 @@ export function createBallparkRenderer(canvas, opts = {}) {
     const api = {
       kind: 'gl', lost: false, rungs: BALLPARK_RUNGS,
       // grade: 'arcade', 'broadcast' or 'none'; tube: the tube glass; dof: the lens's taps (0 off)
-      // `city`: the city's own lights, 2 with smoke off the stacks, 1 without, 0 without searchlights
+      // `city`: the city's own lights, 2 with smoke off the stacks, 1 without, 0 without searchlights;
+      // `birds` and `flashes`: false to leave out the gulls and starlings, or the crowd's camera flashes
       quality: { dpr: 2, bloom: 0.18, exposure: 1.0, grade: opts.grade || 'arcade', tube: !!opts.tube, ao: true, dof: 28, shadows: true, fog: true, city: 2 },
       // what casts the towers' shadows: the players, [{ slot, batches }], skinned from the palette
       casters: [],
@@ -1295,6 +1368,7 @@ export function createBallparkRenderer(canvas, opts = {}) {
       markDirt, resetDirt, smoothDirt, setMats, dirtStats, setHour, setWeather, get look() { return look; },
       setTime: (t) => { worldT = Number.isFinite(t) ? t : 0; weather.setTime(worldT); },
       get cityLights() { return cityLights.counts; },
+      get streets() { return streets.counts; },
       setCrowd: (levels, t, move = true) => { roar.home = +levels?.[0] || 0; roar.away = +levels?.[1] || 0; roar.t = +t || 0; roar.move = move ? 1 : 0; },
       pending: () => queue.length,
       get park() { return park; },

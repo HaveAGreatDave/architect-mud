@@ -246,8 +246,10 @@ export function buildCityscape(set, { art = null, outline = [] } = {}) {
   // a cobra head: the pole, its arm out over the road, the dark housing and the lit glass under
   // it, so from the side a lamp is a lamp and from below it's a light
   const STEEL = [0.035, 0.036, 0.04];
+  // and none beside a street camera's lens (the set's `cameras`)
+  const lensClear = (p) => !(set.cameras || []).some((e) => Math.hypot(p[0] - e[0], p[2] - e[2]) < 36);
   const lampAt = (base, toward) => {
-    if (insidePoly(outline, base, 6)) return;
+    if (insidePoly(outline, base, 6) || !lensClear(base)) return;
     const dir = norm([toward[0] - base[0], 0, toward[2] - base[2]]), h = LAMP_H + G;
     post(base, G, h + 0.6, 0.45, STEEL);
     const head = add(base, mul(dir, 7));

@@ -56,7 +56,7 @@ export function insidePoly(poly, p, margin = 0) {
 }
 // How far a ray from home plate on heading `th` (radians, atan2(x, z)) runs to the polygon's
 // far edge.
-function rayTo(poly, th) {
+export function rayTo(poly, th) {
   const dx = Math.sin(th), dz = Math.cos(th);
   let best = 0;
   for (let i = 0; i < poly.length; i++) {
@@ -249,7 +249,7 @@ export function composeSet({ site, skyline, outline, art = null, tile = SET_TILE
   }
   const nearErr = errs.filter((e) => e.r < 900).sort((a, b) => b.d - a.d);
   return {
-    T, EX, EN, walls, grid, cells, placed, unplaced, fill,
+    T, EX, EN, walls, grid, cells, placed, unplaced, fill, cameras: lowEyes,
     bearing: { median: median(errs.map((e) => e.d)), worstNear: nearErr[0] || null },
     cellPt, uvOf, warp, unwarp, sourceTile, t2p,
   };

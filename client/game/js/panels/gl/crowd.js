@@ -43,6 +43,31 @@ export function createRoar() {
   };
 }
 
+// The crowd's camera flashes at night. A window of FLASH.window seconds has one at most, between a
+// tenth and nine tenths of the way through it, so three in a row span at least 1.2 windows and no
+// second of the picture ever has more than two; whether a window has one is a hash
+// of it against how loud the louder side is (a few a minute in a quiet park, nearly every window on
+// a home run), and which fan, and when in the window, are hashed too. Each is a small point of
+// light at his face, gone in FLASH.life. `flashesAt(t, loud, n)`: those burning at t (s) for a roar
+// of `loud` (0 to 1) among n fans, as [{ i (his index), age (s) }].
+export const FLASH = Object.freeze({ window: 0.85, life: 0.12, quiet: 0.06, loud: 0.9 });
+function hash01(k, salt) {
+  let h = Math.imul((k | 0) ^ 0x9e3779b9, 0x85ebca6b) ^ Math.imul(salt, 0xc2b2ae35);
+  h ^= h >>> 15; h = Math.imul(h, 0x2c1b3c6d); h ^= h >>> 12; h = Math.imul(h, 0x297a2d39); h ^= h >>> 15;
+  return (h >>> 0) / 4294967296;
+}
+export function flashesAt(t, loud, n) {
+  const out = [];
+  if (!(n > 0) || !Number.isFinite(t)) return out;
+  const p = FLASH.quiet + (FLASH.loud - FLASH.quiet) * Math.min(1, Math.max(0, loud || 0)), k1 = Math.floor(t / FLASH.window);
+  for (let k = k1 - 1; k <= k1; k++) {
+    if (hash01(k, 1) >= p) continue;
+    const at = (k + 0.1 + 0.8 * hash01(k, 2)) * FLASH.window, age = t - at;
+    if (age >= 0 && age < FLASH.life) out.push({ i: Math.floor(hash01(k, 3) * n), age });
+  }
+  return out;
+}
+
 // The crowd's vertex shader, for gl/ballpark.js's crowd program (its fragment shader lights it).
 // Per vertex the three poses and the part; per fan (instanced) where he sits and faces, his shirt
 // and size, his skin. uBase is the pose he rests in (0 sit, 1 stand, 2 cheer), one draw each;

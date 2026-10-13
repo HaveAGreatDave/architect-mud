@@ -39,7 +39,8 @@
 // A PICTURE THAT DISAGREES WITH THE NEXT PAYLOAD IS FIXED ON A CUTAWAY. The booth doesn't call
 // every at-bat, so the bags the picture last showed and the ones the next payload starts from
 // often differ; then the at-bat opens on the wide shot over the city for a beat (`cutaway`), and
-// everyone is in their new places when it cuts in.
+// everyone is in their new places when it cuts in. A game's first at-bat opens on the main gate from
+// the street instead, the crowd still going in (`cutaway: 'street'`).
 //
 // `onLand` fires when the play lands: the umpire's call on a called third strike, the ball in the
 // mitt on a swinging one or on ball four, the ball hitting him, or the ball put in play resolved.
@@ -91,9 +92,10 @@ export const budgetOf = (p) => clamp(BUDGET.share * (Number.isFinite(p?.hold) ? 
 // pitch cut in this long before the release (`quick`); after a pitch with no reaction, to the next
 // (`after`); after one with its reaction, the hitter in close-up from `reactCut` on (`react`); the
 // pitcher on the rubber before a windup (`windupHold`); the throw back's flight (`lob`), how long
-// before it reaches the pitcher the ritual's shot comes in (`ritualIn`), and the wide shot an
-// at-bat opens on when the picture disagrees with it (`cutaway`).
-export const PACE = Object.freeze({ in: 0.05, quick: 0.5, after: 0.55, react: 1.35, reactCut: 0.3, windupHold: 1.0, lob: 0.95, ritualIn: 0.4, cutaway: 1.4 });
+// before it reaches the pitcher the ritual's shot comes in (`ritualIn`), the wide shot an at-bat
+// opens on when the picture disagrees with it (`cutaway`), and the street outside the main gate a
+// game opens on (`street`, no shorter than `streetMin`).
+export const PACE = Object.freeze({ in: 0.05, quick: 0.5, after: 0.55, react: 1.35, reactCut: 0.3, windupHold: 1.0, lob: 0.95, ritualIn: 0.4, cutaway: 1.4, street: 4.2, streetMin: 2.2 });
 // How long from the bat to the play's landing for a ball in play the payload doesn't describe
 // (one from before synthPlay): about a grounder's time to an infielder and his throw to first, a
 // fly's hang time, a home run's carry. A payload's `play` is played out instead (plays.js).
@@ -345,10 +347,12 @@ export function createDirector(W, opts = {}) {
   };
 
   // `o.cutaway`: the picture disagrees with this payload (pictureAfter), so it opens on the wide
-  // shot while everyone takes their places. `o.motion` false: the viewer has asked for less motion,
-  // so no camera rides with a home run and nothing bursts or sparks.
+  // shot while everyone takes their places; 'street', the game's first at-bat, on the main gate from
+  // the street (shorter where the at-bat needs the time, and the wide shot under PACE.streetMin).
+  // `o.motion` false: the viewer has asked for less motion, so no camera rides with a home run and
+  // nothing bursts or sparks.
   D.stage = (p, cast = castOf(p), o = {}) => {
-    D.payload = p; D.cast = cast; D.log = []; D.played = []; D.views = null; D.landed = false; D.play = null; D.trot = null; D.inningOver = false; D.fx = []; D.marks = []; D.between = null; D.queued = new Map(); D.drags = []; D.crew = null;
+    D.payload = p; D.cast = cast; D.log = []; D.played = []; D.views = null; D.landed = false; D.play = null; D.trot = null; D.inningOver = false; D.fx = []; D.marks = []; D.between = null; D.queued = new Map(); D.drags = []; D.crew = null; D.opening = null;
     W.clearQueue();
     const motion = o.motion !== false;
     if (p?.phase === 'run') { stageRun(p, cast, o); return; }
@@ -357,7 +361,7 @@ export function createDirector(W, opts = {}) {
     // the cutaway gives way to the play: shortened where the at-bat can't fit round it, and left
     // out (`squeezed`) where even a third of a second won't fit
     const budget = budgetOf(p);
-    let lead = o.cutaway ? PACE.cutaway : 0, views = planViews(S, budget, lead);
+    let lead = o.cutaway ? (o.cutaway === 'street' ? PACE.street : PACE.cutaway) : 0, views = planViews(S, budget, lead);
     const over = timeline(S, views, PACE.in + lead).landAt - budget;
     if (lead && over > 0) {
       lead = lead - over >= 0.3 ? lead - over : 0;
@@ -368,8 +372,9 @@ export function createDirector(W, opts = {}) {
     const TL = timeline(S, views, t0);
     // the shortest this at-bat can be: its last pitch and what comes of it, from the cut in
     const floor = timeline(S, S.pitches.map((q, i) => ({ show: i === S.pitches.length - 1, lead: 'quick', react: false, ritual: false })), PACE.in).landAt;
-    Object.assign(D, { t0, budget, floor, landAt: TL.landAt, cutaway: !!lead, squeezed: !!o.cutaway && !lead });
-    if (lead) W.at(W.t, () => emit('shot', 'sky'));
+    const opening = lead ? (o.cutaway === 'street' && lead >= PACE.streetMin ? 'street' : 'sky') : null;
+    Object.assign(D, { t0, budget, floor, landAt: TL.landAt, cutaway: !!lead, opening, squeezed: !!o.cutaway && !lead });
+    if (lead) W.at(W.t, () => emit('shot', opening));
     const { P, C, H, U, tempo, delivery, hand, bats, from } = S;
     const side = sideShot(bats);
     let until = TL.landAt + 0.5;
@@ -680,7 +685,7 @@ export function createDirector(W, opts = {}) {
   // off the dirt; the leaders' table comes down for the crew camera (a 'table' emit) and the high
   // camera has them going off. `o.motion` false holds the crew camera still.
   D.changeover = (p, cast = castOf(p), o = {}) => {
-    D.payload = p; D.cast = cast; D.log = []; D.played = []; D.views = null; D.play = null; D.trot = null; D.cutaway = false; D.fx = []; D.marks = []; D.drags = []; D.crew = null;
+    D.payload = p; D.cast = cast; D.log = []; D.played = []; D.views = null; D.play = null; D.trot = null; D.cutaway = false; D.opening = null; D.fx = []; D.marks = []; D.drags = []; D.crew = null;
     W.clearQueue();
     for (const slot of [...W.bodies.keys()]) W.drop(slot);
     const t0 = W.t + PACE.in;
@@ -919,6 +924,17 @@ export function pictureAfter(p) {
   const bags = [0, 1, 2].map((i) => !!(Array.isArray(p?.basesBefore) && p.basesBefore[i]));
   if (!p?.phase && REACHED.has(p?.kind)) bags[0] = true;
   return bags;
+}
+
+// Whether a payload is a game's first at-bat, which the view opens on the street outside the main
+// gate (`stage`'s `o.cutaway` 'street'): the top of the first, nobody out or on before it, and
+// nothing scored.
+export function opensGame(p) {
+  if (!p || p.phase || (p.inning | 0) !== 1 || p.half !== 'top') return false;
+  const outsAfter = Math.max(0, Math.min(3, p.outs | 0)), outsBy = p.kind === 'tripleplay' ? 3 : p.kind === 'doubleplay' ? 2 : 1;
+  const runs = Number.isFinite(p.runs) ? p.runs : (p.rbi | 0);
+  return outsAfter - (p.out ? outsBy : 0) <= 0 && !(Array.isArray(p.basesBefore) && p.basesBefore.some(Boolean))
+    && Math.max(0, (p.awayScore | 0) - runs) === 0 && (p.homeScore | 0) === 0;
 }
 
 // which way a ball put in play goes, roughly by what came of it, for the second or two before it

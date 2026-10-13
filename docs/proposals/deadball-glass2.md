@@ -1373,7 +1373,7 @@ reference machine and on an integrated laptop GPU and writes the numbers into
 | `plugins/broadcast/regress.js`, the postseason | regress | `season` with its phase and the seeds on payloads, the final scheduled on an air day, the #1 seed at home. |
 | `plugins/broadcast/regress.js`, sim v2 | regress | Built: the v1 hash holds; v2 with its new plays off is the v1 game; every v2 play's moves account for every man, the runs and the outs; the rates; the switch by slot; the payloads; the hitting race; a line for every new play. |
 | `scripts/shapes/smoke.mjs` and `sitecheck.mjs`, the park | shapes, content | Phase 6: every slice of the park draws without throwing, and every gate has its street. |
-| `scripts/shapes/cityscape-smoke.mjs` | shapes | Built: pure, composes the set from the content tree's manifest. Every building within reach resolves to a shape at the windshield's size and gets a plot or its place on the water, none inside the park's outline; bearings move under 3° at the median and under 25° within 900 ft; the edges are straight and on tile lines; every plot fronts a street or backs onto the set's edge; every road tile's arms draw; nothing tall stands within 48 ft of a street-level camera; the engine files name no region. Since 4e.3, every building is lit as its model is, every light finite, on its building and outside the park; `shapes:smoke` checks the light bake is fresh. |
+| `scripts/shapes/cityscape-smoke.mjs` | shapes | Built: pure, composes the set from the content tree's manifest. Every building within reach resolves to a shape at the windshield's size and gets a plot or its place on the water, none inside the park's outline; bearings move under 3° at the median and under 25° within 900 ft; the edges are straight and on tile lines; every plot fronts a street or backs onto the set's edge; every road tile's arms draw; nothing tall stands within 48 ft of a street-level camera; the engine files name no region. Since 4e.3, every building is lit as its model is, every light finite, on its building and outside the park; `shapes:smoke` checks the light bake is fresh. Since 4e.4 it composes the set as the broadcast does, and checks the street camera and every car and walker on the streets. |
 | `plugins/broadcast/regress.js` | regress | `sport`, `bats`, `throws`, `hold` present; `play` consistent with the kind; standings once a game; bare pools direction-free; a recorded hash of a hundred seeded games unchanged. |
 
 `client:smoke` and `imports:smoke` cover new files without being asked. Each gate stays inside the 60
@@ -1875,6 +1875,37 @@ Phase 3, or with sim v2 if that comes later.
   `shapes:smoke` fails a stale light bake, `cityscape-smoke` checks every building lit, every light
   finite, on its building and outside the park, and a beacon on every tall roof, and
   `ballpark-smoke` the lights coming on before the windows and dimming in rain.
+
+- **4e.4 built, the streets, the birds and the camera flashes:** the streets round the park have
+  their game night ([diamond/streets.js](../../client/game/js/panels/diamond/streets.js), drawn by
+  [gl/streetlife.js](../../client/game/js/panels/gl/streetlife.js)): about 970 cars parked at the
+  kerbs within 1,500 ft of home plate, fewer further out, about 190 going by both ways along every
+  straight street with their headlamps and tail lamps on, and about 1,000 people walking in (1,900
+  are dealt; the rest fall where their way would leave the street or cross the lens), thick across
+  the plaza to the main gate and thinning along the streets further out. Every one of them goes
+  along a straight way at its own speed and comes round again, so where anything is is a function
+  of the world's clock, and they fade in and out at the ends of their ways. Three draws: the cars,
+  the walkers (the crowd's far figure with its legs and arms swinging) and the cars' lamps, lit by
+  the sky and, once they're on, the sodium lamps. The set is now composed as the broadcast does it
+  (`venueSet`), so the street camera's corner is kept clear. Before a game's first pitch the view
+  opens on the street camera (`street`): the main gate from a pavement corner of the crossing
+  outside it, with the crowd going in, when the first payload's lead gives it 2.2 s; the wide shot
+  over the outfield when it doesn't. The birds are [gl/parkbirds.js](../../client/game/js/panels/gl/parkbirds.js),
+  one draw each and worked out from the world's clock: nine gulls on their own circuits over the
+  outfield, banking into them, flapping a while and gliding a while, white beneath in the floods'
+  light off the field; and a murmuration of 2,400 starlings at dusk, a sheet that folds over the
+  skyline toward the sunset (never more than 20° off centre field, so the sky camera sees it), up
+  as the sun goes and roosted by full dark, never at dawn. Neither flies in rain, snow or
+  lightning. At night the crowd's camera flashes ([gl/crowd.js](../../client/game/js/panels/gl/crowd.js)
+  `flashesAt`) are small hard points at a fan's face, drawn with the city's lights: a few a minute
+  in a quiet park and most windows in a loud one, one a 0.85 s window at most so never more than
+  two in a second, and none with reduced motion. `quality.birds` and `quality.flashes` false
+  leave them out, for 4g's tiers. `cityscape-smoke` checks the street camera on its corner with
+  nothing built in the way, and every car and walker finite, outside the wall, on a road, the
+  plaza or the park's own ground wherever it is on its way, clear of the lens and the main gate
+  taking the most; `ballpark-smoke` the gulls over the park and clear of the lamps and the
+  cameras, the starlings at dusk only and toward the sunset, and the flashes never more than two in
+  a second; `diamond-smoke` that every game opens on the street.
 
 **Phase 4: the broadcast.** On by default wherever WebGL2 and float targets work.
 - `gl/crowd.js` with seated and reaction clips; replays in slow motion; dead-time rituals; the grounds

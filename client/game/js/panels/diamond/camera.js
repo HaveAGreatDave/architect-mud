@@ -68,6 +68,10 @@ export const SHOTS = Object.freeze({
   // high behind home with the city beyond: back from a break and between innings, and the
   // fireworks over the outfield
   sky: Object.freeze({ eye: [0, 118, -176], at: [-40, 130, 1200], fov: 50, shadow: [[0, 0, 140], 300] }),
+  // the main gate from the crossing outside it, the crowd going in: before a game's first pitch. The
+  // renderer stands it on its own venue's crossing (diamond/streets.js streetShot); this is where it
+  // stands with no city round the park
+  street: Object.freeze({ eye: [-41, 6, -298], at: [0, 38, -198], fov: 54, shadow: [[0, 0, -230], 140] }),
   // a home run side on, riding beside the ball: the director places it (`homer` specs, shotAt)
   homer: Object.freeze({ eye: [-60, 40, 200], at: [0, 50, 220], fov: 38, dof: 160, shadow: [[0, 0, 240], 120] }),
 });

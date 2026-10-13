@@ -125,7 +125,7 @@ import { __install } from './rink-dom-stub.mjs';
 const stub = __install();
 const P = '../../client/game/js/panels/';
 const { createWorld, DT, toPark } = await import(P + 'diamond/world.js');
-const { createDirector, pictureAfter } = await import(P + 'diamond/director.js');
+const { createDirector, pictureAfter, opensGame, PACE } = await import(P + 'diamond/director.js');
 const { castOf, crewDue, crewLane, CREW_ARCS, CREW_GATE, CREW_GAP, CREW_HOLD } = await import(P + 'diamond/cast.js');
 const { matAt, sweptAlong, crewShots: crewShotsOf } = await import(P + 'diamond/crew.js');
 const { pitchPoint } = await import(P + 'diamond/hud.js');
@@ -1081,6 +1081,8 @@ const renderer = () => ({
   setCrowd(levels) { rec.roar = [Math.max(rec.roar[0], levels[0]), Math.max(rec.roar[1], levels[1])]; },
   markDirt(list) { rec.marks += list.length; }, resetDirt() { rec.resets++; }, setHour(h) { rec.hours.push(h); }, setWeather(wx, o) { rec.wx.push({ wx, o }); }, setTime() {},
   setBoard() {}, setVenue() { return null; }, pump() { return 0; }, pending: () => 0, dispose() {},
+  // a city round the park, so a game opens on the street
+  city: { buildings: 1 },
 });
 {
   const host = stub.makeHost();
@@ -1095,7 +1097,7 @@ const renderer = () => ({
   let skipped = false;
   for (let i = 0; i < order.length; i++) {
     const p = order[i], next = order[i + 1];
-    if (!skipped && !p.phase && next && !next.phase && !want.has(p.kind) && String(p.basesBefore) !== String(p.basesAfter)) { skipped = true; continue; }
+    if (!skipped && i > 0 && !p.phase && next && !next.phase && !want.has(p.kind) && String(p.basesBefore) !== String(p.basesAfter)) { skipped = true; continue; }
     feed.push(p);
     if (!p.phase) want.delete(p.kind);
     if (feed.length >= 24 && !want.size) break;
@@ -1122,7 +1124,7 @@ const renderer = () => ({
     }
     check('the view is fed a home run to replay', replayAt.size === 2);
   }
-  let prevLine = '', picture = null, cutaways = 0;
+  let prevLine = '', picture = null, cutaways = 0, streetOpens = 0;
   // the live text, every line as it's said: the view opens before the first beat, as the TV opens
   // it, so its live region is there from the first line
   v.showIdle();
@@ -1147,9 +1149,12 @@ const renderer = () => ({
     if (run || (!p.phase && (p.pitches || []).length)) {
       const D = v.director, W2 = v.world, budget = budgetOf(p), start = W2.t;
       check('the view hands the at-bat or the play on the bases to the director', D && !D.landed && D.payload === p, label);
-      const differs = !!picture && picture.some((b, i) => b !== !!(p.basesBefore || [])[i]);
-      check('an at-bat opens on the cutaway when the picture\'s bags differ (unless the play has no time to spare), and only then', D.cutaway === (differs && !D.squeezed) && (!D.cutaway || v.shot === 'sky'), `${label}: picture ${picture} payload ${p.basesBefore}`);
+      const differs = !!picture && picture.some((b, i) => b !== !!(p.basesBefore || [])[i]), opening = opensGame(p);
+      check('an at-bat opens on the cutaway when the picture\'s bags differ, or on the street when it opens the game (unless the play has no time to spare), and only then',
+        D.cutaway === ((differs || opening) && !D.squeezed) && (!D.cutaway || v.shot === D.opening) && (!D.cutaway || D.opening === (opening ? (D.t0 - start - PACE.in >= PACE.streetMin - 1e-9 ? 'street' : 'sky') : 'sky')),
+        `${label}: picture ${picture} payload ${p.basesBefore}, opening ${opening}, shot ${v.shot}`);
       if (differs) cutaways++;
+      if (opening && D.opening === 'street') streetOpens++;
       // up to just before the landing, the last line is still up
       let held = true;
       while (!D.landed && W2.t - start < Math.max(budget, D.floor) + 2) {
@@ -1237,6 +1242,7 @@ const renderer = () => ({
     picture = pictureAfter(p);
   });
   check('the view is fed an at-bat its picture disagrees with', cutaways > 0);
+  check('the view opens the game\'s first at-bat on the street outside the main gate', feed.filter(opensGame).length === 1 && streetOpens === 1, `${streetOpens} of ${feed.filter(opensGame).length}`);
   // a hidden tab: no frames at all, and the play still lands its line, a beat after its time
   {
     const p = atBats.find((x) => !feed.includes(x)) || atBats[atBats.length - 1];

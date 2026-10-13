@@ -187,6 +187,9 @@ export function createCityLights(gl, prog) {
   const beams = layer(LIGHT_STRIDE.beams, [[0, 3, 0], [1, 4, 3], [2, 4, 7], [3, 2, 11], [4, 3, 13], [5, 3, 16]], 1);
   const plumes = layer(LIGHT_STRIDE.plumes, [[0, 4, 0], [1, 4, 4]], PLUME.puffs);
   const all = [[pts, 'pts'], [segs, 'segs'], [beams, 'beams'], [plumes, 'plumes']];
+  // points that come and go a frame at a time, as the static ones are laid out (the crowd's camera
+  // flashes, o.extra)
+  const extra = layer(LIGHT_STRIDE.pts, [[0, 4, 0], [1, 4, 4], [2, 4, 8]], 1);
 
   function set(L) {
     for (const [d, k] of all) {
@@ -203,7 +206,8 @@ export function createCityLights(gl, prog) {
   };
   // M: the frame's matrices, eye and lens; h the canvas's height in pixels; t the world's time (s).
   // o: { on (how lit the city is, 0 to 1), fogDens, fogH (the park's air), lit (a plume's light,
-  // linear), beams, steam (whether to draw them) }. Returns { draws, tris }.
+  // linear), beams, steam (whether to draw them), extra and extraN (this frame's own points, laid
+  // out as LIGHT_STRIDE.pts, and how many) }. Returns { draws, tris }.
   function draw(M, h, t, o) {
     let draws = 0, tris = 0;
     if (!(o.on > 0.002)) return { draws, tris };
@@ -229,13 +233,17 @@ export function createCityLights(gl, prog) {
       gl.bindVertexArray(segs.vao); gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, segs.n);
       draws++; tris += segs.n * 2;
     }
-    if (pts.n) {
+    const xn = o.extra && o.extraN > 0 ? o.extraN : 0;
+    if (pts.n || xn) {
       common(PT, M, minW, t, o); gl.uniform1f(PT.u('uLamp'), CITY_GAIN.lamp); gl.uniform1f(PT.u('uGlow'), CITY_GAIN.glow); gl.uniform1f(PT.u('uAir'), CITY_GAIN.air);
-      gl.bindVertexArray(pts.vao); gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, pts.n);
-      draws++; tris += pts.n * 2;
+      if (pts.n) { gl.bindVertexArray(pts.vao); gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, pts.n); draws++; tris += pts.n * 2; }
+      if (xn) {
+        gl.bindBuffer(gl.ARRAY_BUFFER, extra.buf); gl.bufferData(gl.ARRAY_BUFFER, o.extra, gl.DYNAMIC_DRAW, 0, xn * LIGHT_STRIDE.pts);
+        gl.bindVertexArray(extra.vao); gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, xn); draws++; tris += xn * 2;
+      }
     }
     return { draws, tris };
   }
-  function dispose() { for (const [d] of all) { gl.deleteVertexArray(d.vao); gl.deleteBuffer(d.buf); } }
+  function dispose() { for (const [d] of [...all, [extra]]) { gl.deleteVertexArray(d.vao); gl.deleteBuffer(d.buf); } }
   return { set, draw, dispose, get counts() { return { pts: pts.n, segs: segs.n, beams: beams.n, plumes: plumes.n }; } };
 }
