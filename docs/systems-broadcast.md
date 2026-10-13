@@ -1141,20 +1141,68 @@ first time a payload mentions them, and the number comes from the name, so every
 sees the same sweater. The home club wears its colour and the road club wears white with
 its colour as trim, which keeps two dark clubs apart.
 
-**The puck never jumps to a stick.** Possession only passes within reach of the blade
-(3 ft). `W.give(b)` on a puck farther off than that calls `W.collect(b)` instead: with
-`drive`, a scripted man skates to it (easing up so he meets it rather than overruns it)
-and it's swept in over the last few feet; without, it slides to his blade like a pass,
-never faster than 55 ft/s. A pass that misses its man is collected the same way, a man
-moved away from his own puck loses it to a collect, and the carry leash, the skate
-keep-out and the goalie's catch are all speed-capped. A caller that knows the puck is at
-the stick already (the release, a tip, a catch) passes `force`. The director plays nothing in a rush until
-the man it needs actually has the puck (a `fetch` leg), a dump is aimed at the next touch
-and bleeds speed to settle there (`W.settleAt`), the nearest teammate chases it, and a
-missed goal is steered in through the mouth rather than placed in the net. The booth
-covers the time: a rush off a loose puck opens with `pbp.retrieve` (the breakout follows
-on the `fetched` cue), and a dump or battle is followed by `pbp.chase`. The rink smoke
-fails on any step of the puck over 1.6 ft and any gain from beyond reach.
+**Only a stick, a skate, the boards or a net moves the puck.** Nothing steers it to a man.
+Possession only passes within reach of the blade: `W.give(b)` on a puck more than 3 ft off
+calls `W.collect(b)` instead, which makes him the man going to get it (`pk.home`), and the
+man goes to the puck (`pursue` in sim.js). He skates to where he'll meet it
+(`W.intercept`, which follows the puck's own slowing), flat out from far and at its pace and
+a bit close in, through the spot rather than easing up short of it, and round a net by its
+corners rather than into it (`W.aroundNets`; a spot inside the box he keeps off the frame,
+a puck tight to the back of the net, is gone to by the box's nearest edge). Once it's in the
+box his blade reaches
+(`W.inReach`), or at his skates, he has it a moment later, and the moment only starts over
+once it's been out of the box a little while, so a puck riding its edge isn't skated along
+an inch off his stick or walked round his feet; a stick's length off to the side, his blade drags it in at the speed a stick moves a
+puck. A caller that knows the puck is at the stick already
+(the release, a tip, a catch) passes `force`. The carry leash and the skate keep-out are
+speed-capped, and the carried puck rides the blade that's drawn, not a pattern beside it.
+
+A pass is played to where its man will be when it gets there, to his stick the way he'll
+be facing then: `whereIn` follows him skating to his spot and easing up at the end of it,
+and `flightT` allows for the puck slowing on the ice. If it'll get to him there he skates
+on as he was; if it won't, `meetPass` puts him on its path where he can be first. A man
+nearly stopped opens up to it, and it's played no sooner than he can be turned to it: one
+that got there first went by his side. A short pass is a soft one, a goalie drops one at
+the feet of a man beside him, and two men side by side, or a man with the puck at his feet,
+just hand it over. A pass that goes by its man is run down by whoever of his side gets
+there first; one going by a man the play has busy elsewhere (a hit, a draw) is left to
+slide. A carrier's own teammates give him room, and the man a pass is going to gets the
+same: a spot in the lane ahead of the carrier moves to the side of it, and when they bump,
+it's the other man who's eased aside. When any two of a side bump, the one eased aside is
+the one lower in this order: the man with the puck (or a pass coming to him), a man the
+play has going somewhere, a man playing his position. Anybody closing on a man square in his road goes
+round him rather than shoving him along, except the man he means to hit or take the puck
+off (`charging`). From a stop he counts as closing at the speed he means to go, so a
+forechecker stood in front of a carrier doesn't hold him there.
+
+The director plays nothing in a rush until the man it needs actually has the puck (a
+`fetch` leg). A man early for a touch curls round its spot at a skater's pace rather than
+standing on it with the puck. A dump is aimed at the next touch and bleeds speed to settle
+there (`W.settleAt`), and a shot that's a goal is aimed so its line crosses the goal line
+between the posts from wherever it's taken; one that still misses is steered in through the
+mouth rather than placed in the net. The rink smoke fails on any step of the puck over
+1.6 ft, any gain from beyond reach, and more than one rush pass in twenty going by its man.
+
+**Battles for the puck, and the booth calls them.** A rush that starts with the puck on the
+other side's stick starts with a takeaway: the man closes on the carrier, who slows and
+turns the puck away from him (`protect`); a moment's lean, a lift of the stick and a poke,
+and the puck squirts off the carrier's blade toward him and he gathers it up. The narrator
+calls one when the last play left the puck with the other side (they won the draw, or their
+goalie caught this side's shot and played it on): `pbp.forecheck`, then `pbp.takeaway` on a
+`takeaway` cue, which is when the rink pokes it loose. If nobody of theirs has it as such a
+play starts, their best-placed man gets to the loose puck first and has it taken off him
+(a `forecheck` leg), or, with it already on this man's stick, their nearest man comes at him
+and loses the battle (a `challenge`); so does the man going for it, when this man beats him
+to it. While the play has a man going at the carrier, his side's ambient forechecker plays
+his position instead: two on him, the second only got in the first one's road. After a loose puck (a rebound, a block, a man knocked
+off it on the boards) the booth says he goes in after it (`pbp.retrieve`), and the breakout,
+or a takeaway from whoever got there first, comes as `pbp.breakout.on` airs on the
+`fetched` cue. A loose puck in the middle of a rush (the `battle` and `dump` keyframes) is a
+race between the man the booth names and their nearest man; when they get there together
+it's a scramble, sticks on it and on each other and the puck kicked about between them, and
+the named man comes out with it as the next line (`pbp.won`) airs. The rink smoke fails a
+takeaway the booth calls that isn't a battle on the ice, or whose puck comes loose more than
+0.6 s off its line.
 
 **Nothing teleports, and the live picture never cuts.** Every change of shot (a fight's
 close-up, the Zamboni, a death's slow push in) is the camera's springs easing to it. Nobody
@@ -1259,7 +1307,8 @@ a breakaway, so the players are big), panning with the puck and leading it well 
 way it's going (three quarters of a second of its travel, up to 28 ft). When
 the play is within about 60 ft of a goal line, or the director says a shot is coming
 (`W.cam.net`, set when a rush reaches its shot leg and cleared when the beat ends), the
-camera widens and slides until that net is in frame with the puck. That framing is solved,
+camera widens and slides until that net is in frame with the puck, and with a shot coming,
+the ice a few feet either side of it too, where one that misses goes. That framing is solved,
 not guessed: given the points that must be seen (the action, and the net when it matters),
 it slides across the ice and pulls back, up to 140 ft for a shot from centre, until every
 one projects inside the picture for the screen's own aspect ratio. Every number follows

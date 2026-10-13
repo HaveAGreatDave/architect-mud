@@ -11,7 +11,7 @@
 // them. The director takes actors and the puck away from this when a beat needs them and
 // hands them back when it's done.
 
-import { TAU, V, clamp, lerp, angWrap, rng, hash } from './util.js';
+import { TAU, V, clamp, lerp, angWrap, rng, hash, hyp, hyp3 } from './util.js';
 import {
   RL, RW, RC, MID_Y, BOARD_H, GLASS_H, GOAL_X, BLUE_X, NET_HALF, NET_DEPTH, NET_H,
   insideRink, attackDir, panelAt, PANELS, PANEL_X0, PANEL_W,
@@ -29,8 +29,11 @@ import { DT, G, skaterRig, goalieRig, bladeWorld, bladeLocal, keepOut, makeRag, 
 // deke, long pushes and a chase flat out. Through a shot's wind-up there are no touches:
 // the puck rides on at his speed and the blade comes through and strikes it.
 // Returns true on a touch, so the caller can make the tick of it.
-export function dribble(c, pk, T, dt, rand = Math.random) {
-  const sp = Math.hypot(c.vx || 0, c.vy || 0);
+// `pocket(c)`, when given, is where the blade that's DRAWN has the puck (the rig's blade,
+// which reaches for the puck): through a wind-up or a deke the puck rides that, so it's on
+// the stick the viewer sees and not on a pattern a foot away from it.
+export function dribble(c, pk, T, dt, rand = Math.random, pocket = null) {
+  const sp = hyp(c.vx || 0, c.vy || 0);
   const shooting = !!SHOTS[c.act];
   c.touchT = (c.touchT ?? 0) - dt;
   // never through his own skates: in his frame, push it back outside them
@@ -39,12 +42,12 @@ export function dribble(c, pk, T, dt, rand = Math.random) {
     const lu = dx * ch + dy * sn, lv = -dx * sn + dy * ch, [ku, kv] = keepOut(lu, lv, 0.15);
     if (ku !== lu || kv !== lv) {
       // eased out, a few inches a step, rather than jumped clear
-      const tx = c.x + ku * ch - kv * sn, ty = c.y + ku * sn + kv * ch, dd = Math.hypot(tx - pk.x, ty - pk.y), m = Math.min(1, 30 * dt / (dd || 1));
+      const tx = c.x + ku * ch - kv * sn, ty = c.y + ku * sn + kv * ch, dd = hyp(tx - pk.x, ty - pk.y), m = Math.min(1, 30 * dt / (dd || 1));
       pk.x += (tx - pk.x) * m; pk.y += (ty - pk.y) * m; pk.vx = lerp(pk.vx, c.vx || 0, 0.5); pk.vy = lerp(pk.vy, c.vy || 0, 0.5);
     }
   }
   const bw = bladeWorld(c, T, true);
-  const d = Math.hypot(pk.x - bw[0], pk.y - bw[1]);
+  const d = hyp(pk.x - bw[0], pk.y - bw[1]);
   // THE LEASH. A carrier does not lose the puck on his own: it is only ever taken off him
   // (a poke, a rub-out, a hit) or let go (a pass, a shot). So however a touch lands, the
   // puck is drawn back softly if it strays past a short gap from where his blade is.
@@ -59,7 +62,8 @@ export function dribble(c, pk, T, dt, rand = Math.random) {
   // cradled in the pocket and dragged with the blade
   const cradle = () => {
     // once it's in the pocket it rides exactly on the blade; from farther it's drawn in
-    const k = d < 0.6 ? 1 : 1 - Math.exp(-dt * 40), nx = lerp(pk.x, bw[0], k), ny = lerp(pk.y, bw[1], k);
+    const on = (pocket && pocket(c)) || bw, dp = hyp(pk.x - on[0], pk.y - on[1]);
+    const k = dp < 0.6 ? 1 : 1 - Math.exp(-dt * 40), nx = lerp(pk.x, on[0], k), ny = lerp(pk.y, on[1], k);
     pk.vx = (nx - pk.x) / dt + (c.vx || 0) * (1 - k); pk.vy = (ny - pk.y) / dt + (c.vy || 0) * (1 - k);
     pk.x = nx - pk.vx * dt; pk.y = ny - pk.vy * dt;          // the caller's integration step lands it on nx, ny
     c.touchT = 0.08;
@@ -164,12 +168,12 @@ export function createWorld(ice, seedKey) {
   W.sfx = (key, opts) => W.emit('sfx', { key, ...(opts || {}) });
 
   // ── the puck ───────────────────────────────────────────────────────────────
-  // ⚠ THE PUCK NEVER JUMPS TO A STICK. Possession is only ever taken within reach of the
-  // blade. Asked to hand it to a man it's farther from than that, `give` collects instead:
-  // the puck is fetched (he skates to it, if he's scripted and `drive` is set) and swept in
-  // the last few feet, and possession passes when it arrives. A caller that knows the puck
-  // is at the stick already (the shot's release, a tip, a catch) passes `force`; the carry
-  // leash is speed-capped, so even then the puck slides the last inch rather than jumping.
+  // ⚠ THE PUCK NEVER JUMPS TO A STICK, AND IT NEVER STEERS ITSELF TO ONE. Possession is
+  // only ever taken within reach of the blade. Asked to hand it to a man it's farther from
+  // than that, `give` collects instead: he goes and gets it (`pursue`), and possession passes
+  // when his stick gets to it. A caller that knows the puck is at the stick already (the
+  // shot's release, a tip, a catch) passes `force`; the carry leash is speed-capped, so even
+  // then the puck slides the last inch rather than jumping.
   const REACH = 3.0;
   W.give = (b, force) => {
     const pk = W.puck;
@@ -177,63 +181,146 @@ export function createWorld(ice, seedKey) {
       // nobody fishes a puck out of the net through the mesh: it's collected, out the mouth
       if (pk.inNet) { W.collect(b); return false; }
       const bw = bladeWorld(b, W.t, true);
-      if (Math.hypot(bw[0] - pk.x, bw[1] - pk.y) > REACH || pk.z > 1.2) { W.collect(b); return false; }
+      if (hyp(bw[0] - pk.x, bw[1] - pk.y) > REACH || pk.z > 1.2) { W.collect(b); return false; }
     }
     if (pk.carrier) pk.carrier.carrying = false;
+    // (a man who was on his way to get it, and someone else got there first, goes back to
+    // whatever he was doing)
+    if (pk.home && pk.home !== b) endFetch(pk.home);
     pk.carrier = b; pk.target = null; pk.held = null; pk.inNet = null; pk.home = null;
-    if (b) { b.touchT = 0; b.puckAt = [pk.x, pk.y]; b.reachTo = null; endFetch(b); }
+    if (b) {
+      unface(b);
+      b.touchT = 0.06; b.puckAt = [pk.x, pk.y]; b.puckV = [pk.vx - (b.vx || 0), pk.vy - (b.vy || 0)]; b.reachTo = null; endFetch(b);
+      // the blade cushions it: whatever it came in at, it's going at his speed now
+      if (!pk.hidden) { pk.vx = b.vx || 0; pk.vy = b.vy || 0; pk.vz = Math.min(pk.vz, 0); }
+    }
+    // Taken: his reception pose winds down now (its own ease-out, over about a tenth of a
+    // second), so his blade goes with the puck rather than holding the pose a foot or two off it.
+    if (b && b.act === 'receive' && b.actT < 0.82) { b.actT = 0.82; b.actDur = 0.12 / 0.18; }
     if (b) { b.carrying = true; pk.owner = b.side; if (b.kind === 'skater') W.amb.poss = b.side; }
     return true;
   };
-  // Send the puck to a man without teleporting it. With `drive`, a scripted man skates to
-  // it first and the puck only comes to him over the last few feet (or after a couple of
-  // seconds, if he can't get there); without, it slides to his blade like a pass.
-  W.collect = (b, drive = false) => {
+  // A man goes and gets the puck. It goes on sliding however it was sliding: nothing pulls
+  // it to him. He skates to where he'll meet it, whatever his script or his position asked
+  // of him (see `pursue`), and has it when it's within reach of his stick. (The old second
+  // argument, which let the puck slide to a man who stayed put, is gone: a puck that came
+  // to a stick nobody had touched it with read as a magnet.)
+  W.collect = (b) => {
     const pk = W.puck;
     if (!b) return;
     if (pk.carrier && pk.carrier !== b) { pk.carrier.carrying = false; pk.carrier.puckAt = null; pk.carrier = null; }
     if (pk.carrier === b) return;
     pk.target = null; pk.held = null;
     if (pk.home && pk.home !== b) endFetch(pk.home);
-    pk.home = b; pk.homeT0 = W.t; pk.homeDrive = !!(drive && b.scripted);
-    if (pk.homeDrive && !b.fetchPrev) b.fetchPrev = { tx: b.tx, ty: b.ty, maxV: b.maxV };
+    pk.home = b; pk.homeT0 = W.t;
+    if (b.scripted && !b.fetchPrev) b.fetchPrev = { tx: b.tx, ty: b.ty, maxV: b.maxV };
   };
+  // THE SIM'S FACINGS ARE LENT. A man closing on a loose puck turns to it, and one waiting on
+  // a pass opens up to it; once it's his, or he's stopped going for it, he faces his own way
+  // again. (A facing somebody else has given him since is theirs to keep.)
+  function lendFace(b, f) { b.face = f; b.simFace = f; }
+  function unface(b) { if (b.simFace != null) { if (b.face === b.simFace) b.face = null; b.simFace = null; } }
+  // nobody's going for it any more (the puck slides on as it was; a pass on its way to a man
+  // still gets to him)
+  W.uncollect = () => { const pk = W.puck; if (pk.home) { endFetch(pk.home); pk.home.inReachAt = null; pk.home = null; } };
   function endFetch(b) {
     if (b.fetchPrev) { b.tx = b.fetchPrev.tx; b.ty = b.fetchPrev.ty; b.maxV = b.fetchPrev.maxV; b.fetchPrev = null; }
-    b.reachTo = null;
+    b.reachTo = null; unface(b);
   }
   W.loose = (vx, vy, vz = 0) => {
     const pk = W.puck;
     if (pk.carrier) { pk.carrier.carrying = false; pk.carrier.puckAt = null; }
     if (pk.home) { endFetch(pk.home); pk.home = null; }
+    if (pk.target) unface(pk.target);
     pk.carrier = null; pk.target = null; pk.held = null; pk.vx = vx; pk.vy = vy; pk.vz = vz; pk.drag = 0;
   };
   // Only a man with the puck on his stick can pass it. Asked to pass it from out of reach,
   // he collects it instead and the pass isn't made.
   W.pass = (from, to, spd = 70) => {
     const pk = W.puck;
-    if (from && pk.carrier !== from) { const bw = bladeWorld(from, W.t, true); if (Math.hypot(bw[0] - pk.x, bw[1] - pk.y) > REACH) { W.collect(from); return false; } }
+    // (a goalie plays it out of his glove as well as off his stick)
+    if (from && from.kind !== 'goalie' && pk.carrier !== from) { const bw = bladeWorld(from, W.t, true); if (hyp(bw[0] - pk.x, bw[1] - pk.y) > REACH) { W.collect(from); return false; } }
+    // A short pass is a soft one, and one out of a goalie's glove is tossed down to the ice
+    // in front of the man it's for: neither is fired at a man a stride away.
+    const z0 = pk.z, d0 = hyp(to.x - pk.x, to.y - pk.y);
+    spd = Math.min(spd, 16 + d0 * 3);
+    if (z0 > 1) spd = Math.min(spd, Math.max(10, d0 * 2.5));
     W.loose(0, 0);
-    let tx = to.x, ty = to.y;
-    for (let i = 0; i < 3; i++) {
-      const d = Math.hypot(tx - pk.x, ty - pk.y), tt = d / spd;
-      const b = bladeWorld(to, W.t + tt, true);
-      tx = b[0] + to.vx * tt; ty = b[1] + to.vy * tt;
+    // (to a man beside him, the goalie drops it at his feet, and he takes it off the ice)
+    if (z0 > 1 && d0 < 4) { pk.vz = -2; W.collect(to); return true; }
+    let tx = to.x, ty = to.y, hAt = to.h, slow = false;
+    for (let i = 0; i < 4; i++) {
+      // led to where he'll be when it gets there: a man skating to a spot is going there,
+      // speeding up as he goes, not on along the line he happens to be on now; and it gets
+      // there a little later than its speed says, slowing on the ice the whole way
+      const d = hyp(tx - pk.x, ty - pk.y), tt = flightT(d, spd), p = whereIn(to, tt);
+      // to his stick, the way he'll be facing then: along his line if he's skating, or, nearly
+      // stopped, toward the pass (he opens up to it), not however a stop or a turn has him
+      // facing this instant
+      const q = whereIn(to, Math.max(0, tt - 0.1)), v = hyp(p[0] - q[0], p[1] - q[1]) / 0.1;
+      slow = to.face == null && v < 6;
+      hAt = to.face != null ? to.face : !slow ? Math.atan2(p[1] - q[1], p[0] - q[0]) : Math.atan2(pk.y - p[1], pk.x - p[0]);
+      // (and has to turn to it first: one there before he's round goes by his side, so it's
+      // played no sooner than he can be facing it, as stepBody turns him, near enough)
+      if (slow) {
+        const turn = Math.abs(angWrap(hAt - to.h));
+        const tTurn = turn > 0.73 ? (turn - 0.73) / 7 + 0.09 : turn > 0.3 ? Math.log(turn / 0.3) / 10 : 0;
+        if (tt < tTurn) spd = Math.max(8, 0.35 * d / (1 - Math.exp(-0.35 * tTurn)));
+      }
+      const b = bladeLocal(to, W.t + tt, true), ch = Math.cos(hAt), sn = Math.sin(hAt);
+      tx = p[0] + b[0] * ch - b[1] * sn; ty = p[1] + b[0] * sn + b[1] * ch;
     }
     const c = insideRink(tx, ty, 1.5); if (c) { tx = c.x; ty = c.y; }
-    const d = Math.hypot(tx - pk.x, ty - pk.y) || 1;
-    pk.vx = (tx - pk.x) / d * spd; pk.vy = (ty - pk.y) / d * spd; pk.vz = 0;
-    pk.target = to; pk.passT0 = W.t;
+    // Two men side by side: where his stick will be is about where the puck is, or the puck
+    // is at his feet. It's handed over if his stick is at it already, or nudged across to his
+    // stick where it is now.
+    let d = hyp(tx - pk.x, ty - pk.y) || 1;
+    if ((d < 1.5 || d0 < 2) && z0 < 1) {
+      const bw = bladeWorld(to, W.t, true), db = hyp(bw[0] - pk.x, bw[1] - pk.y);
+      if (to.stick && !to.rag && !to.blend && (db < 2.6 || inReach(to, pk.x, pk.y))) { W.give(to, true); W.sfx('receive'); return true; }
+      tx = bw[0]; ty = bw[1]; d = db || 1; spd = Math.max(6, d * 3); slow = false;
+    }
+    if (slow) lendFace(to, hAt);
+    pk.vx = (tx - pk.x) / d * spd; pk.vy = (ty - pk.y) / d * spd; pk.vz = z0 > 1 ? -6 : 0;
+    pk.target = to; pk.passT0 = W.t; pk.passMin = Infinity;
     W.sfx('pass');
     return true;
   };
+  // How long a puck played at `spd` takes to go `d` along the ice, slowing as it goes
+  // (stepPuck's friction). Barely getting there, it's a long time.
+  const flightT = (d, spd, k = 0.35) => { const x = k * d / Math.max(1, spd); return x < 0.9 ? -Math.log(1 - x) / k : d / Math.max(1, spd) + 2; };
+  // Where a man will be in `t` seconds: heading for his spot (`tx, ty`) at up to `maxV`,
+  // getting there from the speed he has at his acceleration, and easing up over the last
+  // stretch as stepBody has him do (his speed 1.8 times what's left), unless he's going
+  // through it. (A man with no spot to go to goes on as he's going.)
+  function whereIn(m, t) {
+    const dx = m.tx - m.x, dy = m.ty - m.y, d = hyp(dx, dy);
+    if (!Number.isFinite(d) || d < 0.5) return [m.x + (m.vx || 0) * t * 0.3, m.y + (m.vy || 0) * t * 0.3];
+    const v0 = Math.max(0, ((m.vx || 0) * dx + (m.vy || 0) * dy) / d), vm = Math.max(v0, m.maxV || 20), a = m.acc || 26;
+    const rB = m.through > W.t ? 0 : Math.min(d, vm / 1.8), run = d - rB;
+    const tUp = (vm - v0) / a, sUp = (v0 + vm) / 2 * tUp;
+    // (the part at speed: up to his top speed and on at it, or not even that far)
+    const tRun = sUp >= run ? (-v0 + Math.sqrt(v0 * v0 + 2 * a * run)) / a : tUp + (run - sUp) / vm;
+    const s = t > tRun ? d - rB * Math.exp(-1.8 * (t - tRun)) : t <= tUp ? v0 * t + a * t * t / 2 : sUp + vm * (t - tUp);
+    const k = Math.min(1, s / d);
+    return [m.x + dx * k, m.y + dy * k];
+  }
+  // How soon a man flat out can be at (x, y), from the speed he has toward it (going the other
+  // way, he has to stop first).
+  function reachIn(m, x, y) {
+    const dx = x - m.x, dy = y - m.y, d = hyp(dx, dy);
+    if (d < 0.01) return 0;
+    const a = m.acc || 26, vm = 24, v0 = clamp(((m.vx || 0) * dx + (m.vy || 0) * dy) / d, -vm, vm), v = Math.max(0, v0);
+    const tUp = (vm - v) / a, sUp = (v + vm) / 2 * tUp;
+    return (v0 < 0 ? -v0 / a : 0) + (sUp >= d ? (-v + Math.sqrt(v * v + 2 * a * d)) / a : tUp + (d - sUp) / vm);
+  }
   // A shot leaves a light tail behind it, brightest on a snap shot.
   const TAIL = { snap: 1, slap: 0.75, onetimer: 0.7, wrist: 0.5, tip: 0.45, backhand: 0.4, wrap: 0.35 };
   W.shoot = (from, tgt, spd, type) => {
     const pk = W.puck;
     W.loose(0, 0);
     pk.tail = { t0: W.t, k: TAIL[type] ?? 0.5, pts: [] };
-    const d = Math.hypot(tgt[0] - pk.x, tgt[1] - pk.y) || 1, tt = d / spd;
+    const d = hyp(tgt[0] - pk.x, tgt[1] - pk.y) || 1, tt = d / spd;
     // (lifted no higher than a shot is: from a long way out, slowly, it would have to be lobbed
     // over the glass to come down on its spot, so it comes in low and slides the rest)
     pk.vx = (tgt[0] - pk.x) / d * spd; pk.vy = (tgt[1] - pk.y) / d * spd; pk.vz = Math.min(16, (tgt[2] - pk.z) / tt + (G / 2) * tt); pk.z = Math.max(pk.z, 0.05);
@@ -242,11 +329,11 @@ export function createWorld(ice, seedKey) {
     return tt;
   };
   // A loose puck that should come to rest near (x, y): more drag on it until it does.
-  W.settleAt = (x, y) => { const pk = W.puck, d = Math.hypot(x - pk.x, y - pk.y), v = Math.hypot(pk.vx, pk.vy); pk.drag = clamp(v / Math.max(3, d), 0.35, 4); };
+  W.settleAt = (x, y) => { const pk = W.puck, d = hyp(x - pk.x, y - pk.y), v = hyp(pk.vx, pk.vy); pk.drag = clamp(v / Math.max(3, d), 0.35, 4); };
   W.dumpTo = (from, x, y, spd = 62) => {
     const pk = W.puck;
     W.loose(0, 0);
-    const d = Math.hypot(x - pk.x, y - pk.y) || 1;
+    const d = hyp(x - pk.x, y - pk.y) || 1;
     pk.vx = (x - pk.x) / d * spd; pk.vy = (y - pk.y) / d * spd; pk.vz = 3;
     // it's put in to a spot, not down the length of the rink: the boards and the snow bleed
     // its speed so it settles about where it was aimed, where the man chasing it can get it
@@ -292,6 +379,15 @@ export function createWorld(ice, seedKey) {
       else { pk.vx = -pk.vx * 0.5; pk.x = n.dir > 0 ? x1 + 0.3 : x0 - 0.3; }
     }
   }
+  // The pocket of the blade that's drawn: the rig's heel, a puck's width out from him. (The
+  // rig keeps its eased blade on the body against the instant, so asking here and drawing
+  // the same instant later agree.)
+  function pocketOf(c) {
+    const J = skaterRig(c, W.t), h = J && J[19];
+    if (!h) return null;
+    const dx = h[0] - c.x, dy = h[1] - c.y, d = hyp(dx, dy) || 1;
+    return [h[0] + dx / d * 0.12, h[1] + dy / d * 0.12];
+  }
   function stepPuck(dt) {
     const pk = W.puck;
     if (pk.held) {
@@ -299,7 +395,7 @@ export function createWorld(ice, seedKey) {
       // dot. Glided there if it isn't already, then held. A linesman who has left the ice
       // has it in his pocket.
       const hb = pk.held, J = hb.kind === 'goalie' ? goalieRig(hb, W.t) : skaterRig(hb, W.t), hnd = hb.kind === 'goalie' ? J[6] : J[9];
-      const d = Math.hypot(hnd[0] - pk.x, hnd[1] - pk.y, hnd[2] - pk.z), pocket = pk.hidden;
+      const d = hyp3(hnd[0] - pk.x, hnd[1] - pk.y, hnd[2] - pk.z), pocket = pk.hidden;
       // (out of sight it's simply where his hand is, so he comes back on with it in his hand)
       const k = d > 0.5 && !pocket ? Math.min(1 - Math.exp(-dt * 10), 70 * dt / d) : 1;
       pk.x += (hnd[0] - pk.x) * k; pk.y += (hnd[1] - pk.y) * k; pk.z += (hnd[2] - pk.z) * k; pk.vx = pk.vy = pk.vz = 0;
@@ -311,30 +407,57 @@ export function createWorld(ice, seedKey) {
     if (pk.home && !pk.carrier) {
       const h = pk.home;
       if (!h.active || h.rag || !h.stick) { endFetch(h); pk.home = null; }
-      else {
-        const bl = bladeWorld(h, W.t, true), net = pk.inNet ? NETS.find((q) => q.side === pk.inNet) : null;
-        // out of the net, it's steered to the mouth first
-        const b = net ? [net.gx - net.dir * 1.2, MID_Y] : bl, dx = b[0] - pk.x, dy = b[1] - pk.y, d = Math.hypot(dx, dy) || 1e-6;
-        if (d < 4.5 && !net) h.reachTo = [pk.x, pk.y];
-        if (d < 2.4 && pk.z < 0.8 && !net) { const was = h; W.give(was, true); W.sfx('receive'); }
-        else if (net || !pk.homeDrive || d < 7 || W.t - pk.homeT0 > 2.4) {
-          // swept or slid to him: re-aimed every step, quick from far and soft on arrival
-          const sp = Math.min(55, 8 + d * 3.2), tvx = dx / d * sp + (h.vx || 0), tvy = dy / d * sp + (h.vy || 0);
-          const k = 1 - Math.exp(-dt * 6);
-          pk.vx += (tvx - pk.vx) * k; pk.vy += (tvy - pk.vy) * k;
+      else if (pk.inNet) {
+        // in the net, his stick reaches in through the mouth and draws it out, once he's
+        // standing at it (the blade is on it the whole way: it's the stick moving it)
+        const net = NETS.find((q) => q.side === pk.inNet), mx = net.gx - net.dir * 1.2;
+        if (hyp(h.x - mx, h.y - MID_Y) < 6) {
+          h.reachTo = [pk.x, pk.y];
+          const dx = mx - net.dir * 1.5 - pk.x, dy = MID_Y - pk.y, d = hyp(dx, dy) || 1e-6, k = 1 - Math.exp(-dt * 8);
+          pk.vx += (dx / d * Math.min(9, d * 3) - pk.vx) * k; pk.vy += (dy / d * Math.min(9, d * 3) - pk.vy) * k;
         }
+      } else if (pk.z < 0.8 && (inReach(h, pk.x, pk.y) || hyp(pk.x - h.x, pk.y - h.y) < 1.4)) {
+        // within reach of his stick: the blade goes out to it, and once it's had a moment to
+        // get there he has it (one going by him quickly he takes as it comes, as he would a
+        // pass: it's through his reach before a moment's gone)
+        // (or at his skates, kicked up to his stick as a pass into his feet is: a man who'd
+        // skated onto it turned to it, swung his blade round, and the blade's drag walked it
+        // round his feet for seconds)
+        if (h.inReachAt == null) h.inReachAt = W.t;
+        h.outAt = null;
+        h.reachTo = [pk.x, pk.y];
+        // (not while he's still digging for it with a man on him: `holdOff`, a battle)
+        const rel = hyp(pk.vx - (h.vx || 0), pk.vy - (h.vy || 0));
+        if ((W.t - h.inReachAt > 0.08 || rel > 12) && !(h.holdOff > W.t)) { h.inReachAt = null; W.give(h, true); W.sfx('receive'); }
+      } else {
+        // (his moment starts over only once it's been out of reach a little while: a puck
+        // riding the near edge of the box goes in and out of it step to step, and one that
+        // started it over every time was skated the length of the ice an inch off his stick)
+        if (h.inReachAt != null) {
+          if (h.outAt == null) h.outAt = W.t;
+          else if (W.t - h.outAt > 0.1) h.inReachAt = h.outAt = null;
+        }
+        // a stick's length off but not in front of him (beside him, or tight to the boards
+        // he's skating along): his blade goes out to it and drags it in, at the speed a stick
+        // moves a puck, not the speed of a pass
+        const bw = bladeWorld(h, W.t, true), dx = bw[0] - pk.x, dy = bw[1] - pk.y, db = hyp(dx, dy) || 1e-6;
+        if (db < 4.2 && pk.z < 0.8) {
+          h.reachTo = [pk.x, pk.y];
+          const sp = Math.min(10, db * 4), k = 1 - Math.exp(-dt * 6);
+          pk.vx += (dx / db * sp + (h.vx || 0) - pk.vx) * k; pk.vy += (dy / db * sp + (h.vy || 0) - pk.vy) * k;
+        } else h.reachTo = null;
       }
     }
     if (pk.carrier) {
       const c = pk.carrier;
       if (!c.active || c.rag || !c.stick) { W.loose(c.vx * 0.6, c.vy * 0.6); }
-      else if ((() => { const bw = bladeWorld(c, W.t, true); return Math.hypot(bw[0] - pk.x, bw[1] - pk.y) > 6; })()) {
+      else if ((() => { const bw = bladeWorld(c, W.t, true); return hyp(bw[0] - pk.x, bw[1] - pk.y) > 6; })()) {
         // moved off it (a change, a man put somewhere): it's his to collect, not to yank.
         // (He lets go of it first; `collect` does nothing for the man already carrying it.)
         c.carrying = false; c.puckAt = null; pk.carrier = null;
         W.collect(c);
       } else {
-        if (dribble(c, pk, W.t, dt, rand) && W.t - (W.tickAt || 0) > 0.12) { W.tickAt = W.t; W.sfx('tick', { quiet: true }); }
+        if (dribble(c, pk, W.t, dt, rand, pocketOf) && W.t - (W.tickAt || 0) > 0.12) { W.tickAt = W.t; W.sfx('tick', { quiet: true }); }
 
       }
     }
@@ -356,10 +479,11 @@ export function createWorld(ice, seedKey) {
       }
     }
     puckNets(pk);
-    if (pk.carrier) pk.carrier.puckAt = [pk.x, pk.y];
+    // where the carrier's blade should be: on the puck, and going the way it's going (rig.js)
+    if (pk.carrier) { const c = pk.carrier; c.puckAt = [pk.x, pk.y]; c.puckV = [pk.vx - (c.vx || 0), pk.vy - (c.vy || 0)]; }
     if (pk.tail) {
       // the tail: the last fifth of a second of flight, while it's flying
-      const T = pk.tail, sp = Math.hypot(pk.vx, pk.vy, pk.vz);
+      const T = pk.tail, sp = hyp3(pk.vx, pk.vy, pk.vz);
       if (pk.carrier || pk.inNet || W.t - T.t0 > 2 || (sp < 20 && !T.pts.length)) pk.tail = null;
       else {
         if (!T.at || W.t - T.at >= 1 / 60) { T.at = W.t; T.pts.push([pk.x, pk.y, pk.z + 0.06]); if (T.pts.length > 12) T.pts.shift(); }
@@ -370,17 +494,32 @@ export function createWorld(ice, seedKey) {
     for (const d of W.limbs) {
       // the puck can hit what's lying on the ice
       for (const p of d.pts) {
-        const dx = pk.x - p.x, dy = pk.y - p.y, dd = Math.hypot(dx, dy);
+        const dx = pk.x - p.x, dy = pk.y - p.y, dd = hyp(dx, dy);
         if (dd < p.r + 0.3 && pk.z < 0.8 && dd > 0.01) { const vn = (pk.vx * dx + pk.vy * dy) / dd; if (vn < 0) { pk.vx -= 1.6 * vn * dx / dd; pk.vy -= 1.6 * vn * dy / dd; p.px -= vn * dx / dd * DT * 0.3; p.py -= vn * dy / dd * DT * 0.3; } }
       }
     }
     if (pk.target) {
       const tg = pk.target, b = bladeWorld(tg, W.t, true);
-      const d = Math.hypot(b[0] - pk.x, b[1] - pk.y);
+      const d = hyp(b[0] - pk.x, b[1] - pk.y);
       if (d < 4.5) tg.reachTo = [pk.x, pk.y];
-      // a pass that misses him isn't put on his stick: it's collected, over however far
-      if (d < 2.6 && pk.z < 1.2) { if (tg.active && !tg.rag && tg.stick) { W.give(tg); W.sfx('receive'); } else pk.target = null; }
-      else if (W.t - pk.passT0 > 1.6) { if (tg.active && !tg.rag && tg.stick) W.collect(tg); else { tg.reachTo = null; pk.target = null; } }
+      // Taken on his stick anywhere it can reach, or stopped with a skate and kicked up to it
+      // (a pass into his feet). One that's gone by him, or that he can't play, he goes after:
+      // it isn't put on his stick.
+      const able = tg.active && !tg.rag && tg.stick;
+      const dm = hyp(pk.x - tg.x, pk.y - tg.y), feet = dm < 1.4;
+      if (able && pk.z < 1.2 && (d < 2.6 || inReach(tg, pk.x, pk.y) || feet)) { W.give(tg, true); W.sfx('receive'); }
+      else if (!able) { tg.reachTo = null; unface(tg); pk.target = null; }
+      else {
+        // (gone by him: going away from him, and well past the nearest it came, which a pass
+        // led into space ahead of him never was)
+        const sp = hyp(pk.vx, pk.vy), away = ((pk.x - tg.x) * pk.vx + (pk.y - tg.y) * pk.vy) > 0;
+        pk.passMin = Math.min(pk.passMin ?? Infinity, dm);
+        // (a man the director has busy with something else, a hit or a draw, lets it go by
+        // rather than breaking off after it; anybody else goes and gets it)
+        if ((away && dm > 4 && dm > pk.passMin + 3) || sp < 3 || W.t - pk.passT0 > 4) {
+          if (tg.scripted && !(tg.meetPass > W.t)) { tg.reachTo = null; unface(tg); pk.target = null; } else W.collect(tg);
+        }
+      }
     }
   }
 
@@ -462,7 +601,7 @@ export function createWorld(ice, seedKey) {
     for (const l of W.limbs) {
       const ox = l.pts[0].x, oy = l.pts[0].y;
       const onIce = stepLimb(l, dt);
-      if (onIce && l.age < 6 && Math.hypot(l.pts[0].x - ox, l.pts[0].y - oy) > 0.004) W.ice.smear(ox, oy, l.pts[0].x, l.pts[0].y, 0.22, 0.35);
+      if (onIce && l.age < 6 && hyp(l.pts[0].x - ox, l.pts[0].y - oy) > 0.004) W.ice.smear(ox, oy, l.pts[0].x, l.pts[0].y, 0.22, 0.35);
     }
   }
 
@@ -507,6 +646,12 @@ export function createWorld(ice, seedKey) {
     if (!b.rag) return;
     const pts = b.rag.pts.map((p) => [p.x, p.y, p.z]);
     b.x = b.rag.pts[0].x; b.y = b.rag.pts[0].y; b.vx = b.vy = 0;
+    // He gets up a skater's width off the boards, where a man on his feet is kept: from hips
+    // lying against them that's a step in from where he lay. The pose blends up from the one
+    // on the ice (b.blend), so nothing jumps, and the step's start moves with him (as in
+    // W.knock), so the between-steps drawing doesn't show one either.
+    const c = insideRink(b.x, b.y, 1.6);
+    if (c) { b.x0 = (b.x0 ?? b.x) + c.x - b.x; b.y0 = (b.y0 ?? b.y) + c.y - b.y; b.x = c.x; b.y = c.y; }
     const hd = b.rag.pts[3]; b.h = Math.atan2(hd.y - b.y, hd.x - b.x);
     b.rag = null; b.blend = { from: pts, t: 0, dur };
     b.tx = b.x; b.ty = b.y;
@@ -524,6 +669,8 @@ export function createWorld(ice, seedKey) {
   W.reequip = (b) => { b.stick = b.kind === 'skater'; b.gloves = true; b.helmet = true; b.jerseyUp = 0; b.guard = false; b.grab = null; b.foe = null; };
   W.bleed = (b, sec) => { b.bleeding = Math.max(b.bleeding, sec); };
 
+  // (the men on the ice this step, for stepBody to see who's in a man's way)
+  let onIce = null;
   function stepBody(b, dt) {
     // something else owns him for now (a stretcher): no physics, no skating
     if (b.hold) { b.hold(b, dt); return; }
@@ -539,16 +686,74 @@ export function createWorld(ice, seedKey) {
       const hd = r.pts[3];
       if (b.bleeding > 0 && rand() < 0.3) W.burst('blood', hd.x, hd.y, hd.z, 1, 1.2, [0, 0, 0.5]);
       if (b.down && r.age > 1.0 && r.age < 7 && r.age - r.poolAt > 0.25 && hd.z < 0.9) { r.poolAt = r.age; W.ice.blood(hd.x, hd.y, 0.45 + Math.min(2.4, (r.age - 1) * 0.3), 0.2, (r.age * 1000) | 0); }
-      if (r.age - r.smearAt > 0.06 && Math.hypot(p0.x - p0.px, p0.y - p0.py) / dt > 4 && b.bleeding > 0) { r.smearAt = r.age; W.ice.smear(p0.px, p0.py, p0.x, p0.y, 0.4, 0.25); }
+      if (r.age - r.smearAt > 0.06 && hyp(p0.x - p0.px, p0.y - p0.py) / dt > 4 && b.bleeding > 0) { r.smearAt = r.age; W.ice.smear(p0.px, p0.py, p0.x, p0.y, 0.4, 0.25); }
     } else {
       if (b.blend) { b.blend.t += dt / b.blend.dur; if (b.blend.t >= 1) b.blend = null; }
-      const dx = b.tx - b.x, dy = b.ty - b.y, dist = Math.hypot(dx, dy);
-      const want = b.blend ? 0 : Math.min(b.maxV, dist * 1.8);
-      let dvx = (dist > 0.01 ? dx / dist * want : 0) - b.vx, dvy = (dist > 0.01 ? dy / dist * want : 0) - b.vy;
-      const dv = Math.hypot(dvx, dvy), maxdv = b.acc * dt;
-      if (dv > maxdv) { dvx *= maxdv / dv; dvy *= maxdv / dv; }
+      // (a skater or an official goes round a net in his way, not into it: see `aroundNets`)
+      const [gx, gy, left] = b.kind === 'skater' || b.kind === 'official' ? W.aroundNets(b, b.tx, b.ty) : [b.tx, b.ty];
+      const dx = gx - b.x, dy = gy - b.y, dist = hyp(dx, dy);
+      // (easing up as he arrives, unless he's going through the spot: after a puck, into a man;
+      // and for the spot, not for a corner of a net he's going round)
+      const want = b.blend ? 0 : b.through > W.t ? b.maxV : Math.min(b.maxV, (left ?? dist) * 1.8);
+      let ux = dist > 0.01 ? dx / dist : 0, uy = dist > 0.01 ? dy / dist : 0;
+      // ROUND A MAN IN HIS WAY. One square in his road a few feet ahead that he's closing on
+      // (across his line by less than a body, and nearer than where he's going) he goes
+      // round, to the side he's already a little toward, rather than shoving him along in
+      // front of him. Not the man he means to hit, or to take the puck off (`charging`), and
+      // not a man lying down.
+      // (looked for thirty times a second, which is plenty for men a few feet apart, and
+      // steered by every step)
+      if (want > 4 && (b.kind === 'skater' || b.kind === 'official') && onIce) {
+        if (!(W.t - (b.avoidAt ?? -1) < 1 / 30)) {
+          b.avoidAt = W.t; b.avoid = 0;
+          let ou = 99, ov = 0;
+          const s0 = hyp(b.vx || 0, b.vy || 0);
+          for (const o of onIce) {
+            const ox = o.x - b.x, oy = o.y - b.y;
+            if (ox > 4.5 || ox < -4.5 || oy > 4.5 || oy < -4.5 || o === b) continue;
+            if (o.rag || o.kind === 'goalie' || o === b.charging || o === b.target || o === b.foe) continue;
+            const u = ox * ux + oy * uy;
+            if (u <= 0.5 || u > 4 || u > dist) continue;
+            const v = -ox * uy + oy * ux;
+            // (closing on him: from a stop, at the speed he means to go, or a man stood in
+            // front of a carrier wanting to go held him there leaning on him)
+            const close = s0 < 3 ? want - ((o.vx || 0) * ux + (o.vy || 0) * uy) : ((b.vx || 0) - (o.vx || 0)) * ux + ((b.vy || 0) - (o.vy || 0)) * uy;
+            if (Math.abs(v) < 2.3 && u < ou && close > 1.5) { ou = u; ov = v; }
+          }
+          if (ou < 99) b.avoid = (ov > 0.05 ? -1 : ov < -0.05 ? 1 : (b.seed & 1 ? 1 : -1)) * (1 - Math.abs(ov) / 2.3) * (1 - ou / 4) * 0.9;
+        }
+        if (b.avoid) {
+          const nx = ux - uy * b.avoid, ny = uy + ux * b.avoid, nl = hyp(nx, ny) || 1;
+          ux = nx / nl; uy = ny / nl;
+        }
+      } else b.avoid = 0;
+      // A SKATER CARVES. At speed he can't stop dead and go back the way he came: a spot behind
+      // him is turned toward round an arc, at most so far off his line at once, and only a man
+      // nearly stopped pivots on the spot. (Straight-line reversals read as a man bouncing.)
+      const sp0 = hyp(b.vx, b.vy);
+      if (sp0 > 6 && want > 0) {
+        const va0 = Math.atan2(b.vy, b.vx), ang = angWrap(Math.atan2(uy, ux) - va0);
+        const lim = lerp(Math.PI, 1.35, clamp((sp0 - 6) / 12, 0, 1));
+        if (Math.abs(ang) > lim) {
+          // (nearly straight behind him, he keeps turning the way he started)
+          const side = Math.abs(ang) > 2.8 && b.carve ? b.carve : Math.sign(ang) || 1;
+          b.carve = side;
+          ux = Math.cos(va0 + side * lim); uy = Math.sin(va0 + side * lim);
+        } else b.carve = 0;
+      } else b.carve = 0;
+      let dvx = ux * want - b.vx, dvy = uy * want - b.vy;
+      const dv = hyp(dvx, dvy), maxdv = b.acc * dt;
+      // speeding up and braking along his line take what they take; turning across it can take
+      // more (a skater leans into a tight turn at better than a g), so at speed the part of the
+      // change that's across his line is allowed half again as much and more
+      if (sp0 > 5 && dv > maxdv) {
+        const ux0 = b.vx / sp0, uy0 = b.vy / sp0;
+        let at = dvx * ux0 + dvy * uy0, an = -dvx * uy0 + dvy * ux0;
+        at = clamp(at, -maxdv, maxdv); an = clamp(an, -maxdv * 1.6, maxdv * 1.6);
+        dvx = at * ux0 - an * uy0; dvy = at * uy0 + an * ux0;
+      } else if (dv > maxdv) { dvx *= maxdv / dv; dvy *= maxdv / dv; }
       b.vx += dvx; b.vy += dvy; b.x += b.vx * dt; b.y += b.vy * dt;
-      const sp = Math.hypot(b.vx, b.vy);
+      const sp = hyp(b.vx, b.vy);
       // how hard he's speeding up or braking along his line, smoothed, for the lean
       const along = sp > 0.5 ? (dvx * b.vx + dvy * b.vy) / (sp * dt) : 0;
       b.accel = lerp(b.accel || 0, along, 1 - Math.exp(-dt * 6));
@@ -577,8 +782,9 @@ export function createWorld(ice, seedKey) {
       // a hard stop throws snow, and shaves a fan of it off the sheet
       if (dv / dt > 20 && sp > 7 && !pushing && W.t - b.sprayAt > 0.25 && b.kind !== 'medic') {
         b.sprayAt = W.t;
-        // a real stop, not just a slowing: side-on, knees bent, on the edges
-        if (!b.act && !b.carrying && b.kind === 'skater' && sp > 11) {
+        // a real stop, not just a slowing: side-on, knees bent, on the edges (not by a man a
+        // pass is coming to, who keeps his stick to it rather than turning it away)
+        if (!b.act && !b.carrying && b.kind === 'skater' && sp > 11 && W.puck.target !== b) {
           const side = Math.sign(angWrap(Math.atan2(b.ty - b.y, b.tx - b.x) - Math.atan2(b.vy, b.vx))) || 1;
           b.stopH = Math.atan2(b.vy, b.vx) + side * 1.25;
           W.act(b, 'stop', 0.5, side);
@@ -599,7 +805,7 @@ export function createWorld(ice, seedKey) {
           const f = [(A[0] + T[0]) / 2, (A[1] + T[1]) / 2], prev = b.feet[k];
           // a hockey stop throws snow off both blades for as long as he's sliding
           if (b.act === 'stop' && sp > 5) W.snow(f[0], f[1], sp > 12 ? 5 : 3, b.vx, b.vy);
-          if (prev && Math.hypot(f[0] - prev[0], f[1] - prev[1]) < 4) W.ice.cut(prev[0], prev[1], f[0], f[1], a);
+          if (prev && hyp(f[0] - prev[0], f[1] - prev[1]) < 4) W.ice.cut(prev[0], prev[1], f[0], f[1], a);
           b.feet[k] = f;
         }
       }
@@ -624,14 +830,14 @@ export function createWorld(ice, seedKey) {
     // long way out of his net he comes back across the ice, he isn't snapped there.
     const glide = (tx, ty, kx, ky) => {
       let mx = (tx - g.x) * (1 - Math.exp(-dt * kx)), my = (ty - g.y) * (1 - Math.exp(-dt * ky));
-      const m = Math.hypot(mx, my), cap = 24 * dt;
+      const m = hyp(mx, my), cap = 24 * dt;
       if (m > cap) { mx *= cap / m; my *= cap / m; }
       g.x += mx; g.y += my;
     };
     g.track = [pk.x, pk.y, pk.z];
     if (!g.scripted) {
       // out to cut the angle when the play is far, back to the post when it's in tight
-      const dist = Math.hypot(pk.x - gx, pk.y - MID_Y);
+      const dist = hyp(pk.x - gx, pk.y - MID_Y);
       const out = clamp(dist * 0.08, 1.2, 4.2);
       const ang = Math.atan2(pk.y - MID_Y, (pk.x - gx) * dir);
       const tx = gx + dir * Math.cos(clamp(ang, -1.2, 1.2)) * out, ty = MID_Y + Math.sin(clamp(ang, -1.2, 1.2)) * out * 0.9;
@@ -639,7 +845,7 @@ export function createWorld(ice, seedKey) {
       const base = dir > 0 ? 0 : Math.PI;
       const wantH = base + clamp(angWrap(Math.atan2(pk.y - g.y, pk.x - g.x) - base), -0.8, 0.8);
       g.h += clamp(angWrap(wantH - g.h), -6 * dt, 6 * dt);
-      const near = Math.hypot(pk.x - g.x, pk.y - g.y) < 22;
+      const near = hyp(pk.x - g.x, pk.y - g.y) < 22;
       g.bfly = lerp(g.bfly, near && pk.z < 0.5 && !pk.carrier ? 0.25 : 0, 1 - Math.exp(-dt * 4));
     } else {
       glide(g.tx, g.ty, 9, 9);
@@ -662,15 +868,37 @@ export function createWorld(ice, seedKey) {
       const dx = b.x - a.x, dy = b.y - a.y;
       if (dx > 2.4 || dx < -2.4 || dy > 2.4 || dy < -2.4) continue;
       if (a.rag || b.rag || a.foe === b || a.target === b || b.target === a) continue;
-      const d = Math.hypot(dx, dy);
+      const d = hyp(dx, dy);
       // eased apart over a few steps, and their closing speed taken off, rather than shoved
       // clear in one: two men bumping shouldn't twitch
-      const wa = yields(a) && !yields(b) ? 1 : yields(b) && !yields(a) ? 0 : 0.5, wb = 1 - wa, R = wa === 0.5 ? 2.4 : 1.5;
+      // (a man planted where he has to be, a linesman about to drop the puck, isn't moved:
+      // whoever comes by goes round him)
+      // (and the man with the puck isn't held up by his own teammate: the other gets out of
+      // his road, to the side of it, rather than being shoved on up it ahead of him; nor is
+      // the man a pass is going to shoved off its line by one skating through, nor a man the
+      // play has going somewhere held up by one of his side just playing his position)
+      const pa = a.plant > W.t, pb = b.plant > W.t, car = W.puck.carrier || W.puck.target;
+      const rank = (q) => (q === car ? 2 : q.scripted ? 1 : 0);
+      const own = a.side === b.side && rank(a) !== rank(b) && !pa && !pb, lead = own ? (rank(a) > rank(b) ? a : b) : null;
+      const wa = own ? (a === lead ? 0 : 1) : pa !== pb ? (pa ? 0 : 1) : yields(a) && !yields(b) ? 1 : yields(b) && !yields(a) ? 0 : 0.5, wb = 1 - wa, R = yields(a) === yields(b) ? 2.4 : 1.5;
       if (d < R && d > 0.01) {
-        const k = (R - d) / d * Math.min(1, DT * 25), nx = dx / d, ny = dy / d;
-        a.x -= dx * k * wa; a.y -= dy * k * wa; b.x += dx * k * wb; b.y += dy * k * wb;
+        // pushed apart through their velocities, a stiff spring with the closing speed taken
+        // off, so each goes on along a smooth path; only a man pressed deep into another is
+        // moved, and then a little a step
+        let nx = dx / d, ny = dy / d;
+        const cv = own ? hyp(lead.vx, lead.vy) : 0;
+        if (cv > 3) {
+          // (n runs from a to b; the push on the other man is sideways off the leading man's line)
+          const ux = lead.vx / cv, uy = lead.vy / cv, o = a === lead ? b : a, sg = a === lead ? 1 : -1;
+          const s = Math.sign(-(o.x - lead.x) * uy + (o.y - lead.y) * ux) || 1;
+          nx = -uy * s * sg * 0.8 + nx * 0.2; ny = ux * s * sg * 0.8 + ny * 0.2;
+          const nl = hyp(nx, ny) || 1; nx /= nl; ny /= nl;
+        }
+        const over = R - d, kv = Math.min(over * 140, 90) * DT;
+        a.vx -= nx * kv * wa * 2; a.vy -= ny * kv * wa * 2; b.vx += nx * kv * wb * 2; b.vy += ny * kv * wb * 2;
         const vn = (b.vx - a.vx) * nx + (b.vy - a.vy) * ny;
         if (vn < 0) { a.vx += vn * nx * wa; a.vy += vn * ny * wa; b.vx -= vn * nx * wb; b.vy -= vn * ny * wb; }
+        if (over > 1.1) { const k = (over - 1.1) * 0.25; a.x -= nx * k * wa * 2; a.y -= ny * k * wa * 2; b.x += nx * k * wb * 2; b.y += ny * k * wb * 2; }
       }
     }
     // nobody skates through a net or stands in it
@@ -680,8 +908,12 @@ export function createWorld(ice, seedKey) {
         const cx = n.gx + n.dir * NET_DEPTH / 2, hx = NET_DEPTH / 2 + 1.2, hy = NET_HALF + 1.2;
         const dx = b.x - cx, dy = b.y - MID_Y;
         if (Math.abs(dx) < hx && Math.abs(dy) < hy) {
-          const k = Math.min(1, DT * 20);
-          if (hx - Math.abs(dx) < hy - Math.abs(dy)) b.x += (cx + Math.sign(dx || 1) * hx - b.x) * k; else b.y += (MID_Y + Math.sign(dy || 1) * hy - b.y) * k;
+          // turned away along the face he's nearest, through his velocity (his inward speed
+          // taken off and a push out), so he slides round the frame rather than stepping
+          const alongX = hx - Math.abs(dx) < hy - Math.abs(dy), sg = alongX ? Math.sign(dx || 1) : Math.sign(dy || 1);
+          const pen = alongX ? hx - Math.abs(dx) : hy - Math.abs(dy), push = Math.min(pen * 60, 40) * DT;
+          if (alongX) { if (b.vx * sg < 0) b.vx = 0; b.vx += sg * push; if (pen > 0.8) b.x += sg * (pen - 0.8) * 0.3; }
+          else { if (b.vy * sg < 0) b.vy = 0; b.vy += sg * push; if (pen > 0.8) b.y += sg * (pen - 0.8) * 0.3; }
         }
       }
     }
@@ -694,7 +926,7 @@ export function createWorld(ice, seedKey) {
   const laneY = (side, slot) => { const s = side === 'a' ? 1 : -1; return [MID_Y + 24 * s, MID_Y, MID_Y - 24 * s, MID_Y + 13 * s, MID_Y - 13 * s, MID_Y + 6 * s][slot]; };
   function nearestOf(list, x, y, except) {
     let best = null, bd = 1e9;
-    for (const b of list) { if (b === except || b.rag || b.scripted || !b.active) continue; const d = Math.hypot(b.x - x, b.y - y); if (d < bd) { bd = d; best = b; } }
+    for (const b of list) { if (b === except || b.rag || b.scripted || !b.active) continue; const d = hyp(b.x - x, b.y - y); if (d < bd) { bd = d; best = b; } }
     return best;
   }
   // ── positions ─────────────────────────────────────────────────────────────
@@ -707,7 +939,7 @@ export function createWorld(ice, seedKey) {
   const laneSign = (side, slot) => Math.sign(laneY(side, slot) - MID_Y) || 0;
   function assignRoles(team, side, carrier) {
     const pk = W.puck, fw = team.filter((m) => !isDef(m) && m !== carrier && !m.rag);
-    fw.sort((a, b) => Math.hypot(a.x - pk.x, a.y - pk.y) - Math.hypot(b.x - pk.x, b.y - pk.y));
+    fw.sort((a, b) => hyp(a.x - pk.x, a.y - pk.y) - hyp(b.x - pk.x, b.y - pk.y));
     const r = new Map();
     fw.forEach((m, i) => r.set(m, ['support', 'net', 'high'][Math.min(i, 2)]));
     // the defenceman on the puck's side of the ice is the one who steps up to it
@@ -778,11 +1010,15 @@ export function createWorld(ice, seedKey) {
       }
       // the jobs are handed out five times a second, not every step: nobody changes role faster
       if (W.t - (roleAt[side] ?? -9) > 0.2) { roleAt[side] = W.t; roles[side] = assignRoles(team, side, carrier); }
+      // (one of his side the play has going at the man with the puck already: a second man on
+      // him only got in his road, along the boards for seconds once)
+      const onHim = carrier && team.some((o) => o.scripted && o.charging === carrier);
       for (const m of team) {
         if (m.scripted || m.rag || m.blend) continue;
         const isD = m.slot === 3 || m.slot === 4;
         let tx, ty, mv = 19;
-        m.face = null;
+        // (a man a pass is coming to keeps the facing he opened up to it with)
+        m.face = pk.target === m && m.simFace != null ? m.simFace : null;
         if (W.frozen) {
           // whistle: coast to a stop and drift toward the play
           tx = m.x + m.vx * 0.5; ty = m.y + m.vy * 0.5; mv = 6;
@@ -801,9 +1037,10 @@ export function createWorld(ice, seedKey) {
             if (ph < 0.4) { tx = gx - dir * 22; ty = wall; } else if (ph < 0.7) { tx = gx - dir * 6; ty = lerp(wall, MID_Y, 0.4); } else { tx = gx - dir * 34; ty = lerp(wall, MID_Y, 0.25); }
             mv = 17;
           }
-        } else if (loose && (m === fore || Math.hypot(m.x - pk.x, m.y - pk.y) < 10)) {
-          tx = pk.x + pk.vx * 0.3; ty = pk.y + pk.vy * 0.3; mv = 26;
-        } else if (m === fore && !attacking) {
+        } else if (loose && (m === fore || hyp(m.x - pk.x, m.y - pk.y) < 10)) {
+          // after it flat out, to where he'll meet it, and through it rather than creeping up
+          const p = W.intercept(m, 24); [tx, ty] = p; mv = 24; m.through = W.t + 0.1;
+        } else if (m === fore && !attacking && !onHim) {
           // the forechecker: on the man with the puck
           const c2 = carrier || pk;
           tx = c2.x - dir * 1.5; ty = c2.y; mv = 24;
@@ -812,34 +1049,54 @@ export function createWorld(ice, seedKey) {
           const sp = systemSpot(m, side, attacking ? 'attack' : 'defend', carrier, roles[side]);
           tx = sp.tx; ty = sp.ty; mv = sp.mv; if (sp.face != null) m.face = sp.face;
         }
+        // Out of the road of his own man with the puck: a spot in the lane ahead of him moves
+        // to the side of it, or he'd skate a stride in front of him and hold him up.
+        if (carrier && carrier !== m && carrier.side === side) {
+          const cv = hyp(carrier.vx, carrier.vy), hx = cv > 4 ? carrier.vx / cv : Math.cos(carrier.h), hy = cv > 4 ? carrier.vy / cv : Math.sin(carrier.h);
+          const ax = tx - carrier.x, ay = ty - carrier.y, along = ax * hx + ay * hy, lat = -ax * hy + ay * hx;
+          if (along > -4 && along < 30 && Math.abs(lat) < 9) {
+            const nl = (Math.sign(lat) || Math.sign(-(m.x - carrier.x) * hy + (m.y - carrier.y) * hx) || 1) * 9;
+            tx = carrier.x + hx * along - hy * nl; ty = carrier.y + hy * along + hx * nl;
+          }
+        }
         const c = insideRink(tx, ty, 2.5); if (c) { tx = c.x; ty = c.y; }
-        m.tx = tx; m.ty = ty; m.maxV = mv; m.acc = 26;
+        // HE DOESN'T SNAP TO A NEW IDEA. Where he should be changes as the play does (a pass
+        // turns the carrier into a support man, a turnover turns attack into defence), and a
+        // man who went there at once braked and reversed on the spot. The spot is followed
+        // with a short lag instead, so he carries on a moment and swings round. A man after a
+        // loose puck goes straight where it's going.
+        const kT = m.through > W.t || !Number.isFinite(m.tx) ? 1 : 1 - Math.exp(-dt * 4);
+        m.tx += (tx - m.tx) * kT; m.ty += (ty - m.ty) * kT; m.maxV = mv; m.acc = 26;
         // what he does with his stick and his eyes
         m.protect = 0; m.defend = null; m.look = null;
         if (m === carrier) {
           const th = nearestOf(opp, m.x, m.y);
-          if (th && Math.hypot(th.x - m.x, th.y - m.y) < 5.5) {
+          if (th && hyp(th.x - m.x, th.y - m.y) < 5.5) {
             const lv = -(th.x - m.x) * Math.sin(m.h) + (th.y - m.y) * Math.cos(m.h);
             m.protect = lv >= 0 ? 1 : -1;
           }
-        } else if (carrier && carrier.side !== side && Math.hypot(m.x - pk.x, m.y - pk.y) < 13) {
+        } else if (carrier && carrier.side !== side && hyp(m.x - pk.x, m.y - pk.y) < 13) {
           m.defend = [pk.x, pk.y];
-        } else if (pk.target === m || (carrier && carrier.side === side && Math.hypot(m.x - pk.x, m.y - pk.y) < 40)) {
+        } else if (pk.target === m || (carrier && carrier.side === side && hyp(m.x - pk.x, m.y - pk.y) < 40)) {
           m.look = [pk.x, pk.y, 0.2];
         }
       }
       if (!free) continue;
-      // possession: pick up a loose puck
+      // possession: pick up a loose puck once it's within reach of his stick and his blade
+      // has had a moment to get to it (rig.js reaches it out to `reachTo`)
       if (loose && pk.z < 1 && !pk.inNet) {
         for (const m of team) {
-          if (m.scripted || m.rag || m.blend || !m.stick) continue;
-          const b = bladeWorld(m, W.t, true);
-          if (Math.hypot(b[0] - pk.x, b[1] - pk.y) < 2.2 && Math.hypot(pk.vx, pk.vy) < 45) { W.give(m); W.sfx('receive'); break; }
+          if (m.scripted || m.rag || m.blend || !m.stick || pk.home === m) continue;
+          if (inReach(m, pk.x, pk.y) && hyp(pk.vx, pk.vy) < 45) {
+            if (m.inReachAt == null) m.inReachAt = W.t;
+            m.reachTo = [pk.x, pk.y];
+            if (W.t - m.inReachAt > 0.08) { m.inReachAt = null; W.give(m, true); W.sfx('receive'); break; }
+          } else { m.inReachAt = null; if (m.reachTo && pk.target !== m) m.reachTo = null; }
         }
       }
       // the forechecker takes it back
       if (carrier && carrier.side !== side && fore && !fore.scripted && W.t - A.lastTurn > 4.5) {
-        const d = Math.hypot(fore.x - carrier.x, fore.y - carrier.y);
+        const d = hyp(fore.x - carrier.x, fore.y - carrier.y);
         if (d < 3 && rand() < dt * 0.9) {
           A.lastTurn = W.t;
           const nearWall = carrier.y < 10 || carrier.y > RW - 10;
@@ -862,7 +1119,7 @@ export function createWorld(ice, seedKey) {
       const team = W.mates(side).filter((m) => m !== carrier && !m.scripted && !m.rag && !m.blend && m.stick);
       const opp = W.mates(side === 'a' ? 'h' : 'a');
       const neutral = Math.abs(carrier.x - RL / 2) < 18;
-      const press = opp.some((o) => Math.hypot(o.x - carrier.x, o.y - carrier.y) < 7);
+      const press = opp.some((o) => hyp(o.x - carrier.x, o.y - carrier.y) < 7);
       if (neutral && press && rand() < 0.35) {
         // dump it in and go get it
         const cy = carrier.y > MID_Y ? RW - 6 : 6;
@@ -873,9 +1130,9 @@ export function createWorld(ice, seedKey) {
       }
       let best = null, bs = -1e9;
       for (const m of team) {
-        const open = Math.min(20, ...opp.map((o) => Math.hypot(o.x - m.x, o.y - m.y)));
+        const open = Math.min(20, ...opp.map((o) => hyp(o.x - m.x, o.y - m.y)));
         const fwd = (m.x - carrier.x) * dir;
-        const d = Math.hypot(m.x - carrier.x, m.y - carrier.y);
+        const d = hyp(m.x - carrier.x, m.y - carrier.y);
         if (d < 8 || d > 70) continue;
         // the plays: in the zone, back to the points, D to D, low to high; through the neutral
         // zone, the stretch pass to a winger in his lane
@@ -885,7 +1142,7 @@ export function createWorld(ice, seedKey) {
         if (sc > bs) { bs = sc; best = m; }
       }
       // a man standing him up in front: beat him with the hands instead of moving it
-      const front = opp.find((o) => !o.rag && Math.hypot(o.x - carrier.x, o.y - carrier.y) < 7 && ((o.x - carrier.x) * Math.cos(carrier.h) + (o.y - carrier.y) * Math.sin(carrier.h)) > 1.5);
+      const front = opp.find((o) => !o.rag && hyp(o.x - carrier.x, o.y - carrier.y) < 7 && ((o.x - carrier.x) * Math.cos(carrier.h) + (o.y - carrier.y) * Math.sin(carrier.h)) > 1.5);
       if (front && rand() < 0.45) {
         const mv = ['toedrag', 'deke', 'drag'][(rand() * 3) | 0];
         W.act(carrier, mv, 0.7);
@@ -900,8 +1157,8 @@ export function createWorld(ice, seedKey) {
         const to = best;
         const lu = (to.x - carrier.x) * Math.cos(carrier.h) + (to.y - carrier.y) * Math.sin(carrier.h);
         const lv = -(to.x - carrier.x) * Math.sin(carrier.h) + (to.y - carrier.y) * Math.cos(carrier.h);
-        const lane = opp.some((o) => { const t = clamp(((o.x - carrier.x) * (to.x - carrier.x) + (o.y - carrier.y) * (to.y - carrier.y)) / ((to.x - carrier.x) ** 2 + (to.y - carrier.y) ** 2 || 1), 0, 1); return Math.hypot(carrier.x + (to.x - carrier.x) * t - o.x, carrier.y + (to.y - carrier.y) * t - o.y) < 3; });
-        const pd = Math.hypot(to.x - carrier.x, to.y - carrier.y);
+        const lane = opp.some((o) => { const t = clamp(((o.x - carrier.x) * (to.x - carrier.x) + (o.y - carrier.y) * (to.y - carrier.y)) / ((to.x - carrier.x) ** 2 + (to.y - carrier.y) ** 2 || 1), 0, 1); return hyp(carrier.x + (to.x - carrier.x) * t - o.x, carrier.y + (to.y - carrier.y) * t - o.y) < 3; });
+        const pd = hyp(to.x - carrier.x, to.y - carrier.y);
         const kind = lu < -3 && pd < 14 ? 'drop' : lane ? 'saucer' : (lv < -4 && lu < 8) || lu < -3 ? 'backpass' : 'pass';
         W.act(carrier, kind, SHOTS[kind].dur);
         carrier.look = [to.x, to.y, 1];
@@ -910,7 +1167,7 @@ export function createWorld(ice, seedKey) {
           const spd = kind === 'drop' ? clamp(pd * 1.8, 16, 28) : 62 + rand() * 18;
           W.pass(carrier, to, spd);
           if (kind === 'saucer') W.puck.vz = 7;
-          const tt = Math.hypot(to.x - carrier.x, to.y - carrier.y) / spd;
+          const tt = hyp(to.x - carrier.x, to.y - carrier.y) / spd;
           if (!to.scripted) W.act(to, 'receive', tt + 0.25, [carrier.x, carrier.y]);
           // a pass through traffic can be picked off
           const pk2 = W.puck;
@@ -918,7 +1175,7 @@ export function createWorld(ice, seedKey) {
             if (o.scripted || o.rag) continue;
             const t = clamp(((o.x - pk2.x) * pk2.vx + (o.y - pk2.y) * pk2.vy) / (pk2.vx * pk2.vx + pk2.vy * pk2.vy || 1), 0, 1.2);
             const px = pk2.x + pk2.vx * t, py = pk2.y + pk2.vy * t;
-            if (Math.hypot(o.x - px, o.y - py) < 2.4 && rand() < 0.3) { pk2.target = o; break; }
+            if (hyp(o.x - px, o.y - py) < 2.4 && rand() < 0.3) { pk2.target = o; break; }
           }
         });
       }
@@ -934,7 +1191,7 @@ export function createWorld(ice, seedKey) {
       const far = i === 0;
       const tx = clamp(pk.x + (far ? -14 : 16), 30, RL - 30), ty = far ? RW - 6 : 6.5;
       o.tx = tx; o.ty = ty; o.maxV = 18; o.face = Math.atan2(pk.y - o.y, pk.x - o.x);
-      if (Math.hypot(o.x - pk.x, o.y - pk.y) < 8) { o.ty = o.y > MID_Y ? RW - 4 : 4; }
+      if (hyp(o.x - pk.x, o.y - pk.y) < 8) { o.ty = o.y > MID_Y ? RW - 4 : 4; }
     });
   }
 
@@ -946,7 +1203,7 @@ export function createWorld(ice, seedKey) {
   function zamboniPath(d) {
     // a rounded rectangle inset `d` from the boards, as a list of points every two feet
     const r = Math.max(2.5, 28 - d), x0 = d, x1 = RL - d, y0 = d, y1 = RW - d, pts = [];
-    const seg = (ax, ay, bx, by) => { const n = Math.max(1, Math.round(Math.hypot(bx - ax, by - ay) / 2)); for (let i = 0; i < n; i++) pts.push([lerp(ax, bx, i / n), lerp(ay, by, i / n)]); };
+    const seg = (ax, ay, bx, by) => { const n = Math.max(1, Math.round(hyp(bx - ax, by - ay) / 2)); for (let i = 0; i < n; i++) pts.push([lerp(ax, bx, i / n), lerp(ay, by, i / n)]); };
     const arc = (cx, cy, a0) => { const n = Math.max(2, Math.round(r * Math.PI / 4)); for (let i = 0; i < n; i++) { const a = a0 + (i / n) * Math.PI / 2; pts.push([cx + Math.cos(a) * r, cy + Math.sin(a) * r]); } };
     seg(x0 + r, y0, x1 - r, y0); arc(x1 - r, y0 + r, -Math.PI / 2);
     seg(x1, y0 + r, x1, y1 - r); arc(x1 - r, y1 - r, 0);
@@ -983,7 +1240,7 @@ export function createWorld(ice, seedKey) {
     if (z.done) return;
     let move = z.speed * dt;
     while (move > 0 && z.i < z.route.length - 1) {
-      const [tx, ty] = z.route[z.i + 1], d = Math.hypot(tx - z.x, ty - z.y);
+      const [tx, ty] = z.route[z.i + 1], d = hyp(tx - z.x, ty - z.y);
       if (d <= move) { z.x = tx; z.y = ty; z.i++; move -= d; } else { z.x += (tx - z.x) / d * move; z.y += (ty - z.y) / d * move; move = 0; }
     }
     if (z.i >= z.route.length - 1) { if (z.leaving) W.zamboni = null; else z.done = true; return; }
@@ -995,7 +1252,7 @@ export function createWorld(ice, seedKey) {
       W.ice.resurface(z.x - Math.cos(z.h) * 5.6, z.y - Math.sin(z.h) * 5.6, ZW / 2, z.h);
       if (rand() < 0.4) W.burst('spray', z.x - Math.cos(z.h) * 5.8, z.y - Math.sin(z.h) * 5.8, 0.4, 1, 1.5, [0, 0, 0.6]);
       // what's left lying on the ice goes in under the front of it: sticks, gloves, and the rest
-      const fx = z.x + Math.cos(z.h) * 4, fy = z.y + Math.sin(z.h) * 4, under = (x, y) => Math.hypot(x - fx, y - fy) < ZW * 0.6;
+      const fx = z.x + Math.cos(z.h) * 4, fy = z.y + Math.sin(z.h) * 4, under = (x, y) => hyp(x - fx, y - fy) < ZW * 0.6;
       if (W.debris.some((d) => under(d.x, d.y))) W.debris = W.debris.filter((d) => !under(d.x, d.y));
       if (W.limbs.some((l) => under(l.pts[0].x, l.pts[0].y))) W.limbs = W.limbs.filter((l) => !under(l.pts[0].x, l.pts[0].y));
     }
@@ -1013,7 +1270,7 @@ export function createWorld(ice, seedKey) {
     const pk = W.puck, d = pk.drawn;
     if (!d || pk.hidden) { pk.drawn = [pk.x, pk.y, pk.z]; pk.drawn0 = [pk.x, pk.y, pk.z]; pk.trail = []; return; }
     pk.drawn0[0] = d[0]; pk.drawn0[1] = d[1]; pk.drawn0[2] = d[2];
-    const ex = pk.x - d[0], ey = pk.y - d[1], ez = pk.z - d[2], e = Math.hypot(ex, ey, ez), lim = FASTEST * dt;
+    const ex = pk.x - d[0], ey = pk.y - d[1], ez = pk.z - d[2], e = hyp3(ex, ey, ez), lim = FASTEST * dt;
     if (e <= lim) { d[0] = pk.x; d[1] = pk.y; d[2] = pk.z; }
     else {
       // closed at the limit plus a share of what's left, so even a long way is flown in a
@@ -1026,11 +1283,149 @@ export function createWorld(ice, seedKey) {
     if (W.t - (pk.trailAt ?? -1) >= 1 / 60) {
       pk.trailAt = W.t;
       const tr = pk.trail || (pk.trail = []);
-      tr.push([d[0], d[1], d[2] + 0.08, Math.hypot(d[0] - pk.drawn0[0], d[1] - pk.drawn0[1], d[2] - pk.drawn0[2]) / dt]);
+      tr.push([d[0], d[1], d[2] + 0.08, hyp3(d[0] - pk.drawn0[0], d[1] - pk.drawn0[1], d[2] - pk.drawn0[2]) / dt]);
       if (tr.length > 15) tr.shift();
     }
   }
   W.alpha = 1;
+  // ── going to the puck ─────────────────────────────────────────────────────
+  // Where a man skating flat out meets the puck: it slows on its friction (or settles where a
+  // dump was aimed), so this looks ahead along that, not along a straight line.
+  W.intercept = (m, vmax = 24) => {
+    const pk = W.puck, k = pk.z > 0.3 ? 0.05 : (pk.drag || 0.35);
+    const at = (t) => { const f = (1 - Math.exp(-k * t)) / k; return [pk.x + pk.vx * f, pk.y + pk.vy * f]; };
+    let p = [pk.x, pk.y];
+    for (let i = 0; i < 5; i++) p = at(hyp(p[0] - m.x, p[1] - m.y) / vmax);
+    const c = insideRink(p[0], p[1], 2); return c ? [c.x, c.y] : p;
+  };
+  // Can his stick get to it from where he's standing? The box his blade reaches in (rig.js
+  // aims it at the puck there): ahead of him, out to the side either way, not behind.
+  function inReach(m, x, y) {
+    const ch = Math.cos(m.h), sn = Math.sin(m.h), dx = x - m.x, dy = y - m.y;
+    const u = dx * ch + dy * sn, v = -dx * sn + dy * ch;
+    return u > 0.6 && u < 3.4 && Math.abs(v) < 2.1;
+  }
+  W.inReach = inReach;
+  // ROUND THE NET, NOT THROUGH IT. A man whose straight line to where he's going crosses a net
+  // (with room for his body) goes round it: by its nearer corner, or by two when it's behind
+  // it from where he is, whichever way is shorter. Returns the point to head for now and how
+  // far it is to where he's going that way, so he eases up for the spot, not for a corner.
+  // (the answer when no net is in the way, which is nearly always: kept, not made afresh
+  // every step for every man, and read straight off by the caller)
+  const STRAIGHT = [0, 0, 0];
+  W.aroundNets = (m, tx, ty) => {
+    for (const n of NETS) {
+      const nx0 = Math.min(n.gx, n.gx + n.dir * NET_DEPTH), nx1 = Math.max(n.gx, n.gx + n.dir * NET_DEPTH);
+      // (nowhere near this one)
+      if (Math.max(m.x, tx) < nx0 - 4 || Math.min(m.x, tx) > nx1 + 4 || Math.max(m.y, ty) < MID_Y - NET_HALF - 4 || Math.min(m.y, ty) > MID_Y + NET_HALF + 4) continue;
+      // (going to the net itself, its mouth or a post, he only goes round the frame, a foot
+      // off it; otherwise round it with room for his body, or a foot off it if he's already
+      // closer than that)
+      const inside = (x, y, p) => x > nx0 - p && x < nx1 + p && y > MID_Y - NET_HALF - p && y < MID_Y + NET_HALF + p;
+      let pad = inside(tx, ty, 2.6) ? 1.0 : 2.6;
+      if (inside(m.x, m.y, pad)) pad = 1.0;
+      if (inside(m.x, m.y, pad)) continue;
+      const x0 = nx0 - pad, x1 = nx1 + pad, y0 = MID_Y - NET_HALF - pad, y1 = MID_Y + NET_HALF + pad;
+      // (a spot inside the box, a puck tight to the back of the frame, is gone to by the
+      // nearest point of the box's edge: there's no way round to a point inside it, and he
+      // skated straight at the frame and stayed there)
+      let gx = tx, gy = ty;
+      if (gx > x0 && gx < x1 && gy > y0 && gy < y1) {
+        const dl = gx - x0, dr = x1 - gx, dd = gy - y0, du = y1 - gy, mn = Math.min(dl, dr, dd, du);
+        if (mn === dl) gx = x0 - 0.05; else if (mn === dr) gx = x1 + 0.05; else if (mn === dd) gy = y0 - 0.05; else gy = y1 + 0.05;
+      }
+      // does the segment cross the box? (clipped against it, Liang-Barsky)
+      const crosses = (ax, ay, bx, by) => {
+        const dx = bx - ax, dy = by - ay;
+        let t0 = 0, t1 = 1;
+        for (const [p, q] of [[-dx, ax - x0], [dx, x1 - ax], [-dy, ay - y0], [dy, y1 - ay]]) {
+          if (Math.abs(p) < 1e-9) { if (q < 0) return false; continue; }
+          const r = q / p;
+          if (p < 0) { if (r > t1) return false; if (r > t0) t0 = r; } else { if (r < t0) return false; if (r < t1) t1 = r; }
+        }
+        return t0 < t1;
+      };
+      if (!crosses(m.x, m.y, gx, gy)) continue;
+      // the corners, half a foot out, in order round the box; the way round by one corner or
+      // by two neighbouring ones, the shortest that's clear
+      const C = [[x0 - 0.5, y0 - 0.5], [x1 + 0.5, y0 - 0.5], [x1 + 0.5, y1 + 0.5], [x0 - 0.5, y1 + 0.5]];
+      const L = (a, b) => hyp(b[0] - a[0], b[1] - a[1]), me = [m.x, m.y], to = [gx, gy];
+      let best = null, bl = Infinity;
+      for (let i = 0; i < 4; i++) {
+        if (crosses(m.x, m.y, C[i][0], C[i][1])) continue;
+        if (!crosses(C[i][0], C[i][1], gx, gy)) { const l = L(me, C[i]) + L(C[i], to); if (l < bl) { bl = l; best = C[i]; } }
+        for (const j of [(i + 1) % 4, (i + 3) % 4]) {
+          if (crosses(C[j][0], C[j][1], gx, gy)) continue;
+          const l = L(me, C[i]) + L(C[i], C[j]) + L(C[j], to);
+          if (l < bl) { bl = l; best = C[i]; }
+        }
+      }
+      if (best) return [best[0], best[1], bl];
+    }
+    STRAIGHT[0] = tx; STRAIGHT[1] = ty; STRAIGHT[2] = hyp(tx - m.x, ty - m.y);
+    return STRAIGHT;
+  };
+  // THE MAN GOES TO THE PUCK. Whoever is collecting it skates to where he'll meet it at full
+  // speed and keeps his speed through it (`through`: no easing up as he gets there, which
+  // read as a man creeping up on a puck), aiming so it comes onto his stick, not his skates.
+  function pursue() {
+    const pk = W.puck, h = pk.home;
+    if (!h || pk.carrier || pk.held || !h.active || h.rag || h.blend || h.hold) return;
+    if (pk.inNet) {
+      const net = NETS.find((q) => q.side === pk.inNet);
+      h.tx = net.gx - net.dir * 3.4; h.ty = MID_Y; h.maxV = 22; lendFace(h, net.dir > 0 ? 0 : Math.PI);
+      return;
+    }
+    const p = W.intercept(h, 24), dx = p[0] - h.x, dy = p[1] - h.y, d = hyp(dx, dy) || 1e-6;
+    // the blade is two feet ahead of him and a little to his forehand: aim his body short of it
+    const back = Math.min(1.6, d * 0.5);
+    h.tx = p[0] - dx / d * back; h.ty = p[1] - dy / d * back;
+    // Flat out from far; close in, he comes onto it at its own speed and a bit (never under
+    // 8 ft/s quicker than it), so he takes it in stride rather than creeping up on it or
+    // flying past it and having to come round again.
+    const pv = hyp(pk.vx, pk.vy);
+    h.maxV = Math.min(24, pv + Math.max(8, d * 2.2));
+    // (digging for it with a man on him, he stays on it rather than skating through)
+    if (h.holdOff > W.t) h.maxV = Math.min(h.maxV, pv + 5);
+    // close to it, he turns to face it, so his stick comes round to it (a puck dead against the
+    // boards is beside a man skating along them, and he'd never get it in front of him)
+    const dp = hyp(pk.x - h.x, pk.y - h.y);
+    if (dp < 5) lendFace(h, Math.atan2(pk.y - h.y, pk.x - h.x)); else unface(h);
+    h.through = W.t + 0.1;
+  }
+  // A PASS IS MET. A pass is played to where the man it's for is going to be, and if it'll
+  // get to him there he skates on as he was. If it won't (he's changed course, or it was off),
+  // he goes to the first point of its path he can be at before it is, flat out only if he
+  // has to be, so he's on its line as it comes rather than skating across it and watching it
+  // go by behind him.
+  // (a man the director has scripted only does this when the play set him up to take it,
+  // `meetPass`: a man skating to a hit or a box doesn't break off for a pass in the air)
+  function meetPass() {
+    const pk = W.puck, m = pk.target;
+    if (!m || pk.carrier || pk.held || !m.active || m.rag || m.blend || m.hold) return;
+    if (m.scripted && !(m.meetPass > W.t)) return;
+    if (hyp(pk.vx, pk.vy) < 4) return;
+    const k = pk.z > 0.3 ? 0.05 : (pk.drag || 0.35), f = (t) => (1 - Math.exp(-k * t)) / k;
+    // (to his blade, where it was led, or into his skates; his blade the way he'll be facing,
+    // as W.pass reckoned it)
+    const hh = m.face != null ? m.face : hyp(m.vx, m.vy) > 6 ? Math.atan2(m.vy, m.vx) : m.h, ch = Math.cos(hh), sn = Math.sin(hh);
+    for (let t = 0; t <= 2; t += 1 / 30) {
+      const s = f(t), w = whereIn(m, t), px = pk.x + pk.vx * s, py = pk.y + pk.vy * s, b = bladeLocal(m, W.t + t, true);
+      if (hyp(px - w[0], py - w[1]) < 1.2 || hyp(px - w[0] - b[0] * ch + b[1] * sn, py - w[1] - b[0] * sn - b[1] * ch) < 1.5) return;
+    }
+    for (let t = 0.05; t <= 2.5; t += 0.05) {
+      const s = f(t), px = pk.x + pk.vx * s, py = pk.y + pk.vy * s, need = reachIn(m, px, py);
+      if (need <= t) {
+        m.tx = px; m.ty = py; m.maxV = Math.max(m.maxV || 0, 22);
+        if (need > t - 0.12) m.through = W.t + 0.1;
+        return;
+      }
+    }
+    // nowhere he can beat it to: as near its line as he can get, in front of it
+    const sp = hyp(pk.vx, pk.vy), ux = pk.vx / sp, uy = pk.vy / sp;
+    const along = Math.max(0, (m.x - pk.x) * ux + (m.y - pk.y) * uy);
+    m.tx = pk.x + ux * along; m.ty = pk.y + uy * along; m.maxV = Math.max(m.maxV || 0, 22);
+  }
   // where to draw the puck this frame
   W.puckAt = () => {
     const pk = W.puck, d = pk.drawn, d0 = pk.drawn0, a = clamp(W.alpha ?? 1, 0, 1);
@@ -1042,13 +1437,17 @@ export function createWorld(ice, seedKey) {
     for (const b of bodies()) { b.x0 = b.x; b.y0 = b.y; }
     while (W.ev.length && W.ev[0].t <= W.t) W.ev.shift().fn();
     if (W.script) W.script(dt);
-    // a man fetching the puck skates to it, whatever his script last asked of him
-    { const pk = W.puck, h = pk.home; if (h && pk.homeDrive && !pk.carrier) { const d = Math.hypot(pk.x - h.x, pk.y - h.y), sp = Math.hypot(pk.vx, pk.vy); h.tx = pk.x + pk.vx * 0.3; h.ty = pk.y + pk.vy * 0.3; h.maxV = clamp(Math.max(sp + 4, d * 2.2), 8, 25); } }
     ambient(dt);
     officials(dt);
+    // a man getting the puck skates to it, whatever his script or his position asked of him,
+    // and a man a pass is for moves onto its line
+    pursue();
+    meetPass();
     // (the men on the ice don't change between here and the end of the step: listed once)
     const on = bodies();
+    onIce = on;
     for (const b of on) if (b.kind !== 'goalie') stepBody(b, dt);
+    onIce = null;
     separate(on);
     stepGoalie(W.goalie.a, dt); stepGoalie(W.goalie.h, dt);
     stepPuck(dt);

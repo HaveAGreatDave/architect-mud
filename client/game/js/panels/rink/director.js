@@ -25,7 +25,7 @@
 // punch). The view holds the announcer's line until then, so the words and the picture
 // arrive together.
 
-import { clamp, lerp, angWrap, rng, hash } from './util.js';
+import { clamp, lerp, angWrap, rng, hash, hyp } from './util.js';
 import { RL, RW, MID_Y, GOAL_X, NET_HALF, NET_H, DOT_FT, BOARD_H, GLASS_H, attackDir, insideRink, panelAt, PANEL_W, PANEL_X0, PANELS } from './geo.js';
 import { SHOTS, releaseAt, bladeWorld, skaterRig } from './rig.js';
 import { makeBody } from './sim.js';
@@ -170,6 +170,10 @@ export function createDirector(W, opts = {}) {
     D.arrived = null; D.fetcher = null;
     D.beat = B;
     W.cam.net = null; W.cam.drama = false;
+    // each play says who goes for the puck: a man still on his way to it from the last one
+    // goes back to his own business (or he'd chase it through whatever this play needs of
+    // him); the puck slides on as it was, and a pass in the air still gets to its man
+    W.uncollect();
     return B;
   }
   const at = (B, dt, fn) => W.schedule(dt, () => { if (D.beat === B) fn(); });
@@ -185,7 +189,7 @@ export function createDirector(W, opts = {}) {
   function releaseAll() {
     for (const b of [...W.team.a, ...W.team.h, W.goalie.a, W.goalie.h, ...W.officials]) {
       if (!b || busyBody(b)) continue;
-      b.scripted = false; b.face = null; b.guard = false; b.grab = null; b.foe = null; b.target = null; b.stance = 0;
+      b.scripted = false; b.face = null; b.guard = false; b.grab = null; b.foe = null; b.target = null; b.stance = 0; b.charging = null;
       if (b.kind === 'goalie') { b.gloveHold = false; b.actHold = false; }
     }
     W.puckScripted = false; W.frozen = false; W.allowGoal = false;
@@ -239,7 +243,7 @@ export function createDirector(W, opts = {}) {
   // farther stays where it is (he has a spare from the bench) for the referee to collect.
   function pickUpStick(b) {
     let best = -1, bd = 1e9;
-    W.debris.forEach((d, i) => { if (d.kind === 'stick' && d.side === b.side) { const dd = Math.hypot(d.x - b.x, d.y - b.y); if (dd < bd) { bd = dd; best = i; } } });
+    W.debris.forEach((d, i) => { if (d.kind === 'stick' && d.side === b.side) { const dd = hyp(d.x - b.x, d.y - b.y); if (dd < bd) { bd = dd; best = i; } } });
     if (best >= 0 && bd < 4) W.debris.splice(best, 1);
     else if (best >= 0 && !D.gear.includes(W.debris[best])) D.gear.push(W.debris[best]);
     b.stick = true;
@@ -273,7 +277,7 @@ export function createDirector(W, opts = {}) {
       if (W.pulled[side]) want[side] += 1;
       const on = W.team[side].filter((b) => b.active && !leaving(b) && !b.hold);
       const spare = on.filter((b) => !b.scripted && !busyBody(b) && pk.carrier !== b && !(D.beat && D.beat.locked.has(b)))
-        .sort((p, q) => Math.hypot(q.x - pk.x, q.y - pk.y) - Math.hypot(p.x - pk.x, p.y - pk.y));
+        .sort((p, q) => hyp(q.x - pk.x, q.y - pk.y) - hyp(p.x - pk.x, p.y - pk.y));
       let n = on.length;
       while (n > want[side] && spare.length) { leave(spare.shift(), null, false); n--; }
       const bench = W.team[side].filter((b) => !b.active);
@@ -306,7 +310,7 @@ export function createDirector(W, opts = {}) {
     if (hd && hd.kind === 'goalie') {
       tx = hd.x + attackDir(hd.side) * 2.4; ty = hd.y - 1.2; reach = 5;
       // the goalie tosses it out to him once he's coming
-      const d = Math.hypot(o.x - pk.x, o.y - pk.y);
+      const d = hyp(o.x - pk.x, o.y - pk.y);
       if (d < 30 && d > reach) {
         hd.gloveW = 0; hd.gloveHold = false; hd.actHold = false;
         const sp = clamp(d * 1.1, 12, 30), tt = d / sp;
@@ -318,7 +322,7 @@ export function createDirector(W, opts = {}) {
     else if (pk.inNet) { tx = (pk.inNet === 'a' ? GOAL_X[0] : GOAL_X[1]) + attackDir(pk.inNet) * 1.2; ty = MID_Y - 1; reach = 6; }
     else if (c) {
       c.scripted = true; c.tx = c.x; c.ty = c.y; c.maxV = 5;
-      const d = Math.hypot(o.x - pk.x, o.y - pk.y);
+      const d = hyp(o.x - pk.x, o.y - pk.y);
       if (d < 40 && c.stick) {
         // a soft flip, lobbed to him
         const sp = clamp(d * 1.1, 14, 34), tt = d / sp;
@@ -329,19 +333,19 @@ export function createDirector(W, opts = {}) {
     }
     // (a toss that falls short, or one he's waited on long enough, is a loose puck he goes and gets)
     const tossed = pk.toOfficial && pk.toOfficial.o === o && !pk.carrier && !pk.held;
-    const flipped = tossed && W.t - pk.toOfficial.at < 1.4 && (pk.z > 0.3 || Math.hypot(pk.vx, pk.vy) > 8);
+    const flipped = tossed && W.t - pk.toOfficial.at < 1.4 && (pk.z > 0.3 || hyp(pk.vx, pk.vy) > 8);
     if (flipped) { tx = o.x; ty = o.y; reach = 3.5; }
     else if (!hd && !c && !pk.inNet && !pk.home) {
       // loose, with a man well nearer it than he is: that man picks it up (and then flips it
       // to him, as above)
-      const dl = Math.hypot(pk.x - o.x, pk.y - o.y);
+      const dl = hyp(pk.x - o.x, pk.y - o.y);
       let near = null, dn = 1e9;
-      for (const m of W.skaters()) { if (!m.stick || m.rag || m.blend || busyBody(m) || m.hold) continue; const e = Math.hypot(m.x - pk.x, m.y - pk.y); if (e < dn) { dn = e; near = m; } }
-      if (near && dn < 30 && dn + 15 < dl) W.collect(near, true);
+      for (const m of W.skaters()) { if (!m.stick || m.rag || m.blend || busyBody(m) || m.hold) continue; const e = hyp(m.x - pk.x, m.y - pk.y); if (e < dn) { dn = e; near = m; } }
+      if (near && dn < 30 && dn + 15 < dl) W.collect(near);
     }
     // (flat out: a man eases up on his own as he arrives, see stepBody)
-    o.scripted = true; o.tx = tx; o.ty = ty; o.maxV = Math.hypot(tx - o.x, ty - o.y) > 40 ? 25 : 22; o.face = null;
-    if (Math.hypot(pk.x - o.x, pk.y - o.y) < reach && (hd || c || pk.inNet || flipped || (pk.z < 1 && Math.hypot(pk.vx, pk.vy) < 20))) {
+    o.scripted = true; o.tx = tx; o.ty = ty; o.maxV = hyp(tx - o.x, ty - o.y) > 40 ? 25 : 22; o.face = null;
+    if (hyp(pk.x - o.x, pk.y - o.y) < reach && (hd || c || pk.inNet || flipped || (pk.z < 1 && hyp(pk.vx, pk.vy) < 20))) {
       if (hd) { hd.gloveW = 0; hd.gloveHold = false; hd.actHold = false; }
       W.loose(0, 0); pk.inNet = null; pk.held = o; pk.toOfficial = null;
       return true;
@@ -355,7 +359,7 @@ export function createDirector(W, opts = {}) {
     if (pk.held && pk.held.kind === 'official' && pk.held.active) return (D.fetcher = pk.held);
     const ok = W.officials.filter((o) => o.active && !o.rag && !busyBody(o));
     if (D.fetcher && ok.includes(D.fetcher)) return D.fetcher;
-    return (D.fetcher = ok.reduce((b, o) => (!b || Math.hypot(o.x - pk.x, o.y - pk.y) < Math.hypot(b.x - pk.x, b.y - pk.y) ? o : b), null) || W.officials[0]);
+    return (D.fetcher = ok.reduce((b, o) => (!b || hyp(o.x - pk.x, o.y - pk.y) < hyp(b.x - pk.x, b.y - pk.y) ? o : b), null) || W.officials[0]);
   };
   // Everybody to the draw on `dot`: an easy skate back after a whistle, brisk for the
   // faceoff itself. The linesman fetches the puck and brings it; the referee collects any
@@ -368,7 +372,7 @@ export function createDirector(W, opts = {}) {
         // (the man with the puck stops and gives it to the linesman first: fetchPuck)
         if (busyBody(m) || m.hold || m.rag || m.blend || pk.carrier === m) continue;
         if (!m.stick && m.gloves) m.stick = true;
-        const [x, y] = spotFor(m, side, dx, dy, centre), d = Math.hypot(x - m.x, y - m.y);
+        const [x, y] = spotFor(m, side, dx, dy, centre), d = hyp(x - m.x, y - m.y);
         m.scripted = true; m.tx = x; m.ty = y; m.guard = false; m.foe = null; m.grab = null;
         // (no faster than he can stop from, so he pulls up on his spot rather than past it)
         m.maxV = Math.min(brisk ? 25 : 15, Math.sqrt(2 * 18 * d) + 1);
@@ -381,7 +385,7 @@ export function createDirector(W, opts = {}) {
     // With it, to just off the dot on the near side, out of the centres' way, facing up the
     // ice the way they don't; he steps in to drop it once they're set (stageFaceoff).
     if (lin && lin.active && !lin.rag && fetchPuck(lin)) {
-      const tx = dx - 0.3, ty = dy - 6.5, d = Math.hypot(tx - lin.x, ty - lin.y);
+      const tx = dx - 0.3, ty = dy - 6.5, d = hyp(tx - lin.x, ty - lin.y);
       lin.scripted = true; lin.tx = tx; lin.ty = ty; lin.maxV = Math.min(brisk ? (d > 40 ? 25 : 22) : 14, Math.sqrt(2 * 18 * d) + 1);
       lin.face = d < 4 ? Math.PI / 2 : null;
     }
@@ -389,7 +393,7 @@ export function createDirector(W, opts = {}) {
       ref.scripted = true; ref.maxV = 14;
       let gi = -1, gd = 1e9;
       D.gear = D.gear.filter((q) => W.debris.includes(q));
-      D.gear.forEach((q, i) => { const e = Math.hypot(q.x - ref.x, q.y - ref.y); if (e < gd) { gd = e; gi = i; } });
+      D.gear.forEach((q, i) => { const e = hyp(q.x - ref.x, q.y - ref.y); if (e < gd) { gd = e; gi = i; } });
       if (gi >= 0) {
         const q = D.gear[gi]; ref.tx = q.x; ref.ty = q.y - 1.2; ref.face = null;
         if (gd < 2.2) { W.debris.splice(W.debris.indexOf(q), 1); D.gear.splice(gi, 1); }
@@ -436,8 +440,16 @@ export function createDirector(W, opts = {}) {
     switch (kind) {
       case 'goal': {
         // away from where he is, and high if he's going down, low if he isn't
-        const side = Math.sign(MID_Y - gy) || s;
-        return { tgt: [gx + dir * 1.8, MID_Y + side * (1.4 + r() * 1.1), low ? 0.25 + r() * 0.5 : 2.5 + r() * 1.0], low };
+        const side = Math.sign(MID_Y - gy) || s, tx = gx + dir * 1.8;
+        let ty = MID_Y + side * (1.4 + r() * 1.1);
+        // and in through the mouth from where it's shot: from a sharp angle the line to that
+        // spot would cross the goal line outside the post, so it goes to the far side instead
+        const f = (pk.x - gx) / (pk.x - tx);
+        if (f > 0 && f < 1) {
+          const yc = pk.y + (ty - pk.y) * f, lim = NET_HALF - 0.45;
+          if (Math.abs(yc - MID_Y) > lim) ty = clamp(pk.y + (MID_Y + Math.sign(yc - MID_Y) * lim - pk.y) / f, MID_Y - NET_HALF + 0.3, MID_Y + NET_HALF - 0.3);
+        }
+        return { tgt: [tx, ty, low ? 0.25 + r() * 0.5 : 2.5 + r() * 1.0], low };
       }
       case 'glove': { const gs = g ? 1 : s; return { tgt: [g.x + fwd[0] * 0.7 + left[0] * 1.7 * gs, g.y + fwd[1] * 0.7 + left[1] * 1.7 * gs, 3.1 + r() * 0.7], low: false }; }
       case 'save': return { tgt: [g.x + fwd[0] * 0.8, g.y + fwd[1] * 0.8, 2.4 + r() * 0.5], low: false };
@@ -465,7 +477,7 @@ export function createDirector(W, opts = {}) {
       nodes = nodes.filter((n, i) => i === 0 || i >= nodes.length - 2 || called.has(i));
     } else {
       const L = nodes.length, legTime = (a, b) => {
-        const d = Math.hypot(b.x - a.x, b.y - a.y);
+        const d = hyp(b.x - a.x, b.y - a.y);
         return b.ev === 'battle' || b.ev === 'dump' ? 1.6 + d / 60 : b.carrier >= 0 && b.carrier !== a.carrier ? 0.5 + d / 70 : 0.3 + d / 21;
       };
       let first = L - 3, sum = legTime(nodes[L - 3], nodes[L - 2]);
@@ -493,38 +505,73 @@ export function createDirector(W, opts = {}) {
     // (a man on his way off, to the bench or the box, is no part of it)
     const free = (m) => m && m.active && !m.rag && !m.hold && !busyBody(m);
     const able = (m) => free(m) && m.stick;
+    // (best placed: whoever can get to it soonest, the puck moving as it is, not just whoever
+    // is nearest it now: a cleared puck is run down by the man it's going toward)
+    const etaOf = (m) => { const q = W.intercept(m, 24); return hyp(q[0] - m.x, q[1] - m.y) / 24; };
+    const soonest = (list) => list.reduce((b, m) => { const t = etaOf(m); return !b || t < b.t ? { m, t } : b; }, null)?.m || null;
+    // (a pass in the air from the last play is still a pass: to one of his side, the play is
+    // his once he takes it; to one of theirs, he takes it off that man once he has it)
+    const passTo = !pk.carrier && !pk.held && pk.target && able(pk.target) ? pk.target : null;
     let cur = pk.carrier && pk.carrier.side === att && able(pk.carrier) ? pk.carrier
-      : W.nearestOf(W.mates(att).filter(able), pk.x, pk.y) || W.mates(att).find(able) || W.mates(att)[0];
+      : passTo && passTo.side === att ? passTo
+      : (!pk.carrier && !pk.held ? soonest(W.mates(att).filter(able)) : W.nearestOf(W.mates(att).filter(able), pk.x, pk.y)) || W.mates(att).find(able) || W.mates(att)[0];
     let li = 1;
     while (li < nodes.length - 2 && (nodes[li].x - pk.x) * dir < -12) li++;
-    const foe = pk.carrier && pk.carrier.side !== att ? pk.carrier : null;
+    const foe = pk.carrier && pk.carrier.side !== att ? pk.carrier : passTo && passTo.side !== att ? passTo : null;
     script(cur);
+    if (passTo === cur) cur.meetPass = W.t + 3;
     if (pk.held && pk.held.kind === 'goalie') {
       // out of the goalie's glove: his own plays it to him; theirs coughs it up
       const g0 = pk.held; g0.gloveW = 0; g0.gloveHold = false; g0.actHold = false;
-      W.loose(0, 0); W.collect(cur, g0.side !== att);
-    } else if (!foe && !W.give(cur)) W.collect(cur, true);
+      if (g0.side === att) { pk.held = null; W.pass(g0, cur, 45); }
+      else { W.loose(0, 0); W.collect(cur); }
+    } else if (!foe && passTo !== cur && !W.give(cur)) W.collect(cur);
     const slotBody = (k) => W.mates(att).find((m) => m.slot === k) || null;
-    // The man who takes a touch: the one in that slot, unless he's out of the play (40 ft or
-    // more from it), when it's whoever of his side is nearest. Either way he wears the name
-    // the booth gives that touch, so the call and the sweater agree. Chosen once per touch.
+    const names = Array.isArray(p.rushNames) && p.rushNames.length ? p.rushNames : null;
+    const nameOf = (k) => (names && k >= 0 ? names[((k % names.length) + names.length) % names.length] : null);
+    // The man the booth starts the rush with is the man who starts it here: he wears that
+    // name (and a later touch the booth gives the same man stays his, below).
+    if (nameOf(nodes[0].carrier)) nameBody(cur, nameOf(nodes[0].carrier));
+    // The man who takes a touch: the one already wearing the name the booth gives it, if he
+    // can play it; else the one in that slot, unless he's out of the play (40 ft or more from
+    // it), when it's whoever of his side is nearest. Either way he wears the name, so the
+    // call and the sweater agree. Chosen once per touch.
     const touchBody = (nd) => {
       if (nd.carrier < 0) return null;
       if (nd.body !== undefined) return nd.body;
-      let b = slotBody(nd.carrier);
-      if (!able(b) || Math.hypot(b.x - nd.x, b.y - nd.y) > 40) b = W.nearestOf(W.mates(att).filter((m) => m !== cur && able(m)), nd.x, nd.y) || b;
-      const names = Array.isArray(p.rushNames) ? p.rushNames : null;
-      if (b && names && names.length) nameBody(b, names[((nd.carrier % names.length) + names.length) % names.length]);
+      const nm = nameOf(nd.carrier);
+      let b = nm ? D.names[att].get(nm) : null;
+      if (b && !(b === cur ? able(b) : able(b) && hyp(b.x - nd.x, b.y - nd.y) <= 40)) b = null;
+      if (!b) {
+        b = slotBody(nd.carrier);
+        if (!able(b) || hyp(b.x - nd.x, b.y - nd.y) > 40) b = W.nearestOf(W.mates(att).filter((m) => m !== cur && able(m)), nd.x, nd.y) || b;
+      }
+      if (b && nm) nameBody(b, nm);
       nd.body = b;
       return b;
     };
-    // with the other side carrying it, the first thing he does is go and take it off them
+    // With the other side carrying it, the first thing he does is go and take it off them.
+    // When the booth calls a takeaway and nobody of theirs has it yet, it's theirs first: their
+    // man best placed for a loose puck goes and gets it, and he goes after that man (a
+    // `forecheck`) and takes it off him as the line airs. If it's on his own stick already,
+    // their nearest man comes at him and loses the battle for it (a `challenge`).
+    const tk = cueOf(p, 'takeaway');
     let leg = foe ? { kind: 'win', t: 0, from: foe } : null, lastPasser = null;
+    if (!leg && tk != null && !pk.held) {
+      const mine = pk.carrier === cur;
+      const rival = mine ? W.nearestOf(W.mates(def).filter(free), pk.x, pk.y) : soonest(W.mates(def).filter(able));
+      if (rival) {
+        script(rival);
+        if (mine) { cur.tx = nodes[li].x; cur.ty = nodes[li].y; cur.maxV = 14; leg = { kind: 'challenge', t: 0, rival }; }
+        else { W.collect(rival); leg = { kind: 'forecheck', t: 0, rival }; }
+      }
+    }
 
     function nextLeg() {
       if (D.beat !== B) return;
-      // nothing is played until he actually has it: a puck on its way to him is fetched
-      if (pk.carrier !== cur) { if (pk.home !== cur) W.collect(cur, true); leg = { kind: 'fetch', t: 0 }; return; }
+      // nothing is played until he actually has it: a pass on its way to him he takes as it
+      // comes, and anything else he goes and gets
+      if (pk.carrier !== cur) { if (pk.home !== cur && pk.target !== cur) W.collect(cur); leg = { kind: 'fetch', t: 0 }; return; }
       if (li >= nodes.length - 2) { shotLeg(); return; }
       // the line for this touch hasn't aired yet: move toward it, timed to arrive with it
       const want = cueOf(p, 'node', 'i', nodes[li].oi);
@@ -541,8 +588,20 @@ export function createDirector(W, opts = {}) {
       if (nodes[li].ev === 'dump' && (nodes[li].x - cur.x) * dir > 30) {
         const up = nodes[li];
         cur.tx = up.x; cur.ty = up.y; cur.maxV = 24;
-        leg = { kind: 'carry', up: true, t: 0, dist: Math.hypot(up.x - cur.x, up.y - cur.y), tx: up.x, ty: up.y };
+        leg = { kind: 'carry', up: true, t: 0, dist: hyp(up.x - cur.x, up.y - cur.y), tx: up.x, ty: up.y };
         return;
+      }
+      // Nor is anything passed the length of the ice: a receiver more than 85 ft off is a
+      // punt that dies in a corner. He carries it up until it's a pass (to 55 ft of him).
+      {
+        const up = nodes[li], tb0 = up.ev !== 'battle' && up.ev !== 'dump' ? touchBody(up) : null;
+        const far = tb0 && tb0 !== cur ? hyp(tb0.x - cur.x, tb0.y - cur.y) : 0;
+        if (far > 85) {
+          const k = (far - 55) / far, tx = cur.x + (tb0.x - cur.x) * k, ty = cur.y + (tb0.y - cur.y) * k;
+          cur.tx = tx; cur.ty = ty; cur.maxV = 24;
+          leg = { kind: 'carry', up: true, t: 0, dist: hyp(tx - cur.x, ty - cur.y), tx, ty };
+          return;
+        }
       }
       const nd = nodes[li], nx = nodes[li + 1];
       li++;
@@ -554,11 +613,11 @@ export function createDirector(W, opts = {}) {
         // deep into the corner if that's no distance; a battle squirts it to the node.
         let gx = nd.x, gy = nd.y;
         if (nd.ev === 'dump') {
-          if (Math.hypot(nx.x - nd.x, nx.y - nd.y) > 20) { gx = nx.x; gy = nx.y; }
+          if (hyp(nx.x - nd.x, nx.y - nd.y) > 20) { gx = nx.x; gy = nx.y; }
           else { gx = clamp(netX + dir * 5, 8, RL - 8); gy = nd.y > MID_Y ? RW - 7 : 7; }
         }
         const named = nx.carrier >= 0 ? slotBody(nx.carrier) : null;
-        const reachT = (m) => Math.hypot(m.x - gx, m.y - gy) / 22 - (m === named ? 0.6 : 0) + (m === cur ? 0.8 : 0);
+        const reachT = (m) => hyp(m.x - gx, m.y - gy) / 22 - (m === named ? 0.6 : 0) + (m === cur ? 0.8 : 0);
         const chaser = W.mates(att).filter(able).reduce((best, m) => (!best || reachT(m) < reachT(best) ? m : best), null) || cur;
         const foe = W.nearestOf(W.mates(def).filter(free), nd.x, nd.y);
         if (nd.ev === 'dump') {
@@ -569,9 +628,9 @@ export function createDirector(W, opts = {}) {
         } else {
           // rubbed off it: the puck squirts toward where the battle is
           const nearFoe = W.nearestOf(W.mates(def), cur.x, cur.y);
-          if (nearFoe && Math.hypot(nearFoe.x - cur.x, nearFoe.y - cur.y) < 12) { W.act(nearFoe, 'poke', 0.35); }
+          if (nearFoe && hyp(nearFoe.x - cur.x, nearFoe.y - cur.y) < 12) { W.act(nearFoe, 'poke', 0.35); }
           W.act(cur, 'stagger', 0.5); cur.react = 0.4;
-          const d = Math.hypot(nd.x - pk.x, nd.y - pk.y) || 1, sp = clamp(d * 1.4, 14, 50);
+          const d = hyp(nd.x - pk.x, nd.y - pk.y) || 1, sp = clamp(d * 1.4, 14, 50);
           W.loose((nd.x - pk.x) / d * sp, (nd.y - pk.y) / d * sp, 0);
           W.settleAt(nd.x, nd.y);
           W.sfx('stick');
@@ -589,14 +648,17 @@ export function createDirector(W, opts = {}) {
         const lu = (tb.x - cur.x) * Math.cos(cur.h) + (tb.y - cur.y) * Math.sin(cur.h);
         const lv = -(tb.x - cur.x) * Math.sin(cur.h) + (tb.y - cur.y) * Math.cos(cur.h);
         // a drop pass is for a man right behind him; farther back it's played firmly
-        const pd = Math.hypot(tb.x - cur.x, tb.y - cur.y);
+        const pd = hyp(tb.x - cur.x, tb.y - cur.y);
         const pkind = lu < -3 && pd < 14 ? 'drop' : (lv < -4 && lu < 8) || lu < -3 ? 'backpass' : r() < 0.15 ? 'saucer' : 'pass';
         W.act(cur, pkind, SHOTS[pkind].dur); cur.look = [tb.x, tb.y, 1];
         const from = cur, pass = { kind: 'pass', to: tb, from: cur, t: 0 };
         // (a shot called before it's away takes the leg over, and he keeps the puck to shoot)
         at(B, releaseAt(pkind), () => {
           if (leg !== pass) return;
-          W.give(from); W.pass(from, tb, pkind === 'drop' ? clamp(pd * 1.8, 16, 28) : 64 + r() * 14);
+          // led to where he'll be on his way to the touch's spot when it gets to him
+          const spd = pkind === 'drop' ? clamp(pd * 1.8, 16, 28) : 64 + r() * 14;
+          W.give(from); pass.made = W.pass(from, tb, spd);
+          tb.meetPass = W.t + 3;
           if (pkind === 'saucer') pk.vz = 7;
           W.act(tb, 'receive', 0.6, [from.x, from.y]);
         });
@@ -609,8 +671,8 @@ export function createDirector(W, opts = {}) {
       if (nd.ev === 'deke') {
         const front = W.nearestOf(W.mates(def).filter(free), nd.x, nd.y);
         if (front) { script(front); front.tx = lerp(cur.x, nd.x, 0.6); front.ty = lerp(cur.y, nd.y, 0.6); front.maxV = 16; front.face = Math.atan2(cur.y - front.y, cur.x - front.x); }
-        leg = { kind: 'carry', deke: front, t: 0, dist: Math.hypot(nd.x - cur.x, nd.y - cur.y) };
-      } else leg = { kind: 'carry', t: 0, dist: Math.hypot(nd.x - cur.x, nd.y - cur.y) };
+        leg = { kind: 'carry', deke: front, t: 0, dist: hyp(nd.x - cur.x, nd.y - cur.y) };
+      } else leg = { kind: 'carry', t: 0, dist: hyp(nd.x - cur.x, nd.y - cur.y) };
       leg.tx = nd.x; leg.ty = nd.y;
     }
 
@@ -623,8 +685,21 @@ export function createDirector(W, opts = {}) {
       if (kind === 'breakaway' || (kind === 'goal' && p.breakaway)) {
         const al = cueOf(p, 'alone'), wait = al != null ? Math.max(0, al - (W.t - B.t0)) : 0;
         at(B, wait, () => { W.banner = { text: 'BREAKAWAY!', sub: surname(p.shooter).toUpperCase(), t0: W.t, dur: 1.9, col: '#f0bd4c' }; W.crowd = 1; W.cam.drama = true; W.sfx('roar'); });
-        B.chasers = W.mates(def).filter(free).sort((a2, b2) => Math.hypot(a2.x - cur.x, a2.y - cur.y) - Math.hypot(b2.x - cur.x, b2.y - cur.y)).slice(0, 2);
+        B.chasers = W.mates(def).filter(free).sort((a2, b2) => hyp(a2.x - cur.x, a2.y - cur.y) - hyp(b2.x - cur.x, b2.y - cur.y)).slice(0, 2);
         B.chasers.forEach((m) => script(m));
+      }
+      // The shot is the best-placed man's: the one with the puck, the one a pass is on its way
+      // to, or whoever of his side will get to a loose one first. The booth's name goes on him
+      // (below). Waiting for the named man to get it from wherever he was cost seconds.
+      {
+        const have = pk.carrier && pk.carrier.side === att && able(pk.carrier) ? pk.carrier
+          : pk.target && pk.target.side === att && able(pk.target) ? pk.target : null;
+        if (have && have !== cur) { if (cur && cur !== have) cur.scripted = false; cur = script(have); }
+        else if (!have && !pk.held && !(pk.carrier && pk.carrier.side === def)) {
+          const s0 = soonest(W.mates(att).filter(able));
+          if (s0 && s0 !== cur) { if (cur) cur.scripted = false; cur = script(s0); }
+          if (cur && pk.home !== cur && pk.carrier !== cur) W.collect(cur);
+        }
       }
       let shooter = cur, setup = null;
       if ((type === 'onetimer' || type === 'tip') && W.mates(att).length > 1) {
@@ -649,7 +724,7 @@ export function createDirector(W, opts = {}) {
         leg = { kind: 'feed', t: 0, shooter, setup, fed: false };
       } else {
         cur.tx = sn.x; cur.ty = sn.y; cur.maxV = 21;
-        leg = { kind: 'approach', t: 0, shooter };
+        leg = { kind: 'approach', t: 0, shooter, sx: sn.x, sy: sn.y };
       }
       // a block needs a body in the lane before the shot
       if (kind === 'blocked') {
@@ -676,14 +751,12 @@ export function createDirector(W, opts = {}) {
         at(B, 1.8, () => finish(B));
         return;
       }
-      // he can only shoot what's on his stick: a puck still on its way to him is fetched first
-      if (pk.carrier !== shooter) {
-        const bw0 = bladeWorld(shooter, W.t, true);
-        if (Math.hypot(bw0[0] - pk.x, bw0[1] - pk.y) > 3.5 && (B.shotWait = (B.shotWait || 0) + 1) < 30) {
-          if (pk.home !== shooter) W.collect(shooter, true);
-          at(B, 0.1, () => shoot(shooter));
-          return;
-        }
+      // he can only shoot what's on his stick: one he hasn't got yet he goes and gets first
+      // (and only as a last resort, eight seconds on, is it put on his stick wherever it is)
+      if (pk.carrier !== shooter && (B.shotWait = (B.shotWait || 0) + 1) < 80) {
+        if (pk.home !== shooter) W.collect(shooter);
+        at(B, 0.1, () => shoot(shooter));
+        return;
       }
       W.act(shooter, T, SHOTS[T].dur);
       if (T === 'slap' || T === 'onetimer') { shooter.tx = shooter.x + shooter.vx * 0.5; shooter.ty = shooter.y + shooter.vy * 0.5; shooter.maxV = 8; }
@@ -703,7 +776,7 @@ export function createDirector(W, opts = {}) {
     // A frozen puck is a goalie under pressure: two of them crash his crease as he covers
     // it, which is why he holds it rather than playing it.
     function pressure() {
-      const crash = W.mates(att).filter((m) => !m.rag && !busyBody(m)).sort((a2, b2) => Math.hypot(a2.x - netX, a2.y - MID_Y) - Math.hypot(b2.x - netX, b2.y - MID_Y)).slice(0, 2);
+      const crash = W.mates(att).filter((m) => !m.rag && !busyBody(m)).sort((a2, b2) => hyp(a2.x - netX, a2.y - MID_Y) - hyp(b2.x - netX, b2.y - MID_Y)).slice(0, 2);
       crash.forEach((m, i) => { script(m); m.tx = netX - dir * (4.5 + i * 2); m.ty = MID_Y + (i ? 3.2 : -3.2); m.maxV = 22; m.face = dir > 0 ? 0 : Math.PI; });
       if (g && g.active) { W.act(g, 'cover', 0.5); g.actHold = true; }
     }
@@ -813,20 +886,23 @@ export function createDirector(W, opts = {}) {
       // the man it's on gone (off the ice, flattened): the nearest of his side takes over
       if (!B.scored && leg && !['shooting'].includes(leg.kind) && !able(cur)) {
         const nb = W.nearestOf(W.mates(att).filter(able), pk.x, pk.y);
-        if (nb) { cur = script(nb); if (leg.kind === 'approach' && leg.shooter && !able(leg.shooter)) leg.shooter = nb; if (pk.carrier !== cur) { W.collect(cur, true); leg = { kind: 'fetch', t: 0 }; } }
+        if (nb) { cur = script(nb); if (leg.kind === 'approach' && leg.shooter && !able(leg.shooter)) leg.shooter = nb; if (pk.carrier !== cur) { if (pk.target !== cur && pk.home !== cur) W.collect(cur); leg = { kind: 'fetch', t: 0 }; } }
       }
       if (B.seekNet && !pk.inNet) {
-        // to a point in front of the mouth first if it's wide or behind, then in
-        const front = (netX - pk.x) * dir > 1.5 && Math.abs(pk.y - MID_Y) < NET_HALF - 0.6;
-        const tx = front ? netX + dir * 1.6 : netX - dir * 4, ty = MID_Y;
-        const dx = tx - pk.x, dy = ty - pk.y, d = Math.hypot(dx, dy) || 1, k = 1 - Math.exp(-dt * 8);
+        // to a point in front of the mouth first if it's wide or behind, then in (and once it's
+        // been in front it keeps going in, unless it's gone back behind the goal line: deciding
+        // afresh every step held it on the line between the two)
+        if ((netX - pk.x) * dir > 1.5 && Math.abs(pk.y - MID_Y) < NET_HALF - 0.6) B.seekFront = true;
+        else if ((netX - pk.x) * dir < -0.3) B.seekFront = false;
+        const tx = B.seekFront ? netX + dir * 1.6 : netX - dir * 4, ty = MID_Y;
+        const dx = tx - pk.x, dy = ty - pk.y, d = hyp(dx, dy) || 1, k = 1 - Math.exp(-dt * 8);
         pk.vx += (dx / d * 45 - pk.vx) * k; pk.vy += (dy / d * 45 - pk.vy) * k; pk.vz = Math.min(pk.vz, 0);
       }
       if (B.celebrate) {
         const sh = B.celebrate;
         W.cam.focus = [sh.x, sh.y];
         for (const m of W.mates(att)) if (m !== sh && m.scripted) {
-          const d = Math.hypot(sh.x - m.x, sh.y - m.y);
+          const d = hyp(sh.x - m.x, sh.y - m.y);
           m.tx = sh.x + (m.x - sh.x) / (d || 1) * 2.6; m.ty = sh.y + (m.y - sh.y) / (d || 1) * 2.6;
           if (d < 4 && m.act !== 'hug') { m.target = sh; W.act(m, 'hug', 1.6); }
         }
@@ -843,11 +919,13 @@ export function createDirector(W, opts = {}) {
       // next touch's line, the touch in progress finishes now.
       if (callCue != null && rel >= callCue && !['approach', 'shooting', 'wrapIn', 'feed'].includes(leg.kind)) {
         if (leg.foe) leg.foe.scripted = false;
+        for (const o of [leg.from, leg.rival]) if (o && o !== cur) { o.scripted = false; o.protect = 0; }
+        cur.face = null; cur.protect = 0;
         // (only to the man a pass is actually on its way to; one never made stays with the passer)
         if (leg.kind === 'pass' && leg.to && (pk.target === leg.to || pk.carrier === leg.to || pk.home === leg.to)) cur = leg.to;
         if (leg.kind === 'chase' && leg.chaser) cur = leg.chaser;
         script(cur);
-        if (pk.carrier !== cur && pk.home !== cur) W.collect(cur, true);
+        if (pk.carrier !== cur && pk.home !== cur && pk.target !== cur) W.collect(cur);
         li = nodes.length - 2; leg = null; shotLeg();
         return;
       }
@@ -859,81 +937,193 @@ export function createDirector(W, opts = {}) {
         return;
       }
       if (leg.kind === 'fetch') {
-        if (pk.carrier === cur) { leg = null; nextLeg(); }
+        if (pk.carrier === cur) {
+          const rv = leg.rival;
+          if (rv && tk != null && !B.battled && free(rv)) { cur.tx = nodes[li].x; cur.ty = nodes[li].y; cur.maxV = 14; leg = { kind: 'challenge', t: 0, rival: script(rv) }; return; }
+          leg = null; nextLeg();
+        }
         return;
       }
       if (leg.kind === 'win') {
-        // he closes on the man with it, who slows to protect it, and pokes it off him
+        // A BATTLE FOR IT. He closes on the man with it, who slows and turns the puck away from
+        // him; they lean on each other a moment and he lifts the stick, then pokes it, and it
+        // squirts off the man's blade toward him and he gathers it up. A takeaway the booth
+        // calls comes loose as its line airs.
         const c = leg.from;
-        if (pk.carrier !== c) { leg = null; nextLeg(); return; }
+        // (a pass still on its way to him: he goes at the man it's for, to be on him as he has it)
+        if (pk.carrier !== c && pk.target === c) { cur.tx = c.x; cur.ty = c.y; cur.maxV = 24; return; }
+        if (pk.carrier !== c) {
+          c.protect = 0; cur.face = null; cur.charging = null;
+          // (their man never had it, or he beat him to it: a takeaway the booth calls still gets
+          // its battle once he has it, their man coming at him, as after a loose puck)
+          const rv = tk != null && !B.battled && free(c) ? c : null;
+          if (rv && pk.carrier === cur) { cur.tx = nodes[li].x; cur.ty = nodes[li].y; cur.maxV = 14; leg = { kind: 'challenge', t: 0, rival: script(rv) }; return; }
+          leg = null; nextLeg();
+          if (rv && leg && leg.kind === 'fetch') leg.rival = rv;
+          return;
+        }
         if (!c.scripted) script(c);
         c.tx = c.x + c.vx * 0.3; c.ty = c.y + c.vy * 0.3; c.maxV = 10;
-        cur.tx = pk.x + pk.vx * 0.15; cur.ty = pk.y + pk.vy * 0.15; cur.maxV = 26;
-        const bw = bladeWorld(cur, W.t, true);
-        if (Math.hypot(bw[0] - pk.x, bw[1] - pk.y) < 2.8 || leg.t > 4.5) {
+        const dc = hyp(cur.x - c.x, cur.y - c.y), lv = -(cur.x - c.x) * Math.sin(c.h) + (cur.y - c.y) * Math.cos(c.h);
+        c.protect = dc < 9 ? (lv >= 0 ? 1 : -1) : 0;
+        // (into him, through the puck, rather than easing up short of him)
+        cur.tx = pk.x + pk.vx * 0.15; cur.ty = pk.y + pk.vy * 0.15; cur.maxV = 26; cur.through = W.t + 0.1; cur.charging = c;
+        cur.face = dc < 5 ? Math.atan2(pk.y - cur.y, pk.x - cur.x) : null;
+        if (dc < 3.6 && leg.contact == null) { leg.contact = W.t; W.act(cur, 'lift', 0.45); c.react = 0.3; W.sfx('stick'); }
+        // (as the takeaway's line airs, or the line after he went in after a loose puck, or
+        // after a moment's battle when the booth has nothing to say about it)
+        const cue = tk ?? cueOf(p, 'fetched'), due = cue != null ? B.t0 + cue - 0.15 : 0;
+        // (a moment's lean on him first, and only a short one once the line's gone by)
+        const lean = due && W.t > due ? 0.2 : 0.4;
+        if ((leg.contact != null && W.t - leg.contact > lean && W.t >= due) || leg.t > 6) {
+          B.tookAt = W.t - B.t0; B.battled = true;
           W.act(cur, 'poke', 0.35); W.sfx('stick');
-          W.act(c, 'stagger', 0.5); c.react = 0.4; c.scripted = false;
-          if (!W.give(cur)) W.collect(cur, true);
+          W.act(c, 'stagger', 0.5); c.react = 0.4; c.protect = 0; c.scripted = false;
+          const ux = cur.x - pk.x, uy = cur.y - pk.y, ul = hyp(ux, uy) || 1;
+          W.loose(c.vx * 0.4 + ux / ul * 7, c.vy * 0.4 + uy / ul * 7);
+          cur.face = null; cur.charging = null;
+          W.collect(cur);
+          leg = { kind: 'fetch', t: 0 };
+        }
+        return;
+      }
+      if (leg.kind === 'forecheck') {
+        // Their man goes and gets the loose puck; he skates to where that man will have it,
+        // to be on him as he does. Their man too slow to have it in time for the line, it's a
+        // scramble between the two of them instead (a `chase`), and he comes out of it with
+        // the puck as the line airs.
+        const rv = leg.rival;
+        if (pk.carrier === rv) { leg = { kind: 'win', t: 0, from: rv }; return; }
+        if (pk.carrier === cur || !able(rv) || leg.t > 6) { rv.scripted = false; leg = null; nextLeg(); return; }
+        if (tk != null && rel > tk - 0.8) { W.collect(cur); leg = { kind: 'chase', chaser: cur, foe: rv, t: 0, armed: true }; return; }
+        if (!pk.carrier && !pk.held && pk.home !== rv && pk.target !== rv) W.collect(rv);
+        // (no faster than gets him there a moment after their man, so it's their man's puck
+        // first: he's forechecking, not racing him for it)
+        const q = W.intercept(rv, 24), dq = hyp(q[0] - cur.x, q[1] - cur.y) || 1, eta = hyp(q[0] - rv.x, q[1] - rv.y) / 24;
+        cur.tx = q[0] - (q[0] - cur.x) / dq * 2.5; cur.ty = q[1] - (q[1] - cur.y) / dq * 2.5;
+        cur.maxV = clamp(dq / (eta + 0.4), 10, 24); cur.through = W.t + 0.1;
+        return;
+      }
+      if (leg.kind === 'challenge') {
+        // He has it, and their nearest man comes at him: a stick on his, a lean, and he rides
+        // it out with the puck as the booth's line airs.
+        const rv = leg.rival, dc = hyp(rv.x - cur.x, rv.y - cur.y);
+        rv.tx = cur.x + cur.vx * 0.2; rv.ty = cur.y + cur.vy * 0.2; rv.maxV = 24; rv.through = W.t + 0.1; rv.charging = cur;
+        if (dc < 9) { const lv = -(rv.x - cur.x) * Math.sin(cur.h) + (rv.y - cur.y) * Math.cos(cur.h); cur.protect = lv >= 0 ? 1 : -1; }
+        if (dc < 3.6 && leg.contact == null) { leg.contact = W.t; B.battled = true; W.act(rv, 'lift', 0.45); W.sfx('stick'); }
+        const due = tk != null ? B.t0 + tk : 0;
+        if ((leg.contact != null && W.t - leg.contact > 0.5 && W.t >= due) || leg.t > 4 || pk.carrier !== cur) {
+          if (leg.contact != null) { W.act(rv, 'stagger', 0.5); rv.react = 0.4; }
+          rv.scripted = false; rv.charging = null; cur.protect = 0;
           leg = null; nextLeg();
         }
         return;
       }
       if (leg.kind === 'wait') {
-        const m = leg.mover, left = leg.until - rel;
-        m.tx = leg.tx; m.ty = leg.ty;
-        m.maxV = clamp(Math.hypot(leg.tx - m.x, leg.ty - m.y) / Math.max(0.4, left), 5, 24);
+        const m = leg.mover, left = leg.until - rel, dn = hyp(leg.tx - m.x, leg.ty - m.y);
+        if (left > 1.2 && dn < 12) {
+          // Early, and nearly there: he curls round the spot at a skater's pace, a stride
+          // ahead of himself on a circle about it, rather than standing on it with the puck
+          // waiting for the booth.
+          if (leg.curl == null) leg.curl = (r() < 0.5 ? 1 : -1);
+          const a = Math.atan2(m.y - leg.ty, m.x - leg.tx) + leg.curl * 0.7;
+          let cx = leg.tx + Math.cos(a) * 7, cy = leg.ty + Math.sin(a) * 7;
+          const c = insideRink(cx, cy, 4); if (c) { cx = c.x; cy = c.y; }
+          m.tx = cx; m.ty = cy; m.maxV = 11; m.through = W.t + 0.1;
+        } else {
+          m.tx = leg.tx; m.ty = leg.ty;
+          m.maxV = clamp(dn / Math.max(0.4, left), 5, 24);
+        }
         if (m !== cur) cur.maxV = 9;
         if (left <= 0) { leg = null; nextLeg(); }
         return;
       }
       if (leg.kind === 'carry') {
-        if (leg.deke && !leg.dekeDone && Math.hypot(leg.deke.x - cur.x, leg.deke.y - cur.y) < 8) {
+        if (leg.deke && !leg.dekeDone && hyp(leg.deke.x - cur.x, leg.deke.y - cur.y) < 8) {
           leg.dekeDone = true;
           W.act(cur, ['toedrag', 'deke', 'drag'][(r() * 3) | 0], 0.7);
           const sd = r() < 0.5 ? 1 : -1, d = leg.deke;
           cur.tx = leg.tx - Math.sin(cur.h) * 5 * sd; cur.ty = leg.ty + Math.cos(cur.h) * 5 * sd;
           at(B, 0.35, () => { W.act(d, 'stagger', 0.6); d.react = 0.4; d.scripted = false; });
         }
-        if (Math.hypot(cur.tx - cur.x, cur.ty - cur.y) < 4 || leg.t > leg.dist / 17 + 0.6) { leg = null; nextLeg(); }
+        if (hyp(cur.tx - cur.x, cur.ty - cur.y) < 4 || leg.t > leg.dist / 17 + 0.6) { leg = null; nextLeg(); }
       } else if (leg.kind === 'pass') {
         if (pk.carrier === leg.to) { leg.from.scripted = false; cur = leg.to; leg = null; nextLeg(); }
+        else if (leg.made && !pk.carrier && !pk.held && pk.target !== leg.to) {
+          // Gone by him: whoever of his side will get to it first goes after it (a good half
+          // second sooner than the man it was for, so the two don't trade the job back and
+          // forth), and the touch is his.
+          const s0 = soonest(W.mates(att).filter(able));
+          if (s0 && s0 !== leg.to && etaOf(s0) + 0.5 < etaOf(leg.to)) { if (leg.to !== cur) leg.to.scripted = false; leg.to = script(s0); }
+          if (pk.home !== leg.to) W.collect(leg.to);
+        }
         else if (leg.t > 2.2 && !leg.collecting) { leg.collecting = true; W.collect(leg.to); }
       } else if (leg.kind === 'chase' && leg.armed) {
         const c = leg.chaser;
-        // he runs it down, easing up as he gets there so he meets it rather than overruns it
-        const bw = bladeWorld(c, W.t, true), dd = Math.hypot(bw[0] - pk.x, bw[1] - pk.y);
-        if (!leg.collecting) { c.tx = pk.x + pk.vx * 0.25; c.ty = pk.y + pk.vy * 0.25; c.maxV = clamp(Math.max(Math.hypot(pk.vx, pk.vy) + 5, dd * 2.4), 8, 25); }
-        if (leg.foe) { leg.foe.tx = pk.x + pk.vx * 0.2 - Math.cos(c.h) * 2; leg.foe.ty = pk.y + pk.vy * 0.2; leg.foe.maxV = 23; }
-        if (dd < 2.6 && pk.z < 1 && pk.carrier !== c) W.give(c);
-        else if (leg.t > 3.4 && !leg.collecting && pk.carrier !== c) { leg.collecting = true; W.collect(c, true); }
+        // he runs it down: to where he'll meet it, keeping his speed (the sim's `pursue`), and
+        // has it when it's within reach of his stick
+        if (pk.carrier !== c && pk.home !== c) W.collect(c);
+        // the other side's man goes for it too, a stride behind him
+        if (leg.foe && !(leg.dug > W.t)) { const f = leg.foe, q = W.intercept(f, 23); f.tx = q[0] - Math.cos(c.h) * 2; f.ty = q[1] - Math.sin(c.h) * 2; f.maxV = 23; f.through = W.t + 0.1; }
+        // THE TWO OF THEM GET THERE TOGETHER: a scramble, sticks on it and on each other, the
+        // puck kicked about between them, and the man the booth names comes out with it as
+        // his line airs (or after a moment, without one).
+        // (whoever of theirs is there: the man who came for it, or another closer to it)
+        if (leg.foe && leg.dug == null && pk.home === c && hyp(c.x - pk.x, c.y - pk.y) < 4) {
+          const o = W.mates(def).filter((m) => free(m) && m.stick).reduce((b2, m) => (!b2 || hyp(m.x - pk.x, m.y - pk.y) < hyp(b2.x - pk.x, b2.y - pk.y) ? m : b2), null);
+          if (o && o !== leg.foe && hyp(o.x - pk.x, o.y - pk.y) + 2 < hyp(leg.foe.x - pk.x, leg.foe.y - pk.y)) { leg.foe.scripted = false; leg.foe = script(o); }
+        }
+        if (leg.foe && leg.dug == null && pk.home === c && hyp(c.x - pk.x, c.y - pk.y) < 4 && hyp(leg.foe.x - pk.x, leg.foe.y - pk.y) < 9) {
+          const f = leg.foe, left = nextCue != null ? nextCue - rel - 0.1 : 0.6;
+          leg.dug = W.t + clamp(left, 0.45, 1.2); c.holdOff = leg.dug; B.battled = true;
+          W.act(f, 'poke', 0.35); W.sfx('stick');
+          at(B, 0.15, () => W.act(c, 'lift', 0.45));
+          for (let k = 1; k * 0.25 < leg.dug - W.t; k++) at(B, k * 0.25, () => { if (pk.carrier || pk.held) return; const a = r() * Math.PI * 2; pk.vx += Math.cos(a) * 4; pk.vy += Math.sin(a) * 4; W.sfx('stick'); });
+        }
+        if (leg.foe && leg.dug > W.t) { const f = leg.foe, df = hyp(pk.x - f.x, pk.y - f.y); f.tx = pk.x; f.ty = pk.y; f.maxV = df > 3 ? 18 : 6; f.face = Math.atan2(pk.y - f.y, pk.x - f.x); }
         if (pk.carrier === c) {
           W.sfx('receive');
           if (pk.y < 9 || pk.y > RW - 9) { W.boardShake = Math.max(W.boardShake, 0.35); W.sfx('boards'); }
-          if (leg.foe) leg.foe.scripted = false;
+          if (leg.foe && leg.dug != null) { W.act(leg.foe, 'stagger', 0.5); leg.foe.react = 0.4; leg.foe.face = null; }
           if (cur !== c) cur.scripted = false;
-          cur = c; script(cur); leg = null; nextLeg();
+          cur = c; script(cur);
+          // (a takeaway the booth calls that came to no battle for the loose puck still gets
+          // one: their man comes at him, and he rides it out with the puck)
+          if (tk != null && !B.battled && leg.foe && free(leg.foe)) { cur.tx = nodes[li].x; cur.ty = nodes[li].y; cur.maxV = 14; leg = { kind: 'challenge', t: 0, rival: leg.foe }; return; }
+          if (leg.foe) leg.foe.scripted = false;
+          leg = null; nextLeg();
         }
       } else if (leg.kind === 'approach') {
         const sh = leg.shooter;
         // on a breakaway the defenders are a stride or two behind him, and losing ground
-        if (B.chasers) B.chasers.forEach((m, i) => { m.tx = sh.x - dir * (7 + i * 5); m.ty = sh.y + (i ? 4 : -4); m.maxV = Math.max(8, Math.hypot(sh.vx, sh.vy) - 1.5); });
+        if (B.chasers) B.chasers.forEach((m, i) => { m.tx = sh.x - dir * (7 + i * 5); m.ty = sh.y + (i ? 4 : -4); m.maxV = Math.max(8, hyp(sh.vx, sh.vy) - 1.5); });
         if (leg.breakaway && g) { g.scripted = true; g.tx = g.x; g.ty = g.y; }
+        // He can only shoot what's on his stick. Without it he's getting it (the sim's
+        // `pursue` has him); with it he takes it to the spot it's shot from.
+        const has = pk.carrier === sh, d = hyp(leg.sx - sh.x, leg.sy - sh.y);
+        if (has) { sh.tx = leg.sx; sh.ty = leg.sy; }
+        else if (pk.home !== sh && pk.target !== sh && !pk.held) W.collect(sh);
         if (shotCue != null) {
           // he lets it go as the shot is called, given a moment to get somewhere he can
           // shoot from if the rush ran late (a goal has to come through the mouth)
-          const left = shotCue - rel, d = Math.hypot(sh.tx - sh.x, sh.ty - sh.y);
-          const inFront = (netX - sh.x) * dir > 5;
-          sh.maxV = clamp(d / Math.max(0.3, left), 6, 24);
-          if (left <= 0 && (kind !== 'goal' || (d < 14 && inFront) || -left > 2.0)) { leg.kind = 'shooting'; shoot(sh); }
-        } else if (Math.hypot(sh.tx - sh.x, sh.ty - sh.y) < 5 || leg.t > 1.7) { leg.kind = 'shooting'; shoot(sh); }
+          const left = shotCue - rel, inFront = (netX - sh.x) * dir > 5;
+          // (nor from a long way out: an overdue shot waits until he's within 75 ft, or at the
+          // spot it was to be taken from, flat out till then, or it's a man shooting the
+          // length of the ice)
+          const inRange = hyp(netX - sh.x, MID_Y - sh.y) < 75 || d < 14;
+          if (has) sh.maxV = left <= 0 && !inRange ? 26 : clamp(d / Math.max(0.3, left), 6, 24);
+          if (has && left <= 0 && inRange && (kind !== 'goal' || (d < 14 && inFront) || -left > 2.0)) { leg.kind = 'shooting'; shoot(sh); }
+        } else if (has && (d < 5 || leg.t > 1.7)) { leg.kind = 'shooting'; shoot(sh); }
       } else if (leg.kind === 'wrapIn') {
         // late on its line, he cuts the corner and comes straight round the post
         const late = shotCue != null && rel >= shotCue;
-        if ((leg.t > 0.5 || late) && !leg.round) { leg.round = true; leg.roundAt = leg.t; cur.tx = netX - dir * 1.5; cur.ty = MID_Y + leg.sv * 4.2; cur.maxV = late ? 26 : 20; }
-        if (leg.round && (Math.hypot(cur.tx - cur.x, cur.ty - cur.y) < 2 || leg.t > 2.2 || (late && leg.t - leg.roundAt > 0.5)) && (shotCue == null || rel >= shotCue)) { leg.kind = 'shooting'; shoot(cur); }
+        // (round the post to just inside it, in front of the goal line: from beside the post
+        // there's no way into the net but through the side of it)
+        if ((leg.t > 0.5 || late) && !leg.round) { leg.round = true; leg.roundAt = leg.t; cur.tx = netX - dir * 2.2; cur.ty = MID_Y + leg.sv * (NET_HALF - 0.6); cur.maxV = late ? 26 : 20; }
+        if (leg.round && (hyp(cur.tx - cur.x, cur.ty - cur.y) < 2 || leg.t > 2.2 || (late && leg.t - leg.roundAt > 0.5)) && (shotCue == null || rel >= shotCue)) { leg.kind = 'shooting'; shoot(cur); }
       } else if (leg.kind === 'feed') {
         const sh = leg.shooter;
-        if (!leg.fed && (shotCue != null ? rel >= shotCue - 0.5 : (leg.t > 0.7 || Math.hypot(sh.tx - sh.x, sh.ty - sh.y) < 4))) {
+        if (!leg.fed && (shotCue != null ? rel >= shotCue - 0.5 : (leg.t > 0.7 || hyp(sh.tx - sh.x, sh.ty - sh.y) < 4))) {
           leg.fed = true; const from = cur;
           W.act(from, 'pass', SHOTS.pass.dur);
           if (type === 'onetimer') W.act(sh, 'onetimerReady', 0.8);
@@ -946,7 +1136,7 @@ export function createDirector(W, opts = {}) {
             } else W.pass(from, sh, 78);
           });
         }
-        if (leg.fed && type === 'onetimer' && (pk.carrier === sh || (pk.target === sh && Math.hypot(pk.x - sh.x, pk.y - sh.y) < 9))) { leg.kind = 'shooting'; shoot(sh); }
+        if (leg.fed && type === 'onetimer' && (pk.carrier === sh || (pk.target === sh && hyp(pk.x - sh.x, pk.y - sh.y) < 9))) { leg.kind = 'shooting'; shoot(sh); }
         if (leg.fed && type === 'tip' && leg.tipAt && W.t >= leg.tipAt) {
           leg.kind = 'shooting';
           W.give(sh, true);
@@ -984,7 +1174,7 @@ export function createDirector(W, opts = {}) {
     const won = cueOf(p, 'won'), drop = cueOf(p, 'drop');
     const dropAt = drop != null ? Math.max(1.35, won != null ? Math.max(drop + 0.4, won - 1.4) : drop + 0.4)
       : won != null ? Math.max(1.35, won - 0.7) : 1.35;
-    const set = (b, x, y, tol) => !b || Math.hypot(b.x - x, b.y - y) < tol;
+    const set = (b, x, y, tol) => !b || hyp(b.x - x, b.y - y) < tol;
     B.dropAt = dropAt;
     B.update = (dt, rel) => {
       W.cam.focus = [dx, dy];
@@ -996,7 +1186,10 @@ export function createDirector(W, opts = {}) {
         // near enough once the line has been waiting a while or the next play is waiting on it
         const late = rel > dropAt + 3 || D.queued, tol = late ? 3 : 1.5;
         const centres = [winC, loseC].every((c) => !c || set(c, c.tx, c.ty, late ? 3 : 2.5));
-        if (has && centres) { lin.tx = dx - 0.3; lin.ty = dy - 2.6; lin.maxV = Math.hypot(lin.x - lin.tx, lin.y - lin.ty) > 7 ? 22 : 8; lin.face = Math.PI / 2; }
+        if (has && centres) { lin.tx = dx - 0.3; lin.ty = dy - 2.6; lin.maxV = hyp(lin.x - lin.tx, lin.y - lin.ty) > 7 ? 22 : 8; lin.face = Math.PI / 2; }
+        // (on his mark beside the dot he's planted: the referee skating to his own spot goes
+        // round him rather than shouldering him off it)
+        if (has && hyp(lin.x - dx + 0.3, lin.y - dy + 2.6) < 1.5) lin.plant = W.t + 0.2;
         const ready = has && centres && set(lin, dx - 0.3, dy - 2.6, tol) && [winC, loseC].every((c) => !c || set(c, c.tx, c.ty, 1.0));
         if (ready && B.readyAt == null) B.readyAt = rel;
         // (a draw with no lines of its own is a quick one, and so is one holding up the play)
@@ -1018,6 +1211,7 @@ export function createDirector(W, opts = {}) {
         return;
       }
       for (const c of [winC, loseC]) if (c) { c.tx = c.x; c.ty = c.y; c.maxV = 2; }
+      if (lin && !B.won) lin.plant = W.t + 0.2;
       if (B.dropped && !B.won && pk.z <= 0.05) {
         B.won = true;
         const dir = attackDir(ws);
@@ -1052,7 +1246,7 @@ export function createDirector(W, opts = {}) {
     const y0 = RW - 3.6, ahead = victim.x + vdir * (18 + r() * 14);
     let x0 = RL / 2, best = Infinity;
     for (let x = 52; x <= RL - 52; x += 4) {
-      const t = Math.max(Math.hypot(x - victim.x, y0 - victim.y) / 20, Math.hypot(x - hitter.x, y0 - 2 - hitter.y) / 25) + Math.abs(x - ahead) * 0.01;
+      const t = Math.max(hyp(x - victim.x, y0 - victim.y) / 20, hyp(x - hitter.x, y0 - 2 - hitter.y) / 25) + Math.abs(x - ahead) * 0.01;
       if (t < best) { best = t; x0 = x; }
     }
     W.puckScripted = true; W.frozen = false;
@@ -1061,7 +1255,11 @@ export function createDirector(W, opts = {}) {
     if (victim.rag) W.getUp(victim, 0.6);
     victim.stick = true;
     if (pk.held && pk.held.kind === 'goalie') { pk.held.gloveW = 0; pk.held.gloveHold = false; W.loose(0, 0); }
-    if (!W.give(victim)) W.collect(victim);
+    // He takes it up the wall if it's his: on his stick, or within his reach. Otherwise he goes
+    // up the wall without it (a man is hit for having just had it, or for being in the way).
+    // Nobody slides it to him, and he doesn't go chasing it, or a pass, instead of going where
+    // the hit is.
+    if (pk.carrier !== victim && !pk.held && pk.z < 0.8 && W.inReach(victim, pk.x, pk.y)) W.give(victim, true);
     victim.scripted = true; hitter.scripted = true; B.locked.add(victim); B.locked.add(hitter);
     victim.maxV = 20; hitter.maxV = 27; hitter.acc = 34;
     if (style === 'behind') { victim.tx = x0; victim.ty = y0 + 0.4; victim.maxV = 12; }
@@ -1070,35 +1268,36 @@ export function createDirector(W, opts = {}) {
     B.update = (dt, rel) => {
       if (!hit) {
         if (style !== 'behind') {
-          // (on the wall a stride before the hitter commits, so the hit comes as it's called)
-          if (impT != null) { victim.tx = x0 + vdir * 6; victim.maxV = clamp(Math.hypot(x0 - victim.x, y0 - victim.y) / Math.max(0.5, impT - 1.1 - rel), 7, 24); }
+          // (on the wall a stride before the hitter commits, so the hit comes as it's called;
+          // once he's there he goes on up it at an easy pace, not skating away from the hit)
+          if (impT != null) { victim.tx = x0 + vdir * 6; victim.maxV = (victim.x - x0) * vdir > -1 ? 7 : clamp(hyp(x0 - victim.x, y0 - victim.y) / Math.max(0.5, impT - 1.1 - rel), 7, 24); }
           else victim.tx = victim.x + vdir * 18;
           victim.ty = y0;
         } else {
           // into the boards to dig it out, back to the ice, facing the glass once he's there
-          const d = Math.hypot(x0 - victim.x, y0 + 0.4 - victim.y);
+          const d = hyp(x0 - victim.x, y0 + 0.4 - victim.y);
           if (impT != null) victim.maxV = clamp(d / Math.max(0.5, impT - 1.1 - rel), 7, 24);
           victim.face = d < 4 ? Math.PI / 2 : null;
         }
         // he commits as late as he can and still arrive as the hit is called
-        const charging = impT == null || rel >= impT - Math.max(0.85, Math.hypot(hitter.x - victim.x, hitter.y - victim.y) / 24 + 0.35);
+        const charging = impT == null || rel >= impT - Math.max(0.85, hyp(hitter.x - victim.x, hitter.y - victim.y) / 24 + 0.35);
         if (!charging) {
           // he shadows him from the inside, waiting for his moment
           hitter.tx = victim.x - vdir * 3; hitter.ty = victim.y - 12; hitter.maxV = 22;
         } else {
           hitter.maxV = 27;
-          const lead = Math.min(0.9, Math.hypot(hitter.x - victim.x, hitter.y - victim.y) / 32);
+          const lead = Math.min(0.9, hyp(hitter.x - victim.x, hitter.y - victim.y) / 32);
           // into the boards where he'll be, or from behind, at his back...
           const ax = style === 'behind' ? victim.x - 0.5 : victim.x + victim.vx * lead, ay = style === 'behind' ? victim.y : RW;
           // ...and on through: a man skating at a point eases up as he gets there, and a
           // check isn't eased into. Aimed short, the hit came as much as a second late.
-          const ex = ax - hitter.x, ey = ay - hitter.y, el = Math.hypot(ex, ey) || 1;
-          hitter.tx = ax + ex / el * 12; hitter.ty = ay + ey / el * 12;
+          const ex = ax - hitter.x, ey = ay - hitter.y, el = hyp(ex, ey) || 1;
+          hitter.tx = ax + ex / el * 12; hitter.ty = ay + ey / el * 12; hitter.charging = victim;
         }
         W.cam.focus = [(victim.x + hitter.x) / 2, (victim.y + hitter.y) / 2 - 4];
         // running late, the hitter finds another gear and the man with it eases up into him
         if (rel > (impT != null ? impT + 0.4 : 3.0)) { hitter.maxV = 34; hitter.acc = 60; victim.maxV = Math.min(victim.maxV, 6); }
-        if (charging && Math.hypot(hitter.x - victim.x, hitter.y - victim.y) < 3.3) { hit = true; impact(); }
+        if (charging && hyp(hitter.x - victim.x, hitter.y - victim.y) < 3.3) { hit = true; impact(); }
       } else {
         const v = victim.rag ? victim.rag.pts[0] : victim;
         W.cam.focus = [v.x, v.y - 3];
@@ -1139,7 +1338,7 @@ export function createDirector(W, opts = {}) {
       }
       if (fatal === 'post') { impU = [vdir * 18, -6, 4]; impL = [vdir * 6, -2, 1]; }
       W.knock(victim, impU, impL);
-      hitter.vx *= 0.3; hitter.vy *= 0.15;
+      hitter.vx *= 0.3; hitter.vy *= 0.15; hitter.charging = null;
       // and he pulls up rather than drive on into the boards after him
       hitter.tx = hitter.x; hitter.ty = Math.min(hitter.y, RW - 4);
       W.shake = Math.max(W.shake, style === 'glass' ? 1.2 : 0.9); W.crowd = 1; W.hitstop = style === 'glass' ? 0.1 : 0.07;
@@ -1219,7 +1418,7 @@ export function createDirector(W, opts = {}) {
           // (running long, they hurry, and lift him from wherever they've got to: the lift is
           // blended, so he's carried onto it, not put there)
           if (W.t - t0 > (slow ? 12 : 8)) medics.forEach((m) => { m.maxV = 18; });
-          if (medics.every((m) => Math.hypot(m.tx - m.x, m.ty - m.y) < 1.6) || (W.t - t0 > (slow ? 16 : 11) && medics.every((m) => Math.hypot(m.x - v.x, m.y - v.y) < 7))) {
+          if (medics.every((m) => hyp(m.tx - m.x, m.ty - m.y) < 1.6) || (W.t - t0 > (slow ? 16 : 11) && medics.every((m) => hyp(m.x - v.x, m.y - v.y) < 7))) {
             state = 'load'; k.loadAt = W.t;
             if (!victim.rag) W.knock(victim, [0, 0, 0.5], [0, 0, 0]);
             victim.hold = hold; s.body = victim;
@@ -1228,7 +1427,10 @@ export function createDirector(W, opts = {}) {
         } else if (state === 'load' && W.t - k.loadAt > 1.0 && (!k.offAt || W.t >= k.offAt - 2.5)) {
           state = 'off';
           medics.forEach((m) => { m.ty = 1.2; m.maxV = slow ? 7 : 13; });
-          medics[0].tx = s.x + Math.cos(s.h) * 3.6; medics[1].tx = s.x - Math.cos(s.h) * 3.6;
+          // (to the boards side by side, whichever way he lay: a stretcher carried end-on
+          // toward them had both men making for the same spot, and one never got there)
+          const e = medics[0].x >= medics[1].x ? 1 : -1;
+          medics[0].tx = s.x + e * 3.6; medics[1].tx = s.x - e * 3.6;
         } else if (state === 'off' && (medics.every((m) => m.y < 3.4) || W.t - k.loadAt > 30)) {
           gone(); onGone?.(); return true;
         }
@@ -1341,21 +1543,21 @@ export function createDirector(W, opts = {}) {
     const cx = gx + dir * 5, cy = MID_Y;
     W.puckScripted = true; W.frozen = false;
     const g = W.goalie[def];
-    const near = (side) => W.mates(side).filter((m) => !m.rag && !busyBody(m) && !m.hold).sort((a2, b2) => Math.hypot(a2.x - cx, a2.y - cy) - Math.hypot(b2.x - cx, b2.y - cy)).slice(0, 4);
+    const near = (side) => W.mates(side).filter((m) => !m.rag && !busyBody(m) && !m.hold).sort((a2, b2) => hyp(a2.x - cx, a2.y - cy) - hyp(b2.x - cx, b2.y - cy)).slice(0, 4);
     const crowd = [...near(att), ...near(def)];
     const r = rng(hash(`scrum${p.clock}`));
     const spot = (m) => { m.tx = cx + dir * (r() * 4 - 1) + (r() - 0.5) * 3; m.ty = cy + (r() - 0.5) * 9; };
-    crowd.forEach((m) => { m.scripted = true; m.maxV = clamp(Math.hypot(cx - m.x, cy - m.y) / 2.5, 12, 24); spot(m); B.locked.add(m); });
+    crowd.forEach((m) => { m.scripted = true; m.maxV = clamp(hyp(cx - m.x, cy - m.y) / 2.5, 12, 24); spot(m); B.locked.add(m); });
     // the man taking it in: whoever of the attacking side has it or is nearest it
     const taker = pk.carrier && pk.carrier.side === att ? pk.carrier : W.nearestOf(W.mates(att).filter((m) => m.stick && !busyBody(m)), pk.x, pk.y);
-    if (taker) { taker.scripted = true; B.locked.add(taker); if (!W.give(taker)) W.collect(taker, true); }
+    if (taker) { taker.scripted = true; B.locked.add(taker); if (!W.give(taker)) W.collect(taker); }
     if (g && g.active) { g.scripted = true; g.tx = gx + dir * 2.4; g.ty = MID_Y; }
     B.ownsCam = true; W.cam.mode = 'zoom'; W.cam.focus = [cx, cy];
     const wh = cueOf(p, 'whistle') ?? 0.4;
     const cover = () => { if (!g || !g.active || pk.held === g) return; W.loose(0, 0); pk.held = g; W.act(g, 'cover', 0.5); g.actHold = true; if (taker) taker.react = 0.4; };
     at(B, Math.min(0.4, wh), () => land(B));
     // a man still carrying it in as the whistle comes jams it at the pads
-    at(B, Math.max(0.3, wh - 1.0), () => { if (pk.held !== g && g && g.active && pk.carrier && Math.hypot(pk.x - g.x, pk.y - g.y) < 30) { const c = pk.carrier; W.act(c, 'wrist', SHOTS.wrist.dur); at(B, releaseAt('wrist'), () => { if (pk.carrier === c) W.shoot(c, [g.x + dir * 1.2, g.y, 0.3], 45, 'wrist'); }); } });
+    at(B, Math.max(0.3, wh - 1.0), () => { if (pk.held !== g && g && g.active && pk.carrier && hyp(pk.x - g.x, pk.y - g.y) < 30) { const c = pk.carrier; W.act(c, 'wrist', SHOTS.wrist.dur); at(B, releaseAt('wrist'), () => { if (pk.carrier === c) W.shoot(c, [g.x + dir * 1.2, g.y, 0.3], 45, 'wrist'); }); } });
     at(B, wh, () => whistle());
     let next = 0.6;
     B.update = (dt, rel) => {
@@ -1363,12 +1565,12 @@ export function createDirector(W, opts = {}) {
       W.cam.focus = [cx + dir * 2, cy];
       // the carrier drives the crease; it's covered once it gets to the goalie
       if (taker && pk.carrier === taker) { taker.tx = gx + dir * 4.5; taker.ty = MID_Y + (taker.y > MID_Y ? 2 : -2); taker.maxV = 16; }
-      if (g && g.active && pk.held !== g && Math.hypot(pk.x - g.x, pk.y - g.y) < 4.5 && pk.z < 2) cover();
+      if (g && g.active && pk.held !== g && hyp(pk.x - g.x, pk.y - g.y) < 4.5 && pk.z < 2) cover();
       if (rel > next) {
         next = rel + 0.35 + r() * 0.3;
         const a = crowd[(r() * crowd.length) | 0], foes = crowd.filter((m) => m.side !== a.side);
-        const b = foes.length ? foes.reduce((p2, q) => (Math.hypot(q.x - a.x, q.y - a.y) < Math.hypot(p2.x - a.x, p2.y - a.y) ? q : p2)) : null;
-        if (b && Math.hypot(b.x - a.x, b.y - a.y) < 6) {
+        const b = foes.length ? foes.reduce((p2, q) => (hyp(q.x - a.x, q.y - a.y) < hyp(p2.x - a.x, p2.y - a.y) ? q : p2)) : null;
+        if (b && hyp(b.x - a.x, b.y - a.y) < 6) {
           a.target = b; W.act(a, r() < 0.5 ? 'shove' : 'break', 0.5); b.react = 0.6;
           b.tx = b.x + (b.x - a.x) * 0.5; b.ty = b.y + (b.y - a.y) * 0.5;
           W.sfx('check', { soft: true });
@@ -1380,7 +1582,7 @@ export function createDirector(W, opts = {}) {
     // shoving after it, then the draw: everybody makes for the dot (see stopPlay)
     at(B, Math.max(0.5, wh - 1.2), () => { const o = W.officials[0]; if (o && o.active && !busyBody(o)) { o.scripted = true; o.tx = gx + dir * 6; o.ty = MID_Y - 5; o.maxV = 22; } });
     // (covered if it got to him; if it never did, the linesman takes it from wherever it is)
-    at(B, wh + 0.6, () => { if (g && Math.hypot(pk.x - g.x, pk.y - g.y) < 6) cover(); stopPlay(B, p.nextDot); });
+    at(B, wh + 0.6, () => { if (g && hyp(pk.x - g.x, pk.y - g.y) < 6) cover(); stopPlay(B, p.nextDot); });
     // (still covered when the next beat comes, it stays in his glove for the linesman, or
     // for the next play to take out of it)
     B.cleanup = () => { if (g) g.actHold = false; };
@@ -1406,7 +1608,7 @@ export function createDirector(W, opts = {}) {
     for (const f of [L, R]) { if (f.rag) W.getUp(f, 0.6); f.act = null; f.blend = null; }
     L.foe = R; R.foe = L; L.scripted = R.scripted = true;
     // the puck is left to slide away from it
-    { const dx = cx + 26 - pk.x, dy = cy - 12 - pk.y, d = Math.hypot(dx, dy) || 1; W.loose(dx / d * Math.min(14, d * 0.35), dy / d * Math.min(14, d * 0.35), 0); }
+    { const dx = cx + 26 - pk.x, dy = cy - 12 - pk.y, d = hyp(dx, dy) || 1; W.loose(dx / d * Math.min(14, d * 0.35), dy / d * Math.min(14, d * 0.35), 0); }
     // the rest stand round and watch
     const ring = W.skaters().filter((m) => m !== L && m !== R && !busyBody(m));
     ring.forEach((m, k) => { const a = 0.15 * Math.PI + (k / Math.max(1, ring.length - 1)) * 0.7 * Math.PI; m.ring = { a, rad: 20 + (k % 3) * 3 }; m.scripted = true; m.maxV = 9; });
@@ -1511,12 +1713,12 @@ export function createDirector(W, opts = {}) {
       gearUp(); W.fight = null; stopPlay(B, p.nextDot);
     });
     // what came off in the fight is picked up by the referee at the stoppage, not cleared
-    const gearUp = () => { for (const d of W.debris) if (Math.hypot(d.x - cx, d.y - cy) < 18 && !D.gear.includes(d)) D.gear.push(d); };
+    const gearUp = () => { for (const d of W.debris) if (hyp(d.x - cx, d.y - cy) < 18 && !D.gear.includes(d)) D.gear.push(d); };
     B.update = (dt, rel) => {
       if (B.stopped) return;
       if (!B.gloves) {
         // skating in to meet him
-        const gap = Math.hypot(L.x - R.x, L.y - R.y);
+        const gap = hyp(L.x - R.x, L.y - R.y);
         L.tx = cx - 2.6; L.ty = cy; R.tx = cx + 2.6; R.ty = cy; L.maxV = R.maxV = gap > 12 ? 22 : 9;
         L.face = gap < 14 ? 0 : null; R.face = gap < 14 ? Math.PI : null;
         if (gap < 9 || rel > 6) { squareUp(); B.glovesAt = W.t; }
@@ -1526,8 +1728,8 @@ export function createDirector(W, opts = {}) {
       }
       const sep = B.grab ? 3.4 : 4.6, wob = 0.9 * Math.sin(rel * 1.1);
       if (!B.apart) {
-        if (!L.rag) { L.tx = cx - sep / 2 + wob; L.ty = cy + 0.3 * Math.sin(rel * 2.3); L.maxV = Math.hypot(L.tx - L.x, L.ty - L.y) > 3 ? 18 : 7; }
-        if (!R.rag) { R.tx = cx + sep / 2 + wob; R.ty = cy - 0.3 * Math.sin(rel * 2.3); R.maxV = Math.hypot(R.tx - R.x, R.ty - R.y) > 3 ? 18 : 7; }
+        if (!L.rag) { L.tx = cx - sep / 2 + wob; L.ty = cy + 0.3 * Math.sin(rel * 2.3); L.maxV = hyp(L.tx - L.x, L.ty - L.y) > 3 ? 18 : 7; }
+        if (!R.rag) { R.tx = cx + sep / 2 + wob; R.ty = cy - 0.3 * Math.sin(rel * 2.3); R.maxV = hyp(R.tx - R.x, R.ty - R.y) > 3 ? 18 : 7; }
       } else if (!B.toBox) {
         if (!L.rag) { L.tx = cx - 6; L.face = 0; } if (!R.rag) { R.tx = cx + 6; R.face = Math.PI; }
       }
@@ -1567,7 +1769,7 @@ export function createDirector(W, opts = {}) {
     g.scripted = true; B.ownsCam = true;
     land(B);
     B.update = (dt) => {
-      const d = Math.hypot(bx - g.x, 2 - g.y), step = Math.min(d, 15 * dt);
+      const d = hyp(bx - g.x, 2 - g.y), step = Math.min(d, 15 * dt);
       g.tx = g.x + (bx - g.x) / (d || 1) * step * 12; g.ty = g.y + (2 - g.y) / (d || 1) * step * 12;
       g.face = Math.atan2(2 - g.y, bx - g.x);
       W.cam.focus = [g.x, g.y + 10];

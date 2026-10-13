@@ -893,6 +893,16 @@ Puck to {player}, own end.
 {player} motors up the ice.
 ::endlines
 
+# The breakout after the booth has just named the man going in after a loose puck: the
+# same moment, without saying his name twice running.
+::lines pbp.breakout.on
+Has it, and turns it up ice.
+Gathers it in and goes.
+Comes away with it.
+Picks it up and heads the other way.
+Wins it, and he's off.
+::endlines
+
 ::lines pbp.pass
 {player} to {to}.
 {player} feathers it to {to}.
@@ -1426,10 +1436,10 @@ The Zamboni goes round again.
 
 ::lines pbp.retrieve
 {player} goes back for it.
-{player} retrieves it.
-{player} gathers up the loose puck.
-{player} picks it up.
+{player} goes in after it.
 {player} runs it down.
+{player} chases it down.
+{player} goes to work for it.
 ::endlines
 
 ::lines pbp.chase
@@ -1437,6 +1447,27 @@ Race for it.
 Chasing it down.
 After it into the corner.
 Footrace.
+::endlines
+
+# A rush that starts with the puck on the other side's stick: the last play left it
+# there. The first line goes with the man going after it, the second airs as the rink
+# pokes it loose. Neither says where: the picture takes it wherever the puck is.
+::lines pbp.forecheck
+{player} goes after it.
+{player} hunts it down.
+{player} on the forecheck.
+{player} closes on the man with it.
+{player} won't let them have it.
+{player} comes hard at the puck carrier.
+::endlines
+
+::lines pbp.takeaway
+Takeaway, {player}.
+{player} lifts the stick and takes it.
+{player} strips him of it.
+{player} picks his pocket.
+{player} wins the battle.
+And {player} comes away with it.
 ::endlines
 
 ::lines pbp.breakaway

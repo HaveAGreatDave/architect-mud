@@ -844,10 +844,10 @@
       ],
       "pbp.retrieve": [
         "{player} goes back for it.",
-        "{player} retrieves it.",
-        "{player} gathers up the loose puck.",
-        "{player} picks it up.",
-        "{player} runs it down."
+        "{player} goes in after it.",
+        "{player} runs it down.",
+        "{player} chases it down.",
+        "{player} goes to work for it."
       ],
       "pbp.scrum.apart": [
         "Officials pull them apart.",
@@ -1106,6 +1106,29 @@
         "IN. {shooter} beats {goalie}, and the horn does what the horn does.",
         "He shoots. HE SCORES. {shooter}, all by himself, and {goalie} never had it.",
         "{shooter} does it alone. Buries it, and this building has come apart."
+      ],
+      "pbp.breakout.on": [
+        "Has it, and turns it up ice.",
+        "Gathers it in and goes.",
+        "Comes away with it.",
+        "Picks it up and heads the other way.",
+        "Wins it, and he's off."
+      ],
+      "pbp.forecheck": [
+        "{player} goes after it.",
+        "{player} hunts it down.",
+        "{player} on the forecheck.",
+        "{player} closes on the man with it.",
+        "{player} won't let them have it.",
+        "{player} comes hard at the puck carrier."
+      ],
+      "pbp.takeaway": [
+        "Takeaway, {player}.",
+        "{player} lifts the stick and takes it.",
+        "{player} strips him of it.",
+        "{player} picks his pocket.",
+        "{player} wins the battle.",
+        "And {player} comes away with it."
       ]
     },
     "sport": "hockey",

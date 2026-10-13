@@ -8,6 +8,10 @@ export const lerp = (a, b, t) => a + (b - a) * t;
 export const angWrap = (d) => { d = (d + Math.PI) % TAU; if (d < 0) d += TAU; return d - Math.PI; };
 export const easeOut = (t) => 1 - (1 - t) * (1 - t);
 export const easeIO = (t) => t * t * (3 - 2 * t);
+// Lengths. Math.hypot guards against overflow these never get near, and in V8 it costs about
+// twenty times a square root: the rink sim takes tens of millions of lengths a game.
+export const hyp = (x, y) => Math.sqrt(x * x + y * y);
+export const hyp3 = (x, y, z) => Math.sqrt(x * x + y * y + z * z);
 
 // mulberry32. Seeded so a beat looks the same on every screen watching it.
 export function rng(seed) {
@@ -31,8 +35,8 @@ export const V = {
   sub: (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]],
   mul: (a, k) => [a[0] * k, a[1] * k, a[2] * k],
   dot: (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2],
-  len: (a) => Math.hypot(a[0], a[1], a[2]),
-  norm: (a) => { const l = Math.hypot(a[0], a[1], a[2]) || 1; return [a[0] / l, a[1] / l, a[2] / l]; },
+  len: (a) => hyp3(a[0], a[1], a[2]),
+  norm: (a) => { const l = hyp3(a[0], a[1], a[2]) || 1; return [a[0] / l, a[1] / l, a[2] / l]; },
   lerp: (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t],
   cross: (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]],
   // a + u*a1 + v*a2 + w*a3, the one expression every surface point is built from

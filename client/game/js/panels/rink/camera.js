@@ -104,6 +104,8 @@ export function createRinkCamera(W, { snap = false, from = null } = {}) {
     // picture, whatever shape the screen is.
     const must = [[f[0], f[1], 0], [ax, ay, 0]];
     if (net != null) must.push([net, 39.5, 4], [net, 45.5, 0], [net + (net < RL / 2 ? -4 : 4), 42.5, 0]);
+    // (with a shot coming, the ice either side of the net too, where one that misses goes)
+    if (c.net != null) must.push([c.net, 34, 1], [c.net, 51, 1]);
     let dist = clamp(2 * hw * 1.08, c.drama ? 38 : 44, 140);
     let ly = clamp((Math.min(ay, f[1]) + Math.max(ay, f[1])) / 2 * 0.6 + 16, 12, 52);
     const X = clamp(lx, 20, RL - 20), vlo = -0.36 / aspect, vhi = 0.46 / aspect;

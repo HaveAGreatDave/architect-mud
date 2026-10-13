@@ -14,7 +14,7 @@
 // hits decides how he lands, which is the whole point of a board check. Getting up blends
 // from wherever the ragdoll left him back into his stance.
 
-import { TAU, V, clamp, lerp, ik, rotZ, easeOut, easeIO } from './util.js';
+import { TAU, V, clamp, lerp, ik, rotZ, easeOut, easeIO, hyp, hyp3 } from './util.js';
 import { insideRink, GLASS_H } from './geo.js';
 
 export const DT = 1 / 120;
@@ -80,7 +80,7 @@ const path3 = (pts, t) => {
 // clipping a viewer notices first, so both are kept outside an ellipse round them.
 export const FEET = { u: 0.25, ru: 1.35, rv: 1.0 };
 export function keepOut(u, v, pad = 0) {
-  const du = (u - FEET.u) / (FEET.ru + pad), dv = v / (FEET.rv + pad), r = Math.hypot(du, dv);
+  const du = (u - FEET.u) / (FEET.ru + pad), dv = v / (FEET.rv + pad), r = hyp(du, dv);
   if (r >= 1) return [u, v];
   if (r < 1e-3) return [FEET.u + FEET.ru + pad, v];
   return [FEET.u + du / r * (FEET.ru + pad), dv / r * (FEET.rv + pad)];
@@ -114,7 +114,7 @@ function bladeRaw(s, T, carrying) {
 }
 function carryRaw(s, T) {
   {
-    const sp = Math.hypot(s.vx || 0, s.vy || 0);
+    const sp = hyp(s.vx || 0, s.vy || 0);
     if (s.protect) return [1.5, -s.protect * mirrorOf(s) * 1.35];   // on the far side from the man
     if (sp > 21) return [3.0, 0.45 + 0.15 * Math.sin(T * 4 + s.seed)];  // pushed ahead, one hand
     // the dangle: forehand to backhand and back, a little ahead and behind, never the same twice
@@ -278,7 +278,7 @@ function standRig(s, T) {
   const shot = SHOTS[act], deke = DEKES[act];
 
   // ── how he is moving ────────────────────────────────────────────────────
-  const sp = Math.hypot(s.vx, s.vy);
+  const sp = hyp(s.vx, s.vy);
   const rel = sp > 1 ? angWrapL(Math.atan2(s.vy, s.vx) - s.h) * m : 0;
   const turn = clamp((s.turnRate || 0) * m, -3, 3);
   const sd = turn >= 0 ? 1 : -1;
@@ -377,7 +377,7 @@ function standRig(s, T) {
   if (s.look) {
     const l = toLocal(s.look[0], s.look[1], s.look[2] ?? 1);
     yaw = clamp(Math.atan2(l[1], l[0]) - twist, -1.4, 1.4);
-    pitch = clamp(Math.atan2(l[2] - 5.6, Math.hypot(l[0], l[1])), -0.8, 0.3);
+    pitch = clamp(Math.atan2(l[2] - 5.6, hyp(l[0], l[1])), -0.8, 0.3);
   }
 
   // ── upper body, upright ──────────────────────────────────────────────────
@@ -400,9 +400,15 @@ function standRig(s, T) {
     let bBlade = [bu, bv, 0.08];
     // the blade goes to the puck, cupping it from his side, wherever it has slid to; and
     // reaches for one that's coming to him, so it's already there when it arrives
-    const aimAt = carrying && s.puckAt ? s.puckAt : !carrying && s.reachTo ? s.reachTo : null;
+    let aimAt = carrying && s.puckAt ? s.puckAt : !carrying && s.reachTo ? s.reachTo : null;
+    // Stickhandling, the blade is aimed where the puck is going as well as where it is: the
+    // blade below eases toward its aim over about a sixteenth of a second, and aimed at the
+    // puck alone it trailed a puck on the move, which read as the puck moving by itself and
+    // the stick chasing it. (Not through a wind-up or a deke: the puck rides the blade there,
+    // see `pocket` in sim.js's dribble, and a lead would push it along on its own.)
+    if (aimAt && carrying && s.puckV && !SHOTS[act] && !DEKES[act]) aimAt = [aimAt[0] + s.puckV[0] / 16, aimAt[1] + s.puckV[1] / 16];
     if (aimAt) {
-      const pl = toLocal(aimAt[0], aimAt[1], 0), r = Math.hypot(pl[0], pl[1]);
+      const pl = toLocal(aimAt[0], aimAt[1], 0), r = hyp(pl[0], pl[1]);
       if (r < 4.2) {
         const k = 0.12 / (r || 1);
         bBlade = [clamp(pl[0] - pl[0] * k, 0.7, 3.5), clamp(pl[1] - pl[1] * k, -2.2, 2.2), 0.06];
@@ -562,7 +568,7 @@ function standRig(s, T) {
     }
     f.v -= tilt * 1.3;                                         // the skates stay under a leaning man
     // down on the ice and moving: turned along its own track (a blade runs either way)
-    const down = (1 - smooth(f.z, 0.58, 0.7)) * smooth(Math.hypot(vu, vv), 1.5, 4) * (act === 'stop' ? 0 : 1 - 0.7 * envL);
+    const down = (1 - smooth(f.z, 0.58, 0.7)) * smooth(hyp(vu, vv), 1.5, 4) * (act === 'stop' ? 0 : 1 - 0.7 * envL);
     if (down > 0.01) {
       let yv = Math.atan2(vv, vu);
       if (Math.abs(angWrapL(yv - f.yaw)) > Math.PI / 2) yv = angWrapL(yv + Math.PI);
@@ -629,7 +635,7 @@ export function goalieRig(g, T) {
   let zp = lerp(2.3, 1.3, bf);
   let lean = 0.42 + 0.1 * bf, tilt = 0, twist = 0;
   let yaw = 0, pitch = -0.2;
-  if (g.track) { const l = toLocal(g.track[0], g.track[1], g.track[2] ?? 0.2); yaw = clamp(Math.atan2(l[1], l[0]), -1.1, 1.1); pitch = clamp(Math.atan2(l[2] - 4.6, Math.hypot(l[0], l[1])), -0.9, 0.4); }
+  if (g.track) { const l = toLocal(g.track[0], g.track[1], g.track[2] ?? 0.2); yaw = clamp(Math.atan2(l[1], l[0]), -1.1, 1.1); pitch = clamp(Math.atan2(l[2] - 4.6, hyp(l[0], l[1])), -0.9, 0.4); }
   if (act === 'cover') { lean += 0.75 * Math.min(1, at * 2); pitch = -1.0; }
   if (act === 'slump') { lean += 0.45 + 0.15 * Math.sin(at * 3); pitch = -0.8; }
   if (act === 'chest') lean -= 0.25 * bump(at);
@@ -762,7 +768,7 @@ export function makeRag(s, J, impU, impL) {
     const vx = s.vx + imp[0] * k, vy = s.vy + imp[1] * k, vz = imp[2] * k;
     pts.push({ x: j[0], y: j[1], z: j[2], px: j[0] - vx * DT, py: j[1] - vy * DT, pz: j[2] - vz * DT, r: i === 3 ? 0.45 : 0.24 });
   }
-  const cons = [...BONES, ...BRACE].map(([a, b]) => [a, b, Math.hypot(pts[a].x - pts[b].x, pts[a].y - pts[b].y, pts[a].z - pts[b].z)]);
+  const cons = [...BONES, ...BRACE].map(([a, b]) => [a, b, hyp3(pts[a].x - pts[b].x, pts[a].y - pts[b].y, pts[a].z - pts[b].z)]);
   return { pts, cons, age: 0, lastHit: -1, poolAt: 0, smearAt: 0, still: 0 };
 }
 // Returns the hardest wall impact this step as { x, y, z, speed } or null.
@@ -777,7 +783,7 @@ export function stepRag(r, dt) {
     for (const [a, b, l] of r.cons) {
       const A = r.pts[a], B = r.pts[b];
       let dx = B.x - A.x, dy = B.y - A.y, dz = B.z - A.z;
-      const d = Math.hypot(dx, dy, dz) || 1e-6, k = (d - l) / d * 0.5;
+      const d = hyp3(dx, dy, dz) || 1e-6, k = (d - l) / d * 0.5;
       dx *= k; dy *= k; dz *= k; A.x += dx; A.y += dy; A.z += dz; B.x -= dx; B.y -= dy; B.z -= dz;
     }
     for (const p of r.pts) {
@@ -820,7 +826,7 @@ export function makeLimb(part, J, vel) {
   // a little spin on the throw, so it doesn't fly off as a rigid stick
   pts.forEach((p, k) => { const sv = 1 + k * 0.35; p.px = p.x - vel[0] * sv * DT; p.py = p.y - vel[1] * sv * DT; p.pz = p.z - vel[2] * DT; });
   const cons = [];
-  for (let i = 0; i + 1 < pts.length; i++) cons.push([i, i + 1, Math.hypot(pts[i].x - pts[i + 1].x, pts[i].y - pts[i + 1].y, pts[i].z - pts[i + 1].z)]);
+  for (let i = 0; i + 1 < pts.length; i++) cons.push([i, i + 1, hyp3(pts[i].x - pts[i + 1].x, pts[i].y - pts[i + 1].y, pts[i].z - pts[i + 1].z)]);
   // (the spin from where it came off, not Math.random: the world plays the same every time)
   const sp = Math.sin(pts[0].x * 12.9898 + pts[0].y * 78.233) * 43758.5453;
   return { part, pts, cons, age: 0, spin: (sp - Math.floor(sp) - 0.5) * 18, rot: 0 };
@@ -835,7 +841,7 @@ export function stepLimb(l, dt) {
     for (const [a, b, len] of l.cons) {
       const A = l.pts[a], B = l.pts[b];
       let dx = B.x - A.x, dy = B.y - A.y, dz = B.z - A.z;
-      const d = Math.hypot(dx, dy, dz) || 1e-6, k = (d - len) / d * 0.5;
+      const d = hyp3(dx, dy, dz) || 1e-6, k = (d - len) / d * 0.5;
       dx *= k; dy *= k; dz *= k; A.x += dx; A.y += dy; A.z += dz; B.x -= dx; B.y -= dy; B.z -= dz;
     }
     for (const p of l.pts) {

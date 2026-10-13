@@ -86,23 +86,39 @@ async function play(slot) {
   W.emit = (n, d) => { if (n === 'goalIn') goalsIn++; emit(n, d); };
   const resurfaced = { n: 0 };
   const rs = W.ice.resurface; W.ice.resurface = (...a) => { resurfaced.n++; return rs(...a); };
-  let lastFight = null, tApply = 0, landedAt = null, grabAt = null, boxAt = null, sawBreakaway = false, wearAtBreak = 0;
+  let lastFight = null, tApply = 0, landedAt = null, grabAt = null, boxAt = null, sawBreakaway = false, wearAtBreak = 0, rushB = null;
+  // (the sheet as the Zamboni leaves it, before the teams come out and cut it up again)
+  let zamOn = false, wearAfterZam = null;
   const draws = { n: 0, onCue: 0 };
   // THE PUCK NEVER SNAPS. It never moves farther in a step than a shot carries it, and
-  // nobody gains it from beyond a stick's reach. There are no camera cuts to hide a jump.
+  // nobody gains it from beyond his reach: where his blade can get to (`W.inReach`, the box
+  // rig.js aims the blade in), his skates, or a short stick from his blade's own spot. There
+  // are no camera cuts to hide a jump.
   const jumps = [], snaps = [], pendingGives = [];
   // NOBODY TELEPORTS EITHER: a man on the ice never moves farther in a step than a skater
   // can (a ragdoll thrown into the boards included), and the only place one appears is
   // the near boards, coming on from the bench.
-  const leaps = [], pops = [], onIce = new Set();
+  const leaps = [], pops = [];
+  let onIce = [];
   // AND THE CAMERA NEVER CUTS: from one 60 Hz frame to the next it moves no farther than
   // its springs allow.
   const camJumps = [];
+  // PASSES ARE TAKEN. Nothing steers a pass to its man: it's played to where he'll be and
+  // he meets it, so nearly every pass in a rush gets to him rather than going by him.
+  const passes = { n: 0, missed: 0, list: [] };
+  let pending = null;
+  const pass0 = W.pass;
+  W.pass = (from, to, spd, at) => {
+    const ok = pass0(from, to, spd, at);
+    if (ok && to && D.kind() === 'rush' && W.puck.target === to) { passes.n++; pending = { to, t: W.t }; }
+    return ok;
+  };
   const give0 = W.give;
   W.give = (b, force) => {
     const pk = W.puck, bw = b ? bladeWorld(b, W.t, true) : null, d = bw ? Math.hypot(bw[0] - pk.x, bw[1] - pk.y) : 0, hidden = pk.hidden;
+    const reach = !!b && (W.inReach(b, pk.x, pk.y) || Math.hypot(pk.x - b.x, pk.y - b.y) < 1.6);
     const ok = give0(b, force);
-    if (ok && b && d > 3.2 && !hidden) pendingGives.push(`${b.name || b.kind} from ${d.toFixed(1)} ft at ${(W.t - tApply).toFixed(2)}s`);
+    if (ok && b && d > 3.2 && !reach && !hidden) pendingGives.push(`${b.name || b.kind} from ${d.toFixed(1)} ft at ${(W.t - tApply).toFixed(2)}s`);
     return ok;
   };
   // NO SHOT AT A NET THE VIEWER CAN'T SEE. The camera is run here at 60 Hz, in both views,
@@ -143,26 +159,34 @@ async function play(slot) {
           const c = k.c.cam, l = k.last;
           // (its springs cap a pan at 140 ft/s and a pull back at 60: 2.3 and 1 ft a frame)
           if (l && (Math.abs(c.lx - l.lx) > 3 || Math.abs(c.ly - l.ly) > 3 || Math.abs(c.dist - l.dist) > 3 || Math.abs(c.pitch - l.pitch) > 0.08)) camJumps.push(`${k.view}: ${Math.abs(c.lx - l.lx).toFixed(1)}/${Math.abs(c.ly - l.ly).toFixed(1)}/${Math.abs(c.dist - l.dist).toFixed(1)} ft at ${(W.t - tApply).toFixed(2)}s (${D.kind() || 'between plays'}, ${W.cam.mode})`);
-          k.last = { ...c };
+          k.last = { lx: c.lx, ly: c.ly, dist: c.dist, pitch: c.pitch };
         }
       }
       while (shotChecks.length && W.t >= shotChecks[0].at) seeShot(shotChecks.shift().netX, 'as it arrives');
-      if (!h0 && !pk.hidden && Math.hypot(pk.x - x0, pk.y - y0) > 1.6) jumps.push(`${Math.hypot(pk.x - x0, pk.y - y0).toFixed(1)} ft at ${(W.t - tApply).toFixed(2)}s (${D.kind() || 'between plays'}) from ${x0.toFixed(1)},${y0.toFixed(1)}`);
-      snaps.push(...pendingGives);
-      pendingGives.length = 0;
+      if (!h0 && !pk.hidden && (pk.x - x0) ** 2 + (pk.y - y0) ** 2 > 1.6 * 1.6) jumps.push(`${Math.hypot(pk.x - x0, pk.y - y0).toFixed(1)} ft at ${(W.t - tApply).toFixed(2)}s (${D.kind() || 'between plays'}) from ${x0.toFixed(1)},${y0.toFixed(1)}`);
+      if (pendingGives.length) { snaps.push(...pendingGives); pendingGives.length = 0; }
+      if (pending) {
+        if (W.puck.carrier === pending.to || D.kind() !== 'rush') pending = null;
+        else if (W.puck.target !== pending.to) { passes.missed++; passes.list.push(`${(W.t - tApply).toFixed(2)}s`); pending = null; }
+      }
       // (each man's position at the start of the step is his x0, y0: see sim.js)
+      // (squared lengths and a short list, not a Set: this runs every step of every game)
       const now = W.bodies();
       for (const b of now) {
-        if (!onIce.has(b)) { if (onIce.size && b.y > 3 && b.kind !== 'medic') pops.push(`${b.kind} ${b.side}${b.slot} appeared at ${b.x.toFixed(0)},${b.y.toFixed(0)} at ${(W.t - tApply).toFixed(2)}s (${D.kind() || 'between plays'})`); continue; }
-        const d = Math.hypot(b.x - b.x0, b.y - b.y0);
-        if (d > 0.75) leaps.push(`${b.kind} ${b.side}${b.slot} ${d.toFixed(1)} ft at ${(W.t - tApply).toFixed(2)}s (${D.kind() || 'between plays'})`);
+        if (!onIce.includes(b)) { if (onIce.length && b.y > 3 && b.kind !== 'medic') pops.push(`${b.kind} ${b.side}${b.slot} appeared at ${b.x.toFixed(0)},${b.y.toFixed(0)} at ${(W.t - tApply).toFixed(2)}s (${D.kind() || 'between plays'})`); continue; }
+        const dx = b.x - b.x0, dy = b.y - b.y0;
+        if (dx * dx + dy * dy > 0.75 * 0.75) leaps.push(`${b.kind} ${b.side}${b.slot} ${Math.hypot(dx, dy).toFixed(1)} ft at ${(W.t - tApply).toFixed(2)}s (${D.kind() || 'between plays'})`);
       }
-      onIce.clear(); for (const b of now) onIce.add(b);
+      onIce = now;
       if (W.fight) lastFight = W.fight;
       if (landedAt == null && D.state.beat && D.state.beat.landed) landedAt = W.t - tApply;
       if (grabAt == null && D.state.beat && D.state.beat.grab) grabAt = W.t - tApply;
       if (W.banner && W.banner.text === 'BREAKAWAY!') sawBreakaway = true;
       if (boxAt == null && D.state.beat && D.state.beat.toBox) boxAt = W.t - tApply;
+      // (this payload's rush: staged as it arrives, or once a draw it waited on goes down)
+      if (!rushB && D.state.beat && D.state.beat.kind === 'rush') rushB = D.state.beat;
+      if (zamOn && !W.zamboni) wearAfterZam = W.ice.wear;
+      zamOn = !!W.zamboni;
       if (W.t >= next) { next = W.t + 10; view.renderer.render(W.t * 1000); renders++; }
       if (until && until()) break;
     }
@@ -180,7 +204,7 @@ async function play(slot) {
     seen.add(g.type);
     const label = `${slot}: ${g.type}${g.kind && g.kind !== g.type ? `/${g.kind}` : ''} at ${g.section} ${g.clock}`;
     let ok = true;
-    tApply = W.t; landedAt = null; grabAt = null; boxAt = null; sawBreakaway = false;
+    tApply = W.t; landedAt = null; grabAt = null; boxAt = null; sawBreakaway = false; rushB = null;
     const replays0 = W.replay.count;
     try { view.apply(g); } catch (e) { check(`${label} stages`, false, e.stack.split('\n').slice(0, 2).join(' ')); ok = false; }
     if (!ok) continue;
@@ -222,7 +246,7 @@ async function play(slot) {
     // (an intermission's one cue is the period coming back, a minute on: the lines after it
     // carry the time to then)
     const limit = g.type === 'intermission' ? 3 : Math.max({ injury: 22, death: 16, fight: 16 }[g.type] || 14, lastCue + 10);
-    if (g.type === 'intermission') wearAtBreak = W.ice.wear;
+    if (g.type === 'intermission') { wearAtBreak = W.ice.wear; wearAfterZam = null; }
     run(limit, () => !D.busy());
     // a draw and a hit land when their line airs
     const cueT = (ev) => { const c = (g.cues || []).find((q) => q.ev === ev); return c ? c.ms / 1000 : null; };
@@ -250,6 +274,13 @@ async function play(slot) {
     }
     if (g.type === 'fight' && cueT('box') != null) check(`${label}: they go to the box as they're sent`, boxAt != null && boxAt >= cueT('box') && boxAt <= cueT('box') + 1.2, `box ${boxAt?.toFixed(2)}s, line ${cueT('box')}s`);
     if (g.type === 'boards' && cueT('impact') != null ) check(`${label}: the hit lands as it is called`, landedAt != null && Math.abs(landedAt - cueT('impact')) < 0.9, `hit at ${landedAt?.toFixed(2)}s, line at ${cueT('impact')}s`);
+    // A TAKEAWAY THE BOOTH CALLS IS A BATTLE ON THE ICE: the man goes at the puck carrier and
+    // pokes it loose as the line airs, or, when nobody of theirs has it, their man comes at it
+    // and loses the battle for it.
+    if ((g.type === 'chance' || g.type === 'goal') && cueT('takeaway') != null) {
+      check(`${label}: the takeaway the booth calls is a battle for the puck`, !!rushB && !!rushB.battled);
+      if (rushB && rushB.tookAt != null) check(`${label}: the puck comes loose as the takeaway is called`, Math.abs(rushB.tookAt - cueT('takeaway')) < 0.6, `loose at ${rushB.tookAt.toFixed(2)}s, line at ${cueT('takeaway')}s`);
+    }
     if ((g.type === 'chance' || g.type === 'goal') && cueT('out') != null && g.kind !== 'breakaway') check(`${label}: the puck arrives as the outcome is called`, landedAt != null && landedAt > cueT('shot') && Math.abs(landedAt - cueT('out')) < (g.type === 'goal' ? 2.4 : 1.2), `${g.shotType}: landed ${landedAt?.toFixed(2)}s, outcome line ${cueT('out')}s`);
     check(`${label} resolves`, !D.busy() || g.type === 'intermission', `still ${D.kind()} after ${limit}s`);
     if (g.type === 'goal') check(`${label}: it goes in`, goalsIn > before.goals && !!W.puck.inNet, `inNet=${W.puck.inNet}`);
@@ -305,10 +336,13 @@ async function play(slot) {
       check(`${label}: the ice is wet behind it`, W.ice.wetness > 0.5);
     }
     // the period starts on resurfaced ice, the Zamboni gone off through its gate (driven,
-    // not removed: it has the length of the draw to get there)
+    // not removed: it has the length of the draw to get there). The sheet is measured as it
+    // leaves, before the teams have skated out and cut it up again.
     if (g.type === 'faceoff' && g.reason === 'period') {
       if (W.zamboni) run(8, () => !W.zamboni);
-      check(`${label}: resurfaced ice and the Zamboni gone`, !W.zamboni && W.ice.wear < Math.max(0.05, wearAtBreak * 0.7), `zamboni ${W.zamboni ? `${W.zamboni.x.toFixed(0)},${W.zamboni.y.toFixed(0)}` : 'off'}, wear ${wearAtBreak.toFixed(3)} → ${W.ice.wear.toFixed(3)}`);
+      // (the opening draw has had no Zamboni since the sheet was laid: it's the sheet as it is)
+      const w = wearAfterZam ?? W.ice.wear;
+      check(`${label}: resurfaced ice and the Zamboni gone`, !W.zamboni && w < Math.max(0.05, wearAtBreak * 0.7), `zamboni ${W.zamboni ? `${W.zamboni.x.toFixed(0)},${W.zamboni.y.toFixed(0)}` : 'off'}, wear ${wearAtBreak.toFixed(3)} → ${w.toFixed(3)}`);
     }
     // ten men dressed, whatever has happened (unless a goalie is pulled or a man is short)
     const n = W.mates('a').length + W.mates('h').length;
@@ -323,6 +357,7 @@ async function play(slot) {
   check(`${slot}: the camera never jumps`, camJumps.length === 0, `${camJumps.length}: ${camJumps.slice(0, 4).join(', ')}`);
   check(`${slot}: every shot is taken with its net in frame`, unseen.length === 0, `${unseen.length}: ${unseen.slice(0, 4).join(', ')}`);
   check(`${slot}: nobody gains the puck from beyond his reach`, snaps.length === 0, `${snaps.length}: ${snaps.slice(0, 4).join(', ')}`);
+  check(`${slot}: rush passes get to the man they're for`, passes.n > 20 && passes.missed <= Math.max(2, passes.n * 0.05), `${passes.missed} of ${passes.n} went by him: ${passes.list.slice(0, 4).join(', ')}`);
   check(`${slot}: the renderer drew`, renders > 100 && stub.drawn.images > 1000, `${renders} frames, ${stub.drawn.images} images`);
   check(`${slot}: the held caption went up`, String(host.find('.gdr-cap-text')?.textContent || '').length > 0);
   check(`${slot}: sounds played`, stub.sounds.length > 20, `${stub.sounds.length}`);

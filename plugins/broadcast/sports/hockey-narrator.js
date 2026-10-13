@@ -60,6 +60,7 @@ const EXCITE = {
   'pbp.breakaway': 0.8, 'pbp.out.breakaway': 0.65, 'pbp.after.breakaway': 0.45, 'shot.breakaway': 0.55,
   // the build: a rush quickens as it gets to the net
   'pbp.breakout': 0.3, 'pbp.retrieve': 0.25, 'pbp.pass': 0.35, 'pbp.won': 0.35, 'pbp.battle': 0.35, 'pbp.cycle': 0.3,
+  'pbp.forecheck': 0.35, 'pbp.takeaway': 0.5,
   'pbp.dump': 0.3, 'pbp.chase': 0.3, 'pbp.entry': 0.4, 'pbp.deke': 0.55, 'pbp.shot': 0.6, 'pbp.rebound': 0.55,
   'pbp.out': 0.5, 'pbp.out.post': 0.75, 'pbp.out.wide': 0.35, 'pbp.after': 0.35, 'pbp.after.post': 0.5, 'pbp.freeze': 0.2,
   'shot': 0.25, 'shot.post': 0.4, 'pbp.replay': 0.35,
@@ -492,8 +493,21 @@ export function narrate(ctx) {
     // the rink shows him doing it, so the booth says so and the breakout follows when he has it.
     const prev = beats[idx - 2];
     const out0 = { player: holder, where: where(nodes[0]) };
-    if (gd && prev && prev.type === 'chance' && !prev.frozen && LOOSE_AFTER.has(prev.kind) && call('pbp.retrieve', t, out0, sb, null, gd)) {
-      call('pbp.breakout', t, out0, sb, { cue: { ev: 'fetched' } });
+    // TAKEN OFF THEM. The last play left the other side with the puck (they won the draw, or
+    // their goalie caught this side's shot and played it on), so the rink shows him going
+    // after it and taking it off them before anything else. The booth says both: who's after
+    // it, then that he's won it, as the rink pokes it loose (the `takeaway` cue).
+    const theirs = prev && ((prev.type === 'faceoff' && prev.winTeam && prev.winTeam !== b.teamName)
+      || (prev.type === 'chance' && prev.teamName === b.teamName && prev.kind === 'glove' && !prev.frozen));
+    // A loose puck the last play left (a rebound, a kick-out, a block, or one knocked off a
+    // man on the boards) he has to go and get first, from whoever has got to it: the booth
+    // says he goes in after it, and the breakout follows when he has it (`fetched`).
+    const loose = prev && ((prev.type === 'chance' && !prev.frozen && LOOSE_AFTER.has(prev.kind)) || prev.type === 'boards');
+    if (gd && theirs && call('pbp.forecheck', t, out0, sb, null, gd)) {
+      call('pbp.takeaway', t, out0, sb, { cue: { ev: 'takeaway' } });
+    } else if (gd && loose && call('pbp.retrieve', t, out0, sb, null, gd)) {
+      // (the line before named him, so this one needn't)
+      call(['pbp.breakout.on', 'pbp.breakout'], t, out0, sb, { cue: { ev: 'fetched' } });
     } else call('pbp.breakout', t, out0, sb, null, gd);
     // Planned before it's said, so the last touch before the shot is known. A booth always
     // calls the touch that puts the puck where it's shot from ("...over to Lindqvist,

@@ -324,12 +324,15 @@ body(skaters[8], 'skater missing his head', null, BUD);
 }
 
 // ── the puck is never put on a stick ─────────────────────────────────────────
-// It's collected: slid or fetched to the blade, out of the net through the mouth, and
-// never farther in a step than a hard shot carries it.
+// It's collected: he skates to it and takes it once it's within reach of his blade, out of
+// the net through the mouth, and it never moves farther in a step than a hard shot carries
+// it. (No beat is running: the pregame's linesman would otherwise come and pick it up for
+// the opening draw while he's on his way.)
 {
   const W2 = createWorld(createIce(document), 'collect');
-  createDirector(W2, {});
+  const D2 = createDirector(W2, {});
   for (let i = 0; i < 60; i++) W2.step(DT);
+  D2.reset();
   const pk = W2.puck, m = W2.skaters().find((b) => b.active && b.stick);
   const watch = (secs) => { let worst = 0; for (let i = 0; i < secs / DT && pk.carrier !== m; i++) { const x = pk.x, y = pk.y; W2.step(DT); worst = Math.max(worst, Math.hypot(pk.x - x, pk.y - y)); } return worst; };
   W2.puckScripted = true; W2.frozen = true;
