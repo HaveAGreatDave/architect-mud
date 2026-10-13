@@ -319,7 +319,7 @@ export function faceFor(look) {
   const h = hashStr('face:' + look.id + (look.role || ''));
   const rand = (k) => rng((h ^ Math.imul(k + 1, 0x9e3779b1)) >>> 0)();
   const f = actorFace(rand);
-  const L = FACE_LAYOUTS.map((q, i) => [q, i]).filter(([q]) => !q.makeup && (look.role === 'ump' || q.age <= 0.7));
+  const L = FACE_LAYOUTS.map((q, i) => [q, i]).filter(([q]) => !q.makeup && (look.role === 'ump' || look.role === 'crew' || q.age <= 0.7));
   const pool = rand(20) < 0.45 ? L.filter(([q]) => q.beard > 0) : L.filter(([q]) => q.beard === 0);
   const layout = look.layout ?? pool[Math.floor(rand(13) * pool.length) % pool.length][1];
   // the atlas's lip colour reads as lipstick under the floods, so it's taken halfway back to the skin
@@ -457,17 +457,24 @@ export function lookOf(o) {
   return Object.assign(L, o);
 }
 
+// Those who don't wear a club's kit: the umpires in navy and grey, and the grounds crew in green
+// work shirts and khaki (diamond/crew.js). Plain colours, slacks, a plain cap.
+const PLAIN = Object.freeze({
+  ump: Object.freeze({ shirt: '#1d2740', pants: '#7d8186', belt: '#111111', cap: '#111317', capUnder: '#0a0a0c', shoe: '#0e0e0e', girth: 0.07 }),
+  crew: Object.freeze({ shirt: '#2e4a35', pants: '#a39169', belt: '#3a2a1a', cap: '#2e4a35', capUnder: '#1b2b20', shoe: '#2a2018', girth: 0.04 }),
+});
+
 // Builds one player into `G`'s batches. `pose` is a pose table entry with `at` and `yaw`; `look`
-// says who he is: { id, side ('home' | 'away'), role ('ump', 'catcher', 'pitcher'...), slot (his
-// jersey's cell in the kit atlas), glove ('L' | 'R'), helmet, flapSide, mask, battingGloves }.
+// says who he is: { id, side ('home' | 'away'), role ('ump', 'crew', 'catcher', 'pitcher'...), slot
+// (his jersey's cell in the kit atlas), glove ('L' | 'R'), helmet, flapSide, mask, battingGloves }.
 export function buildPlayer(G, pose, look) {
   const { J, W, s } = solvePose(pose);
-  const ump = look.role === 'ump', side = look.side === 'away' ? 'away' : 'home', kit = KITS[side];
-  const navyU = hex('#1d2740'), greyU = hex('#7d8186');
+  const plain = PLAIN[look.role] || null, ump = !!plain, side = look.side === 'away' ? 'away' : 'home', kit = KITS[side];
+  const navyU = hex(plain ? plain.shirt : '#1d2740'), greyU = hex(plain ? plain.pants : '#7d8186');
   const under = ump ? navyU : hex(kit.ink), trim = ump ? navyU : hex(kit.trim), skin = hex(look.skin);
   const jersey = G.skin ? KIT_REL : kitCell(look.slot ?? 0), pants = KIT_PANTS[side], socks = KIT_SOCKS[side];
   const keyOf = (p) => (ump ? 'plain' : (p === 'jersey' || p === 'sleeve' || p === 'pants' || p === 'sock') ? 'kit' : 'plain');
-  const colOf = (p) => ump ? (p === 'pants' ? greyU : p === 'skin' ? skin : p === 'belt' ? hex('#111111') : navyU)
+  const colOf = (p) => ump ? (p === 'pants' ? greyU : p === 'skin' ? skin : p === 'belt' ? hex(plain.belt) : navyU)
     : (p === 'jersey' || p === 'sleeve' || p === 'pants' || p === 'sock') ? [1, 1, 1] : p === 'belt' ? hex(kit.belt) : p === 'under' ? under : p === 'trim' ? trim : p === 'skin' ? skin : [1, 0, 1];
   const matOf = (p) => (p === 'skin' ? MAT.SKIN : p === 'belt' ? MAT.LEATHER : MAT.CLOTH);
   const uvOf = (p, u, v) => p === 'jersey' ? inCell(jersey, u, (0.93 - v) / 0.47)
@@ -480,15 +487,15 @@ export function buildPlayer(G, pose, look) {
     limb(G, J['hip' + S], J['kn' + S], J['an' + S], m3v(W.pelvis, [0, 0, 1]), ump ? SLACKS : LEG, s, keyOf, colOf, matOf, legUv, LEG_RIG[S]);
     limb(G, J['sh' + S], J['el' + S], J['wr' + S], m3v(W.chest, [0, 0, -1]), ARM, s, keyOf, colOf, matOf, uvOf, ARM_RIG[S]);
     G.cur = [[BONE['foot' + S], 1]];
-    shoe(G, J, S, s, ump ? hex('#0e0e0e') : hex('#151515'));
+    shoe(G, J, S, s, ump ? hex(plain.shoe) : hex('#151515'));
   }
-  torso(G, J, W, s, keyOf, colOf, matOf, uvOf, look.girth || 0, ump ? 0.07 : 0);
+  torso(G, J, W, s, keyOf, colOf, matOf, uvOf, look.girth || 0, ump ? plain.girth : 0);
   head(G, J, W, s, look);
   look.s = s;
   const logo = side === 'home' ? 0 : 1;
   G.cur = [[BONE.head, 1]];
   if (look.role === 'catcher') catcherGear(G, J, W, s, look, hex(kit.helmet));
-  else if (ump) { cap(G, W, s, look, hex('#111317'), hex('#0a0a0c'), null); if (look.mask) mask(G, W, s, look); }
+  else if (ump) { cap(G, W, s, look, hex(plain.cap), hex(plain.capUnder), null); if (look.mask) mask(G, W, s, look); }
   else if (look.helmet) helmet(G, W, s, look, look.flapSide || 1, hex(kit.helmet), logo);
   else cap(G, W, s, look, hex(kit.cap), hex(kit.under), logo);
   for (const S of ['L', 'R']) {

@@ -62,6 +62,9 @@ export const SHOTS = Object.freeze({
   crowd: Object.freeze({ eye: [-18, 7, 78], at: [-92, 19, 10], fov: 18, dof: 600, shadow: [[-60, 0, 30], 40] }),
   // the third-base camera on the pitcher off the back of the mound, rubbing up the ball
   rub: Object.freeze({ eye: [64, 7, 33], at: [0, 4.2, 70.4], fov: 11, dof: 700, shadow: [[0, 0, 70], 14] }),
+  // the grounds crew dragging the infield in the middle of the fifth (diamond/crew.js), from up on
+  // a riser in a well across the field, following them: the director places it (`crew` specs)
+  crew: Object.freeze({ eye: [-56, 22, 14], at: [50, 3, 110], fov: 7, dof: 700, shadow: [[50, 0, 110], 24] }),
   // high behind home with the city beyond: back from a break and between innings, and the
   // fireworks over the outfield
   sky: Object.freeze({ eye: [0, 118, -176], at: [-40, 130, 1200], fov: 50, shadow: [[0, 0, 140], 300] }),
@@ -91,9 +94,11 @@ export function fovFor(fov, aspect, fit) {
 // behind a long fly (`{ shot: 'fly', eye, at }`) keeps the catch in the frame and tilts up
 // toward the ball, `follow` of the way. The home-run camera (`{ shot: 'homer', side, dist,
 // stop }`) rides `dist` feet out to `side` of the ball's way, rising with it, until `stop`, short
-// of the wall, and from there watches it into the seats with its lens closing. Anything else is
-// a camera by name or a shot as given, and comes back as it was. Pure in t, so the renderer and
-// the graphics resolve the same picture.
+// of the wall, and from there watches it into the seats with its lens closing. The crew camera
+// (`{ shot: 'crew', eye, frame, track }`) stays at `eye` and turns to follow the grounds crew,
+// its lens taking in `frame` feet top to bottom where they are. Anything else is a camera by name
+// or a shot as given, and comes back as it was. Pure in t, so the renderer and the graphics
+// resolve the same picture.
 export function shotAt(s, t) {
   if (!s || typeof s !== 'object' || typeof s.track !== 'function') return s;
   const base = SHOTS[s.shot] || SHOTS.high, q = s.track(t);
@@ -104,6 +109,10 @@ export function shotAt(s, t) {
     const eye = [r[0] + side[0] * d, 7 + 0.55 * r[1], r[2] + side[2] * d];
     const far = Math.hypot(at[0] - eye[0], at[1] - eye[1], at[2] - eye[2]);
     return { eye, at, fov: base.fov * Math.min(1, Math.max(0.5, Math.hypot(d, 0.45 * r[1]) / far)), dof: base.dof, shadow: [[r[0], 0, r[2]], 120] };
+  }
+  if (s.shot === 'crew') {
+    const eye = s.eye || base.eye, at = q || base.at, far = Math.hypot(at[0] - eye[0], at[1] - eye[1], at[2] - eye[2]);
+    return { eye, at, fov: (2 * Math.atan((s.frame || 16) / 2 / far)) / DEG, dof: base.dof, shadow: [[at[0], 0, at[2]], 24] };
   }
   if (s.shot === 'fly') {
     const at = s.at || base.at, k = s.follow ?? 0.45;

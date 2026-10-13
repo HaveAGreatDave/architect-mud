@@ -533,17 +533,23 @@ export function spotsFor(from, side) {
 // The side taking the field (`ctx.cast`, a half payload's), out of its dugout to its spots at a
 // jog, a man every third of a second: the catcher to his spot behind the plate and the pitcher to
 // a stride short of the rubber, the rest turned to the plate in their sets once they're there.
-// From `o.t0`. Returns { bodies, at: Map(slot -> when he's there) }.
+// From `o.t0`; with `o.infield`, the infielders stand easy by the dugout till then, while the
+// grounds crew drag the infield (diamond/crew.js), and go a third of a second apart from it.
+// Returns { bodies, at: Map(slot -> when he's there) }.
 export function planTakeField(ctx, o) {
   const side = -dugoutOf(ctx.p), t0 = o.t0;
   const order = ['catcher', 'pitcher', 'fielder'], men = (ctx.cast || []).filter((c) => order.includes(c.look?.role))
     .sort((a, b) => order.indexOf(a.look.role) - order.indexOf(b.look.role));
   const bodies = [], at = new Map(), ks = spotsFor(men.map((c) => [c.at[0], 0, c.at[2]]), side);
+  let j = 0;
   men.forEach((c, k) => {
     const start = dugoutSpot(side, ks[k]), spot = [c.at[0], 0, c.at[2]];
     const to = c.look.role === 'pitcher' ? sub(spot, mul(unit(sub(spot, start)), 2.5)) : spot;
     const B = makeBody({ n: 30 + k, id: c.id, slot: c.look.slot, role: c.look.role, at: start, yaw: faceTo(start, to), mirror: c.mirror, scale: c.scale, place: true });
-    const way = wayPath(c.look.role === 'pitcher' ? [start, to] : roundMound([start, to])), r = stopAt(B, way, t0 + 0.3 + 0.33 * k, way.len, { v: flat(start, to) > 150 ? 17 : 13 });
+    const wait = Number.isFinite(o.infield) && c.pose === 'infield';
+    if (wait) B.play('stand_idle', t0, { frame: { at: start, yaw: faceTo(start, to) } });
+    const go = wait ? Math.max(t0 + 0.3 + 0.33 * k, o.infield + 0.33 * j++) : t0 + 0.3 + 0.33 * k;
+    const way = wayPath(c.look.role === 'pitcher' ? [start, to] : roundMound([start, to])), r = stopAt(B, way, go, way.len, { v: flat(start, to) > 150 ? 17 : 13 });
     if (c.look.role === 'fielder') settle(B, r.on + 0.4, faceTo(spot, HOME));
     at.set(c.look.slot, r.on);
     bodies.push(B);

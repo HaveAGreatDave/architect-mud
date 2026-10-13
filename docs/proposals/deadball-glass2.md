@@ -9,8 +9,10 @@ played out in the park with its cameras and its cutaways (3c), and the men on th
 it out and trotting up after ball four, the changeover, and the steals, throws over and wild
 pitches played on the bases (3d), and the spectacle: the comet's tail, sparks off the bat,
 fireworks, the home-run camera and the splash words (3e); and from Phase 4, reduced motion and
-the play by play in words for a screen reader (4a), slow-motion replays (4b) and a crowd that gets
-up for the plays (4c). The rest of Phase 4 and Phases 5 to 7 are design.** A plan for giving Deadball a 3-D sub-screen the way Cluster Puck got Rinkside, at the
+the play by play in words for a screen reader (4a), slow-motion replays (4b), a crowd that gets
+up for the plays (4c), and the dead time: the infield keeping the game's marks, the field
+resetting between at-bats and the grounds crew in the fifth (4d). The rest of Phase 4 and Phases 5
+to 7 are design.** A plan for giving Deadball a 3-D sub-screen the way Cluster Puck got Rinkside, at the
 highest fidelity the engine can reach. Deadball is a live sport on KSAB, and the broadcast borrows
 the look of a 1990s arcade baseball game. That means skinned, detailed players, authored animation
 with a wide spread of plays, light from the park's own towers and a crowd that fills the stands.
@@ -1799,7 +1801,28 @@ Phase 3, or with sim v2 if that comes later.
   everyone at rest a beat before the next payload's due and where he was sent, nobody jumping,
   nobody within 2 ft of anybody (or nearer than the two started), the walks and rests inside
   their joints, the on-deck hitter in his circle and swinging for his camera; `ballpark-smoke`
-  checks each new camera has what it's for.
+  checks each new camera has what it's for. On a long hold the cameras come round again, a
+  cutaway every 9 s of the wide shot (the on-deck circle, the city, the crowd).
+
+- **4d.3 built, the grounds crew:** in the middle of the fifth, when the break holds 84 s or
+  more, four of them drag the infield ([diamond/crew.js](../../client/game/js/panels/diamond/crew.js)):
+  two to a mat, the pairs side by side, in from foul ground beyond third, round the whole skirt
+  past second base on two arcs, the inner clear of the bags and the outer of the grass, and off
+  beyond first, turning onto each arc and off it rather than on the spot. They're people in work
+  clothes (gl/ballplayer-mesh.js dresses the crew as it does the umpires), walking with
+  `run_walk` and pulling with a new clip, `crew_drag`; the mats and their ropes, up over each
+  man's right shoulder to his hands, are drawn each frame (gl/ballpark.js `setMats`). Behind each
+  mat the dirt is put back as painted (`smoothDirt`, a third of a second of the drag an upload),
+  so the game's marks in the skirt are gone and the ones at its edges stay. The pitcher warms up
+  while they drag and the infielders wait by their dugout till the mats are off the dirt. The
+  leaders' table comes down a few seconds into the drag and the crew camera follows them round
+  from a well across the field, first base's side and then third's; with reduced motion it
+  holds still where they'll walk through. `diamond-smoke` plays the middle of the fifth at a long
+  hold: the four of them only then, each man where his mat has him while he pulls, each mat on
+  the dirt, nobody jumping or within 2 ft of the crew, their walks and pulls inside their joints,
+  the infielders waiting and in place a beat before the next payload's due, the table down once
+  and the crew in the crew camera's frame; `ballpark-smoke` checks the crew's dress builds, a mat
+  and its ropes, and that the drag copies the dirt back inside its polygon only.
 
 **Phase 4: the broadcast.** On by default wherever WebGL2 and float targets work.
 - `gl/crowd.js` with seated and reaction clips; replays in slow motion; dead-time rituals; the grounds

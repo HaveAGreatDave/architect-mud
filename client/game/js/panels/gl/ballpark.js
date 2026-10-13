@@ -10,7 +10,8 @@
 //   · the field is painted in the shader: grass with mowing stripes that change with the
 //     camera's direction, the warning track, the foul lines, and the infield canvas
 //     (diamond/dirt.js) laid over it, which keeps the game's marks (markDirt): a park's own copy
-//     of it, and only the texels a mark touches go up again;
+//     of it, and only the texels a mark touches go up again, or the grounds crew's drag puts
+//     back as painted (smoothDirt), their mats drawn each frame (setMats);
 //   · the crowd is one figure in three poses (gl/crowd.js), instanced over every occupied seat,
 //     each fan getting up and cheering as his side roars (setCrowd);
 //   · the scoreboard is a face of lamps lit from a 240×84 mask of the line score
@@ -45,9 +46,9 @@
 // ⚠ NO FACE CULLING, as in arena.js: the builders don't keep one winding, and every material
 // here is lit from the side that faces the eye.
 
-import { buildPark, crowdMorph, createBatch, ellipsoid, lin, STRIDE, CROWD_STRIDE, CROWD_MORPH, MAT } from './ballpark-mesh.js';
+import { buildPark, crowdMorph, createBatch, ellipsoid, dragMat, lin, STRIDE, CROWD_STRIDE, CROWD_MORPH, MAT } from './ballpark-mesh.js';
 import { CROWD_VS } from './crowd.js';
-import { paintInfield, paintMark, DIRT_RECT } from '../diamond/dirt.js';
+import { paintInfield, paintMark, smoothPoly, DIRT_RECT } from '../diamond/dirt.js';
 import { boardLamps, BOARD_W, BOARD_H } from '../diamond/board.js';
 import { shotMatrices, shotOf, inv4 } from '../diamond/camera.js';
 import { createHDRLayer } from './hdr.js';
@@ -764,9 +765,13 @@ export function createBallparkRenderer(canvas, opts = {}) {
     const binds = new Map();
     const bindOf = (scale) => { let b = binds.get(scale); if (!b) binds.set(scale, (b = bindFrames(scale))); return b; };
     const frames = new Float32Array(BONES.length * FRAME_FLOATS), skinBuf = new Float32Array(BONES.length * 12);
-    // A pose into a slot's row of the palette: a pose table entry with `at`, `yaw` and `scale`.
+    // A pose into a slot's row of the palette: a pose table entry with `at`, `yaw` and `scale`. Its
+    // joints are kept by slot for a drag mat's ropes (setMats).
+    const joints = new Map();
     function setPose(slot, pose) {
-      palette.write(slot, skinRows(boneFrames(solvePose(pose), frames), bindOf(pose.scale || 1), skinBuf));
+      const sol = solvePose(pose);
+      joints.set(slot, sol.J);
+      palette.write(slot, skinRows(boneFrames(sol, frames), bindOf(pose.scale || 1), skinBuf));
     }
     function setCast(cast, teams) {
       // the kits for whoever's new, and each side's monogram
@@ -907,7 +912,7 @@ export function createBallparkRenderer(canvas, opts = {}) {
     // The dirt keeps the game (diamond/marks.js, painted by dirt.js paintMark): this park's own
     // copy of the infield canvas, made at the first mark, and only the rects the marks touch go up
     // to the GPU again. A new game starts on the canvas as painted (resetDirt).
-    const dirtStats = { marks: 0, uploads: 0, texels: 0 };
+    const dirtStats = { marks: 0, smoothed: 0, uploads: 0, texels: 0 };
     let dirtLive = null;
     function uploadDirt(rects) {
       if (!rects.length) return;
@@ -954,6 +959,33 @@ export function createBallparkRenderer(canvas, opts = {}) {
       if (lost || !dirtLive) return;
       dirtLive = null;
       uploadDirt([[0, 0, shared.dirt.width, shared.dirt.height]]);
+    }
+    // The grounds crew's drag (diamond/crew.js sweptAlong): the dirt inside each polygon ([x, z]
+    // corners) as it was painted, and those rects up again. Nothing to do before the first mark.
+    function smoothDirt(polys) {
+      if (lost || !dirtLive || !polys?.length) return;
+      const g = dirtLive.getContext('2d'), rects = [];
+      for (const q of polys) { const r = smoothPoly(g, shared.dirt, q, dirtLive.width); if (r) rects.push(r); }
+      dirtStats.smoothed += rects.length;
+      uploadDirt(mergeRects(rects));
+    }
+
+    // ── the grounds crew's mats ──────────────────────────────────────────────
+    // This frame's (diamond/crew.js matAt), each rope up over the right shoulder of the man pulling
+    // it to his hands, where setPose last had him.
+    const matBatch = createBatch(1024), matDraw = { key: 'mats', ...upload(createBatch(1)) };
+    function setMats(list) {
+      matBatch.n = 0;
+      for (const m of list || []) {
+        const men = (m.men || []).map((man) => {
+          const J = joints.get(man.slot);
+          if (!J) return { side: man.side, hands: m.ropes[man.side > 0 ? 0 : 1] };
+          return { side: man.side, shoulder: [J.shR[0], J.shR[1] + 0.24, J.shR[2]], hands: J.handL.map((v, i) => (v + J.handR[i]) / 2) };
+        });
+        dragMat(matBatch, m, men);
+      }
+      matDraw.st.write(matBatch.data, matBatch.n * STRIDE);
+      matDraw.n = matBatch.n;
     }
 
     // ── the lights ────────────────────────────────────────────────────────────
@@ -1081,6 +1113,7 @@ export function createBallparkRenderer(canvas, opts = {}) {
       drawSet(opaque, 1);
       if (TEX.sign) drawSet([signDraw], 1);
       if (ballAt) drawSet([ballDraw], 1);
+      if (matDraw.n) drawSet([matDraw], 1);
       if (city) drawSet(city.opaque, 1);
       // the players: each one's bones from his row of the palette (unit 9), his face from the atlas
       // (unit 8) and the head arrays, his jersey from his slot's cell
@@ -1177,7 +1210,7 @@ export function createBallparkRenderer(canvas, opts = {}) {
         if (depth) { gl.deleteFramebuffer(depth.fbo); gl.deleteTexture(depth.tex); depth = null; }
         for (const t of Object.values(TEX)) gl.deleteTexture(t);
         gl.deleteTexture(boardTex);
-        for (const d of [...opaque, ...translucent, signDraw, ballDraw]) { gl.deleteVertexArray(d.vao); gl.deleteBuffer(d.st.buf); }
+        for (const d of [...opaque, ...translucent, signDraw, ballDraw, matDraw]) { gl.deleteVertexArray(d.vao); gl.deleteBuffer(d.st.buf); }
         dropCity();
         for (const d of crowd) { gl.deleteVertexArray(d.vao); for (const b of d.buffers) gl.deleteBuffer(b); }
         gl.deleteBuffer(mb);
@@ -1201,7 +1234,7 @@ export function createBallparkRenderer(canvas, opts = {}) {
       // payload's spectacle (diamond/spectacle.js) and the world's time to draw it at;
       // markDirt(marks): the game's marks into the infield (diamond/marks.js), resetDirt() a fresh one
       render, setBoard, setCast, setPose, setBall, setSpectacle: (fx, t) => spectacle.set(fx, t), pump, setVenue, dispose, stats,
-      markDirt, resetDirt, dirtStats,
+      markDirt, resetDirt, smoothDirt, setMats, dirtStats,
       setCrowd: (levels, t, move = true) => { roar.home = +levels?.[0] || 0; roar.away = +levels?.[1] || 0; roar.t = +t || 0; roar.move = move ? 1 : 0; },
       pending: () => queue.length,
       get park() { return park; },

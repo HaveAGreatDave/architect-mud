@@ -32,7 +32,9 @@
 // THE CHANGEOVER. On the third out, once the play's landed, every man on the field jogs off to his
 // side's dugout from where the world has him (`offField`) and the high camera watches them go. A
 // half payload (`D.changeover`) runs the side taking the field out to its places and has the
-// pitcher throw his warm-ups to the catcher, as many as the hold has room for.
+// pitcher throw his warm-ups to the catcher, as many as the hold has room for. In the middle of the
+// fifth the grounds crew drag the infield first (crew.js), the infielders waiting by their dugout
+// till the mats are off the dirt, and the cameras go to them once the leaders' table comes down.
 //
 // A PICTURE THAT DISAGREES WITH THE NEXT PAYLOAD IS FIXED ON A CUTAWAY. The booth doesn't call
 // every at-bat, so the bags the picture last showed and the ones the next payload starts from
@@ -59,7 +61,7 @@ import { solvePose } from './rig.js';
 import { pitchPoint } from './hud.js';
 import { pitchPath, throwPath, hitPath, BALL_R } from './flight.js';
 import { CLIPS } from './clips.js';
-import { castOf } from './cast.js';
+import { castOf, crewDue } from './cast.js';
 import { toPark } from './world.js';
 import { planPlay } from './plays.js';
 import { planRun, runPitch, tempoFor, FIRST_MOVE } from './runs.js';
@@ -68,12 +70,18 @@ import { planTrot, planTakeField, jogToDugout, dugoutOf, dugoutSpot as dugoutSpo
 import { makeBody, cloneBody, onOf, flat } from './bodies.js';
 import { strideOf, digOf, scarsOf } from './marks.js';
 import { planBetween, deckPlan, shotsBetween, BETWEEN } from './between.js';
+import { planCrew, crewShots } from './crew.js';
 
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
 const add = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
 const mul = (a, s) => [a[0] * s, a[1] * s, a[2] * s];
 const norm = (a) => { const l = Math.hypot(a[0], a[1], a[2]) || 1; return [a[0] / l, a[1] / l, a[2] / l]; };
 function hashStr(s) { let h = 2166136261; for (const ch of String(s)) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; }
+
+// How long the infielders take to come out once the grounds crew's mats are off the dirt (the
+// furthest of them from the dugout across the field, and a beat), in seconds. cast.js CREW_HOLD
+// leaves room for it after the drag.
+const CREW_ROOM = 12.5;
 
 // The budget, in seconds, for a payload: 0.45 of its hold (milliseconds), between 13 and 26.
 export const BUDGET = Object.freeze({ share: 0.45, min: 13, max: 26 });
@@ -320,7 +328,7 @@ function stageBodiesOf(W, bodies, tIn, play) {
 export function createDirector(W, opts = {}) {
   const emit = (n, d) => opts.emit?.(n, d);
   // `fx`: the payload's spectacle (diamond/spectacle.js), which the view hands the renderer
-  const D = { log: [], played: [], views: null, landed: true, landAt: 0, until: 0, t0: 0, budget: 0, payload: null, fx: [], marks: [], queued: new Map() };
+  const D = { log: [], played: [], views: null, landed: true, landAt: 0, until: 0, t0: 0, budget: 0, payload: null, fx: [], marks: [], queued: new Map(), drags: [], crew: null };
   // the last clip the director has queued for each body (`D.queued`, by slot: { clip, at, start,
   // speed, frame }), so the dead time starts each man from what he'll be doing, not what he's doing
   // now: a strikeout's walk off starts after the call's landed
@@ -340,7 +348,7 @@ export function createDirector(W, opts = {}) {
   // shot while everyone takes their places. `o.motion` false: the viewer has asked for less motion,
   // so no camera rides with a home run and nothing bursts or sparks.
   D.stage = (p, cast = castOf(p), o = {}) => {
-    D.payload = p; D.cast = cast; D.log = []; D.played = []; D.views = null; D.landed = false; D.play = null; D.trot = null; D.inningOver = false; D.fx = []; D.marks = []; D.between = null; D.queued = new Map();
+    D.payload = p; D.cast = cast; D.log = []; D.played = []; D.views = null; D.landed = false; D.play = null; D.trot = null; D.inningOver = false; D.fx = []; D.marks = []; D.between = null; D.queued = new Map(); D.drags = []; D.crew = null;
     W.clearQueue();
     const motion = o.motion !== false;
     if (p?.phase === 'run') { stageRun(p, cast, o); return; }
@@ -667,9 +675,12 @@ export function createDirector(W, opts = {}) {
   // ── the changeover ──
   // A half payload: the side taking the field runs out from its dugout (bases.js planTakeField),
   // the catcher to the plate and the pitcher to the rubber, and the pitcher throws his warm-ups,
-  // the ball into the catcher's mitt and back. Nothing lands: there's no play.
-  D.changeover = (p, cast = castOf(p)) => {
-    D.payload = p; D.log = []; D.played = []; D.views = null; D.play = null; D.trot = null; D.cutaway = false; D.fx = []; D.marks = [];
+  // the ball into the catcher's mitt and back. Nothing lands: there's no play. In the middle of the
+  // fifth the grounds crew drag the infield (crew.js) and the infielders come out once the mats are
+  // off the dirt; the leaders' table comes down for the crew camera (a 'table' emit) and the high
+  // camera has them going off. `o.motion` false holds the crew camera still.
+  D.changeover = (p, cast = castOf(p), o = {}) => {
+    D.payload = p; D.cast = cast; D.log = []; D.played = []; D.views = null; D.play = null; D.trot = null; D.cutaway = false; D.fx = []; D.marks = []; D.drags = []; D.crew = null;
     W.clearQueue();
     for (const slot of [...W.bodies.keys()]) W.drop(slot);
     const t0 = W.t + PACE.in;
@@ -680,10 +691,19 @@ export function createDirector(W, opts = {}) {
       until = Math.max(until, start + CLIPS[clipId].duration / speed);
       W.at(at, () => { W.play(slot, clipId, { at: start, speed, fade: o.fade, frame: o.frame, from: o.from, carry: o.carry }); D.played.push({ t: at, role, slot, clip: clipId, start }); });
     };
-    const plan = planTakeField({ p, cast }, { t0 });
-    for (const B of plan.bodies) {
+    // the crew, off the dirt in time for the infielders to be out a beat before the next payload's due
+    const crew = crewDue(p) ? planCrew({ cast, t0: t0 + 1, from: t0, by: W.t + p.hold / 1000 - BETWEEN.margin, room: CREW_ROOM }) : null;
+    const plan = planTakeField({ p, cast }, { t0, infield: crew ? crew.off + 0.5 : undefined });
+    for (const B of [...plan.bodies, ...(crew?.bodies || [])]) {
       W.place(B.slot, { id: B.id, role: B.role, at: B.base.at, yaw: B.base.yaw, scale: B.scale, mirror: B.mirror });
       for (const e of B.clips) play(B.slot, B.role, e.clip, e.issue ?? e.from ?? e.start, e.start, { speed: e.speed, fade: e.fade, frame: e.given ? e.F : undefined, from: e.from, carry: e.carry });
+    }
+    if (crew) {
+      const cam = crewShots(crew, { motion: o.motion });
+      W.at(cam.table, () => emit('table', false));
+      for (const x of cam.shots) W.at(x.at, () => emit('shot', x.shot));
+      D.drags = crew.drags;
+      D.crew = { drags: crew.drags, off: crew.off, done: crew.done, table: cam.table, shots: cam.shots, at: plan.at };
     }
     // the warm-ups, as many as the hold has room for
     const cP = cast.find((c) => c.look.role === 'pitcher'), cC = cast.find((c) => c.look.role === 'catcher');

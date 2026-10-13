@@ -107,7 +107,7 @@ export function paintKitAtlas(doc, cast, teams, into = null) {
   }
   for (const m of cast || []) {
     const side = m.look.side, slot = m.look.slot;
-    if (side !== 'home' && side !== 'away') continue;
+    if ((side !== 'home' && side !== 'away') || m.look.role === 'crew') continue;
     const nick = nicknameOf(teams?.[side]), key = `${side}|${nick}|${m.look.number}`;
     if (keys[slot] === key) continue;
     keys[slot] = key;

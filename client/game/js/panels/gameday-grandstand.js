@@ -31,9 +31,10 @@
 // the next payload's due is filled (diamond/between.js): the field walks back, the pitcher rubs up
 // the ball, the on-deck hitter swings and the cameras go round the park. The infield keeps
 // the game's marks, each stride, dig and slide painted into the dirt as it's made
-// (diamond/marks.js, gl/ballpark.js markDirt). With reduced
-// motion the cameras hold still and a replay is a still; and everything the graphics say is in
-// words too, for a screen reader (Play by Play in the accessibility settings).
+// (diamond/marks.js, gl/ballpark.js markDirt), till the grounds crew drag it in the middle of the
+// fifth (diamond/crew.js), the leaders' table down while they do. With reduced motion the
+// cameras hold still and a replay is a still; and everything the graphics say is in words too,
+// for a screen reader (Play by Play in the accessibility settings).
 //
 // The sim on the server decides everything. Nothing here can change a score.
 
@@ -66,6 +67,8 @@ const MATCHUP_MS = 4200, STEAL_MS = 4800, DIST_MS = 6000, TABLE_CYCLE_MS = 8000;
 // anyway once the frames have stopped (a hidden tab), so the line and the card never wait on a
 // picture nobody's drawing.
 const OWN_SPLASH_MS = 2600, LAND_SLACK_MS = 1500;
+// How much of the grounds crew's drag goes back on the dirt at a time (s): each time is one upload.
+const SMOOTH_S = 0.35;
 const RACES = ['hr', 'avg', 'sb', 'k'];
 // How many lines the live text keeps (gameday.js keeps as many).
 const LIVE_KEEP = 12;
@@ -92,8 +95,9 @@ export function createGrandstandView(host, opts = {}) {
   // while the viewer has asked for less motion, when they get up without bouncing
   let roar = null, calm = false;
   // the marks the game's made in the dirt since the last frame (diamond/marks.js), and the game
-  // they're from: a new one starts on a fresh infield
-  let marks = [], dirtGame = null;
+  // they're from: a new one starts on a fresh infield; whether the grounds crew's mats are drawn,
+  // and the world's time their drag has put the dirt back to (diamond/crew.js)
+  let marks = [], dirtGame = null, matsUp = false, smoothedTo = null;
   // the bags the picture last left taken (director.js pictureAfter): an at-bat that starts from
   // others opens on a cutaway while everyone takes their places
   let shown = null;
@@ -115,12 +119,13 @@ export function createGrandstandView(host, opts = {}) {
 
   function loadMods() {
     return (modsP ??= Promise.all([import('./gl/ballpark.js'), import('./diamond/hud.js'), import('./diamond/camera.js'), import('./diamond/cast.js'),
-      import('./diamond/world.js'), import('./diamond/director.js'), import('./diamond/spectacle.js'), import('./diamond/replay.js'), import('./gl/crowd.js')])
-      .then(([park, hudMod, cam, cast, world, director, fx, rp, crowd]) => (mods = {
+      import('./diamond/world.js'), import('./diamond/director.js'), import('./diamond/spectacle.js'), import('./diamond/replay.js'), import('./gl/crowd.js'),
+      import('./diamond/crew.js')])
+      .then(([park, hudMod, cam, cast, world, director, fx, rp, crowd, crew]) => (mods = {
         ...park, hud: hudMod, project: cam.project, shotAt: cam.shotAt, numberOf: cast.numberOf, pictureAfter: director.pictureAfter,
         createWorld: world.createWorld, DT: world.DT, createDirector: director.createDirector, splashOf: fx.splashOf,
         replayOf: rp.replayOf, stageReplay: rp.stageReplay, REPLAY: rp.REPLAY, fxEnd: fx.endOf,
-        cheerOf: fx.cheerOf, createRoar: crowd.createRoar,
+        cheerOf: fx.cheerOf, createRoar: crowd.createRoar, matAt: crew.matAt, sweptAlong: crew.sweptAlong,
       })));
   }
 
@@ -239,6 +244,7 @@ export function createGrandstandView(host, opts = {}) {
       R.setSpectacle?.(replay ? replay.D.fx : D.fx, RW.t);
       R.setCrowd?.(roar.at(W.t), W.t, !calm);
       if (marks.length) { R.markDirt?.(marks); marks = []; }
+      dragFrame();
       if (replay && (replay.still ? W.t >= replay.until : RW.t >= replay.to - 1e-9)) endReplay();
     }
     lastNow = now;
@@ -250,6 +256,20 @@ export function createGrandstandView(host, opts = {}) {
     else live = false;
   }
   function stopWorld() { D?.stop(); live = false; cur = null; stopReplay(); }
+  // The grounds crew's mats this frame (diamond/crew.js), and the dirt they've gone over since the
+  // last time put back as painted, SMOOTH_S at a time, so the dirt goes up a few times a second
+  // rather than every frame.
+  function dragFrame() {
+    const drags = D.drags || [];
+    if (!drags.length) { if (matsUp) { R.setMats?.([]); matsUp = false; } smoothedTo = null; return; }
+    R.setMats?.(drags.map((d) => mods.matAt(d, W.t)));
+    matsUp = true;
+    if (smoothedTo == null || W.t < smoothedTo) smoothedTo = W.t;
+    if (W.t - smoothedTo < SMOOTH_S) return;
+    const polys = drags.flatMap((d) => mods.sweptAlong(d, smoothedTo, W.t));
+    smoothedTo = W.t;
+    if (polys.length) R.smoothDirt?.(polys);
+  }
   // The camera this frame: the director's shot, which may follow the ball (diamond/camera.js
   // shotAt), at the world's time (the replay's, while one plays), the same for the park and the
   // graphics.
@@ -415,6 +435,12 @@ export function createGrandstandView(host, opts = {}) {
     if (name === 'shot') { liveShot = d; if (!opts.shot && !replay) setShot(d); return; }
     if (name === 'sound') { sfx(d); return; }
     if (name === 'mark') { marks.push(d); return; }
+    if (name === 'table') {
+      if (d) return;
+      if (S.tableRace) { stopTable(); board(); paintHud(); }
+      say('The grounds crew are out to drag the infield.');
+      return;
+    }
     if (name !== 'pitch' || !cur) return;
     const q = d.pitch, last = d.i === (cur.p.pitches || []).length - 1;
     S.balls = last ? Math.min(3, q.balls | 0) : q.balls | 0;
@@ -486,9 +512,11 @@ export function createGrandstandView(host, opts = {}) {
       Object.assign(S, { balls: 0, strikes: 0, outs: 0, bases: [false, false, false], batter: '', desc: '', lastBatter: '' });
       dropHolds();
       shot = opts.shot || 'high';
-      // the new side takes the field under the break's graphics, and the pitcher warms up
+      // the new side takes the field under the break's graphics, and the pitcher warms up; in the
+      // middle of the fifth the grounds crew drag the infield first, and the table comes down for them
       live = true; acc = 0;
-      D.changeover(p, cast);
+      calm = prefersReducedMotion();
+      D.changeover(p, cast, { motion: !calm });
       paint();
       if (!startTable(p)) renderCard({ kind: 'half', inningOrd: p.inningOrd, half: p.half, batting: p.battingTeam, duration: 3.4 });
       // a changeover has no ball to land, so its line goes up a beat in

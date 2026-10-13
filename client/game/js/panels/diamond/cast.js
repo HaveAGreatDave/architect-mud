@@ -15,6 +15,10 @@
  * a role, not to whoever's there (the fielding side's pitcher is 0, its shortstop 4; the batting
  * side's batter is 0, the man on first 1), so a new batter rebuilds the batter and nobody else.
  *
+ * In the middle of the fifth (`crewDue`) the grounds crew are out too (diamond/crew.js): four of
+ * them in work clothes in foul ground beyond third, two pairs side by side, in the batting side's
+ * slots 0 to 3, which nobody has in a break; and the base umpires stand clear of their way.
+ *
  * Pure: the gate runs it.
  */
 
@@ -40,6 +44,24 @@ export function leadOff(bag) {
   if (bag === 3) { p[0] += 2.1; p[2] -= 2.1; }
   return p;
 }
+
+// The middle of the fifth, when the grounds crew drag the infield (diamond/crew.js): the break
+// before the bottom of the fifth, when it holds `CREW_HOLD` seconds or more, room for the drag and
+// the infielders out after it.
+export const CREW_HOLD = 84;
+export const crewDue = (p) => p?.phase === 'half' && (p.inning | 0) === 5 && p.half === 'bottom' && Number.isFinite(p.hold) && p.hold / 1000 >= CREW_HOLD;
+// The crew's two arcs round the skirt (diamond/crew.js), the inner pair's and the outer's: each
+// one's radius from the rubber and the angle either side of the line to second base it starts and
+// ends at, the inner clear of second base, the outer of the grass; the turn (ft) each pair takes
+// onto its arc and off it; how far out in foul ground (ft) they come in, beyond third, and go out,
+// beyond first; and how far each man walks off his pair's middle (ft).
+export const CREW_ARCS = Object.freeze([Object.freeze({ r: 72, th: 82 }), Object.freeze({ r: 79, th: 78 })]);
+export const CREW_TURN = 5, CREW_GATE = 100, CREW_GAP = 1.6;
+// The lane across foul ground a pair walks to its arc and from it, the z of its middle: square to
+// the line to third, and onto the arc round its turn.
+export const crewLane = (a) => RUBBER[2] + (a.r + CREW_TURN) * Math.cos(a.th * DEG) - CREW_TURN;
+// Where the base umpire on each side (-1 first, +1 third) stands for the break, clear of the crew.
+const UMP_BREAK = (side) => [side * 84, 0, 54];
 
 // The cast for a payload. Returns [{ id, pose, at, yaw, mirror, look }], where `look` is what
 // buildPlayer needs besides the face: { id, side, role, slot, number, glove, helmet, flapSide, mask, battingGloves }.
@@ -69,8 +91,8 @@ export function castOf(p) {
   if (p.phase !== 'half' && p.batter) {
     person(0, p.batter, batSide, 'batter', 'batStance', [left ? -3.25 : 3.25, 0, 0.75], left ? 90 : -90, { helmet: true, flapSide: left ? -1 : 1, battingGloves: '#c9c4b8' }, { mirror: left });
   }
-  // the men on base, named where the play names them
-  const before = Array.isArray(p.basesBefore) ? p.basesBefore : [false, false, false];
+  // the men on base, named where the play names them; a break starts a fresh half with nobody on
+  const before = p.phase !== 'half' && Array.isArray(p.basesBefore) ? p.basesBefore : [false, false, false];
   const names = {};
   for (const m of Array.isArray(p.moves) ? p.moves : []) if (m && m.from >= 1 && m.from <= 3 && m.name) names[m.from] = m.name;
   for (const bag of [1, 2, 3]) {
@@ -88,11 +110,19 @@ export function castOf(p) {
   // the base coaches, in their boxes
   person(5, `${batTeam}:coach1`, batSide, 'coach', 'coach', [-78, 0, 47], faceHome([-78, 0, 47]) - 10, {});
   person(6, `${batTeam}:coach3`, batSide, 'coach', 'coach', [77, 0, 45], faceHome([77, 0, 45]) + 10, {});
-  // the umpires: behind the plate in his mask, and at the bases
+  // the umpires: behind the plate in his mask, and at the bases (off the skirt for the drag)
+  const crew = crewDue(p), u1 = crew ? UMP_BREAK(-1) : [-74, 0, 76], u3 = crew ? UMP_BREAK(1) : [74, 0, 78];
   person(0, 'ump:plate', 'ump', 'ump', 'umpire', [1.2, 0, -5.4], -6, { mask: true, girth: 0.06 });
-  person(1, 'ump:1B', 'ump', 'ump', 'outfield', [-74, 0, 76], faceHome([-74, 0, 76]), {});
+  person(1, 'ump:1B', 'ump', 'ump', 'outfield', u1, faceHome(u1), {});
   person(2, 'ump:2B', 'ump', 'ump', 'outfield', [16, 0, 150], faceHome([16, 0, 150]), {});
-  person(3, 'ump:3B', 'ump', 'ump', 'outfield', [74, 0, 78], faceHome([74, 0, 78]), {});
+  person(3, 'ump:3B', 'ump', 'ump', 'outfield', u3, faceHome(u3), {});
+  // the grounds crew in foul ground beyond third, each pair in its lane facing the infield, the
+  // inner pair's two in slots 0 and 1, the outer's in 2 and 3, the first of each on its right
+  if (crew) {
+    CREW_ARCS.forEach((a, i) => {
+      for (const [j, off] of [[0, -CREW_GAP], [1, CREW_GAP]]) person(2 * i + j, `crew:${2 * i + j}`, batSide, 'crew', 'stand', [CREW_GATE, 0, crewLane(a) + off], -90, {});
+    });
+  }
   return out;
 }
 
@@ -101,5 +131,5 @@ export function castOf(p) {
 export const castKey = (c) => JSON.stringify([c.id, c.pose, c.at, Math.round(c.yaw * 100), c.mirror, c.scale, c.look.side, c.look.slot, c.look.glove, c.look.helmet, c.look.flapSide, c.look.mask]);
 // A key for his skinned body (buildBody), which the GPU poses: who he is and what he wears, not
 // where he stands or which slot he's in, so a man keeps his body from one payload to the next.
-export const bodyKey = (c) => JSON.stringify([c.id, c.scale, c.look.side, c.look.role === 'catcher' || c.look.role === 'ump' ? c.look.role : '',
+export const bodyKey = (c) => JSON.stringify([c.id, c.scale, c.look.side, c.look.role === 'catcher' || c.look.role === 'ump' || c.look.role === 'crew' ? c.look.role : '',
   c.look.glove, c.look.helmet, c.look.flapSide, c.look.mask, c.look.battingGloves, c.look.girth]);

@@ -1071,8 +1071,18 @@ Built so far (Phases 1 and 2 of the plan):
   (`planBetween`, from the payload's `hold`). The field walks back to its places, the pitcher
   rubs up the ball off the back of the mound, a man who's out goes off to his dugout, and the
   cameras go round the park (wide, the on-deck circle, the pitcher, a stand of fans) once any
-  replay's done. The on-deck hitter takes practice swings through every at-bat. Frames run
-  through the dead time; a payload with no `hold` gets none;
+  replay's done, and on a long hold round again, a cutaway every 9 s of the wide shot. The
+  on-deck hitter takes practice swings through every at-bat. Frames run through the dead time; a
+  payload with no `hold` gets none;
+- the grounds crew (Phase 4d, [diamond/crew.js](../client/game/js/panels/diamond/crew.js)): in the
+  middle of the fifth, when the break holds 84 s or more (cast.js `crewDue`), four of them in
+  work clothes drag the infield, two to a mat and the pairs side by side, in from foul ground
+  beyond third, round the skirt past second base and off beyond first. Behind each mat the dirt
+  goes back to as it was painted (gl/ballpark.js `smoothDirt`), so the game's marks there are
+  gone. The infielders wait by their dugout till the mats are off the dirt; the pitcher warms up
+  meanwhile. The leaders' table comes down a few seconds into the drag and a camera in a well
+  across the field follows the crew round, from first base's side and then third's; with reduced
+  motion it holds still where they'll walk through;
 - replays (Phase 4b, [diamond/replay.js](../client/game/js/panels/diamond/replay.js)): a walk-off,
   a home run, a triple or double play, a catch that took a dive, a slide or a leap, a triple and a
   call at first closer than 0.15 s are shown again in slow motion. Staging is a pure function of

@@ -155,6 +155,35 @@ export function strip(b, pts, y0, y1, col, mat, uvU = 8, flipN = false) {
   }
 }
 
+// A rod of radius r from A to B, four-sided: a rope.
+export function rod(b, A, B, r, col, mat) {
+  const d = norm(sub(B, A)), e1 = norm(cross(d, Math.abs(d[1]) < 0.9 ? [0, 1, 0] : [1, 0, 0])), e2 = cross(d, e1);
+  const off = (k) => { const a = (k + 0.5) * TAU / 4; return add(mul(e1, r * Math.cos(a)), mul(e2, r * Math.sin(a))); };
+  for (let k = 0; k < 4; k++) {
+    const p = off(k), q = off(k + 1), n = norm(add(p, q));
+    quad(b, add(A, p), add(A, q), add(B, q), add(B, p), n, col, mat);
+  }
+}
+
+// ── the grounds crew's mats ────────────────────────────────────────────────
+// A drag mat (diamond/crew.js matAt) into batch `b`: steel mesh lying on the dirt, the pipe across
+// its front, and a rope from each end of the pipe up over the right shoulder of the man pulling
+// that side to his hands. `men` are [{ side (+1 the mat's right), shoulder, hands }], points in
+// the park; a man with no shoulder (his pose not in yet) has his rope straight to his hands.
+export const MAT_LOOK = Object.freeze({ mesh: '#4a4d50', pipe: '#5d6266', rope: '#a8916a', thick: 0.05, ropeR: 0.035 });
+export function dragMat(b, m, men = []) {
+  const yaw = m.yaw * DEG, u = [Math.sin(yaw), 0, Math.cos(yaw)], n = [-u[2], 0, u[0]], L = MAT_LOOK;
+  box(b, [m.at[0], L.thick / 2, m.at[2]], [m.w / 2, L.thick / 2, m.l / 2], m.yaw, lin(L.mesh), MAT.MATTE);
+  const front = madd(m.at, u, m.l / 2);
+  box(b, [front[0], 0.08, front[2]], [m.w / 2 + 0.1, 0.06, 0.06], m.yaw, lin(L.pipe), MAT.METAL);
+  for (const man of men) {
+    const end = madd(front, n, (man.side * m.w) / 2);
+    const from = [end[0], 0.1, end[2]];
+    if (man.shoulder) { rod(b, from, man.shoulder, L.ropeR, lin(L.rope), MAT.CLOTH); rod(b, man.shoulder, man.hands, L.ropeR, lin(L.rope), MAT.CLOTH); }
+    else rod(b, from, man.hands, L.ropeR, lin(L.rope), MAT.CLOTH);
+  }
+}
+
 // ── the field ───────────────────────────────────────────────────────────────
 // The ground is one grid the shader paints; the mound, the rubber, the plate and the bags
 // are geometry on it.

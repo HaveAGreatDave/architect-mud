@@ -18,7 +18,9 @@
 //      the names, the latest nine innings in extras, and an E only for a game that counts
 //      errors.
 //   4. THE FALLBACK HOLDS, and the dirt. The dirt is where paintInfield paints it (diamond/dirt.js
-//      onDirt), and each mark the game leaves paints inside the rect that goes up to the GPU.
+//      onDirt), and each mark the game leaves paints inside the rect that goes up to the GPU; the
+//      grounds crew's drag copies the painted dirt back inside its polygon only, and a drag mat
+//      and its ropes build finite, lying on the dirt and reaching the men pulling it.
 //      With the flag off the view IS the 2-D Gameday. Forced on with no
 //      WebGL2, `createBallparkRenderer` returns null rather than throwing, the view gives way
 //      to the 2-D Gameday, and the booth's held line still lands with the play.
@@ -26,7 +28,8 @@
 //      the occlusion reads depth back through the perspective's constants to where it was; the
 //      lens is sharp at its focus and softer away from it.
 //   6. THE PLAYERS. Every pose builds, both hands, finite and inside its budget; a mirrored pose
-//      is its original in a mirror; the cast puts everyone where the payload has them; every
+//      is its original in a mirror; the cast puts everyone where the payload has them, the
+//      grounds crew in their work clothes in the middle of the fifth and clear of the umpires; every
 //      player's face pick is the same twice and never a makeup layout; every cap, helmet and
 //      mask clears the brow and the ears and leaves both eyes open.
 //   7. THE GRAPHICS. diamond/hud.js lays out the arcade package on the wall TV's sub-screen, the
@@ -50,13 +53,13 @@ const M = await import(P + 'gl/ballpark-mesh.js');
 const G = await import(P + 'diamond/geo.js');
 const C = await import(P + 'diamond/camera.js');
 const { boardLamps, BOARD_W, BOARD_H } = await import(P + 'diamond/board.js');
-const { paintInfield, paintMark, markRect, onDirt, DIRT_RECT } = await import(P + 'diamond/dirt.js');
+const { paintInfield, paintMark, markRect, onDirt, polyRect, smoothPoly, DIRT_RECT } = await import(P + 'diamond/dirt.js');
 const { createBallparkRenderer } = await import(P + 'gl/ballpark.js');
 const { spotMatrix, spotReach } = await import(P + 'gl/spotshadow.js');
 const { ssaoConstants, RECONSTRUCT } = await import(P + 'gl/ssao.js');
 const { cocOf, DOF_MAX } = await import(P + 'gl/broadcast.js');
 const PM = await import(P + 'gl/ballplayer-mesh.js');
-const { castOf, castKey, bodyKey, leadOff } = await import(P + 'diamond/cast.js');
+const { castOf, castKey, bodyKey, leadOff, crewDue, CREW_HOLD } = await import(P + 'diamond/cast.js');
 const { FACE } = await import(P + 'actor-head.js');
 const { FACE_LAYOUTS } = await import(P + 'actor-faces.js');
 const { MASK_BARS, nicknameOf } = await import(P + 'diamond/kits.js');
@@ -268,6 +271,33 @@ for (const kind of ['sit', 'stand', 'cheer']) for (const far of [false, true]) {
   const sr = markRect(scar, px);
   check('the dirt: a scar\'s rect holds its way and the heap ahead of it', !!sr && scar.pts.every((q) => holds(sr, q[0], q[1], scar.w / 2)) && holds(sr, 1.3 + 0.84 * 0.707, 128.6 + 0.84 * 0.707, 0.78), JSON.stringify(sr));
   check('the dirt: a mark off the canvas touches nothing', markRect({ kind: 'stride', at: [0, 400], dir: 0, seed: 5 }, px) === null);
+  // the drag: the painted dirt copied back inside the polygon a mat went over, clipped to it, and
+  // only its rect going up
+  const poly = [[40.2, 118.6], [45.1, 121.9], [43.4, 124.5], [38.5, 121.2]], pr = polyRect(poly, px), calls = [];
+  const rec = new Proxy({}, { get: (t, k) => (...a) => calls.push([k, a]), set: (t, k, val) => { calls.push(['=' + k, [val]]); return true; } });
+  const src = { width: px, height: px }, got = smoothPoly(rec, src, poly, px), names = calls.map((c) => c[0]);
+  const draw = calls.find((c) => c[0] === 'drawImage'), path = calls.filter((c) => c[0] === 'moveTo' || c[0] === 'lineTo');
+  check('the dirt: the drag\'s rect holds its polygon and goes up', !!pr && JSON.stringify(got) === JSON.stringify(pr) && poly.every((q) => holds(pr, q[0], q[1], 0)), JSON.stringify(pr));
+  check('the dirt: the drag copies the painted dirt back, clipped to its polygon', names.indexOf('clip') > 0 && names.indexOf('clip') < names.indexOf('drawImage') && calls.some((c) => c[0] === '=globalCompositeOperation' && c[1][0] === 'copy')
+    && names[0] === 'save' && names[names.length - 1] === 'restore' && !!draw && draw[1][0] === src && JSON.stringify(draw[1].slice(1)) === JSON.stringify([...pr, ...pr])
+    && path.length === 4 && path.every((c, i) => Math.abs(c[1][0] - T(...poly[i])[0]) < 1e-9 && Math.abs(c[1][1] - T(...poly[i])[1]) < 1e-9), names.join(' '));
+  check('the dirt: a drag off the canvas touches nothing', polyRect([[0, 400], [6, 400], [6, 403], [0, 403]], px) === null && smoothPoly(rec, src, [[0, 400], [6, 400], [6, 403]], px) === null);
+  // a drag mat and its ropes: finite, lying on the dirt where it says, the ropes up to the men
+  const mb = M.createBatch(64), mat = { at: [44, 0, 121], yaw: -60, w: 6, l: 3, ropes: [[45, 3.9, 125], [42, 3.9, 127]] };
+  const shoulder = [44.6, 4.95, 124.2], hands = [45.2, 4.0, 125.1];
+  M.dragMat(mb, mat, [{ side: 1, shoulder, hands }, { side: -1, hands: mat.ropes[1] }]);
+  let mbad = 0, low = Infinity, high = -Infinity, far = 0;
+  const KNOWNM = new Set(Object.values(M.MAT));
+  for (let k = 0; k < mb.n; k++) {
+    const o = k * M.STRIDE;
+    for (let j = 0; j < M.STRIDE; j++) if (!Number.isFinite(mb.data[o + j])) mbad++;
+    if (!KNOWNM.has(mb.data[o + 11])) mbad++;
+    low = Math.min(low, mb.data[o + 1]); high = Math.max(high, mb.data[o + 1]);
+    far = Math.max(far, Math.hypot(mb.data[o] - mat.at[0], mb.data[o + 2] - mat.at[2]));
+  }
+  check('a drag mat: every float finite, every material known', mb.n > 0 && mbad === 0, `${mb.n} vertices, ${mbad} bad`);
+  check('a drag mat: on the ground, its ropes up to the hands and over the shoulder', Math.abs(low) < 1e-6 && high > shoulder[1] && high < shoulder[1] + 0.1, `${low.toFixed(3)} to ${high.toFixed(3)}`);
+  check('a drag mat: nothing further out than its men', far < Math.hypot(mat.at[0] - mat.ropes[1][0], mat.at[2] - mat.ropes[1][2]) + 0.2, far.toFixed(2));
   const cv = document.createElement('canvas');
   let r = 'threw';
   try { r = createBallparkRenderer(cv); } catch (e) { r = 'threw: ' + e.message; }
@@ -412,6 +442,24 @@ for (const kind of ['sit', 'stand', 'cheer']) for (const far of [false, true]) {
   const sameSide = castOf({ ...p, batter: 'Okafor' }).filter((c, i) => castKey(c) !== castKey(cast[i])).map((c) => c.look.role);
   check('cast: a new hitter from the same side moves nobody', sameSide.length === 1 && sameSide[0] === 'batter', sameSide.join());
   check('cast: a half-inning break has no batter', !castOf({ ...p, phase: 'half' }).some((c) => c.look.role === 'batter'));
+  // the grounds crew in the middle of the fifth at a long hold: four, in the batting side's empty
+  // slots, standing in foul ground beyond third, the base umpires out of their lanes; nobody else
+  // moved for them
+  const fifth = { ...p, phase: 'half', inning: 5, half: 'bottom', hold: CREW_HOLD * 1000 }, crewCast = castOf(fifth), crew = crewCast.filter((c) => c.look.role === 'crew');
+  check('cast: the middle of the fifth at a long hold has the grounds crew, four of them', crewDue(fifth) && crew.length === 4 && !castOf({ ...fifth, hold: CREW_HOLD * 1000 - 1 }).some((c) => c.look.role === 'crew'), `${crew.length}`);
+  check('cast: the crew in the batting side\'s empty slots', new Set(crewCast.map((c) => c.look.slot)).size === crewCast.length && crew.every((c) => c.look.side === 'home' && c.look.slot < 4));
+  check('cast: the crew in foul ground beyond third', crew.every((c) => c.at[0] > c.at[2] + 10 && c.at[0] >= 90 && !onDirt(c.at[0], c.at[2])), crew.map((c) => c.at.map((x) => x.toFixed(1)).join(',')).join(' '));
+  const umps = crewCast.filter((c) => c.look.role === 'ump' && c.id !== 'ump:plate' && c.id !== 'ump:2B');
+  check('cast: the base umpires stand 10 ft clear of the crew\'s lanes', umps.length === 2 && umps.every((u) => crew.every((c) => Math.abs(u.at[2] - c.at[2]) >= 10)), umps.map((u) => u.at.join(',')).join(' '));
+  // their work clothes: a body and a posed figure each, no club on them
+  for (const c of crew.slice(0, 1)) {
+    const look = PM.lookOf({ ...c.look, scale: c.scale }), G1 = PM.createPlayerSet(), G2 = PM.createPlayerSet({ skin: true });
+    PM.buildPlayer(G1, Object.assign(PM.POSES.stand(), { at: c.at, yaw: c.yaw }), look);
+    PM.buildBody(G2, look);
+    let bad = 0, tris = 0;
+    for (const G of [G1, G2]) for (const [, b] of G.batches) { tris += b.n / 3; for (let k = 0; k < b.n * (G === G2 ? PM.SKIN_STRIDE : M.STRIDE); k++) if (!Number.isFinite(b.data[k])) bad++; }
+    check('cast: the crew\'s work clothes build, posed and skinned', bad === 0 && tris > 4000, `${tris} triangles, ${bad} bad`);
+  }
   // a skinned body is who he is and what he wears: a new batter is one new body, and a runner who
   // moves up keeps his
   const keysOf = (q) => new Set(castOf(q).map(bodyKey));

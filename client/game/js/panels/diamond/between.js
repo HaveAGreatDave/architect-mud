@@ -36,6 +36,8 @@ export const BETWEEN = Object.freeze({
   walkFar: 55, jog: 11,
   // the room a man going keeps from anybody already going (ft), and the longest he's held back (s)
   room: 2.6, wait: 6,
+  // on a long hold, how long the wide shot holds between the cutaways that come round again (s)
+  wide: 9,
 });
 const WALK = CLIPS.run_walk;
 export const WALK_V = rootAt(WALK, WALK.duration).at[1] / WALK.duration;
@@ -306,7 +308,8 @@ export function deckPlan(t0, t1, salt, at = []) {
 // The cameras between at-bats, from `from` to `until` (the next payload's due): wide over the field;
 // then, where there's time, the on-deck circle (`deck`, a camera by name) for a swing, the pitcher
 // off the back of the mound once he's rubbing up the ball (`rubAt`), a cutaway to the crowd, and
-// wide again.
+// wide again; and on a long hold round again, a cutaway every BETWEEN.wide seconds of the wide
+// shot (the on-deck circle, the city beyond the park, the crowd), wide at the end.
 // Returns [{ at, shot, swing }]: `swing` is when the on-deck hitter's swing is wanted for his shot.
 export function shotsBetween({ from, until, deck, rubAt }) {
   const out = [], room = until - from;
@@ -322,5 +325,12 @@ export function shotsBetween({ from, until, deck, rubAt }) {
   }
   if (fits(4)) { out.push({ at: t, shot: 'crowd' }); t += 4; }
   if (out[out.length - 1].shot !== 'high') out.push({ at: t, shot: 'high' });
+  const again = [deck && { shot: deck, len: 5.5, swing: 0.6 }, { shot: 'sky', len: 5 }, { shot: 'crowd', len: 4 }].filter(Boolean);
+  for (let k = 0; ; k++) {
+    const c = again[k % again.length], at = t + BETWEEN.wide;
+    if (at + c.len > until - 3) break;
+    out.push({ at, shot: c.shot, ...(c.swing ? { swing: at + c.swing } : {}) }, { at: at + c.len, shot: 'high' });
+    t = at + c.len;
+  }
   return out;
 }

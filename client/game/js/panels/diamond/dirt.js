@@ -222,3 +222,32 @@ export function paintMark(g, m, px = 2048) {
   g.restore();
   return rect;
 }
+
+// The texels a polygon (corners [x, z]) covers on a canvas `px` texels a side: [x, y, w, h], whole
+// texels with a margin, clipped to the canvas; null for one off it.
+export function polyRect(poly, px = 2048) {
+  const S = px / DIRT_RECT.size;
+  const xs = poly.map((q) => q[0]), zs = poly.map((q) => q[1]);
+  const tx0 = Math.max(0, Math.floor((Math.min(...xs) - DIRT_RECT.x0) * S) - 1), ty0 = Math.max(0, Math.floor((Math.min(...zs) - DIRT_RECT.z0) * S) - 1);
+  const tx1 = Math.min(px, Math.ceil((Math.max(...xs) - DIRT_RECT.x0) * S) + 1), ty1 = Math.min(px, Math.ceil((Math.max(...zs) - DIRT_RECT.z0) * S) + 1);
+  return poly.length >= 3 && tx1 > tx0 && ty1 > ty0 ? [tx0, ty0, tx1 - tx0, ty1 - ty0] : null;
+}
+
+// The dirt inside polygon `poly` (corners [x, z]) on `g`, a 2-D context over the whole canvas, put
+// back as `src` has it (paintInfield's canvas, the same size): where a drag mat's gone over
+// (diamond/crew.js). Copied, not drawn over, so a texel at the dirt's soft edge gets its own alpha
+// back rather than more of it each pass. Returns the rect it touched (polyRect), or null.
+export function smoothPoly(g, src, poly, px = 2048) {
+  const rect = polyRect(poly, px);
+  if (!rect) return null;
+  const S = px / DIRT_RECT.size, X = (x) => (x - DIRT_RECT.x0) * S, Z = (z) => (z - DIRT_RECT.z0) * S;
+  g.save();
+  g.beginPath();
+  poly.forEach((q, i) => (i ? g.lineTo(X(q[0]), Z(q[1])) : g.moveTo(X(q[0]), Z(q[1]))));
+  g.closePath();
+  g.clip();
+  g.globalCompositeOperation = 'copy';
+  g.drawImage(src, rect[0], rect[1], rect[2], rect[3], rect[0], rect[1], rect[2], rect[3]);
+  g.restore();
+  return rect;
+}

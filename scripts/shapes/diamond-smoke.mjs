@@ -52,6 +52,14 @@
 //      ending where he plays (4 ft) and nobody faster than 52 ft/s; every warm-up out of the
 //      pitcher's hand (0.05 ft), the catcher's receive lined up on it and the mitt on the ball
 //      (0.1 ft), each with its stride in the dirt; and the game's changeovers have warm-ups.
+//      THE GROUNDS CREW (diamond/crew.js), the middle of the fifth at a long hold: four of them in
+//      the cast, and none at a short hold or in another break; both pairs round their arcs, each
+//      man where his mat has him while he pulls (0.3 ft), each mat on the dirt while it's on and
+//      the ground it goes over all on the canvas; nobody jumping, nobody within 2 ft of one of the
+//      crew (or nearer than the two started), their walks and pulls inside their joints; the
+//      infielders by their dugout till the mats are off the dirt and at their spots (4 ft) a beat
+//      before the next payload's due, the crew at the gate beyond first (1 ft); the leaders' table
+//      down once, and the crew camera with the crew in its frame.
 //   1d. THE PLAYS ON THE BASES (diamond/runs.js), every run payload, and the first of each kind the
 //      game hasn't got from the games after it (and of a third out on the bases), so every kind is
 //      staged on every seed: the
@@ -118,7 +126,8 @@ const stub = __install();
 const P = '../../client/game/js/panels/';
 const { createWorld, DT, toPark } = await import(P + 'diamond/world.js');
 const { createDirector, pictureAfter } = await import(P + 'diamond/director.js');
-const { castOf } = await import(P + 'diamond/cast.js');
+const { castOf, crewDue, crewLane, CREW_ARCS, CREW_GATE, CREW_GAP, CREW_HOLD } = await import(P + 'diamond/cast.js');
+const { matAt, sweptAlong, crewShots: crewShotsOf } = await import(P + 'diamond/crew.js');
 const { pitchPoint } = await import(P + 'diamond/hud.js');
 const { solvePose } = await import(P + 'diamond/rig.js');
 const { handPoint, limitBreaks, eventTime } = await import(P + 'diamond/anim.js');
@@ -132,7 +141,7 @@ const { replayOf, stageReplay, REPLAY } = await import(P + 'diamond/replay.js');
 const { HUD_THEME } = await import(P + 'diamond/hud.js');
 const { dugoutSpot, dugoutOf } = await import(P + 'diamond/bases.js');
 const { createGrandstandView } = await import(P + 'gameday-grandstand.js');
-const { onDirt, markRect } = await import(P + 'diamond/dirt.js');
+const { onDirt, markRect, polyRect } = await import(P + 'diamond/dirt.js');
 const { sportsRng } = await import('../../plugins/broadcast/rng.js');
 const { simGameV2, speedOf } = await import('../../plugins/broadcast/sports/baseball.js');
 const { gamedayPayloads } = await import('../../plugins/broadcast/sports/baseball-gameday.js');
@@ -167,7 +176,7 @@ const bagAt = (b) => (b === 4 ? [0, 0, 0] : BAGS[b]);
 for (const p of order) for (const m of p.moves || []) if (m && m.name) check('a runner\'s legs in the picture are the sim\'s (play.js legsOf)', legsOf(m.name) === speedOf(m.name), m.name);
 
 // ── 1. the director ──────────────────────────────────────────────────────────
-const seen = { skip: 0, ritual: 0, block: 0, check: 0, punchout: 0, hbp: 0, lefty: 0, sideL: 0, toFirst: 0, air: 0, rundown: 0, scored: 0, round: 0, trot: 0, off: 0, warmup: 0, replay: 0, scar: 0, between: 0, rub: 0, goneOff: 0, deckShot: 0 };
+const seen = { skip: 0, ritual: 0, block: 0, check: 0, punchout: 0, hbp: 0, lefty: 0, sideL: 0, toFirst: 0, air: 0, rundown: 0, scored: 0, round: 0, trot: 0, off: 0, warmup: 0, replay: 0, scar: 0, between: 0, rub: 0, goneOff: 0, deckShot: 0, crew: 0 };
 // The ball of a foot, where marks.js puts its mark: half way from the ankle to the toe.
 const footAt = (J, S) => [(J['an' + S][0] + J['toe' + S][0]) / 2, (J['an' + S][2] + J['toe' + S][2]) / 2];
 // The dirt's marks (diamond/marks.js) a staging said: each on the canvas, a foot's on the dirt,
@@ -475,9 +484,13 @@ for (const hold of [undefined, 45000]) {
       check('between at-bats: the cameras open wide and go round the park when there\'s time', B.shots[0]?.shot === 'high' && (B.by - B.from < 20 || (named.has('rub') || named.has('crowd'))), `${label}: ${B.shots.map((x) => x.shot).join(', ')}`);
       if (named.has('deck1') || named.has('deck3')) {
         seen.deckShot++;
-        const want = B.shots.find((x) => x.swing)?.swing;
-        check('between at-bats: the on-deck hitter swings for his camera', D.played.some((x) => x.role === 'ondeck' && x.clip === 'deck_swing' && Math.abs(x.t - want) < 1e-6), `${label}: wanted at +${(want - t0).toFixed(2)}`);
+        for (const want of B.shots.filter((x) => x.swing).map((x) => x.swing)) {
+          check('between at-bats: the on-deck hitter swings for his camera, each time it comes round', D.played.some((x) => x.role === 'ondeck' && x.clip === 'deck_swing' && Math.abs(x.t - want) < 1e-6), `${label}: wanted at +${(want - t0).toFixed(2)}`);
+        }
       }
+      // the shots one after another, and wide for the last of them, 3 s or more before the next payload
+      check('between at-bats: the cameras in order, ending wide 3 s before the next payload\'s due', B.shots.every((x, i) => i === 0 || x.at > B.shots[i - 1].at)
+        && B.shots[B.shots.length - 1].shot === 'high' && B.shots[B.shots.length - 1].at <= B.until - 3 + 1e-9, `${label}: ${B.shots.map((x) => `${x.shot}@${(x.at - t0).toFixed(1)}`).join(', ')}`);
     }
     if (off.length) {
       // every man ends in his side's crowd by its dugout
@@ -603,6 +616,113 @@ for (const p of order.filter((x) => x.phase === 'half')) {
   for (const m of men) check('the changeover: every man ends where he plays (4 ft)', !!m.last && flatD(m.last, m.c.at) <= 4, `${label}: ${m.c.id} ${m.last ? flatD(m.last, m.c.at).toFixed(1) : '?'} ft off`);
 }
 check('the game\'s changeovers have warm-ups', seen.warmup > 0);
+
+// ── 1c'. the grounds crew ─────────────────────────────────────────────────────
+{
+  const p0 = order.find((x) => x.phase === 'half' && x.inning === 5 && x.half === 'bottom');
+  const label = `seed ${SEED}: the middle of the fifth`;
+  check('the grounds crew: the game has a middle of the fifth', !!p0, label);
+  const others = order.filter((x) => x.phase === 'half' && x !== p0).map((x) => ({ ...x, hold: 90000 }));
+  check('the grounds crew: none at a short hold or in another break', !!p0 && !crewDue({ ...p0, hold: 45000 }) && !others.some(crewDue) && !castOf({ ...p0, hold: 45000 }).some((c) => c.look.role === 'crew'), label);
+  if (p0) {
+    // at the shortest hold that has them in the cast, there's room for them to drag
+    const Dx = createDirector(W, {});
+    Dx.changeover({ ...p0, hold: CREW_HOLD * 1000 }, castOf({ ...p0, hold: CREW_HOLD * 1000 }));
+    check('the grounds crew: at the shortest hold that has them, they drag', !!Dx.crew, `${label}: ${CREW_HOLD} s`);
+    Dx.stop();
+    const HOLD = 90000, p = { ...p0, hold: HOLD }, cast = castOf(p), crew = cast.filter((c) => c.look.role === 'crew');
+    check('the grounds crew: four of them in the cast', crew.length === 4, `${label}: ${crew.length}`);
+    let cutAt = -Infinity, shot = null;
+    const tables = [], crewShots = [];
+    const D = createDirector(W, { emit: (n, d) => { if (n === 'shot') { cutAt = W.t; shot = d; if (d && d.shot === 'crew') crewShots.push({ t: W.t, d }); } if (n === 'table') tables.push({ t: W.t, d }); } });
+    const t0 = W.t;
+    D.changeover(p, cast);
+    const C = D.crew;
+    check('the grounds crew: they drag, two mats', !!C && D.drags.length === 2, label);
+    if (C) {
+      const crewSlots = new Set(crew.map((c) => c.look.slot)), BT = new Set(['run_walk', 'crew_drag', 'stand_idle']);
+      const inf = cast.filter((c) => c.pose === 'infield').map((c) => ({ c, from: W.bodies.get(c.look.slot)?.at.slice() }));
+      const stills = cast.filter((c) => !W.bodies.has(c.look.slot));
+      const last = new Map(), start = new Map();
+      let close = { d: Infinity }, jump = null, bent = null, away = 0, awayWhat = '', offDirt = null, early = null, k = 0;
+      while (W.t < D.until + 0.1) {
+        W.step(DT);
+        if (++k % 12) continue;
+        const at = [];
+        for (const [slot, b] of W.bodies) {
+          const Q = W.pose(slot);
+          if (!Q) continue;
+          const pv = toPark(Q, Q.pelvis), w = last.get(slot);
+          if (w && w.at > cutAt && !jump && flatD(pv, w.pv) / (W.t - w.at) > 52) jump = `slot ${slot} in ${b.clip?.id} at +${(W.t - t0).toFixed(2)} s`;
+          last.set(slot, { pv, at: W.t });
+          at.push([slot, pv]);
+          if (crewSlots.has(slot) && k % 60 === 0 && !bent && BT.has(b.clip?.id) && !(b.prev && W.t < b.prev.from + b.prev.fade)) {
+            const L = { ...Q, at: [0, 0, 0], yaw: 0 }, br = limitBreaks(L, solvePose(L)).filter((x) => !/ ft up/.test(x));
+            if (br.length) bent = `slot ${slot} in ${b.clip.id} at +${(W.t - t0).toFixed(2)} s: ${br[0]}`;
+          }
+        }
+        for (const c of stills) at.push([c.look.slot + 100, c.at]);
+        for (let i = 0; i < at.length; i++) for (let j = i + 1; j < at.length; j++) {
+          if (!crewSlots.has(at[i][0]) && !crewSlots.has(at[j][0])) continue;
+          const key = at[i][0] + '|' + at[j][0], d = flatD(at[i][1], at[j][1]);
+          if (!start.has(key)) start.set(key, d);
+          const room = Math.min(2, start.get(key) - 0.5);
+          if (d - room < close.d) close = { d: d - room, what: `slots ${at[i][0]} and ${at[j][0]} ${d.toFixed(2)} ft apart at +${(W.t - t0).toFixed(2)} s` };
+        }
+        for (const d of D.drags) {
+          const m = matAt(d, W.t), u = [Math.sin(m.yaw * Math.PI / 180), Math.cos(m.yaw * Math.PI / 180)], n = [-u[1], u[0]];
+          if (m.on && !offDirt) {
+            for (const [a, b] of [[0, 0], [1, 1], [1, -1], [-1, 1], [-1, -1]]) {
+              const x = m.at[0] + (u[0] * a * m.l) / 2 + (n[0] * b * m.w) / 2, z = m.at[2] + (u[1] * a * m.l) / 2 + (n[1] * b * m.w) / 2;
+              if (!onDirt(x, z)) offDirt = `${x.toFixed(1)}, ${z.toFixed(1)} at +${(W.t - t0).toFixed(1)} s`;
+            }
+          }
+          // while he pulls, each man where his mat has him
+          if (W.t > d.T[d.i0] + 1 && W.t < d.T[d.i1]) {
+            for (const man of m.men) {
+              const Q = W.pose(man.slot), r = m.ropes[man.side > 0 ? 0 : 1], e = Q ? Math.hypot(Q.at[0] - r[0], Q.at[2] - r[2]) : Infinity;
+              if (e > away) { away = e; awayWhat = `slot ${man.slot} at +${(W.t - t0).toFixed(1)} s`; }
+            }
+          }
+        }
+        // the infielders stay by their dugout till the mats are off the dirt
+        if (W.t < C.off && !early) for (const f of inf) { const Q = W.pose(f.c.look.slot); if (Q && f.from && flatD(Q.at, f.from) > 1) early = `${f.c.id} at +${(W.t - t0).toFixed(1)} s`; }
+      }
+      check('the grounds crew: nobody jumps (52 ft/s) outside a cut', !jump, `${label}: ${jump}`);
+      check('the grounds crew: nobody comes within 2 ft of one of them (or nearer than the two started)', close.d >= 0, `${label}: ${close.what}`);
+      check('the grounds crew: their walks and pulls are bodies that can, outside a mix', !bent, `${label}: ${bent}`);
+      check('the grounds crew: each man where his mat has him while he pulls (0.3 ft)', away <= 0.3, `${label}: ${away.toFixed(2)} ft, ${awayWhat}`);
+      check('the grounds crew: each mat on the dirt while it\'s on', !offDirt, `${label}: ${offDirt}`);
+      const polys = D.drags.flatMap((d) => sweptAlong(d, d.T[0], d.end));
+      check('the grounds crew: the ground the mats go over is on the canvas, and only on the arcs', polys.length > 50 && polys.every((q) => q.length === 4 && q.every((v) => v.every(Number.isFinite)) && polyRect(q)), `${label}: ${polys.length}`);
+      check('the grounds crew: the infielders wait by their dugout till the mats are off the dirt', !early, `${label}: ${early}`);
+      for (const f of inf) {
+        const Q = W.pose(f.c.look.slot), there = C.at.get(f.c.look.slot);
+        check('the grounds crew: the infielders at their spots (4 ft) a beat before the next payload\'s due', !!Q && flatD(Q.at, f.c.at) <= 4 && there <= t0 + HOLD / 1000 - 1.5, `${label}: ${f.c.id} ${Q ? flatD(Q.at, f.c.at).toFixed(1) : '?'} ft off, there at +${(there - t0).toFixed(1)} s`);
+      }
+      for (const c of crew) {
+        const Q = W.pose(c.look.slot), arc = CREW_ARCS[c.look.slot >> 1], want = [-CREW_GATE, 0, crewLane(arc) + (c.look.slot % 2 ? CREW_GAP : -CREW_GAP)];
+        check('the grounds crew: each at the gate beyond first after (1 ft)', !!Q && flatD(Q.at, want) <= 1, `${label}: ${c.id} ${Q ? flatD(Q.at, want).toFixed(2) : '?'} ft off`);
+      }
+      check('the grounds crew: the leaders\' table comes down once, as they pull', tables.length === 1 && tables[0].d === false && tables[0].t > D.drags[0].T[D.drags[0].i0], `${label}: ${JSON.stringify(tables)}`);
+      // the crew camera has them: their middle in the middle of its frame, each second it's up
+      let framed = crewShots.length >= 2, what = '';
+      for (const x of crewShots) {
+        const to = Math.min(...C.shots.filter((y) => y.at > x.t + 1e-6).map((y) => y.at), D.until);
+        for (let t = x.t; t < to; t += 1) {
+          const q = project(shotAt(x.d, t), 400, 300, x.d.track(t));
+          if (!q || q.x < 100 || q.x > 300 || q.y < 75 || q.y > 225) { framed = false; what = `+${(t - t0).toFixed(1)} s ${q ? `${q.x.toFixed(0)},${q.y.toFixed(0)}` : 'behind'}`; break; }
+        }
+      }
+      check('the grounds crew: the crew camera has them in its frame', framed, `${label}: ${crewShots.length} shots ${what}`);
+      // for a viewer who's asked for less motion it holds still
+      const still = crewShotsOf({ drags: D.drags }, { motion: false }).shots.filter((x) => typeof x.shot === 'object');
+      check('the grounds crew: with less motion the crew camera holds still', still.length >= 2 && still.every((x) => JSON.stringify(shotAt(x.shot, x.at)) === JSON.stringify(shotAt(x.shot, x.at + 4))), `${label}: ${still.length}`);
+      seen.crew++;
+    }
+  }
+}
+check('the game has the grounds crew in the middle of the fifth', seen.crew > 0);
 
 // ── 1d. the plays on the bases ───────────────────────────────────────────────
 // Every run payload, and the first of each kind this game hasn't got from the games after it, and
