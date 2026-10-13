@@ -1124,7 +1124,10 @@ picture's. The sandbox page takes
 `?park=3d`, `?play=inplay` (balls in play only), `?play=bases` (the plays on the bases), `?shot=`, `?bug=`, `?po=1` (the final's
 dressing), `?hud=0` (the picture alone), `?city=0`, `?hold=` (each line's hold in milliseconds,
 35000 by default) and `?speed=` (0.25 for a slow look, 0 to stop the park's clock); its city comes from the flight sim's
-baked world, so it can trail the live map by a bake. The renderer's traps are in [glass-notes.md](reference/glass-notes.md#the-ballpark-glballparkjs).
+baked world, so it can trail the live map by a bake. [tools/sandbox/deadball-shots.mjs](../tools/sandbox/deadball-shots.mjs)
+takes the page headless and screenshots a slot's plays at the moments the director logs (each
+pitch, the catch, the throw, the tag, the landing and after), so the picture can be checked with
+nobody at the keyboard. The renderer's traps are in [glass-notes.md](reference/glass-notes.md#the-ballpark-glballparkjs).
 
 ### Sim v2
 
