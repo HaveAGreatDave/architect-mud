@@ -17,7 +17,9 @@
 //   3. THE BOARD SAYS THE GAME. The scoreboard's lamps carry the line score, the count and
 //      the names, the latest nine innings in extras, and an E only for a game that counts
 //      errors.
-//   4. THE FALLBACK HOLDS. With the flag off the view IS the 2-D Gameday. Forced on with no
+//   4. THE FALLBACK HOLDS, and the dirt. The dirt is where paintInfield paints it (diamond/dirt.js
+//      onDirt), and each mark the game leaves paints inside the rect that goes up to the GPU.
+//      With the flag off the view IS the 2-D Gameday. Forced on with no
 //      WebGL2, `createBallparkRenderer` returns null rather than throwing, the view gives way
 //      to the 2-D Gameday, and the booth's held line still lands with the play.
 //   5. THE LIGHT AND THE LENS. Each casting tower's shadow map holds the shot's shadow sphere;
@@ -48,7 +50,7 @@ const M = await import(P + 'gl/ballpark-mesh.js');
 const G = await import(P + 'diamond/geo.js');
 const C = await import(P + 'diamond/camera.js');
 const { boardLamps, BOARD_W, BOARD_H } = await import(P + 'diamond/board.js');
-const { paintInfield } = await import(P + 'diamond/dirt.js');
+const { paintInfield, paintMark, markRect, onDirt, DIRT_RECT } = await import(P + 'diamond/dirt.js');
 const { createBallparkRenderer } = await import(P + 'gl/ballpark.js');
 const { spotMatrix, spotReach } = await import(P + 'gl/spotshadow.js');
 const { ssaoConstants, RECONSTRUCT } = await import(P + 'gl/ssao.js');
@@ -239,6 +241,23 @@ for (const kind of ['sit', 'stand', 'cheer']) for (const far of [false, true]) {
 // ── 4. the fallback ──────────────────────────────────────────────────────────
 {
   check('the infield paints without a browser', !!paintInfield(document));
+  // the dirt: where it is, and the marks a game leaves on it, each inside the rect that goes up
+  const dirt = { plate: [0, 0], mound: [0, 59.5], first: [-63.6, 63.6], second: [0, 127.3], third: [63.6, 63.6], 'the line to first': [-30, 30], 'behind second': [0, 145], 'the hole at short': [30, 120] };
+  const grass = { 'the infield grass': [-25, 75], 'in front of the mound': [0, 30], 'the outfield': [0, 250], 'past the infield arc': [0, 160], 'foul ground': [-40, 10], 'behind the plate': [0, -20] };
+  for (const [k, q] of Object.entries(dirt)) check(`the dirt: ${k} is dirt`, onDirt(q[0], q[1]));
+  for (const [k, q] of Object.entries(grass)) check(`the dirt: ${k} isn't`, !onDirt(q[0], q[1]));
+  const px = 2048, S = px / DIRT_RECT.size, T = (x, z) => [(x - DIRT_RECT.x0) * S, (z - DIRT_RECT.z0) * S];
+  const holds = (r, x, z, reach) => { const [a, b] = T(x, z); return r[0] <= a - reach * S && r[1] <= b - reach * S && r[0] + r[2] >= a + reach * S && r[1] + r[3] >= b + reach * S; };
+  const g = document.createElement('canvas').getContext('2d');
+  for (const m of [{ kind: 'stride', at: [0.29, 56.04], dir: 180, seed: 1 }, { kind: 'dig', at: [2.98, -0.5], dir: -87, seed: 2 }, { kind: 'stride', at: [-127.9, -39.9], dir: 0, seed: 3 }]) {
+    const r = markRect(m, px), inside = !!r && r[0] >= 0 && r[1] >= 0 && r[0] + r[2] <= px && r[1] + r[3] <= px;
+    check(`the dirt: a ${m.kind}'s rect is inside the canvas and holds the mark (1.2 ft round it)`, inside && (m.at[0] < -127 || holds(r, m.at[0], m.at[1], 1.2)), JSON.stringify(r));
+    check(`the dirt: a ${m.kind} paints inside its rect`, JSON.stringify(paintMark(g, m, px)) === JSON.stringify(r));
+  }
+  const scar = { kind: 'scar', pts: [[-2.7, 124.6], [-1.6, 125.7], [-0.4, 126.9], [1.3, 128.6]], w: 1.3, end: true, seed: 4 };
+  const sr = markRect(scar, px);
+  check('the dirt: a scar\'s rect holds its way and the heap ahead of it', !!sr && scar.pts.every((q) => holds(sr, q[0], q[1], scar.w / 2)) && holds(sr, 1.3 + 0.84 * 0.707, 128.6 + 0.84 * 0.707, 0.78), JSON.stringify(sr));
+  check('the dirt: a mark off the canvas touches nothing', markRect({ kind: 'stride', at: [0, 400], dir: 0, seed: 5 }, px) === null);
   const cv = document.createElement('canvas');
   let r = 'threw';
   try { r = createBallparkRenderer(cv); } catch (e) { r = 'threw: ' + e.message; }

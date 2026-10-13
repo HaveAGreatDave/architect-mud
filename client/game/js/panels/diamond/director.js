@@ -43,6 +43,10 @@
 // mitt on a swinging one or on ball four, the ball hitting him, or the ball put in play resolved.
 // The view holds the booth's line and the card until then.
 //
+// THE DIRT KEEPS THE GAME (diamond/marks.js). Every pitch leaves the pitcher's stride where his
+// front foot lands and the batter's back foot dug in, and every slide or dive its scar, said as
+// they're made ('mark'), and a pitch left out leaves its marks as the next one cuts in.
+//
 // Pure: no DOM and no GL, so the gates run it.
 
 import { eventTime, SWEET_SPOT, handPoint } from './anim.js';
@@ -57,6 +61,7 @@ import { planRun, runPitch, tempoFor, FIRST_MOVE } from './runs.js';
 import { planSpectacle, KINDS as FX_KINDS } from './spectacle.js';
 import { planTrot, planTakeField, jogToDugout, dugoutOf, dugoutSpot as dugoutSpotOf } from './bases.js';
 import { makeBody, cloneBody, onOf, flat } from './bodies.js';
+import { strideOf, digOf, scarsOf } from './marks.js';
 
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
 const add = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
@@ -165,6 +170,8 @@ function prepare(W, p, cast) {
   });
   const S = {
     p, cast, pitches, who, P, C, H, U, hand, bats, windup, tempo, delivery, from, zBat, zMitt, shapes,
+    // where his front foot lands and the hitter's back foot digs in (marks.js)
+    stride: strideOf(W, P.slot, delivery, hand), dig: digOf(W, H.slot, bats),
     REL: eventTime(delivery, 'release') / tempo, MOTION: (windup ? 0 : 0.3) / tempo,
     setLen: windup ? PACE.windupHold : CLIPS.pitch_set.duration / tempo,
     retCatch: eventTime(CLIPS.pitch_return, 'catch') / tempo, retDur: CLIPS.pitch_return.duration / tempo,
@@ -285,6 +292,7 @@ function stagePlan(W, plan, tIn, h) {
   }
   for (const c of plan.cuts) h.cut(c.at, c.shot);
   for (const x of plan.sounds) h.sound(x.at, x.cue);
+  if (h.mark) for (const m of scarsOf(plan.bodies, h.salt)) h.mark(m);
 }
 // Planned bodies (plays.js, bases.js, runs.js): those to be placed placed at the cut in, and every
 // clip played at its time from its frame (a body's prior clip is already the director's).
@@ -306,13 +314,20 @@ function stageBodiesOf(W, bodies, tIn, play) {
 export function createDirector(W, opts = {}) {
   const emit = (n, d) => opts.emit?.(n, d);
   // `fx`: the payload's spectacle (diamond/spectacle.js), which the view hands the renderer
-  const D = { log: [], played: [], views: null, landed: true, landAt: 0, until: 0, t0: 0, budget: 0, payload: null, fx: [] };
+  const D = { log: [], played: [], views: null, landed: true, landAt: 0, until: 0, t0: 0, budget: 0, payload: null, fx: [], marks: [] };
+  // a mark in the dirt (marks.js), said as it's made and kept for the gate
+  const mark = (m) => { D.marks.push(m); W.at(m.t, () => emit('mark', m)); };
+  // the marks a pitch leaves: the hitter's back foot dug in as it cuts in, the stride as it lands
+  const pitchMarks = (S, salt, i, tIn, tStride) => {
+    if (S.dig) mark({ t: tIn, kind: 'dig', i, at: S.dig.at, dir: S.dig.dir, seed: hashStr(`dig|${salt}|${i}`) });
+    if (S.stride) mark({ t: tStride, kind: 'stride', i, at: S.stride.at, dir: S.stride.dir, seed: hashStr(`stride|${salt}|${i}`) });
+  };
 
   // `o.cutaway`: the picture disagrees with this payload (pictureAfter), so it opens on the wide
   // shot while everyone takes their places. `o.motion` false: the viewer has asked for less motion,
   // so no camera rides with a home run and nothing bursts or sparks.
   D.stage = (p, cast = castOf(p), o = {}) => {
-    D.payload = p; D.log = []; D.played = []; D.views = null; D.landed = false; D.play = null; D.trot = null; D.inningOver = false; D.fx = [];
+    D.payload = p; D.log = []; D.played = []; D.views = null; D.landed = false; D.play = null; D.trot = null; D.inningOver = false; D.fx = []; D.marks = [];
     W.clearQueue();
     const motion = o.motion !== false;
     if (p?.phase === 'run') { stageRun(p, cast, o); return; }
@@ -350,14 +365,16 @@ export function createDirector(W, opts = {}) {
     const ballFor = (path, end) => { W.setBall(path); W.at(end, () => { if (W.ball === path) W.setBall(null); }); };
     const count = (at, i) => W.at(at, () => emit('pitch', { i, pitch: S.pitches[i] }));
     const sound = (at, cue) => W.at(at, () => emit('sound', cue));
+    const salt = `${p.batter}|${p.inning}|${p.half}`;
     let skipped = [];
 
     TL.list.forEach((T) => {
       const i = T.i, q = S.pitches[i], sh = S.shapes[i], v = views[i], last = i === S.pitches.length - 1;
       if (!T.show) { skipped.push(i); D.log.push({ i, n: q.n ?? i + 1, result: q.result, shown: false }); return; }
-      // a pitch left out goes on the count as the next one cuts in
-      for (const k of skipped) count(T.tIn, k);
+      // a pitch left out goes on the count, and leaves its marks, as the next one cuts in
+      for (const k of skipped) { count(T.tIn, k); pitchMarks(S, salt, k, T.tIn, T.tIn); }
       skipped = [];
+      pitchMarks(S, salt, i, T.tIn, T.pStart + (S.stride?.tau ?? 0) / tempo);
       const path = pitchPath({ from, through: sh.through, t0: T.tRel, mph: q.velo, type: q.type, hand });
       const ballOr = (end) => (t) => (t < T.tRel ? from : path(Math.min(t, end)));
 
@@ -505,7 +522,7 @@ export function createDirector(W, opts = {}) {
     until = Math.max(until, fireworks(D.fx, cut));
     D.until = until;
 
-    function stagePlay(plan, T) { D.play = plan; stagePlan(W, plan, T.tIn, { play, cut, sound }); }
+    function stagePlay(plan, T) { D.play = plan; stagePlan(W, plan, T.tIn, { play, cut, sound, mark, salt }); }
     function stageBodies(bodies, T) { stageBodiesOf(W, bodies, T.tIn, play); }
   };
 
@@ -569,7 +586,9 @@ export function createDirector(W, opts = {}) {
       batter: whoOf(H),
     };
     const plan = planRun(ctx, { tFirst, tRel, tMitt, atMitt: sh.atMitt, box, path, from, pitch: q, hand });
-    if (plan) { D.play = plan; stagePlan(W, plan, t0, { play, cut, sound }); }
+    const salt = `${p.batter}|${p.inning}|${p.half}|${p.kind}`;
+    pitchMarks(S, salt, 0, t0, pStart + (S.stride?.tau ?? 0) / tempo);
+    if (plan) { D.play = plan; stagePlan(W, plan, t0, { play, cut, sound, mark, salt }); }
     const landAt = plan ? plan.landAt : tMitt + 0.8;
     Object.assign(D, { t0, budget: budgetOf(p), floor: landAt - W.t, landAt, cutaway: !!lead, squeezed: false });
     D.log.push({ i: 0, n: 0, result: q.result, shown: true, run: true, release: tRel, from, through: sh.through, path, tFirst, tempo, tPlate: path.cross(0.7), catch: { t: tMitt, at: sh.atMitt, setupX: sh.setupX }, play: plan });
@@ -612,7 +631,7 @@ export function createDirector(W, opts = {}) {
       batter: whoOf(H),
     };
     const plan = planRun(ctx, { tMove });
-    if (plan) { D.play = plan; stagePlan(W, plan, t0, { play, cut, sound }); }
+    if (plan) { D.play = plan; stagePlan(W, plan, t0, { play, cut, sound, mark, salt: `${p.batter}|${p.inning}|${p.half}|${p.kind}` }); }
     const landAt = plan ? plan.landAt : tMove + 1.5;
     Object.assign(D, { t0, budget: budgetOf(p), floor: landAt - W.t, landAt, cutaway: !!lead, squeezed: false });
     D.log.push({ i: 0, n: 0, shown: true, run: true, over: true, tMove, play: plan });
@@ -632,7 +651,7 @@ export function createDirector(W, opts = {}) {
   // the catcher to the plate and the pitcher to the rubber, and the pitcher throws his warm-ups,
   // the ball into the catcher's mitt and back. Nothing lands: there's no play.
   D.changeover = (p, cast = castOf(p)) => {
-    D.payload = p; D.log = []; D.played = []; D.views = null; D.play = null; D.trot = null; D.cutaway = false; D.fx = [];
+    D.payload = p; D.log = []; D.played = []; D.views = null; D.play = null; D.trot = null; D.cutaway = false; D.fx = []; D.marks = [];
     W.clearQueue();
     for (const slot of [...W.bodies.keys()]) W.drop(slot);
     const t0 = W.t + PACE.in;
@@ -658,6 +677,7 @@ export function createDirector(W, opts = {}) {
       const traits = P0.traits, tempo = traits?.tempo || 1, delivery = CLIPS[`pitch_windup_${traits?.armSlot || 'over'}`];
       const relJ = solvePose(W.sample(sP, delivery.id, eventTime(delivery, 'release'))).J, from = add(relJ['wr' + hand], mul(relJ['hdir' + hand], 0.2));
       const pj = solvePose(W.sample(sP, 'pitch_return', eventTime(CLIPS.pitch_return, 'catch'))).J, returnAt = add(pj['wr' + glove], mul(pj['hdir' + glove], 0.3));
+      const stride = strideOf(W, sP, delivery, hand);
       W.place(sP, was);
       const REL = eventTime(delivery, 'release') / tempo, recv = CLIPS.catch_receive, box = recv.events.find((e) => e.kind === 'catch');
       const room = Number.isFinite(p.hold) ? t0 + p.hold / 1000 - 3 : t0 + 20;
@@ -670,6 +690,7 @@ export function createDirector(W, opts = {}) {
         if (k > 0 && done > room) break;
         const setupX = clamp(clamp(0, atMitt[0] - box.reach.x[1], atMitt[0] - box.reach.x[0]), -0.8, 0.8);
         play(sP, 'pitcher', delivery.id, tRel - REL, tRel - REL, { speed: tempo, fade: 0.4, frame: { at: cP.at, yaw: cP.yaw } });
+        if (stride) mark({ t: tRel - REL + stride.tau / tempo, kind: 'stride', at: stride.at, dir: stride.dir, seed: hashStr(`warm|${p.pitcher}|${p.inning}|${p.half}|${k}`) });
         play(sC, 'catcher', recv.id, tCatch - box.t, tCatch - box.t, { fade: 0.35, frame: { at: [CATCHER_AT[0] + setupX, CATCHER_AT[1], CATCHER_AT[2]], yaw: 0 } });
         W.at(tCatch - 0.3, () => W.layer(sC, 'reach', { hand: 'L', kind: 'mitt', target: atMitt.slice(), follow: box.reach.follow, from: tCatch - 0.28, full: tCatch - 0.005, hold: tCatch + 0.3, to: tCatch + 0.7 }));
         W.at(tRel, () => W.setBall(path));

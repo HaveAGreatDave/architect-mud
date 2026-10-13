@@ -1059,6 +1059,13 @@ Built so far (Phases 1 and 2 of the plan):
   stand up and a small one a few; up, he bounces and sways on his own beat. Most fans are the home
   side's, more of the visitors' up the third-base line by their dugout. With reduced motion they
   still stand, without the bouncing;
+- the infield keeps the game (Phase 4d, [diamond/marks.js](../client/game/js/panels/diamond/marks.js)):
+  every pitch leaves the pitcher's stride where his front foot lands and the hitter's back foot
+  dug in, and every slide and dive its scar, said by the director as they're made (`'mark'`). The
+  park paints them on its own copy of the infield canvas ([diamond/dirt.js](../client/game/js/panels/diamond/dirt.js)
+  `paintMark`, only where there's dirt, `onDirt`) and uploads only the rect each one touches
+  (gl/ballpark.js `markDirt`). A payload from another game, or an earlier inning, starts a fresh
+  infield (`resetDirt`);
 - replays (Phase 4b, [diamond/replay.js](../client/game/js/panels/diamond/replay.js)): a walk-off,
   a home run, a triple or double play, a catch that took a dive, a slide or a leap, a triple and a
   call at first closer than 0.15 s are shown again in slow motion. Staging is a pure function of

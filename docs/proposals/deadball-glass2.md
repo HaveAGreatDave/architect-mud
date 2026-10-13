@@ -1769,6 +1769,19 @@ Phase 3, or with sim v2 if that comes later.
   vertex-animation clips: a crowd seen from the cameras' distances reads by standing up, not by
   what its hands do. The camera flashes at night are 4e's.
 
+- **4d.1 built, the infield keeps the game:** every pitch leaves the pitcher's stride where his
+  front foot lands and the hitter's back foot dug into his box, and every slide and dive its scar,
+  a stretch at a time as he makes it, worked out from the staging
+  ([diamond/marks.js](../../client/game/js/panels/diamond/marks.js)) and said by the director as
+  they're made. The park keeps its own copy of the infield canvas and paints each one on it
+  ([diamond/dirt.js](../../client/game/js/panels/diamond/dirt.js) `paintMark`, only where there's
+  dirt), and only the rect a mark touches goes up to the GPU again, a few hundred texels a mark. A
+  game's worth of strides digs a hole where the deliveries land; a new game starts on a fresh
+  infield. `diamond-smoke` checks every pitch leaves its stride and its dig, at the foot, on the
+  dirt, a slide's scar running to where he got to, and the view handing every mark to the
+  renderer; `ballpark-smoke` checks where the dirt is and that each mark paints inside its rect.
+  The grounds crew's drag (4d.3) puts back what it passes over.
+
 **Phase 4: the broadcast.** On by default wherever WebGL2 and float targets work.
 - `gl/crowd.js` with seated and reaction clips; replays in slow motion; dead-time rituals; the grounds
   crew in the fifth; reduced motion; the tiers and the governor.

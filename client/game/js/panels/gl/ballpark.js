@@ -9,7 +9,8 @@
 //   · the park is built once from the venue by ballpark-mesh.js (pure, so the gate checks it);
 //   · the field is painted in the shader: grass with mowing stripes that change with the
 //     camera's direction, the warning track, the foul lines, and the infield canvas
-//     (diamond/dirt.js) laid over it;
+//     (diamond/dirt.js) laid over it, which keeps the game's marks (markDirt): a park's own copy
+//     of it, and only the texels a mark touches go up again;
 //   · the crowd is one figure in three poses (gl/crowd.js), instanced over every occupied seat,
 //     each fan getting up and cheering as his side roars (setCrowd);
 //   · the scoreboard is a face of lamps lit from a 240×84 mask of the line score
@@ -46,7 +47,7 @@
 
 import { buildPark, crowdMorph, createBatch, ellipsoid, lin, STRIDE, CROWD_STRIDE, CROWD_MORPH, MAT } from './ballpark-mesh.js';
 import { CROWD_VS } from './crowd.js';
-import { paintInfield, DIRT_RECT } from '../diamond/dirt.js';
+import { paintInfield, paintMark, DIRT_RECT } from '../diamond/dirt.js';
 import { boardLamps, BOARD_W, BOARD_H } from '../diamond/board.js';
 import { shotMatrices, shotOf, inv4 } from '../diamond/camera.js';
 import { createHDRLayer } from './hdr.js';
@@ -902,6 +903,59 @@ export function createBallparkRenderer(canvas, opts = {}) {
       ballDraw.n = ballBatch.n;
     }
 
+    // ── the infield's marks ───────────────────────────────────────────────────
+    // The dirt keeps the game (diamond/marks.js, painted by dirt.js paintMark): this park's own
+    // copy of the infield canvas, made at the first mark, and only the rects the marks touch go up
+    // to the GPU again. A new game starts on the canvas as painted (resetDirt).
+    const dirtStats = { marks: 0, uploads: 0, texels: 0 };
+    let dirtLive = null;
+    function uploadDirt(rects) {
+      if (!rects.length) return;
+      gl.bindTexture(T2, TEX.dirt);
+      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
+      const src = dirtLive || shared.dirt;
+      for (const [x, y, w, h] of rects) {
+        let sub = src;
+        if (w !== src.width || h !== src.height) {
+          sub = doc.createElement('canvas'); sub.width = w; sub.height = h;
+          sub.getContext('2d').drawImage(src, x, y, w, h, 0, 0, w, h);
+        }
+        gl.texSubImage2D(T2, 0, x, y, gl.RGBA, gl.UNSIGNED_BYTE, sub);
+        dirtStats.uploads++; dirtStats.texels += w * h;
+      }
+      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+      gl.generateMipmap(T2);
+    }
+    // Rects that overlap or nearly touch, merged, so a run of strides in one hole goes up once.
+    function mergeRects(list) {
+      const out = [];
+      for (const r of list) {
+        let a = r;
+        for (let i = 0; i < out.length; i++) {
+          const b = out[i], x0 = Math.min(a[0], b[0]), y0 = Math.min(a[1], b[1]), x1 = Math.max(a[0] + a[2], b[0] + b[2]), y1 = Math.max(a[1] + a[3], b[1] + b[3]);
+          if ((x1 - x0) * (y1 - y0) <= (a[2] * a[3] + b[2] * b[3]) * 1.5) { a = [x0, y0, x1 - x0, y1 - y0]; out.splice(i, 1); i = -1; }
+        }
+        out.push(a);
+      }
+      return out;
+    }
+    function markDirt(list) {
+      if (lost || !list?.length) return;
+      if (!dirtLive) {
+        dirtLive = doc.createElement('canvas');
+        dirtLive.width = shared.dirt.width; dirtLive.height = shared.dirt.height;
+        dirtLive.getContext('2d').drawImage(shared.dirt, 0, 0);
+      }
+      const g = dirtLive.getContext('2d'), rects = [];
+      for (const m of list) { const r = paintMark(g, m, dirtLive.width); if (r) { rects.push(r); dirtStats.marks++; } }
+      uploadDirt(mergeRects(rects));
+    }
+    function resetDirt() {
+      if (lost || !dirtLive) return;
+      dirtLive = null;
+      uploadDirt([[0, 0, shared.dirt.width, shared.dirt.height]]);
+    }
+
     // ── the lights ────────────────────────────────────────────────────────────
     // Each tower burns in proportion to its working lamps; the two behind the plate are
     // smaller banks.
@@ -1144,8 +1198,10 @@ export function createBallparkRenderer(canvas, opts = {}) {
       casters: [],
       // setPose(slot, pose): a player into a pose from the rig's pose language, with at, yaw, scale;
       // setBall(point or null): the ball, in the park's feet; setSpectacle(effects, t): the
-      // payload's spectacle (diamond/spectacle.js) and the world's time to draw it at
+      // payload's spectacle (diamond/spectacle.js) and the world's time to draw it at;
+      // markDirt(marks): the game's marks into the infield (diamond/marks.js), resetDirt() a fresh one
       render, setBoard, setCast, setPose, setBall, setSpectacle: (fx, t) => spectacle.set(fx, t), pump, setVenue, dispose, stats,
+      markDirt, resetDirt, dirtStats,
       setCrowd: (levels, t, move = true) => { roar.home = +levels?.[0] || 0; roar.away = +levels?.[1] || 0; roar.t = +t || 0; roar.move = move ? 1 : 0; },
       pending: () => queue.length,
       get park() { return park; },

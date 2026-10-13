@@ -27,7 +27,9 @@
 // ball in play is played out (diamond/plays.js), and so is a play on the bases (diamond/runs.js:
 // a steal, a throw over, a wild pitch), its steal card on the landing; at a changeover the new
 // side takes the field and the pitcher warms up. A big play gets a slow-motion replay once its
-// line's up (diamond/replay.js), its own world shown in place of the live one. With reduced
+// line's up (diamond/replay.js), its own world shown in place of the live one. The infield keeps
+// the game's marks, each stride, dig and slide painted into the dirt as it's made
+// (diamond/marks.js, gl/ballpark.js markDirt). With reduced
 // motion the cameras hold still and a replay is a still; and everything the graphics say is in
 // words too, for a screen reader (Play by Play in the accessibility settings).
 //
@@ -87,6 +89,9 @@ export function createGrandstandView(host, opts = {}) {
   // the fans (gl/crowd.js createRoar): how loud each side is, on the live world's clock; `calm`
   // while the viewer has asked for less motion, when they get up without bouncing
   let roar = null, calm = false;
+  // the marks the game's made in the dirt since the last frame (diamond/marks.js), and the game
+  // they're from: a new one starts on a fresh infield
+  let marks = [], dirtGame = null;
   // the bags the picture last left taken (director.js pictureAfter): an at-bat that starts from
   // others opens on a cutaway while everyone takes their places
   let shown = null;
@@ -229,6 +234,7 @@ export function createGrandstandView(host, opts = {}) {
       R.setBall(RW.ballAt());
       R.setSpectacle?.(replay ? replay.D.fx : D.fx, RW.t);
       R.setCrowd?.(roar.at(W.t), W.t, !calm);
+      if (marks.length) { R.markDirt?.(marks); marks = []; }
       if (replay && (replay.still ? W.t >= replay.until : RW.t >= replay.to - 1e-9)) endReplay();
     }
     lastNow = now;
@@ -400,6 +406,7 @@ export function createGrandstandView(host, opts = {}) {
   function fromDirector(name, d) {
     if (name === 'shot') { liveShot = d; if (!opts.shot && !replay) setShot(d); return; }
     if (name === 'sound') { sfx(d); return; }
+    if (name === 'mark') { marks.push(d); return; }
     if (name !== 'pitch' || !cur) return;
     const q = d.pitch, last = d.i === (cur.p.pitches || []).length - 1;
     S.balls = last ? Math.min(3, q.balls | 0) : q.balls | 0;
@@ -450,9 +457,18 @@ export function createGrandstandView(host, opts = {}) {
     }, MATCHUP_MS);
     say(mods.hud.matchupSaid(S.matchup));
   }
+  // A payload from another game than the marks in the dirt (other clubs, or back to an earlier
+  // inning) starts it fresh.
+  function freshGame(p) {
+    const top = p.half === 'top', game = top ? `${p.battingTeam}@${p.fieldingTeam}` : `${p.fieldingTeam}@${p.battingTeam}`;
+    const at = (p.inning | 0) * 2 + (top ? 0 : 1);
+    if (dirtGame && (dirtGame.game !== game || at < dirtGame.at)) { marks = []; R?.resetDirt?.(); }
+    dirtGame = { game, at };
+  }
   function stage(p) {
     stopTimers(); stopTable(); stopWorld();
     const pend = pendingCaption;
+    freshGame(p);
     const cast = castFor(p);
     S.pitch = null; S.bats = p.bats || '';
     if (p.phase === 'half') {
@@ -571,7 +587,7 @@ export function createGrandstandView(host, opts = {}) {
     hud?.dispose();
     if (host) host.innerHTML = '';
     R = null; hud = null; canvas = null; mounted = false; W = null; D = null;
-    last = null; caption = ''; pendingCaption = null; pendingCard = null; playing = false; shown = null;
+    last = null; caption = ''; pendingCaption = null; pendingCard = null; playing = false; shown = null; marks = []; dirtGame = null;
   }
 
   return {

@@ -17,9 +17,12 @@
 //      on the bat (0.05 ft); the hitter and the catcher inside their joints there; a hit batsman
 //      hit; strike three with its walk off and a called one rung up, ball four and the walk to
 //      first, the flinch, or the ball put in play; `onLand` once, on time, inside the budget,
-//      with the count done by then; every shot a camera; every pose finite. And the game has to
-//      exercise the rare paths, or the gate isn't testing them: a pitch left out, a ritual, a
-//      block, a check swing, a punch-out, a hit batsman.
+//      with the count done by then; every shot a camera; every pose finite; every pitch's marks in
+//      the dirt (diamond/marks.js), its stride where the pitcher's front foot lands and the hitter's
+//      back foot dug in, each at the foot (0.4 ft) and on the dirt, and a slide's scar running to
+//      where he got to (1 ft). And the game has to exercise the rare paths, or the gate isn't
+//      testing them: a pitch left out, a ritual, a block, a check swing, a punch-out, a hit
+//      batsman, a slide or a dive that scars the dirt.
 //   1b. THE PLAYS (diamond/plays.js), every ball in play at the short hold: each catch's clip on its
 //      catch with the glove on the ball (0.1 ft) and the catcher inside his joints; each throw's
 //      clip on its release and the ball out of his hand (0.05 ft); the call at first agreeing
@@ -42,7 +45,7 @@
 //   1c. THE CHANGEOVER, every half payload: the side taking the field out of its dugout, each man
 //      ending where he plays (4 ft) and nobody faster than 52 ft/s; every warm-up out of the
 //      pitcher's hand (0.05 ft), the catcher's receive lined up on it and the mitt on the ball
-//      (0.1 ft); and the game's changeovers have warm-ups.
+//      (0.1 ft), each with its stride in the dirt; and the game's changeovers have warm-ups.
 //   1d. THE PLAYS ON THE BASES (diamond/runs.js), every run payload, and the first of each kind the
 //      game hasn't got from the games after it (and of a third out on the bases), so every kind is
 //      staged on every seed: the
@@ -92,7 +95,8 @@
 //      its camera on while it plays, its world at REPLAY.rate of the live one to the end of its
 //      window, not before the fireworks are out, the live camera back after, and the live text
 //      saying so, and the batting side's fans up for it; and the same home run with
-//      reduced motion holds a still of its moment instead.
+//      reduced motion holds a still of its moment instead. Every mark the director makes in the
+//      dirt reaches the renderer, and a payload from another game starts a fresh infield.
 //
 // A runner's legs in the picture are checked against the sim's (play.js legsOf works speedOf over
 // again for the browser).
@@ -122,6 +126,7 @@ const { replayOf, stageReplay, REPLAY } = await import(P + 'diamond/replay.js');
 const { HUD_THEME } = await import(P + 'diamond/hud.js');
 const { dugoutSpot, dugoutOf } = await import(P + 'diamond/bases.js');
 const { createGrandstandView } = await import(P + 'gameday-grandstand.js');
+const { onDirt, markRect } = await import(P + 'diamond/dirt.js');
 const { sportsRng } = await import('../../plugins/broadcast/rng.js');
 const { simGameV2, speedOf } = await import('../../plugins/broadcast/sports/baseball.js');
 const { gamedayPayloads } = await import('../../plugins/broadcast/sports/baseball-gameday.js');
@@ -156,7 +161,32 @@ const bagAt = (b) => (b === 4 ? [0, 0, 0] : BAGS[b]);
 for (const p of order) for (const m of p.moves || []) if (m && m.name) check('a runner\'s legs in the picture are the sim\'s (play.js legsOf)', legsOf(m.name) === speedOf(m.name), m.name);
 
 // ── 1. the director ──────────────────────────────────────────────────────────
-const seen = { skip: 0, ritual: 0, block: 0, check: 0, punchout: 0, hbp: 0, lefty: 0, sideL: 0, toFirst: 0, air: 0, rundown: 0, scored: 0, round: 0, trot: 0, off: 0, warmup: 0, replay: 0 };
+const seen = { skip: 0, ritual: 0, block: 0, check: 0, punchout: 0, hbp: 0, lefty: 0, sideL: 0, toFirst: 0, air: 0, rundown: 0, scored: 0, round: 0, trot: 0, off: 0, warmup: 0, replay: 0, scar: 0 };
+// The ball of a foot, where marks.js puts its mark: half way from the ankle to the toe.
+const footAt = (J, S) => [(J['an' + S][0] + J['toe' + S][0]) / 2, (J['an' + S][2] + J['toe' + S][2]) / 2];
+// The dirt's marks (diamond/marks.js) a staging said: each on the canvas, a foot's on the dirt,
+// and at its moment where the foot is or the man sliding got to.
+function checkMarks(D, label, due, feet = {}) {
+  check('the dirt: every mark inside the canvas, and a foot\'s on the dirt', D.marks.every((m) => markRect(m) && (m.kind === 'scar' || onDirt(m.at[0], m.at[1]))), label);
+  for (const m of D.marks) {
+    if (m.kind === 'scar') {
+      if (!m.end) continue;
+      seen.scar++;
+      const was = m.pts[m.pts.length - 2];
+      due.push([m.t, () => {
+        const Q = W.pose(m.slot, m.t), pv = Q ? toPark(Q, Q.pelvis) : null, d = pv ? Math.hypot(pv[0] - was[0], pv[2] - was[1]) : Infinity;
+        check('the dirt: a slide\'s scar runs to where he got to (1 ft)', d <= 1, `${label}: slot ${m.slot}, ${d.toFixed(2)} ft`);
+      }]);
+      continue;
+    }
+    const f = feet[m.kind];
+    if (!f || (f.shown && !f.shown(m))) continue;
+    due.push([m.t, () => {
+      const Q = W.pose(f.slot, m.t), q = Q ? footAt(solvePose(Q).J, f.foot) : null, d = q ? Math.hypot(q[0] - m.at[0], q[1] - m.at[1]) : Infinity;
+      check(`the dirt: the ${m.kind} is where his foot is (0.4 ft)`, d <= 0.4, `${label} #${m.i}: ${d.toFixed(2)} ft`);
+    }]);
+  }
+}
 const W = createWorld();
 // The short hold plays every at-bat; the long one, there for the rituals between pitches, plays
 // every third (every one at the long hold was a third of the gate). Not the long at-bats: the
@@ -178,6 +208,16 @@ for (const hold of [undefined, 45000]) {
     D.stage(p, cast);
     const N = p.pitches.length, budget = budgetOf(p);
     check('a log entry per pitch', D.log.length === N, `${label}: ${D.log.length}/${N}`);
+    // the dirt: every pitch's stride and the hitter dug in, shown or not; a shown one's stride at
+    // his front foot as it lands, and the dig at the hitter's back foot as the pitch cuts in
+    const dueMarks = [];
+    if (!hold) {
+      const n = (k) => D.marks.filter((m) => m.kind === k).map((m) => m.i).sort((a, b) => a - b).join();
+      const all = p.pitches.map((_, i) => i).join();
+      check('the dirt: every pitch leaves its stride and the hitter\'s dig', n('stride') === all && n('dig') === all, `${label}: ${n('stride')} / ${n('dig')}`);
+      const shown = (m) => !!D.log[m.i]?.shown;
+      checkMarks(D, label, dueMarks, { stride: { slot: sP, foot: p.throws === 'L' ? 'R' : 'L', shown }, dig: { slot: sH, foot: p.bats === 'L' ? 'L' : 'R', shown } });
+    }
     // checks at the moments the director says things meet
     const due = [];
     for (const rec of D.log) {
@@ -301,6 +341,7 @@ for (const hold of [undefined, 45000]) {
         R.D.stop();
       } else check('a replay: it stages', false, label);
     }
+    due.push(...dueMarks);
     due.sort((a, b) => a[0] - b[0]);
     // the third out: everyone on the field jogs off, watched for jumps from when they set off
     const off = D.inningOver ? cast.filter((c) => ['pitcher', 'catcher', 'fielder', 'batter', 'runner'].includes(c.look.role)).map((c) => ({ c, last: null, at: -1 })) : [];
@@ -455,6 +496,7 @@ check('the game has a man rounding first for second', seen.round > 0);
 check('the game has a trot to first after ball four or a hit batsman', seen.trot > 0);
 check('the game has a side going off after its third out', seen.off > 0);
 check('the game has a play that earns a replay', seen.replay > 0);
+check('the game has a slide or a dive that leaves its scar in the dirt', seen.scar > 0);
 
 // ── 1c. the changeover ───────────────────────────────────────────────────────
 // Every half payload: the side taking the field out of its dugout to its spots, and the pitcher's
@@ -481,6 +523,9 @@ for (const p of order.filter((x) => x.phase === 'half')) {
       check('a warm-up: the mitt meets the ball (0.1 ft)', d <= 0.1, `${label} #${w.warmup}: ${d.toFixed(3)} ft`);
     }]);
   }
+  const nWarm = D.log.filter((x) => x.warmup != null).length;
+  check('the dirt: every warm-up leaves its stride', D.marks.filter((m) => m.kind === 'stride').length === nWarm, `${label}: ${D.marks.length} for ${nWarm}`);
+  checkMarks(D, label, due, { stride: { slot: sP, foot: p.throws === 'L' ? 'R' : 'L' } });
   due.sort((a, b) => a[0] - b[0]);
   let k = 0;
   while (W.t < D.until + 0.1) {
@@ -579,6 +624,11 @@ for (const { p, seed } of runs) {
       check('a play on the bases: his hand or foot on the bag at his touch (1 ft)', d <= 1, `${label}: ${r.slide} ${d.toFixed(2)} ft`);
     }]);
   }
+  // the dirt: the pitch's stride (a throw over has none) and the slides' scars
+  const over = p.kind === 'throwover' || p.kind === 'pickoff';
+  check('the dirt: a pitch on the bases leaves its stride, a throw over none', D.marks.filter((m) => m.kind === 'stride').length === (over ? 0 : 1), `${label}: ${D.marks.length} marks`);
+  const sP = cast.find((c) => c.look.role === 'pitcher').look.slot;
+  checkMarks(D, label, due, { stride: { slot: sP, foot: p.throws === 'L' ? 'R' : 'L' } });
   due.sort((a, b) => a[0] - b[0]);
   const men = [...new Set(plan.bodies.map((b) => b.slot))].map((slot) => ({ slot, last: null, at: -1 }));
   // a third out: everyone on the field jogs off, watched from when they set off
@@ -841,7 +891,7 @@ for (const { p, seed } of runs) {
 
 // ── 2. the view ──────────────────────────────────────────────────────────────
 // A renderer that records what it's handed: the cast, the poses by slot, the ball, the shots.
-const rec = { poses: new Map(), balls: 0, frames: 0, roar: [0, 0] };
+const rec = { poses: new Map(), balls: 0, frames: 0, roar: [0, 0], marks: 0, resets: 0 };
 const renderer = () => ({
   kind: 'stub', lost: false, quality: { dpr: 1, tube: false }, casters: [],
   setCast(cast) { rec.cast = cast; return 0; },
@@ -849,6 +899,7 @@ const renderer = () => ({
   setBall(p) { if (p) rec.balls++; },
   render() { rec.frames++; return true; },
   setCrowd(levels) { rec.roar = [Math.max(rec.roar[0], levels[0]), Math.max(rec.roar[1], levels[1])]; },
+  markDirt(list) { rec.marks += list.length; }, resetDirt() { rec.resets++; },
   setBoard() {}, setVenue() { return null; }, pump() { return 0; }, pending: () => 0, dispose() {},
 });
 {
@@ -903,7 +954,7 @@ const renderer = () => ({
   feed.forEach((p, k) => {
     const line = `line ${k}: ${p.desc || p.phase || p.kind}`;
     const label = `seed ${SEED} view #${k} ${p.phase || p.kind}`;
-    rec.poses.clear(); rec.balls = 0; rec.roar = [0, 0];
+    rec.poses.clear(); rec.balls = 0; rec.roar = [0, 0]; rec.marks = 0;
     const sounds0 = stub.sounds.length, said0 = said.length, quiet = k === quietAt, calm = calmAt.has(k);
     if (calm) globalThis.document.documentElement.setAttribute('data-motion', 'off');
     if (quiet) globalThis.document.documentElement.setAttribute('data-play-by-play', 'off');
@@ -993,6 +1044,7 @@ const renderer = () => ({
       const frames = rec.frames;
       stub.runFrames(20, 1000 / 30);
       check('at rest, the frames stop', !v.busy() && rec.frames === frames, `${label}: ${rec.frames - frames} more frames`);
+      check('the dirt: every mark the director makes reaches the renderer', D.marks.length > 0 && rec.marks === D.marks.length, `${label}: ${rec.marks} of ${D.marks.length}`);
       if (calm) globalThis.document.documentElement.setAttribute('data-motion', 'on');
     } else {
       stub.runTimers(2500);
@@ -1014,6 +1066,14 @@ const renderer = () => ({
     check('a hidden tab: the line waits while the play is due', capText() !== 'the hidden line', capText());
     stub.runTimers(30000);
     check('a hidden tab: the line goes up once the play\'s time has passed', capText() === 'the hidden line', capText());
+  }
+  // the dirt starts fresh for another game, and not for this one's next at-bat
+  {
+    const p = atBats[atBats.length - 1], resets = rec.resets;
+    v.apply(p);
+    check('the dirt: the same game\'s next at-bat keeps its marks', rec.resets === resets, `${rec.resets - resets} resets`);
+    v.apply({ ...p, battingTeam: 'Precinct 9 Enforcers' });
+    check('the dirt: another game starts on a fresh infield', rec.resets === resets + 1, `${rec.resets - resets} resets`);
   }
   v.clear();
   check('cleared', host.children.length === 0);
