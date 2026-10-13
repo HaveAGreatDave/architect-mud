@@ -37,6 +37,8 @@
 //   --out DIR     where the PNGs go, <os tmpdir>/deadball-shots by default
 //   --city 0      leave the city out (faster); --hud 0 hides the graphics; --shot NAME holds a camera
 //   --w PX        the frame's width in CSS pixels
+//   --hold MS     how long each payload holds (the sandbox's ?hold=, 35000 by default): a longer
+//                 one leaves more dead time after the play (diamond/between.js)
 //
 // Needs Playwright and its Chromium: `npm i --no-save playwright` and `npx playwright install
 // chromium` in the repo, or a global install on NODE_PATH, or PLAYWRIGHT_DIR set to a
@@ -97,7 +99,7 @@ page.on('response', (r) => { if (r.status() >= 400 && !/favicon/.test(r.url())) 
 
 const q = new URLSearchParams({ park: '3d', speed: '0', sim, slot: String(slot), i: only ?? '0' });
 if (play) q.set('play', play);
-for (const k of ['city', 'hud', 'shot', 'w']) if (opt(k, null) != null) q.set(k, opt(k));
+for (const k of ['city', 'hud', 'shot', 'w', 'hold']) if (opt(k, null) != null) q.set(k, opt(k));
 await page.goto(`http://127.0.0.1:${port}/sandbox/deadball-park-test.html?${q}`);
 
 // staged, and every body built (a frame doesn't step the world while one is building)

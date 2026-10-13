@@ -1782,6 +1782,25 @@ Phase 3, or with sim v2 if that comes later.
   renderer; `ballpark-smoke` checks where the dirt is and that each mark paints inside its rect.
   The grounds crew's drag (4d.3) puts back what it passes over.
 
+- **4d.2 built, between at-bats:** once a play's landed the view asks the director for the dead
+  time till the next payload's due ([diamond/between.js](../../client/game/js/panels/diamond/between.js)).
+  From wherever the play left him, every fielder walks back to his spot and stands easy (a jog for
+  a long way), the pitcher walks off the back of the mound and rubs up the ball, the catcher goes
+  back behind the plate while the plate umpire steps aside, a base umpire goes back to his spot, a
+  man on a bag stands easy on it and a man who's out goes off to his dugout. Each sets off when
+  his play's done with him, from what the director's queued for him (a strikeout's walk off
+  starts after the call), held back while his way would take him within reach of somebody
+  already going and routed round anybody standing; nobody walks up the mound's slope. The
+  on-deck hitter swings in his circle through every at-bat. The cameras go round the park: wide
+  as the field resets, the on-deck circle for a swing, the pitcher rubbing up the ball, a stand
+  of fans, and wide again, after any replay. Four new clips: a walk, standing easy, a practice
+  swing and the rub. Not after a third out or a walk-off, and nothing for a payload that doesn't
+  say how long it holds. `diamond-smoke` plays the dead time after every at-bat at the long hold:
+  everyone at rest a beat before the next payload's due and where he was sent, nobody jumping,
+  nobody within 2 ft of anybody (or nearer than the two started), the walks and rests inside
+  their joints, the on-deck hitter in his circle and swinging for his camera; `ballpark-smoke`
+  checks each new camera has what it's for.
+
 **Phase 4: the broadcast.** On by default wherever WebGL2 and float targets work.
 - `gl/crowd.js` with seated and reaction clips; replays in slow motion; dead-time rituals; the grounds
   crew in the fifth; reduced motion; the tiers and the governor.

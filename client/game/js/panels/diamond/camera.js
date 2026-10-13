@@ -53,6 +53,15 @@ export const SHOTS = Object.freeze({
   backstop: Object.freeze({ eye: [-52, 10, 16], at: [6, 1.5, -24], fov: 44, dof: 640, shadow: [[0, 0, -22], 42] }),
   // the third-base camera on the pitcher
   mound: Object.freeze({ eye: [64, 7, 33], at: [0, 4.4, 58.8], fov: 10.5, dof: 700, shadow: [[0, 0, 60], 35] }),
+  // between at-bats (diamond/between.js): the on-deck circle on the third-base side from up the line
+  // in front of its dugout, the hitter head to foot with the backstop behind him and nobody from the
+  // plate in the way, and the same on the first-base side; a cutaway to the crowd behind the
+  // first-base dugout from out on the field
+  deck3: Object.freeze({ eye: [36, 5.5, 34], at: [31, 3.3, -9], fov: 13, dof: 420, shadow: [[31, 0, -9], 12] }),
+  deck1: Object.freeze({ eye: [-36, 5.5, 34], at: [-31, 3.3, -9], fov: 13, dof: 420, shadow: [[-31, 0, -9], 12] }),
+  crowd: Object.freeze({ eye: [-18, 7, 78], at: [-92, 19, 10], fov: 18, dof: 600, shadow: [[-60, 0, 30], 40] }),
+  // the third-base camera on the pitcher off the back of the mound, rubbing up the ball
+  rub: Object.freeze({ eye: [64, 7, 33], at: [0, 4.2, 70.4], fov: 11, dof: 700, shadow: [[0, 0, 70], 14] }),
   // high behind home with the city beyond: back from a break and between innings, and the
   // fireworks over the outfield
   sky: Object.freeze({ eye: [0, 118, -176], at: [-40, 130, 1200], fov: 50, shadow: [[0, 0, 140], 300] }),

@@ -53,13 +53,13 @@ const TROT = 15.5;
 // behind the plate instead of through him.
 const OVER_THE_PLATE = Object.freeze({ past: 16, pastTurn: 40 });
 // Where the catcher squats and the plate umpire stands (cast.js), for a man jogging off to go round.
-const BEHIND_THE_PLATE = [[0, 0, -2.75], [1.2, 0, -5.4]];
+export const BEHIND_THE_PLATE = [[0, 0, -2.75], [1.2, 0, -5.4]];
 const toSegment = (q, a, b) => { const ab = sub(b, a), L = ab[0] * ab[0] + ab[2] * ab[2], f = L ? clamp(((q[0] - a[0]) * ab[0] + (q[2] - a[2]) * ab[2]) / L, 0, 1) : 0; return flat(q, add(a, mul(ab, f))); };
 // A way across the infield kept off the mound: where a leg of it passes within a stride of the
 // mound's edge, a point out beside the mound on that leg's side. The slope under a running foot
 // bends the ankle past what it can do.
 const MOUND_CLEAR = 10.5;
-function roundMound(pts) {
+export function roundMound(pts) {
   const M = [MOUND[0], 0, MOUND[1]], out = [pts[0]];
   for (let i = 1; i < pts.length; i++) {
     const a = out[out.length - 1], b = pts[i];

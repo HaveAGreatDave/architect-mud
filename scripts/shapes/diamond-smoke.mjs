@@ -20,9 +20,15 @@
 //      with the count done by then; every shot a camera; every pose finite; every pitch's marks in
 //      the dirt (diamond/marks.js), its stride where the pitcher's front foot lands and the hitter's
 //      back foot dug in, each at the foot (0.4 ft) and on the dirt, and a slide's scar running to
-//      where he got to (1 ft). And the game has to exercise the rare paths, or the gate isn't
-//      testing them: a pitch left out, a ritual, a block, a check swing, a punch-out, a hit
-//      batsman, a slide or a dive that scars the dirt.
+//      where he got to (1 ft). At the long hold, the dead time after it too (diamond/between.js):
+//      everyone sent somewhere at rest a beat before the next payload's due and where he was sent
+//      (4 ft), nobody jumping (52 ft/s) outside a cut or coming within 2 ft of anybody (or nearer
+//      than the two started), the walks and rests inside their joints outside a mix, the on-deck
+//      hitter in his circle and swinging for his camera, and the cameras opening wide. And the
+//      game has to exercise the rare paths, or the gate isn't testing them: a pitch left out, a
+//      ritual, a block, a check swing, a punch-out, a hit batsman, a slide or a dive that scars the
+//      dirt, and dead time with a pitcher rubbing up the ball, a man going off and the on-deck
+//      camera.
 //   1b. THE PLAYS (diamond/plays.js), every ball in play at the short hold: each catch's clip on its
 //      catch with the glove on the ball (0.1 ft) and the catcher inside his joints; each throw's
 //      clip on its release and the ball out of his hand (0.05 ft); the call at first agreeing
@@ -161,7 +167,7 @@ const bagAt = (b) => (b === 4 ? [0, 0, 0] : BAGS[b]);
 for (const p of order) for (const m of p.moves || []) if (m && m.name) check('a runner\'s legs in the picture are the sim\'s (play.js legsOf)', legsOf(m.name) === speedOf(m.name), m.name);
 
 // ── 1. the director ──────────────────────────────────────────────────────────
-const seen = { skip: 0, ritual: 0, block: 0, check: 0, punchout: 0, hbp: 0, lefty: 0, sideL: 0, toFirst: 0, air: 0, rundown: 0, scored: 0, round: 0, trot: 0, off: 0, warmup: 0, replay: 0, scar: 0 };
+const seen = { skip: 0, ritual: 0, block: 0, check: 0, punchout: 0, hbp: 0, lefty: 0, sideL: 0, toFirst: 0, air: 0, rundown: 0, scored: 0, round: 0, trot: 0, off: 0, warmup: 0, replay: 0, scar: 0, between: 0, rub: 0, goneOff: 0, deckShot: 0 };
 // The ball of a foot, where marks.js puts its mark: half way from the ankle to the toe.
 const footAt = (J, S) => [(J['an' + S][0] + J['toe' + S][0]) / 2, (J['an' + S][2] + J['toe' + S][2]) / 2];
 // The dirt's marks (diamond/marks.js) a staging said: each on the canvas, a foot's on the dirt,
@@ -203,7 +209,8 @@ for (const hold of [undefined, 45000]) {
     let landed = 0, landT = null;
     const counts = [], shots = [];
     let shotNow = null, cutAt = -Infinity;
-    const D = createDirector(W, { onLand: () => { landed++; landT = W.t; }, emit: (n, d) => { if (n === 'pitch') counts.push({ t: W.t, i: d.i }); else if (n === 'shot') { shots.push(d); shotNow = d; cutAt = W.t; } } });
+    // at the long hold the dead time after it as well, asked for when it lands as the view asks
+    const D = createDirector(W, { onLand: () => { landed++; landT = W.t; if (hold) D.planBetween({ until: t0 + hold / 1000 }); }, emit: (n, d) => { if (n === 'pitch') counts.push({ t: W.t, i: d.i }); else if (n === 'shot') { shots.push(d); shotNow = d; cutAt = W.t; } } });
     const t0 = W.t;
     D.stage(p, cast);
     const N = p.pitches.length, budget = budgetOf(p);
@@ -346,11 +353,38 @@ for (const hold of [undefined, 45000]) {
     // the third out: everyone on the field jogs off, watched for jumps from when they set off
     const off = D.inningOver ? cast.filter((c) => ['pitcher', 'catcher', 'fielder', 'batter', 'runner'].includes(c.look.role)).map((c) => ({ c, last: null, at: -1 })) : [];
     let offClosest = { d: Infinity };
+    // the dead time (diamond/between.js), watched at 10 Hz from its first cut: every body's pelvis
+    // for jumps and for coming within 2 ft of another (or nearer than the two started it, less half
+    // a foot), and at 2 Hz the joints of the dead time's own clips outside a mix
+    const BT = new Set(['run_walk', 'stand_idle', 'pitch_rub', 'deck_swing', 'bat_stance']);
+    const deadTime = { last: new Map(), start: new Map(), close: { d: Infinity }, jump: null, bent: null, deck: null };
     // the clock, and every pose finite now and then on the way
     let k = 0, lastBall = null;
     while (W.t < Math.max(D.until, D.landAt) + 0.1) {
       W.step(DT);
       while (due.length && due[0][0] <= W.t) due.shift()[1]();
+      if (D.between && W.t >= D.between.from && k % 12 === 0) {
+        const at = [];
+        for (const [slot, b] of W.bodies) {
+          const Q = W.pose(slot);
+          if (!Q) continue;
+          const pv = toPark(Q, Q.pelvis), w = deadTime.last.get(slot);
+          if (w && w.at > cutAt && !deadTime.jump && flatD(pv, w.pv) / (W.t - w.at) > 52) deadTime.jump = `slot ${slot} in ${b.clip?.id} at +${(W.t - t0).toFixed(2)} s, ${(flatD(pv, w.pv) / (W.t - w.at)).toFixed(0)} ft/s`;
+          deadTime.last.set(slot, { pv, at: W.t });
+          if (b.role === 'ondeck') { deadTime.deck = Math.max(deadTime.deck ?? 0, flatD(pv, cast.find((c) => c.look.role === 'ondeck').at)); continue; }
+          at.push([slot, pv]);
+          if (k % 60 === 0 && !deadTime.bent && BT.has(b.clip?.id) && !(b.prev && W.t < b.prev.from + b.prev.fade)) {
+            const L = { ...Q, at: [0, 0, 0], yaw: 0 }, br = limitBreaks(L, solvePose(L)).filter((x) => !/ ft up/.test(x));
+            if (br.length) deadTime.bent = `slot ${slot} in ${b.clip.id} at +${(W.t - t0).toFixed(2)} s: ${br[0]}`;
+          }
+        }
+        for (let i = 0; i < at.length; i++) for (let j = i + 1; j < at.length; j++) {
+          const key = at[i][0] + '|' + at[j][0], d = flatD(at[i][1], at[j][1]);
+          if (!deadTime.start.has(key)) deadTime.start.set(key, d);
+          const room = Math.min(2, deadTime.start.get(key) - 0.5);
+          if (d - room < deadTime.close.d) deadTime.close = { d: d - room, what: `slots ${at[i][0]} and ${at[j][0]} ${d.toFixed(2)} ft apart at +${(W.t - t0).toFixed(2)} s` };
+        }
+      }
       if (++k % 12 === 0) {
         for (const s of [sP, sC, sH, sU]) {
           const Q = W.pose(s);
@@ -420,6 +454,31 @@ for (const hold of [undefined, 45000]) {
       }
     }
     if (plan && cam.n) check('a play: the high camera keeps the ball in its frame (95%)', cam.out <= cam.n * 0.05, `${label}: out of frame ${cam.out} of ${cam.n}`);
+    // the dead time: everyone sent somewhere there and at rest before the next payload's due, nobody
+    // jumping or walking into anybody, the walks and the rests bodies can make, the on-deck hitter
+    // in his circle, and the cameras going round the park
+    if (hold && D.between) {
+      const B = D.between;
+      seen.between++;
+      check('between at-bats: everyone sent somewhere is at rest a beat before the next payload\'s due', B.gone.every((g) => g.end <= B.by + 1e-6), `${label}: ${B.gone.filter((g) => g.end > B.by).map((g) => g.role).join(', ')}`);
+      for (const g of B.gone) {
+        const Q = W.pose(g.slot), pv = Q ? toPark(Q, Q.pelvis) : null, d = pv ? flatD(pv, g.to) : Infinity;
+        check('between at-bats: everyone ends where he was sent (4 ft)', d <= 4 || g.stay, `${label}: ${g.role} slot ${g.slot}, ${d.toFixed(1)} ft from [${g.to.map((v) => v.toFixed(0))}]`);
+        if (g.role === 'pitcher') seen.rub++;
+        if (g.off) seen.goneOff++;
+      }
+      check('between at-bats: nobody jumps (52 ft/s) outside a cut', !deadTime.jump, `${label}: ${deadTime.jump}`);
+      check('between at-bats: nobody comes within 2 ft of anybody (or nearer than the two started)', deadTime.close.d >= 0, `${label}: ${deadTime.close.what}`);
+      check('between at-bats: the walks and the rests are bodies that can, outside a mix', !deadTime.bent, `${label}: ${deadTime.bent}`);
+      check('between at-bats: the on-deck hitter stays in his circle (3 ft)', deadTime.deck == null || deadTime.deck <= 3, `${label}: ${deadTime.deck?.toFixed(2)} ft`);
+      const named = new Set(B.shots.map((x) => x.shot));
+      check('between at-bats: the cameras open wide and go round the park when there\'s time', B.shots[0]?.shot === 'high' && (B.by - B.from < 20 || (named.has('rub') || named.has('crowd'))), `${label}: ${B.shots.map((x) => x.shot).join(', ')}`);
+      if (named.has('deck1') || named.has('deck3')) {
+        seen.deckShot++;
+        const want = B.shots.find((x) => x.swing)?.swing;
+        check('between at-bats: the on-deck hitter swings for his camera', D.played.some((x) => x.role === 'ondeck' && x.clip === 'deck_swing' && Math.abs(x.t - want) < 1e-6), `${label}: wanted at +${(want - t0).toFixed(2)}`);
+      }
+    }
     if (off.length) {
       // every man ends in his side's crowd by its dugout
       const side = dugoutOf(p);
@@ -497,6 +556,7 @@ check('the game has a trot to first after ball four or a hit batsman', seen.trot
 check('the game has a side going off after its third out', seen.off > 0);
 check('the game has a play that earns a replay', seen.replay > 0);
 check('the game has a slide or a dive that leaves its scar in the dirt', seen.scar > 0);
+check('the game has dead time between at-bats, with a pitcher rubbing up the ball, a man going off and the on-deck camera', seen.between > 0 && seen.rub > 0 && seen.goneOff > 0 && seen.deckShot > 0, JSON.stringify({ between: seen.between, rub: seen.rub, off: seen.goneOff, deck: seen.deckShot }));
 
 // ── 1c. the changeover ───────────────────────────────────────────────────────
 // Every half payload: the side taking the field out of its dugout to its spots, and the pitcher's

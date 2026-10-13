@@ -1066,6 +1066,13 @@ Built so far (Phases 1 and 2 of the plan):
   `paintMark`, only where there's dirt, `onDirt`) and uploads only the rect each one touches
   (gl/ballpark.js `markDirt`). A payload from another game, or an earlier inning, starts a fresh
   infield (`resetDirt`);
+- between at-bats (Phase 4d, [diamond/between.js](../client/game/js/panels/diamond/between.js)):
+  once a play's landed, the view asks the director for the dead time till the next payload's due
+  (`planBetween`, from the payload's `hold`). The field walks back to its places, the pitcher
+  rubs up the ball off the back of the mound, a man who's out goes off to his dugout, and the
+  cameras go round the park (wide, the on-deck circle, the pitcher, a stand of fans) once any
+  replay's done. The on-deck hitter takes practice swings through every at-bat. Frames run
+  through the dead time; a payload with no `hold` gets none;
 - replays (Phase 4b, [diamond/replay.js](../client/game/js/panels/diamond/replay.js)): a walk-off,
   a home run, a triple or double play, a catch that took a dive, a slide or a leap, a triple and a
   call at first closer than 0.15 s are shown again in slow motion. Staging is a pure function of

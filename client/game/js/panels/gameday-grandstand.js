@@ -27,7 +27,9 @@
 // ball in play is played out (diamond/plays.js), and so is a play on the bases (diamond/runs.js:
 // a steal, a throw over, a wild pitch), its steal card on the landing; at a changeover the new
 // side takes the field and the pitcher warms up. A big play gets a slow-motion replay once its
-// line's up (diamond/replay.js), its own world shown in place of the live one. The infield keeps
+// line's up (diamond/replay.js), its own world shown in place of the live one. The dead time till
+// the next payload's due is filled (diamond/between.js): the field walks back, the pitcher rubs up
+// the ball, the on-deck hitter swings and the cameras go round the park. The infield keeps
 // the game's marks, each stride, dig and slide painted into the dirt as it's made
 // (diamond/marks.js, gl/ballpark.js markDirt). With reduced
 // motion the cameras hold still and a replay is a still; and everything the graphics say is in
@@ -204,12 +206,14 @@ export function createGrandstandView(host, opts = {}) {
   }
 
   // ── drawing ────────────────────────────────────────────────────────────────
-  // The park only moves when the game does: frames run while an at-bat plays and the GPU sits
-  // idle between them. A new cast is built a few bodies a frame, and the picture waits for all of
-  // them, the world's clock too: the last frame stays up meanwhile, so nobody pops in. While the
-  // world has the battery, each frame steps it in fixed steps to the frame's time and hands the
-  // renderer their poses and the ball. The graphics are their own canvas and repaint without the
-  // park.
+  // The park only moves when the game does: frames run while an at-bat plays and through the dead
+  // time after it, till the next payload's due (diamond/between.js), and the GPU sits idle once
+  // everyone's at rest; a payload that doesn't say how long it holds gets no dead time, so its
+  // frames stop once its play's done. A new cast is built a few bodies a frame, and the picture
+  // waits for all of them, the world's clock too: the last frame stays up meanwhile, so nobody
+  // pops in. While the world has the battery, each frame steps it in fixed steps to the frame's
+  // time and hands the renderer their poses and the ball. The graphics are their own canvas and
+  // repaint without the park.
   function draw() {
     if (!R || raf || !win) return;
     raf = win.requestAnimationFrame(frame);
@@ -394,11 +398,15 @@ export function createGrandstandView(host, opts = {}) {
     // them), if the hold has room for it before the next payload's due: a payload that doesn't say
     // how long it holds gets none
     const spec = c.cast && D.play ? mods.replayOf(p, D.play, D.log) : null;
+    let replayEnd = null;
     if (spec && Number.isFinite(p.hold)) {
       const calm = prefersReducedMotion(), long = calm ? mods.REPLAY.still : (spec.to - spec.from) / mods.REPLAY.rate;
       const at = Math.max(W.t + mods.REPLAY.after, ...(D.fx || []).filter((e) => e.kind === 'burst').map(mods.fxEnd));
-      if (at + long <= c.t0 + p.hold / 1000 - REPLAY_MARGIN) replayDue = { at, spec, p, calm, cast: c.cast };
+      if (at + long <= c.t0 + p.hold / 1000 - REPLAY_MARGIN) { replayDue = { at, spec, p, calm, cast: c.cast }; replayEnd = at + long; }
     }
+    // and the dead time till the next payload's due (diamond/between.js): the field walks back, the
+    // pitcher rubs up the ball and the cameras go round the park, once any replay's done
+    if (Number.isFinite(p.hold) && c.cast) D.planBetween?.({ until: c.t0 + p.hold / 1000, from: replayEnd != null ? replayEnd + 0.3 : undefined });
   }
   // What the director says as it stages: a cut to another camera, a sound on its moment, and each
   // pitch as it's decided, for the count, the speed and the zone (the count never shows a fourth

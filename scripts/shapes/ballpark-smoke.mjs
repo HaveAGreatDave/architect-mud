@@ -211,6 +211,16 @@ for (const kind of ['sit', 'stand', 'cheer']) for (const far of [false, true]) {
   check('the plate: the plate and the last strides from third in frame', on('plate', [0, 0, 0]) && on('plate', [28.3, 0, 28.3]));
   check('the backstop: the plate and the ground in front of the backstop either side in frame', on('backstop', [0, 0, 0]) && on('backstop', [0, 0, -54]) && on('backstop', [17, 0, -52]) && on('backstop', [-17, 0, -52]));
   check('high home: all three bases in frame', [1, 2, 3].every((k) => on('high', G.BAGS[k])));
+  // between at-bats (diamond/between.js): each on-deck circle with its hitter head to foot, the
+  // pitcher off the back of the mound the same, and a stand of fans
+  check('the on-deck cameras: each circle\'s hitter head to foot in frame', [['deck3', 31], ['deck1', -31]].every(([n, x]) => on(n, [x, 0.2, -9]) && on(n, [x, 6.3, -9])));
+  check('the rub camera: the pitcher off the back of the mound head to foot in frame', on('rub', [0, 0.2, 70.4]) && on('rub', [0, 6.3, 70.4]));
+  {
+    const a = base.crowd.sit, n = a.length / M.CROWD_STRIDE;
+    let seen = 0;
+    for (let i = 0; i < a.length; i += M.CROWD_STRIDE) if (on('crowd', [a[i], a[i + 1] + 3, a[i + 2]])) seen++;
+    check('the crowd camera: a stand of fans in frame', seen >= 150, `${seen} of ${n}`);
+  }
   check('a wide screen narrows a long lens', C.shotOf('cf', 2.3).fov < C.SHOTS.cf.fov && C.shotOf('cf', 4 / 3).fov === C.SHOTS.cf.fov);
   check('the batting view keeps its height on a wide screen', C.shotOf('bat', 2.3).fov === C.SHOTS.bat.fov);
   // the camera never rolls: the screen's horizontal runs level

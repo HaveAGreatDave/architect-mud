@@ -43,6 +43,11 @@
 // mitt on a swinging one or on ball four, the ball hitting him, or the ball put in play resolved.
 // The view holds the booth's line and the card until then.
 //
+// BETWEEN AT-BATS (diamond/between.js). The on-deck hitter swings in his circle through every
+// at-bat. Once a play's landed the view asks for the dead time till the next payload's due
+// (`between`): the field walks back to its places, the pitcher rubs up the ball behind the rubber,
+// a man who's out goes off, and the cameras go round the park; not after a third out or a walk-off.
+//
 // THE DIRT KEEPS THE GAME (diamond/marks.js). Every pitch leaves the pitcher's stride where his
 // front foot lands and the batter's back foot dug in, and every slide or dive its scar, said as
 // they're made ('mark'), and a pitch left out leaves its marks as the next one cuts in.
@@ -62,6 +67,7 @@ import { planSpectacle, KINDS as FX_KINDS } from './spectacle.js';
 import { planTrot, planTakeField, jogToDugout, dugoutOf, dugoutSpot as dugoutSpotOf } from './bases.js';
 import { makeBody, cloneBody, onOf, flat } from './bodies.js';
 import { strideOf, digOf, scarsOf } from './marks.js';
+import { planBetween, deckPlan, shotsBetween, BETWEEN } from './between.js';
 
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
 const add = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
@@ -314,7 +320,14 @@ function stageBodiesOf(W, bodies, tIn, play) {
 export function createDirector(W, opts = {}) {
   const emit = (n, d) => opts.emit?.(n, d);
   // `fx`: the payload's spectacle (diamond/spectacle.js), which the view hands the renderer
-  const D = { log: [], played: [], views: null, landed: true, landAt: 0, until: 0, t0: 0, budget: 0, payload: null, fx: [], marks: [] };
+  const D = { log: [], played: [], views: null, landed: true, landAt: 0, until: 0, t0: 0, budget: 0, payload: null, fx: [], marks: [], queued: new Map() };
+  // the last clip the director has queued for each body (`D.queued`, by slot: { clip, at, start,
+  // speed, frame }), so the dead time starts each man from what he'll be doing, not what he's doing
+  // now: a strikeout's walk off starts after the call's landed
+  const queue = (slot, clip, at, start, speed, frame) => {
+    const q = D.queued.get(slot);
+    if (!q || at >= q.at) D.queued.set(slot, { clip, at, start, speed, frame });
+  };
   // a mark in the dirt (marks.js), said as it's made and kept for the gate
   const mark = (m) => { D.marks.push(m); W.at(m.t, () => emit('mark', m)); };
   // the marks a pitch leaves: the hitter's back foot dug in as it cuts in, the stride as it lands
@@ -327,7 +340,7 @@ export function createDirector(W, opts = {}) {
   // shot while everyone takes their places. `o.motion` false: the viewer has asked for less motion,
   // so no camera rides with a home run and nothing bursts or sparks.
   D.stage = (p, cast = castOf(p), o = {}) => {
-    D.payload = p; D.log = []; D.played = []; D.views = null; D.landed = false; D.play = null; D.trot = null; D.inningOver = false; D.fx = []; D.marks = [];
+    D.payload = p; D.cast = cast; D.log = []; D.played = []; D.views = null; D.landed = false; D.play = null; D.trot = null; D.inningOver = false; D.fx = []; D.marks = []; D.between = null; D.queued = new Map();
     W.clearQueue();
     const motion = o.motion !== false;
     if (p?.phase === 'run') { stageRun(p, cast, o); return; }
@@ -352,12 +365,14 @@ export function createDirector(W, opts = {}) {
     const { P, C, H, U, tempo, delivery, hand, bats, from } = S;
     const side = sideShot(bats);
     let until = TL.landAt + 0.5;
+    onDeck(cast, W.t, TL.landAt, `${p.batter}|${p.inning}|${p.half}`);
     // a clip started at world time `start`, from the moment `at` (a cut can come in on one already
     // under way); noted for the gate
     const play = (b, clipId, at, start = at, o = {}) => {
       if (!b) return;
       const speed = o.speed || 1;
       until = Math.max(until, start + CLIPS[clipId].duration / speed);
+      queue(b.slot, clipId, at, start, speed, o.frame);
       W.at(at, () => { W.play(b.slot, clipId, { at: start, speed, fade: o.fade, frame: o.frame, from: o.from, carry: o.carry }); D.played.push({ t: at, role: b.role, slot: b.slot, clip: clipId, start }); });
     };
     const cut = (at, shot) => W.at(at, () => emit('shot', shot));
@@ -550,12 +565,14 @@ export function createDirector(W, opts = {}) {
       if (!b) return;
       const speed = oo.speed || 1;
       until = Math.max(until, start + CLIPS[clipId].duration / speed);
+      queue(b.slot, clipId, at, start, speed, oo.frame);
       W.at(at, () => { W.play(b.slot, clipId, { at: start, speed, fade: oo.fade, frame: oo.frame, from: oo.from, carry: oo.carry }); D.played.push({ t: at, role: b.role, slot: b.slot, clip: clipId, start }); });
     };
     const cut = (at, shot) => W.at(at, () => emit('shot', shot));
     const sound = (at, cue) => W.at(at, () => emit('sound', cue));
     if (lead) W.at(W.t, () => emit('shot', 'sky'));
     cut(t0, 'bat');
+    onDeck(cast, W.t, tMitt + 1, `${p.batter}|${p.inning}|${p.half}|${p.kind}`);
     const setup = [CATCHER_AT[0] + sh.setupX, CATCHER_AT[1], CATCHER_AT[2]];
     W.at(t0, () => { for (const b of [P, C, H, U]) if (b) W.clearLayers(b.slot); C.at = setup.slice(); W.setBall(null); });
     play(P, 'pitch_set', t0, t0 - 1.0);
@@ -613,6 +630,7 @@ export function createDirector(W, opts = {}) {
       if (!b) return;
       const speed = oo.speed || 1;
       until = Math.max(until, start + CLIPS[clipId].duration / speed);
+      queue(b.slot, clipId, at, start, speed, oo.frame);
       W.at(at, () => { W.play(b.slot, clipId, { at: start, speed, fade: oo.fade, frame: oo.frame, from: oo.from, carry: oo.carry }); D.played.push({ t: at, role: b.role, slot: b.slot, clip: clipId, start }); });
     };
     const cut = (at, shot) => W.at(at, () => emit('shot', shot));
@@ -782,6 +800,74 @@ export function createDirector(W, opts = {}) {
     D.until = until;
   }
   D.offField = offField;
+
+  // The on-deck hitter in his circle from t0 to t1: placed there (unless `o.place` is false, when
+  // he carries on), in his stance with a practice swing now and then (between.js deckPlan), facing
+  // the field as a hitter in the box does; `o.at` are times a swing's wanted.
+  function onDeck(cast, t0, t1, salt, o = {}) {
+    const c = (cast || []).find((x) => x.look.role === 'ondeck');
+    if (!c || !(t1 > t0)) return null;
+    const slot = c.look.slot, yaw = c.mirror ? 90 : -90;
+    if (o.place !== false) W.at(t0, () => W.place(slot, { id: c.id, role: 'ondeck', at: c.at, yaw, scale: c.scale, mirror: c.mirror }));
+    const plan = deckPlan(t0, t1, salt, o.at || []);
+    for (const e of o.place === false ? plan.slice(1) : plan) {
+      W.at(e.t, () => { W.play(slot, e.clip, { at: e.t, fade: e.fade }); D.played.push({ t: e.t, role: 'ondeck', slot, clip: e.clip, start: e.t }); });
+    }
+    return c;
+  }
+
+  // ── between at-bats ──
+  // The dead time after a play's landed, till the next payload's due (`o.until`, the world's time):
+  // every man the play can have moved is seeded from his plan or the world, or stood where the cast
+  // has him, as offField does, and between.js puts the field back; the on-deck hitter swings on, and
+  // the cameras go round from `o.from` (after a replay, if there is one), the first cut wide, so a
+  // man who was a still and starts to move does it under a cut. Nothing after a third out (everyone's
+  // going off) or a walk-off, or with no time to fill. Returns what it planned ({ gone, shots,
+  // from, until, by }), kept as D.between.
+  D.planBetween = (o = {}) => {
+    const p = D.payload, cast = D.cast || [];
+    if (!p || p.phase === 'half' || D.inningOver || p.walkoff || !Number.isFinite(o.until)) return null;
+    const t = W.t, from = Math.max(t + BETWEEN.settle, o.from ?? -Infinity), by = o.until - BETWEEN.margin;
+    if (by - from < 3) return null;
+    const planned = new Map([...(D.play?.bodies || []), ...(D.trot?.bodies || [])].map((B) => [B.slot, B]));
+    const men = [];
+    for (const c of cast) {
+      const role = c.look.role;
+      if (!['pitcher', 'catcher', 'fielder', 'batter', 'runner', 'ump'].includes(role)) continue;
+      const slot = c.look.slot, b = W.bodies.get(slot), P = planned.get(slot), last = P?.clips[P.clips.length - 1];
+      // what the world has him doing, or what the director's queued for him after it
+      const q = D.queued.get(slot), cur = b && b.clip && !(q && q.at > t) ? { clip: b.clip.id, start: b.start, speed: b.speed, frame: null } : q;
+      const B = P || (b && cur
+        ? makeBody({ n: 60, id: b.id, slot, role, at: cur.frame?.at ?? b.at, yaw: cur.frame?.yaw ?? b.yaw, mirror: b.mirror, scale: b.scale, clip: cur.clip, start: cur.start, speed: cur.speed })
+        : makeBody({ n: 60, id: c.id, slot, role, at: b ? b.at : c.at, yaw: b ? b.yaw : c.yaw, mirror: c.mirror, scale: c.scale }));
+      // free once his last clip's done (a loop or a rest at once), up off the ground once he's up
+      const e = P ? last : B.clips[0], clip = e && CLIPS[e.clip];
+      const done = !e ? t : clip.loop ? onOf(e) + 0.3 : e.start + clip.duration / e.speed;
+      const go = !b ? from : Math.max(t, done, P?.offAfter ?? -Infinity);
+      men.push({ B, slot, role, go, done: B.clips.length, still: !b, c });
+    }
+    const gone = planBetween({ p, cast, men, by });
+    const at = new Map(gone.map((g) => [g.slot, g]));
+    for (const m of men) {
+      if (!at.has(m.slot)) continue;
+      // a still goes into the world as the first cut comes in, where the cast stands him
+      if (m.still) W.at(from, () => W.place(m.slot, { id: m.c.id, role: m.role, at: m.c.at, yaw: m.c.yaw, scale: m.c.scale, mirror: m.c.mirror }));
+      for (const e of m.B.clips.slice(m.done)) {
+        if (e.prior) continue;
+        W.at(e.issue ?? e.from ?? e.start, () => { W.play(m.slot, e.clip, { at: e.start, speed: e.speed, fade: e.fade, frame: e.given ? e.F : undefined, from: e.from, carry: e.carry }); D.played.push({ t: e.start, role: m.role, slot: m.slot, clip: e.clip, start: e.start }); });
+      }
+    }
+    // the cameras, and the on-deck hitter's swings with one for his shot
+    const deck = cast.find((c) => c.look.role === 'ondeck');
+    const rub = gone.find((g) => g.role === 'pitcher');
+    const shots = shotsBetween({ from, until: by, deck: deck ? (deck.at[0] > 0 ? 'deck3' : 'deck1') : null, rubAt: rub?.end });
+    for (const x of shots) W.at(x.at, () => emit('shot', x.shot));
+    if (deck) onDeck(cast, t, o.until, `${p.batter}|${p.inning}|${p.half}|between`, { place: false, at: shots.filter((x) => x.swing).map((x) => x.swing) });
+    W.at(from, () => W.setBall(null));
+    D.until = Math.max(D.until, o.until);
+    D.between = { gone, shots, from, until: o.until, by, men: men.map((m) => ({ slot: m.slot, role: m.role, still: m.still })) };
+    return D.between;
+  };
 
   // The fireworks: the wide shot over the outfield as the first shell goes up, and back to the
   // high camera once the last has burst. Returns when the last spark's out (0 for none).
