@@ -2909,6 +2909,9 @@ export default async function regress({ check, run, getPlayer }) {
         const { getEnvironmentState } = await import('../../server/engine/environment.js');
         const mins = getEnvironmentState()?.minutes;
         check('gameday: a park with a site sends the minute of the day it airs at', Number.isInteger(aired.clock) && aired.clock >= 0 && aired.clock < 1440 && (!Number.isFinite(mins) || aired.clock === Math.round(mins) % 1440), `${aired.clock} for ${mins}`);
+        // every word the weather can send is one the 3-D park has a look for (diamond/weather.js)
+        const { WX } = await import('../../client/game/js/panels/diamond/weather.js');
+        check('gameday: the 3-D park knows every weather word', WEATHER_TYPES.every((w) => w in WX), WEATHER_TYPES.filter((w) => !(w in WX)).join(', '));
       }
     }
 

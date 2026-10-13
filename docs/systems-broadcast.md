@@ -1083,6 +1083,14 @@ Built so far (Phases 1 and 2 of the plan):
   the same keyframes the windshield blends ([client/shared/sky-keys.js](../client/shared/sky-keys.js)),
   and the night sky carries the city's own glow from the venue's art (`city.glow`). A payload with
   no `clock` is at night;
+- the park's own weather (Phase 4e, [diamond/weather.js](../client/game/js/panels/diamond/weather.js)):
+  each payload's `wx` sets it. Cloud takes the stars and lights its underside with the city's glow,
+  the haze thickens, the city dims through it, rain wets the field (the dirt darker, with puddles
+  that catch the floods), rain, sleet, snow and ash fall in the air every camera looks through
+  ([gl/weather.js](../client/game/js/panels/gl/weather.js)), acid rain falls green, and a
+  thunderstorm, a storm or an ion storm puts bolts out past the outfield over the skyline, each
+  flashing the sky once. The bolts are a function of the world's clock, so every TV strikes the
+  same one at the same moment. With reduced motion the lightning doesn't flash;
 - the grounds crew (Phase 4d, [diamond/crew.js](../client/game/js/panels/diamond/crew.js)): in the
   middle of the fifth, when the break holds 84 s or more (cast.js `crewDue`), four of them in
   work clothes drag the infield, two to a mat and the pairs side by side, in from foul ground

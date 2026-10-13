@@ -1071,7 +1071,7 @@ for (const { p, seed } of runs) {
 
 // ── 2. the view ──────────────────────────────────────────────────────────────
 // A renderer that records what it's handed: the cast, the poses by slot, the ball, the shots.
-const rec = { poses: new Map(), balls: 0, frames: 0, roar: [0, 0], marks: 0, resets: 0, hours: [] };
+const rec = { poses: new Map(), balls: 0, frames: 0, roar: [0, 0], marks: 0, resets: 0, hours: [], wx: [] };
 const renderer = () => ({
   kind: 'stub', lost: false, quality: { dpr: 1, tube: false }, casters: [],
   setCast(cast) { rec.cast = cast; return 0; },
@@ -1079,7 +1079,7 @@ const renderer = () => ({
   setBall(p) { if (p) rec.balls++; },
   render() { rec.frames++; return true; },
   setCrowd(levels) { rec.roar = [Math.max(rec.roar[0], levels[0]), Math.max(rec.roar[1], levels[1])]; },
-  markDirt(list) { rec.marks += list.length; }, resetDirt() { rec.resets++; }, setHour(h) { rec.hours.push(h); },
+  markDirt(list) { rec.marks += list.length; }, resetDirt() { rec.resets++; }, setHour(h) { rec.hours.push(h); }, setWeather(wx, o) { rec.wx.push({ wx, o }); }, setTime() {},
   setBoard() {}, setVenue() { return null; }, pump() { return 0; }, pending: () => 0, dispose() {},
 });
 {
@@ -1263,6 +1263,17 @@ const renderer = () => ({
     v.apply({ ...p });
     const b = rec.hours[rec.hours.length - 1];
     check('the sky: a payload\'s minute reaches the renderer as an hour, and one without is night', Math.abs(a - 1150 / 60) < 1e-9 && b === null, `${a} then ${b}`);
+    // and its weather, lightning flashing unless the viewer's asked for less motion
+    const wx = { word: 'thunderstorm', precip: 'rain', rate: 0.6 };
+    v.apply({ ...p, wx });
+    const w1 = rec.wx[rec.wx.length - 1];
+    globalThis.document.documentElement.setAttribute('data-motion', 'off');
+    v.apply({ ...p, wx });
+    const w2 = rec.wx[rec.wx.length - 1];
+    globalThis.document.documentElement.removeAttribute('data-motion');
+    v.apply({ ...p });
+    const w3 = rec.wx[rec.wx.length - 1];
+    check('the weather: a payload\'s weather reaches the renderer, its lightning not flashing for less motion, and none is none', w1.wx === wx && w1.o.flash === true && w2.o.flash === false && w3.wx === null, JSON.stringify([w1.o, w2.o, w3.wx]));
   }
   v.clear();
   check('cleared', host.children.length === 0);

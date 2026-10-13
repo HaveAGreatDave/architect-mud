@@ -35,6 +35,8 @@
 //      net, then the lamps' pools, the Curtain and the spectacle (the comet's tail, sparks off the
 //      bat, fireworks: gl/spectacle.js) added over them, each through the night air, which is
 //      height fog with the towers' light scattered in it (fog.js);
+//      what falls on the park and lightning over the skyline go in with them (gl/weather.js), and
+//      the field is wet under rain;
 //   3. the depth the frame was drawn with, resolved into a texture for the lens and the occlusion;
 //   4. ambient occlusion from that depth at half size (ssao.js);
 //   5. bloom off the lamps (hdr.js), then the lens, the curve and the grade (gl/broadcast.js).
@@ -75,6 +77,7 @@ import { applyLinOut } from './colour.js';
 import { HUD_FACES, loadHudFaces } from '../diamond/hud.js';
 import { createSpectacle } from './spectacle.js';
 import { NIGHT, skyLook } from '../diamond/sky.js';
+import { createWeather } from './weather.js';
 
 const FACE = '"Arial Narrow", "Roboto Condensed", Arial, sans-serif';
 
@@ -118,7 +121,7 @@ void main() { }`;
 const LIGHTS_GLSL = `
 const float PI = 3.14159265;
 uniform vec3 uLPos[6]; uniform vec3 uLCol[6]; uniform vec3 uLDir[6];
-uniform vec3 uEye; uniform vec3 uSkyUp; uniform vec3 uSkyDn;
+uniform vec3 uEye; uniform vec3 uSkyUp; uniform vec3 uSkyDn; uniform float uWet;
 uniform vec3 uFogCol; uniform float uFogDens; uniform float uFogH; uniform float uShaft; uniform float uShaftReach;
 // a flood's cone: full inside 32° of its axis, falling to a spill at 63°
 float spotOf(int i, vec3 L, float spill) { return mix(spill, 1.0, smoothstep(0.45, 0.85, dot(-L, uLDir[i]))); }
@@ -363,11 +366,17 @@ void main() {
     // the canvas is premultiplied: where it's clear, the grass shows
     alb = alb * (1.0 - dirt.a) + dirt.rgb * (0.82 + 0.36 * g3.r) * (0.92 + 0.16 * g1.b);
     rough = mix(0.86, 0.96, max(dirt.a, trk)); f0s = 0.012;
+    // wet: the dirt and the track darker with a dull sheen, and puddles lying flat in their low
+    // spots that catch the floods; the grass a little darker
+    float wetD = uWet * max(dirt.a, trk), wetG = uWet * (1.0 - max(dirt.a, trk));
+    float pud = wetD * smoothstep(0.54, 0.68, g1.b * 0.45 + g2.g * 0.55);
+    alb *= 1.0 - 0.46 * wetD - 0.12 * wetG;
+    rough = mix(mix(rough, 0.64, wetD * 0.8 + wetG * 0.1), 0.2, pud); f0s = mix(f0s, 0.03, wetD + wetG * 0.3);
     // outside the field, under the stands: concrete
     float d1 = (xz.x + xz.y) * 0.7071, d3 = (xz.y - xz.x) * 0.7071;
     bool field = (r < wr + 2.0 && xz.y > -30.0 && min(d1, d3) > -40.0) || r < 58.0;
     if (!field) { alb = vec3(0.060, 0.058, 0.055) * (0.85 + 0.3 * g2.g); dirt.a = 1.0; }
-    N = normalize(vec3((g1.r - 0.5) * 0.18 * (1.0 - dirt.a) + (g3.b - 0.5) * 0.12, 1.0, (g1.g - 0.5) * 0.12));
+    N = normalize(vec3(((g1.r - 0.5) * 0.18 * (1.0 - dirt.a) + (g3.b - 0.5) * 0.12) * (1.0 - pud), 1.0, (g1.g - 0.5) * 0.12 * (1.0 - pud)));
   } else {
     if (vMat == ${MAT.CLOTH}) { rough = 0.9; wrap = 0.25; }
     else if (vMat == ${MAT.SKIN}) { rough = 0.48; wrap = 0.45; f0s = 0.028; }
@@ -616,6 +625,7 @@ export function createBallparkRenderer(canvas, opts = {}) {
     const CURT = prog(CURTAIN_VS, CURTAIN_FRAG);
     const SKLIT = prog(SKIN_VS, LIT_FS), SKD = prog(SKIN_DEPTH_VS, DEPTH_FS);
     const spectacle = createSpectacle(gl, prog);
+    const weather = createWeather(gl, prog);
 
     // ── textures ──────────────────────────────────────────────────────────────
     const T2 = gl.TEXTURE_2D;
@@ -1021,8 +1031,16 @@ export function createBallparkRenderer(canvas, opts = {}) {
 
     // The park's light at the hour the payload aired (setHour, diamond/sky.js), against the venue's
     // bearing and its city's glow; night until a payload says otherwise.
-    let hourNow = null, look = skyLook(null);
-    const relook = () => { look = skyLook(hourNow, { bearing: cityVenue?.site?.bearing, glow: cityVenue?.city?.glow }); };
+    let hourNow = null, wxNow = null, look = skyLook(null);
+    const relook = () => { look = skyLook(hourNow, { bearing: cityVenue?.site?.bearing, glow: cityVenue?.city?.glow, wx: wxNow }); };
+    // The weather over the park (a payload's `wx`, diamond/weather.js): the look, what falls and the
+    // lightning; and the world's time, which what falls and the bolts are drawn at.
+    function setWeather(wx, o = {}) {
+      wxNow = wx && typeof wx === 'object' ? wx : null;
+      weather.set(wxNow, o);
+      relook();
+      return look;
+    }
     function setHour(h) {
       const next = Number.isFinite(h) ? ((h % 24) + 24) % 24 : null;
       if (next === hourNow) return look;
@@ -1031,16 +1049,20 @@ export function createBallparkRenderer(canvas, opts = {}) {
       return look;
     }
 
+    // this frame's ambient from above and sky, with any bolt's flash in them
+    let frameUp = look.up, frameZen = look.zen, frameHor = look.hor, frameAway = look.horAway;
+
     let lost = false;
     canvas.addEventListener?.('webglcontextlost', (e) => { e.preventDefault(); lost = true; api.lost = true; });
     const stats = { tris: 0, draws: 0, ms: 0 };
 
     function lights(P, eye) {
       gl.uniform3fv(P.u('uLPos'), LPos); gl.uniform3fv(P.u('uLCol'), LCol); gl.uniform3fv(P.u('uLDir'), LDir);
-      gl.uniform3fv(P.u('uEye'), eye); gl.uniform3fv(P.u('uSkyUp'), look.up); gl.uniform3fv(P.u('uSkyDn'), look.dn);
+      gl.uniform3fv(P.u('uEye'), eye); gl.uniform3fv(P.u('uSkyUp'), frameUp); gl.uniform3fv(P.u('uSkyDn'), look.dn);
       const q = api.quality;
-      gl.uniform3fv(P.u('uFogCol'), look.fog); gl.uniform1f(P.u('uFogDens'), q.fog ? NIGHT.fogDens : 0); gl.uniform1f(P.u('uFogH'), NIGHT.fogH);
+      gl.uniform3fv(P.u('uFogCol'), look.fog); gl.uniform1f(P.u('uFogDens'), q.fog ? look.fogDens : 0); gl.uniform1f(P.u('uFogH'), NIGHT.fogH);
       gl.uniform1f(P.u('uShaft'), q.fog ? NIGHT.shaft : 0); gl.uniform1f(P.u('uShaftReach'), NIGHT.shaftReach);
+      gl.uniform1f(P.u('uWet'), look.wet || 0);
     }
 
     // ── a frame ───────────────────────────────────────────────────────────────
@@ -1051,6 +1073,9 @@ export function createBallparkRenderer(canvas, opts = {}) {
       if (!(w > 0 && h > 0)) return false;
       const M = shotMatrices(shot, w / h), q = api.quality;
       let tris = 0, draws = 0;
+      const flash = weather.flashAt(), add3 = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
+      frameUp = flash ? add3(look.up, flash.up) : look.up;
+      frameZen = flash ? add3(look.zen, flash.sky) : look.zen; frameHor = flash ? add3(look.hor, flash.sky) : look.hor; frameAway = flash ? add3(look.horAway, flash.sky) : look.horAway;
 
       // the players' poses, sent once for the shadows and the picture both
       palette.upload();
@@ -1084,7 +1109,7 @@ export function createBallparkRenderer(canvas, opts = {}) {
       gl.useProgram(SKY.p);
       lights(SKY, M.eye);
       gl.uniformMatrix4fv(SKY.u('uInvVP'), false, inv4(M.viewProj));
-      gl.uniform3fv(SKY.u('uZen'), look.zen); gl.uniform3fv(SKY.u('uHor'), look.hor); gl.uniform3fv(SKY.u('uHorAway'), look.horAway);
+      gl.uniform3fv(SKY.u('uZen'), frameZen); gl.uniform3fv(SKY.u('uHor'), frameHor); gl.uniform3fv(SKY.u('uHorAway'), frameAway);
       gl.uniform3fv(SKY.u('uSunDir'), look.sun); gl.uniform3fv(SKY.u('uGlow'), look.glow); gl.uniform1f(SKY.u('uStars'), look.stars);
       gl.bindVertexArray(emptyVao); gl.drawArrays(gl.TRIANGLES, 0, 3); draws++;
 
@@ -1166,6 +1191,9 @@ export function createBallparkRenderer(canvas, opts = {}) {
       }
       const fx = spectacle.draw(M, h);
       tris += fx.tris; draws += fx.draws;
+      // what falls and the bolts (each sets its own blend)
+      const wd = weather.draw(M, w, h);
+      tris += wd.tris; draws += wd.draws;
       gl.depthMask(true); gl.disable(gl.BLEND);
       gl.bindVertexArray(null);
 
@@ -1216,7 +1244,7 @@ export function createBallparkRenderer(canvas, opts = {}) {
 
     function dispose() {
       try {
-        shadows.dispose(); ssao?.dispose(); bc?.dispose(); spectacle.dispose();
+        shadows.dispose(); ssao?.dispose(); bc?.dispose(); spectacle.dispose(); weather.dispose();
         if (depth) { gl.deleteFramebuffer(depth.fbo); gl.deleteTexture(depth.tex); depth = null; }
         for (const t of Object.values(TEX)) gl.deleteTexture(t);
         gl.deleteTexture(boardTex);
@@ -1243,9 +1271,12 @@ export function createBallparkRenderer(canvas, opts = {}) {
       // setBall(point or null): the ball, in the park's feet; setSpectacle(effects, t): the
       // payload's spectacle (diamond/spectacle.js) and the world's time to draw it at;
       // markDirt(marks): the game's marks into the infield (diamond/marks.js), resetDirt() a fresh one;
-      // setHour(h): the park's light at an in-game hour (diamond/sky.js), null for the night
+      // setHour(h): the park's light at an in-game hour (diamond/sky.js), null for the night;
+      // setWeather(wx, { flash }): the weather over the park (diamond/weather.js), with no lightning
+      // flash for less motion; setTime(t): the world's time, which what falls and the bolts are
+      // drawn at
       render, setBoard, setCast, setPose, setBall, setSpectacle: (fx, t) => spectacle.set(fx, t), pump, setVenue, dispose, stats,
-      markDirt, resetDirt, smoothDirt, setMats, dirtStats, setHour, get look() { return look; },
+      markDirt, resetDirt, smoothDirt, setMats, dirtStats, setHour, setWeather, setTime: (t) => weather.setTime(t), get look() { return look; },
       setCrowd: (levels, t, move = true) => { roar.home = +levels?.[0] || 0; roar.away = +levels?.[1] || 0; roar.t = +t || 0; roar.move = move ? 1 : 0; },
       pending: () => queue.length,
       get park() { return park; },

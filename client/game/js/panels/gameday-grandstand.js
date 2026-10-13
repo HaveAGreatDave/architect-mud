@@ -33,9 +33,11 @@
 // the game's marks, each stride, dig and slide painted into the dirt as it's made
 // (diamond/marks.js, gl/ballpark.js markDirt), till the grounds crew drag it in the middle of the
 // fifth (diamond/crew.js), the leaders' table down while they do. The sky follows the minute each
-// payload aired at, from sunset through the blue hour to night (diamond/sky.js). With reduced motion the
-// cameras hold still and a replay is a still; and everything the graphics say is in words too,
-// for a screen reader (Play by Play in the accessibility settings).
+// payload aired at, from sunset through the blue hour to night (diamond/sky.js), and the weather
+// over the park as it aired: what falls, the wet field and lightning (diamond/weather.js). With
+// reduced motion the cameras hold still, a replay is a still and lightning doesn't flash; and
+// everything the graphics say is in words too, for a screen reader (Play by Play in the
+// accessibility settings).
 //
 // The sim on the server decides everything. Nothing here can change a score.
 
@@ -244,6 +246,7 @@ export function createGrandstandView(host, opts = {}) {
       R.setBall(RW.ballAt());
       R.setSpectacle?.(replay ? replay.D.fx : D.fx, RW.t);
       R.setCrowd?.(roar.at(W.t), W.t, !calm);
+      R.setTime?.(RW.t);
       if (marks.length) { R.markDirt?.(marks); marks = []; }
       dragFrame();
       if (replay && (replay.still ? W.t >= replay.until : RW.t >= replay.to - 1e-9)) endReplay();
@@ -504,8 +507,11 @@ export function createGrandstandView(host, opts = {}) {
     stopTimers(); stopTable(); stopWorld();
     const pend = pendingCaption;
     freshGame(p);
-    // the sky at the minute the line aired (diamond/sky.js); a payload without one is at night
+    // the sky at the minute the line aired (diamond/sky.js), a payload without one at night, and the
+    // weather over the park as it aired (diamond/weather.js), its lightning not flashing for a
+    // viewer who's asked for less motion
     R?.setHour?.(Number.isFinite(p.clock) ? p.clock / 60 : null);
+    R?.setWeather?.(p.wx || null, { flash: !prefersReducedMotion() });
     const cast = castFor(p);
     S.pitch = null; S.bats = p.bats || '';
     if (p.phase === 'half') {

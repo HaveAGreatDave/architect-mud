@@ -1839,6 +1839,21 @@ Phase 3, or with sim v2 if that comes later.
   `diamond-smoke` that a payload's minute reaches the renderer; broadcast regress that it's read on
   air. The sandbox and the shot tool take `hour`.
 
+- **4e.2 built, the park's own weather:** the payload's `wx` sets the look
+  ([diamond/weather.js](../../client/game/js/panels/diamond/weather.js), folded into the sky): cloud
+  takes the stars and its underside carries the city's glow, the haze thickens, the city dims
+  through it and rain wets the field: the dirt and the track go darker with a dull sheen, and
+  puddles lie flat in their low spots and catch the floods.
+  What falls is one instanced draw ([gl/weather.js](../../client/game/js/panels/gl/weather.js)) in
+  the air each camera looks through: rain as streaks catching the floods, sleet, snow and ash as
+  flakes, acid rain green. A thunderstorm, a storm or an ion storm (violet, and more often) puts
+  bolts from client/shared/lightning.js out past the outfield over the skyline, each a function of
+  the world's clock and flashing the sky once; with reduced motion they don't flash.
+  `ballpark-smoke` checks every word's look, a clear night still the tuned night, the bolts the
+  same twice and as many a minute as the weather says, and a bolt's ribbon; `diamond-smoke` that
+  the weather reaches the renderer; broadcast regress that the park knows every weather word. The
+  sandbox and the shot tool take `wx`, `rate` and `event`.
+
 **Phase 4: the broadcast.** On by default wherever WebGL2 and float targets work.
 - `gl/crowd.js` with seated and reaction clips; replays in slow motion; dead-time rituals; the grounds
   crew in the fifth; reduced motion; the tiers and the governor.

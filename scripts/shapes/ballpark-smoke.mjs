@@ -29,7 +29,10 @@
 //      lens is sharp at its focus and softer away from it. The sky on the clock (diamond/sky.js) is
 //      the night the park was tuned at from 20:00, brighter back toward sunset and never past its
 //      cap, the windows and the stars coming on as it darkens, the warm horizon in the west
-//      whichever way the park faces, and the shared keyframes' first and last rows the same.
+//      whichever way the park faces, and the shared keyframes' first and last rows the same. The
+//      weather (diamond/weather.js): every word a look, a clear night the tuned night still, rain
+//      wet and hazy with the stars gone, the bolts the same twice and as many a minute as the
+//      weather says, out past the outfield, and a bolt's ribbon finite and standing on the ground.
 //   6. THE PLAYERS. Every pose builds, both hands, finite and inside its budget; a mirrored pose
 //      is its original in a mirror; the cast puts everyone where the payload has them, the
 //      grounds crew in their work clothes in the middle of the fifth and clear of the umpires; every
@@ -415,6 +418,30 @@ for (const kind of ['sit', 'stand', 'cheer']) for (const far of [false, true]) {
   // the windshield's rule: the first and last rows the same, or the hours past the last extrapolate
   const a = SKY[0], z = SKY[SKY.length - 1];
   check('the sky: the keyframes\' first and last rows are the same', same([a.top, a.hor, a.g1, a.g2, a.night, a.sun], [z.top, z.hor, z.g1, z.g2, z.night, z.sun]));
+  // the weather over the park
+  const { WX, BOLT, weatherOf, boltsBetween } = await import(P + 'diamond/weather.js');
+  const { boltRibbon } = await import(P + 'gl/weather.js');
+  const { growBolt } = await import('../../client/shared/lightning.js');
+  const looks = Object.keys(WX).map((w) => [w, weatherOf({ word: w, rate: 0.6 })]);
+  check('the weather: every word a look, each in range', looks.every(([, x]) => x.haze >= 1 && x.stars >= 0 && x.stars <= 1 && x.glow >= 1 && x.city > 0 && x.city <= 1 && x.wet >= 0 && x.wet <= 1 && (!x.fall || (x.fall.rate > 0 && x.fall.rate <= 1 && x.fall.speed > 0 && x.fall.n > 0))),
+    looks.filter(([, x]) => !(x.haze >= 1)).map(([w]) => w).join(', '));
+  check('the weather: none, or a word it doesn\'t know, is a clear night, and a clear night is the tuned night', weatherOf(null).word === 'clear' && weatherOf({ word: 'locusts' }).word === 'clear'
+    && KEYS.every((k) => same(skyLook(21, { wx: { word: 'clear' } })[k], NIGHT[k])));
+  const wetL = skyLook(21, { wx: { word: 'rain', rate: 0.8 } });
+  check('the weather: rain wets the field, thickens the haze, hides the stars and dims the city', wetL.wet > 0.5 && wetL.fogDens > NIGHT.fogDens * 1.5 && wetL.stars === 0 && wetL.cityLit < NIGHT.cityLit && weatherOf({ word: 'rain' }).fall.kind === 'rain');
+  check('the weather: acid rain falls green, an ion storm strikes more often than a thunderstorm', weatherOf({ word: 'rain', event: 'acid_rain' }).fall.col[1] > weatherOf({ word: 'rain', event: 'acid_rain' }).fall.col[2]
+    && weatherOf({ word: 'cloudy', event: 'ion_storm' }).bolts.n > weatherOf({ word: 'thunderstorm' }).bolts.n);
+  const storm = weatherOf({ word: 'thunderstorm' }), tenMin = boltsBetween(storm, 0, 600);
+  check('the weather: the bolts are the same twice, as many a minute as the weather says, out past the outfield', same(tenMin, boltsBetween(storm, 0, 600)) && Math.abs(tenMin.length - storm.bolts.n * 10) <= 1
+    && tenMin.every((b) => b.dist >= BOLT.near && b.dist <= BOLT.far && Math.abs(b.bearing) <= 70) && new Set(tenMin.map((b) => Math.round(b.bearing / 10))).size >= 5 && !boltsBetween(weatherOf({ word: 'rain' }), 0, 600).length,
+    `${tenMin.length} bolts`);
+  const tree = growBolt(tenMin[0].seed, { gens: 3, segs: 12 }), rib = new Float32Array(200000), n = boltRibbon(tree, tenMin[0], [0, 74, -104], 1, 0.6, 0.0005, rib, 0);
+  let ribBad = 0, low = Infinity, high = -Infinity, near = Infinity;
+  for (let i = 0; i < n; i += 5) {
+    for (let j = 0; j < 5; j++) if (!Number.isFinite(rib[i + j])) ribBad++;
+    low = Math.min(low, rib[i + 1]); high = Math.max(high, rib[i + 1]); near = Math.min(near, Math.hypot(rib[i], rib[i + 2]));
+  }
+  check('the weather: a bolt\'s ribbon is finite, stands on the ground and reaches the cloud, out past the outfield', n > 30 && ribBad === 0 && low < 10 && high > tenMin[0].dist * 0.25 && near > 600, `${n / 5} vertices, ${low.toFixed(0)} to ${high.toFixed(0)} ft up, ${near.toFixed(0)} ft out`);
 }
 
 // ── 6. the players ───────────────────────────────────────────────────────────

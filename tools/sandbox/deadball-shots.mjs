@@ -41,6 +41,8 @@
 //                 one leaves more dead time after the play (diamond/between.js)
 //   --hour H      the in-game hour the first payload airs at (the sandbox's ?hour=), each after
 //                 it a hold later: the sky follows it (diamond/sky.js)
+//   --wx WORD     the weather over the park (?wx=: rain, snow, thunderstorm, fog...), with --rate
+//                 how hard it falls and --event a city-wide event (ion_storm, acid_rain)
 //
 // Needs Playwright and its Chromium: `npm i --no-save playwright` and `npx playwright install
 // chromium` in the repo, or a global install on NODE_PATH, or PLAYWRIGHT_DIR set to a
@@ -101,7 +103,7 @@ page.on('response', (r) => { if (r.status() >= 400 && !/favicon/.test(r.url())) 
 
 const q = new URLSearchParams({ park: '3d', speed: '0', sim, slot: String(slot), i: only ?? '0' });
 if (play) q.set('play', play);
-for (const k of ['city', 'hud', 'shot', 'w', 'hold', 'hour']) if (opt(k, null) != null) q.set(k, opt(k));
+for (const k of ['city', 'hud', 'shot', 'w', 'hold', 'hour', 'wx', 'rate', 'event']) if (opt(k, null) != null) q.set(k, opt(k));
 await page.goto(`http://127.0.0.1:${port}/sandbox/deadball-park-test.html?${q}`);
 
 // staged, and every body built (a frame doesn't step the world while one is building)

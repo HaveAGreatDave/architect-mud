@@ -25,7 +25,10 @@
   every payload here holds ?hold= milliseconds (35000 by default, a line at the default clock),
   and ?speed= runs the park's clock slower (0.25) or stops it (0) for a look at one moment.
   ?hour= puts the first payload on air at that in-game hour (18 is Deadball's slot) and each after
-  it a hold later, so the sky goes down through the game as it does on air (diamond/sky.js).
+  it a hold later, so the sky goes down through the game as it does on air (diamond/sky.js);
+  ?wx= a weather word (rain, snow, thunderstorm, fog, ash...), ?rate= how hard it falls (0 to 1)
+  and ?event= a city-wide event (ion_storm, acid_rain) put the weather over the park on every
+  payload (diamond/weather.js).
   The city round the park is the league's venue from content with a skyline built the
   server's way (client/shared/skyline-manifest.js) over the flight sim's baked world
   (client/game/flightsim-world.json), so it can trail the live map by a bake; ?city=0
@@ -100,6 +103,8 @@
     const Q = new URLSearchParams(location.search);
     const HOLD_MS = Q.get('hold') ? +Q.get('hold') : 35000;
     const HOUR = Q.get('hour') != null && Q.get('hour') !== '' && Number.isFinite(+Q.get('hour')) ? +Q.get('hour') : null;
+    // the weather over the park on every payload, as the broadcast puts it on air
+    const WX = Q.get('wx') || Q.get('event') ? { word: Q.get('wx') || 'clear', precip: 'none', rate: Q.get('rate') != null ? +Q.get('rate') : 0.6, ...(Q.get('event') ? { event: Q.get('event') } : {}) } : null;
     if (Q.get('w')) document.getElementById('tv-window').style.width = `${+Q.get('w')}px`;
     if (Q.get('hud') === '0') document.head.insertAdjacentHTML('beforeend', '<style>.gds-hud { display: none; }</style>');
     const host = document.getElementById('tv-gameday');
@@ -221,7 +226,7 @@
       for (let i = 0; i < order.length; i++) if (i === 0 || order[i].phase === 'half') order[i] = { ...order[i], leaders, season };
       // how long each line holds on air, as the broadcast stamps it on the payload, and with ?hour=
       // the minute of the day each airs at, the first at that hour and each after a hold later
-      for (let i = 0; i < order.length; i++) order[i] = { ...order[i], hold: HOLD_MS, ...(HOUR != null ? { clock: Math.round(HOUR * 60 + (i * HOLD_MS) / 60000) % 1440 } : {}) };
+      for (let i = 0; i < order.length; i++) order[i] = { ...order[i], hold: HOLD_MS, ...(HOUR != null ? { clock: Math.round(HOUR * 60 + (i * HOLD_MS) / 60000) % 1440 } : {}), ...(WX ? { wx: WX } : {}) };
       const nrng = sportsRng(seed ^ 0x9e3779b9);
       const pickFor = (p) => (...keys) => sportsPickTagged(script.pools, nrng, playTags(p.kind, p.play, { bats: p.bats }), ...keys);
       const out = order.map((p) => ({ p, text: sportsFill(callFor(p, pickFor(p)) || p.desc || '', tokOf(p, away, home)).trim() || p.desc || '', card: cardFor(p) }));
