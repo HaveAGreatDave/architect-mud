@@ -1180,6 +1180,20 @@ chrome), and `quarters` are tile rectangles, first match wins, each with the sty
 and low buildings, `all` to dress a whole quarter alike (Old Coldwater's ruin), and the styles
 and floors of its filler. `tallFloors` is where tall starts.
 
+**The picture's quality.** [diamond/quality.js](../client/game/js/panels/diamond/quality.js) sets
+what the park draws. A phone-class screen (a coarse pointer and a short side under 600 CSS pixels,
+GLASS's own rule; `architect_gl_tier` set to `'full'` opts out, as it does for the windshield)
+starts on the phone tier: one device pixel, no multisampling, shadows, occlusion or lens, three
+fans in ten, none of the city's searchlights or smoke, only the spectacle's trails, and no birds or
+camera flashes. Anything else starts on the full tier, and the view's governor takes it down a rung
+each 1.2 s its frames average slower than 24 ms: the lens to 12 taps, the occlusion to quarter
+size, two towers' shadows, three fans in five, no multisampling, the city without its smoke and the
+spectacle with half its particles, then the resolution a step at a time down to one device pixel.
+After 8 s of frames quicker than 18 ms it steps back up, and each time it comes back to a rung the
+next return waits twice as long. It only counts frames that run back to back, so a hidden tab or
+a rest between plays changes nothing. The players have no lower level yet. The sandbox takes
+`?tier=`.
+
 Frames run while an at-bat or a play on the bases plays and stop once everyone's at rest, so the
 GPU idles between them. The count goes up as the director decides each pitch, and the booth's
 held line and any card go up when the play lands (`onLand`): the umpire's call on a called third

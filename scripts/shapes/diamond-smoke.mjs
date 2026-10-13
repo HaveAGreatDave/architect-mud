@@ -126,6 +126,7 @@ const stub = __install();
 const P = '../../client/game/js/panels/';
 const { createWorld, DT, toPark } = await import(P + 'diamond/world.js');
 const { createDirector, pictureAfter, opensGame, PACE } = await import(P + 'diamond/director.js');
+const { PARK_TIERS, rungsFor } = await import(P + 'diamond/quality.js');
 const { castOf, crewDue, crewLane, CREW_ARCS, CREW_GATE, CREW_GAP, CREW_HOLD } = await import(P + 'diamond/cast.js');
 const { matAt, sweptAlong, crewShots: crewShotsOf } = await import(P + 'diamond/crew.js');
 const { pitchPoint } = await import(P + 'diamond/hud.js');
@@ -1128,6 +1129,9 @@ const renderer = () => ({
   // the live text, every line as it's said: the view opens before the first beat, as the TV opens
   // it, so its live region is there from the first line
   v.showIdle();
+  // the picture starts on the screen's tier: the full one, with no coarse pointer here
+  check('the picture starts on the full tier', v.rung === 0 && v.rungs === rungsFor('full').length && Object.entries(PARK_TIERS.full).every(([k, x]) => v.renderer.quality[k] === x),
+    JSON.stringify(v.renderer.quality));
   const said = [], liveEl = host.querySelector('.gds-live');
   check('the view has its live text for a screen reader', !!liveEl);
   if (liveEl) { const add = liveEl.appendChild.bind(liveEl); liveEl.appendChild = (c) => { said.push(c.textContent); return add(c); }; }
@@ -1242,6 +1246,9 @@ const renderer = () => ({
     picture = pictureAfter(p);
   });
   check('the view is fed an at-bat its picture disagrees with', cutaways > 0);
+  // the frames here come 30 a second, slower than the governor's 24 ms, so it's taken the picture
+  // down while the plays ran, the lens's taps first
+  check('the picture: frames slower than the governor wants take it down, the lens first', v.rung > 0 && v.renderer.quality.dof === 12, `rung ${v.rung} of ${v.rungs}, dof ${v.renderer.quality.dof}`);
   check('the view opens the game\'s first at-bat on the street outside the main gate', feed.filter(opensGame).length === 1 && streetOpens === 1, `${streetOpens} of ${feed.filter(opensGame).length}`);
   // a hidden tab: no frames at all, and the play still lands its line, a beat after its time
   {

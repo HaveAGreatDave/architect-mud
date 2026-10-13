@@ -485,6 +485,69 @@ for (const kind of ['sit', 'stand', 'cheer']) for (const far of [false, true]) {
     && Array.from({ length: 2000 }, (_, k) => flashesAt(k * 0.3, 1, 9000)).flat().every((f) => Number.isInteger(f.i) && f.i >= 0 && f.i < 9000 && f.age >= 0 && f.age < FLASH.life));
 }
 
+// the picture's quality (diamond/quality.js): the tiers, the governor's rungs and the governor
+{
+  const Q = await import(P + 'diamond/quality.js');
+  const cost = (k, v) => (k === 'ao' ? (v ? 1 / (v * v) : 0) : typeof v === 'boolean' ? (v ? 1 : 0) : +v || 0);
+  const keys = Object.keys(Q.PARK_TIERS.full), [full, laptop, phone] = ['full', 'laptop', 'phone'].map((t) => Q.PARK_TIERS[t]);
+  check('quality: every tier has every key, each no dearer than the tier above it', ['laptop', 'phone'].every((t) => keys.every((k) => k in Q.PARK_TIERS[t]))
+    && keys.every((k) => cost(k, laptop[k]) <= cost(k, full[k]) && cost(k, phone[k]) <= cost(k, laptop[k])) && full.dpr === 2 && phone.dpr === 1 && phone.msaa === false && phone.shadows === 0,
+    keys.filter((k) => !(cost(k, laptop[k]) <= cost(k, full[k]) && cost(k, phone[k]) <= cost(k, laptop[k]))).join(', '));
+  const rungs = Q.rungsFor('full');
+  const steps = rungs.slice(1).map((r, i) => keys.filter((k) => r[k] !== rungs[i][k]));
+  check('quality: the full tier\'s rungs start at the tier and each takes something off and puts nothing back, the lens first and the resolution last',
+    JSON.stringify(rungs[0]) === JSON.stringify(full) && steps.every((ks, i) => ks.length > 0 && ks.every((k) => cost(k, rungs[i + 1][k]) < cost(k, rungs[i][k])))
+    && steps[0].join() === 'dof' && rungs[rungs.length - 1].dpr === 1 && rungs[rungs.length - 1].msaa === false && rungs.length === Q.PARK_STEPS.length + 1,
+    steps.map((ks) => ks.join('+')).join(' / '));
+  check('quality: a phone starts as low as the steps go, and the laptop tier on its own values', Q.rungsFor('phone').length === 1 && JSON.stringify(Q.rungsFor('laptop')[0]) === JSON.stringify(laptop) && JSON.stringify(Q.rungsFor('nonsense')[0]) === JSON.stringify(full));
+  check('quality: a phone is a coarse pointer on a screen under 600 px on its short side, unless the player asked for the full tier', Q.parkTier({ coarse: true, shortSide: 390 }) === 'phone'
+    && Q.parkTier({ coarse: true, shortSide: 800 }) === 'full' && Q.parkTier({ coarse: false, shortSide: 390 }) === 'full' && Q.parkTier({ coarse: true, shortSide: 390, stored: 'full' }) === 'full' && Q.parkTier() === 'full');
+  // the governor, frame by frame: (interval s, seconds of them) → the rung at each change
+  const run = (g, dt, secs) => { const out = []; for (let t = 0; t < secs; t += dt) { const q = g.frame(dt); if (q) out.push([+(t).toFixed(2), g.rung]); } return out; };
+  {
+    const g = Q.createGovernor(rungs);
+    const steady = run(g, 1 / 60, 120);
+    const gaps = run(g, 0.5, 120);
+    const down = run(g, 0.04, 60);
+    const spacing = down.slice(1).map((d, i) => d[0] - down[i][0]);
+    check('quality: the governor holds at 60 a second and through a hidden tab, and steps down a rung each 1.2 s of slow frames to the last', steady.length === 0 && gaps.length === 0
+      && down.length === rungs.length - 1 && g.rung === rungs.length - 1 && spacing.every((s) => s >= Q.GOVERNOR.down - 1e-9) && down[0][0] >= Q.GOVERNOR.down - 1e-9,
+      `${down.length} steps, ${spacing.map((s) => s.toFixed(2)).join(' ')}`);
+    const up1 = run(g, 1 / 60, 20);
+    // the rung it came up to can't hold: down again, and the next try at it waits twice as long
+    const back = run(g, 0.04, 3);
+    const up2 = run(g, 1 / 60, 40);
+    // (each a little after its wait, while the average comes down to the quick frames)
+    const after = (x, wait) => x >= wait && x < wait + 0.6;
+    check('quality: quick frames bring it back up a rung after 8 s, and the next return to a rung waits twice as long', up1.length >= 1 && after(up1[0][0], Q.GOVERNOR.up)
+      && back.length >= 1 && up2.length >= 1 && after(up2[0][0], 2 * Q.GOVERNOR.up), JSON.stringify([up1, back, up2]));
+    g.reset();
+    check('quality: the governor resets to the tier', g.rung === 0 && JSON.stringify(g.quality) === JSON.stringify(full));
+  }
+  // the fans dealt for a tier's share: every one of them once, the same on every TV, and the first
+  // three in ten spread through the stands as the whole crowd is
+  {
+    const S = M.CROWD_STRIDE, a = base.crowd.sit, d = Q.dealFans(a, S), d2 = Q.dealFans(a, S), n = a.length / S;
+    const key = (arr, i) => `${arr[i * S]},${arr[i * S + 1]},${arr[i * S + 2]}`;
+    const all = new Set(Array.from({ length: n }, (_, i) => key(a, i))), dealtSet = new Set(Array.from({ length: n }, (_, i) => key(d, i)));
+    const m = Math.round(n * 0.3), meanY = (arr, k) => { let y = 0; for (let i = 0; i < k; i++) y += arr[i * S + 1]; return y / k; };
+    const spanX = (arr, k) => { let lo = Infinity, hi = -Infinity; for (let i = 0; i < k; i++) { lo = Math.min(lo, arr[i * S]); hi = Math.max(hi, arr[i * S]); } return hi - lo; };
+    check('quality: the fans dealt for a share are every fan once and the same twice, and the first three in ten fill the stands as the crowd does',
+      d.length === a.length && dealtSet.size === all.size && [...all].every((k) => dealtSet.has(k)) && d.every((v, i) => v === d2[i])
+      && Math.abs(meanY(d, m) - meanY(a, n)) < 0.05 * Math.abs(meanY(a, n)) + 1 && spanX(d, m) > 0.95 * spanX(a, n),
+      `${meanY(d, m).toFixed(1)} against ${meanY(a, n).toFixed(1)} ft up; ${spanX(d, m).toFixed(0)} of ${spanX(a, n).toFixed(0)} ft across`);
+  }
+  // a burst at half its particles is the whole burst, thinner: the first half of the templates
+  // reach all round
+  {
+    const { TEMPLATES, TEMPLATE_N } = await import(P + 'diamond/spectacle.js');
+    const h = TEMPLATE_N / 2, mean = [0, 0, 0];
+    let lo = Infinity, hi = -Infinity;
+    for (let i = 0; i < h; i++) { for (let k = 0; k < 3; k++) mean[k] += TEMPLATES[i * 6 + k] / h; lo = Math.min(lo, TEMPLATES[i * 6 + 1]); hi = Math.max(hi, TEMPLATES[i * 6 + 1]); }
+    check('quality: half a burst\'s particles still reach all round it', Math.hypot(...mean) < 0.15 && lo < -0.85 && hi > 0.85, `${Math.hypot(...mean).toFixed(3)} off centre, ${lo.toFixed(2)} to ${hi.toFixed(2)}`);
+  }
+}
+
 // ── 6. the players ───────────────────────────────────────────────────────────
 {
   const KNOWNP = new Set(Object.values(M.MAT));

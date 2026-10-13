@@ -84,6 +84,10 @@ export function createGrandstandView(host, opts = {}) {
 
   let flat = null;              // the 2-D view, once the 3-D one has given way to it
   let R = null, hud = null, canvas = null, mounted = false, modsP = null, mods = null, ro = null, raf = 0, unVenue = null;
+  // the picture's quality (diamond/quality.js): the tier the screen starts on, and the governor that
+  // steps it down a rung when frames come slow and back up when they've been quick a while, fed the
+  // time between frames while they run (`govAt`, the last one's)
+  let gov = null, govAt = 0;
   let last = null, caption = '', pendingCaption = null, pendingCard = null, playing = false;
   let timers = [], tableTimer = null, shot = opts.shot || 'high';
   // the world the at-bats are staged in, and its director; `live` while the world has the battery,
@@ -123,12 +127,13 @@ export function createGrandstandView(host, opts = {}) {
   function loadMods() {
     return (modsP ??= Promise.all([import('./gl/ballpark.js'), import('./diamond/hud.js'), import('./diamond/camera.js'), import('./diamond/cast.js'),
       import('./diamond/world.js'), import('./diamond/director.js'), import('./diamond/spectacle.js'), import('./diamond/replay.js'), import('./gl/crowd.js'),
-      import('./diamond/crew.js')])
-      .then(([park, hudMod, cam, cast, world, director, fx, rp, crowd, crew]) => (mods = {
+      import('./diamond/crew.js'), import('./diamond/quality.js')])
+      .then(([park, hudMod, cam, cast, world, director, fx, rp, crowd, crew, quality]) => (mods = {
         ...park, hud: hudMod, project: cam.project, shotAt: cam.shotAt, numberOf: cast.numberOf, pictureAfter: director.pictureAfter, opensGame: director.opensGame,
         createWorld: world.createWorld, DT: world.DT, createDirector: director.createDirector, splashOf: fx.splashOf,
         replayOf: rp.replayOf, stageReplay: rp.stageReplay, REPLAY: rp.REPLAY, fxEnd: fx.endOf,
         cheerOf: fx.cheerOf, createRoar: crowd.createRoar, matAt: crew.matAt, sweptAlong: crew.sweptAlong,
+        parkTier: quality.parkTier, rungsFor: quality.rungsFor, createGovernor: quality.createGovernor,
       })));
   }
 
@@ -181,6 +186,10 @@ export function createGrandstandView(host, opts = {}) {
     R = (opts.renderer || mods.createBallparkRenderer)(canvas, { ads: opts.ads || ADS, preserve: !!opts.preserve, crowd: opts.crowd, grade: opts.grade, tube: opts.tube, onAsset: () => draw() });
     if (!R) { fallback('no WebGL2 or float target'); return false; }
     mounted = true;
+    gov = mods.createGovernor(mods.rungsFor(opts.tier || screenTier()));
+    if (R.quality) Object.assign(R.quality, gov.quality);
+    govAt = 0;
+    size();
     W = mods.createWorld();
     D = mods.createDirector(W, { onLand: () => landPlay(cur), emit: fromDirector });
     roar = mods.createRoar();
@@ -201,6 +210,14 @@ export function createGrandstandView(host, opts = {}) {
     const v = opts.venue || venueOf('baseball');
     if (!v || !R) return;
     try { R.setVenue(v); } catch (err) { console.warn('[grandstand] the city round the park would not build:', err && err.message); }
+  }
+  // The tier this screen starts on: a phone's (a coarse pointer and a short side under 600 CSS
+  // pixels) or the full one, unless the player's asked GLASS for the full tier anyway.
+  function screenTier() {
+    let coarse = false, stored = null;
+    try { coarse = !!win?.matchMedia?.('(pointer: coarse)')?.matches; } catch { /* no media queries */ }
+    try { stored = win?.localStorage?.getItem('architect_gl_tier') ?? null; } catch { /* no storage */ }
+    return mods.parkTier({ coarse, shortSide: Math.min(win?.screen?.width || 0, win?.screen?.height || 0), stored });
   }
   // The backing store follows the box at the device's pixel ratio, capped by the renderer's rung.
   function size() {
@@ -230,7 +247,7 @@ export function createGrandstandView(host, opts = {}) {
     raf = 0;
     if (!R || !canvas?.isConnected) return;
     if (R.lost) { fallback('the WebGL context was lost'); return; }
-    if (R.pending() && R.pump(14)) { lastNow = now; draw(); return; }
+    if (R.pending() && R.pump(14)) { lastNow = now; govAt = 0; draw(); return; }
     if (live) {
       const dt = Math.min(0.25, Math.max(0, (now - (lastNow || now)) / 1000)) * speed;
       acc += dt;
@@ -252,12 +269,16 @@ export function createGrandstandView(host, opts = {}) {
       if (replay && (replay.still ? W.t >= replay.until : RW.t >= replay.to - 1e-9)) endReplay();
     }
     lastNow = now;
+    // the governor, on frames that run back to back: a rung's quality goes to the renderer, and a
+    // new resolution to the canvas just below
+    if (live && govAt && gov) { const q = gov.frame((now - govAt) / 1000); if (q && R.quality) Object.assign(R.quality, q); }
+    govAt = live ? now : 0;
     size();
     if (!R.render(view()) && R.lost) { fallback('the WebGL context was lost'); return; }
     // on to the next frame while the at-bat plays or a replay's due or playing; once everyone's
     // at rest the last one stays up. A stopped clock draws only when something asks.
     if (live && (D.busy() || replayDue || replay)) { if (speed > 0) draw(); }
-    else live = false;
+    else { live = false; govAt = 0; }
   }
   function stopWorld() { D?.stop(); live = false; cur = null; stopReplay(); }
   // The grounds crew's mats this frame (diamond/crew.js), and the dirt they've gone over since the
@@ -645,6 +666,8 @@ export function createGrandstandView(host, opts = {}) {
     get renderer() { return R; }, get hud() { return hud; }, get flat() { return flat; }, get state() { return S; },
     get world() { return W; }, get director() { return D; }, get shot() { return shot; }, get replay() { return replay; }, get replayDue() { return replayDue; },
     get speed() { return speed; }, set speed(k) { speed = Math.max(0, Number(k) || 0); draw(); },
+    // the governor's rung (0 the tier as it started) and how many there are
+    get rung() { return gov ? gov.rung : 0; }, get rungs() { return gov ? gov.rungs : 0; },
     redraw: () => draw(),
     busy: () => playing || live || !!replayDue || !!replay,
   };

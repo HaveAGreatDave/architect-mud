@@ -82,6 +82,7 @@ import { createCityLights, PLUME } from './citylights.js';
 import { createStreetLife } from './streetlife.js';
 import { createParkBirds } from './parkbirds.js';
 import { venueSet, streetLife, streetShot } from '../diamond/streets.js';
+import { PARK_TIERS, dealFans } from '../diamond/quality.js';
 
 const FACE = '"Arial Narrow", "Roboto Condensed", Arial, sans-serif';
 
@@ -495,11 +496,6 @@ const ALPHA_TEST = new Set(['nums', 'logo', 'mask']);
 // The night the park was tuned at, and the park's light at any hour (diamond/sky.js): the sky's
 // colours, its ambient, how hard the towers burn, the air, the city's windows and lamps.
 
-// The quality rungs the view's governor steps through, cheapest last: the lens's taps, the
-// occlusion, then the resolution.
-export const BALLPARK_RUNGS = [
-  { dpr: 2, dof: 28, ao: true }, { dpr: 2, dof: 12, ao: true }, { dpr: 1.5, dof: 12, ao: false }, { dpr: 1.25, dof: 0, ao: false }, { dpr: 1, dof: 0, ao: false },
-];
 
 // ── textures, painted on canvases ───────────────────────────────────────────
 // Value noise at several scales into the channels: fine blades in R, the macro mottle in G,
@@ -722,11 +718,14 @@ export function createBallparkRenderer(canvas, opts = {}) {
     const opaque = [...park.opaque].map(([key, b]) => ({ key, ...upload(b) }));
     const translucent = [...park.translucent].map(([key, b]) => ({ key, ...upload(b) }));
     // the crowd: one figure in its three poses (ballpark-mesh.js crowdMorph), drawn once for the fans
-    // who rest sitting, once standing and once cheering, each getting up as his side roars
+    // who rest sitting, once standing and once cheering, each getting up as his side roars. Each
+    // kind's fans are dealt into a seeded order, so a tier that draws fewer (its `crowd`) draws the
+    // first of them and thins every stand evenly, rather than emptying the back rows.
     const crowd = [], morph = crowdMorph({ far: opts.crowd !== 'near', towels: !!opts.towels });
+    const dealt = Object.fromEntries(['sit', 'stand', 'cheer'].map((kind) => [kind, dealFans(park.crowd[kind] || new Float32Array(0), CROWD_STRIDE)]));
     const mb = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, mb); gl.bufferData(gl.ARRAY_BUFFER, morph, gl.STATIC_DRAW);
     for (const [base, kind] of ['sit', 'stand', 'cheer'].entries()) {
-      const inst = park.crowd[kind];
+      const inst = dealt[kind];
       if (!inst.length) continue;
       const vao = gl.createVertexArray();
       gl.bindVertexArray(vao);
@@ -752,18 +751,32 @@ export function createBallparkRenderer(canvas, opts = {}) {
     // for less motion, and drawn with the city's lights
     const seats = (() => {
       const out = [];
-      ['sit', 'stand', 'cheer'].forEach((kind, base) => { const a = park.crowd[kind] || []; for (let i = 0; i < a.length; i += CROWD_STRIDE) out.push(a[i], a[i + 1], a[i + 2], a[i + 3], base); });
+      ['sit', 'stand', 'cheer'].forEach((kind, base) => { const a = dealt[kind]; for (let i = 0; i < a.length; i += CROWD_STRIDE) out.push(a[i], a[i + 1], a[i + 2], a[i + 3], base); });
       return new Float32Array(out);
     })();
+    // the fans drawn at the tier's share, and the seat of the i-th of them
+    const crowdShare = () => Math.max(0, Math.min(1, api.quality.crowd ?? 1));
+    const seatOf = (i, share) => {
+      let first = 0;
+      for (const d of crowd) {
+        const n = Math.round(d.count * share);
+        if (i < n) return first + i;
+        i -= n; first += d.count;
+      }
+      return -1;
+    };
     const FACE_Y = [3.8, 5.4];
     const flashBuf = new Float32Array(LIGHT_STRIDE.pts * 4);
     function flashPoints() {
       if (!roar.move || !(look.lights > 0.3) || api.quality.flashes === false) return 0;
-      const loud = Math.max(roar.home, roar.away), up = Math.min(1, Math.max(0, (loud - 0.4) / 0.4));
+      const loud = Math.max(roar.home, roar.away), up = Math.min(1, Math.max(0, (loud - 0.4) / 0.4)), share = crowdShare();
+      const drawn = crowd.reduce((n, d) => n + Math.round(d.count * share), 0);
       let k = 0;
-      for (const { i, age } of flashesAt(roar.t, loud, seats.length / 5)) {
+      for (const f of flashesAt(roar.t, loud, drawn)) {
         if (k >= 4) break;
-        const o = i * 5, face = seats[o + 3], g = Math.exp(-age / 0.035), y = FACE_Y[0] + (FACE_Y[1] - FACE_Y[0]) * Math.max(Math.min(1, seats[o + 4]), up);
+        const s = seatOf(f.i, share);
+        if (s < 0) continue;
+        const o = s * 5, face = seats[o + 3], g = Math.exp(-f.age / 0.035), y = FACE_Y[0] + (FACE_Y[1] - FACE_Y[0]) * Math.max(Math.min(1, seats[o + 4]), up);
         flashBuf.set([seats[o] + Math.sin(face) * 0.7, seats[o + 1] + y, seats[o + 2] + Math.cos(face) * 0.7, 0.35, g, g, 1.1 * g, 1, 1, 0, 0, 0], k * LIGHT_STRIDE.pts);
         k++;
       }
@@ -1144,9 +1157,11 @@ export function createBallparkRenderer(canvas, opts = {}) {
       // 1. the towers' shadows, of whatever casts: the players, skinned
       let spotN = 0;
       const casters = api.casters;
-      if (q.shadows && casters.length) {
+      // as many of the casting towers as the tier has shadows for, the two by the infield first
+      const nCast = q.shadows === true ? casting.length : Math.max(0, Math.min(casting.length, q.shadows | 0));
+      if (nCast && casters.length) {
         const [focus, radius] = M.shadow || [[0, 0, 60], 80];
-        spotN = shadows.render(casting.map((T) => ({ lamp: T.lamp, focus, radius })), (vp, own) => {
+        spotN = shadows.render(casting.slice(0, nCast).map((T) => ({ lamp: T.lamp, focus, radius })), (vp, own) => {
           gl.useProgram(SKD.p);
           gl.uniformMatrix4fv(SKD.u('uVP'), false, vp);
           palette.bind(9); gl.uniform1i(SKD.u('uBones'), 9);
@@ -1159,7 +1174,7 @@ export function createBallparkRenderer(canvas, opts = {}) {
         });
       }
 
-      if (!hdr.bind(w, h)) return false;
+      if (!hdr.bind(w, h, q.msaa === false ? 0 : 4)) return false;
       gl.clearColor(0, 0, 0, 1); gl.clearDepth(1);
       gl.depthMask(true);
       gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -1238,7 +1253,12 @@ export function createBallparkRenderer(canvas, opts = {}) {
         lights(CROWD, M.eye);
         gl.uniformMatrix4fv(CROWD.u('uVP'), false, M.viewProj);
         gl.uniform2f(CROWD.u('uRoar'), roar.home, roar.away); gl.uniform1f(CROWD.u('uT'), roar.t); gl.uniform1f(CROWD.u('uMove'), roar.move);
-        for (const d of crowd) { gl.uniform1f(CROWD.u('uBase'), d.base); gl.bindVertexArray(d.vao); gl.drawArraysInstanced(gl.TRIANGLES, 0, d.n, d.count); tris += d.n / 3 * d.count; draws++; }
+        const share = crowdShare();
+        for (const d of crowd) {
+          const k = Math.round(d.count * share);
+          if (!k) continue;
+          gl.uniform1f(CROWD.u('uBase'), d.base); gl.bindVertexArray(d.vao); gl.drawArraysInstanced(gl.TRIANGLES, 0, d.n, k); tris += d.n / 3 * k; draws++;
+        }
       }
 
       // the backstop net, see-through, over the rest
@@ -1276,7 +1296,7 @@ export function createBallparkRenderer(canvas, opts = {}) {
         tris += sb.tris; draws += sb.draws;
         gl.blendFunc(gl.ONE, gl.ONE);
       }
-      const fx = spectacle.draw(M, h);
+      const fx = spectacle.draw(M, h, { fx: q.fx });
       tris += fx.tris; draws += fx.draws;
       // what falls and the bolts (each sets its own blend)
       const wd = weather.draw(M, w, h);
@@ -1298,7 +1318,8 @@ export function createBallparkRenderer(canvas, opts = {}) {
       if (!res) return false;
 
       // 4. the occlusion, at half size
-      const ao = D && q.ao && ssao ? ssao.render(D.tex, Math.max(1, w >> 1), Math.max(1, h >> 1), ssaoConstants(M.proj), { radius: 2.0, bias: 0.05, slope: 3 }) : null;
+      const aoDiv = q.ao === true ? 2 : Math.max(1, +q.ao || 2);
+      const ao = D && q.ao && ssao ? ssao.render(D.tex, Math.max(1, Math.round(w / aoDiv)), Math.max(1, Math.round(h / aoDiv)), ssaoConstants(M.proj), { radius: 2.0, bias: 0.05, slope: 3 }) : null;
 
       // 5. the lens, the curve and the grade onto the canvas
       if (bc && bc.render({
@@ -1349,11 +1370,12 @@ export function createBallparkRenderer(canvas, opts = {}) {
     }
 
     const api = {
-      kind: 'gl', lost: false, rungs: BALLPARK_RUNGS,
-      // grade: 'arcade', 'broadcast' or 'none'; tube: the tube glass; dof: the lens's taps (0 off)
-      // `city`: the city's own lights, 2 with smoke off the stacks, 1 without, 0 without searchlights;
-      // `birds` and `flashes`: false to leave out the gulls and starlings, or the crowd's camera flashes
-      quality: { dpr: 2, bloom: 0.18, exposure: 1.0, grade: opts.grade || 'arcade', tube: !!opts.tube, ao: true, dof: 28, shadows: true, fog: true, city: 2 },
+      kind: 'gl', lost: false,
+      // grade: 'arcade', 'broadcast' or 'none'; tube: the tube glass; and the full tier's keys
+      // (diamond/quality.js): dpr, msaa, shadows (how many towers cast), ao (the occlusion's size
+      // against the frame's), dof (the lens's taps), crowd (the share of the fans drawn), city (the
+      // city's own lights), fx (the spectacle), birds and flashes. The view's governor sets them.
+      quality: { bloom: 0.18, exposure: 1.0, grade: opts.grade || 'arcade', tube: !!opts.tube, fog: true, ...PARK_TIERS.full },
       // what casts the towers' shadows: the players, [{ slot, batches }], skinned from the palette
       casters: [],
       // setPose(slot, pose): a player into a pose from the rig's pose language, with at, yaw, scale;

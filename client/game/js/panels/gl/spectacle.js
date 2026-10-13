@@ -168,11 +168,13 @@ export function createSpectacle(gl, prog) {
   }
 
   // M: the frame's matrices and eye (camera.js shotMatrices, its lens fitted to the screen); h: the
-  // canvas's height in pixels. Returns { draws, tris }.
+  // canvas's height in pixels; o.fx the tier's spectacle (diamond/quality.js): 2 all of it, 1 half
+  // the particles in each burst, 0 only the trails. Returns { draws, tris }.
   let minW = 0;
-  function draw(M, h) {
+  function draw(M, h, o = {}) {
     let draws = 0, tris = 0;
     if (!list.length) return { draws, tris };
+    const share = o.fx === 0 ? 0 : o.fx === 1 ? 0.5 : 1;
     // the thinnest a streak may be, in feet for each foot from the eye: MIN_PX of this lens's pixels
     minW = MIN_PX * 2 * Math.tan((M.fov || 40) * Math.PI / 360) / Math.max(1, h || 1);
     for (const e of list) {
@@ -186,7 +188,7 @@ export function createSpectacle(gl, prog) {
         continue;
       }
       const K = KINDS[e.kind];
-      if (!K) continue;
+      if (!K || !share) continue;
       const tau = now - e.t;
       if (tau < -(K.rise || 0) || now > endOf(e)) continue;
       gl.useProgram(P.p);
@@ -199,9 +201,12 @@ export function createSpectacle(gl, prog) {
       gl.uniform1f(P.u('uWidth'), K.width); gl.uniform1f(P.u('uStreak'), K.streak); gl.uniform1f(P.u('uGlow'), K.glow);
       gl.uniform1f(P.u('uSpread'), K.spread || 0); gl.uniform1f(P.u('uRise'), K.rise || 0); gl.uniform1f(P.u('uMinW'), minW); gl.uniform1f(P.u('uDown'), DOWN);
       gl.uniform3fv(P.u('uCol'), e.colour || [1, 1, 1]); gl.uniform3fv(P.u('uCol2'), e.second || e.colour || [1, 1, 1]);
+      // the first of the templates: they're dealt round the sphere, so any first share of them is
+      // the whole burst, thinner
+      const n = Math.max(1, Math.round(Math.min(K.n, TEMPLATE_N) * share));
       gl.bindVertexArray(tvao);
-      gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, Math.min(K.n, TEMPLATE_N));
-      draws++; tris += 2 * Math.min(K.n, TEMPLATE_N);
+      gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, n);
+      draws++; tris += 2 * n;
     }
     gl.bindVertexArray(null);
     return { draws, tris };

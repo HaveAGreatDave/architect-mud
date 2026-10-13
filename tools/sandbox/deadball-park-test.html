@@ -33,6 +33,8 @@
   server's way (client/shared/skyline-manifest.js) over the flight sim's baked world
   (client/game/flightsim-world.json), so it can trail the live map by a bake; ?city=0
   leaves it out, and ?hud=0 hides the graphics so the picture can be judged on its own.
+  ?tier= starts the picture on a tier (full, laptop or phone, diamond/quality.js) instead of the
+  one the screen picks; the governor still steps it down when frames come slow.
   The season the payloads' lines and leaders come from is a few dozen games between the
   script's clubs, folded as the standings fold them.
 
@@ -110,7 +112,7 @@
     const host = document.getElementById('tv-gameday');
     const view = Q.get('park') === '3d'
       ? createGrandstandView(host, { force: true, preserve: true, shot: Q.get('shot') || undefined, grade: Q.get('grade') || undefined, tube: Q.get('tube') === '1', station: Q.get('bug') ?? 'KSAB',
-        speed: Q.get('speed') != null ? +Q.get('speed') : undefined })
+        speed: Q.get('speed') != null ? +Q.get('speed') : undefined, tier: Q.get('tier') || undefined })
       : createGamedayView(host);
     window.__view = view;
     view.showIdle();

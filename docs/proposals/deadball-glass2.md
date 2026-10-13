@@ -1364,7 +1364,7 @@ reference machine and on an integrated laptop GPU and writes the numbers into
 | Gate | Group | What it checks |
 |---|---|---|
 | `scripts/shapes/gameday-smoke.mjs` (Phase 0) | shapes | Real Deadball games through the 2-D view: every payload resolves, runners end on `basesAfter`, nothing throws. |
-| `scripts/shapes/ballpark-smoke.mjs` | shapes | Pure, no GPU: meshes finite and inside each level's budget, the park from venue data, GL matrices against the pure projection, skin weights summing to one, texture budgets; every cap, helmet and mask clears the skull and the ears and leaves both eyes open; every player's face pick is the same twice and never a makeup layout. |
+| `scripts/shapes/ballpark-smoke.mjs` | shapes | Pure, no GPU: meshes finite and inside each level's budget, the park from venue data, GL matrices against the pure projection, skin weights summing to one, texture budgets; every cap, helmet and mask clears the skull and the ears and leaves both eyes open; every player's face pick is the same twice and never a makeup layout. Since 4e, the sky by the hour, the weather, the birds and the camera flashes; since 4g.1, the tiers, the governor's rungs and the governor. |
 | `scripts/shapes/anim-smoke.mjs` | shapes | Every clip: joint limits, no velocity spikes at blend points, planted feet sliding under 0.1 ft, hands on the bat within 0.05 ft, the glove at the ball within 0.1 ft on the catch frame, release at the release frame. |
 | `scripts/shapes/diamond-smoke.mjs <slot>` | shapes, one game per gate | Real games through the world and director over the DOM stub: pitch count, each pitch at its spot, the terminal pitch matches the kind, captions held until `onLand`, fielders as the play names them, outs at the right base, runners end on `basesAfter`, runs equal the score change, home runs land past the fence, no runner faster than a runner could go outside a cut, ball and fielder in frame, replays start and hand back, sounds played. |
 | `scripts/shapes/variety-smoke.mjs` | shapes | Over a season of seeded plays: directions spread by handedness, exit speeds cover their range, every fielding grade and, under v2, every new event appears, and every clip in the library is reached. |
@@ -1906,6 +1906,28 @@ Phase 3, or with sim v2 if that comes later.
   taking the most; `ballpark-smoke` the gulls over the park and clear of the lamps and the
   cameras, the starlings at dusk only and toward the sunset, and the flashes never more than two in
   a second; `diamond-smoke` that every game opens on the street.
+
+- **4g.1 built, the tiers and the governor:** [diamond/quality.js](../../client/game/js/panels/diamond/quality.js)
+  holds the three tiers as the renderer's quality keys (dpr, msaa, how many towers cast, the
+  occlusion's size, the lens's taps, the share of the fans drawn, the city's lights, the
+  spectacle, birds and flashes) and the governor's rungs, built from the tier the screen starts on
+  by taking the plan's steps in order (the lens to 12 taps, the occlusion to quarter size, two
+  towers, three fans in five, multisampling off), then the laptop's city and spectacle, then the
+  resolution a step at a time. A phone-class screen starts on the phone tier, which the steps
+  can't take any lower; anything else on the full tier. The governor is Rinkside's, fed the real
+  time between frames that run back to back: down a rung after 1.2 s averaging over 24 ms, up
+  after 8 s under 18 ms, and each return to a rung waits twice as long as the last, so a machine
+  that can only just hold a rung doesn't see it change every few seconds. The renderer reads every
+  key: the HDR target takes a sample cap, the shadows go to the two towers by the infield first,
+  the fans are dealt into a seeded order so a share of them thins every stand evenly (and only a
+  fan who's drawn flashes), and the spectacle draws the first share of its particles, dealt round
+  the sphere so a thinner burst is still a whole one. Not built: the players' lower level (its
+  step is left out), the phone's facades without their window pattern, and blob shadows on the
+  phone. Frame times on a real GPU still have to be taken; the look-dev machine has none.
+  `ballpark-smoke` checks the tiers, the rungs, the governor at 60 frames a second, through a
+  hidden tab, under slow frames, coming back up and backing off, the dealt fans and a half burst;
+  `diamond-smoke` that the view starts on the full tier and that its 30-a-second frames take the
+  lens down first.
 
 **Phase 4: the broadcast.** On by default wherever WebGL2 and float targets work.
 - `gl/crowd.js` with seated and reaction clips; replays in slow motion; dead-time rituals; the grounds

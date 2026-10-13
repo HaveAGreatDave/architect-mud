@@ -296,7 +296,7 @@ export function createHDRLayer(gl) {
   };
   const emptyVao = gl.createVertexArray();
 
-  let W = 0, H = 0, samples = 0;
+  let W = 0, H = 0, samples = 0, most = 4;
   let msFbo = null, msColor = null, msDepth = null, resolved = null;
   let ldr = null;     // the graded eight-bit frame FXAA reads; built on first use
   let chain = [];      // per octave: { bright, a, b }
@@ -312,14 +312,15 @@ export function createHDRLayer(gl) {
     msFbo = msColor = msDepth = resolved = ldr = null; chain = []; W = H = 0;
   }
 
-  function resize(w, h) {
-    if (w === W && h === H && msFbo) return true;
+  function resize(w, h, cap = 4) {
+    if (w === W && h === H && cap === most && msFbo) return true;
     dispose();
-    W = w; H = h;
+    W = w; H = h; most = cap;
     // The device's own best sample count for this format, capped — four is where the returns on a
-    // building edge stop being visible and the bandwidth keeps going up.
+    // building edge stop being visible and the bandwidth keeps going up. A caller can ask for fewer
+    // (`cap`, 0 for none), as the ballpark's tiers do.
     const avail = gl.getInternalformatParameter(gl.RENDERBUFFER, gl.RGBA16F, gl.SAMPLES);
-    samples = Math.min(4, (avail && avail.length ? avail[0] : 0) || 0);
+    samples = Math.min(4, cap, (avail && avail.length ? avail[0] : 0) || 0);
 
     msColor = gl.createRenderbuffer();
     gl.bindRenderbuffer(gl.RENDERBUFFER, msColor);
@@ -352,8 +353,8 @@ export function createHDRLayer(gl) {
   // pass clears colour and depth itself and the cloud pass deliberately clears only colour, and
   // that difference is what lets the deck test against the city's depth. Clearing here would
   // quietly delete the second half of that.
-  function bind(w, h) {
-    if (!resize(w, h)) { bound = false; return false; }
+  function bind(w, h, cap = 4) {
+    if (!resize(w, h, cap)) { bound = false; return false; }
     gl.bindFramebuffer(gl.FRAMEBUFFER, msFbo);
     gl.viewport(0, 0, w, h);
     bound = true;
