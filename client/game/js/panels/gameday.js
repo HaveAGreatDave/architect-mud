@@ -13,6 +13,7 @@
 // and Chip's play-by-play captions run along the bottom.
 
 import { DEADBALL_SFX } from '../../../shared/deadball-sfx.js';
+import { prefersReducedMotion, playByPlayOn } from '../../../shared/settings.js';
 import { fenceAt } from './diamond/play.js';
 
 function _esc(str) {
@@ -21,7 +22,32 @@ function _esc(str) {
 
 // Colour class per synthesized pitch result — drives the plot dot + the sequence list.
 const PITCH_RESULT_CLASS = { ball: 'ball', called: 'called', swinging: 'swinging', foul: 'foul', inplay: 'inplay', hbp: 'hbp' };
-const PITCH_RESULT_LABEL = { ball: 'Ball', called: 'Called Strike', swinging: 'Swinging Strike', foul: 'Foul', inplay: 'In Play', hbp: 'Hit by Pitch' };
+
+// ── the live text ────────────────────────────────────────────────────────────────
+// Each pitch is written out for a screen reader as it's thrown (Play by Play in the accessibility
+// settings), from the payload the picture throws it from, so what's said is what's shown. Both
+// views use it; the 3-D one also says its graphics.
+const PITCH_SAID = { ball: 'ball', called: 'called strike', swinging: 'swinging strike', foul: 'foul', inplay: 'in play', hbp: 'hit by the pitch' };
+// A pitch's speed and kind, what it did, and the count it leaves; the at-bat's last pitch says
+// what it ended instead (ball four, strike three), as the board never shows a fourth ball or a
+// third strike.
+export function pitchText(q, last = false) {
+  const kind = [Number(q?.velo) > 0 ? String(q.velo | 0) : '', String(q?.type || '').toLowerCase()].filter(Boolean).join(' ');
+  const r = q?.result, b = q?.balls | 0, k = q?.strikes | 0;
+  const did = last && r === 'ball' && b >= 4 ? 'ball four'
+    : last && (r === 'called' || r === 'swinging') && k >= 3 ? `strike three, ${r}`
+    : PITCH_SAID[r] || 'a pitch';
+  return `${kind ? `${kind}, ` : ''}${did}${last ? '' : `, ${b} and ${k}`}`;
+}
+// A card as the live text says it: in words, the inning's arrow and the dots spelled out.
+export function cardText(fx, m) {
+  if (fx.kind === 'half') return `${fx.half === 'bottom' ? 'Bottom' : 'Top'} of the ${fx.inningOrd || 'inning'}${fx.batting ? `, ${fx.batting} batting` : ''}`;
+  const title = String(m.title || '').replace(/^\W+/, '').toLowerCase().replace(/^\w/, (c) => c.toUpperCase());
+  return [title, String(m.sub || '').replace(/\s+·\s+/g, ', ')].filter(Boolean).join('. ');
+}
+// How many lines the live text keeps: a screen reader reads each as it comes, and a long log
+// would only be noise to someone reading back.
+const LIVE_KEEP = 12;
 
 // ── Sound effects (procedural, on the 'tv' bus; silent when no AudioEngine) ──────
 // The bank lives in client/shared/deadball-sfx.js, shared with the 3-D view.
@@ -325,8 +351,30 @@ export function createGamedayView(host) {
   let cardTimer = null;      // auto-dismiss for the Gameday-native jumbotron card
   let standingsRows = [];    // last league table seen (rides the payload); persists between at-bats
   let ambientOn = false;     // the between-plays idle loop is running (see _startAmbient)
+  let calm = false;          // the viewer has asked for less motion, as of this payload (_shell)
 
   function _stop() { timers.forEach(clearTimeout); timers = []; playAnimating = false; ambientOn = false; pendingCard = null; }
+  // The view is a body, rebuilt for every payload, beside the live text, which stays put: a live
+  // region swapped out mid-game can go unread. The body takes no box of its own (styles.css
+  // .gd-body), so the host lays its parts out as before.
+  let bodyEl = null, liveEl = null;
+  function _body() {
+    if (!bodyEl || ![...host.children].includes(bodyEl)) {
+      host.innerHTML = `<div class="gd-live sr-only" role="log" aria-live="polite"></div><div class="gd-body"></div>`;
+      liveEl = host.querySelector('.gd-live');
+      bodyEl = host.querySelector('.gd-body');
+    }
+    return bodyEl;
+  }
+  // a line of the live text, if the player has Play by Play on
+  function _say(text) {
+    const t = String(text || '').trim(), el = t && host && playByPlayOn() ? (_body(), liveEl) : null;
+    if (!el) return;
+    const line = document.createElement('p');
+    line.textContent = t;
+    el.appendChild(line);
+    while (el.children.length > LIVE_KEEP) el.children[0].remove();
+  }
   function _t(ms, fn) { timers.push(setTimeout(fn, Math.max(0, ms))); }
   function _sfx(def) { window.AudioEngine?.playSfx(def); }
   const _pitchSfx = (pt, terminal) => pt.result === 'swinging' ? SFX.whiff
@@ -356,8 +404,10 @@ export function createGamedayView(host) {
     el.style.left = `${(fx * 100).toFixed(1)}%`; el.style.top = `${(fy * 100).toFixed(1)}%`;
     layer.appendChild(el); _t(life, () => el.remove()); return el;
   }
-  // A fading trail behind the ball: drops lit up in sequence along from→to as it passes.
+  // A fading trail behind the ball: drops lit up in sequence along from→to as it passes. None for a
+  // viewer who's asked for less motion.
   function _trail(from, to, ms, hot) {
+    if (calm) return;
     const a = Array.isArray(from) ? from : POS[from], b = Array.isArray(to) ? to : POS[to];
     const n = 6;
     for (let i = 1; i <= n; i++) { const f = i / (n + 1); const x = a[0] + (b[0] - a[0]) * f, y = a[1] + (b[1] - a[1]) * f; _t(f * ms * 0.85, () => _spawn(`gd-trail${hot ? ' hot' : ''}`, [x, y], 520)); }
@@ -410,9 +460,12 @@ export function createGamedayView(host) {
 
   // The broadcast shell, rebuilt for every payload: the score bug, the line score, the
   // field and its tokens, the rail, win probability and the caption. A camera-cut wipe
-  // sweeps it in so each play reads as a fresh replay rather than a mutation of the last.
+  // sweeps it in so each play reads as a fresh replay rather than a mutation of the last,
+  // unless the viewer has asked for less motion.
   function _shell() {
-    host.innerHTML =
+    calm = prefersReducedMotion();
+    const body = _body();
+    body.innerHTML =
       `<div class="gd-top"></div>` +
       `<div class="gd-linescore"></div>` +
       `<div class="gd-main">` +
@@ -422,8 +475,9 @@ export function createGamedayView(host) {
       `<div class="gd-winprob"></div>` +
       `<div class="gd-caption"><span class="gd-cap-tag">◆ Chip Vega</span><span class="gd-cap-text">${_esc(caption)}</span></div>`;
     field = host.querySelector('.gd-field');
+    if (calm) return;
     const wipe = document.createElement('div'); wipe.className = 'gd-wipe';
-    host.appendChild(wipe);
+    body.appendChild(wipe);
     requestAnimationFrame(() => wipe.classList.add('go'));
     _t(720, () => wipe.remove());
   }
@@ -431,7 +485,7 @@ export function createGamedayView(host) {
   // Field-wide celebration for a home run / walk-off: pulse the field glow and pop a
   // scatter of bursts along the fence where the ball left the yard.
   function _celebrate(kind) {
-    if (!field) return;
+    if (!field || calm) return;
     field.classList.remove('celebrate', 'walkoff'); void field.offsetWidth;
     field.classList.add('celebrate'); if (kind === 'walkoff') field.classList.add('walkoff');
     _t(2400, () => field && field.classList.remove('celebrate', 'walkoff'));
@@ -607,8 +661,9 @@ export function createGamedayView(host) {
     const dx = (Math.random() * 2 - 1) * amt, dy = (Math.random() * 2 - 1) * amt;
     _move(el, [fx + dx, fy + dy], 700 + Math.random() * 500, 'ease-in-out');
   }
+  // None for a viewer who's asked for less motion: it's the park filling the time, not the game.
   function _startAmbient() {
-    if (!field || ambientOn) return;
+    if (!field || ambientOn || calm) return;
     ambientOn = true;
     const tick = () => {
       if (!ambientOn || !field || playAnimating) return;
@@ -800,6 +855,7 @@ export function createGamedayView(host) {
       const pt = pitches[k - 1];
       _t((k - 1) * step, () => {
         _paintSide(ctx, k, false);
+        _say(pitchText(pt, terminal));
         _place(ball, 'mound'); void field.offsetWidth;
         _move(ball, 'home', T_PITCH, 'ease-in');                        // pitch to the plate
         _sfx(_pitchSfx(pt, terminal));
@@ -848,6 +904,7 @@ export function createGamedayView(host) {
     caption = String(text || '');
     const el = host && host.querySelector('.gd-cap-text');
     if (el) { el.textContent = caption; el.classList.remove('in'); void el.offsetWidth; el.classList.add('in'); }
+    _say(caption);
   }
 
   // Chip's line, forwarded from tv.js as broadcast lines arrive. tv.js hands us the
@@ -870,9 +927,10 @@ export function createGamedayView(host) {
     if (!host || !fx || !GAMEDAY_CARDS[fx.kind]) return;
     const m = GAMEDAY_CARDS[fx.kind](fx);
     let el = host.querySelector('.gd-jumbo');
-    if (!el) { el = document.createElement('div'); el.className = 'gd-jumbo'; host.appendChild(el); }
+    if (!el) { el = document.createElement('div'); el.className = 'gd-jumbo'; _body().appendChild(el); }
     el.innerHTML = `<div class="gd-jumbo-title">${_esc(m.title)}</div>${m.sub ? `<div class="gd-jumbo-sub">${_esc(m.sub)}</div>` : ''}`;
     el.className = `gd-jumbo ${m.cls}`; void el.offsetWidth; el.classList.add('in');
+    _say(cardText(fx, m));
     if (cardTimer) clearTimeout(cardTimer);
     cardTimer = setTimeout(() => el && el.classList.remove('in'), (fx.duration || 3.5) * 1000);
   }
@@ -893,7 +951,7 @@ export function createGamedayView(host) {
     if (!host) return;
     _stop(); _clearCard();
     field = null;
-    host.innerHTML =
+    _body().innerHTML =
       `<div class="gd-idle">` +
         `<div class="gd-idle-logo">◆</div>` +
         `<div class="gd-idle-title">DEADBALL · GAMEDAY</div>` +

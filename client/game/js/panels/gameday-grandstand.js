@@ -30,10 +30,10 @@
 //
 // The sim on the server decides everything. Nothing here can change a score.
 
-import { createGamedayView, GAMEDAY_CARDS } from './gameday.js';
+import { createGamedayView, GAMEDAY_CARDS, pitchText, cardText } from './gameday.js';
 import { DEADBALL_SFX } from '../../../shared/deadball-sfx.js';
 import { venueOf, onVenue } from './venue.js';
-import { prefersReducedMotion } from '../../../shared/settings.js';
+import { prefersReducedMotion, playByPlayOn } from '../../../shared/settings.js';
 
 export const GRANDSTAND_FLAG = 'deadball.grandstand';
 export function grandstandOn(win) {
@@ -58,6 +58,8 @@ const MATCHUP_MS = 4200, STEAL_MS = 4800, DIST_MS = 6000, TABLE_CYCLE_MS = 8000;
 // picture nobody's drawing.
 const OWN_SPLASH_MS = 2600, LAND_SLACK_MS = 1500;
 const RACES = ['hr', 'avg', 'sb', 'k'];
+// How many lines the live text keeps (gameday.js keeps as many).
+const LIVE_KEEP = 12;
 const STEALS = new Set(['steal', 'caughtstealing', 'doublesteal']);
 
 export function createGrandstandView(host, opts = {}) {
@@ -121,11 +123,15 @@ export function createGrandstandView(host, opts = {}) {
   }
 
   // ── the page ──────────────────────────────────────────────────────────────
-  // The graphics are a canvas, so the score is also written out as text for a screen reader.
+  // The graphics are a canvas, so they're words too, for a screen reader: the score, the count
+  // and a table between innings on the board (`.gds-sr`), and each pitch, the booth's line and
+  // whatever goes up over the picture in the live text (`.gds-live`, Play by Play in the
+  // accessibility settings).
   function shell() {
     return `<div class="gds-wrap">` +
       `<div class="gds-park"><canvas class="gds-canvas" role="img" aria-label="The ballpark"></canvas>` +
-      `<canvas class="gds-hud" aria-hidden="true"></canvas><div class="gds-sr sr-only"></div></div>` +
+      `<canvas class="gds-hud" aria-hidden="true"></canvas><div class="gds-sr sr-only"></div>` +
+      `<div class="gds-live sr-only" role="log" aria-live="polite"></div></div>` +
       `<div class="gds-cap"><span class="gds-cap-tag">◆ Chip Vega</span><span class="gds-cap-text">${_esc(caption)}</span></div>` +
     `</div>`;
   }
@@ -236,16 +242,30 @@ export function createGrandstandView(host, opts = {}) {
   function paintHud() { hud?.set(hudState()); }
   // The board and the graphics both follow the game.
   function paint() {
+    board();
+    R?.setBoard(S);
+    draw();
+    paintHud();
+  }
+  // The board in words, for a screen reader, with the leaders' table while it's up.
+  function board() {
     const el = host?.querySelector('.gds-sr');
     if (el) {
       el.textContent = S.half
         ? `${S.away || 'AWY'} ${S.aScore | 0}, ${S.home || 'HOM'} ${S.hScore | 0}. ${S.half === 'top' ? 'Top' : 'Bottom'} of the ${S.inning | 0}. ` +
-          `${S.balls | 0} and ${S.strikes | 0}, ${S.outs | 0} out.`
+          `${S.balls | 0} and ${S.strikes | 0}, ${S.outs | 0} out.` +
+          (S.tableRace && S.leaders ? ` ${mods.hud.tableSaid({ race: S.tableRace, rows: S.leaders[S.tableRace] || [], season: S.seasonN })}` : '')
         : '';
     }
-    R?.setBoard(S);
-    draw();
-    paintHud();
+  }
+  // A line of the live text, if the player has Play by Play on.
+  function say(text) {
+    const t = String(text || '').trim(), el = t && playByPlayOn() ? host?.querySelector('.gds-live') : null;
+    if (!el) return;
+    const line = doc.createElement('p');
+    line.textContent = t;
+    el.appendChild(line);
+    while (el.children.length > LIVE_KEEP) el.children[0].remove();
   }
   // A graphic that stays up for a while: set it now, clear it after `ms`.
   function hold(key, value, ms) {
@@ -269,7 +289,7 @@ export function createGrandstandView(host, opts = {}) {
     S.tableFoot = (p.inning | 0) <= 1 && p.half === 'top' && !(S.aScore | 0) && !(S.hScore | 0)
       ? `${mods.hud.HUD_THEME.tonight}  ·  ${up(S.awayTeam)} AT ${up(S.homeTeam)}`
       : `${up(S.awayTeam)} ${S.aScore | 0}  ·  ${up(S.homeTeam)} ${S.hScore | 0}  ·  ${p.half === 'bottom' ? 'BOTTOM' : 'TOP'} OF THE ${up(p.inningOrd)}`;
-    const turn = () => { S.tableRace = list[i++ % list.length]; paintHud(); };
+    const turn = () => { S.tableRace = list[i++ % list.length]; board(); paintHud(); };
     turn();
     if (list.length > 1) tableTimer = setInterval(turn, TABLE_CYCLE_MS);
     return true;
@@ -281,6 +301,7 @@ export function createGrandstandView(host, opts = {}) {
     caption = String(text || '');
     const el = host?.querySelector('.gds-cap-text');
     if (el) { el.textContent = caption; el.classList.remove('in'); void el.offsetWidth; el.classList.add('in'); }
+    say(caption);
   }
   // The director's at-bat landed (or its time came with the frames stopped): the board settles,
   // a strikeout or a walk gets its splash, and the held line and any held card go up, the card
@@ -300,12 +321,13 @@ export function createGrandstandView(host, opts = {}) {
     // the words the play earns (a strikeout, ball four, a diving catch, a ball over the wall caught
     // back…: diamond/spectacle.js splashOf); a card the broadcast throws goes over them
     const own = mods.splashOf(p);
-    if (own) hold('splash', own, OWN_SPLASH_MS);
+    if (own) { hold('splash', own, OWN_SPLASH_MS); say(mods.hud.splashSaid(own)); }
     // a home run's distance from where it came down, and how hard it was hit, in the speed's box
-    if (p.kind === 'homerun' && Number(p.play?.d) > 0) hold('dist', { ft: p.play.d, ev: p.play.ev }, DIST_MS);
+    if (p.kind === 'homerun' && Number(p.play?.d) > 0) { hold('dist', { ft: p.play.d, ev: p.play.ev }, DIST_MS); say(mods.hud.distSaid(S.dist)); }
     // a steal's card with its clocks, once the call's made
     if (p.phase === 'run' && STEALS.has(p.kind)) {
       hold('steal', { kind: p.kind === 'doublesteal' && p.out ? 'caughtstealing' : p.kind, runner: p.runner, num: mods.numberOf(p.runner), sb: p.sb, plate: p.plate, pop: p.pop, base: p.base, team: p.battingTeam }, STEAL_MS);
+      say(mods.hud.stealSaid(S.steal));
     }
     land();
   }
@@ -321,6 +343,7 @@ export function createGrandstandView(host, opts = {}) {
     S.strikes = last ? Math.min(2, q.strikes | 0) : q.strikes | 0;
     S.pitch = q;
     paint();
+    say(pitchText(q, last));
   }
   // The play landed: the held line and any held card go up now.
   function land() {
@@ -337,6 +360,7 @@ export function createGrandstandView(host, opts = {}) {
     const word = fx.kind === 'half' ? `${fx.half === 'bottom' ? 'BOTTOM' : 'TOP'} ${String(fx.inningOrd || '').toUpperCase()}` : m.title;
     host.querySelector('.gds-idle')?.remove();   // the game's begun, even before its first play
     hold('splash', { kind, word, sub: m.sub }, (fx.duration || 3.5) * 1000);
+    say(cardText(fx, m));
   }
   function clearCard() { clearTimeout(holds.splash); holds.splash = null; S.splash = null; paintHud(); }
 
@@ -361,6 +385,7 @@ export function createGrandstandView(host, opts = {}) {
       batter: p.batter, pitcher: p.pitcher, bNum: mods.numberOf(p.batter), pNum: mods.numberOf(p.pitcher || `${p.fieldingTeam}:P`),
       bl: p.bl, pl: p.pl, bats: p.bats, throws: p.throws, batTeam: p.battingTeam, pitchTeam: p.fieldingTeam,
     }, MATCHUP_MS);
+    say(mods.hud.matchupSaid(S.matchup));
   }
   function stage(p) {
     stopTimers(); stopTable(); stopWorld();

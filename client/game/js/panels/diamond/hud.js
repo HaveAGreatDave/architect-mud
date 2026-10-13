@@ -92,6 +92,35 @@ export const armLine = (pl) => `${pl[0]}–${pl[1]}   ${fmtEra(pl[3], pl[2])} ER
 // A pitch's name the way a broadcast prints it: FOUR-SEAM FASTBALL is 4-SEAM FASTBALL.
 export const pitchName = (type) => String(type || '').toUpperCase().replace(/\bFOUR-SEAM\b/, '4-SEAM').replace(/\bTWO-SEAM\b/, '2-SEAM');
 
+// ── the graphics in words ─────────────────────────────────────────────────────
+// The canvas is hidden from a screen reader, so the view says what's on it
+// (gameday-grandstand.js puts these in its live text and its board), from the same state the
+// layout draws from, so what's said is what's shown.
+const many = (n, one) => `${n | 0} ${one}${(n | 0) === 1 ? '' : 's'}`;
+const sentence = (w) => String(w || '').toLowerCase().replace(/^\w/, (c) => c.toUpperCase());
+export const batSaid = (bl) => `${fmtAvg(bl[1], bl[0])}, ${many(bl[2], 'home run')}, ${bl[3] | 0} RBI`;
+export const armSaid = (pl) => `${pl[0] | 0} and ${pl[1] | 0}, ${pl[2] ? fmtEra(pl[3], pl[2]) : 'no'} ERA, ${many(pl[4], 'strikeout')}`;
+export function matchupSaid(mu) {
+  const who = (name, num) => [name, num != null ? `number ${num}` : ''].filter(Boolean).join(', ');
+  const bat = mu.batter ? `Now batting, ${who(mu.batter, mu.bNum)}${Array.isArray(mu.bl) ? `: ${batSaid(mu.bl)}` : ''}` : '';
+  const arm = mu.pitcher ? `Pitching, ${who(mu.pitcher, mu.pNum)}${Array.isArray(mu.pl) ? `: ${armSaid(mu.pl)}` : ''}` : '';
+  return [bat, arm].filter(Boolean).join('. ');
+}
+export function stealSaid(st, words = HUD_THEME.words) {
+  const caught = st.kind === 'caughtstealing', BAG = { 2: 'second', 3: 'third', 4: 'home' };
+  const clocks = [st.plate && `pitcher to the plate ${Number(st.plate).toFixed(2)} seconds`, st.pop && `catcher's pop to ${BAG[st.base] || 'second'} ${Number(st.pop).toFixed(2)}`].filter(Boolean).join(', ');
+  return [sentence(words[st.kind] || words.steal), [st.runner, st.sb && !caught ? `${many(st.sb, 'steal')} this season` : ''].filter(Boolean).join(', '), clocks].filter(Boolean).join('. ');
+}
+export const distSaid = (d) => `${d.ft | 0} feet${Number(d.ev) > 0 ? `, ${d.ev | 0} miles an hour off the bat` : ''}`;
+export const splashSaid = (sp, words = HUD_THEME.words) => [sentence(words[sp.kind] || sp.word), sentence(sp.sub)].filter(Boolean).join(' ');
+// The leaders' table, its own race's number for each man.
+export function tableSaid(L, races = HUD_THEME.races) {
+  const race = races[L.race] ? L.race : 'hr', rows = (L.rows || []).slice(0, 5);
+  const of = (r) => (race === 'avg' ? fmtAvg(Math.round((r.avg || 0) * 1000), 1000) : String(r[race] | 0));
+  const head = `League leaders, ${sentence(races[race])}${L.season ? `, season ${L.season}` : ''}`;
+  return `${head}: ${rows.length ? rows.map((r, i) => `${i + 1}, ${r.name}, ${r.team}, ${of(r)}`).join('; ') : 'no games played yet'}.`;
+}
+
 // ── the strike zone ───────────────────────────────────────────────────────────
 // The zone over the plate in the park's frame (feet; +x toward third, so the catcher's left),
 // and where a pitch crossed it from the payload's plot position: x and y run 0 to 1 over a

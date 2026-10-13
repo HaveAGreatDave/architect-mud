@@ -8,7 +8,9 @@ and call every pitch at its real speed and spot, and the Pose Lab their clips ar
 played out in the park with its cameras and its cutaways (3c), and the men on the bases running
 it out and trotting up after ball four, the changeover, and the steals, throws over and wild
 pitches played on the bases (3d), and the spectacle: the comet's tail, sparks off the bat,
-fireworks, the home-run camera and the splash words (3e). Phases 4 to 7 are design.** A plan for giving Deadball a 3-D sub-screen the way Cluster Puck got Rinkside, at the
+fireworks, the home-run camera and the splash words (3e); and from Phase 4, reduced motion and
+the play by play in words for a screen reader (4a). The rest of Phase 4 and Phases 5 to 7 are
+design.** A plan for giving Deadball a 3-D sub-screen the way Cluster Puck got Rinkside, at the
 highest fidelity the engine can reach. Deadball is a live sport on KSAB, and the broadcast borrows
 the look of a 1990s arcade baseball game. That means skinned, detailed players, authored animation
 with a wide spread of plays, light from the park's own towers and a crowd that fills the stands.
@@ -1718,9 +1720,25 @@ Phase 3, or with sim v2 if that comes later.
   its speed off the bat take the pitch speed's box. A play earns its own splash words: a triple,
   an error, a catch at the wall or one robbing a home run, a diving or sliding catch, one over the
   rail, a diving stop, a barehanded play, a pickoff, a wild pitch, a passed ball and a hit
-  batsman, beside strike three and ball four. Reduced motion keeps the tail and drops the riding
-  camera, the sparks and the shells. `diamond-smoke` stages every home run, ball hit hard and
+  batsman, beside strike three and ball four. Reduced motion drops the riding camera, the sparks
+  and the shells (and since 4a the tail). `diamond-smoke` stages every home run, ball hit hard and
   walk-off, and `tools/sandbox/deadball-shots.mjs` takes the sandbox's pictures headless.
+
+- **4a built, reduced motion and the play by play in words:** with reduced motion (the Motion
+  switch or the system's setting, read as each play is staged) the cameras that would follow the
+  ball hold still and cut instead: each frames where the ball's flight ends and cuts to the next
+  as the next throw goes, never within a second of its last cut (`plays.js` stillShots). None of
+  the spectacle is drawn, the tail included, and the graphics come up still. The 2-D view draws no
+  trails, no wipe on a cut and no celebration, and runs no idle loop between plays. For everyone,
+  the shells go up more than a third of a second apart, so no second has more than three bursts.
+  A new accessibility option, Play by Play (`accessibility plays`, on by default), has both views
+  write into a polite live log, for a screen reader, each pitch as it's thrown ("88 slider,
+  swinging strike, 1 and 2", gameday.js `pitchText`), the booth's line as it goes up and every card
+  and splash word; the 3-D view also says the matchup, a steal's card and a home run's distance,
+  and its board in words has the leaders' table between innings. Replays are 4b's, and will come
+  as stills with the play described. `diamond-smoke` stages every ball in play again with reduced
+  motion and checks every camera holds still with the ball in the frame as each flight ends, and
+  that the live text says each pitch in order; `gameday-smoke` checks the 2-D view's.
 
 **Phase 4: the broadcast.** On by default wherever WebGL2 and float targets work.
 - `gl/crowd.js` with seated and reaction clips; replays in slow motion; dead-time rituals; the grounds

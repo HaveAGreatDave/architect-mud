@@ -12136,6 +12136,21 @@ html[data-density="compact"][data-pane-claimed] #mobile-hud { display: none; }
 .gd-jumbo.final .gd-jumbo-title { color: #fff; }
 @keyframes gd-jumbo-in { 0% { transform: translate(-50%,-50%) scale(0.55); opacity: 0; } 100% { transform: translate(-50%,-50%) scale(1); opacity: 1; } }
 
+/* The view's body, rebuilt for every payload beside the live text that stays put (gameday.js
+   _body), takes no box of its own, so #tv-gameday lays its parts out as it always has. */
+.gd-body { display: contents; }
+/* Less motion: the cards, the line and the play come up still, a new pitch's dot doesn't drop
+   in, a runner doesn't squash into his slide and nothing pulses. The wipe, the trails and the
+   celebration aren't drawn at all (gameday.js). */
+[data-motion="off"] .gd-jumbo.in,
+[data-motion="off"] .gd-cap-text.in,
+[data-motion="off"] .gd-play,
+[data-motion="off"] .gd-pitch.new,
+[data-motion="off"] .gd-runner.sliding,
+[data-motion="off"] .gd-batter.sliding,
+[data-motion="off"] .gd-idle-logo,
+[data-motion="off"] .gd-replaybug i { animation: none; }
+
 /* ── Idle screen (opened before an at-bat) ───────────────────────────────────── */
 .gd-idle { flex: 1 1 auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; }
 .gd-idle-logo { font-size: 1.875rem; color: var(--tv-header-color, #37d67a); text-shadow: 0 0 14px var(--tv-header-color, #37d67a); animation: gd-idle-pulse 1.8s ease-in-out infinite; }

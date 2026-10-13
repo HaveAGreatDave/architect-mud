@@ -319,8 +319,10 @@ export function planPlay(ctx) {
   balls.sort((a, b) => a.from - b.from);
   balls.forEach((s, i) => { s.to = i + 1 < balls.length ? balls[i + 1].from : Infinity; });
   const track = trackOf(balls);
-  const shots = cuts.filter((c) => c.at < land).sort((a, b) => a.at - b.at)
+  let shots = cuts.filter((c) => c.at < land).sort((a, b) => a.at - b.at)
     .map((c) => ({ at: c.at, shot: c.shot === 'high' ? { shot: 'high', track } : typeof c.shot === 'object' ? { ...c.shot, track } : c.shot }));
+  // for a viewer who's asked for less motion, the cameras that would follow it hold still
+  if (ctx.motion === false) shots = stillShots(shots, balls, land);
   log.throws = throwChain;
   return {
     bodies: [...bases.bodies, ...bodies.values(), ...umps].filter((b) => b.clips.some((c) => !c.prior)),
@@ -745,6 +747,32 @@ function groundClip(g, side) {
   if (g === 'diving') return side > 0 ? 'field_dive_left' : 'field_dive_right';
   if (g === 'ranging') return side > 0 ? 'field_gb_forehand' : 'field_gb_backhand';
   return 'field_gb';
+}
+
+// For a viewer who's asked for less motion (the plan's hard cuts between still shots): a camera
+// that would follow the ball holds still instead, framed on where the ball's flight ends (a glove,
+// the ground, the seats), and cuts to the next flight's end as that one starts, a throw on from
+// the glove, but never sooner than STILL_GAP seconds after its last cut. A still shot is a moving
+// one whose track stays put, so shotAt gives the same camera at every t.
+export const STILL_GAP = 1;
+function stillShots(shots, balls, land) {
+  const out = [];
+  shots.forEach((c, i) => {
+    const s = c.shot;
+    if (!s || typeof s !== 'object' || typeof s.track !== 'function') { out.push(c); return; }
+    const end = i + 1 < shots.length ? shots[i + 1].at : land;
+    let last = null;
+    for (const b of balls) {
+      if (!b.path || b.from >= end || b.to <= c.at) continue;
+      const at = last ? Math.max(b.from, last.at + STILL_GAP) : c.at;
+      if (at >= end) break;
+      const done = Math.min(Number.isFinite(b.to) ? b.to : Number.isFinite(b.path.land) ? b.path.land : end, end), aim = b.path(done);
+      last = { at, shot: { ...s, track: () => aim } };
+      out.push(last);
+    }
+    if (!last) { const aim = s.track(end); out.push({ at: c.at, shot: { ...s, track: () => aim } }); }
+  });
+  return out;
 }
 
 // Where the play's camera looks at time t: the ball's way, smoothed over the last third of a

@@ -181,6 +181,9 @@ export function __install() {
     // browser refuses to render inside an <svg>.
     createElementNS: (_ns, tag) => new El(tag),
     body: new El('body'),
+    // the page's root, where the client's settings put their attributes (settings.js: data-motion,
+    // data-play-by-play); a view reads them through it, and a gate can set them on it
+    documentElement: new El('html'),
   };
   const perf = { now: () => now };
   const raf = (fn) => { const id = rafId++; rafs.set(id, fn); return id; };

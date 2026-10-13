@@ -1033,8 +1033,22 @@ Built so far (Phases 1 and 2 of the plan):
   its own camera: once it's clearly gone, the shot rides beside the ball on the side nearer the
   middle of the field, stops 45 ft short of the wall and watches it into the seats; then the wide
   shot over the outfield as the first shell goes up, and the high camera back for the trot. Its
-  distance and its speed off the bat take the pitch speed's box. With reduced motion there's no
-  camera riding with it and nothing bursts or sparks; the tail stays;
+  distance and its speed off the bat take the pitch speed's box. The shells go up more than a
+  third of a second apart, so no second has more than three bursts in it;
+- reduced motion (Phase 4a), the Motion switch or the system's setting, read as each play is
+  staged: the cameras that would follow the ball hold still and cut instead, each framed on where
+  the ball's flight ends and cut to the next as the next throw goes, never within a second of its
+  last cut ([diamond/plays.js](../client/game/js/panels/diamond/plays.js) `stillShots`); no camera
+  rides with a home run and none of the spectacle is drawn; the graphics come up still. The 2-D
+  view draws no trails, no wipe on a cut and no celebration, and runs no idle loop between plays;
+- the play by play in words (Phase 4a): with Play by Play on (`accessibility plays`, on by
+  default), both views write into a polite live log for a screen reader each pitch as it's thrown,
+  in the words gameday.js `pitchText` makes of the payload the picture throws it from ("88 slider,
+  swinging strike, 1 and 2"; the last pitch says ball four or strike three instead of the count),
+  the booth's line as it goes up, and every card and splash word. The 3-D view also says the
+  matchup with both season lines, a steal's card with its clocks and a home run's distance, and
+  its board in words carries the leaders' table between innings, so nothing on the hidden graphics
+  canvas is only a picture;
 - the arcade graphics (Phase 1d), a canvas over the picture drawn by
   [diamond/hud.js](../client/game/js/panels/diamond/hud.js) in the client's display faces: the
   score with the bases, the count as lamps, the pitch speed and type, and in the batting view the
@@ -1135,11 +1149,15 @@ within 2 ft; a third out on the bases (the game's, or the next games' first) tak
 to his own dugout without a jump or two men within 2 ft. Every home run, ball hit hard and
 walk-off (a home run and a walk-off borrowed from the next games when the game has none) has the
 right tail, sparks and shells, every shell over the outfield with its sparks above the stands and
-inside the wide shot's frame, the home-run camera keeping the ball in its frame from inside the
-park, the cuts in order, and none of the motion with reduced motion on. It feeds the view with a recording renderer to hold each line until its play
+inside the wide shot's frame, never more than three shells in a second, the home-run camera
+keeping the ball in its frame from inside the park, the cuts in order, and none of it with reduced
+motion on. Every ball in play is staged again with reduced motion: every camera holds still and the
+ball is in the frame of the still that's up as each flight ends. It feeds the view with a recording renderer to hold each line until its play
 lands, a play on the bases among them with its steal card, and leaves out one at-bat that moves
 the bags, as the booth does, to open the next on the cutaway because its bags differ from the
-picture's. The sandbox page takes
+picture's; its live text says every pitch in order and the booth's line, says nothing with Play by
+Play off, and its board has the leaders' table between innings. `gameday-smoke` checks the 2-D
+view's live text the same way. The sandbox page takes
 `?park=3d`, `?play=inplay` (balls in play only), `?play=bases` (the plays on the bases), `?shot=`, `?bug=`, `?po=1` (the final's
 dressing), `?hud=0` (the picture alone), `?city=0`, `?hold=` (each line's hold in milliseconds,
 35000 by default) and `?speed=` (0.25 for a slow look, 0 to stop the park's clock); its city comes from the flight sim's

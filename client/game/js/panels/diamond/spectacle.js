@@ -12,7 +12,8 @@
  * long it's been going (`particleAt`, and PARTICLE_GLSL in gl/spectacle.js). The gate holds the
  * JS one to where the bursts should be; the sandbox shows the GLSL.
  *
- * Reduced motion keeps the tail, which doesn't flash, and leaves out the sparks and the bursts.
+ * Reduced motion leaves all of it out. With it on, the shells go up at least BEAT apart, so they
+ * never flash more than three times a second.
  *
  * Pure: no DOM and no GL.
  */
@@ -46,6 +47,9 @@ export const KINDS = Object.freeze({
   sparks: Object.freeze({ n: 40, v: 46, drag: 4.5, g: 32, life: 0.4, width: 0.09, streak: 0.035, glow: 9, spread: 0.55 }),
   burst: Object.freeze({ n: 96, v: 85, drag: 1.4, g: 14, life: 2.2, width: 3.5, streak: 0.12, glow: 7, rise: 0.6 }),
 });
+// How far apart the shells go up, at least: more than a third of a second, so no second ever has
+// more than three bursts in it (the plan's rule on flashing), and up to JITTER more at random.
+export const BEAT = 0.34, JITTER = 0.04;
 // The shells' colours, in linear light before the glow: red, gold, green, cyan, magenta, silver.
 export const SHELLS = Object.freeze([[1, 0.16, 0.1], [1, 0.7, 0.16], [0.25, 1, 0.3], [0.2, 0.75, 1], [1, 0.25, 0.85], [0.95, 0.95, 1]]);
 
@@ -112,16 +116,18 @@ export function planSpectacle(o) {
   const rand = seeded(hashOf(`${p.batter}|${p.inning}|${p.half}|${p.kind}|spectacle`));
   const hr = p.kind === 'homerun', ev = Number(pl?.ev) || 0, motion = o.motion !== false;
   const path = o.path && typeof o.path === 'function' ? o.path : null;
+  // a viewer who's asked for less motion gets none of it
+  if (!motion) return fx;
   if (path && Number.isFinite(o.tBat) && (hr || ev >= HARD)) {
     // a home run's to the seats; another until it's down or caught, a second and a half at most
     const down = Number.isFinite(path.land) ? path.land : o.tBat + 1.5, end = Number.isFinite(o.end) ? o.end : Infinity;
     fx.push({ kind: 'trail', from: o.tBat, to: hr ? Math.min(down, end) : Math.min(down, end, o.tBat + 1.5), path, heat: 0.8 + 0.4 * Math.min(1, Math.max(0, (ev - 95) / 20)) });
-    if (motion && ev >= HARD && Array.isArray(o.at)) {
+    if (ev >= HARD && Array.isArray(o.at)) {
       const a = path(o.tBat), b = path(o.tBat + 0.02);
       fx.push({ kind: 'sparks', t: o.tBat, at: o.at.slice(), dir: unit([b[0] - a[0], b[1] - a[1], b[2] - a[2]]), seed: rand() });
     }
   }
-  if (motion && (hr || p.walkoff)) {
+  if (hr || p.walkoff) {
     // over the outfield, leaning the way it went (centre on a walk-off without one), each shell up
     // from behind the bleachers and bursting over them, a third of a second or so apart; the wide
     // shot over the outfield (camera.js sky) frames them, and round where a ball down a line came
@@ -134,7 +140,7 @@ export function planSpectacle(o) {
       const dir = Math.max(-40, Math.min(40, centre + spread * ((n > 1 ? k / (n - 1) : 0.5) - 0.5) + (rand() - 0.5) * 8));
       const r = fenceAt(dir) + 50 + 30 * rand(), y = 88 + 30 * rand();
       const at = [-Math.sin(dir * DEG) * r, y, Math.cos(dir * DEG) * r], from = [-Math.sin(dir * DEG) * (r + 14), 28, Math.cos(dir * DEG) * (r + 14)];
-      fx.push({ kind: 'burst', t: start + KINDS.burst.rise + 0.36 * k + 0.12 * rand(), at, from, spin: rand() * Math.PI * 2, scale: 0.85 + 0.35 * rand(),
+      fx.push({ kind: 'burst', t: start + KINDS.burst.rise + (BEAT + JITTER / 2) * k + JITTER / 2 * rand(), at, from, spin: rand() * Math.PI * 2, scale: 0.85 + 0.35 * rand(),
         colour: SHELLS[(colour + k) % SHELLS.length], second: SHELLS[(colour + k + 2) % SHELLS.length] });
     }
   }

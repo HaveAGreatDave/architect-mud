@@ -39,6 +39,17 @@ makes, and the tick the mouse makes passing over one
 never gets the hover tick, so it can't talk over a screen reader or double a tap. The cues are the
 `interface` group in `sfx-catalog.js` on the dry `ui` bus, which the SFX slider moves.
 
+**Play by Play** (`accessibility plays on|off`, on by default) is Deadball's game in words while a
+TV shows it: each pitch as it's thrown, the booth's line as each play lands, and the cards and
+splash words that go up over the picture, written into a polite `role="log"` live region in both
+the 2-D and the 3-D view ([gameday.js](../client/game/js/panels/gameday.js) `pitchText`,
+[gameday-grandstand.js](../client/game/js/panels/gameday-grandstand.js)). It sets
+`data-play-by-play` on the page, and the views read it through `playByPlayOn()` each time they
+have a line, as the Motion switch is read through `prefersReducedMotion()`. Off stops the
+announcing; the score and the booth's line are still there to read, and nothing on screen
+changes. The full rules for the broadcast are in
+[systems-broadcast.md](systems-broadcast.md#the-park-in-3-d-the-grandstand-behind-a-flag).
+
 **Hold to confirm** (`holdToConfirm` in [confirm.js](../client/game/js/panels/confirm.js)) guards the
 choices that can't be undone: selling or handing back an aircraft, `drop all` (the server's confirm
 carries `hold: true`) and the sign-out danger dialog. The button fills as it's held and fires when

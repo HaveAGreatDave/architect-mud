@@ -60,10 +60,13 @@
 //      game (a home run and a walk-off borrowed from the games after it if it has none): the tail on a ball hit
 //      hard or out, ending with its flight; sparks at the bat's contact on one hit hard; the
 //      fireworks after a home run or a walk-off, every shell over the outfield beyond the fence,
-//      its sparks above the stands, framed by the wide shot it's cut to once the ball's down, and
-//      the high camera back after the last; the home-run camera riding beside the ball, keeping it
-//      in frame (95%) from inside the park; and with reduced motion, no camera riding with it and
-//      nothing bursting or sparking, the tail kept. Every play's own splash has its words.
+//      its sparks above the stands, framed by the wide shot it's cut to once the ball's down, never
+//      more than three in a second, and the high camera back after the last; the home-run camera
+//      riding beside the ball, keeping it in frame (95%) from inside the park; and with reduced
+//      motion, no camera riding with it and nothing at all. Every play's own splash has its words.
+//   1f. REDUCED MOTION, every ball in play staged again with it, without running the world: every
+//      camera a still one (the same camera at every t), the ball in the frame of the still that's up
+//      as each of its flights ends, and nothing of the spectacle.
 //   2. THE VIEW, with a recording renderer in place of the GL park and the hand-cranked clock:
 //      payloads fed the way tv.js feeds them, each after its held line, a play on the bases among
 //      them; the line stays the last one until the play lands and is this one after; the count on
@@ -74,7 +77,10 @@
 //      from the ones the picture left opens on the cutaway, and one that agrees doesn't (the feed
 //      leaves out one at-bat that moves the bags, as the booth does, so there's one that differs);
 //      and with no frames at all (a hidden tab) the line still goes up once the play's time has
-//      passed.
+//      passed. The live text for a screen reader (Play by Play) has every pitch as it's thrown,
+//      in order, in the words gameday.js pitchText makes of it, and the booth's line as it goes
+//      up; with Play by Play off, nothing; and the board in words has the leaders' table between
+//      innings.
 //
 // A runner's legs in the picture are checked against the sim's (play.js legsOf works speedOf over
 // again for the browser).
@@ -95,6 +101,7 @@ const { pitchPoint } = await import(P + 'diamond/hud.js');
 const { solvePose } = await import(P + 'diamond/rig.js');
 const { handPoint, limitBreaks, eventTime } = await import(P + 'diamond/anim.js');
 const { isShot, shotAt, project } = await import(P + 'diamond/camera.js');
+const { pitchText } = await import(P + 'gameday.js');
 const { BAGS } = await import(P + 'diamond/geo.js');
 const { legsOf, fenceAt, sprayOf } = await import(P + 'diamond/play.js');
 const { HARD, KINDS: FX, particleAt, trailAt, endOf: fxEnd, splashOf } = await import(P + 'diamond/spectacle.js');
@@ -654,6 +661,9 @@ for (const { p, seed } of runs) {
       const q = project('sky', 400, 300, b.at);
       check('the spectacle: the wide shot frames every shell', !!q && q.x > 10 && q.x < 390 && q.y > 10 && q.y < 290, `${label}: ${q ? `${q.x.toFixed(0)},${q.y.toFixed(0)}` : 'behind'}`);
     }
+    // no flashing more than three times a second: any four shells span more than a second
+    const when = bursts.map((b) => b.t).sort((a, b) => a - b);
+    for (let i = 0; i + 3 < when.length; i++) check('the spectacle: never more than three shells burst in a second', when[i + 3] - when[i] > 1, `${label}: four in ${(when[i + 3] - when[i]).toFixed(2)} s`);
     // the home-run camera, from the plan's own cuts: the ball in its frame and its eye inside the
     // park, sampled as the world runs, until the next cut. The world runs only until the last
     // effect's out and the high camera's back: a home run's trot after that is section 1's.
@@ -687,13 +697,13 @@ for (const { p, seed } of runs) {
       check('the spectacle: the play runs till the last spark\'s out', D.until >= fxEnd(bursts[bursts.length - 1]) - 1e-6, label);
       fxSeen.walkoff += p.walkoff ? 1 : 0;
     }
-    // with less motion: no camera riding with it, nothing bursting or sparking, the tail kept. The
-    // plan's cuts and the effects say so without running the world.
+    // with less motion: no camera riding with it, and none of it at all. The plan's cuts and the
+    // effects say so without running the world.
     if (hr || ev >= HARD || p.walkoff) {
       const D2 = createDirector(W, {});
       D2.stage(p, castOf(p), { motion: false });
       const riding = (D2.play?.cuts || []).some((c) => typeof c.shot === 'object' && c.shot?.shot === 'homer');
-      check('the spectacle: reduced motion has no camera riding with it, and nothing bursts or sparks', !riding && !(D2.fx || []).some((e) => e.kind !== 'trail') && (D2.fx || []).some((e) => e.kind === 'trail') === !!trail, label);
+      check('the spectacle: reduced motion has no camera riding with it, and nothing of the spectacle', !riding && !(D2.fx || []).length, label);
       D2.stop();
     }
   }
@@ -705,6 +715,39 @@ for (const { p, seed } of runs) {
     const sp = splashOf(p);
     if (sp) check('every play\'s own splash has its words', !!HUD_THEME.words[sp.kind], `${p.kind}: ${sp.kind}`);
   }
+}
+
+// ── 1f. reduced motion ───────────────────────────────────────────────────────
+// Every ball in play staged again with reduced motion, without running the world (the plan says
+// it all): the cameras that would follow the ball hold still, cutting between stills (plays.js
+// stillShots), and the ball is in the frame of the still that's up as each flight ends.
+{
+  let n = 0;
+  const stillOf = (s) => JSON.stringify(s);
+  for (const p of atBats.filter((x) => x.pitches[x.pitches.length - 1].result === 'inplay')) {
+    const label = `seed ${SEED} reduced motion: ${p.inning}${p.half[0]} ${p.batter} ${p.kind}`;
+    const D = createDirector(W, {});
+    D.stage(p, castOf(p), { motion: false });
+    const plan = D.play;
+    if (!plan) { D.stop(); continue; }
+    n++;
+    check('reduced motion: nothing of the spectacle', !(D.fx || []).length, label);
+    for (const c of plan.cuts) {
+      check('reduced motion: every cut is a camera', isShot(c.shot), `${label}: ${JSON.stringify(c.shot)}`);
+      if (typeof c.shot === 'object') check('reduced motion: every camera holds still', stillOf(shotAt(c.shot, c.at)) === stillOf(shotAt(c.shot, c.at + 2.7)), `${label}: ${c.shot.shot}`);
+    }
+    for (const b of plan.balls) {
+      if (!b.path) continue;
+      const T = Math.min(Number.isFinite(b.to) ? b.to : Number.isFinite(b.path.land) ? b.path.land : plan.landAt, plan.landAt);
+      const up = plan.cuts.filter((c) => c.at <= T + 1e-9).pop();
+      // a camera by name is the director's own framing of a bag or a man; the stills frame the ball
+      if (!up || typeof up.shot !== 'object') continue;
+      const q = project(shotAt(up.shot, T), 400, 300, b.path(T));
+      check('reduced motion: the still that\'s up has the ball as each flight ends', !!q && q.x > -10 && q.x < 410 && q.y > -10 && q.y < 310, `${label}: ${up.shot.shot}, ${q ? `${q.x.toFixed(0)},${q.y.toFixed(0)}` : 'behind'}`);
+    }
+    D.stop();
+  }
+  check('reduced motion: the game has balls in play to hold still', n > 0);
 }
 
 // ── 2. the view ──────────────────────────────────────────────────────────────
@@ -737,16 +780,29 @@ const renderer = () => ({
     if (feed.length >= 24 && !want.size) break;
   }
   check('the view is fed a strikeout, a walk and a hit batsman', !want.size, [...want].join(', '));
+  // the league's leaders ride a game's first payload (the server's gamedayLeaders), for the table
+  // between innings
+  const bat = (name, team, hr, avg, sb) => ({ name, team, hr, rbi: hr * 3, avg, sb });
+  feed[0] = { ...feed[0], leaders: { hr: [bat('Ray Pellicano', 'Rats', 14, 0.284, 3), bat('Mo Dunleavy', 'Kings', 12, 0.301, 9)], avg: [bat('Mo Dunleavy', 'Kings', 12, 0.301, 9)], sb: [bat('Mo Dunleavy', 'Kings', 12, 0.301, 9)], k: [{ name: 'Ted Vance', team: 'Rats', w: 6, l: 2, era: 3.12, k: 71 }] } };
   // and a play on the bases: the game's first, if its first innings have none, out of its order as
   // the booth might leave plays out
   if (!feed.some((p) => p.phase === 'run')) { const r = order.find((p) => p.phase === 'run'); if (r) feed.push(r); }
   check('the view is fed a play on the bases', feed.some((p) => p.phase === 'run'));
   let prevLine = '', picture = null, cutaways = 0;
+  // the live text, every line as it's said: the view opens before the first beat, as the TV opens
+  // it, so its live region is there from the first line
+  v.showIdle();
+  const said = [], liveEl = host.querySelector('.gds-live');
+  check('the view has its live text for a screen reader', !!liveEl);
+  if (liveEl) { const add = liveEl.appendChild.bind(liveEl); liveEl.appendChild = (c) => { said.push(c.textContent); return add(c); }; }
+  // one at-bat with Play by Play switched off, through the attribute the setting puts on the page
+  const quietAt = feed.findIndex((x, i) => i > 0 && !x.phase);
   feed.forEach((p, k) => {
     const line = `line ${k}: ${p.desc || p.phase || p.kind}`;
     const label = `seed ${SEED} view #${k} ${p.phase || p.kind}`;
     rec.poses.clear(); rec.balls = 0;
-    const sounds0 = stub.sounds.length;
+    const sounds0 = stub.sounds.length, said0 = said.length, quiet = k === quietAt;
+    if (quiet) globalThis.document.documentElement.setAttribute('data-play-by-play', 'off');
     // the line first and then its payload, as the broadcast sends them
     v.setCaption(line, { held: true });
     v.apply(p);
@@ -768,6 +824,17 @@ const renderer = () => ({
       check('the line is held until the play lands', held, `${label}: "${capText()}" before the landing`);
       check('the play lands in the view inside its budget, or as soon as its last pitch and the play allow', D.landed && W2.t - start <= Math.max(budget, D.floor) + 0.1, `${label}: ${(W2.t - start).toFixed(2)} of ${budget} s`);
       check('the line goes up when the play lands', capText() === line, `${label}: "${capText()}"`);
+      // the live text: every pitch as it's thrown, in order and in pitchText's words, and the line
+      // as it goes up; nothing with Play by Play off
+      const mine = said.slice(said0);
+      if (quiet) check('with Play by Play off the live text says nothing', !mine.length, `${label}: ${mine.join(' | ')}`);
+      else {
+        const want = (p.pitches || []).map((q, i, all) => pitchText(q, i === all.length - 1));
+        let j = 0;
+        for (const x of mine) if (j < want.length && x === want[j]) j++;
+        check('the live text says every pitch as it\'s thrown, in order', j === want.length, `${label}: ${j} of ${want.length}: ${mine.join(' | ')}`);
+        check('the live text says the booth\'s line as it goes up', mine.includes(line), `${label}: ${mine.join(' | ')}`);
+      }
       const S = v.state;
       if (run) {
         check('a play on the bases: the board has no count and no pitch', S.balls === 0 && S.strikes === 0 && S.pitch == null, `${label}: ${S.balls}-${S.strikes}`);
@@ -795,7 +862,10 @@ const renderer = () => ({
     } else {
       stub.runTimers(2500);
       check('a changeover: its line goes up', capText() === line, `${label}: "${capText()}"`);
+      const sr = host.querySelector('.gds-sr')?.textContent || '';
+      if (v.state.tableRace) check('a changeover: the board in words has the leaders\' table', /League leaders/.test(sr), `${label}: "${sr}"`);
     }
+    if (quiet) globalThis.document.documentElement.setAttribute('data-play-by-play', 'on');
     prevLine = line;
     picture = pictureAfter(p);
   });

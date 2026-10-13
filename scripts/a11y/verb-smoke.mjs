@@ -42,7 +42,7 @@ globalThis.window = {
 };
 
 const { runAccessibilityCommand } = await import('../../client/game/js/a11y-command.js');
-const { loadSettings, A11Y_OPTIONS, prefersReducedMotion } =
+const { loadSettings, A11Y_OPTIONS, prefersReducedMotion, playByPlayOn } =
   await import('../../client/shared/settings.js');
 
 const text = (html) => String(html).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
@@ -70,6 +70,7 @@ const cases = [
   ['marks on', 'statusGlyphs', 'on'],
   ['mono on', 'monoAudio', 'on'],
   ['motion off', 'motion', 'off'],
+  ['plays off', 'playByPlay', 'off'],
 ];
 for (const [cmd, key, want] of cases) {
   runAccessibilityCommand(cmd);
@@ -89,10 +90,14 @@ if (root.getAttribute('data-status-glyphs') === 'on') ok('…and the status mark
 else bad('data-status-glyphs was not set — the marks are unreachable');
 if (monoCalls.includes(true)) ok('…and mono audio reached the audio engine');
 else bad('setMonoAudio was never called — the mono option does nothing');
+if (root.getAttribute('data-play-by-play') === 'off') ok('…and Play by Play');
+else bad(`data-play-by-play is "${root.getAttribute('data-play-by-play')}": a broadcast will keep announcing every pitch`);
 
 // ── The derived helpers agree with what was stored ──────────────────────────
 if (prefersReducedMotion() === true) ok('prefersReducedMotion() honours the in-game switch with no OS preference set');
 else bad('prefersReducedMotion() ignored motion=off — every JS animation will keep running');
+if (playByPlayOn() === false) ok('playByPlayOn() honours Play by Play off');
+else bad('playByPlayOn() ignored playByPlay=off: the live text will keep talking');
 
 // ── Refusals explain themselves ─────────────────────────────────────────────
 {

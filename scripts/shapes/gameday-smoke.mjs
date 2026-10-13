@@ -21,7 +21,9 @@
 // passed ball, a hit batter, and both kinds of error. A v2 game's line score has an E.
 //
 // Every ball in play goes where the server's play (the payload's `play`) says: to the man
-// it names and on through the bags, or down where it came down.
+// it names and on through the bags, or down where it came down. The live text for a screen
+// reader (Play by Play) says every pitch as it's thrown, in order, and the booth's line as it
+// goes up.
 //
 // It proves the view RUNS and that its runners and the ball agree with the sim. It does not
 // look at pixels and is not meant to.
@@ -31,7 +33,7 @@
 import { __install } from './rink-dom-stub.mjs';
 
 const stub = __install();
-const { createGamedayView, __test: GD } = await import('../../client/game/js/panels/gameday.js');
+const { createGamedayView, pitchText, __test: GD } = await import('../../client/game/js/panels/gameday.js');
 const { sportsRng } = await import('../../plugins/broadcast/rng.js');
 const { simGame, simGameV2 } = await import('../../plugins/broadcast/sports/baseball.js');
 const { gamedayPayloads } = await import('../../plugins/broadcast/sports/baseball-gameday.js');
@@ -115,9 +117,13 @@ function play(seed, v = 1) {
   const host = stub.makeHost();
   const view = createGamedayView(host);
   view.showIdle();
-  let applied = 0, landed = 0, tokensRight = 0, litRight = 0, inPlay = 0, ballRight = 0, landedAt = null;
+  let applied = 0, landed = 0, tokensRight = 0, litRight = 0, inPlay = 0, ballRight = 0, saidRight = 0, landedAt = null;
   const bad = [];
+  // every line of the live text as it's said
+  const said = [], live = host.find('.gd-live');
+  if (live) { const add = live.appendChild.bind(live); live.appendChild = (c) => { said.push(c.textContent); return add(c); }; }
   for (const p of order) {
+    const said0 = said.length;
     try {
       view.setCaption('A line.', { held: true });   // tv.js holds every line that carries a payload
       view.apply(p);
@@ -136,6 +142,12 @@ function play(seed, v = 1) {
     }
     applied++;
     if (p.phase === 'half') continue;
+    // the live text: every pitch in order in pitchText's words, then the line as it went up
+    const mine = said.slice(said0), pitched = (p.pitches || []).map((q, i, all) => pitchText(q, i === all.length - 1));
+    let j = 0;
+    for (const x of mine) if (j < pitched.length && x === pitched[j]) j++;
+    if (j === pitched.length && mine.includes('A line.')) saidRight++;
+    else bad.push(`${p.inningOrd} ${p.half} ${p.kind}: said ${j} of ${pitched.length} pitches${mine.includes('A line.') ? '' : ' and not the line'}: ${mine.join(' | ')}`);
     const field = host.find('.gd-field');
     // The play has landed inside the hold: the REPLAY bug is off.
     if (field && !field.classList.contains('replaying')) landed++;
@@ -178,6 +190,7 @@ function play(seed, v = 1) {
   check(`${tag}: the runners end where the play left them`, tokensRight === atbats, bad.filter((b) => /runners on/.test(b)).slice(0, 4).join(' | '));
   check(`${tag}: the lit bags agree`, litRight === atbats, bad.filter((b) => /lit /.test(b)).slice(0, 3).join(' | '));
   check(`${tag}: every ball in play goes where its play says`, inPlay > 20 && ballRight === inPlay && !bad.some((b) => /no play$/.test(b)), bad.filter((b) => /ball at|no play/.test(b)).slice(0, 3).join(' | '));
+  check(`${tag}: the live text says every pitch and the booth's line`, !!live && saidRight === atbats, bad.filter((b) => /: said /.test(b)).slice(0, 3).join(' | '));
   // A v2 game counts errors, so its line score has an E; a v1 game's has R and H only.
   const head = host.find('.gd-ls-head')?.textContent || '';
   check(`${tag}: the line score ends ${v === 2 ? 'R H E' : 'R H'}`, v === 2 ? /RHE$/.test(head) : /RH$/.test(head), head);
