@@ -51,8 +51,9 @@ const SIDE_COLOURS = { home: ['#36c4c4', '#145f63'], away: ['#e0702e', '#7c2f10'
 
 // How long each graphic stays up: the matchup as a man comes up, a steal's card once it lands,
 // and each of the leaders' races between innings.
-const MATCHUP_MS = 4200, STEAL_MS = 4800, TABLE_CYCLE_MS = 8000;
-// A strikeout's and a walk's splash, and how long past the director's landing a play lands
+const MATCHUP_MS = 4200, STEAL_MS = 4800, DIST_MS = 6000, TABLE_CYCLE_MS = 8000;
+// The splash a play earns on its own (a strikeout, ball four, a diving catch…), and how long past
+// the director's landing a play lands
 // anyway once the frames have stopped (a hidden tab), so the line and the card never wait on a
 // picture nobody's drawing.
 const OWN_SPLASH_MS = 2600, LAND_SLACK_MS = 1500;
@@ -76,11 +77,12 @@ export function createGrandstandView(host, opts = {}) {
   // others opens on a cutaway while everyone takes their places
   let shown = null;
   // what the graphics and the board show: the score, the count, the outs and the bags, and the
-  // cards that come and go (matchup, steal, splash) and the leaders' table between innings
+  // cards that come and go (matchup, steal, a home run's distance, splash) and the leaders' table
+  // between innings
   const S = {
     away: '', home: '', awayTeam: '', homeTeam: '', aScore: 0, hScore: 0, inning: 0, half: '',
     balls: 0, strikes: 0, outs: 0, bases: [false, false, false], batter: '', pitcher: '', line: null, desc: '',
-    pitch: null, bats: '', lastBatter: '', matchup: null, steal: null, splash: null,
+    pitch: null, bats: '', lastBatter: '', matchup: null, steal: null, dist: null, splash: null,
     leaders: null, seasonN: null, gold: false, tableRace: null, tableFoot: '',
   };
   const holds = {};
@@ -92,10 +94,10 @@ export function createGrandstandView(host, opts = {}) {
 
   function loadMods() {
     return (modsP ??= Promise.all([import('./gl/ballpark.js'), import('./diamond/hud.js'), import('./diamond/camera.js'), import('./diamond/cast.js'),
-      import('./diamond/world.js'), import('./diamond/director.js')])
-      .then(([park, hudMod, cam, cast, world, director]) => (mods = {
+      import('./diamond/world.js'), import('./diamond/director.js'), import('./diamond/spectacle.js')])
+      .then(([park, hudMod, cam, cast, world, director, fx]) => (mods = {
         ...park, hud: hudMod, project: cam.project, shotAt: cam.shotAt, numberOf: cast.numberOf, pictureAfter: director.pictureAfter,
-        createWorld: world.createWorld, DT: world.DT, createDirector: director.createDirector,
+        createWorld: world.createWorld, DT: world.DT, createDirector: director.createDirector, splashOf: fx.splashOf,
       })));
   }
 
@@ -196,6 +198,7 @@ export function createGrandstandView(host, opts = {}) {
       while (acc >= mods.DT) { W.step(mods.DT); acc -= mods.DT; }
       for (const b of W.bodies.values()) { const P = W.pose(b.slot); if (P) R.setPose(b.slot, P); }
       R.setBall(W.ballAt());
+      R.setSpectacle?.(D.fx, W.t);
     }
     lastNow = now;
     size();
@@ -226,7 +229,7 @@ export function createGrandstandView(host, opts = {}) {
       score: { away: S.away, home: S.home, aScore: S.aScore, hScore: S.hScore, half: S.half, inning: S.inning, bases: S.bases, awayTeam: S.awayTeam, homeTeam: S.homeTeam },
       count: { balls: S.balls, strikes: S.strikes, outs: S.outs },
       pitch: S.pitch, bats: S.bats, zone: shot === 'bat' && !!S.pitch,
-      matchup: S.matchup, steal: S.steal, splash: S.splash, gold: S.gold,
+      matchup: S.matchup, steal: S.steal, dist: S.dist, splash: S.splash, gold: S.gold,
       leaders: S.tableRace ? { race: S.tableRace, rows: S.leaders?.[S.tableRace] || [], season: S.seasonN, foot: S.tableFoot } : null,
     };
   }
@@ -294,9 +297,12 @@ export function createGrandstandView(host, opts = {}) {
     else if (p.kind === 'strikeout') sfx('strikeout');
     else if (p.out) { sfx('out'); for (let k = 1; k < outs; k++) later(150 * k, () => sfx('out')); }
     else sfx('base');
-    if (p.kind === 'strikeout' || p.kind === 'walk') {
-      hold('splash', { kind: p.kind, sub: p.kind === 'strikeout' ? p.pitcher : p.batter }, OWN_SPLASH_MS);
-    }
+    // the words the play earns (a strikeout, ball four, a diving catch, a ball over the wall caught
+    // back…: diamond/spectacle.js splashOf); a card the broadcast throws goes over them
+    const own = mods.splashOf(p);
+    if (own) hold('splash', own, OWN_SPLASH_MS);
+    // a home run's distance from where it came down, and how hard it was hit, in the speed's box
+    if (p.kind === 'homerun' && Number(p.play?.d) > 0) hold('dist', { ft: p.play.d, ev: p.play.ev }, DIST_MS);
     // a steal's card with its clocks, once the call's made
     if (p.phase === 'run' && STEALS.has(p.kind)) {
       hold('steal', { kind: p.kind === 'doublesteal' && p.out ? 'caughtstealing' : p.kind, runner: p.runner, num: mods.numberOf(p.runner), sb: p.sb, plate: p.plate, pop: p.pop, base: p.base, team: p.battingTeam }, STEAL_MS);
@@ -389,6 +395,7 @@ export function createGrandstandView(host, opts = {}) {
     if (p.half === 'top') S.aScore = Math.max(0, (aAfter | 0) - runs); else S.hScore = Math.max(0, (hAfter | 0) - runs);
     Object.assign(S, { bases: before.slice(), outs: outsBefore, batter: p.batter || '', desc: p.desc || '' });
     S.steal = null; clearTimeout(holds.steal);
+    S.dist = null; clearTimeout(holds.dist);
     shot = opts.shot || 'bat';
     playing = true;
     const settle = () => {
@@ -406,7 +413,7 @@ export function createGrandstandView(host, opts = {}) {
     const mine = cur;
     live = true; acc = 0;
     const cutaway = !!shown && shown.some((b, i) => b !== !!before[i]);
-    D.stage(p, cast, { cutaway });
+    D.stage(p, cast, { cutaway, motion: !prefersReducedMotion() });
     if (D.cutaway && !opts.shot) shot = 'sky';
     shown = mods.pictureAfter(p);
     // while frames run the world lands it; if they've stopped (a hidden tab) this does

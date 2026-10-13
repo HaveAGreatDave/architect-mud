@@ -453,6 +453,9 @@ for (const kind of ['sit', 'stand', 'cheer']) for (const far of [false, true]) {
     steal: { ...base, steal: { kind: 'caughtstealing', runner: MAN, num: 9, sb: 13, plate: 1.42, pop: 2.09, base: 3, team: CLUB } },
     splash: { ...base, splash: { kind: 'grandslam', word: 'GRAND SLAM', sub: `${MAN} · ${CLUB}` } },
     'the final': { ...base, gold: true, splash: { kind: 'walkoff', word: 'WALK-OFF!', sub: `${MAN} · ${CLUB}` } },
+    // a home run's distance in the speed's box, under its card; the longest of a play's own words
+    'a home run': { ...base, dist: { ft: 487, ev: 118 }, splash: { kind: 'homerun', word: 'HOME RUN', sub: `${MAN} · ${CLUB}` } },
+    'over the rail': { ...base, splash: { kind: 'railcatch', sub: 'CENTER FIELD' } },
     'the leaders': { ...base, leaders: { race: 'hr', rows: batRows, season: 12, foot: `${CLUB} 12  ·  ${CLUB2} 10  ·  BOTTOM OF THE 11TH` } },
     'the strikeouts': { ...base, leaders: { race: 'k', rows: armRows, season: 12, foot: `TONIGHT  ·  ${CLUB} AT ${CLUB2}` } },
   };
@@ -547,7 +550,8 @@ for (const kind of ['sit', 'stand', 'cheer']) for (const far of [false, true]) {
   check('numbers: the matchup lines', H.batLine([212, 60, 8, 22, 3]) === '.283   8 HR   22 RBI' && H.armLine([5, 2, 186, 20, 44]) === '5–2   2.90 ERA   44 K', H.armLine([5, 2, 186, 20, 44]));
   // every kind of card the grandstand puts up has its words
   const W = H.HUD_THEME.words;
-  check('theme: a word for every splash and steal', ['homerun', 'grandslam', 'walkoff', 'doubleplay', 'tripleplay', 'extras', 'gamewin', 'champion', 'matchup', 'steal', 'caughtstealing', 'doublesteal', 'strikeout', 'walk'].every((k) => W[k]));
+  check('theme: a word for every splash and steal', ['homerun', 'grandslam', 'walkoff', 'doubleplay', 'tripleplay', 'extras', 'gamewin', 'champion', 'matchup', 'steal', 'caughtstealing', 'doublesteal', 'strikeout', 'walk',
+    'hitbypitch', 'triple', 'error', 'robbed', 'wallcatch', 'divingcatch', 'slidingcatch', 'railcatch', 'divingstop', 'barehand', 'pickoff', 'wildpitch', 'passedball'].every((k) => W[k]));
   // the painter runs every mark, and a card comes in and settles on the hand-cranked clock
   {
     const cv = document.createElement('canvas');

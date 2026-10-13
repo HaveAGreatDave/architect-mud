@@ -54,6 +54,7 @@ import { castOf } from './cast.js';
 import { toPark } from './world.js';
 import { planPlay } from './plays.js';
 import { planRun, runPitch, tempoFor, FIRST_MOVE } from './runs.js';
+import { planSpectacle, KINDS as FX_KINDS } from './spectacle.js';
 import { planTrot, planTakeField, jogToDugout, dugoutOf, dugoutSpot as dugoutSpotOf } from './bases.js';
 import { makeBody, cloneBody, onOf, flat } from './bodies.js';
 
@@ -304,13 +305,16 @@ function stageBodiesOf(W, bodies, tIn, play) {
 // moment: the mitt's pop, the bat's crack, a miss's whiff, the ball into a glove).
 export function createDirector(W, opts = {}) {
   const emit = (n, d) => opts.emit?.(n, d);
-  const D = { log: [], played: [], views: null, landed: true, landAt: 0, until: 0, t0: 0, budget: 0, payload: null };
+  // `fx`: the payload's spectacle (diamond/spectacle.js), which the view hands the renderer
+  const D = { log: [], played: [], views: null, landed: true, landAt: 0, until: 0, t0: 0, budget: 0, payload: null, fx: [] };
 
   // `o.cutaway`: the picture disagrees with this payload (pictureAfter), so it opens on the wide
-  // shot while everyone takes their places.
+  // shot while everyone takes their places. `o.motion` false: the viewer has asked for less motion,
+  // so no camera rides with a home run and nothing bursts or sparks.
   D.stage = (p, cast = castOf(p), o = {}) => {
-    D.payload = p; D.log = []; D.played = []; D.views = null; D.landed = false; D.play = null; D.trot = null; D.inningOver = false;
+    D.payload = p; D.log = []; D.played = []; D.views = null; D.landed = false; D.play = null; D.trot = null; D.inningOver = false; D.fx = [];
     W.clearQueue();
+    const motion = o.motion !== false;
     if (p?.phase === 'run') { stageRun(p, cast, o); return; }
     const S = prepare(W, p, cast || []);
     if (!S) { D.landed = true; D.landAt = D.until = W.t; opts.onLand?.(); return; }
@@ -436,10 +440,12 @@ export function createDirector(W, opts = {}) {
         // off the bat: back over the screen for a foul, out into the park for a ball in play,
         // played out where the payload says (plays.js)
         const at = path(T.tBat);
-        const plan = last && q.result === 'inplay' && S.playSpan != null ? planPlay(playCtx(S, T.tRel, T.tIn)) : null;
+        const plan = last && q.result === 'inplay' && S.playSpan != null ? planPlay({ ...playCtx(S, T.tRel, T.tIn), motion }) : null;
         if (plan) {
           stagePlay(plan, T);
           rec.play = plan;
+          // the tail on a ball hit hard or out, the sparks off the bat, the fireworks once it's gone
+          D.fx = planSpectacle({ p, tBat: T.tBat, at, path: plan.balls[0]?.path, end: plan.balls[1]?.from, landAt: plan.landAt, motion });
         } else {
           const dir = q.result === 'foul' ? norm([(hashStr('f' + i + p.batter) & 1) ? 0.35 : -0.35, 0.75, -0.55]) : dirFor(p.kind, hashStr('ip' + p.batter + i));
           const out = hitPath(at, dir, q.result === 'foul' ? 70 : 95, T.tBat);
@@ -494,6 +500,9 @@ export function createDirector(W, opts = {}) {
       cut(TL.landAt + 1.4, 'high');
       until = Math.max(until, TL.landAt + 1.5);
     }
+    // a walk-off without a ball out of the park still gets its fireworks
+    if (!D.fx.length && p.walkoff) D.fx = planSpectacle({ p, landAt: TL.landAt, motion });
+    until = Math.max(until, fireworks(D.fx, cut));
     D.until = until;
 
     function stagePlay(plan, T) { D.play = plan; stagePlan(W, plan, T.tIn, { play, cut, sound }); }
@@ -572,6 +581,8 @@ export function createDirector(W, opts = {}) {
       cut(landAt + 1.4, 'high');
       until = Math.max(until, landAt + 1.5);
     }
+    // a run home on a pitch that got by can win it
+    if (p.walkoff) { D.fx = planSpectacle({ p, landAt, motion: o.motion !== false }); until = Math.max(until, fireworks(D.fx, cut)); }
     D.until = Math.max(until, landAt + 0.5);
   }
   // A throw over: he comes set and, instead of pitching, turns and throws to first (runs.js). The
@@ -621,7 +632,7 @@ export function createDirector(W, opts = {}) {
   // the catcher to the plate and the pitcher to the rubber, and the pitcher throws his warm-ups,
   // the ball into the catcher's mitt and back. Nothing lands: there's no play.
   D.changeover = (p, cast = castOf(p)) => {
-    D.payload = p; D.log = []; D.played = []; D.views = null; D.play = null; D.trot = null; D.cutaway = false;
+    D.payload = p; D.log = []; D.played = []; D.views = null; D.play = null; D.trot = null; D.cutaway = false; D.fx = [];
     W.clearQueue();
     for (const slot of [...W.bodies.keys()]) W.drop(slot);
     const t0 = W.t + PACE.in;
@@ -750,6 +761,17 @@ export function createDirector(W, opts = {}) {
     D.until = until;
   }
   D.offField = offField;
+
+  // The fireworks: the wide shot over the outfield as the first shell goes up, and back to the
+  // high camera once the last has burst. Returns when the last spark's out (0 for none).
+  function fireworks(fx, cut) {
+    const bursts = (fx || []).filter((e) => e.kind === 'burst');
+    if (!bursts.length) return 0;
+    const first = Math.min(...bursts.map((e) => e.t)), last = Math.max(...bursts.map((e) => e.t)), K = FX_KINDS.burst;
+    cut(first - K.rise + 0.15, 'sky');
+    cut(last + 1.6, 'high');
+    return last + K.life * 1.22 + 0.1;
+  }
 
   D.busy = () => !D.landed || W.t < D.until;
   // Stop: nothing more happens, and nothing lands (a payload that replaces this one lands itself).

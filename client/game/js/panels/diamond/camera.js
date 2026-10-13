@@ -53,8 +53,11 @@ export const SHOTS = Object.freeze({
   backstop: Object.freeze({ eye: [-52, 10, 16], at: [6, 1.5, -24], fov: 44, dof: 640, shadow: [[0, 0, -22], 42] }),
   // the third-base camera on the pitcher
   mound: Object.freeze({ eye: [64, 7, 33], at: [0, 4.4, 58.8], fov: 10.5, dof: 700, shadow: [[0, 0, 60], 35] }),
-  // high behind home with the city beyond: back from a break and between innings
+  // high behind home with the city beyond: back from a break and between innings, and the
+  // fireworks over the outfield
   sky: Object.freeze({ eye: [0, 118, -176], at: [-40, 130, 1200], fov: 50, shadow: [[0, 0, 140], 300] }),
+  // a home run side on, riding beside the ball: the director places it (`homer` specs, shotAt)
+  homer: Object.freeze({ eye: [-60, 40, 200], at: [0, 50, 220], fov: 38, dof: 160, shadow: [[0, 0, 240], 120] }),
 });
 export const FAR = 40000;
 
@@ -77,11 +80,22 @@ export function fovFor(fov, aspect, fit) {
 // trackOf). The high camera turns toward it, less of the way while it's near the plate so a
 // grounder keeps the infield in the picture, and closes its lens on a ball far out; the camera
 // behind a long fly (`{ shot: 'fly', eye, at }`) keeps the catch in the frame and tilts up
-// toward the ball, `follow` of the way. Anything else is a camera by name or a shot as given, and
-// comes back as it was. Pure in t, so the renderer and the graphics resolve the same picture.
+// toward the ball, `follow` of the way. The home-run camera (`{ shot: 'homer', side, dist,
+// stop }`) rides `dist` feet out to `side` of the ball's way, rising with it, until `stop`, short
+// of the wall, and from there watches it into the seats with its lens closing. Anything else is
+// a camera by name or a shot as given, and comes back as it was. Pure in t, so the renderer and
+// the graphics resolve the same picture.
 export function shotAt(s, t) {
   if (!s || typeof s !== 'object' || typeof s.track !== 'function') return s;
   const base = SHOTS[s.shot] || SHOTS.high, q = s.track(t);
+  if (s.shot === 'homer') {
+    // the track is smoothed over a third of a second and runs behind the ball, so it looks a beat
+    // ahead of it
+    const r = s.track(Math.min(t, s.stop)) || q || base.at, at = s.track(t + 0.12) || q || r, side = s.side || [-1, 0, 0], d = s.dist || 60;
+    const eye = [r[0] + side[0] * d, 7 + 0.55 * r[1], r[2] + side[2] * d];
+    const far = Math.hypot(at[0] - eye[0], at[1] - eye[1], at[2] - eye[2]);
+    return { eye, at, fov: base.fov * Math.min(1, Math.max(0.5, Math.hypot(d, 0.45 * r[1]) / far)), dof: base.dof, shadow: [[r[0], 0, r[2]], 120] };
+  }
   if (s.shot === 'fly') {
     const at = s.at || base.at, k = s.follow ?? 0.45;
     const to = q ? [at[0] + (q[0] - at[0]) * k * 0.4, at[1] + (Math.min(q[1], 90) - at[1]) * k, at[2] + (q[2] - at[2]) * k * 0.4] : at;

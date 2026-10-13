@@ -6,8 +6,9 @@
 // stages is what a viewer takes for the game. So this runs the actual sim (sim v2, so a game has
 // hit batsmen) and builds the actual payloads (sports/baseball-gameday.js), then:
 //
-//   1. THE DIRECTOR, every at-bat of the game, at the shortest hold (a 13-second budget, where a
-//      long at-bat leaves pitches out) and a long one (45 seconds, where the rituals come in):
+//   1. THE DIRECTOR, every at-bat of the game at the shortest hold (a 13-second budget, where a
+//      long at-bat leaves pitches out), and every third one at a long one (45 seconds, where the
+//      rituals come in):
 //      a log entry and a count for every pitch, in order; each pitch through the plate within
 //      0.05 ft of its spot (hud.js pitchPoint); every clip lined up on the ball, to the
 //      microsecond (the delivery's release as the ball leaves his hand, within 0.05 ft of it; the
@@ -55,6 +56,14 @@
 //      for one who held his), the man who took the throw back off it (4 ft) and no two men within
 //      2 ft; on a third out everyone off to his own dugout, no faster than 52 ft/s and never within
 //      2 ft of anybody; and the game has a man out on the bases and one safe.
+//   1e. THE SPECTACLE (diamond/spectacle.js), every home run, ball hit hard and walk-off in the
+//      game (a home run and a walk-off borrowed from the games after it if it has none): the tail on a ball hit
+//      hard or out, ending with its flight; sparks at the bat's contact on one hit hard; the
+//      fireworks after a home run or a walk-off, every shell over the outfield beyond the fence,
+//      its sparks above the stands, framed by the wide shot it's cut to once the ball's down, and
+//      the high camera back after the last; the home-run camera riding beside the ball, keeping it
+//      in frame (95%) from inside the park; and with reduced motion, no camera riding with it and
+//      nothing bursting or sparking, the tail kept. Every play's own splash has its words.
 //   2. THE VIEW, with a recording renderer in place of the GL park and the hand-cranked clock:
 //      payloads fed the way tv.js feeds them, each after its held line, a play on the bases among
 //      them; the line stays the last one until the play lands and is this one after; the count on
@@ -87,7 +96,9 @@ const { solvePose } = await import(P + 'diamond/rig.js');
 const { handPoint, limitBreaks, eventTime } = await import(P + 'diamond/anim.js');
 const { isShot, shotAt, project } = await import(P + 'diamond/camera.js');
 const { BAGS } = await import(P + 'diamond/geo.js');
-const { legsOf } = await import(P + 'diamond/play.js');
+const { legsOf, fenceAt, sprayOf } = await import(P + 'diamond/play.js');
+const { HARD, KINDS: FX, particleAt, trailAt, endOf: fxEnd, splashOf } = await import(P + 'diamond/spectacle.js');
+const { HUD_THEME } = await import(P + 'diamond/hud.js');
 const { dugoutSpot, dugoutOf } = await import(P + 'diamond/bases.js');
 const { createGrandstandView } = await import(P + 'gameday-grandstand.js');
 const { sportsRng } = await import('../../plugins/broadcast/rng.js');
@@ -126,8 +137,13 @@ for (const p of order) for (const m of p.moves || []) if (m && m.name) check('a 
 // ── 1. the director ──────────────────────────────────────────────────────────
 const seen = { skip: 0, ritual: 0, block: 0, check: 0, punchout: 0, hbp: 0, lefty: 0, sideL: 0, toFirst: 0, air: 0, rundown: 0, scored: 0, round: 0, trot: 0, off: 0, warmup: 0 };
 const W = createWorld();
+// The short hold plays every at-bat; the long one, there for the rituals between pitches, plays
+// every third (every one at the long hold was a third of the gate). Not the long at-bats: the
+// director spends a hold on the pitches and their reactions first and the rituals last, so it's the
+// short ones that have room for them.
+const LONG = atBats.filter((x, i) => i % 3 === 0);
 for (const hold of [undefined, 45000]) {
-  for (const p0 of atBats) {
+  for (const p0 of hold ? LONG : atBats) {
     const p = hold ? { ...p0, hold } : p0;
     const label = `seed ${SEED}${hold ? ' hold 45s' : ''}: ${p.inning}${p.half[0]} ${p.batter} ${p.kind} [${p.pitches.map((q) => q.result).join(',')}]`;
     const cast = castOf(p);
@@ -586,6 +602,111 @@ for (const { p, seed } of runs) {
   check('it lands when the director said', landT != null && landT - D.landAt <= DT + 1e-9 && landT >= D.landAt - 1e-9, `${label}: ${landT} for ${D.landAt}`);
 }
 
+// ── 1e. the spectacle ────────────────────────────────────────────────────────
+// Every home run, ball hit hard and walk-off, staged at the short hold, as the view stages them
+// and again with reduced motion.
+{
+  const fxOf = (p) => p.kind === 'homerun' || Number(p.play?.ev) >= HARD || p.walkoff;
+  const fxPlays = atBats.filter(fxOf).map((p) => ({ p, seed: SEED }));
+  // a game with no home run or no walk-off borrows the next games' first
+  for (const [has, want] of [[(x) => x.kind === 'homerun', 'a home run'], [(x) => x.walkoff, 'a walk-off']]) {
+    if (fxPlays.some((x) => has(x.p))) continue;
+    for (let s = SEED + 1; s <= SEED + 60; s++) { const w = gameOf(s).find((x) => !x.phase && has(x) && (x.pitches || []).length); if (w) { fxPlays.push({ p: w, seed: s }); break; } }
+    check(`the spectacle stages ${want} (the game's, or the next games' first)`, fxPlays.some((x) => has(x.p)));
+  }
+  const fxSeen = { homer: 0, sparks: 0, walkoff: 0 };
+  for (const { p, seed } of fxPlays) {
+    const label = `seed ${seed}: ${p.inning}${p.half[0]} ${p.batter} ${p.kind}${p.walkoff ? ' walk-off' : ''} (${Number(p.play?.ev) || '-'} mph)`;
+    const shots = [];
+    const D = createDirector(W, { emit: (n, d) => { if (n === 'shot') shots.push({ t: W.t, shot: d }); } });
+    D.stage(p, castOf(p));
+    const rec = D.log[D.log.length - 1], plan = rec?.play, hr = p.kind === 'homerun', ev = Number(p.play?.ev) || 0;
+    const fx = D.fx || [], of = (k) => fx.filter((e) => e.kind === k);
+    const trail = of('trail')[0], sparks = of('sparks')[0], bursts = of('burst');
+    const path = plan?.balls?.[0]?.path;
+    if (plan) {
+      check('the spectacle: a tail on a ball hit hard or out, and on no other', !!trail === (hr || ev >= HARD), label);
+      check('the spectacle: sparks off the bat on a ball hit hard, and on no other', !!sparks === (ev >= HARD), label);
+      if (trail) {
+        const end = Math.min(path.land ?? Infinity, plan.balls[1]?.from ?? Infinity);
+        check('the spectacle: the tail starts at the crack and ends with its flight', Math.abs(trail.from - rec.contact.t) < 1e-9 && trail.to <= end + 1e-9, `${label}: ${trail.from.toFixed(2)}..${trail.to.toFixed(2)}, flight to ${end.toFixed(2)}`);
+        const T = trailAt(trail, (trail.from + trail.to) / 2), q = path((trail.from + trail.to) / 2);
+        check('the spectacle: the tail\'s head is the ball', !!T && dist(T.pts[0], q) < 1e-6, label);
+      }
+      if (sparks) {
+        check('the spectacle: the sparks fly from where the bat met it', dist(sparks.at, rec.contact.at) < 1e-6 && Math.abs(sparks.t - rec.contact.t) < 1e-9, label);
+        fxSeen.sparks++;
+      }
+    }
+    check('the spectacle: fireworks after a home run or a walk-off, and after no other', !!bursts.length === (hr || !!p.walkoff), `${label}: ${bursts.length}`);
+    check('the spectacle: six shells, nine on a grand slam, twelve on a walk-off', !bursts.length || bursts.length === (p.walkoff ? 12 : (p.rbi | 0) >= 4 ? 9 : 6), `${label}: ${bursts.length}`);
+    for (const b of bursts) {
+      const r = Math.hypot(b.at[0], b.at[2]), wall = fenceAt(sprayOf(b.at));
+      check('the spectacle: every shell bursts over the outfield, beyond the fence', r >= wall + 30 && r <= wall + 130 && b.at[1] >= 70 && b.at[1] <= 130, `${label}: ${r.toFixed(0)} ft out (fence ${wall.toFixed(0)}), ${b.at[1].toFixed(0)} up`);
+      if (hr && path) check('the spectacle: a home run\'s shells go up once it\'s down', b.t - FX.burst.rise >= path.land + 0.1 - 1e-9, `${label}: up at ${(b.t - FX.burst.rise - path.land).toFixed(2)} s after`);
+      let low = Infinity, far = 0;
+      for (let k = 0; k < FX.burst.n; k++) for (const tau of [0.1, 0.5, 1, 1.5, 2]) {
+        const q = particleAt(b, k, b.t + tau);
+        if (!q) continue;
+        low = Math.min(low, q.at[1]); far = Math.max(far, dist(q.at, b.at));
+      }
+      check('the spectacle: a shell\'s sparks stay above the stands and round their burst', low >= 20 && far <= 95, `${label}: as low as ${low.toFixed(0)} ft, ${far.toFixed(0)} ft out`);
+      const q = project('sky', 400, 300, b.at);
+      check('the spectacle: the wide shot frames every shell', !!q && q.x > 10 && q.x < 390 && q.y > 10 && q.y < 290, `${label}: ${q ? `${q.x.toFixed(0)},${q.y.toFixed(0)}` : 'behind'}`);
+    }
+    // the home-run camera, from the plan's own cuts: the ball in its frame and its eye inside the
+    // park, sampled as the world runs, until the next cut. The world runs only until the last
+    // effect's out and the high camera's back: a home run's trot after that is section 1's.
+    const homerCut = (plan?.cuts || []).find((c) => typeof c.shot === 'object' && c.shot?.shot === 'homer');
+    const samples = [], stopAt = Math.min(D.until, Math.max(D.landAt, ...fx.map(fxEnd)) + 0.2);
+    while (W.t < stopAt) {
+      W.step(DT);
+      if (!homerCut || W.t < homerCut.at) continue;
+      const sh = shotAt(homerCut.shot, W.t), ball = W.ballAt();
+      if (!ball) continue;
+      const q = project(sh, 400, 300, ball);
+      samples.push({ t: W.t, in: !!q && q.x > -10 && q.x < 410 && q.y > -10 && q.y < 310, eye: sh.eye });
+    }
+    const shotName = (x) => (typeof x.shot === 'string' ? x.shot : x.shot?.shot);
+    const cutList = shots.map((x) => `${shotName(x)}@${(x.t - D.t0).toFixed(1)}`).join(' ');
+    const homer = shots.find((x) => shotName(x) === 'homer');
+    if (hr && plan) check('the spectacle: a home run cuts to the camera beside it', !!homer, `${label}: ${cutList}`);
+    if (homer) {
+      const to = shots.find((x) => x.t > homer.t + 1e-9)?.t ?? Infinity, span = samples.filter((x) => x.t < to);
+      const bad = span.find((x) => x.eye[1] < 4 || Math.hypot(x.eye[0], x.eye[2]) > fenceAt(sprayOf(x.eye)) - 10);
+      check('the spectacle: the home-run camera keeps the ball in frame (95%)', span.length > 0 && span.filter((x) => x.in).length >= 0.95 * span.length, `${label}: ${span.filter((x) => x.in).length}/${span.length}`);
+      check('the spectacle: the home-run camera stays above the field and inside the fence', !bad, `${label}: eye at ${bad ? bad.eye.map((v) => v.toFixed(0)).join(',') : ''}`);
+      fxSeen.homer++;
+    }
+    // the wide shot for the shells, and the high camera back after the last
+    if (bursts.length) {
+      const first = Math.min(...bursts.map((b) => b.t)), last = Math.max(...bursts.map((b) => b.t));
+      const sky = shots.find((x) => x.shot === 'sky' && x.t >= first - FX.burst.rise - 1e-6), back = shots.find((x) => x.shot === 'high' && x.t > last);
+      check('the spectacle: the wide shot as the shells go up, and the high camera back after the last', !!sky && sky.t <= first + 1e-6 && !!back, `${label}: ${cutList}`);
+      if (hr && path && sky) check('the spectacle: the wide shot comes once the ball\'s down', sky.t >= path.land, `${label}: ${(sky.t - path.land).toFixed(2)} s after`);
+      check('the spectacle: the play runs till the last spark\'s out', D.until >= fxEnd(bursts[bursts.length - 1]) - 1e-6, label);
+      fxSeen.walkoff += p.walkoff ? 1 : 0;
+    }
+    // with less motion: no camera riding with it, nothing bursting or sparking, the tail kept. The
+    // plan's cuts and the effects say so without running the world.
+    if (hr || ev >= HARD || p.walkoff) {
+      const D2 = createDirector(W, {});
+      D2.stage(p, castOf(p), { motion: false });
+      const riding = (D2.play?.cuts || []).some((c) => typeof c.shot === 'object' && c.shot?.shot === 'homer');
+      check('the spectacle: reduced motion has no camera riding with it, and nothing bursts or sparks', !riding && !(D2.fx || []).some((e) => e.kind !== 'trail') && (D2.fx || []).some((e) => e.kind === 'trail') === !!trail, label);
+      D2.stop();
+    }
+  }
+  check('a home run gets its camera and its fireworks (the game\'s, or the next games\' first)', fxSeen.homer > 0, JSON.stringify(fxSeen));
+  check('the game has a ball hit hard enough to spark', fxSeen.sparks > 0, JSON.stringify(fxSeen));
+  check('a walk-off gets its fireworks (the game\'s, or the next games\' first)', fxSeen.walkoff > 0, JSON.stringify(fxSeen));
+  // every play's own splash has its words
+  for (const p of order) {
+    const sp = splashOf(p);
+    if (sp) check('every play\'s own splash has its words', !!HUD_THEME.words[sp.kind], `${p.kind}: ${sp.kind}`);
+  }
+}
+
 // ── 2. the view ──────────────────────────────────────────────────────────────
 // A renderer that records what it's handed: the cast, the poses by slot, the ball, the shots.
 const rec = { poses: new Map(), balls: 0, frames: 0 };
@@ -651,10 +772,13 @@ const renderer = () => ({
       if (run) {
         check('a play on the bases: the board has no count and no pitch', S.balls === 0 && S.strikes === 0 && S.pitch == null, `${label}: ${S.balls}-${S.strikes}`);
         if (['steal', 'caughtstealing', 'doublesteal'].includes(p.kind)) check('a steal gets its card once it lands', S.steal?.runner === p.runner, `${label}: ${S.steal?.runner}`);
+        const own = splashOf(p);
+        if (own) check('a play that earns a splash gets it (a strikeout, ball four, a diving catch…)', S.splash?.kind === own.kind, `${label}: ${S.splash?.kind} for ${own.kind}`);
       } else {
         const last = p.pitches[p.pitches.length - 1];
         check('the board has the last pitch\'s count, without a fourth ball or a third strike', S.balls === Math.min(3, last.balls) && S.strikes === Math.min(2, last.strikes) && S.pitch === last, `${label}: ${S.balls}-${S.strikes}`);
-        if (p.kind === 'strikeout' || p.kind === 'walk') check('a strikeout or a walk gets its splash', S.splash?.kind === p.kind, `${label}: ${S.splash?.kind}`);
+        const own = splashOf(p);
+        if (own) check('a play that earns a splash gets it (a strikeout, ball four, a diving catch…)', S.splash?.kind === own.kind, `${label}: ${S.splash?.kind} for ${own.kind}`);
       }
       const battery = ['pitcher', 'catcher', 'batter'].map((r) => p0slot(p, r));
       check('the battery\'s poses reach the renderer', battery.every((s) => rec.poses.has(s)), `${label}: ${[...rec.poses.keys()]}`);
@@ -692,5 +816,5 @@ const renderer = () => ({
 function p0slot(p, role) { return castOf(p).find((c) => c.look.role === role).look.slot; }
 
 const ms = Date.now() - T0;
-console.log(`diamond-smoke seed ${SEED}: ${atBats.length} at-bats twice, ${runs.length} plays on the bases, ${passes}/${passes + failures} passed (${(ms / 1000).toFixed(1)} s)`);
+console.log(`diamond-smoke seed ${SEED}: ${atBats.length} at-bats (${LONG.length} again at a long hold), ${runs.length} plays on the bases, ${passes}/${passes + failures} passed (${(ms / 1000).toFixed(1)} s)`);
 process.exit(failures ? 1 : 0);

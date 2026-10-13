@@ -29,8 +29,9 @@
 //
 //   1. shadows: four of the towers draw perspective maps of the players, skinned (gl/spotshadow.js);
 //   2. the main pass into hdr.js's target: the sky, the park, the city, the crowd, the backstop
-//      net, then the lamps' pools and the Curtain added over them, each through the night air,
-//      which is height fog with the towers' light scattered in it (fog.js);
+//      net, then the lamps' pools, the Curtain and the spectacle (the comet's tail, sparks off the
+//      bat, fireworks: gl/spectacle.js) added over them, each through the night air, which is
+//      height fog with the towers' light scattered in it (fog.js);
 //   3. the depth the frame was drawn with, resolved into a texture for the lens and the occlusion;
 //   4. ambient occlusion from that depth at half size (ssao.js);
 //   5. bloom off the lamps (hdr.js), then the lens, the curve and the grade (gl/broadcast.js).
@@ -68,6 +69,7 @@ import { composeSet } from '../../../../shared/city-set.js';
 import { CURTAIN_FRAG } from './curtain.js';
 import { applyLinOut } from './colour.js';
 import { HUD_FACES, loadHudFaces } from '../diamond/hud.js';
+import { createSpectacle } from './spectacle.js';
 
 const FACE = '"Arial Narrow", "Roboto Condensed", Arial, sans-serif';
 
@@ -625,6 +627,7 @@ export function createBallparkRenderer(canvas, opts = {}) {
     const LIT = prog(LIT_VS, LIT_FS), CROWD = prog(CROWD_VS, CROWD_FS), SKY = prog(FULL_VS, SKY_FS), FINAL = prog(FULL_VS, FINAL_FS);
     const CURT = prog(CURTAIN_VS, CURTAIN_FRAG);
     const SKLIT = prog(SKIN_VS, LIT_FS), SKD = prog(SKIN_DEPTH_VS, DEPTH_FS);
+    const spectacle = createSpectacle(gl, prog);
 
     // ── textures ──────────────────────────────────────────────────────────────
     const T2 = gl.TEXTURE_2D;
@@ -1056,9 +1059,9 @@ export function createBallparkRenderer(canvas, opts = {}) {
       gl.useProgram(LIT.p);
       gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); gl.depthMask(false);
       drawSet(translucent, 0.32);
-      // light added over the frame: the lamps' pools on the streets, then the Curtain
+      // light added over the frame: the lamps' pools on the streets, the Curtain, then the spectacle
+      gl.blendFunc(gl.ONE, gl.ONE);
       if (city) {
-        gl.blendFunc(gl.ONE, gl.ONE);
         drawSet(city.glow, 1);
         if (city.curtain) {
           gl.useProgram(CURT.p); applyLinOut(gl, CURT.p, 1);
@@ -1068,6 +1071,8 @@ export function createBallparkRenderer(canvas, opts = {}) {
           tris += city.curtain.n / 3; draws++;
         }
       }
+      const fx = spectacle.draw(M);
+      tris += fx.tris; draws += fx.draws;
       gl.depthMask(true); gl.disable(gl.BLEND);
       gl.bindVertexArray(null);
 
@@ -1118,7 +1123,7 @@ export function createBallparkRenderer(canvas, opts = {}) {
 
     function dispose() {
       try {
-        shadows.dispose(); ssao?.dispose(); bc?.dispose();
+        shadows.dispose(); ssao?.dispose(); bc?.dispose(); spectacle.dispose();
         if (depth) { gl.deleteFramebuffer(depth.fbo); gl.deleteTexture(depth.tex); depth = null; }
         for (const t of Object.values(TEX)) gl.deleteTexture(t);
         gl.deleteTexture(boardTex);
@@ -1141,8 +1146,9 @@ export function createBallparkRenderer(canvas, opts = {}) {
       // what casts the towers' shadows: the players, [{ slot, batches }], skinned from the palette
       casters: [],
       // setPose(slot, pose): a player into a pose from the rig's pose language, with at, yaw, scale;
-      // setBall(point or null): the ball, in the park's feet
-      render, setBoard, setCast, setPose, setBall, pump, setVenue, dispose, stats,
+      // setBall(point or null): the ball, in the park's feet; setSpectacle(effects, t): the
+      // payload's spectacle (diamond/spectacle.js) and the world's time to draw it at
+      render, setBoard, setCast, setPose, setBall, setSpectacle: (fx, t) => spectacle.set(fx, t), pump, setVenue, dispose, stats,
       pending: () => queue.length,
       get park() { return park; },
       // what the city came to: { buildings, filler, lamps, tris, placed, bearing, … }, or null

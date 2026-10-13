@@ -57,22 +57,35 @@ function ik2(A, T, l1, l2, pole) {
   return [mid, add(mid, mul(norm(sub(T, mid)), l2))];
 }
 
-// The torso and head alone, by forward kinematics, with the shoulders and hips: what a layer that
-// needs only the hips, the chest or the eyes can have without solving the limbs.
-export function solveTorso(P) {
+// The pelvis and the hips, by forward kinematics: where the torso starts, and all that
+// anim.js fitPlants needs, which runs on every sample.
+function pelvisOf(P) {
   const s = P.scale || 1, at = P.at || [0, 0, 0];
   const Yw = RY(P.yaw || 0);
   const toW = (v) => add(at, m3v(Yw, v));
+  const W = m3m(Yw, m3m(RY(P.twist || 0), m3m(RX(P.pitch || 0), RZ(P.roll || 0)))), pelvis = toW(P.pelvis);
+  const hip = (sg) => add(pelvis, m3v(W, [sg * 0.31 * s, -0.10 * s, 0]));
+  return { s, Yw, toW, W, pelvis, hipL: hip(1), hipR: hip(-1) };
+}
+export function solveHips(P) {
+  const H = pelvisOf(P);
+  return { pelvis: H.pelvis, hipL: H.hipL, hipR: H.hipR };
+}
+
+// The torso and head alone, by forward kinematics, with the shoulders and hips: what a layer that
+// needs only the hips, the chest or the eyes can have without solving the limbs.
+export function solveTorso(P) {
+  const H = pelvisOf(P), { s, Yw, toW } = H;
   const J = {}, W = {};
-  W.pelvis = m3m(Yw, m3m(RY(P.twist || 0), m3m(RX(P.pitch || 0), RZ(P.roll || 0))));
-  J.pelvis = toW(P.pelvis);
+  W.pelvis = H.W;
+  J.pelvis = H.pelvis;
   W.spine = m3m(W.pelvis, EUL(P.spine)); J.spine = add(J.pelvis, m3v(W.pelvis, [0, 0.35 * s, 0]));
   W.chest = m3m(W.spine, EUL(P.chest)); J.chest = add(J.spine, m3v(W.spine, [0, 0.55 * s, -0.02 * s]));
   W.neck = m3m(W.chest, EUL(P.neck)); J.neck = add(J.chest, m3v(W.chest, [0, 0.60 * s, 0]));
   W.head = m3m(W.neck, EUL(P.head)); J.head = add(J.neck, m3v(W.neck, [0, 0.34 * s, 0.03 * s]));
   for (const [S, sg] of [['L', 1], ['R', -1]]) {
     J['sh' + S] = add(J.chest, m3v(W.chest, [sg * 0.64 * s, 0.43 * s, -0.04 * s]));
-    J['hip' + S] = add(J.pelvis, m3v(W.pelvis, [sg * 0.31 * s, -0.10 * s, 0]));
+    J['hip' + S] = H['hip' + S];
   }
   return { J, W, s, Yw, toW };
 }

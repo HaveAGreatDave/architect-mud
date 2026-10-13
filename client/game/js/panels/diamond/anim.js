@@ -36,7 +36,7 @@
 // Pure: no WebGL and no DOM, so the gates run it. Times are seconds; places are feet in the pose's
 // own frame (x to the player's left, y up, z his forward), placed in the park by `at` and `yaw`.
 
-import { solvePose, solveTorso, mirrorPose } from './rig.js';
+import { solvePose, solveTorso, solveHips, mirrorPose } from './rig.js';
 
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
 const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
@@ -228,9 +228,20 @@ export const plantAt = (clip, S, t) => (clip.plants || []).find((p) => p.foot ==
 // so its plants ease over a few hundredths.
 export const PLANT_EASE = 0.1;
 export const easeOf = (p) => (Number.isFinite(p.ease) ? p.ease : PLANT_EASE);
+// Each foot's plants, sorted out once a clip: a clip doesn't change (the Pose Lab bakes a new one
+// for every edit).
+const FOOT_PLANTS = new WeakMap();
+function plantsOf(clip, S) {
+  let m = FOOT_PLANTS.get(clip);
+  if (!m) {
+    const all = clip.plants || [];
+    FOOT_PLANTS.set(clip, (m = { L: all.filter((p) => p.foot === 'L'), R: all.filter((p) => p.foot === 'R') }));
+  }
+  return m[S] || [];
+}
 function holdOf(clip, S, t) {
   let best = { w: 0, p: null };
-  const mine = (clip.plants || []).filter((p) => p.foot === S);
+  const mine = plantsOf(clip, S);
   for (let i = 0; i < mine.length; i++) {
     const p = mine[i], prev = mine[i - 1], next = mine[i + 1];
     const e = Math.min(easeOf(p), Math.max(0, p.from), prev ? (p.from - prev.to) / 2 : Infinity);
@@ -258,9 +269,9 @@ export function sampleClip(clip, t, opts = {}) {
   const ground = mirror ? (x, z) => real(-x, z) : real;
   t = clip.loop ? ((t % clip.duration) + clip.duration) % clip.duration : clamp(t, 0, clip.duration);
   const run = (tt) => {
-    const holds = {};
-    let P = planted(clip, curve(clip, tt, ground, s), tt, ground, s, holds);
-    if (opts.traits) P = vary(P, opts.traits, clip.role, clip.root ? rootAt(clip, tt) : null);
+    const holds = {}, here = clip.root ? rootAt(clip, tt) : null;
+    let P = planted(clip, curve(clip, tt, ground, s), tt, ground, s, holds, here);
+    if (opts.traits) P = vary(P, opts.traits, clip.role, here);
     return fitPlants(P, ground, s, holds);
   };
   const P = batHandoff(clip, t, run(t), run, s);
@@ -298,6 +309,7 @@ function batHandoff(clip, t, P, run, s) {
 }
 
 // The keys' curves alone, before the plants hold the feet.
+const VEC3 = Object.freeze([...POINTS, ...ANGLES3]);
 function curve(clip, t, ground, s) {
   const keys = clip.keys;
   if (keys.length === 1) {
@@ -306,16 +318,20 @@ function curve(clip, t, ground, s) {
     return P;
   }
   const { k0, k1, k2, k3, u } = bracket(clip, t);
-  const a = k1.pose, b = k2.pose;
-  const t0 = k0 ? k0.t : 0, t3 = k3 ? k3.t : 0, q1 = 1 - (k1.tension || 0), q2 = 1 - (k2.tension || 0), ends = movingEnds(clip);
-  const at4 = (get) => cr(k0 ? get(k0.pose) : null, get(a), get(b), k3 ? get(k3.pose) : null, t0, k1.t, k2.t, t3, u, q1, q2, ends);
+  const a = k1.pose, b = k2.pose, z = k0 ? k0.pose : null, y = k3 ? k3.pose : null;
+  const t0 = k0 ? k0.t : 0, t1 = k1.t, t2 = k2.t, t3 = k3 ? k3.t : 0, q1 = 1 - (k1.tension || 0), q2 = 1 - (k2.tension || 0), ends = movingEnds(clip);
+  // a number through the keys (the ones either side of the two may be past an end), and three.
+  // Every sample of every body runs through here, so it makes no closure or array a number.
+  const at4 = (p0, p1, p2, p3) => cr(p0, p1, p2, p3, t0, t1, t2, t3, u, q1, q2, ends);
+  const vec = (A, B, Z, Y) => [at4(Z ? Z[0] : null, A[0], B[0], Y ? Y[0] : null), at4(Z ? Z[1] : null, A[1], B[1], Y ? Y[1] : null), at4(Z ? Z[2] : null, A[2], B[2], Y ? Y[2] : null)];
+  const ank = (q) => (q.length === 2 ? [q[0], ground(q[0], q[1]) + ANKLE_UP * s, q[1]] : q);
   const P = {};
-  for (const k of ANGLES) P[k] = at4((q) => q[k]);
-  for (const k of [...POINTS, ...ANGLES3]) P[k] = [0, 1, 2].map((i) => at4((q) => q[k][i]));
-  for (const k of DIRS) P[k] = norm([0, 1, 2].map((i) => at4((q) => q[k][i])));
+  for (const k of ANGLES) P[k] = at4(z ? z[k] : null, a[k], b[k], y ? y[k] : null);
+  for (const k of VEC3) P[k] = vec(a[k], b[k], z && z[k], y && y[k]);
+  for (const k of DIRS) P[k] = norm(vec(a[k], b[k], z && z[k], y && y[k]));
   for (const S of FEET) {
-    const A = [k0, k1, k2, k3].map((k) => (k ? ankle3(k.pose['ank' + S], ground, s) : null));
-    P['ank' + S] = [0, 1, 2].map((i) => cr(A[0] && A[0][i], A[1][i], A[2][i], A[3] && A[3][i], t0, k1.t, k2.t, t3, u, q1, q2, ends));
+    const k = 'ank' + S;
+    P[k] = vec(ank(a[k]), ank(b[k]), z && ank(z[k]), y && ank(y[k]));
     // planted only while a plant holds it (`planted`): a key's flag is for a still
     P['plant' + S] = false;
   }
@@ -343,7 +359,7 @@ const REACH = 0.975, FIT_SOFT = 0.03, FIT_P = 6;
 const softRamp = (x) => (x > 20 * FIT_SOFT ? x : FIT_SOFT * Math.log1p(Math.exp(x / FIT_SOFT)));
 export function fitPlants(P, ground = flatGround, s = 1, holds = null) {
   // the hips ride the pelvis, so they're worked out once and moved with it
-  const { J } = solveTorso({ ...P, at: [0, 0, 0], yaw: 0, scale: s });
+  const J = solveHips({ ...P, at: [0, 0, 0], yaw: 0, scale: s });
   const reach = LEG * s * REACH, held = [];
   for (const S of FEET) {
     const a = P['ank' + S], w = holds ? holds[S] || 0 : a.length === 2 ? 1 : 0;
@@ -373,20 +389,18 @@ export function fitPlants(P, ground = flatGround, s = 1, holds = null) {
 // may be frozen, so not on it). A clip that travels keeps the spot in the frame it started in, so
 // the foot stays where it landed as the frame moves on (rootAt).
 const PLANTED = new WeakMap();
-function planted(clip, P, t, ground, s, holds = {}) {
-  const here = clip.root ? rootAt(clip, t) : null;
+function planted(clip, P, t, ground, s, holds = {}, here = clip.root ? rootAt(clip, t) : null) {
   for (const S of FEET) {
     const { w, p } = holdOf(clip, S, t);
     holds[S] = w;
     if (!p) continue;
     let memo = PLANTED.get(clip);
     if (!memo) PLANTED.set(clip, (memo = new Map()));
-    const key = `${S}:${p.from}`;
-    let landed = memo.get(key);
+    let landed = memo.get(p);
     if (!landed) {
       const q = curve(clip, p.from, ground, s)['ank' + S];
       if (clip.root) { const g = outOf(rootAt(clip, p.from), [q[0], 0, q[2]]); landed = [g[0], g[2]]; } else landed = [q[0], q[2]];
-      memo.set(key, landed);
+      memo.set(p, landed);
     }
     let at = landed;
     if (here) { const l = into(here, [landed[0], 0, landed[1]]); at = [l[0], l[2]]; }

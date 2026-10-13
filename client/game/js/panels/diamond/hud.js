@@ -38,7 +38,9 @@ export const HUD_THEME = Object.freeze({
     homerun: 'HOME RUN!', grandslam: 'GRAND SLAM!', walkoff: 'WALK-OFF!', doubleplay: 'DOUBLE PLAY!',
     tripleplay: 'TRIPLE PLAY!', extras: 'EXTRA INNINGS', gamewin: 'FINAL', champion: 'CHAMPIONS!', matchup: 'PLAY BALL!',
     steal: 'STOLEN BASE', caughtstealing: 'CAUGHT STEALING', doublesteal: 'DOUBLE STEAL',
-    strikeout: 'STRIKE THREE!', walk: 'BALL FOUR!',
+    strikeout: 'STRIKE THREE!', walk: 'BALL FOUR!', hitbypitch: 'HIT BY PITCH!', triple: 'TRIPLE!', error: 'ERROR!',
+    robbed: 'ROBBED!', wallcatch: 'AT THE WALL!', divingcatch: 'DIVING CATCH!', slidingcatch: 'WHAT A CATCH!', railcatch: 'OVER THE RAIL!',
+    divingstop: 'DIVING STOP!', barehand: 'BAREHANDED!', pickoff: 'PICKED OFF!', wildpitch: 'WILD PITCH!', passedball: 'PASSED BALL!',
   }),
   races: Object.freeze({ hr: 'HOME RUNS', avg: 'BATTING AVERAGE', sb: 'STOLEN BASES', k: 'STRIKEOUTS' }),
   colourOf: null,
@@ -126,6 +128,7 @@ export const TEXT_FLOOR = 6;
 //   bats     the batter's side, 'L' or 'R', for a pitch that hits him
 //   matchup  { batter, pitcher, bNum, pNum, bl, pl, bats, throws, batTeam, pitchTeam }
 //   steal    { kind, runner, num, sb, plate, pop, base, team }
+//   dist     { ft, ev }: a home run's distance and its speed off the bat, in the speed's place
 //   splash   { kind, word, sub }
 //   leaders  { race: 'hr' | 'avg' | 'sb' | 'k', rows, season, foot (the line across the foot) }
 //   gold     true in a final
@@ -197,8 +200,15 @@ export function layoutHud(state, w, h, o = {}) {
     });
   }
 
-  // the pitch speed on the right, below where the batting view has the park's scoreboard
-  if (S.pitch && Number(S.pitch.velo) > 0) {
+  // the pitch speed on the right, below where the batting view has the park's scoreboard; once a
+  // home run's down, how far it went and how hard it was hit, in the same box
+  if (S.dist && Number(S.dist.ft) > 0) {
+    const pw = 82 * u, ph = 40 * u, x = X1 - pw, y = Y0 + Math.max(bugH, (Y1 - Y0) * 0.2);
+    panel(x, y, pw, ph, 9 * u, 'dist');
+    text(S.dist.ft | 0, x + 12 * u, y + 26 * u, 21 * u, 'big', gold ? 'gold' : 'flame', { maxW: 40 * u, g: 'dist' });
+    text('FT', x + 54 * u, y + 15 * u, 7.5 * u, 'label', gold ? '#ffd75c' : '#ffe04a', { skew: 0.1, extrude: 0, g: 'dist' });
+    if (Number(S.dist.ev) > 0) text(`EXIT ${S.dist.ev | 0} MPH`, x + 10 * u, y + 36 * u, 8.5 * u, 'tall', '#dfe6f4', { maxW: pw - 20 * u, min: 6.5 * u, skew: 0.1, extrude: 0, g: 'dist' });
+  } else if (S.pitch && Number(S.pitch.velo) > 0) {
     const pw = 82 * u, ph = 40 * u, x = X1 - pw, y = Y0 + Math.max(bugH, (Y1 - Y0) * 0.2);
     panel(x, y, pw, ph, 9 * u, 'speed');
     text(S.pitch.velo | 0, x + 12 * u, y + 26 * u, 21 * u, 'big', gold ? 'gold' : 'flame', { maxW: 40 * u, g: 'speed' });
@@ -338,7 +348,7 @@ const GOLDF = [[0, '#fff8d6'], [0.36, '#ffd75c'], [0.5, '#b07c18'], [0.55, '#7a4
 const FLAME = [[0, '#fffbe0'], [0.3, '#ffe04a'], [0.62, '#ff8c1a'], [1, '#d81e1e']];
 const FILLS = { chrome: CHROME, gold: GOLDF, flame: FLAME };
 // How each group comes in: the cards slide up, the splash punches in, the table fades up.
-const IN_MS = { matchup: 260, steal: 260, splash: 240, table: 300 };
+const IN_MS = { matchup: 260, steal: 260, dist: 240, splash: 240, table: 300 };
 const TAU = Math.PI * 2;
 
 // Paints a layout's marks with a 2-D context already scaled to CSS pixels. `t(group)` is how

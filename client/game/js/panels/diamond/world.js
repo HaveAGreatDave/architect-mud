@@ -96,8 +96,12 @@ export function createWorld() {
   const weight = (L, t) => (t < L.from || t > L.to ? 0 : t < L.full ? smooth((t - L.from) / Math.max(1e-6, L.full - L.from)) : t <= L.hold ? 1 : 1 - smooth((t - L.hold) / Math.max(1e-6, L.to - L.hold)));
   const targetOf = (L, t) => (typeof L.target === 'function' ? L.target(t) : L.target);
 
-  // the ground under a body, in his own frame F: the park's, less the height he stands at
-  const groundOf = (F) => (x, z) => { const p = toPark(F, [x, 0, z]); return groundHeight(p[0], p[2]) - F.at[1]; };
+  // the ground under a body, in his own frame F: the park's, less the height he stands at. toPark
+  // worked out once a frame, as a sample asks it of every foot of every key.
+  const groundOf = (F) => {
+    const c = Math.cos(F.yaw * DEG), s = Math.sin(F.yaw * DEG), [x0, y0, z0] = F.at;
+    return (x, z) => groundHeight(x0 + c * x + s * z, z0 - s * x + c * z) - y0;
+  };
   const optsOf = (b, F) => ({ ground: groundOf(F), scale: b.scale, traits: b.traits, mirror: b.mirror });
   // frame A as frame B sees it, for anim.js rebase
   const relOf = (A, B) => { const q = toLocal(B, A.at); return { at: [q[0], q[2]], y: q[1], yaw: A.yaw - B.yaw }; };

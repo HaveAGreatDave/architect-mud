@@ -21,6 +21,9 @@
 //   - for all of them the landing, 1.5 s after it, and the side going off after a third out.
 // --at 0.5,2,5 takes seconds after the payload's start instead.
 //
+// The graphics' cards and splashes come and go on the wall clock, not the park's, and a frame
+// here takes seconds, so one can be gone by the next shot; the gate's view checks hold them.
+//
 // Options:
 //   --slot N      the game (the sandbox's ?slot=), 1 by default
 //   --sim 1|2     the sim, 2 by default (steals, errors and the rest)

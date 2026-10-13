@@ -1023,13 +1023,28 @@ Built so far (Phases 1 and 2 of the plan):
   got, and everyone goes off once that man's up. The camera cuts to the bag as the throw goes
   (first on a throw over), and to the backstop camera when a man scores on a pitch that got by; a
   steal's card goes up with the call;
+- the spectacle (Phase 3e, [diamond/spectacle.js](../client/game/js/panels/diamond/spectacle.js)
+  plans it, [gl/spectacle.js](../client/game/js/panels/gl/spectacle.js) draws it): a comet's tail
+  down the ball's way on a ball hit 100 mph or harder and on every home run, gone once its flight
+  is over; sparks off the bat at contact on a ball hit that hard; and after a home run or a
+  walk-off, six shells over the outfield (nine on a grand slam, twelve on a walk-off), each rising
+  from behind the bleachers and bursting over them. All of it is light added over the frame, so it
+  blooms, and pure in time, so a stopped clock or a replay draws the same picture. A home run gets
+  its own camera: once it's clearly gone, the shot rides beside the ball on the side nearer the
+  middle of the field, stops 45 ft short of the wall and watches it into the seats; then the wide
+  shot over the outfield as the first shell goes up, and the high camera back for the trot. Its
+  distance and its speed off the bat take the pitch speed's box. With reduced motion there's no
+  camera riding with it and nothing bursts or sparks; the tail stays;
 - the arcade graphics (Phase 1d), a canvas over the picture drawn by
   [diamond/hud.js](../client/game/js/panels/diamond/hud.js) in the client's display faces: the
   score with the bases, the count as lamps, the pitch speed and type, and in the batting view the
   zone over the plate with the last pitch marked. As each man comes up a matchup card shows his
   number and season line against the pitcher's, with VS on a starburst; a steal shows its card and
   its clocks; the cards the broadcast throws (home run, walk-off, double play and the rest) are
-  splash words; and each half-inning break is a high-score table of the leaders, one race at a
+  splash words, and so is every play that earns one on its own (spectacle.js `splashOf`): strike
+  three, ball four, a hit batsman, a triple, an error, a catch at the wall or one that robs a home
+  run, a diving or sliding catch, one over the rail, a diving stop, a barehanded play, a pickoff,
+  a wild pitch and a passed ball; and each half-inning break is a high-score table of the leaders, one race at a
   time, over the live picture. The final dresses it all in gold. The HTML score bug and cards
   are gone; the score is written out for a screen reader instead. The words, the colours and the
   station's bug come from a theme (tv.js passes the station's name), so `hud.js` names no league;
@@ -1117,7 +1132,11 @@ hand and into the cover man's glove, the pitch in the mitt, the call agreeing wi
 the tag, the runner's hand or foot on the bag at his touch, a pitch that got by picked up where it
 stopped, and at the end a man safe on his bag, the man who took the throw off it and no two men
 within 2 ft; a third out on the bases (the game's, or the next games' first) takes everyone off
-to his own dugout without a jump or two men within 2 ft. It feeds the view with a recording renderer to hold each line until its play
+to his own dugout without a jump or two men within 2 ft. Every home run, ball hit hard and
+walk-off (a home run and a walk-off borrowed from the next games when the game has none) has the
+right tail, sparks and shells, every shell over the outfield with its sparks above the stands and
+inside the wide shot's frame, the home-run camera keeping the ball in its frame from inside the
+park, the cuts in order, and none of the motion with reduced motion on. It feeds the view with a recording renderer to hold each line until its play
 lands, a play on the bases among them with its steal card, and leaves out one at-bat that moves
 the bags, as the booth does, to open the next on the cutaway because its bags differ from the
 picture's. The sandbox page takes

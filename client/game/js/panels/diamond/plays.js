@@ -708,6 +708,15 @@ export function planPlay(ctx) {
   function homeRun() {
     const B = F0;
     land = path0.land + 0.4;
+    // once it's clearly gone, the camera rides beside it on the side nearer the middle of the
+    // field, until 45 ft short of the wall, and watches it into the seats (camera.js shotAt); not
+    // for a viewer who's asked for less motion
+    if (ctx.motion !== false) {
+      const u = onLine(pl.dir, 1, 0), side = u[0] >= 0 ? [-u[2], 0, u[0]] : [u[2], 0, -u[0]];
+      let a = tBat, b = path0.land;
+      for (let k = 0; k < 30; k++) { const m = (a + b) / 2, q = path0(m); if (Math.hypot(q[0], q[2]) < fence - 45) a = m; else b = m; }
+      cuts.push({ at: tBat + 0.8, shot: { shot: 'homer', side, dist: 60, stop: Math.max(tBat + 0.8, a) } });
+    }
     if (!B) return;
     const start = B.spotAt(react(n0)), wallAt = onLine(pl.dir, fence - 3);
     if (pl.hr === 'leap') {

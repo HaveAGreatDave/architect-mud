@@ -1,14 +1,14 @@
 # Deadball in GLASS 2
 
-**Status: Phase 0, sim v2, Phases 1 and 2 and Phase 3 bar its spectacle built, behind a
-flag: the park in 3-D with its light, air, lens and grade, the arcade graphics, and the city round
+**Status: Phase 0, sim v2 and Phases 1 to 3 built, behind a flag: the park in 3-D with its light, air, lens and grade, the arcade graphics, and the city round
 the park as a set with the park's own outside (1a to 1e); skinned players who pitch, swing, catch
 and call every pitch at its real speed and spot, and the Pose Lab their clips are keyed in (2a to
 2e); every ball in play decided on the server, with the booth's lines sorted to agree with it
 (3a), the clips to play it with, players who travel as they move (3b), every ball in play
 played out in the park with its cameras and its cutaways (3c), and the men on the bases running
 it out and trotting up after ball four, the changeover, and the steals, throws over and wild
-pitches played on the bases (3d). The spectacle (3e) is design.** A plan for giving Deadball a 3-D sub-screen the way Cluster Puck got Rinkside, at the
+pitches played on the bases (3d), and the spectacle: the comet's tail, sparks off the bat,
+fireworks, the home-run camera and the splash words (3e). Phases 4 to 7 are design.** A plan for giving Deadball a 3-D sub-screen the way Cluster Puck got Rinkside, at the
 highest fidelity the engine can reach. Deadball is a live sport on KSAB, and the broadcast borrows
 the look of a 1990s arcade baseball game. That means skinned, detailed players, authored animation
 with a wide spread of plays, light from the park's own towers and a crowd that fills the stands.
@@ -1706,6 +1706,21 @@ Phase 3, or with sim v2 if that comes later.
   the ball picked up where it lies, everyone where he should be at the end, and a third out on
   the bases taking everyone off clear of each other; the view plays them live, with the steal's
   card on the call.
+
+- **3e built, the spectacle:** a comet's tail down the ball's way on a ball hit 100 mph or
+  harder and on every home run, sparks off the bat at hard contact, and fireworks over the
+  outfield after a home run or a walk-off, planned in
+  [diamond/spectacle.js](../../client/game/js/panels/diamond/spectacle.js) and drawn by
+  [gl/spectacle.js](../../client/game/js/panels/gl/spectacle.js) as light added over the frame,
+  each particle worked out in the vertex shader from the time, so it blooms and a stopped clock
+  draws it the same. A home run cuts to a camera riding beside the ball, then to the wide shot
+  over the outfield for the shells and back to the high camera for the trot; its distance and
+  its speed off the bat take the pitch speed's box. A play earns its own splash words: a triple,
+  an error, a catch at the wall or one robbing a home run, a diving or sliding catch, one over the
+  rail, a diving stop, a barehanded play, a pickoff, a wild pitch, a passed ball and a hit
+  batsman, beside strike three and ball four. Reduced motion keeps the tail and drops the riding
+  camera, the sparks and the shells. `diamond-smoke` stages every home run, ball hit hard and
+  walk-off, and `tools/sandbox/deadball-shots.mjs` takes the sandbox's pictures headless.
 
 **Phase 4: the broadcast.** On by default wherever WebGL2 and float targets work.
 - `gl/crowd.js` with seated and reaction clips; replays in slow motion; dead-time rituals; the grounds
