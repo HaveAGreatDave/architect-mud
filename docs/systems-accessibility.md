@@ -48,7 +48,7 @@ the 2-D and the 3-D view ([gameday.js](../client/game/js/panels/gameday.js) `pit
 have a line, as the Motion switch is read through `prefersReducedMotion()`. Off stops the
 announcing; the score and the booth's line are still there to read, and nothing on screen
 changes. The full rules for the broadcast are in
-[systems-broadcast.md](systems-broadcast.md#the-park-in-3-d-the-grandstand-behind-a-flag).
+[systems-broadcast.md](systems-broadcast.md#the-park-in-3-d-the-grandstand).
 
 **Hold to confirm** (`holdToConfirm` in [confirm.js](../client/game/js/panels/confirm.js)) guards the
 choices that can't be undone: selling or handing back an aircraft, `drop all` (the server's confirm

@@ -1,15 +1,15 @@
-// Gameday · Grandstand: Deadball's park in 3-D (GLASS 2), behind a flag while it's built.
+// Gameday · Grandstand: Deadball's park in 3-D (GLASS 2).
 //
 // The same five methods as gameday.js and gameday-rink.js ({ apply, clear, setCaption,
 // showIdle, showCard }), so tv.js mounts it for baseball and changes nothing else.
 //
-// ⚠ WITH THE FLAG OFF IT IS THE 2-D GAMEDAY. `createGrandstandView` hands back
+// ⚠ WITH ITS FLAG SET TO '0' IT IS THE 2-D GAMEDAY. `createGrandstandView` hands back
 // `createGamedayView(host)` and nothing in this file runs. The flag is the localStorage key
-// `deadball.grandstand` set to '1' (docs/systems-broadcast.md says how to turn it on).
+// `deadball.grandstand`; unset, or anything but '0', is the park in 3-D.
 //
-// With it on, the park draws through gl/ballpark.js, and the 2-D view takes over whenever the
-// 3-D one can't: no WebGL2, no float target, a shader that won't build, or a lost context. The
-// last payload and the booth's line go with it.
+// The park draws through gl/ballpark.js, and the 2-D view takes over whenever the 3-D one
+// can't: no WebGL2, no float target, a shader that won't build, or a lost context. The last
+// payload and the booth's line go with it.
 //
 // What's built (Phases 1a to 2d of docs/proposals/deadball-glass2.md): the park from the venue's
 // defaults through the batting view, lit by its towers, the scoreboard lit with the game, the
@@ -46,9 +46,11 @@ import { DEADBALL_SFX } from '../../../shared/deadball-sfx.js';
 import { venueOf, onVenue } from './venue.js';
 import { prefersReducedMotion, playByPlayOn } from '../../../shared/settings.js';
 
+// On wherever it can draw (it gives way to the 2-D view by itself where it can't); the flag set
+// to '0' keeps the 2-D Gameday.
 export const GRANDSTAND_FLAG = 'deadball.grandstand';
 export function grandstandOn(win) {
-  try { return win?.localStorage?.getItem(GRANDSTAND_FLAG) === '1'; } catch { return false; }
+  try { return win?.localStorage?.getItem(GRANDSTAND_FLAG) !== '0'; } catch { return true; }
 }
 
 function _esc(s) { return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }

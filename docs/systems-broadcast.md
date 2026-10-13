@@ -797,7 +797,7 @@ sport module**; nothing else in the pipeline may branch on it.
 Deadball's sub-screen is the 2-D Gameday view ([gameday.js](../client/game/js/panels/gameday.js)).
 A high-fidelity 3-D one on Rinkside's pattern, with a 1990s arcade look and the park inside the
 Curtain on Halcyon Fields, is planned in [proposals/deadball-glass2.md](proposals/deadball-glass2.md)
-(Phase 0, sim v2, Phases 1 and 2 and the plays of Phase 3 built, behind a flag: see the
+(Phases 0 to 3 built, and Phase 4 but for its sound; the park in 3-D is on by default: see the
 Grandstand below).
 
 **The Gameday payload** is built by a pure module,
@@ -870,14 +870,16 @@ men's lines and the leaders (37 bytes a payload and 1.6 KB once, measured on 202
 about 4 KB more with the plays (about 52 balls in play a game at about 75 bytes each, measured
 on 2026-10-12). It was 116 KB when the table rode every payload.
 
-### The park in 3-D (the Grandstand, behind a flag)
+### The park in 3-D (the Grandstand)
 
 tv.js mounts baseball through
-[gameday-grandstand.js](../client/game/js/panels/gameday-grandstand.js). With the flag off it
-returns the 2-D Gameday and nothing else runs. To turn it on in a browser, set the localStorage
-key `deadball.grandstand` to `'1'` (in the console:
-`localStorage.setItem('deadball.grandstand', '1')`) and reopen the Gameday. It has the same five
-methods as the other two views. When the 3-D view can't draw (no WebGL2, no float target, a
+[gameday-grandstand.js](../client/game/js/panels/gameday-grandstand.js), on by default wherever
+WebGL2 and float targets work. To keep the 2-D Gameday in a browser, set the localStorage key
+`deadball.grandstand` to `'0'` (in the console: `localStorage.setItem('deadball.grandstand', '0')`)
+and reopen the Gameday; with it, none of the park's own modules load. It has the same five methods as
+the other two views. Its first open downloads about 0.7 MB of compressed scripts (the clip
+library is a third of it), the 0.7 MB face atlas and 64 KB of display fonts, against 45 KB for
+the 2-D view; the browser keeps them after that. When the 3-D view can't draw (no WebGL2, no float target, a
 shader that won't build, a lost context), it hands over to the 2-D view with the last payload and
 the booth's line.
 

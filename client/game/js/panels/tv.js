@@ -20,8 +20,8 @@ import { wantVenue } from './venue.js';
 // The two sports sub-screens (gameday.js, gameday-rink.js) are about 209 KB, and they
 // were in the boot download for every player. They load on the first sports broadcast
 // instead, which is when the Gameday button appears; opening it awaits the same promise.
-// Baseball mounts through gameday-grandstand.js, which is the 2-D Gameday unless its flag
-// turns on the 3-D park.
+// Baseball mounts through gameday-grandstand.js, the park in 3-D, which is the 2-D Gameday
+// where it can't draw or where its flag is set to '0'.
 let _gamedayViews = null;
 function loadGamedayViews() {
   return (_gamedayViews ??= Promise.all([import('./gameday-grandstand.js'), import('./gameday-rink.js')])

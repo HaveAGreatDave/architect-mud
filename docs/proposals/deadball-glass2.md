@@ -1,6 +1,6 @@
 # Deadball in GLASS 2
 
-**Status: Phase 0, sim v2 and Phases 1 to 3 built, behind a flag: the park in 3-D with its light, air, lens and grade, the arcade graphics, and the city round
+**Status: Phase 0, sim v2, Phases 1 to 3 and Phase 4 but for its sound built, and on by default: the park in 3-D with its light, air, lens and grade, the arcade graphics, and the city round
 the park as a set with the park's own outside (1a to 1e); skinned players who pitch, swing, catch
 and call every pitch at its real speed and spot, and the Pose Lab their clips are keyed in (2a to
 2e); every ball in play decided on the server, with the booth's lines sorted to agree with it
@@ -10,15 +10,18 @@ it out and trotting up after ball four, the changeover, and the steals, throws o
 pitches played on the bases (3d), and the spectacle: the comet's tail, sparks off the bat,
 fireworks, the home-run camera and the splash words (3e); and from Phase 4, reduced motion and
 the play by play in words for a screen reader (4a), slow-motion replays (4b), a crowd that gets
-up for the plays (4c), and the dead time: the infield keeping the game's marks, the field
-resetting between at-bats and the grounds crew in the fifth (4d). The rest of Phase 4 and Phases 5
-to 7 are design.** A plan for giving Deadball a 3-D sub-screen the way Cluster Puck got Rinkside, at the
+up for the plays (4c), the dead time: the infield keeping the game's marks, the field
+resetting between at-bats and the grounds crew in the fifth (4d), the sky on Coldwater's clock,
+the park's weather and the city at night with its lights, its streets, the birds and the crowd's
+camera flashes (4e), and the tiers, the governor and the park on by default (4g). The sound bank,
+the mix and the voices (4f, waiting on the `siren-fidelity` branch) and Phases 5 to 7 are
+design.** A plan for giving Deadball a 3-D sub-screen the way Cluster Puck got Rinkside, at the
 highest fidelity the engine can reach. Deadball is a live sport on KSAB, and the broadcast borrows
 the look of a 1990s arcade baseball game. That means skinned, detailed players, authored animation
 with a wide spread of plays, light from the park's own towers and a crowd that fills the stands.
 Around them go chunky chrome lettering, splash words, trails and fireworks, an announcer over a full
 synthesised sound bank, a playoff package, and a park inside the Curtain on Halcyon Fields. What's
-built is in [systems-broadcast.md](../systems-broadcast.md#the-park-in-3-d-the-grandstand-behind-a-flag)
+built is in [systems-broadcast.md](../systems-broadcast.md#the-park-in-3-d-the-grandstand)
 and under Phases below. The audio engine work is on its own branch.
 
 How it got here, all on 2026-10-11:
@@ -1928,6 +1931,16 @@ Phase 3, or with sim v2 if that comes later.
   hidden tab, under slow frames, coming back up and backing off, the dealt fans and a half burst;
   `diamond-smoke` that the view starts on the full tier and that its 30-a-second frames take the
   lens down first.
+
+- **4g.2 built, on by default:** the Grandstand is the Gameday for baseball wherever WebGL2 and
+  float targets work, and gives way to the 2-D view by itself where they don't. The
+  `deadball.grandstand` flag set to `'0'` keeps the 2-D view, and the old opt-in `'1'` does
+  nothing new. A viewer's first open downloads about 0.7 MB of compressed scripts, the 0.7 MB
+  face atlas and 64 KB of fonts, against 45 KB for the 2-D view. It goes on without the frame
+  times on a real GPU the plan asked for (the look-dev machine has none), so the phone tier and
+  the governor are what stand between a weak GPU and a slow picture; and without 4f's sound
+  bank, so the 3-D view plays the 2-D view's nine cues. `ballpark-smoke` checks the 2-D view
+  for the flag at `'0'` and the Grandstand without it.
 
 **Phase 4: the broadcast.** On by default wherever WebGL2 and float targets work.
 - `gl/crowd.js` with seated and reaction clips; replays in slow motion; dead-time rituals; the grounds

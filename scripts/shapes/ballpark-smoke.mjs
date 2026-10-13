@@ -310,10 +310,21 @@ for (const kind of ['sit', 'stand', 'cheer']) for (const far of [false, true]) {
   try { r = createBallparkRenderer(cv); } catch (e) { r = 'threw: ' + e.message; }
   check('no WebGL2: createBallparkRenderer returns null', r === null, String(r));
 
-  // flag off: the 2-D Gameday itself
+  // on by default; the flag set to '0' is the 2-D Gameday itself
+  const store = new Map(), win = globalThis.window;
+  win.localStorage = { getItem: (k) => (store.has(k) ? store.get(k) : null), setItem: (k, x) => store.set(k, String(x)), removeItem: (k) => store.delete(k) };
+  store.set('deadball.grandstand', '0');
   const h1 = stub.makeHost();
   const off = createGrandstandView(h1);
-  check('flag off: the view is the 2-D Gameday', typeof off.apply === 'function' && !('setShot' in off));
+  check('flag \'0\': the view is the 2-D Gameday', typeof off.apply === 'function' && !('setShot' in off));
+  store.delete('deadball.grandstand');
+  const byDefault = createGrandstandView(stub.makeHost());
+  check('no flag: the Grandstand, on by default', typeof byDefault.setShot === 'function');
+  store.set('deadball.grandstand', '1');
+  const optedIn = createGrandstandView(stub.makeHost());
+  check('the flag set to \'1\', as the opt-in left it: still the Grandstand', typeof optedIn.setShot === 'function');
+  byDefault.clear(); optedIn.clear();
+  delete win.localStorage;
 
   // forced on with no WebGL2: it gives way to the 2-D view, and the held line lands
   const h2 = stub.makeHost();
