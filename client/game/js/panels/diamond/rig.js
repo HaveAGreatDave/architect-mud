@@ -145,8 +145,9 @@ export function mirrorPose(P) {
 
 
 // ── the poses ──────────────────────────────────────────────────────────────────
-// Local: x is the player's left, z his forward. The pitcher's are drawn facing first base with +x
-// toward the plate (yaw 90), all in one frame, as the look-dev posed them. These are the stills
+// Local: x is the player's left, z his forward. The pitcher's are drawn side-on with +x toward the
+// plate (yaw 90), a right-hander facing third base with first behind him, all in one frame, as
+// the look-dev posed them. These are the stills
 // the 1c players stood in and the blocking the first clips are keyed from.
 export const POSES = {
   stand: () => ({ pelvis: [0, 3.42, 0], pitch: 2, spine: [2, 0, 0], chest: [2, 0, 0],

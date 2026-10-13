@@ -37,7 +37,8 @@ import { completePose, limitBreaks, FEET, DIRS } from './anim.js';
 export const CLIP_ROLES = Object.freeze(['pitcher', 'batter', 'catcher', 'ump', 'fielder', 'runner', 'coach', 'any']);
 // An event's kind and what else it carries: the hand that lets go of or takes the ball, the way a
 // throw goes (in the pose's frame), the umpire's call, the foot that lands; a `hit` is the pitch
-// striking the batter, and a `contact` the bat meeting the ball. A catch says which way the ball
+// striking the batter, and a `contact` the bat meeting the ball; a `tag` is the glove, with the
+// ball in it, down on the runner coming into a bag. A catch says which way the ball
 // comes from, `from` (a direction in the pose's frame; [0, 0, 1], straight at him, if it doesn't
 // say), and may say where its glove can take it, `reach: { x: [lo, hi], y: [lo, hi], follow }`: a
 // box standing across the ball's line through the glove at the catch, x along the catcher's left
@@ -51,6 +52,7 @@ export const CLIP_EVENTS = Object.freeze({
   call: Object.freeze(['call']),
   step: Object.freeze(['foot']),
   hit: Object.freeze([]),
+  tag: Object.freeze(['hand']),
 });
 // The umpire's calls: `dead` is a dead ball, as when a pitch hits the batter.
 export const CALLS = Object.freeze(['strike', 'ball', 'out', 'safe', 'foul', 'dead']);

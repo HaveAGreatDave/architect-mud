@@ -31,11 +31,14 @@
 //        · at a release, the hand at its fastest within a frame (1/60 s), at nine tenths of that
 //          speed or more, and going within 30 degrees of the way the ball goes; at a contact, the
 //          bat's sweet spot the same;
+//        · at a tag, the glove as low as it goes in the clip (0.05 ft) and under a foot up;
 //        · and done each player's own way (anim.js TRAIT_RANGE, at the ends of each range), still
 //          a body that can make every frame, the planted feet still and the hands on the bat.
-//      And the player itself: a loop is the same a lap later; a left-hander is a right-hander in a
-//      mirror; the head turns no further than a neck can; the pitcher on the real mound, both
-//      ways round, keeps his planted feet on its slope. And the Pose Lab's save (bake-clips.mjs
+//      And the player itself: a get-up starts in its slide's last pose; a loop is the same a lap
+//      later; a left-hander is a right-hander in a
+//      mirror; the head turns no further than a neck can; every pitcher's clip on the real mound,
+//      both ways round, keeps his planted feet on its slope, a pickoff's in the frame it's turned
+//      him to. And the Pose Lab's save (bake-clips.mjs
 //      planSave): each clip saved unchanged writes back its own file and the same module, a key
 //      out of order is refused with nothing written, and a new clip bakes in beside the rest.
 //
@@ -440,14 +443,31 @@ for (const clip of Object.values(CLIPS)) {
     check(`clip ${clip.id}: the ball leaves the hand at its fastest, within a frame`, Math.abs(top.t - e.t) <= 1 / 60 + 1e-9 && sp >= 0.9 * top.v, `${sp.toFixed(0)} ft/s at the release, ${top.v.toFixed(0)} at ${top.t.toFixed(3)} s`);
     check(`clip ${clip.id}: the hand going the way the ball goes at the release`, off <= 30, `${off.toFixed(0)}° off`);
   }
+  // the tag: the glove down where the runner comes in, as low as it goes, and under a foot up
+  for (const e of clip.events.filter((x) => x.kind === 'tag')) {
+    const glove = (t) => onGround(clip, t, A.handPoint(A.sampleClip(clip, t), e.hand, clip.role === 'catcher' ? 'mitt' : 'glove'));
+    let low = Infinity;
+    for (let t = 0; t <= D + 1e-9; t += 1 / 120) low = Math.min(low, glove(t)[1]);
+    const y = glove(e.t)[1];
+    check(`clip ${clip.id}: the glove down at the tag, as low as it goes (0.05 ft) and under a foot up`, y - low <= 0.05 && y <= 1, `${y.toFixed(2)} ft up, lowest ${low.toFixed(2)}`);
+  }
 }
 const clipsMs = clock.now() - tc;
 // the player
 {
+  // a get-up starts where its slide left him: rekey a slide's end and its get-up has to follow
+  for (const [up, slide] of [['slide_up_head', 'slide_head'], ['slide_up_feet', 'slide_feet']]) {
+    const a = CLIPS[up], b = CLIPS[slide];
+    if (!a || !b) { check(`player: ${up} gets up from ${slide}`, false, 'missing'); continue; }
+    const Ja = solveAt0(A.sampleClip(a, 0)).J, Jb = solveAt0(A.sampleClip(b, b.duration)).J;
+    const off = Math.max(...TRACK.map((k) => len3(sub(Ja[k], Jb[k]))));
+    check(`player: ${up} starts in ${slide}'s last pose (0.01 ft)`, off < 0.01, `${off.toFixed(3)} ft`);
+  }
   const loop = Object.values(CLIPS).find((c) => c.loop);
   const a = loop && A.sampleClip(loop, 0.37), b = loop && A.sampleClip(loop, 0.37 + loop.duration);
   check('player: a loop is the same a lap later', loop && JSON.stringify(a) === JSON.stringify(b));
-  const pitch = Object.values(CLIPS).find((c) => c.role === 'pitcher' && A.eventTime(c, 'release') !== null && c.plants.length);
+  // a delivery: the pitcher's other throws (a pickoff) turn and step, which these checks don't
+  const pitch = Object.values(CLIPS).find((c) => c.role === 'pitcher' && /^pitch_(stretch|windup)_/.test(c.id) && A.eventTime(c, 'release') !== null && c.plants.length);
   let mirrorOff = 0;
   for (const t of [0.2, 0.9, 1.3, 1.44, 2.2]) {
     const m = A.sampleClip(pitch, t, { mirror: true }), r = RIG.mirrorPose(A.sampleClip(pitch, t));
@@ -459,37 +479,41 @@ const clipsMs = clock.now() - tc;
   check('player: the head turns no further than a neck can', Math.abs(look.neck[1]) <= A.LOOK_LIMIT.yaw * 0.6 + 1e-9 && Math.abs(look.head[1]) <= A.LOOK_LIMIT.yaw * 0.4 + 1e-9 && Math.abs(look.neck[1]) > 30, `neck ${look.neck[1].toFixed(1)}°, head ${look.head[1].toFixed(1)}°`);
   const ev = A.eventsBetween(pitch, 1.0, A.eventTime(pitch, 'release'));
   check('player: the events a clip plays past, the end included', ev.length === 1 && ev[0].kind === 'release' && A.eventsBetween(pitch, A.eventTime(pitch, 'release'), 2).length === 0);
-  // on the mound, both ways round: the director's ground in the pose's own frame is the park's
-  // ground there, less the height he stands at
-  let worst = { d: 0 }, slid = 0, jump = { d: 0 };
-  for (const lefty of [false, true]) {
-    const at = GEO.RUBBER, yaw = lefty ? -90 : 90, c = Math.cos(yaw * Math.PI / 180), sn = Math.sin(yaw * Math.PI / 180);
-    const toW = (x, z) => [at[0] + c * x + sn * z, at[2] - sn * x + c * z];
-    const ground = (x, z) => { const w = toW(x, z); return GEO.groundHeight(w[0], w[1]) - at[1]; };
-    const spot = new Map();
-    for (let t = 0; t <= pitch.duration + 1e-9; t += 1 / 120) {
-      const J = RIG.solvePose({ ...A.sampleClip(pitch, t, { ground, mirror: lefty }), at, yaw }).J;
-      for (const p of pitch.plants) {
-        if (t < p.from || t > p.to) continue;
-        const S = lefty ? (p.foot === 'L' ? 'R' : 'L') : p.foot, an = J['an' + S], d = Math.abs(an[1] - (GEO.groundHeight(an[0], an[2]) + 0.28));
-        if (d > worst.d) worst = { d, t, S, lefty };
-        const k = S + p.from;
-        if (!spot.has(k)) spot.set(k, an);
-        slid = Math.max(slid, len3(sub(an, spot.get(k))));
+  // on the mound, both ways round, every pitcher's clip: the director's ground in the pose's own
+  // frame is the park's ground there, less the height he stands at, and a clip that travels takes
+  // it in the frame it's carried him to (world.js carried)
+  let worst = { d: 0 }, slid = { d: 0 }, jump = { d: 0 };
+  const { carried } = await import(P + 'diamond/world.js');
+  for (const clip of Object.values(CLIPS).filter((c) => c.role === 'pitcher' && c.plants.length)) {
+    for (const lefty of [false, true]) {
+      const base = { at: GEO.RUBBER, yaw: lefty ? -90 : 90 };
+      const frame = (t) => carried(base, clip, 0, 1, t, lefty);
+      const groundIn = (F) => { const c = Math.cos(F.yaw * Math.PI / 180), sn = Math.sin(F.yaw * Math.PI / 180); return (x, z) => GEO.groundHeight(F.at[0] + c * x + sn * z, F.at[2] - sn * x + c * z) - F.at[1]; };
+      const anAt = (t, S) => { const F = frame(t); return RIG.solvePose({ ...A.sampleClip(clip, t, { ground: groundIn(F), mirror: lefty }), at: F.at, yaw: F.yaw }).J['an' + S]; };
+      const spot = new Map();
+      for (let t = 0; t <= clip.duration + 1e-9; t += 1 / 120) {
+        for (const p of clip.plants) {
+          if (t < p.from || t > p.to) continue;
+          const S = lefty ? (p.foot === 'L' ? 'R' : 'L') : p.foot, an = anAt(t, S), d = Math.abs(an[1] - (GEO.groundHeight(an[0], an[2]) + 0.28));
+          if (d > worst.d) worst = { d, t, S, lefty, id: clip.id };
+          const k = S + p.from;
+          if (!spot.has(k)) spot.set(k, an);
+          const sd = len3(sub(an, spot.get(k)));
+          if (sd > slid.d) slid = { d: sd, t, S, lefty, id: clip.id };
+        }
+      }
+      // and the foot onto and off the ground without a jump, where the slope says the ground is
+      for (const p of clip.plants) for (const tb of [p.from, p.to]) {
+        if (!(tb > 1e-3 && tb < clip.duration - 1e-3)) continue;
+        const S = lefty ? (p.foot === 'L' ? 'R' : 'L') : p.foot, d = len3(sub(anAt(tb - 1e-4, S), anAt(tb + 1e-4, S)));
+        if (d > jump.d) jump = { d, t: tb, S, lefty, id: clip.id };
       }
     }
-    // and the foot onto and off the ground without a jump, where the slope says the ground is
-    for (const p of pitch.plants) for (const tb of [p.from, p.to]) {
-      if (!(tb > 1e-3 && tb < pitch.duration - 1e-3)) continue;
-      const S = lefty ? (p.foot === 'L' ? 'R' : 'L') : p.foot;
-      const [a, b] = [tb - 1e-4, tb + 1e-4].map((t) => RIG.solvePose({ ...A.sampleClip(pitch, t, { ground, mirror: lefty }), at, yaw }).J['an' + S]);
-      const d = len3(sub(a, b));
-      if (d > jump.d) jump = { d, t: tb, S, lefty };
-    }
   }
-  check('player: on the mound, both ways round, planted feet on its slope', worst.d < 0.01, `${worst.d.toFixed(3)} ft off, ${worst.lefty ? 'left' : 'right'}-hander's ${worst.S} at ${worst.t?.toFixed(3)} s`);
-  check('player: on the mound, both ways round, planted feet stay put', slid < 0.1, `${slid.toFixed(3)} ft`);
-  check('player: on the mound, both ways round, a foot comes down onto the slope and up off it without a jump', jump.d < 0.01, `${jump.d.toFixed(3)} ft, ${jump.lefty ? 'left' : 'right'}-hander's ${jump.S} at ${jump.t} s`);
+  const who = (w) => `${w.id}, ${w.lefty ? 'left' : 'right'}-hander's ${w.S} at ${w.t?.toFixed(3)} s`;
+  check('player: on the mound, both ways round, planted feet on its slope', worst.d < 0.01, `${worst.d.toFixed(3)} ft off, ${who(worst)}`);
+  check('player: on the mound, both ways round, planted feet stay put', slid.d < 0.1, `${slid.d.toFixed(3)} ft, ${who(slid)}`);
+  check('player: on the mound, both ways round, a foot comes down onto the slope and up off it without a jump', jump.d < 0.01, `${jump.d.toFixed(3)} ft, ${who(jump)}`);
 }
 
 console.log(`anim-smoke: ${passes}/${passes + failures} passed · a skinned body built in ${buildMs.toFixed(0)} ms on average · ${Object.keys(CLIPS).length} clips in ${(clipsMs / 1000).toFixed(1)} s · ${((clock.now() - t0) / 1000).toFixed(1)} s in all`);

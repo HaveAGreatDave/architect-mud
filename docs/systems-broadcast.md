@@ -940,7 +940,11 @@ Built so far (Phases 1 and 2 of the plan):
   barehanded; the throws over the top, from the knees, the flip and the crow hop; the first
   baseman's stretch and scoop, both double-play pivots and the relay; the outfielder's charge
   and throw; catches camped, running, diving, sliding, at the wall and over the rail, and the
-  catcher's pop-up; a fielder watching one go; and the base umpires' safe and out. A clip that
+  catcher's pop-up; a fielder watching one go; and the base umpires' safe and out. And the plays
+  on the bases (Phase 3d): the catcher's throw from the crouch to second and to third, the tag
+  astride a bag for a runner coming from ahead or from beside, the first baseman's tag on a
+  pickoff, the pickoff move (a right-hander's jump turn, a left-hander's step), the dive back to
+  first, up off the ground from either slide, and a ball picked up where it lies. A clip that
   travels carries its frame with it (`root`), and the world carries the player on by it;
 - the pitch (Phase 2d): [diamond/director.js](../client/game/js/panels/diamond/director.js) stages
   each at-bat in a world ([diamond/world.js](../client/game/js/panels/diamond/world.js)) stepped

@@ -7,8 +7,8 @@ and call every pitch at its real speed and spot, and the Pose Lab their clips ar
 2e); every ball in play decided on the server, with the booth's lines sorted to agree with it
 (3a), the clips to play it with, players who travel as they move (3b), every ball in play
 played out in the park with its cameras and its cutaways (3c), and the men on the bases running
-it out and trotting up after ball four, and the changeover (3d so far). The rest of 3d (the
-plays on the bases) and the spectacle (3e) are design.** A plan for giving Deadball a 3-D sub-screen the way Cluster Puck got Rinkside, at the
+it out and trotting up after ball four, the changeover, and the clips for the plays on the bases
+(3d so far). The rest of 3d (staging the plays on the bases) and the spectacle (3e) are design.** A plan for giving Deadball a 3-D sub-screen the way Cluster Puck got Rinkside, at the
 highest fidelity the engine can reach. Deadball is a live sport on KSAB, and the broadcast borrows
 the look of a 1990s arcade baseball game. That means skinned, detailed players, authored animation
 with a wide spread of plays, light from the park's own towers and a crowd that fills the stands.
@@ -1677,6 +1677,14 @@ Phase 3, or with sim v2 if that comes later.
   first can go back to it. `diamond-smoke` holds everyone going off to his own dugout and 2 ft
   clear of everyone else, and at every changeover each man to his spot and each warm-up to the
   pitcher's hand and the catcher's mitt.
+
+  Then the clips for the plays on the bases, eleven of them, 79 in the library: the catcher's
+  throw from the crouch to second and to third, the tag astride a bag for a runner coming from
+  ahead or from beside, the first baseman's tag on a pickoff, the pickoff move (a right-hander's
+  jump turn to first, a left-hander's step, keyed as its mirror), the dive back to first, up off
+  the ground from either slide, and a ball picked up where it lies. A tag is a new kind of event,
+  and `anim-smoke` holds the glove at its lowest there; it checks every pitcher's clip on the
+  mound in the frame the clip has carried him to, and each get-up from its slide's last pose.
 
 **Phase 4: the broadcast.** On by default wherever WebGL2 and float targets work.
 - `gl/crowd.js` with seated and reaction clips; replays in slow motion; dead-time rituals; the grounds
