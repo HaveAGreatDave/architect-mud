@@ -40,7 +40,7 @@ for (const r of rows) {
 
 if (!only || 'crowd'.includes(only)) {
   const crowd = await renderCrowd(AE, H);
-  console.log('\ncrowd bed (rms per state, through its own retro stage):');
+  console.log('\ncrowd bed (rms per state, before its bus):');
   for (const s of crowd.states) console.log(' ', s.name.padEnd(8), 'rms', f(s.rms, 4), 'peak', f(s.peak, 3), 'centroid', f(s.centroid, 0));
   console.log('  worst step between samples', f(crowd.maxStep, 4), 'finite', crowd.finite);
   if (out) writeFileSync(join(out, 'crowd-states.wav'), wav(crowd.samples, crowd.sampleRate));

@@ -792,10 +792,10 @@ export function createWorld(ice, seedKey) {
         W.ice.scrape(b.x - Math.sin(b.h) * 0.4, b.y + Math.cos(b.h) * 0.4, b.vx, b.vy, clamp(sp * 0.22, 1.6, 4.5), (W.t * 977) | 0);
         if (sp > 14 && rand() < 0.4) W.sfx('stop', { x: b.x });
       }
-      // a hard turn at speed scrapes: now and then, not every man every step (a second and a
-      // bit between one man's, and the rink spaces them all out; no dice, so the play's own
-      // rolls aren't moved)
-      if (sp > 12 && Math.abs(b.turnRate) > 2.6 && W.t - (b.turnSfxAt || -9) > 1.2 && b.kind === 'skater') { b.turnSfxAt = W.t; W.sfx('turn', { x: b.x }); }
+      // a hard turn at speed scrapes: now and then, not every man every step (three seconds
+      // between one man's, and the rink spaces them all out; no dice, so the play's own rolls
+      // aren't moved)
+      if (sp > 12 && Math.abs(b.turnRate) > 2.6 && W.t - (b.turnSfxAt || -9) > 3 && b.kind === 'skater') { b.turnSfxAt = W.t; W.sfx('turn', { x: b.x }); }
       // THE BLADES SCORE THE ICE, from where the blades actually are. Each skate's runner is
       // traced while it is down, so the marks are the real push arcs and crossovers the
       // stride makes, and a lifted skate leaves a gap. A man missing a leg drags the stump.

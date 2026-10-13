@@ -158,6 +158,15 @@ for (const id of ['hk-check', 'hk-boards', 'hk-skate-stop', 'hk-whistle', 'hk-go
   check('crowd: each state louder than the one before (quiet, active, chance, shot, goal)', lvl.quiet < lvl.active && lvl.active < lvl.chance && lvl.chance < lvl.shot && lvl.shot < lvl.goal,
     ['quiet', 'active', 'chance', 'shot', 'goal'].map((k) => `${k} ${lvl[k].toFixed(3)}`).join(', '));
   check('crowd: a penalty is louder than quiet and under a goal', lvl.penalty > lvl.quiet && lvl.penalty < lvl.goal, `${lvl.penalty.toFixed(3)}`);
+  // UNDER THE PLAY, NOT OVER IT. The first bed sat at -32 dBFS through a game, louder than all
+  // the effects together, and buried the clicks under a hiss that seemed to grow. At the
+  // master, at the game's default volumes (crowd 0.3, effects 0.9, master 0.4), the run of
+  // play is no louder than -40 dBFS, and a puck on a stick stands 18 dB clear of it.
+  const db = (v) => 20 * Math.log10(Math.max(v, 1e-9));
+  const playDb = db(lvl.active * 0.3 * 0.4), stickDb = db(mm('hk-puck-stick').peak * 0.9 * 0.4);
+  check('crowd: the run of play sits at -40 dBFS or under at the master', playDb <= -40, `${playDb.toFixed(1)} dBFS`);
+  check('crowd: a puck on a stick stands 18 dB clear of it', stickDb - playDb >= 18, `${(stickDb - playDb).toFixed(1)} dB`);
+  check('crowd: dark, under the clicks (centroid at play under 1.2 kHz)', cr.states.find((st) => st.name === 'active').centroid < 1200, `${cr.states.find((st) => st.name === 'active').centroid.toFixed(0)} Hz`);
   // no steps: 10 ms windows never jump by more than 2.2× (after the first half-second's fade-in)
   const w = SR / 100, d = cr.samples, win = [];
   for (let i = 0; i + w <= d.length; i += w) { let s = 0; for (let j = i; j < i + w; j++) s += d[j] * d[j]; win.push(Math.sqrt(s / w)); }

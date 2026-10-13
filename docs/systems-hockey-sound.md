@@ -20,6 +20,7 @@ Everything is procedural. There are no samples.
 | [client/devpanel/js/panels/audio.js](../client/devpanel/js/panels/audio.js) | The sound board and the editor's envelope and retro fields |
 | `scripts/audio/hockey-smoke.mjs` | The gate (below) |
 | `scripts/audio/hockey-render.mjs` | Renders every patch, prints its measurements, writes WAVs |
+| `scripts/audio/hockey-mix.mjs` | Plays a stretch of a real game through the rink and renders the mix as heard: the crowd against the effects, each effect's margin over the crowd, WAVs |
 | `scripts/audio/offline-audio.mjs` | The Web Audio subset SIREN uses, rendered in Node, for the two above |
 
 ## How it plays
@@ -116,18 +117,23 @@ intermission) and on the final card; a whistle before it is the game's sequencin
 
 **J. The crowd bed** (`crowdBed()`). A low-mid rumble (150–700 Hz), an airy band (around 1.15 kHz,
 700–3,000 Hz), and three narrow resonant bands where distant voices sit (520, 930, 1,650 Hz), each pulsed
-by LFOs at 0.29–2.3 Hz that never line up, all through a 13 kHz hold onto the ambient bus. Built once and
-steered: `setState(name)` eases every band to that state's levels (a 180 ms time constant, 600 ms into
-quiet), and the moments move it and let it settle.
+by LFOs at 0.29–2.3 Hz that never line up, all through a 2.4 kHz lowpass onto the ambient bus, with no
+grit. Built once and steered: `setState(name)` eases every band to that state's levels (a 180 ms time
+constant, 600 ms into quiet), and the moments move it and let it settle.
+
+It's background, and kept there. The first bed sat at -32 dBFS through a game, louder than all the
+effects together, and its hiss buried the clicks and seemed to grow (the rink also held it high for
+every rush). Now, at the game's default volumes, the run of play sits at about -45 dBFS at the master
+and a goal at about -36, centred near 1 kHz, under the clicks and the whistle rather than in their band.
 
 | State | Rumble | Air | Voices | Pulse depth | Air band |
 |---|---|---|---|---|---|
-| quiet | 0.5 | 0.12 | 0.6 | 0.18 | ×0.85 |
-| active | 0.8 | 0.24 | 1.0 | 0.25 | ×1 |
-| chance | 1.1 | 0.45 | 1.5 | 0.30 | ×1.15 |
-| shot | 1.3 | 0.55 | 1.8 | 0.32 | ×1.2 |
-| goal | 1.5 | 0.70 | 2.2 | 0.38 | ×1.3 |
-| penalty | 1.0 | 0.24 | 2.0 | 0.45 | ×0.8 |
+| quiet | 0.22 | 0.045 | 0.25 | 0.18 | ×0.85 |
+| active | 0.32 | 0.07 | 0.35 | 0.25 | ×1 |
+| chance | 0.40 | 0.10 | 0.45 | 0.30 | ×1.1 |
+| shot | 0.48 | 0.13 | 0.55 | 0.32 | ×1.15 |
+| goal | 0.70 | 0.20 | 0.80 | 0.38 | ×1.25 |
+| penalty | 0.38 | 0.07 | 0.60 | 0.45 | ×0.85 |
 
 `gasp()` holds the bed back an instant and plays `hk-crowd-gasp`; `cheer()` and `celebrate()` lift it
 (1.3× and 1.5×) and play `hk-crowd-cheer` or `hk-crowd-goal`; `duck(db, secs)` drops it under a horn or
@@ -137,7 +143,7 @@ same nodes, so it can't pile up.
 **K. Gasp and cheer.** `hk-crowd-gasp` (438 ms): a fast rise of bright noise and a vowel-ish resonant
 band sweeping 620 to 860 Hz. `hk-crowd-cheer` (1.4 s) and `hk-crowd-goal` (3.3 s): dense bands of noise
 with tremolos at 3.1–11.3 Hz for the irregular pulses. `hk-crowd-groan` and `hk-crowd-boo` are the away
-goal and the penalty. They ride the ambient bus, so they're authored about as loud as the bed.
+goal and the penalty. They ride the ambient bus with the bed, lifted a little (1.2×) to sit with it.
 
 **Secondary.** Shots (`hk-puck-slap`, `hk-shot-wrist`: a crack with a small fall in pitch), `hk-pass`,
 `hk-puck-tick` (the dribble), the saves (`hk-pad-save`, `hk-glove-save`, `hk-chest-save`), `hk-stick-hit`
@@ -163,10 +169,15 @@ The rink names what happened and `HockeySfx.eventFor(key, data)` says which patc
 | `horn`, `periodHorn` | `hk-goal-horn`, `hk-period-horn` |
 | `wide` | nothing: a wide shot is heard when it hits the boards |
 
-The crowd follows the plays: a draw `active`, a rush `chance`, a shot `shot` (back to `chance` after
-2.2 s), a penalty `penalty`, a fight `shot` with a cheer, an injury, a death or an intermission `quiet`.
-The iron gets a gasp; a home save, a big hit or a breakaway a cheer; a home goal ducks the crowd under
-the horn's onset and celebrates 0.2 s later; an away goal plays the groan.
+The crowd follows the plays and comes back to the run of play (`active`) after each moment: a rush on
+its own doesn't move it, a shot lifts it to `shot` for 1.6 s, a breakaway to `chance` with a cheer for
+3 s, a penalty to `penalty` for 4 s, a fight to `shot` with a cheer for 5 s, a home goal to `goal` for
+6 s (ducked under the horn's onset, then a celebration 0.2 s later), and an empty net holds it at
+`chance`. An injury, a death or an intermission take it to `quiet`. The iron gets a gasp; a home save
+or a big hit a cheer; an away goal the groan.
+
+The small sounds are spaced so they stay small: a dribble tick no more than one in 0.9 s, a skate stop
+one in 0.9 s, a hard turn one in 1.4 s (and each man's no more than one in 3 s), all of them quiet.
 
 ## Mixing
 
@@ -201,7 +212,11 @@ here.
 
 **Offline.** `node scripts/audio/hockey-render.mjs --wav <dir>` writes every patch (and the crowd
 through every state) as WAVs and prints the measurements; `--only hk-check` narrows it, `--takes 4` adds
-seeded takes.
+seeded takes. `node scripts/audio/hockey-mix.mjs 37 --seconds 120 --wav <dir>` plays two minutes of a
+real game and renders what a player hears: how loud the crowd runs against the effects, and how far each
+kind of effect stands above the crowd when it plays (a contact wants 15 dB or more), with the mix, the
+crowd and the effects as WAVs. Use it after changing any level: a sound that's fine on its own can still
+be lost in a game.
 
 What the controls do:
 
@@ -225,8 +240,9 @@ well above the horn), the brief's priority order, that a seeded take renders the
 stays within its variation, that the retro stage holds and rounds, that the busiest goal doesn't clip
 and the horn stays over the contacts, that a flood of contacts never steals the horn or the whistle and
 every voice comes free, that the crowd rises state by state with no step and no new nodes and is silent
-after `stop()`, and that every event the rink fires has a sound. The rink smoke checks the same last
-point while a game plays.
+after `stop()`, that the run of play sits at -40 dBFS or under at the master with a puck on a stick 18 dB
+clear of it and the bed centred under 1.2 kHz, and that every event the rink fires has a sound. The rink
+smoke checks the same last point while a game plays.
 
 The offline renderer agrees with Chromium's own Web Audio to within a few percent (peak, length and
 centroid, checked on nine patches; the board knock is 0.412 peak, 79 ms and 649 Hz in Chromium against

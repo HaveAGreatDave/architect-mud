@@ -79,7 +79,6 @@
   // more, the whistle none: it should sound like a compact 16-bit game, not a broken one.
   const CART = { rate: 16000, bits: 10 };
   const GRIT = { rate: 11025, bits: 9 };
-  const ICE = { rate: 12500, bits: 9 };
   const CHIP = { rate: 11025, bits: 8 };
 
   // A patch. `vary` is how far a take may wander from it ({ pitch, gain, env } as fractions):
@@ -229,9 +228,9 @@
     def('hk-check-boards', 'Body check — into the boards', 8, [...check(0.95, 1),
       ...boards(0.85, 0.6).map((l) => ({ ...l, gain: l.gain * 0.55, delay: (l.delay || 0) + 0.012 }))]),
     // E — skating: short, a hard turn, braking
-    def('hk-skate-scrape', 'Skate — scrape', 2, scrape({ hz: 2100, d: 0.07, pulse: 16, tone: 900, gain: 0.09 }), { retro: ICE }),
-    def('hk-skate-turn', 'Skate — hard turn', 3, scrape({ hz: 1800, to: 2500, d: 0.14, pulse: 12, tone: 760, gain: 0.1, r: 0.05 }), { retro: ICE }),
-    def('hk-skate-stop', 'Skate — braking', 4, scrape({ hz: 2900, to: 1300, a: 0.008, d: 0.17, s: 0.1, pulse: 21, tone: 1250, gain: 0.13, r: 0.045 }), { retro: ICE }),
+    def('hk-skate-scrape', 'Skate — scrape', 2, scrape({ hz: 2100, d: 0.07, pulse: 16, tone: 900, gain: 0.09 }), { retro: CART }),
+    def('hk-skate-turn', 'Skate — hard turn', 3, scrape({ hz: 1800, to: 2500, d: 0.14, pulse: 12, tone: 760, gain: 0.1, r: 0.05 }), { retro: CART }),
+    def('hk-skate-stop', 'Skate — braking', 4, scrape({ hz: 2900, to: 1300, a: 0.008, d: 0.17, s: 0.1, pulse: 21, tone: 1250, gain: 0.13, r: 0.045 }), { retro: CART }),
     // F — the referee's whistle: a short blast, and a held one
     def('hk-whistle-short', 'Whistle — short', 9, whistle(), { hold: 0.12, retro: false, vary: STEADY }),
     def('hk-whistle', 'Whistle — held', 9, whistle(), { hold: 0.36, retro: false, vary: STEADY }),
@@ -367,8 +366,8 @@
   ];
 
   // The crowd's one-shots ride the ambient bus with the bed (the crowd's own volume, which
-  // sits lower than the effects by default), so they're authored about as loud as the bed.
-  for (const d of BUILTINS) if (d.category === 'ambient') for (const l of d.config.layers) l.gain = +(l.gain * 3).toFixed(4);
+  // sits lower than the effects by default), so they're lifted a little to sit with it.
+  for (const d of BUILTINS) if (d.category === 'ambient') for (const l of d.config.layers) l.gain = +(l.gain * 1.2).toFixed(4);
   const BY_ID = new Map(BUILTINS.map((d) => [d.id, d]));
 
   // ── variation ────────────────────────────────────────────────────────────────
@@ -425,7 +424,7 @@
   const EVENTS = {
     receive: ['hk-puck-stick', 0.9],
     pass: ['hk-pass', 0.9],
-    tick: ['hk-puck-tick', 0.6],
+    tick: ['hk-puck-tick', 0.45],
     sweep: ['hk-puck-stick-light', 0.9],
     stick: 'hk-stick-hit', poke: 'hk-stick-hit',
     shot: (o) => (o.soft ? ['hk-pass', 0.85] : o.type === 'slap' || o.type === 'onetimer' ? ['hk-puck-slap', 1]
@@ -440,7 +439,7 @@
     horn: (o) => [o.short ? 'hk-goal-horn-short' : 'hk-goal-horn', 1],
     periodHorn: 'hk-period-horn',
     signal: 'hk-signal', alert: 'hk-signal-two', box: 'hk-box-knock',
-    stop: ['hk-skate-stop', 0.8], turn: ['hk-skate-turn', 0.8], scrape: ['hk-skate-scrape', 0.8],
+    stop: ['hk-skate-stop', 0.65], turn: ['hk-skate-turn', 0.7], scrape: ['hk-skate-scrape', 0.7],
     check: (o) => (o.soft ? ['hk-check-light', 0.8] : o.style === 'glass' ? ['hk-glass', 1] : o.style === 'behind' ? ['hk-check-boards', 1] : ['hk-check', 1]),
     fall: 'hk-fall', sever: 'hk-punch-big',
     punch: (o) => (o.big ? ['hk-punch-big', 1] : ['hk-punch', 0.9]),
@@ -471,12 +470,12 @@
   // `opts`: { ctx, dest, noise } (from AudioEngine.engineNodes() by default), `seed`.
   const CROWD_STATES = {
     // rumble, air, voices (gain), pulse (LFO depth), bright (air band centre ×)
-    quiet:   { rumble: 0.5,  air: 0.12, voices: 0.6,  pulse: 0.18, bright: 0.85 },
-    active:  { rumble: 0.8,  air: 0.24, voices: 1.0,  pulse: 0.25, bright: 1 },
-    chance:  { rumble: 1.1,  air: 0.45, voices: 1.5,  pulse: 0.3,  bright: 1.15 },
-    shot:    { rumble: 1.3,  air: 0.55, voices: 1.8,  pulse: 0.32, bright: 1.2 },
-    goal:    { rumble: 1.5,  air: 0.7,  voices: 2.2,  pulse: 0.38, bright: 1.3 },
-    penalty: { rumble: 1.0,  air: 0.24, voices: 2.0,  pulse: 0.45, bright: 0.8 },
+    quiet:   { rumble: 0.22, air: 0.045, voices: 0.25, pulse: 0.18, bright: 0.85 },
+    active:  { rumble: 0.32, air: 0.07,  voices: 0.35, pulse: 0.25, bright: 1 },
+    chance:  { rumble: 0.4,  air: 0.1,   voices: 0.45, pulse: 0.3,  bright: 1.1 },
+    shot:    { rumble: 0.48, air: 0.13,  voices: 0.55, pulse: 0.32, bright: 1.15 },
+    goal:    { rumble: 0.7,  air: 0.2,   voices: 0.8,  pulse: 0.38, bright: 1.25 },
+    penalty: { rumble: 0.38, air: 0.07,  voices: 0.6,  pulse: 0.45, bright: 0.85 },
   };
   function crowdBed(opts = {}) {
     const AE = global.AudioEngine;
@@ -485,11 +484,13 @@
     const c = eng.ctx, nbuf = eng.noise || null, t0 = c.currentTime;
     const out = c.createGain(); out.gain.value = 0;
     const duck = c.createGain(); duck.gain.value = 1;
-    out.connect(duck);
-    const dest = opts.dest || eng.bus || c.destination;
-    // (the cartridge grit, when the engine has its retro stage; otherwise straight on)
-    const into = AE?.retroInsert ? AE.retroInsert(c, { rate: 13000, bits: 9, ref: 1.5 }, dest) : dest;
-    duck.connect(into);
+    // Dark, under everything: the whole bed through a lowpass, so it sits beneath the clicks
+    // and the whistle rather than in their band, and no grit (a sampled hiss under every
+    // second of a game is noise you hear, not texture). It's background: as loud as the
+    // effects, it buried them.
+    const shade = c.createBiquadFilter(); shade.type = 'lowpass'; shade.frequency.value = 2400; shade.Q.value = 0;
+    out.connect(shade).connect(duck);
+    duck.connect(opts.dest || eng.bus || c.destination);
     const nodes = [];
     const src = (offset, rate) => {
       const s = c.createBufferSource();

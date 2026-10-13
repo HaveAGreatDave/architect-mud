@@ -36,7 +36,7 @@ function _crest(name, size, cls = '') {
 // like and how hard. Silent if the file or AudioEngine isn't there: most of the audience is
 // reading text.
 // how often one sound may repeat, so ten men stopping at once isn't ten scrapes
-const SFX_GAP = { stop: 0.35, turn: 0.4, boards: 0.12, glass: 0.12, receive: 0.2, pass: 0.15, tick: 0.25, drop: 0.2, check: 0.15, fall: 0.25, punch: 0.08, stick: 0.1 };
+const SFX_GAP = { stop: 0.9, turn: 1.4, boards: 0.12, glass: 0.12, receive: 0.2, pass: 0.15, tick: 0.9, drop: 0.2, check: 0.15, fall: 0.25, punch: 0.08, stick: 0.1 };
 // the sounds a horn or a whistle must not be buried under: while one's sounding, these play
 // a little quieter (and the crowd ducks)
 const CONTACT = new Set(['receive', 'pass', 'tick', 'stick', 'poke', 'boards', 'glass', 'stop', 'turn', 'sweep', 'block']);
@@ -121,15 +121,17 @@ export function createRinkView(host, opts = {}) {
   }
   // the home crowd: whose side a goal, a save or a hit is on
   const homeSide = (p) => (p && p.homeTeam ? (p.teamName === p.homeTeam) : true);
+  // (the run of play is 'active': the crowd rises for a moment and comes back to it, and a
+  // rush on its own doesn't move it, or it would sit high all game)
   function crowdPlay(p) {
     const c = crowdOn();
     if (!c || !p) return;
     if (crowdBack) { clearTimeout(crowdBack); crowdBack = null; }
     switch (p.type) {
       case 'intermission': case 'injury': case 'death': c.setState('quiet'); break;
-      case 'penalty': c.setState('penalty'); crowdSettle(6); break;
-      case 'chance': case 'goal': case 'scrum': case 'pull': c.setState('chance'); break;
-      case 'fight': c.setState('shot').cheer(); break;
+      case 'penalty': c.setState('penalty'); crowdSettle(4); break;
+      case 'pull': c.setState('chance'); break;
+      case 'fight': c.setState('shot').cheer(); crowdSettle(5); break;
       default: c.setState('active');
     }
   }
@@ -137,16 +139,16 @@ export function createRinkView(host, opts = {}) {
     const c = crowd || null, p = last;
     if (!c) return;
     switch (key) {
-      case 'shot': if (!o.soft) { c.setState('shot'); crowdSettle(2.2, 'chance'); } break;
+      case 'shot': if (!o.soft) { c.setState('shot'); crowdSettle(1.6); } break;
       case 'post': c.gasp(); crowdSettle(2); break;
       case 'glove': case 'pad': case 'chest': if (!homeSide(p)) c.cheer(); crowdSettle(1.6); break;
       case 'whistle': c.duck(3, o.long ? 0.5 : 0.3); break;
       case 'horn':
         c.duck(5, 0.3);
-        if (homeSide(p)) { c.setState('goal'); W && W.schedule(0.2, () => crowd && crowd.celebrate()); crowdSettle(7); }
+        if (homeSide(p)) { c.setState('goal'); W && W.schedule(0.2, () => crowd && crowd.celebrate()); crowdSettle(6); }
         else { c.setState('active'); W && W.schedule(0.15, () => _sfx('groan')); }
         break;
-      case 'roar': c.setState('chance').cheer(); break;
+      case 'roar': c.setState('chance').cheer(); crowdSettle(3); break;
       case 'check': if (!o.soft) c.cheer(); break;
       case 'periodHorn': c.duck(4, 0.6); break;
     }
