@@ -32,6 +32,8 @@ export const PLAYBACK = Object.freeze([0.72, 1.3]);
 // How long a clip takes to mix into the next, and the most a body turns across one mix: a run
 // that has to turn further takes its first strides at half the angle.
 export const FADE = 0.2, TURN = 80;
+// How long the mix between a turning run's two legs takes.
+const BEND_MIX = 0.15;
 // The fastest a fielder runs to a ball on the ground, feet a second.
 export const RUN_MAX = 27;
 // How far short of a clip's start he'd be, L feet from it with T seconds to get there: a step or
@@ -129,7 +131,10 @@ export function runTo(B, to, t0, t1, o = {}) {
     const hEnd = faceTo(bend ? add(S, ahead(h1, Math.min(8, flat(S, to.at) * 0.3))) : S, to.at);
     E = rest ? sub(to.at, ahead(hEnd, lead)) : to.at;
     d1 = bend ? Math.min(8, flat(S, E) * 0.3) + lead : flat(S, E);
-    total = bend ? d1 + flat(add(S, ahead(h1, d1)), E) : d1;
+    // the second leg sets off where the first has him half way through the mix between them, a
+    // little past the corner: counted from the corner, a sprint round a turn ended 2.8 ft short
+    const turned = d1 + c.v * speed * BEND_MIX / 2;
+    total = bend ? turned + flat(add(S, ahead(h1, turned)), E) : d1;
     v = Math.max(total / T, (o.enter || 0) * 0.95);
   }
   const start = Math.max(t0, t1 - timeFor(c.id, total) / speed);
@@ -137,9 +142,9 @@ export function runTo(B, to, t0, t1, o = {}) {
   if (bend) {
     // carried on round the turn: the same stride, the new way, the two legs crossing half way
     // through the mix (crossing where it starts, the mix would swing him wide)
-    const s2 = start + timeFor(c.id, d1) / speed, tm = s2 + 0.075, ph = (tm - start) * speed, r = rootAt(CLIPS[c.id], ph), here = B.frameAt(tm).at;
+    const s2 = start + timeFor(c.id, d1) / speed, tm = s2 + BEND_MIX / 2, ph = (tm - start) * speed, r = rootAt(CLIPS[c.id], ph), here = B.frameAt(tm).at;
     const yaw = faceTo(here, E) - (r.yaw || 0), at2 = sub(here, turn([r.at[0], 0, r.at[1]], yaw));
-    B.play(c.id, start, { frame: { at: [at2[0], 0, at2[2]], yaw }, speed, fade: 0.15, from: s2 });
+    B.play(c.id, start, { frame: { at: [at2[0], 0, at2[2]], yaw }, speed, fade: BEND_MIX, from: s2 });
   }
   return { start, cycle: c.id, speed, v: c.v * speed };
 }

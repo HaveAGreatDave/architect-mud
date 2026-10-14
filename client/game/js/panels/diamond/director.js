@@ -463,7 +463,7 @@ export function createDirector(W, opts = {}) {
         const start = T.tBat - eventTime(swing, 'contact') + off;
         play(H, swing.id, start, start);
         const aim = [atBat[0], atBat[1] + (miss ? (atBat[1] < 2.5 ? 0.38 : -0.38) : 0), atBat[2]];
-        W.at(start, () => W.layer(H.slot, 'aim', { target: aim, reach: 1.25, follow: 1.0, from: T.tBat - 0.1, full: T.tBat - 0.01, hold: T.tBat + 0.02, to: T.tBat + 0.12 }));
+        W.at(start, () => W.layer(H.slot, 'aim', { target: aim, reach: 1.25, follow: 1.5, from: T.tBat - 0.1, full: T.tBat - 0.01, hold: T.tBat + 0.02, to: T.tBat + 0.12 }));
       } else {
         const check = (q.result === 'ball' || q.result === 'called') && hashStr('ck' + i + p.batter) % 4 === 0;
         play(H, check ? 'bat_check' : 'bat_take', T.tRel + 0.1, T.tRel + 0.1);

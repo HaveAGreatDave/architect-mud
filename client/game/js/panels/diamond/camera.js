@@ -94,7 +94,8 @@ export function fovFor(fov, aspect, fit) {
 
 // A shot that moves: `{ shot, track }` follows the ball's way (`track(t)`, a point, plays.js
 // trackOf). The high camera turns toward it, less of the way while it's near the plate so a
-// grounder keeps the infield in the picture, and closes its lens on a ball far out; the camera
+// grounder keeps the infield in the picture, all the way to one behind the plate, and closes its
+// lens on a ball far out; the camera
 // behind a long fly (`{ shot: 'fly', eye, at }`) keeps the catch in the frame and tilts up
 // toward the ball, `follow` of the way. The home-run camera (`{ shot: 'homer', side, dist,
 // stop }`) rides `dist` feet out to `side` of the ball's way, rising with it, until `stop`, short
@@ -124,9 +125,11 @@ export function shotAt(s, t) {
     return { eye: s.eye || base.eye, at: to, fov: s.fov || base.fov, dof: base.dof, shadow: [[at[0], 0, at[2]], 60] };
   }
   if (!q) return base;
-  // out past the infield it turns to the ball; a pop-up near the plate it tilts up after
-  const out = Math.hypot(q[0], q[2]), up = Math.min(1, Math.max(0, (q[1] - 25) / 40));
-  const w = Math.max(Math.min(1, Math.max(0, (out - 50) / 130)), up);
+  // out past the infield it turns to the ball; a pop-up near the plate it tilts up after, and one
+  // coming down behind the plate it looks down after: framed for the field, a foul pop the catcher
+  // takes 50 ft back fell out of the foot of the frame as it came down
+  const out = Math.hypot(q[0], q[2]), up = Math.min(1, Math.max(0, (q[1] - 25) / 40)), back = Math.min(1, Math.max(0, -q[2] / 15));
+  const w = Math.max(Math.min(1, Math.max(0, (out - 50) / 130)), up, back);
   const look = [q[0], q[1] * (0.35 + 0.6 * up), q[2]];
   const at = [base.at[0] + (look[0] - base.at[0]) * w, base.at[1] + (look[1] - base.at[1]) * w, base.at[2] + (look[2] - base.at[2]) * w];
   const far = Math.hypot(at[0] - base.eye[0], at[1] - base.eye[1], at[2] - base.eye[2]), near0 = Math.hypot(base.at[0] - base.eye[0], base.at[1] - base.eye[1], base.at[2] - base.eye[2]);

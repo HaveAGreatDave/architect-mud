@@ -567,9 +567,10 @@ export function catchTarget(home, x, y, from = [0, 0, 1]) {
 // down. The hands follow the bat, as they always do. With `opts.reach`, the hands first carry the
 // knob along the ground toward the target (or back from it), by up to that many feet, until the
 // target is the sweet spot's length away: how a hitter gets the barrel to a pitch on the outer
-// edge. Wherever that or the turn leaves a hand short of the bat, the body goes toward it, by up
-// to `opts.follow` feet along the ground (the planted feet stay planted), and bends at the waist
-// for a hand short below, so both hands stay on. `scale` and `ground` as for sampleClip.
+// edge. Where that's not enough, they go down to it (or up) by up to half as far again. Wherever
+// that or the turn leaves a hand short of the bat, the body goes toward it, by up to `opts.follow`
+// feet along the ground (the planted feet stay planted), and bends at the waist for a hand short
+// below, so both hands stay on. `scale` and `ground` as for sampleClip.
 export function aimBat(P, target, w = 1, opts = {}) {
   if (!(w > 0) || !P.bat) return P;
   const s = opts.scale || 1, ground = opts.ground || flatGround;
@@ -579,6 +580,13 @@ export function aimBat(P, target, w = 1, opts = {}) {
     const d = sub(target, k), h = Math.hypot(d[0], d[2]), want = Math.sqrt(Math.max(0, SWEET_SPOT * SWEET_SPOT - d[1] * d[1]));
     const by = clamp(h - want, -most, most) * w;
     if (by && h > 1e-6) k = [k[0] + d[0] / h * by, k[1], k[2] + d[2] / h * by];
+    // still out of reach once that's all used: the hands go down to it too (or up), by up to half
+    // as far again. Along the ground alone, a pitch in the low corner away met the bat 3 ft up it.
+    const h2 = h - clamp(h - want, -most, most), dy = Math.abs(d[1]);
+    if (Math.hypot(h2, dy) > SWEET_SPOT + 1e-9 && dy > 1e-6) {
+      const drop = Math.min(dy - Math.sqrt(Math.max(0, SWEET_SPOT * SWEET_SPOT - h2 * h2)), most / 2) * w;
+      k = [k[0], k[1] + Math.sign(d[1]) * drop, k[2]];
+    }
   }
   const d0 = P.bat.dir, to = norm(sub(target, k));
   let out = { ...P, bat: { ...P.bat, knob: k, dir: norm([0, 1, 2].map((i) => lerp(d0[i], to[i], w))) } };
