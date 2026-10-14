@@ -18,10 +18,9 @@ import { solvePose } from './rig.js';
 import { throwPath, pitchPath, BALL_R } from './flight.js';
 import { legsOf, topSpeed, POSITIONS } from './play.js';
 import { carried, toPark } from './world.js';
-import { clamp, add, sub, mul, flat, faceTo, wrap, HOME, hashStr, makeBody, cloneBody, runTo, settle, groundOf, sideOf, FADE } from './bodies.js';
-import { bagAt, basePath, slideIn, slideOf, stopAt, standOn, jogOff, dugoutOf, runnerAt, getUpAfter } from './bases.js';
+import { clamp, add, sub, mul, flat, faceTo, wrap, HOME, hashStr, makeBody, cloneBody, runTo, settle, groundOf, sideOf, FADE, endOf } from './bodies.js';
+import { bagAt, basePath, slideIn, slideOf, stopAt, standOn, jogOff, dugoutOf, runnerAt, getUpAfter, stepOff } from './bases.js';
 import { READY_STEP, gloveAt, releaseOf, frameOn } from './plays.js';
-import { MOUND } from './geo.js';
 
 const STEALS = new Set(['steal', 'caughtstealing', 'doublesteal']);
 const THROW_OVERS = new Set(['throwover', 'pickoff']);
@@ -388,19 +387,6 @@ function runnerOff(ctx, from, to, want, o, rand, go) {
   tGo = clamp(tGo, o.tFirst - 0.25, o.tFirst + 0.6);
   const r = trial(lead === cast0 ? null : lead, tGo);
   return { ...r, go: tGo, lead, slide, slideEnd: slideEndOf(r.B) };
-}
-// When his last clip so far is done.
-const endOf = (B) => { const e = B.clips[B.clips.length - 1]; return e.start + CLIPS[e.clip].duration / e.speed; };
-// The third out on the bases: the man who took the throw seven feet off the bag, on past it away
-// from the man he tagged (`R`, on the ground), facing the way he goes, and held there until that
-// man's up and away (`offAfter`, which the director's offField keeps to). Left astride it, the two
-// set off from on top of each other; stepped toward the mound, he went by the man getting up; and
-// gone at once, his way to his dugout can go back over him.
-function stepOff(K, R, bag, t) {
-  const b = bagAt(bag), lie = R.spotAt(t), m = [MOUND[0], 0, MOUND[1]];
-  const way = flat(lie, b) > 0.5 ? unit(sub(b, lie)) : unit(sub(m, b)), off = add(b, mul(way, 7)), yaw = faceTo(b, off);
-  if (runTo(K, { at: off, yaw }, t, t + 1, { rest: true, min: 2 })) settle(K, t + 1, yaw);
-  K.offAfter = endOf(R) + 0.8;
 }
 // A fielder off the bag once the play's done: a jog back to where he started, and his set there
 // facing home, or as near it as 60 degrees from the way he comes in (turned further in the mix, his

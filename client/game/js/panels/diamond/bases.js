@@ -40,7 +40,7 @@ import { BAGS, DEG, RUBBER, MOUND } from './geo.js';
 import { legsOf, topSpeed } from './play.js';
 import {
   clamp, add, sub, mul, flat, faceTo, turn, ahead, wrap, HOME, hashStr, CYCLES, cycleFor, PLAYBACK, FADE, timeFor, STOP, STOP_LEN,
-  makeBody, runTo, pullUp, settle,
+  makeBody, runTo, pullUp, settle, endOf,
 } from './bodies.js';
 
 export const bagAt = (n) => (n === 0 || n === 4 ? HOME : BAGS[n]);
@@ -479,6 +479,18 @@ export function jogOff(B, t, k, dug) {
   pts.push(spot);
   const way = wayPath(roundMound(pts)), run = runAlong(B, way, t + 0.2, way.len - STOP_LEN, { v: 11 });
   pullUp(B, run.tEnd, run.vEnd);
+}
+// The third out at a bag: the man who took the throw there seven feet off it, on past it away from
+// the man he put out (`R`, on the ground), facing the way he goes, and held there until that man's
+// up and away (`offAfter`, which the director's offField keeps to). K is the man covering on a tag
+// (runs.js) or the pivot man on a double play (plays.js). Left astride the bag, the two set off
+// from on top of each other; stepped toward the mound, he went by the man getting up; and gone at
+// once, his way to his dugout can go back over him.
+export function stepOff(K, R, bag, t) {
+  const b = bagAt(bag), lie = R.spotAt(t), m = [MOUND[0], 0, MOUND[1]];
+  const way = flat(lie, b) > 0.5 ? unit(sub(b, lie)) : unit(sub(m, b)), off = add(b, mul(way, 7)), yaw = faceTo(b, off);
+  if (runTo(K, { at: off, yaw }, t, t + 1, { rest: true, min: 2 })) settle(K, t + 1, yaw);
+  K.offAfter = endOf(R) + 0.8;
 }
 
 // ── ball four, or hit by the pitch ─────────────────────────────────────────────

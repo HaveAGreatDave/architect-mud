@@ -32,10 +32,10 @@ import { BAGS, DEG, MOUND as MOUND_AT } from './geo.js';
 import { toPark as onLine, rollAlong, rollTime, hangTime, toFirst, fenceAt, throwTime, firstStep, POSITIONS } from './play.js';
 import { groundPath, flyPath, throwPath, fitPath, BALL_R, GRAVITY } from './flight.js';
 import { carried, toPark } from './world.js';
-import { planBases } from './bases.js';
+import { planBases, stepOff } from './bases.js';
 import {
   clamp, add, sub, mul, flat, wrap, faceTo, turn, ahead, HOME, hashStr, cycleFor, PLAYBACK, FADE, RUN_MAX, shortBy,
-  timeFor, STOP, STOP_LEN, groundOf, sideOf, makeBody, runTo, settle, pullUp,
+  timeFor, STOP, STOP_LEN, groundOf, sideOf, makeBody, runTo, settle, pullUp, endOf,
 } from './bodies.js';
 
 // When the ready set's hop lands (its last step).
@@ -123,26 +123,30 @@ function throwHeading(id, mirror) {
 // the run needs and no later than a third of a second before the catch. A clip that starts
 // running he runs into at its own speed. Returns the clip's entry.
 export function runInto(B, id, fr, tC, t0) {
-  const clip = CLIPS[id], tS = tC - fr.t, s0 = B.spotAt(Math.max(t0, B.free));
+  const clip = CLIPS[id], tS = tC - fr.t, { on } = takeUp(B, id, fr, tC, t0);
   const speedAt = (tau) => { const a = rootAt(clip, Math.max(0, tau - 0.02)), b = rootAt(clip, tau + 0.02); return Math.hypot(b.at[0] - a.at[0], b.at[1] - a.at[1]) / 0.04; };
-  // somewhere he can get to in time and not behind him on the clip's way: the first such, or the
-  // nearest thing to it
-  const fwd = [Math.sin(fr.yaw * DEG), Math.cos(fr.yaw * DEG)], from = Math.max(t0, B.free);
-  const miss = (t) => {
-    const q = carried(fr, clip, tS, 1, t, B.mirror).at;
-    return shortBy(flat(q, s0), t - from) + Math.max(0, -1.5 - ((q[0] - s0[0]) * fwd[0] + (q[2] - s0[2]) * fwd[1]));
-  };
-  let on = Math.max(tS, t0), best = { t: on, m: Infinity };
-  for (let t = on; t <= tC - 0.3 + 1e-9; t += 0.02) {
-    const m = miss(t);
-    if (m < best.m - 1e-9) best = { t, m };
-    if (!m) break;
-  }
-  on = best.t;
   const there = carried(fr, clip, tS, 1, on, B.mirror);
   const v = speedAt(on - tS);
   const ran = runTo(B, { at: there.at, yaw: there.yaw }, t0, on, { atLeast: v > 8 ? Math.min(20, v) : 0, enter: v > 8 ? v : 0, rest: v <= 8 });
   return B.play(id, tS, { frame: fr, fade: FADE, ...(on > tS + 1e-6 ? { from: on, carry: !ran } : {}) });
+}
+// When runInto takes the clip up: the first moment he can get from where he is at t0 to where the
+// clip has him then, not behind him on its way, or the nearest thing to it. Returns { on, m, T }:
+// `m` how far short of it he'd be (0 when he gets there), `T` how long he has to get there.
+function takeUp(B, id, fr, tC, t0) {
+  const clip = CLIPS[id], tS = tC - fr.t, from = Math.max(t0, B.free), s0 = B.spotAt(from);
+  const fwd = [Math.sin(fr.yaw * DEG), Math.cos(fr.yaw * DEG)];
+  const miss = (t) => {
+    const q = carried(fr, clip, tS, 1, t, B.mirror).at;
+    return shortBy(flat(q, s0), t - from) + Math.max(0, -1.5 - ((q[0] - s0[0]) * fwd[0] + (q[2] - s0[2]) * fwd[1]));
+  };
+  let best = { on: Math.max(tS, t0), m: Infinity };
+  for (let t = best.on; t <= tC - 0.3 + 1e-9; t += 0.02) {
+    const m = miss(t);
+    if (m < best.m - 1e-9) best = { on: t, m };
+    if (!m) break;
+  }
+  return { ...best, T: best.on - from };
 }
 
 
@@ -278,6 +282,15 @@ export function planPlay(ctx) {
   });
   log.batter = bases.log.batter; log.runners = bases.log.runners;
   land = Math.max(land, laid.land);
+  // the third out after a force at second: the pivot man steps off the bag on past it, away from
+  // the man he forced there (bases.js stepOff). The director's offField takes everyone off from
+  // where the plan leaves them, and left at the bag the two set off from on top of each other.
+  const pivot = (p.outs | 0) >= 3 ? throwChain.find((x) => x.bag === 2 && !x.error) : null;
+  const forced = pivot ? log.runners.find((x) => x.out === 2) : null;
+  if (forced) {
+    const K = bodies.get(pivot.to);
+    stepOff(K, bases.bodies.find((b) => b.slot === forced.slot), 2, endOf(K) - 0.3);
+  }
   // a sac fly that's close: the throw home, just behind him
   if (homeThrow && airEntry) {
     const run = bases.log.runners.find((r) => r.to === 4);
@@ -592,10 +605,19 @@ export function planPlay(ctx) {
     const q = path0(tN), side = turn(sub(q, s), -faceTo(s, HOME))[0];
     // a dive at a ball nearly at him is the dive to the side, in the air or on the ground
     const id = onGround || dN < 9 ? (side > 0 ? 'field_dive_left' : 'field_dive_right') : 'catch_dive';
-    // the glove a foot and a half short of it, on his side of it
-    const short = add(q, mul(sub(s, q), 1.5 / Math.max(1.5, flat(s, q))));
-    const fr = id !== 'catch_dive' ? frameOn(M, id, short, faceTo(short, HOME)) : frameRunning(M, id, short, s);
     if (tN - react(n) < 0.35) return;
+    // the glove a foot and a half short of it, on his side of it. A ball by him too soon for a run
+    // (runTo makes none under a quarter of a second) he dives at from where he stands, the glove
+    // further short, and it goes by beyond it. A dive more than a step from him was taken up
+    // anyway, and its mix carried him the rest of the way at 57 ft/s.
+    const dive = (gap) => {
+      const at = add(q, mul(sub(s, q), Math.min(1, gap / Math.max(gap, dN))));
+      const fr = id !== 'catch_dive' ? frameOn(M, id, at, faceTo(at, HOME)) : frameRunning(M, id, at, s);
+      return { short: at, fr, ...takeUp(M, id, fr, tN, react(n)) };
+    };
+    let pick = dive(1.5);
+    for (let gap = 2; pick.m > 0 && pick.T < 0.25 && gap < dN; gap += 0.5) { const d = dive(gap); if (d.m < pick.m || d.T >= 0.25) pick = d; }
+    const { short, fr } = pick;
     // on the ground it hops past just under the glove
     if (id !== 'catch_dive' && path0(tN)[1] < 1) riseInto(tN, Math.max(0.6, catchOf(M, id).at[1] - 0.5));
     const e = runInto(M, id, fr, tN, react(n));

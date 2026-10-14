@@ -88,6 +88,9 @@ export function makeBody(o) {
   return B;
 }
 
+// When his last clip so far is done.
+export const endOf = (B) => { const e = B.clips[B.clips.length - 1]; return e.start + CLIPS[e.clip].duration / e.speed; };
+
 // A copy of a body's plan to try something on without touching his own.
 export function cloneBody(B) {
   const C = makeBody({ n: B.n, id: B.id, slot: B.slot, role: B.role, mirror: B.mirror, scale: B.scale, at: B.base.at, yaw: B.base.yaw, place: B.place });
