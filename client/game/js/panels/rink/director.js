@@ -41,6 +41,7 @@ export const SAVE = {
 };
 
 const other = (s) => (s === 'a' ? 'h' : 'a');
+const SIDES = ['a', 'h'];
 const surname = (n) => String(n || '').trim().split(/\s+/).pop();
 const numFor = (key) => 2 + (hash(`num:${key}`) % 97);
 
@@ -366,7 +367,7 @@ export function createDirector(W, opts = {}) {
   // Everybody to the draw on `dot`: an easy skate back after a whistle, brisk for the
   // faceoff itself. The linesman fetches the puck and brings it; the referee collects any
   // gear left on the ice on his way to his spot by the far boards.
-  function toSpots(dot, brisk) {
+  function toSpots(dot, brisk, idle = false) {
     const [dx, dy] = DOT_FT[dot] || DOT_FT.C;
     for (const side of ['a', 'h']) {
       const centre = centreOf(side);
@@ -379,6 +380,14 @@ export function createDirector(W, opts = {}) {
         // (no faster than he can stop from, so he pulls up on his spot rather than past it)
         m.maxV = Math.min(brisk ? 25 : 15, Math.sqrt(2 * 18 * d) + 1);
         m.face = d < 5 ? (attackDir(side) > 0 ? 0 : Math.PI) : null;
+        // A STOPPAGE ISN'T A FREEZE-FRAME. Waiting on the draw, a man who has got to his spot
+        // keeps moving, a slow loop round it, and the centres loop a stride back from the dot
+        // rather than standing nose to nose on it. The faceoff's own beat sets them exactly.
+        // (Parked, the two centres stood face to face for up to a minute after a goal.)
+        if (idle && d < 9) {
+          const a = W.t * 1.15 + m.seed, back = m === centre ? 3 : 0;
+          m.tx = x - attackDir(side) * back + Math.cos(a) * 3; m.ty = clamp(y + Math.sin(a) * 2.4, 4, RW - 4); m.maxV = 6; m.face = null;
+        }
       }
       const g = W.goalie[side];
       if (g && g.active && !g.rag && pk.held !== g) { g.scripted = true; g.tx = (side === 'a' ? GOAL_X[0] : GOAL_X[1]) + attackDir(side) * 3; g.ty = MID_Y; g.face = side === 'a' ? 0 : Math.PI; }
@@ -417,9 +426,16 @@ export function createDirector(W, opts = {}) {
   }
   function regroupTick(B) {
     // (brisk: a broadcast's stoppage is a few seconds of lines, not a real one's half minute)
-    if (B.regroup) { toSpots(B.regroup, true); return; }
+    if (B.regroup) { toSpots(B.regroup, true, true); return; }
     const lin = dropper();
     if (lin && lin.active && !lin.rag && fetchPuck(lin)) { lin.tx = lin.x; lin.ty = lin.y; }
+    // With no dot to go to, the men the play left standing are let go: with play stopped the
+    // sim has them coast to a stop and keep moving, clear of the other side. (The fight's ring
+    // stood where it had watched from until the next play, for as long as forty seconds.) A
+    // beat keeps the men it still has a job for (`B.keep`: his teammates by a man who's hurt).
+    for (const side of SIDES) for (const m of W.team[side]) {
+      if (m.active && m.scripted && !m.rag && !m.hold && !m.down && !(B.keep && B.keep.has(m)) && !busyBody(m)) { m.scripted = false; m.face = null; m.guard = false; m.foe = null; m.grab = null; }
+    }
   }
   // A live play starts with the puck in play: a linesman still holding one from a stoppage
   // that never got its draw drops it where he stands.
@@ -569,6 +585,94 @@ export function createDirector(W, opts = {}) {
       }
     }
 
+    // ── THE BREAKAWAY ─────────────────────────────────────────────────────────
+    // In alone means in alone: from the pass that springs him to the shot, the man with the
+    // puck is nearer their goalie than any man of theirs. The narrator shapes the play
+    // (breakawayRush in hockey.js): gathered in his own end, a long pass up to the shooter
+    // about the red line, and the shot; the booth calls the pass and "he's in alone" as one
+    // line. The ice is made to fit it. Their skaters are caught up the ice, pressing the puck
+    // in his end and never deeper than a line 22 ft short of where he'll take it; he slips in
+    // behind the deepest of them; the pass goes over them; and they chase him from behind,
+    // losing ground, with his own side trailing. A play that starts with the puck past the
+    // spot (in their end) has them clear it down the ice first, and his side gathers it.
+    // Measured before this on three games, a man of theirs was nearer the goalie than the
+    // shooter for the whole of almost every breakaway, often by 20 to 40 ft.
+    const ba = (kind === 'breakaway' || (kind === 'goal' && p.breakaway)) && nodes.length === 4 && nodes[1].ev === 'pass' && nodes[1].carrier >= 0 ? { S: nodes[1], s0: [nodes[1].x, nodes[1].y], phase: 'build' } : null;
+    if (ba) {
+      li = 1;
+      // the man he springs: the name the booth gives him, on anybody but the man gathering it
+      let lk = touchBody(ba.S);
+      if (!lk || lk === cur) {
+        lk = W.nearestOf(W.mates(att).filter((m) => m !== cur && able(m)), ba.S.x, ba.S.y);
+        if (lk) { const nm = nameOf(ba.S.carrier); if (nm) nameBody(lk, nm); ba.S.body = lk; }
+      }
+      ba.leaker = lk ? script(lk) : null;
+      // the puck about level with the spot or past it: his side gives it away in their end,
+      // they clear it up the ice to about his blue line, all of them follow it, and his side's
+      // man nearest there gathers it (his defenceman back from the point, usually) while the
+      // man to be sprung hangs back behind them
+      if (ba.leaker && (pk.x - ba.S.x) * dir > -10) {
+        const gx = clamp(ba.S.x - dir * 30, 24, RL - 24), gy = clamp(nodes[0].y, 12, RW - 12);
+        const cl = pk.carrier && pk.carrier.side === def && able(pk.carrier) ? pk.carrier : W.nearestOf(W.mates(def).filter(able), pk.x, pk.y);
+        const gath = W.nearestOf(W.mates(att).filter((m) => m !== ba.leaker && able(m)), gx, gy);
+        if (cl && gath) {
+          if (pk.home && pk.home.side === att) W.uncollect();
+          if (cur !== gath && cur !== ba.leaker) cur.scripted = false;
+          cur = script(gath);
+          const nm = nameOf(nodes[0].carrier); if (nm) nameBody(cur, nm);
+          leg = { kind: 'clear', t: 0, by: script(cl), gx, gy };
+        }
+      }
+    }
+    // their men, up the ice and on the puck, none past the line (22 ft short of the spring)
+    function press() {
+      const lim = ba.S.x - dir * 22;
+      const men = W.mates(def).filter((m) => free(m) && !(leg && leg.kind === 'clear' && m === leg.by && !leg.away));
+      const near = men.slice().sort((a2, b2) => hyp(a2.x - pk.x, a2.y - pk.y) - hyp(b2.x - pk.x, b2.y - pk.y));
+      near.forEach((m, k) => {
+        script(m);
+        let tx, ty;
+        if (k < 2) {
+          // the two nearest go at it, or at the man with it, a stride off him and working
+          const c = pk.carrier && pk.carrier.side === att ? pk.carrier : null;
+          if (c) {
+            const a0 = Math.atan2(m.y - c.y, m.x - c.x) + Math.sin(W.t * 1.3 + m.seed) * 0.35;
+            tx = c.x + Math.cos(a0) * 3.4; ty = c.y + Math.sin(a0) * 3.4;
+            if (hyp(m.x - c.x, m.y - c.y) < 4.5 && W.t > (m.chkAt || 0)) { m.chkAt = W.t + 0.8 + (m.seed % 4) * 0.12; W.act(m, k ? 'lift' : 'poke', 0.4); W.sfx('stick', { x: m.x }); }
+          } else { const q = W.intercept(m, 22); tx = q[0]; ty = q[1]; }
+          m.maxV = 22;
+        } else {
+          // the rest up the ice to it, in a loose ring short of it
+          const a1 = (k - 2) * 1.9 + 0.6;
+          tx = pk.x + Math.cos(a1) * 22; ty = pk.y + Math.sin(a1) * 17; m.maxV = 22;
+        }
+        // (one still deeper than the man to be sprung, the one who went into the corner for it,
+        // comes up flat out: the pass waits on him)
+        if (ba.leaker && (m.x - ba.leaker.x) * dir > -9) m.maxV = 26;
+        if ((tx - lim) * dir > 0) tx = lim;
+        const c2 = insideRink(tx, ty, 4); if (c2) { tx = c2.x; ty = c2.y; }
+        m.tx = tx; m.ty = ty; m.face = null; m.through = W.t + 0.1;
+      });
+    }
+    // (in behind every man of theirs, by a stride: the pass waits for that, up to 4.5 s late;
+    // a man of theirs who went into the corner for it can take that long to come back up)
+    function behind(m) {
+      if (!m) return true;
+      for (const o of W.mates(def)) if (o.active && !o.rag && (m.x - o.x) * dir < 8) return false;
+      return true;
+    }
+    // and him behind the deepest of them: the spot moves up to 15 ft past that man, no further
+    // than 35 ft short of where he shoots from
+    function leak() {
+      const X = nodes[nodes.length - 2];
+      let deep = -Infinity;
+      for (const m of W.mates(def)) if (m.active && !m.rag) deep = Math.max(deep, m.x * dir);
+      const pg = clamp(Math.max(ba.s0[0] * dir, deep + 15), ba.s0[0] * dir, X.x * dir - 35);
+      ba.S.x = pg * dir; ba.S.y = ba.s0[1];
+      const m = ba.leaker;
+      if (m && m !== cur && pk.target !== m && !(leg && leg.kind === 'wait' && leg.mover === m)) { m.tx = ba.S.x; m.ty = ba.S.y; m.maxV = hyp(ba.S.x - m.x, ba.S.y - m.y) > 10 ? 22 : 9; }
+    }
+
     function nextLeg() {
       if (D.beat !== B) return;
       // nothing is played until he actually has it: a pass on its way to him he takes as it
@@ -577,11 +681,16 @@ export function createDirector(W, opts = {}) {
       if (li >= nodes.length - 2) { shotLeg(); return; }
       // the line for this touch hasn't aired yet: move toward it, timed to arrive with it
       const want = cueOf(p, 'node', 'i', nodes[li].oi);
+      // (a breakaway's pass waits on the man it springs to be in behind them)
+      if (ba && nodes[li] === ba.S && want != null && W.t - B.t0 >= want - 0.05 && !behind(ba.leaker) && W.t - B.t0 < want + 4.5) {
+        leg = { kind: 'wait', until: W.t - B.t0 + 0.25, mover: ba.leaker, tx: ba.S.x, ty: ba.S.y, t: 0, hold: [cur.x, cur.y] };
+        return;
+      }
       if (want != null && W.t - B.t0 < want - 0.05) {
         const nd = nodes[li], tb = touchBody(nd);
         const passing = tb && tb !== cur && nd.ev !== 'battle' && nd.ev !== 'dump';
         if (passing) { script(tb); cur.tx = lerp(cur.x, nd.x, 0.25); cur.ty = lerp(cur.y, nd.y, 0.25); }
-        leg = { kind: 'wait', until: want, mover: passing ? tb : cur, tx: nd.x, ty: nd.y, t: 0 };
+        leg = { kind: 'wait', until: want, mover: passing ? tb : cur, tx: nd.x, ty: nd.y, t: 0, hold: passing ? [cur.tx, cur.ty] : null };
         return;
       }
       // A dump goes in from about where the sim had it. From well short of that (his own
@@ -647,6 +756,8 @@ export function createDirector(W, opts = {}) {
         // a pass to the man who carries the next touch: he skates to the spot and it meets him
         script(tb);
         tb.tx = nd.x; tb.ty = nd.y; tb.maxV = 22;
+        // (sprung: he takes it in stride, going)
+        if (ba && nd === ba.S) { tb.tx = nd.x + dir * 16; tb.maxV = 20; tb.through = W.t + 0.1; }
         const lu = (tb.x - cur.x) * Math.cos(cur.h) + (tb.y - cur.y) * Math.sin(cur.h);
         const lv = -(tb.x - cur.x) * Math.sin(cur.h) + (tb.y - cur.y) * Math.cos(cur.h);
         // a drop pass is for a man right behind him; farther back it's played firmly; and it's
@@ -679,6 +790,62 @@ export function createDirector(W, opts = {}) {
       leg.tx = nd.x; leg.ty = nd.y;
     }
 
+    // A MAN WITH THE PUCK WAITING ON HIS NEXT TOUCH DOESN'T STAND ON IT. He curls round the
+    // spot he was holding it at, turning away from their nearest man and keeping his body
+    // between that man and the puck. Parked, he stood nose to nose with their forechecker,
+    // the two of them still for seconds at a time.
+    function keepMoving(m, at0, L) {
+      const foe = W.nearestOf(W.mates(def).filter((o) => o.active && !o.rag), m.x, m.y);
+      const fd = foe ? hyp(foe.x - m.x, foe.y - m.y) : 99;
+      if (hyp(at0[0] - m.x, at0[1] - m.y) > 9) { m.tx = at0[0]; m.ty = at0[1]; m.maxV = 12; m.protect = 0; return; }
+      // (round the spot the way that takes him away from their man, once it's chosen)
+      if (L.spin == null || (fd < 8 && !L.spun)) {
+        const side = foe ? Math.sign(-(foe.x - m.x) * Math.sin(m.h) + (foe.y - m.y) * Math.cos(m.h)) : 0;
+        L.spin = side ? -side : (m.seed % 2 ? 1 : -1); L.spun = fd < 8;
+      }
+      const a = Math.atan2(m.y - at0[1], m.x - at0[0]) + L.spin * 0.8;
+      let cx = at0[0] + Math.cos(a) * 5, cy = at0[1] + Math.sin(a) * 5;
+      const c = insideRink(cx, cy, 4); if (c) { cx = c.x; cy = c.y; }
+      m.tx = cx; m.ty = cy; m.maxV = 9; m.through = W.t + 0.1;
+      if (fd < 9) { const lv = -(foe.x - m.x) * Math.sin(m.h) + (foe.y - m.y) * Math.cos(m.h); m.protect = lv >= 0 ? 1 : -1; } else m.protect = 0;
+    }
+
+    // THE SHOT IS TAKEN IN STRIDE. Early for his line, he doesn't park on the spot it's shot
+    // from and wait for it: he curls round a point ten feet back from it, on the side away
+    // from the net, and comes through the spot as the shot is called, still moving, and on
+    // through it (a slapshot's man glides into his). Measured on two games, he used to be
+    // under 3 ft/s at the release on the median shot, and stood for three seconds or more
+    // before it on the slowest tenth.
+    const RUN = { wrist: 14, snap: 15, backhand: 12, slap: 9 };
+    function runUp(m, L, left, T) {
+      const sx = L.sx, sy = L.sy, d = hyp(sx - m.x, sy - m.y), vr = RUN[T] || 13;
+      const ul = hyp(netX - sx, MID_Y - sy) || 1, ux = (netX - sx) / ul, uy = (MID_Y - sy) / ul;
+      if (!L.drive && left > d / Math.max(vr, 16) + 0.25) {
+        if (L.curl == null) L.curl = m.seed % 2 ? 1 : -1;
+        // (less far back the farther out the shot: a point shot's man walks the line, and the
+        // picture keeps him and the net in frame)
+        const back = clamp(50 - ul, 2, 8);
+        let qx = sx - ux * back, qy = sy - uy * back;
+        // With seconds in hand he takes it round wider, out toward the wall on his side and
+        // back, and closes in to the tight curl as the shot comes. (Sent from a long way off
+        // he went straight through the spot and stood past it with the puck for eleven
+        // seconds; circling tight on it that long reads as a man killing time.)
+        const wide = left > 3.5 + d / 16, rad = wide ? 9 : 5;
+        if (wide) qy += (sy > MID_Y ? 1 : -1) * 6;
+        const qc = insideRink(qx, qy, rad + 1); if (qc) { qx = qc.x; qy = qc.y; }
+        const a = Math.atan2(m.y - qy, m.x - qx) + L.curl * 0.7;
+        let cx = qx + Math.cos(a) * rad, cy = qy + Math.sin(a) * rad;
+        const cc = insideRink(cx, cy, 4); if (cc) { cx = cc.x; cy = cc.y; }
+        m.tx = cx; m.ty = cy; m.maxV = d > rad + 14 ? 18 : wide ? 13 : 11; m.through = W.t + 0.1;
+        return;
+      }
+      // going: the line he takes through the spot is kept, so once past it he carries on
+      // rather than turning back to it
+      if (!L.drive) L.drive = d > 2 ? [(sx - m.x) / d, (sy - m.y) / d] : [ux, uy];
+      m.tx = sx + L.drive[0] * 8; m.ty = sy + L.drive[1] * 8;
+      m.maxV = clamp(d / Math.max(0.3, left), vr, 24); m.through = W.t + 0.1;
+    }
+
     function shotLeg() {
       const sn = nodes[nodes.length - 2];
       // a shot is coming: the camera brings the net into frame now, before the puck is away
@@ -688,8 +855,10 @@ export function createDirector(W, opts = {}) {
       if (kind === 'breakaway' || (kind === 'goal' && p.breakaway)) {
         const al = cueOf(p, 'alone'), wait = al != null ? Math.max(0, al - (W.t - B.t0)) : 0;
         at(B, wait, () => { W.banner = { text: 'BREAKAWAY!', sub: surname(p.shooter).toUpperCase(), t0: W.t, dur: 1.9, col: '#f0bd4c' }; W.crowd = 1; W.cam.drama = true; W.sfx('roar'); });
-        B.chasers = W.mates(def).filter(free).sort((a2, b2) => hyp(a2.x - cur.x, a2.y - cur.y) - hyp(b2.x - cur.x, b2.y - cur.y)).slice(0, 2);
+        // (all of theirs chase him, nearest first; his own side trails the play)
+        B.chasers = W.mates(def).filter(free).sort((a2, b2) => hyp(a2.x - cur.x, a2.y - cur.y) - hyp(b2.x - cur.x, b2.y - cur.y));
         B.chasers.forEach((m) => script(m));
+        if (ba) { ba.phase = 'run'; B.trail = W.mates(att).filter((m) => m !== cur && free(m)); B.trail.forEach((m) => script(m)); }
       }
       // The shot is the best-placed man's: the one with the puck, the one a pass is on its way
       // to, or whoever of his side will get to a loose one first. The booth's name goes on him
@@ -727,7 +896,7 @@ export function createDirector(W, opts = {}) {
         leg = { kind: 'wrapIn', t: 0, sv };
       } else if (setup) {
         cur.tx = sn.x - dir * 10; cur.ty = sn.y + (sn.y > MID_Y ? -8 : 8); cur.maxV = 16;
-        leg = { kind: 'feed', t: 0, shooter, setup, fed: false };
+        leg = { kind: 'feed', t: 0, shooter, setup, fed: false, sx: shooter.tx, sy: shooter.ty };
       } else {
         cur.tx = sn.x; cur.ty = sn.y; cur.maxV = 21;
         leg = { kind: 'approach', t: 0, shooter, sx: sn.x, sy: sn.y };
@@ -766,6 +935,11 @@ export function createDirector(W, opts = {}) {
       }
       W.act(shooter, T, SHOTS[T].dur);
       if (T === 'slap' || T === 'onetimer') { shooter.tx = shooter.x + shooter.vx * 0.5; shooter.ty = shooter.y + shooter.vy * 0.5; shooter.maxV = 8; }
+      else {
+        // (and through the shot, slowing as he follows it in, not stopping to take it)
+        const v = hyp(shooter.vx, shooter.vy);
+        if (v > 3) { shooter.tx = shooter.x + shooter.vx * 0.7; shooter.ty = shooter.y + shooter.vy * 0.7; shooter.maxV = Math.max(6, v * 0.85); }
+      }
       if (leg && leg.blocker) W.act(leg.blocker, 'block', 0.9);
       at(B, releaseAt(T), () => {
         if (pk.carrier !== shooter) W.give(shooter, true);
@@ -908,6 +1082,7 @@ export function createDirector(W, opts = {}) {
     B.update = (dt) => {
       if (B.stopped) return;
       W.cam.focus = [pk.x, pk.y];
+      if (ba && ba.phase === 'build' && !B.landed) { press(); leak(); }
       // the man it's on gone (off the ice, flattened): the nearest of his side takes over
       if (!B.scored && leg && !['shooting'].includes(leg.kind) && !able(cur)) {
         const nb = W.nearestOf(W.mates(att).filter(able), pk.x, pk.y);
@@ -968,6 +1143,28 @@ export function createDirector(W, opts = {}) {
         leg = null; nextLeg();
         return;
       }
+      if (leg.kind === 'clear') {
+        // their man gets it (off ours with a poke, out of his goalie's glove, off the ice) and
+        // fires it down the ice; ours waits on it up there, and gathers it
+        const c = leg.by;
+        if (!leg.away) {
+          cur.tx = leg.gx; cur.ty = leg.gy; cur.maxV = 18;
+          if (pk.carrier === c) {
+            leg.away = true; W.act(c, 'dump', 0.45);
+            at(B, 0.2, () => { if (pk.carrier === c) W.dumpTo(c, leg.gx, leg.gy, 74); });
+          } else if (pk.carrier && pk.carrier.side === att && !leg.given) {
+            // (given away: his pass is picked off by their man)
+            const o = pk.carrier; leg.given = true;
+            W.act(o, 'pass', SHOTS.pass.dur);
+            at(B, releaseAt('pass'), () => { if (pk.carrier === o) W.pass(o, c, 52); });
+          } else if (pk.held && pk.held.kind === 'goalie' && pk.held.side === def) {
+            const g0 = pk.held; g0.gloveW = 0; g0.gloveHold = false; g0.actHold = false; pk.held = null; W.pass(g0, c, 45);
+          } else if (pk.home !== c && pk.target !== c && !pk.held) W.collect(c);
+        } else if (pk.carrier === cur) { leg = null; nextLeg(); return; }
+        else if (!pk.carrier && pk.home !== cur && pk.target !== cur && leg.t > 0.5) W.collect(cur);
+        if (leg && leg.t > 8) { leg = null; nextLeg(); }
+        return;
+      }
       if (leg.kind === 'fetch') {
         if (pk.carrier === cur) {
           const rv = leg.rival;
@@ -995,8 +1192,17 @@ export function createDirector(W, opts = {}) {
           return;
         }
         if (!c.scripted) script(c);
-        c.tx = c.x + c.vx * 0.3; c.ty = c.y + c.vy * 0.3; c.maxV = 10;
         const dc = hyp(cur.x - c.x, cur.y - c.y), lv = -(cur.x - c.x) * Math.sin(c.h) + (cur.y - c.y) * Math.cos(c.h);
+        // (a long way off with the line coming, the man with it brings it up the ice to him, as
+        // a man breaking out does; stood waiting, it was taken off him a second and more after
+        // its line)
+        const cue0 = tk ?? cueOf(p, 'fetched'), left0 = cue0 != null ? B.t0 + cue0 - 0.15 - W.t : null;
+        if (left0 != null && dc > 12 && dc / 26 > left0 - 0.3) {
+          const vc = clamp(dc / Math.max(0.3, left0 - 0.3) - 26, 4, 16);
+          let qx = c.x + (cur.x - c.x) / dc * 10, qy = c.y + (cur.y - c.y) / dc * 10;
+          const qc = insideRink(qx, qy, 4); if (qc) { qx = qc.x; qy = qc.y; }
+          c.tx = qx; c.ty = qy; c.maxV = vc; c.through = W.t + 0.1;
+        } else { c.tx = c.x + c.vx * 0.3; c.ty = c.y + c.vy * 0.3; c.maxV = 10; }
         c.protect = dc < 9 ? (lv >= 0 ? 1 : -1) : 0;
         // (into him, through the puck, rather than easing up short of him)
         cur.tx = pk.x + pk.vx * 0.15; cur.ty = pk.y + pk.vy * 0.15; cur.maxV = 26; cur.through = W.t + 0.1; cur.charging = c;
@@ -1052,6 +1258,7 @@ export function createDirector(W, opts = {}) {
         return;
       }
       if (leg.kind === 'wait') {
+        if (ba && leg.mover === ba.leaker) { leg.tx = ba.S.x; leg.ty = ba.S.y; }
         const m = leg.mover, left = leg.until - rel, dn = hyp(leg.tx - m.x, leg.ty - m.y);
         if (left > 1.2 && dn < 12) {
           // Early, and nearly there: he curls round the spot at a skater's pace, a stride
@@ -1066,8 +1273,8 @@ export function createDirector(W, opts = {}) {
           m.tx = leg.tx; m.ty = leg.ty;
           m.maxV = clamp(dn / Math.max(0.4, left), 5, 24);
         }
-        if (m !== cur) cur.maxV = 9;
-        if (left <= 0) { leg = null; nextLeg(); }
+        if (m !== cur) { cur.maxV = 9; if (leg.hold) keepMoving(cur, leg.hold, leg); }
+        if (left <= 0) { cur.protect = 0; leg = null; nextLeg(); }
         return;
       }
       if (leg.kind === 'carry') {
@@ -1127,8 +1334,11 @@ export function createDirector(W, opts = {}) {
         }
       } else if (leg.kind === 'approach') {
         const sh = leg.shooter;
-        // on a breakaway the defenders are a stride or two behind him, and losing ground
-        if (B.chasers) B.chasers.forEach((m, i) => { m.tx = sh.x - dir * (7 + i * 5); m.ty = sh.y + (i ? 4 : -4); m.maxV = Math.max(8, hyp(sh.vx, sh.vy) - 1.5); });
+        // on a breakaway they're a stride or two behind him and more, losing ground, and his
+        // own side further back still
+        const sv = hyp(sh.vx, sh.vy);
+        if (B.chasers) B.chasers.forEach((m, i) => { m.tx = clamp(sh.x - dir * (7 + i * 5), 8, RL - 8); m.ty = clamp(sh.y + (i % 2 ? 1 : -1) * (3 + i * 2.5), 5, RW - 5); m.maxV = Math.max(8, sv - 1.5); m.face = null; });
+        if (B.trail) B.trail.forEach((m, i) => { m.tx = clamp(sh.x - dir * (24 + i * 8), 8, RL - 8); m.ty = clamp(sh.y + (i % 2 ? 1 : -1) * (10 + i * 3), 5, RW - 5); m.maxV = Math.max(6, sv - 3); });
         if (leg.breakaway && g) { g.scripted = true; g.tx = g.x; g.ty = g.y; }
         // He can only shoot what's on his stick. Without it he's getting it (the sim's
         // `pursue` has him); with it he takes it to the spot it's shot from.
@@ -1144,20 +1354,62 @@ export function createDirector(W, opts = {}) {
           // length of the ice)
           const inRange = hyp(netX - sh.x, MID_Y - sh.y) < 75 || d < 14;
           if (has) sh.maxV = left <= 0 && !inRange ? 26 : clamp(d / Math.max(0.3, left), 6, 24);
-          if (has && left <= 0 && inRange && (kind !== 'goal' || (d < 14 && inFront) || -left > 2.0)) { leg.kind = 'shooting'; shoot(sh); }
+          // in alone he's skating, not drifting: early, he holds his speed in, and close to the
+          // net with time still to kill he cuts across the slot to wait the goalie out
+          if (has && ba) {
+            sh.maxV = clamp(d / Math.max(0.3, left), 16, 24);
+            if (d < 16 && left > 0.7) { leg.cut ??= sh.seed % 2 ? 1 : -1; sh.tx = leg.sx; sh.ty = clamp(leg.sy + leg.cut * 7, MID_Y - 12, MID_Y + 12); sh.maxV = 11; if (Math.abs(sh.y - sh.ty) < 1.5) leg.cut = -leg.cut; }
+          }
+          if (has && !(left <= 0 && !inRange) && !leg.breakaway && kind !== 'breakaway' && !p.breakaway) runUp(sh, leg, left, type);
+          // (in alone, a breakaway stopped is stopped close in, where the goalie can get to him)
+          if (has && left <= 0 && inRange && (kind !== 'goal' || (d < 14 && inFront) || -left > 2.0) && (kind !== 'breakaway' || d < 12 || -left > 2.5)) { leg.kind = 'shooting'; shoot(sh); }
         } else if (has && (d < 5 || leg.t > 1.7)) { leg.kind = 'shooting'; shoot(sh); }
       } else if (leg.kind === 'wrapIn') {
         // late on its line, he cuts the corner and comes straight round the post
         const late = shotCue != null && rel >= shotCue;
         // (round the post to just inside it, in front of the goal line: from beside the post
         // there's no way into the net but through the side of it)
-        if ((leg.t > 0.5 || late) && !leg.round) { leg.round = true; leg.roundAt = leg.t; cur.tx = netX - dir * 2.2; cur.ty = MID_Y + leg.sv * (NET_HALF - 0.6); cur.maxV = late ? 26 : 20; }
+        // Early, he keeps moving behind the net, a slow loop there, and comes round when the
+        // post is as far as he'll skate by the time the shot is called: waiting at the post he
+        // stood still for seconds.
+        const px = netX - dir * 2.2, py = MID_Y + leg.sv * (NET_HALF - 0.6);
+        const go = late || (shotCue == null ? leg.t > 0.5 : leg.t > 0.5 && shotCue - rel <= hyp(px - cur.x, py - cur.y) / 18 + 0.15);
+        if (!leg.round && !go && leg.t > 0.5) {
+          const a = W.t * 1.4 + cur.seed, bx = netX + dir * 7, by = MID_Y + leg.sv * 4;
+          cur.tx = bx + Math.cos(a) * 3; cur.ty = by + Math.sin(a) * 2.5; cur.maxV = 9; cur.through = W.t + 0.1;
+        }
+        if (go && !leg.round) { leg.round = true; leg.roundAt = leg.t; cur.tx = px; cur.ty = py; cur.maxV = late ? 26 : 20; }
         if (leg.round && (hyp(cur.tx - cur.x, cur.ty - cur.y) < 2 || leg.t > 2.2 || (late && leg.t - leg.roundAt > 0.5)) && (shotCue == null || rel >= shotCue)) { leg.kind = 'shooting'; shoot(cur); }
       } else if (leg.kind === 'feed') {
         const sh = leg.shooter;
+        if (!leg.fed && pk.carrier === cur) keepMoving(cur, leg.fx ??= [cur.tx, cur.ty], leg);
+        else cur.protect = 0;
         // (a man waiting to tip a shot faces the man it'll come from, his stick out in its way:
         // turning as he settled swung his blade four feet off where the shot was aimed)
         if (type === 'tip') sh.face = Math.atan2(cur.y - sh.y, cur.x - sh.x);
+        // NOT PARKED ON HIS SPOT. The one-timer man waits off it, drifting, and glides through
+        // it as the pass comes, so he meets the puck moving; the man at the net works the top
+        // of the crease instead of standing on it.
+        if (type === 'onetimer' && !leg.fed && !(shotCue != null && rel >= shotCue - 1.3)) {
+          const ul = hyp(netX - leg.sx, MID_Y - leg.sy) || 1, qx = leg.sx - (netX - leg.sx) / ul * 7, qy = leg.sy - (MID_Y - leg.sy) / ul * 7;
+          const a = W.t * 1.6 + sh.seed;
+          sh.tx = qx + Math.cos(a) * 2.5; sh.ty = qy + Math.sin(a) * 2.5; sh.maxV = hyp(qx - sh.x, qy - sh.y) > 6 ? 20 : 6;
+        } else if (type === 'onetimer' && pk.carrier !== sh) {
+          if (!leg.drive) { const dd = hyp(leg.sx - sh.x, leg.sy - sh.y) || 1; leg.drive = [(leg.sx - sh.x) / dd, (leg.sy - sh.y) / dd]; }
+          sh.tx = leg.sx + leg.drive[0] * 6; sh.ty = leg.sy + leg.drive[1] * 6; sh.maxV = 10; sh.through = W.t + 0.1;
+        } else if (type === 'tip' && !leg.fed && hyp(leg.sx - sh.x, leg.sy - sh.y) < 6) {
+          // (once he's there: on his way, he gets there flat out) He works the top of the crease,
+          // a slow loop across the goalie's eyes and back, sideways on to the point, and lifts
+          // the stick of the man boxing him out. (A shuffle of a foot or two either way, he stood
+          // in front of the net for as long as nine seconds before the tip.)
+          const a = W.t * 1.5 + sh.seed;
+          sh.tx = leg.sx - dir * 1.2 * (1 + Math.cos(a)); sh.ty = leg.sy + 3 * Math.sin(a); sh.maxV = 6; sh.through = W.t + 0.1;
+          // (not as the shot comes: his blade's where the point man aims it)
+          if (W.t > (leg.liftAt || 0) && (shotCue == null || rel < shotCue - 1.0)) {
+            const o = W.mates(def).find((m) => m.kind === 'skater' && !m.rag && hyp(m.x - sh.x, m.y - sh.y) < 5);
+            if (o) { leg.liftAt = W.t + 1.2 + (sh.seed % 3) * 0.2; W.act(sh, 'lift', 0.4); o.react = Math.max(o.react || 0, 0.25); W.sfx('stick', { x: sh.x }); }
+          }
+        }
         if (!leg.fed && (shotCue != null ? rel >= shotCue - 0.5 : (leg.t > 0.7 || hyp(sh.tx - sh.x, sh.ty - sh.y) < 4))) {
           leg.fed = true; const from = cur;
           W.act(from, 'pass', SHOTS.pass.dur);
@@ -1226,7 +1478,9 @@ export function createDirector(W, opts = {}) {
     B.update = (dt, rel) => {
       W.cam.focus = [dx, dy];
       if (!B.down) {
-        toSpots(dot, true);
+        // (looping near their spots until a couple of seconds before the drop, unless a play is
+        // waiting on it: set on the dot for its whole line, the centres stood still up to 7 s)
+        toSpots(dot, true, rel < dropAt - 2.2 && !D.queued);
         lin = dropper();
         const has = lin && pk.held === lin;
         // set: both centres on the dot, the linesman stepped in beside it with the puck; or
@@ -1408,6 +1662,9 @@ export function createDirector(W, opts = {}) {
       if (fatal === 'throat') { victim.fountain = { part: 'head', until: W.t + 5 }; victim.bleeding = 12; }
       W.cam.mode = 'zoom';
       land(B);
+      // (the hitter skates off it: kept where he hit, he stood at the boards by the man he'd
+      // put down until the stretcher came)
+      at(B, 1.0, () => { hitter.scripted = false; });
       if (hurt) {
         // he stays down and play stays stopped until the injury beat comes for him
         victim.down = true;
@@ -1416,7 +1673,6 @@ export function createDirector(W, opts = {}) {
         at(B, 3.0, () => { B.waiting = true; opts.onDone?.(B.kind); });
       } else {
         at(B, 2.3, () => { W.getUp(victim, 1.1); victim.scripted = false; pickUpStick(victim); });
-        at(B, 1.0, () => { hitter.scripted = false; });
         at(B, 3.2, () => finish(B));
       }
     }
@@ -1524,6 +1780,7 @@ export function createDirector(W, opts = {}) {
     // his teammates go to him; the officials stand off
     const mates = W.mates(victim.side).filter((m) => m !== victim && !m.rag).slice(0, 3);
     mates.forEach((m, i) => { m.scripted = true; m.maxV = 10; B.locked.add(m); });
+    B.keep = new Set(mates);
     at(B, 0.3, () => land(B));
     const offT = cueOf(p, 'off');
     // While they see to him the rest make for the draw in that end (see stopPlay); the camera
@@ -1788,8 +2045,11 @@ export function createDirector(W, opts = {}) {
       const ko = lose.rag != null || B.overAt;
       for (const m of ring) {
         if (!m.ring || !m.active) continue;
-        const a = m.ring.a + rel * 0.03 * (m.side === 'a' ? 1 : -1), rad = ko ? 10 + (m.seed % 3) * 1.5 : m.ring.rad;
-        m.tx = cx + Math.cos(a) * rad; m.ty = cy + Math.sin(a) * rad * 0.8; m.maxV = ko ? 8 : 4; m.face = Math.atan2(cy - m.y, cx - m.x);
+        // (edging round for a look, in and out, not stood in a still ring: a fight's bystanders
+        // were the stillest men on the ice)
+        const a = m.ring.a + rel * 0.07 * (m.side === 'a' ? 1 : -1) + 0.1 * Math.sin(rel * 0.8 + m.seed);
+        const rad = (ko ? 10 + (m.seed % 3) * 1.5 : m.ring.rad) + 1.6 * Math.sin(rel * 0.9 + m.seed * 1.3);
+        m.tx = cx + Math.cos(a) * rad; m.ty = cy + Math.sin(a) * rad * 0.8; m.maxV = ko ? 8 : 5; m.face = Math.atan2(cy - m.y, cx - m.x);
       }
       W.officials.forEach((o, i) => {
         if (!B.linesmen) return;

@@ -60,7 +60,8 @@ export function paceCalls(lines, fillMs, tickMs, { minScale = 0.8, maxScale = 1.
   let gd = null, acc = 0;
   for (const n of live) {
     if (n.gameday) { gd = n.gameday; gd.cues = []; acc = 0; }
-    if (gd && n._cue) gd.cues.push({ ms: acc, ...n._cue });
+    // (a line can carry two moments of play: a breakaway's spring is the pass and the call)
+    if (gd && n._cue) for (const c of [].concat(n._cue)) gd.cues.push({ ms: acc, ...c });
     acc += holds.get(n);
   }
   return { holds, dropped };

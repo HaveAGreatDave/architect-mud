@@ -909,7 +909,8 @@ so a narrator cannot read the other league's records.
   play it describes (`cue`: a touch, the release, the drop and the won draw, the impact,
   the clinch, a punch, the walk to the box, the medics, a goal's replay and the return to
   live). The pacer turns those into `cues` on the payload, in ms from the start of the
-  payload's line, and the director does each thing as its line airs. A rush plays only
+  payload's line, and the director does each thing as its line airs. A line can carry two
+  (a breakaway's spring is the pass and "he's in alone" at once). A rush plays only
   the touches the booth calls, and one running behind its lines catches up rather than
   letting the words get ahead.
 
@@ -1079,6 +1080,13 @@ is shorter.
 every period, which is how `synthPossession` writes its keyframes, and a goal's last
 keyframe (`x` ≈ 0.955) lies past `GEO.goalLine[1]`, which the broadcast regress asserts.
 
+**One shape for every body.** Every field the sim, the director or the rig hangs on a man is
+declared in `makeBody` (sim.js), in one order, undefined until it's used. Added as they came
+up, each man collected them in an order of his own and V8 gave each man a hidden class of his
+own, so every hot function saw a dozen shapes and the optimiser kept compiling them again;
+declared up front, the rink smoke takes about a third less CPU. A new field goes there too.
+The ice cuts ask for the skates alone (`skaterFeet`), which skips the arms and the stick.
+
 **Nothing on the ice decides anything.** The sim on the server decided every shot, save,
 hit, fight and injury before the broadcast began. Between beats the world plays hockey on
 its own (carries, cycles, passes, dekes, dump-ins, rub-outs, a goalie playing it to his
@@ -1117,7 +1125,11 @@ the puck it needs, walks them through the beat and hands them back to the ambien
   and everyone skates to that dot while the booth talks, so the faceoff's own beat usually
   finds them set. A play that arrives before the puck is down waits for the drop
   (`D.queued`, three seconds at most, the draw hurrying) and keeps the time it arrived,
-  so it catches up with its lines rather than trailing them.
+  so it catches up with its lines rather than trailing them. Nobody stands still waiting:
+  a man at his spot loops slowly round it, the centres a stride back from the dot, until a
+  couple of seconds before the drop. A stoppage with no dot (a man down on the boards, the
+  end of a fight) hands the men to the sim, which has them coast to a stop and then keep
+  moving, drifting clear of the other side; an injured man's teammates stay by him (`B.keep`).
 - *Boards hits* happen on the far wall, where the glass is in shot, in the sim's
   `hitStyle`: shoulder, glass (which can break a pane), from behind, hip check, elbow.
   The man hit becomes a ragdoll, so where and how hard he meets the boards decides how he
@@ -1212,7 +1224,18 @@ race between the man the booth names and their nearest man; when they get there 
 it's a scramble, sticks on it and on each other and the puck kicked about between them, and
 the named man comes out with it as the next line (`pbp.won`) airs. The rink smoke fails a
 takeaway the booth calls that isn't a battle on the ice, or whose puck comes loose more than
-0.6 s off its line.
+0.6 s off its line. With the forechecker a long way off and the line close, the man with the
+puck brings it up the ice to him, as a man breaking out does.
+
+Nobody stands frozen in a battle, either. A carrier waiting on his next touch curls round
+the spot, turning away from their nearest man and keeping his body between that man and the
+puck (`protect`). Their ambient forechecker on a man the director is staging works for the
+puck, round the man and back with him, lifting his stick and poking at the puck, rather than
+leaning on him. A man chasing a loose puck turns to it as he gets close, and takes it at his
+skates if that's where it is: run onto it, two of them once stood on a puck dead in the
+corner for ten seconds. The rink smoke fails a game where two opposing men a stick apart
+(7 ft) both stand still (under 1.5 ft/s) for more than five seconds, outside a faceoff, a
+fight that's still on, or a death.
 
 **Nothing teleports, and the live picture never cuts.** Every change of shot (a fight's
 close-up, the Zamboni, a death's slow push in) is the camera's springs easing to it. Nobody
@@ -1246,6 +1269,9 @@ and the D trail. In the zone the D hold the points (a D carrying it walks the li
 forward goes to the net, the nearest supports low and the third sits in the high slot. In
 their own end the strong-side D takes the corner, the other holds the front of the net, the
 centre covers low and the wingers take the points; through the neutral zone it's a 1-2-2.
+Nobody stands on his spot: the point men walk the line, the man at the net works for his
+ground, a defenceman boxes out a man parked in front of his net with a cross-check now and
+then, and a winger covering the point stays a stride inside the man there as he moves.
 Passing follows the zone: back to the points, D to D and low to high in the zone, the
 stretch pass to a winger through the middle. A drop pass is only for a man right behind;
 farther back the pass is played firmly. In a scripted rush, a touch goes to the man in that
@@ -1254,10 +1280,32 @@ name the booth gives it. The booth calls up to five touches of a near-miss or a 
 three of a routine chance, so the build-up is on air as well as on the ice.
 
 **Breakaways.** A breakaway chance, or a goal the narrator stages as one (`gd.breakaway`,
-about one even-strength goal in five), gets `pbp.breakaway` ("He's in alone!") on an
-`alone` cue. On it the rink puts up a BREAKAWAY banner with the shooter's name, moves the
-camera in (`W.cam.drama`), and has the nearest two defenders chase from behind and lose
-ground.
+about one even-strength goal in five), is a man in alone: from when he has the puck to his
+shot he's nearer their goalie than any man of theirs. The sim's keyframes for one are an
+ordinary rush, so the narrator reshapes them (`breakawayRush` in hockey.js, positions and
+names only, no dice): the puck gathered in his own end, a long pass up to the shooter at
+about the red line, and the sim's own shot. The booth gives the build-up a beat more
+(`pbp.breakaway.build`), then calls the pass and the breakaway as one line
+(`pbp.breakaway.spring`, on the pass's `node` cue and an `alone` cue), or about half the
+time a stretch pass and then `pbp.breakaway`. On the ice their skaters press the puck in his
+end and go no deeper than 22 ft short of where he'll take it, and he slips in behind the
+deepest of them; a play that starts with the puck in their end has them clear it up the ice
+first, and his side gathers it. The pass waits until he's a stride behind every man of
+theirs (up to 4.5 s past its line), and he takes it in stride. Then they all chase him from
+behind, losing ground, his own side trailing, and he's skating, not drifting, by the shot.
+On the `alone` cue the rink puts up a BREAKAWAY banner with his name and moves the camera
+in (`W.cam.drama`). The rink smoke fails a breakaway whose shooter never has the puck, has
+it less than 40 ft out, or has a man of theirs nearer the goalie at any step from then to
+his shot.
+
+**Shots in stride.** Nobody parks on his spot and waits for his line. A shooter early for it
+curls round a point a few feet back from the spot (wider with seconds in hand), comes
+through it as the shot is called and keeps skating through the release; a slapshot's man
+glides into his. The one-timer man drifts off his spot and glides through it as the pass
+comes, the man waiting to tip a shot works the top of the crease and lifts the stick of the
+man boxing him out, and a wraparound loops behind the net until it's time to come round.
+The rink smoke fails a game whose median wrist, snap or backhand is let go under 6 ft/s, or
+where more than one shot in twenty comes after a second under 3 ft/s.
 
 **Instant replay.** [replay.js](../client/game/js/panels/rink/replay.js) keeps the last ten
 seconds of what the renderers draw, thirty times a second: every man's joints and kit,
@@ -1532,7 +1580,10 @@ line airs), a fight's loser ends with nothing left, a man carried off is gone, a
 stops the building, the pulled goalie leaves an empty net and a sixth skater, and the
 Zamboni lays wet ice and is gone through its gate before the period's first draw. A pass
 is lifted only when the booth called a saucer, and a one-timer or a tip is struck within
-1.2 s of the pass (or the shot it redirects) from the man the booth said fed it. Nothing
+1.2 s of the pass (or the shot it redirects) from the man the booth said fed it. A
+breakaway's shooter is nearer their goalie than any man of theirs from when he has the puck
+to his shot (slot 37 has four), shots come off the move, and no two opposing men stand still
+a stick apart for over five seconds outside a draw, a fight or a death. Nothing
 teleports: not the puck, not a man, not the camera. It proves the view runs
 and agrees with the sim, not that it looks right. The stub has no WebGL, so it drives the
 2-D renderer.

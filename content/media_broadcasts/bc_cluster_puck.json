@@ -1321,6 +1321,22 @@
         "Nobody home. It just slides in.",
         "Watch it go all the way in. Empty net.",
         "Not a soul in the crease."
+      ],
+      "pbp.breakaway.build": [
+        "{player} looks up the ice.",
+        "They're all caught up the ice.",
+        "{player} sees it open up.",
+        "Room in the middle for {player}.",
+        "{player} waits for a lane.",
+        "{player} with a moment."
+      ],
+      "pbp.breakaway.spring": [
+        "{player} springs {shooter}! He's in ALONE!",
+        "Long one up to {shooter}. Breakaway!",
+        "{player} finds {shooter} behind them. He's GONE!",
+        "{shooter} takes it {where}, and he's in ALONE!",
+        "{player} hits {shooter} in full flight. Breakaway!",
+        "Up to {shooter}, and nobody's with him!"
       ]
     },
     "sport": "hockey",

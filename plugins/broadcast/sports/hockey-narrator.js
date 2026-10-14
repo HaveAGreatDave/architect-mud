@@ -473,16 +473,27 @@ export function narrate(ctx) {
   const PUNCH = { jab: 'a jab', uppercut: 'an uppercut', left: 'a left', right: 'a right hand' };
   const surnameOf = (n) => String(n || '').trim();
 
+  // A BREAKAWAY IS SHAPED LIKE ONE (breakawayRush in hockey.js): gathered in his own end, a
+  // long pass up to the shooter behind their defence, and the shot, with the build-up said
+  // off those keyframes. The pass and the call that he's in alone are one line
+  // (`pbp.breakaway.spring`, on both cues), so the rink has him clear of every man of theirs
+  // as it's said, and still has him skating, not drifting, by the shot.
+  const breakawayBeat = (b) => {
+    const nodes = mod && mod.breakawayRush ? mod.breakawayRush(b.possession, b.rushNames, b.shooter, b.teamName === away.name) : null;
+    if (!nodes || !pools['pbp.breakaway.spring']) return null;
+    return { ...b, possession: nodes, rush: mod.describeRush ? mod.describeRush(nodes, b.rushNames, nrng) : b.rush, springAlone: true };
+  };
+
   // The rush, touch by touch, off the same keyframes the rink plays. A routine chance gets
   // the first touch and the last before the shot; a goal or a near-miss gets up to four.
   // (`rushPass` is the kind of the last touch before the shot when it was a pass, which a
   // goal's replay walks through)
-  let rushHolder = null, rushPass = null;
+  let rushHolder = null, rushPass = null, rushAlone = false;
   function callRush(b, t, sb, gd, loud) {
     const nodes = Array.isArray(b.possession) ? b.possession : [];
     const names = Array.isArray(b.rushNames) && b.rushNames.length ? b.rushNames : null;
     const L = nodes.length;
-    rushHolder = null; rushPass = null;
+    rushHolder = null; rushPass = null; rushAlone = false;
     if (!names || L < 3) return false;
     const who = (i) => names[((i | 0) % names.length + names.length) % names.length] || '';
     const mids = [];
@@ -531,12 +542,16 @@ export function narrate(ctx) {
     // (off their shot it's loose in his own end, and he drops back for it; off his own side's,
     // it's in theirs and he goes in after it)
     const ownEnd = prev && prev.type === 'chance' && prev.teamName !== b.teamName;
-    if (gd && theirs && call('pbp.forecheck', t, out0, sb, null, gd)) {
+    // (a breakaway opens plainly: however the puck came to his end, the rink brings it there)
+    if (gd && theirs && !b.springAlone && call('pbp.forecheck', t, out0, sb, null, gd)) {
       call('pbp.takeaway', t, out0, sb, { cue: { ev: 'takeaway' } });
-    } else if (gd && loose && call(ownEnd ? ['pbp.retrieve.back', 'pbp.retrieve'] : 'pbp.retrieve', t, out0, sb, null, gd)) {
+    } else if (gd && loose && !b.springAlone && call(ownEnd ? ['pbp.retrieve.back', 'pbp.retrieve'] : 'pbp.retrieve', t, out0, sb, null, gd)) {
       // (the line before named him, so this one needn't)
       call(['pbp.breakout.on', 'pbp.breakout'], t, out0, sb, { cue: { ev: 'fetched' } });
     } else call('pbp.breakout', t, out0, sb, null, gd);
+    // (a breakaway's build-up is a beat longer: the rink needs it to have their men caught up
+    // the ice and him in behind them before the pass, wherever the last play left the puck)
+    if (b.springAlone) call('pbp.breakaway.build', t, out0, sb);
     // Planned before it's said, so the last touch before the shot is known. A booth always
     // calls the touch that puts the puck where it's shot from ("...over to Lindqvist,
     // shot"), and the rink needs that cue to have it there in time. The pacer trims
@@ -557,14 +572,24 @@ export function narrate(ctx) {
       else if (man && n.ev !== 'pass') { key = `pbp.${n.ev}`; extra = { player: man, where: where(n) }; holder = man; holderAt = n; }
       else if (man) holderAt = n;
       rushPass = pass;
+      // (a breakaway's spring: the pass and the call that he's in alone, one line on both cues,
+      // or about half the time the long pass and then the call)
+      let then = false;
+      if (b.springAlone && i === L - 3 && pass) {
+        pass = 'stretch';
+        if (nrng() < 0.5) { key = 'pbp.breakaway.spring'; extra = { ...extra, shooter: b.shooter }; } else { key = ['pbp.pass.stretch', 'pbp.pass']; then = true; }
+      }
       if (!key || !hasPool(key)) continue;
       if (!keep.has(i)) continue;
-      plan.push({ i, key, extra, ev: n.ev, pass });
+      plan.push({ i, key, extra, ev: n.ev, pass, alone: key === 'pbp.breakaway.spring', then });
     }
     // (who has it as the shot comes: the man who feeds a one-timer or a tip, when it is one)
     rushHolder = holder;
     plan.forEach((c, k) => {
-      call(c.key, t, c.extra, sb, { cue: { ev: 'node', i: c.i, ...(c.pass ? { pass: c.pass } : {}) }, opt: !loud && !first && k < plan.length - 1 });
+      const cue = { ev: 'node', i: c.i, ...(c.pass ? { pass: c.pass } : {}) };
+      call(c.key, t, c.extra, sb, { cue: c.alone ? [cue, { ev: 'alone' }] : cue, opt: !loud && !first && k < plan.length - 1 });
+      if (c.alone) rushAlone = true;
+      if (c.then && call('pbp.breakaway', t, null, sb, { cue: { ev: 'alone' } })) rushAlone = true;
       // a puck put in or knocked loose has to be run down, and the picture takes the time
       if (c.ev === 'dump' || c.ev === 'battle') call('pbp.chase', t, null, sb, { opt: true });
       first = false;
@@ -680,13 +705,15 @@ export function narrate(ctx) {
 
       case 'goal': {
         const key = b.strength === 'pp' ? 'goal.pp' : b.strength === 'sh' ? 'goal.sh' : b.strength === 'en' ? 'goal.en' : 'goal';
-        const gd = gameday(b, idx);
         // some goals are a man in alone: the rink stages them that way and the booth says so
-        gd.breakaway = !b.strength || b.strength === 'even' ? ['wrist', 'backhand', 'snap'].includes(b.shotType) && nrng() < 0.22 : false;
+        const alone = !b.strength || b.strength === 'even' ? ['wrist', 'backhand', 'snap'].includes(b.shotType) && nrng() < 0.22 : false;
+        const bb = (alone && breakawayBeat(b)) || b;
+        const gd = gameday(bb, idx);
+        gd.breakaway = alone;
         const before = scoreBefore(b), pre = beatBug({ ...b, awayScore: before.away, homeScore: before.home });
-        const rushed = callRush(b, t, pre, gd, true);
-        if (gd.breakaway) call('pbp.breakaway', t, null, pre, { cue: { ev: 'alone' } });
-        const feeder = callShot(b, t, pre, rushed ? null : gd);
+        const rushed = callRush(bb, t, pre, gd, true);
+        if (gd.breakaway && !rushAlone) call('pbp.breakaway', t, null, pre, { cue: { ev: 'alone' } });
+        const feeder = callShot(bb, t, pre, rushed ? null : gd);
         call('pbp.goal', t, { team: b.teamName }, sb, { cue: { ev: 'out' } }, null, goalFx(b));
         // What the rink shows next: the lamp, the scorer peeling away, the pile-on, the
         // goalie on his knees.
@@ -734,10 +761,11 @@ export function narrate(ctx) {
       case 'chance': {
         const loud = LOUD_CHANCE.has(b.kind);
         // Every shot is called: the rush, the release, the result.
-        const gd = gameday(b, idx);
-        const rushed = callRush(b, t, sb, gd, loud);
-        if (b.kind === 'breakaway') call('pbp.breakaway', t, null, sb, { cue: { ev: 'alone' } });
-        callShot(b, t, sb, rushed ? null : gd);
+        const bb = (b.kind === 'breakaway' && breakawayBeat(b)) || b;
+        const gd = gameday(bb, idx);
+        const rushed = callRush(bb, t, sb, gd, loud);
+        if (b.kind === 'breakaway' && !rushAlone) call('pbp.breakaway', t, null, sb, { cue: { ev: 'alone' } });
+        callShot(bb, t, sb, rushed ? null : gd);
         call(`pbp.out.${b.kind}`, t, null, sb, { cue: { ev: 'out' } });
         // Then where the puck went, which the rink plays out: held, kicked to the corner,
         // loose in the slot, rattled away off the iron.

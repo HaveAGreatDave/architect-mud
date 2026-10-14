@@ -16,7 +16,7 @@ import {
   RL, RW, RC, MID_Y, BOARD_H, GLASS_H, GOAL_X, BLUE_X, NET_HALF, NET_DEPTH, NET_H,
   insideRink, attackDir, panelAt, PANELS, PANEL_X0, PANEL_W,
 } from './geo.js';
-import { DT, G, skaterRig, goalieRig, bladeWorld, bladeLocal, keepOut, makeRag, stepRag, makeLimb, stepLimb, SEVER, SHOTS, sweeps, cadence, releaseAt } from './rig.js';
+import { DT, G, skaterRig, skaterFeet, goalieRig, bladeWorld, bladeLocal, keepOut, makeRag, stepRag, makeLimb, stepLimb, SEVER, SHOTS, sweeps, cadence, releaseAt } from './rig.js';
 
 // ── stickhandling ─────────────────────────────────────────────────────────────
 // THE PUCK IS ITS OWN OBJECT. Welded to the blade it read as part of the man; a real
@@ -121,6 +121,21 @@ export function makeBody(kind, side, slot, seed) {
     faceGear: r() < 0.35 ? 'visor' : 'cage', cutAt: 0, lastFoot: null, sprayAt: 0, dark: 0,
     // goalies only
     bfly: 0, gloveW: 0, gloveTarget: null, netSide: side,
+    // EVERY FIELD A BODY GETS LATER, DECLARED HERE IN ONE ORDER. The sim, the director and the
+    // rig hang state on a man as they go (where he was a step ago, his eased blade, what he's
+    // after); added as they came up, each man collected them in an order of his own and had a
+    // hidden class of his own, so every hot function saw a dozen shapes and the optimiser kept
+    // compiling them again (the rink smoke took about a third less CPU once they were declared).
+    // Undefined until used, which reads exactly as a missing field does.
+    x0: undefined, y0: undefined, idle: undefined, avoidAt: undefined, avoid: undefined, carve: undefined,
+    accel: undefined, ampRate: undefined, hRate: undefined, turnRate: undefined, _va: undefined,
+    bladeE: undefined, bladeM: undefined, bladeT: undefined, feet: undefined, charging: undefined,
+    protect: undefined, defend: undefined, look: undefined, stopH: undefined, reachTo: undefined,
+    touchT: undefined, puckAt: undefined, puckV: undefined, turnSfxAt: undefined, inReachAt: undefined,
+    simFace: undefined, through: undefined, ring: undefined, fetchPrev: undefined, outAt: undefined,
+    meetPass: undefined, chkAt: undefined, chkN: undefined, hold: undefined, down: undefined,
+    fountain: undefined, shatterNext: undefined, holdOff: undefined, plant: undefined, track: undefined,
+    gloveHold: undefined, actHold: undefined, bfE: undefined, bfT: undefined,
   };
 }
 
@@ -801,7 +816,8 @@ export function createWorld(ice, seedKey) {
       // stride makes, and a lifted skate leaves a gap. A man missing a leg drags the stump.
       if (sp > 3 && W.t - b.cutAt > 0.07 && b.kind !== 'medic') {
         b.cutAt = W.t;
-        const J = W.rigOf(b), a = b.missing.legL || b.missing.legR ? 0.3 : 0.11;
+        // (the skates alone: the arms and the stick are most of a rig's work, see skaterFeet)
+        const J = skaterFeet(b, W.t), a = b.missing.legL || b.missing.legR ? 0.3 : 0.11;
         b.feet = b.feet || [null, null];
         for (const [k, an, to] of [[0, 12, 16], [1, 15, 17]]) {
           const A = J[an], T = J[to];
@@ -960,9 +976,14 @@ export function createWorld(ice, seedKey) {
     if (phase === 'attack') {
       if (inOffZone) {
         // set up in the zone: the D on the points, a man at the net, one low in support,
-        // one in the high slot; the point men slide toward the puck's side
-        if (isDef(m)) return { tx: bOff + dir * 3, ty: MID_Y + ls * 17 + (py - MID_Y) * 0.22, mv: 16, face: dir > 0 ? 0 : Math.PI };
-        if (role === 'net') return { tx: gOff - dir * 7, ty: MID_Y - pSide * 3, mv: 18 };
+        // one in the high slot; the point men slide toward the puck's side, and walk the line
+        // a few feet either way and in and out as it moves round (standing on their spots they
+        // stood still opposite the men covering them for seconds at a time)
+        // (two sways, so that the puck moving one way as he sways the other doesn't stand him
+        // still: on one, he and the man on him stood for six seconds)
+        if (isDef(m)) return { tx: bOff + dir * (3 + 1.5 * Math.sin(W.t * 0.5 + m.seed * 1.7) + 0.8 * Math.sin(W.t * 1.3 + m.seed)), ty: MID_Y + ls * 17 + (py - MID_Y) * 0.22 + Math.sin(W.t * 0.7 + m.seed) * 5 + Math.sin(W.t * 1.9 + m.seed * 2.3) * 1.5, mv: 16, face: dir > 0 ? 0 : Math.PI };
+        // (the man at the net works for his ground in front of the goalie, never still on it)
+        if (role === 'net') return { tx: gOff - dir * (7 + 1.5 * Math.sin(W.t * 0.8 + m.seed)), ty: MID_Y - pSide * 3 + 3 * Math.sin(W.t * 0.65 + m.seed * 1.3), mv: 18 };
         if (role === 'support') return { tx: lerp(px, gOff - dir * 18, 0.45), ty: lerp(py, MID_Y, 0.35), mv: 20 };
         return { tx: gOff - dir * 27, ty: MID_Y - (py - MID_Y) * 0.3, mv: 18 };
       }
@@ -980,10 +1001,30 @@ export function createWorld(ice, seedKey) {
       const corner = Math.abs(px - gOwn) < 26 && Math.abs(py - MID_Y) > 11;
       if (isDef(m)) {
         if (role === 'strongD' && corner) return { tx: px + dir * 2, ty: py - pSide * 2, mv: 20, face: Math.atan2(py - m.y, px - m.x) };
-        return { tx: gOwn + dir * 8, ty: MID_Y + (role === 'strongD' ? pSide : -pSide) * 4, mv: 18, face: Math.atan2(py - m.y, px - m.x) };
+        const nx = gOwn + dir * 8, ny = MID_Y + (role === 'strongD' ? pSide : -pSide) * 4;
+        // A man of theirs parked in front of the net gets boxed out: he takes the ice on the
+        // goal side of him and leans on him, a cross-check every second or so. The two of them
+        // stood still against each other in front of the goalie for up to twenty seconds.
+        let fx = null;
+        for (const o of W.team[side === 'a' ? 'h' : 'a']) if (o.active && !o.rag && o !== carrier && hyp(o.x - nx, o.y - ny) < 8) { fx = o; break; }
+        if (fx) {
+          const gx = gOwn - fx.x, gy = MID_Y - fx.y, gl = hyp(gx, gy) || 1;
+          if (hyp(fx.x - m.x, fx.y - m.y) < 3.6 && W.t > (m.chkAt || 0)) { m.chkAt = W.t + 1.1 + (m.seed % 4) * 0.15; W.act(m, 'shove', 0.5); fx.react = Math.max(fx.react || 0, 0.3); }
+          return { tx: fx.x + gx / gl * 2.6, ty: fx.y + gy / gl * 2.6, mv: 16, face: Math.atan2(fx.y - m.y, fx.x - m.x) };
+        }
+        return { tx: nx, ty: ny, mv: 18, face: Math.atan2(py - m.y, px - m.x) };
       }
       if (m.slot === 1) return { tx: gOwn + dir * 17, ty: lerp(MID_Y, py, 0.3), mv: 19, face: Math.atan2(py - m.y, px - m.x) };
-      return { tx: bOwn - dir * 7, ty: MID_Y + ls * 16, mv: 19, face: Math.atan2(py - m.y, px - m.x) };
+      // a winger takes the point: on the man there, a stride inside him toward the net, and
+      // with him as he walks the line
+      const sx = bOwn - dir * 7, sy = MID_Y + ls * 16;
+      let pm = null, pd = 22;
+      for (const o of W.team[side === 'a' ? 'h' : 'a']) { if (!o.active || o.rag || !isDef(o)) continue; const d0 = hyp(o.x - sx, o.y - sy); if (d0 < pd) { pd = d0; pm = o; } }
+      if (pm) {
+        const gx = gOwn - pm.x, gy = MID_Y - pm.y, gl = hyp(gx, gy) || 1;
+        return { tx: pm.x + gx / gl * 5, ty: pm.y + gy / gl * 5, mv: 19, face: Math.atan2(pm.y - m.y, pm.x - m.x) };
+      }
+      return { tx: sx, ty: sy, mv: 19, face: Math.atan2(py - m.y, px - m.x) };
     }
     // the neutral zone and theirs: a 1-2-2. One man goes (the forechecker, handled above),
     // two forwards hold the middle lanes a stride back, the D hold our blue line
@@ -1018,14 +1059,29 @@ export function createWorld(ice, seedKey) {
       // him only got in his road, along the boards for seconds once)
       const onHim = carrier && team.some((o) => o.scripted && o.charging === carrier);
       for (const m of team) {
+        if (m.scripted || m.rag || m.blend || !W.frozen) m.idle = null;
         if (m.scripted || m.rag || m.blend) continue;
         const isD = m.slot === 3 || m.slot === 4;
         let tx, ty, mv = 19;
         // (a man a pass is coming to keeps the facing he opened up to it with)
         m.face = pk.target === m && m.simFace != null ? m.simFace : null;
         if (W.frozen) {
-          // whistle: coast to a stop and drift toward the play
-          tx = m.x + m.vx * 0.5; ty = m.y + m.vy * 0.5; mv = 6;
+          // Whistle: he coasts to a stop, then keeps moving while play's stopped, a slow loop
+          // round where he pulled up, drifting a stride clear of any man of theirs by him.
+          // (Coasted to a stop and left there, two of them stood face to face for a quarter of
+          // a minute while a man hurt on the boards was seen to.)
+          const I = m.idle || (m.idle = { x: m.x + m.vx * 0.5, y: m.y + m.vy * 0.5, t: W.t });
+          if (W.t - I.t < 1.2) { tx = m.x + m.vx * 0.5; ty = m.y + m.vy * 0.5; mv = 6; }
+          else {
+            for (const o of opp) {
+              if (o.kind !== 'skater' || o.rag) continue;
+              const ox = I.x - o.x, oy = I.y - o.y, od = hyp(ox, oy);
+              if (od < 10 && od > 0.01) { const k = (10 - od) * dt * 0.8 / od; I.x += ox * k; I.y += oy * k; }
+            }
+            const c0 = insideRink(I.x, I.y, 8); if (c0) { I.x = c0.x; I.y = c0.y; }
+            const a = W.t * 0.8 + m.seed * 2.1;
+            tx = I.x + Math.cos(a) * 3.5; ty = I.y + Math.sin(a) * 2.6; mv = 4.5;
+          }
         } else if (m === carrier) {
           const inZone = (m.x - offBlue(side)) * dir > 0;
           if (!inZone) { tx = m.x + dir * 30; ty = laneY(side, m.slot) * 0.6 + MID_Y * 0.4 + Math.sin(W.t * 0.9 + m.seed) * 9; mv = 23; }
@@ -1042,12 +1098,28 @@ export function createWorld(ice, seedKey) {
             mv = 17;
           }
         } else if (loose && (m === fore || hyp(m.x - pk.x, m.y - pk.y) < 10)) {
-          // after it flat out, to where he'll meet it, and through it rather than creeping up
+          // after it flat out, to where he'll meet it, and through it rather than creeping up;
+          // close to it he turns to it so his stick comes round to it, as a man the director
+          // sends for it does (`pursue`). (Run onto it, two of them stood on a puck dead in the
+          // corner for ten seconds, neither with it in front of his stick.)
           const p = W.intercept(m, 24); [tx, ty] = p; mv = 24; m.through = W.t + 0.1;
+          const dp = hyp(pk.x - m.x, pk.y - m.y);
+          if (dp < 5) { m.face = Math.atan2(pk.y - m.y, pk.x - m.x); if (dp < 1.5) { tx = pk.x - (pk.x - m.x) / (dp || 1) * 1.8; ty = pk.y - (pk.y - m.y) / (dp || 1) * 1.8; mv = 8; } }
         } else if (m === fore && !attacking && !onHim) {
           // the forechecker: on the man with the puck
           const c2 = carrier || pk;
-          tx = c2.x - dir * 1.5; ty = c2.y; mv = 24;
+          if (carrier && carrier.scripted && W.puckScripted) {
+            // A play the director is staging isn't his to win, so he works for it: on the man,
+            // round toward the puck and back with him as he moves, his stick lifting at the
+            // man's and poking at the puck. Aimed through the man he leaned on him, and the two
+            // of them stood locked together for seconds.
+            const dd = hyp(m.x - carrier.x, m.y - carrier.y), a0 = Math.atan2(m.y - carrier.y, m.x - carrier.x) + Math.sin(W.t * 1.3 + m.seed) * 0.35;
+            tx = carrier.x + Math.cos(a0) * 3.2 + carrier.vx * 0.25; ty = carrier.y + Math.sin(a0) * 3.2 + carrier.vy * 0.25; mv = dd > 6 ? 24 : 15;
+            if (dd < 4.5 && W.t > (m.chkAt || 0)) {
+              m.chkAt = W.t + 0.75 + (m.seed % 5) * 0.12; m.chkN = (m.chkN || 0) + 1;
+              W.act(m, m.chkN % 2 ? 'poke' : 'lift', 0.4); W.sfx('stick', { x: m.x });
+            }
+          } else { tx = c2.x - dir * 1.5; ty = c2.y; mv = 24; }
         } else {
           // everyone else plays his position (see `systemSpot`)
           const sp = systemSpot(m, side, attacking ? 'attack' : 'defend', carrier, roles[side]);
@@ -1091,7 +1163,8 @@ export function createWorld(ice, seedKey) {
       if (loose && pk.z < 1 && !pk.inNet) {
         for (const m of team) {
           if (m.scripted || m.rag || m.blend || !m.stick || pk.home === m) continue;
-          if (inReach(m, pk.x, pk.y) && hyp(pk.vx, pk.vy) < 45) {
+          // (in front of his stick, or at his skates, as the man sent for it has it: see `pursue`)
+          if ((inReach(m, pk.x, pk.y) || hyp(pk.x - m.x, pk.y - m.y) < 1.4) && hyp(pk.vx, pk.vy) < 45) {
             if (m.inReachAt == null) m.inReachAt = W.t;
             m.reachTo = [pk.x, pk.y];
             if (W.t - m.inReachAt > 0.08) { m.inReachAt = null; W.give(m, true); W.sfx('receive'); break; }

@@ -382,6 +382,28 @@ export function synthPossession(seed, kind, side) {
   return nodes;
 }
 
+// A BREAKAWAY'S RUSH. The keyframes the sim deals a breakaway are an ordinary rush into the
+// zone (an entry, a cycle, a dump in), and nobody is in alone off a cycle. The narrator gives
+// the booth and the rink this shape instead, off the same keyframes and names: the puck
+// gathered in his own end by the man the breakout was dealt to (or the next man, if that was
+// the shooter), a long pass up to the shooter at about the red line, and the sim's own shot.
+// Positions and who has it only; the game's dice aren't touched, so no result changes.
+// Null when it can't be shaped (no names, or the shooter isn't among them).
+export function breakawayRush(nodes, names, shooter, attacksPlus) {
+  if (!Array.isArray(nodes) || nodes.length < 3 || !Array.isArray(names) || !names.length) return null;
+  const si = names.indexOf(shooter);
+  if (si < 0) return null;
+  const L = nodes.length, b0 = nodes[0], last = nodes[L - 3];
+  const gi = b0.carrier >= 0 && b0.carrier % names.length !== si ? b0.carrier : (si + 1) % names.length;
+  const toX = (u) => (attacksPlus ? u : 1 - u);
+  const y0 = b0.p[1], ys = last && last !== b0 ? last.p[1] : 1 - y0;
+  return [
+    { t: 0, p: [toX(0.13 + 0.06 * y0), 0.25 + 0.5 * y0], ev: 'breakout', carrier: gi },
+    { t: 0.55, p: [toX(0.46 + 0.05 * ys), 0.22 + 0.56 * ys], ev: 'pass', carrier: si },
+    nodes[L - 2], nodes[L - 1],
+  ];
+}
+
 // ── where on the ice ─────────────────────────────────────────────────────────
 // A keyframe's position, said the way a booth says it: his own end, centre, the point,
 // the circles, the wall, the slot, behind the net, the corners. A real call is who, where,
@@ -974,6 +996,8 @@ export const HOCKEY = {
   playDesc,
   // Where a keyframe is, as the booth says it (the narrator's {where} and {from}).
   rinkSpot,
+  // A breakaway's rush, and the build-up said off any keyframes (the narrator's own).
+  breakawayRush, describeRush,
   defaultNames: DEFAULT_NAMES,
   ordinal,
   // The presence of `narrate` is what tells assembleSportsGraph to hand this sport

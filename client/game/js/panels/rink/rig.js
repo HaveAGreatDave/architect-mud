@@ -193,7 +193,7 @@ const lookDir = (yaw, pitch) => [Math.cos(yaw) * Math.cos(pitch), Math.sin(yaw) 
 // ── skaters, officials and medics ───────────────────────────────────────────
 export function skaterRig(s, T) {
   if (s.rag) return s.rag.pts.map((p) => [p.x, p.y, p.z]);
-  const J = standRig(s, T);
+  const J = standRig(s, T, false);
   if (s.blend) {
     // getting up: from where the ragdoll left him into his stance, hips first
     const k = easeIO(clamp(s.blend.t, 0, 1));
@@ -201,6 +201,13 @@ export function skaterRig(s, T) {
     if (k < 0.7) J[18] = J[19] = J[20] = null;
   }
   return J;
+}
+// THE SKATES ALONE, for the marks they cut in the ice: the sim asks for them fourteen times a
+// second for every man moving, and the arms and the stick are most of a rig's work. The hips and
+// legs (J[10] to J[17]) are skaterRig's to the bit, and the blade is eased just as a full rig
+// eases it, so asking for one or the other leaves him the same. The other joints are null.
+export function skaterFeet(s, T) {
+  return s.rag || s.blend ? skaterRig(s, T) : standRig(s, T, true);
 }
 
 // ── the stride ───────────────────────────────────────────────────────────────
@@ -261,16 +268,11 @@ function strideStart(sg, c) {
   return { u: lerp(-0.2, 0.5, e), v: sg * lerp(0.95, 0.5, e), z: 0.55 + 0.38 * arc, yaw: sg * 0.75 };
 }
 const strideGlide = (sg) => ({ u: 0.2 + sg * 0.28, v: sg * 0.55, z: 0.55, yaw: sg * 0.08 });
-const mixFoot = (list) => {
-  let u = 0, v = 0, z = 0, yaw = 0, w = 0;
-  for (const [f, k] of list) { if (k <= 0) continue; u += f.u * k; v += f.v * k; z += f.z * k; yaw += f.yaw * k; w += k; }
-  return w ? { u: u / w, v: v / w, z: z / w, yaw: yaw / w } : { u: 0.2, v: 0.5, z: 0.55, yaw: 0 };
-};
 // How far into an action its pose has taken over: up fast, back down at the end, so every
 // action layers onto the stride and lets go of it again instead of snapping to a pose.
 const envelope = (t, inF, outF) => easeIO(clamp(t / inF, 0, 1)) * easeIO(clamp((1 - t) / outF, 0, 1));
 
-function standRig(s, T) {
+function standRig(s, T, feet) {
   const at = s.actT, act = s.act;
   const official = s.kind === 'official' || s.kind === 'medic';
   const m = mirrorOf(s), toLocal = toLocalFn(s, m);
@@ -513,22 +515,26 @@ function standRig(s, T) {
   // lean into the turn first: the body and the hands' targets roll together about the ice;
   // a blade on the ice stays on it
   const [rPel, rChest, rNeck, rHead, rShL, rShR, rHipL, rHipR] = [pelvis, chest, neck, head, shL, shR, hipL, hipR].map((p) => roll(p, tilt));
-  L = roll(L, tilt); R = roll(R, tilt);
-  if (blade) { const onIce = blade[2] < 0.3; blade = roll(blade, tilt); if (onIce) blade[2] = 0.06; }
-  if (blade && stickFit) {
-    // fit the stick: fixed length, top hand at the knob, bottom hand on the shaft
-    if (blade[2] < 1.4) { const ko = keepOut(blade[0], blade[1], 0.05); blade = [ko[0], ko[1], blade[2]]; }
-    const fit = fitStick(R, blade, rShR, rShL, stickFit.wantT, stickFit.oneHand);
-    R = fit.R; blade = fit.blade; stickDir = fit.dir;
-    if (!stickFit.oneHand && !stickFit.aL) {
-      // no comfortable grip for the bottom hand: it comes off the stick and swings free
-      // rather than hovering beside the shaft
-      if (fit.L) L = fit.L; else { L = roll([0.55 + 0.35 * stridePush, 0.95, zp + 0.35], tilt); oneHanded = true; }
-    } else if (stickFit.aL && stickFit.ka < 1) L = fit.L ? V.lerp(fit.L, L, stickFit.ka) : L;
-    if (stickFit.oneHand) oneHanded = true;
+  // (the skates alone go straight on to the legs: see skaterFeet)
+  let rElL = null, rHL = null, rElR = null, rHR = null;
+  if (!feet) {
+    L = roll(L, tilt); R = roll(R, tilt);
+    if (blade) { const onIce = blade[2] < 0.3; blade = roll(blade, tilt); if (onIce) blade[2] = 0.06; }
+    if (blade && stickFit) {
+      // fit the stick: fixed length, top hand at the knob, bottom hand on the shaft
+      if (blade[2] < 1.4) { const ko = keepOut(blade[0], blade[1], 0.05); blade = [ko[0], ko[1], blade[2]]; }
+      const fit = fitStick(R, blade, rShR, rShL, stickFit.wantT, stickFit.oneHand);
+      R = fit.R; blade = fit.blade; stickDir = fit.dir;
+      if (!stickFit.oneHand && !stickFit.aL) {
+        // no comfortable grip for the bottom hand: it comes off the stick and swings free
+        // rather than hovering beside the shaft
+        if (fit.L) L = fit.L; else { L = roll([0.55 + 0.35 * stridePush, 0.95, zp + 0.35], tilt); oneHanded = true; }
+      } else if (stickFit.aL && stickFit.ka < 1) L = fit.L ? V.lerp(fit.L, L, stickFit.ka) : L;
+      if (stickFit.oneHand) oneHanded = true;
+    }
+    [rElL, rHL] = ik(rShL, L, 1.12, 1.05, roll([-0.3, 1, -0.8], tilt));
+    [rElR, rHR] = ik(rShR, R, 1.12, 1.05, roll([-0.3, -1, -0.8], tilt));
   }
-  const [rElL, rHL] = ik(rShL, L, 1.12, 1.05, roll([-0.3, 1, -0.8], tilt));
-  const [rElR, rHR] = ik(rShR, R, 1.12, 1.05, roll([-0.3, -1, -0.8], tilt));
 
   // ── legs: the blended stride, then whatever the action wants of them ─────
   // ⚠ A SKATE ON THE ICE GOES WHERE ITS BLADE POINTS. A blade only runs along its length,
@@ -536,7 +542,17 @@ function standRig(s, T) {
   // own speed, plus the stride carrying it out and back, plus his turn. Without this the
   // skates crabbed sideways through every push. A hockey stop is the one time a blade skids
   // across its length, so a stop is left alone.
-  const strideAt = (sg, c, aa = a) => mixFoot([[strideForward(sg, c, aa), wFwd], [strideCross(sg, c, aa, sd), wCross], [strideBack(sg, c, aa), wBack], [strideStart(sg, c), wStart], [strideGlide(sg), wGlide]]);
+  // (the strides blended by weight, and one with none not worked out at all: this runs several
+  // times a leg in every rig)
+  const strideAt = (sg, c, aa = a) => {
+    let u = 0, v = 0, z = 0, yw = 0, w = 0, f;
+    if (wFwd > 0) { f = strideForward(sg, c, aa); u += f.u * wFwd; v += f.v * wFwd; z += f.z * wFwd; yw += f.yaw * wFwd; w += wFwd; }
+    if (wCross > 0) { f = strideCross(sg, c, aa, sd); u += f.u * wCross; v += f.v * wCross; z += f.z * wCross; yw += f.yaw * wCross; w += wCross; }
+    if (wBack > 0) { f = strideBack(sg, c, aa); u += f.u * wBack; v += f.v * wBack; z += f.z * wBack; yw += f.yaw * wBack; w += wBack; }
+    if (wStart > 0) { f = strideStart(sg, c); u += f.u * wStart; v += f.v * wStart; z += f.z * wStart; yw += f.yaw * wStart; w += wStart; }
+    if (wGlide > 0) { f = strideGlide(sg); u += f.u * wGlide; v += f.v * wGlide; z += f.z * wGlide; yw += f.yaw * wGlide; w += wGlide; }
+    return w ? { u: u / w, v: v / w, z: z / w, yaw: yw / w } : { u: 0.2, v: 0.5, z: 0.55, yaw: 0 };
+  };
   const pRate = TAU * cadence(sp, s.effort || 0), dP = 0.03, vB = [sp * Math.cos(rel), sp * Math.sin(rel)];
   const om = s.hRate != null ? clamp(s.hRate * m, -7, 7) : turn, aRate = s.ampRate || 0;
   const legs = [];
@@ -576,6 +592,10 @@ function standRig(s, T) {
     }
     const [kn, an] = ik(sg > 0 ? rHipL : rHipR, [f.u, f.v, f.z], 1.62, 1.55, [1, sg * 0.3, 0.1]);
     legs.push([kn, an, V.add(an, [0.74 * Math.cos(f.yaw), 0.74 * Math.sin(f.yaw), -0.3])]);
+  }
+  if (feet) {
+    const F = toWorld(s, [null, null, null, null, null, null, null, null, null, null, rHipL, legs[0][0], legs[0][1], rHipR, legs[1][0], legs[1][1], legs[0][2], legs[1][2], null, null, null], m);
+    return m < 0 ? SWAP.map((i) => F[i]) : F;
   }
 
   let butt = null, heel = null, toe = null, bend = null;

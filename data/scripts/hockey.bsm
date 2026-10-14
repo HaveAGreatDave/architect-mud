@@ -1568,6 +1568,28 @@ Nobody near him. Breakaway!
 {shooter} gets loose! Breakaway!
 ::endlines
 
+# The beat before a breakaway's spring, from the man with it: they're caught up the ice.
+::lines pbp.breakaway.build
+{player} looks up the ice.
+They're all caught up the ice.
+{player} sees it open up.
+Room in the middle for {player}.
+{player} waits for a lane.
+{player} with a moment.
+::endlines
+
+# A breakaway's spring: the long pass that puts him behind their defence and the call that
+# he's in alone, said as one line while the rink has him take it in stride. {player} makes
+# the pass; {where} is where he takes it.
+::lines pbp.breakaway.spring
+{player} springs {shooter}! He's in ALONE!
+Long one up to {shooter}. Breakaway!
+{player} finds {shooter} behind them. He's GONE!
+{shooter} takes it {where}, and he's in ALONE!
+{player} hits {shooter} in full flight. Breakaway!
+Up to {shooter}, and nobody's with him!
+::endlines
+
 # THE REPLAY. The rink runs a goal back slowly from the first of these lines to the credit
 # that follows them (the `replay` and `live` cues), so nothing else is said over it, and
 # each line is a replay's own: what the picture is showing, in order, in the present tense,

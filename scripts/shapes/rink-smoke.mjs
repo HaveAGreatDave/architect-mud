@@ -137,6 +137,22 @@ async function play(slot) {
     if (ok && b && d > 3.2 && !reach && !hidden) pendingGives.push(`${b.name || b.kind} from ${d.toFixed(1)} ft at ${(W.t - tApply).toFixed(2)}s`);
     return ok;
   };
+  // A BREAKAWAY IS ONE. From when the man the booth sends in alone has the puck to his shot,
+  // he is nearer their goalie than any man of theirs, and he has it 40 ft out or more. (They
+  // were a man in on a cycle, their defence between him and the net.)
+  let ba = null;
+  // SHOTS ARE TAKEN IN STRIDE. A shooter skates into his shot: nobody stands still with it
+  // for a second and then lets it go. (`_still`: when a man last dropped under 3 ft/s.)
+  const shotsTaken = [];
+  // AND NOBODY STANDS STILL AGAINST A MAN OF THEIRS. Two of them a stick apart and both
+  // still is a picture frozen, in a battle for the puck or waiting on a stoppage. A draw is
+  // set that way, a fight is watched that way (until the whistle sends them to the box), and
+  // the building stops for a death; nothing else holds it over five seconds. Sampled ten
+  // times a second, a slot per pair.
+  const pairSince = new Float64Array(64), pairSeen = new Int32Array(64).fill(-9), pairTold = new Uint8Array(64);
+  const frozenPairs = [];
+  let pairAt = -1, pairN = 0;
+  const STILL2 = 1.5 * 1.5, NEAR2 = 7 * 7;
   // NO SHOT AT A NET THE VIEWER CAN'T SEE. The camera is run here at 60 Hz, in both views,
   // and at every release and half a second after it, the puck and the net it's going at
   // must both be in frame.
@@ -162,6 +178,8 @@ async function play(slot) {
       else if (fed.feeder && lp.from.name !== String(fed.feeder).split(' ').pop()) fedShots.bad.push(`${type} fed by ${lp.from.name || '?'}, called ${fed.feeder}`);
     }
     lastShot = { from, t: W.t };
+    if (ba && from === ba.sh && ba.got && ba.shotAt == null) ba.shotAt = W.t;
+    if (from && from.kind === 'skater') shotsTaken.push({ type, v: Math.hypot(from.vx, from.vy), still: from._still != null ? W.t - from._still : 0, at: `${curG ? curG.type : '?'} ${(W.t - tApply).toFixed(2)}s` });
     const tt = shoot0(from, tgt, spd, type);
     const netX = Math.abs(tgt[0] - GOAL_X[0]) < Math.abs(tgt[0] - GOAL_X[1]) ? GOAL_X[0] : GOAL_X[1];
     seeShot(netX, 'at the release');
@@ -197,11 +215,47 @@ async function play(slot) {
       // (squared lengths and a short list, not a Set: this runs every step of every game)
       const now = W.bodies();
       for (const b of now) {
+        if (b.kind === 'skater') { if (b.vx * b.vx + b.vy * b.vy < 9) { if (b._still == null) b._still = W.t; } else b._still = null; }
         if (!onIce.includes(b)) { if (onIce.length && b.y > 3 && b.kind !== 'medic') pops.push(`${b.kind} ${b.side}${b.slot} appeared at ${b.x.toFixed(0)},${b.y.toFixed(0)} at ${(W.t - tApply).toFixed(2)}s (${D.kind() || 'between plays'})`); continue; }
         const dx = b.x - b.x0, dy = b.y - b.y0;
         if (dx * dx + dy * dy > 0.75 * 0.75) leaps.push(`${b.kind} ${b.side}${b.slot} ${Math.hypot(dx, dy).toFixed(1)} ft at ${(W.t - tApply).toFixed(2)}s (${D.kind() || 'between plays'})`);
       }
       onIce = now;
+      if (ba && ba.shotAt == null && W.t - tApply >= ba.alone - 2) {
+        const pk = W.puck;
+        if (!ba.got) { ba.sh = W.team[ba.att].find((m) => m.active && m.name === ba.name) || null; if (ba.sh && pk.carrier === ba.sh) ba.got = true; }
+        if (ba.got && pk.carrier === ba.sh) {
+          const gl = W.goalie[ba.def], gx = gl && gl.active ? gl.x : ba.netX, gy = gl && gl.active ? gl.y : MID_Y;
+          const dc = Math.hypot(ba.sh.x - gx, ba.sh.y - gy);
+          if (ba.out == null) ba.out = dc;
+          for (const m of W.mates(ba.def)) {
+            if (m.kind !== 'skater') continue;
+            const e = Math.hypot(m.x - gx, m.y - gy) - dc;
+            if (e < ba.min) { ba.min = e; ba.minAt = `${(W.t - tApply).toFixed(2)}s, ${m.name || m.slot} ${(-e).toFixed(1)} ft nearer`; }
+          }
+        }
+      }
+      if (W.t - pairAt >= 0.1 - 1e-9) {
+        pairAt = W.t; pairN++;
+        const B = D.state.beat, bk = B ? B.kind : null;
+        if (bk !== 'faceoff' && bk !== 'death' && !(bk === 'fight' && !B.stopped)) {
+          for (const a of W.team.a) {
+            if (!a.active || a.kind !== 'skater' || a.rag || a.hold || a.vx * a.vx + a.vy * a.vy > STILL2) continue;
+            for (const h of W.team.h) {
+              if (!h.active || h.kind !== 'skater' || h.rag || h.hold || a.foe === h || h.vx * h.vx + h.vy * h.vy > STILL2) continue;
+              if ((a.x - h.x) ** 2 + (a.y - h.y) ** 2 > NEAR2) continue;
+              // (a pair not seen at the last sample starts again; each still spell is told once)
+              const k = (a.slot & 7) * 8 + (h.slot & 7);
+              if (pairSeen[k] !== pairN - 1) { pairSince[k] = W.t; pairTold[k] = 0; }
+              pairSeen[k] = pairN;
+              if (!pairTold[k] && W.t - pairSince[k] > 5) {
+                pairTold[k] = 1;
+                frozenPairs.push(`${a.name || 'a' + a.slot} and ${h.name || 'h' + h.slot} at ${a.x.toFixed(0)},${a.y.toFixed(0)}, ${(W.t - tApply).toFixed(1)}s into ${curG ? curG.type : 'the game'} (${bk || 'between plays'}${W.frozen ? ', stopped' : ''})`);
+              }
+            }
+          }
+        }
+      }
       if (W.fight) lastFight = W.fight;
       if (landedAt == null && D.state.beat && D.state.beat.landed) landedAt = W.t - tApply;
       if (grabAt == null && D.state.beat && D.state.beat.grab) grabAt = W.t - tApply;
@@ -231,6 +285,11 @@ async function play(slot) {
     tApply = W.t; landedAt = null; grabAt = null; boxAt = null; sawBreakaway = false; rushB = null;
     const replays0 = W.replay.count;
     curG = g;
+    const al = (g.kind === 'breakaway' || g.breakaway) && (g.cues || []).find((c) => c.ev === 'alone');
+    if (al) {
+      const att = g.attackingTeam === g.awayTeam ? 'a' : 'h';
+      ba = { att, def: att === 'a' ? 'h' : 'a', netX: att === 'a' ? GOAL_X[1] : GOAL_X[0], name: String(g.shooter || '').split(' ').pop(), alone: al.ms / 1000, sh: null, got: false, out: null, min: Infinity, minAt: '', shotAt: null };
+    } else ba = null;
     try { view.apply(g); } catch (e) { check(`${label} stages`, false, e.stack.split('\n').slice(0, 2).join(' ')); ok = false; }
     if (!ok) continue;
     const before = { inNet: W.puck.inNet, goals: goalsIn, on: { a: W.mates('a').length, h: W.mates('h').length }, broken: W.broken.size };
@@ -314,6 +373,15 @@ async function play(slot) {
       check(`${label}: the header takes the goal when it goes in`, h1.score === `${g.awayScore}-${g.homeScore}` && h1.desc === g.desc, `${h1.score} / ${h1.desc}`);
     }
     if (g.kind === 'breakaway' || g.breakaway) check(`${label}: the breakaway gets its banner`, sawBreakaway);
+    if (ba) {
+      seen.add('breakaway');
+      check(`${label}: the man in alone has the puck before he shoots`, ba.got, `${ba.name} never had it`);
+      if (ba.got) {
+        check(`${label}: he has it with the slot and more still to go`, ba.out >= 40, `${ba.out.toFixed(0)} ft from their goalie`);
+        check(`${label}: from when he has it to his shot, he is nearer their goalie than any man of theirs`, ba.min > 0, ba.minAt);
+      }
+      ba = null;
+    }
     // THE REPLAY. A goal the booth calls a replay on is run back: it starts on its cue, the
     // picture comes from the recording (interpolated, every joint finite), the renderer
     // draws it, and it hands back to the live game as the booth does (the `live` cue on the
@@ -387,6 +455,11 @@ async function play(slot) {
   check(`${slot}: nobody gains the puck from beyond his reach`, snaps.length === 0, `${snaps.length}: ${snaps.slice(0, 4).join(', ')}`);
   check(`${slot}: the rink lifts a pass only when the booth called a saucer`, unasked.length === 0, `${unasked.length}: ${unasked.slice(0, 4).join(', ')}`);
   check(`${slot}: a one-timer or a tip is struck off the pass, by the man the booth said fed it`, fedShots.n > 0 && fedShots.bad.length === 0, `${fedShots.bad.length} of ${fedShots.n}: ${fedShots.bad.slice(0, 4).join(', ')}`);
+  const standing = shotsTaken.filter((q) => q.still > 1);
+  check(`${slot}: shots are taken in stride, not after standing still with it`, standing.length <= Math.max(2, shotsTaken.length * 0.05), `${standing.length} of ${shotsTaken.length} after more than a second under 3 ft/s: ${standing.slice(0, 4).map((q) => `${q.type} ${q.at} (${q.still.toFixed(1)}s)`).join(', ')}`);
+  const strideV = shotsTaken.filter((q) => q.type === 'wrist' || q.type === 'snap' || q.type === 'backhand').map((q) => q.v).sort((x, y) => x - y);
+  check(`${slot}: wrist, snap and backhand shots come off the move`, strideV.length > 20 && strideV[strideV.length >> 1] > 6, `median ${strideV.length ? strideV[strideV.length >> 1].toFixed(1) : '-'} ft/s over ${strideV.length}`);
+  check(`${slot}: nobody stands still against a man of theirs`, frozenPairs.length === 0, `${frozenPairs.length}: ${frozenPairs.slice(0, 4).join('; ')}`);
   check(`${slot}: rush passes get to the man they're for`, passes.n > 20 && passes.missed <= Math.max(2, passes.n * 0.05), `${passes.missed} of ${passes.n} went by him: ${passes.list.slice(0, 4).join(', ')}`);
   check(`${slot}: the renderer drew`, renders > 100 && stub.drawn.images > 1000, `${renders} frames, ${stub.drawn.images} images`);
   check(`${slot}: the held caption went up`, String(host.find('.gdr-cap-text')?.textContent || '').length > 0);
@@ -399,11 +472,12 @@ async function play(slot) {
 // Run bare, it plays both games. The push gate runs each game as its own gate (a slot number
 // as the argument), side by side, so neither carries the other's CPU. Each one stages every
 // beat type on its own.
+// (slot 37 has breakaways in it too, which the breakaway checks need)
 const ALL = ['faceoff', 'chance', 'goal', 'boards', 'fight', 'scrum', 'injury', 'death', 'pull', 'intermission'];
-const EXPECT = { 37: ALL, 914: ALL };
+const EXPECT = { 37: [...ALL, 'breakaway'], 914: ALL };
 const slots = process.argv.slice(2).map(Number).filter((n) => EXPECT[n]);
 for (const slot of slots.length ? slots : [37, 914]) await play(slot);
-for (const t of slots.length ? [...new Set(slots.flatMap((n) => EXPECT[n]))] : ALL) {
+for (const t of [...new Set((slots.length ? slots : [37, 914]).flatMap((n) => EXPECT[n]))]) {
   check(`a "${t}" was staged`, seen.has(t), [...seen].join(','));
 }
 for (const k of ['save', 'glove', 'pad', 'blocked', 'wide', 'post', 'breakaway', 'goal']) check(`SAVE has "${k}"`, !!__test.SAVE[k]);
