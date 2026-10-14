@@ -102,7 +102,9 @@
 //      from the ones the picture left opens on the cutaway, and one that agrees doesn't (the feed
 //      leaves out one at-bat that moves the bags, as the booth does, so there's one that differs);
 //      and with no frames at all (a hidden tab) the line still goes up once the play's time has
-//      passed. The live text for a screen reader (Play by Play) has every pitch as it's thrown,
+//      passed. A line come before its play's landed, on a ball in play with a hold, lands it and
+//      plans the dead time without a throw, starting after the landing, and everyone gets where he
+//      was sent. The live text for a screen reader (Play by Play) has every pitch as it's thrown,
 //      in order, in the words gameday.js pitchText makes of it, and the booth's line as it goes
 //      up; with Play by Play off, nothing; and the board in words has the leaders' table between
 //      innings. A home run with room in its hold plays its replay (diamond/replay.js): its bug up and
@@ -141,6 +143,7 @@ const { createRoar, ROAR } = await import(P + 'gl/crowd.js');
 const { replayOf, stageReplay, REPLAY } = await import(P + 'diamond/replay.js');
 const { HUD_THEME } = await import(P + 'diamond/hud.js');
 const { dugoutSpot, dugoutOf } = await import(P + 'diamond/bases.js');
+const { BETWEEN } = await import(P + 'diamond/between.js');
 const { createGrandstandView } = await import(P + 'gameday-grandstand.js');
 const { onDirt, markRect, polyRect } = await import(P + 'diamond/dirt.js');
 const { sportsRng } = await import('../../plugins/broadcast/rng.js');
@@ -1259,6 +1262,33 @@ const renderer = () => ({
     check('a hidden tab: the line waits while the play is due', capText() !== 'the hidden line', capText());
     stub.runTimers(30000);
     check('a hidden tab: the line goes up once the play\'s time has passed', capText() === 'the hidden line', capText());
+  }
+  // a line come before its play's landed (the sandbox's Next, or a hidden tab), on a ball in play
+  // with a hold: the view lands the play with it and plans the dead time while the world's still at
+  // the play's start, before the fielders the plan places at the cut in are in it. Each one's walk
+  // back went in ahead of his ready set, and the director threw ("plays stand_idle at 0.800, before
+  // field_ready_in"). Here the dead time has to start after the landing, and everyone get where he
+  // was sent once the world plays it.
+  {
+    const p = atBats.find((x) => x.play && !x.walkoff && (x.outs | 0) < 3);
+    if (p) {
+      const label = `seed ${SEED} early line: ${p.inning}${p.half[0]} ${p.kind}`;
+      v.setCaption('the line before', { held: true });
+      v.apply({ ...p, hold: 35000 });
+      const D = v.director, W2 = v.world, t0 = W2.t;
+      let threw = null;
+      try { v.setCaption('the early line', { held: true }); } catch (err) { threw = err.message; }
+      check('a line come early: the play lands with it and the dead time is planned', !threw && capText() === 'the line before' && !!D.between && W2.t < D.landAt, `${label}: ${threw || `"${capText()}", planned ${!!D.between}, ${(D.landAt - W2.t).toFixed(2)} s short of the landing`}`);
+      const B = D.between;
+      if (B) {
+        check('a line come early: the dead time starts after the play\'s landing on the world\'s clock', B.from >= D.landAt + BETWEEN.settle - 1e-9, `${label}: from +${(B.from - t0).toFixed(2)}, landing +${(D.landAt - t0).toFixed(2)}`);
+        for (let i = 0; i < 1500 && v.busy(); i++) stub.runFrames(1, 1000 / 30);
+        for (const g of B.gone) {
+          const Q = W2.pose(g.slot), pv = Q ? toPark(Q, Q.pelvis) : null, d = pv ? flatD(pv, g.to) : Infinity;
+          check('a line come early: everyone ends where he was sent (4 ft)', d <= 4 || g.stay, `${label}: ${g.role} slot ${g.slot}, ${d.toFixed(1)} ft from [${g.to.map((x) => x.toFixed(0))}]`);
+        }
+      }
+    }
   }
   // the dirt starts fresh for another game, and not for this one's next at-bat
   {

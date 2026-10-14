@@ -874,10 +874,15 @@ export function createDirector(W, opts = {}) {
   // man who was a still and starts to move does it under a cut. Nothing after a third out (everyone's
   // going off) or a walk-off, or with no time to fill. Returns what it planned ({ gone, shots,
   // from, until, by }), kept as D.between.
+  // The dead time starts at the landing on the world's clock (`t`), which is later than the world's
+  // `now` when the view lands a play early: a held line come before the world got there (the
+  // sandbox's Next), or frames stopped in a hidden tab. Then a man the plan places at the cut in
+  // isn't in the world yet, and sent from where the cast stands him, his walk back went in before
+  // the clips the plan has queued for him (the first baseman's ready set at the cut in).
   D.planBetween = (o = {}) => {
     const p = D.payload, cast = D.cast || [];
     if (!p || p.phase === 'half' || D.inningOver || p.walkoff || !Number.isFinite(o.until)) return null;
-    const t = W.t, from = Math.max(t + BETWEEN.settle, o.from ?? -Infinity), by = o.until - BETWEEN.margin;
+    const now = W.t, t = Math.max(now, D.landAt), from = Math.max(t + BETWEEN.settle, o.from ?? -Infinity), by = o.until - BETWEEN.margin;
     if (by - from < 3) return null;
     const planned = new Map([...(D.play?.bodies || []), ...(D.trot?.bodies || [])].map((B) => [B.slot, B]));
     const men = [];
@@ -886,15 +891,17 @@ export function createDirector(W, opts = {}) {
       if (!['pitcher', 'catcher', 'fielder', 'batter', 'runner', 'ump'].includes(role)) continue;
       const slot = c.look.slot, b = W.bodies.get(slot), P = planned.get(slot), last = P?.clips[P.clips.length - 1];
       // what the world has him doing, or what the director's queued for him after it
-      const q = D.queued.get(slot), cur = b && b.clip && !(q && q.at > t) ? { clip: b.clip.id, start: b.start, speed: b.speed, frame: null } : q;
+      const q = D.queued.get(slot), cur = b && b.clip && !(q && q.at > now) ? { clip: b.clip.id, start: b.start, speed: b.speed, frame: null } : q;
       const B = P || (b && cur
         ? makeBody({ n: 60, id: b.id, slot, role, at: cur.frame?.at ?? b.at, yaw: cur.frame?.yaw ?? b.yaw, mirror: b.mirror, scale: b.scale, clip: cur.clip, start: cur.start, speed: cur.speed })
         : makeBody({ n: 60, id: c.id, slot, role, at: b ? b.at : c.at, yaw: b ? b.yaw : c.yaw, mirror: c.mirror, scale: c.scale }));
       // free once his last clip's done (a loop or a rest at once), up off the ground once he's up
       const e = P ? last : B.clips[0], clip = e && CLIPS[e.clip];
+      // a still is a man nobody's put in the world: not there now, and not placed by the plan
+      const still = !b && !P;
       const done = !e ? t : clip.loop ? onOf(e) + 0.3 : e.start + clip.duration / e.speed;
-      const go = !b ? from : Math.max(t, done, P?.offAfter ?? -Infinity);
-      men.push({ B, slot, role, go, done: B.clips.length, still: !b, c });
+      const go = still ? from : Math.max(t, done, P?.offAfter ?? -Infinity);
+      men.push({ B, slot, role, go, done: B.clips.length, still, c });
     }
     const gone = planBetween({ p, cast, men, by });
     const at = new Map(gone.map((g) => [g.slot, g]));
