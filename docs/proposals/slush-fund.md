@@ -48,7 +48,7 @@ Kerbstone Row reaches every tile round it).
 | 914,915 | grass | **The Forecourt** (`concrete`), where the queue forms at the box office |
 | 914–916,918 | scrub | **The Yard** (`gravel`), behind it |
 | 915–917,915 | pasture prose | **Glacier Street**, rewritten for the arena |
-| 917,917 | the weighbridge pour | **Where the Weigh Was**, now the coach lay-by |
+| 917,917 | the weighbridge pour | not the arena's: **The Slip** took the old weigh-house ([marrow-midrises.md](marrow-midrises.md)) |
 
 All of it is `district: ashway`, outside Old Coldwater, so `SLUM_DECLINE` doesn't apply and the
 front can carry its name. ⚠ **913,915 is untouched**: it is Foundry Way's only way out.
