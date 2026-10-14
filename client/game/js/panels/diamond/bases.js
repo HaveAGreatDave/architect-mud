@@ -4,7 +4,8 @@
 // The payload's `moves` say where every man ends up (plugins/broadcast/sports/baseball-gameday.js
 // runnerMoves, or sim v2's own): each runner on a bag before the pitch and then the batter, lead
 // runner first, as `{ from, to }` (bag 4 is home), `{ from, out }` (forced out at that bag) or
-// `{ from, off }` (the inning was over before he got anywhere). Here each one runs it at his own
+// `{ from, off }` (the inning was over before he got anywhere; one forced off his bag eases up half
+// way to the next). Here each one runs it at his own
 // legs' pace (play.js legsOf, which is the sim's speedOf), and the play waits on him: a throw to a
 // bag a man is safe at gets there after him, a man forced out gets there after the ball, and the
 // play lands when every man is on his bag and every run is in.
@@ -325,6 +326,14 @@ export function planBases(ctx, o) {
   function runner(man, F, calls, home) {
     const { m, B } = man, to = m.to ?? m.out;
     const rec = { slot: B.slot, id: B.id, from: m.from, to: m.to ?? null, out: m.out ?? null, off: !!m.off, bags: {}, done: null };
+    // the inning over before his run counted, with a man coming to his bag: he's forced, so he goes
+    // on contact and eases up half way to the next one. Held on his bag, the man coming stood on him
+    if (m.off && !air && men.some((x) => x !== man && (x.m.to === m.from || x.m.out === m.from))) {
+      const t0 = goOf(man), path = basePath(B.spotAt(t0), routeOf(m.from, m.from + 1));
+      rec.stop = stopAt(B, path, t0, path.len / 2, { v: man.v }).on;
+      rec.end = null;
+      return rec;
+    }
     // holding: in his lead on the ground, back to his bag on a ball in the air
     if (m.off || to == null || to <= m.from) {
       if (air && !o.isHR) standOn(B, m.from, tBat + 0.3);

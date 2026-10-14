@@ -260,6 +260,7 @@ export function planPlay(ctx) {
   else if (!ground && isOut) airOut();
   else if (ground) groundBall();
   else airHit();
+  if (!isHR) offTheLane();
 
   // ── the runners and the batter, now the fielding's known ──
   // A man is forced out where the ball beat him there: a throw's catch at that bag, the man who
@@ -433,8 +434,8 @@ export function planPlay(ctx) {
       runTo(B, again, tFree, tP - again.t, { min: 2, rest: true });
       const e3 = B.play('field_gb', tP - again.t, { frame: again, fade: 0.25 });
       caught(B, e3, [kick[0], BALL_R, kick[2]], tP);
-      // too late: he throws on to first anyway
-      throwOn(B, e3, 'field_gb', 3, { late: true });
+      // too late: he throws on to first anyway, or a first baseman to the pitcher covering it
+      throwOn(B, e3, 'field_gb', B.n === 3 ? 1 : 3, { late: true, bag: 1 });
       return;
     }
     // the throws, man to man
@@ -473,12 +474,12 @@ export function planPlay(ctx) {
 
   // B, in entry `e` of clip `id`, throws on to fielder n: the throw that follows the clip (or the
   // one in it), the receiver at his bag or spot, his catch, and the ball between them. Returns the
-  // receiver and his clip.
+  // receiver and his clip. `o.bag` is the bag it goes to, where the receiver's own isn't it.
   function throwOn(B, e, id, n, o = {}) {
     const R = fielder(n);
     if (!R) return null;
     const dp = (kind === 'doubleplay' || kind === 'tripleplay') && !o.last;
-    const bag = o.home ? 4 : n === 3 || (n === 1 && o.last) ? 1 : dp ? 2 : n === 5 && kind === 'triple' ? 3 : null;
+    const bag = o.bag ?? (o.home ? 4 : n === 3 || (n === 1 && o.last) ? 1 : dp ? 2 : n === 5 && kind === 'triple' ? 3 : null);
     // the cutoff on a ball to the outfield stands out between the ball and the infield, as far
     // out on that line as he can get before a throw in the outfielder's own clip arrives
     const ownThrow = CLIPS[id].events.some((x) => x.kind === 'release');
@@ -584,6 +585,23 @@ export function planPlay(ctx) {
     throwChain.push({ from: B.n, to: n, bag, last: !!o.last, error, clip: recvId, throwClip: te.clip, release: rel, catch: { t: tC, at: gl } });
     if (bag === 1 && o.last) cuts.push({ at: Math.max(rel.t - 0.05, tBat + 0.8), shot: 'first' });
     return { R, recv };
+  }
+
+  // A fielder left standing where the batter runs through first and pulls up, 3.5 ft either side of
+  // the line from the bag to 22 ft past it, steps off it once he's done, into fair ground or foul,
+  // whichever's nearer: the first baseman who takes it on the line past the bag and flips it to the
+  // pitcher stood there, and the batter pulled up 1.9 ft from him. The man who took a throw at
+  // first has his own way off it.
+  function offTheLane() {
+    const b1 = [BAGS[1][0], 0, BAGS[1][2]], far = Math.hypot(b1[0], b1[2]), u = mul(b1, 1 / far);
+    const fair = [u[2], 0, -u[0]];
+    for (const B of bodies.values()) {
+      if (throwChain.some((x) => x.bag === 1 && x.to === B.n) || !B.clips.some((c) => !c.prior)) continue;
+      const t = Math.max(B.free, endOf(B) - 0.3), q = B.spotAt(t), s = q[0] * u[0] + q[2] * u[2], w = q[0] * fair[0] + q[2] * fair[2];
+      if (s < far || s > far + 22 || Math.abs(w) > 3.5) continue;
+      const at = add(mul(u, s), mul(fair, w >= 0 ? 6.5 : -6.5)), yaw = faceTo(at, HOME);
+      if (runTo(B, { at, yaw }, t, t + 1, { rest: true, min: 2 })) settle(B, t + 1, yaw);
+    }
   }
 
   // He throws clip `id` from where he is at t0 to `target`, turned so the throw goes at it.

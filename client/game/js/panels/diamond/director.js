@@ -77,6 +77,9 @@ const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
 const add = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
 const mul = (a, s) => [a[0] * s, a[1] * s, a[2] * s];
 const norm = (a) => { const l = Math.hypot(a[0], a[1], a[2]) || 1; return [a[0] / l, a[1] / l, a[2] / l]; };
+const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+// How near the ground's origin a point moving straight from a to b comes, across the ground.
+const nearest = (a, b) => { const d = sub(b, a), L = d[0] * d[0] + d[2] * d[2], f = L ? clamp(-(a[0] * d[0] + a[2] * d[2]) / L, 0, 1) : 0; return Math.hypot(a[0] + d[0] * f, a[2] + d[2] * f); };
 function hashStr(s) { let h = 2166136261; for (const ch of String(s)) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; }
 
 // How long the infielders take to come out once the grounds crew's mats are off the dirt (the
@@ -789,30 +792,52 @@ export function createDirector(W, opts = {}) {
     // room. Two men who start nearer than 3.5 ft, as the batter and the catcher do after a play on
     // the bases, never passed a plain 3.5 ft, and a man the one gone first went by while he stood
     // never passed at all: each stood ten seconds.
-    const gone = [];
-    let lastEnd = t;
-    const roomOf = (T, end) => {
-      const q0 = T.frameAt(t).at, room = gone.map((f) => Math.max(2.1, Math.min(3.5, flat(q0, f.B.frameAt(t).at) - 0.5)));
-      let least = Infinity;
-      for (let u = t, to = Math.max(end, lastEnd); u <= to; u += 0.2) {
-        const q = T.frameAt(u).at;
-        for (let i = 0; i < gone.length; i++) least = Math.min(least, flat(q, gone[i].B.frameAt(u).at) - room[i]);
+    // How close T comes to the men in `others`, less the room each needs: taken every 0.2 s, and
+    // between two takes as the nearest the two come moving straight (two men crossing the diamond
+    // the opposite ways close at 25 ft/s, and a pass 0.44 ft apart fell between two takes).
+    const roomOf = (T, end, others) => {
+      const q0 = T.frameAt(t).at, room = others.map((f) => Math.max(2.1, Math.min(3.5, flat(q0, f.B.frameAt(t).at) - 0.5)));
+      let least = Infinity, was = null;
+      for (let u = t, to = Math.max(end, t, ...others.map((f) => f.end + 0.5)); u <= to; u += 0.2) {
+        const q = T.frameAt(u).at, rel = others.map((f) => sub(q, f.B.frameAt(u).at));
+        for (let i = 0; i < others.length; i++) least = Math.min(least, nearest(was?.[i] ?? rel[i], rel[i]) - room[i]);
+        was = rel;
       }
       return least;
     };
-    for (const m of men.slice().sort((a, b) => b.k - a.k)) {
-      const deeper = Math.max(-Infinity, ...gone.filter((g) => g.side === m.side && g.k > m.k).map((g) => g.end + 0.3));
+    const place = (m, others) => {
+      m.B.clips.length = m.done;
+      const deeper = Math.max(-Infinity, ...others.filter((g) => g.side === m.side && g.k > m.k).map((g) => g.end + 0.3));
       let wait = 0, best = null;
       for (; wait <= 10; wait += 0.4) {
-        const T = cloneBody(m.B), end = jogToDugout(T, m.go + wait, m.side, m.k), room = roomOf(T, end + 0.5);
+        const T = cloneBody(m.B), end = jogToDugout(T, m.go + wait, m.side, m.k), room = roomOf(T, end + 0.5, others);
         if (end < deeper) continue;
         if (room >= 0) break;
         if (!best || room > best.room + 1e-9) best = { wait, room };
       }
       if (wait > 10) wait = best ? best.wait : 10;
+      m.wait = wait;
       m.end = jogToDugout(m.B, m.go + wait, m.side, m.k);
-      lastEnd = Math.max(lastEnd, m.end + 0.5);
-      gone.push(m);
+    };
+    const deep = men.slice().sort((a, b) => b.k - a.k), gone = [];
+    for (const m of deep) { place(m, gone); gone.push(m); }
+    // Then every man again, deepest first, against everyone else's plan, for as long as that leaves
+    // more room (three rounds at most), keeping the round that left the most. A man planned first
+    // knows nothing of the men still to go, and the first baseman's way to his dugout ran through
+    // the batter, pulled up 2.7 ft from him, who was still standing there when he went by.
+    const leastOf = () => Math.min(...men.map((m) => roomOf(m.B, m.end + 0.5, men.filter((x) => x !== m))));
+    let kept = { least: leastOf(), waits: deep.map((m) => m.wait) };
+    for (let round = 0; round < 3 && kept.least < 0; round++) {
+      for (const m of deep) place(m, men.filter((x) => x !== m));
+      const least = leastOf();
+      if (least <= kept.least + 1e-9) break;
+      kept = { least, waits: deep.map((m) => m.wait) };
+    }
+    for (const [i, m] of deep.entries()) {
+      if (m.wait === kept.waits[i]) continue;
+      m.B.clips.length = m.done;
+      m.wait = kept.waits[i];
+      m.end = jogToDugout(m.B, m.go + m.wait, m.side, m.k);
     }
     for (const m of men) {
       const { B, slot } = m;
