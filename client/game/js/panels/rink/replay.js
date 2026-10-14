@@ -14,6 +14,8 @@
 // a second.
 //
 // The director starts one on a goal, on the booth's `replay` cue, and any new play stops it.
+// A HIT THE PICTURE MISSED is kept as a clip (`save`) and shown at the next stoppage
+// (`play`), with the replay's camera on the man who was hit rather than on the puck.
 
 import { lerp } from './util.js';
 import { PANELS } from './geo.js';
@@ -23,7 +25,7 @@ const HZ = 30, KEEP = 10;
 export function createReplay(W) {
   const frames = [];
   let lastRec = -1;
-  const R = { active: false, from: 0, to: 0, rt: 0, speed: 0.5, count: 0 };
+  const R = { active: false, from: 0, to: 0, rt: 0, speed: 0.5, count: 0, kind: null, clip: null, follow: null };
 
   // the world as the renderers see it, while a replay is on
   const src = {
@@ -33,7 +35,7 @@ export function createReplay(W) {
     debris: [], limbs: [], parts: [], glassBlood: [], cracks: [],
     flex: new Array(PANELS).fill(0), broken: new Set(), netBulge: { a: 0, h: 0 },
     lamp: 0, lampSide: null, crowd: 0.5, mourning: 0, shake: 0, boardShake: 0,
-    zamboni: null, stretcher: null, fight: null, banner: null, _bodies: [], live: W,
+    zamboni: null, stretcher: null, fight: null, banner: null, label: null, _bodies: [], live: W,
     bodies() { return this._bodies; },
     rigOf(b) { return b._J; },
   };
@@ -77,7 +79,23 @@ export function createReplay(W) {
     R.from = Math.max(from, frames[0].t); R.to = Math.min(to, frames[frames.length - 1].t);
     if (R.to - R.from < 1) return false;
     R.rt = R.from; R.speed = speed; R.active = true; R.count++;
+    R.kind = 'goal'; R.clip = null; R.follow = null; src.label = null;
     // the replay's camera starts on its framing (the switch is behind the director's wipe)
+    src.cam.cut++; src.cam.since = 0;
+    return true;
+  };
+  // Keep `from`..`to` for later: the frames as they are now (a frame is never changed once
+  // taken, so keeping it is keeping a reference). Null when there's too little of it.
+  R.save = (from, to) => {
+    const f = frames.filter((q) => q.t >= from - 1 / HZ && q.t <= to + 1 / HZ);
+    return f.length >= HZ ? { frames: f, from: f[0].t, to: f[f.length - 1].t } : null;
+  };
+  // Play a kept clip at `speed`, the camera on `follow` (a man's seed and side) instead of
+  // the puck, with `label` under the REPLAY bug.
+  R.play = (clip, speed, follow = null, label = null) => {
+    if (!clip || clip.to - clip.from < 1) return false;
+    R.clip = clip.frames; R.from = clip.from; R.to = clip.to; R.rt = R.from; R.speed = speed;
+    R.active = true; R.count++; R.kind = 'hit'; R.follow = follow; src.label = label;
     src.cam.cut++; src.cam.since = 0;
     return true;
   };
@@ -94,10 +112,11 @@ export function createReplay(W) {
 
   // Fill the source for the replay's current instant, between the two frames either side.
   R.frame = () => {
-    if (!frames.length) return src;
-    let i = frames.findIndex((f) => f.t > R.rt);
-    if (i <= 0) i = i === 0 ? 1 : frames.length - 1;
-    const a = frames[Math.max(0, i - 1)], b = frames[Math.min(frames.length - 1, i)];
+    const F = R.clip || frames;
+    if (!F.length) return src;
+    let i = F.findIndex((f) => f.t > R.rt);
+    if (i <= 0) i = i === 0 ? 1 : F.length - 1;
+    const a = F[Math.max(0, i - 1)], b = F[Math.min(F.length - 1, i)];
     const k = b.t > a.t ? Math.min(1, Math.max(0, (R.rt - a.t) / (b.t - a.t))) : 0;
     const L3 = (p, q) => (p && q ? [lerp(p[0], q[0], k), lerp(p[1], q[1], k), lerp(p[2], q[2], k)] : p || q);
     const bodies = [];
@@ -133,7 +152,8 @@ export function createReplay(W) {
     src.broken = new Set(near.broken);
     src.kits = W.kits;
     src.t = R.rt;
-    src.cam.focus = [src.puck.x, src.puck.y];
+    const fb = R.follow && bodies.find((q) => q.seed === R.follow.seed && q.side === R.follow.side && q.kind === 'skater');
+    src.cam.focus = fb ? [fb.rag ? fb.rag.pts[0].x : fb.x, fb.rag ? fb.rag.pts[0].y : fb.y] : [src.puck.x, src.puck.y];
     return src;
   };
   R.frames = frames;

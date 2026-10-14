@@ -908,7 +908,7 @@ so a narrator cannot read the other league's records.
 - **The picture moves when the words do.** The narrator tags a line with the moment of
   play it describes (`cue`: a touch, the release, the drop and the won draw, the impact,
   the clinch, a punch, the walk to the box, the medics, a goal's replay and the return to
-  live). The pacer turns those into `cues` on the payload, in ms from the start of the
+  live, a big hit brought up at the next stoppage). The pacer turns those into `cues` on the payload, in ms from the start of the
   payload's line, and the director does each thing as its line airs. A line can carry two
   (a breakaway's spring is the pass and "he's in alone" at once). A rush plays only
   the touches the booth calls, and one running behind its lines catches up rather than
@@ -1136,8 +1136,14 @@ the puck it needs, walks them through the beat and hands them back to the ambien
   falls. The man hit gets to the wall a stride before the hitter commits, at whatever pace
   that takes from wherever he was. The hitter commits as late as he can and still arrive as the hit is called, and
   he skates at a point past the man rather than at him: aimed at the man, he'd ease up as
-  he got there, as anybody does, and the hit came as much as a second late. A man who is
-  hurt stays down, with play stopped, until the injury beat comes.
+  he got there, as anybody does, and the hit came as much as a second late. The camera
+  stays on the puck through it, as a broadcast's does: play goes on wherever the puck is,
+  and about four times in ten the man with it gets rid of it just before the hit lands (a
+  pass to a man of his, or a chip up the wall), so the picture goes with the puck. A hit
+  out of the picture is run back at the next stoppage (see *Instant replay*). The picture
+  goes to the man hit only once play has stopped for him: after the whistle for a man who's
+  hurt, at once for a death. A man who is hurt stays down, with play stopped, until the
+  injury beat comes.
 - *Injuries* bring two medics out with a stretcher. A severed limb comes off at the hit.
 - *Fights* drop the gloves on the ice, bring the camera in to a side-on close-up with a
   health bar per man, and throw the sim's exchange punch for punch. The ending is the sim's: a
@@ -1229,20 +1235,31 @@ puck brings it up the ice to him, as a man breaking out does.
 
 Nobody stands frozen in a battle, either. A carrier waiting on his next touch curls round
 the spot, turning away from their nearest man and keeping his body between that man and the
-puck (`protect`). Their ambient forechecker on a man the director is staging works for the
-puck, round the man and back with him, lifting his stick and poking at the puck, rather than
-leaning on him. A man chasing a loose puck turns to it as he gets close, and takes it at his
-skates if that's where it is: run onto it, two of them once stood on a puck dead in the
-corner for ten seconds. The rink smoke fails a game where two opposing men a stick apart
-(7 ft) both stand still (under 1.5 ft/s) for more than five seconds, outside a faceoff, a
-fight that's still on, or a death.
+puck (`protect`). Their ambient forechecker on a man the director is staging works round the
+man and back with him, shoulder to shoulder, rather than leaning on him. A man chasing a
+loose puck turns to it as he gets close, and takes it at his skates if that's where it is:
+run onto it, two of them once stood on a puck dead in the corner for ten seconds.
+
+Two men after one puck fight for it, whoever is moving them, a play the director is staging
+or the play between beats (`battles` in sim.js). The man with it and the nearest man of
+theirs within about 4 ft are a battle, and so are the nearest of each side within 4 ft of a
+loose puck. The man after it gets down, his shoulder into the other man and his free hand
+on him (`tussle`, which rig.js draws), and goes at it with his stick: a lift, a poke, a
+sweep or a cross-check about every half second, each with its sound, and a cross-check by
+the boards thumps them. The man with it shields it. Two centres taking a draw aren't a
+battle. It's pose, gesture and sound only: where they skate is the play's business, and
+none of it rolls the world's dice. (The man with it and the man on him used to stand a stick
+apart, upright, until it came loose.) The rink smoke fails a game where two opposing men a
+stick apart (7 ft) both stand still (under 1.5 ft/s) for more than five seconds, outside a
+faceoff, a fight that's still on, or a death, and one where the man after the puck in a
+battle is at it with his stick or shoulder in fewer than three samples in ten.
 
 **Nothing teleports, and the live picture never cuts.** Every change of shot (a fight's
 close-up, the Zamboni, a death's slow push in) is the camera's springs easing to it. Nobody
 is put anywhere either: a man skates to where a play needs him, one coming on climbs over
 the near boards by the benches (`overBoards`, the one place anybody appears), and the puck
 is carried, passed, tossed or held. Between plays the linesman carries it in his right hand
-(`pk.held` on an official), so it reaches the next dot when he does. The instant replay is
+(`pk.held` on an official), so it reaches the next dot when he does. An instant replay is
 the one change of picture, and it is made behind a wipe: the league's band sweeps across
 the screen and the switch happens while it covers it.
 
@@ -1322,6 +1339,25 @@ the replay's stand-in world, interpolated between frames, through a camera of th
 ice level (`replay` mode), letterboxed with a REPLAY bug. It goes in and comes back behind
 the wipe, and a new play stops it. The rink smoke checks every goal's replay starts, plays
 sound frames, draws, and hands back within half a second of the `live` cue.
+
+**A hit the picture missed is run back.** The live camera stays on the puck, so a hit away
+from it can happen out of shot. As a hit lands the director asks whether the man hit was in
+the picture (`inPicture`: the live camera as a renderer last drew it, which the renderers
+leave on `W.view`, or with nothing drawing, as in the smoke gate, the framing the camera is
+heading for). A missed one is kept (`replay.save`: the frames from 3.2 seconds before it to
+1.2 after, the frames themselves, since a frame never changes once taken). A hit in the
+picture, a death or a later hit forgets it, and so do a goal and a new period. The booth
+brings the latest hit up at the next stoppage, at the next draw or at the injury it caused
+(`pbp.hit.recall` and `.hurt`, on a `recall` cue), and as that play starts the director runs
+it back behind the wipe (`replay.play`): at three quarters speed or slower, the replay's
+camera on the man hit rather than the puck, with `HITTER ON VICTIM` on a bar under the
+REPLAY bug. A draw that brings a hit up keeps its drop line, and the replay is over before
+the puck is dropped: a draw short of time shows less of the run-up to the hit, and one with
+under 2.5 seconds to spare shows none of it. (Started on the whistle instead, a quick draw
+cut the replay off before the hit.) The rink smoke fails a game with a step of a hit before
+it lands where the camera is off the puck, a hit replay that starts with play going on,
+without a `recall` cue, off the man hit or without the hit in it, one still up as a puck
+drops, and a hit the booth brings up that the rink kept and didn't run back.
 
 **Motion.** A skater leans into acceleration and sits back under braking (`b.accel`), and
 banks into a turn by his speed times his turn rate. Each skate's blade points the way that

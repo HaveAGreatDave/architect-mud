@@ -124,6 +124,13 @@ export function drawHud(ctx, W, w, h, u, live = W) {
     ctx.font = `800 ${19 * u}px ${FACE}`; ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
     ctx.fillText('REPLAY', bx + 30 * u, by + bh * 0.53);
     if (Math.sin((W.t || 0) * 9) > -0.2) { ctx.beginPath(); ctx.arc(bx + 16 * u, by + bh / 2, 5 * u, 0, TAU); ctx.fill(); }
+    // what it's a replay of, when it isn't the goal just scored (a hit the picture missed)
+    if (W.label) {
+      ctx.font = `800 ${14 * u}px ${FACE}`;
+      const lw = Math.max(bw + 6 * u, ctx.measureText(W.label).width + 24 * u), ly = by + bh + 4 * u, lh = 22 * u;
+      ctx.fillStyle = 'rgba(8,10,14,0.88)'; ctx.fillRect(bx, ly, lw, lh);
+      ctx.fillStyle = '#f4efe2'; ctx.fillText(W.label, bx + 12 * u, ly + lh * 0.54);
+    }
     ctx.restore();
   }
   const F = W.fight;

@@ -361,6 +361,12 @@ function standRig(s, T, feet) {
     // shielding it: the shoulder goes into the man (on the +protect side), the puck goes away
     if (s.protect) { tilt -= 0.18 * s.protect * m; lean += 0.15; crouch += 0.15; yaw = -0.5 * s.protect * m; }
   }
+  // fighting a man for the puck (`tussle`, from the sim's battle pass): down low with his
+  // weight into him, shoulder first (the man with it shields it instead, above)
+  if (s.tussle && !carrying && !shot && !deke) {
+    const fl = toLocal(s.tussle.x, s.tussle.y, 0), sd2 = fl[1] >= 0 ? 1 : -1;
+    crouch += 0.22; lean += 0.16; tilt -= 0.14 * sd2; twist -= 0.22 * sd2;
+  }
   if (s.guard) { crouch = Math.max(s.crouch, 0.18); lean = 0.12 + 0.2 * crouch; tilt = 0; pitch = 0; shiftV = 0; bob = 0; twist = 0; }
   let pk = 0;
   if (act === 'punchR' || act === 'punchL' || act === 'jab' || act === 'uppercut') {
@@ -429,6 +435,8 @@ function standRig(s, T, feet) {
       if (fast) bR = [0.95, -0.25, zp + 0.55];
       bL = [0.5 + 0.55 * stridePush, 0.95 - 0.6 * Math.max(0, stridePush), zp + 0.3 + 0.35 * Math.abs(stridePush)];
     }
+    // (in a battle for it, the free hand is on the man)
+    if (s.tussle && !carrying) bL = toLocal(s.tussle.x, s.tussle.y, 4.1);
     // ⚠ THE BLADE EASES, IT NEVER JUMPS. Taking or losing the puck changes where the pose
     // wants the blade by a foot or two in one step, which read as the stick snapping. The
     // rig is a pure function of the body and the time, so the eased blade is kept on the
@@ -509,7 +517,7 @@ function standRig(s, T, feet) {
   }
   // a shove with the stick is a cross-check: both hands on it, the shaft across his chest
   if (act === 'shove' && s.target && s.stick) { const t = s.target; L = toLocal(t.x, t.y, 4.4); L[1] += 0.4; R = toLocal(t.x, t.y, 4.3); R[1] -= 0.4; held = 'across'; stickFit = null; }
-  if (s.grab || act === 'pull' || act === 'hug' || act === 'shove' || act === 'break') { L = reach(shL, L, 0.86); R = reach(shR, R, act === 'pull' || act === 'hug' ? 0.86 : 0.95); }
+  if (s.grab || act === 'pull' || act === 'hug' || act === 'shove' || act === 'break' || (s.tussle && !carrying)) { L = reach(shL, L, 0.86); R = reach(shR, R, act === 'pull' || act === 'hug' ? 0.86 : 0.95); }
   else if (s.guard) { L = reach(shL, L, 0.8); R = reach(shR, R, pk > 0.6 ? 0.98 : 0.8); }
 
   // lean into the turn first: the body and the hands' targets roll together about the ice;

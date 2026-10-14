@@ -103,6 +103,18 @@ async function play(slot) {
   // AND THE CAMERA NEVER CUTS: from one 60 Hz frame to the next it moves no farther than
   // its springs allow.
   const camJumps = [];
+  // IT STAYS ON THE PUCK. Through a hit, until it lands, play goes on and the picture with
+  // it, framed on the puck as everywhere else.
+  const camOff = [];
+  // A HIT THE PICTURE MISSED IS RUN BACK as the booth brings it up (the `recall` cue): with
+  // play stopped, on the man who was hit, the hit in it, and the live picture back before
+  // the puck drops. Every one the booth brings up while the rink has it kept is run back.
+  const hitRp = { missed: 0, owed: 0, shown: 0, bad: [], lastT: null, missedT: null, on: false, dropB: null };
+  // TWO MEN AFTER ONE PUCK FIGHT FOR IT: the man after it is in on him (`tussle`) going at
+  // it with his stick or his shoulder. Sampled with the pairs below: men after it, and how
+  // many of them were at it.
+  const battle = { n: 0, at: 0 };
+  const BATTLE_ACTS = new Set(['lift', 'poke', 'shove', 'sweep']);
   // PASSES ARE TAKEN. Nothing steers a pass to its man: it's played to where he'll be and
   // he meets it, so nearly every pass in a rush gets to him rather than going by him.
   const passes = { n: 0, missed: 0, list: [] };
@@ -221,6 +233,26 @@ async function play(slot) {
         if (dx * dx + dy * dy > 0.75 * 0.75) leaps.push(`${b.kind} ${b.side}${b.slot} ${Math.hypot(dx, dy).toFixed(1)} ft at ${(W.t - tApply).toFixed(2)}s (${D.kind() || 'between plays'})`);
       }
       onIce = now;
+      const hb = D.state.beat;
+      if (hb && hb.kind === 'boards' && !hb.landed && !W.frozen && camOff.length < 8) {
+        const f = W.cam.focus;
+        if (W.cam.mode !== 'broadcast' || (f[0] - pk.x) ** 2 + (f[1] - pk.y) ** 2 > 4) camOff.push(`${W.cam.mode}, ${Math.hypot(f[0] - pk.x, f[1] - pk.y).toFixed(1)} ft off it at ${(W.t - tApply).toFixed(2)}s`);
+      }
+      const lh = D.state.lastHit;
+      if (lh && lh.t !== hitRp.lastT) { hitRp.lastT = lh.t; if (!lh.seen && !lh.fatal) { hitRp.missed++; hitRp.missedT = lh.t; } }
+      const hon = W.replay.active && W.replay.kind === 'hit';
+      if (hon && !hitRp.on) {
+        const R = W.replay, at = `${(W.t - tApply).toFixed(2)}s into ${curG ? curG.type : '?'}`;
+        hitRp.shown++;
+        const why = [!W.frozen && 'play going on', !((curG && curG.cues) || []).some((c) => c.ev === 'recall') && 'nobody brought it up', !R.follow && 'on the puck, not the man',
+          !(hitRp.missedT > R.from && hitRp.missedT < R.to) && 'the hit not in it'].filter(Boolean);
+        if (!why.length && !R.frame().bodies().some((b) => b.seed === R.follow.seed && b.side === R.follow.side)) why.push('the man hit not in it');
+        if (why.length) hitRp.bad.push(`${why.join(', ')} at ${at}`);
+        // (what the viewer sees: the REPLAY bug with the hit named under it, drawn once a game)
+        if (hitRp.shown === 1) { view.renderer.render(W.t * 1000); renders++; }
+      }
+      hitRp.on = hon;
+      if (hb && hb.kind === 'faceoff' && hb.dropped && hitRp.dropB !== hb) { hitRp.dropB = hb; if (W.replay.active) hitRp.bad.push(`a replay still up as the puck drops ${(W.t - tApply).toFixed(2)}s into ${curG ? curG.type : '?'}`); }
       if (ba && ba.shotAt == null && W.t - tApply >= ba.alone - 2) {
         const pk = W.puck;
         if (!ba.got) { ba.sh = W.team[ba.att].find((m) => m.active && m.name === ba.name) || null; if (ba.sh && pk.carrier === ba.sh) ba.got = true; }
@@ -238,6 +270,7 @@ async function play(slot) {
       if (W.t - pairAt >= 0.1 - 1e-9) {
         pairAt = W.t; pairN++;
         const B = D.state.beat, bk = B ? B.kind : null;
+        for (const side of ['a', 'h']) for (const m of W.team[side]) if (m.tussle && m !== pk.carrier && m.active) { battle.n++; if (BATTLE_ACTS.has(m.act)) battle.at++; }
         if (bk !== 'faceoff' && bk !== 'death' && !(bk === 'fight' && !B.stopped)) {
           for (const a of W.team.a) {
             if (!a.active || a.kind !== 'skater' || a.rag || a.hold || a.vx * a.vx + a.vy * a.vy > STILL2) continue;
@@ -284,6 +317,8 @@ async function play(slot) {
     let ok = true;
     tApply = W.t; landedAt = null; grabAt = null; boxAt = null; sawBreakaway = false; rushB = null;
     const replays0 = W.replay.count;
+    // (a hit the rink has kept that this play's lines bring up is owed a replay in it)
+    const owed = (g.cues || []).some((c) => c.ev === 'recall') && !!(D.state.hitClip || D.state.hitPending), shown0 = hitRp.shown;
     curG = g;
     const al = (g.kind === 'breakaway' || g.breakaway) && (g.cues || []).find((c) => c.ev === 'alone');
     if (al) {
@@ -367,6 +402,7 @@ async function play(slot) {
     }
     if ((g.type === 'chance' || g.type === 'goal') && cueT('out') != null && g.kind !== 'breakaway') check(`${label}: the puck arrives as the outcome is called`, landedAt != null && landedAt > cueT('shot') && Math.abs(landedAt - cueT('out')) < (g.type === 'goal' ? 2.4 : 1.2), `${g.shotType}: landed ${landedAt?.toFixed(2)}s, outcome line ${cueT('out')}s`);
     check(`${label} resolves`, !D.busy() || g.type === 'intermission', `still ${D.kind()} after ${limit}s`);
+    if (owed) { hitRp.owed++; if (hitRp.shown === shown0) hitRp.bad.push(`${label}: the booth brought up a hit the picture missed and it wasn't run back`); }
     if (g.type === 'goal') check(`${label}: it goes in`, goalsIn > before.goals && !!W.puck.inNet, `inNet=${W.puck.inNet}`);
     if (g.type === 'goal') {
       const h1 = headSays();
@@ -451,6 +487,9 @@ async function play(slot) {
   check(`${slot}: nobody on the ice jumps`, leaps.length === 0, `${leaps.length}: ${leaps.slice(0, 4).join(', ')}`);
   check(`${slot}: nobody appears except over the near boards`, pops.length === 0, `${pops.length}: ${pops.slice(0, 4).join(', ')}`);
   check(`${slot}: the camera never jumps`, camJumps.length === 0, `${camJumps.length}: ${camJumps.slice(0, 4).join(', ')}`);
+  check(`${slot}: the camera stays on the puck through a hit until it lands`, camOff.length === 0, `${camOff.length}: ${camOff.slice(0, 4).join(', ')}`);
+  check(`${slot}: a hit the picture missed is run back as the booth brings it up`, hitRp.shown > 0 && hitRp.bad.length === 0, `${hitRp.shown} run back, ${hitRp.owed} brought up, ${hitRp.missed} missed: ${hitRp.bad.slice(0, 4).join('; ')}`);
+  check(`${slot}: two men after one puck fight for it`, battle.n > 200 && battle.at >= battle.n * 0.3, `${battle.at} of ${battle.n} samples of a man after it at it with his stick or shoulder`);
   check(`${slot}: every shot is taken with its net in frame`, unseen.length === 0, `${unseen.length}: ${unseen.slice(0, 4).join(', ')}`);
   check(`${slot}: nobody gains the puck from beyond his reach`, snaps.length === 0, `${snaps.length}: ${snaps.slice(0, 4).join(', ')}`);
   check(`${slot}: the rink lifts a pass only when the booth called a saucer`, unasked.length === 0, `${unasked.length}: ${unasked.slice(0, 4).join(', ')}`);

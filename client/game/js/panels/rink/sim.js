@@ -133,7 +133,7 @@ export function makeBody(kind, side, slot, seed) {
     protect: undefined, defend: undefined, look: undefined, stopH: undefined, reachTo: undefined,
     touchT: undefined, puckAt: undefined, puckV: undefined, turnSfxAt: undefined, inReachAt: undefined,
     simFace: undefined, through: undefined, ring: undefined, fetchPrev: undefined, outAt: undefined,
-    meetPass: undefined, chkAt: undefined, chkN: undefined, hold: undefined, down: undefined,
+    meetPass: undefined, chkAt: undefined, chkN: undefined, tussle: null, hold: undefined, down: undefined,
     fountain: undefined, shatterNext: undefined, holdOff: undefined, plant: undefined, track: undefined,
     gloveHold: undefined, actHold: undefined, bfE: undefined, bfT: undefined,
   };
@@ -153,6 +153,9 @@ export function createWorld(ice, seedKey) {
     flex: new Float32Array(PANELS), cracks: [], glassBlood: [], broken: new Set(),
     crowd: 0.15, shake: 0, boardShake: 0, hitstop: 0, lamp: 0, lampSide: null, mourning: 0, dim: 0,
     banner: null, fight: null,
+    // (what the live picture shows, as a renderer last drew it: the director asks whether a hit
+    // was in it)
+    view: null,
     cam: { mode: 'broadcast', focus: [100, MID_Y], zoom: 1, net: null },
     ev: [], script: null, puckScripted: false, allowGoal: false, frozen: false,
     amb: { poss: 'a', nextPass: 1.5, lastTurn: 0, holdUntil: 0, fore: { a: null, h: null } },
@@ -1110,15 +1113,11 @@ export function createWorld(ice, seedKey) {
           const c2 = carrier || pk;
           if (carrier && carrier.scripted && W.puckScripted) {
             // A play the director is staging isn't his to win, so he works for it: on the man,
-            // round toward the puck and back with him as he moves, his stick lifting at the
-            // man's and poking at the puck. Aimed through the man he leaned on him, and the two
-            // of them stood locked together for seconds.
+            // shoulder to shoulder, round toward the puck and back with him as he moves (the
+            // battle pass has his stick at it). Aimed through the man he leaned on him, and the
+            // two of them stood locked together for seconds.
             const dd = hyp(m.x - carrier.x, m.y - carrier.y), a0 = Math.atan2(m.y - carrier.y, m.x - carrier.x) + Math.sin(W.t * 1.3 + m.seed) * 0.35;
-            tx = carrier.x + Math.cos(a0) * 3.2 + carrier.vx * 0.25; ty = carrier.y + Math.sin(a0) * 3.2 + carrier.vy * 0.25; mv = dd > 6 ? 24 : 15;
-            if (dd < 4.5 && W.t > (m.chkAt || 0)) {
-              m.chkAt = W.t + 0.75 + (m.seed % 5) * 0.12; m.chkN = (m.chkN || 0) + 1;
-              W.act(m, m.chkN % 2 ? 'poke' : 'lift', 0.4); W.sfx('stick', { x: m.x });
-            }
+            tx = carrier.x + Math.cos(a0) * 2.6 + carrier.vx * 0.25; ty = carrier.y + Math.sin(a0) * 2.6 + carrier.vy * 0.25; mv = dd > 6 ? 24 : 15;
           } else { tx = c2.x - dir * 1.5; ty = c2.y; mv = 24; }
         } else {
           // everyone else plays his position (see `systemSpot`)
@@ -1257,6 +1256,61 @@ export function createWorld(ice, seedKey) {
         });
       }
     }
+  }
+
+  // ── battles for the puck ──────────────────────────────────────────────────
+  // TWO MEN AFTER ONE PUCK FIGHT FOR IT. The man with it and the nearest man of theirs on
+  // him, or the nearest of each side at a loose puck, are a battle, whoever is moving them
+  // (a play the director is staging or the between-plays game). The man after it gets down,
+  // his shoulder into him and his free hand on him (`tussle`, rig.js), and goes at it with
+  // his stick: a lift, a poke, a sweep, a cross-check, one every half second or so; the man
+  // with it shields it. A cross-check against the boards pins him there and the boards take
+  // it. Pose, gesture and sound only: where they skate is the play's business, and none of
+  // it rolls the world's dice. (The man with it and the man on him stood a stick apart,
+  // upright, until it came loose.)
+  const BATTLE = ['lift', 'poke', 'shove', 'sweep', 'lift', 'poke', 'lift', 'shove'];
+  let bat = null;
+  const onFeet = (m) => m.active && m.kind === 'skater' && !m.rag && !m.hold && !m.blend;
+  function battles() {
+    const pk = W.puck, c = pk.carrier;
+    let a = null, b = null;
+    if (c && onFeet(c)) {
+      let bd = 4.2;
+      for (const o of W.team[c.side === 'a' ? 'h' : 'a']) { if (!onFeet(o)) continue; const d = hyp(o.x - c.x, o.y - c.y); if (d < bd) { bd = d; a = o; } }
+      if (a) b = c;
+    } else if (!c && !pk.held && !pk.inNet && pk.z < 1) {
+      let da = 4, dh = 4, na = null, nh = null;
+      for (const o of W.team.a) { if (!onFeet(o)) continue; const d = hyp(o.x - pk.x, o.y - pk.y); if (d < da) { da = d; na = o; } }
+      for (const o of W.team.h) { if (!onFeet(o)) continue; const d = hyp(o.x - pk.x, o.y - pk.y); if (d < dh) { dh = d; nh = o; } }
+      if (na && nh) { a = na; b = nh; }
+    }
+    // (two centres over a draw are taking a faceoff, which has its own business)
+    if (a && (a.act === 'faceoff' || b.act === 'faceoff')) a = b = null;
+    if (bat && (bat.a !== a || bat.b !== b)) {
+      for (const m of bat.both) { m.tussle = null; if (m !== pk.carrier) m.defend = null; }
+      if (bat.shield && bat.b.protect === bat.shield) bat.b.protect = 0;
+      bat = null;
+    }
+    if (!a) return;
+    if (!bat) bat = { a, b, both: [a, b], shield: 0 };
+    a.tussle = b; b.tussle = a;
+    const after = (m, foe) => {
+      if (m.defend) { m.defend[0] = pk.x; m.defend[1] = pk.y; } else m.defend = [pk.x, pk.y];
+      if (!m.scripted) m.face = Math.atan2(pk.y - m.y, pk.x - m.x);
+      if (m.act || !m.stick || W.t < (m.chkAt || 0)) return;
+      const n = m.chkN = (m.chkN || 0) + 1, k = BATTLE[(n + m.seed) % BATTLE.length];
+      m.chkAt = W.t + 0.45 + ((m.seed + n * 7) % 5) * 0.08;
+      if (k === 'shove') {
+        m.target = foe; foe.react = Math.max(foe.react || 0, 0.35);
+        if (foe.y < 7 || foe.y > RW - 7 || foe.x < 14 || foe.x > RL - 14) { W.boardShake = Math.max(W.boardShake, 0.25); W.sfx('boards', { x: foe.x, speed: 8 }); }
+      } else W.sfx(k === 'sweep' ? 'sweep' : 'stick', { x: m.x });
+      W.act(m, k, k === 'shove' ? 0.5 : 0.4);
+    };
+    after(a, b);
+    if (b === pk.carrier) {
+      // (shielding it: his body between the man and the puck, the side the man is on)
+      if (!b.protect) { const lv = -(a.x - b.x) * Math.sin(b.h) + (a.y - b.y) * Math.cos(b.h); bat.shield = b.protect = lv >= 0 ? 1 : -1; }
+    } else after(b, a);
   }
 
   function officials(dt) {
@@ -1516,6 +1570,7 @@ export function createWorld(ice, seedKey) {
     if (W.script) W.script(dt);
     ambient(dt);
     officials(dt);
+    battles();
     // a man getting the puck skates to it, whatever his script or his position asked of him,
     // and a man a pass is for moves onto its line
     pursue();

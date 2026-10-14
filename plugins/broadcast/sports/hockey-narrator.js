@@ -489,6 +489,14 @@ export function narrate(ctx) {
   // (`rushPass` is the kind of the last touch before the shot when it was a pass, which a
   // goal's replay walks through)
   let rushHolder = null, rushPass = null, rushAlone = false;
+  // A BIG HIT IS TALKED ABOUT AT THE NEXT STOPPAGE: the injury it caused, or the next draw.
+  // The rink keeps the camera on the puck, and a hit that was out of the picture is run back
+  // as the play this line rides starts (its `recall` cue), so the line is never cut: it's
+  // the replay's time. It describes the hit without saying the picture is a replay of it,
+  // since a hit the picture caught isn't run back. Only the latest hit; a goal or the end of
+  // the period first, and it's forgotten.
+  let pendingHit = null;
+  const recallHit = (key, t, sb) => { if (pendingHit) call(key, t, { hitter: surnameOf(pendingHit.hitter), victim: surnameOf(pendingHit.victim) }, sb, { cue: { ev: 'recall' } }); pendingHit = null; };
   function callRush(b, t, sb, gd, loud) {
     const nodes = Array.isArray(b.possession) ? b.possession : [];
     const names = Array.isArray(b.rushNames) && b.rushNames.length ? b.rushNames : null;
@@ -693,6 +701,7 @@ export function narrate(ctx) {
         break;
 
       case 'period_end':
+        pendingHit = null;
         // A quiet period gets padded before the horn rather than after it.
         for (let g = 0; g < 3 && routine < 3; g++) { chatter(b); routine++; }
         say(pick('section.end'), t, sb); said++;
@@ -704,6 +713,7 @@ export function narrate(ctx) {
         break;
 
       case 'goal': {
+        pendingHit = null;
         const key = b.strength === 'pp' ? 'goal.pp' : b.strength === 'sh' ? 'goal.sh' : b.strength === 'en' ? 'goal.en' : 'goal';
         // some goals are a man in alone: the rink stages them that way and the booth says so
         const alone = !b.strength || b.strength === 'even' ? ['wrist', 'backhand', 'snap'].includes(b.shotType) && nrng() < 0.22 : false;
@@ -742,11 +752,15 @@ export function narrate(ctx) {
         // Every draw is called now, in two short lines: where, then who won it. The old
         // one-sentence pools still air on the draws that mean something.
         call(`pbp.faceoff.${sub}`, t, null, sb, null, gameday(b, idx));
+        // (a hit brought up keeps the drop line, so the puck isn't down before the rink has run
+        // the hit back: a routine draw without one goes down at once)
+        const recalled = !!pendingHit && !pendingHit.hurt && b.reason !== 'period';
+        if (recalled) recallHit('pbp.hit.recall', t, sb);
         // The first draw of a period (the teams back out after an intermission, or the
         // building on its feet for the 1st); then the drop itself, which the linesman
         // makes as the line airs.
         if (b.reason === 'period') call(b.section === '1st' ? ['pbp.period.first', 'pbp.period.out'] : 'pbp.period.out', t, null, sb, { opt: true });
-        call('pbp.faceoff.drop', t, null, sb, { cue: { ev: 'drop' }, opt: !loud });
+        call('pbp.faceoff.drop', t, null, sb, { cue: { ev: 'drop' }, opt: !loud && !recalled });
         if (nrng() < (loud ? 0.6 : 0.25)) { say(pick(`faceoff.${sub}`, 'faceoff'), t, sb, null, null, { cue: { ev: 'won' }, opt: !loud && 'colour' }); said++; }
         else call('pbp.faceoff.win', t, null, sb, { cue: { ev: 'won' }, opt: !loud });
         // and only now is the period under way: never before its first draw is won
@@ -833,6 +847,7 @@ export function narrate(ctx) {
         else if (nrng() < 0.4) call('pbp.hit.stick', t, null, sb, { opt: true });
         if (hurt) call('pbp.hit.down', t, null, sb);
         else if (nrng() < 0.5) call('pbp.hit.up', t, null, sb, { cue: { ev: 'up' }, opt: true });
+        pendingHit = { hitter: b.hitter, victim: b.victim, hurt };
         break;
       }
 
@@ -840,6 +855,7 @@ export function narrate(ctx) {
       // arm come off.
       case 'injury':
         say(pick('injury'), t, sb, null, gameday(b, idx)); said++;
+        if (pendingHit && pendingHit.hurt && pendingHit.victim === b.player) recallHit('pbp.hit.recall.hurt', t, sb);
         call('pbp.injury.mates', t, null, sb, { opt: true });
         call('pbp.injury.medics', t, null, sb, { cue: { ev: 'medics' } });
         if (b.wound) { say(pick(b.sever ? 'injury.sever' : 'injury.wound'), t, sb); said++; }
@@ -848,6 +864,7 @@ export function narrate(ctx) {
         break;
 
       case 'death':
+        pendingHit = null;
         say(pick('death'), t, sb, deathFx(b), gameday(b, idx)); said++;
         call('pbp.death.still', t, null, sb, { cue: { ev: 'still' } });
         if (b.wound) { say(pick('death.wound'), t, sb); said++; }

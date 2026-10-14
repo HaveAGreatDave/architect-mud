@@ -30,6 +30,7 @@ import { RL, RW, MID_Y, GOAL_X, NET_HALF, NET_H, DOT_FT, BOARD_H, GLASS_H, attac
 import { SHOTS, releaseAt, bladeWorld, skaterRig } from './rig.js';
 import { makeBody } from './sim.js';
 import { createReplay } from './replay.js';
+import { createRinkCamera } from './camera.js';
 import { clubOf } from '../club-crest.js';
 
 // What each outcome is called on screen. The broadcast regress checks every save kind the
@@ -205,6 +206,53 @@ export function createDirector(W, opts = {}) {
   // switched while it covers it (`from` 0.5 starts it already covering). The HUD draws it.
   const WIPE = 0.6;
   function wipe(from = 0) { W.wipe = { t0: W.t - from * WIPE, dur: WIPE }; }
+  // Whether a spot on the ice is in the picture: the live camera as a renderer last drew it,
+  // or, with nothing drawing (a hidden tab, the smoke gate), the framing it's going to.
+  function inPicture(x, y, z) {
+    const V = W.view && W.t - W.view.t < 0.3 ? W.view : null, w = V ? V.w : 900, h = V ? V.h : 506;
+    const q = (V ? V.P : createRinkCamera(W).update(w, h).P)(x, y, z);
+    return !!q && q.x > w * 0.03 && q.x < w * 0.97 && q.y > h * 0.05 && q.y < h * 0.95;
+  }
+  // A HIT THE PICTURE MISSED IS SHOWN AT THE NEXT STOPPAGE, as the booth brings it up. Its
+  // frames are kept a moment after it lands (`D.hitPending`, then `D.hitClip`). The play the
+  // booth talks about it over (the next draw, or the injury it caused) carries a `recall`
+  // cue, and as that play starts the hit is run back behind the wipe: slowed, on the man
+  // who was hit, his hitter named under the REPLAY bug, and back to the live picture before
+  // the puck is dropped. A draw with little time before its drop gets the last of the run-up
+  // and the hit; one with none left gets no replay. The booth only talks about the latest
+  // hit, so a later one (in the picture or not), a goal, a death or a new period drops it.
+  // (Started on the whistle instead, a quick draw cut it off before the hit.)
+  function hitReplays() {
+    if (D.hitPending && W.t >= D.hitPending.saveAt) {
+      const h = D.hitPending; D.hitPending = null;
+      const clip = replay.save(h.t - 3.2, h.t + 1.2);
+      if (clip) D.hitClip = { ...h, clip };
+    }
+    const B = D.beat, S = D.hitShow, rel = B ? W.t - B.t0 : 0;
+    // (the draw about to go down: the live picture has to be back for it)
+    const late = !!B && B.kind === 'faceoff' && (B.down || rel > B.dropAt - 1.2);
+    if (S) {
+      if (S.phase === 'in' && W.t >= S.at) {
+        if (late || !replay.play(S.clip, S.speed, S.follow, S.label)) { D.hitShow = null; return; }
+        S.phase = 'on';
+      } else if (S.phase === 'on' && (!replay.active || replay.left() <= WIPE / 2 || late || !W.frozen)) { wipe(); S.phase = 'out'; S.at = W.t + WIPE / 2; }
+      else if (S.phase === 'out' && W.t >= S.at) { if (replay.kind === 'hit') replay.stop(); D.hitShow = null; }
+      return;
+    }
+    const H = D.hitClip;
+    if (!H || D.recall == null || !B || replay.active || !W.frozen || late || rel < Math.max(0.3, D.recall - 2.5)) return;
+    D.recall = null;
+    // up to the drop (its wipe back and a second to spare), or eight seconds
+    const room = Math.min(8, B.kind === 'faceoff' ? B.dropAt - rel - 1.2 - WIPE : 8);
+    if (room < 2.5) return;
+    D.hitClip = null;
+    // three quarters speed or slower; short of room, less of the run-up
+    const len = H.clip.to - H.clip.from, speed = clamp(len / room, 0.5, 0.75), span = Math.min(len, room * speed);
+    const from = Math.max(H.clip.from, H.t - span + Math.min(1.2, span * 0.3, H.clip.to - H.t));
+    const clip = { frames: H.clip.frames, from, to: Math.min(H.clip.to, from + span) };
+    D.hitShow = { phase: 'in', at: W.t + WIPE / 2, clip, follow: H.follow, label: H.label, speed };
+    wipe();
+  }
   const busyBody = (b) => D.tasks.some((k) => k.bodies && k.bodies.includes(b));
   const leaving = (b) => D.tasks.some((k) => k.leave && k.bodies.includes(b));
   // Off to the near boards, where the benches and the box are. With `sub` the spare comes
@@ -1137,8 +1185,11 @@ export function createDirector(W, opts = {}) {
         bl.tx = sh.x + dx * k; bl.ty = sh.y + dy * k; bl.face = Math.atan2(-dy, -dx);
       }
       const nextCue = nodes[li] ? cueOf(p, 'node', 'i', nodes[li].oi) : null;
-      // (not a carry up to where a dump goes in from: dumped from short of there, it's icing)
-      if (nextCue != null && rel >= nextCue + 0.3 && ((leg.kind === 'carry' && !leg.up) || leg.kind === 'chase')) {
+      // (not a carry up to where a dump goes in from: dumped from short of there, it's icing;
+      // nor a chase that still owes the booth its takeaway battle, which gets a moment longer
+      // for their man to get there)
+      const owed = leg.kind === 'chase' && tk != null && !B.battled && leg.foe && free(leg.foe) && rel < nextCue + 1.5;
+      if (nextCue != null && rel >= nextCue + 0.3 && ((leg.kind === 'carry' && !leg.up) || (leg.kind === 'chase' && !owed))) {
         if (leg.kind === 'chase') { const c = leg.chaser; if (leg.foe) leg.foe.scripted = false; if (cur !== c) cur.scripted = false; cur = c; script(cur); }
         leg = null; nextLeg();
         return;
@@ -1564,7 +1615,13 @@ export function createDirector(W, opts = {}) {
     victim.scripted = true; hitter.scripted = true; B.locked.add(victim); B.locked.add(hitter);
     victim.maxV = 20; hitter.maxV = 27; hitter.acc = 34;
     if (style === 'behind') { victim.tx = x0; victim.ty = y0 + 0.4; victim.maxV = 12; }
-    B.ownsCam = true;
+    // THE CAMERA STAYS ON THE PUCK. Play goes on wherever the puck is, and the picture goes
+    // with it: a hit away from it is out of shot, and shown at the next stoppage instead
+    // (`hitReplays`). Without the puck he leaves it to the play; and some get rid of it just
+    // before the hit lands, a pass to a man of his or a chip up the wall, so the picture
+    // follows the puck away from the hit, as a broadcast does.
+    if (pk.carrier !== victim) W.puckScripted = false;
+    const rid = !fatal && hash(`${p.clock}|${p.victim}|rid`) % 10 < 4;
     let hit = false;
     B.update = (dt, rel) => {
       if (!hit) {
@@ -1597,13 +1654,24 @@ export function createDirector(W, opts = {}) {
           // check isn't eased into. Aimed short, the hit came as much as a second late.
           const ex = ax - hitter.x, ey = ay - hitter.y, el = hyp(ex, ey) || 1;
           hitter.tx = ax + ex / el * 12; hitter.ty = ay + ey / el * 12; hitter.charging = victim;
+          if (rid && !B.rid && pk.carrier === victim && hyp(hitter.x - victim.x, hitter.y - victim.y) < 11) {
+            B.rid = true;
+            const mate = W.nearestOf(W.mates(vs).filter((m) => m !== victim && m.stick && (m.x - victim.x) * vdir > -5), victim.x + vdir * 30, victim.y - 20);
+            W.act(victim, 'pass', SHOTS.pass.dur);
+            at(B, releaseAt('pass'), () => {
+              if (pk.carrier !== victim) return;
+              if (mate && hyp(mate.x - victim.x, mate.y - victim.y) < 70) W.pass(victim, mate, 55);
+              else W.dumpTo(victim, clamp(victim.x + vdir * 45, 20, RL - 20), RW - 6, 60);
+              W.puckScripted = false;
+            });
+          }
         }
-        W.cam.focus = [(victim.x + hitter.x) / 2, (victim.y + hitter.y) / 2 - 4];
         // running late, the hitter finds another gear and the man with it, once he's on the
         // wall, eases up into him (short of it he keeps going to it)
         if (rel > (impT != null ? impT + 0.4 : 3.0)) { hitter.maxV = 34; hitter.acc = 60; if (there || style === 'behind') victim.maxV = Math.min(victim.maxV, 6); }
         if (charging && hyp(hitter.x - victim.x, hitter.y - victim.y) < 3.3) { hit = true; impact(); }
-      } else {
+      } else if (B.ownsCam) {
+        // (once play has stopped for him, the picture goes to the man down)
         const v = victim.rag ? victim.rag.pts[0] : victim;
         W.cam.focus = [v.x, v.y - 3];
       }
@@ -1660,18 +1728,30 @@ export function createDirector(W, opts = {}) {
       if (p.sever && p.woundPart && !fatal) at(B, 0.06, () => W.sever(victim, p.woundPart, [hv[0] * 0.5, 14, 9]));
       if (fatal === 'head') at(B, 0.05, () => W.sever(victim, 'head', [hv[0] * 0.4, 6, 16]));
       if (fatal === 'throat') { victim.fountain = { part: 'head', until: W.t + 5 }; victim.bleeding = 12; }
-      W.cam.mode = 'zoom';
+      // Was it in the picture? If not it's kept, a moment of its aftermath and all, for the
+      // next stoppage; if it was, there's nothing to show, and an older one kept is of a hit
+      // the booth has moved on from. (A death stops everything at once, and the picture goes
+      // straight to him.)
+      const seen = inPicture(victim.x, victim.y, 3);
+      D.lastHit = { t: W.t, seen, fatal: !!fatal };
+      D.recordUntil = W.t + 1.3;
+      D.hitClip = null;
+      D.hitPending = !seen && !fatal ? { t: W.t, saveAt: W.t + 1.25, follow: { seed: victim.seed, side: victim.side }, label: `${String(hitter.name || '').toUpperCase()} ON ${String(victim.name || '').toUpperCase()}` } : null;
+      if (fatal) { B.ownsCam = true; W.cam.mode = 'zoom'; }
       land(B);
       // (the hitter skates off it: kept where he hit, he stood at the boards by the man he'd
       // put down until the stretcher came)
       at(B, 1.0, () => { hitter.scripted = false; });
       if (hurt) {
-        // he stays down and play stays stopped until the injury beat comes for him
+        // he stays down and play stays stopped until the injury beat comes for him; once the
+        // whistle's gone the picture goes to him
         victim.down = true;
-        at(B, 1.6, () => whistle(true));
+        at(B, 1.6, () => { whistle(true); B.ownsCam = true; W.cam.mode = 'zoom'; });
         if (fatal) return;
         at(B, 3.0, () => { B.waiting = true; opts.onDone?.(B.kind); });
       } else {
+        // (and play goes on: the puck is anybody's)
+        W.puckScripted = false;
         at(B, 2.3, () => { W.getUp(victim, 1.1); victim.scripted = false; pickUpStick(victim); });
         at(B, 3.2, () => finish(B));
       }
@@ -2212,10 +2292,20 @@ export function createDirector(W, opts = {}) {
   }
   function stageNow(p) {
     D.seq = (D.seq || 0) + 1;
-    if (replay.active) { replay.stop(); wipe(0.5); }
-    // only a goal is ever replayed, so only a goal's play is recorded: keeping every man's
-    // joints thirty times a second all game would be work nobody watches
-    D.recording = p.type === 'goal'; D.recordUntil = null;
+    // (a hit's replay carries on into the stoppage's own beats; anything else ends it)
+    const keep = replay.active && replay.kind === 'hit' && ['faceoff', 'injury', 'penalty'].includes(p.type);
+    if (replay.active && !keep) { replay.stop(); wipe(0.5); }
+    if (!keep) D.hitShow = null;
+    // (after a goal, a death or a period's end the booth has moved on from a hit it missed;
+    // a play the booth brings one up over carries a `recall` cue, see `hitReplays`)
+    if (['goal', 'death', 'intermission'].includes(p.type) || (p.type === 'faceoff' && p.reason === 'period')) { D.hitClip = null; D.hitPending = null; }
+    D.recall = cueOf(p, 'recall');
+    // only a goal and a hit are ever replayed, so only theirs is recorded: keeping every
+    // man's joints thirty times a second all game would be work nobody watches
+    D.recording = p.type === 'goal' || p.type === 'boards'; D.recordUntil = null;
+    // (a hit's clip starts 3.2 s before it lands, and it lands within a second of its line: the
+    // skate along the wall before that is never shown, and was most of the recording)
+    D.recordFrom = p.type === 'boards' ? (D.arrived ?? W.t) + Math.max(0, (cueOf(p, 'impact') ?? 0) - 4.4) : 0;
     dress(p);
     if (D.intermission && p.type !== 'intermission') { if (D.beat) D.beat.cleanup = null; endIntermission(); }
     switch (p.type) {
@@ -2238,7 +2328,7 @@ export function createDirector(W, opts = {}) {
   // the director's own tick, run by the world before anything else each step
   W.script = (dt) => {
     // the replay: kept every step; played on the world's clock, back to live when it ends
-    if (replay.active) replay.tick(dt); else if (D.recording && W.t < (D.recordUntil ?? Infinity)) replay.record();
+    if (replay.active) replay.tick(dt); else if (D.recording && W.t >= D.recordFrom && W.t < (D.recordUntil ?? Infinity)) replay.record();
     // a play waiting on a draw goes as soon as the puck is down, or when it can wait no longer
     if (D.queued) {
       const F = D.beat, q = D.queued;
@@ -2248,6 +2338,7 @@ export function createDirector(W, opts = {}) {
     if (B && B.update) B.update(dt, W.t - B.t0);
     // a whistle's beat, holding the picture until the draw: everybody to the dot
     if (B && B.stopped) regroupTick(B);
+    hitReplays();
     if (!B || !B.ownsCam || (B.stopped && !B.keepCam)) W.cam.focus = [pk.x, pk.y];
     if (D.tasks.length) D.tasks = D.tasks.filter((k) => !k.tick(dt));
     if (Math.abs(W.mourning - D.mournTo) > 0.001) W.mourning = lerp(W.mourning, D.mournTo, 1 - Math.exp(-dt * 0.7));

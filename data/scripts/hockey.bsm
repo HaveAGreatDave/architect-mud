@@ -1433,6 +1433,26 @@ He's not getting up.
 Whistle. He's down.
 ::endlines
 
+# A big hit, talked about at the next stoppage: the next draw (`pbp.hit.recall`), or the
+# injury it caused (`.hurt`). The rink keeps its camera on the puck, and a hit that happened
+# out of the picture is run back while this is said. A hit it caught isn't, so a line
+# describes the hit and never says the picture is a replay of it. Any style of hit, an elbow
+# or one from behind too, so no line calls it clean. {hitter} and {victim}.
+::lines pbp.hit.recall
+That hit from {hitter} on {victim}, though.
+{hitter} caught {victim} with his head down.
+{victim} is still looking for the number of the bus. It was {hitter}.
+{hitter} finished that check on {victim}. Finished it twice.
+Some hit from {hitter} back there. {victim} felt every ounce of it.
+{victim} will feel {hitter} in the morning.
+::endlines
+::lines pbp.hit.recall.hurt
+That's the hit from {hitter} that did it.
+{victim} never saw {hitter} coming.
+{hitter} got all of him, and {victim} paid for it.
+{hitter} finished his check. {victim} didn't finish his shift.
+::endlines
+
 ::lines pbp.fight.helmets
 Helmets too.
 Lids off.

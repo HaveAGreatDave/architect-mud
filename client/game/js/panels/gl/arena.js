@@ -827,6 +827,8 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
       camera.view = api.view;
       // the live camera keeps following the play under a replay, so it's on it when it ends
       const live = camera.update(w, h, now);
+      // (what the live picture shows, for the director: a hit it misses is replayed later)
+      W0.view = { P: live.P, w, h, t: W0.t };
       const { C, P } = rp ? (rcam ??= createRinkCamera(rp.source, { snap: true })).update(w, h, now) : live;
       api.lastP = P;
       const crowdTex = W.crowd > 0.45 ? texUp : texSit;

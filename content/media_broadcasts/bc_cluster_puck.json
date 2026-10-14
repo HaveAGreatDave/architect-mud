@@ -1337,6 +1337,20 @@
         "{shooter} takes it {where}, and he's in ALONE!",
         "{player} hits {shooter} in full flight. Breakaway!",
         "Up to {shooter}, and nobody's with him!"
+      ],
+      "pbp.hit.recall": [
+        "That hit from {hitter} on {victim}, though.",
+        "{hitter} caught {victim} with his head down.",
+        "{victim} is still looking for the number of the bus. It was {hitter}.",
+        "{hitter} finished that check on {victim}. Finished it twice.",
+        "Some hit from {hitter} back there. {victim} felt every ounce of it.",
+        "{victim} will feel {hitter} in the morning."
+      ],
+      "pbp.hit.recall.hurt": [
+        "That's the hit from {hitter} that did it.",
+        "{victim} never saw {hitter} coming.",
+        "{hitter} got all of him, and {victim} paid for it.",
+        "{hitter} finished his check. {victim} didn't finish his shift."
       ]
     },
     "sport": "hockey",
