@@ -543,6 +543,7 @@ All the standard headers (`@broadcast`, `@channel`, `@category`, `@length`) work
 | `@sport baseball` | Which simulation to run: `baseball` or `hockey`. This is the only sport discriminator in the pipeline. |
 | `@announcer "Chip Vega"` | The play-by-play voice — a display **name**, surrounding quotes stripped. Available in lines as `{announcer}`. Not an NPC. |
 | `@airtime 19` | Optional. Feature only the game(s) covering these **in-game hours** (0–23, comma/space-separated) each day — one full game, snapped to the grid, at a fixed time of day; the channel is dark otherwise. Omit for **continuous** back-to-back games all day. The league itself always plays a full slate on the in-game clock (one game every 3 in-game hours → 8/in-game-day, ~1/team/day) and the standings advance regardless of what's aired; `@airtime` only picks which of those games this channel *shows*. `19` → the 18:00–21:00 game. |
+| `@sim 2` | Optional, baseball only. Play sim v2 (errors, hit batters, steals, caught stealing, pickoffs, throws over, double steals, wild pitches, passed balls). Compiles to `sports_pools.sim.version`. Omit for v1. The server records the slot v2 starts at, the first slot of the next in-game day after it first sees this, and never moves it, so every game that has aired replays as it aired. Removing the line records an end slot the same way; a version that has played and ended can't be switched back on. See [systems-broadcast.md](systems-broadcast.md#sim-v2). |
 
 ## Team & player pools
 
@@ -575,14 +576,41 @@ Same `::lines <key>` … `::endlines` collector as weather. Each non-empty line 
 **Routine outs:** `atbat.strikeout` · `atbat.groundout` · `atbat.flyout` · `atbat.popout` — fallback `atbat.out`
 **Non-scoring baserunners:** `atbat.single` · `atbat.double` · `atbat.triple` · `atbat.walk`
 **Scoring plays:** `rbi` (non-homer runs batted in) · `hr.solo` · `hr.grand` (grand slam) · `hr` (fallback)
-**After any scoring play:** `score.update` (the running-score line)
+**After any scoring play:** `score.update` (the running-score line); `score.tied` instead when the run levels the score (falls back to `score.update`)
 **Situational:** `walkoff` (home wins with a late go-ahead run) · `recap.half` (a sparse score checkpoint at the end of every third inning)
+
+**Sim v2 (`@sim 2`):** `atbat.hitbypitch` (falls back to `atbat.walk`) · `atbat.error`, and `atbat.error.throwing` when the batter takes second on a throw away · on the bases, `run.steal` · `run.caughtstealing` · `run.pickoff` · `run.throwover` · `run.doublesteal`, and `run.doublesteal.out` when the lead runner is thrown out · `run.wildpitch` · `run.passedball`, each with a `.score` variant when a run comes in. A throw over is colour, called only when the half needs lines; the rest are always called.
 
 Only the keys the runner needs are voiced; a missing pool is skipped (framing) or falls back (`atbat.*` → `atbat.out`/`atbat.single`, `hr.*` → `hr`).
 
+### Lines that agree with the play (baseball)
+
+The server decides where every ball in play goes and who fields it (`synthPlay` in [baseball.js](../plugins/broadcast/sports/baseball.js)), and the Gameday views draw that play, so a line that names a direction has to name the right one. A pool can carry a **tag** after its key: `atbat.double.wall` airs only on a double that got to the wall. To call a play, the runner takes the first key in its fallback list that has lines, and draws one line from that pool together with every pool of the same key suffixed by one of the play's tags (`sportsPickTagged` in [rng.js](../plugins/broadcast/rng.js), one draw like any other pick). So a bare pool's lines air on every play of their kind and have to be true of all of them: no direction, depth, kind of contact or kind of catch. Regress fails a bare line that says one (the word list is in [plugins/broadcast/regress.js](../plugins/broadcast/regress.js), less what a kind always is: a groundout is on the ground, a home run goes over the wall), and a pool named for a tag no play carries. `variety-smoke` fails a suffixed pool that no play of its kind opens.
+
+The pools that take tags are the ones a ball in play is called with: `atbat.groundout`, `atbat.flyout`, `atbat.popout`, `atbat.single`, `atbat.double`, `atbat.triple`, `atbat.doubleplay`, `atbat.tripleplay`, `atbat.sacfly`, `atbat.productout`, `atbat.error`, `atbat.error.throwing`, `rbi`, `hr`, `hr.solo` and `hr.grand`. A tag qualifies only the key it's written after: a solo home run off the foul pole opens `hr.solo.pole`, not `hr.pole`.
+
+| Tags | A play carries it when |
+|---|---|
+| `ground` `liner` `fly` `pop` `bloop` | that's what it was off the bat; a `bloop` is a single in the air |
+| `left` `right` `centre` | it went that way: an infield ball by who fielded it (third or short is the left side), anything else by where it went |
+| `pull` `oppo` | it went 12° or more toward the hitter's pull side, or the other way |
+| `gap` `line` | in the air (or an extra-base hit), 9° to 21° off centre and 200 ft out or more; or 36° or more off centre, in the outfield |
+| `hole` `middle` | a single on the ground through the infield, between two men or up the middle |
+| `infield` `catcher` `comebacker` | it was fielded on the infield (a pop-up fair and inside 140 ft); by the catcher; a grounder the pitcher fielded |
+| `foul` `fair` | a pop-up was caught in foul ground, or in fair |
+| `deep` `track` `wall` `shallow` | in the air 88% of the way to the fence or more; caught on the warning track; caught at the wall, or an extra-base hit that got to it; an out or a single coming down inside 215 ft |
+| `offwall` `robbed` | an extra-base hit off the wall on the fly; a home run caught over the wall |
+| `routine` `ranging` `diving` `sliding` `leaping` `barehand` `rail` | it's how the man who made the play got to it. On a hit, only an infield hit carries one |
+| `dove` | a hit got past a man who dove for it and missed (`{diver}`) |
+| `dirt` `wide` `late` `home` | the throw was scooped out of the dirt, pulled first base off the bag (an infield hit), was too late (an infield hit), or went home on a sac fly |
+| `slide` `standup` | a double or a triple: the batter slid into his bag, or didn't |
+| `643` `463` `543` `363` `163` `63` `43` | the double play went through those fielders; a triple play is always `543` |
+| `nodoubt` `scraper` `leap` `pole` | a home run was long gone, just over, over a leaping outfielder's glove, or off the foul pole |
+| `boot` `legs` `drop` `past` `stands` | an error: booted, through his legs, a fly ball dropped; a throw past first, or into the stands |
+
 ## Tokens
 
-Filled per event from the live game state; unknown tokens strip to empty.
+Filled per event from the live game state; unknown tokens strip to empty. A token that opens a sentence takes a capital, so `{fielder} dives` reads "The shortstop dives".
 
 | Token | Value |
 |---|---|
@@ -595,7 +623,12 @@ Filled per event from the live game state; unknown tokens strip to empty.
 | `{half}` | `top` or `bottom` |
 | `{section}` / `{sectionOrd}` | generic section term (`inning` / `3rd`) — for cross-sport lines |
 | `{outs}` | outs in the current half after this play |
-| `{rbi}` / `{runs}` | runs driven in on this play |
+| `{rbi}` / `{runs}` | runs driven in / runs scored on this play (the same in v1; v2 credits no RBI on an error or a double play) |
+| `{runner}` | sim v2: the man running on a play on the bases |
+| `{base}` | sim v2: the bag in play, as a word (`second`): the one he's going for on a steal, the one he's on for a pickoff or a throw over |
+| `{fielder}` | the man who fielded the ball in play (`the shortstop`); on sim v2's error, the fielder charged |
+| `{diver}` | a man who dove for a hit and missed (the `dove` tag) |
+| `{feet}` | how far a home run went |
 | `{awayScore}` / `{homeScore}` | current score |
 | `{battingScore}` / `{fieldingScore}` | score of the batting / fielding side |
 | `{leader}` | the team currently ahead (empty if tied) |
@@ -641,7 +674,7 @@ The client renderer (`_applyScorebug` in [tv.js](../client/game/js/panels/tv.js)
   }
   ```
 - **Import** ([broadcast.js](../client/devpanel/js/panels/broadcast.js) `_bcImportSave`): saved with `playback_mode = 'sports'`, `loop = 1`, `override_duration = @length`, `sports_pools` = the `sportsScript` (new `media_broadcasts.sports_pools` JSONB column). No studio/host is created — asset-only.
-- **Runner** ([plugins/broadcast/index.js](../plugins/broadcast/index.js)): a `sports` playlist item that is `sportsAiring` calls `getSportsGraph(sportsScript, sportsSlotIndex(), worldSeriesOverride())`, which caches the assembled game and re-rolls when the global game slot advances. `assembleSportsGraph` runs `sportsSimGame` (the baseball simulator) and emits a `say`-node chain via `sportsPick`/`sportsFill`. The graph does **not** set `_requireHost`, so no presence gating — it plays on any channel. Downstream (`say` nodes, dedup, passive `[TV] "…"` leakage, off-air) reuses the existing broadcast walker unchanged.
+- **Runner** ([plugins/broadcast/index.js](../plugins/broadcast/index.js)): a `sports` playlist item that is `sportsAiring` calls `getSportsGraph(sportsScript, sportsSlotIndex(), worldSeriesOverride())`, which caches the assembled game and re-rolls when the global game slot advances. `assembleSportsGraph` runs `sportsSimGame` (the baseball simulator) and emits a `say`-node chain via `sportsPick`/`sportsFill`, and `sportsPickTagged` for a ball in play. The graph does **not** set `_requireHost`, so no presence gating — it plays on any channel. Downstream (`say` nodes, dedup, passive `[TV] "…"` leakage, off-air) reuses the existing broadcast walker unchanged.
 - **Schema**: `ALTER TABLE media_broadcasts ADD COLUMN IF NOT EXISTS sports_pools JSONB;` in `SCHEMA_SQL`. Apply with `npm run db:schema` before the runner loads (it `SELECT`s the column in `loadChannelRuntimes`).
 
 ## Worked example

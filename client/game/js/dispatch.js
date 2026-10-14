@@ -7,6 +7,8 @@ import { setVerbs } from './complete.js';
 import { renderMinimap, setRoadWindow, setGpsRoute, setRunState, startAutoWalk, resumeAutoWalkIfArmed, setAutoWalkPersist, isAutoWalking, isManualAutoWalkInProgress, cancelAutoWalk, autoWalkBlocked, resolveAutoWalkPicker, armAutoWalkPrompt, notifyElevatorDoors } from './panels/minimap.js';
 import { updateEnvironmentHUD, updateZoneTempHUD, refreshZoneVisibility, signalPowerOut, isFxIndoors, setEnvUnreal } from './panels/environment.js';
 import { setWeatherEventFx, setFireworksGlow, launchFirework } from './panels/weather-fx.js';
+import { receiveClubs } from './panels/club-crest.js';
+import { receiveVenue } from './panels/venue.js';
 import { setDreamFx } from './panels/environment.js';
 import { openDialogue, closeDialogue, openShop, notifyZoneChanged } from './panels/dialogue.js';
 import { updateInventoryCache, consumeSilentInventory, refreshWeaponChip } from './panels/inventory-state.js';
@@ -669,6 +671,10 @@ const handlers = {
   tv_deck: (msg) => { renderTvDeck(msg); },
   tv_schedule: (msg) => { for (const v of tvOpenViews()) v.renderSchedule(msg); },
   tv_standings: (msg) => { for (const v of tvOpenViews()) v.renderStandings(msg); },
+  // A league's club identities (crests, kits), asked for once when a payload names a
+  // revision this client hasn't got.
+  tv_clubs: (msg) => { receiveClubs(msg); },
+  tv_venue: (msg) => { receiveVenue(msg); },
   system: (msg) => { appendHtml(msg.message, 'system'); },
   ambient: (msg) => { appendHtml(msg.message, 'ambient'); },
   // Cosmetic nudge: ripple a room-pane link so the player sees where to click.

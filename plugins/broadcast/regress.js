@@ -119,6 +119,43 @@ export default async function regress({ check, run, getPlayer }) {
     a.game.away.name !== c.game.away.name || a.game.home.name !== c.game.home.name || a.game.awayScore !== c.game.awayScore || a.game.homeScore !== c.game.homeScore,
     'adjacent slots differ');
 
+  // ── The v1 fingerprint ──────────────────────────────────────────────────────
+  // A hundred seeded games and four finals, every at-bat and every synthesised pitch,
+  // hashed. The standings, the recap reel and the team cards all re-simulate past
+  // slots, so a change that moves any of these rewrites games that have already aired.
+  // A new version of the sim switches on at a recorded slot instead
+  // (docs/proposals/deadball-glass2.md); this pins v1 for every slot before it. If it
+  // fails, the sim or the pitch synthesis changed for games already played.
+  {
+    const { sportsHash } = await import('./rng.js');
+    const { BASEBALL } = await import('./sports/baseball.js');
+    const fnv = (s) => { let h = 2166136261 >>> 0; for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619) >>> 0; return h.toString(16).padStart(8, '0'); };
+    const fpGame = (slot, override) => {
+      const gs = _test.sportsGameForSlot(script, slot, override || null);
+      const g = gs.game, ab = [];
+      let idx = 0;
+      for (const bt of g.beats) {
+        if (bt.type === 'half_start') { idx = 0; continue; }
+        if (bt.type !== 'atbat') continue;
+        const pitches = BASEBALL.synthDetail(sportsHash(gs.seed, bt.inning * 2 + (bt.half === 'bottom' ? 1 : 0), idx++ >>> 0), bt.kind);
+        ab.push([bt.inning, bt.half, bt.batter, bt.pitcher, bt.kind, bt.outs, bt.rbi, bt.bases.map(Number).join(''), bt.walkoff ? 1 : 0,
+          pitches.map((p) => `${p.type}|${p.velo}|${p.x}|${p.y}|${p.result}`).join(';')]);
+      }
+      return JSON.stringify([g.away.name, g.home.name, g.awayScore, g.homeScore, g.innings, ab]);
+    };
+    // v1, whatever switch this database has recorded.
+    const recorded = _test.getSimSwitch('baseball');
+    _test.setSimSwitch('baseball', null);
+    let all = '';
+    try {
+      for (let k = 0; k < 100; k++) all += fpGame(40000 + k * 97);
+      for (let k = 0; k < 4; k++) all += fpGame(50000 + k * 13, { worldSeries: true, teams: ['Rats', 'Kings'] });
+    } finally {
+      _test.setSimSwitch('baseball', recorded);
+    }
+    check('deadball v1: a hundred seeded games play exactly as they aired', fnv(all) === '11e200d9', `fingerprint ${fnv(all)}`);
+  }
+
   // A round-robin round has every team exactly once (balanced schedule, not random).
   const rounds = _test.roundRobinRounds(8);
   check('round-robin: N-1 rounds', rounds.length === 7, String(rounds.length));
@@ -1586,10 +1623,28 @@ export default async function regress({ check, run, getPlayer }) {
         state.lastBeat = { text: 'Next line.', style: 'raw', programName: null, duration: null, hasGameday: false, graphic: null };
         _test.sendCatchUp(player.id, cid);
         check('a live score-bug IS replayed', got.some(m => m?.overlay?.overlayType === 'scorebug'), JSON.stringify(got));
+
+        // A game's league table rides only its first Gameday payload, so a viewer who
+        // tunes in mid-game gets it with the catch-up instead.
+        got.length = 0;
+        const table = [{ team: 'Rats', wins: 9, losses: 2, rd: 14 }];
+        _test.recordBeat(state, { text: 'Top of the 1st.', style: 'raw' }, null, null, { overlayType: 'gameday', sport: 'baseball', phase: 'half', standings: table }, Date.now());
+        _test.recordBeat(state, { text: 'He grounds out.', style: 'raw' }, null, null, { overlayType: 'gameday', sport: 'baseball', kind: 'groundout' }, Date.now());
+        _test.sendCatchUp(player.id, cid);
+        const gdc = got.find(m => m?.overlay?.overlayType === 'gameday');
+        check('a late tuner gets the game\'s table with the catch-up', gdc?.overlay?.kind === 'groundout' && gdc.overlay.standings?.[0]?.team === 'Rats', JSON.stringify(gdc).slice(0, 200));
+        // Hockey on the same channel next: its payloads carry no table, and Deadball's
+        // kept one mustn't be pinned onto them.
+        got.length = 0;
+        _test.recordBeat(state, { text: 'Puck drop.', style: 'raw' }, null, null, { overlayType: 'gameday', sport: 'hockey', type: 'faceoff' }, Date.now());
+        _test.sendCatchUp(player.id, cid);
+        const gdh = got.find(m => m?.overlay?.overlayType === 'gameday');
+        check("a hockey catch-up isn't sent Deadball's table", gdh?.overlay?.sport === 'hockey' && !('standings' in gdh.overlay), JSON.stringify(gdh).slice(0, 200));
       } finally {
         setBroadcast(orig3);
         state.lastBeat = savedBeat;
         delete state.lastScorebug; delete state.lastScorebugAt;
+        delete state.lastGameday; delete state.lastGamedayAt; delete state.lastStandings;
       }
     }
   }
@@ -1616,6 +1671,52 @@ export default async function regress({ check, run, getPlayer }) {
     check('standings rows are shaped for the table', !st?.rows.length || st.rows.every(r =>
       typeof r.team === 'string' && Number.isFinite(r.wins) && Number.isFinite(r.losses) && Number.isFinite(r.rd)),
       JSON.stringify(st?.rows?.slice(0, 2)));
+  }
+
+  // ── The venue and its skyline ───────────────────────────────────────────────
+  // A league's park and the city round it go to a viewer once a revision (tv_venue), for
+  // the 3-D park's set. The skyline is built from the map's own tiles and names no region:
+  // tried on tiles built by hand, then on Deadball's own venue in the world.
+  {
+    const { skylineFrom } = await import('../../client/shared/skyline-manifest.js');
+    const zones = [];
+    const tile = (x, y, flags = {}) => zones.push({ id: `t${x}_${y}`, map_id: 'map_world', grid_x: x, grid_y: y, grid_z: 0, flags });
+    for (let x = 0; x <= 30; x++) for (let y = 0; y <= 30; y++) {
+      if (x === 2 || x === 26 || y === 26) tile(x, y, { curtain: true });
+      else if (y < 6) tile(x, y, { terrain: 'water' });
+      else tile(x, y, { terrain: 'concrete' });
+    }
+    tile(15, 15, { building_type: 'office', floors: 9, building_name: 'Near', facade: true, entrance: 'south' });
+    tile(20, 22, { building_type: 'office', floors: 3 });
+    tile(9, 4, { building_type: 'pier', terrain: 'water' });
+    const sk = skylineFrom(zones, { x: 14.5, y: 14.5 }, { radius: 12 });
+    check('skyline: the Curtain on three sides, a shore on the fourth',
+      sk.edges.w?.wall === 2.5 && sk.edges.e?.wall === 26.5 && sk.edges.s?.wall === 26.5 && sk.edges.n?.shore?.length === 23 && sk.edges.n.shore.every(([, y]) => y === 6),
+      JSON.stringify(sk.edges).slice(0, 200));
+    check('skyline: the buildings in reach, nearest first, a pier on the water, a door from its facade',
+      sk.buildings.map((b) => b.t).join() === 'office,office,pier' && sk.buildings[0].e === 'south' && sk.buildings[2].w === 1,
+      JSON.stringify(sk.buildings));
+    check('skyline: none past the radius', !skylineFrom(zones, { x: 14.5, y: 14.5 }, { radius: 4 }).buildings.some((b) => b.t === 'pier'));
+
+    const deadball = await _test.anySportsScript('baseball');
+    if (deadball?.venue?.site) {
+      const orig3 = getBroadcast();
+      const got = [];
+      setBroadcast((zoneId, payload, exclude, toPlayer) => {
+        if (toPlayer === player.id && payload?.type === 'tv_venue') got.push(payload);
+        return orig3?.(zoneId, payload, exclude, toPlayer);
+      });
+      try {
+        emit('tv.venue', { playerId: player.id, sport: 'baseball' });
+        await new Promise(r => setTimeout(r, 120));
+      } finally { setBroadcast(orig3); }
+      const v = got[0]?.venue;
+      check('tv.venue answers with the park\'s site and the skyline round it',
+        got.length === 1 && typeof got[0].rev === 'string' && got[0].rev.length > 4 && v?.site?.bearing != null && v.skyline.buildings.length > 100,
+        JSON.stringify(got[0] || null).slice(0, 160));
+      check('tv.venue: the set\'s edges come from the map', !!v && ['w', 'e', 's', 'n'].every((k) => v.skyline.edges[k]), JSON.stringify(v?.skyline?.edges || null).slice(0, 160));
+      check('tv.venue: the skyline stays a few dozen kilobytes', !!got[0] && JSON.stringify(got[0]).length < 40000, String(JSON.stringify(got[0] || '').length));
+    }
   }
 
   // ── Live-text {token} substitution for scripted broadcasts ──────────────────
@@ -2296,6 +2397,32 @@ export default async function regress({ check, run, getPlayer }) {
     check('hockey: the script still parses', teams.length >= 2 && players.length > 0 && Object.keys(pools).length > 10,
       `teams=${teams.length} players=${players.length} pools=${Object.keys(pools).length}`);
 
+    // ── club identities: content dresses every club ───────────────────────────
+    // The look of a club (colours, kits, crest) is authored into the broadcast row by
+    // scripts/content/build-cphl-clubs.mjs. A club in the .bsm with no identity would
+    // play in hashed colours with no crest, and nothing else would notice.
+    {
+      const row = JSON.parse(fs.readFileSync(url.fileURLToPath(new URL('../../content/media_broadcasts/bc_cluster_puck.json', import.meta.url)), 'utf8'));
+      const idents = row.sports_pools?.clubs || {};
+      check('hockey: the row carries the .bsm league', JSON.stringify(row.sports_pools?.teams) === JSON.stringify(teams), (row.sports_pools?.teams || []).join(','));
+      check('hockey: every club has an identity', teams.every(t => idents[t]), teams.filter(t => !idents[t]).join(','));
+      const HEX = /^#[0-9a-f]{6}$/i;
+      const badKit = [];
+      for (const t of teams) for (const side of ['home', 'road']) {
+        const k = idents[t]?.kit?.[side];
+        if (!k) { badKit.push(`${t} ${side}: none`); continue; }
+        for (const f of ['jersey', 'trim', 'pants', 'sock', 'glove', 'helmet']) if (!HEX.test(k[f] || '')) badKit.push(`${t} ${side}.${f}`);
+        for (const b of [...(k.hem || []), ...(k.sleeve || []), ...(k.socks || [])]) if (!HEX.test(b.col || '')) badKit.push(`${t} ${side} band`);
+      }
+      check('hockey: every kit is in hex (figure.js shades with parseInt)', badKit.length === 0, badKit.slice(0, 4).join(', '));
+      const badCrest = teams.filter(t => !(idents[t]?.crest?.layers?.length && idents[t]?.crest?.small?.length));
+      check('hockey: every club has a crest and a small crest', badCrest.length === 0, badCrest.join(','));
+      // no faction teams: no club is named for one of the orders
+      const orders = fs.readdirSync(url.fileURLToPath(new URL('../../content/orgs/', import.meta.url))).filter(f => f.startsWith('ideology_')).map(f => f.slice(9, -5).replace(/_/g, ''));
+      const factional = teams.filter(t => orders.some(o => t.toLowerCase().replace(/[^a-z]/g, '').includes(o)));
+      check('hockey: no club is named for an order', factional.length === 0, factional.join(','));
+    }
+
     // ── rosters: a man belongs to ONE club ────────────────────────────────────
     check('hockey: the pool covers every club', players.length >= teams.length * 6,
       `${players.length} names for ${teams.length} clubs (need ${teams.length * 6})`);
@@ -2383,6 +2510,68 @@ export default async function regress({ check, run, getPlayer }) {
     check('hockey: no unfilled tokens reach the air', unfilled.length === 0, unfilled.slice(0, 3).join(' | '));
     check('hockey: scorers belong to a club that played', strayScorers.length === 0, strayScorers.slice(0, 3).join(','));
     check('hockey: the narrator produced play-by-play', lines > 100, `${lines} lines`);
+
+    // THE CALL. Every play is called in short lines, each held as long as it takes to read,
+    // and each tagged with the moment of play it describes so the rink can do it on the
+    // line. One real game, paced for an hour slot and for a half-hour one.
+    {
+      const { paceCalls } = await import('./sports/hockey-pacing.js');
+      const slot = 206, seed = sportsHash(slot, 0);
+      const matchup = { away: teams[slot % teams.length], home: teams[(slot * 7 + 5) % teams.length], teams };
+      const game = HOCKEY.simGame(matchup, players, sportsRng(seed));
+      const narrateLines = () => {
+        const out = [], nrng = sportsRng(seed ^ 0x9e3779b9);
+        HOCKEY.narrate({
+          script: {}, game, gs: { seed, game }, slot, ws: false, announcer: 'Tug Brennan', pools, nrng, sport: HOCKEY, add: () => {},
+          say: (l, t, sb, fx, gd, meta) => { if (l) out.push({ text: sportsFill(l, t).trim(), bug: sb || null, graphic: fx || null, gameday: gd || null, _cue: meta && meta.cue, _opt: (meta && meta.opt) || false }); },
+          pick: (...keys) => { for (const k of keys) if (pools[k]?.length) { usedPools.add(k); break; } return sportsPick(pools, nrng, ...keys); },
+          abbr: (n) => String(n).slice(0, 3).toUpperCase(), recordOf: () => '8-4-1', lastId: () => null,
+        });
+        return out;
+      };
+      const all = narrateLines();
+      const words = all.map((l) => l.text.split(/\s+/).length);
+      const shortShare = words.filter((w) => w <= 8).length / words.length;
+      check('hockey: most lines are short enough for a screen reader', shortShare >= 0.7, `${Math.round(shortShare * 100)}% at eight words or fewer`);
+      check('hockey: every shot is called', game.beats.filter((b) => b.type === 'chance' || b.type === 'goal').length === all.filter((l) => l.gameday && (l.gameday.type === 'chance' || l.gameday.type === 'goal')).length);
+      const { holds } = paceCalls(all, 3600 * 1000 * 0.85, 1000);
+      const bad = [];
+      for (const l of all) {
+        const g = l.gameday; if (!g) continue;
+        if ((g.type === 'chance' || g.type === 'goal') && !(g.cues || []).some((c) => c.ev === 'shot')) bad.push(`${g.type} ${g.clock} has no shot cue`);
+        const ms = (g.cues || []).map((c) => c.ms);
+        if (ms.some((m, i) => i && m < ms[i - 1])) bad.push(`${g.type} ${g.clock} cues out of order`);
+      }
+      check('hockey: shots carry their cues, in order', bad.length === 0, bad.slice(0, 3).join(' | '));
+      // The bug doesn't call a goal early: the rush and the shot show the score before the
+      // goal, and the goal call shows the new one.
+      const early = [];
+      let goalGd = null;
+      for (const l of all) {
+        if (l.gameday && l.gameday.type === 'goal') goalGd = l.gameday;
+        if (!goalGd) continue;
+        const scored = (l._cue || {}).ev === 'out';
+        const want = scored ? { away: goalGd.awayScore, home: goalGd.homeScore } : goalGd.scoreBefore;
+        if (!want || !l.bug || l.bug.awayScore !== want.away || l.bug.homeScore !== want.home) early.push(`${goalGd.clock} "${l.text}" shows ${l.bug ? `${l.bug.awayScore}-${l.bug.homeScore}` : 'no bug'}`);
+        if (scored) goalGd = null;
+      }
+      check('hockey: the score bug never calls a goal before it goes in', early.length === 0 && game.beats.some((b) => b.type === 'goal'), early.slice(0, 3).join(' | '));
+      const air = [...holds.values()].reduce((a, b) => a + b, 0);
+      check('hockey: an hour slot holds the whole game', air <= 3600 * 1000 * 0.85 * 1.05, `${(air / 60000).toFixed(1)} min`);
+      const half = narrateLines();
+      const short = paceCalls(half, 1800 * 1000 * 0.85, 1000);
+      const kept = half.filter((l) => !short.dropped.has(l));
+      check('hockey: a short slot cuts only optional lines', short.dropped.size > 0 && [...short.dropped].every((l) => l._opt && !l.gameday) && kept.every((l) => short.holds.get(l) >= 1000), `${short.dropped.size} cut`);
+      // colour goes before any call of the play: no optional call is cut while a colour line airs
+      const colourKept = kept.some((l) => l._opt === 'colour'), callCut = [...short.dropped].some((l) => l._opt !== 'colour');
+      check('hockey: a short slot cuts colour before calls', !(colourKept && callCut), `colour kept ${colourKept}, a call cut ${callCut}`);
+      // the moments the rink plays out are called: the drop of every draw, where a saved
+      // puck went, the clinch and the box in a fight, what a hit did to the glass
+      const has = (re) => all.some((l) => re.test(l.text));
+      check('hockey: the booth calls what the rink shows after the play', all.filter((l) => (l._cue || {}).ev === 'drop').length >= 30 && all.some((l) => (l._cue || {}).ev === 'grab') && all.some((l) => (l._cue || {}).ev === 'box'), 'drop, grab and box calls');
+      const shatters = all.filter((l) => l.gameday && l.gameday.shatter).length;
+      check('hockey: a called shatter rides the hit it happens on', shatters === 0 || has(/glass|pane/i), `${shatters} shatters`);
+    }
     // Every violent beat reaches the rink with something to draw. Before this the ice
     // sat still through the half of the sport the league is actually known for.
     for (const t of ['boards', 'injury', 'death', 'scrum']) {
@@ -2431,14 +2620,13 @@ export default async function regress({ check, run, getPlayer }) {
       if (g.overtime) sawOt = true;
       if (so) sawSo = true;
       if (dead) sawDeath = true;
-      if (g.rivalry) sawRivalry = true;
     }
     check('hockey: overtime happens and is narratable', sawOt, 'no OT game found in 4000 slots');
     check('hockey: the shootout happens and is narratable', sawSo, 'no shootout found in 4000 slots');
     check('hockey: a man can die on the ice', sawDeath, 'no fatality found in 4000 slots');
-    // Rivalry is asserted DIRECTLY rather than hunted: this suite's synthetic pairing
-    // (home = 7i+5) can never coincide with the league's rivalry pairing, so waiting for
-    // one to turn up would only ever test the arithmetic. Build the grudge match instead.
+    // Rivalry is asserted DIRECTLY rather than hunted: whether this suite's synthetic
+    // pairing (home = 7i+5) ever lands on the league's rivalry pairing depends on how many
+    // clubs there are, so waiting for one would only test the arithmetic. Build it instead.
     {
       const { rivalOf } = await import('./sports/hockey.js');
       const rival = rivalOf(teams[0], teams);
@@ -2454,10 +2642,11 @@ export default async function regress({ check, run, getPlayer }) {
       const base = rosterFor(teams[0], teams, players);
       narrateSlot(9, { matchup: { away: teams[0], home: teams[1], teams }, unavailable: new Set([base[0], base[2]]) });
     }
-    // A club whose BARN has authored chatter, so chatter.<club> is exercised. The
-    // synthetic pairing above never makes these clubs the home side.
-    for (const barn of ['Ashway Zambonis', 'Docks Boarders', 'Longwatch Goons']) {
-      if (teams.includes(barn)) narrateSlot(13, { matchup: { away: teams.find(t => t !== barn), home: barn, teams } });
+    // Every club whose BARN has authored chatter is played at home once, so each
+    // chatter.<club> is exercised. The synthetic pairings above don't reach them all.
+    const barnKey = (name) => `chatter.${String(name).trim().split(/\s+/)[0].toLowerCase().replace(/[^a-z0-9]/g, '')}`;
+    for (const barn of teams.filter(t => pools[barnKey(t)])) {
+      narrateSlot(13, { matchup: { away: teams.find(t => t !== barn), home: barn, teams } });
     }
     // The Cup: a final is the same sim with `ws`, which unlocks the cup.* pools.
     narrateSlot(11, { ws: true, matchup: { away: teams[0], home: teams[1], teams } });
@@ -2624,6 +2813,106 @@ export default async function regress({ check, run, getPlayer }) {
       check('gameday: …but keeping the linescore alive', halves.every(g => g.line && Array.isArray(g.line.away) && g.line.away.length), 'half payload has no line snapshot');
       check('gameday: …and naming who is batting', halves.every(g => g.battingTeam && g.inningOrd && (g.half === 'top' || g.half === 'bottom')), 'half payload is missing its framing');
       check('gameday: at-bat payloads are untouched by all this', atbats.length > 0 && atbats.every(g => Array.isArray(g.pitches)), `${atbats.length} at-bat payloads`);
+
+      // What the 3-D view needs that the 2-D one never did (docs/proposals/
+      // deadball-glass2.md, Phase 0). Every payload names its sport and says how long
+      // its line holds; an at-bat carries the batter's side and the pitcher's arm,
+      // taken from their names so a player is the same in every game.
+      const { handOf, battingSide } = await import('./sports/baseball.js');
+      check('gameday: every payload names its sport', gds.every(g => g.sport === 'baseball'), [...new Set(gds.map(g => g.sport))].join(','));
+      check('gameday: every payload says how long its line holds', gds.every(g => Number.isFinite(g.hold) && g.hold >= 5000), gds.map(g => g.hold).slice(0, 6).join(','));
+      check('gameday: an at-bat carries the batter\'s side and the pitcher\'s arm',
+        atbats.every(g => /^[LR]$/.test(g.bats) && /^[LR]$/.test(g.throws)), JSON.stringify(atbats.find(g => !/^[LR]$/.test(g.bats) || !/^[LR]$/.test(g.throws)) || {}).slice(0, 120));
+      check('gameday: …the same for a name every time', atbats.every(g => g.throws === handOf(g.pitcher).throws && g.bats === battingSide(g.batter, g.pitcher)), 'handedness drifted');
+      {
+        const counts = { R: 0, L: 0, S: 0 };
+        for (let i = 0; i < 2000; i++) counts[handOf(`Player ${i}`).bats]++;
+        check('gameday: about six in ten bat right, three left, one both ways',
+          counts.R > 1080 && counts.R < 1320 && counts.L > 480 && counts.L < 720 && counts.S > 120 && counts.S < 280, JSON.stringify(counts));
+      }
+      // The league table rode every payload, about 43 KB a game per viewer. It rides the
+      // game's first payload now, with the season, and the catch-up carries it to a late
+      // tuner.
+      const order = [];
+      for (let id = graph._start; id; id = (graph.edges.find(e => e.fromNode === id && e.fromPort === 'next') || {}).toNode) order.push(graph.nodes[id]);
+      const inOrder = order.map(n => n.data && n.data.gameday).filter(Boolean);
+      check('gameday: the table rides the game\'s first payload', Array.isArray(inOrder[0]?.standings), 'first payload has no standings');
+      check('gameday: …and no other', inOrder.slice(1).every(g => !('standings' in g)), `${inOrder.slice(1).filter(g => 'standings' in g).length} payloads still carry the table`);
+      check('gameday: the first payload carries the season', inOrder[0]?.season?.phase === 'regular', JSON.stringify(inOrder[0]?.season));
+      check('gameday: the leaders ride the first payload and no other',
+        ['hr', 'avg', 'sb', 'k'].every((k) => Array.isArray(inOrder[0]?.leaders?.[k])) && inOrder.slice(1).every(g => !('leaders' in g)),
+        JSON.stringify(inOrder[0]?.leaders).slice(0, 120));
+      // A script with a venue stamps the game's first payload with it, so a client asks for
+      // the park's city once (tv_venue); a script without one stamps nothing.
+      {
+        const withVenue = { ...script, venue: { site: { x: 897.55, y: 913.55, bearing: 315, block: { x0: 895, x1: 897, y0: 911, y1: 913 } } } };
+        const g2 = _test.assembleSportsGraph(withVenue, 'bc_regress_venue', 12345, null);
+        const ord2 = [];
+        for (let id = g2._start; id; id = (g2.edges.find(e => e.fromNode === id && e.fromPort === 'next') || {}).toNode) ord2.push(g2.nodes[id]);
+        const gd2 = ord2.map(n => n.data && n.data.gameday).filter(Boolean);
+        check('gameday: a venue\'s stamp rides the first payload and no other',
+          typeof gd2[0]?.venueRev === 'string' && gd2[0].venueRev.length > 4 && gd2.slice(1).every(g => !('venueRev' in g)) && !('venueRev' in (inOrder[0] || {})),
+          JSON.stringify({ first: gd2[0]?.venueRev, later: gd2.slice(1).filter(g => 'venueRev' in g).length, without: inOrder[0]?.venueRev }));
+      }
+
+      // Every man's fate on every play. The 2-D view moved each runner a fixed number
+      // of bags per kind of play, so a man the sim scored from second on a single
+      // stopped at third. The payload says where each one goes now, and these are the
+      // rules that has to keep in any game: the runners end on the bags the sim left
+      // occupied, as many cross the plate as it scored, every runner and the batter has
+      // exactly one fate, and nobody passes anybody or runs backwards.
+      check('gameday: every at-bat says where each runner and the batter go',
+        atbats.every(g => Array.isArray(g.moves) && g.moves.length === g.basesBefore.filter(Boolean).length + 1), 'an at-bat without its moves');
+      {
+        const { runnerMoves } = await import('./sports/baseball-gameday.js');
+        const { simGame: sim } = await import('./sports/baseball.js');
+        const { sportsRng: rngOf } = await import('./rng.js');
+        let plays = 0;
+        const wrong = [];
+        const side = (x) => (x.half === 'top' ? x.awayScore : x.homeScore);
+        for (let s = 1; s <= 600 && wrong.length < 3; s++) {
+          let before = [false, false, false], score = 0;
+          for (const b of sim({ away: 'Rats', home: 'Kings' }, null, rngOf(s * 2654435761 + 7)).beats) {
+            if (b.type === 'half_start') { before = [false, false, false]; score = side(b); continue; }
+            if (b.type !== 'atbat') continue;
+            plays++;
+            const runs = side(b) - score;
+            score = side(b);
+            const m = runnerMoves(before, b.bases, b.kind, runs);
+            const dest = m.filter(x => x.to != null).map(x => x.to);
+            const ok = dest.filter(t => t < 4).join('') === [3, 2, 1].filter(n => b.bases[n - 1]).join('')
+              && dest.filter(t => t === 4).length === runs
+              && m.length === before.filter(Boolean).length + 1
+              && m.every(x => x.to == null || x.to >= x.from)
+              && dest.every((t, i) => i === 0 || t < dest[i - 1] || (t === 4 && dest[i - 1] === 4));
+            if (!ok) wrong.push(`${b.kind} ${before.map(Number).join('')}→${b.bases.map(Number).join('')} runs ${runs}: ${JSON.stringify(m)}`);
+            before = b.bases;
+          }
+        }
+        check('gameday: every play\'s runners end where the sim left them and score its runs', !wrong.length, `${wrong.length} of ${plays}: ${wrong.join(' | ')}`);
+      }
+
+      // The park's weather rides each payload as its line airs, read from the weather
+      // cells over the site the script names (sports_pools.venue.site). It's never baked
+      // into the assembled game, whose payloads last the hour while the cells drift, and a
+      // script with no site, like hockey's indoor rink, sends none.
+      {
+        const { WEATHER_TYPES } = await import('../../server/engine/environment.js');
+        const sited = _test.assembleSportsGraph({ ...script, venue: { site: { x: 897.55, y: 913.55, bearing: 315 } } }, 'bc_regress_wx', 12345, null);
+        const gd0 = Object.values(sited.nodes).map(n => n.data && n.data.gameday).find(Boolean);
+        const aired = _test.gamedayOnAir(gd0, sited);
+        check('gameday: a park with a site sends the weather over it as each line airs',
+          WEATHER_TYPES.includes(aired.wx?.word) && typeof aired.wx.precip === 'string' && aired.wx.rate >= 0 && aired.wx.rate <= 1, JSON.stringify(aired.wx));
+        check('gameday: …read on air, never baked into the game', !Object.values(sited.nodes).some(n => n.data?.gameday && ('wx' in n.data.gameday || 'clock' in n.data.gameday)), 'a payload was assembled with wx or clock');
+        check('gameday: a script with no site sends no weather', !('wx' in _test.gamedayOnAir(gd0, graph)), 'wx without a site');
+        // and the world's clock as it airs, for the park's sky
+        const { getEnvironmentState } = await import('../../server/engine/environment.js');
+        const mins = getEnvironmentState()?.minutes;
+        check('gameday: a park with a site sends the minute of the day it airs at', Number.isInteger(aired.clock) && aired.clock >= 0 && aired.clock < 1440 && (!Number.isFinite(mins) || aired.clock === Math.round(mins) % 1440), `${aired.clock} for ${mins}`);
+        // every word the weather can send is one the 3-D park has a look for (diamond/weather.js)
+        const { WX } = await import('../../client/game/js/panels/diamond/weather.js');
+        check('gameday: the 3-D park knows every weather word', WEATHER_TYPES.every((w) => w in WX), WEATHER_TYPES.filter((w) => !(w in WX)).join(', '));
+      }
     }
 
     // ── Base/out-aware outs ───────────────────────────────────────────────────
@@ -2726,6 +3015,350 @@ export default async function regress({ check, run, getPlayer }) {
     for (const pool of ['open', 'story.lead', 'handoff.reporter', 'signoff']) {
       check(`bsm: news pool '${pool}' has lines`, (news.newsScript.pools[pool] || []).length > 0, pool);
     }
+  }
+
+  // ── Deadball sim v2 ─────────────────────────────────────────────────────────
+  // Errors, hit batters and the running game, played from a slot the server records
+  // (simVersionFor). Every game before that slot must replay as it aired, so v1 is pinned
+  // by its hash above, and v2 with its new plays turned off has to be the v1 game play for
+  // play: that's what proves its base logic is v1's. (Only the home side's names differ:
+  // v2 stopped the home leadoff man sharing the away pitcher's name.)
+  {
+    const B = await import('./sports/baseball.js');
+    const { gamedayPayloads } = await import('./sports/baseball-gameday.js');
+    const { sportsRng: rngOf, sportsHash: hashOf } = await import('./rng.js');
+    const M = { away: 'Rats', home: 'Kings' };
+    const v1Play = (b) => (b.type === 'atbat'
+      ? [b.inning, b.half, b.half === 'top' ? b.batter : '', b.half === 'bottom' ? b.pitcher : '', b.kind, b.outs, b.runs ?? b.rbi, b.awayScore, b.homeScore, b.walkoff, b.bases.join()]
+      : [b.type, b.inning, b.half, b.awayScore, b.homeScore]);
+    let same = 0;
+    for (let s = 1; s <= 300; s++) {
+      const seed = hashOf(s, 0);
+      const a = B.simGame(M, null, rngOf(seed)), v = B.simGameV2(M, null, rngOf(seed), { seed, rates: B.SIM_V2_OFF });
+      if (a.innings === v.innings && JSON.stringify(a.beats.map(v1Play)) === JSON.stringify(v.beats.map(v1Play))) same++;
+    }
+    check('deadball v2: with its new plays off it is the v1 game, play for play', same === 300, `${same}/300`);
+
+    // Every play's moves turn the named runners before it into the ones after it, each man
+    // has one fate, the runs and outs add up, nobody passes anybody, and a half that ends
+    // on the bases has the man who was batting lead off the next one.
+    const wrong = [], tally = {};
+    let games = 0, runs1 = 0, runs2 = 0, selfFaced = 0;
+    for (let s = 1; s <= 400 && wrong.length < 3; s++) {
+      const seed = hashOf(s, 0);
+      const g = B.simGameV2(M, null, rngOf(seed), { seed });
+      const g1 = B.simGame(M, null, rngOf(seed));
+      games++; runs1 += g1.awayScore + g1.homeScore; runs2 += g.awayScore + g.homeScore;
+      let runners = [null, null, null], outs = 0, score = 0, first = true;
+      const leadoff = new Map();
+      for (const b of g.beats) {
+        if (b.type === 'half_start') { runners = [null, null, null]; outs = 0; score = b.half === 'top' ? b.awayScore : b.homeScore; first = true; continue; }
+        if (b.type === 'half_end') continue;
+        const why = [];
+        if (first && leadoff.has(b.battingName) && b.batter !== leadoff.get(b.battingName)) why.push('the wrong man led off');
+        if (first) leadoff.delete(b.battingName);
+        first = false;
+        if (b.type === 'atbat' && b.batter === b.pitcher) selfFaced++;
+        const m = b.moves || [];
+        for (let n = 1; n <= 3; n++) if (runners[n - 1] != null && m.filter((x) => x.from === n).length !== 1) why.push(`the runner on ${n}`);
+        if (m.some((x) => x.from > 0 && runners[x.from - 1] !== x.name)) why.push('a runner\'s name');
+        if ((b.type === 'atbat') !== m.some((x) => x.from === 0 && x.name === b.batter)) why.push('the batter');
+        const next = [null, null, null];
+        for (const x of m) if (x.to >= 1 && x.to <= 3) next[x.to - 1] = x.name;
+        if (JSON.stringify(next) !== JSON.stringify(b.runners)) why.push('the runners after');
+        const now = b.half === 'top' ? b.awayScore : b.homeScore;
+        if (now - score !== m.filter((x) => x.to === 4).length || b.runs !== now - score) why.push('the runs');
+        if (b.outs - outs !== m.filter((x) => x.out != null).length) why.push('the outs');
+        const dest = m.filter((x) => x.to != null).map((x) => x.to);
+        if (!dest.every((t, i) => i === 0 || t < dest[i - 1] || (t === 4 && dest[i - 1] === 4))) why.push('a pass');
+        if (why.length) wrong.push(`slot ${s} ${b.inning}${b.half[0]} ${b.type}:${b.kind}: ${why.join(', ')}`);
+        if (b.type === 'run' && b.outs >= 3 && !b.walkoff) leadoff.set(b.battingName, b.batter);
+        const k = b.type === 'run' ? b.kind : (b.kind === 'error' || b.kind === 'hitbypitch' ? b.kind : null);
+        if (k) tally[k] = (tally[k] || 0) + 1;
+        runners = b.runners; outs = b.outs; score = now;
+      }
+    }
+    check('deadball v2: every play\'s moves account for every man, the runs and the outs', !wrong.length, wrong.join(' | '));
+    check('deadball v2: no batter ever faces himself', selfFaced === 0, String(selfFaced));
+    const per = (k) => (tally[k] || 0) / games / 2;
+    const safe = per('steal') + per('doublesteal'), tries = safe + per('caughtstealing');
+    check('deadball v2: a 1990s running game (0.6 to 1.2 steal tries a team a game, 60-80% safe)',
+      tries > 0.6 && tries < 1.2 && safe / tries > 0.6 && safe / tries < 0.8, `${tries.toFixed(2)} tries, ${(safe / tries * 100).toFixed(0)}% safe`);
+    check('deadball v2: errors, hit batters, wild pitches and passed balls at a 1990s rate',
+      per('error') > 0.25 && per('error') < 0.55 && per('hitbypitch') > 0.25 && per('hitbypitch') < 0.5
+        && per('wildpitch') + per('passedball') > 0.15 && per('wildpitch') + per('passedball') < 0.4,
+      JSON.stringify(Object.fromEntries(Object.keys(tally).sort().map((k) => [k, +per(k).toFixed(2)]))));
+    check('deadball v2: scoring stays where v1 had it (within 6%)', Math.abs(runs2 / runs1 - 1) < 0.06,
+      `${(runs1 / games / 2).toFixed(2)} → ${(runs2 / games / 2).toFixed(2)} runs a team a game`);
+
+    // The hitting race under v2's scoring: a hit batter is no at-bat, an error is an at-bat
+    // with no hit and no RBI, and a play on the bases is nobody's plate appearance.
+    const acc = {};
+    B.SEASON.foldExtras(acc, { beats: [
+      { type: 'atbat', batter: 'Cole', battingName: 'Rats', kind: 'hitbypitch', rbi: 0, runs: 0 },
+      { type: 'atbat', batter: 'Cole', battingName: 'Rats', kind: 'error', rbi: 0, runs: 1 },
+      { type: 'run', batter: 'Cole', battingName: 'Rats', kind: 'steal', runner: 'Cole', rbi: 0, runs: 0 },
+    ] });
+    const cole = acc.bats.get('Cole');
+    check('deadball v2: a hit batter is a plate appearance but no at-bat', cole.pa === 2 && cole.ab === 1, JSON.stringify(cole));
+    check('deadball v2: an error is an at-bat with no hit and no RBI', cole.hits === 0 && cole.rbi === 0, JSON.stringify(cole));
+
+    // The ledger's scoring rules on innings built by hand. Earned runs: the errors counted
+    // as outs would have ended this half before the home run, so its runs are unearned,
+    // and so is the man who reached on the error. A double steal with a man thrown out
+    // credits nobody with a steal.
+    {
+      const P = 'Arm', T = 'Kings', BT = 'Rats';
+      const play = (o) => ({ type: 'atbat', inning: 1, half: 'top', battingName: BT, fieldingName: T, pitcher: P, out: false, rbi: 0, runs: 0, ...o });
+      const L = B.foldGame({}, { away: { name: BT }, home: { name: T }, awayScore: 3, homeScore: 4, beats: [
+        { type: 'half_start', inning: 1, half: 'top', battingName: BT, fieldingName: T, pitcher: P },
+        play({ batter: 'Ash', kind: 'strikeout', outs: 1, out: true }),
+        play({ batter: 'Bly', kind: 'error', outs: 1, moves: [{ from: 0, to: 1, name: 'Bly' }] }),
+        play({ batter: 'Cat', kind: 'flyout', outs: 2, out: true, moves: [{ from: 1, to: 1, name: 'Bly' }, { from: 0, out: 0, name: 'Cat' }] }),
+        play({ batter: 'Dax', kind: 'homerun', outs: 2, rbi: 2, runs: 2, moves: [{ from: 1, to: 4, name: 'Bly' }, { from: 0, to: 4, name: 'Dax' }] }),
+        { type: 'run', inning: 1, half: 'top', battingName: BT, fieldingName: T, pitcher: P, batter: 'Eve', kind: 'doublesteal', runner: 'Fay', out: true, outs: 3, runs: 0,
+          moves: [{ from: 2, out: 3, name: 'Fay' }, { from: 1, to: 2, name: 'Gus' }] },
+      ] });
+      const arm = L.arms.get(P);
+      check('deadball ledger: runs the errors would have stopped are unearned', arm.er === 0 && arm.outs === 3 && arm.k === 1, JSON.stringify(arm));
+      check('deadball ledger: the side that won gives its pitcher the win', arm.w === 1 && arm.l === 0, JSON.stringify(arm));
+      check('deadball ledger: a double steal with a man thrown out credits no steal',
+        L.bats.get('Fay')?.cs === 1 && !L.bats.get('Gus')?.sb, JSON.stringify([L.bats.get('Fay'), L.bats.get('Gus')]));
+      const clean = B.foldGame({}, { beats: [
+        { type: 'half_start', inning: 1, half: 'top', battingName: BT, fieldingName: T, pitcher: P },
+        play({ batter: 'Ash', kind: 'single', outs: 0, moves: [{ from: 0, to: 1, name: 'Ash' }] }),
+        play({ batter: 'Bly', kind: 'homerun', outs: 0, rbi: 2, runs: 2, moves: [{ from: 1, to: 4, name: 'Ash' }, { from: 0, to: 4, name: 'Bly' }] }),
+      ] });
+      check('deadball ledger: runs with no error behind them are earned', clean.arms.get(P).er === 2, JSON.stringify(clean.arms.get(P)));
+    }
+
+    // The ledger over real games: a win and a loss a game, every strikeout and every out
+    // made counted once, earned runs no more than the runs, and the steals the plays made.
+    {
+      const L = {};
+      let games = 0, ks = 0, outs = 0, runs = 0, sb = 0, cs = 0;
+      for (let s = 1; s <= 120; s++) {
+        const seed = hashOf(s, 3);
+        const g = B.simGameV2(M, null, rngOf(seed), { seed });
+        B.SEASON.foldExtras(L, g); games++;
+        runs += g.awayScore + g.homeScore;
+        let o = 0;
+        for (const b of g.beats) {
+          if (b.type === 'half_start') { o = 0; continue; }
+          if (b.type !== 'atbat' && b.type !== 'run') continue;
+          outs += b.outs - o; o = b.outs;
+          if (b.type === 'atbat' && b.kind === 'strikeout') ks++;
+          if (b.kind === 'steal') sb++;
+          if (b.kind === 'caughtstealing') cs++;
+          if (b.kind === 'doublesteal') { if (b.out) cs++; else sb += 2; }
+        }
+      }
+      const arms = [...L.arms.values()], bats = [...L.bats.values()];
+      const sum = (a, k) => a.reduce((t, r) => t + r[k], 0);
+      check('deadball ledger: a win and a loss a game', sum(arms, 'w') === games && sum(arms, 'l') === games, `${sum(arms, 'w')}-${sum(arms, 'l')} over ${games}`);
+      check('deadball ledger: every strikeout and every out counted once', sum(arms, 'k') === ks && sum(arms, 'outs') === outs, `${sum(arms, 'k')}/${ks} K, ${sum(arms, 'outs')}/${outs} outs`);
+      check('deadball ledger: earned runs are most of the runs, never more', sum(arms, 'er') <= runs && sum(arms, 'er') > runs * 0.85, `${sum(arms, 'er')} of ${runs}`);
+      check('deadball ledger: the steals the plays made', sum(bats, 'sb') === sb && sum(bats, 'cs') === cs, `${sum(bats, 'sb')}/${sb} SB, ${sum(bats, 'cs')}/${cs} CS`);
+      const x = B.SEASON.summariseExtras(L);
+      check('deadball ledger: the steals and strikeout races lead with the most',
+        x.steals.length === 5 && x.steals[0].sb >= x.steals[4].sb && x.strikeouts.length === 5 && x.strikeouts[0].k >= x.strikeouts[4].k && x.strikeouts[0].era > 0,
+        JSON.stringify([x.steals[0], x.strikeouts[0]]));
+
+      // The payloads read it: with the season so far, each play carries the batter's and
+      // the pitcher's lines as they stood before it, the ledger stays as it was, a steal
+      // carries the runner's count with it and the clocks it was run against, and with no
+      // season the payloads carry no lines at all.
+      const before = JSON.stringify([...x.ledger.bats.entries()]);
+      const fmt = { abbr: (n) => String(n).slice(0, 3), ordinal: (n) => `${n}th` };
+      let seen = 0, stealPays = 0;
+      const bad = [];
+      for (let s = 200; s < 260; s++) {
+        const seed = hashOf(s, 3);
+        const g = B.simGameV2(M, null, rngOf(seed), { seed });
+        const pays = gamedayPayloads(g, seed, { ...fmt, ledger: x.ledger }).order.filter((p) => p.phase !== 'half');
+        const tonight = new Map();
+        for (const p of pays) {
+          const base = x.ledger.bats.get(p.batter);
+          const t = tonight.get(p.batter) || 0;
+          if (!p.phase && base && p.bl[0] !== base.ab + t) bad.push(`${p.batter} AB ${p.bl[0]} not ${base.ab}+${t}`);
+          if (!p.phase && !['walk', 'sacfly', 'hitbypitch'].includes(p.kind)) tonight.set(p.batter, t + 1);
+          if (!Array.isArray(p.bl) || !Array.isArray(p.pl) || p.bl.length !== 5 || p.pl.length !== 5) bad.push(`${p.kind} without its lines`);
+          if (p.kind === 'steal' || p.kind === 'caughtstealing' || p.kind === 'doublesteal') {
+            stealPays++;
+            if (!(p.plate >= 1.2 && p.plate <= 1.6 && p.pop >= 1.85 && p.pop <= 2.15)) bad.push(`clocks ${p.plate}/${p.pop}`);
+            if (p.kind === 'steal' && !(p.sb >= 1)) bad.push(`a steal with sb ${p.sb}`);
+          }
+          seen++;
+        }
+      }
+      check('gameday: each play carries the men\'s lines as they stood before it', !bad.length && seen > 1000 && stealPays > 0, bad.slice(0, 3).join(' | ') || `${seen} plays, ${stealPays} steals`);
+      check('gameday: the lines never write to the season they start from', JSON.stringify([...x.ledger.bats.entries()]) === before, 'the ledger changed');
+      const bare = gamedayPayloads(B.simGameV2(M, null, rngOf(hashOf(9, 3)), { seed: hashOf(9, 3) }), hashOf(9, 3), fmt).order;
+      check('gameday: with no season, no lines', bare.every((p) => !('bl' in p) && !('pl' in p)), 'a line from tonight alone');
+    }
+    const hbp = B.synthPitches(12345, 'hitbypitch');
+    const last = hbp[hbp.length - 1], prev = hbp[hbp.length - 2] || { balls: 0, strikes: 0 };
+    check('deadball v2: a hit batter\'s last pitch hits him and counts as neither', last.result === 'hbp' && last.balls === prev.balls && last.strikes === prev.strikes, JSON.stringify(last));
+
+    // The payloads: a play on the bases rides one of its own (phase run, with its moves and
+    // no pitches), an at-bat carries the sim's moves with the names, and the line counts
+    // errors in a v2 game only.
+    const fmt = { abbr: (n) => String(n).slice(0, 3), ordinal: (n) => `${n}th` };
+    let s2 = 1, g2;
+    do { const seed = hashOf(s2++, 0); g2 = { seed, game: B.simGameV2(M, null, rngOf(seed), { seed }) }; } while (!g2.game.beats.some((b) => b.type === 'run') && s2 < 50);
+    const ord2 = gamedayPayloads(g2.game, g2.seed, fmt).order;
+    const runPays = ord2.filter((p) => p.phase === 'run');
+    check('gameday v2: a play on the bases rides its own payload, with its moves and no pitches',
+      runPays.length > 0 && runPays.every((p) => p.kind && Array.isArray(p.moves) && !('pitches' in p) && !p.moves.some((m) => m.from === 0)), `${runPays.length} plays on the bases`);
+    check('gameday v2: an at-bat carries the sim\'s own moves, names and all',
+      ord2.filter((p) => !p.phase).every((p) => p.moves.length && p.moves.every((m) => typeof m.name === 'string')), 'a v2 move without a name');
+    const ord1 = gamedayPayloads(B.simGame(M, null, rngOf(g2.seed)), g2.seed, fmt).order;
+    check('gameday v2: the line counts errors in a v2 game and not in a v1 game',
+      ord2.every((p) => !p.line || Number.isFinite(p.line.eAway)) && ord1.every((p) => !p.line || !('eAway' in p.line)), 'E in the wrong line');
+
+    // The switch. Asked for, it's recorded at the first slot of the next in-game day; no
+    // longer asked for, an end slot the same way; sportsGameForSlot plays the slot's version.
+    const next = _test.nextSimSwitch;
+    check('sim switch: asked for and not recorded, it starts at the next in-game day', JSON.stringify(next(null, true, 8003)) === JSON.stringify({ from: 8008 }), JSON.stringify(next(null, true, 8003)));
+    check('sim switch: recorded and still asked for, nothing changes', next({ from: 8008 }, true, 8100) === null, JSON.stringify(next({ from: 8008 }, true, 8100)));
+    check('sim switch: no longer asked for, it ends at the next in-game day', JSON.stringify(next({ from: 8008 }, false, 8100)) === JSON.stringify({ from: 8008, until: 8104 }), JSON.stringify(next({ from: 8008 }, false, 8100)));
+    check('sim switch: once it has played and ended, it stays off', next({ from: 8008, until: 8104 }, true, 8200) === null, JSON.stringify(next({ from: 8008, until: 8104 }, true, 8200)));
+    check('sim switch: ended before its first slot, it can start again', JSON.stringify(next({ from: 8008, until: 8008 }, true, 8020)) === JSON.stringify({ from: 8024 }), JSON.stringify(next({ from: 8008, until: 8008 }, true, 8020)));
+    const bsm = new Function(`${readFileSync(new URL('../../client/devpanel/js/bsm-compiler.js', import.meta.url), 'utf8')}\n;return compileBsm;`)();
+    const deadball = bsm(readFileSync(new URL('../../data/scripts/baseball.bsm', import.meta.url), 'utf8')).sportsScript;
+    check('sim switch: @sim 2 in a .bsm compiles to sports_pools.sim', bsm('@type sports\n@sport baseball\n@sim 2\n').sportsScript?.sim?.version === 2, 'no sim');
+    const recorded = _test.getSimSwitch('baseball');   // whatever this database has recorded
+    try {
+      _test.setSimSwitch('baseball', { from: 50000, until: 50010 });
+      const ver = (slot) => _test.sportsGameForSlot(deadball, slot, null).game.version || 1;
+      check('sim switch: a slot before it plays v1 and the slot it starts at plays v2', ver(49999) === 1 && ver(50000) === 2, `${ver(49999)}, ${ver(50000)}`);
+      check('sim switch: a slot after it ends plays v1 again', ver(50010) === 1, String(ver(50010)));
+
+      // The booth: lines for every new play and for a tied score, and under v2 every play
+      // on the bases that airs is called with every token filled.
+      for (const pool of ['atbat.hitbypitch', 'atbat.error', 'atbat.error.throwing', 'run.steal', 'run.caughtstealing', 'run.pickoff', 'run.throwover',
+        'run.doublesteal', 'run.doublesteal.out', 'run.wildpitch', 'run.wildpitch.score', 'run.passedball', 'run.passedball.score', 'score.tied']) {
+        check(`deadball: the booth has lines for ${pool}`, (deadball.pools[pool] || []).length > 0, pool);
+      }
+      _test.setSimSwitch('baseball', { from: 0 });
+      let aired = 0;
+      const badLines = [];
+      for (let slot = 70000; slot < 70012; slot++) {
+        const g = _test.assembleSportsGraph(deadball, 'bc_regress_v2', slot, null);
+        for (const n of Object.values(g.nodes)) {
+          const d = n.data || {};
+          if (d.gameday?.phase === 'run') aired++;
+          if (/[{}]|\s[.,!?]|\s{2}|out in front by 0/.test(d.text || '')) badLines.push(`slot ${slot}: "${d.text}"`);
+        }
+      }
+      check('deadball v2: plays on the bases air with their calls, every token filled, no leader in a tie', aired > 0 && !badLines.length, `${aired} aired; ${badLines.slice(0, 3).join(' | ')}`);
+    } finally {
+      _test.setSimSwitch('baseball', recorded);
+    }
+  }
+
+  // ── Deadball's balls in play ────────────────────────────────────────────────
+  // The server decides every ball in play (synthPlay) so the booth's line can agree with the
+  // picture. It's cosmetic and seeded on its own, so it can't move a game: the v1 hash above
+  // holds with it built. Here: every play agrees with its kind and the sim, building the
+  // payloads leaves the game as it was, and the bare line pools say nothing that only some
+  // plays of their kind show (docs/bsm-format.md).
+  {
+    const B = await import('./sports/baseball.js');
+    const { gamedayPayloads } = await import('./sports/baseball-gameday.js');
+    const { sportsRng: rngOf, sportsHash: hashOf } = await import('./rng.js');
+    const { fenceAt } = await import('../../client/game/js/panels/diamond/play.js');
+    const M = { away: 'Rats', home: 'Kings' };
+    const fmt = { abbr: (n) => String(n).slice(0, 3).toUpperCase(), ordinal: (n) => `${n}th` };
+    const KIND_T = {
+      groundout: ['gb'], productout: ['gb'], doubleplay: ['gb'], tripleplay: ['gb'], flyout: ['fb'], sacfly: ['fb'], popout: ['pu'],
+      single: ['gb', 'ld', 'fb'], double: ['gb', 'ld', 'fb'], triple: ['gb', 'ld', 'fb'], homerun: ['ld', 'fb'], error: ['gb', 'ld', 'fb'],
+    };
+    const GRADES = new Set(['routine', 'ranging', 'diving', 'sliding', 'leaping', 'barehand', 'rail']);
+    const POS = { P: 1, C: 2, '1B': 3, '2B': 4, '3B': 5, SS: 6, LF: 7, CF: 8, RF: 9 };
+    const bad = [];
+    let plays = 0, none = 0, untouched = 0, same = 0, games = 0;
+    const why = (play, b, msg) => bad.push(`${b.kind} ${JSON.stringify(play)}: ${msg}`);
+    for (let s = 1; s <= 160 && bad.length < 4; s++) {
+      const seed = hashOf(s, 11);
+      const game = s % 2 ? B.simGameV2(M, null, rngOf(seed), { seed }) : B.simGame(M, null, rngOf(seed));
+      const before = JSON.stringify(game);
+      const { atbat } = gamedayPayloads(game, seed, fmt);
+      games++;
+      if (JSON.stringify(game) === before) untouched++;
+      const again = gamedayPayloads(game, seed, fmt).atbat;
+      if ([...atbat].every(([b, p]) => JSON.stringify(p.play) === JSON.stringify(again.get(b).play))) same++;
+      for (const [b, p] of atbat) {
+        const play = p.play;
+        if (b.type === 'run' || !KIND_T[b.kind]) { if (play) why(play, b, 'nothing was put in play'); else none++; continue; }
+        plays++;
+        if (!play) { why({}, b, 'no play'); continue; }
+        const { t, dir, ev, la, d, f, g } = play;
+        const fence = fenceAt(dir);
+        if (!KIND_T[b.kind].includes(t)) why(play, b, `a ${t} isn't a ${b.kind}`);
+        if (!Array.isArray(f) || !f.length || f.some((n) => !(n >= 1 && n <= 9))) why(play, b, 'the fielders');
+        if (![dir, ev, la, d].every(Number.isInteger) || !(ev >= 40 && ev <= 120) || !(d > 0) || !(play.sp >= 0 && play.sp <= 1)) why(play, b, 'the numbers');
+        if (Math.abs(dir) > 45 && !(b.kind === 'popout' && play.foul)) why(play, b, 'foul');
+        if (g && !GRADES.has(g)) why(play, b, `grade ${g}`);
+        if ((b.kind === 'groundout' || b.kind === 'productout') && !(f.length === 1 ? f[0] === 3 : f[f.length - 1] === 3 || f.join('') === '31')) why(play, b, 'not out at first');
+        if (b.kind === 'doubleplay' && !(f[f.length - 1] === 3 && [4, 6].includes(f.length === 2 ? f[0] : f[1]))) why(play, b, 'not a double play turned at second');
+        if (b.kind === 'tripleplay' && f.join('') !== '543') why(play, b, 'not 5-4-3');
+        if ((b.kind === 'flyout' || b.kind === 'sacfly') && !(f[0] >= 7 && d <= fence + 3)) why(play, b, 'not caught in the outfield');
+        if (b.kind === 'popout' && !(f[0] <= 6)) why(play, b, 'not caught on the infield');
+        if (b.kind === 'homerun' && !(d > fence)) why(play, b, `lands at ${d}, inside the fence at ${Math.round(fence)}`);
+        if (!['homerun', 'flyout', 'sacfly'].includes(b.kind) && d > fence) why(play, b, 'past the fence');
+        if (['single', 'double', 'triple'].includes(b.kind) && g && !play.th) why(play, b, 'a hit somebody fielded');
+        if (b.kind === 'error' && f[0] !== POS[b.fielder]) why(play, b, `the sim charged ${b.fielder}`);
+        if (b.kind === 'error' && !(b.errorType === 'throwing' ? ['past', 'stands'] : ['boot', 'legs', 'drop']).includes(play.e)) why(play, b, `a ${b.errorType} error is ${play.e}`);
+      }
+    }
+    check('deadball plays: every ball in play agrees with its kind and the sim, and nothing else has one',
+      !bad.length && plays > 3000 && none > 1000, `${plays} plays, ${none} without; ${bad.slice(0, 3).join(' | ')}`);
+    check('deadball plays: building the payloads leaves the game as it was, and the same at-bat gets the same play',
+      untouched === games && same === games, `${untouched}/${games} untouched, ${same}/${games} the same`);
+
+    // The booth. A pool named for a kind of play airs on every play of that kind, so its lines
+    // can't name a direction, a depth, a kind of contact or a kind of catch: those live in a pool
+    // with the play's tag after it. Each word list below is what a bare line can't say, less what
+    // its kind always is (a groundout is always on the ground, a home run always over the wall).
+    const bsm = new Function(`${readFileSync(new URL('../../client/devpanel/js/bsm-compiler.js', import.meta.url), 'utf8')}\n;return compileBsm;`)();
+    const pools = bsm(readFileSync(new URL('../../data/scripts/baseball.bsm', import.meta.url), 'utf8')).sportsScript.pools;
+    const PICTURE = {
+      left: /\bleft\b(?! (?:on|standing|over|in|out)\b)/i,
+      right: /\bright\b(?! (?:past|through|there|now|away|here|back|off|on|into|in)\b)/i,
+      centre: /\bcent(?:re|er)\b/i, gap: /\bgaps?\b/i, wall: /\bwalls?\b/i, line: /\b(?:lines?|liners?|laces|laser)\b/i,
+      deep: /\bdeep\b/i, shallow: /\bshallow\b/i, short: /\bshort\b/i, horn: /\baround the horn\b/i, corner: /\bcorner\b/i,
+      track: /\btrack\b/i, hole: /\bhole\b/i, middle: /\bup the middle\b|\bcomebacker\b/i, infield: /\binfield/i, outfield: /\boutfield/i,
+      routine: /\broutine\b|\beasy\b|\bcamped\b|\btailor-made\b|\bright at\b/i, dive: /\bdiv(?:e|es|ing)\b|\bdove\b|\blays? out\b/i,
+      leap: /\bleap|\bjump/i, slide: /\bslid(?:e|es|ing)\b/i, barehand: /\bbare/i, standup: /\bstand(?:ing|-up)\b/i,
+      bloop: /\bbloop|\bflare\b/i, chop: /\bchop|\bdribbl|\btaps?\b|\broller\b/i, foul: /\bfoul\b|\bfair\b/i, pole: /\bpole\b/i,
+      seats: /\bseats\b|\bstands\b|\bfirst row\b/i, fence: /\bfence\b/i, pull: /\bpull|\bturns on\b|\bother way\b/i,
+      ground: /\bground(?:er|ers|s| ball)?\b|\bbounces?\b/i, fly: /\bfl(?:y|ies|ied)\b|\blifts?\b|\bskies\b/i, pop: /\bpop/i, up: /\bstraight up\b/i,
+    };
+    const ON_GROUND = ['ground', 'infield'], IN_AIR = ['fly', 'outfield'], OVER = ['deep', 'wall', 'fence'];
+    const BARE = {
+      'atbat.groundout': ON_GROUND, 'atbat.productout': ON_GROUND, 'atbat.doubleplay': ON_GROUND, 'atbat.tripleplay': ON_GROUND,
+      'atbat.flyout': IN_AIR, 'atbat.sacfly': [...IN_AIR, 'deep'], 'atbat.popout': ['pop'], 'atbat.out': [],
+      'atbat.single': [], 'atbat.double': [], 'atbat.triple': ['deep'], 'atbat.error': [], 'atbat.error.throwing': [],
+      rbi: [], hr: OVER, 'hr.solo': OVER, 'hr.grand': OVER,
+    };
+    const loose = [];
+    for (const [key, always] of Object.entries(BARE)) {
+      for (const line of pools[key] || []) {
+        const said = Object.entries(PICTURE).filter(([w, re]) => !always.includes(w) && re.test(line)).map(([w]) => w);
+        if (said.length) loose.push(`${key}: [${said.join(', ')}] "${line}"`);
+      }
+    }
+    check('deadball booth: a bare pool names no direction, depth or kind of catch', !loose.length, loose.slice(0, 3).join(' | '));
+    check('deadball booth: every bare pool has lines', Object.keys(BARE).every((k) => (pools[k] || []).length), Object.keys(BARE).filter((k) => !(pools[k] || []).length).join(', '));
+    // Each suffixed pool's suffix, after the longest bare pool it qualifies, is a tag a play
+    // carries: a misspelt tag would be a pool that never airs.
+    const keys = Object.keys(BARE).sort((a, b) => b.length - a.length);
+    const unknown = Object.keys(pools).filter((k) => {
+      const base = keys.find((b) => k.startsWith(`${b}.`));
+      return base && !BARE[k] && !B.PLAY_TAGS.has(k.slice(base.length + 1));
+    });
+    check('deadball booth: every suffixed pool is named for a tag a play carries', !unknown.length, unknown.join(', '));
   }
 
   // ── Acted-live shows run on the REAL clock inside an in-game slot ────────────

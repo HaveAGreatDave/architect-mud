@@ -71,49 +71,271 @@
     ],
     "pools": {
       "atbat.double": [
-        "{batter} rips it down the line, into the corner, he's got two! Standing double.",
-        "{batter} laces one to the wall and pulls into second. Two-bagger.",
-        "A screamer off {batter}'s bat rolls to the gap, and he cruises into second."
+        "Double for {batter}. He's in scoring position.",
+        "{batter} gets two on it. Runner on second.",
+        "That's extra bases for {batter}. A double."
+      ],
+      "atbat.double.dove": [
+        "{diver} dives and misses, and {batter} is into second."
+      ],
+      "atbat.double.gap": [
+        "Into the gap goes {batter}'s drive, and he's into second with a double.",
+        "{batter} splits the outfielders. Double."
+      ],
+      "atbat.double.line": [
+        "{batter} rips it down the line, into the corner, he's got two!"
+      ],
+      "atbat.double.liner": [
+        "A screamer off {batter}'s bat, and he's into second with a double."
+      ],
+      "atbat.double.offwall": [
+        "Off the wall! {fielder} plays the carom, but {batter} is in at second."
+      ],
+      "atbat.double.slide": [
+        "{batter} slides into second ahead of the throw. Double."
+      ],
+      "atbat.double.standup": [
+        "{batter} goes into second standing up. Standing double."
+      ],
+      "atbat.double.wall": [
+        "{batter} drives one to the wall and pulls into second. Two-bagger."
       ],
       "atbat.doubleplay": [
-        "Ground ball, and they turn TWO on {batter}! Around the horn, rally strangled in the crib. {outs} away.",
-        "{batter} raps into a tailor-made double play. {pitcher} exhales; the whole frame's undone in one pitch. {outs} down.",
         "Two for the price of one. {batter} bounces into a double play. The {team} dugout deflates. {outs} gone.",
-        "{batter} chops it right at 'em and they flip it around for a double play. Cruel game. {outs} away."
+        "Double play. {batter} erases the runner and himself. {outs} down.",
+        "They turn two on {batter}. {outs} away."
+      ],
+      "atbat.doubleplay.163": [
+        "Back to {pitcher}, who turns and throws to second, and on to first. Double play. {outs} down."
+      ],
+      "atbat.doubleplay.363": [
+        "First to short and back to first. A double play you don't see every night. {outs} away."
+      ],
+      "atbat.doubleplay.463": [
+        "Second to short to first. They turn two on {batter}. {outs} down."
+      ],
+      "atbat.doubleplay.543": [
+        "Ground ball, and they turn TWO on {batter}! Around the horn, rally strangled in the crib. {outs} away."
+      ],
+      "atbat.doubleplay.643": [
+        "Short to second to first, and that's two. {outs} away."
+      ],
+      "atbat.doubleplay.diving": [
+        "{fielder} dives, scrambles up, and they still turn two! {outs} away."
+      ],
+      "atbat.doubleplay.ranging": [
+        "{fielder} ranges over for it, and they turn two anyway. {outs} down."
+      ],
+      "atbat.doubleplay.routine": [
+        "{batter} raps into a tailor-made double play. {pitcher} exhales; the whole frame's undone in one pitch. {outs} down.",
+        "{batter} hits it right at 'em and they flip it around for a double play. Cruel game. {outs} away."
+      ],
+      "atbat.error": [
+        "Error on {fielder}, and {batter} is on first.",
+        "{fielder} can't handle it. {batter} is aboard on the error."
+      ],
+      "atbat.error.boot": [
+        "{batter} hits it right at {fielder}, and he boots it. Error, and {batter}'s aboard."
+      ],
+      "atbat.error.drop": [
+        "Fly ball to {fielder}... and he drops it! {batter} is on with an error.",
+        "{fielder} gets under it and it pops out of his glove. Error, and {batter} is aboard."
+      ],
+      "atbat.error.ground": [
+        "Grounder to {fielder}, and he can't come up with it. {batter} reaches on the error."
+      ],
+      "atbat.error.legs": [
+        "It goes right through {fielder}'s legs. {batter} is safe at first, and the crowd lets {fielder} hear about it."
+      ],
+      "atbat.error.throwing": [
+        "{fielder} gets to it, then throws it away. {batter} takes second on the error.",
+        "Bad throw by {fielder}. {batter} is all the way to second."
+      ],
+      "atbat.error.throwing.past": [
+        "The throw from {fielder} sails past first and rolls toward the corner. {batter} takes second on the error."
+      ],
+      "atbat.error.throwing.stands": [
+        "{fielder} fields it clean and throws it into the stands. {batter} is waved on to second."
       ],
       "atbat.flyout": [
-        "{batter} lifts it to the outfield. Camped under it, squeezed. {outs} away.",
-        "Fly ball, {batter}, nothing on it. Caught. {outs} down.",
-        "{batter} gets air but not enough. Run-of-the-mill flyout. {outs} gone."
+        "Fly ball, {batter}. {fielder} puts it away. {outs} down.",
+        "{batter} lifts it to the outfield, and {fielder} makes the catch. {outs} away.",
+        "{batter} flies out to {fielder}. {outs} gone."
+      ],
+      "atbat.flyout.deep": [
+        "{batter} hits it a long way, but it stays in the yard. {fielder} catches it. {outs} down."
+      ],
+      "atbat.flyout.diving": [
+        "{fielder} lays out... and he CATCHES it! {batter} robbed of a hit. {outs} away.",
+        "That's dropping in... no! {fielder} dives and comes up with it. {outs} down."
+      ],
+      "atbat.flyout.gap": [
+        "{batter} hits it into the gap, but {fielder} gets over there. {outs} away."
+      ],
+      "atbat.flyout.leaping": [
+        "{batter} drives it to the wall... {fielder} leaps... and pulls it down! {outs} away."
+      ],
+      "atbat.flyout.line": [
+        "Fly ball toward the line. {fielder} drifts over and makes the catch. {outs} down."
+      ],
+      "atbat.flyout.ranging": [
+        "{fielder} gets on his horse and runs it down. {outs} away.",
+        "{batter} makes {fielder} run a long way for it, and he gets there. {outs} down."
+      ],
+      "atbat.flyout.robbed": [
+        "That ball is gone... NO! {fielder} reaches over the wall and takes a home run away from {batter}! {outs} down."
+      ],
+      "atbat.flyout.routine": [
+        "{batter} lifts it to the outfield. {fielder} is camped under it. {outs} away.",
+        "{batter} gets air but not enough. Run-of-the-mill flyout. {outs} gone.",
+        "Fly ball, and {fielder} barely has to move. {outs} down."
+      ],
+      "atbat.flyout.shallow": [
+        "Shallow fly. {fielder} comes in and takes it. {outs} gone."
+      ],
+      "atbat.flyout.sliding": [
+        "{fielder} comes in hard, slides, and takes it off his shoe tops. {outs} away."
+      ],
+      "atbat.flyout.track": [
+        "Way back, {fielder} on the track, and he gets it. {outs} away."
       ],
       "atbat.groundout": [
-        "{batter} chops it into the dirt. Routine, throw across, he's out. {outs} away.",
-        "Ground ball off the bat of {batter}, easy play, one more gone. {outs} down.",
+        "{batter} grounds out to {fielder}. {outs} away.",
+        "Ground ball, {batter}, and {fielder} makes the play. {outs} down.",
+        "{batter} puts it on the ground. {fielder} takes care of him. {outs} in the books."
+      ],
+      "atbat.groundout.barehand": [
+        "Slow roller. {fielder} charges, picks it up bare-handed and throws him out. {outs} away.",
+        "{batter} barely gets wood on it, and {fielder} comes in, bare hand, throws on the run. Out. {outs} down."
+      ],
+      "atbat.groundout.catcher": [
+        "{batter} taps it in front of the plate. The catcher pounces and throws him out. {outs} down."
+      ],
+      "atbat.groundout.comebacker": [
+        "Comebacker to {pitcher}. He gloves it and lobs it to first. {outs} away."
+      ],
+      "atbat.groundout.dirt": [
+        "The throw from {fielder} is in the dirt, and the first baseman digs it out. {outs} away."
+      ],
+      "atbat.groundout.diving": [
+        "{fielder} dives, knocks it down, gets up and gets him! {outs} away.",
+        "Diving stop by {fielder}! He gets {batter} by a step. {outs} down."
+      ],
+      "atbat.groundout.left": [
+        "{batter} grounds one to the left side, and {fielder} throws him out. {outs} away."
+      ],
+      "atbat.groundout.pull": [
         "{batter} rolls over on it. Grounder, out at first. {outs} in the books."
+      ],
+      "atbat.groundout.ranging": [
+        "{fielder} has to range for that one, and he gets there. {batter} is out. {outs} away.",
+        "{batter} makes {fielder} run for it, and he still makes the play. {outs} down."
+      ],
+      "atbat.groundout.right": [
+        "Ground ball to the right side. {fielder} handles it, and that's {outs}."
+      ],
+      "atbat.groundout.routine": [
+        "{batter} hits it right at {fielder}. Routine, and he's out. {outs} away.",
+        "Ground ball off the bat of {batter}, easy play, one more gone. {outs} down."
+      ],
+      "atbat.hitbypitch": [
+        "{pitcher} comes inside and plunks {batter}. He takes his base, slowly, and says something on the way.",
+        "That one gets {batter} on the elbow. Hit by pitch. He shakes it off and jogs to first.",
+        "{batter} wears one from {pitcher}. Free base, and a bruise to go with it."
       ],
       "atbat.out": [
         "{batter} is retired. {outs} away.",
         "That's {batter} put out. {outs} down."
       ],
       "atbat.popout": [
-        "{batter} pops it straight up. Infielder circles, gloves it. {outs} away.",
-        "Little pop-up off {batter}'s bat, caught in fair territory. {outs} down.",
-        "{batter} skies one shallow. Easy out. {outs} in the frame."
+        "{batter} pops it up. {fielder} squeezes it. {outs} away.",
+        "Pop-up off {batter}'s bat. {fielder} calls for it and takes it. {outs} down.",
+        "{batter} gets under it. Pop-up to {fielder}, caught. {outs} in the frame."
+      ],
+      "atbat.popout.catcher": [
+        "The catcher throws off the mask, finds it, and squeezes it. {outs} away."
+      ],
+      "atbat.popout.fair": [
+        "Little pop-up off {batter}'s bat, caught in fair territory. {outs} down."
+      ],
+      "atbat.popout.foul": [
+        "{batter} lifts a pop foul, and {fielder} drifts over and takes it. {outs} away.",
+        "Pop foul. {fielder} tracks it into foul ground and squeezes it. {outs} down."
+      ],
+      "atbat.popout.infield": [
+        "{batter} pops it straight up. {fielder} circles under it and gloves it. {outs} away."
+      ],
+      "atbat.popout.rail": [
+        "Pop foul toward the seats. {fielder} leans over the rail and catches it among the fans. {outs} down.",
+        "{fielder} reaches into the first row for it, and he has it. Somebody's beer is gone. {outs} away."
+      ],
+      "atbat.popout.shallow": [
+        "{batter} skies one into the shallow outfield, and {fielder} goes back for it. {outs} in the frame."
       ],
       "atbat.productout": [
-        "{batter} rolls out to the right side but pushes the runner up ninety feet. A productive out, if there's such a thing in this town. {outs} away.",
         "Groundout by {batter}, does his job, moves the runner over. {outs} down.",
         "{batter} grounds one that scoots the runner up. Nothing pretty, but it plays. {outs} in the frame."
       ],
+      "atbat.productout.right": [
+        "{batter} rolls out to the right side but pushes the runner up ninety feet. A productive out, if there's such a thing in this town. {outs} away."
+      ],
       "atbat.sacfly": [
         "Deep enough! {batter} lifts a sacrifice fly, the runner tags from third and scores. He's out, but it counts on the board. {outs} away.",
-        "{batter} gives himself up, fly ball to the track, the runner trots home. Traded an out for a run. {outs} down.",
         "Sac fly off the bat of {batter}. {team} do it the ugly way. Run's in, {outs} away."
       ],
+      "atbat.sacfly.home": [
+        "{fielder} makes the catch and throws home, but the runner beats it. Sac fly, {batter}. {outs} away."
+      ],
+      "atbat.sacfly.track": [
+        "{batter} gives himself up, fly ball to the track, the runner trots home. Traded an out for a run. {outs} down."
+      ],
       "atbat.single": [
-        "{batter} slaps a clean single into the gap and takes first.",
+        "Base hit, {batter}. He's aboard.",
+        "{batter} singles. The {team} have a runner.",
+        "{batter} finds a way on. Single."
+      ],
+      "atbat.single.barehand": [
+        "{fielder} barehands it and fires... too late. {batter} beats it out."
+      ],
+      "atbat.single.bloop": [
+        "{batter} bloops one in. Nobody's getting to that. Single.",
+        "A little flare off the end of the bat drops in. Base hit, {batter}."
+      ],
+      "atbat.single.catcher": [
+        "{batter} dribbles one in front of the plate, and the catcher has no play."
+      ],
+      "atbat.single.comebacker": [
+        "{pitcher} knocks it down but can't make the play. Infield hit, {batter}."
+      ],
+      "atbat.single.diving": [
+        "Diving stop by {fielder}, but there's no play. Infield hit, {batter}."
+      ],
+      "atbat.single.dove": [
+        "{batter} rips one past a diving {diver}. Base hit.",
+        "{diver} lays out for it and comes up empty. {batter} has a single."
+      ],
+      "atbat.single.gap": [
+        "{batter} slaps a clean single into the gap and takes first."
+      ],
+      "atbat.single.hole": [
+        "{batter} punches one through the infield. Runner aboard.",
+        "{batter} finds the hole. Base hit."
+      ],
+      "atbat.single.late": [
         "Base hit, {batter}! He beats it out and stands on first.",
-        "{batter} punches one through the infield. Runner aboard."
+        "{batter} legs it out. The throw's too late, and it's an infield hit."
+      ],
+      "atbat.single.line": [
+        "{batter} hits one down the line, and it's a single."
+      ],
+      "atbat.single.liner": [
+        "{batter} lines one into the outfield for a base hit."
+      ],
+      "atbat.single.middle": [
+        "Right back up the middle! {batter} singles past {pitcher}."
+      ],
+      "atbat.single.wide": [
+        "{fielder} makes the stop, but the throw pulls the first baseman off the bag. {batter} is safe."
       ],
       "atbat.strikeout": [
         "{batter} goes down swinging. {pitcher} blows it right past him. That's {outs} away.",
@@ -121,15 +343,31 @@
         "{batter} waves at a nasty one from {pitcher} and sits. {outs} gone in the frame."
       ],
       "atbat.triple": [
-        "{batter} drives it deep and wheels around, he's flying, and he slides into THIRD! Triple!",
-        "Way back, off the wall, {batter} is churning. A stand-up triple!",
+        "{batter} hits one to the deep part of the yard and keeps going. Triple!",
+        "Triple for {batter}! He's ninety feet from home."
+      ],
+      "atbat.triple.gap": [
         "{batter} splits the outfielders and doesn't stop till third. What a leg on him."
       ],
+      "atbat.triple.line": [
+        "Down the line and into the corner! {batter} is around second and into third. Triple."
+      ],
+      "atbat.triple.offwall": [
+        "Way back, off the wall, {batter} is churning, and he's in with a triple!"
+      ],
+      "atbat.triple.slide": [
+        "{batter} drives it deep and wheels around, he's flying, and he slides into THIRD! Triple!"
+      ],
+      "atbat.triple.standup": [
+        "{batter} goes into third standing up. A stand-up triple!"
+      ],
       "atbat.tripleplay": [
-        "Ground ball to the left side and... they got one, they got two, THEY GOT THREE. Triple play. {batter} into a triple play. I have called this game eleven years and I have never said that sentence.",
         "THREE. That's three outs on one pitch. {batter} hit into a triple play and the {team} bench doesn't know where to look. Nobody move. I need a minute.",
-        "Around the horn: third, second, first, all of it, all at once. Triple play on {batter}. The inning is over and it never really started. {pitcher} just walks off like it is nothing. It isn't nothing.",
         "{batter} rolls one into the teeth of it and they turn a TRIPLE play. Folks, whatever you paid to get in here, you're square with the house. Inning over."
+      ],
+      "atbat.tripleplay.543": [
+        "Ground ball to the left side and... they got one, they got two, THEY GOT THREE. Triple play. {batter} into a triple play. I have called this game eleven years and I have never said that sentence.",
+        "Around the horn: third, second, first, all of it, all at once. Triple play on {batter}. The inning is over and it never really started. {pitcher} just walks off like it is nothing. It isn't nothing."
       ],
       "atbat.walk": [
         "{pitcher} loses the zone. {batter} takes ball four and trots to first.",
@@ -200,7 +438,7 @@
       ],
       "hr": [
         "{batter} crushes it. Outta here! A {rbi}-run homer for the {team}!",
-        "Long gone! {batter} goes deep, {rbi} runs score for the {team}!",
+        "Gone! {batter} goes deep, {rbi} runs score for the {team}!",
         "{batter} parks one over the fence, {rbi} in on the blast. {team} answer."
       ],
       "hr.grand": [
@@ -208,10 +446,34 @@
         "Get up, get outta here! {batter} just hit a GRAND SLAM! Bases cleared, {rbi} runs, {team} take over!",
         "Bases loaded, and {batter} demolishes it! Grand slam! Four come around for the {team}!"
       ],
+      "hr.leap": [
+        "{fielder} jumps at the wall and comes down empty. {rbi}-run homer, {batter}!"
+      ],
+      "hr.nodoubt": [
+        "Long gone! {batter} hits it {feet} feet, and {rbi} runs score for the {team}!"
+      ],
+      "hr.pole": [
+        "Off the foul pole! A {rbi}-run home run for {batter}!"
+      ],
+      "hr.scraper": [
+        "{batter} hits it to the wall... and over! Barely. A {rbi}-run homer for the {team}."
+      ],
       "hr.solo": [
-        "{batter} turns on one and it's GONE! A solo shot, no doubt about it, and {team} tack on a run!",
         "SWING and a long drive by {batter}... see ya! Solo homer, over the wall for the {team}!",
         "{batter} launches it into the dark. Solo bomb. One run in for the {team}."
+      ],
+      "hr.solo.leap": [
+        "{fielder} goes up at the wall... and it's over his glove! Solo home run, {batter}."
+      ],
+      "hr.solo.nodoubt": [
+        "{batter} crushes one and it's GONE! A solo shot, no doubt about it, and {team} tack on a run!",
+        "{batter} hits it {feet} feet. Solo shot. The outfielders don't bother moving."
+      ],
+      "hr.solo.pole": [
+        "Off the foul pole! That's a solo home run for {batter}."
+      ],
+      "hr.solo.scraper": [
+        "{batter} hits it high and deep... it's got enough! Just over the wall. Solo home run."
       ],
       "intro": [
         "Good evening, wasteland, and welcome to DEADBALL. Chip Vega in the booth, and we've got nine innings of ball for whoever's still got working eyes.",
@@ -237,16 +499,79 @@
         "Chip Vega, signing off. Same dirt, same dread, tomorrow. Stay off the field."
       ],
       "rbi": [
-        "{batter} lines one into the gap and {rbi} come around to score! The {team} put it on the board.",
-        "Base knock for {batter}, {rbi} runs cross the plate! {team} cash in.",
+        "Base knock for {batter}, and the {team} cash in.",
         "{batter} comes through with runners on. {rbi} in! Big swing for the {team}.",
-        "Clutch hit, {batter}! {rbi} runs score for the {team}. The dugout's on its feet.",
-        "{batter} drives {rbi} home with a shot to the corner. The {team} strike."
+        "Clutch hit, {batter}! That's {rbi} in for the {team}. The dugout's on its feet."
+      ],
+      "rbi.bloop": [
+        "{batter} bloops one in, and the {team} score. Ugly and effective."
+      ],
+      "rbi.dove": [
+        "Past a diving {diver}, and the {team} score!"
+      ],
+      "rbi.gap": [
+        "{batter} drives one into the gap, and that brings in {rbi}!"
+      ],
+      "rbi.late": [
+        "{batter} beats out the throw, and the {team} score on the play."
+      ],
+      "rbi.line": [
+        "{batter} drives {rbi} home with a shot down the line. The {team} strike."
+      ],
+      "rbi.wall": [
+        "{batter} goes to the wall with it, and the {team} score."
       ],
       "recap.half": [
         "After {inningOrd}: {away} {awayScore}, {home} {homeScore}. Grab a beer, it won't help.",
         "Three in the books at the turn of the {inningOrd}: {away} {awayScore}, {home} {homeScore}.",
         "Where we stand through {inningOrd}: {home} {homeScore}, {away} {awayScore}."
+      ],
+      "run.caughtstealing": [
+        "{runner} is going, and the throw is there! Caught stealing. {outs} away.",
+        "The catcher pops up and fires, tag applied. {runner} is out at {base}. {outs} down.",
+        "{runner} tries for {base} and gets thrown out by a step. {outs} gone."
+      ],
+      "run.doublesteal": [
+        "Double steal! Both runners go, and nobody throws. The {team} have two in scoring position.",
+        "They're both running, and they both make it. A double steal."
+      ],
+      "run.doublesteal.out": [
+        "Both runners go, and they nail {runner} at {base}. The trail man moves up on the throw. {outs} away."
+      ],
+      "run.passedball": [
+        "The catcher can't hold on to it. Passed ball, and the runners move up.",
+        "That one goes right through the catcher's mitt. Passed ball. Everybody moves up a base."
+      ],
+      "run.passedball.score": [
+        "Passed ball! It rolls to the screen and {runner} scores from third."
+      ],
+      "run.pickoff": [
+        "{pitcher} spins and throws to {base}, and {runner} is picked off! {outs} away.",
+        "{runner} wanders too far off {base} and {pitcher} catches him leaning. Picked off. {outs} down.",
+        "{runner} gets hung up off {base}, and they run him down. {outs} away."
+      ],
+      "run.steal": [
+        "{runner} takes off, and he's in there! Stolen base. {runner} on {base}.",
+        "Here goes {runner}. The throw's late. He swipes {base}.",
+        "{pitcher} is slow to the plate and {runner} makes him pay. That's a steal of {base}."
+      ],
+      "run.throwover": [
+        "{pitcher} throws over to {base}. {runner} dives back in time.",
+        "Throw over. {runner} gets back. The crowd lets {pitcher} know what it thinks of that.",
+        "{pitcher} checks {runner}, steps off, throws over. Safe. We go again."
+      ],
+      "run.wildpitch": [
+        "That one gets past the catcher! Wild pitch, and the runners move up.",
+        "{pitcher} bounces one in the dirt and it skips to the backstop. Wild pitch. Runners advance."
+      ],
+      "run.wildpitch.score": [
+        "Wild pitch! It gets away, and {runner} comes in to score!",
+        "{pitcher} buries one in the dirt, it rolls to the backstop, and {runner} trots home. A run on a wild pitch."
+      ],
+      "score.tied": [
+        "That ties it. {away} {awayScore}, {home} {homeScore}.",
+        "All square: {away} {awayScore}, {home} {homeScore}.",
+        "Dead level at {awayScore} apiece. We've got a ballgame."
       ],
       "score.update": [
         "That makes it {away} {awayScore}, {home} {homeScore}.",
@@ -284,6 +609,9 @@
         "Champions crowned, season buried. Chip Vega signing off on the World Series. Same dirt tomorrow, but tonight belongs to the {leader}."
       ]
     },
+    "sim": {
+      "version": 2
+    },
     "sport": "baseball",
     "teams": [
       "Rustpile Rats",
@@ -303,7 +631,147 @@
       "Bunker Hill Bruisers",
       "Static Saints"
     ],
-    "title": "bb_deadball_title"
+    "title": "bb_deadball_title",
+    "venue": {
+      "city": {
+        "glow": [
+          255,
+          96,
+          168
+        ],
+        "quarters": [
+          {
+            "all": "ruin",
+            "fill": [
+              "ruin"
+            ],
+            "floors": [
+              1,
+              3
+            ],
+            "x": [
+              919,
+              999
+            ],
+            "y": [
+              914,
+              999
+            ]
+          },
+          {
+            "fill": [
+              "brick",
+              "brick",
+              "brick",
+              "works",
+              "works"
+            ],
+            "floors": [
+              2,
+              7
+            ],
+            "low": "works",
+            "tall": "brick",
+            "x": [
+              915,
+              999
+            ]
+          },
+          {
+            "fill": [
+              "chrome",
+              "chrome",
+              "glass",
+              "glass",
+              "concrete"
+            ],
+            "floors": [
+              2,
+              12
+            ],
+            "low": "concrete",
+            "tall": "glass"
+          }
+        ],
+        "styles": {
+          "apartment": "brick",
+          "asc_clinic": "stone",
+          "asc_gate": "stone",
+          "asc_shrine": "stone",
+          "asc_spire": "stone",
+          "asc_vats": "stone",
+          "asc_weave": "stone",
+          "atrium_court": "ribbon",
+          "bank": "concrete",
+          "bead_tower": "chrome",
+          "cascade_block": "concrete",
+          "chrome_arch": "chrome",
+          "chrome_slab": "chrome",
+          "chrome_tower": "chrome",
+          "church": "stone",
+          "civic": "concrete",
+          "clinic": "concrete",
+          "cold_storage": "works",
+          "concert_hall": "ribbon",
+          "container_yard": "works",
+          "cooling_plant": "works",
+          "corporate_office": "glass",
+          "dynamo": "works",
+          "exchange": "concrete",
+          "fabrication": "works",
+          "flophouse": "brick",
+          "foundry": "works",
+          "freight_office": "brick",
+          "fuel_yard": "works",
+          "gasholder": "works",
+          "glass_prism": "glass",
+          "greenhouse": "farm",
+          "hangar": "works",
+          "harbour_office": "brick",
+          "hostel": "brick",
+          "hotel": "brick",
+          "hydro": "works",
+          "incinerator": "works",
+          "industrial": "works",
+          "institute": "ribbon",
+          "junkyard": "works",
+          "land_office": "concrete",
+          "lens_hall": "ribbon",
+          "museum": "ribbon",
+          "office": "concrete",
+          "police": "concrete",
+          "power": "works",
+          "pumping_station": "works",
+          "residential": "brick",
+          "ruin": "ruin",
+          "ruins": "ruin",
+          "shell_tower": "glass",
+          "sky_court": "glass",
+          "substation": "works",
+          "torque_tower": "chrome",
+          "truck_depot": "works",
+          "vehicle_pound": "works",
+          "vertical_farm": "farm",
+          "warehouse": "works",
+          "weigh_station": "works",
+          "wharf": "brick",
+          "winter_garden": "farm"
+        },
+        "tallFloors": 6
+      },
+      "name": "Halcyon Field",
+      "site": {
+        "bearing": 315,
+        "block": {
+          "x0": 895,
+          "x1": 897,
+          "y0": 911,
+          "y1": 913
+        },
+        "x": 897.55,
+        "y": 913.55
+      }
+    }
   },
   "tags": [],
   "talkshow_pools": null,

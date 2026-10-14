@@ -12,52 +12,46 @@
 // fielded (or clears the fence), runners round the bases lighting them as they go,
 // and Chip's play-by-play captions run along the bottom.
 
+import { DEADBALL_SFX } from '../../../shared/deadball-sfx.js';
+import { prefersReducedMotion, playByPlayOn } from '../../../shared/settings.js';
+import { fenceAt } from './diamond/play.js';
+
 function _esc(str) {
   return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
 // Colour class per synthesized pitch result — drives the plot dot + the sequence list.
-const PITCH_RESULT_CLASS = { ball: 'ball', called: 'called', swinging: 'swinging', foul: 'foul', inplay: 'inplay' };
-const PITCH_RESULT_LABEL = { ball: 'Ball', called: 'Called Strike', swinging: 'Swinging Strike', foul: 'Foul', inplay: 'In Play' };
+const PITCH_RESULT_CLASS = { ball: 'ball', called: 'called', swinging: 'swinging', foul: 'foul', inplay: 'inplay', hbp: 'hbp' };
+
+// ── the live text ────────────────────────────────────────────────────────────────
+// Each pitch is written out for a screen reader as it's thrown (Play by Play in the accessibility
+// settings), from the payload the picture throws it from, so what's said is what's shown. Both
+// views use it; the 3-D one also says its graphics.
+const PITCH_SAID = { ball: 'ball', called: 'called strike', swinging: 'swinging strike', foul: 'foul', inplay: 'in play', hbp: 'hit by the pitch' };
+// A pitch's speed and kind, what it did, and the count it leaves; the at-bat's last pitch says
+// what it ended instead (ball four, strike three), as the board never shows a fourth ball or a
+// third strike.
+export function pitchText(q, last = false) {
+  const kind = [Number(q?.velo) > 0 ? String(q.velo | 0) : '', String(q?.type || '').toLowerCase()].filter(Boolean).join(' ');
+  const r = q?.result, b = q?.balls | 0, k = q?.strikes | 0;
+  const did = last && r === 'ball' && b >= 4 ? 'ball four'
+    : last && (r === 'called' || r === 'swinging') && k >= 3 ? `strike three, ${r}`
+    : PITCH_SAID[r] || 'a pitch';
+  return `${kind ? `${kind}, ` : ''}${did}${last ? '' : `, ${b} and ${k}`}`;
+}
+// A card as the live text says it: in words, the inning's arrow and the dots spelled out.
+export function cardText(fx, m) {
+  if (fx.kind === 'half') return `${fx.half === 'bottom' ? 'Bottom' : 'Top'} of the ${fx.inningOrd || 'inning'}${fx.batting ? `, ${fx.batting} batting` : ''}`;
+  const title = String(m.title || '').replace(/^\W+/, '').toLowerCase().replace(/^\w/, (c) => c.toUpperCase());
+  return [title, String(m.sub || '').replace(/\s+·\s+/g, ', ')].filter(Boolean).join('. ');
+}
+// How many lines the live text keeps: a screen reader reads each as it comes, and a long log
+// would only be noise to someone reading back.
+const LIVE_KEEP = 12;
 
 // ── Sound effects (procedural, on the 'tv' bus; silent when no AudioEngine) ──────
-const SFX = {
-  mitt: { category: 'tv', priority: 2, config: { duration: 0.09, layers: [
-    { waveform: 'noise', noiseMix: 1, duration: 0.07, gain: 0.13, filter: { type: 'lowpass', freq: 1100, q: 0.9 }, adsr: { a: 0.001, d: 0.05, s: 0, r: 0.03 } },
-    { waveform: 'sine', freq: 170, duration: 0.07, gain: 0.08, adsr: { a: 0.001, d: 0.05, s: 0, r: 0.03 } },
-  ] } },
-  crack: { category: 'tv', priority: 4, config: { duration: 0.13, layers: [
-    { waveform: 'noise', noiseMix: 1, duration: 0.045, gain: 0.34, filter: { type: 'highpass', freq: 2000, q: 0.7 }, adsr: { a: 0.0005, d: 0.04, s: 0, r: 0.02 } },
-    { waveform: 'triangle', freq: 440, pitchBend: { to: 190, time: 0.05 }, duration: 0.1, gain: 0.24, filter: { type: 'bandpass', freq: 900, q: 1.1 }, adsr: { a: 0.001, d: 0.07, s: 0, r: 0.05 } },
-  ] } },
-  whiff: { category: 'tv', priority: 3, config: { waveform: 'noise', noiseMix: 1, duration: 0.16, gain: 0.14, filter: { type: 'bandpass', freq: 1500, q: 0.5 }, adsr: { a: 0.03, d: 0.11, s: 0, r: 0.05 } } },
-  // Ball smacking a fielder's glove out in the field — softer, rounder than the mitt.
-  glove: { category: 'tv', priority: 3, config: { duration: 0.08, layers: [
-    { waveform: 'noise', noiseMix: 1, duration: 0.06, gain: 0.11, filter: { type: 'lowpass', freq: 900, q: 0.8 }, adsr: { a: 0.001, d: 0.05, s: 0, r: 0.02 } },
-  ] } },
-  base: { category: 'tv', priority: 4, config: { duration: 0.2, layers: [
-    { waveform: 'sine', freq: 620, duration: 0.09, gain: 0.16, adsr: { a: 0.005, d: 0.08, s: 0, r: 0.05 } },
-    { waveform: 'sine', freq: 830, delay: 0.085, duration: 0.12, gain: 0.16, adsr: { a: 0.005, d: 0.09, s: 0, r: 0.06 } },
-  ] } },
-  run: { category: 'tv', priority: 5, config: { duration: 0.34, layers: [
-    { waveform: 'triangle', freq: 523, duration: 0.1, gain: 0.16, adsr: { a: 0.005, d: 0.09, s: 0, r: 0.06 } },
-    { waveform: 'triangle', freq: 659, delay: 0.09, duration: 0.1, gain: 0.16, adsr: { a: 0.005, d: 0.09, s: 0, r: 0.06 } },
-    { waveform: 'triangle', freq: 784, delay: 0.18, duration: 0.16, gain: 0.18, adsr: { a: 0.005, d: 0.12, s: 0, r: 0.08 } },
-  ] } },
-  homer: { category: 'tv', priority: 6, config: { duration: 0.6, layers: [
-    { waveform: 'sawtooth', freq: 392, duration: 0.12, gain: 0.12, filter: { type: 'lowpass', freq: 2600, q: 0.8 }, adsr: { a: 0.005, d: 0.1, s: 0.2, r: 0.1 } },
-    { waveform: 'triangle', freq: 523, delay: 0.1, duration: 0.14, gain: 0.16, adsr: { a: 0.005, d: 0.11, s: 0.1, r: 0.08 } },
-    { waveform: 'triangle', freq: 659, delay: 0.22, duration: 0.16, gain: 0.16, adsr: { a: 0.005, d: 0.12, s: 0.1, r: 0.09 } },
-    { waveform: 'triangle', freq: 880, delay: 0.34, duration: 0.26, gain: 0.2, vibrato: { rate: 6, depth: 8 }, adsr: { a: 0.005, d: 0.14, s: 0.3, r: 0.14 } },
-  ] } },
-  strikeout: { category: 'tv', priority: 4, config: { duration: 0.3, layers: [
-    { waveform: 'sawtooth', freq: 392, pitchBend: { to: 196, time: 0.18 }, duration: 0.24, gain: 0.12, filter: { type: 'lowpass', freq: 1400, q: 1.4 }, adsr: { a: 0.005, d: 0.2, s: 0.1, r: 0.08 } },
-  ] } },
-  out: { category: 'tv', priority: 3, config: { duration: 0.14, layers: [
-    { waveform: 'sine', freq: 210, duration: 0.1, gain: 0.14, adsr: { a: 0.002, d: 0.09, s: 0, r: 0.05 } },
-    { waveform: 'noise', noiseMix: 1, duration: 0.04, gain: 0.06, filter: { type: 'lowpass', freq: 600, q: 0.8 }, adsr: { a: 0.001, d: 0.03, s: 0, r: 0.02 } },
-  ] } },
-};
+// The bank lives in client/shared/deadball-sfx.js, shared with the 3-D view.
+const SFX = DEADBALL_SFX;
 
 // Pitch-by-pitch playback pacing. The overlay carries a whole at-bat; the client plays
 // it back one pitch at a time at a realistic ballgame cadence (pitcher resets, batter
@@ -69,6 +63,9 @@ const OUTCOME_GAP_MS = 480;   // beat between the final pitch landing and the pl
 
 // Motion durations for the field animation.
 const T_PITCH = 340, T_THROW = 380, T_RUN = 680, T_FLY = 1150, T_HOMER = 1500;
+// The at-bat's clock, for the 3-D view (gameday-grandstand.js), which lands each play when
+// this one would, so the booth's held line goes up at the same moment in either.
+export const GAMEDAY_CLOCK = Object.freeze({ REVEAL_STEP_MS, REVEAL_MAX_MS, OUTCOME_GAP_MS, T_PITCH, T_THROW, T_RUN, T_FLY, T_HOMER });
 
 // ── Field geometry (fractions of the .gd-field box; home bottom-centre) ──────────
 // The box is a touch wider than tall (aspect ~1.18), so an extended outfield fits with
@@ -84,13 +81,39 @@ const FIELDERS = [
   ['F3B', '3B'], ['LF', 'LF'], ['CF', 'CF'], ['RF', 'RF'],
 ];
 const BASE_POS = [POS.home, POS.b1, POS.b2, POS.b3];   // index by base number (0=home)
+// Sim v2: the field token for the position an error is charged to.
+const ERROR_FIELDER = { P: 'P', C: 'C', '1B': 'F1B', '2B': 'F2B', '3B': 'F3B', SS: 'SS', LF: 'LF', CF: 'CF', RF: 'RF' };
 const SVGX = (fx) => (fx * 100).toFixed(1);
 const SVGY = (fy) => (fy * 100).toFixed(1);             // field SVG viewBox is 100×100, stretched to the box
 
-// ── Deterministic hit trajectory ─────────────────────────────────────────────────
-// The sim gives us the at-bat kind but no spray direction. We derive a plausible one
-// PURELY from the payload's server-synthed pitch data, so every viewer computes the
-// identical play with no server change. Angle: −45 (left-field line) … +45 (right).
+// ── The ball in play ───────────────────────────────────────────────────────────────
+// The server decides every ball in play (the payload's `play`, synthPlay in
+// plugins/broadcast/sports/baseball.js): where it went, who fielded it and who it went
+// through after him. It's the play the booth's line describes and the 3-D park stages, so
+// the picture can't contradict the call. Angle: −45 (left-field line) … +45 (right), and
+// the depth is the distance over the fence's at that angle.
+const BY_NUMBER = [null, 'P', 'C', 'F1B', 'F2B', 'F3B', 'SS', 'LF', 'CF', 'RF'];
+// Where the ball goes after the man who fielded it, through the bags the outs were made at.
+function _relayOf(kind, f) {
+  if (kind === 'tripleplay') return ['b3', 'b2', 'F1B'];
+  if (kind === 'doubleplay') return ['b2', 'F1B'];
+  if (f[0] === 3) return ['b1'];            // he takes it to the bag himself, or tosses it to the pitcher there
+  return ['F1B'];
+}
+function _fromPlay(p) {
+  const play = p.play, kind = p.kind || '';
+  const angle = play.dir, depth = play.d / fenceAt(play.dir);
+  const fielder = BY_NUMBER[play.f?.[0]] || 'SS';
+  if (kind === 'homerun') return { batted: true, mode: 'homer', angle, land: _spot(angle, Math.max(1.02, depth)) };
+  if (kind === 'error') return { batted: true, mode: 'error', angle, fielder: ERROR_FIELDER[p.fielder] || fielder, throwing: p.errorType === 'throwing' };
+  // fielded on the infield: on to the bags, an out or (an infield hit) not
+  if (play.t === 'gb' && play.f?.[0] <= 6) return { batted: true, mode: 'ground', angle, fielder, relay: _relayOf(kind, play.f) };
+  // in the air, or through to the outfield: a flyout, a pop-up or a sac fly is caught where it comes down
+  return { batted: true, mode: p.out ? 'fly' : 'hit', angle, land: _spot(angle, Math.min(depth, 1)), fielder, caught: !!p.out };
+}
+
+// A payload from before the server decided plays has none, so it gets a plausible one
+// hashed from its pitches, and every viewer still draws the same thing.
 function _hashStr(s) { let h = 2166136261 >>> 0; for (let i = 0; i < s.length; i++) { h = Math.imul(h ^ s.charCodeAt(i), 16777619); } return h >>> 0; }
 function _rng(seed) { let s = seed >>> 0; return () => { s = (s + 0x6d2b79f5) | 0; let t = Math.imul(s ^ (s >>> 15), 1 | s); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
 
@@ -112,7 +135,8 @@ function _outfielderForAngle(angle) { return angle < -15 ? 'LF' : (angle > 15 ? 
 
 function _hitTrajectory(p) {
   const kind = p.kind || '';
-  if (kind === 'strikeout' || kind === 'walk') return { batted: false };
+  if (kind === 'strikeout' || kind === 'walk' || kind === 'hitbypitch') return { batted: false };
+  if (p.play && Number.isFinite(p.play.dir)) return _fromPlay(p);
   const pitches = Array.isArray(p.pitches) ? p.pitches : [];
   const seed = _hashStr(`${p.batter}|${p.inning}|${p.half}|${pitches.map(x => `${x.velo}.${x.x}`).join(',')}`);
   const rng = _rng(seed);
@@ -122,6 +146,8 @@ function _hitTrajectory(p) {
   const depthByKind = { popout: 0.44, flyout: 0.66, sacfly: 0.60, single: 0.62, double: 0.72, triple: 0.80, homerun: 1.02 };
   const depth = depthByKind[kind] ?? 0.5;
   if (kind === 'homerun') return { batted: true, mode: 'homer', angle, land: _spot(angle, 1.02) };
+  // Sim v2: an error goes to the fielder charged, who boots it or throws it away.
+  if (kind === 'error') return { batted: true, mode: 'error', angle, fielder: ERROR_FIELDER[p.fielder] || 'SS', throwing: p.errorType === 'throwing' };
   if (ground) return { batted: true, mode: 'ground', angle, fielder: _infielderForAngle(angle) };
   if (fly) return { batted: true, mode: 'fly', angle, land: _spot(angle, depth), fielder: kind === 'popout' ? _infielderForAngle(angle) : _outfielderForAngle(angle), caught: true };
   // hit into the outfield gap — nearest OF chases, no catch
@@ -243,10 +269,13 @@ function _lineScoreHtml(ctx) {
   let head = '';
   for (let i = 1; i <= innings; i++) head += `<td class="${i === cur ? 'cur' : ''}">${i}</td>`;
   const hA = line ? (line.hAway | 0) : 0, hH = line ? (line.hHome | 0) : 0;
+  // E only for a game that counts errors (sim v2); a v1 game never had any to count.
+  const e = line && line.eAway != null;
+  const eCell = (n) => (e ? `<td class="gd-ls-tot">${n | 0}</td>` : '');
   return `<div class="gd-ls-scroll"><table class="gd-ls">` +
-    `<tr class="gd-ls-head"><td class="gd-ls-team"></td>${head}<td class="gd-ls-tot">R</td><td class="gd-ls-tot">H</td></tr>` +
-    `<tr class="gd-ls-away"><td class="gd-ls-team">${_esc(ctx.away.abbr || 'AWY')}</td>${cells(aArr)}<td class="gd-ls-tot">${ctx.aScore}</td><td class="gd-ls-tot">${hA}</td></tr>` +
-    `<tr class="gd-ls-home"><td class="gd-ls-team">${_esc(ctx.home.abbr || 'HOM')}</td>${cells(hArr)}<td class="gd-ls-tot">${ctx.hScore}</td><td class="gd-ls-tot">${hH}</td></tr>` +
+    `<tr class="gd-ls-head"><td class="gd-ls-team"></td>${head}<td class="gd-ls-tot">R</td><td class="gd-ls-tot">H</td>${e ? '<td class="gd-ls-tot">E</td>' : ''}</tr>` +
+    `<tr class="gd-ls-away"><td class="gd-ls-team">${_esc(ctx.away.abbr || 'AWY')}</td>${cells(aArr)}<td class="gd-ls-tot">${ctx.aScore}</td><td class="gd-ls-tot">${hA}</td>${eCell(e && line.eAway)}</tr>` +
+    `<tr class="gd-ls-home"><td class="gd-ls-team">${_esc(ctx.home.abbr || 'HOM')}</td>${cells(hArr)}<td class="gd-ls-tot">${ctx.hScore}</td><td class="gd-ls-tot">${hH}</td>${eCell(e && line.eHome)}</tr>` +
     `</table></div>`;
 }
 
@@ -295,6 +324,23 @@ function _standingsHtml(rows, awayName, homeName) {
   return `<div class="gd-stand">${body}</div>`;
 }
 
+// Gameday-native jumbotron card. The server fires the same `sportsfx` graphics that
+// normally take over the whole TV; while Gameday is open, tv.js routes them here so
+// they render as a compact banner OVER the field instead — the field stays visible.
+export const GAMEDAY_CARDS = {
+  homerun: (fx) => ({ title: fx.grand ? 'GRAND SLAM' : 'HOME RUN', sub: [fx.batter, fx.team].filter(Boolean).join(' · '), cls: 'hot' }),
+  walkoff: (fx) => ({ title: 'WALK-OFF!', sub: [fx.batter, fx.team].filter(Boolean).join(' · '), cls: 'hot' }),
+  doubleplay: () => ({ title: 'DOUBLE PLAY', sub: 'Two down', cls: 'out' }),
+  // Not a server sportsfx — the changeover renders this one itself.
+  half: (fx) => ({ title: `${String(fx.inningOrd || '').toUpperCase()}${fx.half === 'top' ? ' ▲' : ' ▼'}`, sub: fx.batting ? `${fx.batting} batting` : '', cls: '' }),
+  tripleplay: () => ({ title: 'TRIPLE PLAY', sub: 'Three down, one pitch', cls: 'hot' }),
+  extras: (fx) => ({ title: 'EXTRA INNINGS', sub: fx.inningOrd ? `${fx.inningOrd} · Free Baseball` : 'Free Baseball', cls: '' }),
+  gamewin: (fx) => ({ title: 'FINAL', sub: fx.winner ? `${fx.winner} ${fx.winScore}–${fx.loseScore}` : '', cls: 'final' }),
+  matchup: (fx) => ({ title: 'DEADBALL', sub: (fx.away && fx.home) ? `${fx.away} vs ${fx.home}` : '', cls: '' }),
+  worldseries: (fx) => ({ title: 'WORLD SERIES', sub: (fx.away && fx.home) ? `${fx.away} vs ${fx.home}` : '', cls: 'hot' }),
+  champion: (fx) => ({ title: '🏆 CHAMPIONS', sub: fx.winner || '', cls: 'hot' }),
+};
+
 export function createGamedayView(host) {
   let timers = [];
   let caption = '';          // last announcer line, retained across the shell rebuild
@@ -305,8 +351,30 @@ export function createGamedayView(host) {
   let cardTimer = null;      // auto-dismiss for the Gameday-native jumbotron card
   let standingsRows = [];    // last league table seen (rides the payload); persists between at-bats
   let ambientOn = false;     // the between-plays idle loop is running (see _startAmbient)
+  let calm = false;          // the viewer has asked for less motion, as of this payload (_shell)
 
   function _stop() { timers.forEach(clearTimeout); timers = []; playAnimating = false; ambientOn = false; pendingCard = null; }
+  // The view is a body, rebuilt for every payload, beside the live text, which stays put: a live
+  // region swapped out mid-game can go unread. The body takes no box of its own (styles.css
+  // .gd-body), so the host lays its parts out as before.
+  let bodyEl = null, liveEl = null;
+  function _body() {
+    if (!bodyEl || ![...host.children].includes(bodyEl)) {
+      host.innerHTML = `<div class="gd-live sr-only" role="log" aria-live="polite"></div><div class="gd-body"></div>`;
+      liveEl = host.querySelector('.gd-live');
+      bodyEl = host.querySelector('.gd-body');
+    }
+    return bodyEl;
+  }
+  // a line of the live text, if the player has Play by Play on
+  function _say(text) {
+    const t = String(text || '').trim(), el = t && host && playByPlayOn() ? (_body(), liveEl) : null;
+    if (!el) return;
+    const line = document.createElement('p');
+    line.textContent = t;
+    el.appendChild(line);
+    while (el.children.length > LIVE_KEEP) el.children[0].remove();
+  }
   function _t(ms, fn) { timers.push(setTimeout(fn, Math.max(0, ms))); }
   function _sfx(def) { window.AudioEngine?.playSfx(def); }
   const _pitchSfx = (pt, terminal) => pt.result === 'swinging' ? SFX.whiff
@@ -336,8 +404,10 @@ export function createGamedayView(host) {
     el.style.left = `${(fx * 100).toFixed(1)}%`; el.style.top = `${(fy * 100).toFixed(1)}%`;
     layer.appendChild(el); _t(life, () => el.remove()); return el;
   }
-  // A fading trail behind the ball: drops lit up in sequence along from→to as it passes.
+  // A fading trail behind the ball: drops lit up in sequence along from→to as it passes. None for a
+  // viewer who's asked for less motion.
   function _trail(from, to, ms, hot) {
+    if (calm) return;
     const a = Array.isArray(from) ? from : POS[from], b = Array.isArray(to) ? to : POS[to];
     const n = 6;
     for (let i = 1; i <= n; i++) { const f = i / (n + 1); const x = a[0] + (b[0] - a[0]) * f, y = a[1] + (b[1] - a[1]) * f; _t(f * ms * 0.85, () => _spawn(`gd-trail${hot ? ' hot' : ''}`, [x, y], 520)); }
@@ -345,10 +415,77 @@ export function createGamedayView(host) {
   const _dust = (key) => _spawn('gd-dust', key, 620);            // kicked-up dirt at a bag
   const _burst = (key) => _spawn('gd-burst', key, 900);          // celebratory ring
 
+  // Slide + kick up dirt as a runner reaches a bag.
+  const _arrive = (el, key) => { _dust(key); if (el) { el.classList.remove('sliding'); void el.offsetWidth; el.classList.add('sliding'); } };
+  // Cross the plate and peel off to the dugout (a run scores).
+  const _peel = (el) => { _crossBase(0); _arrive(el, 'home'); _move(el, 'dugout', T_RUN, 'ease-in'); _t(T_RUN, () => el && el.remove()); };
+
+  // Advance a token base-by-base along the paths — ALWAYS 1st→2nd→3rd→home, one bag
+  // at a time, never cutting across the diamond. `startBase` is where it starts (0 =
+  // home, for the batter). Intermediate bags get a cross-pulse; the final bag lights.
+  function _runBases(el, startBase, bases, delay, legMs) {
+    const dur = legMs || T_RUN;
+    _t(delay, () => {
+      for (let s = 1; s <= bases; s++) {
+        const to = startBase + s;
+        const last = s === bases;
+        _t((s - 1) * dur, () => _move(el, to >= 4 ? 'home' : BASE_POS[to], dur, to >= 4 ? 'ease-in' : 'ease-in-out'));
+        if (to >= 4) _t(s * dur, () => _peel(el));
+        else if (last) _t(s * dur, () => { _litBase(to, true); _arrive(el, BASE_POS[to]); });
+        else _t(s * dur, () => _crossBase(to));       // touched the bag in passing
+      }
+    });
+  }
+
+  // The runners on base follow the play's moves, lead runner first: round the bags from
+  // `lead` ms, held where they stand, walked off when the play ended the inning, or put
+  // out at a bag at `outAt(i)` ms, i counting the outs on the bases lead first.
+  function _moveRunners(ctx, moves, lead, outAt) {
+    const outs = moves.filter(m => m.from > 0 && m.out);
+    for (const m of moves) {
+      const r = m.from > 0 ? ctx.runners[m.from] : null;
+      if (!r) continue;
+      if (m.out) {
+        const at = outAt(outs.indexOf(m));
+        const [ax, ay] = BASE_POS[m.from], [bx, by] = BASE_POS[m.out];
+        _move(r, [ax + (bx - ax) * 0.7, ay + (by - ay) * 0.7], at, 'linear');   // the ball beats him to the bag
+        _t(at, () => { _crossBase(m.out); r.classList.add('outed'); _t(300, () => r.remove()); });
+      } else if (m.off) {
+        // Cleared by the inning's last out: he walks off without scoring.
+        _t(lead + T_RUN / 2, () => { r.style.transition = 'opacity 0.3s ease'; r.style.opacity = '0'; _t(300, () => r.remove()); });
+      } else if (m.to > m.from) _runBases(r, m.from, m.to - m.from, lead);
+      else _t(30, () => _litBase(m.from, true));   // held: stays put, stays lit
+    }
+  }
+
+  // The broadcast shell, rebuilt for every payload: the score bug, the line score, the
+  // field and its tokens, the rail, win probability and the caption. A camera-cut wipe
+  // sweeps it in so each play reads as a fresh replay rather than a mutation of the last,
+  // unless the viewer has asked for less motion.
+  function _shell() {
+    calm = prefersReducedMotion();
+    const body = _body();
+    body.innerHTML =
+      `<div class="gd-top"></div>` +
+      `<div class="gd-linescore"></div>` +
+      `<div class="gd-main">` +
+        `<div class="gd-fieldwrap"><div class="gd-field">${_fieldSvg()}${_fieldTokens()}${_fieldChrome()}</div></div>` +
+        `<div class="gd-rail"></div>` +
+      `</div>` +
+      `<div class="gd-winprob"></div>` +
+      `<div class="gd-caption"><span class="gd-cap-tag">◆ Chip Vega</span><span class="gd-cap-text">${_esc(caption)}</span></div>`;
+    field = host.querySelector('.gd-field');
+    if (calm) return;
+    const wipe = document.createElement('div'); wipe.className = 'gd-wipe';
+    body.appendChild(wipe);
+    requestAnimationFrame(() => wipe.classList.add('go'));
+    _t(720, () => wipe.remove());
+  }
+
   // Field-wide celebration for a home run / walk-off: pulse the field glow and pop a
   // scatter of bursts along the fence where the ball left the yard.
   function _celebrate(kind) {
-    if (!field) return;
+    if (!field || calm) return;
     field.classList.remove('celebrate', 'walkoff'); void field.offsetWidth;
     field.classList.add('celebrate'); if (kind === 'walkoff') field.classList.add('walkoff');
     _t(2400, () => field && field.classList.remove('celebrate', 'walkoff'));
@@ -367,7 +504,7 @@ export function createGamedayView(host) {
     const shown = p.pitches.slice(0, reveal);
     const newestN = outcome ? -1 : reveal;
     const statusArrow = isTop ? '▲' : '▼';
-    const runFlash = (outcome && p.rbi > 0) ? ' scored' : '';
+    const runFlash = (outcome && (p.runs ?? p.rbi) > 0) ? ' scored' : '';
     const outDots = [0, 1, 2].map(i => `<span class="gd-out${i < outs ? ' on' : ''}"></span>`).join('');
     const playCard = ctx.changeover
       ? `<div class="gd-play pending"><div class="gd-play-desc">CHANGEOVER</div><div class="gd-play-bat">${_esc(p.battingTeam || '')} batting</div></div>`
@@ -430,7 +567,29 @@ export function createGamedayView(host) {
       } else if (traj.mode === 'ground') {
         _trail(POS.home, POS[traj.fielder], T_THROW);
         _move(ball, traj.fielder, T_THROW, 'linear');            // grounder to the infielder
-        _t(T_THROW, () => { _sfx(SFX.glove); _trail(POS[traj.fielder], POS.F1B, T_THROW); _move(ball, 'F1B', T_THROW, 'linear'); _move(field.querySelector(`.gd-fielder[data-pos="${traj.fielder}"]`), traj.fielder, 1, 'linear'); });
+        // then on through the bags the play went through (second, then first, on a double
+        // play), in the time one throw to first takes
+        const legs = traj.relay?.length ? traj.relay : ['F1B'], each = T_THROW / legs.length;
+        legs.forEach((to, i) => {
+          const from = i ? legs[i - 1] : traj.fielder;
+          _t(T_THROW + i * each, () => {
+            if (!i) { _sfx(SFX.glove); _move(field.querySelector(`.gd-fielder[data-pos="${traj.fielder}"]`), traj.fielder, 1, 'linear'); }
+            _trail(POS[from], POS[to], each); _move(ball, to, each, 'linear');
+          });
+        });
+      } else if (traj.mode === 'error') {
+        // Sim v2: to the fielder charged, and then away from him: off the glove on a
+        // fielding error, past first on a throwing error.
+        const at = POS[traj.fielder];
+        _trail(POS.home, at, T_THROW);
+        _move(ball, traj.fielder, T_THROW, 'linear');
+        _t(T_THROW, () => {
+          _sfx(SFX.glove);
+          _spawn('gd-efx', traj.fielder, 900);
+          const away = traj.throwing ? [0.86, 0.66] : [at[0] + 0.05, Math.min(0.95, at[1] + 0.05)];
+          if (traj.throwing) _trail(at, away, T_THROW);
+          _move(ball, away, T_THROW, 'ease-out');
+        });
       } else { // fly / hit — arc to the landing spot; a fly is caught there
         _trail(POS.home, traj.land, T_FLY);
         _move(ball, traj.land, T_FLY, 'ease-out', true);
@@ -442,71 +601,32 @@ export function createGamedayView(host) {
     }
 
     // ── Runners ──
-    const adv = { single: 1, double: 2, triple: 3, homerun: 4, walk: 1 }[p.kind] || 0;
-    const before = p.basesBefore || [false, false, false];
+    // Every man's fate rides the payload (`moves`, worked out by
+    // plugins/broadcast/sports/baseball-gameday.js): each runner on base and the batter
+    // goes to a bag, scores, is put out at a bag, or walks off when the play ended the
+    // inning. The view only animates it. It used to move everyone a fixed number of
+    // bags per kind of play, which stopped at third a man the sim had scored from second.
+    const moves = Array.isArray(p.moves) ? p.moves : [];
     // clear pre-play lit; runner arrivals re-light below
     [0, 1, 2, 3].forEach(n => _litBase(n, false));
 
-    // Slide + kick up dirt as a runner reaches a bag.
-    const arrive = (el, key) => { _dust(key); if (el) { el.classList.remove('sliding'); void el.offsetWidth; el.classList.add('sliding'); } };
-    // Cross the plate and peel off to the dugout (a run scores).
-    const peel = (el) => { _crossBase(0); arrive(el, 'home'); _move(el, 'dugout', T_RUN, 'ease-in'); _t(T_RUN, () => el && el.remove()); };
+    // The runners on base, lead first. Forces go lead runner first, half a throw apart:
+    // a triple play is three outs round the horn, not one event, and staggering them
+    // is what lets the eye follow the ball.
+    _moveRunners(ctx, moves, traj.mode === 'ground' || traj.mode === 'error' ? 120 : 60, (i) => T_THROW * (1 + i / 2));
 
-    // Advance a token base-by-base along the paths — ALWAYS 1st→2nd→3rd→home, one bag
-    // at a time, never cutting across the diamond. `startBase` is where it starts (0 =
-    // home, for the batter). Intermediate bags get a cross-pulse; the final bag lights.
-    const runBases = (el, startBase, bases, delay, legMs) => {
-      const dur = legMs || T_RUN;
-      _t(delay, () => {
-        for (let s = 1; s <= bases; s++) {
-          const to = startBase + s;
-          const last = s === bases;
-          _t((s - 1) * dur, () => _move(el, to >= 4 ? 'home' : BASE_POS[to], dur, to >= 4 ? 'ease-in' : 'ease-in-out'));
-          if (to >= 4) _t(s * dur, () => peel(el));
-          else if (last) _t(s * dur, () => { _litBase(to, true); arrive(el, BASE_POS[to]); });
-          else _t(s * dur, () => _crossBase(to));       // touched the bag in passing
-        }
-      });
-    };
+    // Sim v2: a hit batter feels it before he trots to first.
+    if (p.kind === 'hitbypitch') _burst('bat');
 
-    // Pre-existing runners advance lead-first.
-    for (let b = 3; b >= 1; b--) {
-      if (!before[b - 1]) continue;
-      const r = ctx.runners[b];
-      if (!r) continue;
-      let steps = adv;
-      if (adv === 0) {   // an out — a few situational advances
-        if (p.kind === 'sacfly' && b === 3) steps = 1;
-        else if (p.kind === 'productout') steps = 1;
-        // A double play is not a freeze-frame for everyone else. The man on third
-        // scores on a 6-4-3 — unless it was the third out, which is what rbi tells us.
-        else if (p.kind === 'doubleplay' && b === 3) steps = p.rbi > 0 ? 1 : 0;
-        else if (p.kind === 'doubleplay' && b === 2) steps = 1;   // forced up to third by the batter-runner
-        else if (p.kind === 'doubleplay' && b === 1) { _t(T_THROW * 2, () => { _crossBase(1); r.classList.add('outed'); _t(300, () => r.remove()); }); continue; }
-        // Triple play: the lead force at third goes first, then second, then the throw
-        // across. Staggering them is the whole read of the play — three separate outs,
-        // not one event, so the eye can follow the ball around the horn.
-        else if (p.kind === 'tripleplay' && (b === 1 || b === 2)) {
-          const at = b === 2 ? T_THROW : T_THROW * 2;
-          _t(at, () => { _crossBase(b); r.classList.add('outed'); _t(300, () => r.remove()); });
-          continue;
-        }
-        else steps = 0;
-      }
-      if (steps > 0) runBases(r, b, steps, traj.mode === 'ground' ? 120 : 60);
-      else _t(30, () => _litBase(b, true));   // held — stays put, stays lit
-    }
-
-    // Batter-runner — out of the box and around the bags one at a time.
-    if (adv >= 1) {
-      const dest = Math.min(adv, 4);
-      runBases(batter, 0, dest, 0, dest >= 4 ? T_RUN * 0.8 : T_RUN);
-    } else if (p.out && (p.kind === 'groundout' || p.kind === 'doubleplay' || p.kind === 'tripleplay' || p.kind === 'productout')) {
+    // Batter-runner: out of the box and round the bags one at a time.
+    const bm = moves.find(m => m.from === 0);
+    if (bm && bm.to) _runBases(batter, 0, bm.to, 0, bm.to >= 4 ? T_RUN * 0.8 : T_RUN);
+    else if (bm && bm.out === 1) {
       // grounder: batter runs it out, thrown out at first
       _move(batter, 'b1', T_RUN, 'linear');
       _t(T_RUN, () => { batter.classList.add('outed'); _dust('b1'); });
-    } else {
-      // fly / pop / K — batter doesn't reach
+    } else if (bm) {
+      // fly / pop / K: batter doesn't reach
       _t(200, () => batter.classList.add('outed'));
     }
 
@@ -541,8 +661,9 @@ export function createGamedayView(host) {
     const dx = (Math.random() * 2 - 1) * amt, dy = (Math.random() * 2 - 1) * amt;
     _move(el, [fx + dx, fy + dy], 700 + Math.random() * 500, 'ease-in-out');
   }
+  // None for a viewer who's asked for less motion: it's the park filling the time, not the game.
   function _startAmbient() {
-    if (!field || ambientOn) return;
+    if (!field || ambientOn || calm) return;
     ambientOn = true;
     const tick = () => {
       if (!ambientOn || !field || playAnimating) return;
@@ -580,21 +701,7 @@ export function createGamedayView(host) {
     const away = isTop ? { abbr: p.battingAbbr } : { abbr: p.fieldingAbbr };
     const home = isTop ? { abbr: p.fieldingAbbr } : { abbr: p.battingAbbr };
 
-    host.innerHTML =
-      `<div class="gd-top"></div>` +
-      `<div class="gd-linescore"></div>` +
-      `<div class="gd-main">` +
-        `<div class="gd-fieldwrap"><div class="gd-field">${_fieldSvg()}${_fieldTokens()}${_fieldChrome()}</div></div>` +
-        `<div class="gd-rail"></div>` +
-      `</div>` +
-      `<div class="gd-winprob"></div>` +
-      `<div class="gd-caption"><span class="gd-cap-tag">◆ Chip Vega</span><span class="gd-cap-text">${_esc(caption)}</span></div>`;
-    field = host.querySelector('.gd-field');
-
-    const wipe = document.createElement('div'); wipe.className = 'gd-wipe';
-    host.appendChild(wipe);
-    requestAnimationFrame(() => wipe.classList.add('go'));
-    _t(720, () => wipe.remove());
+    _shell();
 
     // A fresh half starts empty, always: nobody on, nobody out. Saying so explicitly
     // is what erases the previous half's terminal frame.
@@ -631,11 +738,89 @@ export function createGamedayView(host) {
     _t(160 + FIELDERS.length * 90 + 900, _startAmbient);
   }
 
+  // Sim v2: a play on the bases while the batter is up (`phase: 'run'`). It has no pitches
+  // of its own. The batter stands in while the play is the pitch the runners go on (a
+  // steal, a wild pitch, a passed ball) or the pitcher's throw to a bag (a pickoff, a
+  // throw over); the runners follow the play's moves, as on an at-bat.
+  function _applyRun(p) {
+    const isTop = p.half === 'top';
+    const outsAfter = Math.max(0, Math.min(3, p.outs | 0));
+    _shell();
+    field.classList.add('replaying');
+    const before = p.basesBefore || [false, false, false];
+    const runners = {};
+    [1, 2, 3].forEach(b => { if (before[b - 1]) { runners[b] = _runner(b); _litBase(b, true); } });
+    const ctx = {
+      p: { ...p, pitches: [] }, isTop,
+      away: { abbr: isTop ? p.battingAbbr : p.fieldingAbbr }, home: { abbr: isTop ? p.fieldingAbbr : p.battingAbbr },
+      awayName: isTop ? p.battingTeam : p.fieldingTeam, homeName: isTop ? p.fieldingTeam : p.battingTeam,
+      aScore: Number.isFinite(p.awayScore) ? p.awayScore : 0, hScore: Number.isFinite(p.homeScore) ? p.homeScore : 0,
+      cp: null, N: 0, outsBefore: Math.max(0, outsAfter - (p.out ? 1 : 0)), outsAfter, runners, traj: { batted: false },
+    };
+    _paintSide(ctx, 0, false);
+
+    const ball = field.querySelector('.gd-ball');
+    const moves = Array.isArray(p.moves) ? p.moves : [];
+    let landAt;
+    if (p.kind === 'pickoff' || p.kind === 'throwover') {
+      // He takes his lead, and the pitcher steps off and throws to the bag: the runner
+      // dives back in time, or he's caught off it.
+      const bag = p.base || 1;
+      const r = runners[bag];
+      const [bx, by] = BASE_POS[bag], next = BASE_POS[bag + 1] || POS.home;
+      if (r) _move(r, [bx + (next[0] - bx) * 0.18, by + (next[1] - by) * 0.18], 260, 'ease-out');
+      _t(260, () => { _trail(POS.mound, BASE_POS[bag], T_THROW); _move(ball, BASE_POS[bag], T_THROW, 'linear'); });
+      landAt = 260 + T_THROW;
+      _t(landAt, () => { _sfx(SFX.glove); _crossBase(bag); });
+      if (r && p.kind === 'pickoff') _t(landAt, () => { r.classList.add('outed'); _t(300, () => r.remove()); });
+      else if (r) _t(landAt - 140, () => { _move(r, BASE_POS[bag], 160, 'ease-in'); _arrive(r, BASE_POS[bag]); });
+      for (const m of moves) if (m.from !== bag && m.to === m.from) _t(30, () => _litBase(m.from, true));
+    } else {
+      // A pitch. On a steal the runners go with it and the catcher throws to the bag,
+      // late when they're safe; on a wild pitch or a passed ball it gets past him and they
+      // move up while it rolls to the backstop.
+      _place(ball, 'mound'); void field.offsetWidth;
+      _move(ball, 'home', T_PITCH, 'ease-in');
+      landAt = T_PITCH + T_THROW;
+      if (p.kind === 'wildpitch' || p.kind === 'passedball') {
+        _t(T_PITCH, () => { _sfx(SFX.whiff); _move(ball, [0.5, 1.03], T_THROW, 'ease-out'); _moveRunners(ctx, moves, 60, () => 0); });
+      } else {
+        const bag = p.base || 2;   // the steal's bag; third on a double steal
+        _moveRunners(ctx, moves, 0, () => landAt);
+        _t(T_PITCH, () => { _sfx(SFX.mitt); _trail(POS.home, BASE_POS[bag], T_THROW); _move(ball, BASE_POS[bag], T_THROW, 'linear'); });
+        _t(landAt, () => _sfx(SFX.glove));
+      }
+    }
+
+    // The play lands: Chip's held call and any card go up with it.
+    const pend = pendingCaption;
+    pendingCaption = null;
+    playAnimating = true;
+    _t(landAt, () => {
+      playAnimating = false;
+      field?.classList.remove('replaying');
+      _paintSide(ctx, 0, true);
+      _sfx(p.out ? SFX.out : ((p.runs || 0) > 0 ? SFX.run : SFX.base));
+      if (p.walkoff) _celebrate('walkoff');
+      if (pend) { _showCaption(pend.text); if (pend.speak) pend.speak(); }
+      if (pendingCard) { const fx = pendingCard; pendingCard = null; _renderCard(fx); }
+    });
+    // Reconcile the lit bags once the runners have settled, then idle.
+    const settle = landAt + T_RUN * 2 + 400;
+    _t(settle, () => {
+      const after = p.basesAfter || [false, false, false];
+      [1, 2, 3].forEach(n => _litBase(n, after[n - 1]));
+      _litBase(0, false);
+    });
+    _t(settle + 500, _startAmbient);
+  }
+
   function apply(p) {
     if (!host || !p) return;
     _stop();
     if (Array.isArray(p.standings) && p.standings.length) standingsRows = p.standings;   // freshest table; retained otherwise
     if (p.phase === 'half') { _applyHalf(p); return; }
+    if (p.phase === 'run') { _applyRun(p); return; }
     const isTop = p.half === 'top';
     const away = isTop ? { abbr: p.battingAbbr } : { abbr: p.fieldingAbbr };
     const home = isTop ? { abbr: p.fieldingAbbr } : { abbr: p.battingAbbr };
@@ -652,24 +837,8 @@ export function createGamedayView(host) {
 
     // Build the shell once; the field + its tokens persist through this at-bat so they
     // can animate. The header/side get repainted each step; the field does not.
-    host.innerHTML =
-      `<div class="gd-top"></div>` +
-      `<div class="gd-linescore"></div>` +
-      `<div class="gd-main">` +
-        `<div class="gd-fieldwrap"><div class="gd-field">${_fieldSvg()}${_fieldTokens()}${_fieldChrome()}</div></div>` +
-        `<div class="gd-rail"></div>` +
-      `</div>` +
-      `<div class="gd-winprob"></div>` +
-      `<div class="gd-caption"><span class="gd-cap-tag">◆ Chip Vega</span><span class="gd-cap-text">${_esc(caption)}</span></div>`;
-    field = host.querySelector('.gd-field');
+    _shell();
     field.classList.add('replaying');   // the ◉ REPLAY bug shows while the play runs; cleared when it lands
-
-    // Camera-cut wipe: each new at-bat sweeps in so it reads as a fresh replay rather
-    // than a mutation of the last. Pure CSS; auto-removed after the sweep.
-    const wipe = document.createElement('div'); wipe.className = 'gd-wipe';
-    host.appendChild(wipe);
-    requestAnimationFrame(() => wipe.classList.add('go'));
-    _t(720, () => wipe.remove());
 
     // Existing runners on base at the start (lit), plus the batter waiting at the plate.
     const before = p.basesBefore || [false, false, false];
@@ -686,6 +855,7 @@ export function createGamedayView(host) {
       const pt = pitches[k - 1];
       _t((k - 1) * step, () => {
         _paintSide(ctx, k, false);
+        _say(pitchText(pt, terminal));
         _place(ball, 'mound'); void field.offsetWidth;
         _move(ball, 'home', T_PITCH, 'ease-in');                        // pitch to the plate
         _sfx(_pitchSfx(pt, terminal));
@@ -712,7 +882,7 @@ export function createGamedayView(host) {
     // to the play rather than spoiling it. The previous at-bat's line lingers until then.
     const ballFlight = !traj.batted ? 200
       : traj.mode === 'homer' ? T_HOMER
-      : traj.mode === 'ground' ? T_THROW * 2
+      : traj.mode === 'ground' || traj.mode === 'error' ? T_THROW * 2
       : T_FLY;
     const pend = pendingCaption;
     pendingCaption = null;
@@ -734,6 +904,7 @@ export function createGamedayView(host) {
     caption = String(text || '');
     const el = host && host.querySelector('.gd-cap-text');
     if (el) { el.textContent = caption; el.classList.remove('in'); void el.offsetWidth; el.classList.add('in'); }
+    _say(caption);
   }
 
   // Chip's line, forwarded from tv.js as broadcast lines arrive. tv.js hands us the
@@ -752,29 +923,14 @@ export function createGamedayView(host) {
     }
   }
 
-  // Gameday-native jumbotron card. The server fires the same `sportsfx` graphics that
-  // normally take over the whole TV; while Gameday is open, tv.js routes them here so
-  // they render as a compact banner OVER the field instead — the field stays visible.
-  const CARD = {
-    homerun: (fx) => ({ title: fx.grand ? 'GRAND SLAM' : 'HOME RUN', sub: [fx.batter, fx.team].filter(Boolean).join(' · '), cls: 'hot' }),
-    walkoff: (fx) => ({ title: 'WALK-OFF!', sub: [fx.batter, fx.team].filter(Boolean).join(' · '), cls: 'hot' }),
-    doubleplay: () => ({ title: 'DOUBLE PLAY', sub: 'Two down', cls: 'out' }),
-    // Not a server sportsfx — the changeover renders this one itself.
-    half: (fx) => ({ title: `${String(fx.inningOrd || '').toUpperCase()}${fx.half === 'top' ? ' ▲' : ' ▼'}`, sub: fx.batting ? `${fx.batting} batting` : '', cls: '' }),
-    tripleplay: () => ({ title: 'TRIPLE PLAY', sub: 'Three down, one pitch', cls: 'hot' }),
-    extras: (fx) => ({ title: 'EXTRA INNINGS', sub: fx.inningOrd ? `${fx.inningOrd} · Free Baseball` : 'Free Baseball', cls: '' }),
-    gamewin: (fx) => ({ title: 'FINAL', sub: fx.winner ? `${fx.winner} ${fx.winScore}–${fx.loseScore}` : '', cls: 'final' }),
-    matchup: (fx) => ({ title: 'DEADBALL', sub: (fx.away && fx.home) ? `${fx.away} vs ${fx.home}` : '', cls: '' }),
-    worldseries: (fx) => ({ title: 'WORLD SERIES', sub: (fx.away && fx.home) ? `${fx.away} vs ${fx.home}` : '', cls: 'hot' }),
-    champion: (fx) => ({ title: '🏆 CHAMPIONS', sub: fx.winner || '', cls: 'hot' }),
-  };
   function _renderCard(fx) {
-    if (!host || !fx || !CARD[fx.kind]) return;
-    const m = CARD[fx.kind](fx);
+    if (!host || !fx || !GAMEDAY_CARDS[fx.kind]) return;
+    const m = GAMEDAY_CARDS[fx.kind](fx);
     let el = host.querySelector('.gd-jumbo');
-    if (!el) { el = document.createElement('div'); el.className = 'gd-jumbo'; host.appendChild(el); }
+    if (!el) { el = document.createElement('div'); el.className = 'gd-jumbo'; _body().appendChild(el); }
     el.innerHTML = `<div class="gd-jumbo-title">${_esc(m.title)}</div>${m.sub ? `<div class="gd-jumbo-sub">${_esc(m.sub)}</div>` : ''}`;
     el.className = `gd-jumbo ${m.cls}`; void el.offsetWidth; el.classList.add('in');
+    _say(cardText(fx, m));
     if (cardTimer) clearTimeout(cardTimer);
     cardTimer = setTimeout(() => el && el.classList.remove('in'), (fx.duration || 3.5) * 1000);
   }
@@ -783,7 +939,7 @@ export function createGamedayView(host) {
   // card until it lands (apply()'s reveal shows it, in step with Chip's call); otherwise
   // — a game-level card between at-bats (matchup / FINAL / extras) — show it right away.
   function showCard(fx) {
-    if (!host || !fx || !CARD[fx.kind]) return;
+    if (!host || !fx || !GAMEDAY_CARDS[fx.kind]) return;
     if (playAnimating) pendingCard = fx;
     else _renderCard(fx);
   }
@@ -795,7 +951,7 @@ export function createGamedayView(host) {
     if (!host) return;
     _stop(); _clearCard();
     field = null;
-    host.innerHTML =
+    _body().innerHTML =
       `<div class="gd-idle">` +
         `<div class="gd-idle-logo">◆</div>` +
         `<div class="gd-idle-title">DEADBALL · GAMEDAY</div>` +
@@ -815,4 +971,4 @@ export function createGamedayView(host) {
 }
 
 // Test hook — pure, DOM-independent pieces exercised by the offline harness.
-export const __test = { hitTrajectory: _hitTrajectory, REVEAL_STEP_MS, REVEAL_MAX_MS, OUTCOME_GAP_MS };
+export const __test = { hitTrajectory: _hitTrajectory, POS, BY_NUMBER, REVEAL_STEP_MS, REVEAL_MAX_MS, OUTCOME_GAP_MS };

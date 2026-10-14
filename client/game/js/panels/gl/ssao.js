@@ -134,6 +134,10 @@ uniform float uA;
 uniform float uB;
 uniform float uRadius;    // in tiles, because view space here is metric
 uniform float uBias;      // how far a sample must be in front before it counts, in tiles
+// And how much further for each unit the depth changes across one pixel here. 0, the default, for
+// the city; the ballpark's long flat field at a grazing angle needs it, because there one pixel
+// spans feet of ground and a sample just above the grass reads the texel beside it as in front.
+uniform float uSlopeBias;
 uniform vec2 uTexel;
 out vec4 outColor;
 
@@ -184,6 +188,7 @@ void main() {
   vec3 T = normalize(cross(up, N));
   vec3 B2 = cross(N, T);
 
+  float bias = uBias + uSlopeBias * max(abs(dFdx(P.z)), abs(dFdy(P.z)));
   float occ = 0.0;
   for (int i = 0; i < SSAO_TAPS; i++) {
     vec3 k = uKernel[i];
@@ -195,7 +200,7 @@ void main() {
     if (sUV.x < 0.0 || sUV.x > 1.0 || sUV.y < 0.0 || sUV.y > 1.0) continue;
     float sceneW = distAt(sUV);
     // Occluded when the scene at that pixel is NEARER than the sample point we placed there.
-    if (sceneW < q.z - uBias) {
+    if (sceneW < q.z - bias) {
       // ⚠ AND RANGE-CHECKED, WHICH IS WHAT STOPS THE HALO. Without this, a tower a hundred tiles
       // behind a lamp post counts as occluding it, and every silhouette in the city wears a dark
       // outline against whatever is far away behind it — the single most recognisable way a
@@ -408,6 +413,85 @@ export function createSSAOLayer(gl, posLoc) {
     return blurred.tex;
   }
 
+  return { render, dispose, get size() { return [W, H]; } };
+}
+
+// ── THE SAME OCCLUSION FROM A DEPTH TEXTURE AND A PLAIN PERSPECTIVE MATRIX ────────────────────
+//
+// The ballpark (gl/ballpark.js) has its depth already: it resolves the multisampled depth it drew
+// the frame with into a texture its lens reads too. And it projects through an ordinary GL
+// perspective matrix, not the city's camera. So it hands over the texture and the five constants,
+// and the same two programs above give the occlusion back.
+//
+// For a column-major GL perspective, clip.x = P[0]·x, clip.y = P[5]·y, clip.z = P[10]·z + P[14] and
+// clip.w = −z, the distance in front of the eye. Written in the city's form that's fxn = P[0],
+// fyn = P[5], cy0 = 0, and ndcZ = A + B/w with A = −P[10] and B = P[14]. ballpark-smoke holds
+// these to RECONSTRUCT through camera.js's own matrices.
+export function ssaoConstants(proj) {
+  return { fxn: proj[0], fyn: proj[5], cy0: 0, A: -proj[10], B: proj[14] };
+}
+
+export function createDepthSSAO(gl) {
+  const aoProg = link(gl, FULL_VERT, AO_FRAG_TAPS);
+  const blurProg = link(gl, FULL_VERT, BLUR_FRAG);
+  if (!aoProg || !blurProg) return null;
+  const ao = {
+    depth: gl.getUniformLocation(aoProg, 'uDepth'), kernel: gl.getUniformLocation(aoProg, 'uKernel'),
+    fxn: gl.getUniformLocation(aoProg, 'uFxn'), fyn: gl.getUniformLocation(aoProg, 'uFyn'),
+    cy0: gl.getUniformLocation(aoProg, 'uCy0'), A: gl.getUniformLocation(aoProg, 'uA'),
+    B: gl.getUniformLocation(aoProg, 'uB'), radius: gl.getUniformLocation(aoProg, 'uRadius'),
+    bias: gl.getUniformLocation(aoProg, 'uBias'), slope: gl.getUniformLocation(aoProg, 'uSlopeBias'), texel: gl.getUniformLocation(aoProg, 'uTexel'),
+  };
+  const bl = { src: gl.getUniformLocation(blurProg, 'uSrc'), texel: gl.getUniformLocation(blurProg, 'uTexel') };
+  if (!ao.depth || !ao.kernel) return null;
+  const emptyVao = gl.createVertexArray();
+  let W = 0, H = 0, raw = null, blurred = null;
+  function dispose() {
+    for (const t of [raw, blurred]) if (t) { gl.deleteFramebuffer(t.fbo); gl.deleteTexture(t.tex); }
+    raw = blurred = null; W = H = 0;
+  }
+  function resize(w, h) {
+    if (w === W && h === H && raw) return true;
+    dispose();
+    W = w; H = h;
+    raw = colorTarget(gl, w, h);
+    blurred = colorTarget(gl, w, h);
+    if (!raw || !blurred) { dispose(); return false; }
+    return true;
+  }
+  // `depthTex` is the scene's depth at any size; the occlusion is worked at w×h (half the frame's
+  // is plenty) from the constants `k` (ssaoConstants), `radius` and `bias` in the scene's units.
+  // Returns the blurred texture, or null.
+  function render(depthTex, w, h, k, { radius, bias, slope = 0 }) {
+    if (!depthTex || !resize(w, h)) return null;
+    gl.disable(gl.DEPTH_TEST); gl.depthMask(false); gl.disable(gl.BLEND); gl.disable(gl.CULL_FACE);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, raw.fbo);
+    gl.viewport(0, 0, W, H);
+    gl.useProgram(aoProg);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, depthTex);
+    gl.uniform1i(ao.depth, 0);
+    gl.uniform3fv(ao.kernel, KERNEL);
+    gl.uniform1f(ao.fxn, k.fxn); gl.uniform1f(ao.fyn, k.fyn); gl.uniform1f(ao.cy0, k.cy0);
+    gl.uniform1f(ao.A, k.A); gl.uniform1f(ao.B, k.B);
+    gl.uniform1f(ao.radius, radius); gl.uniform1f(ao.bias, bias); gl.uniform1f(ao.slope, slope);
+    gl.uniform2f(ao.texel, 1 / W, 1 / H);
+    gl.bindVertexArray(emptyVao);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, blurred.fbo);
+    gl.useProgram(blurProg);
+    gl.bindTexture(gl.TEXTURE_2D, raw.tex);
+    gl.uniform1i(bl.src, 0);
+    gl.uniform2f(bl.texel, 1 / W, 1 / H);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    gl.bindVertexArray(null);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    // the state goes back, for the reason render() above gives
+    gl.depthMask(true);
+    gl.enable(gl.DEPTH_TEST);
+    gl.bindTexture(gl.TEXTURE_2D, null);
+    return blurred.tex;
+  }
   return { render, dispose, get size() { return [W, H]; } };
 }
 

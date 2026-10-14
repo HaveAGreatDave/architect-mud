@@ -38,6 +38,7 @@ import { isWeatherFxEnabled } from './weather-fx.js';
 import { layTrailPoint, uploadTrail } from '../../../shared/trail-store.js';
 import { seaShelter, SURF_DEPTH_Q, surfHullGain, surfGain, seaHeadingFor, setSeaHeading, seaRotPair } from '../../../shared/sea-swell.js';
 import { windGust, windVeer, stormOf } from '../../../shared/wind-gust.js';
+import { skyAt } from '../../../shared/sky-keys.js';
 import { TAG_GLYPHS } from '../../../shared/tag-glyphs.js';
 import { TAG_STROKES, TAG_FACES } from '../../../shared/tag-strokes.js';
 // A mesh file's moving parts — wings that swing out, anything on a hinge — posed per aircraft here.
@@ -49,7 +50,7 @@ import { veilHTML, VEIL_CSS, veilHold, veilPainted, veilReset } from './glass-ve
 import { setVehicleParams, clearVehicleParams, vehicleParamBase, vehicleParamIds, aircraftFaces, wingtipStation, meshLamps, vehicleLamps, liveryPalette, faceBaseRgb, shadeRgb, hex2rgb, drawRotorFX, PROP_STATIONS, drawCockpitProp, glassSheen, drawNoseArt, drawTruckDoorArt, drawBoatHullArt, boatExhaustPorts, deflectSurface, hingeVisorFace, visorHidden, jazzTex, jazzUV, overlayJazz, drawCanopyGlass, sortTruckFaces, _resetTruckOrder, JAZZ_ROLE, OCCLUDE_ROLE, VIPER_SCALE, depthPassBuild, depthPassCommit , truckMeta, rotorsFor, hasMainRotor, meshParams, meshIds } from './aircraft3d.js';
 import { rasterDepth, depthTarget, lightBasis, rasterShadow, shadeRaster, readPixels, depthWinAt } from './model-raster.js';
 import { playThunderSample } from './engine-audio.js';
-import { FLOOR_Z, BUILDING_FOOT, floorsFor } from '../../../shared/skyline-scale.js';
+import { FLOOR_Z, BUILDING_FOOT, floorsFor, BUILDING_TUNE, buildingScale, CURTAIN_H } from '../../../shared/skyline-scale.js';
 import { fireworksAround, aaLive, AA_FIRE_MS } from './world-feed.js';   // world events kept by tile, whatever seat is open
 import { drawAAEmplacement } from './glass/aa-emplacement.js';   // the four AA batteries (drawAAMark)
 import { skylineFar, SKYLINE_BASE_FAR } from '../../../shared/skyline-tall.js';
@@ -1994,9 +1995,9 @@ export const RENDER_TUNE = {
   vlKeyDay: '#c69654', vlKeyNight: '#c22f86',       // sun/key-lit accent (upper wall, lit side)
   vlSkyDay: '#969e96', vlSkyNight: '#1f74b4',       // sky/neon catch (upper wall, shadow side)
   vlShadowDay: '#222836', vlShadowNight: '#0a0f2e', // base ambient-occlusion shadow
-  bldgH: 1.40,        // building height scale (from the user's tuned screenshot)
-  bldgStretch: 5.0,   // extra VERTICAL stretch on top of bldgH — makes buildings stand tall instead of pancakes; live 'Vert stretch' slider
-  bldgFoot: 1.0,      // building footprint (width) scale — 1.0 fills most of the tile (a building owns its whole zone)
+  bldgH: BUILDING_TUNE.bldgH,              // building height scale (from the user's tuned screenshot); defaults in skyline-scale.js
+  bldgStretch: BUILDING_TUNE.bldgStretch,  // extra VERTICAL stretch on top of bldgH — makes buildings stand tall instead of pancakes; live 'Vert stretch' slider
+  bldgFoot: BUILDING_TUNE.bldgFoot,        // building footprint (width) scale — 1.0 fills most of the tile (a building owns its whole zone)
   texRes: 1.0,        // building texture resolution (higher = crisper, lower = chunkier)
   // ── THE NEON TONE, AS ONE RATIO ─────────────────────────────────────────────────────────────
   // What separates this city at night from a cyberpunk reference board is not the paint, it is the
@@ -2733,52 +2734,8 @@ function reliefShade(awx, awy, litX, litY, arid) {
 }
 
 // ── Time-of-day sky keyframes (blended by hour) ───────────────────────────────
-const SKY = [
-  // ⚠ THE NIGHT SKY IS EVERY REGION'S NIGHT SKY, AND THAT IS WHY THE CITY'S GLOW IS NOT IN HERE.
-  // A violet horizon was tried here first and it is the right LOOK and the wrong PLACE: `hor` feeds
-  // the distance fog for the whole world, so Coldwater's light pollution arrived over the
-  // Scarletwastes, where there is no city to make it, and over Terminus, which must never read as
-  // cyberpunk. The glow belongs to the region that emits it — see `glow` in REGION_GRADE.
-  // ⚠ THE SUNSET USED TO LAST UNTIL THE SMALL HOURS, and that is what made the default night sky
-  // red. There were two night rows and four warm ones, so every hour between them was a LINEAR
-  // BLEND of the two: at 20:00 `night` was already 0.8 — city lights on, stars coming up, a player
-  // calling it night — over a horizon still at [84,56,47], and the dawn half was worse, because the
-  // 00:00→05:30 leg meant the eastern sky started warming at about 2 a.m. and was frankly orange by
-  // three. So the darkest the sky ever got was a single INSTANT at midnight rather than a state, and
-  // a sunset colour was the default sky colour for most of the night.
-  //
-  // The fix is a cold twilight row on each side, half an hour after sunset and half an hour before
-  // sunrise. The warmth is then a narrow event at the horizon crossing (which is what a sunset is),
-  // the blue hour is its own colour rather than a waypoint on the way to one, and the deep-night row
-  // is HELD from 20:00 through to 04:24 instead of being touched once and left.
-  //
-  // ⚠ THE FIRST AND LAST ROWS MUST STAY IDENTICAL. `skyAt` finds the bracketing pair by scanning
-  // forward, and the hours past the last row (here 20:00→24:00) bracket nothing — so it falls back
-  // to its initialiser, which is row 0 against row N-1, and extrapolates across the whole table.
-  // That is only harmless because both ends are the same colour, which makes the blend degenerate.
-  // Change one end and the last four hours of the day become a garbage extrapolation.
-  { h: 0,    top: [5, 6, 14],    hor: [14, 16, 30],    g1: [14, 17, 19], g2: [4, 6, 8],   night: 1,    sun: null },
-  { h: 4.4,  top: [5, 6, 14],    hor: [14, 16, 30],    g1: [14, 17, 19], g2: [4, 6, 8],   night: 1,    sun: null },
-  { h: 5,    top: [16, 19, 46],  hor: [44, 42, 72],    g1: [22, 26, 26], g2: [7, 9, 11],  night: 0.88, sun: null },
-  { h: 5.5,  top: [40, 46, 84],  hor: [206, 122, 84],  g1: [42, 46, 36], g2: [15, 17, 13], night: 0.5, sun: [255, 176, 116] },
-  { h: 8,    top: [26, 108, 166],hor: [156, 196, 216], g1: [56, 72, 42], g2: [22, 30, 16], night: 0,   sun: [255, 246, 214] },
-  { h: 16,   top: [26, 108, 166],hor: [156, 196, 216], g1: [56, 72, 42], g2: [22, 30, 16], night: 0,   sun: [255, 246, 214] },
-  { h: 18.5, top: [44, 48, 92],  hor: [228, 118, 56],  g1: [46, 40, 30], g2: [17, 13, 10], night: 0.5, sun: [255, 146, 84] },
-  { h: 19.1, top: [16, 19, 46],  hor: [44, 42, 72],    g1: [22, 26, 26], g2: [7, 9, 11],  night: 0.88, sun: null },
-  { h: 20,   top: [5, 6, 14],    hor: [14, 16, 30],    g1: [14, 17, 19], g2: [4, 6, 8],   night: 1,    sun: null },
-];
-function skyAt(hour) {
-  const h = ((hour % 24) + 24) % 24;
-  let a = SKY[0], b = SKY[SKY.length - 1];
-  for (let i = 0; i < SKY.length - 1; i++) { if (h >= SKY[i].h && h <= SKY[i + 1].h) { a = SKY[i]; b = SKY[i + 1]; break; } }
-  const t = b.h === a.h ? 0 : (h - a.h) / (b.h - a.h);
-  return {
-    top: mix(a.top, b.top, t), hor: mix(a.hor, b.hor, t),
-    g1: mix(a.g1, b.g1, t), g2: mix(a.g2, b.g2, t),
-    night: lerp(a.night, b.night, t),
-    sun: a.sun && b.sun ? mix(a.sun, b.sun, t) : (t < 0.5 ? a.sun : b.sun),
-  };
-}
+// The keyframes and `skyAt` live in client/shared/sky-keys.js, which the Grandstand's park reads
+// too, so a game's dusk on KSAB is the cockpit's.
 
 // Project a point on the celestial sphere — azimuth (° compass, but relative to the view
 // heading is all that matters here) and elevation (° above the horizon) — onto the screen.
@@ -19588,11 +19545,10 @@ export function buildingHeightZ(wx, wy, cell) {
 // an author's model actually has to survive. The RENDER_TUNE multipliers are in for the
 // same reason — a tuning slider that moved the game and not the preview would make the
 // preview a lie.
+// The formula lives in client/shared/skyline-scale.js (buildingScale), so the broadcast's city
+// draws a building at the sim's own size; the sim passes its live sliders.
 export function buildingScaleFor(floors, seed = 0) {
-  return {
-    fh: (BUILDING_FOOT + frac(seed + 2) * 0.06) * (RENDER_TUNE.bldgFoot || 1),
-    h: Math.max(1, floors) * FLOOR_Z * (0.9 + frac(seed) * 0.2) * RENDER_TUNE.bldgH * (RENDER_TUNE.bldgStretch || 1),
-  };
+  return buildingScale(floors, seed, RENDER_TUNE);
 }
 
 export const FT_PER_FLOOR = 12;   // realistic storey height (ft) — still the floors↔feet rule for anything that asks about STOREYS
@@ -28245,7 +28201,7 @@ function draw3DBox(ctx, cam, dx, dy, fh, wz, biome, seed, night, alpha) {
 // is ONLY that, on every screen: there is no move gate on it (grep registerMoveGate). The actual seal
 // is 133 authored walls between the frontier tiles (`blocked: true`, named "the Architect's Curtain"),
 // so the wall you can see and the wall you cannot walk through are two separate facts about one place.
-export const CURTAIN_H = 0.9;   // world-z — taller than any district building, an imposing barrier
+export { CURTAIN_H };   // world-z, from skyline-scale.js, where the broadcast's city reads it too
 
 // ── THE FIELD'S OWN COLOURS, IN ONE TABLE ────────────────────────────────────
 //
@@ -43574,12 +43530,24 @@ export function canvasResidue(m, opts = {}) {
   const sv = {
     face: FACE_SINK, mesh: MESH_SINK, decal: DECAL_SINK, sprite: SPRITE_SINK, scatter: SCATTER_SINK, stroke: STROKE_SINK,
     cells: GL_CELLS, mass: MASS_OFF, flat: FLAT_OFF, tier: ADORN_TIER, tally: EMIT_TALLY, sign: _bladeSign, basis: _bladeBasis, pull: PULL_OFF,
-    duty: POWER_DUTY, win: POWER_WIN, pnb: POWER_NB,
+    duty: POWER_DUTY, win: POWER_WIN, pnb: POWER_NB, live: ARM_LIVE, lnow: ARM_NOW, lbad: ARM_LIVE_BAD,
+    tune: TUNE, dpr: _frameDpr,
   };
   const out = { canvas: {}, faces: 0, mesh: 0, decals: 0, sprites: 0, scatter: 0, threw: null };
+  // With `opts.live` the parts that move are recorded as calls, the way a kept building records
+  // them (armLiveCall). A sky beam and a plume come back as records of what they are (`out.live`,
+  // LIVE_RECORD) and what they pushed is cut out of the sinks handed back, because a frozen frame
+  // of either is not what it looks like. The light bake (scripts/shapes/bake.mjs) is the caller.
+  // ⚠ AND `opts.base` RUNS IT AT THE BASE TUNE AND A PIXEL RATIO OF 1, whatever frame ran last. A
+  // frame leaves its own resolved tune in TUNE and its ratio in `_frameDpr`, which every light's
+  // radius and every stroke's width is multiplied by: after the smoke's night street the bake came
+  // out with every lamp a tenth smaller than the same bake in a fresh process.
+  const live = opts.live ? [] : null;
   try {
     FACE_SINK = []; MESH_SINK = null; DECAL_SINK = []; SPRITE_SINK = []; SCATTER_SINK = []; STROKE_SINK = [];
     GL_CELLS = []; MASS_OFF = true; FLAT_OFF = true; ADORN_TIER = tier;
+    if (live) { ARM_LIVE = live; ARM_NOW = now; }
+    if (opts.base) { TUNE = RENDER_TUNE; _frameDpr = 1; }
     // ⚠ `who: false` IS FOR A CALLER THAT ONLY READS THE SINKS. The tally names every face and
     // stroke by walking the stack (emitWho), and that walk was about 90% of the gates that call
     // this in a loop. Off, `out.canvas` stays empty and strokes carry no `_who`, so a census must
@@ -43610,15 +43578,37 @@ export function canvasResidue(m, opts = {}) {
     // the caller is a gate that reads them and throws them away, and copying every corner of every
     // decal for the callers that do not ask is a cost for nobody.
     if (opts.collect) out.sink = { strokes: STROKE_SINK, sprites: SPRITE_SINK, decals: DECAL_SINK };
+    if (live) {
+      ARM_LIVE = null;
+      const cut = live.filter((L) => LIVE_RECORD[L.fn.name]);
+      out.live = cut.map((L) => LIVE_RECORD[L.fn.name](L.a));
+      if (opts.collect) out.sink = { strokes: armCut(STROKE_SINK, 0, cut, 1), sprites: armCut(SPRITE_SINK, 0, cut, 0), decals: armCut(DECAL_SINK, 0, cut, 2) };
+    }
   } catch (e) { out.threw = String(e && e.message || e); }
   finally {
     FACE_SINK = sv.face; MESH_SINK = sv.mesh; DECAL_SINK = sv.decal; SPRITE_SINK = sv.sprite; STROKE_SINK = sv.stroke;
     SCATTER_SINK = sv.scatter; GL_CELLS = sv.cells; MASS_OFF = sv.mass; FLAT_OFF = sv.flat;
     ADORN_TIER = sv.tier; EMIT_TALLY = sv.tally; _bladeSign = sv.sign; _bladeBasis = sv.basis; PULL_OFF = sv.pull;
-    POWER_DUTY = sv.duty; POWER_WIN = sv.win; POWER_NB = sv.pnb;
+    POWER_DUTY = sv.duty; POWER_WIN = sv.win; POWER_NB = sv.pnb; ARM_LIVE = sv.live; ARM_NOW = sv.lnow; ARM_LIVE_BAD = sv.lbad;
+    TUNE = sv.tune; _frameDpr = sv.dpr;
   }
   return out;
 }
+// What a moving part is, from the arguments its call was recorded with (canvasResidue's `live`):
+// a sky beam's lamp, its colour, how it sweeps and how far it reaches, its bearing turned into the
+// model's frame (skyBeam turns it by ct, st); a plume's mouth, colour, strength and seed.
+const LIVE_RECORD = {
+  skyBeam: (a) => {
+    const o = a[5] || {}, V = a[12], turn = Math.atan2(a[11] || 0, a[10] == null ? 1 : a[10]);
+    return {
+      k: 'beam', x: a[2], y: a[3], z: a[4], rgb: o.rgb || '196,220,255', at: (o.at || 0) - turn,
+      sweep: o.sweep == null ? 0.85 : o.sweep, tilt: o.tilt == null ? 1.0 : o.tilt, len: V(o.len), r: Math.max(0.01, V(o.r) || 0.09),
+      spread: o.spread == null ? 5.5 : o.spread, a: (o.a == null ? 0.42 : o.a) * a[7], fall: o.fall == null ? 1.4 : o.fall,
+      period: o.period || 11000, s: o.s || 26,
+    };
+  },
+  drawSmoke: (a) => ({ k: 'smoke', x: a[2], y: a[3], z: a[4], rgb: a[5], a: a[6], seed: a[8] }),
+};
 
 // ── THE SAME QUESTION, POINTED AT A VEHICLE ─────────────────────────────────
 //
@@ -52226,6 +52216,10 @@ function captureRawPass(m, fh, h, seed, dyOff) {
   // unpulled one second and so compared a contaminated list against a clean one, pairing by index:
   // that is the whole of its "stroke drawing through the building next door by up to 11.9 tiles".
   const savedStroke = STROKE_SINK, savedDecal = DECAL_SINK, savedSprite = SPRITE_SINK, savedMesh = MESH_SINK;
+  // And the record of a kept building's moving parts (ARM_LIVE), for the same reason: a capture
+  // that runs while a building is being recorded would add its smoke and beams, at the stub's
+  // standoff and at every solve scale, to the building's own.
+  const savedLive = ARM_LIVE;
   // ⚠ A FIRST CAPTURE CAN HAPPEN INSIDE A DRAW PASS, and a GL frame runs its arms with MASS_OFF on.
   // `drawWallTags` asks `shapeForModel` from the tile loop, and a primitive that checks
   // MASS_OFF ahead of SHAPE_SINK then records nothing: halcyontowers captured 1 segment instead of 27,
@@ -52245,7 +52239,7 @@ function captureRawPass(m, fh, h, seed, dyOff) {
     FACE_SINK = [];
     FOG_STATE = null; LIGHT_STATE = null;
     SHAPE_SINK = sink;
-    STROKE_SINK = null; DECAL_SINK = null; SPRITE_SINK = null; MESH_SINK = null;
+    STROKE_SINK = null; DECAL_SINK = null; SPRITE_SINK = null; MESH_SINK = null; ARM_LIVE = null;
     // ⚠ AN ARCHETYPE IS CAPTURED THE SAME WAY, and it is the reason this dispatches at all. A tile
     // whose building_type has no model of its own falls through to the shared biome set, drawn by
     // `drawBuilding` rather than by `drawTypeModel` — and everything downstream of capture asks
@@ -52259,7 +52253,7 @@ function captureRawPass(m, fh, h, seed, dyOff) {
     SHAPE_SINK = null; FACE_SINK = savedFace; FOG_STATE = savedFog; LIGHT_STATE = savedLight; _bladeSign = savedSign; _bladeBasis = savedBasis;
     SIGN_SEEN = savedSigns;
     STROKE_SINK = savedStroke; DECAL_SINK = savedDecal; SPRITE_SINK = savedSprite; MESH_SINK = savedMesh;
-    MASS_OFF = savedMass;
+    MASS_OFF = savedMass; ARM_LIVE = savedLive;
   }
   return sink;
 }

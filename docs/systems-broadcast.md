@@ -232,6 +232,9 @@ read-aloud is already part-way through airing to everyone else. Tickers, overlay
 `state.lastBeat` is nulled whenever a channel drops to `wasActive = false` so a dead
 channel replays nothing. The persistent score-bug / gameday overlays ride along only
 while they're **fresher than 90 s** — a stale bug must never sit over a talk show.
+Deadball's league table rides only a game's first Gameday payload, so the catch-up adds
+it to the replayed payload (`state.lastStandings`, else the cached table). The kept table
+carries its sport, so a hockey game that follows on the same channel isn't sent it.
 
 ### `getCurrentMessage()`
 
@@ -791,6 +794,531 @@ Deadball Mon/Wed/Fri, Cluster Puck **Tue + Thu + Sun**, Jackpot Protocol Saturda
 script declares its code with `@sport`, and **that is the only thing that selects a
 sport module**; nothing else in the pipeline may branch on it.
 
+Deadball's sub-screen is the 2-D Gameday view ([gameday.js](../client/game/js/panels/gameday.js)).
+A high-fidelity 3-D one on Rinkside's pattern, with a 1990s arcade look and the park inside the
+Curtain on Halcyon Fields, is planned in [proposals/deadball-glass2.md](proposals/deadball-glass2.md)
+(Phases 0 to 3 built, and Phase 4 but for its sound; the park in 3-D is on by default: see the
+Grandstand below).
+
+**The Gameday payload** is built by a pure module,
+[sports/baseball-gameday.js](../plugins/broadcast/sports/baseball-gameday.js), which the
+broadcast attaches to the line that calls each play and which the gates run without a server.
+An at-bat payload carries the batter and pitcher, the play's kind, outs and RBI, the bases
+before and after, the pitches, the line score so far, `sport`, and `bats` and `throws` (from
+the names, so a player is the same in every game; a switch hitter also gets `switchHitter`).
+A half-inning break carries `phase: 'half'` and nothing to animate.
+
+An at-bat also carries `moves`, every man's fate on the play, lead runner first and the batter
+last: `{ from, to }` to a bag or `to: 4` for a run, `{ from, out }` put out at a bag (0 for a
+batter who never left the box), or `{ from, off }` for a runner cleared by an inning-ending
+play. A v1 game keeps only which bags are occupied, so `runnerMoves` works the moves out from
+the bags before and after, the kind and the change in the batting side's score (not the RBI: a
+run can score without one). Runners can't pass each other, which makes the answer unique. The
+views only animate them.
+
+An at-bat that put a ball in play also carries `play`, decided on the server by `synthPlay` in
+[sports/baseball.js](../plugins/broadcast/sports/baseball.js) so the picture and the booth's line
+agree: what it was off the bat (`t`: a grounder, a liner, a fly or a pop-up), its spray (`dir`,
+degrees off centre, negative to left), the exit speed and launch angle (`ev`, `la`), how far out
+it was fielded or came down (`d`), the fielders in the order it went through them, numbered as a
+scorer numbers them (`f`, `[6, 4, 3]`), the fielding grade (`g`: routine, ranging, diving,
+sliding, leaping, barehand or rail), the batter's legs (`sp`), and where they apply the man who
+dove for a hit and missed, the throw, the wall, the slide, the kind of home run and the kind of
+error. It's seeded off the at-bat with a salt of its own, so it never touches the sim's stream.
+The field it's judged on (where the nine stand, shaded to the hitter's pull side, how far a ball
+carries or rolls, how far a fielder gets in the time) is
+[diamond/play.js](../client/game/js/panels/diamond/play.js), which the 3-D park reads too, so a
+play the server grades a dive is one the park can show as a dive. Every candidate is drawn round
+the man who has to make the play and kept with the chance a play that hard gets made, so most
+outs are routine and a hit goes where nobody could get to it. The play's tags open the line pools
+that agree with it ([bsm-format.md](bsm-format.md#lines-that-agree-with-the-play-baseball)), and
+the 2-D view draws the ball to the man it names and on through the bags the outs were made at.
+
+The broadcast adds `hold` (how long the line holds, in ms) to every payload, and the league
+table, `leaders` and `season` (its number, `regular` or `final`, and the seeds in a final) to the
+game's first payload only; a late tuner's catch-up carries all three. `leaders` is five a race
+from the season's fold (`gamedayLeaders`): `hr`, `avg` and `sb` for the hitters, `k` for the
+pitchers.
+
+Every play also carries the batter's and the pitcher's season lines as they stood before it:
+`bl` is [AB, H, HR, RBI, SB] and `pl` is [W, L, outs, ER, K]. They start from the standings
+fold's every-man ledger (the games before this one) and are folded forward through this game
+(`nightLines`), so a late tuner's numbers match everyone else's. A steal, a caught stealing and
+a double steal carry `plate` and `pop`, the pitcher's time to the plate and the catcher's pop
+time in seconds, from the quickness and the arm that decided the play, and a steal carries `sb`,
+the runner's steals with this one. As each line airs, `gamedayOnAir` adds `wx`, the weather over the park's
+site (`sports_pools.venue.site`, carried over a rebuild by `build-deadball.mjs`): the tile's
+weather `word`, `precip` and `rate` from the in-memory weather cells, and any city-wide `event`
+such as an ion storm; and `clock`, the minute of the day it aired at, which the 3-D park's sky
+follows. Both are read on air rather than at assembly, because the cells drift across the city
+during a game and the sky darkens through it. A script with no site sends neither.
+
+`scripts/shapes/gameday-smoke.mjs` plays real games through the 2-D view and checks that every
+play lands, its runners end where the sim left them, and every ball in play goes to the man its
+play names and ends where the play says. `scripts/shapes/variety-smoke.mjs` runs a season of
+seeded plays: grounders pulled about three times in five and fly balls spread more evenly, exit
+speeds from about 50 to 115 mph, every fielding grade, double play, kind of home run and error,
+and a play that opens every suffixed line pool. Regress checks every play against its kind and
+the sim, that building the payloads leaves the game as it was, and that a bare line pool names no
+direction. `tools/sandbox/deadball-park-test.html`
+plays the same in a browser, with the script's lines, for screenshots and tuning by hand.
+Regress pins the sim itself: a hundred seeded games and four finals, every at-bat and every
+pitch, hash to a recorded value, because the standings and the recaps re-simulate games that
+have already aired. A viewer with the sub-screen open is sent about 91 payloads a game, about
+85 KB with the weather (measured over eight graphs on 2026-10-11), and about 5 KB more with the
+men's lines and the leaders (37 bytes a payload and 1.6 KB once, measured on 2026-10-12), and
+about 4 KB more with the plays (about 52 balls in play a game at about 75 bytes each, measured
+on 2026-10-12). It was 116 KB when the table rode every payload.
+
+### The park in 3-D (the Grandstand)
+
+tv.js mounts baseball through
+[gameday-grandstand.js](../client/game/js/panels/gameday-grandstand.js), on by default wherever
+WebGL2 and float targets work. To keep the 2-D Gameday in a browser, set the localStorage key
+`deadball.grandstand` to `'0'` (in the console: `localStorage.setItem('deadball.grandstand', '0')`)
+and reopen the Gameday; with it, none of the park's own modules load. It has the same five methods as
+the other two views. Its first open downloads about 0.7 MB of compressed scripts (the clip
+library is a third of it), the 0.7 MB face atlas and 64 KB of display fonts, against 45 KB for
+the 2-D view; the browser keeps them after that. When the 3-D view can't draw (no WebGL2, no float target, a
+shader that won't build, a lost context), it hands over to the 2-D view with the last payload and
+the booth's line.
+
+Built so far (Phases 1 and 2 of the plan):
+
+- the park from the venue's defaults, built by the pure
+  [gl/ballpark-mesh.js](../client/game/js/panels/gl/ballpark-mesh.js) from
+  [diamond/geo.js](../client/game/js/panels/diamond/geo.js): the field, the padded wall with its
+  distances, the foul poles, the bleachers and the batter's eye, the lower bowl, the upper deck,
+  the backstop net, six light towers whose lamps the venue says work or not, and the scoreboard;
+- [gl/ballpark.js](../client/game/js/panels/gl/ballpark.js), the WebGL2 renderer: the towers as
+  the only lights, GGX in linear light into `hdr.js`'s multisampled float target, the field painted
+  in the shader under the infield canvas ([diamond/dirt.js](../client/game/js/panels/diamond/dirt.js)),
+  the crowd instanced over the seats, then bloom and a filmic curve. It takes `hdr.resolve()`, not
+  `composite()`, so it grades its own frame;
+- the scoreboard's lamps lit from the payloads by [diamond/board.js](../client/game/js/panels/diamond/board.js):
+  the line score, the count and the names, in a 5×7 matrix face;
+- the shots in [diamond/camera.js](../client/game/js/panels/diamond/camera.js) (batting view,
+  centre field, high home, the first-base camera, the bag, the third-base camera, the sky), each
+  with its GL matrices and the same pinhole worked out by hand;
+- a score bug, the booth's line and the cards in HTML over the canvas;
+- the frame round it (Phase 1b): four of the towers draw shadow maps of whatever casts
+  ([gl/spotshadow.js](../client/game/js/panels/gl/spotshadow.js); the players will, in 1c), the
+  night air is `fog.js`'s height fog with each tower's light scattered in it, the depth the frame
+  was drawn with is blitted out of the multisampled target for ambient occlusion at half size
+  (`createDepthSSAO` in `ssao.js`) and for the lens, and
+  [gl/broadcast.js](../client/game/js/panels/gl/broadcast.js) draws the lens (depth of field per
+  shot: the long lens softens the crowd), the curve and the grade. The grade is `arcade` (full
+  saturation, a contrast curve, warm highlights over cool shadows, sharpening, a vignette),
+  `broadcast` (the period's video: lifted blacks, soft colour, aperture correction, the CCD's
+  smear off the lamps) or `none`, and tube glass can go over either. The sandbox takes `?grade=`
+  and `?tube=1`;
+- the players (Phase 1c): [diamond/cast.js](../client/game/js/panels/diamond/cast.js)
+  puts each payload's people where they stand (the nine in the field, the batter in the box for his
+  side of the plate, the men on base leading off, on deck, the coaches and four umpires), and
+  [gl/ballplayer-mesh.js](../client/game/js/panels/gl/ballplayer-mesh.js) builds each one's body
+  from a pose by IK, with the street figure's head and its face from the atlas, and a cap, a
+  batting helmet or a mask fitted to the skull. A lefty is his pose in a mirror. What a player
+  looks like and his number come off his name, or off his club and position where the payload
+  doesn't name him, and [diamond/kits.js](../client/game/js/panels/diamond/kits.js) paints the
+  kits: the clubs' nicknames and the numbers on placeholder colours until the clubs bring their
+  own (Phase 5). The players cast the towers' shadows. Since Phase 2a they're skinned: each body
+  is built once in the rig's bind pose ([diamond/rig.js](../client/game/js/panels/diamond/rig.js),
+  twenty bones from the pelvis to the bat) with four bone weights a vertex, and the GPU moves it
+  into any pose ([gl/skin.js](../client/game/js/panels/gl/skin.js), a palette of bones in a float
+  texture, a row a kit slot). A body is kept for who a player is and what he wears, not where he
+  stands, so a runner keeps his round the bases and a new payload builds only its new people. The
+  fielders stand where the server's plays start them (`fieldSpots` in
+  [diamond/play.js](../client/game/js/panels/diamond/play.js)), shaded toward the hitter's pull
+  side, so a hitter from the other side moves them over.
+  Their motion is the clip library (Phase 2b): [diamond/anim.js](../client/game/js/panels/diamond/anim.js)
+  plays clips keyed in the rig's pose language, from `content/animation_clips/` baked to
+  `diamond/clips.js` by `npm run clips:bake` (the Modelshop's Pose Lab keys them, Phase 2e),
+  with the glove reaching for the ball, the head
+  turning to it and each player's own way of doing it off his name. The library holds the pitch
+  (Phase 2c): the pitcher's deliveries from the stretch and the windup for each arm slot, the
+  hitter's load, swings, take and check swing, the catcher's receive, block and throw back, and
+  the umpire's calls, three ways to ring up strike three among them. It holds the play too
+  (Phase 3b): the runs (a jog, a run and a sprint), pulling up, the hitter out of the box for
+  each hand, three slides; ground balls taken routine, backhand, forehand, diving either way and
+  barehanded; the throws over the top, from the knees, the flip and the crow hop; the first
+  baseman's stretch and scoop, both double-play pivots and the relay; the outfielder's charge
+  and throw; catches camped, running, diving, sliding, at the wall and over the rail, and the
+  catcher's pop-up; a fielder watching one go; and the base umpires' safe and out. And the plays
+  on the bases (Phase 3d): the catcher's throw from the crouch to second and to third, the tag
+  astride a bag for a runner coming from ahead or from beside, the first baseman's tag on a
+  pickoff, the pickoff move (a right-hander's jump turn, a left-hander's step), the dive back to
+  first, up off the ground from either slide, and a ball picked up where it lies. A clip that
+  travels carries its frame with it (`root`), and the world carries the player on by it;
+- the pitch (Phase 2d): [diamond/director.js](../client/game/js/panels/diamond/director.js) stages
+  each at-bat in a world ([diamond/world.js](../client/game/js/panels/diamond/world.js)) stepped
+  at 120 Hz while it plays. The ball flies from the pitcher's hand at its real speed to exactly
+  where the payload says it crossed the plate, bending by its type
+  ([diamond/flight.js](../client/game/js/panels/diamond/flight.js)), and every clip is lined up on
+  it: the delivery's release, the swing's contact, the mitt's catch, the flinch of a hit batsman.
+  A swing meets an inside pitch out in front and lets an outside one travel, and the hands carry
+  the bat to the outer edge with the body leaning after them. The budget is 0.45 of the line's
+  hold, kept between 13 and 26 seconds, and the director spends it in the plan's order: every
+  pitch cut in at the stride, then each one's reaction (the hitter in close-up, with the umpire's
+  call), then the pitcher's whole motion and the set before it, then the throw back and the walk
+  up to the rubber. A long at-bat on a short hold leaves pitches out of the middle and the count
+  goes through them. Every jump from one moment to the next is under a cut. Strike three, ball
+  four and a hit batsman are played in full, the hitter walking off or heading to first, and a
+  strikeout and a walk get their splash words. The 2-D view's cues
+  ([client/shared/deadball-sfx.js](../client/shared/deadball-sfx.js)) play on the moment: the
+  mitt, the crack of the bat, a miss's whiff, the ball into a glove, and the play's own sound as
+  it lands;
+- the ball in play (Phase 3c): [diamond/plays.js](../client/game/js/panels/diamond/plays.js)
+  plays out the payload's `play` as the server decided it. The ball goes off the bat on the
+  spray, at the exit speed and launch angle the server drew: one on the ground rolls on play.js's
+  own roll and comes up off its last hop into the glove, one in the air comes down in its hang
+  time, and one over the fence lands in the seats. The seven set as the pitch comes and every
+  head follows the ball. The man who fields it runs to where his clip puts the glove on the ball
+  at the moment the server said, in the clip for his grade: the ground ball taken routine,
+  backhand, forehand, diving or barehanded, the catch camped, running, diving, sliding, at the
+  wall or over the rail, the catcher's pop-up, or the outfielder running a hit down. The throws
+  go man to man (to first, to the pivot at second and on, to the cutoff), each turned so the
+  hand's own way at the release points at its man, out of the hand at the release and into the
+  glove at his catch, and held until he can be there. The batter comes out of the box and runs
+  to first at his own legs' pace, never ahead of the ball on an out there, and pulls up through
+  the bag; the base umpire calls it. Errors play too: the ball booted and picked up again, through
+  the legs to the man behind, dropped out of the glove, past the first baseman or into the
+  stands. The high camera from home follows the ball, tilting up for a pop-up and closing in on
+  one far out; a play at first cuts to the first-base camera as the throw goes, and a long fly to
+  a camera behind the man under it. The men on the bags run the payload's `moves` (Phase 3d,
+  [diamond/bases.js](../client/game/js/panels/diamond/bases.js)) at their own legs' pace, the
+  sim's speedOf: round the bags on a bowed turn, into a slide where the play says, home over the
+  plate and off toward their dugout. A man holding goes back to his bag; one tagging up leaves it
+  on the catch; one forced out gets there after the ball, and the base umpire calls it. The batter
+  rounds first on a single to the outfield and comes back, and trots round on a home run. A throw
+  to a bag a man's safe at waits for him, and the play lands with every man on his bag and every
+  run in; a man still running once the ball's back in gets the camera at the bag he's going to
+  (the plate, third or second). On ball four or a hit batsman the batter trots to first, every
+  man forced trots up a bag and a man not forced walks back to his. When the booth skips an
+  at-bat and the next one starts from other bags, it opens on the wide shot over the city while
+  everyone takes their places;
+- the changeover (Phase 3d): on the third out, once the play's landed, every man on the field
+  jogs off to his side's dugout, the fielders to theirs and the men on the bases to their own,
+  and the high camera watches them go. A dugout is a row of spots in foul ground up the line
+  (the visitors' on the third-base side), handed out by when the men get there, the first man in
+  to the end furthest from the field, and a man holds back a beat where he'd pass too close to
+  one gone before him. At the break the side taking the field runs out of its dugout, the
+  catcher first and then the pitcher and the rest a third of a second apart, and the pitcher
+  throws his warm-ups to the catcher and takes the ball back, as many as the hold has room for
+  (four at most), under the break's graphics;
+- the plays on the bases (Phase 3d,
+  [diamond/runs.js](../client/game/js/panels/diamond/runs.js)): a `phase: 'run'` payload is
+  staged as an at-bat is, on its one pitch (`runPitch`: a fastball away for a steal, a breaking
+  ball in the dirt for a wild pitch, one on the far corner for a passed ball) or its one throw
+  over, with the board at no balls and no strikes, since the man's up and hasn't seen a pitch. A
+  steal's delivery from the stretch is played at the tempo that gets the ball to the mitt on the
+  card's time to the plate (`plate`), and the catcher throws in what's left of the pop time
+  (`pop`) once the ball's in his hand, so the card's clocks are the picture's. The man covering
+  (the second baseman with a right-hander up, the shortstop with a left-hander, the third baseman
+  at third) takes it astride the bag and puts the tag down, and the runner breaks so his slide is
+  in a beat before the tag when he's safe and just after it when he's out, his lead taking up
+  what no jump will. A throw over is the pitcher's pickoff move to the first baseman at the bag,
+  the runner diving back in time or, on a pickoff, a beat late. A wild pitch skips off the dirt
+  past the block and a passed ball goes off the end of the mitt; either rolls to the backstop and
+  the catcher picks it up where it stops, every man moving up a bag while he does and the pitcher
+  covering the plate when a man comes home. The base umpire calls it, a man out jogs off, and
+  once it's done the man who took the throw jogs back to where he plays and a man safe steps onto
+  his bag; on the third out the man who made the tag steps off past the bag, away from the man he
+  got, and everyone goes off once that man's up. The camera cuts to the bag as the throw goes
+  (first on a throw over), and to the backstop camera when a man scores on a pitch that got by; a
+  steal's card goes up with the call;
+- the spectacle (Phase 3e, [diamond/spectacle.js](../client/game/js/panels/diamond/spectacle.js)
+  plans it, [gl/spectacle.js](../client/game/js/panels/gl/spectacle.js) draws it): a comet's tail
+  down the ball's way on a ball hit 100 mph or harder and on every home run, gone once its flight
+  is over; sparks off the bat at contact on a ball hit that hard; and after a home run or a
+  walk-off, six shells over the outfield (nine on a grand slam, twelve on a walk-off), each rising
+  from behind the bleachers and bursting over them. All of it is light added over the frame, so it
+  blooms, and pure in time, so a stopped clock or a replay draws the same picture. A home run gets
+  its own camera: once it's clearly gone, the shot rides beside the ball on the side nearer the
+  middle of the field, stops 45 ft short of the wall and watches it into the seats; then the wide
+  shot over the outfield as the first shell goes up, and the high camera back for the trot. Its
+  distance and its speed off the bat take the pitch speed's box. The shells go up more than a
+  third of a second apart, so no second has more than three bursts in it;
+- reduced motion (Phase 4a), the Motion switch or the system's setting, read as each play is
+  staged: the cameras that would follow the ball hold still and cut instead, each framed on where
+  the ball's flight ends and cut to the next as the next throw goes, never within a second of its
+  last cut ([diamond/plays.js](../client/game/js/panels/diamond/plays.js) `stillShots`); no camera
+  rides with a home run and none of the spectacle is drawn; the graphics come up still. The 2-D
+  view draws no trails, no wipe on a cut and no celebration, and runs no idle loop between plays;
+- the play by play in words (Phase 4a): with Play by Play on (`accessibility plays`, on by
+  default), both views write into a polite live log for a screen reader each pitch as it's thrown,
+  in the words gameday.js `pitchText` makes of the payload the picture throws it from ("88 slider,
+  swinging strike, 1 and 2"; the last pitch says ball four or strike three instead of the count),
+  the booth's line as it goes up, and every card and splash word. The 3-D view also says the
+  matchup with both season lines, a steal's card with its clocks and a home run's distance, and
+  its board in words carries the leaders' table between innings, so nothing on the hidden graphics
+  canvas is only a picture;
+- the crowd (Phase 4c, [gl/crowd.js](../client/game/js/panels/gl/crowd.js)): every fan is one
+  figure in three poses, sitting, standing and cheering (`crowdMorph` pairs the poses vertex for
+  vertex), and the vertex shader moves him between them by how loud his side is. A play's cheer
+  (spectacle.js `cheerOf`) says whose fans, how loud and how long: a home run brings its side up
+  off the bat, a run, a double play, a great catch or a strikeout ending a half as it lands. Each
+  side's roar rises, holds and falls away (`createRoar`, a pure function of time), and each fan
+  gets up once it passes his own threshold, hashed from his seat, so a big play brings a whole
+  stand up and a small one a few; up, he bounces and sways on his own beat. Most fans are the home
+  side's, more of the visitors' up the third-base line by their dugout. With reduced motion they
+  still stand, without the bouncing;
+- the infield keeps the game (Phase 4d, [diamond/marks.js](../client/game/js/panels/diamond/marks.js)):
+  every pitch leaves the pitcher's stride where his front foot lands and the hitter's back foot
+  dug in, and every slide and dive its scar, said by the director as they're made (`'mark'`). The
+  park paints them on its own copy of the infield canvas ([diamond/dirt.js](../client/game/js/panels/diamond/dirt.js)
+  `paintMark`, only where there's dirt, `onDirt`) and uploads only the rect each one touches
+  (gl/ballpark.js `markDirt`). A payload from another game, or an earlier inning, starts a fresh
+  infield (`resetDirt`);
+- between at-bats (Phase 4d, [diamond/between.js](../client/game/js/panels/diamond/between.js)):
+  once a play's landed, the view asks the director for the dead time till the next payload's due
+  (`planBetween`, from the payload's `hold`). The field walks back to its places, the pitcher
+  rubs up the ball off the back of the mound, a man who's out goes off to his dugout, and the
+  cameras go round the park (wide, the on-deck circle, the pitcher, a stand of fans) once any
+  replay's done, and on a long hold round again, a cutaway every 9 s of the wide shot. The
+  on-deck hitter takes practice swings through every at-bat. Frames run through the dead time; a
+  payload with no `hold` gets none;
+- the sky on Coldwater's clock (Phase 4e, [diamond/sky.js](../client/game/js/panels/diamond/sky.js)):
+  each payload's `clock` sets the park's light. Deadball airs from 18:00, so a game starts as the
+  sun goes down, the horizon warm in the west over left field and cooler away from it, plays
+  through the blue hour with the city's windows and lamps coming on, and is in full night by about
+  20:00, when the park is the night it was tuned at. The colours are Coldwater's sky by the hour,
+  the same keyframes the windshield blends ([client/shared/sky-keys.js](../client/shared/sky-keys.js)),
+  and the night sky carries the city's own glow from the venue's art (`city.glow`). A payload with
+  no `clock` is at night;
+- the park's own weather (Phase 4e, [diamond/weather.js](../client/game/js/panels/diamond/weather.js)):
+  each payload's `wx` sets it. Cloud takes the stars and lights its underside with the city's glow,
+  the haze thickens, the city dims through it, rain wets the field (the dirt darker, with puddles
+  that catch the floods), rain, sleet, snow and ash fall in the air every camera looks through
+  ([gl/weather.js](../client/game/js/panels/gl/weather.js)), acid rain falls green, and a
+  thunderstorm, a storm or an ion storm puts bolts out past the outfield over the skyline, each
+  flashing the sky once. The bolts are a function of the world's clock, so every TV strikes the
+  same one at the same moment. With reduced motion the lightning doesn't flash;
+- the city's own lights (Phase 4e, [gl/citylights.js](../client/game/js/panels/gl/citylights.js)):
+  every building round the park is lit as its model is in the flight sim, from a bake of the
+  models' lights beside their shapes ([client/shared/building-lights.js](../client/shared/building-lights.js),
+  `npm run shapes:bake`): its lamps and beacons, its neon runs and edges, its searchlights sweeping
+  the sky and the smoke and steam off its stacks. They come on at dusk before the windows, dim
+  through bad weather, and a building with beacons of its own gets none of the city's. The
+  renderer's `quality.city` drops the smoke at 1 and the searchlights too at 0;
+- the streets round the park (Phase 4e, [diamond/streets.js](../client/game/js/panels/diamond/streets.js),
+  [gl/streetlife.js](../client/game/js/panels/gl/streetlife.js)): cars parked at the kerbs near
+  the park, cars going by with their lamps on and about a thousand people walking in to the
+  gates, thickest across the plaza to the main gate. Where each one is is a function of the
+  world's clock, so every TV has the same street. Before a game's first pitch the view opens on
+  the street camera: the main gate from the crossing outside it, with the crowd going in (the
+  wide shot over the outfield when the first payload's lead is under 2.2 s);
+- birds (Phase 4e, [gl/parkbirds.js](../client/game/js/panels/gl/parkbirds.js)): gulls wheeling over
+  the outfield, white beneath in the floods' light, and at dusk a murmuration of starlings over
+  the skyline toward the sunset, gone to roost by full dark. Neither flies in rain, snow or
+  lightning;
+- the crowd's camera flashes at night (Phase 4e, [gl/crowd.js](../client/game/js/panels/gl/crowd.js)
+  `flashesAt`): a small hard point at a fan's face, a few a minute when the park's quiet and most
+  seconds when it's loud, never more than two in a second, and none with reduced motion. The
+  renderer's `quality.birds` and `quality.flashes` leave out the birds and the flashes;
+- the grounds crew (Phase 4d, [diamond/crew.js](../client/game/js/panels/diamond/crew.js)): in the
+  middle of the fifth, when the break holds 84 s or more (cast.js `crewDue`), four of them in
+  work clothes drag the infield, two to a mat and the pairs side by side, in from foul ground
+  beyond third, round the skirt past second base and off beyond first. Behind each mat the dirt
+  goes back to as it was painted (gl/ballpark.js `smoothDirt`), so the game's marks there are
+  gone. The infielders wait by their dugout till the mats are off the dirt; the pitcher warms up
+  meanwhile. The leaders' table comes down a few seconds into the drag and a camera in a well
+  across the field follows the crew round, from first base's side and then third's; with reduced
+  motion it holds still where they'll walk through;
+- replays (Phase 4b, [diamond/replay.js](../client/game/js/panels/diamond/replay.js)): a walk-off,
+  a home run, a triple or double play, a catch that took a dive, a slide or a leap, a triple and a
+  call at first closer than 0.15 s are shown again in slow motion. Staging is a pure function of
+  the payload, so the play is staged again in a world of its own (`stageReplay`), stepped to just
+  before its moment and played at 0.4 of its speed from a second camera, at most 3.4 s of play,
+  silent, under a REPLAY bug beside the score; the live world carries on behind it and a cut its
+  director makes meanwhile waits. It starts 1.8 s after the landing, or once the fireworks are out
+  after a home run or a walk-off, and only when it ends a second before the next payload's due (a
+  payload's `hold`; one without gets none). With reduced
+  motion it's a still of the moment for 3.2 s. The live text says "Replay" with the play;
+- the arcade graphics (Phase 1d), a canvas over the picture drawn by
+  [diamond/hud.js](../client/game/js/panels/diamond/hud.js) in the client's display faces: the
+  score with the bases, the count as lamps, the pitch speed and type, and in the batting view the
+  zone over the plate with the last pitch marked. As each man comes up a matchup card shows his
+  number and season line against the pitcher's, with VS on a starburst; a steal shows its card and
+  its clocks; the cards the broadcast throws (home run, walk-off, double play and the rest) are
+  splash words, and so is every play that earns one on its own (spectacle.js `splashOf`): strike
+  three, ball four, a hit batsman, a triple, an error, a catch at the wall or one that robs a home
+  run, a diving or sliding catch, one over the rail, a diving stop, a barehanded play, a pickoff,
+  a wild pitch and a passed ball; and each half-inning break is a high-score table of the leaders, one race at a
+  time, over the live picture. The final dresses it all in gold. The HTML score bug and cards
+  are gone; the score is written out for a screen reader instead. The words, the colours and the
+  station's bug come from a theme (tv.js passes the station's name), so `hud.js` names no league;
+- the city round the park (Phase 1e), a set composed for television: the park is full size and the
+  map's park is three tiles by three, so what the cameras see past the walls is the map's
+  buildings laid out again round it. [client/shared/city-set.js](../client/shared/city-set.js)
+  stands the park in a superblock with a paved plaza, runs streets every third tile out from it,
+  puts the set's edges on the map's Curtain and shore, gives each building the free plot nearest
+  its true bearing from home plate (a pier stays on the water), and fills the rest in the
+  quarter's style. [gl/cityscape.js](../client/game/js/panels/gl/cityscape.js) builds it from
+  the buildings' baked shapes at the flight sim's size (`buildingScale` in
+  [skyline-scale.js](../client/shared/skyline-scale.js), which the windshield now reads too):
+  facades shaded from bays and storeys with lit windows, streets from each road tile's arms,
+  cobra-head sodium lamps with pools of light, beacons on the tall roofs, the Curtain in
+  `curtain.js`'s own look, red rock past the walls and the bay past the shore. The park has its
+  outside too: a brick wall along its outline with a lit arcade, the club level's windows and
+  the steel tier, flags along the grandstand, and the venue's `name` lit over the main gate.
+  The towers reach the city through a narrower beam, so the field stays the brightest thing in
+  the picture.
+
+**How the venue reaches a viewer.** Like the clubs, it never rides a payload. A game's first
+payload (and a late tuner's catch-up) carries `venueRev`, a short stamp of the venue as the
+server would send it. A client without that revision sends `tv_venue` once
+([venue.js](../client/game/js/panels/venue.js)), and the plugin answers with `{ type:
+'tv_venue', sport, rev, venue }`: the content's venue (`site`, the city's art direction in
+`city`, `name`) with `skyline`, built from the in-memory map by
+[server/engine/skyline.js](../server/engine/skyline.js) over
+[client/shared/skyline-manifest.js](../client/shared/skyline-manifest.js): the buildings
+within 40 tiles of the site and the edges round it, a Curtain line or a shore per side. It's
+about 18 KB, 5 KB gzipped, kept ten minutes on the server and in `localStorage`
+(`thomas.venue.<sport>`) on the client. The cold open's flythrough reads the same building rows.
+
+**The city's art direction** is `sports_pools.venue.city` on the Deadball row: `styles` maps a
+building type to a facade style (glass, concrete, brick, ribbon, works, farm, stone, ruin,
+chrome), and `quarters` are tile rectangles, first match wins, each with the style for its tall
+and low buildings, `all` to dress a whole quarter alike (Old Coldwater's ruin), and the styles
+and floors of its filler. `tallFloors` is where tall starts.
+
+**The picture's quality.** [diamond/quality.js](../client/game/js/panels/diamond/quality.js) sets
+what the park draws. A phone-class screen (a coarse pointer and a short side under 600 CSS pixels,
+GLASS's own rule; `architect_gl_tier` set to `'full'` opts out, as it does for the windshield)
+starts on the phone tier: one device pixel, no multisampling, shadows, occlusion or lens, three
+fans in ten, none of the city's searchlights or smoke, only the spectacle's trails, and no birds or
+camera flashes. Anything else starts on the full tier, and the view's governor takes it down a rung
+each 1.2 s its frames average slower than 24 ms: the lens to 12 taps, the occlusion to quarter
+size, two towers' shadows, three fans in five, no multisampling, the city without its smoke and the
+spectacle with half its particles, then the resolution a step at a time down to one device pixel.
+After 8 s of frames quicker than 18 ms it steps back up, and each time it comes back to a rung the
+next return waits twice as long. It only counts frames that run back to back, so a hidden tab or
+a rest between plays changes nothing. The players have no lower level yet. The sandbox takes
+`?tier=`.
+
+Frames run while an at-bat or a play on the bases plays and stop once everyone's at rest, so the
+GPU idles between them. The count goes up as the director decides each pitch, and the booth's
+held line and any card go up when the play lands (`onLand`): the umpire's call on a called third
+strike, the ball in the mitt, the ball hitting the batter, or a ball put in play settled: the out
+at first called, the catch made, a hit back in from the outfield with the batter on the bag; on
+the bases, the base umpire's call, or every man on his bag after a pitch that got by. A line
+comes just before its payload; one that arrives while the
+last play is still in the air (a hidden tab stops the frames) lands that play first, and a
+timer lands a play whose frames have stopped. A changeover has nothing to land, so its line goes
+up a beat in.
+`scripts/shapes/ballpark-smoke.mjs` builds the park from the defaults and from a venue of its
+own, holds every shot's matrices to its pinhole on three screen shapes, reads the board's lamps,
+checks the fallback, fits each tower's shadow map to the shot, reads depth back through the
+occlusion's constants, holds the lens sharp at its focus, builds every pose for both hands,
+places a cast, holds every face pick steady and every cap, helmet and mask clear of the brow,
+the ears and the eyes, keeps a runner's body from bag to bag, and lays the graphics out on the wall TV's, the tablet's and the
+sandbox's screens with and without the tube glass: everything inside the frame, nothing under
+6 px or cut short for the script's longest names, no panel over another, and checks the outer
+wall faces out all round with the sign outside it. `scripts/shapes/cityscape-smoke.mjs`
+composes the set from the content tree's skyline and builds the city: every building placed
+and resolved to a shape, none inside the park, bearings held, the edges on tile lines, every
+road tile drawn from its arms, nothing tall beside a street-level camera, and no region named
+in the engine files. `scripts/shapes/anim-smoke.mjs` skins the players on the CPU with the
+shader's own sum and holds every pose to the posed build's surface, the head vertex for vertex
+and the hands on the bat; then it plays every clip, holding each frame to what a body can do,
+the planted feet still (on the ground he started on, for a clip that travels), a travelling
+clip's frame no faster than a sprint, the hands on the bat, the glove to the ball across the box
+its catch covers and the ball leaving the hand at its fastest, and fails a stale `clips.js`.
+`scripts/shapes/diamond-smoke.mjs` stages two sim v2 games at a short hold and a long one: every
+pitch through the plate within 0.05 ft of its spot, every clip on its event as the ball arrives,
+the mitt and the bat's barrel on the ball with both hands on the bat, the joints inside their
+limits, each at-bat ending as the sim ended it, `onLand` on time inside the budget with the count
+done by then. Every ball in play has each catch's clip on its catch with the glove on the ball
+and the fielder inside his joints, each throw out of the thrower's hand, the call at first
+agreeing with the ball and the batter, nobody moving faster than 52 ft/s outside a cut, the ball
+above the grass and never faster than the hardest-hit ball, and the high camera keeping it in
+frame. Every man on the bases goes over every bag on his way, is on his bag by the landing and
+stands on it at the end, a man forced out gets there after the ball and one safe at a bag a throw
+goes to gets there first, no two men come within 2.5 ft of each other, and the runs that cross
+the plate are the play's, after ball four too; a runner's legs in the picture are the sim's
+(play.js legsOf against speedOf). After a third out everyone ends by his own dugout and nobody
+comes within 2 ft of anybody going off; at every changeover each man ends where he plays, nobody
+moves faster than 52 ft/s, and every warm-up leaves the pitcher's hand and meets the catcher's
+mitt. Every play on the bases in the game, and the first of each kind it hasn't got from the
+games after it, has the delivery and the pop on the card's clocks (0.01 s), the throw out of the
+hand and into the cover man's glove, the pitch in the mitt, the call agreeing with the slide and
+the tag, the runner's hand or foot on the bag at his touch, a pitch that got by picked up where it
+stopped, and at the end a man safe on his bag, the man who took the throw off it and no two men
+within 2 ft; a third out on the bases (the game's, or the next games' first) takes everyone off
+to his own dugout without a jump or two men within 2 ft. Every home run, ball hit hard and
+walk-off (a home run and a walk-off borrowed from the next games when the game has none) has the
+right tail, sparks and shells, every shell over the outfield with its sparks above the stands and
+inside the wide shot's frame, never more than three shells in a second, the home-run camera
+keeping the ball in its frame from inside the park, the cuts in order, and none of it with reduced
+motion on. Every ball in play is staged again with reduced motion: every camera holds still and the
+ball is in the frame of the still that's up as each flight ends. Every play that earns a replay
+(and a triple, a walk-off that isn't a home run and a triple play from the next games) is staged
+again in a world of its own and is the same play to a micron, with its moment in its camera's
+frame. It feeds the view with a recording renderer to hold each line until its play
+lands, a play on the bases among them with its steal card, and leaves out one at-bat that moves
+the bags, as the booth does, to open the next on the cutaway because its bags differ from the
+picture's; its live text says every pitch in order and the booth's line, says nothing with Play by
+Play off, and its board has the leaders' table between innings; and a home run with room in its
+hold plays its replay at 0.4 of the live clock with its bug up and its camera on, the live camera
+back after, and with reduced motion holds a still of the moment instead. `gameday-smoke` checks the 2-D
+view's live text the same way. The sandbox page takes
+`?park=3d`, `?play=inplay` (balls in play only), `?play=bases` (the plays on the bases), `?shot=`, `?bug=`, `?po=1` (the final's
+dressing), `?hud=0` (the picture alone), `?city=0`, `?hold=` (each line's hold in milliseconds,
+35000 by default) and `?speed=` (0.25 for a slow look, 0 to stop the park's clock); its city comes from the flight sim's
+baked world, so it can trail the live map by a bake. [tools/sandbox/deadball-shots.mjs](../tools/sandbox/deadball-shots.mjs)
+takes the page headless and screenshots a slot's plays at the moments the director logs (each
+pitch, the catch, the throw, the tag, the landing and after), so the picture can be checked with
+nobody at the keyboard. The renderer's traps are in [glass-notes.md](reference/glass-notes.md#the-ballpark-glballparkjs).
+
+### Sim v2
+
+`simGameV2` in [sports/baseball.js](../plugins/broadcast/sports/baseball.js) adds the plays v1
+never had: errors, hit batters, steals and caught stealing, pickoffs and the throw over a runner
+beats back, double steals, wild pitches and passed balls. Per team a game it comes to about 0.9
+steal tries (68% safe), 0.4 errors, 0.4 hit batters, 0.2 wild pitches and 0.05 passed balls,
+measured over 3,000 games, and scoring stays within 1% of v1, because an error comes out of the
+single's share of the at-bat table and a hit batter out of the walk's.
+
+- **It's v1's game with named runners.** Every draw v1 makes, v2 makes in the same order from
+  the same stream, and every new decision draws from a stream seeded from the game's seed, so
+  with its new plays off (`SIM_V2_OFF`) a v2 game is the v1 game play for play. Regress checks
+  that over 300 games. The one other change: the home nine start one name further into the
+  shuffled pool, because in v1 the home leadoff man shares the away pitcher's name.
+- **A runner's legs, a catcher's arm and a pitcher's quickness** come from their names, as
+  handedness does, and decide steals. The catcher is the seventh lineup slot
+  (`LINEUP_POSITIONS`).
+- **The beats.** An at-bat carries `runs` (scored on the play), `runners` (the names on the bags
+  after it) and `moves` with names, and `rbi` is the true RBI: none on an error or a double play.
+  Two kinds are new, `hitbypitch` and `error` (with `fielder` and `errorType`). A play on the
+  bases is a beat of type `run` with `runner` and `base`; one that makes the third out ends the
+  half with the batter still up, and he leads off the next inning.
+- **The payloads.** A play on the bases is a `phase: 'run'` payload with its moves and no
+  pitches, an at-bat passes the sim's moves through, and the line counts errors (`eAway`,
+  `eHome`) for the 2-D view's E column. A v1 game's payloads are byte for byte what they were.
+- **The booth.** The new plays have pools of their own (see
+  [bsm-format.md](bsm-format.md)), and the tokens `{runner}`, `{base}` and `{fielder}` come from
+  the sport's `playTokens`. A throw over is colour; everything else on the bases is called.
+- **The hitting race.** A hit batter is a plate appearance and no at-bat; an error is an at-bat
+  with no hit.
+- **The steals and the pitchers.** The same walk over the beats (`foldGame` in `baseball.js`)
+  counts each man's steals and caught stealings, and each pitcher's wins, losses, outs, earned
+  runs and strikeouts. On a double steal with a man thrown out nobody is credited with a steal.
+  Each side's pitcher goes the distance, so the winning side's takes the win. A run is unearned
+  when it scores on an error or a passed ball, when the man scoring reached on an error, or when
+  the errors, counted as outs, would already have ended the inning. The `standings` command and
+  the tablet's Sports app show the steals and strikeout races.
+
+**The switch.** A game that has aired must replay as it aired, so v2 plays from a slot the
+server records once, not from a slot written into content: the slot comes from the in-game clock,
+which lives in the database and staff can skip, so nothing outside the server could check one.
+`@sim 2` in `baseball.bsm` compiles to `sports_pools.sim.version`. The heartbeat
+(`recordSimSwitches`) sees it and writes `{ from }` to the world flag `sports_sim_v2:baseball`:
+the first slot of the next in-game day, which is in the future when it's written. A script that
+stops asking gets `until`, the same way. `sportsGameForSlot` reads the record (loaded at startup,
+before any game is simulated) through `simVersionFor` and plays the slot's version. A version
+that has played and ended can't be switched back on; one switched off before its first slot can.
+world_flags is runtime state, so a deploy never rewrites the record.
+
 ### The sport registry
 
 `SPORTS = { baseball, hockey }` in [plugins/broadcast/index.js](../plugins/broadcast/index.js),
@@ -837,9 +1365,11 @@ so a narrator cannot read the other league's records.
   stable, disjoint six by sorting the league and shuffling the pool with a fixed seed —
   a pure function of the *league*, not the game, stored nowhere. The pool must hold at
   least `clubs × 6` names (regress asserts it); below that it degrades to sharing men.
-- **Clubs differ.** `clubProfile(name)` derives shooting / goaltending / discipline /
-  violence + a colour pair from the club NAME, then **nudges by keyword** — a club called
+- **Clubs differ.** `clubProfile(name, identity)` derives shooting / goaltending /
+  discipline / violence from the club NAME, then **nudges by keyword** — a club called
   the Goons cannot come out as the league's gentlest side because its name hashed low.
+  Its colour pair comes from the club's authored identity (below), or from the name's
+  hash for a club nobody has dressed.
   Measured over 480 games: the most-penalised club takes ~341 to the least's ~121, with
   goals/game holding at ~6.4.
 - **Every club has exactly one rival**, `rivalOf(team, teams)`, derived from the league
@@ -850,9 +1380,10 @@ so a narrator cannot read the other league's records.
   red `hockeyrivalry` pre-game card, and a persistent chip on both the score bug and the
   rink header, so someone joining in the second period can see why the penalty count
   looks like that.
-- **Barn colour.** Booth chatter looks for `chatter.<first word of the home club>` and
-  falls back to the general `chatter` pool — authoring a building is optional, and a club
-  with nothing written behaves exactly as before. Ashway, Docks and Longwatch have one.
+- **Barn colour.** Half the booth's chatter is about the building: it draws from
+  `chatter.<first word of the home club>` (falling back to the general pool when a club
+  has none), and the other half from the general `chatter` pool, so the league-wide lines
+  still get heard. Every club has a barn pool; the District 9 Goons' is `chatter.district`.
 - **Every barn's horn is its own.** The goal horn is seeded from a hash of the scoring
   club's name (`hornSeed` on the payload) through the soundset's existing `variant()`,
   so no per-club audio is authored and a barn sounds like itself forever.
@@ -874,6 +1405,88 @@ so a narrator cannot read the other league's records.
 - **Intermissions.** Between periods the broadcast reads the period back: scoring
   summary, shot clock, penalties, casualties. Every number is counted from beats already
   aired, so an intermission can't disagree with the game. **No intermission in overtime.**
+- **Every play is called, in short lines.** Every shot, draw, hit, fight and casualty
+  reaches the air, as lines that follow the play the way the rink shows it: the rush touch
+  by touch (`rushNames` on the beat says who each carrier index is), the release, the
+  save, the draw and who won it, each punch, the hit as it lands. The `pbp.*` pools hold
+  them, and 80% are eight words or fewer, so a screen reader finishes one before the next
+  arrives. The longer pools ride along as colour. A game generates about 1,150 lines and airs about 1,000 in an hour slot.
+- **What the rink shows after the play is called too.** The drop of every draw, where a
+  saved puck went (held, kicked to the corner, loose in the slot, rattled off the post),
+  the lamp, the scorer wheeling away, the pile-on and the goalie's slump, the glass a hit
+  bends or breaks, a helmet off, a stick loose, a man who stays down, the fighters
+  tying up and going to the box, teammates round an injured man, the stretcher, the
+  goalie heading for the bench, the Zamboni coming on. Where the rink would otherwise
+  roll its own dice the narrator decides and the payload carries it (`shatter`,
+  `helmetOff` on a hit, `helmets` in a fight), so the line that says the glass went is the
+  hit the rink breaks it on.
+- **A line holds as long as it takes to hear.** Other sports give every line the same
+  hold. Hockey sets `paceCalls` on its module, and the assembler hands it the game's lines
+  instead ([hockey-pacing.js](../plugins/broadcast/sports/hockey-pacing.js)): 95 ms a
+  character over a short floor, the read-aloud voice's own pace, then scaled to fill 85%
+  of the slot, no tighter than 0.8 (about 76 ms a character). A slot that can't fit the
+  game cuts lines the narrator marked optional: colour first (`opt: 'colour'`), then
+  optional calls of the play (`opt: true`), longest first within each, and as a last
+  resort compresses the holds. The line carrying a payload is never cut. An hour on the
+  default clock cuts none in most games and a handful of colour lines in the busiest.
+- **The picture moves when the words do.** The narrator tags a line with the moment of
+  play it describes (`cue`: a touch, the release, the drop and the won draw, the impact,
+  the clinch, a punch, the walk to the box, the medics). The pacer turns those into `cues` on the payload, in ms from the start of the
+  payload's line, and the director does each thing as its line airs. A rush plays only
+  the touches the booth calls, and one running behind its lines catches up rather than
+  letting the words get ahead.
+
+### The CPhL's clubs (as built)
+
+Eight clubs, every one a neighbourhood side. None is named for or tied to an order or a
+corp ([systems-ideologies.md](systems-ideologies.md), [systems-corps.md](systems-corps.md)),
+which is why the Longwatch Goons became the District 9 Goons and the Government Whips and
+Civic Center Wardens went.
+
+| Club | Home | Colours | Crest |
+|---|---|---|---|
+| Westside Warlords | the Glasshouse | black and gold | a W of two bazookas and two rifles inside a gem-set bezel; the same stones run along the sweater stripe |
+| Boomtown Bulldogs | the Rust Quarter | orange and black | a scowling bulldog with heavy jowls and a bone in its jaws, bursting out of a rusted cog, chain collar, dog tags stamped RC |
+| Marquee Marauders | the Marquee | navy and white | a great helm with a plume on a heater shield |
+| Coldwater Highlanders | the Marrow | the Malcolm tartan | a roaring ginger highlander in the Malcolm kilt and sash, woad on half his face, stick raised overhead like a claymore, on a tartan ring |
+| District 9 Goons | District 9 | bruise purple and bone | a taped, bloodied fist in an octagon, D9 in marker on the tape |
+| Docks Boarders | the Docks | teal and navy | an anchor over crossed sticks in a rope ring |
+| Ashway Zambonis | the Ashway | ash grey and hi-vis lime | an ice resurfacer laying fresh ice, on a haul-road plate |
+| Yards Icehaulers | the Yards | maroon and steel | ice tongs biting a block, on a hexagon |
+
+The Highlanders' tartan is the Malcolm sett as W. & A. Smith recorded it in 1850
+(`K/4 Y4 K4 G24 K24 DB24 R4 DB4 R4 DB24 K24 G24 K4 LB/4`, 344 threads), transcribed from
+the Tartan Dictionary and not yet checked against the Scottish Register of Tartans.
+
+**Where it lives.** The look of a club is content: `sports_pools.clubs` on the Cluster Puck
+broadcast row, keyed by club name, holding `district`, `home`, `colours`, `crest`,
+`kit.home`, `kit.road`, and `sett` or `gems` where a club has them. Its authoring source
+is [scripts/content/build-cphl-clubs.mjs](../scripts/content/build-cphl-clubs.mjs), which
+builds the crests from rules (the bezel's 24 stones, the chain's links, a weapon laid
+along a stroke) and writes `clubs` into the row and nothing else. Run it after editing a
+club; `--check` fails if the row is behind the script. `build-cluster-puck.mjs` carries
+`clubs` across when it rebuilds the row from the `.bsm`.
+
+The client side is engine: [club-crest.js](../client/game/js/panels/club-crest.js) knows
+no club. It keeps the set the server sent, draws a crest from layered paths as inline SVG
+(`crestSvg`) or onto a canvas (`paintCrest`, Path2D), and weaves a sett from its ticket.
+A crest is `{ box: 100, layers, small }`: `small` is a simpler drawing used under 34px,
+because the full one turns to mush in a score bug. A layer's fill can be `'sett'`.
+
+**How it reaches a viewer.** Payloads never carry the set. Every hockey score bug and
+gameday payload carries `clubsRev`, a short stamp of it (`clubsRevOf`). A client without
+that revision sends `tv_clubs` once; the plugin answers with `{ type: 'tv_clubs', sport,
+rev, clubs }` (about 50 KB), and the client keeps it in memory and in `localStorage` for
+the next visit.
+
+**Where the look shows.** Score bug and both standings tables (crest beside the name),
+the matchup, rivalry, Cup, goal and fight cards, Rinkside's header, jumbotron cards,
+intermission board and fight HUD. `kitFor` in `director.js` dresses a side in its club's
+authored kit (home at home, road away). GLASS 2's jersey atlas paints the kit's hem bands,
+yoke, crest (the small drawing), number colours, the Warlords' gem row and the
+Highlanders' tartan body; `arena-mesh.js` takes the kit's sleeve and sock bands; the 2-D
+`figure.js` takes the bands, number colours and crest decal. Centre ice still carries the
+CPhL mark.
 
 ### Leagues (`sportsleague`)
 
@@ -892,388 +1505,263 @@ into belongs to the sport module (`SEASON` in `sports/<name>.js`):
 A postseason takeover applies **only to its own sport** (`overrideFor(script)`) —
 handing the World Series' finalists to the hockey sim would put two ballclubs on the ice.
 
-### The rink sub-screen
+### The rink sub-screen (Rinkside, as built)
 
 [client/game/js/panels/gameday-rink.js](../client/game/js/panels/gameday-rink.js) is the
-hockey analogue of the Deadball diamond, with the identical
-`{ apply, clear, setCaption, showIdle, showCard }` interface — which is the only reason
-tv.js can pick a view by `gd.sport` and change nothing else. Both TV surfaces (CRT and
-tablet) get it, since both drive the same `createTvView`.
+CPhL sub-screen. It keeps the Deadball view's interface (`apply`, `clear`, `setCaption`,
+`showIdle`, `showCard`), so tv.js picks a view by sport and nothing else changes. The file
+is the shell: the header, the strip, the caption, the jumbotron cards, the intermission
+board, the sound mapping and the frame loop. The work is in `client/game/js/panels/rink/`:
 
-Two facts fell out of the sim and the whole view is built on them: the possession
-keyframes are already in rink coordinates, and **a goal's final keyframe (x≈0.955) is
-past the goal line the view draws (0.925)** — so the puck visibly crosses, *then* reaches
-the mesh at 0.975, which bulges. Regress asserts every simulated goal crosses. The goalie
-is an articulated SVG (mask, chest, blocker, trapper, two pads, stick) with a pose per
-save type, because every save in the sim is a *different* save.
+| File | What it holds |
+|---|---|
+| `geo.js` | The sheet in feet: 200 by 85, goal lines at 11 and 189, blue lines, dots, boards as segments, 24 far glass panels. `GEO` and `DOTS` in model units for the broadcast regress. |
+| `sim.js` | The world, stepped at 120 Hz: skaters, goalies, officials, medics, the puck, debris, severed limbs, particles, the glass, the Zamboni. Between beats it plays cosmetic hockey. |
+| `director.js` | One payload in, choreography out. `SAVE` and `kitFor` live here. |
+| `camera.js` | The broadcast camera both renderers draw through: its modes, the easing, the projection `P`, and `matrices()`, the same camera as GL matrices. |
+| `render.js` | The 2-D renderer: Mode-7 ice, the bowl, the boards, the reflections, the overlays. The fallback when there's no WebGL2. |
+| `hud.js` | What both renderers share besides the camera: the officials' and medics' kits, `bodyOpts`, the fight pips, the banner and the REPLAY bug. |
+| `replay.js` | The instant replay: the last ten seconds of what the renderers draw, and the stand-in world they draw from while it plays. |
+| `rig.js` | The 21-joint skeleton: skating strides, shots, passes, dekes, checks, punches, goalie saves, ragdolls, the stick solver. |
+| `figure.js` | Bodies drawn as volumes: tapered limbs, a padded torso, kit, cage or visor, gloves, skates, blood. |
+| `textures.js` | The ice canvas and everything painted into it, the dasherboard ads and the crowd. |
+| `../gl/arena.js` | The GLASS 2 renderer (WebGL2), the one the view prefers. See *Two renderers* below. |
+| `../gl/arena-mesh.js` | Bodies, nets, the Zamboni, the puck, debris and limbs as triangles, built each frame from the joints. Pure, so the smoke gate runs it in node. |
 
-**The sheet stands up and the camera chases the puck** (NHL '94's answer to the same
-problem). A whole 200×85 rink drawn end-to-end across a landscape panel puts every man at
-three pixels; instead the ice is drawn TALL and LARGER THAN THE VIEWPORT, and `.gdr-cam`
-slides under a clipping window to keep the puck in frame. Three elements, three jobs:
-`.gdr-rink` clips, `.gdr-cam` slides, `.gdr-sheet` is the coordinate space every token is
-positioned against — so no token knows the camera exists. **The model frame never
-rotates:** the sim's `x`-along/`y`-across coordinates, GEO and DOTS are untouched and
-standing the picture up is a projection (`_sx`/`_sy`) applied at the very edge. Rotating
-the model instead would mean reinterpreting every coordinate the server sends. The sheet
-SVG is authored at the real 85×200, so a faceoff circle is a *circle*; the CSS
-`aspect-ratio` on `.gdr-cam` is derived from that and **must stay in step with it** or
-every circle on the ice becomes an egg.
+**Frames.** The sim's payloads speak fractions of the sheet (`x` along it, `y` across it);
+`geo.js` converts to feet once. `y = 0` is the camera side. The away club attacks `+x`
+every period, which is how `synthPossession` writes its keyframes, and a goal's last
+keyframe (`x` ≈ 0.955) lies past `GEO.goalLine[1]`, which the broadcast regress asserts.
 
-**The ice is never still.** A beat lands about every ten seconds; the view used to
-animate it and then hold its last frame for the other nine, which reads as a photograph
-of hockey. A rAF loop now owns every token — ten skaters (numbered, with sticks, five a
-side) hold a formation *relative to the puck*, and the puck keeps circulating through an
-idle flow between beats. **The idle flow decides nothing**: no shot, goal or stat ever
-comes out of it, because the only events that exist are the ones the sim decided.
+**Nothing on the ice decides anything.** The sim on the server decided every shot, save,
+hit, fight and injury before the broadcast began. Between beats the world plays hockey on
+its own (carries, cycles, passes, dekes, dump-ins, rub-outs, a goalie playing it to his
+defence), and that hockey never shoots. A net lets a puck in only through its mouth and
+only while `W.allowGoal` names it, which the director sets for a goal and nothing else.
 
-Four rules the motion is built on, each fixing something that was visibly wrong:
+**What the director stages.** Each payload type has a stager. Each one takes the men and
+the puck it needs, walks them through the beat and hands them back to the ambient play.
 
-- **`ROLES` depths are bounded by the CAMERA, not by realism.** A real five-man unit
-  spreads over half a zone; drawn at that spread the forwards and the defence were 0.26
-  of the sheet apart — *wider than the viewport* — so one team was always entirely
-  off-screen. Both teams now occupy about half the visible window.
-- **A beat is a CUT.** `_snapFormation` places every man in the formation the opening
-  keyframe implies before the first frame — including for beats with no possession
-  chain (a hit, a fight, a death), which is what stopped a man being *killed off-camera
-  on an empty sheet* while the rink greyed out around nobody.
-- **The camera is a DEADZONE, not a spring.** Easing toward the puck every frame gives
-  you either a camera that whips on every pass or one a rush outruns. It now holds still
-  while the puck is anywhere mid-picture and follows only the amount by which it has
-  left that band, with a hard leash — and it may overscroll a little past each end, so
-  the net isn't jammed into the last few pixels exactly when you need to see it.
-- **Each kind of touch moves differently.** A carry travels at the skater's pace with
-  him; a **pass** is twice as fast, straight, and belongs to *nobody* while it's in the
-  air (the receiver becomes the carrier on arrival); a **shot** is preceded by a wind-up
-  where he plants and the puck sits still. Skaters are clamped out of the goalmouth, or
-  the carrier follows the puck's final keyframe *into the net* and stands there holding
-  it.
+- *Chances and goals* play the possession keyframes: carries, passes to the man who carries
+  the next touch, battles and dump-ins chased down, dekes past a man standing the carrier
+  up. With cues on the payload each called touch happens as its line airs; without them a
+  rush starts late when the whole chain would run past about five seconds. The shot is the sim's `shotType` with its own
+  wind-up; a one-timer and a tip are fed by a teammate. Where the puck goes comes from the
+  outcome: into the net for a goal, into the glove, the chest, the pad, off the post, wide,
+  into a defender who drops to block it, or poked off the stick on a breakaway.
+- *Faceoffs* line both sides up on the named dot, put the two named centres on it, and
+  have the linesman drop the puck. The winner draws it back to his defence.
+- *Boards hits* happen on the far wall, where the glass is in shot, in the sim's
+  `hitStyle`: shoulder, glass (which can break a pane), from behind, hip check, elbow.
+  The man hit becomes a ragdoll, so where and how hard he meets the boards decides how he
+  falls. A man who is hurt stays down, with play stopped, until the injury beat comes.
+- *Injuries* bring two medics out with a stretcher. A severed limb comes off at the hit.
+- *Fights* drop the gloves on the ice, cut to a side-on close-up with a health bar per
+  man, and throw the sim's exchange punch for punch. The ending is the sim's: a
+  knockdown, the sweater over the head, or the linesmen. Both men skate to the box and the
+  spare comes on.
+- *A death* drains the colour out of the picture, silences the crowd, pushes the camera in
+  slowly, and the players take their helmets off.
+- *Scrums*, *the pulled goalie* (he skates to the bench and a sixth skater comes on) and
+  *the intermission* (everyone off, the Zamboni on) each have their own.
 
-**The violence reaches the ice.** `boards`, `injury`, `death` and `scrum` used to carry no
-gameday payload at all, so the announcer described a man going through the glass over a
-still picture — the league's whole character happening off-screen. They now ride the same
-payload, carrying `victim`/`hitter` (a `boards` beat) or `player` (an `injury` or a
-`death`), each with the club's **name** — `victimTeam`/`hitterTeam`/`teamName`.
+`onLand` fires the moment the play lands and is when a held caption and any held card go
+up. A payload with cues is the first line of a play called as it happens, so its line is
+never held. A walk to the box or a stretcher on its way off outlives the beat that started it;
+a camera cut finishes it on the spot, since nobody sees the jump. Names go on bodies the
+first time a payload mentions them, and the number comes from the name, so every viewer
+sees the same sweater. The home club wears its colour and the road club wears white with
+its colour as trim, which keeps two dark clubs apart.
 
-The **narrator** — not the sim — derives `victimSide`/`hitterSide` onto the gameday
-payload from those names (`'att'` is always the away club), which is the tag the view
-reads and the broadcast regress enforces. The view falls back to matching the club name
-against the payload's own `awayTeam`/`homeTeam` if the tag is ever absent, and the smoke
-fixtures now carry **the sim's real field names** (`player`/`teamName` on an injury or a
-death, `victim`/`victimTeam` on a hit) so a fixture cannot quietly disagree with the
-payload the view actually receives.
+**The puck never jumps to a stick.** Possession only passes within reach of the blade
+(3 ft). `W.give(b)` on a puck farther off than that calls `W.collect(b)` instead: with
+`drive`, a scripted man skates to it (easing up so he meets it rather than overruns it)
+and it's swept in over the last few feet; without, it slides to his blade like a pass,
+never faster than 55 ft/s. A pass that misses its man is collected the same way, a man
+moved away from his own puck loses it to a collect, and the carry leash, the skate
+keep-out and the goalie's catch are all speed-capped. Only a caller that has just moved
+the puck under a camera cut passes `force`. The director plays nothing in a rush until
+the man it needs actually has the puck (a `fetch` leg), a dump is aimed at the next touch
+and bleeds speed to settle there (`W.settleAt`), the nearest teammate chases it, and a
+missed goal is steered in through the mouth rather than placed in the net. The booth
+covers the time: a rush off a loose puck opens with `pbp.retrieve` (the breakout follows
+on the `fetched` cue), and a dump or battle is followed by `pbp.chase`. The rink smoke
+fails on any visible step of the puck over 1.6 ft outside a cut and any gain from beyond
+reach.
 
-**Loose things are simulated; decided things are not.** This is the line the rink is
-built on. Everything the sim decided — the carry, the pass, the shot, the outcome —
-arrives as keyframes and is interpolated, because those are facts and a view may not
-re-derive a fact. But *where a rebound ends up* was never a fact: the sim says "pad
-save", not where the puck went. That used to be one more straight lerp to a hand-picked
-resting spot, which is why every rebound in the league died in a gentle diagonal and no
-puck had ever touched the boards.
+**Positions and plays.** Between beats, and around whoever the director is scripting, the
+men play their positions (`assignRoles` and `systemSpot` in sim.js). On the rush the
+wingers are wide in their lanes and stay onside, the centre supports through the middle,
+and the D trail. In the zone the D hold the points (a D carrying it walks the line), one
+forward goes to the net, the nearest supports low and the third sits in the high slot. In
+their own end the strong-side D takes the corner, the other holds the front of the net, the
+centre covers low and the wingers take the points; through the neutral zone it's a 1-2-2.
+Passing follows the zone: back to the points, D to D and low to high in the zone, the
+stretch pass to a winger through the middle. A drop pass is only for a man right behind;
+farther back the pass is played firmly. In a scripted rush, a touch goes to the man in that
+slot unless he's out of the play (40 ft off), when the nearest teammate takes it and the
+name the booth gives it. The booth calls up to five touches of a near-miss or a goal and
+three of a routine chance, so the build-up is on air as well as on the ice.
 
-Aftermath is **integrated** instead — velocity, ice friction, and dashers that give some
-of it back (`_stepFree`). Velocities are feet per second on the real 85×200 sheet, the
-only frame in which a bounce angle is correct; the two axes convert separately on the way
-back into model units, or a puck off the end boards leaves at the wrong angle. A post
-ricochets sideways at nearly shot speed; a wide shot *carries on into the end boards and
-comes back out*, which is why a missed shot is still a chance ten feet later. Nothing
-from here can change an outcome — the puck is already dead in the sim's ledger by the
-time it is given a velocity — so a carom is free to be genuinely unpredictable.
+**Breakaways.** A breakaway chance, or a goal the narrator stages as one (`gd.breakaway`,
+about one even-strength goal in five), gets `pbp.breakaway` ("He's in alone!") on an
+`alone` cue. On it the rink puts up a BREAKAWAY banner with the shooter's name, moves the
+camera in (`W.cam.drama`), and has the nearest two defenders chase from behind and lose
+ground.
 
-**THE PICTURE IS 3/4, NOT PLAN — and that is the change everything else hangs off.** A
-pure top-down rink has one fatal problem no amount of paint fixes: a man skating toward
-the bottom of the screen is the same sprite rotated 180°, so his helmet is below his feet
-and his number is upside down. It reads as a bug even when it is geometrically perfect,
-because nobody has ever watched hockey from directly above. NHL '94/'96 never did it:
-they foreshortened the sheet and stood the players up on it.
+**Instant replay.** [replay.js](../client/game/js/panels/rink/replay.js) keeps the last ten
+seconds of what the renderers draw, thirty times a second: every man's joints and kit,
+the puck and its tail, the loose gear, the lamp. It keeps nothing of the sim, so a replay
+can't change anything; the world plays on underneath it. On a goal the booth says
+`pbp.replay.start` ("Let's see that again.") on a `replay` cue, then walks through it
+(`pbp.replay.assist` or `.solo`, `.shot`, `.goalie`). On the cue the director runs the five
+seconds before the goal and a moment after at half speed. The renderers draw the replay's
+stand-in world, interpolated between frames, through a camera of their own at ice level
+(`replay` mode), letterboxed with a REPLAY bug. It ends on its own or when the next play
+comes in, and cuts back to live. The rink smoke checks every goal's replay starts, plays
+sound frames, draws and hands back.
 
-`SHEET_TILT` (0.62) is that foreshortening, and it is applied by making the sheet's **box
-shorter**, never by transforming anything — which is precisely why the men, the puck and
-the debris keep their true size and stand up off the ice with no counter-transform
-anywhere. Two consequences look like bugs if you don't expect them and are both correct:
-the faceoff circles become **ellipses** (what a circle on a tilted plane is), and the
-visible band holds nearly twice as much of the rink's length. **`SHEET_TILT` and the
-`.gdr-cam` aspect-ratio must move together** — the CSS says so at the rule.
+**Motion.** A skater leans into acceleration and sits back under braking (`b.accel`), and a
+hard stop at speed turns him side-on into a proper hockey stop. Up close (GLASS 2's
+`detail`) a man has gauntlet gloves with finger rolls and a thumb, a ridged helmet with ear
+guards and a chin strap, shoulder caps and elbow pads under the sweater, a stripe down the
+pants, a tongue and tendon guard on the skates, a curved blade, and a shoulder yoke on the
+jersey; a goalie has a trapper.
 
-The skater is now **a standing figure that never rotates**. Heading became two discrete
-latched facts — which way he is mirrored, and whether you see his front or his back —
-plus a lean, so his helmet is above his blades wherever the play goes. Things swap on the
-`away` class, and each is real kit rather than a cartoon cue. **No face is ever drawn on
-him.**
+**A shot leaves a tail.** `W.shoot(from, tgt, spd, type)` starts `pk.tail`: the puck's
+last fifth of a second of flight, faded by speed. Both renderers draw it as a faint slate
+streak (a white one vanishes on the ice), strongest at the puck and strongest of all on a
+snap shot (`TAIL` in sim.js: snap 1, slap 0.75, one-timer 0.7, wrist 0.5).
 
-**The front and the back of a sweater share no ink at all**, which is what makes facing
-legible from the chest as well as the helmet. His **number is only on his back**; his
-chest carries the **club crest**. It used to be a number on both — two sizes of the same
-marking, telling a viewer nothing about which way he was pointed. The crest is **derived
-from the club name exactly as the sim derives its colours**: same input, same method, so a
-club's crest is its crest every night, nothing is authored per club, and no logo has to
-cross the wire for a cosmetic. It's printed the way a real crest is — the club's second
-colour as the field with the mark knocked out of it in the primary, which also means it
-can never come out the same value as the shirt it sits on.
+**The camera never yaws or rolls.** It pans, climbs, tilts and zooms, so every screen row
+is a line of constant depth across the sheet and the whole ice texture maps to the screen
+with one `drawImage` per row. It lives in `camera.js` so both renderers frame a shot the
+same way; `matrices()` writes it out by hand for GL, mirror included.
 
-The other half is the **full cage**, and it is the loudest facing cue on the figure. It
-was one thin arc, which at this size is a scratch on the helmet; a real cage is a bright
-bowl of bars over the whole face, and a bright bowl on one side of a head is unmistakable
-at eleven pixels. The dark shell behind the bars is load-bearing — a cage is a shadow with
-metal in front of it, and without it the thing reads as a white blob stuck to his chin.
-The stick blade also sits lower on screen when it is nearer the camera.
+**The broadcast framing is NHL 99's.** High on the near side and close (44 ft back, 38 on
+a breakaway, so the players are big), panning with the puck and leading it well ahead the
+way it's going (three quarters of a second of its travel, up to 28 ft). When
+the play is within about 60 ft of a goal line, or the director says a shot is coming
+(`W.cam.net`, set when a rush reaches its shot leg and cleared when the beat ends), the
+camera widens and slides until that net is in frame with the puck. That framing is solved,
+not guessed: given the points that must be seen (the action, and the net when it matters),
+it slides across the ice and pulls back, up to 140 ft for a shot from centre, until every
+one projects inside the picture for the screen's own aspect ratio. Every number follows
+its target on a critically damped spring, on real time (`camera.update(w, h, now)`), so it
+starts and stops without a jolt and keeps moving through a hit-stop. The rail view widens
+its lens for a net in its zone and rises to the broadcast framing whenever a shot is
+coming. The rink smoke runs its own camera at 60 Hz in both views and fails if any shot is
+released, or arrives, with its net or the puck out of frame; the old camera missed the net
+on about 300 shots a game.
 
-**The figure is ASYMMETRIC, and that is what makes it three-quarter rather than
-straight-on.** Standing the men up and foreshortening the ice got the scene into 3/4, but
-the men themselves were still symmetric front-on sprites that mirrored — and a symmetric
-trapezoid can only ever be a man facing you, however the rest of him is drawn. Because
-`+x` is *always* the way he faces (the whole body mirrors), every asymmetry can be
-authored once and stays correct both ways. Four of them do the work: the **near shoulder**
-is further out and sits **lower** while the far one is pulled in and rides high, so the
-shoulder line **slopes**; the **head is offset** toward his facing and the skull is an egg
-rather than a ball; an **ear cup** sits on the far side of the helmet, a piece of kit that
-only exists on a head that is turned; and the far side of the chest falls into **shadow**.
-The far arm hangs off the higher, further shoulder and is drawn a size smaller, because it
-is further from the camera.
+Player motion is eased too: a skater turns into a new heading rather than stopping dead
+on it, two men who bump are eased apart over a few steps with their closing speed taken
+off, and a man pushed out of a net slides out. Fighters skate in to square up unless
+there's a cut. The view steps frames that arrive within 4 ms of the running average as
+the average, so vsync jitter doesn't make the 120 Hz world alternate one step and three. Its modes are broadcast, zoom, push (a goal), fight, death,
+and a framing that follows the Zamboni. `renderer.view = 'low'` puts it on the rail just
+inside the near glass at head height, which is where the reflections show best.
 
-**And he has a neck.** The helmet used to sit straight down on the shoulder line, so the
-head was simply the top of the torso — the single loudest reason the figures read flat.
-The neck is drawn before both the sweater and the head so only the sliver between them
-shows, which is all a neck ever is at this size.
+**The ice keeps the game.** It is one canvas, and things are painted into it as they
+happen: every skate stroke traced from where the blade actually is, a fan of snow at each
+hard stop, rubber where the puck hits the wall, blood, smears where a body or a limb slid.
+`ice.wear` climbs as the sheet is cut up. The renderer reflects the whole scene through a
+mirrored camera into a half-size canvas, which softens it, and fresh ice gives back much
+more of it than a worn sheet does, so the reflections dull over a period. The dasher ads
+hang upside down in the ice too.
 
-Proportions came from the reference directly, and three of them are load-bearing:
-he is about **2¼ shoulder-widths tall** (squat and top-heavy, not a stick man in a
-shirt); his legs are **bent and splayed** into a stance with the blades outside his own
-shoulders, because nobody in a hockey game stands to attention; and he carries a
-permanent **forward lean**, applied inside the mirror so it follows his facing for free.
-He also **reflects in the ice** — the same body flipped about his blades, squashed and
-faded — which is the cheapest thing in the whole picture that says *polished sheet*
-rather than *white background*. One gotcha worth knowing: the **lean is a rotate about his blades, never a `skewX`** — a
-shear slants a figure's verticals without moving its feet, which on a standing man
-visibly warps him.
+**Two renderers.** The view tries [gl/arena.js](../client/game/js/panels/gl/arena.js) first
+and falls back to `render.js` when there's no WebGL2, a shader won't build, the context is
+lost (the canvas is swapped for a fresh one and the 2-D renderer carries on), or the caller
+passes `renderer: '2d'`. The 2-D renderer paints each man as a few hundred gradient paths,
+twice with his reflection, and dropped frames on big hits. The arena draws the same world as
+lit triangles with a depth buffer:
 
-**The markings are PRINTED ON the sweater**, and getting that right took two goes. A
-mirrored numeral is a mirrored numeral — every man skating left wore his number backwards
-— so they were first moved *outside* the mirrored group. That fixed the numerals and
-broke something worse: outside the body they inherit none of its lean, ride or mirror, so
-they stayed pinned in space while the torso bobbed and leaned underneath them, and the
-number visibly slid around on the shirt.
+- Bodies are meshes from `arena-mesh.js`, rebuilt every frame from the 21 joints with
+  `figure.js`'s proportions: about 1,000 triangles for a man at broadcast distance and
+  2,000 close up, where the cage bars, eyes and blade tape come in. Each jersey is a slot
+  in one 1024² atlas (number and name on the back, crest, hem stripes, blood), painted once
+  per kit, number, name and blood level.
+- The ice is the same painted canvas, kept as a texture. `textures.js` lists the 125-texel
+  tiles each mark touches (`ice.dirty`), and the arena re-uploads only those.
+- The reflection is the boards, the props and the men drawn again through `matrices(C,
+  true)` into [gl/mirror.js](../client/game/js/panels/gl/mirror.js)'s half-size target. The
+  ice shader reads it back at its own screen position, stronger at grazing angles and on
+  wet ice, and works out the five light banks' highlights per pixel, so they streak towards
+  the camera the way they do on television.
+- The lamp, its red wash, the vignette, a death's darkening and the cut's flash are one
+  full-screen pass. Mourning desaturates in every shader. The HUD text is a 2-D canvas
+  (`.gdr-hud`) over the WebGL one, cleared and left alone while there's no HUD.
 
-They live **inside** the body now and cancel the mirror **locally**: `.gdr-sk-marks`
-translates to the middle of his chest — an anchor that is itself inside the body, so it
-travels to the chest of a *turned* figure — and `.gdr-sk-marks-flip` applies the same
-`scaleX` again about that point. Two mirrors compose to none, so the glyphs come out
-upright while everything carrying them stays fully mirrored, leaning and riding. Facing is
-a **custom property** (`--gdr-face`) rather than a written transform for exactly this
-reason: the same value is needed in three places — the body, the markings that cancel it,
-and the reflection's own copy of the whole body — and one property reaches all of them.
-`rink-smoke` counts **twenty** crests and numbers rather than ten, and that count *is* the
-assertion: the reflection duplicates everything the body carries, so ten would mean they
-had drifted back outside it.
+The frame governor in `gameday-rink.js` steps through the renderer's own `rungs`: for the
+arena, resolution, then the mirror's size, then the men in the reflection.
 
-**EIGHT HEADINGS OUT OF ONE DRAWING.** Mirroring alone gives a man two looks — facing left
-and facing right — so a team drifting up the ice was a row of profiles and "coming at the
-camera" was indistinguishable from "crossing in front of it". Screen heading `yaw` is
-measured from straight-away, and four separate numbers are derived from it, each driving a
-different part because **they do not agree with each other**:
+The Zamboni laps the sheet inside the boards, each lap a strip further in, then runs down
+the middle. Its conditioner paints a clean copy of the sheet back over its strip, so the
+lines and logos survive, and leaves a wet mask the renderer draws as darker, glossier ice
+that freezes off over about forty seconds. The next period starts on a fresh sheet
+whatever the Zamboni got through.
 
-| property | drives | max when |
-|---|---|---|
-| `--gdr-front` | mask width, crest↔number, **arms swinging round to the front** | facing camera |
-| `--gdr-side` | blade length and stride width — **the opposite of the torso** | profile |
-| `--gdr-stickyaw` | the stick swings low-and-forward ↔ high-and-behind | ±, zero in profile |
-| `--gdr-turn` | a whisper of body roll, and nothing else any more | facing camera **or** away |
+**Things that trip people up.**
 
-**A TURN IS LIMBS MOVING, NOT A SQUASHED SPRITE.** The first version of this scaled the
-whole figure horizontally, which is a cheap way to fake a heading and looks like precisely
-what it is. There is a full limb rig here, so the heading is now carried by the rig: the
-arms come round in front of his chest as he turns to face you and hang at his side in
-profile, the stride narrows, the mask widens on his face, the stick yaws and the blades
-foreshorten. Each limb therefore has **three** nested groups — `limb` (the authored
-pivot), `stance` (where it sits for this heading) and `joint` (what it is *doing*: stride,
-crossover, dangle, shot) — because a CSS animation always beats a static transform on the
-same element, so heading and action cannot share a group. That collision is the whole
-reason turning had been done by squashing in the first place.
+- `W.script` belongs to the director. Ambient hockey stands down while `W.puckScripted`
+  or `W.frozen` is set.
+- Kit colours must be hex. `figure.js` shades them with `parseInt`. That holds for a club's
+  authored kit and its bands too.
+- Anything that moves a man farther than he could skate should cut the camera, and a cut
+  finishes every outstanding walk-off and stretcher.
+- Cosmetic randomness is seeded from the payload. A `rand()` call added to the sim to
+  decorate a beat replays the whole season with different results.
+- The heavy modules (`textures.js`, `render.js`, `gl/arena.js`) load on first mount, so
+  tv.js's import of the view stays cheap.
+- A new kind of mark painted into the ice has to `touch` its tiles, or the GL sheet goes
+  stale while the 2-D one is right. `arena-smoke.mjs` checks each kind.
+- Don't upload a canvas sub-rectangle with `UNPACK_SKIP_PIXELS`/`ROWS`. It's in the WebGL2
+  spec, and headless Chromium on SwiftShader ignores the skips: every tile arrived as the
+  sheet's top-left corner. The arena copies a tile into a small canvas first.
+- Don't clip twice in `resurface`. The rink's rounded clip intersected with the strip's made
+  Chromium erase the whole sheet, on both renderers. The clean copy is transparent outside
+  the boards, so the strip's clip alone is enough.
+- The reflection leaves the crowd out, treads included: dim stands under a lit sheet read
+  as stripes, not as a reflection.
+- The arena draws with no face culling. The mesh builders don't keep one winding, and the
+  lit shader lights whichever side faces the eye.
 
-That last one is the trap worth naming: a skate blade is *not* the same shape problem as a
-chest. Drawn as fixed horizontal lines the blades pointed right whatever the man was
-doing, so somebody skating at the camera stood on two sideways skates. And the **mask used
-to hang off the side of the skull** — a cage seen edge-on, correct in profile and nonsense
-the moment a man skates straight at you. It is centred on the face now and widens with
-`--gdr-front`, so head-on you look into a full grey cage and in profile it narrows back to
-an edge. The dark field behind the bars carries as much of it as the bars do: a cage is a
-shadow with metal in front of it, and bars alone read as a white smear on his chin.
+**The booth calls the rush.** `describeRush` in [hockey.js](../plugins/broadcast/sports/hockey.js)
+reads the possession keyframes into one sentence, which rides the payload as `rush` and
+shows as a quiet strip under the score line. The spoken call is now the touch-by-touch
+lines above, read off the same keyframes and names, so neither can disagree with the
+picture.
 
-**A lean is something a body does, not something done to a bounding box.** This was a
-`skewX` (which shears a figure's verticals without moving its feet), then a whole-figure
-rotate — wrong the same way, because tipping a finished drawing reads as the *sprite*
-being tilted. It is nearly gone from the transform now; the weight of a turn is carried by
-the **crossover**, which is limbs moving at their joints.
+**Nothing calls a goal before it goes in.** A goal's beat carries the score after the
+goal, so the narrator gives the rush and shot lines a bug with the score before it
+(`scoreBefore`, also on the payload). The rink header shows that score and the strip reads
+LIVE until the director lands the play (`onLand`); then the header takes the goal and the
+strip names the result. Both smoke and regress check it.
 
-**The building.** The dashers carry **lit LED hoardings naming real Coldwater businesses** —
-Battery Acid Coffee, Grease Expectations, Cash & Carrion, Co-Pay & Pray — because the
-arena advertising the city you can actually walk around in is worth more than any invented
-sponsor. Every name is forced to its panel with `textLength`/`spacingAndGlyphs`, which is
-both what an LED board really does with a long name and the only reason
-"PERCUSSIVE MAINTENANCE" doesn't run off onto the ice. The bowl behind them is **denser and
-brighter at the ice and thins into the dark as it climbs** — that range, not the dot
-grids, is what makes a crowd read as depth — with sparse saturated points up in the gloom:
-four thousand people looking at their screens instead of the game.
+Branding lives in [cphl-brand.js](../client/game/js/panels/cphl-brand.js): one mark, drawn
+by the score bug, the full-screen graphics, the rink header, the idle screen and the
+Gameday toggle itself, which wears a puck on a hockey night and a baseball otherwise
+(`_brandGamedayBtn` in tv.js).
 
-**The puck is the most-looked-at object on the screen and is built like it.** It was a
-flat black circle 2.4% of the sheet wide — nearly two feet across, bigger than a man's
-chest, and drawn in plan on a surface that isn't. It is now a shade over a stick-blade
-wide (the object a viewer actually judges it against) and rendered as the **cylinder** it
-is: a top face that is an ellipse at the sheet's own 0.62 tilt, the vulcanised side wall
-below it, and a contact shadow so it sits *on* the ice rather than over it — which is
-also what makes it findable when it is moving fast. The size is deliberately generous:
-a true 3in puck on an 85ft sheet is 0.3% and invisible, so **don't "correct" it to
-reality.**
+[scripts/shapes/rink-smoke.mjs](../scripts/shapes/rink-smoke.mjs) runs in `pretest:regress`, as two gates, one game each (`rink-smoke.mjs 206` and `rink-smoke.mjs 25`), side by side; run bare, it plays both.
+It plays two real games (the sim and the narrator, slots 206 and 25, which between them
+emit every beat type) through the view over a hand-cranked DOM, clock and canvas
+([rink-dom-stub.mjs](../scripts/shapes/rink-dom-stub.mjs)). It checks that every beat
+resolves, every goal goes in and no save does, the faceoff is taken on the named dot by
+the named centres, a fight's loser ends with nothing left, a man carried off is gone, a
+death stops the building, the pulled goalie leaves an empty net and a sixth skater, the
+Zamboni lays wet ice and the next period starts on a fresh sheet. It proves the view runs
+and agrees with the sim, not that it looks right. The stub has no WebGL, so it drives the
+2-D renderer.
 
-**The stride is asymmetric, and always running.** Two things made the old one a shuffle,
-neither of them artwork. First it was a **sine** — `alternate` between two keyframes with
-`ease-in-out`, so the leg spent as long going out as coming back, at the same speed. A
-real stride is violent and lopsided: a hard fast push off the edge, then a long slow
-recovery gliding the foot back under. The cycle now spends ~16% of its period pushing and
-the rest recovering, and that ratio alone is most of the difference. Second it **switched
-on and off** at a speed threshold, so every man popped between an animated cycle and a
-frozen pose, legs snapping to neutral in one frame. Nothing is gated now: the cycle always
-runs and speed drives two custom properties instead — `--gdr-stride` (tempo) and
-`--gdr-amp` (a unitless degree count the keyframes multiply). A man barely moving runs a
-slow shallow version that reads as shifting his weight, and there is no threshold to pop
-across. **Both are quantised into coarse bands** — rewriting an animation's duration
-restarts it, so a smoothly accelerating man would twitch in place every frame otherwise.
-On top of the legs: the arms counter them a beat late, the body **rides** up on each push,
-and the head counters the ride so his eyes stay level. The ride lives on `.gdr-sk-body`
-rather than the flip group on purpose — the reflection wraps its own copy of that group in
-a `scale(1,-0.52)`, so it sinks exactly when he rises, for free.
-
-**They move WITH the puck.** The formation used to be the whole model: every man held a
-lane offset from the puck, so the puck could squirt into a corner and ten men would shade
-two feet sideways and carry on standing in a diamond. Jobs are now assigned every frame
-off each side's real distance to the puck — **chase** it when nobody owns it, **support**
-the man who does, **forecheck** the man who doesn't — and a man with a job skates harder
-than a man holding a lane, which is where "they move with the puck" is actually felt. The
-assignment is **sticky**: two men a hair apart would otherwise swap the job several times
-a second and throw each other back and forth. Lane `grip` went up across the board too;
-only the defence pair really holds position now, which is the one place holding position
-is the point.
-
-**Changing direction is a move, not a sign change.** Facing is three values now — a
-discrete `faceWant`, a continuous `faceBlend` that eases toward it, and the sign of the
-blend — and everything that positions a man reads **the blend**. That one indirection buys
-both halves of turning. A **carrier can switch stick side** again (he couldn't, because an
-instantaneous mirror teleported the blade to his other hip and dragged the puck through
-his skates on the way): his lateral offset now travels across over ~200 ms, so he **pulls
-the puck across his body**, and the mirror flips at the midpoint — exactly when the offset
-is zero and the blade is at his centre. That is precisely what `rink-smoke` asserts, since
-the flip instant is the one place the old bug was visible.
-
-And he **crosses over**. A skater changing direction at speed steps one skate over the
-other rather than swivelling. The **near** leg is the one that crosses — a drawing-order
-decision as much as an anatomical one, since SVG has no z-index and `legR` is emitted last,
-so it is the only leg that can pass in *front* of its partner. It's driven off the lean
-(already the turn rate) with a deliberate gap between the on and off thresholds, and it
-deliberately does **not** scale with `--gdr-amp`: a man crosses over the same way whether
-he's flat out or barely moving.
-
-**The puck rides on his blade, not under his boots.** A standing figure is anchored at his
-skates, so putting the carrier's own position on the puck drew every man in the league
-dribbling it with his feet. He is offset by `BLADE_REACH` instead — **derived from the
-artwork, not chosen** (the blade sits ~0.43 out from his spine in a viewBox drawn at the
-skater's own width, landing at ~3½ feet of stick), so **if the figure's width or the
-stick's length changes, that constant changes with them.** A carrier also **never turns
-around**: flipping him mid-rush swings the blade to his other side and drags the puck
-straight through his skates on the way.
-
-**Three things used to make men shake violently in place, and all three were thresholds.**
-Which way a man faces, whether you see his front or his back, and — loudest — the stride
-DURATION, because rewriting it *restarts* the animation, so a man sitting on a band
-boundary re-triggered his own stride every frame. The facing fix is the interesting one:
-hysteresis alone wasn't enough, because every man carries a slow cosine **wander** whose
-own peak lateral speed exceeds any threshold worth setting, so a man standing still was
-told he'd changed direction once a second. Facing is decided on a **700 ms low-passed**
-velocity now, which averages the wander away while leaving a real turn intact. Duration
-changes only on a two-band move; amplitude is safe to write freely because it's read
-*inside* the keyframes and re-resolves without restarting. `rink-smoke` measures this as
-a **worst one-second window per man** — a total says nothing, since over eight seconds of
-circulation men legitimately turn with the puck several times.
-
-**The stick has a wrist.** Welded to the shoulder it swung as one rigid spar, so every arm
-swing threw the blade through a huge arc and lifted it clean off the ice — the giveaway
-that it was a painted-on radius after all. It pivots at the **hands** now, inside the
-shoulder joint, and counter-rotates against the swing at a bit over half the amplitude:
-the arms drive it, the wrists absorb the throw, the blade stays down. It also **lags** the
-shoulder by a few percent of the cycle, which is most of what makes the limb read as a
-chain rather than one piece. A carrier's wrists do the actual dangling (at two-thirds the
-arm's period, so the two never line up the same way twice), and a shot **whips** — the
-blade lags going back, then overtakes the hands coming through.
-
-**The skater is a rig, and the rig is why limbs come off.** `LIMB` is the single table of
-what a man is made of: five named parts (`armR`, `armL`, `legL`, `legR`, `head`), each
-drawn *relative to its own pivot* and wrapped in a translate that puts the pivot at the
-shoulder, the hip, the neck. An SVG group's default `transform-origin` is 0,0 of its own
-user space, so after that translate the origin already **is** the joint — no
-`transform-box` guesswork, and nothing drifts when the figure is scaled.
-
-That buys two things at once. Animation: legs alternate about the hips, arms counter them
-about the shoulders, and **the stick belongs to the right arm** so it sweeps with the
-hands rather than being a painted-on radius — the NHL '96 read. A carrier's stickhandle
-overrides the stride (his hands work the puck whether or not his feet are moving) and a
-shot overrides both. Tempo is per-man: the loop writes `--gdr-stride` from his actual
-speed, quantised so an accelerating man doesn't restart his own animation every frame.
-
-And dismemberment. `_sever` hides the part on the man and throws **a copy of the same
-`LIMB` markup** — so the arm on the ice is the arm that was on the shoulder and cannot
-drift from it — inheriting his club colours by copying his `style` attribute. Which part
-is hashed off the victim's **name**, so every screen watching the broadcast loses the
-same arm; **a head is only ever taken on a death**. An injury takes a limb only when the
-sim's own `slotsOut` is 3 or more, so severity is read from a fact rather than rolled.
-
-**A severed limb goes into the puck's integrator, not a keyframe.** An arm on ice is a
-loose body on ice, and writing that physics twice would be two things to keep in
-agreement for no gain. It slides, caroms off the dashers, spins down as it slows, and
-stops where friction leaves it (meat glides far worse than vulcanised rubber, hence
-`DEBRIS_FRICTION`). **And the puck can hit it** — a circle test that pushes both bodies,
-which is what makes the debris part of the game rather than a decal near it. It changes
-nothing: only cosmetic idle circulation is ever running when a carom off a leg can
-happen. The smoke suite steps frames and re-reads the style to prove the limb *travels,
-spins and comes to rest* — a CSS throw would look identical on screen and fail there.
-
-**The booth calls the rush, not just the outcome.** The announcer's entire account of a
-scoring chance used to be its last event — *"saved"* — laid over ten seconds of a play he
-never mentioned: the viewer watched a breakout, a zone entry and two passes and heard
-about none of them. `describeRush` in [hockey.js](../plugins/broadcast/sports/hockey.js)
-walks **the same possession keyframes the rink is about to animate** and says what
-happened on the way up the ice, naming the men the carrier indices already point at. It
-decides and invents nothing, which is exactly why the call cannot disagree with the
-picture — the one failure mode a generated play-by-play has that a human one doesn't.
-
-The line rides the beat as `rush`, reaching the announcer as a `{rush}` token and the
-rink as its own quiet strip under the score line, so the words and the picture arrive
-together. It is spoken **before** the outcome and **without** a gameday payload, so the
-outcome line still owns the cut and a beat with no possession behaves exactly as before.
-A goal or a near-miss always gets one; routine chances get one 45% of the time, because
-every chance narrated in full is a stream of breakouts nobody can follow. Fixing this
-also exposed that `synthPossession` hardcoded `carrier: 0` on the breakout — the same man
-broke his club out on every rush of every game, invisible while the chain was only
-animated and glaring the moment the booth started naming him.
-
-**The goalie stands on the angle**, which is geometry with a real answer rather than a
-fraction to taste: he plays out along the line from the puck to the middle of his net and
-covers `out/dist` of its offset from centre. He comes out to cut the angle when the play
-is up the ice and retreats to his post when it is in tight — the old version covered a
-flat 0.42 of the lateral spread on a stepped 560 ms transition, so he drifted the *wrong
-way* on a puck in tight (the closer it is, the more he must move) and arrived in visible
-hops. He is on the frame loop now, with his CSS transition explicitly cleared so two
-things are never writing the same two properties.
-
-Branding lives in [cphl-brand.js](../client/game/js/panels/cphl-brand.js) — one mark,
-drawn by the score bug, the full-screen graphics, the rink header, the idle screen and
-**the Gameday toggle itself**, which wears a puck on a hockey night and a baseball
-otherwise (`_brandGamedayBtn` in tv.js).
-
-[scripts/shapes/rink-smoke.mjs](../scripts/shapes/rink-smoke.mjs) is the view's only
-automated coverage and runs in `pretest:regress`: it drives `apply()` through every beat
-type over a hand-cranked DOM + clock ([rink-dom-stub.mjs](../scripts/shapes/rink-dom-stub.mjs))
-and asserts ten men take the ice, the camera moves, the puck still circulates with no new
-beat, and a death leaves a body that stays where it fell. It proves the view **runs**,
-not that it looks right — there is no pixel comparison.
+[scripts/shapes/arena-smoke.mjs](../scripts/shapes/arena-smoke.mjs) covers what the arena
+stands on without a GPU. `matrices()` matches `P` to a hundredth of a pixel in every camera
+mode, both views and two screen shapes, and so does the mirror against `P(x, y, -z)`. Every
+body state (ragdoll, missing an arm, a leg or the head, gloves or helmet off, jersey over the
+head, visor) builds finite and inside its triangle budget, along with limbs, debris, nets,
+the Zamboni and the stretcher. Each kind of ice mark lists its tile. With no WebGL2,
+`createArenaRenderer` returns null rather than throwing.
 
 ### Sound banks
 

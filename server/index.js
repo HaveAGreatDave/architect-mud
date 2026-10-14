@@ -972,6 +972,16 @@ wss.on("connection", (ws, req) => {
 			emit("tv.standings", { playerId: session.playerId });
 			return;
 		}
+		if (msg.type === "tv_clubs") {
+			if (!session.playerId) return;
+			emit("tv.clubs", { playerId: session.playerId, sport: typeof msg.sport === "string" ? msg.sport.slice(0, 24) : "" });
+			return;
+		}
+		if (msg.type === "tv_venue") {
+			if (!session.playerId) return;
+			emit("tv.venue", { playerId: session.playerId, sport: typeof msg.sport === "string" ? msg.sport.slice(0, 24) : "" });
+			return;
+		}
 		if (msg.type === "deck_watch" || msg.type === "deck_unwatch") {
 			if (!session.playerId) return;
 			if (msg.type === "deck_watch" && msg.channelId)

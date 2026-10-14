@@ -14,14 +14,18 @@
 import { sendCmdSilent, sendRaw } from '../net.js';
 import { renderMarkup } from '../markup.js';
 import { cphlMark, cphlLockup } from './cphl-brand.js';
+import { crestSvg, clubOf, wantClubs, onClubs } from './club-crest.js';
+import { wantVenue } from './venue.js';
 
 // The two sports sub-screens (gameday.js, gameday-rink.js) are about 209 KB, and they
 // were in the boot download for every player. They load on the first sports broadcast
 // instead, which is when the Gameday button appears; opening it awaits the same promise.
+// Baseball mounts through gameday-grandstand.js, the park in 3-D, which is the 2-D Gameday
+// where it can't draw or where its flag is set to '0'.
 let _gamedayViews = null;
 function loadGamedayViews() {
-  return (_gamedayViews ??= Promise.all([import('./gameday.js'), import('./gameday-rink.js')])
-    .then(([g, r]) => ({ createGamedayView: g.createGamedayView, createRinkView: r.createRinkView }))
+  return (_gamedayViews ??= Promise.all([import('./gameday-grandstand.js'), import('./gameday-rink.js')])
+    .then(([g, r]) => ({ createGrandstandView: g.createGrandstandView, createRinkView: r.createRinkView }))
     .catch((err) => { _gamedayViews = null; throw err; }));   // a failed fetch retries next time
 }
 
@@ -131,6 +135,7 @@ export function createTvView(root, opts = {}) {
   let _fxTimer = null;
   let _gamedayView = null;
   let _gamedaySport = null;   // which sport the mounted sub-screen renders
+  let _stationName = '';      // the tuned station's name, for a sub-screen's corner bug
   let _gamedayOpen = false;
   let _lastGameday = null;
   let _scheduleOpen = false;
@@ -427,7 +432,8 @@ export function createTvView(root, opts = {}) {
     _tvChannelList = Array.isArray(data.channelList) ? data.channelList : [];
 
     const stationEl = el('station-name');
-    if (stationEl) stationEl.textContent = data.stationName || data.channelName || '——';
+    _stationName = data.stationName || data.channelName || '';
+    if (stationEl) stationEl.textContent = _stationName || '——';
     setAll('channel-num', data.deckInput ? 'CH 0' : (data.channelNumber > 0) ? `CH ${data.channelNumber}` : '——');
     const pnEl = el('program-name');
     if (pnEl) { pnEl.textContent = ''; pnEl.style.opacity = ''; }
@@ -688,8 +694,23 @@ export function createTvView(root, opts = {}) {
     }, 280);
   }
 
+  // ── club crests ───────────────────────────────────────────────────────────
+  // A league's clubs carry their own crests (club-crest.js keeps them). A surface that
+  // names a club puts its crest beside the name when the set is here, and nothing when
+  // it isn't yet; the CPhL mark stays where it was.
+  function _crest(name, size, cls = '') {
+    const c = clubOf(name, 'hockey');
+    return c ? `<span class="tv-crest ${cls}">${crestSvg(c, size, { title: name })}</span>` : '';
+  }
+  let _lastScorebug = null;
+  onClubs(() => { if (_lastScorebug) _applyScorebug(_lastScorebug); });
+
   // ── overlays ──────────────────────────────────────────────────────────────
   function applyOverlay(overlay) {
+    // Every CPhL payload carries the stamp of the club identities it was built with.
+    if (overlay?.clubsRev && wantClubs(overlay.sport || 'hockey', overlay.clubsRev)) sendRaw({ type: 'tv_clubs', sport: overlay.sport || 'hockey' });
+    // A baseball game's first payload carries its venue's stamp, for the 3-D park's city.
+    if (overlay?.venueRev && wantVenue(overlay.sport || 'baseball', overlay.venueRev)) sendRaw({ type: 'tv_venue', sport: overlay.sport || 'baseball' });
     // The score-bug is a persistent layer (updated in place, its own container) —
     // it must not be wiped by transient overlays, nor auto-dismiss on a timer.
     if (overlay && overlay.overlayType === 'scorebug') { _applyScorebug(overlay); return; }
@@ -804,6 +825,7 @@ export function createTvView(root, opts = {}) {
   function _applyScorebug(sb) {
     const host = el('scorebug');
     if (!host) return;
+    _lastScorebug = sb;
     const away = _esc(sb.awayAbbr || sb.away || 'AWY');
     const home = _esc(sb.homeAbbr || sb.home || 'HOM');
     const aScore = Number.isFinite(sb.awayScore) ? sb.awayScore : 0;
@@ -851,8 +873,8 @@ export function createTvView(root, opts = {}) {
     host.innerHTML =
       brand +
       `<div class="tv-sb-scores">` +
-        `<div class="tv-sb-row ${aLead ? 'lead' : ''}"><span class="tv-sb-team">${away}</span><span class="tv-sb-num">${aScore}</span></div>` +
-        `<div class="tv-sb-row ${hLead ? 'lead' : ''}"><span class="tv-sb-team">${home}</span><span class="tv-sb-num">${hScore}</span></div>` +
+        `<div class="tv-sb-row ${aLead ? 'lead' : ''}">${_crest(sb.away, 16, 'tv-sb-crest')}<span class="tv-sb-team">${away}</span><span class="tv-sb-num">${aScore}</span></div>` +
+        `<div class="tv-sb-row ${hLead ? 'lead' : ''}">${_crest(sb.home, 16, 'tv-sb-crest')}<span class="tv-sb-team">${home}</span><span class="tv-sb-num">${hScore}</span></div>` +
       `</div>` +
       `<div class="tv-sb-state">${diamond}${strength}${rivalChip}<div class="tv-sb-status">${_esc(sb.status || '')}</div>${outs}${sog}</div>`;
     host.classList.add('on');
@@ -884,12 +906,12 @@ export function createTvView(root, opts = {}) {
   // Async because the views load on demand (loadGamedayViews). Everything after the
   // await runs in one turn, so two calls can't both mount a view.
   async function _gamedayViewFor(gd, hostEl) {
-    const { createGamedayView, createRinkView } = await loadGamedayViews();
+    const { createGrandstandView, createRinkView } = await loadGamedayViews();
     const want = gd && gd.sport === 'hockey' ? 'hockey' : 'baseball';
     if (_gamedayView && _gamedaySport === want) return _gamedayView;
     _gamedayView?.clear();
     _gamedaySport = want;
-    _gamedayView = want === 'hockey' ? createRinkView(hostEl) : createGamedayView(hostEl);
+    _gamedayView = want === 'hockey' ? createRinkView(hostEl) : createGrandstandView(hostEl, { station: _stationName });
     return _gamedayView;
   }
 
@@ -1128,7 +1150,7 @@ export function createTvView(root, opts = {}) {
           const pct = (r.wins + r.losses) ? (r.wins / (r.wins + r.losses)) : 0;
           return `<div class="tv-stp-row${i === 0 ? ' lead' : ''}">` +
             `<span class="tv-stp-rank">${i + 1}</span>` +
-            `<span class="tv-stp-team">${_esc(r.team)}</span>` +
+            `<span class="tv-stp-team">${hockey ? _crest(r.team, 18, 'tv-stp-crest') : ''}${_esc(r.team)}</span>` +
             `<span class="tv-stp-rec">${hockey ? `${r.wins}-${r.losses}-${r.otl || 0}` : `${r.wins}-${r.losses}`}</span>` +
             `<span class="tv-stp-pct">${hockey ? gp : pct.toFixed(3).replace(/^0/, '')}</span>` +
             `<span class="tv-stp-rd">${hockey ? (r.points || 0) : rd}</span>` +
@@ -1216,6 +1238,7 @@ export function createTvView(root, opts = {}) {
       const rec = hockey ? `${r.wins}-${r.losses}-${r.otl || 0}` : `${r.wins}-${r.losses}`;
       return `<div class="tv-st-row">` +
         `<span class="tv-st-rank">${i + 1}</span>` +
+        (hockey ? _crest(r.team, 16, 'tv-st-crest') : '') +
         `<span class="tv-st-team">${_esc(r.team)}</span>` +
         `<span class="tv-st-rec">${rec}</span>` +
         `<span class="tv-st-rd">${tail}</span>` +
@@ -1331,9 +1354,9 @@ export function createTvView(root, opts = {}) {
             ? cphlLockup('Tonight in the CPhL', '34px')
             : `<div class="tv-fx-mu-label">Tonight on ${_esc(fx.show || 'DEADBALL')}</div>`) +
           `<div class="tv-fx-mu-teams">` +
-            `<div class="tv-fx-mu-team away"><span class="nm">${_esc(fx.away)}</span>${rec(fx.awayRecord)}</div>` +
+            `<div class="tv-fx-mu-team away">${_crest(fx.away, 72, 'tv-fx-mu-crest')}<span class="nm">${_esc(fx.away)}</span>${rec(fx.awayRecord)}</div>` +
             `<div class="tv-fx-mu-vs">vs</div>` +
-            `<div class="tv-fx-mu-team home"><span class="nm">${_esc(fx.home)}</span>${rec(fx.homeRecord)}</div>` +
+            `<div class="tv-fx-mu-team home">${_crest(fx.home, 72, 'tv-fx-mu-crest')}<span class="nm">${_esc(fx.home)}</span>${rec(fx.homeRecord)}</div>` +
           `</div>` +
         `</div>`;
     // ── CPhL. Same contract as the baseball cards: markup only, animated by CSS,
@@ -1345,7 +1368,7 @@ export function createTvView(root, opts = {}) {
       inner =
         `<div class="tv-fx-goal">` +
           `<div class="tv-fx-goal-lamp"></div>` +
-          `<div class="tv-fx-brand">${cphlMark('26px')}</div>` +
+          `<div class="tv-fx-brand">${_crest(fx.team, 64, 'tv-fx-club') || cphlMark('26px')}</div>` +
           `<div class="tv-fx-goal-title${fx.hattrick ? ' hat' : ''}">${fx.hattrick ? 'HAT TRICK' : 'GOAL'}</div>` +
           (tag ? `<div class="tv-fx-goal-tag">${tag}</div>` : '') +
           (sub ? `<div class="tv-fx-goal-sub">${_esc(sub)}</div>` : '') +
@@ -1354,7 +1377,7 @@ export function createTvView(root, opts = {}) {
     } else if (fx.kind === 'hockeyfight') {
       inner =
         `<div class="tv-fx-fight">` +
-          `<div class="tv-fx-brand">${cphlMark('26px')}</div>` +
+          `<div class="tv-fx-brand">${_crest(fx.team, 56, 'tv-fx-club') || cphlMark('26px')}</div>` +
           `<div class="tv-fx-fight-title">GLOVES OFF</div>` +
           `<div class="tv-fx-fight-names"><span class="win">${_esc(fx.winner)}</span><span class="vs">def.</span><span class="lose">${_esc(fx.loser)}</span></div>` +
           `<div class="tv-fx-fight-sub">Five for the loser · ${_esc(fx.team)} on the power play</div>` +
@@ -1379,9 +1402,9 @@ export function createTvView(root, opts = {}) {
           `<div class="tv-fx-brand">${cphlMark('26px')}</div>` +
           `<div class="tv-fx-rival-banner">RIVALRY NIGHT</div>` +
           `<div class="tv-fx-mu-teams">` +
-            `<div class="tv-fx-mu-team away"><span class="nm">${_esc(fx.away)}</span>${rec(fx.awayRecord)}</div>` +
+            `<div class="tv-fx-mu-team away">${_crest(fx.away, 72, 'tv-fx-mu-crest')}<span class="nm">${_esc(fx.away)}</span>${rec(fx.awayRecord)}</div>` +
             `<div class="tv-fx-mu-vs">vs</div>` +
-            `<div class="tv-fx-mu-team home"><span class="nm">${_esc(fx.home)}</span>${rec(fx.homeRecord)}</div>` +
+            `<div class="tv-fx-mu-team home">${_crest(fx.home, 72, 'tv-fx-mu-crest')}<span class="nm">${_esc(fx.home)}</span>${rec(fx.homeRecord)}</div>` +
           `</div>` +
           `<div class="tv-fx-rival-sub">No trophy. No records. They will bleed for it anyway.</div>` +
         `</div>`;
@@ -1393,9 +1416,9 @@ export function createTvView(root, opts = {}) {
           `<div class="tv-fx-ws-banner">COLDWATER CUP</div>` +
           `<div class="tv-fx-ws-sub">One Game. One Trophy. No Records.</div>` +
           `<div class="tv-fx-mu-teams">` +
-            `<div class="tv-fx-mu-team away"><span class="nm">${_esc(fx.away)}</span>${rec(fx.awayRecord)}</div>` +
+            `<div class="tv-fx-mu-team away">${_crest(fx.away, 72, 'tv-fx-mu-crest')}<span class="nm">${_esc(fx.away)}</span>${rec(fx.awayRecord)}</div>` +
             `<div class="tv-fx-mu-vs">vs</div>` +
-            `<div class="tv-fx-mu-team home"><span class="nm">${_esc(fx.home)}</span>${rec(fx.homeRecord)}</div>` +
+            `<div class="tv-fx-mu-team home">${_crest(fx.home, 72, 'tv-fx-mu-crest')}<span class="nm">${_esc(fx.home)}</span>${rec(fx.homeRecord)}</div>` +
           `</div>` +
         `</div>`;
     } else if (fx.kind === 'doubleplay') {
@@ -1411,9 +1434,9 @@ export function createTvView(root, opts = {}) {
           `<div class="tv-fx-ws-banner">WORLD SERIES</div>` +
           `<div class="tv-fx-ws-sub">Winner Takes the Season</div>` +
           `<div class="tv-fx-mu-teams">` +
-            `<div class="tv-fx-mu-team away"><span class="nm">${_esc(fx.away)}</span>${rec(fx.awayRecord)}</div>` +
+            `<div class="tv-fx-mu-team away">${_crest(fx.away, 72, 'tv-fx-mu-crest')}<span class="nm">${_esc(fx.away)}</span>${rec(fx.awayRecord)}</div>` +
             `<div class="tv-fx-mu-vs">vs</div>` +
-            `<div class="tv-fx-mu-team home"><span class="nm">${_esc(fx.home)}</span>${rec(fx.homeRecord)}</div>` +
+            `<div class="tv-fx-mu-team home">${_crest(fx.home, 72, 'tv-fx-mu-crest')}<span class="nm">${_esc(fx.home)}</span>${rec(fx.homeRecord)}</div>` +
           `</div>` +
         `</div>`;
     } else if (fx.kind === 'champion') {

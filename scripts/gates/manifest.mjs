@@ -61,6 +61,7 @@ export const GROUPS = [
     // Content files carry no runtime columns and no dangling references.
     gates: [
       'scripts/content/lint.mjs',
+      'scripts/content/build-cphl-clubs.mjs --check',   // the CPhL clubs in the row match their authoring script
     ],
   },
   {
@@ -195,7 +196,16 @@ export const GROUPS = [
       'scripts/shapes/groundcontact.mjs',
       'scripts/shapes/yacht.mjs',
       'scripts/shapes/chess3d-smoke.mjs',
-      'scripts/shapes/rink-smoke.mjs',
+      'scripts/shapes/rink-smoke.mjs 13',    // one game each, side by side (see the file)
+      'scripts/shapes/rink-smoke.mjs 1010',
+      'scripts/shapes/arena-smoke.mjs',      // GLASS 2 rink: matrices match the 2-D camera, meshes sound, ice tiles listed
+      'scripts/shapes/gameday-smoke.mjs',    // Deadball's 2-D Gameday: real games, every play lands, the runners end where the sim left them
+      'scripts/shapes/ballpark-smoke.mjs',   // Deadball's 3-D park: the park from venue data, the shots' matrices against the pinhole, the board, the 2-D fallback
+      'scripts/shapes/cityscape-smoke.mjs',  // the city round it: the set composed from the content tree's skyline, every building placed and shaped, the streets from their arms
+      'scripts/shapes/anim-smoke.mjs',       // Deadball's players skinned: the rig's frames, four weights a vertex, every pose on the posed build's surface, the hands on the bat
+      'scripts/shapes/diamond-smoke.mjs 16', // Deadball staged in 3-D: each pitch at its spot, every clip on the ball, every ball in play's gloves, throws and call at first, the line held to the landing (one game each, side by side)
+      'scripts/shapes/diamond-smoke.mjs 41',
+      'scripts/shapes/variety-smoke.mjs',    // Deadball's balls in play over a season: spray by handedness, every grade, every line pool reachable
       'scripts/shapes/bolt.mjs',
       'scripts/shapes/weatherfx-smoke.mjs',
       'scripts/shapes/drugfx-smoke.mjs',

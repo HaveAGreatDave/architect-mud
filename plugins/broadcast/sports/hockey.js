@@ -28,6 +28,7 @@
  */
 import { sportsShuffle, sportsRng, sportsHash } from '../rng.js';
 import { narrate } from './hockey-narrator.js';
+import { paceCalls } from './hockey-pacing.js';
 
 // ── chance outcomes ──────────────────────────────────────────────────────────
 // Tuned so a game lands around 5–6 goals on 55–65 shots: roughly a 10–11% shooting
@@ -115,12 +116,17 @@ const INJURY_SLOTS_MAX = 16;   // two game-days — a genuinely season-shaping l
 export const INJURY_MAX_SLOTS = INJURY_SLOTS_MAX;
 
 // ── club identity ────────────────────────────────────────────────────────────
-// Sixteen clubs that behave identically are sixteen names. A club's character is
-// derived from its NAME — so it costs no authoring, needs no storage, is identical
-// on every server forever, and a club added to the .bsm arrives with a personality
-// already formed. The traits are deliberately narrow multipliers: wide enough that
-// the Longwatch Goons visibly fight more and the Ashway Zambonis visibly can't
-// finish, narrow enough that no club is unwatchable.
+// Clubs that behave identically are just names. A club's character is derived from its
+// NAME, so it costs no authoring, needs no storage, is identical on every server
+// forever, and a club added to the .bsm arrives with a personality already formed. The
+// traits are deliberately narrow multipliers: wide enough that the District 9 Goons
+// visibly fight more and the Ashway Zambonis visibly can't finish, narrow enough that
+// no club is unwatchable.
+//
+// Its LOOK is authored. The league's content row carries `clubs` (district, colours,
+// kits, crest; see scripts/content/build-cphl-clubs.mjs), and a club with an identity
+// wears its own colours. The hashed palette below is only for a club nobody has
+// dressed yet.
 //
 // This is the ONE place the league stops being uniform, so it's worth being precise
 // about what each knob does:
@@ -136,7 +142,7 @@ const CLUB_COLOURS = [
 ];
 // Hash the name once and spend the bits on separate traits, so two clubs whose names
 // happen to hash close together don't come out as the same club.
-export function clubProfile(name) {
+export function clubProfile(name, identity = null) {
   const h = sportsHash(0, 0);   // seeds the mixer; the name is folded in below
   let x = h >>> 0;
   for (let i = 0; i < String(name).length; i++) x = (Math.imul(x ^ String(name).charCodeAt(i), 16777619) >>> 0);
@@ -147,22 +153,38 @@ export function clubProfile(name) {
     goaltending: 0.86 + bits(6, 0.30),     // 0.86 … 1.16 (higher = harder to beat)
     discipline: 0.62 + bits(12, 0.86),     // 0.62 … 1.48 (lower = more penalties)
     violence: 0.55 + bits(18, 1.25),       // 0.55 … 1.80
-    colours: CLUB_COLOURS[x % CLUB_COLOURS.length],
+    colours: (Array.isArray(identity?.colours) && identity.colours.length >= 2) ? identity.colours.slice(0, 2) : CLUB_COLOURS[x % CLUB_COLOURS.length],
   };
   // A pure hash can't read, and these club names were AUTHORED to mean something —
-  // it is absurd for the Longwatch Goons to come out as the league's gentlest side
+  // it is absurd for the District 9 Goons to come out as the league's gentlest side
   // because their name happened to hash low. So the name nudges its own trait after
   // the roll: the hash still decides where in the band a club sits, the word decides
   // which band. Additive and clamped, so a nudge tilts a club without flattening the
   // spread into "every club called Goons is identical".
   const n = String(name).toLowerCase();
   const nudge = (words, key, by) => { if (words.some(w => n.includes(w))) p[key] = Math.max(0.5, Math.min(1.9, p[key] + by)); };
-  nudge(['goon', 'slasher', 'grinder', 'boarder', 'bender', 'mucker'], 'violence', 0.32);
-  nudge(['goon', 'slasher', 'bender'], 'discipline', -0.26);        // they get caught, too
-  nudge(['sniper', 'icehauler'], 'shooting', 0.09);
-  nudge(['warden', 'whip', 'watch'], 'goaltending', 0.08);
-  nudge(['slush', 'drifter', 'zamboni'], 'shooting', -0.07);        // clubs named for the ice, not the game
+  nudge(['goon', 'warlord', 'bulldog', 'highlander', 'boarder'], 'violence', 0.32);
+  nudge(['goon', 'highlander'], 'discipline', -0.26);              // they get caught, too
+  nudge(['marauder', 'icehauler'], 'shooting', 0.09);
+  nudge(['bulldog'], 'goaltending', 0.08);
+  nudge(['zamboni'], 'shooting', -0.07);                           // a club named for the ice, not the game
   return p;
+}
+
+// A short stamp for a league's club identities, so a client can tell whether the set it
+// holds is current without being sent the set with every payload.
+const _revs = new WeakMap();
+export function clubsRevOf(clubs) {
+  if (!clubs || typeof clubs !== 'object') return '';
+  let r = _revs.get(clubs);
+  if (r == null) {
+    const str = JSON.stringify(clubs);
+    let x = 0x811c9dc5;
+    for (let i = 0; i < str.length; i++) x = Math.imul(x ^ str.charCodeAt(i), 16777619) >>> 0;
+    r = `${str.length.toString(36)}${x.toString(36)}`;
+    _revs.set(clubs, r);
+  }
+  return r;
 }
 
 // ── rivalries ────────────────────────────────────────────────────────────────
@@ -418,20 +440,76 @@ export function describeRush(nodes, names, rand) {
   return s.charAt(0).toUpperCase() + s.slice(1) + '.';
 }
 
-// The fight exchange, same idea: a beat sequence the view can render richly or
-// ignore entirely and just read `winner` from.
+// The fight exchange: the punches, in order, for the rink to throw and the booth to count.
+// `a` is the WINNER and `b` the loser, which is the order fight() passes them. It used to
+// be a coin flip per punch, so the man the sim had already declared the winner could take
+// the beating on screen and walk away the victor. Now the winner throws more, lands more,
+// and always lands the last one.
 export function synthFightExchange(seed, a, b) {
   const rand = sportsRng(seed);
   const n = 6 + Math.floor(rand() * 7);
   const out = [];
   let stagA = 0, stagB = 0;
   for (let i = 0; i < n; i++) {
-    const byA = rand() < 0.5;
-    const landed = rand() < 0.62;
+    const last = i === n - 1;
+    const byA = last || rand() < 0.6;
+    const landed = last || rand() < (byA ? 0.68 : 0.4);
     if (landed) { if (byA) stagB += 1; else stagA += 1; }
-    out.push({ n: i + 1, thrower: byA ? a : b, type: rand() < 0.3 ? 'uppercut' : 'right', landed, stagger: byA ? stagB : stagA });
+    const r = rand();
+    const type = last ? (r < 0.55 ? 'uppercut' : 'right') : r < 0.22 ? 'jab' : r < 0.42 ? 'uppercut' : r < 0.55 ? 'left' : 'right';
+    out.push({ n: i + 1, thrower: byA ? a : b, type, landed, stagger: byA ? stagB : stagA });
   }
   return out;
+}
+
+// How a fight finishes, from the same seed as its punches and from nothing else: the
+// loser goes down, or has his sweater hauled over his head first, or the linesmen finally
+// pull them apart. `pullAt` is the punch the sweater comes up on (−1 when it doesn't).
+export function fightEnding(seed, n) {
+  const rand = sportsRng((seed ^ 0x5f3759df) >>> 0);
+  const r = rand();
+  const ending = r < 0.5 ? 'knockdown' : r < 0.78 ? 'jersey' : 'linesmen';
+  return { ending, pullAt: ending === 'jersey' ? Math.max(1, Math.floor(n * (0.45 + rand() * 0.25))) : -1 };
+}
+
+// ── colour derived from facts ───────────────────────────────────────────────
+// What a hit looked like and what an injury was. Both are seeded from the beat's own
+// facts (the names involved and where the beat sits in the game) and never from the
+// game's `rand`: a single extra rand() call here would shift every roll after it and
+// replay the whole season with different results.
+const strSeed = (...parts) => {
+  const s = parts.join('|');
+  let x = 0x811c9dc5 >>> 0;
+  for (let i = 0; i < s.length; i++) x = Math.imul(x ^ s.charCodeAt(i), 16777619) >>> 0;
+  return x;
+};
+// shoulder: finished into the dasher · glass: high into the panes · behind: from behind,
+// face first · hip: hip check, upended · elbow: an elbow up high
+export const HIT_STYLES = [['shoulder', 34], ['glass', 26], ['behind', 16], ['hip', 12], ['elbow', 12]];
+export function hitStyleFor(hitter, victim, n) {
+  const r = sportsRng(strSeed('hit', hitter, victim, n))() * 100;
+  let acc = 0;
+  for (const [id, w] of HIT_STYLES) { acc += w; if (r < acc) return id; }
+  return 'shoulder';
+}
+// A wound is a phrase for the booth plus what the picture should do about it. `part` is
+// the limb the rink takes off when `sever` is set; the head is only ever taken on a death.
+export const WOUNDS = {
+  minor: [{ label: 'a broken nose' }, { label: 'a separated shoulder' }, { label: 'a gashed forehead' }, { label: 'two cracked ribs' }, { label: 'a wrecked knee' }],
+  bad: [{ label: 'a broken jaw' }, { label: 'a broken collarbone' }, { label: 'a dislocated knee' }, { label: 'a shattered cheekbone' }, { label: 'a compound fracture of the forearm' }],
+  severed: [{ label: 'his left arm', part: 'armL', sever: true }, { label: 'his right arm', part: 'armR', sever: true }, { label: 'his left leg', part: 'legL', sever: true }, { label: 'his right leg', part: 'legR', sever: true }],
+  // a fatal wound is said as its own sentence
+  fatal: [{ label: 'The head came off', part: 'head', sever: true }, { label: 'A skate blade across the throat', part: '' }, { label: 'His neck went the wrong way', part: '' }, { label: 'Skull against the post, and the post won', part: '' }],
+};
+export function woundFor(name, slotsOut, dead, n) {
+  const rand = sportsRng(strSeed('wound', name, slotsOut, dead ? 1 : 0, n));
+  const from = (k) => WOUNDS[k][Math.floor(rand() * WOUNDS[k].length)];
+  let w;
+  if (dead) w = from('fatal');
+  else if (slotsOut <= 5) w = from(rand() < 0.6 ? 'minor' : 'bad');
+  else if (slotsOut <= 11) w = from(rand() < 0.4 ? 'severed' : 'bad');
+  else w = from('severed');
+  return { wound: w.label, woundPart: w.part || '', sever: !!w.sever };
 }
 
 // ── the sim ──────────────────────────────────────────────────────────────────
@@ -456,7 +534,7 @@ export function simGame(matchup, players, rand = Math.random, opts = {}) {
       // Five skaters + a goalie, the same six every night. `out` players are gone for
       // the rest of the game and are NOT replaced — that is what makes an injury cost
       // more than a penalty.
-      profile: clubProfile(name),
+      profile: clubProfile(name, matchup?.clubs?.[name] || null),
       skaters: POSITIONS.map((pos, k) => ({ name: roster[k], pos, goals: 0, assists: 0, out: false, dead: false, callup: !!dressed[k].callup, replacing: dressed[k].replacing || '' })),
       goalie: roster[POSITIONS.length],
       box: [],            // [{ name, until }] — penalties currently being served
@@ -550,10 +628,12 @@ export function simGame(matchup, players, rand = Math.random, opts = {}) {
     const aWins = rand() < 0.5;
     const winner = aWins ? a : b, loser = aWins ? b : a;
     const loserTeam = aWins ? def : att;
-    const exchange = synthFightExchange(Math.floor(rand() * 1e9), winner.name, loser.name);
+    const fseed = Math.floor(rand() * 1e9);
+    const exchange = synthFightExchange(fseed, winner.name, loser.name);
     loserTeam.box.push({ name: loser.name, until: at - 5 * 60 });
     push({ type: 'fight', fighters: [a.name, b.name], winner: winner.name, loser: loser.name,
       loserTeam: loserTeam.name, winnerTeam: (aWins ? att : def).name, exchange,
+      ...fightEnding(fseed, exchange.length),
       section: ordinal(period) });
   }
 
@@ -561,7 +641,8 @@ export function simGame(matchup, players, rand = Math.random, opts = {}) {
     const hitter = anyone(att), victim = anyone(def);
     if (!hitter || !victim) return;
     push({ type: 'boards', hitter: hitter.name, victim: victim.name,
-      hitterTeam: att.name, victimTeam: def.name, section: ordinal(period) });
+      hitterTeam: att.name, victimTeam: def.name, section: ordinal(period),
+      hitStyle: hitStyleFor(hitter.name, victim.name, beats.length) });
     if (rand() < INJURY_ON_BOARDS) {
       victim.out = true;
       // How long he is gone for is decided HERE, by the game's own rand, so the
@@ -570,7 +651,8 @@ export function simGame(matchup, players, rand = Math.random, opts = {}) {
       const slotsOut = INJURY_SLOTS_MIN + Math.floor(rand() * (INJURY_SLOTS_MAX - INJURY_SLOTS_MIN + 1));
       victim.slotsOut = slotsOut;
       push({ type: 'injury', player: victim.name, teamName: def.name, slotsOut,
-        remaining: live(def).length, section: ordinal(period) });
+        remaining: live(def).length, section: ordinal(period),
+        ...woundFor(victim.name, slotsOut, false, beats.length) });
       faceoff(endDot(def), 'injury');   // play stops while they get him off the ice
     }
   }
@@ -663,7 +745,8 @@ export function simGame(matchup, players, rand = Math.random, opts = {}) {
           victim.out = true; victim.dead = true; deadPlayer = victim.name;
           att.score += 1;
           push({ type: 'death', player: victim.name, teamName: def.name,
-            winnerTeam: att.name, section: ordinal(period) });
+            winnerTeam: att.name, section: ordinal(period),
+            ...woundFor(victim.name, 0, true, beats.length) });
           gameOver = true;
           break;
         }
@@ -682,11 +765,14 @@ export function simGame(matchup, players, rand = Math.random, opts = {}) {
         const hat = shooter.goals === 3;
         const goalNodes = synthPossession(Math.floor(rand() * 1e9), 'goal', attackAway ? 0 : 1);
         const goalShot = rollShot(goalNodes);
+        // The names the carrier indices count through, kept on the beat so the booth can call
+        // the rush touch by touch and the rink can put the same names on the same sweaters.
+        const goalNames = live(att).map(s => s.name);
         push({ type: 'goal', shooter: shooter.name, assist: assist ? assist.name : '', goalie,
           teamName: att.name, oppName: def.name, strength, hattrick: hat,
           shooterGoals: shooter.goals, section: ordinal(period),
           // How it was built. Read off the same keyframes the rink is about to animate.
-          rush: describeRush(goalNodes, live(att).map(s => s.name), rand),
+          rush: describeRush(goalNodes, goalNames, rand), rushNames: goalNames,
           // WHAT HE HIT IT WITH, on the same beat as the outcome, so the call and the
           // animation are reading one fact rather than two that can disagree.
           shotType: goalShot.id, shotLabel: goalShot.label,
@@ -700,9 +786,10 @@ export function simGame(matchup, players, rand = Math.random, opts = {}) {
         const frozen = (out.kind === 'save' || out.kind === 'glove') && rand() < FREEZE_ON_SAVE;
         const chanceNodes = synthPossession(Math.floor(rand() * 1e9), out.kind, attackAway ? 0 : 1);
         const chanceShot = rollShot(chanceNodes);
+        const chanceNames = live(att).map(s => s.name);
         push({ type: 'chance', kind: out.kind, shot: out.shot, shooter: shooter.name, goalie,
           teamName: att.name, oppName: def.name, strength, frozen, section: ordinal(period),
-          rush: describeRush(chanceNodes, live(att).map(s => s.name), rand),
+          rush: describeRush(chanceNodes, chanceNames, rand), rushNames: chanceNames,
           shotType: chanceShot.id, shotLabel: chanceShot.label,
           possession: chanceNodes });
         if (frozen) faceoff(endDot(def), 'freeze');
@@ -845,6 +932,10 @@ export const HOCKEY = {
   // the middle of the broadcast instead of running the baseball body. Baseball has
   // no `narrate` and takes the original path untouched.
   narrate,
+  // Holds by line length, and the cue times the rink syncs to.
+  paceCalls,
+  // The stamp a client checks its club identities against.
+  clubsRevOf,
 };
 
 export default HOCKEY;

@@ -298,6 +298,7 @@ function compileBsm(text) {
         else if (key==='sport') meta.sport=val.toLowerCase();
         else if (key==='announcer') meta.announcer=val.replace(/^["']|["']$/g,'');
         else if (key==='airtime') meta.airSlots=[...new Set(val.split(/[,\s]+/).map(Number).filter(n=>Number.isFinite(n)&&n>=0&&n<24).map(h=>Math.floor(h/3)%8))];
+        else if (key==='sim') { const v=parseInt(val,10); if (Number.isFinite(v)&&v>=1) meta.sim=v; }   // as bsm-compiler.js
         else if (key==='titlecard') meta.titlecard=val;
       }
       i++; continue;
@@ -348,7 +349,7 @@ function compileBsm(text) {
   if (startId && nodes[startId] && nodes[startId].next == null) { const firstContent=Object.keys(nodes).find(k=>k!==startId); if(firstContent)nodes[startId].next=firstContent; }
   if (meta.type === 'weather' && meta.host) npcIds.add(meta.host);
   const weatherScript = { pools: weatherPools, host: meta.host, title: meta.titlecard || '' };
-  const sportsScript = { sport: meta.sport||'baseball', announcer: meta.announcer, teams, players, pools: weatherPools, title: meta.titlecard||'', airSlots:(meta.airSlots&&meta.airSlots.length)?meta.airSlots:null };
+  const sportsScript = { sport: meta.sport||'baseball', announcer: meta.announcer, teams, players, pools: weatherPools, title: meta.titlecard||'', airSlots:(meta.airSlots&&meta.airSlots.length)?meta.airSlots:null, ...(meta.sim?{ sim:{ version: meta.sim } }:{}) };
   return { meta, broadcastGraph:{_start:startId,nodes}, weatherScript, sportsScript, messages, assets, rooms, cameras:cameraNumbers, npcIds:[...npcIds], actorIds, _debug };
 }
 

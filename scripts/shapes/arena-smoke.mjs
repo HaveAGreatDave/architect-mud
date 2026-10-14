@@ -1,0 +1,260 @@
+// Arena smoke: the GLASS 2 rink (client/game/js/panels/gl/arena.js) checked without a GPU.
+//
+// The arena renderer itself needs WebGL2, which node hasn't got, so this checks the three
+// things it stands on that can be checked here:
+//
+//   1. THE MATRICES AGREE WITH THE 2-D CAMERA. `matrices()` in rink/camera.js writes the
+//      broadcast camera out as GL matrices by hand. If it drifts from `P`, the GL picture
+//      and the 2-D fallback frame a shot differently, and the mirror pass reflects the
+//      wrong place. Every camera mode, both views, two screen shapes, a few hundred
+//      points each, to a hundredth of a pixel; and the mirror matrix against P(x, y, −z).
+//   2. THE MESHES ARE SOUND. Every body the world can show (skaters, goalies, officials,
+//      medics; ragdolled, missing an arm, a leg or the head, gloves off, helmet off,
+//      jersey over the head, a visor), the severed limbs, debris, the Zamboni, the nets,
+//      the puck, the stretcher: built by arena-mesh.js, every float finite, nothing
+//      empty, and the frame inside its triangle budget.
+//   3. THE ICE LISTS WHAT CHANGED. GLASS 2 uploads only the tiles a paint touched, so a
+//      mark that forgets to list its tile leaves the GL sheet stale while the 2-D one is
+//      right. Each kind of mark is checked against the tile it lands in.
+//
+// And with no WebGL2 to be had, `createArenaRenderer` returns null rather than throwing,
+// which is how the view knows to draw in 2-D.
+//
+// Run:  node scripts/shapes/arena-smoke.mjs
+
+import { __install } from './rink-dom-stub.mjs';
+
+__install();
+const R = '../../client/game/js/panels/';
+const { createRinkCamera, matrices, project, NEAR } = await import(R + 'rink/camera.js');
+const { createIce, TPX, ICE_TILE } = await import(R + 'rink/textures.js');
+const { createWorld } = await import(R + 'rink/sim.js');
+const { createDirector } = await import(R + 'rink/director.js');
+const { bodyOpts } = await import(R + 'rink/hud.js');
+const { DT } = await import(R + 'rink/rig.js');
+const { RW, GOAL_X, MID_Y, NET_HALF, NET_DEPTH, NET_H } = await import(R + 'rink/geo.js');
+const M = await import(R + 'gl/arena-mesh.js');
+const { createArenaRenderer } = await import(R + 'gl/arena.js');
+
+let failures = 0, passes = 0;
+const check = (label, ok, detail) => {
+  if (ok) { passes++; return; }
+  failures++;
+  console.log(`  FAIL ${label}${detail ? ` (${detail})` : ''}`);
+};
+
+// ── 1. the matrices ──────────────────────────────────────────────────────────
+{
+  let seed = 12345;
+  const rnd = () => ((seed = (seed * 1103515245 + 12345) >>> 0) / 4294967296);
+  for (const mode of ['broadcast', 'fight', 'zoom', 'push', 'zam', 'death']) for (const view of ['broadcast', 'low']) for (const [w, h] of [[1350, 760], [390, 640]]) {
+    const W = { t: 3, cam: { mode, focus: [60 + rnd() * 80, 20 + rnd() * 45], cut: 1, since: 1 } };
+    const cam = createRinkCamera(W);
+    cam.view = view;
+    const { C, P } = cam.update(w, h);
+    const M0 = matrices(C), MR = matrices(C, true);
+    let worst = 0, worstR = 0, sideBad = 0, depthBad = 0;
+    for (let i = 0; i < 300; i++) {
+      const x = -30 + rnd() * 260, y = -30 + rnd() * 150, z = rnd() * 40;
+      const p = P(x, y, z), q = project(M0.viewProj, x, y, z, w, h);
+      if (p) {
+        if (!q) { sideBad++; continue; }
+        worst = Math.max(worst, Math.abs(p.x - q.x), Math.abs(p.y - q.y), Math.abs(p.d - q.d));
+        // clip-space depth lands inside the depth range for anything P keeps
+        const m = M0.viewProj, cz = m[2] * x + m[6] * y + m[10] * z + m[14], cw = m[3] * x + m[7] * y + m[11] * z + m[15];
+        if (p.d < 590 && (cz / cw < -1.0001 || cz / cw > 1.0001)) depthBad++;
+      } else if (q && q.d >= NEAR + 1e-9) sideBad++;
+      const pr = P(x, y, -z), qr = project(MR.viewProj, x, y, z, w, h);
+      if (pr && qr) worstR = Math.max(worstR, Math.abs(pr.x - qr.x), Math.abs(pr.y - qr.y));
+      else if (pr ? !qr : qr && qr.d >= NEAR + 1e-9) sideBad++;
+    }
+    const tag = `${mode}/${view} ${w}x${h}`;
+    check(`camera ${tag}: GL matrix matches P`, worst < 0.01, `worst ${worst.toFixed(4)} px`);
+    check(`camera ${tag}: mirror matrix matches P(x, y, -z)`, worstR < 0.01, `worst ${worstR.toFixed(4)} px`);
+    check(`camera ${tag}: near-plane agreement`, sideBad === 0, `${sideBad} points`);
+    check(`camera ${tag}: depth inside the range`, depthBad === 0, `${depthBad} points`);
+  }
+}
+
+// ── 2. the meshes ────────────────────────────────────────────────────────────
+const ice = createIce(document);
+const W = createWorld(ice, 'arena-smoke');
+createDirector(W, {});
+for (let i = 0; i < 240; i++) W.step(DT);
+
+const finite = (b) => { for (let i = 0, n = b.n * M.STRIDE; i < n; i++) if (!Number.isFinite(b.data[i])) return false; return true; };
+const SLOT = [0, 0, 0.125, 0.125];
+function body(b, label, mut, budget) {
+  const d = M.createBatch(), t = M.createBatch(), tr = M.createBatch();
+  for (const det of [0, 1]) {
+    M.reset(d); M.reset(t); M.reset(tr);
+    const o = { ...bodyOpts(W, b), detail: det, slot: SLOT, ...(mut || {}) };
+    M.buildBody(d, t, W.rigOf(b), o);
+    M.buildVisor(tr, o);
+    const tris = (d.n + t.n) / 3;
+    check(`${label} det${det}: finite`, finite(d) && finite(t) && finite(tr));
+    check(`${label} det${det}: has a body`, d.n > 300 && t.n > 0, `${d.n} + ${t.n} verts`);
+    check(`${label} det${det}: inside budget`, tris <= budget[det], `${tris | 0} tris > ${budget[det]}`);
+    if (mut && mut.face === 'visor' && mut.helmet !== false) check(`${label} det${det}: visor built`, tr.n > 0);
+  }
+}
+const skaters = W.bodies().filter((b) => b.kind === 'skater');
+// close up (det1) a man has gauntlets, a ridged helmet, ear guards and elbow pads, so his
+// budget is higher than a man at broadcast distance (det0)
+const BUD = [1500, 3200], BUD_GK = [1700, 3400];
+body(skaters[0], 'skater', null, BUD);
+body(W.goalie.a, 'goalie', null, BUD_GK);
+body(W.officials[0], 'official', null, BUD);
+body(skaters[1], 'skater gloves off, helmet off', { gloves: false, helmet: false }, BUD);
+body(skaters[2], 'skater jersey over the head', { jerseyUp: 1 }, BUD);
+body(skaters[3], 'skater visor', { face: 'visor' }, BUD);
+body(skaters[4], 'skater bloodied', { blood: 1, react: 1 }, BUD);
+{
+  const medic = W.extras.find((b) => b.kind === 'medic');
+  if (medic) body(medic, 'medic', null, BUD);
+  check('a medic exists to build', !!medic);
+}
+// casualties: a ragdoll, and men missing parts (the severed parts become limbs)
+W.knock(skaters[5], [14, 2, 6], [6, 0, 2]);
+W.sever(skaters[6], 'armL', [6, 2, 4]);
+W.sever(skaters[7], 'legR', [4, -3, 3]);
+W.sever(skaters[8], 'head', [2, 5, 9]);
+for (let i = 0; i < 90; i++) W.step(DT);
+check('the knocked man is a ragdoll', !!skaters[5].rag);
+body(skaters[5], 'skater ragdoll', null, BUD);
+body(skaters[6], 'skater missing an arm', null, BUD);
+body(skaters[7], 'skater missing a leg', null, BUD);
+body(skaters[8], 'skater missing his head', null, BUD);
+{
+  const b = M.createBatch();
+  for (const l of W.limbs) { const n0 = b.n; M.buildSevered(b, l, bodyOpts(W, l.owner || { side: l.side })); check(`severed ${l.part}: built`, b.n > n0); }
+  check('three limbs came off', W.limbs.length === 3, `${W.limbs.length}`);
+  check('severed limbs: finite', finite(b));
+}
+// the loose things and the furniture
+{
+  const b = M.createBatch(), t = M.createBatch();
+  for (const kind of ['stick', 'glove', 'helmet']) W.addDebris(kind, [90, 40, 1], [3, 1, 2], 0.7, 2, 'a');
+  for (let i = 0; i < 30; i++) W.step(DT);
+  for (const d of W.debris) { const n0 = b.n; M.buildDebris(b, d, W.kits[d.side] || W.kits.a); check(`debris ${d.kind}: built`, b.n > n0); }
+  let n0 = b.n; M.buildPuck(b, W.puck); check('puck: built', b.n > n0);
+  n0 = b.n; M.buildStretcher(b, { x: 20, y: 2, h: 0.3 }); check('stretcher: built', b.n > n0);
+  n0 = b.n; const t0 = t.n;
+  M.buildNet(b, t, GOAL_X[0], -1, MID_Y, NET_HALF, NET_DEPTH, NET_H, 0.4);
+  check('net: frame and mesh built', b.n > n0 && t.n > t0);
+  W.startZamboni(46);
+  for (let i = 0; i < 240; i++) W.step(DT);
+  check('the Zamboni is out', !!W.zamboni);
+  if (W.zamboni) { n0 = b.n; const t1 = t.n; M.buildZamboni(b, t, W.zamboni, W.t); check('Zamboni: body and lettering built', b.n > n0 && t.n > t1); }
+  check('furniture: finite', finite(b) && finite(t));
+  // the tail a shot leaves: a ribbon through its last points, faced to the camera
+  const tl = M.createBatch();
+  M.ribbon(tl, [[100, 40, 0.1], [101.5, 40.2, 0.15], [103, 40.4, 0.3], [104.5, 40.6, 0.5]], [100, -30, 30], 0.04, 0.5, [1, 1, 1, 0], [1, 1, 1, 0.5]);
+  check('shot tail: a ribbon of three segments', tl.n === 18 && finite(tl), `${tl.n} verts`);
+}
+// a whole frame, every man near the camera
+{
+  const d = M.createBatch(), t = M.createBatch();
+  for (const b of W.bodies()) M.buildBody(d, t, W.rigOf(b), { ...bodyOpts(W, b), detail: 1, slot: SLOT });
+  const tris = (d.n + t.n) / 3;
+  check('a full frame of bodies: finite', finite(d) && finite(t));
+  check('a full frame of bodies: inside 60k triangles', tris < 60000, `${tris | 0}`);
+}
+// quads take an atlas slot's UVs, so a jersey can't bleed into its neighbour's
+{
+  const t = M.createBatch(), d = M.createBatch();
+  M.buildBody(d, t, W.rigOf(skaters[0]), { ...bodyOpts(W, skaters[0]), detail: 1, slot: [0.25, 0.5, 0.375, 0.625] });
+  let ok = true;
+  for (let i = 0; i < t.n; i++) { const o = i * M.STRIDE, u = t.data[o + 10], v = t.data[o + 11]; if (u < 0.25 - 1e-6 || u > 0.375 + 1e-6 || v < 0.5 - 1e-6 || v > 0.625 + 1e-6) { ok = false; break; } }
+  check('jersey UVs stay inside their slot', ok);
+}
+
+// ── the puck is never put on a stick ─────────────────────────────────────────
+// It's collected: slid or fetched to the blade, out of the net through the mouth, and
+// never farther in a step than a hard shot carries it.
+{
+  const W2 = createWorld(createIce(document), 'collect');
+  createDirector(W2, {});
+  for (let i = 0; i < 60; i++) W2.step(DT);
+  const pk = W2.puck, m = W2.skaters().find((b) => b.active && b.stick);
+  const watch = (secs) => { let worst = 0; for (let i = 0; i < secs / DT && pk.carrier !== m; i++) { const x = pk.x, y = pk.y; W2.step(DT); worst = Math.max(worst, Math.hypot(pk.x - x, pk.y - y)); } return worst; };
+  W2.puckScripted = true; W2.frozen = true;
+  // from 40 feet: a give becomes a collect, and it arrives
+  if (pk.carrier) W2.loose(0, 0);
+  pk.x = m.x + 40; pk.y = Math.min(RW - 5, Math.max(5, m.y)); pk.z = 0; pk.vx = pk.vy = 0;
+  check('a give from 40 ft is refused', W2.give(m) === false && pk.carrier !== m);
+  let worst = watch(4);
+  check('a collected puck arrives on his stick', pk.carrier === m);
+  check('a collected puck never jumps', worst < 1.6, `${worst.toFixed(2)} ft in a step`);
+  // out of the net: through the mouth, not the mesh
+  W2.loose(0, 0); pk.x = GOAL_X[1] + 1.6; pk.y = MID_Y; pk.z = 0; pk.inNet = 'h';
+  m.x = GOAL_X[1] - 14; m.y = MID_Y; m.vx = m.vy = 0;
+  W2.give(m);
+  worst = watch(5);
+  check('a netted puck comes out through the mouth to him', pk.carrier === m && !pk.inNet, `carrier ${pk.carrier && pk.carrier.name}, inNet ${pk.inNet}`);
+  check('coming out of the net it never jumps', worst < 1.6, `${worst.toFixed(2)} ft in a step`);
+}
+
+// ── positions ────────────────────────────────────────────────────────────────
+// Between plays the men play their positions. Set a club up with the puck deep in the
+// other end and they should be on the points, at the net and in support, with the other
+// side's defence in front of their goal; carry it through the neutral zone and the wingers
+// are wide in their lanes and onside.
+{
+  const W3 = createWorld(createIce(document), 'positions');
+  createDirector(W3, {});
+  W3.script = null; W3.puckScripted = false; W3.frozen = false;
+  const atk = 'a', dir = 1, offBlue = W3.offBlue(atk), offGoal = W3.offGoal(atk);
+  const fwd = W3.mates(atk).find((m) => m.slot === 0);
+  const hold = () => { const pk = W3.puck; if (pk.carrier !== fwd) { pk.x = fwd.x + 2; pk.y = fwd.y; pk.z = 0; pk.vx = pk.vy = 0; W3.give(fwd, true); } W3.amb.nextPass = W3.t + 99; W3.amb.lastTurn = W3.t; };
+  // in the zone
+  fwd.x = offGoal - 20; fwd.y = 12; hold();
+  for (let i = 0; i < 5 / DT; i++) { hold(); W3.step(DT); }
+  const ds = W3.mates(atk).filter((m) => m.slot === 3 || m.slot === 4);
+  check('in the zone: both D are on the points', ds.length === 2 && ds.every((d) => Math.abs(d.x - offBlue) < 9), ds.map((d) => d.x.toFixed(0)).join(','));
+  check('in the zone: a forward is at the net', W3.mates(atk).some((m) => m !== fwd && Math.hypot(m.x - (offGoal - 7), m.y - 42.5) < 8));
+  const dd = W3.mates('h').filter((m) => m.slot === 3 || m.slot === 4);
+  check('defending: a D is in front of the net', dd.some((d) => Math.hypot(d.x - (W3.ownGoal('h') - 8), d.y - 42.5) < 10), dd.map((d) => `${d.x.toFixed(0)},${d.y.toFixed(0)}`).join(' '));
+  // through the neutral zone
+  fwd.x = 92; fwd.y = 42; hold();
+  for (let i = 0; i < 6 / DT; i++) { hold(); fwd.x = Math.min(fwd.x, 100); W3.step(DT); }
+  const wings = W3.mates(atk).filter((m) => (m.slot === 0 || m.slot === 2) && m !== fwd);
+  check('on the rush: the winger is wide in his lane', wings.length > 0 && wings.every((m) => Math.abs(m.y - 42.5) > 14), wings.map((m) => m.y.toFixed(0)).join(','));
+  check('on the rush: nobody is offside', W3.mates(atk).every((m) => m === fwd || (m.x - offBlue) * dir < 2), W3.mates(atk).map((m) => m.x.toFixed(0)).join(','));
+}
+
+// ── 3. the ice lists what changed ────────────────────────────────────────────
+{
+  const { TX } = ice.tiles;
+  const tileOf = (x, y) => Math.floor((RW - y) * TPX / ICE_TILE) * TX + Math.floor(x * TPX / ICE_TILE);
+  const fresh = () => { ice.dirtyAll = false; ice.dirty.fill(0); };
+  ice.reset(3);
+  check('a reset re-uploads the whole sheet', ice.dirtyAll === true);
+  const marks = [
+    ['blood', () => ice.blood(100, 42, 0.4, 0.8, 7), 100, 42],
+    ['cut', () => ice.cut(60, 20, 60.4, 20.1, 0.5), 60, 20],
+    ['scrape', () => ice.scrape(140, 60, 1, 0, 2.5, 9), 140, 60],
+    ['puck mark', () => ice.puckMark(30, 2, 0, -1), 30, 2],
+    ['smear', () => ice.smear(80, 30, 81, 30.5, 0.4, 0.3), 80, 30],
+    ['resurface', () => ice.resurface(120, 50, 3.7, 0), 120, 50],
+  ];
+  for (const [name, fn, x, y] of marks) {
+    fresh(); fn(); ice.flush();
+    check(`a ${name} lists its tile`, ice.dirty[tileOf(x, y)] === 1);
+    check(`a ${name} lists only nearby tiles`, ice.dirty.reduce((a, v) => a + v, 0) <= 6, `${ice.dirty.reduce((a, v) => a + v, 0)} tiles`);
+  }
+  fresh(); ice.resurface(120, 50, 3.7, 0);
+  check('a resurface marks the wet mask for upload', ice.wetDirty === true);
+}
+
+// ── 4. no WebGL2, no arena ───────────────────────────────────────────────────
+{
+  const cv = document.createElement('canvas');
+  let r, threw = null;
+  try { r = createArenaRenderer(cv, null, W, ice); } catch (e) { threw = e; }
+  check('createArenaRenderer without WebGL2: no throw', !threw, threw && threw.message);
+  check('createArenaRenderer without WebGL2: null, so the view draws in 2-D', r === null);
+}
+
+console.log(`arena smoke: ${passes}/${passes + failures} passed`);
+process.exit(failures ? 1 : 0);

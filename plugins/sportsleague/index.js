@@ -267,10 +267,14 @@ async function queryStandings(sport) {
   const hit = _standCaches.get(sport);
   if (!hit || hit.key !== key) {
     const res = await dispatchAction({ type: 'broadcast.computeStandings', params: { startSlot, endSlot, sport } }).catch(() => null);
+    // Keep everything the sport's fold returned beside the table: hockey's scoring race
+    // and injury counts, Deadball's batting, home-run and RBI races and their qualifier.
+    // This kept only hockey's three, so Deadball's leaders were folded and thrown away.
+    const { rows, sport: _sport, ...extras } = res || {};
     _standCaches.set(sport, {
       key,
-      rows: Array.isArray(res?.rows) ? res.rows : [],
-      extras: { scorers: res?.scorers || [], injuries: res?.injuries || 0, deaths: res?.deaths || 0 },
+      rows: Array.isArray(rows) ? rows : [],
+      extras: { scorers: [], injuries: 0, deaths: 0, ...extras },
     });
   }
   return _standCaches.get(sport).rows;
@@ -320,6 +324,10 @@ function formatExtras(extras, sport) {
       (r) => [String(r.hr).padStart(4), String(r.rbi).padStart(4)]);
     race('RUNS BATTED IN', [['RBI', 4], ['HR', 4]], extras.rbis,
       (r) => [String(r.rbi).padStart(4), String(r.hr).padStart(4)]);
+    race('STOLEN BASES', [['SB', 4], ['CS', 4]], extras.steals,
+      (r) => [String(r.sb).padStart(4), String(r.cs).padStart(4)]);
+    race('STRIKEOUTS', [['K', 4], ['W-L', 6], ['ERA', 6]], extras.strikeouts,
+      (r) => [String(r.k).padStart(4), `${r.w}-${r.l}`.padStart(6), (r.era || 0).toFixed(2).padStart(6)]);
     // Say the bar. A leaderboard that quietly drops a .600 hitter for want of
     // at-bats looks broken unless it tells you why.
     if (out.length && extras.minAb) out.push('', `  Qualified: ${extras.minAb}+ at-bats.`);
@@ -505,6 +513,6 @@ export const commands = {
   champions: (args) => cmdChampions(args),
 };
 
-export const _test = { formatStandings, formatChampions, formatExtras, daysBetween, LEAGUES };
+export const _test = { formatStandings, formatChampions, formatExtras, daysBetween, LEAGUES, queryExtras };
 
 console.log('[sportsleague] Plugin loaded.');

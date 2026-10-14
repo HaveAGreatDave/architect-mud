@@ -14,16 +14,19 @@ import { registerCommand } from '../../server/engine/plugins.js';
 import { apiDeleteZone } from '../../server/api/routes.js';
 import { registerViewerChecker, registerNpcScheduleChecker, registerNpcNextShiftLookup, registerNpcStudioZoneLookup, registerZoneWatchedChecker, hasChannelViewers, isNpcScheduledNow, getNpcStudioZone } from '../../server/engine/broadcast-bridge.js';
 import { registerAICondition, registerAIAction } from '../../server/engine/ai-behaviour.js';
-import { getEnvironmentState, getZonePowerStatus, recomputePower, resyncAllLightingStates, fixZonePowerConnections, fixBuildingPowerConnections, markPowerTopologyDirty } from '../../server/engine/environment.js';
+import { getEnvironmentState, getZonePowerStatus, recomputePower, resyncAllLightingStates, fixZonePowerConnections, fixBuildingPowerConnections, markPowerTopologyDirty, getWeatherTypeAtGrid, getPrecipAtGrid, getWeatherEvent } from '../../server/engine/environment.js';
 import { getSongDefByName, getSfxDefByName, getAmbientDefByName, getSampleDefByName } from '../audio/index.js';
 import { getFlag, setFlag } from '../../server/engine/flags.js';
 import { awardSkillUse, effectiveSkill } from '../../server/engine/skills.js';
 import { hackDifficulty, breachMargin, hasHackDeck, damageHackDeck } from '../../server/engine/hack-gear.js';
 import { reloadItem, deleteItemCache, getItem } from '../../server/engine/items-cache.js';
-import { sportsRng, sportsHash, sportsPick, sportsFill, sportsShuffle } from './rng.js';
+import { sportsRng, sportsHash, sportsPick, sportsPickTagged, sportsFill, sportsShuffle } from './rng.js';
 // Sport modules. One entry today; the registry shape is what a second sport plugs
 // into, so it exists now rather than being retrofitted around hockey later.
 import { BASEBALL } from './sports/baseball.js';
+import { gamedayPayloads, gamedayLeaders } from './sports/baseball-gameday.js';
+import { venueField } from '../../client/game/js/panels/diamond/geo.js';
+import { skylineAround } from '../../server/engine/skyline.js';
 import { HOCKEY } from './sports/hockey.js';
 import {
   gameshowAiring, gameshowDayBucket, getGameshowGraph, gameshowOpenRound, gameshowResolveRound,
@@ -216,6 +219,53 @@ on('tv.schedule', ({ playerId, channelId }) => { sendTvSchedule(playerId, channe
 on('tv.standings', ({ playerId }) => {
   sendTvStandings(playerId).catch(err => console.error('[broadcast] sendTvStandings error:', err.message));
 });
+
+// A viewer's client asks for a league's club identities (colours, kits, crests) when a
+// payload names a revision it hasn't got. Content owns them (sports_pools.clubs); this
+// sends the set once and the client keeps it, so payloads only ever carry the stamp.
+on('tv.clubs', ({ playerId, sport }) => {
+  sendTvClubs(playerId, sport).catch(err => console.error('[broadcast] sendTvClubs error:', err.message));
+});
+async function sendTvClubs(playerId, sport) {
+  const id = typeof sport === 'string' && sport ? sport : 'hockey';
+  const script = await anySportsScript(id);
+  const clubs = script?.clubs && typeof script.clubs === 'object' ? script.clubs : null;
+  if (!clubs) return;
+  const mod = sportOf(script);
+  sendToPlayer(playerId, { type: 'tv_clubs', sport: id, rev: mod.clubsRevOf ? mod.clubsRevOf(clubs) : '', clubs });
+}
+
+// The same for a league's venue: where its park stands (sports_pools.venue) and the skyline
+// round it, which a 3-D view composes its city from (client/shared/city-set.js). About 18 KB
+// (5 KB gzipped), sent once a revision; a game's first payload carries `venueRev`.
+on('tv.venue', ({ playerId, sport }) => {
+  sendTvVenue(playerId, sport).catch(err => console.error('[broadcast] sendTvVenue error:', err.message));
+});
+async function sendTvVenue(playerId, sport) {
+  const id = typeof sport === 'string' && sport ? sport : 'baseball';
+  const v = venueFor(await anySportsScript(id));
+  if (v) sendToPlayer(playerId, { type: 'tv_venue', sport: id, rev: v.rev, venue: v.venue });
+}
+// A venue with a site, and its skyline, built from the in-memory world. Kept a few minutes,
+// so a run of viewers asking at once walks the world's tiles once; the stamp is a hash of
+// what's sent, so a map change reaches the next game's payloads.
+const VENUE_REACH = 40;   // tiles round the site
+const VENUE_KEEP_MS = 10 * 60 * 1000;
+const _venues = new Map();   // site key -> { at, rev, venue }
+function venueFor(script) {
+  const venue = script?.venue, site = venue?.site;
+  if (!Number.isFinite(site?.x) || !Number.isFinite(site?.y)) return null;
+  const key = JSON.stringify(venue);
+  const hit = _venues.get(key);
+  if (hit && Date.now() - hit.at < VENUE_KEEP_MS) return hit;
+  const full = { ...venue, skyline: skylineAround(site, { radius: VENUE_REACH }) };
+  const str = JSON.stringify(full);
+  let x = 0x811c9dc5;
+  for (let i = 0; i < str.length; i++) x = Math.imul(x ^ str.charCodeAt(i), 16777619) >>> 0;
+  const v = { at: Date.now(), rev: `${str.length.toString(36)}${x.toString(36)}`, venue: full };
+  _venues.set(key, v);
+  return v;
+}
 
 // Press-and-hold on the power button is the deliberate "switch it off" — turns the
 // shared set off for the whole room.
@@ -2290,6 +2340,72 @@ function ledgerAt(script, slot, windowStart) {
   return out;
 }
 
+// ── Sim versions by slot ─────────────────────────────────────────────────────
+// A sport's sim can be replaced, but a game that has aired must replay as it aired: the
+// standings, the recaps and the team cards all re-simulate past slots. So a new version
+// plays from a slot the server records once, in world_flags, the first time it sees the
+// script ask for it (`@sim 2` in the .bsm, sports_pools.sim.version): the first slot of
+// the next in-game day, which is in the future when it's recorded. A script that stops
+// asking records an end slot the same way, and the games that aired under the version
+// still replay under it. The slots come from the in-game clock, which lives in the
+// database and staff can skip, so nothing outside the server could check a slot written
+// into content; that's why the server records it. world_flags is runtime state, so a
+// deploy never rewrites the record. It's loaded at startup, before any game is
+// simulated, and read synchronously after.
+const SIM_SWITCH_KEY = (sport) => `sports_sim_v2:${sport}`;
+const _simSwitch = new Map();   // sport -> { from, until? }
+const _simSwitchWarned = new Set();
+function simVersionFor(sportId, slot) {
+  const s = _simSwitch.get(sportId);
+  if (!s || !Number.isFinite(s.from) || slot < s.from) return 1;
+  return Number.isFinite(s.until) && slot >= s.until ? 1 : 2;
+}
+// The record to write, given the one there is, whether the script asks for v2 and the
+// current slot; null when nothing changes. A version switched off after it played can't
+// be switched back on (that would need a third), but one switched off before its first
+// slot can.
+function nextSimSwitch(cur, want, slotNow) {
+  const nextDay = (Math.floor(slotNow / SPORTS_GAMES_PER_DAY) + 1) * SPORTS_GAMES_PER_DAY;
+  const neverPlayed = cur && Number.isFinite(cur.until) && cur.until <= cur.from;
+  if (want && (!cur || neverPlayed)) return { from: nextDay };
+  if (!want && cur && !Number.isFinite(cur.until)) return { from: cur.from, until: Math.max(cur.from, nextDay) };
+  return null;
+}
+async function loadSimSwitches() {
+  for (const sport of Object.keys(SPORTS)) {
+    const raw = await getFlag('world', SIM_SWITCH_KEY(sport)).catch(() => null);
+    if (!raw) continue;
+    try {
+      const v = JSON.parse(raw);
+      if (Number.isFinite(v?.from)) _simSwitch.set(sport, { from: v.from, ...(Number.isFinite(v.until) ? { until: v.until } : {}) });
+    } catch { /* a malformed record plays v1, as no record does */ }
+  }
+}
+// From the heartbeat, once a minute: record the switch for any sport whose script now
+// asks for a version it hasn't got, or stops asking for one it has.
+async function recordSimSwitches() {
+  const env = getEnvironmentState();
+  if (!env?.date || !Number.isFinite(env?.minutes)) return;   // the clock isn't loaded yet
+  for (const [sport, mod] of Object.entries(SPORTS)) {
+    if (!mod.simVersions?.includes(2)) continue;
+    const script = await anySportsScript(sport);
+    if (!script) continue;
+    const cur = _simSwitch.get(sport) || null;
+    const want = Number(script.sim?.version) >= 2;
+    const next = nextSimSwitch(cur, want, sportsSlotIndex());
+    if (!next) {
+      if (want && cur && Number.isFinite(cur.until) && !_simSwitchWarned.has(sport)) {
+        _simSwitchWarned.add(sport);
+        console.warn(`[broadcast] ${sport} sim v2 played slots ${cur.from}-${cur.until - 1} and was switched off; it can't be switched back on`);
+      }
+      continue;
+    }
+    await setFlag('world', SIM_SWITCH_KEY(sport), JSON.stringify(next));
+    _simSwitch.set(sport, next);
+    console.log(`[broadcast] ${sport} sim v2 ${Number.isFinite(next.until) ? `ends at slot ${next.until}` : `starts at slot ${next.from}`}`);
+  }
+}
+
 function sportsGameForSlot(script, slot, override, unavailable) {
   const seed = sportsHash(slot >>> 0, override?.worldSeries ? 0x77 : 0x00);
   const matchup = override?.teams
@@ -2300,10 +2416,15 @@ function sportsGameForSlot(script, slot, override, unavailable) {
   // than to the game (hockey deals each club a disjoint, permanent six) can't derive
   // them from two team names alone; baseball ignores it.
   matchup.teams = sportsTeamNames(script.teams);
+  // And each club's authored identity, so the sim's profile wears the club's colours.
+  if (script.clubs) matchup.clubs = script.clubs;
   // `unavailable` is the injury chain's answer for this slot. Passing it in explicitly
   // (rather than looking it up here) is what stops the chain recursing into itself
   // while it is being built.
-  const game = sportsSimGame(script, matchup, script.players, sportsRng(seed), unavailable ? { unavailable } : undefined);
+  // The sim version is the slot's (simVersionFor); v2 also needs the seed, which its new
+  // plays draw from on a stream of their own.
+  const version = simVersionFor(sportOf(script).id, slot);
+  const game = sportsSimGame(script, matchup, script.players, sportsRng(seed), { ...(unavailable ? { unavailable } : {}), version, seed });
   return { game, seed, matchup, unavailable: unavailable || null };
 }
 
@@ -2361,12 +2482,18 @@ function assembleSportsGraph(script, broadcastId, slot, override) {
     b.awayScore, b.homeScore, b.outs ?? 0, b.bases || [false, false, false],
   );
 
+  // A play's ball in play (sports/baseball-gameday.js), once the payloads are built below.
+  let playOf = () => null;
   const beatTok = (b) => ({
     announcer, away: away.name, home: home.name,
     team: b.battingName, batter: b.batter || '', pitcher: b.pitcher || '',
     inning: b.inning, inningOrd: sportsOrdinal(b.inning), half: b.half || '',
     section: 'inning', sectionOrd: sportsOrdinal(b.inning),
-    outs: b.outs ?? '', rbi: b.rbi ?? 0, runs: b.rbi ?? 0,
+    outs: b.outs ?? '', rbi: b.rbi ?? 0, runs: b.runs ?? b.rbi ?? 0,
+    // The sport's own words for a play, where it has them: Deadball's sim v2 names the
+    // man running, the bag in play and the fielder charged with an error, and a ball in
+    // play names who fielded it.
+    ...(sportOf(script).playTokens?.(b, playOf(b)) || {}),
     awayScore: b.awayScore, homeScore: b.homeScore,
     battingScore: b.half === 'top' ? b.awayScore : b.homeScore,
     fieldingScore: b.half === 'top' ? b.homeScore : b.awayScore,
@@ -2377,7 +2504,9 @@ function assembleSportsGraph(script, broadcastId, slot, override) {
   // "graphic" FX (home-run trajectory, final-score card, extra-innings hype). The FX
   // rides the say node exactly like the score-bug and is pushed to TV watchers when
   // the line airs; the client animates it. See _applySportsFx in tv.js.
-  const say = (line, tok, sb, graphic, gd) => { if (!line) return; const text = sportsFill(line, tok).trim(); if (text) add({ type: 'say', text, style: 'raw', ...(sb ? { scorebug: sb } : {}), ...(graphic ? { graphic } : {}), ...(gd ? { gameday: gd } : {}) }); };
+  // `meta` is a sport's pacing hints: `cue` (the moment of play this line describes) and
+  // `opt` (a line the pacer may cut). Only a sport with `paceCalls` reads them.
+  const say = (line, tok, sb, graphic, gd, meta) => { if (!line) return; const text = sportsFill(line, tok).trim(); if (text) add({ type: 'say', text, style: 'raw', ...(sb ? { scorebug: sb } : {}), ...(graphic ? { graphic } : {}), ...(gd ? { gameday: gd } : {}), ...(meta && meta.cue ? { _cue: meta.cue } : {}), ...(meta && meta.opt ? { _opt: meta.opt } : {}) }); };
 
   // ── the sport seam ──────────────────────────────────────────────────────────
   // Everything above this line is sport-agnostic: the node chain, the say/pick
@@ -2406,46 +2535,28 @@ function assembleSportsGraph(script, broadcastId, slot, override) {
   // Rich per-at-bat snapshot for the animated Gameday sub-screen. Rides one say node
   // per beat (the lead line) exactly like the score-bug/FX, and is pushed to watchers
   // when that line airs; the client animates it. Carries the same structured data Chip
-  // is narrating (batter/pitcher/kind/bases before→after) plus a synthesized pitch
-  // sequence seeded off the game seed so every TV renders it identically.
-  // Progressive line score, snapshotted per at-bat below (after the halves are grouped),
-  // and a compact standings snapshot — both ride the gameday payload so the replay's
-  // line-score strip + standings dock reveal in step with the play and can't disagree
-  // with what viewers saw. Populated once `halves` exists; read here at call time.
-  const lineSnap = new Map();   // beat -> { away:[perInningRuns], home:[…], hAway, hHome }
-  const gdStandings = ((_standingsCaches.get('baseball') || {}).rows || []).slice(0, 8)
-    .map(r => ({ team: r.team, wins: r.wins, losses: r.losses, rd: (r.runs_for || 0) - (r.runs_against || 0) }));
-  const beatGameday = (b, basesBefore, idx) => ({
-    batter: b.batter || '', pitcher: b.pitcher || '',
-    battingTeam: b.battingName, fieldingTeam: b.fieldingName,
-    battingAbbr: sportsAbbr(b.battingName), fieldingAbbr: sportsAbbr(b.fieldingName),
-    inning: b.inning, inningOrd: sportsOrdinal(b.inning), half: b.half,
-    outs: b.outs ?? 0, rbi: b.rbi ?? 0, kind: b.kind, out: !!b.out, walkoff: !!b.walkoff,
-    basesBefore: basesBefore || [false, false, false],
-    basesAfter: b.bases || [false, false, false],
-    awayScore: b.awayScore, homeScore: b.homeScore,
-    desc: sportsPlayDesc(script, b),
-    pitches: sportOf(script).synthDetail(sportsHash(gs.seed, b.inning * 2 + (b.half === 'bottom' ? 1 : 0), idx >>> 0), b.kind),
-    line: lineSnap.get(b) || null,
-    standings: gdStandings,
-  });
-  // The half-inning break. Until this existed the Gameday sub-screen only ever heard
-  // about at-bats, so through the whole changeover it held the LAST PLAY'S FINAL FRAME
-  // — a batter still flagged out standing on first, three outs lit — while Chip talked
-  // over a photograph. This is deliberately not an at-bat payload: `phase: 'half'` is
-  // the marker, and everything an at-bat needs to animate (pitches, bases, kind) is
-  // absent rather than faked, so a client that doesn't know the phase renders nothing
-  // instead of a wrong play.
-  const halfGameday = (b) => ({
-    phase: 'half',
-    battingTeam: b.battingName, fieldingTeam: b.fieldingName,
-    battingAbbr: sportsAbbr(b.battingName), fieldingAbbr: sportsAbbr(b.fieldingName),
-    inning: b.inning, inningOrd: sportsOrdinal(b.inning), half: b.half,
-    pitcher: b.pitcher || '',
-    awayScore: b.awayScore, homeScore: b.homeScore,
-    line: lineSnap.get(b) || null,
-    standings: gdStandings,
-  });
+  // is narrating (batter/pitcher/kind/bases before→after), the line score so far and a
+  // pitch sequence seeded off the game seed, so every TV renders it identically. Built
+  // by a pure module the gates can run without a server (sports/baseball-gameday.js);
+  // the league table, the leaders and the season ride only the first payload (see below),
+  // and every play carries the batter's and pitcher's lines, folded from the same season.
+  const GD = gamedayPayloads(game, gs.seed, { abbr: sportsAbbr, ordinal: sportsOrdinal, ledger: gamedayLedger('baseball'), venue: script.venue || null });
+  const gdStandings = gamedayStandings('baseball');
+  const gdLeaders = gamedayLeadersFor('baseball');
+  const beatGameday = (b) => GD.atbat.get(b);
+  playOf = (b) => GD.atbat.get(b)?.play || null;
+  // A ball in play's line agrees with its picture: the play's tags (where it went, how it was
+  // fielded) open the pools that say so, beside the bare pool (sportsPickTagged).
+  const fence = venueField(script.venue).fence;
+  const pickPlay = (b, ...keys) => {
+    const gd = GD.atbat.get(b);
+    return sportsPickTagged(pools, nrng, BASEBALL.playTags(b.kind, gd?.play, { bats: gd?.bats, fence }), ...keys);
+  };
+  // The half-inning break: `phase: 'half'`, so a client never animates it as a play.
+  const halfGameday = (b) => GD.half.get(b);
+  // The score after a run. A level score has lines of its own: the leader line reads
+  // "out in front by 0" when nobody is. One draw either way, so no other line moves.
+  const scoreUpdate = (b) => pick(...(b.awayScore === b.homeScore ? ['score.tied', 'score.update'] : ['score.update']));
   const hrGraphic = (b) => ({ overlayType: 'sportsfx', kind: 'homerun', batter: b.batter || '', team: b.battingName || '', grand: b.rbi >= 4, duration: 3.8 });
   const walkoffGraphic = (b) => ({ overlayType: 'sportsfx', kind: 'walkoff', batter: b.batter || '', team: b.battingName || '', home: home.name, away: away.name, homeScore: b.homeScore, awayScore: b.awayScore, duration: 4.4 });
   const dpGraphic = (b) => ({ overlayType: 'sportsfx', kind: 'doubleplay', batter: b.batter || '', duration: 2.4 });
@@ -2466,43 +2577,11 @@ function assembleSportsGraph(script, broadcastId, slot, override) {
     : { overlayType: 'sportsfx', kind: 'matchup', away: away.name, home: home.name, awayRecord, homeRecord, duration: 4.0 };
   say(pick(...(ws ? ['worldseries.matchup', 'matchup.records', 'matchup'] : (hasRecords ? ['matchup.records', 'matchup'] : ['matchup']))), gameTok, pregameBug, muGraphic);
 
-  // Group the flat beat list into halves so each half-inning can be narrated as a
-  // full "stage": EVERY one of the three outs is called, scoring plays are always
-  // called, and booth chatter is threaded between the outs. Baseball is long and dry,
-  // so we aim for ~6–8 spoken lines per half (the half framing counts as the first).
-  const halves = [];
-  let curHalf = null;
-  for (const b of beats) {
-    if (b.type === 'half_start') { curHalf = { start: b, atbats: [], end: null }; halves.push(curHalf); }
-    else if (b.type === 'half_end') { if (curHalf) curHalf.end = b; }
-    else if (curHalf) curHalf.atbats.push(b);
-  }
-
-  // Build the progressive line score. Walk every at-bat in game order, attributing the
-  // change in each team's running score to its inning (exact regardless of RBI vs. run
-  // semantics), and tallying hits. Snapshot the line-so-far per at-bat, so a payload
-  // aired mid-game shows the correct line up to that play and never spoils later innings.
-  {
-    const la = [], lh = [];
-    let pa = 0, ph = 0, ha = 0, hh = 0;
-    const HIT = new Set(['single', 'double', 'triple', 'homerun']);
-    for (const h of halves) {
-      const inn = h.start.inning;
-      while (la.length < inn) { la.push(0); lh.push(0); }
-      // Snapshot the half's OPENING state too, not just its at-bats. The changeover
-      // payload rides h.start, and without this the Gameday linescore blanks out for
-      // the whole inning break — the one moment a viewer is actually reading it.
-      lineSnap.set(h.start, { away: la.slice(), home: lh.slice(), hAway: ha, hHome: hh });
-      for (const b of h.atbats) {
-        const a = Number.isFinite(b.awayScore) ? b.awayScore : pa;
-        const hm = Number.isFinite(b.homeScore) ? b.homeScore : ph;
-        la[inn - 1] += Math.max(0, a - pa); lh[inn - 1] += Math.max(0, hm - ph);
-        pa = a; ph = hm;
-        if (HIT.has(b.kind)) { if (h.start.half === 'top') ha++; else hh++; }
-        lineSnap.set(b, { away: la.slice(), home: lh.slice(), hAway: ha, hHome: hh });
-      }
-    }
-  }
+  // The half-innings, so each can be narrated as a full "stage": EVERY one of the three
+  // outs is called, scoring plays are always called, and booth chatter is threaded
+  // between the outs. Baseball is long and dry, so we aim for ~6–8 spoken lines per
+  // half (the half framing counts as the first).
+  const halves = GD.halves;
 
   // Regulation (innings 1–9) is narrated full and dry. Extras are narrated as tight
   // "cut to the drama" innings below — only the plays that matter.
@@ -2517,44 +2596,69 @@ function assembleSportsGraph(script, broadcastId, slot, override) {
     let walkoffHalf = false;
     const chatter = (b) => { const line = pick('chatter'); if (line) { say(line, beatTok(b), beatBug(b)); spoken++; } };
 
-    let abIdx = 0, prevBases = [false, false, false];
     for (const b of h.atbats) {
       const tok = beatTok(b), sb = beatBug(b);
-      const gd = beatGameday(b, prevBases, abIdx++);
-      prevBases = b.bases || [false, false, false];
+      const gd = beatGameday(b);
+      if (b.type === 'run') {
+        // A play on the bases while the batter is up (sim v2). A steal, an out on the
+        // bases and anything that scores is always called; a throw over the runner beats
+        // back is colour, called only when the half still needs lines.
+        if (b.kind === 'throwover' && spoken >= target) continue;
+        const scored = (b.runs || 0) > 0;
+        const keys = b.kind === 'doublesteal' && b.out ? ['run.doublesteal.out', 'run.caughtstealing']
+          : (scored ? [`run.${b.kind}.score`, `run.${b.kind}`] : [`run.${b.kind}`]);
+        say(pick(...keys), tok, sb, null, gd); spoken++;
+        if (scored) { say(scoreUpdate(b), tok, sb); spoken++; }
+        if (b.walkoff) { say(pick('walkoff'), tok, sb, walkoffGraphic(b)); spoken++; walkoffHalf = true; }
+        continue;
+      }
       if (b.kind === 'homerun') {
         const key = b.rbi >= 4 ? 'hr.grand' : (b.rbi === 1 ? 'hr.solo' : 'hr');
-        say(pick(key, 'hr'), tok, sb, hrGraphic(b), gd); spoken++;
-        say(pick('score.update'), tok, sb); spoken++;
+        say(pickPlay(b, key, 'hr'), tok, sb, hrGraphic(b), gd); spoken++;
+        say(scoreUpdate(b), tok, sb); spoken++;
         if (b.walkoff) { say(pick('walkoff'), tok, sb, walkoffGraphic(b)); spoken++; walkoffHalf = true; }
       } else if (b.kind === 'sacfly') {
-        say(pick('atbat.sacfly'), tok, sb, null, gd); spoken++;
-        say(pick('score.update'), tok, sb); spoken++;
+        say(pickPlay(b, 'atbat.sacfly'), tok, sb, null, gd); spoken++;
+        say(scoreUpdate(b), tok, sb); spoken++;
         if (b.walkoff) { say(pick('walkoff'), tok, sb, walkoffGraphic(b)); spoken++; walkoffHalf = true; }
       } else if (b.kind === 'productout') {
-        say(pick('atbat.productout', 'atbat.groundout'), tok, sb, null, gd); spoken++;
-        if (b.rbi > 0) { say(pick('score.update'), tok, sb); spoken++; }
+        say(pickPlay(b, 'atbat.productout', 'atbat.groundout'), tok, sb, null, gd); spoken++;
+        if ((b.runs ?? b.rbi) > 0) { say(scoreUpdate(b), tok, sb); spoken++; }
         if (b.walkoff) { say(pick('walkoff'), tok, sb, walkoffGraphic(b)); spoken++; walkoffHalf = true; }
       } else if (b.kind === 'tripleplay') {
         // Never chattered over and never padded past — a triple play ends the half and
         // is the only thing anyone in the park is going to talk about.
-        say(pick('atbat.tripleplay', 'atbat.doubleplay'), tok, sb, tpGraphic(b), gd); spoken++;
+        say(pickPlay(b, 'atbat.tripleplay', 'atbat.doubleplay'), tok, sb, tpGraphic(b), gd); spoken++;
       } else if (b.kind === 'doubleplay') {
-        say(pick('atbat.doubleplay'), tok, sb, dpGraphic(b), gd); spoken++;
+        say(pickPlay(b, 'atbat.doubleplay'), tok, sb, dpGraphic(b), gd); spoken++;
         // A double play can drive in a run (man on third, nobody out). The scoreboard
-        // has to say so — the DP line itself never mentions it.
-        if (b.rbi > 0) { say(pick('score.update'), tok, sb); spoken++; }
+        // has to say so — the DP line itself never mentions it. (Sim v2 credits no RBI for
+        // it, so it's the run that counts here.)
+        if ((b.runs ?? b.rbi) > 0) { say(scoreUpdate(b), tok, sb); spoken++; }
+      } else if (b.kind === 'error') {
+        // Sim v2: an error is always called; it goes up on the board as an E.
+        say(pickPlay(b, `atbat.error.${b.errorType}`, 'atbat.error'), tok, sb, null, gd); spoken++;
+        if (b.runs > 0) { say(scoreUpdate(b), tok, sb); spoken++; }
+        if (b.walkoff) { say(pick('walkoff'), tok, sb, walkoffGraphic(b)); spoken++; walkoffHalf = true; }
+      } else if ((b.kind === 'hitbypitch' || b.kind === 'walk') && b.runs != null) {
+        // Sim v2's free passes: a hit batter has lines of its own, and a run forced in by
+        // either is called with the score, not as a base hit.
+        if (b.runs > 0 || spoken < target) {
+          say(pick(`atbat.${b.kind}`, 'atbat.walk'), tok, sb, null, gd); spoken++;
+          if (b.runs > 0) { say(scoreUpdate(b), tok, sb); spoken++; }
+          if (b.walkoff) { say(pick('walkoff'), tok, sb, walkoffGraphic(b)); spoken++; walkoffHalf = true; }
+        }
       } else if (b.rbi > 0) {
-        say(pick('rbi'), tok, sb, null, gd); spoken++;
-        say(pick('score.update'), tok, sb); spoken++;
+        say(pickPlay(b, 'rbi'), tok, sb, null, gd); spoken++;
+        say(scoreUpdate(b), tok, sb); spoken++;
         if (b.walkoff) { say(pick('walkoff'), tok, sb, walkoffGraphic(b)); spoken++; walkoffHalf = true; }
       } else if (b.out) {
         // Call every out. Thread a chatter line between outs (never after the 3rd).
-        say(pick(`atbat.${b.kind}`, 'atbat.out'), tok, sb, null, gd); spoken++;
+        say(pickPlay(b, `atbat.${b.kind}`, 'atbat.out'), tok, sb, null, gd); spoken++;
         if (b.outs < 3 && spoken < target) chatter(b);
       } else if (spoken < target) {
         // Non-scoring baserunner — colour, only when the half still needs lines.
-        say(pick(`atbat.${b.kind}`, 'atbat.single'), tok, sb, null, gd); spoken++;
+        say(pickPlay(b, `atbat.${b.kind}`, 'atbat.single'), tok, sb, null, gd); spoken++;
       }
     }
 
@@ -2580,14 +2684,17 @@ function assembleSportsGraph(script, broadcastId, slot, override) {
   if (extraHalves.length) {
     const narrateScore = (b, h) => {
       const tok = beatTok(b), sb = beatBug(b);
-      const idx = h ? h.atbats.indexOf(b) : 0;
-      const basesBefore = (h && idx > 0) ? h.atbats[idx - 1].bases : [false, false, false];
-      const gd = beatGameday(b, basesBefore, idx);
-      if (b.kind === 'homerun') { const key = b.rbi >= 4 ? 'hr.grand' : (b.rbi === 1 ? 'hr.solo' : 'hr'); say(pick(key, 'hr'), tok, sb, hrGraphic(b), gd); }
-      else if (b.kind === 'sacfly') say(pick('atbat.sacfly'), tok, sb, null, gd);
-      else if (b.kind === 'productout') say(pick('atbat.productout', 'atbat.groundout'), tok, sb, null, gd);
-      else say(pick('rbi'), tok, sb, null, gd);
-      say(pick('score.update'), tok, sb);
+      const gd = beatGameday(b);
+      // Sim v2's scoring plays that aren't hits: a play on the bases, an error, a run forced
+      // in, a double play that scores.
+      if (b.type === 'run') say(pick(`run.${b.kind}.score`, `run.${b.kind}`), tok, sb, null, gd);
+      else if (b.kind === 'error') say(pickPlay(b, `atbat.error.${b.errorType}`, 'atbat.error'), tok, sb, null, gd);
+      else if ((b.kind === 'hitbypitch' || b.kind === 'walk' || b.kind === 'doubleplay') && b.runs != null) say(pickPlay(b, `atbat.${b.kind}`, 'atbat.walk'), tok, sb, null, gd);
+      else if (b.kind === 'homerun') { const key = b.rbi >= 4 ? 'hr.grand' : (b.rbi === 1 ? 'hr.solo' : 'hr'); say(pickPlay(b, key, 'hr'), tok, sb, hrGraphic(b), gd); }
+      else if (b.kind === 'sacfly') say(pickPlay(b, 'atbat.sacfly'), tok, sb, null, gd);
+      else if (b.kind === 'productout') say(pickPlay(b, 'atbat.productout', 'atbat.groundout'), tok, sb, null, gd);
+      else say(pickPlay(b, 'rbi'), tok, sb, null, gd);
+      say(scoreUpdate(b), tok, sb);
       if (b.walkoff) say(pick('walkoff'), tok, sb, walkoffGraphic(b));
     };
     say(pick('extras.intro'), gameTok, beatBug(extraHalves[0].start),
@@ -2603,7 +2710,7 @@ function assembleSportsGraph(script, broadcastId, slot, override) {
         ? pick('extras.bottom.trail', 'extras.bottom', 'extras.cut')
         : pick(`extras.${h.start.half}`, 'extras.cut'),
         beatTok(h.start), beatBug(h.start));
-      const scorers = h.atbats.filter(b => b.rbi > 0);
+      const scorers = h.atbats.filter(b => (b.runs ?? b.rbi) > 0);
       if (scorers.length) for (const b of scorers) narrateScore(b, h);
       else if (!trailingHome) say(pick('extras.hold'), beatTok(h.end), beatBug(h.end));
     }
@@ -2625,6 +2732,25 @@ function assembleSportsGraph(script, broadcastId, slot, override) {
   say(pick(...(ws ? ['worldseries.final', 'final'] : ['final'])), finalTok, finalBug, winGraphic);
   outroId = prevId;
   say(pick(...(ws ? ['worldseries.outro', 'outro'] : ['outro'])), finalTok, finalBug);
+
+  // The league table rides the game's first Gameday payload only: the view keeps it
+  // for the game, and a late tuner gets it with the catch-up (sendCatchUp). That one
+  // payload also carries the leaders, the venue's stamp and the season: its number,
+  // regular season or final, and in a final each side's seed.
+  {
+    const s = seasonOf(sportMod.id);
+    const seedOf = (team) => (team === s.finalistA ? 1 : team === s.finalistB ? 2 : null);
+    // the venue's stamp: a client without that revision asks for it once (tv_venue)
+    const venueRev = venueFor(script)?.rev || '';
+    const season = { n: s.seasonNo ?? null, phase: ws ? 'final' : 'regular', ...(ws ? { seedAway: seedOf(away.name), seedHome: seedOf(home.name) } : {}) };
+    let first = true;
+    for (let id = startId; id; id = nodes[id].next) {
+      const gd = nodes[id].gameday;
+      if (!gd) continue;
+      nodes[id].gameday = first ? { ...gd, standings: gdStandings, leaders: gdLeaders, season, ...(venueRev ? { venueRev } : {}) } : { ...gd };
+      first = false;
+    }
+  }
   }
   // ── end of the baseball body. Deliberately not re-indented: it is unchanged
   // from before the seam existed, and re-indenting 230 lines would have buried a
@@ -2674,9 +2800,28 @@ function assembleSportsGraph(script, broadcastId, slot, override) {
   const allSayIds = Object.keys(nodes).filter((id) => nodes[id].type === 'say');
   const gameSayIds = allSayIds.filter((id) => !nodes[id]._recap);
   const recapSayIds = allSayIds.filter((id) => nodes[id]._recap);
-  const perLine = Math.min(90000, Math.max(SPORTS_LINE_HOLD_MS, floorTick(slotMs * SPORTS_GAME_FILL / Math.max(1, gameSayIds.length))));
-  for (const id of gameSayIds) nodes[id].holdMs = perLine;
-  let lastFloor = perLine;
+  let lastFloor;
+  if (typeof sportMod.paceCalls === 'function') {
+    // A sport that calls the play in short lines paces each line by its length and cuts
+    // optional lines on a short slot (see sports/hockey-pacing.js).
+    const order = [];
+    for (let id = startId; id; id = nodes[id].next) order.push(id);
+    const lines = order.filter((id) => nodes[id].type === 'say' && !nodes[id]._recap).map((id) => nodes[id]);
+    const { holds, dropped } = sportMod.paceCalls(lines, slotMs * SPORTS_GAME_FILL, BROADCAST_TICK_MS);
+    let prev = null;
+    for (const id of order) {
+      const nd = nodes[id];
+      if (dropped.has(nd)) { if (prev) nodes[prev].next = nd.next; if (prevId === id) prevId = prev; delete nodes[id]; continue; }
+      if (holds.has(nd)) nd.holdMs = holds.get(nd);
+      delete nd._cue; delete nd._opt;
+      prev = id;
+    }
+    lastFloor = SPORTS_LINE_HOLD_MS;
+  } else {
+    const perLine = Math.min(90000, Math.max(SPORTS_LINE_HOLD_MS, floorTick(slotMs * SPORTS_GAME_FILL / Math.max(1, gameSayIds.length))));
+    for (const id of gameSayIds) nodes[id].holdMs = perLine;
+    lastFloor = perLine;
+  }
   if (recapSayIds.length) {
     const recapPerLine = Math.min(45000, Math.max(SPORTS_LINE_HOLD_MS, floorTick(slotMs * (1 - SPORTS_GAME_FILL) / recapSayIds.length)));
     for (const id of recapSayIds) nodes[id].holdMs = recapPerLine;
@@ -2687,6 +2832,11 @@ function assembleSportsGraph(script, broadcastId, slot, override) {
   const played = Object.values(nodes).reduce((sum, nd) => sum + holdOf(nd), 0);
   const tail = nodes[prevId] || nodes[outroId];
   if (tail) tail.holdMs = Math.max(lastFloor, slotMs - (played - holdOf(tail)));
+  // Each Gameday payload says how long its line holds, so a view can pace the play to it.
+  for (const id of Object.keys(nodes)) {
+    const nd = nodes[id];
+    if (nd.gameday && nd.holdMs) nd.gameday = { ...nd.gameday, hold: holdOf(nd) };
+  }
 
   // When the chain ends the walker restarts at _start on its own. Keying _broadcastId
   // to the global slot resets the blackboard when the slot rolls, so the shared graph
@@ -2697,6 +2847,10 @@ function assembleSportsGraph(script, broadcastId, slot, override) {
   // reveals it over the airing). Stash the outcome so the tick can announce it to
   // the betting system — the result is known at bet-lock time, paid at air's end.
   graph._game = { away: away.name, home: home.name, awayScore, homeScore, winner: winner() };
+  // Where the park stands, when the script names it (sports_pools.venue.site), so each
+  // line's payload can carry the weather over it as the line airs (gamedayOnAir).
+  const site = script.venue?.site;
+  graph._venueSite = Number.isFinite(site?.x) && Number.isFinite(site?.y) ? { x: site.x, y: site.y } : null;
   return graph;
 }
 
@@ -2734,6 +2888,7 @@ function sportsChannels() {
 }
 async function sportsHeartbeat() {
   const nowMs = Date.now();
+  await recordSimSwitches();
   const chans = sportsChannels();
   if (!chans.length) return;
   // Background postseason detection, per sport, with no viewer needed. Deduped so two
@@ -2780,7 +2935,7 @@ const STANDINGS_BUG_EVERY_MS = 45000;   // how often the standings graphic flash
 // Cached PER SPORT. A single shared cache meant `recordOf` answered every question out
 // of the baseball table, so a CPhL club was permanently '0-0' no matter how many games
 // its league had played — and the announcer's records line could never fire for hockey.
-const _standingsCaches = new Map();     // sport -> { at, rows }
+const _standingsCaches = new Map();     // sport -> { at, rows, extras }
 const _lastStandingsBug = new Map();    // channelId -> last push ms
 
 // Overheard background-TV lines are throttled so a chatty channel doesn't spam the
@@ -2805,9 +2960,46 @@ async function refreshStandings(nowMs, sport = 'baseball') {
   if (nowMs - cur.at < STANDINGS_CACHE_MS) return cur.rows;
   const res = await dispatchAction({ type: 'sportsleague.getStandings', params: { sport } }).catch(() => null);
   const rows = Array.isArray(res?.rows) ? res.rows : cur.rows;
-  _standingsCaches.set(sport, { at: nowMs, rows });
+  // Everything else the sport's fold returned (Deadball's races and its every-man ledger),
+  // kept beside the table so the Gameday payloads read the same fold.
+  const { rows: _rows, sport: _sport, ...extras } = res || {};
+  _standingsCaches.set(sport, { at: nowMs, rows, extras: res ? extras : cur.extras });
   return rows;
 }
+// The compact table a baseball Gameday payload carries: the top eight, with run
+// differential. Empty for another sport, whose narrator builds its own.
+function gamedayStandings(sport) {
+  if (sport !== 'baseball') return [];
+  return ((_standingsCaches.get('baseball') || {}).rows || []).slice(0, 8)
+    .map(r => ({ team: r.team, wins: r.wins, losses: r.losses, rd: (r.runs_for || 0) - (r.runs_against || 0) }));
+}
+// The league's leaders a baseball Gameday payload carries (gamedayLeaders in
+// sports/baseball-gameday.js), off the same fold as the table. Null for another sport.
+function gamedayLeadersFor(sport) {
+  return sport === 'baseball' ? gamedayLeaders((_standingsCaches.get('baseball') || {}).extras || {}) : null;
+}
+// The season so far, every man's line, that a game's payloads start their lines from.
+function gamedayLedger(sport) {
+  return sport === 'baseball' ? ((_standingsCaches.get('baseball') || {}).extras || {}).ledger || null : null;
+}
+
+// A Gameday payload as its line goes on air. A park with a site gets the weather over it
+// (`wx`): the tile's weather word, what's falling and how hard, and any city-wide event such
+// as an ion storm; and the world's clock (`clock`, the minute of the day), which the 3-D
+// park's sky follows from sunset through the blue hour to night. Both are read when the line
+// airs, not when the game is assembled, because rain falls only under a weather cell, the cells
+// drift across the city during a game, and the sky darkens through it.
+// Sync and query-free (the cells and the clock are in memory), once per aired line.
+function gamedayOnAir(gd, graph) {
+  const site = graph && graph._venueSite;
+  if (!site) return gd;
+  const { precipType, precipRate } = getPrecipAtGrid(site.x, site.y);
+  const event = getWeatherEvent()?.type;
+  const wx = { word: getWeatherTypeAtGrid(site.x, site.y), precip: precipType, rate: Math.round((precipRate || 0) * 100) / 100, ...(event ? { event } : {}) };
+  const minutes = getEnvironmentState()?.minutes;
+  return { ...gd, wx, ...(Number.isFinite(minutes) ? { clock: Math.round(minutes) % 1440 } : {}) };
+}
+
 // A team's record from its own league's cached standings, or '0-0' if it hasn't played.
 // Hockey reads W-L-OTL, because a record that hides the overtime losses isn't a hockey
 // club's record — and the announcer says this line out loud.
@@ -2825,14 +3017,14 @@ function recordOf(team, sport = 'baseball') {
 // One season per sport — Deadball's pennant and the CPhL's Cup run on their own
 // clocks over their own schedules and must never see each other's finalists.
 const _seasonCaches = new Map();   // sport -> { at, phase, finalistA, finalistB, wsSlot }
-const EMPTY_SEASON = { at: 0, phase: 'regular', finalistA: null, finalistB: null, wsSlot: null, startSlot: null };
+const EMPTY_SEASON = { at: 0, phase: 'regular', finalistA: null, finalistB: null, wsSlot: null, startSlot: null, seasonNo: null };
 const seasonOf = (sport) => _seasonCaches.get(sport) || EMPTY_SEASON;
 async function refreshSeason(nowMs, sport = 'baseball') {
   const cur = seasonOf(sport);
   if (nowMs - cur.at < STANDINGS_CACHE_MS) return cur;
   const res = await dispatchAction({ type: 'sportsleague.getSeason', params: { sport } }).catch(() => null);
   const next = (res && typeof res.phase === 'string')
-    ? { at: nowMs, phase: res.phase, finalistA: res.finalistA, finalistB: res.finalistB, wsSlot: res.wsSlot ?? null, startSlot: res.startSlot ?? null }
+    ? { at: nowMs, phase: res.phase, finalistA: res.finalistA, finalistB: res.finalistB, wsSlot: res.wsSlot ?? null, startSlot: res.startSlot ?? null, seasonNo: res.seasonNo ?? null }
     : { ...cur, at: nowMs };
   _seasonCaches.set(sport, next);
   return next;
@@ -5581,7 +5773,15 @@ function _recordBeat(state, result, programName, scorebugOverlay, gamedayOverlay
   // late tuner needs it — but only while it's still current. A stale bug from the
   // last airing must never sit over a talk show.
   if (scorebugOverlay) { state.lastScorebug = scorebugOverlay; state.lastScorebugAt = nowMs; }
-  if (gamedayOverlay)  { state.lastGameday  = gamedayOverlay;  state.lastGamedayAt  = nowMs; }
+  if (gamedayOverlay)  {
+    state.lastGameday  = gamedayOverlay;  state.lastGamedayAt  = nowMs;
+    // A game's table rides only its first payload, so keep it for whoever tunes in later,
+    // with its sport: a hockey game after Deadball on the same channel isn't sent it. The
+    // leaders and the season ride with it and are kept the same way.
+    if (Array.isArray(gamedayOverlay.standings)) {
+      state.lastStandings = { sport: gamedayOverlay.sport, rows: gamedayOverlay.standings, leaders: gamedayOverlay.leaders || null, season: gamedayOverlay.season || null, venueRev: gamedayOverlay.venueRev || null };
+    }
+  }
 }
 
 const CATCHUP_BUG_MAX_AGE_MS = 90_000;   // a score-bug older than this is last night's
@@ -5619,8 +5819,19 @@ function sendCatchUp(playerId, channelId) {
   const now = Date.now();
   if (state.lastScorebug && now - (state.lastScorebugAt || 0) < CATCHUP_BUG_MAX_AGE_MS)
     sendToPlayer(playerId, { type: 'tv_overlay', channelId, overlay: state.lastScorebug });
-  if (state.lastGameday && now - (state.lastGamedayAt || 0) < CATCHUP_BUG_MAX_AGE_MS)
-    sendToPlayer(playerId, { type: 'tv_overlay', channelId, overlay: state.lastGameday });
+  if (state.lastGameday && now - (state.lastGamedayAt || 0) < CATCHUP_BUG_MAX_AGE_MS) {
+    // The game's table, leaders, season and venue stamp ride only its first payload, so a
+    // late tuner gets them here.
+    const gd = state.lastGameday;
+    const kept = state.lastStandings && state.lastStandings.sport === gd.sport ? state.lastStandings : null;
+    const table = kept ? kept.rows : gamedayStandings(gd.sport);
+    const once = {};
+    if (!Array.isArray(gd.standings) && table.length) once.standings = table;
+    if (!gd.leaders && kept?.leaders) once.leaders = kept.leaders;
+    if (!gd.season && kept?.season) once.season = kept.season;
+    if (!gd.venueRev && kept?.venueRev) once.venueRev = kept.venueRev;
+    sendToPlayer(playerId, { type: 'tv_overlay', channelId, overlay: Object.keys(once).length ? { ...gd, ...once } : gd });
+  }
 }
 
 // ── Dynamic news ─────────────────────────────────────────────────────────────
@@ -7292,7 +7503,7 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
           : (!isVerbatim && !isNarration && !isAmbient && bb.npcAnchor ? `${bb.npcAnchor} says, "${raw}"` : raw);
         // Verbatim lines (microreel dialogue) leak as speech without needing an anchor.
         const isSpeech = (!isNarration && !isAmbient && style_say !== 'ticker' && !!bb.npcAnchor) || isVerbatim;
-        return { text: text_say, key: key_say, style: isAmbient ? 'ambient' : 'raw', duration: holdMs_say / 1000, ...(isSpeech ? { speech: true, speechText: text_say } : {}), ...(node.data?.scorebug ? { scorebug: node.data.scorebug } : {}), ...(node.data?.graphic ? { graphic: node.data.graphic } : {}), ...(node.data?.gameday ? { gameday: node.data.gameday } : {}) };
+        return { text: text_say, key: key_say, style: isAmbient ? 'ambient' : 'raw', duration: holdMs_say / 1000, ...(isSpeech ? { speech: true, speechText: text_say } : {}), ...(node.data?.scorebug ? { scorebug: node.data.scorebug } : {}), ...(node.data?.graphic ? { graphic: node.data.graphic } : {}), ...(node.data?.gameday ? { gameday: gamedayOnAir(node.data.gameday, graph) } : {}) };
       }
 
       case 'music': {
@@ -10076,6 +10287,8 @@ export const _test = {
   // Exported so regress can assert what actually rides the wire to the Gameday
   // sub-screen — the half-inning changeover payload has no other observable.
   assembleSportsGraph,
+  // the sport's script as the venue and club handlers find it
+  anySportsScript,
   sportsGameForSlot, sportsMatchupForSlot, roundRobinRounds, sportsSlotIndex,
   sportsSlotMs, sportsAiring, SPORTS_GAMES_PER_DAY, nextAirSlot,
   assembleNewsGraph, newsFill, newsSceneNames,
@@ -10113,7 +10326,9 @@ export const _test = {
   envTimeScale: () => getEnvironmentState()?.timeScale || 1,
   staffCallSlot: _staffCallSlot, staffCallLeadGameSec: _staffCallLeadGameSec, STAFF_CALL_LEAD_REAL_MIN,
   morningPlug: _morningPlug, RUNTIME_TOKENS,
-  channelRuntime, recordBeat: _recordBeat, sendCatchUp,
+  channelRuntime, recordBeat: _recordBeat, sendCatchUp, gamedayOnAir,
+  // The sim switch: the pure decision, the slot's version, and a seam to set the record in memory.
+  simVersionFor, nextSimSwitch, getSimSwitch: (sport) => _simSwitch.get(sport) || null, setSimSwitch: (sport, v) => (v ? _simSwitch.set(sport, v) : _simSwitch.delete(sport)),
   filmDayMask,
   // The call-sheet graph an actor is actually given. Exposed because the only other
   // way to see an actor performing off-shift is to watch a channel at 08:00 and
@@ -11336,6 +11551,7 @@ export const routeHandler = async (path, method, body, auth) => {
 
 // ── Startup ──────────────────────────────────────────────────────────────────
 
+await loadSimSwitches();   // before anything simulates a game
 await loadChannelRuntimes();
 await loadZoneTunings();
 await loadGraphicsCache();

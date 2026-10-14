@@ -72,7 +72,7 @@ Entries marked **(as built)** describe what actually ships and outrank design in
 - [docs/systems-overland-void-travel.md](docs/systems-overland-void-travel.md): transient waste rooms off a region's rim via `movement.edge` and `registerTransientZone` (as built)
 - [docs/reference/building-styles.md](docs/reference/building-styles.md): art direction by quarter and region. A building gets its name once; a second sign uses `$trade`
 - [docs/reference/world-rendering.md](docs/reference/world-rendering.md): how a tile becomes a building in GLASS, palettes, the three tower renderers, the berth. Read before "improving a model"
-- [tools/modelshop/README.md](tools/modelshop/README.md): the Modelshop (`npm run modelshop`, :5181): GLASS model inspector, editor, differ and vehicle parameters. Bind authored models by name, never by type
+- [tools/modelshop/README.md](tools/modelshop/README.md): the Modelshop (`npm run modelshop`, :5181): GLASS model inspector, editor, differ and vehicle parameters, and the Pose Lab for Deadball's clips. Bind authored models by name, never by type
 - [tools/studio/README.md](tools/studio/README.md): the Studio (`npm run studio`): the file-based map editor for `content/`
 - [docs/reference/building-shapes.md](docs/reference/building-shapes.md): building geometry recorded via `SHAPE_SINK`, driving LOD, occlusion, shadows and CFIT collision (as built)
 - [docs/proposals/coldwater-infill.md](docs/proposals/coldwater-infill.md): fourteen infill buildings (as built). Run `node scripts/content/sitecheck.mjs` before siting; an open mid-block tile is usually somebody's street access

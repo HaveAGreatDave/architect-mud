@@ -6,7 +6,7 @@ export const DEFAULT_AUDIO_SETTINGS = { enabled: true, music: true, sfx: true, t
 // default look of the product; keep it in step with the inline boot script in
 // client/game/index.html, which sets the same value before any module loads so the
 // first paint isn't a different colour from the second.
-const DEFAULT_SETTINGS = { theme: 'iron', fontSize: '16', density: 'comfortable', sidebarPosition: 'left', motion: 'on', weatherFx: 'on', tempUnit: 'C', contrast: 0, dpadSize: 'small', pokerFelt: 'green', pokerFeltColor: '#1a4a1a', extraLore: 'off', mapOverlay: 'labels', mapColor: 'off', minimapRender: 'smooth', uiFont: 'mono', statusGlyphs: 'off', monoAudio: 'off', uiSound: 'on', dictation: 'off', logVoice: 'off', logVoiceRate: '1', audio: DEFAULT_AUDIO_SETTINGS };
+const DEFAULT_SETTINGS = { theme: 'iron', fontSize: '16', density: 'comfortable', sidebarPosition: 'left', motion: 'on', weatherFx: 'on', tempUnit: 'C', contrast: 0, dpadSize: 'small', pokerFelt: 'green', pokerFeltColor: '#1a4a1a', extraLore: 'off', mapOverlay: 'labels', mapColor: 'off', minimapRender: 'smooth', uiFont: 'mono', statusGlyphs: 'off', monoAudio: 'off', uiSound: 'on', dictation: 'off', logVoice: 'off', logVoiceRate: '1', playByPlay: 'on', audio: DEFAULT_AUDIO_SETTINGS };
 
 // ── The accessibility surface, declared once ─────────────────────────────────
 //
@@ -73,6 +73,11 @@ export const A11Y_OPTIONS = [
     opts: [{ v: 'off', t: 'Off' }, { v: 'review', t: 'Review' }, { v: 'send', t: 'Auto-send' }],
   },
 
+  {
+    key: 'playByPlay', label: 'Play by Play', verb: 'plays',
+    why: "While you watch Deadball on a TV, each pitch is written out for your screen reader as it's thrown, with the commentator's line as each play lands and the words and cards that go up over the picture. Off leaves the commentator's line and the score where you can read them, and stops them being announced. Nothing on screen changes either way.",
+    opts: [{ v: 'on', t: 'On' }, { v: 'off', t: 'Off' }],
+  },
   {
     key: 'uiSound', label: 'Interface Sounds', verb: 'clicks',
     why: "A soft click when you press a button, switch a tab or open a panel, and a fainter tick when the mouse passes over one. Keyboard focus never makes a sound, so it won't talk over a screen reader. The SFX volume slider sets how loud it is.",
@@ -179,6 +184,15 @@ export function prefersReducedMotion() {
 }
 
 
+
+// ── Play by Play, read when there's something to say ─────────────────────────
+//
+// A live picture of a sports broadcast (Deadball's Gameday, 2-D or 3-D) writes each pitch into a
+// polite live region as it's thrown, beside the booth's line. On unless the player switched it
+// off. Like prefersReducedMotion, read when asked and never cached.
+export function playByPlayOn() {
+  try { return document.documentElement.getAttribute('data-play-by-play') !== 'off'; } catch { return true; }
+}
 
 const DEFAULT_FELT_GREEN = '#1a4a1a';
 
@@ -456,6 +470,8 @@ export function applySettings(settings) {
   document.documentElement.setAttribute('data-dictation', settings.dictation || 'off');
   window._applyDictation?.(settings.dictation || 'off');
   window._applyUiSound?.(settings.uiSound || 'on');
+  // Play by Play: whether a sports broadcast's live picture announces each pitch (playByPlayOn).
+  document.documentElement.setAttribute('data-play-by-play', settings.playByPlay || 'on');
   // Read Aloud. Rate first, so a mode change never speaks its first line at the
   // old speed.
   window._applyLogVoiceRate?.(settings.logVoiceRate || '1');

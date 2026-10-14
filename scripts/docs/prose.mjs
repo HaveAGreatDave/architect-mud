@@ -72,7 +72,7 @@ const WARN = [
 
 // Content directories that are not player-facing prose.
 const SKIP_CONTENT = new Set([
-  'books', 'building_models', 'fauna_models', 'vehicle_models', 'generators', 'power_zones', 'map', 'maps',
+  'books', 'building_models', 'fauna_models', 'vehicle_models', 'animation_clips', 'generators', 'power_zones', 'map', 'maps',
   'connections', 'audio_ambient', 'audio_event_routes', 'audio_instruments', 'audio_samples', 'audio_sfx',
   'audio_songs', 'interface_sfx', 'climate_profiles', 'combat_config', 'command_aliases', 'aircraft_types',
   'media_broadcasts', 'media_cameras', 'media_channel_playlist', 'media_channels', 'media_deck_units',

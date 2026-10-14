@@ -55,6 +55,16 @@ const write = (rel, obj) => {
   console.log(`  wrote ${rel}`);
 };
 
+// The clubs' identities (colours, kits, crests) are authored by build-cphl-clubs.mjs into
+// this same row's sports_pools.clubs, not by the .bsm, so a rebuild carries them over.
+{
+  const prev = path.join(ROOT, `content/media_broadcasts/${BROADCAST_ID}.json`);
+  if (fs.existsSync(prev)) {
+    const clubs = JSON.parse(fs.readFileSync(prev, 'utf8')).sports_pools?.clubs;
+    if (clubs) sportsScript.clubs = clubs;
+  }
+}
+
 write(`content/media_broadcasts/${BROADCAST_ID}.json`, {
   broadcast_graph: broadcastGraph,
   category: meta.category || 'sport',

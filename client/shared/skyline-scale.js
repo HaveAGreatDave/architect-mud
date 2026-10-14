@@ -83,3 +83,27 @@ export function floorsFor(type, flr) {
   if (flr > 0) return flr;
   return TYPE_FLOORS[type] || TYPE_FLOORS.default;
 }
+
+// How a building is drawn from its floors: the footprint half-width (`fh`) and the storey stack's
+// height (`h`) a model arm takes, in tile units, each with the tile's own jitter so no two are
+// alike. The flight sim passes its live tuning sliders (RENDER_TUNE in windshield.js, whose
+// defaults are these); anything else that draws a building at the sim's size (the broadcast's
+// city, gl/cityscape.js) takes the defaults, so a tower stands as tall on TV as from a cockpit.
+export const BUILDING_TUNE = Object.freeze({
+  bldgH: 1.40,        // building height scale
+  bldgStretch: 5.0,   // extra vertical stretch on top of bldgH: taller storeys, not more of them
+  bldgFoot: 1.0,      // footprint scale: 1.0 fills most of the tile
+});
+// The Curtain's height in world-z (tiles), in the flight sim and round the broadcast's park alike.
+export const CURTAIN_H = 0.9;
+
+// The deterministic 0..1 scatter the sim keys its per-tile jitter on.
+export const tileFrac = (n) => { const x = Math.sin((n + 1) * 12.9898) * 43758.5453; return x - Math.floor(x); };
+// A tile's seed for that jitter, from its map coordinates.
+export const tileSeed = (x, y) => (x + 512) * 73 + (y + 512) * 149;
+export function buildingScale(floors, seed = 0, tune = BUILDING_TUNE) {
+  return {
+    fh: (BUILDING_FOOT + tileFrac(seed + 2) * 0.06) * (tune.bldgFoot || 1),
+    h: Math.max(1, floors) * FLOOR_Z * (0.9 + tileFrac(seed) * 0.2) * tune.bldgH * (tune.bldgStretch || 1),
+  };
+}

@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Deadball park: visual test</title>
+<link rel="stylesheet" href="../client/game/styles.css">
+<!--
+  VISUAL TEST for Deadball's Gameday views (docs/proposals/deadball-glass2.md).
+
+  Not a mock. It runs the real sim (plugins/broadcast/sports/baseball.js), builds the
+  real payloads (sports/baseball-gameday.js, the module the broadcast attaches to its
+  lines) and feeds them to the real view in game order, as tv.js does. The captions are
+  the real line library, data/scripts/baseball.bsm, picked by kind of play the way the
+  broadcast picks them. Two differences from air: the broadcast calls only some at-bats
+  and this page shows them all, and the game is the script's clubs and players but not
+  the one that aired in a slot, which also needs the server's schedule and injury chain.
+
+  It shows the 2-D Gameday (client/game/js/panels/gameday.js), or with ?park=3d the
+  Grandstand, the park in 3-D (gameday-grandstand.js), which the game shows by default unless
+  the deadball.grandstand flag is '0'. ?shot= holds one of its cameras (bat, cf,
+  high, side, bag, mound, sky), ?grade= picks the picture (arcade, broadcast or none),
+  ?tube=1 puts it behind tube glass, ?w= sets the frame's width in CSS pixels, ?bug= the
+  station's bug in the corner (KSAB by default) and ?po=1 dresses the graphics for a final.
+  Each at-bat is staged pitch by pitch (diamond/director.js) within 0.45 of its line's hold;
+  every payload here holds ?hold= milliseconds (35000 by default, a line at the default clock),
+  and ?speed= runs the park's clock slower (0.25) or stops it (0) for a look at one moment.
+  ?hour= puts the first payload on air at that in-game hour (18 is Deadball's slot) and each after
+  it a hold later, so the sky goes down through the game as it does on air (diamond/sky.js);
+  ?wx= a weather word (rain, snow, thunderstorm, fog, ash...), ?rate= how hard it falls (0 to 1)
+  and ?event= a city-wide event (ion_storm, acid_rain) put the weather over the park on every
+  payload (diamond/weather.js).
+  The city round the park is the league's venue from content with a skyline built the
+  server's way (client/shared/skyline-manifest.js) over the flight sim's baked world
+  (client/game/flightsim-world.json), so it can trail the live map by a bake; ?city=0
+  leaves it out, and ?hud=0 hides the graphics so the picture can be judged on its own.
+  ?tier= starts the picture on a tier (full, laptop or phone, diamond/quality.js) instead of the
+  one the screen picks; the governor still steps it down when frames come slow.
+  The season the payloads' lines and leaders come from is a few dozen games between the
+  script's clubs, folded as the standings fold them.
+
+  Serve the repo root over HTTP and open /sandbox/deadball-park-test.html (a file://
+  page can't fetch the .bsm or load the modules). ?slot=N picks the game, ?sim=2 plays
+  it under sim v2 (errors, hit batters, steals, pickoffs, wild pitches), ?play= a filter
+  below (runs, hits, dp, walk, k, bases, errors, half, inplay) and ?i=N a payload within it.
+-->
+<style>
+  html, body { margin: 0; background: radial-gradient(ellipse at 50% 20%, #202329, #0a0b0d 70%); }
+  .stage { display: flex; flex-direction: column; gap: 16px; padding: 24px; align-items: center; }
+  /* A minimal stand-in for #tv-window so the Gameday host and its CSS vars resolve. */
+  .frame {
+    position: relative; width: 620px; max-width: 96vw; aspect-ratio: 760 / 520;
+    background: #061014; border-radius: 8px; overflow: hidden;
+    border: 2px solid #2c3037; box-shadow: 0 0 0 3px #e6e9ee, 0 0 0 6px #70767e, 0 14px 40px rgba(0,0,0,.7);
+    font-family: monospace;
+  }
+  .frame::before { content: '⚾ DEADBALL · CH 4'; color: #7fd6b0; font-size: 11px; letter-spacing: 2px; display: flex; align-items: center; padding: 0 12px; position: absolute; top: 0; left: 0; right: 0; height: 45px; background: rgba(0,40,30,.5); border-bottom: 1px solid rgba(0,220,180,.35); z-index: 2; }
+  .frame::after  { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 72px; background: rgba(0,20,15,.7); border-top: 1px solid rgba(0,220,180,.35); z-index: 2; }
+  .bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: center; }
+  .label { color: #8fae9a; font-family: monospace; font-size: 13px; letter-spacing: 2px; }
+  .note { color: #6c8a78; font-family: monospace; font-size: 11px; max-width: 620px; text-align: center; line-height: 1.6; }
+  button, select { font-family: monospace; background: #0c1a14; color: #7fd6b0; border: 1px solid #2e6a44; padding: 6px 12px; border-radius: 3px; cursor: pointer; }
+  .counter { color: #b4f0d2; font-family: monospace; font-size: 12px; min-width: 190px; text-align: center; }
+</style>
+</head>
+<body>
+  <div class="stage">
+    <div class="label">DEADBALL GAMEDAY · real sim, real payloads, real view</div>
+    <div id="tv-window" data-theme="crt" class="frame">
+      <div id="tv-gameday" class="on"></div>
+    </div>
+    <div class="bar">
+      <button id="prev">◀ prev</button>
+      <span class="counter" id="count">loading…</span>
+      <button id="next">next ▶</button>
+      <button id="auto">▶ auto-play</button>
+      <select id="filter">
+        <option value="">every payload</option>
+        <option value="runs">runs scoring</option>
+        <option value="hits">hits</option>
+        <option value="dp">double and triple plays</option>
+        <option value="walk">walks</option>
+        <option value="k">strikeouts</option>
+        <option value="bases">plays on the bases (v2)</option>
+        <option value="errors">errors and hit batters (v2)</option>
+        <option value="half">half-inning breaks</option>
+        <option value="inplay">balls in play</option>
+      </select>
+      <button id="reroll">⟳ new game</button>
+    </div>
+    <div class="note" id="head">&nbsp;</div>
+    <div class="note">Click anything once to unlock audio. Auto-play holds each play about as long as a line holds on air.</div>
+  </div>
+
+  <!-- Classic script: sets window.AudioEngine so the Gameday SFX and the voice play here. -->
+  <script src="../client/shared/audio-engine.js"></script>
+  <script type="module">
+    import { simGame, simGameV2, playTokens, playTags, SEASON } from '../plugins/broadcast/sports/baseball.js';
+    import { gamedayPayloads, gamedayLeaders } from '../plugins/broadcast/sports/baseball-gameday.js';
+    import { sportsRng, sportsHash, sportsPickTagged, sportsFill } from '../plugins/broadcast/rng.js';
+    import { createGamedayView } from '../client/game/js/panels/gameday.js';
+    import { createGrandstandView } from '../client/game/js/panels/gameday-grandstand.js';
+    import { setVenue } from '../client/game/js/panels/venue.js';
+    import { skylineFrom } from '../client/shared/skyline-manifest.js';
+
+    const Q = new URLSearchParams(location.search);
+    const HOLD_MS = Q.get('hold') ? +Q.get('hold') : 35000;
+    const HOUR = Q.get('hour') != null && Q.get('hour') !== '' && Number.isFinite(+Q.get('hour')) ? +Q.get('hour') : null;
+    // the weather over the park on every payload, as the broadcast puts it on air
+    const WX = Q.get('wx') || Q.get('event') ? { word: Q.get('wx') || 'clear', precip: 'none', rate: Q.get('rate') != null ? +Q.get('rate') : 0.6, ...(Q.get('event') ? { event: Q.get('event') } : {}) } : null;
+    if (Q.get('w')) document.getElementById('tv-window').style.width = `${+Q.get('w')}px`;
+    if (Q.get('hud') === '0') document.head.insertAdjacentHTML('beforeend', '<style>.gds-hud { display: none; }</style>');
+    const host = document.getElementById('tv-gameday');
+    const view = Q.get('park') === '3d'
+      ? createGrandstandView(host, { force: true, preserve: true, shot: Q.get('shot') || undefined, grade: Q.get('grade') || undefined, tube: Q.get('tube') === '1', station: Q.get('bug') ?? 'KSAB',
+        speed: Q.get('speed') != null ? +Q.get('speed') : undefined, tier: Q.get('tier') || undefined })
+      : createGamedayView(host);
+    window.__view = view;
+    view.showIdle();
+
+    // The broadcast's own formatters (sportsAbbr and sportsOrdinal in plugins/broadcast/index.js),
+    // which the payloads take as arguments.
+    const abbr = (name) => {
+      const words = String(name || '').replace(/[^A-Za-z0-9 ]/g, '').trim().split(/\s+/).filter(Boolean);
+      const a = (words.length > 1 ? words.map(w => w[0]).join('') : (words[0] || '')).toUpperCase().slice(0, 3);
+      return a.length >= 2 ? a : (words[0] || 'TBD').slice(0, 3).toUpperCase();
+    };
+    const ordinal = (n) => ['0th', '1st', '2nd', '3rd'][n] || `${n}th`;
+
+    // The .bsm's line library, clubs and players, parsed as the hockey sandbox parses its own.
+    async function loadScript() {
+      const src = await (await fetch('../data/scripts/baseball.bsm')).text();
+      const pools = {}, teams = [], players = [];
+      let mode = null, key = null;
+      for (const raw of src.split(/\r?\n/)) {
+        const l = raw.trim();
+        if (l.startsWith('::lines ')) { key = l.slice(8).trim(); pools[key] = []; mode = 'lines'; continue; }
+        if (l === '::teams') { mode = 'teams'; continue; }
+        if (l === '::players') { mode = 'players'; continue; }
+        if (l.startsWith('::asset')) { mode = 'asset'; continue; }
+        if (l.startsWith('::end')) { mode = null; key = null; continue; }
+        if (!l || l.startsWith('#')) continue;
+        if (mode === 'lines') pools[key].push(l);
+        else if (mode === 'teams') teams.push(l);
+        else if (mode === 'players') players.push(l);
+      }
+      return { pools, teams, players };
+    }
+
+    // The line the broadcast would call a play with: the same pool keys, in the same order,
+    // and a ball in play's tags opening the pools that agree with it (assembleSportsGraph in
+    // plugins/broadcast/index.js).
+    function callFor(p, pick) {
+      if (p.phase === 'half') return pick(`half.${p.half}`, 'half');
+      if (p.phase === 'run') {
+        if (p.kind === 'doublesteal' && p.out) return pick('run.doublesteal.out', 'run.caughtstealing');
+        return p.runs > 0 ? pick(`run.${p.kind}.score`, `run.${p.kind}`) : pick(`run.${p.kind}`);
+      }
+      if (p.kind === 'homerun') return pick(p.rbi >= 4 ? 'hr.grand' : (p.rbi === 1 ? 'hr.solo' : 'hr'), 'hr');
+      if (p.kind === 'sacfly') return pick('atbat.sacfly');
+      if (p.kind === 'productout') return pick('atbat.productout', 'atbat.groundout');
+      if (p.kind === 'tripleplay') return pick('atbat.tripleplay', 'atbat.doubleplay');
+      if (p.kind === 'doubleplay') return pick('atbat.doubleplay');
+      if (p.kind === 'error') return pick(`atbat.error.${p.errorType}`, 'atbat.error');
+      if ((p.kind === 'hitbypitch' || p.kind === 'walk') && p.runs != null) return pick(`atbat.${p.kind}`, 'atbat.walk');
+      if (p.rbi > 0) return pick('rbi');
+      if (p.out) return pick(`atbat.${p.kind}`, 'atbat.out');
+      return pick(`atbat.${p.kind}`, 'atbat.single');
+    }
+    // Most of the broadcast's tokens, from the payload alone.
+    const tokOf = (p, away, home) => ({
+      announcer: 'Chip Vega', away, home, team: p.battingTeam, batter: p.batter || '', pitcher: p.pitcher || '',
+      inning: p.inning, inningOrd: p.inningOrd, half: p.half, section: 'inning', sectionOrd: p.inningOrd,
+      outs: p.outs ?? '', rbi: p.rbi ?? 0, runs: p.runs ?? p.rbi ?? 0, awayScore: p.awayScore, homeScore: p.homeScore,
+      ...playTokens(p, p.play),
+      battingScore: p.half === 'top' ? p.awayScore : p.homeScore, fieldingScore: p.half === 'top' ? p.homeScore : p.awayScore,
+    });
+    // The cards the broadcast throws with a play.
+    const cardFor = (p) => p.kind === 'homerun' ? { kind: 'homerun', batter: p.batter, team: p.battingTeam, grand: p.rbi >= 4, duration: 3.8 }
+      : p.kind === 'doubleplay' ? { kind: 'doubleplay', batter: p.batter, duration: 2.4 }
+      : p.kind === 'tripleplay' ? { kind: 'tripleplay', batter: p.batter, duration: 3.6 }
+      : null;
+
+    // The league table the broadcast puts on a game's first payload, here from a few
+    // dozen simulated games between the script's clubs, so the dock has rows to lay out.
+    function tableFor(teams) {
+      const rows = new Map(teams.map(t => [t, { team: t, wins: 0, losses: 0, rd: 0 }]));
+      for (let g = 0; g < 64; g++) {
+        const away = teams[g % teams.length], home = teams[(g * 5 + 3) % teams.length];
+        if (away === home) continue;
+        const { awayScore: a, homeScore: h } = simGame({ away, home }, null, sportsRng(sportsHash(g, 0x7ab1)));
+        const [w, l] = a > h ? [away, home] : [home, away];
+        rows.get(w).wins++; rows.get(l).losses++;
+        rows.get(away).rd += a - h; rows.get(home).rd += h - a;
+      }
+      return [...rows.values()].sort((x, y) => (y.wins - y.losses) - (x.wins - x.losses) || y.rd - x.rd).slice(0, 8);
+    }
+
+    // The season so far, as the standings fold it (SEASON in baseball.js): ninety-six games
+    // between the script's clubs, for the leaders and every man's line.
+    let seasonX = null;
+    function seasonOf(teams, players) {
+      if (seasonX) return seasonX;
+      const acc = {};
+      for (let g = 0; g < 96; g++) {
+        const away = teams[g % teams.length], home = teams[(g * 5 + 3) % teams.length];
+        if (away === home) continue;
+        const seed = sportsHash(1000 + g, 0x5ea5);
+        SEASON.foldExtras(acc, simV === 2 ? simGameV2({ away, home }, players, sportsRng(seed), { seed }) : simGame({ away, home }, players, sportsRng(seed)));
+      }
+      return (seasonX = SEASON.summariseExtras(acc));
+    }
+
+    let script = null, plays = [], idx = 0, autoTimer = null, slot = 1, simV = 1;
+
+    function buildGame() {
+      const t = script.teams;
+      const away = t[(slot * 3) % t.length];
+      let home = t[(slot * 7 + 5) % t.length];
+      if (home === away) home = t[(t.indexOf(away) + 1) % t.length];
+      const seed = sportsHash(slot >>> 0, 0x00);   // the broadcast's seed for a slot
+      const game = simV === 2 ? simGameV2({ away, home }, script.players, sportsRng(seed), { seed }) : simGame({ away, home }, script.players, sportsRng(seed));
+      const x = seasonOf(t, script.players);
+      const { order } = gamedayPayloads(game, seed, { abbr, ordinal, ledger: x.ledger });
+      if (order[0]) order[0] = { ...order[0], standings: tableFor(t) };
+      // the leaders and the season ride the first payload on air, and a late tuner's catch-up;
+      // here every break carries them, so a break reached by the filter has its table
+      const leaders = gamedayLeaders(x), season = { n: 3, phase: Q.get('po') === '1' ? 'final' : 'regular' };
+      for (let i = 0; i < order.length; i++) if (i === 0 || order[i].phase === 'half') order[i] = { ...order[i], leaders, season };
+      // how long each line holds on air, as the broadcast stamps it on the payload, and with ?hour=
+      // the minute of the day each airs at, the first at that hour and each after a hold later
+      for (let i = 0; i < order.length; i++) order[i] = { ...order[i], hold: HOLD_MS, ...(HOUR != null ? { clock: Math.round(HOUR * 60 + (i * HOLD_MS) / 60000) % 1440 } : {}), ...(WX ? { wx: WX } : {}) };
+      const nrng = sportsRng(seed ^ 0x9e3779b9);
+      const pickFor = (p) => (...keys) => sportsPickTagged(script.pools, nrng, playTags(p.kind, p.play, { bats: p.bats }), ...keys);
+      const out = order.map((p) => ({ p, text: sportsFill(callFor(p, pickFor(p)) || p.desc || '', tokOf(p, away, home)).trim() || p.desc || '', card: cardFor(p) }));
+      document.getElementById('head').textContent =
+        `slot ${slot}${simV === 2 ? ' (sim v2)' : ''} · ${away} ${game.awayScore}, ${home} ${game.homeScore}` +
+        `${game.innings > 9 ? ` (${game.innings})` : ''} · ${order.filter(p => !p.phase).length} at-bats`;
+      return out;
+    }
+
+    const FILTERS = {
+      runs: (p) => !p.phase && p.moves?.some(m => m.to === 4),
+      hits: (p) => ['single', 'double', 'triple', 'homerun'].includes(p.kind),
+      dp: (p) => p.kind === 'doubleplay' || p.kind === 'tripleplay',
+      walk: (p) => p.kind === 'walk',
+      k: (p) => p.kind === 'strikeout',
+      bases: (p) => p.phase === 'run',
+      errors: (p) => p.kind === 'error' || p.kind === 'hitbypitch',
+      half: (p) => p.phase === 'half',
+      inplay: (p) => !p.phase && !!p.play,
+    };
+    const filtered = () => { const f = FILTERS[document.getElementById('filter').value]; return f ? plays.filter(x => f(x.p)) : plays; };
+
+    // As tv.js does it: stage the held call, then hand the view the payload. The view
+    // releases the call (and its voice) when the play lands, and the card just after.
+    function show(i) {
+      const list = filtered();
+      if (!list.length) { document.getElementById('count').textContent = 'nothing matches'; return; }
+      idx = (i + list.length) % list.length;
+      const { p, text, card } = list[idx];
+      view.setCaption(text, { held: true, speak: () => window.AudioEngine?.speak?.(text, { seed: 'Chip Vega' }) });
+      view.apply(p);
+      if (card) view.showCard(card);
+      document.getElementById('count').textContent =
+        `${idx + 1}/${list.length} · ${p.inningOrd} ${p.half} · ${p.phase === 'half' ? 'break' : p.kind}`;
+    }
+
+    // Auto-play paces each play the way a line holds on air: long enough for the pitches
+    // to reveal (up to 13 s in 2-D; in 3-D the director's 0.45 of the hold) and the play to land
+    // and settle.
+    const holdFor = (p) => p.phase ? 6000
+      : Q.get('park') === '3d' ? Math.min(26000, Math.max(13000, 0.45 * HOLD_MS)) / Math.max(0.05, view.speed ?? 1) + 4000
+      : Math.min(13000, 2600 * Math.max(0, (p.pitches?.length || 1) - 1)) + 6500;
+    function auto() {
+      show(idx + 1);
+      autoTimer = setTimeout(auto, holdFor(filtered()[idx].p));
+    }
+
+    document.getElementById('next').onclick = () => { window.AudioEngine?.init?.(); show(idx + 1); };
+    document.getElementById('prev').onclick = () => { window.AudioEngine?.init?.(); show(idx - 1); };
+    document.getElementById('filter').onchange = () => show(0);
+    document.getElementById('reroll').onclick = () => { slot++; plays = buildGame(); show(0); };
+    document.getElementById('auto').onclick = (e) => {
+      window.AudioEngine?.init?.();
+      if (autoTimer) { clearTimeout(autoTimer); autoTimer = null; e.target.textContent = '▶ auto-play'; return; }
+      e.target.textContent = '⏸ pause';
+      autoTimer = setTimeout(auto, holdFor(filtered()[idx]?.p || {}));
+    };
+
+    // The venue as the server sends it (tv_venue): the content's venue with the skyline round its
+    // site. Here the map is the flight sim's bake, its cells read back as the zone rows they came from.
+    async function loadVenue() {
+      const [row, world] = await Promise.all([
+        fetch('../content/media_broadcasts/bc_1783289744953.json').then((r) => r.json()),
+        fetch('../client/game/flightsim-world.json').then((r) => r.json()),
+      ]);
+      const venue = row?.sports_pools?.venue;
+      if (!venue?.site) return;
+      const zones = Object.entries(world.cells || {}).map(([k, c]) => {
+        const [x, y] = k.split(',').map(Number);
+        return { map_id: 'map_world', grid_x: x, grid_y: y, grid_z: 0,
+          flags: { terrain: c.biome, building_type: c.bt, building_name: c.bn, floors: c.flr, entrance: c.ent, curtain: c.cur ? 1 : undefined } };
+      });
+      setVenue('baseball', 'sandbox', { ...venue, skyline: skylineFrom(zones, venue.site, { radius: 40 }) });
+    }
+    if (Q.get('park') === '3d' && Q.get('city') !== '0') loadVenue().catch((err) => console.warn('[sandbox] no city:', err && err.message));
+
+    script = await loadScript();
+    const q = Q;
+    if (q.get('slot')) slot = +q.get('slot');
+    if (q.get('sim') === '2') simV = 2;
+    plays = buildGame();
+    if (q.get('play') && FILTERS[q.get('play')]) document.getElementById('filter').value = q.get('play');
+    show(+(q.get('i') || 0));
+  </script>
+</body>
+</html>

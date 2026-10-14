@@ -116,6 +116,10 @@ void main() {
   outColor = vec4(add * vAlpha, clamp(outA, 0.0, 1.0));
 }`, 'outColor');
 
+// The wall's look on its own, for a renderer with its own vertex stage (gl/ballpark.js draws the
+// Curtain round the broadcast's city with it): it reads vUV, vAlpha and vRed, and uTime.
+export const CURTAIN_FRAG = FRAG;
+
 function compile(gl, type, src, label) {
   const sh = gl.createShader(type);
   gl.shaderSource(sh, src);

@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pose Lab</title>
+<!--
+  THE POSE LAB: Deadball's clips (content/animation_clips/) keyed on the real rig and played on a
+  real player in the 3-D park. The page's code and its notes are in /pose-lab.js; the Modelshop's
+  README says how to use it.
+-->
+<style>
+  :root { --bg: #0b0d14; --fg: #d8d4c8; --dim: #8a8678; --line: #23263a; --good: #7fd6a0; --warn: #e8c070; --bad: #ff7a6a; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); font: 12px/1.4 ui-monospace, Menlo, Consolas, monospace; }
+  header { padding: 6px 10px; border-bottom: 1px solid var(--line); display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; }
+  header b { color: #e8c070; letter-spacing: 0.2em; }
+  label { color: var(--dim); white-space: nowrap; }
+  button, select, input, textarea { font: inherit; background: #141827; color: var(--fg); border: 1px solid #2c3150; border-radius: 3px; }
+  button { padding: 2px 8px; cursor: pointer; }
+  button:disabled { opacity: 0.4; cursor: default; }
+  input[type=number] { width: 5.2em; }
+  main { display: grid; grid-template-columns: 300px 1fr 380px; height: calc(100% - 40px); }
+  aside { overflow: auto; padding: 8px 10px; border-right: 1px solid var(--line); }
+  aside:last-child { border-right: 0; border-left: 1px solid var(--line); }
+  h3 { margin: 10px 0 4px; font-size: 11px; letter-spacing: 0.15em; color: var(--dim); font-weight: normal; }
+  .field { display: grid; grid-template-columns: 70px 1fr; gap: 4px; align-items: center; margin: 3px 0; }
+  .field input, .field select { width: 100%; box-sizing: border-box; }
+  textarea { width: 100%; box-sizing: border-box; min-height: 64px; resize: vertical; }
+  textarea.bad { border-color: var(--bad); }
+  #keys { list-style: none; margin: 0; padding: 0; }
+  #keys li { display: flex; gap: 6px; align-items: center; padding: 2px 4px; cursor: pointer; border-radius: 3px; }
+  #keys li.sel { background: #1e2640; }
+  #keys li > span { width: 1.6em; color: var(--dim); }
+  .tools { display: flex; flex-wrap: wrap; gap: 4px; margin: 4px 0; }
+  #stage { position: relative; display: flex; flex-direction: column; min-width: 0; }
+  #viewbox { position: relative; flex: 1; min-height: 0; overflow: hidden; }
+  #view { width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; }
+  #ref { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; pointer-events: none; transform-origin: 50% 50%; }
+  #transport { display: flex; gap: 8px; align-items: center; padding: 4px 8px; border-top: 1px solid var(--line); }
+  #timeline { width: 100%; height: 48px; display: block; cursor: ew-resize; }
+  #pose .row { display: grid; grid-template-columns: 16px 56px 1fr; gap: 4px; align-items: center; margin: 2px 0; }
+  #pose .row.off b { color: var(--dim); }
+  #pose .row input[type=number] { width: 4.6em; }
+  #pose .need { width: 13px; }
+  .mini { font-size: 11px; }
+  ul.notes { margin: 4px 0; padding-left: 16px; }
+  .good { color: var(--good); } .warn { color: var(--warn); } .bad { color: var(--bad); }
+  #verdict { font-weight: bold; }
+  .hint { color: var(--dim); font-size: 11px; }
+</style>
+</head>
+<body>
+<header>
+  <b>POSE LAB</b>
+  <label>clip <select id="clip"></select></label>
+  <button id="new">new clip</button>
+  <button id="save" disabled>save</button>
+  <span id="verdict"></span>
+  <label><input type="checkbox" id="lefty"> left-handed</label>
+  <label>his way <select id="traits"><option value="none">as keyed</option><option value="low">low ends</option><option value="high">high ends</option></select></label>
+  <span>view
+    <button data-view="front">front</button><button data-view="left">left</button><button data-view="back">back</button><button data-view="right">right</button><button data-view="top">top</button>
+    <button data-view="bat">batting view</button><button data-view="side">1B camera</button><button data-view="sideL">3B camera</button><button data-view="mound">mound</button>
+  </span>
+</header>
+<main>
+  <aside>
+    <h3>THE CLIP</h3>
+    <div class="field"><span>id</span><input id="id"></div>
+    <div class="field"><span>role</span><select id="role"></select></div>
+    <div class="field"><span>duration</span><input id="duration" type="number" step="0.05" min="0.05"></div>
+    <div class="field"><span>loop</span><label><input type="checkbox" id="loop"> its last key is its first</label></div>
+    <div class="field"><span>moving</span><select id="moving" title="an end the clip goes through without stopping, out of or into another clip"><option value="">at rest at both ends</option><option value="start">going at its start</option><option value="end">going at its end</option><option value="both">going at both</option></select></div>
+    <div class="field"><span>note</span><input id="note"></div>
+    <h3>KEYS</h3>
+    <ul id="keys"></ul>
+    <div class="tools">
+      <button id="addkey" title="a new key at the playhead, in the pose the clip has there">+ at playhead</button>
+      <button id="dupkey" title="a copy of this key halfway to the next">copy</button>
+      <button id="grabkey" title="this key's pose becomes the one at the playhead">pose from playhead</button>
+      <button id="delkey">delete</button>
+    </div>
+    <h3>EVENTS</h3>
+    <textarea id="events" spellcheck="false"></textarea>
+    <div class="hint" id="eventkinds"></div>
+    <h3>PLANTS</h3>
+    <textarea id="plants" spellcheck="false"></textarea>
+    <div class="hint">{ "foot": "L" or "R", "from", "to", "ease"? }: a foot held on its spot, easing on and off it over "ease" seconds (0.1 if it doesn't say)</div>
+    <h3>ROOT</h3>
+    <textarea id="root" spellcheck="false" placeholder="empty: the clip stays where it starts"></textarea>
+    <div class="hint">{ "t", "at": [x, z], "yaw"? }: where the clip's frame has got to, for one that travels; the keys are posed in that moving frame</div>
+    <div class="hint" id="roothint"></div>
+    <h3>WHAT THE BAKE SAYS</h3>
+    <ul class="notes" id="problems"></ul>
+  </aside>
+  <section id="stage">
+    <div id="viewbox"><canvas id="view"></canvas><img id="ref" hidden alt=""></div>
+    <div id="transport">
+      <button id="play">▶ play</button>
+      <select id="speed"><option value="1">1×</option><option value="0.5">½×</option><option value="0.25">¼×</option><option value="0.1">⅒×</option></select>
+      <span id="time">0.000 s</span>
+      <span class="hint">drag to orbit, wheel to zoom · space plays · ← → steps through the keys · ctrl+z undoes</span>
+    </div>
+    <canvas id="timeline"></canvas>
+    <div id="transport2" style="display:flex; gap:8px; align-items:center; padding:4px 8px; flex-wrap:wrap">
+      <label>reference <input type="file" id="reffile" accept="image/*"></label>
+      <label>see-through <input type="range" id="refop" min="0" max="1" step="0.05" value="0.5"></label>
+      <label>size <input type="range" id="refscale" min="0.2" max="3" step="0.01" value="1"></label>
+      <label>x <input type="range" id="refx" min="-50" max="50" step="0.5" value="0"></label>
+      <label>y <input type="range" id="refy" min="-50" max="50" step="0.5" value="0"></label>
+      <label><input type="checkbox" id="refflip"> mirror</label>
+      <button id="refoff">hide</button>
+    </div>
+  </section>
+  <aside>
+    <h3>THE POSE · <span id="keyname"></span></h3>
+    <div class="hint">feet in his frame: x his left, y up, z his front · angles in degrees · a field left unticked takes the solver's own</div>
+    <div id="pose"></div>
+    <h3>HIS JOINTS</h3>
+    <ul class="notes" id="joints"></ul>
+  </aside>
+</main>
+<script type="module" src="/pose-lab.js"></script>
+</body>
+</html>

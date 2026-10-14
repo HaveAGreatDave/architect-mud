@@ -1619,6 +1619,51 @@ rooms carry the building's name and type with no `floors`, and left in they outv
 one facade (2 against its authored 9). A type drawn only on named tiles counts those. A model with
 no tile in the world falls back to `floorsFor(type)`.
 
+## The Pose Lab: Deadball's clips
+
+`/pose-lab.html` keys the clips the 3-D ballpark's players move by
+([docs/proposals/deadball-glass2.md](../../docs/proposals/deadball-glass2.md), Phase 2). It loads
+the library from `content/animation_clips/` and plays the clip on screen on a skinned player in
+the real park ([gl/ballpark.js](../../client/game/js/panels/gl/ballpark.js)), standing where his
+role stands, with a cast round him as stills. Its code and notes are in
+[pose-lab.js](pose-lab.js).
+
+- **The clip:** its id, role, duration (changing it stretches every key, event, plant and root
+  key with it), whether it loops, whether it goes through an end without stopping (*moving*, for a
+  clip played out of or into another), and a note. Events, plants and the root are JSON lists,
+  checked as you type; a plant may say how long its foot takes going on and off its spot (`ease`).
+- **A clip that travels** has a root: where its frame has got to, `{ "t", "at": [x, z], "yaw" }`
+  keys in the frame it started in, with the keys posed in that moving frame. It carries the
+  player across the park as it plays, a loop lap after lap and back to the start after a base
+  path, and the camera goes with him. Under it the Lab says how far the clip goes and how fast. A
+  travelling clip with no place of its own starts a step out of the box, facing first.
+- **The keys:** pick one in the list, on the timeline or with the arrow keys. *+ at playhead*
+  adds a key in the pose the clip has there, *pose from playhead* gives the selected key that
+  pose, and *copy* puts a copy halfway to the next key. A key's tension runs from -1 (through it
+  fast, as at a release) to 1 (stopping at it).
+- **The pose:** every field of the rig's pose language for the selected key, in feet in his own
+  frame (x his left, y up, z his front) and degrees. A field left unticked takes the solver's own,
+  which is what most keys want for knees, elbows, hands and toes; ticking one starts it where the
+  solver had it, so nothing jumps. An ankle is on the ground (`[x, z]`) or in the air
+  (`[x, y, z]`). Under it, the key's joints against what a body can do.
+- **Looking:** drag to orbit, the wheel to zoom, or one of the broadcast's own shots.
+  *Left-handed* plays it in a mirror, as the game plays a left-hander, and *his way* plays it at
+  the low or the high end of every trait, which is where `anim-smoke` plays every clip too.
+- **A reference frame:** load or drop a picture of the real motion over the view and set how much
+  shows through, its size and its place. It stays in the browser.
+- **A new clip** starts from its role's still, as a copy of the clip on screen, or for a pitcher
+  from the look-dev's six-frame delivery, the blocking the plan says a session starts from. That
+  one's follow-through bends the elbow past its limit, so it starts with one thing to fix.
+
+⚠ **Save can't write a clip the build refuses.** `PUT /api/clips` hands the clip to `planSave` in
+[bake-clips.mjs](../../scripts/shapes/bake-clips.mjs), which checks it with the schema the bake
+uses and bakes the whole library with it in place before anything is written; only then do the
+clip's file and `diamond/clips.js` go to disk, so there's nothing to roll back. The file comes out
+of `formatClip`, the format every clip is in, so a save is a diff of what changed, and
+`anim-smoke` holds the library to that. What the schema can't see is the motion between the keys:
+run `node scripts/shapes/anim-smoke.mjs` before pushing a clip, and `diamond-smoke` too if the
+director plays it.
+
 ## What it is
 
 The editor for **GLASS** building models. GLASS — Geometry, Lights, Aircraft, Streets &

@@ -167,30 +167,23 @@
 </svg>
 ::endasset
 
-# --- The sixteen. Fourteen are real Coldwater districts; Bayside and Sewerline --
-# --- are neighbourhood-scale inventions in the same register. ------------------
+# --- The eight. Every club is a neighbourhood side, and none plays for an order or
+# --- a corp. Each club's district, colours, kits and crest live in content
+# --- (sports_pools.clubs, built by scripts/content/build-cphl-clubs.mjs). ---------
 ::teams
-North City Icebreakers
-Government Whips
-Civic Center Wardens
-Marquee Snipers
-Media District Jammers
+Westside Warlords
+Boomtown Bulldogs
+Marquee Marauders
+Coldwater Highlanders
+District 9 Goons
 Docks Boarders
-Bayside Slush
-Industrial Flats Smelters
-Slaglands Slashers
 Ashway Zambonis
-Sprawl Grinders
-Redline Muckers
-Wastes Drifters
-Sewerline Benders
 Yards Icehaulers
-Longwatch Goons
 ::endteams
 
 # --- Surnames. Dealt into season rosters by rosterFor() (sports/hockey.js), so a
 # --- man belongs to ONE club permanently and the scoring race means something.
-# --- SIXTEEN CLUBS x SIX MEN = 96 MINIMUM. Below that the deal starts sharing
+# --- EIGHT CLUBS x SIX MEN = 48 MINIMUM. Below that the deal starts sharing
 # --- skaters between clubs — it degrades rather than crashing, and regress asserts
 # --- the pool is big enough, so add names in sixes if you add a club. -----------
 ::players
@@ -566,6 +559,24 @@ And they go. {fighters}, right at centre ice, and nobody is in a hurry to stop i
 Here it is. {fighters}, sweaters up over the heads, and the building is on its feet.
 ::endlines
 
+::lines fight.knockdown
+{winner} lands the big one and {loser} goes down flat. The linesmen step in now that it's safe.
+A right hand, and {loser} is on the ice looking at the lights. {winner} stands over him for a while.
+{loser} goes down in stages. {winner} helps him the rest of the way.
+::endlines
+
+::lines fight.jersey
+{winner} has the sweater over {loser}'s head and is just teeing off now. {loser} can't see where they're coming from.
+Sweater over the head, and {loser} is fighting blind. {winner} empties the tank into the back of it.
+{winner} yanks the jersey up over {loser}'s helmet and keeps swinging. That's the oldest move there is.
+::endlines
+
+::lines fight.linesmen
+The linesmen finally get in between them, {winner} still swinging over the top.
+They're pulled apart. {winner} got the better of that one by a distance, and {loser} knows it.
+Linesmen step in and haul them off each other. {loser} is bleeding from somewhere, {winner} from nowhere.
+::endlines
+
 ::lines fight.result
 {winner} takes it. {loser} takes five, and the {winnerTeam} go on the power play for winning a fistfight, which is the CPhL rulebook in one sentence.
 It's {winner}. {loser} is helped up and sent away, and his team pays for it with a man.
@@ -579,16 +590,58 @@ RIDDEN INTO THE BOARDS. {hitter} on {victim}, and that whole pane is still movin
 Big hit, {hitter}. {victim} will get up from that one. Probably.
 ::endlines
 
+::lines boards.glass
+{hitter} puts {victim} into the glass at full speed, and the glass very nearly lets him through.
+THE GLASS. {hitter} on {victim}, and the people in the front row just got a good look at his face.
+{victim} goes into the pane head first courtesy of {hitter}. That's a crack they'll be looking at all period.
+::endlines
+
+::lines boards.behind
+From behind. {hitter} runs {victim} face first into the boards, and nobody in stripes saw a thing.
+{victim} never saw {hitter} coming, because {hitter} came from behind. Numbers to the boards and straight in.
+That's a hit from behind, {hitter} on {victim}, and the dasher has his face on it now.
+::endlines
+
+::lines boards.hip
+{hitter} drops the hip and {victim} goes right over the top of him, skates in the air.
+HIP CHECK. {victim} upended by {hitter}, cartwheels, lands on his neck. The building loves it.
+{victim} cuts to the middle and {hitter} hips him into next week. Feet over head.
+::endlines
+
+::lines boards.elbow
+Elbow up, and {hitter} leaves it in {victim}'s face on the way past.
+{hitter} leads with the elbow and {victim}'s head goes back into the boards. An assault anywhere else. Legal here.
+That's an elbow, high, {hitter} on {victim}, and the helmet's going one way and {victim} the other.
+::endlines
+
 ::lines scrum
 Bodies in front now, sticks up, everybody shoving and nobody swinging.
 It's a scrum in the corner. Four men, one puck, no dignity.
 They're all in there kicking at it. This is most of hockey, if we're honest.
 ::endlines
 
+::lines injury.wound
+That's {wound}, by the look of how he's holding himself.
+The trainer's calling it {wound} before he's even off the ice.
+Word from the bench is {wound}. He'll be on the shelf a while.
+::endlines
+
+::lines injury.sever
+And {wound} isn't attached to him any more. It's over by the boards.
+That's {wound}, lying a few feet from {player}. They're bringing out the stretcher and a bag.
+{player} has left {wound} on the ice. The trainer picks it up and follows the stretcher off.
+::endlines
+
 ::lines injury
 {player} is not getting up. He's helped off, and the {teamName} are down to {remaining} skaters, no replacement, that's the rule, and they wear it for the rest of the night.
 That's {player}'s evening finished. {teamName} play the rest of this short.
 {player} goes down the tunnel under his own power, barely. {remaining} left on the bench and nobody coming over the boards to help.
+::endlines
+
+::lines death.wound
+{wound}. Nobody needs the doctor to tell them.
+{wound}. They're putting a towel over him now.
+{wound}. The building has gone completely quiet.
 ::endlines
 
 ::lines death
@@ -668,10 +721,39 @@ The Docks barn floods twice a winter. They play through it. There is a line pain
 Half this crowd came straight off a shift and half of them are still wearing the hard hats. The hats are not for the hockey.
 ::endlines
 
-::lines chatter.longwatch
-Longwatch is the only club with a barn OUTSIDE the wall. Away sides travel in convoy and they do not stop for anything on the road.
-There's a gun rack in the lobby here. Coats and firearms, same counter, same attendant, one ticket.
-The crowd here doesn't cheer, it just gets quieter. That is worse and every visiting club will tell you so.
+::lines chatter.district
+The Goons' lobby has a gun rack. Coats and firearms, same counter, same attendant, one ticket.
+The crowd here doesn't cheer. It gets quieter, and every visiting club will tell you that's worse.
+District 9 numbers its streets and not its buildings. The away bus parks with its engine running.
+::endlines
+
+::lines chatter.westside
+The Glasshouse barn has a climate curtain over every door and the coldest ice in the league. The seats are heated.
+Season tickets at Westside are inherited. There's a waiting list, and it's mostly lawyers.
+Westside warm up to a string quartet. Same four players for eleven years. They wear earplugs for the third period.
+::endlines
+
+::lines chatter.boomtown
+The Boomtown barn was a foundry. Some nights you can still smell the casting sand.
+Every Bulldogs home game starts with the anvil. A man in an apron hits it once and the building goes quiet.
+The rail along the boards here is pipe from the old works, painted orange. It rings when somebody goes into it.
+::endlines
+
+::lines chatter.marquee
+The Marquee barn shares a wall with a nightclub. Third period, you can feel the bass through the glass.
+Half the crowd at the Marquee came out in costume for something else. They stay for the fights.
+The scoreboard here used to be a cinema sign. Two of its letters have been missing for forty years.
+::endlines
+
+::lines chatter.coldwater
+The Highlanders walk out to a piper. He isn't good. He's played every home game for fourteen years.
+Marrow Street pulls its shutters down an hour before puck drop. Everybody on it is in here.
+The Highlanders' sweaters are woven on a loom above a chip shop on Marrow Street. It's a real clan sett, the Malcolm.
+::endlines
+
+::lines chatter.yards
+The Yards barn is a cold store with seats bolted in. The ice was here first.
+The tannoy here came out of a freight shed. In the second intermission it still reads out bay numbers.
 ::endlines
 
 ::lines final
@@ -706,6 +788,563 @@ IT'S OVER. The {leader} are your Coldwater Cup champions. Carve it into whatever
 ::lines cup.outro
 Coldwater Cup champions, the {leader}. Enjoy it. Historically, that has been the advice.
 The {leader} take the Cup. I'm Tug Brennan, and I'd let it air out before you drink from it.
+::endlines
+
+# ── the call ─────────────────────────────────────────────────────────────────
+# Short lines that follow the play as the rink shows it: the rush touch by touch,
+# the shot, the save, the draw, the hit, each punch. Most are under eight words so a
+# screen reader finishes one before the next arrives. Each one airs at the moment
+# the picture does the thing it says.
+
+::lines pbp.breakout
+{player} has it behind his own net.
+{player} picks it up deep.
+{player} takes it out of his own end.
+{player} with it, heading up.
+{player} gathers it in the corner.
+Puck to {player}, own end.
+{player} wheels out from behind the net.
+{player} starts it up the ice.
+::endlines
+
+::lines pbp.pass
+{player} to {to}.
+Over to {to}.
+{player} finds {to}.
+Across to {to}.
+{player} hits {to} in stride.
+Up to {to}.
+Back to {to}.
+{player} slides it to {to}.
+Tape to tape, {to}.
+::endlines
+
+::lines pbp.entry
+{player} over the blue line.
+{player} gains the zone.
+In the zone, {player}.
+{player} carries it in.
+{player} walks the line and comes in.
+{player} beats the defence to the line.
+::endlines
+
+::lines pbp.cycle
+{player} works it low.
+{player} behind the net.
+{player} along the wall.
+{player} holds it in the corner.
+{player} grinds it down the boards.
+{player} buys time below the dots.
+::endlines
+
+::lines pbp.deke
+{player} dangles one.
+{player} goes around a defender.
+Toe drag, {player}. Gone.
+{player} undresses a man.
+{player} fakes left, goes right.
+{player} leaves him on the ice.
+::endlines
+
+::lines pbp.dump
+{player} dumps it in.
+{player} chips it deep.
+{player} fires it around the boards.
+In behind them, {player} chasing.
+{player} gives up the puck to get the zone.
+::endlines
+
+::lines pbp.battle
+Loose puck.
+It's free in the corner.
+Two men after it.
+Scramble along the wall.
+Nobody has it.
+Sticks and elbows in the corner.
+::endlines
+
+::lines pbp.won
+{player} comes out with it.
+{player} wins the race.
+{player} digs it free.
+{player} out of the pile with it.
+{player} wants it more.
+::endlines
+
+::lines pbp.shot
+{shooter} shoots.
+{shooter} lets it go.
+{shooter}, the {shotLabel}.
+{shooter} fires.
+Shot, {shooter}.
+::endlines
+
+::lines pbp.shot.slap
+{shooter} winds up.
+{shooter} loads up the slapshot.
+Big windup, {shooter}.
+{shooter} leans into a slapper.
+::endlines
+
+::lines pbp.shot.wrist
+{shooter} snaps a wrister.
+{shooter}, quick wrist shot.
+Wrister from {shooter}.
+{shooter} pulls it in and shoots.
+::endlines
+
+::lines pbp.shot.snap
+{shooter}, a snap shot.
+{shooter} snaps it.
+Quick release, {shooter}.
+::endlines
+
+::lines pbp.shot.backhand
+{shooter} on the backhand.
+Backhand from {shooter}.
+{shooter} flips a backhand.
+::endlines
+
+::lines pbp.shot.wrap
+{shooter} tries the wraparound.
+{shooter} comes around the net.
+Wraparound, {shooter}.
+::endlines
+
+::lines pbp.out.save
+{goalie} takes it in the chest.
+Saved by {goalie}.
+Chest save, {goalie}.
+{goalie} absorbs it.
+Right into {goalie}.
+::endlines
+
+::lines pbp.out.glove
+Glove save, {goalie}.
+{goalie} snags it.
+{goalie} plucks it out of the air.
+Into the glove.
+::endlines
+
+::lines pbp.out.pad
+Pad save, {goalie}.
+{goalie} kicks it out.
+Off the pad.
+{goalie} drops and stops it.
+Leg save, {goalie}.
+::endlines
+
+::lines pbp.out.blocked
+Blocked.
+A defender eats it.
+Blocked in front.
+Off a shin pad. That'll bruise.
+Somebody lay down in front of it.
+::endlines
+
+::lines pbp.out.wide
+Wide.
+Misses the net.
+Off the end boards.
+Wide by a foot.
+Rings around the glass.
+::endlines
+
+::lines pbp.out.post
+Off the post!
+Post!
+Iron!
+Hits the post and stays out.
+::endlines
+
+::lines pbp.out.breakaway
+In alone. {goalie} pokes it away.
+{goalie} comes out and takes it off him.
+Poke check, {goalie}.
+Stopped on the breakaway.
+::endlines
+
+::lines pbp.freeze
+{goalie} covers. Whistle.
+{goalie} holds on. Whistle.
+Frozen. Faceoff coming.
+::endlines
+
+::lines pbp.rebound
+Rebound loose.
+Rebound, and it's cleared.
+Juicy rebound. Nobody home.
+Rebound to the corner.
+::endlines
+
+::lines pbp.goal
+He scores!
+It's in!
+Scores!
+Goal, {team}!
+Top shelf. In.
+Through the five-hole. Goal.
+::endlines
+
+::lines pbp.goal.celebrate
+{shooter} wheels away.
+{shooter} heads for the glass.
+{shooter} peels off to the boards.
+{shooter} goes down on one knee and fires the arrow.
+{shooter} skates off with his arms up.
+::endlines
+
+::lines pbp.faceoff.center
+Faceoff at centre.
+Puck down at centre ice.
+Centre-ice draw.
+::endlines
+
+::lines pbp.faceoff.zone
+Draw in the {zone}.
+Faceoff, {zone}.
+They line up in the {zone}.
+::endlines
+
+::lines pbp.faceoff.neutral
+Draw outside the line.
+Neutral-zone faceoff.
+Faceoff, {zone}.
+::endlines
+
+::lines pbp.faceoff.win
+{winner} wins it back.
+{winner} takes the draw.
+Won by {winner}.
+{winner} pulls it back.
+Clean win, {winner}.
+::endlines
+
+::lines pbp.fight.drop
+Gloves off. {winner} and {loser}.
+{loser} and {winner} drop them.
+Here we go. {winner}, {loser}.
+The gloves are on the ice.
+::endlines
+
+::lines pbp.punch.land
+{thrower} lands {punch}.
+{thrower} connects with {punch}.
+{thrower} catches him with {punch}.
+{punch} from {thrower}. That landed.
+::endlines
+
+::lines pbp.punch.miss
+{thrower} swings. Misses.
+{thrower} throws {punch}. Nothing.
+Big miss from {thrower}.
+{thrower} hits air.
+::endlines
+
+::lines pbp.punch.big
+{thrower} with {punch}. Huge.
+{thrower} lands {punch}. That's the one.
+{punch} from {thrower}. He felt that.
+::endlines
+
+::lines pbp.hit.carry
+{victim} along the wall.
+{victim} with it up the boards.
+{victim} has his head down.
+{victim} skates it up the wall.
+::endlines
+
+::lines pbp.hit.line
+{hitter} lines him up.
+{hitter} coming hard.
+{hitter} has him.
+Look out. {hitter}.
+::endlines
+
+::lines pbp.hit.up
+{victim} gets up slowly.
+{victim} is back on his skates.
+{victim} picks up his stick.
+::endlines
+
+::lines pbp.injury.medics
+Trainers on the ice.
+Here come the medics.
+The stretcher is out.
+::endlines
+
+::lines pbp.injury.off
+They take {player} off.
+{player} is off on the stretcher.
+Off the ice, {player}.
+::endlines
+
+::lines pbp.death.still
+Nobody is moving.
+The building goes quiet.
+He's not moving.
+::endlines
+
+::lines pbp.death.helmets
+Helmets come off.
+The players gather round.
+Heads down along both benches.
+::endlines
+
+::lines pbp.scrum.whistle
+Whistle.
+The ref blows it dead.
+Whistle. Pushing after it.
+::endlines
+
+::lines pbp.pull.extra
+Extra attacker on for {team}.
+Empty net. Six skaters for {team}.
+{team} goes six on five.
+::endlines
+
+::lines pbp.goal.lamp
+Red light.
+There's the horn.
+The lamp's on.
+Horn. Lamp. Noise.
+::endlines
+
+::lines pbp.goal.mob
+They pile on.
+His line buries him.
+Everybody on top of {shooter}.
+Gloves on his helmet. Lots of them.
+::endlines
+
+::lines pbp.goal.slump
+{goalie} hangs his head.
+{goalie} slumps.
+{goalie} stares at the rafters.
+{goalie} fishes it out.
+::endlines
+
+::lines pbp.faceoff.drop
+Dropped.
+Puck's down.
+{winner} and {loser}. Dropped.
+{loser} and {winner}, and it's down.
+In it goes.
+::endlines
+
+::lines pbp.period.out
+Fresh sheet.
+Teams are out.
+Clean ice. Not for long.
+::endlines
+
+::lines pbp.after.glove
+He holds it. Whistle.
+Held. Whistle.
+He's not giving that back.
+::endlines
+
+::lines pbp.after.pad
+Kicked to the corner.
+Steered wide.
+Out to the side boards.
+Kicked clear.
+::endlines
+
+::lines pbp.after.blocked
+Loose in the slot.
+It squirts out to the point.
+Bounces away.
+He limps after it.
+::endlines
+
+::lines pbp.after.wide
+Rims around the back.
+Behind the net and gone.
+Round the boards.
+::endlines
+
+::lines pbp.after.post
+Rattles out.
+Away to the corner.
+Still out.
+Nobody can find it.
+::endlines
+
+::lines pbp.after.breakaway
+{shooter} stumbles.
+{shooter} loses his feet.
+{shooter} is left looking at it.
+::endlines
+
+::lines pbp.hit.glass
+The glass bends.
+Glass shakes.
+The glass holds. Just.
+::endlines
+
+::lines pbp.hit.shatter
+The glass explodes!
+Pane's gone!
+Glass everywhere!
+Straight through the glass!
+::endlines
+
+::lines pbp.hit.helmet
+Helmet's off.
+Lid's gone.
+Helmet bouncing away.
+::endlines
+
+::lines pbp.hit.stick
+Stick goes flying.
+His stick's loose.
+Stick skitters away.
+::endlines
+
+::lines pbp.hit.down
+He stays down.
+He's not getting up.
+Whistle. He's down.
+::endlines
+
+::lines pbp.fight.helmets
+Helmets too.
+Lids off.
+Helmets go as well.
+::endlines
+
+::lines pbp.fight.grab
+They grab on.
+Fistfuls of jersey.
+They tie up.
+Each has a handful.
+::endlines
+
+::lines pbp.fight.box
+Both to the box.
+Off to the box.
+They're led away.
+Linesmen walk them off.
+::endlines
+
+::lines pbp.injury.mates
+Teammates gather round.
+His line skates over.
+They wave for help.
+::endlines
+
+::lines pbp.injury.load
+They lift him on.
+On the stretcher.
+Strapped in.
+::endlines
+
+::lines pbp.death.officials
+The officials wave it off.
+The ref waves both arms.
+Nobody's playing on.
+::endlines
+
+::lines pbp.death.stretcher
+Here's the stretcher. Slowly.
+They bring the stretcher.
+No hurry now.
+::endlines
+
+::lines pbp.scrum.cover
+Goalie covers it.
+He's got it under him.
+Puck's under the goalie.
+::endlines
+
+::lines pbp.scrum.shove
+Shoving in the crease.
+Everybody's in.
+Facewash.
+Glove in a face.
+::endlines
+
+::lines pbp.scrum.apart
+Officials pull them apart.
+Linesmen wade in.
+Sorted. For now.
+::endlines
+
+::lines pbp.pull.bench
+{goalie} heads for the bench.
+{goalie} skates off.
+{goalie} is coming out.
+::endlines
+
+::lines pbp.zamboni.on
+Zamboni's out.
+Here's the Zamboni.
+The ice crew's on.
+::endlines
+
+::lines pbp.zamboni.lap
+Fresh ice going down.
+Another lap.
+The Zamboni goes round again.
+::endlines
+
+::lines pbp.retrieve
+{player} goes back for it.
+{player} retrieves it.
+{player} gathers up the loose puck.
+{player} picks it up.
+{player} runs it down.
+::endlines
+
+::lines pbp.chase
+Race for it.
+Chasing it down.
+After it into the corner.
+Footrace.
+::endlines
+
+::lines pbp.breakaway
+Breakaway!
+He's in alone!
+{shooter} is clear!
+Nobody near him. Breakaway!
+{shooter} behind everybody!
+::endlines
+
+::lines pbp.replay.start
+Let's see that again.
+Here's the replay.
+Once more.
+Run it back.
+Watch this again.
+::endlines
+
+::lines pbp.replay.assist
+Watch {assist} find him.
+{assist} sees it first.
+Look at the pass from {assist}.
+{assist} threads it through.
+::endlines
+
+::lines pbp.replay.solo
+He does it all himself.
+Watch him take it in.
+All him, start to finish.
+::endlines
+
+::lines pbp.replay.shot
+{shooter} picks his spot.
+Look where {shooter} put it.
+{shooter} doesn't miss from there.
+Quick release. Gone.
+::endlines
+
+::lines pbp.replay.goalie
+{goalie} never saw it.
+{goalie} is down too early.
+{goalie} guesses wrong.
+Nothing {goalie} could do.
 ::endlines
 
 END

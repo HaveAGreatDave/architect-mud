@@ -574,6 +574,16 @@ also carries its **`kind`**: `drum` adds `{ rb, rt, n }` (a faceted, possibly ta
 always present, so this is a detail upgrade and never a dependency. It exists because boxing all 39
 drums turned every tank, silo and round shaft in Coldwater into the same slab as the shop next door.
 
+The same bake writes each model's lights beside its shape, into the generated
+[client/shared/building-lights.js](../../client/shared/building-lights.js): its lamps and glows (a
+beacon with its blink), its neon runs, its searchlights and the plumes off its stacks, in the same
+affine terms, grouped by the storey-stack heights each light is lit at. The arms are run through
+`canvasResidue` at night from all four sides, so the lights are what a GL frame draws, and anything
+that moves between two moments of the clock is left out. The broadcast's city round its park
+(gl/cityscape.js) is the first reader; the traps are in
+[glass-notes.md](glass-notes.md#the-ballpark-glballparkjs). `npm run shapes:smoke` fails either file
+stale.
+
 The prologue manifest ([plugins/prologue/index.js](../../plugins/prologue/index.js)) ships `n`
 (building name) and `e` (entrance) alongside `{x,y,t,f}`. Both are load-bearing: the name resolves a
 landmark to its own model, the entrance is the frame the geometry is laid out in. `regress.js`

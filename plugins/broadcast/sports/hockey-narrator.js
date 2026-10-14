@@ -11,17 +11,12 @@
  * the node chain, the pacing, the graph — and hands the middle to whichever sport
  * module exports `narrate`. Baseball has no `narrate` and its body is untouched.
  *
- * THE SELECTION PROBLEM. The sim emits ~300 beats a game and a slot can only hold
- * ~60 spoken lines. Baseball thins by sampling routine outs; hockey can't sample
- * blind, because ~85% of its beats are ordinary saves and a naive sample would air
- * a period of nothing but "{goalie} takes it in the chest". So beats are tiered:
- *
- *   ALWAYS  goals · penalties · fights · injuries · deaths · hat tricks · the
- *           pulled goalie · every shootout attempt · period framing · the final
- *   OFTEN   posts, breakaways, blocked-in-front — the near-miss beats that carry
- *           the shape of a period even when nothing goes in
- *   SAMPLED ordinary saves/wide shots, to a per-period budget, with booth chatter
- *           threaded in when a period runs quiet
+ * EVERY PLAY IS CALLED, IN SHORT LINES. The sim emits ~300 beats a game. Every shot,
+ * draw, hit, fight and casualty reaches the air, mostly as lines under eight words that
+ * follow the play as the rink shows it (`call()` below), so a screen reader keeps up and a
+ * text-only viewer gets the whole game. The longer pool lines ride along as colour. Lines
+ * hold for as long as they take to read (sports/hockey-pacing.js), and a line tagged `opt`
+ * is the first to go when a short slot can't fit them all.
  *
  * Nothing is invented here that the sim didn't emit — the narrator never decides
  * anything, it only chooses which of the sim's facts get said out loud.
@@ -43,23 +38,18 @@ function hornSeedFor(name) {
 // with nothing written for it behaves exactly as before.
 const barnKey = (name) => `chatter.${String(name || '').trim().split(/\s+/)[0].toLowerCase().replace(/[^a-z0-9]/g, '')}`;
 
-// Per-period budget for beats that carry no consequence (ordinary saves, wide
-// shots). Goals and violence are never counted against it — they're always called.
-const ROUTINE_PER_PERIOD = 7;
 // Chances that are always worth a line: they're the near-misses a period is
 // remembered for.
 const LOUD_CHANCE = new Set(['post', 'breakaway']);
-
-// How often the booth bothers describing HOW a routine chance was built. Every one and
-// the call becomes a stream of breakouts nobody can follow; never, and every chance in
-// the game arrives out of nowhere. A goal or a near-miss always gets one.
-const BUILDUP_ROUTINE = 0.45;
+// Chances that end with the puck loose on the ice rather than held or in the net.
+const LOOSE_AFTER = new Set(['save', 'pad', 'blocked', 'wide', 'post', 'breakaway']);
 
 export function narrate(ctx) {
   const {
     script, game, gs, ws, announcer,
     say, pick, nrng, abbr, recordOf,
   } = ctx;
+  const pools = ctx.pools || {};
   const { away, home, awayScore, homeScore, beats } = game;
   const awayAbbr = abbr(away.name), homeAbbr = abbr(home.name);
   const leader = () => (homeScore === awayScore ? '' : (homeScore > awayScore ? home.name : away.name));
@@ -76,8 +66,12 @@ export function narrate(ctx) {
   // viewer who tunes in during the second period should be able to tell why these two
   // have taken nine penalties, and the sim really did make it a nastier game.
   const rivalry = !!game.rivalry;
+  // The club identities' revision rides on every bug and payload; a client that hasn't
+  // got this one asks for the set once (tv_clubs) and draws crests and kits from it.
+  const clubsRev = ctx.sport?.clubsRevOf?.(script?.clubs) || '';
   const bug = (status, aScore, hScore, strength) => ({
     sport: 'hockey',
+    ...(clubsRev ? { clubsRev } : {}),
     away: away.name, home: home.name, awayAbbr, homeAbbr,
     awayScore: aScore ?? 0, homeScore: hScore ?? 0, status,
     shotsAway: sogAway, shotsHome: sogHome,
@@ -88,6 +82,13 @@ export function narrate(ctx) {
     `${b.section || ''}${b.clockStr ? ` ${b.clockStr}` : ''}`.trim() || 'LIVE',
     b.awayScore, b.homeScore, b.strength,
   );
+  // A goal's beat carries the score after the goal. Everything shown before the puck goes
+  // in (the rush, the shot, the rink's header) wears the score before it, or the bug calls
+  // the goal early.
+  const scoreBefore = (b) => ({
+    away: (b.awayScore ?? 0) - (b.type === 'goal' && b.teamName === away.name ? 1 : 0),
+    home: (b.homeScore ?? 0) - (b.type === 'goal' && b.teamName === home.name ? 1 : 0),
+  });
 
   // ── tokens ────────────────────────────────────────────────────────────────
   // One flat bag per beat. Everything any pool in hockey.bsm references is here
@@ -132,6 +133,12 @@ export function narrate(ctx) {
     hitter: b.hitter || '', victim: b.victim || '',
     remaining: b.remaining ?? '', down: b.down ?? '',
     soAway: b.soAway ?? 0, soHome: b.soHome ?? 0,
+    // What the injury was. A noun phrase on an injury ("a broken jaw", "his left arm"),
+    // a whole sentence on a death.
+    wound: b.wound || '',
+    // The call's own: who the puck went to, who threw the punch and what it was. Filled
+    // per line by `call()`; empty here so a pool line never airs a bare brace.
+    to: '', thrower: '', punch: '',
   });
 
   // ── the Gameday payload ───────────────────────────────────────────────────
@@ -140,6 +147,14 @@ export function narrate(ctx) {
   // rink view and the words can never disagree. Cosmetic — the outcome is already
   // fixed by the time this is built.
   const mod = ctx.sport;
+  // A hit that puts a man out of the game is followed by its injury beat. The picture of
+  // the hit has to know that, or he gets up off the boards and goes back down ten seconds
+  // later, so the boards payload carries the injury's facts forward. The sim decided both
+  // before the broadcast began; this only lets the rink show them in one piece.
+  const injuryAfter = (b, idx) => {
+    const n = beats[idx];
+    return b.type === 'boards' && n && n.type === 'injury' && n.player === b.victim ? n : null;
+  };
   const gameday = (b, idx) => ({
     sport: 'hockey',
     shooter: b.shooter || b.player || '', goalie: b.goalie || '',
@@ -156,9 +171,9 @@ export function narrate(ctx) {
     // beat, and a header that flipped with them would look like the score had swapped.
     awayTeam: away.name, homeTeam: home.name,
     awayAbbr, homeAbbr,
-    // Club colours, so the rink dresses the two sides in their own sweaters instead
-    // of a generic gold-and-blue. Derived from the club name by the sim, so the
-    // client needs no palette of its own and can never disagree about who is who.
+    // Club colours, so the rink dresses the two sides even before the club identities
+    // (kits, crests) have arrived; `clubsRev` says which identities to dress them in.
+    clubsRev,
     awayColours: away.profile?.colours || null,
     homeColours: home.profile?.colours || null,
     rivalry,
@@ -170,12 +185,16 @@ export function narrate(ctx) {
     section: b.section || '', clock: b.clockStr || '', clockSecs: b.clock ?? 0,
     kind: b.kind || b.type, type: b.type, strength: b.strength || 'even',
     awayScore: b.awayScore ?? 0, homeScore: b.homeScore ?? 0,
+    ...(b.type === 'goal' ? { scoreBefore: scoreBefore(b) } : {}),
     desc: mod.playDesc(b),
     // Only a shot has a rush behind it. A faceoff or a fight carrying fabricated
     // possession keyframes would have the rink view animate a zone entry that never
     // happened — the view reads `possession` as the truth, so it has to be absent
     // when there wasn't one.
     possession: b.possession || null,
+    // The names the carrier indices count through, so the rink puts on each sweater the
+    // name the booth just said.
+    rushNames: Array.isArray(b.rushNames) ? b.rushNames.slice() : null,
     frozen: !!b.frozen,
     // Faceoff facts, so the view can put the right two men on the right dot. `winnerSide`
     // is which of the two on-ice sides won it, in the view's own att/def frame.
@@ -201,7 +220,18 @@ export function narrate(ctx) {
     // In the view's own att/def frame, so the client never has to know club names.
     victimSide: (b.victimTeam || b.teamName) ? ((b.victimTeam || b.teamName) === away.name ? 'att' : 'def') : '',
     hitterSide: b.hitterTeam ? (b.hitterTeam === away.name ? 'att' : 'def') : '',
-    slotsOut: b.slotsOut || 0,
+    slotsOut: b.slotsOut || injuryAfter(b, idx)?.slotsOut || 0,
+    // How the hit landed, and on an injury or a death what it did. `injured` on a hit
+    // means he stays down; the wound fields then belong to the injury that follows.
+    hitStyle: b.hitStyle || '',
+    injured: b.type === 'injury' || b.type === 'death' || !!injuryAfter(b, idx),
+    wound: b.wound || injuryAfter(b, idx)?.wound || '',
+    woundPart: b.woundPart || injuryAfter(b, idx)?.woundPart || '',
+    sever: !!(b.sever || injuryAfter(b, idx)?.sever),
+    // How the fight finishes, so the rink can stage it: 'knockdown' | 'jersey' | 'linesmen'.
+    ending: b.ending || '', pullAt: b.pullAt ?? -1,
+    // The pulled goalie, so the rink can empty the right net.
+    pulledSide: b.type === 'pull' ? (b.teamName === away.name ? 'att' : 'def') : '',
     // A compact league snapshot, so the rink can carry a standings dock the way the
     // baseball Gameday does. Warmed before the graph assembles; empty before the
     // CPhL has played a game, which the dock renders as simply absent.
@@ -227,7 +257,7 @@ export function narrate(ctx) {
   // ── pre-game ──────────────────────────────────────────────────────────────
   const awayRecord = recordOf(away.name), homeRecord = recordOf(home.name);
   // A club that's in the table but hasn't played reads '0-0-0', which is not a record
-  // worth saying out loud — "the 0-0-0 Slaglands Slashers" on opening night is the
+  // worth saying out loud — "the 0-0-0 Yards Icehaulers" on opening night is the
   // announcer sounding like a database. Any all-zero record counts as no record.
   const hasRecord = (r) => /[1-9]/.test(String(r || ''));
   const hasRecords = hasRecord(awayRecord) || hasRecord(homeRecord);
@@ -312,6 +342,8 @@ export function narrate(ctx) {
       penalties: per.pens, fights: per.fights, hits: per.hits,
       standings: ctx.standings || [],
     }); said++;
+    // The rink is showing the Zamboni come on while the booth reads the summary.
+    call('pbp.zamboni.on', t, null, sb, { opt: true });
     if (per.goals.length) {
       say(pick('intermission.summary'), stat, sb); said++;
       // One line per goal, in the order they went in — the scoring summary is a list,
@@ -324,31 +356,91 @@ export function narrate(ctx) {
       say(pick('intermission.scoreless'), stat, sb); said++;
     }
     say(pick('intermission.stats'), stat, sb); said++;
+    call('pbp.zamboni.lap', t, null, sb, { opt: true });
     if (per.casualties.length) {
       say(pick('intermission.casualties'), { ...stat, player: per.casualties[0], casualties: per.casualties.join(', '), count: per.casualties.length }, sb); said++;
     }
     say(pick('intermission.outro', 'chatter'), stat, sb); said++;
   };
   // The home barn's own colour first, the league-wide pool behind it.
-  const chatter = (b) => { const l = pick(barnKey(home.name), 'chatter'); if (l) { say(l, tok(b), beatBug(b)); said++; } };
+  // Half the colour is about the building they're in, half about the league. Every club
+  // has a barn pool now, so always reaching for it first would leave the general pool
+  // unheard.
+  const chatter = (b) => { const l = nrng() < 0.5 ? pick(barnKey(home.name), 'chatter') : pick('chatter'); if (l) { say(l, tok(b), beatBug(b)); said++; } };
 
-  // THE PLAY BEFORE THE OUTCOME. The booth used to describe only the last half-second of
-  // a ten-second passage: the viewer watched a breakout, a zone entry and two passes and
-  // heard "saved". `b.rush` is the sim's own reading of the very keyframes the rink is
-  // about to animate, so this line and the picture are the same play by construction
-  // rather than by two authors happening to agree.
-  //
-  // Spoken FIRST and WITHOUT a gameday payload, deliberately: the outcome line still
-  // owns the cut to the new beat, so nothing about the existing timing moves and a beat
-  // that has no rush behaves exactly as it did before.
-  const buildUp = (b, t, sb, loud) => {
-    if (!b.rush) return;
-    if (!loud && nrng() >= BUILDUP_ROUTINE) return;
-    say(b.rush, t, sb); said++;
+  // ── the call ──────────────────────────────────────────────────────────────
+  // SHORT LINES THAT FOLLOW THE PLAY. The booth used to say one or two long sentences a
+  // beat and sample the rest, so a screen reader got a paragraph every eighteen seconds and
+  // most shots never reached the air. Now every shot, draw, hit and punch is called as it
+  // happens, mostly in under eight words, and each line is tagged with the moment of play it
+  // describes (`cue`). The pacer turns those tags into times on the payload, so the rink
+  // does each thing as its line airs. `opt` marks a line the pacer may cut when a short slot
+  // can't fit the whole game; the line carrying the payload is never optional. `opt:
+  // 'colour'` marks a line that only colours the play, which goes before any that call it.
+  const cap = (x) => { const t = String(x || ''); return t.charAt(0).toUpperCase() + t.slice(1); };
+  const call = (key, t, extra, sb, meta, gd, fx) => {
+    const line = Array.isArray(key) ? pick(...key) : pick(key);
+    if (!line) return false;
+    say(cap(sportsFillSafe(line, { ...t, ...(extra || {}) })), {}, sb, fx || null, gd || null, meta || null);
+    said++;
+    return true;
   };
+  // say() fills tokens itself; filling here first lets `cap` see the finished first word.
+  // Unknown tokens are left for say() to report, exactly as before.
+  const sportsFillSafe = (line, tok) => String(line).replace(/\{(\w+)\}/g, (m, k) => (k in tok ? String(tok[k] ?? '') : m));
+  const PUNCH = { jab: 'a jab', uppercut: 'an uppercut', left: 'a left', right: 'a right hand' };
+  const surnameOf = (n) => String(n || '').trim();
 
+  // The rush, touch by touch, off the same keyframes the rink plays. A routine chance gets
+  // the first touch and the last before the shot; a goal or a near-miss gets up to four.
+  function callRush(b, t, sb, gd, loud) {
+    const nodes = Array.isArray(b.possession) ? b.possession : [];
+    const names = Array.isArray(b.rushNames) && b.rushNames.length ? b.rushNames : null;
+    const L = nodes.length;
+    if (!names || L < 3) return false;
+    const who = (i) => names[((i | 0) % names.length + names.length) % names.length] || '';
+    const mids = [];
+    for (let i = 1; i <= L - 3; i++) mids.push(i);
+    // The play builds the way it does on the ice: a near-miss or a goal gets up to five of
+    // its touches called, a routine chance three; past the first, a routine chance's are
+    // optional, so a short slot trims the build-up before it trims the shot.
+    const keep = new Set(loud ? mids.slice(-5) : mids.slice(-3));
+    let holder = who(nodes[0].carrier), first = true, wonNext = false;
+    // Off a loose puck (a rebound, a kick-out, a block) he has to go and get it first, and
+    // the rink shows him doing it, so the booth says so and the breakout follows when he has it.
+    const prev = beats[idx - 2];
+    if (gd && prev && prev.type === 'chance' && !prev.frozen && LOOSE_AFTER.has(prev.kind) && call('pbp.retrieve', t, { player: holder }, sb, null, gd)) {
+      call('pbp.breakout', t, { player: holder }, sb, { cue: { ev: 'fetched' } });
+    } else call('pbp.breakout', t, { player: holder }, sb, null, gd);
+    for (const i of mids) {
+      const n = nodes[i], man = n.carrier >= 0 ? who(n.carrier) : null;
+      let key = null, extra = null;
+      if (n.ev === 'battle') { key = 'pbp.battle'; wonNext = true; holder = null; }
+      else if (wonNext && man) { key = 'pbp.won'; extra = { player: man }; wonNext = false; holder = man; }
+      else if (man && holder && man !== holder) { key = 'pbp.pass'; extra = { player: holder, to: man }; holder = man; }
+      else if (man && n.ev !== 'pass') { key = `pbp.${n.ev}`; extra = { player: man }; holder = man; }
+      if (!key || !pools[key]) continue;
+      if (!keep.has(i)) continue;
+      call(key, t, extra, sb, { cue: { ev: 'node', i }, opt: !loud && !first });
+      // a puck put in or knocked loose has to be run down, and the picture takes the time
+      if (n.ev === 'dump' || n.ev === 'battle') call('pbp.chase', t, null, sb, { opt: true });
+      first = false;
+    }
+    return true;
+  }
+  // The shot, then what became of it. The shot line is when he releases it; the outcome
+  // line follows it.
+  function callShot(b, t, sb, gd) {
+    const typeKey = `pbp.shot.${b.shotType || ''}`;
+    const generic = nrng() < 0.3 || !pools[typeKey];
+    call(generic ? 'pbp.shot' : [typeKey, 'pbp.shot'], t, { shooter: b.shooter, shotLabel: b.shotLabel || 'shot' }, sb, { cue: { ev: 'shot' } }, gd);
+  }
+
+  // Who is in each net, from the shots against it, so the pulled goalie can be named.
+  const goalieOf = {};
   for (const b of beats) {
     idx++;
+    if (b.goalie && b.teamName) goalieOf[b.teamName === away.name ? home.name : away.name] = b.goalie;
     // Shots first, so the bug attached to THIS beat already counts this shot — a
     // goal that doesn't move the shot clock on the same line looks broken.
     if ((b.type === 'chance' && b.shot) || b.type === 'goal') {
@@ -401,8 +493,27 @@ export function narrate(ctx) {
 
       case 'goal': {
         const key = b.strength === 'pp' ? 'goal.pp' : b.strength === 'sh' ? 'goal.sh' : b.strength === 'en' ? 'goal.en' : 'goal';
-        buildUp(b, t, sb, true);
-        say(pick(key, 'goal'), t, sb, goalFx(b), gameday(b, idx)); said++;
+        const gd = gameday(b, idx);
+        // some goals are a man in alone: the rink stages them that way and the booth says so
+        gd.breakaway = !b.strength || b.strength === 'even' ? ['wrist', 'backhand', 'snap'].includes(b.shotType) && nrng() < 0.22 : false;
+        const before = scoreBefore(b), pre = beatBug({ ...b, awayScore: before.away, homeScore: before.home });
+        const rushed = callRush(b, t, pre, gd, true);
+        if (gd.breakaway) call('pbp.breakaway', t, null, pre, { cue: { ev: 'alone' } });
+        callShot(b, t, pre, rushed ? null : gd);
+        call('pbp.goal', t, { team: b.teamName }, sb, { cue: { ev: 'out' } }, null, goalFx(b));
+        // What the rink shows next: the lamp, the scorer peeling away, the pile-on, the
+        // goalie on his knees.
+        call('pbp.goal.lamp', t, null, sb, { opt: true });
+        call('pbp.goal.celebrate', t, { shooter: b.shooter }, sb, { opt: true });
+        call('pbp.goal.mob', t, { shooter: b.shooter }, sb, { opt: true });
+        if (b.goalie && nrng() < 0.6) call('pbp.goal.slump', t, { goalie: b.goalie }, sb, { opt: true });
+        // and the replay: the rink runs it back slowly as the booth walks through it
+        if (call('pbp.replay.start', t, null, sb, { cue: { ev: 'replay' } })) {
+          call(b.assist ? 'pbp.replay.assist' : 'pbp.replay.solo', t, { assist: b.assist }, sb);
+          call('pbp.replay.shot', t, null, sb, { opt: true });
+          if (b.goalie) call('pbp.replay.goalie', t, null, sb, { opt: true });
+        }
+        say(pick(key, 'goal'), t, sb); said++;
         say(pick('score.update'), t, sb); said++;
         break;
       }
@@ -414,12 +525,17 @@ export function narrate(ctx) {
       // draw taken in your own end while a man sits in the box) are always called;
       // the routine ones are colour, aired only when the period is quiet.
       case 'faceoff': {
-        const key = b.dot === 'C' ? 'faceoff.center'
-          : /Z/.test(b.dot) ? 'faceoff.zone' : 'faceoff.neutral';
+        const sub = b.dot === 'C' ? 'center' : /Z/.test(b.dot) ? 'zone' : 'neutral';
         const loud = b.reason === 'goal' || b.reason === 'period' || b.reason === 'penalty';
-        if (!loud && routine >= ROUTINE_PER_PERIOD) break;
-        say(pick(key, 'faceoff'), t, sb, null, gameday(b, idx)); said++;
-        if (!loud) routine++;
+        // Every draw is called now, in two short lines: where, then who won it. The old
+        // one-sentence pools still air on the draws that mean something.
+        call(`pbp.faceoff.${sub}`, t, null, sb, null, gameday(b, idx));
+        // The first draw of a period is on a fresh sheet; then the drop itself, which the
+        // linesman makes as the line airs.
+        if (b.reason === 'period') call('pbp.period.out', t, null, sb, { opt: true });
+        call('pbp.faceoff.drop', t, null, sb, { cue: { ev: 'drop' }, opt: !loud });
+        if (nrng() < (loud ? 0.6 : 0.25)) { say(pick(`faceoff.${sub}`, 'faceoff'), t, sb, null, null, { cue: { ev: 'won' }, opt: !loud && 'colour' }); said++; }
+        else call('pbp.faceoff.win', t, null, sb, { cue: { ev: 'won' }, opt: !loud });
         break;
       }
 
@@ -429,12 +545,22 @@ export function narrate(ctx) {
 
       case 'chance': {
         const loud = LOUD_CHANCE.has(b.kind);
-        if (!loud && routine >= ROUTINE_PER_PERIOD) break;
-        buildUp(b, t, sb, loud);
-        say(pick(`shot.${b.kind}`, 'shot.save'), t, sb, null, gameday(b, idx)); said++;
+        // Every shot is called: the rush, the release, the result.
+        const gd = gameday(b, idx);
+        const rushed = callRush(b, t, sb, gd, loud);
+        if (b.kind === 'breakaway') call('pbp.breakaway', t, null, sb, { cue: { ev: 'alone' } });
+        callShot(b, t, sb, rushed ? null : gd);
+        call(`pbp.out.${b.kind}`, t, null, sb, { cue: { ev: 'out' } });
+        // Then where the puck went, which the rink plays out: held, kicked to the corner,
+        // loose in the slot, rattled away off the iron.
+        if (b.frozen) call('pbp.freeze', t, null, sb, { cue: { ev: 'whistle' }, opt: true });
+        else if (b.kind === 'save') { if (nrng() < 0.5) call('pbp.rebound', t, null, sb, { opt: true }); }
+        else if (pools[`pbp.after.${b.kind}`] && nrng() < (loud ? 0.9 : 0.6)) call(`pbp.after.${b.kind}`, t, null, sb, { opt: true });
+        // The old sentence-length call, as colour: always on a near-miss, sometimes otherwise.
+        if (loud || nrng() < 0.25) { say(pick(`shot.${b.kind}`, 'shot.save'), t, sb, null, null, loud ? null : { opt: 'colour' }); said++; }
         if (!loud) routine++;
         // Booth colour rides on the quiet beats, never on top of a goal.
-        if (!loud && nrng() < 0.22) { chatter(b); routine++; }
+        if (!loud && nrng() < 0.08) { chatter(b); routine++; }
         break;
       }
 
@@ -445,34 +571,86 @@ export function narrate(ctx) {
         say(pick('powerplay.start'), { ...t, team: b.teamName === away.name ? home.name : away.name }, sb); said++;
         break;
 
-      case 'fight':
-        say(pick('penalty.fight'), t, sb, null, gameday(b, idx)); said++;
+      case 'fight': {
+        const gd = gameday(b, idx);
+        gd.helmets = nrng() < 0.4;
+        call('pbp.fight.drop', t, null, sb, null, gd);
+        if (gd.helmets) call('pbp.fight.helmets', t, null, sb, { opt: true });
+        say(pick('penalty.fight'), t, sb); said++;
+        call('pbp.fight.grab', t, null, sb, { cue: { ev: 'grab' } });
+        // Punch by punch, off the sim's own exchange. A long fight keeps every landed punch
+        // and lets the pacer cut misses if it must.
+        const ex = Array.isArray(b.exchange) ? b.exchange : [];
+        ex.forEach((e, n) => {
+          const last = n === ex.length - 1, victim = e.thrower === b.winner ? b.loser : b.winner;
+          const key = last ? 'pbp.punch.big' : e.landed ? 'pbp.punch.land' : 'pbp.punch.miss';
+          call(key, t, { thrower: surnameOf(e.thrower), punch: PUNCH[e.type] || 'a right hand', victim }, sb, { cue: { ev: 'punch', n }, opt: !e.landed });
+        });
+        // How it finished, before who it counts for. The rink is staging the same ending.
+        if (b.ending) { const l = pick(`fight.${b.ending}`); if (l) { say(l, t, sb, null, null, { cue: { ev: 'end' } }); said++; } }
         say(pick('fight.result'), t, sb, fightFx(b)); said++;
+        call('pbp.fight.box', t, null, sb, { cue: { ev: 'box' } });
         boxes.push({ against: b.loserTeam, until: b.clock - 5 * 60 });
         break;
+      }
 
       // The violent beats carry a Gameday payload for the same reason a goal does:
       // the rink is supposed to be showing what the announcer is describing, and a
       // league where men are carried off and occasionally killed cannot have those
       // be the only calls the ice sits still through.
-      case 'boards':
-        say(pick('boards'), t, sb, null, gameday(b, idx)); said++;
+      case 'boards': {
+        // He carries it, the hitter sees him, then the hit itself as it lands.
+        // What the hit does is decided here and rides the payload, so the line that says the
+        // glass went is the hit the rink breaks it on.
+        const gd = gameday(b, idx);
+        const hurt = beats[idx] && beats[idx].type === 'injury' && beats[idx].player === b.victim;
+        const style = b.hitStyle || 'shoulder';
+        gd.shatter = style === 'glass' && nrng() < 0.5;
+        gd.helmetOff = (style === 'elbow' || style === 'behind' || hurt) && nrng() < (hurt ? 0.8 : 0.5);
+        call('pbp.hit.carry', t, null, sb, null, gd);
+        call('pbp.hit.line', t, null, sb, { cue: { ev: 'line' } });
+        say(pick(`boards.${style}`, 'boards'), t, sb, null, null, { cue: { ev: 'impact' } }); said++;
+        if (gd.shatter) call('pbp.hit.shatter', t, null, sb);
+        else if (style === 'glass') call('pbp.hit.glass', t, null, sb, { opt: true });
+        if (gd.helmetOff) call('pbp.hit.helmet', t, null, sb, { opt: true });
+        else if (nrng() < 0.4) call('pbp.hit.stick', t, null, sb, { opt: true });
+        if (hurt) call('pbp.hit.down', t, null, sb);
+        else if (nrng() < 0.5) call('pbp.hit.up', t, null, sb, { cue: { ev: 'up' }, opt: true });
         break;
+      }
 
+      // Then the wound, by name, so a viewer reading text knows as much as one watching the
+      // arm come off.
       case 'injury':
         say(pick('injury'), t, sb, null, gameday(b, idx)); said++;
+        call('pbp.injury.mates', t, null, sb, { opt: true });
+        call('pbp.injury.medics', t, null, sb, { cue: { ev: 'medics' } });
+        if (b.wound) { say(pick(b.sever ? 'injury.sever' : 'injury.wound'), t, sb); said++; }
+        call('pbp.injury.load', t, null, sb, { opt: true });
+        call('pbp.injury.off', t, null, sb, { cue: { ev: 'off' } });
         break;
 
       case 'death':
         say(pick('death'), t, sb, deathFx(b), gameday(b, idx)); said++;
+        call('pbp.death.still', t, null, sb, { cue: { ev: 'still' } });
+        if (b.wound) { say(pick('death.wound'), t, sb); said++; }
+        call('pbp.death.helmets', t, null, sb, { cue: { ev: 'helmets' } });
+        call('pbp.death.officials', t, null, sb, { opt: true });
+        call('pbp.death.stretcher', t, null, sb, { opt: true });
         break;
 
       case 'scrum':
         say(pick('scrum'), t, sb, null, gameday(b, idx)); said++;
+        call('pbp.scrum.cover', t, null, sb, { opt: true });
+        call('pbp.scrum.whistle', t, null, sb, { cue: { ev: 'whistle' } });
+        call('pbp.scrum.shove', t, null, sb, { opt: true });
+        call('pbp.scrum.apart', t, null, sb, { opt: true });
         break;
 
       case 'pull':
-        say(pick('pull'), t, sb); said++;
+        say(pick('pull'), t, sb, null, gameday(b, idx)); said++;
+        call('pbp.pull.bench', t, { goalie: goalieOf[b.teamName] || 'the goalie' }, sb);
+        call('pbp.pull.extra', t, null, sb, { cue: { ev: 'extra' } });
         break;
 
       case 'shootout_start':
