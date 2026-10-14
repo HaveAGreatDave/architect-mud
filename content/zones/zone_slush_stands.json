@@ -1,0 +1,30 @@
+{
+  "ambient_theme": "indoors",
+  "description": "Wooden benches climb steeply on all four sides of the ice, numbered in sections, under a roof of steel arches. A scoreboard of four screens hangs over centre ice on chains. An organ stands on a riser in one corner. It is colder in here than on the street.",
+  "exits": {
+    "down": "zone_slush_rinkside",
+    "north": "zone_slush_concourse",
+    "up": "zone_slush_pressbox"
+  },
+  "flags": {
+    "building_name": "The Slush Fund",
+    "building_type": "ice_rink",
+    "floor": "concrete",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "A great arched window in the north end wall, glazed in a steel grid, three panes of it patched with board. Glacier Street shows through it as a grey band.",
+      "light": 0.4,
+      "name": "the end window",
+      "visibility": 0.3
+    },
+    "world_exit_zone": "zone_district_915_916"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_slush_stands",
+  "map_id": "map_int_slush",
+  "name": "The Slush Fund — The Stands",
+  "parent_zone": "zone_district_915_916"
+}

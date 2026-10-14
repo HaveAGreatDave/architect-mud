@@ -348,7 +348,8 @@ The Audio editor — procedural Web Audio assets (instruments, songs, sfx, ambie
 - **Preview**: `previewAudioAsset()`, `stopAllAudioPreviews()`.
 - **Export**: `exportAudioAsset()` (writes `.amp` JSON — see [amp-format.md](amp-format.md)).
 - **Import**: `openAudioImportModal()`, and the `.MOD` tracker importer `openModImportModal()` / `_modImport()` with helpers `_parseMod()`, `_modChannelsForTag()`, `_midiToNoteStr()`, `_periodToNote()`, `_cellFx()`, `_modSanitize()`, `_pcm8ToWavBase64()`. The MOD importer imports at the module's own tempo and honors volume, arpeggio, portamento, tone-portamento, vibrato and volume-slide effects, sample finetune, pattern break/jump (loop point), and Amiga stereo panning.
-- **Editor + save**: `newAudioAsset()`, `editAudioAsset()`, and per-type form/save handlers.
+- **Editor + save**: `newAudioAsset()`, `editAudioAsset()`, and per-type form/save handlers. The interface-SFX editor also edits a layer's envelope shape (`adsr.curve`) and the cue's retro stage (`_sfxReadRetro()`).
+- **Hockey sound board**: `renderHockeyBoard()` over the Hockey group, with `hkPlay()`, `hkTakes()`, `hkMoment()`, `hkCrowd()` and `hkWav()` (see [systems-hockey-sound.md](systems-hockey-sound.md)).
 - Holds `AUDIO_IMPORT_FIELDS` (the per-type field lists for import/export).
 
 ### `players.js`

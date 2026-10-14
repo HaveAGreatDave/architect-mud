@@ -369,6 +369,129 @@ in scope but started with everything else, from the `src` array — that array i
 the voice on one clock and what `cancel()` stops. Starting it inline would leave a tone
 running past a cancelled line with no reference left to reach it.
 
+### Selling a line (`excite`)
+
+`speak(text, { excite })` says how hard a line is being sold, from -1 (grave: a death on the
+ice, the injury list) through 0 (the narrator's own voice) to 1 (a goal call). It's the
+hockey booth's: the narrator tags every line with a value off the pool it came from
+(`EXCITE` in [hockey-narrator.js](../plugins/broadcast/sports/hockey-narrator.js)), the line
+carries it as `excite` through the broadcast message, and tv.js hands it to `speak()`.
+Nothing else sends one, and at 0 every factor below is exactly 1, so every other voice in the
+game is untouched. The reading voice (`channel: 'ui'`) ignores it.
+
+`deliveryFor` turns the number into the measured correlates of arousal in sports commentary:
+
+| | excited (1) | grave (-1) |
+|---|---|---|
+| register | up 9 semitones | down 3 |
+| pitch range (lilt) | doubled | 0.6 |
+| declination | 0.45, so the voice holds its height | 1.25 |
+| rate | 1.1 | 0.88 |
+| phrase pauses | 0.65 | 1.3 |
+| effort | pressed source (OQ -0.16), tilt cutoffs 1.45, presence +2dB, F1 +6%, stressed vowels +25% | breathy (OQ +0.06), darker, softer |
+| creak at the end | none | 1.6 |
+
+Three things go beyond scaling. A line sold at 0.35 or more gets a **nucleus**: the last
+emphatic vowel of each phrase (a word in caps) or, failing that, the last stressed one, is
+marked with a third phoneme marker `^` and held up to 2.2 times as long, climbing through the
+vowel to its peak instead of stepping to it ("he SCOOORES"). The marker sits in the phoneme
+run, so `estimateDuration` and the scheduler count the same held vowel. At 0.6 or more there's
+a **breath in** before the first word. And a line peaks on its **exclamation**: "He shoots.
+He SCORES!" builds through the first phrase and goes two semitones higher on the second.
+
+Measured on the KSAB-TV voice (base 84Hz), "He shoots. He SCORES!" goes from about 95Hz
+with the caps word at 100 to about 140 on "shoots" and 233 at the held peak at 1, and sits
+around 79Hz at -0.7, 14% slower. `TUNING.excitement` scales every line's value, so the Voice
+Lab can turn the whole booth up or down by ear; its excite slider and the goal, shot and
+death presets audition one line. The FM smoke pins the shape: 0 is identical to no value, a
+goal call peaks over 1.6 times the plain line and runs longer, a grave one sits lower and
+slower, and the reading voice never moves.
+
+### Measured against a recogniser
+
+Until October 2026 the only judge of the voice was a person listening. Its consonants are now
+tuned against two offline speech recognisers run on rendered audio: Whisper base.en, which has
+a strong language model (roughly "would a listener who knows English follow it"), and a NeMo
+Conformer-CTC with none ("are the sounds right"). The material is the Harvard sentences, a
+rhyme-test word list said as "Please say ___ now." and 65 real booth lines. Whisper's word
+error rate on the Harvard sentences:
+
+| voice | before | after |
+|---|---|---|
+| KSAB-TV, the station voice | 79% | 24% |
+| the Architect | 88% | 36% |
+| Tug Brennan, a gritty seeded voice | 72% | 28% |
+| eSpeak NG, for scale | | 25% |
+
+On booth lines it went from 70% to about 28%. On single words with no context, scored by the
+recogniser with no language model, it went from 6% to 21%, where eSpeak gets 10%. The scripts
+and models live outside the repo; the findings are below, and the voice gates pin what can be
+pinned. What was wrong, most costly first:
+
+- **The bank's level was pinned.** The cascade-derived formant gains were normalised to F1 = 1
+  for every sound, which kept each vowel's balance and threw away its level. The glottal source
+  is strongest low down, so anything with a low F1 came out loud: /m/ measured louder than the
+  /a/ after it, and the voice bar of a /b/ nearly a vowel. The gains are now measured against one
+  reference, the neutral vowel through the voice's own tract, as a tube's are.
+- **Noise could not reach the tract.** Voicing gated the formant bank's output, so aspiration and
+  /h/ were a fixed band beside the formants. Voicing now sits at the source, and a second noise
+  path (`aspG`) feeds the tract: /h/, the puff after /p t k/ and breath all carry the vowel that
+  follows. The frication path for fricatives and bursts is unchanged in shape.
+- **A shut mouth sounded open.** The voice bar of /b d g/ and the voicing under /v z/ went through
+  the full bank and read as a nasal or a /w/ ("bee" as "me"). `murmur()` drops F1 to about 220 Hz
+  and the bands above it nearly to nothing, while F2 and F3 still head for the locus.
+- **The consonants sat at the wrong levels for one another.** /s/ and /ʃ/ were under /f/ and /θ/,
+  the reverse of speech. They are fitted to real-speech levels against the vowel after them: /s/
+  about -8 dB, /ʃ/ -5, /f/ and /θ/ about -20, /h/ and aspiration -15, bursts -6 to -12 and shaped
+  by place (/t/ high, /k/ compact just above the next vowel's F2, /p/ low and diffuse). The voice
+  bar is held near -16 dB, louder than careful speech has it, because clear speech voices through
+  a closure and it measured better that way.
+- **Glides let go too fast.** A vowel after /w r j/ now glides out over 40 to 45 ms and one after
+  /l/ snaps in 12, and /l/ gets a mild lateral zero near 2.3 kHz.
+- **/r/ after a vowel was a consonant** and was heard as /l/ ("four" as "full"). It is now an
+  r-colouring (`RHOTIC`), held longer, with the vowel's F3 starting down in its back half.
+- **Diphthongs closed off.** Their glides went all the way to /i/ or /u/, so "no" came back "num".
+  They stop where real ones end, and /oʊ/ starts at /o/ rather than /ɔ/.
+- Smaller: "he" keeps /i/ ("his scores"), "on" isn't reduced, a final dark /l/ is a little longer,
+  a vowel-less abbreviation is spelled ("CPhL" was "K F L"), "St" before a name is Saint with or
+  without its full stop, and a game clock before "left", "to go" or "remaining" is a length
+  ("10:00 left" was "ten o'clock left").
+
+Tried and dropped: a slower rate (worse), narrower formant bandwidths, a brighter unstressed
+tilt and a more pressed source (no change), and swallowing word-final releases (worse; clear
+speech releases them). Ring modulation and drive both cost words. The hockey booth turns them
+off with `@voice`; every other voice keeps its own.
+
+A voice with `vs` among its parameters (the hockey booth's `@voice` sets `vs=1`) reads an en
+dash between two names as "versus": "Wharf Rats–Warlords" is "Wharf Rats versus Warlords"
+(`readMatchups`). For every other voice the dash stays a pause, since in a book "the
+London–Paris express" is a route, and a hyphen or a dash between figures never changes.
+
+`speak(text, { trace: [] })` fills the array with each phoneme's scheduled start, which is how
+the measurements found the segments, and `TUNING.compRatio` is the compressor's ratio.
+
+### Drawn-out words
+
+"He SCOOOOORES!!!" is how a goal call is written, so it is how the voice holds one. Three or more
+of one letter is a held sound. `elongation()` collapses each run to the word the dictionary knows,
+one letter or two ("SCOOOORES" is scores, "SHOOOOTS" shoots, and a run at the end of a word is the
+short word, so "Sooooo" is so). `markLong()` puts a `~n` marker before the sound the run spelled:
+the vowel of the run's vowel group, the stressed vowel when spelling and sounds don't line up, or
+a consonant's own sound in "Yesss". `segmentDuration` holds it 0.14 s plus 0.16 s a letter after
+the first (a consonant 0.10 plus 0.11), up to 2.6 s and a quarter longer when sold, so the
+estimate and the scheduler agree.
+
+Sold, a held vowel climbs over its first fifth to a peak a few semitones above its accent, wavers
+with a 6 Hz vibrato (the second jitter oscillator's depth turned up), swells and brightens, then
+eases into the rest of the word; a diphthong turns at the very end. Not sold ("Noooo..."), it
+sags. "!!" or more is one bigger break, `_XX`, which lifts its phrase. A phrase with a drawn-out
+word gets no `^` nucleus, because the writer has already chosen the sound.
+
+On the booth, "He SCOOOOOOORES!!!" holds its vowel 1.38 s and tops out near 280 Hz, and Whisper
+hears "He scores!". The pacer gives each held letter after the first 60 ms of air on top of its
+95 (see [systems-broadcast.md](systems-broadcast.md)). The voice smoke pins the reading and the
+length, and the FM smoke the climb, the vibrato and the sag.
+
 ## The voice pool
 
 ⚠ **The pool and the tracker's channel count were the same number, and that is a bug,

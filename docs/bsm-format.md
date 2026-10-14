@@ -671,6 +671,8 @@ The client renderer (`_applyScorebug` in [tv.js](../client/game/js/panels/tv.js)
     pools:   { [key]: [line,…] },// ::lines blocks
     title:   '',                 // @titlecard graphic id
     airSlots: [6],               // @airtime → in-game 3h block indices, or null for continuous
+    say:     { [word]: 'PH …' }, // ::say block, only when there is one
+    voice:   { ring: 0, … },     // @voice, only when there is one
   }
   ```
 - **Import** ([broadcast.js](../client/devpanel/js/panels/broadcast.js) `_bcImportSave`): saved with `playback_mode = 'sports'`, `loop = 1`, `override_duration = @length`, `sports_pools` = the `sportsScript` (new `media_broadcasts.sports_pools` JSONB column). No studio/host is created — asset-only.
@@ -690,6 +692,34 @@ Three rules a hockey library must respect:
 - **TEXT PARITY.** Every beat the sim emits has a pool, including the casualties and the pulled goalie. Nothing may exist only as an animation on the rink sub-screen — a player reading the text gets the whole game. Regress asserts both directions: every beat type is narratable and every pool is reachable.
 - **The three faceoff pools are not interchangeable.** `faceoff.center` means somebody just scored or a period just started; `faceoff.zone` means the puck died in that end; `faceoff.neutral` is everything else. The sim picks the dot by the RULE, so the pool is a fact about the game, not a flavour choice. (`faceoff` remains as a fallback and is expected never to fire.)
 - **`::players` needs `clubs x 6` names minimum.** Skaters are dealt into permanent club rosters, so a short pool starts sharing men between clubs.
+
+The touch-by-touch call (`pbp.*`) is written the way a booth calls a game: who, where, what. Two tokens exist only there. `{where}` is where the touch is ("at the left point", "in the slot", "on the right wall", "through centre", "in his own end"), and `{from}` is where a shot came from ("from the slot"). Both come from the possession keyframe the rink plays the touch at (`rinkSpot` in [hockey.js](../plugins/broadcast/sports/hockey.js)), with left and right as the carrier skates, so a line can't put a man somewhere the picture doesn't. `{where}` is filled for `pbp.breakout`, `pbp.retrieve`, `pbp.retrieve.back`, `pbp.pass` and its `pbp.pass.*` kinds (the receiver), `pbp.entry`, `pbp.cycle`, `pbp.deke`, `pbp.dump`, `pbp.battle` and `pbp.won`; `{from}` for `pbp.shot` and its `pbp.shot.*` kinds. `{feeder}`, the man who fed a one-timer or a tip, is filled only for `pbp.shot.onetimer.fed` and `pbp.shot.tip.fed`; the plain `pbp.shot.onetimer` and `pbp.shot.tip` air when there's nobody to name. A pass is called by its kind (`back`, `cross`, `stretch`, `saucer`, `give`, or plain `pbp.pass`), worked out from the keyframes, and the rink plays the kind called. A token a call doesn't supply is blanked, not left in braces, and the broadcast regress fails on what that leaves behind ("from , and").
+
+A rush that starts with a fight for the puck opens with lines that say no `{where}`, because the picture takes it wherever the puck is. When the last play left the other side with it, `pbp.forecheck` names the man going after it and `pbp.takeaway` airs on a `takeaway` cue, the moment the rink pokes it loose. After a loose puck, `pbp.retrieve` ("{player} goes in after it") is followed by `pbp.breakout.on`, a breakout line without his name, on the `fetched` cue. See the rink's battles in [The rink sub-screen](systems-broadcast.md#the-rink-sub-screen-rinkside-as-built).
+
+A breakaway opens plainly, with `pbp.breakout`, then `pbp.breakaway.build` ("They're all caught up the ice."), a beat that gives the rink time to have their men caught up the ice before the pass; `{player}` is the man with the puck. Then the pass that springs the shooter and the call that he's in alone are one line, `pbp.breakaway.spring` ("{player} springs {shooter}! He's in ALONE!"), with `{player}` the passer, `{shooter}` the man sprung and `{where}` where he takes it. The line carries two cues, the pass's `node` cue and an `alone` cue, which the pacer stamps at the same moment. About half the time it's a stretch pass (`pbp.pass.stretch`) and then `pbp.breakaway` instead, so that pool is still heard.
+
+**A goal is the call, the replay, then the credit.** `pbp.goal` calls it as it goes in, with `pbp.goal.lamp`, `.celebrate`, `.mob` and `.slump` as optional lines over the celebration. Then the replay, four lines said while the rink runs the goal back: `pbp.replay.start` on a `replay` cue, a line on how it was made, one on the shot and one on who couldn't stop it. How it was made comes off the play: `pbp.replay.alone` for a goal staged as a breakaway, `pbp.replay.feed.onetimer` or `.feed.tip` naming `{feeder}`, `pbp.replay.wrap`, `pbp.replay.pass.<kind>` for the kind of the last pass (`pbp.replay.pass` for a plain one with no assist), else `pbp.replay.assist` or `pbp.replay.solo`. The shot is `pbp.replay.shot.<type>`, or the plain `pbp.replay.shot` for about a third of the wrist, snap, slap and backhand shots. The last is `pbp.replay.goalie`, or `pbp.replay.pp`, `.sh` or `.en` by the strength. Write them the way a replay is talked over: present tense, "watch", "look at", the goal taken apart, never called again. Then the credit (`goal`, `goal.pp|sh|en` or `goal.solo`) on a `live` cue, as the picture comes back to the game, and `score.update`.
+
+**A big hit is brought up at the next stoppage.** `pbp.hit.recall` is said at the next draw after a hit (not a period's first draw), and `pbp.hit.recall.hurt` at the injury a hit caused, with `{hitter}` and `{victim}` filled. It carries a `recall` cue. The rink keeps its camera on the puck, and a hit that happened out of the picture is run back as the play the line rides starts; a draw that brings one up keeps its drop line, so the puck isn't down before the replay is over. A hit the picture caught isn't run back, so a line describes the hit and never says the picture is a replay of it. Any hit can be an elbow or one from behind, so no line calls it clean. Only the latest hit is brought up, and not after a goal, a death or the end of the period. See [the rink's replays](systems-broadcast.md#the-rink-sub-screen-rinkside-as-built).
+
+A goal nobody set up uses `goal.solo` and, at the intermission, `intermission.goal.solo`, because the plain `goal` and `intermission.goal` lines name the helper. No `goal.solo` line says he did it alone, because the rush may have had a pass in it all the same. A word in CAPS is the one the voice leans on, and every line also carries how hard it's sold (`excite`, from the pool it came from), which the voice reads; see [Selling a line](systems-procedural-audio.md#selling-a-line-excite).
+
+**A held letter is a held sound.** Write a drawn-out call the way a caller makes it: "He SCOOOOORES!!!" holds the o of "scores" about a sixth of a second a letter (three or more letters make a hold), and "!!" or more is a harder shout than "!". The word is still said as the word it is. The `pbp.goal` pool is written this way; see [Drawn-out words](systems-procedural-audio.md#drawn-out-words).
+
+**How the booth speaks** is authored in the script too, and rides every line to the client:
+
+```
+@voice ring=0 drive=0 vs=1
+
+::say
+oyelaran     OW Y EH L * AA R AA N
+okonkwo      OW K * AA NG K W OW
+::endsay
+```
+
+- `@voice` sets ORACLE voice parameters over the ones the station's name seeds, as `key=value` numbers (`ring`, `drive`, `f0`, `speed`, `oq` and the rest of `voiceFromName`'s fields). The CPhL booth uses it to drop the ring modulator and drive, which measured about 10% fewer words understood. `vs=1` makes an en dash between two names read as "versus", so "{away}–{home}" is said "Wharf Rats versus Warlords"; without it the dash is a pause, and a hyphen is never read that way ("Smith-Jones" is one name).
+- `::say` gives the pronunciation of a word no dictionary carries: the word, then its phonemes in ORACLE's alphabet (CMUdict's, with `*` before the stressed vowel and `AX` for schwa). A spoken line carries only the entries for the words in it, a possessive takes its stem's, and anything not listed comes from the dictionary or, failing that, the letter rules. It is for names and coinages: the shipped dictionary already holds every word in every `.bsm` that upstream CMUdict knows (see [Rebuilding the dictionary](systems-library.md#rebuilding-the-dictionary)), so add a line when you add a name it doesn't. The voice smoke fails an entry with a phoneme the synth hasn't got or no stressed vowel, and the broadcast regress fails a row whose `say` or `voice` has drifted from the script.
 
 ---
 

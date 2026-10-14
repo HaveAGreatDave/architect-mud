@@ -1,24 +1,30 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive.",
+  "ambient_theme": "urban",
+  "bg_color": "#1d1a1a",
+  "color": "#c9cfd4",
+  "description": "A brick arena under a long vaulted roof of grey steel. The end of the hall is one great arched window in a steel grid, set back between two brick wings. A canopy on steel posts runs across the front over six glass doors, with flagpoles at either end.",
   "exits": {
-    "east": "zone_district_916_916",
     "north": "zone_district_915_915",
-    "south": "zone_district_915_917",
-    "west": "zone_district_914_916"
+    "south": "zone_slush_concourse"
   },
   "flags": {
-    "district": "wasteland",
+    "building_name": "The Slush Fund",
+    "building_type": "ice_rink",
+    "district": "ashway",
+    "entrance": "north",
+    "facade": true,
+    "floors": 5,
+    "is_building": true,
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "world_exit_zone": "zone_district_915_915"
   },
   "grid_x": 915,
   "grid_y": 916,
   "grid_z": 0,
   "id": "zone_district_915_916",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "marker": "IC",
+  "name": "The Slush Fund",
   "parent_zone": null
 }

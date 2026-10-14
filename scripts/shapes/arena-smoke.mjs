@@ -12,7 +12,9 @@
 //      medics; ragdolled, missing an arm, a leg or the head, gloves off, helmet off,
 //      jersey over the head, a visor), the severed limbs, debris, the Zamboni, the nets,
 //      the puck, the stretcher: built by arena-mesh.js, every float finite, nothing
-//      empty, and the frame inside its triangle budget.
+//      empty, and the frame inside its triangle budget. Each body's head record (the
+//      street figures' generator's head, drawn by gl/arena-heads.js) is sound, the helmet
+//      clears the skull and every haircut, and so does a keeper's mask.
 //   3. THE ICE LISTS WHAT CHANGED. GLASS 2 uploads only the tiles a paint touched, so a
 //      mark that forgets to list its tile leaves the GL sheet stale while the 2-D one is
 //      right. Each kind of mark is checked against the tile it lands in.
@@ -169,13 +171,168 @@ body(skaters[8], 'skater missing his head', null, BUD);
   check('jersey UVs stay inside their slot', ok);
 }
 
+// ── the heads ────────────────────────────────────────────────────────────────
+// Handed `heads`, a body leaves its head as a record for gl/arena-heads.js to draw from the
+// street figures' generator: one a body that has a head to show, its matrix a rigid map at
+// HEAD_S, and a face from a layout without makeup. The helmet is built round it, so the
+// skull and every haircut it can wear under one must clear the shell, and the face the cage.
+{
+  const { headMesh, hairMesh, HEAD_FEAT } = await import(R + 'actor-head.js');
+  const { FACE_LAYOUTS } = await import(R + 'actor-faces.js');
+  const { rinkFace } = await import(R + 'rink/faces.js');
+  const near = (a, b, e = 1e-4) => Math.abs(a - b) < e;
+  const rigid = (m) => {
+    const c = [0, 4, 8].map((k) => [m[k], m[k + 1], m[k + 2]]), dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+    const det = dot(c[0], [c[1][1] * c[2][2] - c[1][2] * c[2][1], c[1][2] * c[2][0] - c[1][0] * c[2][2], c[1][0] * c[2][1] - c[1][1] * c[2][0]]);
+    return m.every(Number.isFinite) && c.every((v) => near(Math.hypot(...v), M.HEAD_S)) && near(dot(c[0], c[1]), 0) && near(dot(c[1], c[2]), 0) && near(dot(c[0], c[2]), 0) && det > 0;
+  };
+  const d = M.createBatch(), t = M.createBatch();
+  const heads = (b, mut, det = 1) => {
+    const out = [];
+    M.reset(d); M.reset(t);
+    M.buildBody(d, t, W.rigOf(b), { ...bodyOpts(W, b), detail: det, slot: SLOT, heads: out, headLv: det ? 0 : 2, ...(mut || {}) });
+    return out;
+  };
+  for (const [label, b, mut] of [['skater', skaters[0]], ['goalie', W.goalie.a], ['official', W.officials[0]], ['helmet off', skaters[1], { helmet: false }], ['visor', skaters[3], { face: 'visor' }], ['bloodied', skaters[4], { blood: 1, react: 1 }], ['ragdoll', skaters[5]]]) {
+    for (const det of [0, 1]) {
+      const hs = heads(b, mut, det), h = hs[0];
+      check(`head ${label} det${det}: one record`, hs.length === 1, `${hs.length}`);
+      if (!h) continue;
+      check(`head ${label} det${det}: a rigid map at HEAD_S`, rigid(h.M));
+      check(`head ${label} det${det}: its level`, h.lv === (det ? 0 : 2));
+      check(`head ${label} det${det}: a face without makeup`, !FACE_LAYOUTS[h.face.layout].makeup);
+      check(`head ${label} det${det}: a hair mesh that exists`, Number.isInteger(h.hs) && h.hs >= 0 && h.hs < 5);
+      check(`head ${label} det${det}: blood only when he's bleeding`, (h.blood > 0) === (label === 'bloodied'), `${h.blood}`);
+    }
+  }
+  check('no head record for a jersey over the head', heads(skaters[2], { jerseyUp: 1 }).length === 0);
+  check('no head record for a man missing his head', heads(skaters[8]).length === 0);
+  {
+    const o = { ...bodyOpts(W, skaters[0]) }, quiff = (helmet) => M.headRecord([0, 0, 6], [1, 0, 0], [0, 1, 0], [0, 0, 1], { ...o, name: 'Test5' }, 0, 0, helmet);
+    check('a quiff is drawn bare-headed', quiff(false).face.style === 4 && quiff(false).hs === 4);
+    check('a quiff is cropped under a helmet', quiff(true).hs === 0);
+    const long = (goalie) => M.headRecord([0, 0, 6], [1, 0, 0], [0, 1, 0], [0, 0, 1], { ...o, name: 'Test0', goalie }, 0, 0, true);
+    check("long hair hangs out of a skater's helmet and is tucked under a keeper's mask", long(false).face.style === 3 && long(false).hs === 3 && long(true).hs === 2);
+  }
+  {
+    const lim = W.limbs.find((l) => l.part === 'head'), b = M.createBatch(), out = [];
+    M.buildSevered(b, lim, { ...bodyOpts(W, lim.owner), heads: out });
+    check('a severed head leaves one record and a shell', out.length === 1 && rigid(out[0].M) && b.n > 0 && finite(b));
+  }
+  // The same name is the same face whatever body he's in; no player or official is given makeup.
+  {
+    const a = rinkFace({ name: 'Lindqvist', seed: 3, skin: '#e0b08c', hair: '#2a1c14' }), z = rinkFace({ name: 'Lindqvist', seed: 41, skin: '#e0b08c', hair: '#2a1c14' });
+    check('a face follows the name, not the body', a.layout === z.layout && a.style === z.style);
+    let made = 0;
+    for (const kind of ['skater', 'goalie', 'official']) for (let i = 0; i < 300; i++) if (FACE_LAYOUTS[rinkFace({ name: `${kind}${i}`, kind }).layout].makeup) made++;
+    check('no player or official wears a makeup layout', made === 0, `${made}`);
+  }
+  // The fit, in the head's own frame: every skull and hair vertex under the shell is inside its
+  // liner (0.95), so no facet of the shell cuts through, and the face is behind the cage.
+  const rec = M.headRecord([M.HEAD_AT[0], 0, M.HEAD_AT[1]], [1, 0, 0], [0, 1, 0], [0, 0, 1], { name: 'Fit' }, 0, 0, true), m = rec.M;
+  const at = (P, i) => [0, 1, 2].map((k) => m[k] * P[i * 3] + m[4 + k] * P[i * 3 + 1] + m[8 + k] * P[i * 3 + 2] + m[12 + k]);
+  for (const [who, R0, brow] of [['skater', 0.46, M.HELM_BROW]]) {
+    let worst = 0, worstStyle = -1, cageWorst = -1;
+    const scan = (src, style) => {
+      for (let i = 0; i < src.P.length / 3; i++) {
+        if (src.F[i] === HEAD_FEAT.neck) continue;
+        const w = at(src.P, i);
+        const x = (w[0] - M.HELM_C[0]) / R0, y = w[1] / R0, z = (w[2] - M.HELM_C[1]) / (R0 * 0.92), r = Math.hypot(x, y, z);
+        const shell = !(z / r < -0.6 || (x / r > M.HELM_OPEN && z / r < brow));
+        if (shell && r > worst) { worst = r; worstStyle = style; }
+        const a = Math.atan2(w[1], w[0]);
+        if (style < 0 && Math.abs(a) < 1.05 && w[2] < M.BRIM_U && w[2] > -0.64) cageWorst = Math.max(cageWorst, Math.hypot(w[0], w[1]) - (M.faceRad(R0, w[2]) - 0.018));
+      }
+    };
+    scan(headMesh(0), -1);
+    for (let s = 0; s < 5; s++) scan(hairMesh(s === 4 ? 0 : s, 0), s);
+    check(`${who} helmet: the skull and every haircut clear the shell`, worst < 0.95, `r ${worst.toFixed(3)}, style ${worstStyle}`);
+    check(`${who} helmet: the face is behind the cage`, cageWorst < 0, `${cageWorst.toFixed(3)} ft through`);
+  }
+  // A keeper's mask, at both levels. A ray from the mask's middle through every skull and hair
+  // vertex either leaves by the opening or meets the shell well outside the vertex; nothing on
+  // the face comes within a bar's thickness of the cage, and the nose is behind it.
+  for (const lv of [0, 1]) {
+    const T = M.maskTemplate(lv), O = M.MASK_O, tris = [];
+    const P = (k) => [T.pos[k * 3], T.pos[k * 3 + 1], T.pos[k * 3 + 2]];
+    for (let j = 0; j < T.rows; j++) for (let i = 0; i < T.S - 1; i++) {
+      if (T.open(i, j)) continue;
+      const k00 = j * T.S + i, k10 = k00 + 1, k01 = k00 + T.S, k11 = k01 + 1;
+      tris.push([P(k00), P(k01), P(k11)], [P(k00), P(k11), P(k10)]);
+    }
+    const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]], dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+    const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+    // the nearest shell crossing along the ray from O toward d (Möller–Trumbore), or Infinity
+    const hit = (d) => {
+      let best = Infinity;
+      for (const [a, b, c] of tris) {
+        const e1 = sub(b, a), e2 = sub(c, a), p = cross(d, e2), det = dot(e1, p);
+        if (Math.abs(det) < 1e-12) continue;
+        const tv = sub(O, a), u = dot(tv, p) / det; if (u < -1e-6 || u > 1 + 1e-6) continue;
+        const q = cross(tv, e1), v = dot(d, q) / det; if (v < -1e-6 || u + v > 1 + 1e-6) continue;
+        const t = dot(e2, q) / det; if (t > 0 && t < best) best = t;
+      }
+      return best;
+    };
+    let tight = Infinity, tightAt = '', through = 0, open = [];
+    const scan = (src, label) => {
+      for (let i = 0; i < src.P.length / 3; i++) {
+        if (src.F[i] === HEAD_FEAT.neck) continue;
+        const w = at(src.P, i), v = sub(w, O), r = Math.hypot(...v);
+        if (src === headMesh(0) && w[2] < -0.3 && w[0] < 0.1) continue;   // (the jaw under the backplate's edge, behind the cup)
+        const t = hit(v.map((x) => x / r));
+        if (t === Infinity) { if (label === 'skull') open.push(w); continue; }
+        if (t - r < tight) { tight = t - r; tightAt = label; }
+        if (t - r < (lv ? 0.02 : 0.01)) through++;   // (L0's coarser facets cut closer, at under 24 px a foot)
+      }
+    };
+    scan(headMesh(0), 'skull');
+    // (a keeper's quiff is cropped and his long hair tucked in, so these are all he can wear)
+    for (let st = 0; st < 3; st++) scan(hairMesh(st, 0), `hair ${st}`);
+    check(`mask L${lv}: the skull and every haircut sit inside the shell`, through === 0, `${through} vertices too close, the closest ${tight.toFixed(3)} ft (${tightAt})`);
+    const segs = T.bars.flatMap((bar) => bar.slice(1).map((q, k) => [bar[k], q]));
+    const near = (p) => Math.min(...segs.map(([a, b]) => { const ab = sub(b, a), t = Math.max(0, Math.min(1, dot(sub(p, a), ab) / dot(ab, ab))); return Math.hypot(...sub(p, [a[0] + ab[0] * t, a[1] + ab[1] * t, a[2] + ab[2] * t])); }));
+    const gap = Math.min(...open.map(near));
+    check(`mask L${lv}: the face is clear of the cage`, open.length > 50 && gap > 0.03, `${open.length} face vertices, ${gap.toFixed(3)} ft from a bar`);
+    // the bar up the middle stands in front of everything on the face on the centre line
+    const mid = T.bars[0];
+    const ahead = open.filter((w) => Math.abs(w[1]) < 0.05).every((w) => {
+      const k = mid.findIndex((q, n) => n + 1 < mid.length && (q[2] - w[2]) * (mid[n + 1][2] - w[2]) <= 0);
+      if (k < 0) return true;
+      const a = mid[k], b = mid[k + 1], f = a[0] + (b[0] - a[0]) * ((w[2] - a[2]) / ((b[2] - a[2]) || 1));
+      return f > w[0] + 0.03;
+    });
+    check(`mask L${lv}: the nose is behind the cage`, ahead);
+    // painted from its own cell of the masks' texture, and only from it, into the masks' batch
+    const b = M.createBatch(), bt = M.createBatch(), bm = M.createBatch(), slot = [0.25, 0.5, 0.375, 0.625];
+    M.buildMask(b, bt, [100, 40, 5], [1, 0, 0], [0, 1, 0], [0, 0, 1], { kit: W.kits.a, maskSlot: slot, maskBatch: bm }, lv);
+    let inSlot = bm.n > 0;
+    for (let i = 0; i < bm.n; i++) { const o = i * M.STRIDE, u = bm.data[o + 10], v = bm.data[o + 11]; if (u < slot[0] - 1e-6 || u > slot[2] + 1e-6 || v < slot[1] - 1e-6 || v > slot[3] + 1e-6 || bm.data[o + 12] !== 1) { inSlot = false; break; } }
+    check(`mask L${lv}: the shell's paint stays in its cell`, inSlot && bt.n === 0 && finite(b) && finite(bm) && b.n > 0, `${bm.n} shell, ${bt.n} in the jerseys' batch`);
+  }
+  // a keeper wears it on the ice, and his head keeps it when it comes off
+  {
+    const gk = W.goalie.a, d = M.createBatch(), t = M.createBatch(), m = M.createBatch(), hs = [];
+    M.buildBody(d, t, W.rigOf(gk), { ...bodyOpts(W, gk), detail: 1, slot: SLOT, maskSlot: [0.5, 0.5, 0.625, 0.625], maskBatch: m, heads: hs, headLv: 0 });
+    check('a keeper with a head record wears the mask', hs.length === 1 && m.n > 0 && finite(m) && (d.n + t.n + m.n) / 3 <= BUD_GK[1], `${((d.n + t.n + m.n) / 3) | 0} tris`);
+    W.sever(gk, 'head', [3, 2, 6]);
+    for (let i = 0; i < 30; i++) W.step(DT);
+    const lim = W.limbs.find((l) => l.owner === gk), b2 = M.createBatch(), t2 = M.createBatch(), m2 = M.createBatch(), out = [];
+    M.buildSevered(b2, lim, { ...bodyOpts(W, gk), heads: out, maskSlot: [0.5, 0.5, 0.625, 0.625], maskBatch: m2 }, t2);
+    check("a keeper's severed head keeps his mask", out.length === 1 && m2.n > 0 && finite(b2) && finite(m2));
+  }
+}
+
 // ── the puck is never put on a stick ─────────────────────────────────────────
-// It's collected: slid or fetched to the blade, out of the net through the mouth, and
-// never farther in a step than a hard shot carries it.
+// It's collected: he skates to it and takes it once it's within reach of his blade, out of
+// the net through the mouth, and it never moves farther in a step than a hard shot carries
+// it. (No beat is running: the pregame's linesman would otherwise come and pick it up for
+// the opening draw while he's on his way.)
 {
   const W2 = createWorld(createIce(document), 'collect');
-  createDirector(W2, {});
+  const D2 = createDirector(W2, {});
   for (let i = 0; i < 60; i++) W2.step(DT);
+  D2.reset();
   const pk = W2.puck, m = W2.skaters().find((b) => b.active && b.stick);
   const watch = (secs) => { let worst = 0; for (let i = 0; i < secs / DT && pk.carrier !== m; i++) { const x = pk.x, y = pk.y; W2.step(DT); worst = Math.max(worst, Math.hypot(pk.x - x, pk.y - y)); } return worst; };
   W2.puckScripted = true; W2.frozen = true;

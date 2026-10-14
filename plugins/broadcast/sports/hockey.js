@@ -120,8 +120,8 @@ export const INJURY_MAX_SLOTS = INJURY_SLOTS_MAX;
 // NAME, so it costs no authoring, needs no storage, is identical on every server
 // forever, and a club added to the .bsm arrives with a personality already formed. The
 // traits are deliberately narrow multipliers: wide enough that the District 9 Goons
-// visibly fight more and the Ashway Zambonis visibly can't finish, narrow enough that
-// no club is unwatchable.
+// visibly fight more and the St Garneau Guillotines visibly keep out of the box, narrow
+// enough that no club is unwatchable.
 //
 // Its LOOK is authored. The league's content row carries `clubs` (district, colours,
 // kits, crest; see scripts/content/build-cphl-clubs.mjs), and a club with an identity
@@ -163,11 +163,11 @@ export function clubProfile(name, identity = null) {
   // spread into "every club called Goons is identical".
   const n = String(name).toLowerCase();
   const nudge = (words, key, by) => { if (words.some(w => n.includes(w))) p[key] = Math.max(0.5, Math.min(1.9, p[key] + by)); };
-  nudge(['goon', 'warlord', 'bulldog', 'highlander', 'boarder'], 'violence', 0.32);
+  nudge(['goon', 'warlord', 'bulldog', 'highlander', 'bird'], 'violence', 0.32);
   nudge(['goon', 'highlander'], 'discipline', -0.26);              // they get caught, too
-  nudge(['marauder', 'icehauler'], 'shooting', 0.09);
+  nudge(['marauder', 'wharf'], 'shooting', 0.09);
   nudge(['bulldog'], 'goaltending', 0.08);
-  nudge(['zamboni'], 'shooting', -0.07);                           // a club named for the ice, not the game
+  nudge(['guillotine'], 'discipline', 0.22);                       // a priest's club takes fewer penalties
   return p;
 }
 
@@ -350,9 +350,26 @@ export function synthPossession(seed, kind, side) {
       : r < 0.68 ? 'battle'
       : r < 0.84 ? 'deke'
       : 'dump';
+    const k = rand(), w = rand();
+    let x = startX + (netX - startX) * f * (0.72 + k * 0.5), y = 0.16 + w * 0.68;
+    // BACK TO THE POINT. Every touch used to be further up the ice than the last, so nobody
+    // ever passed the puck back, and the commonest play in a zone, working it down low and
+    // back out to a defenceman at the blue line, never happened. Now nearly half the passes
+    // two touches or more past the entry do that, after a touch that was a man's own (a pass,
+    // a carry, a deke; not a loose puck or a dump, which somebody chases from wherever he
+    // is): that touch goes deep, along the wall or into a corner, and the pass goes back out
+    // to a point, about one rush in eleven. It's decided and placed off the rolls already made,
+    // in the order they were made, so the chain's carriers (which the game's own dice read,
+    // in `describeRush`) are what they were and no result changes.
+    const prev = nodes[i - 1], depth = (q) => (side === 0 ? q.p[0] : 1 - q.p[0]), toX = (u) => (side === 0 ? u : 1 - u);
+    if (ev === 'pass' && i >= 3 && r < 0.14 && ['pass', 'cycle', 'deke'].includes(prev.ev)) {
+      if (depth(prev) < 0.76) prev.p[0] = toX(0.76 + (1 - k) * 0.12);
+      x = toX(0.635 + k * 0.04);
+      y = w < 0.5 ? 0.2 + w * 0.2 : 0.7 + (w - 0.5) * 0.2;
+    }
     nodes.push({
       t: Math.round(f * 0.8 * 100) / 100,
-      p: [startX + (netX - startX) * f * (0.72 + rand() * 0.5), 0.16 + rand() * 0.68],
+      p: [x, y],
       ev,
       // A loose puck belongs to nobody until somebody wins it — which is exactly what
       // `carrier: -1` already means everywhere else in this chain.
@@ -363,6 +380,53 @@ export function synthPossession(seed, kind, side) {
   const endY = kind === 'wide' ? (rand() < 0.5 ? 0.2 : 0.8) : 0.42 + rand() * 0.16;
   nodes.push({ t: 1, p: [kind === 'blocked' ? netX - dir * 0.14 : netX, endY], ev: kind, carrier: -1 });
   return nodes;
+}
+
+// A BREAKAWAY'S RUSH. The keyframes the sim deals a breakaway are an ordinary rush into the
+// zone (an entry, a cycle, a dump in), and nobody is in alone off a cycle. The narrator gives
+// the booth and the rink this shape instead, off the same keyframes and names: the puck
+// gathered in his own end by the man the breakout was dealt to (or the next man, if that was
+// the shooter), a long pass up to the shooter at about the red line, and the sim's own shot.
+// Positions and who has it only; the game's dice aren't touched, so no result changes.
+// Null when it can't be shaped (no names, or the shooter isn't among them).
+export function breakawayRush(nodes, names, shooter, attacksPlus) {
+  if (!Array.isArray(nodes) || nodes.length < 3 || !Array.isArray(names) || !names.length) return null;
+  const si = names.indexOf(shooter);
+  if (si < 0) return null;
+  const L = nodes.length, b0 = nodes[0], last = nodes[L - 3];
+  const gi = b0.carrier >= 0 && b0.carrier % names.length !== si ? b0.carrier : (si + 1) % names.length;
+  const toX = (u) => (attacksPlus ? u : 1 - u);
+  const y0 = b0.p[1], ys = last && last !== b0 ? last.p[1] : 1 - y0;
+  return [
+    { t: 0, p: [toX(0.13 + 0.06 * y0), 0.25 + 0.5 * y0], ev: 'breakout', carrier: gi },
+    { t: 0.55, p: [toX(0.46 + 0.05 * ys), 0.22 + 0.56 * ys], ev: 'pass', carrier: si },
+    nodes[L - 2], nodes[L - 1],
+  ];
+}
+
+// ── where on the ice ─────────────────────────────────────────────────────────
+// A keyframe's position, said the way a booth says it: his own end, centre, the point,
+// the circles, the wall, the slot, behind the net, the corners. A real call is who, where,
+// what ("Cordero, left point, shot"), and the where is what a listener builds the picture
+// from. It's worked out in the attacking side's frame, with left and right as he skates:
+// the away club attacks +x, and facing +x his left is the far boards (y = 1). It reads the
+// same keyframes the rink plays, so the booth can't put a man somewhere the picture
+// doesn't. In feet: blue lines at 75 and 125 of 200, goal lines at 11 and 189.
+// `at` goes after a name ("Cordero at the left point"), `from` after a shot.
+export function rinkSpot(p, attacksPlus) {
+  const x = Array.isArray(p) ? +p[0] : NaN, y = Array.isArray(p) ? +p[1] : NaN;
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return { at: '', from: '' };
+  const u = attacksPlus ? x : 1 - x, v = attacksPlus ? y : 1 - y;
+  const side = v > 0.5 ? 'left' : 'right', mid = Math.abs(v - 0.5);
+  const spot = (at, from) => ({ at, from });
+  if (u < 0.055) return mid < 0.2 ? spot('behind his own net', 'from behind his own net') : spot('in his own corner', 'out of his own corner');
+  if (u < 0.375) return spot('in his own end', 'from his own end');
+  if (u < 0.625) return mid < 0.18 ? spot('through centre', 'from centre') : spot(`up the ${side} side`, `from the ${side} side`);
+  if (u >= 0.945) return mid < 0.18 ? spot('behind the net', 'from behind the net') : spot(`in the ${side} corner`, `from the ${side} corner`);
+  if (u < 0.705) return mid < 0.2 ? spot('at the top of the zone', 'from the top of the zone') : spot(`at the ${side} point`, `from the ${side} point`);
+  if (mid >= 0.33) return spot(`on the ${side} wall`, `off the ${side} wall`);
+  if (mid < 0.14) return u >= 0.83 ? spot('in the slot', 'from the slot') : spot('in the high slot', 'from the high slot');
+  return spot(`at the ${side} circle`, `from the ${side} circle`);
 }
 
 // ── the build-up ─────────────────────────────────────────────────────────────
@@ -592,9 +656,13 @@ export function simGame(matchup, players, rand = Math.random, opts = {}) {
   // pass, so they are only reachable when the chain ends in one; a wraparound comes from
   // behind the net, so it needs the puck to have been down low. Rolling these blind would
   // put wraparounds on point shots.
-  function rollShot(nodes) {
-    const last = Array.isArray(nodes) ? nodes[nodes.length - 2] : null;
-    const offPass = !!last && last.ev === 'pass';
+  function rollShot(nodes, alone) {
+    // (the touch before the shot's own keyframe: reading the one second from the end read the
+    // shot itself, so no one-timer or tip was ever rolled and a wraparound hardly ever. A man
+    // in alone has nobody to feed him.)
+    const si = Array.isArray(nodes) ? nodes.findIndex((n) => n.ev === 'shot') : -1;
+    const last = si > 0 ? nodes[si - 1] : null;
+    const offPass = !alone && !!last && last.ev === 'pass';
     const downLow = !!last && Array.isArray(last.p) && (last.p[0] > 0.88 || last.p[0] < 0.12);
     const table = [
       { id: 'wrist', w: 300, label: 'wrist shot' },
@@ -785,7 +853,7 @@ export function simGame(matchup, players, rand = Math.random, opts = {}) {
         // live. This is what makes end-zone dots the commonest in the game.
         const frozen = (out.kind === 'save' || out.kind === 'glove') && rand() < FREEZE_ON_SAVE;
         const chanceNodes = synthPossession(Math.floor(rand() * 1e9), out.kind, attackAway ? 0 : 1);
-        const chanceShot = rollShot(chanceNodes);
+        const chanceShot = rollShot(chanceNodes, out.kind === 'breakaway');
         const chanceNames = live(att).map(s => s.name);
         push({ type: 'chance', kind: out.kind, shot: out.shot, shooter: shooter.name, goalie,
           teamName: att.name, oppName: def.name, strength, frozen, section: ordinal(period),
@@ -926,6 +994,10 @@ export const HOCKEY = {
   simGame,
   synthDetail: synthPossession,
   playDesc,
+  // Where a keyframe is, as the booth says it (the narrator's {where} and {from}).
+  rinkSpot,
+  // A breakaway's rush, and the build-up said off any keyframes (the narrator's own).
+  breakawayRush, describeRush,
   defaultNames: DEFAULT_NAMES,
   ordinal,
   // The presence of `narrate` is what tells assembleSportsGraph to hand this sport

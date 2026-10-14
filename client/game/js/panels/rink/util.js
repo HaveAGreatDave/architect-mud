@@ -8,6 +8,10 @@ export const lerp = (a, b, t) => a + (b - a) * t;
 export const angWrap = (d) => { d = (d + Math.PI) % TAU; if (d < 0) d += TAU; return d - Math.PI; };
 export const easeOut = (t) => 1 - (1 - t) * (1 - t);
 export const easeIO = (t) => t * t * (3 - 2 * t);
+// Lengths. Math.hypot guards against overflow these never get near, and in V8 it costs about
+// twenty times a square root: the rink sim takes tens of millions of lengths a game.
+export const hyp = (x, y) => Math.sqrt(x * x + y * y);
+export const hyp3 = (x, y, z) => Math.sqrt(x * x + y * y + z * z);
 
 // mulberry32. Seeded so a beat looks the same on every screen watching it.
 export function rng(seed) {
@@ -31,8 +35,8 @@ export const V = {
   sub: (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]],
   mul: (a, k) => [a[0] * k, a[1] * k, a[2] * k],
   dot: (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2],
-  len: (a) => Math.hypot(a[0], a[1], a[2]),
-  norm: (a) => { const l = Math.hypot(a[0], a[1], a[2]) || 1; return [a[0] / l, a[1] / l, a[2] / l]; },
+  len: (a) => hyp3(a[0], a[1], a[2]),
+  norm: (a) => { const l = hyp3(a[0], a[1], a[2]) || 1; return [a[0] / l, a[1] / l, a[2] / l]; },
   lerp: (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t],
   cross: (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]],
   // a + u*a1 + v*a2 + w*a3, the one expression every surface point is built from
@@ -43,6 +47,26 @@ export const V = {
   ],
 };
 export const rotZ = (p, a) => { const c = Math.cos(a), s = Math.sin(a); return [p[0] * c - p[1] * s, p[0] * s + p[1] * c, p[2]]; };
+
+// THE SKATE IN THE FOOT'S OWN FRAME. The rig gives an ankle A and a toe T (and the knee K);
+// the boot, holder and steel are built about them instead of at fixed heights off the ice,
+// so a lifted skate lifts and a skate on its edge leans. Standing, A is 0.55 up and T is
+// 0.74 ahead and 0.3 down, which gives exactly the old fixed-height skate. X runs heel to toe
+// along the blade, Z up the boot, Y across it (to its left); the boot rolls toward the shin's
+// sideways lean, onto its edge. `at(x, y, z)` places a point in that frame, the ankle at 0.
+const FOOT_B = Math.atan2(0.3, 0.74), FOOT_C = Math.cos(FOOT_B), FOOT_S = Math.sin(FOOT_B);
+export function footFrame(A, T, K) {
+  const d = V.sub(T, A), dn = V.norm(d);
+  let up = [0, 0, 1];
+  if (K) {
+    const xh = V.norm([d[0], d[1], 0]), yh = [-xh[1], xh[0], 0], lat = clamp(V.dot(V.norm(V.sub(K, A)), yh), -0.6, 0.6);
+    up = V.norm(V.add(up, V.mul(yh, lat * 0.8)));
+  }
+  let N = V.sub(up, V.mul(dn, V.dot(up, dn)));
+  N = V.len(N) < 1e-4 ? V.norm(V.cross(dn, [-dn[1], dn[0], 0.01])) : V.norm(N);
+  const X = V.add(V.mul(dn, FOOT_C), V.mul(N, FOOT_S)), Z = V.add(V.mul(dn, -FOOT_S), V.mul(N, FOOT_C)), Y = V.cross(Z, X);
+  return { X, Y, Z, at: (x, y, z) => V.frame(A, X, x, Y, y, Z, z) };
+}
 
 // Two-bone IK. Returns [middle joint, end]; the end is pulled in if the target is out of reach.
 export function ik(A, T, l1, l2, pole) {

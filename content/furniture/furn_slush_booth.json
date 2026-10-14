@@ -1,0 +1,18 @@
+{
+  "description": "A plywood booth behind the north net, a slot cut at eye level and a red lamp on its roof. The lamp works. The door is shut, and the dust on the handle is thick.",
+  "flags": {
+    "aliases": [
+      "booth",
+      "goal judge",
+      "goal judge's booth",
+      "lamp",
+      "red lamp",
+      "slot"
+    ],
+    "examine_detail": "Through the slot: the back of a chair, a flask on the sill, and a hat. The hat has not moved."
+  },
+  "id": "furn_slush_booth",
+  "name": "the goal judge's booth",
+  "object_type": "decoration",
+  "zone_id": "zone_slush_rinkside"
+}

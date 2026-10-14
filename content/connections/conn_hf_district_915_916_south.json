@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_915_916",
+  "b": "zone_slush_concourse",
+  "blocked": false,
+  "dir": "south",
+  "id": "conn_hf_district_915_916_south",
+  "lockable": true,
+  "one_way": false
+}

@@ -1,4 +1,4 @@
-import { clamp } from './util.js';
+import { clamp, hyp } from './util.js';
 
 // Rinkside · the sheet, in feet. x runs the length (0..200), y runs across (0 is the camera
 // side, 85 the far boards), z is up. The sim speaks in fractions of the sheet ("model"
@@ -43,7 +43,7 @@ export const DOTS = Object.fromEntries(Object.entries(DOT_FT).map(([k, [x, y]]) 
 // that is, and the inward normal there. Straight walls and corners in one expression.
 export function insideRink(x, y, m) {
   const cx = clamp(x, RC, RL - RC), cy = clamp(y, RC, RW - RC);
-  const dx = x - cx, dy = y - cy, d = Math.hypot(dx, dy), lim = RC - m;
+  const dx = x - cx, dy = y - cy, d = hyp(dx, dy), lim = RC - m;
   if (d <= lim) return null;
   const nx = d > 1e-6 ? dx / d : 0, ny = d > 1e-6 ? dy / d : 1;
   return { x: cx + nx * lim, y: cy + ny * lim, nx: -nx, ny: -ny };
@@ -56,7 +56,7 @@ export const SEGS = (() => {
   const seg = (x0, y0, x1, y1, kind) => {
     const mx = (x0 + x1) / 2, my = (y0 + y1) / 2;
     let nx = -(y1 - y0), ny = x1 - x0;
-    const l = Math.hypot(nx, ny) || 1; nx /= l; ny /= l;
+    const l = hyp(nx, ny) || 1; nx /= l; ny /= l;
     if (nx * (RL / 2 - mx) + ny * (MID_Y - my) < 0) { nx = -nx; ny = -ny; }
     out.push({ x0, y0, x1, y1, nx, ny, kind });
   };

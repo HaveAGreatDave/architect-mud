@@ -1,0 +1,19 @@
+{
+  "description": "A steel counter with franks turning on rollers behind fogged glass, a tea urn and a till. A sign above it, in small print: Rink frank. Protein baton in a bun. Not a hot dog within the meaning of the Act.",
+  "flags": {
+    "aliases": [
+      "counter",
+      "concession",
+      "concession counter",
+      "franks",
+      "rollers",
+      "urn",
+      "sign"
+    ],
+    "examine_detail": "The rollers have been turning the same franks since the doors opened. The urn has a brass tap and a dent in it the shape of a puck."
+  },
+  "id": "furn_slush_counter",
+  "name": "the concession counter",
+  "object_type": "furniture",
+  "zone_id": "zone_slush_concourse"
+}

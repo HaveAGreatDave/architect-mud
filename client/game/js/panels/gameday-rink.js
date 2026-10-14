@@ -31,27 +31,21 @@ function _crest(name, size, cls = '') {
   return c ? `<span class="gdr-crest ${cls}">${crestSvg(c, size, { title: name })}</span>` : '';
 }
 
-// The CPhL soundset (client/shared/hockey-sfx.js) is procedural and preset-addressed, so
-// the rink names the EVENT and the soundset owns what it sounds like. Silent if the file or
-// AudioEngine isn't there: most of the audience is reading text.
-const SFX = {
-  shot: 'hk-puck-slap', chest: 'hk-check', pad: 'hk-pad-save', glove: 'hk-glove-save',
-  post: 'hk-post', wide: 'hk-glass', block: 'hk-stick-hit', poke: 'hk-stick-hit', stick: 'hk-stick-hit',
-  boards: 'hk-puck-tick', glass: 'hk-glass', shatter: 'hk-glass', stop: 'hk-skate-stop',
-  net: 'hk-net', horn: 'hk-goal-horn', periodHorn: 'hk-period-horn',
-  drop: 'hk-puck-tick', sweep: 'hk-skate-scrape', whistle: 'hk-whistle', receive: 'hk-puck-tick',
-  punch: 'hk-punch', punchMiss: 'hk-punch-miss', gloves: 'hk-gloves-drop',
-  check: 'hk-check', fall: 'hk-check', sever: 'hk-check',
-  roar: 'hk-crowd-roar', gasp: 'hk-crowd-gasp', groan: 'hk-crowd-groan',
-};
+// The CPhL soundset (client/shared/hockey-sfx.js) is procedural and preset-addressed: the
+// rink names the EVENT and the soundset's own table (HockeySfx.eventFor) says what it sounds
+// like and how hard. Silent if the file or AudioEngine isn't there: most of the audience is
+// reading text.
 // how often one sound may repeat, so ten men stopping at once isn't ten scrapes
-const SFX_GAP = { stop: 0.35, boards: 0.12, receive: 0.2, drop: 0.2, check: 0.15, fall: 0.25, punch: 0.08, glass: 0.15 };
+const SFX_GAP = { stop: 0.9, turn: 1.4, boards: 0.12, glass: 0.12, receive: 0.2, pass: 0.15, tick: 0.9, drop: 0.2, check: 0.15, fall: 0.25, punch: 0.08, stick: 0.1 };
+// the sounds a horn or a whistle must not be buried under: while one's sounding, these play
+// a little quieter (and the crowd ducks)
+const CONTACT = new Set(['receive', 'pass', 'tick', 'stick', 'poke', 'boards', 'glass', 'stop', 'turn', 'sweep', 'block']);
 
 // Jumbotron cards: the same sportsfx graphics tv.js would take the whole screen with,
-// rendered compact over the rink so the ice stays visible.
+// rendered compact over the rink so the ice stays visible. A goal has none: the lamp, the
+// horn and the wipe into the replay announce it, and a card sat over the scorer's
+// celebration (the full-screen TV card still shows it).
 const CARD = {
-  hockeygoal: (fx) => ({ title: fx.hattrick ? 'HAT TRICK' : 'GOAL', cls: 'hot', club: fx.team,
-    sub: [fx.shooter, fx.assist ? `assist ${fx.assist}` : '', { pp: 'POWER PLAY', sh: 'SHORTHANDED', en: 'EMPTY NET' }[fx.strength] || ''].filter(Boolean).join(' · ') }),
   hockeyfight: (fx) => ({ title: 'GLOVES OFF', sub: `${fx.winner} def. ${fx.loser}`, cls: 'out', club: fx.team }),
   hockeydeath: (fx) => ({ title: 'SUDDEN DEATH', sub: fx.player || '', cls: 'dead' }),
   hockeycup: (fx) => ({ title: 'COLDWATER CUP', sub: (fx.away && fx.home) ? `${fx.away} vs ${fx.home}` : '', cls: 'hot' }),
@@ -60,9 +54,17 @@ const CARD = {
   champion: (fx) => ({ title: '🏆 CHAMPIONS', sub: fx.winner || '', cls: 'hot', club: fx.winner }),
 };
 
+// THE GLOWING PUCK is a viewer's own setting, kept in this browser: a blue halo round the
+// puck and a comet tail behind a fast one (rink/hud.js draws it), for anyone who loses a
+// small black puck against the boards and the crowd. The button on the picture toggles it.
+const GLOW_KEY = 'rinkGlowPuck';
+function glowSaved(win) { try { return win?.localStorage?.getItem(GLOW_KEY) === '1'; } catch { return false; } }
+function glowSave(win, on) { try { win?.localStorage?.setItem(GLOW_KEY, on ? '1' : '0'); } catch { /* storage blocked */ } }
+
 export function createRinkView(host, opts = {}) {
   const doc = host ? host.ownerDocument : null;
   const win = doc ? doc.defaultView : null;
+  let glow = opts.glow != null ? !!opts.glow : glowSaved(win);
   let caption = '', pendingCaption = null, pendingCard = null, cardTimer = null, holdTimer = null;
   let last = null, landed = true, raf = 0, lastFrame = 0, frameAvg = 0, acc = 0, mounted = false, speed = opts.speed || 1;
   let W = null, D = null, R = null, ice = null, canvas = null, modsP = null, mods = null;
@@ -76,25 +78,89 @@ export function createRinkView(host, opts = {}) {
   }
 
   function _sfx(key, o) {
-    const id = SFX[key];
-    if (!id || !W) return;
-    const gap = SFX_GAP[key] || 0.03;
-    if (W.t - (sfxAt[key] ?? -9) < gap) return;
-    sfxAt[key] = W.t;
-    const seed = o && o.seed != null ? o.seed : ((W.t * 1000) | 0);
-    const def = win?.SFXCatalog?.get?.(id);
-    if (def && win?.HockeySfx?.variant && win?.AudioEngine?.playSfx) { win.AudioEngine.playSfx(win.HockeySfx.variant(def, seed)); }
-    else if (def && win?.AudioEngine?.playSfx) win.AudioEngine.playSfx(def);
-    else win?.HockeySfx?.play?.(id, seed);
-    // the crowd answers a moment later
-    if (key === 'horn') W.schedule(0.22, () => _sfx('roar'));
-    if (key === 'post') W.schedule(0.18, () => _sfx('gasp'));
+    const H = win?.HockeySfx, AE = win?.AudioEngine;
+    if (!W || !H?.eventFor || !AE?.playSfx) return;
+    const pick = H.eventFor(key, o || {});
+    if (pick) {
+      const gap = SFX_GAP[key] || 0.03;
+      if (W.t - (sfxAt[key] ?? -9) < gap) return;
+      sfxAt[key] = W.t;
+      const seed = o && o.seed != null ? o.seed : ((W.t * 1000) | 0);
+      // the catalog's copy, which carries any override saved in the dev panel (null: muted there)
+      const def = win.SFXCatalog?.get ? win.SFXCatalog.get(pick.id) : H.get(pick.id);
+      if (def) {
+        // a contact under a horn or a whistle steps back; a sound off to one side of the
+        // picture comes a little from that side
+        const under = CONTACT.has(key) && W.t < loudUntil ? 0.6 : 1;
+        const x = o && Number.isFinite(o.x) ? o.x : CONTACT.has(key) && W.puck ? W.puck.x : null;
+        const pan = x != null && W.cam?.focus ? Math.max(-0.5, Math.min(0.5, (x - W.cam.focus[0]) / 90)) : 0;
+        AE.playSfx(H.variant(def, seed, 1, pick.intensity), under, pan ? { pan } : {});
+        if (key === 'horn') loudUntil = W.t + 2;
+        else if (key === 'whistle') loudUntil = Math.max(loudUntil, W.t + (o && o.long ? 0.5 : 0.25));
+      }
+    }
+    crowdHears(key, o || {});
+  }
+
+  // ── the crowd ─────────────────────────────────────────────────────────────
+  // One bed for the life of the view (HockeySfx.crowdBed), built the first time a play
+  // arrives and steered from then on: never retriggered, gone with the view. The plays set
+  // its state; the moments (a shot, the iron, a goal, a big hit) move it and let it settle.
+  let crowd = null, crowdBack = null, loudUntil = 0;
+  function crowdOn() {
+    if (crowd != null) return crowd || null;
+    const H = win?.HockeySfx;
+    crowd = (H?.crowdBed && win?.AudioEngine?.engineNodes && H.crowdBed()) || false;
+    if (crowd) crowd.start().setState('active');
+    return crowd || null;
+  }
+  // back to the run of play after a moment, unless something else has moved it since
+  function crowdSettle(after, to = 'active') {
+    if (crowdBack) clearTimeout(crowdBack);
+    crowdBack = setTimeout(() => { crowdBack = null; if (crowd) crowd.setState(to); }, after * 1000);
+  }
+  // the home crowd: whose side a goal, a save or a hit is on
+  const homeSide = (p) => (p && p.homeTeam ? (p.teamName === p.homeTeam) : true);
+  // (the run of play is 'active': the crowd rises for a moment and comes back to it, and a
+  // rush on its own doesn't move it, or it would sit high all game)
+  function crowdPlay(p) {
+    const c = crowdOn();
+    if (!c || !p) return;
+    if (crowdBack) { clearTimeout(crowdBack); crowdBack = null; }
+    switch (p.type) {
+      case 'intermission': case 'injury': case 'death': c.setState('quiet'); break;
+      case 'penalty': c.setState('penalty'); crowdSettle(4); break;
+      case 'pull': c.setState('chance'); break;
+      case 'fight': c.setState('shot').cheer(); crowdSettle(5); break;
+      default: c.setState('active');
+    }
+  }
+  function crowdHears(key, o) {
+    const c = crowd || null, p = last;
+    if (!c) return;
+    switch (key) {
+      case 'shot': if (!o.soft) { c.setState('shot'); crowdSettle(1.6); } break;
+      case 'post': c.gasp(); crowdSettle(2); break;
+      case 'glove': case 'pad': case 'chest': if (!homeSide(p)) c.cheer(); crowdSettle(1.6); break;
+      case 'whistle': c.duck(3, o.long ? 0.5 : 0.3); break;
+      case 'horn':
+        c.duck(5, 0.3);
+        if (homeSide(p)) { c.setState('goal'); W && W.schedule(0.2, () => crowd && crowd.celebrate()); crowdSettle(6); }
+        else { c.setState('active'); W && W.schedule(0.15, () => _sfx('groan')); }
+        break;
+      case 'roar': c.setState('chance').cheer(); crowdSettle(3); break;
+      case 'check': if (!o.soft) c.cheer(); break;
+      case 'periodHorn': c.duck(4, 0.6); break;
+    }
   }
 
   function shell() {
     return `<div class="gdr-wrap">` +
       `<div class="gdr-head"></div>` +
-      `<div class="gdr-rink"><canvas class="gdr-canvas" aria-label="Rinkside: the play on the ice"></canvas><canvas class="gdr-hud" aria-hidden="true"></canvas></div>` +
+      `<div class="gdr-rink"><canvas class="gdr-canvas" aria-label="Rinkside: the play on the ice"></canvas><canvas class="gdr-hud" aria-hidden="true"></canvas>` +
+        `<button type="button" class="gdr-glow" aria-pressed="${glow}" title="Glowing puck" aria-label="Glowing puck">` +
+          `<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="currentColor" opacity="0.28"/><ellipse cx="12" cy="13" rx="6" ry="3.4" fill="#0b0c0f"/><ellipse cx="12" cy="11.6" rx="6" ry="3.4" fill="#2c2f36"/></svg>` +
+        `</button></div>` +
       `<div class="gdr-strip"></div>` +
       `<div class="gdr-rush" hidden></div>` +
       `<div class="gdr-cap"><span class="gdr-cap-text">${_esc(caption)}</span></div>` +
@@ -172,6 +238,9 @@ export function createRinkView(host, opts = {}) {
     let n = 0;
     while (acc >= DT && n < 24) { W.step(DT); acc -= DT; n++; }
     if (n === 24) acc = 0;
+    // drawn between the last two steps by what's left over, so the screen's rate and the
+    // world's never beat against each other (see sim.js)
+    W.alpha = acc / DT;
     if (R.lost) fallback();
     R.render(now);
     govern(raw);
@@ -199,16 +268,23 @@ export function createRinkView(host, opts = {}) {
     R = gl || mods.createRenderer(canvas, W, ice);
     rung = 0; slow = quick = 0;
     if (opts.camera) R.view = opts.camera;
+    R.glow = glow;
+  }
+  function setGlow(on) {
+    glow = !!on;
+    if (R) R.glow = glow;
+    host?.querySelector('.gdr-glow')?.setAttribute('aria-pressed', String(glow));
   }
   // A lost WebGL context doesn't come back as a 2-D one: the canvas is replaced, and the
   // 2-D renderer carries on with the same world and camera framing.
   function fallback() {
-    const view = R.view, fresh = doc.createElement('canvas');
+    const view = R.view, framed = { ...R.cam }, fresh = doc.createElement('canvas');
     fresh.className = canvas.className;
     fresh.setAttribute('aria-label', canvas.getAttribute('aria-label') || '');
     canvas.replaceWith(fresh); canvas = fresh;
-    R = mods.createRenderer(canvas, W, ice);
-    R.view = view; rung = 0;
+    // the same framing, so the picture carries on rather than jumping
+    R = mods.createRenderer(canvas, W, ice, { cam: framed });
+    R.view = view; R.glow = glow; rung = 0;
     ice.dirtyAll = true;
   }
   function start() { if (!raf && win) { lastFrame = 0; raf = win.requestAnimationFrame(frame); } }
@@ -219,6 +295,7 @@ export function createRinkView(host, opts = {}) {
     mounted = true;
     host.innerHTML = shell();
     canvas = host.querySelector('.gdr-canvas');
+    host.querySelector('.gdr-glow')?.addEventListener('click', () => { setGlow(!glow); glowSave(win, glow); });
     const { createIce, createWorld } = mods;
     ice = createIce(doc);
     W = createWorld(ice, 'rinkside');
@@ -249,6 +326,7 @@ export function createRinkView(host, opts = {}) {
       landed = false;
       head(p);
       board(p.type === 'intermission' ? p : null);
+      crowdPlay(p);
       D.stage(p);
       // A cued payload is the first line of a play the booth calls as it happens, so its
       // line goes up now and the picture follows the lines. Otherwise the line waits for
@@ -277,9 +355,11 @@ export function createRinkView(host, opts = {}) {
   function renderCard(fx) {
     if (!host || !fx || !CARD[fx.kind]) return;
     const m = CARD[fx.kind](fx);
-    const wrap = host.querySelector('.gdr-wrap') || host;
+    // On the picture, not the whole view: placed against the view it sat over the score
+    // line on a phone, where the text takes a bigger share of the box.
+    const pic = host.querySelector('.gdr-rink') || host.querySelector('.gdr-wrap') || host;
     let el = host.querySelector('.gdr-jumbo');
-    if (!el) { el = doc.createElement('div'); el.className = 'gdr-jumbo'; wrap.appendChild(el); }
+    if (!el) { el = doc.createElement('div'); el.className = 'gdr-jumbo'; pic.appendChild(el); }
     el.innerHTML = `<div class="gdr-jumbo-brand">${(m.club && _crest(m.club, 40)) || cphlMark('20px')}</div>` +
       `<div class="gdr-jumbo-title">${_esc(m.title)}</div>${m.sub ? `<div class="gdr-jumbo-sub">${_esc(m.sub)}</div>` : ''}`;
     el.className = `gdr-jumbo ${m.cls}`; void el.offsetWidth; el.classList.add('in');
@@ -288,6 +368,8 @@ export function createRinkView(host, opts = {}) {
   }
   function showCard(fx) {
     if (!host || !fx || !CARD[fx.kind]) return;
+    // the end of the game: the buzzer, as at the end of a period
+    if (fx.kind === 'gamewin' && W) _sfx('periodHorn');
     if (D && D.busy() && pendingCaption) pendingCard = fx; else renderCard(fx);
   }
   function clearCard() { if (cardTimer) { clearTimeout(cardTimer); cardTimer = null; } host?.querySelector('.gdr-jumbo')?.remove(); }
@@ -303,13 +385,17 @@ export function createRinkView(host, opts = {}) {
       const veil = doc.createElement('div');
       veil.className = 'gdr-idle';
       veil.innerHTML = cphlLockup('Rinkside', '46px') + `<div class="gdr-idle-sub">Waiting for the drop…</div>`;
-      host.querySelector('.gdr-wrap')?.appendChild(veil);
+      // over the ice only, so the pre-game call under it stays readable
+      (host.querySelector('.gdr-rink') || host.querySelector('.gdr-wrap'))?.appendChild(veil);
     };
     if (mods) go(); else loadMods().then(go).catch((err) => console.error('[rink] failed to load:', err));
   }
 
   function clear() {
     stop(); clearCard();
+    if (crowdBack) { clearTimeout(crowdBack); crowdBack = null; }
+    if (crowd) crowd.stop();
+    crowd = null;
     if (offClubs) { offClubs(); offClubs = null; }
     if (holdTimer) { clearTimeout(holdTimer); holdTimer = null; }
     if (host) host.innerHTML = '';
@@ -320,9 +406,10 @@ export function createRinkView(host, opts = {}) {
   return {
     apply, clear, setCaption, showIdle, showCard,
     // for the demo page and the smoke gate
-    get world() { return W; }, get director() { return D; }, get renderer() { return R; },
+    get world() { return W; }, get director() { return D; }, get renderer() { return R; }, get crowd() { return crowd || null; },
     busy: () => !!(D && D.busy()),
     setSpeed(k) { speed = k; },
+    setGlow, get glow() { return glow; },
     ready: () => loadMods(),
   };
 }

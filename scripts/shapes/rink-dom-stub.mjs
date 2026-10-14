@@ -11,6 +11,16 @@
 // the right fix is to add it — a stub that quietly answers everything hides the fact
 // that it's answering wrongly.
 
+import { readFileSync } from 'node:fs';
+
+// The real soundset (client/shared/hockey-sfx.js), so the rink's events go through the same
+// table that picks their sounds in a browser. It needs no AudioContext to say what to play.
+const HOCKEY_SFX = (() => {
+  const g = {};
+  new Function('globalThis', 'window', readFileSync(new URL('../../client/shared/hockey-sfx.js', import.meta.url), 'utf8'))(g, g);
+  return g.HockeySfx;
+})();
+
 // ── parsing ─────────────────────────────────────────────────────────────────────
 const VOID_TAGS = new Set(['br', 'img', 'input', 'hr', 'meta', 'link', 'use', 'path', 'circle', 'rect', 'line', 'ellipse', 'polygon', 'polyline', 'stop']);
 
@@ -64,6 +74,10 @@ class El {
   get offsetWidth() { return this.__w ?? 520; }
   set offsetWidth(v) { this.__w = v; }
   setAttribute(k, v) { this.attrs.set(String(k), String(v)); }
+  // listeners are kept and can be fired, so a control the view wires up can be pressed
+  addEventListener(type, fn) { ((this.__on ??= {})[type] ??= []).push(fn); }
+  removeEventListener(type, fn) { const l = this.__on?.[type]; if (l) this.__on[type] = l.filter((f) => f !== fn); }
+  click() { for (const fn of this.__on?.click || []) fn({ type: 'click', target: this }); }
   getAttribute(k) { const v = this.attrs.get(String(k)); return v == null ? null : v; }
   removeAttribute(k) { this.attrs.delete(String(k)); }
   hasAttribute(k) { return this.attrs.has(String(k)); }
@@ -197,8 +211,8 @@ export function __install() {
   // the view reaches the window through its host's document, and plays sound through it
   const sounds = [];
   globalThis.window = doc.defaultView = {
-    AudioEngine: { playSfx: (d) => sounds.push(d && d.id) }, HockeySfx: null,
-    SFXCatalog: { get: (id) => ({ id }) },
+    AudioEngine: { playSfx: (d) => sounds.push(d && d.id) }, HockeySfx: HOCKEY_SFX,
+    SFXCatalog: { get: (id) => HOCKEY_SFX.get(id) },
     requestAnimationFrame: raf, cancelAnimationFrame: caf, performance: perf, devicePixelRatio: 1,
   };
 

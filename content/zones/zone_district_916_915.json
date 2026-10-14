@@ -1,10 +1,9 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "description": "Open grassland quietly reclaiming old ground, seedheads nodding over the buried kerb of a road that used to matter. Insects drone. The horizon wobbles in the heat.",
+  "description": "Glacier Street, along the flank of the Slush Fund's east stand. The brick is papered with posters for the next game, layered so thick at the corners they have started to peel off in slabs. Grit bins stand at the kerb.",
   "exits": {
     "east": "zone_district_917_915",
-    "south": "zone_district_916_916",
     "west": "zone_district_915_915"
   },
   "flags": {

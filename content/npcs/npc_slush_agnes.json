@@ -1,0 +1,291 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "jitter": 20,
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "cash_up",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "player_check",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "no": "off_random",
+        "type": "condition",
+        "yes": "home_idle"
+      },
+      "off_random": {
+        "options": [
+          "go_home_off",
+          "have_life"
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_PRESENT",
+        "no": "work_wait",
+        "type": "condition",
+        "yes": "work_say"
+      },
+      "post_shift": {
+        "options": [
+          "go_home_ps",
+          "home_life_ps"
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "work_wait": {
+        "jitter": 20,
+        "next": "check_work",
+        "seconds": 25,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "Prowse turns the franks a quarter turn with the tongs. They were already turning.",
+    "She tops up the urn and wipes the tap with her sleeve.",
+    "She counts the float into the till twice and writes the number on her hand.",
+    "Somewhere above, the organ plays four notes and stops. She does not look up.",
+    "She straightens the sign over the counter by a fraction of an inch."
+  ],
+  "description": "A woman in her sixties, short and broad, in a quilted coat with the league crest on the sleeve and fingerless gloves. Her hair is pinned up under a paper hat. She keeps one hand near the tongs and watches the franks turn as if they might try something.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "\"Mind the ice,\" she says. \"It's mostly water.\""
+    },
+    "games": {
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"The final, and any game the scheduler sends here.\" She points up the stairs with the tongs. \"The rest of the time they play in their own barns and it comes in on seven, the same as everywhere. Tuesday, Thursday and Sunday, six o'clock. I stay open for it.\""
+    },
+    "nine": {
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Mr Ostrowski. Nineteen years, every game, the same seat. Never cheered once.\" She lowers her voice. \"He bought a frank on his first night and never came back to the counter. I think about that.\""
+    },
+    "place": {
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"The league's barn. Every club has its own, and this one belongs to all of them, so none of them pays for the roof.\" She glances up at it.\n\n\"They put it up on the old gate ground when the gate moved, in a year, on money nobody can account for. That's the name. And the ice has been slush since the ownership changed, so the name's true twice.\""
+    },
+    "records": {
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Everybody asks.\" She shrugs. \"There's a door over there says Records. It's a broom cupboard. Twenty-two years I've worked here and I've never found another door.\"\n\nShe turns a frank. \"The scheduler's up in the press box, if you want to ask it. It doesn't talk.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "What do you sell?",
+          "next": "__shop__"
+        },
+        {
+          "label": "What is this place?",
+          "next": "place"
+        },
+        {
+          "label": "Who plays here?",
+          "next": "games"
+        },
+        {
+          "label": "Where are the league's records?",
+          "next": "records"
+        },
+        {
+          "label": "Who sits in section nine?",
+          "next": "nine"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing, thanks.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Frank, tea, beer.\" She lifts the tongs. \"That's the menu. What'll it be?\"",
+      "text_by_relation": {
+        "familiar": "\"Usual?\" She is already wrapping it.",
+        "first": "The woman behind the counter looks up from the rollers.\n\n\"Agnes Prowse. I do the counter.\" She points the tongs at the sign over her head. \"Frank, tea, beer. Before you ask, it isn't legally a hot dog. It's legally a protein baton. Tastes the same as a hot dog did.\"",
+        "known": "\"Back again.\" She has a frank on the tongs before you reach the counter."
+      }
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a quilted coat with the league crest on the sleeve",
+      "a striped apron over it",
+      "fingerless gloves",
+      "a paper hat",
+      "thermal boots"
+    ]
+  },
+  "home_activities": [],
+  "home_zone": "zone_slush_concourse",
+  "hp": 38,
+  "hp_max": 38,
+  "id": "npc_slush_agnes",
+  "name": "Agnes Prowse",
+  "npc_type": "vendor",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_rink_frank",
+      "price": 6
+    },
+    {
+      "item_id": "item_drug_beer",
+      "price": 5
+    },
+    {
+      "item_id": "item_drug_coffee",
+      "price": 4
+    },
+    {
+      "item_id": "item_steam_bun",
+      "price": 3
+    }
+  ],
+  "vendor_restock_rate": 3,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 10,
+        "to": 18
+      }
+    ],
+    "mon": [],
+    "sat": [
+      {
+        "from": 10,
+        "to": 18
+      }
+    ],
+    "sun": [
+      {
+        "from": 15,
+        "to": 23
+      }
+    ],
+    "thu": [
+      {
+        "from": 15,
+        "to": 23
+      }
+    ],
+    "tue": [
+      {
+        "from": 15,
+        "to": 23
+      }
+    ],
+    "wed": [
+      {
+        "from": 10,
+        "to": 18
+      }
+    ]
+  },
+  "vendor_shop_name": "Concessions",
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_slush_concourse"
+}

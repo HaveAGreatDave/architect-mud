@@ -2412,15 +2412,67 @@ export default async function regress({ check, run, getPlayer }) {
         const k = idents[t]?.kit?.[side];
         if (!k) { badKit.push(`${t} ${side}: none`); continue; }
         for (const f of ['jersey', 'trim', 'pants', 'sock', 'glove', 'helmet']) if (!HEX.test(k[f] || '')) badKit.push(`${t} ${side}.${f}`);
-        for (const b of [...(k.hem || []), ...(k.sleeve || []), ...(k.socks || [])]) if (!HEX.test(b.col || '')) badKit.push(`${t} ${side} band`);
+        for (const b of [...(k.hem || []), ...(k.sleeve || []), ...(k.socks || [])]) if (!HEX.test(b.col || '') || (b.alt && !HEX.test(b.alt))) badKit.push(`${t} ${side} band`);
       }
       check('hockey: every kit is in hex (figure.js shades with parseInt)', badKit.length === 0, badKit.slice(0, 4).join(', '));
       const badCrest = teams.filter(t => !(idents[t]?.crest?.layers?.length && idents[t]?.crest?.small?.length));
       check('hockey: every club has a crest and a small crest', badCrest.length === 0, badCrest.join(','));
+      // A keeper's mask is art in the mask's own flattening (gl/arena.js paints it into a cell
+      // of its texture; the 2-D figure uses base/trim/edge). A path that doesn't parse paints
+      // nothing and throws nowhere, so the paths are checked for what Path2D reads.
+      const PATH = /^(?:[MLQCZa]|-?\d*\.?\d+(?:e-?\d+)?|[\s,])+$/;
+      const badMask = [];
+      for (const t of teams) {
+        const m = idents[t]?.mask;
+        if (!m) { badMask.push(`${t}: none`); continue; }
+        if (!(m.w > 0 && m.h > 0)) badMask.push(`${t}: box`);
+        for (const f of ['base', 'trim', 'edge']) if (!HEX.test(m[f] || '')) badMask.push(`${t}.${f}`);
+        const bad = (m.layers || []).filter(l => !(typeof l.d === 'string' && PATH.test(l.d) && (l.fill === 'none' || l.fill === 'sett' || HEX.test(l.fill || '')) && (!l.stroke || HEX.test(l.stroke))));
+        if (!m.layers?.length || bad.length) badMask.push(`${t}: ${bad.length} of ${m.layers?.length || 0} layers`);
+        const n = m.number;
+        if (n && !(Array.isArray(n.at) && n.at.length === 2 && n.at.every(Number.isFinite) && n.size > 0 && HEX.test(n.fill || '') && HEX.test(n.edge || ''))) badMask.push(`${t}: number`);
+      }
+      check("hockey: every keeper's mask is in hex, with paths that parse", badMask.length === 0, badMask.slice(0, 4).join(', '));
       // no faction teams: no club is named for one of the orders
       const orders = fs.readdirSync(url.fileURLToPath(new URL('../../content/orgs/', import.meta.url))).filter(f => f.startsWith('ideology_')).map(f => f.slice(9, -5).replace(/_/g, ''));
       const factional = teams.filter(t => orders.some(o => t.toLowerCase().replace(/[^a-z]/g, '').includes(o)));
       check('hockey: no club is named for an order', factional.length === 0, factional.join(','));
+    }
+
+    // ── how the booth speaks: its own voice, and the names said right ─────────
+    // The script's ::say block (pronunciations for names no dictionary has) and @voice
+    // ride every spoken line to the client, each line with only the entries it uses.
+    // The row is what ships, so it must agree with the script, and the real assembler
+    // must put them on the nodes, or the booth falls back to the letter-guesser and the
+    // station's ringing voice without anything failing.
+    {
+      const row = JSON.parse(fs.readFileSync(url.fileURLToPath(new URL('../../content/media_broadcasts/bc_cluster_puck.json', import.meta.url)), 'utf8'));
+      const sayBsm = Object.fromEntries(block('say').map(l => { const m = /^(\S+)\s+(.+)$/.exec(l); return m ? [m[1].toLowerCase(), m[2].replace(/\s+/g, ' ')] : null; }).filter(Boolean));
+      const voiceLine = (src.split(/\r?\n/).find(l => l.startsWith('@voice ')) || '').slice(7).trim();
+      const voiceBsm = Object.fromEntries(voiceLine.split(/\s+/).filter(Boolean).map(kv => { const [k, v] = kv.split('='); return [k, +v]; }));
+      check('hockey: the row carries the script\'s pronunciations', JSON.stringify(row.sports_pools?.say) === JSON.stringify(sayBsm), `${Object.keys(row.sports_pools?.say || {}).length} vs ${Object.keys(sayBsm).length}`);
+      check('hockey: the row carries the script\'s booth voice', JSON.stringify(row.sports_pools?.voice) === JSON.stringify(voiceBsm), JSON.stringify(row.sports_pools?.voice));
+      // vs=1: "{away}–{home}" is said "away versus home", not "away, home" (readMatchups)
+      check('hockey: the booth reads a matchup as versus', voiceBsm.vs === 1, voiceLine);
+      const script = row.sports_pools, wrong = [];
+      let withLex = 0, sayNodes = 0, voiced = 0;
+      for (const slot of [3, 41, 206]) {
+        const graph = _test.assembleSportsGraph(script, 'bc_regress_cphl', slot, null);
+        for (const n of Object.values(graph.nodes || {})) {
+          if (n.type !== 'say' || !n.data?.text) continue;
+          sayNodes++;
+          if (JSON.stringify(n.data.voice) === JSON.stringify(script.voice)) voiced++;
+          const words = new Set((n.data.text.toLowerCase().match(/[a-z][a-z'-]*/g) || []).map(w => w.replace(/'s$/, '')));
+          const want = [...words].filter(w => script.say[w]);
+          const got = Object.keys(n.data.lex || {});
+          if (got.length) withLex++;
+          if (want.some(w => n.data.lex?.[w] !== script.say[w]) || got.some(w => !words.has(w))) wrong.push(n.data.text);
+        }
+      }
+      check('hockey: every line carries the booth voice', sayNodes > 100 && voiced === sayNodes, `${voiced} of ${sayNodes}`);
+      check('hockey: a line naming a ::say word carries its pronunciation, and only what it uses', withLex > 0 && wrong.length === 0, `${withLex} with lex; wrong: ${wrong.slice(0, 2).join(' | ')}`);
+      const { holdFor } = await import('./sports/hockey-pacing.js');
+      check('hockey: a drawn-out call holds longer on air', holdFor('He SCOOOOOOORES!!!') >= holdFor('He SCORES!') + 500, `${holdFor('He SCOOOOOOORES!!!')} vs ${holdFor('He SCORES!')}`);
     }
 
     // ── rosters: a man belongs to ONE club ────────────────────────────────────
@@ -2439,7 +2491,7 @@ export default async function regress({ check, run, getPlayer }) {
     const seenTypes = new Set(), usedPools = new Set();
     const unfilled = [], strayScorers = [], notCrossed = [];
     const gdViolent = new Set();
-    let goals = 0, faceoffs = 0, centreDrops = 0, periods = 0, lines = 0, gamesPlayed = 0;
+    let goals = 0, faceoffs = 0, centreDrops = 0, periods = 0, lines = 0, gamesPlayed = 0, sold = 0;
     // A WIDE SLATE, because one of the things asserted below is RARE. A death needs a
     // game tied after regulation AND an overtime fatal roll, which is a compound tail —
     // at 24 games it appeared or didn't depending on the seed, so any change that
@@ -2464,11 +2516,14 @@ export default async function regress({ check, run, getPlayer }) {
 
       const nrng = sportsRng(seed ^ 0x9e3779b9);
       const pick = (...keys) => { for (const k of keys) if (pools[k]?.length) { usedPools.add(k); break; } return sportsPick(pools, nrng, ...keys); };
-      const say = (line, tok, sb, graphic, gd) => {
+      const say = (line, tok, sb, graphic, gd, meta) => {
         if (!line) return;
         lines++;
+        if (meta && Number.isFinite(meta.excite)) sold++;
         const text = sportsFill(line, tok).trim();
-        if (/\{[a-zA-Z]/.test(text)) unfilled.push(text);
+        // A token the call didn't supply is blanked, not left in braces, so look for what
+        // it leaves behind too: "from , and" on a solo goal, "Cordero ." with no {where}.
+        if (/\{[a-zA-Z]/.test(text) || /\s[.,!?;:]|\s{2,}/.test(text)) unfilled.push(text);
         if (!gd) return;
         // THE INVARIANT. The rink draws a goal line; the sim decides where the puck
         // finishes. A goal whose last keyframe stops short of that line renders as a
@@ -2508,6 +2563,25 @@ export default async function regress({ check, run, getPlayer }) {
 
     check('hockey: goals cross the goal line', notCrossed.length === 0, `${notCrossed.length} short: ${notCrossed.slice(0, 3).join(',')}`);
     check('hockey: no unfilled tokens reach the air', unfilled.length === 0, unfilled.slice(0, 3).join(' | '));
+    // How hard each line is sold rides on it, off the pool it came from (exciteOf in
+    // hockey-narrator.js), and the voice reads it. A line with none is spoken flat.
+    {
+      const { exciteOf } = await import('./sports/hockey-narrator.js');
+      check('hockey: nearly every line carries a delivery', sold / Math.max(1, lines) > 0.9, `${sold} of ${lines}`);
+      check('hockey: a goal is sold hardest, a death low, chatter flat',
+        exciteOf('pbp.goal') === 1 && exciteOf('pbp.death.still') < 0 && exciteOf('chatter.yard') === 0 && exciteOf('pbp.shot.slap') === exciteOf('pbp.shot'),
+        `${exciteOf('pbp.goal')} ${exciteOf('pbp.death.still')} ${exciteOf('chatter.yard')} ${exciteOf('pbp.shot.slap')}`);
+      check('hockey: overtime lifts the play and never the grief', exciteOf('pbp.shot', 0.12) > exciteOf('pbp.shot') && exciteOf('death', 0.12) === exciteOf('death') && exciteOf('pbp.goal', 0.2) === 1);
+      // {where} is said from the carrier's side: left and right as he skates, so the same
+      // spot is his left going one way and his right coming back.
+      const at = (p, plus) => HOCKEY.rinkSpot(p, plus).at;
+      check('hockey: the booth places a man where the rink has him',
+        at([0.85, 0.5], true) === 'in the slot' && at([0.15, 0.5], false) === 'in the slot'
+        && at([0.5, 0.15], true) === 'up the right side' && at([0.5, 0.15], false) === 'up the left side'
+        && at([0.97, 0.9], true) === 'in the left corner' && at([0.03, 0.1], false) === 'in the left corner'
+        && at([0.66, 0.85], true) === 'at the left point' && at([0.22, 0.5], true) === 'in his own end',
+        [at([0.85, 0.5], true), at([0.5, 0.15], false), at([0.03, 0.1], false), at([0.66, 0.85], true)].join(' | '));
+    }
     check('hockey: scorers belong to a club that played', strayScorers.length === 0, strayScorers.slice(0, 3).join(','));
     check('hockey: the narrator produced play-by-play', lines > 100, `${lines} lines`);
 
@@ -2601,7 +2675,7 @@ export default async function regress({ check, run, getPlayer }) {
       const pick = (...keys) => { for (const k of keys) if (pools[k]?.length) { usedPools.add(k); break; } return sportsPick(pools, nrng, ...keys); };
       HOCKEY.narrate({
         script: {}, game, gs: { seed, game }, slot, ws: !!opts.ws, announcer: 'Tug Brennan',
-        pools, nrng, sport: HOCKEY, add: () => {}, say: (l, t) => { if (l) { const x = sportsFill(l, t); if (/\{[a-zA-Z]/.test(x)) unfilled.push(x); } }, pick,
+        pools, nrng, sport: HOCKEY, add: () => {}, say: (l, t) => { if (l) { const x = sportsFill(l, t).trim(); if (/\{[a-zA-Z]/.test(x) || /\s[.,!?;:]|\s{2,}/.test(x)) unfilled.push(x); } }, pick,
         abbr: (n) => String(n).slice(0, 3).toUpperCase(), recordOf: () => '8-4-1', lastId: () => null,
       });
       return game;

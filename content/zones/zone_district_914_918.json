@@ -1,23 +1,22 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive.",
+  "ambient_theme": "city",
+  "description": "The yard behind the Slush Fund's west stand: gravel and puddles, with the ice plant's condenser fans roaring on the roof above. Sacks of rock salt are stacked under a tarp against the wall.",
   "exits": {
     "east": "zone_district_915_918",
-    "north": "zone_district_914_917",
     "south": "zone_district_914_919",
     "west": "zone_district_913_918"
   },
   "flags": {
-    "district": "wasteland",
+    "district": "ashway",
     "region_id": "region_coldwater",
-    "terrain": "forest"
+    "terrain": "gravel"
   },
   "grid_x": 914,
   "grid_y": 918,
   "grid_z": 0,
   "id": "zone_district_914_918",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "The Yard",
   "parent_zone": null
 }

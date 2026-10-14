@@ -24,9 +24,14 @@
 
 export const HOLD_MIN_MS = 2400, HOLD_MAX_MS = 16000;
 const MS_PER_CHAR = 95, HOLD_BASE_MS = 900;
+// A drawn-out word ("SCOOOOORES") holds its sound about a sixth of a second a letter, more
+// than the 95 ms the letter itself buys, so each held letter after the first earns this.
+const MS_PER_HELD = 60;
 
 export function holdFor(text, graphic) {
-  let ms = HOLD_BASE_MS + String(text || '').trim().length * MS_PER_CHAR;
+  const s = String(text || '').trim();
+  const held = (s.match(/([A-Za-z])\1{2,}/g) || []).reduce((a, run) => a + run.length - 1, 0);
+  let ms = HOLD_BASE_MS + s.length * MS_PER_CHAR + held * MS_PER_HELD;
   if (graphic && graphic.duration) ms = Math.max(ms, graphic.duration * 1000 + 400);
   return Math.min(HOLD_MAX_MS, Math.max(HOLD_MIN_MS, ms));
 }
@@ -55,7 +60,8 @@ export function paceCalls(lines, fillMs, tickMs, { minScale = 0.8, maxScale = 1.
   let gd = null, acc = 0;
   for (const n of live) {
     if (n.gameday) { gd = n.gameday; gd.cues = []; acc = 0; }
-    if (gd && n._cue) gd.cues.push({ ms: acc, ...n._cue });
+    // (a line can carry two moments of play: a breakaway's spring is the pass and the call)
+    if (gd && n._cue) for (const c of [].concat(n._cue)) gd.cues.push({ ms: acc, ...c });
     acc += holds.get(n);
   }
   return { holds, dropped };

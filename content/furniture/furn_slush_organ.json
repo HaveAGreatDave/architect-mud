@@ -1,0 +1,15 @@
+{
+  "description": "A two-manual electric organ on a plywood riser in the south-west corner, with a speaker cabinet the size of a wardrobe behind it. The charge is pencilled on a card taped above the keys.",
+  "flags": {
+    "aliases": "organ,rink organ,console,riser,keys",
+    "instrument": "organ",
+    "interactions": [
+      "examine",
+      "play"
+    ]
+  },
+  "id": "furn_slush_organ",
+  "name": "the rink organ",
+  "object_type": "furniture",
+  "zone_id": "zone_slush_stands"
+}

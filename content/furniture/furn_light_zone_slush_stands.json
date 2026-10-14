@@ -1,0 +1,11 @@
+{
+  "description": "Banks of floodlights slung from the roof arches and aimed at the ice. They hum, and they take a minute to come up to full white.",
+  "flags": {},
+  "id": "furn_light_zone_slush_stands",
+  "light_type": "overhead",
+  "lumen_output": 9000,
+  "name": "the ice lights",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_slush_stands"
+}

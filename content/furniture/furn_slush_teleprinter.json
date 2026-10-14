@@ -1,0 +1,17 @@
+{
+  "description": "A teleprinter in a grey steel case on a table of its own, its cable running into the wall. Paper feeds out of it into a wire basket. Taped to the case: Do not switch off.",
+  "flags": {
+    "aliases": [
+      "teleprinter",
+      "scheduler",
+      "printer",
+      "paper",
+      "basket"
+    ],
+    "examine_detail": "The sheet hanging out of it is next week's pairings, every club and every barn, already printed."
+  },
+  "id": "furn_slush_teleprinter",
+  "name": "the teleprinter",
+  "object_type": "decoration",
+  "zone_id": "zone_slush_pressbox"
+}

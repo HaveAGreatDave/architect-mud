@@ -41,6 +41,13 @@ const SPORTS_MIN_WS_GAMES = 8;   // the #2 team must have played at least this m
 // Presentation only — how each league names itself and prints its table. The STATS come
 // from the sport module's `SEASON` fold; this decides what the columns are called and
 // which of them are worth showing a player.
+//
+// …and `era`, which is not presentation. It names the roster a league is playing with. A
+// season records the era it opened in, and when the two differ the season tick closes the
+// open season with no champion and opens a fresh one (`staleEra`, below). So a new roster
+// starts at 0-0 on the deploy that ships it, and a final already seeded with clubs that no
+// longer exist never airs. Change the era only when the roster changes; a league with none
+// (baseball) is never reset this way.
 const LEAGUES = {
   baseball: {
     sport: 'baseball', icon: '⚾', show: 'DEADBALL', league: 'COLDWATER LEAGUE',
@@ -59,6 +66,8 @@ const LEAGUES = {
   },
   hockey: {
     sport: 'hockey', icon: '🏒', show: 'CLUSTER PUCK', league: 'CPhL',
+    // The eight neighbourhood clubs (docs/systems-broadcast.md, the clubs table), October 2026.
+    era: 'cphl-8',
     final: 'COLDWATER CUP', finalTitle: 'Coldwater Cup', finalCmd: 'cup',
     empty: "The CPhL hasn't dropped a puck yet. The Cluster Puck standings are empty.",
     head: '  W   L  OTL   PTS     GD',
@@ -177,10 +186,10 @@ async function ensureSeason(sport) {
   const n = rows[0]?.n || 1;
   const { slot, ready } = await currentSlot();
   await query(
-    `INSERT INTO sports_season (sport, season_no, start_month, start_date, start_slot, phase)
-     VALUES ($1, $2, $3, $4, $5, 'regular')
+    `INSERT INTO sports_season (sport, season_no, start_month, start_date, start_slot, phase, era)
+     VALUES ($1, $2, $3, $4, $5, 'regular', $6)
      ON CONFLICT (sport, season_no) DO NOTHING`,
-    [sport, n, gameMonth(), gameDate(), ready ? slot : null],   // anchor only once the clock is live
+    [sport, n, gameMonth(), gameDate(), ready ? slot : null, leagueOf(sport).era || null],   // anchor only once the clock is live
   ).catch((e) => console.error('[sportsleague] ensureSeason error:', e.message));
   invalidateSeason(sport);
   return currentSeason(sport);
@@ -242,6 +251,30 @@ async function crownChampion(sport, season) {
   await ensureSeason(sport);   // opens the next season with start_slot = now (past ws_slot)
   emit('sports.champion', { sport, seasonNo: season.season_no, champion: winner, runnerUp: loser, champScore, runScore, overtime: !!g.overtime });
   console.log(`[sportsleague] ${L.final} CHAMPION (${sport} season ${season.season_no}): ${winner} beat ${loser} ${champScore}-${runScore}`);
+}
+
+// Was this season opened under a roster the league has since replaced? Pure, so the
+// regress suite can hold it to the rule without a database.
+function staleEra(sport, season) {
+  const era = leagueOf(sport).era || null;
+  return !!(era && season && (season.era || null) !== era);
+}
+
+// The league's roster has changed since this season opened: close it with no champion (the
+// champions history lists only seasons that have one) and open the next, which records the
+// new era and starts its standings window now. Whatever phase it was in, including a final
+// already seeded with two clubs that are no longer in the league.
+async function closeForEra(sport, season) {
+  const L = leagueOf(sport);
+  await query(
+    `UPDATE sports_season SET phase = 'complete', decided_at = NOW()
+      WHERE sport = $1 AND season_no = $2 AND phase <> 'complete'`,
+    [sport, season.season_no],
+  ).catch((e) => console.error('[sportsleague] era close error:', e.message));
+  invalidateSeason(sport);
+  _standCaches.delete(sport);
+  console.log(`[sportsleague] ${L.league} is now ${L.era}: season ${season.season_no} closed with no champion, a fresh one opens`);
+  return ensureSeason(sport);
 }
 
 // ── Standings (computed, cached) ────────────────────────────────────────────────
@@ -469,6 +502,7 @@ registerAction({
 async function seasonTickFor(sport) {
   const s = await ensureSeason(sport);
   if (!s) return;
+  if (staleEra(sport, s)) { await closeForEra(sport, s); return; }
   if (s.phase === 'worldseries') {
     const ws = s.ws_slot != null ? Number(s.ws_slot) : null;
     const c = await currentSlot();
@@ -513,6 +547,6 @@ export const commands = {
   champions: (args) => cmdChampions(args),
 };
 
-export const _test = { formatStandings, formatChampions, formatExtras, daysBetween, LEAGUES, queryExtras };
+export const _test = { formatStandings, formatChampions, formatExtras, daysBetween, staleEra, LEAGUES, queryExtras };
 
 console.log('[sportsleague] Plugin loaded.');

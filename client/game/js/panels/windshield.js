@@ -19386,6 +19386,13 @@ const BLDG_TYPE_3D = {
   asc_vats:         { a: 'industrial', h: 0.24 },
   asc_shrine:       { a: 'citycore',   h: 0.30 },
   ruins:            { a: 'ruins',     h: 0.16 }, // a wall/dam/shell — long and low, never a block
+  // The Slush Fund's six tiles (glass/models/ashway.js): the hall tall, the stands either side low.
+  ice_rink:         { a: 'civic',     h: 0.30 },
+  ice_rink_hall:    { a: 'civic',     h: 0.30 },
+  ice_rink_stand_w: { a: 'civic',     h: 0.14 },
+  ice_rink_stand_e: { a: 'civic',     h: 0.14 },
+  ice_rink_plant_w: { a: 'industrial', h: 0.14 },
+  ice_rink_plant_e: { a: 'civic',     h: 0.14 },
   default:          { a: 'citycore',  h: 0.22 }, // fallback when a type has no entry / fails to load
 };
 // The archetype + base height for a map cell: a building tile (has `bt`) renders its

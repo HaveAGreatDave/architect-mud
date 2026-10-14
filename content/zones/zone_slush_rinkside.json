@@ -1,0 +1,22 @@
+{
+  "ambient_theme": "indoors",
+  "description": "Ice level, behind the boards. The glass above them is scratched to a haze, and one pane behind the north net is newer than the rest. The benches are cut into the boards on the east side, with the penalty box between them. The resurfacer waits by a gate in the south corner.",
+  "exits": {
+    "up": "zone_slush_stands"
+  },
+  "flags": {
+    "building_name": "The Slush Fund",
+    "building_type": "ice_rink",
+    "floor": "concrete",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_915_916"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_slush_rinkside",
+  "map_id": "map_int_slush",
+  "name": "The Slush Fund — Rinkside",
+  "parent_zone": "zone_district_915_916"
+}

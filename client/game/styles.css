@@ -11711,7 +11711,9 @@ html[data-density="compact"][data-pane-claimed] #mobile-hud { display: none; }
    card, and a running play-by-play feed. Themed off the TV chassis variables. */
 #tv-gameday {
 	position: absolute;
-	inset: 45px 0 72px 0;
+	/* between the header and the footer as they really are (tv.js measures them; both are
+	   in rem and the phone layout shrinks the footer, so no constant fits every set) */
+	inset: var(--tv-head-h, 45px) 0 var(--tv-foot-h, 72px) 0;
 	z-index: 48;
 	display: none;
 	flex-direction: column;
@@ -12361,15 +12363,15 @@ html[data-density="compact"][data-pane-claimed] #mobile-hud { display: none; }
    The hockey sub-screen. Deliberately a COLD sheet against Deadball's warm green
    field: the two sports share the panel and the set, so the palette is the fastest
    way for a viewer to know which one they're looking at before reading a word. */
-.gdr-wrap { position: absolute; inset: 0; display: flex; flex-direction: column; gap: 6px; padding: 6px; min-height: 0; }
+.gdr-wrap { position: absolute; inset: 0; display: flex; flex-direction: column; gap: 6px; padding: 6px; min-height: 0; container: gdr / size; }
 .gdr-head {
-	flex: 0 0 auto; display: flex; align-items: center; gap: 10px; padding: 4px 10px;
+	flex: 0 0 auto; display: flex; align-items: center; gap: 10px; padding: 4px 10px; white-space: nowrap; overflow: hidden;
 	background: rgba(0, 0, 0, 0.45); border: 1px solid rgba(120, 200, 240, 0.28); border-radius: 3px;
 	font-family: var(--font-mono); font-size: 0.6875rem; color: rgba(210, 232, 246, 0.85);
 }
 .gdr-head-badge { display: flex; align-items: center; gap: 5px; font-weight: 900; letter-spacing: 3px; color: #7fd4ff; text-shadow: 0 0 10px rgba(79, 210, 255, 0.6); }
 .gdr-head-badge i { font-style: normal; }
-.gdr-head-score { flex: 1 1 auto; letter-spacing: 1px; }
+.gdr-head-score { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; letter-spacing: 1px; }
 .gdr-head-score b { color: #fff; font-variant-numeric: tabular-nums; font-size: 0.875rem; }
 .gdr-head-clock { font-variant-numeric: tabular-nums; letter-spacing: 1px; color: #9fe4ff; }
 .gdr-head-str { font-weight: 900; letter-spacing: 1px; padding: 0 4px; border-radius: 2px; background: rgba(79,210,255,0.16); color: #9fe4ff; border: 1px solid rgba(79,210,255,0.45); }
@@ -12386,9 +12388,18 @@ html[data-density="compact"][data-pane-claimed] #mobile-hud { display: none; }
 }
 .gdr-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 .gdr-hud { position: absolute; inset: 0; width: 100%; height: 100%; display: block; pointer-events: none; }
+/* The glowing-puck toggle (gameday-rink.js), small in the bottom corner of the picture,
+   lit while the glow is on. */
+.gdr-glow {
+	position: absolute; right: 8px; bottom: 8px; z-index: 8; width: 28px; height: 28px; padding: 0;
+	display: flex; align-items: center; justify-content: center; cursor: pointer;
+	border-radius: 50%; border: 1px solid rgba(160,190,220,0.35); background: rgba(6,10,16,0.62); color: #6b7a8a;
+}
+.gdr-glow:hover, .gdr-glow:focus-visible { border-color: rgba(159,228,255,0.8); }
+.gdr-glow[aria-pressed="true"] { color: #6bb8ff; border-color: rgba(107,184,255,0.85); box-shadow: 0 0 10px rgba(107,184,255,0.55); }
 .gdr-head:empty, .gdr-strip:empty { display: none; }
-/* over the rink the card sits high, clear of the play under it */
-.gdr-wrap .gdr-jumbo { top: 30%; }
+/* the card sits high on the ice, clear of the play under it */
+.gdr-rink .gdr-jumbo { top: 40%; }
 .gdr-head-rival { font-weight: 900; letter-spacing: 1px; padding: 0 4px; border-radius: 2px; background: rgba(255,60,70,0.18); color: #ff9aa2; border: 1px solid rgba(255,60,70,0.5); }
 /* Between periods the board sits over the left of the ice, so the Zamboni stays in shot. */
 .gdri.over {
@@ -12415,8 +12426,15 @@ html[data-density="compact"][data-pane-claimed] #mobile-hud { display: none; }
 	color: rgba(180, 214, 236, 0.82); letter-spacing: 0.2px;
 	animation: gd-cap-in 0.3s ease-out;
 }
-.gdr-cap { flex: 0 0 auto; min-height: 30px; padding: 4px 10px; background: rgba(0,0,0,0.5); border-left: 2px solid #4fd2ff; border-radius: 2px; }
-.gdr-cap-text { font-size: 0.7813rem; line-height: 1.45; color: var(--tv-text, #dceaf4); }
+.gdr-rush:not([hidden]) { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; }
+/* Two lines at most, and room kept for two, so the picture doesn't move as one- and
+   two-line calls alternate (Deadball's caption does the same). The odd longer line ends
+   in an ellipsis; the set's own message list has it whole. */
+.gdr-cap { flex: 0 0 auto; padding: 4px 10px; background: rgba(0,0,0,0.5); border-left: 2px solid #4fd2ff; border-radius: 2px; }
+.gdr-cap-text {
+	font-size: 0.7813rem; line-height: 1.45; color: var(--tv-text, #dceaf4); min-height: calc(2 * 1.45em);
+	display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden;
+}
 .gdr-cap-text.in { animation: gd-cap-in 0.3s ease-out; }
 
 .gdr-jumbo {
@@ -12443,6 +12461,49 @@ html[data-density="compact"][data-pane-claimed] #mobile-hud { display: none; }
 .gdr-idle { position: absolute; inset: 0; z-index: 7; background: rgba(4, 10, 18, 0.6); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; }
 .gdr-idle .cphl-mark { animation: gd-idle-pulse 2.4s ease-in-out infinite; }
 .gdr-idle-sub { font-family: var(--font-mono); font-size: 0.6875rem; letter-spacing: 3px; color: rgba(210,232,246,0.45); }
+
+/* ── Rinkside in a small box ─────────────────────────────────────────────────
+   The picture comes first. The view gets whatever the set gives it (a 390px square
+   on a phone, a 760px set on a desktop) and its text is in rem, so the text grows
+   with the Font Size setting while the box doesn't. Stacked with no limits, a long
+   call and the rush line left a phone no picture at all. So the text is bounded
+   (one score line, two caption lines); the strip and the rush show only in a box
+   tall enough to spare them, since the caption calls the same play; and in a short,
+   wide box (a phone on its side) the score line and the caption go over the picture,
+   the way a broadcast's graphics do. The thresholds are in rem so they move with
+   the text. */
+@container gdr (max-height: 30rem) {
+	.gdr-strip, .gdr-rush:not([hidden]) { display: none; }
+}
+@container gdr (max-width: 32rem) {
+	.gdr-head { gap: 6px; padding: 3px 8px; }
+	.gdr-head-badge i { display: none; }
+	.gdr-head-badge, .gdr-head-score, .gdr-head-clock { letter-spacing: 0; }
+	.gdr-jumbo { padding: 8px 14px; max-width: calc(100% - 24px); }
+	.gdr-jumbo-brand { margin-bottom: 3px; }
+	.gdr-jumbo-brand svg { width: 1.75rem; height: 1.75rem; }
+	.gdr-jumbo-title { font-size: 1.25rem; letter-spacing: 3px; }
+	.gdr-jumbo-sub { letter-spacing: 1px; margin-top: 2px; }
+	.gdri.over { left: 8px; top: 8px; width: min(74%, 420px); max-height: calc(100% - 16px); }
+	.gdri.over .gdri-main { padding: 8px 10px; gap: 3px; }
+	.gdri-title { font-size: 0.8125rem; letter-spacing: 2px; }
+	.gdri-sub { display: none; }
+	.gdri-stats { gap: 2px 10px; padding-top: 4px; }
+	.gdri-goal .c { font-size: 0; }   /* the scorer's crest without the club's name */
+}
+@container gdr ((min-aspect-ratio: 2 / 1) or (max-height: 15rem)) {
+	.gdr-head { position: absolute; top: 10px; right: 10px; max-width: calc(100% - 20px); z-index: 5; background: rgba(0, 0, 0, 0.62); }
+	.gdr-cap { position: absolute; left: 10px; right: 10px; bottom: 10px; z-index: 5; background: rgba(0, 0, 0, 0.62); }
+	.gdr-cap-text { min-height: 0; }
+	.gdr-rink .gdr-jumbo { top: 50%; }   /* between the score line and the caption */
+	/* the board stops above the caption, and has the corner to itself */
+	.gdri.over { max-height: calc(100% - 20px - 3.4rem); }
+	.gdr-wrap:has(.gdri.over) .gdr-head { visibility: hidden; }
+	/* the caption has the bottom edge, so the glowing-puck button takes the top-left
+	   corner, and gives it up to the board */
+	.gdr-glow { top: 10px; left: 10px; right: auto; bottom: auto; }
+	.gdr-wrap:has(.gdri.over) .gdr-glow { visibility: hidden; }
+}
 
 /* ── Sports graphics (full-screen FX) ──────────────────────────────────────────
    Home-run trajectory call-out, final-score card, extra-innings hype. They take

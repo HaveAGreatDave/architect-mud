@@ -20,7 +20,7 @@
 //   • the allophonic rules, each of which was wrong once
 //   • stress, reduction and weak forms — the double-count family
 //   • pacing against broadcast's nodeHoldMs, which is FITTED to estimateDuration
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -34,7 +34,7 @@ const A = globalThis.AudioEngine;
 if (!A?._phonemesFor) { console.error('✗ audio-engine did not expose its debug hooks'); process.exit(1); }
 
 let fails = 0;
-const say = (t) => A._phonemesFor(t).join(' ');
+const say = (t, opt) => A._phonemesFor(t, opt).join(' ');
 
 function check(label, cond, detail) {
   if (cond) return;
@@ -168,6 +168,75 @@ has('St. otherwise is a street',    'Dray St.', 'S T R * IY T');
 has('4:30 is "four thirty"',   '4:30', 'F * AO R _ TH * ER');
 has('9:00 is "nine o\'clock"', '9:00', 'K L * AA K');
 lacks('…with no pause inside it', '4:30', '_S');
+has('a game clock is a length: 10:00 left is ten minutes', '10:00 left in the third', 'M * IH N AX T S');
+lacks('…not ten o\'clock', '10:00 left in the third', 'K L * AA K');
+has('…and 0:45 to go is seconds', '0:45 to go', 'S * EH K AX N D Z');
+
+// ── abbreviations with no vowel, and St without its stop ────────────────────
+has('St before a name is a saint, stop or no stop', 'St Garneau', 'S * EY N T');
+has('a vowel-less abbreviation is spelled, whatever its case', 'the CPhL', 'S IY P IY EY CH * EH L');
+lacks('…not read as consonants', 'the CPhL', 'K F L');
+has('an interjection with no vowel stays a sound', 'shh', 'SH');
+lacks('…and is not spelled', 'psst', 'EH S');
+has('-es after a sibilant is its own syllable', 'blesses', 'IH Z');
+
+// ── a matchup is "versus", for a voice that asks ────────────────────────────
+// The CPhL booth's @voice carries vs=1, so "Wharf Rats–Warlords" is said "Wharf
+// Rats versus Warlords". Only an en dash between names does it: elsewhere the dash
+// is a pause, a hyphenated name stays one name, and a dash between figures is a span.
+{
+  const vs = { voice: { vs: 1 } };
+  const versus = (t, opt) => say(t, opt).includes('V * ER S AX S');
+  check('an en dash between two clubs is "versus" in the booth', versus('Wharf Rats–Warlords', vs), say('Wharf Rats–Warlords', vs));
+  check('…and a pause for any other voice', !versus('Wharf Rats–Warlords'), say('Wharf Rats–Warlords'));
+  check('…never a hyphen: Smith-Jones is one name', !versus('Smith-Jones', vs), say('Smith-Jones', vs));
+  check('…never between figures: 10–12 is a span', !versus('pages 10–12', vs), say('pages 10–12', vs));
+}
+
+// ── weak forms keep the sounds that carry them ──────────────────────────────
+has('he weakens to a short /i/, not /ɪ/ ("his scores")', 'he scores', 'HH IY');
+has('on keeps its vowel', 'off on the ice', 'AA N');
+
+// ── drawn-out words: "He SCOOOOORES!!!" ──────────────────────────────────────
+// A held letter is a held sound. The word is said as the word it is, and '~n'
+// marks the sound to hold (n is how many times the letter was written).
+has('a drawn-out word is the word, its vowel held', 'He SCOOOOORES!!!', 'S K ! ~5 AO R Z');
+has('"!!" or more is one bigger break', 'He SCOOOOORES!!!', '_XX');
+lacks('…not three', 'GOAL!!!', '_X _X');
+has('doubled before single: shoots, not shots', 'SHOOOOTS', 'SH ! ~4 UW T S');
+has('a held letter at the end is the short word: so, not the Soo', 'Sooooo', 'S * ~5 OW');
+has('a held consonant holds its own sound', 'Yesss', 'EH ~3 S');
+has('an h after a vowel holds the vowel', 'Ahhhh', '~4 AA');
+lacks('a word with no run has no marker', 'He scores.', '~');
+{
+  const est = (t) => A._estimateDuration(A._phonemesFor(t), 1.2);
+  const held = est('He SCOOOOOORES!!!') - est('He SCORES!');
+  // Six letters: about 0.14 + 5 × 0.16 s against an accented vowel's fifth of a second.
+  check(`a drawn-out vowel holds for its letters (+${held.toFixed(2)} s over the plain call)`, held > 0.6 && held < 2.5);
+}
+
+// ── a content lexicon uses only sounds the synth has ────────────────────────
+// A script's ::say block reaches the voice as `lex`. An unknown phoneme there is not
+// an error on air, it is a sound that silently isn't made, so hold every entry in
+// content to the inventory and to being read back exactly as written.
+{
+  const PHONES = new Set([...A._phones(), '*', '!']);
+  const dir = join(ROOT, 'content', 'media_broadcasts');
+  for (const f of readdirSync(dir).filter((x) => x.endsWith('.json'))) {
+    const lexMap = JSON.parse(readFileSync(join(dir, f), 'utf8')).sports_pools?.say;
+    if (!lexMap) continue;
+    for (const [w, ph] of Object.entries(lexMap)) {
+      const bad = ph.split(/\s+/).filter((t) => !PHONES.has(t));
+      check(`${f}: ::say ${w} uses known phonemes`, !bad.length, `unknown: ${bad.join(' ')}`);
+      check(`${f}: ::say ${w} has a stressed vowel`, /\*/.test(ph), ph);
+      // As written, give or take General American flapping, which runs after the
+      // lexicon on purpose ("Pankratov" is pank-RAH-dov in an American booth).
+      const norm = (x) => x.replace(/[*!] /g, '').replace(/\b[TD]\b/g, 'DX');
+      const got = say(w, { lex: lexMap });
+      check(`${f}: ::say ${w} is read as written`, norm(got) === norm(ph), `${ph}\n      got   ${got}`);
+    }
+  }
+}
 
 // ── punctuation shapes the phrase ────────────────────────────────────────────
 has('comma is a continuation, not a full stop', 'bread, water', '_C');

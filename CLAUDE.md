@@ -10,7 +10,7 @@ A post-singularity browser MUD in the HellMOO tradition: text-driven, real-time,
 - **Architect** is the game built on THOMAS: the world in Postgres and under `content/` (Coldwater, the Basin, the orders, the prose).
 - **GLASS** (Geometry, Lights, Aircraft, Streets & Structures) is the 3D renderer in `client/game/js/panels/windshield.js`; its building models are arms in one file per region under `client/game/js/panels/glass/models/`. Geometry records itself as affine `[a·fh + b·h + c]` data through `SHAPE_SINK`. `tools/modelshop` is its model editor, as `tools/studio` is the map editor.
 - **SIREN** (Sources, Index, Resonance, Envelopes & Noise) is the audio synth in `client/shared/audio-engine.js`: `buildLayer` and what feeds it. A cue is an array of layers, each a carrier oscillator and/or noise with an ADSR, a biquad, optional drive and up to two FM operators in series. Around it: a 32-voice pool with priority stealing, the tracker, the sampler, a generated-IR reverb and four buses.
-- **ORACLE** (Orthography, Resonance, Accent, Cadence, Lexicon & Emphasis) is the formant speech synth in the same file: a glottal `PeriodicWave` through four formants and a nasal antiformant, a noise path for fricatives and bursts, a 27k-word lexicon over letter-to-sound rules, RP/GA accents, and falling/rising prosody. It voices broadcasts, the Architect, the library and Read Aloud. The dev panel's Voice Lab tab tunes it.
+- **ORACLE** (Orthography, Resonance, Accent, Cadence, Lexicon & Emphasis) is the formant speech synth in the same file: a glottal `PeriodicWave` through four formants and a nasal antiformant, a noise path for fricatives and bursts and another through the formants for aspiration and breath, a 28k-word lexicon over letter-to-sound rules, RP/GA accents, and falling/rising prosody. It voices broadcasts, the Architect, the library and Read Aloud. The dev panel's Voice Lab tab tunes it.
 
 THOMAS is the platform, GLASS draws it, SIREN sounds it, ORACLE speaks it, Architect is the game.
 
@@ -78,6 +78,7 @@ Entries marked **(as built)** describe what actually ships and outrank design in
 - [docs/proposals/coldwater-infill.md](docs/proposals/coldwater-infill.md): fourteen infill buildings (as built). Run `node scripts/content/sitecheck.mjs` before siting; an open mid-block tile is usually somebody's street access
 - [docs/proposals/old-coldwater.md](docs/proposals/old-coldwater.md): the south-east slums (as built). Tents are a `mark`, never a `building_type`; 925,917 is a storm drain into the Under. Nothing there carries words, painted or lit (`SLUM_DECLINE`)
 - [docs/proposals/halcyon-fields-infill.md](docs/proposals/halcyon-fields-infill.md): Halcyon Fields streets and 42 buildings (as built). A door's direction is fixed by `flags.entrance`
+- [docs/proposals/slush-fund.md](docs/proposals/slush-fund.md): the CPhL's own barn on the old South Gate ground (as built). Six tiles and one door; the five sealed tiles take no map code, and the general hockey `chatter` pool describes its rooms
 - [docs/proposals/moor-or-less.md](docs/proposals/moor-or-less.md): the cheap boatyard at the head of Ironside Street and Ring Fenced, the gym that replaced Hulls Angels (as built). The east shore past column 927 is outside the Curtain; a flat is never behind a camera test
 - [docs/zone-redesign-2026-07.md](docs/zone-redesign-2026-07.md): why zone fields have the shape they do
 - [docs/lore-wildblood.md](docs/lore-wildblood.md): Wildblood canon, read before writing mutants or the Under. The Under was theirs first
@@ -120,6 +121,7 @@ Entries marked **(as built)** describe what actually ships and outrank design in
 - [docs/systems-atm.md](docs/systems-atm.md): ATMs: networks, fees, hacking, replenish, power
 - [docs/systems-instruments.md](docs/systems-instruments.md): playable instruments (as built). Notes use the `instrument_note` route, not dispatch
 - [docs/systems-procedural-audio.md](docs/systems-procedural-audio.md): generated sound: parameters+seed wire format, material tables, the `sfxDetail` tiers (as built)
+- [docs/systems-hockey-sound.md](docs/systems-hockey-sound.md): the CPhL's NHL '96-style FM soundset, its event table and crowd bed (as built). Avoid FM ratios 1 and 0.5 on anything that lasts: they put a sideband at 0 Hz
 - [docs/systems-senses.md](docs/systems-senses.md): smell/listen/sight hooks and their in-memory-only contract (as built)
 - [docs/systems-durability.md](docs/systems-durability.md): item wear and repair (as built). `wear()` is sync; zero condition destroys the item
 - [docs/systems-ascension.md](docs/systems-ascension.md): the Ascendant defection arc and the Long Watch mirror (as built). The Rite must refuse a wanted player

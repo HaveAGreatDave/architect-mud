@@ -12,11 +12,13 @@
 // widens and slides until that net is in frame as well as the puck, so a shot is never taken
 // at a goal the viewer can't see.
 //
-// SPRINGS, NOT CHASING. Each of the camera's numbers follows its target on a critically
-// damped spring (`smooth`), which starts and stops without a jolt and never overshoots. The
-// old exponential chase lurched every time its target jumped. It runs on real time (the
-// renderer passes `now`), so a hit-stop freezes the play but not the camera. A cut
-// (`W.cam.cut` changing) snaps.
+// SPRINGS, NOT CHASING, AND NEVER A CUT. Each of the camera's numbers follows its target on
+// a critically damped spring (`smooth`), which starts and stops without a jolt and never
+// overshoots. The old exponential chase lurched every time its target jumped. It runs on
+// real time (the renderer passes `now`), so a hit-stop freezes the play but not the camera.
+// Every change of framing is a move: down to a fight, across to the far end for a draw, out
+// to the Zamboni. Only the replay's own camera (`snap`) jumps to its framing when a replay
+// starts (`cam.cut` changing), and that happens behind the wipe that covers the switch.
 //
 // Modes come from the director (`W.cam.mode`); `view = 'low'` puts the default and Zamboni
 // framings on the rail just inside the near glass, where the reflections show best.
@@ -44,11 +46,13 @@ const KEYS = ['lx', 'ly', 'lz', 'dist', 'pitch', 'fm'];
 // how long each number takes to settle, seconds
 const TIME = { lx: 0.55, ly: 0.7, lz: 0.6, dist: 0.8, pitch: 0.8, fm: 0.7 };
 
-export function createRinkCamera(W) {
-  const cam = { lx: 100, ly: 40, lz: 0, dist: 56, pitch: 0.52, fm: 1 };
+// `from` is a framing to start from (a renderer taking over from a lost one carries on
+// from where the last left off); without it the camera starts on its framing.
+export function createRinkCamera(W, { snap = false, from = null } = {}) {
+  const cam = { lx: 100, ly: 40, lz: 0, dist: 56, pitch: 0.52, fm: 1, ...(from || {}) };
   const vel = Object.fromEntries(KEYS.map((k) => [k, { v: 0 }]));
-  const api = { view: 'broadcast', cam, flash: 0 };
-  let lastCut = -1, lastNow = null;
+  const api = { view: 'broadcast', cam };
+  let lastCut = -1, lastNow = null, first = !from;
   // where the action is heading: the focus's velocity, low-passed, for the look-ahead
   let pf = null, fv = [0, 0];
 
@@ -100,6 +104,8 @@ export function createRinkCamera(W) {
     // picture, whatever shape the screen is.
     const must = [[f[0], f[1], 0], [ax, ay, 0]];
     if (net != null) must.push([net, 39.5, 4], [net, 45.5, 0], [net + (net < RL / 2 ? -4 : 4), 42.5, 0]);
+    // (with a shot coming, the ice either side of the net too, where one that misses goes)
+    if (c.net != null) must.push([c.net, 34, 1], [c.net, 51, 1]);
     let dist = clamp(2 * hw * 1.08, c.drama ? 38 : 44, 140);
     let ly = clamp((Math.min(ay, f[1]) + Math.max(ay, f[1])) / 2 * 0.6 + 16, 12, 52);
     const X = clamp(lx, 20, RL - 20), vlo = -0.36 / aspect, vhi = 0.46 / aspect;
@@ -114,7 +120,7 @@ export function createRinkCamera(W) {
     return { lx: X, ly, lz: 0, dist, pitch: 0.54 - (dist - 44) * 0.0015, fm: 1 };
   }
 
-  // Ease toward the framing (or snap on a cut) and return this frame's camera for a w×h view:
+  // Ease toward the framing and return this frame's camera for a w×h view:
   // C (eye, pitch, focal length in pixels, principal point) and P, the projection of a world
   // point to { x, y, s: pixels per foot, d: depth }, or null behind the near plane. `now` is
   // the real time in ms; without it the camera runs on the world's clock.
@@ -122,9 +128,9 @@ export function createRinkCamera(W) {
     const clock = now != null ? now / 1000 : W.t;
     const dt = lastNow == null ? 0 : Math.min(0.1, Math.max(0, clock - lastNow)); lastNow = clock;
     const tg = target(dt, w / Math.max(1, h));
-    if (lastCut !== W.cam.cut) {
-      lastCut = W.cam.cut; Object.assign(cam, tg); for (const k of KEYS) vel[k].v = 0; fv = [0, 0];
-      api.flash = W.cam.flash === false ? 0 : 1;
+    // a camera starts on its framing, and a replay's starts again on each replay
+    if (first || (snap && lastCut !== W.cam.cut)) {
+      first = false; lastCut = W.cam.cut; Object.assign(cam, tg); for (const k of KEYS) vel[k].v = 0; fv = [0, 0];
     } else {
       // a shot coming tightens the pan, so the net is in frame before the puck is away
       const shot = W.cam.net != null;

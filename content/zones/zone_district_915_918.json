@@ -1,23 +1,22 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "description": "A stretch of hardy, knee-high grass gone silver-green and gnawed short by whatever still grazes out here. The wind moves through it in long slow waves. Something rustles, then goes very still.",
+  "ambient_theme": "city",
+  "description": "The yard under the south gable of the Slush Fund's hall. The resurfacer's roller door opens onto it, and the scrapings are tipped in a heap against the wall: grey, crusted, and never quite melted. The staff call the heap the fund.",
   "exits": {
-    "north": "zone_district_915_917",
+    "east": "zone_district_916_918",
     "south": "zone_district_915_919",
-    "west": "zone_district_914_918",
-    "east": "zone_district_916_918"
+    "west": "zone_district_914_918"
   },
   "flags": {
-    "district": "wasteland",
+    "district": "ashway",
     "region_id": "region_coldwater",
-    "terrain": "forest"
+    "terrain": "gravel"
   },
   "grid_x": 915,
   "grid_y": 918,
   "grid_z": 0,
   "id": "zone_district_915_918",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "The Yard",
   "parent_zone": null
 }

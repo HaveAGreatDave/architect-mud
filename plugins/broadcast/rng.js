@@ -68,6 +68,19 @@ export function sportsFill(line, tok) {
   });
 }
 
+// The pronunciations a spoken line needs: the entries of a script's `say` map (its
+// ::say block) for the words in the line, or null. A possessive takes its stem's entry,
+// as the voice reads "Oyelaran's" off "oyelaran". The whole map would ride every line.
+export function sportsLexFor(text, say) {
+  if (!say) return null;
+  let out = null;
+  for (const w of String(text).toLowerCase().match(/[a-z][a-z'-]*/g) || []) {
+    const k = w.replace(/'s$/, '');
+    if (say[k]) (out || (out = {}))[k] = say[k];
+  }
+  return out;
+}
+
 export function sportsShuffle(arr, rand = Math.random) {
   const a = arr.slice();
   for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rand() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }

@@ -91,6 +91,8 @@
     uiGain.connect(masterGain);
     buildReverb();
     _applyGains();
+    // the retro stage's worklet, loaded now so it's ready long before a cue asks for it
+    loadRetro(ctx);
     return ctx;
   }
 
@@ -218,15 +220,90 @@
     }, 90);
   }
 
+  // SEEDED, so a cue renders the same samples every time: a WAV exported for listening and a
+  // check that reads samples (scripts/audio/hockey-smoke.mjs) have to be reproducible, and
+  // Math.random was the one thing in a cue that wasn't. It's the same white noise as before.
+  // A layer's `noiseSeed` starts it somewhere else in the buffer (buildLayer), so two noise
+  // layers, or two takes of one cue, aren't the same grain.
   function getNoiseBuffer() {
     if (_noiseBuffer) return _noiseBuffer;
     const c = ensureContext();
     const length = c.sampleRate * 2;
     const buf = c.createBuffer(1, length, c.sampleRate);
     const data = buf.getChannelData(0);
-    for (let i = 0; i < length; i++) data[i] = Math.random() * 2 - 1;
+    let s = 0x2545f491;
+    for (let i = 0; i < length; i++) { s ^= s << 13; s ^= s >>> 17; s ^= s << 5; data[i] = (s >>> 0) / 2147483648 - 1; }
     _noiseBuffer = buf;
     return buf;
+  }
+  // Where in the noise buffer a seeded layer starts, in seconds (the buffer is 2 s long).
+  const noiseOffset = (seed) => ((Math.imul((seed | 0) ^ 0x5bd1e995, 2654435761) >>> 0) / 4294967296) * 1.6;
+
+  // ── The retro stage: sample-and-hold and bit depth, per cue ────────────────
+  //
+  // A cue with `config.retro: { rate, bits }` goes through it on its way to the bus. `rate`
+  // holds each sample for 1/rate of a second, the way a cartridge's 8–16 kHz samples
+  // stepped (the steps are the grit; nothing smooths them), and `bits` rounds what's held
+  // to that many bits. Both are relative to the cue's own full scale (`ref`, by default the
+  // sum of its layers' peak levels), so 8 bits means a normalised 8-bit sample played at the
+  // cue's volume, and a quiet tail gets grittier as it decays, as one did.
+  //
+  // The engine's output rate never changes: this colours one cue. The hold needs an
+  // AudioWorklet (audio-retro-worklet.js, loaded from beside this file once per context);
+  // until it's loaded, or where there are no worklets, bits alone go through a WaveShaper
+  // staircase and the hold is skipped, so a cue never goes silent for want of it.
+  const _SELF_SRC = (typeof document !== 'undefined' && document.currentScript && document.currentScript.src) || '';
+  let _retroUrl = _SELF_SRC ? new URL('audio-retro-worklet.js', _SELF_SRC).href : '';
+  const _retroState = new WeakMap();   // context -> true (ready) | false (unavailable) | Promise
+  function loadRetro(c) {
+    if (!c || !c.audioWorklet || !_retroUrl) return Promise.resolve(false);
+    if (_retroState.has(c)) return Promise.resolve(_retroState.get(c));
+    const p = c.audioWorklet.addModule(_retroUrl).then(() => { _retroState.set(c, true); return true; },
+      (e) => { _retroState.set(c, false); console.warn('[audio] retro stage unavailable:', e && e.message); return false; });
+    _retroState.set(c, p);
+    return p;
+  }
+  const _stairCurves = new Map();
+  function stairCurve(bits) {
+    const b = Math.max(2, Math.min(16, bits | 0));
+    let c = _stairCurves.get(b);
+    if (c) return c;
+    // 8,192 points so each step is many points wide: a WaveShaper interpolates between
+    // points, and a curve as coarse as its own steps would be a slope, not a staircase.
+    const n = 8192, q = Math.pow(2, b - 1);
+    c = new Float32Array(n);
+    for (let i = 0; i < n; i++) { const x = (i / (n - 1)) * 2 - 1; c[i] = (x >= 0 ? Math.floor(x * q + 0.5) : -Math.floor(-x * q + 0.5)) / q; }
+    _stairCurves.set(b, c);
+    return c;
+  }
+  // Builds the stage into `dest` and hands back what the cue's layers connect to. `until` is
+  // when the cue ends (context time): the worklet stays up till then, even across a gap
+  // between its layers.
+  function retroStage(c, retro, config, dest, until) {
+    const rate = +retro.rate || 0, bits = +retro.bits || 0;
+    if (!(rate > 0 || bits > 0)) return dest;
+    const layers = Array.isArray(config.layers) && config.layers.length ? config.layers : [config];
+    // (a driven layer comes out of its clipper louder than its gain: tanh's own level, at the
+    // drive driveCurve rounds to)
+    const amp = (l) => {
+      const g = Math.abs(l.gain ?? 1);
+      if (!(l.drive > 0)) return g;
+      const k = 1 + (Math.round(Math.min(1, l.drive) * 20) / 20) * 24;
+      return Math.tanh(k * g) / Math.tanh(k);
+    };
+    const ref = Math.max(1e-3, +retro.ref || layers.reduce((s, l) => s + amp(l), 0));
+    let mid = null;
+    if (_retroState.get(c) === true && typeof global.AudioWorkletNode === 'function') {
+      mid = new global.AudioWorkletNode(c, 'siren-retro', { numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [1],
+        channelCount: 1, channelCountMode: 'explicit', processorOptions: { rate, bits, until: until || 0 } });
+    } else if (bits > 0) {
+      mid = c.createWaveShaper();
+      mid.curve = stairCurve(bits);
+    } else return dest;
+    const pre = c.createGain(), post = c.createGain();
+    pre.gain.value = 1 / ref; post.gain.value = ref;
+    pre.connect(mid).connect(post).connect(dest);
+    return pre;
   }
 
   // Browsers refuse to start an AudioContext until a user gesture. Anything the
@@ -630,6 +707,9 @@
       noiseSrc = ctx.createBufferSource();
       noiseSrc.buffer = getNoiseBuffer();
       noiseSrc.loop = true;
+      // `noiseRate` plays it slower or faster: below 1 it's darker, the way hiss sampled at a
+      // low rate was, and two beds at different rates don't repeat together
+      if (layer.noiseRate > 0) noiseSrc.playbackRate.value = layer.noiseRate;
     }
 
     let mixPoint = gain;
@@ -732,16 +812,23 @@
       const noiseGain = ctx.createGain();
       noiseGain.gain.value = noiseMix;
       noiseSrc.connect(noiseGain).connect(gain);
-      noiseSrc.start(time);
+      if (layer.noiseSeed != null) noiseSrc.start(time, noiseOffset(layer.noiseSeed));
+      else noiseSrc.start(time);
       nodes.push(noiseSrc);
     }
 
-    // ADSR
+    // ADSR. `curve: 'exp'` decays and releases exponentially (exp(-t/τ), τ = d/3, so after
+    // `d` it's 5% of the way from peak to sustain), which is how a struck thing dies: a hard
+    // transient and then a short tail, not a straight line to silence. The timing is the
+    // linear envelope's: only the shape differs.
     const peak = layer.gain ?? 1;
     const sustainLevel = peak * (adsr.s ?? 0.7);
+    const expo = adsr.curve === 'exp';
+    const tau = Math.max(0.001, (adsr.d ?? 0.05) / 3);
     gain.gain.setValueAtTime(0, time);
     gain.gain.linearRampToValueAtTime(peak, time + (adsr.a ?? 0.01));
-    gain.gain.linearRampToValueAtTime(sustainLevel, time + (adsr.a ?? 0.01) + (adsr.d ?? 0.05));
+    if (expo) gain.gain.setTargetAtTime(sustainLevel, time + (adsr.a ?? 0.01), tau);
+    else gain.gain.linearRampToValueAtTime(sustainLevel, time + (adsr.a ?? 0.01) + (adsr.d ?? 0.05));
 
     const releaseTime = adsr.r ?? 0.15;
     const attackEnd = time + (adsr.a ?? 0.01);
@@ -764,6 +851,7 @@
     function envelopeAt(t) {
       if (t <= time) return 0;
       if (t < attackEnd) return peak * ((t - time) / Math.max(1e-6, attackEnd - time));
+      if (expo) return sustainLevel + (peak - sustainLevel) * Math.exp(-(t - attackEnd) / tau);
       if (t < decayEnd) {
         const k = (t - attackEnd) / Math.max(1e-6, decayEnd - attackEnd);
         return peak + (sustainLevel - peak) * k;
@@ -777,8 +865,17 @@
       released = true;
       const t = Math.max(atTime, ctx.currentTime);
       gain.gain.cancelScheduledValues(t);
-      gain.gain.setValueAtTime(envelopeAt(t), t);
-      gain.gain.linearRampToValueAtTime(0, t + releaseTime);
+      if (expo) {
+        // down an exponential to -80 dB of where it was, then to zero: the last step is
+        // inaudible, and the envelope ends rather than approaching zero for ever
+        const v0 = Math.max(1e-5, envelopeAt(t));
+        gain.gain.setValueAtTime(v0, t);
+        gain.gain.exponentialRampToValueAtTime(Math.min(v0, v0 * 1e-4 + 1e-6), t + releaseTime);
+        gain.gain.setValueAtTime(0, t + releaseTime);
+      } else {
+        gain.gain.setValueAtTime(envelopeAt(t), t);
+        gain.gain.linearRampToValueAtTime(0, t + releaseTime);
+      }
       for (const n of nodes) {
         try { n.stop(t + releaseTime + 0.02); } catch { /* lfo already stopped */ }
       }
@@ -1041,7 +1138,9 @@
       destination = g;
     }
     const sustain = opts.sustain === true;
-    const sound = buildSound(def.config, destination, time, sustain ? null : duration);
+    // (a cue with `retro` goes through the sample-and-hold and bit-depth stage first)
+    const into = def.config.retro ? retroStage(c, def.config.retro, def.config, destination, time + duration + cueTail(def.config)) : destination;
+    const sound = buildSound(def.config, into, time, sustain ? null : duration);
     const voiceToken = occupyVoice(idx, priority, () => sound.release(c.currentTime));
     if (sustain) {
       let done = false;
@@ -1067,6 +1166,48 @@
       ...(def.config.layers || []).map(l => (l.delay ?? 0) + (l.adsr?.r ?? 0)), 0.15);
     setTimeout(() => freeVoice(idx, voiceToken), (duration + tail + 0.1) * 1000);
     return null;
+  }
+
+  // ── Offline render ─────────────────────────────────────────────────────────
+  // One cue rendered into an AudioBuffer through the very graph playSfx builds (the layers,
+  // the retro stage, the cue's gain), by the browser's own audio engine at the live rate:
+  // for a WAV to listen to on other speakers, and for a check that reads samples rather
+  // than schedules. The live context is swapped out only for the synchronous build, so
+  // nothing playing is touched. `opts`: { seconds, sampleRate, gain }.
+  function cueTail(config) {
+    const layers = Array.isArray(config.layers) && config.layers.length ? config.layers : [config];
+    return Math.max(0.15, ...layers.map((l) => (l.delay ?? 0) + (l.adsr?.a ?? 0.01) + (l.adsr?.d ?? 0.05) + (l.adsr?.r ?? 0.15)));
+  }
+  async function renderSfx(def, opts = {}) {
+    const OAC = global.OfflineAudioContext || global.webkitOfflineAudioContext;
+    const config = def && def.config;
+    if (!OAC || !config) return null;
+    const sr = opts.sampleRate || (ctx && ctx.sampleRate) || 48000;
+    const duration = config.duration ?? 0.4;
+    const seconds = opts.seconds || duration + cueTail(config) + 0.05;
+    const off = new OAC(1, Math.max(1, Math.ceil(sr * seconds)), sr);
+    if (config.retro) await loadRetro(off);
+    const live = ctx;
+    ctx = off;
+    try {
+      let dest = off.destination;
+      if (opts.gain != null && opts.gain !== 1) { const g = off.createGain(); g.gain.value = opts.gain; g.connect(dest); dest = g; }
+      const into = config.retro ? retroStage(off, config.retro, config, dest, seconds) : dest;
+      buildSound(config, into, 0, duration);
+    } finally { ctx = live; }
+    return off.startRendering();
+  }
+  // 16-bit mono WAV bytes from a rendered buffer, for a download link.
+  function wavBytes(buffer) {
+    const d = buffer.getChannelData(0), n = d.length, sr = buffer.sampleRate;
+    const out = new DataView(new ArrayBuffer(44 + n * 2));
+    const str = (o, s) => { for (let i = 0; i < s.length; i++) out.setUint8(o + i, s.charCodeAt(i)); };
+    str(0, 'RIFF'); out.setUint32(4, 36 + n * 2, true); str(8, 'WAVE'); str(12, 'fmt ');
+    out.setUint32(16, 16, true); out.setUint16(20, 1, true); out.setUint16(22, 1, true);
+    out.setUint32(24, sr, true); out.setUint32(28, sr * 2, true); out.setUint16(32, 2, true); out.setUint16(34, 16, true);
+    str(36, 'data'); out.setUint32(40, n * 2, true);
+    for (let i = 0; i < n; i++) { const v = Math.max(-1, Math.min(1, d[i])); out.setInt16(44 + i * 2, v < 0 ? v * 32768 : v * 32767, true); }
+    return out.buffer;
   }
 
   // ── Ambience / arbitrary loops ─────────────────────────────────────────────
@@ -1588,7 +1729,8 @@
   //
   // The voice. A formant speech synth: a glottal PeriodicWave through a
   // four-formant bank with a nasal antiformant, a separate noise path for
-  // fricatives and stop bursts, a 27k-word lexicon over letter-to-sound rules,
+  // fricatives and stop bursts and a second one into the formants for aspiration
+  // and breath, a 28k-word lexicon over letter-to-sound rules,
   // RP/GA accents, and prosody that falls at a full stop and rises at a question
   // mark. It reads broadcasts, the Architect, the library and Read Aloud. Its
   // tuning surface is the dev panel's Voice Lab tab.
@@ -1609,6 +1751,8 @@
     // cue at all, which is why "bat/that/cat" all arrived as the same word.
     // Each obstruent carries a locus the formants glide to during its closure;
     // the surrounding vowels do the rest for free through the existing 22ms glide.
+    const RHOTIC = [470, 1180, 1480];   // an r-coloured vowel's end: /r/ after a vowel (see the loop)
+    const GLIDE_RELEASE = { W: 0.045, Y: 0.040, R: 0.040, L: 0.012 };   // s; a vowel's glide out of each
     const LAB = [350, 1000, 2250];   // lips:            P B M F V W — F2 pulled low
     const DEN = [350, 1650, 2600];   // teeth:           TH DH
     const ALV = [350, 1750, 2650];   // alveolar ridge:  T D S Z N L
@@ -1626,7 +1770,7 @@
       EH:{f:[530,1840,2480],t:'V',d:110}, AE:{f:[660,1720,2410],t:'V',d:140},
       AA:{f:[730,1090,2440],t:'V',d:150}, AO:{f:[570,840,2410],t:'V',d:140},
       UH:{f:[440,1020,2240],t:'V',d:100}, UW:{f:[300,870,2240],t:'V',d:140},
-      ER:{f:[490,1350,1690],t:'V',d:150}, AH:{f:[640,1190,2390],t:'V',d:90},
+      ER:{f:[490,1350,1580],t:'V',d:150}, AH:{f:[640,1190,2390],t:'V',d:90},
       // SCHWA — the most common vowel in English and the one the old table had no
       // way to say. Dead centre of the vowel space, short, and never stressed.
       AX:{f:[600,1200,2400],t:'V',d:65},
@@ -1638,33 +1782,36 @@
       // RP GOAT (/əʊ/). Same offglide as GA's OW; the difference is entirely in
       // where it STARTS — central rather than back-rounded, so F2 begins near the
       // schwa's 1400 instead of 840. Slightly longer, as RP holds it.
-      OWR:{f:[500,1400,2350], to:[300,870,2240], t:'V',d:180},
-      EY:{f:[530,1840,2480],to:[270,2290,3010],t:'V',d:170},
-      AY:{f:[730,1090,2440],to:[270,2290,3010],t:'V',d:180},
-      OY:{f:[570,840,2410], to:[270,2290,3010],t:'V',d:180},
-      OW:{f:[570,840,2410], to:[300,870,2240], t:'V',d:170},
-      AW:{f:[730,1090,2440],to:[300,870,2240], t:'V',d:180},
+      OWR:{f:[500,1400,2350], to:[440,950,2350], t:'V',d:180},
+      // A diphthong's offglide heads FOR /i/ or /u/ and stops well short: real /aɪ/ ends
+      // near F1 450, F2 1850, real /oʊ/ barely moves. Gliding all the way closed the vowel
+      // off like a consonant, so "no", "low" and "dough" came back "num", "long", "dumb".
+      EY:{f:[530,1840,2480],to:[370,2150,2700],t:'V',d:170},
+      AY:{f:[730,1090,2440],to:[430,1850,2550],t:'V',d:180},
+      OY:{f:[570,840,2410], to:[430,1800,2500],t:'V',d:180},
+      OW:{f:[500,900,2450], to:[420,800,2350], t:'V',d:170},   // starts at /o/: from /ɔ/ "snowed" was heard as "snob"
+      AW:{f:[730,1090,2440],to:[480,1000,2350], t:'V',d:180},
       M:{f:[250,1100,2200],t:'N',d:80,az:1000}, N:{f:[250,1700,2600],t:'N',d:80,az:1800}, NG:{f:[250,2000,2900],t:'N',d:80,az:2900},
       // /l/ has two allophones and the gap between them is large. CLEAR /l/ before a
       // vowel (leaf, alive) keeps F2 high; DARK /l/ everywhere else (well, full,
       // people, milk) retracts the tongue body and drops F2 to near a back vowel.
       // One triple for both is wrong roughly half the time. `df` is the dark one.
-      L:{f:[360,1300,2600],df:[400,850,2600],t:'L',d:70,tc:0.040}, R:{f:[350,1100,1600],t:'L',d:80,tc:0.055},
-      W:{f:[300,610,2200],t:'L',d:70,tc:0.055},  Y:{f:[270,2290,3010],t:'L',d:60,tc:0.050},
+      L:{f:[360,1300,2600],df:[430,760,2700],t:'L',d:70,tc:0.020}, R:{f:[330,1060,1450],t:'L',d:80,tc:0.020},
+      W:{f:[300,610,2200],t:'L',d:70,tc:0.022},  Y:{f:[270,2290,3010],t:'L',d:60,tc:0.022},
       // `ng` — per-phoneme noise level. One flat 0.3 for every fricative made the
       // sibilants shout: /s/ and /ʃ/ carry far more energy than /f/ or /θ/, and this
       // synth has none of the masking a real voice provides, so they need to sit
       // BELOW the weak fricatives here, not above them. nq comes down with it — a Q
       // of 6 at 6.5kHz is a ~1kHz-wide whistle, where real /s/ is broadband hiss
       // above ~4kHz. The narrow band was what gave it that tonal edge.
-      S:{t:'F',d:100,nf:6000,nq:2.5,ng:0.15,vd:0,lf:ALV,sib:1},  Z:{t:'F',d:95,nf:6000,nq:2.5,ng:0.13,vd:.5,lf:ALV,sib:1},
-      SH:{t:'F',d:115,nf:2600,nq:2,ng:0.17,vd:0,lf:PAL,sib:1},   ZH:{t:'F',d:100,nf:2600,nq:2,ng:0.15,vd:.5,lf:PAL,sib:1},
-      F:{t:'F',d:100,nf:4000,nq:1.6,ng:0.24,vd:0,lf:LAB},  V:{t:'F',d:90,nf:4000,nq:1.6,ng:0.21,vd:.5,lf:LAB},
-      TH:{t:'F',d:100,nf:5500,nq:1.6,ng:0.24,vd:0,lf:DEN}, DH:{t:'F',d:80,nf:5500,nq:1.6,ng:0.21,vd:.5,lf:DEN},
+      S:{t:'F',d:100,nf:5600,nq:1.3,ng:0.18,vd:0,lf:ALV,sib:1},  Z:{t:'F',d:95,nf:5600,nq:1.3,ng:0.12,vd:.5,lf:ALV,sib:1},
+      SH:{t:'F',d:115,nf:3000,nq:1.2,ng:0.16,vd:0,lf:PAL,sib:1},   ZH:{t:'F',d:100,nf:3000,nq:1.2,ng:0.13,vd:.5,lf:PAL,sib:1},
+      F:{t:'F',d:100,nf:5000,nq:0.6,ng:0.03,vd:0,lf:LAB},  V:{t:'F',d:90,nf:5000,nq:0.6,ng:0.02,vd:.5,lf:LAB},
+      TH:{t:'F',d:100,nf:5500,nq:0.6,ng:0.024,vd:0,lf:DEN}, DH:{t:'F',d:80,nf:5000,nq:0.6,ng:0.012,vd:.5,lf:DEN},
       HH:{t:'H',d:80,nf:1500,nq:1,vd:0},
       // Affricates run the fricative branch, so they need the same treatment — they
       // are sibilants too, and were the last thing left shouting at the old flat 0.3.
-      CH:{t:'F',d:115,nf:2600,nq:2,ng:0.18,vd:0,stopFirst:1,lf:PAL,sib:1}, JH:{t:'F',d:105,nf:2600,nq:2,ng:0.16,vd:.4,stopFirst:1,lf:PAL,sib:1},
+      CH:{t:'F',d:95,nf:3000,nq:1.2,ng:0.14,vd:0,stopFirst:1,lf:PAL,sib:1}, JH:{t:'F',d:85,nf:3000,nq:1.2,ng:0.09,vd:.4,stopFirst:1,lf:PAL,sib:1},
       // asp: voice-onset time (ms of aspiration after the burst before voicing starts).
       // English voiceless stops are aspirated and voiced ones aren't — that gap IS
       // the contrast a listener uses, far more than the burst frequency.
@@ -1681,9 +1828,9 @@
       //       tap. This was 20ms for all six.
       //   bg  burst level, relative. A labial burst is weak: there is no cavity in
       //       front of the lips to resonate, so nothing amplifies it.
-      P:{t:'S',d:90,nf:1500,vd:0,lf:LAB,asp:55,bq:0.8,bd:14,bg:0.7}, B:{t:'S',d:80,nf:900,vd:.4,lf:LAB,asp:8,bq:0.8,bd:12,bg:0.6},
-      T:{t:'S',d:90,nf:4000,vd:0,lf:ALV,asp:60,bq:1.6,bd:15,bg:1.1}, D:{t:'S',d:80,nf:3000,vd:.4,lf:ALV,asp:10,bq:1.6,bd:13,bg:0.9},
-      K:{t:'S',d:90,nf:2000,vd:0,lf:VEL,asp:70,bq:4.5,bd:30,bg:1.15}, G:{t:'S',d:80,nf:1800,vd:.4,lf:VEL,asp:12,bq:4.5,bd:26,bg:1.0},
+      P:{t:'S',d:90,nf:1100,vd:0,lf:LAB,asp:55,bq:0.7,bd:10,bg:0.55}, B:{t:'S',d:80,nf:900,vd:.4,lf:LAB,asp:8,bq:0.7,bd:8,bg:0.35},
+      T:{t:'S',d:90,nf:4600,vd:0,lf:ALV,asp:65,bq:1.2,bd:12,bg:1.3}, D:{t:'S',d:80,nf:4000,vd:.4,lf:ALV,asp:10,bq:1.2,bd:10,bg:0.8},
+      K:{t:'S',d:90,nf:2000,vd:0,lf:VEL,asp:75,bq:3.5,bd:22,bg:1.8}, G:{t:'S',d:80,nf:1800,vd:.4,lf:VEL,asp:14,bq:3.5,bd:18,bg:1.1},
       // TWO pauses, not one. Connected speech does not stop between words — the
       // words run together and only phrase boundaries get real silence. A single
       // 120ms gap after every word is most of what made this read as dictation
@@ -1692,7 +1839,7 @@
       // A flap is not a stop with a short fuse — it is a ballistic tap, ~25ms total,
       // fully voiced, with no aspiration and barely any closure. Modelled as a stop so
       // it inherits the locus machinery, but with the timing of a tap.
-      DX:{t:'S',d:28,nf:2600,vd:.7,lf:ALV,asp:0},
+      DX:{t:'S',d:28,nf:2600,vd:.7,lf:ALV,asp:0,bg:0.15},
       // PUNCTUATION IS NOT ONE THING. A comma, a colon, a dash and an ellipsis are
       // four different silences, and collapsing them into one 180ms gap threw away
       // most of what punctuation is FOR. Each break carries its own duration, and
@@ -1704,6 +1851,7 @@
       _E:{t:'P',d:430,term:1},     // ellipsis — trailing off, and the longest silence there is
       __:{t:'P',d:250,term:1},     // full stop
       _X:{t:'P',d:200,term:1},     // exclamation — a shout doesn't linger, it lands and moves
+      _XX:{t:'P',d:220,term:1},    // "!!" or more: the same, harder (see phraseK in speak)
       _Q:{t:'P',d:290,term:1},     // question — held open a beat for the answer
       _P:{t:'P',d:480,term:1},     // paragraph / line break
     };
@@ -1930,6 +2078,8 @@
       if (!Array.isArray(ph) || ph.length < 2) return ph;
       return ph.filter((p, i) => i === 0 || p !== ph[i - 1] || DEGEM_VOWEL.test(p));
     }
+    // The vowel-less words that ARE said as sounds, not spelled: shh, psst, hmm, brr, tsk.
+    const INTERJECTION = /^(?:s+h+|p+s+t+|h+m+|m+|b+r+|g+r+|t+s+k+|z+|p+f+t+|c+h+)$/i;
     function pronounceWordRaw(w){
       // ── Initialisms ────────────────────────────────────────────────────────
       // Checked FIRST, and off the raw token, because the case is the evidence
@@ -1959,6 +2109,14 @@
           if (spelled) return spelled;
         }
       }
+      // NO VOWEL, NO WORD. A token without a single vowel letter can't be said as a word,
+      // so it is an abbreviation whatever its case: "CPhL" missed the all-caps test above
+      // on its small h and came out "K F L", three consonants and no syllable. Anything a
+      // dictionary knows ("hmm", "shh", "psst") is left alone.
+      if (rawLetters.length >= 2 && rawLetters.length <= 6 && !/[aeiouy]/i.test(rawLetters) && !INTERJECTION.test(rawLetters)) {
+        const low = rawLetters.toLowerCase();
+        if (!(lexLook(low) || dictLook(low) || cmuLook(low))) { const sp = spellOut(low); if (sp) return sp; }
+      }
       w = w.toLowerCase().replace(/[^a-z']/g,'');
       if (!w) return [];
       const x = lexLook(w); if (x) return x;
@@ -1983,6 +2141,11 @@
         ph = stemPh(m[1] + 'g');
         if (ph && ph[ph.length-1] === 'NG') return [...ph.slice(0,-1), 'N'];
       }
+      // -ES after a sibilant is its own syllable: "undresses", "boxes", "matches". The plain
+      // -s rule below can't see it, because the stem it asks for ("undresse") is no word.
+      if ((m = /^(.+(?:s|sh|ch|x|z))es$/.exec(w)) && (ph = stemPh(m[1]))) return [...ph, 'IH', 'Z'];
+      // -IES is a -y word's plural or third person: "buries", "parries".
+      if ((m = /^(.+)ies$/.exec(w)) && w.length > 4 && (ph = stemPh(m[1] + 'y'))) return [...ph, 'Z'];
       if ((m=/^(.+?)(s)$/.exec(w)) && w.length>2 && !/(ss|us|is)$/.test(w)) {
         ph = stemPh(m[1]);
         if (ph) { const last = ph[ph.length-1];
@@ -2205,7 +2368,9 @@ return out;
     };
     function expandAbbrev(text){
       return String(text)
-        .replace(/\bSt\.\s+(?=[A-Z])/g, ' Saint ')
+        // With or without its full stop: "St Garneau" is how a British-style name is
+        // written, and CMUdict's `st` (STREET) read it "Street Garneau".
+        .replace(/\bSt\.?\s+(?=[A-Z][a-z])/g, ' Saint ')
         .replace(/\bSt\./g, ' Street ')
         .replace(/\b([A-Za-z]+)\./g, (m, w) => {
           const full = ABBREV_WORD[w.toLowerCase()];
@@ -2239,6 +2404,14 @@ return out;
         // ':' becomes a phrase break, which is what was putting a pause in the
         // middle of "four thirty". :00 is the hour said as an hour; a single-digit
         // minute takes its "oh" the way a person says it.
+        // A GAME CLOCK is a length, not a time of day: "10:00 left in the third" is ten
+        // minutes, not ten o'clock, and "0:45 to go" forty-five seconds. Only before the
+        // words that make it one; a bare 10:00 is still a time.
+        .replace(/\b(\d{1,2}):([0-5]\d)(?=\s+(?:left|to go|remaining|to play)\b)/g, (m, mm, ss) => {
+          if (+mm === 0) return ' ' + intToWords(+ss) + (+ss === 1 ? ' second ' : ' seconds ');
+          if (ss === '00') return ' ' + intToWords(+mm) + (+mm === 1 ? ' minute ' : ' minutes ');
+          return ' ' + intToWords(+mm) + ' ' + intToWords(+ss) + ' ';
+        })
         .replace(/\b(\d{1,2}):([0-5]\d)\b/g, (m, h, mm) => {
           const hr = intToWords(+h);
           if (mm === '00') return ' ' + hr + " o'clock ";
@@ -2343,7 +2516,7 @@ return out;
     // audible than a wrongly-unreduced function word. The polysyllabic entries
     // (into/onto/over/under/about) are gone too — the syllable guard in stressWord
     // already made them no-ops.
-    const FUNC = new Set(('a an the of to in on at by for from with as and or but nor if than that ' +
+    const FUNC = new Set(('a an the of to in at by for from with as and or but nor if than that ' +
       'is am are was were be been being do does did have has had will would shall should may might must can could ' +
       'he she it we they you i me him her us them his its their our your my some any').split(' '));
     // Suffixes that pull stress onto a fixed syllable counted from the END.
@@ -2383,13 +2556,74 @@ return out;
       finalTaper:  0.6,
       undershoot:  0.2,    // EXPLICIT coarticulation only — see the note in the loop
       lineGapMs:   180,    // breath between chained lines (tv.js reads this)
+      excitement:  1.0,    // scales every line's delivery (opt.excite, see deliveryFor); 0 reads it all flat
+      compRatio:   3,      // the voice's compressor (1 is off)
     };
+
+    // ── Consonant levels ─────────────────────────────────────────────────────
+    // Noise made at a constriction (frication, a stop's burst) runs through its own band;
+    // noise made at the glottis (aspiration, /h/, breath) runs through the tract with the
+    // voice. These set how loud each is against a stressed vowel, and were fitted by
+    // measurement to the levels of real speech: a burst and /s/ some 10 dB under the vowel,
+    // /h/ and aspiration nearer 20. The voice bar of a closed /b d g/ sits near 16, louder
+    // than careful speech has it, because that measured clearer (see MURMUR_F1).
+    const ASP_H = 0.08;         // /h/, through the tract
+    const ASP_STOP = 0.075;     // the voice-onset breath after /p t k/
+    const BURST = 0.13;         // a stop's release, scaled per phoneme by `bg`
+    const VBAR = 0.035;         // voicing through a closed tract (/b d g/, an affricate's /dʒ/)
+    const VFRIC = 0.07;         // voicing under /v ð z ʒ/
+    const MURMUR_KEEP = 0.05;   // what's left of F2 and up when the mouth is shut
+    const BREATH_K = ASP_H / 0.11;   // voices' `breath` was tuned against an /h/ of 0.11
+    const ASP_BREATH_IN = 0.035; // the breath before a big call
+    const AFFRICATE_CLOSURE = 0.05;  // s; the stop half of /tʃ dʒ/
+    // Drawn-out sounds (see elongation and segmentDuration), in seconds: a vowel holds
+    // LONG_V0 plus LONG_V for every letter after the first, a consonant the C pair.
+    const LONG_V0 = 0.14, LONG_V = 0.16, LONG_V_MAX = 2.6;
+    const LONG_C0 = 0.10, LONG_C = 0.11, LONG_C_MAX = 1.2;
+    const VIBRATO = 0.02;            // depth (fraction of F0) a held, sold vowel wavers by
+
+    // DELIVERY: how hard a line is being sold (`opt.excite`). -1 is grave (a death on the
+    // ice, the injury list), 0 is the narrator's own voice exactly as it always was, 1 is
+    // a goal call. Excited speech is higher, wider, harder, brighter and a little quicker,
+    // holds its height across the phrase instead of sagging, leans long on the one word
+    // that matters ("he SCOOORES") and has no fry at the end; grave speech is lower,
+    // narrower, softer, darker and slower, with longer pauses, and falls into fry. Those are
+    // the measured correlates of arousal in sports commentary: F0 level and range,
+    // intensity, spectral tilt, rate and pause length. Every factor is exactly 1 (or 0) at
+    // 0, so a line nobody is selling is untouched.
+    function deliveryFor(x) {
+      const e = Math.max(0, x), g = Math.max(0, -x);
+      return {
+        e, g,
+        pitch:  2 ** ((9 * e - 3 * g) / 12),   // register: up to 9 semitones up, 3 down
+        range:  1 + 1.0 * e - 0.4 * g,          // how far the accents move (scales lilt)
+        decl:   1 - 0.55 * e + 0.25 * g,        // excited speech holds its height
+        rate:   1 + 0.1 * e - 0.12 * g,
+        pause:  1 - 0.35 * e + 0.3 * g,         // phrase pauses, not word junctures
+        hold:   1 + 1.2 * e,                    // the nucleus vowel, stretched
+        bright: 1 + 0.45 * e - 0.15 * g,        // the tilt filter's cutoffs
+        loud:   1 + 0.25 * e - 0.12 * g,        // stressed vowels; unstressed get half of it
+        oq:     -0.16 * e + 0.06 * g,           // pressed folds when excited, breathy when grave
+        breath: 0.006 * e + 0.008 * g,
+        creak:  Math.max(0, 1 - 1.4 * e) * (1 + 0.6 * g),
+        f1:     1 + 0.06 * e,                   // a louder voice opens the jaw
+        jitter: 1 + 0.5 * e,                    // and strains it
+        longK:  1 + 0.25 * e,                   // a drawn-out sound, held a little longer when sold
+      };
+    }
 
     // Two stress markers sit in the phoneme run, both immediately before a vowel and
     // neither with a PH entry, so the synthesis loop and estimateDuration skip them
     // for free — only the LOOKAHEADS have to know. '*' is ordinary lexical stress;
-    // '!' is emphasis, a level above it.
-    const isMark = p => p === '*' || p === '!';
+    // '!' is emphasis, a level above it. A third, '^', marks the NUCLEUS of a phrase
+    // that's being sold (deliveryFor): the vowel a caller leans on and holds. It sits
+    // between the stress mark and its vowel, and only speak() puts it there, after
+    // every transform has run, so nothing upstream ever sees one.
+    // A FOURTH, '~n', marks a DRAWN-OUT sound: the writer held a letter ("SCOOOOORES",
+    // "Yesss") and n is how many times they wrote it. textToPhonemes puts it before the
+    // sound to hold; see elongation() and segmentDuration.
+    const isLong = p => typeof p === 'string' && p.charCodeAt(0) === 126;   // '~'
+    const isMark = p => p === '*' || p === '!' || p === '^' || isLong(p);
 
     // Monophthongs that centralise when they lose their stress. Diphthongs are
     // absent on purpose: the glide IS the vowel's identity and survives reduction.
@@ -2399,7 +2633,7 @@ return out;
 
     // WEAK FORMS. A function word doesn't simply become schwa — English weakens each
     // vowel to a specific target, and the high vowels do NOT go all the way to the
-    // centre: /uː/ weakens to /ʊ/ and /iː/ to /ɪ/. Mapping everything to schwa turned
+    // centre: /uː/ weakens to /ʊ/, and /iː/ stays /i/ (see below). Mapping everything to schwa turned
     // "you are" into "yuh er", which is further than even fast speech goes and reads
     // as a mumble rather than as connected speech.
     //
@@ -2409,7 +2643,9 @@ return out;
     // most-spoken words in the language into "uhz uhn uht" and left the whole line
     // sounding mumbled. English weakens /ɪ/ to nothing — the /ɪ/~/ə/ contrast
     // survives reduction (it is the whole difference between "roses" and "Rosa's").
-    const WEAK = { IY:'IH', UW:'UH', EH:'AX', AE:'AX', AA:'AX', AO:'AX', AH:'AX', UH:'AX' };
+    // /iː/ keeps its colour: "he" weakens to a short [i], not to [ɪ], which made "he
+    // scores" "his scores" and "she" "shih". Length and loudness carry the weakening.
+    const WEAK = { UW:'UH', EH:'AX', AE:'AX', AA:'AX', AO:'AX', AH:'AX', UH:'AX' };
 
     // Function words lose their accent at the PHRASE level, which no dictionary can
     // tell you — CMUdict gives "you" a primary stress because it lists words in
@@ -2526,6 +2762,77 @@ return out;
       return out;
     }
 
+    // ── Drawn-out words ──────────────────────────────────────────────────────
+    // "He SCOOOOORES!", "Noooo", "Yesss", "Ahhh". Three or more of one letter is how a
+    // writer holds a sound, and the booth's goal call is written exactly that way. The
+    // word is said as the word it is: each run collapses to one letter or two, whichever
+    // the dictionary knows ("SCOOOORES" is scores, "SHOOOOTS" shoots), and the sound the
+    // run spelled is held, for as long as the letters say (see segmentDuration). Read
+    // letter for letter, "scoooores" went to the guesser and came out as mush.
+    const known = (w) => !!(lexLook(w) || dictLook(w) || cmuLook(w) || CONTRACT[w]);
+    function elongation(tok) {
+      const letters = String(tok).replace(/[^A-Za-z']/g, '');
+      const runs = []; const re = /([A-Za-z])\1{2,}/g; let m;
+      while ((m = re.exec(letters))) runs.push({ at: m.index, len: m[0].length, ch: m[1].toLowerCase() });
+      if (!runs.length) return null;
+      const build = (k) => {
+        let out = '', last = 0;
+        runs.forEach((r, i) => { out += letters.slice(last, r.at) + letters[r.at].repeat(((k >> i) & 1) + 1); last = r.at + r.len; });
+        return out + letters.slice(last);
+      };
+      // Doubled first, then single, then the mixes: "SHOOOOTS" is shoots before it is shots,
+      // and "GOOOOD" good before god, while "SCOOOORES" has no "scoores" and falls to scores.
+      // Except at the END of a word, where a held letter is nearly always the short word:
+      // "Sooooo" is so (not the Soo locks), "Nooooo" no, "here we gooooo" go.
+      const all = (1 << Math.min(runs.length, 3)) - 1;
+      const last = runs[runs.length - 1], final = last.at + last.len === letters.length;
+      const order = final ? [0, all] : [all, 0]; for (let j = 1; j < all; j++) order.push(j);
+      let k = 0;
+      for (const j of order) if (known(build(j).toLowerCase())) { k = j; break; }
+      // The longest run is the one held. Where it sits in the collapsed word:
+      let hold = 0, at = 0, shift = 0;
+      runs.forEach((r, i) => { if (r.len > runs[hold].len) hold = i; });
+      runs.forEach((r, i) => { const kept = ((k >> i) & 1) + 1; if (i === hold) at = r.at - shift; shift += r.len - kept; });
+      return { word: build(k), ch: runs[hold].ch, at, n: runs[hold].len };
+    }
+    // Which sound in `ph` the held letter spelled, and a '~n' before it. A vowel letter
+    // is matched by vowel GROUP: the run's group in the written word is the same-numbered
+    // vowel sound, once a silent final e is set aside ("scores": o, e → AO). An h after a
+    // vowel ("ahhh", "ohhh") holds that vowel. A consonant holds its own sound ("yesss").
+    // When the spelling and the sounds don't line up, the stressed vowel is the one held,
+    // which is where a caller leans anyway.
+    const LONG_SOUND = { s: ['S', 'Z', 'SH'], z: ['Z', 'S', 'ZH'], m: ['M'], n: ['N', 'NG'], l: ['L'], r: ['R', 'ER'], f: ['F'], v: ['V'], w: ['W'], y: ['Y', 'IY'] };
+    function markLong(ph, el) {
+      const word = el.word.toLowerCase();
+      const isVL = (i) => 'aeiou'.includes(word[i]) || (word[i] === 'y' && i > 0);
+      let idx = -1;
+      const vowelish = 'aeiou'.includes(el.ch) || (el.ch === 'y' && el.at > 0) || (el.ch === 'h' && el.at > 0 && isVL(el.at - 1));
+      if (vowelish) {
+        const pos = el.ch === 'h' ? el.at - 1 : el.at;
+        const groups = [];
+        for (let i = 0; i < word.length; i++) if (isVL(i) && !(i > 0 && isVL(i - 1))) groups.push(i);
+        let g = 0; for (let j = 0; j < groups.length; j++) if (groups[j] <= pos) g = j;
+        const vi = []; for (let i = 0; i < ph.length; i++) if (VOWELS.has(ph[i])) vi.push(i);
+        let n = groups.length;
+        if (n === vi.length + 1 && /[^aeiou]e[sd]?$/.test(word) && g < n - 1) n--;   // a silent e
+        if (n === vi.length && vi.length) idx = vi[g];
+        else if (groups.length > 1 && vi.length) idx = vi[Math.round(g / (groups.length - 1) * (vi.length - 1))];
+        else {
+          const s = ph.findIndex((p, i) => (p === '*' || p === '!') && VOWELS.has(ph[i + 1]));
+          idx = s >= 0 ? s + 1 : vi[0] ?? -1;
+        }
+      } else if (LONG_SOUND[el.ch]) {
+        let best = Infinity;
+        const want = el.at / Math.max(1, word.length - 1);
+        for (let i = 0; i < ph.length; i++) {
+          if (!LONG_SOUND[el.ch].includes(ph[i])) continue;
+          const d = Math.abs(i / Math.max(1, ph.length - 1) - want);
+          if (d < best) { best = d; idx = i; }
+        }
+      }
+      if (idx >= 0) ph.splice(idx, 0, '~' + el.n);
+    }
+
     const ABBREV = new Set(['mr','mrs','ms','dr','st','jr','sr','prof','sgt','lt','capt','col','gen','inc','ltd','vs','approx','dept']);   // NOT "no" — "no." ends sentences far more often than it abbreviates number
     function textToPhonemes(text){
       const seq = [];
@@ -2533,8 +2840,8 @@ return out;
       // full stops — three terminal pauses and three declination resets for one
       // trailing-off. `-{2,}`/em-dash only: a hyphen inside a word (well-known) is
       // not a break and must stay inside the word token.
-      const toks = expandNumbers(text).trim().split(/(\s+|\.{2,}|…|—|–|-{2,}|[.,!?;:()])/).filter(Boolean);
-      const PUNCT = /^(\.{2,}|…|—|–|-{2,}|[.,!?;:()])$/;
+      const toks = expandNumbers(text).trim().split(/(\s+|\.{2,}|!{2,}|…|—|–|-{2,}|[.,!?;:()])/).filter(Boolean);
+      const PUNCT = /^(\.{2,}|!{2,}|…|—|–|-{2,}|[.,!?;:()])$/;
       // Two marks in a row ("?!", ", —") are ONE silence, not two. Take the longer of
       // them and drop any word gap that got in first, so the pause the writer meant
       // is the pause that plays.
@@ -2575,13 +2882,18 @@ return out;
           pushBreak('__'); continue;
         }
         if (/^!$/.test(tok))          { pushBreak('_X'); continue; }
+        if (/^!{2,}$/.test(tok))      { pushBreak('_XX'); continue; }
         if (/^\?$/.test(tok))         { pushBreak('_Q'); continue; }
         // Phrase edge: nothing but whitespace between here and a mark or the end.
         let j = i + 1; while (j < toks.length && /^\s+$/.test(toks[j])) j++;
         const edge = j >= toks.length || PUNCT.test(toks[j]);
-        const w = tok.toLowerCase().replace(/[^a-z']/g, '');
-        let ph = stressWord(pronounceWord(tok), w, edge);
-        if (!shouty && (shout || isEmphatic(tok))) {
+        // A drawn-out word is said as the word it is ("SCOOOORES" is scores), and the
+        // held sound is marked once the run is final.
+        const el = elongation(tok);
+        const said = el ? el.word : tok;
+        const w = said.toLowerCase().replace(/[^a-z']/g, '');
+        let ph = stressWord(pronounceWord(said), w, edge);
+        if (!shouty && (shout || isEmphatic(said))) {
           const at = ph.indexOf('*');
           if (at >= 0) ph[at] = '!';                       // promote the lexical accent
           else {                                           // a deaccented function word can still be emphasised
@@ -2589,6 +2901,7 @@ return out;
             if (v >= 0) ph.splice(v, 0, '!');
           }
         }
+        if (el) markLong(ph, el);
         seq.push(...ph);
       }
       return seq;
@@ -2715,6 +3028,12 @@ return out;
       if (!ctx.nxtCode) dur *= 1.30;
       else if (isTerm(ctx.nxtCode)) dur *= 1.30;
       else if (isBreak(ctx.nxtCode)) dur *= 1.18;
+      // A post-vocalic /r/ is a colouring that takes time to sound: held a little longer
+      // than an onset /r/, or the F3 dip that IS the /r/ is over before it is heard.
+      if (code === 'R' && VOWELS.has(ctx.prevCode) && !(ctx.nxt && ctx.nxt.t === 'V')) dur *= 1.35;
+      // A dark /l/ after a vowel ("goal", "ball", "full") is the same: its low F2 needs time,
+      // or "what a goal" is "what a go".
+      if (code === 'L' && VOWELS.has(ctx.prevCode) && !(ctx.nxt && ctx.nxt.t === 'V')) dur *= 1.3;
       if (p.t === 'V') {
         dur *= ctx.wordScale;
         // AX is already the reduced vowel; shortening it again double-counts.
@@ -2724,7 +3043,19 @@ return out;
         if (ctx.nxt && (ctx.nxt.t === 'F' || ctx.nxt.t === 'S' || ctx.nxt.t === 'H')) {
           dur *= ctx.nxt.vd ? 1.25 : 0.85;
         }
+        // The nucleus of a line being sold, held (see deliveryFor).
+        if (ctx.held && ctx.hold) dur *= ctx.hold;
       }
+      // A DRAWN-OUT sound ("SCOOOOORES", "Yesss"): the writer's letters say how long. About
+      // a sixth of a second a letter, so "SCOOOOOORES" holds its vowel well over a second,
+      // which is how long a caller really leans on it; a selling line holds a little longer.
+      if (ctx.long && (p.t === 'V' || p.t === 'N' || p.t === 'L' || p.t === 'F')) {
+        const n = ctx.long, v = p.t === 'V';
+        const held = (v ? LONG_V0 + LONG_V * (n - 1) : LONG_C0 + LONG_C * (n - 1)) * (ctx.longK || 1);
+        dur = Math.max(dur, Math.min(v ? LONG_V_MAX : LONG_C_MAX, held));
+      }
+      // A phrase pause shortens in a hurry and lengthens in grief; a word juncture doesn't.
+      if (p.t === 'P' && code !== '_' && ctx.pause) dur *= ctx.pause;
       return dur;
     }
 
@@ -2742,22 +3073,26 @@ return out;
 
     // Rough total duration (s) of a phoneme run at a given speed — used to shape
     // the phrase-length prosody below (declination over the line).
-    function estimateDuration(phon, speed, shout) {
+    function estimateDuration(phon, speed, shout, dl) {
       // Thin wrapper over segmentDuration/stopTiming — it walks the run and adds up
       // exactly what the scheduler will schedule. Do not reimplement a rule here.
-      let t = 0.08, stress = 0, prevCode = null;
+      // `dl` is the line's delivery (deliveryFor), for the held nucleus and the pauses.
+      let t = 0.08, stress = 0, prevCode = null, held = false, long = 0;
       let wordScale = sylScale(sylFrom(phon, 0));
       for (let i = 0; i < phon.length; i++) {
         const code = phon[i];
+        if (code === '^') { held = true; continue; }
+        if (isLong(code)) { long = +code.slice(1) || 0; continue; }
         if (isMark(code)) { stress = code === '!' ? 2 : 1; continue; }
         const p = PH[code]; if (!p) continue;
         let j = i + 1; while (isMark(phon[j])) j++;
         const nxtCode = phon[j], nxt = PH[nxtCode];
         if (p.t === 'P') wordScale = sylScale(sylFrom(phon, i + 1));
-        const ctx = { nxtCode, nxt, prevCode, stress, shout, wordScale, speed };
+        const ctx = { nxtCode, nxt, prevCode, stress, shout, wordScale, speed, held, hold: dl && dl.hold, pause: dl && dl.pause, long, longK: dl && dl.longK };
         const dur = segmentDuration(p, code, ctx);
-        if (p.t === 'V') stress = 0;
-        if (p.t === 'F' && p.stopFirst) t += 0.03;
+        long = 0;
+        if (p.t === 'V') { stress = 0; held = false; }
+        if (p.t === 'F' && p.stopFirst) t += AFFRICATE_CLOSURE;
         if (p.t === 'S') {
           const { unreleased, asp } = stopTiming(p, ctx);
           t += dur*0.6 + 0.02 + (unreleased ? 0 : asp);
@@ -2870,6 +3205,17 @@ return out;
     let live = [];
     function cancel(){ live.forEach(n => { try { n.stop(); } catch { /* already stopped */ } }); live = []; }
 
+    // ── A matchup, said the way a booth says it ──────────────────────────────
+    // "Wharf Rats–Warlords" is two clubs, and a booth reads it "Wharf Rats versus
+    // Warlords". An en dash between two names reads that way only for a voice that
+    // asks (`vs` among its parameters: the CPhL booth's @voice). In a book the same
+    // dash is a route or a span ("the London–Paris express") and says nothing, and a
+    // hyphen never does: "Smith-Jones" is one name.
+    const readMatchups = (text) => String(text).replace(/(\p{L})\s*–\s*(?=\p{Lu})/gu, '$1 versus ');
+
+    // speak(text, { seed, voice, lex, accent, pa, channel, excite, budget }). `excite` is how
+    // hard the line is being sold, -1 (grave) to 1 (a goal call); see deliveryFor. The
+    // hockey booth sends one with every line; nothing else does, and 0 changes nothing.
     function speak(text, opt = {}){
       // `channel: 'ui'` is the log reader (client/game/js/logreader.js) — the
       // voice as an ACCESSIBILITY surface rather than as a broadcast. It bypasses
@@ -2889,7 +3235,11 @@ return out;
       // happened to roll them, which is not tuning, it is fishing. The dev panel's
       // voice lab drives this; the values it prints go straight into NAMED_VOICES.
       const V = Object.assign(voiceFromName(opt.seed || text), opt.voice || null);
-      const F0 = V.f0, ringAmt = V.ring, fshift = V.fshift;
+      if (V.vs) text = readMatchups(text);
+      // How hard the line is sold (deliveryFor). Never on the accessibility channel: a
+      // screen reader that gets excited about a goal is harder to follow, not livelier.
+      const D = deliveryFor(ui ? 0 : Math.max(-1, Math.min(1, (+opt.excite || 0) * TUNING.excitement)));
+      const F0 = V.f0 * D.pitch, ringAmt = V.ring, fshift = V.fshift;
       // ⚠ NO CHARACTER ON THE ACCESSIBILITY CHANNEL. Drive and growl are texture:
       // clipping and period doubling both make a voice more interesting and less
       // intelligible, which is a fine trade for a narrator and the wrong one for
@@ -2912,6 +3262,28 @@ return out;
       }
       finally { _lex = null; }
       if (!phon.length) return;
+      // THE NUCLEUS. A phrase sold hard leans on one vowel and holds it: the last emphatic
+      // one (a word in caps) or, failing that, the last stressed one, which is where English
+      // puts the nuclear accent ("glove save, Oye-LAAA-ran"). One per phrase.
+      if (D.e >= 0.35) {
+        const res = []; let seg = [];
+        const flush = () => {
+          // A phrase with a drawn-out word already says which sound it leans on.
+          if (seg.some(isLong)) { res.push(...seg); seg = []; return; }
+          let best = -1, bestP = 0;
+          for (let k = 0; k + 1 < seg.length; k++) {
+            if ((seg[k] === '!' || seg[k] === '*') && VOWELS.has(seg[k + 1])) {
+              const pr = seg[k] === '!' ? 2 : 1;
+              if (pr >= bestP) { best = k + 1; bestP = pr; }
+            }
+          }
+          if (best >= 0) seg.splice(best, 0, '^');
+          res.push(...seg); seg = [];
+        };
+        for (const code of phon) { seg.push(code); if (isTerm(code)) flush(); }
+        flush();
+        phon = res;
+      }
       // Every line reads at the narrator's own pace, however long it is. There used
       // to be a fit-to-window compression here (speed up so a long line landed before
       // the next one), but a voice that gabbles the long lines and strolls the short
@@ -2929,7 +3301,7 @@ return out;
       // of ordinary human speech. LOWER IS SLOWER. Raise toward 0.9 if it still
       // drags. Broadcast's nodeHoldMs is fitted to this number — re-measure both
       // together if the phoneme durations are ever retuned.
-      const speed = V.speed * TUNING.rate;
+      const speed = V.speed * TUNING.rate * D.rate;
       // 'ui' is a DRY bus (see busFor). Read Aloud is the caller, and a screen
       // reader carrying the room's reverb is harder to understand, not richer.
       const out = busFor(ui ? 'ui' : 'tv');
@@ -2958,11 +3330,11 @@ return out;
       // bought consonant clarity and paid for it in hiss. A wide peak centred on the
       // intelligibility band does the same job and leaves the sibilants alone.
       presence.type = 'peaking'; presence.frequency.value = 3000;
-      presence.Q.value = 0.9; presence.gain.value = TUNING.presenceDb;
+      presence.Q.value = 0.9; presence.gain.value = TUNING.presenceDb + 2 * D.e;
       // Keeps a loud vowel from swamping the consonant that follows it — the voice
       // sits at one level instead of lunging, which reads as microphone technique.
       const comp = c.createDynamicsCompressor();
-      comp.threshold.value = -22; comp.knee.value = 12; comp.ratio.value = 3;
+      comp.threshold.value = -22; comp.knee.value = 12; comp.ratio.value = TUNING.compRatio;
       comp.attack.value = 0.004; comp.release.value = 0.12;
       // ⚠ THE HEAD OF THE CHAIN, AND ITS FAILURE MODE IS A PERFECT SILENCE.
       // `master` is where every voiced and unvoiced branch is summed, and until it
@@ -3015,7 +3387,7 @@ return out;
       }
 
       const glot = c.createOscillator(); glot.frequency.value = F0;
-      glot.setPeriodicWave(glottalWave(c, V.oq));
+      glot.setPeriodicWave(glottalWave(c, Math.max(0.4, Math.min(0.85, V.oq + D.oq))));
       // The tilt filter used to be the ONLY thing standing in for glottal roll-off,
       // so it had to sit low (3.4k) and dulled the consonants along with the buzz.
       // The source now rolls off on its own, correctly, so this backs off to a
@@ -3029,9 +3401,9 @@ return out;
       // half of the same roughness) rides the master gain, and matters more than its
       // size suggests: perfectly steady loudness is the other half of "machine".
       const jit = c.createOscillator(); jit.type = 'triangle'; jit.frequency.value = 9;
-      const jitG = c.createGain(); jitG.gain.value = F0 * V.jitter; jit.connect(jitG).connect(glot.frequency);
+      const jitG = c.createGain(); jitG.gain.value = F0 * V.jitter * D.jitter; jit.connect(jitG).connect(glot.frequency);
       const jit2 = c.createOscillator(); jit2.type = 'sine'; jit2.frequency.value = 6.3;
-      const jit2G = c.createGain(); jit2G.gain.value = F0 * V.jitter * 0.6; jit2.connect(jit2G).connect(glot.frequency);
+      const jit2G = c.createGain(); jit2G.gain.value = F0 * V.jitter * 0.6 * D.jitter; jit2.connect(jit2G).connect(glot.frequency);
       // GROWL. Audio-rate FM on the glottal source at HALF F0 — period doubling,
       // which is the actual mechanism behind creak and vocal fry: alternate cycles
       // come out at a different amplitude and the ear stops reading one clean
@@ -3091,8 +3463,13 @@ return out;
       }
       const shim = c.createOscillator(); shim.type = 'sine'; shim.frequency.value = 5.1;
       const shimG = c.createGain(); shimG.gain.value = 0.05; shim.connect(shimG).connect(master.gain);
+      // VOICING sits at the SOURCE, ahead of the tract. It used to gate the bank's OUTPUT,
+      // which cut every resonance dead at a voiceless consonant (a real tract rings out) and
+      // left nothing for noise to excite: aspiration and /h/ had to be faked as a fixed band
+      // beside the formants instead of breath through them. See `aspG` below.
       const voiced = c.createGain(); voiced.gain.value = 0;
-      glot.connect(tilt);
+      glot.connect(voiced).connect(tilt);
+      const tract = c.createGain(); tract.gain.value = 1;   // the bank's sum
       // FOUR formants, not three. F4 is fixed high energy that the ear reads as
       // "a mouth", and its absence is a large part of why three-formant synths
       // sound like a kazoo. Q comes down across the board too: the old 10/13/16
@@ -3114,7 +3491,7 @@ return out;
       // than two written from the same idea. The handles come back because this
       // caller does something a static layer never does: it glides every band
       // across the utterance, phoneme to phoneme.
-      const bank = buildResonatorBank(tilt, voiced, [0,1,2,3].map(k => {
+      const bank = buildResonatorBank(tilt, tract, [0,1,2,3].map(k => {
         const f = k === 3 ? 3600 : 500;
         return { freq: f, q: qFor(f, k), gain: k === 0 ? 1 : 0.4 };
       }));
@@ -3147,9 +3524,9 @@ return out;
       // around it. Brightness stays where it was; the balance now moves with the
       // vowel, which is the whole point.
       const CASCADE_FIT = [1, 1.49, 3.97, 20.17];
-      const cascadeGains = (F, wide) => {
+      const cascadeA = (F, wide) => {
         const bw = F_BW.map(b => b * (wide ? 1.8 : 1));
-        const A = F.map((fn, n) => {
+        return F.map((fn, n) => {
           let a = fn / bw[n];                                  // its own resonant peak
           for (let k = 0; k < 4; k++) {
             if (k === n) continue;                             // every OTHER pole's skirt
@@ -3157,10 +3534,27 @@ return out;
           }
           return a;
         });
-        const m = A[0] || 1;
+      };
+      // LEVEL, NOT JUST BALANCE. These used to be normalised to F1 = 1 for every sound,
+      // which kept each vowel's balance and threw away how loud it is. In a tube the F1
+      // peak grows with F1 over its bandwidth, so an open /a/ is loud and a nasal murmur,
+      // with its low, damped F1, is quiet. Pinned to 1, the order inverted: the source is
+      // strongest low down, so /m/ came out louder than the /a/ after it, the voice bar of a
+      // /b/ nearly as loud as a vowel, and every consonant with a low F1 shouted. Measured
+      // against a fixed reference (the neutral vowel, through this voice's tract) the
+      // vowels and sonorants land in their natural order again.
+      const A_REF = cascadeA([600*fshift, 1200*fshift, 2400*fshift, 3600*fshift], false)[0];
+      // A closed tract's F1. By the level model alone a 220 Hz F1 would be about a third of
+      // the neutral vowel's, which puts the voice bar near -25 dB, where careful speech has
+      // it. Left at full strength it sits near -16 dB, as in clear speech, where a speaker
+      // voices through any closure they want heard, and that measured more intelligible:
+      // the /b d g/ against /p t k/ contrast survives a small speaker and a busy room.
+      const MURMUR_F1 = 1;
+      const cascadeGains = (F, wide) => {
+        const A = cascadeA(F, wide);
         // Clamped AFTER the rescale, or the floor would flatten exactly the
         // variation this exists to produce — half the vowels pinned to one value.
-        return A.map((x, k) => Math.max(0.04, Math.min(1.3, (x / m) * CASCADE_FIT[k])));
+        return A.map((x, k) => Math.max(0.02, Math.min(2.5, (x / A_REF) * CASCADE_FIT[k])));
       };
       // NASAL ANTIFORMANT. When the velum opens, the nasal cavity hangs off the tract
       // as a side branch and SUBTRACTS a band — a spectral zero. That zero is what
@@ -3170,7 +3564,7 @@ return out;
       // It sits on the voiced path only — fricative noise never goes through the nose.
       const nzero = c.createBiquadFilter();
       nzero.type = 'peaking'; nzero.frequency.value = 1500; nzero.Q.value = 4; nzero.gain.value = 0;
-      voiced.connect(nzero).connect(master);
+      tract.connect(nzero).connect(master);
 
       const nz = c.createBufferSource(); nz.buffer = speechNoise(c); nz.loop = true;
       // ── Noise shaping: keep the peak, lose the spill ─────────────────────────
@@ -3200,6 +3594,14 @@ return out;
       };
       const noiseG = c.createGain(); noiseG.gain.value = 0;
       nz.connect(nbp).connect(nbp2).connect(nlp).connect(noiseG).connect(master);
+      // ASPIRATION: the same noise into the TRACT, so it comes out shaped by the formants
+      // exactly as the voice does. That is what /h/ is (the /h/ of "he" and of "who" differ
+      // because their vowels do), what the puff after /p t k/ is (it already carries the
+      // vowel coming, which is half of how a listener hears which stop it was), and what
+      // breath is. The frication path above is for noise made at a CONSTRICTION: fricatives
+      // and the bursts of stops, which have their own spectra and bypass the tract.
+      const aspG = c.createGain(); aspG.gain.value = 0;
+      nz.connect(aspG).connect(tilt);
 
       const t0 = c.currentTime + 0.05; let t = t0;
       // F4 is a fixed resonance of the vocal tract, not a vowel target — the phoneme
@@ -3219,7 +3621,7 @@ return out;
       // `tc` supplies it; 22ms stays the default for vowels.
       const setF = (when, arr, wide, tc) => {
         const k0 = tc || 0.022;
-        const F = [arr[0]*fshift, arr[1]*fshift, arr[2]*fshift, 3600*fshift];
+        const F = [arr[0]*fshift*D.f1, arr[1]*fshift, arr[2]*fshift, 3600*fshift];
         const A = cascadeGains(F, wide);
         for (let k = 0; k < 4; k++) {
           // F4's FREQUENCY is fixed (it is a property of the tract, not of the vowel)
@@ -3232,6 +3634,29 @@ return out;
           fgain[k].gain.setTargetAtTime(A[k], when, k0);
         }
       };
+      // A CLOSED TRACT: the voice bar under /b d g/ and the voicing under /v z/. With the
+      // mouth shut only the lowest resonance radiates (through the cheeks and throat), so F1
+      // drops to ~220 Hz and the bands above it all but vanish. Played through the full bank
+      // instead, the same buzz was a nasal or a /w/: "bee" came back "me" and "bid" "with".
+      // F2 and F3 still travel to the consonant's locus, silently, so the vowel after the
+      // release glides out of the right place.
+      const murmur = (when, lf, keep = MURMUR_KEEP) => {
+        const L = lf || [350, 1500, 2500];
+        forms[0].frequency.setTargetAtTime(220 * fshift, when, 0.008);
+        forms[0].Q.setTargetAtTime(3, when, 0.008);
+        forms[1].frequency.setTargetAtTime(L[1] * fshift, when, 0.012);
+        forms[2].frequency.setTargetAtTime(L[2] * fshift, when, 0.012);
+        fgain[0].gain.setTargetAtTime(MURMUR_F1, when, 0.006);
+        for (let k = 1; k < 4; k++) fgain[k].gain.setTargetAtTime(keep, when, 0.006);
+      };
+      // A breath in before a big call: you hear the caller fill his lungs, then it comes.
+      // Through an open, neutral tract, like any breath.
+      if (D.e >= 0.6) {
+        setF(t0, [600, 1200, 2400], false, 0.01);
+        aspG.gain.setTargetAtTime(ASP_BREATH_IN * (0.5 + 0.5 * D.e), t0, 0.05);
+        aspG.gain.setTargetAtTime(0, t0 + 0.17, 0.03);
+        t += 0.22;
+      }
 
       // ── Prosody ─────────────────────────────────────────────────────────────
       // Two movements, both cheap and both worth more than any filter change:
@@ -3263,15 +3688,25 @@ return out;
         if (isTerm(code)) phrases.push([]);
       }
       if (!phrases[phrases.length-1].length) phrases.pop();
-      const phraseDur = phrases.map(ph => estimateDuration(ph, speed) || 1);
+      const phraseDur = phrases.map(ph => estimateDuration(ph, speed, undefined, D) || 1);
       // Per-phrase declination, read off the mark that ENDS each phrase: a question
       // holds itself open, an ellipsis sags away harder than a full stop does.
       const phraseDecl = phrases.map(ph => {
         const end = ph[ph.length-1];
-        return end === '_Q' ? V.decl * 0.45 : end === '_E' ? V.decl * 1.25 : V.decl;
+        return (end === '_Q' ? V.decl * 0.45 : end === '_E' ? V.decl * 1.25 : V.decl) * D.decl;
       });
-      let phraseIx = 0, phraseT0 = t0;
-      const totalDur = estimateDuration(phon, speed) || 1;
+      // A line being sold peaks on its exclamation: "He shoots. He SCORES!" builds through
+      // the first phrase and goes all the way up on the second, two semitones higher. "!!"
+      // or more goes higher again: the writer is shouting, and so, some, is a calm voice.
+      const phraseK = phrases.map(ph => {
+        const end = ph[ph.length-1];
+        if (end === '_XX') return 2 ** (1.5 * Math.max(D.e, 0.4) / 12);
+        return D.e > 0 && end !== '_X' ? 2 ** (-2 * D.e / 12) : 1;
+      });
+      const phraseBang = phrases.map(ph => (ph[ph.length-1] === '_XX' ? 2 : ph[ph.length-1] === '_X' ? 1 : 0));
+      const lilt = V.lilt * D.range;
+      let phraseIx = 0, phraseT0 = t;
+      const totalDur = estimateDuration(phon, speed, undefined, D) || 1;
       // INTRINSIC F0. High vowels sit a little higher in pitch than low ones — the
       // raised tongue body pulls on the larynx. It correlates inversely with F1, so
       // it comes straight off the formant target rather than needing a table: /iy/
@@ -3289,26 +3724,28 @@ return out;
       // mark has its own, and it is most of what tells the ear which one was written:
       // a comma rises and hands over, a colon holds level and announces, a dash breaks
       // off flat, an ellipsis drifts down and away, a question climbs.
-      const BOUNDARY = { _C: 1.07, _S: 1.05, _D: 1.04, _E: 0.955, _Q: 1.13, _X: 1.02 };
+      const BOUNDARY = { _C: 1.07, _S: 1.05, _D: 1.04, _E: 0.955, _Q: 1.13, _X: 1.02, _XX: 1.03 };
       const pitchAt = (when, frac, stressed, f1, nextCode) => {
         const fall = 1 - (phraseDecl[phraseIx] ?? V.decl) * frac;   // declination
         // Emphasis is a level ABOVE stress, not a louder version of it — it moves
         // pitch about twice as far, which is what makes "it is GONE" land.
-        const lift = stressed === 2 ? 1 + V.lilt * 3.4 * TUNING.emphasis
-                   : stressed       ? 1 + V.lilt
-                   :                  1 - V.lilt * 0.45;
+        const lift = stressed === 2 ? 1 + lilt * 3.4 * TUNING.emphasis
+                   : stressed       ? 1 + lilt
+                   :                  1 - lilt * 0.45;
         // CONTINUATION RISE. A comma is not a full stop: the clause is unfinished and
         // English says so by rising (or at least not falling) into the pause. Without
         // it a list reads as a series of separate little sentences, because every
         // clause got the same terminal fall.
         const hold = BOUNDARY[nextCode] || 1;
-        glot.frequency.setTargetAtTime(F0 * fall * lift * hold * intrinsicF0(f1) * micro, when, 0.05);
+        const f = F0 * (phraseK[phraseIx] ?? 1) * fall * lift * hold * intrinsicF0(f1) * micro;
+        glot.frequency.setTargetAtTime(f, when, 0.05);
         micro = 1;
         // SPECTRAL TILT tracks effort. A voice raised in emphasis doesn't just get
         // louder and higher, it gets BRIGHTER — the folds close harder and the
         // source spectrum tilts up. Moving the tilt filter with stress is what
         // makes an accent read as effort rather than as a volume knob.
-        tilt.frequency.setTargetAtTime(stressed === 2 ? TUNING.tiltEmph : stressed ? TUNING.tiltStress : TUNING.tiltPlain, when, 0.04);
+        tilt.frequency.setTargetAtTime((stressed === 2 ? TUNING.tiltEmph : stressed ? TUNING.tiltStress : TUNING.tiltPlain) * D.bright, when, 0.04);
+        return f;
       };
 
       // Vowel REDUCTION is no longer done here. It used to be a blend toward schwa
@@ -3323,24 +3760,41 @@ return out;
 
       // POLYSYLLABIC SHORTENING — see sylFrom/sylScale above. A syllable gets shorter
       let wordScale = sylScale(sylFrom(phon, 0));
-      let pendingStress = 0, prevNasal = false, prevP = null, prevCode = null;
+      let pendingStress = 0, pendingHeld = false, pendingLong = 0, prevNasal = false, prevP = null, prevCode = null;
+      const holdK = shoutLine ? Math.min(D.hold, 1.4) : D.hold;   // a shout is already held
 
+      // `opt.trace`: an array the caller passes to get each phoneme's scheduled start (s,
+      // from the line's start). For the voice lab and the measurement scripts; costs a push.
+      const trace = Array.isArray(opt.trace) ? opt.trace : null;
       for (let i = 0; i < phon.length; i++) {
         const code = phon[i];
+        if (code === '^') { pendingHeld = true; continue; }
+        if (isLong(code)) { pendingLong = +code.slice(1) || 0; continue; }
         if (isMark(code)) { pendingStress = code === '!' ? 2 : 1; continue; }
         const p = PH[code]; if (!p) continue;
+        if (trace) trace.push({ p: code, at: t - t0 });
+        const long = pendingLong; pendingLong = 0;
         const nxt = phAt(i+1);
-        const nxtCode = (() => { let j = i+1; while (isMark(phon[j])) j++; return phon[j]; })();
-        const segCtx = { nxtCode, nxt, prevCode, stress: pendingStress, shout: shoutLine, wordScale, speed };
+        let nj = i + 1; while (isMark(phon[nj])) nj++;
+        const nxtCode = phon[nj];
+        const segCtx = { nxtCode, nxt, prevCode, stress: pendingStress, shout: shoutLine, wordScale, speed, held: pendingHeld, hold: holdK, pause: D.pause, long, longK: D.longK };
         let dur = segmentDuration(p, code, segCtx);
         // (pre-boundary, polysyllabic, stress, schwa and pre-voiced rules all live in
         //  segmentDuration now — see the note there.)
 
         if (p.t==='V' || p.t==='N' || p.t==='L') {
           const stressed = pendingStress; pendingStress = 0;
+          const held = pendingHeld && p.t === 'V'; if (p.t === 'V') pendingHeld = false;
           let f = p.f;
           // Dark /l/ unless a vowel follows it.
           if (p.df && !(nxt && nxt.t === 'V')) f = p.df;
+          // POSTVOCALIC /r/ is not the consonant of "red". After a vowel and before anything
+          // else ("four", "board", "score") it is an r-colouring of that vowel: F3 falls hard
+          // and the voice carries on at nearly full strength. As a consonant (low F1, quiet,
+          // slow to arrive) it was heard as a dark /l/: "four" came back "full", "boards"
+          // "balls", "scoreboard" "skullboard".
+          const rhotic = code === 'R' && prevP && prevP.t === 'V' && !(nxt && nxt.t === 'V');
+          if (rhotic) f = RHOTIC;
           // Nasal coupling: the velum is slow, so a vowel touching a nasal is itself
           // partly nasalised. Cheap here, and it's the difference between a nasal
           // that's glued to its word and one that sounds spliced in.
@@ -3381,10 +3835,24 @@ return out;
               f = f.map((v, k) => v + (loc[k] - v) * blend * TUNING.undershoot);
             }
           }
-          setF(t, f, nasalised, p.tc);
+          // A glide is defined by how SLOWLY it lets go: the tongue or lips reach the /w r j/
+          // target quickly and then ease into the vowel over 50 ms or more, where /l/ snaps
+          // open. The approach is the glide's own `tc`; the release is the VOWEL's, so it is
+          // read off what came before. With every vowel gliding in at 22 ms the glides lost
+          // the one thing that makes them glides ("reared" heard as "weirded", "rose" as
+          // "was"), and /l/ blurred into the vowel ("slid" heard as "sit").
+          const release = p.t === 'V' ? GLIDE_RELEASE[prevCode] : 0;
+          const dark = p.df && f === p.df;
+          setF(t, f, nasalised, rhotic ? 0.018 : release || (dark ? 0.016 : p.tc));
           if (nasal) {
             nzero.frequency.setTargetAtTime(p.az, t, 0.008);
             nzero.gain.setTargetAtTime(-22, t, 0.010);
+          } else if (code === 'L') {
+            // A LATERAL has a zero too: the air goes round the tongue on both sides, and the
+            // short side channel cancels a band near 2.3 kHz. A mild one keeps /l/ from
+            // reading as a vowel or, with its low F1, as a nasal ("lemons" heard as "mammals").
+            nzero.frequency.setTargetAtTime(2300 * fshift, t, 0.008);
+            nzero.gain.setTargetAtTime(-9, t, 0.010);
           } else {
             // The zero has to state its frequency too. Setting only the GAIN left
             // the notch wherever the last nasal put it — or at the 1500Hz default —
@@ -3395,7 +3863,8 @@ return out;
             if (nasalised) nzero.frequency.setTargetAtTime(az, t, 0.020);
             nzero.gain.setTargetAtTime(nasalised ? -7 : 0, t, 0.020);
           }
-          let vg = p.t==='V' ? (stressed === 2 ? (shoutLine ? 1.4 : 1.25) : stressed ? 0.95 : 0.72) : 0.6;
+          let vg = p.t==='V' ? (stressed === 2 ? (shoutLine ? 1.4 : 1.25) : stressed ? 0.95 : 0.72) : rhotic ? 0.85 : code === 'L' ? 0.5 : 0.6;
+          vg *= p.t === 'V' && stressed ? D.loud : 1 + (D.loud - 1) * 0.5;
           // DEVOICING. An unstressed vowel trapped between two voiceless obstruents
           // is partly or wholly whispered in ordinary speech — the folds simply never
           // get going between "p" and "t". It's the first vowel of "potato",
@@ -3412,41 +3881,93 @@ return out;
           // target for the whole vowel is a plateau, and a run of plateaus is the
           // organ-like quality that survives even when every formant is right. Decay
           // through the back half so each vowel has a shape instead of a level.
-          if (p.t === 'V') voiced.gain.setTargetAtTime(vg * 0.86, t + dur*0.55, 0.05);
-          // Breath noise has to state its OWN band. It didn't, so it played through
-          // whatever the last fricative left behind — after any /s/ that meant 6.5kHz
-          // at Q6, a narrow high hiss sustained underneath every following vowel. That
-          // was the prominent "sss whisper" running under the whole voice. Real breath
-          // is low and broad, nothing like a sibilant.
-          setNoiseBand(1400, 0.7, t, 0.012);
-          // A devoiced vowel is breath where the voice should be — without this the
-          // syllable would just get quieter, which is a dropout, not a whisper.
-          noiseG.gain.setTargetAtTime(devoiced ? 0.10 : V.breath * TUNING.breath, t, 0.01);
-          if (p.t === 'V') pitchAt(t, (t - phraseT0) / (phraseDur[phraseIx] || totalDur), stressed, f[0], nxtCode);
-          if (p.to) setF(t+dur*0.62, p.to, false, 0.018);
+          // (a held nucleus doesn't sag: the caller is still selling it)
+          const drawn = long && p.t === 'V';
+          if (p.t === 'V' && !drawn) voiced.gain.setTargetAtTime(vg * (held ? 0.95 : 0.86), t + dur * (held ? 0.8 : 0.55), held ? 0.08 : 0.05);
+          // Breath is noise through the tract (the aspiration path), under the voice and
+          // shaped by the same formants, so it reads as a breathy voice rather than a hiss
+          // beside one. The frication path is shut during a sonorant: whatever band the last
+          // fricative left it on (6 kHz after an /s/) would otherwise sit under the vowel.
+          noiseG.gain.setTargetAtTime(0, t, 0.010);
+          // A devoiced vowel is breath where the voice should be: without it the syllable
+          // would just get quieter, which is a dropout, not a whisper.
+          aspG.gain.setTargetAtTime(devoiced ? ASP_H * 0.8 : (V.breath * TUNING.breath + D.breath) * BREATH_K, t, 0.01);
+          if (p.t === 'V') {
+            const fv = pitchAt(t, (t - phraseT0) / (phraseDur[phraseIx] || totalDur), stressed, f[0], nxtCode);
+            // The held nucleus climbs through the vowel to its peak and only eases at the end:
+            // the shape of "SCOOORES", where a plain accent is a step.
+            if (held && D.e > 0.3 && !drawn) {
+              glot.frequency.setTargetAtTime(fv * (1 + 0.1 * D.e), t + dur * 0.3, 0.06);
+              glot.frequency.setTargetAtTime(fv * (1 + 0.03 * D.e), t + dur * 0.85, 0.08);
+            }
+            // A DRAWN-OUT VOWEL is sung as much as said. Sold ("He SCOOOOORES!!!"), it
+            // climbs over its first fifth to a peak two to four semitones over the accent
+            // it already has (a goal call tops out near 280 Hz on this booth), leans on it
+            // with the vocal-fold tremor any held shout has (a 6 Hz waver, the second jitter
+            // oscillator turned up), swells and brightens, then eases into the rest of the
+            // word. Not sold ("Noooo..."), it sags instead. A flat, steady second of formant
+            // is an organ note; this is what keeps it a voice.
+            if (drawn) {
+              const sold = D.e > 0 || phraseBang[phraseIx] > 0;
+              const peak = sold ? 2 ** ((1.5 + 1.0 * Math.max(0, D.e) + 0.5 * phraseBang[phraseIx]) / 12) : 2 ** (-2 / 12);
+              glot.frequency.setTargetAtTime(fv * peak, t + 0.03, dur * 0.12);
+              if (sold) glot.frequency.setTargetAtTime(fv * peak * (1 + 0.025 * Math.max(0.4, D.e)), t + dur * 0.45, dur * 0.25);
+              glot.frequency.setTargetAtTime(fv * peak * (sold ? 0.96 : 0.92), t + dur * 0.86, 0.05);
+              const wob = F0 * VIBRATO * (sold ? 0.6 + 0.4 * Math.max(0, D.e) : 0.4);
+              jit2G.gain.setTargetAtTime(wob, t + dur * 0.18, dur * 0.12);
+              jit2G.gain.setTargetAtTime(F0 * V.jitter * 0.6 * D.jitter, t + dur * 0.9, 0.04);
+              const swell = sold ? 1.18 + 0.06 * phraseBang[phraseIx] : 1.0;
+              voiced.gain.setTargetAtTime(vg * swell, t + dur * 0.1, dur * 0.18);
+              voiced.gain.setTargetAtTime(vg * (sold ? 1.05 : 0.8), t + dur * 0.85, 0.06);
+              if (sold) tilt.frequency.setTargetAtTime(TUNING.tiltEmph * D.bright * 1.1, t + dur * 0.1, dur * 0.2);
+            }
+          }
+          // A diphthong's glide comes at the END of a held vowel ("GOOOOAL" is a long /o/
+          // that turns to /ʊ/ at the last moment), not through the middle of it.
+          if (p.to) setF(t + (drawn ? Math.max(dur * 0.62, dur - 0.16) : dur * 0.62), p.to, false, 0.018);
+          // A vowel before an /r/ that ends its syllable ("score", "four", "board") is
+          // r-coloured through its back half: F3 starts down before the /r/ itself, as it
+          // does in a mouth, and the /r/ is heard as part of the vowel rather than a blip.
+          else if (p.t === 'V' && nxtCode === 'R' && !VOWELS.has(nextSound(phon, nj + 1))) {
+            setF(t + dur * (drawn ? 0.85 : 0.55), [f[0], (f[1] + RHOTIC[1]) / 2, (f[2] + RHOTIC[2]) / 2], false, 0.03);
+          }
           t += dur;
-        } else if (p.t==='F' || p.t==='H') {
-          if (p.stopFirst) { voiced.gain.setTargetAtTime(0,t,0.005); noiseG.gain.setTargetAtTime(0,t,0.005); t += 0.03; }
+        } else if (p.t==='H') {
+          // /h/ IS THE FOLLOWING VOWEL, BREATHED. It has no constriction of its own: the
+          // turbulence is at the glottis and the tract is already in position for whatever
+          // comes next, which is why the /h/ of "he" and of "who" are different sounds. So it
+          // is noise through the formants (the aspiration path), with the bands widened
+          // because an open glottis damps them. A fixed band beside the formants made every
+          // /h/ the same neutral puff, and one close enough to /ʃ/'s that "sheet" was heard as
+          // "heat".
+          const finalH = !nxt || nxt.t === 'P';
           nzero.gain.setTargetAtTime(0, t, 0.02);
-          if (p.lf) setF(t, p.lf, false, 0.012);   // place cue; fast — a constriction is released quickly
+          noiseG.gain.setTargetAtTime(0, t, 0.006);
+          voiced.gain.setTargetAtTime(0, t, 0.010);
+          setF(t, (nxt && nxt.f) || [600, 1200, 2400], true, 0.012);
+          aspG.gain.setTargetAtTime(ASP_H * TUNING.aspiration * (finalH ? TUNING.finalTaper : 1), t, 0.010);
+          micro = 1.015;
+          t += dur;
+          aspG.gain.setTargetAtTime(0, t, 0.012);
+        } else if (p.t==='F') {
+          nzero.gain.setTargetAtTime(0, t, 0.02);
+          aspG.gain.setTargetAtTime(0, t, 0.006);
+          // AN AFFRICATE IS A STOP FIRST. /tʃ/ is a closure and then a release straight into
+          // the friction, and that release is what tells it from /ʃ/: the noise snaps on where
+          // a fricative's swells in. 30 ms of near-silence and the same slow onset as /ʃ/ made
+          // "chicken" and "chat" arrive as "shicken" and "shat", and "juice" as "use".
+          if (p.stopFirst) {
+            if (p.vd) { murmur(t, p.lf); voiced.gain.setTargetAtTime(VBAR, t, 0.006); }
+            else { if (p.lf) setF(t, p.lf, false, 0.012); voiced.gain.setTargetAtTime(0, t, 0.005); }
+            noiseG.gain.setTargetAtTime(0, t, 0.005);
+            t += AFFRICATE_CLOSURE;
+          }
           // Q is SCHEDULED, not assigned. An imperative `Q.value =` applies
           // immediately rather than at time t, so the whole line ended up scheduled
           // with whichever Q the loop happened to finish on. setNoiseBand keeps that
           // property and drives both bandpasses together.
-          // /h/ IS THE FOLLOWING VOWEL, DEVOICED. It has no constriction of its own —
-          // the turbulence is at the glottis and the tract is already in position for
-          // whatever comes next, which is why the /h/ of "he" and of "who" are
-          // acoustically different sounds. A fixed 1500Hz band made every one of them
-          // the same neutral puff. Shape it on the coming vowel instead, and start the
-          // formants moving there too, so the vowel is already in place when voicing
-          // arrives rather than sliding in after it.
-          if (p.t === 'H' && nxt && nxt.t === 'V') {
-            setNoiseBand(nxt.f[1], 1.2, t, 0.01);
-            setF(t, nxt.f, false, 0.030);
-          } else {
-            setNoiseBand(p.nf, p.nq||3, t, 0.01);
-          }
-          let fam = p.t==='H' ? 0.11*TUNING.aspiration : (p.ng ?? 0.3) * (p.sib ? TUNING.sibilance : TUNING.friction);
+          setNoiseBand(p.nf, p.nq||3, t, 0.004);
+          let fam = (p.ng ?? 0.3) * (p.sib ? TUNING.sibilance : TUNING.friction);
           // A FINAL FRICATIVE IS QUIETER AND STOPS SOONER. Mid-word, the next vowel
           // masks the tail of the noise; at a word or phrase edge there is nothing
           // over it, so the same level hangs in the open as a hiss. English does damp
@@ -3454,8 +3975,16 @@ return out;
           // so this is a correction, not just a mix decision.
           const finalF = !nxt || nxt.t === 'P';
           if (finalF) fam *= TUNING.finalTaper;
-          noiseG.gain.setTargetAtTime(fam, t, 0.008);
-          voiced.gain.setTargetAtTime(p.vd?0.35:0, t, 0.008);
+          // A fricative's noise swells in over ~15 ms; an affricate's snaps on at its release.
+          noiseG.gain.setTargetAtTime(fam, t, p.stopFirst ? 0.002 : 0.014);
+          // A voiced fricative buzzes through a near-closed tract: the voicing is low and weak,
+          // like a voice bar, under the friction. Through the open bank it was a vowel with
+          // hiss on it, and /ð/ (the most common consonant in English, in "the") lost to it.
+          if (p.vd) { murmur(t, p.lf, 0.10); voiced.gain.setTargetAtTime(VFRIC, t, 0.010); }
+          else {
+            if (p.lf) setF(t, p.lf, false, 0.012);   // place cue; fast, a constriction is released quickly
+            voiced.gain.setTargetAtTime(0, t, 0.008);
+          }
           micro = p.vd ? 0.985 : 1.015;   // voiced obstruent drags F0 down, voiceless lifts it
           t += dur;
           // The release matters as much as the level: setTargetAtTime is exponential,
@@ -3465,13 +3994,15 @@ return out;
           // further — at 1.0 both are exactly the old behaviour.
           noiseG.gain.setTargetAtTime(0, t, 0.02 * (finalF ? TUNING.finalTaper ** 2 : 1));
         } else if (p.t==='S') {
-          // CLOSURE — silence, but the formants are already travelling to the locus,
-          // so the vowel BEFORE the stop bends the right way. A voiced stop keeps a
-          // low "voice bar" buzzing through the closure; a voiceless one is dead air.
-          if (p.lf) setF(t, p.lf, false, 0.012);
+          // CLOSURE. A voiceless stop is dead air. A voiced one keeps a low voice bar buzzing
+          // through a closed tract (see murmur), which is the cue that it IS voiced: through
+          // the open bank that buzz was a nasal ("box" heard as "bombs"). Either way F2 and F3
+          // travel to the locus, so the vowel BEFORE the stop bends the right way.
           nzero.gain.setTargetAtTime(0, t, 0.02);
-          voiced.gain.setTargetAtTime(p.vd ? 0.12 : 0, t, 0.004);
+          aspG.gain.setTargetAtTime(0, t, 0.004);
           noiseG.gain.setTargetAtTime(0, t, 0.004);
+          if (p.vd) { murmur(t, p.lf); voiced.gain.setTargetAtTime(VBAR * Math.min(1, p.vd * 2.5), t, 0.006); }
+          else { if (p.lf) setF(t, p.lf, false, 0.012); voiced.gain.setTargetAtTime(0, t, 0.004); }
           t += dur*0.6;
           // UNRELEASED. A stop before a pause or another stop is usually not
           // released at all in English — "hot dog", "stop that", a sentence-final
@@ -3493,14 +4024,24 @@ return out;
           if (timing.unreleased) {
             t += 0.02; prevNasal = false; prevP = p; prevCode = code; continue;
           }
-          // BURST — see bq/bd/bg in the phoneme table. The defaults reproduce the
-          // old fixed values exactly, so a stop that does not declare a shape (the
-          // flap) releases precisely as it did before.
-          setNoiseBand(p.nf, p.bq ?? 2, t, 0.005);
-          noiseG.gain.setTargetAtTime(0.22 * (p.bg ?? 1) * TUNING.aspiration, t, 0.003);
+          // RELEASE. The tract opens at the locus with its full resonances back, so the
+          // transition into the vowel (or through the aspiration) starts where the ear
+          // expects it to: from the consonant's place, not from a murmur.
+          setF(t, p.lf || [400, 1500, 2500], !p.vd, 0.004);
+          // BURST — see bq/bd/bg in the phoneme table. A velar's is COMPACT and sits just
+          // above the next vowel's F2, which is why /k/ before "key" and before "coo" are
+          // different noises: it follows the vowel rather than holding one frequency.
+          const nv = nxt && nxt.t === 'V' ? nxt : null;
+          const bandF = p.lf === VEL && nv ? Math.max(1400, Math.min(3300, nv.f[1] * 1.12)) * fshift : p.nf;
+          setNoiseBand(bandF, p.bq ?? 2, t, 0.002);
+          noiseG.gain.setTargetAtTime(BURST * (p.bg ?? 1) * TUNING.aspiration, t, 0.0015);
           t += (p.bd ?? 20) / 1000;
-          // ASPIRATION — the voice-onset gap. Voiceless stops breathe through it at
-          // a glottal band; voiced ones barely have one and start phonating at once.
+          noiseG.gain.setTargetAtTime(0, t, 0.006);
+          // ASPIRATION — the voice-onset gap, and the contrast a listener actually uses
+          // between /p t k/ and /b d g/ (far more than the burst). Voiceless stops breathe
+          // through it; voiced ones barely have one and start phonating at once. The breath
+          // goes through the tract, already moving to whatever follows, so the formant
+          // transition plays out inside the aspiration as it does in a real mouth.
           //
           // Two allophonic corrections, both of which were audibly wrong:
           //
@@ -3509,24 +4050,17 @@ return out;
           // reliable rules in English phonology and we were aspirating every one.
           //
           // BEFORE A LIQUID OR GLIDE the aspiration isn't a neutral puff either: the
-          // liquid itself is DEVOICED and the turbulence is shaped by its
-          // constriction. /tr/ is a single fricated gesture, not t + breath + r. A
-          // full 60ms of 1800Hz noise between them is what turns "intrusive" into
-          // "in-t'huh-rusive", so the noise is retuned to the liquid's own F2 and the
-          // formant transition starts during it rather than after.
+          // liquid itself is DEVOICED, so the breath goes out through the /r/ or /l/
+          // already in place. /tr/ is a single fricated gesture, not t + breath + r; a
+          // neutral puff between them turned "intrusive" into "in-t'huh-rusive".
           const asp = timing.asp;
           const preLiquid = nxt && nxt.t === 'L';
           if (p.vd) {
-            noiseG.gain.setTargetAtTime(0, t, 0.008);
             voiced.gain.setTargetAtTime(0.3, t, 0.005);
           } else {
-            const band = preLiquid ? (nxt.df || nxt.f)[1] : 1800;
-            setNoiseBand(band, preLiquid ? 1.6 : 1, t, 0.006);
-            noiseG.gain.setTargetAtTime(0.085 * TUNING.aspiration, t, 0.006);
-            noiseG.gain.setTargetAtTime(0, t+asp, 0.012);
-            // Move the tract toward the liquid NOW, so the release is already
-            // shaped like the /r/ or /l/ instead of arriving at it afterwards.
-            if (preLiquid) setF(t, nxt.df || nxt.f, false, 0.020);
+            setF(t, preLiquid ? (nxt.df || nxt.f) : (nv ? nv.f : (p.lf || [500, 1500, 2500])), true, preLiquid ? 0.020 : 0.015);
+            aspG.gain.setTargetAtTime(ASP_STOP * TUNING.aspiration, t, 0.004);
+            aspG.gain.setTargetAtTime(0, t + asp, 0.010);
           }
           micro = p.vd ? 0.985 : 1.015;
           t += asp;
@@ -3555,6 +4089,7 @@ return out;
           // and at 20ms it bleeds across the word boundary as a sigh. Same taper as a
           // final fricative gets — this is the same artifact from the other source.
           noiseG.gain.setTargetAtTime(0, t, 0.02 * TUNING.finalTaper ** 2);
+          aspG.gain.setTargetAtTime(0, t, 0.02 * TUNING.finalTaper ** 2);
           nzero.gain.setTargetAtTime(0, t, 0.02);
           // `dur` is ALREADY speed-adjusted above. This divided by speed a second
           // time, so pause length scaled as 1/speed² — harmless when speed sat near
@@ -3570,15 +4105,18 @@ return out;
         if (code !== '_') { prevP = p; prevCode = code; }
       }
       const end = t + 0.08;
+      if (trace) trace.push({ p: 'END', at: t - t0 });
       voiced.gain.setTargetAtTime(0, end, 0.02);
       // The last thing a line leaves behind. The voice is allowed to fade; the noise
       // is not, because with no voice under it the fade is a whisper of its own.
       noiseG.gain.setTargetAtTime(0, end, 0.02 * TUNING.finalTaper ** 2);
+      aspG.gain.setTargetAtTime(0, end, 0.02 * TUNING.finalTaper ** 2);
       // The terminal contour. Set as a target from wherever the lilt left the pitch —
       // the old code re-anchored F0 at t0 and ramped, which erased every contour
       // scheduled above it. A question turns the fall into a rise.
+      const lastK = phraseK[phraseK.length - 1] ?? 1;
       glot.frequency.setTargetAtTime(
-        rise ? F0 * (1 + V.lilt * 1.9) : F0 * (1 - V.decl) * (trail ? 0.88 : 0.94),
+        rise ? F0 * lastK * (1 + lilt * 1.9) : F0 * lastK * (1 - V.decl * D.decl) * (trail ? 0.88 : 0.94),
         Math.max(t0, end - 0.18), 0.06);
       // CREAK. English speakers routinely fall into vocal fry on the last syllable of
       // a statement — the folds run out of breath pressure, the pitch drops off a
@@ -3586,8 +4124,9 @@ return out;
       // a real voice does at a full stop, and a synth that ends every sentence on a
       // clean tone sounds like it is reading a list of them. Not on questions, which
       // end lifted, and not so deep it becomes a growl.
-      if (!rise && TUNING.creak > 0) {
-        const cf = Math.max(0.55, 1 - 0.30 * TUNING.creak);
+      const creak = TUNING.creak * D.creak;   // none at full cry; more in grief
+      if (!rise && creak > 0) {
+        const cf = Math.max(0.55, 1 - 0.30 * creak);
         // ⚠ CREAK USED TO ERASE THE TERMINAL CONTOUR. The line above sets a target
         // at end-0.18 that differs for a line trailing off (`...`) versus one
         // landing on a full stop — and this then overwrote glot.frequency 110ms
@@ -3601,13 +4140,13 @@ return out;
         // about F0*0.57, well past the floor that stops it becoming a growl, and
         // retuning that needs an ear. This leaves a full stop EXACTLY where it was
         // and only changes the case that was being erased.
-        glot.frequency.setTargetAtTime(F0 * cf * (trail ? 0.94 : 1), Math.max(t0, end - 0.07), 0.035);
+        glot.frequency.setTargetAtTime(F0 * lastK * cf * (trail ? 0.94 : 1), Math.max(t0, end - 0.07), 0.035);
         // Irregularity is the other half — a steady low tone is a hum, not creak.
         // BOTH LFOs. Raising only one leaves the other steady, which is a partial
         // return to periodic vibrato — the exact thing two beating LFOs exist to avoid.
         const cj = Math.max(t0, end - 0.07);
-        jitG.gain.setTargetAtTime(F0 * V.jitter * (1 + 4 * TUNING.creak), cj, 0.03);
-        jit2G.gain.setTargetAtTime(F0 * V.jitter * 0.6 * (1 + 4 * TUNING.creak), cj, 0.03);
+        jitG.gain.setTargetAtTime(F0 * V.jitter * D.jitter * (1 + 4 * creak), cj, 0.03);
+        jit2G.gain.setTargetAtTime(F0 * V.jitter * 0.6 * D.jitter * (1 + 4 * creak), cj, 0.03);
       }
       const src = [glot, nz, lfo, jit, jit2, shim];
       if (growlOsc) src.push(growlOsc);
@@ -3625,18 +4164,31 @@ return out;
     // accent applied. Read-only and side-effect free.
     const phonemesFor = (text, opt = {}) => {
       _lex = opt.lex || null;
+      if (opt.voice && opt.voice.vs) text = readMatchups(text);
       try {
         let ph = applyAssimilation(applyAccent(textToPhonemes(text), opt.accent));
         if (opt.accent !== 'rp') ph = applyFlap(ph);
         return ph;
       } finally { _lex = null; }
     };
-    return { speak, cancel, tuning: TUNING, phonemesFor, estimate: estimateDuration, voiceFor: voiceFromName };
+    return { speak, cancel, tuning: TUNING, phonemesFor, estimate: estimateDuration, voiceFor: voiceFromName, phones: () => Object.keys(PH) };
   })();
 
   global.AudioEngine = {
     init, onUnlock, applyVolumeSettings, setMonoAudio,
     playSfx, lastSfxAt, playSample, clearSampleCache,
+    // a cue rendered offline through the same graph (a Promise of an AudioBuffer), and a
+    // rendered buffer as WAV bytes
+    renderSfx, wavBytes,
+    // whether the retro stage's worklet is loaded in the live context (true once it is), and
+    // where to load it from when this file wasn't loaded by a <script> tag
+    retroReady: () => (ctx ? _retroState.get(ctx) === true : false),
+    _setRetroUrl: (url) => { _retroUrl = url || ''; },
+    // the retro stage for a live synth of its own (the crowd bed): what to connect into, on
+    // its way to `dest`. `retro.ref` is the synth's full scale.
+    retroInsert: (c, retro, dest) => retroStage(c, retro || {}, {}, dest),
+    // the retro stage's worklet for another context (an offline one): a Promise of true once loaded
+    loadRetro,
     loopSound, stopLoop, setLoopGain, duckLoop, setEcho,
     playMusic, stopMusic, stopMusicOwnedBy, pauseMusic, resumeMusic, queueMusic, fadeTo, crossFade, setLayerWeight,
     stop,
@@ -3653,7 +4205,7 @@ return out;
     // What the voice pool is doing. A dropped cue is silent and a cue nobody
     // asked for is also silent, so without counters "is 32 enough?" is not a
     // question anyone can answer from the outside.
-    _voiceStats: () => ({ ...vstat, size: MAX_VOICES, live: voices.filter(Boolean).length }),
+    _voiceStats: () => ({ ...vstat, size: MAX_VOICES, live: voices.filter(Boolean).length, priorities: voices.filter(Boolean).map((v) => v.priority) }),
     speak: (text, opt) => Speech.speak(text, opt),
     cancelSpeech: () => Speech.cancel(),
     // Live tunables — see the TUNING block in Speech. Mutate and the next line
@@ -3669,6 +4221,9 @@ return out;
     // Scheduled length of a run, without needing an AudioContext — so the voice
     // smoke test can check pacing against broadcast's hold headlessly.
     _estimateDuration: (phon, speed, shout) => Speech.estimate(phon, speed, shout),
+    // The phoneme inventory, so a check can hold a content lexicon (a script's ::say
+    // block) to sounds the synth has: an unknown one is skipped silently on air.
+    _phones: () => Speech.phones(),
     // Hand a custom synth (e.g. the flight-engine) the context + ambient bus + shared noise
     // buffer so it can build its own live, parameter-driven node graph on the ambient chain.
     engineNodes: () => { const c = ensureContext(); if (!c) return null; return { ctx: c, bus: busFor('ambient'), noise: getNoiseBuffer() }; },

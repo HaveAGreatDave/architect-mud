@@ -1,0 +1,9 @@
+{
+  "a": "zone_slush_concourse",
+  "b": "zone_slush_stands",
+  "blocked": false,
+  "dir": "south",
+  "id": "conn_hf_slush_concourse_south",
+  "lockable": false,
+  "one_way": false
+}

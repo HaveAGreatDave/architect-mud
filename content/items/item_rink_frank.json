@@ -1,0 +1,15 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_rink_frank",
+  "name": "rink frank",
+  "tags": {
+    "consumable": true,
+    "description": "A pale protein baton in a split bun, mustard down it in a zigzag, wrapped in wax paper. It tastes of salt and smoke flavouring. The sign at the counter says it is not legally a hot dog.",
+    "restore_hunger": 18,
+    "stackable": true
+  },
+  "type": "consumable",
+  "value": 6,
+  "weight": 180
+}

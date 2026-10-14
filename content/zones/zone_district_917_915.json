@@ -1,7 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive.",
+  "description": "The east end of Glacier Street, where it meets the Gate Road. The kerb on the south corner is chipped all along by the back wheels of coaches turning in on game nights.",
   "exits": {
     "east": "zone_district_918_915",
     "west": "zone_district_916_915"

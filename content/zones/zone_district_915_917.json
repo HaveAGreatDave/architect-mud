@@ -1,23 +1,21 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "description": "Open grassland quietly reclaiming old ground, seedheads nodding over the buried kerb of a road that used to matter. Insects drone. The horizon wobbles in the heat.",
-  "exits": {
-    "east": "zone_district_916_917",
-    "north": "zone_district_915_916",
-    "south": "zone_district_915_918",
-    "west": "zone_district_914_917"
-  },
+  "ambient_theme": "urban",
+  "description": "The south end of the Slush Fund's hall. The vaulted roof comes down to a brick gable with a roller door for the resurfacer at the foot of it, and a heap of grey scraped ice against the wall beside the door.",
+  "exits": {},
   "flags": {
-    "district": "wasteland",
-    "region_id": "region_coldwater",
-    "terrain": "forest"
+    "building_name": "The Slush Fund",
+    "building_type": "ice_rink_hall",
+    "district": "ashway",
+    "entrance": "north",
+    "floors": 5,
+    "region_id": "region_coldwater"
   },
   "grid_x": 915,
   "grid_y": 917,
   "grid_z": 0,
   "id": "zone_district_915_917",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "The Slush Fund",
   "parent_zone": null
 }

@@ -166,10 +166,18 @@ export function paintCrest(ctx, club, cx, cy, size, opts = {}) {
   if (!ctx || !crest || !Array.isArray(crest.layers) || typeof Path2D === 'undefined') return false;
   const box = crest.box || 100;
   const k = size / box;
-  const layers = layersFor(crest, size, opts);
   ctx.save();
   ctx.translate(cx - size / 2, cy - size / 2);
   ctx.scale(k, k);
+  paintLayers(ctx, layersFor(crest, size, opts), club, crest.settUnit || 0.12);
+  ctx.restore();
+  return true;
+}
+// Layers ({ d, fill, stroke, sw, op, rule }) in the context's current transform: a crest's, or
+// a keeper's mask (gl/arena.js). 'sett' fills with the club's tartan, `unit` user units a thread.
+export function paintLayers(ctx, layers, club, unit = 0.12) {
+  if (!ctx || !Array.isArray(layers) || typeof Path2D === 'undefined') return false;
+  ctx.save();
   ctx.lineJoin = 'round'; ctx.lineCap = 'round';
   for (const l of layers) {
     if (!l || !l.d) continue;
@@ -187,8 +195,8 @@ export function paintCrest(ctx, club, cx, cy, size, opts = {}) {
             _settPat.set(club.sett, pat);
           }
           if (pat) {
-            // pattern space is the crest's box: one thread is `settUnit` box units
-            if (typeof DOMMatrix !== 'undefined') pat.setTransform?.(new DOMMatrix().scale(crest.settUnit || 0.12));
+            // pattern space is the layers' own units: one thread is `unit` of them
+            if (typeof DOMMatrix !== 'undefined') pat.setTransform?.(new DOMMatrix().scale(unit));
             fs = pat;
           }
         }

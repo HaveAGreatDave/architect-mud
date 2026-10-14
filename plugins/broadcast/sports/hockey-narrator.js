@@ -44,11 +44,76 @@ const LOUD_CHANCE = new Set(['post', 'breakaway']);
 // Chances that end with the puck loose on the ice rather than held or in the net.
 const LOOSE_AFTER = new Set(['save', 'pad', 'blocked', 'wide', 'post', 'breakaway']);
 
+// ── how hard a line is sold ───────────────────────────────────────────────────
+// Every line carries `excite`, from -1 (grave: a death, the injury list) through 0 (the
+// narrator's own voice) to 1 (a goal), and the voice (AudioEngine.speak) turns it into
+// register, range, effort and pace. It comes off the pool the line was picked from, which
+// says what kind of moment it is far better than the words do: most calls are deadpan in
+// print ("Red light."), and it's the delivery that sells them. A real call builds with
+// the play: calm through the neutral zone, quicker on the entry, up on the shot, all the
+// way up on the goal, and down, slow and low, for a man who doesn't get up. A key not
+// listed falls back to its parent ('pbp.shot.slap' → 'pbp.shot'); an unknown one is 0.
+const EXCITE = {
+  // the goal, and what it sets off (the credit, `goal`, comes after the replay, so it's said
+  // well down from the call)
+  'pbp.goal': 1, 'goal': 0.6, 'hattrick': 0.9, 'pbp.goal.lamp': 0.75, 'pbp.goal.celebrate': 0.6, 'pbp.goal.mob': 0.6, 'pbp.goal.slump': 0.15,
+  'shootout.winner': 1, 'shootout.score': 0.95, 'shootout.miss': 0.5, 'shootout.intro': 0.45,
+  'pbp.breakaway': 0.8, 'pbp.out.breakaway': 0.65, 'pbp.after.breakaway': 0.45, 'shot.breakaway': 0.55,
+  // the build: a rush quickens as it gets to the net
+  'pbp.breakout': 0.3, 'pbp.retrieve': 0.25, 'pbp.pass': 0.35, 'pbp.won': 0.35, 'pbp.battle': 0.35, 'pbp.cycle': 0.3,
+  'pbp.forecheck': 0.35, 'pbp.takeaway': 0.5,
+  'pbp.dump': 0.3, 'pbp.chase': 0.3, 'pbp.entry': 0.4, 'pbp.deke': 0.55, 'pbp.shot': 0.6, 'pbp.rebound': 0.55,
+  'pbp.pass.stretch': 0.45, 'pbp.pass.saucer': 0.4, 'pbp.pass.give': 0.4, 'pbp.shot.onetimer': 0.7, 'pbp.shot.tip': 0.65,
+  'pbp.out': 0.5, 'pbp.out.post': 0.75, 'pbp.out.wide': 0.35, 'pbp.after': 0.35, 'pbp.after.post': 0.5, 'pbp.freeze': 0.2,
+  'shot': 0.25, 'shot.post': 0.4, 'pbp.replay': 0.35,
+  // the draw
+  'pbp.faceoff': 0.2, 'pbp.faceoff.drop': 0.25, 'faceoff': 0.15,
+  // contact
+  'pbp.hit': 0.55, 'pbp.hit.shatter': 0.85, 'pbp.hit.down': 0.3, 'pbp.hit.up': 0.1, 'boards': 0.5,
+  'pbp.fight': 0.6, 'pbp.fight.drop': 0.7, 'pbp.fight.box': 0.2, 'pbp.punch.land': 0.7, 'pbp.punch.big': 0.9, 'pbp.punch.miss': 0.45,
+  'fight.knockdown': 0.75, 'fight.jersey': 0.6, 'fight.linesmen': 0.4, 'fight.result': 0.3, 'penalty.fight': 0.35,
+  'pbp.scrum': 0.45, 'pbp.scrum.whistle': 0.2, 'scrum': 0.4, 'pbp.pull': 0.5, 'pull': 0.45,
+  'penalty': 0.2, 'powerplay': 0.3,
+  // the frame of the night
+  'intro': 0.25, 'rivalry.intro': 0.35, 'cup.intro': 0.4, 'matchup': 0.15, 'rivalry.matchup': 0.2, 'cup.matchup': 0.2,
+  'section.first': 0.3, 'section.start': 0.3, 'ot.intro': 0.55, 'section.end': 0.1, 'score.update': 0.1,
+  'pbp.period.first': 0.15, 'pbp.period.out': 0.15, 'pbp.period.go': 0.3,
+  'final': 0.2, 'cup.final': 0.5, 'outro': 0.05, 'cup.outro': 0.15,
+  'chatter': 0, 'intermission': 0, 'pbp.zamboni': -0.1,
+  // the cost
+  'injury': -0.25, 'injury.report': -0.3, 'injury.wound': -0.3, 'injury.sever': -0.2, 'pbp.injury': -0.35, 'intermission.casualties': -0.3,
+  'death': -0.7, 'death.wound': -0.6, 'pbp.death': -0.8,
+};
+// `heat` is the night's: overtime and a Cup final lift the play, never the grief.
+export function exciteOf(key, heat = 0) {
+  let k = String(key || '');
+  while (k && !(k in EXCITE)) k = k.includes('.') ? k.slice(0, k.lastIndexOf('.')) : '';
+  const x = k ? EXCITE[k] : 0;
+  return Math.round(Math.max(-1, Math.min(1, x > 0 ? x + heat : x)) * 100) / 100;
+}
+
 export function narrate(ctx) {
   const {
     script, game, gs, ws, announcer,
-    say, pick, nrng, abbr, recordOf,
+    nrng, abbr, recordOf,
   } = ctx;
+  // Every pick names the pool it came from, and every line said after it is sold the way
+  // that pool's moment is (EXCITE above). A line is always said straight after its pick.
+  let lastKey = '', heat = 0;
+  // ...and never the same line from a pool twice running: a booth that says "saucers one
+  // over" on two passes in a row sounds like a tape. One re-pick, so it's rare, not banned.
+  const lastLine = new Map();
+  const pick = (...keys) => {
+    lastKey = String(keys[0] || '');
+    let line = ctx.pick(...keys);
+    if (line && lastLine.get(lastKey) === line) line = ctx.pick(...keys);
+    lastLine.set(lastKey, line);
+    return line;
+  };
+  const say = (line, tok, sb, fx, gd, meta) => {
+    const excite = exciteOf(lastKey, heat);
+    return ctx.say(line, tok, sb, fx, gd, excite ? { ...(meta || {}), excite } : meta);
+  };
   const pools = ctx.pools || {};
   const { away, home, awayScore, homeScore, beats } = game;
   const awayAbbr = abbr(away.name), homeAbbr = abbr(home.name);
@@ -155,6 +220,18 @@ export function narrate(ctx) {
     const n = beats[idx];
     return b.type === 'boards' && n && n.type === 'injury' && n.player === b.victim ? n : null;
   };
+  // The draw that follows a beat, when one does: a goal, a frozen puck, a fight, a scrum, a
+  // man carried off and a penalty each stop play, and the sim's next beat is the faceoff on
+  // the dot the rule sends it to. The rink sends everybody there while the booth is still
+  // talking about the whistle, so the draw goes down when its line airs. '' when play goes on.
+  const nextDot = (idx) => {
+    for (let k = idx; k < beats.length; k++) {
+      const n = beats[k];
+      if (n.type === 'faceoff') return n.dot || '';
+      if (n.type !== 'hattrick') return '';
+    }
+    return '';
+  };
   const gameday = (b, idx) => ({
     sport: 'hockey',
     shooter: b.shooter || b.player || '', goalie: b.goalie || '',
@@ -196,6 +273,7 @@ export function narrate(ctx) {
     // name the booth just said.
     rushNames: Array.isArray(b.rushNames) ? b.rushNames.slice() : null,
     frozen: !!b.frozen,
+    nextDot: nextDot(idx),
     // Faceoff facts, so the view can put the right two men on the right dot. `winnerSide`
     // is which of the two on-ice sides won it, in the view's own att/def frame.
     dot: b.dot || '', reason: b.reason || '',
@@ -257,7 +335,7 @@ export function narrate(ctx) {
   // ── pre-game ──────────────────────────────────────────────────────────────
   const awayRecord = recordOf(away.name), homeRecord = recordOf(home.name);
   // A club that's in the table but hasn't played reads '0-0-0', which is not a record
-  // worth saying out loud — "the 0-0-0 Yards Icehaulers" on opening night is the
+  // worth saying out loud — "the 0-0-0 Yard Birds" on opening night is the
   // announcer sounding like a database. Any all-zero record counts as no record.
   const hasRecord = (r) => /[1-9]/.test(String(r || ''));
   const hasRecords = hasRecord(awayRecord) || hasRecord(homeRecord);
@@ -350,7 +428,8 @@ export function narrate(ctx) {
       // and a pool line pretending to be a list would get the order wrong.
       for (const g of per.goals) {
         const gt = { ...t, ...g, shooter: g.shooter, assist: g.assist || 'unassisted', team: g.teamName, clock: g.clockStr };
-        say(pick('intermission.goal'), gt, sb); said++;
+        // a goal nobody set up has its own lines; the assist ones would read "set up by unassisted"
+        say(pick(...(g.assist ? ['intermission.goal'] : ['intermission.goal.solo', 'intermission.goal'])), gt, sb); said++;
       }
     } else {
       say(pick('intermission.scoreless'), stat, sb); said++;
@@ -366,7 +445,10 @@ export function narrate(ctx) {
   // Half the colour is about the building they're in, half about the league. Every club
   // has a barn pool now, so always reaching for it first would leave the general pool
   // unheard.
-  const chatter = (b) => { const l = nrng() < 0.5 ? pick(barnKey(home.name), 'chatter') : pick('chatter'); if (l) { say(l, tok(b), beatBug(b)); said++; } };
+  // The Cup final is played at the league's own barn, the Slush Fund, which is the building the
+  // general pool describes; no club's barn chatter airs on Cup night. (The roll is still taken, so
+  // the line stream is the same length either way.)
+  const chatter = (b) => { const l = nrng() < 0.5 && !ws ? pick(barnKey(home.name), 'chatter') : pick('chatter'); if (l) { say(l, tok(b), beatBug(b)); said++; } };
 
   // ── the call ──────────────────────────────────────────────────────────────
   // SHORT LINES THAT FOLLOW THE PLAY. The booth used to say one or two long sentences a
@@ -391,12 +473,35 @@ export function narrate(ctx) {
   const PUNCH = { jab: 'a jab', uppercut: 'an uppercut', left: 'a left', right: 'a right hand' };
   const surnameOf = (n) => String(n || '').trim();
 
+  // A BREAKAWAY IS SHAPED LIKE ONE (breakawayRush in hockey.js): gathered in his own end, a
+  // long pass up to the shooter behind their defence, and the shot, with the build-up said
+  // off those keyframes. The pass and the call that he's in alone are one line
+  // (`pbp.breakaway.spring`, on both cues), so the rink has him clear of every man of theirs
+  // as it's said, and still has him skating, not drifting, by the shot.
+  const breakawayBeat = (b) => {
+    const nodes = mod && mod.breakawayRush ? mod.breakawayRush(b.possession, b.rushNames, b.shooter, b.teamName === away.name) : null;
+    if (!nodes || !pools['pbp.breakaway.spring']) return null;
+    return { ...b, possession: nodes, rush: mod.describeRush ? mod.describeRush(nodes, b.rushNames, nrng) : b.rush, springAlone: true };
+  };
+
   // The rush, touch by touch, off the same keyframes the rink plays. A routine chance gets
   // the first touch and the last before the shot; a goal or a near-miss gets up to four.
+  // (`rushPass` is the kind of the last touch before the shot when it was a pass, which a
+  // goal's replay walks through)
+  let rushHolder = null, rushPass = null, rushAlone = false;
+  // A BIG HIT IS TALKED ABOUT AT THE NEXT STOPPAGE: the injury it caused, or the next draw.
+  // The rink keeps the camera on the puck, and a hit that was out of the picture is run back
+  // as the play this line rides starts (its `recall` cue), so the line is never cut: it's
+  // the replay's time. It describes the hit without saying the picture is a replay of it,
+  // since a hit the picture caught isn't run back. Only the latest hit; a goal or the end of
+  // the period first, and it's forgotten.
+  let pendingHit = null;
+  const recallHit = (key, t, sb) => { if (pendingHit) call(key, t, { hitter: surnameOf(pendingHit.hitter), victim: surnameOf(pendingHit.victim) }, sb, { cue: { ev: 'recall' } }); pendingHit = null; };
   function callRush(b, t, sb, gd, loud) {
     const nodes = Array.isArray(b.possession) ? b.possession : [];
     const names = Array.isArray(b.rushNames) && b.rushNames.length ? b.rushNames : null;
     const L = nodes.length;
+    rushHolder = null; rushPass = null; rushAlone = false;
     if (!names || L < 3) return false;
     const who = (i) => names[((i | 0) % names.length + names.length) % names.length] || '';
     const mids = [];
@@ -406,34 +511,144 @@ export function narrate(ctx) {
     // optional, so a short slot trims the build-up before it trims the shot.
     const keep = new Set(loud ? mids.slice(-5) : mids.slice(-3));
     let holder = who(nodes[0].carrier), first = true, wonNext = false;
+    // (where the man with it last had it, and who gave it to him: what kind of pass his next
+    // one is comes off the two)
+    let holderAt = nodes[0], passer = null;
+    // Where each touch is, off the keyframe the rink plays it at: `{where}` in a line.
+    const plus = b.teamName === away.name;
+    const where = (n) => (mod && mod.rinkSpot ? mod.rinkSpot(n.p, plus).at : '') || 'up the ice';
+    // WHAT KIND OF PASS. Off the two keyframes, in feet, the way his side attacks: back toward
+    // his own end (a drop pass, or back out to the point), long up the ice, across it, or
+    // straight back to the man who'd just given it to him once he's gone on up the ice (a
+    // give-and-go; the men are dealt at random, so a return as such is common and is mostly
+    // just called a pass). A long one or one across is sometimes lifted over a stick. The
+    // kind rides on the line's cue, so the rink plays the pass the booth called (a saucer is
+    // lifted there only when it was called one).
+    const passKind = (from, to, back) => {
+      const dx = (to.p[0] - from.p[0]) * 200 * (plus ? 1 : -1), dy = Math.abs(to.p[1] - from.p[1]) * 85;
+      if (back && dx > 10 && nrng() < 0.5) return 'give';
+      if (dx < -6) return 'back';
+      if (dx > 55) return nrng() < 0.2 ? 'saucer' : 'stretch';
+      if (dy > 32) return nrng() < 0.15 ? 'saucer' : 'cross';
+      return 'short';
+    };
+    const hasPool = (key) => (Array.isArray(key) ? key.some((k) => pools[k]) : !!pools[key]);
     // Off a loose puck (a rebound, a kick-out, a block) he has to go and get it first, and
     // the rink shows him doing it, so the booth says so and the breakout follows when he has it.
     const prev = beats[idx - 2];
-    if (gd && prev && prev.type === 'chance' && !prev.frozen && LOOSE_AFTER.has(prev.kind) && call('pbp.retrieve', t, { player: holder }, sb, null, gd)) {
-      call('pbp.breakout', t, { player: holder }, sb, { cue: { ev: 'fetched' } });
-    } else call('pbp.breakout', t, { player: holder }, sb, null, gd);
+    const out0 = { player: holder, where: where(nodes[0]) };
+    // TAKEN OFF THEM. The last play left the other side with the puck (they won the draw, or
+    // their goalie caught this side's shot and played it on), so the rink shows him going
+    // after it and taking it off them before anything else. The booth says both: who's after
+    // it, then that he's won it, as the rink pokes it loose (the `takeaway` cue).
+    const theirs = prev && ((prev.type === 'faceoff' && prev.winTeam && prev.winTeam !== b.teamName)
+      || (prev.type === 'chance' && prev.teamName === b.teamName && prev.kind === 'glove' && !prev.frozen));
+    // A loose puck the last play left (a rebound, a kick-out, a block, or one knocked off a
+    // man on the boards) he has to go and get first, from whoever has got to it: the booth
+    // says he goes in after it, and the breakout follows when he has it (`fetched`).
+    const loose = prev && ((prev.type === 'chance' && !prev.frozen && LOOSE_AFTER.has(prev.kind)) || prev.type === 'boards');
+    // (off their shot it's loose in his own end, and he drops back for it; off his own side's,
+    // it's in theirs and he goes in after it)
+    const ownEnd = prev && prev.type === 'chance' && prev.teamName !== b.teamName;
+    // (a breakaway opens plainly: however the puck came to his end, the rink brings it there)
+    if (gd && theirs && !b.springAlone && call('pbp.forecheck', t, out0, sb, null, gd)) {
+      call('pbp.takeaway', t, out0, sb, { cue: { ev: 'takeaway' } });
+    } else if (gd && loose && !b.springAlone && call(ownEnd ? ['pbp.retrieve.back', 'pbp.retrieve'] : 'pbp.retrieve', t, out0, sb, null, gd)) {
+      // (the line before named him, so this one needn't)
+      call(['pbp.breakout.on', 'pbp.breakout'], t, out0, sb, { cue: { ev: 'fetched' } });
+    } else call('pbp.breakout', t, out0, sb, null, gd);
+    // (a breakaway's build-up is a beat longer: the rink needs it to have their men caught up
+    // the ice and him in behind them before the pass, wherever the last play left the puck)
+    if (b.springAlone) call('pbp.breakaway.build', t, out0, sb);
+    // Planned before it's said, so the last touch before the shot is known. A booth always
+    // calls the touch that puts the puck where it's shot from ("...over to Lindqvist,
+    // shot"), and the rink needs that cue to have it there in time. The pacer trims
+    // optional lines longest first, so if that one were optional it could go, and the
+    // picture would release the shot after the save had been called.
+    const plan = [];
     for (const i of mids) {
       const n = nodes[i], man = n.carrier >= 0 ? who(n.carrier) : null;
-      let key = null, extra = null;
-      if (n.ev === 'battle') { key = 'pbp.battle'; wonNext = true; holder = null; }
-      else if (wonNext && man) { key = 'pbp.won'; extra = { player: man }; wonNext = false; holder = man; }
-      else if (man && holder && man !== holder) { key = 'pbp.pass'; extra = { player: holder, to: man }; holder = man; }
-      else if (man && n.ev !== 'pass') { key = `pbp.${n.ev}`; extra = { player: man }; holder = man; }
-      if (!key || !pools[key]) continue;
+      let key = null, extra = null, pass = null;
+      if (n.ev === 'battle') { key = 'pbp.battle'; extra = { where: where(n) }; wonNext = true; holder = null; }
+      else if (wonNext && man) { key = 'pbp.won'; extra = { player: man, where: where(n) }; wonNext = false; holder = man; holderAt = n; passer = null; }
+      else if (man && holder && man !== holder) {
+        pass = passKind(holderAt, n, man === passer);
+        key = pass === 'short' ? 'pbp.pass' : [`pbp.pass.${pass}`, 'pbp.pass'];
+        extra = { player: holder, to: man, where: where(n) };
+        passer = holder; holder = man; holderAt = n;
+      }
+      else if (man && n.ev !== 'pass') { key = `pbp.${n.ev}`; extra = { player: man, where: where(n) }; holder = man; holderAt = n; }
+      else if (man) holderAt = n;
+      rushPass = pass;
+      // (a breakaway's spring: the pass and the call that he's in alone, one line on both cues,
+      // or about half the time the long pass and then the call)
+      let then = false;
+      if (b.springAlone && i === L - 3 && pass) {
+        pass = 'stretch';
+        if (nrng() < 0.5) { key = 'pbp.breakaway.spring'; extra = { ...extra, shooter: b.shooter }; } else { key = ['pbp.pass.stretch', 'pbp.pass']; then = true; }
+      }
+      if (!key || !hasPool(key)) continue;
       if (!keep.has(i)) continue;
-      call(key, t, extra, sb, { cue: { ev: 'node', i }, opt: !loud && !first });
-      // a puck put in or knocked loose has to be run down, and the picture takes the time
-      if (n.ev === 'dump' || n.ev === 'battle') call('pbp.chase', t, null, sb, { opt: true });
-      first = false;
+      plan.push({ i, key, extra, ev: n.ev, pass, alone: key === 'pbp.breakaway.spring', then });
     }
+    // (who has it as the shot comes: the man who feeds a one-timer or a tip, when it is one)
+    rushHolder = holder;
+    plan.forEach((c, k) => {
+      const cue = { ev: 'node', i: c.i, ...(c.pass ? { pass: c.pass } : {}) };
+      call(c.key, t, c.extra, sb, { cue: c.alone ? [cue, { ev: 'alone' }] : cue, opt: !loud && !first && k < plan.length - 1 });
+      if (c.alone) rushAlone = true;
+      if (c.then && call('pbp.breakaway', t, null, sb, { cue: { ev: 'alone' } })) rushAlone = true;
+      // a puck put in or knocked loose has to be run down, and the picture takes the time
+      if (c.ev === 'dump' || c.ev === 'battle') call('pbp.chase', t, null, sb, { opt: true });
+      first = false;
+    });
     return true;
   }
   // The shot, then what became of it. The shot line is when he releases it; the outcome
-  // line follows it.
+  // line follows it. Returns the man it named as feeding a one-timer or a tip, if any.
   function callShot(b, t, sb, gd) {
     const typeKey = `pbp.shot.${b.shotType || ''}`;
-    const generic = nrng() < 0.3 || !pools[typeKey];
-    call(generic ? 'pbp.shot' : [typeKey, 'pbp.shot'], t, { shooter: b.shooter, shotLabel: b.shotLabel || 'shot' }, sb, { cue: { ev: 'shot' } }, gd);
+    // A ONE-TIMER OR A TIP IS THE PASS AS MUCH AS THE SHOT, so it's always called as one, and
+    // it names the man who fed it when the booth knows him: the goal's assist, or the man the
+    // rush left with the puck. The shot's cue carries his name, and the rink puts it on the
+    // man it has make that pass.
+    const fedKind = b.shotType === 'onetimer' || b.shotType === 'tip';
+    const generic = !fedKind && (nrng() < 0.3 || !pools[typeKey]);
+    const feeder = fedKind ? (b.assist || rushHolder || '') : '';
+    const fed = !!feeder && feeder !== b.shooter && !!pools[`${typeKey}.fed`];
+    // where he let it go from, off the shot's own keyframe
+    const shotNode = Array.isArray(b.possession) ? b.possession.find((n) => n.ev === 'shot') : null;
+    const from = (shotNode && mod && mod.rinkSpot ? mod.rinkSpot(shotNode.p, b.teamName === away.name).from : '') || 'from in close';
+    const keys = generic ? 'pbp.shot' : fed ? [`${typeKey}.fed`, typeKey, 'pbp.shot'] : [typeKey, 'pbp.shot'];
+    call(keys, t, { shooter: b.shooter, shotLabel: b.shotLabel || 'shot', from, feeder }, sb, { cue: { ev: 'shot', ...(fed ? { feeder } : {}) } }, gd);
+    return fed ? feeder : '';
+  }
+
+  // THE REPLAY. The rink runs a goal back slowly from the `replay` cue on the first of these
+  // lines to the `live` cue on the line after the last, so these are the only lines said over
+  // it, and each is a replay's: it walks through what the picture shows, in order, and never
+  // calls the goal again. How the chance was made (in alone, the feed for a one-timer or a
+  // tip, round the net, the last pass by its kind), then the shot by what he hit it with,
+  // then the goalie or the strength that left the room. None is optional, so the pacer
+  // never leaves a replay half said.
+  function callReplay(b, t, sb, how) {
+    if (!call('pbp.replay.start', t, null, sb, { cue: { ev: 'replay' } })) return false;
+    const x = { shooter: b.shooter, assist: b.assist, feeder: how.feeder || '', goalie: b.goalie };
+    const type = b.shotType || '';
+    const made = how.breakaway ? ['pbp.replay.alone']
+      : how.feeder ? [`pbp.replay.feed.${type}`]
+      : type === 'wrap' ? ['pbp.replay.wrap']
+      : how.pass && how.pass !== 'short' ? [`pbp.replay.pass.${how.pass}`, 'pbp.replay.pass']
+      : how.pass && !b.assist ? ['pbp.replay.pass']
+      : [];
+    call([...made, b.assist ? 'pbp.replay.assist' : 'pbp.replay.solo'], t, x, sb);
+    // (by what he hit it with; about one plain shot in three gets a line on the finish instead)
+    const plain = !['onetimer', 'tip', 'wrap'].includes(type) && nrng() < 0.3;
+    call(plain ? 'pbp.replay.shot' : [`pbp.replay.shot.${type}`, 'pbp.replay.shot'], t, x, sb);
+    const last = b.strength === 'en' ? 'pbp.replay.en' : b.strength === 'sh' ? 'pbp.replay.sh'
+      : b.strength === 'pp' && (!b.goalie || nrng() < 0.5) ? 'pbp.replay.pp' : b.goalie ? 'pbp.replay.goalie' : null;
+    if (last) call(last, t, x, sb);
+    return true;
   }
 
   // Who is in each net, from the shots against it, so the pulled goalie can be named.
@@ -447,6 +662,7 @@ export function narrate(ctx) {
       if (b.teamName === away.name) sogAway++; else sogHome++;
     }
     const t = tok(b), sb = beatBug(b);
+    heat = (/OT$/.test(b.section || '') ? 0.12 : 0) + (ws ? 0.08 : 0);
 
     // Tally the period as it happens — every counter the intermission reads back.
     if (per) {
@@ -475,12 +691,17 @@ export function narrate(ctx) {
       case 'period_start':
         routine = 0;
         per = freshPeriod(b.section);
-        if (b.sudden) say(pick('ot.intro'), t, sb);
-        else say(pick('section.start', 'section'), t, sb);
+        // (cued: on an intermission's payload this is when the period comes back, so the
+        // rink sends the Zamboni off and brings the teams out in time for the opening draw)
+        // (the 1st has lines of its own: there has been no intermission to come back from)
+        if (b.sudden) say(pick('ot.intro'), t, sb, null, null, { cue: { ev: 'resume' } });
+        else if (b.section === '1st') say(pick('section.first', 'section.start', 'section'), t, sb, null, null, { cue: { ev: 'resume' } });
+        else say(pick('section.start', 'section'), t, sb, null, null, { cue: { ev: 'resume' } });
         said++;
         break;
 
       case 'period_end':
+        pendingHit = null;
         // A quiet period gets padded before the horn rather than after it.
         for (let g = 0; g < 3 && routine < 3; g++) { chatter(b); routine++; }
         say(pick('section.end'), t, sb); said++;
@@ -492,14 +713,17 @@ export function narrate(ctx) {
         break;
 
       case 'goal': {
+        pendingHit = null;
         const key = b.strength === 'pp' ? 'goal.pp' : b.strength === 'sh' ? 'goal.sh' : b.strength === 'en' ? 'goal.en' : 'goal';
-        const gd = gameday(b, idx);
         // some goals are a man in alone: the rink stages them that way and the booth says so
-        gd.breakaway = !b.strength || b.strength === 'even' ? ['wrist', 'backhand', 'snap'].includes(b.shotType) && nrng() < 0.22 : false;
+        const alone = !b.strength || b.strength === 'even' ? ['wrist', 'backhand', 'snap'].includes(b.shotType) && nrng() < 0.22 : false;
+        const bb = (alone && breakawayBeat(b)) || b;
+        const gd = gameday(bb, idx);
+        gd.breakaway = alone;
         const before = scoreBefore(b), pre = beatBug({ ...b, awayScore: before.away, homeScore: before.home });
-        const rushed = callRush(b, t, pre, gd, true);
-        if (gd.breakaway) call('pbp.breakaway', t, null, pre, { cue: { ev: 'alone' } });
-        callShot(b, t, pre, rushed ? null : gd);
+        const rushed = callRush(bb, t, pre, gd, true);
+        if (gd.breakaway && !rushAlone) call('pbp.breakaway', t, null, pre, { cue: { ev: 'alone' } });
+        const feeder = callShot(bb, t, pre, rushed ? null : gd);
         call('pbp.goal', t, { team: b.teamName }, sb, { cue: { ev: 'out' } }, null, goalFx(b));
         // What the rink shows next: the lamp, the scorer peeling away, the pile-on, the
         // goalie on his knees.
@@ -507,13 +731,11 @@ export function narrate(ctx) {
         call('pbp.goal.celebrate', t, { shooter: b.shooter }, sb, { opt: true });
         call('pbp.goal.mob', t, { shooter: b.shooter }, sb, { opt: true });
         if (b.goalie && nrng() < 0.6) call('pbp.goal.slump', t, { goalie: b.goalie }, sb, { opt: true });
-        // and the replay: the rink runs it back slowly as the booth walks through it
-        if (call('pbp.replay.start', t, null, sb, { cue: { ev: 'replay' } })) {
-          call(b.assist ? 'pbp.replay.assist' : 'pbp.replay.solo', t, { assist: b.assist }, sb);
-          call('pbp.replay.shot', t, null, sb, { opt: true });
-          if (b.goalie) call('pbp.replay.goalie', t, null, sb, { opt: true });
-        }
-        say(pick(key, 'goal'), t, sb); said++;
+        // then the replay, while the men line up at centre
+        const replayed = callReplay(b, t, sb, { breakaway: gd.breakaway, feeder, pass: rushPass });
+        // Back live: the credit, then the score. (The plain goal pool names the helper on some
+        // lines, so a solo goal takes its own.)
+        say(pick(...(b.assist || key !== 'goal' ? [key, 'goal'] : ['goal.solo', 'goal'])), t, sb, null, null, replayed ? { cue: { ev: 'live' } } : null); said++;
         say(pick('score.update'), t, sb); said++;
         break;
       }
@@ -530,12 +752,19 @@ export function narrate(ctx) {
         // Every draw is called now, in two short lines: where, then who won it. The old
         // one-sentence pools still air on the draws that mean something.
         call(`pbp.faceoff.${sub}`, t, null, sb, null, gameday(b, idx));
-        // The first draw of a period is on a fresh sheet; then the drop itself, which the
-        // linesman makes as the line airs.
-        if (b.reason === 'period') call('pbp.period.out', t, null, sb, { opt: true });
-        call('pbp.faceoff.drop', t, null, sb, { cue: { ev: 'drop' }, opt: !loud });
+        // (a hit brought up keeps the drop line, so the puck isn't down before the rink has run
+        // the hit back: a routine draw without one goes down at once)
+        const recalled = !!pendingHit && !pendingHit.hurt && b.reason !== 'period';
+        if (recalled) recallHit('pbp.hit.recall', t, sb);
+        // The first draw of a period (the teams back out after an intermission, or the
+        // building on its feet for the 1st); then the drop itself, which the linesman
+        // makes as the line airs.
+        if (b.reason === 'period') call(b.section === '1st' ? ['pbp.period.first', 'pbp.period.out'] : 'pbp.period.out', t, null, sb, { opt: true });
+        call('pbp.faceoff.drop', t, null, sb, { cue: { ev: 'drop' }, opt: !loud && !recalled });
         if (nrng() < (loud ? 0.6 : 0.25)) { say(pick(`faceoff.${sub}`, 'faceoff'), t, sb, null, null, { cue: { ev: 'won' }, opt: !loud && 'colour' }); said++; }
         else call('pbp.faceoff.win', t, null, sb, { cue: { ev: 'won' }, opt: !loud });
+        // and only now is the period under way: never before its first draw is won
+        if (b.reason === 'period') call('pbp.period.go', t, null, sb, { opt: true });
         break;
       }
 
@@ -546,10 +775,11 @@ export function narrate(ctx) {
       case 'chance': {
         const loud = LOUD_CHANCE.has(b.kind);
         // Every shot is called: the rush, the release, the result.
-        const gd = gameday(b, idx);
-        const rushed = callRush(b, t, sb, gd, loud);
-        if (b.kind === 'breakaway') call('pbp.breakaway', t, null, sb, { cue: { ev: 'alone' } });
-        callShot(b, t, sb, rushed ? null : gd);
+        const bb = (b.kind === 'breakaway' && breakawayBeat(b)) || b;
+        const gd = gameday(bb, idx);
+        const rushed = callRush(bb, t, sb, gd, loud);
+        if (b.kind === 'breakaway' && !rushAlone) call('pbp.breakaway', t, null, sb, { cue: { ev: 'alone' } });
+        callShot(bb, t, sb, rushed ? null : gd);
         call(`pbp.out.${b.kind}`, t, null, sb, { cue: { ev: 'out' } });
         // Then where the puck went, which the rink plays out: held, kicked to the corner,
         // loose in the slot, rattled away off the iron.
@@ -565,7 +795,8 @@ export function narrate(ctx) {
       }
 
       case 'penalty':
-        say(pick(b.penaltyMin >= 5 ? 'penalty.major' : 'penalty', 'penalty'), t, sb); said++;
+        // the rink shows the whistle and the man going to the box (its `penalty` beat)
+        say(pick(b.penaltyMin >= 5 ? 'penalty.major' : 'penalty', 'penalty'), t, sb, null, gameday(b, idx)); said++;
         // The team that DIDN'T take it goes on the power play.
         boxes.push({ against: b.teamName, until: b.clock - b.penaltyMin * 60 });
         say(pick('powerplay.start'), { ...t, team: b.teamName === away.name ? home.name : away.name }, sb); said++;
@@ -616,6 +847,7 @@ export function narrate(ctx) {
         else if (nrng() < 0.4) call('pbp.hit.stick', t, null, sb, { opt: true });
         if (hurt) call('pbp.hit.down', t, null, sb);
         else if (nrng() < 0.5) call('pbp.hit.up', t, null, sb, { cue: { ev: 'up' }, opt: true });
+        pendingHit = { hitter: b.hitter, victim: b.victim, hurt };
         break;
       }
 
@@ -623,6 +855,7 @@ export function narrate(ctx) {
       // arm come off.
       case 'injury':
         say(pick('injury'), t, sb, null, gameday(b, idx)); said++;
+        if (pendingHit && pendingHit.hurt && pendingHit.victim === b.player) recallHit('pbp.hit.recall.hurt', t, sb);
         call('pbp.injury.mates', t, null, sb, { opt: true });
         call('pbp.injury.medics', t, null, sb, { cue: { ev: 'medics' } });
         if (b.wound) { say(pick(b.sever ? 'injury.sever' : 'injury.wound'), t, sb); said++; }
@@ -631,6 +864,7 @@ export function narrate(ctx) {
         break;
 
       case 'death':
+        pendingHit = null;
         say(pick('death'), t, sb, deathFx(b), gameday(b, idx)); said++;
         call('pbp.death.still', t, null, sb, { cue: { ev: 'still' } });
         if (b.wound) { say(pick('death.wound'), t, sb); said++; }

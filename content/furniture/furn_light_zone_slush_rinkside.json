@@ -1,0 +1,11 @@
+{
+  "description": "Caged lamps over the benches and the penalty box, on the same circuit as the goal judge's light.",
+  "flags": {},
+  "id": "furn_light_zone_slush_rinkside",
+  "light_type": "overhead",
+  "lumen_output": 1800,
+  "name": "the bench lamps",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_slush_rinkside"
+}

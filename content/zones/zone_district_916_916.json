@@ -1,23 +1,22 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
+  "ambient_theme": "urban",
   "color": "#8ba36a",
-  "description": "A stretch of hardy, knee-high grass gone silver-green and gnawed short by whatever still grazes out here. The wind moves through it in long slow waves. Something rustles, then goes very still.",
-  "exits": {
-    "north": "zone_district_916_915",
-    "south": "zone_district_916_917",
-    "west": "zone_district_915_916"
-  },
+  "description": "The east stand of the Slush Fund, its brick flank along Glacier Street papered with posters for the next game.",
+  "exits": {},
   "flags": {
-    "district": "wasteland",
-    "region_id": "region_coldwater",
-    "terrain": "grass"
+    "building_name": "The Slush Fund",
+    "building_type": "ice_rink_stand_e",
+    "district": "ashway",
+    "entrance": "north",
+    "floors": 2,
+    "region_id": "region_coldwater"
   },
   "grid_x": 916,
   "grid_y": 916,
   "grid_z": 0,
   "id": "zone_district_916_916",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "The Slush Fund",
   "parent_zone": null
 }

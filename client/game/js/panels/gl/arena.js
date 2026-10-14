@@ -14,8 +14,9 @@
 //   · the reflection is a real one: the same buffers through a camera flipped about the
 //     ice, into gl/mirror.js's half-size target, read back by the ice shader at its own
 //     screen position, with the light banks' highlights worked out per pixel;
-//   · the lamp, the vignette, the mourning and the flash are one full-screen pass, and the
-//     HUD text is a 2-D canvas laid over the top (rink/hud.js, shared with render.js).
+//   · the lamp, the vignette and the mourning are one full-screen pass, and the HUD (text,
+//     the replay's wipe) is a 2-D canvas laid over the top (rink/hud.js, shared with
+//     render.js).
 //
 // Nothing here changes what happens: it reads the world and draws it. `createArenaRenderer`
 // returns null when there is no WebGL2 (or a shader won't build), and the view falls back
@@ -28,13 +29,14 @@
 import { RL, RW, BOARD_H, GLASS_H, GOAL_X, MID_Y, NET_HALF, NET_DEPTH, NET_H, SEGS, PANELS, PANEL_X0, PANEL_W } from '../rink/geo.js';
 import { CX0, CX1, CROWS, ROWH, sharedTextures } from '../rink/textures.js';
 import { createRinkCamera, matrices } from '../rink/camera.js';
-import { bodyOpts, drawHud, hudActive } from '../rink/hud.js';
+import { bodyOpts, drawHud, hudActive, maskColours, drawnJoints, drawnAt, drawnPuck, glowTail, GLOW } from '../rink/hud.js';
 import { TAU, clamp, hash, rng } from '../rink/util.js';
 import * as M from './arena-mesh.js';
-import { paintCrest, settCanvas } from '../club-crest.js';
+import { paintCrest, paintLayers, settCanvas } from '../club-crest.js';
 import { makeVertexStream } from './stream.js';
 import { declareProgram, prewarmPrograms, takeWarm } from './programs.js';
 import { createMirrorLayer, MIRROR_SCALE } from './mirror.js';
+import { createRinkHeads, HEAD_VS, HEAD_FS } from './arena-heads.js';
 
 const FACE = '"Saira Condensed", "Arial Narrow", "Roboto Condensed", sans-serif';
 
@@ -147,6 +149,8 @@ void main() {
   outColor = vec4(rgb, 1.0);
 }`;
 
+// A negative alpha marks a soft point: a glow (the glowing puck's halo), added to what's
+// under it and fading to nothing at its edge, and allowed to be bigger on screen.
 const PT_VS = `#version 300 es
 layout(location = 0) in vec3 aPos;
 layout(location = 2) in vec4 aCol;
@@ -155,30 +159,34 @@ uniform mat4 uVP;
 uniform vec2 uShake;
 uniform float uF;
 out vec4 vCol;
+out float vSoft;
 void main() {
   vec4 p = uVP * vec4(aPos, 1.0);
   p.xy += uShake * p.w;
   gl_Position = p;
-  gl_PointSize = clamp(aSize * uF / max(p.w, 0.1), 1.0, 48.0);
-  vCol = aCol;
+  vSoft = aCol.a < 0.0 ? 1.0 : 0.0;
+  gl_PointSize = clamp(aSize * uF / max(p.w, 0.1), 1.0, vSoft > 0.5 ? 160.0 : 48.0);
+  vCol = vec4(aCol.rgb, abs(aCol.a));
 }`;
 const PT_FS = `#version 300 es
 precision mediump float;
 in vec4 vCol;
+in float vSoft;
 uniform float uMourn;
 out vec4 outColor;
 void main() {
   vec2 d = gl_PointCoord - 0.5;
-  if (dot(d, d) > 0.25) discard;
+  float r2 = dot(d, d) * 4.0;
+  if (r2 > 1.0) discard;
   vec3 rgb = vCol.rgb;
   float g = dot(rgb, vec3(0.299, 0.587, 0.114));
   rgb = mix(rgb, vec3(g), uMourn * 0.75);
+  if (vSoft > 0.5) { float k = 1.0 - r2; outColor = vec4(rgb * vCol.a * k * k, 0.0); return; }
   outColor = vec4(rgb * vCol.a, vCol.a);
 }`;
 
 // One full-screen triangle over everything: the lamp behind the net, its red wash over
-// the building, the vignette, a death's darkening and the cut's white flash, composited
-// in that order.
+// the building, the vignette and a death's darkening, composited in that order.
 const POST_VS = `#version 300 es
 void main() {
   vec2 p = vec2((gl_VertexID << 1) & 2, gl_VertexID & 2);
@@ -191,7 +199,6 @@ uniform vec4 uWash;
 uniform vec3 uLamp;
 uniform float uVig;
 uniform float uDark;
-uniform float uFlash;
 out vec4 outColor;
 vec4 over(vec4 top, vec4 under) { return top + under * (1.0 - top.a); }
 void main() {
@@ -203,7 +210,6 @@ void main() {
   float vg = smoothstep(uRes.y * 0.35, uRes.x * 0.62, d) * uVig;
   acc = over(vec4(0.0, 0.0, 0.0, vg), acc);
   acc = over(vec4(0.0, 0.0, 0.0, uDark), acc);
-  acc = over(vec4(vec3(uFlash), uFlash), acc);
   outColor = acc;
 }`;
 
@@ -211,6 +217,7 @@ declareProgram(LIT_VS, LIT_FS);
 declareProgram(ICE_VS, ICE_FS);
 declareProgram(PT_VS, PT_FS);
 declareProgram(POST_VS, POST_FS);
+declareProgram(HEAD_VS, HEAD_FS);
 
 // The quality rungs the view's frame-time governor steps through (gameday-rink.js).
 export const ARENA_RUNGS = [
@@ -223,6 +230,9 @@ export const ARENA_RUNGS = [
 const LIT_ATTRS = [[0, 3, 0], [1, 3, 12], [2, 4, 24], [3, 2, 40], [4, 1, 48]];
 const PT_STRIDE = 8;
 const ATLAS = 1024, SLOT = 128, SLOTS = (ATLAS / SLOT) ** 2;
+// The keepers' masks: their own texture, four cells of 512 x 256 (M.maskUV's flattening, so a
+// texel is about the same size both ways at the eyes), mipmapped, since a mask is often small.
+const MASK_W = 512, MASK_H = 256, MASK_COLS = 2, MASK_ROWS = 2;
 const GPX = 16;                                   // glass decal texels per foot
 const LIGHTS = [40, 70, 100, 130, 160].map((x) => [x, MID_Y - 4, 46]);
 
@@ -253,6 +263,12 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
       return { p, u: (n) => (u[n] ??= gl.getUniformLocation(p, n)) };
     };
     const LIT = prog(LIT_VS, LIT_FS), ICE = prog(ICE_VS, ICE_FS), PT = prog(PT_VS, PT_FS), POST = prog(POST_VS, POST_FS);
+    // The heads: the street figures' generator, drawn per body from a record arena-mesh.js leaves
+    // in `headList` (gl/arena-heads.js). If its program won't build, the bodies keep the old
+    // heads arena-mesh.js makes itself, rather than the whole arena going to 2-D.
+    let heads = null;
+    try { heads = createRinkHeads(gl, prog, doc); } catch (err) { console.warn('[rink] generator heads unavailable, drawing the old ones:', err && err.message); }
+    const headList = [], headsTo = () => (heads ? headList : null);
 
     // ── textures ──────────────────────────────────────────────────────────────
     const T2 = gl.TEXTURE_2D;
@@ -294,6 +310,19 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
     })(), { mip: true });
     const atlas = texture(null, { w: ATLAS, h: ATLAS });
     const slotCv = cv(SLOT, SLOT), sctx = slotCv.getContext('2d');
+    const maskCv = cv(MASK_W, MASK_H), mctx = maskCv.getContext('2d');
+    const maskTex = (() => {
+      const t = gl.createTexture();
+      gl.bindTexture(T2, t);
+      gl.texImage2D(T2, 0, gl.RGBA, MASK_W * MASK_COLS, MASK_H * MASK_ROWS, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+      gl.texParameteri(T2, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+      gl.texParameteri(T2, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(T2, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(T2, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      // (cells sit on 256-texel lines, so no mip this deep mixes two masks)
+      gl.texParameteri(T2, gl.TEXTURE_MAX_LEVEL, 7);
+      return t;
+    })();
     const glassCv = cv(PANELS * PANEL_W * GPX, (GLASS_H - BOARD_H) * GPX), gctx = glassCv.getContext('2d');
     const texGlass = texture(glassCv);
 
@@ -302,7 +331,7 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
     const put = (L, b) => { L.st.write(b.data, b.n * M.STRIDE); L.n = b.n; };
     const L = {
       stat: layer(), ads: layer(), stands: layer(), glass: layer(),
-      rows: layer(), dyn: layer(), jers: layer(), label: layer(), tr: layer(), netm: layer(), gdec: layer(), shad: layer(),
+      rows: layer(), dyn: layer(), jers: layer(), masks: layer(), label: layer(), tr: layer(), netm: layer(), gdec: layer(), shad: layer(),
       ice: layer(2, [[0, 2, 0]]), pts: layer(PT_STRIDE, [[0, 3, 0], [2, 4, 12], [4, 1, 28]]),
     };
     const postVao = gl.createVertexArray();
@@ -310,7 +339,7 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
       const q = new Float32Array([0, 0, RL, 0, RL, RW, 0, 0, RL, RW, 0, RW]);
       L.ice.st.write(q, q.length); L.ice.n = 6;
     }
-    const B = Object.fromEntries(['stat', 'ads', 'stands', 'glass', 'rows', 'dyn', 'jers', 'label', 'tr', 'netm', 'gdec', 'shad'].map((k) => [k, M.createBatch(k === 'dyn' ? 1 << 16 : 1 << 12)]));
+    const B = Object.fromEntries(['stat', 'ads', 'stands', 'glass', 'rows', 'dyn', 'jers', 'masks', 'label', 'tr', 'netm', 'gdec', 'shad'].map((k) => [k, M.createBatch(k === 'dyn' ? 1 << 16 : 1 << 12)]));
     let ptData = new Float32Array(PT_STRIDE * 1024);
     buildStatic();
     const mirror = createMirrorLayer(gl);
@@ -319,7 +348,7 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
     canvas.addEventListener?.('webglcontextlost', (e) => { e.preventDefault(); lost = true; api.lost = true; });
 
     const camera = createRinkCamera(W);
-    let flash = 0, frame = 0, hudShown = false;
+    let frame = 0, hudShown = false, nHalo = 0;
     const st = { tris: 0, draws: 0, tiles: 0 };
 
     // ── the building, once ────────────────────────────────────────────────────
@@ -367,11 +396,9 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
       for (const k of ['stat', 'ads', 'stands', 'glass']) put(L[k], B[k]);
     }
 
-    // ── the jerseys, a slot each in one atlas ─────────────────────────────────
+    // ── the jerseys, a slot each in one atlas, and the keepers' masks ─────────
     const slots = new Map();
-    function jerseySlot(o) {
-      const K = o.kit;
-      const key = [K.clubName || '', K.jersey, K.trim, K.stripes ? 1 : 0, K.crest || '', o.num ?? '', o.name || '', Math.round((o.blood || 0) * 4), o.goalie ? 1 : 0].join('|');
+    function atlasSlot(key, paint) {
       let s = slots.get(key);
       if (!s) {
         let i = slots.size;
@@ -382,13 +409,41 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
         }
         s = { i, used: frame };
         slots.set(key, s);
-        paintJersey(o);
+        paint();
         gl.bindTexture(T2, atlas);
         gl.texSubImage2D(T2, 0, (i % 8) * SLOT, Math.floor(i / 8) * SLOT, gl.RGBA, gl.UNSIGNED_BYTE, slotCv);
       }
       s.used = frame;
       const e = 1.5 / ATLAS, u0 = (s.i % 8) / 8, v0 = Math.floor(s.i / 8) / 8;
       return [u0 + e, v0 + e, u0 + 1 / 8 - e, v0 + 1 / 8 - e];
+    }
+    function jerseySlot(o) {
+      const K = o.kit;
+      return atlasSlot([K.clubName || '', K.jersey, K.trim, K.stripes ? 1 : 0, K.crest || '', o.num ?? '', o.name || '', Math.round((o.blood || 0) * 4), o.goalie ? 1 : 0].join('|'), () => paintJersey(o));
+    }
+    // a keeper's mask: a cell of the mask texture, the least recently used given up for a new one
+    const maskCells = new Map();
+    function maskSlot(o) {
+      const key = [o.kit.clubName || `${o.kit.jersey}${o.kit.trim}`, o.num ?? ''].join('|');
+      let s = maskCells.get(key);
+      if (!s) {
+        let i = maskCells.size;
+        if (i >= MASK_COLS * MASK_ROWS) {
+          let oldK = null, oldS = null;
+          for (const [k, v] of maskCells) if (!oldS || v.used < oldS.used) { oldK = k; oldS = v; }
+          maskCells.delete(oldK); i = oldS.i;
+        }
+        s = { i, used: frame };
+        maskCells.set(key, s);
+        paintMask(o);
+        gl.bindTexture(T2, maskTex);
+        gl.texSubImage2D(T2, 0, (i % MASK_COLS) * MASK_W, Math.floor(i / MASK_COLS) * MASK_H, gl.RGBA, gl.UNSIGNED_BYTE, maskCv);
+        gl.generateMipmap(T2);
+      }
+      s.used = frame;
+      const TW = MASK_W * MASK_COLS, TH = MASK_H * MASK_ROWS, ex = 1.5 / TW, ey = 1.5 / TH;
+      const u0 = ((s.i % MASK_COLS) * MASK_W) / TW, v0 = (Math.floor(s.i / MASK_COLS) * MASK_H) / TH;
+      return [u0 + ex, v0 + ey, u0 + MASK_W / TW - ex, v0 + MASK_H / TH - ey];
     }
     // The sweater flattened: u runs round the body (a quarter in is the chest, three
     // quarters the back), v from the collar at the top to the hem. Lettering is drawn
@@ -430,6 +485,75 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
       }
     }
 
+    // A keeper's mask, flattened the way M.maskUV flattens it: x once round his head from behind
+    // his right ear through the face (half way) and his left side to behind his left ear; y from
+    // the crown down to the chin cup's edge. The cut-out over the face is never seen, so paint
+    // can run under it. A club's own art is content (`club.mask`, authored by
+    // scripts/content/build-cphl-clubs.mjs in that flattening): its base colour, its layers and
+    // where the number goes on the backplate. A club with no mask art gets plainMask.
+    function paintMask(o) {
+      const K = o.kit, club = K.club, m = club && club.mask, c = mctx;
+      c.setTransform(1, 0, 0, 1, 0, 0);
+      if (!m || !Array.isArray(m.layers)) { plainMask(o); return; }
+      c.fillStyle = m.base || maskColours(K).base; c.fillRect(0, 0, MASK_W, MASK_H);
+      const w = m.w || MASK_W, h = m.h || MASK_H;
+      c.setTransform(MASK_W / w, 0, 0, MASK_H / h, 0, 0);
+      paintLayers(c, m.layers, club, m.settUnit || 1);
+      // his number, on the backplate (and again across the seam behind, where x wraps)
+      const n = m.number, num = String(o.num ?? '');
+      if (n && num) {
+        const size = n.size || 26;
+        c.font = `800 ${size}px ${FACE}`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.lineJoin = 'round';
+        for (const dx of [0, -w, w]) {
+          const x = n.at[0] + dx;
+          if (x < -size * 2 || x > w + size * 2) continue;
+          c.lineWidth = Math.max(2, size * 0.18); c.strokeStyle = n.edge || '#141414'; c.strokeText(num, x, n.at[1]);
+          c.fillStyle = n.fill || '#ffffff'; c.fillText(num, x, n.at[1]);
+        }
+      }
+      c.setTransform(1, 0, 0, 1, 0, 0);
+    }
+    // The generic mask, for a club with no mask art: drawn in a 128 box stretched over the cell. The
+    // colours are hud.js's maskColours: the shell in the first, a stripe over the crown and
+    // blades swept back from the cage in the second, edged in the third; the backplate, his
+    // number, the crest on each temple, the ear holes.
+    function plainMask(o) {
+      const K = o.kit, c = mctx, S = 128, club = K.club;
+      c.setTransform(MASK_W / S, 0, 0, MASK_H / S, 0, 0);
+      const at = (az, el) => { const [u, v] = M.maskUV(az, el); return [u * S, v * S]; };
+      const { base, trim, edge } = maskColours(K);
+      c.fillStyle = base; c.fillRect(0, 0, S, S);
+      // the flashes: three blades a side, swept back from the cage and tapering to points
+      // (base top and bottom on the cage's side, the point, and how far each edge bows up)
+      const BLADES = [[0.56, 0.36, 0.12, 2.15, 0.62, 0.16], [0.6, 0.02, -0.22, 2.3, 0.08, 0.1], [0.5, -0.36, -0.62, 1.95, -0.5, 0.06]];
+      for (const sd of [1, -1]) for (const [az0, e0, e1, az1, et, bow] of BLADES) {
+        const [xa, ya] = at(sd * az0, e0), [xb, yb] = at(sd * az0, e1), [xt, yt] = at(sd * az1, et);
+        const [xm, ym] = at(sd * (az0 + az1) / 2, (e0 + et) / 2 + bow), [xn, yn] = at(sd * (az0 * 0.4 + az1 * 0.6), (e1 + et) / 2 + bow * 0.4);
+        c.beginPath(); c.moveTo(xa, ya); c.quadraticCurveTo(xm, ym, xt, yt); c.quadraticCurveTo(xn, yn, xb, yb); c.closePath();
+        c.fillStyle = trim; c.fill();
+        c.lineWidth = 1.6; c.lineJoin = 'miter'; c.strokeStyle = edge; c.stroke();
+      }
+      // the stripe over the crown: from the top of the cage up, and down the back to the plate
+      const stripe = (x, y0, y1) => { c.fillStyle = edge; c.fillRect(x - 4.5, y0, 9, y1 - y0); c.fillStyle = trim; c.fillRect(x - 3, y0, 6, y1 - y0); };
+      stripe(S / 2, 0, at(0, 0.2)[1]); stripe(0, 0, at(Math.PI, 0.5)[1]); stripe(S, 0, at(Math.PI, 0.5)[1]);
+      // the backplate behind the seam, with the strap across it and his number
+      const xs = at(-2.15, 0)[0], xe = at(2.15, 0)[0], ys = at(Math.PI, 0.5)[1];
+      c.fillStyle = trim; c.fillRect(0, ys, xs, S - ys); c.fillRect(xe, ys, S - xe, S - ys);
+      c.fillStyle = '#141414'; c.fillRect(xs - 1, 0, 2, S); c.fillRect(xe - 1, 0, 2, S);
+      c.fillStyle = 'rgba(20,20,20,0.85)'; c.fillRect(0, at(0, -0.05)[1] - 2, xs, 4); c.fillRect(xe, at(0, -0.05)[1] - 2, S - xe, 4);
+      const num = String(o.num ?? '');
+      if (num) {
+        c.font = `800 15px ${FACE}`; c.textAlign = 'center'; c.textBaseline = 'middle';
+        for (const x of [0, S]) { c.lineWidth = 3; c.strokeStyle = edge; c.strokeText(num, x, ys + 12); c.fillStyle = base; c.fillText(num, x, ys + 12); }
+      }
+      // the crest on each temple
+      if (K.badge) for (const sd of [1, -1]) { const [x, y] = at(sd * 1.3, 0.92); paintCrest(c, club, x, y, 17, { small: true }); }
+      // the ear holes
+      c.fillStyle = 'rgba(16,16,18,0.9)';
+      for (const sd of [1, -1]) { const [x, y] = at(sd * 1.72, -0.18); c.beginPath(); c.ellipse(x, y, 2.4, 3.6, 0, 0, TAU); c.fill(); }
+      c.setTransform(1, 0, 0, 1, 0, 0);
+    }
+
     // the number on the back, the name over it, mirrored (u runs right to left there)
     function backLettering(o, vy, fill, edge) {
       const c = sctx, S = SLOT;
@@ -443,7 +567,8 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
     // A club's designed sweater (club-crest.js keeps the identity): the body, woven in
     // the club's sett if it has one, its own bands at the hem, the yoke, the club crest
     // on the chest and its own lettering. A band's pattern is 'gems' (a row of set
-    // stones, the Warlords' stripe) or 'sett' (a band of the tartan).
+    // stones, the Warlords' stripe), 'sett' (a band of the tartan) or 'dice' (squares of
+    // the band's colour and its `alt`, `rows` deep: the chequer on a police cap).
     const _setts = new WeakMap();
     function settFill(sett) {
       let p = _setts.get(sett);
@@ -462,6 +587,7 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
         else c.fillStyle = b.col;
         c.fillRect(0, y0, S, h);
         if (b.pattern === 'gems') gemRow(c, y0, h, club.gems || {});
+        if (b.pattern === 'dice') diceRow(c, y0, h, b.alt || K.trim, b.rows || 2);
       }
       if (K.yoke) { c.fillStyle = K.yoke; c.fillRect(0, vy(0.99) - 2, S, 4.5); }
       // the laced V at the collar, in the yoke's colour
@@ -480,6 +606,14 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
         c.fillStyle = g.gem || '#fff'; c.beginPath(); c.arc(x, y, r, 0, TAU); c.fill();
         c.fillStyle = 'rgba(150,200,235,0.9)'; c.beginPath(); c.arc(x + r * 0.15, y + r * 0.15, r * 0.45, 0, TAU); c.fill();
       }
+    }
+
+    // squares of `alt` over a band, `rows` deep, sized so a whole number of pairs runs
+    // round the body and the seam at the back doesn't show
+    function diceRow(c, y0, h, alt, rows) {
+      const S = SLOT, n = Math.max(1, rows | 0), ch = h / n, pairs = Math.max(1, Math.round(S / (2 * ch))), cw = S / (2 * pairs);
+      c.fillStyle = alt;
+      for (let r = 0; r < n; r++) for (let x = (r % 2) * cw; x < S; x += 2 * cw) c.fillRect(x, y0 + r * ch, cw, ch);
     }
 
     // ── cracks and blood on the far glass ─────────────────────────────────────
@@ -550,7 +684,8 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
     // ── this frame's geometry ─────────────────────────────────────────────────
     let propsN = 0;
     function buildFrame(P, eye) {
-      for (const k of ['rows', 'dyn', 'jers', 'label', 'tr', 'netm', 'gdec', 'shad']) M.reset(B[k]);
+      for (const k of ['rows', 'dyn', 'jers', 'masks', 'label', 'tr', 'netm', 'gdec', 'shad']) M.reset(B[k]);
+      headList.length = 0;
       const d = B.dyn;
       // the crowd rows, standing when the building is up
       const up = W.crowd > 0.45, H = CROWS * ROWH;
@@ -567,17 +702,20 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
       for (const b of W.bodies()) {
         const o = bodyOpts(W, b);
         if (!o.kit) continue;
-        const J = W.rigOf(b), hp = J[3] && P(J[3][0], J[3][1], J[3][2]);
+        const J = drawnJoints(W, b), hp = J[3] && P(J[3][0], J[3][1], J[3][2]);
         o.detail = hp && hp.s > 24 ? 1 : 0;
+        // the head's level by its size on screen: a head is about 0.9 ft, so L0 from about 32 px
+        o.heads = headsTo(); o.headLv = !hp ? 2 : hp.s > 36 ? 0 : hp.s > 9 ? 1 : 2;
         o.slot = jerseySlot(o);
+        if (o.goalie) { o.maskSlot = maskSlot(o); o.maskBatch = B.masks; }
         M.buildBody(d, B.jers, J, o);
         M.buildVisor(B.tr, o);
-        const p = b.rag ? b.rag.pts[0] : b;
-        shadow(p.x, p.y, b.rag ? 2.6 : b.kind === 'goalie' ? 1.7 : 1.3);
+        const p = drawnAt(W, b);
+        shadow(p[0], p[1], b.rag ? 2.6 : b.kind === 'goalie' ? 1.7 : 1.3);
       }
-      if (!W.puck.hidden) { M.buildPuck(d, W.puck); shadow(W.puck.x, W.puck.y, 0.35); tail(eye); }
+      if (!W.puck.hidden) { const pp = drawnPuck(W); M.buildPuck(d, { x: pp[0], y: pp[1], z: pp[2] }); shadow(pp[0], pp[1], 0.35); tail(eye, pp); }
       for (const x of W.debris) M.buildDebris(d, x, W.kits[x.side] || W.kits.a);
-      for (const l of W.limbs) { const o = bodyOpts(W, l.owner || { side: l.side }); if (o.kit) M.buildSevered(d, l, o); }
+      for (const l of W.limbs) { const o = bodyOpts(W, l.owner || { side: l.side }); if (o.kit) { o.heads = headsTo(); if (o.goalie) { o.maskSlot = maskSlot(o); o.maskBatch = B.masks; } M.buildSevered(d, l, o, B.jers); } }
       if (W.stretcher) M.buildStretcher(d, W.stretcher);
       if (W.zamboni) shadow(W.zamboni.x, W.zamboni.y, 6.5);
       farGlass();
@@ -585,11 +723,18 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
     }
     // The light tail behind a shot: a faint slate streak (the ice is white, so a white tail
     // vanishes on it) through the puck's last fifth of a second, nothing at the old end,
-    // strongest at the puck, and strongest of all on a snap shot.
-    function tail(eye) {
+    // strongest at the puck, and strongest of all on a snap shot. With the glowing puck on,
+    // its comet tail instead (hud.js), lifted clear of the ice by its own half width.
+    function tail(eye, pp) {
+      const gt = api.glow ? glowTail(W) : null;
+      if (gt) {
+        const lift = (q) => [q[0], q[1], q[2] + 0.22];
+        M.ribbon(B.tr, gt.pts.map(lift), eye, 0.06, 0.44, [...gt.col, 0], [...gt.col, 0.85]);
+        return;
+      }
       const T = W.puck.tail;
       if (!T || T.pts.length < 2 || !(T.fade > 0)) return;
-      const pk = W.puck, pts = [...T.pts, [pk.x, pk.y, pk.z + 0.06]], a = 0.5 * T.k * T.fade;
+      const pts = [...T.pts, [pp[0], pp[1], pp[2] + 0.06]], a = 0.5 * T.k * T.fade;
       M.ribbon(B.tr, pts, eye, 0.04, 0.26 + 0.2 * T.k, [0.3, 0.4, 0.55, 0], [0.24, 0.33, 0.47, a]);
     }
     function shadow(x, y, r) {
@@ -626,7 +771,7 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
     }
     const PCOL = { spray: [245 / 255, 250 / 255, 1, 0.7], tooth: M.rgb('#f4f1e6'), sweat: [220 / 255, 235 / 255, 1, 0.7], shard: [200 / 255, 232 / 255, 250 / 255, 0.85] };
     function particles() {
-      const need = (W.parts.length + 8) * PT_STRIDE;
+      const need = (W.parts.length + (W.spray ? W.spray.length : 0) + 8) * PT_STRIDE;
       if (ptData.length < need) ptData = new Float32Array(need * 2);
       let n = 0;
       const pt = (x, y, z, c, s) => { const o = n * PT_STRIDE; ptData[o] = x; ptData[o + 1] = y; ptData[o + 2] = z; ptData[o + 3] = c[0]; ptData[o + 4] = c[1]; ptData[o + 5] = c[2]; ptData[o + 6] = c[3]; ptData[o + 7] = s; n++; };
@@ -634,8 +779,13 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
         if (p.type === 'blood') pt(p.x, p.y, p.z, M.rgb(p.col), p.size * 1.6);
         else pt(p.x, p.y, p.z, PCOL[p.type] || PCOL.shard, p.size * 2);
       }
+      if (W.spray) for (const p of W.spray) pt(p.x, p.y, p.z, PCOL.spray, p.size * 2);
       // a few phones going off in the stands when the building is up
       if (W.crowd > 0.5 && W.mourning < 0.2) for (let i = 0; i < 6; i++) { if (Math.random() > W.crowd * 0.5) continue; pt(CX0 + Math.random() * (CX1 - CX0), 89 + Math.random() * 40, 6 + Math.random() * 30, [1, 1, 1, 0.9], 0.3 + Math.random() * 0.3); }
+      // the glowing puck's halo goes last: it's drawn over whatever is in front of the puck,
+      // the way the broadcast's glow was
+      nHalo = 0;
+      if (api.glow && !W.puck.hidden) { const pp = drawnPuck(W); pt(pp[0], pp[1], pp[2] + 0.1, [...GLOW.halo, -0.95], 2.6); nHalo = 1; }
       return n;
     }
 
@@ -674,18 +824,20 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
       const { w, h, u } = fit();
       const rp = W0.replay && W0.replay.active ? W0.replay : null;
       W = rp ? rp.frame() : W0;
-      const cm = rp ? (rcam ??= createRinkCamera(rp.source)) : camera;
       camera.view = api.view;
-      const { C, P } = cm.update(w, h, now);
+      // the live camera keeps following the play under a replay, so it's on it when it ends
+      const live = camera.update(w, h, now);
+      // (what the live picture shows, for the director: a hit it misses is replayed later)
+      W0.view = { P: live.P, w, h, t: W0.t };
+      const { C, P } = rp ? (rcam ??= createRinkCamera(rp.source, { snap: true })).update(w, h, now) : live;
       api.lastP = P;
-      if (cm.flash) { flash = cm.flash; cm.flash = 0; }
       const crowdTex = W.crowd > 0.45 ? texUp : texSit;
       const sh = W.shake * 5 * u, sx = sh * (Math.sin(W.t * 47) + 0.5 * Math.sin(W.t * 83 + 1)) / 1.5, sy = sh * (Math.sin(W.t * 59 + 2) + 0.5 * Math.sin(W.t * 97)) / 1.5;
       const shake = [2 * sx / w, -2 * sy / h];
       st.draws = 0; st.tris = 0;
 
       const nPts = buildFrame(P, [C.x, C.y, C.z]);
-      for (const k of ['rows', 'dyn', 'jers', 'label', 'tr', 'netm', 'gdec', 'shad']) put(L[k], B[k]);
+      for (const k of ['rows', 'dyn', 'jers', 'masks', 'label', 'tr', 'netm', 'gdec', 'shad']) put(L[k], B[k]);
       L.pts.st.write(ptData, nPts * PT_STRIDE); L.pts.n = nPts;
       uploadIce();
 
@@ -694,12 +846,14 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
       const MR = matrices(C, true), eyeR = [C.x, C.y, -C.z];
       const hasMir = mirror.bind(w, h, api.quality.mirror);
       if (hasMir) {
-        useLit(new Float32Array(MR.viewProj), eyeR, shake, -0.05);
+        const vpR = new Float32Array(MR.viewProj);
+        useLit(vpR, eyeR, shake, -0.05);
         gl.depthMask(true);
         // the boards and their ads; not the crowd, which is dim against a lit sheet
         draw(L.stat); draw(L.ads, texAds);
-        if (api.quality.reflBodies) { draw(L.dyn); draw(L.jers, atlas); } else draw(L.dyn, null, 0, propsN);
+        if (api.quality.reflBodies) { draw(L.dyn); draw(L.jers, atlas); draw(L.masks, maskTex); } else draw(L.dyn, null, 0, propsN);
         draw(L.label, texLabel);
+        if (heads && api.quality.reflBodies) heads.draw(headList, vpR, eyeR, shake, -0.05, W.mourning, st);
         mirror.release();
       }
 
@@ -713,7 +867,8 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
       gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
       useLit(vp, eye, shake, -1e9);
       draw(L.stands, crowdTex); draw(L.rows, crowdTex); draw(L.stat); draw(L.ads, texAds);
-      draw(L.dyn); draw(L.jers, atlas); draw(L.label, texLabel);
+      draw(L.dyn); draw(L.jers, atlas); draw(L.masks, maskTex); draw(L.label, texLabel);
+      if (heads) heads.draw(headList, vp, eye, shake, -1e9, W.mourning, st);
 
       gl.useProgram(ICE.p);
       gl.uniformMatrix4fv(ICE.u('uVP'), false, vp);
@@ -746,7 +901,8 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
         gl.uniform2fv(PT.u('uShake'), shake);
         gl.uniform1f(PT.u('uF'), C.f);
         gl.uniform1f(PT.u('uMourn'), W.mourning || 0);
-        gl.bindVertexArray(L.pts.vao); gl.drawArrays(gl.POINTS, 0, nPts); st.draws++;
+        gl.bindVertexArray(L.pts.vao); gl.drawArrays(gl.POINTS, 0, nPts - nHalo); st.draws++;
+        if (nHalo) { gl.disable(gl.DEPTH_TEST); gl.drawArrays(gl.POINTS, nPts - nHalo, nHalo); gl.enable(gl.DEPTH_TEST); st.draws++; }
       }
 
       // the light over the top of it all
@@ -765,25 +921,23 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
       gl.uniform3fv(POST.u('uLamp'), lamp);
       gl.uniform1f(POST.u('uVig'), 0.42 + 0.3 * (W.mourning || 0));
       gl.uniform1f(POST.u('uDark'), 0.22 * (W.mourning || 0));
-      gl.uniform1f(POST.u('uFlash'), flash * 0.5);
-      flash = Math.max(0, flash - 0.12);
       gl.bindVertexArray(postVao); gl.drawArrays(gl.TRIANGLES, 0, 3); st.draws++;
       gl.bindVertexArray(null);
       gl.depthMask(true); gl.enable(gl.DEPTH_TEST);
 
       // the HUD, in 2-D over the top, and only while there's any
       if (overlay) {
-        const on = hudActive(W);
+        const on = hudActive(W, W0);
         if (on || hudShown) {
           const o = overlay.getContext('2d');
           o.setTransform(1, 0, 0, 1, 0, 0); o.clearRect(0, 0, w, h);
-          if (on) drawHud(o, W, w, h, u);
+          if (on) drawHud(o, W, w, h, u, W0);
           hudShown = on;
         }
       }
     }
 
-    const api = { render, stats: st, cam: camera.cam, view: 'broadcast', kind: 'gl', lost: false, rungs: ARENA_RUNGS, quality: { ...ARENA_RUNGS[0] },
+    const api = { render, stats: st, cam: camera.cam, view: 'broadcast', glow: false, kind: 'gl', lost: false, rungs: ARENA_RUNGS, quality: { ...ARENA_RUNGS[0] },
       // the reflection buffer, for a bench that wants to know it isn't empty
       mirrorPeak: () => mirror.peak() };
     return api;

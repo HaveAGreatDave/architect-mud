@@ -1,0 +1,18 @@
+{
+  "description": "A glass cabinet by the stairs with a velvet plinth in it and nothing on the plinth. A card is propped against the glass: On loan to the champions.",
+  "flags": {
+    "aliases": [
+      "cabinet",
+      "trophy cabinet",
+      "plinth",
+      "card",
+      "cup",
+      "trophy"
+    ],
+    "examine_detail": "A brass plate on the plinth: The Coldwater Cup. The ring in the velvet where it stands is stained dark, as if whatever stood there had been full."
+  },
+  "id": "furn_slush_cabinet",
+  "name": "the trophy cabinet",
+  "object_type": "decoration",
+  "zone_id": "zone_slush_concourse"
+}

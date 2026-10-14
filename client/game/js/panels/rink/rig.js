@@ -14,7 +14,7 @@
 // hits decides how he lands, which is the whole point of a board check. Getting up blends
 // from wherever the ragdoll left him back into his stance.
 
-import { TAU, V, clamp, lerp, ik, rotZ, easeOut, easeIO } from './util.js';
+import { TAU, V, clamp, lerp, ik, rotZ, easeOut, easeIO, hyp, hyp3 } from './util.js';
 import { insideRink, GLASS_H } from './geo.js';
 
 export const DT = 1 / 120;
@@ -38,7 +38,26 @@ export const SHOTS = {
   drop:     { wind: 0.35, back: [2.0, 0.7, 0.05], hit: [0.7, 0.6, 0.05], fol: [1.3, 0.6, 0.35], dur: 0.32, flex: 0 },
   dump:     { wind: 0.4, back: [0.0, 1.9, 0.6], hit: [1.5, 0.9, 0.08], fol: [2.8, 0.4, 2.0], dur: 0.45, flex: 0.2 },
 };
-export const releaseAt = (type) => { const s = SHOTS[type] || SHOTS.wrist; return s.dur * (s.wind + 0.08); };
+// THE BLADE MEETS THE PUCK. The downswing, from the top of the wind-up to contact, takes
+// SWING of the shot, and the puck leaves at contact. The director releases on `releaseAt`,
+// the rig draws the blade on `shotPath` and the sim keeps the puck on it, so all three
+// agree on where and when the blade and the puck meet.
+export const SWING = 0.1;
+export const releaseAt = (type) => { const s = SHOTS[type] || SHOTS.wrist; return s.dur * (s.wind + SWING); };
+// a shot whose wind-up lifts the blade leaves the puck waiting on the ice where the blade
+// comes down; the rest (wrist, backhand, the passes) carry it on the blade through the sweep
+export const sweeps = (sh) => sh.back[2] <= 0.8;
+// the blade through a shot, in body space, from where it was (`from`) back to the top of the
+// wind-up, down through the contact point at the release, and out to the follow-through
+export function shotPath(sh, at, from) {
+  const w = sh.wind;
+  if (at < w) return V.lerp(from, sh.back, easeIO(at / w));
+  if (at < w + SWING) return V.lerp(sh.back, sh.hit, (at - w) / SWING);
+  return V.lerp(sh.hit, sh.fol, easeOut(clamp((at - w - SWING) / (1 - w - SWING), 0, 1)));
+}
+// strides a second, per leg: slow and long cruising, quicker on the first pushes from a stop.
+// The sim advances the stride by it and the rig turns the skates by it, so they agree.
+export const cadence = (sp, effort) => 0.42 + sp * 0.03 + 0.7 * effort * clamp(1 - sp / 13, 0, 1) * (sp > 0.8 ? 1 : 0);
 
 // Moves a puck carrier makes with the blade, as a path of [u, v, z] the blade follows
 // through the action. The puck rides the blade, so the sim reads the same function.
@@ -61,35 +80,57 @@ const path3 = (pts, t) => {
 // clipping a viewer notices first, so both are kept outside an ellipse round them.
 export const FEET = { u: 0.25, ru: 1.35, rv: 1.0 };
 export function keepOut(u, v, pad = 0) {
-  const du = (u - FEET.u) / (FEET.ru + pad), dv = v / (FEET.rv + pad), r = Math.hypot(du, dv);
+  const du = (u - FEET.u) / (FEET.ru + pad), dv = v / (FEET.rv + pad), r = hyp(du, dv);
   if (r >= 1) return [u, v];
   if (r < 1e-3) return [FEET.u + FEET.ru + pad, v];
   return [FEET.u + du / r * (FEET.ru + pad), dv / r * (FEET.rv + pad)];
 }
 
+// ⚠ LEFTIES AND RIGHTIES. Every pose here is authored for a left-handed shot: top hand on
+// the right, blade on his left. A right-handed shot holding his stick is the same man in a
+// mirror: his body space is flipped across his forward axis going in, and his joints are
+// flipped back, left for right, coming out. The blade the sim leashes the puck to is flipped
+// the same way, so the puck is always on the side his blade is.
+const mirrorOf = (s) => (s.hand === 'R' && s.stick && s.kind !== 'official' && s.kind !== 'medic' ? -1 : 1);
+const SWAP = [0, 1, 2, 3, 7, 8, 9, 4, 5, 6, 13, 14, 15, 10, 11, 12, 17, 16, 18, 19, 20];
+
 // Where the blade (and so the puck) is in body space. One function for the rig and the sim,
 // so a carried puck can never drift off the stick.
-export function bladeLocal(s, T, carrying) { const [u, v] = bladeRaw(s, T, carrying); return keepOut(u, v, 0.1); }
+export function bladeLocal(s, T, carrying) { const [u, v] = bladeRig(s, T, carrying); return [u, v * mirrorOf(s)]; }
+// the same, in the rig's own (left-handed) space
+function bladeRig(s, T, carrying) { const [u, v] = bladeRaw(s, T, carrying); return keepOut(u, v, 0.1); }
 function bladeRaw(s, T, carrying) {
   if (carrying || s.carrying) {
     if (DEKES[s.act]) { const p = path3(DEKES[s.act], s.actT); return [p[0], p[1]]; }
-    const sp = Math.hypot(s.vx || 0, s.vy || 0);
-    if (s.protect) return [1.5, -s.protect * 1.35];             // on the far side from the man
+    const sh = SHOTS[s.act];
+    if (sh) {
+      if (!sweeps(sh)) return [sh.hit[0], sh.hit[1]];
+      const [u, v] = carryRaw(s, T), p = shotPath(sh, s.actT, [u, v, 0.06]);
+      return [p[0], p[1]];
+    }
+    return carryRaw(s, T);
+  }
+  return [2.3, 0.75 + 0.18 * Math.sin(s.phase * TAU)];
+}
+function carryRaw(s, T) {
+  {
+    const sp = hyp(s.vx || 0, s.vy || 0);
+    if (s.protect) return [1.5, -s.protect * mirrorOf(s) * 1.35];   // on the far side from the man
     if (sp > 21) return [3.0, 0.45 + 0.15 * Math.sin(T * 4 + s.seed)];  // pushed ahead, one hand
     // the dangle: forehand to backhand and back, a little ahead and behind, never the same twice
     const f = 1.55 + (s.seed % 7) * 0.06;
     return [2.35 + 0.22 * Math.cos(T * f * 2.1 + s.seed), 0.5 + 0.7 * Math.sin(T * f * TAU * 0.5 + s.seed)];
   }
-  return [2.3, 0.75 + 0.18 * Math.sin(s.phase * TAU)];
 }
 export function bladeWorld(s, T, carrying) {
   const [u, v] = bladeLocal(s, T, carrying), c = Math.cos(s.h), n = Math.sin(s.h);
   return [s.x + u * c - v * n, s.y + u * n + v * c];
 }
 
-const toLocalFn = (s) => { const ch = Math.cos(s.h), sn = Math.sin(s.h); return (X, Y, Z) => { const dx = X - s.x, dy = Y - s.y; return [dx * ch + dy * sn, -dx * sn + dy * ch, Z]; }; };
-const toWorld = (s, loc) => { const ch = Math.cos(s.h), sn = Math.sin(s.h); return loc.map((p) => (p ? [s.x + p[0] * ch - p[1] * sn, s.y + p[0] * sn + p[1] * ch, p[2]] : null)); };
-const dirWorld = (s, d) => { const ch = Math.cos(s.h), sn = Math.sin(s.h); return [d[0] * ch - d[1] * sn, d[0] * sn + d[1] * ch, d[2]]; };
+// (m is -1 for a mirrored man: v flips going into his space and coming back out of it)
+const toLocalFn = (s, m = 1) => { const ch = Math.cos(s.h), sn = Math.sin(s.h); return (X, Y, Z) => { const dx = X - s.x, dy = Y - s.y; return [dx * ch + dy * sn, (-dx * sn + dy * ch) * m, Z]; }; };
+const toWorld = (s, loc, m = 1) => { const ch = Math.cos(s.h), sn = Math.sin(s.h); return loc.map((p) => (p ? [s.x + p[0] * ch - p[1] * m * sn, s.y + p[0] * sn + p[1] * m * ch, p[2]] : null)); };
+const dirWorld = (s, d, m = 1) => { const ch = Math.cos(s.h), sn = Math.sin(s.h); return [d[0] * ch - d[1] * m * sn, d[0] * sn + d[1] * m * ch, d[2]]; };
 // roll about the body's forward axis, pivoting at the ice: leaning into a turn
 const roll = (p, a) => { const c = Math.cos(a), s = Math.sin(a); return [p[0], p[1] * c - p[2] * s, p[1] * s + p[2] * c]; };
 const bump = (t) => Math.sin(clamp(t, 0, 1) * Math.PI);
@@ -103,6 +144,7 @@ const bump = (t) => Math.sin(clamp(t, 0, 1) * Math.PI);
 // the blade comes in instead), and the BOTTOM HAND slides along the shaft to wherever the
 // other arm reaches it comfortably, near the grip the action asks for.
 export const STICK = 4.5;            // top hand to the heel of the blade, feet
+const GSTICK = 2.45;                 // a goalie's blocker to his heel, at the top of the paddle
 const ARM = 2.12;                    // shoulder to glove at full stretch
 function fitStick(R0, blade0, shR, shL, wantT, oneHand) {
   let d = V.sub(R0, blade0), len = V.len(d) || 1;
@@ -151,7 +193,7 @@ const lookDir = (yaw, pitch) => [Math.cos(yaw) * Math.cos(pitch), Math.sin(yaw) 
 // ── skaters, officials and medics ───────────────────────────────────────────
 export function skaterRig(s, T) {
   if (s.rag) return s.rag.pts.map((p) => [p.x, p.y, p.z]);
-  const J = standRig(s, T);
+  const J = standRig(s, T, false);
   if (s.blend) {
     // getting up: from where the ragdoll left him into his stance, hips first
     const k = easeIO(clamp(s.blend.t, 0, 1));
@@ -159,6 +201,13 @@ export function skaterRig(s, T) {
     if (k < 0.7) J[18] = J[19] = J[20] = null;
   }
   return J;
+}
+// THE SKATES ALONE, for the marks they cut in the ice: the sim asks for them fourteen times a
+// second for every man moving, and the arms and the stick are most of a rig's work. The hips and
+// legs (J[10] to J[17]) are skaterRig's to the bit, and the blade is eased just as a full rig
+// eases it, so asking for one or the other leaves him the same. The other joints are null.
+export function skaterFeet(s, T) {
+  return s.rag || s.blend ? skaterRig(s, T) : standRig(s, T, true);
 }
 
 // ── the stride ───────────────────────────────────────────────────────────────
@@ -219,34 +268,30 @@ function strideStart(sg, c) {
   return { u: lerp(-0.2, 0.5, e), v: sg * lerp(0.95, 0.5, e), z: 0.55 + 0.38 * arc, yaw: sg * 0.75 };
 }
 const strideGlide = (sg) => ({ u: 0.2 + sg * 0.28, v: sg * 0.55, z: 0.55, yaw: sg * 0.08 });
-const mixFoot = (list) => {
-  let u = 0, v = 0, z = 0, yaw = 0, w = 0;
-  for (const [f, k] of list) { if (k <= 0) continue; u += f.u * k; v += f.v * k; z += f.z * k; yaw += f.yaw * k; w += k; }
-  return w ? { u: u / w, v: v / w, z: z / w, yaw: yaw / w } : { u: 0.2, v: 0.5, z: 0.55, yaw: 0 };
-};
 // How far into an action its pose has taken over: up fast, back down at the end, so every
 // action layers onto the stride and lets go of it again instead of snapping to a pose.
 const envelope = (t, inF, outF) => easeIO(clamp(t / inF, 0, 1)) * easeIO(clamp((1 - t) / outF, 0, 1));
 
-function standRig(s, T) {
+function standRig(s, T, feet) {
   const at = s.actT, act = s.act;
   const official = s.kind === 'official' || s.kind === 'medic';
-  const toLocal = toLocalFn(s);
+  const m = mirrorOf(s), toLocal = toLocalFn(s, m);
   const carrying = !!s.carrying;
   const shot = SHOTS[act], deke = DEKES[act];
 
   // ── how he is moving ────────────────────────────────────────────────────
-  const sp = Math.hypot(s.vx, s.vy);
-  const rel = sp > 1 ? angWrapL(Math.atan2(s.vy, s.vx) - s.h) : 0;
-  const turn = clamp(s.turnRate || 0, -3, 3);
+  const sp = hyp(s.vx, s.vy);
+  const rel = sp > 1 ? angWrapL(Math.atan2(s.vy, s.vx) - s.h) * m : 0;
+  const turn = clamp((s.turnRate || 0) * m, -3, 3);
   const sd = turn >= 0 ? 1 : -1;
   const a = s.amp, P = s.phase * TAU;
-  const wBack = official ? 0 : smooth(Math.abs(rel), 1.5, 2.3) * smooth(sp, 1.5, 4);
+  const wBack = smooth(Math.abs(rel), 1.5, 2.3) * smooth(sp, 1.5, 4);
   const wCross = official ? 0 : (1 - wBack) * smooth(Math.abs(turn), 0.45, 0.9) * smooth(sp, 7, 12);
   const wStart = official ? 0 : (1 - wBack) * (1 - wCross) * smooth(s.effort, 0.75, 0.95) * (1 - smooth(sp, 9, 14)) * smooth(sp, 0.8, 2);
   const wGlide = (1 - wBack) * (1 - smooth(a, 0.05, 0.22)) * smooth(sp, 3, 6);
   const wFwd = Math.max(0, 1 - wBack - wCross - wStart - wGlide);
-  const cyc = [legCycle(P), legCycle(P + Math.PI)];             // left, right
+  // left, right, in the rig's space: a mirrored man's rig-left is his real right leg, which keeps its own phase
+  const cyc = m > 0 ? [legCycle(P), legCycle(P + Math.PI)] : [legCycle(P + Math.PI), legCycle(P)];
   const stridePush = (pushW(cyc[1]) - pushW(cyc[0])) * a * (wFwd + wCross * 0.6 + wStart);   // + while the right leg drives
 
   // ── body from the stride: weight over the gliding skate, hips dropping on the push ──
@@ -256,7 +301,10 @@ function standRig(s, T) {
   // into the acceleration, back against the braking: weight moves with the speed change
   lean += clamp((s.accel || 0) * 0.012, -0.22, 0.26) * (1 - wBack);
   let twist = -0.16 * stridePush;
-  let tilt = official ? 0 : clamp(turn * sp * 0.014, -0.42, 0.42);
+  // ⚠ INTO THE TURN. roll() tips a positive angle to his right (-v) and a positive turn
+  // bends to his left (+v), so the lean is the turn's negative. It was the other way, and the
+  // whole league leaned out of every corner.
+  let tilt = -clamp(turn * sp * (official ? 0.008 : 0.014), -0.42, 0.42);
   let shiftV = 0.36 * stridePush;
   let bob = 0.13 * a * (pushW(cyc[0]) + pushW(cyc[1])) * (1 - wBack);
   let stance = s.stance;
@@ -299,7 +347,9 @@ function standRig(s, T) {
   if (act === 'sweep') { const k = bump(at); crouch += 1.0 * k; stance = Math.max(stance, k); lean += 0.45 * k; twist += 0.9 * Math.sin(at * Math.PI * 2) * k; }
   if (act === 'lift') lean += 0.2 * bump(at);
   if (act === 'faceoff') { crouch += 0.75 * envU; lean += 0.35 * envU; stance = Math.max(stance, 0.9 * envU); pitch = -0.6; }
-  if (act === 'stop') { const k = bump(at); crouch += 0.55 * k; lean -= 0.4 * k; tilt += 0.3 * k * (s.actData || 1); }
+  // a hockey stop: turned side-on, knees bent, leaning back against the slide (he turned
+  // toward actData's side, so he skids the other way)
+  if (act === 'stop') { const k = bump(at); crouch += 0.55 * k; lean -= 0.4 * k; tilt -= 0.3 * k * (s.actData || 1) * m; }
   if (act === 'poke') lean += 0.35 * bump(at);
   if (act === 'receive') { crouch += 0.15 * envU; pitch = -0.3; }
   if (act === 'brace') { crouch += 0.3 * envU; lean -= 0.1 * envU; }
@@ -308,7 +358,14 @@ function standRig(s, T) {
   if (carrying && !shot && !deke) {
     const up = Math.sin(T * 0.9 + s.seed) > 0.25;
     pitch = up ? -0.1 : -0.55; yaw = up ? 0.35 * Math.sin(T * 0.7 + s.seed) : 0.2;
-    if (s.protect) { tilt += 0.18 * s.protect; lean += 0.15; crouch += 0.15; yaw = -0.5 * s.protect; }
+    // shielding it: the shoulder goes into the man (on the +protect side), the puck goes away
+    if (s.protect) { tilt -= 0.18 * s.protect * m; lean += 0.15; crouch += 0.15; yaw = -0.5 * s.protect * m; }
+  }
+  // fighting a man for the puck (`tussle`, from the sim's battle pass): down low with his
+  // weight into him, shoulder first (the man with it shields it instead, above)
+  if (s.tussle && !carrying && !shot && !deke) {
+    const fl = toLocal(s.tussle.x, s.tussle.y, 0), sd2 = fl[1] >= 0 ? 1 : -1;
+    crouch += 0.22; lean += 0.16; tilt -= 0.14 * sd2; twist -= 0.22 * sd2;
   }
   if (s.guard) { crouch = Math.max(s.crouch, 0.18); lean = 0.12 + 0.2 * crouch; tilt = 0; pitch = 0; shiftV = 0; bob = 0; twist = 0; }
   let pk = 0;
@@ -328,7 +385,7 @@ function standRig(s, T) {
   if (s.look) {
     const l = toLocal(s.look[0], s.look[1], s.look[2] ?? 1);
     yaw = clamp(Math.atan2(l[1], l[0]) - twist, -1.4, 1.4);
-    pitch = clamp(Math.atan2(l[2] - 5.6, Math.hypot(l[0], l[1])), -0.8, 0.3);
+    pitch = clamp(Math.atan2(l[2] - 5.6, hyp(l[0], l[1])), -0.8, 0.3);
   }
 
   // ── upper body, upright ──────────────────────────────────────────────────
@@ -344,22 +401,28 @@ function standRig(s, T) {
   const hipL = V.add(pelvis, rotZ([0, 0.44, -0.05], -twist * 0.5)), hipR = V.add(pelvis, rotZ([0, -0.44, -0.05], -twist * 0.5));
 
   // ── hands and stick: a base from the stride, an action blended over it ───
-  let L, R, blade = null, flex = 0, stickDir = null, stickFit = null, oneHanded = false;
+  let L, R, blade = null, flex = 0, stickDir = null, stickFit = null, oneHanded = false, held = null;
   if (s.stick && !official) {
-    const [bu, bv] = bladeLocal(s, T, carrying);
+    const [bu, bv] = bladeRig(s, T, carrying);
     // base: blade on the ice ahead, top hand at the hip swinging a little across with the stride
     let bBlade = [bu, bv, 0.08];
     // the blade goes to the puck, cupping it from his side, wherever it has slid to; and
     // reaches for one that's coming to him, so it's already there when it arrives
-    const aimAt = carrying && s.puckAt ? s.puckAt : !carrying && s.reachTo ? s.reachTo : null;
+    let aimAt = carrying && s.puckAt ? s.puckAt : !carrying && s.reachTo ? s.reachTo : null;
+    // Stickhandling, the blade is aimed where the puck is going as well as where it is: the
+    // blade below eases toward its aim over about a sixteenth of a second, and aimed at the
+    // puck alone it trailed a puck on the move, which read as the puck moving by itself and
+    // the stick chasing it. (Not through a wind-up or a deke: the puck rides the blade there,
+    // see `pocket` in sim.js's dribble, and a lead would push it along on its own.)
+    if (aimAt && carrying && s.puckV && !SHOTS[act] && !DEKES[act]) aimAt = [aimAt[0] + s.puckV[0] / 16, aimAt[1] + s.puckV[1] / 16];
     if (aimAt) {
-      const pl = toLocal(aimAt[0], aimAt[1], 0), r = Math.hypot(pl[0], pl[1]);
+      const pl = toLocal(aimAt[0], aimAt[1], 0), r = hyp(pl[0], pl[1]);
       if (r < 4.2) {
         const k = 0.12 / (r || 1);
         bBlade = [clamp(pl[0] - pl[0] * k, 0.7, 3.5), clamp(pl[1] - pl[1] * k, -2.2, 2.2), 0.06];
       }
     }
-    let bR = [0.55 + 0.1 * stridePush, -0.32 + 0.12 * stridePush, zp + 0.72];
+    let bR = [0.55 + 0.16 * stridePush, -0.32 + 0.16 * stridePush, zp + 0.72];
     let bL = null;
     const fast = sp > 21 && !carrying ? true : (carrying && sp > 21 && !s.protect);
     if (s.defend && !carrying) {
@@ -370,13 +433,16 @@ function standRig(s, T) {
     if (fast || (s.defend && !carrying)) {
       // one hand on the stick, the other arm swinging across the body with the stride
       if (fast) bR = [0.95, -0.25, zp + 0.55];
-      bL = [0.55 + 0.35 * stridePush, 0.95 - 0.75 * Math.max(0, stridePush), zp + 0.35 + 0.25 * Math.abs(stridePush)];
+      bL = [0.5 + 0.55 * stridePush, 0.95 - 0.6 * Math.max(0, stridePush), zp + 0.3 + 0.35 * Math.abs(stridePush)];
     }
+    // (in a battle for it, the free hand is on the man)
+    if (s.tussle && !carrying) bL = toLocal(s.tussle.x, s.tussle.y, 4.1);
     // ⚠ THE BLADE EASES, IT NEVER JUMPS. Taking or losing the puck changes where the pose
     // wants the blade by a foot or two in one step, which read as the stick snapping. The
     // rig is a pure function of the body and the time, so the eased blade is kept on the
     // body against the time it was worked out for: asked twice for the same instant (the
     // picture and its reflection), it eases once.
+    if (s.bladeM !== m) { s.bladeE = null; s.bladeM = m; }
     if (s.bladeT != null && s.bladeE && T > s.bladeT && T - s.bladeT < 0.25) {
       const k = 1 - Math.exp(-(T - s.bladeT) * 16);
       bBlade = [lerp(s.bladeE[0], bBlade[0], k), lerp(s.bladeE[1], bBlade[1], k), lerp(s.bladeE[2], bBlade[2], k)];
@@ -386,9 +452,10 @@ function standRig(s, T) {
     let aBlade = null, aR = null, aL = null;
     if (shot) {
       const w = shot.wind;
-      aBlade = at < w ? V.lerp(bBlade, shot.back, easeIO(at / w)) : at < w + 0.15 ? V.lerp(shot.back, shot.hit, (at - w) / 0.15) : V.lerp(shot.hit, shot.fol, easeOut((at - w - 0.15) / (0.85 - w)));
+      aBlade = shotPath(shot, at, bBlade);
       aR = shot.bh ? [0.5, 0.25, zp + 0.95] : [0.35, -0.25, zp + 0.95];
-      if (at > w && at < w + 0.18) flex = (shot.flex || 0) * bump((at - w) / 0.18);
+      // the shaft loads through the downswing and is at its deepest bend as it strikes
+      if (at > w && at < w + SWING * 1.8) flex = (shot.flex || 0) * bump((at - w) / (SWING * 1.8));
     } else if (deke) { aBlade = path3(DEKES[act], at); aR = [0.6, -0.2 + aBlade[1] * 0.2, zp + 0.6]; }
     else if (act === 'receive') {
       const from = s.actData ? toLocal(s.actData[0], s.actData[1], 0) : [6, 2, 0];
@@ -420,8 +487,10 @@ function standRig(s, T) {
       wantT: shot ? (act === 'slap' || act === 'onetimer' ? 2.1 : act === 'pass' || act === 'saucer' || act === 'drop' ? 1.5 : 1.75) : act === 'faceoff' ? 2.0 : 1.55,
     };
     if (act === 'checkElbow' && at > 0.3 && at < 0.9) { const m = bump((at - 0.3) / 0.6); R = V.lerp(R, [0.2, -0.7, zp + 2.3], m); }
-    if (act === 'hug' && s.target) { const t = s.target; L = toLocal(t.x, t.y, 4.6); L[1] += 0.9; R = toLocal(t.x, t.y, 4.4); R[1] -= 0.9; blade = null; }
-    if (act === 'brace' && ka > 0.5) blade = null;
+    // ⚠ NOBODY LETS GO OF HIS STICK TO HUG A TEAMMATE. It stays in the top hand, pointing up
+    // behind him; braced for a hit, it's held across his chest in both hands.
+    if (act === 'hug' && s.target) { const t = s.target; L = toLocal(t.x, t.y, 4.6); L[1] += 0.9; R = toLocal(t.x, t.y, 4.4); R[1] -= 0.9; held = 'up'; stickFit = null; }
+    if (act === 'brace' && ka > 0.5) { held = 'across'; stickFit = null; }
   } else if (s.guard || (act && !official) || s.jerseyUp > 0.5) {
     const gb = Math.sin(T * 6.5 + s.seed) * 0.07;
     L = [1.0, 0.36, zp + 1.78 + gb]; R = [0.78, -0.4, zp + 1.58 - gb];
@@ -446,35 +515,63 @@ function standRig(s, T) {
     if (act === 'point') R = [0.6, -0.5, zp + 2.9];
     if (act === 'washout') { const k = bump(Math.min(1, at * 1.3)); L = V.lerp(L, [0.6, 2.0, zp + 1.2], k); R = V.lerp(R, [0.6, -2.0, zp + 1.2], k); }
   }
-  if (act === 'shove' && s.target && s.stick) { const t = s.target; L = toLocal(t.x, t.y, 4.4); L[1] += 0.4; R = toLocal(t.x, t.y, 4.3); R[1] -= 0.4; blade = null; }
-  if (s.grab || act === 'pull' || act === 'hug' || act === 'shove' || act === 'break') { L = reach(shL, L, 0.86); R = reach(shR, R, act === 'pull' || act === 'hug' ? 0.86 : 0.95); }
+  // a shove with the stick is a cross-check: both hands on it, the shaft across his chest
+  if (act === 'shove' && s.target && s.stick) { const t = s.target; L = toLocal(t.x, t.y, 4.4); L[1] += 0.4; R = toLocal(t.x, t.y, 4.3); R[1] -= 0.4; held = 'across'; stickFit = null; }
+  if (s.grab || act === 'pull' || act === 'hug' || act === 'shove' || act === 'break' || (s.tussle && !carrying)) { L = reach(shL, L, 0.86); R = reach(shR, R, act === 'pull' || act === 'hug' ? 0.86 : 0.95); }
   else if (s.guard) { L = reach(shL, L, 0.8); R = reach(shR, R, pk > 0.6 ? 0.98 : 0.8); }
 
   // lean into the turn first: the body and the hands' targets roll together about the ice;
   // a blade on the ice stays on it
   const [rPel, rChest, rNeck, rHead, rShL, rShR, rHipL, rHipR] = [pelvis, chest, neck, head, shL, shR, hipL, hipR].map((p) => roll(p, tilt));
-  L = roll(L, tilt); R = roll(R, tilt);
-  if (blade) { const onIce = blade[2] < 0.3; blade = roll(blade, tilt); if (onIce) blade[2] = 0.06; }
-  if (blade && stickFit) {
-    // fit the stick: fixed length, top hand at the knob, bottom hand on the shaft
-    if (blade[2] < 1.4) { const ko = keepOut(blade[0], blade[1], 0.05); blade = [ko[0], ko[1], blade[2]]; }
-    const fit = fitStick(R, blade, rShR, rShL, stickFit.wantT, stickFit.oneHand);
-    R = fit.R; blade = fit.blade; stickDir = fit.dir;
-    if (!stickFit.oneHand && !stickFit.aL) {
-      // no comfortable grip for the bottom hand: it comes off the stick and swings free
-      // rather than hovering beside the shaft
-      if (fit.L) L = fit.L; else { L = roll([0.55 + 0.35 * stridePush, 0.95, zp + 0.35], tilt); oneHanded = true; }
-    } else if (stickFit.aL && stickFit.ka < 1) L = fit.L ? V.lerp(fit.L, L, stickFit.ka) : L;
-    if (stickFit.oneHand) oneHanded = true;
+  // (the skates alone go straight on to the legs: see skaterFeet)
+  let rElL = null, rHL = null, rElR = null, rHR = null;
+  if (!feet) {
+    L = roll(L, tilt); R = roll(R, tilt);
+    if (blade) { const onIce = blade[2] < 0.3; blade = roll(blade, tilt); if (onIce) blade[2] = 0.06; }
+    if (blade && stickFit) {
+      // fit the stick: fixed length, top hand at the knob, bottom hand on the shaft
+      if (blade[2] < 1.4) { const ko = keepOut(blade[0], blade[1], 0.05); blade = [ko[0], ko[1], blade[2]]; }
+      const fit = fitStick(R, blade, rShR, rShL, stickFit.wantT, stickFit.oneHand);
+      R = fit.R; blade = fit.blade; stickDir = fit.dir;
+      if (!stickFit.oneHand && !stickFit.aL) {
+        // no comfortable grip for the bottom hand: it comes off the stick and swings free
+        // rather than hovering beside the shaft
+        if (fit.L) L = fit.L; else { L = roll([0.55 + 0.35 * stridePush, 0.95, zp + 0.35], tilt); oneHanded = true; }
+      } else if (stickFit.aL && stickFit.ka < 1) L = fit.L ? V.lerp(fit.L, L, stickFit.ka) : L;
+      if (stickFit.oneHand) oneHanded = true;
+    }
+    [rElL, rHL] = ik(rShL, L, 1.12, 1.05, roll([-0.3, 1, -0.8], tilt));
+    [rElR, rHR] = ik(rShR, R, 1.12, 1.05, roll([-0.3, -1, -0.8], tilt));
   }
-  const [rElL, rHL] = ik(rShL, L, 1.12, 1.05, roll([-0.3, 1, -0.8], tilt));
-  const [rElR, rHR] = ik(rShR, R, 1.12, 1.05, roll([-0.3, -1, -0.8], tilt));
 
   // ── legs: the blended stride, then whatever the action wants of them ─────
+  // ⚠ A SKATE ON THE ICE GOES WHERE ITS BLADE POINTS. A blade only runs along its length,
+  // so a skate that's down is turned to face the way it is really moving over the ice: his
+  // own speed, plus the stride carrying it out and back, plus his turn. Without this the
+  // skates crabbed sideways through every push. A hockey stop is the one time a blade skids
+  // across its length, so a stop is left alone.
+  // (the strides blended by weight, and one with none not worked out at all: this runs several
+  // times a leg in every rig)
+  const strideAt = (sg, c, aa = a) => {
+    let u = 0, v = 0, z = 0, yw = 0, w = 0, f;
+    if (wFwd > 0) { f = strideForward(sg, c, aa); u += f.u * wFwd; v += f.v * wFwd; z += f.z * wFwd; yw += f.yaw * wFwd; w += wFwd; }
+    if (wCross > 0) { f = strideCross(sg, c, aa, sd); u += f.u * wCross; v += f.v * wCross; z += f.z * wCross; yw += f.yaw * wCross; w += wCross; }
+    if (wBack > 0) { f = strideBack(sg, c, aa); u += f.u * wBack; v += f.v * wBack; z += f.z * wBack; yw += f.yaw * wBack; w += wBack; }
+    if (wStart > 0) { f = strideStart(sg, c); u += f.u * wStart; v += f.v * wStart; z += f.z * wStart; yw += f.yaw * wStart; w += wStart; }
+    if (wGlide > 0) { f = strideGlide(sg); u += f.u * wGlide; v += f.v * wGlide; z += f.z * wGlide; yw += f.yaw * wGlide; w += wGlide; }
+    return w ? { u: u / w, v: v / w, z: z / w, yaw: yw / w } : { u: 0.2, v: 0.5, z: 0.55, yaw: 0 };
+  };
+  const pRate = TAU * cadence(sp, s.effort || 0), dP = 0.03, vB = [sp * Math.cos(rel), sp * Math.sin(rel)];
+  const om = s.hRate != null ? clamp(s.hRate * m, -7, 7) : turn, aRate = s.ampRate || 0;
   const legs = [];
   for (const sg of [1, -1]) {
     const c = cyc[sg > 0 ? 0 : 1];
-    let f = mixFoot([[strideForward(sg, c, a), wFwd], [strideCross(sg, c, a, sd), wCross], [strideBack(sg, c, a), wBack], [strideStart(sg, c), wStart], [strideGlide(sg), wGlide]]);
+    let f = strideAt(sg, c);
+    // the foot's own speed over the ice, in his frame, from how the stride is moving it
+    const f2 = strideAt(sg, legCycle(P + dP + ((sg > 0) === (m > 0) ? 0 : Math.PI))), own = (pRate / dP) * (1 - envL);
+    // (and the stride widening as he speeds up carries the feet out too)
+    const f3 = Math.abs(aRate) > 0.02 ? strideAt(sg, c, a + 0.02) : f, wide = (aRate / 0.02) * (1 - envL);
+    const vu = vB[0] + (f2.u - f.u) * own + (f3.u - f.u) * wide - om * f.v, vv = vB[1] + (f2.v - f.v) * own + (f3.v - f.v) * wide + om * f.u;
     if (stance) { f.u += sg * 0.38 * stance; f.v = sg * Math.max(Math.abs(f.v), 0.62 + 0.3 * stance); }
     if (envL > 0) {
       let g = null;
@@ -482,18 +579,40 @@ function standRig(s, T) {
         // weight from the back skate to the front, the back leg trailing on its toe at the finish
         const front = (shot.bh ? 1 : -1) === sg;
         g = front ? { u: 0.55, v: sg * 0.75, z: 0.55, yaw: sg * 0.5 } : { u: -0.45 - 0.4 * Math.max(0, weight), v: sg * 0.85, z: 0.55 + 0.25 * Math.max(0, weight), yaw: sg * 0.5 };
-      } else if (act === 'stop') g = { u: sg * 0.5 + 0.6, v: sg * 0.8, z: 0.55, yaw: sg * 1.4 };
+      } else if (act === 'stop') {
+        // both blades across the line he's sliding on, side by side, skidding on their edges
+        let ys = angWrapL(rel + Math.PI / 2);
+        if (Math.abs(ys) > Math.PI / 2) ys = angWrapL(ys + Math.PI);
+        g = { u: 0.3 + 0.1 * sg, v: sg * 0.8, z: 0.55, yaw: ys * smooth(sp, 1, 3) };
+      }
       else if (act === 'block' && sg < 0) g = { u: f.u - 1.0 * bump(at), v: f.v, z: 0.6, yaw: f.yaw };
       else if (act === 'sweep' && sg < 0) g = { u: f.u - 1.2 * bump(at), v: f.v, z: 0.45, yaw: f.yaw };
       else if (act === 'faceoff' || act === 'checkHip') g = { u: 0.15 + sg * 0.3, v: sg * 0.95, z: 0.55, yaw: sg * 0.35 };
       if (g) f = { u: lerp(f.u, g.u, envL), v: lerp(f.v, g.v, envL), z: lerp(f.z, g.z, envL), yaw: lerp(f.yaw, g.yaw, envL) };
     }
     f.v -= tilt * 1.3;                                         // the skates stay under a leaning man
+    // down on the ice and moving: turned along its own track (a blade runs either way)
+    const down = (1 - smooth(f.z, 0.58, 0.7)) * smooth(hyp(vu, vv), 1.5, 4) * (act === 'stop' ? 0 : 1 - 0.7 * envL);
+    if (down > 0.01) {
+      let yv = Math.atan2(vv, vu);
+      if (Math.abs(angWrapL(yv - f.yaw)) > Math.PI / 2) yv = angWrapL(yv + Math.PI);
+      f.yaw += angWrapL(yv - f.yaw) * down * 0.9;
+    }
     const [kn, an] = ik(sg > 0 ? rHipL : rHipR, [f.u, f.v, f.z], 1.62, 1.55, [1, sg * 0.3, 0.1]);
     legs.push([kn, an, V.add(an, [0.74 * Math.cos(f.yaw), 0.74 * Math.sin(f.yaw), -0.3])]);
   }
+  if (feet) {
+    const F = toWorld(s, [null, null, null, null, null, null, null, null, null, null, rHipL, legs[0][0], legs[0][1], rHipR, legs[1][0], legs[1][1], legs[0][2], legs[1][2], null, null, null], m);
+    return m < 0 ? SWAP.map((i) => F[i]) : F;
+  }
 
   let butt = null, heel = null, toe = null, bend = null;
+  if (held && s.stick && !official) {
+    // held, not fitted to a blade target: up behind his shoulder, or across his chest through
+    // both gloves
+    const dir = held === 'across' ? V.norm(V.sub(rHL, rHR)) : V.norm(roll([-0.35, -0.3, 1], tilt));
+    blade = V.add(rHR, V.mul(dir, STICK));
+  }
   if (blade) {
     const shf = V.sub(blade, rHR);
     butt = V.add(rHR, V.mul(V.norm(shf), -0.28));
@@ -502,8 +621,9 @@ function standRig(s, T) {
     toe = act === 'celebrate' ? V.add(blade, [0.3, 0.2, 0.7]) : act === 'toedrag' && at > 0.25 && at < 0.6 ? V.add(blade, [0.5, 0.75, 0]) : V.add(blade, V.mul(perp, 0.95));
     if (flex > 0.01) { const mid = V.lerp(butt, heel, 0.55); bend = V.add(mid, [-flex, 0.1 * flex, flex * 0.3]); }
   }
-  const out = toWorld(s, [rPel, rChest, rNeck, rHead, rShL, rElL, rHL, rShR, rElR, rHR, rHipL, legs[0][0], legs[0][1], rHipR, legs[1][0], legs[1][1], legs[0][2], legs[1][2], butt, heel, toe]);
-  out.meta = { look: dirWorld(s, roll(lookDir(yaw + twist * 0.8, pitch), tilt)), bend: bend ? toWorld(s, [bend])[0] : null, oneHanded };
+  let out = toWorld(s, [rPel, rChest, rNeck, rHead, rShL, rElL, rHL, rShR, rElR, rHR, rHipL, legs[0][0], legs[0][1], rHipR, legs[1][0], legs[1][1], legs[0][2], legs[1][2], butt, heel, toe], m);
+  if (m < 0) out = SWAP.map((i) => out[i]);                 // back out of the mirror: his left is his left
+  out.meta = { look: dirWorld(s, roll(lookDir(yaw + twist * 0.8, pitch), tilt), m), bend: bend ? toWorld(s, [bend], m)[0] : null, oneHanded };
   return out;
 }
 
@@ -534,10 +654,16 @@ export function goalieRig(g, T) {
   if (act === 'butterfly' || act === 'bslide' || act === 'pad' || act === 'cover') bf = Math.max(bf, easeOut(clamp(at * 3, 0, 1)));
   if (act === 'recover') bf = 1 - easeIO(at);
   if (act === 'dive' || act === 'rvh') bf = Math.max(bf, 0.6);
+  // ⚠ HE GETS UP, HE DOESN'T POP UP. The drop into the butterfly is quick; coming out of it
+  // takes a beat. The depth is eased against the time it was worked out for (as a skater's
+  // blade is), so the rig stays a function of the moment and asking twice eases once.
+  if (g.bfT != null && g.bfE != null && T > g.bfT && T - g.bfT < 0.25) bf = lerp(g.bfE, bf, 1 - Math.exp(-(T - g.bfT) * (bf > g.bfE ? 16 : 3.5)));
+  else if (g.bfT === T && g.bfE != null) bf = g.bfE;
+  if (g.bfT !== T) { g.bfE = bf; g.bfT = T; }
   let zp = lerp(2.3, 1.3, bf);
   let lean = 0.42 + 0.1 * bf, tilt = 0, twist = 0;
   let yaw = 0, pitch = -0.2;
-  if (g.track) { const l = toLocal(g.track[0], g.track[1], g.track[2] ?? 0.2); yaw = clamp(Math.atan2(l[1], l[0]), -1.1, 1.1); pitch = clamp(Math.atan2(l[2] - 4.6, Math.hypot(l[0], l[1])), -0.9, 0.4); }
+  if (g.track) { const l = toLocal(g.track[0], g.track[1], g.track[2] ?? 0.2); yaw = clamp(Math.atan2(l[1], l[0]), -1.1, 1.1); pitch = clamp(Math.atan2(l[2] - 4.6, hyp(l[0], l[1])), -0.9, 0.4); }
   if (act === 'cover') { lean += 0.75 * Math.min(1, at * 2); pitch = -1.0; }
   if (act === 'slump') { lean += 0.45 + 0.15 * Math.sin(at * 3); pitch = -0.8; }
   if (act === 'chest') lean -= 0.25 * bump(at);
@@ -545,7 +671,7 @@ export function goalieRig(g, T) {
   if (act === 'stretch') { tilt = 0.4 * Math.sin(at * TAU * 2); zp -= 0.6 * Math.max(0, Math.sin(at * TAU)); }
   if (act === 'drink') { lean -= 0.15 * bump(at); pitch = 0.5 * bump(at); }
   if (act === 'celebrate') { lean = 0.1; zp = 2.9; }
-  if (act === 'kick') { tilt = -side * 0.3 * bump(at); }
+  if (act === 'kick') { tilt = side * 0.3 * bump(at); }      // the pad goes out to `side`, the body leans off it
   if (act === 'rvh') { tilt = side * 0.35; lean += 0.15; }
   if (tpush) { twist = 0; zp += 0.15; }
   const pelvis = [0, 0, zp], sd = [Math.sin(lean), 0, Math.cos(lean)];
@@ -580,6 +706,23 @@ export function goalieRig(g, T) {
   if (act === 'dive') { L = [0.6, 2.4 * side, zp + 1.2]; R = [1.0, 2.0 * side, zp + 0.4]; blade = [1.0, 3.2 * side, 0.06]; toeOff = [0.6, 0.6 * side, 0]; }
   if (act === 'stretch') { L = [0.5, 1.4, zp + 1.6]; R = [0.5, -1.4, zp + 1.6]; }
 
+  // ⚠ A GOALIE'S STICK IS ONE LENGTH. The blocker holds it at the top of the paddle, GSTICK
+  // from the heel, and the shaft goes on above his hand. Out of reach, the blade comes in.
+  {
+    const onIce = blade[2] < 0.3, d = V.sub(R, blade), dl = V.len(d) || 1;
+    R = V.add(blade, V.mul(d, GSTICK / dl));
+    const a = V.sub(R, shR), al = V.len(a);
+    if (al > 2.1) {
+      R = V.add(shR, V.mul(a, 2.1 / al));
+      const bd = V.sub(blade, R), bl = V.len(bd) || 1;
+      blade = V.add(R, V.mul(bd, GSTICK / bl));
+    }
+    if (onIce) {
+      // a paddle on the ice stays on it: keep the shaft's heading, fix its length
+      const dz = 0.06 - R[2], horiz = Math.sqrt(Math.max(0.04, GSTICK * GSTICK - dz * dz)), hd = V.norm([blade[0] - R[0], blade[1] - R[1], 0]);
+      blade = [R[0] + hd[0] * horiz, R[1] + hd[1] * horiz, 0.06];
+    }
+  }
   const [elL, hL] = ik(shL, L, 1.1, 1.05, [-0.4, 1, -0.6]);
   const [elR, hR] = ik(shR, R, 1.1, 1.05, [-0.4, -1, -0.6]);
   let upper = [pelvis, chest, neck, head, shL, elL, hL, shR, elR, hR, hipL, hipR].map((p) => roll(p, tilt));
@@ -621,7 +764,7 @@ export function goalieRig(g, T) {
     for (const p of all) { const y = p[1], z = p[2]; p[1] = y * c - (z - 0.4) * s2; p[2] = y * s2 + (z - 0.4) * c + 0.4; }
     for (const p of [blade]) { const y = p[1], z = p[2]; p[1] = y * c - (z - 0.4) * s2; p[2] = Math.max(0.06, y * s2 + (z - 0.4) * c + 0.4); }
   }
-  const butt = V.add(rHR, V.mul(V.norm(V.sub(blade, rHR)), -0.3));
+  const butt = V.add(rHR, V.mul(V.norm(V.sub(blade, rHR)), -1.55));
   const toe = V.add(blade, toeOff);
   let loc = [rPel, rChest, rNeck, rHead, rShL, rElL, rHL, rShR, rElR, rHR, rHipL, legs[0][0], legs[0][1], rHipR, legs[1][0], legs[1][1], legs[0][2], legs[1][2], butt, blade, toe];
   if (act === 'dive') {
@@ -653,7 +796,7 @@ export function makeRag(s, J, impU, impL) {
     const vx = s.vx + imp[0] * k, vy = s.vy + imp[1] * k, vz = imp[2] * k;
     pts.push({ x: j[0], y: j[1], z: j[2], px: j[0] - vx * DT, py: j[1] - vy * DT, pz: j[2] - vz * DT, r: i === 3 ? 0.45 : 0.24 });
   }
-  const cons = [...BONES, ...BRACE].map(([a, b]) => [a, b, Math.hypot(pts[a].x - pts[b].x, pts[a].y - pts[b].y, pts[a].z - pts[b].z)]);
+  const cons = [...BONES, ...BRACE].map(([a, b]) => [a, b, hyp3(pts[a].x - pts[b].x, pts[a].y - pts[b].y, pts[a].z - pts[b].z)]);
   return { pts, cons, age: 0, lastHit: -1, poolAt: 0, smearAt: 0, still: 0 };
 }
 // Returns the hardest wall impact this step as { x, y, z, speed } or null.
@@ -668,7 +811,7 @@ export function stepRag(r, dt) {
     for (const [a, b, l] of r.cons) {
       const A = r.pts[a], B = r.pts[b];
       let dx = B.x - A.x, dy = B.y - A.y, dz = B.z - A.z;
-      const d = Math.hypot(dx, dy, dz) || 1e-6, k = (d - l) / d * 0.5;
+      const d = hyp3(dx, dy, dz) || 1e-6, k = (d - l) / d * 0.5;
       dx *= k; dy *= k; dz *= k; A.x += dx; A.y += dy; A.z += dz; B.x -= dx; B.y -= dy; B.z -= dz;
     }
     for (const p of r.pts) {
@@ -711,8 +854,10 @@ export function makeLimb(part, J, vel) {
   // a little spin on the throw, so it doesn't fly off as a rigid stick
   pts.forEach((p, k) => { const sv = 1 + k * 0.35; p.px = p.x - vel[0] * sv * DT; p.py = p.y - vel[1] * sv * DT; p.pz = p.z - vel[2] * DT; });
   const cons = [];
-  for (let i = 0; i + 1 < pts.length; i++) cons.push([i, i + 1, Math.hypot(pts[i].x - pts[i + 1].x, pts[i].y - pts[i + 1].y, pts[i].z - pts[i + 1].z)]);
-  return { part, pts, cons, age: 0, spin: (Math.random() - 0.5) * 18, rot: 0 };
+  for (let i = 0; i + 1 < pts.length; i++) cons.push([i, i + 1, hyp3(pts[i].x - pts[i + 1].x, pts[i].y - pts[i + 1].y, pts[i].z - pts[i + 1].z)]);
+  // (the spin from where it came off, not Math.random: the world plays the same every time)
+  const sp = Math.sin(pts[0].x * 12.9898 + pts[0].y * 78.233) * 43758.5453;
+  return { part, pts, cons, age: 0, spin: (sp - Math.floor(sp) - 0.5) * 18, rot: 0 };
 }
 export function stepLimb(l, dt) {
   l.age += dt;
@@ -724,7 +869,7 @@ export function stepLimb(l, dt) {
     for (const [a, b, len] of l.cons) {
       const A = l.pts[a], B = l.pts[b];
       let dx = B.x - A.x, dy = B.y - A.y, dz = B.z - A.z;
-      const d = Math.hypot(dx, dy, dz) || 1e-6, k = (d - len) / d * 0.5;
+      const d = hyp3(dx, dy, dz) || 1e-6, k = (d - len) / d * 0.5;
       dx *= k; dy *= k; dz *= k; A.x += dx; A.y += dy; A.z += dz; B.x -= dx; B.y -= dy; B.z -= dz;
     }
     for (const p of l.pts) {

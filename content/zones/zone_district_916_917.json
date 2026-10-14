@@ -1,23 +1,21 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive.",
-  "exits": {
-    "east": "zone_district_917_917",
-    "north": "zone_district_916_916",
-    "west": "zone_district_915_917",
-    "south": "zone_district_916_918"
-  },
+  "ambient_theme": "urban",
+  "description": "The back of the east stand: the players' door, a loading bay, and ICE painted along the wall in letters a storey high.",
+  "exits": {},
   "flags": {
-    "district": "wasteland",
-    "region_id": "region_coldwater",
-    "terrain": "forest"
+    "building_name": "The Slush Fund",
+    "building_type": "ice_rink_plant_e",
+    "district": "ashway",
+    "entrance": "north",
+    "floors": 2,
+    "region_id": "region_coldwater"
   },
   "grid_x": 916,
   "grid_y": 917,
   "grid_z": 0,
   "id": "zone_district_916_917",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "The Slush Fund",
   "parent_zone": null
 }

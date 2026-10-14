@@ -20,14 +20,14 @@ import { RL, RW, RC, BOARD_H, GLASS_H, GOAL_X, MID_Y, NET_HALF, NET_DEPTH, NET_H
 import { TPX, WPX, BPX, CPX, CX0, CX1, CROWS, ROWH, sharedTextures } from './textures.js';
 import { drawBody, drawSevered } from './figure.js';
 import { createRinkCamera } from './camera.js';
-import { bodyOpts, drawHud } from './hud.js';
+import { bodyOpts, drawHud, drawnJoints, drawnAt, drawnPuck, glowTail, GLOW } from './hud.js';
 
 const FACE = '"Saira Condensed", "Arial Narrow", "Roboto Condensed", sans-serif';
 
 function quad(ctx, a, b, c, d) { ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.lineTo(c.x, c.y); ctx.lineTo(d.x, d.y); ctx.closePath(); }
 function line(ctx, a, b, w, col) { ctx.strokeStyle = col; ctx.lineWidth = w; ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x + 0.01, b.y); ctx.stroke(); }
 
-export function createRenderer(canvas, W0, ice) {
+export function createRenderer(canvas, W0, ice, { cam: from = null } = {}) {
   // the world it draws: the live one, or the replay's stand-in while a replay runs
   let W = W0, rcam = null;
   const main = canvas.getContext('2d');
@@ -35,9 +35,9 @@ export function createRenderer(canvas, W0, ice) {
   const doc = canvas.ownerDocument;
   let rc = null, rctx = null;
   const tex = sharedTextures(doc);
-  const camera = createRinkCamera(W);
+  const camera = createRinkCamera(W, { from });
   const cam = camera.cam;
-  let flash = 0, pat = null;
+  let pat = null;
   const st = {};
 
   function fit() {
@@ -52,10 +52,12 @@ export function createRenderer(canvas, W0, ice) {
     const { w, h, u } = fit();
     const rp = W0.replay && W0.replay.active ? W0.replay : null;
     W = rp ? rp.frame() : W0;
-    const cm = rp ? (rcam ??= createRinkCamera(rp.source)) : camera;
     camera.view = api.view;
-    const { C, P, camPos } = cm.update(w, h, now);
-    if (cm.flash) { flash = cm.flash; cm.flash = 0; }
+    // the live camera keeps following the play under a replay, so it's on it when it ends
+    const live = camera.update(w, h, now);
+    // (what the live picture shows, for the director: a hit it misses is replayed later)
+    W0.view = { P: live.P, w, h, t: W0.t };
+    const { C, P, camPos } = rp ? (rcam ??= createRinkCamera(rp.source, { snap: true })).update(w, h, now) : live;
     P0 = P;
 
     ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -81,16 +83,17 @@ export function createRenderer(canvas, W0, ice) {
     reflect(PR, camR, w, h, sx, sy);
     ctx.save(); clipSheet(P);
     // the light banks overhead each cast a soft shadow
-    for (const b of W.bodies()) { const p = b.rag ? b.rag.pts[0] : b; shadow(P, p.x, p.y, b.rag ? 2.6 : b.kind === 'goalie' ? 1.7 : 1.3); }
-    shadow(P, W.puck.x, W.puck.y, 0.35);
+    for (const b of W.bodies()) { const p = drawnAt(W, b); shadow(P, p[0], p[1], b.rag ? 2.6 : b.kind === 'goalie' ? 1.7 : 1.3); }
+    const pp = drawnPuck(W);
+    if (!W.puck.hidden) shadow(P, pp[0], pp[1], 0.35);
     if (W.zamboni) shadow(P, W.zamboni.x, W.zamboni.y, 6.5);
     ctx.restore();
 
     const items = [];
     const push = (x, y, z, f, bias = 0) => { const p = P(x, y, z); if (p) items.push({ d: p.d + bias, f }); };
-    for (const b of W.bodies()) push(b.x, b.y, 3, () => drawBody(ctx, P, W.rigOf(b), opts(b, camPos, 'full')));
+    for (const b of W.bodies()) push(b.x, b.y, 3, () => drawBody(ctx, P, drawnJoints(W, b), opts(b, camPos, 'full')));
     for (const [gx, dir, side] of [[GOAL_X[0], -1, 'a'], [GOAL_X[1], 1, 'h']]) push(gx + dir * NET_DEPTH / 2, MID_Y, 2, () => net(P, gx, dir, side));
-    if (!W.puck.hidden) push(W.puck.x, W.puck.y, 0, () => puck(P), -0.3);
+    if (!W.puck.hidden) push(pp[0], pp[1], 0, () => puck(P, pp), -0.3);
     for (const d of W.debris) push(d.x, d.y, 0, () => debris(P, d));
     for (const l of W.limbs) push(l.pts[0].x, l.pts[0].y, 0, () => drawSevered(ctx, P, l, opts(l.owner || { side: l.side }, camPos, 'full')));
     if (W.stretcher) push(W.stretcher.x, W.stretcher.y, 1, () => stretcher(P, W.stretcher), 0.1);
@@ -113,8 +116,7 @@ export function createRenderer(canvas, W0, ice) {
       ctx.save(); ctx.globalCompositeOperation = 'saturation'; ctx.fillStyle = `rgba(128,128,128,${0.75 * W.mourning})`; ctx.fillRect(0, 0, w, h); ctx.restore();
       ctx.fillStyle = `rgba(0,0,0,${0.22 * W.mourning})`; ctx.fillRect(0, 0, w, h);
     }
-    drawHud(ctx, W, w, h, u);
-    if (flash > 0) { ctx.fillStyle = `rgba(255,255,255,${flash * 0.5})`; ctx.fillRect(0, 0, w, h); flash = Math.max(0, flash - 0.12); }
+    drawHud(ctx, W, w, h, u, W0);
   }
 
   const opts = (b, camPos, style) => ({ ...bodyOpts(W, b), camPos, style });
@@ -142,7 +144,7 @@ export function createRenderer(canvas, W0, ice) {
     }
     const items = [];
     const push = (x, y, z, f) => { const p = PR(x, y, z); if (p) items.push({ d: p.d, f }); };
-    if (api.quality.reflBodies) for (const bd of W.bodies()) push(bd.x, bd.y, 3, () => drawBody(ctx, PR, W.rigOf(bd), opts(bd, camR, 'refl')));
+    if (api.quality.reflBodies) for (const bd of W.bodies()) push(bd.x, bd.y, 3, () => drawBody(ctx, PR, drawnJoints(W, bd), opts(bd, camR, 'refl')));
     for (const [gx, dir, side] of [[GOAL_X[0], -1, 'a'], [GOAL_X[1], 1, 'h']]) push(gx + dir * NET_DEPTH / 2, MID_Y, 2, () => net(PR, gx, dir, side));
     if (W.zamboni) push(W.zamboni.x, W.zamboni.y, 3, () => zamboni(PR, W.zamboni, camR));
     items.sort((p, q) => q.d - p.d);
@@ -333,18 +335,30 @@ export function createRenderer(canvas, W0, ice) {
       if (l) { const g = ctx.createRadialGradient(l.x, l.y, 0, l.x, l.y, 3 * l.s); g.addColorStop(0, 'rgba(255,60,50,0.95)'); g.addColorStop(1, 'rgba(255,40,40,0)'); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(l.x, l.y, 3 * l.s, 0, TAU); ctx.fill(); }
     }
   }
-  function puck(P) {
-    const pk = W.puck;
-    const c = P(pk.x, pk.y, pk.z + 0.08); if (!c) return;
-    const e = P(pk.x + 0.42, pk.y, pk.z + 0.08), f = P(pk.x, pk.y + 0.42, pk.z + 0.08);
+  function puck(P, at) {
+    const pk = W.puck, [x, y, z] = at;
+    const c = P(x, y, z + 0.08); if (!c) return;
+    const e = P(x + 0.42, y, z + 0.08), f = P(x, y + 0.42, z + 0.08);
     if (!e || !f) return;
     const rx = Math.max(1.6, Math.abs(e.x - c.x)), ry = Math.max(0.9, Math.abs(f.y - c.y));
     const spd = Math.hypot(pk.vx, pk.vy);
-    const T = pk.tail;
-    if (T && T.pts.length > 1 && T.fade > 0) {
+    const T = pk.tail, gt = api.glow ? glowTail(W) : null;
+    const rgba = (col, a) => `rgba(${col.map((v) => Math.round(v * 255)).join(',')},${a.toFixed(3)})`;
+    if (gt) {
+      // the glowing puck's comet tail, a wide soft stroke under a narrow bright one
+      const pts = gt.pts.map((q) => P(q[0], q[1], q[2])), n = pts.length;
+      ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round';
+      for (let i = 1; i < n; i++) {
+        const a = pts[i - 1], b = pts[i]; if (!a || !b) continue;
+        const t = i / (n - 1);
+        line(ctx, a, b, Math.max(1.5, rx * (0.6 + 1.6 * t)), rgba(gt.col, 0.22 * t));
+        line(ctx, a, b, Math.max(0.8, rx * (0.25 + 0.6 * t)), rgba(gt.col, 0.75 * t));
+      }
+      ctx.restore();
+    } else if (T && T.pts.length > 1 && T.fade > 0) {
       // the light tail behind a shot: a faint slate streak (a white one vanishes on the
       // ice), strongest at the puck, and strongest of all on a snap shot
-      const pts = [...T.pts, [pk.x, pk.y, pk.z + 0.08]].map((q) => P(q[0], q[1], q[2])), n = pts.length;
+      const pts = [...T.pts, [x, y, z + 0.08]].map((q) => P(q[0], q[1], q[2])), n = pts.length;
       ctx.lineCap = 'round';
       for (let i = 1; i < n; i++) {
         const a = pts[i - 1], b = pts[i]; if (!a || !b) continue;
@@ -352,8 +366,14 @@ export function createRenderer(canvas, W0, ice) {
         line(ctx, a, b, Math.max(0.8, rx * (0.3 + (0.6 + 0.4 * T.k) * t)), `rgba(62,84,120,${(0.5 * T.k * T.fade * t).toFixed(3)})`);
       }
     } else if (spd > 30 && !pk.carrier && !pk.held) {
-      const b = P(pk.x - pk.vx * 0.05, pk.y - pk.vy * 0.05, pk.z + 0.08);
+      const b = P(x - pk.vx * 0.05, y - pk.vy * 0.05, z + 0.08);
       if (b) { const g = ctx.createLinearGradient(b.x, b.y, c.x, c.y); g.addColorStop(0, 'rgba(20,24,30,0)'); g.addColorStop(1, 'rgba(20,24,30,0.45)'); line(ctx, b, c, rx * 1.6, g); }
+    }
+    if (api.glow) {
+      // the halo: a blue glow round it, about two feet across, whatever the distance
+      const r = Math.max(7, rx * 4.2), g = ctx.createRadialGradient(c.x, c.y, rx * 0.4, c.x, c.y, r);
+      g.addColorStop(0, rgba(GLOW.halo, 0.85)); g.addColorStop(0.35, rgba(GLOW.halo, 0.32)); g.addColorStop(1, rgba(GLOW.halo, 0));
+      ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = g; ctx.beginPath(); ctx.arc(c.x, c.y, r, 0, TAU); ctx.fill(); ctx.restore();
     }
     const th = Math.max(1, rx * 0.5);
     ctx.fillStyle = '#0b0c0f'; ctx.beginPath(); ctx.ellipse(c.x, c.y + th * 0.5, rx, ry, 0, 0, TAU); ctx.fill();
@@ -385,10 +405,10 @@ export function createRenderer(canvas, W0, ice) {
   // hundred is a handful of draw calls. They are small and quick; one drawn over a body it is
   // behind for a frame or two is not something anyone sees.
   function particles(P) {
-    if (!W.parts.length) return;
+    if (!W.parts.length && !(W.spray && W.spray.length)) return;
     const streak = new Map(), dots = new Map();
     const add = (m, k) => { let a = m.get(k); if (!a) { a = []; m.set(k, a); } return a; };
-    for (const p of W.parts) {
+    for (const p of W.spray ? W.parts.concat(W.spray) : W.parts) {
       const c = P(p.x, p.y, p.z); if (!c) continue;
       if (p.type === 'blood') {
         const b = P(p.x - p.vx * 0.025, p.y - p.vy * 0.025, p.z - p.vz * 0.025);
@@ -506,6 +526,6 @@ export function createRenderer(canvas, W0, ice) {
     return `rgb(${Math.min(255, r * k) | 0},${Math.min(255, g * k) | 0},${Math.min(255, b * k) | 0})`;
   }
 
-  const api = { render, stats: st, cam, view: 'broadcast', quality: { reflBodies: true, dpr: 1.5, iceStep: 2 } };
+  const api = { render, stats: st, cam, view: 'broadcast', glow: false, quality: { reflBodies: true, dpr: 1.5, iceStep: 2 } };
   return api;
 }

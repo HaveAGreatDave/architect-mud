@@ -171,7 +171,7 @@ export function createTvView(root, opts = {}) {
   // narrator's name (the "Name says" prefix) is dropped from what's spoken but used
   // to SEED the voice, so each host sounds consistent; narration with no speaker
   // falls back to the station name as the seed.
-  function speak(rawText, style, windowSec) {
+  function speak(rawText, style, windowSec, dl) {
     // appendMessage ran a moment ago for this same message and queued it — the
     // delivery will speak it when the voice frees. Coupled to dispatch's call order
     // (append then speak), which is why the flag is cleared on every append.
@@ -179,7 +179,7 @@ export function createTvView(root, opts = {}) {
     // While the Gameday view is open it owns Chip's voice, starting it exactly when
     // his caption is displayed (a play-by-play line waits for the hit to land).
     if (_gamedayOpen && _gamedayView) return;
-    _speakNow(rawText, style, windowSec);
+    _speakNow(rawText, style, windowSec, dl);
   }
 
   // ── speech queue ──────────────────────────────────────────────────────────
@@ -280,7 +280,10 @@ export function createTvView(root, opts = {}) {
     const item = _speechQ.shift();
     // A muted or disabled engine returns nothing; treat it as a zero-length read
     // so the queue drains immediately instead of stalling forever on a dead voice.
-    const res = window.AudioEngine?.speak(item.speech, { seed: item.seed, budget: item.budget });
+    // `dl` is the line's delivery from the broadcast, when it has one: `excite` (how hard the
+    // booth is selling it, a goal call or a death), `lex` (how to say the names in it) and
+    // `voice` (the booth's own voice). See AudioEngine.speak().
+    const res = window.AudioEngine?.speak(item.speech, { seed: item.seed, budget: item.budget, ...(item.dl || null) });
     const spoke = !!(res && res.duration > 0);
     // The authority on whether there is a voice to wait for. If the engine produced
     // nothing, every queued caption is released at once and display goes back to the
@@ -304,7 +307,7 @@ export function createTvView(root, opts = {}) {
       return;
     }
     const m = _deliverQ.shift();
-    _renderMessage(m.text, m.style, m.duration, m.hasGameday);
+    _renderMessage(m.text, m.style, m.duration, m.hasGameday, m.dl);
     // The picture that just went up owns the screen for its own hold — the next
     // message waits for it the way it waits for a voice.
     const cardMs = _cardHoldMs(m.style, m.duration);
@@ -312,7 +315,7 @@ export function createTvView(root, opts = {}) {
     // A card or ticker that queued only to keep its place in the order has nothing
     // to say. And while Gameday is open it owns Chip's voice and starts it with the
     // caption, so firing here as well would speak the line twice.
-    if (m.spoken && !m.catchUp && !(_gamedayOpen && _gamedayView)) _speakNow(m.text, m.style, m.duration);
+    if (m.spoken && !m.catchUp && !(_gamedayOpen && _gamedayView)) _speakNow(m.text, m.style, m.duration, m.dl);
     if (_deliverQ.length) _pumpDeliver();
   }
 
@@ -321,7 +324,7 @@ export function createTvView(root, opts = {}) {
     if (_deliverTimer) { clearTimeout(_deliverTimer); _deliverTimer = null; }
     for (let i = 0; i < pending.length; i++) {
       const m = pending[i];
-      _renderMessage(m.text, m.style, m.duration, m.hasGameday);
+      _renderMessage(m.text, m.style, m.duration, m.hasGameday, m.dl);
       const cardMs = _cardHoldMs(m.style, m.duration);
       if (!cardMs) continue;
       // A card even in a dump keeps its hold — emptying the rest of the queue on top
@@ -354,7 +357,7 @@ export function createTvView(root, opts = {}) {
     _deliverQ = _deliverQ.slice(-1);   // keep only the freshest, drop the stale ones
   }
 
-  function _speakNow(rawText, style, windowSec) {
+  function _speakNow(rawText, style, windowSec, dl) {
     if (!_readAloud || !rawText) return;
     if (_speechOwner && _speechOwner !== view) return;   // another surface owns the voice
     if (style && style !== 'raw' && style !== 'emote' && style !== 'narrate' && style !== 'system') return;
@@ -373,7 +376,7 @@ export function createTvView(root, opts = {}) {
     // measured gap. Passed for information only — the voice always reads at its own
     // pace and never compresses to fit (see AudioEngine.speak).
     const budget = windowSec > 0.5 ? windowSec : _speakWindow;
-    for (const piece of _splitUtterance(speech)) _speechQ.push({ speech: piece, seed, budget, at: now });
+    for (const piece of _splitUtterance(speech)) _speechQ.push({ speech: piece, seed, budget, dl, at: now });
     _pump();
   }
 
@@ -1630,7 +1633,7 @@ export function createTvView(root, opts = {}) {
   // always did. `_voiceLive` tracks whether the engine is actually producing sound
   // (it returns nothing when muted, disabled, or blocked by the browser's autoplay
   // policy), so a muted set never sits waiting on a voice that will never speak.
-  function appendMessage(text, style, duration, hasGameday, catchUp) {
+  function appendMessage(text, style, duration, hasGameday, catchUp, dl) {
     _deferredLast = false;
     const spoken = !style || style === 'raw' || style === 'emote' || style === 'narrate' || style === 'system';
     // catchUp is the beat already on air when you tuned in — deliberately shown but
@@ -1643,17 +1646,17 @@ export function createTvView(root, opts = {}) {
     // still on its own hold counts as something to wait for, whatever the voice is
     // doing: it isn't finished being looked at yet.
     if (holdForVoice || performance.now() < _cardUntil || _deliverQ.length) {
-      _deliverQ.push({ text, style, duration, hasGameday, spoken, catchUp, at: performance.now() });
+      _deliverQ.push({ text, style, duration, hasGameday, spoken, catchUp, dl, at: performance.now() });
       _deferredLast = spoken && !catchUp;
       _pumpDeliver();
       return;
     }
-    _renderMessage(text, style, duration, hasGameday);
+    _renderMessage(text, style, duration, hasGameday, dl);
     const cardMs = _cardHoldMs(style, duration);
     if (cardMs) _cardUntil = performance.now() + cardMs;
   }
 
-  function _renderMessage(text, style, duration, hasGameday) {
+  function _renderMessage(text, style, duration, hasGameday, dl) {
     const container = el('messages');
     if (!container) return;
 
@@ -1791,7 +1794,7 @@ export function createTvView(root, opts = {}) {
       // seeds off the narrator.
       if (_gamedayOpen && _gamedayView) {
         const plain = String(text).replace(/\[[^\]]*\]/g, '').replace(/\s+/g, ' ').trim();
-        if (plain) _gamedayView.setCaption(plain, { speak: () => _speakNow(text, style, duration), held: !!hasGameday });
+        if (plain) _gamedayView.setCaption(plain, { speak: () => _speakNow(text, style, duration, dl), held: !!hasGameday });
       }
     }
     container.appendChild(node);
@@ -1875,6 +1878,21 @@ export function createTvView(root, opts = {}) {
   function init() {
     if (_inited) return;
     _inited = true;
+
+    // The sub-screens (Gameday, Rinkside) sit between the header and the footer, and
+    // neither has a fixed height: both are in rem, and the phone layout shrinks the
+    // footer. A fixed 45px and 72px left a band of the message list showing under
+    // Rinkside on a phone and the header over its top at a large font, so the real
+    // heights go on the window as --tv-head-h and --tv-foot-h.
+    const winEl = el('window'), headEl = el('header'), footEl = el('footer');
+    if (isCrt && winEl && headEl && footEl && typeof ResizeObserver === 'function') {
+      const measure = () => {
+        winEl.style.setProperty('--tv-head-h', `${headEl.offsetTop + headEl.offsetHeight}px`);
+        winEl.style.setProperty('--tv-foot-h', `${Math.max(0, winEl.clientHeight - footEl.offsetTop)}px`);
+      };
+      const ro = new ResizeObserver(measure);
+      ro.observe(headEl); ro.observe(footEl); ro.observe(winEl);
+    }
 
     // Power button: a quick TAP just closes your view — the set keeps playing in the
     // room, so anyone else there still sees/hears it (ambient continues). Press and
@@ -2075,7 +2093,7 @@ export function openTvPanel(data)            { panel()?.open(data); }
 export function closeTvPanel()               { panel()?.close(); }
 export function shutdownTvPanel()            { panel()?.shutdown(); }
 export function applyTvOverlay(overlay)      { panel()?.applyOverlay(overlay); }
-export function appendTvMessage(t, s, d, g, c)  { panel()?.appendMessage(t, s, d, g, c); }
+export function appendTvMessage(t, s, d, g, c, x)  { panel()?.appendMessage(t, s, d, g, c, x); }
 export function updateTvTicker(text)         { panel()?.updateTicker(text); }
 export function showTvOffAir(content, type)  { panel()?.showOffAir(content, type); }
 export function showTvOnAir()                { panel()?.showOnAir(); }

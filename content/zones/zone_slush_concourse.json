@@ -1,0 +1,30 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A curved concourse under the stands, floored in rubber matting gone grey with grit. Turnstiles at the north doors, a concession counter with a fogged glass case, and a trophy cabinet by the stairs. A door marked Records is set in the far wall. The stands are south, the ice plant below.",
+  "exits": {
+    "down": "zone_util_zone_slush_concourse",
+    "north": "zone_district_915_916",
+    "south": "zone_slush_stands"
+  },
+  "flags": {
+    "building_name": "The Slush Fund",
+    "building_type": "ice_rink",
+    "floor": "linoleum",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "Six glass doors in steel frames under the canopy, scuffed at kick height. Glacier Street is out there, and the queue when there is one.",
+      "light": 0.5,
+      "name": "the front doors",
+      "visibility": 0.6
+    },
+    "world_exit_zone": "zone_district_915_916"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_slush_concourse",
+  "map_id": "map_int_slush",
+  "name": "The Slush Fund — Concourse",
+  "parent_zone": "zone_district_915_916"
+}

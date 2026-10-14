@@ -1,6 +1,6 @@
 # Street figure heads in the game
 
-**Status: phases 1 to 3 built; 4 and 5 are design.** The head is a client module ([actor-head.js](../../client/game/js/panels/actor-head.js)), the bake writes the two bones it rides, and the faces are a baked atlas ([actor-faces.js](../../client/game/js/panels/actor-faces.js)), but nothing in the game draws them yet. The game still draws the bake's head; the Actor Lab draws the new one with the atlas's faces.
+**Status: phases 1 to 3 built; 4 and 5 are design.** The head is a client module ([actor-head.js](../../client/game/js/panels/actor-head.js)), the bake writes the two bones it rides, and the faces are a baked atlas ([actor-faces.js](../../client/game/js/panels/actor-faces.js)). The CPhL rink draws them on its players (*The rink's heads*, below). The street's figures still draw the bake's head; the Actor Lab draws the new one with the atlas's faces.
 
 The game's close-up figures ([actor3d.js](../../client/game/js/panels/actor3d.js), drawn by [gl/actors.js](../../client/game/js/panels/gl/actors.js)) have the bake's head: an 18 × 12 ellipsoid with lumps for features, on a neck as wide as its jaw. Up close it reads as a mask. The new head has a brow, a nose, lips and a chin in its profile, shaped ears, a neck narrower than the jaw, five hair styles grown off the scalp, and a face painted per person. This is the plan for bringing it to the game.
 
@@ -86,6 +86,17 @@ Per figure, once the body drops its old head (about 3,520 triangles left): about
 Memory: the atlas is 10.5 MB on the GPU, 14 MB with mipmaps. A phone (`PHONE_TIER`) loads the half-size copy (3.5 MB with mipmaps). At L0's size there's no reason left to keep it off a phone. Mips stop at level 6 (`FACE_ATLAS.maxLevel`), the last that never mixes two faces.
 
 CPU: the instance record grows by about six floats, and the level is picked off the pixel height `drawActorFigure` already works out.
+
+## The rink's heads (built)
+
+The GLASS 2 rink ([gl/arena.js](../../client/game/js/panels/gl/arena.js)) has drawn the generator's head on every player, official and medic since 2026-10-11. It isn't phase 4, which is the street's: the rink's bodies are built every frame from joints rather than baked, so a head is a record [gl/arena-mesh.js](../../client/game/js/panels/gl/arena-mesh.js) leaves as it builds the body (a matrix from bind space to the rink, the level, the face, the blood), and [gl/arena-heads.js](../../client/game/js/panels/gl/arena-heads.js) draws it with two indexed draws. The colouring is the lab's and the light is the arena's. The body keeps its own neck, so the generator's is left out.
+
+What it settled that phase 4 can use:
+
+- **The half-size atlas is enough.** The rink's closest framing, the fight, puts a head at about 135 px on a 1920-wide picture at its 1.5× resolution, and a half-size cell is 128 × 160.
+- **The level by the head's own size on screen**, L0 over about 32 px and L1 over about 8 px, matches the figure heights in section 2.
+- **A face comes off a stable name.** The rink keys it on the player's name, not his body, which changes from game to game ([rink/faces.js](../../client/game/js/panels/rink/faces.js)). The street keys it on the token, for the reason in *What doesn't change*.
+- **Headgear needs the haircuts measured against it.** Four of the five clear a helmet; the quiff is drawn cropped under one. A keeper's mask is moulded from the head's own reach in every direction, with long hair tucked in. `scripts/shapes/arena-smoke.mjs` measures every vertex against the shell.
 
 ## Phases
 
