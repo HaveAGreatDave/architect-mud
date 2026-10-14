@@ -211,6 +211,30 @@ master Sound switch still silences it, because that one means silence.
 - **Barge-in.** Entering a command interrupts the voice, and Escape stops it dead. A reader you have
   to sit through is one you end up fighting.
 
+### Speech channels: what a typed command stops
+
+The synth speaks on two channels, each with its own lines:
+
+| channel | who speaks on it | bus |
+|---|---|---|
+| `tv` | the TV, the announcer, the PA, the login welcome, the library | the tv bus's voice sub-gain |
+| `ui` | Read Aloud, in-world | the dry ui bus |
+
+A new line cancels only its own channel's line, or waits behind it with `queue: true` (up to three
+waiting). So the PA no longer cuts off the TV by cancelling it, and the other way round.
+
+**A typed command or Escape stops Read Aloud and nothing else.** `shush()` in `logreader.js` calls
+`cancelSpeech('ui')` and cancels the browser's `speechSynthesis` (the natural reader; nothing else in
+the client uses it). Before this it cancelled every voice, so typing anything while the TV was talking
+silenced the TV, even with Read Aloud off. The TV panel and the library cancel only `'tv'`;
+`cancelSpeech()` with no channel still stops everything, for the Voice Lab.
+
+Instead of cancelling the TV, **Read Aloud ducks it**: the tv bus drops 12 dB while the reader speaks
+and comes back when it stops. The in-world reader does this for each line it speaks. The natural
+reader is outside Web Audio, so `logreader.js` takes the same duck (`AudioEngine.readerDuck()`) on
+the utterance's start event and lets it go on its end or error event, or on `shush()`.
+`scripts/audio/speech-channels-smoke.mjs` checks all of this.
+
 ---
 
 ## 4. Enunciation

@@ -255,12 +255,21 @@ export const GROUPS = [
   },
   {
     name: 'audio',
-    // SIREN scenes: the sea, the boat, the murmuration; and the CPhL soundset, rendered.
+    // SIREN scenes (the sea, the boat, the murmuration), the CPhL soundset rendered, and the
+    // mix and fidelity work in docs/proposals/siren-fidelity.md, one gate per step.
     gates: [
       'scripts/audio/sea-smoke.mjs',
       'scripts/audio/boat-smoke.mjs',
       'scripts/audio/murmur-smoke.mjs',
       'scripts/audio/hockey-smoke.mjs',
+      'scripts/audio/limiter-smoke.mjs',   // 1: the master limiter, and nothing around it
+      'scripts/audio/duck-smoke.mjs',      // 2: duck gains per bus, and duck()'s schedule
+      'scripts/audio/speech-channels-smoke.mjs',  // 3: a typed command stops Read Aloud, not the TV
+      'scripts/audio/tvmix-smoke.mjs',     // 4: the tv bus's voice and effects sub-gains
+      'scripts/audio/noise-smoke.mjs',     // 5: stereo noise in three colours, offsets, width
+      'scripts/audio/filter-smoke.mjs',    // 6: filter gain for peaking and shelf types
+      'scripts/audio/space-smoke.mjs',     // 7: layer pan, cue send, named rooms, the ballpark
+      'scripts/audio/tools-smoke.mjs',     // 8: the Audio tab round-trips a layer; Voice Lab saves a voice
     ],
   },
   {

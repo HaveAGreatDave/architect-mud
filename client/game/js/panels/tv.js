@@ -55,9 +55,10 @@ try { _readAloud = localStorage.getItem('tvReadAloud') === '1'; } catch { /* sto
 // surface(s) are actually tuned to that channel.
 const _views = new Set();
 
-// The synth voice is a single global resource (AudioEngine.speak / cancelSpeech).
+// The synth's TV channel is one shared voice (AudioEngine.speak / cancelSpeech('tv')).
 // Exactly one instance owns it at a time — claimed on open/tune — so two surfaces
-// never narrate over each other.
+// never narrate over each other. Read Aloud has its own channel, so cancelling
+// here never cuts the reader off, and a typed command never cuts the TV off.
 let _speechOwner = null;
 
 // CRT hum/static are per-viewer loops; power-on/off are one-shot SFX.
@@ -626,7 +627,7 @@ export function createTvView(root, opts = {}) {
   }
 
   function close() {
-    if (_speechOwner === view) { window.AudioEngine?.cancelSpeech(); _clearSpeech(); _speechOwner = null; }
+    if (_speechOwner === view) { window.AudioEngine?.cancelSpeech('tv'); _clearSpeech(); _speechOwner = null; }
     _tvOpen = false;
     _tvShuttingDown = false;
     _tvPoweredOff = false;
@@ -675,7 +676,7 @@ export function createTvView(root, opts = {}) {
     // The tablet app has no CRT to collapse — it just closes (the tablet shell
     // itself owns the leaving animation).
     if (!isCrt) { close(); return; }
-    if (_speechOwner === view) { window.AudioEngine?.cancelSpeech(); _clearSpeech(); _speechOwner = null; }
+    if (_speechOwner === view) { window.AudioEngine?.cancelSpeech('tv'); _clearSpeech(); _speechOwner = null; }
     _tvShuttingDown = true;
     if (_tuneTimer) { clearTimeout(_tuneTimer); _tuneTimer = null; }
 
@@ -1468,7 +1469,7 @@ export function createTvView(root, opts = {}) {
   function _tvTuneTo(num) {
     // A tune abandons the old channel's timeline outright — anything still queued
     // belongs to a programme you are no longer watching.
-    window.AudioEngine?.cancelSpeech(); _clearSpeech();
+    window.AudioEngine?.cancelSpeech('tv'); _clearSpeech();
     _speechOwner = view;   // the surface being tuned takes the voice
     if (_sweepRaf) { cancelAnimationFrame(_sweepRaf); _sweepRaf = null; }
     _wheelTarget = null;
@@ -1936,7 +1937,7 @@ export function createTvView(root, opts = {}) {
       _readAloud = !_readAloud;
       localStorage.setItem('tvReadAloud', _readAloud ? '1' : '0');
       syncReadBtn();
-      if (!_readAloud) { window.AudioEngine?.cancelSpeech(); _clearSpeech(); }
+      if (!_readAloud) { window.AudioEngine?.cancelSpeech('tv'); _clearSpeech(); }
       else _voiceLive = true;   // give the voice the benefit of the doubt again
     });
 

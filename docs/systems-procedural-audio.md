@@ -106,7 +106,8 @@ idea: a sound should carry where it happened, not just what happened.
 
 **Reverb.** There was none. A stone church, a storm drain, a shipping container and
 the open waste all sounded identical, because `echo` is a delay line — a repeat,
-not a space. There are now seven rooms, chosen per zone and crossfaded on entry.
+not a space. There are now eight rooms: seven chosen per zone and crossfaded on entry,
+and an open-air ballpark a view picks by name (see [the mix](#the-mix-limiter-ducks-noise-filters-sends-and-rooms)).
 
 The impulse responses are **generated, not sampled**: decaying noise through a
 one-pole damping filter, per channel, which is a crude reverb and an entirely
@@ -491,6 +492,56 @@ On the booth, "He SCOOOOOOORES!!!" holds its vowel 1.38 s and tops out near 280 
 hears "He scores!". The pacer gives each held letter after the first 60 ms of air on top of its
 95 (see [systems-broadcast.md](systems-broadcast.md)). The voice smoke pins the reading and the
 length, and the FM smoke the climb, the vibrato and the sag.
+
+## The mix: limiter, ducks, noise, filters, sends and rooms
+
+What the engine gained so that about fifty layered cues can sit under an announcer. All of it is
+in `client/shared/audio-engine.js`, and each part has a gate in the `audio` group (named below).
+Every new layer and cue key is opt-in: a cue that doesn't use one builds the graph it always did,
+apart from the noise offsets.
+
+**The limiter** (`limiter-smoke`). A DynamicsCompressor after the master gain, set as a
+brickwall: threshold -1 dB, hard knee, ratio 20, 1 ms attack. The spec's compressor adds its
+own makeup gain, about 0.6 dB here, and a trim after it takes that back off, so below the
+threshold nothing changes level. The mono downmix and the echo send both sit behind it.
+
+**Ducks** (`duck-smoke`). Each bus is a slider gain (the player's volume) then a duck gain, and
+`_applyGains` only ever writes the sliders. `duck(buses, dB, { attack, hold, release, at })`
+pulls buses down and brings them back; without `hold` it stays down until the handle's
+`release()`. A cue's `config.duck` and `speak({ duck })` use it for their own length. Ducks overlap and a bus sits at the deepest one. The schedule is written as
+AudioParam events from the list of holds, not run off timers. The reverb send taps the duck,
+not the slider, so a ducked bus ducks its reverb too. `duckLoop` still exists for the rain and
+wind beds under thunder; it rides one loop, not a bus.
+
+**The TV's voice and effects** (`tvmix-smoke`). Two sub-gains under the tv bus.
+`setTvBalance({ voiceDb, fxDb })` keeps a broadcast's effects a fixed distance under its voice
+inside the one TV slider. TV speech rides the voice sub-gain; category `tv_fx` rides the
+effects one; category `tv` still goes straight to the bus. Both start at unity.
+
+**Noise** (`noise-smoke`). A noise layer used to play one two-second mono buffer from its first
+sample, so two noise layers in a cue were the same noise and phased, and a long bed repeated
+every two seconds. Layers now get eight seconds of stereo noise in `white`, `pink` or `brown`
+(the layer's `noise` key), each made once and normalised to white's level, with the loop point
+crossfaded. Every noise layer starts at its own offset from a seeded generator, which is what
+ends the phasing; `noiseSeed` pins one. A layer takes the left channel alone, which is mono
+noise at the old level; `width` blends the right ear over to the other channel with an
+equal-power law. `engineNodes()` keeps the old buffer for the custom synths built on it.
+
+**Filter gain** (`filter-smoke`). `filter.gain` in dB is read for `peaking`, `lowshelf` and
+`highshelf`. It never was, so a peaking filter was a flat line. The other types never have
+their gain written.
+
+**Space** (`space-smoke`). A layer's `pan` puts a panner at the end of that layer, after its
+echo. A cue's `send` (0–1) overrides its bus's reverb send: the cue enters a dry copy of the
+bus and, through a gain of `send`, a wet copy that feeds only the reverb. The copies are made
+on first use and follow the bus's slider and duck. `setRoom(name)` picks a room by name over
+the one the zone picked (the server's `audio_space`), until `setRoom(null)` hands it back. The
+`ballpark` room is open air: a short 0.18 s tail and a slap-back off the stands 120 ms in, 7 ms
+later in the right ear. Room impulses are seeded from the room's name, so a room is the same
+every load.
+
+The speech side of this (two channels, and Read Aloud ducking the TV) is in
+[systems-accessibility.md](systems-accessibility.md#speech-channels-what-a-typed-command-stops).
 
 ## The voice pool
 

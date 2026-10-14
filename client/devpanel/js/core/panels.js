@@ -241,7 +241,8 @@ const PANELS = {
     description: "Hear and tune the formant voice. Character is hashed from a NAME, so the NPC list is the actual set of voices the game speaks in.",
     // The NPC list is not decoration: tv.js seeds a voice on the speaker's name,
     // so these ARE the voices, and picking one plays what a player hears.
-    fetch: () => API('/npcs').then(npcs => ({ npcs })),
+    // Saved voices are audio_instruments rows with category 'voice' (see voicelab.js).
+    fetch: () => Promise.all([API('/npcs'), API('/audio/instruments')]).then(([npcs, inst]) => ({ npcs, voices: vlPresetsFrom(inst) })),
     noEdit: true,
     render: renderVoiceLabPanel,
   },

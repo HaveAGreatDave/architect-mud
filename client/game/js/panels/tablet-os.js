@@ -3892,7 +3892,7 @@ function narrateSplit(text) {
 function narrateStop() {
   if (_narrate?.timer) clearTimeout(_narrate.timer);
   _narrate = null;
-  try { window.AudioEngine?.cancelSpeech?.(); } catch { /* audio may not be up */ }
+  try { window.AudioEngine?.cancelSpeech?.('tv'); } catch { /* audio may not be up */ }
   clearNarrateHighlight();
   syncNarrateBar();
   syncNarratePill();
