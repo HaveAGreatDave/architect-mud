@@ -249,6 +249,13 @@ class Pass extends Node {
   compute(i, t) { this.pan.at(i, t); return this.inSum(i); }
 }
 
+// Mono throughout, so a splitter passes its input on (a noise layer takes channel 0, which is
+// the mono buffer here) and a merger is the spec's mono downmix of its two channels, half their sum.
+class Merger extends Node {
+  constructor(ctx) { super(ctx, 'merger'); }
+  compute(i) { return this.inSum(i) * 0.5; }
+}
+
 class Compressor extends Pass {
   constructor(ctx) { super(ctx, 'comp'); for (const k of ['threshold', 'knee', 'ratio', 'attack', 'release']) this[k] = new Param(ctx, 0); this.reduction = 0; }
 }
@@ -305,6 +312,8 @@ export class OfflineContext {
   createStereoPanner() { return new Pass(this, 'panner'); }
   createConvolver() { return new Pass(this, 'convolver'); }
   createDynamicsCompressor() { return new Compressor(this); }
+  createChannelSplitter() { return new Pass(this, 'splitter'); }
+  createChannelMerger() { return new Merger(this); }
   createPeriodicWave() { return {}; }
   createBuffer(ch, len, sr) {
     const data = Array.from({ length: ch }, () => new Float32Array(len));
