@@ -132,8 +132,10 @@ export function createWorld() {
     }
     const l = o.look !== false && b.layers.look;
     if (l) {
-      const w = weight(l, t);
-      if (w > 0) P = lookAt(P, toLocal(F, targetOf(l, t)), w, b.scale);
+      // nothing to look at in a world started after the ball's gone (a replay that opens once a
+      // throw's in the stands)
+      const w = weight(l, t), q = w > 0 ? targetOf(l, t) : null;
+      if (q) P = lookAt(P, toLocal(F, q), w, b.scale);
     }
     return { ...P, at: F.at, yaw: F.yaw, scale: b.scale };
   };
