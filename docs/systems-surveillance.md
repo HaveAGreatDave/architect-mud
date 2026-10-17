@@ -180,7 +180,7 @@ record→reel→datachip path are described in the shipped subsystems below.
    concealed furniture hidden from `look` via a `flags.concealed` filter in `describe.js`;
    battery/power tick (cams days / drone hours). Feed = its own `feedSnapshot()` (zone snapshot, same
    shape as broadcast's `buildCameraSnapshot`, which is plugin-private so **not** importable). Test gear:
-   [`scripts/seed-surveillance-gear.js`](../scripts/seed-surveillance-gear.js) (sticky/tap cam, recon drone).
+   the sticky/tap cam and recon drone items.
 2. **Surveillance Hub** — opened by the carried **Surveillance Deck** (`hub`, or `use deck`) or a
    `security_console` furniture. Server pushes `surveillance_hub` (open) then `surveillance_hub_update`
    every 5s to a `hubViewers` set; client sends `hubclose` on close; `player.logout` prunes. Frames =
@@ -207,9 +207,7 @@ record→reel→datachip path are described in the shipped subsystems below.
    `pilot [drone] <dir>` flies a drone through a zone exit (`drone_ops` check); both zones hear it (loud
    → counterplay). **Relays** — a powered relay in a zone punches feeds through a jammer there.
    **Tiers** surfaced on hub tiles (`kind·T2`). **Acquisition** — black-market vendor **Glitch** at *The
-   Blindspot* ([`seed-surveillance-vendor.js`](../scripts/seed-surveillance-vendor.js)) sells the full
-   kit; gear defs in [`seed-surveillance-gear.js`](../scripts/seed-surveillance-gear.js). **Crafting** —
-   [`seed-surveillance-crafting.js`](../scripts/seed-surveillance-crafting.js) adds 3 salvage components
+   Blindspot* sells the full kit. **Crafting** — 3 salvage components
    (Optic Module / Signal Board / Micro Cell) + 6 `electronics` recipes (`craft <gear name>`, no station;
    higher tiers need higher electronics rank); components also stock at Glitch.
 6. **Police / Wanted System** — see below.
@@ -234,8 +232,7 @@ existing **Arbiters** (`plugins/emergency/index.js`). All in the "Wanted system"
     is never seen at all.
 - **Escalation ladder** (`TIERS`, full roster per star): ★1 Patrol Officer · ★2 +Patrol Drone ·
   ★3 ×2 Enforcement Trooper · ★4 Heavy Enforcer +Trooper · ★5 **Arbiters** (reuses
-  `enemy_arbiterclass_enforcement_unit`). Tiers 1–4 are new enemy templates
-  ([`seed-wanted-police.js`](../scripts/seed-wanted-police.js)).
+  `enemy_arbiterclass_enforcement_unit`). Tiers 1–4 are new enemy templates.
 - **Pursuit = search from the scene** (`searchAndPursue`, 2026-07-03; was teleport-redeploy) — units
   muster at the **crime scene** (`s.crimeZone`, the zone where the pursuit began) and then *hunt*: each
   4s `wantedTick`, a hunter either engages (same zone as the suspect → `targetId` set, `WANTED_HUNTER_GRAPH`

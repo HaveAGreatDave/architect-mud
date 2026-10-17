@@ -9,8 +9,8 @@
 //   roll <n> | roll all  → roll n (capped at grams on hand)
 //   roll <n> cannabis|tobacco → disambiguate when you carry both
 //
-// The joint/cigarette items + the loose-leaf drugs are content (scripts/add-loose-leaf.js
-// + scripts/add-joints.js + scripts/add-cigarettes.js); this plugin only owns the verb.
+// The joint/cigarette items + the loose-leaf drugs are content (content/items and
+// content/drugs); this plugin only owns the verb.
 import { query, withTransaction } from '../../server/models/db.js';
 import { randomUUID } from 'crypto';
 

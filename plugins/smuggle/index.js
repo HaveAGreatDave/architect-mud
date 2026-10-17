@@ -91,8 +91,7 @@ async function placeOrder(player, itemId, qty, vendorId) {
 
 // ── The fence's back room IS a shop shelf ─────────────────────────────────────
 // This replaces a generated dialogue fan-out: the fence used to carry one node per
-// raw and three quantity nodes under each of those (~28 × 3), authored by
-// scripts/add-blackmarket-fence.js, purely to collect "which raw" and "how many" —
+// raw and three quantity nodes under each of those (~28 × 3), purely to collect "which raw" and "how many" —
 // which is exactly an item list and a quantity stepper. He now carries the same
 // catalogue as `vendor_inventory` entries on a NAMED SHELF (`shelf: 'back_room'`, so
 // his ordinary bar list never shows contraband) with his old bm_trust tiers as

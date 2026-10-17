@@ -117,7 +117,5 @@ write(`content/media_channel_playlist/${PLAYLIST_ID}.json`, {
 console.log(`\n✓ Cluster Puck built from hockey.bsm`);
 console.log(`  ${sportsScript.teams.length} clubs · ${sportsScript.players.length} skaters · ${Object.keys(sportsScript.pools).length} line pools · airSlots ${JSON.stringify(sportsScript.airSlots)}`);
 console.log(`  Airs 18:00 Tue + Thu on KSAB-TV (day mask ${DAYS_MASK}).`);
-console.log(`\n  NOT done here: Deadball's playlist row (ksab-16-1800-95) has to give those two`);
-console.log(`  nights back — 95 → 85. That's an UPDATE to an existing row, which the additive`);
-console.log(`  CODEX deploy can never apply, so it needs the one-shot in`);
-console.log(`  scripts/cluster-puck-schedule.mjs against each database.`);
+console.log(`\n  NOT done here: Deadball's playlist row (ksab-16-1800-95) must not claim those`);
+console.log(`  two nights. Its days mask is in content/media_channel_playlist/ksab-16-1800-95.json.`);

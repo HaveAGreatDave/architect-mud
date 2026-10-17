@@ -45,8 +45,8 @@ export async function airfields() {
   return out;
 }
 
-// Devpanel/VINE-authored archetypes — see scripts/migrate-flight-job-types.js for
-// the seed. meta shape: { kind:'cargo'|'passenger', legal, payMult, riskBase,
+// Devpanel/VINE-authored archetypes (content/quests, quest_type flight_template).
+// meta shape: { kind:'cargo'|'passenger', legal, payMult, riskBase,
 // wMin, wMax, deadlineMins, names:[...] }.
 async function loadTemplates() {
   const { rows } = await query("SELECT * FROM quests WHERE quest_type='flight_template'");
@@ -490,7 +490,7 @@ async function deliverPalletPurchase(player, npc, item, quantity, exec) {
 registerPurchaseDelivery('raws_counter', deliverPalletPurchase);
 
 // The unlock — fired from Amos's dialogue at Buzzard Field (and from Sully's
-// bm_menu "bigger hauls" node; see scripts/add-fence-air-unlock.js). One-time; a
+// bm_menu "bigger hauls" node). One-time; a
 // repeat visit routes to an "already sorted" node. The standing check is repeated
 // here so a stale or hand-authored dialogue option can't hand out the caches.
 registerAction({

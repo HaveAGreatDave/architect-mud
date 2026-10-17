@@ -20,8 +20,7 @@ Usage:
 - `roll <n> cannabis` / `roll <n> tobacco` — disambiguate when you carry both.
 
 It's a pure verb: nothing else reads its state. The joint/cigarette items and the
-loose-leaf drugs are **content** — `scripts/add-loose-leaf.js` (loose leaf),
-`scripts/add-joints.js` (joint), `scripts/add-cigarettes.js` (cigarette). This
+loose-leaf drugs are **content** (content/items and content/drugs). This
 plugin only references their item IDs.
 
 ## Commands
@@ -34,6 +33,6 @@ None.
 
 ## Content dependencies
 
-- `item_loose_cannabis`, `item_loose_tobacco` (from `scripts/add-loose-leaf.js`)
-- `item_joint` (from `scripts/add-joints.js`)
-- `item_cigarettes` (from `scripts/add-cigarettes.js`)
+- `item_loose_cannabis`, `item_loose_tobacco`
+- `item_joint`
+- `item_cigarettes`

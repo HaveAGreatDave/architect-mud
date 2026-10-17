@@ -164,6 +164,5 @@ opts in via a **Scavenging Table** dropdown in the zone editor.
   Edits apply at once and write the table's `content/` file, like other content. Delete refuses while any zone still references the table.
 
 Per-zone stock/state is derived by the engine and is **not** authored here.
-[scripts/seed-scavenging.js](../scripts/seed-scavenging.js) remains as the
-scripted example. Still deferred: promoting `zones.flags.scavenging_table_id` to a
+Still deferred: promoting `zones.flags.scavenging_table_id` to a
 real column, and a FK on `scavenging_table_items.item_id`.

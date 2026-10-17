@@ -74,8 +74,8 @@ still has an audience before each line. After any scene a zone rests for `ZONE_C
 
 ## Content
 
-- `scripts/seed-ambient-life.mjs` — flags the street zones and seeds the 9-category library
-  (idempotent; re-run after edits). Needs `npm run db:schema` first (adds `ambient_routines`).
+- `content/ambient_routines/`: the 9-category library; street zones opt in with
+  `flags.street_life` in their zone files.
 
 ## Notes
 

@@ -153,8 +153,8 @@ function _qCountLabel(kind) {
 // binder only supports one-level "data.<key>" paths, so each field binds to a flat
 // `fm*` key; fromQuest seeds them off the row's meta and toQuest reassembles the
 // meta object). Shape rebuilt: { kind, legal, payMult, riskBase, wMin, wMax,
-// deadlineMins, names:[...], destZone? }. See scripts/migrate-flight-job-types.js
-// for the seed shape.
+// deadlineMins, names:[...], destZone? }. The shipped rows are content/quests
+// files with quest_type flight_template.
 const _FM_KIND = [['cargo', 'Cargo haul'], ['passenger', 'Passenger charter']];
 const _FM_LEGAL = [['legal', 'Legal'], ['illegal', 'Contraband (fly dark)']];
 function _qFlightMetaFields(d) {

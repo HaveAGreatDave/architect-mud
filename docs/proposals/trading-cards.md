@@ -439,8 +439,7 @@ Three later additions, documented in full in [plugins/cards/README.md](../../plu
 
 - **Field marks** — the physical line every card now carries, **lifted from the subject's own
   description rather than invented**, so a card can never contradict the prose it was built from.
-  Enemies lead with their combat shape. Backfill for already-struck cards:
-  `node scripts/rederive-card-marks.mjs`.
+  Enemies lead with their combat shape. Cards struck before marks existed were backfilled once.
 - **The Binder** (`plugins/tablet/binder-app.js`) — the collection as shelves with real completion
   denominators and **anonymous** empty slots.
 - **The reveal** — a flat 15-second wait per card instead of a rarity-length auto-advance, a

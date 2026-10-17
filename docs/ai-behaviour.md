@@ -367,7 +367,7 @@ form goes on meaning what it always meant.
 ### The commute build
 
 The gate above is only half the answer — a home is worth having only if you can leave it.
-[`scripts/house-posted-npcs.mjs`](../scripts/house-posted-npcs.mjs) gives the workplace-homed
+The housing pass of 2026-08-01 gave the workplace-homed
 cast all three things at once, because doing fewer is worse than doing none:
 
 1. **Home** — an apartment chosen by real hop distance from their workplace (BFS over

@@ -307,8 +307,7 @@ let _fxCache = { ts: 0, jammed: new Set(), spoofed: new Set() };
 // Nothing else in the running server writes security_devices.
 //
 // The backstop is for writers outside the process: the CODEX content deploy
-// upserts the police devices into prod while the server is up,
-// scripts/seed-wanted-police.js inserts them, and regress.js writes rows
+// upserts the police devices into prod while the server is up, and regress.js writes rows
 // directly. Half an hour is one SELECT per 30 min while someone is online.
 //
 // A write that lands while a read is in flight bumps _devGen, so that read's

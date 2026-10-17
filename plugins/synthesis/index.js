@@ -37,7 +37,7 @@ const pendingSynth = new Map(); // playerId -> { recipeId, contextBonus, mode, t
 
 // Cook families: each material FORM maps to one of four single-stage minigames.
 const COOK_FAMILY = { powder: 'solids', pill: 'solids', crystal: 'solids', liquid: 'wet', gel: 'wet', paste: 'wet', gas: 'gas', leaf: 'botanical', blotter: 'botanical' };
-const TIER_PRICE = [0, 15, 40, 90, 180, 350]; // display estimate; real value is on the item (scripts/add-cook-tiers.js)
+const TIER_PRICE = [0, 15, 40, 90, 180, 350]; // display estimate; real value is on the item
 // The drug a recipe produces (match its base_output item to a drugs-row item_id).
 export function drugForOutput(recipe) { const outId = recipe.base_output?.item_id; if (!outId) return null; const cache = getDrugCache(); return Object.values(cache).find(d => d.item_id === outId) || null; }
 // Intensity tier 1..5 — author-set (flags.cook_tier) or derived from how nasty the drug is.

@@ -1,7 +1,6 @@
 # smuggle — raw-drug supply loop (Phase 2)
 
-The city's chem labs cook drugs from **raw material + a reagent** (see
-`scripts/add-raw-supply.js`, Phase 1). Raw isn't sold over any counter — you
+The city's chem labs cook drugs from **raw material + a reagent** (Phase 1). Raw isn't sold over any counter — you
 have to source it off the black market, through a **fence**, and sneak it in.
 
 ## The loop
@@ -24,7 +23,7 @@ have to source it off the black market, through a **fence**, and sneak it in.
    - **`trust_per_buy` is 0.** Standing is earned running crates through a gate
      (step 4), never by paying.
    - This **replaced a generated dialogue fan-out** — one node per raw plus three
-     quantity nodes under each (~22 nodes), authored by `add-blackmarket-fence.js`,
+     quantity nodes under each (~22 nodes),
      which existed only to collect "which raw" and "how many". A shop panel already
      is an item list and a quantity stepper.
    - `PLACE_SMUGGLE_ORDER` still exists for any tree authored the old way, but the
@@ -40,7 +39,7 @@ have to source it off the black market, through a **fence**, and sneak it in.
    pickup doesn't count.
 4. **Smuggle in.** The wilderness funnels into the city through **one** scanned
    gate: **Old Coldwater** (`zone_ruins`, `flags.checkpoint` — the two bypass
-   crossings are severed by `build-smuggle-funnel.js`). Carrying raw in runs a
+   crossings are severed). Carrying raw in runs a
    **Deception** check at difficulty `3 + cook_tier`:
    - **Pass** → through clean, and *this* is where you earn standing: `bm_trust`
      rises by the raw's **tier** (tier-1 → +1 … tier-5 → +5), once per ~2-min
@@ -69,22 +68,14 @@ have to source it off the black market, through a **fence**, and sneak it in.
 - **`PLACE_SMUGGLE_ORDER`** action (`registerAction`) — the dialogue order seam.
 - **`unpack`** specialized action (tag `mule_crate`) — pickup + trust.
 - **Checkpoint move gate** (`smuggle:checkpoint`) — fires only on `flags.checkpoint`
-  zones. Content: `scripts/add-smuggle-checkpoints.js`.
-- **Fence + tip:** `scripts/add-blackmarket-fence.js` creates the crate item, wires
-  the Fixer's inner-circle tip (`flags.inner_circle_line`, read by engine
-  `vendor.js`), and generates Sully's trust-gated dialogue branch from the live raw
-  items. Re-run it whenever the drug roster changes.
+  zones. Content: Old Coldwater's zone file.
+- **Fence + tip:** content files hold the crate item, the Fixer's inner-circle tip
+  (`flags.inner_circle_line`, read by engine `vendor.js`), and Sully's trust-gated
+  branch. Edit Sully's file when the drug roster changes.
 
 ## Activate
 
 1. `npm run db:schema` — `smuggle_orders` (+ `vendor_id`).
-2. `node scripts/add-raw-supply.js` — raw items + dual-use reagents + cook recipes.
-3. `node scripts/add-reagent-supply.js` — stock the reagents at open vendors *(after 2)*.
-4. `node scripts/add-blackmarket-fence.js` — crate item, Fixer tip + `drug_buyer`,
-   Sully's branch + `drug_buyer` *(after 2; hard-fails if raw items are missing)*.
-5. `node scripts/build-smuggle-funnel.js` — sever the two bypass crossings + flag
-   Old Coldwater as the checkpoint *(`--dry` to preview; refuses to strand zones)*.
-6. Restart / world-reload the server.
-
-*(The old `add-smuggle-checkpoints.js` is gone — it flagged the wrong zone. Use
-`build-smuggle-funnel.js`.)*
+2. `npm run content:import`: the raw items, reagents, cook recipes, the crate item,
+   the Fixer tip, Sully's branch and the Old Coldwater checkpoint are all content files.
+3. Restart / world-reload the server.

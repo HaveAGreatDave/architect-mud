@@ -142,11 +142,10 @@ armed `pending`, the zone matches, and the player still carries a rod. Then:
 
 ## Content (test spot)
 
-`scripts/seed-fishing.js` (one-shot, idempotent) seeds the rod + bloodworm bait,
+The content files hold the rod + bloodworm bait,
 the catch items (staple `item_fresh_catch` reused; waterlogged boot / bloated
 hand / drowned lockbox / bait-gated glass eel), the `enemy_cable_eel` monster
-hook, the `fish_coldwater_bay` table, and attaches `fishing_table_id` to
-**`zone_dock_fishmarket`** (Fishmarket Dock). Reload the world (or restart) after
-running so the zone flag loads. In game: carry `item_fishing_rod`, stand on the
+hook and the `fish_coldwater_bay` table, and **`zone_dock_fishmarket`** (Fishmarket
+Dock) carries `fishing_table_id`. In game: carry `item_fishing_rod`, stand on the
 Fishmarket Dock, and type `fish`. Other dock/bay zones (`zone_dock_*`,
 `zone_bay_*`) can adopt the same table by setting the flag.

@@ -68,8 +68,8 @@ function isPalmable(tags, weight) {
 
 // Duty roster, in shift order: officer[0] works 00:00–08:00, [1] 08:00–16:00,
 // [2] 16:00–24:00 (game time runs 1:1 with real time, so a shift = 8 real hours).
-// Kohl is the pre-existing detention officer; the other two are seeded by
-// scripts/create-jail-officers.js. Off-duty officers wait in the bullpen.
+// Kohl is the pre-existing detention officer; the other two are content/npcs
+// files like him. Off-duty officers wait in the bullpen.
 const OFFICERS = ['npc_precinct_guard', 'npc_precinct_officer_2', 'npc_precinct_officer_3'];
 
 // Lines the on-duty officer says as they walk you out at the end of your stretch.

@@ -9,8 +9,8 @@
  * skims it to the ATM and tallies `npc.vendor_bank_credits`. Lifetime earnings are
  * conserved as `vendor_credits + vendor_bank_credits` (see economy-ledger snapshot).
  *
- * Used by apiCreateNpc/apiUpdateNpc (auto-injection for every new/edited vendor)
- * and scripts/backfill-vendor-safes.mjs (one-shot coverage for existing vendors).
+ * Used by apiCreateNpc/apiUpdateNpc (auto-injection for every new/edited vendor).
+ * Existing vendors' safes are content/furniture files.
  */
 import { query } from '../models/db.js';
 

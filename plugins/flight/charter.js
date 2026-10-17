@@ -58,7 +58,7 @@ const HELD_EXPIRY_MS = 30 * 60 * 1000;  // a booked-and-paid charter waits this 
 const MULE_ID = 'ac_mule';
 const DRAGONFLY_ID = 'ac_dragonfly';
 // The chair a pilot sits on inside the walk-in hangar. Must match the furniture
-// `name` seeded by scripts/seed-hangar-interiors.js.
+// `name` in the hangars' content/furniture files.
 export const DESK_CHAIR = 'the flight-ops desk chair';
 
 // Each charter pilot flies in a signature colour — the tint on their "CHARTER" Mule

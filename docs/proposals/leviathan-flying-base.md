@@ -66,7 +66,7 @@ pattern applied to a room — which is exactly why it stays cheap and never brea
   `startPassage:537`, `cmdHelmConsole:700`, `dockTo`/`undockAll:379`). See [systems-helm.md](../systems-helm.md).
 - **Multi-occupant + pilot/passenger split already work** (`liveAircraft.occupants` Set, `player.seat`,
   `pilotOf` `index.js:182`). **Interior-zone authoring** (`scripts/add-ensuite-bathroom.mjs`), **shared
-  storage vaults** (chem-lab / vendor-safe furniture), **lighting** (`scripts/add-shop-lighting.mjs`),
+  storage vaults** (chem-lab / vendor-safe furniture), **lighting** (authored fixtures lit by `scripts/content/seed-runtime.mjs`),
   **auto-land recovery** (`autoReturn(live)`, `index.js:935`), and **hull insurance** (Halcyon) all exist.
 
 ## Core mechanic (shared by every phase)
@@ -185,7 +185,7 @@ latter *is* mutating zone content. Bigger base ⇒ a different, bigger authored 
 - `plugins/flight/state.js` — cabin binding hooks; standing-room capacity; `mapWindow`/occupant feed already there.
 - `client/game/js/panels/cockpit.js` — `window` view from a cabin room (reuse `mountPassenger`/`paintWindshield`).
 - **Reuse:** `plugins/yacht/index.js` (`zone_exit_overrides` gangway + `chartCourse`), `add-ensuite-bathroom.mjs`
-  (zone stamping), `add-shop-lighting.mjs` (lighting), chem-lab/vendor-safe vault furniture (storage),
+  (zone stamping), `seed-runtime.mjs` (lighting), chem-lab/vendor-safe vault furniture (storage),
   `autoReturn` (recovery), Halcyon insurance.
 
 ## Verification (per phase)

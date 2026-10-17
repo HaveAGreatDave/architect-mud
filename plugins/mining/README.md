@@ -45,8 +45,7 @@ See [docs/systems-mining.md](../../docs/systems-mining.md) for the full contract
 ## Zone opt-in
 
 - `zones.flags.mining_table_id` → a reusable `scavenging_tables` template.
-  `scripts/seed-mining.js` seeds a pick + ore items + a table and attaches it to
-  `zone_waste_gravel` (a gravel pit) as the live test spot.
+  The pick, the ore items and the table are content files.
 
 ## Seams
 

@@ -147,6 +147,13 @@ REM without it the chairs answer "No game table here." Converges: it refreshes t
 REM config and never touches a game in progress.
 call :run "seed-solenne-chess.mjs"         "register the Solenne chess table"
 
+REM The same gap for the two poker tables: The Coyote's Rest in The Reach and the
+REM Lucky Bastard's old-school table. Their furniture and dealers ship as content,
+REM but the `game_tables` rows only exist where these have run. Converges: each
+REM refreshes its row's config and never touches a hand in progress.
+call :run "seed-coyote-poker.mjs"          "register the Coyote's Rest poker table"
+call :run "seed-neonvig-oldschool-poker.mjs" "register the Lucky Bastard poker table"
+
 REM Deletes the superseded drug_transforms rows BY ID - the old hedged text ("a
 REM large animal pretending to be a bed") the rewritten pool replaces. Additive
 REM deploys cannot remove a row. Converges: a fixed id list, permanent no-op once

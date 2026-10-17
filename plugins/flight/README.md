@@ -57,7 +57,7 @@ airborne (set heading); otherwise they fall through to the ground mover.
 - `zones.flags.airfield_id` / `airfield_fuel` — a zone opts in as an airfield (zone-flag pattern).
 
 Schema lives in `SCHEMA_SQL` (apply via `npm run db:schema`); content via
-[`scripts/seed-flight.js`](../../scripts/seed-flight.js).
+`content/airfields/` and the zone files.
 
 ## Client
 

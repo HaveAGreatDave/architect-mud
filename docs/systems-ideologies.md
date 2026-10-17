@@ -148,9 +148,7 @@ win the lean): `ideology_prometheans`, `ideology_synthesis`,
 - **`ADJUST_PATH`** `{path, delta}` — over player flags
   `path_machine`/`_flesh`/`_mind`/`_human` (0…100).
 
-> There is **no** `ADJUST_AXIS` action or `architect_axis` flag. The stale
-> `scripts/add-jobboard-content.js` still references old `faction_*` ids and an
-> `ADJUST_ARCHITECT` action that has no handler — that script is dead.
+> There is **no** `ADJUST_AXIS` action, `ADJUST_ARCHITECT` action or `architect_axis` flag.
 
 ## What actually moves standing (added 2026-08-22)
 

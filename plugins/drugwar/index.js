@@ -1,8 +1,8 @@
 /**
  * Drug-war plugin — ambient living-world reactions for the drug districts.
  *
- * A covert dealer runs each district's drug trade (plugins/dealer, seeded by
- * scripts/seed-drugwar-dealers.mjs). They exist independently — this plugin has
+ * A covert dealer runs each district's drug trade (plugins/dealer; the dealers
+ * are content/npcs files). They exist independently — this plugin has
  * no ties to any ideology and no territory:
  *   - the old self-running `zone_control` turf tick was retired (territory belongs
  *     to player corps alone), and

@@ -520,8 +520,7 @@ function scheduleTicks() {
 }
 
 // The world is set in the future — a fresh DB seeds its game_date to this fixed
-// anchor and advances from there. Existing DBs are moved to it by
-// scripts/set-calendar-date.mjs.
+// anchor and advances from there.
 const START_DATE = '2076-07-13';
 
 // Exported for the regress harness, which deliberately does NOT boot the

@@ -929,7 +929,7 @@ rung cannot be a precursor. It's baled **tobacco** and **cannabis** leaf
 else, which trips neither the manufacturing scan nor customs. Each **cures** into
 the existing `item_loose_*` via a **fabrication** recipe — deliberately not a
 chemistry cook, so it lives under `craft`, never appears on the felony `cook`
-surface, and survives `add-raw-supply.js` wiping the chemistry recipe set.
+surface, and survives a rewrite of the chemistry recipe set.
 
 Graduating from tier 0 to tier 1 is therefore the moment the player accepts felony
 risk for the first time. That alignment is the whole point.
@@ -1003,7 +1003,7 @@ you; here you fly it yourself. His `raws_list` dialogue node fires `OPEN_SHOP`.
   worth 3–5; legal crop hits the floor of 1, which is what lets a newly-vouched
   pilot climb off the legal rung at all.
 
-**Content is authored by `scripts/reach-dead-drops.mjs`** (idempotent; writes the
+**Content is authored in the content files** (the
 DB *and* the content files, because `content:import` is additive and can't rewrite
 the existing zone/NPC rows). It's a **clamp, not a converging script**, so it is
 deliberately *not* in `oneshots.bat` — **run it by hand, once per environment.**

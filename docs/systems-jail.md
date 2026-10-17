@@ -242,13 +242,9 @@ Both are runtime tables (schema exported, rows not) in `SCHEMA_SQL` — apply wi
 
 ## Content
 
-`scripts/create-jail.js` (one-shot) adds the cell door and Detention Officer Kohl
-(`npc_precinct_guard`) to the existing Precinct 9. The cell (Holding), release room
-(Lobby), and bullpen are pre-existing zones. Run once, then restart / `POST /world/reload`.
-
-`scripts/create-jail-officers.js` (one-shot, idempotent) adds the two new officers
-(**Pryce**, **Marlow**), flags Kohl as police, and adds the cell **toilet / sink /
-cot**. Run once, then restart / `POST /world/reload`.
+The cell door, Detention Officer Kohl (`npc_precinct_guard`), the two other officers
+(**Pryce**, **Marlow**) and the cell **toilet / sink / cot** are content files in
+Precinct 9. The cell (Holding), release room (Lobby), and bullpen are its zones.
 
 ## Files
 
@@ -258,7 +254,6 @@ cot**. Run once, then restart / `POST /world/reload`.
 - `content/furniture/furn_cell_charge_sheet.json` — the readable charge sheet on the bars
 - `content/furniture/furn_precinct_clone_vat.json` — the custodial clone vat in the cell
 - `plugins/jail/regress.js` — contraband classification, clean-death passthrough, confiscate↔restore round-trip
-- `scripts/create-jail-officers.js` — the two new officers + cell fixtures (one-shot)
 - `client/game/js/panels/arrest.js` — the booking-record popup (`arrest_notice`)
 - engine seam: `server/engine/gameLoop.js` `handlePlayerDeath` (`player.respawnZone` hook + corpse skip)
 - action seam: `plugins/surveillance/index.js` (`WANTED_RAISE`, `WANTED_CHARGES` rap sheet,

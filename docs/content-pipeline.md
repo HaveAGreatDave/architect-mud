@@ -282,9 +282,8 @@ in the registry — regress is red until you do.
   `owner_id`): furniture-shop purchases, planted surveillance devices, hung
   posters, portable generators, corp HQ terminals. `origin`/`owner_id` are
   excludeColumns — files never carry them; imported content lands on the
-  `'authored'` default. Backfill for pre-column rows:
-  `scripts/backfill-furniture-origin.mjs` (run on prod once, after the push
-  that adds the column). Two id-shape guards remain as defense-in-depth
+  `'authored'` default. Pre-column rows were backfilled on prod once, in 2026-07.
+  Two id-shape guards remain as defense-in-depth
   tripwires for a writer that forgets to stamp origin: export warns-and-skips
   `furn_<8-hex-uuid>` rows, and the import deletion pass refuses to delete
   them. Environment junction-box autobuild rows stay `authored` deliberately —

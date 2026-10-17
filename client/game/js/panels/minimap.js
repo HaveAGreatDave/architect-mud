@@ -1057,7 +1057,7 @@ export function renderMinimap(nodes, direction) {
 }
 
 // Land-use / function colour key for the default map view. Keys + colours match
-// server mapFunc() (movement.js) and scripts/landuse-zone-colors.js — keep synced.
+// server mapFunc() (movement.js) — keep synced.
 // The district legend — SERVED, never written here. This was a hand-kept copy of
 // the server's district registry, and it did exactly what a hand-kept copy does:
 // four districts added over the past months were never copied across — wilds,

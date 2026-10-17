@@ -118,9 +118,8 @@ Inserts `gametable_neonvig_oldschool`, zone `zone_casino_interior`,
 `textTable: true`, `dealerNpcId: "npc_neonvig_backroom_dealer"`. Reload after.
 
 The one-time **consolidation** (drop the retired visual table row, move the
-old-school row into the main room on an environment that already had both) runs
-via `scripts/consolidate-neonvig-poker.mjs` (idempotent; local, then prod after
-the deploy).
+old-school row into the main room on an environment that already had both) ran
+once on each environment in 2026-08.
 
 ## The Coyote's Rest table (The Reach)
 

@@ -2,7 +2,7 @@
 
 Ambient living-world reactions for the drug districts. A covert street dealer runs
 each of three areas — the Core / Franchise Strip, the Marquee, and the Yards (see
-`plugins/dealer` + `scripts/seed-drugwar-dealers.mjs`: **Dov Keller**, **Gita
+`plugins/dealer` and their content/npcs files: **Dov Keller**, **Gita
 Marsh**, **Wick Sorel**). The dealers exist independently — this plugin has no ties
 to any ideology.
 
@@ -29,9 +29,7 @@ so they read as texture, not spam:
 
 ## Content / setup
 
-```
-node scripts/seed-drugwar-dealers.mjs   # the three covert dealers
-```
+The three covert dealers are content/npcs files; `npm run content:import` loads them.
 
 Then restart the server (or `/world reload`).
 

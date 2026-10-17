@@ -45,7 +45,7 @@ out of the current rotation automatically.
 ## The Franchise Strip (first board)
 
 `zone_district_919_904` (Ironside Street) — an open street tile two steps east and
-one south of the spawn facade. Originally seeded by `scripts/add-jobboard-content.js`
+one south of the spawn facade. Originally seeded by a one-shot
 against a `zone_city_west` that no longer exists; the live content is now the JSON
 under `content/` (the script is kept only as provenance).
 
@@ -126,7 +126,7 @@ The creed choices are gated on a `fs_creed` flag they also set, so they fire **o
 
 ## Pending to go live
 
-`npm run db:schema` (local, done) → `node scripts/add-jobboard-content.js` →
+`npm run db:schema` (local, done) → `npm run content:import` →
 `/world/reload` or restart → hard-refresh the client. Not yet browser-verified.
 
 ## Not yet built (follow-ons)

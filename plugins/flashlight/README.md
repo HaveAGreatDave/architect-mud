@@ -42,7 +42,7 @@ Engine: `environment.js` (`floorVisibility`, `LIGHT_LADDER`), `scheduler.js`, `e
 
 No owned tables. Instance state lives in `player_inventory.custom_data`: `{ lit: bool, battery: int, drainacc: number }`.
 
-Item content (created by `scripts/seed-flashlight.js`):
+Item content (content/items):
 
 - `item_flashlight` — `flashlight` (marker), `unique` (per-instance state), `misc`.
 - `item_battery` — `battery` (marker), `misc`. Stackable consumable.

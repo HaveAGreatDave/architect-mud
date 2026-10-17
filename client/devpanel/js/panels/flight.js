@@ -54,7 +54,7 @@ function _flRenderBody() {
       <td style="${td};color:var(--text-dim)">${_flEsc(p.field)}</td>
       <td style="${td};color:var(--text-dim)">${_flEsc(p.shift)}</td>
       <td style="${td};color:${_flStatusColor(p.status)};font-weight:600">${_flEsc(p.status)}</td>
-    </tr>`).join('') || `<tr><td colspan="4" style="${td};color:var(--text-dim)">No charter pilots seeded. Run scripts/seed-charter-pilots.js + reload the world.</td></tr>`;
+    </tr>`).join('') || `<tr><td colspan="4" style="${td};color:var(--text-dim)">No charter pilots. They ship as content/npcs files: run npm run content:import + reload the world.</td></tr>`;
 
   const log = (debug.log || []).map(l => `<tr>
       <td style="${td};color:var(--text-dim)">${_flAgo(l.at)} ago</td>

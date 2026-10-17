@@ -11,7 +11,7 @@
 // channel, its schedule and — importantly — its `broadcast_graph` are left exactly as they are:
 // a talk show's stored graph is deliberately start-only (the episode is assembled live every
 // night from these pools), and the title-card asset is a megabyte of base64 that lives in
-// media_graphics and is maintained by update-tonight-logo.mjs. Neither is this script's business.
+// content/media_graphics/tonight_show_logo.json. Neither is this script's business.
 //
 //   node scripts/content/build-tonight-show.mjs
 //

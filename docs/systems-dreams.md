@@ -517,8 +517,8 @@ scale with people currently high or asleep rather than with players online.
 > *same* room, so two people in a K-hole met each other inside the hallucination. Nothing has read them
 > since instancing landed, and their content files (plus `map_dream` and the dead
 > `hallucination.dreamzone_id` key on khole/deadair/threshold) are now deleted, so the deploy's own
-> deletion pass drops the rows. `scripts/retire-shared-dreamzones.mjs` is the belt-and-braces hand-run
-> version — it also moves anyone whose stored `current_zone` still points at one. **There is no shared
+> deletion pass drops the rows. A one-shot in 2026-07 also moved anyone whose stored
+> `current_zone` still pointed at one. **There is no shared
 > dream or trip space anywhere: every experience is per-player by construction.**
 > See `scripts/prune-orphan-dream-rows.mjs` for the same additive-deploy problem in the newer tables.
 

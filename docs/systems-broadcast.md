@@ -734,7 +734,7 @@ stops working.
 The `MUSIC <song>` ... `MUSIC_END` block in a `.bsm` script (or a `music` card in the dev panel canvas editor / VINE graph) plays a real synthesized song from the [procedural audio system](#audio-system-cross-reference) rather than just printing text.
 
 - `song` is matched against `audio_songs.name` (case-sensitive) via `getSongDefByName()`, exported from `plugins/audio/index.js`.
-- **Found**: the resolved song def (with `_instrumentsById` attached) is sent as `{ type: 'audio_music', def }` to every player currently watching that channel's TV. If the channel is `live` and has a `studioZoneId`, the same song is also sent to everyone physically in the studio zone via `sendToZone`, independent of who's watching a TV. The node holds for **8 seconds** of airtime (`nodeHoldMs`; `_vineDuration` bills music at 8s too) before the graph advances — independent of the song's authored length (seed instruments/songs in `scripts/seed-broadcast-music.js`). Any `text` on the node is still shown as a normal broadcast line alongside the song.
+- **Found**: the resolved song def (with `_instrumentsById` attached) is sent as `{ type: 'audio_music', def }` to every player currently watching that channel's TV. If the channel is `live` and has a `studioZoneId`, the same song is also sent to everyone physically in the studio zone via `sendToZone`, independent of who's watching a TV. The node holds for **8 seconds** of airtime (`nodeHoldMs`; `_vineDuration` bills music at 8s too) before the graph advances — independent of the song's authored length (instruments and songs are content/audio_instruments and content/audio_songs files). Any `text` on the node is still shown as a normal broadcast line alongside the song.
 - **Not found**: no audio plays. If `text` is set, it's shown exactly like a `say` node (`style: 'raw'`) and the node holds for 5 seconds. If `text` is empty too, the node is skipped with no delay.
 
 ### Audio System Cross-Reference
@@ -2201,7 +2201,7 @@ the broadcast worth doing.
 `data/scripts/hockey.bsm` is the source of the show. `node scripts/content/build-cluster-puck.mjs`
 recompiles it into the broadcast, graphic and playlist rows under `content/`, so the file
 in git and the shipped row can't drift. The one thing it can't do — handing Deadball's two
-nights back — is `scripts/cluster-puck-schedule.mjs`, an idempotent one-shot per database.
+nights back — is the `days` mask in content/media_channel_playlist/ksab-16-1800-95.json.
 
 ---
 

@@ -13,7 +13,7 @@
 // allowlist, with an ordered `lines` array (one entry = a one-shot; several = a
 // paced scene, like npc-banter). `loudness > 0` makes an audible routine bleed to
 // neighbouring rooms through the same sound propagation the rest of the game uses.
-// Seed the first library with `node scripts/seed-ambient-life.mjs`.
+// The library ships as content/ambient_routines files.
 //
 // Zones opt in with `flags.street_life` (the fishing/mining opt-in convention) so
 // street life never sprays across the frozen bay or a quiet apartment — only the

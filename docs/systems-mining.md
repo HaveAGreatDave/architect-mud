@@ -91,9 +91,7 @@ opts in by carrying `flags.mining_table_id` in its own JSON.
 26, so bring pills). `item_mining_pick` is stocked by Grady at Two-Cell Supply for
 ₵55, mirroring the fishing-rod carry-gate.
 
-[scripts/seed-mining.js](../scripts/seed-mining.js) is retained only as provenance —
-it predates the CODEX pipeline and still points `ZONE` at `zone_waste_gravel`, which
-no longer exists. Don't run it; edit the zone JSON instead.
+The pick, the ore items and the table are content files; edit the JSON to change them.
 
 ## Not yet built (slice 2)
 

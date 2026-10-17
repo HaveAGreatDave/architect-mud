@@ -115,8 +115,7 @@ worse than a missing one), and **no gendered wording** — the table can't see w
 adjectives (*filthy*, *grimy*) rank **last** precisely because half of Coldwater is described that
 way, and ranking them early would win the four-mark budget on every card and crowd out the chrome arm.
 
-Cards struck before marks existed get them from a one-shot: `node scripts/rederive-card-marks.mjs`
-(converging, safe to re-run, merges rather than replaces so hand-edited text survives).
+Cards struck before marks existed were given them once, in 2026-08.
 
 ## Verbs
 

@@ -1188,11 +1188,11 @@ export const specializedActions = [
 ];
 
 // ── Corp recruitment posters ─────────────────────────────────────────────────
-// Furniture flagged `corp_poster` (placed near spawn — see scripts/seed-corp-posters.mjs)
+// Furniture flagged `corp_poster` (placed near spawn)
 // carries the eye-catching Franchise-style propaganda in its own description. THIS
 // hook adds only the *ache* the poster is engineered to leave behind and a lead to
 // a person — deliberately NO command list. Learning how a corp actually works is a
-// conversation you have with Denny Corliss down at the Yards (scripts/add-corp-recruiter.js),
+// conversation you have with Denny Corliss down at the Yards (npc_corp_recruiter),
 // not fine print you read off a wall. A few posters (`architect_wink`) carry the
 // license motif that only pays off once you learn what corps really serve.
 // Returns undefined for any other furniture so the posters plugin's own

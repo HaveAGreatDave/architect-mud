@@ -108,7 +108,7 @@ Persistent key/value state keyed by player or world scope. Stored in `player_fla
 
 > Not to be confused with the legacy `flags` JSONB bag on item/entity rows — that belongs to the Tag system (ADR-0003).
 
-**World-scope reads are cached for the life of the process** ([flags.js:19](../server/engine/flags.js#L19)) — `world_flags` loads once and every later `getFlag('world', …)` is served from memory. `setFlag`/`clearFlag` keep the cache coherent; **a write from outside the process does not** — a one-shot script, psql, or the Neon console. Restart the server after touching `world_flags` out of band. A stale *cleared* flag is the nastier direction: `op: 'set'` gates stay true forever (this is what makes `scripts/reach-jobboard.mjs` look like it did nothing).
+**World-scope reads are cached for the life of the process** ([flags.js:19](../server/engine/flags.js#L19)) — `world_flags` loads once and every later `getFlag('world', …)` is served from memory. `setFlag`/`clearFlag` keep the cache coherent; **a write from outside the process does not** — a one-shot script, psql, or the Neon console. Restart the server after touching `world_flags` out of band. A stale *cleared* flag is the nastier direction: `op: 'set'` gates stay true forever.
 
 ### Store API
 
