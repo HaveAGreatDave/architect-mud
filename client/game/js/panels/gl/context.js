@@ -1089,9 +1089,33 @@ function compile(gl, type, src, label) {
 // mass and the solids are in, a record's numbers stop depending on where the camera sits inside its
 // tile, which a record kept on the GPU needs (Stage 3 phase 2 of glass-headroom). The layer adds
 // (ox, oy) as it writes and draws with the shifted camera, so the picture is the same. The decal
-// lights (pickLights) were already in this frame. WINDOW_FRAME false is the old frame.
-let WINDOW_FRAME = true;
-export const setWindowFrame = (on) => { WINDOW_FRAME = !!on; };
+// lights (pickLights) were already in this frame.
+//
+// ── PER-PASS GPU TIME (`glPassTimer`, the Modelshop's `__glPassMs`) ──────────────────────────
+// Off (null) unless a bench turns it on, so a frame pays nothing. Timer queries can't nest, so a
+// pass timed inside another (the shadow and SSAO passes inside `draw`) pauses the outer one and
+// resumes it afterwards; each name's time is the sum of its segments.
+let PASS_T = null;
+export function glPassTimer(on) {
+  const prev = PASS_T;
+  PASS_T = on ? { list: [], stack: [] } : null;
+  return prev;
+}
+// Reads a finished collector (the value `glPassTimer(false)` returns) into ms per name, or null if
+// the GPU clock jumped or the extension is missing. Results arrive a few frames late.
+export async function glPassTimes(t) {
+  if (!t || !t.list.length) return null;
+  const [, lastQ, gl] = t.list[t.list.length - 1];
+  for (let k = 0; k < 200 && !gl.getQueryParameter(lastQ, gl.QUERY_RESULT_AVAILABLE); k++) await new Promise((r) => setTimeout(r, 10));
+  const out = {};
+  let disjoint = false;
+  for (const [name, q, g, ext] of t.list) {
+    disjoint = disjoint || !!g.getParameter(ext.GPU_DISJOINT_EXT);
+    if (g.getQueryParameter(q, g.QUERY_RESULT_AVAILABLE)) out[name] = (out[name] || 0) + g.getQueryParameter(q, g.QUERY_RESULT) / 1e6;
+    g.deleteQuery(q);
+  }
+  return disjoint ? null : out;
+}
 // A sink's retained groups (`list.groups`, each `{ recs, at, ox, oy }`), checked and split out: the
 // groups go to the layer whole and their records are left out of the frame's own list. A group whose
 // records aren't where it says (a sink truncated after a throw) is dropped and its records go as usual.
@@ -1117,7 +1141,7 @@ function splitGroups(list, ox, oy) {
   return { rest, groups };
 }
 function windowFrame(cam) {
-  const ox = (WINDOW_FRAME && cam && cam.ox) || 0, oy = (WINDOW_FRAME && cam && cam.oy) || 0;
+  const ox = (cam && cam.ox) || 0, oy = (cam && cam.oy) || 0;
   return { ox, oy, cam: ox || oy ? { ...cam, fx: (cam.fx || 0) + ox, fy: (cam.fy || 0) + oy } : cam };
 }
 export function createGLView(canvas, opts = {}) {
@@ -1129,6 +1153,18 @@ export function createGLView(canvas, opts = {}) {
   // possible at all; the pass asks `lost()` each frame and hands the world back to the 2-D
   // renderer the moment the answer is yes.
   canvas.addEventListener('webglcontextlost', (e) => e.preventDefault(), false);
+  let passExt;   // see glPassTimer; looked up the first time a timed frame needs it
+  function timed(name, fn) {
+    const T = PASS_T;
+    if (!T) return fn();
+    if (passExt === undefined) passExt = gl.getExtension('EXT_disjoint_timer_query_webgl2');
+    if (!passExt) return fn();
+    const open = (n) => { const q = gl.createQuery(); gl.beginQuery(passExt.TIME_ELAPSED_EXT, q); T.list.push([n, q, gl, passExt]); };
+    const top = T.stack[T.stack.length - 1], outer = top && top[1] === gl ? top[0] : null;
+    if (outer) gl.endQuery(passExt.TIME_ELAPSED_EXT);
+    T.stack.push([name, gl]); open(name);
+    try { return fn(); } finally { gl.endQuery(passExt.TIME_ELAPSED_EXT); T.stack.pop(); if (outer) open(outer); }
+  }
   // Every declared layer program starts compiling now, side by side, before anything asks for one.
   prewarmPrograms(gl);
 
@@ -1517,7 +1553,7 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
       try { shadow = createShadowLayer(gl, loc.pos); } catch { shadow = null; }
     }
     if (!shadow) return null;
-    shadow.render(vao, count, s.lightVP);
+    timed('shadow', () => shadow.render(vao, count, s.lightVP));
     return shadow;
   }
 
@@ -1551,8 +1587,8 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
       // frequency and the result is blurred and sampled in normalised coordinates with LINEAR
       // filtering, so half resolution costs a quarter of the fill for no visible change.
       const rs = opts.ssaoRes > 0 && opts.ssaoRes < 1 ? opts.ssaoRes : 1;
-      return ssao.render(vao, count, new Float32Array(vp), { ...cam, H: camH }, Math.max(1, Math.round(W * rs)), Math.max(1, Math.round(H * rs)),
-        { A, B, radius: opts.ssaoRadius > 0 ? opts.ssaoRadius : 0.5, bias: opts.ssaoBias > 0 ? opts.ssaoBias : 0.02 });
+      return timed('ssao', () => ssao.render(vao, count, new Float32Array(vp), { ...cam, H: camH }, Math.max(1, Math.round(W * rs)), Math.max(1, Math.round(H * rs)),
+        { A, B, radius: opts.ssaoRadius > 0 ? opts.ssaoRadius : 0.5, bias: opts.ssaoBias > 0 ? opts.ssaoBias : 0.02 }));
     } catch { return null; }
   }
 
@@ -2397,12 +2433,24 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
   // Handed the window's cells and the eye in the MESH frame; see gl/skyline.js and the ⚠ on 
   // in world.js. Called before , because the strip is a uniform that draw reads.
   function setSkyline(cells, eye, facesOf) { try { skylineLayer().update(cells, eye, facesOf); } catch { /* no strip is the flat environment, which is the picture that shipped */ } }
-  return { murmurGPU: () => mg, gl, setSkyline, upload, uploadGroups, draw, drawFade, beginTarget, hdrLive, composite, hdrPeak, setMatPage, setSurfPage, drawSeabed, drawSeabedPoints, drawSprites, drawCurtain, drawDecals, decalCost, drawStrokes, drawBillboards, billboardTextures, drawGround, drawFloor, drawWater, drawCloudDeck, drawCloudVolume, drawMirror, mirrorPeak, uploadSolids, uploadShip, drawSolids, drawActors, uploadInterior, drawInterior, drawInteriorAlone, setAtlas, lost: () => gl.isContextLost(),
+  const api = { murmurGPU: () => mg, gl, setSkyline, upload, uploadGroups, draw, drawFade, beginTarget, hdrLive, composite, hdrPeak, setMatPage, setSurfPage, drawSeabed, drawSeabedPoints, drawSprites, drawCurtain, drawDecals, decalCost, drawStrokes, drawBillboards, billboardTextures, drawGround, drawFloor, drawWater, drawCloudDeck, drawCloudVolume, drawMirror, mirrorPeak, uploadSolids, uploadShip, drawSolids, drawActors, uploadInterior, drawInterior, drawInteriorAlone, setAtlas, lost: () => gl.isContextLost(),
     maxTexture: gl.getParameter(gl.MAX_TEXTURE_SIZE), get triangles() { return count / 3; },
     // The mesh's own box, for the caller that has to fit a light projection to it — and the shadow
     // map's size, which is 0 when the driver refused it. A zero there next to a sun that is up is
     // the silent failure this whole layer is written around.
     get bounds() { return bounds; }, get shadowSize() { return shadow ? shadow.size : 0; } };
+  // Fixed arity rather than rest args, so an untimed frame allocates nothing here (no method takes more than six).
+  for (const [k, name] of TIMED_PASSES) {
+    const f = api[k];
+    api[k] = (a, b, c, d, e, g) => (PASS_T ? timed(name, () => f(a, b, c, d, e, g)) : f(a, b, c, d, e, g));
+  }
+  return api;
 }
+// The view methods `glPassTimer` reports, by the name it reports them under. `draw` is the city's
+// main pass less the shadow and SSAO passes it runs inside itself.
+const TIMED_PASSES = [['draw', 'mass'], ['drawFade', 'fade'], ['drawMirror', 'mirror'], ['composite', 'hdr'],
+  ['drawCloudVolume', 'cloudvol'], ['drawCloudDeck', 'clouds'], ['drawFloor', 'floor'], ['drawWater', 'water'],
+  ['drawDecals', 'decals'], ['drawSprites', 'sprites'], ['drawStrokes', 'strokes'], ['drawBillboards', 'billboards'],
+  ['drawGround', 'ground'], ['drawSolids', 'solids'], ['drawActors', 'actors'], ['drawInterior', 'interior'], ['drawCurtain', 'curtain']];
 
 declareProgram(withLights(VERT), withLights(FRAG));

@@ -27,6 +27,7 @@
 // inside its parent's number and the columns must never be summed.
 import { paintWindshield, RENDER_TUNE, setWindshieldProfiler, perfSnapshot } from '/client/game/js/panels/windshield.js';
 import { installGL, glLastFrame } from '/client/game/js/panels/gl/install.js';
+import { glPassTimer, glPassTimes } from '/client/game/js/panels/gl/context.js';
 
 let _world = null;
 export async function world() {
@@ -154,7 +155,9 @@ export async function where(opts = {}) {
     // ⚠ `builds` IS A PROCESS-WIDE RUNNING TOTAL, not a per-run count — read straight across a
     // sweep of eight districts it counts 1, 2, 3 … 8 and reads exactly like one rebuild each.
     const b0 = (glLastFrame() || {}).builds || 0;
-    const clock = opts.gpu === false ? null : gpuClock();
+    // Per-pass timers and the whole-frame clock can't both run: GPU timer queries don't nest.
+    const clock = opts.gpu === false || opts.passes ? null : gpuClock();
+    if (opts.passes) glPassTimer(true);
     setWindshieldProfiler(true, { arms: !!opts.arms });
     const t0 = performance.now();
     for (let i = 0; i < frames; i++) {
@@ -162,11 +165,14 @@ export async function where(opts = {}) {
       if (clock) clock.time(paint); else paint();
     }
     const wall = (performance.now() - t0) / frames;
+    const passT = opts.passes ? glPassTimer(false) : null;
     const s = perfSnapshot();
     setWindshieldProfiler(false);
-    return { s, last: glLastFrame(), wall, b0, clock };
+    return { s, last: glLastFrame(), wall, b0, clock, passT };
   });
   const gpu = out.clock ? await out.clock.read() : null;
+  const passMs = out.passT ? await glPassTimes(out.passT) : null;
+  const passes = passMs ? Object.fromEntries(Object.entries(passMs).map(([k, v]) => [k, +(v / frames).toFixed(3)]).sort((a, b) => b[1] - a[1])) : null;
   uninstall();
 
   const { s, last, wall, b0 } = out;
@@ -194,8 +200,8 @@ export async function where(opts = {}) {
   const arms = Object.entries(s.arm || {}).map(([model, a]) => ({
     model, ms: +(a.ms / frames).toFixed(3), per: +(a.ms / a.n).toFixed(3), drawn: +(a.n / frames).toFixed(1),
   })).sort((x, y) => y.ms - x.ms);
-  if (!quiet) { console.table([row]); if (arms.length) console.table(arms.slice(0, 20)); }
-  return { row, arms, t: s.t, n: s.n, frames };
+  if (!quiet) { console.table([row]); if (passes) console.table([passes]); if (arms.length) console.table(arms.slice(0, 20)); }
+  return { row, arms, passes, t: s.t, n: s.n, frames };
 }
 
 // Every district, worst first. The comparison is the point — a single district's milliseconds say
@@ -231,4 +237,8 @@ export async function wheres(opts = {}) {
   return rows;
 }
 
-if (typeof window !== 'undefined') { window.__glWhere = where; window.__glWheres = wheres; }
+// GPU ms per frame for each pass (shadow, ssao, mass, fade, mirror, hdr, floor, decals …), one place and seat.
+// Null with no timer extension or after a disjoint reading. Same options as __glWhere.
+export const passMs = async (opts = {}) => ((await where({ ...opts, passes: true })) || {}).passes || null;
+
+if (typeof window !== 'undefined') { window.__glWhere = where; window.__glWheres = wheres; window.__glPassMs = passMs; }
