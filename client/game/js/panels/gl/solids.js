@@ -784,6 +784,7 @@ void main() {}`;
 const SHADOW_SIZE = 1024;
 
 
+let SMOOTH_SEQ = 0;   // see smooth(): the pass stamp every solids layer draws from
 export function createSolidsLayer(gl, opt = {}) {
   const cabin = !!opt.cabin;
   const VS = cabin ? VERT_C : VERT, FS = cabin ? FRAG_C : FRAG, ST = cabin ? STRIDE + CAB : STRIDE;
@@ -888,12 +889,21 @@ export function createSolidsLayer(gl, opt = {}) {
   // a value it already tagged. Points are grouped in the record's own frame (`mp`) where it has one,
   // so the answer does not move with the model; and when every metal record is the same object as
   // last time, last time's normals are still right and the work is skipped.
-  let smoothedLast = [];
+  // ⚠ THE SAME SET, NOT THE SAME ORDER. The normals are a function of which records are smoothed
+  // together, never of their order, and the order changes every frame the camera turns (the world
+  // loop draws far to near). Compared in order, a yard of memoised gate locks re-smoothed ~1,100 metal
+  // faces every frame of a turn: 7.8 ms of an aircraft frame over Marrow. Each record is stamped with
+  // the pass that last smoothed it, so "every record carries last pass's stamp and the count matches"
+  // is set equality.
+  // The stamp comes off one module-wide sequence, so two layers can never share a value.
+  let smoothedN = 0, smoothPass = -1;
   function smooth(metals) {
-    let same = metals.length === smoothedLast.length;
-    for (let i = 0; same && i < metals.length; i++) if (metals[i] !== smoothedLast[i]) same = false;
-    smoothedLast = metals;
-    if (same && metals.length) { for (const q of metals) if (q.env) env = q.env; return; }
+    let same = metals.length === smoothedN && metals.length > 0;
+    for (let i = 0; same && i < metals.length; i++) if (metals[i]._smoothed !== smoothPass) same = false;
+    smoothPass = ++SMOOTH_SEQ;
+    for (let i = 0; i < metals.length; i++) metals[i]._smoothed = smoothPass;
+    smoothedN = metals.length;
+    if (same) { for (const q of metals) if (q.env) env = q.env; return; }
     const at = new Map();
     for (const q of metals) for (const v of (q.mp || q.p)) smoothCell(at, v, true).push(q.n);
     for (const q of metals) {

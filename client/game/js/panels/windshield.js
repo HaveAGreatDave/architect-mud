@@ -59870,7 +59870,9 @@ function drawGateLockGL(cam, dx, dy, lk, night, alpha, now, sun) {
   // follows you. It can't be replayed whole the way a depot shell is (`BAY_SHELL`), because the lamps
   // are interleaved with the plate and a face's normal turns toward the eye. So each call takes the
   // next slot, and if what it would build equals the slot's last record (points, colour, alpha,
-  // normal, sky), that record is pushed again and nothing is allocated. A lamp mid-swell misses and
+  // normal), that record is pushed again and nothing is allocated. The sky (`env`) is only a uniform
+  // the solids layer reads at draw time, so a hit takes this frame's in place: matched on identity it
+  // missed every frame the sun moved, which in game is every frame, and ~880 metal faces rebuilt. A lamp mid-swell misses and
   // rebuilds its own slot; a branch that shifts the sequence costs one frame of rebuilding. The
   // points go through a scratch buffer rather than arrays, so a hit allocates nothing at all.
   // `RENDER_TUNE.lockCache` 0 builds every record fresh; `perf/exact.mjs lockCache` holds the two equal.
@@ -59901,7 +59903,7 @@ function drawGateLockGL(cam, dx, dy, lk, night, alpha, now, sun) {
     const s = slot++;
     if (memo) {
       const r = memo.recs[s];
-      if (r && r.n && r.p.length === n && r.a === alpha && r.env === env && r.n[0] === nx && r.n[1] === ny && r.n[2] === nz
+      if (r && r.n && r.p.length === n && r.a === alpha && r.n[0] === nx && r.n[1] === ny && r.n[2] === nz
         && sameLckV(r.rgb, rgb) && (metal ? r.m === m && r.amb === undefined : r.amb === true && r.m === undefined)
         && lckPtsEq(r.p, n, ox, oy)) {
         let ok = true;
@@ -59912,7 +59914,7 @@ function drawGateLockGL(cam, dx, dy, lk, night, alpha, now, sun) {
             ok = v[0] === nx / h * c && v[1] === ny / h * c && v[2] === Math.sin(t);
           }
         } else if (r.bent !== undefined) ok = false;
-        if (ok) { BAY_SINK.push(r); return; }
+        if (ok) { r.env = env; BAY_SINK.push(r); return; }
       }
     }
     const p = new Array(n);
