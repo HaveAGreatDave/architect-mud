@@ -31,19 +31,14 @@ async function npcHouseUnhoused(btn) {
 
 async function deleteNpcRow(id) {
   const rec = allRecords.find(r => r.id === id);
-  if (!rec || rec._stagingStatus === 'pending delete') return;
+  if (!rec) return;
   if (!(await dpConfirm(`Delete ${rec.name || id}?`, { danger: true }))) return;
   const prev = currentRecord;
   currentRecord = rec;
   const result = await API(`/npcs/${id}`, 'DELETE');
   currentRecord = prev;
   if (result?.error) { toast(result.error, true); return; }
-  if (result?.staged) {
-    toast('Marked for deletion — publish to apply');
-    await updateStagingBadge();
-  } else {
-    toast(result?.message || 'Deleted');
-  }
+  toast(result?.message || 'Deleted');
   await loadPanel('npcs');
 }
 
@@ -85,14 +80,12 @@ function renderNpcsPanel(data) {
   if (!records.length) { panel.innerHTML = '<div style="padding:24px;color:var(--text-dim)">No NPCs found.</div>'; return; }
 
   const columns = PANELS.npcs.columns;
-  const hasStagedRows = records.some(r => r._stagingStatus);
   let html = '<table><thead><tr>';
   for (const col of columns) {
     const isSorted = sortState.key === col.key;
     const arrow = isSorted ? (sortState.dir === 1 ? ' ▲' : ' ▼') : '';
     html += `<th class="sortable-col${isSorted?' sorted':''}" onclick="sortTableBy('${col.key}')">${col.label}${arrow}</th>`;
   }
-  if (hasStagedRows) html += '<th>Status</th>';
   html += '<th></th></tr></thead><tbody>';
 
   let sorted = records;
@@ -106,26 +99,15 @@ function renderNpcsPanel(data) {
   }
 
   for (const rec of sorted) {
-    const isPendingDelete = rec._stagingStatus === 'pending delete';
-    const rowStyle = isPendingDelete
-      ? 'cursor:pointer;opacity:0.6;text-decoration:line-through'
-      : rec._stagingStatus ? 'cursor:pointer;border-left:3px solid var(--warning)' : 'cursor:pointer';
-    html += `<tr style="${rowStyle}" onclick="editRecord('${rec.id}')">`;
+    html += `<tr style="cursor:pointer" onclick="editRecord('${rec.id}')">`;
     for (const col of columns) {
       const raw = rec[col.key];
       const val = col.render ? col.render(raw) : (raw ?? '—');
       html += `<td>${val}</td>`;
     }
-    if (hasStagedRows) {
-      const s = rec._stagingStatus;
-      const badge = s === 'pending delete'
-        ? `<span style="color:var(--danger);font-size:11px">⚠ ${s}</span>`
-        : s ? `<span style="color:var(--warning);font-size:11px">● ${s}</span>` : '';
-      html += `<td>${badge}</td>`;
-    }
     html += `<td style="white-space:nowrap">
       <button class="action-btn" onclick="event.stopPropagation();editRecord('${rec.id}')">Edit</button>
-      ${isPendingDelete ? '' : `<button class="action-btn danger" style="margin-left:3px" onclick="event.stopPropagation();deleteNpcRow('${rec.id}')">Delete</button>`}
+      <button class="action-btn danger" style="margin-left:3px" onclick="event.stopPropagation();deleteNpcRow('${rec.id}')">Delete</button>
     </td>`;
     html += '</tr>';
   }

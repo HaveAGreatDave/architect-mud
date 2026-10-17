@@ -1,5 +1,5 @@
 // Shared direction constants. Single source of truth — previously copy-pasted
-// across ai-behaviour.js, mapValidation.js, movement.js, and api/routes.js.
+// across ai-behaviour.js, movement.js, and api/routes.js.
 
 export const OPPOSITE = { north:'south', south:'north', east:'west', west:'east', up:'down', down:'up', in:'out', out:'in' };
 

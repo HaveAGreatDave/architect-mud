@@ -18,7 +18,6 @@ async function devLogin() {
   bootSplashArm();
   Promise.resolve(loadPanel('dashboard')).catch(() => {}).then(bootSplashDone);
   startWorldStatePolling();
-  updateStagingBadge();
   showPlayButton();
   initWhisperPanel();
   bootSplashStep('session');

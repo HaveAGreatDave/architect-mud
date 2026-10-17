@@ -114,10 +114,6 @@
     <button class="action-btn" onclick="refreshWorld()">↻ Refresh</button>
     <button class="action-btn" id="ghost-btn" onclick="openGhostMode()" style="display:none">👻 Ghost Mode</button>
     <div style="width:1px;height:20px;background:var(--border);margin:0 4px"></div>
-    <button class="action-btn success" id="publish-all-btn" onclick="publishAll()" style="display:none">
-      Publish All <span id="staging-badge" style="background:var(--accent2);color:var(--bg);border-radius:10px;padding:1px 6px;font-size:10px;margin-left:4px">0</span>
-    </button>
-    <button class="action-btn danger" id="reject-all-btn" onclick="rejectAll()" style="display:none">Reject All</button>
     <button onclick="devpanelLogout()" title="Sign Out" style="background:transparent;border:1px solid var(--red);color:var(--red);font-size:14px;width:28px;height:28px;cursor:pointer;border-radius:2px;line-height:1;font-family:var(--font)">⏻</button>
     <button id="play-btn" onclick="launchPlayerClient()" title="Open game client as this account" style="display:none;background:color-mix(in srgb,var(--success) 15%,transparent);border:1px solid var(--success);color:var(--success);font-family:monospace;font-size:11px;padding:4px 10px;cursor:pointer;letter-spacing:1px;border-radius:3px">🎮 Play</button>
     <!-- ⇄ LOCAL. Revealed only on a REMOTE origin — on localhost you are already
@@ -139,8 +135,6 @@
     <div class="nav-item" data-panel="devlog" onclick="showPanel('devlog')">📓 Dev Log</div>
     <div class="nav-section">World</div>
     <div class="nav-item" data-panel="zones" onclick="showPanel('zones')">🗺 Zones</div>
-    <div class="nav-item" data-panel="world" onclick="showPanel('world')">🌐 World Map</div>
-    <div class="nav-item" data-panel="maps" onclick="showPanel('maps')">🧭 Region Maps</div>
     <!-- The Studio is a SEPARATE local process (npm run studio, :5180) that edits
          content/ files with no DB — so this is a link out, not a panel, and it is
          revealed only on localhost where that server can exist. No data-panel: the
@@ -209,7 +203,7 @@
     <div class="nav-item" data-panel="players" onclick="showPanel('players')">👥 Players</div>
     <div class="nav-item" data-panel="games" onclick="showPanel('games')">🃏 Games</div>
     <div class="nav-item" data-panel="cards" onclick="showPanel('cards')">🎴 Cards</div>
-    <div class="nav-item" data-panel="changes" onclick="showPanel('changes')" id="changes-nav-item">📋 Changes</div>
+    <div class="nav-item" data-panel="backups" onclick="showPanel('backups')">🗄 Backups</div>
     <div style="margin-top:auto;padding:8px 0;border-top:1px solid var(--border)">
       <div class="nav-item" id="whisper-nav-btn" onclick="toggleWhisperPanel()" title="Whisper chat">💬 Chat</div>
     </div>
@@ -569,8 +563,7 @@
 <script src="/dev/js/panels/quests.js"></script>
 <script src="/dev/js/panels/job-boards.js"></script>
 <script src="/dev/js/panels/vine-suite.js"></script>
-<script src="/dev/js/panels/maps.js"></script>
-<script src="/dev/js/panels/world-editor.js"></script>
+<script src="/dev/js/panels/map-kit.js"></script>
 <script src="/dev/js/panels/power.js"></script>
 <script src="/dev/js/panels/emergency.js"></script>
 <!-- The Unrest suite's two panels are NOT loaded here. They ship inside
@@ -606,7 +599,7 @@
 <script src="/dev/js/panels/worldstate.js"></script>
 <script src="/dev/js/panels/gossip.js"></script>
 <script src="/dev/js/ghost-mode.js"></script>
-<script src="/dev/js/core/staging.js"></script>
+<script src="/dev/js/core/backups.js"></script>
 <script src="/dev/js/panels/tags.js"></script>
 <script src="/dev/js/panels/aliases.js"></script>
 <script src="/dev/js/core/panels.js"></script>

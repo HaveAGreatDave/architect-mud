@@ -91,7 +91,7 @@ renderer that needs a value the author didn't set invents its own.
 - **The same defect is still live one field over.** The terrain→fill palette exists in three
   copies: [minimap.js:903](../../client/game/js/panels/minimap.js),
   [tablet-os.js:3524](../../client/game/js/panels/tablet-os.js),
-  [maps.js:1026](../../client/devpanel/js/panels/maps.js). Two disagree: `redrock` is `#9e4a30`
+  `maps.js:1026`. Two disagree: `redrock` is `#9e4a30`
   in the dev-panel palette *and* in [systems-terrain.md:40](../systems-terrain.md), and
   `#6f3524` in both player renderers. **2,996 tiles — 55% of the world — are painted one colour
   by the authoring tool and drawn another to the player.**
@@ -182,7 +182,7 @@ plus 18 columns, growing with every system, is not a form anyone should maintain
 
 | writer | writes | fields |
 |---|---|---|
-| **dev panel Maps/Zones** ([maps.js](../../client/devpanel/js/panels/maps.js) 2,556 ln, [zones.js](../../client/devpanel/js/panels/zones.js) 1,280 ln) → [routes.js](../../server/api/routes.js) | **DB**, *and transitively `content/`* | terrain paint (`maps.js:1188` PUTs the whole `flags` bag), tile conjuring (`:1258`), colour brushes (`:697, :708`), exits (`:1312, :2330`), grid coords (`:2320, :2534`), facade + new building (`:1720`), move-building (`:1653`), region plan |
+| **dev panel Maps/Zones** (`maps.js` 2,556 ln, [zones.js](../../client/devpanel/js/panels/zones.js) 1,280 ln) → [routes.js](../../server/api/routes.js) | **DB**, *and transitively `content/`* | terrain paint (`maps.js:1188` PUTs the whole `flags` bag), tile conjuring (`:1258`), colour brushes (`:697, :708`), exits (`:1312, :2330`), grid coords (`:2320, :2534`), facade + new building (`:1720`), move-building (`:1653`), region plan |
 | **`server/api/routes.js`** — 25 `INSERT/UPDATE zones` sites | **DB** | everything above |
 | **`tools/zone-planner/apply.mjs`** (739 ln) | **DB** (`:666, :692, :699, :708, :717`) | whole grids incl. `entrance`, facade+interior+utility rooms |
 | **`tools/zone-planner/editor.html`** + `serve.mjs` | **`blueprints/*.bp.json`** — *not* `content/` | a palette + a 2-D cell grid |
@@ -514,7 +514,7 @@ every zone file.
 ### 7.3 The two code paths that must die — and four more
 
 - **Minting from coordinates:** `_districtTileId()`
-  ([maps.js:1272-1277, :1441](../../client/devpanel/js/panels/maps.js)),
+  (`maps.js:1272-1277, :1441`),
   `routes.js:854` (`zone_district_${slug}`), `wildlands-expand.mjs:91,107,123`,
   `wildlands-curtain.mjs:20`.
 - **Parsing coordinates out:** `diagnose-prod-exits.mjs:17`, `seal-wilds-boundary.mjs:28`, and —

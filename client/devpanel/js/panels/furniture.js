@@ -2,21 +2,14 @@ function furnitureItemRow(f, paddingLeft = '28px') {
   const lightBadge = f.is_light
     ? `<span style="font-size:10px;background:var(--bg3);padding:1px 5px;border-radius:2px;margin-left:6px;color:${f.light_on ? 'var(--yellow)' : 'var(--text-dim)'}">💡${f.light_type||''}</span>`
     : '';
-  const stagedBadge = f._markedForDeletion
-    ? `<span style="font-size:10px;background:rgba(255,59,92,0.12);border:1px solid var(--red);color:var(--red);padding:1px 6px;border-radius:2px;margin-left:6px;letter-spacing:0.5px">✕ Marked for Deletion</span>`
-    : f._staged
-      ? `<span style="font-size:10px;background:rgba(245,230,66,0.12);border:1px solid var(--yellow);color:var(--yellow);padding:1px 6px;border-radius:2px;margin-left:6px;letter-spacing:0.5px">! Not Published</span>`
-      : _furniturePublishedNames.has(f.name)
-        ? `<span style="font-size:10px;background:rgba(57,255,143,0.12);border:1px solid var(--accent2);color:var(--accent2);padding:1px 6px;border-radius:2px;margin-left:6px;letter-spacing:0.5px">✓ Published</span>`
-        : '';
-  const nameColor = f._markedForDeletion ? 'var(--red)' : f._staged ? 'var(--yellow)' : _furniturePublishedNames.has(f.name) ? 'var(--accent2)' : 'var(--text-bright)';
+  const nameColor = 'var(--text-bright)';
   return `<div style="display:flex;align-items:center;gap:8px;padding:5px 12px 5px ${paddingLeft};border-bottom:1px solid var(--border);background:var(--bg1);cursor:pointer" onclick="editRecord('${f.id}')">
     <div style="flex:1;min-width:0">
-      <span style="color:${nameColor}">${f.name}</span>${lightBadge}${stagedBadge}
+      <span style="color:${nameColor}">${f.name}</span>${lightBadge}
       ${f.description ? `<div style="font-size:11px;color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:500px">${f.description}</div>` : ''}
     </div>
     <button class="action-btn" style="font-size:10px;padding:2px 8px" onclick="event.stopPropagation();editRecord('${f.id}')">Edit</button>
-    <button class="action-btn danger" style="font-size:10px;padding:2px 8px" data-fid="${f.id}" data-fname="${f.name.replace(/"/g,'&quot;')}" onclick="event.stopPropagation();deleteFurnitureStaged(this.dataset.fid,this.dataset.fname)">Del</button>
+    <button class="action-btn danger" style="font-size:10px;padding:2px 8px" data-fid="${f.id}" data-fname="${f.name.replace(/"/g,'&quot;')}" onclick="event.stopPropagation();deleteFurnitureRow(this.dataset.fid,this.dataset.fname)">Del</button>
   </div>`;
 }
 
@@ -26,7 +19,6 @@ let _furnitureAllItems = [];
 let _furnitureZoneNames = new Map();
 const _furnitureExpandedZones = new Set();
 let _furnitureLastClickedZone = null;
-const _furniturePublishedNames = new Set(); // names briefly shown as green after publish
 
 function renderFurniturePanel(data) {
   const furniture = data.furniture || [];
@@ -155,7 +147,6 @@ async function bulkAddStreetlights() {
   } else {
     toast(result.message || `Added street lights to ${result.added} zones`);
     if (result_el) result_el.textContent = result.message || `Done — ${result.added} added`;
-    await updateStagingBadge();
     await loadPanel('furniture');
   }
 }
@@ -214,10 +205,9 @@ function openFurnitureAddModal(zoneId) {
     toast('Furniture added to room');
     closeModal();
     const newId = r.id || r.entityId || `furniture_${Date.now()}`;
-    _furnitureAllItems.push({ id: newId, zone_id: zoneId, name: template.name, description: template.description || '', flags: template.flags || {}, object_type: template.object_type || 'furniture', light_on: 0, light_type: template.light_type || null, power_draw_kw: template.power_draw_kw ?? null, _staged: true });
+    _furnitureAllItems.push({ id: newId, zone_id: zoneId, name: template.name, description: template.description || '', flags: template.flags || {}, object_type: template.object_type || 'furniture', light_on: 0, light_type: template.light_type || null, power_draw_kw: template.power_draw_kw ?? null });
     _furnitureExpandedZones.add(zoneId);
     renderFurniturePanel({ furniture: _furnitureAllItems, zones: [..._furnitureZoneNames.entries()].map(([zid, zname]) => ({ id: zid, name: zname })) });
-    updateStagingBadge();
   };
   document.getElementById('generic-modal').style.display = 'flex';
 }
@@ -236,7 +226,7 @@ function openFurnitureRoomModal(zoneId) {
     <td style="color:var(--text-dim);font-size:11px;max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${f.description||''}</td>
     <td style="text-align:right;white-space:nowrap">
       <button class="action-btn" style="font-size:10px;padding:2px 6px" onclick="event.stopPropagation();closeModal();editRecord('${f.id}')">Edit</button>
-      <button class="action-btn danger" style="font-size:10px;padding:2px 6px;margin-left:2px" onclick="event.stopPropagation();closeModal();deleteFurnitureStaged('${f.id}','${f.name.replace(/'/g,"\\'")}')">Del</button>
+      <button class="action-btn danger" style="font-size:10px;padding:2px 6px;margin-left:2px" onclick="event.stopPropagation();closeModal();deleteFurnitureRow('${f.id}','${f.name.replace(/'/g,"\\'")}')">Del</button>
     </td>
   </tr>`).join('');
 
@@ -532,7 +522,7 @@ function filterFurniture(q) {
         ${f.description ? `<div style="font-size:11px;color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:500px">${f.description}</div>` : ''}
       </div>
       <button class="action-btn" style="font-size:10px;padding:2px 8px" onclick="event.stopPropagation();editRecord('${f.id}')">Edit</button>
-      <button class="action-btn danger" style="font-size:10px;padding:2px 8px" data-fid="${f.id}" data-fname="${f.name.replace(/"/g,'&quot;')}" onclick="event.stopPropagation();deleteFurnitureStaged(this.dataset.fid,this.dataset.fname)">Del</button>
+      <button class="action-btn danger" style="font-size:10px;padding:2px 8px" data-fid="${f.id}" data-fname="${f.name.replace(/"/g,'&quot;')}" onclick="event.stopPropagation();deleteFurnitureRow(this.dataset.fid,this.dataset.fname)">Del</button>
     </div>`;
   }).join('');
 }

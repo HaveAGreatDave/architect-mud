@@ -206,8 +206,7 @@ async function loadDistrictRegistry() {
 //
 // Cached in RAM because every minimap frame and every map payload reads it — a
 // per-tile query would be the worst kind of hot path. It only changes when a
-// build runs, and the two things that run a build (content:import, POST
-// /map/derive) both refresh this.
+// build runs, and content:import refreshes it.
 async function loadZoneRender() {
   world.render.clear();
   POI_STATIC.clear(); // POI is flags + adjacency; a build changes both
@@ -327,10 +326,9 @@ export function regionForZone(zone) {
   return id ? world.regions.get(id) || null : null;
 }
 
-// Maps are loaded at boot; the dev-panel routes that create interior maps
-// (add-room, link-interior) call this so a new building becomes enterable
-// without a reboot. Region create/move publishes route through here too, so the
-// region cache refreshes in lockstep.
+// Maps are loaded at boot; the dev-panel add-room route calls this so a new
+// building becomes enterable without a reboot, and the region cache refreshes in
+// lockstep.
 export async function reloadMaps() { await loadMaps(); await loadRegions(); await loadAirfields(); await loadZoneRender(); }
 
 // The interior map whose parent tile is this zone (i.e. this zone is a

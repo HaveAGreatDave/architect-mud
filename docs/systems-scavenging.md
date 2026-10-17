@@ -161,8 +161,7 @@ opts in via a **Scavenging Table** dropdown in the zone editor.
   "— none —" detaches.
 - Routes: `GET/POST /scavenging-tables`, `GET/PUT/DELETE /scavenging-tables/:id`
   (plus `GET /scavenging-tables/:id/zone-stock` for a read-only per-zone stock peek).
-  Edits go through the **staging pipeline** (`scavenging_table` entity type) like
-  other content. Delete refuses while any zone still references the table.
+  Edits apply at once and write the table's `content/` file, like other content. Delete refuses while any zone still references the table.
 
 Per-zone stock/state is derived by the engine and is **not** authored here.
 [scripts/seed-scavenging.js](../scripts/seed-scavenging.js) remains as the

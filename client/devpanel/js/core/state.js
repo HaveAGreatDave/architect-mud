@@ -7,7 +7,6 @@ let allRecords = [];
 let devRole = null;
 let devHandle = null;
 let devPlayerId = null;
-let stagingEnabled = true;
 
 // Client mirror of server/engine/exits.js — a zone's exit value for a direction
 // is a zone-id string for a single exit, or an array of zone-ids when a direction
@@ -41,4 +40,3 @@ function removeExitFrom(exits, dir, target) {
   else exits[dir] = next.length === 1 ? next[0] : next;
 }
 
-// Entity paths eligible for staging — maps path prefix to entity type label.

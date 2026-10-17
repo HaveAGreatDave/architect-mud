@@ -138,9 +138,9 @@ That was not a small offset, it was a **stuck signal**: the divergence check rea
 "something OTHER than boot is leaking" on every single run for weeks, when the
 leak *was* boot, once per deploy. A check that cannot change state is not a
 check. The count comes from the `deployments` row the deploy workflow's last
-step writes, filtered to `deployed_by='ci'` — the devpanel's staging publisher
-writes to the same table but stamps a person's name and never touches the Render
-hook, so that filter is the whole distinction between "content changed" and "the
+step writes, filtered to `deployed_by='ci'`. Until 2026-10-17 the devpanel's staging publisher
+wrote to the same table under a person's name without touching the Render
+hook, and old rows like that may remain, so that filter is the whole distinction between "content changed" and "the
 world was reloaded". ⚠ The two terms are **added**, so a deploy restart that ever
 *did* register as a gap would be double-counted; that is bounded by the deploy
 rate and is the safe direction, on the same reasoning that makes

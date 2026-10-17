@@ -602,23 +602,7 @@ function defaultBodyParts() {
 }
 
 function lootItemList(published) {
-  // Mirror the loadPanel staging overlay so unpublished items are selectable too.
-  let items = Array.isArray(published) ? published.slice() : [];
-  if (stagingEnabled && pendingChanges.length) {
-    const staged = pendingChanges.filter(c => c.entityType === 'item');
-    const stagedById = new Map(staged.map(c => [c.entityId, c]));
-    items = items.flatMap(r => {
-      const s = stagedById.get(r.id);
-      if (s?.changeType === 'delete') return [];
-      if (s?.changeType === 'update') return [{ ...r, ...s.stagedData }];
-      return [r];
-    });
-    for (const s of staged) {
-      if (s.changeType === 'create' && !items.some(r => r.id === s.entityId)) {
-        items.push({ ...s.stagedData, id: s.entityId });
-      }
-    }
-  }
+  const items = Array.isArray(published) ? published.slice() : [];
   return items.sort((a,b)=>(a.name||'').localeCompare(b.name||''));
 }
 

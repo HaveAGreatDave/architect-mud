@@ -1,10 +1,9 @@
 // buildFlightSnapshot — derive the static flight-sim world (client/game/flightsim-world.json)
 // from the live world. The open flight-sim rig (client/game/flightsim.html) flies a baked
 // snapshot with no server/DB at fly time, so it must be re-baked after a map change. This is
-// the single source of that derivation, shared by:
-//   - scripts/snapshot-flight-world.mjs   (CLI: boots the world headlessly, then writes the file)
-//   - server route POST /maps/flight-snapshot  (dev panel button: re-bakes from the running world)
-// Both call buildFlightSnapshot() over the same getAllZones(), so the two paths can never drift.
+// the single source of that derivation, called by scripts/snapshot-flight-world.mjs (boots the
+// world headlessly, then writes the file). The dev panel's re-bake button and its
+// POST /maps/flight-snapshot route were removed with the Maps tab on 2026-10-17.
 
 import { getAllZones } from '../../server/engine/world.js';
 import { runwayFor, surfaceRank, deriveSurfaceCell } from './state.js';

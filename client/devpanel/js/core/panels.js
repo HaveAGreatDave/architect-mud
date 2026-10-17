@@ -399,23 +399,6 @@ const PANELS = {
     noEdit: true,
     render: renderVineSuite,
   },
-  maps: {
-    title: 'Region Maps',
-    description: 'Visual layout editor for connected zone maps.',
-    fetch: () => API('/maps'),
-    render: renderMapsPanel,
-    noEdit: true,
-  },
-  world: {
-    title: 'World Map',
-    description: 'Every region on the global grid. Create a new region (size + base terrain), jump into one to edit its tiles, or drag to reposition it. Changes are staged.',
-    fetch: async () => {
-      const [d, m] = await Promise.all([API('/maps/regions'), API('/maps/map_world')]);
-      return { regions: d?.regions || [], zones: m?.zones || [] };
-    },
-    noEdit: true,
-    render: renderWorldEditor,
-  },
   power: {
     title: 'Power Grid',
     description: 'Manage city power infrastructure and zone power dependencies.',
@@ -503,12 +486,12 @@ const PANELS = {
     noEdit: true,
     render: renderBroadcastSuite,
   },
-  changes: {
-    title: 'Changes',
-    description: 'Staged edits awaiting review before publishing to production.',
-    fetch: () => API('/staging/pending'),
+  backups: {
+    title: 'Backups',
+    description: 'A SQL dump of this database, and the last few content deploys CI recorded.',
+    fetch: () => Promise.resolve({}),
     noEdit: true,
-    render: renderChangesPanel,
+    render: renderBackupsPanel,
   },
 };
 
@@ -606,48 +589,11 @@ async function loadPanel(name) {
 
   allRecords = Array.isArray(data) ? data : (data.furniture || data.zones || []);
 
-  // Overlay pending staged changes — must happen before any render path so
-  // panels with custom renderers (Zones, Maps, Furniture) still reflect staged edits.
-  const entityType = STAGED_ENTITY_TYPES[`/${name}`];
-  if (stagingEnabled && entityType && pendingChanges.length) {
-    const staged = pendingChanges.filter(c => c.entityType === entityType);
-    if (staged.length) {
-      const stagedById = new Map(staged.map(c => [c.entityId, c]));
-      allRecords = allRecords.map(r => {
-        const s = stagedById.get(r.id);
-        if (!s) return r;
-        if (s.changeType === 'update') return { ...r, ...s.stagedData, _stagingStatus: `staged` };
-        if (s.changeType === 'delete') return { ...r, _stagingStatus: `pending delete` };
-        return r;
-      });
-      for (const s of staged) {
-        if (s.changeType === 'create' && !allRecords.find(r => r.id === s.entityId)) {
-          allRecords.unshift({ ...s.stagedData, id: s.entityId, _stagingStatus: `new (staged)` });
-        }
-      }
-    }
-  }
-
   if (p.render) {
-    // Pass merged allRecords back into structured data so custom renderers see staged items.
-    const mergedData = Array.isArray(data) ? allRecords
-      : data.furniture ? { ...data, furniture: allRecords }
-      : data;
-    p.render(mergedData);
+    p.render(Array.isArray(data) ? allRecords : data);
     return;
   }
 
-  // Add a Status column when any rows have a staging status.
-  const hasStagedRows = allRecords.some(r => r._stagingStatus);
-  const columns = hasStagedRows
-    ? [...p.columns, {
-        key: '_stagingStatus', label: 'Status',
-        render: v => v === 'pending delete'
-          ? `<span style="color:var(--danger);font-size:11px">!Marked for Deletion</span>`
-          : v ? `<span style="color:var(--warning);font-size:11px">!Not Published</span>` : '',
-      }]
-    : p.columns;
-
-  renderTable(columns, allRecords, p.noEdit);
+  renderTable(p.columns, allRecords, p.noEdit);
 }
 

@@ -421,7 +421,7 @@ section('layer 1c: CONTENT_READONLY gate');
   process.env.CONTENT_READONLY = '1';
   const mustBlock = [
     ['PUT', '/api/zones/zone_regress_gate_probe'],
-    ['POST', '/api/staging/stage'],
+    ['POST', '/api/furniture/bulk/streetlights'],
     ['PUT', '/api/npcs/npc_regress_gate_probe'],
     ['PUT', '/api/audio/samples/smp_regress_gate_probe'],   // plugin route
     ['POST', '/api/quests'],                                 // plugin route

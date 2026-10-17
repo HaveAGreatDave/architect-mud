@@ -348,6 +348,7 @@ if (store.droppedRuntime.length) {
   console.log(`  runtime   dropped ${Object.entries(counts).map(([t, n]) => `${n}× ${t}`).join(', ')} (recomputed at boot)`);
 }
 if (buildingType === 'power' && regionId) {
-  console.log(`\n  note: a region plant for ${regionId} is a live-world operation (installRegionPlant\n        repoints existing buildings) — run it from the dev panel after importing.`);
+  console.log(`\n  note: a region plant for ${regionId} is a live-world operation (installRegionPlant\n        repoints existing buildings). Nothing runs it since the dev panel's New Building tool went;
+        see docs/systems-terrain.md, Region power plant.`);
 }
 console.log(`\nnext: npm run content:lint && npm run content:import`);

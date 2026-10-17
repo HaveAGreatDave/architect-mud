@@ -29,6 +29,7 @@ function entryFor(table) {
 // single-pk content entity. The where-predicate makes this safe for tables that mix
 // authored + runtime rows (furniture): a runtime row selects 0 rows → no file written.
 async function syncEntityFile(table, id) {
+  if (!isLocal()) return;
   const entry = entryFor(table);
   if (!entry || entry.pk.length !== 1) return;
   const pk = entry.pk[0];
@@ -127,4 +128,4 @@ async function syncContentFromRequest(url, method, result) {
   if (target) await syncEntityFile(target.table, target.id);
 }
 
-export { syncContentFromRequest, syncZoneDeletion };
+export { syncContentFromRequest, syncZoneDeletion, syncEntityFile };

@@ -42,8 +42,8 @@ is the file-authoring map tool — it reads and writes `content/` with no databa
 the process, draws every tile from the build's own derive pass, and generates its
 inspector from the field catalog. Saves are validated with the checks `content:lint`
 runs and refused on error, so it cannot author something the deploy gate would
-reject. The dev panel's Maps tab still edits the live DB (with the save-hook writing
-files after); the two do not see each other, so don't paint in both in one sitting.
+reject. The dev panel's Maps tab, which edited the live DB, was removed on 2026-10-17;
+the Studio is the map editor.
 
 **`content/connections/` says what geometry cannot.** A tile's neighbours come from
 its grid coordinates, so contiguous walkable ground authors nothing at all. A file
@@ -100,8 +100,7 @@ any time:        npm run content:status   # "do files match my DB?"
 - `map:derive` — the derive pass on its own, against a live database. A normal
   deploy never needs it; it exists for the case the deploy can't cover, a one-shot
   script that rewrites tiles directly and leaves the generated tables describing
-  the world as it was. Run it after one, or the map draws yesterday. (The dev
-  panel's terrain painter calls the same pass over `POST /map/derive`.)
+  the world as it was. Run it after one, or the map draws yesterday.
 - `content:seed-runtime` — initialises runtime-managed state that `excludeColumns`
   keeps out of files and that therefore starts at its table default on a fresh DB
   (most visibly `npcs.vendor_stock`: every shop empty until the first in-game daily

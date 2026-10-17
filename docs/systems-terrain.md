@@ -78,13 +78,13 @@ current values — the file is authoritative, this table is a convenience.
 | `cliff` | Cliff Face | `#5c3224` the rim itself. **The only terrain in the game a body cannot enter**: `passable:false, routable:false, buildable:false` |
 
 **Runways** are a special case in the palette but **not** a `flags.terrain` value. The two directional
-runway swatches (`Runway ↕ N-S`, `Runway ↔ E-W`, `RUNWAY_KEYS` in [maps.js](../client/devpanel/js/panels/maps.js))
+runway surfaces (`Runway ↕ N-S`, `Runway ↔ E-W`, painted in the Studio)
 write `flags.runway` (`ns`/`ew`) + `flags.icon` (`runway_ns`/`runway_ew`) + the canonical yellow-marking
 (`#f5d400`) / asphalt (`#2b2b2b`) / bar-marker presentation, exactly how the seeded runway tiles carry it —
 so [`runwayFor()`](../plugins/flight/state.js) reads the painted strip as a field's real departure runway and
-the 2-D map draws the runway icon. Brush/rect/pick/erase all handle them via `_setTileSurface`/`_tileSurfaceKey`;
-the surface still infers as `road` for pacing/road-autotiling ([world.js:217](../server/engine/world.js)). Publish, then
-**⟳ Re-bake flight sim** so the baked snapshot picks the new runway up.
+the 2-D map draws the runway icon. The surface still infers as `road` for pacing/road-autotiling
+([world.js:217](../server/engine/world.js)). After importing, run `node scripts/snapshot-flight-world.mjs`
+so the baked flight snapshot picks the new runway up.
 
 The four **wildlands** surfaces (`scrub`/`redrock`/`ash`/`marsh`, added for the post-apocalyptic wilds
 beyond the Curtain) once formed a `GLYPH_TERRAIN` set — the only textured terrains allowed to keep
@@ -349,77 +349,27 @@ to you, not what it looks like. The 82 tiles that used to carry `terrain:'water'
 *plus* an `underwater` flag were migrated to `terrain:'underwater'`: two facts saying
 one thing is the exact shape of the `flags.water` bug above.
 
-## Dev-panel Maps editor
+## Editing terrain
 
-All in [client/devpanel/js/panels/maps.js](../client/devpanel/js/panels/maps.js)
-(staging via [core/staging.js](../client/devpanel/js/core/staging.js)). Terrain
-block starts ~`:1026`.
+Terrain is painted in the [Studio](../tools/studio/README.md) (`npm run studio`), which writes
+`content/zones/*.json` and previews from the same derive pass `content:import` runs. Moving a
+building is the Studio's **Move** tool; placing a new one is
+[scripts/place-building.mjs](../scripts/place-building.mjs), which writes files from the blueprints in
+[tools/lib/building-templates.mjs](../tools/lib/building-templates.mjs).
 
-- **Terrain paint mode** — `toggleTerrainMode()` (`:1093`), floating top-right
-  palette `terrainPanelHtml()` (`:1521`). State: `mapTerrainMode`,
-  `mapTerrainType` (def `road`), `mapTerrainTool`. The four map modes
-  (paint / safe-zone / terrain / move-building) are mutually exclusive.
-- **Tools:** **Brush** `_terrainBrush()` (drag-paint; ctrl/right-click erases),
-  **Flood-fill** `terrainFill()` (BFS over the *visible* surface),
-  **Eyedropper** `terrainPick()`, **Rectangle-select**
-  `terrainRectStart/Over/Commit` (marquee applies the brush to every covered cell).
-- **Paint terrain into existence** — on the **district exterior** grid (gated on
-  `dbbox`), an empty ("black") cell is paintable: **Brush** (`terrainCreateStart/Over`
-  → `_terrainCreateAt` → `_conjureTileLocal`) or **Rect** (`_terrainRectCommitXY`)
-  conjure a minimal ground zone (`zone_district_<x>_<y>`, `_newTerrainTile` +
-  `TERRAIN_TILE_DEFAULTS`) carrying the brushed surface, auto-wired reciprocally to
-  orthogonal **non-building** neighbours (mirrors drag-place; never punches into a
-  building) and staged as a zone `create`. Wildlands surfaces
-  (`redrock`/`scrub`/`ash`/`marsh`) become wilds ground (`district:'wilds'` +
-  `radiation`). In terrain mode the grid also opens **+6 empty rows to the south**
-  so the wilds can be extended past their current edge.
-- **Preview mirror** — `mapZoneTerrain()` (`:1108`) mirrors server `zoneTerrain`
-  so the editor previews the true surface (incl. inference) even before backfill;
-  road tiles preview their auto-tiled connector via `mapRoadConnector()`.
-- **Staging** — every stroke stages a single-flag PATCH through the Changes
-  panel; nothing goes live until Publish. `_mapPendingOverrides` merges `terrain`
-  into `flags` on apply.
-- **Untyped tiles** — tiles touch on a plain `110px × 76px` grid and connections
-  auto-wire on drag. In terrain mode a tile with no known/inferred terrain falls
-  back to its authored `bg_color` (via `zoneColorStyle`) instead of rendering as a
-  blank hole.
-
-### Move Building flow
-
-`toggleMoveBuildingMode()` (`:1616`): click a building tile to arm, click an
-empty destination cell → `moveBuildingPropose()` POSTs `/maps/move-building`
-(server `apiMoveBuilding`, [routes.js:1153](../server/api/routes.js) — validates
-the destination is empty with an adjacent street, prefers a road-terrain
-neighbour). Staged as one grouped `building_move` change that publishes
-atomically; interior rooms + front door move with the facade.
-
-### New Building generator (templated, by type)
-
-`toggleNewBuildingMode()` (`:1698`) in [maps.js](../client/devpanel/js/panels/maps.js) (the **🏗 New
-Building** toolbar toggle + floating type/name palette): pick a `building_type`, click a
-ground/empty cell → `buildBuildingPropose()` POSTs `/maps/build-building` (server
-`apiBuildBuilding`, [routes.js:790](../server/api/routes.js)). In one shot the server converts the
-ground tile (or fills the empty cell) into a **facade** (`building_type` + `facade` tag → its
-map icon via `BUILDING_TYPE_ICON`), stamps a **templated interior** (lobby + rooms + thematic
-furniture + an optional inhabitant NPC), **powers & lights** it via
-[`authorUtilityRoom`](../tools/lib/utility-room.mjs) (utility room + junction box + per-room light
-fixtures), and wires the **front door** onto the adjacent street (lobby exit back out = the
-compass dir opposite the fronting street, per [flags-keys](flags-keys.md)/the memory rule). The
-per-type blueprints live in [tools/lib/building-templates.mjs](../tools/lib/building-templates.mjs)
-(`templateForType`, synonym-aware, `GENERIC` fallback). **Hangars** reuse the same flow and
-additionally get `hangar_interior`/`hangar_ramp` + `hangar_interior_zone` wiring and the
-`the flight-ops desk chair` furniture (name matched by `plugins/flight/charter.js`) — but not an
-`airfield_id`, so a generator-placed hangar is a *structural* hangar; pair it with a painted
-runway + an `airfield_id` to make it a working field. Unlike Move Building this **commits directly**
-(too many cross-table rows — zones/maps/furniture/generators/power_zones/npcs — for zone staging),
-mirroring `apiBuildApartmentBlock`; export + push via CODEX to ship.
+The dev panel's Maps and World Map tabs, which painted terrain, moved and generated buildings and
+created regions against the live DB, were removed on 2026-10-17. So were their routes
+(`/maps/move-building`, `/maps/build-building`, `/maps/link-interior`, `/maps/generate-region`,
+`/maps/move-region`, `/maps/flight-snapshot`, `/map/palette`, `/map/derive`) and the
+`building_move`, `region_move` and `region_create` staging types.
 
 ### Region power plant (region-scoped city plant)
 
-Building a **⚡ Power Plant** (a `power`-type building) stands up power for the region it sits in:
-after the normal build, `apiBuildBuilding` calls `installRegionPlant({regionId, zoneId: facadeId})`
-in [environment.js:2530](../server/engine/environment.js). (There is no standalone toolbar button — region
-power is done purely by placing a power building, so the substation *is* the plant.) Unlike the generic
+⚠ **Nothing calls `installRegionPlant` now.** Its only caller was the dev panel's New Building tool,
+which ran it after placing a `power`-type building; that tool went with the Maps tab on 2026-10-17.
+Standing up a new region's plant needs a runner (a one-shot script) before it can happen again. The
+function is `installRegionPlant({regionId, zoneId})` in
+[environment.js](../server/engine/environment.js). Unlike the generic
 `installGenerator` city_plant path — which re-points **every** outdoor tile map-wide to the new plant
 (last-installed steals the whole grid) — `installRegionPlant` writes `city_grid` `power_zones` rows for
 **only** the tiles carrying `flags.region_id = regionId`, and re-points the region's building junction
@@ -456,12 +406,10 @@ for the per-tile installer and Auto-Resolve.
   [reference/world-rendering.md](reference/world-rendering.md).
   - **The open flight sim flies a baked snapshot, not the live world.** `client/game/flightsim.html`
     fetches a static `client/game/flightsim-world.json` (one cell per tile, no server/DB at fly time),
-    so painted+published terrain does **not** appear there until the snapshot is re-baked. Re-bake
-    from the dev panel: **Maps → Terrain palette → ⟳ Re-bake flight sim** (`POST /maps/flight-snapshot`,
-    derives from the live in-memory world — publishes `reloadZone()` into it, so it's current). Or from
-    the CLI: `node scripts/snapshot-flight-world.mjs` (local) / `node --env-file=.env.prod
-    scripts/snapshot-flight-world.mjs` (prod). Both share one builder,
-    [plugins/flight/snapshot.js](../plugins/flight/snapshot.js), so they can't drift. The JSON is a
+    so painted terrain does **not** appear there until the snapshot is re-baked. Re-bake from the
+    CLI: `node scripts/snapshot-flight-world.mjs` (local) / `node --env-file=.env.prod
+    scripts/snapshot-flight-world.mjs` (prod). It uses the one builder,
+    [plugins/flight/snapshot.js](../plugins/flight/snapshot.js). The JSON is a
     checked-in asset — **commit it** alongside the terrain change. The **live in-game cockpit** flight,
     by contrast, reads terrain live and needs no re-bake.
 

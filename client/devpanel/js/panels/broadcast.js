@@ -1178,7 +1178,7 @@ async function _bcImportChPickOccupied(zoneId, zoneName, el) {
 
   let info = null;
   try {
-    // directAPI sends the dev token (the route is dev-gated) and skips staging.
+    // directAPI sends the dev token (the route is dev-gated).
     info = await directAPI('/broadcast/studio-info', 'POST', { exterior_zone_id: zoneId });
     if (info?.error) info = null;
   } catch (_) {}
@@ -2349,7 +2349,7 @@ async function _bcNpcSaveSidebar(npcId) {
   if (!npc) return;
   const result = await saveNpc(npc);
   if (result?.error) { toast(result.error, true); return; }
-  toast(result?.staged ? 'Staged — publish to apply' : (result?.message || 'NPC saved'));
+  toast(result?.message || 'NPC saved');
   _bcNpcCache = null;
   closeEdit();
   await bcSuiteRefresh('npcs');

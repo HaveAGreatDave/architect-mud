@@ -410,8 +410,7 @@ async function submitAddFurniture(zoneId) {
   }
   const result = await API('/furniture', 'POST', body);
   if (result?.error) { toast(result.error, true); return; }
-  toast('Furniture staged — publish to apply');
-  await updateStagingBadge();
+  toast('Furniture added');
   await refreshZoneEditPanel(zoneId);
 }
 function openEditFurnitureQuick(itemId) {

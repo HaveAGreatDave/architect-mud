@@ -32,8 +32,9 @@ A **region** is a named rectangle of the `map_world` grid — the big world-map 
 navigate toward: **Coldwater**, **The Reach**, **Terminus**, **The Scarletwastes**, **Deadwater**. SSOT is the **`regions` table**
 (`id/name/base_terrain/grid_z/climate_bias/defaults`); member tiles point back with **`flags.region_id`**. Bounds are
 derived from member tiles at read time, never stored (so moving a region can't desync them). Authored
-in the dev-panel **World Editor** ("New Region", "Region Maps", drag-to-move), published through
-staging (`region_create` / `region_move`). Loaded into RAM at boot (`world.regions`, `getRegion` /
+as files: `content/regions/*.json` for the row and `flags.region_id` on each tile, painted in the
+Studio. (The dev panel's World Editor and its `region_create` / `region_move` staging were removed on
+2026-10-17.) Loaded into RAM at boot (`world.regions`, `getRegion` /
 `getAllRegions`, refreshed on `reloadMaps`) so runtime readers resolve a region name without a DB hit.
 The flight target guide waypoints regions — see [systems-flight.md](../systems-flight.md).
 

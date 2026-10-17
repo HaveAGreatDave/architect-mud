@@ -898,7 +898,8 @@ Regress proves both limbs reach their region and that you can divert at the fork
 
 The adjacency graph has two surfaces, and they are different things (SSOT vs. view):
 
-- **Authored in the dev-panel World Editor.** Regions already live there (`regions` table, New Region /
+- **Authored in the dev-panel World Editor.** *(That editor was removed on 2026-10-17; regions are
+  files now, edited in the Studio.)* Regions already lived there (`regions` table, New Region /
   Region Maps / drag-to-move — see [land-taxonomy.md](reference/land-taxonomy.md#region--the-spatial-place-renamed-2026-07-19-from-district)).
   The graph is **edges layered on that existing region set** — a mode where you wire a void-edge between
   two regions. Small authored config (which pairs connect), and it keeps the **one-SSOT** rule: the graph

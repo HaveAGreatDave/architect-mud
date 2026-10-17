@@ -18,8 +18,8 @@ game server would stall the tick loop. `npm run dev -- --no-studio` opts out.
 
 ## What it is
 
-The dev panel's Maps tab edits a live database and mirrors each edit into a file
-afterwards. The Studio reads and writes `content/` and nothing else — **there is no
+The dev panel used to have a Maps tab that edited a live database and mirrored each
+edit into a file afterwards; it was removed on 2026-10-17. The Studio reads and writes `content/` and nothing else — **there is no
 database in the process at all** — which removes a whole class of "it looked right
 in the tool and shipped wrong". Two properties do that work, and both are pinned by
 `npm run test:regress`:
@@ -641,9 +641,8 @@ Two known edges of Move and Turn, both shown rather than hidden:
   turn. Both are computed from the tree, not listed, so a third one authored tomorrow
   is caught the same way.
 
-The dev panel's Maps tab now carries a banner saying which side of the fence it is
-on. Both tools work; what does not work is assuming they can see each other. Paint
-in the Studio and the dev panel is stale until `npm run content:import`.
+Paint in the Studio and the running server and dev panel are stale until
+`npm run content:import`.
 
 ## Lint
 

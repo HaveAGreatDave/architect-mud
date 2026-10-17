@@ -6,10 +6,9 @@
 // is handed plain objects and never sees a client, so a query() written inside it
 // has nothing to call. That only holds while this file stays the sole bridge.
 //
-// Three callers, one code path:
+// Two callers, one code path:
 //   - content:import  → step 3 of the import transaction (spec §9)
 //   - npm run map:derive → a one-shot's way to un-stale the tables
-//   - POST /map/derive → the dev panel, after a terrain paint
 
 import { deriveWorld } from './derive.mjs';
 

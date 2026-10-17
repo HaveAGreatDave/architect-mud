@@ -9,13 +9,15 @@ See `client/devpanel/js/README.md` for the load-order contract.
 ## `core/`
 
 ### `state.js`
-Top-level mutable globals shared across every other file. Includes the auth token, current panel name, the active record under edit, the full record list, the logged-in player's role/handle/id, the staging toggle flag, and the sort state for the list table. Also holds the `collapsedItemTypes` set used by the items panel (the zones accordion keeps its own `_zonesExpanded` state in `panels/zones.js`).
+Top-level mutable globals shared across every other file. Includes the auth token, current panel name, the active record under edit, the full record list, the logged-in player's role/handle/id, and the sort state for the list table. Also holds the `collapsedItemTypes` set used by the items panel (the zones accordion keeps its own `_zonesExpanded` state in `panels/zones.js`).
 
 ### `api.js`
 The two HTTP helpers used everywhere:
 
-- **`API(path, method, body)`** — the primary call wrapper. Automatically intercepts writes to stageable entity types (`/zones`, `/enemies`, `/items`, `/npcs`, `/furniture`, `/recipes`, `/mutations`, `/drugs`) and routes them through the staging pipeline (`/api/staging/stage`) instead of applying them directly. (`/scavenging-tables` is also staged, as the `scavenging_table` type.) Falls through to a direct fetch for reads and excluded sub-resource paths.
-- **`directAPI(path, method, body)`** — bypasses staging entirely. Used for live-world actions (spawn, despawn, reload zone, power commands, etc.) that should take effect immediately.
+- **`API(path, method, body)`**: the primary call wrapper. Every write applies at once; on a local database the server then writes the entity's `content/` file. Shapes failures into `{ error }`.
+- **`directAPI(path, method, body)`**: the same call returning the raw reply, for live-world actions (spawn, despawn, reload zone, power commands).
+
+There's no staging. Until 2026-10-17 `API` routed content writes into a review queue (the Changes panel) that published to the local DB without writing files; it was removed because prod is read-only and git is the review step.
 
 Also holds `STAGED_ENTITY_TYPES` (the path→entityType map) and `getEntityType()`.
 
@@ -78,14 +80,11 @@ Login and logout. Loads after `panels.js` (it calls into the panel lifecycle on 
 - `devLogin()` — POSTs credentials, validates role, stores token, kicks off panel load and polling.
 - `devpanelLogout()` — clears token and reloads.
 
-### `staging.js`
-The staging/change-review system:
+### `backups.js`
+The Backups panel (`backups`, `noEdit`):
 
-- `pendingChanges` — module-level cache of staged changes.
-- `updateStagingBadge()` — fetches pending count and shows/hides the "Publish All" / "Reject All" header buttons.
-- `publishAll()` / `rejectAll()` / `publishSelected()` / `rejectSelected()` — bulk and selective staging actions.
-- `renderChangesPanel(data)` — renders the Changes panel table with diff previews.
-- `exportDatabaseDump()` — triggers a full DB export from the Power Tools section.
+- `renderBackupsPanel()`: the Database Backup button and the last three content deploys, read from `GET /deployments` (rows CI's deploy-content workflow writes).
+- `exportDatabaseDump()`: downloads a full SQL dump from `GET /admin/export-dump` (admin only).
 
 ---
 
@@ -237,27 +236,13 @@ The event→script binding editor (Triggers panel). Server side is
   `server/`+`plugins/` — a discoverability aid, not a whitelist; the field is free text)
   and `ACTORLESS_EVENTS` (events with no player in the payload, which warn in the form).
 
-### `maps.js`
-The map overview editor and the shared big-map grid renderer used by both the Maps panel and the Power panel.
+### `map-kit.js`
+Map drawing the other panels share. It was the Region Maps editor (`maps.js`) until 2026-10-17, when that tab and the World Map tab (`world-editor.js`) were removed; maps are edited in the [Studio](../tools/studio/README.md).
 
-- **Shared grid**: `buildDynamicMapGrid(zones, mode, powerById, clickable)`, `mapLegendHtml(mode)`, `luminanceTextColor(bgHex)`, `zoneColorStyle()`. Used by both the Maps and Power panels.
-- **Plan map base** (`PLAN_MAP_INK`, `PLAN_TERRAIN_TONE`, `PLAN_TILE_DEFAULT`, `PLAN_TILE_BUILDING`, `planTileTone()`, `planTileIsBuilding()`, `planRegionOf()`, `planRegionName()`, `planTileZoneFor()`, `planRegionBuckets()`) — the monochrome one-region-one-floor silhouette a coloured overlay is drawn on. Two panels use it: the Enemies panel's spawn heat map and the Power panel's Region Map. It lives here so the terrain palette can't drift into two pictures of the same city, and `planTileZoneFor()` is the one implementation of "which tile does this interior room paint onto" (it walks up through nested interior maps to the facade). ⚠ **What makes a div-per-coordinate grid affordable is that it's bounded to one region on one floor and each cell is a bare few-pixel div** — no text, no per-cell exits. That same shape over every placed zone is what froze the old City Grid view at ~888 zones. The `.plan-tile` / `.plan-tile-sel` classes in `styles.css` are its only styling.
-- **Big map overlay** (the modal launched from zones/maps): `openBigMap(mode)`, `renderBigMapOverlay()`, `changeBigMapFloor()`, `closeBigMap()`, `bigMapTileClick()`, `applyZoneEditToMap()`, `mapTileEditClick()`, `diveInto()`.
-- **Maps panel**: `renderMapsPanel(data)`, `loadMapOverview(mapId)`, `validateMapOverview()`, `renderMapOverview()`.
-- **Map editing**: `switchMap()`, `changeFloor()`, `mapToggleConn()`, `mapFixGeometry()`, `mapAddReciprocal()`, `mapRemoveExit()`.
-- **Drag/drop**: `mapGridDrop()`, `mapDragStart()`, `mapTrayDragStart()`, `mapInteriorTrayDragStart()`, `mapDrop()`.
-- **Interior maps**: `openInteriorLinkModal()`, `linkInteriorToExterior()`, `switchMapTab()`, `switchInteriorMap()`.
-- **Zone placement**: `createZoneAt()`, `pendingZonePlacement`.
-- **District painter** (`toggleDistrictMode()`, `setDistrictKey()`, `setDistrictTool()`, `districtPaintStart/Over/End()`, `districtPick()`, `districtFill()`, `districtRectStart/Over/Commit()`, `districtPanelHtml()`) — paints `flags.district`, the land-use identity a tile carries. Same four tools as the terrain painter (brush / fill / rect / pick) on purpose, so it needs no separate learning. **Its palette needs no content file of its own**: `content/districts/*.json` already carries `id` + `name` + `color`, served by `GET /districts` and cached by `ensureDistrictData()` in `panels/zones.js` (which loads first — load order is a contract). Two deliberate differences from the terrain painter: it renders the **resolved** district and marks its source (`_distResolve` — solid = authored, striped = inherited from the zone id prefix, faint = falling through to the `residential` default), because an unpainted city silently reads as one enormous Residential Blocks *in the game too*; and it **never conjures a tile**, since a district is an identity carried by ground rather than a kind of ground. Buildings are painted as well — a shop in the Redline is in the Redline. The panel's per-floor authored/prefix/fallback counts are the number a district-assignment pass works against.
-- Holds `MAP_PALETTE`, `MAP_DIR3D`, `MAP_OPP`, and all map state globals (`mapsList`, `mapOverview`, `mapViewTab`, etc.).
-
-### `world-editor.js`
-The World Map panel (`world`, `noEdit`) — every region on the global grid, drawn as one zoomable SVG. Distinct from `maps.js`: this edits **regions** (`/maps/regions`), not tiles. See [land-taxonomy.md](reference/land-taxonomy.md) for region vs. district vs. terrain.
-
-- **Render**: `renderWorldEditor(data)`, `_wdToolbarHtml()`, `_wdSelectedBarHtml()`, `_wdWireChrome()`, `_wdWireSvg()`.
-- **Viewport**: `_wdSetZoom()`, `_wdZoomLevel()`, `_wdFitBlock()`, `_wdClampView()`, `_wdGridLines()` — 10 zoom levels down to 6% of the full extent. Double-click is detected manually (`_wdLastClick`) because selecting re-renders the SVG.
-- **Regions**: `_wdNewRegion()` / `_wdNewRegionDialog()` (size + base terrain), `_wdStageMove(id, dx, dy)` — drag-to-reposition, staged like every other write.
-- Holds `_worldData`, `_worldSelected`, `_worldShowLegacy`, `_worldShowTerrain`, `_wdView`.
+- **Zoom**: `setMapZoom()`, `mapScaleControlHtml()`, `wrapMapScale()`, `applyMapScale()`. Used by the big-map overlay and the Power panel.
+- **Tile colour**: `luminanceTextColor(bgHex)`, `zoneColorStyle()`, `zoneIconHtml()`, `suggestZoneColor()` (new-zone default in `core/table.js`), `MAP_PALETTE` (the Zones form swatches).
+- **Plan map base** (`PLAN_MAP_INK`, `PLAN_TERRAIN_TONE`, `PLAN_TILE_DEFAULT`, `PLAN_TILE_BUILDING`, `planTileTone()`, `planTileIsBuilding()`, `planRegionOf()`, `planRegionName()`, `planTileZoneFor()`, `planRegionBuckets()`): the monochrome one-region-one-floor silhouette a coloured overlay is drawn on. Two panels use it: the Enemies panel's spawn heat map and the Power panel's Region Map. It lives here so the terrain palette can't drift into two pictures of the same city, and `planTileZoneFor()` is the one implementation of "which tile does this interior room paint onto" (it walks up through nested interior maps to the facade). ⚠ **What makes a div-per-coordinate grid affordable is that it's bounded to one region on one floor and each cell is a bare few-pixel div**: no text, no per-cell exits. That same shape over every placed zone is what froze the old City Grid view at ~888 zones. The `.plan-tile` / `.plan-tile-sel` classes in `styles.css` are its only styling.
+- **Big map overlay** (the modal the NPC and Zones panels open): `openBigMap(mode)`, `renderBigMapOverlay()`, `changeBigMapFloor()`, `closeBigMap()`, `bigMapTileClick()`, `mapLegendHtml(mode)`. ⚠ `openBigMap` fetches `/maps/map_world`, about 9 MB of JSON for the whole overworld.
 
 ### `power.js`
 The Power Grid panel.

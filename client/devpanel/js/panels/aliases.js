@@ -1,5 +1,5 @@
 // Aliases panel — verb shortcuts that rewrite to a canonical verb before dispatch.
-// Pure CRUD over /command-aliases (directAPI, applied live — not staged). Engine
+// Pure CRUD over /command-aliases (directAPI, applied live). Engine
 // defaults show as "default"; adding a row for a default alias overrides it, and
 // deleting an override restores the shipped default.
 function renderAliasesPanel(data) {

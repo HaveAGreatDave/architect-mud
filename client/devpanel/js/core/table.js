@@ -172,22 +172,11 @@ async function openEdit(record, isNew) {
   }
 }
 
-let _mapZoneEditSaved = false;
+let zoneEnemyEditReturn = null;   // zoneId when the enemy editor was opened from a zone's edit panel
 
 function closeEdit() {
   document.getElementById('edit-panel').classList.remove('open');
   document.getElementById('edit-body').innerHTML = '';
-  // Revert live map color preview if the edit was discarded (closed without saving)
-  if (mapZoneEditReturn && !_mapZoneEditSaved && currentRecord) {
-    const z = mapOverview?.zones.get(currentRecord.id);
-    if (z) {
-      z.color = currentRecord.color || null;
-      z.bg_color = currentRecord.bg_color || null;
-      z.marker = currentRecord.marker || null;
-      renderMapOverview();
-    }
-  }
-  _mapZoneEditSaved = false;
   currentRecord = null;
   // Restore the standard Save/Delete footer in case it was overridden (e.g. broadcast NPC sidebar)
   const editFooter = document.querySelector('#edit-panel .edit-footer');
@@ -204,7 +193,6 @@ function closeEdit() {
     window._vineActiveEditor.destroy();
     window._vineActiveEditor = null;
   }
-  if (mapZoneEditReturn) { currentPanel = 'maps'; mapZoneEditReturn = false; }
   if (zoneEnemyEditReturn) { currentPanel = 'zones'; activatePanelNav('zones'); zoneEnemyEditReturn = null; }
 }
 
@@ -224,12 +212,7 @@ async function saveRecord() {
     }
     const result = await p.save(currentRecord);
     if (result?.error) { toast(result.error, true); return; }
-    if (result?.staged) {
-      toast('Staged for review ✓');
-      await updateStagingBadge();
-    } else {
-      toast('Saved & published ✓');
-    }
+    toast('Saved ✓');
     if (validatorAutoRun && currentPanel === 'zones' && currentRecord?.id) {
       const savedId = currentRecord.id;
       runZoneValidation(savedId).then(() => {
@@ -237,20 +220,11 @@ async function saveRecord() {
         if (issues > 0) toast(`Zone saved — ${issues} exit issue(s) found (see Validator)`, true);
       }).catch(() => {});
     }
-    if (mapZoneEditReturn) {
-      const savedId = currentRecord?.id;
-      applyZoneEditToMap(savedId);
-      // Persist staged color/marker overrides so the map stays correct after panel reloads
-      if (result?.staged && savedId) {
-        const z = mapOverview?.zones.get(savedId);
-        if (z) _mapPendingOverrides.set(savedId, { color: z.color || null, bg_color: z.bg_color || null, marker: z.marker || null });
-      }
-    } else if (zoneEnemyEditReturn) {
+    if (zoneEnemyEditReturn) {
       await refreshEnemiesSection(zoneEnemyEditReturn);
     } else {
       await loadPanel(currentPanel);
     }
-    _mapZoneEditSaved = true;
     closeEdit();
   } catch (err) {
     toast(`Unexpected error: ${err.message}`, true);
@@ -260,27 +234,18 @@ async function saveRecord() {
   }
 }
 
-async function deleteFurnitureStaged(id, name) {
-  const item = _furnitureAllItems.find(f => f.id === id);
-  const prev = currentRecord;
-  currentRecord = { name }; // staging interceptor reads currentRecord.name for the entity label
+async function deleteFurnitureRow(id, name) {
+  if (!(await dpConfirm(`Delete "${name}"?`, { danger: true }))) return false;
   const r = await API(`/furniture/${id}`, 'DELETE');
-  currentRecord = prev;
-  if (r?.error) { toast(r.error, true); return; }
-  if (item) item._markedForDeletion = true;
+  if (r?.error) { toast(r.error, true); return false; }
+  _furnitureAllItems = _furnitureAllItems.filter(f => f.id !== id);
   renderFurniturePanel({ furniture: _furnitureAllItems, zones: [..._furnitureZoneNames.entries()].map(([zid, zname]) => ({ id: zid, name: zname })) });
-  updateStagingBadge();
-  toast(`"${name}" marked for deletion`);
+  toast(`"${name}" deleted`);
+  return true;
 }
 
 async function deleteRecord() {
   if (!currentRecord) return;
-  // Furniture deletes are staged — route to the staged delete path.
-  if (currentPanel === 'furniture') {
-    await deleteFurnitureStaged(currentRecord.id, currentRecord.name || currentRecord.id);
-    closeEdit();
-    return;
-  }
   let confirmMsg = `Delete ${currentRecord.name || currentRecord.id}?`;
   if (currentPanel === 'zones') {
     const childCount = allRecords.filter(z => (z.flags?.is_apartment || z.flags?.is_interior) && flatNeighbors(z.exits).includes(currentRecord.id)).length;
@@ -292,12 +257,7 @@ async function deleteRecord() {
   try {
     const result = await p.delete(currentRecord.id);
     if (result?.error) { toast(result.error, true); return; }
-    if (result?.staged) {
-      toast('Marked for deletion — publish to apply');
-      await updateStagingBadge();
-    } else {
-      toast(result?.message || 'Deleted');
-    }
+    toast(result?.message || 'Deleted');
     await loadPanel(currentPanel);
     closeEdit();
   } catch (err) {

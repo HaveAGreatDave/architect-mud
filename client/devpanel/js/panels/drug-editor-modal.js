@@ -4,7 +4,7 @@
 // as a fallback; this modal is the intuitive path. It opens from a button in
 // that form, seeds from the current field values (parsing the effects JSON into
 // sectioned controls), and on Save composes the effects object and PUT/POSTs to
-// /drugs via the shared API helper (so staging still applies), then reloads.
+// /drugs via the shared API helper, then reloads.
 //
 // Global-scope script (dev panel has no bundler). Reuses .modal-overlay /
 // .modal-card / .field / .field-row CSS. Self-builds its overlay — no index.html
@@ -465,7 +465,7 @@ async function _dgSave() {
   btn.disabled = true; btn.textContent = 'Saving…';
   const r = _dgIsNew ? await API('/drugs', 'POST', body) : await API(`/drugs/${id}`, 'PUT', body);
   if (r?.error) { toast(r.error, true); btn.disabled = false; btn.textContent = 'Save & Publish'; return; }
-  toast(r?.staged ? 'Staged for review ✓' : 'Saved ✓');
+  toast('Saved ✓');
   closeDrugEditor();
   if (typeof loadPanel === 'function') loadPanel('drugs');
 }

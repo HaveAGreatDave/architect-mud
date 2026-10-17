@@ -242,7 +242,7 @@ function bootSplashDone() {
   bootSplashArm();
   setTimeout(() => {
     Promise.resolve(loadPanel(startPanel)).catch(() => {}).then(bootSplashDone);
-    startWorldStatePolling(); initMisToggle(); initEmailVerifyToggle(); initRegistrationsToggle(); updateStagingBadge(); showPlayButton(); initWhisperPanel();
+    startWorldStatePolling(); initMisToggle(); initEmailVerifyToggle(); initRegistrationsToggle(); showPlayButton(); initWhisperPanel();
     bootSplashStep('session');   // the session is up; only the panel is outstanding
   }, 0);
 })();

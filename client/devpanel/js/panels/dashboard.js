@@ -158,8 +158,8 @@ function renderDashboard(data) {
 //
 // There is ground truth available and it was already on the server. The CI job writes a
 // `deployments` row as its last step (see the workflow's "Record deployment"), which is the moment
-// prod actually restarted onto the new content, and `/staging/deployments` already served it to the
-// staging panel. So the card now carries a FACT and an estimate instead of an estimate alone:
+// prod actually restarted onto the new content, and `/deployments` already served it to the
+// Backups panel. So the card now carries a FACT and an estimate instead of an estimate alone:
 //
 //  · Before the boundary — count down, as before. This half was never wrong.
 //  · After the boundary with no new row — say the window is OPEN and count UP. That is the honest
@@ -262,9 +262,8 @@ function _initDeployClock() {
   const poll = () => {
     // Failure is silent on purpose: a dev panel that cannot reach the API has bigger problems to
     // report than this card, and falling back to the arithmetic is exactly the old behaviour.
-    // `directAPI`, like the rest of this panel: a GET needs none of the staging interception `API`
-    // wraps every call in, and this one runs on a timer.
-    directAPI('/staging/deployments/latest').then((d) => {
+    // `directAPI`, like the rest of this panel: this one runs on a timer and wants the raw reply.
+    directAPI('/deployments/latest').then((d) => {
       const t = d?.deployments?.[0]?.deployedAt;
       const ms = t ? Date.parse(t) : NaN;
       if (!Number.isNaN(ms)) _lastDeployAt = ms;

@@ -102,13 +102,13 @@ pass.
 4,900 tiles would be a script and a guess. 273 is an afternoon with a brush, and the eye is
 the only thing that can tell a high street from a side street.
 
-Add a `district` mode to [maps.js](../../client/devpanel/js/panels/maps.js) beside the
+Add a `district` mode to `maps.js` beside the
 existing Terrain / Paint / Safe-Zone modes, with **the same four tools the terrain painter
 already has** — brush, flood-fill, rectangle-marquee and eyedropper
-([`terrainPaintStart:1368`](../../client/devpanel/js/panels/maps.js:1368),
-[`terrainPick:1385`](../../client/devpanel/js/panels/maps.js:1385),
-[`terrainFill:1395`](../../client/devpanel/js/panels/maps.js:1395),
-[`terrainRectStart:1419`](../../client/devpanel/js/panels/maps.js:1419)) — and the same undo
+(`terrainPaintStart:1368`,
+`terrainPick:1385`,
+`terrainFill:1395`,
+`terrainRectStart:1419`) — and the same undo
 stack and draggable tool panel.
 
 **The palette needs no new file.** `TERRAIN_TYPES` is loaded from `content/map/terrain.json`
@@ -120,7 +120,7 @@ Two rules specific to this painter:
 
 - It must **show the resolved district, not just the authored one**, mirroring
   `mapZoneTerrain`'s authored-wins-then-infer shape at
-  [maps.js:1118](../../client/devpanel/js/panels/maps.js:1118), so a builder can see both the
+  `maps.js:1118`, so a builder can see both the
   `residential` fallback and the `wasteland`-on-tarmac case and paint over them.
 - It must **flag any tile whose resolved district sits outside `region_coldwater`**, which is
   how the Deadwater and Terminus fallout gets caught by eye rather than in play. Those regions

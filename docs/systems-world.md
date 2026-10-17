@@ -75,8 +75,8 @@ independently via `resolveNamedDestination`. **Clicking an exit link** in the ga
 so a click lands on that specific location by name rather than firing the bare direction and reopening the
 picker. Doors bind to one specific exit via `doors.target_zone`
 (NULL = legacy, resolves by `(zone_id, exit_dir)` alone); pass the resolved target to
-`getDoorForExit(zone, dir, targetId)`. **Known limits:** the map grid editor
-(`client/devpanel/js/panels/maps.js`) and the minimap are single-exit-per-direction by geometry; and
+`getDoorForExit(zone, dir, targetId)`. **Known limits:** the Studio's map
+and the minimap are single-exit-per-direction by geometry; and
 player-facing door commands still disambiguate two doors sharing a direction by direction only, not
 destination name.
 

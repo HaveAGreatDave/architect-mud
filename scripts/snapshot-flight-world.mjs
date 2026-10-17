@@ -4,8 +4,7 @@
 //
 // It boots the world headlessly (initWorld) and reproduces, for every map_world tile,
 // the EXACT per-cell shape the flight plugin streams to the cockpit. The derivation
-// itself lives in plugins/flight/snapshot.js (buildFlightSnapshot), shared with the
-// dev-panel "re-bake" button (POST /maps/flight-snapshot) so the two never drift.
+// itself lives in plugins/flight/snapshot.js (buildFlightSnapshot).
 // Output → client/game/flightsim-world.json (a plain static asset; no server, no DB at fly time).
 //
 //   Local dev DB:  node scripts/snapshot-flight-world.mjs

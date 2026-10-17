@@ -131,22 +131,17 @@ function renderZonesTable(records) {
   }
 
   // --- Row / band builders (furniture-panel visual language) ---
-  const stBadge = s => !s ? '' :
-    s === 'pending delete'
-      ? `<span style="font-size:10px;color:var(--danger);margin-left:6px">!Marked for Deletion</span>`
-      : `<span style="font-size:10px;color:var(--warning);margin-left:6px">!Not Published</span>`;
   const rowBtns = id => `
     <button class="action-btn" style="font-size:10px;padding:2px 8px;margin-left:4px" onclick="event.stopPropagation();editRecord('${id}')">Edit</button>
     <button class="action-btn" style="font-size:10px;padding:2px 8px;margin-left:4px" onclick="event.stopPropagation();cloneZoneRow('${id}')">Clone</button>
     <button class="action-btn danger" style="font-size:10px;padding:2px 8px;margin-left:4px" onclick="event.stopPropagation();deleteZoneRow('${id}')">Delete</button>`;
 
   const interiorRow = (z, pad) => {
-    const del = z._stagingStatus === 'pending delete';
-    return `<div style="display:flex;align-items:center;gap:8px;padding:5px 12px 5px ${pad}px;border-bottom:1px solid var(--border);background:var(--bg1);cursor:pointer;${del ? 'opacity:0.6;text-decoration:line-through' : ''}" onclick="editRecord('${z.id}')">
+    return `<div style="display:flex;align-items:center;gap:8px;padding:5px 12px 5px ${pad}px;border-bottom:1px solid var(--border);background:var(--bg1);cursor:pointer;" onclick="editRecord('${z.id}')">
       <div style="flex:1;min-width:0">
         <span class="zone-child-indent" style="color:var(--text-dim)">↳</span>
         <span style="color:var(--text-bright)">${z.name || z.id}</span>
-        <span style="font-size:10px;color:var(--text-dim);margin-left:6px">${z.id}</span>${stBadge(z._stagingStatus)}
+        <span style="font-size:10px;color:var(--text-dim);margin-left:6px">${z.id}</span>
       </div>
       ${rowBtns(z.id)}
     </div>`;
@@ -173,7 +168,6 @@ function renderZonesTable(records) {
 
   const buildingBlock = b => {
     const members = buildingMembers.get(b.id) || [];
-    const del = b._stagingStatus === 'pending delete';
     const floors = new Map();
     for (const m of members) {
       const z = m.grid_z ?? 0;
@@ -188,10 +182,10 @@ function renderZonesTable(records) {
       rows = [...floors.keys()].sort((a, b) => a - b).map(z => floorGroup(b.id, z, floors.get(z))).join('');
     }
     return `<div>
-      <div data-zone-id="${b.id}" style="display:flex;align-items:center;gap:0;padding:5px 12px 5px 28px;background:var(--bg2);border-top:1px solid var(--border);cursor:pointer;user-select:none;${del ? 'opacity:0.6;text-decoration:line-through' : ''}" onclick="zToggle(this)">
+      <div data-zone-id="${b.id}" style="display:flex;align-items:center;gap:0;padding:5px 12px 5px 28px;background:var(--bg2);border-top:1px solid var(--border);cursor:pointer;user-select:none;" onclick="zToggle(this)">
         <span class="z-arrow">▸</span>
         <span style="color:var(--accent)">↳ ${b.name || b.id}</span>
-        <span style="font-size:10px;color:var(--text-dim);margin-left:6px">${b.id}</span>${stBadge(b._stagingStatus)}
+        <span style="font-size:10px;color:var(--text-dim);margin-left:6px">${b.id}</span>
         <span style="margin-left:auto;font-size:10px;color:var(--text-dim)">${members.length} room${members.length !== 1 ? 's' : ''}</span>
         ${rowBtns(b.id)}
       </div>
@@ -201,11 +195,10 @@ function renderZonesTable(records) {
 
   // A named exterior / grid tile — a plain clickable row (no interior tree).
   const exteriorRow = (z, pad) => {
-    const del = z._stagingStatus === 'pending delete';
-    return `<div style="display:flex;align-items:center;gap:8px;padding:5px 12px 5px ${pad}px;border-bottom:1px solid var(--border);background:var(--bg1);cursor:pointer;${del ? 'opacity:0.6;text-decoration:line-through' : ''}" onclick="editRecord('${z.id}')">
+    return `<div style="display:flex;align-items:center;gap:8px;padding:5px 12px 5px ${pad}px;border-bottom:1px solid var(--border);background:var(--bg1);cursor:pointer;" onclick="editRecord('${z.id}')">
       <div style="flex:1;min-width:0">
         <span style="color:var(--text-bright)">${z.name || z.id}</span>
-        <span style="font-size:10px;color:var(--text-dim);margin-left:6px">${z.id}</span>${stBadge(z._stagingStatus)}
+        <span style="font-size:10px;color:var(--text-dim);margin-left:6px">${z.id}</span>
       </div>
       ${rowBtns(z.id)}
     </div>`;
@@ -364,14 +357,7 @@ async function deleteZoneRow(id) {
     await API(`/zones/${child.id}`, 'DELETE');
   }
   currentRecord = null;
-  if (result?.staged) {
-    toast(childCount
-      ? `${rec.name || id} + ${childCount} room${childCount !== 1 ? 's' : ''} marked for deletion — publish to apply`
-      : 'Marked for deletion — publish to apply');
-    await updateStagingBadge();
-  } else {
-    toast(result?.message || 'Deleted');
-  }
+  toast(childCount ? `${rec.name || id} + ${childCount} room${childCount !== 1 ? 's' : ''} deleted` : (result?.message || 'Deleted'));
   await loadPanel('zones');
 }
 
@@ -476,17 +462,7 @@ async function zoneEditForm(rec, isNew) {
   const ambients = Array.isArray(rec.ambient_events) ? rec.ambient_events : [];
   const flags = rec.flags || {};
   zoneEditExitsState = { ...exits };
-  // New zones created by clicking an empty cell on the Maps overview arrive
-  // with a pending grid placement; existing zones use the in-memory map state
-  // so unsaved drag positions are reflected immediately. Fall back to server
-  // data if not on the maps panel.
-  const mapZone = mapOverview?.zones.get(rec?.id);
-  const place = (isNew && pendingZonePlacement)
-    ? { ...pendingZonePlacement }
-    : mapZone
-      ? { map_id: mapZone.map_id, grid_x: mapZone.grid_x, grid_y: mapZone.grid_y, grid_z: mapZone.grid_z ?? 0 }
-      : { map_id: rec.map_id, grid_x: rec.grid_x, grid_y: rec.grid_y, grid_z: rec.grid_z };
-  pendingZonePlacement = null;
+  const place = { map_id: rec.map_id, grid_x: rec.grid_x, grid_y: rec.grid_y, grid_z: rec.grid_z };
 
   const audioSongs = await API('/audio/songs').catch(() => []);
   const scavTables = await API('/scavenging-tables').catch(() => []);
@@ -1073,16 +1049,6 @@ async function removeZoneFromMap(zoneId) {
   if (!(await dpConfirm(`Remove "${zoneId}" from its map? The zone and its exits are unchanged — only the grid placement is erased.`, { danger: true }))) return;
   const d = await API(`/zones/${zoneId}`, 'PUT', { map_id: null, grid_x: null, grid_y: null, grid_z: null });
   if (d.error) { toast(d.error || 'Failed to remove from map', true); return; }
-  // Sync mapOverview in-memory so the tile disappears immediately
-  if (typeof mapOverview !== 'undefined' && mapOverview) {
-    const z = mapOverview.zones.get(zoneId);
-    if (z) {
-      z.map_id = null; z.grid_x = null; z.grid_y = null; z.grid_z = null;
-      mapOverview.zones.delete(zoneId);
-      mapOverview.unplaced.set(zoneId, z);
-      if (typeof renderMapOverview === 'function') renderMapOverview();
-    }
-  }
   await refreshZoneEditPanel(zoneId);
 }
 
@@ -1188,8 +1154,7 @@ async function _installBuildingGenerator(zoneId, rec) {
     const zoneName = document.getElementById('gen-install-zonename')?.value.trim() || defaultName;
     const newZoneId = `${zoneId}_z${newZ}_${Date.now()}`;
 
-    // Use directAPI — the power install step runs immediately (not staged), so the
-    // new zone must exist live before we wire exits and attach the junction box.
+    // The new zone must exist live before we wire exits and attach the junction box.
     const createResult = await directAPI('/zones', 'POST', {
       id: newZoneId, name: zoneName,
       description: `${newZ > currentZ ? 'Rooftop' : 'Basement'} of ${rec.name || zoneId}.`,
@@ -1230,20 +1195,10 @@ async function reassignZoneGenerator(zoneId) {
 }
 
 async function removeGeneratorQuick(generatorId, zoneId) {
-  if (!(await dpConfirm('Remove this generator? Stage for deletion — publish to apply.', { danger: true }))) return;
-  const result = await API('/staging/stage', 'POST', {
-    entityType: 'generator',
-    entityId: generatorId,
-    entityName: `Generator ${generatorId}`,
-    changeType: 'delete',
-    method: 'DELETE',
-    apiPath: `/environment/power/generators/${generatorId}`,
-    requestBody: {},
-    description: `Remove generator ${generatorId} from zone ${zoneId}`,
-  });
+  if (!(await dpConfirm('Remove this generator?', { danger: true }))) return;
+  const result = await API(`/environment/power/generators/${encodeURIComponent(generatorId)}`, 'DELETE');
   if (result?.error) { toast(result.error, true); return; }
-  toast('Generator marked for removal — publish to apply');
-  await updateStagingBadge();
+  toast('Generator removed');
   await refreshZoneEditPanel(zoneId);
 }
 
@@ -1286,9 +1241,8 @@ function updateColorPreview() {
   el.style.color = color || 'var(--text-dim)';
   el.style.background = bgColor || 'transparent';
   el.textContent = sym;
-  _liveMapColorUpdate();
 }
 
-// Map layout edits (piece moves, connections) persist immediately through the
-// staging-aware API() — each change lands in the Changes panel for review and
-// publish. There's no separate map-publish step, so nothing to guard.
+// Map layout edits (piece moves, connections) persist immediately through API(),
+// which writes the zone and its content file. There's no separate map-publish step,
+// so nothing to guard.

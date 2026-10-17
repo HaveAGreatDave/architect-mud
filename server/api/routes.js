@@ -1,14 +1,9 @@
 import { query, logActivity, getQueryMeter, getClient } from '../models/db.js';
-import { syncContentFromRequest, syncZoneDeletion } from './content-sync.js';
+import { syncContentFromRequest, syncZoneDeletion, syncEntityFile } from './content-sync.js';
 import { apiFaunaCensus, apiFaunaTile } from './fauna-dev.js';
-import { reloadZone, getAllZones, world, getAllLivePlayers, getZone, addPlayerToZone, removePlayerFromZone, getMinimapData, reloadGlobalAmbients, spawnEnemySync, setDoorCache, deleteDoorCache, getZoneDoors, reloadSpawn, removeSpawn, isEnterableFacade, resolveLanding, reloadMaps, insertFurniture, updateFurniture, deleteFurniture, deleteFurnitureWhere, refreshZoneFurniture, propsOf, loadZoneRender, getAllRegions } from '../engine/world.js';
-import { authorUtilityRoom } from '../../tools/lib/utility-room.mjs';
-import { readPalette } from '../../scripts/content/lib.mjs';
-import { writeDerived } from '../../scripts/content/derive-write.mjs';
-import { templateForType, BUILD_DIR_OFF } from '../../tools/lib/building-templates.mjs';
+import { reloadZone, getAllZones, world, getAllLivePlayers, getZone, addPlayerToZone, removePlayerFromZone, getMinimapData, reloadGlobalAmbients, spawnEnemySync, setDoorCache, deleteDoorCache, getZoneDoors, reloadSpawn, removeSpawn, isEnterableFacade, resolveLanding, reloadMaps, insertFurniture, updateFurniture, deleteFurniture, deleteFurnitureWhere, refreshZoneFurniture, propsOf } from '../engine/world.js';
 import { describeZone, describeVoidTeleport } from '../engine/commands/index.js';
 import { reincarnatePlayer } from '../engine/commands/world.js';
-import { allExits } from '../engine/exits.js';
 import { detectBathroomSide } from '../engine/commands/doors.js';
 import { loadRecipes } from '../engine/crafting.js';
 import { loadScriptTriggers } from '../engine/script-triggers.js';
@@ -40,7 +35,6 @@ import { vendorSafeRow, vendorHasSafe } from '../engine/vendor-safe-furniture.js
 import { decideSex } from '../engine/npc-sex.js';
 import { loadBanterLibrary } from '../engine/npc-banter.js';
 import { OPPOSITE } from '../engine/directions.js';
-import { validateMapLayout } from '../engine/mapValidation.js';
 import { DISTRICTS, DISTRICT_PREFIX } from '../engine/districts.js';
 
 // Base URL for links we mail out (verification, password reset). CLIENT_BASE_URL
@@ -60,11 +54,11 @@ function formatScheduleBoard(npc) {
   return `${npc.name}'s Schedule\n${shopLine}\n${lines.join('\n')}`;
 }
 import { handleEnvironmentApi } from './environment.routes.js';
-import { handleStagingApi } from './staging.routes.js';
+import { handleDeploymentsApi } from './deployments.routes.js';
 import { handleBackupApi } from './backup.routes.js';
 import { fireRoutes, fireHook } from '../engine/plugins.js';
 import { handlePlayerDeath } from '../engine/gameLoop.js';
-import { recomputePower, reloadPowerTopology, installRegionPlant, getEnvironmentState, markPowerTopologyDirty } from '../engine/environment.js';
+import { recomputePower, reloadPowerTopology, getEnvironmentState, markPowerTopologyDirty } from '../engine/environment.js';
 import { ensureTunables, getTunable, reloadTunables } from '../engine/tunables.js';
 import { getNetXp, statSpent, maxHpForEndurance } from '../engine/ip.js';
 import { SKILLS } from '../engine/skills.js';
@@ -181,7 +175,7 @@ function requireAdmin(auth, fn) {
 // ── CONTENT_READONLY gate (set on Render; unset in dev) ──────────────────────
 // With CONTENT_READONLY=1, production accepts NO content writes over HTTP: git
 // is the only writer of world content to prod (CI applies content/ on push to
-// main). This single gate sits ahead of ALL dispatch — core routes, staging,
+// main). This single gate sits ahead of ALL dispatch — core routes, deployments,
 // environment, backup, and every plugin routeHandler — so a new
 // plugin's authoring routes are covered by default.
 //
@@ -265,8 +259,8 @@ async function dispatchApiRequest(url, method, body, headers) {
   const envResult = await handleEnvironmentApi(path, method, body, auth);
   if (envResult) return envResult;
 
-  const stagingResult = await handleStagingApi(path, method, body, auth);
-  if (stagingResult) return stagingResult;
+  const deploymentsResult = await handleDeploymentsApi(path, method, body, auth);
+  if (deploymentsResult) return deploymentsResult;
 
   const backupResult = await handleBackupApi(path, method, body, auth);
   if (backupResult) return backupResult;
@@ -352,16 +346,7 @@ async function dispatchApiRequest(url, method, body, headers) {
   if (path==='/districts' && method==='GET') return apiGetDistricts();
   if (path==='/zones' && method==='POST') return requireDev(auth, ()=>apiCreateZone(body,auth));
   if (path==='/maps' && method==='GET') return requireDev(auth, apiGetMaps);
-  if (path==='/maps/link-interior' && method==='POST') return requireDev(auth, ()=>apiLinkInterior(body, auth));
-  if (path==='/maps/move-building' && method==='POST') return requireDev(auth, ()=>apiMoveBuilding(body));
-  if (path==='/maps/build-building' && method==='POST') return requireDev(auth, ()=>apiBuildBuilding(body, auth));
-  if (path==='/maps/generate-region' && method==='POST') return requireDev(auth, ()=>apiGenerateRegion(body, auth));
-  if (path==='/maps/move-region' && method==='POST') return requireDev(auth, ()=>apiMoveRegion(body));
   if (path==='/maps/regions' && method==='GET') return requireDev(auth, apiGetSpatialRegions);
-  if (path==='/map/palette' && method==='GET') return requireDev(auth, apiGetTerrainPalette);
-  if (path==='/map/derive' && method==='POST') return requireDev(auth, apiDeriveMap);
-  if (path==='/maps/flight-snapshot' && method==='POST') return requireDev(auth, ()=>apiFlightSnapshot());
-  if (path.startsWith('/maps/') && method==='DELETE') return requireAdmin(auth, ()=>apiDeleteMap(path.split('/')[2]));
   if (path.startsWith('/maps/') && method==='GET') return requireDev(auth, ()=>apiGetMap(path.split('/')[2]));
   // Zone IDs may contain '/' — extract with slice, not split, to handle them correctly
   const _zoneId    = (p) => p.slice('/zones/'.length);
@@ -407,7 +392,7 @@ async function dispatchApiRequest(url, method, body, headers) {
   if (path.startsWith('/npcs/') && path.endsWith('/broadcast-schedule') && method==='GET') return requireDev(auth, ()=>apiGetNpcBroadcastSchedule(path.split('/')[2]));
   if (path.startsWith('/npcs/') && method==='DELETE') return requireAdmin(auth, ()=>apiDeleteNpc(path.split('/')[2]));
   if (path==='/furniture' && method==='GET') return requireDev(auth, ()=>apiGetFurniture(url));
-  if (path==='/furniture/bulk/streetlights' && method==='POST') return requireDev(auth, ()=>apiBulkAddStreetlights(auth));
+  if (path==='/furniture/bulk/streetlights' && method==='POST') return requireDev(auth, ()=>apiBulkAddStreetlights());
   if (path==='/furniture' && method==='POST') return requireDev(auth, ()=>apiCreateFurniture(body));
   if (path.startsWith('/furniture/') && method==='PUT') return requireDev(auth, ()=>apiUpdateFurniture(path.split('/')[2],body));
   if (path.startsWith('/furniture/') && method==='DELETE') return requireAdmin(auth, ()=>apiDeleteFurniture(path.split('/')[2]));
@@ -1063,202 +1048,6 @@ async function apiAddRoom(parentZoneId, body) {
   } catch(e) { return { status:400, body:{error:e.message} }; }
 }
 
-// One-shot building generator (dev panel "New Building"). Converts a ground tile (or
-// fills an empty cell) at (toX,toY,toZ) on map_world into a facade of `building_type`,
-// stamps a templated interior (lobby + rooms + thematic furniture + optional inhabitant
-// NPC), powers/lights it via authorUtilityRoom, and wires the front door onto an adjacent
-// street. Hangars additionally get hangar_interior/ramp wiring + the flight-ops desk chair
-// so the flight desk works. Commits directly (too many cross-table rows for zone staging),
-// mirroring apiBuildApartmentBlock. See tools/lib/building-templates.mjs for the blueprints.
-async function apiBuildBuilding(body, auth) {
-  const { toX, toY, toZ = 0, building_type, name } = body || {};
-  if (toX == null || toY == null) return { status: 400, body: { error: 'toX and toY are required.' } };
-  const bt = String(building_type || '').toLowerCase().trim();
-  if (!bt) return { status: 400, body: { error: 'building_type is required.' } };
-
-  const mapId = 'map_world';
-  const all = getAllZones();
-  const at = (x, y, z) => all.find(zz => zz.map_id === mapId && zz.grid_x === x && zz.grid_y === y && (zz.grid_z ?? 0) === z);
-  const target = at(toX, toY, toZ);
-
-  // The cell must be empty or a plain ground tile — never an existing building or water.
-  const isBuildingish = (t) => !!t && (isEnterableFacade(t) || t.flags?.building_type || t.flags?.is_building || t.flags?.is_interior || t.flags?.is_apartment);
-  if (isBuildingish(target) || (target && !propsOf(target.id).buildable))
-    return { status: 400, body: { error: 'That cell already holds a building or water — pick an empty or ground tile.' } };
-
-  // Candidate fronting streets = standable orthogonal neighbours (a building needs a door
-  // onto a walkable tile). Prefer a road-terrain neighbour, like move-building.
-  const standable = (t) => !!t && !isBuildingish(t) && propsOf(t.id).buildable;
-  const neighbours = [];
-  for (const [dir, off] of Object.entries(BUILD_DIR_OFF)) {
-    const n = at(toX + off[0], toY + off[1], toZ);
-    if (standable(n)) neighbours.push({ dir, n });
-  }
-  if (!neighbours.length) return { status: 400, body: { error: 'No adjacent street to enter from — place the building next to a walkable ground/road tile.' } };
-  const front = neighbours.find(x => propsOf(x.n.id).frontage) || neighbours[0];
-
-  const tmpl = templateForType(bt);
-  const isHangar = bt === 'hangar';
-  const buildingName = (name && name.trim()) || tmpl.facadeName || (bt.charAt(0).toUpperCase() + bt.slice(1).replace(/_/g, ' '));
-
-  const slug = `${toX}_${toY}${toZ ? `_z${toZ}` : ''}`;
-  const facadeId = target ? target.id : `zone_district_${slug}`;
-  const interiorMapId = `map_int_bld_${slug}`;
-  const lobbyId = `zone_bld_${slug}_lobby`;
-  const regionId = target?.flags?.region_id || neighbours.map(x => x.n.flags?.region_id).find(Boolean) || null;
-
-  // The door side is AUTHORED, not derived: flags.entrance is the SSOT (world.js's
-  // buildingEntranceDir is a straight read of it), so the builder must write it rather
-  // than write the facade and ask the engine back. The fronting street's direction IS
-  // the door side, and the interior leaves the SAME way the door faces — the regress
-  // geometry invariant, and how all 61 existing buildings are wired.
-  const entranceDir = front.dir;
-  const backDir = entranceDir;
-  let rooms, roomIdFor;
-
-  try {
-    // 1) Facade FIRST — convert the ground tile (keeping its street exits) or create it
-    //    fresh. It has to exist before the lobby/rooms, which reference it via parent_zone
-    //    (a FK). Its own `in`→lobby exit can point ahead (exits is JSONB, no FK).
-    const keepFlags = target ? { ...(target.flags || {}) } : {};
-    delete keepFlags.terrain; delete keepFlags.runway; delete keepFlags.pier;
-    if (/^(runway_|road_)/.test(keepFlags.icon || '')) delete keepFlags.icon;
-    const facadeFlags = { ...keepFlags, is_building: true, facade: true, building_name: buildingName, building_type: bt, entrance: entranceDir, world_exit_zone: front.n.id };
-    if (regionId) facadeFlags.region_id = regionId;
-    if (isHangar) facadeFlags.hangar_interior_zone = lobbyId;
-    const facadeExits = target ? { ...(target.exits || {}) } : {};
-    if (!target) for (const { dir, n } of neighbours) facadeExits[dir] = n.id;
-    facadeExits.in = lobbyId;
-    const facadeDesc = (target && target.description) || `The frontage of ${buildingName}.`;
-    if (target) {
-      await query('UPDATE zones SET name=$1, description=$2, exits=$3, flags=$4, marker=NULL WHERE id=$5',
-        [buildingName, facadeDesc, JSON.stringify(facadeExits), JSON.stringify(facadeFlags), facadeId]);
-    } else {
-      await query(
-        `INSERT INTO zones (id,name,description,exits,ambient_events,ambient_theme,flags,map_id,grid_x,grid_y,grid_z,parent_zone)
-         VALUES ($1,$2,$3,$4,'[]','outdoors',$5,$6,$7,$8,$9,NULL)`,
-        [facadeId, buildingName, facadeDesc, JSON.stringify(facadeExits), JSON.stringify(facadeFlags),
-         mapId, toX, toY, toZ]);
-    }
-    // Every standable neighbour gets a reciprocal exit INTO the facade (entry from any
-    // side + door resolution). A converted ground tile already has these; fill any gaps.
-    for (const { dir, n } of neighbours) {
-      const nExits = { ...(n.exits || {}) };
-      if (nExits[OPPOSITE[dir]] !== facadeId) {
-        nExits[OPPOSITE[dir]] = facadeId;
-        await query('UPDATE zones SET exits=$1 WHERE id=$2', [JSON.stringify(nExits), n.id]);
-      }
-    }
-
-    // The lobby leaves toward the door (backDir), and template rooms take the remaining
-    // free cardinals. No reload/read-back needed — we authored the door side above.
-    const usedDirs = new Set([backDir]);
-    rooms = [];
-    for (const r of (tmpl.rooms || [])) {
-      const dir = (BUILD_DIR_OFF[r.dir] && !usedDirs.has(r.dir)) ? r.dir : ['north', 'east', 'west', 'south'].find(d => !usedDirs.has(d));
-      if (!dir) break; // out of cardinal slots off the lobby
-      usedDirs.add(dir);
-      rooms.push({ ...r, dir, id: `zone_bld_${slug}_${r.key}` });
-    }
-    roomIdFor = (roomKey) => roomKey === 'lobby' ? lobbyId : (rooms.find(r => r.key === roomKey)?.id || null);
-
-    // 2) Interior map (facade → lobby).
-    await query(
-      `INSERT INTO maps (id, name, parent_zone_id, entry_zone_id)
-       VALUES ($1,$2,$3,$4) ON CONFLICT (id) DO UPDATE SET parent_zone_id=$3, entry_zone_id=$4`,
-      [interiorMapId, `${buildingName} — Interior`, facadeId, lobbyId]
-    );
-
-    // 3) Lobby (entry room) + any template rooms, wired reciprocally. parent_zone=facade
-    //    (now exists). Lobby's exit back out faces the SAME way as the door (backDir).
-    const lobbyFlags = { is_building: true, is_interior: true, world_exit_zone: facadeId };
-    if (isHangar) { lobbyFlags.hangar_interior = true; lobbyFlags.hangar_ramp = facadeId; }
-    const lobbyExits = { [backDir]: facadeId };
-    for (const r of rooms) lobbyExits[r.dir] = r.id;
-    await query(
-      `INSERT INTO zones (id,name,description,exits,ambient_events,ambient_theme,flags,map_id,grid_x,grid_y,grid_z,parent_zone)
-       VALUES ($1,$2,$3,$4,'[]','indoors',$5,$6,0,0,0,$7)
-       ON CONFLICT (id) DO UPDATE SET name=$2, description=$3, exits=$4, flags=$5, map_id=$6, grid_x=0, grid_y=0, grid_z=0, parent_zone=$7`,
-      [lobbyId, tmpl.lobbyName || 'Lobby', tmpl.lobbyDesc || 'An interior room.',
-       JSON.stringify(lobbyExits), JSON.stringify(lobbyFlags), interiorMapId, facadeId]
-    );
-    for (const r of rooms) {
-      const off = BUILD_DIR_OFF[r.dir];
-      await query(
-        `INSERT INTO zones (id,name,description,exits,ambient_events,ambient_theme,flags,map_id,grid_x,grid_y,grid_z,parent_zone)
-         VALUES ($1,$2,$3,$4,'[]','indoors',$5,$6,$7,$8,0,$9)
-         ON CONFLICT (id) DO UPDATE SET name=$2, description=$3, exits=$4, flags=$5, map_id=$6, grid_x=$7, grid_y=$8, parent_zone=$9`,
-        [r.id, r.name, r.desc, JSON.stringify({ [OPPOSITE[r.dir]]: lobbyId }),
-         JSON.stringify({ is_building: true, is_interior: true, world_exit_zone: facadeId }),
-         interiorMapId, off[0], off[1], facadeId]
-      );
-    }
-
-    // Make the zones live so furniture/NPC/power attach to real world zones, and the
-    // facade becomes enterable (a fresh interior map hangs off it).
-    for (const zid of [facadeId, lobbyId, ...rooms.map(r => r.id)]) await reloadZone(zid);
-    for (const { n } of neighbours) await reloadZone(n.id);
-    await reloadMaps();
-
-    // 4) Thematic furniture (via apiCreateFurniture — handles lighting sync), then a
-    //    light fixture in every extra room (the lobby's comes from authorUtilityRoom).
-    for (const f of (tmpl.furniture || [])) {
-      const zid = roomIdFor(f.room);
-      if (!zid) continue;
-      await apiCreateFurniture({
-        id: `furn_bld_${slug}_${String(f.name || 'x').replace(/[^a-z0-9]+/gi, '_').toLowerCase()}`,
-        zone_id: zid, name: f.name, description: f.desc || '', object_type: f.object_type || 'furniture',
-        flags: f.interactions ? { interactions: f.interactions } : {},
-      });
-    }
-    for (const r of rooms) {
-      await insertFurniture({
-        id: `furn_light_${r.id}`, zone_id: r.id, name: 'Overhead Light',
-        description: 'A recessed ceiling fixture wired to the building panel below.',
-        object_type: 'light', light_type: 'overhead', light_on: 1, light_on_intended: 1,
-        power_draw_kw: 0.03, lumen_output: 1200, flags: '{}',
-      }, 'ON CONFLICT (id) DO NOTHING');
-    }
-
-    // 5) Power + lights: digs the utility room, adds the lobby light, wires the junction
-    //    box, and powers every interior zone in the network.
-    const util = await authorUtilityRoom(query, { anchorId: lobbyId });
-
-    // 6) Inhabitant NPC (skip hangars — the ops desk is the point there).
-    if (tmpl.npc && !isHangar) {
-      await apiCreateNpc({
-        name: tmpl.npc.name, description: tmpl.npc.description,
-        zone_id: roomIdFor(tmpl.npc.room) || lobbyId, home_zone: roomIdFor(tmpl.npc.room) || lobbyId,
-        flags: { personality: tmpl.npc.personality },
-      }).catch(() => null);
-    }
-
-    // 7) Bring furniture + power + zones fully live (authorUtilityRoom added the lobby's
-    //    down→utility exit and the junction box out of band).
-    const touched = [facadeId, lobbyId, ...rooms.map(r => r.id), ...(util ? [util.utilityRoomId] : [])];
-    for (const zid of touched) await refreshZoneFurniture(zid).catch(() => {});
-    await reloadPowerTopology().catch(() => {});
-    await recomputePower().catch(() => {});
-    for (const zid of touched) await reloadZone(zid);
-    await reloadMaps();
-
-    // A power building stands up the region's grid: host a region-scoped city plant in
-    // it, so "build a power plant" actually powers the region it sits in.
-    let plantNote = '';
-    if (bt === 'power' && regionId) {
-      try {
-        const rp = await installRegionPlant({ regionId, zoneId: facadeId, name: buildingName });
-        plantNote = ` ⚡ ${rp.name} online — ${rp.poweredTiles} region tile${rp.poweredTiles !== 1 ? 's' : ''} powered, ${rp.repointedBuildings} building${rp.repointedBuildings !== 1 ? 's' : ''} re-pointed.`;
-      } catch (e) { plantNote = ` (region plant not installed: ${e.message})`; }
-    }
-
-    return { status: 201, body: {
-      id: facadeId, lobby: lobbyId,
-      message: `Built "${buildingName}" (${bt}) at (${toX}, ${toY}) — ${rooms.length + 1} room${rooms.length ? 's' : ''}, powered & lit, fronting the ${front.dir} street.${plantNote}`,
-    } };
-  } catch (e) { return { status: 400, body: { error: e.message } }; }
-}
-
 // ─── Maps (grid containers) ───────────────────────────────────────────────
 async function apiGetMaps() {
   const { rows } = await query(`
@@ -1266,22 +1055,6 @@ async function apiGetMaps() {
     FROM maps m ORDER BY m.id
   `);
   return { status:200, body: rows };
-}
-
-async function apiDeleteMap(id) {
-  try {
-    const { rows: mapRows } = await query('SELECT id FROM maps WHERE id=$1', [id]);
-    if (!mapRows.length) return { status: 404, body: { error: 'Map not found' } };
-    // Get all zone IDs on this map — delete them using the full cascade logic
-    const { rows: zoneRows } = await query('SELECT id FROM zones WHERE map_id=$1', [id]);
-    // Delete each zone through the full cascade (handles npcs, furniture, exits, etc.)
-    for (const { id: zid } of zoneRows) await apiDeleteZone(zid).catch(() => {});
-    // Delete the map itself in case it wasn't caught by entry/parent zone cleanup
-    await query('DELETE FROM maps WHERE id=$1', [id]);
-    return { status: 200, body: { message: `Map deleted (${zoneRows.length} zone${zoneRows.length !== 1 ? 's' : ''} removed)` } };
-  } catch (e) {
-    return { status: 400, body: { error: e.message } };
-  }
 }
 
 async function apiGetMap(id) {
@@ -1359,497 +1132,9 @@ async function apiGetMap(id) {
     allZoneIds: allZoneRows.map(z => z.id) } };
 }
 
-// Links an interior zone to an exterior zone: adds the exit, finds or creates
-// the interior map, and places the interior zone at 0,0,0 on that map.
-// All done in one server call so the client doesn't chain multiple staged writes.
-async function apiLinkInterior(body, auth) {
-  const { exteriorZoneId, interiorZoneId, direction } = body || {};
-  if (!exteriorZoneId || !interiorZoneId || !direction) {
-    return { status: 400, body: { error: 'exteriorZoneId, interiorZoneId, and direction are required' } };
-  }
-  const { rows: extRows } = await query('SELECT * FROM zones WHERE id=$1', [exteriorZoneId]);
-  if (!extRows.length) return { status: 404, body: { error: `Exterior zone ${exteriorZoneId} not found` } };
-  const { rows: intRows } = await query('SELECT * FROM zones WHERE id=$1', [interiorZoneId]);
-  if (!intRows.length) return { status: 404, body: { error: `Interior zone ${interiorZoneId} not found` } };
-  const extZone = extRows[0];
-  const exits = { ...(extZone.exits || {}), [direction]: interiorZoneId };
-
-  // Find or create the interior map for this exterior zone
-  const { rows: existingMaps } = await query('SELECT * FROM maps WHERE parent_zone_id=$1 LIMIT 1', [exteriorZoneId]);
-  let interiorMap;
-  if (existingMaps.length) {
-    interiorMap = existingMaps[0];
-    // Patch entry_zone_id if missing — old maps created before this field was standardized
-    if (!interiorMap.entry_zone_id) {
-      await query('UPDATE maps SET entry_zone_id=$1 WHERE id=$2', [interiorZoneId, interiorMap.id]);
-      interiorMap = { ...interiorMap, entry_zone_id: interiorZoneId };
-    }
-  } else {
-    const mapId = `map_int_${Date.now()}`;
-    await query(
-      `INSERT INTO maps (id, name, parent_zone_id, entry_zone_id) VALUES ($1,$2,$3,$4)`,
-      [mapId, extZone.name + ' — Interior', exteriorZoneId, interiorZoneId]
-    );
-    const { rows } = await query('SELECT * FROM maps WHERE id=$1', [mapId]);
-    interiorMap = rows[0];
-  }
-
-  // Mark the entry zone as a building and record which exterior zone it exits to.
-  const intFlags = JSON.stringify({ ...(intRows[0].flags || {}), is_interior: true, is_building: true, world_exit_zone: exteriorZoneId });
-  // Add the return exit on the interior zone (opposite direction back to the exterior zone).
-  const returnDir = OPPOSITE[direction] || 'out';
-  const intExits = JSON.stringify({ ...(intRows[0].exits || {}), [returnDir]: exteriorZoneId });
-  // Update exterior zone exits and interior zone map placement + return exit.
-  await query('UPDATE zones SET exits=$1 WHERE id=$2', [JSON.stringify(exits), exteriorZoneId]);
-  await query('UPDATE zones SET map_id=$1, grid_x=0, grid_y=0, grid_z=0, flags=$2, exits=$3 WHERE id=$4', [interiorMap.id, intFlags, intExits, interiorZoneId]);
-  await Promise.all([reloadZone(exteriorZoneId), reloadZone(interiorZoneId)]);
-  await reloadMaps(); // the exterior zone may just have become an enterable facade
-
-  // Auto-layout children if a hallway stacking direction was provided.
-  const { hallwayDir } = body || {};
-  let layoutCount = 0;
-  if (hallwayDir) {
-    layoutCount = await autoLayoutInteriorChildren(interiorMap.id, interiorZoneId, hallwayDir);
-  }
-
-  return { status: 200, body: { interiorMap, layoutCount } };
-}
-
-// Plan a building-facade relocation: validate the destination and compute the per-zone
-// exit/position changes needed to move the facade and rewire its front door (the interior
-// map travels for free — it links by parent_zone_id, not position). Pure — never mutates;
-// the dev panel STAGES the returned `changes` through the Changes panel (published together),
-// mirroring terrain edits. Guardrails: destination must be empty and have an adjacent street.
-const MOVE_CARDINAL = { north: [0, -1], south: [0, 1], east: [1, 0], west: [-1, 0] };
-// Re-bake the static flight-sim world (client/game/flightsim.html flies a baked snapshot,
-// not the live DB). The dev-panel Maps tab hits this after publishing terrain so the open
-// flight rig reflects the paint without a CLI run. Derives from the live in-memory world —
-// zone publishes reloadZone() into it, so it's already current — via the same builder the
-// CLI script uses (plugins/flight/snapshot.js), so the two paths can't drift.
-const FLIGHT_SNAPSHOT_PATH = fileURLToPath(new URL('../../client/game/flightsim-world.json', import.meta.url));
-async function apiFlightSnapshot() {
-  try {
-    const { buildFlightSnapshot } = await import('../../plugins/flight/snapshot.js');
-    const snap = buildFlightSnapshot();
-    writeFileSync(FLIGHT_SNAPSHOT_PATH, JSON.stringify(snap));
-    return { status: 200, body: { ok: true, tiles: Object.keys(snap.cells).length, fields: snap.fields.length } };
-  } catch (e) {
-    return { status: 500, body: { error: e.message } };
-  }
-}
-
-async function apiMoveBuilding(body) {
-  const { facadeId, toX, toY, toZ = 0 } = body || {};
-  if (!facadeId || toX == null || toY == null) return { status: 400, body: { error: 'facadeId, toX and toY are required.' } };
-  const facade = getZone(facadeId);
-  if (!facade) return { status: 404, body: { error: `No zone "${facadeId}".` } };
-  if (facade.map_id == null || facade.grid_x == null) return { status: 400, body: { error: "That building isn't placed on a map." } };
-
-  // Must be a building facade — has an interior map, or is flagged/enterable as one.
-  const { rows: mapRows } = await query('SELECT id FROM maps WHERE parent_zone_id=$1 LIMIT 1', [facadeId]);
-  if (!mapRows.length && !facade.flags?.building_type && !isEnterableFacade(facade))
-    return { status: 400, body: { error: `${facade.name} isn't a building facade (no interior map).` } };
-
-  const mapId = facade.map_id, z = toZ;
-  // Coord index over this map/floor.
-  const byCoord = new Map();
-  for (const t of getAllZones())
-    if (t.map_id === mapId && t.grid_x != null && (t.grid_z ?? 0) === z) byCoord.set(`${t.grid_x},${t.grid_y}`, t);
-  const cellAt = (x, y) => byCoord.get(`${x},${y}`) || null;
-
-  // A "street" is a placed, walkable exterior tile that can host a front door.
-  const isStreet = (t) => !!t && t.grid_x != null && !isEnterableFacade(t)
-    && !t.flags?.is_building && !t.flags?.is_interior && !t.flags?.is_apartment
-    && propsOf(t.id).buildable;
-  // Buildings/interiors are never overwritable; plain walkable ground is.
-  const isBuildingish = (t) => !!t && (isEnterableFacade(t) || t.flags?.building_type
-    || t.flags?.is_building || t.flags?.is_interior || t.flags?.is_apartment);
-
-  // Destination cell: empty, the facade itself, or a plain ground tile we SWAP with.
-  // In a fully-tiled district there are no empty cells, so a swap (the building trades
-  // places with the ground tile it lands on) is the only way to relocate anything.
-  const occupant = cellAt(toX, toY);
-  let swapTile = null;
-  if (occupant && occupant.id !== facadeId) {
-    if (isBuildingish(occupant) || !propsOf(occupant.id).buildable || (facade.grid_z ?? 0) !== z)
-      return { status: 400, body: { error: `Destination cell is occupied by ${occupant.name}.` } };
-    swapTile = occupant; // will move into the facade's vacated cell
-  }
-
-  // Working copies of exits for every zone we touch. workExits() writes (and marks the zone
-  // touched); peekExits() reads the pending-or-original exits WITHOUT marking it, so read-only
-  // checks don't drag untouched neighbours into the change set.
-  const touched = new Map();
-  const workExits = (t) => { if (!touched.has(t.id)) touched.set(t.id, { ...(t.exits || {}) }); return touched.get(t.id); };
-  const peekExits = (t) => touched.get(t.id) || t.exits || {};
-
-  const plan = { facade: { id: facadeId, name: facade.name, from: [facade.grid_x, facade.grid_y, facade.grid_z ?? 0], to: [toX, toY, z] }, moves: [] };
-
-  // Detach ALL of the facade's old exterior connections — every cardinal exit it has, and
-  // every tile pointing into it — since its position is changing and only the new front door
-  // should survive. (Interior links are non-cardinal — child map / in / down — so they stay.)
-  // Detaching only street exits left campus/ground-fronting buildings with dangling, wrong-
-  // geometry exits after the move.
-  for (const dir of Object.keys(MOVE_CARDINAL)) {
-    const fx = facade.exits?.[dir];
-    if (fx != null) { const t = getZone(fx); delete workExits(facade)[dir]; plan.moves.push(`Detach ${facade.name} → ${t?.name || fx} (${dir})`); }
-  }
-  for (const t of byCoord.values()) {
-    if (t.id === facadeId) continue;
-    for (const dir of Object.keys(MOVE_CARDINAL)) {
-      if (t.exits?.[dir] === facadeId) { delete workExits(t)[dir]; plan.moves.push(`Detach ${t.name} → ${facade.name} (${dir})`); }
-    }
-  }
-
-  const [fromX, fromY, fromZ] = [facade.grid_x, facade.grid_y, facade.grid_z ?? z];
-
-  // SWAP (part 1 of 2): detach the displaced ground tile from its destination neighbours
-  // BEFORE picking the door — in a fully-tiled district every adjacent street already points
-  // back at the destination cell (at the tile we're removing), which would otherwise
-  // disqualify every door candidate. Doing this first frees those slots.
-  if (swapTile) {
-    for (const [dir, [dx, dy]] of Object.entries(MOVE_CARDINAL)) {
-      if (peekExits(swapTile)[dir] != null) delete workExits(swapTile)[dir];
-      const nb = cellAt(toX + dx, toY + dy);
-      if (nb && nb.id !== facadeId && peekExits(nb)[OPPOSITE[dir]] === swapTile.id) delete workExits(nb)[OPPOSITE[dir]];
-    }
-  }
-
-  // Pick a destination door street: a grid-adjacent street whose door direction is free on
-  // the (moved) facade. Prefer a road-terrain neighbour.
-  const facadeExitsAfter = workExits(facade);
-  const candidates = [];
-  for (const [dir, [dx, dy]] of Object.entries(MOVE_CARDINAL)) {
-    if (facadeExitsAfter[dir]) continue; // that side already leads somewhere (e.g. the interior)
-    const nb = cellAt(toX + dx, toY + dy);
-    if (!nb || !isStreet(nb)) continue;
-    const back = peekExits(nb)[OPPOSITE[dir]];
-    if (back && back !== facadeId) continue; // that street already leads somewhere else
-    candidates.push({ dir, nb });
-  }
-  if (!candidates.length) return { status: 400, body: { error: 'Destination has no adjacent street to host a front door — pick a cell next to a road.' } };
-  const pick = candidates.find(c => propsOf(c.nb.id).frontage) || candidates[0];
-  workExits(facade)[pick.dir] = pick.nb.id;
-  workExits(pick.nb)[OPPOSITE[pick.dir]] = facadeId;
-  plan.moves.push(`Wire ${facade.name} ↔ ${pick.nb.name} (${pick.dir}) as the new front door`);
-  plan.door = { street: pick.nb.id, streetName: pick.nb.name, dir: pick.dir };
-
-  // SWAP (part 2 of 2): re-wire the displaced ground tile at the facade's vacated cell,
-  // mirroring the terrain painter's reciprocal-exit rule so the grid stays connected.
-  if (swapTile) {
-    for (const [dir, [dx, dy]] of Object.entries(MOVE_CARDINAL)) {
-      const nb = cellAt(fromX + dx, fromY + dy);
-      if (!nb || nb.id === facadeId || nb.id === swapTile.id || isBuildingish(nb)) continue;
-      if ((swapTile.flags?.district === 'wilds') !== (nb.flags?.district === 'wilds')) continue; // don't re-open the curtain
-      workExits(swapTile)[dir] = nb.id;
-      workExits(nb)[OPPOSITE[dir]] = swapTile.id;
-    }
-    plan.moves.push(`Swap ${swapTile.name} into the vacated cell (${fromX}, ${fromY})`);
-    plan.swap = { id: swapTile.id, name: swapTile.name, to: [fromX, fromY, fromZ] };
-  }
-
-  // Per-zone changes for the dev panel to stage (facade moves + rewires; streets rewire).
-  const changes = [];
-  for (const [id, exits] of touched) {
-    const t = getZone(id);
-    const patch = { exits };
-    if (id === facadeId) { patch.grid_x = toX; patch.grid_y = toY; patch.grid_z = z; }
-    if (swapTile && id === swapTile.id) { patch.grid_x = fromX; patch.grid_y = fromY; patch.grid_z = fromZ; }
-    changes.push({ id, name: t?.name || id, patch });
-  }
-  if (!touched.has(facadeId)) changes.push({ id: facadeId, name: facade.name, patch: { grid_x: toX, grid_y: toY, grid_z: z } });
-  return { status: 200, body: { plan, changes } };
-}
-
-// ── Spatial regions (dev-panel World Editor) ─────────────────────────────────
-// A region here is a named rectangle of the map_world grid (Coldwater Basin, The
-// Reach…); member zones carry flags.region_id. This is DISTINCT from the land-use
-// DISTRICTS registry above (apiGetDistricts / engine/districts.js), which is the
-// finer-grained "sense of place" inferred from zone-id prefix. Like apiMoveBuilding,
-// the generate/move planners never mutate — they return a payload the dev panel
-// stages (published atomically as one grouped change).
-
-const REGION_MAX_TILES = 400; // one publish = this many zone INSERTs; keep the first cut sane
-
-// regions.id → a short slug for member zone ids (zone_<slug>_<x>_<y>). The slug
-// is unique per region, so ids never collide with a second region generated
-// at the same coords after this one is moved away.
-function regionSlug(id) {
-  return String(id).replace(/^region_/, '').replace(/[^a-z0-9]+/gi, '_').toLowerCase() || 'region';
-}
-
-// The terrain palette, straight off disk. The editor needs the labels and fills to
-// draw its brush swatches; everything a TILE looks like still comes from spec.
-async function apiGetTerrainPalette() {
-  return { status: 200, body: readPalette() || { version: 0, terrains: {} } };
-}
-
-// Rebuild zone_derived from the live world. The derive pass normally runs inside
-// content:import, which is a deploy — but the terrain painter changes what a tile
-// looks like RIGHT NOW, and a painter whose paint doesn't appear until the next
-// deploy is a painter nobody will use. Whole-map, because derive is whole-map by
-// design (spec §7.2); it reads the zones already in RAM, so this costs no queries
-// beyond the writes. Same module the build calls — there is one derive, not two.
-//
-// Deliberately NOT in OPS_ROUTES, so CONTENT_READONLY blocks it on production.
-// Prod's generated tables are built by CI on every deploy; the escape hatch for a
-// one-shot that rewrote tiles directly is `npm run map:derive --prod --yes`, which
-// is a decision somebody makes at a terminal rather than a button in a panel.
-async function apiDeriveMap() {
-  const zones = [...world.zones.values()].map(z => ({
-    id: z.id, name: z.name, marker: z.marker, color: z.color, bg_color: z.bg_color,
-    ambient_theme: z.ambient_theme, audio_theme_id: z.audio_theme_id, flags: z.flags,
-    // Geometry, for projectEdges (§7.5). The painter moves nothing, but derive is
-    // whole-map and rebuilds both generated tables in one pass — handing it a
-    // world with no coordinates would rebuild zone_edges as an empty graph.
-    map_id: z.map_id, grid_x: z.grid_x, grid_y: z.grid_y, grid_z: z.grid_z,
-  }));
-  const connections = (await query('SELECT id, a, b, dir, one_way, blocked FROM connections')).rows;
-  const { rows, edges } = await writeDerived({ query }, {
-    zones, regions: getAllRegions(), connections, palette: readPalette(),
-  });
-  await loadZoneRender();
-  return { status: 200, body: { ok: true, rows, edges } };
-}
-
 async function apiGetSpatialRegions() {
   const { rows } = await query('SELECT * FROM regions ORDER BY name');
   return { status: 200, body: { regions: rows } };
-}
-
-// Add a regions row (used by the staging publisher). Idempotent.
-export async function apiCreateRegion(row) {
-  const { id, name, base_terrain = null, grid_z = 0 } = row || {};
-  if (!id || !name) return { status: 400, body: { error: 'region id and name are required.' } };
-  try {
-    await query(
-      `INSERT INTO regions (id, name, base_terrain, grid_z)
-       VALUES ($1,$2,$3,$4) ON CONFLICT (id) DO NOTHING`,
-      [id, name, base_terrain, grid_z]);
-    return { status: 201, body: { id } };
-  } catch (e) { return { status: 400, body: { error: e.message } }; }
-}
-
-// Plan a blank region: a width×height rectangle of walkable terrain tiles with
-// reciprocal N/S/E/W exits (the canonical ORTHO pattern). Returns
-// { region, zones } for staging; never writes. Overlap-checked against every
-// placed tile on the target floor (covers other regions + the legacy cluster).
-export async function apiGenerateRegion(body, auth) {
-  let { name, width, height, terrain, originX, originY, gridZ = 0 } = body || {};
-  name = (name || '').trim();
-  width = Math.floor(Number(width)); height = Math.floor(Number(height));
-  originX = Math.floor(Number(originX)); originY = Math.floor(Number(originY)); gridZ = Math.floor(Number(gridZ)) || 0;
-  if (!name) return { status: 400, body: { error: 'A region name is required.' } };
-  if (!Number.isFinite(width) || !Number.isFinite(height) || width < 1 || height < 1)
-    return { status: 400, body: { error: 'width and height must be positive integers.' } };
-  if (!Number.isFinite(originX) || !Number.isFinite(originY))
-    return { status: 400, body: { error: 'originX and originY are required.' } };
-  if (width * height > REGION_MAX_TILES)
-    return { status: 400, body: { error: `That's ${width * height} tiles — the limit is ${REGION_MAX_TILES} per region. Make it smaller or build in passes.` } };
-  // Validate terrain against the shared tag catalog (reuses zone-flag validation,
-  // so the enum can never drift from what a tile is allowed to carry).
-  const terrErr = zoneFlagsError({ terrain });
-  if (terrErr) return { status: 400, body: { error: `Base terrain "${terrain}" is invalid — ${terrErr}` } };
-
-  // Unique region id from the name.
-  const base = 'region_' + regionSlug(name);
-  const { rows: existing } = await query('SELECT id FROM regions');
-  const taken = new Set(existing.map(r => r.id));
-  let regionId = base, n = 2;
-  while (taken.has(regionId)) regionId = `${base}_${n++}`;
-  const slug = regionSlug(regionId);
-
-  // Overlap check.
-  const occupied = new Set();
-  for (const t of getAllZones())
-    if (t.map_id === 'map_world' && t.grid_x != null && (t.grid_z ?? 0) === gridZ)
-      occupied.add(`${t.grid_x},${t.grid_y}`);
-  for (let dy = 0; dy < height; dy++) for (let dx = 0; dx < width; dx++) {
-    if (occupied.has(`${originX + dx},${originY + dy}`))
-      return { status: 400, body: { error: `That rectangle overlaps existing tiles (at ${originX + dx},${originY + dy}). Move it to open grid.` } };
-  }
-
-  const ORTHO = [['north', 0, -1], ['south', 0, 1], ['east', 1, 0], ['west', -1, 0]];
-  const zid = (x, y) => `zone_${slug}_${x}_${y}`;
-  const inRect = (x, y) => x >= originX && x < originX + width && y >= originY && y < originY + height;
-  const zones = [];
-  for (let dy = 0; dy < height; dy++) for (let dx = 0; dx < width; dx++) {
-    const x = originX + dx, y = originY + dy;
-    const exits = {};
-    for (const [dir, ex, ey] of ORTHO) if (inRect(x + ex, y + ey)) exits[dir] = zid(x + ex, y + ey);
-    zones.push({
-      id: zid(x, y),
-      name: `${name} ${x},${y}`,
-      description: 'A raw, undeveloped stretch of ground. [PLANNER STUB]',
-      exits,
-      ambient_theme: 'outdoors',
-      map_id: 'map_world',
-      grid_x: x, grid_y: y, grid_z: gridZ,
-      flags: { terrain, region_id: regionId },
-    });
-  }
-  const region = { id: regionId, name, base_terrain: terrain, grid_z: gridZ };
-  return { status: 200, body: { region, zones } };
-}
-
-// Plan a whole-region reposition: shift every member zone's grid_x/grid_y by
-// (dx, dy). Ids and exits are untouched (exits are id-based), so connectivity is
-// preserved — only coordinates move. Overlap-checked against non-member tiles.
-export async function apiMoveRegion(body) {
-  let { regionId, dx, dy } = body || {};
-  dx = Math.floor(Number(dx)); dy = Math.floor(Number(dy));
-  if (!regionId) return { status: 400, body: { error: 'regionId is required.' } };
-  if (!Number.isFinite(dx) || !Number.isFinite(dy)) return { status: 400, body: { error: 'dx and dy are required.' } };
-  if (dx === 0 && dy === 0) return { status: 400, body: { error: 'That region is already there.' } };
-
-  const members = getAllZones().filter(t => t.flags?.region_id === regionId && t.grid_x != null);
-  if (!members.length) return { status: 404, body: { error: `Region "${regionId}" has no placed zones.` } };
-
-  // Occupied cells that DON'T belong to this region, per floor.
-  const memberIds = new Set(members.map(t => t.id));
-  const occupied = new Set();
-  for (const t of getAllZones())
-    if (t.map_id === 'map_world' && t.grid_x != null && !memberIds.has(t.id))
-      occupied.add(`${t.grid_z ?? 0}:${t.grid_x},${t.grid_y}`);
-
-  const changes = [];
-  for (const t of members) {
-    const nx = t.grid_x + dx, ny = t.grid_y + dy, z = t.grid_z ?? 0;
-    if (occupied.has(`${z}:${nx},${ny}`))
-      return { status: 400, body: { error: `Move blocked — a tile would land on an occupied cell (${nx},${ny}). Pick a clearer spot.` } };
-    changes.push({ id: t.id, name: t.name || t.id, patch: { grid_x: nx, grid_y: ny } });
-  }
-  return { status: 200, body: { regionId, dx, dy, count: changes.length, changes } };
-}
-
-// Given a placed building root zone at 0,0,0, traverse the exit chain in
-// hallwayDir to order hallways, then place each hallway's children (units)
-// at the exit-direction offset from the hallway cell.
-const LAYOUT_DIR_OFFSET = { north:[0,-1,0], south:[0,1,0], east:[1,0,0], west:[-1,0,0], up:[0,0,1], down:[0,0,-1] };
-const UNIT_DIR_OFFSET   = { north:[0,-1,0], south:[0,1,0], east:[1,0,0], west:[-1,0,0] };
-
-async function autoLayoutInteriorChildren(mapId, rootZoneId, hallwayDir) {
-  const { rows: rootRows } = await query('SELECT * FROM zones WHERE id=$1', [rootZoneId]);
-  if (!rootRows.length) return 0;
-  const rootZone = rootRows[0];
-
-  // Load all direct children (hallways) of the root
-  const { rows: hallways } = await query('SELECT * FROM zones WHERE parent_zone=$1', [rootZoneId]);
-  if (!hallways.length) return 0;
-
-  // Order hallways by following the exit chain from root in hallwayDir
-  const hallwayById = new Map(hallways.map(h => [h.id, h]));
-  const ordered = [];
-  const seen = new Set([rootZoneId]);
-  let cur = rootZone;
-  while (cur) {
-    const nextId = (cur.exits || {})[hallwayDir];
-    if (!nextId || seen.has(nextId)) break;
-    seen.add(nextId);
-    const next = hallwayById.get(nextId);
-    if (!next) break;
-    ordered.push(next);
-    cur = next;
-  }
-  // Any hallways not reached by the chain (e.g. roof off a different direction)
-  for (const h of hallways) {
-    if (!seen.has(h.id)) ordered.push(h);
-  }
-
-  const off = LAYOUT_DIR_OFFSET[hallwayDir] || [0, 0, 1];
-  let count = 0;
-
-  for (let i = 0; i < ordered.length; i++) {
-    const hallway = ordered[i];
-    const hx = (i + 1) * off[0];
-    const hy = (i + 1) * off[1];
-    const hz = (i + 1) * off[2];
-    await query('UPDATE zones SET map_id=$1, grid_x=$2, grid_y=$3, grid_z=$4 WHERE id=$5',
-      [mapId, hx, hy, hz, hallway.id]);
-    reloadZone(hallway.id).catch(() => {});
-    count++;
-
-    // Place this hallway's children (units) at their exit offsets
-    const { rows: units } = await query('SELECT * FROM zones WHERE parent_zone=$1', [hallway.id]);
-    for (const unit of units) {
-      const exitDir = allExits(hallway).find(e => e.target === unit.id)?.dir;
-      const ud = exitDir && UNIT_DIR_OFFSET[exitDir];
-      if (!ud) continue;
-      await query('UPDATE zones SET map_id=$1, grid_x=$2, grid_y=$3, grid_z=$4 WHERE id=$5',
-        [mapId, hx + ud[0], hy + ud[1], hz + ud[2], unit.id]);
-      reloadZone(unit.id).catch(() => {});
-      count++;
-    }
-  }
-  return count;
-}
-
-async function apiCreateMap(body, auth) {
-  const id = body.id || `map_${Date.now()}`;
-  if (!body.name) return { status:400, body:{error:'name is required'} };
-  try {
-    await query(
-      `INSERT INTO maps (id,name,parent_zone_id,entry_zone_id) VALUES ($1,$2,$3,$4)`,
-      [id, body.name, body.parent_zone_id||null, body.entry_zone_id||null]
-    );
-    return { status:201, body:{ id, message:'Map created' } };
-  } catch(e) { return { status:400, body:{error:e.message} }; }
-}
-
-// Batch save from the overview editor: zone positions + exit edits. Validates
-// the PROPOSED full-world state first (so broken connections are caught even
-// if the client's pre-check is bypassed) and writes nothing on error.
-async function apiSaveMapLayout(mapId, body) {
-  const positions = Array.isArray(body?.zones) ? body.zones : [];
-  const exitEdits = (body && typeof body.exits === 'object' && body.exits) || {};
-
-  const { rows: mapRows } = await query('SELECT id FROM maps WHERE id=$1', [mapId]);
-  if (!mapRows.length) return { status:404, body:{error:'Map not found'} };
-
-  // Whole-world context: dangling/reciprocal checks can cross maps, and a
-  // cross-map portal's target must be resolvable.
-  const { rows: allZones } = await query('SELECT id, map_id, grid_x, grid_y, grid_z, exits FROM zones');
-  const posById = new Map(positions.map(p => [p.id, p]));
-  const proposed = allZones.map(z => {
-    const p = posById.get(z.id);
-    return {
-      id: z.id, map_id: (p && p.map_id) ? p.map_id : z.map_id,
-      grid_x: p ? p.grid_x : z.grid_x,
-      grid_y: p ? p.grid_y : z.grid_y,
-      grid_z: p ? (p.grid_z ?? 0) : z.grid_z,
-      exits: z.exits || {},
-    };
-  });
-
-  const { errors, warnings } = validateMapLayout(proposed, exitEdits);
-  if (errors.length) return { status:409, body:{ error:'Broken connections must be fixed before saving', broken: errors, warnings } };
-
-  const client = await getClient();
-  try {
-    await client.query('BEGIN');
-    for (const p of positions) {
-      await client.query(
-        `UPDATE zones SET grid_x=$2, grid_y=$3, grid_z=$4, map_id=COALESCE($5,map_id) WHERE id=$1`,
-        [p.id, p.grid_x ?? null, p.grid_y ?? null, p.grid_z ?? 0, p.map_id || mapId]
-      );
-    }
-    for (const [zoneId, exits] of Object.entries(exitEdits)) {
-      await client.query(
-        `UPDATE zones SET exits=$2 WHERE id=$1`,
-        [zoneId, JSON.stringify(exits || {})]
-      );
-    }
-    await client.query('COMMIT');
-  } catch(e) {
-    await client.query('ROLLBACK').catch(()=>{});
-    client.release();
-    return { status:400, body:{error:e.message} };
-  }
-  client.release();
-
-  const touched = new Set([...positions.map(p => p.id), ...Object.keys(exitEdits)]);
-  for (const zid of touched) await reloadZone(zid);
-  return { status:200, body:{ message:'Layout saved', warnings } };
 }
 
 // Called after zone(s) are removed from the DB. Any currently-connected
@@ -2610,7 +1895,11 @@ export async function apiDeleteFurniture(id) {
     return {status:200,body:{message:'Furniture deleted'}};
   } catch(e) { return {status:400,body:{error:e.message}}; }
 }
-async function apiBulkAddStreetlights(auth) {
+// Puts a street light on every sanctuary street tile that lacks one. Writes each
+// light straight through apiCreateFurniture, then mirrors it to its content file:
+// this is one request creating many rows, so the per-request file sync in
+// handleApiRequest cannot see them.
+async function apiBulkAddStreetlights() {
   const { rows: templates } = await query(
     `SELECT * FROM furniture WHERE object_type='light' AND light_type='streetlight' LIMIT 1`
   );
@@ -2624,25 +1913,16 @@ async function apiBulkAddStreetlights(auth) {
       AND z.id NOT IN (
         SELECT DISTINCT zone_id FROM furniture WHERE light_type='streetlight'
       )
-      AND z.id NOT IN (
-        SELECT staged_data::jsonb->>'zone_id' FROM staged_changes WHERE entity_type='furniture' AND staged_data::jsonb->>'light_type'='streetlight'
-      )
   `);
-  const { rows: authorRows } = await query('SELECT handle FROM players WHERE id=$1', [auth?.playerId]).catch(() => ({ rows: [] }));
-  const author = authorRows[0]?.handle || auth?.playerId || 'system';
   let added = 0;
   for (const zone of zones) {
-    const furnitureId = `furn_sl_${zone.id}`;
-    const requestBody = { id: furnitureId, zone_id: zone.id, name: t.name, description: t.description, object_type: t.object_type, light_type: t.light_type, light_on: 0, power_draw_kw: t.power_draw_kw, lumen_output: t.lumen_output ?? 8000, flags: t.flags || {} };
-    await query(`
-      INSERT INTO staged_changes (id, entity_type, entity_id, entity_name, change_type, method, api_path, staged_data, description, author, staged_at)
-      VALUES (gen_random_uuid()::text, 'furniture', $1, $2, 'create', 'POST', '/furniture', $3, $4, $5, NOW())
-      ON CONFLICT (entity_type, entity_id) DO NOTHING`,
-      [furnitureId, t.name, JSON.stringify(requestBody), `Add street light to ${zone.name || zone.id}`, author]
-    );
+    const id = `furn_sl_${zone.id}`;
+    const r = await apiCreateFurniture({ id, zone_id: zone.id, name: t.name, description: t.description, object_type: t.object_type, light_type: t.light_type, light_on: 0, power_draw_kw: t.power_draw_kw, lumen_output: t.lumen_output ?? 8000, flags: t.flags || {} });
+    if (r?.status >= 400) return { status: r.status, body: { added, error: `${zone.name || zone.id}: ${r.body?.error}` } };
+    await syncEntityFile('furniture', id).catch(e => console.error('[content-sync]', e.message));
     added++;
   }
-  return { status:200, body:{ added, message:`${added} street light${added===1?'':'s'} staged — publish to apply.` } };
+  return { status:200, body:{ added, message:`${added} street light${added===1?'':'s'} added.` } };
 }
 async function apiGetActivityLog() {
   const {rows} = await query(`SELECT event_type, handle, admin_handle, occurred_at FROM server_activity_log ORDER BY occurred_at DESC LIMIT 50`);
