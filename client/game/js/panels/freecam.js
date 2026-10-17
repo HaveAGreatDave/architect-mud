@@ -205,6 +205,9 @@ const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
 
 export function createFreeCam() {
   const st = { on: false, x: 0, y: 0, z: 0.45, yaw: 0, pitch: 0, roll: 0, fov: 1, speed: 1, px: 0, py: 0, keys: new Set(), btn: new Set(), notify: null, hold: true, holdNotify: null,
+    // The touch thumbstick: right and forward on [-1, 1], and how far past the ring it is pushed on
+    // [0, 1] (the run). See bindFreeCamTouch.
+    sx: 0, sy: 0, run: 0, standNotify: null,
     // The standing constraints. `stand` off is the flying camera that always shipped, and every
     // expression below that reads these is written so that `stand: false` is the line it was.
     stand: false, eye: STAND_EYE, leash: 0, ax: 0, ay: 0,
@@ -244,6 +247,7 @@ export function createFreeCam() {
   // — the pointer handed back, the lock arriving, the camera stowed, a blur — comes through here, and
   // a push left set by one of them is a camera turning on its own with nothing on screen doing it.
   const stopPush = () => { st.px = 0; st.py = 0; };
+  const stopStick = () => { st.sx = 0; st.sy = 0; st.run = 0; };
 
   // Where the subject is, with the swing offset still to ease out (see `track`).
   const trkAt = () => { const t = st.trk; return [t.x + t.ox, t.y + t.oy, t.z + t.oz]; };
@@ -354,9 +358,10 @@ export function createFreeCam() {
       st.speed = 1;
       untrack();
       stopPush();
+      stopStick();
       st.notify?.(true);
     },
-    close() { st.on = false; st.keys.clear(); st.btn.clear(); stopPush(); untrack(); st.notify?.(false); },
+    close() { st.on = false; st.keys.clear(); st.btn.clear(); stopPush(); stopStick(); untrack(); st.notify?.(false); },
     toggle(seed) { if (st.on) this.close(); else this.open(seed); return st.on; },
 
     // The surface asking to be told when the camera comes out and goes back on its mount, so it can
@@ -449,7 +454,29 @@ export function createFreeCam() {
     // clear, up to `max`, in the same offset tiles as `view()`. Anything not finite means all of it.
     // One per camera, set by the panel that has the map; without one nothing is ever in the way.
     setTrackReach(fn) { st.reach = typeof fn === 'function' ? fn : null; },
-    releaseAll() { st.keys.clear(); st.btn.clear(); stopPush(); },
+    releaseAll() { st.keys.clear(); st.btn.clear(); stopPush(); stopStick(); },
+
+    // ── THE THUMBSTICK ────────────────────────────────────────────────────────
+    // A phone has no WASD, so the touch layer hands the camera an analogue stick instead: `x` right
+    // and `y` forward on [-1, 1], and `run` on [0, 1] for a thumb pushed out past the ring. It is
+    // spent in `step` through the same `go` the keys use, so standing, the leash and the speed
+    // ladder all apply to it unchanged. Moving lets go of a followed bird, as W does.
+    setStick(x, y, run = 0) {
+      if (!st.on) return false;
+      st.sx = clamp(x || 0, -1, 1); st.sy = clamp(y || 0, -1, 1); st.run = clamp(run || 0, 0, 1);
+      if (st.trk && (st.sx || st.sy)) untrack();
+      return true;
+    },
+    // The pinch: a continuous lens, where the wheel is a notch at a time. Same clamp as `zoom`.
+    zoomBy(f) {
+      if (!st.on || !(f > 0)) return false;
+      st.fovWant = null;
+      st.fov = clamp(st.fov * f, FOV_MIN, FOV_MAX);
+      return true;
+    },
+    // One listener, told when the feet go down or come up, so the touch layer can hide its height
+    // buttons on a standing camera instead of showing two that do nothing.
+    onStand(fn) { st.standNotify = fn || null; return () => { if (st.standNotify === fn) st.standNotify = null; }; },
     // Narrower, for the one case that is not a teardown: the pointer lock going away with a button
     // still down. That leaves the camera rising or falling with nothing the player can press to stop
     // it — the stuck-key failure above, arriving through the mouse — and it must not also drop the
@@ -702,6 +729,11 @@ export function createFreeCam() {
       // "you cannot fly" than a guard here that the next control to be added would have to repeat.
       if (held('r') || st.btn.has('up')) go(0, 0, sp);
       if (held('f') || st.btn.has('down')) go(0, 0, -sp);
+      // The touch stick: the walk rate at the ring, rising to the sprint as the thumb goes past it.
+      if (st.sx || st.sy) {
+        const k = (BASE + (FAST - BASE) * st.run) / BASE;
+        go(sp * k * st.sy, sp * k * st.sx, 0);
+      }
     },
 
     // The shape `paintWindshield` reads as `v.freeCam`. x/y are a world-tile offset from the
@@ -781,6 +813,7 @@ export function createFreeCam() {
       // on a camera that has not moved. Either way it is the one chokepoint that owns where the
       // eye may be, which is what keeps the next control anybody adds honest.
       place(st.x, st.y, st.z);
+      st.standNotify?.(st.stand);
       return st.stand;
     },
     get standing() { return st.stand; },
@@ -886,8 +919,14 @@ export function bindFreeCamIdle(cam, ms = IDLE_MS) {
 // comment reasoning that no environment this client runs in would refuse it. It is the environment
 // the game is most often looked at from during development, and the whole mouse would have been
 // dead there with nothing on screen to say why.
-export function bindFreeCamPointer(el, cam) {
+export function bindFreeCamPointer(el, cam, opts = {}) {
   if (!el) return () => {};
+  // A finger is not a mouse, and every rule below is a mouse rule: a touch reads as button 0, so
+  // holding a finger on the glass lifted the camera, the lock was asked for on every tap, and a
+  // drag near the edge set off the rim turn. Touch has its own scheme (bindFreeCamTouch) and the
+  // handlers below hand it every touch pointer before they look at anything else.
+  const touch = bindFreeCamTouch(el, cam, opts);
+  const isTouch = (e) => e.pointerType === 'touch' || touch.owns(e.pointerId);
   const locked = () => document.pointerLockElement === el;
   // ⚠ CAN THIS DOCUMENT LOCK THE POINTER AT ALL? Everything below that treats a click as "take the
   // pointer" rather than "raise the camera" depends on the answer, and getting it wrong in the
@@ -943,7 +982,8 @@ export function bindFreeCamPointer(el, cam) {
   // is what makes this reach it.
   const mine = (e) => { e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation?.(); };
   const down = (e) => {
-    if (!cam.active) return;
+    if (!cam.active || touch.isUi(e.target)) return;
+    if (isTouch(e)) { if (touch.down(e)) mine(e); return; }
     mine(e);
     // ⚠ THE CLICK THAT TAKES THE POINTER MOVES NOTHING. Esc hands the mouse back without stowing the
     // camera (that is Esc's job, not this feature's), so clicking to get the lock again is a thing
@@ -1001,6 +1041,7 @@ export function bindFreeCamPointer(el, cam) {
   // at all — and an unseen release is a camera climbing on its own with nothing to stop it.
   const move = (e) => {
     if (!cam.active) return;
+    if (isTouch(e)) { if (touch.move(e)) mine(e); return; }
     // ⚠ A FREE MOUSE IS A CURSOR AND AIMS NOTHING. That is the entire point of handing it back: with
     // the look still live, crossing the glass to reach a button swings the shot on the way, which is
     // the awkwardness this was built to remove. A DRAG is the exception, because a held button is an
@@ -1025,6 +1066,7 @@ export function bindFreeCamPointer(el, cam) {
     mine(e);
   };
   const up = (e) => {
+    if (isTouch(e)) { touch.up(e); return; }
     if (!cam.active) return;
     if (e.button === 0) cam.setButton('up', false);
     else if (e.button === 2) cam.setButton('down', false);
@@ -1080,6 +1122,7 @@ export function bindFreeCamPointer(el, cam) {
   // click first: `O` is a keypress, which carries the user activation the lock needs, so the one
   // gesture that detaches the camera is also the one that hands it the mouse.
   const unToggle = cam.onToggle?.((on) => {
+    touch.sync();
     if (on) { lockable = policyAllows(); applyHold(cam.mouseHeld); }
     else { last = null; cam.setLookPush?.(0, 0); release(); hideCursor(false); }
   }) || (() => {});
@@ -1095,9 +1138,12 @@ export function bindFreeCamPointer(el, cam) {
   document.addEventListener('pointerlockerror', lockError);
   window.addEventListener('keydown', esc, true);
   el.addEventListener('wheel', wheel, { passive: false, capture: true });
+  // Free look opens the camera BEFORE it binds this, so the toggle above has already been missed.
+  touch.sync();
   return () => {
     unToggle();
     unHold();
+    touch.dispose();
     release();
     hideCursor(false);
     cam.setLookPush?.(0, 0);
@@ -1111,4 +1157,235 @@ export function bindFreeCamPointer(el, cam) {
     window.removeEventListener('keydown', esc, true);
     el.removeEventListener('wheel', wheel, { capture: true });
   };
+}
+
+// ── TOUCH ────────────────────────────────────────────────────────────────────
+// The phone's scheme, the one every mobile 3-D game has settled on, so nobody has to learn it:
+//
+//   · one finger on the glass looks, and the look follows the finger;
+//   · a thumb put down on the lower left of the glass is a thumbstick, centred where it landed,
+//     and pushed out past its ring it runs;
+//   · two fingers pinch the lens;
+//   · ▲ ▼ on the right hold the height, flying only.
+//
+// ⚠ NO RIM, NO LOCK AND NO BUTTONS ON THE GLASS. The rim exists because a mouse runs out of desk,
+// and a finger lifts and comes down again; a tap that asked for the pointer lock was a tap that did
+// nothing; and a held finger that lifted the camera was the main thing wrong with it before.
+//
+// It draws its own chrome inside the glass (a ring and two buttons), shown on a touch screen or
+// once a finger has touched the glass, and only while the camera is out. Every seat that binds the
+// free camera gets it, which is the point: the cab, the cockpit, the wheelhouse and free look all
+// move the same way under a thumb.
+const TOUCH_LOOK = 1.6;    // times the mouse's degrees per pixel: a thumb travels less than a mouse
+const STICK_R = 44;        // px, the ring's radius; full deflection at the ring
+const STICK_DEAD = 0.12;   // of the radius, so a resting thumb is not a slow drift
+const STICK_RUN = 0.8;     // radii past the ring to reach the sprint
+const STICK_ZONE_X = 0.45, STICK_ZONE_Y = 0.25;   // the stick spawns left of this share, below this one
+
+export const FREECAM_TOUCH_HINT = 'FREE CAM · drag looks · left thumb moves, past the ring runs · pinch zooms · ▲ ▼ height';
+export const FREECAM_TOUCH_STAND_HINT = 'drag looks · left thumb walks · pinch zooms';
+// Whether this screen should get the touch line rather than the mouse one.
+export function freeCamTouchUI() {
+  try {
+    if (document.documentElement?.dataset?.density === 'compact') return true;
+    return !!window.matchMedia?.('(hover: none), (pointer: coarse)')?.matches;
+  } catch { return false; }
+}
+// The hint a seat should show for the camera as it is now.
+export function freeCamHint(standing) {
+  if (freeCamTouchUI()) return standing ? FREECAM_TOUCH_STAND_HINT : FREECAM_TOUCH_HINT;
+  return standing ? FREECAM_STAND_HINT : FREECAM_HINT;
+}
+
+function ensureTouchStyles() {
+  const el = document.getElementById('freecam-touch-styles') || document.createElement('style');
+  el.id = 'freecam-touch-styles';
+  // The player's theme, not a palette of its own: the ring and the buttons take --accent, --bg and
+  // --text from whatever [data-theme] is on <html>, with the glass's own dark as the fallback.
+  el.textContent = `
+    .fc-touch{ position:absolute; inset:0; z-index:7; pointer-events:none; }
+    .fc-touch:not(.tui) > *{ display:none !important; }
+    .fc-touch:not(.on) .fc-ring, .fc-touch:not(.on) .fc-lift{ display:none; }
+    .fc-ring{ position:absolute; left:${STICK_R + 22}px; top:calc(100% - ${STICK_R + 64}px);
+      width:${STICK_R * 2}px; height:${STICK_R * 2}px; margin:${-STICK_R}px 0 0 ${-STICK_R}px; border-radius:50%;
+      border:1.5px solid color-mix(in srgb, var(--accent, #ff2ec4) 45%, rgba(255,255,255,0.22));
+      background:radial-gradient(circle, color-mix(in srgb, var(--bg, #05050a) 20%, transparent) 0 55%, color-mix(in srgb, var(--bg, #05050a) 55%, transparent));
+      opacity:0.5; transition:opacity .2s linear, border-color .15s linear, box-shadow .15s linear; }
+    .fc-ring.live{ opacity:0.95; transition:none; }
+    .fc-ring.run{ border-color:var(--accent, #ff2ec4); box-shadow:0 0 14px color-mix(in srgb, var(--accent, #ff2ec4) 55%, transparent); }
+    .fc-knob{ position:absolute; left:50%; top:50%; width:40px; height:40px; margin:-20px 0 0 -20px; border-radius:50%;
+      background:color-mix(in srgb, var(--text, #e8e8f5) 78%, transparent);
+      box-shadow:0 1px 6px rgba(0,0,0,0.5); }
+    .fc-ring.run .fc-knob{ background:var(--accent, #ff2ec4); }
+    .fc-lift{ position:absolute; right:12px; bottom:72px; display:flex; flex-direction:column; gap:8px; pointer-events:auto; }
+    .fc-touch.standing .fc-lift{ display:none; }
+    .fc-tb{ width:48px; height:48px; padding:0; border-radius:12px; cursor:pointer;
+      font:600 1.125rem/1 var(--font-mono, monospace); color:var(--text, #e8e8f5);
+      background:color-mix(in srgb, var(--bg, #05050a) 62%, transparent);
+      border:1px solid color-mix(in srgb, var(--accent, #ff2ec4) 38%, rgba(255,255,255,0.18));
+      touch-action:none; user-select:none; -webkit-user-select:none; -webkit-tap-highlight-color:transparent; }
+    .fc-tb.on{ background:var(--accent, #ff2ec4); color:var(--accent-ink, #0a0a0a); border-color:var(--accent, #ff2ec4); }
+    .fc-tb.fc-cam{ position:absolute; left:12px; top:40px; width:auto; height:40px; padding:0 12px; pointer-events:auto;
+      font-size:12px; letter-spacing:1px; }
+    .fc-cam:not(.can){ display:none; }
+    /* The seats' own free-camera hint lines are one line long on a desk; on a phone they wrap. */
+    html[data-density="compact"] :is(.cab-freecam-hint, .helm-freecam-hint){ white-space:normal !important;
+      text-overflow:clip !important; overflow:visible !important; width:max-content; max-width:calc(100% - 24px) !important;
+      text-align:center; line-height:1.35; }
+    body.freecam-idle .fc-ring:not(.live){ opacity:0.18; }`;
+  if (!el.parentNode) document.head.appendChild(el);
+}
+
+function bindFreeCamTouch(el, cam, { toggleKey = null, canToggle = () => true } = {}) {
+  const ptrs = new Map();   // pointerId → { role: 'stick' | 'look', x, y, ox, oy }
+  let pinch = 0;            // the two look fingers' spread last move, 0 when not pinching
+  let ui = null, ring = null, knob = null, touchWas = null, camBtn = null, tick = 0, seen = false;
+  // Shown on a touch screen, or anywhere once a finger has touched the glass; the camera button only
+  // where the seat says the camera can come out now, and the stick and height only while it is out.
+  const refresh = () => {
+    if (!ui) return;
+    ui.classList.toggle('tui', seen || freeCamTouchUI());
+    if (camBtn) {
+      const can = cam.active || !!canToggle();
+      camBtn.classList.toggle('can', can);
+      const label = cam.active ? '✕ CAM' : '◎ CAM';
+      if (camBtn.textContent !== label) camBtn.textContent = label;
+      camBtn.classList.toggle('on', cam.active);
+    }
+  };
+  const live = typeof document !== 'undefined' && typeof document.createElement === 'function' && typeof el.appendChild === 'function';
+  if (live) {
+    ensureTouchStyles();
+    ui = document.createElement('div');
+    ui.className = 'fc-touch';
+    ui.innerHTML = `<div class="fc-ring" aria-hidden="true"><div class="fc-knob"></div></div>`
+      + `<div class="fc-lift" role="group" aria-label="Camera height">`
+      + `<button type="button" class="fc-tb" data-b="up" aria-label="Up">&#9650;</button>`
+      + `<button type="button" class="fc-tb" data-b="down" aria-label="Down">&#9660;</button></div>`
+      + (toggleKey ? `<button type="button" class="fc-tb fc-cam" aria-label="Free camera"></button>` : '');
+    el.appendChild(ui);
+    // The seat's own camera key, pressed for a phone that has no keyboard. Sent as the key rather than
+    // as a call so each seat's rules about when the camera may come out (the external view only) and
+    // what it holds while it is out stay in the one place they are written.
+    camBtn = ui.querySelector('.fc-cam');
+    // The seat's own drags on this glass (the cab's steering) must not start under it.
+    camBtn?.addEventListener('pointerdown', (e) => e.stopPropagation());
+    camBtn?.addEventListener('click', (e) => {
+      e.preventDefault(); e.stopPropagation();
+      for (const type of ['keydown', 'keyup']) window.dispatchEvent(new KeyboardEvent(type, { key: toggleKey, bubbles: true }));
+      refresh();
+    });
+    tick = setInterval(refresh, 500);
+    ring = ui.querySelector('.fc-ring'); knob = ui.querySelector('.fc-knob');
+    // Held, not tapped, as the mouse buttons they stand in for. Pointer capture keeps the release
+    // addressed here, so a thumb that slides off the button still lets go.
+    for (const b of ui.querySelectorAll('.fc-tb')) {
+      const name = b.dataset.b;
+      const off = () => { cam.setButton(name, false); b.classList.remove('on'); };
+      b.addEventListener('pointerdown', (e) => {
+        e.preventDefault(); e.stopPropagation();
+        b.setPointerCapture?.(e.pointerId);
+        if (cam.setButton(name, true)) b.classList.add('on');
+      });
+      for (const t of ['pointerup', 'pointercancel', 'lostpointercapture']) b.addEventListener(t, off);
+      b.addEventListener('contextmenu', (e) => e.preventDefault());
+    }
+  }
+  const lookers = () => [...ptrs.values()].filter((p) => p.role === 'look');
+  const spread = () => { const [a, b] = lookers(); return a && b ? Math.hypot(a.x - b.x, a.y - b.y) : 0; };
+  const restStick = () => {
+    cam.setStick?.(0, 0, 0);
+    if (ring) { ring.classList.remove('live', 'run'); ring.style.left = ''; ring.style.top = ''; }
+    if (knob) knob.style.transform = '';
+  };
+  const showStanding = () => ui?.classList.toggle('standing', !!cam.standing);
+  const unStand = cam.onStand?.(showStanding) || (() => {});
+  refresh();
+
+  const api = {
+    owns: (id) => ptrs.has(id),
+    // The height buttons live inside the glass, so the glass's capture handler sees their presses
+    // first and must leave them alone, mouse or finger.
+    isUi: (t) => !!(ui && t && typeof t.closest === 'function' && t.closest('.fc-lift, .fc-cam')),
+    down(e) {
+      if (!cam.active || api.isUi(e.target)) return false;
+      if (!seen) { seen = true; refresh(); }
+      const r = el.getBoundingClientRect?.();
+      const x = e.clientX, y = e.clientY;
+      const hasStick = [...ptrs.values()].some((p) => p.role === 'stick');
+      const inZone = r && r.width > 0 && x < r.left + r.width * STICK_ZONE_X && y > r.top + r.height * STICK_ZONE_Y;
+      if (!hasStick && inZone) {
+        // Centred where the thumb landed, kept a ring's width inside the glass so it is all on screen.
+        const lx = clamp(x - r.left, STICK_R + 4, Math.max(STICK_R + 4, r.width - STICK_R - 4));
+        const ly = clamp(y - r.top, STICK_R + 4, Math.max(STICK_R + 4, r.height - STICK_R - 4));
+        ptrs.set(e.pointerId, { role: 'stick', x, y, ox: r.left + lx, oy: r.top + ly });
+        if (ring) { ring.style.left = lx + 'px'; ring.style.top = ly + 'px'; ring.classList.add('live'); }
+        api.move(e);
+      } else {
+        ptrs.set(e.pointerId, { role: 'look', x, y });
+        pinch = spread();
+      }
+      return true;
+    },
+    move(e) {
+      const p = ptrs.get(e.pointerId);
+      if (!p || !cam.active) return false;
+      const x = e.clientX, y = e.clientY;
+      if (x == null || y == null) return true;
+      if (p.role === 'stick') {
+        p.x = x; p.y = y;
+        const dx = x - p.ox, dy = y - p.oy, h = Math.hypot(dx, dy), m = h / STICK_R;
+        if (m < STICK_DEAD) cam.setStick?.(0, 0, 0);
+        else {
+          const mag = Math.min(1, (m - STICK_DEAD) / (1 - STICK_DEAD));
+          cam.setStick?.(dx / h * mag, -dy / h * mag, clamp((m - 1) / STICK_RUN, 0, 1));
+        }
+        const k = Math.min(1, STICK_R / Math.max(h, 1e-6));
+        if (knob) knob.style.transform = `translate(${dx * k}px, ${dy * k}px)`;
+        ring?.classList.toggle('run', m > 1.05);
+        return true;
+      }
+      const dx = x - p.x, dy = y - p.y;
+      p.x = x; p.y = y;
+      // Two fingers: the spread is the lens and the pair's midpoint goes on looking, so a pinch
+      // that drifts is still aiming rather than dead.
+      if (lookers().length >= 2) {
+        const s = spread();
+        if (pinch > 0 && s > 0) cam.zoomBy?.(s / pinch);
+        pinch = s;
+        cam.look(dx * TOUCH_LOOK / 2, dy * TOUCH_LOOK / 2);
+      } else if (dx || dy) cam.look(dx * TOUCH_LOOK, dy * TOUCH_LOOK);
+      return true;
+    },
+    up(e) {
+      const p = ptrs.get(e.pointerId);
+      if (!p) return;
+      ptrs.delete(e.pointerId);
+      if (p.role === 'stick') restStick();
+      pinch = spread();
+    },
+    // The camera came out or went back: show or hide the chrome, and drop every finger, because a
+    // stick still held across a stow would be a camera walking off the next time it opened.
+    sync() {
+      ptrs.clear(); pinch = 0; restStick();
+      for (const b of ui?.querySelectorAll('.fc-tb.on') || []) b.classList.remove('on');
+      ui?.classList.toggle('on', !!cam.active);
+      showStanding();
+      refresh();
+      // The page must not scroll or zoom under a finger that is aiming. Put back on the stow, so
+      // a seat whose own glass wants a pan gesture keeps it.
+      if (el.style) {
+        if (cam.active) { if (touchWas === null) touchWas = el.style.touchAction || ''; el.style.touchAction = 'none'; }
+        else if (touchWas !== null) { el.style.touchAction = touchWas; touchWas = null; }
+      }
+    },
+    dispose() {
+      unStand();
+      clearInterval(tick);
+      ptrs.clear();
+      if (el.style && touchWas !== null) { el.style.touchAction = touchWas; touchWas = null; }
+      ui?.remove?.();
+    },
+  };
+  return api;
 }

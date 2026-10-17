@@ -53,6 +53,7 @@ import { sendCmd, sendCmdSilent } from '../net.js';
 import { MURMUR_MEASURED } from './murmur.js';
 import { hex2rgb, visorSpecFor, VIPER_SCALE } from './aircraft3d.js';
 import { createFreeCam, bindFreeCamPointer, bindFreeCamIdle } from './freecam.js';
+import { bindTouchGestures } from './touch-gestures.js';
 import { bindBigScreenButton, exitBigScreen, BIGSCREEN_GLYPH, BIGSCREEN_TITLE } from './bigscreen.js';
 import { claimSeatKeyboard, endSeatKeyboard } from './seat-keys.js';
 import { MOUSE_STICK, STICK_TUNE, STICK_HINT_ON, STICK_HINT_OFF, createMouseStick, bindMouseStick } from './mousestick.js';
@@ -3368,7 +3369,8 @@ export function openFlightSim(opts = {}) {
   // ⚠ BOUND BEFORE THE YOKE AND THE ORBIT BELOW, on the capture phase. That ordering is what lets a
   // detached camera take the left-drag away from the yoke without the yoke handler being told the
   // camera exists — and hand it straight back the moment the camera is stowed.
-  bindFreeCamPointer(viewEl, freeCam);
+  // A phone gets a camera button on the glass that presses O, shown in the external view.
+  bindFreeCamPointer(viewEl, freeCam, { toggleKey: 'o', canToggle: () => !!F.external });
   // Same lifetime as the panel: it listens on the window, so closeFlightSim releases it.
   freeIdle?.unbind();
   freeIdle = bindFreeCamIdle(freeCam);
@@ -3477,6 +3479,21 @@ export function openFlightSim(opts = {}) {
   const stockAcc = (skin && skin.acc) || themeFor(F.cls).acc;
   const chromeAcc = liveryAccent(F.livery, stockAcc);
   const chromeRgb = hex2rgb(chromeAcc);
+    // The same orbit and zoom under a finger, which can press neither the middle button nor the
+    // wheel: one finger swings round the aircraft, two pinch the chase distance. Outside only, and
+    // never while the free camera is out (it has its own touch scheme, bound above).
+    bindTouchGestures(viewEl, {
+      enabled: () => F.external && !freeCam.active,
+      drag: (dx, dy) => {
+        F.orbitResetting = false;
+        F.extOrbit = (F.extOrbit || 0) + dx * 0.4;
+        F.extPitch = clampNum((F.extPitch ?? REST_PITCH) - dy * 0.006, -1.1, 1.15);
+      },
+      pinch: (f) => {
+        const lv = lastViewState(), lo = lv && lv.external && lv.chaseZoomFloor > 0 ? lv.chaseZoomFloor : 0.45;
+        F.extZoom = clampNum((F.extZoom || 1) / f, lo, 2.4);
+      },
+    });
   if (chromeRgb) { ACCENT = chromeAcc; ACCENT_RGB = chromeRgb; }   // canvas instruments (accA/ACCENT read the globals)
   root.style.setProperty('--cy', chromeAcc);                       // beats the .fsim-theme-* class --cy (inline > class)
   // --cy-lit is the BACKLIGHT colour: the airframe's vivid stock accent, NOT the (possibly muted)

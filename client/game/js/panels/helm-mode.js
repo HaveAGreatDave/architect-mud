@@ -14,6 +14,7 @@ import { openHelmChase } from './helm-view.js';
 import { createHelmWheel } from './helm-wheel.js';
 import { bindBigScreenButton, exitBigScreen, BIGSCREEN_GLYPH, BIGSCREEN_TITLE } from './bigscreen.js';
 import { claimSeatKeyboard, endSeatKeyboard } from './seat-keys.js';
+import { bindTouchGestures } from './touch-gestures.js';
 
 // The passage length is now the server's authoritative `ms` (distance × the throttle bell), streamed
 // on helm_underway; the telegraph derives a local placeholder timer from the same bell math and the
@@ -833,10 +834,12 @@ export function openHelm(opts = {}) {
 
   // Orbit / zoom on the sea — the chase cam stays fixed on the boat and arcs around it.
   let drag = false, lx = 0, ly = 0;
-  sea.addEventListener('pointerdown', (e) => { drag = true; lx = e.clientX; ly = e.clientY; sea.setPointerCapture?.(e.pointerId); });
+  // A finger goes through bindTouchGestures below, so two of them pinch instead of the orbit jumping between them.
+  sea.addEventListener('pointerdown', (e) => { if (e.pointerType === 'touch') return; drag = true; lx = e.clientX; ly = e.clientY; sea.setPointerCapture?.(e.pointerId); });
   sea.addEventListener('pointermove', (e) => { if (!drag) return; ctrl.orbit((e.clientX - lx) * 0.4); lx = e.clientX; ly = e.clientY; });   // azimuth-only dome orbit (no vertical tilt)
   const upH = () => { drag = false; }; addEventListener('pointerup', upH);
   sea.addEventListener('wheel', (e) => { e.preventDefault(); ctrl.zoom(e.deltaY > 0 ? 0.08 : -0.08); }, { passive: false });
+  bindTouchGestures(sea, { drag: (dx) => ctrl.orbit(dx * 0.4), pinch: (f) => ctrl.zoom(-Math.log(f) * 0.9) });
 
   // Fullscreen + collapse-panel — the SAME body-class mechanism the flight sim uses (styles.css),
   // instead of an OS-fullscreen overlay; both are cleared on close.

@@ -179,6 +179,17 @@ A button can toggle standing without reopening. `open({stand: true})` resets yaw
 - A vantage gets no FPS button; it's a mounted instrument.
 - The hint text follows the current mode, so a standing camera doesn't advertise orbit, roll or vertical controls.
 
+## Free camera on a touch screen
+
+`bindFreeCamPointer` hands every `pointerType: 'touch'` pointer to `bindFreeCamTouch` before the mouse rules see it. A touch arrives as button 0, so before this a finger held on the glass lifted the camera, every tap asked for a pointer lock a phone can't grant, and a drag near the edge set off the rim turn.
+
+- One finger looks (1.6× the mouse's degrees per pixel). Two fingers pinch the lens through `zoomBy`. A thumb that lands on the lower left of the glass is a thumbstick centred where it landed; pushed past its ring it runs. `setStick` is spent in `step` through the same `go` as WASD, so standing, the leash and the speed ladder apply.
+- ▲ ▼ hold the height, hidden while standing (`onStand`). The ring and buttons live inside the glass, take `--accent`, `--bg` and `--text`, and show on a coarse pointer, on `data-density="compact"`, or once a finger has touched the glass.
+- A seat passes `{ toggleKey: 'o', canToggle }` to get a ◎ CAM button that presses its own O key, so the rules about when the camera may come out stay in the seat. Free look passes none; its ✕ closes the view.
+- `sync()` runs at bind time as well as on toggle, because free look opens the camera before it binds the pointer.
+- Chase cameras that orbit on the middle button or zoom on the wheel use `bindTouchGestures` (`panels/touch-gestures.js`): one finger drags, two pinch. The cockpit's external view, the boat seat and the wheelhouse chase use it for both; the cab's chase view uses it for the pinch only, since one finger already orbits there.
+- Gate: the touch block in `scripts/shapes/freecam.mjs`.
+
 ## Standing camera (`freecam.js` `stand` mode)
 
 `freecam.js` has a `stand` mode: the feet are on something, the eye height is passed in, and there's a leash. The mouse, rim push, lens, speed ladder, idle fade and key routing are unchanged; only three things about where the eye may be are different.

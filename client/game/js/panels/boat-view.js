@@ -43,6 +43,7 @@ import { bindBigScreenButton, exitBigScreen, BIGSCREEN_GLYPH, BIGSCREEN_TITLE } 
 import { boatGeom } from '../../../shared/boat-house.js';
 import { BOAT_ROWS } from '../../../shared/vehicle-models.js';
 import { wildlandsAt } from '../../../shared/wildlands.js';
+import { bindTouchGestures } from './touch-gestures.js';
 
 const ID = 'boat-sim';
 const RAD = 16;                     // map window half-width, in tiles
@@ -641,6 +642,16 @@ function bindKeys() {
     if (!st?.look.on) return;
     const dx = e.clientX - st.look.px, dy = e.clientY - st.look.py;
     st.look.px = e.clientX; st.look.py = e.clientY;
+    lookBy(dx, dy);
+  });
+  // A finger can't press the middle button, so on a phone one finger is the same drag and two pinch
+  // the dolly. A finger on a hotspot is the hotspot's (the capture handler above takes it first).
+  bindTouchGestures(glass, {
+    enabled: (e) => !!st && !hotAt(e),
+    drag: (dx, dy) => { if (st) lookBy(dx, dy); },
+    pinch: (f) => { if (st?.external) dollyTo(st.extZoom / f); },
+  });
+  function lookBy(dx, dy) {
     // ⚠ ONE DRAG, TWO JOBS, DECIDED BY WHICH VIEW IS UP — and it is the SAME handler rather than a
     // second set of listeners on the same element, which is the arrangement the cab's own note
     // about `st.external` is a record of: two owners of one drag and the one that loses does so
@@ -655,15 +666,18 @@ function bindKeys() {
     // angle is a magnet at screen centre: let go and your head snaps forward.
     st.look.yaw = clamp(st.look.yaw + dx * 0.35, -LOOK_YAW, LOOK_YAW);
     st.look.pitch = clamp(st.look.pitch - dy * 0.30, -LOOK_PITCH, LOOK_PITCH);
-  });
+  }
+  function dollyTo(z) {
+    // in as far as the renderer's standoff, where the hull fills the frame (the seat hands over 1.15 x this)
+    const lv = lastViewState(), lo = lv && lv.external && lv.chaseZoomFloor > 0 ? lv.chaseZoomFloor / 1.15 : 0.55;
+    st.extZoom = clamp(z, lo, 3.2);
+  }
   // The dolly. ⚠ IT ONLY MEANS ANYTHING OUTSIDE — behind the glass there is nothing to back away
   // from, and a wheel that silently did nothing in one of two views is a control you stop trusting.
   glass.addEventListener('wheel', (e) => {
     if (!st?.external) return;
     e.preventDefault();
-    // in as far as the renderer's standoff, where the hull fills the frame (the seat hands over 1.15 x this)
-    const lv = lastViewState(), lo = lv && lv.external && lv.chaseZoomFloor > 0 ? lv.chaseZoomFloor / 1.15 : 0.55;
-    st.extZoom = clamp(st.extZoom * (e.deltaY > 0 ? 1.12 : 0.89), lo, 3.2);
+    dollyTo(st.extZoom * (e.deltaY > 0 ? 1.12 : 0.89));
   }, { passive: false });
   const drop = () => { if (st) st.look.on = false; };
   glass.addEventListener('pointerup', drop);

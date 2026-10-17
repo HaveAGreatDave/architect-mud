@@ -12,7 +12,7 @@
 //   setPosition, isSailing, destroy }. opts: { gx, gy, hour, weather, onArrive(gx,gy) }.
 
 import { paintWindshield, windshieldHTML, ensureWindshieldStyles, disposeWindshield, surfaceBreakup, normalizeWx, navMarks, seaRideAt, setYachtWay } from './windshield.js';
-import { createFreeCam, FREECAM_HINT, bindFreeCamPointer, bindFreeCamIdle } from './freecam.js';
+import { createFreeCam, freeCamHint, bindFreeCamPointer, bindFreeCamIdle } from './freecam.js';
 import { makeContactTrack } from './world-feed.js';
 
 // Live world clock/weather via the shared (non-flight) env system — loaded OPTIONALLY so a
@@ -451,7 +451,7 @@ export function openHelmChase(container, opts = {}) {
       const hint = container.querySelector('.helm-freecam-hint');
       if (on && !hint) {
         const el = document.createElement('div');
-        el.className = 'helm-freecam-hint'; el.textContent = FREECAM_HINT;
+        el.className = 'helm-freecam-hint'; el.textContent = freeCamHint(false);
         el.style.cssText = 'position:absolute;left:50%;bottom:12px;transform:translateX(-50%);z-index:8;'
           + 'font-size:11px;letter-spacing:0.6px;color:#dfe6ef;background:rgba(8,11,15,0.62);padding:4px 12px;'
           + 'border-radius:11px;border:1px solid rgba(255,255,255,0.16);pointer-events:none;white-space:nowrap';
@@ -480,7 +480,7 @@ export function openHelmChase(container, opts = {}) {
   }
   window.addEventListener('keydown', onHelmKey);
   window.addEventListener('keyup', onHelmKey);
-  const unbindFreeCamPointer = bindFreeCamPointer(container.querySelector('.ws-wrap') || container, freeCam);
+  const unbindFreeCamPointer = bindFreeCamPointer(container.querySelector('.ws-wrap') || container, freeCam, { toggleKey: 'o' });
 
   const busy = () => st.sailing || st.heading !== st.headingTarget;
 

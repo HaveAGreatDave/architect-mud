@@ -964,6 +964,48 @@ if (cbad) process.exit(1);
   for (let i = 0; i < 5; i++) fs.step(0.1);
   sk(Math.abs(fs.view().z - ez0) < 1e-9, 'losing the lock releases a held button');
 
+  // ── A FINGER IS NOT A MOUSE ───────────────────────────────────────────────
+  // A touch arrives as button 0, and before the touch layer that meant a finger held on the glass
+  // lifted the camera. One finger looks, a thumb low on the left is a stick, two fingers pinch.
+  {
+    el.getBoundingClientRect = () => ({ left: 0, top: 0, right: 400, bottom: 300, width: 400, height: 300 });
+    const t = (o) => ev({ pointerType: 'touch', button: 0, ...o });
+    const tz = fs.view().z, ty = fs.view().yaw, tl = doc.pointerLockElement;
+    el.fire('pointerdown', t({ pointerId: 11, clientX: 300, clientY: 100 }));
+    for (let i = 0; i < 5; i++) fs.step(0.1);
+    sk(Math.abs(fs.view().z - tz) < 1e-9, 'a finger held on the glass does not lift the camera');
+    sk(doc.pointerLockElement === tl, '…and does not ask for the pointer lock');
+    const tm = win.fire('pointermove', t({ pointerId: 11, clientX: 340, clientY: 100 }));
+    sk(fs.view().yaw > ty, 'one finger dragged right looks right');
+    sk(tm.prevented, '…and the page does not scroll under it');
+    sk(fs.lookPush.x === 0 && fs.lookPush.y === 0, '…with no rim turn, wherever the finger is');
+    // A second finger: the spread is the lens.
+    const f0 = fs.view().fov;
+    el.fire('pointerdown', t({ pointerId: 12, clientX: 300, clientY: 200 }));
+    win.fire('pointermove', t({ pointerId: 12, clientX: 300, clientY: 260 }));
+    sk(fs.view().fov > f0, 'two fingers spreading zoom the lens in');
+    win.fire('pointerup', t({ pointerId: 12 }));
+    win.fire('pointerup', t({ pointerId: 11 }));
+    // The stick: lower left, pushed up is forward.
+    const s0 = fs.view();
+    el.fire('pointerdown', t({ pointerId: 13, clientX: 80, clientY: 220 }));
+    win.fire('pointermove', t({ pointerId: 13, clientX: 80, clientY: 180 }));
+    for (let i = 0; i < 5; i++) fs.step(0.1);
+    const s1 = fs.view(), fwd = (s1.x - s0.x) * Math.sin(s0.yaw * Math.PI / 180) - (s1.y - s0.y) * Math.cos(s0.yaw * Math.PI / 180);
+    sk(fwd > 0.1, 'a thumb pushed up on the lower left walks the camera forward');
+    win.fire('pointerup', t({ pointerId: 13 }));
+    const s2 = fs.view();
+    fs.step(0.1);
+    sk(fs.view().x === s2.x && fs.view().y === s2.y, '…and lifting the thumb stops it');
+    // A finger left down across a stow must not walk the camera off when it next opens.
+    el.fire('pointerdown', t({ pointerId: 14, clientX: 80, clientY: 220 }));
+    win.fire('pointermove', t({ pointerId: 14, clientX: 80, clientY: 180 }));
+    fs.close(); fs.open({ yaw: 0, z: 0.6, x: 0, y: 2 });
+    const s3 = fs.view(); fs.step(0.1);
+    sk(fs.view().x === s3.x && fs.view().y === s3.y, 'a stick held across a stow is dropped');
+    delete el.getBoundingClientRect;
+  }
+
   // ── THE WHEEL IS THE LENS, SHIFT ON IT IS THE DOLLY ───────────────────────
   // Two verbs on one control, which is exactly the wiring that goes wrong quietly: both of them
   // change the picture, so a modifier routed to the wrong one looks like the camera working.

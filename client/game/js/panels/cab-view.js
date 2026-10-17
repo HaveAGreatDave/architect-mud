@@ -20,7 +20,8 @@ import { paintWindshield, windshieldHTML, ensureWindshieldStyles, disposeWindshi
   groundObstructionAt, MODEL_MAX_EXTENT, TRUCK_STEP_Z, RENDER_TUNE, navMarks, cabTrim, cabWheelHub, cabWheelGeom, cabGpsRect, cabControlRects, cabDashCanvas , ROAD_RIG_MUL, interiorHotspots,
   perfBegin, perfEnd, perfTick, lastViewState } from './windshield.js';
 import { TYPES, IDLE, createTruckState, truckReadout, step, truckShift, truckSplit, truckSelectGear, bestGear } from './flight-model.js';
-import { createFreeCam, FREECAM_HINT, bindFreeCamPointer, bindFreeCamIdle } from './freecam.js';
+import { createFreeCam, freeCamHint, bindFreeCamPointer, bindFreeCamIdle } from './freecam.js';
+import { bindTouchGestures } from './touch-gestures.js';
 import { tweenOrbit } from './camera-tween.js';
 import { bindBigScreenButton, exitBigScreen, BIGSCREEN_GLYPH, BIGSCREEN_TITLE } from './bigscreen.js';
 import { claimSeatKeyboard, endSeatKeyboard, grabSeatKeys } from './seat-keys.js';
@@ -484,7 +485,7 @@ function paintFreeCamChrome() {
   if (!freeCam.active) return;
   const el = document.createElement('div');
   el.className = 'cab-freecam-hint';
-  el.textContent = FREECAM_HINT;
+  el.textContent = freeCamHint(false);
   host.appendChild(el);
 }
 
@@ -1534,7 +1535,8 @@ export function openCab(ctx = {}) {
   const glass = container.querySelector('.ws-wrap');
   // The mouse, on the glass. Bound once with the cab and released with it; it does nothing at all
   // until the camera is off its mount, so the cab's own gestures are untouched.
-  st.freeCamUnbind = bindFreeCamPointer(glass, freeCam);
+  // A phone gets a camera button on the glass that presses O, shown where O would work.
+  st.freeCamUnbind = bindFreeCamPointer(glass, freeCam, { toggleKey: 'o', canToggle: () => !!st?.external });
   // The same lifetime, for the same reason: it listens on the window and must not outlive the cab.
   freeIdle = bindFreeCamIdle(freeCam);
   {
@@ -1836,6 +1838,15 @@ export function openCab(ctx = {}) {
       st.extZoom = Math.max(lo, Math.min(2.8, st.extZoom * (e.deltaY > 0 ? 1.1 : 0.9)));
       e.preventDefault();
     }, { passive: false });
+    // The same dolly under two fingers. One finger already orbits through the drag above, so this
+    // reads the pinch alone; the free camera has its own touch scheme while it is out.
+    bindTouchGestures(glass, {
+      enabled: () => !!st?.external && !freeCam.active,
+      pinch: (f) => {
+        const lv = lastViewState(), lo = lv && lv.external && lv.chaseZoomFloor > 0 ? lv.chaseZoomFloor / 1.15 : 0.13;
+        st.extZoom = Math.max(lo, Math.min(2.8, st.extZoom / f));
+      },
+    });
   }
 
   // ── WHO HAS THE KEYBOARD ───────────────────────────────────────────────────
