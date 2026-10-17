@@ -268,6 +268,7 @@ Buildings fade out over the last `HAZE_BAND` tiles of the draw distance. The mas
 - `drawFade` reuses the frame's env cube, sun map and SSAO texture rather than running those passes again. All three bind framebuffers of their own, which would unbind the target the floor and roads were just drawn into.
 - The mirror doesn't split (nothing is drawn after it), and nor does a frame with no haze band.
 - `glHazeSplit: 0` is the old single pass. `glLastFrame().hazeFade` is 0 when the second pass didn't run.
+- The fade pass draws only the tiles whose box can reach the band (`fadeRuns` in gl/context.js, 2026-10-17). `clip.w` is linear in position, so its range over a tile's box is exact from the corners, and a tile outside the band drew nothing but discarded fragments. It had been the most expensive GPU pass: 1.3–2.8 ms on an aircraft over Marrow at 640×360 (`__glPassMs`), about 0 after, with the picture unchanged inside run-to-run noise.
 
 ## Projection matrix units
 

@@ -1280,6 +1280,9 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
   // the vertex data rather than derived from the window, because the shadow projection has to
   // contain every CASTER and the only list that is certainly every caster is the buffer itself.
   let bounds = null;
+  // Each upload group's vertex range and box (in the buffer's frame) with its haze jitter, so the
+  // fade pass can draw only the tiles that reach the band. See fadeRuns.
+  let ranges = [];
   // ⚠ ONE DEPTH TEXTURE PER VIEW, BUILT ON FIRST USE AND NEVER REBUILT. A shadow map that resized
   // with the window would reallocate on every seat change; a fixed square costs the same at every
   // seat and the projection is what tightens onto the geometry.
@@ -1391,8 +1394,11 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     const data = new Float32Array(verts * STRIDE);
     let o = 0;
     let bx0 = Infinity, bx1 = -Infinity, by0 = Infinity, by1 = -Infinity, bz0 = Infinity, bz1 = -Infinity;
+    const rs = [];
     for (const grp of groups) {
       const ox = grp.ox || 0, oy = grp.oy || 0;
+      const at = o / STRIDE;
+      let gx0 = Infinity, gx1 = -Infinity, gy0 = Infinity, gy1 = -Infinity, gz0 = Infinity, gz1 = -Infinity;
       // ── AND A GROUP MAY DISAGREE WITH THE FRAME ABOUT WHAT TIME IT IS ──────────────────────
       //
       // A face carries a day colour and a night one and the blend picks between them, so every
@@ -1458,6 +1464,9 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
             if (wx < bx0) bx0 = wx; if (wx > bx1) bx1 = wx;
             if (wy < by0) by0 = wy; if (wy > by1) by1 = wy;
             if (wz < bz0) bz0 = wz; if (wz > bz1) bz1 = wz;
+            if (wx < gx0) gx0 = wx; if (wx > gx1) gx1 = wx;
+            if (wy < gy0) gy0 = wy; if (wy > gy1) gy1 = wy;
+            if (wz < gz0) gz0 = wz; if (wz > gz1) gz1 = wz;
             data[o] = wx; data[o + 1] = wy; data[o + 2] = wz;
             data[o + 3] = n[0]; data[o + 4] = n[1]; data[o + 5] = n[2];
             data[o + 6] = cr; data[o + 7] = cg; data[o + 8] = cb;
@@ -1482,7 +1491,9 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
           }
         }
       }
+      if (o / STRIDE > at) rs.push({ at, n: o / STRIDE - at, x0: gx0, x1: gx1, y0: gy0, y1: gy1, z0: gz0, z1: gz1, jit: grp.jit || 0 });
     }
+    ranges = rs;
     // ⚠ NO AXIS SWAP, AND THE FIRST CUT HAD ONE. It looked like the obvious hospitality to a GL
     // convention — trade y and z on the way into the buffer — but the matrix in camera.js is
     // written to take GLASS's own world coordinates (x east, y north, z up) and do the swap itself,
@@ -1688,7 +1699,8 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     gl.uniform1f(loc.linIn, linIn ? 1 : 0);
     // The camera's own frame height (CSS px), never the canvas's (device px) — see the ⚠ in
     // world.js. Falls back to H so a caller that already works in one unit is unchanged.
-    gl.uniformMatrix4fv(loc.viewProj, false, mat4f(viewProjMatrix(cam, opts.cssH || H)));
+    const vpA = viewProjMatrix(cam, opts.cssH || H);
+    gl.uniformMatrix4fv(loc.viewProj, false, mat4f(vpA));
     const k = opts.keyDir || [-0.7, 0.35, -0.7];
     gl.uniform3f(loc.keyDir, k[0], k[1], k[2]);
     // ⚠ `shadow` IS THE VERTEX-LIGHT BASE COLOUR AND `sunShadow` IS THE SUN. They were both called
@@ -1907,11 +1919,12 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     if (fade) {
       // Depth first, so only the nearest face of a dissolving block blends over the ground. There
       // is no backface cull (above), and without this its back walls show through its front ones.
+      const runs = fadeRuns(vpA, opts.hazeNear, opts.hazeFar);
       gl.colorMask(false, false, false, false);
-      gl.drawArrays(gl.TRIANGLES, 0, count);
+      for (let i = 0; i < runs.length; i += 2) gl.drawArrays(gl.TRIANGLES, runs[i], runs[i + 1]);
       gl.colorMask(true, true, true, true);
       gl.depthMask(false);
-      gl.drawArrays(gl.TRIANGLES, 0, count);
+      for (let i = 0; i < runs.length; i += 2) gl.drawArrays(gl.TRIANGLES, runs[i], runs[i + 1]);
       gl.depthMask(true);
     } else if (!opts.skipMass) gl.drawArrays(gl.TRIANGLES, 0, count);
     gl.bindVertexArray(null);
@@ -1923,6 +1936,28 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
   // The second half of the split in the shader (uFadePass). Called by the world pass after the
   // floor, the sea and the roads, with the same camera and options it gave `draw`, so the band
   // blends over what is actually behind it. 0 when this frame's `draw` did not split.
+  // ⚠ THE FADE PASS DREW THE WHOLE CITY TWICE TO KEEP A RING OF IT. The shader keeps a fragment only
+  // where its forward distance (clip.w) is inside the band, uHazeNear - jit .. uHazeFar - jit, so a
+  // tile whose box can't reach the band draws nothing and can be skipped whole: the picture is the
+  // same. clip.w is linear in position, so its range over a box is exact from the corners. Measured
+  // as the single most expensive GPU pass before this (0.5-2.4 ms at 640x360). Flat [first, count]
+  // pairs, neighbours merged, in a reused array.
+  const fadeBuf = [];
+  function fadeRuns(m, near, far) {
+    const out = fadeBuf;
+    out.length = 0;
+    const a = m[3], b = m[7], c = m[11], d = m[15];
+    for (const R of ranges) {
+      const ax0 = a * R.x0, ax1 = a * R.x1, by0 = b * R.y0, by1 = b * R.y1, cz0 = c * R.z0, cz1 = c * R.z1;
+      const lo = d + (ax0 < ax1 ? ax0 : ax1) + (by0 < by1 ? by0 : by1) + (cz0 < cz1 ? cz0 : cz1);
+      const hi = d + (ax0 > ax1 ? ax0 : ax1) + (by0 > by1 ? by0 : by1) + (cz0 > cz1 ? cz0 : cz1);
+      if (hi < near - R.jit - 1e-3 || lo > far - R.jit + 1e-3) continue;
+      const k = out.length;
+      if (k && out[k - 2] + out[k - 1] === R.at) out[k - 1] += R.n;
+      else out.push(R.at, R.n);
+    }
+    return out;
+  }
   function drawFade(cam, opts = {}) { return draw(cam, { ...opts, fadePass: 2 }); }
 
   // The lights, on the same context and the same depth buffer. Built lazily: a view that never
