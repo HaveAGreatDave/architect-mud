@@ -80,6 +80,31 @@ Its two lists are read from the schema, never from a list of names in the panel 
 tools grey out on a hand-written arm, and the tooltip says why. A piece added here and a piece
 added from the rail share one `defaultPart()`, so both arrive the same size.
 
+## GLASS 2 in the viewport
+
+Press **GLASS 2** (or <kbd>2</kbd>) and the subject is drawn by the game's own frame: `paintWindshield` with
+GLASS 2 installed, the path the sim draws the world and your own craft by. So the viewport shows the
+material table, the sun shadow map, SSAO, the env reflections, a vehicle's clear coat and metals,
+bloom and the lights at night, which the 2-D viewport has none of. It's on by default, since it's what
+the game draws with; switch it off and that's remembered per browser.
+
+- **It is an overlay.** The 2-D pass still runs underneath, because the cage, the selection, the pick
+  test and the HUD read its camera. The GLASS 2 canvas lies exactly over the viewport canvas, takes no
+  pointer events and sits before the toolbar in the page, so every click and drag works as before.
+- **A building** is put on the centre tile of a small flat map under a name bound in `NAMED_MODELS` to
+  the record the editor holds, so an unsaved edit is what GLASS 2 draws. Each edit is a new name, and
+  kept arms are off for the frame, so no cache can hand back the last version.
+- **A vehicle** is the own ship, with its livery, its animation channels and its gear. It is drawn at
+  the size the game draws your own craft, and the camera comes in by the ratio to the 2-D preview's
+  `sizeMul`, so the framing matches.
+- **The camera** is the renderer's free camera at the orbit's eye. Its lens is solved to the 2-D
+  preview's (`H·0.55` against `viewFocal·fov`, in the same canvas pixels), and the preview's horizon
+  at 0.42 of the height is folded into the pitch, because the free camera turns about mid-frame.
+- **Not covered yet:** fauna keeps the 2-D picture, the contact sheet (`__mesh.sheet`) and the A/B view
+  are still 2-D, and the 2-D selection outline is under the overlay rather than over it.
+
+Code: [glass2.js](glass2.js).
+
 ## The GL spike
 
 Press <kbd>G</kbd> (or the **GL** button) and the same model is drawn again through WebGL2, over the

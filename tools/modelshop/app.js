@@ -9,6 +9,8 @@
 // 'single quotes', never backticks. Most markup here is built through the DOM instead.
 import { initToolbox, toggleToolbox } from './toolbox.js';
 import { glDraw, glHide, glShown, glAvailable } from './glview.js';
+// The viewport through the game's own GLASS 2 frame, as an overlay on the 2-D pass. See glass2.js.
+import { g2Draw, g2Hide, g2Invalidate } from './glass2.js';
 // The cost half of the spike. It registers window.__glBench and nothing else — a benchmark with
 // a button is a benchmark somebody runs by accident.
 import './glbench.js';
@@ -94,6 +96,9 @@ const state = {
   heading: 0, dist: 9, eye: 1.4, pitch: 0, panX: 0, panY: 0, vehSizeMul: 1,
   floors: 6, seed: 3, night: 0,
   E: [0, 1], tier: ADORN_RICH, wire: false, spin: false, gl: false, preset: 'cockpit',
+  // GLASS 2 over the viewport (glass2.js), on unless this browser switched it off. It's what the
+  // game draws with, so it's the honest default; the line below drops it where there's no WebGL2.
+  g2: (() => { try { return localStorage.getItem('ms_glass2') !== '0'; } catch { return true; } })(),
   mode: 'move',
   // The animal viewport. `faunaEl` is an OFFSET on the pose's own baked elevation rather than an
   // absolute, so releasing it returns you to the viewpoint the game actually bakes from — which is
@@ -103,7 +108,7 @@ const state = {
 };
 
 const editCache = new Map();
-export function invalidateEdit(key) { editCache.delete(key); }
+export function invalidateEdit(key) { editCache.delete(key); g2Invalidate(); }
 const modelOf = (key) => {
   if (!editCache.has(key)) editCache.set(key, editorRecordFor(key));
   return editCache.get(key) || MODELS.find((r) => r.key === key)?.m || null;
@@ -434,12 +439,45 @@ function paintViewport() {
       lastCam = renderModelPreview(view, previewOpts());
       paintSelection();
     }
+    paintGlass2(view);
   } catch (e) {
     const ctx = view.getContext('2d');
     ctx.fillStyle = '#2a0f10'; ctx.fillRect(0, 0, view.width, view.height);
     ctx.fillStyle = '#ff7b72'; ctx.font = '16px monospace';
     ctx.fillText('threw: ' + e.message, 20, 40);
   }
+}
+
+// ── GLASS 2 OVER THE VIEWPORT ───────────────────────────────────────────────
+// The 2-D pass above stays: the cage, the selection, the pick test and the HUD read its camera, and
+// the overlay takes no pointer events, so editing works exactly as it did. What changes is what you
+// look at: the subject drawn by the game's own GLASS 2 frame, from the same orbit. Fauna has no
+// GLASS 2 path of its own and keeps the 2-D picture.
+const ENTRANCE_OF = { '0,1': 'south', '0,-1': 'north', '1,0': 'east', '-1,0': 'west' };
+function paintGlass2(view) {
+  const kind = kindOf(state.key);
+  if (!state.g2 || kind === 'fauna') { g2Hide(); return; }
+  const orbit = { heading: state.heading, dist: state.dist, eye: state.eye, pitch: state.pitch, panY: state.panY, night: state.night };
+  let subject;
+  if (kind === 'vehicle') {
+    const v = entryOf(state.key).vehicle;
+    const meshed = !!meshIdOfSubject(v);
+    subject = { kind: 'vehicle', ...v, sizeMul: state.vehSizeMul || 1,
+      ...(meshed ? { livery: meshLivery(), anim: meshAnim(), gearAnim: meshGearAnim() } : {}) };
+  } else {
+    subject = { kind: 'building', m: modelOf(state.key), floors: state.floors, seed: state.seed,
+      entrance: ENTRANCE_OF[state.E.join(',')] || 'south' };
+  }
+  const r = g2Draw(view, subject, orbit);
+  glNote = r.gl ? 'GLASS 2: ' + r.faces + ' faces, ' + r.lights + ' lights (the game\'s own frame; edits draw as you make them)'
+    : 'GLASS 2 drew nothing this frame (no WebGL2, or the pass switched itself off: see __glass2() in the console)';
+}
+function setG2(on) {
+  state.g2 = !!on && glAvailable();
+  try { localStorage.setItem('ms_glass2', state.g2 ? '1' : '0'); } catch { /* per-browser convenience */ }
+  $('g2')?.classList.toggle('on', state.g2);
+  if (!state.g2) { g2Hide(); glNote = ''; }
+  draw();
 }
 
 function draw() {
@@ -1174,6 +1212,11 @@ function setGl(on) {
   draw();
 }
 $('gl').onclick = () => setGl(!state.gl);
+if ($('g2')) {
+  $('g2').onclick = () => setG2(!state.g2);
+  $('g2').classList.toggle('on', state.g2);
+  if (!glAvailable()) { $('g2').disabled = true; $('g2').title = 'this browser has no WebGL2'; state.g2 = false; }
+}
 if (!glAvailable()) { $('gl').disabled = true; $('gl').title = 'this browser has no WebGL2'; }
 
 function setMode(mode) {
@@ -1318,6 +1361,7 @@ addEventListener('keydown', (ev) => {
   else if (k === 'o') { ev.preventDefault(); $('open').click(); }
   else if (k === 't') { ev.preventDefault(); toggleToolbox(); }
   else if (k === 'g' && !ev.shiftKey) { ev.preventDefault(); setGl(!state.gl); }
+  else if (k === '2') { ev.preventDefault(); setG2(!state.g2); }
   else if (k === 'escape') { selectedSeg = -1; draw(); }
   else if ((k === 'delete' || k === 'backspace') && doc && selectedSeg >= 0) {
     ev.preventDefault();

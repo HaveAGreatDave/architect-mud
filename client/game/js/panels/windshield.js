@@ -36997,7 +36997,7 @@ const OWN_EXT_MUL = 1;     // 1.9 until one world scale (see CONTACT_SIZE); was 
 const OWN_EXT_MUL_BY_CLS = { truck: 7.0, hydro: 6.0 };
 // Every hull frames like the hydro, for the reason above; derived so a new row cannot be a speck.
 for (const id of vehicleParamIds('boat')) OWN_EXT_MUL_BY_CLS[id] ??= OWN_EXT_MUL_BY_CLS.hydro;
-const ownExtMul = (cls) => OWN_EXT_MUL_BY_CLS[cls] || OWN_EXT_MUL;
+export const ownExtMul = (cls) => OWN_EXT_MUL_BY_CLS[cls] || OWN_EXT_MUL;
 // The chase camera's own ship in tiles per model unit: across her plan, and up her height, which the
 // renderer exaggerates by CONTACT_VS. A seat that poses her against the drawn water needs both: the
 // plan to know what water is under her, and their ratio to turn a water slope into a hull pitch.
