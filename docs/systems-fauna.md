@@ -471,7 +471,7 @@ used to fly through the turf.
 baked into the cloud once per landing, so the party comes down onto it out of the cloud bird by bird.
 See [Where a starling party comes down](#where-a-starling-party-comes-down-and-how-as-built).
 **A grand roost never perches** (`perchedNow`, shared with the room text): ten thousand starlings do
-not line one gutter. `RENDER_TUNE.murmurGround` 0 hands landed flocks back to the per-bird path, and
+not line one gutter. Landed flocks always take this path (the `murmurGround` switch went 2026-10-17), and
 `starlingPerchGPU` 0 hands back only the perched ones, for the A/B.
 
 **What it costs, on the machine it was measured on** (RTX 2070 SUPER, 1280x720, `__glMurmurGpuFrame`,
@@ -490,7 +490,7 @@ confetti. A far bird is now a soft dot at least 1.25 device pixels wide, faint b
 was given, so it deposits the darkness it really covers wherever it sits. Where birds overlap, the
 darkness stacks. The glyph rung starts at 2.5 px rather than 0.7: a three-face bird flapping through
 sixteen poses at one pixel is a speck snapping between shapes. Glitter under 0.09 px of motion went
-from 37% to 0%, with total darkness up 16%. `faunaInk: 0` and `faunaGlyphPx: 0.7` restore both.
+from 37% to 0%, with total darkness up 16%. `faunaGlyphPx: 0.7` restores the glyph rung; the ink rule has no off switch since 2026-10-17.
 
 ### The starling has a year now — and it is OFF (`BIRD_TUNE.season`)
 
@@ -623,7 +623,7 @@ DRAWN as few as fifteen birds when the face budget is tight, which is fine for a
 a sound that asserts there are hundreds; under `MURMUR_AUDIO_MIN` (120) the flock keeps the ordinary
 burst schedule. A hawk's stoop arms the longest manoeuvre the bed has, ⚠ **edge-triggered on the
 stoop's own timestamp** rather than on "a stoop is live", because `falconStoop` is derived and answers
-the same stoop on every frame. `RENDER_TUNE.murmurAudio = 0` puts it back on bursts.
+the same stoop on every frame.
 
 ## What it costs
 
@@ -814,7 +814,7 @@ stays flat. That isn't built.
 The shape of a murmuration is not authored. Until 2026-09-24 every bird was held inside a fixed
 ellipsoid round the flock centre and steered hard onto one shared course, so the flock was always a
 lozenge. `FREE_RULES` in `gl/murmur-gpu.js` replaces both with local rules on the StarDisplay model
-(Hildenbrandt, Carere & Hemelrijk 2010); `RENDER_TUNE.murmurFree` 0 puts the old flock back.
+(Hildenbrandt, Carere & Hemelrijk 2010).
 
 - **No body, no course.** A bird follows its 7 nearest neighbours (alignment, cohesion, separation,
   the blind sector behind) and nothing else tells it where to be. `cmd` 0.
@@ -859,7 +859,7 @@ windshield.js), the higher of `modelTopZAt` and `curtainTopZAt` — the geometry
 cached per map window and uploaded only when it changes. A bird looks 0.8 s ahead, climbs and turns down
 the height slope when within 0.6 tiles of a roof, and anything the look-ahead missed is lifted to the
 roof. Against a 9-tile tower on the circuit: 0 birds inside it, against 4,546 without.
-`RENDER_TUNE.murmurAvoid` 0 switches it off.
+It has no off switch.
 
 ⚠ **HEIGHT AND THE CYCLE.** Starlings fly at `z` 5 tiles (about 55 m; it was 1.4, below most of the
 city's roofs) and the cycle is 300 s with 70% on the ground: about 80 s of display, then 3.5 minutes
@@ -889,7 +889,7 @@ vertex shader in `gl/fauna.js` does two things with them:
 ⚠ **IT IS SUBTLE ON PURPOSE.** In a close shot of 4,000 birds it changes 1.35% of the frame at 60 fps and
 1.62% at 20 fps: the wing tips soften and fade, the bodies do not move. A glide holds a fixed row and is
 never blurred. Adding baked steps would not show at full beat speed: the limit is the frame rate sampling
-a 13 Hz beat, not missing poses. `RENDER_TUNE.wingBlur` 0 draws the sharp wing as shipped (blending stays).
+a 13 Hz beat, not missing poses.
 
 ## Dark against the sky (as built)
 
@@ -934,7 +934,7 @@ deadline; going up, the rest keep walking on the patch (`hold`, the ground spec 
 the draw takes both passes for a flock that is half down. Measured on 4,000 birds: landing went from all
 down in 3 s to 95% up at 3 s, 50% at 12 s, 2% at 21 s; take-off from 92% up at 3 s to 19% at 3 s, 60% at 12 s,
 all by 21 s. Drawing only: the shared flock is up or down exactly when it always was.
-`RENDER_TUNE.murmurWaves` 0 sends the whole flock at once.
+The whole-flock-at-once launch is gone.
 
 ⚠ **A SIDE OF THE FLOCK PEELS OFF AND COMES BACK** (`uSplit`, `SPLIT_EVERY` 17 s, `SPLIT_FOR` 6 s, `split`
 4 in `FREE_RULES`). Birds on the side of the measured centre facing a hashed bearing are pulled that way
@@ -969,7 +969,7 @@ that count rolls over part way through most flocks' ground phase, so the ledge w
 birds stood on it, and a flock could fly in to one ledge and leave from another. It now counts the cycle
 `perchedNow` counts. This fixed every perching species, not only the starling.
 
-**It lands one bird at a time** (`murmurTrickle`). The GPU flock already came down in four waves off
+**It lands one bird at a time** (`trickleOf`). The GPU flock already came down in four waves off
 each bird's rank, which reads right for a roost of thousands and like squads for a party of thirty. A
 flock under `MURMUR_TRICKLE_N` (300) now trickles: bird `r` goes at `r^1.6` of the spread (`waveTurn`
 in murmur.js, which the shader's copy is generated from), so the first few drop close together and a few
@@ -991,7 +991,7 @@ schedule counted over the flock's ranks), so it droops as the party arrives, str
 and rings after the last one goes. The draw measures a perched bird's height from what it stands on, so
 it is drawn standing rather than flying, and faces the way the perch faces.
 
-**A party comes apart and pulls together** (`starlingLoose`, `looseOf`). A few dozen starlings flying
+**A party comes apart and pulls together** (`looseOf`). A few dozen starlings flying
 between feeding spots are a flock some of the time and a scatter of birds the rest. A flock under 150
 birds has loose spells off two slow swells of the clock (23 s and 9.5 s, phased per flock), and is loose
 for the first and last eighth of each flight and while it circles a landing. In a spell each bird gives
@@ -1287,14 +1287,11 @@ would mean shipping the shape capture to the server.
 |---|---|
 | `RENDER_TUNE.geese` | no flocks at all; it also scales the density roll |
 | `RENDER_TUNE.birdPerch` | every flock back on the deck (the shared RULE still answers, so the room is unchanged) |
-| `RENDER_TUNE.birdCalls` | silence |
 | `RENDER_TUNE.birdFaces` / `birdFacesGL` | the canvas and mesh budgets |
 | `RENDER_TUNE.faunaDot` | no sprite LOD — every bird is a mesh at every range |
 | `RENDER_TUNE.faunaFlash` | no orientation flash; a murmuration is a cloud of identical dots again |
 | `RENDER_TUNE.starlingSite` | a starling party comes down on its own tile (road or not), or a ledge on a perched cycle |
 | `RENDER_TUNE.starlingPerchGPU` | a perched starling flock goes to the per-bird path and settles all at once |
-| `RENDER_TUNE.murmurTrickle` | a party comes down in four waves like a roost |
-| `RENDER_TUNE.starlingLoose` | a party flies as one body all the time |
 
 `npm run shapes:smoke` runs both gates, and both are in the push chain:
 

@@ -264,7 +264,7 @@ export function derivedTrim(m, fh, h, seed, forceRich) {
       }
     }
 
-    // ── ⚠ AND A SQUAT DRUM GETS ITS CORNICE (RENDER_TUNE.drumTier) ─────────────────────────────
+    // ── ⚠ AND A SQUAT DRUM GETS ITS CORNICE ─────────────────────────────
     //
     // The shaft rule above wants height over three radii, which is right for the fins and the
     // collars up a tower and leaves every ROTUNDA with nothing: the Exchange's drum, 7 Halcyon Boulevard'
@@ -273,7 +273,7 @@ export function derivedTrim(m, fh, h, seed, forceRich) {
     // storey (not a disc, not a bead, not a cone) takes that one collar and nothing more.
     // ⚠ NOT A SHAFT ALREADY DRESSED, and never a cone: a band round a spire is a ring on a point.
     // Two per building at ten facets: measured at +3.0% of the registry mesh with three at twelve.
-    if (RENDER_TUNE.drumTier > 0 && !have.has('collar')) {
+    if (!have.has('collar')) {
       const tiers = [];
       const dressed = new Set(shafts.slice(0, 2).map((x) => x.sg));
       for (const sg of segs) {
@@ -1331,7 +1331,7 @@ function derivedKit(list, cand, deck, m, seed, A, have, rich, spars = [], mod = 
     //
     // ⚠ RICH LIST ONLY, and it has to be: `bars` is mesh-only, so on the 2-D painter a ribbon
     // would be one undivided glowing slab with no mullions at all.
-    const ribbon = rich && RENDER_TUNE.glBand !== 0 && style === 'front' && !period;
+    const ribbon = rich && style === 'front' && !period;
     for (let f = 0; f < floors; f++) {
       const z = main.z0 + wallH * ((f + 0.62) / floors);
       if (z + wh > main.z1 - 0.02) continue;
@@ -1826,7 +1826,7 @@ function derivedKit(list, cand, deck, m, seed, A, have, rich, spars = [], mod = 
       // behind its own shopfront. Four thousandths of a tile is nothing to look at and settles it
       // by geometry, which is the whole point of `FACE_EPS` one layer down.
       const out = (by < 0 ? -1 : 1) * 0.004;
-      const band = rich && RENDER_TUNE.glBand !== 0;
+      const band = rich;
       if (band) {
         push({ kind: 'windowBay', cx: A(base.cx), cy: A(by), z: A(dz),
           half: A(Math.min(base.hw * 0.8, 0.27)), hh: A(GF * 0.36), depth: A(0.012), pal: wpal,
@@ -2723,7 +2723,7 @@ function derivedKit(list, cand, deck, m, seed, A, have, rich, spars = [], mod = 
     push({ kind: 'neonRun', cx: A(base.cx), cy: A(by), z: A(base.z0 + Math.min(GF * 0.2, 0.02)),
       half: A(base.hw * 0.92), drop: A(0), color: accentOf(m), pal });
   }
-  if (rich && RENDER_TUNE.glCourse !== 0) {
+  if (rich) {
     const sq = (e) => Math.abs(e.hw - e.fd) <= 0.02;
     // ⚠ 0.05, NOT 0.08. The base box is often a podium lip or a step rather than a storey, and at
     // 0.08 the plinth reached 92 models where the geometry allows 135 — it was the box's own HEIGHT

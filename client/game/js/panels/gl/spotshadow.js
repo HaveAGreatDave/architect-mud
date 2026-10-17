@@ -19,8 +19,8 @@
 import { perspective, lookAt, mul4 } from '../diamond/camera.js';
 import { declareProgram, takeWarm } from './programs.js';
 
-export const SPOT_SHADOW_SIZE = 2048;
-export const SPOT_SHADOW_MAX = 4;
+const SPOT_SHADOW_SIZE = 2048;
+const SPOT_SHADOW_MAX = 4;
 
 // How much of a sphere round the play a lamp's map can hold: a lamp can't see what's behind it,
 // and a wide shot's sphere (300 ft round centre field) reaches past the near towers, so the sphere

@@ -121,7 +121,7 @@ function paletteMap() {
 // ⚠ The renderer string is what the browser chooses to report, and some browsers mask it
 // ("ANGLE (Unknown…)", "WebKit WebGL"). A masked string gets the volume and the probe decides.
 const SOFTWARE_GPU = /swiftshader|llvmpipe|software|microsoft basic|mesa offscreen/i;
-export function volumeAutoVerdict() {
+function volumeAutoVerdict() {
   try {
     const cv = document.createElement('canvas');
     const gl = cv.getContext('webgl2');

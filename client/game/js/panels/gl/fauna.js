@@ -458,7 +458,7 @@ function tierOfJS(px, T) {
 // Returns null when the whole sphere is behind the camera or past the far plane.
 // ⚠ A BIRD OUTSIDE THE SPHERE IS CLAMPED, NEVER LOST: the shader clamps every bird's level into the
 // range drawn here, so a straggler nearer than the bound is drawn one level coarser than it earned.
-export function tierSpan(r, bound) {
+function tierSpan(r, bound) {
   const all = { lo: 0, hi: 4, set: new Set([0, 1, 2, 3, 4]) };
   if (!bound || !r.tiers) return all;
   const wx = bound.x - r.origin[0] - r.camO[0], wy = bound.y - r.origin[1] - r.camO[1];

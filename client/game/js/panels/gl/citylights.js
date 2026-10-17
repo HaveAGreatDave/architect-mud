@@ -24,7 +24,7 @@ const MIN_PX = 1.5;
 // How bright each kind burns in the park's light, against the colour and strength the bake gives
 // it: a lamp, a glow, lit air (a still beam's glow, which is light in the air and not a source of
 // it), a neon tube's core, a searchlight's shaft at its lamp.
-export const CITY_GAIN = Object.freeze({ lamp: 26, glow: 5, air: 0.8, neon: 9, beam: 0.9 });
+const CITY_GAIN = Object.freeze({ lamp: 26, glow: 5, air: 0.8, neon: 9, beam: 0.9 });
 // A plume: how many puffs at once, how long one lives (s), how high it rises and how wide it ends
 // (ft), the way the air takes it, how much of a stack's strength shows, and how much of the city's
 // light it catches from below at night (its colour times this, plus the sky's).

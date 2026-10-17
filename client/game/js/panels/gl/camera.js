@@ -73,7 +73,7 @@ export function viewMatrix(cam) {
 // closed), but `decals.js` decides a sign's facing ITSELF, in the fragment shader, off
 // gl_FrontFacing — so a mirrored decal pass has to be told, or every sign in the reflection is the
 // set of signs pointing away from you, reading backwards.
-export function reflectZ(h) {
+function reflectZ(h) {
   return [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, -1, 0, 0, 0, 2 * h, 1];
 }
 

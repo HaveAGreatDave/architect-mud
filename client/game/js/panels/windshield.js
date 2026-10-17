@@ -216,8 +216,6 @@ export const RENDER_TUNE = {
   // THERMALS (client/shared/thermals.js), seen the way a pilot sees them: a cumulus cap over a
   // strong column and a dust devil at the foot of one over bare hot ground. `thermalDebug` draws
   // every column as rings tinted by strength; a tuning view, never a player one.
-  thermalCaps: 1,
-  dustDevils: 1,
   thermalDebug: 0,
   groundBoost: 8,     // pace multiplier at zero altitude → quick down the runway
   groundDecay: 32,    // altitude e-fold (ft) for the boost → larger = the runway rush bleeds off GRADUALLY through the climb-out (a smooth takeoff→cruise transition) instead of lurching to cruise pace right at liftoff
@@ -405,9 +403,6 @@ export const RENDER_TUNE = {
   // Crests swing round to face the beach across the whole shelf, not just the last tile of it
   // (gl/sea-glsl.js seaRefract). 0 leaves only the one-tile warp above, which measured invisible.
   glSeaRefract: 1,
-  // The sea runs DOWNWIND rather than on one authored bearing everywhere (sea-swell.js
-  // setSeaHeading). 0 is the fixed bearing that shipped.
-  glSeaHeading: 1,
   // Waves shoal, pitch forward and break in the surf zone, and the wash runs up the beach with the
   // swell. 0 is the sea as it shipped: the swell fades out toward the shore and the surf band
   // pulses on a clock of its own.
@@ -484,13 +479,9 @@ export const RENDER_TUNE = {
   // saturates rather than blowing out (no pixel is driven to white at any setting swept).
   glSeaNeon: 45,
   glHullWash: 1,     // green water over the deck shows as a foaming sheet, not a vanishing boat; 0 = as shipped
-  glHullTex: 1,      // gelcoat texture, seams and waterline grime on a boat's exterior; 0 = flat as shipped
   // Water thrown off a breaking crest — the burst in the AIR, which is a different thing from the
   // spindrift the water shader already drags along the surface. 0 is the sea as it shipped.
   glSeaSpray: 1,
-  // A boat's rooster tail and sponson spray as droplets in the GL pass (drawBoatSprayGL). 0 puts
-  // back the canvas sheet, which is what the 2-D renderer always draws.
-  glBoatSpray: 1,
   // The rainbow drawn IN the rain rather than painted on the sky (see drawWorldRainbow). 0 is the
   // sky-painted arc that shipped, which is also what GLASS 1 always draws.
   worldBow: 1,
@@ -694,37 +685,6 @@ export const RENDER_TUNE = {
   // from 15.6 to 17.7 of 255 and a full moon gets it to 18.9, because the night palettes under them
   // are already near black. This one acts on the finished pixels instead.
   nightLift: 0.3,
-  // ── AND THE RAIN ITSELF TAKES THE CITY'S LIGHT ──────────────────────────────────────────────
-  //
-  // The precipitation curtain is the last element in this renderer drawn as though the scene were
-  // not there: 170-260 hairlines at a fixed pale blue, in a city whose road reflects the neon, whose
-  // walls take a wash from it and whose air scatters it. A drop beside a red sign is red, and that
-  // is most of what a lit wet street looks like.
-  //
-  // ⚠ IT STAYS ON THE CANVAS, which is a decision rather than an omission. This file's own note on
-  // what is left in 2-D lists the weather among the things that should not move to the GPU — no
-  // ordering problem to solve, no measurable cost to win — so the lights come to the rain instead:
-  // `glowPool` already projects every one of them to the screen and now records that on the way
-  // past (RAIN_LIGHTS), in BOTH renderers.
-  //
-  // ⚠ AND IT MOVES THE NEAR CURTAIN IN FRONT OF THE CITY, which is the half that makes the tint
-  // visible at all. Both curtains used to be drawn before the world objects, so a building four
-  // tiles away painted over rain its own code calls "a fast bright near curtain" — rain meant to be
-  // a few metres off the glass, occluded by everything in the city. The far curtain stays where it
-  // was, which is where the argument for drawing precipitation behind the buildings actually
-  // applies. 0 puts both curtains back behind the world, untinted, exactly as they shipped.
-  // ── STRATA ON HIGH GROUND ───────────────────────────────────────────────────────────────────
-  // Filled beds down a massif’s face and apron, cut at absolute world z. 0 puts back the two
-  // three-stop gradients that shipped before them, which is a provable no-op: the beds are the
-  // only thing that reads STRATA_Z, and at 0 neither loop runs and the same four quads come out
-  // of the same call site. The hairline bedding planes are unaffected either way — they are a
-  // separate near-field detail on the same cuts.
-  glStrata: 1,
-  // ── HOODOOS AS GEOMETRY ─────────────────────────────────────────────────────────────────────
-  // Real facets on the near ring, the baked card everywhere else. 0 is the card at every range,
-  // which is what shipped.
-  glHoodoo: 1,
-  hoodooSolid: 1,
   govWindowGL: 0,     // 1 = the frame governor shrinks the map window on the GL path too, as shipped. 0 keeps it: past the shrunken window the city was the flat skyline.     // 1 = hoodoo spire faces go to the solids layer (world polygons, vertex colour). 0 = one flat-colour DECAL per face, as shipped: a texture keyed on a distance-fogged colour, so every face minted one per frame (~12 ms of CPU over Halcyon).
   // How hard a massif's height noise is stretched about its own midpoint. 1 is the flat rim that
   // shipped; above it, tablelands differ from each other and a long escarpment breaks up.
@@ -756,17 +716,12 @@ export const RENDER_TUNE = {
   // facet beyond here is paid for and not seen. It is also the ring inside which the tile skips
   // the scatter BAKE entirely, so it doubles as a cost bound.
   hoodooNear: 11,
-  // Dead stands as world-space snags a bird can stand on (1), or the old flat cards (0). See deadStandSnags.
-  snag3d: 1,
-  // The red-tail's ground prey (voles, jackrabbits, lizards) and its strikes on them. 0 is neither.
-  groundPrey: 1,
   // A strike from a perch drawn as a drop off the perch and back (1), or not drawn at all (0).
   perchStrike: 1,
   // How much of the redrock carries spires, at the HEART of a patch. See the ⚠ on the patch field:
   // this is not an overall share, because a uniform share is what made them read as a crop. Most
   // of the country is bare and the field decides where the exceptions are.
   hoodooDensity: 0.62,
-  rainLit: 1,
   // ── STEAM AT THE KERB ───────────────────────────────────────────────────────────────────────
   // How much steam the street vents, where 0 is a city with none. It is the last of the seven
   // dressings and the one with the least geometry in it: a plume is a few soft blobs standing on
@@ -835,9 +790,6 @@ export const RENDER_TUNE = {
   // steamManhole. A real gully is SMALLER than a manhole lid, and at the honest figure it
   // measured 10 pixels on a 1158x558 frame, which is not a grating, it is a speck.
   gullySize: 0.075,
-  // How far a manhole lid is lifted off the road, in tiles. 0 is the physically correct value and
-  // the one that ships; see the ⚠ in `steamManhole` for the measurement this exists to make.
-  lidLift: 0,
   // The lid's radius in tiles, for the sweep described in `steamManhole`. 0 takes the real one.
   lidRadius: 0,
   // How far a plume rises, as a multiple of its authored height. See the ⚠ on the scale in
@@ -902,7 +854,7 @@ export const RENDER_TUNE = {
   // ⚠ AND IT IS GLASS 2 ONLY. The 2-D painter draws these species straight onto the canvas with no
   // texture to read, so there is nothing there to ask what has sky above it — with `gl` at 0 the
   // trees stay green in a blizzard, which is the picture that has always shipped. Same shape as
-  // `glBand` and the rich kit.
+  // the rich kit.
   glSnowBB: 1,
   // ── WHEEL TRACKS IN IT ───────────────────────────────────────────────────────────────────────
   //
@@ -1278,26 +1230,6 @@ export const RENDER_TUNE = {
   // downstream blurs, so half resolution is the softness the surface wants as well as a quarter of
   // the fill — the only real cost this pass has.
   glMirrorRes: 0.5,
-  // A lit facade as a light of its own, so a street of lit windows throws something on the road and
-  // on the building opposite. One `facadeGlow` per lit window grid, tagged `wash` so `pickLights`
-  // reserves it a slot against the neon rather than making it compete — see `WASH_SLOTS`.
-  //
-  // ⚠ AND MEASURED ON A WET ROAD IT REACHES THE ROAD NOT AT ALL — 0 PIXELS. That was the whole
-  // reason to turn it on, so the number matters more than the intent. On a lit residential street
-  // at wet 0.88, wash on against wash off moves 4,827 pixels of BUILDING (noise floor 639) and
-  // exactly 0 of road.
-  //
-  // The cause is an interaction nobody designed: `pickLights` satisfies `WASH_SLOTS` by replacing
-  // the WEAKEST sources, which puts a wash at position 10 or 11 of the twelve — and the ground
-  // shader's `MAX_WET` takes the first SIX. So a wash is always past the cut the road can see. The
-  // fix is small (place the reserved washes inside the first six, or let the ground pass choose its
-  // own) and it is deliberately not taken here, because it is not obvious a diffuse facade smeared
-  // on tarmac is worth a slot that a neon sign could have.
-  //
-  // So what it actually buys today is the wall term, and `__glLights()` scores that NEGATIVE: two
-  // slots spent on washes take wall coverage 20.1% → 19.5% at a cab and 13.7% → 11.4% from the air.
-  // On at David's instruction; the first knob to put back to 0 if the night city reads flatter.
-  glWash: 1,
   // ── WORLD TEXT ON THE DEPTH BUFFER, AND WHY IT GETS ITS OWN TERM ──────────
   //
   // A name across a parapet, a stencilled bay number, a price board: the last thing GLASS 1 still
@@ -1320,11 +1252,6 @@ export const RENDER_TUNE = {
   // sign as it shipped.
   glNeonTube: 1,
   glNeonFlicker: 1,
-  // Lit names are BAKED as neon tube bent round each letter's outline (bakeSignText), not filled
-  // glyphs. 0 is the filled bake as it shipped. Bake-time, so a change needs a reload.
-  neonBake: 1,
-  // Break each neon letter's tube at the corners of its outline (glyphCorners). 0 is one unbroken loop.
-  neonGaps: 1,
   // The share of lit names with one tube gone dark (deadNeon). 0 lights every letter.
   neonDead: 0.14,
   // Every light this frame collected, fed to the MASS shader as well as to the sprite layer, so a
@@ -1353,7 +1280,6 @@ export const RENDER_TUNE = {
   cloudVolSteps: 48,   // march steps a ray
   cloudVolTemporal: 0.85,   // how much of last frame each pixel keeps (gl/cloudvol.js); 0 is the raw jittered march
   cloudVolGlow: 1,     // city underglow on the volume's base at night (cityGlowPts); 0 is off
-  cloudUnder: 1,      // 1: on the 2-D path, from under the deck, paint the cards BEFORE the world so buildings cover them; 0 paints them over everything as before
   cloudFloor: 1,      // 1: from under the deck, the part of a cloud card below the base never covers a bird (gl/clouds.js uFloorZ); 0 is the deck as it shipped
   // What FLIES lays its silhouette into the depth buffer, so the deck above can sort against it.
   // 0 puts both back to writing no depth, which is the renderer that shipped.
@@ -1393,11 +1319,6 @@ export const RENDER_TUNE = {
   // cloud well behind it drew straight over the neon. Same depth-only prepass the boards use, cut at
   // half alpha so only the letterforms write, never the halo.
   glSignDepth: 1,
-  // ⚠ AND SO DOES A NEON TUBE'S CORE (0 puts every stroke back to depth-free). A tube is a STROKE,
-  // which writes no depth because a wire is thinner than the buffer can express — true of a brace,
-  // and exactly why a cloud behind a tube run against the sky drew over it. Only strokes carrying a
-  // `glow` take the prepass, and only their CORE; the halo stays light and hides nothing.
-  glNeonDepth: 1,
   // ── THE ADORNMENTS, ON THE DEPTH BUFFER ─────────────────────────────────────
   //
   // Everything a building wears that is not mass, not a light and not a sign: masts, lattice
@@ -1439,24 +1360,6 @@ export const RENDER_TUNE = {
   // a parked harbour. With this set the clock stands still and only the ship moves, so any
   // difference between two frames IS the ship.
   shipForce: null,
-  // ── HOW A MOVING PART IS SHADED ─────────────────────────────────────────────
-  // A crane's machinery house, a counterweight, a trolley, a hook block, a grab: every one of them
-  // is `movingBox`, and every one of them was three flat fills with a raw-palette lid and a 0.44
-  // floor under its dark flank. 1 gives them the ramp a mass wall has worn all along — a key tint
-  // at the head, the shadow at the foot — so a jib stops reading as cut out of card. 0 is the three
-  // flat fills exactly as they shipped, and is the A/B. See the ⚠ over `motionRamp`.
-  motionShade: 1,
-  // ── WHETHER A LATTICE HAS HOLES IN IT ───────────────────────────────────────
-  // A crane mast, a gantry leg, a palisade fence. 0 paints the openings near-black exactly as they
-  // shipped; 1 leaves them TRANSPARENT in the baked tile, and both renderers then show the sky
-  // through them — the 2-D blit because a canvas texture carries its own alpha, and GLASS 2 because
-  // the mass shader alpha-tests the atlas. See the ⚠ over `matLattice`.
-  // ⚠ IT NEEDS A RELOAD TO A/B, like `glBand` and `richKit`. The baked wall tiles are cached per
-  // palette and the GL atlas is packed from those, and neither key carries this flag — so toggling
-  // it live changes nothing until something else evicts the tile, which reads as the flag not
-  // working. It is a bake-time property on purpose: putting it in the key would be a second copy of
-  // every lattice tile in a page that has a hard device ceiling.
-  latticeCut: 1,
   // ── WHAT A SURFACE IS MADE OF, AS A STRENGTH ────────────────────────────────
   //
   // A specular lobe, an environment reflection, a fresnel edge and a sheen, each one sized by the
@@ -1506,10 +1409,6 @@ export const RENDER_TUNE = {
   // is whether the renderer goes looking for a ledge to put them on, so at 0 a flock that wants one
   // simply never finds one, which is the same branch as a field with no buildings round it.
   birdPerch: 1,
-  // Flights to and from a ledge bend onto it (perchLeg in the fauna pass); 0 lands on the road first.
-  perchLeg: 1,
-  // Ledges higher than a flock can climb to in one flight are not offered (perchFor); 0 lifts the limit.
-  perchReach: 1,
   // A flock's ledge pool is kept per map window and only the landing pick runs per call (perchFor); 0 rebuilds it every call.
   perchMemo: 1,
   // A starling comes down on a wire or on grass within a few tiles, and on the road only when there is
@@ -1958,11 +1857,6 @@ export const RENDER_TUNE = {
   // so the frame is the one that shipped. Same off-switch discipline as `derivedKit` and `glSign`,
   // and for the same reason — this reaches any wall in the city a player can reach.
   wallTags: 1,        // tiles: keep lettering (and a `$name` board) on a GLASS 2 frame out to here. 0 = off
-  // Which distance the ADORNMENT ladder above is measured in. 1 = the real distance from the
-  // camera; 0 = `it.f`, the forward distance, which is r·cos(θ) and therefore shrinks as you turn
-  // away from a building that has not moved — so a shop's name was shed by the act of looking at
-  // it. See the ⚠ at the ladder itself. The mass LOD is deliberately NOT affected either way.
-  lodRadial: 1,
 
   // The DERIVED KIT: windows, roof plant, risers and a ground floor, generated off each building's
   // own captured shape for the 127 models nobody has hand-authored trim for. 0 falls back to the
@@ -2028,25 +1922,6 @@ export const RENDER_TUNE = {
   // ⚠ IT ONLY EVER REACHES THE MESH, so the 2-D fallback is unchanged at BOTH settings and
   // `framecost` cannot move either way. That is the check on this flag, not a claim about it.
   richKit: 1,
-  // ── EMISSIVE PANELS RATHER THAN WINDOW GRIDS ────────────────────────────────────────────────
-  // 0 puts the punched grid and the two-pane shopfront back. Three of the eight reference boards
-  // glow in big flat rectangles rather than in grids of little ones, and Voltage's own authoring
-  // note already prescribed it for the street ("ONE continuous glazed band, divided by mullions").
-  // ⚠ IT IS CHEAPER, WHICH IS THE PART NOBODY EXPECTS. A ribbon with five mullions is eleven faces
-  // where the five punched bays it replaces are forty, so the registry mesh went DOWN 39,754 →
-  // 36,348 faces while the lit area on every shopfront facade went up several times over.
-  // ⚠ Rich list only, and it has to be: `bars` is mesh-only, so on the 2-D painter a ribbon would
-  // be one undivided glowing slab with no mullions in it at all.
-  // ⚠ Needs a page reload, exactly as `richKit` does and for the same reason — see the ⚠ there.
-  glBand: 1,
-  // ── THE MASS, BANDED ────────────────────────────────────────────────────────────────────────
-  // A plinth where a building meets the pavement and a course a storey below its top. 0 leaves the
-  // roof coping alone and removes both. `models:quality` fails 22 of 173 on "more than one wall
-  // palette" with 26 more that are a box and a lid, and Voltage's note names the fix: a crown in a
-  // different value so the silhouette is not one tone top to bottom. The mass belongs to the arms;
-  // banding it is what a detail pass can do instead.
-  // ⚠ Needs a page reload, exactly as `glBand` and `richKit` do.
-  glCourse: 1,
   // ── A HOUSE CAST PER BUILDING ───────────────────────────────────────────────────────────────
   // 0 puts the Glasshouse back on one hue, byte for byte. Every drum in the quarter is painted by
   // `hfChrome` / `hfGlass`, and those ramps already vary — 133 calls over 69 distinct lo→hi pairs
@@ -2055,7 +1930,7 @@ export const RENDER_TUNE = {
   // ⚠ IT IS A HUE AND NEVER A BRIGHTNESS: a cast is authored as an angle in the YIQ chroma plane,
   // so `dY` is zero by construction and the estate still reads as one developer's cladding. See
   // `client/shared/hf-tint.js` for why the nudge scales with the facet's own luminance.
-  // ⚠ Needs a page reload, exactly as `glBand` and `richKit` do — the mesh memo and the GL vertex
+  // ⚠ Needs a page reload, exactly as `richKit` does — the mesh memo and the GL vertex
   // buffer key on object IDENTITY, so an A/B is two page loads and never two panels in one pass.
   hfTint: 1,
   // ── WHAT THE BUILDING IS FACED IN ───────────────────────────────────────────────────────────
@@ -2067,7 +1942,7 @@ export const RENDER_TUNE = {
   // ⚠ IT IS A REMAP OF THE CLADDING KEYS INSIDE THE MASS PRIMITIVES, so no arm was edited and the
   // shape capture, the mesh, the collision hull, the distance LOD and the cold open all see the
   // same building the painter does. Applied at the call sites it would reach only the painted path.
-  // ⚠ Needs a page reload, exactly as `glBand` and `richKit` do.
+  // ⚠ Needs a page reload, exactly as `richKit` does.
   hfSkin: 1,
   // ── A DRUM THAT ANSWERS THE LIGHT ───────────────────────────────────────────────────────────
   // 0 puts every drum in the city back on its baked ramp, byte-for-byte. `drumSkin` marks a face
@@ -2079,28 +1954,11 @@ export const RENDER_TUNE = {
   // gains a great deal and a `plain` one would trade a hand-tuned ramp for a flat fill.
   // ⚠ GLASS 2 ONLY — the 2-D painter has no eye position and keeps the closure, which is the same
   // deliberate divergence the whole material pass already is.
-  // ⚠ Needs a page reload, exactly as `glBand` and `richKit` do.
+  // ⚠ Needs a page reload, exactly as `richKit` does.
   glDrumMat: 1,
-  // ── A DRUM THAT KEEPS ITS COLOUR AND STILL ANSWERS THE LIGHT (`flat: 2`) ─────────────────────
-  // 0 puts every Halcyon chrome/glass drum back on its baked ramp. `glDrumMat` above only reaches a
-  // drum whose PALETTE is in a reflective family, and every Halcyon key is `plain`, so 85% of the
-  // quarter's wall area never got a sun, a shadow or a reflection. This reaches the drum through
-  // its STYLE instead: `hfChrome`/`hfGlass` declare an albedo (tinted by the tile's cast, so the
-  // cast survives) and a material family, and the face is shaded as a wall in that colour.
-  // ⚠ GLASS 2 ONLY, and needs a page reload (the mesh is memoised per model).
-  glDrumLit: 1,
-  // 1 lets the chop follow the wind (seaChopGain in sea-swell.js): nearly glassy in a calm, a third
-  // steeper in a gale. 0 is the constant SEA_AMP the sea shipped with.
-  glChopState: 1,
-  // 1 holds the far water (the floor past the mesh patch) to Monahan's whitecap coverage, the same
-  // law the mesh already follows. 0 is the fixed wv > 0.90 threshold under a noise mask.
-  glFoamFar: 1,
   // 1 gives the hull a natural roll period (rollRao): a beam sea near it rolls her past the wave
   // slope. 0 is the tap-filtered roll, which can only ever roll her less than the water.
   glSeaRao: 1,
-  // 1 gives a squat drum (a rotunda, a stepped tier) one cornice collar where its wall stops; the
-  // shaft rule leaves them bare. 0 is the kit as it shipped. Needs a reload (the mesh is memoised).
-  drumTier: 1,
   // 1 gusts the wind the renderer reads (windsocks, flags, spray, rain slant) off the shared wall
   // clock, harder in bad weather (client/shared/wind-gust.js). 0 is a steady wind.
   windGust: 1,
@@ -2117,23 +1975,6 @@ export const RENDER_TUNE = {
   // How far a reflected building is dimmed from its own palette. A mirror hands back the city
   // under the same sky you are under, mostly in its own shadow — not a lit render of it.
   glEnvDim: 0.62,
-  // ── THE WINDOW GRID PAINTED INTO THE WALL TEXTURE ──────────────────────────────────
-  // 0 leaves the material — brick, ashlar, plate, render — and paints no windows through it.
-  //
-  // ⚠ THE TEXTURE IS STRETCHED ONCE ACROSS A WHOLE WALL, which is the fact this flag exists to
-  // expose. `faceUVs` maps 0..1 over the face and `drawTexQuadPersp` does the same, so the grid
-  // in `wallTex` is 3 columns by 6 rows on EVERY wall in the city whatever size it is — and a
-  // window is therefore 9% of its own building height rather than a storey. Measured: 0.84
-  // storeys tall on a nine-storey block and 2.81 on a thirty-storey tower. That is the soft,
-  // frameless, building-sized blob a facade reads as, and no texel budget touches it: every
-  // feature in that generator is sized in `tr`, so raising `texRes` draws the same picture with
-  // softer edges.
-  //
-  // ⚠ AND IT CANNOT BE FIXED BY KEYING THE TEXTURE ON THE STOREY COUNT. The GL atlas is repacked
-  // on the SET of surfaces in the window, and its own note says why that set has to be stable:
-  // what a building is MADE of almost never changes as you drive. Put the storey count in
-  // `texKey` and it changes at every building on the street.
-  texWin: 1,
   // ── A PAINTED WINDOW HAS A FRAME IN IT, WHATEVER THE DIAL SAYS ──────────────────────────────
   // The least `tr` a default facade paints its window grid at. At texRes 1 a pane is two texels by
   // three, which is one flat colour with no room for anything in it, and every pane in the city
@@ -2189,29 +2030,6 @@ export const RENDER_TUNE = {
   // The stand-off goes along the sign's OWN NORMAL now — see `standOffQuad`, and see `faceY`,
   // which is the same answer every other wall painter in this file has always used.
   signSquare: 1,
-  // ── A BLADE IS A NEON BOX, NOT A COLOURED SLAB ──────────────────────────────────────────────
-  // 0 puts the flat lit face back. `marqueeBand` worked this out already and wrote it down: a neon
-  // sign is a BLACK PANEL WITH LIGHT ON IT, and flooding the whole face with the hue leaves the
-  // lettering nothing to be brighter than. The band has been drawn that way for a while; the blade
-  // — the taller, more conspicuous half of the city's signage, and the one you read from down the
-  // street — was still the slab, in the accent colour, with its name painted in the SAME accent
-  // colour on top of it. That is why a lit blade reads as a glowing smear and a lit band reads as
-  // a sign, on the same building, in the same palette.
-  //
-  // So the two share one painter now (`bladeArt`), which is the rule that function's own ⚠ states:
-  // two painters for one object are two ideas of what it looks like, and the second one drifts.
-  // ⚠ IT IS NOT A PALETTE CHANGE. Nothing here picks a new colour — the hue is still the arm's
-  // `m.neon`. What moves is WHERE it is put: into a tube round the perimeter and a wash near it,
-  // instead of over the whole face.
-  bladeBox: 1,
-  // ── …AND A TOP ──────────────────────────────────────────────────────────────────────────────
-  // 0 squares every blade off. A blade in this city is a rectangle, and in the photographs almost
-  // none of them are: a picture palace steps its crown back in a ziggurat, a post-war pylon tapers
-  // to a fin, a wordmark sits under an arch. It is the part of a blade you see first, because it is
-  // the part against the sky.
-  // ⚠ TALL BLADES ONLY (see `bladeCrown`) — a crown is a fraction of the HEIGHT, so on the squat
-  // hanging boards half this set turns out to be it would eat the face the name lives in.
-  bladeCrown: 1,
   // ── …AND WHAT THE SHOP SELLS, UNDER WHAT IT IS CALLED ───────────────────────────────────────
   // 0 puts every fascia back to the name alone. See `SIGN_WORD`: every sign the kit places says the
   // building's NAME, which is why a frontage with three of them reads worse than one — the
@@ -2244,17 +2062,6 @@ export const RENDER_TUNE = {
   // ⚠ See `tileFitBox` for why it is the ENTRANCE side only, why it trims rather than slides, and
   // why the shape capture deliberately does not see it.
   tileFit: 1,
-  // ── A BLADE SIGN IS A THING, NOT A STICKER, AND THERE IS NO LONGER A FLAG FOR THE STICKER ────
-  // `blade3d` lived here and could put every neon blade in the city back on a screen-space quad,
-  // whose half-width was in SCREEN PIXELS (clamp(9/f, 2, 9)) — so a blade kept the same apparent
-  // thickness however you moved, never foreshortened, and had no side at all. `bladePanel`'s own
-  // note already named that as the complaint: "a sticker floating in front of the building".
-  //
-  // It is a real box: a lettered front, a dark back, two edge returns and a cap, all in world units
-  // off the building's own footprint — and it is the ONLY way a blade is drawn, so there is nothing
-  // left for a 0 to select. See the ⚠ in `neonBlade` and the seeded `_bladeBasis`.
-  // 0 puts the rooftop holo-ad back on a single flat panel — see drawHoloAd.
-  holo3d: 1,
   // 0 puts the rooftop sign gantry back on a single plane with two stripes for legs — see signGantry.
   gantry3d: 1,
   haze: 2.2,          // how fast the floor fades into the horizon haze (live 'Haze' slider); paired with low fog for a soft near-horizon fade instead of a hard blue fog wall
@@ -2270,12 +2077,6 @@ export const RENDER_TUNE = {
   rwl: 3.2,           // runway length (tiles)
   rwyRecede: 4.0,     // how strongly climbing pushes the runway down/under
   fov: 0.82,          // horizontal FOV / focal length (<1 pulls the scenery in toward the vanishing point = a tighter "tunnel"; 1 = the old wide spread). Pure render — collision math is world-space and unaffected.
-  // ── THE GROUND IS IN THE SAME TUNNEL AS THE CITY ───────────────────────────────────────────
-  // 0 puts the ground back on its own lateral scale. `fov` above squeezes the world horizontally
-  // and for as long as it has existed it squeezed the BUILDINGS only: `drawMode7Floor` spelled the
-  // lateral scale as a bare constant, so the floor spread the ground `1/(fov·fovMul)` wider than
-  // the geometry standing on it. See the ⚠ in drawMode7Floor — this is the A/B for the whole rule.
-  floorLat: 1,
   volClouds: 1,       // 1 = fly-THROUGH volumetric cloud deck (world-projected puff stacks that grow, part around you, and whiteout as you punch through) + camera-locked haze; 0 = the old flat dome billboards only
   cloudZ: 2.4,        // (superseded) old fixed cloud-base world-z. The fly-through deck now derives its base per-weather from a realistic altitude — see CLOUD_BASE_FT / cloudBaseZ() below.
   cloudThick: 2.4,    // vertical spread (world-z) of that deck → how tall the wall of cloud you fly through is (raised: the deck was reading too thin)
@@ -2286,11 +2087,6 @@ export const RENDER_TUNE = {
   // A span carried on a utility pole where only one side of the street has a facade to tie to.
   // 0 is the wire exactly as it was: facade to facade, or nothing.
   wirePoles: 1,
-  // How rare a street crossing is, and where. 0 is the wire as it first shipped: EVERY road tile
-  // with something to tie to at both ends got one, which over the built city is most of them and
-  // reads as a mains grid rather than as a street somebody strung a wire over. 1 rolls each tile
-  // against its own district — see `wireRateAt`.
-  wireRare: 1,
   // The overshoot a span throws when a flock pushes off it. 0 is a cable that simply straightens
   // as the weight comes off, which is what shipped before the ring.
   wireRing: 1,
@@ -2486,24 +2282,8 @@ export const RENDER_TUNE = {
   // (__glMurmurCost), so this is one of the biggest roosts. Clouds are admitted nearest first, charged
   // at their FULL size even while thinned, and one that does not fit is not drawn at all, never short.
   murmurBirds: 300000,
-  // ⚠ THE MURMURATION'S RULES (FREE_RULES in gl/murmur-gpu.js): 1 is StarDisplay's local rules with no body,
-  // so the flock's shape emerges; 0 is the flock held inside a fixed ellipsoid on one shared course, as it shipped.
-  murmurFree: 1,
-  murmurAircraft: 1,
-  // ⚠ A MURMURATION LIFTS OFF AND POURS DOWN IN WAVES OVER MURMUR_WAVE_S: 0 has the whole flock go at once, as shipped.
-  murmurWaves: 1,
-  // A party (under MURMUR_TRICKLE_N birds) comes down one bird at a time rather than in four waves; 0 is the waves.
-  murmurTrickle: 1,
-  // A party of starlings has loose spells, flying as birds rather than one body, and pulls back together
-  // (looseOf); 0 flies every flock as one body all the time, as shipped.
-  starlingLoose: 1,
-  // ⚠ A FAST WINGBEAT DRAWN AS A BLUR (gl/fauna.js): 0 draws a sharp wing at whatever point of its beat the
-  // frame lands on, as shipped, which at a starling's 13 Hz reads as flicker across a flock.
-  wingBlur: 1,
   // ⚠ THE HAWK IS DRAWN DIVING ONTO WHAT IT STOOPS AT (falconDiveState): 0 leaves it on its circuit, as shipped.
   falconDive: 1,
-  // ⚠ MURMURATIONS FLY ROUND BUILDINGS AND THE CURTAIN (murmurObstacles): 0 lets them fly through, as shipped.
-  murmurAvoid: 1,
   // ⚠ THE FEWEST BIRDS A BIG ROOST THINS TO. FAUNA_SHOW walks every murmuration down to faunaShowMin of
   // itself when the frame is struggling, which is right for an ordinary flock and would take an 80,000
   // roost to 28,000. A flock bigger than this never shows fewer than this many; a flock at or under it
@@ -2514,14 +2294,6 @@ export const RENDER_TUNE = {
   // lit from outside, which drew a dusk flock overhead as a grey smudge (darkest bird luminance 42
   // against a 100-160 sky). A bird below the eye keeps its lit colour at any setting.
   murmurSil: 0.75,
-  // ⚠ A TRIAL: 1 draws every murmuration starling as the full 55-face mesh at any distance, with no dot
-  // or glyph rung. Measured on a 150,000-bird roost it cost nothing on a discrete GPU, but a bird under
-  // ~2 px is a mesh that catches a pixel centre or misses it, so a distant flock may shimmer where the
-  // ink dot does not. 0 is the detail ladder. Murmurations only: geese and gulls are CPU-built.
-  murmur3d: 1,
-  // ⚠ THE FLOCK RIDES THE SKYLINE (skylineUnder): its centre is held MURMUR_SKY_CLEAR over the roofs under it
-  // rather than at one height above them all. 0 is the centre at the species' height whatever is below.
-  murmurSkyline: 1,
   // ⚠ HOW VISIBLE A MURMURATION'S TURN BANDS ARE (gl/fauna.js, dot pass). Sharp steepens how much wing a
   // bird shows you into mostly-wing or mostly-edge; lift raises an edge-on bird's colour toward its lit
   // value, the one part of the flash that survives dots stacking in the dense core. 0, 0 and a bank of
@@ -2537,25 +2309,9 @@ export const RENDER_TUNE = {
   murmurFlashLift: 1,
   // how much the bank is exaggerated for the flash alone (1 is the real bank; the flight never sees it)
   murmurFlashBank: 5.5,
-  // ⚠ STARLINGS COMING DOWN OR GOING UP FLY RATHER THAN WALK (gl/fauna.js, uPoseSel): each bird still in
-  // the air takes the flying mesh with flare and feet down, holding its wings out on the descent, braking
-  // near the ground and beating hard on the way up. 0 draws the whole flock in the walking pose from the
-  // moment it starts to land, which is how it shipped: folded birds sliding down out of the sky.
-  murmurLandPose: 1,
   // ⚠ HOW MUCH OF EACH STARLING'S PITCH IS ITS OWN CLIMB RATHER THAN THE FLOCK CENTRE'S (gl/fauna.js,
   // uPitchK). 0 is every bird at the centre's pitch, as it shipped; 1 is each bird along its own path.
   murmurBirdPitch: 1,
-  // ⚠ A GOOSE, A GULL OR A PIGEON TAKES OFF AND LANDS DIFFERENTLY (the per-bird path in drawGeese): hard,
-  // quick beats with the feet tucked soon after lift-off, and a glide with the wings held out on the way
-  // down until the flare. 0 is the one flutter-with-feet-down both ways, as it shipped.
-  birdLandAnim: 1,
-  // ⚠ A LANDED STARLING FLOCK STAYS THE GPU FLOCK (its ground mode), so a roost keeps every bird it had
-  // in the air. 0 hands it back to the per-bird path at touchdown, thinned to the face budget, as it was.
-  murmurGround: 1,
-  // ⚠ FAR BIRDS CONSERVE THEIR INK (see the dot push in pushFauna): drawn wide enough to always reach a
-  // pixel centre and faint by the area they were given, so they stop blinking on the pixel grid and a
-  // dense patch of a flock goes darker than a thin one. 0 is the 0.45 px hard dot exactly as shipped.
-  faunaInk: 1,
   birdFaces: 1400,
   // MEASURED with __faunaCost() in the Modelshop on a painted frame with a real context, which
   // is the only place a draw call can be reached: at 60 birds the GL marginal cost is 0.7 ms
@@ -2568,19 +2324,9 @@ export const RENDER_TUNE = {
   // 11,000 faces and needs 0.6 of the budget to clear it. The cost that now bounds this is the
   // per-bird world transform, measured at 0.75 ms for 200 birds — see the note in birds.js.
   birdFacesGL: 165000,
-  // ⚠ SEPARATE FROM `geese`, because a bird you can see and a bird you can hear are different
-  // complaints. Somebody who finds the calls repetitive wants them off without emptying the sky,
-  // and somebody measuring the frame wants the birds gone without the audio changing under them.
-  birdCalls: 1,       // whether flocks are audible at all — 0 = seen and never heard
-  // ⚠ SEPARATE AGAIN, for the reason `birdCalls` is separate from `geese`: the murmuration bed is
-  // a continuous layer and the calls are events, so somebody who finds a standing bed wearing
-  // wants it off without losing every bird in the sky. 0 puts a murmuration back on the ordinary
-  // burst schedule — one starling's call, which is what it was before the bed existed.
-  murmurAudio: 1,
   chaseBack: 2.95,    // (1.6 before one world scale made the prop 1.84x bigger) EXTERNAL chase cam: how many tiles behind the craft the camera sits
   chaseUp: 0.405,     // (0.22, scaled with chaseBack) EXTERNAL chase cam: world-z the camera sits above the craft (higher = looks down more; lower rides the craft higher/more centred on screen)
   chaseYaw: 12,       // EXTERNAL chase cam: resting off-astern angle (deg) so we view the craft from a slight 3/4 rear quarter, not dead-behind. Mouse orbit adds on top of this.
-  glMetal: 1,        // GLASS 2: an aircraft's metal mirrors the sky PER PIXEL with smoothed normals and a sun glint (gl/solids.js); 0 = the per-face reflection baked into the colour
   chaseSink: 0.015,   // EXTERNAL view: small final trim (world-z) sinking the wheels a hair into the tarmac to hide the seam. The model is auto-anchored so its gear rests on the ground (see ownShipBaseWz) — this is just a nudge on top, no longer the whole ground offset
   chaseFrameY: 0.46,  // EXTERNAL chase cam: screen-y (fraction of canvas height) the craft's VISUAL CENTRE is pinned to — the camera pitch is solved to land it here regardless of zoom / ground vs air / orbit angle, so it never slides behind the bottom flight-stick HUD (lower = higher in frame)
   yachtMidWz: 0.11,   // HELM chase (hideOwnShip): the Echelon's visual-centre world-z, used to pin her at frameY the same zoom-stable way the own ship is pinned — so she holds her screen spot on the dolly/orbit and always frames ABOVE the helm console (raise ⇒ she sits lower in frame)
@@ -6000,7 +5746,7 @@ function paintWindshieldFrame(id, view) {
   // building four tiles away was painting over rain that is meant to be between you and it, which
   // is why the near curtain has never read as close: it was occluded by everything in the city.
   // See RENDER_TUNE.rainLit — at 0 both curtains draw here, exactly as they always have.
-  if (!roofed) drawWeather(ctx, W, H, airWx, st, dt, speed, airPrecip, TUNE.rainLit > 0 ? 'far' : 'both');
+  if (!roofed) drawWeather(ctx, W, H, airWx, st, dt, speed, airPrecip, 'far');
   pEnd();
 
   // The airport (themed scenery flanking a runway) on the deck; the pad for VTOL;
@@ -6212,7 +5958,7 @@ function paintWindshieldFrame(id, view) {
     // city is behind a cloud, so the cards are painted first and the world covers them; above the
     // deck the old order stays (the ground would otherwise hide the deck below you).
     CLOUD_UNDER = false;
-    if (volOn && worldBlend > 0.02 && !CLOUD_SINK && TUNE.cloudUnder !== 0 && cam.EH < cloudBaseZ(wx)) {
+    if (volOn && worldBlend > 0.02 && !CLOUD_SINK && cam.EH < cloudBaseZ(wx)) {
       pBegin('clouds');
       try { drawVolumetricClouds(ctx, cam, st, v, baseTint, litTint, cloudAlpha, localStorm, sky.night, dt, W, H, horizonY, wx, lightX, lightY, lightStr, 'under'); CLOUD_UNDER = true; }
       catch (e) { console.error('[windshield] the under-deck cloud pass threw', e); }
@@ -6247,7 +5993,7 @@ function paintWindshieldFrame(id, view) {
     // ⚠ HERE RATHER THAN IN THE finally ABOVE, AND THAT ORDERING IS THE WHOLE FEATURE. The census
     // is filled by the world pass, so rain drawn before it has no lights to read and rain drawn
     // after the sinks are dropped has none either. This is the one line between the two.
-    if (!roofed && TUNE.rainLit > 0) {
+    if (!roofed) {
       pBegin('weather');
       drawWeather(ctx, W, H, airWx, st, dt, speed, airPrecip, 'near');
       pEnd();
@@ -10545,32 +10291,6 @@ function drawCabDial(ctx, cx, cy, r, frac, band, label, read, lit, T = CAB_TRIM[
   ctx.beginPath(); ctx.arc(cx, cy, r * 0.97, Math.PI * 1.02, Math.PI * 1.52); ctx.stroke();
   ctx.strokeStyle = 'rgba(0,0,0,0.35)';
   ctx.beginPath(); ctx.arc(cx, cy, r * 0.97, Math.PI * 0.05, Math.PI * 0.5); ctx.stroke();
-  ctx.restore();
-}
-
-// A subsidiary gauge — the flanking bars. Quarter-graduated, because a bar with no graduations is
-// a mood rather than an instrument.
-function drawCabBar(ctx, x, y, w, h, frac, col, label, T = CAB_TRIM[1]) {
-  ctx.save();
-  roundRectPath(ctx, x, y, w, h, 2);
-  ctx.fillStyle = '#05070a'; ctx.fill();
-  ctx.strokeStyle = T.ring; ctx.lineWidth = 1; ctx.stroke();
-  const f = Math.max(0, Math.min(1, frac || 0));
-  if (f > 0.004) {
-    ctx.save();
-    roundRectPath(ctx, x, y, w, h, 2); ctx.clip();
-    ctx.fillStyle = col; ctx.shadowColor = col; ctx.shadowBlur = 6;
-    ctx.fillRect(x, y + h * (1 - f), w, h * f);
-    ctx.restore();
-  }
-  ctx.strokeStyle = 'rgba(0,0,0,0.6)'; ctx.lineWidth = 1;
-  for (let i = 1; i < 4; i++) {
-    ctx.beginPath(); ctx.moveTo(x, y + h * (i / 4)); ctx.lineTo(x + w * 0.55, y + h * (i / 4)); ctx.stroke();
-  }
-  ctx.fillStyle = 'rgba(150,165,185,0.6)';
-  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-  ctx.font = `700 ${Math.max(5, Math.min(9, w * 0.62)) | 0}px 'DejaVu Sans Mono',monospace`;
-  ctx.fillText(label, x + w / 2, y + h + 2);
   ctx.restore();
 }
 
@@ -16800,30 +16520,6 @@ function vnoise2(x, y) {
   return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
 }
 
-// Approximate Euclidean distance to the nearest seeded cell (two-pass chamfer). seed[y][x]
-// truthy marks a source; returns { d, sy } — the distance grid (0 on sources, growing outward)
-// and, per cell, the ROW of the nearest source (sy), so callers can tell which DIRECTION the
-// nearest feature lies in (used to keep off-map sea a northern-only extension — see fillOffMap).
-function distField(seed, mw, mh) {
-  const INF = 1e9, D1 = 1, D2 = 1.4142, d = new Array(mh), sy = new Array(mh);
-  for (let y = 0; y < mh; y++) {
-    d[y] = new Float64Array(mw); sy[y] = new Float64Array(mw);
-    for (let x = 0; x < mw; x++) { const s = !!seed[y][x]; d[y][x] = s ? 0 : INF; sy[y][x] = s ? y : INF; }
-  }
-  // Relax cell (y,x) against neighbour (ny,nx): if going through it is shorter, adopt its
-  // distance-plus-step AND inherit its nearest-source row, so sy tracks alongside d.
-  const relax = (y, x, ny, nx, cost) => { const nd = d[ny][nx] + cost; if (nd < d[y][x]) { d[y][x] = nd; sy[y][x] = sy[ny][nx]; } };
-  for (let y = 0; y < mh; y++) for (let x = 0; x < mw; x++) {
-    if (y > 0) { relax(y, x, y - 1, x, D1); if (x > 0) relax(y, x, y - 1, x - 1, D2); if (x < mw - 1) relax(y, x, y - 1, x + 1, D2); }
-    if (x > 0) relax(y, x, y, x - 1, D1);
-  }
-  for (let y = mh - 1; y >= 0; y--) for (let x = mw - 1; x >= 0; x--) {
-    if (y < mh - 1) { relax(y, x, y + 1, x, D1); if (x < mw - 1) relax(y, x, y + 1, x + 1, D2); if (x > 0) relax(y, x, y + 1, x - 1, D2); }
-    if (x < mw - 1) relax(y, x, y, x + 1, D1);
-  }
-  return { d, sy };
-}
-
 // The wildlands & sea beyond the built map. Off-map/unbuilt tiles used to read as endless open
 // ocean; instead we EXTEND the world's edge. Two distance fields — to the nearest built WATER and
 // the nearest built LAND — classify every empty cell as sea or land, and the divide is wobbled by
@@ -16838,16 +16534,6 @@ function distField(seed, mw, mh) {
 // A window with no built tile at all inherits the craft's last land/sea memory (st.offLand): over
 // open sea it stays ocean; deep past a land edge the wildlands run on instead of flipping to ocean.
 const COAST_WOBBLE = 6, DIRT = BIOME_GROUND.badlands, REDROCK = BIOME_GROUND.redrock, SEA = [BIOME_GROUND.water[0], BIOME_GROUND.water[1], BIOME_GROUND.water[2], 1, 0, 1];
-// The dirt↔redrock mix at one world tile, `into` being how far past the built land edge it sits
-// (0 = the shore of the built world, 1 = deep out). ONE function, because three callers now ask the
-// same question — fillOffMap's two branches and the far field past the map window — and the far
-// field has to agree with the window fill tile for tile or the boundary reads as a colour step.
-function wildMix(awx, awy, into) {
-  return clamp(into * 0.7 + vnoise2(awx * 0.06, awy * 0.06) * 0.6 - 0.15, 0, 1);
-}
-// How far past the built edge "deep out" counts as. 0.786 × 0.7 is the 0.55 the deep branch used to
-// carry as a bare constant, so nothing about that fill changed when it moved onto wildMix.
-const DEEP_INTO = 0.786;
 
 // ── THE GROUND PAST THE MAP WINDOW ────────────────────────────────────────────
 //
@@ -17466,7 +17152,7 @@ function drawMode7Floor(ctx, W, H, horizonY, depth0, v, sky, gTop, now, sun, cha
   // whole 0.82 — and the one you notice it from is the detached camera, because it is the only one
   // that stands still at street level and looks around.
   const FL = viewLatFocal(W, v);   // the camera's own lateral focal length, from the camera's own function
-  const LAT = RENDER_TUNE.floorLat ? halfW / FL : 1.15;
+  const LAT = halfW / FL;
   const nm = moonNightDim(sky.night, sun), hz = RENDER_TUNE.haze, hor = sky.hor;
   // N64 distance fog: the whole floor blends toward the sky/horizon colour over a near→far band,
   // so the far ground and the wall of horizon buildings dissolve into the same fog the sky fades to
@@ -17667,12 +17353,12 @@ function drawMode7Floor(ctx, W, H, horizonY, depth0, v, sky, gTop, now, sun, cha
   const SA = seaAmps();
   SEA_NOW.state = SA.state; SEA_NOW.roll = SA.roll; SEA_NOW.wind = SA.wind;
   SEA_NOW.foam = SA.foam; SEA_NOW.kt = SA.kt; SEA_NOW.hs = SA.hs;
-  SEA_NOW.foamFar = RENDER_TUNE.glFoamFar > 0 ? SA.foamFar : -1;
+  SEA_NOW.foamFar = SA.foamFar;
   // ⚠ ONE ANSWER FOR THE CHOP, AND EVERY PICTURE-SIDE READER TAKES IT FROM HERE: the floor, the
   // mesh, the raster lighting and the spray. A tune pins it; otherwise it follows the wind
   // (seaChopGain). glChopState 0 is the constant SEA_AMP that shipped.
   SEA_NOW.amp = RENDER_TUNE.glSeaAmp != null ? RENDER_TUNE.glSeaAmp
-    : SEA_AMP * (RENDER_TUNE.glChopState > 0 ? seaChopGain(SEA_NOW.kt) : 1);
+    : SEA_AMP * seaChopGain(SEA_NOW.kt);
   // Rotor downwash: when a HELI (v.cls==='heli', the Dragonfly) is low over water, the rotor beats a
   // disturbed disc into the surface under it — a matted crater ringed with spray and out-running
   // ripples. Strongest in ground effect (low height), gone as it climbs away; zero for fixed-wing, so
@@ -18178,19 +17864,6 @@ function drawMode7Floor(ctx, W, H, horizonY, depth0, v, sky, gTop, now, sun, cha
   ctx.imageSmoothingEnabled = sm;
 }
 
-// One big, defined fluffy cumulus (Pilotwings look): a flat shaded base, rounded lit top
-// lobes — solid, not wispy — so it reads as a proper cloud you fly past.
-// Read-only, and rebuilt on every puff before this moved out — five nested arrays per cloud lobe
-// group, and a sky full of cumulus draws a lot of them.
-const PUFF_LOBES = [[-0.72, 0.14, 0.6], [-0.16, -0.16, 0.82], [0.5, 0.02, 0.68], [0.06, -0.42, 0.52], [1.02, 0.22, 0.46]];
-function drawPuff(ctx, cx, cy, s, lit, base, alpha) {
-  const lobes = PUFF_LOBES;
-  ctx.fillStyle = rgb(mix(base, [86, 96, 112], 0.42), alpha * 0.9);
-  ctx.beginPath(); ctx.ellipse(cx + s * 0.15, cy + s * 0.3, s * 1.2, s * 0.34, 0, 0, 7); ctx.fill();   // shaded flat base
-  for (const [lx, ly, lr] of lobes) { ctx.fillStyle = rgb(base, alpha * 0.96); ctx.beginPath(); ctx.arc(cx + lx * s, cy + ly * s, lr * s, 0, 7); ctx.fill(); }
-  for (const [lx, ly, lr] of lobes) { ctx.fillStyle = rgb(lit, alpha * 0.65); ctx.beginPath(); ctx.arc(cx + lx * s - lr * s * 0.22, cy + ly * s - lr * s * 0.26, lr * s * 0.68, 0, 7); ctx.fill(); }   // lit crowns
-}
-
 // ── Fly-through volumetric cloud deck ───────────────────────────────────────────
 // The dome billboards above sit on the sky sphere at infinity — you can never reach them. This
 // layer instead hangs real puffs in the WORLD, scattered inside the SAME drifting weather-field
@@ -18374,7 +18047,7 @@ function drawVolumetricClouds(ctx, cam, st, v, base, lit, alpha, storm, night, d
   // Cumulus caps over strong thermals (thermalCapCells), built into the same swarm as the weather's
   // cells so they light, sort and fade exactly like the rest of the deck. They are the one cloud a
   // clear day has, so a sky with no weather cells still has a deck to draw when a cap is up.
-  const caps = build && RENDER_TUNE.thermalCaps ? thermalCapCells(v) : null;
+  const caps = build ? thermalCapCells(v) : null;
   if ((!cells.length && !(caps && caps.length)) || ax == null || ay == null) return st.cloudImm = 0;
   // Many small puffs, few cards each: the deck is built from a DENSE swarm of small puffs (≈10× the
   // old count, each a fraction of the size) rather than a sparse handful of big cauliflower stacks —
@@ -21645,7 +21318,7 @@ function wallTex(biome, night, win = WIN_ON) {
   // facade while every counter reports the feature working.
   const winMode = nite ? win : WIN_ON;
   return getTex('wall:' + biome + (nite ? ':n' : '') + ':' + tr + ':' + NQ()
-    + (RENDER_TUNE.texWin === 0 ? ':nw' : '') + (winMode === WIN_ON ? '' : ':p' + winMode), () => {
+    + (winMode === WIN_ON ? '' : ':p' + winMode), () => {
     // ── ⚠ BRICK BAKES AT TWICE THE TEXELS, AND IT IS THE ONLY SURFACE THAT DOES ────────────────
     //
     // Every wall in the city is 16×32 texels for a WHOLE BUILDING TILE. That is enough for ashlar
@@ -21702,7 +21375,7 @@ function wallTex(biome, night, win = WIN_ON) {
     // density. Measured with `atlasfit`; promote one only by measuring it in, as the note says.
     const hires = !REGION_NO_FLOOR.has(biome) && (BRICK_WALL.has(biome) || STONE_WALL.has(biome) || PLATE_WALL.has(biome)
       || TIMBER_WALL.has(biome) || CONCRETE_WALL.has(biome) || STUCCO_WALL.has(biome) || TILE_WALL.has(biome)
-      || MARBLE_WALL.has(biome) || (RENDER_TUNE.latticeCut && LATTICE_CUT.has(biome))
+      || MARBLE_WALL.has(biome) || LATTICE_CUT.has(biome)
       // The Solenne is nothing BUT curtain glass, so at the floor its whole facade was four panes by
       // five with a two-texel mullion — a tint, not glazing. One key, the tower that is all window.
       || biome === 'ty_solenne' || biome === 'ty_asc_shaft');   // …and the Spire, whose fins and slots are a texel or two at the floor
@@ -21855,7 +21528,7 @@ function wallTex(biome, night, win = WIN_ON) {
       const mat = bareMat(biome);
       // Whether THIS palette's openings are real holes — see LATTICE_CUT. It is a property of the
       // key and not of the painter, so it is resolved here and handed down rather than read inside.
-      const CUT = !!RENDER_TUNE.latticeCut && LATTICE_CUT.has(biome);
+      const CUT = LATTICE_CUT.has(biome);
       if (mat) {
         mat(g, W, H, w, tr, 1, CUT);
         // A lattice is mostly sky-shaped hole and reads darker again at night; the rest take the
@@ -22159,7 +21832,6 @@ function wallTex(biome, night, win = WIN_ON) {
     // ⚠ THE A/B FOR THE PAINTED GRID — see `texWin`. The material above and the surround below
     // are the wall; this loop is the WINDOWS, and it is the one thing here that is sized as a
     // fraction of a building rather than of a storey.
-    if (RENDER_TUNE.texWin === 0) return c;
     for (const [x, y] of panes(W, H, tr)) {
       // Scatter lit windows in 2D. The old (x*7 + y*13) % 5 test degenerated at ys=5*tr — the row
       // term vanished mod 5, so whole columns lit identically on every floor (the "tiled" stripes).
@@ -22403,7 +22075,7 @@ export function wallTexMixed(biome, NB, win = WIN_ON) {
   // per palette and REDRAWS it in place as the blend crosses a step, so a key that cannot tell a
   // blacked-out building from a lit one gives both the same canvas — and whichever of them is
   // drawn second in the frame decides what the first one looked like.
-  const mk = biome + ':' + wallTr(biome) + ':' + NQ() + (RENDER_TUNE.texWin === 0 ? ':nw' : '')
+  const mk = biome + ':' + wallTr(biome) + ':' + NQ()
     + (win === WIN_ON ? '' : ':p' + win);
   let e = _wallMix.get(mk);
   if (!e) { e = { c: texCanvas(day.width, day.height), q: -1 }; _wallMix.set(mk, e); }
@@ -22494,7 +22166,7 @@ export function wallMatMixed(biome, NB, win = WIN_ON) {
   const q = Math.round(clamp(NB, 0, 1) * WALL_MIX_STEPS);
   // Sized FROM the albedo, so the two can't disagree about a tile's size whatever wallTex decides.
   const alb = wallTexMixed(biome, NB, win);
-  const mk = biome + ':' + wallTr(biome) + ':' + NQ() + (RENDER_TUNE.texWin === 0 ? ':nw' : '') + (win === WIN_ON ? '' : ':p' + win);
+  const mk = biome + ':' + wallTr(biome) + ':' + NQ() + (win === WIN_ON ? '' : ':p' + win);
   let e = _wallMat.get(mk);
   if (!e) { e = { c: texCanvas(alb.width, alb.height), q: -1 }; _wallMat.set(mk, e); }
   if (e.c.width !== alb.width || e.c.height !== alb.height) { e.c.width = alb.width; e.c.height = alb.height; e.q = -1; }
@@ -22521,7 +22193,6 @@ function paintWallMat(c, kind, biome, q, win) {
 // pane in the albedo is drawn over it here too.
 const MAT_PAGE_PAINTERS = {
   facade(put, { tr, W, H, nite, winMode, biome }) {
-    if (RENDER_TUNE.texWin === 0) return;
     const NEON = NQ(), acc = NEON > 0 ? palNeon(biome) : null;
     const { ww, wh, px } = paneGrid(tr);
     for (const [x, y] of panes(W, H, tr)) {
@@ -22903,7 +22574,7 @@ function surfOf(biome) {
     : TIMBER_WALL.has(biome) ? surfTimber : SHAKE_ROOF.has(biome) ? surfShakeWall : null;
   if (early) return { twin: early, amp: 1 };
   const bare = bareMat(biome);
-  if (bare) return { twin: SURF_TWIN.get(bare), amp: 1, cut: bare === matLattice && !!RENDER_TUNE.latticeCut && LATTICE_CUT.has(biome) };
+  if (bare) return { twin: SURF_TWIN.get(bare), amp: 1, cut: bare === matLattice && LATTICE_CUT.has(biome) };
   const late = PLAIN_WALL.has(biome) ? surfPlain : SHOP_GLASS.has(biome) ? surfShop : STRUCT_WALL.has(biome) ? surfStruct
     : GLASS_WALL.has(biome) ? surfCurtain : biome === 'ty_asc_shaft' ? surfSpire : DECO_WALL.has(biome) ? surfDeco : null;
   if (late) return { twin: late, amp: 1 };
@@ -22917,13 +22588,13 @@ export function wallSurf(biome) {
   // Sized from the day albedo, which is the size every variant of this palette's wall takes.
   const alb = wallTex(biome, 0);
   // ⚠ A CUT LATTICE IS ITS OWN KEY: the cut changes the member sizes and the tile's size with them.
-  return getTex('wallsurf:' + biome + ':' + wallTr(biome) + (RENDER_TUNE.texWin === 0 ? ':nw' : '') + (S.cut ? ':cut' : ''), () => {
+  return getTex('wallsurf:' + biome + ':' + wallTr(biome) + (S.cut ? ':cut' : ''), () => {
     const c = texCanvas(alb.width, alb.height), g = c.getContext('2d');
     const tr = wallTr(biome), W = c.width, H = c.height;
     S.twin(g, W, H, WALL_COL[biome] || [52, 56, 66], tr, S.amp, S.cut);
     // The panes are glass, and the relief stops at glass anyway (the material page); flat here so a
     // pane's edge doesn't read as a cliff from the wall beside it.
-    if (S.panes && RENDER_TUNE.texWin !== 0) {
+    if (S.panes) {
       const { ww, wh } = paneGrid(tr);
       for (const [x, y] of panes(W, H, tr)) surfPut(g, x, y, ww, wh, 0.5, 0.5);
     }
@@ -23718,7 +23389,7 @@ const SEA_HEAD_SLEW = 3 * Math.PI / 180 / 60;   // rad/s — three degrees a min
 let SEA_HEAD = { d: 0, at: 0, seeded: false };
 function seaHeadingStep(v, now) {
   let target = 0;
-  if (RENDER_TUNE.glSeaHeading > 0) {
+  {
     const dir = v.wxField?.wind?.dir ?? windFromView(v).dir;
     const r = dir * Math.PI / 180;
     target = seaHeadingFor(Math.sin(r), -Math.cos(r));
@@ -25637,7 +25308,6 @@ function discPts(rad, n = 18, ox = 0, oy = 0, squash = 1) {
 // so it still beats its own host walls (which span ±~0.44 tile around the anchor), but far less than the
 // ~1 tile gap to any building actually in front — so a nearer building now correctly occludes it.
 const DECO_LIFT = 0.6;
-const decoDepth = (...fs) => Math.min(...fs) - DECO_LIFT;
 // ── …AND A SORT BIAS IS NOT A DEPTH OFFSET ──────────────────────────────────
 //
 // `DECO_LIFT` is how far an adornment jumps FORWARD IN A QUEUE. Spent instead as a `cam.unproj`
@@ -26897,7 +26567,7 @@ let PERF_DS = 0;   // adaptive Mode-7 downscale bump (0..4), set per-frame in pa
 // The three texq keys qualify on the rule above for the same reason `pixel` and `texRes` do: they
 // decide how much work a mapping is allowed to spend on itself and decide nothing about where any
 // geometry is. A face occupies the same four screen corners at every setting.
-const VIEW_TUNABLE = new Set(['lodNear', 'lodFar', 'lodAdorn', 'lodRadial', 'wallLodPx', 'decoFar', 'shadowFar', 'glowFar', 'occlude', 'frustum', 'perfDS', 'pixel', 'floorSubpixel', 'texRes', 'gl', 'glMsaa', 'glShadow', 'texqPx', 'texqMaxK', 'texqCells']);
+const VIEW_TUNABLE = new Set(['lodNear', 'lodFar', 'lodAdorn', 'wallLodPx', 'decoFar', 'shadowFar', 'glowFar', 'occlude', 'frustum', 'perfDS', 'pixel', 'floorSubpixel', 'texRes', 'gl', 'glMsaa', 'glShadow', 'texqPx', 'texqMaxK', 'texqCells']);
 // The resolved tune for the frame in progress. Defaults to RENDER_TUNE itself -- so with no caller
 // override this is the same object it always was, and the sliders keep working because the merge is
 // rebuilt from RENDER_TUNE every frame rather than snapshotted once.
@@ -28143,7 +27813,7 @@ function draw3DBoxAt(ctx, cam, dx, dy, fh, wz0, wz1, biome, seed, night, alpha, 
       // ⚠ AND THE FLAT LOD BRANCH IS EXEMPT, because it paints no texture — a wall too small to
       // blit has no holes to protect and must stay an opaque tone-matched fill or a distant mast
       // would vanish entirely.
-      const cutWall = TUNE.latticeCut && wallPx >= WALL_LOD_PX && LATTICE_CUT.has(PF ? biome[fc.i] : biome);
+      const cutWall = wallPx >= WALL_LOD_PX && LATTICE_CUT.has(PF ? biome[fc.i] : biome);
       const overlay = !cutWall && (litTop || litSolid || sh || fog > 0.004);
       if (wallPx < WALL_LOD_PX) { quadPath(ctx, P0, P1, P2, P3); ctx.fillStyle = flatFor(fc.i); ctx.fill(); }
       else { drawTexQuadP(ctx, wallTexN, P0, P1, P2, P3, fL, fR, minify); if (overlay) quadPath(ctx, P0, P1, P2, P3); }
@@ -28882,7 +28552,7 @@ function drawCliffMass(ctx, cam, dx, dy, run, biome, seed, night, alpha, sun, wx
   // strokes at any range, and the near ring is where its rows cost the most: rebuilt every frame
   // it was ~30 ms driving past a massif. Inside 2.5 a point can near-clip, which depends on the
   // exact eye position and can't be replayed.
-  const relief = RENDER_TUNE.cliffProfile && RENDER_TUNE.glStrata;
+  const relief = RENDER_TUNE.cliffProfile;
   if (!(cen.f >= (relief ? 2.5 : 10))) return drawCliffMassRaw(ctx, cam, dx, dy, run, biome, seed, night, alpha, sun, wx, wy);
   const ex = cam.ex || 0, ey = cam.ey || 0;
   let mask = 0;
@@ -28894,7 +28564,7 @@ function drawCliffMass(ctx, cam, dx, dy, run, biome, seed, night, alpha, sun, wx
   const lz = sun && sun.elev > 0.05 ? sun.elev : (sun && sun.moonElev > 0.05 ? sun.moonElev : 0.55);
   const q = (v) => Math.round(v * 200);
   const key = wx + ',' + wy + '|' + run + '|' + biome + '|' + (cen.f > 22 ? 1 : 2) + cliffCols(cen.f) + '|' + mask + '|' + q(lx) + ',' + q(ly) + ',' + q(lz)
-    + '|' + Math.round((night || 0) * 64) + '|' + alpha + '|' + (RENDER_TUNE.glStrata ? 1 : 0) + (RENDER_TUNE.cliffProfile ? 1 : 0) + ',' + Math.round(RENDER_TUNE.cliffFlute * 100) + '|' + Math.round((cam.EH || 0) * 200)
+    + '|' + Math.round((night || 0) * 64) + '|' + alpha + '|' + (RENDER_TUNE.cliffProfile ? 1 : 0) + ',' + Math.round(RENDER_TUNE.cliffFlute * 100) + '|' + Math.round((cam.EH || 0) * 200)
     + '|' + Math.round(cen.f) + '|' + Math.round(cam.FL || 0)
     // ⚠ AND WHERE THE TILE SITS IN THE MAP WINDOW. The quads are recorded in the window's frame
     // (dx + cam.ox is the tile's own whole-number offset), so a hit can push the very same objects
@@ -29065,7 +28735,7 @@ function drawCliffMassRaw(ctx, cam, dx, dy, run, biome, seed, night, alpha, sun,
     wx: P.wx + (Q.wx - P.wx) * s, wy: P.wy + (Q.wy - P.wy) * s,
     ox: P.ox + (Q.ox - P.ox) * s, oy: P.oy + (Q.oy - P.oy) * s, fl: P.fl + (Q.fl - P.fl) * s,
   });
-  const relief = !!(gmesh && RENDER_TUNE.cliffProfile && RENDER_TUNE.glStrata);
+  const relief = !!(gmesh && RENDER_TUNE.cliffProfile);
   const FC = relief ? { gmesh, ox: cam.ox, oy: cam.oy, alpha, day, lx, ly, lz, mott, bench: BENCH } : null;
   const COLS = cliffCols(cen.f), ROWS = fine ? CLIFF_ROWS_FACE : CLIFF_ROWS_CUTS;
 
@@ -29171,7 +28841,7 @@ function drawCliffMassRaw(ctx, cam, dx, dy, run, biome, seed, night, alpha, sun,
           return tone(faceCol, m + b.warm, nlF * b.k);
         };
         let prevA = wtA, prevB = wtB, prevZ = zTop;
-        for (const z of (RENDER_TUNE.glStrata ? cuts : [])) {
+        for (const z of cuts) {
           const cA = onW(A, z), cB = onW(B, z);
           const f = bedFill(bedOf((prevZ + z) * 0.5)), c = gcol(f);
           gq([prevA, prevB, cB, cA], f, [c, c, c, c]);
@@ -29179,17 +28849,9 @@ function drawCliffMassRaw(ctx, cam, dx, dy, run, biome, seed, night, alpha, sun,
         }
         // The bed that reaches the bench. Always emitted, so a face crossing no cut at all is
         // still drawn — a low shoulder between two buttes is most of the ground out here.
-        if (RENDER_TUNE.glStrata) {
+        {
           const f = bedFill(bedOf((prevZ + zBot) * 0.5)), c = gcol(f);
           gq([prevA, prevB, wbB, wbA], f, [c, c, c, c]);
-        } else {
-          // The face as it shipped: caprock band, then the long fall into shadow, two quads for
-          // three stops.
-          const c0 = gcol(tone(faceCol, m, nlF * 1.16)), c02 = gcol(tone(faceCol, m, nlF));
-          const c1 = gcol(tone(faceCol, m, nlF * 0.66));
-          const mA = lerp3(wtA, wbA, 0.2), mB = lerp3(wtB, wbB, 0.2);
-          gq([wtA, wtB, mB, mA], tone(faceCol, m, nlF), [c0, c0, c02, c02]);
-          gq([mA, mB, wbB, wbA], tone(faceCol, m, nlF), [c02, c02, c1, c1]);
         }
         // The apron, on the SAME cuts — so a bed that crosses the bench carries straight on down
         // the debris slope instead of stopping at it, which is what makes the two surfaces read as
@@ -29216,23 +28878,15 @@ function drawCliffMassRaw(ctx, cam, dx, dy, run, biome, seed, night, alpha, sun,
         const zBench = Math.min(A.h, B.h) * BENCH;
         const aCuts = STRATA_Z.filter((z) => z > 1e-4 && z < zBench - 1e-4);
         let pA = wbA, pB = wbB, pZ = Math.max(A.h, B.h) * BENCH;
-        for (const z of (RENDER_TUNE.glStrata ? aCuts : [])) {
+        for (const z of aCuts) {
           const cA = onA(A, z), cB = onA(B, z);
           const f = aFill(bedOf((pZ + z) * 0.5)), c = gcol(f);
           gq([pA, pB, cB, cA], f, [c, c, c, c]);
           pA = cA; pB = cB; pZ = z;
         }
-        if (RENDER_TUNE.glStrata) {
+        {
           const f = aFill(bedOf(pZ * 0.5)), c = gcol(f);
           gq([pA, pB, wfB, wfA], f, [c, c, c, c]);
-        } else {
-          // The apron as it shipped: the face’s shadow where it starts, out into the light where
-          // it lands.
-          const s0 = gcol(tone(faceCol, m, nlF * 0.6)), s45 = gcol(tone(footCol, m, nlS * 0.86));
-          const s1 = gcol(tone(footCol, m, nlS));
-          const aA = lerp3(wbA, wfA, 0.45), aB = lerp3(wbB, wfB, 0.45);
-          gq([wbA, wbB, aB, aA], tone(footCol, m, nlS), [s0, s0, s45, s45]);
-          gq([aA, aB, wfB, wfA], tone(footCol, m, nlS), [s45, s45, s1, s1]);
         }
         // ⚠ THE RIM LINE IS GEOMETRY AFTER ALL. Its own comment says it reads at any distance — a
         // hard bright edge along the very top is what sells a drop rather than a slope — so left
@@ -29448,9 +29102,9 @@ export function cliffLatticeSmoke() {
   // emits too, or the wall opens a sliver at every tile join. Only the relief path can fail this:
   // the flat face had no rows of its own to disagree about.
   {
-    const wasM = GROUND_MESH, wasP = RENDER_TUNE.cliffProfile, wasS = RENDER_TUNE.glStrata;
+    const wasM = GROUND_MESH, wasP = RENDER_TUNE.cliffProfile;
     try {
-      RENDER_TUNE.cliffProfile = 1; RENDER_TUNE.glStrata = 1;
+      RENDER_TUNE.cliffProfile = 1;
       const cam = { sinh: 0, cosh: 1, ex: 0, ey: 0, ox: 0, oy: 0, FL: 300, EH: 0.16, proj(x, y, z) {
         const f = Math.max(0.06, -y);
         return { sx: 320 + x / f * 300, sy: 240 + 300 * (0.16 - z) / f, f };
@@ -29472,7 +29126,7 @@ export function cliffLatticeSmoke() {
       if (a.size < 8) out.push(`the relief face put only ${a.size} vertices on the shared corner column, so the join test is not testing anything`);
       if (missing) out.push(`the relief face disagrees with its neighbour at a shared corner on ${missing} vertices: the wall cracks at every tile join`);
       out.joinVerts = a.size;
-    } finally { GROUND_MESH = wasM; RENDER_TUNE.cliffProfile = wasP; RENDER_TUNE.glStrata = wasS; }
+    } finally { GROUND_MESH = wasM; RENDER_TUNE.cliffProfile = wasP; }
   }
   out.worst = worst; out.minArea = minArea;
   return out;
@@ -29607,7 +29261,7 @@ function drawFacetDrum(ctx, cam, dx, dy, z0, z1, rb, rt, N, alpha, style, cap, p
     if (matDrum) return sk ? { alpha: sk.alpha } : null;
     // ⚠ THE STYLE DECIDES, NOT THE PALETTE — see glDrumLit. `flat: 2` is the mass shader's third
     // answer: this colour, lit as a wall. `matId` overrides the palette's family in world.js.
-    if (sk && RENDER_TUNE.glDrumLit && st && st.litAlbedo) {
+    if (sk && st && st.litAlbedo) {
       return { flat: 2, rgbOverride: st.litAlbedo, alpha: sk.alpha, matId: materialIdOf(st.litFamily) };
     }
     return sk;
@@ -30157,22 +29811,10 @@ function drawCritter(ctx, cam, dx, dy, c, night) {
   if (L.tail) emitWire(ctx, cam, [dx - hx * h, dy - hy * h, z], [dx - hx * (h + L.tail), dy - hy * (h + L.tail), 0.001], px(0.0012), css, 1, o);
 }
 function drawDeadStand(ctx, cam, dx, dy, night, seed, alpha) {
-  if (RENDER_TUNE.snag3d !== 0) {
-    const snags = deadStandSnags(seed);
-    for (const sn of snags) sn.f = cam.proj(dx + sn.ox, dy + sn.oy, 0)?.f ?? 0;
-    snags.sort((a, b) => b.f - a.f);
-    for (const sn of snags) drawSnag3D(ctx, cam, dx, dy, night, sn, alpha);
-    return;
-  }
-  const n = 5 + (seed % 4);
-  const snags = [];
-  for (let i = 0; i < n; i++) {
-    const ox = (frac(seed + i * 3.1) - 0.5) * 0.86, oy = (frac(seed + i * 7.7) - 0.5) * 0.86;
-    const q = cam.proj(dx + ox, dy + oy, 0); if (!q || q.f <= 0.06) continue;
-    snags.push({ ox, oy, f: q.f, s: seed + i * 13 });
-  }
-  snags.sort((a, b) => b.f - a.f);   // far first — painter order, same as the living stand
-  for (const t of snags) drawDeadTreeBB(ctx, cam, dx + t.ox, dy + t.oy, night, t.s, alpha);
+  const snags = deadStandSnags(seed);
+  for (const sn of snags) sn.f = cam.proj(dx + sn.ox, dy + sn.oy, 0)?.f ?? 0;
+  snags.sort((a, b) => b.f - a.f);
+  for (const sn of snags) drawSnag3D(ctx, cam, dx, dy, night, sn, alpha);
 }
 
 // STEAM off a hot spring. The one thing that tells a pilot the water is hot rather than merely a
@@ -30432,10 +30074,6 @@ const puffMax = () => STEAM_PUFF_MAX * (RENDER_TUNE.steamWidth || 1);
 // texture on the css string, so a distance fade baked into an `rgba(...)` mints a fresh texture
 // every frame you drive — the unbounded-cache bug this file already records, which drew a gate as
 // a hovering bush. Three colours, three keys, for the life of the process.
-const LID_RIM = [46, 43, 40];    // the frame, sitting in its own collar of patched tarmac
-const LID_FACE = [34, 32, 30];   // cast iron: darker and browner than the road around it
-const LID_KEY = [14, 14, 15];    // the pick holes, and the only part of this that is really dark
-const LID_SIDES = 14;            // a circle, at the size this draws: past 14 nothing changes
 function steamManhole(ctx, cam, dx, dy, alpha, seed) {
   const near = RENDER_TUNE.manholeNear;
   if (!(near > 0)) return;
@@ -30451,9 +30089,6 @@ function steamManhole(ctx, cam, dx, dy, alpha, seed) {
   // against the eye height, so from a cab two tiles ahead is already about ten pixels below the
   // horizon. The metric figure is correct and unusable. 0.10 is what a manhole looks like from a
   // cab rather than what one measures.
-  // ⚠ AND IT IS STILL THE BENCH SEAM lidLift needs: a lift sweep at the metric size measures
-  // nothing, because "it did not appear" and "it appeared and is too small to count" come back
-  // as the same number.
   const R = RENDER_TUNE.lidRadius || 0.10;
   // A whole-turn offset per tile, so two lids on one street are not the same casting rotated to
   // the same bearing — the seed term every other dressing here uses, for the same reason.
@@ -30461,11 +30096,6 @@ function steamManhole(ctx, cam, dx, dy, alpha, seed) {
 
   // The collar first: a lid is set in a ring of made-good surfacing, and that ring is most of what
   // says the road was opened here rather than that something was painted on it.
-  // ⚠ `lidLift` IS A BENCH SEAM AND NOT A LOOK KNOB. A lid lies ON the road, so 0 is the only
-  // value that is physically right; what it is for is asking, in pixels, HOW FAR a ground decal
-  // has to be lifted before it beats the ground layers in the depth test. That is the one
-  // question that tells a too-small eps ladder apart from a floor whose recovered gl_FragDepth is
-  // biased toward the eye, and it cannot be asked any other way from outside the shaders.
   // ⚠ IT COLLECTS FOR THE GROUND SHADER RATHER THAN DRAWING, AND THE REASON IS NOT THE ONE
   // THIS COMMENT GAVE FOR MOST OF A DAY. It said an opening emitted as geometry never reached
   // the near road and only ever appeared in a band under the horizon. That was a misreading of
@@ -30799,7 +30429,7 @@ function hoodooSpires(ctx, cam, dx, dy, night, seed, alpha) {
   // an eight-sided one without them does not.
   const sides = base.f < 3 ? 8 : base.f < 6 ? 6 : 5;
   const nm = night ? 0.5 : 1;
-  if (BAY_SINK && RENDER_TUNE.glBay !== 0 && RENDER_TUNE.hoodooSolid !== 0) {
+  if (BAY_SINK && RENDER_TUNE.glBay !== 0) {
     hoodooSolidCached(cam, dx, dy, seed, sides, nm, alpha, base.f);
     return;
   }
@@ -30905,7 +30535,7 @@ function hoodooSpires(ctx, cam, dx, dy, night, seed, alpha) {
         // continuous value, so each face minted a fresh texture every frame the camera moved, plus
         // a `cam.unproj` per corner. Measured at ~12 ms of CPU a frame over Halcyon's redrock.
         // The solids layer takes world polygons and a vertex colour, the statue's own route.
-        if (BAY_SINK && RENDER_TUNE.glBay !== 0 && RENDER_TUNE.hoodooSolid !== 0) {
+        if (BAY_SINK && RENDER_TUNE.glBay !== 0) {
           const ox = cam.ox || 0, oy = cam.oy || 0;
           BAY_SINK.push({ p: [[p[0] + ox, p[1] + oy, A.z], [r[0] + ox, r[1] + oy, A.z],
             [B.ring[k][0] + ox, B.ring[k][1] + oy, B.z], [B.ring[j][0] + ox, B.ring[j][1] + oy, B.z]], rgb: col, a: alpha });
@@ -30942,7 +30572,7 @@ export function drawWildScatter(ctx, cam, dx, dy, bi, night, seed, alpha) {
     // ⚠ WORLD COORDINATES COME FROM `MARK_TILE`, which the sweep sets per tile as its identity for
     // exactly this kind of question — this function is handed CAMERA-RELATIVE offsets, and a patch
     // keyed on those would swim across the country as you drove through it.
-    if (bi === 'redrock' && RENDER_TUNE.glHoodoo && DECAL_SINK) {
+    if (bi === 'redrock' && DECAL_SINK) {
       const mt = (MARK_TILE || '').split(',');
       const twx = +mt[0], twy = +mt[1];
       if (Number.isFinite(twx) && Number.isFinite(twy)) {
@@ -32308,7 +31938,7 @@ const MURMUR_WAVE_S = 24;
 // lifts off over TRICKLE_UP of that, because a party leaving a wire mostly goes together. Above it, the
 // four waves over MURMUR_WAVE_S, which is a roost being filled.
 const MURMUR_TRICKLE_N = 300, TRICKLE_S_MIN = 5, TRICKLE_S_PER = 0.02, TRICKLE_UP = 0.4;
-const trickleOf = (n) => RENDER_TUNE.murmurTrickle !== 0 && n < MURMUR_TRICKLE_N;
+const trickleOf = (n) => n < MURMUR_TRICKLE_N;
 const waveSpread = (n, up) => !trickleOf(n) ? MURMUR_WAVE_S : (TRICKLE_S_MIN + n * TRICKLE_S_PER) * (up ? TRICKLE_UP : 1);
 // How long after take-off a starling flock may still have birds on its perch (the longest lift-off).
 const MURMUR_LIFT_MS = (MURMUR_WAVE_S + GOOSE_SETTLE_MS / 1000) * 1000;
@@ -32323,7 +31953,6 @@ const STARLING_WAIT_Z = 0.3;
 // birds: a murmuration is one body, which is the whole point of it. Drawing only, like the waves.
 const LOOSE_FROM = 150, LOOSE_TO = 600, LOOSE_P1 = 23, LOOSE_P2 = 9.5, LOOSE_ENDS = 0.12, LOOSE_MID = 0.7;
 export function looseOf(fl, n, now, st) {
-  if (RENDER_TUNE.starlingLoose === 0) return 0;
   const size = 1 - smoothstep(clamp((n - LOOSE_FROM) / (LOOSE_TO - LOOSE_FROM), 0, 1));
   if (!(size > 0)) return 0;
   const s = now / 1000, a = frac(fl.ax * 1.37 + fl.ay * 4.21) * Math.PI * 2;
@@ -32844,11 +32473,11 @@ function pushFauna(cam, sid, dx, dy, wz, alpha, o) {
         // drifts. Its alpha is raised by the ratio of the two profiles' ink, so a soft dot deposits what
         // the hard dot of the bird's own size did (FAUNA_INK_GAIN).
         const rTrue = px * 0.30 * area;
-        if (RENDER_TUNE.faunaInk > 0) {
+        {
           const R = Math.max(rTrue, (RENDER_TUNE.faunaInkR || FAUNA_INK_R) / _frameDpr);
           const ink = (rTrue * rTrue) / (R * R) * FAUNA_INK_GAIN;
           pushLight(dx, dy, wz, R, faunaDotColour('bird', sid), alpha * dim * Math.min(1, ink), 0, 0, 0, 1, 'faunaDot');
-        } else pushLight(dx, dy, wz, Math.max(rTrue, 0.45), faunaDotColour('bird', sid), alpha * dim, 1, 0, 0, 1, 'faunaDot');
+        }
         faunaCountPainted(o.state || 'walk');
         return;
       }
@@ -33083,7 +32712,7 @@ function perchRing(s, V) {
 // shallowest sill is 9.4 cm and the median is 14.8, so the gate is inert today — which is the
 // safe direction for a floor, and it is there for the model somebody authors next.
 //
-// ⚠ AND THE GLAZED RIBBON PASSES HONESTLY. `glBand` replaces a punched grid with one
+// ⚠ AND THE GLAZED RIBBON PASSES HONESTLY. The ribbon replaces a punched grid with one
 // continuous band, and it is pushed as a `windowBay` carrying its own `depth` — computed off the
 // band HEIGHT rather than min(w,h) precisely so the reveal does not go shallow. So a ribbon has a
 // sill, and a facade that draws its windows as flat paint emits no part at all and offers
@@ -33171,7 +32800,6 @@ const HOODOO_PERCH = new Set(['capped', 'sheared', 'stump']);
 export function wildLedges(cell, wx, wy) {
   if (cell && !cell.bt && !cell.road && cell.biome === 'deadwood') return snagLedges(wx, wy);
   if (!cell || cell.bt || cell.road || cell.biome !== 'redrock') return null;
-  if (!RENDER_TUNE.glHoodoo) return null;
   const seed = tileSeed(wx, wy);
   if ((seed % 2) !== 0) return null;                       // the scatter pass's own redrock gate
   const patch = hnoise2(wx * 0.045 + 3.3, wy * 0.045 - 8.1);
@@ -33217,7 +32845,6 @@ export function wildLedges(cell, wx, wy) {
 // painter draws, so the bird is on the tree that is drawn.
 const SNAG_PERCH_R = 0.006;
 function snagLedges(wx, wy) {
-  if (RENDER_TUNE.snag3d === 0) return null;
   const out = [];
   for (const sn of deadStandSnags(tileSeed(wx, wy))) {
     if (!(sn.H > PERCH_MIN_Z)) continue;
@@ -33789,8 +33416,7 @@ function wireFor(map, R, wcx, wcy, wx, wy) {
   // the one funnel both readers go through — the draw and the perch pool — so a tile that rolls
   // no wire has no wire AND no birds standing on one, which is the pair that has to agree.
   const here = map[wy - wcy + R]?.[wx - wcx + R] || null;
-  const pass = !RENDER_TUNE.wireRare
-    || frac((wx * 73 + wy * 149) * 0.0091 + 0.63) < wireRateAt(here && here.biome, wx);
+  const pass = frac((wx * 73 + wy * 149) * 0.0091 + 0.63) < wireRateAt(here && here.biome, wx);
   try { out = pass ? wireLedge(map, R, wcx, wcy, wx, wy) : null; } catch { out = null; }
   if (_wireCache.size >= PERCH_CACHE_MAX) _wireCache.clear();
   _wireCache.set(key, out);
@@ -33963,12 +33589,12 @@ const PERCH_PLAN = new WeakMap();
 export function perchFor(map, R, wcx, wcy, fl, wantHigh, now) {
   const memo = RENDER_TUNE.perchMemo !== 0;
   const n = Math.max(1, flockSize(fl)), high = !!wantHigh;
-  const hn = RENDER_TUNE.hoodooNear, pr = RENDER_TUNE.perchReach, wr = RENDER_TUNE.wireRare;
+  const hn = RENDER_TUNE.hoodooNear;
   let pl = memo ? PERCH_PLAN.get(fl) : null;
   if (!pl || pl.map !== map || pl.R !== R || pl.wcx !== wcx || pl.wcy !== wcy || pl.high !== high
-      || pl.n !== n || pl.hn !== hn || pl.pr !== pr || pl.wr !== wr) {
+      || pl.n !== n || pl.hn !== hn) {
     pl = perchPlan(map, R, wcx, wcy, fl, high, n);
-    pl.map = map; pl.R = R; pl.wcx = wcx; pl.wcy = wcy; pl.high = high; pl.n = n; pl.hn = hn; pl.pr = pr; pl.wr = wr;
+    pl.map = map; pl.R = R; pl.wcx = wcx; pl.wcy = wcy; pl.high = high; pl.n = n; pl.hn = hn;
     if (memo) PERCH_PLAN.set(fl, pl);
   }
   if (!pl.usable) return null;
@@ -34065,9 +33691,7 @@ function perchPlan(map, R, wcx, wcy, fl, wantHigh, n) {
   // ⚠ AND NOTHING HIGHER THAN THE FLIGHT CAN CLIMB TO. A flock reaches its ledge in one flight
   // (perchLeg), and a ledge sixteen tiles up at the end of a pigeon's twelve seconds is a climb no bird
   // makes. BIRD_CLIMB_MS is a sustained climb in m/s; a flight of so many seconds reaches so high.
-  // `RENDER_TUNE.perchReach` 0 takes the limit off.
-  const reachZ = RENDER_TUNE.perchReach === 0 ? Infinity
-    : (BIRD_CLIMB_MS * flockPeriod(fl) * (1 - spOf(fl).uGround) / 1000) * MURMUR_RULES.TILE_PER_M;
+  const reachZ = (BIRD_CLIMB_MS * flockPeriod(fl) * (1 - spOf(fl).uGround) / 1000) * MURMUR_RULES.TILE_PER_M;
   const usable = (wantHigh ? pool.filter((l) => !l.wire) : pool).filter((l) => l.z <= reachZ);
   if (!usable.length) return { usable: null };
   // Big enough for the birds that want it. ⚠ NOT A HARD FLOOR — if nothing is big enough the flock
@@ -34175,7 +33799,7 @@ function landPlan(map, R, wcx, wcy, fl, reach) {
   const key = fl.ax + ',' + fl.ay;
   const whole = Math.max(Math.abs(fl.ax - wcx), Math.abs(fl.ay - wcy)) + reach <= R;
   const old = LAND_PLAN.get(key);
-  if (old && (!whole || (old.map === map && old.reach === reach && old.wr === RENDER_TUNE.wireRare))) return old;
+  if (old && (!whole || (old.map === map && old.reach === reach))) return old;
   const at = (x, y) => map[y - wcy + R]?.[x - wcx + R] || null;
   const green = (c) => !!c && !c.bt && !c.road && c.kind !== 'water' && LAND_GREEN.has(c.biome);
   const wires = [], greens = [];
@@ -34203,7 +33827,7 @@ function landPlan(map, R, wcx, wcy, fl, reach) {
   }
   wires.sort((a, b) => a.d - b.d);
   const here = at(fl.ax, fl.ay);
-  const pl = { wires, greens, home: green(here), road: !!(here && here.road), verge, map, reach, wr: RENDER_TUNE.wireRare };
+  const pl = { wires, greens, home: green(here), road: !!(here && here.road), verge, map, reach };
   if (whole) {
     if (LAND_PLAN.size >= LAND_PLAN_MAX) LAND_PLAN.clear();
     LAND_PLAN.set(key, pl);
@@ -34582,7 +34206,7 @@ export function hunterSpot(map, R, wcx, wcy, fl, now, when) {
   return [p.cx, p.cy, p.z];
 }
 function perchLeg(map, R, wcx, wcy, fl, ms, clear, when) {
-  if (RENDER_TUNE.birdPerch === 0 || RENDER_TUNE.perchLeg === 0) return null;
+  if (RENDER_TUNE.birdPerch === 0) return null;
   const st = flockState(fl, ms, clear, when);
   if (!st.airborne || (st.span ?? 1) !== 1) return null;
   const uG = spOf(fl).uGround;
@@ -34786,7 +34410,7 @@ function thermalCapCells(v) {
 // Dust devils and the debug rings. Both are strokes through emitWire, so on GLASS 2 they sit in the
 // depth buffer and go behind buildings per pixel; on the 2-D path they paint like any other wire.
 function drawThermalMarks(ctx, cam, v, wcx, wcy, night) {
-  const devils = RENDER_TUNE.dustDevils > 0 && night < 0.3, debug = RENDER_TUNE.thermalDebug > 0;
+  const devils = night < 0.3, debug = RENDER_TUNE.thermalDebug > 0;
   if (!devils && !debug) return;
   const tv = thermalView(v);
   THERM_STATS.devils = 0;
@@ -35051,7 +34675,7 @@ function drawGeese(ctx, cam, v, map, R, wcx, wcy, sky, frameNow, FAR) {
   // and unvarying, exactly the metronome the rarity is meant to avoid. A burst is admitted or it
   // is dropped whole.
   const A = window.AudioEngine, S = window.ProceduralSFX;
-  const canHear = !!(A && S && RENDER_TUNE.birdCalls !== 0);
+  const canHear = !!(A && S);
   // ── THE ONE FLOCK THAT IS A BED RATHER THAN A BURST ─────────────────────────
   //
   // A murmuration is four hundred to seventeen hundred birds, and the burst schedule below would
@@ -35065,7 +34689,7 @@ function drawGeese(ctx, cam, v, map, R, wcx, wcy, sky, frameNow, FAR) {
   let bedFlock = null;
   // ⚠ AND ONLY A MURMURATION THAT IS DRAWN IS HEARD: with no GPU flock there is nothing in the sky to
   // go with a roar, so the bed stays silent rather than describing birds nobody can see.
-  if (canHear && RENDER_TUNE.murmurAudio !== 0 && murmurRoute() !== 'none') {
+  if (canHear && murmurRoute() !== 'none') {
     for (const fl of flocks) {                                   // already sorted nearest-first
       if (fl.sp !== 'songbird') continue;
       const d = Math.hypot(fl.ax - eyeX, fl.ay - eyeY);
@@ -35193,7 +34817,7 @@ function drawGeese(ctx, cam, v, map, R, wcx, wcy, sky, frameNow, FAR) {
     }
     return out;
   };
-  const redtails = RENDER_TUNE.groundPrey === 0 ? [] : flocks.filter((f) => !!spOf(f).groundHunt && lit(f));
+  const redtails = flocks.filter((f) => !!spOf(f).groundHunt && lit(f));
   const hawkPrey = new Map();
   for (const h of redtails) {
     const prey = preyAround(h.ax, h.ay, 3, now);
@@ -35203,7 +34827,7 @@ function drawGeese(ctx, cam, v, map, R, wcx, wcy, sky, frameNow, FAR) {
   }
   // Drawn only close in: a vole is a few centimetres of animal and past a few tiles it is not a
   // thing anybody could see. And only by day, when the hawks that make them worth drawing are up.
-  if (groundOK && RENDER_TUNE.groundPrey !== 0 && (!Number.isFinite(huntHour) || (huntHour >= 6 && huntHour < 20))) {
+  if (groundOK && (!Number.isFinite(huntHour) || (huntHour >= 6 && huntHour < 20))) {
     const ex = Math.round(eyeX), ey = Math.round(eyeY);
     const near = preyAround(ex, ey, CRITTER_DRAW, now);
     for (const c of near) {
@@ -35302,7 +34926,7 @@ function drawGeese(ctx, cam, v, map, R, wcx, wcy, sky, frameNow, FAR) {
     // rather than all at once out of a formation it never flew. `starlingPerchGPU` 0 hands a perched flock
     // to the per-bird path below, as shipped. Asked before the budget, because the answer decides which.
     const onLedge = sid === 'songbird' && !st.airborne && !!ledge && RENDER_TUNE.starlingPerchGPU === 0;
-    const route = sid === 'songbird' && !onLedge && (st.airborne || RENDER_TUNE.murmurGround !== 0) ? murmurRoute() : null;
+    const route = sid === 'songbird' && !onLedge ? murmurRoute() : null;
     // With no GPU a murmuration is not drawn at all; a landed flock goes on being drawn bird by bird.
     if (isCloud && route === 'none') continue;
     // ⚠ A GPU CLOUD IS NOT CHARGED TO THE FACE BUDGET. That budget is a CPU cost — building and uploading
@@ -35382,7 +35006,7 @@ function drawGeese(ctx, cam, v, map, R, wcx, wcy, sky, frameNow, FAR) {
     // The ledge (or wire, or lawn) is `site`, resolved above before the budget.
     // Where the flight to or from it ends (perchLeg): the same instant perchLeg asks at, so the
     // skein touches down exactly where the flight put it. Null when the flight still ends on the anchor.
-    const legAim = (site && !site.home && !st.airborne && RENDER_TUNE.perchLeg !== 0)
+    const legAim = (site && !site.home && !st.airborne)
       ? perchAim(map, R, wcx, wcy, fl, st.u < uGs / 2
         ? now - st.u * st.period + 1 : now + (uGs - st.u) * st.period - 1, birdWhen(v))
       : null;
@@ -35464,7 +35088,7 @@ function drawGeese(ctx, cam, v, map, R, wcx, wcy, sky, frameNow, FAR) {
       // spec at rest). Drawing only: the shared flock is up or down exactly when it always was.
       // A party trickles down one bird at a time instead of in waves (trickleOf, waveTurn in murmur.js).
       let wave = null, hold = null;
-      if (RENDER_TUNE.murmurWaves !== 0) {
+      {
         const uG = spR.uGround, settleS = GOOSE_SETTLE_MS / 1000, trickle = trickleOf(st.n);
         if (!st.airborne && st.u < uG / 2) wave = { mode: 2, t: st.u * st.period / 1000, spread: waveSpread(st.n, false), settle: settleS, trickle };
         else if (st.airborne && st.t != null) {
@@ -35498,11 +35122,7 @@ function drawGeese(ctx, cam, v, map, R, wcx, wcy, sky, frameNow, FAR) {
       // wheels at the species' own height as it always did.
       const sx = !st.airborne && site ? site.x : st.cx, sy = !st.airborne && site ? site.y : st.cy, sz = !st.airborne && site ? site.z : st.z;
       const airZ = trickleOf(st.n) ? sz + STARLING_WAIT_Z : Math.max(spR.z, sz + STARLING_WAIT_Z);
-      const lodThr = faunaDotPx('bird', sid) ?? RENDER_TUNE.faunaDot;
-      // murmur3d: every bird in a murmuration is the full mesh, no dot or glyph rung (a trial; see RENDER_TUNE)
-      const lod = RENDER_TUNE.faunaDot > 0 && !RENDER_TUNE.murmur3d;
-      const __obst = RENDER_TUNE.murmurAvoid !== 0 ? murmurObstacles(map, R, wcx, wcy, fl.ax, fl.ay) : null;
-      const glyphRung = RENDER_TUNE.faunaGlyph > 0;
+      const __obst = murmurObstacles(map, R, wcx, wcy, fl.ax, fl.ay);
       FAUNA_SINK.push({
         cloud: 1, key: sid + ':' + fl.ax + ',' + fl.ay, sp: sid, ax: fl.ax, ay: fl.ay, n: st.n,
         cx: sx, cy: sy, cz: sz, heading: st.heading, now,
@@ -35528,9 +35148,9 @@ function drawGeese(ctx, cam, v, map, R, wcx, wcy, sky, frameNow, FAR) {
         // draw a lie.
         // A landed flock is never frozen: it searches for nobody, so there is nothing to save, and a
         // landing held still behind the camera would snap the birds onto their spots on the next look.
-        scare: BIRD_SCARE, frozen: st.airborne ? __flockBehind : false, free: { on: RENDER_TUNE.murmurFree !== 0 },
+        scare: BIRD_SCARE, frozen: st.airborne ? __flockBehind : false, free: { on: true },
         // every aircraft in the air near us, ours included (AIR_ACS); murmurAircraft 0 is the flock ignoring them
-        aircraft: RENDER_TUNE.murmurAircraft !== 0 ? AIR_ACS : null,
+        aircraft: AIR_ACS,
         obst: __obst,
         // the shared model's centre at any time, for the relay (flockCentreAt); the same arguments as st.
         // ⚠ LIFTED OVER THE SKYLINE UNDER IT (murmurSkyline): the shared centre flies at the species' own
@@ -35544,7 +35164,7 @@ function drawGeese(ctx, cam, v, map, R, wcx, wcy, sky, frameNow, FAR) {
             const s = landSite(map, R, wcx, wcy, fl, ms, when);
             if (s && !s.home) o = [s.x, s.y, s.z];
           }
-          if (!g && __obst && RENDER_TUNE.murmurSkyline !== 0) o[2] = Math.max(o[2], skylineUnder(__obst, o[0], o[1]) + MURMUR_SKY_CLEAR);
+          if (!g && __obst) o[2] = Math.max(o[2], skylineUnder(__obst, o[0], o[1]) + MURMUR_SKY_CLEAR);
           return o;
         })(birdWhen(v)),
         ground, hold, wave, airZ, groundParts: (i) => groundSpotParts(fl, i, st.n), loose: looseOf(fl, st.n, now, st),
@@ -35555,19 +35175,13 @@ function drawGeese(ctx, cam, v, map, R, wcx, wcy, sky, frameNow, FAR) {
         nearF: VISIBLE_NEAR_F, farF: FAR, alphaMul: (v.worldBlend ?? 1) * dayFade, FL: cam.FL,
         span: faunaSpanTiles('bird', sid), dpr: _frameDpr,
         beatBase: ((now * (spR.flapHz ?? GOOSE_FLAP_HZ) / 1000) % 1 + 1) % 1, pitch: goosePitch(st.climb),
-        beatAdv: RENDER_TUNE.wingBlur !== 0 ? (spR.flapHz ?? GOOSE_FLAP_HZ) * FAUNA_FRAME_DT : 0,
+        beatAdv: (spR.flapHz ?? GOOSE_FLAP_HZ) * FAUNA_FRAME_DT,
         // flap-glide: the phase of each bird's burst-and-glide cycle is this plus its own offset, and it
         // glides for the last `glide` of it (the species' row; 0 is flapping throughout)
         glide: [((now * (spR.glideHz ?? 1) / 1000) % 1 + 1) % 1, spR.glide ?? 0],
         flare: st.z < flareZ ? 1 : 0, gear: st.z < spR.z * BIRD_GEAR_FRAC ? 1 : 0,
-        // pushFauna's ladder: a dot below min(glyph, mesh), a glyph up to the mesh threshold, then the
-        // mesh tiers by their own thresholds. With the LOD off every bird is the full mesh.
-        tiers: lod ? {
-          thr: lodThr, glyphPx: glyphRung ? Math.min(RENDER_TUNE.faunaGlyphPx, lodThr) : lodThr,
-          glyphHi: glyphRung ? RENDER_TUNE.faunaGlyph * FAUNA_LOD_MUL : 0,
-          coarseHi: RENDER_TUNE.faunaCoarse > 0 ? RENDER_TUNE.faunaCoarse * FAUNA_LOD_MUL : 0,
-          farHi: RENDER_TUNE.faunaFar > 0 && faunaHasFar('bird', sid) ? RENDER_TUNE.faunaFar : 0,
-        } : { thr: 0, glyphPx: 0, glyphHi: 0, coarseHi: 0, farHi: 0 },
+        // Every bird in a murmuration is the full mesh: no dot or glyph rung on pushFauna's ladder.
+        tiers: { thr: 0, glyphPx: 0, glyphHi: 0, coarseHi: 0, farHi: 0 },
         minPx: [RENDER_TUNE.faunaMinPx > 0 ? RENDER_TUNE.faunaMinPx : 0, clamp(RENDER_TUNE.faunaMinFade, 0, 1)],
         // distant starlings (dots) write depth so the cloud deck can sort against them — glAirDepth
         airDepth: RENDER_TUNE.glAirDepth !== 0,
@@ -35582,7 +35196,7 @@ function drawGeese(ctx, cam, v, map, R, wcx, wcy, sky, frameNow, FAR) {
         sun: FAUNA_SUN ? [FAUNA_SUN.dir[0], FAUNA_SUN.dir[1], FAUNA_SUN.elev, RENDER_TUNE.murmurSun ?? 0] : [0, 0, 0, 0],
         sunCol: (() => { const e = clamp(FAUNA_SUN ? FAUNA_SUN.elev / 0.5 : 0, 0, 1), g = RENDER_TUNE.murmurSunGain ?? 0.7;
           return [g * (1.0 - 0.05 * e), g * (0.58 + 0.3 * e), g * (0.26 + 0.5 * e)]; })(),
-        landPose: RENDER_TUNE.murmurLandPose !== 0,
+        landPose: true,
         pitchK: [RENDER_TUNE.murmurBirdPitch ?? 0, GOOSE_PITCH_GAIN, GOOSE_PITCH_MAX],
         ink: [RENDER_TUNE.faunaInkR || FAUNA_INK_R, FAUNA_INK_GAIN],
         dot: faunaDotColour('bird', sid), scale: FAUNA_TILE,
@@ -35747,7 +35361,7 @@ function drawGeese(ctx, cam, v, map, R, wcx, wcy, sky, frameNow, FAR) {
         // ⚠ UP AND DOWN ARE DIFFERENT FLIGHTS. The flock's climb gradient says which way it is going: low
         // and climbing it beats hard and fast (a take-off is the most power a bird ever makes), and coming
         // down it holds its wings out and glides in, with the odd flap, until the flare below takes over.
-        const la = RENDER_TUNE.birdLandAnim !== 0, lowFlock = st.z < spOf(fl).z * 0.5;
+        const la = true, lowFlock = st.z < spOf(fl).z * 0.5;
         const climbingOut = la && st.climb > 0.05 && lowFlock, gliding = la && st.climb < -0.05 && st.z >= flareZ;
         // ⚠ EACH SPECIES LEAVES THE GROUND ITS OWN WAY (`takeoff` in birds.js). A running start is distance
         // covered on the feet before the body lifts, so the bird is held at the ground until the flock has
@@ -39016,7 +38630,6 @@ function podracerCableFaces(cab) {
 // with the part. Read off the face as authored (`src`), not as posed: a racer's turbine swaying on its
 // binder would otherwise slide its own grain across itself. A boat's painted hull keeps its gelcoat.
 function faceTexRec(face, src, metal, dp, cls) {
-  if (!(RENDER_TUNE.glHullTex > 0)) return null;
   const t = face.paint && typeof face.paint === 'object' ? face.paint.tex : null;
   const k = t ? MESH_TEX.indexOf(t) + 1 : 0;
   if (k > 0) {
@@ -39629,7 +39242,7 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
   // solids.js). Only the own ship, never a break-up (its parts fly apart in world space), and only
   // with glMetal on (off, a metal bakes a camera-dependent reflection into its colour). `glShipLocal`
   // 0 is the world-space path exactly as it was.
-  const shipLocal = !!(c.collect && c.own && OWNSHIP_SINK && !c.breakup && RENDER_TUNE.glMetal && RENDER_TUNE.glShipLocal !== 0);
+  const shipLocal = !!(c.collect && c.own && OWNSHIP_SINK && !c.breakup && RENDER_TUNE.glShipLocal !== 0);
   let glEnvC = null;
   const glEnvOf = () => glEnvC || (glEnvC = { hor: AIRCRAFT_SKY?.hor, top: AIRCRAFT_SKY?.top, night: AIRCRAFT_SKY?.night ?? (sun?.night || 0), sun: toSun, sunK: sunStr });
   if (c.collect && c.own && OWNSHIP_SINK) { OWNSHIP_SINK.shipModel = null; OWNSHIP_SINK.shipState = null; }
@@ -39801,7 +39414,7 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
       mk = metalKOf(face, pal);
       // The baked reflection only reaches `col` and `rv`, and with the body on the GPU neither is read
       // (the GPU mirrors the metal per pixel itself when glMetal is on).
-      if (mk && !((c.collect || c.bodyOnGL) && RENDER_TUNE.glMetal)) brgb = reflectEnv(brgb, mk, [nx, ny, nz], [cx3 - (cam.ex || 0), cy3 - (cam.ey || 0), cz3 - cam.EH], sun, toSun, sunStr);
+      if (mk && !(c.collect || c.bodyOnGL)) brgb = reflectEnv(brgb, mk, [nx, ny, nz], [cx3 - (cam.ex || 0), cy3 - (cam.ey || 0), cz3 - cam.EH], sun, toSun, sunStr);
     }
     const col = shadeRgb(brgb, shk);
     const rv = [clamp(brgb[0] * shk, 0, 255) | 0, clamp(brgb[1] * shk, 0, 255) | 0, clamp(brgb[2] * shk, 0, 255) | 0];
@@ -39863,9 +39476,9 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
       // mirrors it per pixel (gl/solids.js), smoothing the normal across the facets, where the 2-D
       // path above can only give each flat face one reflected colour. Reflecting it here as well would
       // reflect it twice.
-      const glRgb = (mk && RENDER_TUNE.glMetal) ? [clamp(brgb0[0] * shk, 0, 255) | 0, clamp(brgb0[1] * shk, 0, 255) | 0, clamp(brgb0[2] * shk, 0, 255) | 0] : rv;
+      const glRgb = mk ? [clamp(brgb0[0] * shk, 0, 255) | 0, clamp(brgb0[1] * shk, 0, 255) | 0, clamp(brgb0[2] * shk, 0, 255) | 0] : rv;
       OWNSHIP_SINK.push({ p: wv.map((v) => [v[0] + ox, v[1] + oy, v[2]]), rgb: glRgb, a: (isGear ? gearDown : 1) * (c.solidAlpha == null ? 1 : c.solidAlpha),
-        ...((mk && RENDER_TUNE.glMetal) ? { m: mk, n: [nx, ny, nz], env: { hor: AIRCRAFT_SKY?.hor, top: AIRCRAFT_SKY?.top, night: AIRCRAFT_SKY?.night ?? (sun?.night || 0), sun: toSun, sunK: sunStr } }
+        ...(mk ? { m: mk, n: [nx, ny, nz], env: { hor: AIRCRAFT_SKY?.hor, top: AIRCRAFT_SKY?.top, night: AIRCRAFT_SKY?.night ?? (sun?.night || 0), sun: toSun, sunK: sunStr } }
           : haveN ? { amb: true, n: [nx, ny, nz], env: { hor: AIRCRAFT_SKY?.hor, top: AIRCRAFT_SKY?.top, night: AIRCRAFT_SKY?.night ?? (sun?.night || 0), sun: toSun, sunK: sunStr } } : null),
         // A hull's painted faces take a gelcoat surface (tex 11 in gl/solids.js), drawn in HER OWN frame
         // so it rides with her: the model is two units long, about twelve metres, hence 6.
@@ -39901,7 +39514,7 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
         { ...rotorFxOpts(c, now), sink: glRotorSink(c, cam, Wp) });
     }
     // A boat's spray goes in here for the same reason the rotor does: see drawBoatSprayGL.
-    if (SPRITE_SINK && RENDER_TUNE.glBoatSpray > 0 && (c.own || c.solid) && WATER_CLASSES().has(c.cls)) drawBoatSprayGL(cam, c, Wp, SIZE, sun, now);
+    if (SPRITE_SINK && (c.own || c.solid) && WATER_CLASSES().has(c.cls)) drawBoatSprayGL(cam, c, Wp, SIZE, sun, now);
     return null;
   }
   if (!drawn) return null;
@@ -40041,7 +39654,7 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
   // the one adornment on this hull that is BEHIND it, so painting it after the model would put the
   // plume in front of the boat that threw it. ⚠ NOT WHEN THE HULL WENT TO GL: its spray went with it
   // as droplets (drawBoatSprayGL), and this canvas sheet over the GL sea is what read as a triangle.
-  else if (WATER_CLASSES().has(c.cls) && !(c.bodyOnGL && RENDER_TUNE.glBoatSpray > 0)) drawBoatWater(ctx, P, c, sun, now);
+  else if (WATER_CLASSES().has(c.cls) && !c.bodyOnGL) drawBoatWater(ctx, P, c, sun, now);
   // The Drake skiing in on its feet (drake-water.js): a plume and a foam trail behind each foot.
   else if (c.cls === 'drake' && c.anim?.skid > 0) drawDrakeSpray(ctx, P, c, sun, now);
   // ⚠ AND ONLY NOW IS THE BUFFER LANDED — below the ground light, not where it was filled. See the
@@ -47186,7 +46799,7 @@ function bakeSignText(label, color, dn, vertical, solid, tight, opts) {
   const stack = false;   // the stacked mark-over-word layout needs a pictogram, and signs no longer carry one
   // Whether this lit name is bent as neon tube (see TUBE below). In the key because it is the
   // whole picture, and a toggle that reached only new bakes would leave the city half converted.
-  const tubeOn = dn > 0 && !solid && (RENDER_TUNE.neonBake ?? 1) > 0 ? ((RENDER_TUNE.neonGaps ?? 1) > 0 ? 2 : 1) : 0;
+  const tubeOn = dn > 0 && !solid ? 2 : 0;
   const key = `${label}|${color}|${dn}|${tubeOn}${tubeOn ? ':' + (RENDER_TUNE.neonWash ?? 1) : ''}|${vertical ? 1 : 0}|${solid ? 1 : 0}|${tight ? 1 : 0}|${face}|${picto}|${badge}|${fitB}|${sub}|${stack ? 1 : 0}|${dead}`;
   // ⚠ TALLIED BEFORE THE CACHE, NEVER AFTER IT. The question is which hand this CALL asked for, and
   // a cache hit is still a call — record only the misses and a sign that has already been baked once
@@ -47370,7 +46983,7 @@ function bakeSignText(label, color, dn, vertical, solid, tight, opts) {
       // Never let finding the gaps cost the sign: a canvas that cannot be read back (the headless
       // stub, a tainted canvas) gets an unbroken tube instead of no lettering at all.
       // `neonscript` is one run of tube bent through the whole word, so it is never cut.
-      try { if ((RENDER_TUNE.neonGaps ?? 1) > 0 && face !== 'neonscript') corners = glyphCorners(g, ch, x, y, T); } catch { corners = []; }
+      try { if (face !== 'neonscript') corners = glyphCorners(g, ch, x, y, T); } catch { corners = []; }
       // The halo is the gas light spilling off the glass, and it stays UNBROKEN across a gap: the two
       // tube ends either side of a joint glow into each other. ⚠ So the cut is made on the TUBE ALONE,
       // on its own layer — it used to punch a disc through the halo and then paint a radial pool back
@@ -49878,7 +49491,7 @@ function neonBlade(ctx, cam, dx, dy, h0, h1, color, night, alpha, label) {   // 
   // lesson — and the way it would show is a name overlapping the ziggurat it is supposed to sit under.
   const fW = SOLID ? SOLID.hw * (1 - 2 * pad) : 0;
   const fL = SOLID ? ((SOLID.z1 - SOLID.z0) / 2) * (1 - 2 * padY) : 0;
-  const crown = (SOLID && (TUNE.bladeCrown | 0)) ? bladeCrown(fW / fL, _signFace || 'mono') : null;
+  const crown = SOLID ? bladeCrown(fW / fL, _signFace || 'mono') : null;
   const cv = crown ? crown.cv : 0;   // the share of the face height the crown takes, off the top
   // ── WHAT A BLADE LOOKS LIKE, IN WHATEVER FRAME IT IS HANDED ─────────────────────────────────
   //
@@ -49926,13 +49539,6 @@ function neonBlade(ctx, cam, dx, dy, h0, h1, color, night, alpha, label) {   // 
     const face = outline();
     const lit = night ? 1 : 0.42;                            // a tube by day is glass with the lamp on behind it
     g.save(); g.lineJoin = 'round';
-    if (!(TUNE.bladeBox | 0)) {                              // 0 — the flat lit slab this drew before
-      g.globalAlpha = a * (night ? 0.92 : 0.84); g.fillStyle = '#120d12'; trace(face); g.fill();
-      g.globalAlpha = a * (night ? 0.8 : 0.55); g.fillStyle = color;
-      if (glow) { g.shadowColor = color; g.shadowBlur = Math.max(4, fw * 0.25); }
-      trace(face); g.fill(); g.shadowBlur = 0;
-      g.restore(); return;
-    }
     // 1. the panel — near-black, so the tube and the name have something to be brighter than
     g.globalAlpha = a; g.fillStyle = '#08070c'; trace(face); g.fill();
     {   // …with a wash of the hue down it: strongest at the top, where the crown of a blade is lit
@@ -50029,7 +49635,7 @@ function neonBlade(ctx, cam, dx, dy, h0, h1, color, night, alpha, label) {   // 
   // and this one is shared by every blade in the city of the same colour.
   const TW = 128, TH = 512;   // pad/padY are hoisted above the face — see there
   const tex = DECAL_SINK && cam.unproj && TUNE.glDeco ? bakeQuadTex(
-    'blade|' + (label ? 'n' : 'rung') + '|' + color + '|' + (night ? 1 : 0) + '|' + (glow ? 1 : 0) + '|' + (TUNE.bladeBox | 0) + '|' + (crown ? crown.kind : '-'), TW, TH, (g, W, H) => {
+    'blade|' + (label ? 'n' : 'rung') + '|' + color + '|' + (night ? 1 : 0) + '|' + (glow ? 1 : 0) + '|' + (crown ? crown.kind : '-'), TW, TH, (g, W, H) => {
       bladeArt(g, { sx: 0, sy: 0 }, { sx: W, sy: 0 }, { sx: W, sy: H }, { sx: 0, sy: H }, 1);
       g.globalAlpha = 1;
       if (!label) {   // no name → the old abstract "letter" rungs, at the texture's own resolution
@@ -50110,7 +49716,7 @@ function neonBlade(ctx, cam, dx, dy, h0, h1, color, night, alpha, label) {   // 
   // Sort as a building-mounted deco (lifted DECO_LIFT tiles forward), not by its raw average depth:
   // a back-corner blade’s average sits BEHIND its own tile-centered roof cap, so the two flip-flop in
   // the painter queue and the sign flashes on/off as the camera swings past (same fix as marqueeBand).
-  if (tex) emitDecoQuad(ctx, cam, corners, 'blade|' + (label ? 'n' : 'rung') + '|' + color + '|' + (night ? 1 : 0) + '|' + (glow ? 1 : 0) + '|' + (TUNE.bladeBox | 0) + '|' + (crown ? crown.kind : '-'), tex, alpha, () => paint(ctx), DECO_LIFT, BLADE_PROUD);
+  if (tex) emitDecoQuad(ctx, cam, corners, 'blade|' + (label ? 'n' : 'rung') + '|' + color + '|' + (night ? 1 : 0) + '|' + (glow ? 1 : 0) + '|' + (crown ? crown.kind : '-'), tex, alpha, () => paint(ctx), DECO_LIFT, BLADE_PROUD);
   else emitDeco([b, t], () => paint(ctx));
   // ── AND THE NAME ON IT, AS AN ORDINARY FITTED SIGN ──────────────────────────────────────────
   //
@@ -52205,7 +51811,6 @@ function motionRamp(rgb, k, litC, L = LIGHT_STATE) {
 // with the frame's own light.
 export function motionTopCss(rgb, night = 0, L = LIGHT_STATE || LAST_WORLD_LIGHT) {
   const dim = 1 - (night || 0) * 0.46;
-  if (!TUNE.motionShade) return `rgb(${Math.round(rgb[0] * dim)},${Math.round(rgb[1] * dim)},${Math.round(rgb[2] * dim)})`;
   return motionRamp(rgb, MOTION_TOP * dim, 1, L)[0];
 }
 // A SOLID BOX THAT IS NOT MASS — a top plus the two vertical faces whose outward normals face the
@@ -52245,7 +51850,6 @@ function movingBox(ctx, cam, cx, cy, z0, z1, hx, hy, rgb, alpha, night, yaw = 0,
   // the ramp lands on corner 0, so a face wound from its foot comes back upside down: dark lid,
   // bright skirt, and a box that reads as lit from underground.
   const side = (W, nx, ny) => {
-    if (!TUNE.motionShade) { fill(W, motionLit(nx, ny)); return; }
     const q = motionKey(nx, ny), kf = MOTION_LO + (MOTION_HI - MOTION_LO) * q;
     const r = motionRamp(rgb, kf * dim, q);
     // ⚠ TWO EQUAL STOPS ARE A FLAT FILL, AND HAVE TO BE SENT AS ONE. With no `LIGHT_STATE` — a
@@ -52258,7 +51862,7 @@ function movingBox(ctx, cam, cx, cy, z0, z1, hx, hy, rgb, alpha, night, yaw = 0,
   // flat tint rather than a ramp: there is no up and no down across a horizontal quad to run one
   // along. The exported `motionTopCss` is this same line — see the ⚠ on it.
   emitDecoFill(ctx, cam, [P(-1, -1, z1), P(1, -1, z1), P(1, 1, z1), P(-1, 1, z1)],
-    TUNE.motionShade ? motionRamp(rgb, MOTION_TOP * dim, 1)[0] : sh(1), alpha, 0, MOTION_TAG, true);
+    motionRamp(rgb, MOTION_TOP * dim, 1)[0], alpha, 0, MOTION_TAG, true);
   side([P(su, -1, z1), P(su, 1, z1), P(su, 1, z0), P(su, -1, z0)], su * c, su * s);                      // the ±u side
   side([P(-1, sv, z1), P(1, sv, z1), P(1, sv, z0), P(-1, sv, z0)], -sv * s, sv * c);                     // the ±v side
 }
@@ -52300,8 +51904,8 @@ function latticeBoom(ctx, cam, A, B, rise, bays, wPx, css, alpha, night = 0) {
   bays = webBays(cam, (A[0] + B[0]) / 2, (A[1] + B[1]) / 2, Math.hypot(D[0], D[1], D[2]), bays);
   const top = (t) => [A[0] + D[0] * t, A[1] + D[1] * t, A[2] + D[2] * t + rise * (1 - t)];
   const bot = (t) => [A[0] + D[0] * t, A[1] + D[1] * t, A[2] + D[2] * t];
-  const dim = TUNE.motionShade ? 1 - (night || 0) * 0.46 : 1;
-  const S = TUNE.motionShade ? (c, k) => cssShade(c, k * dim) : (c) => c;
+  const dim = 1 - (night || 0) * 0.46;
+  const S = (c, k) => cssShade(c, k * dim);
   emitWire(ctx, cam, top(0), top(1), wPx, S(css, BOOM_CHORD), alpha, { pull: 0 });
   emitWire(ctx, cam, bot(0), bot(1), wPx, S(css, BOOM_BOT), alpha, { pull: 0 });
   const web = S(css, BOOM_WEB);
@@ -55339,7 +54943,6 @@ export { derivedTrim, paintFoot } from './glass/derived-kit.js';
 // way), so the mechanism is sound — it has nowhere to put its light. Turn this on when the ground
 // takes lights.
 function facadeLights(cam, dx, dy, fh, h, m, seed, night, alpha, E) {
-  if (!RENDER_TUNE.glWash) return;
   // A facade wash IS the lit window grid throwing light on the street, so it goes out with the grid.
   if (POWER_DUTY <= 0) return;
   // ⚠ NO NIGHT GATE. A lit facade is lit in a daytime downpour too, and what it throws on a wet
@@ -57834,7 +57437,7 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
       // ⚠ AND IT HAS AN OFF-SWITCH, the same discipline as `legacyArms` and `glFloor`: this changes
       // which tier most of the city runs at, so "what did it do" has to be answerable by flipping
       // one number rather than by reading a diff. 0 puts the ladder back on the forward distance.
-      const rr = TUNE.lodRadial === 0 ? it.f : eyeRange(cam, it.dx, it.dy);
+      const rr = eyeRange(cam, it.dx, it.dy);
       const glTier = glMass && lodN > 0 && rr > lodN ? (TUNE.lodAdorn | 0) : -1;
       if (glTier !== 0) {
         const near = (TUNE.detailNear || 0) > 0 && rr < TUNE.detailNear;
@@ -57958,7 +57561,7 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
       collectSolidContacts(cam, v, sun, now);
       // Street lamps and neon into the cab, now that this frame's lights are all in the sink.
       applyCabinStreetLight();
-      if (STROKE_SINK) STROKE_SINK.deep = TUNE.glNeonDepth !== 0;
+      if (STROKE_SINK) STROKE_SINK.deep = true;
       const out = GL_HOOK(GL_CELLS, cam, { night, nb: clamp((night - 0.30) / 0.20, 0, 1), host: GL_HOST, id: GL_ID, far: FAR, haze: HAZE_BAND, fog: FOG_STATE, skyBand: SKY_BAND, light: LIGHT_STATE, sprites: SPRITE_SINK, strokes: STROKE_SINK, ownWater: OWN_WATER_Z, glLights: TUNE.glLights, glNeonTube: TUNE.glNeonTube, glNeonFlicker: TUNE.glNeonFlicker, glAO: TUNE.glAO, glBakedAo: TUNE.glBakedAo, msaa: TUNE.glMsaa, glFxaa: TUNE.glFxaa, glShadow: TUNE.glShadow, glWet: wetGround(), glPond: pondGround(), glFogH: fogGround(), glScatter: scatterGround(), glPool: TUNE.glPool, glNightDark: (TUNE.nightDark || 0) * (1 - moonLift(sun)), glSnow: snowGround(), glPudRoad: TUNE.glPudRoad, glPuddle: TUNE.glPuddle, glMirrorMass: TUNE.glMirrorMass, glHazeSplit: TUNE.glHazeSplit, glMirrorSky: TUNE.glMirrorSky, glWetDark: TUNE.glWetDark, glGroundBias: TUNE.glGroundBias, lids: lidUpload(), glRipple: TUNE.glRipple, glGlint: TUNE.glGlint, glMirror: TUNE.glMirror, glMirrorRes: TUNE.glMirrorRes, glMat: TUNE.glMat, glSpec: TUNE.glSpec, glBump: TUNE.glBump, glMatPage: TUNE.glMatPage, glEnvCube: TUNE.glEnvCube, glGGX: TUNE.glGGX, envSky: SKY_ENV, glSurfPage: TUNE.glSurfPage, glHeightGain: TUNE.glHeightGain, glEnvCity: TUNE.glEnvCity, glEnvDim: TUNE.glEnvDim, glBevel: TUNE.glBevel, glSsao: TUNE.glSsao, glSsaoRes: TUNE.glSsaoRes, glLightSlots: TUNE.glLightSlots, nearFit: TUNE.nearFit, glHdr: TUNE.glHdr, glLinear: TUNE.glLinear, glBloom: TUNE.glBloom, glTonemap: TUNE.glTonemap, glExposure: TUNE.glExposure, sun, worldBlend: WORLD_BLEND,
         // ⚠ THE DECK, FOR THE REFLECTION AND FOR NOTHING ELSE IN THIS PASS. It is DRAWN by the
         // second hook after the world is blitted; what the world pass wants it for is the mirror
@@ -58139,7 +57742,7 @@ function drawStatue(ctx, cam, dx, dy, fh, seed, night, alpha, now, sun, sky) {
   // AIRCRAFT_SKY because one solids layer keeps ONE env for all its metals, and a parked aircraft's
   // faces hand over that one; two producers describing the same frame's sky can't disagree.
   // ⚠ THE METAL SHRINKS AFTER DARK, for statueShade's reason: a mirror of a black sky is black paint.
-  const cuGL = toGL && !!RENDER_TUNE.glMetal;
+  const cuGL = toGL;
   let cuEnv = null, cuM = 0;
   if (cuGL) {
     let toSun = null, sunK = 0;
@@ -60225,7 +59828,7 @@ function drawGateLockGL(cam, dx, dy, lk, night, alpha, now, sun) {
   const H = 0.5, Z = LCK_ROOF_Z;
   const ox = cam.ox || 0, oy = cam.oy || 0;
   const EX = (cam.ex || 0) - ox, EY = (cam.ey || 0) - oy, EZ = cam.EH == null ? 0.2 : cam.EH;
-  const metalOn = !!RENDER_TUNE.glMetal;
+  const metalOn = true;
   let toSun = null, sunK = 0;
   if (sun && sun.elev > 0.02) {
     const e = clamp(sun.elev, 0, 1), hz = Math.sqrt(Math.max(0, 1 - e * e));
@@ -61671,7 +61274,7 @@ function drawCurtainBastion(cam, dx, dy, cur, night, alpha, now, red = false) {
     nx /= l; ny /= l; nz /= l; cx /= pts.length; cy /= pts.length; cz /= pts.length;
     if (nx * (EX - cx) + ny * (EY - cy) + nz * (EZ - cz) < 0) { nx = -nx; ny = -ny; nz = -nz; }
     const q = { p: pts.map((v) => [v[0] + ox, v[1] + oy, v[2]]), rgb, a: alpha, n: [nx, ny, nz] };
-    if (mk && RENDER_TUNE.glMetal) q.m = mk * (1 - 0.55 * nf); else q.amb = true;
+    if (mk) q.m = mk * (1 - 0.55 * nf); else q.amb = true;
     BAY_SINK.push(q);
   };
   const glow = (pts, rgb, k) => BAY_SINK.push({ p: pts.map((v) => [v[0] + ox, v[1] + oy, v[2]]), rgb: rgb.map((c) => clamp(c * k * (rgb === FIELD ? sw * (red ? 1.5 : 1) : 1), 0, 255) | 0), a: alpha });
@@ -63193,7 +62796,7 @@ function drawHoloAd(ctx, cam, dx, dy, fh, h, seed, now, alpha) {
   const z0 = h * 1.03, z1 = h * (1.28 + frac(seed) * 0.18), w = fh * (0.5 + frac(seed + 1) * 0.4);   // width kept ≤ fh (≤0.9·fh) so the ad never overhangs its own tile into the street (was up to 1.2·fh)
   const dropped = frac(Math.floor(now * 0.018) + seed) < 0.16;   // some frames blink out entirely
   const flick = (0.45 + 0.55 * Math.abs(Math.sin(now * 0.006 + seed))) * (dropped ? 0.15 : 1);
-  const solid = RENDER_TUNE.holo3d !== 0;
+  const solid = true;
   const d = solid ? Math.max(fh * 0.07, 0.015) : 0;   // half-depth of the slab
   // One broad face at its own y offset. `bars` carries the scan lines; the edges pass false.
   const face = (pts, fill, line, bars) => {

@@ -21,7 +21,7 @@ import { declareProgram } from './programs.js';
 const MIN_PX = 1.5;
 // A car's lamps: where they are on it (ft: across, up, along from its middle), and how bright the
 // headlamps and the tail lamps burn.
-export const CAR_LAMPS = Object.freeze({ across: 2.2, up: 2.3, along: 7.4, head: Object.freeze([4.2, 3.7, 3.0]), tail: Object.freeze([2.4, 0.12, 0.06]), r: 0.55 });
+const CAR_LAMPS = Object.freeze({ across: 2.2, up: 2.3, along: 7.4, head: Object.freeze([4.2, 3.7, 3.0]), tail: Object.freeze([2.4, 0.12, 0.06]), r: 0.55 });
 
 const GROUND = -0.3;
 const COMMON = `
@@ -141,7 +141,7 @@ for (const [vs, fs] of [[CAR_VS, CAR_FS], [LAMP_VS, LAMP_FS], [WALK_VS, WALK_FS]
 
 // The car, 7 floats a vertex: position (ft: across, up, along from its middle), normal, part (0 the
 // paint, 1 the glass, 2 the tyres, 3 a headlamp, 4 a tail lamp).
-export function carMesh() {
+function carMesh() {
   const out = [];
   const face = (a, b, c, d, n, part) => { for (const p of [a, b, c, a, c, d]) out.push(p[0], p[1], p[2], n[0], n[1], n[2], part); };
   const box = (x0, x1, y0, y1, z0, z1, part, top = true) => {

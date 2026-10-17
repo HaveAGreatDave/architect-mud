@@ -34,11 +34,6 @@
 
 export const SKY_BINS = 64;
 
-// How far a reflected building is dimmed from its own palette. What a mirror hands back is the
-// city under the same sky you are under, not a lit render of it — and the mass is mostly in its own
-// shadow from any given bearing. Scaled by the flag on top of this.
-export const SKY_DIM = 0.62;
-
 // ⚠ A TILE HAS AN ANGULAR WIDTH AND A FAR ONE DOES NOT COVER A WHOLE BIN. A building two tiles away
 // spans about 28° and one thirty tiles away spans under 2°, so writing each into a single bin makes
 // the near one a spike and the far one the same spike — the skyline comes out as a comb. Each cell

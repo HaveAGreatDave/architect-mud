@@ -85,12 +85,12 @@ export const PATCH_R = 28;
 // thing in this sea short enough to need nine samples a tile: displaced in a cell it cannot resolve,
 // a 0.6-tile wave does not read as rougher water, it reads as torn geometry — and silently, because
 // the LIGHTING goes on describing a smooth wave over the top of it. 'gl:sea' asserts the pair.
-export const PATCH_FINE_R = 6;
+const PATCH_FINE_R = 6;
 // The coarse zone's target spacing, in tiles. Set against the shortest wave still DISPLACED out
 // there — the wind sea — at about five samples across it.
-export const PATCH_RIM_STEP = 1.4;
+const PATCH_RIM_STEP = 1.4;
 export const PATCH_PER_TILE = 9;
-export const RIM_FADE = 5;      // tiles of crossfade at the outer edge
+const RIM_FADE = 5;      // tiles of crossfade at the outer edge
 // ── THE FAR BAND: THE SWELL OUT TO THE HORIZON ────────────────────────────────────────────────
 //
 // Past PATCH_R the sea was the flat floor: correctly LIT, so a storm swell read as texture, but with
@@ -106,12 +106,12 @@ export const RIM_FADE = 5;      // tiles of crossfade at the outer edge
 // side at four tiles each, so the whole mesh goes from ~19k cells to ~35k — a disc three times the
 // radius for under twice the cells. glSeaFar 0 folds the fade back to PATCH_R: the far cells are
 // still in the buffer but carry alpha 0 and discard, and the picture is the sea as it shipped.
-export const PATCH_FAR_R = 120;
+const PATCH_FAR_R = 120;
 export const PATCH_FAR_STEP = 4;
 export const FAR_FADE = 24;     // tiles of crossfade at the far edge, deep in the haze by then
 // ⚠ KEEP IN STEP WITH THE MAX_WAKES IN THE VERTEX SHADER — GLSL cannot read a JS constant, so this
 // is the second statement of one number and the array it sizes is silently truncated if it shrinks.
-export const MAX_WAKES = 6;
+const MAX_WAKES = 6;
 
 const VERT = `#version 300 es
 precision highp float;

@@ -170,7 +170,7 @@ export function rod(b, A, B, r, col, mat) {
 // its front, and a rope from each end of the pipe up over the right shoulder of the man pulling
 // that side to his hands. `men` are [{ side (+1 the mat's right), shoulder, hands }], points in
 // the park; a man with no shoulder (his pose not in yet) has his rope straight to his hands.
-export const MAT_LOOK = Object.freeze({ mesh: '#4a4d50', pipe: '#5d6266', rope: '#a8916a', thick: 0.05, ropeR: 0.035 });
+const MAT_LOOK = Object.freeze({ mesh: '#4a4d50', pipe: '#5d6266', rope: '#a8916a', thick: 0.05, ropeR: 0.035 });
 export function dragMat(b, m, men = []) {
   const yaw = m.yaw * DEG, u = [Math.sin(yaw), 0, Math.cos(yaw)], n = [-u[2], 0, u[0]], L = MAT_LOOK;
   box(b, [m.at[0], L.thick / 2, m.at[2]], [m.w / 2, L.thick / 2, m.l / 2], m.yaw, lin(L.mesh), MAT.MATTE);
@@ -212,7 +212,7 @@ function buildField(B, outline) {
 // ── the stands ──────────────────────────────────────────────────────────────
 // The lower bowl's front edge: down the first-base line, round behind the plate, up the
 // third-base line.
-export function bowlPath() {
+function bowlPath() {
   const pts = [];
   const d1 = norm([-1, 0, 1]), n1 = norm([-1, 0, -1]), d3 = norm([1, 0, 1]), n3 = norm([1, 0, -1]);
   for (let s = 318; s > 62; s -= 8) pts.push(add(mul(d1, s), mul(n1, FOUL_GROUND.line)));
@@ -317,7 +317,7 @@ function stands(B, crowd, path, o) {
 
 // The distances on the wall, rounded to five feet the way a park paints them: the lines,
 // the gaps and straightaway centre.
-export function wallNumbers(fence) {
+function wallNumbers(fence) {
   const r5 = (x) => Math.round(x / 5) * 5;
   return [[-45, r5(fenceDistance(45 * DEG, fence))], [45, r5(fenceDistance(45 * DEG, fence))],
     [-22.5, r5(fenceDistance(22.5 * DEG, fence))], [22.5, r5(fenceDistance(22.5 * DEG, fence))], [0, r5(fence.centre)]];
@@ -473,7 +473,7 @@ function buildExterior(B, outline) {
 
 // Where the scoreboard hangs and which way it faces: centre, normal (toward the plate),
 // the face's horizontal axis, half-width and half-height, and its yaw in degrees.
-export function boardFrame(field) {
+function boardFrame(field) {
   const th = field.board.bearing * DEG, R = field.board.r;
   const c = [Math.sin(th) * R, 66, Math.cos(th) * R], n = norm([-c[0], 0, -c[2]]);
   return { c, n, t: norm(cross([0, 1, 0], n)), w: 62, h: 21, yaw: Math.atan2(n[0], n[2]) / DEG + 180 };

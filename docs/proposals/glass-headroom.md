@@ -329,7 +329,7 @@ proportion, so it commutes with the scale), so no caller changed. `perf:sizes`: 
 corner within 2.3e-14 tiles. Browser, frozen clocks: 3 to 43 pixels in 400,000 against a noise of 2
 to 38. What's left is signal-mast lenses and moving things.
 
-Phase 2, as built (`setWindowFrame` in gl/context.js): the sprite, stroke and decal layers add the
+Phase 2, as built (`windowFrame` in gl/context.js; the `setWindowFrame` switch went 2026-10-17): the sprite, stroke and decal layers add the
 camera's `ox`/`oy` as they write and draw with the shifted camera, the solids' frame. The records the
 CPU reads are unchanged (still the camera's frame), so a retained group (phase 4) converts at the
 moment it's recorded. In the browser with frozen clocks, old frame against window frame differs on 0

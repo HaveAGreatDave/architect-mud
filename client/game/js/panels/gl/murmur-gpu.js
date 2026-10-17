@@ -95,7 +95,7 @@ const MAX_CLOUDS = 12;
 // ⚠ AT MOST 3: at 60 fps that is a 50 ms step, which is DT_MAX in murmur.js; past it the flock would
 // fly slower rather than cost less. What a stride of 3 cannot afford, the frame-time thinning
 // (FAUNA_SHOW, RENDER_TUNE.murmurFloor) has to.
-export const STRIDE_FROM = 120000;
+const STRIDE_FROM = 120000;
 // ⚠ THE FREE RULES (StarDisplay, not a body). on 0 is the enveloped flock as it shipped. cmd scales the relayed
 // course, roost is the pull past roostR body-lengths, alt the pull past band body-thicknesses of height, edge
 // how much stronger cohesion is on the rim. rec.free overrides any of them.
@@ -107,13 +107,13 @@ const SPLIT_EVERY = 17, SPLIT_FOR = 6;
 // wander 0.15 -> 0.25 and spin 0.5 -> 0.7 (2026-09-25), with the roost pulled in (birds.js roam): the
 // body shifts and rolls more inside the smaller ground it now covers.
 export const FREE_RULES = { on: 1, cmd: 0.0, roost: 3.0, alt: 0.8, roostR: 0.6, band: 1.2, edge: 3.0, wander: 0.25, spin: 0.7, split: 4.0 };
-export const STEP_BUDGET_MS = 6;
+const STEP_BUDGET_MS = 6;
 // ⚠ AND NEVER BELOW THIS MANY BIRDS. A timer query on a GPU that is also drawing a city is noisy: one
 // 20,000-bird cloud read 2.2, 4.4 and 8.4 ms in three runs against 1.5 back to back. That noise may push a
 // grand roost a stride higher, which costs a little lag, but an ordinary murmuration of 450-1,700 must never
 // be drawn a step behind itself because the clock hiccupped.
-export const STRIDE_MIN = 10000;
-export const STRIDE_MAX = 3;
+const STRIDE_MIN = 10000;
+const STRIDE_MAX = 3;
 // The grid: GW x GH slots, LAYERS birds a slot, shared by every cloud, because a cloud's grid is built
 // and used inside its own step and nothing needs it afterwards.
 // ⚠ THE SLOT IS THE CELL WRAPPED, NOT HASHED (2026-09-24). A cell's x and y wrap at 2^GRID_XB and its z at
@@ -141,8 +141,8 @@ const GW = GRID_XW << GRID_ZX, GH = GRID_XW << GRID_ZY, LAYERS = 8, LAYERS_MIN =
 // birds about 0.8 m apart, so at 0.6 a bird's seventh neighbour was past the fourth shell for half the
 // flock — 40-63% unsettled at 4,000 birds. At 1.2 it is 0-9 of 4,000, and the step is cheaper for it:
 // 0.73 ms at 4,000 and 1.06 at 20,000, against 0.93 and 1.31 at 0.6 (__glMurmurCost).
-export const GRID_K = 1.2;
-export const GRID_R = 4;
+const GRID_K = 1.2;
+const GRID_R = 4;
 const f = (x) => (Number.isInteger(x) ? x.toFixed(1) : String(x));   // a JS number as a GLSL float literal
 
 const HASH = `

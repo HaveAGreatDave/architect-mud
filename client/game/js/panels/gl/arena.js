@@ -220,7 +220,7 @@ declareProgram(POST_VS, POST_FS);
 declareProgram(HEAD_VS, HEAD_FS);
 
 // The quality rungs the view's frame-time governor steps through (gameday-rink.js).
-export const ARENA_RUNGS = [
+const ARENA_RUNGS = [
   { dpr: 1.5, mirror: MIRROR_SCALE, reflBodies: true },
   { dpr: 1.25, mirror: MIRROR_SCALE, reflBodies: true },
   { dpr: 1, mirror: 0.35, reflBodies: true },

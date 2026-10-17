@@ -39,7 +39,7 @@ const POS_UNIT = 20, NRM_UNIT = 21;
 // The look: 1 is seams, grime and the fuller light (see FRAG), 0 the flat shading as first shipped.
 // `mat` 1 lights each garment as what it's made of (satin, leather, vinyl, metal; see envAt), 0 lights
 // everything as cloth. Flip either from the console to compare.
-export const ACTOR_LOOK = { on: 1, mat: 1 };
+const ACTOR_LOOK = { on: 1, mat: 1 };
 
 const VERT = `#version 300 es
 precision highp float;

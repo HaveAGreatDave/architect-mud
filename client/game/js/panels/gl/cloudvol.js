@@ -39,7 +39,7 @@ import { linearOut, applyLinOut } from './colour.js';
 
 const NOISE_N = 64;
 const COVER_N = 64;          // coverage texels a side
-export const COVER_RANGE = 56;   // tiles either side of the camera the coverage map spans
+const COVER_RANGE = 56;   // tiles either side of the camera the coverage map spans
 const GLOW_R = 4;                 // tiles a lit tile's glow spreads across the base
 const GLOW_GAIN = 0.12;           // how many summed sources it takes to saturate (1 - e^-gain·sum)
 const GLOW_STR = 0.55;            // the glow's full-night strength on the base

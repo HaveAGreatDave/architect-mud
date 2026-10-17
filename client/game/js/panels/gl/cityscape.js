@@ -24,7 +24,7 @@ import { floorsFor, buildingScale, tileSeed, CURTAIN_H } from '../../../../share
 import { styleOf, insidePoly, SET_STYLES } from '../../../../shared/city-set.js';
 
 // The share of a style's windows lit at night, and its bay width in feet.
-export const STYLE_LIT = Object.freeze({ glass: 0.26, concrete: 0.3, brick: 0.46, ribbon: 0.22, works: 0.08, farm: 0.92, stone: 0.5, ruin: 0, chrome: 0.3 });
+const STYLE_LIT = Object.freeze({ glass: 0.26, concrete: 0.3, brick: 0.46, ribbon: 0.22, works: 0.08, farm: 0.92, stone: 0.5, ruin: 0, chrome: 0.3 });
 const BAY = { brick: 9, works: 16, chrome: 14 };
 // Sodium, as an emissive lamp's colour in the park's linear light, and the lamps' reach. A
 // lamp's head is 26 ft up and lights a pool 38 ft round (gl/ballpark.js takes the ratio).

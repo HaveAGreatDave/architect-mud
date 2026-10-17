@@ -49,7 +49,6 @@ const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
 const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
 // 3×3 matrices as three column vectors
 const m3v = (m, v) => [m[0][0] * v[0] + m[1][0] * v[1] + m[2][0] * v[2], m[0][1] * v[0] + m[1][1] * v[1] + m[2][1] * v[2], m[0][2] * v[0] + m[1][2] * v[1] + m[2][2] * v[2]];
-const m3m = (a, b) => [m3v(a, b[0]), m3v(a, b[1]), m3v(a, b[2])];
 export function rng(seed) { let a = seed >>> 0; return () => { a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
 export function hashStr(s) { let h = 2166136261; for (const ch of String(s)) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; }
 const decode = (c) => (c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4));
@@ -68,7 +67,6 @@ export const HAIRS = ['#1d1510', '#3a2416', '#5b3a1e', '#141414', '#7a5530', '#2
 // One 2048² texture holds every jersey (a 512×256 slot each, 28 of them, in rows 0 to 6) and,
 // in row 7, each side's trousers and socks. A jersey is flattened round the body: u runs round it
 // with the chest a quarter of the way in and the back three quarters, v from the collar down.
-export const KIT_SLOTS = 28;
 export const kitCell = (slot) => [(slot % 4) / 4, Math.floor(slot / 4) / 8, 1 / 4, 1 / 8];
 export const KIT_PANTS = { home: [0, 7 / 8, 1 / 4, 1 / 8], away: [1 / 4, 7 / 8, 1 / 4, 1 / 8] };
 export const KIT_SOCKS = { home: [2 / 4, 7 / 8, 1 / 4, 1 / 8], away: [3 / 4, 7 / 8, 1 / 4, 1 / 8] };
@@ -76,13 +74,13 @@ export const KIT_SOCKS = { home: [2 / 4, 7 / 8, 1 / 4, 1 / 8], away: [3 / 4, 7 /
 const inCell = (c, u, v) => [c[0] + (0.004 + clamp(u, 0, 1) * 0.992) * c[2], c[1] + (0.008 + clamp(v, 0, 1) * 0.984) * c[3]];
 // A skinned body is built once and stands in any slot, so its jersey's uv is the cell's own 0..1
 // moved two to the right, and the shader puts it in the slot's cell (uKitCell in gl/ballpark.js).
-export const KIT_REL = Object.freeze([2, 0, 1, 1]);
+const KIT_REL = Object.freeze([2, 0, 1, 1]);
 
 // ── skinned vertices ─────────────────────────────────────────────────────────────
 // A skinned vertex is ballpark-mesh.js's twelve floats and two more words: four bone indices and
 // four weights, a byte each, the weights summing to 255.
 export const SKIN_STRIDE = STRIDE + 2;
-export function createSkinBatch(cap = 4096) { const data = new Float32Array(cap * SKIN_STRIDE); return { data, u8: new Uint8Array(data.buffer), n: 0, skin: true }; }
+function createSkinBatch(cap = 4096) { const data = new Float32Array(cap * SKIN_STRIDE); return { data, u8: new Uint8Array(data.buffer), n: 0, skin: true }; }
 function growSkin(b, more) {
   const need = (b.n + more) * SKIN_STRIDE;
   if (need <= b.data.length) return;
@@ -91,7 +89,7 @@ function growSkin(b, more) {
   b.data = d; b.u8 = new Uint8Array(d.buffer);
 }
 // `w` is [[bone, weight], …]: up to four, any weights, kept as bytes that sum to 255.
-export function vtxSkin(b, p, n, uv, col, mat, w) {
+function vtxSkin(b, p, n, uv, col, mat, w) {
   growSkin(b, 1);
   const o = b.n * SKIN_STRIDE, d = b.data;
   d[o] = p[0]; d[o + 1] = p[1]; d[o + 2] = p[2];

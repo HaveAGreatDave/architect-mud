@@ -341,7 +341,7 @@ export const LIGHT_TUNE = {
 // ⚠ THE STRENGTH IS NOT HERE. It is `RENDER_TUNE.glAO`, because it is the knob somebody
 // drags in the flight-sim panel and it doubles as the off switch — 0 makes the shader
 // multiply by exactly 1.0 and the frame is what shipped.
-export const AO_TUNE = { fall: 1.6 };
+const AO_TUNE = { fall: 1.6 };
 
 // ⚠ AND IT IS SCALED BY THE NIGHT, WHICH IS NOT THE SAME AS BEING LEFT TO THE SPRITE ALPHAS.
 // GLASS goes on drawing signage by day, dimmed — so without this the wash goes on landing too, and

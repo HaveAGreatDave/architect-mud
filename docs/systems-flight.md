@@ -594,7 +594,7 @@ engine-off aircraft may claim), the red-tail hawk in `birds.js` (where it spiral
 - **Hawks.** Each flight picks the nearest column within 8 tiles that is alive when the flight starts
   and spirals inside its core; with none, it circles its perch as before. Measured over all 31
   hawks: 69% of climbing time is in lift over 150 ft/min.
-- **What the pilot sees** (windshield.js, `RENDER_TUNE.thermalCaps` / `dustDevils` / `thermalDebug`):
+- **What the pilot sees** (windshield.js; `RENDER_TUNE.thermalDebug` draws every column):
   a cumulus cap at the top of any column past 250 ft/min, and a dust devil for about a minute at the
   foot of a strong column over bare dry ground. A cap grows in from nothing between 250 and 600 ft/min
   and thins out over the last 8 tiles before the edge of the columns the view collects

@@ -22,7 +22,7 @@ Engineering notes for the GLASS renderer (`client/game/js/panels/windshield.js` 
 - [Vertex streaming (gl/stream.js(../../client/game/js/panels/gl/stream.js))](#vertex-streaming-glstreamjsclientgamejspanelsglstreamjs)
 - [Ground buffer caching (not done)](#ground-buffer-caching-not-done)
 - [Fidelity readings](#fidelity-readings)
-- [Facade glazing bands (`RENDER_TUNE.glBand`)](#facade-glazing-bands-render_tuneglband)
+- [Facade glazing bands](#facade-glazing-bands)
 - [World text on the depth buffer (`RENDER_TUNE.glSign`)](#world-text-on-the-depth-buffer-render_tuneglsign)
 - [Sort bias versus depth offset (`DECO_PULL`, `BLADE_PROUD`)](#sort-bias-versus-depth-offset-deco_pull-blade_proud)
 - [Sign culling (`cull` on a decal)](#sign-culling-cull-on-a-decal)
@@ -58,7 +58,7 @@ Engineering notes for the GLASS renderer (`client/game/js/panels/windshield.js` 
 - [Sign shape and camera](#sign-shape-and-camera)
 - [Graffiti hands](#graffiti-hands)
 - [Halcyon Fields tint (`RENDER_TUNE.hfTint`)](#halcyon-fields-tint-render_tunehftint)
-- [Lit drums (`RENDER_TUNE.glDrumLit`, 2026-09-27)](#lit-drums-render_tunegldrumlit-2026-09-27)
+- [Lit drums (2026-09-27)](#lit-drums-2026-09-27)
 - [Pilaster ranks (removed)](#pilaster-ranks-removed)
 - [Cloud deck on the depth buffer (`RENDER_TUNE.glClouds`)](#cloud-deck-on-the-depth-buffer-render_tuneglclouds)
 - [Nothing in the cloud deck is cut (2026-10-02)](#nothing-in-the-cloud-deck-is-cut-2026-10-02)
@@ -75,9 +75,9 @@ Engineering notes for the GLASS renderer (`client/game/js/panels/windshield.js` 
 - [Benches pin the adaptive dials](#benches-pin-the-adaptive-dials)
 - [The original GL spike](#the-original-gl-spike)
 - [Moving parts (`RENDER_TUNE.motion`)](#moving-parts-render_tunemotion)
-- [Moving-part shading (`RENDER_TUNE.motionShade`)](#moving-part-shading-render_tunemotionshade)
+- [Moving-part shading](#moving-part-shading)
 - [Lattice palettes for crane masts](#lattice-palettes-for-crane-masts)
-- [Cut lattice openings (`RENDER_TUNE.latticeCut`)](#cut-lattice-openings-render_tunelatticecut)
+- [Cut lattice openings](#cut-lattice-openings)
 - [Rear and flank piers (section 1e of `derivedKit`)](#rear-and-flank-piers-section-1e-of-derivedkit)
 - [Camera pitch (`camPitch`)](#camera-pitch-campitch)
 - [The sea surface](#the-sea-surface)
@@ -297,7 +297,7 @@ Everything used to fade out at `VISIBLE_FAR_F` (34 tiles), a corner shop and the
 Every model is scored out of four on things the renderer already produces: a roof face, a light at night, more than one wall palette, and any trim. At the start 8 of 173 models had any trim and 5 scored four; later it was 143 and 107. It's a report and not a gate (`--fail-under N` exists for when the pass is done), because a gate would fail as soon as someone added a model and until they finished it.
 
 - The light metric first counted gradients and blurs on the stub ctx, which can't see a glow: `glowPool` blits a `glowSprite` bitmap built once on its own canvas and cached per colour. So buildings lit only by glows and beacons scored dark, and the board reported 109 of 173 dark after nightfall when the real number was 14, mostly ones that should be dark. `shapeAdornCost` now runs with the sprite sink installed and counts what lands in it.
-- `RENDER_TUNE.drumTier` (2026-09-27): the shaft rule (height over three radii) left every rotunda bare, so a drum that's a real storey takes one head collar, two per building at ten facets (+1.8% mesh). With that and six palette fixes the board reads 312/312 with more than one wall palette and 310/312 with trim. The two without are `NO_KIT` (the pontoon, the lighthouse). The six dark models are dark on purpose: the Terminus wall, a ruin, the thorn wall, Deadwater's standpipe and dam, and Fallow Provisions.
+- Drum tiers (2026-09-27): the shaft rule (height over three radii) left every rotunda bare, so a drum that's a real storey takes one head collar, two per building at ten facets (+1.8% mesh). With that and six palette fixes the board reads 312/312 with more than one wall palette and 310/312 with trim. The two without are `NO_KIT` (the pontoon, the lighthouse). The six dark models are dark on purpose: the Terminus wall, a ruin, the thorn wall, Deadwater's standpipe and dam, and Fallow Provisions.
 
 ### Trim
 
@@ -379,7 +379,7 @@ Trap: a cold first run of that harness gives wrong numbers: `world:build` 12.2 m
 
 `__glFidelity()`'s documented 1.0% is out of date: it now reads 4.7% and hasn't regressed. Against a detached worktree at `6468131a6` on its own Modelshop port (never swap live files), HEAD reads 4.7% and the working tree 4.8%, inside run-to-run spread (`office/13` 7.0 → 4.4, `clinic/13` 8.9 → 8.5 across two runs of one build). The rise is deliberate GL-only shading added since: material BRDF, recovered relief, SSAO, HDR, contact occlusion, baked AO. Only compare a fidelity reading with another taken the same week; a number in a doc header isn't a baseline.
 
-## Facade glazing bands (`RENDER_TUNE.glBand`)
+## Facade glazing bands
 
 0 puts back the punched grid and two-pane shopfront. The derived kit now builds one continuous glazed band divided by mullions, as Voltage's authoring note prescribed.
 
@@ -387,7 +387,7 @@ Trap: a cold first run of that harness gives wrong numbers: `world:build` 12.2 m
 - The lit roll moves from the pane to the floor (a ribbon reads as inhabited because some floors are dark). `litN` still counts rooms, so the facade wash is unchanged.
 - Rich list only: `bars` is mesh-only, so on the 2-D painter a ribbon would be one undivided slab.
 - The door stands proud of the glass. A dark bay at the same plane is a depth coin toss, and the band's glazing sits at a higher lift than the door surround, so the doorway would end up behind its own shopfront.
-- Trap: `glBand` and `richKit` need a page reload. The mesh memo and GL vertex buffer key on object identity and `meshParams` carries neither flag, so an A/B is two page loads; two panels in one pass render the same mesh twice.
+- Trap: a flag the derived kit reads needs a page reload to A/B. The mesh memo and GL vertex buffer key on object identity and `meshParams` carries no tune flag, so an A/B is two page loads; two panels in one pass render the same mesh twice.
 
 ## World text on the depth buffer (`RENDER_TUNE.glSign`)
 
@@ -857,7 +857,7 @@ Gate: `npm run gl:footfall` ([scripts/shapes/footfall.mjs](../../scripts/shapes/
 
 ## Plinth and crown bands
 
-`RENDER_TUNE.glCourse` (0 removes both bands and keeps the roof coping). `models:quality`'s worst score is "more than one wall palette", failed by 22 of 173 with 26 more at two mass segments or fewer. Voltage's authoring note names the fix ("the crown takes a different palette so the silhouette carries a light value"). `parapet` already draws a band and was only used at the roof edge, so a plinth at the pavement and a crown course a storey below the top needed no new kind, painter or schema change. Measured: 2.82% of pixels at night, 3.60% by day for +4.8% faces (the two rich-kit phases moved 0.5–2% each for +35%).
+`models:quality`'s worst score is "more than one wall palette", failed by 22 of 173 with 26 more at two mass segments or fewer. Voltage's authoring note names the fix ("the crown takes a different palette so the silhouette carries a light value"). `parapet` already draws a band and was only used at the roof edge, so a plinth at the pavement and a crown course a storey below the top needed no new kind, painter or schema change. Measured: 2.82% of pixels at night, 3.60% by day for +4.8% faces (the two rich-kit phases moved 0.5–2% each for +35%).
 
 - The crown asks `wants('cope')`; the plinth doesn't. Same kind, but nobody hand-draws a base course and many hand-draw a cornice (gating on it is the `vent`-under-`wall` error).
 - A band is square-only (`parapet` takes one half-width); 163 of 172 models have a square base, and the gate watches it because it could silently zero the feature.
@@ -959,7 +959,7 @@ Gate: `npm run gl:hftint` ([scripts/shapes/hftint.mjs](../../scripts/shapes/hfti
 - It finds the polished arms in the loaded tables under `glass/models/` and reads each arm function's own source. Before the arms moved out of windshield.js (2026-10-01) it swept the text instead, and had to bound itself to `drawTypeModelArm`: a sweep for `\n    case '…':` over the whole file collected other switches at the same indent, and the first run reported `skullbob` (a cab trinket) and failed it for not being tinted.
 - Its leak check is a source check on purpose. All 152 `hfChrome`/`hfGlass` call sites are inside the building arms and `drawTypeModel` re-arms on entry, so deleting the `finally` restore is unobservable today. It guards a future nested arm.
 
-## Lit drums (`RENDER_TUNE.glDrumLit`, 2026-09-27)
+## Lit drums (2026-09-27)
 
 The mass shader's `aFlat` has a third value, 2: the face's own colour lit as a wall. It takes the key light, shadow, snow and the material block, but `texW` is 0 so the atlas never replaces the colour. `hfChrome`/`hfGlass` tag themselves (`litStyle`) with an albedo carrying the tile's cast and a family, and the drum mesh emits `flat: 2` with that family's `matId`.
 
@@ -1088,7 +1088,7 @@ Measuring it: only partial occlusion is a test, since the old probe also hid a f
 - `Math.random`,
 - the CSS box: a canvas with no CSS size is resized by `paintWindshield` off its previous backing store, shrinking 760→418→255 over three renders.
 
-Don't toggle `glDeco` between renders: that put the baseline at 183,666 px on a 125 px mast. Reload between configs, as with `glBand` and `richKit`.
+Don't toggle `glDeco` between renders: that put the baseline at 183,666 px on a 125 px mast. Reload between configs, as with any flag the derived kit reads.
 
 ## Echelon fittings on the depth buffer
 
@@ -1156,9 +1156,7 @@ Trap: a moving part can never be mass, and nothing reports it. `draw3DBoxAt` and
 - An arc is two incommensurate sines over a threshold; `blinkLight` keeps perfect time and would read as a navigation light. It modulates a lamp, never the frame (the drug FX no-strobe rule).
 - An authored model can't move: `case 'authored'` draws JSON boxes and drums straight into the mesh, so a building ported to `content/building_models/` loses its arm's motion when bound by name.
 
-## Moving-part shading (`RENDER_TUNE.motionShade`)
-
-`motionShade` 0 is the three flat fills as shipped.
+## Moving-part shading
 
 Reported on the yellow south-west cranes; it applied to every `movingBox` (wharf jibs, quay gantries, scrap grabbers). Mass walls get `wallLit`'s two-stop ramp: tinted toward `mix(sky, key)` at the head and toward the shadow at the foot (the ambient occlusion that makes a facade read as solid). Moving parts had a top at the raw palette colour and two sides on one grey multiplier bottoming at 0.44, so a machinery house was the brightest thing beside the darkest, like cut-out card. It now runs the walls' arithmetic, composited in JS because the base is a flat colour.
 
@@ -1184,9 +1182,7 @@ Reported as an unreadable olive smudge on a crane. `ty_junk_crane` was in `PLATE
 
 The family describes the surface, not the material: the same steel is plate on a hull, lattice on a mast, and `PLAIN_WALL` on a modern painted harbour crane. `ty_crane_body`/`ty_crane_cw`/`ty_crane_cab` stay in `PLAIN_WALL`.
 
-## Cut lattice openings (`RENDER_TUNE.latticeCut`)
-
-`latticeCut` 0 is the painted near-black openings as shipped.
+## Cut lattice openings
 
 `LATTICE_WALL`'s header assumed no alpha. In fact every wall texture starts transparent, `buildAtlas` composites tiles onto a transparent page with `drawImage`, and the mass shader samples that page. Leaving openings unfilled and alpha-testing gives a truss you can see sky through in both renderers, with no extra texture or blend pass.
 
@@ -1206,7 +1202,7 @@ Cutting changed the right proportions. Painted dark, fat members were fine at th
 
 `LATTICE_CUT` is a subset of the family, because one key can be two objects: `ty_gantry` is a gantry leg at `fh * 0.05` in one place and the Spire cooling plant's deck at `fh * 0.86` (nearly two tiles of solid slab) in another. The subset is the three keys whose every call site is open structure. `ty_trm_gantry` is held out because it hasn't been checked, not because it failed.
 
-The flag applies at bake time and needs a reload to A/B (like `glBand` and `richKit`): wall tiles are cached per palette, the atlas is packed from them, and neither key includes it.
+The flag applies at bake time and needs a reload to A/B (like any flag the derived kit reads): wall tiles are cached per palette, the atlas is packed from them, and neither key includes it.
 
 ## Rear and flank piers (section 1e of `derivedKit`)
 

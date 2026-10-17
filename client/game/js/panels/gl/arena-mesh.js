@@ -169,7 +169,7 @@ export function tube(b, A, B, ra, rb, c, seg = 8) {
   }
 }
 // A tube in three stations, so it swells over a pad and tapers past it.
-export function tube3(b, A, B, ra, rm, rb, c, tm = 0.45, seg = 8) {
+function tube3(b, A, B, ra, rm, rb, c, tm = 0.45, seg = 8) {
   const M = V.lerp(A, B, tm);
   tube(b, A, M, ra, rm, c, seg); tube(b, M, B, rm, rb, c, seg);
 }
@@ -222,7 +222,7 @@ export const sphere = (b, C, r, c, seg = 10, rings = 7) => ellipsoid(b, C, [1, 0
 // the brow and the bottom open where the head comes in. `open` is how far forward the opening
 // starts (0 is the sides, 1 straight ahead) and `brow` how high it reaches, both on the unit
 // sphere. The generator's head goes inside it, so the face shows through the cage.
-export function helmetShell(b, C, ax, ay, az, r, c, seg = 14, rings = 9, open = 0.45, brow = 0.15) {
+function helmetShell(b, C, ax, ay, az, r, c, seg = 14, rings = 9, open = 0.45, brow = 0.15) {
   grow(b, seg * rings * 6);
   const T = sph(seg, rings), S = seg + 1, N = S * (rings + 1), g = gridBuf(N);
   for (let k = 0; k < N; k++) {
@@ -260,7 +260,7 @@ const maskPad = (az, el) => 0.055 + 0.05 * sstep(-0.6, -1.0, el) * (1 - sstep(0.
 let _mp = null;
 // The head's reach from MASK_O (skull, ears and the three haircuts that can be under a mask),
 // in bins of 10° each way, and the shell's radius over it.
-export function maskProfile() {
+function maskProfile() {
   if (_mp) return _mp;
   const reach = new Float32Array(MP_AZ * MP_EL).fill(-1);
   const take = (src, keep) => {
@@ -308,7 +308,7 @@ export function maskProfile() {
   return _mp;
 }
 // The shell's radius from MASK_O in a direction (azimuth from forward toward his left, elevation).
-export function maskRadius(az, el) {
+function maskRadius(az, el) {
   const { shell } = maskProfile();
   const fa = (az + Math.PI) / TAU2 * MP_AZ - 0.5, fe = clamp((el + HALF_PI) / Math.PI * (MP_EL - 1), 0, MP_EL - 1);
   const a0 = Math.floor(fa), e0 = Math.min(MP_EL - 2, Math.floor(fe)), ta = fa - a0, te = fe - e0;
@@ -450,7 +450,7 @@ export function buildMask(b, bt, Hc, Fh, Sd, Uh, o, det) {
 }
 
 // An oriented box: centre, three unit axes, three half-sizes.
-export function boxAxes(b, C, ax, ay, az, hx, hy, hz, c) {
+function boxAxes(b, C, ax, ay, az, hx, hy, hz, c) {
   const P = (x, y, z) => V.frame(C, ax, x * hx, ay, y * hy, az, z * hz);
   const f = (n, a, bb, cc, d) => quad(b, a, bb, cc, d, c, null, n);
   f(az, P(-1, -1, 1), P(1, -1, 1), P(1, 1, 1), P(-1, 1, 1));
