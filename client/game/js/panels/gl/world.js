@@ -679,7 +679,16 @@ function texVariant(key, win) {
   return (win == null || key.charCodeAt(0) === 114 /* 'r' — a roof */) ? key : key + TEX_WIN_SEP + win;
 }
 
+// The key per cells array. windshield.js hands over the same array every frame until the map window
+// changes (GL_CELL_CACHE, which nothing may push to or mutate), so the strings, the sort and the join
+// run once per window instead of once per frame: hundreds of strings a frame from an aircraft.
+const WINDOW_KEYS = new WeakMap();
 function windowKey(cells) {
+  let key = WINDOW_KEYS.get(cells);
+  if (key === undefined) WINDOW_KEYS.set(cells, key = windowKeyOf(cells));
+  return key;
+}
+function windowKeyOf(cells) {
   // ⚠ bt/bn decide WHICH model this is and meshParams decides what that model was BUILT AS.
   // Both halves are needed: the first cannot see a reseeded variant, the second cannot see a
   // different building that happens to share a footprint and a height.
@@ -1157,6 +1166,15 @@ const SSAO_TUNE = {
 // so the day capture and the night capture below cannot disagree about where the building is.
 const placeOf = (it) => ({ biome: it.c && it.c.biome, wx: it.wx, wy: it.wy });
 
+// The skyline strip reads each cell's mesh every frame for two numbers (topZ, avgRgb). The cells array
+// is fixed for a map window, so the lookups (a meshParams string and two Map hits per cell) are done
+// once per array and kept beside it.
+const SKY_FACES = new WeakMap();
+function skylineFaces(deps, cells) {
+  let m = SKY_FACES.get(cells);
+  if (!m) { m = new Map(); SKY_FACES.set(cells, m); }
+  return (it) => { let f = m.get(it); if (f === undefined) m.set(it, f = tileMesh(deps, it)); return f; };
+}
 function tileMesh(deps, it) {
   let byParam = meshCache.get(it.m);
   if (!byParam) { byParam = new Map(); meshCache.set(it.m, byParam); }
@@ -1603,7 +1621,7 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   // environment colours a reflective surface has had since the material pass shipped. See
   // gl/skyline.js for why this is a probe rather than a planar mirror or a screen-space trace.
   // ⚠ AND IT IS BEFORE `draw`, because the strip is a uniform that `draw` binds and reads.
-  if ((opts.glEnvCity == null ? 1 : opts.glEnvCity) > 0 && g.view.setSkyline) g.view.setSkyline(cells, eyePos(camAt), (it) => tileMesh(deps, it));
+  if ((opts.glEnvCity == null ? 1 : opts.glEnvCity) > 0 && g.view.setSkyline) g.view.setSkyline(cells, eyePos(camAt), skylineFaces(deps, cells));
   const drawOpts = { ...(opts.draw || {}), lights: wallLights, lampLift: liftOn ? lampLift : 0, lightWrap: LIGHT_TUNE.wrap,
     lightFocus: LIGHT_TUNE.focus, cssH,
     ao: opts.glAO || 0, aoFall: AO_TUNE.fall, bakedAo: opts.glBakedAo || 0, sunShadow: sunShadowFor(g, opts),

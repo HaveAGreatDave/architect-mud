@@ -117,10 +117,14 @@ export function createSkylineStrip(gl) {
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, SKY_BINS, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(SKY_BINS * 4));
-  let strip = null, bytes = null;
+  let strip = null, bytes = null, lastCells = null, lx = NaN, ly = NaN, lz = NaN;
   return {
     tex,
     update(cells, eye, facesOf) {
+      // The strip is a function of the window's cells and the eye: a camera standing still over an
+      // unchanged window has nothing new to build or upload.
+      if (cells === lastCells && eye[0] === lx && eye[1] === ly && eye[2] === lz && strip) return;
+      lastCells = cells; lx = eye[0]; ly = eye[1]; lz = eye[2];
       strip = buildSkyline(cells, eye, strip, facesOf);
       bytes = packSkyline(strip, bytes);
       gl.bindTexture(gl.TEXTURE_2D, tex);

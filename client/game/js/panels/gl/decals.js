@@ -630,15 +630,23 @@ export function createDecalLayer(gl) {
     const keptRun = (solidOnly) => {
       if (!kept.length) return 0;
       gl.bindVertexArray(arena.vao);
-      let n = 0;
+      // In the arena's own order (they blend), but a span that shares the last one's texture and cull
+      // flag and starts where it ended joins its draw, and an unchanged texture or flag isn't set again.
+      let n = 0, tex0 = null, cull0 = -1, at = 0, run = 0;
       for (const sp of kept) {
         const a = sp.g.part;
         if (solidOnly && !a.solid) continue;
-        gl.uniform1f(loc.cull, a.cull ? 1 : 0);
-        gl.bindTexture(gl.TEXTURE_2D, textureFor(a.key, a.img, a.smooth));
-        gl.drawArrays(gl.TRIANGLES, sp.at, sp.n);
+        const tex = textureFor(a.key, a.img, a.smooth), cull = a.cull ? 1 : 0;
+        if (tex !== tex0 || cull !== cull0) {
+          if (run) { gl.drawArrays(gl.TRIANGLES, at, run); run = 0; }
+          if (cull !== cull0) { gl.uniform1f(loc.cull, cull); cull0 = cull; }
+          if (tex !== tex0) { gl.bindTexture(gl.TEXTURE_2D, tex); tex0 = tex; }
+        }
+        if (run && at + run === sp.at) run += sp.n;
+        else { if (run) gl.drawArrays(gl.TRIANGLES, at, run); at = sp.at; run = sp.n; }
         n += sp.n / 6;
       }
+      if (run) gl.drawArrays(gl.TRIANGLES, at, run);
       gl.bindVertexArray(vao);
       return n;
     };
