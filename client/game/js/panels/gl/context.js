@@ -1283,6 +1283,7 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
   // Each upload group's vertex range and box (in the buffer's frame) with its haze jitter, so the
   // fade pass can draw only the tiles that reach the band. See fadeRuns.
   let ranges = [];
+  let meshBuild = 0;   // bumped by every uploadGroups, so a kept shadow map knows its mesh changed
   // ⚠ ONE DEPTH TEXTURE PER VIEW, BUILT ON FIRST USE AND NEVER REBUILT. A shadow map that resized
   // with the window would reallocate on every seat change; a fixed square costs the same at every
   // seat and the projection is what tightens onto the geometry.
@@ -1500,6 +1501,7 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     // in the same expression `proj` uses. Swapping here fed it y where it wanted wz, which projects
     // every vertex somewhere off screen: a full buffer, a clean draw call, and an empty frame.
     count = verts;
+    meshBuild++;
     // ⚠ THE GROUND PLANE IS FORCED INTO THE BOX. A city of flat plates — a container yard, a run of
     // sheds — can have every vertex above z = 0, and a shadow projection fitted to that box has its
     // near plane above the ground the shadows are meant to land on. Reaching down to 0 costs a
@@ -1545,9 +1547,26 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
       try { shadow = createShadowLayer(gl, loc.pos); } catch { shadow = null; }
     }
     if (!shadow) return null;
-    timed('shadow', () => shadow.render(vao, count, s.lightVP));
+    const vp = s.lightVP;
+    if (!(sunKept && sunKept.build === meshBuild && sunKept.count === count && vpClose(sunKept.vp, vp))) {
+      timed('shadow', () => shadow.render(vao, count, vp));
+      sunKept = { build: meshBuild, count, vp: Array.from(vp) };
+    }
     return shadow;
   }
+  // ⚠ THE SUN'S MAP IS DRAWN AGAIN ONLY WHEN IT WOULD COME OUT DIFFERENT. It holds the static mesh
+  // seen from the sun, so it changes only with the mesh (a rebuild) or the light matrix (the sun
+  // moving, or new bounds). Redrawing it every frame was one more full-city draw into a 2048² map.
+  // The sun drifts a hair every frame in game, so "the same matrix" is "within 2e-4 of its largest
+  // entry", about a third of a texel at 2048; the frame then samples with the matrix the map was drawn
+  // with (`sunVP`), so map and lookup always agree.
+  let sunKept = null;
+  function vpClose(a, b) {
+    let m = 0, d = 0;
+    for (let i = 0; i < 16; i++) { const x = Math.abs(a[i]), e = Math.abs(a[i] - b[i]); if (x > m) m = x; if (e > d) d = e; }
+    return d <= m * 2e-4;
+  }
+  const sunVP = (opts) => (sunKept ? sunKept.vp : opts.sunShadow.lightVP);
 
   // ── AND THE SCREEN-SPACE OCCLUSION, ON THE SAME TERMS ──────────────────────
   //
@@ -1661,7 +1680,7 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     const sun = fade ? fadeKept.sun : (into || opts.skipMass) ? null : sunPass(opts);
     // The city's sun map, kept for the cabin: a cockpit parked in a building's shadow is in it too.
     // ⚠ A COPY OF THE MATRIX, never mat4f's: that one is a shared scratch the next draw overwrites.
-    if (!into && !fade) worldSun = sun ? { tex: sun.tex, vp: new Float32Array(opts.sunShadow.lightVP), texel: sun.texel, bias: opts.sunShadow.bias } : null;
+    if (!into && !fade) worldSun = sun ? { tex: sun.tex, vp: new Float32Array(sunVP(opts)), texel: sun.texel, bias: opts.sunShadow.bias } : null;
     const W = into ? into[0] : canvas.width, H = into ? into[1] : canvas.height;
     const ssaoTex = fade ? fadeKept.ssaoTex : into ? null : ssaoPass(cam, opts, W, H);
     if (!into && !fade) beginTarget(opts);
@@ -1890,7 +1909,7 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     // the city wearing yesterday afternoon's shadows all night.
     gl.uniform1f(loc.shadowStr, sun ? opts.sunShadow.str : 0);
     if (sun) {
-      gl.uniformMatrix4fv(loc.lightVP, false, mat4f(opts.sunShadow.lightVP));
+      gl.uniformMatrix4fv(loc.lightVP, false, mat4f(sunVP(opts)));
       gl.uniform1f(loc.shadowTexel, sun.texel);
       gl.uniform1f(loc.shadowBias, opts.sunShadow.bias);
       const d = opts.sunShadow.sunDir;
