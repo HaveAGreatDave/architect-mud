@@ -127,8 +127,8 @@ async function renderSchedulePanel(data) {
 
   const panel = document.getElementById('list-panel');
   panel.innerHTML = `
-    <div style="display:flex;height:100%;overflow:hidden">
-      <div id="sched-sidebar" style="width:220px;flex-shrink:0;border-right:1px solid var(--border);display:flex;flex-direction:column;background:var(--bg)"></div>
+    <div class="dp-split" style="display:flex;height:100%;overflow:hidden">
+      <div id="sched-sidebar" class="dp-split-side" style="width:220px;flex-shrink:0;border-right:1px solid var(--border);display:flex;flex-direction:column;background:var(--bg)"></div>
       <div id="sched-content" style="flex:1;overflow:auto;background:var(--bg)"></div>
     </div>`;
 

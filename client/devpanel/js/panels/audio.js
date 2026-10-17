@@ -76,9 +76,9 @@ function renderAudioPanel(data) {
   `).join('');
 
   panel.innerHTML = `
-    <div class="panel-sticky-head" style="padding:10px 16px;border-bottom:2px solid var(--border);background:var(--bg2);display:flex;justify-content:space-between;align-items:center">
-      <div style="display:flex;gap:6px">${tabBar}</div>
-      <div style="display:flex;gap:6px">
+    <div class="panel-sticky-head" style="padding:10px 16px;border-bottom:2px solid var(--border);background:var(--bg2);display:flex;flex-wrap:wrap;gap:8px;justify-content:space-between;align-items:center">
+      <div style="display:flex;flex-wrap:wrap;gap:6px">${tabBar}</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px">
         <button class="action-btn" onclick="verifyAllAudio()" title="Re-fetch from the server, confirm every asset loads, and report any broken references or malformed configs">✔ Save &amp; Verify</button>
         <button class="action-btn danger" onclick="stopAllAudioPreviews()">⏹ Stop</button>
         ${_audioTab === 'samples'

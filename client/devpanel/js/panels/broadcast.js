@@ -192,8 +192,8 @@ function renderBroadcastsPanel(data) {
 
   const panel = document.getElementById('list-panel');
   panel.innerHTML = `
-    <div style="display:flex;height:100%;overflow:hidden">
-      <div id="bc-sidebar" style="width:220px;flex-shrink:0;border-right:1px solid var(--border);display:flex;flex-direction:column;background:var(--bg)"></div>
+    <div class="dp-split" style="display:flex;height:100%;overflow:hidden">
+      <div id="bc-sidebar" class="dp-split-side" style="width:220px;flex-shrink:0;border-right:1px solid var(--border);display:flex;flex-direction:column;background:var(--bg)"></div>
       <div id="bc-canvas" style="flex:1;overflow:auto;background:var(--bg)">
         <div style="padding:48px 32px;color:var(--text-dim);font-size:12px;text-align:center">
           Select a broadcast to edit, or create a new one.
@@ -1965,8 +1965,8 @@ function renderCommercialsPanel(data) {
   }).join('') || `<div class="bc-meta" style="padding:12px">No advertisements yet</div>`;
 
   el.innerHTML = `
-    <div style="display:flex;height:100%;overflow:hidden">
-      <div style="width:220px;flex-shrink:0;border-right:1px solid var(--border);display:flex;flex-direction:column;background:var(--bg)">
+    <div class="dp-split" style="display:flex;height:100%;overflow:hidden">
+      <div class="dp-split-side" style="width:220px;flex-shrink:0;border-right:1px solid var(--border);display:flex;flex-direction:column;background:var(--bg)">
         <div style="padding:8px;border-bottom:1px solid var(--border);display:flex;gap:4px;flex-shrink:0">
           <button class="action-btn" style="flex:1;font-size:11px" onclick="_bcCommNew()">+ New</button>
           <button class="action-btn" style="font-size:11px" title="Import .bsm file" onclick="_bcCommImportBsm()">↑ BSM</button>

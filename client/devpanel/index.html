@@ -85,7 +85,7 @@
 <!-- HEADER -->
 <div id="header">
   <button id="nav-toggle" class="mobile-only" onclick="toggleMobileNav()" title="Menu" aria-label="Toggle navigation">☰</button>
-  <span class="logo">ARCHITECT <span>// DEV</span></span>
+  <span class="logo desktop-only">ARCHITECT <span>// DEV</span></span>
   <!-- The platform credit, always on — the boot splash says THOMAS loudly but is
        skippable and switched off in Settings, so without this the panel can run
        a whole session never naming what it is a panel FOR. Header-quiet on
@@ -111,16 +111,16 @@
   <div id="header-actions" style="display:flex;gap:6px;align-items:center">
     <button id="ws-toggle" class="mobile-only" onclick="toggleMobileWorldState()" title="Server status" aria-label="Toggle server status">📡</button>
     <button id="dev-settings-btn" onclick="openSettingsPanel()" title="Settings" style="background:transparent;border:1px solid var(--border);color:var(--text-dim);font-size:14px;width:28px;height:28px;cursor:pointer;border-radius:2px;transition:all 0.15s;line-height:1;font-family:var(--font)" onmouseover="this.style.cssText+=';border-color:var(--accent);color:var(--accent)'" onmouseout="this.style.cssText+=';border-color:var(--border);color:var(--text-dim)'">⚙</button>
-    <button class="action-btn" onclick="refreshWorld()">↻ Refresh</button>
-    <button class="action-btn" id="ghost-btn" onclick="openGhostMode()" style="display:none">👻 Ghost Mode</button>
-    <div style="width:1px;height:20px;background:var(--border);margin:0 4px"></div>
+    <button class="action-btn" onclick="refreshWorld()" title="Refresh">↻<span class="btn-label"> Refresh</span></button>
+    <button class="action-btn" id="ghost-btn" onclick="openGhostMode()" style="display:none" title="Ghost Mode">👻<span class="btn-label"> Ghost Mode</span></button>
+    <div class="hdr-sep" style="width:1px;height:20px;background:var(--border);margin:0 4px"></div>
     <button onclick="devpanelLogout()" title="Sign Out" style="background:transparent;border:1px solid var(--red);color:var(--red);font-size:14px;width:28px;height:28px;cursor:pointer;border-radius:2px;line-height:1;font-family:var(--font)">⏻</button>
-    <button id="play-btn" onclick="launchPlayerClient()" title="Open game client as this account" style="display:none;background:color-mix(in srgb,var(--success) 15%,transparent);border:1px solid var(--success);color:var(--success);font-family:monospace;font-size:11px;padding:4px 10px;cursor:pointer;letter-spacing:1px;border-radius:3px">🎮 Play</button>
+    <button id="play-btn" onclick="launchPlayerClient()" title="Open game client as this account" style="display:none;background:color-mix(in srgb,var(--success) 15%,transparent);border:1px solid var(--success);color:var(--success);font-family:monospace;font-size:11px;padding:4px 10px;cursor:pointer;letter-spacing:1px;border-radius:3px">🎮<span class="btn-label"> Play</span></button>
     <!-- ⇄ LOCAL. Revealed only on a REMOTE origin — on localhost you are already
          there and the button would be a no-op wearing a label. See switchToLocal:
          it probes /health before it navigates, because a dead link to a server
          that isn't running is worse than no link at all. -->
-    <button id="local-btn" onclick="switchToLocal(event)" title="Switch to the local dev panel (starts the local server if it isn't running)" style="display:none;background:color-mix(in srgb,var(--accent) 12%,transparent);border:1px solid var(--accent);color:var(--accent);font-family:monospace;font-size:11px;padding:4px 10px;cursor:pointer;letter-spacing:1px;border-radius:3px">⇄ Local</button>
+    <button id="local-btn" onclick="switchToLocal(event)" title="Switch to the local dev panel (starts the local server if it isn't running)" style="display:none;background:color-mix(in srgb,var(--accent) 12%,transparent);border:1px solid var(--accent);color:var(--accent);font-family:monospace;font-size:11px;padding:4px 10px;cursor:pointer;letter-spacing:1px;border-radius:3px">⇄<span class="btn-label"> Local</span></button>
   </div>
 </div>
 
@@ -131,6 +131,8 @@
          actually WRITE on production is derived from OPS_WRITABLE_PANELS in
          js/core/panels.js, not authored here — the rest are marked 🔒 and hidden
          behind the "show read-only" toggle (see bootstrap.js). -->
+    <!-- Phones drop the header logo to keep the header to one row, so the drawer carries it. -->
+    <div class="logo nav-brand mobile-only">ARCHITECT <span>// DEV</span></div>
     <div class="nav-item active" data-panel="dashboard" onclick="showPanel('dashboard')" style="border-left-color:var(--accent);color:var(--accent)">⬡ Dashboard</div>
     <div class="nav-item" data-panel="devlog" onclick="showPanel('devlog')">📓 Dev Log</div>
     <div class="nav-section">World</div>
@@ -212,11 +214,11 @@
   <!-- CONTENT -->
   <div id="content">
     <div id="toolbar">
-      <div style="display:flex;flex-direction:column;gap:2px;min-width:0">
+      <div class="toolbar-titles" style="display:flex;flex-direction:column;gap:2px;min-width:0">
         <h2 id="panel-title" style="margin:0">Zones</h2>
         <p id="panel-description" style="margin:0;font-size:11px;color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></p>
       </div>
-      <div style="display:flex;gap:6px;align-items:center;margin-left:auto">
+      <div class="toolbar-actions" style="display:flex;gap:6px;align-items:center;margin-left:auto">
         <button class="action-btn primary" id="new-btn" onclick="newRecord()">+ New</button>
         <input type="text" id="search-input" placeholder="Search..." style="background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--font);font-size:12px;padding:5px 10px;outline:none;border-radius:2px;width:200px;" oninput="filterTable()">
       </div>
@@ -299,7 +301,7 @@
 
 <!-- VINE MODAL (full-screen visual dialogue editor) -->
 <div id="vine-modal" style="display:none;position:fixed;inset:0;z-index:600;background:var(--bg);flex-direction:column">
-  <div id="vine-modal-header" style="display:flex;gap:9px;padding:8px 12px;border-bottom:1px solid var(--border);border-left:4px solid var(--accent);align-items:center;flex-shrink:0;background:var(--bg2)">
+  <div id="vine-modal-header" class="vine-modal-header" style="display:flex;gap:9px;padding:8px 12px;border-bottom:1px solid var(--border);border-left:4px solid var(--accent);align-items:center;flex-shrink:0;background:var(--bg2)">
     <div id="vine-modal-tabs" style="display:flex;gap:2px"></div>
     <span id="vine-modal-icon" style="font-size:14px;line-height:1">🌿</span>
     <span style="font-size:13px;letter-spacing:1px;font-weight:bold;color:var(--accent)">VINE<span id="vine-modal-kind" style="color:var(--accent)"></span></span>

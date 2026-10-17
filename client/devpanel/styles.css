@@ -29,7 +29,9 @@
     --font-size-base: 13px;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { background: var(--bg); color: var(--text); font-family: var(--font); font-size: var(--font-size-base); height: 100vh; display: flex; flex-direction: column; }
+  /* dvh where it exists: on a phone 100vh is the height with the address bar
+     hidden, so the bottom of the panel sat under the bar. */
+  body { background: var(--bg); color: var(--text); font-family: var(--font); font-size: var(--font-size-base); height: 100vh; height: 100dvh; display: flex; flex-direction: column; }
 
   /* Drag-selecting text across the UI highlights labels/rows unhelpfully. Suppress
      selection everywhere, then re-enable it only where a user is meant to type or
@@ -751,9 +753,71 @@
       z-index: 55;
     }
 
-    /* Toolbar search wraps to its own full-width row */
-    #toolbar { flex-wrap: wrap; }
-    #toolbar #search-input { width: 100% !important; }
+    /* One header row: menu, who you are, then icon buttons. The logo moves into
+       the drawer (.nav-brand) and the button words hide, which is what took the
+       header to two rows. The !importants beat the buttons' inline sizes. */
+    #header { flex-wrap: nowrap; gap: 8px; padding: 6px 10px; }
+    #header .auth-status { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #header-actions { margin-left: 0; gap: 4px !important; flex-shrink: 0; }
+    #header .btn-label, #header .hdr-sep { display: none; }
+    #nav-toggle, #ws-toggle, #header-actions > button {
+      min-width: 36px; height: 36px !important; width: auto !important;
+      padding: 0 8px !important; font-size: 15px !important;
+    }
+    .nav-brand.mobile-only { display: block; padding: 6px 16px 12px; margin-bottom: 4px; border-bottom: 1px solid var(--border); font-size: 13px; letter-spacing: 3px; }
+
+    /* Drawer rows at a thumb's height. The VINE children fold open to a fixed
+       max-height, which taller rows outgrow. */
+    .nav-item { padding: 11px 16px; font-size: 13px; }
+    .nav-child { padding-left: 28px; font-size: 12px; }
+    .nav-section { padding-top: 14px; }
+    .nav-children.open { max-height: 400px; }
+
+    /* Toolbar: the title on one row, + New and the search on the next. The
+       description is cut to an ellipsis at this width anyway, so it goes. */
+    #toolbar { flex-wrap: wrap; padding: 8px 12px; row-gap: 8px; }
+    #toolbar .toolbar-titles { flex: 1 1 auto; }
+    #panel-description { display: none; }
+    #toolbar .toolbar-actions { flex: 1 1 100%; margin-left: 0 !important; }
+    #toolbar #search-input { flex: 1; width: auto !important; min-width: 0; padding: 8px 10px !important; }
+
+    /* Tap targets. */
+    .action-btn { min-height: 32px; padding: 4px 10px; }
+    .z-arrow { width: 28px; height: 28px; }
+    .checkbox-field input[type=checkbox] { width: 20px; height: 20px; }
+
+    /* The editor is a full-screen sheet here, so its header stays put while the
+       form scrolls, and its close button is big enough to hit first time. */
+    #edit-panel .edit-header { position: sticky; top: 0; z-index: 2; background: var(--bg2); padding: 8px 12px; }
+    #edit-panel .edit-header .action-btn { min-width: 40px; min-height: 36px; font-size: 14px; }
+    .edit-body { padding: 14px 12px; }
+    .edit-actions-top, .edit-footer { padding: 10px 12px; }
+
+    /* Tables keep every column; the list panel scrolls sideways when they
+       don't fit. Tighter cells mean fewer of them need to. */
+    th, td { padding: 8px; }
+
+    /* Tab strips scroll sideways inside themselves rather than dragging the
+       whole panel with them. */
+    .bc-tabs { overflow-x: auto; scrollbar-width: none; }
+    .bc-tabs::-webkit-scrollbar { display: none; }
+    .bc-tab { padding: 10px 12px; }
+
+    /* List | detail splits (broadcasts, schedule, adverts) stack: the list on
+       top with a capped height, the detail below it. */
+    .dp-split { flex-direction: column; }
+    .dp-split > .dp-split-side {
+      width: auto !important; max-height: 40%; overflow-y: auto;
+      border-right: 0 !important; border-bottom: 1px solid var(--border);
+    }
+    .dp-split > :not(.dp-split-side) { min-height: 0; }
+
+    /* The VINE editor's header carries up to eight controls; let them wrap. */
+    .vine-modal-header { flex-wrap: wrap; row-gap: 6px; }
+    #vine-modal-tagline { display: none; }
+
+    .modal-card { padding: 16px; max-height: 92vh; max-height: 92dvh; }
+    .msg-toast { left: 12px; right: 12px; bottom: 12px; }
 
     /* Settings: compress so the whole panel fits one phone screen without scrolling. */
     #settings-overlay .settings-card {
@@ -765,6 +829,14 @@
     #settings-overlay .settings-row { padding: 7px 0; }
     #settings-overlay .dev-settings-opt { padding: 5px 9px; }
     #settings-overlay .action-btn[onclick*="closeSettingsPanel"] { margin-top: 9px !important; }
+  }
+
+  /* Touch screens, phone or tablet. iOS zooms the page into any field whose text
+     is under 16px and leaves it zoomed, so every field the panel draws at 11-12px
+     did it. !important because most of them set their size inline. */
+  @media (max-width: 768px), (pointer: coarse) {
+    input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]),
+    select, textarea { font-size: 16px !important; }
   }
 
   /* ── Broadcast Suite ──────────────────────────────────────────────────────── */
