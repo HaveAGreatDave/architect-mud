@@ -65,6 +65,7 @@
 // ⚠ THERE IS NO CPU FALLBACK IN THE GAME (decided 2026-09-23). A machine that cannot render to a
 // float texture draws no murmuration at all.
 import { flockFrame, seedPoints, scatterOf, MURMUR_RULES as R, MURMUR_MEASURED, WAVE_GROUPS, WAVE_JITTER, TRICKLE_POW } from '../murmur.js';
+import { compileShader } from './programs.js';
 
 const W = 64;                       // birds per texture row
 const UNIT0 = 8;                    // texture units 8-16: no other layer binds these during the sim
@@ -675,22 +676,11 @@ void main() {
 }
 const FRAG = stepFrag();
 
-function compile(gl, type, src, label) {
-  const sh = gl.createShader(type);
-  gl.shaderSource(sh, src);
-  gl.compileShader(sh);
-  if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) {
-    const log = gl.getShaderInfoLog(sh);
-    gl.deleteShader(sh);
-    throw new Error(label + ' murmur shader: ' + log);
-  }
-  return sh;
-}
 
 function link(gl, vs, fs, label) {
   const prog = gl.createProgram();
-  gl.attachShader(prog, compile(gl, gl.VERTEX_SHADER, vs, label + ' vertex'));
-  gl.attachShader(prog, compile(gl, gl.FRAGMENT_SHADER, fs, label + ' fragment'));
+  gl.attachShader(prog, compileShader(gl, gl.VERTEX_SHADER, vs, label + ' vertex'));
+  gl.attachShader(prog, compileShader(gl, gl.FRAGMENT_SHADER, fs, label + ' fragment'));
   gl.linkProgram(prog);
   if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error(label + ' murmur link: ' + gl.getProgramInfoLog(prog));
   return prog;

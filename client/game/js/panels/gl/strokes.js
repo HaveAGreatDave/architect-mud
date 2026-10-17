@@ -25,7 +25,7 @@
 import { viewProjMatrix, mat4f, zRow, NEAR, eyePos } from './camera.js';
 import { makeVertexStream } from './stream.js';
 import { createArena } from './retain.js';
-import { declareProgram, takeWarm } from './programs.js';
+import { declareProgram, layerProgram } from './programs.js';
 import { linearOut, applyLinOut } from './colour.js';
 
 // NDC depth is A + B/f, from the ONE place NEAR and FAR are named. See sprites.js for the twin.
@@ -137,32 +137,13 @@ void main() {
   outColor = vec4(col * a, a);
 }`, 'outColor');
 
-function compile(gl, type, src, label) {
-  const sh = gl.createShader(type);
-  gl.shaderSource(sh, src);
-  gl.compileShader(sh);
-  if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) {
-    const log = gl.getShaderInfoLog(sh);
-    gl.deleteShader(sh);
-    throw new Error(label + ' stroke shader: ' + log);
-  }
-  return sh;
-}
 
 // A stroke is `{ a: [x,y,z], b: [x,y,z], w, rgb: [0-255 x3], alpha, glow }` — two world points in
 // the same camera-relative tile frame the lights use, a width in DEVICE pixels, a colour, a fade,
 // and how many pixels of soft halo to lay round it (the 2-D renderer's `shadowBlur`, which is the
 // single most expensive thing it does and here is one more quad).
 export function createStrokeLayer(gl) {
-  // Prewarmed with the context when it can be (programs.js); built here otherwise.
-  let prog = takeWarm(gl, VERT, FRAG);
-  if (!prog) {
-    prog = gl.createProgram();
-    gl.attachShader(prog, compile(gl, gl.VERTEX_SHADER, VERT, 'vertex'));
-    gl.attachShader(prog, compile(gl, gl.FRAGMENT_SHADER, FRAG, 'fragment'));
-    gl.linkProgram(prog);
-  }
-  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error('stroke link: ' + gl.getProgramInfoLog(prog));
+  const prog = layerProgram(gl, VERT, FRAG, 'stroke');
 
   const loc = {
     a: gl.getAttribLocation(prog, 'aA'),

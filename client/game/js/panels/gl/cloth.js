@@ -19,7 +19,7 @@
 import { viewProjMatrix } from './camera.js';
 import { makeVertexStream } from './stream.js';
 import { clothBake, CLOTH_KINDS, CLOTH_BANDS, CLOTH_FRAMES } from '../cloth3d.js';
-import { declareProgram, takeWarm } from './programs.js';
+import { declareProgram, layerProgram } from './programs.js';
 import { linearOut, applyLinOut } from './colour.js';
 
 // Per instance: x, y, z, heading | sx, sy, sz, wind | phase, seed, alpha, lum | colour A rgb |
@@ -192,24 +192,9 @@ void main() {
   outColor = vec4(c * vAlpha, vAlpha);
 }`, 'outColor');
 
-function compile(gl, type, src, label) {
-  const s = gl.createShader(type);
-  gl.shaderSource(s, src);
-  gl.compileShader(s);
-  if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error('cloth ' + label + ': ' + gl.getShaderInfoLog(s));
-  return s;
-}
 
 export function createClothLayer(gl) {
-  // Prewarmed with the context when it can be (programs.js); built here otherwise.
-  let prog = takeWarm(gl, VERT, FRAG);
-  if (!prog) {
-    prog = gl.createProgram();
-    gl.attachShader(prog, compile(gl, gl.VERTEX_SHADER, VERT, 'vertex'));
-    gl.attachShader(prog, compile(gl, gl.FRAGMENT_SHADER, FRAG, 'fragment'));
-    gl.linkProgram(prog);
-  }
-  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error('cloth link: ' + gl.getProgramInfoLog(prog));
+  const prog = layerProgram(gl, VERT, FRAG, 'cloth');
   const A = (n) => gl.getAttribLocation(prog, n);
   const U = (n) => gl.getUniformLocation(prog, n);
   const loc = {

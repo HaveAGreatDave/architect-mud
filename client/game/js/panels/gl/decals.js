@@ -38,7 +38,7 @@
 import { viewProjMatrix, mat4f, eyePos } from './camera.js';
 import { makeVertexStream } from './stream.js';
 import { createArena } from './retain.js';
-import { declareProgram, takeWarm } from './programs.js';
+import { declareProgram, layerProgram } from './programs.js';
 import { linearOut, applyLinOut } from './colour.js';
 
 // pos3, uv2, alpha1, emit1, seed1
@@ -385,17 +385,6 @@ void main() {
   outColor = vec4(rgb * (1.0 + vEmit * uEmitGain), t.a);
 }`, 'outColor');
 
-function compile(gl, type, src, label) {
-  const sh = gl.createShader(type);
-  gl.shaderSource(sh, src);
-  gl.compileShader(sh);
-  if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) {
-    const log = gl.getShaderInfoLog(sh);
-    gl.deleteShader(sh);
-    throw new Error(label + ' decal shader: ' + log);
-  }
-  return sh;
-}
 
 // A decal is `{ key, img, alpha, p: [TL, TR, BR, BL] }` — a cache key for the artwork, the canvas
 // it was baked into, the fade the world pass computed, and four WORLD points in the same
@@ -414,15 +403,7 @@ function keySeed(key) {
   return v;
 }
 export function createDecalLayer(gl) {
-  // Prewarmed with the context when it can be (programs.js); built here otherwise.
-  let prog = takeWarm(gl, VERT, FRAG);
-  if (!prog) {
-    prog = gl.createProgram();
-    gl.attachShader(prog, compile(gl, gl.VERTEX_SHADER, VERT, 'vertex'));
-    gl.attachShader(prog, compile(gl, gl.FRAGMENT_SHADER, FRAG, 'fragment'));
-    gl.linkProgram(prog);
-  }
-  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error('decal link: ' + gl.getProgramInfoLog(prog));
+  const prog = layerProgram(gl, VERT, FRAG, 'decal');
 
   const loc = {
     pos: gl.getAttribLocation(prog, 'aPos'),

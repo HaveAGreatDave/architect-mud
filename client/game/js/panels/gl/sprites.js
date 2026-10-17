@@ -22,7 +22,7 @@
 import { viewProjMatrix, mat4f, zRow, NEAR } from './camera.js';
 import { makeVertexStream } from './stream.js';
 import { createArena } from './retain.js';
-import { declareProgram, takeWarm } from './programs.js';
+import { declareProgram, layerProgram } from './programs.js';
 import { linearOut, applyLinOut } from './colour.js';
 
 // The z row of the projection, from the ONE place NEAR and FAR are named. NDC depth is A + B/f,
@@ -130,30 +130,11 @@ void main() {
   outColor = vec4(vColor * a * uIntensity, a);
 }`, 'outColor');
 
-function compile(gl, type, src, label) {
-  const sh = gl.createShader(type);
-  gl.shaderSource(sh, src);
-  gl.compileShader(sh);
-  if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) {
-    const log = gl.getShaderInfoLog(sh);
-    gl.deleteShader(sh);
-    throw new Error(label + ' sprite shader: ' + log);
-  }
-  return sh;
-}
 
 // A sprite is `{ x, y, z, r, rgb: [0-255 ×3], a, hard, add }` — the world point, the screen radius
 // in pixels, the colour, the alpha, which profile, and whether it adds light or lays it over.
 export function createSpriteLayer(gl) {
-  // Prewarmed with the context when it can be (programs.js); built here otherwise.
-  let prog = takeWarm(gl, VERT, FRAG);
-  if (!prog) {
-    prog = gl.createProgram();
-    gl.attachShader(prog, compile(gl, gl.VERTEX_SHADER, VERT, 'vertex'));
-    gl.attachShader(prog, compile(gl, gl.FRAGMENT_SHADER, FRAG, 'fragment'));
-    gl.linkProgram(prog);
-  }
-  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error('sprite link: ' + gl.getProgramInfoLog(prog));
+  const prog = layerProgram(gl, VERT, FRAG, 'sprite');
 
   const loc = {
     center: gl.getAttribLocation(prog, 'aCenter'),

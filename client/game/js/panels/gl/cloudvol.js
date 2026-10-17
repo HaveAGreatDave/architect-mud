@@ -35,6 +35,7 @@
 // and damped where coverage changed sharply, so a cloud edge crossing the frame leaves no ghost.
 
 import { viewProjMatrix, mat4f } from './camera.js';
+import { compileShader } from './programs.js';
 import { linearOut, applyLinOut } from './colour.js';
 
 const NOISE_N = 64;
@@ -223,22 +224,11 @@ void main() {
   outColor = c;
 }`, 'outColor');
 
-function compile(gl, type, src, label) {
-  const sh = gl.createShader(type);
-  gl.shaderSource(sh, src);
-  gl.compileShader(sh);
-  if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) {
-    const log = gl.getShaderInfoLog(sh);
-    gl.deleteShader(sh);
-    throw new Error(label + ' cloud-volume shader: ' + log);
-  }
-  return sh;
-}
 
 function link(gl, fs, label) {
   const p = gl.createProgram();
-  gl.attachShader(p, compile(gl, gl.VERTEX_SHADER, FULL_VS, label + ' vertex'));
-  gl.attachShader(p, compile(gl, gl.FRAGMENT_SHADER, fs, label + ' fragment'));
+  gl.attachShader(p, compileShader(gl, gl.VERTEX_SHADER, FULL_VS, label + ' vertex'));
+  gl.attachShader(p, compileShader(gl, gl.FRAGMENT_SHADER, fs, label + ' fragment'));
   gl.linkProgram(p);
   if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error('cloud-volume link (' + label + '): ' + gl.getProgramInfoLog(p));
   return p;

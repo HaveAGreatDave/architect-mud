@@ -176,20 +176,9 @@ void main() {
   outColor = vec4(graded * a, a);
 }`;
 
-import { declareProgram, takeWarm } from './programs.js';
+import { declareProgram, takeWarm, compileShader } from './programs.js';
 import { LINEAR_GLSL } from './colour.js';
 
-function compile(gl, type, src) {
-  const sh = gl.createShader(type);
-  gl.shaderSource(sh, src);
-  gl.compileShader(sh);
-  if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) {
-    const log = gl.getShaderInfoLog(sh);
-    gl.deleteShader(sh);
-    throw new Error('hdr shader: ' + log);
-  }
-  return sh;
-}
 
 function link(gl, fsrc) {
   // Prewarmed with the context when it can be (programs.js).
@@ -197,7 +186,7 @@ function link(gl, fsrc) {
   if (warm) return gl.getProgramParameter(warm, gl.LINK_STATUS) ? warm : null;
   const prog = gl.createProgram();
   let vs, fs;
-  try { vs = compile(gl, gl.VERTEX_SHADER, FULL_VERT); fs = compile(gl, gl.FRAGMENT_SHADER, fsrc); }
+  try { vs = compileShader(gl, gl.VERTEX_SHADER, FULL_VERT, 'hdr vertex'); fs = compileShader(gl, gl.FRAGMENT_SHADER, fsrc, 'hdr fragment'); }
   catch { return null; }
   gl.attachShader(prog, vs);
   gl.attachShader(prog, fs);

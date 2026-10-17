@@ -21,7 +21,7 @@
 // from the same constants, and the pulse is the same `sin(now / 420)`.
 import { viewProjMatrix, mat4f } from './camera.js';
 import { makeVertexStream } from './stream.js';
-import { declareProgram, takeWarm } from './programs.js';
+import { declareProgram, layerProgram } from './programs.js';
 import { linearOut, applyLinOut } from './colour.js';
 
 // pos3, uv2, alpha1, red1
@@ -120,31 +120,12 @@ void main() {
 // Curtain round the broadcast's city with it): it reads vUV, vAlpha and vRed, and uTime.
 export const CURTAIN_FRAG = FRAG;
 
-function compile(gl, type, src, label) {
-  const sh = gl.createShader(type);
-  gl.shaderSource(sh, src);
-  gl.compileShader(sh);
-  if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) {
-    const log = gl.getShaderInfoLog(sh);
-    gl.deleteShader(sh);
-    throw new Error(label + ' curtain shader: ' + log);
-  }
-  return sh;
-}
 
 // A segment is `{ ax, ay, bx, by, h, alpha, red }` — the wall's two ground points in the same
 // camera-relative tile frame the lights use, its world-z height, and the fade the world pass
 // already computed for it.
 export function createCurtainLayer(gl) {
-  // Prewarmed with the context when it can be (programs.js); built here otherwise.
-  let prog = takeWarm(gl, VERT, FRAG);
-  if (!prog) {
-    prog = gl.createProgram();
-    gl.attachShader(prog, compile(gl, gl.VERTEX_SHADER, VERT, 'vertex'));
-    gl.attachShader(prog, compile(gl, gl.FRAGMENT_SHADER, FRAG, 'fragment'));
-    gl.linkProgram(prog);
-  }
-  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error('curtain link: ' + gl.getProgramInfoLog(prog));
+  const prog = layerProgram(gl, VERT, FRAG, 'curtain');
 
   const loc = {
     pos: gl.getAttribLocation(prog, 'aPos'),

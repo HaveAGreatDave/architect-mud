@@ -41,6 +41,8 @@
 // changes with the seat and a texture that resized would reallocate on every seat change. 2048 is
 // the WebGL2 guaranteed floor for MAX_TEXTURE_SIZE, so it fits everywhere; over a cab's 33-tile
 // window that is 62 texels a tile and over an aeroplane's 73 it is 28.
+import { compileShader } from './programs.js';
+
 export const SHADOW_SIZE = 2048;
 
 // ⚠ THE BIAS IS IN WORLD UNITS AND CONVERTED HERE, NOT WRITTEN INTO THE SHADER. The ortho box is
@@ -61,17 +63,6 @@ const FRAG = `#version 300 es
 precision mediump float;
 void main() { }`;
 
-function compile(gl, type, src) {
-  const sh = gl.createShader(type);
-  gl.shaderSource(sh, src);
-  gl.compileShader(sh);
-  if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) {
-    const log = gl.getShaderInfoLog(sh);
-    gl.deleteShader(sh);
-    throw new Error('shadow shader: ' + log);
-  }
-  return sh;
-}
 
 // `posLoc` is the attribute location the MASS program uses for aPos. It has to be forced to match,
 // because a VAO records its pointers against LOCATIONS, not names — and this layer deliberately
@@ -84,8 +75,8 @@ export function createShadowLayer(gl, posLoc, size = SHADOW_SIZE) {
   const prog = gl.createProgram();
   let vs, fs;
   try {
-    vs = compile(gl, gl.VERTEX_SHADER, VERT);
-    fs = compile(gl, gl.FRAGMENT_SHADER, FRAG);
+    vs = compileShader(gl, gl.VERTEX_SHADER, VERT, 'shadow vertex');
+    fs = compileShader(gl, gl.FRAGMENT_SHADER, FRAG, 'shadow fragment');
   } catch { return null; }
   gl.attachShader(prog, vs);
   gl.attachShader(prog, fs);

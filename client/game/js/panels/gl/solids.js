@@ -55,7 +55,7 @@
 import { viewProjMatrix, eyePos } from './camera.js';
 const IDENT = new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]);
 import { makeVertexStream } from './stream.js';
-import { declareProgram, takeWarm } from './programs.js';
+import { declareProgram, layerProgram, compileShader } from './programs.js';
 import { linearOut, applyLinOut } from './colour.js';
 
 const SHIP_LIGHT_DEFAULT = [0.55, 0.95, 0.45];   // windshield.js shipLightOf
@@ -783,30 +783,11 @@ precision mediump float;
 void main() {}`;
 const SHADOW_SIZE = 1024;
 
-function compile(gl, type, src, label) {
-  const sh = gl.createShader(type);
-  gl.shaderSource(sh, src);
-  gl.compileShader(sh);
-  if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) {
-    const log = gl.getShaderInfoLog(sh);
-    gl.deleteShader(sh);
-    throw new Error(label + ' solids shader: ' + log);
-  }
-  return sh;
-}
 
 export function createSolidsLayer(gl, opt = {}) {
   const cabin = !!opt.cabin;
   const VS = cabin ? VERT_C : VERT, FS = cabin ? FRAG_C : FRAG, ST = cabin ? STRIDE + CAB : STRIDE;
-  // Prewarmed with the context when it can be (programs.js); built here otherwise.
-  let prog = takeWarm(gl, VS, FS);
-  if (!prog) {
-    prog = gl.createProgram();
-    gl.attachShader(prog, compile(gl, gl.VERTEX_SHADER, VS, 'vertex'));
-    gl.attachShader(prog, compile(gl, gl.FRAGMENT_SHADER, FS, 'fragment'));
-    gl.linkProgram(prog);
-  }
-  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error('solids link: ' + gl.getProgramInfoLog(prog));
+  const prog = layerProgram(gl, VS, FS, 'solids');
 
   const loc = {
     pos: gl.getAttribLocation(prog, 'aPos'),
@@ -1142,8 +1123,8 @@ export function createSolidsLayer(gl, opt = {}) {
       // And the active unit's texture goes back after the build binds the new one on it.
       const prevTex = gl.getParameter(gl.TEXTURE_BINDING_2D);
       const p = gl.createProgram();
-      gl.attachShader(p, compile(gl, gl.VERTEX_SHADER, SH_VERT, 'shadow vertex'));
-      gl.attachShader(p, compile(gl, gl.FRAGMENT_SHADER, SH_FRAG, 'shadow fragment'));
+      gl.attachShader(p, compileShader(gl, gl.VERTEX_SHADER, SH_VERT, 'cabin shadow vertex'));
+      gl.attachShader(p, compileShader(gl, gl.FRAGMENT_SHADER, SH_FRAG, 'cabin shadow fragment'));
       gl.linkProgram(p);
       if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error('cabin shadow link: ' + gl.getProgramInfoLog(p));
       const tex = gl.createTexture();

@@ -47,7 +47,7 @@ import { createSkylineStrip } from './skyline.js';
 // The clip range the matrix is built with. The SSAO pass inverts the depth buffer back to tiles and
 // has to use the same two constants the vertices went through.
 import { NEAR, zRow } from './camera.js';
-import { declareProgram, takeWarm, prewarmPrograms } from './programs.js';
+import { declareProgram, prewarmPrograms, layerProgram } from './programs.js';
 import { linearOut, applyLinOut, LIN, linRgb } from './colour.js';
 import { createEnvCube, ENV_MAX_LOD } from './envcube.js';
 
@@ -1061,17 +1061,6 @@ void main() {
 const withLights = (src) => src.split("GLASS_MAX_LIGHTS").join(String(MAX_LIGHTS))
   .split("GLASS_MAX_MAT").join(String(MAX_MATERIALS));
 
-function compile(gl, type, src, label) {
-  const sh = gl.createShader(type);
-  gl.shaderSource(sh, src);
-  gl.compileShader(sh);
-  if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) {
-    const log = gl.getShaderInfoLog(sh);
-    gl.deleteShader(sh);
-    throw new Error(label + ' shader: ' + log);
-  }
-  return sh;
-}
 
 // ⚠ MSAA IS A KNOB, AND THE DEFAULT WAS NEVER MEASURED. `antialias: true` was written once and
 // never swept: the 2-D canvas it composites onto has no multisampling at all, so GLASS 2 is buying
@@ -1168,15 +1157,7 @@ export function createGLView(canvas, opts = {}) {
   // Every declared layer program starts compiling now, side by side, before anything asks for one.
   prewarmPrograms(gl);
 
-  // Prewarmed with the context when it can be (programs.js); built here otherwise.
-  let prog = takeWarm(gl, withLights(VERT), withLights(FRAG));
-  if (!prog) {
-    prog = gl.createProgram();
-    gl.attachShader(prog, compile(gl, gl.VERTEX_SHADER, withLights(VERT), 'vertex'));
-    gl.attachShader(prog, compile(gl, gl.FRAGMENT_SHADER, withLights(FRAG), 'fragment'));
-    gl.linkProgram(prog);
-  }
-  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error('link: ' + gl.getProgramInfoLog(prog));
+  const prog = layerProgram(gl, withLights(VERT), withLights(FRAG), 'context');
 
   const loc = {
     pos: gl.getAttribLocation(prog, 'aPos'),

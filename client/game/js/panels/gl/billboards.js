@@ -39,7 +39,7 @@
 // the absence of a code path — which is what makes the flag's `0` provably the old renderer.
 import { viewProjMatrix, mat4f } from './camera.js';
 import { makeVertexStream } from './stream.js';
-import { declareProgram, takeWarm } from './programs.js';
+import { declareProgram, layerProgram } from './programs.js';
 import { linearOut, applyLinOut } from './colour.js';
 
 // What alpha counts as the SHAPE rather than as its edge, in the depth-only prepass. A billboard is
@@ -196,17 +196,6 @@ void main() {
   outColor = vec4(c * a, a);
 }`, 'outColor');
 
-function compile(gl, type, src, label) {
-  const sh = gl.createShader(type);
-  gl.shaderSource(sh, src);
-  gl.compileShader(sh);
-  if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) {
-    const log = gl.getShaderInfoLog(sh);
-    gl.deleteShader(sh);
-    throw new Error(label + ' billboard shader: ' + log);
-  }
-  return sh;
-}
 
 const MAX_TEX = 256;
 
@@ -214,15 +203,7 @@ const MAX_TEX = 256;
 // species, the world anchor, the quad's size in SCREEN PIXELS, and where inside that quad the
 // anchor sits (ax across from the left, ay down from the top, both in pixels).
 export function createBillboardLayer(gl) {
-  // Prewarmed with the context when it can be (programs.js); built here otherwise.
-  let prog = takeWarm(gl, VERT, FRAG);
-  if (!prog) {
-    prog = gl.createProgram();
-    gl.attachShader(prog, compile(gl, gl.VERTEX_SHADER, VERT, 'vertex'));
-    gl.attachShader(prog, compile(gl, gl.FRAGMENT_SHADER, FRAG, 'fragment'));
-    gl.linkProgram(prog);
-  }
-  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error('billboard link: ' + gl.getProgramInfoLog(prog));
+  const prog = layerProgram(gl, VERT, FRAG, 'billboard');
 
   const loc = {
     pos: gl.getAttribLocation(prog, 'aPos'),

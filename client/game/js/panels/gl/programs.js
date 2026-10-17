@@ -58,3 +58,31 @@ export function takeWarm(gl, vs, fs, bind = null) {
   warm.delete(key);
   return prog;
 }
+
+// One shader, compiled. Throws with the driver's log, prefixed by `label`.
+export function compileShader(gl, type, src, label) {
+  const sh = gl.createShader(type);
+  gl.shaderSource(sh, src);
+  gl.compileShader(sh);
+  if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) {
+    const log = gl.getShaderInfoLog(sh);
+    gl.deleteShader(sh);
+    throw new Error(label + ': ' + log);
+  }
+  return sh;
+}
+
+// A layer's program: the prewarmed one when there is one, built here otherwise. Throws on a failed
+// compile or link, naming `label`, which is what every layer's fallback to 2-D catches.
+export function layerProgram(gl, vs, fs, label, bind = null) {
+  let prog = takeWarm(gl, vs, fs, bind);
+  if (!prog) {
+    prog = gl.createProgram();
+    gl.attachShader(prog, compileShader(gl, gl.VERTEX_SHADER, vs, label + ' vertex'));
+    gl.attachShader(prog, compileShader(gl, gl.FRAGMENT_SHADER, fs, label + ' fragment'));
+    if (bind) for (const [i, name] of bind) gl.bindAttribLocation(prog, i, name);
+    gl.linkProgram(prog);
+  }
+  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error(label + ' link: ' + gl.getProgramInfoLog(prog));
+  return prog;
+}

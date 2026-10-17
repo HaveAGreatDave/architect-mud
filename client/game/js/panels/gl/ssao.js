@@ -229,19 +229,8 @@ void main() {
   outColor = vec4(s / 16.0);
 }`;
 
-import { declareProgram, takeWarm } from './programs.js';
+import { declareProgram, takeWarm, compileShader } from './programs.js';
 
-function compile(gl, type, src) {
-  const sh = gl.createShader(type);
-  gl.shaderSource(sh, src);
-  gl.compileShader(sh);
-  if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) {
-    const log = gl.getShaderInfoLog(sh);
-    gl.deleteShader(sh);
-    throw new Error('ssao shader: ' + log);
-  }
-  return sh;
-}
 
 function link(gl, vsrc, fsrc, bindPos) {
   // Prewarmed with the context when it can be (programs.js). The depth program binds the mass
@@ -250,7 +239,7 @@ function link(gl, vsrc, fsrc, bindPos) {
   if (warm) return gl.getProgramParameter(warm, gl.LINK_STATUS) ? warm : null;
   const prog = gl.createProgram();
   let vs, fs;
-  try { vs = compile(gl, gl.VERTEX_SHADER, vsrc); fs = compile(gl, gl.FRAGMENT_SHADER, fsrc); }
+  try { vs = compileShader(gl, gl.VERTEX_SHADER, vsrc, 'ssao vertex'); fs = compileShader(gl, gl.FRAGMENT_SHADER, fsrc, 'ssao fragment'); }
   catch { return null; }
   gl.attachShader(prog, vs);
   gl.attachShader(prog, fs);

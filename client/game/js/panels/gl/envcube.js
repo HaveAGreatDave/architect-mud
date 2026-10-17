@@ -17,6 +17,7 @@
 // difference doesn't show; a scene with sharp detail in the cube (the skyline, if it ever moves in
 // here) would want a proper per-level blur, which hdr.js's blur pass could do.
 import { SKY_DIR_GLSL } from './sky.js';
+import { compileShader } from './programs.js';
 
 const SIZE = 32;
 // The coarsest level the shader may ask for: 32, 16, 8, 4, 2, 1 is six levels, 0 to 5.
@@ -63,17 +64,6 @@ void main() {
   outColor = vec4(clamp(col, 0.0, 1.0), 1.0);
 }`;
 
-function compile(gl, type, src) {
-  const sh = gl.createShader(type);
-  gl.shaderSource(sh, src);
-  gl.compileShader(sh);
-  if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) {
-    const log = gl.getShaderInfoLog(sh);
-    gl.deleteShader(sh);
-    throw new Error('envcube shader: ' + log);
-  }
-  return sh;
-}
 
 const r = (v, q) => Math.round(v / q);
 const keyOf = (s, ground) => [
@@ -88,8 +78,8 @@ export function createEnvCube(gl) {
   let prog = null, loc = null, tex = null, fbo = null, vao = null, key = '', broken = false;
   function build() {
     prog = gl.createProgram();
-    gl.attachShader(prog, compile(gl, gl.VERTEX_SHADER, VERT));
-    gl.attachShader(prog, compile(gl, gl.FRAGMENT_SHADER, FRAG));
+    gl.attachShader(prog, compileShader(gl, gl.VERTEX_SHADER, VERT, 'envcube vertex'));
+    gl.attachShader(prog, compileShader(gl, gl.FRAGMENT_SHADER, FRAG, 'envcube fragment'));
     gl.linkProgram(prog);
     if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error('envcube link: ' + gl.getProgramInfoLog(prog));
     const u = (n) => gl.getUniformLocation(prog, n);

@@ -27,7 +27,7 @@ import { faunaPoseSlot, faunaPoseBake, FAUNA_BEAT_STEPS, FAUNA_GLIDE_ROW, FAUNA_
 import { zRow, NEAR } from './camera.js';
 import { LIGHT_PULL } from './sprites.js';
 import { PULSE_MAX } from '../murmur.js';
-import { declareProgram, takeWarm } from './programs.js';
+import { declareProgram, takeWarm, layerProgram, compileShader } from './programs.js';
 import { linearOut, applyLinOut } from './colour.js';
 
 // Per instance: x, y, z, scale | heading, pitch, roll, row | alpha
@@ -476,17 +476,6 @@ function tierSpan(r, bound) {
   return { lo: Math.min(...set), hi: Math.max(...set), set };
 }
 
-function compile(gl, type, src, label) {
-  const sh = gl.createShader(type);
-  gl.shaderSource(sh, src);
-  gl.compileShader(sh);
-  if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) {
-    const log = gl.getShaderInfoLog(sh);
-    gl.deleteShader(sh);
-    throw new Error(label + ' fauna shader: ' + log);
-  }
-  return sh;
-}
 
 export function createFaunaLayer(gl) {
 
@@ -507,15 +496,7 @@ export function createFaunaLayer(gl) {
   const u2i = (l, a, b) => { if (l && fresh(l, a, b, 0, 0)) gl.uniform2i(l, a, b); };
   const u3f = (l, a, b, c) => { if (l && fresh(l, a, b, c, 0)) gl.uniform3f(l, a, b, c); };
   const u4f = (l, a, b, c, d) => { if (l && fresh(l, a, b, c, d)) gl.uniform4f(l, a, b, c, d); };
-  // Prewarmed with the context when it can be (programs.js); built here otherwise.
-  let prog = takeWarm(gl, VERT, FRAG);
-  if (!prog) {
-    prog = gl.createProgram();
-    gl.attachShader(prog, compile(gl, gl.VERTEX_SHADER, VERT, 'vertex'));
-    gl.attachShader(prog, compile(gl, gl.FRAGMENT_SHADER, FRAG, 'fragment'));
-    gl.linkProgram(prog);
-  }
-  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error('fauna link: ' + gl.getProgramInfoLog(prog));
+  const prog = layerProgram(gl, VERT, FRAG, 'fauna');
   const loc = {
     color: gl.getAttribLocation(prog, 'aColor'),
     pos: gl.getAttribLocation(prog, 'iPos'),
@@ -639,8 +620,8 @@ export function createFaunaLayer(gl) {
       let pr = takeWarm(gl, v, fr);
       if (!pr) {
         pr = gl.createProgram();
-        gl.attachShader(pr, compile(gl, gl.VERTEX_SHADER, v, label + ' vertex'));
-        gl.attachShader(pr, compile(gl, gl.FRAGMENT_SHADER, fr, label + ' fragment'));
+        gl.attachShader(pr, compileShader(gl, gl.VERTEX_SHADER, v, label + ' vertex'));
+        gl.attachShader(pr, compileShader(gl, gl.FRAGMENT_SHADER, fr, label + ' fragment'));
         gl.linkProgram(pr);
       }
       if (!gl.getProgramParameter(pr, gl.LINK_STATUS)) throw new Error(label + ' link: ' + gl.getProgramInfoLog(pr));

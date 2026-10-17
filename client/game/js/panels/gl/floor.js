@@ -43,7 +43,7 @@
 import { NEAR, zRow } from './camera.js';
 import { HEIGHT_FOG_GLSL } from './fog.js';
 import { seaSlopeVariance } from '../../../../shared/sea-swell.js';
-import { declareProgram, takeWarm } from './programs.js';
+import { declareProgram, layerProgram } from './programs.js';
 import { SEA_GLSL } from './sea-glsl.js';   // the ONE GLSL copy of the swell — water.js includes the same string, and client/shared/sea-swell.js is the JS original
 import { linearOut, applyLinOut } from './colour.js';
 
@@ -1391,17 +1391,6 @@ void main() {
   outColor = vec4(clamp(col, 0.0, 1.0), 1.0);
 }`, 'outColor');
 
-function compile(gl, type, src, label) {
-  const sh = gl.createShader(type);
-  gl.shaderSource(sh, src);
-  gl.compileShader(sh);
-  if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) {
-    const log = gl.getShaderInfoLog(sh);
-    gl.deleteShader(sh);
-    throw new Error(label + ' floor shader: ' + log);
-  }
-  return sh;
-}
 
 // ⚠ THE SAME SIX AS THE SHADER'S `MAX_WET`, AND THEY HAVE TO AGREE. The GLSL one is inside a
 // template literal and cannot be read from here, so this is the second copy — the shader would
@@ -1428,15 +1417,7 @@ const MAX_ROAD = 48;
 const ROAD_SEG = new Float32Array(MAX_ROAD * 4);
 
 export function createFloorLayer(gl) {
-  // Prewarmed with the context when it can be (programs.js); built here otherwise.
-  let prog = takeWarm(gl, VERT, FRAG);
-  if (!prog) {
-    prog = gl.createProgram();
-    gl.attachShader(prog, compile(gl, gl.VERTEX_SHADER, VERT, 'vertex'));
-    gl.attachShader(prog, compile(gl, gl.FRAGMENT_SHADER, FRAG, 'fragment'));
-    gl.linkProgram(prog);
-  }
-  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error('floor link: ' + gl.getProgramInfoLog(prog));
+  const prog = layerProgram(gl, VERT, FRAG, 'floor');
 
   const U = (n) => gl.getUniformLocation(prog, n);
   const loc = {

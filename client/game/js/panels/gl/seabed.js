@@ -17,6 +17,7 @@
 // comment ends the string.
 
 import { SEABED_EXT, SEABED_FADE, WATER_UP_SPAN } from '../seabed-scene.js';
+import { compileShader } from './programs.js';
 import { viewProjMatrix, mat4f, eyePos } from './camera.js';
 import { invert4 } from './cloudvol.js';
 import { makeVertexStream } from './stream.js';
@@ -193,17 +194,10 @@ void main() {
   frag = vec4(mix(waterAlong(uWater, vDz), col, fade), a * vA * fade);
 }`, 'frag', true);
 
-function compile(gl, type, src, label) {
-  const s = gl.createShader(type);
-  gl.shaderSource(s, src);
-  gl.compileShader(s);
-  if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error('seabed ' + label + ': ' + gl.getShaderInfoLog(s));
-  return s;
-}
 function program(gl, vs, fs, label) {
   const p = gl.createProgram();
-  gl.attachShader(p, compile(gl, gl.VERTEX_SHADER, vs, label + ' vertex'));
-  gl.attachShader(p, compile(gl, gl.FRAGMENT_SHADER, fs, label + ' fragment'));
+  gl.attachShader(p, compileShader(gl, gl.VERTEX_SHADER, vs, label + ' vertex'));
+  gl.attachShader(p, compileShader(gl, gl.FRAGMENT_SHADER, fs, label + ' fragment'));
   gl.linkProgram(p);
   if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error('seabed ' + label + ' link: ' + gl.getProgramInfoLog(p));
   return p;

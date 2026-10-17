@@ -33,7 +33,7 @@
 // canvas could not afford it.
 import { viewProjMatrix, mat4f } from './camera.js';
 import { makeVertexStream } from './stream.js';
-import { declareProgram, takeWarm } from './programs.js';
+import { declareProgram, layerProgram } from './programs.js';
 import { linearOut, applyLinOut } from './colour.js';
 
 // pos3, corner2, half-extent px 2, alpha1, lit1, kind1
@@ -183,32 +183,13 @@ void main() {
   outColor = vec4(rgbv * a, a);   // premultiplied, because the canvas this lands on is
 }`, 'outColor');
 
-function compile(gl, type, src, label) {
-  const sh = gl.createShader(type);
-  gl.shaderSource(sh, src);
-  gl.compileShader(sh);
-  if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) {
-    const log = gl.getShaderInfoLog(sh);
-    gl.deleteShader(sh);
-    throw new Error(label + ' cloud shader: ' + log);
-  }
-  return sh;
-}
 
 // A card is `{ x, y, z, s, ys, a, lit, kind }` — the world point, the half-extent in DEVICE pixels,
 // the vertical squash, the alpha, where it sits between the base and lit tints, and which of the
 // two kinds it is (0 fair, 1 stormy). A third, a dark occlusion pool sunk under the lobes, was
 // removed: what showed of it was a smear on open sky below the puff.
 export function createCloudLayer(gl) {
-  // Prewarmed with the context when it can be (programs.js); built here otherwise.
-  let prog = takeWarm(gl, VERT, FRAG);
-  if (!prog) {
-    prog = gl.createProgram();
-    gl.attachShader(prog, compile(gl, gl.VERTEX_SHADER, VERT, 'vertex'));
-    gl.attachShader(prog, compile(gl, gl.FRAGMENT_SHADER, FRAG, 'fragment'));
-    gl.linkProgram(prog);
-  }
-  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error('cloud link: ' + gl.getProgramInfoLog(prog));
+  const prog = layerProgram(gl, VERT, FRAG, 'cloud');
 
   const loc = {
     pos: gl.getAttribLocation(prog, 'aPos'),

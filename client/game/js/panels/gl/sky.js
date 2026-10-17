@@ -197,19 +197,8 @@ void main() {
   outColor = vec4(clamp(col, 0.0, 1.0), 1.0);
 }`;
 
-import { declareProgram, takeWarm } from './programs.js';
+import { declareProgram, takeWarm, compileShader } from './programs.js';
 
-function compile(gl, type, src, label) {
-  const sh = gl.createShader(type);
-  gl.shaderSource(sh, src);
-  gl.compileShader(sh);
-  if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) {
-    const log = gl.getShaderInfoLog(sh);
-    gl.deleteShader(sh);
-    throw new Error(label + ' sky shader: ' + log);
-  }
-  return sh;
-}
 
 const layers = new WeakMap();
 
@@ -220,8 +209,8 @@ function layerFor(gl) {
   let prog = takeWarm(gl, VERT, FRAG, SKY_BIND);
   if (!prog) {
     prog = gl.createProgram();
-    gl.attachShader(prog, compile(gl, gl.VERTEX_SHADER, VERT, 'vertex'));
-    gl.attachShader(prog, compile(gl, gl.FRAGMENT_SHADER, FRAG, 'fragment'));
+    gl.attachShader(prog, compileShader(gl, gl.VERTEX_SHADER, VERT, 'sky vertex'));
+    gl.attachShader(prog, compileShader(gl, gl.FRAGMENT_SHADER, FRAG, 'sky fragment'));
     gl.bindAttribLocation(prog, 0, 'aPos');
     gl.linkProgram(prog);
   }
