@@ -140,9 +140,10 @@ const QUAD = [{ p: [[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]], rgb: [60, 60, 6
   const i = src.indexOf('if (uPool > 0.001');
   ok(i > 0, 'the pool block has gone from ground.js, or its gate has been rewritten — this check cannot find "if (uPool > 0.001".');
   if (i > 0) {
-    const gate = src.slice(i, src.indexOf(')', i) + 1);
+    // Up to the brace, not the first ')': the gate has a parenthesised '(uNPool > 0 || uLGOn == 1)'.
+    const gate = src.slice(i, src.indexOf(') {', i) + 1);
     const wants = [
-      ['uNPool > 0', 'without it the loop runs over an empty list on every fragment'],
+      ['uNPool > 0','without it the loop runs over an empty list on every fragment'],
       ['uNight', 'without it a lamp lays its pool on sunlit tarmac at noon — the bug the wall wash had'],
       ['uSurface > 0.5', 'without it the irradiance is laid over a headlight beam as though the beam were a road'],
     ];
@@ -150,6 +151,10 @@ const QUAD = [{ p: [[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]], rgb: [60, 60, 6
       ok(gate.includes(name), 'the pool is no longer gated on ' + name + ' — ' + why + '. The gate now reads: ' + gate);
     }
     const body = src.slice(i, i + 1800);
+    // The per-light falloff lives in poolLight(), shared by the slot loop and the light grid.
+    const j = src.indexOf('vec3 poolLight(');
+    ok(j > 0, 'poolLight() has gone from ground.js — the falloff and the height floor below are checked in it.');
+    const fn = j > 0 ? src.slice(j, src.indexOf('\n}', j)) : '';
     // ⚠ AND IT ADDS INTO THE HEADROOM. `c + k` saturates a painted line to white long before it
     // saturates the tarmac beside it, so a pool crossing a road marking blows the line out and
     // leaves a hard white bar across the middle of it — the one place a marking is most needed.
@@ -157,7 +162,7 @@ const QUAD = [{ p: [[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]], rgb: [60, 60, 6
       'the pool is added straight onto the road rather than into the headroom left on it — a painted line under a lamp goes to white.');
     // The shape is the irradiance of a point source on a plane, normalised to 1 beneath it. A
     // Gaussian somebody fitted would have an edge; this does not, which is the whole complaint.
-    ok(body.includes('(h * h * h) / (r2 * sqrt(r2))'),
+    ok(fn.includes('(h * h * h) / (r2 * sqrt(r2))'),
       'the falloff is no longer h^3 / (d^2 + h^2)^1.5 — that shape is what makes this read as a lamp rather than as a bigger disc, and it is why no cut-off is needed to hide an edge.');
     // ⚠ AND IT RECEDES INTO THE HAZE. The fog is folded into `c` on the first line of main, so
     // everything added after it is added OVER the haze — which the wet streak gets away with
@@ -167,7 +172,7 @@ const QUAD = [{ p: [[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]], rgb: [60, 60, 6
     ok(body.includes('(1.0 - gfog)'),
       'the pool no longer fades into the fog — its falloff is measured from the light rather than from the eye, so a distant pool draws at full strength over a road that has receded into the haze.');
     // And the floor under the height, without which a light sitting ON the ground is a singularity.
-    ok(/float h = max\(0\.1[0-9]?, uPoolP\[i\]\.z\)/.test(body),
+    ok(/float h = max\(0\.1[0-9]?, P\.z\)/.test(fn),
       'the lamp height has lost its floor — h^3/r^3 as d goes to 0 is a white pinhole on the tarmac, which is a worse ball than the one this replaced.');
   }
 }
