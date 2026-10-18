@@ -124,7 +124,7 @@ export function derivedTrim(m, fh, h, seed, forceRich) {
   // ⚠ AND IT IS IN THE KEY, not just read at build time. Same rule the kit flag below follows: this
   // is now TWO lists per model per scale, and one cache entry serving both would hand whichever
   // renderer asked first its answer to the other one's question.
-  const rich = (forceRich != null ? !!forceRich : !!MESH_SINK) && RENDER_TUNE.richKit !== 0;
+  const rich = forceRich != null ? !!forceRich : !!MESH_SINK;
   // The kit flag is in the KEY, not just read at build time: it is an A/B switch for a change that
   // reaches most of the city, and a cache that outlives the flag makes the switch look broken.
   // ⚠ THE PLACE IS IN THE KEY — see the ⚠ on `_place`. It is quantised to a twentieth, because it is

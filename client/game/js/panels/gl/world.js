@@ -793,10 +793,9 @@ if (typeof window !== 'undefined') {
       : { changed: 0, of: seen, note: "no building changed its footprint, height, seed or facing" };
   };
 }
-// ⚠ `RENDER_TUNE.richKit` IS DELIBERATELY NOT A TERM HERE, AND THAT MEANS IT NEEDS A RELOAD.
-// `derivedTrim` keys its own two lists on it, but this memo does not — so flipping it in the console
-// hands back the right list to a cache that already holds the wrong mesh, and the flag appears to do
-// nothing. It is not threaded through because it is a dev lever, not a property of a building, and
+// ⚠ NO RENDER_TUNE FLAG IS A TERM HERE, SO ONE THAT CHANGES A MESH NEEDS A RELOAD. Flipping such a
+// flag in the console hands a cache that already holds the old mesh back unchanged, and the flag
+// appears to do nothing. Flags aren't threaded through because they are dev levers, not properties of a building, and
 // the route in would be install.js's options allowlist, which is precisely where two features have
 // shipped inert by being wired at both ends and dropped in the middle. Set it before the first paint
 // of a fresh page — the same rule every bench in the Modelshop already follows for the same reason.

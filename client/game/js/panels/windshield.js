@@ -1913,15 +1913,6 @@ export const RENDER_TUNE = {
   // ⚠ 0 IS BYTE-FOR-BYTE THE PRE-NEON CITY, and the arithmetic below is written so that falls out
   // rather than being a branch: every term is `base + neon * delta`.
   neon: 1,
-  // ── THE RICH DETAIL KIT ──────────────────────────────────────────────────────────────────────
-  // 1 = GLASS 2 builds its mesh from a bigger derived kit than the 2-D painter gets (8 storeys of
-  // windows at a tighter column pitch, 44 parts instead of 26); 0 = both renderers take the lean
-  // list and the city is exactly what it was. See the ⚠ on `rich` in `derivedTrim` for why the two
-  // budgets differ, and `gl:mesh` for the committed face total it is held to.
-  //
-  // ⚠ IT ONLY EVER REACHES THE MESH, so the 2-D fallback is unchanged at BOTH settings and
-  // `framecost` cannot move either way. That is the check on this flag, not a claim about it.
-  richKit: 1,
   // ── A HOUSE CAST PER BUILDING ───────────────────────────────────────────────────────────────
   // 0 puts the Glasshouse back on one hue, byte for byte. Every drum in the quarter is painted by
   // `hfChrome` / `hfGlass`, and those ramps already vary — 133 calls over 69 distinct lo→hi pairs
@@ -1930,7 +1921,7 @@ export const RENDER_TUNE = {
   // ⚠ IT IS A HUE AND NEVER A BRIGHTNESS: a cast is authored as an angle in the YIQ chroma plane,
   // so `dY` is zero by construction and the estate still reads as one developer's cladding. See
   // `client/shared/hf-tint.js` for why the nudge scales with the facet's own luminance.
-  // ⚠ Needs a page reload, exactly as `richKit` does — the mesh memo and the GL vertex
+  // ⚠ Needs a page reload, like any flag a mesh is built from — the mesh memo and the GL vertex
   // buffer key on object IDENTITY, so an A/B is two page loads and never two panels in one pass.
   hfTint: 1,
   // ── WHAT THE BUILDING IS FACED IN ───────────────────────────────────────────────────────────
@@ -1942,7 +1933,7 @@ export const RENDER_TUNE = {
   // ⚠ IT IS A REMAP OF THE CLADDING KEYS INSIDE THE MASS PRIMITIVES, so no arm was edited and the
   // shape capture, the mesh, the collision hull, the distance LOD and the cold open all see the
   // same building the painter does. Applied at the call sites it would reach only the painted path.
-  // ⚠ Needs a page reload, exactly as `richKit` does.
+  // ⚠ Needs a page reload, like any flag a mesh is built from.
   hfSkin: 1,
   // ── A DRUM THAT ANSWERS THE LIGHT ───────────────────────────────────────────────────────────
   // 0 puts every drum in the city back on its baked ramp, byte-for-byte. `drumSkin` marks a face
@@ -1954,7 +1945,7 @@ export const RENDER_TUNE = {
   // gains a great deal and a `plain` one would trade a hand-tuned ramp for a flat fill.
   // ⚠ GLASS 2 ONLY — the 2-D painter has no eye position and keeps the closure, which is the same
   // deliberate divergence the whole material pass already is.
-  // ⚠ Needs a page reload, exactly as `richKit` does.
+  // ⚠ Needs a page reload, like any flag a mesh is built from.
   glDrumMat: 1,
   // 1 gives the hull a natural roll period (rollRao): a beam sea near it rolls her past the wave
   // slope. 0 is the tap-filtered roll, which can only ever roll her less than the water.
