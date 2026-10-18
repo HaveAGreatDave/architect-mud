@@ -162,7 +162,8 @@ has('x2 is "times two"',                          'x2', 'T * AY M Z');
 // "drive Vale" every single time.
 has('Dr. is a doctor, not a drive', 'Dr. Vale', 'D * AA K T ER');
 has('St. before a name is a saint', 'St. Mark', 'S * EY N T');
-has('St. otherwise is a street',    'Dray St.', 'S T R * IY T');
+// (unstressed: a street name leans on the name, DRAY Street; see accent-smoke)
+has('St. otherwise is a street',    'Dray St.', 'S T R IY T');
 // A colon is a phrase break everywhere else, which was putting a pause in the
 // middle of the time.
 has('4:30 is "four thirty"',   '4:30', 'F * AO R _ TH * ER');

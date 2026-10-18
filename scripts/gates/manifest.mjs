@@ -255,6 +255,7 @@ export const GROUPS = [
     // ORACLE.
     gates: [
       'scripts/voice/smoke.mjs',
+      'scripts/voice/accent-smoke.mjs',    // where the accents go: nucleus, given/new, minor breaks, compounds
       'scripts/voice/fm-smoke.mjs',
       'scripts/voice/worklet-smoke.mjs',   // the worklet back end: track list, fallback, stability, formants
     ],

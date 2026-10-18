@@ -653,6 +653,48 @@ being a silence.
   is a small constant over-articulation — the sound of a machine pronouncing every
   letter it was handed.
 
+### Where the accents go
+
+`stressWord` decides each word alone. `placeAccents`, at the end of `textToPhonemes`,
+decides the phrase: it works over one entry per word before the run is flattened, and
+writes its answer into the run as marks. Four passes, in this order:
+
+1. **Compound stress.** Two nouns that name one thing lean on the first: *FIRE
+   station*, *ICE rink*, *DRAY Street*. The second word has to be in `COMPOUND_HEAD`,
+   and the first must not look like an adjective, a material, a number, a determiner
+   or a verb (`NOT_MODIFIER`, `ADJ_END`), since those put the accent on the noun: *old
+   STATION*, *stone HOUSE*, *two TEAMS*. `COMPOUND_FIRST` and `COMPOUND_FINAL` hold the
+   exceptions (*WHITE House*, *town HALL*). The tail loses its `'*'`. There's no
+   part-of-speech tagger, so the rule is narrow on purpose: a wrong compound takes
+   the accent off a new word, which is worse than missing one.
+2. **Given/new.** A content word already said in the line (same lemma: a plural or
+   possessive counts) loses its `'*'`, unless it's in caps or comes within two words
+   after a contrast word (`not but or nor than versus vs`). Its vowels stay full;
+   it's unaccented, not reduced.
+3. **Minor breaks.** In a long stretch with no punctuation, the juncture before a
+   conjunction or preposition (`BREAK_BEFORE`; never *of* or *to*) becomes `_M`, an
+   80 ms pause, once 10 syllables have gone by since the last break and at least 4
+   remain. The word before it has to be a content word. A typical broadcast line is
+   shorter than that and is unchanged.
+4. **The nucleus.** Every phrase (any break ends one, `_M` included) gets one: the
+   last caps word, else the last content word that kept its accent, else the last
+   given one, which gets its accent back. It's marked `'+'`, placed just before that
+   word's `'*'` or `'!'`.
+
+`'+'` is the light nucleus and asks for no hold. `'^'` is still the held one, placed
+by `soldNucleus` only on a line sold at `excite` 0.35 or more; it now prefers a caps
+word, then the `'+'`, then the last stressed vowel, and replaces the `'+'` it lands on.
+
+What this does to the sound today: given words and compound tails lose stress
+(shorter, lower), `_M` adds a short pause and pre-boundary lengthening, and a sold
+line holds a better-chosen vowel. `pitchAt` doesn't read `'+'` yet, and `_M` doesn't
+reset declination yet: the phrase split in `speak()` resets only at a terminal break.
+`_M` carries `minor: 1` in `PH` for whichever change does that. Both belong to the
+accent-shape work (H\*, L+H\*, downstep), which will read these marks.
+
+`_phonemesFor` strips `'+'` unless `opt.marks` is set, so a check about a sound
+doesn't have to spell it; `opt.excite` places `'^'` as `speak()` would.
+
 ### Voice smoke test — the gate
 
 [`scripts/voice/smoke.mjs`](../scripts/voice/smoke.mjs), wired into
@@ -672,6 +714,13 @@ case fails on the contrast it exists for and not on unrelated tuning.
 suffix rules were guessing *truncated stems* (so `cypher` was guessed as `cyph`+er,
 whose `y` had nothing after the digraph to open its syllable), and `ER` was emitting
 its own `r` twice. Both had been shipping silently.
+
+[`scripts/voice/accent-smoke.mjs`](../scripts/voice/accent-smoke.mjs) is its
+neighbour in the voice gates and checks placement, not sounds: the nucleus word, the
+held nucleus on a sold line, given words, `_M` on a long line and not on ordinary
+ones, compound stress and its exceptions, and the word-level rules it builds on
+(caps emphasis, function-word deaccenting, the phrase-edge exemption). Run against
+the engine from before `placeAccents`, it fails 27 of its checks.
 
 ### The voice lab — tuning by ear
 

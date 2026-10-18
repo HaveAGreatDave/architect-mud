@@ -2356,7 +2356,8 @@
       // most of what punctuation is FOR. Each break carries its own duration, and
       // `term` marks the ones that end a phrase (re-pitch, declination reset).
       _:{t:'P',d:40},              // word gap
-      _C:{t:'P',d:150},            // comma — the lightest real break
+      _M:{t:'P',d:80,minor:1},     // a minor break nobody wrote (placeAccents); lighter than a comma
+      _C:{t:'P',d:150},            // comma: the lightest written break
       _S:{t:'P',d:260},            // semicolon / colon — heavier than a comma, not an end
       _D:{t:'P',d:190},            // dash, parenthesis — an interruption, not a clause edge
       _E:{t:'P',d:430,term:1},     // ellipsis — trailing off, and the longest silence there is
@@ -3133,8 +3134,15 @@ return out;
     // A FOURTH, '~n', marks a DRAWN-OUT sound: the writer held a letter ("SCOOOOORES",
     // "Yesss") and n is how many times they wrote it. textToPhonemes puts it before the
     // sound to hold; see elongation() and segmentDuration.
+    // A FIFTH, '+', is the LIGHT nucleus: the accent every phrase has, sold or not
+    // (placeAccents). It sits immediately BEFORE the stress mark of the word that
+    // carries it, so the '*'/'!' stays next to its vowel and every lookahead above
+    // still works. It asks for no hold; '^' is the held one. No pitch rule reads '+'
+    // yet; soldNucleus uses it to pick the vowel a sold line holds.
+    // The break '_M' is the sixth thing in a run that nobody typed: a minor phrase
+    // break before a conjunction or preposition in a long unpunctuated stretch.
     const isLong = p => typeof p === 'string' && p.charCodeAt(0) === 126;   // '~'
-    const isMark = p => p === '*' || p === '!' || p === '^' || isLong(p);
+    const isMark = p => p === '*' || p === '!' || p === '^' || p === '+' || isLong(p);
 
     // Monophthongs that centralise when they lose their stress. Diphthongs are
     // absent on purpose: the glide IS the vowel's identity and survives reduction.
@@ -3344,6 +3352,175 @@ return out;
       if (idx >= 0) ph.splice(idx, 0, '~' + el.n);
     }
 
+    // ── Where the accents go ─────────────────────────────────────────────────
+    // stressWord decides each word on its own. These passes decide the PHRASE, which
+    // no word can know alone: which word is the nucleus, which words were already said,
+    // where an unpunctuated stretch breathes, and which of two nouns a compound leans on.
+    // They run in textToPhonemes over word entries, before the run is flattened.
+
+    // A minor break goes before one of these, once MINOR_MIN syllables have gone by
+    // since the last break and at least MINOR_TAIL remain before the next. "of" and
+    // "to" are left out: "the end of the road" and "going to win" never break there.
+    const BREAK_BEFORE = new Set(('and or but nor so because while when where whereas until unless ' +
+      'although though since after before with from for in on at by into onto through across ' +
+      'around behind between under over without toward towards against during among along beyond').split(' '));
+    const MINOR_MIN = 10, MINOR_TAIL = 4;
+
+    // A repeated word keeps its accent straight after one of these: "not the red car but
+    // the blue car" deaccents the second car, "cats chase dogs, but cats" does not.
+    const CONTRAST = new Set(['not', 'but', 'or', 'nor', 'than', 'versus', 'vs']);
+    // Given/new compares lemmas, and a plural or possessive is the same word said again.
+    const lemma = (w) => {
+      w = w.replace(/'s?$/, '');
+      if (w.length > 4 && /ies$/.test(w)) return w.slice(0, -3) + 'y';
+      if (w.length > 4 && /(s|x|z|ch|sh)es$/.test(w)) return w.slice(0, -2);
+      if (w.length > 3 && /[^su]s$/.test(w)) return w.slice(0, -1);
+      return w;
+    };
+
+    // COMPOUND STRESS. Two nouns that name one thing lean on the first: "FIRE station",
+    // "ICE rink", "HOCKEY player". With no part-of-speech tagger the rule is narrow on
+    // purpose: the second word has to be one of these heads, and the first must not look
+    // like an adjective, a material, a number, a determiner or a verb, because all of
+    // those take the accent on the noun instead ("old STATION", "stone HOUSE", "two TEAMS").
+    // A wrong compound costs more than a missed one: it takes the accent off a new word.
+    const COMPOUND_HEAD = new Set(('station rink room shop store street truck board ball game light line ' +
+      'field yard lot bag box case fight team match drink kit gun bomb cell club bar office bill card deck ' +
+      'ticket market house hall player fan shift job stop plant tower driver boat window phone lane').split(' '));
+    const NOT_MODIFIER = new Set((
+      // adjectives, ordinals, colours
+      'new old big small little great good bad long short high low hot cold warm cool wet dry dark bright ' +
+      'clean dirty empty full free real whole same other own next last first second third final only main ' +
+      'public private local open closed late early young dead live red blue green black white grey gray ' +
+      'brown yellow orange pink purple ' +
+      // materials, which take the accent on the noun ("glass DOOR", "steel BOX")
+      'stone glass steel iron wooden brick plastic metal concrete leather gold silver copper tin rubber ' +
+      // determiners and numbers that FUNC doesn't hold
+      'this these those every each no all both such what which whose many few more most much several another ' +
+      'one two three four five six seven eight nine ten eleven twelve twenty hundred thousand ' +
+      // verbs that take a bare noun object ("play BALL", "clean HOUSE")
+      'play hit take make get give find keep leave see need want buy sell build run own').split(' '));
+    const ADJ_END = /(ful|ous|ive|able|ible|less|ish|est|ly|[^e]ed|'s)$/;
+    // The exceptions. FIRST: names and set phrases whose first word looks like an
+    // adjective but takes the accent anyway. FINAL: a head that is accented after all.
+    const COMPOUND_FIRST = new Set(['white house', 'high school', 'hot dog', 'green room']);
+    const COMPOUND_FINAL = new Set(['town hall', 'city hall', 'black market']);
+    function isCompound(a, b) {
+      const pair = a + ' ' + b;
+      if (COMPOUND_FIRST.has(pair)) return true;
+      if (COMPOUND_FINAL.has(pair)) return false;
+      if (!COMPOUND_HEAD.has(lemma(b))) return false;
+      return !NOT_MODIFIER.has(a) && !ADJ_END.test(a) && a.length > 1;
+    }
+
+    // `seq` is textToPhonemes' working run: break and juncture codes, and one entry per
+    // word ({ ph, w, func, emph, syl }). Returns the flat phoneme run.
+    function placeAccents(seq) {
+      const isWord = e => e !== null && typeof e === 'object';
+      const content = e => isWord(e) && !e.func;
+      const nextWord = (i) => { let j = i + 1; while (seq[j] === '_') j++; return isWord(seq[j]) ? j : -1; };
+
+      // 1. Compounds: the second noun gives its accent to the first.
+      for (let i = 0; i < seq.length; i++) {
+        const a = seq[i]; if (!content(a) || a.emph) continue;
+        const j = nextWord(i); if (j < 0) continue;
+        const b = seq[j];
+        if (content(b) && !b.emph && isCompound(a.w, b.w)) b.tail = true;
+      }
+
+      // 2. Given/new: a content word already said in this line loses its accent,
+      // unless it is in caps or follows a contrast word.
+      const said = new Set(); let p1 = null, p2 = null;
+      for (const e of seq) {
+        if (!isWord(e)) continue;
+        if (!e.func) {
+          const l = lemma(e.w);
+          const contrast = (p1 && CONTRAST.has(p1.w)) || (p2 && CONTRAST.has(p2.w));
+          if (l.length >= 3 && said.has(l) && !e.emph && !contrast) e.given = true;
+          said.add(l);
+        }
+        p2 = p1; p1 = e;
+      }
+
+      // 3. Minor breaks in a long unpunctuated stretch, replacing the juncture before a
+      // conjunction or preposition that follows a content word.
+      let syl = 0;
+      for (let i = 0; i < seq.length; i++) {
+        const e = seq[i];
+        if (isBreak(e)) { syl = 0; continue; }
+        if (!isWord(e)) continue;
+        if (BREAK_BEFORE.has(e.w) && syl >= MINOR_MIN && seq[i - 1] === '_') {
+          let k = i - 2; while (seq[k] === '_') k--;
+          if (content(seq[k]) && !BREAK_BEFORE.has(seq[k].w)) {
+            let tail = 0;
+            for (let m = i + 1; m < seq.length && !isBreak(seq[m]); m++) if (isWord(seq[m])) tail += seq[m].syl;
+            if (tail >= MINOR_TAIL) { seq[i - 1] = '_M'; syl = 0; }
+          }
+        }
+        syl += e.syl;
+      }
+
+      // 4. The nucleus, one per phrase (any break ends one, '_M' included): the last
+      // word in caps, else the last new content word that kept its accent, else the
+      // last given one, which gets its accent back. Something has to carry the phrase.
+      const nucleus = (from, to) => {
+        let emph = -1, fresh = -1, given = -1;
+        for (let i = from; i < to; i++) {
+          const e = seq[i];
+          if (!isWord(e) || !e.ph.some(p => p === '*' || p === '!')) continue;
+          if (e.emph) emph = i;
+          else if (e.func) continue;
+          else if (!e.given && !e.tail) fresh = i;
+          else if (e.given) given = i;
+        }
+        const at = emph >= 0 ? emph : fresh >= 0 ? fresh : given;
+        if (at >= 0) { seq[at].nucleus = true; seq[at].given = false; }
+      };
+      let from = 0;
+      for (let i = 0; i < seq.length; i++) if (isBreak(seq[i])) { nucleus(from, i); from = i + 1; }
+      nucleus(from, seq.length);
+
+      const out = [];
+      for (const e of seq) {
+        if (!isWord(e)) { out.push(e); continue; }
+        let ph = e.ph;
+        if (e.given || e.tail) ph = ph.filter(p => p !== '*');
+        if (e.nucleus) {
+          const s = ph.includes('!') ? ph.indexOf('!') : ph.indexOf('*');
+          if (s >= 0) ph = [...ph.slice(0, s), '+', ...ph.slice(s)];
+        }
+        out.push(...ph);
+      }
+      return out;
+    }
+
+    // THE SOLD NUCLEUS. A phrase sold hard (deliveryFor) leans on one vowel and holds it:
+    // the last emphatic one (a word in caps), else the light nucleus placeAccents chose,
+    // else the last stressed one, which is where English puts the nuclear accent ("glove
+    // save, Oye-LAAA-ran"). One per terminal phrase; '^' takes the place of the '+'.
+    function soldNucleus(phon) {
+      const res = []; let seg = [];
+      const flush = () => {
+        // A phrase with a drawn-out word already says which sound it leans on.
+        if (seg.some(isLong)) { res.push(...seg); seg = []; return; }
+        let best = -1, bestP = 0;
+        for (let k = 0; k + 1 < seg.length; k++) {
+          if ((seg[k] === '!' || seg[k] === '*') && VOWELS.has(seg[k + 1])) {
+            const pr = seg[k] === '!' ? 3 : seg[k - 1] === '+' ? 2 : 1;
+            if (pr >= bestP) { best = k + 1; bestP = pr; }
+          }
+        }
+        if (best >= 0) {
+          seg.splice(best, 0, '^');
+          if (seg[best - 2] === '+') seg.splice(best - 2, 1);
+        }
+        res.push(...seg); seg = [];
+      };
+      for (const code of phon) { seg.push(code); if (isTerm(code)) flush(); }
+      flush();
+      return res;
+    }
+
     const ABBREV = new Set(['mr','mrs','ms','dr','st','jr','sr','prof','sgt','lt','capt','col','gen','inc','ltd','vs','approx','dept']);   // NOT "no" — "no." ends sentences far more often than it abbreviates number
     function textToPhonemes(text){
       const seq = [];
@@ -3413,9 +3590,10 @@ return out;
           }
         }
         if (el) markLong(ph, el);
-        seq.push(...ph);
+        const func = FUNC.has(w);
+        seq.push({ ph, w, func, emph: ph.includes('!'), syl: ph.filter(p => VOWELS.has(p)).length });
       }
-      return seq;
+      return placeAccents(seq);
     }
 
     // Per-narrator voice: deterministic from the name. Nothing stored — name IS the voice.
@@ -3896,28 +4074,8 @@ return out;
       }
       finally { _lex = null; }
       if (!phon.length) return;
-      // THE NUCLEUS. A phrase sold hard leans on one vowel and holds it: the last emphatic
-      // one (a word in caps) or, failing that, the last stressed one, which is where English
-      // puts the nuclear accent ("glove save, Oye-LAAA-ran"). One per phrase.
-      if (D.e >= 0.35) {
-        const res = []; let seg = [];
-        const flush = () => {
-          // A phrase with a drawn-out word already says which sound it leans on.
-          if (seg.some(isLong)) { res.push(...seg); seg = []; return; }
-          let best = -1, bestP = 0;
-          for (let k = 0; k + 1 < seg.length; k++) {
-            if ((seg[k] === '!' || seg[k] === '*') && VOWELS.has(seg[k + 1])) {
-              const pr = seg[k] === '!' ? 2 : 1;
-              if (pr >= bestP) { best = k + 1; bestP = pr; }
-            }
-          }
-          if (best >= 0) seg.splice(best, 0, '^');
-          res.push(...seg); seg = [];
-        };
-        for (const code of phon) { seg.push(code); if (isTerm(code)) flush(); }
-        flush();
-        phon = res;
-      }
+      // THE NUCLEUS of a line being sold, held (see soldNucleus).
+      if (D.e >= 0.35) phon = soldNucleus(phon);
       // Every line reads at the narrator's own pace, however long it is. There used
       // to be a fit-to-window compression here (speed up so a long line landed before
       // the next one), but a voice that gabbles the long lines and strolls the short
@@ -4859,7 +5017,11 @@ return out;
       try {
         let ph = applyAssimilation(applyAccent(textToPhonemes(text), opt.accent));
         if (opt.accent !== 'rp') ph = applyFlap(ph);
-        return ph;
+        // opt.excite, as speak() takes it, places the held nucleus too.
+        if (Math.max(-1, Math.min(1, (+opt.excite || 0) * TUNING.excitement)) >= 0.35) ph = soldNucleus(ph);
+        // The light nucleus '+' is on every phrase, so a check that is about a sound
+        // and not about accent placement would have to spell it; opt.marks keeps it.
+        return opt.marks ? ph : ph.filter(p => p !== '+');
       } finally { _lex = null; }
     };
     return { speak, cancel, left, readerDuck, tuning: TUNING, phonemesFor, estimate: estimateDuration, voiceFor: voiceFromName, phones: () => Object.keys(PH),
