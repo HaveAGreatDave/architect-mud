@@ -32,6 +32,8 @@ Engineering notes for the GLASS renderer (`client/game/js/panels/windshield.js` 
 - [Sign typefaces (`signFontOf`)](#sign-typefaces-signfontof)
 - [Declining kit sections (`KIT_DECLINE`)](#declining-kit-sections-kit_decline)
 - [What's left on the canvas](#whats-left-on-the-canvas)
+- [GLASS 1 is the plain fallback (2026-10-17)](#glass-1-is-the-plain-fallback-2026-10-17)
+- [Per-pass GPU time (`__glPassMs()`)](#per-pass-gpu-time-__glpassms)
 - [Measuring the frame (`__glFrame()`)](#measuring-the-frame-__glframe)
 - [Hardware coverage](#hardware-coverage)
 - [A pass that didn't draw](#a-pass-that-didnt-draw)
@@ -374,7 +376,7 @@ Measured in the Modelshop with the calls counted on the prototype, over 10- and 
 - The quads depend on the camera. A road quad's alpha is `sq.a * ctx.globalAlpha`, where `globalAlpha` is the far fade, and a kerb's half-width is solved for the tile's distance. A window-keyed cache would need the fade moved into the shader and kerbs expanded in a vertex shader as `strokes.js` does for wires, both visible changes.
 - The phase costs nothing: `__glPhases()` on a 1280×720 aerial seat reads `ground` at 0.00 ms with the GL floor on, against 0.86 ms for the old 2-D path.
 
-Trap: a cold first run of that harness gives wrong numbers: `world:build` 12.2 ms (GL dearer than 2-D) and `world:fauna` 3.40 ms against 0.44, where the second and third runs give 6.0–6.9 ms against 9.5 and 0.03 ms. Take three runs. The settled CPU cost in a GL frame is `world:build` ~6.5 ms and `world:arms` ~3.8 ms (running the model arms and collecting adornments every frame for geometry that doesn't change), with `world:gl` (the submission) at 2.4 ms and `world:occlude` at 0.7 ms. The next optimisation is there, not in the ground.
+Trap: a cold first run of that harness gives wrong numbers: `world:build` 12.2 ms (GL dearer than 2-D) and `world:fauna` 3.40 ms against 0.44, where the second and third runs give 6.0–6.9 ms against 9.5 and 0.03 ms. Take three runs. The settled CPU cost in a GL frame is `world:build` ~6.5 ms and `world:arms` ~3.8 ms (running the model arms and collecting adornments every frame for geometry that doesn't change), with `world:gl` (the submission) at 2.4 ms and `world:occlude` at 0.7 ms. Kept arms (glass-headroom Stage 3) have since cut the arms; see [docs/proposals/glass-headroom.md](../proposals/glass-headroom.md) for the current split, and [Per-pass GPU time](#per-pass-gpu-time-__glpassms) for the GPU side.
 
 ## Fidelity readings
 
@@ -455,6 +457,25 @@ One section exists only to be declined, because no arm draws it: `paint`, the ki
 ## What's left on the canvas
 
 The world is on GLASS 2, but `windshield.js` stays: it runs the 173 arms producing mesh, lights and decals, owns the scene, occluder field, LOD and collision, and draws the overlay. GLASS 2 is its rasteriser. With the dial pinned, at 640×360 a cab frame is 2.8–3.6 ms and an aircraft frame 6.5–8.3 ms, the city is the smaller part (1.1–3.7 ms), and the 2-D adornment queue is 43 faces. The remaining canvas overlay (ridge, sky and clouds, weather, dash, glass, badges) should stay: no ordering problem, no measurable cost, and moving HUD text would need a glyph atlas.
+
+## GLASS 1 is the plain fallback (2026-10-17)
+
+GLASS 1 draws the world only when GLASS 2 can't: no WebGL2, a lost context past the two revivals, or the player switching GLASS 2 off. It's kept deliberately basic, and it must never throw.
+
+- **Ground.** The Mode-7 raster is the LUT colour, bilinear and shaded, under the haze, fog and night, with the far field still blended to `farGround`. There's no texture noise, sea surface, coast warp or downwash, and its chunk is never finer than 4. GLASS 2's ground is `gl/floor.js`.
+- **Flight panel.** Every aircraft class has a modelled deck on GLASS 2, so the painted panel is a gauge band: the board's colour and six `drawCabDial`s (KIAS, ALT, HDG, VS, RPM, fuel), plus gear and flaps as text. The truck's painted dash stays, because the 3-D cab is built by running the same painters into `SHELL_SINK`.
+- **What stays full.** Textured walls and roofs and the segment LOD stay: the Modelshop draws through the same painter, and LOD is the cheap path at range. The scatter, figure and prop painters can't go either, because they're GLASS 2's billboard bakers (`scatterBillboard` paints them into a texture).
+- Most of what looks like 2-D code is shared. Before cutting more, run the reachability check the 2026-10-17 pass used: list every top-level function reachable only from the code you want gone, never from an export or the rest of the frame.
+
+## Per-pass GPU time (`__glPassMs()`)
+
+`glPassTimer` in gl/context.js times each GLASS 2 pass with `EXT_disjoint_timer_query_webgl2`. It covers the view's draw methods, plus the shadow and SSAO passes that run inside `draw`. Timer queries can't nest, so an inner pass pauses the outer one. The timer is off unless a bench turns it on, and an untimed frame allocates nothing. In the Modelshop, `__glPassMs({ place, seat })` returns GPU ms per frame for each pass. It can't run alongside `__glWhere`'s whole-frame clock.
+
+Readings at 640×360 on the reference machine (2026-10-17). Take three runs: the first is cold.
+
+- The haze fade pass was the most expensive pass, at 1.3–2.8 ms on an aircraft over Marrow. It now draws only the tiles whose box reaches the band (`fadeRuns`) and reads about 0.
+- The sun's shadow map is kept until the mesh rebuilds or the light matrix moves by more than 2e-4 of its largest entry, so a still sun costs no shadow pass.
+- What's left is the main mass pass (2.7–3.6 ms), SSAO (1.6–2.5 ms) and the decals (0.9–1.4 ms).
 
 ## Measuring the frame (`__glFrame()`)
 
