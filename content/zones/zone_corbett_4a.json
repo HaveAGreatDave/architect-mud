@@ -26,6 +26,7 @@
   "grid_z": 1,
   "id": "zone_corbett_4a",
   "map_id": "map_int_corbett",
+  "marker": "4A",
   "name": "Corbett Mansions, Unit 4A",
   "parent_zone": "zone_district_916_906"
 }

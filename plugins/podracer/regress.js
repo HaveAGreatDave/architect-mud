@@ -307,7 +307,9 @@ export default async function regress({ run, check, getPlayer }) {
       const stock = await run('podracer');
       check('podracer at the lot lists the stock', /Rasp Twinspool/.test(stock?.message || ''), stock?.message?.slice(0, 80));
       const buy = await run('podracer buy');
-      check('podracer buy with no money refuses with the price', /31,000/.test(buy?.message || '') && /You have/.test(buy?.message || ''), buy?.message?.slice(0, 80));
+      // A bare `buy` takes the first racer in the bay, so the price is read off it, not written here.
+      const first = Object.values(PODRACER_TYPES)[0].price.toLocaleString('en-US');
+      check('podracer buy with no money refuses with the price', (buy?.message || '').includes(first) && /You have/.test(buy?.message || ''), buy?.message?.slice(0, 80));
       const hire = await run('podracer hire');
       check('podracer hire with no money refuses with the fee', /You have/.test(hire?.message || ''), hire?.message?.slice(0, 80));
       const panel = await lot.racerPanel(pl, 'zone_racerbay_deadleg');

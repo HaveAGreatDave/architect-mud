@@ -648,7 +648,7 @@ store.patch('npcs', 'npc_mixedbag_tolley', {
     '"Rounded down again," he says to nobody, and makes a note.',
   ],
   banter: [], home_activities: [],
-  flags: { clothing_layers: ['a brown three-piece suit shiny at the knees', 'a collarless shirt with a stud', 'braces and polished black boots'], personality: 'retired' },
+  flags: { clothing_layers: ['a brown three-piece suit shiny at the knees', 'a collarless shirt with a stud', 'braces and polished black boots'], personality: 'gruff' },
   studio_zone_id: null, wander_zones: [], wanders: 0,
 });
 store.patch('npc_residences', 'zone_corbett_4a', { zone_id: 'zone_corbett_4a', npc_id: 'npc_mixedbag_lark', note: null });

@@ -5144,6 +5144,7 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
   const NO_WALK_IN = new Set([
     'map_dream',                // entered by sleeping — plugins/dreams, never on foot
     'map_aircraft_leviathan',   // entered by boarding — the cabin has no ground seam
+    'map_int_soak',             // Lather & Lye, stored with no world tile (docs/proposals/stored-buildings.md)
   ]);
   const withSeam = new Set();
   for (const z of world.zones.values()) {

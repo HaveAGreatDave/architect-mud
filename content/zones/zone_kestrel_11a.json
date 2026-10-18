@@ -26,6 +26,7 @@
   "grid_z": 3,
   "id": "zone_kestrel_11a",
   "map_id": "map_int_kestrel",
+  "marker": "11",
   "name": "Kestrel Court, Unit 11A",
   "parent_zone": "zone_district_913_908"
 }
