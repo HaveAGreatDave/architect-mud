@@ -19,6 +19,7 @@
  * being retrofitted around hockey later.
  */
 import { sportsRng, sportsShuffle, sportsHash, sportsPickTagged } from '../rng.js';
+import { clubsRevOf } from './clubs.js';
 import {
   fieldSpots, groundChances, airChances, carry, evFor, hangTime, gradeOf, toPark, sprayOf, fenceAt,
   toFirst, throwTime, railRoom, RANGING, TRANSFER, POSITIONS,
@@ -1287,6 +1288,8 @@ export const BASEBALL = {
   handOf,
   battingSide,
   defaultNames: DEFAULT_NAMES,
+  // The stamp a client checks its club identities against (sports_pools.clubs).
+  clubsRevOf,
 };
 
 export default BASEBALL;

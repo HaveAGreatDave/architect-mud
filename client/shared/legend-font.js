@@ -59,6 +59,9 @@ const G = {
   '-': [[0.5, 3, 3.5, 3]],
   '/': [[0, 0, 4, 6]],
 };
+// The strokes themselves, for drawing the face some other way (a club crest outlines them:
+// scripts/content/build-deadball-clubs.mjs).
+export const LEGEND_STROKES = G;
 const ADV = 5.4, HALF = 0.62;   // grid units per letter, and half a stroke
 
 export const legendWidth = (str, h) => ((String(str).length * ADV - (ADV - 4 - HALF * 2)) * h) / 6;

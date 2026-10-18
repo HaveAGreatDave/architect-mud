@@ -63,6 +63,7 @@ export const GROUPS = [
     gates: [
       'scripts/content/lint.mjs',
       'scripts/content/build-cphl-clubs.mjs --check',   // the CPhL clubs in the row match their authoring script
+      'scripts/content/build-deadball-clubs.mjs --check',   // and Deadball's
     ],
   },
   {

@@ -82,7 +82,11 @@ export default async function regress({ run, check }) {
   check('a hockey season from before eras is stale', _test.staleEra('hockey', { season_no: 3, era: null }) === true, 'null era');
   check('a hockey season in the current era is not', _test.staleEra('hockey', { season_no: 4, era }) === false, era);
   check('a hockey season from another era is stale', _test.staleEra('hockey', { season_no: 4, era: 'cphl-0' }) === true, 'old era');
-  check('baseball is never reset by an era', !_test.LEAGUES.baseball.era && _test.staleEra('baseball', { season_no: 9, era: null }) === false, 'baseball');
+  // Deadball cut to eight clubs (October 2026): its sixteen-club seasons had no era and close
+  const bEra = _test.LEAGUES.baseball.era;
+  check('Deadball has an era of its own', typeof bEra === 'string' && bEra.length > 0 && bEra !== era, String(bEra));
+  check('a Deadball season from before eras is stale', _test.staleEra('baseball', { season_no: 9, era: null }) === true, 'null era');
+  check('a Deadball season in the current era is not', _test.staleEra('baseball', { season_no: 10, era: bEra }) === false, bEra);
   check('no season is never stale', _test.staleEra('hockey', null) === false, 'null season');
 
   // The Cup command routes, and `standings hockey` scopes to one league.

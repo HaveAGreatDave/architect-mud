@@ -19,8 +19,8 @@ bank, the mix, the announcer's calls, the umpire, the public address and a vendo
 postseason bugs fixed, the final named the Curtain Call, its gold graphics, the park dressed for it,
 the line-ups read under searchlights, and the champions crowned with confetti, fireworks over the park
 and the city, a pile on the mound and the trophy; and Phase 6 but for seats in person, the park on the
-map as the Charles B. Hughson Coliseum ([hughson-coliseum.md](hughson-coliseum.md)). The sixteen club
-identities, seats in person and Phase 7 are design.** A plan for giving Deadball a 3-D sub-screen the way Cluster Puck got Rinkside, at the
+map as the Charles B. Hughson Coliseum ([hughson-coliseum.md](hughson-coliseum.md)). The league is eight
+clubs, two of them (the Coldwater Basin Blue Birds and the Coldwater Crows) with identities; the other six, the kits on the players, seats in person and Phase 7 are design.** A plan for giving Deadball a 3-D sub-screen the way Cluster Puck got Rinkside, at the
 highest fidelity the engine can reach. Deadball is a live sport on KSAB, and the broadcast borrows
 the look of a 1990s arcade baseball game. That means skinned, detailed players, authored animation
 with a wide spread of plays, light from the park's own towers and a crowd that fills the stands.
@@ -207,8 +207,9 @@ time.
 `sports_pools.clubs` on a broadcast row holds each club's identity: colours, a vector crest,
 `kit.home` and `kit.road`, and optionally a tartan sett. [build-cphl-clubs.mjs](../../scripts/content/build-cphl-clubs.mjs)
 writes the CPhL's and fails `--check` when the row is stale. Payloads carry a `clubsRev` stamp; the
-client asks once with `tv_clubs` and keeps the set in localStorage per sport. Only hockey uses it:
-`clubsRevOf` lives in `hockey.js`, and `sendTvClubs` assumes hockey when no sport is given.
+client asks once with `tv_clubs` and keeps the set in localStorage per sport. Both sports use it:
+`clubsRevOf` is in `sports/clubs.js`, and [build-deadball-clubs.mjs](../../scripts/content/build-deadball-clubs.mjs)
+writes Deadball's ([systems-broadcast.md](../systems-broadcast.md), Deadball's clubs).
 
 ### Measured
 
@@ -1172,8 +1173,8 @@ Per viewer with the sub-screen open, per game:
 | Club set and venue, with the skyline manifest | none | once per client per revision, held under 64 KB (the venue with its manifest is 18 KB, 5 KB gzipped, built in 1e) |
 
 The rendering's weight is all on the client: textures and clips ship with the client code, not per
-broadcast. The CPhL's eight clubs are 57 KB as data, mostly crest paths; Deadball's sixteen get a size
-budget and simpler crests.
+broadcast. The CPhL's eight clubs are 57 KB as data, mostly crest paths; Deadball's eight have a
+24 KB budget a club (the Crows are 17 KB, the Blue Birds 5 KB).
 
 ## Engine and content
 
@@ -1214,9 +1215,10 @@ the crest. Crests and wordmarks are painted from the vector data at the resoluti
 which is where vector crests pay off. Until then, kits are hashed from team names, as Rinkside's
 fallback does.
 
-What it takes: `scripts/content/build-deadball-clubs.mjs` for sixteen clubs with a `--check` gate and
-a size budget; `clubsRevOf` moved out of hockey.js to a shared module; `sendTvClubs` told the sport;
-`clubsRev` on Deadball's payloads. Baseball kit fields: jersey, fabric (pinstripe, flannel, plain),
+What it took (October 2026, with the league cut to eight): `scripts/content/build-deadball-clubs.mjs`
+with a `--check` gate and a 24 KB budget a club; `clubsRevOf` moved out of hockey.js to
+`sports/clubs.js`; `clubsRev` on every Deadball payload. Still to do: the 3-D and 2-D players
+wearing their club's kit rather than the house kits, and the Grandstand's graphics following. Baseball kit fields: jersey, fabric (pinstripe, flannel, plain),
 trim, pants, cap, bill, helmet, undershirt, stirrups, number and edge, chest wordmark.
 
 ## Text parity and accessibility
@@ -1979,7 +1981,7 @@ Phase 3, or with sim v2 if that comes later.
   confetti, fireworks and the trophy.
 - The three postseason bugs fixed, and the final renamed in the script and the cards.
 - Tested by: `--check`, `ballpark-smoke`, regress (the final airs, the #1 seed hosts).
-- **Built but the clubs (2026-10-14).** The sixteen identities wait.
+- **Built but the clubs (2026-10-14).** The league is eight clubs since October 2026; the Blue Birds and the Crows have identities and the six others wait.
   - **The bugs.** `broadcast.nextSportsAirSlot` pins a final to the league's airtime on a day its
     channel's playlist airs it (the walk getNextOnAir makes), up to a week and a day ahead; the
     finalists go into the game top seed at home, for the airing and the crowning both, and the Cup's
@@ -2101,7 +2103,7 @@ Still open:
    Or Chip calling every pitch?
 6. **The mix.** Effects 9 dB under the announcer with a further 6 dB duck while the announcer
    speaks, as a starting point to set by ear in the sandbox (recommended), or another balance?
-7. **Clubs:** author all sixteen? Should a club's colours follow its district, even where that matches
+7. **Clubs:** the league is eight (answered October 2026). Should a club's colours follow its district, even where that matches
    the CPhL club from the same district?
 8. **Parks:** one league ballpark (recommended), or a park per club later?
 9. **Time of day.** Follow Coldwater's clock (recommended), so a 19:00 first pitch is in the blue

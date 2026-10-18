@@ -11,7 +11,7 @@
 
 import { pick } from '../../server/engine/util.js';
 
-const COMMON_WORDS = new Set(['rats', 'birds', 'saints', 'goons', 'ghouls']);
+const COMMON_WORDS = new Set(['rats', 'birds', 'saints', 'goons', 'ghouls', 'crows']);
 
 const norm = (s) => ` ${String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()} `;
 

@@ -3354,6 +3354,36 @@ export default async function regress({ check, run, getPlayer }) {
     }
   }
 
+  // ── Deadball's league and clubs ─────────────────────────────────────────────
+  // Eight clubs, as the CPhL has, and the row airs the league the .bsm names. A club with an
+  // identity (sports_pools.clubs, build-deadball-clubs.mjs) is in the league and carries a
+  // full crest, a small one and both kits; a game's payloads stamp the set's revision.
+  {
+    const bsm = new Function(`${readFileSync(new URL('../../client/devpanel/js/bsm-compiler.js', import.meta.url), 'utf8')}\n;return compileBsm;`)();
+    const teams = bsm(readFileSync(new URL('../../data/scripts/baseball.bsm', import.meta.url), 'utf8')).sportsScript.teams;
+    const row = JSON.parse(readFileSync(new URL('../../content/media_broadcasts/bc_1783289744953.json', import.meta.url), 'utf8')).sports_pools;
+    check('deadball: the league is eight clubs', teams.length === 8 && new Set(teams).size === 8, `${teams.length}: ${teams.join(', ')}`);
+    check('deadball: the row carries the .bsm league', JSON.stringify(row.teams) === JSON.stringify(teams), (row.teams || []).join(', '));
+    const clubs = row.clubs || {};
+    const strays = Object.keys(clubs).filter((t) => !teams.includes(t));
+    check('deadball: every club with an identity is in the league', !strays.length, strays.join(', '));
+    check('deadball: the Blue Birds and the Crows have identities', !!(clubs['Coldwater Basin Blue Birds'] && clubs['Coldwater Crows']), Object.keys(clubs).join(', '));
+    for (const [name, c] of Object.entries(clubs)) {
+      check(`deadball: ${name} have a crest, full and small`, !!(c?.crest?.layers?.length && c?.crest?.small?.length), JSON.stringify(Object.keys(c || {})));
+      check(`deadball: ${name} have home and road kits`, ['home', 'road'].every((s) => /^#[0-9a-f]{6}$/i.test(c?.kit?.[s]?.base || '') && c.kit[s].wordmark), JSON.stringify(c?.kit || null));
+    }
+    // the set goes out once a revision; Deadball's sixteen-club plan budgeted simpler crests
+    // than the CPhL's, so hold each club well under a hockey club's share
+    const big = Object.entries(clubs).filter(([, c]) => JSON.stringify(c).length > 24 * 1024).map(([t, c]) => `${t} ${(JSON.stringify(c).length / 1024).toFixed(1)} KB`);
+    check('deadball: each club identity is under 24 KB', !big.length, big.join(', '));
+    const { default: BASEBALL } = await import('./sports/baseball.js');
+    const { default: HOCKEY } = await import('./sports/hockey.js');
+    check('deadball: baseball stamps its clubs as hockey does', typeof BASEBALL.clubsRevOf === 'function' && BASEBALL.clubsRevOf === HOCKEY.clubsRevOf && BASEBALL.clubsRevOf(clubs).length > 4, 'clubsRevOf');
+    const g = _test.assembleSportsGraph({ ...row, clubs }, 'bc_regress_clubs', 81234, null);
+    const gds = Object.values(g.nodes).map((n) => n.data?.gameday).filter(Boolean);
+    check('deadball: every Gameday payload carries the clubs\' stamp', gds.length > 0 && gds.every((p) => p.clubsRev === BASEBALL.clubsRevOf(clubs)), `${gds.length} payloads, ${gds.filter((p) => !p.clubsRev).length} unstamped`);
+  }
+
   // ── Deadball's balls in play ────────────────────────────────────────────────
   // The server decides every ball in play (synthPlay) so the booth's line can agree with the
   // picture. It's cosmetic and seeded on its own, so it can't move a game: the v1 hash above

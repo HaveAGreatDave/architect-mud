@@ -70,11 +70,13 @@ const patch = (rel, fields) => {
 };
 
 // The park (sports_pools.venue: its site, and later the venue data the GLASS 2 park is
-// built from) isn't in the .bsm, so a rebuild carries it over, as build-cluster-puck.mjs
-// does for hockey's clubs.
+// built from) and the clubs' identities (sports_pools.clubs, build-deadball-clubs.mjs)
+// aren't in the .bsm, so a rebuild carries them over, as build-cluster-puck.mjs does for
+// hockey's clubs.
 {
-  const venue = JSON.parse(fs.readFileSync(path.join(ROOT, BROADCAST_FILE), 'utf8')).sports_pools?.venue;
-  if (venue) sportsScript.venue = venue;
+  const kept = JSON.parse(fs.readFileSync(path.join(ROOT, BROADCAST_FILE), 'utf8')).sports_pools || {};
+  if (kept.venue) sportsScript.venue = kept.venue;
+  if (kept.clubs) sportsScript.clubs = kept.clubs;
 }
 
 patch(BROADCAST_FILE, {

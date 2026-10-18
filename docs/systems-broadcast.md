@@ -1565,6 +1565,47 @@ Highlanders' tartan body; `arena-mesh.js` takes the kit's sleeve and sock bands;
 paints each keeper's mask from the club's `mask`; the 2-D `figure.js` takes the bands,
 number colours, crest decal and the mask's colours. Centre ice still carries the CPhL mark.
 
+### Deadball's clubs (as built)
+
+Eight clubs since October 2026, down from sixteen, as the CPhL has. The list is `::teams` in
+`data/scripts/baseball.bsm`; the row's `sports_pools.teams` mirrors it, and regress fails while
+they differ or while the count isn't eight.
+
+| Club | Home | Colours | Crest |
+|---|---|---|---|
+| Coldwater Basin Blue Birds | Old Coldwater, by the Meridian | the Blue Jays' City Connect set: night blue, royal and red | a night-blue roundel ringed in royal and red, and breaking out of it a mean blue jay's head in silhouette: crest swept back, black beak, red eye under a brow cut down at the beak, white throat under the black necklace |
+| Coldwater Crows | Coldwater | red, black and bone | a die-cut red sticker after a 1909 minor-league one: "Still Watching" round the arch, a crow with its wings up perched on a bat, the club's name in Tuscan capitals over "Baseball Club", "Est. 2022" down the left and "Deadball" down the right |
+| Rustpile Rats, Neon District Wolves, Slagworks Slaggers, Undermarket Moles, Docklands Drowners, Static Saints | | | placeholders, to be replaced; no identity, so they wear the house kits and get no crest |
+
+The Blue Birds are the oldest club in the league, from before the collapse, and Sir Charles's
+club: the booth says he never missed a home game and never had a kind word for the Crows.
+Their founding year (2019 in the data) is a placeholder nobody has settled.
+
+The Crows are pre-collapse too, founded in 2022, and the Blue Birds' rival ever since. They're
+the Long Watch's club. Nothing on air says so, because the Watch keeps to the dark; the booth
+only notices what anyone could: no augmented man has ever worn the uniform, nobody signs
+for them as a free agent, and crows sit on the light towers on game nights. The CPhL's rule
+that no club is tied to an order doesn't bind Deadball, and this exception is deliberate.
+
+**Where it lives.** `sports_pools.clubs` on the Deadball row (`bc_1783289744953`), the same
+seam as the CPhL's: `district`, `home`, `founded`, `colours`, `crest` and `kit.home` /
+`kit.road`. A kit uses the names `KITS` in `gl/ballplayer-mesh.js` reads (`base`, `ink`, `trim`,
+`cap`, `under`, `helmet`, `belt`) plus `bill`, `pants`, `stirrups`, `fabric`, `number` and
+`wordmark`. The authoring source is
+[scripts/content/build-deadball-clubs.mjs](../scripts/content/build-deadball-clubs.mjs); it
+writes `clubs` and nothing else, and its `--check` gate fails while the row is behind.
+`build-deadball.mjs` carries `clubs` across a rebuild. The crest's lettering is the legend
+face's strokes (`LEGEND_STROKES` in `client/shared/legend-font.js`) drawn as stroked paths with
+slab serifs and Tuscan spurs added, which keeps the Crows to about 17 KB; the Blue Birds are
+about 5 KB. Regress holds every Deadball club under 24 KB.
+
+**How it reaches a viewer.** Every Gameday payload carries `clubsRev` (`clubsRevOf`, now in
+`sports/clubs.js` and shared by both sports), and the client asks with `tv_clubs` as it does
+for hockey. The crest shows on the score bug, both standings tables and the matchup cards;
+`_crest` in `tv.js` looks a name up in either league's set. The players on the field still
+wear the house kits (home cream and teal, away grey and rust) and the Grandstand's graphics
+stay in those colours to match; dressing a side in its club's kit is the next step.
+
 ### Leagues (`sportsleague`)
 
 One season **per sport**. `sports_season` carries a `sport` column with a
@@ -1588,8 +1629,9 @@ season tick closes the open season with no champion and opens a fresh one, whate
 it was in, so the new clubs start at 0-0 on the deploy that ships them and a Cup final
 seeded with clubs that no longer exist never airs. The CPhL is on `cphl-8`, the eight
 neighbourhood clubs above; every hockey season opened before that has no era and closes on
-the first tick after the deploy. Change the era only when the roster changes. Deadball has
-none and is never reset this way.
+the first tick after the deploy. Change the era only when the roster changes. Deadball is on
+`deadball-8`, the eight clubs above; its sixteen-club seasons had no era and close the same
+way.
 
 ### The rink sub-screen (Rinkside, as built)
 

@@ -47,10 +47,13 @@ const SPORTS_MIN_WS_GAMES = 8;   // the #2 team must have played at least this m
 // open season with no champion and opens a fresh one (`staleEra`, below). So a new roster
 // starts at 0-0 on the deploy that ships it, and a final already seeded with clubs that no
 // longer exist never airs. Change the era only when the roster changes; a league with none
-// (baseball) is never reset this way.
+// is never reset this way.
 const LEAGUES = {
   baseball: {
     sport: 'baseball', icon: '⚾', show: 'DEADBALL', league: 'COLDWATER LEAGUE',
+    // Eight clubs, the Blue Birds and the Crows among them (docs/systems-broadcast.md, Deadball's
+    // clubs), October 2026. The sixteen before had no era.
+    era: 'deadball-8',
     // the final is the Curtain Call (the season's last act, under the city's wall); its phase
     // in sports_season is still 'worldseries', a value, not a name anyone reads
     final: 'CURTAIN CALL', finalTitle: 'Curtain Call', finalCmd: 'curtaincall', start: 'First Pitch',

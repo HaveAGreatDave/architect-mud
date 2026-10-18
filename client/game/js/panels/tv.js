@@ -701,9 +701,10 @@ export function createTvView(root, opts = {}) {
   // ── club crests ───────────────────────────────────────────────────────────
   // A league's clubs carry their own crests (club-crest.js keeps them). A surface that
   // names a club puts its crest beside the name when the set is here, and nothing when
-  // it isn't yet; the CPhL mark stays where it was.
+  // it isn't yet; the CPhL mark stays where it was. No club is in both leagues, so a name
+  // finds its own league's set.
   function _crest(name, size, cls = '') {
-    const c = clubOf(name, 'hockey');
+    const c = clubOf(name, 'hockey') || clubOf(name, 'baseball');
     return c ? `<span class="tv-crest ${cls}">${crestSvg(c, size, { title: name })}</span>` : '';
   }
   let _lastScorebug = null;
@@ -1154,7 +1155,7 @@ export function createTvView(root, opts = {}) {
           const pct = (r.wins + r.losses) ? (r.wins / (r.wins + r.losses)) : 0;
           return `<div class="tv-stp-row${i === 0 ? ' lead' : ''}">` +
             `<span class="tv-stp-rank">${i + 1}</span>` +
-            `<span class="tv-stp-team">${hockey ? _crest(r.team, 18, 'tv-stp-crest') : ''}${_esc(r.team)}</span>` +
+            `<span class="tv-stp-team">${_crest(r.team, 18, 'tv-stp-crest')}${_esc(r.team)}</span>` +
             `<span class="tv-stp-rec">${hockey ? `${r.wins}-${r.losses}-${r.otl || 0}` : `${r.wins}-${r.losses}`}</span>` +
             `<span class="tv-stp-pct">${hockey ? gp : pct.toFixed(3).replace(/^0/, '')}</span>` +
             `<span class="tv-stp-rd">${hockey ? (r.points || 0) : rd}</span>` +
@@ -1242,7 +1243,7 @@ export function createTvView(root, opts = {}) {
       const rec = hockey ? `${r.wins}-${r.losses}-${r.otl || 0}` : `${r.wins}-${r.losses}`;
       return `<div class="tv-st-row">` +
         `<span class="tv-st-rank">${i + 1}</span>` +
-        (hockey ? _crest(r.team, 16, 'tv-st-crest') : '') +
+        _crest(r.team, 16, 'tv-st-crest') +
         `<span class="tv-st-team">${_esc(r.team)}</span>` +
         `<span class="tv-st-rec">${rec}</span>` +
         `<span class="tv-st-rd">${tail}</span>` +

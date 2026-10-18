@@ -2762,6 +2762,9 @@ function assembleSportsGraph(script, broadcastId, slot, override) {
     const seedOf = (team) => (team === s.finalistA ? 1 : team === s.finalistB ? 2 : null);
     // the venue's stamp: a client without that revision asks for it once (tv_venue)
     const venueRev = venueFor(script)?.rev || '';
+    // and the clubs' stamp, on every payload as hockey's are (a dozen characters): a client
+    // without that revision asks once (tv_clubs) and dresses the clubs that have identities
+    const clubsRev = sportMod.clubsRevOf?.(script.clubs) || '';
     const side = (t) => ({ team: t.name, pitcher: t.pitcher || '', lineup: Array.isArray(t.lineup) ? t.lineup.slice(0, 9) : [] });
     const season = { n: s.seasonNo ?? null, phase: ws ? 'final' : 'regular',
       ...(ws ? { name: sportMod.season?.finalName || 'Final', seedAway: seedOf(away.name), seedHome: seedOf(home.name), lineups: { away: side(away), home: side(home) } } : {}) };
@@ -2771,7 +2774,8 @@ function assembleSportsGraph(script, broadcastId, slot, override) {
       const gd = nodes[id].gameday;
       if (!gd) continue;
       all.push(gd); lastId = id;
-      nodes[id].gameday = first ? { ...gd, standings: gdStandings, leaders: gdLeaders, season, ...(venueRev ? { venueRev } : {}) } : { ...gd };
+      const stamp = clubsRev ? { clubsRev } : {};
+      nodes[id].gameday = first ? { ...gd, standings: gdStandings, leaders: gdLeaders, season, ...(venueRev ? { venueRev } : {}), ...stamp } : { ...gd, ...stamp };
       first = false;
     }
     if (lastId != null && winName) {
@@ -11736,6 +11740,7 @@ const CHANNEL_REVERT_LINES = [
 ];
 
 export const hooks = {
+  'venue.lit': venueLit,
   'tick.minute': async () => {
     const zones = new Set();
     for (const p of world.players.values()) if (p?.current_zone) zones.add(p.current_zone);
@@ -11743,7 +11748,6 @@ export const hooks = {
     for (const zoneId of zones) {
       const npcsHere = getZoneNpcs(zoneId);
       const pick = arr => arr[Math.floor(Math.random() * arr.length)];
-  'venue.lit': venueLit,
 
       for (const f of getZoneFurniture(zoneId)) {
         const fl = f.flags || {};

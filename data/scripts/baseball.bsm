@@ -92,22 +92,18 @@
 ::endasset
 
 # --- Team pool: the runner picks two (home + away) per airing -----------------
+# Eight clubs, as the CPhL has. The Blue Birds' and the Crows' looks (crests, colours,
+# kits) are built by scripts/content/build-deadball-clubs.mjs; the other six wear the
+# house kits until they're replaced. Change this list and bump `era` in
+# plugins/sportsleague/index.js.
 ::teams
+Coldwater Basin Blue Birds
+Coldwater Crows
 Rustpile Rats
-Coldwater Kingfishers
 Neon District Wolves
 Slagworks Slaggers
-Ashway Ash-Kickers
-Precinct 9 Enforcers
 Undermarket Moles
-Redline Radwolves
 Docklands Drowners
-Vellum Vultures
-Chrome Row Chargers
-Gutter City Ghouls
-Yards Junkdogs
-Meltdown Mudhens
-Bunker Hill Bruisers
 Static Saints
 ::endteams
 
@@ -205,6 +201,13 @@ Vendor just walked past selling something he called "meat adjacent." I didn't fo
 The stadium clock froze at 6:66 four years ago and honestly it's never been wrong about the mood.
 Somewhere out past the outfield wall a dog is howling in perfect rhythm with the crowd. Nobody brought a dog.
 They retired a number here once. Not for a player. For a guy who survived a full season in the cheap seats. Brave soul.
+The Coldwater Basin Blue Birds are the oldest club in this league. They were playing ball in Old Coldwater when the Meridian still had a doorman.
+The Coldwater Crows go back to 2022, before the Curtain went up. One club in this league is older, and the Crows have spent every season since trying to bury it.
+Blue Birds and Crows. Oldest grudge in the Basin. Nobody remembers what started it, and everybody remembers whose side they're on.
+Sir Charles was a Blue Birds man. Never missed a home game, never said a kind word about the Crows, and the Crows have never said one back.
+Never been a wire in a Crows uniform. Not one augment, not one graft, not since 2022. Ask them why and they just smile at you. Politely. For a long time.
+The Crows don't sign free agents. Somebody vouches for you, you sit a season in the stands, and one day there's a jersey in your locker. Nobody ever says who left it.
+You'll see crows on the light towers on game nights. Just sitting. Watching. The Crows' people say that's lucky. They don't say for who.
 ::endlines
 
 # --- Balls in play ---------------------------------------------------------------
