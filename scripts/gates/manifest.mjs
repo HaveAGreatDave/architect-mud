@@ -257,6 +257,7 @@ export const GROUPS = [
       'scripts/voice/smoke.mjs',
       'scripts/voice/accent-smoke.mjs',    // where the accents go: nucleus, given/new, minor breaks, compounds
       'scripts/voice/contour-smoke.mjs',   // what the accents sound like: nuclear fall, downstep, minor-break reset
+      'scripts/voice/timing-smoke.mjs',    // segment durations against Klatt's rules; estimateDuration matches the schedule
       'scripts/voice/fm-smoke.mjs',
       'scripts/voice/worklet-smoke.mjs',   // the worklet back end: track list, fallback, stability, formants; synthiness; tension and creak
     ],

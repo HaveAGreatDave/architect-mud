@@ -4061,7 +4061,23 @@ return out;
     // first. The estimate is not a nicety — the broadcast hold is FITTED to it — so
     // the two must agree by construction rather than by discipline.
     //
-    // ctx: { nxtCode, nxt, prevCode, stress, shout, wordScale, speed }
+    // ctx: { nxtCode, nxt, prevCode, stress, shout, wordScale, speed, fin }
+    //
+    // For each index, the break that ends its phrase if no vowel comes between them: ''
+    // for the end of the run, null when a vowel follows first. So it is set on the last
+    // vowel of a phrase and on the consonants after it, which is the rhyme the
+    // phrase-final rule lengthens. One backward pass, so neither caller scans ahead.
+    function rhymeBreaks(phon) {
+      const out = new Array(phon.length);
+      let cur = '';
+      for (let j = phon.length - 1; j >= 0; j--) {
+        out[j] = cur;
+        const c = phon[j];
+        if (VOWELS.has(c)) cur = null;
+        else if (isBreak(c)) cur = c;
+      }
+      return out;
+    }
     function sylFrom(phon, i) {
       let n = 0;
       for (let j = i; j < phon.length; j++) {
@@ -4086,11 +4102,17 @@ return out;
       // …and it scales with the WEIGHT of the break. A syllable before a full stop is
       // held longer than one before a comma; that difference is a large part of how a
       // listener hears which mark was written.
-      if (!ctx.nxtCode) dur *= ev(1.30);
-      else if (isTerm(ctx.nxtCode)) dur *= ev(1.30);
-      // (a minor break is a breath of a boundary, so it gets a breath of the lengthening)
-      else if (PH[ctx.nxtCode] && PH[ctx.nxtCode].minor) dur *= ev(1.08);
-      else if (isBreak(ctx.nxtCode)) dur *= ev(1.18);
+      // It lengthens the whole RHYME of the phrase's last syllable: its vowel and every
+      // consonant after it (Klatt's clause-final rule). `ctx.fin` is the break that ends
+      // it (see rhymeBreaks). This used to lengthen only the segment touching the break,
+      // so "bead." held its /d/ and left the vowel at its mid-phrase length.
+      const fin = ctx.fin;
+      if (fin != null && p.t !== 'P') {
+        if (!fin || isTerm(fin)) dur *= ev(1.30);
+        // (a minor break is a breath of a boundary, so it gets a breath of the lengthening)
+        else if (PH[fin].minor) dur *= ev(1.08);
+        else if (isBreak(fin)) dur *= ev(1.18);
+      }
       // A post-vocalic /r/ is a colouring that takes time to sound: held a little longer
       // than an onset /r/, or the F3 dip that IS the /r/ is over before it is heard.
       if (code === 'R' && VOWELS.has(ctx.prevCode) && !(ctx.nxt && ctx.nxt.t === 'V')) dur *= 1.35;
@@ -4102,9 +4124,23 @@ return out;
         // AX is already the reduced vowel; shortening it again double-counts.
         dur *= ev(ctx.stress === 2 ? 1 + (ctx.shout ? 1.15 : 0.65) * TUNING.emphasis
              : ctx.stress ? 1.12 : (code === 'AX' ? 1 : 0.8));
-        // Pre-voiced lengthening — the real cue behind "bad" vs "bat".
-        if (ctx.nxt && (ctx.nxt.t === 'F' || ctx.nxt.t === 'S' || ctx.nxt.t === 'H')) {
-          dur *= ctx.nxt.vd ? 1.25 : 0.85;
+        // POSTVOCALIC CONTEXT, the real cue behind "bad" vs "bat". What follows the vowel
+        // in its word sets its length (Klatt's rule 9, pulled toward 1): longest before a
+        // voiced fricative, then a voiced stop, a voiceless fricative, a nasal, and
+        // shortest before a voiceless stop. An affricate counts as a stop. In a cluster the
+        // first consonant decides. The effect is full in a stressed or phrase-final
+        // syllable and half that elsewhere. The cue itself is segmental, so `natural` keeps
+        // it; which syllables get the full effect is prosody, so at natural 0 every
+        // syllable gets three quarters of it. AX is at its shortest already (Klatt's rule
+        // compresses toward a minimum, and a schwa has next to nothing above it), so it
+        // only ever lengthens.
+        const n = ctx.nxt;
+        if (n && (n.t === 'F' || n.t === 'S' || n.t === 'H' || n.t === 'N')) {
+          let k = n.t === 'N' ? 0.92 : n.t === 'H' ? 0.85
+            : (n.t === 'S' || n.stopFirst) ? (n.vd ? 1.20 : 0.80) : (n.vd ? 1.30 : 0.90);
+          if (code === 'AX') k = Math.max(1, k);
+          const w = 0.75 + ((ctx.stress || ctx.fin != null ? 1 : 0.5) - 0.75) * nat;
+          dur *= 1 + (k - 1) * w;
         }
         // The nucleus of a line being sold, held (see deliveryFor).
         if (ctx.held && ctx.hold) dur *= ev(ctx.hold);
@@ -4142,6 +4178,7 @@ return out;
       // `dl` is the line's delivery (deliveryFor), for the held nucleus and the pauses.
       let t = 0.08, stress = 0, prevCode = null, held = false, long = 0;
       let wordScale = sylScale(sylFrom(phon, 0));
+      const fins = rhymeBreaks(phon);
       for (let i = 0; i < phon.length; i++) {
         const code = phon[i];
         if (code === '^') { held = true; continue; }
@@ -4151,14 +4188,15 @@ return out;
         let j = i + 1; while (isMark(phon[j])) j++;
         const nxtCode = phon[j], nxt = PH[nxtCode];
         if (p.t === 'P') wordScale = sylScale(sylFrom(phon, i + 1));
-        const ctx = { nxtCode, nxt, prevCode, stress, shout, wordScale, speed, held, hold: dl && dl.hold, pause: dl && dl.pause, long, longK: dl && dl.longK, nat: dl && dl.nat };
+        const ctx = { nxtCode, nxt, prevCode, stress, shout, wordScale, speed, held, hold: dl && dl.hold, pause: dl && dl.pause, long, longK: dl && dl.longK, nat: dl && dl.nat, fin: fins[i] };
         const dur = segmentDuration(p, code, ctx);
         long = 0;
         if (p.t === 'V') { stress = 0; held = false; }
         if (p.t === 'F' && p.stopFirst) t += AFFRICATE_CLOSURE;
         if (p.t === 'S') {
           const { unreleased, asp } = stopTiming(p, ctx);
-          t += dur*0.6 + 0.02 + (unreleased ? 0 : asp);
+          // (an unreleased stop holds 20 ms; a released one bursts for its own `bd`)
+          t += dur*0.6 + (unreleased ? 0.02 : (p.bd ?? 20) / 1000 + asp);
         } else {
           t += dur;
         }
@@ -5090,6 +5128,7 @@ return out;
 
       // POLYSYLLABIC SHORTENING — see sylFrom/sylScale above. A syllable gets shorter
       let wordScale = sylScale(sylFrom(phon, 0));
+      const fins = rhymeBreaks(phon);
       let pendingStress = 0, pendingHeld = false, pendingLong = 0, prevNasal = false, prevP = null, prevCode = null;
       let pendingNuc = null;   // the kind of nucleus ('+') the next vowel carries, read off the break that ends its phrase
       const holdK = shoutLine ? Math.min(D.hold, 1.4) : D.hold;   // a shout is already held
@@ -5109,7 +5148,7 @@ return out;
         const nxt = phAt(i+1);
         let nj = i + 1; while (isMark(phon[nj])) nj++;
         const nxtCode = phon[nj];
-        const segCtx = { nxtCode, nxt, prevCode, stress: pendingStress, shout: shoutLine, wordScale, speed, held: pendingHeld, hold: holdK, pause: D.pause, long, longK: D.longK, nat };
+        const segCtx = { nxtCode, nxt, prevCode, stress: pendingStress, shout: shoutLine, wordScale, speed, held: pendingHeld, hold: holdK, pause: D.pause, long, longK: D.longK, nat, fin: fins[i] };
         let dur = segmentDuration(p, code, segCtx);
         // (pre-boundary, polysyllabic, stress, schwa and pre-voiced rules all live in
         //  segmentDuration now — see the note there.)
@@ -5472,7 +5511,9 @@ return out;
         if (code !== '_') { prevP = p; prevCode = code; }
       }
       const end = t + 0.08;
-      if (trace) trace.push({ p: 'END', at: t - t0 });
+      // (`est` is what estimateDuration says the same run takes from the same start, so a
+      // gate can hold the two callers to each other)
+      if (trace) trace.push({ p: 'END', at: t - t0, est: estimateDuration(phon, speed, undefined, D) - 0.08 });
       voiced.gain.setTargetAtTime(0, end, 0.02);
       if (creakP) creakP.setTargetAtTime(0, end + 0.05, 0.02);
       // The last thing a line leaves behind. The voice is allowed to fade; the noise

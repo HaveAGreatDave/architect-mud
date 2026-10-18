@@ -707,7 +707,7 @@ better-chosen vowel. The marks are heard through the accent shapes below.
   no fall.
 - **`_M`** gives back half of the declination so far, where a full stop gives back all
   of it. It has the lightest boundary tone (1.035, against a comma's 1.07), and the
-  vowel before it lengthens by 1.08 where every other break gets 1.18.
+  syllable before it lengthens by 1.08 where every other break gets 1.18.
   `estimateDuration` shares `segmentDuration`, so pacing follows.
 
 The gate is `scripts/voice/contour-smoke.mjs`. It speaks lines on the worklet back
@@ -716,6 +716,61 @@ taken out.
 
 `_phonemesFor` strips `'+'` unless `opt.marks` is set, so a check about a sound
 doesn't have to spell it; `opt.excite` places `'^'` as `speak()` would.
+
+### Segment timing against Klatt's rules
+
+Every length comes from `segmentDuration` (and `stopTiming` for a stop's burst and
+aspiration) in the "Segment timing" section of `audio-engine.js`. The scheduler in
+`speak()` and `estimateDuration` both call it, and `estimateDuration` must agree with
+the schedule, because declination, the broadcast hold and fit-to-window timing are
+all fitted to the estimate. `opt.trace` ends with an `END` entry carrying both
+numbers.
+
+Klatt's rules (1979, as used in MITalk and DECtalk) give each segment an inherent and
+a minimum duration and scale the part above the minimum by a product of percentages.
+ORACLE scales the whole inherent duration (`PH[code].d`) and floors it at 30 ms, so
+it has no per-segment minimum. Its multipliers are smaller than Klatt's, because the
+inherent durations were tuned by ear against them. The audit, as of October 2026
+(line numbers drift; the function names don't):
+
+| Klatt rule | ORACLE | Where |
+|---|---|---|
+| Inherent and minimum duration | Approximated: one inherent `d`, a global 30 ms floor | `segmentDuration`, first line ([:4289](../client/shared/audio-engine.js:4289)) |
+| Pause insertion | Has: breaks are their own `P` phonemes with lengths (`_M` 80 ms) | `PH`, `textToPhonemes` |
+| Clause-final lengthening (vowel and coda) | Has: the rhyme of a phrase's last syllable ×1.30 at a full stop or line end, ×1.18 at a comma, ×1.08 at `_M`. Built October 2026; it used to reach only the segment touching the break | `rhymeBreaks`, `segmentDuration` ([:4303](../client/shared/audio-engine.js:4303)) |
+| Non-phrase-final shortening | Approximated: the final rhyme lengthens instead, so the ratio is 1.3 where Klatt's is about 2.3 | as above |
+| Non-word-final shortening | Missing | |
+| Polysyllabic shortening | Has: graded per word, 1 / (1 + 0.062 per extra syllable) | `sylFrom`, `sylScale` ([:4286](../client/shared/audio-engine.js:4286)) |
+| Non-initial-consonant shortening | Missing | |
+| Unstressed shortening | Approximated: an unstressed vowel ×0.8 (`AX` is already short and is left), a stressed one ×1.12. Unstressed consonants aren't shortened and the minimum isn't halved | `segmentDuration` ([:4319](../client/shared/audio-engine.js:4319)) |
+| Emphasis lengthening | Has: `'!'` ×1.65, ×2.15 on a shouted line, both scaled by `TUNING.emphasis`; `'^'` holds the nucleus of a sold line by the delivery's `hold` | `segmentDuration` ([:4319](../client/shared/audio-engine.js:4319), [:4340](../client/shared/audio-engine.js:4340)) |
+| Postvocalic context of vowels | Has: before a voiced fricative ×1.30, a voiced stop or affricate ×1.20, a voiceless fricative ×0.90, a nasal ×0.92, `/h/` ×0.85, a voiceless stop or affricate ×0.80. Full in a stressed or phrase-final syllable, half elsewhere; `AX` only lengthens. Built October 2026 from a flat ×1.25 / ×0.85 | `segmentDuration` ([:4321](../client/shared/audio-engine.js:4321)) |
+| Phrase-final postvocalic liquid | Approximated: a postvocalic `/r/` ×1.35 and dark `/l/` ×1.3 in any position (a segmental cue), plus the final-rhyme lengthening | `segmentDuration` ([:4312](../client/shared/audio-engine.js:4312)) |
+| Cluster shortening | Missing | |
+| Lengthening after aspiration | Approximated: the aspiration is scheduled as its own time after the burst, so the syllable gets longer by it | `stopTiming` ([:4356](../client/shared/audio-engine.js:4356)) |
+| Speaking rate | Has: every length divided by the voice's `speed`; pauses also scaled by the delivery's `pause` | `segmentDuration` |
+
+`natural` (see Synthiness below) applies to the prosodic rules: phrase-final
+lengthening, stress, polysyllabic shortening and the held nucleus all go to 1 at
+natural 0. The postvocalic rule and the post-vocalic `/r/` and `/l/` are segmental
+cues, so a machine voice keeps them; "bead" and "beat" stay apart at natural 0. Which
+syllables get the postvocalic rule in full is prosody, though, so at natural 0 every
+vowel gets three quarters of it.
+
+A released stop advances by its own burst length (`bd`) in both callers. The estimate
+used to add a flat 20 ms, where the bursts run 8 to 22 ms.
+
+Not done: the three missing rules and a per-segment minimum. Non-initial-consonant
+and cluster shortening would shorten most consonants and move every broadcast's
+length, so they need an ear before they go in. Nobody has listened to the two rules
+built here yet.
+
+The gate is [`scripts/voice/timing-smoke.mjs`](../scripts/voice/timing-smoke.mjs). It
+speaks lines on the graph back end and reads the trace: "bead" over "beat" (at a
+phrase end and mid-phrase), "lose" over "loose", a phrase-final "road" over a
+mid-phrase one (vowel and coda, with a comma in between), stressed over unstressed,
+the estimate within 3% of the schedule on five lines, and natural 0. Against the
+engine from before this change it fails 7 checks.
 
 ### Voice smoke test — the gate
 
