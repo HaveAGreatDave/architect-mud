@@ -1746,6 +1746,11 @@ export const RENDER_TUNE = {
   // A lit neon tube throws a broad, faint pool of its own colour onto its backing, under the tight
   // halo `signBloom` sizes. 1 is the wash at 40%; 0 is a sign whose light stops at the glass.
   neonWash: 1,
+  // ── …AND THE INK ROUND ITS LETTERS ──────────────────────────────────────────────────────────
+  // A black keyline round painted and unlit lettering while the cel look's ink (`glInk`) is on, so
+  // a name reads off its wall the way the ink reads off a building. The width each side, as a
+  // fraction of the 72-px letter cell; 0 is no line. Lit lettering takes none (see `signInkW`).
+  signInk: 0.05,
   // ── …AND IT STANDS THERE WHEREVER YOU ARE STANDING ──────────────────────────────────────────
   // 0 puts the stand-off back in the camera's forward coordinate, which is where every sign in the
   // game carried it until now — and which puts a CAMERA TERM in the shape of a thing painted on a
@@ -43935,6 +43940,26 @@ function deadNeon(label) {
   const on = Math.sin(ph * 2.1) + 0.6 * Math.sin(ph * 0.83) > 0.2;
   return on ? -1 : k;
 }
+// ── THE INK ROUND A LETTER (RENDER_TUNE.signInk) ─────────────────────────────────────────────────
+//
+// How wide the black keyline round this sign's lettering is, in canvas px each side, or 0 for none.
+// ⚠ ONLY ON UNLIT LETTERING. A lit name pops by its own light, and ink fights it twice: the decal
+// shader finds a tube by its opaque alpha (`coreAt` in gl/decals.js), so an opaque ring round one
+// is shaded as more glass; and a lit name at street distance is a letter a few texels tall, where
+// the mip chain averages the ink into the letter and Corbett Mansions' gilt went dark.
+// ⚠ AND NONE ROUND DARK LETTERING (KSAB's ON AIR box is near-black letters on a lit panel): a dark
+// line round a dark letter doesn't outline it, it only makes it bolder.
+const SIGN_INK = 'rgb(10,10,18)';   // the cel look's ink (INK_COL in gl/context.js)
+// ⚠ PART OF THE CEL LOOK, so it is drawn only while `glInk` is on (Settings > Cel Shading). The
+// width is in the texture key, so the setting re-bakes every sign on the next frame.
+function signInkW(color, lit) {
+  const k = RENDER_TUNE.signInk ?? 0;
+  if (lit || !(k > 0) || !RENDER_TUNE.glInk) return 0;
+  const [r, g, b] = /^#[0-9a-f]{6}$/i.test(color) ? hexRgb(color)
+    : ((String(color).match(/\d+(\.\d+)?/g) || [255, 255, 255]).slice(0, 3).map(Number));
+  if ((0.2126 * r + 0.7152 * g + 0.0722 * b) / 255 < 0.2) return 0;
+  return Math.round(SIGN_CELL * k * 10) / 10;
+}
 function bakeSignText(label, color, dn, vertical, solid, tight, opts) {
   // The universal chokepoint for world lettering, so it catches the arms that paint a name straight
   // onto a frieze or a false front (The Meridian, The Dry Goods) rather than onto a blade or a band.
@@ -44020,7 +44045,9 @@ function bakeSignText(label, color, dn, vertical, solid, tight, opts) {
   // Whether this lit name is bent as neon tube (see TUBE below). In the key because it is the
   // whole picture, and a toggle that reached only new bakes would leave the city half converted.
   const tubeOn = dn > 0 && !solid ? 2 : 0;
-  const key = `${label}|${color}|${dn}|${tubeOn}${tubeOn ? ':' + (RENDER_TUNE.neonWash ?? 1) : ''}|${vertical ? 1 : 0}|${solid ? 1 : 0}|${tight ? 1 : 0}|${face}|${picto}|${badge}|${fitB}|${sub}|${stack ? 1 : 0}|${dead}`;
+  // The keyline's width, in the key so turning it up or off re-bakes rather than keeping old art.
+  const inkW = signInkW(color, dn > 0);
+  const key = `${label}|${color}|${dn}|${tubeOn}${tubeOn ? ':' + (RENDER_TUNE.neonWash ?? 1) : ''}|${vertical ? 1 : 0}|${solid ? 1 : 0}|${tight ? 1 : 0}|${face}|${picto}|${badge}|${fitB}|${sub}|${stack ? 1 : 0}|${dead}|${inkW}`;
   // ⚠ TALLIED BEFORE THE CACHE, NEVER AFTER IT. The question is which hand this CALL asked for, and
   // a cache hit is still a call — record only the misses and a sign that has already been baked once
   // disappears from the census, which is every sign after the first frame.
@@ -44173,10 +44200,20 @@ function bakeSignText(label, color, dn, vertical, solid, tight, opts) {
   // exactly what shipped.
   const SB = RENDER_TUNE.signBloom ?? 1;
   const glow = (dn ? 12 : 6) * SB, core = (dn ? 6 : 2) * SB;
+  // The keyline (see `signInkW`): a stroke twice its width, centred on the glyph's edge, laid
+  // before the letter's own fill so only the outer half shows. Round joins, or a mitre spikes out
+  // of every sharp serif and script hairline.
+  const ink = (ch, x, y) => {
+    g.save();
+    g.shadowBlur = 0; g.lineJoin = 'round'; g.lineCap = 'round';
+    g.strokeStyle = SIGN_INK; g.lineWidth = inkW * 2; g.strokeText(ch, x, y);
+    g.restore();
+  };
   const putLit = (ch, x, y) => {
     if (solid) {   // painted, not lit: one flat colour, and after dark a breath of its own glow because the board behind it is backlit
       g.shadowColor = color; g.shadowBlur = dn ? 5 : 0;
       g.fillStyle = color; g.fillText(ch, x, y);
+      if (inkW) ink(ch, x, y);
       g.shadowBlur = 0; g.fillText(ch, x, y);
       return;
     }
@@ -44266,7 +44303,8 @@ function bakeSignText(label, color, dn, vertical, solid, tight, opts) {
       return;
     }
     g.shadowColor = color; g.shadowBlur = glow; g.fillStyle = color; g.fillText(ch, x, y);            // colour halo
-    g.shadowBlur = core; g.lineWidth = 2.4; g.strokeStyle = 'rgba(8,6,10,0.9)'; g.strokeText(ch, x, y); // dark edge
+    if (inkW) ink(ch, x, y);                                                                            // the keyline, in place of the dark edge
+    else { g.shadowBlur = core; g.lineWidth = 2.4; g.strokeStyle = 'rgba(8,6,10,0.9)'; g.strokeText(ch, x, y); } // dark edge
     g.shadowBlur = 0; g.fillStyle = 'rgba(255,255,255,0.80)'; g.fillText(ch, x, y);                    // bright core — see the note above `glow`: at 0.95 a pale tube is simply white
   };
   // ⚠ THE DEAD TUBE IS KNOCKED OUT AFTER THE WORD IS LIT, so the word's layout never changes (see

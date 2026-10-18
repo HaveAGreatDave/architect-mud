@@ -187,6 +187,10 @@ while the wall tilts. The right way is two helpers:
 - `bakeSignText(label, color, dn, vertical, solid, tight)` → renders the label once to a memoised neon
   texture (keyed on every argument; dark edge + white core + colour halo). `tight` crops the canvas
   to the inked width instead of reserving a CELL per glyph — see the ⚠ below before choosing.
+  With Cel Shading on (`glInk`), unlit lettering (`dn` 0: daytime, paint, a sign with no power) gets a black keyline,
+  `RENDER_TUNE.signInk` of the cell each side, so a name reads off its wall. Lit lettering and dark
+  letters get none: a lit name pops by its own light, and the decal shader reads an opaque ring
+  round a tube as more glass (`signInkW`).
 - `drawSurfaceText(ctx, TL, TR, BR, BL, tex, vertical, alpha)` → maps that texture onto the face's
   **real projected quad** by 8-strip affine subdivision (canvas has no perspective transform; thin
   strips along the text axis approximate one). Composed with `ctx.transform` (not `setTransform`, so
