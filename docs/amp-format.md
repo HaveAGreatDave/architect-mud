@@ -246,6 +246,7 @@ The `config` object is the synth recipe passed directly to the Web Audio layer b
 | `filter.q` | float | `1` | Filter resonance / Q factor |
 | `filter.gain` | float | — | Boost or cut in dB, for `peaking`, `lowshelf` and `highshelf` only. The other types ignore it |
 | `formants` | array | — | A bank of parallel bandpass resonators in place of `filter`: bare Hz (`[700, 1220, 2600]` is roughly /ɑ/) or `{freq, q, gain}` objects |
+| `modes` | object | none | A struck object instead of an oscillator: `{hardness, strike, partials: [{freq, decay, gain}]}`, each partial a sine falling to -60 dB over `decay` seconds, at most 8. Only `gain`, `delay`, `pan` and `adsr.r` (the release when stolen) apply. See [systems-procedural-audio.md](systems-procedural-audio.md#struck-surfaces-modes) |
 | `noise` | string | `"white"` | The noise colour for `noiseMix`: `white`, `pink` (-3 dB/octave) or `brown` (-6 dB/octave). All three play at the same level |
 | `noiseSeed` | int | — | Pins where in the noise buffer this layer starts. Without it each noise layer starts at its own offset |
 | `width` | float | `0` | Stereo spread of the layer's noise, 0–1. `0` is mono, as before; `1` is fully decorrelated |

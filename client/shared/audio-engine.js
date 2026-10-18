@@ -1042,9 +1042,112 @@
     return releases;
   }
 
+  // ── MODES: a struck object ─────────────────────────────────────────────────
+  // `layer.modes` is modal synthesis: what a hit on a pan, a plank, a pane or a
+  // flagstone actually is. Strike a solid and it rings at a handful of its own
+  // frequencies, each dying at its own rate: metal long and inharmonic, wood short
+  // and low, glass bright and sparse, stone a thud that's over at once.
+  //
+  //   modes: { hardness: 0..1, strike: 0..1, partials: [{ freq, decay, gain }] }
+  //
+  // `decay` is seconds to -60 dB. `hardness` is the mallet: a soft one stays in
+  // contact longer, which rounds the attack and starves the high modes; a hard one
+  // is a click that reaches all of them. `strike` is the level of the contact
+  // noise itself, the tick of the hit (0 for none). The layer's own `gain`, `delay`
+  // and `pan` apply; filter, FM, drive, echo and mods don't, and its adsr is read
+  // only for the release when the voice is stolen.
+  //
+  // Each mode is a sine with an exponential envelope, not a bandpass rung by the
+  // noise. They're the same impulse response, but a bandpass that rings for two
+  // seconds at 400 Hz needs a Q near 400, its output level falls with its
+  // bandwidth so each would need its own make-up gain, and a single-precision
+  // biquad that sharp is where browsers disagree. A sine has the frequency, decay
+  // and level written on it, for two nodes a mode. MAX_MODES caps the bank, so a
+  // hit is at most 2 × 8 + 4 nodes whatever a table asks for.
+  const MAX_MODES = 8;
+  function buildModes(layer, destination, time) {
+    const m = layer.modes;
+    const nodes = [];
+    const hard = Math.max(0, Math.min(1, m.hardness ?? 0.7));
+    // contact time: 2.6 ms for a soft mallet (its first null near 600 Hz) down to
+    // 0.1 ms for steel on glass (past 15 kHz)
+    const contact = 0.0025 * (1 - hard) * (1 - hard) + 0.0001;
+    const nyq = ctx.sampleRate * 0.45;
+    const out = ctx.createGain();
+    out.gain.value = layer.gain ?? 1;
+    out.connect(destination);
+    let ring = 0;
+    const partials = (Array.isArray(m.partials) ? m.partials : [])
+      .filter(p => p && p.freq > 20 && p.freq < nyq && p.decay > 0 && p.gain > 0)
+      .slice(0, MAX_MODES);
+    for (const p of partials) {
+      // A half-sine contact pulse's spectrum: what a mallet of that hardness
+      // passes to a mode at this frequency. Its first null is at 1.5 / contact.
+      const x = 2 * p.freq * contact;
+      const pass = Math.abs(x - 1) < 1e-3 ? Math.PI / 4 : Math.abs(Math.cos(Math.PI * x / 2) / (1 - x * x));
+      const level = p.gain * Math.max(0.02, pass);
+      const osc = ctx.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(p.freq, time);
+      if (_dopSink) _dopSink.push(osc.detune);
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0, time);
+      g.gain.linearRampToValueAtTime(level, time + contact);
+      g.gain.setTargetAtTime(0, time + contact, p.decay / 6.91);
+      osc.connect(g).connect(out);
+      const end = time + contact + p.decay;
+      osc.start(time);
+      osc.stop(end + 0.02);
+      nodes.push([osc, end + 0.02]);
+      if (end > ring) ring = end;
+    }
+    if (m.strike > 0) {
+      const src = ctx.createBufferSource();
+      src.buffer = noiseBuffer();
+      src.loop = true;   // a random offset can land near the buffer's end
+      const lp = ctx.createBiquadFilter();
+      lp.type = 'lowpass';
+      lp.frequency.value = Math.min(nyq, 1200 + 9000 * hard);
+      lp.Q.value = 0.7;
+      const g = ctx.createGain();
+      const len = contact * 3 + 0.002;
+      g.gain.setValueAtTime(m.strike, time);
+      g.gain.setTargetAtTime(0, time, len / 3);
+      src.connect(lp).connect(g).connect(out);
+      src.start(time, noiseOffset(layer));
+      src.stop(time + len * 3 + 0.01);
+      nodes.push([src, time + len * 3 + 0.01]);
+      if (time + len * 3 > ring) ring = time + len * 3;
+    }
+    const r = Math.max(0.01, layer.adsr?.r ?? 0.05);
+    let released = false;
+    function release(atTime) {
+      if (released) return;
+      released = true;
+      const t = Math.max(atTime, ctx.currentTime);
+      if (t >= ring) return;   // already rung out
+      out.gain.cancelScheduledValues(t);
+      out.gain.setValueAtTime(layer.gain ?? 1, t);
+      out.gain.linearRampToValueAtTime(0, t + r);
+      // only sooner: a later stop() would undo the one each node already has
+      for (const [n, end] of nodes) if (end > t + r + 0.02) n.stop(t + r + 0.02);
+    }
+    return { release, gainNode: out };
+  }
+
   function buildLayer(layer, destination, time, holdSeconds) {
     const nodes = [];
     if (layer.delay) time = time + layer.delay;
+    if (layer.modes && !layer.waveform) {
+      // a struck object rings for its own decays; holdSeconds doesn't hold it
+      if (Number.isFinite(layer.pan) && layer.pan !== 0 && ctx.createStereoPanner) {
+        const p = ctx.createStereoPanner();
+        p.pan.value = Math.max(-1, Math.min(1, layer.pan));
+        p.connect(destination);
+        destination = p;
+      }
+      return buildModes(layer, destination, time);
+    }
     const mods = Array.isArray(layer.mods) && layer.mods.length ? layer.mods : null;
     const P = mods ? Object.create(null) : null;   // mod targets, filled as each stage is built
     const wants = mods ? modTargetSet(mods) : null;

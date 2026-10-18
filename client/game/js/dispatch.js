@@ -1893,8 +1893,10 @@ const handlers = {
     const detail = sfxDetail(loadSettings(), state.player?.displayRung);
     if (detail === 'off') return;
     if (msg.tier === 'full' && detail !== 'full') return;
+    // The rung also says how much of a struck surface to build: its modes, where
+    // the table has them (MODE_LIMIT in procedural-sfx.js).
     const play = p => {
-      const def = window.ProceduralSFX?.buildCookingCue(p);
+      const def = window.ProceduralSFX?.buildCookingCue({ ...p, detail });
       if (def) window.AudioEngine?.playSfx(def, (msg.gain ?? 1) * GAME_SFX_GAIN);
     };
     if (msg.series) { playSeries(msg.series, msg.params || {}, play); return; }

@@ -66,8 +66,77 @@
     wood:    { freq: 260,  decay: 0.13, q: 1.4, noise: 0.5,  bend: 0.82 },
     metal:   { freq: 1650, decay: 0.30, q: 7.0, noise: 0.15, bend: 0.93 },
     ceramic: { freq: 2600, decay: 0.45, q: 9.0, noise: 0.08, bend: 0.97 },
+    glass:   { freq: 3200, decay: 0.50, q: 10,  noise: 0.06, bend: 0.98 },
+    stone:   { freq: 180,  decay: 0.06, q: 1.2, noise: 0.8,  bend: 0.80 },
     none:    { freq: 400,  decay: 0.08, q: 1.0, noise: 0.7,  bend: 0.85 },
   };
+
+  // ── Modes: what a struck surface rings at ───────────────────────────────────
+  //
+  // The modal path for `impact` and the resonant footsteps, built by the engine's
+  // `layer.modes` (see buildModes in audio-engine.js). A row is a material, not a
+  // place, and a surface with no row (`none`, flesh) keeps the filtered-noise path.
+  //
+  //   f0       Hz of the lowest mode, for a hit of middling weight
+  //   ratios   each mode as a multiple of f0. Whole numbers are a note; these aren't,
+  //            which is most of why a pan sounds like a pan
+  //   gains    each mode's level before the mallet and the strike position
+  //   decay    seconds to -60 dB of the lowest mode
+  //   damp     how much faster a higher mode dies: decay × ratio^-damp. Wood and
+  //            stone lose their top almost at once; metal and glass keep it
+  //   hardness 0..1, the surface's own: how much of the top a hit can reach
+  //   strike   level of the contact tick
+  //   spread   how far each mode's frequency moves between two hits (fraction)
+  //   level    gain against the filtered-noise impact it replaces, so a hit is as
+  //            loud on either path (scripts/audio/modes-smoke.mjs measures both)
+  //
+  // The metal ratios are a free bar's, glass a thin plate's, and wood a
+  // marimba-like block's, nudged until they sounded like the thing.
+  const MODES = {
+    metal:   { f0: 480,  ratios: [1, 2.76, 5.40, 8.93, 1.47, 3.91, 6.98, 13.3], gains: [1, 0.8, 0.55, 0.4, 0.5, 0.45, 0.3, 0.2],
+               decay: 2.0, damp: 0.5, hardness: 0.85, strike: 0.1, spread: 0.035, level: 1.68 },
+    wood:    { f0: 210,  ratios: [1, 2.57, 4.21, 1.62, 6.13], gains: [1, 0.55, 0.35, 0.4, 0.2],
+               decay: 0.26, damp: 0.9, hardness: 0.55, strike: 0.2, spread: 0.06, level: 2.34 },
+    glass:   { f0: 1650, ratios: [1, 2.32, 4.25, 6.63], gains: [1, 0.7, 0.45, 0.3],
+               decay: 1.6, damp: 0.3, hardness: 1.0, strike: 0.07, spread: 0.04, level: 2.03 },
+    ceramic: { f0: 1150, ratios: [1, 2.14, 3.83, 5.61, 7.9], gains: [1, 0.65, 0.45, 0.3, 0.2],
+               decay: 1.3, damp: 0.4, hardness: 0.95, strike: 0.08, spread: 0.04, level: 2.34 },
+    stone:   { f0: 140,  ratios: [1, 1.73, 2.91, 4.1], gains: [1, 0.5, 0.3, 0.2],
+               decay: 0.09, damp: 1.1, hardness: 0.7, strike: 0.3, spread: 0.08, level: 2.12 },
+  };
+
+  // How many modes each Sound Detail rung builds. Absent (the server, the
+  // regress suite, a caller that never asked) is the filtered-noise path, so the
+  // modal one is a choice the client makes, never a change under anyone's feet.
+  const MODE_LIMIT = { full: 8, limited: 4 };
+
+  // One modal layer for material `mat`. `weight` lowers it and lengthens the ring,
+  // as a heavier thing does; `intensity` hits harder, which reaches higher modes.
+  // Every draw is seeded, and the strike position moves which modes speak, so two
+  // hits on the same pan are never the same hit.
+  function modalLayer(mat, { intensity = 0.5, weight = 0.5, limit = 8, ring = 1 } = {}) {
+    const m = MODES[mat];
+    const i = clamp01(intensity), w = clamp01(weight);
+    const size = lerp(1.25, 0.7, w);
+    const pos = 0.12 + 0.76 * rnd();
+    const partials = [];
+    m.ratios.slice(0, limit).forEach((r, k) => {
+      const node = Math.abs(Math.sin(Math.PI * (k + 1) * pos));
+      partials.push({
+        freq: vary(m.f0 * size * r, m.spread),
+        decay: vary(m.decay * ring * lerp(0.75, 1.4, w) * Math.pow(r, -m.damp), 0.15),
+        gain: vary((m.gains[k] ?? 0.3) * lerp(0.35, 1, node), 0.15),
+      });
+    });
+    // levels sum to one, so the layer's gain is the peak however many modes it has
+    const sum = partials.reduce((s, p) => s + p.gain, 0) || 1;
+    for (const p of partials) p.gain /= sum;
+    const longest = Math.max(...partials.map(p => p.decay));
+    return {
+      modes: { hardness: clamp01(m.hardness * lerp(0.7, 1.1, i)), strike: m.strike * lerp(0.6, 1.2, i), partials },
+      adsr: { a: 0, d: longest, s: 0, r: 0.05 },
+    };
+  }
 
   // ── State modifiers ──────────────────────────────────────────────────────────
   //
@@ -138,9 +207,15 @@
   // ── IMPACT ───────────────────────────────────────────────────────────────────
   // Utensils on cookware, a plate set down, a mallet on meat. Heavy things are
   // lower and ring longer; small ones are brighter and shorter.
-  function impact({ surface: surf = 'metal', intensity = 0.5, weight = 0.5 } = {}) {
-    const s = surface(surf);
+  function impact({ surface: surf = 'metal', intensity = 0.5, weight = 0.5, detail = null } = {}) {
     const i = clamp01(intensity);
+    // Modal when the client asked for it and the surface rings; see MODES.
+    if (MODES[surf] && MODE_LIMIT[detail]) {
+      const l = modalLayer(surf, { intensity: i, weight, limit: MODE_LIMIT[detail] });
+      l.gain = vary(MODES[surf].level * (0.16 + 0.2 * i), 0.12);
+      return def('cook_impact', l.adsr.d + 0.05, [l]);
+    }
+    const s = surface(surf);
     const freq = vary(s.freq * lerp(1.25, 0.7, weight), 0.08);
     const decay = vary(s.decay * lerp(0.7, 1.5, weight), 0.12);
     return def('cook_impact', decay + 0.15, [
@@ -761,6 +836,18 @@
 
   const footing = s => FOOTSTEPS[s] || FOOTSTEPS.stone;
 
+  // The footings whose strike is modal when the client asks for it, with how long
+  // the floor rings against a free piece of the same material: a floor is big,
+  // fixed down and damped, so a grate rings a third as long as a dropped pan.
+  // `level` is on top of the material's, to match the plain strike it replaces.
+  // Four modes at most, at every rung: this fires on nearly every move.
+  const FOOT_MODES = {
+    stone:  { mat: 'stone',   ring: 1.0, level: 1.38 },
+    tile:   { mat: 'ceramic', ring: 0.3, level: 0.6 },
+    metal:  { mat: 'metal',   ring: 0.3, level: 0.77 },
+    boards: { mat: 'wood',    ring: 0.8, level: 0.83 },
+  };
+
   // `intensity` is weight and pace — sneaking is low, running with a full pack is
   // high. It moves loudness AND brightness, because a heavy step is not simply a
   // louder light one.
@@ -776,7 +863,7 @@
   //               step BLENDS with rain instead of sitting on top of it: in a
   //               downpour the ground is genuinely wet, so the step moves toward
   //               the rain's own spectrum rather than cutting through it.
-  function footstep({ surface: surf = 'stone', intensity = 0.5, wet = 0, foot = 0 } = {}) {
+  function footstep({ surface: surf = 'stone', intensity = 0.5, wet = 0, foot = 0, detail = null } = {}) {
     let f = footing(surf);
     const i = clamp01(intensity);
     const w = clamp01(wet);
@@ -809,8 +896,20 @@
     // layer below reads the weather-adjusted values without threading them.
     f = { ...f, wetness, hardness };
 
-    return atLevel(def('step', 0.5, [
-      { waveform: 'triangle', freq,
+    // The modal strike, on a floor that rings and a client that asked. Water on it
+    // shortens the ring the way it deadens the plain strike.
+    const fm = MODE_LIMIT[detail] && FOOT_MODES[surf];
+    const modal = fm && {
+      ...modalLayer(fm.mat, { intensity: i * footGain, weight: 0.8, limit: 4, ring: fm.ring * lerp(1, 0.6, added) }),
+      gain: vary(MODES[fm.mat].level * fm.level * (0.05 + 0.10 * i) * lerp(0.55, 1, f.hardness) * footGain, 0.14),
+    };
+    if (modal) {
+      for (const p of modal.modes.partials) p.freq *= footPitch;
+      modal.modes.strike = 0;   // the contact layer below is the step's click already
+    }
+
+    return atLevel(def('step', modal ? Math.max(0.5, modal.adsr.d + 0.05) : 0.5, [
+      modal || { waveform: 'triangle', freq,
         pitchBend: { to: freq * 0.62, time: decay * 0.6 },
         filter: { type: 'lowpass', freq: vary(lerp(500, 3000, f.hardness), 0.15), q: 1.1 },
         adsr: { a: 0.001, d: decay, s: 0, r: decay * 0.5 },
@@ -1675,16 +1774,20 @@
   // intended — and what makes a cue reproducible while someone is tuning it.
   //
   // No seed means "vary freely", which is what a purely client-side caller wants.
-  function buildActionCue({ action, material: mat, intensity = 0.5, surface: surf, vessel, heat, flow, state, powered, wet, foot, weight, calibre, duration, seed } = {}) {
+  //
+  // `detail` is the client's Sound Detail rung ('full' or 'limited'), and only the
+  // client passes it: with it, a hit or a step on a surface in MODES is modal; without
+  // it every cue is the one it always was.
+  function buildActionCue({ action, material: mat, intensity = 0.5, surface: surf, vessel, heat, flow, state, powered, wet, foot, weight, calibre, duration, seed, detail } = {}) {
     rnd = Number.isFinite(seed) ? mulberry32(seed) : Math.random;
     try {
-      return _build({ action, material: mat, intensity, surface: surf, vessel, heat, flow, state, powered, wet, foot, weight, calibre, duration });
+      return _build({ action, material: mat, intensity, surface: surf, vessel, heat, flow, state, powered, wet, foot, weight, calibre, duration, detail });
     } finally {
       rnd = Math.random;   // never leave a seeded generator armed for the next caller
     }
   }
 
-  function _build({ action, material: mat, intensity = 0.5, surface: surf, vessel, heat, flow, state, powered, wet, foot, weight, calibre, duration } = {}) {
+  function _build({ action, material: mat, intensity = 0.5, surface: surf, vessel, heat, flow, state, powered, wet, foot, weight, calibre, duration, detail } = {}) {
     switch (action) {
       // Combat. `weight` is separate from `intensity` on purpose: a sledgehammer
       // swung feebly is still a heavy thing moving, and collapsing the two makes
@@ -1693,11 +1796,11 @@
       case 'gunshot': return gunshot({ calibre: calibre ?? 0.4, intensity, suppressed: state === 'suppressed' });
       // `surface` carries the surface class for a step and the door_type for a
       // door, so both reach the same one-argument entry point as everything else.
-      case 'footstep': return footstep({ surface: surf, intensity, wet, foot });
+      case 'footstep': return footstep({ surface: surf, intensity, wet, foot, detail });
       case 'door':     return door({ surface: surf, intensity, state, powered });
       case 'lock':     return lock({ surface: surf, intensity, state });
       case 'chop':    return chop({ material: mat, intensity, state });
-      case 'impact':  return impact({ surface: surf || vessel || 'metal', intensity, weight: weight ?? intensity });
+      case 'impact':  return impact({ surface: surf || vessel || 'metal', intensity, weight: weight ?? intensity, detail });
       case 'scrape':  return scrape({ surface: surf || vessel || 'metal', intensity });
       case 'stir':    return stir({ material: mat, vessel, intensity, state });
       case 'pour':    return pour({ material: mat, flow: flow ?? intensity, state });
@@ -1739,6 +1842,7 @@
     'proc:flatus': { name: 'Procedural — fart styles', ref: () => FLATUS_STYLES },
     'proc:instruments': { name: 'Procedural — instrument voices', ref: () => INSTRUMENTS },
     'proc:footsteps': { name: 'Procedural — footing surfaces', ref: () => FOOTSTEPS },
+    'proc:modes': { name: 'Procedural: struck-surface modes', ref: () => MODES },
     'proc:doors': { name: 'Procedural — door types', ref: () => DOORS },
     'proc:locks': { name: 'Procedural — lock families', ref: () => LOCKS },
   };
@@ -1772,7 +1876,7 @@
   // A representative cue per action, so the panel's preview button can audition
   // the generators themselves rather than only the tables behind them.
   function previewCue(action, opts) {
-    return buildActionCue({ action, intensity: 0.7, material: 'wet_meat', surface: 'metal', ...opts });
+    return buildActionCue({ action, intensity: 0.7, material: 'wet_meat', surface: 'metal', detail: 'full', ...opts });
   }
 
   global.ProceduralSFX = {
@@ -1780,7 +1884,7 @@
     // Kept as an alias: the system started as cooking-only and the name is in
     // the regression suite and the docs. Same function.
     buildCookingCue: buildActionCue,
-    MATERIALS, SURFACES, STATES, STREAM_SURFACES, FLATUS_STYLES, INSTRUMENTS, FOOTSTEPS, DOORS, LOCKS, BIRD_VOICES,
+    MATERIALS, SURFACES, STATES, STREAM_SURFACES, FLATUS_STYLES, INSTRUMENTS, FOOTSTEPS, DOORS, LOCKS, BIRD_VOICES, MODES, FOOT_MODES, MODE_LIMIT,
     chop, impact, scrape, stir, pour, sizzle, boil, stream, flatus, microwave, note, footstep, door, lock, birdCall,
     // Musical notes have their own entry point rather than riding buildActionCue:
     // there is no seed (nothing is random) and the argument names are the ones a

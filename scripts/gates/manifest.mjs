@@ -285,6 +285,7 @@ export const GROUPS = [
       'scripts/audio/mods-smoke.mjs',      // layer.mods patches LFO/env/random sources into a layer's stages
       'scripts/audio/rack-smoke.mjs',      // the Audio tab's Rack round-trips every row; its patches touch only mods
       'scripts/audio/loudness-smoke.mjs',  // every cue preset's LUFS and peak against its target; ratcheted by loudness-baseline.json
+      'scripts/audio/modes-smoke.mjs',     // struck surfaces: metal rings longer than wood, peaks at the modes, as loud as the old path
     ],
   },
   {

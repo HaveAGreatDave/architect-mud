@@ -75,7 +75,7 @@ cue in that tab deterministic.
 
 | | for | driven by |
 |---|---|---|
-| `impact` | utensils, cookware, a mallet, a plate | surface, weight, intensity |
+| `impact` | utensils, cookware, a mallet, a plate | surface, weight, intensity; modal on metal, wood, glass, ceramic and stone |
 | `chop` | chop / cut / mince / score | material hardness, moisture, density |
 | `scrape` | spreading, scouring, dragging | surface, intensity |
 | `stir` | stirring | viscosity, moisture, vessel |
@@ -637,6 +637,79 @@ correctly; a left-handed frame with `right` given keeps east on the right; a lis
 on a still source hears it sharp; HRTF stops at the cap; `equalpower` and `stereo` build what
 they say; `doppler: false` on the send or the cue builds no doppler source.
 
+## Struck surfaces: modes
+
+A hit on a pan used to be a bandpassed FM triangle with a puff of noise, and so was a hit on a
+plank, a mug and a flagstone, at different numbers. In a game that's mostly people hitting
+things, that's the sound heard most. A struck solid rings at a few of its own frequencies, each
+dying at its own rate, and that's what the modal path builds: metal long and inharmonic, wood
+short and low, glass bright and sparse, stone a thud that's over at once.
+
+**The engine** has one new layer key, `modes` (`buildModes` in
+[audio-engine.js](../client/shared/audio-engine.js)):
+
+```js
+{ modes: { hardness: 0.85, strike: 0.1, partials: [{ freq: 468, decay: 2.1, gain: 0.3 }, …] }, gain: 0.5 }
+```
+
+Each partial is a sine with an exponential envelope that reaches -60 dB at `decay` seconds.
+`hardness` is the mallet: its contact time runs from 2.6 ms (soft) to 0.1 ms (steel on glass),
+which rounds the attack and passes each mode through the spectrum of a half-sine pulse that
+long, so a soft hit starves the top. `strike` is the level of the contact tick, lowpassed by the
+same hardness.
+
+A mode is a sine and not a bandpass rung by noise, though they're the same impulse response. A
+bandpass that rings for two seconds at 400 Hz needs a Q near 400, its output falls with its
+bandwidth so every band needs its own make-up gain, and a single-precision biquad that sharp is
+where browsers disagree. The sine has its frequency, decay and level written on it. That's why
+`buildResonatorBank` (the formant bank) isn't reused here.
+
+**The cost is capped**: at most 8 partials a layer, two nodes each, plus four for the tick and
+the sum. A full hit is 20 nodes; a footstep's is 9.
+
+**The tables** are in [procedural-sfx.js](../client/shared/procedural-sfx.js). `MODES` is a row
+per material (`f0`, `ratios`, `gains`, `decay`, `damp`, `hardness`, `strike`, `spread`,
+`level`), surfaced in the dev panel as `proc:modes`. A higher mode dies faster, by
+`decay × ratio^-damp`, and wood and stone have a large `damp`. `FOOT_MODES` maps the footings
+that ring (stone, tile, metal, boards) to a material, with how long the floor rings against a
+loose piece of it: a grate is fixed down and rings a third as long as a dropped pan.
+
+**No two hits are the same.** Every draw is seeded, as everywhere else here: each mode's
+frequency moves within the row's `spread`, its decay and level by 15%, and a strike position
+drawn per hit changes which modes speak, the way hitting a pan near the rim and near the middle
+differ.
+
+**Who gets it.** Only the client asks. `buildActionCue` takes `detail`, the Sound Detail rung,
+and dispatch.js passes it; `full` builds up to 8 modes and `limited` up to 4, and a footstep
+takes 4 at most either way. Without `detail` (the server, regress, the cab view's motor sounds)
+every cue is the one it always was, and `off` plays nothing anyway. A surface with no row
+(`none`, which is flesh: clubs and fists) keeps the old path at every rung, since a body doesn't
+ring. The old path is still there for that reason and as the fallback; nothing was deleted.
+
+**Level.** Each row's `level` (and each footing's) puts a modal hit at the loudness of the
+filtered-noise hit it replaces, so switching rungs doesn't move the mix. The modal path has a
+higher crest factor, so it was tuned for headroom too: no hit at intensity 1 peaks over -2.3
+dBFS at gain 1.
+
+[`scripts/audio/modes-smoke.mjs`](../scripts/audio/modes-smoke.mjs), in the `audio` group,
+renders both paths on the offline renderer and fails when:
+
+- a cue without `detail`, or on a surface with no row, is modal
+- a rung builds more modes than its limit, or a hit more than 20 nodes
+- a sample isn't finite, or a hit at intensity 1 peaks over -1 dBFS
+- a metal hit doesn't take three times as long as wood to fall 40 dB (1.4 s against 0.2 s when
+  it was written), or glass twice as long as stone
+- the spectrum's peak near one of the three loudest modes is more than 1% off it, or a mode is
+  further than its row's `spread` from `f0 × ratio`
+- a material or footing is more than 2.5 LU from the old path, averaged over seeds, measured with
+  the BS.1770 meter in [`loudness-lib.mjs`](../scripts/audio/loudness-lib.mjs) that the cue
+  loudness gate uses
+
+No `content/audio_sfx` row uses `modes`, so the loudness baseline didn't move.
+
+Not built: a `break` cue (glass or crockery shattering) would be a handful of short modal hits
+on scattered shards, but nothing emits one yet.
+
 ## Cue loudness
 
 The limiter stops peaks, but nothing compared one preset with the next: each was set by ear on
@@ -782,7 +855,7 @@ The knobs of a procedural system are its **tables**, not its cues: there is no s
 there is a hardness number that makes every chop brighter.
 
 So the tables are surfaced in the dev panel (**Sounds → Sound Effects → Procedural material/action
-tables**) as four entries — `proc:materials`, `proc:surfaces`, `proc:streams`, `proc:flatus` — riding the existing
+tables**) as entries (`proc:materials`, `proc:surfaces`, `proc:streams`, `proc:flatus`, `proc:modes` and the rest), riding the existing
 `interface_sfx` override plumbing. Same fetch, same editor, same persistence the poker cues use. No
 new table and no new endpoint.
 
