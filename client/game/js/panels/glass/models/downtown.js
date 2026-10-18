@@ -2111,36 +2111,16 @@ export const DOWNTOWN_ARMS = {
       //     Emit the eye first and it writes its own depth across the window, the wheel fails
       //     `LEQUAL` at every pixel, and the glass goes opaque with nothing to say why.
       { const [rx, ry] = F(0, HD + FACE_EPS); wallRose(ctx, cam, rx, ry, E, ROSE_Z, ROSE_R, '196,200,208', night, alpha, 12, GLASS); }
-      // 3e) THE EYE. It is the one thing on this building anybody screwed on, and the brightest
-      //     thing on it after dark.
+      // 3e) THE EYE. The one thing on this building anybody screwed on, and its brightest after dark.
       //
-      //     ⚠ IT WAS A `drawRing`, WHICH IS A HORIZONTAL HOOP AND NOT A CIRCLE ON A WALL. That
-      //     helper varies x and y at a fixed z — it is for a band round a tank or a tower — so the
-      //     eye was a small hoop standing out of the facade, projecting as a thin ellipse you
-      //     could see the stone through. The rose window above it had the same problem and now has
-      //     its own shape, which is the thing that note said it wanted.
-      //
-      //     ⚠ AND IT IS GLAZED OVER THE WINDOW RATHER THAN BOLTED BESIDE IT. It used to sit on
-      //     the string course below, oversized, clipping the door head and the window sill — a
-      //     steel plate screwed across somebody else's stonework. Covering the wheel exactly and
-      //     letting it read through is the same story told better: what the order did here was
-      //     not hang a sign on the building, it put its mark where the saint was and left the
-      //     tracery showing behind it. Nothing anywhere remarks on that either.
-      //
-      //     ⚠ AND THE STAND-OFF IS THE SMALLEST ONE THAT CLEARS THE WHEEL, NOT A COMFORTABLE
-      //     ONE. It was `fh * 0.10`, chosen on the reasoning that the two stacks must not
-      //     interleave — which is true, and is satisfied four times over by `FACE_EPS * 4`.
-      //     What the comfortable number actually bought was PARALLAX: the plate is half the
-      //     wheel's own radius in front of the wheel, so seen from anywhere but straight on it
-      //     slides sideways off the window it is supposed to be glazed over, and from a truck
-      //     coming down the street it left the facade altogether and hung in the air beside the
-      //     building. Reported exactly that way, with a screenshot of an eye floating off its
-      //     own wall.
-      //
-      //     `wallRose` staggers its field, rim, spokes and hub by `FACE_EPS` each, so its
-      //     furthest-forward face is at `HD + FACE_EPS * 3` and the plate's own back face —
-      //     `emblemSlab` builds forward from the anchor — clears it by one more. Nothing
-      //     interleaves, and the two circles stay concentric from every seat.
+      //     ⚠ IT IS A `wallDisc`, NOT A `drawRing`: that helper draws a horizontal hoop at fixed z
+      //     (a band round a tank), which on a wall projects as a thin ellipse.
+      //     ⚠ IT IS GLAZED OVER THE ROSE WINDOW, NOT BESIDE IT: the order put its mark where the
+      //     saint was and left the tracery showing. Nothing remarks on that.
+      //     ⚠ THE STAND-OFF IS THE SMALLEST THAT CLEARS THE WHEEL. `wallRose` staggers field, rim,
+      //     spokes and hub by `FACE_EPS`, so its front face is at `HD + FACE_EPS * 3`; the plate
+      //     (`emblemSlab` builds forward from the anchor) starts one more out. A bigger stand-off
+      //     (`fh * 0.10`) is parallax: the eye slides off the window and floats beside the building.
       { const [ex, ey] = F(0, HD + FACE_EPS * 4);
         wallDisc(ctx, cam, ex, ey, E, ROSE_Z, ROSE_R, '176,196,220', night, alpha,
           { lens: true, pupil: 0.15, iris: 0.34, depth: 0.06, opacity: 0.40, markOpacity: 0.94 }); }

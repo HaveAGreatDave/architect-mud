@@ -1,41 +1,18 @@
 // THE SUN, ON THE DEPTH BUFFER.
-//
-// GLASS has always had exactly one kind of building shadow: `drawBuildingShadow` takes the convex
-// hull of a footprint and the same footprint offset by the roof's cast, and lays it flat on z = 0.
-// That is a correct shadow for a box on open ground and it is the only one there is — nothing
-// shades a neighbour's wall, nothing shades itself, a setback casts nothing onto the storey below
-// it, and past `shadowFar` there is nothing at all. A painter's queue cannot do better: the
-// question "is this pixel lit" is per pixel, and the 2-D pass never had a pixel to ask about.
-//
-// GLASS 2 does. The city's mass is already a static vertex buffer on the GPU, uploaded once per
-// map window, so a second render of it from where the light is costs one more draw of data that is
-// already there. That is the whole feature: a depth-only pass into a depth texture, and one
-// comparison per fragment in the shader that was going to shade that fragment anyway.
-//
-// ⚠ IT IS ADDITIVE, AND THAT IS WHY IT STARTS HERE RATHER THAN AT THE GROUND. The ground hulls
-// stay exactly as they are. A shadow map that also owned the ground would have to suppress them,
-// and the two would then have to agree about where a shadow falls — which is a second thing to get
-// right in the same change. Walls and roofs have NO existing implementation to contradict, so this
-// adds a picture that was simply missing and cannot double up with one that was already there.
-// What makes the pair coherent is that both read the same two numbers off the same sun: see
-// `lightMatrix` in camera.js, where the light direction is derived from `dir` and `len` rather than
-// from an elevation angle, so a building's shadow on its neighbour points where its shadow on the
-// ground points.
-//
-// ⚠ IT IS NOT FINISHED, AND RENDER_TUNE.glShadow DEFAULTS TO 0. The geometry, the depth pass, the
-// night gate and the promise that the ground is untouched all measure correctly; the shading term
-// in context.js does not respond to its own strength, so what lands is a mask rather than a shadow.
-// The full account of what has been ruled out is on RENDER_TUNE.glShadow in windshield.js, and the
-// two rigs to hold a next attempt to are npm run gl:shadow (headless, the light matrix against
-// drawBuildingShadow own sun) and __glShadow() in the Modelshop (pixels, cost, and the night
-// control). Nothing below is dead: it is all exercised the moment the knob leaves 0.
-//
-// ⚠ AND ITS FAILURE MODE IS A BLACK CITY, WHICH IS WHY EVERY EXIT RETURNS null. A framebuffer the
-// driver will not complete, a depth texture it will not allocate, a program that will not link:
-// each of those leaves the main shader sampling something undefined, and undefined here is not a
-// missing shadow, it is a shadow everywhere. So nothing is half-installed — either the layer
-// reports a texture and a matrix, or the caller runs the pass it has always run with the strength
-// at zero, where the comparison multiplies by exactly 1.0.
+// GLASS's only building shadow is 'drawBuildingShadow': footprint hull plus roof cast, flat on
+// z = 0. Nothing shades a neighbour's wall or itself, a setback casts nothing below, and past
+// 'shadowFar' there's nothing. Here the static mass buffer is drawn once more from the light into a
+// depth texture, and the shader does one comparison per fragment.
+// ⚠ IT IS ADDITIVE: the ground hulls stay, and this covers only walls and roofs, which had no
+// shadow to contradict. Both read the same sun: 'lightMatrix' in camera.js derives the direction
+// from 'dir' and 'len', not an elevation, so wall and ground shadows point the same way.
+// ⚠ IT IS NOT FINISHED, AND RENDER_TUNE.glShadow DEFAULTS TO 0. Geometry, depth pass, night gate and
+// untouched ground measure correctly, but the term in context.js ignores its strength, so it lands
+// as a mask. What's been ruled out is on RENDER_TUNE.glShadow in windshield.js; test with
+// npm run gl:shadow (headless, against drawBuildingShadow's sun) and __glShadow() in the Modelshop.
+// Nothing below is dead code; it all runs once the knob leaves 0.
+// ⚠ EVERY EXIT RETURNS null: a failed framebuffer, texture or program would sample undefined, a
+// shadow everywhere. The caller then runs strength 0, a comparison multiplying by exactly 1.0.
 
 // The map is square and its size is fixed rather than tracking the window, because the window
 // changes with the seat and a texture that resized would reallocate on every seat change. 2048 is

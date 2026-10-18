@@ -376,50 +376,23 @@ export const YARDS_ARMS = {
     if (night) glowPool(ctx, cam, dx, dy, 0.02, '255,180,90', 11, alpha * 0.13);                            // one sodium lamp over the gate
   },
   fuel_yard(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // A FORECOURT: a lit canopy on four columns over two pump islands, a shop behind.
-    // THE DEFINING FEATURE OF A GAS STATION IS THAT YOU CAN SEE THROUGH IT. This was a tank farm
-    // — three solid drums filling the tile — and read from the air as an industrial block like
-    // every other lot in the Yards. A forecourt is a ROOF AND NOTHING ELSE: the mass is up at
-    // canopy height, the ground plane is open on all four sides, and a truck is meant to be
-    // visible standing underneath it. So there are deliberately no walls here at all, and the one
-    // solid volume left is the shop, pushed to the back edge where it does not close the lot.
-    //
-    // ── ⚠ EVERYTHING HERE IS A MULTIPLE OF ONE STOREY, AND FOR MONTHS THAT STOREY WAS FOUR ────
-    // `fuel_yard` had no row in TYPE_FLOORS, so `h` arrived as a FOUR-STOREY building's height and
-    // every fraction below was measured against it: a dispenser at 0.30h stood a storey and a
-    // quarter tall, and the canopy cleared two. That is the "gas pumps are massive" report, and
-    // the fix was one line in client/shared/skyline-scale.js rather than anything in this arm.
-    // Now `h` is one storey and the numbers say what they mean — a canopy soffit at 1.52 storeys,
-    // a pump at half of one, a price pylon at three. If you retune anything in here, keep reading
-    // it that way: THESE ARE STOREYS, and a fraction under ~0.1 is ankle height.
-    //
+    // A FORECOURT IS A ROOF AND NOTHING ELSE: no walls, open so a truck shows under it, shop at the back.
+    // ── ⚠ EVERYTHING HERE IS A MULTIPLE OF ONE STOREY ────
+    // `h` is one storey via the `fuel_yard` row in TYPE_FLOORS (client/shared/skyline-scale.js): soffit
+    // 1.52 storeys, pump 0.5, price pylon 3. A fraction under ~0.1 is ankle height.
     // ── ⚠ THE ISLANDS ARE PAINT AND A LOW KERB, NOT A PLATFORM ────────────────
-    // The first cut drew each pump island as `draw3DBoxAt(…, fh * 0.44, 0, h * 0.04)`. That is a
-    // half-width of 0.44fh — 0.88 of a tile across — TWICE, so the two islands met in the middle
-    // and became one raised yellow slab covering the whole forecourt with four pumps standing on
-    // top of it. There was nowhere left to drive, and from the road it read as a plinth rather
-    // than as a place you pull into. The lesson is not "make it smaller": it is that a marked bay
-    // is PAINT, an island is a KERB, and neither of them is a box the height of a step.
-    //
+    // A marked bay is paint and an island is a kerb, never a step-high box: two 0.44fh island boxes
+    // met in the middle and left nowhere to drive.
     // ── ⚠ AND THE LANES ARE THE SPEC, NOT THE LEFTOVERS ───────────────────────
-    // A truck has to be able to drive in, so the clear widths come first and the furniture is
-    // fitted between them: a wide central pull-through, an outer lane down each side, the columns
-    // outside both, and the working half (shop, tank, vents, bollards) behind the canopy line.
-    // `forecourtDriveSmoke` sweeps all three lanes end to end at the truck's own clearance and
-    // fails the build if any of them is blocked, so move something in here and run the smoke —
-    // the numbers below and the numbers in that test are one layout described twice.
-    //
+    // Clear widths first: a central pull-through, an outer lane each side, columns outside both, and
+    // shop, tank, vents and bollards behind the canopy line. `forecourtDriveSmoke` sweeps all three
+    // lanes at truck clearance and holds the same layout; change one, run the other.
     //   x (fh)  0.265 ── 0.455   pump island kerb
     //           0.425 ── 0.525   the hose boom reaching out over the lane
     //           0.770 ── 0.910   column collar
     //   ⇒ centre lane  |x| < 0.265      outer lanes  0.525 < |x| < 0.770
-    //
-    // ⚠ THE COLUMNS ARE THINNER THAN THEY WERE, and the reason is the outer lane rather than the
-    // columns. A collar at ±0.10fh with a 0.135 ring of yellow round its foot is a metre and a
-    // half of obstruction on each side of a lane that has to take a tractor unit and a trailer
-    // through a turn, and the smoke only proves a lane is CLEAR — it cannot say whether it is
-    // comfortable. Taking the collar in to 0.07 and the capital to 0.075 widens each outer lane
-    // by 6% of a tile at the pinch point without moving anything else, and a steel column that
-    // reads as slim reads more like a canopy support and less like a pier.
+    // ⚠ COLUMN COLLAR 0.07 AND CAPITAL 0.075 (from 0.10) widen each outer lane by 6% of a tile at the
+    // pinch; the smoke proves a lane clear, not comfortable.
     const steel = (r, g, b) => (f) => { const sh = 0.5 + f.nl * 0.5; return `rgb(${r * sh | 0},${g * sh | 0},${b * sh | 0})`; };
     const canopyZ = h * 1.52, deckT = h * 0.32;          // underside clearance, and the fascia+deck sandwich above it
     const canY = fh * 0.06;                              // the canopy is pushed toward the road, off the back strip

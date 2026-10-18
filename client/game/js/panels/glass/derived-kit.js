@@ -345,53 +345,24 @@ export function derivedTrim(m, fh, h, seed, forceRich) {
   return list;
 }
 
-// The kit itself. Three jobs, in the order they read from a street: what the walls do, what stands
-// on the roof, and what the ground floor is.
+// The kit itself: what the walls do, what stands on the roof, and what the ground floor is.
 //
-// ⚠ EVERY PART IS BUDGETED, because this multiplies across the whole city. The 2-D painter only
-// runs the detail layer inside `RENDER_TUNE.detailNear`, so its cost is bounded by how many
-// buildings are near you — but the GLASS 2 MESH IS NOT GATED, and a mesh is built for every tile in
-// the window. `KIT_MAX` is the ceiling per building, and the pass spends it on the biggest surfaces
-// first rather than scattering it evenly.
-// ⚠ AND THE MESH GETS THE SECOND COLUMN — see the ⚠ on `rich` in `derivedTrim`. These four numbers
-// were every one of them chosen against `framecost`, which counts canvas calls, and the GPU does not
-// pay in canvas calls. The lean column is untouched, so the CPU fallback is exactly the renderer it
-// was; the rich column is what GLASS 2 builds a mesh from.
-//
-// ⚠ THE CURRENCY IS MESH FACES, NOT PARTS, and a part count is genuinely the wrong unit: a
-// `windowBay` is 6-7 quads and a `ductRun` can be 32. So the ceilings are walked up against the
-// registry total that `gl:mesh` prints and now holds to a committed budget, not against a feeling
-// about how many things a building should have on it.
-//
-// ⚠ THE COST OF RAISING THESE IS NOT IN THE FRAME, IT IS IN THE FIRST CAPTURE. `tileMesh` memoises
-// per model per scale, so the frame only ever pays for extra vertices in a buffer uploaded once —
-// but `bakeFaceAO` runs 9 directions × 2 reaches per vertex over every face in the same memo, and
-// in the game the first capture of a model is the one that ships, cold, the moment that building
-// comes into view. Measured over the whole registry, lean column against rich:
-//
+// ⚠ EVERY PART IS BUDGETED. The 2-D painter only runs details inside `RENDER_TUNE.detailNear`; the
+// GLASS 2 mesh isn't gated and is built for every tile in the window. `KIT_MAX` is the per-building
+// ceiling, spent on the biggest surfaces first. The lean column is the CPU fallback (tuned against
+// `framecost`); the rich column feeds GLASS 2 (see the ⚠ on `rich` in `derivedTrim`).
+// ⚠ THE UNIT IS MESH FACES (a `windowBay` is 6-7 quads, a `ductRun` up to 32), held to the budget
+// `gl:mesh` prints. The cost is the first, cold capture, not the frame: `tileMesh` memoises, but
+// `bakeFaceAO` runs 9 directions × 2 reaches per vertex. Whole registry, lean → rich:
 //   28,717 → 35,478 faces (+23.5%) · capture 282 → 360 ms · AO bake 231 → 321 ms (both totals)
 //   models over 8 ms on a cold capture: 7 → 14 · over 16 ms: 2 → 2
-//
-// The two that cost a dropped frame — The Meridian Lobby at 57 ms and Halcyon Towers at 40 — were
-// both over that line BEFORE any of this, so the rich kit did not create the worst case; it made
-// the middle of the distribution twice as likely to be felt. Re-run the numbers before raising
-// these again rather than assuming the headroom below is still there.
-//
-// ⚠ EACH OF THE FIVE WAS SWEPT AND THREE OF THEM SATURATE, WHICH IS WHY THEY ARE THESE VALUES:
-//   FLOOR_MAX_RICH — 10 and 12 give FEWER faces than 8, because `cols` is `winMax / floors` and a
-//     taller grid trades its columns away. 8 is the top of the curve, not a cautious number.
-//   KIT_MAX_RICH  — 30 → 33,982, 44 → 35,478, 60 → 35,534. Sixty buys fifty-six faces.
-//   WIN_MAX_RICH  — 40 is deliberately not binding; `FLOOR_MAX_RICH × COL_MAX_RICH` is the real cap.
-//   COL_PITCH_RICH — the one that actually moves: 0.13 → 0.085 is +3,600 faces. `main.hw` is clamped
-//     to 0.44, so at the lean pitch `round(hw / 0.13)` can never exceed 3 and `COL_MAX` above 3 is
-//     unreachable — which is why raising the cap alone did nothing and the pitch had to come with it.
-// ⚠ RAISED 52 → 56 TO PAY FOR THE ROOF, AND THE WINDOW SHARE DELIBERATELY DID NOT FOLLOW IT.
-// The roof section grew by about three parts a building — a stair head and a rank of condensers
-// instead of one lone box — and at 52 that came straight out of the sections pushed AFTER it:
-// `gl:mesh` failed nine models with "the rich kit LOST sign", which is a building losing the board
-// carrying its own name, the exact bad trade the window sub-budget's own ⚠ two screens down was
-// written about. Measured over six seeds the mesh total moved 1.4%, well inside the committed
-// budget, because the parts bought are the smallest ones in the vocabulary.
+// The Meridian Lobby (57 ms) and Halcyon Towers (40) were over before this. Re-measure before raising.
+// ⚠ SWEPT VALUES: FLOOR_MAX_RICH 8 is the peak (10 and 12 give fewer faces: `cols = winMax / floors`).
+// KIT_MAX_RICH 30 → 33,982, 44 → 35,478, 60 → 35,534 faces. WIN_MAX_RICH 40 isn't binding
+// (`FLOOR_MAX_RICH × COL_MAX_RICH` is). COL_PITCH_RICH 0.13 → 0.085 is +3,600 faces: `main.hw`
+// clamps to 0.44, so at 0.13 `COL_MAX` above 3 is unreachable and the pitch had to move with it.
+// ⚠ 52 → 56 PAYS FOR THE ROOF (stair head, condenser rank); at 52 `gl:mesh` failed nine models with
+// "the rich kit LOST sign". The window share didn't rise with it. Mesh total +1.4% over six seeds.
 const KIT_MAX = 26, KIT_MAX_RICH = 56;
 // ⚠ AND IT IS A NUMBER RATHER THAN A SHARE OF THE CEILING, WHICH IS THE WHOLE POINT OF RAISING IT.
 // This was `round(kitMax * 0.45)`, so every future rise in the ceiling hands the window grid 45% of
@@ -2155,38 +2126,15 @@ function derivedKit(list, cand, deck, m, seed, A, have, rich, spars = [], mod = 
   }
   // ── AND SOMEBODY HAS BEEN AT THE WALL ──────────────────────────────────────────────────────
   //
-  // ⚠ THE OLD PLACEMENT RULE WAS ONE SENTENCE AND BOTH HALVES OF IT WERE WRONG. It read: "nobody
-  // sprays a shop window, and on this kit the middle of the ground floor is glazing — so the tag
-  // takes the service end of the frontage, the same flank the bins are on". The glazing is not in
-  // the middle: a shopfront band spans 0.8 of the base half-width, and even the two-pane fallback it
-  // replaced centred a pane at 0.46 of it, while the tag sat at 0.484 — inside both. And the bins
-  // are not cover, they are the problem: the tag, the bin stack and the vending machine were all
-  // placed off the SAME doorway offset, at 0.62, 0.72 and 0.9 of it, so the one patch of wall the
-  // kit painted was the one patch of pavement it puts its rubbish on.
-  //
-  // ⚠ AND EVERY WAY THAT FAILS IS SILENT. The decal is built, uploaded and drawn every frame; the
-  // depth test hides it per pixel behind the glass or the bin; the wall reads clean. Measured by
-  // `scripts/shapes/tagfit.mjs`: 83.1% of the kit's graffiti obstructed, worst 100%, and not one
-  // piece anywhere but the frontage.
-  //
-  // So a piece is PLACED BY SEARCH rather than by a fraction — candidate patches from the quiet ends
-  // of a wall inward, tested against everything recorded at the two funnels (`paintFoot`), first
-  // free patch wins, and a wall with nowhere free gets no paint at all. That last part is the `tag`
-  // painter's own stated rule arriving one layer up: a piece on the wrong wall is worse than a
-  // clean wall.
-  //
-  // ⚠ AND IT IS PUSHED AFTER THE KERB PROPS, WHICH IS WHY IT MOVED DOWN THE FUNCTION. Position here
-  // is priority, and paint yielding to the street furniture is the right way round — but the
-  // ordering is not a preference: the bins have to be on the list before a search can avoid them.
-  //
-  // ⚠ AND IT IS NO LONGER INSIDE `wants('ground')`. Paint is not a ground-floor FITTING, and gating
-  // it on one meant a building whose arm drew its own shopfront was also a building nobody had ever
-  // tagged. What that gate was standing in for is the author's own parts, and those are in `blocks`
-  // now, which is where the search reads them.
-  //
-  // ⚠ THREE OF THE FOUR WALLS ARE RICH-ONLY, THE SAME BARGAIN 1d STRIKES. The street face keeps
-  // its slot on both lists; the flanks and the back are where 1d hangs plumbing, so they are walls
-  // a GLASS 2 frame is already paying for.
+  // ⚠ A PIECE IS PLACED BY SEARCH, NOT BY A FRACTION. Candidate patches run from the quiet ends of
+  // a wall inward, each tested against everything recorded at the two funnels (`paintFoot`); the
+  // first free one wins and a wall with none gets no paint. A fixed offset put the tag inside the
+  // shopfront glazing and behind the bins, and the depth test hides that silently
+  // (`scripts/shapes/tagfit.mjs` measured 83.1% obstructed, worst 100%).
+  // ⚠ IT'S PUSHED AFTER THE KERB PROPS: the bins must be on the list before the search can avoid them.
+  // ⚠ NOT INSIDE `wants('ground')`: paint isn't a ground-floor fitting. The author's own parts are in
+  // `blocks`, which the search reads.
+  // ⚠ THREE OF THE FOUR WALLS ARE RICH-ONLY, the same bargain as 1d: the street face is on both lists.
   // ⚠ AND A BUILDING CAN DECLINE IT (`paint`, see SLUM_DECLINE): every piece this places is a word.
   if (wants('paint')) {
     // ── HOW BIG A PIECE IS: AN ARM, NOT A STOREY ───────────────────────────────────────────────
@@ -2588,44 +2536,20 @@ function derivedKit(list, cand, deck, m, seed, A, have, rich, spars = [], mod = 
     if (style !== 'works' && !NO_AD_TRADE.has(tradeOf(m)) && fxPos > 0.02 && fxNeg < -0.02 && wallH > 0.34 && main.fd > 0.1 && R(313) > gateFor(0.52)) {
       const adX = svcSide > 0 ? fxNeg : fxPos;
       const ph = clamp(wallH * 0.16, 0.04, 0.11);
-      // ── ⚠ AND IT SAYS SOMETHING, WHICH FOR A YEAR IT DID NOT ───────────────────────────────────
-      //
-      // This is the biggest sign fitting in the kit and it carried a pictogram or nothing: measured
-      // over 227 models at eight seeds, 68 of these a city were blank and 23 held one small mark
-      // stranded in the middle of a billboard. An advertisement with no artwork on it is not a
-      // quieter advertisement.
-      //
-      // ⚠ `$name` IS SAFE HERE AND IS NOT SAFE ON THE BLADE ABOVE, and the blade's own note is what
-      // says so: "a board squashes a long name and stays readable; a blade turns one into a column
-      // of letters running off the bottom of the building". This is a board — a wide letterbox on a
-      // flank, the same shape and the same aspect as the roof hoarding that has carried `$name`
-      // since it was written — so it takes the name and `fitSignPts` takes care of the length.
-      // `horiz` is what stops it being lettered down a column like its sibling.
-      //
-      // ⚠ THE MARK STAYS BESIDE IT. `bakeSignText`'s horizontal path sets a pictogram at the left
-      // and keeps the middle of what is left for the word, so a fork and a name read as a chophouse
-      // from further away than either does alone — and a nameless tile with a mark still gets the
-      // mark, because the painter asks per TILE.
-      // ── ⚠ AND NOW IT HAS TO ASK WHETHER THE WALL IS BARE, WHICH IT NEVER DID ───────────────────
-      //
-      // A mark is baked at one square CELL, so a mark-only panel was fitted to about a third of its
-      // own width and sat in the middle of a wall it barely touched. A NAME fills the panel — that
-      // is the point of it — and the same panel then reaches whatever else is on that flank.
-      // `signfit` measured the difference the moment the lettering went on: ten models drawing a
-      // pipe, a cable or a stair across their own advertisement, none of them new geometry and none
-      // of them visible before, because there was nothing on the panel to draw across.
-      //
-      // ⚠ `paintFree` AND NOT `clearsFace`. That one is the FACADE's test and answers for the
-      // entrance plane only (`c.x ||` passes every flank claim straight through); this asks whether
-      // a patch of ANY of the four walls is bare and would be looked at, which is the question a
-      // gable end poses. `street` is false: this is the side elevation, and there is no pavement
-      // rule to apply to it.
-      //
-      // ⚠ IT DECLINES ABOUT HALF OF THEM, AND THAT IS THE FITTING WORKING. Measured over 227 models
-      // at eight seeds, 96 of these a city became 39 — and the 57 it stands down are the ones whose
-      // flank already carries a window bay, a louvre bank or a service riser. The blade above states
-      // the same rule in its own words: a sign drawn over a window is worse than a frontage without
-      // one, and this is the cheapest part in the kit to decline.
+      // ── ⚠ AND IT SAYS SOMETHING ───────────────────────────────────────────────────────────────
+      // The kit's biggest sign. Over 227 models at eight seeds, 68 per city were blank and 23 held one
+      // small mark.
+      // ⚠ `$name` IS SAFE HERE AND NOT ON THE BLADE ABOVE: this is a wide board like the roof hoarding,
+      // so `fitSignPts` handles the length, and `horiz` keeps it from lettering down a column.
+      // ⚠ THE MARK STAYS BESIDE IT: `bakeSignText`'s horizontal path puts the pictogram left and the
+      // word in the rest. The painter asks per TILE, so a nameless tile still gets its mark.
+      // ── ⚠ AND NOW IT HAS TO ASK WHETHER THE WALL IS BARE ──────────────────────────────────────
+      // A name fills the panel, so it reaches whatever else is on the flank (`signfit`: ten models drew
+      // a pipe, cable or stair across it).
+      // ⚠ `paintFree`, NOT `clearsFace`: that one answers for the entrance plane only (`c.x ||` passes
+      // flanks); this checks any wall. `street` is false: no pavement rule on a side elevation.
+      // ⚠ IT DECLINES ABOUT HALF (96 → 39 per city, 227 models × 8 seeds): the ones whose flank has a
+      // window bay, louvre bank or riser. A sign over a window is worse than none.
       const adZ1 = main.z1 - wallH * 0.26, adZ0 = adZ1 - 2 * ph, adHW = main.fd * 0.62;
       // ── ⚠ AND THE NAME MADE THIS THE BUILDING'S OWN SIGNAGE, WHICH IT WAS EXEMPT FROM BEING ───
       //
@@ -2657,67 +2581,26 @@ function derivedKit(list, cand, deck, m, seed, A, have, rich, spars = [], mod = 
   }
   // ── 5. THE MASS ITSELF, BANDED ────────────────────────────────────────────
   //
-  // `models:quality` scores four things and the worst-first board is dominated by one of them:
-  // **more than one wall palette**, failed by 22 of 173, with another 26 that are two mass segments
-  // or fewer — a box and a lid. Voltage's own authoring note already names the fix and the reason:
-  // "the crown takes a different palette so the silhouette carries a light value instead of being
-  // one tone top to bottom".
-  //
-  // The mass is the arms' and stays theirs. What a detail pass can do instead is BAND it, which is
-  // how every real building of any period breaks its own height: a plinth where it meets the
-  // pavement, a frieze under the cornice. `parapet` already draws exactly that — a four-sided band
-  // with a darker face and a lighter cap — and the kit was only ever using it at the roof edge.
-  //
-  // ⚠ A BAND IS SQUARE-ONLY, because `parapet` takes ONE half-width and uses it on all four sides.
-  // That is why the deck coping above filters on `Math.abs(hw - fd) <= 0.02`, and it is not the
-  // restriction it looks like: measured over the registry, 163 of 172 models have a square base and
-  // 169 a square main box, so this reaches nearly all of them.
-  //
-  // ⚠ THE PLINTH DOES NOT ASK `wants('cope')` AND THE CROWN DOES. Both are the `parapet` KIND, so
-  // the section table cannot tell them apart — but a base course and a cornice are not the same
-  // surface, and gating a plinth on whether somebody drew a roof edge is the category error already
-  // recorded against `vent`-under-`wall` and the roof sign. Nobody hand-draws a base course; plenty
-  // hand-draw a cornice, and a second band just under one of those is a doubled line.
+  // `models:quality` fails 22 of 173 on "more than one wall palette", and 26 more are a box and a
+  // lid. The arms own the mass; the kit BANDS it: a plinth at the pavement and a frieze under the
+  // cornice, both drawn with `parapet` (a darker face and a lighter cap).
+  // ⚠ A BAND IS SQUARE-ONLY: `parapet` takes one half-width for all four sides (hence the deck
+  // coping's `Math.abs(hw - fd) <= 0.02`). 163 of 172 models have a square base, 169 a square main.
+  // ⚠ THE CROWN ASKS `wants('cope')` AND THE PLINTH DOESN'T. Both are `parapet`, but nobody
+  // hand-draws a base course, and a second band under a hand-drawn cornice is a doubled line.
   // ── 6. AND THE LIGHT ON IT ────────────────────────────────────────────────
   //
-  // A tube across the top of the ground floor with a return down each end, in the building's own
-  // accent. This is the cheapest thing on the whole pass that changes what a street LOOKS like: the
-  // 26 models that are a box and a lid cannot be given a silhouette by trim, and they can be given
-  // a lit line, which is what the eye actually reads a night street by.
-  //
-  // ⚠ IT WAS GATED ON AN AUTHORED `m.neon` AND NO LONGER IS, BECAUSE THE REASON EXPIRED. The old
-  // note read: "`m.neon` is a colour the model's author chose and 53 of the 173 have one; the rest
-  // fall through to the painter's own default, which would put the same cyan on every unstyled shed
-  // in Coldwater and make the city look uniform in a NEW way." That was exactly right at the time
-  // and it is an argument about the COLOUR, not about the tube — and `accentOf` was written since,
-  // which answers a real colour for all 180 off the trade's own mark and the facing material. A bar
-  // burns magenta, a clinic cyan-green, a works sodium, with nothing authored.
-  //
-  // So the tube is rationed instead of gated, which is what "modernise most of them" means here: a
-  // lit line along a frontage is the single cheapest thing that makes a street read as this city
-  // rather than as a row of boxes, and two thirds of the city could not have one at any price.
-  // ⚠ AN AUTHORED `m.neon` STILL WINS THE COLOUR, and a model that has one is never refused the
-  // tube — an author who lit their building keeps it lit in every district.
-  //
-  // ⚠ IT RUNS AT THE FOOT OF THE FRONTAGE, AND THAT IS THE ONLY POSITION WITH NO CONFLICT IN IT.
-  // The obvious place is the fascia, above the shopfront — and three separate clearances were
-  // written to make that work before the geometry was read properly. It cannot: the name board sits
-  // at `GF + 0.036` and the corner blades' own floor is at `GF + 0.02`, so the blades START BELOW
-  // THE TOP OF THE BOARD and there is no band between them for a tube to occupy. Every attempt to
-  // find one moved the crossing somewhere else — the sign gate reported it on two models, then four,
-  // then a different four — because the tube is placed on the BASE box and the blades on the BIGGEST
-  // one, which on a podium-and-tower building are different walls at different depths, so lateral
-  // clearance on one of them means nothing on the other.
-  //
-  // A lit line at the foot of a frontage is an ordinary fitting — the plinth strip under the glazing
-  // — and it is clear of all of it BY CONSTRUCTION rather than by three numbers agreeing: the board,
-  // the canopy and both blades are above `GF`, and this is below it. No returns, because a return
-  // hanging off a tube already at the kerb would run into the pavement.
-  //
-  // ⚠ AND IT IS THE HALF OF THE NEON THAT REACHES THE ROAD. `glWet` reflects lights off wet tarmac
-  // and a tube three storeys up contributes almost nothing to that; a line at ankle height is
-  // directly above the puddle. The fascia is not left dark either — it already carries the name
-  // board's lit ink and, on most frontages, a blade.
+  // A lit tube in the building's accent: the cheapest change to how a street looks at night, and
+  // the only one the box-and-lid models can take.
+  // ⚠ IT'S RATIONED (`gateFor`), NOT GATED ON `m.neon`. `accentOf` gives all 180 a colour from the
+  // trade's mark and the facing, so there's no shared default cyan to avoid. An authored `m.neon`
+  // still wins the colour and is never refused the tube.
+  // ⚠ IT RUNS AT THE FOOT OF THE FRONTAGE, BELOW `GF`, BECAUSE THE FASCIA HAS NO ROOM. The name
+  // board sits at `GF + 0.036` and the corner blades start at `GF + 0.02`, below the board's top.
+  // The tube sits on the BASE box and the blades on the BIGGEST, which differ on a podium-and-tower,
+  // so no lateral clearance works up there. Board, canopy and blades are above `GF`; this is below
+  // it. No returns: they'd run into the pavement.
+  // ⚠ IT'S ALSO THE NEON `glWet` REFLECTS: a line at ankle height sits over the puddle.
   const wantsTube = m.neon ? true : R(403) > gateFor(0.42);
   if (wantsTube && !period && wants('neon') && style !== 'works' && base.hw > 0.1 && bh > 0.08) {
     push({ kind: 'neonRun', cx: A(base.cx), cy: A(by), z: A(base.z0 + Math.min(GF * 0.2, 0.02)),

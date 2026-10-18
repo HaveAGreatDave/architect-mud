@@ -1,57 +1,21 @@
 // THE SOLIDS THE FRAME DRAWS ITSELF: THE VEHICLE YOU ARE IN, AND THE DEPOT SHED.
-//
-// ⚠ TWO CLIENTS, ONE LAYER, AND THE SECOND ONE IS WHY IT IS NOT CALLED `ownship` ANY MORE. What
-// this draws is a flat-shaded triangle soup that writes depth and is not culled, and the rig was
-// simply the first thing in GLASS that needed one. The depot shed is the second: it is the one
-// building drawn at a fixed size by its own function rather than extruded from a storey stack, so
-// it is in MASS_EXCEPT, it never reaches the GL mass, and it was painted on the canvas AFTER the
-// city was composited — the 'depot shows thru buildings' report, and the same shape as every
-// see-through bug before it.
-//
-// ⚠ THE SHED COULD NOT GO IN THE MASS AND THAT IS A PROPERTY OF THE SHED, NOT A SHORTCUT. The mass
-// buffer is cached per map window; the shed's roller door OPENS as a truck comes up the apron, and
-// its palette flips between an interior and an exterior read depending on which side of the walls
-// the eye is. Both are per-frame, per-tile answers, and a cached buffer cannot carry either — so it
-// would rebuild the whole window's vertex data every frame, which is the one thing the mass buffer
-// exists not to do. Here it is a few hundred triangles uploaded per frame, which is what this layer
-// already does for the rig.
-//
-//
-// The own ship was the last solid object in the frame with no presence in GL at all. It is drawn by
-// `model-raster.js` — a software rasteriser with its own depth buffer — straight onto the 2-D
-// canvas, AFTER the GL canvas has been blitted. That is exactly correct for a renderer where the
-// painter's order is the depth order, and it has two consequences once the city is on a depth
-// buffer and everything else in the world has followed it there:
-//
-//   · the rig draws THROUGH buildings, because nothing composited later can be hidden by something
-//     composited earlier — the 'truck shows thru buildings' report, and the same shape as the
-//     lights, the Curtain, the signage and the wires before it;
-//   · and it cannot appear in a PUDDLE, because the reflection pass renders the mass, the sprites
-//     and the decals into its buffer and the rig is in none of them. A mirror can only show what
-//     was drawn into it.
-//
-// Both are the one missing capability, so this is the one fix.
-//
-// ⚠ IT PORTS NO GEOMETRY AND NO SHADING, WHICH IS WHY IT IS SMALL. Every face the model draws
-// already carries `wv` — its vertices in world 3-space — and `rv`, the same three numbers the
-// software rasteriser writes into a pixel, shaded by the baked `sh`, the livery finish and the sun.
-// Both exist because the self-shadowing pass and the rasteriser already needed them, and the note
-// over `rv` in windshield.js is explicit that they are kept as numbers so nobody re-derives them.
-// So this layer is handed finished polygons and does nothing to them but project.
-//
-// ⚠ AND THE SHADING STAYS ON THE CPU DELIBERATELY. A lit-here shader would be a second lighting
-// model for one object, agreeing with the canvas one until somebody edited either — the failure
-// the ⚠ over `rv` names. The truck is a few hundred faces once; there is nothing to win.
-//
-// ⚠ NO FACE CULLING. A face with no `cen` is a free polygon in that mesh — a raked screen, a fin
-// blade, a sheet with nothing behind it — and a sheet is visible from both sides. The mirrored pass
-// needs the other reason too: reflecting the world about z flips the winding, so a fixed cull would
-// show the reflection inside out.
-//
-// ⚠ AND IT UPLOADS ONCE AND DRAWS TWICE. The rig moves every frame, so there is nothing to cache;
-// what matters is that the REFLECTION pass runs before the main one (see the prepass note in
-// world.js), so the buffer has to be filled before either. Upload and draw are separate calls for
-// that reason alone.
+// A flat-shaded triangle soup that writes depth and isn't culled. The rig used to be drawn by
+// 'model-raster.js' onto the 2-D canvas after the GL blit, so it showed through buildings and
+// couldn't appear in a puddle (the reflection pass shows only what's in its buffer).
+// ⚠ TWO CLIENTS, SO IT ISN'T CALLED 'ownship'. The depot shed is drawn at a fixed size by its own
+// function, so it's in MASS_EXCEPT and was painted after compositing ('depot shows thru buildings').
+// ⚠ THE SHED CAN'T GO IN THE MASS: its roller door opens as a truck approaches and its palette
+// flips inside/outside with the eye. Both are per-frame, and the mass buffer is cached per map
+// window. Here it's a few hundred triangles a frame, as for the rig.
+// ⚠ IT PORTS NO GEOMETRY AND NO SHADING. Each face already carries 'wv' (world vertices) and 'rv'
+// (the rasteriser's colour from baked 'sh', livery finish and sun); see the note over 'rv' in
+// windshield.js. This layer only projects.
+// ⚠ SHADING STAYS ON THE CPU: a shader here would be a second lighting model drifting from the
+// canvas one (the failure the ⚠ over 'rv' names), for a few hundred faces.
+// ⚠ NO FACE CULLING: a face with no 'cen' is a free sheet visible from both sides, and the mirror
+// pass flips winding by reflecting about z.
+// ⚠ UPLOAD ONCE, DRAW TWICE: the reflection pass runs before the main one (see the prepass note in
+// world.js), so the buffer is filled before either. That's why upload and draw are separate calls.
 import { viewProjMatrix, eyePos } from './camera.js';
 const IDENT = new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]);
 import { makeVertexStream } from './stream.js';

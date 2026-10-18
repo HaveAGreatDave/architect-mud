@@ -446,72 +446,29 @@ export const TWIN_PASS_ARMS = {
     // tile rolled the gutted-glass state. `m.unit` is read off the registry beside `pal`, which
     // is where the rest of a building's authored facts already live.
     const st = ['shutter', 'whitewash', 'grille'].indexOf(m.unit || 'shutter');
-    // ⚠ EVERY ONE OF THESE IS A SHALLOW FITTING WITH A LID ON IT, AND ALL THREE WERE DEEP BOXES
-    // WITH OPEN TOPS. A shopfront here is authored at `fh * 0.90` with no `fd`, so it was a SQUARE
-    // box half a tile deep — the house idiom from before `tileFitBox` existed, when the front face
-    // landed a tile and a half into the street and the painter's queue sorted it clear of
-    // everything. Trimmed back to the plot line it became a solid standing 0.15 of a tile proud of
-    // the facade with nothing on top: on the depth buffer you look down INTO it, and it buried two
-    // thirds of the building's own painted name (which section 3c now lifts over anyway — the two
-    // fixes are independent, and this one is what was actually reported).
-    // A real `fd` is what makes it a shutter, a board and a shopfront rather than three blocks;
-    // `roof` is the lid. ⚠ AND THE DEPTHS KEEP THEM OFF `deck`: that list takes a box with a roof
-    // whose footprint is within 0.02 of square, so a lid on the old square boards would have stood
-    // a coping band on one of them.
-    //
-    // ⚠ AND THE LID WAS ONLY HALF OF IT — A PANEL ALSO HAS TO STAND ON THE GROUND AND IN THE PLANE
-    // OF ITS OWN WALL. `fh * 0.90` is a CENTRE, so with the depths below it the front face landed
-    // at 0.95–1.00 against a facade at 0.86: an eighth of a tile of frontage out over the pavement
-    // with nothing under it. Two of the three also started part way UP the wall (`wallTop * 0.10`,
-    // `wallTop * 0.16`), which the painter's queue hid and a depth buffer does not — a slab in the
-    // air with its open underside showing. Reported, in those words, as "a floating roller door
-    // and a small piece that juts out for no reason".
-    //
-    // ⚠ THE CENTRE IS SOLVED FROM THE FACE RATHER THAN CHOSEN, which is what stops it coming back:
-    // `FRONT` is where the outer skin has to land and each state centres at `FRONT - fd`, so
-    // changing a depth can never push the frontage into the street again. It stands a fiftieth of
-    // a tile proud rather than flush, because coplanar with the wall is a z-fight and this is the
-    // smallest offset that is not one.
-    //
-    // ⚠ AND THIS PANEL IS WHAT THE DERIVED KIT HANGS THE WHOLE GROUND FLOOR ON. `base` is the
-    // LOWEST-TOPPED candidate box, which is this one — so its z0 is the pavement the roller door
-    // stands on, its front face is the plane that door is drawn in, and its half-width has to
-    // clear the kit's `base.hw > 0.1` or the ground floor is declined AND the name with it (3b and
-    // 3c are both inside that block). The boarded state was three separate `fh * 0.22` boards,
-    // which is 0.088 — so that unit has been standing there with no door, no window and no
-    // lettering on any of its three elevations. One panel CARRIES the boards now instead of being
-    // them, and the boards are lifted clear of its own top edge so they cannot take `base` off it.
-    // ⚠ THE SHOPFRONT IS A STOREY, NOT A FRACTION OF THE BLOCK. `wallTop * 0.66` made the door
-    // taller every time the building over it gained a floor, which is what produced the
-    // storey-and-a-half roller shutter. A storey here is `h / floors` and every one of the four
-    // is a `shop` (3), so 0.30h is one — and a unit given a fourth floor gets a grander corner
-    // shopfront rather than a broken one. ⚠ IT MAY NOT BE `storeyZ()`, tempting as that reads:
-    // an absolute is a `c` term the capture solves fine and then warns about on every bake, and
-    // a constant is exactly what a modelling slip looks like. Affine in h, and no constant.
+    // ⚠ EACH STATE IS A SHALLOW FITTING: a real `fd` plus a lid (`roof`). Without `fd`, `fh * 0.90`
+    // is a square box half a tile deep, proud of the facade with an open top a depth buffer shows.
+    // The depths also keep these off `deck`, which takes any roofed box within 0.02 of square.
+    // ⚠ EACH STATE CENTRES AT `FRONT - fd`, so a depth change can't push the frontage into the street
+    // or off the ground ("a floating roller door"). It stands 0.02 tile proud: flush is a z-fight.
+    // ⚠ THE DERIVED KIT HANGS THE GROUND FLOOR ON THIS PANEL. `base` is the lowest-topped box (its z0
+    // is the pavement, its face the door's plane), and it needs `base.hw > 0.1` or the kit drops the
+    // ground floor and the name with it (3b, 3c). Three 0.088 boards failed that, so one panel
+    // carries them now, the boards lifted clear of its top edge so they can't take `base` off it.
+    // ⚠ THE SHOPFRONT IS ONE STOREY, 0.30h (`h / floors`, all four are `shop` (3)), so it doesn't grow
+    // with the floors. ⚠ Not `storeyZ()`: an absolute is a `c` term the capture warns about every bake.
     // ── THE FRONTAGE, AS A LADDER OF PLANES ────────────────────────────────────────────────
-    //
-    // Four surfaces share this one face — the wall, the arm's reveal, the roller curtain the
-    // detail list draws, and whatever the unit's own state hangs on it. On the painter they sort
-    // by `DETAIL_LIFT` and the order is free; on a depth buffer they COMPARE, and two at one
-    // plane is a z-fight rather than a missing part, which is the one defect here that would
-    // read as a driver bug. So the planes are stated once, in order, and every part below is
-    // placed off this ladder rather than off a number somebody picked at the call site:
-    //
+    // Four surfaces share this face. The painter sorts them by `DETAIL_LIFT`; a depth buffer compares
+    // them, and two at one plane z-fight. Place every part off this ladder:
     //     0.86 fh  the wall            (the mass box above)
-    //     0.88 fh  the reveal          — the recess the shopfront is set into
-    //     0.90 fh  the curtain         — the `shutter` in D_VACANT, drawn by the detail layer
+    //     0.88 fh  the reveal          (the recess the shopfront is set into)
+    //     0.90 fh  the curtain         (the `shutter` in D_VACANT, drawn by the detail layer)
     //     0.92 fh  the state's own surface
     //     0.94 fh  the grille bars
     //     0.95 fh  the letting notice
     // ── …AND THE FRONTAGE IS NOT ALL SHOP ──────────────────────────────────────────────────
-    //
-    // A walk-up over a shop has its own street door beside the shop's, and it is the one thing
-    // at pavement level that says anybody lives here. Without it the whole ground floor is a
-    // shut roller door and there is no way into a building with nine windows lit in it.
-    // ⚠ `SHOPW` AND `SHOPX` ARE STATED HERE AND MIRRORED IN D_VACANT'S `shutter`. The curtain is
-    // a detail part and the reveal under it is mass, so the two are authored in different places
-    // and will silently drift apart — the door then overlaps the shutter and reads as a patch on
-    // it rather than as a door.
+    // The flats over the shop get their own street door. ⚠ `SHOPW` and `SHOPX` are mirrored in
+    // D_VACANT's `shutter`; if they drift apart, the door overlaps the shutter.
     const FRONT = fh * 0.88, panelTop = h * 0.30;
     const SHOPW = fh * 0.48, SHOPX = fh * -0.13, DOORX = fh * 0.52;
     if (frontVis) {

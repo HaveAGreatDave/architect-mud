@@ -112,37 +112,18 @@ void main() {
   vDepth = clip.w;              // the camera-forward distance, in tiles — the same f GLASS sorts on
 }`;
 
-// The shading GLASS already does, per fragment instead of per face: a key-light dot that warms the
-// lit side and cools the shadow side, and a distance fade into the sky. `uKey`/`uSky`/`uShadow` are
-// RENDER_TUNE's own vertex-light palette, handed in rather than restated.
-// ⚠ THIS IS THE COMPILED CEILING, NOT THE WORKING COUNT. The loop breaks on 'uNLight', so what a
-// frame actually costs is the number of lights it HAS, not this — raising the ceiling costs a frame
-// with twelve lights in it exactly nothing, and the uniform budget it asks for (3 arrays of this,
-// ~151 vectors all told) is still a third of the WebGL2 guarantee of 224.
-//
-// The working count is 'RENDER_TUNE.glLightSlots', and it is separate for a reason worth knowing:
-// this number is stamped into the shader source, so sweeping it would mean recompiling the program
-// and there would be no way to measure the choice. A runtime cap can be swept, which is how its
-// default was picked — see the note on that knob in windshield.js.
+// The shading GLASS already does, per fragment: a key-light dot warming the lit side and cooling
+// the shadow side, and a distance fade into the sky. 'uKey'/'uSky'/'uShadow' are RENDER_TUNE's own
+// vertex-light palette, handed in.
 // ── THE LIGHT CEILING, AND WHY IT IS NOT THE THING IN THE WAY ───────────────
-//
-// ⚠ THIS IS NOT THE BINDING CONSTRAINT AND HAS NOT BEEN FOR A WHILE. `RENDER_TUNE.glLightSlots`
-// ships at 16 and `SLOTS` clamps to the smaller of the two, so the city runs at SIXTEEN contested
-// slots and this number is already double what anything asks for. Raising it on its own changes
-// nothing whatsoever — the tune key exists, the uniform is declared, and the bench reads 0.0%,
-// which is this file's own favourite shape of mistake. Raise the TUNE, and read its ⚠ first: the
-// wall-wash gain is calibrated against how many lights land on one facade, so slots and gain are
-// arithmetically the same knob and have to move together.
-//
-// ⚠ THE CEILING ITSELF IS ALMOST FREE, WHICH THE NAME HIDES. The fragment loop opens
-// `if (i >= uNLight) break;`, so a frame with nine lights costs nine iterations whether this says
-// 32 or 64. What costs is FILLING slots, and that is the tune's business.
-//
-// ⚠ AND WHEN SOMEBODY DOES RAISE THE TUNE, THE WALL IS THE UNIFORM BUDGET, NOT THE FRAME. The
-// fragment shader wants 3·MAX_LIGHTS + 1 + 2·MAX_MATERIALS + 6 vectors against a WebGL2 floor-spec
-// guarantee of 224 — 32 wants 151, 48 wants 199, 56 wants 223, 64 wants 247. Past 56 a floor-spec
-// device does not get a slower city, it gets no GL pass at all. `glCapabilities` compares that
-// number against the device now; it used to compute it and compare it against nothing.
+// ⚠ THIS IS THE COMPILED CEILING, NOT THE WORKING COUNT. It's stamped into the source, so it can't
+// be swept; the working count is 'RENDER_TUNE.glLightSlots' (16), and 'SLOTS' clamps to the
+// smaller. Raising this alone changes nothing (the bench reads 0.0%). Raise the TUNE and read its
+// ⚠ first: the wall-wash gain is calibrated to lights per facade, so slots and gain move together.
+// ⚠ THE CEILING IS ALMOST FREE: the loop opens 'if (i >= uNLight) break;', so cost is lights filled.
+// ⚠ THE LIMIT IS THE UNIFORM BUDGET: 3·MAX_LIGHTS + 1 + 2·MAX_MATERIALS + 6 vectors against WebGL2's
+// guaranteed 224 (32 wants 151, 48 wants 199, 56 wants 223, 64 wants 247). Past 56 a floor-spec
+// device gets no GL pass at all; 'glCapabilities' checks the number against the device.
 export const MAX_LIGHTS = 32;   // uniform slots, and the per-fragment loop CEILING
 
 const FRAG = linearOut(`#version 300 es
@@ -1358,36 +1339,18 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     hasSurfPage = true;
   }
 
-  // ⚠ QUADS ARE FANNED, NOT ASSUMED TO BE FOUR-SIDED. A drum cap is an N-gon and a clipped roof is a
-  // 3-to-5-gon, so anything that indexed 0,1,2 / 0,2,3 would quietly drop the rest of a cylinder's
-  // lid. Every face here is convex, which is what makes a fan correct rather than merely convenient.
-  // ⚠ THE MESH ARRIVES AS GROUPS, EACH WITH AN OFFSET, AND IS NEVER COPIED TO MOVE IT. A city is one
-  // building geometry repeated at many tiles: placing it by rewriting every vertex allocates an
-  // array per face and a point per vertex, and it is a rebuild of the whole buffer that pays for it.
-  // The offset is added here, on the way into the vertex data, where the number was going to be
-  // written anyway.
-  //
-  // ⚠ AND IT FILLS A TYPED ARRAY DIRECTLY. A plain array of a hundred and forty thousand numbers,
-  // grown by `push` and then converted, was most of an eleven-millisecond rebuild on an aircraft
-  // window — which is a dropped frame every time the map recentres, and invisible in a steady shot.
-  // ── `nb` IS THE DUSK BLEND, AND THE COLOUR IS RESOLVED HERE RATHER THAN IN THE SHADER ────────
-  //
-  // A flat face carries its own colour and no texture (`solid = 1 - flat`), so for the whole trim
-  // layer — 20,494 of the city's 28,717 faces — `aColor` IS the picture. `captureModelMesh` is
-  // memoised on geometry alone and was only ever run at `night: 0`, so every one of those faces was
-  // wearing its DAYTIME colour at midnight: a lit window bay, a canopy strip light, a blade panel,
-  // a lit shopfront. 4,973 faces over 163 of the 173 models, measured.
-  //
-  // The fix is a second colour, not a second mesh and not a shader channel, and the reason is that
-  // the two captures are geometrically IDENTICAL face-for-face (asserted in `gl:mesh`): only the
-  // colours differ. So the day and night colours ride along on the face and the blend happens once
-  // per vertex at upload. No stride growth, no new attribute, no varying, and nothing for
-  // `glCapabilities` to recount.
-  //
-  // ⚠ THIS IS FREE ONLY BECAUSE THE BUFFER IS ALREADY REBUILT AT EVERY DUSK STEP. `texEpoch`
-  // quantises the blend into 64 steps and world.js forces `uploadGroups` when the epoch moves, so
-  // the wall textures and the trim colours cross dusk together, on a cadence that already existed.
-  // Put `nb` in the rebuild key some other way and the city gets a rebuild per frame at sunset.
+  // ⚠ QUADS ARE FANNED: a drum cap is an N-gon and a clipped roof 3 to 5 sides, so 0,1,2 / 0,2,3
+  // would drop the rest of a lid. Every face is convex, which is what makes a fan correct.
+  // ⚠ GROUPS ARRIVE WITH OFFSETS, added here on the way in; vertices are never copied to move them.
+  // ⚠ IT FILLS A TYPED ARRAY DIRECTLY (push-then-convert was most of an 11 ms rebuild per recentre).
+  // ── 'nb' IS THE DUSK BLEND, AND THE COLOUR IS RESOLVED HERE RATHER THAN IN THE SHADER ────────
+  // Flat faces ('solid = 1 - flat', 20,494 of 28,717) are their 'aColor'. 'captureModelMesh' is
+  // memoised on geometry and captured at 'night: 0', so 4,973 faces over 163 of 173 models wore day
+  // colours at midnight. The day and night captures are identical face for face (asserted in
+  // 'gl:mesh'), so both colours ride on the face and blend once per vertex at upload: no new
+  // attribute, varying or stride, nothing for 'glCapabilities' to recount.
+  // ⚠ FREE ONLY BECAUSE 'texEpoch' QUANTISES DUSK INTO 64 STEPS and world.js forces 'uploadGroups' on
+  // each; put 'nb' in the rebuild key some other way and sunset rebuilds every frame.
   function uploadGroups(groups, rectOf, nb) {
     const NB = nb > 0 ? (nb < 1 ? nb : 1) : 0;
     let verts = 0;

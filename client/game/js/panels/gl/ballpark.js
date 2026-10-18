@@ -1,53 +1,22 @@
 // GLASS 2 · THE BALLPARK. Deadball's park drawn by WebGL2 (the Grandstand, gameday-grandstand.js).
-//
-// The park is lit the way a night game is: six light towers are the only lights, each a bank
-// of lamps the venue says are working or not, and every surface is lit by them in linear light
-// with a GGX highlight. The frame goes into hdr.js's multisampled float target, so a lamp can be
-// twenty times brighter than white and bloom off it, and this file's own last pass takes the
-// filmic curve in linear light and encodes for the screen.
-//
-//   · the park is built once from the venue by ballpark-mesh.js (pure, so the gate checks it);
-//   · the field is painted in the shader: grass with mowing stripes that change with the
-//     camera's direction, the warning track, the foul lines, and the infield canvas
-//     (diamond/dirt.js) laid over it, which keeps the game's marks (markDirt): a park's own copy
-//     of it, and only the texels a mark touches go up again, or the grounds crew's drag puts
-//     back as painted (smoothDirt), their mats drawn each frame (setMats);
-//   · the crowd is one figure in three poses (gl/crowd.js), instanced over every occupied seat,
-//     each fan getting up and cheering as his side roars (setCrowd);
-//   · the scoreboard is a face of lamps lit from a 240×84 mask of the line score
-//     (diamond/board.js), redrawn when the game changes;
-//   · the players are skinned: a body per player, built once in the rig's bind pose
-//     (gl/ballplayer-mesh.js buildBody, diamond/rig.js) a few a frame so a new cast never stalls
-//     the page, and moved by its bones on the GPU (gl/skin.js) into the pose the cast gives it
-//     (diamond/cast.js) or `setPose` does; the street figure's heads are shaded with their faces
-//     from the atlas as the Actor Lab shades them;
-//   · outside, the park's brick wall is painted in the shader (EXTERIOR), and its name is lit
-//     over the main gate once the venue says it;
-//   · the city round it is a set composed from the league's venue (client/shared/city-set.js)
-//     and built once (gl/cityscape.js): facades and streets painted from their coordinates,
-//     sodium lamps with their pools added over the ground, and the Curtain on the set's walls
-//     in gl/curtain.js's own look. The towers reach it through a narrower beam.
-//
-// The frame, in order (docs/proposals/deadball-glass2.md, Lighting and the frame):
-//
-//   1. shadows: four of the towers draw perspective maps of the players, skinned (gl/spotshadow.js);
-//   2. the main pass into hdr.js's target: the sky, the park, the city, the crowd, the backstop
-//      net, then the lamps' pools, the Curtain and the spectacle (the comet's tail, sparks off the
-//      bat, fireworks: gl/spectacle.js) added over them, each through the night air, which is
-//      height fog with the towers' light scattered in it (fog.js);
-//      what falls on the park and lightning over the skyline go in with them (gl/weather.js), and
-//      the field is wet under rain; and the buildings' own lights, their neon, searchlights and
-//      the smoke off their stacks (gl/citylights.js);
-//   3. the depth the frame was drawn with, resolved into a texture for the lens and the occlusion;
-//   4. ambient occlusion from that depth at half size (ssao.js);
-//   5. bloom off the lamps (hdr.js), then the lens, the curve and the grade (gl/broadcast.js).
-//
-// Nothing here decides anything: it draws the park through a shot (diamond/camera.js).
-// `createBallparkRenderer` returns null with no WebGL2, no float target, or a shader that won't
-// build, and the view falls back to the 2-D Gameday.
-//
-// ⚠ NO FACE CULLING, as in arena.js: the builders don't keep one winding, and every material
-// here is lit from the side that faces the eye.
+// Six light towers (lamp banks the venue reports working or not) are the only lights: linear light
+// and GGX into hdr.js's multisampled float target, so lamps bloom; the last pass here applies the
+// filmic curve and encodes. Parts: the park mesh (ballpark-mesh.js, pure, gated); the field painted
+// in the shader with the infield canvas (diamond/dirt.js; markDirt re-uploads only touched texels,
+// smoothDirt, setMats); the crowd (gl/crowd.js, instanced, setCrowd); the scoreboard from a 240×84
+// mask (diamond/board.js); skinned players (gl/ballplayer-mesh.js buildBody, diamond/rig.js, built a
+// few a frame so a cast never stalls, posed by gl/skin.js from diamond/cast.js or 'setPose'; faces
+// from the atlas as in the Actor Lab); the brick EXTERIOR and lit name; and the city set
+// (client/shared/city-set.js via gl/cityscape.js, sodium pools, gl/curtain.js), reached by the
+// towers through a narrower beam.
+// Frame order (docs/proposals/deadball-glass2.md): 1. tower shadow maps (gl/spotshadow.js);
+// 2. main pass: sky, park, city, crowd, net, then pools, Curtain and spectacle (gl/spectacle.js)
+// through height fog (fog.js), plus gl/weather.js (wet field in rain) and gl/citylights.js;
+// 3. depth resolved to a texture; 4. half-size SSAO (ssao.js); 5. bloom (hdr.js), then lens,
+// curve and grade (gl/broadcast.js).
+// Nothing here decides anything; it draws through a shot (diamond/camera.js).
+// 'createBallparkRenderer' returns null with no WebGL2, float target or shader, and the view falls
+// back to the 2-D Gameday. ⚠ NO FACE CULLING, as in arena.js: builders don't keep one winding.
 
 import { buildPark, buildDress, crowdMorph, createBatch, ellipsoid, dragMat, lin, STRIDE, CROWD_STRIDE, CROWD_MORPH, MAT } from './ballpark-mesh.js';
 import { CROWD_VS, flashesAt } from './crowd.js';

@@ -1,35 +1,16 @@
-// THE ROAD SURFACE, AS GEOMETRY — AND EVERYTHING ELSE THAT IS A COLOURED POLYGON.
-//
-// It began as the road and it is no longer only the road: the headlight pool rides here as an
-// additive range, building shadows as a translucent one, and a CLIFF MASSIF as ordinary depth-
-// writing geometry. Nothing about this layer was ever specific to z = 0 — it takes a polygon, a
-// colour and an alpha, which is what all four of those are. A massif could not go in the mesh
-// (that is captured once and a cliff is coloured per frame off the sun, the night and a world
-// noise) and could not go behind an occlusion probe (it spreads about 1.8 tiles either side of
-// its own tile, so any box wide enough to hold it reaches into the gaps between buildings), so
-// it comes here instead, where a stream is the honest shape and the depth buffer does the rest.
-//
-// Measured with scripts/shapes/armcost.mjs: once GLASS 2 owns the city's mass, 97% of the canvas
-// calls a frame still makes are path construction, and the single biggest producer is the ground —
-// 'stripeA', the helper behind every road surface, pavement, lane line and dash, at roughly 12,000
-// calls a frame on a 33x33 window. Buildings, by then, account for almost none of it: the same
-// window with every building deleted costs MORE, because you can see more road.
-//
-// So this is what is left of GLASS 1 in the world pass, and it is all flat quads at z=0 with a
-// solid colour. There is nothing in it a GPU is not better at.
-//
-// ⚠ DEPTH-WRITE ON, unlike every other layer here. The lights, the Curtain, the signage and the
-// scatter are all things you see THROUGH or things that sit ON a surface, so they test depth and
-// write none. The road IS a surface — a building standing on it must be able to hide the road
-// behind it, and the road must hide what is under it.
-//
-// ⚠ AND IT UPLOADS EVERY FRAME, DELIBERATELY. The mass buffer is cached on the map window and
-// three separate bugs were needed to make that safe (an order-sensitive key, a camera-relative
-// mesh position, and a set taken from camera-culled items). These quads are produced by a pass
-// that culls per tile against the near plane and the far limit, so the set genuinely changes as
-// you move inside a single tile — feeding that to a cached buffer would reintroduce all three
-// failures at once. A stream is the honest shape for it; make it cacheable by moving the culls
-// first, not by pretending they are not there.
+// THE ROAD SURFACE, AS GEOMETRY, AND EVERYTHING ELSE THAT IS A COLOURED POLYGON.
+// Takes a polygon, a colour and an alpha: the road, the headlight pool (an additive range),
+// building shadows (a translucent one) and a CLIFF MASSIF (depth-writing geometry). A massif can't
+// go in the mesh (it's coloured per frame off the sun, night and a world noise) or behind an
+// occlusion probe (it spreads ~1.8 tiles either side, into the gaps between buildings).
+// scripts/shapes/armcost.mjs: once GLASS 2 owns the mass, 97% of canvas calls left are paths, mostly
+// 'stripeA' (road, pavement, lane marks) at ~12,000 a frame on a 33x33 window. This moves them here.
+// ⚠ DEPTH-WRITE ON, unlike every other layer here: the road is a surface, so a building must hide
+// the road behind it and the road must hide what's under it.
+// ⚠ IT UPLOADS EVERY FRAME, DELIBERATELY. The quads are culled per tile against the near plane and
+// far limit, so the set changes within a tile; a cached buffer would bring back the three bugs the
+// mass cache needed fixing (order-sensitive key, camera-relative position, camera-culled set).
+// Make it cacheable by moving the culls first.
 import { viewProjMatrix, mat4f } from './camera.js';
 import { makeVertexStream } from './stream.js';
 import { HEIGHT_FOG_GLSL, LIGHT_SHAFT_GLSL } from './fog.js';
@@ -1444,38 +1425,19 @@ export function createGroundLayer(gl) {
 
   const tris = (list) => list.reduce((n, q) => n + (q.p.length - 2) * 3, 0);
 
-  // ⚠ FILLED STRAIGHT INTO THE TYPED ARRAY. The mass rebuild cost 11.1 ms until it stopped building
-  // plain arrays and converting them; at twelve thousand quads a frame this path cannot afford that
-  // mistake a second time.
-  // ⚠ FOUR RANGES, NOT ONE LIST, AND THE ORDER IS THE CANVAS'S. Everything here shares the ground
-  // plane, so what separates them is not depth but what they DO to what is already there:
-  //
-  //   base  — the road SURFACE, which writes depth because it is a surface
-  //   paint — a lane line, a kerb, a zebra bar: markings laid ON that surface
-  //   add   — a headlight pool, which is light landing on it ('lighter' on the canvas)
-  //   over  — a shadow, which is translucent dark laid on top of all three
-  //
-  // Surface, then paint, then light, then shadow, is exactly the sequence the 2-D pass paints in:
-  // drawGroundSurfaces, drawHeadlightBeam, then the shadows the building loop casts. Get it
-  // backwards and a building's shadow stops falling across the beam.
-  // Only the base writes depth: a translucent quad that wrote it would let its own dark alpha
-  // occlude whatever else shares its plane.
-  //
-  // ⚠ AND PAINT IS A RANGE OF ITS OWN BECAUSE PAINT GOES ON PAINT. The eps ladder orders the road
-  // against the floor and the shadows against the road; it has nothing to say about a yellow centre
-  // line and a zebra bar, which are both markings, both at ROAD_EPS and therefore exactly coplanar.
-  // Coplanar with depth-write on is a per-pixel coin toss decided by the last bits of two different
-  // triangles' interpolated depth — and it moves as the camera moves, which is what "flashing white
-  // patches over the yellow lines" is. One junction tile in a bare test city produced 196 such
-  // pairs: every kerb against the pavement band it edges, every lane dash against the crossing it
-  // runs through, and the yellow centreline against the zebra. Lifting either one is not the fix —
-  // a world lift is worth a fraction of a depth unit by forty tiles, so the fight comes back the
-  // moment the camera pulls away. Paint TESTS depth (a building still hides the road behind it) and
-  // writes none, so what is drawn later composites on top, which is the answer the canvas has
-  // always given. The order within the range is the push order, which is the paint order.
-  // ⚠ NO CLOSURE PER QUAD, AND EACH RANGE IS COUNTED ONCE. This made a `put` closure for every quad
-  // (about 2,800 a frame in a cockpit) and walked the lists four times to count them. The quad's
-  // fields are read once here and each vertex goes through `putGround`.
+  // ⚠ FILLED STRAIGHT INTO THE TYPED ARRAY: the mass rebuild cost 11.1 ms when it built plain arrays
+  // and converted them, and this path runs ~12,000 quads a frame.
+  // ⚠ FOUR RANGES IN THE CANVAS'S ORDER: base (the road surface, writes depth), paint (lane lines,
+  // kerbs, zebras), add (headlight pool, 'lighter'), over (shadows, translucent, on top of all
+  // three). That's the 2-D pass order (drawGroundSurfaces, drawHeadlightBeam, building shadows);
+  // reversed, a shadow stops falling across the beam. Only base writes depth (a translucent quad
+  // that did would occlude its own plane).
+  // ⚠ PAINT GOES ON PAINT: markings all sit at ROAD_EPS, exactly coplanar, so with depth-write on
+  // they flicker as the camera moves ("flashing white patches over the yellow lines"; 196 pairs on
+  // one junction tile). A lift is worth a fraction of a depth unit at forty tiles, so it's no fix.
+  // Paint tests depth, writes none, and composites in push order.
+  // ⚠ NO CLOSURE PER QUAD (~2,800 a frame in a cockpit), AND EACH RANGE IS COUNTED ONCE: each
+  // vertex goes through 'putGround'.
   function upload(quads) {
     const base = [], paint = [], add = [], over = [];
     for (const q of quads) (q.add ? add : q.over ? over : q.paint ? paint : base).push(q);

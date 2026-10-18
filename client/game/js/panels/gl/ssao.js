@@ -1,45 +1,19 @@
 // THE OCCLUSION THE OTHER TWO TERMS CANNOT SEE.
-//
-// GLASS already has two ambient-occlusion terms and they are both deliberately local. `uAo` is a
-// HEIGHT term — the ground robs a surface of sky the closer it is to the ground — and `vBakedAo` is
-// sampled at mesh-capture time against THE MODEL'S OWN solid volume, so it finds a recessed
-// doorway, the underside of a sill and the inner corner of a setback. Neither can see past the
-// edge of the building it belongs to.
-//
-// So the case neither answers is the one a city is made of: a narrow gap between two DIFFERENT
-// buildings, a canopy over a neighbour's frontage, an alley. The baked pass would have to sample
-// every other building in the window — which changes with the camera, so it could not live in the
-// per-model memo that makes it affordable — and the height term has no idea anything is there.
-// That is what a screen-space pass is for, and it is the one kind of occlusion that gets the
-// neighbours for free, because the depth buffer already has all of them in it.
-//
-// ⚠ IT NEEDS A DEPTH TEXTURE, AND THE MAIN PASS CANNOT GIVE IT ONE. GLASS 2 renders into the
-// DEFAULT framebuffer, whose depth is a renderbuffer nothing can sample, and moving the world into
-// an offscreen target is the float-target change this renderer has deliberately not made yet. A
-// depth-only PREPASS avoids the whole question: one more draw of a vertex buffer that is already
-// built and already resident, exactly what the sun's shadow pass does, which measures at 0 ms.
-//
-// ⚠ AND IT NEEDS NO MATRIX INVERSE, WHICH IS WHY THERE IS NO invert4 IN camera.js. The textbook
-// reconstruction multiplies a clip-space point by the inverse view-projection; this projection
-// hands the answer over directly instead. From `projMatrix`:
-//
+// 'uAo' is a height term and 'vBakedAo' is baked against the model's own volume (recessed doors,
+// sills, setbacks); neither sees past its own building. A gap between two buildings, a canopy over
+// a neighbour, an alley: the depth buffer already holds the neighbours, so a screen-space pass gets
+// them free (a baked pass would have to sample every building in the window, breaking its memo).
+// ⚠ IT NEEDS A DEPTH TEXTURE THE MAIN PASS CAN'T GIVE: GLASS 2 draws to the default framebuffer,
+// whose depth can't be sampled. A depth-only PREPASS of the resident buffer, as the sun's shadow
+// pass does, measures at 0 ms.
+// ⚠ NO MATRIX INVERSE (hence no invert4 in camera.js). From 'projMatrix':
 //     clip.x = fxn·v.x        clip.y = fyn·v.y + cy0·v.z        clip.z = A·v.z + B        clip.w = v.z
-//
-// so `clip.w` IS the camera-forward distance, and a depth sample inverts to it with one divide:
-// ndcZ = A + B/w, therefore w = B / (ndcZ − A). The other two axes fall out of the same three
-// constants. Five scalars, no inverse, and nothing that can drift from the matrix the vertices
-// actually went through — the parity gate holds that matrix still, and this reads its own terms
-// off the same function.
-//
-// ⚠ VIEW SPACE IS METRIC HERE. `viewMatrix` is a rotation and a translation with no scale, so a
-// radius in view space is a radius in TILES and the one tunable that matters can be written in the
-// unit the rest of the renderer thinks in.
-//
-// ⚠ AND EVERY EXIT RETURNS null. A framebuffer the driver will not complete, a texture it will not
-// allocate, a program that will not link: each of those leaves the main shader sampling something
-// undefined, and undefined in an occlusion term is not a missing shadow, it is a BLACK CITY. So
-// nothing is half-installed — either the layer reports a texture, or the caller runs the pass it
-// has always run with the strength at zero, where the multiply is by exactly 1.0.
+// so 'clip.w' is camera-forward distance and w = B / (ndcZ − A). Five scalars read off the same
+// function the parity gate holds still, so nothing can drift from the vertices' matrix.
+// ⚠ VIEW SPACE IS METRIC ('viewMatrix' has no scale), so the radius is in TILES.
+// ⚠ EVERY EXIT RETURNS null. An incomplete framebuffer, unallocated texture or unlinked program
+// leaves the shader sampling undefined, which is a BLACK CITY; the caller then runs strength 0,
+// a multiply by exactly 1.0.
 
 // How many taps the hemisphere is sampled with. Twelve is where the noise stops being structured
 // enough for the blur to leave streaks, and it is a per-fragment loop bound so it is stamped into

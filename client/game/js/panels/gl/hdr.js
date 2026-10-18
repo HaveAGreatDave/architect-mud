@@ -1,36 +1,16 @@
 // A FLOAT TARGET, SO LIGHT CAN BE BRIGHTER THAN WHITE.
-//
-// Every pass in GLASS 2 renders straight into the default framebuffer, which is eight bits a
-// channel. That is the ceiling under every other thing in this renderer: a neon sign, a lit window,
-// the sun's highlight and the city's wall wash all resolve into the same 0..1 and CLIP. What a
-// bright thing looks like here is therefore a flat white patch, and the only way anything has ever
-// glowed is `shadowBlur` on the 2-D canvas or a hand-placed sprite standing in front of it.
-//
-// This renders the whole GL frame into an RGBA16F buffer instead, and resolves it at the end. Two
-// things fall out of that and nothing else does:
-//
-//   1. Additive layers stop clipping. The sprites, the curtain and the wall wash all blend ONE,ONE,
-//      so a dense frontage was already summing past 1.0 and throwing the remainder away.
-//   2. There is something for a bright-pass to find. Bloom is not a blur of the picture — it is a
-//      blur of the part of the picture that is brighter than the display can show, which in an
-//      8-bit buffer does not exist by definition.
-//
-// ⚠ THE TONE CURVE IS A SEPARATE KNOB FROM THE BUFFER, AND THAT SPLIT IS THE WHOLE SAFETY ARGUMENT.
-// A filmic curve touches EVERY pixel: it would re-grade the palettes, the three occlusion terms, the
-// material response and the wall-wash gain, all of which were tuned by eye against a linear 8-bit
-// output over months. So `glHdr` buys the headroom and the bloom, and `glTonemap` is what decides
-// how much of the curve is applied — at 0 the composite is a clamp, which is arithmetically the
-// same thing the 8-bit buffer was doing, and the frame differs only by the bloom that is added.
-//
-// ⚠ AND MSAA IS RESOLVED, NOT DROPPED. The default framebuffer was created with `antialias`, and
-// moving the world into a single-sample texture would quietly hand back aliased building edges —
-// a regression nobody asked for, arriving inside a change about brightness. The colour and depth
-// attachments are multisampled renderbuffers and `blitFramebuffer` resolves them.
-//
-// ⚠ EVERY EXIT RETURNS null, for the reason the shadow and occlusion layers do: half-installed is
-// worse than absent. If the float format is not renderable on this device, or a framebuffer will
-// not complete, or a program will not link, the caller renders to the default framebuffer exactly
-// as it always has.
+// The default framebuffer is 8 bits a channel, so neon, lit windows, sun highlights and the wall
+// wash all CLIP to flat white. This renders the GL frame into RGBA16F and resolves it at the end,
+// so additive layers (sprites, curtain, wall wash, all ONE,ONE) stop clipping, and a bright-pass
+// has something above 1.0 to find.
+// ⚠ THE TONE CURVE IS A SEPARATE KNOB FROM THE BUFFER: a filmic curve re-grades every pixel (the
+// palettes, occlusion, materials and wash gain were tuned against linear 8-bit). 'glHdr' buys
+// headroom and bloom; 'glTonemap' sets the curve, and at 0 the composite is a clamp, so the frame
+// differs only by the added bloom.
+// ⚠ MSAA IS RESOLVED, NOT DROPPED: colour and depth are multisampled renderbuffers resolved by
+// 'blitFramebuffer', or building edges go aliased.
+// ⚠ EVERY EXIT RETURNS null, as in the shadow and occlusion layers: unrenderable float format,
+// incomplete framebuffer or unlinked program, and the caller renders to the default framebuffer.
 
 // How far down the chain bloom is gathered. Two octaves: a half-resolution pass for the tight halo
 // around a sign, and a quarter-resolution one for the broad wash a lit street throws into the air.

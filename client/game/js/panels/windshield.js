@@ -1,37 +1,17 @@
-// WINDSHIELD — the out-the-front-window forward view.
-//
-// A canvas scene shared by the pilot cockpit, the passenger cabin, and the
-// takeoff/landing/VTOL decks. It renders a first-person view through the canopy:
-// a time-of-day sky, drifting clouds, a perspective ground plane that scrolls
-// with your speed, the zones/obstacles ahead of you rising off that plane, a
-// runway (or landing pad) whose size reflects your height above the ground, plus
-// weather and speed flourishes and a static canopy frame. It is display-only —
-// the numbers come from the same server push (or, in the decks, the minigame's
-// own physics loop).
-//
-// paintWindshield(id, view) where view = {
-//   pitch,      // deg, + = nose up
-//   bank,       // deg, + = right bank
-//   height,     // 0 = on the deck … 1 = high
-//   speed,      // 0..1 airspeed fraction
-//   hour,       // 0..23 in-game hour (sky palette) — fractional is fine and blends smoother
-//   moon,       // optional 0..1 lunar phase (0 new, 0.5 full) — omitted → a full disc
-//   weather,    // 'rain'|'storm'|'snow'|'ash'|'fog'|'cloudy'|'clear'|…
-//   heading,    // deg (to orient the map obstacles)
-//   map,        // optional server map window (rows[y][x] = {kind}) → obstacles ahead
-//   phase,      // 'cruise' | 'takeoff' | 'landing' | 'vtol' | 'ground'
-//   worldBlend, // optional 0..1 ground↔air crossfade weight (only the charter/passenger
-//               //   HUD sends this) — when set, overrides the hard cut on `phase`/onDeck
-//               //   so the airport scenery and the Mode-7 world actually blend
-//   drift,      // VTOL only: -1..1 lateral offset off the pad
-//   airport,    // ground/takeoff/landing: terrain theme ('city'|'docks'|'yards'|
-//               //   'slag'|'wastes'|'default') → the flanking airport scenery
-//   side,       // passenger cabin: look out the SIDE (heading turned 90°), scenery
-//               //   sliding past the window rather than rushing at you
-//   windowClass,// passenger cabin: aircraft class → the window-frame shape cut
-//               //   around the view (porthole / cabin pane / armoured port)
-//   contacts,   // air-to-air traffic (Phase A): [{dx,dy,altDiff,rng,reg,hullPct,
-//               //   designated}] relative to us → aircraft blips + a target bracket
+// WINDSHIELD: the forward view out of the front window (sky, clouds, a scrolling ground plane, the
+// zones ahead, a runway or pad sized by height, weather, the canopy frame), shared by the pilot
+// cockpit, the passenger cabin and the takeoff/landing/VTOL decks. Display-only; the numbers come
+// from the server push (or a deck's own physics loop).
+// paintWindshield(id, view), view = {
+//   pitch, bank (deg, + = nose up / right bank), height (0 deck..1 high), speed (0..1),
+//   hour (0..23, fractional blends smoother), moon (0..1 phase, 0.5 full; omitted = full disc),
+//   weather ('rain'|'storm'|'snow'|'ash'|'fog'|'cloudy'|'clear'|…), heading (deg, orients map),
+//   map (optional server window, rows[y][x] = {kind}), phase ('cruise'|'takeoff'|'landing'|'vtol'|
+//   'ground'), worldBlend (optional 0..1 ground/air crossfade, charter HUD only; overrides the hard
+//   cut on phase/onDeck), drift (VTOL, -1..1 off the pad), airport (terrain theme: 'city'|'docks'|
+//   'yards'|'slag'|'wastes'|'default'), side (cabin: look out the side, heading +90°), windowClass
+//   (cabin: aircraft class picks the window frame), contacts (air traffic, [{dx,dy,altDiff,rng,reg,
+//   hullPct,designated}] relative to us: blips + a target bracket)
 // }
 
 import { isWeatherFxEnabled } from './weather-fx.js';
@@ -309,51 +289,29 @@ export const RENDER_TUNE = {
   modelLights: 1,     // strength of the model's own lamps spilling onto its own bodywork (headlamps, lifter wash, tail lamps). 0 = off; the canvas halos are unaffected either way.
   occlude: 1,         // skip buildings entirely hidden behind a nearer one. Lossless by construction (there is no z-buffer, so a hidden building is otherwise fully built, queued, sorted and filled); the occluder/occludee boxes are biased so it can only ever be too timid. 0 = draw everything as before.
   frustum: 1,         // skip buildings that fall entirely off the SIDE of the canvas. The tile loop has always clipped near and far and never sideways, which costs nothing at altitude and is the biggest single waste from a ground camera — see offCanvasLaterally. 0 = draw everything as before.
-  // 1 = a thing drawn as MOUNTED on a surface (rooftop clutter today) may not sort behind that
-  // surface. See mountedOn: the constraint exists because no single depth per face can order a
-  // vent against the roof it stands on, which is why a rooftop box was being painted over by its
-  // own roof on every heading that put it on the far half. 0 = the queue as it was.
+  // 1 = a thing drawn MOUNTED on a surface (rooftop clutter) may not sort behind it: no single depth
+  // per face orders a vent against its own roof (see mountedOn). 0 = the old queue.
   // ── GLASS 2, STAGE ONE ──
-  // 1 = the city's MASS is drawn in WebGL2 under the 2-D canvas, and the model arms run with
-  // MASS_OFF so every light, sign and adornment still paints on top exactly as it does today.
-  // 0 = the renderer that has always shipped, untouched: no canvas is created and no context is
-  // asked for, so `off` is not a code path, it is the absence of one.
-  //
-  // Measured before it was wired at all (see tools/modelshop/README.md): the 2-D building pass
-  // costs 3.6 ms on a 73-building city, the same geometry costs GL 0.02-0.04 ms, and a HUNDRED
-  // times the triangles costs 0.67-1.06 ms.
-  // ⚠ ON BY DEFAULT since 2026-09-09, on the evidence rather than on the ambition. What changed:
-  // the camera agrees to 5.7e-14 px across five device-pixel ratios (gl:parity, 3,931
-  // projections), the mesh agrees with the shape every building COLLIDES as at all four entrance
-  // facings (gl:mesh, 10,853 faces), a real Coldwater frame measured 18.3 ms average / 31 ms
-  // worst with the pass live, and the ground-to-air crossfade, the Curtain and the signage are
-  // all on the depth buffer rather than on a probe.
-  //
-  // ⚠ AND IT STILL FAILS SAFE, which is what makes a default defensible rather than a bet. No
-  // WebGL2, a lost context, a shader that will not compile, a texture page the device cannot
-  // hold, a pass that returns nothing and a pass that throws each hand the world back to the 2-D
-  // renderer and put the flag to 0 — see the composite in drawWorldObjects and glCapabilities().
-  //
-  // ⚠ Every number here is from ONE machine with a discrete NVIDIA card. "Falls back correctly"
-  // is not "is fast on an integrated GPU", and the first knob if it ever measures slower
-  // somewhere is `antialias` in createGLView: the 2-D canvas has no MSAA, so GL is buying
-  // smoother edges nobody asked for at full-frame cost.
+  // 1 = the city's MASS draws in WebGL2 under the 2-D canvas; arms run with MASS_OFF so lights, signs
+  // and adornments paint on top. 0 = the old renderer, with no GL canvas or context at all. The 2-D
+  // building pass is 3.6 ms on 73 buildings, GL 0.02-0.04 ms, 100x the triangles 0.67-1.06 ms
+  // (tools/modelshop/README.md).
+  // ⚠ ON BY DEFAULT since 2026-09-09: the camera agrees to 5.7e-14 px over five DPRs (gl:parity,
+  // 3,931 projections), the mesh matches the collision shape at all four facings (gl:mesh, 10,853
+  // faces), a Coldwater frame is 18.3 ms average / 31 ms worst, and the crossfade, Curtain and
+  // signage are on the depth buffer.
+  // ⚠ FAILS SAFE: no WebGL2, a lost context, a failed shader, an oversize texture page, or a pass
+  // that returns nothing or throws each fall back to 2-D and set the flag to 0 (the composite in
+  // drawWorldObjects, glCapabilities()).
+  // ⚠ Measured on one machine with a discrete NVIDIA card. If it's slower elsewhere, try `antialias`
+  // in createGLView first: the 2-D canvas has no MSAA, so GL pays for it alone.
   // ── THE GROUND, ON THE GPU, AND ON BY DEFAULT ──
-  // 1 = drawMode7Floor hands its per-tile LUT and its camera to a fragment shader instead of
-  // rastering the floor itself. 0 puts the software raster back.
-  //
-  // The port is complete — every term, including the ones this comment used to list as missing:
-  // water with its swell, glitter, surf and shore emboss, the arid ripple, the near-field grain,
-  // the aerial-perspective wash, the rotor downwash and the N64 fog band. `__glFloor()` in the
-  // Modelshop measures it over twenty scenes — every biome by day and by night, plus the four
-  // SEAT cases (headlights, and an own-ship shadow parked, airborne and under a heli) — and the
-  // worst is 2.30% of pixels differing by more than 24 levels, on a daylight road.
-  //
-  // ⚠ AND IT IS THE FLAG THAT ACTUALLY PAYS. `__glFloorCost()` on a 640x360 cab frame: a city
-  // costs 32.9 ms on GLASS 1, 34.4 with the mass on the GPU and the raster still under it, and
-  // 1.3 with this on. Open sea is 65.4 / 69.1 / 0.6. The middle column is the finding — moving
-  // the city bought nothing until the ground followed, because a fixed per-pixel software raster
-  // that costs the same over an empty desert as over a city WAS the frame.
+  // 1 = drawMode7Floor's LUT and camera go to a fragment shader; 0 = software raster. The port is
+  // complete; `__glFloor()` over twenty scenes (every biome day and night, four seat cases): worst is
+  // 2.30% of pixels off by more than 24 levels, on a daylight road.
+  // ⚠ THIS FLAG IS THE WIN. `__glFloorCost()`, 640x360 cab: city 32.9 ms on GLASS 1, 34.4 with GPU
+  // mass over the raster, 1.3 with this on; open sea 65.4 / 69.1 / 0.6. The per-pixel raster was the
+  // frame, so moving the mass bought nothing until the ground followed.
   glFloor: 1,
   // The sky as a direction on the GPU (gl/sky.js): correct at any head tilt, one sphere for the
   // sun, moon and stars at every seat. 0 is the 2-D gradient and the dome exactly as they shipped.
@@ -723,39 +681,18 @@ export const RENDER_TUNE = {
   // of the country is bare and the field decides where the exceptions are.
   hoodooDensity: 0.62,
   // ── STEAM AT THE KERB ───────────────────────────────────────────────────────────────────────
-  // How much steam the street vents, where 0 is a city with none. It is the last of the seven
-  // dressings and the one with the least geometry in it: a plume is a few soft blobs standing on
-  // a grate, and what makes it read is that the light in the street goes THROUGH it. See
-  // 'steamPlume'.
-  // ⚠ ON AT LAST, AND THE THREE WRONG ANSWERS ARE WORTH MORE THAN THE NUMBER.
-  //
-  // ONE: this said no venting tile ever landed in the road tiles the object sweep draws, and
-  // named the open question as "which gate takes them". No gate takes them. The symptom was real
-  // and belonged to `nearFrontage`, whose own header records it — a four-neighbour first cut
-  // answered false for nearly every street in the basin, because Coldwater lays a grass verge
-  // between its carriageways and its frontages. Widening it to ±2 fixed the placement months
-  // ago and nobody came back here, so a defect description outlived its defect.
-  //
-  // TWO: that near-field ground marks do not render in GLASS 2. They do. The frame was cut into
-  // ten bands and bands 4-5 were called the far road; a mark stamped at a FIXED window
-  // coordinate one tile ahead lands in bands 4-5, because from a cab one tile ahead is already
-  // halfway up the picture. Three rendering paths were tried against a bug that did not exist.
-  //
-  // THREE, and the one the other two were hiding: the plume was TOO BIG. Authored 0.28 of a
-  // tile, which is three times the height of a lorry in this renderer, so it could only ever
-  // read as weather — and every attempt to make it "visible" made it taller and brighter, i.e.
-  // a fog bank lying across the street. A vent is a wisp that leaves the grate and is gone by
-  // about the height of a rig. See the ⚠ over `H` in steamPlume, where the height is now derived
-  // from the drawn truck rather than typed.
-  //
-  // ⚠ THE GAIN WAS SET AGAINST SATURATION AND THAT WAS THE WRONG CEILING. The argument was that a
-  // puff pinning at peak delta 260 is washing to white, so 1.3 was chosen to keep headroom under
-  // it — and the result was invisible. Look at what steam off a street actually does under a
-  // lamp: it IS white, and brightly so. Saturation is what the thing looks like, not a failure.
-  // What the ceiling really is, is the point where a wisp stops being a wisp and becomes a bank
-  // lying across the road, and that is a judgement made by looking rather than a number: gain 6
-  // at width 2.2 is unmistakable and is weather, gain 3 at width 1.5 is a pale column standing in
-  // the road. Chosen by eye, which is the only instrument for this question.
+  // How much steam the street vents (0 = none). A plume is a few soft blobs on a grate, and it
+  // reads because the street light goes through it. See 'steamPlume'.
+  // ⚠ No gate keeps venting tiles out of the road sweep: placement was fixed by widening
+  // `nearFrontage` to ±2 (Coldwater puts a grass verge between road and frontage).
+  // ⚠ Near-field ground marks do render in GLASS 2. From a cab one tile ahead is already halfway
+  // up the frame, so don't hunt a missing mark in the bottom bands.
+  // ⚠ SIZE: a vent is a wisp gone by about the height of a rig. Authored at 0.28 tile (three
+  // lorries tall) it read as weather. The height is derived from the drawn truck (the ⚠ over `H`
+  // in steamPlume).
+  // ⚠ SATURATION IS NOT THE CEILING. Steam under a lamp is white; the limit is where a wisp becomes
+  // a bank across the road, judged by eye: gain 6 at width 2.2 is weather, gain 3 at width 1.5 is
+  // a pale column. (1.3, chosen to stay under peak delta 260, was invisible.)
   glSteam: 3,
   // What share of KERB tiles vent — see the ⚠ at the call site for why it is the kerb and not the
   // whole carriageway. Higher than it looks: the candidates are already a small slice of the road,
@@ -909,67 +846,28 @@ export const RENDER_TUNE = {
   boltForce: null,
   // ── THE REFLECTED CITY IN THE STANDING WATER ───────────────────────────────────────────────
   //
-  // The wet road has always reflected the city as a SMEAR — each light drawn out along the line
-  // from its ground point to the eye. That is what rough damp tarmac does, and it is not what a
-  // puddle does: a puddle is a mirror and holds an IMAGE, which a smear cannot become by being
-  // tuned, because it has never seen the lettering, the frame or the bulbs. So the signage and the
-  // lights are rendered a second time through a camera that flips the world about the water's
-  // plane, and the road reads that back — see gl/mirror.js.
-  //
-  // The number is the gain, and it is PURELY ADDITIVE: 0 takes the whole prepass out — no
-  // framebuffer, no second draw — and leaves the exact picture that shipped before it. See the ⚠ in
-  // ground.js on why the smear is no longer reweighted underneath it.
-  //
-  // ⚠ THIRTY-TWO IS NOT A TYPO AND IT WAS SWEPT, NOT CHOSEN. It multiplies a term that has already
-  // been through the water weight and the Fresnel gate, and inside a puddle at a typical reflection
-  // site those are 1.0 and 0.18 — and OUTSIDE one the water weight is 0.02, which is the whole point
-  // of the number being large. A mirror image also lands NEAR THE EYE (the image of a sign three
-  // storeys up sits about a tile in front of a truck) and near the eye is exactly where the Fresnel
-  // term is weakest. A gain of 1 measured 0.2% of the frame touched at a mean of 2/255, which is a
-  // feature nobody can find. `__glMirror()` over the road of a night street, against the same street
-  // with the mirror off:
-  //
+  // The wet road smears each light toward the eye, which is damp tarmac. A puddle is a mirror, so
+  // the signage and lights render a second time through a camera flipped about the water plane and
+  // the road reads that back (gl/mirror.js).
+  // 0 removes the prepass (no framebuffer, no second draw): exactly the shipped picture. See the ⚠
+  // in ground.js on why the smear isn't reweighted underneath it.
+  // ⚠ THIS IS A 0…32 WEIGHT, NOT AN ADDITIVE MULTIPLIER. The composite in ground.js can't exceed its
+  // inputs, so 32 means standing water reflects as hard as the Fresnel term says: near a perfect
+  // mirror at a cab's grazing angle. The table is the OLD additive units, from `__glMirror()` on a
+  // night street against the mirror off:
   //     gain        0      8     16     32     64
   //     touched   0.00%  0.31%  0.75%  1.35%  2.07%   ← share of road pixels moved at all
   //     visible   0.00%  0.06%  0.12%  0.29%  0.69%   ← moved by 8/255 or more
   //     roadLum   61.84  61.87  61.91  61.99  62.10   ← the road's own mean brightness
   //     worst        0     47     93    173    185
-  //
-  // ⚠ THE roadLum ROW IS WHY A BIG NUMBER IS SAFE HERE. It moves 1.3 of 255 across an eight-fold
-  // gain change, because the term reaches a few per cent of the road and the headroom factor holds
-  // down whatever it does reach. There is no wash to guard against; the failure mode is
-  // invisibility, and the first cut sat at the wrong end of it.
-  //
-  // ⚠ AND THE REFLECTION IS IN THE PUDDLES AND ALMOST NOWHERE ELSE, WHICH IS WHY IT REACHES UNDER
-  // ONE PER CENT OF THE ROAD. The water weight off-puddle is 0.02 (see ground.js), so what mirrors
-  // the city is the standing water: it is the nearest lit frontages lying in the pools in front of
-  // them, not a sheen down the whole street. Confining it cost the reach an order of magnitude —
-  // 1.65% of the road visibly moved when the sheen was 0.08, 0.12% now at the same gain — and that
-  // IS the change that was asked for. The gain went up to pay some of it back inside the pools.
-  //
-  // ⚠ IT COSTS A SECOND DRAW OF THE TWO EMISSIVE LAYERS AND NOTHING ELSE — the mass is not
-  // re-rendered, so a sign standing behind a tower still reaches the water. That is the one visible
-  // compromise, and closing it is a second mass pass rather than a tweak.
-  // ⚠ 32 → 16, AND THE TABLE ABOVE IS WHAT CONDEMNS IT. Read the `worst` row as a response curve
-  // rather than as a size: 8→16 doubles the gain and the worst pixel moves ×1.98, 16→32 moves
-  // ×1.86, and 32→64 moves ×1.07. That last number is not a tuning choice, it is a CLIP — twice the
-  // light for seven per cent more picture. 32 is already past the knee.
-  //
-  // Reported from a cab in the rain as "this puddle looks like pee and the reflections look a
-  // little off", which is one fault wearing two faces. A clipped warm reflection saturates R and G
-  // before B, so amber street lighting in standing water goes yellow; and a clipped image has no
-  // detail left, so the reflected frontages read as flat white bars. This pass exists to put a
-  // LEGIBLE sign in the water, and past the knee it puts a blob there.
-  //
-  // ⚠ THE roadLum ROW IS WHY IT WAS SET TO 32, AND IT IS THE WRONG STATISTIC FOR THE QUESTION. The
-  // road's MEAN brightness moving 1.3 of 255 cannot see saturation confined to the one per cent of
-  // pixels that are puddle — a mean is the one measurement guaranteed to miss it. The `worst` row
-  // was carrying the answer the whole time.
-  // ⚠ THIS IS A 0…32 WEIGHT NOW, NOT AN ADDITIVE MULTIPLIER, and the sweep table above is the
-  // OLD units — it measured an add that clipped, which is why its worst-pixel row flattens. The
-  // composite in ground.js cannot exceed its own inputs, so there is no clipping to tune against:
-  // 32 means standing water reflects exactly as hard as the Fresnel term says, which at a cab's
-  // grazing angle is very nearly a perfect mirror. 0 is still exactly the picture that shipped.
+  // ⚠ Read `worst` as a response curve: 32→64 moved it ×1.07, which is a clip. A clipped warm
+  // reflection saturates R and G before B, so amber light in a puddle went yellow ("looks like pee")
+  // and frontages went to flat white bars. roadLum is a mean and can't see saturation in the 1% of
+  // pixels that are puddle; don't tune on it.
+  // ⚠ It's confined to puddles: off-puddle water weight is 0.02 (ground.js), so it reaches under 1%
+  // of the road (0.12% visible at 16, against 1.65% when the sheen was 0.08). That was asked for.
+  // ⚠ It redraws only the two emissive layers, not the mass, so a sign behind a tower still reaches
+  // the water. Closing that is a second mass pass.
   glMirror: 32,
   // ── HOW BIG A PUDDLE IS, AND HOW MANY ─────────────────────────────────────
   //
@@ -1064,45 +962,20 @@ export const RENDER_TUNE = {
   glPondGrow: 1,
   // ── THE BUILDINGS IN THE WATER, NOT JUST THE LIGHT OFF THEM ───────────────
   //
-  // 0 is the picture the mirror pass shipped with: a puddle holding signs and glows and no facades,
-  // which is why it read as white shapes in the water rather than as a city — the two layers it
-  // drew were the EMISSIVE ones and a facade is neither. 1 draws the mass into the reflection
-  // buffer as well, which also gives that buffer a depth test and so closes the limit mirror.js
-  // stated about itself: a sign reaching the water from behind a tower.
-  //
-  // ⚠ WHAT IT BUYS, measured by `__glMirror()` at the shipping gain of 16 — the share of road that
-  // reflects at all, and the share that moves by 8/255 or more:
-  //
-  //             touched   visible
-  //     mass 0    1.65%     0.14%
-  //     mass 1    5.73%     1.41%   ← ×3.5 and ×10
-  //
-  // ⚠ AND WHAT IT COSTS, by `__glFrame()` with the road forced wet, in ms a frame:
-  //
-  //     cab sparse  1.9 → 1.7 (noise)      air sparse  4.4 → 5.1
-  //     cab dense   2.2 → 3.0              air dense   5.6 → 6.0
-  //     cab day     2.2 → 3.2
-  //
-  // So about +0.4 to +1.0 ms where there is a city to reflect, and nothing where there is not —
-  // which is the shape a second mass draw should have. It is also only ever paid while the road is
-  // wet: `reflTex` is null at `glWet 0`, so a dry frame builds no reflection buffer at all.
-  //
-  // ⚠ THE DAY ROW IS THE UNCOMFORTABLE ONE AND IS LEFT ALONE DELIBERATELY. A daylight reflection
-  // washes out against bright ground by arithmetic, so +1.0 ms buys the least visible frame in the
-  // table. Gating it on night would fix that and would also be the thing `pickLights` has a ⚠
-  // against — "a daylight reflection being faint is the SCENE, not a rule" — and a wet road at four
-  // in the afternoon genuinely does reflect. If this ever needs to come back, the honest lever is
-  // `glMirrorRes` (quarter the buffer again) rather than a clock.
+  // 0 = the mirror pass draws only the emissive layers (signs, glows), so a puddle shows white
+  // shapes, not a city. 1 also draws the mass into the reflection buffer, which gives it a depth
+  // test and stops a sign behind a tower reaching the water (the limit mirror.js states).
+  // ⚠ `__glMirror()` at gain 16 (touched / visible): mass 0 1.65% / 0.14%, mass 1 5.73% / 1.41%.
+  // ⚠ `__glFrame()`, road forced wet, ms: cab sparse 1.9→1.7 (noise), dense 2.2→3.0, day 2.2→3.2;
+  // air sparse 4.4→5.1, dense 5.6→6.0. Paid only while wet: `reflTex` is null at `glWet 0`.
+  // ⚠ THE DAY ROW IS LEFT ALONE ON PURPOSE. Don't gate it on night (the ⚠ in `pickLights`: a faint
+  // daylight reflection is the scene); a wet afternoon road does reflect. The lever is `glMirrorRes`.
   // ── HOW HARD THE ROAD LAYER PUSHES OFF THE FLOOR ──────────────────────────
   //
-  // Depth-buffer steps of polygon offset toward the eye, for every quad on the ground plane: the
-  // tile fills, the kerbs, the lane markings and the shape shadows. It was hardcoded at -4, priced
-  // against what the eps ladder is worth at eighty tiles from an aircraft.
-  //
-  // ⚠ A CAB IS THE CASE IT WAS NOT PRICED FOR, and it is a slider so the next person does not have
-  // to rebuild to find that out. More negative pushes the road harder toward the eye; 0 removes the
-  // bias entirely and leaves only the eps ladder, which is what the layer had before the offset
-  // existed.
+  // Polygon-offset steps toward the eye for every ground-plane quad (tile fills, kerbs, lane
+  // markings, shape shadows). -4 was priced for the eps ladder at eighty tiles from an aircraft.
+  // ⚠ A cab wasn't priced for; it's a slider so you can test without a rebuild. More negative pushes
+  // harder toward the eye; 0 leaves only the eps ladder.
   glGroundBias: -4,
   glMirrorMass: 1,
   // ── THE FAR DISSOLVE, OVER THE GROUND ─────────────────────────────────────
@@ -1141,69 +1014,25 @@ export const RENDER_TUNE = {
   glRipple: 2.2,
   // ── THE LIGHT THAT LANDS IN THE WATER RATHER THAN BESIDE IT ───────────────
   //
-  // A wet road at night was a pure subtraction, and that is a measurement rather than an
-  // impression: `__glWet()` at 23:00, with the headlights off, moved 52% of the frame DARKER and
-  // 0.00% of it brighter at every wetness setting. A street with water lying in it does not get
-  // darker and nothing else — the water is the brightest thing on it.
-  //
-  // The cause is two decisions that are each right on their own. The streak (`smear` in ground.js)
-  // is deliberately weighted by the DRY half of the wet road, because damp tarmac scatters and
-  // standing water mirrors and a surface cannot do both. The water was handed to the reflection
-  // buffer instead — and a grazing reflection shows what is FAR away: off a puddle ten tiles ahead
-  // of a truck the reflected ray rises about a degree and a half, clears any frontage in the
-  // street, and lands on the horizon. At night that is a dark sky. So the pools were given the one
-  // thing in the scene with no light in it.
-  //
-  // This is the missing half: the same six lights the streak already has, at the WATER's
-  // roughness — a tight highlight where the streak is a long smear — modulated by the surface's
-  // own motion so it twinkles. It needs no second light list, no buffer and no new geometry.
-  //
-  // ⚠ 0 IS EXACTLY THE PICTURE THAT SHIPPED. It is weighted by the water alone (`imgW`), so the
-  // tarmac between the pools is untouched at any setting.
-  //
-  // ⚠ FIFTY IS NOT A TYPO, AND IT IS THE SAME ARITHMETIC THAT PUT `glMirror` AT 32. The term has
-  // already been through the water weight, the Fresnel gate and the headroom, and the light colours
-  // it multiplies are `rgbRaw` — small numbers, 0.03 to 0.3 for the lamps on an ordinary street.
-  // Swept from a cab at 23:00 with the lamps OFF, against the same road at glint 0, as the share of
-  // the frame that moves and the worst pixel:
-  //
-  //     glint      2      5.5     10     20     40     80
-  //     moved    0.00%   0.90%  1.73%  3.07%  9.31%  14.16%
-  //     worst       5      11     21     42     84     168
-  //
-  // There is no knee in that — the composite cannot clip, so the curve is straight and the choice
-  // is a look rather than a limit. By eye on a lit street, 20 is a hint, 40-70 is a lamp lying in
-  // the water, and 140 is a warm sheet with no shape left in it.
-  //
-  // ── ⚠ AND IT CAME DOWN TO EIGHT, BECAUSE THE COMPOSITE DOES CLIP ───────────────────────────
-  //
-  // Both halves of the paragraph above are wrong, and the second one is what shipped the bug.
-  // `c + k*(1-c)` is EXACTLY 1.0 for any k >= 1 — white, per channel, hue and all — so the curve is
-  // straight only while k stays under one, and 50 is nowhere near that: `rgbRaw` runs to 0.45 on
-  // this street (not 0.3), so the brightest of the road's six sits at TWENTY-TWO times the clip.
-  // The sweep missed it by measuring the share of the frame that MOVES, which goes on rising after
-  // every pixel it touches has stopped being able to.
-  //
-  // ground.js now caps the highlight at the light's own colour, which is what a specular reflection
-  // of a source physically is; that stops it painting white, and it leaves the gain's meaning
-  // unambiguous: the number is how far past the cap the brightest source is driven. Reported from
-  // the game as puddles showing flat opaque colour with no reflection in them — measured in front of
-  // the Sentinel at 13:00, 6.7% of the near ground over luminance 170 with a peak of 255 and the
-  // road's standard deviation at 56 against 19 for the same street at glint 0.
-  //
-  // Eight is `1 / (0.45 * refl)` at a cab's grazing angle — the brightest lamp reaching the cap at
-  // the core of its own highlight and everything else riding below it, which is what leaves the
-  // sparkle and the pool's own shape visible instead of a filled outline. Measured on the same
-  // frame: 13:00 peak 164 with nothing clipped (sd 24), 23:00 still a lamp lying in the water at
+  // Without this a wet road at night only gets darker: `__glWet()` at 23:00, headlights off, moved
+  // 52% of the frame darker and 0.00% brighter. The streak (`smear` in ground.js) is weighted by the
+  // DRY half, and a grazing reflection off a puddle ten tiles ahead lands on the night sky. This adds
+  // the same six lights at the water's roughness, a tight highlight modulated by the surface motion
+  // so it twinkles. No new light list, buffer or geometry.
+  // ⚠ 0 IS EXACTLY THE SHIPPED PICTURE. It's weighted by water alone (`imgW`); tarmac is untouched.
+  // ⚠ THE COMPOSITE CLIPS. `c + k*(1-c)` is exactly 1.0 for any k >= 1, so a gain of 50 put the
+  // brightest of the six (`rgbRaw` up to 0.45 here) at 22x the clip: flat opaque colour in the
+  // puddles. A "share of frame moved" sweep misses this; it keeps rising after pixels saturate.
+  // ground.js now caps the highlight at the light's own colour, so the gain is how far past the cap
+  // the brightest source is driven.
+  // Eight is `1 / (0.45 * refl)` at a cab's grazing angle: the brightest lamp just reaches the cap.
+  // In front of the Sentinel: 13:00 peak 164, nothing clipped (sd 24); 23:00 a lamp in the water on
   // 2.9% of the near ground (sd 44, against 51 at fifty). The slider still reaches 50.
-  //
-  // ⚠ AND IT IS A CAB FEATURE BY GEOMETRY, WHICH IS WORTH KNOWING BEFORE TUNING IT. The mirror
-  // point of a light at height h, for an eye at height e, is e/(e+h) of the way from the eye to the
-  // light — so from a cab it is out on the carriageway and from a chase camera it has walked most
-  // of the way to the lamp's own base, on the pavement, where there is no road quad to draw it on.
-  // Measured: 11.80% of a night cab frame at 50, 0.00% of the same frame from the air (the Fresnel
-  // gate), and 2.65% at one in the afternoon — daylight washing it out by arithmetic, as intended.
-  // What lights the water in an external seat is the headlight pool, which has its own glimmer.
+  // ⚠ IT'S A CAB FEATURE BY GEOMETRY. The mirror point of a light at height h, for an eye at height
+  // e, is e/(e+h) of the way to the light: from a cab it's on the carriageway, from a chase camera
+  // on the pavement with no road quad. Measured: 11.80% of a night cab frame at 50, 0.00% from the
+  // air (Fresnel gate), 2.65% at 13:00. External seats get light in the water from the headlight
+  // pool's own glimmer.
   glGlint: 8,
   // ── HOW DARK STANDING WATER IS ────────────────────────────────────────────
   //
@@ -1468,87 +1297,35 @@ export const RENDER_TUNE = {
   glSsaoRes: 0.5,     // the SSAO buffer as a fraction of the frame. 1 = full resolution as shipped; 0.5 costs a quarter of the fill (the result is blurred and sampled with LINEAR filtering, so it reads the same).
   // ── HOW MANY OF THE CITY'S LIGHTS REACH THE WALLS ───────────────────────────
   //
-  // The mass shader had twelve slots against roughly 180 candidates in a dense night frame, and the
-  // note on the fade in gl/world.js is about what that scarcity costs: the chosen set churns as you
-  // drive, which is why a light has to ramp rather than switch. The ceiling is 32 now (MAX_LIGHTS),
-  // and this is the number actually used.
-  //
-  // ⚠ TWO NUMBERS RATHER THAN ONE, BECAUSE THE CEILING CANNOT BE SWEPT. MAX_LIGHTS is stamped into
-  // the shader source, so changing it recompiles the program — there is no way to measure a choice
-  // that needs a rebuild between every row. The loop breaks on the live count, so a runtime cap
-  // costs exactly what it says and can be A/B'd; that is how this default was picked rather than
-  // guessed.
-  //
-  // ⚠ AND MORE LIGHTS IS NOT FREE OF THE THING THE WALL-WASH GAIN HAS BEEN CUT THREE TIMES FOR. The
-  // wash is additive per light with no ceiling, and the gain (0.18, down from 1.5) was set against
-  // how many lights land on one facade — so turning this up is arithmetically the same as turning
-  // the gain up, and it re-introduces the flattening those cuts were for. The two have to move
-  // together, and the reason the default is not simply 32 is that the gain is calibrated for this.
-  //
-  // ⚠ WHAT WAS MEASURED, AND WHAT IT DOES NOT SAY. A dense night cab frame, wall pixels moved
-  // against a one-light baseline: 8 slots 0.9%, 12 slots 12.9%, 16 slots 13.5%, 24 slots 9.6%,
-  // 32 slots 16.7%, with the frame time inside the run-to-run spread at every one of them. So the
-  // COVERAGE argument for going past twelve is weak — most of what a thirteenth light lands on is
-  // already lit by the twelve above it — and the 24 row dips because the wash reservation is a
-  // share, so that row trades four point sources for four broader washes and spreads dimmer light
-  // over more of the wall (its mean is 1.08% against 1.96%).
-  //
-  // The real argument for the headroom is CHURN rather than coverage: twelve slots against ~180
-  // candidates is what makes the chosen set turn over as you drive, which is the whole reason
-  // gl/world.js has a fade at all. That is not what this bench measures, and nobody has measured it.
-  // 16 is a modest step with the cost checked; anything above it is a look decision of the same kind
-  // as the three gain cuts, which were all made by eye and should be.
+  // The runtime light count for the mass shader, under the compiled ceiling MAX_LIGHTS (32).
+  // ⚠ TWO NUMBERS BECAUSE THE CEILING CAN'T BE SWEPT: MAX_LIGHTS is stamped into the shader source,
+  // so changing it recompiles. The loop breaks on this live count, so this one can be A/B'd.
+  // ⚠ MORE LIGHTS MEANS MORE WALL WASH. The wash is additive per light with no ceiling, and its gain
+  // (0.18, down from 1.5) is calibrated for this count; raising one raises the other.
+  // ⚠ Measured on a dense night cab frame, wall pixels moved against one light: 8 slots 0.9%, 12
+  // 12.9%, 16 13.5%, 24 9.6% (the wash reservation is a share; mean 1.08% vs 1.96%), 32 16.7%, frame
+  // time in the noise for all. Coverage past twelve is weak. The case for headroom is CHURN (12
+  // slots against ~180 candidates is why gl/world.js fades lights), which is unmeasured. 16 is a
+  // checked step; above it is a look decision.
   glLightSlots: 16,
   // ── A FLOAT TARGET, SO LIGHT CAN BE BRIGHTER THAN WHITE ─────────────────────
   //
-  // The ceiling under every other thing in this renderer. Every pass draws into the default
-  // framebuffer at eight bits a channel, so a neon sign, a lit window, the sun's highlight and the
-  // city's own wall wash all resolve into 0..1 and CLIP — which is why a bright thing here is a flat
-  // white patch, and why the only way anything has ever glowed is `shadowBlur` on the 2-D canvas or
-  // a sprite parked in front of it.
-  //
-  // Two things follow from the buffer and nothing else does. The additive layers stop throwing away
-  // their remainder (the sprites, the Curtain and the wall wash all blend ONE,ONE, and a dense
-  // frontage was already summing past 1.0). And there is finally something for a bright-pass to
-  // find — bloom is a blur of the part of the picture the display cannot show, which in an 8-bit
-  // buffer does not exist by definition.
-  //
-  // ⚠ MSAA IS RESOLVED RATHER THAN DROPPED. The canvas was created with `antialias`, and moving the
-  // world into a single-sample texture would hand back aliased building edges inside a change about
-  // brightness. The attachments are multisampled renderbuffers and the resolve is a blit.
-  //
-  // ⚠ AND IT FAILS SAFE like every other GL layer: no `EXT_color_buffer_float`, a framebuffer that
-  // will not complete or a program that will not link each leave `beginTarget` binding the canvas,
-  // and the frame is the one that shipped. `glLastFrame().hdr` is null when that happens, which is
-  // the only way to tell it from the knob being off.
-  //
-  // ⚠ IT SHIPS AT 0, AND THE REASON IS THE POINT OF THE WHOLE EXERCISE. The buffer is correct: with
-  // the emitter gain neutral it measures 0.0% of the frame moved, which is the no-op it claims to
-  // be. What it cannot do is find anything to bloom, because GLASS PRODUCES NO LIGHT BRIGHTER THAN
-  // WHITE — `peak()` on the resolved float target says the city's brightest pixel is 1.000 at noon
-  // and 1.016 at night, with 0.01% of the frame over 1.0. Every shader here was written against an
-  // 8-bit target and saturates by construction, so the headroom is real and empty.
-  //
-  // Two ways round that were tried and both are worse than nothing. Dropping the threshold to 0.72
-  // blooms the ROAD MARKINGS, which in a dark street are the palest thing in frame and are not
-  // lights. Multiplying the emitters into the headroom (EMISSIVE_GAIN, gl/world.js) costs 21.2% of
-  // an aerial night frame to buy 0.1% of bloom — see the account there.
-  //
-  // ── ⚠ AND IT IS UNPARKED, ON THE TERMS THE PARAGRAPH ABOVE SET ─────────────────────────────
-  //
-  // All of that stands and none of it is retracted: the threshold is still 1.0, EMISSIVE_GAIN is
-  // still 1, and the road markings still do not bloom. What changed is the last sentence of it —
-  // the emitters exist now. A marquee declares its lit face as light rather than as paint
-  // (`emit` in gl/decals.js, SIGN_EMISSIVE_GAIN in gl/world.js), so the bright-pass at 1.0 selects
-  // neon tube and neon lettering and nothing else in the frame.
-  //
-  // ⚠ IT IS SIGNAGE ONLY, WHICH IS WHY IT IS AFFORDABLE AND WHY IT LOOKS LIKE A CITY. The version
-  // that had to be walked back multiplied every additive sprite, so a warm halo on every building
-  // out to 22 tiles became a haze over the whole skyline. This reaches the decal layer's own quads
-  // and only those a producer has declared — today the lit face of a neon box, at night.
-  // ⚠ AND IT FAILS SAFE IN THE ORDINARY WAY: no renderable float format, or a framebuffer that
-  // will not complete, and `composite` is a no-op — the signs draw at exactly 1.0, which is the
-  // picture that shipped before any of this. `glLastFrame().hdr` is how to tell those apart.
+  // Every pass otherwise draws at eight bits a channel, so signs, windows and the sun's highlight
+  // clip to flat white. A float buffer keeps the remainder of the ONE,ONE additive layers (sprites,
+  // Curtain, wall wash) and gives a bright-pass something to find for bloom.
+  // ⚠ MSAA IS RESOLVED, NOT DROPPED: the attachments are multisampled renderbuffers and the resolve
+  // is a blit, so building edges stay antialiased.
+  // ⚠ FAILS SAFE: no `EXT_color_buffer_float`, an incomplete framebuffer or a program that won't link
+  // leaves `beginTarget` binding the canvas and `composite` a no-op, so signs draw at exactly 1.0.
+  // `glLastFrame().hdr` is null then; that's how to tell it from the knob being off.
+  // ⚠ GLASS MAKES NO LIGHT BRIGHTER THAN WHITE unless declared. `peak()` read 1.000 at noon and 1.016
+  // at night (0.01% over 1.0): every shader saturates by construction. Don't drop the threshold
+  // below 1.0 (at 0.72 the road markings bloom) or raise EMISSIVE_GAIN (gl/world.js: 21.2% of an
+  // aerial night frame for 0.1% bloom).
+  // ⚠ SIGNAGE ONLY. A marquee's lit face is declared as light (`emit` in gl/decals.js,
+  // SIGN_EMISSIVE_GAIN in gl/world.js), so the bright-pass at 1.0 picks neon and nothing else.
+  // Multiplying every additive sprite was walked back: a halo on every building to 22 tiles hazed
+  // the skyline.
   glHdr: 1,
   // How much of the gathered bloom is added back. This is the slider; the threshold beside it in
   // gl/world.js is not, because two knobs there multiply into one that means neither.
@@ -1607,45 +1384,20 @@ export const RENDER_TUNE = {
   // 0 is the city as it was.
   glLinear: 0,
   // ⚠ THERE IS DELIBERATELY NO `glEmit` BESIDE IT. An emission channel was built here, measured,
-  // and removed on the evidence: every emissive face in the city is a FLAT face, and a flat face is
-  // already immune to every term such a channel would have removed. The full account is on
-  // `faceEdges`'s neighbour in gl/world.js — read it before building one again.
+  // and removed: every emissive face is flat, and flat faces are already immune to what it would remove.
+  // The account is on `faceEdges`'s neighbour in gl/world.js; read it before building one again.
   // ── CONTACT OCCLUSION, AS A STRENGTH ────────────────────────────────────────
   //
-  // How much sky the ground takes back from a surface standing on it. GLASS already had two
-  // things doing part of this job — `wallLit`'s per-face base gradient, which the code has always
-  // called ambient occlusion, and real cast shadows on the ground plane — so what this adds is the
-  // one they both miss: an ABSOLUTE darkening near z=0 that does not restart at every setback.
-  //
-  // ⚠ IT IS A STRENGTH AND 0 IS THE RENDERER THAT SHIPPED. The shader multiplies by
-  // `1 - uAo * exp(-z * fall)`, which at 0 is exactly 1.0 — not nearly, exactly, and `__glAO()`
-  // asserts that row at 0.0% of wall pixels moved. GL only: the 2-D fallback has no cheap way to
-  // say "height above the ground" per pixel.
-  //
-  // ⚠ AND IT DEFAULTS TO 0 ON THE EVIDENCE, WHICH IS NOT WHERE THIS WAS EXPECTED TO LAND. Swept in
-  // the Modelshop against one building from a fixed seat, world-height occlusion has no setting
-  // that is both visible and correct:
-  //
-  //   fall 1.6-4    the whole building dims, top to bottom. That is an exposure change on the
-  //                 entire city wearing occlusion's name, not a contact shadow.
-  //   fall 8        the only band where it reads as contact at all, and at strength 0.45 it is
-  //                 near-indistinguishable from off on both an office tower and a shopfront.
-  //   fall 14-22    genuinely a contact term, and genuinely invisible: the darkened band is under
-  //                 a tenth of a tile, which is a few pixels at any distance you look at a
-  //                 building from — and those pixels are already dark, because the cast ground
-  //                 shadow is standing on them.
-  //
-  // The reason is structural rather than aesthetic, which is why no amount of loosening the house
-  // style rescues it: HEIGHT ABOVE THE GROUND is the one axis GLASS already covers twice, with
-  // `wallLit`'s per-face base gradient and with real cast shadows. What occlusion would actually
-  // add is the axis this term cannot see — concave geometry, so a recessed doorway, the underside
-  // of a sill, the inner corner of a setback. That needs neighbours, which means SSAO (a
-  // screen-filling pass measures 0.6-1.3 ms here, against a 2.1 ms cab frame of which the whole
-  // city is 1.0) or baked per-vertex occlusion (a float per vertex, paid at buffer build — the one
-  // budget that is genuinely tight, at 6.5 ms for 240 buildings).
-  //
-  // Kept rather than reverted because the knob is provably inert and the measurement is the point:
-  // `__glAO()` is the rig any future attempt should be held to.
+  // An absolute darkening near z=0 that doesn't restart at each setback, on top of `wallLit`'s
+  // per-face base gradient and the cast ground shadows. The shader multiplies by
+  // `1 - uAo * exp(-z * fall)`, exactly 1.0 at 0 (`__glAO()` asserts 0.0% moved). GL only.
+  // ⚠ DEFAULTS TO 0 ON THE EVIDENCE: no setting is both visible and correct. Fall 1.6-4 dims the
+  // whole building (an exposure change); fall 8 reads as contact but at 0.45 is near-invisible;
+  // fall 14-22 is a band under a tenth of a tile, already under the cast shadow. Height above ground
+  // is covered twice already. What's missing is concave geometry (doorways, sills, inner corners),
+  // which needs SSAO (0.6-1.3 ms a pass against a 2.1 ms cab frame) or baked per-vertex AO (paid at
+  // buffer build, 6.5 ms for 240 buildings, the tight budget). Kept as a provably inert knob; hold
+  // any future attempt to `__glAO()`.
   glAO: 0,
   // ── AND THE HALF THAT TERM COULD NOT SEE, BAKED PER VERTEX ──────────────────
   //
@@ -1686,66 +1438,26 @@ export const RENDER_TUNE = {
   glFxaa: 0,
   // ── THE SUN'S OWN SHADOWS, AS A STRENGTH ────────────────────────────────────
   //
-  // How far a surface the sun cannot see falls back toward the light it would have facing away
-  // from the sun. Same shape as `modelShadow`, and for the same reason: 0 is the renderer exactly
-  // as it was — the shader's shadow function returns before it samples anything and `lit` is left
-  // untouched — which is a claim worth being able to test rather than assert.
-  //
-  // ⚠ IT IS NOT THE GROUND SHADOWS, AND IT DOES NOT REPLACE THEM. `drawBuildingShadow` has always
-  // laid a footprint hull on the ground and goes on doing exactly that. What this adds is what a
-  // painter's queue could never answer: a building shading its NEIGHBOUR'S WALL, a setback shading
-  // the storey under it, a canopy shading its own frontage. Those have no existing implementation
-  // to double up with, which is why this half comes first. The two agree because both read the
-  // same `dir` and `len` off the same sun — see lightMatrix in gl/camera.js.
-  //
-  // ⚠ GL ONLY, AND DAYLIGHT ONLY. There is no cheap way to ask "is this pixel lit" on a 2-D canvas,
-  // which is the whole reason the hull was the answer for so long; and the pass is skipped outright
-  // once the sun is down, so it costs nothing for half of every day.
-  //
-  // ⚠ IT DEFAULTED TO 0 FOR MONTHS BECAUSE IT DID NOT WORK, AND IT WAS TWO BUGS, NEITHER OF WHICH
-  // WAS ANYWHERE NEAR THE SUN. The report that used to sit here described a mask over most of the
-  // city — frames at 0.35 and 1.0 bit-identical, 0 pixels differing, 93% of building pixels
-  // shadowed at both, a black city in the screenshots — and correctly ruled out the depth pass,
-  // framebuffer state, the uniforms, degenerate normals and the derivative bug. It was right to
-  // rule all of those out. What it could not see:
-  //
-  //   1. A KEY COLLISION IN AN OPTIONS OBJECT. `world.js` passed the sun descriptor as `shadow:`
-  //      after spreading `opts.draw`, which already carried `shadow:` — the vertex-light base
-  //      colour. With the sun up, `uShadow` was set from `descriptor[0]`, i.e. `undefined`, i.e.
-  //      NaN, i.e. every solid fragment black at full alpha with a correct silhouette. NaN does not
-  //      vary with strength, which is exactly why 0.35 and 1.0 came out identical and why the
-  //      strength uniform read back correctly the whole time. The sun key is `sunShadow` now and
-  //      `draw()` warns once if anything hands `shadow` a non-array again.
-  //
-  //   2. AND THE TERM ONLY EVER STEERED THE KEY LIGHT. With (1) fixed the feature was correct,
-  //      monotonic, free — and almost invisible, because for a solid face the shadow reached the
-  //      picture only through `lit`, whose sole consumers are two overlay alphas. Strength 0
-  //      against 1.0 moved a cab frame by a mean of 0.72 of 255. The shader multiplies `base`
-  //      directly now, the way both AO terms already did; the line it replaced darkened FLAT faces
-  //      only, which was backwards — trim was the half already getting a shadow.
-  //
-  // Measured after both, `__glShadow()` in the Modelshop: 26.8% of wall pixels shaded at a low
-  // morning sun and 32.3% at noon (12.5 / 19.4 with only (1) fixed), mean 4.2-5.0, worst 35-36,
-  // ground 0.00-0.01%, cost 0 ms at every seat, and the night control exactly 0 moved pixels. The
-  // strength sweep is monotonic: 0→0.35 moves 9.72% of the frame, 0→0.60 9.86%, 0→1.00 9.93%, with
-  // the mean delta climbing 0.71 → 1.21 → 1.99.
-  //
-  // 0.55 rather than 1.0 because this is a city with a lot of flat concrete and a shadow at full
-  // strength starts reading as paint. 0 is still the exact off switch — the shader's shadow
-  // function returns before it samples anything — and `npm run gl:shadow` plus `__glShadow()`
-  // remain the rig for anybody retuning it.
-  //
-  // ⚠ IT WAS BACKED OFF ONCE ON A WRONG DIAGNOSIS. A live session reported `requestAnimationFrame`
-  // violations the same day this was defaulted on, and this was the expensive-looking suspect — it
-  // renders the city a second time into a 2048-square depth map every daylight frame, and the
-  // report was a daylight scene. It was not the cause. `sceneGL` was rebuilding the whole GL view
-  // on every canvas resize and leaking it until the context died; the frames were slow because the
-  // session had fallen back to GLASS 1. A symptom arriving beside a change is not evidence about
-  // that change, and the instrument that settled it (`__glass2()`) existed the whole time.
-  //
-  // ⚠ The cost figure stands but its provenance is thin: `__glShadow()` reports 0 ms at every seat,
-  // and every Modelshop bench pins `resFloor` and `perfDS` and renders a synthetic city. This is
-  // the first knob to try if a frame ever needs winning back on weaker hardware.
+  // How far a surface the sun can't see falls back toward its away-from-sun light. 0 is exactly the
+  // old renderer: the shadow function returns before sampling and `lit` is untouched.
+  // ⚠ NOT THE GROUND SHADOWS. `drawBuildingShadow` still lays the footprint hull. This adds what a
+  // painter's queue can't: a building shading its neighbour's wall, a setback shading the storey
+  // below, a canopy its frontage. Both read the same sun `dir` and `len` (lightMatrix, gl/camera.js).
+  // ⚠ GL ONLY, DAYLIGHT ONLY: the pass is skipped once the sun is down.
+  // ⚠ KEY COLLISION: world.js once spread `opts.draw` (which carries `shadow:`, the vertex-light base
+  // colour) and then passed the sun as `shadow:`, so `uShadow` was NaN and the city went black. The
+  // sun key is `sunShadow`; `draw()` warns once if `shadow` gets a non-array.
+  // ⚠ The term multiplies `base` directly, like both AO terms. Steering only `lit` (read by two
+  // overlay alphas) moved a cab frame by a mean of 0.72/255.
+  // `__glShadow()`: 26.8% of wall pixels shaded at a low morning sun, 32.3% at noon, mean 4.2-5.0,
+  // worst 35-36, ground 0.00-0.01%, 0 ms at every seat, night exactly 0. Monotonic: 0→0.35 moves
+  // 9.72% of the frame, 0→0.60 9.86%, 0→1.00 9.93% (mean 0.71 → 1.21 → 1.99). 0.55 because at full
+  // strength a shadow on flat concrete reads as paint. Retune with `npm run gl:shadow` and
+  // `__glShadow()`.
+  // ⚠ It was once backed off over rAF violations; the cause was `sceneGL` rebuilding the GL view on
+  // every resize and leaking it into a GLASS 1 fallback. Check `__glass2()` before blaming a knob.
+  // ⚠ The 0 ms cost comes from Modelshop benches that pin `resFloor` and `perfDS` on a synthetic
+  // city. This is the first knob to try on weaker hardware.
   glShadow: 0.55,
   // ⚠ THE MOON CASTS ONE TOO — AND IT IS OFF, BECAUSE A SHADOW IS THE ABSENCE OF LIGHT AND THERE
   // IS NO LIGHT ON THE GROUND AT NIGHT TO TAKE AWAY. `sunShadowFor` gated the shadow pass hard on
@@ -3972,34 +3684,16 @@ export function disposeWindshield(id) {
 
 // ── A CAMERA WITH NOTHING UNDER IT ──────────────────────────────────────────
 //
-// Every seat in this renderer is welded to a vehicle: the cab sits at 0.24 tiles above the road
-// facing where the truck faces, the cockpit rides the aircraft's attitude, the helm follows the
-// boat. That is right for playing and it is the wrong tool for looking at the city — a bug like
-// "the traffic lights show through buildings" is a bug about ONE ANGLE, and finding it meant
-// driving a truck to the spot and hoping the angle came up.
-//
-// So: a debug camera that takes the view a seat was about to be painted with and moves it.
-//
-// ⚠ IT INTERCEPTS ONE FUNCTION AND NOT SIX. `paintWindshield` is the single door every seat goes
-// through — cab-view, cockpit (three call sites), helm — and the view object is the whole of what
-// they hand it. Overriding here means the free camera cannot drift out of step with a seat, and no
-// seat needs to know it exists.
-//
-// ⚠ AND IT IS RELATIVE, NOT ABSOLUTE. Turning it on puts you exactly where you already were, which
-// is the only behaviour that makes it useful for "look at THAT" — an absolute camera would drop you
-// somewhere else and you would have to fly back to the thing you were pointing at.
-//
-// ⚠ THE LOADED WINDOW IS THE EDGE OF THE WORLD, AND THAT IS A REAL LIMIT RATHER THAN AN OVERSIGHT.
-// `map` arrives with the view and covers a window the SERVER chose around the vehicle — 30 tiles
-// for a cab. Move `mapCenter` and the tiles do not follow, so this moves `mapOffset` instead and
-// stays inside what is loaded. Flying past the edge does not crash, it runs out of city. Going
-// further needs the client to ask the server for a window somewhere else, which is a different and
-// much larger job than a camera.
-//
-// ⚠ NO PITCH, DELIBERATELY. `makeCam` takes a `camPitch` and it is exact (freecam.mjs asserts it),
-// but the horizon is drawn as a horizontal line, the sky and ground are two rectangles split at
-// `horizonY`, and the cloud and fog placement all assume it never moves. Tilting before that work
-// is done gives a broken sky, which would be a worse debugging surface than no tilt at all.
+// A debug camera that takes the view a seat was about to paint and moves it, for bugs that belong
+// to one angle (every seat is welded to a vehicle).
+// ⚠ IT INTERCEPTS ONE FUNCTION: `paintWindshield` is the door every seat goes through (cab-view,
+// cockpit's three call sites, helm), so it can't drift out of step and no seat knows it exists.
+// ⚠ RELATIVE: turning it on keeps you exactly where you were.
+// ⚠ THE LOADED WINDOW IS THE EDGE OF THE WORLD. `map` covers a window the server chose (30 tiles for
+// a cab). Tiles don't follow `mapCenter`, so this moves `mapOffset`, and past the edge it runs out
+// of city. Going further needs the client to request another window.
+// ⚠ NO PITCH. `makeCam`'s `camPitch` is exact (freecam.mjs asserts it), but the horizon line, the
+// sky/ground split at `horizonY` and the cloud and fog placement assume it never moves.
 const FREE = { on: false, dx: 0, dy: 0, dz: 0, yaw: 0, bound: false };
 
 function freeCamView(v) {
@@ -4515,35 +4209,17 @@ function paintWindshieldFrame(id, view) {
   const EHbaseC = Math.max(0.05, (v.eyeH != null ? v.eyeH : RENDER_TUNE.eh) + height * RENDER_TUNE.climbLift);
   // ── ⚠ AN ARC HAS A CENTRE, AND IT WAS THE AEROPLANE'S TARMAC EYE HEIGHT ────
   //
-  // Everything above calls `extPitch` the ELEVATION ANGLE, and until this block it was not one. The
-  // camera's height was `EHbase + orbR·sin(pitch)` — the arc riding on top of `RENDER_TUNE.eh`, a
-  // constant picked so an aeroplane's near foreground falls off the bottom of a bare windscreen.
-  // That term does not shrink when the wheel dollies in, so the ANGLE the camera actually looks
-  // down at gets STEEPER the closer you get, which is the exact opposite of what the code says it
-  // does. Measured on a truck, dead astern, at the cab's own resting pitch: 19.7° dollied out and
-  // 59.5° dollied in — a camera twice the height of the rig, looking at its roof, with the tail
-  // hanging off the bottom of the frame and no horizon left in the shot at all. It is worst for the
-  // small, low subjects (truck, heli, ultralight) because `eh` is a bigger share of the total there.
-  //
-  // So the arc is centred on the SUBJECT: the same visual centre the framing solve below already
-  // pins to `chaseFrameY`, which is what makes one number answer both "where does the camera sit"
-  // and "where does the craft land on screen". The eye height becomes `subjectWz + orbR·sin(pitch)`
-  // and the effective elevation IS `extPitch`, at every zoom, for every class.
-  //
-  // ⚠ IT IS SPENT AS `up`, NOT AS `ez`. Four places read the chase lift — makeCam, the two horizon
-  // solves below and drawMode7Floor — and every one of them computes `EHbase + up`. Handing over an
-  // absolute height instead would need all four taught about it, and the one that would be missed
-  // is the GROUND, which is how you get a floor rastered for a camera that is somewhere else.
-  // Expressing the answer as a lift off EHbaseC lands all four on the same absolute height by
-  // construction. (`EHbaseC` now honours `v.eyeH` for the same reason — makeCam's own base does,
-  // and today no view passes both `eyeH` and `external`, so it is a no-op that closes the trap.)
-  //
-  // ⚠ AND `ownShipBaseWz` IS CALLED ONCE A FRAME AND HOISTED. It runs `hoverLift`, which INTEGRATES
-  // a time constant and writes it back — call it twice and the rig's hover settles at half the rate
-  // it was tuned for. The framing solve below reads `chaseBaseWz` rather than solving it again.
-  // ⚠ GATED EXACTLY AS THE FRAMING SOLVE IS, so the arc's centre and the screen pin can never be
-  // two different opinions about what is being looked at: own ship if there is one, the yacht cell
-  // when `hideOwnShip`, and nothing at all for a detached camera (which follows no subject).
+  // `extPitch` is the elevation angle. The height used to be `EHbase + orbR·sin(pitch)`, and
+  // `RENDER_TUNE.eh` doesn't shrink on dolly-in, so the real angle steepened as you zoomed (truck
+  // astern: 19.7° out, 59.5° in). The arc is centred on the subject, the same centre the framing
+  // solve pins to `chaseFrameY`: eye height = `subjectWz + orbR·sin(pitch)`.
+  // ⚠ SPENT AS `up`, NOT `ez`. makeCam, the two horizon solves and drawMode7Floor all compute
+  // `EHbase + up`; an absolute height would need all four taught, and missing one rasters the floor
+  // for the wrong camera. `EHbaseC` honours `v.eyeH` for the same reason (no view passes both today).
+  // ⚠ `ownShipBaseWz` RUNS ONCE A FRAME, HOISTED: its `hoverLift` integrates a time constant, so a
+  // second call halves the hover settle rate. The framing solve reads `chaseBaseWz`.
+  // ⚠ GATED EXACTLY AS THE FRAMING SOLVE: own ship, the yacht cell when `hideOwnShip`, nothing for a
+  // detached camera.
   const chaseSubject = ext && !fcam && !v.hideOwnShip;
   const chaseBaseWz = chaseSubject ? ownShipBaseWz({ EHbase: EHbaseC, R: v.map ? (v.map.length - 1) / 2 : 0 }, v) : 0;
   // What the arc goes round, in world-z. The yacht is a cell rather than a model, so it names its
@@ -4813,75 +4489,35 @@ function paintWindshieldFrame(id, view) {
   let horizonY = st.horizon;
   let camHp = null;   // the camera's PRINCIPAL point, when a rotated free camera separates it from the visual horizon
   SKY_ROT = null;
-  // ⚠ A DETACHED CAMERA MUST NOT SOLVE ITS HORIZON TO FRAME THE CRAFT — that solve is the whole
-  // definition of a chase cam, and it also divides by `chase.back`, which is zero here. Pitch is
-  // simply the camera's own: the horizon is where the view axis crosses the screen, so a pitch of θ
-  // moves it by the projection depth times tan θ. Clamped generously rather than tightly — pointing
-  // a camera at the sky or straight down is a thing you are allowed to do with this.
+  // ⚠ A DETACHED CAMERA MUST NOT SOLVE ITS HORIZON TO FRAME THE CRAFT: that solve defines a chase
+  // cam and divides by `chase.back`, which is zero here. Pitch is the camera's own: a pitch of θ moves
+  // the horizon by depth·tanθ. Clamped generously; pointing at the sky or straight down is allowed.
   // ── ⚠ A SEAT CAN TIP ITS HEAD, AND THE HORIZON IS HOW THAT IS SAID ────────
   //
-  // `makeCam` takes a `camPitch` and this deliberately does not use it. Under `camPitch` the
-  // projection ROTATES, which is exact, and it takes `cam.unproj` with it — that function
-  // answers null under pitch, and two dozen callers build a sign's quad, project its corners and
-  // hand the SCREEN points onward, so every piece of world text, every stroke and every deco quad
-  // in the city silently falls back to the canvas the moment a head tips. That is a large blast
-  // radius for a camera control.
-  //
-  // ⚠ AND IT IS NOT NEEDED, WHICH IS THE PART WORTH KEEPING. With no ROLL — and a seat has none
-  // — a pitched camera's horizon is still a HORIZONTAL LINE. It only moves. So tipping the head
-  // is a shift of the principal point, which is exactly what a tilt-shift lens is: straight lines
-  // stay straight, nothing is distorted, and the picture is a different crop of the same
-  // projection. The free camera has worked this way since it was built and that is why its pitch
-  // looks right; this is the same expression at a seat.
-  //
-  // ⚠ AND A SHIFT IS NOT A ROTATION, WHICH IS MEASURABLE AND WAS MEASURED. A shift-lens pitch
-  // moves the CROP and leaves the optical axis horizontal, so `f` — the forward distance every
-  // clip, every near plane and every projection in here is expressed in — does not change when
-  // you tip your head. For the world that is exactly right and it is why the free camera has
-  // always looked correct. For the INTERIOR it has one hard consequence: the floor under you and
-  // the lining over you sit at a forward distance of nearly ZERO, so no amount of tipping brings
-  // them into a positive-f half-space, and they are not reachable this way at any angle.
-  //
-  // ⚠ THE ARITHMETIC IS THE EVIDENCE HERE, AND IT IS WORTH MORE THAN A PIXEL COUNT WOULD BE. A
-  // floor point directly under the eye has a ground-forward distance of zero by definition, and
-  // tipping a shift-lens does not change any point's `f`. To bring the footwell onto a 200-row
-  // frame the horizon has to travel about `depth × 5.3`, which is a shift of roughly 79° — past
-  // the singularity, and foreshortened to nothing by the time it got there. So the floor and the
-  // lining are not reachable by pitch at any setting, and raising the clamp cannot buy them.
-  //
-  // ⚠ AND A PIXEL-COVERAGE SWEEP OF THIS IS HARDER TO TAKE THAN IT LOOKS, which is said here
-  // because an earlier draft of this comment carried one and it was wrong. Three things have to
-  // be pinned before a frame can be compared with another frame at all, and this file already
-  // records all three somewhere else: the canvas needs an explicit CSS box (`paintWindshield`
-  // resizes off its own backing store, so an unsized probe shrinks every render and diffs at
-  // ~100%), the adaptive resolution dial has to be held (it resamples the whole frame), and the
-  // clock has to be SETTLED rather than frozen (a frozen clock leaves every light at weight 0,
-  // which reads as the feature being switched off). What is cheap and deterministic instead is
-  // the face count — `interiorTally()` and `glLastFrame().interior` — and that is what the gate
-  // asserts: 41 faces at the windscreen, 72 once the head turns, 0 from the chase, 0 with the
-  // flag off.
-  //
-  // ⚠ THE FIX IS `camPitch`, AND IT IS A SEPARATE JOB RATHER THAN A BIGGER NUMBER HERE. Under a
-  // true rotation `f` becomes `f0·cosθ − u·sinθ`, so a point BELOW the eye gets a positive depth
-  // the moment you look down and the footwell is simply there. `makeCam` already implements it
-  // exactly (freecam.mjs asserts the identity). What stops it being switched on here is
-  // downstream: `cam.unproj` answers null under pitch and two dozen callers hand it a sign's
-  // projected corners, so every piece of world text, stroke and deco quad in the city falls back
-  // to the canvas; and the sky, the ground fill, the Mode-7 floor and the cloud placement all
-  // share ONE `horizonY` with the camera, which under a rotation is no longer where the horizon
-  // is — it moves to `horizonY − depth·tanθ`. Both are tractable (the inverse is six lines; the
-  // horizon needs splitting from the principal point) and neither is a camera control.
-  //
-  // ⚠ AT 90° THE SHIFT IS INFINITE, for a true rotation exactly as much as for a shift — every
-  // PLANAR projection has that, and the only way past it is one that is not planar. 77° is where
-  // the free camera stopped, for this reason and not a different one.
-  //
-  // ⚠ AND THE VERTICAL SCALE IS THE ONE `makeCam` WILL USE, `fovMul` INCLUDED. That function
-  // multiplies `depth0` by the seat's own field of view, and the horizon is where the view axis
-  // crosses the screen — through a wider lens the same tilt carries it a different distance off
-  // the middle of the frame. Left out, the cab (which asks for 1.22) would paint its sky/ground
-  // split somewhere the world it is projecting does not agree with. Same trap, same fix, as the
-  // lens term in the free camera's own solve below.
+  // `makeCam`'s `camPitch` is deliberately not used. It rotates the projection exactly, but
+  // `cam.unproj` answers null under pitch, and two dozen callers project a sign's quad corners and
+  // hand the screen points on, so all world text, strokes and deco quads would fall back to the canvas.
+  // ⚠ IT ISN'T NEEDED. With no roll (a seat has none) a pitched horizon is still horizontal; it only
+  // moves. So a head tip is a shift of the principal point, like a tilt-shift lens: no distortion, a
+  // different crop of the same projection. The free camera works the same way.
+  // ⚠ A SHIFT DOESN'T CHANGE `f`, the forward distance every clip and near plane uses. The floor under
+  // you and the lining above sit at f ≈ 0, so no pitch reaches them: the footwell on a 200-row frame
+  // needs a horizon travel of about `depth × 5.3`, roughly 79°. Raising the clamp can't buy them.
+  // ⚠ DON'T GATE THIS ON A PIXEL SWEEP. A frame diff needs an explicit CSS box on the canvas
+  // (`paintWindshield` resizes off its backing store; unsized, every diff is ~100%), the adaptive
+  // resolution dial held, and the clock SETTLED, not frozen (frozen leaves every light at weight 0).
+  // The gate counts faces (`interiorTally()`, `glLastFrame().interior`): 41 at the windscreen, 72 with
+  // the head turned, 0 from the chase, 0 with the flag off.
+  // ⚠ THE FIX IS `camPitch`, A SEPARATE JOB. Under a true rotation `f` = `f0·cosθ − u·sinθ`, so the
+  // footwell gets positive depth; `makeCam` already does it (freecam.mjs asserts it). Blocking it:
+  // `cam.unproj` returns null under pitch (the inverse is six lines), and the sky, ground fill, Mode-7
+  // floor and clouds share ONE `horizonY` with the camera, which under rotation moves to
+  // `horizonY − depth·tanθ` (it needs splitting from the principal point).
+  // ⚠ AT 90° THE SHIFT IS INFINITE for any planar projection, rotated or shifted. 77° is where the
+  // free camera stops, for this reason.
+  // ⚠ THE VERTICAL SCALE IS `makeCam`'s, `fovMul` INCLUDED (`depth0` times the seat's fov). Leave it
+  // out and the cab (1.22) paints its sky/ground split where its world doesn't agree. Same fix as the
+  // lens term in the free camera's solve below.
   if (!ext && !fcam && v.lookPitch) {
     const lim = RENDER_TUNE.lookPitchLim * Math.PI / 180;
     const D = viewFocal(W, H) * (v.fovMul || 1);
@@ -6175,39 +5811,21 @@ function paintWindshieldFrame(id, view) {
           ctx.restore();
         }
       }
-      // `variant` is the truck grammar (`<typeId>[+t]`, aircraft3d) and nothing else reads it — but
-      // it has to reach the OWN ship as well as a contact, or the one vehicle you are actually
-      // driving is the one drawn as a default hauler with a box permanently on the back.
-      // `steer` rides over for the lifter jets alone (drawVehicleGround): a vehicle with no steer
-      // axle corners by pushing sideways, and the cones are where that becomes visible. Aircraft
-      // ignore it, and a contact that never sends one simply has none.
-      // `own: true` marks this as the camera's SUBJECT rather than one more thing in the world — the
-      // truck path reads it to keep the depth buffer on however small the window is (see the ⚠ there).
+      // `variant` is the truck grammar (`<typeId>[+t]`, aircraft3d); it must reach the OWN ship too, or
+      // your truck draws as a default hauler. `steer` is for the lifter jets (drawVehicleGround): with
+      // no steer axle a vehicle corners by pushing sideways. `own: true` marks the camera's SUBJECT, so
+      // the truck path keeps the depth buffer on at any window size (see the ⚠ there).
       // ── ⚠ AN ARTICULATED RIG IS ONE MODEL WITH A HINGE IN IT ─────────────
-      // A semi is a tractor and a box that share one point, and the physics has modelled the angle
-      // between them since phase 1 (`s.phi`) while the picture welded the two together — so a
-      // jackknife was on the gauge, in the mirror, and invisible out of the window.
-      //
-      // ⚠ AND IT IS ONE DRAW, NOT TWO. The obvious build is a second `drawAircraftModel` for the
-      // box; it is wrong, and wrong in a way a smoke that switches the blit off cannot see. Each
-      // model draw runs its own depth pass and blits its own rectangle, so the second call paints
-      // over the first — whichever half went down first simply vanished, which is 'the trailer is
-      // not spawned with me even though it is hitched'. The mesh already knows which faces are the
-      // box (`face.deck`, stamped in buildTruck) and this loop already transforms vertices per face
-      // for the gear tuck, the cargo visor and the control surfaces. The hinge is one more of those.
-      //
-      // ⚠ THE PIN COMES FROM THE MESH. Four rigs are four lengths, each laid out from its nose and
-      // slid back to centre, so the plate sits at a different station on every one (−0.041 to
-      // +0.064). `TRUCK_META.pin` publishes it; a guessed offset hinges three of the four about a
-      // point in mid-air.
-      // ⚠ AND WHEN THE HULL IS ALREADY IN THE DEPTH BUFFER THIS PAINTS ONLY WHAT THE GPU CANNOT: the
-      // canopy art, the glass sheen, the lamps and the exhaust, the way a solid contact is drawn. The
-      // hull and the rotor went to the GPU in the collect pass, and painting the body here as well
-      // put a second copy over the finished frame, held back from the city only by the CPU occluder
-      // mask. That mask is an approximation of the depth buffer (5 px cells, 7 tiles of per-pixel
-      // solids, faces nearer than 0.25 tiles dropped), and wherever it saw nothing the rig was
-      // painted over the building in front of it. `GL_DREW` too, because a pass that collected the
-      // rig and then drew nothing leaves this the only copy.
+      // ⚠ ONE DRAW, NOT TWO (the physics already has the hinge angle, `s.phi`). Each
+      // `drawAircraftModel` runs its own depth pass and blit, so a second call for the box hid the
+      // first ("the trailer is not spawned with me"). The mesh marks box faces (`face.deck`,
+      // buildTruck) and this loop already transforms per face; the hinge is one more.
+      // ⚠ THE PIN COMES FROM THE MESH (`TRUCK_META.pin`; plate stations −0.041 to +0.064 across four
+      // rigs). A guessed offset hinges three of the four about mid-air.
+      // ⚠ WITH THE HULL IN THE DEPTH BUFFER, PAINT ONLY WHAT THE GPU CAN'T: canopy art, glass sheen,
+      // lamps, exhaust. A second body copy was held back only by the CPU occluder mask (5 px cells, 7
+      // tiles of solids, faces nearer than 0.25 dropped) and showed through buildings. `GL_DREW` too:
+      // a pass that collected the rig and drew nothing leaves this the only copy.
       const ownbb = drawAircraftModel(ctx, cam, { ...ownShipModelOpts(v), bodyOnGL: OWN_ON_GL && GL_DREW }, ownShipBaseWz(cam, v), sunFx, now);
       if (v.wreckFx && ownbb) drawWreckFire(ctx, ownbb, v.wreckFx, now);   // crash-cinematic fire + smoke over the burning wreck
       if (clipped) ctx.restore();
@@ -6388,38 +6006,18 @@ function paintWindshieldFrame(id, view) {
   }
   // ── WHAT A STRIKE DOES TO THE PICTURE ────────────────────────────────────────────────────────
   //
-  // The flood and the channel that caused it, together, and AFTER every grade in the frame. Both of
-  // them used to be somewhere else: the channel was drawn inside the world block two hundred lines
-  // up, the flood down here on top of the storm grade, and the truck's own running-dark wash came
-  // after them both. Three passes with three different opinions about how bright a lightning strike
-  // is allowed to be.
-  //
-  // ⚠ AND THE NUMBER IS WHY, NOT A FEELING. Measured out of a real cab frame, the hottest pixel in
-  // the channel reached a luminance of 102 against a night sky of 15 — a pale grey wire where the
-  // painter had laid down very nearly white. The arithmetic is not subtle once the passes are
-  // listed: `applyStormGrade` takes about a tenth, and the headlamps-off wash is
-  // `rgba(6,8,14,0.62)` OVER THE WHOLE WORLD, which is the other two thirds on its own.
-  //
-  // ⚠ THAT WASH IS RIGHT AND ITS REACH WAS WRONG. It exists so that a driver who never found the
-  // light switch cannot see FAR — and lightning is the one thing in this game you can see without
-  // headlamps. A strike that got dimmer because the driver forgot the lamps is the feature pointed
-  // at exactly the wrong target; the storm grade is the same argument in the same words, since a
-  // storm is the light going out of the world and this is the light coming back for a quarter of a
-  // second.
-  //
-  // ⚠ SO A STRIKE IS THE ONE LIGHT IN THIS RENDERER THAT NO GRADE TOUCHES, and additive white
-  // cannot clip past 255 before a wash, so there was never a tuning inside the painter that could
-  // have reached it. What DOES still go over the top is the glass: the cab trim, the windscreen
-  // post, the dash and the water running down the outside of the pane, all of which are in front of
-  // you rather than in front of the weather.
-  //
-  // ⚠ ONE ENVELOPE FOR BOTH. `boltBright` drives the flood and the channel, so a restrike lands on
-  // them on the same frame — this used to be two expressions and the pane went white on a smooth
-  // hump while the bolt stuttered underneath it, which reads as a flash with a bolt in it rather
-  // than as a bolt lighting the sky up.
-  // ⚠ THE FLOOD FIRST AND THE CHANNEL OVER IT, in that order. The flood is a source-over fill at up
-  // to half an alpha over the whole frame, so a channel painted under it gives away half its
-  // contrast to the light it is itself the source of — which is exactly backwards.
+  // The strike flood and channel draw together, AFTER every grade in the frame.
+  // ⚠ Measured from a real cab: the channel's hottest pixel reached luminance 102 against a night sky
+  // of 15. `applyStormGrade` took about a tenth, and the headlamps-off wash (`rgba(6,8,14,0.62)` over
+  // the whole world) took two thirds.
+  // ⚠ THE WASH IS RIGHT, ITS REACH WAS WRONG: it stops a driver without lamps seeing far, and lightning
+  // is the one thing you can see without lamps. The storm grade gets the same argument.
+  // ⚠ SO NO GRADE TOUCHES A STRIKE. What still draws over it is the glass: cab trim, windscreen post,
+  // dash and water on the pane.
+  // ⚠ ONE ENVELOPE: `boltBright` drives flood and channel so a restrike hits both on the same frame.
+  // Two expressions gave a smooth white hump with a stuttering bolt under it.
+  // ⚠ FLOOD FIRST, CHANNEL OVER IT. The flood is source-over at up to half alpha over the frame; under
+  // it the channel loses half its contrast.
   if (st.bolts && st.bolts.length && !framed) {
     let flash = 0;
     for (const b of st.bolts) {
@@ -6750,46 +6348,22 @@ function drawCanopy(ctx, W, H) {
   ctx.fillStyle = pg; ctx.fillRect(W / 2 - pw / 2, 0, pw, H * 0.24);
 }
 
-// Nose cowl / glareshield across the BOTTOM of the forward view — the aircraft's own
-// nose deck sitting in the near foreground, the way it does in a real cockpit. It
-// occludes the bare near-ground band below the runway (which otherwise reads as
-// "seeing through the floor") with the airframe itself, so the fix costs no camera
-// lift. Depth + a shallow centre bump vary by class so each nose reads a little
-// different: a bubble ultralight barely shows any cowl; a heavy freighter carries a
-// broad glareshield; a gunship a flat armoured deck.
+// Nose cowl / glareshield across the bottom of the forward view: it hides the bare near-ground band
+// ("seeing through the floor") without lifting the camera. Depth and centre bump vary by class
+// (barely any on a bubble ultralight, a broad glareshield on a freighter, a flat deck on a gunship).
 // ── The truck cab (THE LONG HAUL) ────────────────────────────────────────────
-// Everything an aircraft canopy is not: flat glass, a hard centre post, two thick A-pillars, and
-// a dash across the bottom third. It is drawn in the same slot `drawCanopy` + `drawCowl` occupy,
-// so the layer order (world → in-scene weather → on-glass rain/bugs → interior → HUD) is unchanged.
-//
-// MIRRORS ARE THE POINT. They are the strongest single tell that you are in a truck rather than a
-// plane, and once a trailer exists (phase 2) they stop being decoration entirely: the articulation
-// angle is not visible from the driver's seat by any other means, so the mirror becomes the
-// instrument you reverse on. They are stubbed here as real housings with glass — the reflected
-// view lands when there is a trailer to see in them.
+// Flat glass, a centre post, two A-pillars and a dash across the bottom third, in the slot
+// `drawCanopy` + `drawCowl` use (layer order world → in-scene weather → on-glass rain/bugs →
+// interior → HUD). MIRRORS ARE THE POINT: the truck tell, and with a trailer the only view of the
+// articulation angle.
 // ── ⚠ THE CAB HAS DEPTH, AND DEPTH IS THE WHOLE OF PARALLAX ──────────────────
-//
-// The surround, the board and the wheel are three surfaces at three distances from the driver's eye,
-// and until the eye could move there was no way to tell — they were painted at fixed screen
-// positions, which is a photograph of a cab rather than a cab. Give each a distance and lean, and
-// they separate. That separation is the only cue a flat drawing has that says the thing has volume,
-// and it is what makes a free look from the seat read as being INSIDE something.
-//
-// ⚠ AND FOR A PLANE FACING YOU IT IS A PURE HORIZONTAL SHIFT, WHICH IS NOT AN APPROXIMATION. Move
-// the eye sideways by Δr and a point at forward distance F projects to sx = cx + ((r − Δr)/F)·FL —
-// the F term is unchanged, because the motion is parallel to the image plane. No keystone, no
-// foreshortening, no scale: a translation of (Δr/F)·FL pixels. Every layer takes the same arithmetic
-// with a different F, and that is the entire effect. No mesh, no second camera, no projection.
-//
-// ⚠ THE NUMBERS ARE DISTANCES IN TILES, NOT PIXEL NUDGES. A cab at this renderer's scale is about
-// 0.075 tiles across (the rig itself measures 0.063 — see the wheel-track note), so the glass sits a
-// few hundredths of a tile off the eye and the board nearer still. Derived that way the shifts come
-// out of the camera's own focal length and stay right when a seat's fov changes; as pixel constants
-// they would be three numbers that quietly disagree with each other.
-// ⚠ CLEAR OF 'proj's 0.06 FLOOR WITH ROOM TO BEND. At 0.062 the board was a thousandth of a tile
-// off the near plane and any wrap at all pushed its ends through it. The lean below is scaled by the
-// same ratio, because the shift it produces is (Δr/F)·FL — move the plane and keep the product and
-// the head movement on screen is exactly what it was.
+// The surround, board and wheel sit at three distances, so a head move separates them (parallax).
+// ⚠ FOR A PLANE FACING YOU IT'S A PURE HORIZONTAL SHIFT, EXACTLY: a point at forward distance F
+// projects to sx = cx + ((r − Δr)/F)·FL, so each layer shifts (Δr/F)·FL. No keystone, mesh or camera.
+// ⚠ THE NUMBERS ARE DISTANCES IN TILES: a cab is about 0.075 tiles across (the rig 0.063, see the
+// wheel-track note), so the shifts come from the focal length and survive a fov change.
+// ⚠ CLEAR OF 'proj's 0.06 FLOOR WITH ROOM TO BEND: at 0.062 the board's ends wrapped through the
+// near plane. The lean scales by the same ratio, since the shift is (Δr/F)·FL.
 const CAB_GLASS_F = 0.118;      // the windscreen plane: header, pillars, post, door card
 const CAB_LEAN_R  = 0.0175;     // how far the head actually moves at full deflection, in tiles
 // How far off the nose the painted forward interior is dropped — see the ⚠ over `cabForward`.
@@ -6870,43 +6444,20 @@ const CAB_CTL_H = 0.085;
 const CAB_CONSOLE_H = 0.30;
 
 // ── WHAT YOUR MONEY BOUGHT, FROM THE SEAT ────────────────────────────────────
-// Four trucks, four interiors. Until this table existed every rung of the fleet sat behind the
-// same grey plastic and the same two dials, so a 16,500₵ Continental and a 1,300₵ Barrow were the
-// same room with different numbers underneath it — and the room is where a driver spends the
-// twenty minutes, not the spec sheet.
-//
-// THE LADDER IS INSTRUMENTS, NEVER DRIVING AIDS. Nothing here steers, brakes or shifts for you:
-// the physics are `effTruckParams`'s and they are identical whichever cab you are sitting in. What
-// a cheap truck actually costs you is INFORMATION — the Barrow has no rev counter at all, so you
-// drive it on the sound of it, which is the oldest skill in the game and the one the expensive
-// trucks quietly take away from you. That is also why the ladder is safe to widen later: adding a
-// gauge can never make a truck faster.
-//
-// `dials` is how many instruments are in the binnacle, `band` whether the tachometer paints the
-// green torque arc, `lamps` the row of marker lights along the header (a cab-roof indulgence
-// nobody needs), `charm` the thing swinging off the mirror arm on a bad road.
-//
+// Four trucks, four interiors, so a 16,500₵ Continental and a 1,300₵ Barrow aren't the same room.
+// THE LADDER IS INSTRUMENTS, NEVER DRIVING AIDS. The physics are `effTruckParams`'s, identical in
+// every cab. A cheap truck costs you INFORMATION (the Barrow has no rev counter; you drive it by
+// ear), so widening the ladder can never make a truck faster.
+// `dials` = instruments in the binnacle, `band` = the tachometer paints the green torque arc,
+// `lamps` = header marker lights, `charm` = the thing swinging off the mirror arm.
 // ── ⚠ AND THE COLOUR IS NO LONGER PART OF THE LADDER ─────────────────────────
-// Every colour a cab wears, and what its dash is MADE of, now live in client/shared/cab-trim.js as
-// named colourways and materials, because the maintenance bench can sell them (`rig trim`). A row
-// here names one of each as what the truck LEFT THE FACTORY IN; a retrimmed truck overrides those
-// two keys and nothing else. That split is the whole rule: a bench can put walnut and brass in a
-// scrapyard Barrow, and can never put a rev counter in one. Read the note at the top of that file
-// before adding anything to it.
-//
-// `mat` IS THE OTHER HALF OF THE COLOUR — one procedural tile per material (cabDashTex) laid over
-// the colourway's gradient as an overlay, so the tile carries the SURFACE and the colourway keeps
-// owning the COLOUR. `gloss` comes with the material for the same reason: varnish is a property of
-// veneer, not of the shade of brown it happens to be.
-// INSTRUMENTS ONLY. What each rung is made of and what colour it is comes from STOCK_TRIM in the
-// shared file — one mapping, read by the renderer and by the bench that marks the fitted swatch.
-// ⚠ `split` IS THE GLAZING AND IT BELONGS ON THIS ROW, NOT ON A COLOURWAY. A two-pane screen with
-// a post down the middle is an OLD truck: it is there because nobody could form a curved screen
-// that size, and the moment they could, it went. So it is a rung — the Barrow and the Courier have
-// one, the Drayman and the Continental do not — and it is the first thing on this ladder that is
-// neither an instrument nor a surface. It must never move to DASH_COLOURWAYS: cab-trim.js's own
-// rule is that a trim job is SURFACE, and a paint shop that could delete the windscreen post would
-// be a paint shop changing the glazing.
+// Colourways and dash materials live in client/shared/cab-trim.js (sold at the bench, `rig trim`);
+// STOCK_TRIM there maps each rung to what it left the factory in. A bench can put walnut in a
+// Barrow, never a rev counter. Read that file's header first. `mat` is a procedural tile per
+// material (cabDashTex) over the colourway gradient; `gloss` goes with the material.
+// ⚠ `split` IS THE GLAZING AND BELONGS ON THIS ROW. A two-pane screen with a post is an OLD truck
+// (Barrow, Courier; not Drayman, Continental). Never move it to DASH_COLOURWAYS: a trim job is
+// SURFACE, and a paint shop mustn't remove the windscreen post.
 const CAB_LADDER = {
   0: { ...stockTrim(0), dials: 1, band: false, lamps: 0, charm: true,  split: true },   // KRELL BARROW
   1: { ...stockTrim(1), dials: 2, band: false, lamps: 0, charm: false, split: true },   // OSTREK COURIER
@@ -6965,62 +6516,29 @@ const CAB_LAMPS = [
   ['dmg', '#d2603f'],
 ];
 
-// WHERE THE WHEEL IS. ONE definition, and everything that needs to know reads it: the drawing, the
-// horn hit-test on the glass, and — the reason it had to become a function — the instrument panel,
-// which has to lay itself out ABOVE the rim.
-//
-// That was the whole of "the dash is unreadable". The cluster sat at dash + 0.055H with a radius of
-// 0.098H, and the rim's outer edge came up to 0.74H: the dials were drawn first and the wheel was
-// drawn over the lower half of them, so the two instruments a driver looks at most were each a
-// bottom-cropped semicircle behind a moulded grey annulus. Nothing was mis-sized; they were simply
-// behind the wheel.
-//
-// So the wheel sits LOWER and reads bigger (which is also more honest — a truck wheel is a big
-// thing close to your chest), and it now publishes its own top edge for the panel to clear.
-// THE WHEEL SITS LOW AND MOSTLY OUT OF FRAME, which is both what it looks like from the seat and
-// what buys the instruments their room. Every 0.01H the hub drops is 0.01H of readable dash, and
-// the top arc plus the upper spokes is all you ever see of a wheel you are sitting behind anyway.
-// The trade is deliberate: a big wheel with the gauges crammed into the gap above it reads as a
-// picture of a cab, and a driver cannot use it.
-// THE WHEEL COMES BACK UP, and it can, because the gauges no longer depend on the gap above it.
-// While the four small ones were bars crammed into that same band, every hundredth of a frame the
-// hub rose came straight off their height — so the wheel was pushed down to 1.30H and only a
-// shallow arc of it showed, which is not what sitting behind a truck wheel looks like. Now that the
-// small dials live OUTBOARD, where the rim never reaches, the band only has to carry the binnacle
-// and the wheel is free to sit where a wheel sits.
-// ⚠ AND THE BOSS HAS TO BE IN THE FRAME, BECAUSE IT IS A BUTTON. The horn is a hit-test against
-// 'cabWheelHub' — "tested against the renderer's own geometry rather than a second copy of it, so
-// the horn can never end up an inch off the thing that looks like the horn" — and that was true
-// while being useless: at y 1.12 and hubR 0.24R the TOP of the hub circle sat at 1.03H, entirely
-// below the bottom of the canvas, so 'hypot(dx, dy) < hub.r' could not be satisfied by any pointer
-// inside the view. The horn worked on the H key and on the touch rocker and nowhere else, and
-// nothing said so, because one definition feeding both the drawing and the hit-test cannot report
-// that the thing it agrees about is off-screen.
-//
-// ⚠ RAISING IT ALONE DOES NOT FIX IT, WHICH IS WHY THE RADIUS MOVED TOO. The strip above the rim
-// carries the gear window and the tell-tales, and 'bandBot' is 'top - 0.010H': the highest the
-// wheel can go without the gear readout being drawn under its own rim is y 1.114H — three pixels —
-// and at that height the boss is still under the frame. The rim's SIZE is the free variable, since
-// what decides the strip is 'y - R' and what decides the horn is 'y - 0.30R'. 0.375 -> 0.315 buys
-// 0.06H of boss for a wheel that is 16% smaller and, because only the top arc was ever in frame,
-// very slightly TALLER on screen than the one it replaces.
-//
-// ⚠ AND THE DIALS GOT BIGGER, NOT SMALLER. 'bigR' is bounded by '(rimL - padL) / 3.4' and 'rimL'
-// is 'colX - R', so a narrower rim hands the inboard dials room back: 52.9 -> 55.0 at 1000x560, and
-// on a 600-wide pane 10.0 -> 16.9, where the old geometry had them pinned at their floor.
+// WHERE THE WHEEL IS. One definition read by the drawing, the horn hit-test on the glass and the
+// instrument panel, which lays itself out ABOVE the rim (dials drawn under the rim were the whole
+// of "the dash is unreadable").
+// The wheel sits low and mostly out of frame, as from the seat, and publishes its top edge for the
+// panel to clear. The small dials live OUTBOARD where the rim never reaches, so the wheel no longer
+// has to be pushed down (it was at 1.30H) to free the band, which only carries the binnacle.
+// ⚠ THE BOSS MUST BE IN THE FRAME, BECAUSE IT'S A BUTTON. The horn hit-tests 'cabWheelHub'. At y 1.12
+// and hubR 0.24R the hub's top was at 1.03H, below the canvas, so 'hypot(dx, dy) < hub.r' never
+// passed and the horn only worked on H and the touch rocker. One shared definition can't report
+// that what it agrees about is off-screen.
+// ⚠ RAISING IT ALONE DOESN'T FIX IT. 'bandBot' is 'top - 0.010H', so the highest the wheel goes
+// without covering the gear readout is y 1.114H, still hiding the boss. The strip depends on
+// 'y - R' and the horn on 'y - 0.30R', so the radius is the free variable: 0.375 -> 0.315 buys 0.06H
+// of boss for a 16% smaller wheel that's slightly taller on screen.
+// ⚠ THE DIALS GOT BIGGER: 'bigR' is bounded by '(rimL - padL) / 3.4' and 'rimL' is 'colX - R', so
+// 52.9 -> 55.0 at 1000x560, and 10.0 -> 16.9 on a 600-wide pane.
 // ── ⚠ THE CONSOLE CHANGES THE PROPORTIONS OF THE CAB, NOT JUST ITS CONTENTS ──
 //
-// A dash carrying twenty controls is a DEEPER dash with a SMALLER wheel in front of it, which is
-// also what the real thing does: the reference tractor's rim clears its own switch banks, and ours
-// was sized for a board that had five switches on it because the other fifteen were on a strip of
-// HTML below the picture. Both numbers move together or neither works — a deeper board with the
-// old rim just buries more of itself behind the wheel.
-//
-// ⚠ IT IS A MODULE FLAG RATHER THAN AN ARGUMENT BECAUSE OF THE HIT TESTS. 'cabWheelGeom' and
-// 'cabWheelHub' are read by cab-view AFTER the frame is painted, to find the horn boss; threading a
-// parameter through would mean the cab having its own opinion about which cab it is looking at,
-// which is exactly the second copy every rect in this file is recorded to avoid. Set once per
-// paint, beside CAB_CAM, and for the same reason.
+// Twenty controls means a DEEPER dash and a SMALLER wheel (the reference tractor's rim clears its
+// switch banks). Both move together; a deeper board with the old rim buries itself behind the wheel.
+// ⚠ A MODULE FLAG, NOT AN ARGUMENT, BECAUSE OF THE HIT TESTS: cab-view reads 'cabWheelGeom' and
+// 'cabWheelHub' after the paint to find the horn boss, and a parameter would give it a second opinion
+// of which cab it is. Set once per paint, beside CAB_CAM.
 let CAB_CONSOLE = false;
 export const cabWheelGeom = (W, H) => {
   const R = H * (CAB_CONSOLE ? 0.208 : 0.315), y = H * (CAB_CONSOLE ? 0.985 : 1.054);
@@ -7064,61 +6582,25 @@ function dashOffscreen(c, cw, ch, dpr) {
 }
 
 // ── ⚠ HOW FAR AWAY THE BOARD IS, ACROSS ITS OWN WIDTH ────────────────────────
-//
-// A wrap-around dash curves TOWARD the driver at its ends — that is what wrapping round somebody
-// means — so the outboard edges are NEARER than the middle, and a nearer point at the same height
-// projects lower and wider. Which is also why the flat drawing's bow already reads as a curve: it
-// was drawing, by hand, the thing this now derives.
-//
-// ⚠ IT IS A PARABOLA IN THE NORMALISED LATERAL POSITION, and it is flat at the centre by
-// construction — a cab's board is square-on in front of you and only turns as it reaches the doors.
-// A linear term would put a crease straight down the middle of the dash.
-// ⚠ AND IT NEVER COMES INSIDE THE CAMERA'S OWN NEAR PLANE. 'proj' floors the forward distance at
-// 0.06 so a projected point stays finite, which is right for drawing and fatal for a surface that
-// bends toward the eye: past the floor the ends stop moving and start SHEARING, and the board
-// breaks into a staircase that reads as a wrap somebody got slightly wrong rather than as a clamp.
-// The floor is the reason the glass plane sits where it does — see CAB_GLASS_F.
-// ⚠ AND THE WRAP RUNS OUT AT THE TOP, WHICH IS BOTH PHYSICS AND THE FIX FOR TWO ARTEFACTS. A
-// truck's WINDSCREEN is flat and its BOARD wraps; they are not one cylinder. Curving the whole
-// canvas as a single sheet bent the header and the glass with the dash, and because the top of the
-// source is furthest from the corners each strip is fitted at, that is exactly where the
-// parallelogram error is worst — the scuttle came out as a staircase. Ramping the wrap to zero by
-// the lip line makes the top of the sheet the identity, so the header is untouched, there is no
-// seam to reconcile between a curved dash and a flat surround, and the error goes with it.
-// ⚠ AND AN AIRCRAFT PANEL WRAPS LESS THAN A CAB, WHICH IS THE SAME FACT THE FLAT/COAMING SPLIT IS
-// BUILT ON. A truck's dash curves round the driver; a light aircraft's panel is a flat board bolted
-// across the cockpit and only the glareshield on top of it turns. It still gets a wrap, because the
-// board is wide and the eye is close and a dead-flat plane at that size reads as a poster — but a
-// fraction of the cab's, or every instrument on it stops being square to every other, which is the
-// one thing that arrangement is for.
+// A wrap-around dash curves TOWARD the driver at its ends, which project lower and wider.
+// ⚠ A PARABOLA IN NORMALISED LATERAL POSITION, flat at the centre; a linear term creases the middle.
+// ⚠ NEVER INSIDE THE NEAR PLANE: 'proj' floors forward distance at 0.06, past which the ends shear
+// into a staircase. That floor sets where the glass sits (CAB_GLASS_F).
+// ⚠ THE WRAP RUNS OUT AT THE TOP: the windscreen is flat and only the board wraps. Bending the whole
+// canvas staircased the scuttle; ramping to zero by the lip line leaves the header untouched.
+// ⚠ AN AIRCRAFT PANEL WRAPS A FRACTION OF THE CAB'S: it's a flat board (only the glareshield turns),
+// and more would knock the instruments out of square. Dead flat reads as a poster.
 // ── ⚠ THE SHELL AS PRISMS, EXTRUDED FROM THE LAYOUT THAT ALREADY EXISTS ──────
-//
-// The cab structure — header, pillars, centre post — was filled polygons with authored gradients,
-// and the three-dimensional part of it was a set of RETURNS: narrow strips along each inner edge,
-// hand-widened and hand-swung from the head position. That works for a lean and it runs out the
-// moment the head turns, because a strip is a strip and it has no other side to show you.
-//
-// ⚠ THE OUTLINE IS NOT AUTHORED AGAIN, IT IS THE ONE ALREADY DRAWN. 'hdrAt', 'pilAt', 'rakeTo' and
-// 'LIP_E' are the cab's own aperture maths, and every one of them is a curve in canvas pixels. Give
-// each outline a forward DISTANCE and extrude it away from the eye, and the cross-section of the
-// cab falls out of the layout for nothing: no second set of numbers to keep in step, and no chance
-// of the hole the shell cuts disagreeing with the hole the glass is drawn in.
-//
-// ⚠ AND THE DRAWN OUTLINE IS THE NEAR FACE, WHICH IS THE WHOLE IDENTITY ARGUMENT. The projector is
-// the dash sheet's own: a canvas point at 'CAB_GLASS_F' unprojects to exactly where it was drawn.
-// So the near face of every prism is pixel-identical to the polygon it replaces, and the ONLY new
-// thing on screen is the walls between it and the glass — which is what makes 'cabShellD: 0' a
-// provable no-op rather than a tuned one, and what stops the windscreen aperture moving when the
-// structure gains depth. Extruded the other way (the drawn edge as the FAR face) the nearest edge
-// of every pillar would come inboard of where it is drawn and the view out would visibly narrow.
-// ⚠ AND THE DEPTH IS SET BY EYE, BECAUSE THE PHYSICALLY HONEST NUMBER IS FAR TOO HEAVY. The first
-// value came from a defensible argument — a header beam about 18cm deep against an eye sitting some
-// 80cm from the screen, which is 0.026 of a tile against 'CAB_GLASS_F' — and it drew a cab made of
-// slabs: the far edge of a pillar swung 56px toward the middle of the frame and the windscreen lost
-// a fifth of its width. The arithmetic is right and the premise is not, because the whole interior
-// is compressed into a tenth of a tile, so 22% of the eye-to-glass distance is a beam a fifth of the
-// way to your face. Swept against the picture at 0.10 / 0.20 / 0.35 / 0.55 / 1.00 of it, the read is
-// best around a fifth: the structure has a thickness and the view out keeps almost all of its width.
+// Hand-swung edge strips ran out once the head turned, so each outline gets a forward distance and
+// is extruded into a prism.
+// ⚠ THE OUTLINE ISN'T AUTHORED AGAIN: 'hdrAt', 'pilAt', 'rakeTo' and 'LIP_E' are the aperture maths,
+// so the shell can't disagree with the hole the glass is drawn in.
+// ⚠ THE DRAWN OUTLINE IS THE NEAR FACE: a canvas point at 'CAB_GLASS_F' unprojects to where it was
+// drawn, so near faces are pixel-identical and only the walls are new; 'cabShellD: 0' is a provable
+// no-op and the aperture never moves (extruded the other way, the view narrows).
+// ⚠ THE DEPTH IS SET BY EYE: the physical 0.026 tile (an 18 cm beam at 80 cm) drew slabs (a pillar
+// swung 56px and the screen lost a fifth of its width), because the interior is compressed into a
+// tenth of a tile. Swept at 0.10 / 0.20 / 0.35 / 0.55 / 1.00 of it; about a fifth reads best.
 const CAB_SHELL_D = 0.0052;     // how far the structure stands back toward the glass, in tiles
 let SHELL_SINK = null;
 
@@ -8575,70 +8057,32 @@ function drawCabInterior(ctx, W, H, v, cam) {
   const speedX = rimR + bigR * 1.12;
   const dialR = bigR;
 
-  // The engraved cluster plates the gauges are set into. A dial floating on bare vinyl reads as a
-  // sticker; a recessed plate with a hairline round it reads as an instrument binnacle. This is the
-  // same job the old hood did — but STRAIGHT-SIDED, because that hood was two quadratic curves
-  // meeting over a pair of dials and what it actually drew was a fat lozenge: the egg. A cluster
-  // surround is a squared panel with a lip, and nothing on this dash is egg-shaped now.
-  // `lamps` is [[x, radius], …] — where the bulbs behind this plate actually are. The wash is
-  // drawn INSIDE the plate's own clip, so it is light falling on a piece of metal rather than a
-  // disc floating over the dash, and it stops at the plate edge because that is where the metal
-  // stops. Between two dials the two pools overlap and add; outside the outermost one there is
-  // only half a pool. That asymmetry is the whole reason it reads as lit rather than as drawn.
+  // The engraved cluster plates the gauges sit in. Straight-sided: the old hood of two quadratic
+  // curves drew an egg, and nothing on this dash is egg-shaped now.
+  // `lamps` is [[x, radius], …], the bulbs behind this plate. The wash is drawn inside the plate's
+  // clip, so it's light on metal and stops at the plate edge; pools overlap between dials and the
+  // outermost gets half a pool, which is why it reads as lit.
   // ── ⚠ A CLUSTER IS A HOLE IN THE DASH, NOT A PANEL LAID ON IT ──────────────
   //
-  // Reported as the dials floating rather than belonging to the truck, and it was one stroke: the
-  // plate was outlined in 'T.lip' — the colourway's BRIGHT edge — all the way round, at one weight.
-  // A uniform bright outline is what a RAISED thing has, so the whole cluster read as a sticker on
-  // the board, and no amount of work on the dials inside it could have fixed that, because the
-  // defect was the rectangle they sit in.
-  //
-  // A recess is lit the other way about, and the difference is entirely in WHICH EDGE is bright.
-  // Light comes in through the windscreen, so the dash OVERHANGS the top of the hole and throws a
-  // shadow down inside it, while the near lip along the bottom is the one piece of trim turned up
-  // toward the sky.
-  //
-  // ⚠ AND THE HOLE HAS TO BE CUT IN SOMETHING. A dark rectangle with a lit bottom edge is a recess
-  // in a surface of NO THICKNESS — correct as far as it goes, and it still reads flat, because
-  // nothing says how deep the board is. A moulding standing proud around the opening is what a
-  // binnacle actually is.
-  //
-  // ⚠ AND THE MOULDING IS LIGHTER THAN THE BOARD, WHICH IS THE OPPOSITE OF THE OBVIOUS SHADING. A
-  // ring shaded dark at the top and lit at the bottom is what the surface does and it is INVISIBLE:
-  // the fascia it sits on is already dark, so the top three quarters matched what was behind it and
-  // the only part anybody could see was the bottom edge, which the lip stroke draws anyway.
-  // Standing proud is exactly what makes a surface catch more light along its whole run, so the
-  // ring is lifted everywhere and brightest at the bottom, and the thickness reads on all four
-  // sides.
-  //
-  // ⚠ AND THE LIP IS THE LIT DASH COLOUR, NOT 'T.lip'. That key is authored as a HAIRLINE — a fifth
-  // of an alpha, right for the one-pixel catch along a moulding — and at the weight a recess edge
-  // needs it simply disappears. The lip of the hole is the board itself turned toward the sky, so
-  // it is the board's own colour taken up the same light axis every other surface here is shaded
-  // on.
-  //
-  // ⚠ THE ORDER IS THE ARGUMENT. The overhang's shadow goes on before the lamp wash, because the
-  // bulbs are INSIDE the recess and light it — painted after, they would be lighting a shadow that
-  // is meant to be cast over them. The cut edges go on last, because a cut edge is geometry and
-  // nothing in the cab lights it from behind.
+  // A uniform bright 'T.lip' outline is what a RAISED thing has, so the cluster read as a sticker. A
+  // recess is lit the other way: the dash overhangs the top and shadows into the hole, and the near
+  // lip along the bottom faces the sky.
+  // ⚠ THE HOLE NEEDS A MOULDING standing proud around it, or it reads as a recess in a surface of no
+  // thickness.
+  // ⚠ THE MOULDING IS LIGHTER THAN THE BOARD everywhere, brightest at the bottom. Shaded dark-top /
+  // lit-bottom it matched the dark fascia and only its bottom edge showed.
+  // ⚠ THE LIP IS THE LIT DASH COLOUR, NOT 'T.lip': that key is a hairline (a fifth of an alpha) and
+  // vanishes at a recess edge's weight. Use the board colour taken up the same light axis.
+  // ⚠ ORDER: overhang shadow, then lamp wash (the bulbs are inside the recess), then the cut edges
+  // last (geometry, not lit from behind).
   // ── ⚠ AND IT LIES ON THE BOARD, WHICH AN AXIS-ALIGNED RECTANGLE CANNOT DO ──
   //
-  // Reported as the cluster "not fitting into part of the truck dash but running over the top of
-  // them in a square way — the perspective is off", and that is exactly right. The dash is a
-  // surface that WRAPS: 'lipAt' is a parabola because the middle of a truck dash is further from
-  // the driver than its corners are, and every edge of the board — the lip, the fold, the scuttle —
-  // follows it. The binnacle was a plain rounded rectangle laid over all of them, so its straight
-  // top edge CROSSED the curved edges it was sitting between, at a different angle at each end.
-  // Nothing about the shading could fix that, because the defect was that the shape did not belong
-  // to the surface.
-  //
-  // So the top and bottom edges are the dash's own curve, offset — parallel to the lip rather than
-  // level with the canvas — and the sides RAKE, because the board is nearer you at the bottom and a
-  // panel set into it spreads as it comes down. Same rake, for the same reason, as the pillars.
-  //
-  // ⚠ ONE PATH FOR THE MOULDING AND THE HOLE. 'grow' pushes it outward, so the surround is the same
-  // shape as the opening by construction; two separately-built outlines would disagree about the
-  // curve the moment either was retuned, and the symptom would be a ring of uneven thickness.
+  // The dash wraps ('lipAt' is a parabola) and every board edge follows it, so a plain rounded
+  // rectangle's straight top crossed those curves ("running over the top of them in a square way").
+  // The top and bottom edges are the dash curve offset, parallel to the lip, and the sides RAKE
+  // because the board is nearer at the bottom (same rake as the pillars).
+  // ⚠ ONE PATH FOR THE MOULDING AND THE HOLE: 'grow' pushes it outward. Two outlines would disagree
+  // once either was retuned, giving a ring of uneven thickness.
   const platePath = (x0, y0, x1, y1, grow = 0, curve = 0) => {
     const pw = x1 - x0, ph = y1 - y0;
     // ⚠ 'curve' IS A PANEL'S OWN DISH, ON TOP OF THE BOARD'S WRAP — never instead of it. A console
@@ -9037,34 +8481,18 @@ function drawCabInterior(ctx, W, H, v, cam) {
 
   // ── THE GPS ────────────────────────────────────────────────────────────────
   // Far right of the dash, where the reference tractor puts its screen.
-  // ⚠ THE SCREEN IS SPACED OFF THE CLUSTER'S REAL EDGE, NOT OFF THE DIAL INSIDE IT. It sat at
-  // 'smallR * 1.5' past the last small gauge while the cluster's own plate reaches 1.72 past it —
-  // and then both grew a moulding — so the two housings overlapped by 7.6 px and the screen looked
-  // like it had been dropped on top of the panel next door. Both rings have to fit between them.
-  //
-  // ⚠ AND ITS FAR EDGE STOPS AT THE CAB WALL, for the reason 'padL' does. The old right margin was
-  // a fraction of the CANVAS, which is not a thing in the truck, and with the ring added the screen
-  // finished 3.5 px past the inside of the door.
+  // ⚠ SPACE IT OFF THE CLUSTER'S REAL EDGE (its plate plus moulding), not the dial inside, or the two
+  // housings overlap (they did, by 7.6 px).
+  // ⚠ ITS FAR EDGE STOPS AT THE CAB WALL, like 'padL', not at a fraction of the canvas.
   // ── ⚠ IT BUTTS AGAINST THE CLUSTER, AND IT IS NOT ROTATED ─────────────────
   //
-  // Two earlier goes at "angle it like the board" both turned the whole unit — about its centre,
-  // then hinged at its inner edge — and both are the wrong tool. A rotation turns the screen's left
-  // edge AWAY from the cluster's right edge, so however the angle is chosen the two stop being
-  // parallel and the unit laps over the moulding next to it. The board's wrap is already in the
-  // plate: 'bowAt' curves the top and bottom and 'PLATE_RAKE' leans the sides, exactly as it does
-  // for the binnacle. The screen does not need a transform of its own — it needs to be drawn by the
-  // same rule, in the right place.
-  //
-  // ⚠ AND THE y IS FLAT. 'platePath' adds 'bow(x)' itself, so a call passing 'rowY(x)' bows it
-  // twice and the screen sinks below the row it is supposed to be on. The binnacle passes 'outY'
-  // and so does this.
-  //
-  // The two mouldings is the whole gap: the cluster's ring ends at 'clusterR + moulding' and the
-  // screen's begins there, so the metal outlines meet with no board showing between them.
-  // ⚠ AND A STRIP OF BOARD BETWEEN THEM. Butted, the two rings make one long moulding with a seam
-  // in it; a hand's width of dash between says they are two consoles set into one panel, which is
-  // what they are. It is still the same rake on both edges, so the gap is a constant width rather
-  // than a wedge — which is the whole reason the rake had to stop being per-plate first.
+  // ⚠ NOT ROTATED. A rotation turns the screen's left edge away from the cluster's right edge and it
+  // laps the moulding. The plate already carries the wrap ('bowAt' curves top and bottom,
+  // 'PLATE_RAKE' leans the sides), so draw it by the same rule in the right place.
+  // ⚠ THE y IS FLAT: 'platePath' adds 'bow(x)' itself, so passing 'rowY(x)' bows twice and the screen
+  // sinks. Pass 'outY', as the binnacle does.
+  // ⚠ A STRIP OF BOARD BETWEEN THEM (two mouldings plus a hand's width), so they read as two consoles
+  // in one panel. The same rake on both edges keeps the gap constant rather than a wedge.
   const gpsX = clusterR + moulding * 2 + W * 0.016;
   // ⚠ NAMED, BECAUSE THE CONSOLE LINES UP WITH IT. The screen's outer edge is where the panel stops
   // on that side, so the switch bank under it has to end at the same number rather than at a margin
@@ -13153,36 +12581,17 @@ function drawCowl(ctx, W, H, cls) {
 
 // ── THE FLIGHT PANEL (FS98's own idea, at this game's proportions) ────────────
 //
-// An aircraft's forward view had a COWL and nothing else: a dark shape along the bottom with two
-// ribs on it, hiding the near-ground band, and every number you fly by — airspeed, altitude,
-// heading, vertical speed — floating on the glass as HUD glyphs with nothing behind them. The
-// truck got a dash and the plane was still a windscreen with subtitles.
-//
-// ⚠ THE PANEL IS FLAT AND THE COAMING WRAPS, WHICH IS NOT A COMPROMISE BETWEEN THE TWO. A cab's
-// dash genuinely wraps round the driver and a light aircraft's panel genuinely does not — it is a
-// flat board bolted across the cockpit, which is why every instrument in one is square to every
-// other. What curves is the GLARESHIELD on top of it, and that is the part next to the glass where
-// a curve reads. So the wrap kit stays switched off for the face on purpose, and the character
-// comes from density instead: recessed wells, thin bezels, labels, annunciators and a switch row.
-//
-// ⚠ AND IT DOES NOT TAKE THE GLASS. FS98 panels occupy 55-60% of the frame, and copying that
-// number would cost the one thing this view is for — you fly by looking out of it. The panel grows
-// into the space the COWL already had (0.17) rather than into the windscreen, out to about a third
-// of the frame. Everything drawCowl was doing for the near-ground band, it still does.
-//
-// ⚠ AND NOTHING ON THE HUD IS REMOVED. The glass readouts stay exactly where they are: the panel
-// ADDS instruments, so nothing a pilot flies by today can be lost by a panel being wrong about it.
-// Retiring a HUD element is a later decision to take one element at a time, with the panel already
-// proving it.
-// ⚠ THE DEPTH IS SOLVED BACKWARDS FROM THE GAUGES, NOT PICKED TO LOOK RIGHT. Two rows of
-// instruments need about 4.3 radii of board between the coaming and the switch row, and at 0.34 of
-// a 460px frame that left 79px — a gauge radius of SEVENTEEN PIXELS, which is a six-pack rendered
-// at the size of the word under it. The overheads are what ate it: a coaming at a fifth of the
-// panel's own depth and a switch strip at another fifth took a quarter of the board before an
-// instrument was placed. Both are trimmed below and the depth carries the rest.
-//
-// ⚠ AND IT STILL DOES NOT REACH FS98's 55%. This is the number the gameplay note above is about, so
-// it is the one to move if the view ever feels tight — every layout term is derived from it.
+// The aircraft forward view gets an instrument panel instead of a bare cowl with HUD glyphs.
+// ⚠ THE PANEL IS FLAT AND THE COAMING WRAPS: a light aircraft's panel is a flat board (every
+// instrument square to every other); only the glareshield curves. So the wrap kit stays off for the
+// face, and character comes from density: recessed wells, bezels, labels, annunciators, switches.
+// ⚠ IT DOESN'T TAKE THE GLASS. FS98 panels fill 55-60% of the frame; this grows into the cowl's
+// space (0.17) out to about a third, because you fly by looking out. drawCowl's near-ground job holds.
+// ⚠ NOTHING ON THE HUD IS REMOVED: the panel adds instruments. Retire HUD elements one at a time.
+// ⚠ THE DEPTH IS SOLVED FROM THE GAUGES: two rows need about 4.3 radii of board between coaming and
+// switch row. At 0.34 of a 460px frame that left a 17 px gauge radius, so the coaming and switch
+// strip were trimmed and the depth carries the rest. If the view feels tight, this is the number to
+// move; every layout term derives from it.
 const PANEL_DEPTH = { ultralight: 0.36, heli: 0.46, prop: 0.48, heavy: 0.50, gunship: 0.48, divebomber: 0.47, wreck: 0.46, default: 0.48 };
 // The airliner panel is bare grey alloy and the light aircraft's is a dark painted board — the two
 // reference cockpits, and the one thing that most says which aeroplane you are sitting in.
@@ -14349,62 +13758,30 @@ function drawCityBloom(ctx, cam, dx, dy, h, night, alpha) {
   });
 }
 
-// Water on the windscreen + storm lightning — drawn on the fixed glass, not the
-// banked world, so it reads as being *on* the canopy in front of you. Plus the slow
-// accretion that dirties a canopy over a flight: bug splats that build up, and frost
-// creeping in from the corners in snow.
-// ⚠ `glassRect` IS WHERE THE GLASS ACTUALLY IS, and passing it is what stops the weather being
-// painted on the dashboard. Everything in here — beads, streaks, frost, the blades — used to run
-// edge to edge on the assumption that the whole canvas is a window, which is true of an aircraft
-// canopy and false of a truck: a cab is a header, two A-pillars and a dash filling the lower third,
-// and rain does not fall on the inside of any of them. The dash happens to be painted on a later
-// layer and hid the bottom of it, so the lie only showed at the pillars and the roof — and it only
-// showed in the rain, which is the one condition nobody screenshots.
-//
-// ⚠ AND A CLIP ALONE WAS HALF A FIX, which is why the rect is a CHANGE OF FRAME and not a mask.
-// Clipping puts the weather in the right place and then throws away everything that missed it: the
-// drop field is laid out across the unit square, so on a cab — where the glass is 85% of the width
-// and 59% of the height — a measured 48% of the beads were being generated onto the dash and the
-// header and discarded. The screen was half as wet as an aircraft's in the same storm, and it got
-// DRIER the faster you drove, because a bead's streak drags it sideways at speed and it exits
-// through an A-pillar rather than off the edge of the world (39% survived at speed). That is exactly
-// backwards: a truck windscreen at seventy in rain is the wettest piece of glass in the game.
-//
-// So translate into the pane and hand drawGlassInner the PANE's size as its canvas. Every coordinate
-// in there is already a fraction of W/H, so all thirty drops, their respawns, the streak lengths, the
-// wiper pivots, the bug splats and the frost bloom land on the glass and nothing is generated only to
-// be masked off. The clip stays as the guarantee — a bead is an ellipse with a radius and a wiper is
-// pivoted just below the bottom edge on purpose — but it is no longer what does the aiming.
+// Water on the windscreen and storm lightning, drawn on the fixed glass rather than the banked
+// world so it reads as on the canopy. Plus slow accretion: bug splats, and frost from the corners
+// in snow.
+// ⚠ `glassRect` IS WHERE THE GLASS IS, and it keeps weather off the dashboard. A cab is a header,
+// two A-pillars and a dash; rain doesn't fall on the inside of them.
+// ⚠ THE RECT IS A CHANGE OF FRAME, NOT A MASK. Clipping alone discarded drops generated off the
+// glass: on a cab (glass 85% of width, 59% of height) 48% of beads were thrown away, and at speed
+// streaks dragged out through the pillars (39% survived), so the screen got drier the faster you
+// drove. So translate into the pane and pass drawGlassInner the PANE's size; every coordinate there
+// is a fraction of W/H. The clip stays as a guarantee (beads have a radius, wipers pivot just below
+// the bottom edge).
 // ── THE WET TRAIL A RUNNING DROP LEAVES BEHIND ───────────────────────────────────────────────
 //
-// A bead's streak used to exist only while the bead did: the line was drawn from the anchor to the
-// head every frame, and the instant the drop re-seeded, the whole run vanished with it. So the glass
-// never accumulated — it was always exactly as wet as the thirty live drops made it, and there was
-// nothing on it for a wiper to take away. What you actually see through a windscreen in rain is the
-// RECORD of the water that has already run down it, and that record is what a blade clears.
-//
-// So a run that ends is committed here as a fading line and outlives the drop that drew it. Three
-// things about the shape of that:
-//
-//  · NORMALISED, NOT PIXELS. A trail lives the better part of twenty seconds, which is long enough to
-//    survive a resize, a fullscreen toggle and the supersample backing off — all of which change W/H
-//    underneath it. Stored as fractions of the pane, it is redrawn correctly into whatever the pane
-//    becomes.
-//  · IT FADES RATHER THAN EXPIRING. Water dries. A list that dropped its entries on a timer would pop
-//    lines out of existence, and a change is the one thing an eye reliably catches on glass.
-//  · IT IS CAPPED, and the cap drops the OLDEST. At cruise a canopy commits several runs a second;
-//    unbounded, this is a list that grows for as long as the weather lasts and is redrawn in full
-//    every frame.
-// ⚠ THE CAP MUST NOT BE WHAT SETS THE WETNESS. Thirty drops each finish a run every second or two,
-// so this list is fed at roughly twenty trails a second and the FADE is the only thing that decides
-// how many are on the glass at once. Measured at the first numbers tried (a 15-second dry time) the
-// count pinned to the cap within two seconds and stayed there for as long as it rained — which looks
-// like a fixed pattern of scratches, and makes the wiper useless: the blade cleared the glass and it
-// was full again before the arm reached the other side. So the trail is SHORT-LIVED, and the cap is
-// only a ceiling on the pathological case — set ABOVE the natural equilibrium at any speed, because a
-// binding cap is a second, invisible thing setting the wetness and it flattens the dip a wiper makes.
-// Measured settled counts with the blades off: 16 parked, 87 at 40mph, 254 at 65mph, 305 on a canopy
-// at cruise. With them on HI at 40mph: 21. That last pair is the whole feature.
+// A run that ends is committed as a fading line that outlives its drop, so the glass accumulates
+// water and a wiper has something to clear.
+//  · NORMALISED, NOT PIXELS: a trail lives most of twenty seconds, through resizes, fullscreen and
+//    the supersample backing off.
+//  · IT FADES RATHER THAN EXPIRING: a line popping out is the one change an eye catches on glass.
+//  · IT IS CAPPED, dropping the OLDEST, or it grows for as long as the weather lasts.
+// ⚠ THE CAP MUST NOT SET THE WETNESS. About twenty trails a second are fed in, so the FADE decides
+// the count. At a 15 s dry time the count pinned at the cap within two seconds: a fixed scratch
+// pattern and a useless wiper. So trails are short-lived and the cap sits ABOVE equilibrium at any
+// speed. Settled counts, blades off: 16 parked, 87 at 40mph, 254 at 65mph, 305 on a canopy at
+// cruise. On HI at 40mph: 21.
 const TRAIL_MAX = 340;
 const TRAIL_FADE = 0.40;         // alpha/sec — about 2.5 s from laid down to dry
 function pushTrail(st, x0, y0, x1, y1, r) {
@@ -15553,44 +14930,22 @@ const COAST_WOBBLE = 6, DIRT = BIOME_GROUND.badlands, REDROCK = BIOME_GROUND.red
 
 // ── THE GROUND PAST THE MAP WINDOW ────────────────────────────────────────────
 //
-// ⚠ THE FLOOR USED TO CLAMP HERE, AND A CLAMP IS AN INFINITE SMEAR OF ONE RING OF TILES.
-//
-// The map window is 73 tiles across and the ground runs to the horizon, which from a cockpit is
-// hundreds of tiles. Both floors — the shader (`lut0At`/`lut1At` in gl/floor.js) and the raster
-// (`sample` below) — resolved anything outside that window by clamping the index to the edge, so
-// every pixel past 36 tiles took the colour of whichever boundary texel its ray happened to leave
-// through. Radially, that is 288 colours stretched to infinity: the long converging streaks that
-// run to the horizon over open country, unchanging however far you fly, and the strongest possible
-// reading of "one pattern repeating forever".
-//
-// So past the window the ground is DERIVED instead, from the absolute world coordinate, by the same
-// `reliefShade` the window's own off-map fill runs, so the far field and the near fill cannot
-// disagree about what the wildlands look like.
-//
-// ⚠ THE LAND/SEA DECISION IS STILL THE WINDOW'S, AND IT HAS TO BE. Whether an empty tile is open bay
-// or arid plain is settled in `fillOffMap` by two chamfer distance fields over the whole window plus
-// the BAY_SHORE_Y rule — a question about the shape of the built coastline, which no per-tile
-// function of (x, y) can answer. So the far field inherits the boundary cell's WATERNESS (the clamp,
-// which is the right answer for that one bit) and synthesises only what the ground LOOKS like. Over
-// the bay the sea therefore still runs to the northern horizon.
-//
-// ⚠ AND THAT LAST SENTENCE WAS NOT TRUE FOR MONTHS, ON THE STRENGTH OF ONE WORD IN THIS PARAGRAPH.
-// "Synthesises only what the ground LOOKS like" is exactly the half a far sea must be exempt from —
-// its colour and its hillshade ARE what it looks like — but both were applied to every far texel
-// regardless of waterness. The waterness itself was kept and duly ran the waves, the glint, the
-// foam and the moon path, so the bay went on rippling correctly in rust-red desert about 26 tiles
-// past the window and stayed rust to the horizon: fly north over open water and it turns to open
-// ground under you. The exemption is in the far branch of both floors now, along with the two
-// things it uncovered — a coast that needs the same wobble the near fill uses or it draws as a
-// ruled sawtooth, and an aerial perspective that washed the land side and not the sea side.
-//
-// ⚠ AND IT CROSSFADES IN RATHER THAN SWITCHING AT THE BOUNDARY. `into` — how far past the built land
-// edge a tile sits, which is what ramps dirt into redrock — is a distance-field answer and is
-// likewise unavailable out here. Blending from the clamped edge cell into the deep-wildlands value
-// over FAR_FADE tiles reproduces that ramp closely enough and, more to the point, makes the
-// boundary continuous BY CONSTRUCTION: at the window edge the far field IS the clamp, so there is
-// no ring to see whatever the edge happened to be. The near band therefore renders exactly as it
-// did before this existed, and only the smear is replaced.
+// ⚠ A CLAMP IS AN INFINITE SMEAR OF ONE RING OF TILES. The map window is 73 tiles across and the
+// ground runs to the horizon. Clamping the index past it (shader `lut0At`/`lut1At` in gl/floor.js,
+// raster `sample` below) stretched 288 boundary colours to infinity as streaks to the horizon. So
+// past the window the ground is derived from the absolute world coordinate by the same `reliefShade`
+// the window's off-map fill runs, and far field and near fill agree.
+// ⚠ THE LAND/SEA DECISION STAYS THE WINDOW'S. `fillOffMap` settles it with two chamfer distance
+// fields plus the BAY_SHORE_Y rule, which no per-tile function of (x, y) can answer. The far field
+// inherits the boundary cell's WATERNESS (the clamp) and synthesises only how land looks.
+// ⚠ A FAR SEA IS EXEMPT FROM THAT SYNTHESIS: its colour and hillshade are what it looks like. Applied
+// to every far texel, the bay rippled in rust-red desert past ~26 tiles. The far branch of both
+// floors exempts water, gives the coast the near fill's wobble (or it draws as a ruled sawtooth),
+// and washes the sea with aerial perspective as well as the land.
+// ⚠ IT CROSSFADES OVER FAR_FADE TILES. `into` (distance past the built land edge, which ramps dirt
+// into redrock) is a distance-field answer unavailable out here; blending from the clamped edge
+// cell to the deep-wildlands value approximates it and is continuous by construction, so the near
+// band renders exactly as before.
 const FAR_FADE = 26;
 // THE PACKED-DIRT ROAD PALETTE. Three close shades, jittered per world tile by the road painter so
 // a graded track reads patchy rather than smooth. Module scope because the far field paints the
@@ -16558,36 +15913,17 @@ const CLOUD_BASE_FT = { clear: 3200, cloudy: 1600, rain: 1200, storm: 1800, snow
 const cloudBaseZ = (wx) => Math.max(0.05, RENDER_TUNE.eh + Math.sqrt((CLOUD_BASE_FT[wx] ?? 1600) / 3000) * RENDER_TUNE.climbLift);
 // ── WHERE IT IS ACTUALLY RAINING ───────────────────────────────────────────────────────────────
 //
-// Rain falls OUT OF a cloud and stops at the ground, so the volume it occupies is the slab between
-// those two — and this renderer had no opinion about either end of it. `drawWeather` is a
-// full-screen particle curtain keyed off the day's weather string, so it fell at eight thousand
-// feet in clear air on top of an overcast, and it fell over the half of the map with no cell above
-// it at all. Both halves look like rain working, which is why neither was ever reported as a bug in
-// the weather: they were reported as "it rains above the clouds".
-//
-// Two terms, answering two different halves of one sentence.
-//
-//   · THE CEILING. `cloudBaseZ` already converts the weather's real cloud base into the world-z the
-//     camera climbs through, and the eye's own z is the number `paintWindshield` has already built
-//     for the chase rig — the SAME expression `makeCam` derives `EHbase` from, so the comparison is
-//     exact rather than close, and a retune of `climbLift` moves the ceiling and the eye together.
-//   · THE CELL. `wxSample.precip` is the rain of the precip or storm cell overhead, and nothing
-//     else: an overcast sky is grey everywhere but only rains under its cells. This used to be
-//     `wxSample.cloud`, which carries the day's `baseCloud` floor (0.72 on a rain day), so the
-//     whole map counted as "under cloud" and it rained everywhere below the base.
-//
-// ⚠ ASH AND DUST KEEP THE COVER. They hang in the air rather than falling out of a cell, and
-// no cell carries them, so for those two the second term is still the cloud overhead.
-//
-// ⚠ NO FIELD MEANS NO OPINION ABOUT THE SECOND TERM, NOT A GUESS AT IT. A seat with no `wxField`
-// plumbed cannot know where the cloud is, so it keeps the ceiling and skips the cover — the legacy
-// global-string path is exactly what it was, except that it now stops when you climb over the top
-// of it.
-//
-// ⚠ AND THE FADE IS A BAND RATHER THAN A LINE, because the alternative is rain that blinks off in
-// one frame as you pass the base. A fifth of the climb term is a few hundred feet at the shallow
-// end of the √ curve: long enough to thin on the way up, short enough to still read as a ceiling.
-// The cell term fades the same way across a cell's rim.
+// Rain falls from a cloud base to the ground. `drawWeather` is a full-screen curtain keyed off the
+// day's weather string, so it fell above an overcast and where no cell was overhead. Two terms:
+//   · THE CEILING. `cloudBaseZ` converts the real cloud base into world-z, compared with the eye z
+//     `paintWindshield` builds for the chase rig (the same expression `makeCam` derives `EHbase`
+//     from), so a `climbLift` retune moves both together.
+//   · THE CELL. `wxSample.precip`, the precip or storm cell overhead. Not `wxSample.cloud`: that
+//     carries the day's `baseCloud` floor (0.72 on a rain day), so it rained everywhere under the base.
+// ⚠ ASH AND DUST KEEP THE COVER: no cell carries them, so their second term is the cloud overhead.
+// ⚠ NO `wxField`, NO CELL TERM: that seat keeps the ceiling and skips the cover (the legacy path).
+// ⚠ THE FADE IS A BAND, not a line, so rain doesn't blink off at the base: a fifth of the climb
+// term, a few hundred feet. The cell term fades across a cell's rim the same way.
 function precipGate(wx, eyeZ, wxSample) {
   if (!RENDER_TUNE.rainGate) return 1;   // the A/B: the full-screen curtain exactly as it shipped
   const ceil = clamp((cloudBaseZ(wx) - eyeZ) / Math.max(1e-6, RENDER_TUNE.climbLift * 0.2), 0, 1);
@@ -17081,46 +16417,24 @@ export function wallPaletteInfo() {
 }
 
 // ── HOW A MATERIAL ANSWERS THE LIGHT, WHICH IS THE HALF THE TEXTURE CANNOT SAY ───────────────
-//
-// The sixteen families above decide what a surface LOOKS like — coursed ashlar, riveted plate,
-// board-and-batten with knots and nail bleed. They have never decided how it BEHAVES, because until
-// GLASS 2 there was nowhere to say it: the 2-D painter has no eye position, so every surface in the
-// city was shaded with one half-lambert key and two overlay tints. Brick, sheet copper, curtain
-// glass and weathered timber differed by pattern and by nothing else.
-//
-// That is why metal has never read as metal here. Metal IS view-dependence — a highlight that slides
-// as you drive past, a reflection carrying the metal's own hue rather than the light's. Wood is the
-// absence of it. Frosted glass is view-dependence with the sharpness taken out. None of the three is
-// expressible as albedo at any texture resolution.
-//
-// So a family now carries five numbers as well as a painter, and `gl/context.js` turns them into a
-// specular lobe, an environment reflection, a fresnel edge, a relief term and a sheen.
-//
-// ⚠ THE FAMILY IS DERIVED, NEVER AUTHORED — that is the whole reason this is affordable. A palette
-// key already resolves to a family through `wallMaterialOf`, for 283 keys and 173 models, so every
-// building in the city gets its response with nothing added to any content file and no second list
-// to keep in step. Retune a row here and every surface wearing that material moves together.
-//
-// ⚠ AND THE ROW ORDER IS THE WIRE FORMAT. `MAT_ORDER`'s index is what rides in the vertex buffer and
-// what indexes the uniform array, so a family inserted in the middle renumbers the city. Append.
-//
-//   gloss — the specular exponent. 6 is a wide wet-looking smear, 90 is a pinpoint.
-//   metal — 0 dielectric, 1 conductor: how far the reflection takes the surface's OWN colour and
-//           how much of the diffuse it gives up. This is the single term that reads as "metal".
-//   fres  — how strongly the environment shows up, and how hard it climbs toward grazing.
-//   bump  — relief recovered from the albedo's own gradient. 0 on anything whose texture varies for
-//           reasons that are not geometry (see the ⚠ on the bump term in the shader).
-//   sheen — a broad, view-facing lift with no lobe. Cloth, straw, render, frost.
-//   spec  — how hard the sun's own highlight lands. ⚠ IT IS A COLUMN RATHER THAN ONE EXPRESSION
-//           BECAUSE THE OLD ARGUMENT WAS ABOUT BOXES. `0.15 + 0.30·metal` was set globally and
-//           damped hard, on the correct observation that a lobe across a PLANAR face has one
-//           normal and therefore one value — it paints the wall lighter instead of travelling.
-//           Every masonry family here is flat and keeps that number to three decimals. The
-//           polished ones do not: chrome, brass, glass and tile are what drums, collars, crowns
-//           and curtain walls are made of, and on a sixteen-facet drum the lobe DOES travel,
-//           because sixteen facets are sixteen normals. `uSpecStr` 0 puts the one expression
-//           back for all twenty families, which is the A/B.
-// ⚠ APPEND. The index is the wire format (see below), and `MAX_MATERIALS` is 24 — 21 used.
+// The families say what a surface LOOKS like; these numbers say how it BEHAVES (the 2-D painter has
+// no eye position). `gl/context.js` turns them into a specular lobe, an environment reflection, a
+// fresnel edge, a relief term and a sheen.
+// ⚠ THE FAMILY IS DERIVED, NEVER AUTHORED: palette keys resolve through `wallMaterialOf` (283 keys,
+// 173 models), so content needs nothing. Retune a row and every surface on it moves.
+// ⚠ THE ROW ORDER IS THE WIRE FORMAT: `MAT_ORDER`'s index rides in the vertex buffer and indexes the
+// uniform array. Append; inserting renumbers the city.
+//   gloss: the specular exponent. 6 is a wide wet-looking smear, 90 is a pinpoint.
+//   metal: 0 dielectric, 1 conductor: how far the reflection takes the surface's OWN colour and how
+//          much diffuse it gives up. The term that reads as "metal".
+//   fres: how strongly the environment shows up, and how hard it climbs toward grazing.
+//   bump: relief from the albedo's own gradient. 0 where texture varies for non-geometric reasons
+//          (see the ⚠ on the bump term in the shader).
+//   sheen: a broad, view-facing lift with no lobe. Cloth, straw, render, frost.
+//   spec: how hard the sun's highlight lands. ⚠ A COLUMN, NOT `0.15 + 0.30·metal`: a lobe on a flat
+//          face just lightens it (masonry keeps that value), but on a sixteen-facet drum (chrome,
+//          brass, glass, tile) it travels. `uSpecStr` 0 restores the one expression (the A/B).
+// ⚠ APPEND. The index is the wire format (see below), and `MAX_MATERIALS` is 24, 21 used.
 export const MAT_ORDER = ['window grid', 'metal', 'glass', 'frost', 'deco', 'struct', 'pump',
   'plain', 'stone', 'brick', 'plate', 'lattice', 'concrete', 'bale', 'brass', 'tile', 'stucco',
   'timber', 'gravel', 'chrome', 'marble'];
@@ -17786,35 +17100,19 @@ function bldgStyle(cell) {
 }
 
 // ── Building height by STOREYS ────────────────────────────────────────────────
-// Height comes from the building's real floor count, not a per-type slab: a 3-floor
-// hotel is a mid-rise, a corporate office a tower, a corner shop a single storey.
-// The server passes an authored floor override (cell.flr = flags.floors) when set;
-// otherwise we fall back to a believable per-type default. FLOOR_Z is the world-z
-// height of one storey — the whole thing still scales with the bldgH tuning knob so
-// the ⚙ slider keeps working. This is the ONE height formula; buildingHeightZ (CFIT
-// collision) and drawWorldObjects (render) both call floorHeight so what you see is
-// exactly what you can hit.
-// Floor counts nudged UP for the low-rise commercial/civic types: a 1-storey pancake in a
-// dense ~50-year-future city reads wrong, so a corner shop is small-mixed-use, a soundstage
-// a tall clear-span volume, a bar/club a couple of storeys. Raises BOTH the rendered mass and
-// the CFIT collision ceiling (both key off floorsOf), so the taller look stays hittable.
-// TYPE_FLOORS / FLOOR_Z now live in client/shared/skyline-scale.js — the cold
-// open's closing flythrough renders the same skyline as a wireframe and cannot
-// import this file to get them. Same numbers, one home.
+// Height comes from the real floor count (cell.flr = flags.floors when authored, else a per-type
+// default) times FLOOR_Z, scaled by the bldgH knob (the ⚙ slider). This is the ONE height formula:
+// buildingHeightZ (CFIT collision) and drawWorldObjects (render) both call floorHeight, so what you
+// see is what you hit. Low-rise commercial/civic types are nudged up (render and collision together
+// via floorsOf). TYPE_FLOORS / FLOOR_Z live in client/shared/skyline-scale.js so the cold open's
+// wireframe flythrough can share them.
 // ── ⚠ THE ONE BUILDING WHOSE MASS IS A SHAPE, NOT A STOREY STACK ─────────────
-// The depot bay (drawVehicleBay, below) is drawn at a FIXED height rather than extruded from a
-// floor count, and it has to be: it is the one building with a camera inside it, and its eaves must
-// clear the cab's eye (`eyeH: 0.12`) or the driver is looking over his own roof. A floor count
-// cannot promise that — `bldgStretch` is a live dev-panel slider, so somebody dragging "Vert
-// stretch" would put the roof back under the windscreen.
-//
-// So the numbers are here, next to the formula they are an exception to, and BOTH sides of the
-// draw/collide contract are keyed off them: `floorHeight` answers with the shed's real ridge (so
-// the render, the ground shadow, the occlusion pre-pass and `buildingHeightZ` all agree), and
-// `floorsOf` answers with the storey count that ridge is WORTH (so the feet-based CFIT altitude
-// lands on the same roof). Without the second half the shed drew at 0.43 and collided at 0.196 —
-// an aircraft flew through the top two thirds of a building a truck cannot drive through the wall
-// of. Change RIDGE and you must change BAY_FLOORS with it; the smoke asserts they stay in step.
+// The depot bay (drawVehicleBay) is drawn at a FIXED height: it has a camera inside, and its eaves
+// must clear the cab's eye (`eyeH: 0.12`). `bldgStretch` is a live slider and would drop the roof.
+// ⚠ BOTH SIDES OF DRAW/COLLIDE KEY OFF THESE NUMBERS: `floorHeight` returns the real ridge (render,
+// shadow, occlusion pre-pass, `buildingHeightZ`) and `floorsOf` the storey count it's worth (CFIT
+// feet altitude). Without the second it drew at 0.43 and collided at 0.196. Change RIDGE and
+// BAY_FLOORS together; the smoke asserts they match.
 const BAY = {
   HW: 0.47, HL: 0.47,           // half-width / half-depth — a shed fills its tile, setbacks are for shops
   WALL: 0.30, RIDGE: 0.43,      // eaves and ridge: a clear-span volume, ~1.8× the driver's eye at the eaves
@@ -19583,36 +18881,21 @@ function matFrost(g, W, H, w, tr, amp) {
   // surface floats.
   g.fillStyle = k(0.52); g.fillRect(0, 0, W, px); g.fillRect(0, H - px, W, px);
 }
-// POLISHED PANEL. A mirror is not a bright surface — it is a surface showing you something else —
-// so what this texture has to carry is the WORLD the panel is reflecting, and the one feature that
-// says "mirror" in a still frame is a HORIZON: sky above, ground below, and a hard dark line where
-// the two meet. The specular lobe cannot say it, because a lobe needs an eye and a texture has
-// none; the GL material pass puts the sun on top of this, and this is what is under the sun.
-//
-// ⚠ IT TILES, AND THAT IS THE LOOK RATHER THAN A COMPROMISE. 'wallTex' bakes one 16x32 cell and the
-// wall repeats it, so the horizon repeats with it — which is exactly what a mirrored curtain wall
-// does, because every panel is its own mirror and each one holds its own copy of the skyline. The
-// joints at the bottom are what make that read as panels rather than as banding.
+// POLISHED PANEL. A mirror shows something else, so this texture carries the reflected world: sky
+// above, ground below and a hard dark horizon line. A lobe needs an eye and a texture has none;
+// the GL material pass adds the sun on top.
+// ⚠ IT TILES ON PURPOSE: 'wallTex' bakes one 16x32 cell, so each panel holds its own skyline, as a
+// mirrored curtain wall does. The joints at the bottom make it read as panels, not banding.
 // ── POLISHED MARBLE ──────────────────────────────────────────────────────────────────────────
 //
-// Four reference slabs — blue onyx, Calacatta, a dark green with white veining, and a pale green
-// with gold — and they share one structure. A CLOUDY GROUND with a CONNECTED BRANCHING VEIN
-// NETWORK over it, at a much higher contrast than the ground, and nothing else. No grain, no
-// speckle, no relief.
-//
-// ⚠ THE VEINS ARE A NETWORK AND NOT A SCATTER, WHICH IS THE WHOLE DIFFERENCE. A field of
-// independent squiggles reads as paper or as camouflage; what says stone is that the veins JOIN —
-// a trunk forks, the forks fork, and the pale areas between them are closed cells. So this walks
-// a trunk across the slab and branches off it recursively, rather than drawing n unrelated marks.
-//
-// ⚠ AND THE VEIN DIRECTION IS SIGNED. On Calacatta the veins are DARKER than the ground; on the
-// dark green slab they are lighter. Painting them one way makes half the palette look like a
-// photographic negative, so `vein` carries the sign and the key's own luminance chooses it.
-//
-// ⚠ IT IS CLAD IN SLABS AND THE JOINTS ARE WHAT SAY SO. A building is faced in panels a couple of
-// metres across, and this texture is stretched over a whole wall — so without a joint grid one
-// slab's veining is smeared up thirty storeys and reads as wallpaper. `matChrome` makes the same
-// argument about its own horizon and answers it the same way.
+// A CLOUDY GROUND with a CONNECTED BRANCHING VEIN NETWORK at much higher contrast; no grain, speckle
+// or relief (references: blue onyx, Calacatta, dark green with white veins, pale green with gold).
+// ⚠ THE VEINS ARE A NETWORK: a trunk forks and the forks fork, closing cells. Independent squiggles
+// read as paper or camouflage.
+// ⚠ THE VEIN DIRECTION IS SIGNED: darker than the ground on Calacatta, lighter on dark green.
+// `vein` carries the sign and the key's luminance chooses it.
+// ⚠ IT'S CLAD IN SLABS: without a joint grid one slab's veins smear up thirty storeys. `matChrome`
+// answers its horizon the same way.
 function matMarble(g, W, H, w, tr, amp) {
   const A = amp, px = Math.max(1, tr | 0);
   const lum = 0.299 * w[0] + 0.587 * w[1] + 0.114 * w[2];
@@ -19989,58 +19272,27 @@ function wallTex(biome, night, win = WIN_ON) {
     + (winMode === WIN_ON ? '' : ':p' + winMode), () => {
     // ── ⚠ BRICK BAKES AT TWICE THE TEXELS, AND IT IS THE ONLY SURFACE THAT DOES ────────────────
     //
-    // Every wall in the city is 16×32 texels for a WHOLE BUILDING TILE. That is enough for ashlar
-    // (eight courses of half-tile blocks) and it is not enough for brick, whose entire read is that
-    // the unit is SMALL: at `H/12` a brick is four pixels by three, the joint is a third of the
-    // course, and there is no room at all for a mark inside a unit. Smaller bricks, thinner joints
-    // and any grain on the face are three demands on the same budget and the budget has to grow.
-    //
-    // ⚠ IT IS AFFORDABLE BECAUSE THE ATLAS IS BANDED BY CELL SIZE. `buildAtlas` groups tiles by
-    // their own `w×h` and lays each group out in its own band — its own ⚠ records that the city
-    // already bakes exactly one surface at 32×56 and that banding took `texRes` 2 from a 2048×4096
-    // page down to 512×2048. So twenty brick palettes in a band of their own cost one more band,
-    // not a bigger grid for all 568 surfaces. The old uniform packer is what made this impossible.
-    //
-    // ⚠ AND IT IS A FLOOR, NOT A MULTIPLE — WHICH `atlasfit` CAUGHT AND NOTHING ELSE WOULD HAVE.
-    // As a flat 2× it was free at texRes 1 and 2 and took the city's 834 surfaces past a 2048px
-    // page at texRes 3, which on a floor-spec device is not a slightly bigger atlas: `buildAtlas`
-    // refuses the page and the whole city falls back to flat palette colours. Brick does not want
-    // twice whatever the dial says, it wants a MINIMUM density — so it takes this size or the
-    // dial's own, whichever is larger, and the page is re-measured whenever the number moves.
-    //
-    // ⚠ 64×128 IS SET BY MOTTLING AND BY NOTHING ELSE. 32×64 was enough for smaller units, a
-    // thinner joint and a grain pass, and it left a brick at four pixels by three — of which the
-    // arris rows take two, so there is no INSIDE to a brick and the blotching that is most of what
-    // a photograph of a brick wall actually shows cannot be drawn at all. At 64×128 a brick body
-    // is ten by five and there are fifty texels in it. Measured with `atlasfit` rather than
-    // guessed: the city's 834 surfaces still pack into 2048×2048 at texRes 3, in four bands.
-    // ⚠ SEVEN FAMILIES, AND SEVEN IS THE MEASURED CEILING RATHER THAN A ROUND NUMBER. Probed with
-    // `atlasfit` one family at a time: these seven (109 palettes) still pack into 2048×2048 at
-    // texRes 3, and adding METAL (28 more) does not. Anything joining this list has to be measured
-    // in, and something has to leave to make room.
-    // ⚠ EVERY FAMILY HERE IS ONE WHOSE READ IS A UNIT OR A GRAIN — a brick, a block, a plate, a
-    // board, a shutter mark, a trowel sweep, a tile. `plain` (156 palettes) and `window grid` (86)
-    // are deliberately absent and are the two biggest: a soffit or a painted kerb has no material
-    // to show, and the facade path paints apertures, which is a different job at a different size.
-    // ⚠ MARBLE IS ON THIS LIST AND HAS TO BE. Its read is a VEIN NETWORK and a slab joint, and at
-    // the 16×32 floor a vein is one pixel wide over a sixteen-pixel slab — which is not a faint
-    // marble, it is noise. Four keys, measured in against `atlasfit` at all three texel rates.
-    // ⚠ AND LATTICE IS THE EIGHTH, WHICH ONLY BECAME NECESSARY WHEN THE HOLES BECAME HOLES. Painted
-    // near-black, a fat member over a dark opening reads as a dark truss and the 16×32 floor was
-    // fine. Cut through, the same geometry reads as a SOLID COLUMN WITH PINHOLES IN IT: at 16 texels
-    // across, two chords, a full-width tie per bay and two 2px diagonals leave barely a third of the
-    // section open, and a lattice whose openings are the minority is not a lattice. The member
-    // widths below are fractions of the section now rather than texel counts, so the density is a
-    // property of the truss and not of the dial — but a fraction of sixteen is still one or two
-    // texels, and there is no room at that size for a chord, a web and a hole between them.
-    // ⚠ FOUR KEYS, AGAINST METAL'S TWENTY-EIGHT — see the ceiling note above. Measured in with
-    // `atlasfit` at texRes 1, 2 and 3 like every other family here, not assumed from the count.
-    // ⚠ AND THE 2026-09-27 REGION RE-FILING DOES NOT TAKE THE FLOOR. Thirty-four Deadwater,
-    // Thornwarren and Terminus keys moved out of `plain` into these families so those regions read
-    // as made of something; given the 64×128 floor as well, the city's 860 surfaces went past a
-    // 2048px page at texRes 3, which is the whole city drawing flat colours on a floor-spec device.
-    // They keep the FAMILY (the pattern and the material response) and paint at the dial's own
-    // density. Measured with `atlasfit`; promote one only by measuring it in, as the note says.
+    // Walls are 16×32 texels per building tile, too few for brick (a brick at four by three pixels).
+    // ⚠ AFFORDABLE BECAUSE THE ATLAS IS BANDED BY CELL SIZE: `buildAtlas` lays each `w×h` group in its
+    // own band (banding took `texRes` 2 from a 2048×4096 page to 512×2048), so these cost one band.
+    // ⚠ IT'S A FLOOR, NOT A MULTIPLE. A flat 2× took the city's 834 surfaces past a 2048px page at
+    // texRes 3, and `buildAtlas` refusing the page drops the whole city to flat colours. It takes this
+    // size or the dial's, whichever is larger (`atlasfit` caught it).
+    // ⚠ 64×128 IS SET BY MOTTLING: at 32×64 the arris rows leave no inside to a brick; at 64×128 the
+    // body is ten by five. `atlasfit`: 834 surfaces still pack into 2048×2048 at texRes 3, four bands.
+    // ⚠ SEVEN FAMILIES IS THE MEASURED CEILING: these (109 palettes) fit at texRes 3; adding METAL
+    // (28) doesn't. Measure anything in with `atlasfit`, and something has to leave.
+    // ⚠ ONLY FAMILIES WHOSE READ IS A UNIT OR GRAIN. `plain` (156) and `window grid` (86) stay out: a
+    // soffit has no material, and the facade path paints apertures at its own size.
+    // ⚠ MARBLE IS ON IT: at 16×32 a vein is one pixel over a sixteen-pixel slab, which is noise. Four
+    // keys, measured in at all three texel rates.
+    // ⚠ LATTICE IS THE EIGHTH, needed once the holes were cut through: at 16 texels two chords, a tie
+    // per bay and two 2px diagonals leave a third open, a solid column with pinholes. Member widths
+    // are fractions of the section, but a fraction of sixteen is one or two texels. Four keys against
+    // metal's twenty-eight, measured at texRes 1, 2 and 3.
+    // ⚠ THE 2026-09-27 REGION RE-FILING DOESN'T TAKE THE FLOOR (REGION_NO_FLOOR). 34 Deadwater,
+    // Thornwarren and Terminus keys moved out of `plain`; with the floor too, 860 surfaces overflowed
+    // a 2048px page at texRes 3. They keep the family and paint at the dial's density.
     const hires = !REGION_NO_FLOOR.has(biome) && (BRICK_WALL.has(biome) || STONE_WALL.has(biome) || PLATE_WALL.has(biome)
       || TIMBER_WALL.has(biome) || CONCRETE_WALL.has(biome) || STUCCO_WALL.has(biome) || TILE_WALL.has(biome)
       || MARBLE_WALL.has(biome) || LATTICE_CUT.has(biome)
@@ -20678,46 +19930,24 @@ function wallTex(biome, night, win = WIN_ON) {
   });
 }
 // ── ONE WALL, ONE BLIT — the day↔night crossfade, baked ──────────────────────
-// The two baked wall variants used to be crossfaded ON THE WALL: paint the day texture, then paint
-// the night one over it at `alpha · NB`. That is two of the most expensive call in this renderer for
-// one surface. `drawTexQuadP` splits a steeply-angled wall into up to twelve perspective-correct
-// columns of two triangles each, and every triangle is a `save / clip / transform / drawImage /
-// restore` — so a single near wall could cost **48 clipped drawImages**, and a night city street
-// from a cab is nothing but near walls at steep angles. It was the largest remaining item in the
-// frame after the lateral cull, and it was paying it twice for a picture that is one picture.
-//
-// A wall texture is 16×32 texels. Compositing the pair ONCE into a third canvas and blitting that is
-// the same image for half the work, and the cache below is what makes "once" true.
-//
+// The day and night wall variants are composited ONCE into a third canvas and blitted, instead of
+// crossfaded on the wall. `drawTexQuadP` splits a steep wall into up to twelve columns of two
+// clipped triangles, so the two-pass crossfade could cost 48 clipped drawImages per near wall.
 // ── ⚠ AND IT IS NOT MERELY EQUIVALENT — IT IS EQUAL WHERE IT MATTERS AND RIGHT WHERE IT ISN'T ──
-// Worth doing the algebra rather than asserting it. Over a background B, with day D and night N:
-//
+// Over background B, with day D and night N:
 //   two blits:  αNB·N + (1−αNB)·(αD + (1−α)B)
 //   one blit:   α·(NB·N + (1−NB)·D) + (1−α)B
 //   difference: α·NB·(1−α)·(D − B)
-//
-// At α = 1 that is exactly zero — so every opaque building, which is every building except the ones
-// inside the HAZE_BAND at the very draw limit, is byte-identical to what shipped. In the fade band
-// the two differ, and the composite is the CORRECT one: the two-blit form composites the night pass
-// against a wall that is itself already partly transparent, so a ghosting building was being
-// under-nighted by exactly that term. It also brings the textured path into line with the flat-fill
-// path beside it, which has always used a single pre-mixed colour (see `flatWall`).
-//
+// At α = 1 it's zero, so every opaque building (all but the HAZE_BAND at the draw limit) is
+// byte-identical. In the fade band the composite is the correct one, and it matches the flat-fill
+// path (`flatWall`).
 // ── THE CACHE IS PER-FRAME-ISH, AND IT REDRAWS RATHER THAN REALLOCATES ───────
-// Every building in a frame shares one `night`, so there is only ever ONE live NB. Keying the cache
-// on a quantised NB and rebuilding when it steps keeps the working set at "the biomes on screen"
-// rather than "every biome × every dusk" — WALL_COL has some 250 palettes and `_tex` never evicts,
-// so a bucketed key in there would have been a slow leak measured in thousands of canvases.
-//
-// The canvas itself is kept and drawn over in place: a step of NB costs two drawImages into a
-// 16×32 surface and allocates nothing. Dusk walks the whole ramp in WALL_MIX_STEPS of those.
-//
-// The two ends short-circuit to the baked textures themselves, so full day and full night — which is
-// most of the clock — allocate and composite nothing at all.
-// 64 to match WALL_LIT_BUCKETS, which quantises the same kind of thing for the same reason. It is
-// not an arbitrary round number: the whole skyline crosses a step at the same instant, and a
-// simultaneous global tone shift is the visible kind — 1.6% per step puts it under notice, and the
-// cost of a finer ramp is a handful more 16×32 redraws across an entire dusk.
+// Every building in a frame shares one `night`, so there's one live NB. The cache keys on quantised
+// NB and redraws in place (two drawImages into 16×32, no allocation). Don't bucket into `_tex`: it
+// never evicts and WALL_COL has ~250 palettes. Full day and full night short-circuit to the baked
+// textures.
+// 64 to match WALL_LIT_BUCKETS: the whole skyline crosses a step at once, and 1.6% per step stays
+// under notice. A finer ramp costs a few more 16×32 redraws per dusk.
 const WALL_MIX_STEPS = 64;
 const _wallMix = new Map();  // biome:texRes → { c, q } — the composited canvas and the NB step it holds
 // ⚠ `win` RIDES THROUGH TO THE NIGHT END ONLY, which is what makes a dark building cost one extra
@@ -21511,101 +20741,43 @@ function drawTexQuad(ctx, img, P0, P1, P2, P3, smooth) {
   texTri(ctx, img, [0, 0], [W, H], [0, H], P0, P2, P3, smooth);
 }
 // ── PERSPECTIVE-CORRECT TEXTURED QUAD ────────────────────────────────────────
-// texTri interpolates texture coords linearly in SCREEN space, so a textured quad seen at an angle
-// kinks: the window grid on a wall bows, and a roof creases along the two-triangle diagonal. The fix
-// is to subdivide into cells small enough that affine is right within one — the questions are only
-// WHERE the seams go and HOW MANY there are.
-//
+// texTri interpolates texture coords linearly in screen space, so an angled quad kinks (a wall's
+// window grid bows, a roof creases on its diagonal). Subdivide so affine is right within a cell.
 // ── ⚠ WHERE: UNIFORM IN SCREEN SPACE, AND WHY THE OBVIOUS "IMPROVEMENT" LOSES ──
-// Stepping s = k/K across the screen and solving for the correct u at each seam looks like it
-// starves the end that is bowing, and by one measure it does. On a wall running 2 to 80 deep,
-// screen-midpoint s = 0.5 is u = 0.024 — half the screen width carries 2.4% of the facade and the
-// other half crams in the remaining 97.6%, so measured as TEXTURE displacement the far end sits 27%
-// of the wall out of place, and re-spacing the seams to equal depth ratio cuts that to 2%.
-//
-// That measurement is the wrong yardstick and the re-spacing makes the picture WORSE. Texture
-// displacement is only visible in proportion to how many screen pixels the texture is stretched
-// across, and the far end where u is crammed is precisely the end that is compressed on screen —
-// the two cancel. Measuring actual screen error instead, over a family of seam spacings running
-// from uniform-screen through equal-depth-ratio to uniform-texture (worst error in px, K = 12):
-//
-//     wall          uniform-s     equal depth ratio    uniform-u
-//     3 → 40          12.9              28.6              85.1
-//     2 → 80          27.5              73.0             259.0
-//     8 → 30           3.1               4.9               9.5
-//
-// Uniform in screen space wins everywhere and by a wide margin. Left as it was, deliberately.
-//
+// Re-spacing seams to equal depth ratio cuts TEXTURE displacement (27% → 2% on a 2 → 80 wall) but
+// makes the picture worse, because the crammed far end is also compressed on screen. Worst SCREEN
+// error in px, K = 12, uniform-s / equal depth ratio / uniform-u: 3 → 40 12.9 / 28.6 / 85.1,
+// 2 → 80 27.5 / 73.0 / 259.0, 8 → 30 3.1 / 4.9 / 9.5. Uniform in screen space stays.
 // ── HOW MANY: A PIXEL BUDGET, BECAUSE K WAS DEPTH-ONLY AND THAT IS HALF THE QUESTION ─────────
-// K was min(12, ceil(ratio * 1.5)) — a 40px sliver and a 1400px cab-view facade both got twelve,
-// and warp is only ever visible in pixels. Measured error falls as 1/K (not 1/K²: the near-edge
-// cell dominates, so this is a boundary effect rather than a smooth quadrature one), and fitting
-// err·K over eight wall poses gives err·K ≈ 0.3 · extentPx · (1 − 1/ratio) to within about ±40%,
-// erring high. Solving for a target leaves
-//
+// Warp shows in pixels, so K is a pixel budget. Error falls as 1/K (the near-edge cell dominates);
+// over eight poses err·K ≈ 0.3 · extentPx · (1 − 1/ratio) within ±40%, erring high:
 //     K = 0.3 · extentPx · (1 − 1/ratio) / TEXQ_TARGET_PX
-//
-// ⚠ EXTENT IS THE LARGER OF THE TWO AXES, NOT THE ONE BEING SUBDIVIDED. A tall near wall is the
-// case that catches this: screen y is (linear in v) / f(u), so an error in u is AMPLIFIED by the
-// on-screen HEIGHT before anybody sees it. Sizing the column count off the wall's width alone
-// under-subdivides exactly the near facades that need it most.
-//
-// A small or far face now takes fewer cells than the old ratio-only rule and a near facade takes
-// more, up to the cap. The defaults below were picked off a street-shaped mix — a few near
-// facades, more mid, most of it far skyline, plus their roofs — counting triangles emitted and
-// worst screen error over the whole batch:
-//
+// ⚠ EXTENT IS THE LARGER OF THE TWO AXES, NOT THE ONE BEING SUBDIVIDED: screen y is (linear in v) /
+// f(u), so error in u is amplified by on-screen height. Width alone under-subdivides near facades.
+// Picked off a street-shaped mix (near, mid, far skyline, plus roofs):
 //     setting               wall tri / worst    roof tri / worst    total tri
 //     shipped                    884 / 14.0px        110 / 200px          994
 //     target 8px  cap 12         760 / 12.8px        576 /  13px        1,336
 //     target 6px  cap 16   ←     904 /  9.2px        764 /  11px        1,668
 //     target 4px  cap 20       1,324 /  7.2px      1,392 /   6px        2,716
 //     target 3px  cap 24       1,656 /  5.9px      1,726 /   6px        3,382
-//
-// 6px/16 is where the walls come out cost-NEUTRAL against what shipped (904 against 884) while
-// still taking a third off their warp, and the extra spend is almost all roofs — the right place
-// for it, because 200px of crease is the defect you can actually see. Past that the curve turns:
-// 3px buys another 4px of wall for 3.4× the triangles. TEXQ_TARGET_PX then TEXQ_MAX_K are the knob.
-//
+// 6px/16 keeps walls cost-neutral (904 vs 884) with a third less warp, spending on roofs, where
+// 200px creases show. 3px buys 4px more for 3.4× the triangles. Knobs: TEXQ_TARGET_PX, TEXQ_MAX_K.
 // ── IT IS THE SAME FUNCTION FOR WALLS AND ROOFS, AND THAT IS THE POINT ───────
-// A wall is a special case: it is vertical, so both of its vertical edges have constant depth, the
-// v-axis ratio is 1, K_v solves to 1 and the grid degenerates to columns — the wall path is exactly
-// what it always was, with a better-sized K. A roof is not vertical and every one of its four
-// corners sits at a different depth, which is why the old code did not even try and blitted it as
-// two raw affine triangles — 245px of crease on a low pass, 380px on a grazing one. Interpolating
-// over the corner depths is perspective-correct for any planar quad, needs no camera, and covers
-// both cases from one place.
-//
+// A vertical wall has constant depth down each edge, so K_v = 1 and the grid is columns. A roof's
+// four corners differ in depth (raw affine creased 245px low, 380px grazing). Interpolating over
+// corner depths is perspective-correct for any planar quad, with no camera needed.
 // ── ⚠ AND EVERY NUMBER IN THAT TABLE WAS MEASURED AGAINST A RENDERER DRAWING THE WHOLE CITY ──
-// 6px/16 is where the walls came out cost-neutral against a frame shared with a skyline, and the cap
-// is there because the clip/transform/drawImage storm was competing with two thousand other faces.
-// GLASS 2 changed who is paying. The city's mass is on the GPU, where the perspective divide is free
-// and this warp does not exist at all — so what is left on this path is the FALLBACK (no WebGL2, a
-// lost context) and the Modelshop's preview, which draws ONE building and shares its frame with
-// nothing.
-//
-// The defaults are left exactly where they were measured: the fallback is the case where the machine
-// is already known to be weak, and handing it a finer grid as a reward for having no GPU is the
-// wrong way round. They are knobs instead, so a caller that knows it is drawing one building can buy
-// the warp out — see renderModelPreview, which does.
-//
+// GLASS 2 draws the mass on the GPU, where this warp doesn't exist, so this path is the FALLBACK (no
+// WebGL2, lost context) and the Modelshop preview. The defaults stay as measured: don't give a weak
+// machine a finer grid. A caller drawing one building can buy the warp out (renderModelPreview does).
 // ── ⚠ AND THERE IS A CEILING, WHICH IS A CORRECTNESS LIMIT AND NOT A COST ONE ────────────────
-// Past roughly K = 96 on a face this size the picture gets WORSE, and the shape of the mistake is
-// that it looks like it is getting better right up until you measure it. Every cell is a clipped,
-// antialiased blit; once a cell is about a pixel wide its two clipped edges are most of it, and the
-// seams composite. Measured on the bank at a close pose, against a converged K ≤ 96 render:
-//
-//     6px / K16     9.15% of pixels displaced      (the warp)
-//     1.5px / K96   4.65%
-//     0.5px / K96   0     ← reference
-//     0.4px / K400  5.50%      mean luminance 27.41 → 27.69
-//     0.2px / K800  9.25%                          → 27.95
-//
-// The last two are as far from the truth as doing nothing was, and the rising luminance is the
-// tell: that is background bleeding through seams, not detail arriving. So a "reference" render
-// taken at an enormous K is not a reference — the first version of this measurement used one, and
-// it made a finer setting score worse than the shipped one, which reads exactly like the fix not
-// working. Anything above ~K96 is buying seams.
+// Past about K = 96 the picture gets WORSE: each cell is a clipped antialiased blit, and at a pixel
+// wide the seams composite. On the bank at a close pose, against a converged K ≤ 96 render: 6px/K16
+// 9.15% of pixels displaced (the warp), 1.5px/K96 4.65%, 0.5px/K96 0 (reference), 0.4px/K400 5.50%
+// (mean luminance 27.41 → 27.69), 0.2px/K800 9.25% (→ 27.95). The rising luminance is background
+// through seams, so a "reference" at an enormous K isn't one: it scores a finer setting worse than
+// the shipped one. Above ~K96 buys seams.
 const TEXQ_TARGET_PX = 6;     // worst residual warp we are willing to leave on screen, in pixels
 const TEXQ_MAX_K = 16;        // per-axis cell cap — past this the clip/transform/drawImage storm costs more than the bow does
 const TEXQ_MAX_CELLS = 32;    // total cells for a two-axis (roof) quad; an unbudgeted 16×16 grid is 512 triangles for one soffit
@@ -21724,38 +20896,22 @@ export function makeCam(W, horizonY, depth0, v, chase) {
   const EHbase = Math.max(0.05, eh0 + (v.height || 0) * RENDER_TUNE.climbLift);   // additive + floor: altitude adds real eye-height so you climb above buildings; floor keeps the runway/ground from collapsing at eh→0
   const back = chase ? chase.back : 0;
   // ── ⚠ THE CAMERA IS NO LONGER OBLIGED TO SIT ON THE HEADING AXIS ────────────
-  // `back` is a SCALAR down the craft's own heading, which is the entire vocabulary a chase camera
-  // needs and none of the vocabulary a detached one does: there is no way to say "two tiles to the
-  // left of the truck" in it, because left is not a direction this function had. `fx`/`fy` are a
-  // WORLD-space offset added on top, and `ez` an absolute eye height that overrides the summed one
-  // (a free camera's altitude is its own, not the craft's plus a chase lift).
-  //
-  // ⚠ AND THE DEFAULT IS ARITHMETIC IDENTITY, NOT MERELY EQUIVALENCE. Every existing view — every
-  // chase, every cockpit, the helm, the deck-cam, the cold open — passes none of these, so the
-  // expressions below reduce to `x - 0` and the old `EHbase + up`. That is bit-identical rather
-  // than close, which is what makes this safe to put under nine callers with no pixel coverage. The
-  // temptation was to solve it generally (resolve the camera to a world point and derive `back`
-  // from it); that reintroduces `sin²+cos²`, which is not exactly 1, and every existing frame moves
-  // by a hair. See scripts/shapes/freecam.mjs, which asserts the identity rather than trusting it.
+  // `back` is a scalar down the craft's heading: enough for a chase camera, not a detached one.
+  // `fx`/`fy` are a WORLD-space offset added on top, and `ez` an absolute eye height overriding the
+  // summed one (a free camera's altitude is its own).
+  // ⚠ THE DEFAULT IS ARITHMETIC IDENTITY: callers that pass none reduce to `x - 0` and `EHbase + up`,
+  // bit-identical under nine callers with no pixel coverage. Don't resolve to a world point and
+  // derive `back`: `sin²+cos²` isn't exactly 1 and every frame moves a hair. scripts/shapes/freecam.mjs
+  // asserts the identity.
   // ── ⚠ AND THE HEAD LEANS, WHICH IS AN EYE OFFSET LIKE ANY OTHER ────────────
   //
-  // 'lookLean' is a free look from inside a vehicle, and leaning is a TRANSLATION: a pure rotation
-  // swings everything by the same angle whatever its distance and reveals nothing, while moving the
-  // eye sideways moves near things more than far ones. That is the only cue that says the cab you
-  // are sitting in has volume. The world's share of it is a fraction of a pixel at this scale — the
-  // interior is what visibly moves — and it is applied anyway, because a model that is only correct
-  // where it cannot be seen is not a model.
-  //
-  // ⚠ HERE, NOT AS A SYNTHETIC 'chase' AT THE CALL SITE, and that is a fix rather than a preference.
-  // A chase object is NOT optional-field-tolerant: 'EH' below reads 'chase.up' whenever chase is
-  // truthy, so a stand-in carrying only fx/fy makes it 'EHbase + undefined' — NaN through every
-  // projection in the frame. It draws a horizon, a sky and an empty green plain, which looks like
-  // the map failing to load rather than like arithmetic, and none of the shape gates can see it
-  // because they all build their cameras with chase null.
-  //
-  // ⚠ AND IT RESOLVES AGAINST 'ownHdg' WHEN THERE IS ONE. By the time this runs, 'heading' may be
-  // the CAMERA's — a shoulder-check or an orbit has already been added to it — and "lean left" is
-  // left of the TRUCK. Taking the camera's would swing the lean round as you looked about.
+  // 'lookLean' is a free look from inside a vehicle, and a lean is a TRANSLATION: near things move
+  // more than far ones, the cue that the cab has volume. The world's share is sub-pixel; applied anyway.
+  // ⚠ HERE, NOT AS A SYNTHETIC 'chase' AT THE CALL SITE: 'EH' reads 'chase.up' whenever chase is
+  // truthy, so a stand-in with only fx/fy gives 'EHbase + undefined', NaN everywhere: a sky and an
+  // empty green plain, invisible to the shape gates (they build cameras with chase null).
+  // ⚠ IT RESOLVES AGAINST 'ownHdg' WHEN THERE IS ONE: 'heading' may already include a shoulder-check
+  // or orbit, and "lean left" is left of the TRUCK.
   const leanR = (v.lookLean && v.lookLean.x) ? -v.lookLean.x * CAB_LEAN_R : 0;
   const leanH = ((v.ownHdg != null ? v.ownHdg : v.heading) || 0) * Math.PI / 180;
   const fx = (chase && chase.fx || 0) + leanR * Math.cos(leanH);
@@ -21797,37 +20953,21 @@ export function makeCam(W, horizonY, depth0, v, chase) {
   // The chase offset shifts everything `back` tiles forward of the camera (f += back); lateral
   // is unchanged. up raises the eye height (EH), tipping the nose of the view down onto the craft.
   // ── ⚠ PITCH: THE AXIS GLASS NEVER HAD ──────────────────────────────────────
-  // Until now the optical axis was horizontal, always: `sy = horizonY + depth·(EH − wz)/f` is a
-  // pinhole that cannot tilt, so raising the eye is the only way to look down and a plan view is
-  // not expressible at all. Everything downstream leans on that — the horizon is a straight line at
-  // a known y, the ground is filled below it, fog banding is per-depth — which is why this arrives
-  // as an OPTION on the camera and not as a change to it.
-  //
-  // The maths is one rotation about the lateral axis, applied in view space before the divide:
-  //
+  // The optical axis was always horizontal (`sy = horizonY + depth·(EH − wz)/f`) and everything
+  // downstream assumes it, so pitch is an OPTION: one rotation about the lateral axis before the divide:
   //   u  = wz − EH                 height above the eye
   //   f' = f·cos θ − u·sin θ        θ > 0 tips the view DOWN
   //   u' = u·cos θ + f·sin θ
   //   sx = cx + (l / f')·FL        sy = horizonY − depth·u' / f'
-  //
-  // ⚠ AND THE DEFAULT IS A SEPARATE CLOSURE, NOT θ = 0 THROUGH THE SAME ONE. cos 0 is exactly 1
-  // and sin 0 exactly 0, so the pitched form reduces algebraically — but `f·1 + u·0` is not the
-  // same floating-point expression as `f`, and every view in the game (nine callers, no pixel
-  // coverage) goes through here. Same rule the free-camera offsets were added under, same reason,
-  // and scripts/shapes/freecam.mjs asserts it with Object.is rather than trusting it.
-  //
-  // The 6-DoF camera this opens up is currently used by the Modelshop preview alone. Before the
-  // SIM flies with it, three things need answering, and none of them is in this function: the
-  // horizon is drawn as a horizontal line, the sky and ground are filled as two rectangles split
-  // at `horizonY`, and cloud/fog layers are placed against it. Under pitch the horizon is still a
-  // straight line but it MOVES, and at a large enough tilt it leaves the canvas entirely.
-  // ⚠ `camPitch`, NEVER `pitch`. A view object in this renderer ALREADY has a `pitch`: the
-  // AIRCRAFT'S ATTITUDE, in DEGREES, which four other readers in this file divide by 26 or
-  // multiply by π/180. Reading that field here as radians tips the camera by fifty-seven degrees
-  // per degree of climb — the city hangs upside down and the runway swings round like a billboard,
-  // which is exactly what the flight sim did the moment anybody rotated. `renderModelPreview` had
-  // already named its own field `camPitch` for this precise reason and then handed it back to
-  // makeCam as `pitch`, so the rename stopped one layer short of the place that mattered.
+  // ⚠ THE DEFAULT IS A SEPARATE CLOSURE, NOT θ = 0: `f·1 + u·0` isn't the same floating-point
+  // expression as `f`, and nine callers have no pixel coverage. scripts/shapes/freecam.mjs asserts it
+  // with Object.is.
+  // Only the Modelshop preview uses it. Before the sim does, the horizon line, the sky/ground split at
+  // `horizonY` and the cloud and fog placement must handle a horizon that moves (and can leave the
+  // canvas).
+  // ⚠ `camPitch`, NEVER `pitch`: a view's `pitch` is the AIRCRAFT'S ATTITUDE in DEGREES (four readers
+  // divide by 26 or multiply by π/180); read as radians it tips the camera 57° per degree of climb.
+  // `renderModelPreview` must pass it on as `camPitch`.
   const pitch = v.camPitch || 0;
   let proj, projFL, rawF;
   if (!pitch) {
@@ -24053,45 +23193,25 @@ function decoHidden(pts, rPx = 0, padBelow = rPx) {
 let LIGHT_TALLY = null;
 
 // The one entry point for a building adornment: PROJECTED POINTS in, sorted-and-tested face out.
-// Callers hand over the points rather than their depths precisely so the probe has somewhere to
-// stand — a bare list of f's cannot be asked what is in front of it.
-// ⚠ THE LIFT AND THE PROBE ARE TWO DIFFERENT QUESTIONS, and treating them as one package is how
-// the two largest signs in the game ended up with no occlusion test at all. A sign the size of a
-// wall cannot take the full DECO_LIFT — 0.6 tiles jumps it onto a nearer neighbour, which is the
-// bug marqueeBand's own comment records — so those callers reached for emitFace and lost the
-// probe on the way past. The lift is now a parameter and the probe is not optional.
+// Points rather than depths so the probe has somewhere to stand.
+// ⚠ THE LIFT AND THE PROBE ARE SEPARATE. A wall-sized sign can't take the full DECO_LIFT (0.6 tiles
+// jumps it onto a nearer neighbour, see marqueeBand), so the lift is a parameter and the probe is
+// not optional (the two biggest signs once used emitFace and lost the probe).
 // ── WHAT STANDS ON THE GROUND, ONCE THE MASS IS NO LONGER IN THE QUEUE ──────
 //
-// ⚠ A PAINTER'S QUEUE HIDES THINGS BY PAINTING OVER THEM, so the moment GLASS 2 takes the walls
-// the queue has nothing to sort a bush, a tree, a lamp post or a pedestrian against — and they
-// paint straight through the building they are standing behind. It is not subtle: a wood behind a
-// row of warehouses comes out drawn ON the warehouses.
-//
-// The occluder field is exactly the answer and was already built for this frame — it is what stops
-// a distant sign showing through a nearer tower. These are all SCREEN-SPACE billboards drawn
-// around their tile's ground point, so the probe is that point with the sprite's own pixel size
-// round it, deliberately generous: a bigger box is harder to cover, and the only safe direction to
-// be wrong in is drawing something that is hidden.
-//
-// ⚠ IT IS TIMID, AND WHAT IT MISSES IS WORTH KNOWING. The field it reads is the one the building
-// cull uses, and that field is deliberately SHRUNK (OCC_SHRINK) because culling a building that
-// should have drawn is a hole in the city. A shrunk one-storey shed covers a thin band of screen,
-// so a wood standing behind a row of them is not proved hidden and still paints over them. Tall
-// buildings — the case a city is made of — are covered. The real answer is the billboards moving
-// onto the GPU with everything else, where a depth buffer settles it per pixel; until then this is
-// an approximation that can only ever be too shy.
+// ⚠ A PAINTER'S QUEUE HIDES BY PAINTING OVER, so with the walls on GLASS 2 a bush, tree, lamp post
+// or pedestrian paints through the building it stands behind. The occluder field (what stops a far
+// sign showing through a nearer tower) answers it: probe the tile's ground point with the sprite's
+// pixel size round it, generous, because erring toward drawing is the safe side.
+// ⚠ IT'S TIMID: the field is SHRUNK (OCC_SHRINK) for the building cull, so a one-storey shed covers
+// a thin band and things behind a row of them still paint over. Tall buildings are covered. The
+// real fix is billboards on the GPU with a depth buffer.
 // ── THE LIGHTS, WHEN THERE IS A DEPTH BUFFER TO PUT THEM IN ─────────────────
 //
-// Every light in this renderer is one shape: a world point, a radius in SCREEN pixels, a colour
-// and an alpha. That is a sprite, and a sprite is the one thing a depth buffer settles perfectly —
-// which matters because hiding a light behind a wall is the problem this file has the most numbers
-// for. `decoHidden` against a rasterised field, with a bias, a shrink and a grow: too generous and
-// the lights come through the walls, too timid and signage vanishes for reasons nobody will trace
-// to an occlusion change months later. With the mass on the GPU the question stops being asked.
-//
-// ⚠ THE RADIUS IS HANDED OVER, NEVER RE-DERIVED. It is the same `clamp(k / f, lo, hi)` the painter
-// computes, so a light is the same size in both renderers by construction rather than by matching
-// two formulas — and scaled to DEVICE pixels here, because the GL canvas has no CSS-pixel idea.
+// Every light is a sprite (world point, screen-pixel radius, colour, alpha), which a depth buffer
+// settles exactly, so with the mass on the GPU `decoHidden`'s bias/shrink/grow tuning stops mattering.
+// ⚠ THE RADIUS IS HANDED OVER, NEVER RE-DERIVED: the painter's `clamp(k / f, lo, hi)`, so a light
+// is the same size in both renderers, scaled to DEVICE pixels (the GL canvas has no CSS pixels).
 let SPRITE_SINK = null;
 // ── WHERE THE LIGHTS ARE, IN SCREEN SPACE, FOR THE RAIN TO FALL THROUGH ─────────────────────────
 //
@@ -24225,47 +23345,27 @@ function rgbTriple(c) {
   if (!v) { v = String(c).split(',').map(Number); _rgbTriple.set(c, v); }
   return v;
 }
-// `wash` marks a light that is the GLOW OFF A SURFACE rather than a source — a lit facade, not a
-// neon sign. It changes nothing about how the light is drawn and everything about how it is CHOSEN:
-// see the reserved slots in pickLights.
-// ⚠ AND `air` IS THE THIRD ANSWER TO THAT SAME QUESTION: light already IN FLIGHT. A node down a
-// searchlight beam is not a lamp — there is no source at that point and nothing there for a wall to
-// catch — so it is drawn like any other sprite and must never be offered to the surface lighting.
-// `pickLights` models a light as a point source with a reach, and a beam is thirty-odd of them strung
-// down a line: near the tower they would take most of the thirty-two wall slots and all six of the
-// road's, so a wet quay would reflect a row of blobs instead of the crane lamps standing on it and
-// every other light in the district would stop washing anything. They also MOVE — the sweep is a
-// fifth of a tile a frame at the far end, and the incumbency key is the quantised position — so
-// every one of them is a brand-new light every frame, which is precisely what LIGHT_HOLD and the
-// fade ramp exist to keep the picked set from being.
-// ⚠ AND IT CAN CARRY A TAG, FOR THE REASON `emitWire` AND `emitDecoFill` ALREADY DO. A census
-// cannot infer who queued a thing — that is `glresidue`'s whole lesson — and the motion layer needs
-// it as much as a leak census does: `scripts/shapes/moving.mjs` asks whether the parts that are
-// supposed to move do, and a building's smoke, beacons and vat glow are sprites that move on clocks
-// which are NOT the motion layer. Without the tag that gate can only compare counts, which is
-// exactly the false negative its own header is written about. Absent on every other caller.
+// `wash` marks a light that is the GLOW OFF A SURFACE (a lit facade, not a neon sign). It's drawn
+// the same and CHOSEN differently: see the reserved slots in pickLights.
+// ⚠ `air` MARKS LIGHT ALREADY IN FLIGHT, such as a node down a searchlight beam: drawn as a sprite,
+// never offered to surface lighting. A beam is thirty-odd point sources that would take most of the
+// thirty-two wall slots and all six road slots, so a wet quay reflects blobs and nothing else
+// washes. They also move (a fifth of a tile a frame; the incumbency key is the quantised position),
+// so each is a new light every frame, which LIGHT_HOLD and the fade ramp exist to prevent.
+// ⚠ IT CAN CARRY A TAG, like `emitWire` and `emitDecoFill`: a census can't infer who queued a thing
+// (`glresidue`), and `scripts/shapes/moving.mjs` needs it to tell a building's smoke, beacons and
+// vat glow (which move on their own clocks) from the motion layer. Absent on every other caller.
 // ── WATER THROWN OFF A BREAKING CREST ─────────────────────────────────────────────────────────
 //
-// Spindrift already exists and is a different thing: foam ALREADY TORN OFF and dragged downwind
-// ALONG the surface, drawn in the water fragment shader above about Force 7. This is the water in
-// the AIR — the burst a crest throws forward as it collapses — and it is the thing that reads as
-// violence rather than as texture.
-//
-// ⚠ IT IS ARITHMETIC, NOT A PARTICLE SYSTEM. The flocks' own rule: a puff is a pure function of its
-// site and the wall clock, so nothing is stored, nothing is stepped, and two clients watching the
-// same sea see the same spray. A real emitter would be the one stateful thing in a surface whose
-// entire architecture exists to avoid state — and it would buy nothing, because a droplet lives
-// under a second and no one can tell a derived burst from an integrated one.
-//
-// ⚠ AND IT BREAKS WHERE THE WHITECAPS BREAK, OFF THE SAME THRESHOLD. 'seaFoamThreshold' is the
-// quantile of the chop's own distribution at Monahan's observed coverage, and it is what the shader
-// tests against — so asking it here means spray appears exactly where the sea is already white. A
-// second criterion, however reasonable, puts droplets in the air over water that is not breaking.
-// ⚠ THE SITE COUNT IS NOT THE DIAL — THE COVERAGE IS ALREADY CORRECT AND MUST STAY SO. At 22 sites
-// in a full gale exactly 2 came back breaking, which is 9% and is Monahan's own Force 9 figure to
-// within noise; the sea was not under-breaking, it was under-SAMPLED. More sites buys more crests
-// at the same fraction, and more drops per crest is what a breaking wave actually does — a collapsing
-// crest throws a great deal of water, not five beads.
+// Spindrift is foam already torn off and dragged along the surface (water shader, above about
+// Force 7). This is the water in the AIR, the burst a collapsing crest throws forward.
+// ⚠ IT IS ARITHMETIC, NOT A PARTICLE SYSTEM: a puff is a pure function of its site and the wall
+// clock (the flocks' rule), so nothing is stored or stepped and two clients see the same spray.
+// ⚠ IT BREAKS OFF 'seaFoamThreshold', the quantile the shader tests whitecaps against (Monahan's
+// coverage), so spray appears exactly where the sea is white. Don't add a second criterion.
+// ⚠ THE SITE COUNT ISN'T THE COVERAGE DIAL: at 22 sites in a full gale 2 broke (9%, Monahan's Force
+// 9 figure); the sea was under-SAMPLED. More sites give more crests at the same fraction, and a
+// collapsing crest throws a lot of drops, not five.
 const SPRAY_SITES = 64;      // candidate crests examined per frame
 const SPRAY_DROPS = 14;      // droplets per breaking crest
 const SPRAY_LIFE = 0.85;     // seconds a droplet is in the air
@@ -24579,36 +23679,19 @@ function emitWire(ctx, cam, A, B, wPx, css, alpha, opts = {}) {
   }, opts.lift == null ? DECO_LIFT : opts.lift);
 }
 
-// ⚠ THE DEPTH IS THE PROJECTION'S OWN, NOT A NUMBER HANDED IN. This took an `f` from each caller,
-// and every one of the five had a CRAFT-relative one — which is the same number only while the
-// camera sits on the craft. In the external chase it is `fwdOff` tiles out, and for anything that
-// has passed the vehicle it is NEGATIVE, so `propS` clamped the probe to its floor and sized a
-// 3-pixel box for a lamp filling a third of the frame. `cam.proj` already resolves the camera
-// distance two lines down; asking it is what keeps the probe and the point in one frame.
+// ⚠ THE DEPTH IS THE PROJECTION'S OWN, NOT HANDED IN. Callers' `f` was CRAFT-relative: wrong in the
+// external chase and NEGATIVE past the vehicle, so `propS` clamped and sized a 3-pixel box for a
+// lamp filling a third of the frame. `cam.proj` resolves the camera distance; ask it.
 // ── ⚠ WHAT THIS IS, WHICH IS NOT WHAT IT LOOKS LIKE ─────────────────────────
 //
-// It reads as the thing standing between a tree and the wall in front of it. It is not, and has not
-// been since the scatter moved to the depth buffer: `GL_CELLS` is only set when GL owns the mass,
-// so on the 2-D path this answers false on its first line and the painter's queue does the work
-// (exactly), and on the GL path every caller left is a billboard the depth buffer settles PER PIXEL
-// a moment later. So a miss here costs a bake and a quad, never a picture.
-//
-// That distinction is worth stating because it was got wrong out loud: a measured 252-of-471 miss
-// rate behind a tall wall was read as "every tree in the wood painted onto the wall". It was not —
-// those trees reached the GPU and were hidden correctly. What the miss rate actually measures is
-// wasted work.
-//
-// ⚠ THE BOX IS STILL THE SILHOUETTE, AND THAT PART WAS A REAL FAULT. It probed ±`trueS(TREE_S, …)`
-// about the GROUND POINT — a box hung half BELOW the feet, where nothing of a standing object is
-// and where the field holds nothing either, because the cells under an object are the road in front
-// of whatever is meant to be hiding it. `decoHidden` is all-or-nothing, so one unowned cell meant
-// the early-out never fired. Feet at the ground point, head `trueS(TREE_S, …)` above it, half a height
-// either side, nothing below: 252 misses became 18, and the 18 are the grid's own coarseness.
-//
-// ⚠ AND IT TAKES NO SPECIES ARGUMENT, DELIBERATELY. It briefly took one, for the pedestrian passes
-// that used to call it — and those are billboards now and call nothing. One caller remains and it
-// is the scatter sweep, so the tree's own 34 is not a default standing in for anything; it is the
-// only answer this function has to give.
+// This isn't what stands between a tree and the wall. `GL_CELLS` is set only when GL owns the mass,
+// so on the 2-D path this returns false at once and the queue does the work; on GL every remaining
+// caller is a billboard the depth buffer settles per pixel. A miss costs a bake and a quad, never a
+// picture (a 252-of-471 miss rate measures wasted work, not trees painted on walls).
+// ⚠ THE BOX IS THE SILHOUETTE: feet at the ground point, head `trueS(TREE_S, …)` above, half a
+// height either side, nothing below. Hung half below the feet it probed road cells nobody owns, and
+// `decoHidden` (all-or-nothing) never fired: 252 misses became 18, the grid's own coarseness.
+// ⚠ NO SPECIES ARGUMENT: the one caller is the scatter sweep, so the tree's 34 is the only answer.
 function groundHidden(cam, dx, dy) {
   if (!GL_CELLS) return false;
   const p = cam.proj(dx, dy, 0);
@@ -24622,62 +23705,29 @@ function groundHidden(cam, dx, dy) {
 // on every real frame; an object only while groundVisibilitySmoke is running.
 let GROUND_TALLY = null;
 
-// A LANDMARK IS THE ONE THING IN THE WORLD PASS WITH NO OCCLUSION TEST AT ALL. A statue, a
-// gate, a stand of dead pylons, a depot bay: each is queued through raw emitFace, because the
-// painter's order was the whole answer — they sorted among the buildings and a nearer one
-// painted over them. With the mass on the GPU that queue flushes AFTER the composite, so every
-// one of them draws straight through the city. Measured behind a wall of 24-storey towers: the
-// silhouette in the open is 72-269 px and 74-124% of it comes through, against GLASS 1 exactly
-// zero. It is not a few pixels at an edge; it is the whole object.
-//
-// They cannot go in the mesh: drawPylons is a lattice of strokes with no mass primitive in it at
-// all, and the statue is one box under four raw fills, so there is nothing for MESH_SINK to
-// record and nothing MASS_OFF could suppress. Porting them means redrawing the art, which is a
-// different job from restoring what GLASS 1 already did.
-//
-// So they get the probe every other 2-D adornment already lives with, on the same terms.
-// ⚠ THE BOX SPANS THE WHOLE OBJECT, ground corners AND top, because decoHidden hides only
-// when the ENTIRE box is covered — so a pylon whose head clears the roofline in front of it
-// still draws. Probing the ground point alone is the mistake emitLightRunner was split to avoid,
-// and culling may only ever get timider. Err TALL: a taller box is harder to cover.
-// ⚠ AND ONLY WHEN GL OWNS THE MASS (GL_CELLS). With the 2-D renderer the queue is still the
-// answer and it is exact, so a probe there could only ever delete something correctly drawn.
+// A LANDMARK (statue, gate, dead pylons, depot bay) is queued through raw emitFace with no occlusion
+// test: the painter's order was the answer. With the mass on the GPU that queue flushes AFTER the
+// composite, so they draw through the city (74-124% of a 72-269 px silhouette behind 24-storey
+// towers; GLASS 1 zero). They can't go in the mesh: drawPylons is strokes and the statue is one box
+// under raw fills, so MESH_SINK has nothing to record and MASS_OFF nothing to suppress.
+// ⚠ THE BOX SPANS THE WHOLE OBJECT, ground corners AND top: decoHidden hides only when the ENTIRE
+// box is covered, so a pylon whose head clears the roofline still draws. Err TALL; culling may only
+// get timider (the ground point alone is the mistake emitLightRunner was split to avoid).
+// ⚠ ONLY WHEN GL OWNS THE MASS (GL_CELLS). On the 2-D renderer the queue is exact.
 // A LANDMARK, BAKED AT THE REAL CAMERA, ON THE DEPTH BUFFER.
-//
-// markHidden below restores the occlusion a landmark had under the painter, and it can only ever
-// restore SOME of it: it answers per surface, so a statue whose head clears a four-storey roof is
-// drawn whole. Measured, that is exactly what happens — the field is right and the probe is right
-// and the statue really does peek over, so the all-or-nothing answer draws all of it. There is no
-// threshold that fixes that, because the question is per pixel.
-//
-// So the artwork goes on a quad instead, the way a marquee and a bush already do. The difference
-// from scatter is the camera: a cactus is baked once through a STUB camera at a stub depth,
-// because propS is k/f and one drawing serves every distance. A statue is real geometry seen in
-// perspective, so it is baked through the LIVE camera, every frame, translated into the canvas —
-// which makes the baked pixels the same pixels the 2-D pass would have painted, and the quad
-// hands them to the depth buffer instead of to the queue.
-//
-// ⚠ ONE DEPTH FOR THE WHOLE OBJECT, and that is what decides which landmarks come here. The quad
-// is tested at its ANCHOR, so a compact thing you look AT is exact and an extended thing you
-// stand INSIDE is not: the depot bay is a shed you drive through and the airstrip marks lie flat
-// on the ground, so both keep the probe. A statue, a gate, a stand of pylons and a no-fly marker
-// are none of those.
-//
-// ⚠ AND EVERY SINK IS CLOSED WHILE IT PAINTS. The arm is the same arm; left open it would collect
-// its own glows into the sprite layer at the wrong place, and its faces into a queue that has
-// already been read. Inside the bake FACE_SINK is null, so emitFace paints immediately, which is
-// what a bake wants.
-// ⚠ WHICH TILE IS BEING PAINTED, so a baked mark can be NAMED without the camera in the name.
-// A bake is cached by key on both sides — a canvas here, a GL texture in gl/billboards.js — and
-// three callers built their key out of `dx`/`dy`, which are CAMERA-RELATIVE and change every
-// frame the camera moves. So every mast, lattice tower and neon blade in view minted a new key
-// per frame: an unbounded canvas leak here, and over there a 256-entry texture cache turning over
-// in seconds, evicting the stable entries — the scatter species, the gate, the statue — while the
-// current frame was still holding them. It reads as the scatter going bright pink and a gate
-// drawn as a hovering bush, and only from a camera that can see a lot of masts at once.
-//
-// The world tile is the identity that holds still, so `markBillboard` prefixes it and a caller
-// only has to name what varies WITHIN a tile.
+// markHidden answers per surface, so a statue peeking over a roof draws whole; the question is per
+// pixel. So the art goes on a quad baked through the LIVE camera every frame (scatter uses a stub
+// camera; a statue is real perspective geometry), and the quad hands the same pixels to the depth
+// buffer.
+// ⚠ ONE DEPTH PER OBJECT, tested at the ANCHOR: exact for a compact thing you look AT, wrong for one
+// you stand INSIDE. The depot bay (driven through) and airstrip marks (flat) keep the probe; statue,
+// gate, pylons and no-fly marker come here.
+// ⚠ EVERY SINK IS CLOSED WHILE IT PAINTS, or the arm would collect its glows into the sprite layer
+// at the wrong place and its faces into a queue already read. FACE_SINK is null, so emitFace paints.
+// ⚠ NAME A BAKE BY TILE, NOT CAMERA. Bakes are cached by key (a canvas here, a GL texture in
+// gl/billboards.js). Keys built from camera-relative `dx`/`dy` minted a new key per frame: a canvas
+// leak here and the 256-entry texture cache churning out stable entries (pink scatter, a gate drawn
+// as a bush). `markBillboard` prefixes the world tile; a caller names only what varies within it.
 let MARK_TILE = "";
 const _markBakes = new Map();
 const MARK_BAKE_PAD = 6;
@@ -25390,45 +24440,23 @@ function cssRgbRaw(c) {
   if (!(v.length >= 3) || v.slice(0, 3).some((x) => !isFinite(x))) return null;
   return [v[0], v[1], v[2], v.length > 3 && isFinite(v[3]) ? v[3] : 1];
 }
-// THE BEARING THE WORLD IS LIT FROM, WHICH AT NIGHT IS THE MOON AND USED TO BE A LITERAL.
-//
-// Three passes shade off a key direction and each carried its own hard-coded north-west fill for
-// the half of every day the sun is down: the per-wall Gouraud light (LIGHT_STATE, which GLASS 2's
-// mass shader also reads through glLightState), the Mode-7 terrain hillshade, and the cliff mass's
-// own copy of that hillshade. So a tower modelled identically at 19:00 and at 04:00 with a full
-// moon crossing the whole sky between them, and `moonDir` — which this renderer has computed since
-// the water needed something to glitter off — reached the sea and nothing else.
-//
-// ⚠ IT IS A LENGTH AS WELL AS A BEARING, because both readers multiply by the vector rather than
-// by a separate strength, and the two callers do not agree about how long theirs is (the wall key
-// is unit, the hillshade's fill is 0.877). So the caller hands in its OWN fill and the moon
-// arrives scaled to match it: the night is exactly as bright as it was and only the direction
-// moves. Nothing downstream needs re-tuning, which is the whole reason to do it this way.
-//
-// ⚠ AND THE FILL IS NOT REPLACED, IT IS MIXED OUT OF. `moonElev` already carries the illuminated
-// fraction by the time this is read (see `sunFx.moonElev *= …`), so `m` is near 0 for a new moon
-// or one near the horizon and near 1 for a full one overhead — and at m = 0 this returns the
-// caller's fill unchanged, which is the invariant that makes a moonless night look exactly like
-// every night did before. The fill is not a stand-in for the moon; it is the sky glow and the
-// city under it, which is what is still lighting the place when there is no moon to do it.
-//
-// ⚠ AND IT IS A ROTATION, BECAUSE BOTH OBVIOUS WAYS TO MIX TWO DIRECTIONS FAIL HERE, DIFFERENTLY.
-// Summing them as two real lights is what two real lights do, and it comes out SHORT in between —
-// which is not a dimmer night but a FLAT one, since `wallLit` reads `0.5 + (n · key) · 0.5` and a
-// short key puts every wall in the city at 0.5 whichever way it faces. Measured at 0.13 of the
-// fill's length for a half moon halfway up: precisely the "night towers still model" the fill was
-// put there to buy, gone. Summing and then renormalising fixes the length and is an nlerp, which
-// degenerates when the two are OPPOSITE — and they reach opposite here, because the fill is
-// north-west and the moon's arc runs east→south→west straight through south-east. Measured on a
-// last quarter: the key swung **33° in one 15-minute step** at 03:30 and would flip through 180°
-// across the exact crossing, which is every building in the city changing its lit side at once.
-//
-// So the BEARING is interpolated and the length is the caller's own throughout. ⚠ AND THE BRANCH
-// IS CHOSEN, NOT SHORTEST. A rotation between two bearings has to pick a way round, and "shortest"
-// is the one choice that flips as the moon crosses the fill's antipode — the same discontinuity in
-// a new costume. Taking the turn always in the same sense puts the one discontinuity at `am = af`,
-// the fill's OWN bearing, which is north-west: a bearing the moon can never have, because its arc
-// is the southern semicircle. Safe by construction rather than by a tolerance.
+// THE BEARING THE WORLD IS LIT FROM, WHICH AT NIGHT IS THE MOON.
+// The per-wall Gouraud light (LIGHT_STATE, read by GLASS 2 through glLightState), the Mode-7
+// hillshade and the cliff mass's copy of it each had a hard-coded north-west night fill; `moonDir`
+// only reached the sea. This turns that fill toward the moon.
+// ⚠ IT IS A LENGTH AS WELL AS A BEARING: readers multiply by the vector, and the callers' fills
+// differ (wall key unit, hillshade 0.877). The caller hands in its own fill and the moon is scaled
+// to match, so night brightness is unchanged and nothing downstream needs retuning.
+// ⚠ THE FILL IS MIXED OUT OF, NOT REPLACED. `moonElev` already carries the illuminated fraction
+// (`sunFx.moonElev *= …`), so `m` ≈ 0 for a new or low moon, and at m = 0 the fill comes back
+// unchanged. The fill stands for the sky glow and the city's light.
+// ⚠ IT'S A ROTATION. Summing as two lights comes out SHORT (0.13 of the fill for a half moon halfway
+// up), and `wallLit` reads `0.5 + (n · key) · 0.5`, so every wall goes flat. Sum-and-renormalise
+// (nlerp) degenerates when they're opposite, which happens: the key swung 33° in one 15-minute step
+// at 03:30 on a last quarter. So the BEARING is interpolated, at the caller's length.
+// ⚠ THE BRANCH IS FIXED, NOT SHORTEST ("shortest" flips at the fill's antipode). Turning always the
+// same way puts the one discontinuity at `am = af`, north-west, which the moon's southern arc never
+// reaches.
 export function keyDir(sun, fill) {
   if (sun && sun.elev > 0.05) return sun.dir;
   const m = sun ? clamp(sun.moonElev || 0, 0, 1) : 0;
@@ -25484,40 +24512,22 @@ function wallLit(litC) {
 }
 // ── ⚠ A THING STANDING ON A SURFACE MUST PAINT AFTER THAT SURFACE ───────────
 //
-// The queue orders by one scalar per face, and no scalar can order a small object against the large
-// plane it stands on. Measured on a vent sitting on the far half of a roof, five tiles out, from
-// both an aircraft eye and a cab eye:
-//
-//   key            roof     vent     result
-//   shipped        4.9800   5.1986   vent queued first → THE ROOF PAINTS OVER IT
-//   mean f         5.0000   5.2200   same
-//   true eye dist  5.0990   5.3022   same — a 3-D distance does not help, the vent IS farther
-//   nearest vertex 4.5600   5.1500   same
-//   farthest       5.4400   5.2900   correct here, and the key that put the forecourt apron
-//                                    through a neighbouring warehouse (see groundPaint)
-//
-// So the fix is not a better key. It is a CONSTRAINT: while something is being drawn as mounted on
-// a host surface, its faces may never sort behind that host. `MOUNT_D` carries the host's own queue
-// depth, and every face emitted inside the mount clamps to just in front of it. A mounted face that
-// is already nearer keeps its own depth, so the clamp can only ever pull a face forward — the same
-// conservative direction the rest of this pass leans in.
-//
-// It is deliberately narrow. It says nothing about two unrelated buildings, and nothing about the
-// host's own walls; it answers one question — "is this thing on top of that thing" — which is the
-// one question the sort cannot answer and the caller always knows.
+// The queue orders by one scalar per face, and no scalar orders a small object against the plane it
+// stands on. A vent on the far half of a roof, five tiles out, from aircraft and cab eyes (roof /
+// vent): shipped 4.9800 / 5.1986, mean f 5.0000 / 5.2200, true eye distance 5.0990 / 5.3022 (the
+// vent IS farther), nearest vertex 4.5600 / 5.1500 all queue the vent first and the roof paints over
+// it; farthest 5.4400 / 5.2900 is right here and put the forecourt apron through a warehouse (see
+// groundPaint).
+// So it's a CONSTRAINT: while a thing is drawn mounted on a host, `MOUNT_D` carries the host's queue
+// depth and every face clamps to just in front of it. A face already nearer keeps its depth, so the
+// clamp only pulls forward. It answers only "is this on top of that", which the caller always knows.
 // ── ⚠ THE MESH SINK: THE SAME GEOMETRY, AS TRIANGLES ────────────────────────
 //
-// The GL spike needs the city as vertices, and there is exactly one honest place to get them:
-// the primitives that already draw it. Rebuilding a box from its captured segment would be a
-// SECOND definition of what a building is shaped like — three lines of footprint arithmetic that
-// look obviously right and drift the first time the 0.44 clamp or the yaw composition changes.
-// This is the same trick SHAPE_SINK plays one level lower: when the sink is set, a mass primitive
-// records its faces in WORLD space and returns without painting.
-//
-// Two deliberate differences from the painted path, and both are because GL does this work itself:
-// no backface cull (the depth buffer decides) and no near clip (the frustum does). What comes out
-// is the whole solid, every time, from any camera — which is also why a mesh can be built once and
-// reused, where a painted face cannot.
+// GL needs the city as vertices, from the primitives that already draw it; rebuilding a box from its
+// segment would be a second definition that drifts (the 0.44 clamp, the yaw composition). Like
+// SHAPE_SINK one level down: with the sink set, a mass primitive records WORLD-space faces and
+// returns without painting. No backface cull (depth buffer) and no near clip (frustum), so a mesh is
+// the whole solid from any camera and can be built once.
 let MESH_SINK = null;
 let MOUNT_D = null;
 const MOUNT_EPS = 1e-3;
@@ -26851,39 +25861,18 @@ const CLIFF_H = 0.52;   // world-z of the tableland top. Roughly a 4-storey buil
 // tile instead (a seed, an index) reintroduces the grid the moment it reaches a colour or a
 // position, which is exactly how the old per-tile tone jitter drew the grid onto a flat top.
 
-// HEIGHT. Four octaves: the first two make one tableland differ from the next and give a long
-// escarpment a rise and fall along its length; the last two are the local roughness that stops a
-// rim running flat to the horizon. Sampled at CORNERS, never at tile centres.
-// ⚠ FOUR OCTAVES THAT AVERAGE EACH OTHER OUT. The weights below sum to one, so this is the MEAN
-// of four independent noises — and a mean concentrates. Measured over all 2,214 cliff and plateau
-// tiles in the world, the nominal range [0.55, 1.45] never comes close to being used: the middle
-// half of every massif in the world sits within TEN PER CENT of the median height, and the step
-// from one tile to the next averages 0.008 of a tile. That is why a rim runs flat to the horizon —
-// the comment above says the last two octaves exist to stop exactly that, and arithmetically they
-// cannot, because adding more octaves to a mean makes it flatter rather than rougher.
-//
-// ⚠ THE FIX IS CONTRAST, NOT MORE OCTAVES. The shape of the noise is right; what is missing is
-// the swing. `cliffRelief` stretches the sum about its own midpoint before it becomes a height, so
-// a tableland that reads slightly higher than its neighbour becomes one that reads MUCH higher,
-// and the fine octaves that were being averaged into nothing start breaking the rim.
-//
-// ⚠ 1 IS THE IDENTITY, by arithmetic rather than by a branch: the stretch is about 0.5 and at
-// 1 it is a power of 1, so the A/B is honest and the unstretched massif is one number away. It
-// is NO LONGER the massif that shipped, because the octaves below it have since been split in
-// two — the control for the roughness half is cliffRough 0, and both are what cliffrelief.mjs
-// measures against.
-// ⚠ AND THE TWO QUESTIONS ARE SEPARATE, WHICH ONE WEIGHTED MEAN CANNOT EXPRESS. A height
-// answers two of them at once — WHICH tableland is this (low frequency, and it wants a big swing
-// so one mesa reads as taller than the next) and HOW BROKEN is its rim (high frequency, and it
-// wants a real amplitude that must not change which tableland it is). Written as a single mean
-// over five octaves those two trade against each other by arithmetic: every point of weight moved
-// to the fine octaves to break a rim is a point taken off the swing that separates one massif
-// from the next — measured, 49% of the median down to 39% to buy twice the rim step. Split, each
-// knob does its own job: cliffRelief stretches the LEVEL only, and cliffRough rides on top of it.
-//
-// ⚠ THE ROUGHNESS IS ADDED, NEVER AVERAGED IN. A mean concentrates, which is the whole finding
-// this file already records one paragraph up; an added term keeps its own amplitude whatever the
-// base is doing.
+// HEIGHT. The low octaves make one tableland differ from the next and give an escarpment rise and
+// fall; the high octaves roughen the rim. Sampled at CORNERS, never at tile centres.
+// ⚠ A MEAN OF OCTAVES CONCENTRATES: over all 2,214 cliff and plateau tiles the nominal [0.55, 1.45]
+// went unused, with the middle half of every massif within 10% of the median and a tile-to-tile step
+// of 0.008. More octaves make a mean flatter.
+// ⚠ THE FIX IS CONTRAST: `cliffRelief` stretches the level about its midpoint before it becomes a
+// height. 1 is the identity by arithmetic (a power of 1 about 0.5), so the A/B is honest; cliffRough
+// 0 is the control for the roughness half. Both are what cliffrelief.mjs measures against.
+// ⚠ LEVEL AND ROUGHNESS ARE SEPARATE KNOBS. In one weighted mean, weight moved to the fine octaves
+// comes off the swing between massifs (49% of the median down to 39% for twice the rim step). So
+// cliffRelief stretches the LEVEL only and cliffRough is ADDED on top, never averaged in, keeping
+// its amplitude whatever the base does.
 export const cliffHeightAt = (wx, wy) => {
   // WHICH TABLELAND. Two long octaves: one tableland against the next, and the rise and fall
   // along the length of an escarpment.
@@ -26916,40 +25905,20 @@ export const cliffHeightAt = (wx, wy) => {
   return CLIFF_H * RENDER_TUNE.cliffScale * (0.55 + 0.90 * clamp(h01, 0, 1));
 };
 
-// IN-PLANE WARP. The outline of a massif is the tile grid unless the corners themselves move, so
-// each lattice corner is displaced up to a quarter-tile in x and y. Adjacent tiles share the
-// displaced point, so the plan view goes ragged while the tops still abut exactly. Kept under
-// half a tile: a larger warp can march one corner past another and fold the quad into a bow-tie.
+// IN-PLANE WARP. Each lattice corner moves up to a quarter-tile in x and y; neighbours share the
+// point, so the outline goes ragged while the tops still abut. Keep it under half a tile, or a
+// corner can pass another and fold the quad into a bow-tie.
 // ── STRATA: THE BEDS, AS COLOUR, AT ABSOLUTE WORLD Z ────────────────────────────────────────
 //
-// A badland is banded, and that is the single loudest thing about one: pale caprock over a red
-// bed over a grey-mauve one, the same layers running level through every butte in sight and
-// picking up again on the far side of a gully. The face already drew strata and drew them at
-// constant world z for exactly that reason — but as THREE HAIRLINES, stroked, inside ten tiles
-// and only on the canvas clip path. So the bedding existed as a fine detail you could walk up to
-// and the massif was still one flat wedge of colour from any distance, which is the opposite of
-// the reference: those photographs are mostly legible from the air and barely have a texture.
-//
-// These are the same cuts as FILLED BEDS in the ground mesh, so they are depth-tested, drawn at
-// every range, and cost no stroke. The hairlines stay: a bedding plane seen from arm’s length is
-// a line, and the two read as the same rock because they are cut at the same z.
-//
-// ⚠ ABSOLUTE WORLD Z, NEVER A FRACTION OF THE FACE — the rule the hairlines already state, and it
-// matters more once the beds carry colour. Every corner of a massif has its own height, so a bed
-// placed at a fraction of the local face would tilt with the rim, step at every tile boundary,
-// and read as stripes painted on rocks. Cut at a world z it is one layer through the whole
-// landform, level, and continuous across a gully onto the butte opposite.
-//
-// ⚠ AND A BED IS EMITTED ONLY WHERE IT CROSSES THIS FACE. A face spans h*BENCH..h and h varies
-// about two to one, so a low shoulder crosses two cuts and a full butte crosses all of them —
-// which is why this is cheap on average rather than N quads everywhere, and why the top bed is
-// wider on a tall mass, as a caprock is.
-// ⚠ THE CUTS REACH THE GROUND, because the APRON is most of what you see. A face spans
-// h*BENCH..h — under a third of a world-z — and the debris slope below it runs from there all
-// the way to zero, so on a low shoulder the apron is the bigger surface and from the air it is
-// nearly all of one. Cut only down to the bench, the beds stopped where the interesting part
-// started and the massif still had a flat wash under it. The reference is a banded SLOPE at
-// least as much as it is a banded cliff.
+// A badland is banded: the same level beds run through every butte and across gullies. The face
+// strokes three hairline strata inside ten tiles; these are the same cuts as FILLED BEDS in the
+// ground mesh, depth-tested and drawn at every range at no stroke cost. Cut at the same z, the two
+// read as one rock.
+// ⚠ ABSOLUTE WORLD Z, NEVER A FRACTION OF THE FACE: corners differ in height, so a fractional bed
+// tilts with the rim and steps at every tile edge.
+// ⚠ A BED IS EMITTED ONLY WHERE IT CROSSES THIS FACE (h*BENCH..h, h varies about 2:1), so it's
+// cheap on average and the top bed is wider on a tall mass, like a caprock.
+// ⚠ THE CUTS REACH THE GROUND: the apron below the bench is most of what you see from the air.
 const STRATA_Z = [0.86, 0.72, 0.58, 0.46, 0.30, 0.20, 0.12, 0.055].map((f) => CLIFF_H * f);   // top-down, world z
 // What each bed is made of, as a multiplier on the face tone and a warm/cool push. Ordered from
 // the top down, so index 0 is the caprock.
@@ -27159,53 +26128,26 @@ function cliffCorner(cx, cy) {
 
 // ── High ground: cliff + plateau, drawn as ONE merged massif ─────────────────
 //
-// A raised landform is the only ground in the game that has a top and a side, and the
-// whole problem is making a painted BLOB of tiles read as one tableland rather than as
-// a field of separate blocks. Five decisions do that:
-//
-// 1. FULL TILE WIDTH, no setback. Every other mass here is `draw3DBoxAt`, whose footprint
-//    is clamped to ±0.44 so a building keeps a gap to its neighbour and to the road. That
-//    clamp is exactly wrong for terrain: at ±0.44 two adjacent cliff tiles show a seam of
-//    open ground between them, lit from below, and the massif reads as crates. Ground has
-//    no setback from itself, so this draws to the (warped) tile edge and the tops abut exactly.
-//
-// 2. A WALL ONLY WHERE THE HIGH GROUND STOPS. `cf` is the run (the sides that continue),
-//    so the faces drawn are its complement — the same inversion the map's cliff piece set
-//    uses, for the same reason. An interior tile draws no wall at all, which is what
-//    "morphed together" means: the only vertical surfaces in a massif are on its outline.
-//    A continuing side needs no step face either, because the corner lattice already gives
-//    both tiles the same two corner heights on the edge they share.
-//
-// 3. THE TOP IS A FAN, NOT A QUAD. The cap is triangulated out from the tile centre to a ring
-//    of corner and edge-midpoint samples, each at its own height, and each triangle is shaded
-//    off its own normal against the same sun key the Mode-7 floor hillshades with. That is
-//    what makes a tableland read as land: a flat quad at one height has exactly one tone, and
-//    forty of them side by side is a painted plane. The ring is straight corner-to-corner in
-//    plan, so a neighbour walking the same two corners walks the same edge.
-//
-// 4. A FACE HAS A FOOT. The wall is two bands — a near-vertical caprock face down to a bench at
-//    0.42 of the height, then a talus apron battered outward to the plain in a lighter, greyer,
-//    broken-rock tone. A single vertical plane from rim to ground is the loudest single tell
-//    that a landform was extruded; the apron is also what puts a soft, uneven silhouette where
-//    the massif meets the floor instead of a ruled line. Corner points flare along the DIAGONAL
-//    where two open sides meet, so a convex corner closes instead of opening a wedge.
-//
-// 5. NOTHING IS COLOURED BY THE TILE. Tone mottle, flare depth and gully placement are all
-//    sampled from world position, so variation reads as rock rather than as tile-sized patches.
-//
-// This is rendering only. The rim's impassability is a server law (props.passable, see the
-// engine:impassable-terrain move gate); nothing here decides where a body may walk, and a
-// pilot may still fly straight through a mesa — CFIT reads building mass, not terrain.
-//
-// `seed` is deliberately unused, and that is the point of decision 5 — it is kept in the
-// signature only because every other mass draw in this file takes one.
-//
+// The only ground with a top and a side; the job is making a blob of tiles read as one tableland:
+// 1. FULL TILE WIDTH, no setback. `draw3DBoxAt` clamps footprints to ±0.44, which leaves lit seams
+//    between cliff tiles (crates). This draws to the warped tile edge and the tops abut exactly.
+// 2. A WALL ONLY WHERE THE HIGH GROUND STOPS. `cf` is the run (sides that continue), so faces are
+//    its complement, as in the map's cliff piece set. A shared edge has the same two corner heights.
+// 3. THE TOP IS A FAN, NOT A QUAD: triangles from the centre to corner and edge-midpoint samples at
+//    their own heights, each shaded off its normal against the Mode-7 hillshade's sun key. The ring
+//    is straight corner-to-corner in plan, so neighbours share edges.
+// 4. A FACE HAS A FOOT: caprock down to a bench at 0.42 of the height, then a lighter, greyer talus
+//    apron battered out to the plain. Corners flare along the DIAGONAL where two open sides meet, so
+//    a convex corner closes.
+// 5. NOTHING IS COLOURED BY THE TILE: mottle, flare and gullies sample world position.
+// Rendering only. Impassability is a server law (props.passable, the engine:impassable-terrain move
+// gate), and CFIT reads building mass, not terrain. `seed` is unused (rule 5); it's in the signature
+// to match the other mass draws.
 // ── ⚠ A CLIFF TILE PAST TEN TILES IS RECORDED ONCE AND REPLAYED ─────────────────────────────────
-// On the GL path, past 10 tiles (no near clip, no canvas strokes), a cliff tile's whole output is
-// GROUND_MESH quads, and they depend only on what the key holds: the tile, the step, which sides
-// face the eye, the light, the hour, the eye height and the rounded distance (the rim's thickness).
-// Rebuilding them was ~4.4 ms for 58 tiles from the air (loaded machine). Quads are stored in the
-// map window's frame and pushed as they are (see the key). `cliffCache` 0 turns it off.
+// On the GL path past 10 tiles (no near clip, no strokes) a cliff tile's output is GROUND_MESH quads
+// that depend only on the key: tile, step, eye-facing sides, light, hour, eye height and rounded
+// distance (rim thickness). Rebuilding cost ~4.4 ms for 58 tiles from the air (loaded machine).
+// Quads are stored in the map window's frame (see the key). `cliffCache` 0 turns it off.
 const CLIFF_CACHE = new Map();
 const CLIFF_SN = [[0, -1], [1, 0], [0, 1], [-1, 0]];
 function drawCliffMass(ctx, cam, dx, dy, run, biome, seed, night, alpha, sun, wx, wy) {
@@ -27840,51 +26782,28 @@ function drumSkin(style, nl) {
   return { flat: true, rgbOverride: [v[0], v[1], v[2]], alpha: Math.max(0, Math.min(1, v[3])) };
 }
 
-// A faceted vertical DRUM (cylinder/cone) through the world camera — the rounded alternative to
-// draw3DBoxAt for towers/tanks that shouldn't read as a blocky box. N side facets run from world-z
-// z0→z1, radius rb (bottom)→rt (top), centred on (dx,dy). `style(f, top, bot)` returns a fillStyle
-// per facet — `f.nl` is the facet's light dot (0..1, key light from the upper-left), `f.pts` its four
-// projected corners, `top`/`bot` its screen-y extent (for a vertical gradient). Back-facing facets are
-// culled (same normal·view test the boxes use, chase-`back` folded in) and the rest painted far→near
-// for painter depth. `cap` optionally fills the top disc (a flat roof). No wall texture — the caller's
-// `style` owns the surface, so this is how a smooth glass/metal skin gets drawn instead of windows.
-// ⚠ `pal` IS OPTIONAL AND IT IS THE ONLY WAY A DRUM CAN SAY WHAT IT IS MADE OF. A drum's PAINT is
-// the `style` closure and its CAPTURE is the ambient `SHAPE_PAL` — two facts about one solid, with
-// nothing tying them together, so a drum shaded green by a hand-written style is recorded, meshed,
-// LOD-drawn and baked into the cold open as whatever palette its BUILDING happens to carry. On the
-// 2-D renderer that only showed up past `lodNear`; with the mass on the GPU it is what the drum
-// looks like from every distance. The Meridian's verdigris cupola was buff limestone on the GPU for
-// exactly this reason. Pass the palette whenever `style` is not derived from `SHAPE_PAL`.
-//
+// A faceted vertical DRUM (cylinder/cone) through the world camera, the rounded alternative to
+// draw3DBoxAt. N facets from world-z z0→z1, radius rb→rt, centred on (dx,dy). `style(f, top, bot)`
+// returns a fillStyle per facet: `f.nl` is the light dot (0..1, key from upper-left), `f.pts` the
+// four projected corners, `top`/`bot` the screen-y extent. Back faces are culled (the boxes'
+// normal·view test, chase-`back` folded in), the rest painted far→near. `cap` fills the top disc.
+// No wall texture: the caller's `style` owns the surface.
+// ⚠ PASS `pal` WHENEVER `style` ISN'T DERIVED FROM `SHAPE_PAL`. Paint is the closure and capture is
+// the ambient `SHAPE_PAL`, so an unlabelled drum is recorded, meshed, LOD-drawn and baked into the
+// cold open as its building's palette (the Meridian's verdigris cupola was buff limestone on the GPU).
 // ── AND THE MESH ASKS THE STYLE, RATHER THAN GUESSING FROM THE PALETTE ───────
 //
-// `pal` fixes what the SHAPE capture records — the LOD, collision and the cold open. It cannot fix
-// what the MESH draws, because most drums have no palette to name: their colour is a literal RGB
-// ramp written into the closure, and 68 of the 78 call sites in this file are like that. So the
-// mesh calls `style` itself, once per facet, at exactly the `nl` the painter would have handed it,
-// and records the answer. No new palettes and no per-arm authoring; the drum is simply the colour
-// the arm chose, which is the whole of what a port owes it.
-//
-// ⚠ `flat: true` IS LOAD-BEARING AND rgbOverride ALONE DOES NOTHING. The mass shader is
-// `surf = mix(vColor, texture(atlas), uTextured * solid)` with `solid = 1 - flat`, and `uTextured`
-// is ONE uniform for the whole draw — so a face that keeps a `pal` and omits `flat` is textured,
-// and its override is never read at all. That is not a hypothetical: it is what the sound-stage
-// sawtooth roof did. A 2-D drum facet is one fill with no texture and no light ramp, so `flat` is
-// also simply the truth about it, the same answer the barrel roof gives.
-//
-// ⚠ THE COLOUR IS BAKED AT DAY, because `captureModelMesh` captures at `night = 0` and the mesh
-// cache is keyed on footprint/height/seed/facing and NOT on the clock — deliberately, since being
-// uploaded once is the entire argument for GLASS 2. So a drum stops crossfading into its night
-// texture and behaves like every other flat face in the mesh (trim, panels, coping, barrel roofs),
-// which is a trade of the wrong colour all day for the right colour frozen at noon. The city's own
-// point lights still land on it: that loop runs whatever `flat` says.
-// The families whose shader row says more about a surface than a hand-tuned ramp can. Each one has
-// a real environment term (`fres` ≥ 0.45) or a real conductor term (`metal` ≥ 0.55) — the two things
-// a baked facet colour physically cannot express, because both are functions of where the eye is.
-// ⚠ `plain`, `stone`, `brick`, `concrete`, `stucco` AND `timber` ARE DELIBERATELY ABSENT. Their rows
-// are dielectric and near-matte, so the shader would hand back a flat fill where the arm had a ramp
-// — a downgrade wearing a physically-correct label. A drum keeps its painter unless the trade is
-// worth making.
+// Most drums (68 of 78 call sites) have a literal RGB ramp and no palette, so the mesh calls `style`
+// per facet at the painter's `nl` and records the answer.
+// ⚠ `flat: true` IS REQUIRED; rgbOverride ALONE DOES NOTHING. The shader is
+// `surf = mix(vColor, texture(atlas), uTextured * solid)`, `solid = 1 - flat`, and `uTextured` is one
+// uniform per draw, so a face with `pal` and no `flat` is textured (the sound-stage roof did this).
+// ⚠ THE COLOUR IS BAKED AT DAY: `captureModelMesh` runs at `night = 0` and the mesh cache isn't keyed
+// on the clock (uploading once is the point of GLASS 2). The city's point lights still land on it.
+// The families below have a real environment term (`fres` ≥ 0.45) or conductor term (`metal` ≥
+// 0.55), which a baked facet colour can't express.
+// ⚠ `plain`, `stone`, `brick`, `concrete`, `stucco` AND `timber` ARE DELIBERATELY ABSENT: dielectric
+// and near-matte, so the shader would replace the arm's ramp with a flat fill.
 const DRUM_MAT = new Set(['glass', 'frost', 'chrome', 'brass', 'tile', 'metal', 'plate', 'struct', 'marble']);
 // Published for the gate, which must not restate the list — two copies of "which families are worth
 // the trade" is exactly how a family gets added here and silently stays untested.
@@ -27977,40 +26896,22 @@ function drawFacetDrum(ctx, cam, dx, dy, z0, z1, rb, rt, N, alpha, style, cap, p
     if (ok) { const cd = pts.reduce((s, q) => s + q.f, 0) / pts.length, fog = fogWeight(cd); emitFace(cd, () => { ctx.globalAlpha = alpha; ctx.fillStyle = capFill; ctx.beginPath(); pts.forEach((q, i) => i ? ctx.lineTo(q.sx, q.sy) : ctx.moveTo(q.sx, q.sy)); ctx.closePath(); ctx.fill(); if (fog > 0.004) { ctx.globalAlpha = alpha * fog; ctx.fillStyle = FOG_STATE.css; ctx.fill(); } ctx.globalAlpha = 1; }); }
   }
 }
-// A horizontal RING at world-z `z`, radius `r`, centred on (dx,dy) — a band line / catwalk rail
-// around a drum. Projected through the camera; skipped if any point is behind the near plane.
+// A horizontal RING at world-z `z`, radius `r`, centred on (dx,dy): a band line or catwalk rail
+// round a drum. Skipped if any point is behind the near plane.
 // ── PAINT ON THE DECK ────────────────────────────────────────────────────────
-// A flat polygon lying on the ground: bay markings, hatching, an apron. Deliberately NOT a very
-// short draw3DBoxAt — a box has walls and a top, so a 2 mm slab of paint gets four vertical faces,
-// a shaded roof and a silhouette, which is how the forecourt's bay markings became a raised yellow
-// platform with a truck balanced on it. Paint has no height at all, and the only reason it sits a
-// hair off z=0 is to clear the road surface it is painted onto.
-//
-// `pts` are WORLD [x, y] pairs — the caller places them through its own model frame (`F`), so this
-// needs to know nothing about entrances or footprints. Adornment, like every other marking: it
-// never contributes mass, never reaches the collision model, and is skipped during shape capture.
+// A flat polygon on the ground (bay markings, hatching, an apron). NOT a thin draw3DBoxAt: a box has
+// walls and a top (the forecourt's markings became a raised yellow platform). It sits a hair off z=0
+// only to clear the road. `pts` are WORLD [x, y] pairs placed through the caller's frame (`F`).
+// Adornment: never mass, never collision, skipped during shape capture.
 // ── ⚠ A FLAT QUAD ON THE DECK SORTS BY ITS FAR EDGE, NOT ITS NEAR ONE ────────
-// This used to queue at `decoDepth(...)` — the polygon's NEAREST corner, lifted a further
-// DECO_LIFT (0.6) tiles toward the camera. That lift is right for the thing it was written for, an
-// adornment floating in the AIR that has to beat the walls of its own host (see decoDepth). It is
-// badly wrong for a marking lying on the ground, because the two biases compound: a full-tile apron
-// already has its near corner ~0.43 of a tile in front of the anchor, so the total came to slightly
-// over ONE TILE of forward bias — which is precisely the gap decoDepth's own comment says the lift
-// must stay well under. The forecourt's apron therefore sorted as if it were a tile nearer than it
-// is and painted straight over the neighbouring warehouse. That is "the floor can be seen through
-// other buildings", and it was not a fault of the model at all.
-//
-// The right depth needs no tuning constant, because a flat quad on the deck has an exact answer:
-// EVERYTHING STANDING ON IT IS NEARER THAN ITS FAR EDGE, and anything beyond its far edge projects
-// ABOVE it and cannot overlap it. So sort by the farthest corner and the painter's order is simply
-// correct — kerbs, pumps, columns and bollards all queue after the paint they stand on, a building
-// one tile back queues before it and is never covered, and a building in FRONT queues after it and
-// occludes it properly. No lift, so nothing can leap onto a neighbour.
-//
-// The one thing this forbids is paint that is supposed to lie on TOP of a raised object drawn from
-// the same call site (a stripe up the face of a kerb). That is a lie about geometry anyway — the
-// paint is at z≈0 and the kerb's top is not — so the answer is to colour the object, not to paint
-// under it and lift the paint into view.
+// DECO_LIFT (0.6) is for adornment in the air beating its host's walls (decoDepth). On a ground
+// marking it compounds with the near corner (~0.43 in front of the anchor) to over a tile of forward
+// bias, and the forecourt apron painted over the neighbouring warehouse.
+// Everything standing on a deck quad is nearer than its far edge, and anything beyond projects above
+// it, so sort by the FARTHEST corner with no lift: kerbs and pumps queue after the paint, buildings
+// behind before it, buildings in front after it.
+// This forbids paint on TOP of a raised object from the same call site (a stripe up a kerb face):
+// colour the object instead.
 function groundPaint(ctx, cam, pts, z, fill, alpha) {
   if (SHAPE_SINK || ADORN_TIER < ADORN_CHEAP) return;
   // ⚠ A FLAT WORLD POLYGON IS ALREADY A MESH FACE, and this is the one painter on the list that
@@ -28028,52 +26929,28 @@ function groundPaint(ctx, cam, pts, z, fill, alpha) {
     ctx.closePath(); ctx.fill(); ctx.globalAlpha = 1;
   });
 }
-// ⚠ A RING IS N WIRES AND NEVER ONE POLYLINE, for the reason the light-runner is split: emitDeco
-// tests the bounding box of everything handed to it, so a catwalk rail round a whole tower asks
-// about a box the width of the tower and is hidden only when the whole tower is. Per segment, the
-// half behind a nearer building goes and the half in the clear stays — and on the depth buffer
-// each piece is simply tested where it is.
-// ⚠ A RING IS THE ONE SHAPE WHERE HALF OF IT IS BEHIND ITS OWN HOST, which makes it the shape that
-// cannot take `emitWire`'s default pull. Every caller here draws a band HUGGING a mass — `fh * 0.97`,
-// `fh * 1.01`, `segW(N-1) * 1.08`, `rAt(t) * 1.015` — so the near arc is genuinely in front of the
-// building and the far arc is genuinely behind it, and the depth buffer gets that right on its own.
-// Pulled the default 0.6 of a tile toward the eye, the far arc is dragged out in front of a host
-// whose own near wall is only ~0.44 away, and the band comes out as a complete ellipse painted
-// across the building — reported from the game as the circle on the Solenne showing through it.
-//
-// What a band actually needs is a TIE-BREAKER, so it does not z-fight the surface it lies on. That
-// is what `DECO_PULL` is, and it is the same 0.05 `emitDecoQuad` and `emitDecoFill` already use.
+// ⚠ A RING IS N WIRES, NEVER ONE POLYLINE: emitDeco tests the bounding box of what it's given, so a
+// rail round a tower would hide only when the whole tower did. Per segment, each piece is tested
+// where it is.
+// ⚠ HALF A RING IS BEHIND ITS OWN HOST, so it can't take `emitWire`'s default pull. Callers hug the
+// mass (`fh * 0.97`, `fh * 1.01`, `segW(N-1) * 1.08`, `rAt(t) * 1.015`); pulled 0.6 toward the eye,
+// the far arc lands in front of a near wall ~0.44 away and the band paints as a full ellipse (the
+// circle showing through the Solenne). Use `DECO_PULL` (0.05, as `emitDecoQuad` and `emitDecoFill`
+// do) as a z-fight tie-breaker.
 // ── HALCYON FIELDS: THE TWO SKINS EVERY DRUM IN THE QUARTER WEARS ────────────
-// `drawFacetDrum` has no wall texture — the caller's `style` closure IS the surface — so a
-// rounded mass says what it is made of here and nowhere else. Two closures cover the whole
-// estate, which is deliberate rather than lazy: a quarter put up in one campaign by one
-// developer is faced in one or two things, and the variety that survives fog lives in the
-// silhouettes.
-//
-// ⚠ THE RANGE IS THE MATERIAL, NOT THE COLOUR. What separates chrome from pale stone is how
-// hard a surface swings between its lit and unlit facets: masonry moves a little, polished
-// metal moves nearly the whole way to white and nearly the whole way to black. Both closures
-// take the facet's light dot to a power well above 1, which is what lays a narrow bright band
-// down one side of a drum and leaves the rest dark — the read that says "curved and polished"
-// rather than "a cylinder somebody tinted". Drop the exponent to 1 and every drum in Halcyon
-// Fields goes back to looking like painted concrete, which is the A/B worth knowing.
-//
-// ⚠ AND A DRUM STILL NEEDS ITS `pal`. A drum's PAINT is the closure and its CAPTURE is the
-// ambient SHAPE_PAL — two facts about one solid with nothing tying them together — so a drum
-// shaded chrome here and left unlabelled is meshed, collided and shadowed as whatever palette
-// the last building happened to set. See the ⚠ on drawFacetDrum itself. Every call passes one.
+// `drawFacetDrum` has no wall texture, so the `style` closure is the surface. Two closures cover the
+// estate: one developer, one campaign, one or two facings.
+// ⚠ THE RANGE IS THE MATERIAL: both closures raise the light dot to a power well above 1, a narrow
+// bright band down one side, which reads as polished. At exponent 1 every drum is painted concrete.
+// ⚠ A DRUM STILL NEEDS ITS `pal` (see the ⚠ on drawFacetDrum). Every call passes one.
 // ── WHICH BUILDING'S RAMP IS BEING BUILT ─────────────────────────────────────
 //
-// The tile's cast, armed by `drawTypeModel` and read by the two closures below. It is the
-// `ADORN_TIER` / `POWER_DUTY` idiom and for the same reason: a cast handed down as an ARGUMENT
-// would have to be threaded through `drawTypeModel` → `drawTypeModelArm` → all 133 call sites,
-// and the first one anybody added would be the one that forgot it.
-//
-// ⚠ IT IS ARMED FROM THE TILE SEED AND NOTHING ELSE, which is what lets GLASS 2 have it.
-// `meshParams` includes `it.seed`, so the per-model mesh memo is already per-TILE and a seeded
-// colour is captured correctly for every copy of the building. A cast derived from the hour, the
-// camera or the power state would be baked at capture and frozen — the trap `POWER_NB` has to
-// ride the group to avoid, and the one that freezes a moving part into the mesh.
+// The tile's cast, armed by `drawTypeModel` and read by the closures below. A module variable like
+// `ADORN_TIER` / `POWER_DUTY`, because threading an argument through `drawTypeModelArm` and 133 call
+// sites invites the one that forgets.
+// ⚠ ARMED FROM THE TILE SEED ONLY. `meshParams` includes `it.seed`, so the mesh memo is per tile. A
+// cast from the hour, camera or power state would freeze into the mesh at capture (the trap
+// `POWER_NB` rides the group to avoid).
 let HF_CAST = null;
 // …and what this tile's building is FACED in. A remap of the cladding keys the arms paint with,
 // armed by the same funnel and restored by the same . ⚠ IT HAS TO BE APPLIED INSIDE THE
@@ -28504,36 +27381,19 @@ function drawSteamPlume(ctx, cam, dx, dy, night, seed, alpha, now) {
 
 // ── STEAM, AS SPRITES ────────────────────────────────────────────────────────────────────────
 //
-// A column of soft blobs rising off a street grate, drifting with the wind the flags are already
-// flying in. The city vents: there is a sewer under it (the Under is a real z layer), the
-// laundries and the bathhouse boil all day, and a wet street over warm ground steams by itself.
-//
-// ⚠ A PLUME MOVES, SO IT MAY NEVER BE MASS. Both captures ('captureModelMesh' and the shape
-// capture) run at a FROZEN clock, so a puff recorded into either is nailed to wherever sin(0)
-// happened to put it: GLASS 1 would animate it, GLASS 2 would draw one frozen lump for ever, and
-// the thing you COLLIDE with would be a third answer again. Nothing anywhere would say a word —
-// the term is a constant at a frozen clock, and a constant is affine, so even the linearity gate
-// passes. The three sinks collected fresh every frame are the only home for it, and a soft round
-// blob is exactly what the sprite layer draws.
-//
-// ⚠ AND IT IS 'air', WHICH IS THE WHOLE REASON THIRTY OF THEM IN A FRAME IS AFFORDABLE.
-// 'pickLights' ranks a light on I*r/f and hands the winners to the wall wash and the wet road —
-// and steam is not a source, it is something a source shines THROUGH. Offered to that set, a
-// plume would evict the signs around it, wash the facade behind it in its own grey, and lay a
-// column of grey reflections down a wet street. 'air' is the existing answer to exactly that
-// question: see the ⚠ on the searchlight beam, which is thirty lights that are also not sources.
-//
-// ⚠ AND THE CANVAS FALLBACK IS NOT OPTIONAL. With GLASS 2 off there is no sprite layer at all, so
-// a push-only drawer emits nothing, throws nothing and says nothing — the failure mode this file
-// keeps a numbered list of. The 2-D path is the plume that already shipped.
-//
-// ⚠ SUPERSEDED — it is laid OVER now, not added; see STEAM_OVER_CAP for why the reasoning in the
-// rest of this paragraph was wrong. Kept because `steamOver` 0 still runs it.
-// IT WAS ADDITIVE, ON THE ARGUMENT THAT IT WAS THE SAFE DIRECTION RATHER THAN THE PRETTY ONE. Steam is brighter
-// than a night street and brighter than a wet road, so adding can only ever lighten what is
-// behind it; a blob that MULTIPLIED would be a grey smudge sitting on the picture, and a blob
-// composited over would need to know what colour the thing behind it is, which a sprite cannot.
-// The alpha is small and the count is small for the same reason.
+// A column of soft blobs rising off a grate, drifting with the flags' wind (the Under, laundries,
+// the bathhouse, wet streets over warm ground).
+// ⚠ A PLUME MOVES, SO IT MAY NEVER BE MASS. Both captures run at a frozen clock, so a puff in either
+// freezes, and even the linearity gate passes (a constant is affine). Only the per-frame sinks hold
+// it; a soft blob is what the sprite layer draws.
+// ⚠ IT'S 'air': steam is shone THROUGH, not a source. Offered to 'pickLights' (ranked on I*r/f) a
+// plume evicts signs, washes the facade grey and lays grey reflections on a wet road. See the ⚠ on
+// the searchlight beam.
+// ⚠ THE CANVAS FALLBACK IS REQUIRED: with GLASS 2 off there's no sprite layer, and a push-only
+// drawer silently emits nothing.
+// ⚠ SUPERSEDED: it's laid OVER now, not added (see STEAM_OVER_CAP). `steamOver` 0 still runs the
+// additive path, chosen because adding can only lighten (multiplying gives a grey smudge, and a
+// sprite can't know what's behind it to composite over).
 function steamPlume(ctx, cam, od, dx, dy, night, seed, alpha, now, gain = 1, riseMul = 1) {
   const k = (RENDER_TUNE.glSteam == null ? 1 : RENDER_TUNE.glSteam) * gain;
   if (!(k > 0)) return;
@@ -28701,43 +27561,21 @@ const puffMax = () => STEAM_PUFF_MAX * (RENDER_TUNE.steamWidth || 1);
 
 // ── THE LID UNDER IT ─────────────────────────────────────────────────────────────────────────
 //
-// Steam was rising off a tile with nothing on it: the plume implied an opening and the road was
-// blank tarmac underneath, which from a cab reads as the street smoking rather than venting.
-//
-// ⚠ IT IS A ROUND MANHOLE COVER AND NOT A GRATE, AND THE DIFFERENCE IS A PLACE RATHER THAN A
-// SHAPE. A city street has two sewer openings in it and they are not interchangeable: a
-// RECTANGULAR BARRED GULLY, which sits in the gutter hard against the kerb because its job is to
-// take water running down the channel, and a ROUND CAST LID out in the carriageway, which is an
-// access shaft and is the one that steams. This draws at the tile CENTRE — the middle of the
-// road — because that is where `steamPlume` puts its column, so the round lid is the only one of
-// the two that belongs here. The first cut drew a barred rectangle at the tile centre, which is
-// the gully's shape in the manhole's position: neither object, sitting where a car drives.
-//
-// ⚠ AND THE GULLY IS A SEPARATE PIECE OF WORK THAT NEEDS THE KERB LINE, not a variant of this.
-// Where the channel actually is, is a thing only the ground shader currently knows — `vKerb` is
-// tiles from the crown to the kerb, per fragment — and nothing on this side of the frame can ask
-// it. Guessing a side would put a gully in the middle of the opposite carriageway half the time.
-//
-// ⚠ IT IS DRAWN FROM THE SAME `if` AS THE PLUME, AND THAT IS THE BERTH RULE RATHER THAN TIDINESS.
-// A lid rolled separately from the steam is two tests that have to agree about one object, and
-// both ways they can disagree are silent — steam standing on bare tarmac, or a shaft that never
-// breathes. One roll, one tile, and the two cannot come apart.
-//
-// ⚠ AND IT IS SIZED OFF THE ROAD, NOT OFF THE TRUCK. The two scales in GLASS disagree by about six
-// to one — `LANE_W` puts a tile at roughly seven metres, and a rig is drawn 0.063 of a tile across
-// the cab, which puts it at forty — so "how big is 600 mm here" has two answers and only one of
-// them is right for a thing lying in the carriageway. It is the same derivation the wheel tracks
-// make and the opposite conclusion, for the same reason: take the scale of the thing it belongs
-// to, and a manhole belongs to the road. A standard cover is 600 mm, so about 0.085 of a tile.
-//
-// ⚠ NEAR ONLY, BECAUSE PAST A FEW TILES IT IS A DARK SMUDGE THE SIZE OF THE JOINTS AROUND IT. The
-// plume is what carries the feature at range — that is what a plume is for — and the lid is what
-// you get for driving over it. Three fans inside the ring and nothing at all outside it.
-//
-// ⚠ AND THE ALPHA GOES IN THE ALPHA ARGUMENT, NEVER INTO THE COLOUR. `emitDecoFill` keys its
-// texture on the css string, so a distance fade baked into an `rgba(...)` mints a fresh texture
-// every frame you drive — the unbounded-cache bug this file already records, which drew a gate as
-// a hovering bush. Three colours, three keys, for the life of the process.
+// Steam needs an opening under it, or the street reads as smoking rather than venting.
+// ⚠ A ROUND MANHOLE COVER, NOT A GRATE. The barred gully sits in the gutter against the kerb to take
+// channel water; the round lid is an access shaft out in the carriageway and is the one that steams.
+// This draws at the tile CENTRE, where `steamPlume` puts its column, so only the lid belongs here.
+// ⚠ THE GULLY NEEDS THE KERB LINE: only the ground shader knows it (`vKerb`, per fragment), and a
+// guessed side would put a gully mid-carriageway half the time.
+// ⚠ DRAWN FROM THE SAME `if` AS THE PLUME (the berth rule): two rolls could silently disagree (steam
+// on bare tarmac, or a shaft that never breathes).
+// ⚠ SIZED OFF THE ROAD, NOT THE TRUCK. The scales differ about six to one (`LANE_W` puts a tile at
+// ~7 m; a rig at 0.063 tile puts it at 40). A manhole belongs to the road: 600 mm is about 0.085 of
+// a tile.
+// ⚠ NEAR ONLY: past a few tiles it's a smudge the size of the joints, and the plume carries it at
+// range. Three fans inside the ring, nothing outside.
+// ⚠ ALPHA GOES IN THE ALPHA ARGUMENT, NEVER THE COLOUR: `emitDecoFill` keys its texture on the css
+// string, so an `rgba(...)` fade mints a texture per frame (the gate-as-bush cache bug).
 function steamManhole(ctx, cam, dx, dy, alpha, seed) {
   const near = RENDER_TUNE.manholeNear;
   if (!(near > 0)) return;
@@ -28758,39 +27596,18 @@ function steamManhole(ctx, cam, dx, dy, alpha, seed) {
   // the same bearing — the seed term every other dressing here uses, for the same reason.
   const ph = frac(seed * 0.61) * Math.PI * 2;
 
-  // The collar first: a lid is set in a ring of made-good surfacing, and that ring is most of what
-  // says the road was opened here rather than that something was painted on it.
-  // ⚠ IT COLLECTS FOR THE GROUND SHADER RATHER THAN DRAWING, AND THE REASON IS NOT THE ONE
-  // THIS COMMENT GAVE FOR MOST OF A DAY. It said an opening emitted as geometry never reached
-  // the near road and only ever appeared in a band under the horizon. That was a misreading of
-  // the instrument, and the correction is worth more than the feature: the frame was split into
-  // ten horizontal bands and bands 4-5 were called "the far road" because they sit just under
-  // the horizon. They are not. A lid stamped at a FIXED window coordinate one tile ahead lands
-  // in bands 4-5. From a seat 0.06 of a tile off the ground, one tile ahead is already halfway
-  // up the frame, and the bottom half of the picture is road within a fraction of a tile of the
-  // bumper. Every one of the three paths tried — decal, ground paint, shader stamp — was
-  // putting the lid exactly where it belonged the whole time.
-  //
-  // ⚠ SO THE PROBLEM IS SIZE, NOT RENDERING, and the numbers say so plainly: a 600 mm lid at
-  // the road's own scale is 0.043 of a tile, and twelve of them together move 67 pixels in a
-  // 900x500 frame. At the shipped density that is one or two castings of a few dozen pixels
-  // each. Nothing is broken and there is nothing to see, which are not the same sentence and
-  // were treated as one for a long time here.
-  //
-  // ⚠ THE SHADER PATH IS KEPT ANYWAY, ON ITS OWN MERITS RATHER THAN AS A FIX. Stamped per
-  // fragment the casting is folded into the surface before the fog, so it recedes into the haze,
-  // darkens when wet, holds water in its own collar and has snow scoured off it by a tyre, with
-  // none of those knowing it exists. As geometry each of those is a separate argument. And it is
-  // the only route that can place a GULLY, which belongs in the channel against the kerb: where
-  // the kerb is, is a thing only this shader knows, as vKerb, per fragment.
-  //
-  // ⚠ GLASS 1 GETS NOTHING, AND THAT IS STATED RATHER THAN HIDDEN. There is no fragment shader
-  // on the canvas path, so with RENDER_TUNE.gl at 0 a vent is steam over bare tarmac.
-  //
-  // ⚠ COLLECT EVERY ONE AND PICK THE NEAREST TWELVE LATER, NEVER THE FIRST TWELVE. The sweep is
-  // sorted FAR TO NEAR, because that is painter order, so a budget spent in arrival order fills
-  // the uniform with the twelve most distant openings in the window and drops every one you are
-  // about to drive over. That one was a real bug and it is fixed in lidUpload.
+  // The collar first: a ring of made-good surfacing says the road was opened here, not painted.
+  // ⚠ IT COLLECTS FOR THE GROUND SHADER. Near-field marks DO reach the near road: from a seat 0.06 of
+  // a tile up, one tile ahead is already halfway up the frame (bands 4-5 of ten aren't "the far road").
+  // ⚠ THE PROBLEM IS SIZE, NOT RENDERING: a 600 mm lid at road scale is 0.043 of a tile, and twelve
+  // together move 67 pixels in a 900x500 frame.
+  // ⚠ THE SHADER PATH IS KEPT ON ITS MERITS: stamped per fragment before the fog, the casting recedes
+  // into haze, darkens when wet, holds water in its collar and has snow scoured off by tyres for free.
+  // And it's the only route that can place a GULLY in the channel (vKerb).
+  // ⚠ GLASS 1 GETS NOTHING: no fragment shader, so with RENDER_TUNE.gl at 0 a vent is steam over bare
+  // tarmac.
+  // ⚠ COLLECT EVERY ONE AND PICK THE NEAREST TWELVE LATER (lidUpload). The sweep runs FAR TO NEAR
+  // (painter order), so the first twelve are the most distant.
   if (!LID_ALL) return;
   // ⚠ THE MAP-WINDOW FRAME, NOT THE CAMERA'S. `dx` is `(rx - R) - cam.ox` and moves a fraction
   // of a tile every frame you drive; `vWorld.xy` in the shader is the window tile, which is
@@ -30144,51 +28961,26 @@ function doorwayDir(map, R, wcx, wcy, x, y, pref = null) {
   return null;
 }
 
-// One person: a head on a body, and nothing else. No limbs at all.
-//
-// This is an ABSTRACTION rather than a small model of a human, and the restraint is the whole
-// point. At the size this actually draws — a handful of pixels at the near end of a street — legs
-// are a pixel wide and read as jitter rather than as walking, so they buy noise and cost the
-// silhouette. A rounded body under a round head reads as A PERSON at four pixels, which is the bar,
-// and it never starts making promises about detail the layer cannot keep at forty.
-//
-// Motion is carried entirely by the BOB. A body that rises and falls is walking; a body that holds
-// still is standing. That one number does the job the legs were there to do, and does it at any
-// size.
+// One person: a head on a body, no limbs. At a few pixels legs read as jitter, and a rounded body
+// under a round head reads as a person at four pixels. Motion is the BOB: rising and falling is
+// walking, holding still is standing.
 // ── ⚠ A PERSON IS SCATTER, AND WAS THE ONE KIND THAT NEVER JOINED IT ────────
 //
-// Every other thing standing on the ground — every tree, bush, boulder, cactus and snag — goes
-// through `scatterBillboard` into SCATTER_SINK and is settled by the depth buffer per pixel. The
-// people did not. They queued through `emitFace`, which flushes AFTER the GL composite, so a
-// pedestrian painted over whatever was between you and them and `groundHidden` was the whole of
-// what stood in the way — an all-or-nothing probe about a point at their feet, which answers
-// "draw" for the commonest case there is: somebody half behind a wall.
-//
-// ⚠ AND THE CENSUS SAID OTHERWISE. worldresidue's own header read "the street lamps, the roadside
-// scatter and the pavement actors are ALREADY on the depth buffer" — and its scene carries no
-// actors at all, so the actor path was never once run by the gate written to find exactly this.
-//
-// Two things make a person fit the bake that already exists:
-//
-//   · THE VARIATION IS BOUNDED, once it is asked to be. A figure's whole identity here is `warm`
-//     (a hash of the token) and the night flag, so quantising warm into ACTOR_TONES buckets gives
-//     a handful of textures for a street of hundreds — the same trick `seed % 12` does for trees.
-//
-//   · AND THE ANIMATION IS PLACEMENT, NOT PAINT. The gait bob is a vertical offset and the
-//     hitcher's wave is a quantised phase. The bob stays OUT of the texture and moves the quad,
-//     which is the rule the whole layer runs on: the texture says what a thing looks like and the
-//     quad does all of the placing. Baking the bob would mint a texture per figure per frame,
-//     which is the per-instance re-bake CLAUDE.md records as ruinous.
-//
-// ⚠ THE ARM CAME WITH IT, and it had to. drawRoadside drew the hitcher's wave AFTER this function
-// returned, on the canvas — so billboarding the body alone would have left a bare arm stroke
-// painting through the city with nothing at all in front of it. It is a quantised `opts.arm`
-// baked into the same texture now, and there is no second painter left to forget.
-// ⚠ AND A BENCH MUST HAND IT THE SERVER'S OWN TOKEN SHAPE. `t` is a salted FNV hash in base 36
-// (server/engine/street-actors.js), six or seven mixed characters, and it buckets evenly —
-// 29/22/24/29/20/26 over six, measured. Short sequential strings do not: 'c0'..'c149' cluster
-// FNV-1a's TOP bits, which is the half `actorHash` returns, and put 150 people into three buckets.
-// That is a property of the test data and it reads exactly like the bucketing having collapsed.
+// People go through `scatterBillboard` into SCATTER_SINK like trees and boulders, so the depth
+// buffer settles them per pixel. Through `emitFace` they flushed after the GL composite, guarded only
+// by `groundHidden`, which says "draw" for someone half behind a wall.
+// ⚠ worldresidue's scene carries no actors, so its gate never ran this path.
+//   · THE VARIATION IS BOUNDED: a figure is `warm` (a hash of the token) plus the night flag,
+//     quantised into ACTOR_TONES buckets, as `seed % 12` does for trees.
+//   · THE ANIMATION IS PLACEMENT, NOT PAINT: the gait bob moves the quad and the hitcher's wave is a
+//     quantised phase. Baking the bob would mint a texture per figure per frame (the per-instance
+//     re-bake CLAUDE.md calls ruinous).
+// ⚠ THE ARM IS BAKED IN TOO (quantised `opts.arm`); drawn on the canvas afterwards by drawRoadside it
+// would be a bare arm stroke painting through the city.
+// ⚠ A BENCH MUST USE THE SERVER'S TOKEN SHAPE: `t` is a salted FNV hash in base 36
+// (server/engine/street-actors.js), six or seven characters, bucketing 29/22/24/29/20/26 over six.
+// 'c0'..'c149' cluster FNV-1a's top bits (what `actorHash` returns) into three buckets, which looks
+// like broken bucketing.
 const ACTOR_TONES = 6;      // warm buckets — a street reads as a crowd, not as six clones, because the tone is a coat not a face
 const ACTOR_WAVES = 6;      // quantised wave phases for the one figure that has an arm
 // The height above which a knee-high thing on the ground is not worth projecting. It was a literal
@@ -31244,40 +30036,21 @@ function drawGooseAir(ctx, cam, sid, dx, dy, wz, alpha, heading, beat, flare, ge
   ctx.restore();
 }
 
-// ⚠ THE FLOCK CLOCK IS WALL TIME, NOT THE FRAME'S `now`. Every other animation in this file runs
-// on `performance.now()`, which is MILLISECONDS SINCE THE PAGE LOADED — fine for a wingbeat and
-// wrong for this, twice over. It resets on every reload, so a refresh teleports every flock in the
-// world to a new point in its cycle; and the text game asks the same question with `Date.now()`,
-// so the sentence and the picture would be computing from two clocks that share no zero. The
-// design's whole claim is that they cannot disagree.
-//
-// ⚠ AND THE TRAFFIC SIGNALS, WHICH THIS IS MODELLED ON, HAVE EXACTLY THAT BUG TODAY.
-// `drawTrafficSignals` takes the frame's `now` while `junctionSignalLine` uses `Date.now()`, so
-// the lamps a driver sees and the sentence a reader gets are already on different clocks — which
-// is the failure client/shared/traffic.js's own header says it exists to prevent. Not fixed here
-// because it is not this change's to fix, but it is why this one does not copy it.
+// ⚠ THE FLOCK CLOCK IS WALL TIME, NOT THE FRAME'S `now`. `performance.now()` resets on reload
+// (teleporting every flock), and the text game uses `Date.now()`, so the sentence and the picture
+// would share no zero.
+// ⚠ `drawTrafficSignals` HAS THAT BUG TODAY: it takes the frame's `now` while `junctionSignalLine`
+// uses `Date.now()`, against client/shared/traffic.js's own header. Not fixed here; don't copy it.
 // ── A LEDGE, DERIVED FROM THE MASS THAT IS ALREADY THERE ─────────────────────
 //
-// Nothing is authored for any of this and nothing can be. A ledge is wherever a building's mass
-// STOPS and is not covered by more of it — every setback on a stepped tower, every parapet, every
-// porch roof and every water-tank lid — and the shape capture has known where those are since it
-// was written. `shapeForModel` is the same list CFIT collision, ground shadows, occluder hulls and
-// the cold open already read, so a bird cannot stand on a ledge an aeroplane would fly through, and
-// it cost the content tree nothing.
-//
-// ⚠ IT IS THE TOP FACE MINUS WHAT SITS ON IT, WHICH IS WHY A ZIGGURAT WORKS FOR FREE. The Meridian
-// is a stack of boxes of decreasing footprint; take each box's top perimeter and drop every point
-// another segment contains, and what is left is exactly the exposed ring of each setback. No arm
-// was touched and no model knows this feature exists.
-//
-// ⚠ AND IT IS THE PERIMETER, NEVER THE PLANE. A bird stands on the EDGE of a flat roof — that is
-// what a ledge is — so the sample ring is the inset boundary and a flock strung along it reads as
-// birds on a parapet. Scattered over the top face instead they read as birds standing about on a
-// roof, which is a thing that happens and is not what anybody pictures.
-//
-// ⚠ `frontOnly` SEGMENTS ARE REFUSED. Those are the roller doors and truck bays that only exist on
-// the entrance capture (see captureAt), so their "top" is the lintel of an opening rather than a
-// surface, and half of them are not there at all from three sides.
+// A ledge is wherever a building's mass stops uncovered (setbacks, parapets, porch roofs, tank lids),
+// read from `shapeForModel`, the list CFIT, ground shadows, occluder hulls and the cold open use.
+// Nothing is authored, and a bird can't stand where an aeroplane would fly through.
+// ⚠ TOP FACE MINUS WHAT SITS ON IT: drop every top-perimeter point another segment contains, and a
+// ziggurat like the Meridian yields each setback's exposed ring.
+// ⚠ THE PERIMETER, NEVER THE PLANE: birds stand on the edge of a roof (a parapet), not about on it.
+// ⚠ `frontOnly` SEGMENTS ARE REFUSED: roller doors and truck bays exist only on the entrance capture
+// (captureAt), so their top is a lintel, absent from three sides.
 const PERCH_MIN_Z = 0.10;          // tiles — under this it is a doorstep, not a ledge
 // ⚠ HOW FAR IN FROM THE DROP A BIRD STANDS, AND IT IS A BIRD'S FEET, NOT A MARGIN. It was 0.035,
 // which is about one and a half hawk body lengths (a hawk is ~0.023 tiles long as drawn) — so every
@@ -31362,36 +30135,19 @@ function perchRing(s, V) {
 
 // ── WHAT A BUILDING WEARS IS ALSO SOMEWHERE TO STAND ─────────────────────────────────────────
 //
-// `buildLedges` below derives a perch from the MASS — the top of a captured box or drum. That is
-// the roof and the setbacks, and it is three ledges on the median building. Everything else a
-// facade has is in the detail kit, which this pass never looked at: 771 window bays, 181
-// balconies and 105 canopies across Coldwater, at every floor, on the front of the building,
-// which is precisely where you look at a bird from a cab.
-//
-// ⚠ THE SURFACE HAS TO BE REALLY THERE, WHICH IS THE WHOLE RULE. A window painted flat on a
-// wall is not a perch however much it looks like one, so this only ever reads a part that draws
-// a physical horizontal return, and it measures that return against a bird rather than trusting
-// the kind name: `windowBay` draws head, sill and jambs at a real reveal depth, and a bay whose
-// reveal is shallower than a bird can stand on is refused. Measured over the whole city the
-// shallowest sill is 9.4 cm and the median is 14.8, so the gate is inert today — which is the
-// safe direction for a floor, and it is there for the model somebody authors next.
-//
-// ⚠ AND THE GLAZED RIBBON PASSES HONESTLY. The ribbon replaces a punched grid with one
-// continuous band, and it is pushed as a `windowBay` carrying its own `depth` — computed off the
-// band HEIGHT rather than min(w,h) precisely so the reveal does not go shallow. So a ribbon has a
-// sill, and a facade that draws its windows as flat paint emits no part at all and offers
-// nothing, which is the correct answer arrived at by construction rather than by a special case.
-//
-// ⚠ z MEANS A DIFFERENT THING PER KIND, and reading it wrong is silent. `windowBay` takes z as
-// the CENTRE (so the sill is z - hh) while `canopy` and `parapet` take it as the BOTTOM. That is
-// the same trap `signband.mjs` records costing a draft, and it is why this is a table rather than
-// one expression.
-//
-// ⚠ FACE-MOUNTED ONLY. These parts hang on one wall, so the outward normal is the sign of
-// their own `cy` and the run is along local x, in the part's frame; a `face: 'x'` part has that
-// frame turned onto a flank, which `kitLedges` undoes. A `parapet` is mounted at cy 0 and RINGS the
-// building, so the same arithmetic would lay a row of birds down the middle of a roof — it wants
-// perchRing, not this, and it is left out until it gets one.
+// `buildLedges` perches on the MASS (about three ledges on the median building). This reads the
+// detail kit too: 771 window bays, 181 balconies and 105 canopies across Coldwater, on the fronts you
+// see from a cab.
+// ⚠ THE SURFACE MUST REALLY BE THERE: only parts that draw a physical horizontal return, measured
+// against a bird, not trusted by kind. A `windowBay` with too shallow a reveal is refused (the city's
+// shallowest sill is 9.4 cm, median 14.8, so the gate is inert today; it's for future models).
+// ⚠ THE GLAZED RIBBON PASSES: it's a `windowBay` with its own `depth` off the band HEIGHT, so it has
+// a sill. A facade of flat painted windows emits no part and offers nothing.
+// ⚠ z MEANS A DIFFERENT THING PER KIND: `windowBay` takes the CENTRE (sill at z - hh), `canopy` and
+// `parapet` the BOTTOM (the trap `signband.mjs` records). Hence a table.
+// ⚠ FACE-MOUNTED ONLY: the outward normal is the sign of `cy` and the run is local x; `kitLedges`
+// undoes a `face: 'x'` turn. A `parapet` (cy 0, rings the building) would lay birds down the middle
+// of the roof; it waits for perchRing.
 const KIT_PERCH = {
   // kind        where the standing surface is, relative to z, in units of hh
   windowBay: { top: -1, deep: (V, d, half, hh) => (d.depth ? V(d.depth) : Math.min(half, hh) * 0.35) },
@@ -32170,36 +30926,18 @@ function roofLedgesFor(cell, wx, wy) {
   return out;
 }
 
-// Which ledge this flock is on, out of everything its own tile happens to stand next to.
-//
-// ⚠ THE ANCHOR IS NEVER A BUILDING — `habitatAt` refuses `cell.bt` outright — so the ledge always
-// belongs to a NEIGHBOUR, and which neighbour has to be a fixed walk rather than a search, or two
-// readers pick different buildings for the same flock and it hops the street between them.
-//
-// ⚠ AND A HUNTER TAKES THE HIGHEST THERE IS. That is the whole of what `high` buys, and it is what
-// puts a hawk on the top setback of a tower looking down on a street the pigeons are working,
-// rather than on the awning next to them.
+// Which ledge this flock is on, out of everything its tile stands next to.
+// ⚠ THE ANCHOR IS NEVER A BUILDING (`habitatAt` refuses `cell.bt`), so the ledge is a NEIGHBOUR's,
+// found by a fixed walk, not a search, or two readers pick different buildings and the flock hops.
+// ⚠ A HUNTER TAKES THE HIGHEST (`high`): a hawk on a tower's top setback, not on the awning.
 // How many of the longest ledges a flock too big for any of them will choose between.
-// ⚠ A HUNTER LOOKS FURTHER FOR A VANTAGE THAN A FLOCK LOOKS FOR SOMEWHERE TO STAND, and until
-// this existed the search was the eight neighbouring tiles for everybody. That is right for a
-// flock of starlings, which comes down on whatever it is standing next to -- and it quietly made
-// the hawk's entire design unreachable. Measured over every flock in Coldwater: a hawk wants a
-// perch on 70% of its cycles (the highest share in the table) and found one on NONE of them,
-// because its habitat is redrock and hardpan and 0% of hawk anchors have a building within one
-// tile. It spent every cycle of its life on the ground while `perch: { high: true }` described a
-// still-hunter on the top setback of a tower.
-//
-// ⚠ THE FIX IS REACH, NOT HABITAT. Making the hawk a street bird was tried and measured and
-// thrown away: it produces no city hawks (a hawk is a one-bird flock and rarely rolls) and it
-// TAKES city tiles from the birds that were using them -- songbird flocks 24 to 17, pigeon 13 to
-// 11, so fewer birds on wires and no hunter gained.
-//
-// Three tiles is about thirty metres, against a bird that is drawn out to sixteen; a hawk on open
-// ground with a lone building in sight should use it, and that is the whole of what this buys.
-// WARNBOUNDED BY FLIGHT SPEED, NOT BY THE MAP. The obvious reach is the species own drawRange (16
-// for a hawk), and it is wrong: the bird crosses to its perch on the 2.6s settle blend, so 16 tiles
-// is 68 m/s and the hunter teleports. Six is a 25 m/s dash, which is a stoop and is what this bird
-// does. It buys less than a longer reach would and it is the most that can be spent honestly.
+// ⚠ A HUNTER SEARCHES FURTHER. With only the eight neighbours, a hawk wanted a perch on 70% of
+// cycles and found none: its habitat is redrock and hardpan, and 0% of hawk anchors have a building
+// within one tile.
+// ⚠ THE FIX IS REACH, NOT HABITAT: a street hawk rarely rolls (a one-bird flock) and took city tiles
+// from songbirds (24 to 17) and pigeons (13 to 11).
+// ⚠ BOUNDED BY FLIGHT SPEED, NOT THE MAP. The bird crosses on the 2.6s settle blend, so drawRange's
+// 16 tiles would be 68 m/s, a teleport. Six is a 25 m/s stoop.
 export const HUNT_REACH = 6;
 const PERCH_SHORTLIST = 4;
 // The shortest ledge a hunter treats as a vantage (a real edge, not an ornament), and how far down
@@ -35239,39 +33977,19 @@ function drawBombsight(ctx, cam, v, W, H, now) {
 }
 
 // ── BOMB BURSTS ───────────────────────────────────────────────────────────────
-// A bomb going off on the ground, seen from the aeroplane that dropped it. Projected through
-// the same Mode-7 camera as everything else, so it is ANCHORED TO ITS TILE: it stays where the
-// bomb went while you haul off the target, growing as you close and sliding away behind you.
-// That is the entire reason it lives here rather than being a white flash over the whole screen.
-//
-// Five layers, in the order they happen — because an explosion is a sequence, not a picture, and
-// drawing them at their own rates is what makes it read as one:
-//   1. FLASH        — the first two frames, a blown-out white core. Gone almost immediately.
-//   2. SHOCKWAVE    — a semi-transparent expanding SPHERE: a filled radial gradient that is
-//                     bright at the RIM and hollow in the middle, which is what makes a flat
-//                     circle read as a ball of compressed air rather than a disc.
-//   3. FIREBALL     — the hot core, a few overlapping blobs so the outline is lumpy rather than
-//                     a perfect circle, riding a white → yellow → orange → dull red ramp as it
-//                     cools. It also RISES and expands, because that is what fire does.
-//   4. SMOKE        — a column of soft rising puffs, slowest of the lot and the last thing left.
-//                     Drawn UNDER the fire early and over it late, as the fire dies back into it.
-//   5. SPARKS       — a deterministic radial shower. Deterministic (seeded off the tile) so the
-//                     same burst looks the same on every frame instead of scintillating: there
-//                     is no per-particle state anywhere here, and it does not need any.
-//
-// `age` is 0..1 across the burst's life. Every layer has its OWN curve over that one number,
-// which is what buys a five-stage animation with no simulation behind it.
+// A bomb going off on the ground, seen from the aeroplane that dropped it, projected through the
+// Mode-7 camera so it stays ANCHORED TO ITS TILE as you haul off. Five layers at their own rates:
+//   1. FLASH: the first two frames, a blown-out white core.
+//   2. SHOCKWAVE: a radial gradient bright at the RIM and hollow inside, so it reads as a ball.
+//   3. FIREBALL: lumpy overlapping blobs on a white → yellow → orange → dull red ramp, rising.
+//   4. SMOKE: soft rising puffs, the last to go; under the fire early, over it late.
+//   5. SPARKS: a radial shower seeded off the tile, so it doesn't scintillate. No particle state.
+// `age` is 0..1 across the burst; each layer has its own curve over it.
 // ── THE STORE IN THE AIR ──────────────────────────────────────────────────────
-// A released bomb, between the aeroplane and the ground. `v.drops` carries its ground track
-// (already interpolated by the cockpit) and `t`, 0..1 down the fall; the HEIGHT is solved here,
-// because this is the only place that knows where this airframe's belly sits in world-z — the
-// same `ownShipBaseWz` the chase model is anchored with, so the bomb leaves from the racks rather
-// than from a guessed altitude. It falls as t² (which is what falling is) and its long axis leans
-// with the fall, so it goes down nose-first the way a finned store does.
-//
-// Three pixels of dark shape at a hundred yards is nothing to look at, so it carries a thin
-// vapour thread back up its own path: in a dive, over a city, that thread is the only reason you
-// can see where your weapon went.
+// A released bomb between the aeroplane and the ground. `v.drops` carries its ground track
+// (interpolated by the cockpit) and `t`, 0..1 down the fall. HEIGHT is solved here off
+// `ownShipBaseWz` (the chase model's anchor), so it leaves from the racks. It falls as t², leans
+// nose-first with the fall, and trails a thin vapour thread so you can see where it went.
 function drawDrops(ctx, cam, v, now) {
   if (!Array.isArray(v.drops) || !v.drops.length) return;
   const z0 = ownShipBaseWz(cam, v);
@@ -35809,92 +34527,48 @@ const YACHT_SCOPE_STAND = 0.055;
 
 // ── HOW SHE IS SITTING, RIGHT NOW ─────────────────────────────────────────────────────────────
 //
-// Heave, pitch and roll from the swell under her hull. Three samples — the bow and the two
-// quarters — which is the fewest that can define a plane and therefore the fewest that can give an
-// attitude rather than just a height.
-//
-// ⚠ ONE FUNCTION, TWO CLIENTS, AND THAT IS THE WHOLE POINT OF IT BEING ONE. `drawYacht` uses it to
-// place every part of the ship, and the deck-landing math uses it to say where her helipad IS. The
-// old arrangement was a CONSTANT written down twice — `YACHT_DECK_Z` here and `DECK_PAD_Z` in
-// cockpit.js, which even restates YACHT_H as a literal 1.7 — and a constant is exactly right for a
-// ship that cannot move and exactly wrong for one that can. Two copies of a number that is now a
-// function of the clock is a helicopter landing on a deck that is no longer there, intermittently,
-// at a phase of the swell nobody can reproduce.
-//
-// ⚠ AND IT IS PURE, so there is no stale frame in it. The obvious alternative — publish what
-// `drawYacht` computed and let the lander read it back — is one frame behind by construction, and
-// which frame depends on draw order.
+// Heave, pitch and roll from the swell, from three samples (bow and two quarters), the fewest that
+// define a plane.
+// ⚠ ONE FUNCTION, TWO CLIENTS: `drawYacht` places the ship with it and the deck-landing math finds
+// the helipad with it. Two copies of a constant (`YACHT_DECK_Z`, `DECK_PAD_Z` in cockpit.js) land a
+// helicopter on a deck that has moved.
+// ⚠ IT IS PURE: publishing what `drawYacht` computed would be a frame behind, depending on draw order.
 // ── SHE HAS MASS, AND MASS IS A LAG ───────────────────────────────────────────────────────────
 //
-// The plane fit below answers where the water IS under her, and a hull that matched it exactly is a
-// hull with no inertia: she snaps to every crest and is level again the instant the crest has gone.
-// What a 700-tonne vessel does is arrive late.
-//
-// ⚠ IT IS A LAG OVER LAGGED SAMPLES, NOT AN INTEGRATOR, AND THE FIRST VERSION OF THIS WAS THE
-// INTEGRATOR. A second-order spring driven toward the kinematic answer is the obvious way to write
-// "she has mass" and it is wrong here for a reason that took three red gate claims to see: state
-// stepped by the WALL clock makes the answer a function of when you asked rather than of where and
-// when you asked ABOUT. `yachtRide` is also a positional query — the drawn deck, the helipad and
-// the telescope mount all ask it about different points and headings — so a single integrated
-// attitude collapses all of them onto one number. The gate said so in three different ways at once:
-// the deck stopped heaving over time, stopped differing across eight tiles of sea, and stopped
-// caring which way she was pointing.
-//
-// ⚠ SO THE LAG IS TAKEN IN TIME INSTEAD, WHICH KEEPS IT A PURE FUNCTION. The kinematic fit is
-// evaluated at three instants and averaged: the response to a signal delayed is the signal delayed,
-// so a weighted sum of past fits is a genuine low-pass with a genuine phase lag, and it stays a
-// function of (position, heading, time) with no state anywhere. Two clients agree exactly rather
-// than converging, the sea stays verifiable, and `yachtPadZ` stays the pure function the helicopter
-// landing reads.
-//
-// ⚠ THE WEIGHTS SUM TO ONE, which is what keeps a glass day glass: at sea state 0 every tap returns
-// the same constant and so does their average, exactly rather than nearly.
-//
-// ⚠ AND WHAT THIS DELIBERATELY DOES NOT HAVE IS RESONANCE. A real hull has a natural period and
-// rolls FURTHER than the wave slope when a beam sea matches it — synchronous rolling, which is why
-// a beam sea is the dangerous one. That needs a resonant peak, and a short symmetric filter cannot
-// have one: it needs either state, which costs the determinism above, or a proper per-train RAO
-// (naval architecture's Response Amplitude Operator — a gain and a phase per frequency), which
-// needs the fit decomposed by train rather than sampled as three heights. That is the honest way to
-// add it later and it is a different shape of change, not a bigger number here.
+// A hull matching the plane fit exactly has no inertia; a 700-tonne vessel arrives late.
+// ⚠ A LAG OVER LAGGED SAMPLES, NOT AN INTEGRATOR. State stepped by the wall clock answers "when did
+// you ask", and `yachtRide` is a positional query (deck, helipad, telescope mount at different points
+// and headings), so one integrated attitude collapses them all (the gate saw no heave over time, no
+// difference across eight tiles of sea, no heading dependence).
+// ⚠ SO THE LAG IS IN TIME: the fit is evaluated at three instants and averaged, a real low-pass with
+// phase lag that stays a function of (position, heading, time). Clients agree exactly and
+// `yachtPadZ` stays pure.
+// ⚠ THE WEIGHTS SUM TO ONE, so a glass day (sea state 0) stays exactly glass.
+// ⚠ NO RESONANCE HERE: a short symmetric filter can't have a peak. It needs state (losing
+// determinism) or a per-train RAO (Response Amplitude Operator: gain and phase per frequency) from
+// the fit decomposed by train; see below.
 const RIDE_TAP_S = 1.2;                      // seconds between taps
 // The effective wave slope coefficient and the roll backstop, hoisted so the RAO below applies the
 // same ones — see the note in yachtRideAt.
 const RIDE_K = 0.55, RIDE_ROLL_CAP = 22 * Math.PI / 180;
 
 // ── AND SHE HAS A NATURAL ROLL PERIOD, SO A BEAM SEA CAN FIND IT (RENDER_TUNE.glSeaRao) ───────
-//
-// The tap filter above is a low-pass: it can only ever make her roll LESS than the water. A real
-// hull is a damped oscillator in roll, and a sea whose period is near hers drives it past the wave
-// slope. That is synchronous rolling, and it is why a beam sea is the one that frightens people.
-//
-// ⚠ IT IS A PER-TRAIN RAO, NOT STATE, which is the constraint the note above set. The roll fit is
-// linear in the sampled heights, so it splits exactly into the long swell's roll and the wind sea's
-// roll. Each is answered at its own frequency by the textbook single-degree-of-freedom response:
-//
+// The tap filter only makes her roll LESS than the water; a real hull is a damped oscillator, and a
+// sea near her period drives it past the wave slope (synchronous rolling).
+// ⚠ A PER-TRAIN RAO, NOT STATE: the roll fit is linear in the heights, so it splits into swell and
+// wind-sea roll, each answered at its own frequency:
 //     r = w / wn      G = 1 / sqrt((1 - r²)² + (2ζr)²)      phi = atan2(2ζr, 1 - r²)
-//
-// G scales that train's roll and phi becomes a DELAY (phi / w seconds) at which that train's fit is
-// sampled. Still a pure function of position, heading and time, so two clients agree exactly and
-// the pad height stays what the helicopter reads.
-//
-// ⚠ THE BEAM-SEA DANGER IS NOT CODED ANYWHERE, AND THAT IS THE POINT. A head sea puts almost no
-// height difference across the beam, so its roll input is near zero and no gain makes it large; a
-// beam sea near her period is the only case where a big input meets a big gain.
-//
-// ⚠ AND THE FREQUENCY IS THE ENCOUNTER FREQUENCY, which is why her WAY is module state. A hull
-// making way meets a head sea faster and a following sea slower: w_e = |w + U·(k·forward)|, with k
-// pointing against the direction the wave travels. A following sea near her own speed drags w_e
-// down toward her natural period from BELOW — the other famous case, and the reason a ship running
-// before a gale can be rolled hard by waves that look gentle. The pad, the telescope and the drawn
-// hull are all positional queries about ONE ship with no speed of their own, so the speed cannot be
-// an argument: they would disagree about the deck. The helm sets it once a frame (setYachtWay) and
-// every reader on this client takes the same value. ⚠ Only the helmsman's client knows it, so a
-// spectator's Echelon answers as a hull at rest. Her position is world-fixed, so the speed moves
-// only the frequency and never where the sea is sampled.
-//
-// wn and ζ are set against THIS sea rather than a real yacht's 10 s: the wind sea here runs at
-// 0.29 rad/s, so wn 0.36 puts it at r 0.81 (G 2.1) and leaves the long swell at r 0.5 (G 1.3).
+// G scales that train's roll and phi becomes a sampling DELAY (phi / w seconds). Still pure, so
+// clients agree and the pad height holds.
+// ⚠ THE BEAM-SEA DANGER ISN'T CODED: a head sea has almost no roll input; only a beam sea near her
+// period meets a big input with a big gain.
+// ⚠ IT USES THE ENCOUNTER FREQUENCY: w_e = |w + U·(k·forward)|, k against the wave's travel, so a
+// following sea near her speed drags w_e down to her period. The speed is module state, set once a
+// frame by the helm (setYachtWay), so pad, telescope and hull agree. ⚠ Only the helmsman's client
+// knows it; a spectator's Echelon is a hull at rest. Speed moves only the frequency, never where the
+// sea is sampled.
+// wn and ζ suit THIS sea: the wind sea runs at 0.29 rad/s, so wn 0.36 gives r 0.81 (G 2.1) and the
+// long swell r 0.5 (G 1.3).
 export const RIDE_ROLL_W = 0.36;    // rad/s — her natural roll frequency (period 17.5 s)
 export const RIDE_ROLL_ZETA = 0.2;  // roll damping ratio; bilge keels and a stabiliser fin
 let YACHT_WAY = 0;   // tiles per second along her heading; see setYachtWay
@@ -38184,67 +36858,31 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
   if (!drawn) return null;
   // ── A TRUCK IS DRAWN WITH A DEPTH BUFFER; EVERYTHING WITH WINGS IS SORTED ────
   //
-  // ⚠ AND THIS IS THE THIRD TIME A FIX FOR THIS MESH HAS BEEN APPLIED IN ONE RENDERER AND MISSED
-  // THE OTHERS. First the flashing was solved out the windscreen and the depot never got it; the
-  // sort was moved next to the geometry so a renderer could not use one without the other. Then the
-  // sort itself was abandoned — no key per part can order nested boxes, because a big panel can be
-  // behind a small one over here and in front of it over there — and the per-pixel depth test that
-  // replaced it went into the DEPOT and never came out here. So the depot forecourt you look at the
-  // rig on was exact and the chase camera you drive it from was still swapping parts, which is why
-  // three rounds of this work read as having changed nothing at all: none of it was ever in the
-  // view being complained about.
-  //
-  // Below the fills go through model-raster.js: whichever face genuinely owns a pixel keeps it.
-  // Exact from every angle including straight down, and nothing left to flicker, because depth is
-  // continuous — a camera nudge moves an edge by a pixel instead of swapping which part is visible.
-  //
-  // ⚠ THE DETAIL PASSES STILL RUN ON CANVAS, GATED ON WHAT WON. Jazz splatter, canopy art and the
-  // glass sheen stay canvas drawing; re-implementing four effects inside a software rasteriser is
-  // not a trade worth making. Each face asks the buffer whether it still owns its own centre, and a
-  // face that lost cannot paint its decoration over the panel hiding it.
-  //
-  // ⚠ AND IT IS SUPERSAMPLED TO THE FRAME'S DPR. The buffer is measured in device pixels and blitted
-  // back into the CSS-pixel box it came from, so the model is as crisp as the canvas fills it
-  // replaces. Skip that and the hero model — the one thing on screen the player is looking at — is
-  // the only soft object in the frame on every retina display.
-  //
-  // ⚠ THE DEPTH PASS IS BUILT HERE AND BLITTED BELOW THE GROUND LIGHT, NOT HERE. Everything on the
-  // ROAD — the contact shadow, the lifter wash, the thrust cones — is painted before the model so
-  // the bodywork covers what it should for free. Blit at the point the buffer is filled and the
-  // truck goes down first, and then the pool of light under it is painted straight over the chassis.
-  // ⚠ THE OWN SHIP ALWAYS, A CONTACT ONLY WHEN IT IS BIG ENOUGH TO SEE A MISTAKE IN. A depth buffer
-  // per truck is cheap for the one you are driving and silly for the eight parked across a yard at
-  // thirty pixels each, so contacts keep the sort until they are worth the pass — which is what the
-  // ⚠ at the top of model-raster.js means by leaving distant contacts alone: this is for ONE model,
-  // not for the world.
-  // ⚠ BUT `own` IS NOT A SIZE TEST AND MUST NOT BECOME ONE. The rig in the chase view is the SUBJECT
-  // of the camera whatever the window measures, and a pixel threshold quietly excused it on any
-  // small canvas — including the smoke's own 640×360, where the truck lands at 25px and every gate
-  // written to prove this renderer is on the depth path would have passed by never running it. That
-  // is why the size gate is handed over as a `min` of ZERO rather than as a size the own ship
-  // happens to clear.
-  // ⚠ AND IT IS NO LONGER TRUCKS ONLY. The gate read `c.cls === 'truck' && …` on the grounds that
-  // an airframe is one smooth convex hull and a sort is right for those. The hull, yes — and not
-  // one of the things bolted to it: nacelles, pods, sponsons, gear legs, stub wings and stores are
-  // nested boxes, which is the exact case no single depth per part can order and the whole reason
-  // this buffer exists. They were left on the sort by a name rather than by a reason.
-  //
+  // ⚠ A FIX FOR THIS MESH HAS THREE TIMES LANDED IN ONE RENDERER AND MISSED THE OTHERS (the
+  // windscreen's flashing fix missed the depot; the depot's depth test missed the chase view). No key
+  // per part can order nested boxes, so the fills go through model-raster.js: whichever face owns a
+  // pixel keeps it, exact from every angle, and continuous depth means nothing flickers.
+  // ⚠ THE DETAIL PASSES STAY ON CANVAS, GATED ON WHAT WON: jazz splatter, canopy art and glass sheen
+  // paint only if the face still owns its centre.
+  // ⚠ SUPERSAMPLED TO THE FRAME'S DPR: built in device pixels and blitted into the CSS box, or the
+  // hero model is the only soft thing on a retina display.
+  // ⚠ BUILT HERE, BLITTED BELOW THE GROUND LIGHT: road effects (contact shadow, lifter wash, thrust
+  // cones) paint first so the body covers them; blit early and the light pool paints over the chassis.
+  // ⚠ OWN SHIP ALWAYS, CONTACTS ONLY WHEN BIG ENOUGH (the ⚠ atop model-raster.js: one model, not the
+  // world). Eight parked trucks at thirty pixels keep the sort.
+  // ⚠ `own` IS NOT A SIZE TEST: the subject gets the pass on any canvas, so its `min` is ZERO. A pixel
+  // threshold excused it on the smoke's 640×360 (truck at 25px), so the gates never ran it.
+  // ⚠ NOT TRUCKS ONLY: an airframe's hull is convex, but nacelles, pods, sponsons, gear legs, stub
+  // wings and stores are nested boxes.
   // ── ⚠ AND THIS IS THE ONE COPY OF THE PASS, NOT THIS RENDERER'S OWN ─────────
-  // It used to be forty lines inline here and forty more in aircraft3d.js, which is precisely the
-  // failure the ⚠ above the fills keeps describing: three times a fix for this mesh was written,
-  // verified in one renderer, and left the others on the old path. Both are now `depthPassBuild` +
-  // `depthPassCommit`. Everything this view does that a panel does not — the world mask, the sun,
-  // the deferred blit — rides as options and hooks, because `occluderWindow` and `vehicleLightRig`
-  // are world-pass concerns that cannot move into a hangar file.
-  // ⚠ WITH THE BODY ON THE GPU, THE RASTER IS ONLY THERE TO STAMP `seen` FOR THE FACE LOOP BELOW,
-  // and under `bodyOnGL` that loop paints three things: jazz splatter, canopy art and the gloss
-  // highlight. A model with none of them paints nothing there, so its software depth raster (most
-  // of the own ship's paint pass in the external view) answers a question nobody asks. Skipped.
-  // …and a model with only a FEW such faces (the canopy art: 12-16 faces) asks the raster one point
-  // each, since depthPassCommit decides `seen` from ONE sample at the face's centre. Those are
-  // answered directly (stampSeenCheap): the nearest solid face over that point, and the world's
-  // occluders in a one-pixel window there. Past OWN_SEEN_MAX (a gloss finish asks for every body
-  // face) the raster is still the cheaper way to ask.
+  // This view and aircraft3d.js both use `depthPassBuild` + `depthPassCommit`. What a panel lacks
+  // (the world mask, the sun, the deferred blit) rides as options and hooks, since `occluderWindow`
+  // and `vehicleLightRig` are world-pass concerns.
+  // ⚠ WITH THE BODY ON THE GPU (`bodyOnGL`) THE RASTER ONLY STAMPS `seen` for the face loop (jazz,
+  // canopy art, gloss). A model with none skips it. A few faces (canopy art, 12-16) are answered
+  // directly by stampSeenCheap (the nearest solid face over the centre point, plus the world's
+  // occluders in a one-pixel window); past OWN_SEEN_MAX (gloss asks for every face) the raster is
+  // cheaper.
   const glossy = lv.finish === 'gloss';
   const needSeen = (fc) => (fc.uv && jazzImg) || (fc.cuv && detail) || (glossy && fc.role === 'body');
   const nNeed = c.bodyOnGL ? faces.reduce((n, fc) => n + (needSeen(fc) ? 1 : 0), 0) : -1;
@@ -39324,40 +37962,23 @@ function cornerBox(ctx, cx, cy, r) {
   ctx.stroke();
 }
 
-// Solid, HARD-EDGED paved surfaces with painted markings, laid over the Mode-7 floor.
-// Two kinds share the machinery: artery tiles render as a four-lane road (dashed lane
-// dividers + solid double-yellow centre); airfield tiles (`kind:'field'`) render as pale
-// airport-runway concrete (dashed white centreline + threshold "piano keys" where the
-// strip ends). Both get an opaque fill (no faded texture wash) plus a crisp kerb line
-// stroked along every boundary that meets a DIFFERENT surface — the hard edge, so the
-// pavement never bleeds softly into the terrain. Markings run in WORLD space along the
-// surface's direction, derived from which neighbours share the same surface (a N–S run
-// marks along y, an E–W run along x; a crossing tile stays bare).
+// Solid, hard-edged paved surfaces with markings over the Mode-7 floor. Artery tiles are a four-lane
+// road (dashed dividers, solid double-yellow centre); airfield tiles (`kind:'field'`) are pale runway
+// concrete (dashed white centreline, threshold piano keys). Opaque fill, plus a kerb line wherever a
+// DIFFERENT surface meets it. Markings run in WORLD space along the run, found from which neighbours
+// share the surface (N–S along y, E–W along x; a crossing stays bare).
 // ── WHICH CORNERS SWEEP, AND WHY THAT IS A QUESTION ABOUT THE INSIDE OF THE TURN ─────────────
 //
-// A swept corner is a quarter-circle centred on the tile corner BETWEEN the two arms. That is the
-// only circle of radius ELBOW_R that meets both tile edges square-on, which is what lets a bend
-// hand its neighbours exactly the lane positions a straight tile would have — a corner lines up
-// with the run either side of it with no numbers of its own to drift.
-//
-// It also means the arc and its inner kerb are pulled INTO that corner: the inner kerb ends up
-// about 0.06 of a tile from it. That is right where the corner is open and wrong where something
-// stands on it, which is the whole of the test:
-//
-//  · A BUILDING on the inside is the thing the street was laid around. A city block corner is
-//    square because the block is, and a half-tile sweep past a shopfront reads as a slip road
-//    somebody has cut through the middle of a block.
-//  · ROAD on the inside means this is not a corner at all. It is the edge of a wider MAT of road —
-//    Coldwater's Filament Street at 904,906 is the case that found this, where three streets run
-//    on three adjacent rows — and there the sweep would curve one carriageway into another.
-//
-// ⚠ DERIVED FROM THE NEIGHBOUR, NEVER AUTHORED, so a corner that gets built on later goes back to
-// a right angle with nothing to re-author and nothing for anybody to remember. Of the world's 21
-// elbows, 12 sweep and 9 stay square; the 9 carry 7–12 buildings in their own 5×5 and the 12 carry
-// 0–6, so the rule and the neighbourhood agree without the neighbourhood being part of the rule.
-//
-// ⚠ AND IT TAKES THE TWO DIRECTION VECTORS RATHER THAN THE LETTERS. `DIRV` lives in the painter;
-// a second copy of a four-entry compass table here is a second thing to get wrong.
+// A swept corner is a quarter-circle centred on the tile corner between the two arms: the only
+// radius-ELBOW_R circle meeting both edges square-on, so it hands neighbours a straight tile's lane
+// positions. Its inner kerb ends ~0.06 of a tile from that corner, so it sweeps only where the
+// inside is open:
+//  · A BUILDING inside: block corners are square; a sweep reads as a slip road through a block.
+//  · ROAD inside: it's the edge of a wider mat (Filament Street at 904,906, three streets on
+//    adjacent rows), and a sweep curves one carriageway into another.
+// ⚠ DERIVED FROM THE NEIGHBOUR, NEVER AUTHORED, so building on a corner squares it. Of 21 elbows,
+// 12 sweep and 9 stay square.
+// ⚠ IT TAKES THE TWO DIRECTION VECTORS, NOT LETTERS: `DIRV` lives in the painter; don't copy it.
 const ELBOW_R = 0.5;
 export { elbowSweep as _elbowSweep };   // smoke seam — see scripts/shapes/roadpaint.mjs
 function elbowSweep(at, rx, ry, A, B) {
@@ -42238,35 +40859,20 @@ function drawMarquee(ctx, cam, dx, dy, fh, h, bi, seed, night, alpha, now) {
 }
 
 // The model registries (bldgSlug, NAMED_MODELS, namedModel, TYPE_MODEL) are in glass/model-registry.js.
-// ⚠ A BAY HAS NO MODEL, and saying so here is what keeps the rest honest. Its tile still carries
-// `bt: 'truck_depot'`, so without this every consumer of a model — the ground shadow, the occlusion
-// pre-pass, the distance LOD — would silently use the truck_depot ARM's captured segments for a
-// tile that arm never drew (drawWorldObjects took the `mark` branch instead). Null puts all of them
-// on the plain-box path, which is what a shed actually is, at the height floorHeight now reports.
+// ⚠ A BAY HAS NO MODEL: its tile still says `bt: 'truck_depot'`, so without null the shadow, the
+// occlusion pre-pass and the LOD would use the truck_depot ARM's segments for a tile drawn by the
+// `mark` branch. Null puts it on the plain-box path at floorHeight's height.
 // ── AUTHORED MODELS JOIN THE TWO REGISTRIES, AND NEVER OVER AN ARM ──────────
 //
-// An authored model (content/building_models/*.json, baked to building-models.js) is an
-// ordinary `m` record whose `type` is 'authored'. That is the entire integration: modelFor
-// returns it like any other, so shapeForModel captures it, and CFIT collision, the truck
-// obstruction probe, ground shadows, occlusion hulls, the distance LOD and the cold open all
-// read it with no change of their own.
-//
-// ⚠ `??=`, NEVER `=`. A hand-written arm always wins. Two hundred of them are the best-looking
-// thing in this codebase, and a file dropped into content/ must not be able to silently replace
-// one — models:bake already refuses two authored models claiming the same key, so the only
-// collision left is authored-over-code, and this is where it loses. A binding that lands on an
-// occupied key is inert, which is visible in the Modelshop rather than mysterious in the sim.
-// ⚠ THE TWO EXCEPTIONS BOTH KEEP THE ARM. A model carrying `replaces` is a deliberate stand-in
-// for the arm named there — the Modelshop writes one when you fork a code arm and edit it, and
-// it makes no claim to look the same. A model carrying `portedFrom` is claiming
-// to REPLACE the arm named there, so it must win — but the arm is not deleted in the same move.
-// It stays reachable in LEGACY_MODELS for two reasons, and both are the difference between a
-// reviewable change and a leap:
-//   · scripts/shapes/modeldiff.mjs diffs the two on every push, so the claim keeps being checked
-//     for as long as the arm exists rather than once when somebody made it;
-//   · RENDER_TUNE.legacyArms puts the whole city back on the hand-written arms with one flag,
-//     so a bad port is a flip in prod rather than a revert of the file everything else edits.
-// Delete the arm in a LATER commit, deliberately, once the port has flown.
+// An authored model (content/building_models/*.json, baked to building-models.js) is an `m` record
+// with `type: 'authored'`, so modelFor, shapeForModel, CFIT, the truck obstruction probe, shadows,
+// occlusion hulls, LOD and the cold open read it unchanged.
+// ⚠ `??=`, NEVER `=`: a hand-written arm always wins. models:bake refuses two authored models on one
+// key, so authored-over-code is the only collision left, and it loses (inert, visible in Modelshop).
+// ⚠ THE EXCEPTIONS KEEP THE ARM. `replaces` is a deliberate stand-in (the Modelshop writes it on
+// fork-and-edit). `portedFrom` claims to REPLACE the arm and wins, but the arm stays in LEGACY_MODELS:
+// scripts/shapes/modeldiff.mjs diffs the two on every push, and RENDER_TUNE.legacyArms flips the
+// city back in prod. Delete the arm in a LATER commit, once the port has flown.
 export const LEGACY_MODELS = {};
 for (const [key, m] of Object.entries(AUTHORED_MODELS)) {
   const named = key.startsWith('named:');
@@ -42373,37 +40979,17 @@ export function captureModelMesh(m, opts = {}) {
 
 // ── WHAT IS STILL PAINTED ON THE CANVAS, OVER THE COMPOSITED CITY? ──────────
 //
-// With GLASS 2 on, the GL canvas is blitted and THEN `flushFaces` paints whatever is still in the
-// 2-D queue. Everything in that queue is drawn over the finished city with no depth test at all —
-// `decoHidden` is the only thing standing between it and a sign showing through a tower, and that
-// probe answers per SURFACE: it hides an adornment only when the whole of it is covered, so a
-// blade standing proud of a roofline, a helideck ring whose far edge clears a warehouse, or a
-// lattice tower with its head in clear air all draw WHOLE. That is the report this exists for.
-//
-// So: run one model's arm exactly as a GL frame runs it — every sink open, MASS_OFF and FLAT_OFF
-// set — and hand back what each sink caught, with the residue TAGGED BY THE FUNCTION THAT QUEUED
-// IT. The queue cannot be read backwards at flush time (the closure's origin is gone), which is
-// why this rides `EMIT_TALLY` rather than inspecting the finished list.
-//
-// ⚠ A REAL CAMERA, NOT THE STUB. `emitSurfaceText` hands its quad to the decal layer through
-// `cam.unproj`, and a stub camera has none — so under the stub every painted sign in the city
-// reports as canvas residue that the game puts on the depth buffer. The census would then be a
-// list of things that are already fixed.
-//
-// ⚠ AND NOTHING IS FLUSHED. The tally is taken at EMIT time; running the closures would paint a
-// hundred arms against a stub context for an answer already recorded.
-// ⚠ THIS MODELS A DRAW FRAME, NOT A CAPTURE, AND FOR A WHILE IT MODELLED NEITHER. Two defaults
-// between them made the census blind to the entire derived detail kit — every board, canopy, pipe,
-// lamp, sign and neon run in the city — which is most of what a building is made of now:
-//
-//   · `tier` was ADORN_RICH and `detailLayer` returns below ADORN_NEAR, so the kit never ran at all.
-//   · `MESH_SINK` was an open array, and `emitFlat`'s `paint` branch returns early when one is set
-//     (a per-tile surface is never in a mesh). So even with the tier raised, exactly the surfaces
-//     most likely to be stranded on the canvas were dropped before they could be tallied.
-//
-// A GLASS 2 frame has FLAT_OFF set and NO mesh sink — the mesh was built earlier and is being drawn
-// from. That is the frame whose leftovers this exists to count, so that is the frame it sets up. The
-// cost is the mesh tally, which is `gl:mesh`'s job anyway and was only ever incidental here.
+// With GLASS 2, `flushFaces` paints the leftover 2-D queue over the composited city with no depth
+// test; `decoHidden` hides only a fully covered adornment, so a blade over a roofline draws whole.
+// This runs one model's arm as a GL frame does (every sink open, MASS_OFF and FLAT_OFF set) and
+// returns what each sink caught, tagged by the queuing function via `EMIT_TALLY` (the queue has lost
+// origins by flush time).
+// ⚠ A REAL CAMERA, NOT THE STUB: `emitSurfaceText` reaches the decal layer through `cam.unproj`,
+// which a stub lacks, so every sign would falsely report as residue.
+// ⚠ NOTHING IS FLUSHED: the tally is taken at emit time.
+// ⚠ IT MODELS A DRAW FRAME: `tier` must reach ADORN_NEAR or `detailLayer` skips the whole derived
+// kit, and there's NO mesh sink, since `emitFlat`'s `paint` branch returns early when one is set.
+// The mesh tally is `gl:mesh`'s job.
 export function canvasResidue(m, opts = {}) {
   const { fh = 0.4, h = 1, seed = 3, E = [0, 1], night = 1, tier = ADORN_NEAR, cam = null, dx = 0, dy = -8, now = 1e6 } = opts;
   const sv = {
@@ -43315,43 +41901,23 @@ export function renderModelPreview(canvas, opts = {}) {
   return { cam, dx, dy, horizonY };
 }
 
-// VIEW smoke — paintWindshield itself, once per view SHAPE the game actually mounts.
-//
-// Why this exists, and why it is not covered by the three smokes above. Every one of those enters
-// BELOW paintWindshield (drawTypeModel, drawCabInterior, groundObstructionAt), so the renderer's
-// own entry function — its ~120 lines of view unpacking, camera solve and pass ordering, which run
-// before any model does — had no coverage at all. On 2026-08-15 a `resFloor` read landed 24 lines
-// ABOVE the `const v = view || {}` it reads, and every call threw
-// `ReferenceError: Cannot access 'v' before initialization` on line one of the paint. Black glass in
-// the truck cab, in both cockpits and in the helm view, and shapes:smoke stayed green throughout
-// because none of its entry points is this one.
-//
-// The cases are the view SHAPES, not the callers: forward vs. framed (side window / porthole) vs.
-// external chase, ground vs. air, and the truck cab's `height: 0, resFloor: 1` — which is its own
-// case precisely because that pair is what the regression rode in on.
-//
-// Same bar as the rest of this file's smokes: it proves the renderer RUNS, not that it looks right.
-//
-// `ID` must already resolve through document.getElementById to a sized canvas — the caller owns the
-// DOM, since this file must not import anything out of scripts/.
+// VIEW smoke: paintWindshield itself, once per view SHAPE the game mounts.
+// The other smokes enter BELOW paintWindshield (drawTypeModel, drawCabInterior,
+// groundObstructionAt), so its ~120 lines of view unpacking, camera solve and pass ordering had no
+// coverage. On 2026-08-15 a `resFloor` read landed above `const v = view || {}` and every paint threw
+// a ReferenceError (black glass in the cab, both cockpits and the helm) while shapes:smoke stayed green.
+// The cases are view SHAPES: forward vs framed (side window / porthole) vs external chase, ground vs
+// air, and the cab's `height: 0, resFloor: 1` (the regression's own case). It proves the renderer
+// RUNS, not that it looks right. `ID` must resolve via document.getElementById to a sized canvas;
+// the caller owns the DOM, since this file can't import from scripts/.
 // ── DOES THE DEPOT SHED HIDE WHAT IS BEHIND IT? ──────────────────────────────
-// The bay is the one building with no `shapeForModel`, so it fell out of the occluder pass at the
-// first `continue` and contributed nothing at all — the truck drew straight through its walls, from
-// every angle, for as long as the shed has existed. Nothing caught it because every other test here
-// asks whether a thing DRAWS, and this is a bug about a thing that draws when it should not.
-//
-// So: one chase frame over a map whose only building is a shed off to the side, and the occlusion
-// field must come back with cells covered. Then the two cases that must NOT cover — a shed with your
-// own rig inside it (it is in cutaway for you, and masking against a wall you are being shown
-// through is the same bug one layer down) and an empty map (nothing to hide behind).
-//
-// It also asserts the two things the FIELD gained when it stopped being a row of columns, because
-// both are invisible to a test that only counts coverage:
-//   · the field is a GRID — there is a cell above the shed's own roofline that is open sky, which a
-//     column buffer could not express and which is the whole reason the door header was left out;
-//   · and the near solids are kept as quads for the own ship's per-pixel pass, so a shed beside you
-//     puts something in OCC_SOLIDS. That is the list the truck is actually masked against, and an
-//     empty one is a mask that silently does nothing.
+// The bay has no `shapeForModel`, so it dropped out of the occluder pass and the truck drew through
+// its walls. One chase frame with a shed off to the side must cover cells; a shed with your own rig
+// inside (cutaway) and an empty map must not. It also checks:
+//   · the field is a GRID: a cell above the shed's roofline is open sky (why the door header is left
+//     out), which a column buffer can't express;
+//   · near solids are kept as quads for the own ship's per-pixel pass, so a shed beside you puts
+//     something in OCC_SOLIDS; an empty list is a mask that silently does nothing.
 export function bayOccluderSmoke(ID) {
   const out = [];
   const R = 8, N = R * 2 + 1;
@@ -43835,38 +42401,20 @@ function helideck(ctx, cam, dx, dy, z, r, glow, paint, night, alpha, now, seed =
 }
 // ── AN EMBLEM AS A SLAB, BUILT RATHER THAN PAINTED ──────────────────────────
 //
-// A clinic's cross and the eye over St Garneau's door carry the whole identity of their buildings
-// with no lettering in them at all, and both were drawn flat: the cross a 64px texture on a
-// screen-space quad clamped to sixteen pixels, the eye a 1.8px ring stroke. From the cab they read
-// as stickers on the horizon; from the air they were dots.
-//
-// ⚠ IT IS GEOMETRY, NOT A DECAL, AND THAT IS THE WHOLE CHANGE. A billboard has one size, keeps it
-// however you move, and has no side at all — so it can never be part of a silhouette, which is what
-// a sign bolted over a door is FOR. This is a solid with two faces and a real rim, so it turns with
-// the building, foreshortens to an edge as you pass it, and is hidden per pixel by whatever is in
-// front of it. The same argument `bladePanel` makes against `neonBlade`, one storey further up.
-//
-// ⚠ IT GOES THROUGH `emitFlat`, WHICH PUTS IT IN THE MESH AND NOT IN THE SHAPE. A depth-tested
-// surface costs nothing to draw and the GPU keeps the whole window, so the emblem stays on the
-// skyline the way the building does — while `emitFlat` returns on SHAPE_SINK, so none of it reaches
-// CFIT, the occluder hull, the ground shadow or the LOD segments. A rooftop sign you can fly into
-// is not this, and `mast` has always been drawn on the same terms.
-//
-// ⚠ AND THE FACES CARRY CONSTANT COLOURS, DELIBERATELY. A mesh is captured ONCE per model at a
-// fixed hour and shared by every tile drawing it, so a colour chosen by `night` has no single
-// answer at capture time — the trap `emitDecoFill` exists for. Enamel is enamel at noon and at
-// midnight. What changes after dark is the TUBE round the face, which is `emitWire` and therefore
-// rebuilt every frame by the arm that knows the hour, and the wash it throws on its own wall.
-//
-// `P(u, y, w)` maps the emblem's own frame — u across the frontage, y out through the face, w up
-// from its centre — into the world, and is the caller's, so nothing here needs to know where the
-// building is. `rim` is the outline in (u, w), wound CLOCKWISE, which is counter-clockwise seen
-// from the front and therefore the winding Newell needs for a normal that points at the viewer:
-// there is no `faceforward` in the GL shader, and a reversed face is lit from inside.
-//
-// ⚠ `faces` IS THE OUTLINE'S CONVEX DECOMPOSITION, NEVER THE OUTLINE. The GL mesh triangulates a
-// face as a FAN from its first vertex, and a fan fills in the notches of a concave polygon — hand
-// a twelve-sided plus over whole and it arrives as a square. A convex outline passes `[rim]`.
+// A clinic's cross and the eye over St Garneau's door carry their buildings' identity, and drawn flat
+// (a 16px-clamped billboard, a 1.8px ring) they read as stickers or dots.
+// ⚠ IT IS GEOMETRY, NOT A DECAL: a solid with two faces and a rim turns with the building,
+// foreshortens and is hidden per pixel (as `bladePanel` argues against `neonBlade`).
+// ⚠ IT GOES THROUGH `emitFlat`: into the mesh, not the shape (it returns on SHAPE_SINK), so no CFIT,
+// occluder hull, ground shadow or LOD segments, on the same terms as `mast`.
+// ⚠ THE FACES CARRY CONSTANT COLOURS: a mesh is captured once at a fixed hour and shared, so a
+// `night` colour has no answer (the `emitDecoFill` trap). The tube (`emitWire`, rebuilt per frame)
+// and its wall wash carry the night.
+// `P(u, y, w)` maps the emblem frame (u across, y out through the face, w up) into the world and is
+// the caller's. `rim` is the (u, w) outline wound CLOCKWISE, counter-clockwise from the front, so
+// Newell's normal faces the viewer (no `faceforward` in the shader; a reversed face is lit inside).
+// ⚠ `faces` IS THE CONVEX DECOMPOSITION, NEVER THE OUTLINE: the mesh fans from the first vertex,
+// which fills a concave plus into a square. A convex outline passes `[rim]`.
 function emblemSlab(ctx, cam, P, E, rim, faces, d, front, back, rimCol, alpha, tube) {
   const px = E[1], py = -E[0];
   const nF = [E[0], E[1]], nB = [-E[0], -E[1]];
@@ -44719,35 +43267,17 @@ let _bladeSign;   // ambient: the current building's display name, set by drawTy
 let _bladeBasis = { fh: BUILDING_FOOT, E: [0, 1] };
 // ── …AND THE HAND IT LETTERS IN ─────────────────────────────────────────────
 //
-// The same idiom for the same reason: ~30 arm call sites hand `bakeSignText` a label and a colour
-// and nothing else, so the only way a frieze, a false front or a blade could letter itself in
-// anything but mono is if the default came from the building rather than from the argument list.
-//
-// ⚠ IT IS NOT SAVED AND RESTORED THE WAY `_bladeSign` IS, AND THAT IS SAFE FOR ONE STATED REASON:
-// every re-entrant pass that could overwrite it is a capture OF THE SAME MODEL (`derivedTrim` →
-// `shapeForModel(m)`, `armSignsItself(m)`, `captureModelMesh(m)`), so the value it writes is the
-// value that was already there. The two places a DIFFERENT model is captured mid-frame — the
-// occluder pre-pass and the shadow pass — are outside any arm, and both entry points below write
-// this before anything reads it. If a third entry point ever appears, it writes it too.
-//
-// ⚠ TWO THIRD ENTRY POINTS DID APPEAR AND NEITHER WROTE IT, WHICH IS "THE SIGNAGE KEEPS CHANGING
-// SIZE". `drawVehicleBay` and `drawRoadSign` are MARKS, not models — they letter a name board and
-// neither is anywhere inside `drawTypeModel` — so each was reading whatever hand the LAST BUILDING
-// left here. The world pass draws buildings and marks from ONE back-to-front list, so which
-// building that is changes with every metre the camera moves.
-//
-// For an UNTIGHT caller that is a wrong hand and nothing more: the reserved box is a cell per
-// character and no face's ink overruns it, so the canvas is the same size whoever lettered it. For
-// a `tight` one it is a SIZE, because a tight canvas is cropped to the INK and the caller then fits
-// its quad to the texture's aspect. Measured against real font metrics over the eleven faces,
-// "COLDWATER" is 4.32 cells wide in mono and 6.92 in script — a **1.6× spread** — and the road
-// board divides its one shared cap height by exactly that number (`baseH = nameBoxW / widestA`).
-// So the lettering on a highway sign was sized by whatever the last building happened to be called,
-// and a window holding three or four hands is the "three sizes it rotates between".
-//
-// Both write it now. `__signHandsStart()`/`__signHands()` is the instrument and
-// `scripts/shapes/signhand.mjs` is the gate — it paints each mark behind neighbours lettered in
-// different hands and fails if the mark's own hand moves.
+// ~30 arm call sites hand `bakeSignText` only a label and colour, so the face default comes from the
+// building, not the argument list.
+// ⚠ NOT SAVED AND RESTORED LIKE `_bladeSign`: every re-entrant pass that could overwrite it captures
+// the SAME model (`derivedTrim` → `shapeForModel(m)`, `armSignsItself(m)`, `captureModelMesh(m)`).
+// Other models are captured mid-frame only in the occluder pre-pass and shadow pass, outside any
+// arm, and every entry point writes this before anything reads it. A new entry point must too.
+// ⚠ `drawVehicleBay` AND `drawRoadSign` ARE MARKS and once didn't, so they lettered in the last
+// building's hand. For a `tight` caller that's a SIZE (the canvas is cropped to ink): "COLDWATER" is
+// 4.32 cells in mono and 6.92 in script, a 1.6× spread the road board divides by
+// (`baseH = nameBoxW / widestA`). Instrument: `__signHandsStart()`/`__signHands()`; gate:
+// `scripts/shapes/signhand.mjs`.
 let _signFace = 'mono';
 // ── …AND WHAT EACH SIGN WAS ACTUALLY LETTERED IN ────────────────────────────
 //
@@ -44802,40 +43332,20 @@ export function setTilePlace(p) { const was = _place; _place = p; return was; }
 const _marqueeTexCache = new Map();
 // ── A SIGN CAN BE LETTERED IN MORE THAN ONE HAND, AND A PICTOGRAM IS A WORD ────────────────────
 //
-// Every sign in Coldwater was `bold monospace` in a straight line. That is a typewriter, and a city
-// whose whole visual argument is neon does not letter its bars in Courier. Two additions, both
-// authored per sign and both defaulting to exactly what shipped.
-//
-// ⚠ A NON-MONOSPACE FACE MUST BE MEASURED, NEVER RESERVED. The horizontal layout below reserves a
-// full CELL per character, which is a monospace assumption — it is already nearly twice the ink a
-// mono advance uses, and against a script face with its long tails and tight joins it is wildly
-// wrong in both directions at once. So anything but `mono` takes the measured path whether or not
-// the caller asked for `tight`.
-//
-// ⚠ AND THE STACK ENDS IN A GENERIC FAMILY ON PURPOSE. `cursive` and `sans-serif` resolve to
-// SOMETHING on every machine, which is the property that matters: a missing font falls back to a
-// different hand, never to no sign. What it must not do is fall back to the DEFAULT face, which is
-// what naming one family and no family keyword would do — a script sign silently rendering as body
-// text on any machine without that font, and looking like the option not working.
+// Signs were all `bold monospace` in a straight line. Faces and pictograms are authored per sign and
+// default to what shipped.
+// ⚠ A NON-MONOSPACE FACE MUST BE MEASURED, NEVER RESERVED: the horizontal layout reserves a CELL per
+// character, so anything but `mono` takes the measured path whether or not the caller asked `tight`.
+// ⚠ EVERY STACK ENDS IN A GENERIC FAMILY (`cursive`, `sans-serif`), so a missing font falls back to
+// a different hand, never to the default body face.
 // ── ⚠ EVERY STACK IS CHECKED AGAINST WHAT IS ACTUALLY INSTALLED, NOT AGAINST WHAT SHIPS ────────
 //
-// A CSS stack takes the first family that EXISTS, so a face is only as distinct as its first
-// available entry — and measured in the browser on a stock Windows 10 box with no Office, nine of
-// the families these stacks named were absent: Rockwell, Bookman Old Style, Playbill, Copperplate
-// Gothic, Old English Text MT, Blackadder ITC, Stencil, Eurostile and Brush Script MT. The fallback
-// worked exactly as documented — a different hand, never body text — and the RESULT was that
-// several faces collapsed onto the SAME font: `stencil` and `block` both landed on Arial Black,
-// `western` and `slab` both on Georgia, `gothic` on Cambria beside them. Eleven names, five hands.
-//
-// So each stack now carries a real Windows face after its ideal one: Sitka (a display serif family
-// in five optical sizes), Gabriola (a calligraphic display face), Bahnschrift and Bahnschrift
-// Condensed (DIN), Segoe Script, Arial Narrow, Arial Black. A machine WITH the ideal font is
-// unchanged; a machine without one now gets a face chosen for this slot rather than whichever
-// generic serif happened to be next.
-//
-// ⚠ AND HALF OF WHAT MAKES A SIGN READ AS A SIGN IS THE TRACKING, WHICH THIS TABLE COULD NOT SAY.
-// An engraved bank plaque and a fat saloon board can be cut from the same serif and are told apart
-// by their letter-spacing before anything else. `ctx.letterSpacing` carries it — see SIGN_TRACK.
+// A stack takes the first family that EXISTS. On stock Windows 10 without Office, Rockwell, Bookman
+// Old Style, Playbill, Copperplate Gothic, Old English Text MT, Blackadder ITC, Stencil, Eurostile
+// and Brush Script MT are absent, and eleven names collapsed to five hands. So each stack carries a
+// real Windows face after its ideal one: Sitka, Gabriola, Bahnschrift (and Condensed), Segoe Script,
+// Arial Narrow, Arial Black.
+// ⚠ TRACKING IS HALF OF A SIGN'S READ: `ctx.letterSpacing` carries it (SIGN_TRACK).
 export const SIGN_FONT = {
   mono: (C) => `bold ${Math.round(C * 0.72)}px Consolas,"DejaVu Sans Mono",monospace`,
   script: (C) => `${Math.round(C * 0.92)}px Yellowtail,"Brush Script MT","Segoe Script","Snell Roundhand",cursive`,
@@ -45813,35 +44323,16 @@ function bakeSignText(label, color, dn, vertical, solid, tight, opts) {
 }
 // ── LETTERING IS FITTED TO ITS BOARD, NEVER STRETCHED ONTO IT ────────────────────────────────
 //
-// Every sign in this game maps a baked canvas onto a quad somebody sized separately, and until now
-// the two were simply assumed to agree. They do not, and they cannot: a board's size is a property
-// of the MODEL (the list is cached per model, and `signBoard`/`signGantry` size theirs off the
-// wall they are bolted to) while `$name` is a property of the TILE, so the same board carries a
-// four-letter name and a fourteen-letter one and the texture is squeezed to fit whichever turned
-// up. Measured over the registry before this: 252 of 254 sign quads disagreed with their own
-// texture by more than 18%, and the commonest case was an 11.3:1 bake squashed onto a 4.75:1
-// board — letters at 42% of their own width, which is the "stretched, illegible" report.
-//
-// ⚠ IT IS A FIT, NOT A RESIZE. The quad the caller chose is the space the sign is allowed; this
-// only ever takes LESS of it, centred, so nothing moves outside a board, no board changes size and
-// a caller whose quad already matched is untouched by construction.
-//
-// ⚠ IT IS DONE IN THE BOARD'S OWN LOCAL FRAME, BEFORE PROJECTION, AND THAT IS NOT A CONVENIENCE.
-// The obvious place is the projected quad — one chokepoint, every sign in the city — and it is
-// wrong, because THIS CAMERA IS ANAMORPHIC. `proj` scales lateral offsets by `FL` and heights by
-// `depth`, and the two are set independently off the canvas: measured, one world unit across
-// renders 142.6px and one world unit up renders 102.7px at the flight sim's 1200×560, 107 and 110
-// in the Modelshop, 76.1 and 66.0 in a small cab. So a world square is not a screen square, and by
-// a different amount in every seat. Fitting on screen would make the lettering the only thing in
-// the frame NOT sharing the world's own projection — correct in the Modelshop, visibly wrong in a
-// cab, and differently wrong again if somebody resizes the window.
-//
-// Fitted here, the letters are painted on the board at true proportions and the camera then treats
-// them exactly as it treats the wall they are painted on, which is what a sign is.
-//
+// A board's size belongs to the MODEL (cached per model; `signBoard`/`signGantry` size off their
+// wall) while `$name` belongs to the TILE, so textures were squeezed onto whatever board: 252 of 254
+// sign quads disagreed with their texture by over 18% (commonly an 11.3:1 bake on a 4.75:1 board).
 // ⚠ IT IS A FIT, NOT A RESIZE: it only ever takes LESS of the caller's quad, centred, so no board
 // changes size, nothing moves outside one, and a quad that already matched is returned untouched.
-// ⚠ AND IT PRESERVES TL,TR,BR,BL ORDER, which the decal layer's `cull` reads as the sign's facing.
+// ⚠ IT'S DONE IN THE BOARD'S LOCAL FRAME, BEFORE PROJECTION, BECAUSE THE CAMERA IS ANAMORPHIC: `proj`
+// scales lateral by `FL` and height by `depth`, set independently (one world unit: 142.6px across,
+// 102.7px up at the sim's 1200×560; 107/110 in the Modelshop; 76.1/66.0 in a small cab). Fitted on
+// screen, the lettering alone would ignore the world's projection.
+// ⚠ IT PRESERVES TL,TR,BR,BL ORDER, which the decal layer's `cull` reads as the sign's facing.
 function fitSignPts(pts, tex) {
   if (!tex || !(tex.width > 0) || !(tex.height > 0)) return pts;
   const [TL, TR, , BL] = pts;
@@ -45897,76 +44388,38 @@ function standOffQuad(q, d) {
 }
 // Map a baked texture onto a projected quad [TL,TR,BR,BL] ({sx,sy}) by strip subdivision.
 // `vertical` runs the strips down the column (letters top→bottom) vs across the band. Must be
-// called INSIDE an emitFace closure — it is pure screen-space drawing and composes onto the
-// current (DPR) transform via ctx.transform, never setTransform, so it stays in world scale.
-// ⚠ `fitted` SAYS THE QUAD HAS ALREADY BEEN FITTED, and it is not an optimisation — the fit is not
-// idempotent once a margin is involved and `emitSurfaceText` calls this as its own fallback, so
-// without it a sign that took the canvas path would be inset twice.
+// called INSIDE an emitFace closure: pure screen-space drawing, composed onto the current (DPR)
+// transform via ctx.transform, never setTransform, so it stays in world scale.
+// ⚠ `fitted` SAYS THE QUAD IS ALREADY FITTED: the fit isn't idempotent with a margin, and
+// `emitSurfaceText` calls this as its fallback, so without it a sign is inset twice.
 // WORLD TEXT, ON THE DEPTH BUFFER.
-//
-// Every sign painted onto a surface in this game — a frieze, a parapet, a false front, a price
-// board, a stencilled bay number — is a baked canvas mapped onto a real quad, which is exactly
-// what decals.js already draws for the marquees. It was still the largest thing GLASS 1 drew in
-// the world: 328 drawImage calls a frame on a dense city window, eight affine strips per sign,
-// because a 2-D canvas cannot map a texture through a perspective divide and has to fake it by
-// subdivision. On the GPU it is one quad and the divide is free, so it is also more correct.
-//
-// ⚠ IT MUST BE CALLED AT EMIT TIME, NOT FROM INSIDE THE emitDeco CLOSURE. That closure runs at
-// flush, after the composite has read and cleared DECAL_SINK — the same trap the Curtain, the
-// scatter, the cliff and the contacts each hit. So this helper takes the points and does the
-// probing itself, and falls back to queueing the 2-D blit when there is no sink to fill.
-//
-// ⚠ The quad comes back through cam.unproj, so no caller has to grow a world-space twin of a
-// screen-space one it already computed. See makeCam: it answers null under pitch and this falls
-// back rather than guessing.
-// ⚠ `onCanvas` — LETTERING MUST COMPOSITE WHERE ITS BOARD DOES. The GL canvas is blitted BEFORE the
-// 2-D pass, so a decal is UNDER everything the painter then draws. That is right for a sign whose
-// board is in the mesh (both are on the GPU, both under the canvas) and wrong for one whose board is
-// a `paint` quad on the canvas — there the board is drawn after the decal and covers its own words.
-// Measured as a name board that appeared with its lettering in GLASS 1 and as a blank dark band in
-// GLASS 2, which reads exactly like a sign whose text failed to render rather than like a z-order
-// bug. A caller that paints its own board passes true and gets the 2-D path for the text as well.
-// ⚠ `pull` IS HOW FAR THE TEXT SITS IN FRONT OF ITS OWN BOARD, AND IT IS NOT `lift`. The default is
-// FACE_EPS — a hair — which is right for lettering painted straight onto a wall, and that is most
-// callers. It is NOT right for lettering on a board that is itself a decal: `emitFlat`'s `paint`
-// path pulls a per-tile board by DETAIL_LIFT, so text at FACE_EPS lands behind the thing it is
-// written on and the board comes out blank. A caller that owns a board says how far to clear it.
-// ⚠ AND IT MUST STAY SMALL. `lift` is the caller's SORT bias and is 0.6 of a tile by default;
-// using that as the pull would slide every sign two-thirds of a tile toward the eye and back
-// through the neighbour in front. The two are different numbers for different jobs.
+// Surface lettering is a baked canvas on a real quad, as decals.js draws the marquees. On GLASS 1 it
+// was 328 drawImage calls a frame on a dense window (eight affine strips per sign); on the GPU it's
+// one quad with a free perspective divide.
+// ⚠ CALL IT AT EMIT TIME, NOT INSIDE THE emitDeco CLOSURE: that runs at flush, after the composite
+// read and cleared DECAL_SINK. This probes itself and falls back to the 2-D blit with no sink.
+// ⚠ The quad comes back through cam.unproj (null under pitch, see makeCam; then it falls back).
+// ⚠ `onCanvas`: LETTERING MUST COMPOSITE WHERE ITS BOARD DOES. Decals sit under the 2-D pass, so text
+// on a canvas-painted board is covered by it (a blank band on GLASS 2). A caller painting its own
+// board passes true.
+// ⚠ `pull` IS HOW FAR TEXT SITS IN FRONT OF ITS BOARD, NOT `lift`. FACE_EPS suits text on a wall; a
+// board that's a decal (`emitFlat` `paint`, pulled by DETAIL_LIFT) needs more or it covers its text.
+// Keep it small: `lift` (sort bias, 0.6 tile) as a pull slides signs through the neighbour in front.
 function emitSurfaceText(ctx, cam, pts, tex, vertical, alpha, lift = DECO_LIFT, onCanvas = false, pull = FACE_EPS, deep = 0) {
   // ── FITTED IN WORLD SPACE, ONCE, FOR BOTH RENDERERS ─────────────────────────────────────────
   //
-  // ⚠ THE UNPROJECTION IS DONE FIRST NOW, AND NOT ONLY FOR THE GPU. It is the only place the four
-  // corners exist as WORLD points, and world is the one frame the fit can be done in — see the ⚠ on
-  // fitSignPts for why a screen-space inset is wrong on this camera. So the fitted WORLD quad goes
-  // to the decal layer and its RE-PROJECTION goes to the canvas, which is what keeps the two
-  // renderers drawing the same sign rather than each fitting its own.
-  //
-  // ⚠ AND `pull` MOVES DEPTH, NOT POSITION, which is what makes the round trip safe: it slides a
-  // corner along its own view ray, so re-projecting lands on the pixel it started from.
-  // ⚠ AND THE UNPROJECTION IS EXACT — pull 0 — BECAUSE THE STAND-OFF IS NO LONGER ITS JOB. See
-  // `standOffQuad`: carried in `f` it scales each corner by a different amount and leans the sign,
-  // so it is applied to the finished quad along that quad's own normal instead. `signSquare` 0 is
-  // the old arrangement, corner by corner, for the A/B.
-  //
-  // ⚠ AND `deep` IS THE OTHER HALF, BECAUSE A BLADE'S PULL IS NOT A STAND-OFF AT ALL. `pull` is a
-  // RIGID translation along the quad's own normal - a board really does stand a little off its
-  // wall, which is why a pilaster fin bolted to that wall is correctly behind it. `deep` is a
-  // homothety about the eye: it moves the depth and not one pixel, exactly as `emitDecoQuad` spends
-  // `BLADE_PROUD` on the board itself. A blade needs that and only that, because its anchor is
-  // authored INSIDE its own facade and the board has to win the depth test there - it is not
-  // standing a quarter of a tile out over the pavement.
-  //
-  // ⚠ THE BLADE WAS SPENDING IT AS `pull`, AND THAT IS THE LOGO FLOATING OFF ITS OWN PLACARD.
-  // 0.256 of a tile of real world motion toward the eye, on all 33 lettered blades in the city,
-  // while the board it is painted on did not move a pixel. Worst from the pavement, where a quarter
-  // of a tile is most of a sign's width. `signswim`'s SEATED check is the gate.
-  //
-  // ⚠ AND THE SPLIT IS DECLARED BY THE CALLER, NEVER INFERRED FROM THE SIZE. A first cut took
-  // everything above `FACE_EPS` as depth, which is right for the blade and wrong for every ordinary
-  // `signBoard`: those stand off 0.05 of a tile ON PURPOSE, and flattening them onto their own wall
-  // put 92 models' worth of kit fins and tubes in front of their own name. `signfit` caught it.
+  // ⚠ UNPROJECT FIRST, FOR BOTH RENDERERS: world is the only frame the fit works in (see
+  // fitSignPts), so the fitted WORLD quad goes to the decal layer and its re-projection to the canvas.
+  // ⚠ `pull` MOVES DEPTH, NOT POSITION: it slides a corner along its view ray, so the round trip
+  // lands on the same pixel.
+  // ⚠ THE UNPROJECTION IS EXACT (pull 0): the stand-off is applied to the finished quad along its own
+  // normal (`standOffQuad`), since a per-corner `f` leans the sign. `signSquare` 0 is the old way.
+  // ⚠ `deep` IS FOR BLADES: `pull` is a RIGID translation (a board stands off its wall); `deep` is a
+  // homothety about the eye, moving depth and no pixel, as `emitDecoQuad` spends `BLADE_PROUD`. A
+  // blade's anchor is inside its facade. Spent as `pull` it floated the logo 0.256 tile off all 33
+  // lettered blades (gate: `signswim` SEATED).
+  // ⚠ THE CALLER DECLARES THE SPLIT; NEVER INFER IT FROM SIZE: `signBoard` stands off 0.05 on
+  // purpose, and flattening it put 92 models' fins and tubes over their own name (`signfit` caught it).
   const sq = RENDER_TUNE.signSquare;
   // ── ⚠ ZERO GAP: LETTERING IS ON ITS BOARD, NOT IN FRONT OF IT ────────────────────────────────
   // Every `pull` a caller asks for is spent as `deep` now: a depth bias about the eye, which moves
@@ -46109,40 +44562,21 @@ function drawSurfaceText(ctx, TL, TR, BR, BL, tex, vertical, alpha) {
 }
 // ── HOW FAR OUT A BLADE HANGS ───────────────────────────────────────────────
 //
-// A blade is a PROJECTING sign: it is out on a bracket over the pavement, which is the whole reason
-// a bar puts one up. Its anchor is not — measured on `type:bar`, the arm puts it at 0.16 of a tile
-// forward while that building's own front wall is at 0.328, so it is authored a sixth of a tile
-// INSIDE the facade it advertises. Every arm here is like that, because the painter's queue never
-// asked: `DECO_LIFT` sorted the blade in front of its own walls and nobody had to place it.
-//
-// A depth buffer asks. At a tie-breaker's pull the wall wins and the only part of the sign that
-// draws is whatever crests the roofline, which is the sign not working. So a blade says how far out
-// it hangs, and the number is bounded at both ends: over the deepest facade this reaches (0.44 of a
-// tile, `draw3DBoxAt`'s own clamp) and under the near face of a building one tile in front (0.56).
-// ⚠ IT IS A PULL, NOT A MOVE. The quad's screen position is untouched — see the ⚠ on DECO_PULL —
-// so the 2-D renderer's picture is exactly what it was and only the depth it is compared at moves.
+// A blade is a PROJECTING sign, but arms author its anchor inside the facade (`type:bar`: 0.16
+// forward, wall at 0.328); `DECO_LIFT` used to hide that. On the depth buffer the wall wins, so a
+// blade says how far out it hangs, bounded over the deepest facade (0.44, `draw3DBoxAt`'s clamp) and
+// under the near face of a building one tile in front (0.56).
+// ⚠ IT IS A PULL, NOT A MOVE: the screen position is untouched (see the ⚠ on DECO_PULL), so the 2-D
+// picture is unchanged.
 // ── WHAT SOMEBODY SPRAYED ON THIS WALL, IN THEIR OWN WORDS ───────────────────────────────────
 //
-// `plugins/graffiti` has let a player tag a building since it shipped: a can, a wall on an adjacent
-// exit, one tag per street tile, three game days and it weathers off. The words land in the room
-// description and the renderer has never heard of them — so you spray a wall, read yourself in the
-// log, and then look at that same wall out of the windscreen and see somebody else's anonymous
-// scribble. The derived kit's `tag` part is that scribble: abstract strokes rolled off the model
-// seed, on 28% of frontages, and wordless on purpose.
-//
-// This is the other half. `gft` is live tile data gathered server-side, exactly as `brd` carries a
-// forecourt's prices — see deriveSurfaceCell — because what is written on a wall is a fact about
-// the world at this moment and is nothing an arm could derive.
-//
-// ⚠ IT CANNOT GO IN THE MESH, AND THAT IS WHY IT IS SHAPED THIS WAY. `tileMesh` memoises per model
-// per scale, so a mesh holds ONE appearance shared by every tile drawing that model — put a wall's
-// words in it and every branch of the same chain wears them. That is the `$name` board's problem
-// and it takes the `$name` board's answer: a per-tile decal, and nothing captured.
-//
-// ⚠ AND IT IS DRAWN OUTSIDE THE ARM, not threaded through `drawTypeModel`. Paint on a wall is no
-// more the model's business than the rooftop holo-ad is, and the tile loop already draws that one
-// at this level — which is also what covers the archetype buildings, since they have no arm to
-// thread anything through at all.
+// `plugins/graffiti` lets a player tag a wall; the words reached only the room text. `gft` is live
+// tile data gathered server-side, like `brd` for forecourt prices (see deriveSurfaceCell). The kit's
+// `tag` part (strokes off the model seed, 28% of frontages) stays wordless.
+// ⚠ NOT IN THE MESH: `tileMesh` memoises per model per scale, so every branch of a chain would wear
+// one wall's words. Like the `$name` board: a per-tile decal, nothing captured.
+// ⚠ DRAWN OUTSIDE THE ARM, in the tile loop like the rooftop holo-ad, which also covers archetype
+// buildings with no arm.
 
 // A throw-up hand, and the one lettering face here that is deliberately NOT in `SIGN_FONT`. That
 // table is a table of TRADES — what a foundry, a chapel or a chrome clinic letters itself in — and
@@ -46269,80 +44703,33 @@ const TAG_SCRAWLS = ['one love', 'rip', 'ykn', 'ost', 'crew', '2 much', 'again',
 const tagWordFor = (v) => TAG_WORDS[Math.abs(v | 0) % TAG_WORDS.length];
 
 // ── THE PIECE ───────────────────────────────────────────────────────────────────────────────
-//
-// Spray paint is not signage, and all three of `bakeSignText`'s passes are wrong for it: a bright
-// core inside a dark edge is how a NEON TUBE reads, and a tag has neither.
-//
-// What it has instead is a throw-up, and a throw-up is a stack of passes rather than a typeface.
-// In the order it goes on the wall, which is the order it is drawn:
-//
-//   1. the CLOUD — a second colour sprayed round the whole word to lift it off the brick. It is the
-//      letters stroked absurdly wide, so it takes THEIR shape rather than being a rectangle
-//      somebody drew behind them, with a soft outer overspray for the paint that missed.
-//   2. the BLOCK — the piece's own shadow, offset down and to one side in the outline colour, which
-//      is what makes flat paint read as letters standing off a wall.
-//   3. the OUTLINE — a thick round-joined stroke in near-black, drawn per letter, left to right.
-//      ⚠ THIS IS WHAT MAKES A LETTERFORM A BUBBLE LETTER and the face underneath barely matters.
-//   4. the FILL — the body, with a vertical fade through it, and a gloss across the top third.
-//   5. the DRIPS — off the OUTLINE, not off the fill, because the outline is sprayed last and
-//      heaviest, and each one ends in a bead rather than tapering to nothing.
-//   6. the SCRAWLS — somebody else's handstyle round the edges. See TAG_SCRAWL_FONT.
-//
-// ⚠ PASSES 1 AND 2 ARE GLOBAL AND 3–5 ARE PER LETTER, WHICH IS NOT AN OPTIMISATION. Throw-up
-// letters overlap, so a letter's outline has to sit ON TOP of the one before it — that interlock is
-// most of what the shape reads as. Drawn as three global passes the outlines all go under all the
-// fills and the word comes out as one merged blob. Drawn wholly per letter, the cloud and the block
-// tile behind each letter and the piece grows internal seams. Each pass belongs at its own scope.
-//
-// ⚠ NOT TRANSLUCENT ANY MORE, and the note it replaces argued the opposite: paint was drawn at 0.42
-// and 0.92 alpha so the wall texture came through it. That is true of a thin tag and false of a
-// throw-up, which is two or three coats of enamel and hides whatever is under it — and the brick
-// showing through the WHOLE piece is exactly what made the old one read as a stain rather than as
-// something somebody made. The wall still comes through at the edges, where the overspray is.
-//
-// ⚠ AND THE JITTER IS DETERMINISTIC OFF THE WORDS, never off a clock or a draw counter. The canvas
-// is cached and a tag is baked once for the life of the page, so a wobble that moved could only
-// ever show up as two walls of the same words disagreeing with each other.
+// Spray paint isn't signage (a bright core in a dark edge is neon). A throw-up is a stack of passes,
+// drawn in the order it goes on the wall:
+//   1. the CLOUD: a second colour, the letters stroked very wide, with a soft overspray.
+//   2. the BLOCK: the piece's shadow, offset down and aside in the outline colour.
+//   3. the OUTLINE: thick round-joined near-black, per letter, left to right. ⚠ THIS MAKES A BUBBLE
+//      LETTER; the face underneath barely matters.
+//   4. the FILL: a vertical fade and a gloss across the top third.
+//   5. the DRIPS: off the OUTLINE (sprayed last and heaviest), each ending in a bead.
+//   6. the SCRAWLS: somebody else's handstyle round the edges (TAG_SCRAWL_FONT).
+// ⚠ PASSES 1 AND 2 ARE GLOBAL, 3–5 PER LETTER: overlapping letters need each outline over the one
+// before. All global merges the word into a blob; all per letter seams the cloud and block.
+// ⚠ OPAQUE: a throw-up is coats of enamel; translucent (0.42/0.92) it read as a stain.
+// ⚠ JITTER IS DETERMINISTIC OFF THE WORDS, never a clock or counter: the bake is cached for the page.
 // ── SIX HANDS, AND ONLY ONE OF THEM IS A TYPEFACE ───────────────────────────────────────────────
-//
-// `bakeTagText` draws a THROW-UP: bubble letters, a cloud, a block, drips. It is one thing a wall
-// gets, and for a while it was the only thing, so every piece of paint in Coldwater was the same
-// piece of paint in a different colour — which reads as a texture repeating rather than as a city
-// people write on.
-//
-// ⚠ AND THE ANSWER IS NOT A FONT, WHICH IS THE QUESTION THIS GETS ASKED. The note on `TAG_FONT`
-// already settles it for the throw-up — what makes a letterform read as spray is the heavy
-// round-joined outline stroked round it, not the face underneath — and it generalises: a handstyle
-// is a marker held at a slant, a stencil is a flat fill with BRIDGES in it, a roller is two tones
-// and no outline at all. Every one of those is a different set of PASSES over the same system
-// faces, and a downloaded typeface would not supply any of them.
-//
-// The one exception is `gothic`, where the face IS the style: Old English lettering is what a
-// placa is written in, and no recipe over a sans gets there. It uses the self-hosted
-// UnifrakturMaguntia that `loadNeonFaces` fetches, and it's the only place that face is allowed;
-// signs gave it up (see the ⚠ in SIGN_FONT).
-//
-// So a hand is a recipe:
-//
-//   throw    the piece. Bubble letters, cloud, block, outline, fill, drips. `bakeTagText`.
-//   hand     somebody's signature, in marker, at a slant, with a tail thrown off the last letter.
-//            What is actually on most walls, and what the throw-up's tiny `TAG_SCRAWLS` imitate.
-//   stencil  cut out of card and sprayed through: one flat colour, a soft overspray edge, speckle,
-//            and the little bridges that hold the counters of the letters in. Where a slogan goes.
-//   roller   a blockbuster. Emulsion on an extension pole, two flat tones, no outline, no drips,
-//            nap streaks across the letters. Wide, and high enough that the pole is why it is there.
-//   buff     not graffiti: the city painting OVER graffiti. A rectangle of paint that does not
-//            match the wall, a ghost of what was under it, and often somebody back the same week.
-//   gothic   a placa. Blackletter in one enamel, a hard keyline and a drop shadow, set straight
-//            and title-cased, because all-caps blackletter can't be read. No cloud and no drips:
-//            it's done slowly and it's done clean.
-//
-// ⚠ THE ASPECT IS HALF THE PLACEMENT, AND IT COSTS NOTHING. `fitSignPts` seats a texture inside the
-// quad it is given and only ever takes LESS of it, so a roller baked three times as wide as it is
-// tall occupies a wide band of its reserved patch and a handstyle a narrow one, with no placement
-// code knowing either exists. What the placement DOES decide is where on the wall the patch is —
-// see `TAG_HAND_BAND`, which is the other half: a roller goes high because that is what the pole is
-// for, and a handstyle goes low because that is arm's length.
+// ⚠ A HAND IS A SET OF PASSES, NOT A FONT (see `TAG_FONT`). The exception is `gothic`, where the face
+// is the style: the self-hosted UnifrakturMaguntia from `loadNeonFaces`, used only here (see the ⚠
+// in SIGN_FONT).
+//   throw    the piece (`bakeTagText`).
+//   hand     a marker signature at a slant, a tail off the last letter; what `TAG_SCRAWLS` imitate.
+//   stencil  sprayed through card: one flat colour, soft overspray, speckle, bridges in the counters.
+//   roller   a blockbuster on a pole: two flat tones, no outline or drips, nap streaks; wide and high.
+//   buff     the city painting OVER graffiti: a mismatched rectangle with a ghost of what was under.
+//   gothic   a placa: blackletter in one enamel, keyline, drop shadow, title-cased (all-caps
+//            blackletter can't be read). No cloud, no drips.
+// ⚠ THE ASPECT IS HALF THE PLACEMENT: `fitSignPts` only takes LESS of the quad, so a wide roller
+// fills a wide band of its patch. `TAG_HAND_BAND` picks where: a roller high (the pole), a
+// handstyle low (arm's length).
 const TAG_HANDS = ['throw', 'hand', 'stencil', 'roller', 'buff', 'gothic'];
 // ⚠ WEIGHTED, BECAUSE A WALL IS NOT AN EVEN SPLIT OF FIVE THINGS. Reference photographs of any
 // street are mostly scrawled names with a few pieces among them; a blockbuster is a landmark and a
@@ -47784,39 +46171,19 @@ export function wallFaceAt(m, seed, fh, h, zLo, zHi) {
 
 // ── IS THERE A BUILDING BEHIND THIS PIECE OF PAINT? ────────────────────────────────────────────
 //
-// A third question about the capture, and deliberately not a third answer to either of the first
-// two. `massExtent` asks how far OUT the wall is; `wallSpanAt` asks how far ALONG it goes; this one
-// asks whether a RECTANGLE of a given height has mass behind the whole of it. They are different
-// questions and the difference is the whole bug:
-//
-//   · BOTH OF THE OTHERS TEST FOR OVERLAP WITH THE PAINT BAND, which is right for what they answer
-//     and wrong here. A pump island kerb is 0.04 of a tile high and the paint band is 0.124, so the
-//     kerb OVERLAPS it, counts as wall, and carries a piece four fifths of which is in clear air.
-//     That is `type:fuel_yard` — the forecourt whose arm says in its own comment that there are
-//     "deliberately no walls here at all" — and it is the reported one.
-//   · AND A WALL CAN BE BUILT OUT OF STACKED BOXES, so "one box spans the whole band" is too strict
-//     in the other direction. The runs are taken at three heights across the piece and INTERSECTED,
-//     which is the only form of the test that is right at both ends.
-//
-// ⚠ AND THE PLANE IS SOLVED FOR, NEVER ASSUMED. The first cut asked whether there was mass within a
-// hand's breadth behind the paint, and it left 5.3% of pieces still in the air — because the plane
-// the paint went on was the frontmost mass ANYWHERE on that elevation, and on a depot or a works
-// that is an apron kerb or a loading plinth with the shed wall a good way behind it. A slack
-// backing test cannot tell that from a wall: it is satisfied, and the piece stands off the building
-// by exactly the slack. So the wall is whatever is behind the piece, and the piece goes on THAT.
-//
-// ⚠ AND THE PIECE FITS THE WALL IN HEIGHT AS WELL AS WIDTH, which is the half that was missing and
-// the half that decides whether this feature is a refusal machine. Paint used to occupy one fixed
-// band an arm's reach tall, and the commonest shopfront in Coldwater is a plinth that stands a
-// little PROUD of the wall above it — so the fixed band straddled the step, the lower part of it
-// was behind the plinth and the upper part off the wall, and the honest answer at that band is
-// "nowhere". A person with a can does not give up there, they paint ABOVE the plinth. Measured,
-// solving for the band as well took the refusals from 25.2% of walls to a fifth of that, all of it
-// buildings that genuinely have no wall at arm height.
-//
-// So the elevation is cut into slabs at every height it changes, and the answer is the best
-// rectangle that fits inside one run of one plane across a contiguous group of them. Returns the
-// patch, or null for an elevation that cannot carry paint at all.
+// `massExtent` asks how far OUT the wall is, `wallSpanAt` how far ALONG; this asks whether a
+// RECTANGLE of a given height has mass behind ALL of it.
+//   · THE OTHERS TEST OVERLAP, which is wrong here: a 0.04-high pump island kerb overlaps the 0.124
+//     paint band and carried a piece four fifths in air (`type:fuel_yard`, "deliberately no walls").
+//   · A WALL CAN BE STACKED BOXES, so runs are taken at three heights across the piece and
+//     INTERSECTED.
+// ⚠ THE PLANE IS SOLVED FOR, NEVER ASSUMED: the frontmost mass on an elevation is often an apron kerb
+// or plinth with the wall behind it (a slack backing test left 5.3% of pieces in the air). The piece
+// goes on whatever is behind it.
+// ⚠ THE PIECE FITS THE WALL IN HEIGHT TOO: a fixed band straddles a proud plinth, so the band is
+// solved as well (refusals went from 25.2% of walls to a fifth of that, all with no wall at arm
+// height). The elevation is cut into slabs at every height change, and the answer is the best
+// rectangle inside one run of one plane across contiguous slabs. Returns the patch, or null.
 const TAG_FLUSH = 0.035;            // how far out of true a wall's own boxes may be and still be one wall
 const TAG_Z_MIN = 0.006;            // …and the height range a person with a can can reach
 const TAG_Z_MAX = 0.20;
@@ -48262,41 +46629,19 @@ function neonBlade(ctx, cam, dx, dy, h0, h1, color, night, alpha, label) {   // 
     }
     ctx.restore();
   };
-  // ⚠ AND IT GOES ON THE DEPTH BUFFER IF THERE IS ONE, BECAUSE IT IS A SIGN ON A POLE AND THE
-  // PROBE CANNOT SEE IT. `decoHidden` asks whether the whole surface is behind something and
-  // answers "draw" when any part of it clears — which is right for a board on a wall and wrong
-  // for a blade standing proud of a roofline, where the anchor clears a warehouse in front while
-  // the blade itself does not. Measured behind a nine-storey warehouse: 201 leaked pixels on
-  // GLASS 2 at night against 0 on the canvas, where the painter’s queue buried it for free.
-  //
-  // ⚠ AND IT IS BAKED BY APPEARANCE, NOT AT THE CAMERA. `markBillboard` was tried here and taken
-  // back out: it re-bakes at the live camera every frame, a canvas repaint plus a texImage2D upload
-  // PER INSTANCE PER FRAME, which is affordable for a handful of landmarks on their own tiles and a
-  // cockpit framerate below GLASS 1 for a part that hangs off ordinary buildings by the dozen. The
-  // artwork is the same for every "VOLTAGE" blade in the city at any distance — a dark board, a lit
-  // face and the name down it — so it is baked ONCE per (label, colour, night, glow) and the quad
-  // does the placing. The blade's own screen half-width never enters the key.
-  //
-  // ⚠ THE HALO IS BAKED IN PROPORTION, NOT AT EIGHT PIXELS. `shadowBlur` is a screen radius, and a
-  // fixed one cannot live in a texture that is reused at every distance. The bloom is only ever
-  // drawn within `glowFar` (see glowEarned), where a blade is large, so the quad is widened by the
-  // blade's own half-width and the art sits in the middle of it — which also gives a near blade a
-  // halo in proportion to itself rather than a constant thread round a huge sign.
-  // ⚠ AND THE NAME IS NOT IN IT. This texture is the BOARD — a dark backing, a colour-lit face and
-  // the halo round it — and nothing about it depends on what the sign says. Baking the lettering in
-  // as well is what made every blade in the city stretch: the canvas is a fixed 64×512 and the quad
-  // it is mapped onto is the blade's real world shape, so the fit done in texture space against
-  // 0.125 was undone by a non-uniform map onto 0.18–1.10. See `lettering` below.
-  //
-  // ⚠ DROPPING THE LABEL FROM THE KEY IS ALSO MOST OF THE CACHE. `_quadTex` caps at 256 and CLEARS
-  // outright when it overflows, and this key carried the building's own name — so a street of
-  // twenty differently-named bars in one palette minted twenty 64×512 boards that differ in no
-  // pixel. Keyed on what the board actually is, that street is one.
-  // ⚠ 128 WIDE, AND THAT IS AFFORDABLE ONLY BECAUSE THE LABEL LEFT THE KEY. The tube is three
-  // strokes and a white-hot centre line, and the face is the middle half of the texture — at 64 the
-  // centre line rounds to nothing and the tube is four pixels of mush. This costs 4x the texels of
-  // the old board and is still cheaper in total, because the old one was minted PER BUILDING NAME
-  // and this one is shared by every blade in the city of the same colour.
+  // ⚠ IT GOES ON THE DEPTH BUFFER IF THERE IS ONE: `decoHidden` says "draw" if any part clears, which
+  // is wrong for a blade proud of a roofline (201 leaked pixels behind a nine-storey warehouse on
+  // GLASS 2 at night; 0 on canvas).
+  // ⚠ BAKED BY APPEARANCE, NOT AT THE CAMERA: `markBillboard` re-bakes and uploads per instance per
+  // frame, fine for a few landmarks and too slow for dozens of blades. Baked ONCE per (label, colour,
+  // night, glow) and placed by the quad; the screen half-width never enters the key.
+  // ⚠ THE HALO IS BAKED IN PROPORTION: `shadowBlur` is a screen radius. Bloom is drawn only within
+  // `glowFar` (glowEarned), so the quad is widened by the blade's half-width with the art centred.
+  // ⚠ THE NAME IS NOT IN IT: this is the BOARD. Lettering baked into the fixed 64×512 canvas stretched
+  // when mapped onto 0.18–1.10 real shapes; see `lettering` below. Dropping the label also stops
+  // `_quadTex` (caps at 256, CLEARS on overflow) minting a board per building name.
+  // ⚠ 128 WIDE: at 64 the white-hot centre line rounds away. 4x the texels, still cheaper overall
+  // since it's shared by colour.
   const TW = 128, TH = 512;   // pad/padY are hoisted above the face — see there
   const tex = DECAL_SINK && cam.unproj && TUNE.glDeco ? bakeQuadTex(
     'blade|' + (label ? 'n' : 'rung') + '|' + color + '|' + (night ? 1 : 0) + '|' + (glow ? 1 : 0) + '|' + (crown ? crown.kind : '-'), TW, TH, (g, W, H) => {
@@ -48660,48 +47005,21 @@ function glowPool(ctx, cam, dx, dy, wz, rgb, s0, alpha, opts) {   // soft ground
 }
 // ── A BEAM OF LIGHT, AS LIGHT ──────────────────────────────────────
 //
-// A searchlight shaft is the one lit shape in GLASS that is neither a disc nor a surface: a cone of
-// air with light scattering down it. The beacon drew one as a run of five strokes stepping their
-// alpha down, and that is the wrong primitive twice over. A stroke's width is in SCREEN PIXELS, so
-// the shaft was 3.4px at the lantern and 1.3px at the end of its throw whether you were standing
-// under the tower or watching from across the basin — a scratch on the glass that never widened as
-// you closed on it. And a stroke takes one flat colour, so "fading out" could only be said by
-// cutting the beam into pieces and stepping each one down.
-//
-// A cone of light is a LINE OF GLOWS whose radius grows along it, which is the shape the sprite
-// layer already draws: a world point, a screen radius, a colour, additive and depth-tested — so a
-// building standing in the beam cuts it per pixel instead of an all-or-nothing probe, and the near
-// end swells honestly as you drive past it.
-//
-// ⚠ THE WIDTHS ARE IN TILES, WHICH IS THE WHOLE POINT. `glowPool` takes `s0` and divides by the
-// distance, so `s0` is a world radius already multiplied by the lateral focal length — invisible
-// bookkeeping for a fixed lamp, and wrong here, because how wide a beam is at a given point along
-// it is a fact about the beam and not about the lens. `cam.FL` does the conversion once.
-//
-// ⚠ AND THE NODES ARE SPACED IN PROPORTION TO THE LOCAL RADIUS, NOT EVENLY. What makes a chain
-// read as a continuous shaft rather than as a row of beads is the ratio of the gap to the radius at
-// that gap — a constant ratio, which over a widening cone is a GEOMETRIC progression. Evenly-spaced
-// nodes bead at the wide end and stack pointlessly at the narrow one.
-//
-// ⚠ THE COUNT IS A PROPERTY OF THE CONE AND NOT OF THE CAMERA. Screen length and node radius both
-// scale as FL/f, so how many node-diameters lie along the shaft is the same number from any seat:
-// roughly `length / mean radius / spacing`. There is nothing here to shed with distance beyond the
-// tier gate glowPool already applies.
-//
-// ⚠ AND THE PROFILE IS THE SOFT ONE, WHICH IS NOT WHAT THE ARITHMETIC SAID. A `hard` sprite is
-// solid to 72% of its radius, so a chain of them stays continuous ALONG the shaft at twice the gap
-// a soft chain needs — half the nodes for the same axial smoothness, which is the trade this was
-// first built to take. It looks wrong, and it looks wrong for a reason the axial sum cannot see:
-// the beam is a CONE, so each node is a little wider than the one before it, and a plateau profile
-// has a rim. Every node's rim stands out past its neighbour's as a bright arc, and a shaft made of
-// them reads as a row of nested chevrons — beads, at exactly the range the beam is most visible. A
-// soft node has no rim to show, so the only artefact left is axial ripple, which is mild at half a
-// radius and reads as light rather than as geometry.
-//
-// ⚠ AND THE COUNT IS PAID FOR AT THE NARROW END, WHICH IS WHERE IT BUYS LEAST. The gap is a share
-// of the LOCAL radius, so a cone that starts at a point spends most of its nodes inside the first
-// tile — under the lantern's own flare, where there is nothing to see. Starting the cone at the
-// width of the optic that throws it is both the honest geometry and most of the saving.
+// A searchlight shaft is a cone of air with light scattering down it. Drawn as strokes it had a
+// fixed SCREEN width (3.4px to 1.3px at any range) and one flat colour. So it's a LINE OF GLOWS whose
+// radius grows along it, in the sprite layer: additive and depth-tested, so a building cuts it per
+// pixel.
+// ⚠ THE WIDTHS ARE IN TILES: `glowPool`'s `s0` is a world radius pre-multiplied by the lateral focal
+// length; `cam.FL` does that conversion once here.
+// ⚠ NODES ARE SPACED IN PROPORTION TO THE LOCAL RADIUS (a GEOMETRIC progression over a widening
+// cone). Even spacing beads at the wide end and stacks at the narrow one.
+// ⚠ THE COUNT IS A PROPERTY OF THE CONE, NOT THE CAMERA: screen length and radius both scale as FL/f,
+// so it's about `length / mean radius / spacing` from any seat.
+// ⚠ THE PROFILE IS SOFT. A `hard` sprite (solid to 72%) halves the nodes, but each cone node is wider
+// than the last and its rim shows as a bright arc: nested chevrons. Soft nodes leave only mild axial
+// ripple.
+// ⚠ START THE CONE AT THE OPTIC'S WIDTH: from a point, most nodes land in the first tile under the
+// lantern's flare, where nothing shows.
 const BEAM_SPACING = 0.50;   // the gap between nodes, in units of the radius at that gap
 const BEAM_HARD = 0.12;      // a trace of plateau to keep the core solid; anything that shows a rim beads
 const BEAM_MAX_NODES = 26;   // a stop, so a caller asking for a very long very narrow cone cannot run away
@@ -48993,47 +47311,24 @@ function marqueeBand(ctx, cam, dx, dy, E, half, wz, color, night, alpha, label =
   const bl = cam.proj(Lx, Ly, wz - hh), br = cam.proj(Rx, Ry, wz - hh);
   if ([tl, tr, bl, br].some((p) => p.f <= 0.12)) return;
   const quad = () => { ctx.beginPath(); ctx.moveTo(tl.sx, tl.sy); ctx.lineTo(tr.sx, tr.sy); ctx.lineTo(br.sx, br.sy); ctx.lineTo(bl.sx, bl.sy); ctx.closePath(); };
-  // Sort at the sign's own quad depth with a HAIR of forward bias: a raw average is coplanar with the
-  // wall it's mounted on, so painter's-sort order flip-flops and the sign flickers — a tiny 0.06 lift
-  // fixes that deterministically. Deliberately NOT the full decoDepth (DECO_LIFT = 0.6): a wall-sized
-  // sign lifted 0.6 tiles forward jumps in front of a NEARER neighbour (KSAB's board bled over the
-  // Solenne tower two tiles away). Pushed proud of its own wall, this still self-occludes when the
-  // front faces away (the sign lands behind the near wall) without leaping onto neighbours.
-  // ⚠ THE PROBE IS SEPARATE FROM THE LIFT. The bias above is right and the reasoning for it holds;
-  // what was missing is the occlusion question, which emitDeco asks and emitFace does not. Written
-  // out rather than routed through emitDeco because this sign sorts on the MEAN of its quad, not
-  // the nearest corner — a wall-sized board sorted by its near edge leans out of its own wall.
+  // Sort at the quad's own depth plus a HAIR (0.06): a raw average is coplanar with the wall and
+  // flickers. Not DECO_LIFT (0.6): a wall-sized sign jumps a NEARER neighbour (KSAB's board bled
+  // over the Solenne two tiles away). It still self-occludes when the front faces away.
+  // ⚠ THE PROBE IS SEPARATE FROM THE LIFT: written out, not via emitDeco, because this sorts on the
+  // quad MEAN, not the nearest corner (a near-edge sort leans a big board out of its wall).
   // ── THE ARTWORK, IN WHATEVER FRAME IT IS HANDED ───────────────────────────
-  // The projected quad when the 2-D renderer paints it, a flat rectangle when it is baked for the
-  // GPU. One function either way, because two would be two ideas of what a marquee looks like and
-  // the second one drifts.
+  // The projected quad for the 2-D renderer, a flat rectangle when baked for the GPU: one function.
   // ── A NEON BOX, NOT A CINEMA MARQUEE ──────────────────────────────────────
-  //
-  // What this drew for a long time was a 1950s picture-house sign: a face flooded with the accent
-  // colour and a rail of incandescent bulbs chasing round the edge. Both are the RETRO tell, and
-  // between them they are why every signed building in Coldwater read as generic — a flat coloured
-  // slab with dots on it, at every size, on every trade.
-  //
-  // The three things that make a sign read as this century's neon instead:
-  //   · THE FACE IS DARK. A neon box is a black panel with light ON it; flooding the whole face
-  //     with the hue leaves the lettering nothing to be brighter than, which is the single biggest
-  //     reason the old one looked flat. The wash is now a gradient that only lifts near the tube.
-  //   · THE LIGHT IS A TUBE. Glass, not bulbs: a wide soft halo, a saturated core and a white-hot
-  //     centre line, the three strokes every real neon photograph resolves into. It runs the
-  //     perimeter INSET from the frame, so the frame still reads as a box the tube sits inside.
-  //   · IT CARRIES A SECOND VOICE. A tick strip at one end in a complementary hue — a few hard
-  //     bars, the way a real frontage carries a licence number, a channel, a price. It is what
-  //     stops two signs of different colours looking like one sign recoloured.
-  // Plus scanlines, which cost one fill each and turn a painted panel into an emissive one.
-  //
-  // ⚠ EVERYTHING IS PLACED IN THE FACE'S OWN (u, v), NEVER IN SCREEN PIXELS. `art` is handed a flat
-  // rectangle when it bakes for the GPU and a projected quad when the 2-D painter runs it, so a
-  // position measured off TL/TR alone leans the wrong way on one of the two. Bilinear across the
-  // four corners is right in both frames and is what the bulb rail was already doing for its rails.
-  //
-  // ⚠ AND NOTHING HERE MAY VARY WITH TIME OR `Math.random`. The bake is cached per APPEARANCE and
-  // `models:diff` asserts two renders of a model are identical — a chase sequence or a flicker
-  // would be a different texture every frame on the GPU side and a failed gate on the other.
+  // Not a cinema marquee (accent-flooded face, chasing bulbs). This century's neon:
+  //   · THE FACE IS DARK: light ON a black panel; the wash lifts only near the tube.
+  //   · THE LIGHT IS A TUBE: soft halo, saturated core, white-hot centre line, inset from the frame.
+  //   · A SECOND VOICE: a complementary tick strip at one end, so two colours aren't one sign
+  //     recoloured.
+  // Plus scanlines, one fill each.
+  // ⚠ PLACE EVERYTHING IN THE FACE'S (u, v), NEVER SCREEN PIXELS: bilinear across the corners is
+  // right for both the baked rectangle and the projected quad.
+  // ⚠ NOTHING MAY VARY WITH TIME OR `Math.random`: bakes cache per APPEARANCE and `models:diff`
+  // asserts identical renders.
   const accent2 = marqueeTick(color);
   // ── …AND WHAT THE SHOP SELLS, UNDER WHAT IT IS CALLED ───────────────────────────────────────
   //
@@ -51334,49 +49629,24 @@ export function shapeForModel(m, seed) {
 }
 
 // ── Lateral frustum culling ──────────────────────────────────────────────────
-// The tile loop in drawWorldObjects has always clipped NEAR (behind the camera) and FAR (past the
-// draw limit) and never SIDEWAYS. From a cockpit that costs nothing — at altitude the whole city is
-// a small patch around the vanishing point, and everything in the window is roughly in front of you.
-// From a truck cab it is the single biggest waste in the frame, because the buildings that fall
-// outside the view cone down there are the ones LINING THE STREET YOU ARE DRIVING DOWN: a few metres
-// away, filling no pixels at all, and passing every quality test at FULL detail — `wallLodPx` asks
-// how tall a wall is ON SCREEN, and a wall eighty degrees off the beam projects enormous. So each of
-// them ran its whole model arm, queued ~45 faces into the shared sink, was depth-sorted against
-// everything real, and then took the perspective-correct column-split blit (up to 48 clipped
-// drawImages per wall, twice over at night) entirely outside the canvas.
-//
-// At the cab's focal length — RENDER_TUNE.fov 0.82 with the seat's own fovMul 1.22 — the horizontal
-// field is about 98°, so a little under half of the half-disc in front of the truck is off-canvas.
-//
+// The tile loop clipped NEAR and FAR but never SIDEWAYS. From a cab the buildings outside the view
+// cone line the street: off-canvas, yet full detail by `wallLodPx` (a wall 80° off the beam projects
+// enormous), so each ran its arm, queued ~45 faces, sorted, and took up to 48 clipped drawImages per
+// wall (twice at night). At the cab's fov (RENDER_TUNE.fov 0.82 × fovMul 1.22, about 98°) a little
+// under half the half-disc ahead is off-canvas.
 // ── THE TEST IS EXACT, NOT A HEURISTIC ───────────────────────────────────────
-// Worth stating plainly, because a lateral cull is normally the one that punches holes in a skyline.
-// In this projection
-//        sx = cx + (l / f) · FL
-// and neither `l` nor `f` reads `wz` at all (see `proj` in makeCam). A building wall is VERTICAL, so
-// its entire screen-x extent is the extent of the two footprint corners it stands on — at the base,
-// at the parapet and at every height between. Four corners therefore bound the whole extruded box
-// exactly: roof, cornice, setback tiers and all. scripts/shapes/frustum.mjs asserts that
-// height-independence against the shipping `makeCam` rather than trusting this paragraph.
-//
-// What the corners do NOT bound is what a building hangs OFF itself, so there are two margins and
-// they are in two different units on purpose:
-//   • the footprint is taken a full tile wide rather than the 0.62 the near test uses, which covers
-//     a model that oversteps its own tile and anything bolted flat to its face;
-//   • and a flat margin in SCREEN PIXELS, which is the right unit for overhang that is itself
-//     measured in pixels — `glowPool` clamps its own radius to 60px however close you get, so 96
-//     clears it with room. Being a pixel margin it is generous exactly where things are small (far
-//     away, where a stray sign is a few px) and negligible where they are large (near, where the
-//     footprint pad is already hundreds of px wide). That is the way round you want it.
-//
-// ⚠ AND IT IS ORDINARY BUILDINGS ONLY. Every `mark` — the Echelon, the depot shed, the South Gate,
-// the pylon stand, a road sign — is a hand-shaped model whose drawer places geometry on its own
-// terms and routinely well past its tile, and the yacht is the chase SUBJECT in the helm view. There
-// are a handful of them against a hundred-odd buildings a frame, so the entire win is in the
-// ordinary case and none of the risk needs to be.
-//
-// Conservative in the same direction as the occlusion pass: a corner behind the near plane has its
-// `f` clamped to 0.06 by `proj`, which throws that corner's `sx` to a huge magnitude and widens the
-// box past any canvas — so a building straddling the lens is never culled, which is exactly right.
+// In `sx = cx + (l / f) · FL` neither `l` nor `f` reads `wz` (see `proj` in makeCam), and walls are
+// vertical, so four footprint corners bound the whole box exactly: roof, cornice, setbacks and all.
+// scripts/shapes/frustum.mjs asserts that against the shipping `makeCam`.
+// Overhang gets two margins, in two units on purpose:
+//   • the footprint is a full tile wide (not the near test's 0.62), covering a model past its tile
+//     and anything flat on its face;
+//   • a flat margin in SCREEN PIXELS for overhang measured in pixels: `glowPool` clamps to 60px, so
+//     96 clears it. Generous where things are small, negligible where they're large.
+// ⚠ ORDINARY BUILDINGS ONLY. Every `mark` (the Echelon, depot shed, South Gate, pylons, road signs)
+// places geometry past its tile, and the yacht is the helm view's SUBJECT. They're a handful.
+// A corner behind the near plane has `f` clamped to 0.06 by `proj`, throwing its `sx` wide, so a
+// building straddling the lens is never culled.
 const FRUSTUM_HW = 1.0;        // footprint half-width tested, in tiles (the near test's 0.62, widened for face-mounted trim)
 const FRUSTUM_PAD_PX = 96;     // screen margin for adornment overhang — glowPool caps its own radius at 60px
 const FRUSTUM_CORNERS = [[-1, -1], [1, -1], [1, 1], [-1, 1]];
@@ -51463,38 +49733,17 @@ function occGeom(segs, ofh, oh, ent) {
 }
 
 // ── AND THE SAME BUFFER HIDES WHAT IS BEHIND A BUILDING ──────────────────────
-// Contacts (traffic, parked rigs, a truck standing in a depot) are painted AFTER the whole world
-// pass and never interacted with it at all: there is no z-buffer here, so a truck inside a shed was
-// simply drawn on top of the shed, from every angle, at every distance. That is the "you can see
-// the truck through the building".
-//
-// The fix is not another mechanism — the world pass already builds a span buffer of guaranteed-solid
-// building slabs to cull hidden BUILDINGS with, and a contact is just another thing that can be
-// behind one. Publishing it costs nothing and makes the two answers consistent by construction.
-//
-// ⚠ THE DEPTH IS NOT OPTIONAL. "Something opaque covers this" is not an answer on its own — cull on
-// that and every contact NEARER than the building vanishes as it drives in front of it. So the
-// field stores the f of whatever covered each cell, and a thing is only hidden where it is
-// genuinely further away than what is covering it.
-// Conservative in the same direction as the building cull: any doubt and it draws.
-//
+// Contacts (traffic, parked rigs, a truck in a depot) paint AFTER the world pass, so a truck in a
+// shed drew on top of it. The pre-pass already builds a field of solid building slabs for the
+// building cull; publishing it hides contacts with the same answer.
+// ⚠ THE DEPTH IS REQUIRED: each cell stores the f of what covered it, and a thing hides only where
+// it's further than that, or a contact in front of a building vanishes. Any doubt and it draws.
 // ── ⚠ AND IT IS A GRID NOW, NOT A ROW OF COLUMNS ─────────────────────────────
-// This was 96 columns, each holding the topmost screen line covered from there DOWNWARD. That
-// shape can only ever describe one class of occluder — a slab standing on the ground — and every
-// exception to it had to be written out of the pre-pass by hand:
-//
-//   · the depot's DOOR HEADER could not be contributed, because "covered from this line down" is a
-//     lie about a lintel: it would have hidden a truck standing in its own open doorway. So the
-//     strip of wall above the door occluded nothing, and the rig showed through it.
-//   · a FORECOURT CANOPY — a roof on four legs — could not be contributed at all, for the same
-//     reason in the other direction, and is still exempted by a `z0` test below.
-//   · an L-shaped building could only ever offer its CORE box, because a second slab in the same
-//     columns could only overwrite the first rather than sit beside it.
-//
-// A grid has none of those cases. A cell is a cell: a lintel writes the cells the lintel covers, a
-// canopy writes its own band with open road under it, and two wings of one building write two
-// regions. Every one of those exceptions is deleted rather than worked around, which is the reason
-// to change the shape rather than raise the column count.
+// It was 96 columns of "covered from this line down", which only describes a slab on the ground:
+//   · a depot DOOR HEADER couldn't be contributed (it would hide a truck in its own doorway);
+//   · a FORECOURT CANOPY couldn't either, and is still exempted by a `z0` test below;
+//   · an L-shaped building offered only its CORE box.
+// In a grid a lintel writes its cells, a canopy its band with road under it, two wings two regions.
 const OCC_CELL_PX = 5;        // canvas px per cell — the silhouette's step, and what the fill costs
 const OCC_GW_MIN = 64, OCC_GW_MAX = 256;
 let OCC_FIELD = null;         // { d: Float32Array, gw, gh, sx, sy } for THIS frame — depth per cell
@@ -51539,47 +49788,25 @@ function occludedByBuilding(sx, syTop, syBot, f, pad = 0) {
 const OCC_BIAS = 0.35;
 
 // ── …AND THE SAME BUFFER HIDES THE OWN SHIP ──────────────────────────────────
-// A contact behind a building gets `occludedByBuilding` and is dropped whole, which is right for a
-// rig the size of a thumbnail across a yard. The OWN vehicle in the external/chase view could not
-// use that answer for two reasons: it fills a third of the screen, so all-or-nothing hiding would
-// blink the thing you are driving in and out; and it is the one model that is routinely HALF behind
-// something — pulling past a shed, sat in a depot doorway. Drawn after the world pass with no depth
-// test at all, it simply painted over every building between it and the eye. That is the "truck
-// showing through the building".
-//
-// So instead of a boolean this clips, against the same grid: every cell the world owns at a nearer
-// depth than we are is cut out, and the rest is drawn. What is cut is now a real shape rather than
-// a column height — a doorway is a hole in a wall, an overhang has road under it — which is the
-// whole of what the grid bought.
-//
-// ⚠ AND IT IS DILATED BY ONE CELL, ON PURPOSE. This clip wraps the things drawn on CANVAS around
-// the model — the lifter wash, the lamp pools — while the model itself is masked per pixel against
-// the same solids at its own resolution. Two masks at two resolutions over one object is only safe
-// if the coarse one is a strict superset: dilate it and the fine mask decides every edge, don't and
-// the truck is cut at 5-px steps by the very pass that exists to stop that happening. On a soft
-// gradient one cell of leak past a wall is not visible; a stepped silhouette is.
-//
-// ⚠ AND THE MARGIN IS THE CALLER'S, BECAUSE THE TWO CALLERS ASK DIFFERENT QUESTIONS. OCC_BIAS is
-// sized for "is this whole vehicle behind this whole building", which is a slab's worth of slack —
-// and the own ship's own shed is exactly a building at the own ship's own depth, so at 0.35 the
-// roof you are parked under can never clear it. The rig then had its BODY cut by the per-pixel mask
-// (OCC_PIXEL_BIAS, 0.02, which is the same question asked of one pixel) while its contact shadow
-// and its lamp pools carried on painting over the roof — a truck-shaped smudge on a depot from
-// above, and the tail of the Bonded & Bothered report. So the own ship passes the pixel margin and
-// the two masks over one object agree about what is covered; the dilation above is what keeps this
-// one a superset of the fine one, which is the part that must not change.
-//
-// Conservative in the same direction as everything else here: no field (occlusion tuned off, or a
-// frame with no world pass) means no clip and the old behaviour exactly. Returns whether it clipped,
-// and the caller restores.
+// A contact behind a building is dropped whole (`occludedByBuilding`). The OWN vehicle in the chase
+// view fills a third of the screen and is often half behind something, so this CLIPS against the
+// grid: every cell the world owns nearer than us is cut out (a doorway is a hole, an overhang has
+// road under it).
+// ⚠ DILATED BY ONE CELL ON PURPOSE: this clip wraps the canvas extras (lifter wash, lamp pools) while
+// the model is masked per pixel. The coarse mask must be a strict superset of the fine one, or the
+// truck is cut at 5-px steps.
+// ⚠ THE MARGIN IS THE CALLER'S: OCC_BIAS (0.35) suits whole vehicle vs whole building, but the own
+// ship's own shed is at its own depth, so its roof never clears. The body was cut per pixel
+// (OCC_PIXEL_BIAS, 0.02) while the shadow and lamp pools painted over the roof (Bonded & Bothered).
+// So the own ship passes the pixel margin, and the dilation keeps this mask the superset.
+// No field (occlusion off, or no world pass) means no clip. Returns whether it clipped; the caller
+// restores.
 // ── ONE PATH PER DEPTH BAND, NOT ONE PER CALL ────────────────────────────────
-// Every mark queued through `emitMarked` asks for this at flush, and each call walked the whole grid
-// and built its rects again. The mask only depends on the field and on `f - bias`, so a caller at
-// the default bias gets a Path2D cached per band of the threshold, rebuilt when the field is.
-// ⚠ THE BAND ROUNDS THE THRESHOLD DOWN, so a cached mask hides at most what the exact one would:
-// it can only ever let a mark show a little more, never cut a piece of it that was in front.
-// ⚠ THE OWN SHIP DOESN'T USE IT. It passes OCC_PIXEL_BIAS, a per-pixel margin that a quarter-tile
-// band would undo (the Bonded & Bothered roof), and it asks once a frame anyway.
+// Each `emitMarked` call walked the grid and rebuilt its rects. At the default bias the mask depends
+// only on the field and `f - bias`, so a Path2D is cached per threshold band, rebuilt with the field.
+// ⚠ THE BAND ROUNDS THE THRESHOLD DOWN: a cached mask hides at most what the exact one would.
+// ⚠ THE OWN SHIP DOESN'T USE IT: OCC_PIXEL_BIAS would be undone by a quarter-tile band (the Bonded &
+// Bothered roof), and it asks once a frame anyway.
 const OCC_CLIP_BAND = 0.25;
 // A stand-in canvas (a headless gate's stub) may have no Path2D, or one without `rect`.
 const OCC_CLIP_PATH = typeof Path2D === 'function' && !!Path2D.prototype && typeof Path2D.prototype.rect === 'function';
@@ -51677,35 +49904,17 @@ function occluderWindow(x0, y0, w, h, scale, f) {
 }
 
 // ── ONE SOLID BOX, AS THE FACES THAT CAN SEE THE CAMERA ──────────────────────
-// The occlusion field is filled by rasterising boxes rather than by claiming their bounding
-// rectangle, which is the difference between "somewhere inside this outline is solid" and "these
-// pixels are". Four world corners and two heights in, projected quads out.
-//
-// ⚠ BACKFACED HERE, NOT IN THE RASTERISER. A box's far three faces are always behind its near
-// three, so the depth test would throw them away anyway — after paying the fill for them. Testing
-// each face's outward normal against the eye is five cheap dot products and halves the cost of the
-// whole pre-pass. The UNDERSIDE is never emitted at all: these are ground-anchored solids and there
-// is nothing to see it from.
-//
-// ⚠ THE NEAR PLANE IS CLIPPED, AND IT USED TO BE A REJECT. Dropping a face that straddles the eye
-// is the conservative direction and it was free for as long as nothing standing that close to the
-// camera had to hide anything: the only faces that get there belong to a building you are all but
-// touching. A depot shed is exactly that. The chase camera sits `back` tiles astern, so with the
-// rig parked in a shed the eye is out on the apron a couple of hand-spans from the door — and at
-// FNEAR the whole near wall went, then the flanks with it, and a shed that contributed NO quads at
-// all is not in OCC_SOLIDS, so neither mask has anything to test. The truck was then painted over
-// a shut roller door with the sign across its middle, which is "truck shows thru" surviving the
-// gate above at any dolly under about three quarters of a tile.
-//
-// A clipped face is a SUBSET of the true one, so this can still only ever under-claim: what it adds
-// is the part of the wall that is genuinely in front of you, and what it drops is the sliver behind
-// the lens that cannot be interpolated (see the ⚠ over `tri`, which asks the caller to clip exactly
-// this). Costed where it happens — the polygon is only rebuilt for a face that actually straddles,
-// which over a city is a handful of faces in the frames where somebody is parked against a wall.
-// `keepWorld` also emits each quad's WORLD corners, which the sun's shadow map needs and the
-// screen-space occlusion mask does not. Off by default and switched on only for the near solids
-// that are already being kept — see OCC_KEEP_TILES — because it is four arrays per quad per
-// building and the far ones are never asked to cast on anything.
+// The occlusion field is filled by rasterising boxes, not claiming bounding rectangles: four world
+// corners and two heights in, projected quads out.
+// ⚠ BACKFACED HERE, NOT IN THE RASTERISER: five dot products halve the pre-pass, since far faces
+// lose the depth test anyway. The UNDERSIDE is never emitted (ground-anchored solids).
+// ⚠ THE NEAR PLANE IS CLIPPED, NOT REJECTED. With the rig parked in a shed the chase eye is a
+// hand-span from the door, and rejecting at FNEAR dropped the near wall and flanks, so the shed was
+// missing from OCC_SOLIDS and the truck painted over a shut roller door. A clipped face is a SUBSET,
+// so this still only under-claims (see the ⚠ over `tri`); the polygon is rebuilt only for
+// straddling faces.
+// `keepWorld` also emits each quad's WORLD corners for the sun's shadow map. Off by default; on only
+// for the near solids already kept (OCC_KEEP_TILES), since it's four arrays per quad.
 function boxQuads(cam, corners, z0, z1, out, keepWorld = false) {
   const n = corners.length;
   let ccx = 0, ccy = 0;
@@ -51914,42 +50123,21 @@ function drawModelLODSegs(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, E, det
 }
 
 // ── AUTHORED MODELS — a building drawn from data instead of from an arm ──────────────────────
-//
-// The data half of drawTypeModel. An authored model (content/building_models/*.json, baked into
-// client/shared/building-models.js) arrives here through the ordinary `case` switch, and this
-// function is drawModelLOD's loop at full detail plus an adornment pass.
-//
-// ⚠ IT CALLS THE REAL PRIMITIVES, and must keep doing so. The temptation is to draw from the
-// stored numbers directly — they are right there, already resolved. But then SHAPE_SINK records
-// nothing, and an authored building would have no captured shape at all: no CFIT roof, no ground
-// shadow, no occlusion hull, no LOD, no cold-open silhouette. Going through draw3DBoxAt and
-// drawFacetDrum is what makes an authored model indistinguishable from a code arm to all six.
-// It is also why MASS_OFF needs no handling here: the primitives honour it themselves, so the
-// LOD's adornments-only pass works on an authored model for free.
-//
-// Boxes and drums only, deliberately — see scripts/shapes/model-schema.mjs for why barrel and
-// sawtooth are not authorable yet. An unknown kind is skipped rather than thrown on: a bad bake
-// must not be able to blank every building queued behind this one in the frame.
+// An authored model (content/building_models/*.json, baked into client/shared/building-models.js)
+// arrives through the ordinary `case` switch: drawModelLOD's loop at full detail plus adornment.
+// ⚠ IT CALLS THE REAL PRIMITIVES (draw3DBoxAt, drawFacetDrum), or SHAPE_SINK records nothing (no
+// CFIT roof, shadow, occlusion hull, LOD or cold-open silhouette). They honour MASS_OFF themselves.
+// Boxes and drums only (scripts/shapes/model-schema.mjs says why). An unknown kind is skipped, not
+// thrown, so a bad bake can't blank the buildings behind it.
 // ── THE DETAIL LAYER ────────────────────────────────────────────────────────
-//
-// Pipe runs, vents, air-conditioning boxes, balconies, parapets, sign boards — the small stuff a
-// building is actually made of, authored as data (see DETAIL_SCHEMA) rather than written into an
-// arm. Every one of them paints flat quads through emitFlat and nothing else.
-//
-// ⚠ THREE RULES, AND THEY ARE THE SAME THREE THE NEAR TIER ALREADY LIVES BY.
-//
-// It is ADORNMENT. A detail part must never reach SHAPE_SINK: captured mass becomes CFIT
-// collision, the truck ground probe, the shadows, the occlusion hulls and the cold-open skyline,
-// which keeps the nine bulkiest segments and RANKS them — so forty pipes would re-rank every
-// silhouette in the city and let a player fly into a downpipe.
-//
-// It is SCREEN-SIZE GATED, per kind. `px` in the schema is the height in pixels below which the
-// part is not queued at all, and that gate is what makes ten times the parts affordable: they
-// cost nothing at the range where they cannot be seen. A parapet reads from twenty tiles and a
-// vent reads from three, which is why the floor is per kind rather than one number.
-//
-// And it is MOUNTED. A part standing on a surface takes that surface as its host (see mountedOn),
-// so an AC unit on a roof cannot sort behind the roof it stands on.
+// Pipes, vents, AC boxes, balconies, parapets, sign boards: data (DETAIL_SCHEMA), painted as flat
+// quads through emitFlat only.
+// ⚠ ADORNMENT: never reach SHAPE_SINK (CFIT, the truck probe, shadows, hulls, and the cold-open
+// skyline, which ranks the nine bulkiest segments), or pipes re-rank silhouettes and become
+// collidable.
+// ⚠ SCREEN-SIZE GATED PER KIND: `px` is the height below which a part isn't queued (a parapet reads
+// from twenty tiles, a vent from three).
+// ⚠ MOUNTED: a part takes its surface as host (mountedOn), so a roof AC can't sort behind its roof.
 const DETAIL_LIFT = 0.02;
 const SIGN_BOARD_OUT = DETAIL_LIFT * 2.5;   // how far a signBoard's lettering, and now its board, stands off the wall   // a hair proud of the face it is bolted to, the same trick marqueeBand uses
 // ── WHEN A PART DRAWS THE THING THAT HOLDS IT UP ────────────────────────────
@@ -53158,41 +51346,20 @@ const tradeOf = (m) => (m && (m.trade || m.replaces || m.portedFrom || m.type)) 
 
 // ── WHAT COLOUR DOES THIS BUILDING BURN? ──────────────────────────────────────────────────────
 //
-// 73 of the 173 models carry an authored `neon:` and the other 100 burned the same sodium amber as
-// each other, so after dark a clinic, a foundry and a noodle bar were three identical glows in
-// three different silhouettes. This answers for all 173.
-//
-// ⚠ IT IS NOT WRITTEN BACK ONTO `m.neon`, AND THAT IS THE WHOLE POINT OF IT BEING A SEPARATE
-// FUNCTION. `derivedStyle` reads `m.neon` as a TRUTH TEST — "somebody authored this building a lit
-// frontage" — and it is one of the three terms deciding works vs block vs front. Give every model
-// an accent and every building in the city classifies as `front`: no louvre banks, no roller
-// shutters, no stacks, and the entire industrial half of Coldwater turns into shopfronts. So
-// `m.neon` keeps meaning what it meant, and anything that wants a COLOUR asks here.
-//
-// The axis is the trade's own pictogram where there is one, because that is already the table
-// saying what a building sells, and the material family otherwise. Deterministic — no `dRand`,
-// nothing seeded — because `models:diff` asserts two renders of a model are identical.
+// 73 of 173 models carry an authored `neon:`; the other 100 all burned the same amber. This answers
+// a colour for all 173: the trade's pictogram where there is one, else the material family.
+// Deterministic (no `dRand`), because `models:diff` asserts identical renders.
+// ⚠ IT IS NOT WRITTEN BACK ONTO `m.neon`: `derivedStyle` reads `m.neon` as a TRUTH TEST (works vs
+// block vs front), and giving every model one would turn the industrial half of Coldwater into
+// shopfronts.
 // ── THE CITY IS PINK ON BLUE, AND THE BLUE IS THE BIGGER HALF ────────────────────────────────
 //
-// Measured before this was touched: of 173 models' accents, 118 were red/amber, 30 cyan/blue, 14
-// magenta/pink. The commonest single colour was `#ffd678` on FIFTY-THREE models — a third of the
-// city burning one shade of tungsten. So the city read amber, whatever the reference board said,
-// and the pink anybody could see at night was the vertex-light key wash rather than a single sign.
-//
-// ⚠ THE BLUE IS THE FIELD AND THE PINK IS THE PUNCTUATION, which is the whole composition and the
-// easy thing to get backwards. Making the 53-model default magenta would give a third of the city
-// hot pink and it stops being an accent the moment it is the background. The generic facade goes
-// COOL — that is the bed — and hot magenta is spent on the trades that earn it: the bars, the
-// clubs, the casinos, the places that are open because it is dark.
-//
-// ⚠ AMBER IS NOT DELETED, IT IS RESERVED. A works, a forecourt, a depot and a yard keep sodium,
-// because a colour is only an accent if something on the street is not wearing it — and because it
-// is what makes the industrial east read as a different decade from the glass west without one
-// coordinate being named anywhere in this file. Retiring it entirely would buy a duotone poster.
-//
-// ⚠ AND THIS CANNOT RECLASSIFY A BUILDING. `derivedStyle` reads `m.neon` as a TRUTH TEST and never
-// reads `accentOf`, so every value here is cosmetic: no louvre bank, roller shutter or stack moves
-// because a colour changed. See the ⚠ on `accentOf` below, which is about the opposite mistake.
+// Before: of 173 accents, 118 red/amber, 30 cyan/blue, 14 magenta/pink, and `#ffd678` on 53 models.
+// ⚠ BLUE IS THE FIELD, PINK THE PUNCTUATION: the generic facade goes COOL, and hot magenta is spent
+// on bars, clubs and casinos. A magenta default would make pink the background.
+// ⚠ AMBER IS RESERVED, NOT DELETED: works, forecourts, depots and yards keep sodium, so an accent has
+// something not wearing it, and the industrial east reads as another decade from the glass west.
+// ⚠ THIS CAN'T RECLASSIFY A BUILDING: `derivedStyle` never reads `accentOf` (see its ⚠ below).
 const PICTO_ACCENT = {
   martini: '#ff2e8e',   // bars, clubs, casinos, the strip — hot magenta, the loudest thing on the street
   fork: '#ff4fa8',      // food — pink neon: a late counter signs itself the same way a bar does
@@ -53386,49 +51553,26 @@ const SECTION_OF = {
   // the 66 with the most character in them and exactly where it belongs.
   neonRun: 'neon',
 };
-// ⚠ Exported so a gate can count what the kit actually produces. The rolls inside it are seeded and
-// most of them are MEAN — a third of buildings get a lamp — so "did that part reach the city" is a
-// question with a number rather than a screenshot, and a screenshot of a lamp post and a screenshot
-// of a canopy column are the same screenshot.
-// ⚠ `forceRich` IS A TEST SEAM AND THE RENDERER NEVER PASSES IT. The rich list is selected by
-// `MESH_SINK`, which only `captureModelMesh` sets — so from outside there is no way to ask what the
-// mesh is actually built from, and the composition of that list is exactly the thing that needs
-// watching: every section shares one `KIT_MAX` counter, so a window grid that grows eats the fire
-// escape, the roof plant and the sign board without changing a single number anybody prints.
+// ⚠ Exported so a gate can count what the kit produces: the seeded rolls are mean (a third of
+// buildings get a lamp), so "did that part reach the city" needs a number, not a screenshot.
+// ⚠ `forceRich` IS A TEST SEAM; THE RENDERER NEVER PASSES IT. The rich list is selected by
+// `MESH_SINK`, which only `captureModelMesh` sets. Every section shares one `KIT_MAX` counter, so a
+// growing window grid silently eats the fire escape, roof plant and sign board.
 // ── A THING THAT STANDS ON A ROOF STANDS ON THE ROOF ────────────────────────────────────────
 //
-// ⚠ THIS IS A NORMALISATION, NOT A PLACEMENT RULE. The kit already puts its own roof plant on a
-// real deck and has a ⚠ of its own saying why. What it cannot do anything about is the 140-odd
-// parts in `ARM_DETAIL`, which were hand-placed against the arm's mass AT THE TIME and have been
-// drifting out of it ever since: an arm gains a crown box or a parapet band, the roof plant under
-// it is not moved, and a condenser that used to sit on the roof is now inside the storey above it.
-// `anchored.mjs` found 108 of them across 33 models, plus two water tanks hanging in clear air
-// over `type:hotel` and the Embassy — all of them seed-independent, which is the tell that they
-// are authored rather than rolled.
-//
-// Drawn, lit, shaded, costed in the mesh, and invisible. Nothing else in the repo could see it:
-// `shapes:smoke` asks whether a model THROWS, `models:diff` asks whether it is DETERMINISTIC, and
-// `gl:mesh` bounds trim at half a tile, which is two orders too loose to notice a unit half a box
-// deep in a parapet.
-//
-// One rule fixes both shapes of it, which is the whole reason to do it here rather than by hand in
-// 33 arms: A STANDING PART TAKES THE HIGHEST SOLID TOP THAT CARRIES ITS FOOTPRINT AT OR BELOW ITS
-// OWN BODY. A part swallowed by a crown rises to sit on that crown; a tank hanging over a deck
-// drops onto it. A hand pass over the arms would fix the 33 buildings that are wrong today and
-// nothing about the next arm somebody re-cuts.
-//
-// ⚠ IT RUNS ON THE ASSEMBLED LIST, SO IT REACHES ARM DETAIL AND KIT ALIKE — which is the point,
-// since every defect found was in the arm half. It runs once per model per scale, inside the cache
-// that `derivedTrim` already keeps, so it costs a frame nothing.
-//
-// ⚠ AND IT COPIES RATHER THAN MUTATING, for the reason the ⚠ above `list` already gives: an
-// `ARM_DETAIL` list is a module constant shared by every tile of that type, and `m.detail` is the
-// baked model record. Moving a part in place would move it for every tile in the city and, worse,
-// would do it again on every cache miss until the part had walked off the building.
-//
-// ⚠ ONLY PARTS THAT STAND. A wall part is mounted AT a face plane, so it is legitimately outside
-// the mass by FACE_EPS and snapping it to a deck would take every vent and sign board off the wall
-// and lay it on the roof.
+// ⚠ A NORMALISATION, NOT A PLACEMENT RULE. The 140-odd hand-placed `ARM_DETAIL` parts drift as arms
+// gain crowns and parapets: `anchored.mjs` found 108 inside the mass across 33 models, plus two water
+// tanks in clear air over `type:hotel` and the Embassy. shapes:smoke, models:diff and gl:mesh (trim
+// bounded at half a tile) can't see it.
+// The rule: A STANDING PART TAKES THE HIGHEST SOLID TOP THAT CARRIES ITS FOOTPRINT AT OR BELOW ITS
+// OWN BODY. A swallowed part rises onto the crown; a hanging tank drops onto the deck. It also covers
+// the next arm somebody re-cuts.
+// ⚠ IT RUNS ON THE ASSEMBLED LIST (arm detail and kit alike), once per model per scale inside
+// `derivedTrim`'s cache.
+// ⚠ IT COPIES, NEVER MUTATES: an `ARM_DETAIL` list is a shared module constant and `m.detail` the
+// baked record, so an in-place move would walk the part off the building on every cache miss.
+// ⚠ ONLY PARTS THAT STAND: a wall part sits FACE_EPS outside the mass by design; snapping it would
+// lay every vent and sign on the roof.
 const STANDING_KINDS = new Set(['roofTank', 'tankFrame', 'stack', 'antennaCluster', 'acUnit', 'signGantry']);
 // How far a part may already be off a top before it is worth moving. Below this it is resting on
 // it and the arithmetic is float noise.
@@ -53577,35 +51721,20 @@ export { derivedTrim, paintFoot } from './glass/derived-kit.js';
 
 // ── THE DETAIL LAYER, FOR ANY MODEL ─────────────────────────────────────────
 //
-// ⚠ IT IS NOT A PROPERTY OF AUTHORED MODELS, and living inside drawAuthoredModel made it look
-// like one. A `detail` list is read off the MODEL RECORD, and the 172 hand-written arms have
-// model records too — that is what they are registered as. So a pipe run, a vent, a parapet or a
-// sign board can be hung on `type:office` and every office in the city gets it, with the arm
-// untouched. That is the whole shape of the quality pass: the arms stay hand-written and the trim
-// they never had is data.
+// ⚠ IT IS NOT A PROPERTY OF AUTHORED MODELS: `detail` is read off the MODEL RECORD, which the 172
+// hand-written arms have too, so a part hung on `type:office` reaches every office with the arm
+// untouched.
 // ── THE FACADE WASH, WHICH CANNOT LIVE IN THE DETAIL LAYER ────────────────────────────────────
 //
-// `facadeGlow` is a detail part like any other and `derivedKit` places it like any other — but
-// `detailLayer` returns unless `ADORN_TIER >= ADORN_NEAR`, and that tier is only reached inside
-// `RENDER_TUNE.detailNear`, which is THREE TILES. That is right for a door reveal and useless for a
-// street wash: the lights that matter are the ones down the road, and at three tiles there are one
-// or two buildings in range. Emitted from there the feature produced exactly zero sprites, which is
-// indistinguishable from it not being wired up at all — `__glLights()` reported the same 121 and
-// 179 sprites as before it existed.
-//
-// So it rides here instead: the same list, read outside the tier gate, at ordinary LOD range.
-//
-// ⚠ SPRITE SINK ONLY, AND NEVER WHILE CAPTURING. Without a sink `glowPool` blits a radial gradient
-// onto the canvas, which would put one per facade into `framecost` — and a capture runs this arm at
-// a displaced position, so anything emitted there lands eight tiles from its building.
-// ⚠ AND IT IS OFF, BECAUSE ITS PAYOFF IS BLOCKED ON THE SAME THING PHASE 6 IS. A facade wash lights
-// the ROAD in front of it and the building opposite; the mass shader only lights walls, and the
-// floor and ground passes take no lights at all. So with two of twelve slots reserved for washes,
-// the measurable effect is the slots they cost the neon: wall coverage 20.1% → 19.5% on the cab and
-// 13.7% → 11.4% from the air, with nothing to show on the other side of the ledger because the
-// surface it would show on cannot receive light yet. `__glFlicker` is unchanged (2.33 creep either
-// way), so the mechanism is sound — it has nowhere to put its light. Turn this on when the ground
-// takes lights.
+// `detailLayer` returns below `ADORN_TIER >= ADORN_NEAR`, reached only within
+// `RENDER_TUNE.detailNear` (three tiles), so `facadeGlow` there made zero sprites (`__glLights()`
+// unchanged at 121 and 179). It reads the same list here, outside the tier gate, at LOD range.
+// ⚠ SPRITE SINK ONLY, NEVER WHILE CAPTURING: without a sink `glowPool` blits gradients (a cost in
+// `framecost`), and a capture runs the arm displaced, landing glows eight tiles off.
+// ⚠ IT IS OFF: a wash lights the road and the building opposite, and the floor and ground passes
+// take no lights. Two of twelve slots for washes cost the neon (wall coverage 20.1% → 19.5% cab,
+// 13.7% → 11.4% air) for nothing visible; `__glFlicker` is unchanged (2.33). Turn it on when the
+// ground takes lights.
 function facadeLights(cam, dx, dy, fh, h, m, seed, night, alpha, E) {
   // A facade wash IS the lit window grid throwing light on the street, so it goes out with the grid.
   if (POWER_DUTY <= 0) return;
@@ -53672,39 +51801,18 @@ function detailLayer(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E) {
   if (signsOnly && !(FLAT_OFF && DECAL_SINK && (TUNE.signFar | 0) > 0
       && eyeRange(cam, dx, dy) < TUNE.signFar)) return;
   _signFace = signFontOf(m);   // the second entry point that must write it — see the ⚠ on _signFace
-  // ⚠ THE HAND-WRITTEN LISTS NO LONGER *REPLACE* THE DERIVED ONE, THEY COMPOSE WITH IT — and until
-  // they did, having somebody bother to author trim for your building made it WORSE. This read
-  // `authored || arm || derived`, three alternatives, take the first. That was right when the
-  // derived answer was a single coping band. It stopped being right the moment the derived answer
-  // became a whole kit: the 27 arm lists average **5.1 parts** and between them use NONE of the
-  // eight new kinds — no windows, no shopfront, no ground floor at all — so `office`, `hotel`,
-  // `apartment`, `police`, `clinic` and `casino`, which are most of the city, were the least
-  // detailed buildings in it, and the ones nobody had touched were the best.
-  //
-  // The rule is now: a hand-written list wins for the SECTIONS it covers, and the kit fills the
-  // rest. An author who drew a shopfront keeps their shopfront; an author who never drew one gets
-  // ours. It applies to authored `m.detail` too, uniformly — Voltage already covers all four
-  // sections, so it is unchanged by this and that is the check that the rule is the right shape.
-  // ⚠ THE LIVE PASS MUST READ THE LIST THE MESH WAS BUILT FROM, AND FOR A WHILE IT DID NOT.
-  // `derivedTrim` keeps TWO lists per model — a lean one the 2-D painter can afford and a rich one
-  // for the GPU — and it picked between them on `MESH_SINK`, which answers "am I capturing" rather
-  // than "which list is this building drawn from". Under GLASS 2 those are different questions: the
-  // capture takes the RICH list into the mesh, and then the live call, which has no mesh sink, ran
-  // the LEAN one. Every rich-only part therefore reached the screen as geometry with nothing else
-  // it draws — no lettering, no light, no stroke — because the painter that would have emitted them
-  // never ran at all.
-  //
-  // It is not a subtle difference: `signGantry` and `bladePanel` are rich-only, so 84 of the 173
-  // models put up a lit, framed, EMPTY board over the roof and a blank slab down the corner. That is
-  // the "blank sign" this file already has a paragraph about under `signBoard`, arriving by a route
-  // no guard in a painter could have fixed — the board was in the mesh and the painter was not
-  // running.
-  //
-  // `FLAT_OFF` is the honest test, because it is set by exactly the thing that makes the mesh
-  // authoritative for this building's flat geometry. Capturing → rich (unchanged). A GLASS 2 frame →
-  // rich, and `FLAT_OFF` suppresses the geometry the painter would otherwise double-draw, so what
-  // the extra parts actually cost is their lights and decals. A 2-D frame → lean, exactly as before,
-  // which is what keeps `framecost` measuring the renderer it was calibrated against.
+  // ⚠ HAND-WRITTEN LISTS COMPOSE WITH THE DERIVED ONE, NEVER REPLACE IT. As `authored || arm ||
+  // derived`, the 27 arm lists (5.1 parts on average, none of the eight new kinds) made `office`,
+  // `hotel`, `apartment`, `police`, `clinic` and `casino` the least detailed buildings in the city.
+  // Now a hand-written list wins for the SECTIONS it covers and the kit fills the rest, for authored
+  // `m.detail` too (Voltage covers all four sections and is unchanged, the check on the rule).
+  // ⚠ THE LIVE PASS MUST READ THE LIST THE MESH WAS BUILT FROM. `derivedTrim` keeps a lean list
+  // (2-D) and a rich one (GPU). Choosing on `MESH_SINK` alone, the GLASS 2 live call ran the LEAN
+  // list, so rich-only parts drew as geometry with no lettering or light: 84 of 173 models showed an
+  // empty lit `signGantry` and a blank `bladePanel`.
+  // `FLAT_OFF` is the right test: capturing → rich; a GLASS 2 frame → rich, with `FLAT_OFF`
+  // suppressing double-drawn geometry so extra parts cost only their lights and decals; a 2-D frame
+  // → lean, keeping `framecost` calibrated.
   const list = derivedTrim(m, fh, h, seed, !!(MESH_SINK || FLAT_OFF));
   if (!list.length) return;
   const th = Math.atan2(-E[0], E[1]);
@@ -56068,39 +54176,20 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
       }
     }
     else if (m) {
-      // Near-detail tier. Inside detailNear the arm runs at ADORN_NEAR, which unlocks the detail
-      // that only reads at arm's length. The try/finally mirrors the LOD branch above and exists
-      // for the same reason: an arm that throws must not leave the global raised, or every
-      // building drawn after it in this frame would silently paint near detail at any distance.
-      //
-      // With the mass on the GPU the arm still runs, for its lights and signs alone — and it runs at
-      // the SAME adornment tier the distance LOD would have chosen, because that thinning is a
-      // judgement about what is worth drawing at that range and has nothing to do with which
-      // renderer laid the walls. `lodAdorn` 0 keeps its meaning: past lodNear, nothing but mass.
-      // ⚠ AN LOD IS A STATEMENT ABOUT HOW FAR AWAY A THING IS, AND `it.f` IS NOT THAT. It is the
-      // tile offset projected onto the camera's own forward axis — r·cos(θ) — so it SHRINKS AS YOU
-      // TURN AWAY from a building that has not moved. For a sort key and for the near/far clip that
-      // is exactly right, and it is why `it.f` exists. For a DETAIL ladder it means the tier is
-      // decided by where you are pointing; and past the ring the tier is `lodAdorn`, which on the
-      // default calibration is CHEAP, and `bakeSignText` returns null below RICH. So what a turn of
-      // the head sheds is the building's NAME.
-      //
-      // Measured on ONE building at a fixed radius from a fixed camera, nothing moving but the
-      // heading: at 26 tiles on the aircraft's tune (lodNear 20) the name is lettered at ±40°, ±50°
-      // and ±60° and gone at every heading between −30° and +30°. Turning to read a sign is what
-      // deletes it. The truck cab never had this, because `lodAdorn: 2` there means the shed does
-      // not reach signage at all — the same conclusion reached from the other end when a night
-      // street was found going dark past nine tiles.
-      //
-      // So the ladder asks the real distance, which is the cheaper direction as well as the correct
-      // one: r ≥ r·cos(θ), so a building is past the ring at least as often as it was before.
-      // ⚠ THE MASS LOD ABOVE KEEPS `it.f`, DELIBERATELY. In GLASS 2 that branch is unreachable (the
-      // mass is on the GPU and `drewLod` is never taken), and in GLASS 1 moving it would change
-      // which buildings are laid from captured segments — that is geometry, for a bug about
-      // lettering. The two only ever disagree on the renderer where one of them does not run.
-      // ⚠ AND IT HAS AN OFF-SWITCH, the same discipline as `legacyArms` and `glFloor`: this changes
-      // which tier most of the city runs at, so "what did it do" has to be answerable by flipping
-      // one number rather than by reading a diff. 0 puts the ladder back on the forward distance.
+      // Near-detail tier. Inside detailNear the arm runs at ADORN_NEAR, unlocking arm's-length
+      // detail. The try/finally mirrors the LOD branch: an arm that throws must not leave the global
+      // raised for every building after it this frame.
+      // With the mass on the GPU the arm still runs for its lights and signs, at the SAME adornment
+      // tier the distance LOD would choose. `lodAdorn` 0 keeps its meaning: past lodNear, only mass.
+      // ⚠ `it.f` IS NOT DISTANCE: it's r·cos(θ), so it shrinks as you turn away. Right for sorting and
+      // clipping; for the detail ladder it made the tier follow the heading. At 26 tiles on the
+      // aircraft tune (lodNear 20) a building's name showed at ±40-60° and vanished between −30° and
+      // +30°, because `lodAdorn` is CHEAP and `bakeSignText` returns null below RICH. So the ladder
+      // asks the real distance (r ≥ r·cos(θ), so it's also cheaper).
+      // ⚠ THE MASS LOD ABOVE KEEPS `it.f`: it's unreachable on GLASS 2, and on GLASS 1 changing it
+      // changes geometry for a lettering bug.
+      // ⚠ IT HAS AN OFF-SWITCH, like `legacyArms` and `glFloor`: 0 puts the ladder back on forward
+      // distance.
       const rr = eyeRange(cam, it.dx, it.dy);
       const glTier = glMass && lodN > 0 && rr > lodN ? (TUNE.lodAdorn | 0) : -1;
       if (glTier !== 0) {
@@ -56692,37 +54781,18 @@ function drawStatue(ctx, cam, dx, dy, fh, seed, night, alpha, now, sun, sky) {
   }
   taper(0, 0, W * 0.44, W * 0.42, W * 0.32, W * 0.32, T + U * 4.36, T + U * 4.66, rot, COPPER);   // and its crown
   // ── THE ARMS: BOTH OF THEM ARE ON THE ROD ──────────────────────────────────────────────────
-  // He was holding the rod in one raised hand with a creel dangling off the other, which is a man
-  // posing WITH tackle. What a monument to a fishing town wants is the moment the work pays: both
-  // hands on the grip, the top fist out in front of the chest and the butt fist down at the hip,
-  // the rod bent over by something on the end of it. That is a two-handed job, and it is the only
-  // pose in which the fish and the man are one sentence rather than two objects on a plinth.
-  //
-  // ⚠ THE HANDS SIT NEARLY ABOVE ONE ANOTHER, AND THAT IS THE ROD'S CONSTRAINT RATHER THAN TASTE.
-  // The rod passes through both fists, so the line between them IS a section of it — and the bend
-  // rule below says the lean off the vertical may only ever grow from butt to tip. Hands spread
-  // wide across the body lean that section over past forty degrees, which every section above it
-  // then has to beat, and the rod ends up horizontal before it clears his hat.
-  //
-  // The creel comes off the hand and goes where a creel goes when you need both of them: slung on
-  // the far hip with the strap over the opposite shoulder.
-  //
+  // Both hands on the grip, top fist before the chest and butt fist at the hip, the rod bent by a
+  // fish: the moment the work pays, not a man posing with tackle. The creel is slung on the far hip,
+  // strap over the opposite shoulder.
+  // ⚠ THE HANDS SIT NEARLY ABOVE ONE ANOTHER: the line between the fists IS a rod section, and the
+  // bend rule lets the lean off vertical only grow toward the tip. Spread hands lean it past forty
+  // degrees and the rod goes horizontal before clearing his hat.
   // ── ⚠ `at()` IS ALREADY CAMERA-RELATIVE AND `limb` TAKES CAMERA-RELATIVE, SO NOTHING CONVERTS ─
-  // These four calls were wrapped in a `rel()` that subtracted the tile offset back off, which put
-  // every arm and the whole rod at the CAMERA'S OWN ORIGIN rather than on the figure. It is silent
-  // in both renderers and it looks like two different bugs: on the 2-D path the facets fail
-  // `cam.proj`'s own near test and `face` drops them, so the arms are simply absent; on the GL
-  // path they are pushed at the eye and clipped by the near plane, so the arms are simply absent.
-  // The monument shipped for weeks with no arms and no rod at all, and the only thing anybody
-  // could see of the tackle was the LINE — which is a stroke, in world coordinates, and therefore
-  // the one part of it that was never wrapped. That is why it read as a scratch in the sky: it was
-  // the only survivor. `box` and `taper` take the monument's own frame and do their own adding,
-  // which is what made one of the two conventions look like both of them.
-  // ⚠ THE FISTS SIT ON HIS CENTRELINE AND CLEAR OF THE COAT. The rod passes through both, so the
-  // line between them IS a section of it — which makes these two points, and not the rod's own
-  // waypoints, what decides whether the tackle ends up in front of the man or beside him. The
-  // coat's front face is 0.94 W out at this height, so a fist authored at 1.0 is inside the
-  // garment it is supposed to be held away from.
+  // A `rel()` wrapper subtracted the tile offset again and put the arms and rod at the camera's
+  // origin, where both renderers dropped them silently; only the world-space LINE survived (a scratch
+  // in the sky). `box` and `taper` take the monument's frame and add the offset themselves.
+  // ⚠ THE FISTS SIT ON HIS CENTRELINE, CLEAR OF THE COAT: they decide whether the tackle is in front
+  // of him or beside him. The coat front is 0.94 W out here, so a fist at 1.0 is inside it.
   const gripLo = at(W * 1.18, W * 0.04, T + U * 2.86);   // the butt fist, low and in front of the hip
   const gripHi = at(W * 1.40, W * 0.14, T + U * 3.66);   // the top fist, out in front of the chest
   const shL = at(0, -W * 0.86, T + U * 3.46), elL = at(W * 0.66, -W * 0.88, T + U * 2.96);
@@ -57181,40 +55251,20 @@ function airDoorOpen(dx, dy, cell) {
 const BAY_CUT_FAR = 1.10;    // beyond this the shed is solid — you are looking at a building
 const BAY_CUT_NEAR = 0.25;   // …and by here it is fully open, which is about where the chase flattens
 // ── ⚠ AND THE OTHER TWO INPUTS HAD TO BECOME RAMPS TOO ───────────────────────
-// The distance term above has been continuous from the day it was written, with a comment saying
-// why: "the ramp between them is what stops a wall blinking out on one notch of the wheel". The
-// other two inputs to the same answer were BOOLEANS, and they blink for exactly the same reason.
-//
-//   · IS THE EYE ABOVE THE EAVES — a doorstep at 0.9·WALL. Orbiting the chase camera walks the eye
-//     up and down across it, so one notch of pitch flipped the shed between solid and opened-up.
-//   · IS THE RIG INSIDE IT — a containment test. Driving out through the door flipped it the
-//     instant the truck's centre crossed the footprint, so the walls snapped back on behind you and
-//     snapped off again as you rolled in. That is the depot "always disappearing" as you move.
-//
-// Both ramp now, and both ramp on the side that used to be a hard 0, so everything that was fully
-// cut before is fully cut still: the eye ramp reaches 1 exactly at the old threshold, and the rig's
-// claim on a shed is 1 anywhere inside it and fades over the next tile of hardstand.
-// ⚠ 0.80, NOT LOWER. The chase camera down on the road sits a little under the eaves and the shed
-// must be SOLID there — that is the pose the occlusion agreement is built on (bayOccluderSmoke:
-// "down at chase height the shed is solid on screen and masks nothing" fails the moment this band
-// reaches far enough down to open the walls a crack). The band only has to be wide enough that the
-// eye cannot cross it in one notch of the orbit; it does not have to be gentle.
+// The distance term is a ramp so a wall doesn't blink on one notch of the wheel. The other two
+// inputs were booleans and blinked:
+//   · EYE ABOVE THE EAVES (a doorstep at 0.9·WALL): one notch of orbit pitch flipped the shed.
+//   · RIG INSIDE IT (containment): walls snapped on and off as the truck's centre crossed the door.
+// Both ramp on the side that was a hard 0, so whatever was fully cut still is: the eye ramp reaches
+// 1 at the old threshold, and the rig's claim is 1 inside and fades over the next tile of hardstand.
+// ⚠ 0.80, NOT LOWER: at chase height under the eaves the shed must be SOLID (bayOccluderSmoke fails
+// if this band opens the walls a crack). It only has to be wider than one orbit notch.
 // ── ⚠ AND IT IS OFF ──────────────────────────────────────────────────────────
-// A shed that opens up when the camera rises reads, from the driver's seat, as walls that come and
-// go with the angle — which is what it was reported as, in those words. The cutaway was solving a
-// real problem (your own rig parked inside and hidden under its own roof) and solving it by making
-// the building stop being a building, and a world where a wall's existence depends on where you
-// are looking from is a worse trade than not being able to see your truck through a roof.
-//
-// So `bayCutaway` returns 0 and the shed is always solid. The ramp below is deliberately LEFT
-// STANDING rather than deleted: it is the tuned answer to a question that may well be asked again,
-// and turning it back on is this one constant. Everything downstream already reads `cut` as a
-// number rather than a flag, so nothing else had to change to switch it off.
-//
-// ⚠ WHAT DID HAVE TO CHANGE is the occlusion gate, and for a reason that is not the cutaway at
-// all: a wall you are STANDING INSIDE cannot be between you and anything in the room with you. The
-// mask used to skip a shed when it was being opened up; it skips one when the EYE is within it,
-// which is the honest statement and is true whether or not anything is ever cut away again.
+// Walls that come and go with the camera angle were reported as exactly that, so `bayCutaway`
+// returns 0 and the shed is always solid. The tuned ramp stays behind this one constant; everything
+// downstream reads `cut` as a number.
+// ⚠ THE OCCLUSION GATE skips a shed when the EYE is inside it (a wall you stand inside is between you
+// and nothing in the room), whether or not anything is cut away.
 const BAY_CUTAWAY_ON = false;
 // ── …EXCEPT WHILE YOU'RE BEING SERVICED ─────────────────────────────────────
 // With the depot's bay open (the shell's `.ds-bay.open` on the seat's glass) the camera is there
@@ -57971,36 +56021,19 @@ function drawVehicleBay(ctx, cam, dx, dy, cell, night, alpha, now) {
 }
 
 // ── THE HIGHWAY SIGN ─────────────────────────────────────────────────────────
-// A board on two legs on the verge of the void corridor, and the only thing out there that ever
-// tells a driver where they are.
-//
-// ⚠ NOTHING HERE WORKS ANYTHING OUT. The rows arrive on the cell as `sgn` — name, MILES, and an
-// arrow index already measured against the road's own heading at that post (see signsFor in
-// plugins/trucking/corridor.js). That is the same rule the price board runs on and for the same
-// reason: a distance computed in the renderer is a second answer to a question the server has
-// already answered, and the first time the two disagree a driver budgets a tank against the wrong
-// one. The client's whole job is paint.
-//
-// THE ARROW IS DRAWN, NOT TYPED. A glyph would have been three characters of work and would have
-// depended on a monospace font having ↗ in it at a legible weight on every machine; it is a
-// polygon in the board's own surface coordinates instead, so it leans and foreshortens with the
-// panel exactly as the lettering does and can never come out as a box.
+// A board on two legs on the verge of the void corridor, the only thing telling a driver where they
+// are.
+// ⚠ NOTHING HERE WORKS ANYTHING OUT. Rows arrive on the cell as `sgn` (name, MILES, arrow index
+// against the road's heading at that post; signsFor in plugins/trucking/corridor.js), like the price
+// board: a renderer-side distance is a second answer that will disagree. The client only paints.
+// THE ARROW IS DRAWN, NOT TYPED: a polygon in the board's surface coordinates leans and foreshortens
+// with the panel and never renders as a missing-glyph box.
 // ── DEAD PYLONS ──────────────────────────────────────────────────────────────
 //
-// The thing at an interchange. The junction has been narrated for a long time as "the graded road
-// splits around a stand of dead pylons" and there were no pylons — the line fired on a node crossing
-// and the windscreen showed the same empty verge as everywhere else. That gap got worse rather than
-// better when the fork stopped being a room boundary and became a place, because a place you cannot
-// see is a room boundary with a better comment.
-//
-// ⚠ NOT `mast()`, THOUGH IT IS RIGHT THERE. That helper ends in `blinkLight` — a red aviation
-// beacon — and the one thing these are is DEAD. A pylon that still winks at aircraft is a pylon
-// somebody is maintaining, which is the opposite of what the whole waste is saying.
-//
-// ⚠ AND NOT A BUILDING. Same argument as the highway sign: a lattice tower has no mass worth
-// extruding, nothing to occlude behind, and making it a `building_type` would put it into the
-// collision sweep — where the landmark marking a junction becomes a thing that stops a truck at
-// the junction.
+// The interchange is narrated as splitting "around a stand of dead pylons"; these are the pylons.
+// ⚠ NOT `mast()`: it ends in `blinkLight`, a red aviation beacon, and these are DEAD.
+// ⚠ NOT A BUILDING: a `building_type` would put it in the collision sweep and stop a truck at the
+// junction it marks.
 const PYL_H = 2.05;
 function drawPylons(ctx, cam, dx, dy, night, alpha, seed) {
   const r = (k) => frac(seed * 7.13 + k * 3.77);
@@ -59659,36 +57692,16 @@ function drawRoadSign(ctx, cam, dx, dy, sgn, foot, night, alpha, now = 0) {
 
 // ── THE SOUTH GATE: THE MACHINE THAT MAKES THE WALL ─────────────────────────
 //
-// It used to be a castle. Two ashlar pylons with an overhanging cap, a stone lintel carried on
-// three squat blocks, and a panel of hard light hanging in the arch between them with nothing
-// anywhere to say where the light came from — a barbican with a force field in the doorway. The
-// Curtain is the Architect's, and the one thing a barbican cannot say is the thing a player
-// standing in front of it is looking at: a wall of light has to be MADE somewhere, and this is
-// the only place in the world where you can stand next to the part that makes it.
-//
-// So the station is built as the machine, from the ground up — a poured blast plinth, a plated
-// shaft, an accelerator stack of narrowing drums, and an EMITTER YOKE at the top that is long
-// along the wall and shallow across it. The proportions carry the whole claim: the direction a
-// thing points is all it has to say about what it does, and a square box points nowhere.
-//
-// ⚠ THE FIELD ROOT IS NOT DECORATION — IT CLOSES A REAL HOLE. `deriveSurfaceCell` hands the gate
-// tile the run of its Curtain neighbours precisely so their walls reach the SHARED EDGE at ±0.5
-// instead of stopping a tile short and leaving a break. The pylons stand at ±0.34, and nothing
-// has ever been drawn in the 0.16 tiles between — so the Curtain arrived at the gate and stopped,
-// twice, with a slot of open sky either side of the station. The root spans exactly that gap at
-// the wall's own height, which is both the repair and the sentence: the wall does not END here,
-// it is only held OPEN over the carriageway.
-//
-// ⚠ AND EVERY FIELD HERE IS THE WALL'S OWN COLOURS, FROM `CURTAIN_STOP`. The aperture and the two
-// roots stand within a metre of the real thing, which makes this the one place a second set of
-// stops would be visible as two different blues meeting at a join.
-//
-// ⚠ NOTHING IN HERE MAY REACH A SINK, and it is not for want of trying to be tidy: the gate is a
-// MARK, so past 2.1 tiles `markBillboard` bakes it with every sink nulled, and inside that
-// `emitMarked` queues it to FLUSH, where they are nulled again. Boxes, drums and glows all fall
-// back to the canvas on both paths, which is correct and is why the fine detail here is painted
-// with plain `ctx` work rather than through `emitWire`/`emitDecoFill` — a stroke layer that can
-// never be reached is a stroke layer that quietly draws nothing.
+// The station is built as the machine that makes the Curtain: a poured blast plinth, a plated shaft,
+// an accelerator stack of narrowing drums and an EMITTER YOKE long along the wall and shallow across
+// it (it was a stone barbican with light hanging in the arch).
+// ⚠ THE FIELD ROOT CLOSES A REAL HOLE. `deriveSurfaceCell` runs the neighbouring Curtain walls to the
+// SHARED EDGE at ±0.5, but the pylons stand at ±0.34, leaving 0.16 tiles of open sky each side. The
+// root spans that gap at the wall's height.
+// ⚠ EVERY FIELD USES THE WALL'S OWN COLOURS (`CURTAIN_STOP`), or two blues meet at a join.
+// ⚠ NOTHING HERE MAY REACH A SINK: the gate is a MARK, so past 2.1 tiles `markBillboard` bakes it
+// with sinks nulled, and `emitMarked` queues it to FLUSH, where they're nulled again. So fine detail
+// is plain `ctx` work, not `emitWire`/`emitDecoFill`, which would silently draw nothing.
 function drawSouthGate(ctx, cam, dx, dy, foot, axis, seed, night, alpha, now, lockdown = false) {
   const ew = axis.indexOf('e') >= 0 || axis.indexOf('w') >= 0;
   const wx = ew ? 1 : 0, wy = ew ? 0 : 1;          // unit ALONG the wall (where the pylons sit)
@@ -60036,42 +58049,22 @@ function drawCurtainBastion(cam, dx, dy, cur, night, alpha, now, red = false) {
   { const c = T(0.08, 0, zh0 + 0.014); glowPool(null, cam, c[0], c[1], c[2], '255,70,56', 8, 0.4 * blink * alpha, { add: true, max: 20 }); }
 }
 
-// The Echelon — a long, low, mirror-black superyacht sitting on the open water, bow to the
-// north, with a lit helipad aft (the tile a VTOL sets down on). Built world-fixed from a
-// spine of tapered hull boxes + a stepped deck house + a raised pad, so the sea (drawn by
-// the floor pass beneath) laps around the hull instead of runway concrete.
-// The Echelon — a genuinely high-poly superyacht, built as a real triangulated hull rather than a
-// stack of boxes: cross-section stations (beam + sheer curves) swept fore→aft into a surface with a
-// chine knuckle, a cambered deck, a transom, a two-tier glass deckhouse, a radar arch, and railings.
-// Every face carries a world normal, so the whole model is depth-sorted (painter, far→near),
-// backface-culled, and lit by the real sun (`sun`) — the same directional shading the aircraft use —
-// falling back to a top-lit key at night. Shares the one function used by BOTH the flight sim and
-// the Helm chase view. heading 0 = bow north (−y), matching drawAircraftModel so a chase cam frames
-// her stern; a moored/streamed Echelon (no heading) renders bow-north.
+// The Echelon: a long, low, mirror-black superyacht on open water, bow north, with a lit helipad aft
+// (the VTOL tile). A real triangulated hull: stations (beam + sheer curves) swept fore→aft with a
+// chine knuckle, cambered deck, transom, two-tier glass deckhouse, radar arch and railings. Every
+// face has a world normal: depth-sorted (painter, far→near), backface-culled and lit by `sun` like
+// the aircraft, top-lit at night. Shared by the flight sim and the Helm chase view. heading 0 = bow
+// north (−y), matching drawAircraftModel; no heading renders bow-north.
 // ── ⚠ AND SHE HAS TWO HALVES NOW, BECAUSE THE HULL IS A SOLID AND THE FITTINGS ARE NOT ──────────
 //
-// `collect` hands the HULL to gl/solids.js and paints nothing; `fittings` draws everything else and
-// leaves the hull alone. A GLASS 2 frame calls her twice, once each way; GLASS 1 passes neither and
-// is the function that always shipped, line for line.
-//
-// The hull is why. She is drawn by her own function rather than extruded from a storey stack, so she
-// is in MASS_EXCEPT and never reaches the GL mass — and the canvas is painted AFTER the city is
-// composited, with no probe on this branch at all. A two-tile ship drew over every building in the
-// Basin from every angle. That is "the Echelon shows through buildings", and it is the same shape as
-// the depot shed, the signal mast, the lights, the Curtain and the signage before it.
-//
-// ⚠ COLLECTED BEFORE THE CULL AND BEFORE THE NEAR CLIP, WHICH IS THE BAY GATE'S OWN RULE. Both are
-// answers about where the EYE is: cull first and the surviving SHAPE is a function of the camera, so
-// the ship the depth buffer holds changes as you orbit her. A depth buffer clips in three dimensions
-// against the real frustum and hides her own far side for nothing.
-//
-// ⚠ AND THE FITTINGS FOLLOWED HER THERE — the pad ring, the railings, the mast, the beacons, the
-// sidelights and the wake. They were a stated remainder for exactly as long as it took somebody to
-// see them: each is a stroke, a lamp or a flat quad on the water, so each had a layer waiting for
-// it, and the only reason they were still on the canvas is that the whole ship was drawn from one
-// `emitFace` closure and a closure runs after every sink has been torn down. `fittings` runs INLINE,
-// during the sweep, which is the whole of what that flag means. Nothing of her is painted over the
-// composited city now and `worldresidue`'s allow-list is empty again.
+// `collect` hands the HULL to gl/solids.js and paints nothing; `fittings` draws everything else. A
+// GLASS 2 frame calls both; GLASS 1 passes neither and is the shipped function line for line. She's
+// in MASS_EXCEPT and the canvas paints after the composite with no probe, so she drew over the Basin.
+// ⚠ COLLECTED BEFORE THE CULL AND NEAR CLIP (the bay gate's rule): culling first makes the stored
+// shape depend on the camera. The depth buffer clips against the real frustum.
+// ⚠ THE FITTINGS (pad ring, railings, mast, beacons, sidelights, wake) RUN INLINE during the sweep, so
+// each reaches its layer; an `emitFace` closure runs after the sinks are torn down. `worldresidue`'s
+// allow-list is empty again.
 function drawYacht(ctx, cam, dx, dy, fh, seed, night, alpha, now, wake, heading, sun, opts = {}) {
   const hr = (heading || 0) * Math.PI / 180, shr = Math.sin(hr), chr = Math.cos(hr);
   const isNight = night > 0.35;

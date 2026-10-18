@@ -81,35 +81,15 @@ export const AUTHORED_DETAIL = {
   },
   // ── THE PILASTERS: WHAT MAKES A FACADE A FACADE AND NOT A SLAB ─────────────────────────────────
   //
-  // Everything else on this list is bolted ONTO a wall — a pipe, a board, a vent, a cable — and
-  // this file's own note under `windowBay` already says why that is not enough: "a flat wall
-  // wearing forty greebles is a flat wall". What the city had no word for at all is the oldest
-  // move in tall architecture: a rank of vertical fins standing proud of the frontage, running from
-  // the plinth to the crown, with the glazing set back between them.
-  //
-  // It is the single most characteristic thing about both halves of what this game looks like.
-  // ART DECO is that rhythm in stone — the pier-and-spandrel front, unbroken verticals gathered
-  // into a stepped capital at the top. The CYBERPUNK skyline is the same rhythm with the light
-  // switched on: a lit channel up every fin, so a tower reads as a bundle of vertical lines after
-  // dark rather than as a dark rectangle with some windows in it. One part draws both, because they
-  // ARE one part — what changes is the cap and whether the runner is lit.
-  //
-  // ⚠ THE LIGHT IS A STROKE AND THE FIN IS GEOMETRY, WHICH IS THE WHOLE COST STORY. A lit line up a
-  // pier through `emitLightRunner` is a quad in the stroke layer on the GPU and one polyline on the
-  // canvas — the cheapest bright thing this renderer has — where a glowing FACE would be a mesh
-  // quad per fin per building, on every building in the city. So the geometry is rationed hard
-  // (a front face always, its two returns in the mesh only, a cap when one is asked for) and the
-  // part that actually reads at range costs almost nothing.
-  //
-  // ⚠ THE RETURNS ARE THE DIFFERENCE BETWEEN A FIN AND A STRIPE, and they are mesh-only for the
-  // same bargain `bars` and the blade's spine already strike: square on, a front face alone is
-  // indistinguishable from paint, and off square the returns are what give the frontage depth. On
-  // the 2-D fallback a pier is a painted pilaster, which is what a painted pilaster looks like.
-  //
-  // ⚠ ONE PART, `n` FINS — the `bollard` rule, and here it is not a preference. Every fin on a
-  // facade is a claim on `KIT_MAX`, and a rank of five spending five slots would eat the fire
-  // escape, the roof plant and the name board (see the ⚠ on `winSpent`). A rhythm is also the one
-  // thing that is meaningless at a count of one.
+  // A rank of vertical fins proud of the frontage, plinth to crown, glazing set back between: Art
+  // Deco's pier-and-spandrel front or, with a lit channel up each fin, the cyberpunk tower.
+  // ⚠ THE LIGHT IS A STROKE AND THE FIN IS GEOMETRY. `emitLightRunner` costs one quad in the GPU
+  // stroke layer or one canvas polyline; geometry is rationed (front face always, returns mesh-only,
+  // a cap on request).
+  // ⚠ THE RETURNS MAKE IT A FIN, NOT A STRIPE; mesh-only, the same bargain as `bars` and the blade's
+  // spine. On the 2-D fallback a pier is a painted pilaster.
+  // ⚠ ONE PART, `n` FINS (the `bollard` rule): each part claims `KIT_MAX`, and five fins as five
+  // parts would evict the fire escape, roof plant and name board (see the ⚠ on `winSpent`).
   pilaster: (c, d) => {
     const w = c.V(d.w), z0 = c.V(d.z0), z1 = c.V(d.z1);
     if (!(z1 > z0) || !(w > 0)) return;
@@ -915,47 +895,21 @@ export const AUTHORED_DETAIL = {
   // drawn inside its own mass. Kestrel Court's back balconies are what showed it (2026-10-08). All
   // six take the outward direction off the face's sign.
 
-  // A window that has a FRONT AND A BACK: a surround, glazing, a shadowed head and a sill you can
-  // see the top of. The single biggest thing missing from the format, because a lit opening is
-  // most of what reads as a building after dark and a painted-on rectangle never will.
-  //
-  // ⚠ IT IS BUILT PROUD OF THE WALL, NEVER RECESSED INTO IT, AND THE FIRST CUT WAS RECESSED. That
-  // version put the glazing behind the wall plane with four reveal faces running back to it — the
-  // honest way to model a window and the one thing neither of this game's renderers can draw.
-  // `emitFlat` sorts on MEAN DEPTH, so a pane a few centimetres behind a wall sorts behind the
-  // whole wall quad and the wall paints over it; and because the comparison is against the wall's
-  // CENTRE, whether any given window survived depended on which half of the facade it sat on and
-  // which way the camera was pointing — six of ten windows vanished, and the four that drew were
-  // the four nearest the camera-facing edge. GLASS 2 is worse and quieter: a depth buffer occludes
-  // a pane behind a wall CORRECTLY, so on the shipping renderer all ten would be gone, always.
-  //
-  // Nothing can cut a hole in a wall here — a box face is one quad — so a recess is not available
-  // at any price. A surround standing proud reads as the same thing from every angle this game
-  // uses, and is true in both renderers: at an oblique view you see the inside of the far jamb,
-  // which is exactly the cue a reveal gives. `depth` is therefore how far the frame STANDS OUT.
+  // A window with a FRONT AND A BACK: surround, glazing, a shadowed head and a sill you see the top
+  // of. A lit opening is most of what reads as a building after dark.
+  // ⚠ IT IS BUILT PROUD OF THE WALL, NEVER RECESSED. A box face is one quad, so nothing can cut a
+  // hole. A recessed pane sorts behind the wall in `emitFlat` (mean depth; six of ten vanished) and
+  // the GLASS 2 depth buffer hides all of them. A proud surround shows the far jamb at an oblique
+  // view, as a reveal would. `depth` is how far the frame STANDS OUT.
   // ── A LIT FACADE, AS ONE LIGHT ────────────────────────────────────────────────────────────────
   //
-  // Every lit pane in the city was a flat quad with an `rgbOverride` and nothing else: it looked
-  // lit and it lit nothing. `pickLights` only ever sees `SPRITE_SINK`, so a window grid contributed
-  // exactly zero to the wall wash, and a street of lit shopfronts threw no light on the building
-  // opposite or on the road between them.
-  //
-  // ⚠ ONE PER FACADE, NEVER ONE PER PANE, AND THAT IS THE WHOLE DESIGN OF IT. There are twelve
-  // uniform slots against ~120 lights in a dense frame, and `pickLights` ranks on `I * r / f` — so
-  // forty window sprites on one block would evict every sign in the city and the picture would get
-  // worse in exchange for being more correct. A facade's glow is what the eye reads anyway: the
-  // lit panes are a texture, the wash they throw is one soft source.
-  //
-  // ⚠ AND IT IS SPRITE-SINK ONLY. `glowPool` falls back to a canvas blit when there is no sink,
-  // which would put a radial gradient per facade onto the 2-D painter and move `framecost` — in the
-  // one phase that looks like it could not touch it. The early return is the whole guard.
-  // ⚠ AND IT IS DELIBERATELY NOT IN THIS TABLE, NOR IN `DETAIL_SCHEMA`. `facadeGlow` is a marker in
-  // the derived list and nothing else: it emits a LIGHT and no geometry, it is read by
-  // `facadeLights` rather than by `detailLayer`, and it is not something anybody should author into
-  // a model file. Putting it here as well was redundant and `authoredDetailSmoke` was right to
-  // refuse it — that gate runs a part with the mesh sink open and no sprite sink, so a light-only
-  // part records nothing and every one of its required fields "changes nothing when removed".
-  // A kind `detailLayer` has no drawer for is simply skipped, which is exactly the behaviour wanted.
+  // `pickLights` only sees `SPRITE_SINK`, so lit panes alone throw no wall wash; `facadeGlow` adds it.
+  // ⚠ ONE PER FACADE, NEVER PER PANE: twelve uniform slots against ~120 lights, ranked on `I * r / f`,
+  // so window sprites would evict every sign in the city.
+  // ⚠ SPRITE-SINK ONLY: with no sink `glowPool` blits a canvas gradient and moves `framecost`. The
+  // early return is the guard.
+  // ⚠ NOT IN THIS TABLE OR `DETAIL_SCHEMA`: it's a light-only marker read by `facadeLights`, never
+  // authored, and `authoredDetailSmoke` (mesh sink, no sprite sink) refuses it. `detailLayer` skips it.
   windowBay: (c, d) => {
     const half = c.V(d.half), hh = c.V(d.hh), z = c.V(d.z);
     const dep = d.depth ? c.V(d.depth) : Math.min(half, hh) * 0.35;

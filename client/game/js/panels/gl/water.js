@@ -1,53 +1,21 @@
 // THE SEA, AS ACTUAL GEOMETRY.
-//
-// Every other water in GLASS is paint on a flat plane. `floor.js` shades a screen-filling triangle
-// whose world point is recovered by inverting the Mode-7 projection ASSUMING z = 0, so however
-// good the crests, the glitter and the foam look, the surface they are drawn on has no relief at
-// all: nothing occludes anything, the horizon is a ruled line, and a hull sits on a sheet of glass.
-// Its own comment has said so since it was written — "with no vertical displacement on a flat floor
-// the coast lies flush with the sea and reads as a pancake".
-//
-// ⚠ AND IT CANNOT BE FIXED WHERE IT IS. The obvious move is to offset the recovered world point
-// along the view ray by the wave height and write a corrected `gl_FragDepth` — parallax mapping,
-// which the floor is already set up for because it owns its own depth mapping. It diverges. The
-// fixed point is `d <- d0 * (1 - H(A + d*dir) / EH)` and its contraction factor is
-// `(d0 / EH) * |grad H|`; `uEH` is the eye height in TILES and a truck cab sits at 0.12, while `d`
-// runs past 40. So the factor is 200-350 times a slope of ~0.1, which is 20 to 35: ONE iteration
-// overshoots and two diverge. That is geometry, not tuning — at grazing incidence a two-centimetre
-// crest moves the horizon-ward intersection by metres, which is why real oceans ray-march, and
-// Mode-7 makes it worse than usual because everything past the near rows IS grazing.
-//
-// So the water gets vertices.
-//
+// Every other water in GLASS is paint on a flat plane: 'floor.js' recovers its world point assuming
+// z = 0, so nothing occludes, the horizon is a ruled line and a hull sits on glass.
+// ⚠ PARALLAX IN THE FLOOR DIVERGES. The fixed point d <- d0 * (1 - H(A + d*dir) / EH) contracts by
+// (d0 / EH) * |grad H|; with 'uEH' 0.12 tiles in a cab and d past 40 that's 20 to 35, so one
+// iteration overshoots and two diverge. Mode-7 is all grazing past the near rows. So: vertices.
 // ── WHAT IS DISPLACED, AND WHAT IS NOT ────────────────────────────────────────────────────────
-//
-// ⚠ THE MESH CARRIES THE ROLL AND THE FRAGMENT SHADER CARRIES THE CHOP, AND THE WHOLE COST OF THE
-// FEATURE RESTS ON THAT SPLIT. The three trains GLASS has always drawn have wavelengths of 1.09,
-// 1.20 and 0.60 tiles — wind chop, four to eight metres. Carrying a 0.6-tile wave in a vertex grid
-// needs about eight vertices across it, so ~13 per tile, which over a 36-tile window is 470x470
-// vertices and a quarter of a million triangles REBUILT AS THE CAMERA MOVES. The 8.6-tile roll
-// needs three per tile. Sixty times cheaper, and it is also the honest split: chop is what a
-// normal map is FOR, and a hull fitted to 1-tile chop is a hull fitted to noise.
-//
+// ⚠ THE MESH CARRIES THE ROLL, THE FRAGMENT SHADER THE CHOP. The chop trains (1.09, 1.20, 0.60
+// tiles) would need ~13 vertices per tile, 470x470 over a 36-tile window; the 8.6-tile roll needs
+// three. Sixty times cheaper, and chop is what a normal map is for.
 // ── THE GRID IS STATIC, WHICH IS THE OTHER HALF OF THE COST ───────────────────────────────────
-//
-// ⚠ NOTHING IS REBUILT PER FRAME, EVER. The vertex buffer holds a unit grid in TILE OFFSETS from
-// the camera's ground point, built once on first use; the camera's position, the clock and the sea
-// state arrive as uniforms and the vertex shader does the rest. So the sea costs one draw call and
-// zero uploads, where the mass buffer — which is rebuilt when the map window recentres — is the
-// expensive thing in the frame this renderer already works hardest to avoid.
-//
-// ⚠ AND BECAUSE IT FOLLOWS THE CAMERA, THE PHASE MUST NOT. The wave is a function of the WORLD
-// point, so a grid that slides under a moving camera has to sample the field at the world position
-// each vertex lands on rather than at its own index — otherwise the sea travels with you, which
-// reads as a conveyor belt — which is exactly why the old per-client `seaScroll` offset was removed.
-//
-// ── WHY IT IS ITS OWN LAYER AND NOT `solids.js` ───────────────────────────────────────────────
-//
-// That layer takes finished FLAT-SHADED polygons and does nothing to them but project — which is
-// right for a truck, whose shading is already computed on the CPU, and useless here: flat-shading
-// the sea per triangle throws away the foam, the glitter, the whitecaps, the surf band and the
-// sheen, which is all the water anybody has ever seen in this game.
+// ⚠ NOTHING IS REBUILT PER FRAME. The buffer is a unit grid in tile offsets from the camera's
+// ground point, built once; camera, clock and sea state are uniforms. One draw, zero uploads.
+// ⚠ THE GRID FOLLOWS THE CAMERA, SO THE PHASE MUST NOT: sample the wave at each vertex's world
+// position, not its index, or the sea travels with you (why the old per-client 'seaScroll' went).
+// ── WHY IT IS ITS OWN LAYER AND NOT 'solids.js' ───────────────────────────────────────────────
+// solids.js only projects finished flat-shaded polygons; flat-shading the sea would lose the foam,
+// glitter, whitecaps, surf band and sheen.
 import { viewProjMatrix, mat4f, zRow, NEAR } from './camera.js';
 import { SEA_GLSL } from './sea-glsl.js';
 import { seaSlopeVariance, SEA_FOAM_LEAD, SEA_FOAM_RAMP, SEA_FOAM_A, SURF_DEPTH_Q } from '../../../../shared/sea-swell.js';

@@ -422,39 +422,18 @@ export const WATERFRONT_ARMS = {
     blinkLight(ctx, cam, dx, dy, TIP, RGB, now, seed + 4, alpha, 1.8);   // the needle's own slow pulse
   },
   quay_crane(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {
-    // THE SHIP-TO-SHORE GANTRY — the machine that made a container port a container port, and
-    // the one silhouette a modern quay has that nothing else in this city does.
-    //
-    // ⚠ WHAT WAS HERE WAS A SLEWING MOBILE HARBOUR CRANE, AND IT WAS THE WRONG MACHINE. That is a
-    // housing on a slew ring with a jib swinging off it — structurally the same idea as the
-    // wharf's lattice derrick, drawn tighter — so the "modern" quay and the "old" wharf were one
-    // shape twice, which is exactly what this tile's own comment said it existed NOT to be. It was
-    // also small: h·0.56 to the top of the housing put the whole machine below the transfer shed
-    // behind it, and from the harbour yard it read as a site cabin with a pole on it.
-    //
-    // A gantry is not a bigger version of that. It STRADDLES the quay on two rails, it never turns
-    // at all, and what reads from a mile off is a horizontal boom carried high on four legs under
-    // a pylon and two stays.
-    //
-    // ⚠ AND BECAUSE IT DOES NOT TURN, NEARLY ALL OF IT IS MASS — which is the real argument for
-    // this machine over the other one. The ⚠ over `motionOn` forces a slewing crane to draw
-    // everything above the ring as strokes: the shape capture and the per-model mesh are both
-    // taken at a frozen clock, so a part that moves is nailed to one bearing in GLASS 2, animated
-    // in GLASS 1, and collided with at a third, with nothing anywhere to say so. Here only the
-    // TROLLEY and what hangs under it move. The legs, the portal, the boom, the pylon and the
-    // machinery house are boxes — so the boom is in the per-model mesh, takes the GL key light,
-    // casts a ground shadow, occludes what is behind it, and is a thing a pilot can fly into.
-    //
-    // ⚠ THE BOOM IS FIVE BOXES BECAUSE `segFit` CAPS A MASS BOX AT 0.44 OF A TILE. It clamps BOTH
-    // half-extents, unconditionally, and BEFORE `NO_TILE_FIT` is consulted — that list only skips
-    // the entrance-side pullback, it does not lift the cap — so a single three-tile girder would
-    // arrive as a 0.88-tile stub with no error, no warning, and a perfectly plausible picture.
-    // Five boxes end to end at ONE seed carry one texture across the splice, and a boom is built
-    // in bays anyway.
-    //
-    // ⚠ AND EVERY RECTANGULAR BOX TAKES `YAW`. `F`/`facePt` turns a POSITION into the entrance's
-    // frame and says nothing about a box's own extents, so a sill beam authored down the quay
-    // comes out lying across it on the other three facings. Everything here is long in one axis.
+    // THE SHIP-TO-SHORE GANTRY: it straddles the quay on two rails, never turns, and reads as a high
+    // horizontal boom on four legs under a pylon and two stays. Not a slewing harbour crane, which is
+    // the wharf derrick's shape again.
+    // ⚠ BECAUSE IT DOESN'T TURN, NEARLY ALL OF IT IS MASS. The ⚠ over `motionOn` forces moving parts
+    // to strokes (capture and mesh are taken at a frozen clock). Only the TROLLEY and what hangs under
+    // it move; legs, portal, boom, pylon and machinery house are boxes, so they mesh, take the key
+    // light, cast shadow, occlude and collide.
+    // ⚠ THE BOOM IS FIVE BOXES BECAUSE `segFit` CAPS BOTH HALF-EXTENTS OF A MASS BOX AT 0.44 TILE,
+    // before `NO_TILE_FIT` is read (that only skips the entrance pullback). One long girder arrives
+    // silently as a 0.88-tile stub. Five boxes at ONE seed share a texture across the splices.
+    // ⚠ EVERY RECTANGULAR BOX TAKES `YAW`: `F`/`facePt` turns a position, not a box's extents, so a
+    // beam down the quay lies across it on the other three facings.
     const DECK = h * 0.05, SILL = h * 0.11, PORTAL = h * 0.44, PORTAL_T = h * 0.55;
     const BOOM = h * 1.20, BOOM_T = h * 1.33, APEX = h * 1.90;
     // Plan, in multiples of fh. Local +y is the entrance and therefore the land; the water is −y,

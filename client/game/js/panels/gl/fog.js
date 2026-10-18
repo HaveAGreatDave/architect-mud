@@ -1,34 +1,14 @@
 // HOW THICK THE AIR IS DOWN HERE.
-//
-// GLASS has had distance fog since the N64 band: a term in the forward distance alone, so every
-// surface the same distance away recedes by the same amount whether it is a kerbstone or the crown
-// of a tower. That is a fine model for a haze at altitude and it is the wrong one for a basin city
-// at street level, where what actually happens is that the air near the ground holds the water and
-// the smoke and the air two hundred feet up does not. A tower standing in morning mist is soft at
-// its feet and sharp at its parapet, and no amount of distance fog can say that, because the two
-// ends of it are the same distance away.
-//
-// This is the missing axis. Density falls off exponentially with height — the standard atmospheric
-// profile, and the one a city's own smoke and river damp actually follow — and what a fragment
-// needs is the INTEGRAL of that density along the ray from the eye to it.
-//
-// ⚠ THE INTEGRAL IS ANALYTIC AND THAT IS THE WHOLE REASON THIS IS AFFORDABLE. Nothing is marched.
-// For a ray running from z0 to z1 over a distance d through density exp(-z/H):
+// Distance fog alone can't make a tower soft at its feet and sharp at its parapet. This adds
+// height: density falls off as exp(-z/H), and a fragment takes the integral along its ray.
+// ⚠ THE INTEGRAL IS ANALYTIC, nothing marched. From z0 to z1 over distance d:
 //
 //     optical depth = d · H/(z1-z0) · (exp(-z0/H) - exp(-z1/H))
 //
-// which is two exponentials and a divide, per fragment, with no loop and no second buffer.
-//
-// ⚠ AND IT IS ONE FUNCTION IN ONE FILE BECAUSE THREE SHADERS DRAW GROUND. The floor takes the open
-// terrain, the ground pass takes the streets and the mass takes the buildings standing on them —
-// the same split `uSnow` is written around, for the same reason — and a road that disagrees with
-// the wall beside it about how far you can see is worse than no fog at all. Three copies of this
-// arithmetic would be three chances to retune two of them.
-//
-// ⚠ THE GROUND SHADERS ARE THE DEGENERATE CASE, NOT A DIFFERENT ONE. Every fragment the floor and
-// the ground pass draw is at z = 0, so for them this collapses to a function of the eye height and
-// the distance — which is worth knowing when reading it, and is NOT worth writing a second, simpler
-// version of: the moment the two expressions differ by a constant the kerb stops matching the wall.
+// ⚠ ONE FUNCTION, BECAUSE THREE SHADERS DRAW GROUND (floor, ground pass, mass, the same split
+// 'uSnow' follows): a road disagreeing with the wall beside it is worse than no fog.
+// ⚠ THE GROUND SHADERS ARE THE DEGENERATE CASE (z = 0, so it reduces to eye height and distance).
+// Don't write them a simpler version: differ by a constant and the kerb stops matching the wall.
 export const HEIGHT_FOG_GLSL = `
 // Fraction of a surface hidden by the air between it and the eye. 0 is perfectly clear.
 // 'dens' is per tile at ground level and 'sH' is the height in tiles the density falls by 1/e over.

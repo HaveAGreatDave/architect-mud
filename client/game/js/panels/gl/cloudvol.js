@@ -1,38 +1,18 @@
 // ── GLASS 2 · THE CLOUD DECK AS A VOLUME (RENDER_TUNE.glCloudVol) ─────────────────────────────
-//
-// The card deck in clouds.js is a billboard swarm: every puff is a flat quad with a cone solved per
-// pixel, which reads as a cloud from outside and as nothing at all from inside. This layer marches
-// rays through a slab of density instead, so a cloud has thickness, shades itself, and thickens
-// around you as you fly into it.
-//
-// ⚠ IT READS THE SAME WEATHER THE CARDS DO. Coverage is baked every frame from the weather CELLS
-// that drawVolumetricClouds builds its swarm from — never from a second cloud layout — so the
-// volume and the fallback deck always agree about where the weather is. The detail inside a cell
-// is a baked, tiling 3-D noise texture. Computing that noise in the shader instead was measured
-// first: about 14k hash evaluations a pixel, which trips the Windows GPU watchdog and kills the
-// renderer outright.
-//
-// ⚠ QUARTER RESOLUTION, THEN A FULL-RESOLUTION COMPOSITE. The march is the whole cost (a spike
-// measured 8-14 ms at full res against 1-4 ms at a quarter), so it runs into a small target of its
-// own. The composite then writes, per pixel, the depth of WHERE THE CLOUD IS (the
-// transmittance-weighted mean hit distance) and tests it against the city's depth buffer. That is
-// how a tower stands in a cloud without this pass ever reading the depth buffer back — which
-// would mean resolving the MSAA float target first.
-//
-// ⚠ THE HIT DISTANCE IS PACKED INTO RGBA8, NOT A FLOAT TARGET. Float render targets need
-// EXT_color_buffer_float, and the whole point of the auto setting is to behave on weak devices, so
-// the layer asks for nothing the WebGL2 floor does not guarantee. Two bytes over the march range is
-// about 0.001 tiles, and the target is read with texelFetch, because bilinear filtering of a
-// packed value is garbage at every byte boundary.
-//
-// ⚠ TEMPORAL ACCUMULATION (RENDER_TUNE.cloudVolTemporal, 0 is the raw per-frame march). The ray
-// start is jittered every frame, which is a fine grain on its own; each pixel reprojects the point
-// where its cloud IS into last frame's matrix and blends with what was drawn there. Two traps.
-// The frame is CAMERA-RELATIVE, so a world point's coordinates change between frames by exactly
-// how far the origin moved (`uShift`). Leave that out and every cloud smears backward along the
-// flight path. And reprojecting the FAR point rather than the hit point puts a near cloud's history
-// wherever the sky behind it was. History is dropped on a resize or a jump of more than four tiles,
-// and damped where coverage changed sharply, so a cloud edge crossing the frame leaves no ghost.
+// clouds.js's cards read as nothing from inside; this marches a density slab, so a cloud has depth.
+// ⚠ IT READS THE SAME WEATHER THE CARDS DO: coverage is baked each frame from the CELLS
+// drawVolumetricClouds uses, never a second layout. In-cell detail is a baked tiling 3-D noise;
+// shader noise cost ~14k hashes a pixel and tripped the Windows GPU watchdog.
+// ⚠ QUARTER RESOLUTION, THEN A FULL-RES COMPOSITE (8-14 ms full against 1-4 ms quarter). The
+// composite writes the depth of WHERE THE CLOUD IS (transmittance-weighted mean hit) and tests it
+// against the city's depth, so towers stand in clouds without resolving the MSAA float target.
+// ⚠ HIT DISTANCE IS PACKED INTO RGBA8 (float targets need EXT_color_buffer_float): two bytes give
+// ~0.001 tiles, read with texelFetch since bilinear on packed bytes is garbage.
+// ⚠ TEMPORAL ACCUMULATION (RENDER_TUNE.cloudVolTemporal, 0 is raw): jittered starts, each pixel
+// reprojects its cloud point into last frame's matrix. ⚠ The frame is CAMERA-RELATIVE, so add the
+// origin shift ('uShift') or clouds smear back along the path. ⚠ Reproject the HIT point, not the
+// far point, or a near cloud gets the sky's history. History drops on resize or a jump over four
+// tiles and is damped where coverage changes sharply.
 
 import { viewProjMatrix, mat4f } from './camera.js';
 import { compileShader } from './programs.js';

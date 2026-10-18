@@ -1,36 +1,15 @@
 // THE CITY, IN THE GLASS.
-//
-// The environment a reflective surface hands back has been TWO FLAT COLOURS since the material pass
-// shipped — `uEnvUp` for the sky and `uEnvDn` for the ground, mixed off the reflected ray's
-// elevation. That is enough to make a tower reflect the weather, and it is why a glazed building
-// here has never reflected the CITY. Every reference photograph of a curtain wall is mostly other
-// buildings: the skyline across the middle of it, the street below that, sky only at the top.
-//
-// ⚠ AND NEITHER OBVIOUS MECHANISM WORKS, WHICH IS WHY THIS ONE IS WORTH THE FILE.
-//
-//   · A PLANAR MIRROR — what the puddles use — works for water because there is ONE plane. Vertical
-//     glass is a different plane per wall, so it is one extra render of the world per building.
-//   · SCREEN-SPACE REFLECTION fails exactly where it is needed. For a wall facing you the reflected
-//     ray points back over your shoulder, so what a tower reflects is BEHIND THE CAMERA and not in
-//     the depth buffer at all. The reference board proves it: that tower is reflecting the street
-//     the photographer is standing in.
-//
-// What is left is an environment PROBE, and this is the cheapest honest one: for each bearing
-// around the camera, how high the city stands and what colour it is. One texel per bearing, sampled
-// by the reflected ray's azimuth, compared against the ray's own slope. Above the skyline you get
-// the sky; below it you get the mass that is actually there, in the direction it is actually in.
-//
-// ⚠ IT IS A TEXTURE AND NOT A UNIFORM ARRAY, AND THAT IS A BUDGET RATHER THAN A STYLE. The fragment
-// shader already wants `3·MAX_LIGHTS + 1 + 2·MAX_MATERIALS + 6` vectors against a WebGL2 floor-spec
-// guarantee of 224, and context.js's own note reserves the remaining headroom for raising
-// MAX_LIGHTS (48 wants 199, 56 wants 223). A 64-bin strip as vec4s is 64 vectors and would take
-// that decision away from whoever wants more lights. 64 texels is 256 bytes.
-//
-// ⚠ AND IT IS REBUILT EVERY FRAME RATHER THAN WITH THE MASS BUFFER. The bearing to a building
-// changes as the camera moves WITHIN a tile, and the mass buffer only rebuilds when the window
-// recentres — so keyed to the buffer the reflection would snap a tile at a time. It is a loop over
-// the ~30-70 cells in the window; the mass buffer's own rebuild is the expensive one and this is
-// not it.
+// Reflections used two flat colours ('uEnvUp' sky, 'uEnvDn' ground) by the reflected ray's
+// elevation, so glass never reflected the CITY. A planar mirror needs one render per wall plane,
+// and screen-space reflection fails because a facing wall reflects what's BEHIND THE CAMERA. So
+// this is an environment probe: per bearing around the camera, how high the city stands and its
+// colour, sampled by the ray's azimuth and compared with its slope (sky above, mass below).
+// ⚠ A TEXTURE, NOT A UNIFORM ARRAY, FOR BUDGET: the fragment shader wants
+// '3·MAX_LIGHTS + 1 + 2·MAX_MATERIALS + 6' vectors against WebGL2's guaranteed 224, and context.js
+// keeps the headroom for MAX_LIGHTS (48 wants 199, 56 wants 223). 64 bins as vec4s would be 64
+// vectors; as texels, 256 bytes.
+// ⚠ REBUILT EVERY FRAME, NOT WITH THE MASS BUFFER: bearings change within a tile, and the mass
+// buffer only rebuilds on recentre, so it would snap a tile at a time. It's a loop over ~30-70 cells.
 
 export const SKY_BINS = 64;
 

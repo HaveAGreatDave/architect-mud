@@ -103,190 +103,75 @@ function pruneScenes() {
 let builds = 0;
 
 // ── THE CITY LIGHTS ITS OWN WALLS ───────────────────────────────────────────
-//
-// The mass shader takes point lights, and the list to give it already exists: `SPRITE_SINK` is
-// every light in the frame, collected by the arms that own them, as a world point + a colour +
-// an alpha. Up to now that list only ever drew DISCS. Handing the same entries to the wall
-// shader costs no new authoring, no new content and no second idea of where a light is.
-//
-// ⚠ HOW FAR A LIGHT REACHES COMES FROM HOW BRIGHT IT IS, NOT FROM HOW BIG ITS BLOOM IS DRAWN,
-// and the first cut had that backwards. A sprite carries a radius in SCREEN pixels, so converting
-// it back through the projection looks like the obvious answer — and it is an answer to the wrong
-// question. That radius is `clamp(k / f, lo, hi)`: a clamped screen size, chosen so a halo looks
-// right on a canvas, carrying almost nothing about how much light the source puts out. Measured,
-// it resolved every sign in the city to about half a tile of reach and the whole feature moved
-// ZERO pixels on a building lit by two neon signs — a wash the size of the mounting bracket.
-// Brightness is the quantity that decides reach, it needs no camera at all, and it cannot go wrong
-// at a device pixel ratio the way the projection round-trip can.
-//
-// ⚠ THE SELECTION IS A SCREEN QUESTION AND THE REACH IS NOT, and they are scored separately for
-// that reason. Twelve slots against a hundred and twenty lights in a dense frame, so what has to
-// be ranked is how much of the PICTURE each wash covers — `reach / distance`, weighted by how
-// bright it is. A light that reaches three tiles from forty tiles away covers nothing.
-//
-// ⚠ AND THE RANK MUST NOT MOVE WITH A LIGHT OWN ALPHA, WHICH IS THE BUG THIS SHIPPED WITH.
-// `blinkLight` pulses its alpha by design and window blooms come and go, so scoring on alpha made
-// a beacon rise and fall through the cut line in time with its own blink — and because the list is
-// twelve of a hundred and twenty, one eviction reshuffles the whole set and every wall in frame
-// changes brightness at once. Reported as a disco: the scene getting brighter and darker quickly,
-// with nothing in the world doing anything of the kind. Rank is taken from the light COLOUR and
-// its distance, both of which hold still; alpha stays where it belongs, on how bright the wash is,
-// so a blinking sign pulses its own wall and nobody else moves.
-//
-// ⚠ AND THE SET IS STICKY, because ranking on steady numbers is not enough on its own: two lights
-// a hair apart either side of the cut swap places as the camera creeps, which is the same
-// reshuffle arriving more slowly. An incumbent has to be BEATEN, not merely matched — a challenger
-// carries the slot only at a clear margin, so the set changes when the view genuinely changes.
-//
-// ⚠ AND THE POSITIONS ARE IN THE WRONG FRAME BY DEFAULT. The mass is built at MAP-WINDOW tiles
-// so the buffer can be cached, and the camera is shifted by `ox/oy` to compensate; a sprite is
-// collected fresh each frame in camera-relative tiles and takes the plain camera. Those are the
-// two frames `drawSprites` is deliberately given the unshifted camera for, so a light crossing
-// into the shader has to be moved into the mesh own frame: `p_window = p_camera + (ox, oy)`.
-// A missed shift is a sub-tile error that reads as the wash sitting beside its sign.
+// The mass shader takes its point lights from 'SPRITE_SINK' (world point, colour, alpha), so
+// there's no new authoring and no second idea of where a light is.
+// ⚠ REACH COMES FROM BRIGHTNESS, NOT BLOOM SIZE. A sprite radius is a clamped screen size
+// ('clamp(k / f, lo, hi)'); projected back it gave every sign half a tile and moved zero pixels.
+// ⚠ SELECTION IS SCORED ON SCREEN, REACH ISN'T. Twelve slots for ~120 lights: rank by
+// 'reach / distance' weighted by brightness, i.e. how much of the picture a wash covers.
+// ⚠ NEVER RANK ON ALPHA. 'blinkLight' pulses it, so a beacon crossed the cut with its blink and
+// one eviction re-lit every wall at once (reported as a disco). Rank on colour and distance.
+// ⚠ THE SET IS STICKY: a challenger needs a clear margin, or near-equal lights swap as the camera
+// creeps.
+// ⚠ FRAMES: the mass is in MAP-WINDOW tiles (camera shifted by 'ox/oy'), sprites are
+// camera-relative, so a light entering the shader needs 'p_window = p_camera + (ox, oy)'. Missed,
+// the wash sits beside its sign.
 
-// ⚠ FOUR LOOK NUMBERS, EXPORTED SO THEY CAN BE SWEPT RATHER THAN ARGUED ABOUT. `__glLights()` in
-// the Modelshop walks them and reports what share of the wall pixels each setting actually moves,
-// which is how the first three got their values — the defaults below are the row that was chosen,
-// not a starting guess that nobody went back to.
+// ⚠ FOUR LOOK NUMBERS, EXPORTED SO THEY CAN BE SWEPT. '__glLights()' in the Modelshop reports the
+// share of wall pixels each setting moves; the defaults below are chosen rows from that sweep.
 //
-//   minR  — what the faintest light still reaches, in tiles
-//   span  — how much further the brightest one reaches, over root brightness (root, because the
-//           interesting range is the dim half: linear puts every ordinary sign at the bottom)
-//   gain  — how bright the wash is, against a base in 0..1
-//   wrap  — how far round the light reaches; 0 is exactly lambert. See the ⚠ in context.js: a
-//           sign is mounted FLUSH on its wall, so a pure cosine is ~0 for the commonest case.
-// ⚠ `gain` WAS 1.5 AND IT SATURATED THE BUILDINGS IT WAS MOST MEANT FOR. The wash is additive per
-// light, and a neon-heavy frontage carries a dozen of its own — two glow pools, four beacons, a
-// marquee, a pair of blades — so they stack and the facade goes flat. Measured at a truck cab in
-// front of Voltage and Neon Vig at 22:00: at 1.5 both were a single uniform slab of their own sign
-// colour with no wall texture, no window grid and no trim left. The detail is all still being
-// drawn; it is just underneath. `__glLights()` sweeps what share of wall pixels each setting moves,
-// which is the right question for "is the feature doing anything" and the wrong one for "is it
-// doing too much" — more pixels moved scores better right up to the point everything is one colour.
+//   minR: what the faintest light still reaches, in tiles
+//   span: how much further the brightest reaches, over root brightness (root, so the dim half,
+//         where ordinary signs sit, gets the range)
+//   gain: how bright the wash is, against a base in 0..1
+//   wrap: how far round the light reaches; 0 is lambert. Signs are mounted FLUSH, where a pure
+//         cosine is ~0 (see the ⚠ in context.js).
 //
-// 0.45 was picked against the failure rather than the feature: at it, the same two buildings keep
-// their texture and read as lit, and the buildings with ONE modest sign (an office, a walk-up) are
-// visually unchanged — which is the check that matters, because it says the reduction bites only
-// where the saturation was.
-//
-// ⚠ AND 0.45 → 0.70 BECAUSE THE WALLS UNDERNEATH IT CHANGED. The cut above was measured against the
-// city as it was; the neon tone pass then deepened every night wall in proportion, and the emissive
-// pass replaced punched window grids with ribbons and added roof armatures, corner blades and
-// gable-end panels. A darker wall takes more wash before it flattens, so the same number was buying
-// less than it had been — the shipping cab reading moved 17.6% → 18.9% of wall pixels with the knob
-// untouched.
-//
-// ⚠ THE KNEE IS IN THE AIR SEAT'S `worst` COLUMN, NOT IN `litPct`. Share-of-pixels-moved rises
-// smoothly and monotonically all the way to 1.4 and says nothing at all about saturation, exactly
-// as the paragraph above warns. The worst single pixel is the one that does: from the air it goes
-// 27 → 28 across 0.45 → 0.70 and then 28 → 38 across 0.70 → 1.00, so the first step costs nothing
-// and the second costs most of the headroom. Held against the picture at the same three settings,
-// 1.00 is where a block on the far side of the street starts going to one flat lavender — the same
-// failure 1.5 had, arrived at more slowly.
-//
-// Measured at 0.70: cab 22.3% of wall pixels moved (worst 13), air 20.5% (worst 28), and the DAY
-// seat 0.3% at every setting in the sweep — unchanged, because the term is scaled by the night and
-// is therefore free at noon by arithmetic rather than by a threshold.
-//
-// ⚠ AND BACK TO 0.45, ON THE EYE IN THE GAME RATHER THAN ON THE BENCH. 0.70 was chosen off the
-// sweep's knee and reported from a live cockpit as "the wash effect is too dramatic". The bench was
-// not wrong about where the knee is; it was answering the wrong question. `litPct` and `worst` say
-// how far a setting is from SATURATING a wall, and the complaint was never that walls were
-// saturating — it was that the wash reads as a light show over a city rather than as signs lighting
-// the walls they are bolted to. No number in that table is about that, and there is no obvious one
-// to add: the thing being judged is whether the effect draws attention to itself.
-//
-// ⚠ AND `wrap` IS THE ANGLE HALF, reported in the same breath: "a few things seem influenced by the
-// external camera view at certain angles". That is exactly what a wrapped diffuse does — it lights
-// faces turned AWAY from the light, so from an external camera you see walls glowing whose source
-// is round the other side of the building and nothing on screen explains them. It is measurably an
-// aerial effect: swept at a fixed gain, dropping wrap 0.6 → 0 costs the cab 4.2 points of wall
-// coverage and the air seat 7.4, so the term does close to twice as much work at the seat the
-// complaint came from. 0.35 keeps the reason it exists — the commonest light here is mounted FLUSH
-// on its wall, where a pure cosine is ~0 — and stops it reaching most of the way round a building.
-//
-// ⚠ AND 0.45 → 0.18, ON THE EYE AGAIN — BUT THE NUMBER IS NOT WHAT CHANGED, THE CITY IS. Every
-// value above was picked against the city that existed when it was picked, and the city has been
-// gaining emissive surfaces ever since: the neon tone pass, window ribbons, roof armatures, corner
-// blades, lamp posts, and eighty-four lettered signboards. The wash is additive per light with no
-// ceiling, so a denser frontage buys more wash out of the same gain. On the bench's own street at
-// 23:00, four of the twelve slots sit within half a tile of each other on ONE facade — that wall
-// takes four washes where a walk-up with one sign takes one, and the gain is the only knob that
-// reaches both, so it has to be set for the dense case because the dense case is the one that goes
-// flat.
-//
-// Held against the picture at 0, 0.12, 0.20, 0.30 and 0.45 from a cab beside a six-storey frontage:
-// the flattening starts between 0.20 and 0.30 — at 0.30 the window frames stop separating from the
-// wall, and at 0.45 the lower half is one warm slab, which is the 1.5 failure again at a third of
-// the number. From the air 0.45 picks out a scatter of buildings glowing orange out of a dark
-// field. 0.18 is a clear step below the onset, and still plainly there on the wall a sign is
-// bolted to. Expect to come back: this is the third cut off a live report, the report is never
-// "it is 0.06 too high", and nothing in `__glLights()` measures whether an effect draws attention
-// to itself.
-//
-// ⚠ `wet` IS A SECOND NUMBER BECAUSE `gain` WAS QUIETLY DOING TWO JOBS. `rgbRaw` — what the wet
-// road reflects — was scaled by `gain` too, for the good reason recorded at that line. So cutting
-// the wall wash to 0.18 would have dimmed every neon reflection on a rainy street to 40% of what
-// it was swept at, without a word about it in a change that is only supposed to be about walls.
-// It keeps 0.45, which is the value it was tuned at, and the two can move apart now.
+// ⚠ GAIN IS SET FOR THE DENSE FRONTAGE, BECAUSE THE WASH IS ADDITIVE WITH NO CEILING. A neon-heavy
+// facade carries a dozen lights; at 1.5, Voltage and Neon Vig at 22:00 were flat slabs of sign
+// colour. '__glLights()' measures whether a setting does anything, not whether it does too much:
+// pixels moved keeps rising until everything is one colour. The knee is in the air seat's 'worst'
+// column (27 to 28 across 0.45 to 0.70, then 28 to 38 at 1.00), not in 'litPct'. The term is
+// scaled by night, so the day seat moves 0.3% at every setting.
+// ⚠ THE BENCH CAN'T SAY WHETHER THE WASH DRAWS ATTENTION TO ITSELF, and every cut since has come
+// off a live report ("too dramatic"). 0.70 was the bench's knee; 0.45 and then 0.18 were picked by
+// eye as the city gained emissive surfaces (tone pass, window ribbons, armatures, lamp posts, 84
+// signboards). At 23:00 four of twelve slots sat on ONE facade; flattening starts between 0.20 and
+// 0.30. Expect to come back to it.
+// ⚠ 'wrap' LIGHTS FACES TURNED AWAY, so from an external camera walls glow with no visible source.
+// Dropping wrap 0.6 to 0 costs the cab 4.2 points of wall coverage and the air seat 7.4. 0.35
+// keeps flush signs lit without reaching round a building.
+// ⚠ 'wet' IS SEPARATE FROM 'gain'. 'rgbRaw' (what the wet road reflects) was scaled by 'gain', so
+// the 0.18 wall cut would have dimmed rainy-street neon to 40% silently. 'wet' keeps 0.45, the
+// value it was tuned at.
 //
 // ── AND THE REACH IS THE KNOB NOBODY TURNED ─────────────────────────────────
 //
-// The gain has been cut four times now — 1.5 → 0.45 → 0.70 → 0.45 → 0.18 — every one of them off a
-// live report that the wash reads as a tint over the city rather than as a sign lighting its own
-// wall, and every one of them turning the same knob. Put the numbers in the units the city is
-// actually built in and the cause is arithmetic rather than taste:
+// Five gain cuts (1.5, 0.45, 0.70, 0.45, 0.18) were fighting a reach problem. In city units:
 //
 //   a storey is FLOOR_Z × bldgH × bldgStretch ≈ 0.196 tiles
 //   a building is BUILDING_FOOT × 2 ≈ 0.76 tiles wide
 //   an ordinary neon (I ≈ 0.5) reaches minR + span·√I ≈ 3.06 TILES
 //
-// which is fifteen storeys up the facade and four building-widths across. A sign on a shopfront was
-// lighting the whole block, and the falloff is gentle enough that seven storeys up still carried a
-// quarter of the peak. That is not a wash that is too bright; it is a wash the size of a city
-// block, and the only way to stop one of those flattening a facade is to turn it down until it does
-// nothing — which is the ratchet the four cuts were walking down.
+// That's fifteen storeys and four buildings wide: a shopfront sign lit the whole block. So the
+// wall takes a share of the reach: at 'wallR' 0.32 an ordinary neon reaches 0.98 tiles (five
+// storeys, one building plus a spill). 'focus' is the falloff; 2 is the old term.
 //
-// So the wall takes a SHARE of the reach rather than all of it. At `wallR` 0.32 an ordinary neon
-// reaches 0.98 tiles: five storeys, a little over one building wide, room to spill onto a neighbour
-// and no further. `focus` is the falloff over it, and 2 is exactly the term that shipped, so the
-// broad wash stays expressible and stays in the sweep.
-//
-// ⚠ AND THE REACH IS NOT THE WALL'S TO SHRINK — THE SAME TRAP `wet` WAS SPLIT OUT OF ONE PARAGRAPH
-// AGO. `r` has THREE readers: this wash, and the wet road in both ground.js and floor.js, where it
-// is the length of a neon streak on tarmac and was swept at these values. Shrinking `minR`/`span`
-// would have taken every reflection on a rainy street down with the wall, silently, inside a change
-// that is only about walls. So `minR`/`span` keep their meaning and their numbers, the road goes on
-// reading `r`, and the wall reads `rw`.
-//
-// ⚠ AND A LIT FACADE IS AN AREA SOURCE, NOT A POINT ONE. `facadeGlow` tags its lights `wash`, and a
-// storey of lit windows genuinely does throw a broad dim field across the street — that is what it
-// is. Tightening it would delete the facade wash by arithmetic instead of by a decision, so a wash keeps
-// its own share of the reach and its own gain, with `washK` × `gain` landing on the 0.18 it was
-// last tuned at. What changed here is the point sources.
-//
-// ⚠ AND THE GAIN GOES UP BECAUSE THE AREA CAME DOWN — BY FOURTEEN TIMES, WHICH IS NOT A NUMBER
-// ANYBODY WOULD HAVE GUESSED. 0.18 was the right gain for a light three tiles across and it is
-// nowhere near the right one for a light one tile across: the first cut of this change kept the
-// reach and the exponent below and put the gain at 0.55, which reads as three times brighter and
-// measured as SIX PER CENT of the light the wash had been putting on the city. The feature was
-// gone, and it looked from the numbers like it was working.
-//
-// So the row below was swept rather than reasoned, over wallR × focus × gain on a lit street from
-// a cab, scored against the old wash on the three things that separate a bloom from a tint — the
-// AREA it covers, the PEAK at its centre, and whether that centre has gone white. What ships:
+// ⚠ DON'T SHRINK 'minR'/'span'. 'r' has three readers: this wash and the wet road in ground.js and
+// floor.js (streak length, swept at these values). The road reads 'r', the wall reads 'rw'.
+// ⚠ A LIT FACADE IS AN AREA SOURCE. 'facadeGlow' tags its lights 'wash'; they keep their own share
+// of reach and gain ('washK' × 'gain' = the old 0.18). Only point sources were tightened.
+// ⚠ THE AREA FELL ~14x, SO THE GAIN ROSE. At 0.55 the tighter wash looked three times brighter and
+// measured 6% of the old light. The row below was swept over wallR × focus × gain from a cab
+// against the old wash:
 //
 //   area 0.31x     a third of the wall it used to cover
 //   peak 1.56x     and half again as bright where the sign is
 //   energy 0.34x   a third of the total light laid on the city
 //   white 0px      the core still carries the sign's own colour rather than blowing to white
 //
-// ⚠ AND THE WHITE COLUMN IS THE ONE THAT BOUNDS IT, not the peak. Every row above gain 2.5 at this
-// reach starts turning the middle of the pool white, which throws away the one thing the wash is
-// for: a pink sign has to lay PINK on its wall. `glHdr` keeps that from CLIPPING — the frame has
-// headroom over 1.0 — but headroom is not a licence, because the tonemap still has to bring it back
-// and a core that arrives desaturated arrives desaturated.
+// ⚠ THE WHITE COLUMN BOUNDS IT. Above gain 2.5 at this reach the core turns white, and a pink sign
+// has to lay pink. 'glHdr' headroom stops clipping but the tonemap still desaturates the core.
 export const LIGHT_TUNE = {
   // The camp's tarps and the Shingles' sheets (`lit` decals): how strongly the city's lights catch
   // them, and what share of the ROAD's reach they take. Cloth is on the ground under the lamps, so
@@ -408,84 +293,36 @@ const LIGHT_DT_MAX = 0.1;  // clamp on one frame's delta
 const FADE_SHARE = 1 / 4;
 const fadeSlots = (slots) => Math.max(1, Math.round(slots * FADE_SHARE));
 
-// ⚠ `slots` DEFAULTS TO THE CEILING, AND THAT DEFAULT IS LOAD-BEARING. It was added as a required
-// parameter and the existing gate called this with three arguments — `ranked.slice(0, undefined)` is
-// an EMPTY LIST, so the frame got no lights at all and fadeLights returned null. Nothing threw at
-// the call site; it threw a gate later, reading `.length` of the null. A caller that does not care
-// about capping must get every slot, never none.
-// ⚠ THE NIGHT SCALE BELONGS TO THE WALL WASH, NOT TO THE LIST. Returning null in daylight meant
-// the frame had NO LIGHTS AT ALL by day — right for a wall (a shopfront measured a pink cast over
-// 19,000 pixels of its own wall at noon) and wrong for everything else that wants to know where
-// the lights ARE. A wet road reflects them at four in the afternoon in a downpour, and the city's
-// neon is certainly lit in one.
-//
-// So the list is always built and the night scale rides on the COLOUR the wall shader reads:
-// 'rgb' is night-weighted and falls to zero at noon by arithmetic, 'rgbRaw' is not. The caller
-// still hands the mass pass nothing when the gain is zero, so the wall side is unchanged.
-//
-// ⚠ A DAYLIGHT REFLECTION BEING FAINT IS THE SCENE, NOT A RULE. It is drawn at full strength and
-// sits on ground that is already bright, so it washes out on its own — which is what a wet road
-// actually looks like at four in the afternoon. Gating it would be deciding that in advance.
-// ⚠ RANKED ON DISTANCE FROM THE EYE, NEVER ON DEPTH ALONG THE VIEW AXIS. The score was I·r/f, and
-// `f` changes when the camera only turns: a lamp 30° off the axis has 0.87 of the depth of one
-// dead ahead at the same range, so a slow look round reordered the whole list and the slots
-// churned 35 times a second with nothing moving. Every swap is a lamp's road pool and wall lift
-// fading out and another's fading in, which reads as the streetlights flickering as you look
-// about. Distance doesn't change under a turn, so the set only changes when the eye moves or a
-// light comes into or leaves the frame. `npm run gl:fade` holds it (yaw churn).
-// The lateral cull keeps lights well out of the frame from taking slots off the ones in it; the
-// margin is wide so a light near the edge, whose pool may still be in view, is kept.
-// ⚠ LIGHT IN FLIGHT IS NOT A LIGHT SOURCE — see the ⚠ over `pushLight`. A node down a beam is
-// drawn as a sprite like any other and has no business in this list: there is no lamp at that
-// point for a wall to catch or a puddle to reflect, it would take slots off the lamps that are
-// really there, and it moves far enough every frame to be a new `key` every frame.
-// The light own colour, weighted the way an eye weights it. NO ALPHA — see the ⚠ above.
-// ⚠ A POINT SOURCE BLOOMS, AN AREA SOURCE WASHES, AND BOTH COME OFF THE SAME `r` — see the ⚠ on
-// LIGHT_TUNE. The road is handed `r` untouched; only what the WALL gets is split, in reach and
-// in gain, so the wet street cannot move when the bloom is tuned.
-// A stable name for this light, so last frame own choices can be recognised in this one. The
-// sprite objects are rebuilt every frame and share no identity, so the POSITION is the identity
-// — quantised, or a light drifting a thousandth of a tile is a different light every frame.
-// The same light with the NIGHT factor removed but `gain` kept, for surfaces that reflect
-// rather than catch.
-//
-// ⚠ DROPPING THE TUNING TOO MAKES A WET ROAD BRIGHTER THAN A DRY ONE, which is backwards. The
-// reflection strength downstream was swept against a night-weighted colour, so a raw one runs
-// about 2.2x over it. Measured with it dropped: a daylight road went 54.5 to 76.4 in the rain,
-// when the whole point is that it darkens.
-//
-// ⚠ AND IT IS `wet`, NOT `gain`, SINCE THE TWO SPLIT. This was `gain` when there was only one
-// number, which meant the wall wash and the wet road were welded together and neither could
-// be tuned without silently retuning the other — see the ⚠ on LIGHT_TUNE. `wet` is the value
-// this line has always run at.
-// What the WALL reaches, as opposed to what the road does. ⚠ A SEPARATE FIELD RATHER THAN A
-// SHRUNK `r`, because `r` is the road's and context.js is the only reader that wants this one.
-// How far the lamp gives the night back on a wall (context.js 'lamp').
-// The lamp as a solid object catches it: night-weighted, WITHOUT the wall wash's gain. Actors,
-// solids and scatter read this; when they read 'rgb' they got the wash's 0 and no lamp lit them.
-// Incumbents carry a bonus, so a challenger has to be clearly better rather than a hair better.
+// ⚠ 'slots' DEFAULTS TO THE CEILING: 'ranked.slice(0, undefined)' is an empty list, so a caller
+// passing three arguments got no lights and fadeLights returned null.
+// ⚠ THE NIGHT SCALE BELONGS TO THE WALL WASH, NOT THE LIST. The list is always built (a wet road
+// reflects neon by day in a downpour); 'rgb' is night-weighted and zero at noon (before, a shop
+// showed a pink cast on 19,000 wall pixels at noon), 'rgbRaw' isn't. The mass pass still gets
+// nothing at zero gain. A faint daylight reflection is the scene, not a rule; don't gate it.
+// ⚠ RANK ON DISTANCE FROM THE EYE, NEVER VIEW DEPTH: with 'f' in the score a turn alone reordered
+// the list (30° off axis is 0.87 of the depth) and slots churned 35/s, reading as flickering
+// streetlights. 'npm run gl:fade' holds it (yaw churn). The lateral cull's margin is wide so a
+// light whose pool may still be in view keeps its slot.
+// ⚠ LIGHT IN FLIGHT ISN'T A SOURCE (see the ⚠ over 'pushLight'): it steals slots and is a new
+// 'key' every frame. Colour is eye-weighted, with NO ALPHA (see above).
+// ⚠ POINT SOURCES BLOOM, AREA SOURCES WASH, both off one 'r' (see LIGHT_TUNE): the road gets 'r'
+// untouched and only the wall's reach and gain split, so the bloom can't move the road.
+// 'key' is the quantised position: sprites are rebuilt each frame with no identity.
+// 'rgbRaw' drops the night factor but keeps 'wet', for reflecting surfaces. ⚠ Dropping the tuning
+// too ran ~2.2x hot: a wet daylight road went 54.5 to 76.4, brighter than dry. It's 'wet', not
+// 'gain', since the two split. 'rw' is the wall's reach (only context.js reads it; 'r' is the
+// road's). 'lamp' is how far the lamp gives the night back on a wall (context.js).
+// The lamp as a solid: night-weighted, WITHOUT the wash gain, for actors, solids and scatter
+// ('rgb' gave them the wash's 0). Incumbents carry a bonus so a challenger must be clearly better.
 // ── AND A FEW SLOTS ARE HELD FOR THE WASHES ─────────────────────────────────────────────────
-//
-// A lit facade throws light too, and until it did the city's windows were bright rectangles that
-// lit nothing. But a wash and a sign cannot be ranked against each other on one scale: there are
-// twelve slots against ~180 candidates, so at any brightness where a wash wins a slot it wins
-// MANY, and it wins them from the neon. Measured both ways on the aeroplane seat — washes at full
-// strength took the wall coverage from 13.7% of pixels to 11.5% (more lights, less light), and
-// dimmed until they stopped evicting anything they contributed exactly nothing, 13.7% again.
-// There is no brightness in between, because the failure is the ranking and not the value.
-//
-// So two of the twelve are reserved for the best washes and the rest are contested as before. A
-// frame with no washes in it is bit-identical: the splice only runs when the top N is all sources
-// AND there is a wash below the line waiting.
-// Drop the weakest SOURCES to make room — never another wash, or two washes trade one slot
-// back and forth every frame and the disco is back.
-// ⚠ SCORED AS NUMBERS, BUILT AS OBJECTS ONLY WHERE SOMETHING READS THEM. Every visible sprite is a
-// candidate (hundreds at night) and only `slots` of them light anything. Each candidate used to be an
-// object with five arrays, then sorted; now the ranking runs on parallel arrays reused frame to frame,
-// and a full entry is made for the top `slots`, for the washes swapped into them, and for any light
-// `keep` names (the fade state: a light still fading needs its colour). Every other candidate is a
-// `{ key, score }` stub, which is all fadeLights reads of it. Without `keep` every entry is full, as
-// before. The order is the old one exactly: the index sort is stable, as Array sort was.
+// Washes and signs can't share one ranking: twelve slots, ~180 candidates, so a wash bright enough
+// to win wins many from the neon (air-seat coverage 13.7% to 11.5%; dimmed till it evicted
+// nothing, it added nothing). Two slots go to the best washes. The splice runs only when the top
+// N is all sources and a wash waits, so a washless frame is bit-identical. It drops the weakest
+// SOURCES, never a wash, or two washes trade a slot every frame.
+// ⚠ SCORED AS NUMBERS, BUILT AS OBJECTS ONLY WHERE READ. Ranking uses reused parallel arrays; full
+// entries go to the top 'slots', swapped-in washes and anything 'keep' names (a fading light needs
+// its colour). The rest are '{ key, score }' stubs. No 'keep', all full. The index sort is stable.
 const WHITE_RGB = [255, 255, 255];
 const PL = { s: [], r: [], key: [], score: [], idx: [] };
 export function pickLights(cam, sprites, night, held, slots = MAX_LIGHTS, keep = null) {
@@ -747,37 +584,17 @@ function windowKeyOf(cells) {
 // makes a NEW record for every edit rather than patching one, so a WeakMap sees the edit and a
 // name-keyed cache would serve the pre-edit shape for ever.
 const meshCache = new WeakMap();
-// EVERYTHING A TILE’S MESH IS BUILT FROM, AS ONE STRING. Two things need to agree about this and
-// they used to say it separately: the per-tile mesh cache below, and `windowKey`, which decides
-// whether the whole vertex buffer is stale. The buffer’s half named the tile, its type, its name
-// and its floors; the mesh is built from the FOOTPRINT, the HEIGHT, the SEED and the ENTRANCE.
-// ⚠ Seed is the one that bites. Twenty-three of the 173 models are seed-variant — they build
-// DIFFERENT GEOMETRY for a different seed — and seed also feeds `fh` and `floorHeight`. So a tile
-// whose seed changed while its type, name and floor count did not left the GPU holding the old
-// building: no rebuild, because nothing in the key had moved. It then popped to the new shape at
-// whatever unrelated moment next changed the key, which reads as a building that changes size at
-// random while you fly. `shapeForModel(m, seed)` is also where the ground shadow’s hull comes
-// from, so the same staleness shows up as a shadow that changes with it.
+// EVERYTHING A TILE'S MESH IS BUILT FROM, AS ONE STRING, shared by the per-tile mesh cache and
+// 'windowKey': FOOTPRINT, HEIGHT, SEED and ENTRANCE.
+// ⚠ Seed is the one that bites: 23 of 173 models are seed-variant and seed also feeds 'fh' and
+// 'floorHeight'. Left out, a seed change kept the old building until an unrelated key change, so
+// buildings (and their shadows, via 'shapeForModel(m, seed)') changed size at random in flight.
 // ── AND A WAY TO CATCH IT IN THE ACTUAL GAME ────────────────────────────────
-//
-// A building that changes size while you fly past it is invisible to every gate in this repo:
-// each of them renders a scene somebody wrote down, and the scenes somebody writes down are
-// never the one that breaks. Three synthetic cities in a row gave a confident wrong answer
-// about this pass before anybody thought to record a real flight.
-//
-// __glChurnStart() in the console, fly for a while, then __glChurn(). It answers the only
-// question that matters here: did any building in view change what its mesh is BUILT FROM —
-// its footprint, its storey height, its seed or its facing — while you were watching it. A
-// building should report one set of parameters for its whole life; two means the geometry was
-// rebuilt as something else, and the value it prints says which of the four moved.
-//
-// ⚠ IT KEYS ON THE BUILDING’S NAME, which is exact in Coldwater (408 of the 416 building tiles
-// carry one and they do not repeat) and WRONG in a synthetic city that puts the same model on
-// forty tiles — there each tile has its own seed, so one name honestly reports forty builds. If
-// you are reading this against a generated map rather than the world, that is what the number is.
-//
-// ⚠ Off by default and it costs nothing when off: the recording walk is behind a null check,
-// and nothing allocates until somebody asks.
+// No gate catches this; written scenes never break the way a real flight does. Run
+// __glChurnStart(), fly, then __glChurn(): a building should report one set of build parameters
+// for its life, and the printout says which of the four moved.
+// ⚠ IT KEYS ON THE BUILDING'S NAME: exact in Coldwater (408 of 416 tiles named, no repeats), wrong
+// in a synthetic city with one model on forty tiles. Off by default; free when off.
 let CHURN = null;
 if (typeof window !== 'undefined') {
   window.__glChurnStart = () => { CHURN = new Map(); return String.fromCharCode(114) + "ecording — fly for a bit, then call __glChurn()"; };
@@ -965,41 +782,18 @@ export function bakeFaceAO(faces, solid) {
 }
 
 // ── THE SHADING BEVEL, AS A DISTANCE FIELD RATHER THAN AS GEOMETRY ────────────────────────────
-//
-// Every face in this city is planar, and the material note in context.js already says what that
-// costs: "a lobe evaluated across one has a single normal and therefore a single value: it does not
-// read as a glint travelling over a surface, it reads as that whole wall being painted a lighter
-// colour". The reason is not the lobe, it is the geometry — a box's edges meet at a hard 90° with
-// nothing in between, so there is no surface anywhere on the building that is turned part-way
-// toward the light. Real buildings do not have those edges; a stone arris, a rolled steel corner
-// and a plastered return all carry a few centimetres of chamfer, and that chamfer is what catches a
-// line of light down every vertical corner in the reference photographs.
-//
-// ⚠ IT IS NORMALS ONLY, AND NOT ONE VERTEX MOVES. The obvious build is a real chamfer — inset each
-// box and emit rim quads — and it was rejected on two counts, both measurable. It multiplies the
-// face count by about five against a committed budget of 38,585 (`gl:mesh`), and moving a vertex
-// makes the mesh disagree with the shape the same building COLLIDES as, which is the one thing that
-// gate exists to prevent. Tilting the normal near an edge produces the same band of light for zero
-// faces, zero geometry change and nothing for CFIT, the occluder hull or the shadow pass to notice.
-//
-// What the shader needs is the distance from a fragment to the nearest edge of its own face, in
-// world units. That cannot be derived in the fragment — a face arrives as loose triangles with no
-// idea what it is part of — so it is computed here, once per model, and carried as a vec4.
-//
-// ⚠ THE FIELD IS EXACTLY LINEAR, WHICH IS WHY FOUR NUMBERS AT THE CORNERS ARE ENOUGH. For a
-// rectangle in its own tangent frame the distance to the left edge is just `x`, which is linear in
-// position and therefore reproduced exactly by barycentric interpolation — on BOTH triangles of the
-// fan, not merely on the quad as a whole. A field that needed true bilinear interpolation would be
-// wrong along the split diagonal and would draw a crease across every wall in the city.
-//
-// ⚠ AND THE FRAME HAS TO BE THE SHADER'S OWN, character for character. The fragment rebuilds T and
-// B from the geometric normal to know which way to tilt; if this function picks a different
-// tangent, the near edge and the tilt direction disagree and a wall lights its corners inward.
-// The duplication is deliberate and the two are commented as a pair.
-//
-// Returns [d(-T), d(+T), d(-B), d(+B)] per vertex, or null for anything that is not a quad — a drum
-// cap, a roof polygon, a triangle. Null means the attribute is filled with a distance no bevel
-// width can reach, so those faces are provably untouched rather than approximately untouched.
+// Planar faces meeting at a hard 90° give a lobe nothing turned part-way to the light (see the
+// material note in context.js). Real corners carry a small chamfer that catches a line of light.
+// ⚠ NORMALS ONLY; NO VERTEX MOVES. A real chamfer multiplies faces ~5x against the 38,585 budget
+// ('gl:mesh') and makes the mesh disagree with the collision shape. Tilting the normal near an
+// edge gives the same band with nothing for CFIT, the occluder hull or shadows to notice.
+// A fragment can't know its distance to its face's edges, so it's computed here per model, as a vec4.
+// ⚠ THE FIELD IS EXACTLY LINEAR (distance to an edge is 'x' in the tangent frame), so barycentric
+// interpolation reproduces it on both fan triangles. A bilinear field would crease every wall.
+// ⚠ THE FRAME MUST MATCH THE SHADER'S CHARACTER FOR CHARACTER: the fragment rebuilds T and B from
+// the geometric normal; a different tangent lights corners inward. The two are commented as a pair.
+// Returns [d(-T), d(+T), d(-B), d(+B)] per vertex, or null for a non-quad (drum cap, roof polygon,
+// triangle); null fills the attribute with a distance no bevel width reaches, so it's untouched.
 export function faceEdges(face) {
   const p = face.p;
   if (!p || p.length !== 4) return null;
@@ -1068,48 +862,21 @@ export function faceEdges(face) {
 const BEVEL_TILT = 1.0;
 
 // ── WHAT COUNTS AS BRIGHT ───────────────────────────────────────────────────
+// Not player knobs: bloom STRENGTH gets the slider, and a threshold beside it would make that
+// slider mean two things.
 //
-// Not player knobs: the STRENGTH of the bloom is the thing worth a slider, and a threshold beside it
-// would make that slider mean two things.
-//
-// ⚠ IT IS 0.72 AND NOT 1.0, AND THE REASON IS A MEASUREMENT WORTH KNOWING BEFORE TOUCHING ANY OF
-// THIS. 1.0 — "brighter than the display can show" — is where a bright-pass belongs, and it is where
-// this started. It found NOTHING, at every bloom strength, in every scene: 0.0% of the frame moved.
-//
-// The float target is not the problem and neither is the chain. `peak()` on the resolved buffer says
-// the city's brightest pixel is **1.000 at noon and 1.016 at night, with 0.01% of pixels over 1.0**.
-// GLASS produces no over-range light at all — every shader in it was written against an 8-bit target
-// and saturates by construction, so the headroom is real, correct, and empty.
-//
-// So this selects the brightest part of an LDR picture, which is what every game did before float
-// buffers and which looks like what it is meant to look like. What it is NOT is physical: a bloom
-// here means "this pixel is pale", not "this pixel is emitting". Making it the latter means pushing
-// the actual emitters past 1.0 — the additive sprite batch is the obvious first one, since the
-// composite clamps and a glow at 2.0 therefore LOOKS identical while finally being findable. That
-// is the follow-on, `peak()` is the instrument for it, and this threshold goes back to 1.0 when it
-// is done.
-// ── ⚠ ONE, BECAUSE THREE WAS A BAD TRADE AND THE ARGUMENT FOR IT WAS WRONG ────────────────────
-//
-// This pushes additive lights past white so the bright-pass has something to find. It shipped at 3
-// on the reasoning that the composite clamps, so a glow already at 1.0 still resolves to 1.0 and
-// the picture therefore could not change. That reasoning is wrong, and the way it is wrong is the
-// thing worth keeping: CLAMPING A SCALED GRADIENT DOES NOT PRESERVE IT. A glow is a soft falloff,
-// and scaling it by three does not brighten the peak — the peak was already clipped — it pushes the
-// whole SHOULDER over 1.0 and turns a gradient into a large flat saturated disc.
-//
-// ⚠ AND IT WAS MEASURED ON THE WRONG SEAT, WHICH IS WHY IT SHIPPED. On a cab frame it moved 3.3%,
-// which read as a modest look change worth the bloom. From the AIR over a dense city it moves
-// **21.2%**, mean 7.4 of 255 — because `drawCityBloom` puts a warm halo on every near building out
-// to 22 tiles and from above there are dozens of them overlapping. What that looks like is not a
-// glow: it is a broad warm haze over the whole city that emanates from nothing, which is exactly
-// how it was reported.
-//
-// ⚠ AND THE BLOOM IT EXISTS FOR ADDED 0.1%. That is the whole ledger — 21.2% of the frame spent to
-// buy a tenth of a per cent of the feature it was serving.
-//
-// Raising this is what a future change to the EMITTERS would do, once a sign is authored as
-// something brighter than a white line rather than multiplied into it. `peak()` is the instrument;
-// `__glHdr()` is the sweep; and the air seat is the one that has to be looked at, not the cab.
+// ⚠ IT'S 0.72, NOT 1.0. At 1.0 the bright-pass found 0.0% of the frame in every scene: 'peak()'
+// on the resolved buffer reads 1.000 at noon and 1.016 at night, 0.01% of pixels over 1.0. GLASS
+// shaders were written for 8-bit and saturate, so the headroom is empty. This selects the
+// brightest part of an LDR picture ("pale", not "emitting"). It goes back to 1.0 once emitters
+// are pushed past 1.0; 'peak()' is the instrument.
+// ── ⚠ ONE, BECAUSE THREE WAS A BAD TRADE ────────────────────────────────────────────────────
+// This pushes additive lights past white for the bright-pass. ⚠ CLAMPING A SCALED GRADIENT
+// DOESN'T PRESERVE IT: x3 pushes a glow's whole shoulder over 1.0 into a flat saturated disc.
+// ⚠ MEASURE FROM THE AIR: 3 moved 3.3% on a cab frame but 21.2% (mean 7.4/255) over a dense city,
+// where 'drawCityBloom' halos overlap into a warm haze, while adding 0.1% of bloom.
+// Raise it only once emitters are authored brighter than white. 'peak()' is the instrument,
+// '__glHdr()' the sweep, and the air seat is the one to look at.
 const EMISSIVE_GAIN = 1;
 
 // ── AND THE ONE THAT DID UNPARK IT ──────────────────────────────────────────
@@ -1707,39 +1474,19 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
     fadeSplit: (opts.glHazeSplit == null ? 1 : opts.glHazeSplit) > 0,
     mat: deps.matTable || null };
   // ── THE CITY, UPSIDE DOWN, BEFORE ANY OF IT IS DRAWN THE RIGHT WAY UP ──────────────────────
-  //
-  // ⚠ A PREPASS, BECAUSE THE ROAD IS DRAWN FOURTH OF TEN. The ground goes down before the lights,
-  // the Curtain, the signage and the wires, so at the moment it needs something to reflect, none of
-  // the neon exists yet — sampling the frame there returns the building mass and nothing else, which
-  // is a wet road reflecting the one thing in the city that does not glow. Taking the reflection
-  // first also means there is nothing to restore: `draw()` binds the real target and clears it a
-  // line later, exactly as it already does after the sun and occlusion prepasses unbind.
-  //
-  // ⚠ AND IT IS THE PLAIN CAMERA, NOT `camAt`. The lights and the signage are collected in the
-  // camera's own frame (see the ⚠ on drawSprites below); the road quads are in the map window's.
-  // They disagree about where the origin is and agree exactly about where the SCREEN is, which is
-  // the only frame a screen-space read-back cares about — so this takes the frame its own layers
-  // are in and the ground shader looks the reflection up by pixel.
+  // ⚠ A PREPASS, BECAUSE THE ROAD IS DRAWN FOURTH OF TEN, before any neon exists. Taking it first
+  // leaves nothing to restore: 'draw()' binds and clears the real target after, as it does after
+  // the sun and occlusion prepasses.
+  // ⚠ PLAIN CAMERA, NOT 'camAt': lights and signage are camera-frame (see drawSprites), road quads
+  // are map-window; they agree on the SCREEN, and the ground shader looks the reflection up by pixel.
   // ── THE RIG, UPLOADED BEFORE EITHER PASS THAT WANTS IT ──────────────────────────────────────
-  // The reflection below is a prepass, so the buffer has to be filled before it rather than beside
-  // the draw that uses it in the main frame. One fill, two draws, two cameras.
-  // ⚠ IN MAP-WINDOW TILES, like the mesh and the road quads — windshield.js adds the camera offset
-  // back on when it collects, so this shares camAt with the mass and cannot slide against it.
-  // ⚠ ONE SWITCH FOR BOTH HALVES, AND IT IS UPSTREAM OF HERE. `glShip 0` is the rig absent from GL
-  // entirely — no depth, no reflection — which is exactly the frame that shipped before this layer
-  // existed. It is applied where the geometry is COLLECTED rather than here, because gating the
-  // upload still pays for a second transform of the whole model every frame to throw it away; the
-  // ownship gate caught that on its first run.
-  // ⚠ AND THE SHED GOES UP WITH IT, BEFORE THE MIRROR. Same argument as the rig one line above:
-  // the reflection pass runs BEFORE the main one, so anything that is to appear in a puddle has to
-  // be in the buffer by now. A depot standing over a wet apron is exactly the case.
-  // ⚠ THE ROOM COMES OUT OF THE SOLIDS BUFFER HERE, AND NOT AT THE SOURCE. It is collected into
-  // OWNSHIP_SINK on purpose — it is a solid at the camera and it belongs in that layer — but it
-  // is the one member of it that is inside the near plane, so it is drawn by a pass with its own
-  // clip range. Splitting it in windshield.js instead would mean a new key on the options literal
-  // `installGL` hands over, which is an ALLOWLIST rather than a spread: a key added at one end and
-  // not the other is dropped one hop short of the shader, and the result is indistinguishable
-  // from a feature that does nothing. `gl:opts` exists because that has now happened three times.
+  // One fill, two draws, two cameras. ⚠ IN MAP-WINDOW TILES (windshield.js adds the camera offset
+  // back when collecting), so it shares camAt with the mass. ⚠ 'glShip 0' REMOVES IT UPSTREAM, at
+  // collection: gating the upload still pays a whole-model transform (the ownship gate caught it).
+  // ⚠ THE SHED GOES UP BEFORE THE MIRROR too, so a depot shows in a wet apron.
+  // ⚠ THE ROOM IS SPLIT OUT OF THE SOLIDS BUFFER HERE: it's in OWNSHIP_SINK but inside the near
+  // plane, so it gets its own clip range. Splitting it in windshield.js needs a new key on the
+  // 'installGL' options, an ALLOWLIST that drops a one-sided key silently ('gl:opts'; three times).
   const room = (opts.ship || []).filter((f) => f.interior);
   const rig = room.length ? (opts.ship || []).filter((f) => !f.interior) : opts.ship;
   // The own ship's faces that arrive in its own frame (`mp`, with `shipModel` set) go to their own
@@ -1785,44 +1532,20 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   // What the layers below are really drawing into. `opts.hdr` is only the ask: a device that refused
   // the float format keeps it at 1 and renders into the eight-bit canvas, where a gain clips.
   const hdrLive = g.view.hdrLive ? g.view.hdrLive() : opts.hdr > 0;
-  // ⚠ AFTER THE MASS, AND THAT IS NOT AN ORDERING PREFERENCE. `draw()` OPENS with
-  // gl.clear(COLOR | DEPTH) — so a floor drawn before it is drawn and then wiped, every frame.
-  // It cost an afternoon: the result looked like a floor (the backstop wash showed through the
-  // cleared canvas), it was smoothly graded and uniformly dark, and it ignored a debug uniform
-  // wired straight into its own fragment output, which is what finally gave it away.
-  //
-  // Drawing it after costs nothing, because the floor WRITES depth and TESTS it: where a building
-  // is nearer the floor loses the fragment, which is the same picture the other order would have
-  // given if the clear had not been in the way.
+  // ⚠ AFTER THE MASS: 'draw()' opens with gl.clear(COLOR | DEPTH), so a floor drawn first is wiped
+  // every frame (the backstop wash showing through looked like a floor). The floor writes and tests
+  // depth, so drawing it after gives the right picture.
   // ── AND THE CITY'S LIGHTS, LYING ON THE WET ROAD ───────────────────────────────────────────
-  //
-  // The same `lightList` the wall wash takes. Nothing extra is collected and nothing is authored.
-  //
-  // ⚠ THE REFLECTIONS GO ON THE GROUND PASS, NOT THE FLOOR, AND THAT WAS MEASURED RATHER THAN
-  // CHOSEN. The floor shader looks like the right home — it owns the ground and it already knows
-  // which tiles are paved. But `GROUND_FULL` draws every road and pavement tile as an OPAQUE QUAD
-  // on top of it, so a reflection painted into the floor is covered by exactly the surface it
-  // belongs on: the floor owns 55.6% of a frame over bare ground and 17.9% over a paved street.
-  //
-  // ⚠ AND PUTTING IT HERE MAKES THE FRAME FREE. These quads are recorded at their map-window tile —
-  // the same frame `pickLights` has already shifted its lights into — so the positions go in
-  // untouched. In the floor shader they would have needed a third conversion, into tiles measured
-  // from the window centre, which is the kind of sub-tile slide that reads as art rather than as a
-  // bug. The floor keeps its `uWet` uniforms and its debug mode 5 for the day somebody wants
-  // reflections on unpaved ground, and they stay switched off.
-  // ⚠ AFTER THE MASS AND BEFORE THE GROUND, WHICH IS WHERE A SOLID OBJECT BELONGS. It writes depth
-  // and tests it, so the order against the road and the floor does not actually matter — what does
-  // is that it is inside the depth-buffered half of the frame at all, which is the whole fix: the
-  // rig used to be painted onto the canvas after GL had been composited, where nothing in the city
-  // could hide it.
-  // The MIRROR always gets it — that is the whole point and it costs one draw into a small buffer.
-  // Drawing it in the MAIN frame as well is the other half (the rig then occludes, and is occluded
-  // by, everything else on the depth buffer) and it is the half that can be seen, so it has a flag.
-  // ⚠ ONE NUMBER FOR TWO CLIENTS, SO IT IS NAMED FOR THE LAYER AND NOT FOR THE RIG. This draws the
-  // whole solids buffer — the rig AND the depot shed — so reporting it as `ship` would have said 253
-  // triangles of own ship in a cab view with no own ship in it. The two LIST lengths are reported
-  // beside it, because a diagnostic that cannot tell a shed that arrived from a rig that did is the
-  // reason this was hard to see in the first place.
+  // The same 'lightList' the wall wash takes.
+  // ⚠ REFLECTIONS GO ON THE GROUND PASS, NOT THE FLOOR: 'GROUND_FULL' draws paved tiles as opaque
+  // quads over the floor (the floor owns 55.6% of a frame over bare ground, 17.9% over a street).
+  // Ground quads are in map-window tiles, the frame 'pickLights' already shifted into; the floor
+  // would need a third conversion. Its 'uWet' uniforms and debug mode 5 stay, switched off.
+  // ⚠ THE RIG IS DRAWN HERE, INSIDE THE DEPTH-BUFFERED HALF, which is the fix: painted on the
+  // canvas after compositing, nothing could hide it. The MIRROR always gets it; the main-frame
+  // draw has a flag.
+  // ⚠ THE COUNT IS NAMED FOR THE LAYER: it covers the rig and the depot shed, so 'ship' would claim
+  // 253 own-ship triangles in a cab. Both list lengths are reported beside it.
   // The city's lights and its night, as the mass takes them, so a lit lock is lit by its lamps.
   const solids = g.view.drawSolids ? g.view.drawSolids(camAt, cssH, { fog: opts.fogBand, ...SOLID_WATER,
     lights: lightList, lightWrap: LIGHT_TUNE.wrap, lightFocus: LIGHT_TUNE.focus,

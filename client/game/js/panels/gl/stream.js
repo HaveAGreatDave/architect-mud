@@ -1,39 +1,18 @@
-// stream — the one way a GLASS 2 layer gets its per-frame vertices onto the GPU.
-//
-// Eight layers (mass solids, ground, strokes, sprites, decals, billboards, clouds, the Curtain)
-// each fill a growing Float32Array and hand it over once a frame. They all did it the same way and
-// all did two avoidable things in the frame:
+// stream: the one way a GLASS 2 layer gets its per-frame vertices onto the GPU. Eight layers (mass
+// solids, ground, strokes, sprites, decals, billboards, clouds, the Curtain) used to each do:
 //
 //   gl.bufferData(gl.ARRAY_BUFFER, data.subarray(0, n * STRIDE), gl.DYNAMIC_DRAW);
 //
-// ⚠ `subarray` MINTS A TYPED-ARRAY VIEW OBJECT, every frame, in every layer. It is small and it is
-// garbage, and it is garbage created at the one point in the frame where a collection pause is most
-// visible. WebGL2's `bufferSubData` takes a source offset and a length directly, so the view has no
-// reason to exist at all.
-//
-// ⚠ AND `bufferData` WITH A SIZE IS A REALLOCATION REQUEST. The vertex count moves every frame — a
-// building comes into range, a light fades in — so the size handed over is almost never the size
-// from last frame, and the driver is asked for fresh storage each time. Capacity is tracked here
-// instead and grown by DOUBLING, so a layer settles on one allocation within a few frames of
-// reaching its working size and then never asks again.
-//
-// ⚠ AND THE ATTRIBUTE POINTERS ARE SET ONCE, NOT PER FRAME. Every layer re-ran its whole
-// `enableVertexAttribArray` + `vertexAttribPointer` block after each upload, which is what a VAO
-// exists to make unnecessary: the pointers are recorded INTO the VAO, against the buffer bound at
-// the time, and neither the stride nor the buffer object changes for the life of the scene.
-// Re-binding after a `bufferData` is a habit from the days before vertex array objects.
-//
-// ⚠ THE BUFFER OBJECT MUST OUTLIVE ITS STORAGE, which is what makes that safe: `bufferData` and
-// `bufferSubData` replace what is INSIDE the buffer and never the buffer's name, so a VAO pointing
-// at it stays valid across a grow. Delete and recreate the buffer and every VAO recorded against it
-// silently draws nothing.
-//
-// ⚠ AND THERE IS DELIBERATELY NO ORPHANING HERE. The idiomatic `bufferData(size)` before every
-// `bufferSubData` exists to dodge a write-after-read stall, and it is exactly the per-frame
-// reallocation this file is written to remove. These buffers are written once and drawn once per
-// frame with a full pipeline flush between (the composite blits the canvas), and WebGL2 renames
-// storage itself when it has to. If a stall is ever MEASURED on real hardware, orphaning goes back
-// in here, once, rather than in eight places.
+// ⚠ 'subarray' MINTS A VIEW OBJECT every frame, garbage at the worst point for a GC pause.
+// 'bufferSubData' takes an offset and length directly.
+// ⚠ 'bufferData' WITH A SIZE IS A REALLOCATION, and the count moves every frame. Capacity is
+// tracked here and grown by DOUBLING, so a layer settles on one allocation.
+// ⚠ ATTRIBUTE POINTERS ARE SET ONCE, recorded into the VAO; stride and buffer never change.
+// ⚠ THE BUFFER OBJECT MUST OUTLIVE ITS STORAGE: bufferData/bufferSubData replace contents, not the
+// name, so the VAO survives a grow. Recreate the buffer and every VAO on it silently draws nothing.
+// ⚠ NO ORPHANING, DELIBERATELY: it's the per-frame reallocation this removes, the buffers see a
+// full flush per frame, and WebGL2 renames storage itself. If a stall is ever MEASURED on real
+// hardware, add orphaning here, once.
 
 /**
  * @param {WebGL2RenderingContext} gl

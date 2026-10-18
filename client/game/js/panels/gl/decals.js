@@ -1,40 +1,18 @@
 // SIGNAGE, ON THE DEPTH BUFFER.
-//
-// A marquee is not mass and it is not a light. It is ARTWORK on a rectangle: a backing board, a
-// lit face, a frame, a row of bulbs and lettering — painted with a canvas, in 2-D, and then mapped
-// onto the sign's real projected quad so it shears with the wall it is bolted to.
-//
-// ⚠ AND THAT IS WHY IT SHOWS THROUGH BUILDINGS NOW. The 2-D renderer buried a sign behind whatever
-// stood in front of it by painting the building's faces afterwards, in the same queue. With the
-// city's mass on the GPU it is composited BEFORE the 2-D pass runs, so nothing can paint over a
-// sign any more. The probe that is supposed to catch this (`decoHidden`) answers a PER-SURFACE
-// question — is this whole board behind something — and a sign half behind a tower is the case
-// that matters and the case it deliberately answers "draw" to. Its own comment says so.
-//
-// So the artwork goes on a quad on the GPU, depth-TESTED against the mass and writing no depth of
-// its own. The tower in front hides the half of the board behind it, per pixel, and the half that
-// clears it still reads. No lift, no bias, no probe.
-//
-// ⚠ THE ARTWORK IS STILL PAINTED BY THE 2-D CODE. Nothing here knows what a marquee looks like:
-// the caller bakes the sign into a canvas exactly as `bakeSignText` already bakes lettering, hands
-// it over with four world corners, and this uploads it once and draws it. That is what keeps one
-// renderer's idea of a sign and the other's from drifting — there is only one idea of a sign.
-//
-// ⚠ AND A FEW OF THESE QUADS ARE THE SURFACE RATHER THAN THE PAINT ON ONE — see `solid`, and
-// RENDER_TUNE.glBoardDepth. "A sign is on a wall, not a wall" is true of every decal but the
-// per-tile board: `emitFlat`'s `paint` path sends a hoarding's own slab, legs, frame and trim here
-// because a board carrying `$name` has no single appearance to capture into a per-model mesh. That
-// board is not on a wall — it stands on legs against the sky — so with this layer writing no depth
-// there was nothing in the buffer where it stands, and the CLOUD deck, which clears colour only and
-// tests against what the world left, drew straight through it. Reported exactly that way: the
-// clouds appear through the billboards.
-//
-// ⚠ IT IS A DEPTH-ONLY PREPASS, THE ONE billboards.js ALREADY USES, AND FOR THE SAME REASON. The
-// obvious version writes depth in the one draw, which changes the ORDER this layer composites in
-// (a board would then hide the lettering of a sign batched before it) and deletes every
-// antialiased edge texel between the two cuts from the picture. So the colour pass is byte-for-byte
-// the one that always shipped, and a second draw with `colorMask` off lays the board's silhouette
-// into the depth buffer ahead of it. With no batch asking, the prepass is the absence of a code path.
+// A marquee is artwork on a rectangle (board, lit face, frame, bulbs, lettering) painted in 2-D and
+// mapped onto the sign's projected quad so it shears with its wall.
+// ⚠ WHY IT'S HERE: the GPU mass is composited before the 2-D pass, so nothing paints over a sign,
+// and 'decoHidden' asks per surface, answering "draw" for a sign half behind a tower. On the GPU
+// it's depth-TESTED and writes none: the tower hides its half per pixel. No lift, bias or probe.
+// ⚠ THE ARTWORK IS STILL PAINTED BY THE 2-D CODE: the caller bakes it as 'bakeSignText' bakes
+// lettering and hands over four world corners, so there's only one idea of a sign.
+// ⚠ SOME QUADS ARE THE SURFACE, NOT PAINT ON ONE: see 'solid' and RENDER_TUNE.glBoardDepth.
+// 'emitFlat''s 'paint' path sends a per-tile hoarding (slab, legs, frame, trim; '$name' means no
+// single mesh) here. It stands against the sky, so with no depth the cloud deck drew through it.
+// ⚠ IT'S A DEPTH-ONLY PREPASS, as in billboards.js: writing depth in the one draw would change the
+// composite order (a board hiding an earlier sign's lettering) and drop antialiased edge texels.
+// The colour pass is unchanged; a 'colorMask'-off draw lays the silhouette first. With no batch
+// asking, the prepass doesn't run.
 import { viewProjMatrix, mat4f, eyePos } from './camera.js';
 import { makeVertexStream } from './stream.js';
 import { createArena } from './retain.js';

@@ -1,38 +1,17 @@
-// THE GROUND ITSELF, ON THE GPU.
-//
-// `drawMode7Floor` is the last large thing in GLASS 1 that has no GL path at all, and it is the one
-// that decides whether GLASS 1 can ever be retired: switch the 2-D renderer off today and there is
-// simply no ground. It is also the biggest fixed cost in the frame — a software per-pixel raster
-// that costs the same over an empty desert as over a city, and the reason `PERF_DS` exists at all,
-// a dial that degrades the WHOLE frame when the floor alone is struggling.
-//
-// ⚠ AND IT IS ALREADY A FRAGMENT SHADER, written in the only language that was available. Read the
-// per-texel loop in windshield.js: it inverts the projection to a world point, samples a per-tile
-// LUT, and layers material on top. Nothing about it is inherently CPU work. This is that same
-// function, moved to where it belongs — not a re-imagining of it.
-//
-// ⚠ THE TERM ORDER IS THE RASTER'S, NOT A TIDIER ONE. Material multiplies into one `tex` scalar in
-// a fixed sequence — concrete, grass, hillshade, arid, water, shoreline, near field, downwash — and
-// the specular adds ride outside it. Several of those steps read what an earlier one wrote (the
-// hillshade is gated on waterness; the shoreline emboss reads the same waterW the surf band does),
-// so re-ordering them is not a refactor, it is a different picture.
-//
-// ⚠ THE ONE THING THAT DOES NOT MATCH TEXEL FOR TEXEL IS THE NOISE. `vnoise2` hashes through
-// `frac(n) = fract(sin(n * 12.9898) * 43758.5453)`, which needs a 64-bit mantissa to mean anything:
-// at highp the multiply lands around 1e9 with 24 bits to spend, so the fractional part comes out as
-// quantisation rather than as the CPU's number. An integer hash is used instead — same amplitude,
-// same frequency, same statistics, and the cracked-clay patches and the wind lanes on open water
-// simply fall in different places. That is a grain, not a position: nothing in the world stands on
-// it and no other term reads it.
-//
-// ⚠ WHAT IT STILL DOES NOT DO: nothing. Every term in `drawMode7Floor` is here, and it is the
-// DEFAULT — `RENDER_TUNE.glFloor = 0` puts the software raster back. Measured over twenty scenes
-// by `__glFloor()`: worst 2.30% of pixels differing, mean colour 0.10–0.72%. Worth 32.9 ms → 1.3
-// on a city cab frame and 65.4 → 0.6 over open sea.
-//
-// ⚠ THE FAIL-SAFE IS IN windshield.js, NOT HERE. Every way this can fail to draw ends at
-// `RENDER_TUNE.gl = 0`, and `drawMode7Floor` tests THAT as well as `glFloor` before it returns
-// early — otherwise a machine with no WebGL2 gets no ground at all rather than a slower one.
+// THE GROUND ITSELF, ON THE GPU: 'drawMode7Floor', the per-pixel software raster that was GLASS 1's
+// biggest fixed cost (why 'PERF_DS' exists), moved to a fragment shader as the same function.
+// ⚠ THE TERM ORDER IS THE RASTER'S: material multiplies into one 'tex' scalar in a fixed sequence
+// (concrete, grass, hillshade, arid, water, shoreline, near field, downwash), with specular adds
+// outside it. Later steps read earlier ones (hillshade is gated on waterness; the shoreline emboss
+// reads the surf band's waterW), so reordering changes the picture.
+// ⚠ ONLY THE NOISE DIFFERS: 'vnoise2''s 'fract(sin(n * 12.9898) * 43758.5453)' needs 64 bits and
+// quantises at highp, so an integer hash with the same statistics is used. Clay cracks and wind
+// lanes fall in different places; nothing stands on that grain or reads it.
+// ⚠ IT'S COMPLETE AND THE DEFAULT; 'RENDER_TUNE.glFloor = 0' restores the raster. '__glFloor()' over
+// twenty scenes: worst 2.30% of pixels differ, mean colour 0.10 to 0.72%; 32.9 ms to 1.3 on a city
+// cab frame, 65.4 to 0.6 over open sea.
+// ⚠ THE FAIL-SAFE IS IN windshield.js: every failure ends at 'RENDER_TUNE.gl = 0', and
+// 'drawMode7Floor' tests that as well as 'glFloor', or a machine with no WebGL2 has no ground.
 
 // ⚠ THE CLIP RANGE IS IMPORTED, AND IT USED TO BE A LITERAL COPY. The z uniforms below read
 // `const near = 0.06, far = 400.0` until the plane became something the frame fits to its camera

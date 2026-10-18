@@ -1,36 +1,16 @@
 // THE FLY-THROUGH CLOUD DECK, ON THE DEPTH BUFFER.
-//
-// The deck is a swarm of small puffs, each a short stack of CARDS: a flat shadowed base slab, mid
-// billows, a bright crown. Every card is already the same shape the lights and the scatter are — a
-// world point, a radius in SCREEN pixels, an alpha — because the 2-D renderer projects the card's
-// world offset and fills an ellipse at `R·FL/f`. It never had a third dimension to lose.
-//
-// ⚠ WHY MOVE IT. Two reasons, and the first is simply the size of it. `npm run shapes:clouds` was
-// written before this file and put the deck at **2,757–9,460 canvas calls a frame**, median 5,386,
-// against a whole city block's 17,400 — a third of the frame, in radial gradients and ellipse fills,
-// and invisible to every gate in the repo because no harness passed a weather field. The second is
-// that a painter's queue has to choose: the deck is drawn AFTER the world, so it paints over
-// everything, and a thirty-storey tower standing in a 1,600 ft overcast is in front of the cloud on
-// the way up and behind it on the way down with no way to say so.
-//
-// ⚠ IT DRAWS INTO THE SAME BUFFER THE WORLD PASS LEFT, AND CLEARS ONLY THE COLOUR. That is the
-// whole trick that makes this cheap: `gl.clear(COLOR_BUFFER_BIT)` keeps the depth the city wrote a
-// moment ago, so the cards test against real buildings without the mass being uploaded twice or the
-// frame being reordered. Clear DEPTH here as well and every cloud draws over every tower again,
-// which looks exactly like it did before and is the bug this exists to fix.
-//
-// ⚠ DEPTH-TESTED, DEPTH-WRITE OFF, AND SORTED FAR-TO-NEAR ON THE CPU. A card is a translucent
-// gradient with no interior: writing depth from it would let its empty half occlude the card behind,
-// and alpha-over compositing is order-dependent whatever the depth buffer says. The sort is the same
-// `b.f - a.f` the 2-D queue already did, so nothing new is computed.
-//
-// ⚠ AND EVERY CARD NOW GETS THE TREATMENT ONLY THE BIG ONES COULD AFFORD. In 2-D a card wider than
-// 26 px gets a directional gradient raked toward the sun plus a value-noise mottle, and everything
-// below that — the bulk of the swarm — blits one of twelve baked sprites lit from straight above,
-// with no mottle at all. Both are a fragment shader's ordinary work, so the split does not exist
-// here: the two-circle cone the canvas gradient describes is solved per pixel, and the curdle tile
-// is a texture read. Same argument as the mesh capturing at ADORN_NEAR — the tier existed because a
-// canvas could not afford it.
+// Puffs are short stacks of CARDS (shadowed base, billows, bright crown), each a world point, a
+// screen radius ('R·FL/f') and an alpha, as in the 2-D renderer.
+// ⚠ WHY MOVE IT: 'npm run shapes:clouds' put the deck at 2,757 to 9,460 canvas calls a frame
+// (median 5,386, against a city block's 17,400). And painted after the world, it covered a tower
+// standing in an overcast whether the tower was in front or behind.
+// ⚠ IT CLEARS ONLY THE COLOUR ('gl.clear(COLOR_BUFFER_BIT)'), keeping the city's depth so cards
+// test against real buildings. Clear DEPTH too and every cloud draws over every tower again.
+// ⚠ DEPTH-TESTED, DEPTH-WRITE OFF, SORTED FAR-TO-NEAR ON THE CPU ('b.f - a.f', as the 2-D queue
+// did): a card's empty half would occlude, and alpha-over is order-dependent.
+// ⚠ EVERY CARD GETS THE FULL TREATMENT: in 2-D only cards over 26 px got the sun-raked gradient
+// and mottle (the rest blit twelve baked sprites). Here the two-circle cone is solved per pixel and
+// the curdle tile is a texture read (as the mesh captures at ADORN_NEAR).
 import { viewProjMatrix, mat4f } from './camera.js';
 import { makeVertexStream } from './stream.js';
 import { declareProgram, layerProgram } from './programs.js';

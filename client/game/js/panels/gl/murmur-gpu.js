@@ -1,69 +1,29 @@
-// THE MURMURATION, SIMULATED ON THE GPU.
-//
-// One fragment is one starling. Each frame, for each cloud, the birds are filed into a spatial grid,
-// then one pass reads every bird's position and velocity out of two float textures, finds its seven
-// nearest flockmates through the grid, applies the rule, and writes the next position and velocity
-// into the other pair of textures. Nothing is read back: gl/fauna.js draws the birds straight out of
-// the same textures.
-//
-// ⚠ THE RULE IS THE ONE murmur.js DESCRIBES, and its header has the research behind every term. What
-// stays in murmur.js is the flock-level half: the weights (MURMUR_RULES), the flock's own memory
-// (flockFrame: its clock, the centre's course now and a moment either side of it, the body's orientation,
-// the stoop) and the starting cloud (seedPoints). The per-bird loop lives here: separation all round,
-// alignment and cohesion over the seven nearest outside the blind sector behind, the relayed course, the
-// body's rim, the hawk's bubble, the speed held to the centre's, the bank-limited turn and the bank.
-//
-// ⚠ NEIGHBOURS ARE FOUND FRESH EVERY FRAME. The CPU re-scanned each bird every other frame because the
-// search was 80% of its step, and its own note said what that staleness cost: the flock packed tighter
-// and flatter, 1 : 3.5 : 5.5 against 1 : 3.1 : 5.3 with no cache and real starlings at 1 : 2.8 : 5.6.
-//
-// ⚠ THE SEARCH GOES THROUGH A HASHED GRID, AND IS EXACT FOR EVERY BIRD IT CAN SETTLE. Birds are filed
-// into a grid of cells about half a bird-spacing wide, and each bird searches outward in shells of
-// cells until it can PROVE nothing unread is nearer than its seventh: once every cell within
-// Chebyshev distance r of its own has been read, anything further is at least r cell widths away
-// (murmur.js's own shell proof). About 97% of birds are settled within GRID_R shells, and for those
-// the answer is brute force's answer, ties to the lower index — `__glMurmurExact` in the Modelshop
-// compares every list on a real flock.
-//
-//   THE REST — stragglers on the edge, the birds in the hole a stoop opens — also offer up LAST
-//   FRAME'S neighbours and THEIR neighbours, fifty-six candidates, because who your seven are changes
-//   far more slowly than where they are (murmur.js's own note, the one its neighbour cache rested on).
-//   That keeps a straggler steering by seven birds of the flock rather than by whoever happened to be
-//   inside the grid's reach, which is the failure the topological rule exists to prevent.
-//
-//   ⚠ WHY NOT BRUTE FORCE FOR THE REST, which is exact: it was built, measured and taken out. A GPU runs
-//   a group of birds in lockstep and one bird's long search holds its whole group, so with ~2% of birds
-//   unsettled about 40% of groups held one, and the step cost 9.4 ms at 20,000 birds against 1.1 ms
-//   without it. Drawing the unsettled birds as points to pack them together was measured too, and cost
-//   the same: each point ran as a group of its own. Walking more shells instead: 16 shells, 18 ms.
-//
-//   ⚠ AND NOT BRUTE FORCE FOR EVERYBODY: it grows with the square of the flock. It was 5.1 ms at 12,000
-//   birds, which puts 20,000 at most of a frame on its own.
-//
-//   WHY A WRAPPED TABLE, NOT A BOX: the cells are wrapped into a fixed table (GW x GH slots), so the grid has no
-//   bounds to fit and a straggler anywhere in the sky is filed like any other bird. Two cells that
-//   land in one slot share it; the search checks each bird's own cell and skips strangers.
-//
-//   HOW A SLOT HOLDS SEVERAL BIRDS WITHOUT ATOMICS: WebGL2 has no atomic counter to append with, so a
-//   slot's birds are PEELED, one layer per pass. Every bird is drawn as a one-pixel point at its slot
-//   with its index as the depth, and the depth test keeps the lowest index; the next pass discards
-//   every bird at or below what the last layer kept, so it keeps the next lowest, and so on, one layer
-//   a pass, for as many layers as the flock fills. A slot full to its last layer may have lost birds,
-//   so a bird that read one is not settled.
-//
-// ⚠ AND IT IS ONE FLOCK FOR THE WHOLE CYCLE, ON THE GROUND AS WELL AS IN THE AIR. A landed starling
-// flock that is not on a ledge is this same flock in GROUND MODE: no neighbour search, just every bird
-// walking from wherever it is to its spot on the patch by the end of the landing window and milling
-// round it — groundSpot in client/shared/birds.js, whose per-bird half is baked into two textures once
-// (groundSpotParts) so there is one copy of where a landed starling stands. It used to become a CPU
-// flock at touchdown, drawn bird by bird and thinned to the face budget, which dropped a grand roost
-// from twenty thousand birds to eighteen hundred the moment it landed and jumped every bird from the
-// cloud to a formation it had never flown. On a ledge or a wire it is still this flock, in PERCH MODE:
-// windshield.js hands over each bird's spot on the perch (the per-bird path's own seating), baked once
-// per landing (bakePerch), and how far each wire hangs under the birds on it now (uSag).
-//
-// ⚠ THERE IS NO CPU FALLBACK IN THE GAME (decided 2026-09-23). A machine that cannot render to a
-// float texture draws no murmuration at all.
+// THE MURMURATION, SIMULATED ON THE GPU. One fragment is one starling: per frame and cloud, birds
+// are filed into a spatial grid, then one pass reads position and velocity from two float
+// textures, finds the seven nearest, applies the rule and writes the other pair. Nothing is read
+// back; gl/fauna.js draws from the textures.
+// ⚠ THE RULE IS murmur.js'S (its header has the research). It keeps the flock-level half
+// (MURMUR_RULES, flockFrame, seedPoints); the per-bird loop is here (separation, alignment and
+// cohesion outside the blind sector, relayed course, rim, hawk bubble, speed, bank-limited turn).
+// ⚠ NEIGHBOURS ARE FOUND FRESH EVERY FRAME: the CPU's every-other-frame rescan packed the flock
+// to 1 : 3.5 : 5.5 against 1 : 3.1 : 5.3 (real starlings 1 : 2.8 : 5.6).
+// ⚠ THE GRID SEARCH IS EXACT FOR EVERY BIRD IT SETTLES: cells about half a bird-spacing wide,
+// searched in shells until nothing unread can be nearer than the seventh (murmur.js's shell
+// proof). ~97% settle within GRID_R and match brute force, ties to the lower index
+// ('__glMurmurExact' in the Modelshop checks). The rest also try LAST FRAME'S neighbours and
+// theirs (56 candidates), since who your seven are changes slower than where they are.
+//   ⚠ NOT BRUTE FORCE FOR THE REST: lockstep groups meant ~2% unsettled held ~40% of groups, 9.4 ms
+//   against 1.1 ms at 20,000 birds (points per straggler: same; 16 shells: 18 ms). Nor for
+//   everybody: it's quadratic, 5.1 ms at 12,000.
+//   The grid is a WRAPPED TABLE (GW x GH slots), so it has no bounds; a bird skips slot-mates
+//   from other cells. With no atomics in WebGL2 a slot is PEELED a layer per pass (index as depth,
+//   lowest kept, next pass discards at or below it). A slot full to its last layer may have lost
+//   birds, so a bird that read one isn't settled.
+// ⚠ ONE FLOCK FOR THE WHOLE CYCLE. Landed off a ledge it's GROUND MODE (each bird walks to its
+// groundSpot in client/shared/birds.js, baked by groundSpotParts); on a ledge or wire, PERCH MODE
+// (spots from windshield.js baked by bakePerch, wire sag in uSag). A CPU flock at touchdown once
+// cut a roost from 20,000 birds to 1,800 and jumped them into formation.
+// ⚠ NO CPU FALLBACK IN THE GAME (decided 2026-09-23): no float render target, no murmuration.
 import { flockFrame, seedPoints, scatterOf, MURMUR_RULES as R, MURMUR_MEASURED, WAVE_GROUPS, WAVE_JITTER, TRICKLE_POW } from '../murmur.js';
 import { compileShader } from './programs.js';
 

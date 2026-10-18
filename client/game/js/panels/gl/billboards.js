@@ -1,42 +1,19 @@
 // WHAT STANDS ON THE GROUND, ON THE DEPTH BUFFER.
-//
-// Trees, bushes, cacti, hoodoos, rocks, bones. Every one of them is a BILLBOARD already — the 2-D
-// renderer projects the tile's ground point and paints a shape upward from it at a screen size of
-// `propS(k, f, …)`, which is `k/f` clamped. It never had a third dimension to lose.
-//
-// ⚠ SO WHY MOVE THEM AT ALL. Because a painter's queue hides things by painting over them, and with
-// the city's mass on the GPU it is composited BEFORE the 2-D pass — nothing can paint over a bush
-// afterwards. The probe that stood in for that (`groundHidden` → `decoHidden`) asks whether the box
-// around the tree's GROUND POINT is covered, and a tree whose base is clear of a tower while its
-// canopy leans across it is both the common case and the one the probe answers "draw" to. Measured
-// on four different towers: 0.8–1.1% of the silhouette, every time, model-independent. There is no
-// threshold that separates those two cases, because the question is per pixel.
-//
-// ⚠ AND THE ARTWORK IS STILL THE 2-D CODE'S. Nothing here knows what a cactus looks like. The
-// caller paints one into a canvas through the SAME function that paints it on the windscreen, at a
-// stub depth, and hands the canvas over. `propS` is `k/f`, so a shape baked at depth 1 is that same
-// shape at depth f scaled by 1/f — one texture serves every distance, and the two renderers cannot
-// disagree about what a species looks like because there is only one drawing of it.
-//
-// ⚠ DEPTH-TESTED, DEPTH-WRITE OFF. A bush must not punch its own alpha-shaped hole in the depth
-// buffer: the quad is mostly empty, and writing depth from it would let the empty half occlude
-// whatever is behind. Testing is the whole point; writing would be a second bug.
-//
-// ⚠ EXCEPT FOR WHAT FLIES, WHICH IS AN OPT-IN AND HAD TO BE. A billboard writes no depth, so it
-// leaves nothing behind for a LATER pass to sort against — and there is exactly one later pass:
-// the cloud deck, which clears colour only and tests against the depth the world left. A goose and
-// an air contact are the two billboards that habitually share sky with a cloud, and both were
-// painted over by the deck whatever their altitude: the deck is drawn after the world and the
-// depth buffer, at the birds' own pixels, still held the ground four hundred tiles away. Nothing
-// on the ground has this problem, because a cloud is never in front of a tree.
-//
-// ⚠ AND IT IS A DEPTH-ONLY PREPASS, NEVER A RAISED CUTOFF ON THE ONE DRAW. The obvious version
-// discards below ~0.5 and writes depth in the same pass, which also deletes every texel between
-// 0.004 and 0.5 from the PICTURE — a goose's antialiased rim, and on a contact the canopy glass,
-// the nav-lamp glow and the exhaust, none of which are fringe. So the colour pass is byte-for-byte
-// the one that always shipped, and a second draw with `colorMask` off lays the silhouette into the
-// depth buffer ahead of it. ⚠ With no batch asking for it the prepass is not merely cheap, it is
-// the absence of a code path — which is what makes the flag's `0` provably the old renderer.
+// Trees, bushes, cacti, hoodoos, rocks, bones: already billboards in 2-D, painted up from the
+// projected ground point at 'propS(k, f, …)' (k/f clamped).
+// ⚠ WHY MOVE THEM: the GPU mass is composited before the 2-D pass, so nothing paints over a bush.
+// The probe ('groundHidden' → 'decoHidden') tests the box at the GROUND POINT, and a canopy leaning
+// across a tower is the common case it answers "draw" to (0.8 to 1.1% of the silhouette on four
+// towers). The question is per pixel; no threshold fixes it.
+// ⚠ THE ARTWORK IS STILL THE 2-D CODE'S: the caller paints it into a canvas through the same
+// function at a stub depth. Since 'propS' is k/f, a shape baked at depth 1 serves every distance.
+// ⚠ DEPTH-TESTED, DEPTH-WRITE OFF: the quad is mostly empty and would occlude what's behind it.
+// ⚠ EXCEPT WHAT FLIES (opt-in): the cloud deck clears colour only and tests the world's depth, so a
+// goose or air contact was painted over at any altitude (the buffer held the ground far behind).
+// ⚠ A DEPTH-ONLY PREPASS, NEVER A RAISED CUTOFF: discarding below ~0.5 in the one draw deletes
+// texels between 0.004 and 0.5 (a goose's rim; a contact's canopy glass, nav glow and exhaust).
+// The colour pass is unchanged and a 'colorMask'-off draw lays depth first. ⚠ With no batch asking,
+// the prepass doesn't run at all, so the flag's '0' is provably the old renderer.
 import { viewProjMatrix, mat4f } from './camera.js';
 import { makeVertexStream } from './stream.js';
 import { declareProgram, layerProgram } from './programs.js';
