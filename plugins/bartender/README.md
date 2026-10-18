@@ -21,8 +21,13 @@ player in the room**, reads the live room, and reacts in character:
 - **A poker hand is running** at a table in the room (`gametable`'s `activeTables`,
   `phase === 'InProgress'`) → rail commentary that reads the **actual pot / street /
   heads-up** state.
-- **The TV is on** (`broadcast`'s `getZoneNowPlaying`) → he comments on **what's
-  actually airing** (program name, else station/channel).
+- **The TV is on** (`broadcast`'s `getZoneNowPlaying`) → a remark keyed on the
+  **kind of show airing** (`TV_LINES`, by `playback_mode`: sports, news, weather,
+  gameshow, talkshow, morning, sermon, film, scripted, commercial, else `generic`).
+  Lines may name the show (`{program}`, its title without the episode subtitle),
+  the station or the channel, and a line whose token is empty right now is skipped.
+  A bartender doesn't repeat one of their last `TV_MEMORY` remarks. The pool is
+  shared, so no line names a bar, a drink or a pronoun.
 - **A guest is wearing heat** (surveillance's `WANTED_STARS` action, ≥1★) → the bar
   reacts to who just walked in. What that *means* is per-bar: Lowry wants it out of
   his respectable house; Marla treats it as a credential.
@@ -64,7 +69,7 @@ when a player `talk`s to him and picks the option):
 | Action | Response |
 |---|---|
 | `BARTENDER_ADVICE` | A newcomer gets a fresh tip (shared pool with the tick, so no repeats); a veteran gets a deflection. |
-| `BARTENDER_TV`     | Comments on what's on the room's TV, or notes the set is dark. |
+| `BARTENDER_TV`     | Says what's on the room's TV (always naming the show when there is one), or notes the set is dark. |
 | `BARTENDER_POKER`  | Reads the live table, or notes it's cold. |
 
 ## Scope & state

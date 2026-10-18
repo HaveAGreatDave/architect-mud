@@ -8,7 +8,7 @@
 //   • a first-week player walks in  → he clocks them, welcomes them by handle,
 //     and drips real survival tips one at a time over the night
 //   • a poker hand is running        → rail commentary that reads the actual pot
-//   • the TV is on                   → he comments on what's actually airing
+//   • the TV is on                   → a remark on the kind of show that's airing
 //   • Orion Dex is on the floor      → a rare, curated coworker back-and-forth
 //     between the two of them (the bartender and the Embassy's house card dealer)
 //   • otherwise                      → bar business: pouring, wiping, the patter
@@ -52,12 +52,16 @@ const COWORKER_GAP_MS   = 5 * 60 * 1000;           // keep the two-hander a rare
 const COWORKER_CHANCE   = 0.4;                      // ...and only sometimes when it's eligible
 const COWORKER_TURN_MS  = [4500, 8000];            // random delay between turns of the exchange
 
+const TV_MEMORY         = 6;                        // TV remarks a bartender won't repeat until others have aired
+const TV_OWN_POOL       = 0.75;                     // chance a remark is about this kind of show, not the set itself
+
 // ── In-memory memory ──────────────────────────────────────────────────────────
 const lastSpoke   = new Map(); // npcId    -> ms of his last line (any kind)
 const welcomedAt  = new Map(); // playerId -> ms he last welcomed them
 const tipsGiven   = new Map(); // playerId -> Set(tip index)
 const coworkerAt  = new Map(); // npcId    -> ms the last coworker scene began
 const sceneZones  = new Set(); // zoneIds with a coworker scene currently running
+const tvSaid      = new Map(); // npcId    -> his last TV_MEMORY remarks about the set, oldest first
 
 // ── Content ───────────────────────────────────────────────────────────────────
 // Fully-quoted lines render as a yellow "Lowry says:" bubble; unquoted lines
@@ -205,6 +209,89 @@ const MARLA_COWORKER = [
   ],
 ];
 
+// ── The set (shared by every bartender) ───────────────────────────────────────
+// Keyed on the playback_mode of what's airing, so a ball game, a sermon and the
+// news each get their own remarks. {program} is the show as somebody would say
+// it, {station} the station, {channel} the dial number; a line whose token has no
+// value right now is skipped. Shared, so no line names a bar, a drink or a pronoun.
+const TV_LINES = {
+  sports: [
+    `"{program} night. Somebody in here is running a book on it, and it isn't me."`,
+    `"I don't follow {program}. I follow the tabs, and the tabs say we're losing."`,
+    `"You don't need the score. Look who's ordering doubles."`,
+    `"Don't shout at the set. It can't hear you, and the man at the end of the bar can."`,
+    `turns the set up a notch without being asked.`,
+    `glances at the score, then at the till.`,
+  ],
+  news: [
+    `"I keep {program} on for the clock in the corner."`,
+    `"Nobody's ever asked me to turn {program} up. Down, plenty."`,
+    `"Same news as yesterday. They've just got angrier about it."`,
+    `"When they read out who got killed, I listen for regulars."`,
+    `wipes the same stretch of bar while the news goes round again.`,
+  ],
+  weather: [
+    `"{program}'s calling it bad all week. It hasn't been wrong yet."`,
+    `"If {program} says acid, keep your hands in your pockets on the way home."`,
+    `"Don't need the forecast. The drip over the cellar door tells me first."`,
+    `"They give you the whole week. I only ever listen to tomorrow."`,
+    `moves the umbrella bucket nearer the door.`,
+  ],
+  gameshow: [
+    `"I knew someone who went on {program}. Came home with a toaster and never said a word about it."`,
+    `"Somebody in here always shouts the answers at {program}. Never the right ones."`,
+    `"Turn that one down. The buzzer goes right through the glasses."`,
+    `leans on the bar to watch the last round, cloth still in hand.`,
+  ],
+  talkshow: [
+    `"Everybody on {program} is so pleased to be there."`,
+    `"{program}'s better with the sound down. You make up what they're saying."`,
+    `"The guest is selling something. Give it a minute."`,
+    `"They laugh on cue in that studio. Somebody holds up a card."`,
+    `"I've had better conversations across this bar at four in the morning."`,
+  ],
+  morning: [
+    `"{program}'s on, so it's morning. Somebody tell the regulars."`,
+    `"If you're drinking through {program}, I won't say anything."`,
+    `"Everyone on {program} has slept. You can tell."`,
+    `stacks last night's glasses while the breakfast show runs.`,
+  ],
+  sermon: [
+    `"I leave {program} on. Somebody in here always needs it, and they never ask."`,
+    `"Nobody orders while {program}'s on."`,
+    `"Quietest this bar gets all week is when that's on."`,
+    `turns the sermon down a little and leaves it on.`,
+  ],
+  film: [
+    `"They show {program} every few weeks. I've never once seen the start of it."`,
+    `"{program}. Every time it's on, someone asks me how it ends."`,
+    `"Somebody always falls asleep in the second half. I leave them till the credits."`,
+    `"Film's on. Nobody's leaving till it's done."`,
+    `dims the lamp over the bar so the picture shows.`,
+  ],
+  scripted: [
+    `"I know every voice on {program}. I couldn't pick one of their faces out of a queue."`,
+    `"Regulars argue about {program} like they know the people in it."`,
+    `"I lost the thread of {program} a year ago. I watch it anyway."`,
+    `"Leave it on. It's company for the ones who drink alone."`,
+    `half-watches the set while counting the float.`,
+  ],
+  // Adverts carry the last show's name, so nothing here asks for {program}.
+  commercial: [
+    `"Adverts. If anyone wants another, now's the time."`,
+    `"They've sold me that every night for a year. I still don't know what it is."`,
+    `"The adverts are louder than the programme. Somebody's paid to do that."`,
+    `changes the barrel while the adverts run.`,
+  ],
+  generic: [
+    `"That's {program}. Don't ask the regulars about it unless you've got an hour."`,
+    `"Channel {channel}. Nobody's turned the dial in years. I'm not sure it turns."`,
+    `"It's {station} or it's static. We had a vote once."`,
+    `"Turn it off and this place sounds like a waiting room."`,
+    `looks up at the set long enough to see what's on, and goes back to work.`,
+  ],
+};
+
 // ── Voices ────────────────────────────────────────────────────────────────────
 // Per-bartender words behind the shared reactive logic. Keyed by NPC id; anyone
 // unlisted gets Lowry's set (he's the original and the safe default).
@@ -351,10 +438,56 @@ function pokerLine(table) {
   return `nods toward the poker table, where a fresh hand's being dealt.`;
 }
 
-function tvLine(now) {
-  if (now.program)      return `"They're running ${now.program} again. I've heard that jingle in my sleep. Sometimes I hum it while I pour."`;
-  if (now.stationName)  return `"${now.stationName}'s on the set${now.number != null ? `, channel ${now.number}` : ''}: same loop as ever. It's not company, but it beats the quiet in here."`;
-  return `glances up at the flickering set and shakes his head.`;
+// The title as somebody would say it: no episode subtitle, no ™, not shouted.
+// "Deadball: Coldwater League Baseball" → "Deadball"; "SISTER STEEL" → "Sister Steel".
+const SMALL_WORDS = new Set(['a', 'an', 'and', 'at', 'for', 'in', 'of', 'on', 'or', 'the', 'to']);
+function spokenTitle(name) {
+  if (!name) return null;
+  let t = String(name).replace(/[™®]/g, '').split(/\s+-\s+|:\s+/)[0].trim();
+  if (t === t.toUpperCase() && /[A-Z]{3}/.test(t)) {
+    t = t.toLowerCase().split(' ')
+      .map((w, i) => (i && SMALL_WORDS.has(w)) ? w : w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+  }
+  return t || null;
+}
+
+function fillTv(line, tokens) {
+  let ok = true;
+  const out = line.replace(/\{(program|station|channel)\}/g, (m, k) => {
+    if (tokens[k] == null) { ok = false; return m; }
+    return tokens[k];
+  });
+  return ok ? out : null;
+}
+
+// A remark about what's on. `answer` is a player asking "what's on?": the reply is
+// speech, and it names the show whenever there's one to name. Doesn't record
+// anything; call rememberTv once the line is actually said.
+function tvLine(now, { npcId = '', answer = false } = {}) {
+  const tokens = {
+    program: now.mode === 'commercial' ? null : spokenTitle(now.program),
+    station: now.stationName || null,
+    channel: now.number != null ? String(now.number) : null,
+  };
+  const naming = answer && !!tokens.program;
+  const resolve = (pool) => (pool || [])
+    .filter(l => !answer || l.startsWith('"'))
+    .filter(l => !naming || l.includes('{program}'))
+    .map(l => fillTv(l, tokens)).filter(Boolean);
+  const own = resolve(TV_LINES[now.mode]);
+  const generic = resolve(TV_LINES.generic);
+  const said = tvSaid.get(npcId) || [];
+  const fresh = (pool) => pool.filter(l => !said.includes(l));
+  const [first, second] = own.length && Math.random() < TV_OWN_POOL ? [own, generic] : [generic, own];
+  const pool = fresh(first).length ? fresh(first) : fresh(second).length ? fresh(second) : (first.length ? first : second);
+  return pool.length ? pick(pool) : `"${tokens.station || 'The set'}'s on. Same as ever."`;
+}
+
+function rememberTv(npcId, line) {
+  const said = tvSaid.get(npcId) || [];
+  said.push(line);
+  while (said.length > TV_MEMORY) said.shift();
+  tvSaid.set(npcId, said);
 }
 
 // Pull an unused tip for this player, marking it given. Returns { line } or null
@@ -447,7 +580,7 @@ async function bartenderTick() {
       const table = activePokerInZone(zoneId);
       if (table) buckets.push({ w: 2, line: pokerLine(table) });
       const nowPlaying = getZoneNowPlaying(zoneId);
-      if (nowPlaying) buckets.push({ w: 2, line: tvLine(nowPlaying) });
+      if (nowPlaying) buckets.push({ w: 2, line: tvLine(nowPlaying, { npcId: npc.id }), tv: true });
       buckets.push({ w: 2, line: pick(voice.idle) }); // bar business — always available
 
       const total = buckets.reduce((s, b) => s + b.w, 0);
@@ -457,6 +590,7 @@ async function bartenderTick() {
       if (chosen?.line) {
         sendToZone(zoneId, formatChitchat(npc.name, chosen.line));
         lastSpoke.set(npc.id, now);
+        if (chosen.tv) rememberTv(npc.id, chosen.line);
       }
     }
   } finally {
@@ -483,10 +617,13 @@ registerAction({
 
 registerAction({
   type: 'BARTENDER_TV',
-  handler: ({ actor }) => {
+  handler: ({ actor, context }) => {
     const now = actor && getZoneNowPlaying(actor.current_zone);
     if (!now) return { type: 'dialogue_line', text: `"Set's dark. Nobody's paying the power bill, and I'm not squinting at static for company."` };
-    return { type: 'dialogue_line', text: tvLine(now) };
+    const npcId = context?.npc?.id || '';
+    const text = tvLine(now, { npcId, answer: true });
+    rememberTv(npcId, text);
+    return { type: 'dialogue_line', text };
   },
 });
 
@@ -502,4 +639,4 @@ registerAction({
 export const commands = {};
 
 // Exposed for the regress suite.
-export const _test = { isNewPlayer, nextTipFor, pokerLine, tvLine, bartenderTick, TIPS, tipsGiven, welcomedAt, lastSpoke, voiceFor, VOICES, LOWRY_VOICE };
+export const _test = { isNewPlayer, nextTipFor, pokerLine, tvLine, spokenTitle, TV_LINES, tvSaid, bartenderTick, TIPS, tipsGiven, welcomedAt, lastSpoke, voiceFor, VOICES, LOWRY_VOICE };

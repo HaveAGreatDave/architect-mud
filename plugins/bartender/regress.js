@@ -31,8 +31,19 @@ export default async function regress({ check }) {
   check('pokerLine reads the live pot', /₵250/.test(pl), pl);
   const plHeadsUp = _test.pokerLine({ game: { pot: 400, community: [1, 2, 3] }, seats: [1, 1, null, null] });
   check('pokerLine calls a heads-up pot', /two at the table/i.test(plHeadsUp), plHeadsUp);
-  const tv = _test.tvLine({ program: 'DEADBALL LIVE', stationName: 'KSAB-TV', number: 7 });
-  check('tvLine names the program', /DEADBALL LIVE/.test(tv), tv);
+  const tv = _test.tvLine({ program: 'Deadball: Coldwater League Baseball', mode: 'sports', stationName: 'KSAB-TV', number: 7 }, { npcId: 'regress_bartender_tv', answer: true });
+  check('tvLine answer names the show, without its subtitle', /Deadball/.test(tv) && !/League Baseball/.test(tv) && tv.startsWith('"'), tv);
+  check('spokenTitle un-shouts a caps title', _test.spokenTitle('NIGHT SHIFT AT NUMBER FOUR') === 'Night Shift at Number Four');
+  let badTv = null;
+  for (const [mode, pool] of Object.entries(_test.TV_LINES)) {
+    for (const l of pool) if (!l.trim() || (l.match(/"/g) || []).length % 2 || /\{(?!program\}|station\}|channel\})/.test(l)) badTv = `${mode}: ${l}`;
+    for (const now of [{ mode, program: 'Some Show', stationName: 'KSAB-TV', number: 7 }, { mode }]) {
+      if (!_test.tvLine(now)) badTv = `${mode}: no ambient line`;
+      const a = _test.tvLine(now, { answer: true });
+      if (!a.startsWith('"') || (now.program && mode !== 'commercial' && !a.includes('Some Show'))) badTv = `${mode}: bad answer ${a}`;
+    }
+  }
+  check('every TV pool resolves, and answers are speech that name the show', badTv === null, badTv || '');
 
   // Dialogue actions return a spoken dialogue_line.
   const adviceNew = await dispatchAction({ type: 'BARTENDER_ADVICE', actor: { ...freshP, id: 'regress_bartender_advice' }, params: {}, context: { npc: { id: 'npc_embassy_barkeep' } } });

@@ -33,8 +33,8 @@ those rules ever change. Nothing here re-derives them.
 
 The mode is the only field that reliably says what *kind* of thing just happened. A groan
 belongs to a ball game and not to a sermon, and that difference is most of the reason to build
-this at all — a generic "shakes his head at the set" would have been the bartender's existing
-`tvLine()` with extra steps.
+this at all — a generic "shakes his head at the set" is what the bartender's `tvLine()` used
+to say. The bartender now keys its own remarks on the same modes.
 
 Pools exist for `sports`, `news`, `dynamic_news`, `gameshow`, `talkshow`, `morning`, `sermon`,
 `film`, `weather`, `live_camera` and `commercial`; anything else falls through to a generic pool.
