@@ -413,128 +413,157 @@ const fadeSlots = (slots) => Math.max(1, Math.round(slots * FADE_SHARE));
 // an EMPTY LIST, so the frame got no lights at all and fadeLights returned null. Nothing threw at
 // the call site; it threw a gate later, reading `.length` of the null. A caller that does not care
 // about capping must get every slot, never none.
-export function pickLights(cam, sprites, night, held, slots = MAX_LIGHTS) {
+// ⚠ THE NIGHT SCALE BELONGS TO THE WALL WASH, NOT TO THE LIST. Returning null in daylight meant
+// the frame had NO LIGHTS AT ALL by day — right for a wall (a shopfront measured a pink cast over
+// 19,000 pixels of its own wall at noon) and wrong for everything else that wants to know where
+// the lights ARE. A wet road reflects them at four in the afternoon in a downpour, and the city's
+// neon is certainly lit in one.
+//
+// So the list is always built and the night scale rides on the COLOUR the wall shader reads:
+// 'rgb' is night-weighted and falls to zero at noon by arithmetic, 'rgbRaw' is not. The caller
+// still hands the mass pass nothing when the gain is zero, so the wall side is unchanged.
+//
+// ⚠ A DAYLIGHT REFLECTION BEING FAINT IS THE SCENE, NOT A RULE. It is drawn at full strength and
+// sits on ground that is already bright, so it washes out on its own — which is what a wet road
+// actually looks like at four in the afternoon. Gating it would be deciding that in advance.
+// ⚠ RANKED ON DISTANCE FROM THE EYE, NEVER ON DEPTH ALONG THE VIEW AXIS. The score was I·r/f, and
+// `f` changes when the camera only turns: a lamp 30° off the axis has 0.87 of the depth of one
+// dead ahead at the same range, so a slow look round reordered the whole list and the slots
+// churned 35 times a second with nothing moving. Every swap is a lamp's road pool and wall lift
+// fading out and another's fading in, which reads as the streetlights flickering as you look
+// about. Distance doesn't change under a turn, so the set only changes when the eye moves or a
+// light comes into or leaves the frame. `npm run gl:fade` holds it (yaw churn).
+// The lateral cull keeps lights well out of the frame from taking slots off the ones in it; the
+// margin is wide so a light near the edge, whose pool may still be in view, is kept.
+// ⚠ LIGHT IN FLIGHT IS NOT A LIGHT SOURCE — see the ⚠ over `pushLight`. A node down a beam is
+// drawn as a sprite like any other and has no business in this list: there is no lamp at that
+// point for a wall to catch or a puddle to reflect, it would take slots off the lamps that are
+// really there, and it moves far enough every frame to be a new `key` every frame.
+// The light own colour, weighted the way an eye weights it. NO ALPHA — see the ⚠ above.
+// ⚠ A POINT SOURCE BLOOMS, AN AREA SOURCE WASHES, AND BOTH COME OFF THE SAME `r` — see the ⚠ on
+// LIGHT_TUNE. The road is handed `r` untouched; only what the WALL gets is split, in reach and
+// in gain, so the wet street cannot move when the bloom is tuned.
+// A stable name for this light, so last frame own choices can be recognised in this one. The
+// sprite objects are rebuilt every frame and share no identity, so the POSITION is the identity
+// — quantised, or a light drifting a thousandth of a tile is a different light every frame.
+// The same light with the NIGHT factor removed but `gain` kept, for surfaces that reflect
+// rather than catch.
+//
+// ⚠ DROPPING THE TUNING TOO MAKES A WET ROAD BRIGHTER THAN A DRY ONE, which is backwards. The
+// reflection strength downstream was swept against a night-weighted colour, so a raw one runs
+// about 2.2x over it. Measured with it dropped: a daylight road went 54.5 to 76.4 in the rain,
+// when the whole point is that it darkens.
+//
+// ⚠ AND IT IS `wet`, NOT `gain`, SINCE THE TWO SPLIT. This was `gain` when there was only one
+// number, which meant the wall wash and the wet road were welded together and neither could
+// be tuned without silently retuning the other — see the ⚠ on LIGHT_TUNE. `wet` is the value
+// this line has always run at.
+// What the WALL reaches, as opposed to what the road does. ⚠ A SEPARATE FIELD RATHER THAN A
+// SHRUNK `r`, because `r` is the road's and context.js is the only reader that wants this one.
+// How far the lamp gives the night back on a wall (context.js 'lamp').
+// The lamp as a solid object catches it: night-weighted, WITHOUT the wall wash's gain. Actors,
+// solids and scatter read this; when they read 'rgb' they got the wash's 0 and no lamp lit them.
+// Incumbents carry a bonus, so a challenger has to be clearly better rather than a hair better.
+// ── AND A FEW SLOTS ARE HELD FOR THE WASHES ─────────────────────────────────────────────────
+//
+// A lit facade throws light too, and until it did the city's windows were bright rectangles that
+// lit nothing. But a wash and a sign cannot be ranked against each other on one scale: there are
+// twelve slots against ~180 candidates, so at any brightness where a wash wins a slot it wins
+// MANY, and it wins them from the neon. Measured both ways on the aeroplane seat — washes at full
+// strength took the wall coverage from 13.7% of pixels to 11.5% (more lights, less light), and
+// dimmed until they stopped evicting anything they contributed exactly nothing, 13.7% again.
+// There is no brightness in between, because the failure is the ranking and not the value.
+//
+// So two of the twelve are reserved for the best washes and the rest are contested as before. A
+// frame with no washes in it is bit-identical: the splice only runs when the top N is all sources
+// AND there is a wash below the line waiting.
+// Drop the weakest SOURCES to make room — never another wash, or two washes trade one slot
+// back and forth every frame and the disco is back.
+// ⚠ SCORED AS NUMBERS, BUILT AS OBJECTS ONLY WHERE SOMETHING READS THEM. Every visible sprite is a
+// candidate (hundreds at night) and only `slots` of them light anything. Each candidate used to be an
+// object with five arrays, then sorted; now the ranking runs on parallel arrays reused frame to frame,
+// and a full entry is made for the top `slots`, for the washes swapped into them, and for any light
+// `keep` names (the fade state: a light still fading needs its colour). Every other candidate is a
+// `{ key, score }` stub, which is all fadeLights reads of it. Without `keep` every entry is full, as
+// before. The order is the old one exactly: the index sort is stable, as Array sort was.
+const WHITE_RGB = [255, 255, 255];
+const PL = { s: [], r: [], key: [], score: [], idx: [] };
+export function pickLights(cam, sprites, night, held, slots = MAX_LIGHTS, keep = null) {
   if (!sprites || !sprites.length || !cam) return null;
-  // ⚠ THE NIGHT SCALE BELONGS TO THE WALL WASH, NOT TO THE LIST. Returning null in daylight meant
-  // the frame had NO LIGHTS AT ALL by day — right for a wall (a shopfront measured a pink cast over
-  // 19,000 pixels of its own wall at noon) and wrong for everything else that wants to know where
-  // the lights ARE. A wet road reflects them at four in the afternoon in a downpour, and the city's
-  // neon is certainly lit in one.
-  //
-  // So the list is always built and the night scale rides on the COLOUR the wall shader reads:
-  // 'rgb' is night-weighted and falls to zero at noon by arithmetic, 'rgbRaw' is not. The caller
-  // still hands the mass pass nothing when the gain is zero, so the wall side is unchanged.
-  //
-  // ⚠ A DAYLIGHT REFLECTION BEING FAINT IS THE SCENE, NOT A RULE. It is drawn at full strength and
-  // sits on ground that is already bright, so it washes out on its own — which is what a wet road
-  // actually looks like at four in the afternoon. Gating it would be deciding that in advance.
   const nightK = Math.min(1, Math.max(0, night));
   const nightGain = LIGHT_TUNE.gain * nightK;
   const { sinh, cosh, back, fx = 0, fy = 0 } = cam;
   const tx = back * sinh - fx, ty = -back * cosh - fy;
   const ox = cam.ox || 0, oy = cam.oy || 0;
   const eh = cam.EH || 0;
-  // ⚠ RANKED ON DISTANCE FROM THE EYE, NEVER ON DEPTH ALONG THE VIEW AXIS. The score was I·r/f, and
-  // `f` changes when the camera only turns: a lamp 30° off the axis has 0.87 of the depth of one
-  // dead ahead at the same range, so a slow look round reordered the whole list and the slots
-  // churned 35 times a second with nothing moving. Every swap is a lamp's road pool and wall lift
-  // fading out and another's fading in, which reads as the streetlights flickering as you look
-  // about. Distance doesn't change under a turn, so the set only changes when the eye moves or a
-  // light comes into or leaves the frame. `npm run gl:fade` holds it (yaw churn).
-  // The lateral cull keeps lights well out of the frame from taking slots off the ones in it; the
-  // margin is wide so a light near the edge, whose pool may still be in view, is kept.
   const tanH = cam.FL > 0 && cam.W > 0 ? cam.W / 2 / cam.FL : 0;
-  const out = [];
+  let n = 0;
   for (const s of sprites) {
     if (!(s.a > 0.02)) continue;
-    // ⚠ LIGHT IN FLIGHT IS NOT A LIGHT SOURCE — see the ⚠ over `pushLight`. A node down a beam is
-    // drawn as a sprite like any other and has no business in this list: there is no lamp at that
-    // point for a wall to catch or a puddle to reflect, it would take slots off the lamps that are
-    // really there, and it moves far enough every frame to be a new `key` every frame.
     if (s.air) continue;
     const bx = s.x + tx, by = s.y + ty;
     const f = bx * sinh - by * cosh;
     if (!(f > 0.2)) continue;             // behind the eye, or on it
-    const c = s.rgb || [255, 255, 255];
-    // The light own colour, weighted the way an eye weights it. NO ALPHA — see the ⚠ above.
+    const c = s.rgb || WHITE_RGB;
     const I = Math.min(1, (c[0] * 0.3 + c[1] * 0.6 + c[2] * 0.1) / 255);
     const r = LIGHT_TUNE.minR + LIGHT_TUNE.span * Math.sqrt(I);
     if (tanH > 0 && Math.abs(bx * cosh + by * sinh) > (f + r) * tanH * 1.3 + r) continue;
     const d = Math.max(0.2, Math.hypot(bx, by, s.z - eh));
-    // ⚠ A POINT SOURCE BLOOMS, AN AREA SOURCE WASHES, AND BOTH COME OFF THE SAME `r` — see the ⚠ on
-    // LIGHT_TUNE. The road is handed `r` untouched; only what the WALL gets is split, in reach and
-    // in gain, so the wet street cannot move when the bloom is tuned.
-    const isWash = !!s.wash;
-    const rw = r * (isWash ? LIGHT_TUNE.washR : LIGHT_TUNE.wallR);
-    const k = s.a * nightGain * (isWash ? LIGHT_TUNE.washK : 1);
-    // A stable name for this light, so last frame own choices can be recognised in this one. The
-    // sprite objects are rebuilt every frame and share no identity, so the POSITION is the identity
-    // — quantised, or a light drifting a thousandth of a tile is a different light every frame.
     const key = ((s.x * 8) | 0) * 1048576 + ((s.y * 8) | 0) * 1024 + ((s.z * 8) | 0);
-    out.push({
+    PL.s[n] = s; PL.r[n] = r; PL.key[n] = key;
+    PL.score[n] = held && held.has(key) ? I * r / d * LIGHT_HOLD : I * r / d;
+    n++;
+  }
+  if (!n) return null;
+  PL.s.length = n;   // drop sprite references past this frame's count
+  const idx = PL.idx;
+  idx.length = n;
+  for (let i = 0; i < n; i++) idx[i] = i;
+  const sc = PL.score;
+  idx.sort((p, q) => sc[q] - sc[p]);
+  const make = (i) => {
+    const s = PL.s[i], c = s.rgb || WHITE_RGB, r = PL.r[i], isWash = !!s.wash;
+    const k = s.a * nightGain * (isWash ? LIGHT_TUNE.washK : 1);
+    return {
       p: [s.x + ox, s.y + oy, s.z],
       rgb: [c[0] / 255 * k, c[1] / 255 * k, c[2] / 255 * k],
-      // The same light with the NIGHT factor removed but `gain` kept, for surfaces that reflect
-      // rather than catch.
-      //
-      // ⚠ DROPPING THE TUNING TOO MAKES A WET ROAD BRIGHTER THAN A DRY ONE, which is backwards. The
-      // reflection strength downstream was swept against a night-weighted colour, so a raw one runs
-      // about 2.2x over it. Measured with it dropped: a daylight road went 54.5 to 76.4 in the rain,
-      // when the whole point is that it darkens.
-      //
-      // ⚠ AND IT IS `wet`, NOT `gain`, SINCE THE TWO SPLIT. This was `gain` when there was only one
-      // number, which meant the wall wash and the wet road were welded together and neither could
-      // be tuned without silently retuning the other — see the ⚠ on LIGHT_TUNE. `wet` is the value
-      // this line has always run at.
       rgbRaw: [c[0] / 255 * s.a * LIGHT_TUNE.wet, c[1] / 255 * s.a * LIGHT_TUNE.wet, c[2] / 255 * s.a * LIGHT_TUNE.wet],
       r,
-      // What the WALL reaches, as opposed to what the road does. ⚠ A SEPARATE FIELD RATHER THAN A
-      // SHRUNK `r`, because `r` is the road's and context.js is the only reader that wants this one.
-      rw,
-      // How far the lamp gives the night back on a wall (context.js 'lamp').
+      rw: r * (isWash ? LIGHT_TUNE.washR : LIGHT_TUNE.wallR),
       rl: r * LIGHT_TUNE.liftR,
-      // The lamp as a solid object catches it: night-weighted, WITHOUT the wall wash's gain. Actors,
-      // solids and scatter read this; when they read 'rgb' they got the wash's 0 and no lamp lit them.
       lamp: [c[0] / 255 * s.a * nightK, c[1] / 255 * s.a * nightK, c[2] / 255 * s.a * nightK],
-      key,
+      key: PL.key[i],
       wash: isWash,
-      score: I * r / d,
-    });
-  }
-  if (!out.length) return null;
-  // Incumbents carry a bonus, so a challenger has to be clearly better rather than a hair better.
-  if (held) for (const e of out) if (held.has(e.key)) e.score *= LIGHT_HOLD;
-  out.sort((p, q) => q.score - p.score);
-  // ── AND A FEW SLOTS ARE HELD FOR THE WASHES ─────────────────────────────────────────────────
-  //
-  // A lit facade throws light too, and until it did the city's windows were bright rectangles that
-  // lit nothing. But a wash and a sign cannot be ranked against each other on one scale: there are
-  // twelve slots against ~180 candidates, so at any brightness where a wash wins a slot it wins
-  // MANY, and it wins them from the neon. Measured both ways on the aeroplane seat — washes at full
-  // strength took the wall coverage from 13.7% of pixels to 11.5% (more lights, less light), and
-  // dimmed until they stopped evicting anything they contributed exactly nothing, 13.7% again.
-  // There is no brightness in between, because the failure is the ranking and not the value.
-  //
-  // So two of the twelve are reserved for the best washes and the rest are contested as before. A
-  // frame with no washes in it is bit-identical: the splice only runs when the top N is all sources
-  // AND there is a wash below the line waiting.
+      score: sc[i],
+    };
+  };
+  const tail = (from) => {
+    const out = [];
+    for (let j = from; j < n; j++) {
+      const i = idx[j];
+      out.push(!keep || keep.has(PL.key[i]) ? make(i) : { key: PL.key[i], score: sc[i] });
+    }
+    return out;
+  };
+  const top = [];
+  for (let j = 0; j < Math.min(slots, n); j++) top.push(make(idx[j]));
   const WASH = washSlots(slots);
-  if (WASH > 0 && out.length > slots) {
-    const top = out.slice(0, slots);
+  if (WASH > 0 && n > slots) {
     let have = 0;
     for (const e of top) if (e.wash) have++;
     if (have < WASH) {
-      const want = out.filter((e) => e.wash && !top.includes(e)).slice(0, WASH - have);
-      // Drop the weakest SOURCES to make room — never another wash, or two washes trade one slot
-      // back and forth every frame and the disco is back.
+      const want = [];
+      for (let j = slots; j < n && want.length < WASH - have; j++) if (PL.s[idx[j]].wash) want.push(j);
+      const rest = tail(slots);
       for (let i = top.length - 1, k = 0; i >= 0 && k < want.length; i--) {
         if (top[i].wash) continue;
-        top[i] = want[k++];
+        const j = want[k++], e = rest[j - slots];
+        top[i] = e.p ? e : make(idx[j]);
       }
-      return top.concat(out.slice(slots));
+      return top.concat(rest);
     }
   }
-  return out;
+  return n > slots ? top.concat(tail(slots)) : top;
 }
 
 // Ramp each light's contribution toward its target and hand back the slots, weight applied. See the
@@ -1573,7 +1602,7 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   // with the fade state still believing they were lit.
   const SLOTS = Math.max(1, Math.min(MAX_LIGHTS, Math.round(opts.glLightSlots > 0 ? opts.glLightSlots : MAX_LIGHTS)));
   if (opts.glLights !== 0) {
-    const ranked = pickLights(cam, opts.sprites, opts.night || 0, g.litHeld, SLOTS);
+    const ranked = pickLights(cam, opts.sprites, opts.night || 0, g.litHeld, SLOTS, g.litW);
     lightList = ranked ? fadeLights(ranked, g.litW, dt, SLOTS) : null;
     // The HELD set is what was WANTED this frame, not what is lit — an incumbent bonus given to a
     // light that is only still on screen because it is fading out would keep re-electing it.
