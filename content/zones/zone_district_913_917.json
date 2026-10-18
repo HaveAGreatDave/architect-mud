@@ -1,7 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "forest",
-  "description": "Scrub and thin trees against the Slush Fund's west wall, where ICE is painted in letters a storey high. A path worn through the scrub leads round to the yard at the back.",
+  "description": "Scrub and thin trees against the Gardens' west wall, where ICE is painted in letters a storey high. A path worn through the scrub leads round to the yard at the back.",
   "exits": {
     "north": "zone_district_913_916",
     "south": "zone_district_913_918",

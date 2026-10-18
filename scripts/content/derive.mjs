@@ -712,7 +712,7 @@ export const BUILDING_TYPE_ICON = Object.freeze({
   // Hostel Takeover at 917,903, the doss-house beside the clone facility: a bunk frame with a Z over
   // it, shipped with the tile and the model. Not `bldg_flophouse`, which is the slum's own glyph.
   hostel: 'bldg_hostel',
-  // The Slush Fund, the CPhL's barn on the old South Gate ground: a rink seen from above, boards,
+  // Golden Goose Gardens, the CPhL's barn on the old South Gate ground: a rink seen from above, boards,
   // centre line, centre circle and the two goal mouths. Only the door tile has a facade, so only
   // `ice_rink` needs a row; the hall's back and the four stands are sealed mass and draw none.
   ice_rink: 'bldg_ice_rink',

@@ -1410,7 +1410,7 @@ so a narrator cannot read the other league's records.
   has none), and the other half from the general `chatter` pool, so the league-wide lines
   still get heard. Every club has a barn pool; the District 9 Goons' is `chatter.district` and
   the St Garneau Guillotines' is `chatter.st`. The Cup final is played at the league's own
-  barn, the Slush Fund, which is what the general pool describes, so on Cup night only the
+  barn, Golden Goose Gardens, which is what the general pool describes, so on Cup night only the
   general pool airs.
 - **Every barn's horn is its own.** The goal horn is seeded from a hash of the scoring
   club's name (`hornSeed` on the payload) through the soundset's existing `variant()`,
@@ -1481,7 +1481,7 @@ Civic Center Wardens went.
 | Marquee Marauders | the Marquee | navy and white | a great helm with a plume on a heater shield |
 | Coldwater Highlanders | the Marrow | the Malcolm tartan | a roaring ginger highlander, full length and braced, woad on half his face, stick raised two-handed overhead like a claymore with the blade turned up; Malcolm kilt and sash with a silver brooch, the plaid flying behind him, hose and brogues with a sgian-dubh; on a parchment field inside a tartan ring |
 | District 9 Goons | District 9 | bruise purple and bone | a dented police shield with two side-handle nightsticks crossed behind it; on its enamel a taped, bloodied fist with D9 in marker on the tape, where the badge number goes |
-| Waterfront Wharf Rats | the Docks | charcoal and pink | a rat in silhouette crouched on an anchor's stock in the harbour fog, back bristling, one eye lit red, incisors bared, claws over the iron and its tail wound round the shank; pink rim light, inside a mooring-line ring |
+| Waterfront Wharf Rats | the Docks | black and silver, with a red pinstripe | a rat in silhouette crouched on an anchor's stock in the harbour fog, back bristling, one eye lit red, incisors bared, claws over the iron and its tail wound round the shank; silver rim light, inside a mooring-line ring |
 | St Garneau Guillotines | Nine Elms | red, white and blue | a solid G whose spur and serif are a guillotine in silhouette: the bowl turns up into the posts, the beam is the serif and runs in as the crossbar, the blade hangs between |
 | Yard Birds | the Yards | red, white and black | a red pyle fighting cock squared up with his wings thrown wide and his hackles up, glaring down his beak through a scarred brow, sawblade comb with a point broken off, spurs out; on a field of chicken wire torn open behind him |
 
@@ -1495,13 +1495,14 @@ backplate:
 | Marquee Marauders | navy; a silver marquee frame round the cage lit with bulbs, searchlights swept back over both sides, stars, the crest over the brow |
 | Coldwater Highlanders | green at the front and the Malcolm sett over the sides and back, woad over his left half, ginger brows in a scowl and a ginger beard round the chin, the crest on his right temple, a saltire on the plate |
 | District 9 Goons | purple; the police chequer round the head at the brow, a star badge with a 9 on the forehead, a black riot frame round the cage, D9 on the chin |
-| Waterfront Wharf Rats | charcoal; round ears (the left one torn), red slit eyes, a grey snout down to a pink nose over the cage, whiskers, yellow incisors under it, a stitched scar on his right temple, an anchor on the plate |
+| Waterfront Wharf Rats | black; round ears (the left one torn), red slit eyes, a grey snout down to a black nose over the cage, whiskers, yellow incisors under it, a stitched scar on his right temple, a silver anchor on the plate |
 | St Garneau Guillotines | red; the posts in navy up either side of the cage to the beam across the brow, the blade hanging from it slanted over his eyes with blood off its edge, the crest on the chin |
 | Yard Birds | black; the red comb over the crown, white hackles swept back over both cheeks, a horn beak driven down at the cage, yellow eyes under a red glare, red wattles off the chin |
 
-The league's own barn is The Slush Fund, on the old South Gate ground
+The league's own barn is Golden Goose Gardens, on the old South Gate ground
 ([proposals/slush-fund.md](proposals/slush-fund.md)). The general `chatter` pool describes it,
-the final is played there, and its scoreboard is a television on channel 7.
+the final is played there, its scoreboard is a television on channel 7, and its east stand
+carries a shield for every club in the league.
 
 The District 9 Goons are cops, serving and retired, most of them out of Precinct 9.
 SPECTER-PD is the city's police, not an order or a corp, so the rule above holds.
@@ -1512,7 +1513,10 @@ his business: the club is the parish's, and nothing on air ties it to the order.
 
 The Highlanders' tartan is the Malcolm sett as W. & A. Smith recorded it in 1850
 (`K/4 Y4 K4 G24 K24 DB24 R4 DB4 R4 DB24 K24 G24 K4 LB/4`, 344 threads), transcribed from
-the Tartan Dictionary and not yet checked against the Scottish Register of Tartans.
+the Tartan Dictionary and not yet checked against the Scottish Register of Tartans. Its green
+and blue are a shade brighter than the cloth: at a badge's size the true dyes sat so close to
+the black that the check read as one dark mass. The crest weaves it at 0.24 units a thread,
+about two repeats across the badge.
 
 **Where it lives.** The look of a club is content: `sports_pools.clubs` on the Cluster Puck
 broadcast row, keyed by club name, holding `district`, `home`, `colours`, `crest`, `mask`,
@@ -1521,7 +1525,10 @@ is [scripts/content/build-cphl-clubs.mjs](../scripts/content/build-cphl-clubs.mj
 builds the crests from rules (the bezel's 24 stones, the chain's links, a weapon laid
 along a stroke) and writes `clubs` into the row and nothing else. Run it after editing a
 club; `--check` fails if the row is behind the script. `build-cluster-puck.mjs` carries
-`clubs` across when it rebuilds the row from the `.bsm`.
+`clubs` across when it rebuilds the row from the `.bsm`. The same run writes
+`client/shared/cphl-crests.js`, each club's colours, sett and small crest, which GLASS paints
+on the shields of Golden Goose Gardens; the renderer has no server to ask, and `--check` fails
+while that copy is behind too.
 
 A mask is `{ w, h, base, trim, edge, layers, number, settUnit }`: layers in a 512 x 256
 box that is the mask flattened (`maskUV` in `arena-mesh.js`). x runs once round his head

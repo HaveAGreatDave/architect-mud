@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "forest",
   "color": "#8ba36a",
-  "description": "Rough grass along the west wall of the Slush Fund, trodden into a path by the crowd coming across from Kerbstone Row. The wall is blank brick, tall enough to cut off the wind.",
+  "description": "Rough grass along the west wall of Golden Goose Gardens, trodden into a path by the crowd coming across from Kerbstone Row. The wall is blank brick, tall enough to cut off the wind.",
   "exits": {
     "north": "zone_district_913_915",
     "south": "zone_district_913_917",

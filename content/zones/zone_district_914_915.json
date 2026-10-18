@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "city",
   "color": "#8ba36a",
-  "description": "A concrete forecourt in front of the Slush Fund's west stand, where the queue forms on game nights. Box office windows are set in the brick along its south side, each with a steel shutter. Old tickets lie in the cracks.",
+  "description": "A concrete forecourt in front of the Gardens' west stand, where the queue forms on game nights. Box office windows are set in the brick along its south side, each with a steel shutter. Old tickets lie in the cracks.",
   "exits": {
     "east": "zone_district_915_915",
     "west": "zone_district_913_915"

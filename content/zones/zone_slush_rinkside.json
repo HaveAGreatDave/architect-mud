@@ -5,7 +5,7 @@
     "up": "zone_slush_stands"
   },
   "flags": {
-    "building_name": "The Slush Fund",
+    "building_name": "Golden Goose Gardens",
     "building_type": "ice_rink",
     "floor": "concrete",
     "is_building": true,
@@ -17,6 +17,6 @@
   "grid_z": 0,
   "id": "zone_slush_rinkside",
   "map_id": "map_int_slush",
-  "name": "The Slush Fund — Rinkside",
+  "name": "The Gardens — Rinkside",
   "parent_zone": "zone_district_915_916"
 }

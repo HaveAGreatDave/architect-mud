@@ -1,5 +1,6 @@
 /**
- * THE SLUSH FUND: the CPhL's own barn, on the old South Gate ground in the Ashway.
+ * GOLDEN GOOSE GARDENS: the CPhL's own barn, on the old South Gate ground in the Ashway. It opened
+ * as The Slush Fund (2026-10-11) and was renamed on 2026-10-18; the ids keep the old `slush` slug.
  *
  *   node scripts/content/slush-fund.mjs [--dry-run]
  *
@@ -37,7 +38,8 @@ import { authorBuilding, loadContentStore } from './halcyon/lib.mjs';
 const DRY = process.argv.includes('--dry-run');
 const store = loadContentStore();
 
-const NAME = 'The Slush Fund';
+const NAME = 'Golden Goose Gardens';
+const ROOMS = 'The Gardens';        // room names stay under 30 characters, so docs:prose doesn't count their dash
 const MARKER = 'IC';                // the ICE painted along both back wings; see the arms
 const DISTRICT = 'ashway';
 const REGION = 'region_coldwater';
@@ -55,12 +57,12 @@ for (const [x, y] of SITE) {
 
 // ── the door, the hall and the rooms ────────────────────────────────────────────────────────
 const spec = {
-  slug: 'slush', name: NAME, type: 'ice_rink',
+  slug: 'slush', name: NAME, roomName: ROOMS, type: 'ice_rink',
   x: 915, y: 916, entrance: 'north', floors: 5, marker: MARKER, district: DISTRICT,
 
   facade: {
     bgColor: '#1d1a1a', color: '#c9cfd4',
-    description: 'A brick arena under a long vaulted roof of grey steel. The end of the hall is one great arched window in a steel grid, set back between two brick wings. A canopy on steel posts runs across the front over six glass doors, with flagpoles at either end.',
+    description: 'A brick arena under a long vaulted roof of grey steel. The end of the hall is one great arched window between two brick wings, and a gilt goose stands on a stepped plinth at the top of its gable. A canopy on steel posts runs across the front over six glass doors, with flagpoles at either end.',
   },
 
   rooms: [
@@ -200,7 +202,7 @@ const spec = {
         ],
       },
       place: {
-        text: '"The league\'s barn. Every club has its own, and this one belongs to all of them, so none of them pays for the roof." She glances up at it.\n\n"They put it up on the old gate ground when the gate moved, in a year, on money nobody can account for. That\'s the name. And the ice has been slush since the ownership changed, so the name\'s true twice."',
+        text: '"The league\'s barn. Every club has its own, and this one belongs to all of them, so none of them pays for the roof." She glances up at it.\n\n"They put it up on the old gate ground when the gate moved, in a year, on money nobody can account for. Somebody\'s goose laid that egg, so that\'s the name. She\'s up on the roof in gold leaf, and they regild her every spring. The ice has been slush since the ownership changed."',
         options: [{ label: 'Back up.', next: 'root' }],
       },
       games: {
@@ -237,11 +239,11 @@ store.patch('furniture', 'furn_light_zone_slush_concourse', {
 // collision and the skyline read.
 const SEALED = [
   [915, 917, 'ice_rink_hall', 5,
-    'The south end of the Slush Fund\'s hall. The vaulted roof comes down to a brick gable with a roller door for the resurfacer at the foot of it, and a heap of grey scraped ice against the wall beside the door.'],
+    'The south end of the Gardens\' hall. The vaulted roof comes down to a brick gable with a roller door for the resurfacer at the foot of it, and a heap of grey scraped ice against the wall beside the door.'],
   [914, 916, 'ice_rink_stand_w', 2,
-    'The west stand of the Slush Fund: a long brick wall with tall narrow windows, and the box office windows at its north end, facing the forecourt.'],
+    'The west stand of Golden Goose Gardens: a long brick wall with tall narrow windows, and the box office windows at its north end, facing the forecourt.'],
   [916, 916, 'ice_rink_stand_e', 2,
-    'The east stand of the Slush Fund, its brick flank along Glacier Street papered with posters for the next game.'],
+    'The east stand of Golden Goose Gardens. Its brick end on Glacier Street carries a shield for every club in the league, two rows of four.'],
   [914, 917, 'ice_rink_plant_w', 2,
     'The back of the west stand, with the ice plant\'s condensers on its roof and ICE painted along the wall in letters a storey high.'],
   [916, 917, 'ice_rink_plant_e', 2,
@@ -283,27 +285,27 @@ for (const [x, y] of SITE) {
 // Glacier Street still read as pasture; the forecourt and the yard were pasture and scrub. The
 // terrain and the prose follow the building. 913,915 is left alone: it is Foundry Way's only way
 // out (coldwater-infill.md), and 913,916-917 keep their grass with a path worn across it.
+// ⚠ 917,917 IS NOT HERE ANY MORE. It was the weighbridge pour when this ran; The Slip took the old
+// weigh-house since (scripts/content/marrow-midrises.mjs), and a row here would overwrite it.
 const GROUND = [
   [915, 915, 'Glacier Street', null,
-    'Glacier Street, paved and gritted, running east to the Gate Road. The Slush Fund fills the south side: two brick wings, and the arched end of its hall set back between them behind a canopy. Steel crowd barriers lie stacked against the kerb.'],
+    'Glacier Street, paved and gritted, running east to the Gate Road. Golden Goose Gardens fills the south side: two brick wings, and the arched end of its hall set back between them behind a canopy. A gilt goose stands on the gable. Steel crowd barriers lie stacked against the kerb.'],
   [916, 915, 'Glacier Street', null,
-    'Glacier Street, along the flank of the Slush Fund\'s east stand. The brick is papered with posters for the next game, layered so thick at the corners they have started to peel off in slabs. Grit bins stand at the kerb.'],
+    'Glacier Street, along the end of the Gardens\' east stand. Eight enamel shields are bolted to the brick in two rows, one for each club in the league, every one in its club\'s colours on a gilt rim. Grit bins stand at the kerb.'],
   [917, 915, 'Glacier Street', null,
     'The east end of Glacier Street, where it meets the Gate Road. The kerb on the south corner is chipped all along by the back wheels of coaches turning in on game nights.'],
   [914, 915, 'The Forecourt', 'concrete',
-    'A concrete forecourt in front of the Slush Fund\'s west stand, where the queue forms on game nights. Box office windows are set in the brick along its south side, each with a steel shutter. Old tickets lie in the cracks.'],
+    'A concrete forecourt in front of the Gardens\' west stand, where the queue forms on game nights. Box office windows are set in the brick along its south side, each with a steel shutter. Old tickets lie in the cracks.'],
   [913, 916, 'Grasslands', null,
-    'Rough grass along the west wall of the Slush Fund, trodden into a path by the crowd coming across from Kerbstone Row. The wall is blank brick, tall enough to cut off the wind.'],
+    'Rough grass along the west wall of Golden Goose Gardens, trodden into a path by the crowd coming across from Kerbstone Row. The wall is blank brick, tall enough to cut off the wind.'],
   [913, 917, 'Grasslands', null,
-    'Scrub and thin trees against the Slush Fund\'s west wall, where ICE is painted in letters a storey high. A path worn through the scrub leads round to the yard at the back.'],
+    'Scrub and thin trees against the Gardens\' west wall, where ICE is painted in letters a storey high. A path worn through the scrub leads round to the yard at the back.'],
   [914, 918, 'The Yard', 'gravel',
-    'The yard behind the Slush Fund\'s west stand: gravel and puddles, with the ice plant\'s condenser fans roaring on the roof above. Sacks of rock salt are stacked under a tarp against the wall.'],
+    'The yard behind the Gardens\' west stand: gravel and puddles, with the ice plant\'s condenser fans roaring on the roof above. Sacks of rock salt are stacked under a tarp against the wall.'],
   [915, 918, 'The Yard', 'gravel',
-    'The yard under the south gable of the Slush Fund\'s hall. The resurfacer\'s roller door opens onto it, and the scrapings are tipped in a heap against the wall: grey, crusted, and never quite melted. The staff call the heap the fund.'],
+    'The yard under the south gable of the Gardens\' hall. The resurfacer\'s roller door opens onto it, and the scrapings are tipped in a heap against the wall: grey, crusted, and never quite melted. The staff call the heap the nest egg.'],
   [916, 918, 'The Yard', 'gravel',
-    'The east end of the yard behind the Slush Fund. A square of bare concrete where a booth stood on a plinth until they moved it through the wall; the anchor bolts are still in it, sawn off flush. Team coaches back in here.'],
-  [917, 917, 'Where the Weigh Was', null,
-    'A strip of hard grey pour off the side of the Gate Road, beside the Slush Fund\'s east stand. The kerbstones are still shunted out of true, and a sign at the top says Rejoin: Give Way. On game nights the coaches park on it.'],
+    'The east end of the yard behind Golden Goose Gardens. A square of bare concrete where a booth stood on a plinth until they moved it through the wall; the anchor bolts are still in it, sawn off flush. Team coaches back in here.'],
 ];
 for (const [x, y, name, terrain, description] of GROUND) {
   const id = idFor(x, y), prev = store.get('zones', id);

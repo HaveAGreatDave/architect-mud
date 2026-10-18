@@ -1,7 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "description": "The east end of the yard behind the Slush Fund. A square of bare concrete where a booth stood on a plinth until they moved it through the wall; the anchor bolts are still in it, sawn off flush. Team coaches back in here.",
+  "description": "The east end of the yard behind Golden Goose Gardens. A square of bare concrete where a booth stood on a plinth until they moved it through the wall; the anchor bolts are still in it, sawn off flush. Team coaches back in here.",
   "exits": {
     "east": "zone_district_917_918",
     "west": "zone_district_915_918"

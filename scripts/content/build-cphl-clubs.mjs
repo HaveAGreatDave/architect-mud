@@ -13,6 +13,10 @@
 // it is. The club list itself is `::teams` in data/scripts/hockey.bsm, mirrored into the
 // row's `teams`; every club here must be on it and every club on it must be here.
 //
+// It also writes client/shared/cphl-crests.js, the copy GLASS paints on the shields of
+// Golden Goose Gardens (see "the copy GLASS draws" at the bottom), and --check fails while
+// that file is behind too.
+//
 // A crest is layers in a 100-unit box (client/game/js/panels/club-crest.js draws it):
 // `layers` is the full drawing, `small` the one used under about 34px. Colours are the
 // club's own; 'sett' fills with the club's tartan. A keeper's mask is the same kind of
@@ -686,7 +690,9 @@ function highlanders() {
     L(bar(84, 86, 16, 14, 8), HL.wood, { stroke: ink, sw: 2 }),
     ...head(s),
   ];
-  return { box: 100, layers, small, settUnit: 0.15 };
+  // 0.24 a thread puts about two repeats across the badge, so the guards are a line you can see
+  // at card size rather than a tint.
+  return { box: 100, layers, small, settUnit: 0.24 };
 }
 
 // DISTRICT 9 GOONS. Precinct 9's club: cops, serving and retired. A dented shield badge
@@ -766,9 +772,10 @@ function goons() {
 
 // WATERFRONT WHARF RATS. A dock rat crouched on an anchor's stock, in silhouette against
 // the harbour fog: back up and bristling, head down, one eye lit red, incisors out, claws
-// hooked over the iron, and its tail wound round the shank. Pink is the rim light the
-// sodium lamps put on it, and the club's.
-const WRAT = { field: '#27313a', fog: '#34414c', fogLight: '#43535f', water: '#1d252c', wave: '#3a4955', rope: '#b39062', ropeDark: '#6e5532', pink: '#ef8fa3', pinkDeep: '#c4607a',
+// hooked over the iron, and its tail wound round the shank. Silver is the rim light the
+// harbour lamps put on it, and the club's; the fog is grey, so the red eye is the only
+// colour on it.
+const WRAT = { field: '#1d1f22', fog: '#3a3e44', fogLight: '#5f656d', water: '#16181b', wave: '#3a3e44', rope: '#b39062', ropeDark: '#6e5532', rim: '#d3d9de', rimDeep: '#7d868d',
   rat: '#0d0f11', steel: '#8b949b', steelLight: '#c3cbd0', claw: '#d9cfb6', tooth: '#e9b23f', eye: '#ff3a2e', eyeCore: '#ffd9c8', gums: '#3a0a10', ink: '#141414' };
 // a tapered tube along a chain of cubic segments, for tails and ropes
 function taper(segs, w0, w1, n = 18) {
@@ -807,7 +814,7 @@ function chainPts(segs, n = 16) {
 const inDisc = (pts, cx, cy, R) => poly(pts.map(([x, y]) => { const d = Math.hypot(x - cx, y - cy); return d > R ? [cx + ((x - cx) * R) / d, cy + ((y - cy) * R) / d] : [x, y]; }));
 function wharfRats() {
   const C = 50, ink = WRAT.ink;
-  // ── the ring: a mooring line, pink piping inside it ──
+  // ── the ring: a mooring line, silver piping inside it ──
   let twists = '';
   for (let i = 0; i < 72; i++) {
     const a = (i / 72) * TAU;
@@ -842,7 +849,7 @@ function wharfRats() {
   const earRim = shape([['M', 57.8, 8.4], ['C', 59, 4.6, 64.8, 3.4, 68, 7]]);
   // the haunch and the foreleg, picked out by the same light
   const limbRim = shape([['M', 31.2, 38.6], ['C', 30.6, 30.6, 35.6, 25.8, 41.6, 27.4], ['C', 45, 28.8, 45.8, 33, 43.6, 36.4], ['M', 73.4, 36.4], ['L', 72.8, 40.4]]);
-  // pink rim light down the back and the snout, just inside the edge
+  // silver rim light down the back and the snout, just inside the edge
   const rimPts = chainPts([...back, ...head], 12).filter((_, i, arr) => i > 3 && i < arr.length - 1).map(({ p, n }) => add(p, mul(n, -1.1)));
   const rim = 'M' + rimPts.map((q) => P(...q)).join('L');
   const gums = poly([[90.4, 31.2], [80, 33.4], [86.8, 36.4], [89.2, 34.4]]);
@@ -869,26 +876,26 @@ function wharfRats() {
     L(ring(C, C, 42.2, 48), WRAT.rope),
     L(twists, 'none', { stroke: WRAT.ropeDark, sw: 0.8 }),
     L(ring(C, C, 47.6, 48.4) + ring(C, C, 42.2, 42.8), ink),
-    L(ring(C, C, 41, 42.2), WRAT.pink),
+    L(ring(C, C, 41, 42.2), WRAT.rim),
     L(ring(C, C, 40.2, 41), ink),
     // behind the anchor: the tail's far loop, the ear and the rat itself
     L(tailBack.d, WRAT.rat, { stroke: ink, sw: 0.6 }),
-    L(tailBack.ticks, 'none', { stroke: WRAT.pinkDeep, sw: 0.4 }),
+    L(tailBack.ticks, 'none', { stroke: WRAT.rimDeep, sw: 0.4 }),
     L(gums, WRAT.gums),
     L(ear, WRAT.rat),
-    L(earIn, WRAT.pinkDeep, { op: 0.55 }),
-    L(earRim, 'none', { stroke: WRAT.pink, sw: 1 }),
+    L(earIn, WRAT.rimDeep, { op: 0.55 }),
+    L(earRim, 'none', { stroke: WRAT.rim, sw: 1 }),
     L(sil, WRAT.rat),
-    L(rim, 'none', { stroke: WRAT.pink, sw: 1.1 }),
-    L(limbRim, 'none', { stroke: WRAT.pink, sw: 0.8, op: 0.85 }),
-    L(snarl, 'none', { stroke: WRAT.pinkDeep, sw: 0.6 }),
+    L(rim, 'none', { stroke: WRAT.rim, sw: 1.1 }),
+    L(limbRim, 'none', { stroke: WRAT.rim, sw: 0.8, op: 0.85 }),
+    L(snarl, 'none', { stroke: WRAT.rimDeep, sw: 0.6 }),
     L(eyeGlow, WRAT.eye, { op: 0.28 }),
     L(eye, WRAT.eye),
     L(eyeCore, WRAT.eyeCore),
     L(brow, WRAT.rat),
     L(teeth, WRAT.tooth, { stroke: ink, sw: 0.4 }),
-    L(nose, WRAT.pinkDeep),
-    L(whiskers, 'none', { stroke: WRAT.pinkDeep, sw: 0.45 }),
+    L(nose, WRAT.rimDeep),
+    L(whiskers, 'none', { stroke: WRAT.rimDeep, sw: 0.45 }),
     // the anchor, then the claws over it and the tail across it
     L(arms + flukes + crown, WRAT.steel, { stroke: ink, sw: 1.4 }),
     L(shank, WRAT.steel, { stroke: ink, sw: 1.4 }),
@@ -898,12 +905,12 @@ function wharfRats() {
     L(poly([[30, 41.8], [70, 41.8], [70, 42.6], [30, 42.6]]), WRAT.steelLight),
     L(claws, WRAT.claw, { stroke: ink, sw: 0.4 }),
     L(tailFront.d, WRAT.rat, { stroke: ink, sw: 0.6 }),
-    L(tailFront.ticks, 'none', { stroke: WRAT.pinkDeep, sw: 0.4 }),
+    L(tailFront.ticks, 'none', { stroke: WRAT.rimDeep, sw: 0.4 }),
   ];
-  // small: the head in silhouette, big, lit eye and teeth, in a pink ring
+  // small: the head in silhouette, big, lit eye and teeth, in a silver ring
   const sk = 2.1, fx = (50 - 77 * sk) / (1 - sk), fy = (50 - 25 * sk) / (1 - sk), z = (d) => xfD(d, sk, fx, fy);
   const small = [
-    L(circle(C, C, 49.4), WRAT.pink),
+    L(circle(C, C, 49.4), WRAT.rim),
     L(circle(C, C, 43.4), WRAT.field),
     L(circle(C, C, 30), WRAT.fogLight),
     L(z(gums), WRAT.gums),
@@ -1194,12 +1201,14 @@ function guillotines() {
 // ── the Malcolm sett ────────────────────────────────────────────────────────────
 // The Malcolm tartan as W. & A. Smith recorded it in 1850, transcribed from the Tartan
 // Dictionary: K/4 Y4 K4 G24 K24 DB24 R4 DB4 R4 DB24 K24 G24 K4 LB/4, 344 threads to the
-// repeat. Modern dyes: green, black and navy, with the red pair in the blue and the yellow
-// and azure guards in the black.
+// repeat. Modern dyes: green, black and blue, with the red pair in the blue and the yellow
+// and azure guards in the black. The green and blue are a shade brighter than the cloth:
+// woven at a badge's size the true dyes sat so close to the black that the check read as one
+// dark purple mass, and the guards that make it the Malcolm were lost in it.
 const MALCOLM = {
   name: 'Malcolm',
   threads: 'K/4 Y4 K4 G24 K24 DB24 R4 DB4 R4 DB24 K24 G24 K4 LB/4',
-  colours: { K: '#101010', Y: '#e8c000', G: '#00602a', DB: '#1c2c6a', R: '#c8102e', LB: '#3b88c8' },
+  colours: { K: '#101010', Y: '#f4cf1a', G: '#16884c', DB: '#2a48a8', R: '#e0243e', LB: '#62b0ee' },
 };
 
 // ── the kits ────────────────────────────────────────────────────────────────────
@@ -1339,16 +1348,16 @@ function yardBirdsMask() {
   return mask({ base: YB.black, trim: YB.red, edge: YB.white, layers: ly, number: numberAt(YB.white, YB.black) });
 }
 
-// The Wharf Rats: the rat. Charcoal, a grey snout down the middle to a pink nose over the cage,
+// The Wharf Rats: the rat. Black, a grey snout down the middle to a black nose over the cage,
 // round ears (the left one torn), red slit eyes under a heavy brow, whiskers, and the yellow
-// incisors under the cage. An anchor on the plate.
+// incisors under the cage. A silver anchor on the plate.
 function wharfRatsMask() {
-  const ly = [], base = '#2a2c30', grey = '#8e8a84', greyDeep = '#55524d';
+  const ly = [], base = '#1f2124', grey = '#8e8a84', greyDeep = '#55524d';
   for (const sd of [1, -1]) {
     const t = surf(1.1, 0.86, -0.3, sd);
     ly.push(...group([shape(ell(0.31, 0.27), t)], grey, 2.6, '', WRAT.ink));
-    ly.push(L(shape(ell(0.21, 0.18, 0.02, 0.02), t), WRAT.pink));
-    ly.push(L(shape(ell(0.12, 0.1, 0.04, 0.05), t), WRAT.pinkDeep, { op: 0.65 }));
+    ly.push(L(shape(ell(0.21, 0.18, 0.02, 0.02), t), greyDeep));
+    ly.push(L(shape(ell(0.12, 0.1, 0.04, 0.05), t), WRAT.ink, { op: 0.45 }));
   }
   ly.push(L(shape([['M', 0.18, -0.22], ['L', 0.34, -0.12], ['L', 0.23, -0.04], ['L', 0.33, 0.05], ['L', 0.18, 0.0], ['Z']], surf(1.1, 0.86, -0.3, 1)), base));
   // fur, swept back off the brow
@@ -1359,7 +1368,7 @@ function wharfRatsMask() {
   ly.push(L(shape([['M', -0.11, 0.2], ['Q', -0.16, 0.42, -0.13, 0.58], ['Q', -0.17, 0.42, -0.15, 0.2], ['Z'], ['M', 0.11, 0.2], ['Q', 0.16, 0.42, 0.13, 0.58], ['Q', 0.17, 0.42, 0.15, 0.2], ['Z']], tsn), greyDeep, { op: 0.8 }));
   ly.push(L(shape([['M', -0.025, 0.06], ['L', 0.025, 0.06], ['Q', 0.06, 0.3, 0.045, 0.52], ['Q', 0, 0.56, -0.045, 0.52], ['Q', -0.06, 0.3, -0.025, 0.06], ['Z']], tsn), '#b3afa8', { op: 0.75 }));
   const tn = surf(0, 0.33);
-  ly.push(...group([shape(ell(0.08, 0.048), tn)], WRAT.pink, 2.2, '', WRAT.ink));
+  ly.push(...group([shape(ell(0.08, 0.048), tn)], '#2b2d31', 2.2, '', WRAT.ink));
   ly.push(L(shape(ell(0.016, 0.011, -0.03, 0.012), tn) + shape(ell(0.016, 0.011, 0.03, 0.012), tn), WRAT.ink));
   for (const sd of [1, -1]) {
     const t = surf(0.37, 0.53, 0.3, sd);
@@ -1376,14 +1385,14 @@ function wharfRatsMask() {
   for (const sd of [1, -1]) ly.push(...group([shape([['M', 0.006, 0], ['L', 0.08, 0], ['L', 0.075, 0.25], ['Q', 0.043, 0.3, 0.01, 0.25], ['Z']], surf(0, -0.69, 0, sd))], WRAT.tooth, 2.2, '', WRAT.ink));
   // a stitched scar over his right temple
   const ts = surf(0.95, 0.35, 0.5, -1);
-  ly.push(L(shape([['M', -0.25, 0], ['Q', 0, -0.04, 0.25, 0.02]], ts), 'none', { stroke: WRAT.pinkDeep, sw: 2.4 }));
-  for (let i = -2; i <= 2; i++) ly.push(L(shape([['M', i * 0.1, -0.05], ['L', i * 0.1 + 0.01, 0.05]], ts), 'none', { stroke: WRAT.pink, sw: 1.4 }));
+  ly.push(L(shape([['M', -0.25, 0], ['Q', 0, -0.04, 0.25, 0.02]], ts), 'none', { stroke: WRAT.rimDeep, sw: 2.4 }));
+  for (let i = -2; i <= 2; i++) ly.push(L(shape([['M', i * 0.1, -0.05], ['L', i * 0.1 + 0.01, 0.05]], ts), 'none', { stroke: WRAT.rim, sw: 1.4 }));
   // the anchor on the plate, left of the number
   const ta = surf(2.62, 0.18);
   const anchor = [shape([['M', -0.012, -0.2], ['L', 0.012, -0.2], ['L', 0.012, 0.16], ['L', -0.012, 0.16], ['Z']], ta), shape([['M', -0.08, -0.13], ['L', 0.08, -0.13], ['L', 0.08, -0.105], ['L', -0.08, -0.105], ['Z']], ta),
     shape([['M', -0.15, 0.05], ['Q', -0.12, 0.2, 0, 0.21], ['Q', 0.12, 0.2, 0.15, 0.05], ['L', 0.12, 0.07], ['Q', 0.09, 0.17, 0, 0.18], ['Q', -0.09, 0.17, -0.12, 0.07], ['Z']], ta), shape(ell(0.035, 0.035, 0, -0.235), ta)];
-  ly.push(...backplate(grey, { more: group(anchor, WRAT.pink, 2, '', WRAT.ink) }));
-  return mask({ base, trim: WRAT.pink, edge: grey, layers: ly, number: numberAt(WRAT.pink, WRAT.ink) });
+  ly.push(...backplate(grey, { more: group(anchor, WRAT.rim, 2, '', WRAT.ink) }));
+  return mask({ base, trim: WRAT.rim, edge: grey, layers: ly, number: numberAt(WRAT.rim, WRAT.ink) });
 }
 
 // The Westside Warlords: the warlord's helm. Gold, a black faceplate round the cage and down
@@ -1603,14 +1612,15 @@ export const CLUBS = {
   },
   'Waterfront Wharf Rats': {
     district: 'docks', home: 'the Docks',
-    colours: ['#2a2c30', '#ef8fa3'],
+    // Black and silver, with the red of the rat's eye as a pinstripe.
+    colours: ['#1f2124', '#c9d0d5'],
     crest: wharfRats(),
     mask: wharfRatsMask(),
     kit: {
-      home: kit({ jersey: '#2a2c30', trim: '#ef8fa3', number: '#ef8fa3', numberEdge: '#141414', pants: '#2a2c30', sock: '#2a2c30', glove: '#2a2c30', helmet: '#2a2c30',
-        yoke: '#8e8a84', hem: [band(0.0, 0.05, '#8e8a84'), band(0.055, 0.03, '#ef8fa3'), band(0.09, 0.05, '#8e8a84')], sleeve: [band(0.28, 0.07, '#8e8a84'), band(0.35, 0.04, '#ef8fa3'), band(0.39, 0.07, '#8e8a84')], socks: [band(0.26, 0.07, '#8e8a84'), band(0.33, 0.04, '#ef8fa3'), band(0.37, 0.07, '#8e8a84')] }),
-      road: kit({ jersey: '#e8e5e0', trim: '#2a2c30', number: '#2a2c30', numberEdge: '#ef8fa3', pants: '#2a2c30', sock: '#e8e5e0', glove: '#2a2c30', helmet: '#2a2c30',
-        yoke: '#2a2c30', hem: [band(0.0, 0.05, '#2a2c30'), band(0.055, 0.03, '#ef8fa3'), band(0.09, 0.05, '#2a2c30')], sleeve: [band(0.28, 0.07, '#2a2c30'), band(0.35, 0.04, '#ef8fa3'), band(0.39, 0.07, '#2a2c30')], socks: [band(0.26, 0.07, '#2a2c30'), band(0.33, 0.04, '#ef8fa3'), band(0.37, 0.07, '#2a2c30')] }),
+      home: kit({ jersey: '#1f2124', trim: '#c9d0d5', number: '#c9d0d5', numberEdge: '#141414', pants: '#1f2124', sock: '#1f2124', glove: '#1f2124', helmet: '#1f2124',
+        yoke: '#c9d0d5', hem: [band(0.0, 0.05, '#c9d0d5'), band(0.055, 0.03, '#c8202c'), band(0.09, 0.05, '#c9d0d5')], sleeve: [band(0.28, 0.07, '#c9d0d5'), band(0.35, 0.04, '#c8202c'), band(0.39, 0.07, '#c9d0d5')], socks: [band(0.26, 0.07, '#c9d0d5'), band(0.33, 0.04, '#c8202c'), band(0.37, 0.07, '#c9d0d5')] }),
+      road: kit({ jersey: '#e8e9ea', trim: '#1f2124', number: '#1f2124', numberEdge: '#c8202c', pants: '#1f2124', sock: '#e8e9ea', glove: '#1f2124', helmet: '#1f2124',
+        yoke: '#1f2124', hem: [band(0.0, 0.05, '#1f2124'), band(0.055, 0.03, '#c8202c'), band(0.09, 0.05, '#1f2124')], sleeve: [band(0.28, 0.07, '#1f2124'), band(0.35, 0.04, '#c8202c'), band(0.39, 0.07, '#1f2124')], socks: [band(0.26, 0.07, '#1f2124'), band(0.33, 0.04, '#c8202c'), band(0.37, 0.07, '#1f2124')] }),
     },
   },
   'St Garneau Guillotines': {
@@ -1639,6 +1649,35 @@ export const CLUBS = {
   },
 };
 
+// ── the copy GLASS draws ────────────────────────────────────────────────────────
+// Golden Goose Gardens carries a shield for every club on its east stand
+// (client/game/js/panels/glass/models/ashway.js). The renderer runs with no server and never sees
+// sports_pools.clubs, which club-crest.js only gets when the TV asks for it, so the shields read
+// this copy: each club's colours and the small drawing of its crest (the one the jerseys wear), in
+// league order. A shield is a hand's width across from the street, which is the size `small` is for.
+const CRESTS = path.join(ROOT, 'client/shared/cphl-crests.js');
+function crestsModule(teams) {
+  // A club with a tartan carries its sett too: the shield's field is woven in it.
+  const rows = teams.map((name) => {
+    const c = CLUBS[name], small = Array.isArray(c.crest.small) && c.crest.small.length ? c.crest.small : c.crest.layers;
+    const row = { name, colours: c.colours, crest: { box: c.crest.box || 100, layers: small } };
+    if (c.sett) { row.sett = c.sett; if (c.crest.settUnit) row.crest.settUnit = c.crest.settUnit; }
+    return `  ${JSON.stringify(row)},`;
+  });
+  return [
+    '// GENERATED by scripts/content/build-cphl-clubs.mjs. Never edit by hand.',
+    '//',
+    "// The CPhL's clubs as Golden Goose Gardens shows them: each club's colours and the small drawing of",
+    "// its crest, in league order. The clubs are content (sports_pools.clubs on the Cluster Puck row);",
+    '// this is the copy GLASS paints, because the renderer has no server to ask. Re-run the script after',
+    '// editing a club. Its --check gate fails while this file is behind.',
+    'export const CPHL_CRESTS = [',
+    ...rows,
+    '];',
+    '',
+  ].join('\n');
+}
+
 // ── write ───────────────────────────────────────────────────────────────────────
 const isMain = process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1]);
 if (isMain) {
@@ -1652,12 +1691,20 @@ if (isMain) {
   }
   const next = JSON.stringify(CLUBS);
   const cur = JSON.stringify(sp.clubs || null);
+  const crests = crestsModule(teams);
+  let crestsNow = '';
+  try { crestsNow = fs.readFileSync(CRESTS, 'utf8').replace(/\r\n/g, '\n'); } catch { /* not written yet */ }
   if (process.argv.includes('--check')) {
     if (next !== cur) { console.error('✗ sports_pools.clubs is out of date: run node scripts/content/build-cphl-clubs.mjs'); process.exit(1); }
+    if (crests !== crestsNow) { console.error(`✗ ${path.relative(ROOT, CRESTS)} is out of date: run node scripts/content/build-cphl-clubs.mjs`); process.exit(1); }
   } else {
     sp.clubs = CLUBS;
     row.sports_pools = sp;
     fs.writeFileSync(ROW, `${JSON.stringify(row, null, 2)}\n`, 'utf8');
     console.log(`  wrote ${Object.keys(CLUBS).length} clubs into ${path.relative(ROOT, ROW)} (${(next.length / 1024).toFixed(1)} KB)`);
+    if (crests !== crestsNow) {
+      fs.writeFileSync(CRESTS, crests, 'utf8');
+      console.log(`  wrote ${teams.length} crests into ${path.relative(ROOT, CRESTS)} (${(crests.length / 1024).toFixed(1)} KB)`);
+    }
   }
 }

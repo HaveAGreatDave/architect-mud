@@ -408,7 +408,7 @@ export const TYPE_MODEL = {
   // red-oxide barrel roof. Registered by type, so a second gym gets the works shed rather than the
   // shopfront default; the name on its board comes from the tile.
   gym:               { type: 'gym',               pal: 'ty_unit_brick' },
-  // ── THE SLUSH FUND, the CPhL's barn on the old South Gate ground (glass/models/ashway.js) ──────
+  // ── GOLDEN GOOSE GARDENS, the CPhL's barn on the old South Gate ground (glass/models/ashway.js) ─
   // Six tiles, one building: the front and back of the hall, and four stands that share one arm and
   // differ only in what their row says. `nave` is the local x side the hall is on (every tile faces
   // north, so local +x is west), `end` says whether the stand's outer face is the front or the back,
@@ -417,7 +417,7 @@ export const TYPE_MODEL = {
   ice_rink:          { type: 'ice_rink',          pal: 'ty_unit_brick', noKit: true },
   ice_rink_hall:     { type: 'ice_rink_hall',     pal: 'ty_unit_brick', noKit: true },
   ice_rink_stand_w:  { type: 'ice_rink_wing',     pal: 'ty_unit_brick', noKit: true, nave: -1, end: 'front', face: 'tickets' },
-  ice_rink_stand_e:  { type: 'ice_rink_wing',     pal: 'ty_unit_brick', noKit: true, nave: 1, end: 'front', face: 'posters' },
+  ice_rink_stand_e:  { type: 'ice_rink_wing',     pal: 'ty_unit_brick', noKit: true, nave: 1, end: 'front', face: 'shields' },
   ice_rink_plant_w:  { type: 'ice_rink_wing',     pal: 'ty_unit_brick', noKit: true, nave: -1, end: 'back', face: 'plant' },
   ice_rink_plant_e:  { type: 'ice_rink_wing',     pal: 'ty_unit_brick', noKit: true, nave: 1, end: 'back', face: 'players' },
   // ── THE BASIN JETTY ────────────────────────────────────────────────────

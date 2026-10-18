@@ -2,10 +2,10 @@
   "ambient_events": [],
   "ambient_theme": "urban",
   "color": "#8ba36a",
-  "description": "The east stand of the Slush Fund, its brick flank along Glacier Street papered with posters for the next game.",
+  "description": "The east stand of Golden Goose Gardens. Its brick end on Glacier Street carries a shield for every club in the league, two rows of four.",
   "exits": {},
   "flags": {
-    "building_name": "The Slush Fund",
+    "building_name": "Golden Goose Gardens",
     "building_type": "ice_rink_stand_e",
     "district": "ashway",
     "entrance": "north",
@@ -17,6 +17,6 @@
   "grid_z": 0,
   "id": "zone_district_916_916",
   "map_id": "map_world",
-  "name": "The Slush Fund",
+  "name": "Golden Goose Gardens",
   "parent_zone": null
 }

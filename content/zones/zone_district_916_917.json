@@ -4,7 +4,7 @@
   "description": "The back of the east stand: the players' door, a loading bay, and ICE painted along the wall in letters a storey high.",
   "exits": {},
   "flags": {
-    "building_name": "The Slush Fund",
+    "building_name": "Golden Goose Gardens",
     "building_type": "ice_rink_plant_e",
     "district": "ashway",
     "entrance": "north",
@@ -16,6 +16,6 @@
   "grid_z": 0,
   "id": "zone_district_916_917",
   "map_id": "map_world",
-  "name": "The Slush Fund",
+  "name": "Golden Goose Gardens",
   "parent_zone": null
 }

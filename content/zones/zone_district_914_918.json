@@ -1,7 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "description": "The yard behind the Slush Fund's west stand: gravel and puddles, with the ice plant's condenser fans roaring on the roof above. Sacks of rock salt are stacked under a tarp against the wall.",
+  "description": "The yard behind the Gardens' west stand: gravel and puddles, with the ice plant's condenser fans roaring on the roof above. Sacks of rock salt are stacked under a tarp against the wall.",
   "exits": {
     "east": "zone_district_915_918",
     "south": "zone_district_914_919",

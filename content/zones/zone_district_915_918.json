@@ -1,7 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "description": "The yard under the south gable of the Slush Fund's hall. The resurfacer's roller door opens onto it, and the scrapings are tipped in a heap against the wall: grey, crusted, and never quite melted. The staff call the heap the fund.",
+  "description": "The yard under the south gable of the Gardens' hall. The resurfacer's roller door opens onto it, and the scrapings are tipped in a heap against the wall: grey, crusted, and never quite melted. The staff call the heap the nest egg.",
   "exits": {
     "east": "zone_district_916_918",
     "south": "zone_district_915_919",

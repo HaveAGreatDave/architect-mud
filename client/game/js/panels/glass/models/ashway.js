@@ -8,13 +8,17 @@ import {
   drawSmoke, emitSurfaceText, emitWire, faceYaw, glowPool, nearOrMesh, rgb, windFlag,
 } from '../../windshield.js';
 import { flatOut } from './downtown.js';
+import { paintLayers, settCanvas } from '../../club-crest.js';
+import { CPHL_CRESTS } from '../../../../../shared/cphl-crests.js';
 
-// ── THE SLUSH FUND: SIX TILES, ONE BUILDING ──────────────────────────────────────────────────
-// The CPhL's own barn (scripts/content/slush-fund.mjs, docs/proposals/slush-fund.md). A brick
-// arena built like a basilica: a hall two tiles long down the middle, under one barrel vault the
-// length of the rink, with a lower stand either side of it. The hall's front tile is the door
-// (`ice_rink`), its back tile is `ice_rink_hall`, and the four stands share `ice_rink_wing`, told
-// apart by their registry rows (which side the hall is on, which end, what their outer face is).
+// ── GOLDEN GOOSE GARDENS: SIX TILES, ONE BUILDING ────────────────────────────────────────────
+// The CPhL's own barn (scripts/content/slush-fund.mjs, docs/proposals/slush-fund.md; it opened as
+// The Slush Fund, which is why the ids say `slush`). A brick arena built like a basilica: a hall two
+// tiles long down the middle, under one barrel vault the length of the rink, with a lower stand
+// either side of it. The hall's front tile is the door (`ice_rink`), its back tile is
+// `ice_rink_hall`, and the four stands share `ice_rink_wing`, told apart by their registry rows
+// (which side the hall is on, which end, what their outer face is). A gilt goose stands on the front
+// gable, and the east stand's front carries a shield for every club in the league.
 //
 // Every tile faces north, so local +y is north for all six and local +x is west. The hall runs
 // from y = RINK.FRONT on the front tile to y = RINK.BACK on the back one; each half of the vault
@@ -67,10 +71,85 @@ function facing(cam, F, nx, ny, px, py) {
   return (bx - ax) * ((cam.ex || 0) - ax) + (by - ay) * ((cam.ey || 0) - ay) > 0;
 }
 // Letters on a wall: a quad given left to right as seen from outside, lifted a hair off the plane.
-function wallText(ctx, cam, F, tex, pts, alpha) {
+// `pull` decides which of two decals on one wall wins the depth test (a shield over its shadow).
+function wallText(ctx, cam, F, tex, pts, alpha, pull = DETAIL_LIFT * 2.5) {
   if (!tex) return;
   const q = pts.map(([x, y, z]) => { const [wx, wy] = F(x, y); return cam.proj(wx, wy, z); });
-  if (q.every((p) => p.f > 0.12)) emitSurfaceText(ctx, cam, q, tex, false, alpha, DETAIL_LIFT * 2, false, DETAIL_LIFT * 2.5);
+  if (q.every((p) => p.f > 0.12)) emitSurfaceText(ctx, cam, q, tex, false, alpha, DETAIL_LIFT * 2, false, pull);
+}
+
+// ── THE CLUB SHIELDS ─────────────────────────────────────────────────────────────────────────
+// A heater shield per club for the east stand's front: a gilt rim, then a bordure and a field in the
+// club's colours, and the small drawing of its crest on the field (client/shared/cphl-crests.js,
+// written by scripts/content/build-cphl-clubs.mjs). The field takes whichever club colour stands
+// furthest from the crest's own ground, so a gold badge goes on black and a navy one on white, and
+// the bordure takes the next. A club with a tartan has its field woven in it instead, about one
+// repeat across, so the sett reads from the street. Baked once per club and light level, and hung
+// as a decal.
+// ⚠ A DECAL IS ITS TEXTURE'S OWN COLOUR, on both renderers: nothing dims paint after dark. So the
+// night bakes are darkened here, and only a little, because a lamp lights them.
+const SHIELD_PX = [128, 150];
+const SHIELD = { W: 0.12, X0: -0.36, STEP: 0.2, Z: [0.235, 0.08] };   // size, first column, column step, each row's foot
+const _shields = new Map();
+const hexRgb = (h) => {
+  const v = parseInt(String(h || '').replace('#', '').slice(0, 6), 16);
+  return Number.isFinite(v) ? [(v >> 16) & 255, (v >> 8) & 255, v & 255] : [128, 128, 128];
+};
+function shieldPath(g, m) {
+  const [W, H] = SHIELD_PX;
+  g.beginPath();
+  g.moveTo(m, m); g.lineTo(W - m, m); g.lineTo(W - m, H * 0.44);
+  g.quadraticCurveTo(W - m, H * 0.8 - m * 0.3, W / 2, H - m);
+  g.quadraticCurveTo(m, H * 0.8 - m * 0.3, m, H * 0.44);
+  g.closePath();
+}
+function shieldTex(club, lvl) {
+  const key = `${club.name}|${lvl}`;
+  if (_shields.has(key)) return _shields.get(key);
+  let c = null;
+  if (typeof document !== 'undefined') {
+    const [W, H] = SHIELD_PX;
+    c = document.createElement('canvas'); c.width = W; c.height = H;
+    const g = c.getContext && c.getContext('2d');
+    if (g) {
+      const ground = hexRgb(club.crest?.layers?.[0]?.fill);
+      const far = (h) => { const r = hexRgb(h); return Math.hypot(r[0] - ground[0], r[1] - ground[1], r[2] - ground[2]); };
+      const cols = [...(club.colours?.length ? club.colours : ['#2a2a2e', '#d8d2c4'])].sort((a, b) => far(b) - far(a));
+      const gilt = g.createLinearGradient(0, 0, W, H);
+      gilt.addColorStop(0, '#f6dc8a'); gilt.addColorStop(0.5, '#c99a3e'); gilt.addColorStop(1, '#8a6224');
+      const weave = club.sett ? settCanvas(club.sett, 0.4) : null, tartan = weave && g.createPattern(weave, 'repeat');
+      shieldPath(g, 1); g.fillStyle = gilt; g.fill();
+      shieldPath(g, 6); g.fillStyle = tartan ? cols[0] : cols[1] || cols[0]; g.fill();
+      shieldPath(g, 12); g.fillStyle = tartan || cols[0]; g.fill();
+      const box = club.crest?.box || 100, S = W * (tartan ? 0.62 : 0.72);
+      g.save(); g.translate(W / 2 - S / 2, H * 0.42 - S / 2); g.scale(S / box, S / box);
+      paintLayers(g, club.crest?.layers, club, club.crest?.settUnit || 0.12);
+      g.restore();
+      shieldPath(g, 1); g.lineWidth = 2; g.strokeStyle = 'rgba(30,20,8,0.9)'; g.stroke();
+      if (lvl < 1) {
+        g.globalCompositeOperation = 'source-atop';
+        g.fillStyle = `rgba(10,8,14,${(1 - lvl).toFixed(2)})`; g.fillRect(0, 0, W, H);
+        g.globalCompositeOperation = 'source-over';
+      }
+    }
+    c._lit = 0;
+  }
+  _shields.set(key, c);
+  return c;
+}
+// The shadow a shield throws on the brick: its outline in a dark wash, one for all eight.
+let _shieldShadow;
+function shieldShadow() {
+  if (_shieldShadow !== undefined) return _shieldShadow;
+  _shieldShadow = null;
+  if (typeof document !== 'undefined') {
+    const c = document.createElement('canvas'); c.width = SHIELD_PX[0]; c.height = SHIELD_PX[1];
+    const g = c.getContext && c.getContext('2d');
+    if (g) { shieldPath(g, 1); g.fillStyle = 'rgba(16,10,6,0.5)'; g.fill(); }
+    c._lit = 0;
+    _shieldShadow = c;
+  }
+  return _shieldShadow;
 }
 
 // The hall, either half: plinth, walls, the vault over them, the lantern along its crown and the
@@ -110,16 +189,84 @@ function rinkHall(ctx, cam, F, W3, E, seed, night, alpha, y0, y1, gableY, clr, N
   if (night) { const [gx, gy] = F(0, (ly0 + ly1) / 2); glowPool(ctx, cam, gx, gy, crown + 0.04, '214,232,240', 16, alpha * 0.3); }
 }
 
+// ── THE GOOSE ────────────────────────────────────────────────────────────────────────────────
+// The name in one figure: a gilt goose on a stepped stone plinth at the top of the front gable,
+// displayed the way a deco eagle is. Body and wings face the street, the neck goes straight up, the
+// head is turned in profile to the viewer's left (heraldry's dexter), and each wing rises in four
+// stepped feathers, the longest on top. It's cut from plate, every part a slab GOOSE.T thick, so it
+// keeps a shape from the side. Floodlit after dark.
+// ⚠ EVERY OUTLINE IS CONVEX. A flat face is a fan on the GPU, so a concave one fills wrong; the
+// figure is built from convex parts instead.
+// ⚠ NO TWO PARTS SHARE A PLANE. Each part's front stands at its own y (the `y` beside it), so
+// where two parts overlap one is in front and neither z-fights. The wings stand furthest back.
+const GOOSE = { Y: 0.33, Z: 0.968, T: 0.012, S: 1.3 };   // S scales the figure's outlines, not its plinth
+// Each part: its front's y off GOOSE.Y, its outline (u across, v up from the plinth's top), and `k`,
+// how much of the gilt's light it takes, so the parts read apart where they overlap.
+const GOOSE_PARTS = [
+  { y: 0.004, k: 0.86, pts: [[-0.016, 0], [0.016, 0], [0.009, 0.016], [-0.009, 0.016]] },            // the tail, fanned on the plinth
+  { y: 0.006, k: 1, pts: [[0, 0.008], [0.014, 0.014], [0.026, 0.03], [0.03, 0.055], [0.022, 0.078], [0.009, 0.086],
+    [-0.009, 0.086], [-0.022, 0.078], [-0.03, 0.055], [-0.026, 0.03], [-0.014, 0.014]] },              // the body
+  { y: 0.0055, k: 0.97, pts: [[-0.0065, 0.084], [0.0065, 0.084], [0.0048, 0.162], [-0.0048, 0.162]] }, // the neck, long, which is what makes it a goose
+  { y: 0.0065, k: 1.04, pts: Array.from({ length: 10 }, (_, i) => { const a = (i / 10) * Math.PI * 2; return [0.002 + 0.0125 * Math.cos(a), 0.167 + 0.0085 * Math.sin(a)]; }) },   // the head
+  { y: 0.006, k: 0.9, pts: [[-0.008, 0.171], [-0.032, 0.1655], [-0.032, 0.1625], [-0.008, 0.1605]] },   // the bill, pointing dexter
+  { y: 0.0075, k: 0.84, pts: [[-0.017, 0], [-0.003, 0], [-0.01, 0.009]] },                              // the feet
+  { y: 0.0075, k: 0.84, pts: [[0.003, 0], [0.017, 0], [0.01, 0.009]] },
+];
+// One wing's feathers, inside to tip, top first: [root u, foot v, head v, tip u]. Each rises toward
+// its tip, and its tip leans out at the top. They darken a step at a time down the wing.
+const GOOSE_WING = [[0.004, 0.112, 0.13, 0.118], [0.008, 0.092, 0.108, 0.1], [0.012, 0.073, 0.088, 0.082], [0.016, 0.056, 0.069, 0.064]];
+for (const s of [1, -1]) GOOSE_WING.forEach(([u0, v0, v1, u1], i) => {
+  const r = (u1 - u0) * 0.3;
+  GOOSE_PARTS.push({ y: 0.002, k: 0.95 - i * 0.05, pts: [[s * u0, v0], [s * (u1 - 0.008), v0 + r], [s * u1, v1 + r], [s * u0, v1]] });
+});
+// Three chevrons down the breast, each arm its own strip, a shade darker than the body: the feathers
+// as a deco sculptor cuts them. Face only, so they're plain flats, not slabs.
+const GOOSE_CHEVRONS = [];
+for (const v of [0.028, 0.044, 0.06]) for (const s of [1, -1]) {
+  const w = 0.019 - (v - 0.028) * 0.1;
+  GOOSE_CHEVRONS.push([[0, v], [s * w, v + 0.011], [s * w, v + 0.015], [0, v + 0.004]]);
+}
+function goose(ctx, cam, F, W3, E, seed, night, alpha) {
+  const { Y, Z, T, S } = GOOSE, dn = night ? clamp(night, 0, 1) : 0;
+  // The plinth: three stone steps, the bottom one sunk into the crown of the vault.
+  span(ctx, cam, F, E, -0.06, 0.06, Y - 0.045, Y + 0.045, 0.9, 0.932, STONE_DK, seed + 70, night, alpha, true);
+  span(ctx, cam, F, E, -0.047, 0.047, Y - 0.035, Y + 0.035, 0.932, 0.952, STONE, seed + 71, night, alpha, true);
+  span(ctx, cam, F, E, -0.034, 0.034, Y - 0.026, Y + 0.026, 0.952, Z, STONE, seed + 72, night, alpha, true);
+  // Gilt, lit by the sky by day and from the plinth after dark: the face, the edges that look up,
+  // the edges that look down or sideways, and the back.
+  const gilt = mixRgb([216, 172, 90], [255, 212, 132], dn), top = rgb(mixRgb([240, 208, 130], [255, 226, 156], dn));
+  const side = rgb(mixRgb([150, 110, 52], [204, 152, 76], dn)), back = rgb(mixRgb([122, 90, 42], [176, 128, 62], dn));
+  for (const { y, k, pts } of GOOSE_PARTS) {
+    const yf = Y + y, yb = yf - T, face = rgb(gilt.map((c) => Math.min(255, c * k)));
+    const cu = pts.reduce((a, p) => a + p[0], 0) / pts.length, cv = pts.reduce((a, p) => a + p[1], 0) / pts.length;
+    flatOut(ctx, cam, W3, pts.map(([u, v]) => [u * S, yf, Z + v * S]), [0, 1, 0], face, alpha);
+    flatOut(ctx, cam, W3, pts.map(([u, v]) => [u * S, yb, Z + v * S]), [0, -1, 0], back, alpha);
+    for (let i = 0; i < pts.length; i++) {
+      const [u0, v0] = pts[i], [u1, v1] = pts[(i + 1) % pts.length];
+      let nu = v1 - v0, nv = u0 - u1;
+      if (nu * ((u0 + u1) / 2 - cu) + nv * ((v0 + v1) / 2 - cv) < 0) { nu = -nu; nv = -nv; }
+      const nl = Math.hypot(nu, nv) || 1;
+      flatOut(ctx, cam, W3, [[u0 * S, yf, Z + v0 * S], [u1 * S, yf, Z + v1 * S], [u1 * S, yb, Z + v1 * S], [u0 * S, yb, Z + v0 * S]], [nu / nl, 0, nv / nl], nv / nl > 0.6 ? top : side, alpha);
+    }
+  }
+  const cut = rgb(gilt.map((c) => c * 0.8));
+  for (const pts of GOOSE_CHEVRONS) flatOut(ctx, cam, W3, pts.map(([u, v]) => [u * S, Y + 0.0068, Z + v * S]), [0, 1, 0], cut, alpha);
+  // the eye, a dark chip on the head's face
+  flatOut(ctx, cam, W3, [[-0.006, 0.169], [-0.0045, 0.1705], [-0.003, 0.169], [-0.0045, 0.1675]].map(([u, v]) => [u * S, Y + 0.0068, Z + v * S]), [0, 1, 0], 'rgb(64,44,18)', alpha);
+  if (night) { const [gx, gy] = F(0, Y + 0.06); glowPool(ctx, cam, gx, gy, Z + 0.08 * S, '255,206,120', 12, alpha * 0.35); }
+}
+
 export const ASHWAY_ARMS = {
-  ice_rink(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // THE SLUSH FUND: the front of the hall, and the door
+  ice_rink(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // GOLDEN GOOSE GARDENS: the front of the hall, and the door
     // The arched end of the hall, set back between the two stands, under a canopy that runs across
     // the court between them. From the pavement up: six glass doors, the canopy with tonight's board
-    // on its fascia and a flag at each end, the name in red channel letters, and the great window
-    // filling the gable to the crown of the vault.
+    // on its fascia and a flag at each end, the name in gilt deco letters, the great window filling
+    // the gable, and the goose on its plinth at the top.
     // ⚠ THE PROSE IS THE SPEC. zone_district_915_916, Glacier Street (915,915) and the concourse's
     // window all describe this front, and scripts/content/slush-fund.mjs writes them.
     const { TOP, FRONT, PLINTH, EAVE } = RINK, NEAR = nearOrMesh(), dn = night ? clamp(night, 0, 1) : 0, dusk = 1 - 0.55 * dn;
     rinkHall(ctx, cam, F, W3, E, seed, night, alpha, -0.5, FRONT, FRONT, CLR, NEAR);
+    goose(ctx, cam, F, W3, E, seed, night, alpha);
 
     // 1) THE GREAT WINDOW: one opening from above the name to the crown, glass in a steel grid, cold
     //    blue by day and white after dark when the ice lights are on behind it.
@@ -142,13 +289,14 @@ export const ASHWAY_ARMS = {
     // gable starts.
     span(ctx, cam, F, E, -0.5, 0.5, FRONT - 0.004, FRONT + 0.014, TOP - 0.016, TOP, STONE, seed + 10, night, alpha, true);
 
-    // 2) THE NAME, in red channel letters on the brick between the canopy and the window. Painted by
-    //    day; after dark the letters light. The only place the building says what it is called.
+    // 2) THE NAME, in gilt channel letters in the deco face on the brick between the canopy and the
+    //    window. Gilt by day; after dark the letters light. The only place the building says what
+    //    it is called.
     if (frontVis) {
-      const tex = bakeSignText((name || 'THE SLUSH FUND').toUpperCase(), '#c8261e', dn, false, dn < 0.05, true, { font: 'block' });
+      const tex = bakeSignText((name || 'GOLDEN GOOSE GARDENS').toUpperCase(), '#e2ae48', dn, false, dn < 0.05, true, { font: 'deco' });
       wallText(ctx, cam, F, tex, [[-0.44, FRONT + FACE_EPS, 0.345], [0.44, FRONT + FACE_EPS, 0.345], [0.44, FRONT + FACE_EPS, 0.25], [-0.44, FRONT + FACE_EPS, 0.25]], alpha);
     }
-    if (night) { const [gx, gyy] = F(0, FRONT + 0.04); glowPool(ctx, cam, gx, gyy, 0.3, '255,90,70', 10, alpha * 0.3); }
+    if (night) { const [gx, gyy] = F(0, FRONT + 0.04); glowPool(ctx, cam, gx, gyy, 0.3, '255,196,110', 10, alpha * 0.3); }
 
     // 3) THE CANOPY across the court, on steel posts at the kerb, its fascia a lit board: what is on
     //    and when. Channel 7 carries the game Tuesday, Thursday and Sunday at six (the concession's
@@ -185,10 +333,10 @@ export const ASHWAY_ARMS = {
     if (night) { const [gx, gyy] = F(0, FRONT + 0.03); glowPool(ctx, cam, gx, gyy, 0.09, '255,214,152', 18, alpha * 0.35); }
   },
 
-  ice_rink_hall(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // THE SLUSH FUND: the back of the hall
+  ice_rink_hall(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // GOLDEN GOOSE GARDENS: the back of the hall
     // The vault comes down to a plain gable over the yard: louvres for the ice plant's air high up,
     // the resurfacer's roller door at the foot of it with a lamp over it, a fire door, and against
-    // the wall beside the roller door the heap of scrapings the staff call the fund.
+    // the wall beside the roller door the heap of scrapings the staff call the nest egg.
     // ⚠ THE PROSE IS THE SPEC: zone_district_915_917 and the yard (915,918) describe this end.
     const { TOP, BACK, PLINTH, EAVE } = RINK, NEAR = nearOrMesh(), dn = night ? clamp(night, 0, 1) : 0, dusk = 1 - 0.55 * dn;
     rinkHall(ctx, cam, F, W3, E, seed, night, alpha, BACK, 0.5, BACK, CLR.map((v) => -v), NEAR);
@@ -208,17 +356,17 @@ export const ASHWAY_ARMS = {
     // the fire door, green, west of the roller door
     flatOut(ctx, cam, W3, [[-0.26, wy, 0.13], [-0.32, wy, 0.13], [-0.32, wy, PLINTH], [-0.26, wy, PLINTH]], [0, -1, 0], rgb(mixRgb([60, 84, 64], [40, 52, 44], dn)), alpha);
     if (night) { const [gx, gyy] = F(0, BACK - 0.04); glowPool(ctx, cam, gx, gyy, 0.17, '255,226,176', 9, alpha * 0.4); }
-    // 3) THE FUND: scraped ice tipped out of the roller door, grey and crusted, never quite gone.
+    // 3) THE NEST EGG: scraped ice tipped out of the roller door, grey and crusted, never quite gone.
     const snow = (f) => { const s = (0.55 + f.nl * 0.42) * dusk; return `rgb(${(188 * s) | 0},${(194 * s) | 0},${(198 * s) | 0})`; };
     { const [hx, hy] = F(0.24, -0.43); drawFacetDrum(ctx, cam, hx, hy, 0, 0.05, 0.065, 0.012, 9, alpha, snow, 'rgb(150,154,158)', STONE); }
     { const [hx, hy] = F(0.33, -0.455); drawFacetDrum(ctx, cam, hx, hy, 0, 0.032, 0.04, 0.01, 8, alpha, snow, 'rgb(150,154,158)', STONE); }
   },
 
-  ice_rink_wing(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // THE SLUSH FUND: a stand, either side of the hall
+  ice_rink_wing(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // GOLDEN GOOSE GARDENS: a stand, either side of the hall
     // A two-storey brick range against the hall, the full depth of its tile. Its row in the
     // registry says where the hall is (`nave`, the local x side), which end of the building it is
     // (`end`: its outer face is the north front or the south back), and what that face carries:
-    //   tickets  the box office on the forecourt          posters  the flank on Glacier Street
+    //   tickets  the box office on the forecourt          shields  the clubs' shields on Glacier Street
     //   plant    the ice plant, condensers on the roof    players  the players' door and loading bay
     // The two back ranges carry ICE along their outer walls in letters a storey high (the map code).
     const { WING, PLINTH, PARA } = RINK, NEAR = nearOrMesh(), dn = night ? clamp(night, 0, 1) : 0, dusk = 1 - 0.55 * dn;
@@ -258,14 +406,19 @@ export const ASHWAY_ARMS = {
       if (seeEnd) wallText(ctx, cam, F, bakeSignText('TICKETS', '#ece4cf', 0, false, true, true, { font: 'block' }),
         [[-0.3 * oy, ty, 0.27], [0.3 * oy, ty, 0.27], [0.3 * oy, ty, 0.2], [-0.3 * oy, ty, 0.2]], alpha);
       if (night) { const [gx, gy] = F(0, outerY + oy * 0.05); glowPool(ctx, cam, gx, gy, 0.1, '255,214,152', 16, alpha * 0.35); }
-    } else if (face === 'posters') {
-      // Posters for the next game, pasted in two rows and over each other, and an exit door.
-      const paper = [[214, 206, 182], [196, 64, 52], [228, 222, 206], [52, 70, 112], [222, 196, 92]];
-      for (let r = 0; r < 2; r++) for (let c = 0; c < 6; c++) {
-        const x = -0.42 + c * 0.14 + (r ? 0.05 : 0), z = 0.09 + r * 0.12, col = paper[(c * 3 + r + (seed & 3)) % paper.length].map((v) => v * dusk);
-        if (Math.abs(x) > 0.44) continue;
-        flatOut(ctx, cam, W3, [[x - 0.05, ey + r * oy * 0.001, z + 0.1], [x + 0.05, ey + r * oy * 0.001, z + 0.1], [x + 0.05, ey + r * oy * 0.001, z], [x - 0.05, ey + r * oy * 0.001, z]], [0, oy, 0], rgb(col), alpha);
-      }
+    } else if (face === 'shields') {
+      // A shield for every club in the league, in league order, two rows read left to right from
+      // the street, each with its shadow down and to the right of it on the brick; and an exit door
+      // at the hall end. A lamp over the display lights them after dark.
+      const lvl = dn < 0.25 ? 1 : dn < 0.75 ? 0.82 : 0.7, per = Math.ceil(CPHL_CRESTS.length / 2);
+      const W = SHIELD.W, H = W * SHIELD_PX[1] / SHIELD_PX[0], sy = ey + oy * 0.002, shade = shieldShadow();
+      if (seeEnd) CPHL_CRESTS.forEach((club, i) => {
+        const cx = oy * (SHIELD.X0 + (i % per) * SHIELD.STEP), z0 = SHIELD.Z[Math.floor(i / per)] ?? SHIELD.Z[1];
+        const quad = (ox, oz) => [[cx - oy * W / 2 + oy * ox, sy, z0 + H + oz], [cx + oy * W / 2 + oy * ox, sy, z0 + H + oz], [cx + oy * W / 2 + oy * ox, sy, z0 + oz], [cx - oy * W / 2 + oy * ox, sy, z0 + oz]];
+        wallText(ctx, cam, F, shade, quad(0.006, -0.007), alpha, DETAIL_LIFT * 2);
+        wallText(ctx, cam, F, shieldTex(club, lvl), quad(0, 0), alpha);
+      });
+      if (night) { const [gx, gy] = F(oy * (SHIELD.X0 + SHIELD.STEP * (per - 1) / 2), outerY + oy * 0.05); glowPool(ctx, cam, gx, gy, 0.24, '255,226,170', 14, alpha * 0.32); }
       flatOut(ctx, cam, W3, [[0.47, ey + oy * 0.002, 0.14], [0.39, ey + oy * 0.002, 0.14], [0.39, ey + oy * 0.002, PLINTH], [0.47, ey + oy * 0.002, PLINTH]], [0, oy, 0], rgb(mixRgb([60, 64, 70], [40, 44, 48], dn)), alpha);
     } else if (face === 'plant') {
       // The ice plant's wall: three big louvres and a steel door with a hazard diamond on it.

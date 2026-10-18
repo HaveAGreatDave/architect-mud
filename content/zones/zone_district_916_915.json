@@ -1,7 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "description": "Glacier Street, along the flank of the Slush Fund's east stand. The brick is papered with posters for the next game, layered so thick at the corners they have started to peel off in slabs. Grit bins stand at the kerb.",
+  "description": "Glacier Street, along the end of the Gardens' east stand. Eight enamel shields are bolted to the brick in two rows, one for each club in the league, every one in its club's colours on a gilt rim. Grit bins stand at the kerb.",
   "exits": {
     "east": "zone_district_917_915",
     "west": "zone_district_915_915"

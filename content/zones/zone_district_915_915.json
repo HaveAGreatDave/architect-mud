@@ -1,7 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "description": "Glacier Street, paved and gritted, running east to the Gate Road. The Slush Fund fills the south side: two brick wings, and the arched end of its hall set back between them behind a canopy. Steel crowd barriers lie stacked against the kerb.",
+  "description": "Glacier Street, paved and gritted, running east to the Gate Road. Golden Goose Gardens fills the south side: two brick wings, and the arched end of its hall set back between them behind a canopy. A gilt goose stands on the gable. Steel crowd barriers lie stacked against the kerb.",
   "exits": {
     "east": "zone_district_916_915",
     "north": "zone_district_915_914",
