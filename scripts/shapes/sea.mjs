@@ -1,17 +1,18 @@
-// THE SEA'S SHAPE, CHECKED — three copies of one surface, and a derivative nothing else can see.
+// THE SEA'S SHAPE, CHECKED — two copies of one surface, and a derivative nothing else can see.
 //
 //   node scripts/shapes/sea.mjs        (npm run gl:sea)
 //
 // The water is shaded by two renderers, DISPLACED by a third shader, and ridden by a hull, and all
 // of them have to agree about where a crest is. `client/shared/sea-swell.js` is the one JS copy;
 // `gl/sea-glsl.js` is its hand-written GLSL twin, included by both `gl/floor.js` (which shades the
-// sea) and `gl/water.js` (which displaces it); `windshield.js` holds the raster's own literal
-// spelling. That is three statements of one fact, and this is the gate that stops them drifting —
+// sea) and `gl/water.js` (which displaces it). The 2-D raster in `windshield.js` has had no sea
+// surface since GLASS 1 became the plain fallback (2026-10-17). That is two statements of one fact,
+// and this is the gate that stops them drifting —
 // exactly the arrangement `coastwarp.mjs` guards for the coast.
 //
 // Four claims, each of which is silent when wrong:
 //
-//   1. THE THREE COPIES AGREE TERM FOR TERM. A drift here is a sea whose crests are in different
+//   1. THE COPIES AGREE TERM FOR TERM. A drift here is a sea whose crests are in different
 //      places depending on which renderer drew it — and, now that a mesh displaces the same
 //      surface the floor paints, a mesh standing a few centimetres off the sea under it. A seam.
 //
@@ -100,9 +101,10 @@ function phIn(src, X, Y, T, sinFn) {
   return m ? { ku: +m[1], kv: (m[2] === '-' ? -1 : 1) * +m[3], w: +m[4] } : null;
 }
 
+// The 2-D raster has no sea surface since GLASS 1 became the plain fallback (2026-10-17), so the
+// GLSL is the one copy of the chop left to check against the shared module.
 const COPIES = [
   ['gl/sea-glsl.js', glslSrc, 'p.x', 'p.y', 't', 'sin'],
-  ['windshield.js', rasterSrc, 'swx', 'swy', 't', 'Math.sin'],
 ];
 for (const [label, src, X, Y, T, S] of COPIES) {
   if (!src) continue;
@@ -298,35 +300,6 @@ if (glslSrc) {
   const fl = read(FLOOR);
   if (fl && !/SEA_GLSL/.test(fl)) fail.push('gl/floor.js: no longer includes gl/sea-glsl.js — it has grown its own copy again');
   else if (fl) ok.push('gl/floor.js: includes the shared GLSL twin');
-}
-
-// ── 6. THE RASTER READS THE SHARED MODULE, RATHER THAN A FOURTH COPY ──────────────────────────
-//
-// ⚠ THE RASTER'S WATER CANNOT BE EXECUTED HERE, AND A CHECK THAT PRETENDS OTHERWISE IS WORSE THAN
-// NO CHECK. The obvious version — paint a water map through `paintWindshield` with `glFloor` 0 and
-// assert it does not throw — was written, passed, and was then MUTATION-TESTED by injecting a
-// `throw` into the lit block. It still passed. Instrumenting the loop said why: under the DOM stub
-// `drawMode7Floor` reaches its per-texel body ZERO times, so the whole thing was green on code it
-// never ran. It is left out rather than left in with a caveat, because a vacuous green is exactly
-// the false assurance this file exists to refuse. No harness in this repo reaches a GL draw call
-// either, so the GPU twins cannot stand in for it; the instrument for all three is `__glSea()` in
-// the Modelshop.
-if (rasterSrc) {
-  const lit = rasterSrc.match(/if \(RENDER_TUNE\.glSeaLit > [\d.]+ && detail > [\d.]+\) \{[\s\S]*?\n {8}\}/);
-  if (!lit) fail.push('windshield.js: could not find the raster lit-water block');
-  else {
-    const body = lit[0];
-    let bad = 0;
-    for (const [needle, what] of [
-      ['seaSlope(', 'calls the shared slope rather than spelling out a derivative'],
-      ['SEA_NOW.roll', 'reads the LIVE roll amplitude rather than the tune ceiling'],
-      ['SEA_NOW.amp', 'reads the LIVE chop amplitude (seaChopGain, or the tune when pinned) rather than a constant'],
-    ]) {
-      if (!body.includes(needle)) { fail.push(`windshield.js: the lit block no longer ${what}`); bad++; }
-    }
-    if (/\bMath\.cos\([^)]*5\.6/.test(body)) { fail.push('windshield.js: the lit block has grown its own derivative'); bad++; }
-    if (!bad) ok.push('windshield.js: the lit block reads the shared slope and the live amplitudes, with no derivative of its own');
-  }
 }
 
 // ── 7. THE DECK HAS ONE HEIGHT, AND IT IS A FUNCTION ──────────────────────────────────────────
@@ -1870,7 +1843,6 @@ if (rasterSrc) {
   if (!fl.includes('wv > uFoamFar')) bad.push('gl/floor.js does not test uFoamFar');
   if (!fl.includes('gl.uniform1f(loc.foamFar,')) bad.push('gl/floor.js never sets uFoamFar');
   if (!ws.includes('seaFoamFar: SEA_NOW.foamFar')) bad.push('windshield.js does not hand the floor SEA_NOW.foamFar');
-  if (!ws.includes('wv > SEA_NOW.foamFar')) bad.push('the 2-D raster twin does not test SEA_NOW.foamFar');
   if (!ws.includes('foamFar: seaFoamThreshold(kt, 0)')) bad.push('windshield.js: foamFar is not the tear-0 inversion');
   if (bad.length) for (const b of bad) fail.push(b);
   else ok.push('the far-water threshold reaches both floors, set every frame');
@@ -1990,4 +1962,4 @@ if (fail.length) {
   console.error('\nsea FAILED');
   process.exit(1);
 }
-console.log('\n✓ sea — one swell, four readers, and the analytic slope is the slope.');
+console.log('\n✓ sea — one swell, three readers, and the analytic slope is the slope.');

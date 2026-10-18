@@ -17066,7 +17066,7 @@ function drawMode7Floor(ctx, W, H, horizonY, depth0, v, sky, gTop, now, sun, cha
   // Texel size in CSS pixels. M7_MIN_DS scales the QUALITY end of the ladder (1 by default → this
   // is the old `pixel + PERF_DS` expression unchanged; 0.5 on a supersampling ground camera → one
   // texel per backing pixel), while the load-shed still adds whole steps on top of it.
-  const DS = Math.max(M7_MIN_DS, M7_MIN_DS * Math.round(TUNE.pixel || 4) + PERF_DS);   // downscale = pixel chunkiness (+PERF_DS = adaptive load-shed on this fixed-cost software raster). TUNE, not RENDER_TUNE: a ground camera brings its own ceiling — see VIEW_TUNABLE and cab-render-tune.js
+  const DS = M7_MIN_DS * Math.max(4, Math.round(TUNE.pixel || 4)) + PERF_DS;   // downscale = pixel chunkiness (+PERF_DS = adaptive load-shed on this fixed-cost software raster). TUNE, not RENDER_TUNE: a ground camera brings its own ceiling — see VIEW_TUNABLE and cab-render-tune.js
   // Horizontal extent, snapped to the ORIGINAL texel lattice (-W + k·DS). The snap is load-bearing:
   // X0 sets the sampling phase of the whole floor, so letting it slide by sub-texel amounts as the
   // bank angle changes would make the ground crawl and shimmer during a roll. Snapping keeps every
@@ -17471,389 +17471,42 @@ function drawMode7Floor(ctx, W, H, horizonY, depth0, v, sky, gTop, now, sun, cha
     LAST_FLOOR = FLOOR_STATE;   // the frame clears FLOOR_STATE in its finally; this is what __glass2() reads
     return;
   }
+  // ── GLASS 1'S FLOOR IS THE PLAIN ONE ─────────────────────────────────────────────────────────
+  // The ground GLASS 2 draws is gl/floor.js; this raster only runs when GLASS 2 can't (no WebGL2, a
+  // lost context, GLASS 2 switched off). It is the LUT's colour, bilinear and shaded, under the haze,
+  // the fog and the night: no texture noise, no sea surface, no coast warp. Enough that a coastline,
+  // a field and a runway read, at a chunk of at least 4 (the DS above), for a fraction of the cost.
+  // The far field still blends to farGround so open country doesn't smear the window's edge out to
+  // the horizon. glass-notes.md#ground-shader-renderTuneglfloor has the full ground's history.
   for (let by = 0; by < usedH; by++) {
     const p = Math.max(0.004, (yTop + by * DS - horizonY) / depth);
     const d = EH / p;
-    // Fresnel reflectivity for water — per-ROW (depends only on the view depression angle, not on
-    // x). Steep views (near, looking down INTO the water) show its deep body colour; grazing views
-    // (far, toward the horizon) mirror the bright sky. That angle-graded blend is what reads as a
-    // real reflective surface rather than flat blue. cosI = cos(angle off the vertical surface
-    // normal) = EH/‖(d,EH)‖; Schlick's (1-cosI)^5 curve rises to ~1 at the grazing horizon.
-    const cosI = EH / Math.sqrt(d * d + EH * EH);
-    const fres = 0.02 + 0.98 * (1 - cosI) ** 5;
-    // High-frequency detail (wave shimmer, sun glitter, concrete/grass mottle) aliases into a
-    // hard nearest-neighbour checkerboard once a low-res texel spans several world units —
-    // worst in the mid/far field where each depth band jumps in world-space. Fade the detail
-    // AMPLITUDE out with distance (near = full, far = flat base colour): a cheap mip-map that
-    // kills the checker without touching the intended chunky Mode-7 blit.
-    const detail = clamp(1.15 - d * 0.7, 0.15, 1);
     const haze = clamp(1 - p * hz, 0, hazeMax), ih = 1 - haze;
     const hr = hor[0] * haze, hg = hor[1] * haze, hb = hor[2] * haze;
+    const ff = FOG > 0.001 ? clamp((d - FOG_NEAR) / (FOG_FAR - FOG_NEAR), 0, 1) : 0, fw = ff * ff * FOG, iw = 1 - fw;
     let idx = by * stride;
     for (let bx = 0; bx < bw; bx++) {
       const l = ((X0 + bx * DS - cx) / halfW) * d * LAT;
       const wx = ax + d * sinh + l * cosh, wy = ay - d * cosh + l * sinh;
-      // Domain-warp the SAMPLING position so the land/water boundary (and biome patches) meander off
-      // the square tile grid — rounds the blocky 90° corners off the coast. CRUCIAL: the sine PHASE
-      // reads ABSOLUTE world coords (wx+wcx, wy+wcy), so the wavy pattern is pinned to the world and
-      // does NOT snap when the map window recenters as you move (the old bug was phasing it on the
-      // window-relative wx/wy, which jumped a whole tile each recenter). The displacement itself is
-      // still added to the window-relative wx/wy that index the LUT.
-      let wpx = wx, wpy = wy;
-      // Keep man-made surfaces (concrete/tarmac/pier/airport/apron) dead straight-edged. The colour is
-      // a bilinear blend of the FOUR tiles around the warped position, so it's not enough to check the
-      // source + nearest tile — apply the warp only when ALL FOUR tiles the blend will actually sample
-      // are natural (plus the source). Otherwise a warped grass texel could still pull a paved tile into
-      // its blend footprint and wobble the paved edge. Near paved, texels stay unwarped → tile-straight.
-      if (cwarpOn && !sample(Math.floor(R + wx), Math.floor(R + wy))[6]) {
-        const awx = wx + wcx, awy = wy + wcy;
-        // ⚠ TWO OCTAVES — see the long note at this expression's twin in gl/floor.js. One sine at
-        // amplitude 0.9 and frequency 1.9 folds the domain (min Jacobian determinant -2.13), and a
-        // folded warp draws CUSPS rather than a meander: it was putting sharper corners on the coast
-        // than the tile grid it exists to soften. Same amplitude, split across a slow octave and a
-        // fast one. ⚠ gl/floor.js holds this expression term for term and the two must stay equal.
-        const nx = wx + cwarp * (0.78 * Math.sin(awy * 0.55 + awx * 0.15) + 0.22 * Math.sin(awy * 1.9 + awx * 0.5)),
-              ny = wy + cwarp * (0.78 * Math.sin(awx * 0.55 - awy * 0.15 + 2.1) + 0.22 * Math.sin(awx * 1.9 - awy * 0.5 + 2.1));
-        const jx = Math.floor(R + nx), jy = Math.floor(R + ny);   // the warped bilinear footprint
-        if (!sample(jx, jy)[6] && !sample(jx + 1, jy)[6] && !sample(jx, jy + 1)[6] && !sample(jx + 1, jy + 1)[6]) { wpx = nx; wpy = ny; }
-      }
-      // Bilinear-blend the terrain across the four nearest tile centres so neighbouring
-      // biomes (grass→road, land→water) fade into each other instead of switching hard at
-      // the tile seam. waterW/grassW carry the same blend so the material treatment below
-      // feathers out over the shoreline too.
-      let fx = R + wpx, fy = R + wpy;
-      // How far outside the window this sampling position sits. Needed BEFORE the taps, because the
-      // wobble below has to move the taps themselves — see the long note in gl/floor.js. Past the
-      // window every tap collapses onto the one boundary tile the ray leaves through, so a coastline
-      // out there is a dead-straight ray out of the camera with one triangular tooth per boundary
-      // tile along it; wobbling the sampling position with `fillOffMap`'s own two-octave coast noise
-      // makes it meander the way the coast inside the window does. The amplitude ramps from zero at
-      // the edge, so the near/far handoff stays continuous by construction.
-      // ⚠ `hnoise2`, NOT `vnoise2`, AND THAT IS A CORRECTNESS RULE BEFORE IT IS A SPEED ONE. This
-      // file has two lattice noises that differ only in their hash: `vnoise2` scatters through
-      // `frac` (a sine), and `hnoise2` through the `Math.imul` integer mix. The SHADER's `vnoise2`
-      // is the integer mix — see `vn2h` in gl/floor.js — so a per-texel noise written against this
-      // file's `vnoise2` draws one coastline on the GPU and a DIFFERENT one on the raster, which is
-      // the one thing the two floors may not do. (`fillOffMap`'s own coast wobble is free to use
-      // either, because what it produces is a LUT both floors then read.) It is also several times
-      // cheaper: `vnoise2` is four `Math.sin` per call and this is four integer multiplies, and at
-      // four calls per far texel that is the difference between the far field costing +18% of a
-      // full-resolution raster frame and costing nothing worth measuring.
-      const fOut = outsideBy(fx, fy);
-      if (fOut > 0) {
-        const amp = COAST_WOBBLE * clamp(fOut / FAR_FADE, 0, 1);
-        const awx0 = wpx + wcx, awy0 = wpy + wcy;
-        fx += ((hnoise2(awx0 * 0.09, awy0 * 0.09) - 0.5)
-             + (hnoise2(awx0 * 0.23, awy0 * 0.23) - 0.5) * 0.45) * amp;
-        fy += ((hnoise2(awx0 * 0.09 + 31.7, awy0 * 0.09 - 12.3) - 0.5)
-             + (hnoise2(awx0 * 0.23 - 7.1, awy0 * 0.23 + 19.4) - 0.5) * 0.45) * amp;
-      }
+      const fx = R + wx, fy = R + wy;
       const ix = Math.floor(fx), iy = Math.floor(fy), fxr = fx - ix, fyr = fy - iy;
       const s00 = sample(ix, iy), s10 = sample(ix + 1, iy), s01 = sample(ix, iy + 1), s11 = sample(ix + 1, iy + 1);
-      const w00 = (1 - fxr) * (1 - fyr), w10 = fxr * (1 - fyr), w01 = (1 - fxr) * fyr, w11 = fxr * fyr;   // smooth blend — water/grass/relief keep this
-      // Biome COLOUR blends only in a narrow band right at the tile seam, so each patch of
-      // terrain reads as a crisp tile instead of a long cross-fade. Sharpen the fractional
-      // position around the boundary (smoothstep over ±EB) before weighting the colours.
-      const cxr = seam(fxr), cyr = seam(fyr);
-      const cw00 = (1 - cxr) * (1 - cyr), cw10 = cxr * (1 - cyr), cw01 = (1 - cxr) * cyr, cw11 = cxr * cyr;
-      let br = s00[0] * cw00 + s10[0] * cw10 + s01[0] * cw01 + s11[0] * cw11;
-      let bg = s00[1] * cw00 + s10[1] * cw10 + s01[1] * cw01 + s11[1] * cw11;
-      let bb = s00[2] * cw00 + s10[2] * cw10 + s01[2] * cw01 + s11[2] * cw11;
+      const w00 = (1 - fxr) * (1 - fyr), w10 = fxr * (1 - fyr), w01 = (1 - fxr) * fyr, w11 = fxr * fyr;
+      let br = s00[0] * w00 + s10[0] * w10 + s01[0] * w01 + s11[0] * w11;
+      let bg = s00[1] * w00 + s10[1] * w10 + s01[1] * w01 + s11[1] * w11;
+      let bb = s00[2] * w00 + s10[2] * w10 + s01[2] * w01 + s11[2] * w11;
       const waterW = s00[3] * w00 + s10[3] * w10 + s01[3] * w01 + s11[3] * w11;
-      let grassW = s00[4] * w00 + s10[4] * w10 + s01[4] * w01 + s11[4] * w11;
-      const shadeW = s00[5] * w00 + s10[5] * w10 + s01[5] * w01 + s11[5] * w11;
-      // ⚠ PAVED IS NOT DRY GROUND, AND FOR MONTHS IT COUNTED AS THE DRIEST THERE IS.
-      // `dryW` drives two desert treatments — wind-blown sand ripple with cracked-clay patches, and
-      // the aerial-perspective wash that fades an infinite plain into the horizon. Both were written
-      // for the wildlands, and the comment on the wash below says so in as many words: "parkland/city
-      // are left alone". They were not. Asphalt has no water and no grass, so `1 - grassW` left it at
-      // dryW = 1 — the maximum — and every road, apron and pier in the game got sand blown across it
-      // and washed out toward the horizon like open desert. From altitude that is invisible. From a
-      // truck cab it is the surface you are staring at.
-      // The LUT has carried a `paved` channel since the coast-warp needed one (index 6), so the fix
-      // is to blend it the same way as the other three and take it out of the term. That also
-      // removes two sines and a noise lookup from every paved texel, which in a city is most of them.
-      let pavedW = s00[6] * w00 + s10[6] * w10 + s01[6] * w01 + s11[6] * w11;
-      let shadeF = shadeW;
-      // Past the window edge the four taps above are all the same clamped boundary tile. Replace
-      // what the ground LOOKS like with the synthesis — see farGround — keeping the waterness the
-      // clamp gave us, which is the one bit out here that is genuinely the window's to answer.
-      // How much of this texel is far SEA — the aerial perspective below needs it, see the note there.
-      let farSea = 0;
+      let shade = s00[5] * w00 + s10[5] * w10 + s01[5] * w01 + s11[5] * w11;
+      const fOut = outsideBy(fx, fy);
       if (fOut > 0) {
-        const k = clamp(fOut / FAR_FADE, 0, 1);
-        // ⚠ AND IT MAY ONLY REPLACE DRY LAND, SOFTENED TO ONE BOUNDARY TILE — the long note is in
-        // gl/floor.js. `farGround` is wildlands, and laying it over every far texel turned the bay
-        // to rust 26 tiles past the window while the sea's own waves and glint carried on over the
-        // top of it. The two softening terms are what stop the coast it uncovers drawing as a ruled
-        // line of triangular teeth: `seam` is faded out of the colour blend (right inside the
-        // window, four times sharper than the data out here), and `wet` ramps over the full 0..1.
-        const bsr = s00[0] * w00 + s10[0] * w10 + s01[0] * w01 + s11[0] * w11;
-        const bsg = s00[1] * w00 + s10[1] * w10 + s01[1] * w01 + s11[1] * w11;
-        const bsb = s00[2] * w00 + s10[2] * w10 + s01[2] * w01 + s11[2] * w11;
-        br = lerp(br, bsr, k); bg = lerp(bg, bsg, k); bb = lerp(bb, bsb, k);
-        const wet = waterW * waterW * (3 - 2 * waterW);
-        const kl = k * (1 - wet);
-        farSea = k * wet;
-        const far = farGround(wpx + wcx, wpy + wcy, litX, litY);
-        br = lerp(br, far[0], kl); bg = lerp(bg, far[1], kl); bb = lerp(bb, far[2], kl);
-        shadeF = lerp(shadeW, far[3], kl);
-        grassW *= 1 - k; pavedW *= 1 - k;
-        if (nRoadSeg) {
-          const fp = 0.5 * Math.max(d * d / Math.max(EH * depth, 1e-4), d * LAT / Math.max(halfW, 1));
-          const rc = roadCoverage(wx, wy, nRoadSeg, roadHalfW, fp) * k;
-          if (rc > 0.001) {
-            br = lerp(br, roadRGB[0], rc); bg = lerp(bg, roadRGB[1], rc); bb = lerp(bb, roadRGB[2], rc);
-            shadeF = lerp(shadeF, 1, rc);   // a graded road is cut flat through whatever it crosses
-            pavedW = lerp(pavedW, 1, rc);   // …and it is a made road: see the ⚠ in gl/floor.js
-          }
-        }
+        const k = clamp(fOut / FAR_FADE, 0, 1) * (1 - waterW);
+        const far = farGround(wx + wcx, wy + wcy, litX, litY);
+        br = lerp(br, far[0], k); bg = lerp(bg, far[1], k); bb = lerp(bb, far[2], k); shade = lerp(shade, far[3], k);
       }
-      const dryW = clamp(1 - waterW * 4, 0, 1) * (1 - grassW) * (1 - pavedW);   // bare dry land coord (1 = open desert, 0 = water/turf/tarmac); drives arid material + aerial perspective
-      // Base material: a WHISPER of concrete tone variation + within-tile diagonal gradient.
-      // Kept very low — a stronger checker read as a distracting tiled pattern on flat grey
-      // asphalt/apron (the whole thing pulsing like a chessboard as you flew over it).
-      // Never a checkerboard: smooth noise only, matching gl/floor.js term for term.
-      const wxf = wx * FREQ, wyf = wy * FREQ;
-      const bP = vnoise2(wxf * 1.3 + 11, wyf * 1.3 - 7) - 0.5;
-      const bM = vnoise2(wxf * 4.1 - 2, wyf * 4.1 + 9) - 0.5;
-      const bG = vnoise2(wx * 9.7 + 3, wy * 9.7 - 5) - 0.5;
-      let tex = 1 + (bP * 0.09 + bM * 0.05 + bG * 0.035) * detail;
-      // Grass: turf patches and tufts, so parkland reads as vegetation, not a flat green slab.
-      if (grassW > 0.002) {
-        const g = (vnoise2(wx * 1.7 + 3, wy * 1.7 + 1) - 0.5) * 0.16 + (vnoise2(wx * 5.3, wy * 5.3) - 0.5) * 0.12;
-        tex = tex * (1 - grassW) + (1 + g * detail) * grassW;
-      }
-      // Relief hillshade — brightens sun-facing slopes, darkens the lee; land only, so the
-      // ground reads as gentle rolling hills. Water stays flat (its own wave shading below).
-      tex *= shadeF * (1 - waterW) + waterW;
-      // Arid ground material: wind-blown sand ripple + broad cracked-clay patches so the dry
-      // wildlands read as textured desert, not a flat tinted plate. Gated to near/mid texels
-      // (detail) — like the water mottle — so the far plain stays flat and never aliases into a
-      // checker; one noise lookup, only on dry ground.
-      if (dryW > 0.02 && detail > 0.3) {
-        const rip = Math.sin(wx * 2.4 + wy * 0.8) + 0.6 * Math.sin(wx * 0.9 - wy * 1.7);
-        const clay = vnoise2(wx * 0.85 + 5, wy * 0.85 - 3) - 0.5;
-        const crust = vnoise2(wx * 3.3 - 8, wy * 3.3 + 2) - 0.5;
-        tex *= 1 + (rip * 0.025 + clay * 0.11 + crust * 0.07) * dryW * detail;
-      }
-      // Water + shoreline. waterW rises 0→1 across the shore seam (bilinear), so it doubles
-      // as a shoreline coordinate — ~0.5 is the waterline. On top of the blended base colour
-      // we layer the cues that make a coast read as a coast instead of a colour crossfade:
-      //   · travelling waves + crest glint (open water shimmer)
-      //   · depth darkening as you head out from the line into deep water
-      //   · an animated surf band hugging the waterline, surging in and out along the coast
-      //   · a damp, darker strip of sand just above the line where the wash reaches
-      let cr = 0, foam = 0, gln = 0, moon = 0, cap = 0;
-      // The lit sea's own specular. ⚠ gl/floor.js holds this whole term and the two must stay
-      // equal — see client/shared/sea-swell.js, which both of them take their coefficients from.
-      let spc = 0;
-      if (waterW > 0.002) {
-        // Tier-1 sky sheen: mix the water body colour toward the reflected sky (≈ the horizon
-        // colour, which is what a grazing sea reflects) by the fresnel term, scaled by how much of
-        // this texel is open water. Deep water underfoot keeps its rich blue; the surface brightens
-        // toward the sky as it runs out to the horizon. Waves/glint/foam still layer on top below.
-        const sheen = fres * 0.5 * waterW;
-        br = br * (1 - sheen) + hor[0] * sheen;
-        bg = bg * (1 - sheen) + hor[1] * sheen;
-        bb = bb * (1 - sheen) + hor[2] * sheen;
-        // A slow, coherent swell (not fast chop): three crossing sine trains at the drifted coords
-        // so the sea streams past when making way. Temporal rates are kept low so crests and the
-        // specular glitter evolve as a rolling swell rather than a fast, meaningless shimmer.
-        const swx = wx, swy = wy;   // the swell is a function of the WORLD point and the shared clock
-        // De-lattice the swell. Three PURE sines summed on raw world coords make a regular corrugated
-        // diamond lattice — the "tiled" read on open water. A per-texel noise domain-warp fixes it but
-        // costs 2 noise samples on EVERY water texel, which tanked the frame rate over open sea. Do it
-        // with FM instead: phase-modulate each sine train by one shared low-frequency sine (`ph`), with
-        // a different push per train so they decorrelate. The crests wander, the grid breaks, and the
-        // whole thing costs one extra Math.sin instead of two vnoise2 lookups.
-        const ph = Math.sin(swx * 0.6 - swy * 0.45 + t * 0.25);
-        const wv = 0.5 * Math.sin(swx * 5.6 + swy * 1.3 + t * 0.9 + ph * 1.6) + 0.4 * Math.sin((swx - swy) * 3.7 - t * 0.66 + ph * 1.1) + 0.11 * Math.sin((swx + swy) * 7.4 + t * 1.25 + ph * 0.7);
-        // ── THE LIT SURFACE ──────────────────────────────────────────────────────────────────
-        // ⚠ THE RASTER HALF OF gl/floor.js's LIT SEA. Both take their coefficients from
-        // client/shared/sea-swell.js, the shader by a hand-written GLSL twin because a shader
-        // cannot import; `scripts/shapes/sea.mjs` fails when the two drift, the way coastwarp.mjs
-        // does for the coast. Gated on `detail > 0.3` exactly as the shader is, so the two agree
-        // about WHERE the term stops and not merely about what it is — and so the far field,
-        // which is most of an open-sea frame, pays nothing for it.
-        let lit = wv * 0.15;   // the shipped tint, kept verbatim as the glSeaLit 0 case
-        if (RENDER_TUNE.glSeaLit > 0.001 && detail > 0.3) {
-          // ⚠ THE AMPLITUDES ARE THE LIVE ONES. They are derived from the wind, so reading a tune
-          // here would light a flat calm as though it were a storm — the waves are not there, but
-          // every facet is shaded as if they were, which reads as a strangely busy mirror.
-          const [du, dv] = seaSlope(swx, swy, t, SEA_NOW.roll * waterW, SEA_NOW.amp, SEA_NOW.wind * waterW);
-          const nl = Math.hypot(du, dv, 1), nx = -du / nl, ny = -dv / nl, nz = 1 / nl;
-          // The eye, in world tiles. `l` is the lateral offset this loop already has, so the view
-          // ray is exact. ⚠ It is also what the per-ROW `fres` above leaves out: that term uses the
-          // forward distance and not the ground range, which is invisible in a Schlick wash and
-          // walks a specular highlight toward the horizon at the frame edges.
-          const vl = Math.hypot(d * sinh + l * cosh, d * cosh - l * sinh, EH);
-          const vx = -(d * sinh + l * cosh) / vl, vy = (d * cosh - l * sinh) / vl, vz = EH / vl;
-          // ⚠ sun.elev IS sin(elevation) and sun.dir a unit bearing, so the 3-D light vector is
-          // free and exact — no third sun field to add and keep in step.
-          const se = sun ? Math.max(sun.elev || 0, 0) : 0, sc = Math.sqrt(Math.max(0, 1 - se * se));
-          const me = sun ? Math.max(sun.moonElev || 0, 0) : 0, mc = Math.sqrt(Math.max(0, 1 - me * me));
-          const upS = se > 0.02 ? 1 : 0, upM = me > 0.02 ? clamp(sun ? sun.night || 0 : 0, 0, 1) : 0;
-          const lx = sun && sun.dir ? sun.dir[0] * sc : 0, ly = sun && sun.dir ? sun.dir[1] * sc : 0;
-          const mx = sun && sun.moonDir ? sun.moonDir[0] * mc : 0, my = sun && sun.moonDir ? sun.moonDir[1] * mc : 0;
-          // ⚠ THE LOBE IS AS WIDE AS THE SEA IS ROUGH — see the long note at this term's twin in
-          // gl/floor.js. A tight lobe on a flat sea mirrors the horizon and nothing else, so a high
-          // sun puts nothing at all on the water; the exponent is DERIVED from the slope the
-          // amplitude produces so the two cannot be set to disagree.
-          const mxs = Math.max(0.02, SEA_NOW.amp * 5.9);
-          const shin = clamp(2 / (mxs * mxs), 4, 400);
-          const lobe = (ax2, ay2, az2, e) => {
-            const hx = ax2 + vx, hy = ay2 + vy, hz2 = az2 + vz, hl = Math.hypot(hx, hy, hz2) || 1;
-            return Math.max(0, (nx * hx + ny * hy + nz * hz2) / hl) ** e;
-          };
-          let s = upS * lobe(lx, ly, se, shin) * (0.35 + 0.65 * se);
-          s += upM * lobe(mx, my, me, shin * 0.5) * 0.45;
-          spc = s * waterW * RENDER_TUNE.glSeaLit;
-          // ⚠ THE DIFFUSE COMES FROM WHICHEVER LIGHT IS UP, AND FROM NEITHER IN TRUE DARK — with
-          // the sun below the horizon its vector goes flat and the term collapses to a constant,
-          // which is the whole sea uniformly darker with no crests in it rather than shading.
-          // ⚠ AND IT IS MEASURED AGAINST THE FLAT SEA, NOT AGAINST A CONSTANT — see the long note
-          // at this term's twin in gl/floor.js. A flat surface gets dot(up, L), which is the
-          // light's elevation sine, so (lam - elev) is the facet's own deviation and the term is
-          // zero-mean at every hour; against a literal it carries the sun's height as a brightness
-          // offset and a low sun simply darkens the whole sea.
-          const flatL = upS > 0.5 ? se : me;
-          const lam = upS > 0.5 ? nx * lx + ny * ly + nz * se : nx * mx + ny * my + nz * me;
-          const key = Math.max(upS, upM * 0.6);
-          lit = lit + (((lam - flatL) * 0.45) - lit) * RENDER_TUNE.glSeaLit * key;
-        }
-        tex = tex * (1 - waterW) + (1 + lit * detail) * waterW;
-        const deep = clamp((waterW - 0.5) * 2, 0, 1);
-        tex *= 1 - deep * 0.18;   // shallows near the line stay lighter; open water sits darker
-        // Deep-water colour mottle: low-frequency non-repeating noise patches the flat blue between the
-        // crests into lighter/darker fields (wind lanes) so open water reads as a living surface. It
-        // scales with `detail`, so it's invisible on far water anyway — gate the (one) noise lookup to
-        // near/mid water so the far field, which fills most of an open-sea frame, pays nothing.
-        if (detail > 0.35) {
-          const mott = vnoise2(swx * 0.55 + 11, swy * 0.55 - 7) - 0.5;
-          tex *= 1 + mott * 0.12 * detail * deep;
-        }
-        // Scatter the crest highlights. Every sine crest above threshold used to foam, so the whitecaps
-        // landed on the swell's regular crest spacing → a grid of bright dots (the "tiled" read). Mask
-        // them by a moderate-frequency noise so only SOME crests break — real whitecaps are patchy, not
-        // gridded. Sampled ONLY on the rare bright texels (wv high), so it stays cheap.
-        const foamMask = wv > 0.75 ? clamp(vnoise2(swx * 1.15 + 20, swy * 1.15 - 6) * 1.7 - 0.4, 0, 1) : 0;
-        if (wv > 0.78) cr = (wv - 0.78) * 5 * waterW * foamMask;   // crest glint (scattered, not every crest)
-        // WHITECAP. With glFoamFar the threshold is Monahan's (SEA_NOW.foamFar) and the noise mask is
-        // off: the mask erodes coverage the inversion already accounts for. Twin of gl/floor.js.
-        if (SEA_NOW.foamFar >= 0) { if (wv > SEA_NOW.foamFar) cap = Math.min(1, (wv - SEA_NOW.foamFar) * 9) * waterW; }
-        else if (wv > 0.90) cap = (wv - 0.90) * 9 * waterW * foamMask;  // the shipped fixed threshold
-        // Sun glitter: a bright, broken specular path across the water TOWARD the sun (fixed by the
-        // real bearing, not the drift) — the swell chops it into a shimmering trail of gold flecks.
-        if (sun && sun.elev > 0.05) {
-          const along = ((wx - ax) * sun.dir[0] + (wy - ay) * sun.dir[1]) / Math.max(0.6, d);
-          if (along > 0.12) gln = clamp((along - 0.12) * 1.7, 0, 1) * (0.58 + 0.42 * Math.max(0, wv)) * (0.4 + 0.6 * sun.elev) * waterW;
-        }
-        // Moonlight: at night the sun is down and open water reads black. Give the swell a cool
-        // silver sheen (so the waves are legible) plus a broken specular path toward the moon —
-        // the night twin of the sun glitter. Added AFTER the night dimming below so it genuinely
-        // lights the dark sea rather than being crushed by it.
-        if (sun && sun.moonElev > 0.05 && sun.night > 0.3) {
-          let path = 0;
-          const along = ((wx - ax) * sun.moonDir[0] + (wy - ay) * sun.moonDir[1]) / Math.max(0.6, d);
-          if (along > 0.1) path = clamp((along - 0.1) * 1.4, 0, 1) * (0.4 + 0.6 * Math.max(0, wv));
-          moon = sun.night * sun.moonElev * waterW * (0.12 + 0.24 * Math.max(0, wv) + 0.95 * path);
-        }
-        // Surf: a bright band centred just on the water side of the waterline, pulsing with
-        // the swell and breaking unevenly along the coast (time + position phase).
-        const band = clamp(1 - Math.abs(waterW - 0.56) / 0.16, 0, 1);
-        if (band > 0) foam = band * band * (0.55 + 0.45 * Math.sin(t * 1.6 + (wx + wy) * 2.7 + wv * 1.5));
-      }
-      // Wet sand: the land strip just above the waterline reads damp where the wash reaches.
-      if (waterW > 0.14 && waterW < 0.5) tex *= 1 - clamp(1 - Math.abs(waterW - 0.32) / 0.18, 0, 1) * 0.14;
-      // Raised shore bank: with no vertical displacement on this flat floor the coast lies flush
-      // with the sea and reads as a pancake. Emboss the seam instead — a bright sunlit LIP on the
-      // top of the land edge (just above the waterline) sitting over a thin contact SHADOW in the
-      // shallows at its foot. The lip-over-shadow pair reads as a low bank standing UP out of the
-      // water and casting a shadow onto it, so the land no longer sits razor-flat against the sea.
-      if (waterW > 0.38 && waterW < 0.5) tex *= 1 + clamp(1 - Math.abs(waterW - 0.44) / 0.06, 0, 1) * 0.11;   // sunlit bank lip (land side)
-      if (waterW >= 0.5 && waterW < 0.60) tex *= 1 - clamp(1 - Math.abs(waterW - 0.53) / 0.05, 0, 1) * 0.17;   // bank-foot contact shadow (water side, just inside the surf)
-      // Near-camera detail. Forward resolution collapses as d→EH (the classic Mode-7 near
-      // smear): the closest rows sample a razor-thin world slice, so the base wave/texture —
-      // tuned for the mid-field — barely varies across them and the foreground flattens into
-      // one dark colour that reads as a hole in the floor. Fold in a finer, higher-frequency
-      // animated ripple (water) or gravel grain (land) whose strength rises as the ground
-      // nears, carrying real world-space texture right down to the bottom edge — so the
-      // foreground stays surfaced without lifting the camera or drawing more cowl.
-      const near = clamp((0.55 - d) / 0.55, 0, 1);
-      if (near > 0.01) {
-        if (waterW > 0.002) {
-          // De-lattice the fine ripple too, same pure-sine grid as the swell — FM again (one sine),
-          // not a noise warp, to keep the near-field cheap. It's the most visible tiling when hovering
-          // low (the heli), so it's worth breaking, but not worth 2 noise lookups per near texel.
-          const nwx = wx, nwy = wy;
-          const nph = Math.sin(nwx * 2.3 - nwy * 1.7 + t * 0.4);
-          const wv2 = 0.5 * Math.sin(nwx * 22 + nwy * 15 - t * 1.3 + nph * 0.9) + 0.5 * Math.sin((nwx + nwy) * 17 + t * 1.0 + nph * 0.7);
-          tex *= 1 + (0.06 + wv2 * 0.11) * near * waterW;               // lift + fine chop breaks the flat dark
-          if (wv2 > 0.7) cr = Math.max(cr, (wv2 - 0.7) * 2.6 * near * waterW);   // fine crest lift (neutral, day or night)
-          if (wv2 > 0.86) cap = Math.max(cap, (wv2 - 0.86) * 6 * near * waterW); // near-field whitecaps
-        } else {
-          const n1 = vnoise2(wx * 14.7, wy * 14.7) - 0.5, n2 = vnoise2(wx * 31 + 7, wy * 31 - 4) - 0.5;
-          tex *= 1 + (n1 * 0.16 + n2 * 0.09) * near;  // fine dirt/gravel grain, smooth (never squares)
-        }
-      }
-      // Rotor downwash disc — heli, low, over water. A dark matted crater directly under the disc,
-      // a bright annulus of spray at its rim, and concentric ripples running outward across it.
-      if (heliDown > 0.002 && waterW > 0.002) {
-        const rdx = wx - dcx, rdy = wy - dcy, rr = Math.sqrt(rdx * rdx + rdy * rdy);
-        if (rr < 1.8) {                                              // tight disc — the Mini 500 is a tiny kit heli, not a Chinook
-          const dwv = heliDown * clamp(1 - rr / 1.8, 0, 1) * waterW;
-          const ring = Math.sin(rr * 9 - t * (3 + 7 * rotor));       // rings expand outward at a rate that scales with rotor RPM
-          const core = Math.exp(-rr * rr / 0.25);                    // matted crater, peak dead-centre
-          const rim = Math.exp(-((rr - 0.55) * (rr - 0.55)) / 0.18); // spray concentrated at the (closer-in) disc rim
-          tex *= 1 + (ring * 0.09 - core * 0.1) * dwv * detail;       // out-running ripples over a pressed-down crater
-          foam = Math.max(foam, rim * 0.9 * dwv);                     // spray-ring foam (gets the *=detail below)
-          cap = Math.max(cap, rim * (0.3 + 0.4 * Math.max(0, ring)) * dwv);   // bright spray flecks breaking off the ring
-        }
-      }
-      cr *= detail; foam *= detail; gln *= detail; moon *= detail; cap *= detail;   // fade the bright specular spikes out with distance too (near ≈ full)
-      // ⚠ AND SO DOES THE LIT SEA'S LOBE, on the SAME ramp as the shader's — the swell's amplitude
-      // is already faded by `detail`, so a highlight that outlived it would sparkle on a horizon
-      // that has gone flat.
-      spc *= detail;
-      // Moonlight is added OUTSIDE the night multiplier (nm) — it IS the night's light, so it must
-      // survive the dimming that turns the daytime sea dark. Cool silver-blue (R<G<B).
-      const mAdd = moon * ih;
-      // Whitecaps: bright neutral foam on breaking crests — full by day, dimmer but still catching
-      // moonlight at night (so the sea reads alive in both).
-      const capAdd = cap * 205 * ih * (0.45 + 0.55 * nm);
-      // The lit sea's lobe rides the same composite as the rest of the water's specular adds, in
-      // sunlight's own colour rather than white — so a low sun lays a warm path and a high one a
-      // pale one, with no second table to keep in step. ⚠ gl/floor.js divides these by 255; here
-      // the composition is already in 0-255, which is why the constants look different and are not.
-      let or_ = ((br * tex + cr * 55 + foam * 150 + gln * 150 + spc * 235) * ih + hr) * nm + mAdd * 120 + capAdd;
-      let og = ((bg * tex + cr * 70 + foam * 165 + gln * 132 + spc * 230) * ih + hg) * nm + mAdd * 140 + capAdd;
-      let ob = ((bb * tex + cr * 90 + foam * 175 + gln * 66 + spc * 205) * ih + hb) * nm + mAdd * 185 + capAdd * 1.06;
-      // Aerial perspective for the arid wildlands. Clear-weather haze is deliberately light, so the
-      // dry dirt/redrock plain would otherwise keep near-full saturation right up to a high horizon
-      // and read as a looming wall / mountains. Fade DISTANT dry ground toward the horizon colour so
-      // the infinite plain recedes flat. Water (its own wave/glint) and parkland/city (grassW) are
-      // left alone — only bare dry land washes out.
-      //
-      // ⚠ AND THE OPEN SEA PAST THE WINDOW WASHES OUT WITH IT — the long note is in gl/floor.js.
-      // Exempting water is a NEAR-FIELD argument that does not survive to 60 tiles, and it cost
-      // nothing until the bay started running on to the horizon: it is then the one term treating
-      // the two sides of a far coastline differently, which draws it as a hard bright line.
-      // `farSea` is 0 inside the window, so near water is exactly what it has always been.
-      const dry = Math.max(dryW, farSea);
-      if (dry > 0.02) {
-        const lh = dry * clamp((d - 10) / 44, 0, 1) * 0.6;   // 0 within ~10 tiles → up to 0.6 at the horizon
-        const inv = 1 - lh;
-        or_ = or_ * inv + hor[0] * nm * lh; og = og * inv + hor[1] * nm * lh; ob = ob * inv + hor[2] * nm * lh;
-      }
-      // N64 distance fog — applied last, uniformly to all terrain (water/grass/city alike), so the
-      // far field recedes into the sky. Squared ramp = crisp foreground, fog thickening into the far.
-      if (FOG > 0.001) {
-        const ff = clamp((d - FOG_NEAR) / (FOG_FAR - FOG_NEAR), 0, 1);
-        const w = ff * ff * FOG, iw = 1 - w;
-        or_ = or_ * iw + fogR * w; og = og * iw + fogG * w; ob = ob * iw + fogB * w;
-      }
-      data[idx] = or_; data[idx + 1] = og; data[idx + 2] = ob;
+      const t = (shade * (1 - waterW) + waterW) * ih;
+      data[idx] = ((br * t + hr) * nm) * iw + fogR * fw;
+      data[idx + 1] = ((bg * t + hg) * nm) * iw + fogG * fw;
+      data[idx + 2] = ((bb * t + hb) * nm) * iw + fogB * fw;
       data[idx + 3] = 255;
       idx += 4;
     }
