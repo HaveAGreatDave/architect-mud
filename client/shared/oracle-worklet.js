@@ -8,6 +8,10 @@
  * schedule. speak() records those targets into parameter tracks, one frame per FRAME
  * seconds, and posts them here. Nothing here knows a phoneme.
  *
+ * Two of the voice's synthiness settings reach this file as line constants: `natural`
+ * scales the per-cycle shimmer and open-quotient effort (the engine has already scaled
+ * the tracks), and `buzz` mixes a band-limited impulse train into the pulse.
+ *
  * What the node graph can't do, and this does:
  *   - a glottal pulse built per CYCLE (the Liljencrants-Fant model), so open quotient,
  *     return phase (spectral tilt), jitter and shimmer change from one period to the next
@@ -96,6 +100,14 @@ function lfSolve(te, tp, ta) {
 function lfAt(p, x) {
   if (x < p.te) return p.E0 * Math.exp(p.alpha * x) * Math.sin(p.wg * x);
   return -(1 / (p.eps * p.ta)) * (Math.exp(-p.eps * (x - p.te)) - p.eD);
+}
+
+// A band-limited impulse train (BLIT) at phase x of a period, M harmonics, its DC taken
+// out: sum over k = 1..M of 2 cos(2 pi k x), over 2M + 1, in closed form.
+function blit(x, M) {
+  const n = 2 * M + 1, s = Math.sin(Math.PI * x);
+  const d = Math.abs(s) < 1e-7 ? 1 : Math.sin(n * Math.PI * x) / (n * s);
+  return d - 1 / n;
 }
 
 // A bandpass with 0 dB at its centre (the RBJ form Web Audio's BiquadFilter uses), for
@@ -196,12 +208,15 @@ class OracleVoice extends AudioWorkletProcessor {
     f0 *= 1 + this.rand.white() * jf * k.cycJitter;
     f0 = Math.max(40, Math.min(900, f0));
     this.period = 1 / f0;
-    // PER-CYCLE SHIMMER: amplitude drawn per period, larger as jitter grows.
-    this.amp = 1 + this.rand.white() * (k.shimmer + jf * 2);
+    // PER-CYCLE SHIMMER: amplitude drawn per period, larger as jitter grows. The engine
+    // has already scaled the jitter tracks by the voice's `natural`; the shimmer floor
+    // and the effort below scale here, so at natural 0 every period is the same pulse.
+    const nat = k.natural ?? 1;
+    this.amp = 1 + this.rand.white() * (k.shimmer * nat + jf * 2);
     // OPEN QUOTIENT per cycle. A louder voice closes harder (lower OQ, pressed); breath
     // holds the folds apart (higher OQ). The line's base is the voice's own oq.
     const av = this.at(IX.av, lt), ah = this.at(IX.ah, lt);
-    let oq = k.oq - k.oqEffort * (av - 0.8) + k.oqBreath * ah + this.rand.white() * 0.01;
+    let oq = k.oq + (-k.oqEffort * (av - 0.8) + k.oqBreath * ah + this.rand.white() * 0.01) * nat;
     oq = Math.max(0.35, Math.min(0.9, oq));
     // RETURN PHASE = spectral tilt. The graph's tilt lowpass corner becomes Ta = 1/(2 pi Fa),
     // as a fraction of this period, never shorter than a sample.
@@ -209,6 +224,15 @@ class OracleVoice extends AudioWorkletProcessor {
     const ta = Math.min(0.2, Math.max(this.T, 1 / (TAU * Math.max(300, tilt))) * f0);
     const te = Math.min(oq, 0.97 - ta);
     this.lf = lfSolve(te, te * k.rk, Math.max(ta, 1e-4));
+    // BUZZ: the impulse train this period, to the graph's 48 harmonics (or Nyquist),
+    // matched to this pulse's RMS so the mix changes the tone and not the level.
+    if (k.buzz > 0) {
+      this.bM = Math.max(1, Math.min(48, Math.floor(0.45 * sampleRate / f0)));
+      let e = 0;
+      for (let i = 0; i < 64; i++) { const v = lfAt(this.lf, (i + 0.5) / 64); e += v * v; }
+      // blit() is M cosines of amplitude 2 over 2M+1, so its RMS is sqrt(2M) / (2M+1)
+      this.bK = Math.sqrt(e / 64) * (2 * this.bM + 1) / Math.sqrt(2 * this.bM);
+    }
     this.cyc++;
   }
 
@@ -250,7 +274,11 @@ class OracleVoice extends AudioWorkletProcessor {
         if (this.ph >= 1) this.ph -= 1;
         this.cycle(lt);
       }
-      const g = lfAt(this.lf, this.ph) * this.amp;
+      let g = lfAt(this.lf, this.ph);
+      // (the two sources are nearly uncorrelated, so a plain crossfade sags 3 dB in the
+      // middle: divided by the mix's own RMS, it holds the level all the way across)
+      if (k.buzz > 0) g = ((1 - k.buzz) * g + k.buzz * blit(this.ph, this.bM) * this.bK) / Math.hypot(1 - k.buzz, k.buzz);
+      g *= this.amp;
       this.ph += T / this.period;
       const av = this.at(IX.av, lt), ah = this.at(IX.ah, lt), af = this.at(IX.af, lt);
       const nse = this.noise.next();

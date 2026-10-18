@@ -780,7 +780,56 @@ final consonant sets, and keeps the last 20 runs in the browser's storage. The s
 House et al.'s list as two independent copies print it (the comment above `VL_MRT_SETS`
 has the sources), with one word in doubt: set 26 has "tame" where one copy has "lame".
 Some papers use a variant list with kith, putt, jig and the like swapped in; that isn't
-this list, so don't compare its scores with one.
+this list, so don't compare its scores with one. The **natural** select pins the voice's
+`natural` for a run; at "0 and 1, blind" every set plays at both, hidden like the back
+end, and each condition is scored on its own line.
+
+### Synthiness: `natural` and character
+
+Two axes on the voice object, beside `jitter`, `lilt`, `decl` and `oq`, so any named
+voice, saved voice or override can carry its own. Neither is rolled from the name, so
+adding them moved no narrator's voice. Both work on the graph and on the worklet.
+
+**`natural`** (0–1, default 1) is how human the voice is. 1 is the voice as it was. Every
+human variation scales toward none as it falls:
+
+- pitch: declination, lilt, boundary tones, the excited phrase peaks, the held and
+  drawn-out vowels' climbs, the terminal fall and creak. At 0 the pitch is the voice's F0
+  throughout. `steps: 1` rounds every pitch target to a semitone and steps between them.
+- jitter and shimmer: both jitter LFOs, the shimmer LFO, the drawn vowel's vibrato, and on
+  the worklet the per-cycle shimmer. At 0 every glottal period is the same pulse.
+- source effort: the delivery's open-quotient shift, the tilt that brightens with stress,
+  and on the worklet the open quotient's per-cycle dependence on effort and breath.
+- microprosody and intrinsic F0.
+- timing: stress lengthening, phrase-final lengthening, polysyllabic shortening and the
+  held nucleus, evened toward one syllable length (all in `segmentDuration`, so the
+  estimate agrees).
+- breath: the voice's breath and the breath before a big call.
+
+It doesn't touch a segmental cue: formant targets and their glides, undershoot (worked out
+from the vowel's natural-1 length, so evening the timing moves no target), bursts,
+frication, the nasal and lateral zeros, the closed tract, voicing, the aspiration of
+/p t k/ and /h/, pre-voiced lengthening and the long post-vocalic /r l/ all stay. That's
+the design: a machine voice should be as intelligible as a human one, so the MRT at
+natural 0 and at 1 should score about the same. Nobody has run that comparison yet.
+
+**Character** is the other axis, all off by default and none on the Read Aloud channel,
+for the same reason drive and growl aren't:
+
+- `buzz` (0–1) mixes an impulse train into the glottal pulse, the excitation an LPC
+  vocoder uses, matched to the pulse's level. The graph builds it into the PeriodicWave;
+  the worklet runs a band-limited impulse train per period.
+- `rmod` (0–1) ring-modulates the finished voice with a sine at `rmodHz` (default 30, the
+  Dalek setting), mixed with the dry voice. It's separate from `ring`, which is a 50 Hz
+  tremolo.
+- `crush` (0–1) runs the finished voice through SIREN's retro stage: 0.5 is 10 bits held
+  at 10 kHz, 1 is 4 bits at 4.2 kHz.
+
+`rmod` and `crush` are output-stage nodes, so they're the same for both back ends; `buzz`
+is built twice, once per source. The worklet gate checks the contract: natural 1 matches
+no setting track for track; at natural 0 the F0 track is one value, the jitter tracks are
+zero, every period is the same pulse, and /a i u/ formants, bursts and stop aspiration
+match natural 1.
 
 ### Rebuilding the dictionary
 

@@ -63,6 +63,14 @@ const VL_VOICE = [
   ['growlRatio', 'growl ratio',   0.25, 3.0,  0.005],
   ['growl2',     'growl2 index',  0,    0.30, 0.005],
   ['growl2Ratio','growl2 ratio',  0.25, 3.0,  0.005],
+  // Synthiness, two axes (see voiceFromName in audio-engine.js). `natural` takes the human
+  // variation out and keeps every consonant and vowel cue; the rest is character.
+  ['natural',    'natural',       0,    1,    0.01],
+  ['steps',      'semitone steps', 0,   1,    1   ],
+  ['buzz',       'buzz source',   0,    1,    0.01],
+  ['rmod',       'ring mod',      0,    1,    0.01],
+  ['rmodHz',     'ring mod Hz',   5,    400,  1   ],
+  ['crush',      'crush',         0,    1,    0.01],
 ];
 const VL_WAVES = ['growlWave', 'growl2Wave'];
 
@@ -174,7 +182,7 @@ function renderVoiceLabPanel(data) {
         <button class="action-btn" onclick="vlVoiceCopy()">Copy voice</button>
       </div>
       <pre id="vl-voice-dump" style="font-size:10px;color:var(--text-dim);margin:8px 0 0;white-space:pre-wrap"></pre>`,
-      `Overrides what the name rolled, for the next read. <b>Copy voice</b> prints only what you changed, in the shape a <code>NAMED_VOICES</code> entry takes.`)}
+      `Overrides what the name rolled, for the next read. <b>Copy voice</b> prints only what you changed, in the shape a <code>NAMED_VOICES</code> entry takes. <b>natural</b> is how human the voice is: 1 is the voice as it was, 0 a machine with a flat pitch, no jitter, even timing and no breath, and every consonant and vowel cue left where it was. <b>buzz</b>, <b>ring mod</b> and <b>crush</b> are character, on top of either; none of them reaches Read Aloud.`)}
 
     ${sect('Saved voices', `<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
         <select id="vl-saved" style="background:var(--bg3);color:var(--text);border:1px solid var(--border);border-radius:3px;padding:5px;min-width:200px"></select>
@@ -194,6 +202,13 @@ function renderVoiceLabPanel(data) {
           <option value="graph">graph only</option>
           <option value="worklet">worklet only</option>
         </select>
+        natural
+        <select id="vl-mrt-natural" style="background:var(--bg3);color:var(--text);border:1px solid var(--border);border-radius:3px;padding:4px">
+          <option value="">the voice's own</option>
+          <option value="1">pinned at 1</option>
+          <option value="0">pinned at 0</option>
+          <option value="0,1">0 and 1, blind</option>
+        </select>
         carrier
         <select id="vl-mrt-carrier" style="background:var(--bg3);color:var(--text);border:1px solid var(--border);border-radius:3px;padding:4px">
           ${VL_MRT_CARRIERS.map((c, i) => `<option value="${i}">${c.replace('#', '___')}</option>`).join('')}
@@ -206,7 +221,7 @@ function renderVoiceLabPanel(data) {
       <div id="vl-mrt-choices" style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:10px;max-width:420px"></div>
       <pre id="vl-mrt-result" style="font-size:11px;color:var(--text-bright);margin:10px 0 0;white-space:pre-wrap"></pre>
       <pre id="vl-mrt-history" style="font-size:10px;color:var(--text-dim);margin:6px 0 0;white-space:pre-wrap"></pre>`,
-      `House et al.'s 50 six-word sets, read by the voice above in a carrier phrase. Pick the word you heard (or press 1–6). The back end of each trial stays hidden till the run ends. The score is % correct, and corrected for guessing, (R − W/5) / N. Sets that differ in the first consonant are scored apart from those that differ in the last.`)}
+      `House et al.'s 50 six-word sets, read by the voice above in a carrier phrase. Pick the word you heard (or press 1–6). The back end of each trial stays hidden till the run ends. The score is % correct, and corrected for guessing, (R − W/5) / N. Sets that differ in the first consonant are scored apart from those that differ in the last. <b>natural</b> pins the voice's natural for the run; at <b>0 and 1</b> every set is played at both, hidden like the back end. The two should score about the same: natural takes out variation, not cues.`)}
 
     ${sect('Tuning (global)', `<div id="vl-tune-knobs" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:6px"></div>
       <div style="display:flex;gap:6px;margin-top:8px">
@@ -512,12 +527,14 @@ function vlMrtPosition(set) {
   }
   return s >= p ? 'initial' : 'final';
 }
-// Pure, so a gate can check it: per back end, R, W, % correct and % corrected for guessing.
+// A trial's condition: its back end, and the natural it was pinned at if it was.
+const vlMrtCond = (t) => t.backend + (t.natural != null ? ' n=' + t.natural : '');
+// Pure, so a gate can check it: per condition, R, W, % correct and % corrected for guessing.
 function vlMrtScore(trials) {
   const out = {};
   for (const t of trials) {
     if (t.pick == null) continue;
-    const by = (out[t.backend] ||= { n: 0, r: 0, initial: [0, 0], final: [0, 0], misses: [] });
+    const by = (out[vlMrtCond(t)] ||= { n: 0, r: 0, initial: [0, 0], final: [0, 0], misses: [] });
     const ok = t.pick === t.word;
     by.n++; if (ok) by.r++;
     const pos = by[t.position]; pos[1]++; if (ok) pos[0]++;
@@ -537,14 +554,18 @@ function vlMrtStart() {
   if (!engine) return;
   const mode = _vlEl('vl-mrt-mode')?.value || 'ab';
   const backends = mode === 'ab' ? ['graph', 'worklet'] : [mode];
+  const pin = _vlEl('vl-mrt-natural')?.value || '';
+  const naturals = pin ? pin.split(',').map(Number) : [null];
   const trials = [];
   VL_MRT_SETS.forEach((set, si) => {
     for (const backend of backends) {
-      trials.push({ set: si, backend, word: set[Math.floor(Math.random() * set.length)], position: vlMrtPosition(set), pick: null });
+      for (const natural of naturals) {
+        trials.push({ set: si, backend, natural, word: set[Math.floor(Math.random() * set.length)], position: vlMrtPosition(set), pick: null });
+      }
     }
   });
   for (let i = trials.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [trials[i], trials[j]] = [trials[j], trials[i]]; }
-  _vlMrt = { trials, i: 0, mode, carrier: VL_MRT_CARRIERS[+(_vlEl('vl-mrt-carrier')?.value || 0)],
+  _vlMrt = { trials, i: 0, mode, pin, carrier: VL_MRT_CARRIERS[+(_vlEl('vl-mrt-carrier')?.value || 0)],
     seed: _vlEl('vl-seed').value || 'broadcast', voice: Object.keys(_vlOverride).length ? { ..._vlOverride } : null };
   _vlEl('vl-mrt-result').textContent = '';
   const go = () => { vlMrtShow(); vlMrtPlay(); };
@@ -570,7 +591,8 @@ function vlMrtPlay() {
   if (!m || !engine || m.i >= m.trials.length) return;
   vlUnmute(engine);
   const t = m.trials[m.i];
-  const res = engine.speak(m.carrier.replace('#', t.word), { seed: m.seed, voice: m.voice, backend: t.backend });
+  const voice = t.natural != null ? { ...(m.voice || {}), natural: t.natural } : m.voice;
+  const res = engine.speak(m.carrier.replace('#', t.word), { seed: m.seed, voice, backend: t.backend });
   // A trial scores the back end that actually spoke it.
   if (res?.backend) t.backend = res.backend;
 }
@@ -595,13 +617,14 @@ function vlMrtStop() {
   if (!done.length) return;
   const score = vlMrtScore(done);
   const lines = Object.entries(score).map(([be, s]) =>
-    be.padEnd(8) + s.pct.toFixed(1).padStart(5) + '% correct  ' + s.corrected.toFixed(1).padStart(5) + '% corrected  (' + s.r + '/' + s.n + ')' +
+    be.padEnd(12) + s.pct.toFixed(1).padStart(5) + '% correct  ' + s.corrected.toFixed(1).padStart(5) + '% corrected  (' + s.r + '/' + s.n + ')' +
     '  initial ' + s.initial[0] + '/' + s.initial[1] + '  final ' + s.final[0] + '/' + s.final[1] +
-    (s.misses.length ? '\n         missed: ' + s.misses.join(', ') : ''));
-  _vlEl('vl-mrt-result').textContent = 'seed ' + m.seed + ', carrier "' + m.carrier + '"\n' + lines.join('\n');
+    (s.misses.length ? '\n             missed: ' + s.misses.join(', ') : ''));
+  _vlEl('vl-mrt-result').textContent = 'seed ' + m.seed + ', carrier "' + m.carrier + '"' +
+    (m.pin ? ', natural ' + m.pin.replace(',', ' and ') : '') + '\n' + lines.join('\n');
   try {
     const hist = JSON.parse(localStorage.getItem('vl.mrt') || '[]');
-    hist.unshift({ at: new Date().toISOString(), seed: m.seed, carrier: m.carrier, voice: m.voice,
+    hist.unshift({ at: new Date().toISOString(), seed: m.seed, carrier: m.carrier, voice: m.voice, natural: m.pin || null,
       score: Object.fromEntries(Object.entries(score).map(([be, s]) => [be, { n: s.n, r: s.r, pct: +s.pct.toFixed(1),
         corrected: +s.corrected.toFixed(1), initial: s.initial, final: s.final, misses: s.misses }])) });
     localStorage.setItem('vl.mrt', JSON.stringify(hist.slice(0, 20)));

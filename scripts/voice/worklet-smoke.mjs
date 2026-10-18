@@ -19,6 +19,11 @@
 //   - a rendered line is finite, not silent, and never blows up
 //   - vowel formants come out where the tracks put them
 //   - cancel() stops a worklet line
+//   - natural 1 is the voice as it was; natural 0 holds F0 at one value, zeroes the jitter
+//     tracks and draws the same pulse every period, and leaves the formants of /a i u/,
+//     the bursts and the stop aspiration where natural 1 has them
+//   - buzz stays finite and level-matched; crush builds the retro stage; Read Aloud gets
+//     no character
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -97,11 +102,11 @@ check('the module loads', await A.loadVoiceWorklet() === true);
 A.cancelSpeech();
 
 // One worklet line: what it posted, and the processor run over it.
-function render(text) {
+function render(text, extra = {}) {
   made.length = 0;
   const trace = [];
-  const res = A.speak(text, { seed: 'Dex Rime', backend: 'worklet', trace });
-  const wn = made[made.length - 1];
+  const res = A.speak(text, { seed: 'Dex Rime', backend: 'worklet', trace, ...extra });
+  const wn = made.filter(m => m.name === 'oracle-voice').pop();
   const line = wn?.posted.find(m => m.type === 'line');
   if (!line) return { res, wn };
   const p = new Proc({ processorOptions: wn.opts.processorOptions });
@@ -191,6 +196,102 @@ function peaks(out, t, f0) {
         `peaks ${pk.map(([f, a]) => Math.round(f) + ':' + Math.round(a)).join(' ')}`);
     }
   }
+}
+
+// ── Synthiness: the `natural` axis ─────────────────────────────────────────────
+// natural 0 takes the human variation out and leaves every segmental cue. So the pitch
+// track is one value, the jitter tracks are zero, every glottal period is the same pulse,
+// and the formant tracks of a vowel are where natural 1 puts them.
+const trackOf = (line, name) => {
+  const k = TRACK.indexOf(name), out = [];
+  for (let f = 0; f < line.frames; f++) out.push(line.tracks[f * TRACK.length + k]);
+  return out;
+};
+const absMax = (a) => { let m = 0; for (const v of a) m = Math.max(m, Math.abs(v)); return m; };
+// Every period the processor draws, as [amp, te, period].
+function cycles(text, extra) {
+  const orig = Proc.prototype.cycle, seen = [];
+  Proc.prototype.cycle = function (lt) { orig.call(this, lt); seen.push([this.amp, this.lf.te, this.period]); };
+  try { return { ...render(text, extra), seen }; } finally { Proc.prototype.cycle = orig; }
+}
+{
+  // Default and natural 1 are the same line, track for track.
+  const a = render('Is the door closed? It is GONE.');
+  const b = render('Is the door closed? It is GONE.', { voice: { natural: 1 } });
+  check('natural 1 is the voice as it was (tracks identical to no setting)',
+    a.line && b.line && a.line.tracks.length === b.line.tracks.length && a.line.tracks.every((v, i) => v === b.line.tracks[i]));
+  const lines = [['Is the door closed? It is GONE.', {}], ['He shoots, he SCOOOOOORES!!!', { excite: 1 }], ["He's not moving. The building goes quiet.", { excite: -0.8 }]];
+  for (const [text, opt] of lines) {
+    const r = cycles(text, { ...opt, voice: { natural: 0 } });
+    if (!r.line) { check(`natural 0 renders "${text}"`, false); continue; }
+    const f0 = trackOf(r.line, 'f0');
+    const lo = Math.min(...f0), hi = Math.max(...f0);
+    check(`natural 0: F0 is one value through "${text}"`, hi - lo < 1e-3, `F0 ${lo.toFixed(2)}..${hi.toFixed(2)} Hz`);
+    const jit = [...trackOf(r.line, 'jitA'), ...trackOf(r.line, 'jitB')];
+    check(`natural 0: the jitter tracks are zero through "${text}"`, jit.every(v => v === 0), `max ${absMax(jit)}`);
+    const amps = new Set(r.seen.map(c => c[0])), shapes = new Set(r.seen.map(c => c[1].toFixed(9) + '/' + c[2].toFixed(9)));
+    check(`natural 0: every period is the same pulse in "${text}"`, amps.size === 1 && amps.has(1) && shapes.size === 1,
+      `${amps.size} amplitudes, ${shapes.size} shapes over ${r.seen.length} periods`);
+    check(`natural 0 renders "${text}" finite and audible`, r.out.every(Number.isFinite) && absMax(r.out) > 0.01);
+  }
+  // The other half of the contract: the vowels' formant tracks don't move. Each vowel is a
+  // line of its own, so both settings glide in from the same state at the same moment:
+  // in one line, natural 0's evened timing would move the vowels and the glides with them.
+  for (const [ph, word] of [['AA', 'Ah.'], ['IY', 'Ee.'], ['UW', 'Oo.']]) {
+    const n1 = render(word), n0 = render(word, { voice: { natural: 0 } });
+    const v1 = n1.trace.find(x => x.p === ph), v0 = n0.trace.find(x => x.p === ph);
+    if (!v1 || !v0) { check(`${ph} is in both lines`, false); continue; }
+    for (const k of ['f1', 'f2', 'f3', 'q1', 'q2', 'q3']) {
+      const a1 = col(n1.line, k, v1.at + 0.06), a0 = col(n0.line, k, v0.at + 0.06);
+      check(`natural 0 leaves ${ph} ${k} where natural 1 has it`, Math.abs(a1 - a0) / a1 < 0.005, `${a1.toFixed(1)} vs ${a0.toFixed(1)}`);
+    }
+  }
+  // Stops keep their bursts and aspiration: the frication and aspiration peaks of "a pot"
+  // are the same height at both settings (natural moves breath, never a voicing cue). The
+  // tracks are 5 ms frames and a burst lasts 20, so a peak reads a little differently as
+  // the timing moves it against the frames; 2% allows that and nothing more.
+  const p1 = render('A pot. A bed.'), p0 = render('A pot. A bed.', { voice: { natural: 0 } });
+  const peak = (r, name) => absMax(trackOf(r.line, name));
+  const near = (a, b) => Math.abs(a - b) / Math.max(1e-9, a) < 0.02;
+  check('natural 0 keeps the bursts', near(peak(p1, 'af'), peak(p0, 'af')), `${peak(p1, 'af')} vs ${peak(p0, 'af')}`);
+  check('natural 0 keeps the aspiration after /p t/', near(peak(p1, 'ah'), peak(p0, 'ah')), `${peak(p1, 'ah')} vs ${peak(p0, 'ah')}`);
+  // And the timing evens out: stressed and unstressed vowels move toward one length.
+  const spread = (r) => {
+    const v = [];
+    for (let i = 0; i + 1 < r.trace.length; i++) if (['AX', 'IY', 'EH', 'AA', 'IH', 'UW'].includes(r.trace[i].p)) v.push(r.trace[i + 1].at - r.trace[i].at);
+    return Math.max(...v) / Math.min(...v);
+  };
+  const s1 = spread(render('The architecture of a television.')), s0 = spread(render('The architecture of a television.', { voice: { natural: 0 } }));
+  check('natural 0 evens vowel lengths out', s0 < s1, `longest/shortest ${s1.toFixed(2)} at 1, ${s0.toFixed(2)} at 0`);
+}
+
+// ── Synthiness: the character axis ─────────────────────────────────────────────
+{
+  // Buzz swaps the source for an impulse train: still finite, bounded and about as loud.
+  const rms = (o) => Math.sqrt(o.reduce((s, v) => s + v * v, 0) / o.length);
+  const plain = render('Please select the word bean.'), buzz = render('Please select the word bean.', { voice: { buzz: 1 } });
+  const db = 20 * Math.log10(rms(buzz.out) / rms(plain.out));
+  check('buzz 1 is finite and never blows up', buzz.out.every(Number.isFinite) && absMax(buzz.out) < 1.5);
+  check('buzz 1 is within 6 dB of the pulse', Math.abs(db) < 6, `${db.toFixed(1)} dB`);
+  check('buzz 1 changes the sound', buzz.out.some((v, i) => Math.abs(v - plain.out[i]) > 1e-3));
+  check('buzz 0 posts no buzz', !(plain.line.k.buzz > 0) && buzz.line.k.buzz === 1);
+  // Crush builds SIREN's retro stage on the voice; ring modulation builds its carrier;
+  // the accessibility channel gets neither.
+  A._setRetroUrl('audio-retro-worklet.js');
+  check('the retro stage loads', await A.loadRetro(A.engineNodes().ctx) === true);
+  made.length = 0;
+  A.speak('Bean.', { seed: 'smoke', voice: { crush: 0.5, rmod: 0.5 } });
+  const retro = made.find(m => m.name === 'siren-retro');
+  const ro = retro?.opts?.processorOptions || {};
+  check('crush puts the voice through the retro stage', !!retro && ro.bits === 10 && ro.rate > 9000 && ro.rate < 11000, JSON.stringify(ro));
+  check("the retro stage outlives the line's start", ro.until > 1);
+  made.length = 0;
+  A.speak('Bean.', { seed: 'smoke', voice: { crush: 0.5 } });
+  check('crush with no ring modulation still builds', made.some(m => m.name === 'siren-retro'));
+  made.length = 0;
+  A.speak('Bean.', { seed: 'smoke', channel: 'ui', voice: { crush: 1, rmod: 1, buzz: 1 } });
+  check('Read Aloud gets no character', !made.some(m => m.name === 'siren-retro'));
+  A.cancelSpeech();
 }
 
 if (fails) { console.error(`x worklet smoke: ${fails} failed`); process.exit(1); }
