@@ -25,7 +25,7 @@
  * (audio-engine.js holds the same list). Values are linearly interpolated between frames.
  */
 const TRACK = ['f0', 'jitA', 'jitB', 'av', 'ah', 'af', 'f1', 'f2', 'f3', 'f4', 'q1', 'q2', 'q3', 'q4',
-  'nf', 'nq', 'nzf', 'nzdb', 'tilt', 'closure'];
+  'nf', 'nq', 'nzf', 'nzdb', 'tilt', 'closure', 'rd', 'creak'];
 const NP = TRACK.length;
 const IX = Object.fromEntries(TRACK.map((k, i) => [k, i]));
 const TAU = Math.PI * 2;
@@ -102,6 +102,16 @@ function lfAt(p, x) {
   return -(1 / (p.eps * p.ta)) * (Math.exp(-p.eps * (x - p.te)) - p.eD);
 }
 
+// Fant (1995): the LF timing from Rd, one voice-quality number (0.3 pressed, 1 modal,
+// 2.7 breathy), as fractions of a period: te the closure, tp the flow peak, ra the return
+// phase. ⚠ The same relations are lfFromRd in audio-engine.js.
+function lfFromRd(rd) {
+  const ra = (-1 + 4.8 * rd) / 100, rk = (22.4 + 11.8 * rd) / 100;
+  const rg = rk / (4 * (0.11 * rd / (0.5 + 1.2 * rk) - ra));
+  const tp = 1 / (2 * rg);
+  return { te: tp * (1 + rk), tp, ra };
+}
+
 // A band-limited impulse train (BLIT) at phase x of a period, M harmonics, its DC taken
 // out: sum over k = 1..M of 2 cos(2 pi k x), over 2M + 1, in closed form.
 function blit(x, M) {
@@ -173,6 +183,7 @@ class OracleVoice extends AudioWorkletProcessor {
         }
         this.tracks = d.tracks; this.frames = d.frames; this.frame = d.frame; this.t0 = d.t0;
         this.k = d.k || {};
+        this.k.ra0 = lfFromRd(Math.max(0.3, Math.min(2.7, +this.k.rd0 || 1))).ra;
         this.emph = Math.max(0, Math.min(0.97, +this.k.emph || 0));
         const w = TAU * 500 / sampleRate;
         this.emphNorm = 1 / Math.hypot(1 - this.emph * Math.cos(w), this.emph * Math.sin(w));
@@ -206,6 +217,14 @@ class OracleVoice extends AudioWorkletProcessor {
     // the line has asked for at this moment, so a creak's end gets rougher on its own.
     const jf = Math.min(0.25, (Math.abs(jA) + Math.abs(jB)) / Math.max(30, f0));
     f0 *= 1 + this.rand.white() * jf * k.cycJitter;
+    // CREAK. The engine asks for it over the last syllable of a statement (`creak`, already
+    // scaled by `natural`); it comes only as far as F0 has really dropped below the voice's
+    // own, since fry is what a voice does when it runs out of pitch. Periods go irregular,
+    // and alternate long and short, strong and weak: diplophonia, pairs of cycles.
+    const low = Math.max(0, Math.min(1, (k.f0 - f0) / (0.25 * k.f0)));
+    const cr = Math.max(0, Math.min(1, this.at(IX.creak, lt))) * low;
+    const odd = (this.cyc & 1) === 1;
+    if (cr > 0) f0 *= (1 + this.rand.white() * k.creakJit * cr) * (odd ? 1 - k.creakAlt * cr : 1 + k.creakAlt * cr);
     f0 = Math.max(40, Math.min(900, f0));
     this.period = 1 / f0;
     // PER-CYCLE SHIMMER: amplitude drawn per period, larger as jitter grows. The engine
@@ -213,17 +232,23 @@ class OracleVoice extends AudioWorkletProcessor {
     // and the effort below scale here, so at natural 0 every period is the same pulse.
     const nat = k.natural ?? 1;
     this.amp = 1 + this.rand.white() * (k.shimmer * nat + jf * 2);
-    // OPEN QUOTIENT per cycle. A louder voice closes harder (lower OQ, pressed); breath
-    // holds the folds apart (higher OQ). The line's base is the voice's own oq.
-    const av = this.at(IX.av, lt), ah = this.at(IX.ah, lt);
-    let oq = k.oq + (-k.oqEffort * (av - 0.8) + k.oqBreath * ah + this.rand.white() * 0.01) * nat;
-    oq = Math.max(0.35, Math.min(0.9, oq));
+    if (cr > 0 && odd) this.amp *= 1 - k.creakDip * cr;
+    // VOICE QUALITY per cycle, as Rd (see `tense` in the engine): the syllable's tension
+    // from the track, laxer with breath (it holds the folds apart), pressed by creak, and
+    // a little unsteady. Rd sets the open quotient and where the flow peaks.
+    const ah = this.at(IX.ah, lt);
+    let rd = this.at(IX.rd, lt) * (1 + (k.rdBreath * ah + this.rand.white() * 0.02) * nat) * (1 - k.creakPress * cr);
+    rd = Math.max(0.3, Math.min(2.7, rd));
+    const L = lfFromRd(rd);
     // RETURN PHASE = spectral tilt. The graph's tilt lowpass corner becomes Ta = 1/(2 pi Fa),
-    // as a fraction of this period, never shorter than a sample.
-    const tilt = this.at(IX.tilt, lt) * k.tiltK;
-    const ta = Math.min(0.2, Math.max(this.T, 1 / (TAU * Math.max(300, tilt))) * f0);
-    const te = Math.min(oq, 0.97 - ta);
-    this.lf = lfSolve(te, te * k.rk, Math.max(ta, 1e-4));
+    // as a fraction of this period, never shorter than a sample; that is the brightness
+    // the cascade was levelled against. Rd moves it from there by Fant's own Ra, relative
+    // to the voice's base: pressed is a sharper closure and brighter, lax a softer one.
+    const tilt = this.at(IX.tilt, lt);
+    const ta0 = Math.max(this.T, 1 / (TAU * Math.max(300, tilt))) * f0;
+    const ta = Math.min(0.2, ta0 * L.ra / k.ra0);
+    const te = Math.max(0.3, Math.min(L.te, 0.97 - ta));
+    this.lf = lfSolve(te, te * L.tp / L.te, Math.max(ta, 1e-4));
     // BUZZ: the impulse train this period, to the graph's 48 harmonics (or Nyquist),
     // matched to this pulse's RMS so the mix changes the tone and not the level.
     if (k.buzz > 0) {
@@ -253,10 +278,15 @@ class OracleVoice extends AudioWorkletProcessor {
       // 5 ms tracks, and an eighth of the trig.
       if ((i & 15) === 0) {
         const fs = k.fshift;
+        // PITCH-SYNCHRONOUS F1 BANDWIDTH. With the glottis open the tract is coupled to the
+        // lungs below it and loses energy there, so F1 is damped wider in the open phase and
+        // rings narrow in the closed one. (The bank is updated every 16 samples, which is
+        // finer than any open phase a voice has.)
+        const opened = this.lf && this.ph < this.lf.te ? 1 + k.f1Open * (k.natural ?? 1) : 1;
         for (let n = 0; n < 4; n++) {
           const f = Math.max(60, Math.min(sampleRate * 0.45, this.at(IX.f1 + n, lt)));
           const q = Math.max(0.5, this.at(IX.q1 + n, lt));
-          R[n].set(f, Math.max(30, f / q) * k.bwK, T);
+          R[n].set(f, Math.max(30, f / q) * k.bwK * (n === 0 ? opened : 1), T);
         }
         R[4].set(4800 * fs, 400, T);
         const nzf = Math.max(200, this.at(IX.nzf, lt));
@@ -283,8 +313,11 @@ class OracleVoice extends AudioWorkletProcessor {
       const av = this.at(IX.av, lt), ah = this.at(IX.ah, lt), af = this.at(IX.af, lt);
       const nse = this.noise.next();
       // Aspiration goes INTO the tract, as the graph's aspG does; Klatt modulates it by
-      // the glottal opening so breathy voice is noise pulsed at F0, not beside it.
-      const open = this.ph < this.lf.te ? 1 : 0.5;
+      // the glottal opening so breathy voice is noise pulsed at F0, not beside it. Loud
+      // in the open phase and down by aspPulse in the closed one, divided by the pulse's
+      // own RMS so the depth moves the texture and not the level. `natural` 0 is steady.
+      const dp = Math.min(1, k.aspPulse * (k.natural ?? 1)), te = this.lf.te;
+      const open = (this.ph < te ? 1 : 1 - dp) / Math.sqrt(te + (1 - te) * (1 - dp) * (1 - dp));
       let x = g * av * k.srcK + nse * ah * k.aspK * (av > 0.05 ? open : 1);
       // Pre-emphasis (see `emph` in the engine's WK): one zero, unity at 500 Hz.
       const xe = (x - this.emph * this.px) * this.emphNorm;

@@ -4006,7 +4006,7 @@ return out;
     // Only the dev panel's Voice Lab asks for it. Until the module has loaded in the live
     // context a worklet line falls back to the graph, and speak() says which one it used.
     const WK_TRACK = ['f0', 'jitA', 'jitB', 'av', 'ah', 'af', 'f1', 'f2', 'f3', 'f4', 'q1', 'q2', 'q3', 'q4',
-      'nf', 'nq', 'nzf', 'nzdb', 'tilt', 'closure'];   // ⚠ the same list, in the same order, as TRACK in oracle-worklet.js
+      'nf', 'nq', 'nzf', 'nzdb', 'tilt', 'closure', 'rd', 'creak'];   // ⚠ the same list, in the same order, as TRACK in oracle-worklet.js
     const WK = {
       frame: 0.005,     // track resolution, s
       cascK: 0.10,      // the cascade's level against the frication branch (a cascade peaks
@@ -4019,12 +4019,33 @@ return out;
                         // the cascade is Klatt's theory exactly and 6-11 dB darker at F3 than
                         // Peterson & Barney's vowels (this voice's oq of 0.78 is a soft source);
                         // at 0.88 /a i u/ land within 2-3 dB of their F2 and F3 levels
-      rk: 0.72,         // tp / te: where the flow peaks within the open phase
-      oqEffort: 0.12,   // open quotient falls this much per unit of voicing over 0.8
-      oqBreath: 1.0,    // and rises this much per unit of aspiration
       cycJitter: 0.5,   // per-cycle random jitter, as a share of the LFO jitter depth
       shimmer: 0.02,    // per-cycle amplitude spread
+      // The source as it speaks (each scaled by the voice's `natural`, so 0 is none of it):
+      rdBreath: 6,      // Rd rises by this share per unit of aspiration (breath holds the folds apart)
+      aspPulse: 0.8,    // how far aspiration drops in the closed phase (0 steady, 1 silent)
+      f1Open: 0.5,      // F1's bandwidth widens by this share while the glottis is open (0.8 smeared
+                        // /iy/'s low F1 into its neighbours at a 90 Hz F0; 0.6 still resolved it)
+      creakJit: 0.2,    // creak: random spread of period length
+      creakDip: 0.6,    // creak: every other period this much weaker (diplophonia)
+      creakAlt: 0.08,   // creak: and alternately this much longer and shorter
+      creakPress: 0.4,  // creak presses the folds: Rd falls by this share
     };
+    // Fant (1995): the LF timing from Rd, as fractions of a period. ⚠ The same relations
+    // are in oracle-worklet.js (lfFromRd); the engine needs them only to find a voice's
+    // base Rd from its open quotient.
+    function lfFromRd(rd) {
+      const ra = (-1 + 4.8 * rd) / 100, rk = (22.4 + 11.8 * rd) / 100;
+      const rg = rk / (4 * (0.11 * rd / (0.5 + 1.2 * rk) - ra));
+      const tp = 1 / (2 * rg);
+      return { te: tp * (1 + rk), tp, ra };
+    }
+    // The Rd whose te is `oq` (te rises with Rd across 0.3-2.7, so bisection finds it).
+    function rdFromTe(oq) {
+      let lo = 0.3, hi = 2.7;
+      for (let i = 0; i < 30; i++) { const m = (lo + hi) / 2; if (lfFromRd(m).te < oq) lo = m; else hi = m; }
+      return (lo + hi) / 2;
+    }
     let _wkUrl = _SELF_SRC ? new URL('oracle-worklet.js', _SELF_SRC).href : '';
     const _wkState = new WeakMap();   // context -> true | false | Promise
     function loadOracleWorklet(c) {
@@ -4171,6 +4192,14 @@ return out;
       const S = wk ? REC : c;
       // (the worklet's closed-tract crossfade; the graph does the same with the bank's gains)
       const closure = wk ? new RecParam(0) : null;
+      // VOICE QUALITY, the worklet's alone (the graph has one PeriodicWave a line and can't
+      // change its pulse as it speaks). `tense` is Rd, Fant's single voice-quality number:
+      // 0.3 pressed and bright, 1 modal, 2.7 lax and breathy. Set per syllable below, from
+      // stress, place in the phrase, pitch and delivery. `creakP` asks for creak at the
+      // end of a statement; the worklet makes it only where F0 has actually dropped.
+      const rd0 = rdFromTe(Math.max(0.4, Math.min(0.85, V.oq + D.oq * nat)));
+      const tense = wk ? new RecParam(rd0) : null;
+      const creakP = wk ? new RecParam(0) : null;
 
       const master = c.createGain(); master.gain.value = 0.9 * (ui ? 1 : Math.max(0, Math.min(1, opt.gain ?? 1)));
       const ringGain = c.createGain(); ringGain.gain.value = 1 - ringAmt;
@@ -4687,7 +4716,9 @@ return out;
         // source spectrum tilts up. Moving the tilt filter with stress is what
         // makes an accent read as effort rather than as a volume knob.
         // (natural 0 holds the source at one effort: the plain tilt, at no delivery)
-        const tf = stressed === 2 ? TUNING.tiltEmph : stressed ? TUNING.tiltStress : TUNING.tiltPlain;
+        // On the worklet, stress presses the folds through Rd (`tense`) instead, so the tilt
+        // stays plain there and the effort isn't counted twice.
+        const tf = wk ? TUNING.tiltPlain : stressed === 2 ? TUNING.tiltEmph : stressed ? TUNING.tiltStress : TUNING.tiltPlain;
         tilt.frequency.setTargetAtTime((nat === 1 ? tf : TUNING.tiltPlain + (tf - TUNING.tiltPlain) * nat) * mix(D.bright), when, 0.04);
         return f;
       };
@@ -4844,7 +4875,29 @@ return out;
           if (p.t === 'V') {
             const nuc = pendingNuc; pendingNuc = null;
             // (a held or drawn nucleus has its own shape below, so it skips the fall)
-            const fv = pitchAt(t, (t - phraseT0) / (phraseDur[phraseIx] || totalDur), stressed, f[0], nxtCode, nuc, held || drawn ? 0 : dur);
+            const frac = (t - phraseT0) / (phraseDur[phraseIx] || totalDur);
+            const fv = pitchAt(t, frac, stressed, f[0], nxtCode, nuc, held || drawn ? 0 : dur);
+            // TENSION, per syllable (the worklet only). Accented syllables press the folds,
+            // the nucleus and emphasis most; the voice relaxes toward breathy as the phrase
+            // runs out (a minor break gives some of it back, as it does the declination);
+            // a higher pitch opens it a little; a shout stays pressed the whole way. As a
+            // factor on the voice's own Rd, raised to `natural`, so 0 is one tension.
+            if (tense) {
+              let m = stressed === 2 ? 0.7 : nuc || held ? 0.78 : stressed ? 0.86 : 1.08;
+              const pos = Math.max(0, Math.min(1, frac - declOff));
+              m *= 1 + 0.55 * pos * pos;
+              m *= (fv / F0) ** 0.35;
+              if (shoutLine) m = Math.min(m, 0.6);
+              tense.setTargetAtTime(rd0 * m ** nat, t, 0.03);
+              // CREAK at the end of a statement: asked for over the back of its last vowel.
+              let j = i + 1, lastV = true;
+              for (; j < phon.length && !isTerm(phon[j]); j++) if (VOWELS.has(phon[j])) { lastV = false; break; }
+              const ender = lastV ? phon[j] : null;
+              if (lastV && (ender ? ender !== '_Q' : !rise)) {
+                const cr = TUNING.creak * D.creak * nat;
+                if (cr > 0) creakP.setTargetAtTime(Math.min(1, cr), t + dur * 0.4, 0.04);
+              }
+            }
             // The held nucleus climbs through the vowel to its peak and only eases at the end:
             // the shape of "SCOOORES", where a plain accent is a step.
             if (held && D.e > 0.3 && !drawn) {
@@ -5018,6 +5071,7 @@ return out;
         } else if (p.t==='P') {
           // A terminal pause ends the phrase: the next one starts from the top of the
           // speaker's range again, which is what re-pitching after a full stop is.
+          if (creakP) creakP.setTargetAtTime(0, t, 0.02);   // creak ends with the syllable it was on
           if (isTerm(code)) { phraseIx++; phraseT0 = t + dur/speed; declOff = 0; }
           // A MINOR BREAK RE-PITCHES PART WAY. The speaker takes a little breath, not a
           // new sentence: half of the declination so far is given back, where a full
@@ -5065,6 +5119,7 @@ return out;
       const end = t + 0.08;
       if (trace) trace.push({ p: 'END', at: t - t0 });
       voiced.gain.setTargetAtTime(0, end, 0.02);
+      if (creakP) creakP.setTargetAtTime(0, end + 0.05, 0.02);
       // The last thing a line leaves behind. The voice is allowed to fade; the noise
       // is not, because with no voice under it the fade is a whisper of its own.
       noiseG.gain.setTargetAtTime(0, end, 0.02 * TUNING.finalTaper ** 2);
@@ -5122,6 +5177,7 @@ return out;
           f1: forms[0].frequency, f2: forms[1].frequency, f3: forms[2].frequency, f4: forms[3].frequency,
           q1: forms[0].Q, q2: forms[1].Q, q3: forms[2].Q, q4: forms[3].Q,
           nf: nbp.frequency, nq: nbp.Q, nzf: nzero.frequency, nzdb: nzero.gain, tilt: tilt.frequency, closure,
+          rd: tense, creak: creakP,
         };
         WK_TRACK.forEach((key, col) => P[key].sample(t0, frames, WK.frame, tracks, col, NP));
         const node = new global.AudioWorkletNode(c, 'oracle-voice', { numberOfInputs: 0, numberOfOutputs: 1,
@@ -5132,7 +5188,7 @@ return out;
           else if (e.data?.type === 'done' && lineStats) Object.assign(lineStats, e.data);
         };
         node.port.postMessage({ type: 'line', names: WK_TRACK, frames, frame: WK.frame, t0, tracks, k: {
-          ...WK, f0: F0, fshift, oq: Math.max(0.4, Math.min(0.85, V.oq + D.oq * nat)), natural: nat, buzz: buzzAmt,
+          ...WK, f0: F0, fshift, oq: Math.max(0.4, Math.min(0.85, V.oq + D.oq * nat)), natural: nat, buzz: buzzAmt, rd0,
           growl: growlAmt, growlRatio: V.growlRatio ?? 0.5, growl2: growlAmt > 0 ? (V.growl2 || 0) : 0, growl2Ratio: V.growl2Ratio ?? 1.5,
           lpA: 1 - Math.exp(-2 * Math.PI * 9000 / c.sampleRate),
         } }, [tracks.buffer]);

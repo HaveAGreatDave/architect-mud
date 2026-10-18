@@ -821,7 +821,8 @@ human variation scales toward none as it falls:
 - jitter and shimmer: both jitter LFOs, the shimmer LFO, the drawn vowel's vibrato, and on
   the worklet the per-cycle shimmer. At 0 every glottal period is the same pulse.
 - source effort: the delivery's open-quotient shift, the tilt that brightens with stress,
-  and on the worklet the open quotient's per-cycle dependence on effort and breath.
+  and on the worklet the whole of the source as it speaks (below): tension, breath
+  pulsing, the open-phase F1 bandwidth and creak.
 - microprosody and intrinsic F0.
 - timing: stress lengthening, phrase-final lengthening, polysyllabic shortening and the
   held nucleus, evened toward one syllable length (all in `segmentDuration`, so the
@@ -852,6 +853,45 @@ is built twice, once per source. The worklet gate checks the contract: natural 1
 no setting track for track; at natural 0 the F0 track is one value, the jitter tracks are
 zero, every period is the same pulse, and /a i u/ formants, bursts and stop aspiration
 match natural 1.
+
+### The source as it speaks (worklet only)
+
+A real voice changes its source syllable by syllable: it presses on an accent, relaxes
+and goes breathy as a phrase runs out, and drops into creak at the end of a statement.
+The worklet does four things toward that. **The node graph can't, and stays as it was**:
+its source is one PeriodicWave built when the line starts, so its pulse shape is fixed for
+the whole line (its stress still moves the tilt filter, as before).
+
+- **Tension.** `speak()` sets an `rd` track per vowel: Rd, Fant's single voice-quality
+  number (0.3 pressed and bright, 1 modal, 2.7 lax and breathy). It starts from the voice's
+  own `oq` (the Rd whose closure falls there) and is multiplied per syllable: emphasis 0.7,
+  the nucleus 0.78, a stressed syllable 0.86, an unstressed one 1.08; up to 1.55 times laxer
+  toward the end of a phrase (a minor break gives back some of that, as it does the
+  declination); higher pitch opens it slightly ((F0 ratio)^0.35); a shouted line is held
+  pressed throughout. The worklet adds breath (`rdBreath`) and a little unsteadiness, then
+  takes te and tp from Rd by Fant's 1995 relations. The return phase stays where the tilt
+  track puts it, which is the brightness the cascade's level and `emph` were set against,
+  and Rd moves it from there by Fant's Ra relative to the voice's base. On the worklet the
+  stress no longer moves the tilt, so effort isn't counted twice.
+- **Breath pulsing.** Aspiration under voicing is loud in the open phase and down by
+  `aspPulse` (0.8) in the closed phase, normalised so the depth changes the texture and not
+  the level.
+- **Open-phase F1 bandwidth.** F1 widens by `f1Open` (0.5) while the glottis is open, as the
+  tract loses energy to the lungs. 0.8 smeared the low F1 of /iy/ at a 90 Hz F0 into its
+  neighbouring harmonics, which the gate caught.
+- **Creak.** The engine asks for creak (a `creak` track, the old line-end `creak` tuning
+  times the delivery's) over the back of a statement's last vowel, never a question's.
+  The worklet makes it only as far as F0 has really dropped below the voice's own: periods
+  go irregular (`creakJit`), alternate longer and shorter (`creakAlt`) and strong and weak
+  (`creakDip`, diplophonia), and the folds press (`creakPress`).
+
+All four scale with `natural`: at 0 the tension is one value, aspiration is steady, F1
+doesn't widen and there's no creak. None of them touches a formant target, a burst or a
+voicing cue. The gate checks the tension track moves across a stressed line at natural 1
+and is flat at 0, that an emphasised syllable is pressed harder than an unstressed one,
+that a statement creaks at its end with strong and weak periods and a question doesn't,
+that the creaky line stays finite, and that /a i u/ still come out on their tracks.
+Nobody has listened to any of this yet.
 
 ### Rebuilding the dictionary
 

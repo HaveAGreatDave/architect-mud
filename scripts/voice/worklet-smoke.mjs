@@ -265,6 +265,48 @@ function cycles(text, extra) {
   check('natural 0 evens vowel lengths out', s0 < s1, `longest/shortest ${s1.toFixed(2)} at 1, ${s0.toFixed(2)} at 0`);
 }
 
+// ── The source as it speaks: tension (Rd) and creak ───────────────────────────
+// The worklet's alone. Tension is set per syllable from stress, place in the phrase, pitch
+// and delivery, so across a stressed line it moves; at natural 0 it is one value. Creak
+// comes at the end of a statement where F0 has dropped, as periods alternating strong and
+// weak; at natural 0 there is none.
+{
+  const text = 'The BIG one is over there, by the old fire station. It is gone.';
+  const voicedRd = (r) => {
+    const rd = trackOf(r.line, 'rd'), av = trackOf(r.line, 'av');
+    return rd.filter((v, i) => av[i] > 0.3);
+  };
+  check("the engine's track list has a tension track", TRACK.includes('rd') && TRACK.includes('creak'));
+  const n1 = cycles(text), n0 = cycles(text, { voice: { natural: 0 } });
+  const v1 = voicedRd(n1), v0 = voicedRd(n0);
+  const hi1 = Math.max(...v1), lo1 = Math.min(...v1);
+  check('tension varies across a stressed line at natural 1', v1.length > 20 && hi1 / lo1 > 1.3, `Rd ${lo1.toFixed(2)}..${hi1.toFixed(2)}`);
+  check('tension is one value at natural 0', v0.length > 20 && Math.max(...v0) - Math.min(...v0) < 1e-9,
+    `Rd ${Math.min(...v0).toFixed(3)}..${Math.max(...v0).toFixed(3)}`);
+  // an emphasised syllable is more pressed (lower Rd) than the unstressed one before it
+  const big = n1.trace.find(x => x.p === 'IH' && x.acc === 2), the = n1.trace.find(x => x.p === 'AX');
+  if (big && the) {
+    const a = col(n1.line, 'rd', big.at + 0.04), b = col(n1.line, 'rd', the.at + 0.03);
+    check('an emphasised syllable is pressed harder than an unstressed one', a < b, `Rd ${a.toFixed(2)} on BIG, ${b.toFixed(2)} on the`);
+  } else check('the line has its emphasised and unstressed vowels', false, n1.trace.map(x => x.p + (x.acc || '')).join(' '));
+  const cr1 = absMax(trackOf(n1.line, 'creak')), cr0 = absMax(trackOf(n0.line, 'creak'));
+  check('a statement asks for creak at its end at natural 1', cr1 > 0.2, `creak ${cr1.toFixed(2)}`);
+  check('and not at natural 0', cr0 === 0, `creak ${cr0}`);
+  // Diplophonia: in the line's last 0.4 s, some pairs of periods differ in strength by a
+  // third or more, which jitter and shimmer alone never do.
+  const tail = n1.seen.slice(-Math.ceil(0.4 * 100));
+  let pairs = 0;
+  for (let i = 1; i < tail.length; i++) if (Math.abs(tail[i][0] - tail[i - 1][0]) > 0.33) pairs++;
+  check('creak alternates strong and weak periods', pairs >= 3, `${pairs} strong/weak steps in the last ${tail.length} periods`);
+  let pairs0 = 0;
+  for (let i = 1; i < n0.seen.length; i++) if (n0.seen[i][0] !== n0.seen[i - 1][0]) pairs0++;
+  check('and none at natural 0', pairs0 === 0);
+  check('the creaky line is finite and stable', n1.out.every(Number.isFinite) && absMax(n1.out) < 1.5, `peak ${absMax(n1.out).toFixed(3)}`);
+  // A question doesn't creak.
+  const q = render('Is it over there?');
+  check('a question asks for no creak', absMax(trackOf(q.line, 'creak')) === 0);
+}
+
 // ── Synthiness: the character axis ─────────────────────────────────────────────
 {
   // Buzz swaps the source for an impulse train: still finite, bounded and about as loud.
