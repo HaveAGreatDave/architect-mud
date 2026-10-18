@@ -5736,7 +5736,6 @@ function paintWindshieldFrame(id, view) {
   // described in its own code as "a fast bright near curtain", a few metres off the glass. A
   // building four tiles away was painting over rain that is meant to be between you and it, which
   // is why the near curtain has never read as close: it was occluded by everything in the city.
-  // See RENDER_TUNE.rainLit — at 0 both curtains draw here, exactly as they always have.
   if (!roofed) drawWeather(ctx, W, H, airWx, st, dt, speed, airPrecip, 'far');
   pEnd();
 
@@ -15565,8 +15564,8 @@ const COAST_WOBBLE = 6, DIRT = BIOME_GROUND.badlands, REDROCK = BIOME_GROUND.red
 // reading of "one pattern repeating forever".
 //
 // So past the window the ground is DERIVED instead, from the absolute world coordinate, by the same
-// `wildMix` + `reliefShade` pair the window's own off-map fill runs. Same functions, same arguments,
-// so the far field and the near fill cannot disagree about what the wildlands look like.
+// `reliefShade` the window's own off-map fill runs, so the far field and the near fill cannot
+// disagree about what the wildlands look like.
 //
 // ⚠ THE LAND/SEA DECISION IS STILL THE WINDOW'S, AND IT HAS TO BE. Whether an empty tile is open bay
 // or arid plain is settled in `fillOffMap` by two chamfer distance fields over the whole window plus
@@ -18612,7 +18611,7 @@ const LATTICE_WALL = new Set([
   'ty_wharf_lattice']);
 // ── ⚠ AND ONLY SOME OF THEM ARE ACTUALLY CUT THROUGH ────────────────────────
 //
-// `latticeCut` turns a painted opening into a real hole, and a hole is only right on a surface that
+// A cut opening is a real hole, and a hole is only right on a surface that
 // genuinely has air behind it. `ty_gantry` is the reason this is a subset rather than the whole
 // family: it is a gantry LEG at `fh * 0.05` in one place and the cooling plant's DECK at `fh * 0.86`
 // — nearly two tiles of solid slab the fans stand on — in another, and one key cannot be both open
@@ -19265,8 +19264,7 @@ function matPlate(g, W, H, w, tr, amp) {
 // OPEN LATTICE. There is no alpha on a wall texture, so "you can see through this" is said in
 // VALUE: the sky behind a truss is bright and the truss is a silhouette, so near-black openings
 // with lit members is the honest reading. Never a facade base — a window in a truss is nonsense.
-// ⚠ AND THE HOLES ARE HOLES NOW (`RENDER_TUNE.latticeCut`, 0 is the painted near-black openings
-// exactly as they shipped). This family's own header used to say "there is no alpha here (a wall
+// ⚠ AND THE HOLES ARE HOLES NOW. This family's own header used to say "there is no alpha here (a wall
 // texture skins an opaque box), so the openings are painted as near-black" — and the first half of
 // that was never checked. Every wall texture in GLASS is a canvas that starts TRANSPARENT, the
 // atlas is composited with `drawImage` onto a transparent page, and the mass shader samples that
@@ -20499,8 +20497,7 @@ function wallTex(biome, night, win = WIN_ON) {
     // The accent this building's lights burn, if its model named one. See `palNeon`.
     const acc = NEON > 0 ? palNeon(biome) : null;
     const { ys, ww, wh, px } = paneGrid(tr);
-    // ⚠ THE A/B FOR THE PAINTED GRID — see `texWin`. The material above and the surround below
-    // are the wall; this loop is the WINDOWS, and it is the one thing here that is sized as a
+    // The material above and the surround below are the wall; this loop is the WINDOWS, and it is the one thing here that is sized as a
     // fraction of a building rather than of a storey.
     for (const [x, y] of panes(W, H, tr)) {
       // Scatter lit windows in 2D. The old (x*7 + y*13) % 5 test degenerated at ys=5*tr — the row
@@ -20738,9 +20735,6 @@ export function wallTexMixed(biome, NB, win = WIN_ON) {
   // assigning canvas.width clears it, so every wall texture in the city is redrawn from scratch on
   // every alternation. Measured at 20 of 20 before this key changed. One entry per palette per
   // resolution is two entries in practice, and neither ever resizes.
-  // ⚠ AND ON `texWin` TOO, for the same reason as the two above: the composited canvas is the
-  // two baked variants blended, so a key that cannot tell them apart hands back a dusk wall
-  // still carrying the grid the flag just switched off.
   // ⚠ AND ON THE GRID STATE, for the reason the two above give: this function hands back ONE canvas
   // per palette and REDRAWS it in place as the blend crosses a step, so a key that cannot tell a
   // blacked-out building from a lit one gives both the same canvas — and whichever of them is
@@ -23973,8 +23967,8 @@ function discPts(rad, n = 18, ox = 0, oy = 0, squash = 1) {
 // A building's floating adornments (glows, beacons, masts, signs, light-runners, holo ads) once queued
 // at a global −∞ "on top" depth so they'd paint last and always sit on top of their own building. But
 // −∞ sorts them last GLOBALLY, so a decoration on a FAR tower painted straight through any NEARER
-// building in front of it (the "lights from another building showing through this one" bug). `decoDepth`
-// instead gives an adornment a REAL camera depth: its own anchor distance, lifted DECO_LIFT tiles forward
+// building in front of it (the "lights from another building showing through this one" bug). An
+// adornment now has a REAL camera depth: its own anchor distance, lifted DECO_LIFT tiles forward
 // so it still beats its own host walls (which span ±~0.44 tile around the anchor), but far less than the
 // ~1 tile gap to any building actually in front — so a nearer building now correctly occludes it.
 const DECO_LIFT = 0.6;
@@ -28403,7 +28397,7 @@ function drawForestTile(ctx, cam, dx, dy, night, seed, alpha) {
 // canvas size. That is fine for scenery and impossible to stand a bird on, which is what the
 // red-tail needs a dead stand for. So a stand is a list of snags with world positions and world
 // heights, and the painter and the perch both read THIS list — one set of numbers, or the bird
-// stands beside the tree. `RENDER_TUNE.snag3d` 0 puts the cards back (and takes the perches away).
+// stands beside the tree.
 const SNAG_H = 0.17;               // world z of a short snag; the tallest run to ~1.8x this
 const SNAG_R = 0.011;              // trunk radius, tiles
 export function deadStandSnags(seed) {
@@ -61444,7 +61438,7 @@ function drawGroundContactShadow(ctx, cam, heading, cls, strength) {
 const HOLO_COLS = ['90,200,255', '255,90,160', '120,255,140', '255,200,80', '180,120,255'];
 // A rooftop holographic advertising panel: a translucent coloured pane floating above the
 // roof with scanline bars, stuttering and dropping frames (half its pixels dead).
-// ── A ROOFTOP AD IS A SLAB, NOT A POSTER (`RENDER_TUNE.holo3d`, 0 puts the single panel back) ──
+// ── A ROOFTOP AD IS A SLAB, NOT A POSTER ──
 //
 // This was ONE quad spanning x at a fixed y: a plane with no thickness, always square to the world
 // axis, which from any oblique approach collapsed to a line and from beside the building was not
@@ -61560,7 +61554,7 @@ function drawBirds(ctx, W, H, horizonY, v, st, dt, speed, sky, now, worldBlend) 
 // `precipLocal` (optional) overrides the global wx with the precipitation actually falling at the
 // aircraft, sampled from the moving weather cells: { type, rate } where rate 0..1 scales density.
 // `phase` is which of the two rain curtains to draw: 'far' behind the city, 'near' in front of it,
-// or 'both' in one place, which is the renderer as it shipped. See RENDER_TUNE.rainLit.
+// or 'both' in one place.
 // Rain seen from under the sea: each drop is a ring spreading on the underside of the surface
 // overhead. The surface is the top of the frame from down here, so rings near the top are overhead
 // and round, and flatten toward the middle of the frame where the surface runs off to the distance.

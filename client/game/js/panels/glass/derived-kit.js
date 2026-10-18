@@ -238,7 +238,7 @@ export function derivedTrim(m, fh, h, seed, forceRich) {
       const every = Math.max(4, Math.round(floors / 5));
       // ⚠ AND THE RATION IS THE POINT, NOT AN AFTERTHOUGHT. A collar is `n` facets × 2 quads and
       // these land on every shaft in the CITY, not just this quarter — first cut at the drum's own
-      // facet count with five bands a shaft grew the registry mesh 11.5%, against `glCourse`'s 4.8%
+      // facet count with five bands a shaft grew the registry mesh 11.5%, against the plinth and crown courses' 4.8%
       // for a change that reached far more buildings. Three bands at twelve
       // facets reads identically at any range a collar is legible from and costs a third of it.
       const bands = clamp(Math.floor(floors / every), 1, 3);

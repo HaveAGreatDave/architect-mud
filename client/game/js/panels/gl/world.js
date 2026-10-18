@@ -262,7 +262,7 @@ let builds = 0;
 //
 // ⚠ AND A LIT FACADE IS AN AREA SOURCE, NOT A POINT ONE. `facadeGlow` tags its lights `wash`, and a
 // storey of lit windows genuinely does throw a broad dim field across the street — that is what it
-// is. Tightening it would delete `glWash` by arithmetic instead of by a decision, so a wash keeps
+// is. Tightening it would delete the facade wash by arithmetic instead of by a decision, so a wash keeps
 // its own share of the reach and its own gain, with `washK` × `gain` landing on the 0.18 it was
 // last tuned at. What changed here is the point sources.
 //
@@ -319,7 +319,7 @@ export const LIGHT_TUNE = {
   // Putting it back is this one number, and it belongs with the reach it was tuned against — see the
   // ⚠ above, where the gain and the reach move together. 0.18 is the last value it shipped at.
   gain: 0,
-  // ⚠ MOVES WHENEVER `gain` DOES, and it is the whole of what keeps `glWash` where it was tuned:
+  // ⚠ MOVES WHENEVER `gain` DOES, and it is the whole of what keeps the facade wash where it was tuned:
   // washK × gain is the 0.18 a facade glow was last set at. Change one without the other and every
   // lit window in the city silently gets fourteen times the throw. ⚠ AT `gain` 0 THE PRODUCT IS 0
   // AND THIS NUMBER IS PARKED rather than wrong: it is the ratio to restore alongside the gain.
