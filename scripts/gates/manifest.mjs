@@ -252,6 +252,7 @@ export const GROUPS = [
     gates: [
       'scripts/voice/smoke.mjs',
       'scripts/voice/fm-smoke.mjs',
+      'scripts/voice/worklet-smoke.mjs',   // the worklet back end: track list, fallback, stability, formants
     ],
   },
   {

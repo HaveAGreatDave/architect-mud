@@ -711,15 +711,28 @@ chain (ring, presence, compressor, drive, PA) is the same real nodes for both. T
 tracks are listed twice, as `WK_TRACK` in the engine and `TRACK` in the worklet, and
 must stay in the same order. The worklet's constants are `AudioEngine.voiceWorkletTuning`.
 `cascK` sets its level and was matched to within about 1 dB of the graph on the lab's
-level line, because the louder of two voices tends to win an A/B.
+level line, because the louder of two voices tends to win an A/B. `emph` is a
+pre-emphasis into the cascade: without it the cascade gives Klatt's theory exactly and
+came out 6–11 dB darker at F3 than Peterson & Barney's vowels; at 0.88 /a i u/ land
+within 2–3 dB of their F2 and F3 levels. Measure a vowel's balance by band energy
+around each formant, not by single harmonic peaks: F0 moves within a vowel, harmonic
+20 moves twenty times as far, and the peaks read several dB low.
+
+[`scripts/voice/worklet-smoke.mjs`](../scripts/voice/worklet-smoke.mjs) (in the `voice`
+gates) runs the processor on the main thread over a real line. It checks that the two
+track lists match, the fallback, the closure track through a /b/, that output is finite,
+audible and stable, and that /a i u/ formants come out within 12% of their tracks.
 
 **A/B this line** plays the line on the graph and then on the worklet. The **Modified
 Rhyme Test** section runs House et al.'s 50 six-word sets in a carrier phrase, each set
 once per back end in a shuffled order, with the back end hidden until the run ends. It
 reports % correct, the score corrected for guessing ((R − W/5) / N), and initial against
 final consonant sets, and keeps the last 20 runs in the browser's storage. The sets were
-typed from the published list (25 vary the first consonant, 25 the last), so check a set
-against ANSI S3.2 before quoting a score.
+typed from memory and then checked as far as a readable source allowed: 25 vary the
+first consonant and 25 the last, and a published one-word-per-set test list fits 49 of
+them. The odd one is in the heal/heat/beat/peel sets (27, 29, 34, 35; the comment above
+`VL_MRT_SETS` has the detail), so check those four against ANSI S3.2 before quoting a
+score.
 
 ### Rebuilding the dictionary
 

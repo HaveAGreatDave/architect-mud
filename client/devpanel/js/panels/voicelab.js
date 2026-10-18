@@ -473,8 +473,13 @@ async function vlDeletePreset() {
 // ── Modified Rhyme Test ─────────────────────────────────────────────────────
 // House, Williams, Hecker & Kryter (1965), the 50 six-word ensembles as ANSI S3.2 lists
 // them. Each set differs in one consonant, the first or the last, so a wrong pick says
-// which contrast the voice lost. Typed from the published list; check a set against it
-// before quoting a score from it.
+// which contrast the voice lost. Typed from memory of the published list, then checked
+// (2026-10-18): 25 sets vary the first consonant and 25 the last, as the test is built;
+// Gibbon's handbook (1997) prints the peace/peas/peak/peach/peat/peal set as here; and a
+// published one-word-per-set test list (Cambridge, S0899823X2200071X, appendix 1) lands
+// one word in each set except that it has both "heal" and "beat", which these sets can't
+// place apart, and nothing from peel/reel/feel. One of sets 27, 29, 34 and 35 may be off.
+// Check those four against ANSI S3.2 before quoting a score.
 const VL_MRT_SETS = [
   'went sent bent dent tent rent', 'hold cold told fold sold gold', 'pat pad pan path pack pass',
   'lane lay late lake lace lame', 'kit bit fit hit wit sit', 'must bust gust rust dust just',

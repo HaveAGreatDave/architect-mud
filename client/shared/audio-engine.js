@@ -3636,6 +3636,10 @@ return out;
       srcK: 1, aspK: 1, fricK: 1, closureK: 1,
       bwK: 1,           // every formant bandwidth, scaled
       tiltK: 1,         // the graph's tilt corner, scaled, becomes the LF return phase
+      emph: 0.88,       // one-zero pre-emphasis into the cascade, unity at 500 Hz. Without it
+                        // the cascade is Klatt's theory exactly and 6-11 dB darker at F3 than
+                        // Peterson & Barney's vowels (this voice's oq of 0.78 is a soft source);
+                        // at 0.88 /a i u/ land within 2-3 dB of their F2 and F3 levels
       rk: 0.72,         // tp / te: where the flow peaks within the open phase
       oqEffort: 0.12,   // open quotient falls this much per unit of voicing over 0.8
       oqBreath: 1.0,    // and rises this much per unit of aspiration
@@ -4669,8 +4673,11 @@ return out;
         const node = new global.AudioWorkletNode(c, 'oracle-voice', { numberOfInputs: 0, numberOfOutputs: 1,
           outputChannelCount: [1], processorOptions: { seed: (hashName(String(opt.seed || text)) >>> 0) || 1 } });
         const lineStats = opt.stats && typeof opt.stats === 'object' ? opt.stats : null;
-        node.port.onmessage = (e) => { if (e.data?.type === 'done' && lineStats) Object.assign(lineStats, e.data); };
-        node.port.postMessage({ type: 'line', frames, frame: WK.frame, t0, tracks, k: {
+        node.port.onmessage = (e) => {
+          if (e.data?.type === 'error') console.error('[voice] worklet:', e.data.error);
+          else if (e.data?.type === 'done' && lineStats) Object.assign(lineStats, e.data);
+        };
+        node.port.postMessage({ type: 'line', names: WK_TRACK, frames, frame: WK.frame, t0, tracks, k: {
           ...WK, f0: F0, fshift, oq: Math.max(0.4, Math.min(0.85, V.oq + D.oq)),
           growl: growlAmt, growlRatio: V.growlRatio ?? 0.5, growl2: growlAmt > 0 ? (V.growl2 || 0) : 0, growl2Ratio: V.growl2Ratio ?? 1.5,
           lpA: 1 - Math.exp(-2 * Math.PI * 9000 / c.sampleRate),

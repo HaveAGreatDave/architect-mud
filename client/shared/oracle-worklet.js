@@ -147,12 +147,23 @@ class OracleVoice extends AudioWorkletProcessor {
     this.np = new Reson(); this.nz = new AntiReson();      // the nasal pair
     this.fb1 = new BandPass(); this.fb2 = new BandPass();  // the frication band, twice
     this.lpf = 0; this.done = false; this.stopped = false; this.tilt = 0;
+    this.emph = 0; this.emphNorm = 1; this.px = 0;
     this.rms = 0; this.n = 0;
     this.port.onmessage = (e) => {
       const d = e.data || {};
       if (d.type === 'line') {
+        // The engine sends its track names. A list that drifted out of step with TRACK would
+        // shift every control by one, which is noise rather than an error, so say no.
+        if (Array.isArray(d.names) && d.names.join() !== TRACK.join()) {
+          this.stopped = true;
+          this.port.postMessage({ type: 'error', error: 'track list mismatch: engine ' + d.names.join() + ' / worklet ' + TRACK.join() });
+          return;
+        }
         this.tracks = d.tracks; this.frames = d.frames; this.frame = d.frame; this.t0 = d.t0;
         this.k = d.k || {};
+        this.emph = Math.max(0, Math.min(0.97, +this.k.emph || 0));
+        const w = TAU * 500 / sampleRate;
+        this.emphNorm = 1 / Math.hypot(1 - this.emph * Math.cos(w), this.emph * Math.sin(w));
       } else if (d.type === 'stop') this.stopped = true;
     };
   }
@@ -247,6 +258,9 @@ class OracleVoice extends AudioWorkletProcessor {
       // the glottal opening so breathy voice is noise pulsed at F0, not beside it.
       const open = this.ph < this.lf.te ? 1 : 0.5;
       let x = g * av * k.srcK + nse * ah * k.aspK * (av > 0.05 ? open : 1);
+      // Pre-emphasis (see `emph` in the engine's WK): one zero, unity at 500 Hz.
+      const xe = (x - this.emph * this.px) * this.emphNorm;
+      this.px = x; x = xe;
       // The cascade: nasal pair, then F1 and the rest.
       x = this.nz.run(this.np.run(x));
       const r1 = R[0].run(x);
