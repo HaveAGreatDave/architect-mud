@@ -273,5 +273,5 @@
   "vendor_stock_size": 14,
   "wander_zones": [],
   "wanders": 0,
-  "work_zone_id": "zone_cornermarket_shop"
+  "work_zone_id": null
 }

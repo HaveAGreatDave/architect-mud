@@ -1,0 +1,22 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "city",
+  "description": "A corner of trodden grass where Filament Street meets the green. A square of paler turf marks where crates used to stand, and a few small ads are still taped to the lamp post, faded past reading.",
+  "exits": {
+    "east": "zone_district_898_907",
+    "north": "zone_district_897_906",
+    "south": "zone_district_897_908"
+  },
+  "flags": {
+    "district": "filaments",
+    "region_id": "region_coldwater",
+    "terrain": "grass"
+  },
+  "grid_x": 897,
+  "grid_y": 907,
+  "grid_z": 0,
+  "id": "zone_kettle_897_907",
+  "map_id": "map_world",
+  "name": "Kettle Green",
+  "parent_zone": null
+}

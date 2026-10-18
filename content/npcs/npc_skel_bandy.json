@@ -130,88 +130,6 @@
       }
     }
   },
-  "faction": null,
-  "home_activities": [],
-  "studio_zone_id": null,
-  "wander_zones": [],
-  "wanders": 0,
-  "npc_type": "vendor",
-  "id": "npc_skel_bandy",
-  "name": "Rufus Bandy",
-  "sex": "male",
-  "hp": 38,
-  "hp_max": 38,
-  "home_zone": "zone_skelcrew_back",
-  "work_zone_id": "zone_skelcrew_shop",
-  "vendor_shop_name": "Skeleton Crew",
-  "vendor_restock_rate": 4,
-  "vendor_stock_size": 12,
-  "vendor_schedule": {
-    "mon": [
-      {
-        "from": 8,
-        "to": 18
-      }
-    ],
-    "tue": [
-      {
-        "from": 8,
-        "to": 18
-      }
-    ],
-    "wed": [
-      {
-        "from": 8,
-        "to": 18
-      }
-    ],
-    "thu": [
-      {
-        "from": 8,
-        "to": 18
-      }
-    ],
-    "fri": [
-      {
-        "from": 8,
-        "to": 18
-      }
-    ],
-    "sat": [
-      {
-        "from": 8,
-        "to": 13
-      }
-    ],
-    "sun": []
-  },
-  "vendor_inventory": [
-    {
-      "item_id": "item_skel_key",
-      "price": 18
-    },
-    {
-      "item_id": "item_skel_blank",
-      "price": 26
-    },
-    {
-      "item_id": "item_skel_lock",
-      "price": 140
-    },
-    {
-      "item_id": "item_skel_picks",
-      "price": 220
-    }
-  ],
-  "flags": {
-    "clothing_layers": [
-      "a brown shop coat with a rule in the breast pocket",
-      "a checked shirt with the sleeves buttoned at the wrist",
-      "dark trousers and boots with brass swarf trodden into the soles"
-    ],
-    "personality": "vendor"
-  },
-  "description": "A neat, unhurried man in a brown shop coat, in a room four feet wide, who does one of the most useful things in Coldwater and is extremely careful about how he describes it. He talks while he cuts and stops talking while he measures. There is brass dust in everything he owns. He has the manner of somebody who has had the same conversation about ethics several thousand times and has got it down to two sentences.",
   "chitchat": [
     "Bandy runs a blank against the follower and the machine throws a short bright arc into the tray.",
     "He deburrs a fresh cut with the wire brush, three strokes, and blows across it.",
@@ -227,6 +145,7 @@
     "\"The sign outside cost more than the shop earns in a year and it is the best money I ever spent.\"",
     "He sorts four blanks back onto four different nails, which takes him about two seconds."
   ],
+  "description": "A neat, unhurried man in a brown shop coat, in a room four feet wide, who does one of the most useful things in Coldwater and is extremely careful about how he describes it. He talks while he cuts and stops talking while he measures. There is brass dust in everything he owns. He has the manner of somebody who has had the same conversation about ethics several thousand times and has got it down to two sentences.",
   "dialogue_tree": {
     "bye": {
       "options": [],
@@ -277,15 +196,6 @@
       ],
       "text": "\"I go with you,\" he says, \"and I am not clever about it.\"\n\nHe holds up two fingers.\n\n\"I stand on the step and I open it and then I go in first. If there is post on the mat I read the name on it. If there is a photograph in the hall I look at it and then I look at you. Twice in thirty years the answer was no and both times the man had a very good story ready, which is how I knew.\"\n\nHe picks the file back up.\n\n\"People think a locksmith's trick is the picking. It isn't. Anybody can be taught the picking in a fortnight.\""
     },
-    "system": {
-      "options": [
-        {
-          "label": "Back.",
-          "next": "root"
-        }
-      ],
-      "text": "\"It starts at the door,\" he says, \"and it goes round the room.\"\n\nHe waits, apparently having finished.\n\n\"Profile, then length, then how often. The wall is not in alphabetical order and it is not in numerical order and if it were either of those I would be six seconds slower on every key I cut, and over thirty years that is a month of my life. My father could not use my wall. I could not use his.\""
-    },
     "root": {
       "options": [
         {
@@ -322,6 +232,97 @@
         "first": "A man in a brown coat steps back from a machine in a room that does not have space for him to step back in.\n\n\"Rufus Bandy.\" He nods at the card by the till rather than repeating it. \"I cut keys and I open doors. Those are two services, and I will not do the second one for somebody I have not done the first one for.\"\n\nHe picks a blank off the wall without looking.\n\n\"That is not me being difficult. Ask me about it if you like, people do.\"",
         "known": "\"Ah.\" He looks at what is in your hand before he looks at you. \"Copy, or is it sticking?\""
       }
+    },
+    "system": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"It starts at the door,\" he says, \"and it goes round the room.\"\n\nHe waits, apparently having finished.\n\n\"Profile, then length, then how often. The wall is not in alphabetical order and it is not in numerical order and if it were either of those I would be six seconds slower on every key I cut, and over thirty years that is a month of my life. My father could not use my wall. I could not use his.\""
     }
-  }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a brown shop coat with a rule in the breast pocket",
+      "a checked shirt with the sleeves buttoned at the wrist",
+      "dark trousers and boots with brass swarf trodden into the soles"
+    ],
+    "personality": "vendor",
+    "set_aside": true
+  },
+  "home_activities": [],
+  "home_zone": "zone_skelcrew_back",
+  "hp": 38,
+  "hp_max": 38,
+  "id": "npc_skel_bandy",
+  "name": "Rufus Bandy",
+  "npc_type": "vendor",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_skel_key",
+      "price": 18
+    },
+    {
+      "item_id": "item_skel_blank",
+      "price": 26
+    },
+    {
+      "item_id": "item_skel_lock",
+      "price": 140
+    },
+    {
+      "item_id": "item_skel_picks",
+      "price": 220
+    }
+  ],
+  "vendor_restock_rate": 4,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 8,
+        "to": 18
+      }
+    ],
+    "mon": [
+      {
+        "from": 8,
+        "to": 18
+      }
+    ],
+    "sat": [
+      {
+        "from": 8,
+        "to": 13
+      }
+    ],
+    "sun": [],
+    "thu": [
+      {
+        "from": 8,
+        "to": 18
+      }
+    ],
+    "tue": [
+      {
+        "from": 8,
+        "to": 18
+      }
+    ],
+    "wed": [
+      {
+        "from": 8,
+        "to": 18
+      }
+    ]
+  },
+  "vendor_shop_name": "Skeleton Crew",
+  "vendor_stock_size": 12,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_skelcrew_shop"
 }

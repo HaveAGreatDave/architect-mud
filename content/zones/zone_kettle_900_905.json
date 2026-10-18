@@ -1,0 +1,22 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "city",
+  "description": "A cleared plot off Kettle Lane, grassed over except for three rectangles of brick where doorways were. A board leans on the fence with the word NIGHTLY on it and the rest painted out.",
+  "exits": {
+    "north": "zone_district_900_904",
+    "south": "zone_district_900_906",
+    "west": "zone_district_899_905"
+  },
+  "flags": {
+    "district": "filaments",
+    "region_id": "region_coldwater",
+    "terrain": "grass"
+  },
+  "grid_x": 900,
+  "grid_y": 905,
+  "grid_z": 0,
+  "id": "zone_kettle_900_905",
+  "map_id": "map_world",
+  "name": "Kettle Green",
+  "parent_zone": null
+}

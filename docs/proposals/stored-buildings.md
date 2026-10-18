@@ -42,3 +42,26 @@ so its door, its map code and its model come back with it, and its keepers carry
 which the game loop reads to pause them in their rooms. How it was done and how to put one back are
 in [hughson-coliseum.md](hughson-coliseum.md#3-what-was-set-aside). Reach for it when a whole block
 goes, and for the route above when one building gives up its tile to another.
+
+## Skeleton Crew, Rest Assured and Corner the Market (set aside 2026-10-18)
+
+Three Filaments buildings on the Glasshouse's edge, taken out because they butted up against the
+Halcyon Boulevard towers and looked out of place. They wait on the holding map until the
+Filaments-to-Glasshouse transition along Kettle Green is designed.
+[scripts/content/set-aside-kettle-three.mjs](../../scripts/content/set-aside-kettle-three.mjs) did it.
+
+| Was at | Building | Holding grid | Keeper |
+|---|---|---|---|
+| 898,905 | Skeleton Crew | 1,5 | Rufus Bandy, set aside |
+| 900,905 | Rest Assured | 3,5 | Dilys Trantham, set aside |
+| 897,907 | Corner the Market | 5,5 | Basil Quennell: lives in the Filament Buildings, so his `work_zone_id` is `null` instead |
+
+- Each facade keeps its id and moved whole, as the Coliseum's did. With no street on the holding
+  map, its `world_exit_zone` names itself.
+- Each plot is grass now, `zone_kettle_<x>_<y>`, named Kettle Green, joined both ways to every open
+  neighbour, with a `power_zones` row copied from the facade's.
+- The one street connection file, `conn_district_898_905_south_nqax`, was removed.
+- Run `scripts\oneshots.bat prod` after the deploy: `set-aside-players.mjs` converges, so it moves
+  anyone left in these rooms and lists any rented room at Rest Assured.
+
+To put one back, follow the Coliseum's steps, and delete or reuse the `zone_kettle_` tile on its plot.

@@ -4,7 +4,7 @@
   "description": "A gutter runs the length of the kerb, choked with leaf mould and bottle caps. Somebody has swept their own frontage and stopped dead at the property line, which is the most Filament Street thing about Filament Street.",
   "exits": {
     "east": "zone_district_899_906",
-    "north": "zone_district_898_905",
+    "north": "zone_kettle_898_905",
     "south": "zone_district_898_907",
     "west": "zone_district_897_906"
   },

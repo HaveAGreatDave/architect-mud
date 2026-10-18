@@ -213,7 +213,7 @@ walk within four seconds of seeing your boots.
 | # | Name | `building_type` | Site | Entrance | Marker | Vendor |
 |---|------|-----------------|------|----------|--------|--------|
 | 9 | **Negative Equity** | `photographer` | 895,904 Halcyon Boulevard | west | `NE` | Benedetta Salis |
-| 10 | **Skeleton Crew** | `locksmith` | 898,905 Filament Street | south | `SK` | Rufus Bandy |
+| 10 | **Skeleton Crew** | `locksmith` | 898,905 Filament Street | south | `SK` | Rufus Bandy (set aside 2026-10-18, see [stored-buildings.md](stored-buildings.md)) |
 | 11 | **No Regerts** | `tattooist` | 901,905 Filament Street | south | `IK` | Nell Prudhoe |
 | 12 | **Paws for Thought** | `vet` | 926,912 Kessler (residential) | south | `VT` | Constance Tiplady |
 | 13 | **Spirit Level** | `off_licence` | 919,914 The Gate Road | west | `SP` | Dermot Cassavetes |

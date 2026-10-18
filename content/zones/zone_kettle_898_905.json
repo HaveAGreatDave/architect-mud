@@ -1,0 +1,22 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "city",
+  "description": "A strip of rough grass between the Filament Buildings and Kettle Lane, as wide as a shopfront. Pale footings show through the turf where something narrow once stood, and a bent iron bracket is still bolted to the next wall.",
+  "exits": {
+    "east": "zone_district_899_905",
+    "north": "zone_district_898_904",
+    "south": "zone_district_898_906"
+  },
+  "flags": {
+    "district": "filaments",
+    "region_id": "region_coldwater",
+    "terrain": "grass"
+  },
+  "grid_x": 898,
+  "grid_y": 905,
+  "grid_z": 0,
+  "id": "zone_kettle_898_905",
+  "map_id": "map_world",
+  "name": "Kettle Green",
+  "parent_zone": null
+}

@@ -4,7 +4,7 @@
   "description": "The tarmac gives way to a stretch of old setts here, polished smooth and slick in the damp. A bollard leans out of true with a bicycle wheel still locked to it, the rest of the bicycle long since resolved elsewhere.",
   "exits": {
     "east": "zone_district_901_906",
-    "north": "zone_district_900_905",
+    "north": "zone_kettle_900_905",
     "south": "zone_district_900_907",
     "west": "zone_district_899_906"
   },

@@ -8,7 +8,6 @@
   "bg_color": "#2a2419",
   "description": "A corner shop with a shopfront of adverts, layered so deep that the actual window is down to a letterbox of clear glass at head height. Crates of whatever is going sit out on the pavement under an awning that winds down with a handle. It opens at six and it is not clear that it ever entirely closes.",
   "exits": {
-    "north": "zone_district_897_906",
     "south": "zone_cornermarket_shop"
   },
   "flags": {
@@ -19,14 +18,16 @@
     "facade": true,
     "is_building": true,
     "region_id": "region_coldwater",
+    "set_aside": true,
+    "set_aside_from": "897,907",
     "sign_trade": "GROCERY",
-    "world_exit_zone": "zone_district_897_906"
+    "world_exit_zone": "zone_district_897_907"
   },
-  "grid_x": 897,
-  "grid_y": 907,
+  "grid_x": 5,
+  "grid_y": 5,
   "grid_z": 0,
   "id": "zone_district_897_907",
-  "map_id": "map_world",
+  "map_id": "map_set_aside",
   "marker": "CM",
   "name": "Corner the Market",
   "parent_zone": null

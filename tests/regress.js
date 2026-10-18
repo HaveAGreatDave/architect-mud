@@ -6234,7 +6234,8 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
   check('set aside: every building keeps its interior, its furniture and a way out on the holding map', broken.length === 0, broken.join(' | '));
   const people = [...world.npcs.values()].filter((n) => n.flags?.set_aside);
   const lost = people.filter((n) => { const h = world.zones.get(n.home_zone); return !h || world.zones.get(h.parent_zone)?.map_id !== 'map_set_aside'; });
-  check('set aside: its four keepers are home in their set-aside rooms', people.length === 4 && !lost.length, `${people.length} ${lost.map((n) => n.id).join(',')}`);
+  // Four from the Coliseum's block, plus Rufus Bandy (Skeleton Crew) and Dilys Trantham (Rest Assured).
+  check('set aside: its six keepers are home in their set-aside rooms', people.length === 6 && !lost.length, `${people.length} ${lost.map((n) => n.id).join(',')}`);
 }
 
 // ── Layer 2f: statmods ledger — caps and their current values stay consistent ─

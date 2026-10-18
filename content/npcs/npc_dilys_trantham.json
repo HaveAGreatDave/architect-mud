@@ -68,7 +68,8 @@
       "a cardigan over a blouse",
       "a sensible slip"
     ],
-    "personality": "professional"
+    "personality": "professional",
+    "set_aside": true
   },
   "home_activities": [],
   "home_zone": "zone_restassured_hall",
