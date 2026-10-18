@@ -12,7 +12,7 @@ import { liveAircraft, persist, out, effStats, fieldFor as fieldOf,
   SEAT_KG, isConfigurable, loadoutBudget, effLoadout, sendToPlayer, skyState, inHangarInterior,
   FLIGHT_PACE, tuneRange, installedKits, KITS, perfAxes, parkAt, nearestAirfield, craftIsVtol, getZone,
   PARTS, PART_SLOTS, slotsFor, installedParts, partDefs, partEnvelope,
-  detach, getLivePlayer, resetSurfaces, acquirableTypes, airfieldOf, fieldName, hangarTileFor, REFUEL_PRICE_PER_UNIT } from './state.js';
+  detach, getLivePlayer, resetSurfaces, acquirableTypes, airfieldOf, fieldName, hangarTileFor, helipadTileFor, standTileFor, REFUEL_PRICE_PER_UNIT } from './state.js';
 import { normalizeLivery, sanitizeLivery, parsePartsArg, signatureScore, describeExterior,
   paintCost, isPaintable, readSchemes, schemeOf, liveryFromSet, classDefault,
   PATTERNS, FINISHES, UPHOLSTERY, DECALS, TRIMS, CABIN_TRIMS, PLATE_DEFAULT, PLATE_CHARS, PLATE_MAX } from './livery.js';
@@ -24,6 +24,7 @@ import { isPilotLicensed } from './checkride.js';
 import { prefersTextMinigamesOrDefault } from '../../server/engine/presentation.js';
 import { emit } from '../../server/engine/events.js';
 import { getZonePrecip } from '../../server/engine/environment.js';
+import { takeFreshVehicle } from '../../server/engine/fresh-vehicle.js';
 import { escapeHtml } from '../../server/engine/html.js';
 // `tune` also belongs to broadcast (tune a channel); flight wins it and hands
 // back when you're not tuning an aircraft. `repair` shadows the engine gear-repair
@@ -336,7 +337,7 @@ export function setHangarBoarder(fn) { boardIntoHangar = fn; }
 function servicedCraft(player, field) {
   const live = player.aircraftId ? liveAircraft.get(player.aircraftId) : null;
   if (!live || live.row.airborne || live.row.parked_zone_id !== field.id) return null;
-  const spot = hangarTileFor(field, live.type?.class === 'heavy') || field;
+  const spot = standTileFor(field, { vtol: craftIsVtol(live), heavy: live.type?.class === 'heavy' }) || field;
   if (spot.grid_x == null) return null;
   const fx = live.fx ?? live.row.grid_x, fy = live.fy ?? live.row.grid_y;
   return Math.hypot(fx - spot.grid_x, fy - spot.grid_y) < 0.5 ? live : null;
@@ -412,7 +413,8 @@ export async function pushHangarBay(player, selectId, opts = {}) {
     // Maintain and Launch board you and work on her from the cockpit at every field; `hangar` says
     // whether that is on a GLASS hangar floor or out on the pad. `service` marks the push for the
     // bench docked on the cockpit rather than the pane.
-    cockpitBench: true, hangar: !!hangarTileFor(field),
+    // A VTOL being serviced stands on the helipad rather than in the shed (standTileFor).
+    cockpitBench: true, hangar: !(svc && craftIsVtol(svc) && helipadTileFor(field)) && !!hangarTileFor(field),
     service: !!svc, serviceId: svc?.row.id || null,
     inHangar: inHangarInterior(player),
     exitDir: hangarExitDir(player),
@@ -425,6 +427,9 @@ export async function pushHangarBay(player, selectId, opts = {}) {
     // helipad (no roof, sea around the deck) instead of the industrial bay.
     venue: field.flags.yacht ? 'helipad' : 'hangar',
     select: selectId || null,   // client pre-selects this craft (from `view <tail>`)
+    // The aircraft just bought or rented here, which the floor offers to fly (depot-shell readyHtml).
+    // A background refresh leaves it for the push the purchase itself asked for.
+    fresh: opts.refreshOnly ? null : takeFreshVehicle(player.id),
     pilot: pilotStatusForField(field.id),
     charterWaiting,
     // Time-of-day + weather, visible through the open bay door. `here` is what is falling on the

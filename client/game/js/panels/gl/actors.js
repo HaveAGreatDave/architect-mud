@@ -15,9 +15,17 @@
 // light direction, brighter faces toward the sky, and the blob's night dimming, all times the outfit
 // colour. Fog, blending and depth are fauna.js's, so a person and a goose on the same pavement fade
 // into the haze the same way.
+//
+// THE HEAD is its own program (HEAD_VERT, HEAD_FRAG): the bake's near body has none, and actor-head.js's
+// skull, ears, neck and hair ride the head and neck bones the bake writes (bk.bones), with a face from
+// the baked atlas (actor-faces.js) tinted per person. A record's `hl` is its head level (headLevelFor);
+// one instanced draw per level for the skulls and one per level and hair style for the hair, drawn
+// from one instance buffer sorted that way. docs/proposals/street-figure-heads.md is the plan.
 import { viewProjMatrix, viewMatrix } from './camera.js';
 import { makeVertexStream } from './stream.js';
-import { actorBakeReady } from '../actor3d.js';
+import { actorBakeReady, ACTOR_HEAD_BONES } from '../actor3d.js';
+import { headMesh, hairMesh, HEAD_LEVELS, HAIR_STYLES, FACE, HAIRLINE_GLSL } from '../actor-head.js';
+import { FACE_ATLAS, FACE_GLSL } from '../actor-faces.js';
 import { declareProgram, takeWarm } from './programs.js';
 import { linearOut, applyLinOut } from './colour.js';
 
@@ -289,9 +297,266 @@ void main() {
     float diff = max(0.0, (dot(n, d / max(0.001, dist)) + 0.4) / 1.4);
     c += col * uWLC[i] * (att * att * diff * 1.6);
   }
+  // A figure is paint, not light, and the bloom takes anything over 1 for an emitter (HDR_TUNE in
+  // world.js), so an orange coat under a warm lamp glowed like a sign. Scaled down rather than
+  // clamped per channel, so the coat stays orange instead of going yellow.
+  c /= max(1.0, max(c.r, max(c.g, c.b)));
   c = mix(c, uFog, vFog);
   outColor = vec4(c * vAlpha, vAlpha);
 }`, 'outColor');
+
+// ── THE HEAD ────────────────────────────────────────────────────────────────────────────────────────
+// Per instance: x, y, z, tiles per metre | clip A row0, frames, phase, heading | clip B row0, frames,
+// phase, share of B | skin rgb | hair rgb | lips rgb | lipstick rgb | iris rgb | brightness, alpha,
+// layout + 32 · hair style, makeup. The clips are the body's, so the head is where the body has it.
+const HSTRIDE = 31;
+// Units nothing else binds: the body has 20 and 21, cloth 24 and 25.
+const BONE_UNIT = 22, FACE_UNIT = 23;
+const f4 = (v) => v.toFixed(4);
+
+const HEAD_VERT = `#version 300 es
+precision highp float;
+precision highp int;
+in vec3 aP;
+in vec3 aN;
+// The feature (7 skin, 8 ears, 9 hair, 12 neck), how much the vertex rides the head rather than the
+// neck, and an ear's hollow.
+in vec3 aFW;
+in vec4 iPos;
+in vec4 iClipA;
+in vec4 iClipB;
+in vec3 iSkin;
+in vec3 iHair;
+in vec3 iLip;
+in vec3 iLipstick;
+in vec3 iIris;
+in vec4 iFace;
+uniform highp sampler2D uBones;
+uniform mat4 uViewProj;
+uniform mat4 uView;
+uniform float uFogNear;
+uniform float uFogFar;
+uniform float uFogAmt;
+out vec3 vN;
+out vec3 vNv;
+out vec3 vRest;
+out vec3 vWT;
+out vec3 vToEye;
+flat out vec3 vSkin;
+flat out vec3 vHair;
+flat out vec3 vLip;
+flat out vec3 vLipstick;
+flat out vec3 vIris;
+// The ear's hollow on an ear, how much of the face texture applies on the skull; the fog; the
+// brightness; the alpha.
+out vec4 vMisc;
+// The layout, the makeup, the hair style and the feature.
+flat out vec4 vFace;
+// A bone's matrix on one baked row: three texels, its rows [m00 m01 m02 tx] and so on.
+mat4 boneOf(int row, int at) {
+  vec4 r0 = texelFetch(uBones, ivec2(at, row), 0);
+  vec4 r1 = texelFetch(uBones, ivec2(at + 1, row), 0);
+  vec4 r2 = texelFetch(uBones, ivec2(at + 2, row), 0);
+  return mat4(r0.x, r1.x, r2.x, 0.0, r0.y, r1.y, r2.y, 0.0, r0.z, r1.z, r2.z, 0.0, r0.w, r1.w, r2.w, 1.0);
+}
+// The two frames either side of a clip's phase, blended: the body's clipAt, for a bone.
+mat4 boneAt(vec4 c, int at) {
+  float fr = fract(c.z) * c.y;
+  int f0 = int(fr);
+  int f1 = f0 + 1;
+  if (float(f1) >= c.y) f1 = 0;
+  float t = fr - float(f0);
+  int b = int(c.x + 0.5);
+  return boneOf(b + f0, at) * (1.0 - t) + boneOf(b + f1, at) * t;
+}
+void main() {
+  mat4 MH = boneAt(iClipA, ${ACTOR_HEAD_BONES.head});
+  mat4 MN = boneAt(iClipA, ${ACTOR_HEAD_BONES.neck});
+  if (iClipB.w > 0.0) {
+    MH = MH * (1.0 - iClipB.w) + boneAt(iClipB, ${ACTOR_HEAD_BONES.head}) * iClipB.w;
+    MN = MN * (1.0 - iClipB.w) + boneAt(iClipB, ${ACTOR_HEAD_BONES.neck}) * iClipB.w;
+  }
+  vec3 p = mix((MN * vec4(aP, 1.0)).xyz, (MH * vec4(aP, 1.0)).xyz, aFW.y);
+  vec3 n = normalize(mix(mat3(MN) * aN, mat3(MH) * aN, aFW.y));
+  // Onto the ground plane exactly as the body's VERT does it.
+  vec3 F = vec3(cos(iClipA.w), sin(iClipA.w), 0.0);
+  vec3 L = vec3(F.y, -F.x, 0.0);
+  vec3 w = iPos.xyz + (F * p.z + L * p.x + vec3(0.0, 0.0, p.y)) * iPos.w;
+  vN = F * n.z + L * n.x + vec3(0.0, 0.0, n.y);
+  vNv = mat3(uView) * vN;
+  vRest = aP;
+  vWT = w;
+  vToEye = -transpose(mat3(uView)) * uView[3].xyz - w;
+  vSkin = iSkin; vHair = iHair; vLip = iLip; vLipstick = iLipstick; vIris = iIris;
+  int f = int(aFW.x + 0.5);
+  float sel = f == 8 ? aFW.z : f == 7 ? smoothstep(0.1, 0.4, aN.z) : 0.0;
+  float code = iFace.z;
+  vFace = vec4(mod(code, 32.0), iFace.w, floor(code / 32.0 + 0.001), aFW.x);
+  vec4 clip = uViewProj * vec4(w, 1.0);
+  gl_Position = clip;
+  float ff = clamp((clip.w - uFogNear) / max(1e-3, uFogFar - uFogNear), 0.0, 1.0);
+  vMisc = vec4(sel, ff * ff * uFogAmt, iFace.x, iFace.y);
+}`;
+
+// The lab's head shading (tools/modelshop/actor-head.js HEAD_FRAG) on the atlas, lit the way the body
+// is lit here so the head isn't pasted on: the same key, sky over ground, rim, night dim, city lights
+// and fog. Strand and hairline detail fade out before it's under a pixel, where it would only crawl.
+const HEAD_FRAG = linearOut(`#version 300 es
+precision highp float;
+precision highp int;
+in vec3 vN;
+in vec3 vNv;
+in vec3 vRest;
+in vec3 vWT;
+in vec3 vToEye;
+flat in vec3 vSkin;
+flat in vec3 vHair;
+flat in vec3 vLip;
+flat in vec3 vLipstick;
+flat in vec3 vIris;
+in vec4 vMisc;
+flat in vec4 vFace;
+uniform sampler2D uAtlas;
+uniform vec3 uFog;
+uniform vec3 uKeyDir;
+uniform float uDim;
+uniform int uWLN;
+uniform vec3 uWLP[12];
+uniform vec3 uWLC[12];
+uniform float uWLR[12];
+out vec4 outColor;
+float h1(vec3 p) { return fract(sin(dot(p, vec3(12.9898, 78.233, 37.719))) * 43758.5453); }
+float vnoise(vec3 p) {
+  vec3 i = floor(p), f = fract(p);
+  f = f * f * (3.0 - 2.0 * f);
+  return mix(mix(mix(h1(i), h1(i + vec3(1, 0, 0)), f.x), mix(h1(i + vec3(0, 1, 0)), h1(i + vec3(1, 1, 0)), f.x), f.y),
+             mix(mix(h1(i + vec3(0, 0, 1)), h1(i + vec3(1, 0, 1)), f.x), mix(h1(i + vec3(0, 1, 1)), h1(i + vec3(1, 1, 1)), f.x), f.y), f.z);
+}
+float sq(float x) { return x * x; }
+${FACE_GLSL}
+${HAIRLINE_GLSL}
+// The hair's colour at a point, for the shell and the scalp under its edge alike. 'fine' is 1 up
+// close and 0 once a strand is smaller than a pixel.
+vec3 hairAt(vec3 r, float psi, int style, float seed, float fine) {
+  float strand = style == 4
+    ? vnoise(vec3(r.x * 320.0, r.y * 60.0 - r.z * 20.0, seed))
+    : vnoise(vec3(psi * 40.0, r.y * 14.0, seed)) * 0.6 + vnoise(vec3(psi * 110.0, r.y * 30.0, seed + 7.0)) * 0.4;
+  if (style == 3 && r.y < 1.62) strand = vnoise(vec3(atan(r.x, -r.z) * 60.0, r.y * 6.0, seed));
+  return vHair * (0.68 + 0.6 * mix(0.5, strand, fine));
+}
+void main() {
+  float alpha = vMisc.w;
+  if (alpha <= 0.002) discard;
+  vec3 r = vRest;
+  vec3 n = normalize(vN);
+  vec3 v = normalize(vToEye);
+  int f = int(vFace.w + 0.5), style = int(vFace.z + 0.5);
+  bool hair = f == 9;
+  // The long hair's sheet is one-sided: seen from inside, it faces the eye.
+  if (hair && dot(n, v) < 0.0) n = -n;
+  float seed = vFace.x * 7.31 + dot(vHair, vec3(91.7, 37.3, 13.1));
+  float fine = 1.0 - smoothstep(0.0015, 0.005, length(fwidth(r)));
+  float psi = atan(abs(r.x), r.z + 0.006);
+  // The face's texel, fetched on every path so its mip level comes from smooth derivatives.
+  float lay = vFace.x;
+  vec4 cell = vec4(mod(lay, ${FACE_ATLAS.cols}.0) / ${FACE_ATLAS.cols}.0, (${FACE_ATLAS.rows - 1}.0 - floor(lay / ${FACE_ATLAS.cols}.0 + 0.001)) / ${FACE_ATLAS.rows}.0,
+    1.0 / ${FACE_ATLAS.cols}.0, 1.0 / ${FACE_ATLAS.rows}.0);
+  vec2 uv = clamp((r.xy - vec2(${f4(FACE.x0)}, ${f4(FACE.y0)})) / vec2(${f4(FACE.x1 - FACE.x0)}, ${f4(FACE.y1 - FACE.y0)}), 0.0, 1.0);
+  vec4 m = texture(uAtlas, cell.xy + uv * cell.zw);
+  vec3 col = vSkin;
+  float spec = 0.0, ao = 1.0;
+  if (hair) {
+    float hl = hairlineAt(r);
+    col = hairAt(r, psi, style, seed, fine);
+    if (style == 1) col *= 1.0 - 0.5 * fine * (1.0 - smoothstep(0.0, 0.0012, abs(r.x - 0.024))) * smoothstep(1.7, 1.72, r.y) * smoothstep(-0.03, 0.02, r.z);
+    // Where the shell thins to its edge the scalp shows through; cut sides are mostly skin.
+    ao = mix(0.85, 1.0, smoothstep(hl + 0.004, hl + 0.016, r.y));
+    if (style == 4) {
+      float cut = smoothstep(0.04, 0.05, abs(r.x)) * (1.0 - smoothstep(1.708, 1.722, r.y));
+      col = mix(col, mix(vSkin, vHair * 0.5, 0.5 + 0.3 * mix(0.5, vnoise(r * 900.0), fine)), cut);
+    }
+  } else {
+    float wt = vMisc.x;
+    if (f == 7) {
+      float wet;
+      vec3 fc = faceColour(m, r, vSkin, vHair, vLip, vLipstick, vFace.y, vIris, wet);
+      col = mix(vSkin, fc, wt);
+      spec = wet * 2.0 * wt;
+      // The scalp under the hair, with a soft broken edge for a hairline.
+      float hl = hairlineAt(r);
+      float jit = 0.0026 * fine * (vnoise(vec3(psi * 70.0, r.y * 400.0, seed)) - 0.5);
+      float sc = smoothstep(hl - 0.0025, hl + 0.0025, r.y + jit);
+      col = mix(col, hairAt(r, psi, style, seed, fine) * 0.95, sc);
+      ao = mix(ao, 0.88, sc);
+      col *= 1.0 - 0.18 * smoothstep(1.534, 1.522, r.y);
+    } else if (f == 8) {
+      col = vSkin * vec3(1.03, 0.94, 0.92) * (1.0 - 0.3 * vMisc.x);
+      ao = 1.0 - 0.3 * vMisc.x;
+    } else {
+      // The neck, with the jaw's shadow on the throat.
+      float under = smoothstep(1.49, 1.535, r.y) * smoothstep(-0.02, 0.025, r.z);
+      col = vSkin * (1.0 - 0.3 * under);
+      ao = 1.0 - 0.25 * under;
+    }
+  }
+  // The body's light (FRAG): wrap key, sky over warm ground, a rim off the camera.
+  float lum = vMisc.z;
+  float night = clamp(1.0 - lum, 0.0, 1.0);
+  float nk = dot(n, uKeyDir);
+  float wrap = max(0.0, (nk + 0.35) / 1.35);
+  vec3 amb = mix(vec3(0.34, 0.29, 0.24), vec3(0.46, 0.5, 0.58), n.z * 0.5 + 0.5);
+  vec3 keyC = mix(vec3(0.62, 0.58, 0.52), vec3(0.6, 0.48, 0.34), night);
+  float rim = pow(1.0 - abs(normalize(vNv).z), 3.0);
+  vec3 rimC = mix(vec3(0.12, 0.13, 0.15), vec3(0.2, 0.3, 0.45), night);
+  vec3 c = col * (amb * ao + keyC * wrap) + rim * rimC;
+  float nh = max(dot(n, normalize(uKeyDir + v)), 0.0);
+  if (!hair) {
+    // Light that gets under the skin warms the edge of the shadow; the eyes and lips are wet.
+    c += col * vec3(0.3, 0.1, 0.06) * keyC * (smoothstep(-0.45, 0.1, nk) - smoothstep(0.1, 0.7, nk)) * 0.8;
+    c += keyC * (pow(nh, 28.0) * 0.07 + pow(nh, 120.0) * spec * 1.2);
+  } else {
+    c += keyC * 0.12 * exp(-sq((nh - 0.72) / 0.12)) * (0.4 + dot(vHair, vec3(0.33))) * (style == 1 || style == 4 ? 1.8 : 1.0);
+    c += keyC * pow(nh, 40.0) * 0.03;
+  }
+  c *= lum;
+  c *= min(1.0, uDim / mix(1.0, 0.62, clamp((1.0 - lum) / 0.38, 0.0, 1.0)));
+  for (int i = 0; i < 12; i++) {
+    if (i >= uWLN) break;
+    vec3 d = uWLP[i] - vWT;
+    float dist = length(d);
+    float att = clamp(1.0 - dist / max(0.001, uWLR[i]), 0.0, 1.0);
+    if (att <= 0.0) continue;
+    float diff = max(0.0, (dot(n, d / max(0.001, dist)) + 0.4) / 1.4);
+    c += col * uWLC[i] * (att * att * diff * 1.6);
+  }
+  // Paint, not light: see the same line in FRAG.
+  c /= max(1.0, max(c.r, max(c.g, c.b)));
+  c = mix(c, uFog, vMisc.y);
+  outColor = vec4(c * alpha, alpha);
+}`, 'outColor');
+
+// The face atlas, loaded once for every context. A phone-class screen (GL_TIER's test in
+// windshield.js, which this can't import) takes the half-size copy, whose cells sit on 32-texel
+// boundaries, so it stops a mip sooner.
+const HALF_ATLAS = (() => {
+  try {
+    const mm = globalThis.matchMedia, sc = globalThis.screen;
+    if (typeof mm !== 'function' || !sc) return false;
+    if (globalThis.localStorage?.getItem('architect_gl_tier') === 'full') return false;
+    const shortSide = Math.min(sc.width || 0, sc.height || 0);
+    return mm('(pointer: coarse)').matches && shortSide > 0 && shortSide < 600;
+  } catch { return false; }
+})();
+let ATLAS_IMG = null;
+function atlasImage() {
+  if (ATLAS_IMG || typeof Image !== 'function') return ATLAS_IMG;
+  try {
+    ATLAS_IMG = new Image();
+    ATLAS_IMG.decoding = 'async';
+    ATLAS_IMG.src = new URL('../../../' + (HALF_ATLAS ? FACE_ATLAS.half : FACE_ATLAS.src), import.meta.url).href;
+  } catch { ATLAS_IMG = null; }
+  return ATLAS_IMG;
+}
 
 function compile(gl, type, src, label) {
   const s = gl.createShader(type);
@@ -335,6 +600,116 @@ export function createActorLayer(gl) {
     wlC: gl.getUniformLocation(prog, 'uWLC'), wlR: gl.getUniformLocation(prog, 'uWLR'),
   };
   const wlP = new Float32Array(36), wlC = new Float32Array(36), wlR = new Float32Array(12);
+
+  // ── The head's program, meshes and textures ─────────────────────────────────────────────────────
+  let hprog = takeWarm(gl, HEAD_VERT, HEAD_FRAG);
+  if (!hprog) {
+    hprog = gl.createProgram();
+    gl.attachShader(hprog, compile(gl, gl.VERTEX_SHADER, HEAD_VERT, 'head vertex'));
+    gl.attachShader(hprog, compile(gl, gl.FRAGMENT_SHADER, HEAD_FRAG, 'head fragment'));
+    gl.linkProgram(hprog);
+  }
+  if (!gl.getProgramParameter(hprog, gl.LINK_STATUS)) throw new Error('actors head link: ' + gl.getProgramInfoLog(hprog));
+  const HA = (nm) => gl.getAttribLocation(hprog, nm), HU = (nm) => gl.getUniformLocation(hprog, nm);
+  const hloc = {
+    p: HA('aP'), n: HA('aN'), fw: HA('aFW'),
+    bones: HU('uBones'), atlas: HU('uAtlas'), viewProj: HU('uViewProj'), view: HU('uView'),
+    fog: HU('uFog'), fogNear: HU('uFogNear'), fogFar: HU('uFogFar'), fogAmt: HU('uFogAmt'),
+    keyDir: HU('uKeyDir'), dim: HU('uDim'),
+    wlN: HU('uWLN'), wlP: HU('uWLP'), wlC: HU('uWLC'), wlR: HU('uWLR'),
+  };
+  // Where each instance attribute sits in a record, in floats. Re-pointed per draw at the draw's
+  // first instance, since WebGL2 has no base instance.
+  const HINST = [
+    [HA('iPos'), 4, 0], [HA('iClipA'), 4, 4], [HA('iClipB'), 4, 8], [HA('iSkin'), 3, 12], [HA('iHair'), 3, 15],
+    [HA('iLip'), 3, 18], [HA('iLipstick'), 3, 21], [HA('iIris'), 3, 24], [HA('iFace'), 4, 27],
+  ].filter(([l]) => l >= 0);
+  const hstream = makeVertexStream(gl, gl.createVertexArray(), HSTRIDE, [], HSTRIDE * 64);
+  // A VAO per mesh: its own vertices and indices, and the instance attributes on the shared stream.
+  function headVao(m) {
+    const vao = gl.createVertexArray();
+    gl.bindVertexArray(vao);
+    const buf = (data, l, k) => {
+      if (l < 0) return;
+      const b = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, b);
+      gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
+      gl.enableVertexAttribArray(l);
+      gl.vertexAttribPointer(l, k, gl.FLOAT, false, k * 4, 0);
+    };
+    const nv = m.P.length / 3, fw = new Float32Array(nv * 3);
+    for (let i = 0; i < nv; i++) { fw[i * 3] = m.F[i]; fw[i * 3 + 1] = m.W[i]; fw[i * 3 + 2] = m.X[i]; }
+    buf(m.P, hloc.p, 3); buf(m.N, hloc.n, 3); buf(fw, hloc.fw, 3);
+    gl.bindBuffer(gl.ARRAY_BUFFER, hstream.buf);
+    for (const [l] of HINST) { gl.enableVertexAttribArray(l); gl.vertexAttribDivisor(l, 1); }
+    const ib = gl.createBuffer();
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ib);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, m.I, gl.STATIC_DRAW);
+    gl.bindVertexArray(null);
+    return { vao, count: m.I.length };
+  }
+  // Built the first time a level is drawn: a skull (skin, ears, neck) and a shell per hair style.
+  const headMeshes = [];
+  const meshesAt = (lv) => headMeshes[lv] || (headMeshes[lv] = {
+    skull: headVao(headMesh(lv)), hair: Array.from({ length: HAIR_STYLES }, (_, s) => headVao(hairMesh(s, lv))),
+  });
+  // The bones, a row a baked frame (ACTOR_HEAD_BONES), and the atlas. Until the atlas has loaded the
+  // face is a one-texel stand-in that reads as plain skin: shade 1 (R × 1.5), no hair, lips or eyes.
+  let boneT = null, faceT = null, atlasDone = false;
+  function texture2D(unit) {
+    const t = gl.createTexture();
+    gl.activeTexture(gl.TEXTURE0 + unit);
+    gl.bindTexture(gl.TEXTURE_2D, t);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    return t;
+  }
+  function bonesFor(bk) {
+    if (boneT) return boneT;
+    boneT = texture2D(BONE_UNIT);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, ACTOR_HEAD_BONES.texels, bk.frames, 0, gl.RGBA, gl.FLOAT, bk.bones);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.bindTexture(gl.TEXTURE_2D, null);
+    gl.activeTexture(gl.TEXTURE0);
+    return boneT;
+  }
+  function faceTex() {
+    if (!faceT) {
+      faceT = texture2D(FACE_UNIT);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([170, 0, 0, 255]));
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    }
+    const img = atlasDone ? null : atlasImage();
+    if (img && img.complete && img.naturalWidth > 0) {
+      atlasDone = true;
+      // ⚠ FLIPPED, NOT PREMULTIPLIED AND NOT COLOUR-CONVERTED: the four channels are masks, and
+      // either of the last two would mix them (actor-faces.js). All three go back after.
+      try {
+        gl.activeTexture(gl.TEXTURE0 + FACE_UNIT);
+        gl.bindTexture(gl.TEXTURE_2D, faceT);
+        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+        gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+        gl.pixelStorei(gl.UNPACK_COLORSPACE_CONVERSION_WEBGL, gl.NONE);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAX_LEVEL, FACE_ATLAS.maxLevel - (HALF_ATLAS ? 1 : 0));
+        gl.generateMipmap(gl.TEXTURE_2D);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      } catch { /* the stand-in stays */ }
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+      gl.pixelStorei(gl.UNPACK_COLORSPACE_CONVERSION_WEBGL, gl.BROWSER_DEFAULT_WEBGL);
+    }
+    gl.bindTexture(gl.TEXTURE_2D, null);
+    gl.activeTexture(gl.TEXTURE0);
+    return faceT;
+  }
+  // This frame's heads, sorted by level then hair style; `hc` counts each (level, style) bucket.
+  const NB = HEAD_LEVELS.length * HAIR_STYLES;
+  const hc = new Int32Array(NB), hat = new Int32Array(NB + 1);
+  let hdata = new Float32Array(HSTRIDE * 64), nh = 0;
+  const hb = (r) => Math.max(0, Math.min(HEAD_LEVELS.length - 1, r.hl | 0)) * HAIR_STYLES + ((r.o.face && r.o.face.hairStyle) | 0);
 
   // Each body's mesh and textures go up once, the first time anybody is drawn with it. Index 0 is the
   // close-up body and 1 the far one (actor3d.js bk.far); both play through the one program, and both
@@ -404,10 +779,11 @@ export function createActorLayer(gl) {
    * key-light direction on the ground plane. `lod: 1` draws the far body.
    */
   function upload(recs) {
-    n = 0;
+    n = 0; nh = 0;
     for (const M of meshes) if (M) M.n = 0;
     const bake = actorBakeReady();
     if (!bake || !recs || !recs.length) return 0;
+    uploadHeads(recs, bake);
     for (const r of recs) if (r.lod && bake.far) meshFor(bake.far, 1).n++; else meshFor(bake, 0).n++;
     for (const M of meshes) {
       if (!M || !M.n) continue;
@@ -435,25 +811,99 @@ export function createActorLayer(gl) {
     return n;
   }
 
+  // The near body has no head of its own, so every near record gets one here: the same position,
+  // clips and phases as its body, and the face its outfit carries.
+  function uploadHeads(recs, bake) {
+    if (!bake.bones) return;
+    hc.fill(0);
+    for (const r of recs) if (!(r.lod && bake.far)) { hc[hb(r)]++; nh++; }
+    if (!nh) return;
+    hat[0] = 0;
+    for (let i = 0; i < NB; i++) hat[i + 1] = hat[i] + hc[i];
+    if (hdata.length < nh * HSTRIDE) hdata = new Float32Array(Math.max(nh * HSTRIDE, hdata.length * 2));
+    hc.fill(0);
+    const c = (o, rgb) => { hdata[o] = rgb[0] / 255; hdata[o + 1] = rgb[1] / 255; hdata[o + 2] = rgb[2] / 255; };
+    for (const r of recs) {
+      if (r.lod && bake.far) continue;
+      const b = hb(r), o = (hat[b] + hc[b]++) * HSTRIDE, F = r.o.face;
+      const A = bake.clips[r.clip] || bake.clips.idle, Bc = r.clip2 ? bake.clips[r.clip2] : null;
+      hdata[o] = r.x; hdata[o + 1] = r.y; hdata[o + 2] = r.z || 0; hdata[o + 3] = r.s;
+      hdata[o + 4] = A.row0; hdata[o + 5] = A.len; hdata[o + 6] = r.ph || 0; hdata[o + 7] = r.hd || 0;
+      hdata[o + 8] = Bc ? Bc.row0 : 0; hdata[o + 9] = Bc ? Bc.len : 1; hdata[o + 10] = r.ph2 || 0; hdata[o + 11] = Bc ? (r.mix || 0) : 0;
+      c(o + 12, r.o.skin); c(o + 15, r.o.hair);
+      c(o + 18, F ? F.lip : r.o.skin); c(o + 21, F ? F.lipstick : r.o.skin); c(o + 24, F ? F.iris : [60, 44, 32]);
+      hdata[o + 27] = r.lum == null ? 1 : r.lum; hdata[o + 28] = r.a == null ? 1 : r.a;
+      hdata[o + 29] = (F ? F.layout : 0) + 32 * (b % HAIR_STYLES); hdata[o + 30] = F ? F.makeup : 0;
+    }
+    hstream.write(hdata, nh * HSTRIDE);
+  }
+
+  function drawHeads(bk, uniforms) {
+    if (!nh || !bk.bones) return 0;
+    gl.useProgram(hprog); applyLinOut(gl, hprog);
+    uniforms(hloc);
+    // ⚠ BOTH FETCHED BEFORE EITHER IS BOUND: each can make or upload its texture, which changes the
+    // active unit and leaves nothing bound on it. Called between an activeTexture and its bind, the
+    // bones went to unit 0 and the heads collapsed to a point.
+    const bt = bonesFor(bk), ft = faceTex();
+    gl.activeTexture(gl.TEXTURE0 + BONE_UNIT);
+    gl.bindTexture(gl.TEXTURE_2D, bt);
+    gl.activeTexture(gl.TEXTURE0 + FACE_UNIT);
+    gl.bindTexture(gl.TEXTURE_2D, ft);
+    gl.uniform1i(hloc.bones, BONE_UNIT);
+    gl.uniform1i(hloc.atlas, FACE_UNIT);
+    const S = HSTRIDE * 4;
+    let tris = 0;
+    const run = (m, first, count) => {
+      gl.bindVertexArray(m.vao);
+      gl.bindBuffer(gl.ARRAY_BUFFER, hstream.buf);
+      for (const [l, k, off] of HINST) gl.vertexAttribPointer(l, k, gl.FLOAT, false, S, (first * HSTRIDE + off) * 4);
+      gl.drawElementsInstanced(gl.TRIANGLES, m.count, gl.UNSIGNED_SHORT, 0, count);
+      tris += (m.count / 3) * count;
+    };
+    for (let lv = 0; lv < HEAD_LEVELS.length; lv++) {
+      const a = hat[lv * HAIR_STYLES], z = hat[(lv + 1) * HAIR_STYLES];
+      if (z <= a) continue;
+      const M = meshesAt(lv);
+      run(M.skull, a, z - a);
+      for (let s = 0; s < HAIR_STYLES; s++) {
+        const b = lv * HAIR_STYLES + s;
+        if (hat[b + 1] > hat[b]) run(M.hair[s], hat[b], hat[b + 1] - hat[b]);
+      }
+    }
+    gl.bindVertexArray(null);
+    gl.activeTexture(gl.TEXTURE0 + BONE_UNIT);
+    gl.bindTexture(gl.TEXTURE_2D, null);
+    gl.activeTexture(gl.TEXTURE0 + FACE_UNIT);
+    gl.bindTexture(gl.TEXTURE_2D, null);
+    gl.activeTexture(gl.TEXTURE0);
+    return tris;
+  }
+
   function draw(cam, cssH, opts = {}) {
     if (!n) return 0;
     gl.useProgram(prog); applyLinOut(gl, prog);
-    gl.uniformMatrix4fv(loc.viewProj, false, viewProjMatrix(cam, cssH, opts.near, opts.far));
+    const VP = viewProjMatrix(cam, cssH, opts.near, opts.far), VM = viewMatrix(cam);
     const f = opts.fog;
-    gl.uniform3f(loc.fog, f ? f.col[0] : 0, f ? f.col[1] : 0, f ? f.col[2] : 0);
-    gl.uniform1f(loc.fogNear, f ? f.near : 1e9);
-    gl.uniform1f(loc.fogFar, f ? f.far : 1e9 + 1);
-    gl.uniform1f(loc.fogAmt, f ? f.amt : 0);
-    gl.uniform3f(loc.keyDir, key[0], key[1], key[2]);
-    gl.uniformMatrix4fv(loc.view, false, viewMatrix(cam));
-    gl.uniform1f(loc.look, ACTOR_LOOK.on ? 1 : 0);
-    gl.uniform1f(loc.matOn, ACTOR_LOOK.mat ? 1 : 0);
     // Set on every draw, on or off: the mirror prepass draws people with no list.
     const WL = opts.lights || [], nW = Math.min(12, WL.length);
     for (let i = 0; i < nW; i++) { const L = WL[i]; wlP.set(L.p, i * 3); wlC.set(L.lamp || L.rgb, i * 3); wlR[i] = L.rl || (L.rw == null ? L.r : L.rw); }
-    gl.uniform1i(loc.wlN, nW);
-    gl.uniform1f(loc.dim, opts.nightDim > 0 ? opts.nightDim : 1);
-    if (nW) { gl.uniform3fv(loc.wlP, wlP); gl.uniform3fv(loc.wlC, wlC); gl.uniform1fv(loc.wlR, wlR); }
+    // What the body and the head share, into whichever program is in use.
+    const uniforms = (U) => {
+      gl.uniformMatrix4fv(U.viewProj, false, VP);
+      gl.uniformMatrix4fv(U.view, false, VM);
+      gl.uniform3f(U.fog, f ? f.col[0] : 0, f ? f.col[1] : 0, f ? f.col[2] : 0);
+      gl.uniform1f(U.fogNear, f ? f.near : 1e9);
+      gl.uniform1f(U.fogFar, f ? f.far : 1e9 + 1);
+      gl.uniform1f(U.fogAmt, f ? f.amt : 0);
+      gl.uniform3f(U.keyDir, key[0], key[1], key[2]);
+      gl.uniform1i(U.wlN, nW);
+      gl.uniform1f(U.dim, opts.nightDim > 0 ? opts.nightDim : 1);
+      if (nW) { gl.uniform3fv(U.wlP, wlP); gl.uniform3fv(U.wlC, wlC); gl.uniform1fv(U.wlR, wlR); }
+    };
+    uniforms(loc);
+    gl.uniform1f(loc.look, ACTOR_LOOK.on ? 1 : 0);
+    gl.uniform1f(loc.matOn, ACTOR_LOOK.mat ? 1 : 0);
     gl.uniform1i(loc.posT, POS_UNIT);
     gl.uniform1i(loc.nrmT, NRM_UNIT);
     gl.enable(gl.DEPTH_TEST);
@@ -480,13 +930,16 @@ export function createActorLayer(gl) {
     gl.activeTexture(gl.TEXTURE0 + POS_UNIT);
     gl.bindTexture(gl.TEXTURE_2D, null);
     gl.activeTexture(gl.TEXTURE0);
+    if (meshes[0]) tris += drawHeads(meshes[0].bk, uniforms);
     return tris;
   }
 
   return {
     upload, draw,
     get instances() { return n; },
+    get heads() { return nh; },
   };
 }
 
 declareProgram(VERT, FRAG);
+declareProgram(HEAD_VERT, HEAD_FRAG);

@@ -189,6 +189,8 @@ void main() {
   }
   // The lamps nearby, coloured by what they land on.
   c += vLamp * (0.35 + 0.65 * c / max(0.2, max(c.r, max(c.g, c.b))));
+  // Paint, not light: over 1 the bloom takes it for an emitter (as in actors.js).
+  c /= max(1.0, max(c.r, max(c.g, c.b)));
   c = mix(c, uFog, vFog);
   float a = t.a * vAlpha;
   outColor = vec4(c * a, a);

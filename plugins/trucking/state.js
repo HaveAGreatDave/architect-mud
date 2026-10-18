@@ -570,7 +570,26 @@ function hubSide(key, gate, otherKey, window, nodes) {
 // it can join most gently, then shares the hub road the rest of the way. Returns { link, shared,
 // withKeys } built in the direction plainKey -> farKey, or null when there is nothing to join or no
 // join is gentle enough (the road is then built as a plain road).
-const MERGE_STEP = 5, MERGE_MAX = 45, MERGE_KEEP = 18, MERGE_DETOUR = 1.5;   // tiles between candidates; steepest join; tiles kept clear of the entrance
+const MERGE_STEP = 5, MERGE_MAX = 25, MERGE_KEEP = 18, MERGE_DETOUR = 1.5;   // tiles between candidates; steepest join; tiles kept clear of the entrance
+// ⚠ A LINK MAY ONLY TOUCH THE ROADS IT JOINS AT ITS ENDS. Built backwards from a tangent join, a
+// link can hug the road it joins (the far road curves away, the link carries on straight, and the
+// two run side by side) and then have to cross it to reach its other end. That passed every angle
+// test and laid Route 5 across Route 3 in an X, then six tiles beside it for forty more: two roads
+// where a junction was meant. So past its first and last ten tiles a link has to open a gap to the
+// roads it connects, growing to LINK_CLEAR, or it is not a candidate.
+const LINK_CLEAR = 8;
+function linkClear(link, roads) {
+  for (let s = 0; s <= link.L; s += 2) {
+    const need = Math.min(LINK_CLEAR, (Math.min(s, link.L - s) - 10) * 0.3);
+    if (need <= 0) continue;
+    const p = corridorPos(link, s, 0);
+    for (const r of roads) {
+      const hit = r && corridorLocate(r, p.x, p.y);
+      if (hit && Math.abs(hit.t) < need) return false;
+    }
+  }
+  return true;
+}
 function mergeInto(plainKey, plainGate, farKey, farGate, window, nodes, seed) {
   let best = null;
   for (const d of VOIDS[farKey]?.dests || []) {
@@ -592,7 +611,7 @@ function mergeInto(plainKey, plainGate, farKey, farGate, window, nodes, seed) {
       const link = reverseRoute(back);
       let worst = Math.abs(((m.heading - link.legs[link.legs.length - 1].deg) % 360 + 540) % 360 - 180);   // measured, see cutOff
       for (let i = 1; i < link.legs.length - 1; i++) worst = Math.max(worst, Math.abs(((link.legs[i].deg - link.legs[i - 1].deg) % 360 + 540) % 360 - 180));
-      if (worst > MERGE_MAX) continue;
+      if (worst > MERGE_MAX || !linkClear(link, [hubRoad])) continue;
       const score = link.L + (hubRoad.L - s);
       if (!best || score < best.score) best = { score, link, shared: sliceRoute(hubRoad, hubRoad.L, s), withKeys: [d.region, farKey] };
     }
@@ -631,7 +650,7 @@ function cutOff(plainKey, plainGate, farKey, farGate, window, nodes, seed) {
       const join = Math.abs(((M.heading - link.legs[link.legs.length - 1].deg) % 360 + 540) % 360 - 180);
       let worst = Math.max(land, join);
       for (let i = 1; i < link.legs.length; i++) worst = Math.max(worst, Math.abs(((link.legs[i].deg - link.legs[i - 1].deg) % 360 + 540) % 360 - 180));
-      if (worst > MERGE_MAX) continue;
+      if (worst > MERGE_MAX || !linkClear(link, [nearRoad, farRoad])) continue;
       // Favour the shortest road of its own: two routes going the same way become one road as soon
       // as they meet, rather than running side by side to a late join. The detour cap bounds the total.
       const score = sa + link.L * 4 + (farRoad.L - sm);
@@ -677,6 +696,7 @@ export function networkRoute(fromKey, toKey, window, nodes) {
       if (c) {
         c.link.hwType = routeType(fromKey, toKey);
         const out = finish(joinRoutes([c.near, c.link, c.far]), flip, (o, fl) => {
+          o.cutOff = true;   // its seams are junctions with other roads (joinPointsFor)
           tagNumbers(o, fromKey, toKey, null);
           // The near stretch carries the road it leaves on, the far stretch the road it joins.
           const nA = routeNumber(...c.withNear), nB = routeNumber(...c.withFar), L0 = c.near.L, L1 = c.near.L + c.link.L;
@@ -781,6 +801,44 @@ function routeForRig(rig, destKey, nodes) {
 // ⚠ SIBLINGS ARE BUILT WITHOUT SIBLINGS OF THEIR OWN. It terminates the recursion, and it is the
 // same rule the old builder followed for the same second reason: a sign is a thing the road you are
 // ON tells you, and sixty boards facing a road nobody is driving are texture with a per-tile cost.
+// ── WHERE ROADS MEET, FOR THE WEEK ───────────────────────────────────────────
+// Every point where one road joins or leaves another: each hub's fork, and the seams of each road
+// built by merging or cutting off. A road cannot see the second kind from its own geometry, because
+// it is the OTHER road that comes in, so they are worked out once a week here and handed to the
+// plazas, which keep clear of them. A fork asks for less clear road than a merge: the arms of a Y
+// are apart within a few tiles, and a merge converges over thirty.
+const FORK_CLEAR = 24;
+let _joins = null, _joinsKey = '';
+function joinPointsFor(window) {
+  const key = `${window}|${gateGeneration()}`;
+  if (_joins && _joinsKey === key) return _joins;
+  const out = [], seen = new Set();
+  for (const fromKey of Object.keys(VOIDS)) {
+    if (VOIDS[fromKey]?.hub) {
+      for (const d of destsFor(fromKey, null)) {
+        const pair = gatePair(fromKey, d.region), hs = pair && hubSide(fromKey, pair.from, d.region, window, d.nodes);
+        if (hs && !out.some((p) => Math.hypot(p.x - hs.x, p.y - hs.y) < 1)) out.push({ x: hs.x, y: hs.y, clear: FORK_CLEAR });
+      }
+      continue;
+    }
+    for (const d of destsFor(fromKey, null)) {
+      if (VOIDS[d.region]?.hub) continue;
+      const pair = gatePair(fromKey, d.region);
+      if (!pair) continue;
+      const k = pairKey(pair.from.id, pair.to.id);
+      if (seen.has(k)) continue;
+      seen.add(k);
+      // Only a road built onto another has junctions at its seams; a plain road's seams are where
+      // its own pieces meet.
+      const r = networkRoute(fromKey, d.region, window, d.nodes);
+      if (!r || !(r.mergedInto || r.cutOff)) continue;
+      for (const b of r.bends || []) if (b.seam) { const p = corridorPos(r, b.s, 0); out.push({ x: p.x, y: p.y }); }
+    }
+  }
+  _joins = out; _joinsKey = key;
+  return out;
+}
+
 export function buildRoad(fromKey, destKey, toRegion, window, nodes, dests = null, withSiblings = true) {
   const road = networkRoute(fromKey, toRegion, window, nodes);
   if (!road) return null;
@@ -788,7 +846,7 @@ export function buildRoad(fromKey, destKey, toRegion, window, nodes, dests = nul
   road.origin = dests ? (VOIDS[fromKey]?.sign || VOIDS[fromKey]?.origin || null) : null;
   // The inspection plazas, worked out from the same finished geometry the boards are and gated the
   // same way — a sibling limb is built with no destinations, so it gets neither. See plaza.js.
-  attachPlazas(road, dests);
+  attachPlazas(road, dests, dests?.length ? joinPointsFor(window) : []);
   road.branches = [];
   if (withSiblings) {
     for (const d of dests || []) {

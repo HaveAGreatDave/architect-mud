@@ -529,6 +529,8 @@ export function carcassGlass(D) {
   const { onScreen } = screenOf(D);
   return CARCASS_SHARDS.map((sh) => sh.map(([x, t]) => onScreen(x, t)));
 }
+// The phone on the left sill, which is the GPS: drawn there and clicked there ('ck:gps').
+const phoneAt = (P) => [-0.215, 0.20, P.carcass.sillZ + 0.035];
 const panelOf = (K, P) => K.panel([0, P.carcass.panelY - 0.004, P.carcass.panelTop - 0.13], [1, 0, 0], [0, 0, 1], 'dash', 0.1);
 
 export function carcassHotspots(P, live) {
@@ -538,6 +540,7 @@ export function carcassHotspots(P, live) {
   out.push({ id: 'throttle', p: Y.thrKnob, r: 0.035, kind: 'throttle' });
   out.push({ id: 'trim', p: Y.trimTip, r: 0.04, kind: 'trim' });
   out.push({ id: 'ck:flaps', p: Y.flapTip, r: 0.035, kind: 'click' });
+  out.push({ id: 'ck:gps', p: phoneAt(P), r: 0.05, kind: 'click' });
   return out;
 }
 
@@ -785,7 +788,7 @@ export function carcassFit(P, live, push) {
   }
   // A phone in a sandwich bag, bungeed to the left sill, running somebody's moving map. It's the
   // best instrument on board by a distance and it's on eleven per cent.
-  const ph = [-0.215, 0.20, P.carcass.sillZ + 0.035];
+  const ph = phoneAt(P);
   const phN = norm([0.55, -0.35, 0.76]), phR = norm(cross([0, 1, 0], phN)), phU = cross(phN, phR);
   K.obox(ph, phR, phU, phN, 0.036, 0.07, 0.006, 'dash', 0.1, C.black);
   const Sp = K.panel(add(ph, mul(phN, 0.0065)), phR, phU, 'dash', 0);

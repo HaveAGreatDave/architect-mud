@@ -186,6 +186,8 @@ void main() {
     float diff = (abs(dot(n, d / max(0.001, dist))) + 0.5) / 1.5;
     c += uWLC[i] * dye * (att * att * diff);
   }
+  // Cloth is paint, not light: over 1 the bloom takes it for an emitter (as in actors.js).
+  c /= max(1.0, max(c.r, max(c.g, c.b)));
   c = mix(c, uFog, vFog);
   outColor = vec4(c * vAlpha, vAlpha);
 }`, 'outColor');

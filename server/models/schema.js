@@ -3022,6 +3022,22 @@ export const SCHEMA_SQL = `
   CREATE INDEX IF NOT EXISTS idx_boats_owner ON boats(owner_id);
   CREATE INDEX IF NOT EXISTS idx_boats_berth ON boats(berth_zone);
 
+  -- PODRACERS (plugins/podracer). One row per racer a player owns. Where it is between runs is
+  -- park_zone, a tile in the Scarletwastes; a live run is RAM only. custom_data holds the turbines'
+  -- condition (eng, [left, right]), which cables are whole (cables) and the parked heading.
+  CREATE TABLE IF NOT EXISTS podracers (
+    id            TEXT PRIMARY KEY,
+    type_id       TEXT NOT NULL,                  -- key into podracer-model.js PODRACER_TYPES
+    name          TEXT,
+    owner_id      TEXT NOT NULL,
+    park_zone     TEXT,
+    fuel          REAL    NOT NULL DEFAULT 1,     -- 0..1 of the tank
+    condition     REAL    NOT NULL DEFAULT 1,     -- the pod; 1 is new, 0 is wrecked
+    custom_data   JSONB   NOT NULL DEFAULT '{}'::jsonb,
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+  CREATE INDEX IF NOT EXISTS idx_podracers_owner ON podracers(owner_id);
+
   CREATE TABLE IF NOT EXISTS hangars (
     id            TEXT PRIMARY KEY,
     field_zone    TEXT NOT NULL,                 -- airfield zone id

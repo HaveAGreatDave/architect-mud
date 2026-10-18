@@ -44,7 +44,7 @@
 import { sendToPlayer } from '../../server/engine/messaging.js';
 import { world } from '../../server/engine/world.js';
 import { dispatchAction } from '../../server/engine/actions.js';
-import { milesOf, pavedAt, corridorPos, SHOULDER_W } from './corridor.js';
+import { milesOf, pavedAt, corridorPos, corridorLocate, SHOULDER_W } from './corridor.js';
 import { weighAt, cabCheckAt, chargeAt } from './scale.js';
 
 // ── THE SHAPE OF ONE ─────────────────────────────────────────────────────────
@@ -77,6 +77,9 @@ const STOPPED_MPH = 3;
 // How far out the first call goes. Read on the radio, so it is over the horizon on purpose — the
 // same argument passHitcher makes for its own far call.
 const CALL_TILES = 26;
+// How far a station's footprint is kept off a junction, either side, unless the junction says. A
+// merge converges over about this much road.
+const JOIN_CLEAR = 30;
 
 // Names. The same shape as the roadside table in corridor.js: a small fixed list, seeded, so a
 // plaza is in the same place with the same name for everybody all week and two drivers can talk
@@ -112,7 +115,7 @@ function mulberry32(a) {
 // ⚠ AND IT IS KEPT CLEAR OF THE BOARDS. A sign post stands at t = SIGN_OFF (3.4), which is inside
 // this apron, and the plaza answers first — so a board landing in the footprint would simply cease
 // to exist, silently, on whichever road happened to roll that way.
-export function plazasFor(route) {
+export function plazasFor(route, joins = []) {
   if (!route) return [];
   const L = route.L || 0;
   const head = 34, tail = 34;                       // clear of both ramp ends, with room to spare
@@ -128,6 +131,21 @@ export function plazasFor(route) {
     if (g.s > s0 - PLAZA_LEN && g.s < s0 + PLAZA_LEN * 2) s0 = Math.round(g.s + PLAZA_LEN * 1.4);
   }
   if (s0 + PLAZA_LEN > L - tail) return [];
+  // ⚠ AND CLEAR OF EVERY JUNCTION. A station's apron in the gore of a merge turns a plain Y into a
+  // lot with three ways out of it. `joins` are the points where roads meet (state.js joinPointsFor),
+  // each with how much clear road it wants either side. A station already clear of them all stays
+  // where it rolled; one that is not moves to the place on the road furthest from every junction.
+  // ⚠ IT MOVES, IT IS NEVER DROPPED. A road without a station is a free run for a smuggler, which is
+  // a game decision, not a drawing one.
+  const sj = [];
+  for (const p of joins) {
+    const hit = corridorLocate(route, p.x, p.y);
+    if (hit && Math.abs(hit.t) < 8) sj.push({ s: hit.s, c: p.clear || JOIN_CLEAR });
+  }
+  const room = (a) => Math.min(Infinity, ...sj.map((j) => Math.max(j.s - (a + PLAZA_LEN), a - j.s) / j.c));
+  if (room(s0) < 1) {
+    for (let a = head; a + PLAZA_LEN <= L - tail; a++) if (room(a) > room(s0)) s0 = a;
+  }
   const name = PLAZA_NAMES[Math.floor(rng() * PLAZA_NAMES.length) % PLAZA_NAMES.length];
   // OPEN OR DARK, FOR THE WEEK. Two in three, which is enough that a driver plans around it being
   // open and enough that finding one dark is luck rather than a rule.
@@ -166,8 +184,8 @@ export function plazasFor(route) {
   return [plaza];
 }
 
-export function attachPlazas(route, dests) {
-  if (route) route.plazas = dests?.length ? plazasFor(route) : [];
+export function attachPlazas(route, dests, joins = []) {
+  if (route) route.plazas = dests?.length ? plazasFor(route, joins) : [];
   return route;
 }
 

@@ -24,7 +24,7 @@ import { depthMAt } from './seabed-scene.js';
 // Metres of water the Drake needs under her to dive. The server's own figure is plugins/submersible/sub.js
 // MIN_WATER (3 m); the client only uses this to light the SUB gate green or red.
 const SUB_MIN_WATER_M = 3;
-import { subCrossing, interiorHotspots, glWorldInstalled, glDecision, glLastError, lastViewState, lastFloorState, lastOwnShipMask, yachtPadZ, ensureWindshieldStyles, windshieldHTML, paintWindshield, disposeWindshield, panelControlRects, RENDER_TUNE, navMarks, buildingRoofFtAt, curtainRoofFtAt, modelTopZAt, altForRoofZ, altRestingOnZ, seaAmpsNow, hullSeaGains, ROOF_CATCH_R, ROOF_CATCH_CEIL_Z, MODEL_MAX_EXTENT, BUILDING_FOOT, climbOutClear, VISIBLE_NEAR_F, VISIBLE_FAR_F, CLIMBOUT_MAX_F, CLIMBOUT_LAT_IN, CLIMBOUT_LAT_OUT, pushLightningStrike, surfaceBreakup, perfBegin, perfEnd, perfTick } from './windshield.js';
+import { subCrossing, interiorHotspots, glWorldInstalled, glDecision, glLastError, lastViewState, lastFloorState, lastOwnShipMask, yachtPadZ, ensureWindshieldStyles, windshieldHTML, paintWindshield, disposeWindshield, panelControlRects, RENDER_TUNE, navMarks, buildingRoofFtAt, curtainRoofFtAt, modelTopZAt, altForRoofZ, altRestingOnZ, seaAmpsNow, hullSeaGains, ROOF_CATCH_R, ROOF_CATCH_CEIL_Z, MODEL_MAX_EXTENT, BUILDING_FOOT, VISIBLE_NEAR_F, VISIBLE_FAR_F, pushLightningStrike, surfaceBreakup, perfBegin, perfEnd, perfTick } from './windshield.js';
 import { padCatchStep } from './pad-catch.js';
 // ── GLASS 2 ────────────────────────────────────────────────────────────────
 // Installs the WebGL2 world pass and does nothing else: until RENDER_TUNE.gl is turned on, the
@@ -1169,6 +1169,20 @@ function buildFlapHtml(st) {
 // Air-to-air (Phase A): tighten flightsync when traffic is within this many tiles,
 // and dead-reckon a contact's position at most this long before its next relay.
 const FAST_SYNC_RANGE = 5, CONTACT_DR_MAX = 2.0;
+// HOW FAST THE MAP GOES BY: tiles per knot-second at a height. On top of RENDER_TUNE.worldPace sit
+// the runway rush (groundBoost, gone within a few dozen feet) and the cruise stretch, AIR_PACE. The
+// stretch is the fleet-wide speed-up of 2026-10-08: a Mule took twelve minutes from Coldwater to
+// The Strip. It comes in with HEIGHT, on a squared curve that is near zero below 150 ft, so the
+// takeoff roll, the climb-out past the field's buildings and a low approach move as they always did.
+// The own ship, its missiles and flares, and the dead-reckoned contacts all read it, so nothing
+// drifts against anything else.
+const AIR_PACE = 2, AIR_PACE_RISE_FT = 500;
+function paceAt(altFt, mult = 1) {
+  const a = Math.max(0, altFt || 0);
+  const rush = (RENDER_TUNE.groundBoost - 1) * Math.exp(-a / (RENDER_TUNE.groundDecay || 25));
+  const cruise = (AIR_PACE - 1) * (1 - Math.exp(-((a / AIR_PACE_RISE_FT) ** 2)));
+  return RENDER_TUNE.worldPace * mult * (1 + rush + cruise);
+}
 // Air-to-air guns (Phase B): the client's gun-solution envelope (tiles + half-cone deg),
 // the alt→world-z scale (mirrors windshield CONTACT_ALT_K) for the vertical aim term, and
 // the burst cadence while the trigger's held (the server enforces its own harder cap).
@@ -1257,7 +1271,7 @@ function stepShots(F, now, dt, s) {
       m.y = F.pos.y - Math.cos(lr) * 0.06 + Math.sin(lr) * 0.03 * m.side;
       m.alt = s.altitude - 3;
       m.hdg = s.heading + m.side * (5 + m.wander * 12);
-      m.spd = Math.max(0.12, Math.abs(s.airspeed) * RENDER_TUNE.worldPace);
+      m.spd = Math.max(0.12, Math.abs(s.airspeed) * paceAt(s.altitude));
     }
     if (m.boomT) { if (now - m.boomT > 420) m.dead = true; }
     else {
@@ -1302,7 +1316,7 @@ const FLARE_TRAIL = 12;          // smoke-trail samples per pellet
 function launchFlares(F, s) {
   if (!F.pos || !s) return;
   const now = performance.now(), hr = s.heading * Math.PI / 180;
-  const pace = Math.max(0.05, Math.abs(s.airspeed) * RENDER_TUNE.worldPace);
+  const pace = Math.max(0.05, Math.abs(s.airspeed) * paceAt(s.altitude));
   F.flares = F.flares || [];
   for (let i = 0; i < FLARE_COUNT; i++) {
     const side = i % 2 ? 1 : -1, k = Math.floor(i / 2);
@@ -1367,7 +1381,6 @@ function buildingCollisionAt(F, s) {
   const R = (map.length - 1) / 2, mc = F.mapCenter || { x: 0, y: 0 };
   const prev = F.cfitPrev || { x: F.pos.x, y: F.pos.y };
   const hd = (s.heading || 0) * Math.PI / 180, sinh = Math.sin(hd), cosh = Math.cos(hd);
-  const height = Math.min(1, Math.sqrt(Math.max(0, s.altitude) / 3000));   // matches windshield's v.height
   // Cheap reject only. The real containment test is per SEGMENT inside buildingRoofFtAt, which knows
   // the building's actual shape — so this outer box just has to be generous enough never to reject a
   // point some part of the model still occupies.
@@ -1393,11 +1406,12 @@ function buildingCollisionAt(F, s) {
     const roofFt = Math.max(buildingRoofFtAt(wx, wy, map[ry][rx], px, py),
                             curtainRoofFtAt(wx, wy, map[ry][rx], px, py));
     if (roofFt <= 0) continue;
-    const dx = wx - px, dy = wy - py, f = dx * sinh - dy * cosh, lat = dx * cosh + dy * sinh;
+    const dx = wx - px, dy = wy - py, f = dx * sinh - dy * cosh;
     // Must be inside the renderer's own near/far visibility window — a building the windshield
     // wouldn't actually be drawing (too close under the nose, or still fading in from FAR out)
-    // can't hurt you either. Same climb-out corridor rule on top of that: a building the
-    // windshield culls dead-ahead-and-low right off the runway can't be collided with.
+    // can't hurt you either. There is no climb-out shield any more (removed 2026-10-08): the
+    // collision follows the drawn shape, so a building off the end of a runway is solid like any
+    // other, and a pilot who can't out-climb it has to turn.
     // The near cull asks "is it far enough ahead to be on the glass" — which is the
     // wrong question for the tile you are directly OVER, where f collapses through
     // zero as you cross the roof. Sitting on top of a building is precisely when it
@@ -1407,17 +1421,6 @@ function buildingCollisionAt(F, s) {
     // rule holds, it just no longer loses the roof beneath the skids.
     const overhead = Math.abs(dx) <= 0.62 && Math.abs(dy) <= 0.62;
     if (!overhead && (f <= VISIBLE_NEAR_F || f > VISIBLE_FAR_F)) continue;
-    if (!climbOutClear(f, lat, height)) continue;
-    // Departure climb-out: while still within the takeoff corridor (CLIMBOUT_MAX_F tiles of
-    // where we lifted off), a building we haven't yet out-climbed is flown THROUGH, not hit.
-    // The visual world-scroll deliberately stalls forward tile-progress as altitude builds, so
-    // a weak climber off a field boxed in by towers (the Mayfly at Coldwater Regional) reaches
-    // an adjacent rooftop still far below it — every time. climbOutClear's fixed <120ft/f>0.1
-    // window releases right at that moment; this covers the rest of the low climb-out. Anchored
-    // to F.depPos (set at liftoff), so CFIT is untouched for any low pass elsewhere in the city.
-    if (F.depPos && Math.hypot(F.pos.x - F.depPos.x, F.pos.y - F.depPos.y) < CLIMBOUT_MAX_F
-        && f > 0 && f < CLIMBOUT_MAX_F && Math.abs(lat) < CLIMBOUT_LAT_IN + CLIMBOUT_LAT_OUT
-        && s.altitude < roofFt) continue;
     const pen = roofFt - s.altitude;   // >0 ⇒ below the roofline ⇒ contact
     if (pen > 0 && (!worst || pen > worst.pen)) worst = { pen, roofFt };
   }
@@ -1960,6 +1963,33 @@ function ensureFlightSimStyles() {
     .fsim-radio-frow.tgt b{ font-size:9px; letter-spacing:.5px; flex:1; text-align:center; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .fsim-tgt-btn{ font:9px/1 monospace; color:#57e6a0; background:linear-gradient(180deg,#0e2419,#081711); border:1px solid #14322a; border-radius:3px; padding:1px 4px; cursor:pointer; flex:0 0 auto; }
     .fsim-tgt-btn:active{ transform:translateY(1px); }
+    #fsim-tgt-name{ cursor:pointer; }
+    /* The GPS picker (THE GPS PICKER in openFlightSim). It lives on body, outside .fsim, so it
+       carries its own colours rather than the theme's. */
+    .fsim-gps{ position:fixed; left:50%; top:50%; transform:translate(-50%,-50%); z-index:61; width:min(360px,calc(100vw - 32px));
+      max-height:min(72vh,540px); display:flex; flex-direction:column; background:rgba(5,14,10,.96); border:1px solid #2f7a55;
+      border-radius:8px; box-shadow:0 8px 28px rgba(0,0,0,.6), inset 0 0 18px rgba(87,230,160,.08); font:12px/1.35 monospace; color:#bff5d8; }
+    .fsim-gps-hd{ display:flex; align-items:center; justify-content:space-between; padding:8px 10px; border-bottom:1px solid #1d4a35;
+      color:#57e6a0; letter-spacing:1.5px; }
+    .fsim-gps-cur{ display:flex; align-items:center; justify-content:space-between; gap:8px; padding:6px 10px; color:#8fcfae;
+      border-bottom:1px solid #143526; font-size:11px; }
+    .fsim-gps-cur b{ color:#ffcf3e; }
+    .fsim-gps-body{ overflow-y:auto; padding:4px 0 6px; }
+    .fsim-gps button{ font:inherit; color:inherit; background:none; border:0; cursor:pointer; }
+    .fsim-gps-x{ color:#57e6a0 !important; font-size:13px !important; padding:0 2px; }
+    .fsim-gps-clr{ border:1px solid #6a5a1c !important; border-radius:3px; color:#ffcf3e !important; padding:1px 6px !important; font-size:10px !important; }
+    .fsim-gps-reg,.fsim-gps-f{ display:flex; align-items:baseline; gap:8px; width:100%; text-align:left; padding:6px 10px; }
+    .fsim-gps-reg{ color:#d8ffe9 !important; letter-spacing:.5px; }
+    .fsim-gps-reg.open{ background:rgba(87,230,160,.08); }
+    .fsim-gps-reg i{ font-style:normal; color:#57e6a0; width:10px; }
+    .fsim-gps-reg span,.fsim-gps-f span{ flex:1 1 auto; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .fsim-gps-reg em{ font-style:normal; color:#5f9a7c; font-size:10px; }
+    .fsim-gps-reg b,.fsim-gps-f b{ font-weight:normal; color:#8fcfae; min-width:28px; text-align:right; }
+    .fsim-gps-f{ padding-left:28px; color:#bff5d8 !important; }
+    .fsim-gps-f.ctr{ color:#8fcfae !important; }
+    .fsim-gps-f em{ font-style:normal; color:#c8a84a; font-size:9px; }
+    .fsim-gps-reg:hover,.fsim-gps-f:hover{ background:rgba(87,230,160,.14); }
+    .fsim-gps-note{ padding:8px 10px 8px 28px; color:#5f9a7c; font-size:11px; }
     .fsim-radio-deck{ display:flex; align-items:center; justify-content:space-between; gap:6px; margin-top:auto; }
     .fsim-radio-btns{ display:grid; grid-template-columns:1fr 1fr; gap:3px; }
     .fsim-radio-btn{ font:7px/1 monospace; letter-spacing:.5px; color:#9fb0bd; padding:3px 5px; min-width:24px; cursor:pointer;
@@ -3073,13 +3103,24 @@ function drakeSyncTail(F) {
   const a = drakeAnim(F.dk), p = (x) => Math.round(clampNum(x, 0, 1) * 100);
   return ` ${p(a.wings)} ${p(a.rotorFold)} ${p(a.ramp)} ${p(F.gearRetract ? (F.gearAnim ?? 1) : 1)} ${p(a.ski || 0)} ${F.dk.onWater && (F.dk.boat || F.dk.submerged > 0) ? 1 : 0}`;   // last field: 1 = in BOAT (or under). ⚠ plugins/submersible gates a dive on it (shape.boat); a constant 0 here refused every dive
 }
+// The airfield tags the heading tape and the Drake's map draw: the fields in range, or, with a GPS
+// destination locked (F.gpsDest, apTargetId 'gps'), that destination and nothing else. Bearing is
+// the server's bearingDeg (plugins/flight/state.js), worked here because the destination can be
+// anywhere on the charts and the server only tags fields in range.
+function navFields(F) {
+  const d = F.gpsDest;
+  if (!d || F.apTargetId !== 'gps') return F.fields;
+  const dx = d.gx - (F.pos?.x || 0), dy = d.gy - (F.pos?.y || 0);
+  return [{ id: 'gps', name: d.name, gx: d.gx, gy: d.gy, dist: Math.round(Math.hypot(dx, dy)),
+    bearing: Math.round(((Math.atan2(dx, -dy) * 180 / Math.PI) % 360 + 360) % 360) }];
+}
 // What the Drake's GPS screen shows (interior-drake.js drakeGps): its mode, and everything any mode
 // needs, relative to the aircraft in tiles. Nearest first and capped, so a crowded sky costs little.
 function drakeGps(F) {
   const px = F.pos?.x || 0, py = F.pos?.y || 0, near = (a) => a.sort((p, q) => p.d - q.d);
   const contacts = near((F.contacts || []).map((c) => ({ dx: (c.x ?? 0) - px, dy: (c.y ?? 0) - py, hdg: c.hdg || 0,
     ground: c.cls === 'truck' || !!c.onGround, d: Math.hypot((c.x ?? 0) - px, (c.y ?? 0) - py) }))).slice(0, 24);
-  const fields = near((F.fields || []).filter((f) => f.gx != null).map((f) => ({ dx: f.gx - px, dy: f.gy - py, d: Math.hypot(f.gx - px, f.gy - py) }))).slice(0, 12);
+  const fields = near((navFields(F) || []).filter((f) => f.gx != null).map((f) => ({ dx: f.gx - px, dy: f.gy - py, d: Math.hypot(f.gx - px, f.gy - py) }))).slice(0, 12);
   return { mode: F.dk?.gpsMode || 0, hdg: F.disp?.hdg || 0, contacts, fields, hull: F.hull ?? 100, surf: F.surfaces || null,
     ammo: F.gunRounds || 0, ammoCap: F.gunCap || 1, msl: F.msl || 0 };
 }
@@ -3438,6 +3479,21 @@ export function openFlightSim(opts = {}) {
       const lv = lastViewState(), lo = lv && lv.external && lv.chaseZoomFloor > 0 ? lv.chaseZoomFloor : 0.45;
       F.extZoom = clampNum((F.extZoom || 1) * (e.deltaY > 0 ? 1.1 : 0.9), lo, 2.4);
     }, { passive: false });
+    // The same orbit and zoom under a finger, which can press neither the middle button nor the
+    // wheel: one finger swings round the aircraft, two pinch the chase distance. Outside only, and
+    // never while the free camera is out (it has its own touch scheme, bound above).
+    bindTouchGestures(viewEl, {
+      enabled: () => F.external && !freeCam.active,
+      drag: (dx, dy) => {
+        F.orbitResetting = false;
+        F.extOrbit = (F.extOrbit || 0) + dx * 0.4;
+        F.extPitch = clampNum((F.extPitch ?? REST_PITCH) - dy * 0.006, -1.1, 1.15);
+      },
+      pinch: (f) => {
+        const lv = lastViewState(), lo = lv && lv.external && lv.chaseZoomFloor > 0 ? lv.chaseZoomFloor : 0.45;
+        F.extZoom = clampNum((F.extZoom || 1) / f, lo, 2.4);
+      },
+    });
   }
 
   // Aircraft placard (bottom-left) — a certificate of registration: tail number, make/model,
@@ -3479,21 +3535,6 @@ export function openFlightSim(opts = {}) {
   const stockAcc = (skin && skin.acc) || themeFor(F.cls).acc;
   const chromeAcc = liveryAccent(F.livery, stockAcc);
   const chromeRgb = hex2rgb(chromeAcc);
-    // The same orbit and zoom under a finger, which can press neither the middle button nor the
-    // wheel: one finger swings round the aircraft, two pinch the chase distance. Outside only, and
-    // never while the free camera is out (it has its own touch scheme, bound above).
-    bindTouchGestures(viewEl, {
-      enabled: () => F.external && !freeCam.active,
-      drag: (dx, dy) => {
-        F.orbitResetting = false;
-        F.extOrbit = (F.extOrbit || 0) + dx * 0.4;
-        F.extPitch = clampNum((F.extPitch ?? REST_PITCH) - dy * 0.006, -1.1, 1.15);
-      },
-      pinch: (f) => {
-        const lv = lastViewState(), lo = lv && lv.external && lv.chaseZoomFloor > 0 ? lv.chaseZoomFloor : 0.45;
-        F.extZoom = clampNum((F.extZoom || 1) / f, lo, 2.4);
-      },
-    });
   if (chromeRgb) { ACCENT = chromeAcc; ACCENT_RGB = chromeRgb; }   // canvas instruments (accA/ACCENT read the globals)
   root.style.setProperty('--cy', chromeAcc);                       // beats the .fsim-theme-* class --cy (inline > class)
   // --cy-lit is the BACKLIGHT colour: the airframe's vivid stock accent, NOT the (possibly muted)
@@ -3731,7 +3772,7 @@ export function openFlightSim(opts = {}) {
   // regions (Coldwater Basin, The Reach…), so you can point the guide at any real place. Keyed
   // by id so the choice survives the list re-sort. ✕ (radio button / \ key) clears it entirely.
   // The tablet-map tile designation leads the list (it is the one the pilot asked for by hand).
-  const targetList = () => [...(F.waypoint ? [F.waypoint] : []), ...(Array.isArray(F.fields) ? F.fields : []), ...(Array.isArray(F.landmarks) ? F.landmarks : []), ...(Array.isArray(F.regions) ? F.regions : [])];
+  const targetList = () => [...(F.gpsDest ? [F.gpsDest] : []), ...(F.waypoint ? [F.waypoint] : []), ...(Array.isArray(F.fields) ? F.fields : []), ...(Array.isArray(F.landmarks) ? F.landmarks : []), ...(Array.isArray(F.regions) ? F.regions : [])];
   const cycleApTarget = (dir) => {
     const list = targetList();
     if (!list.length) { fsimToast('NO DESTINATIONS IN RANGE'); return; }
@@ -3752,6 +3793,83 @@ export function openFlightSim(opts = {}) {
     const nmEl = document.getElementById('fsim-tgt-name');
     if (nmEl) nmEl.textContent = '—';
     fsimToast('◎ WAYPOINTS CLEARED');
+  };
+  // ── THE GPS PICKER ──────────────────────────────────────────────────────────
+  // Clicking a cockpit's GPS (a 'ck:gps' hotspot), the TGT name on the radio, or P opens the charts:
+  // every region, nearest first, each opening onto the airfields in it. Picking one locks the target
+  // guide onto it ALONE. F.gpsDest is the destination and apTargetId 'gps' says the guide is on it;
+  // while both hold, the heading tape and the Drake's map show that one mark (navFields) and the
+  // ring and the Home arrow follow it like any other target. Every other way of choosing a target
+  // ([ / ], the ✕, a tablet designation) moves apTargetId off 'gps', and the frame drops F.gpsDest
+  // when it sees that, so the other marks come back without each of those paths knowing about it.
+  // The directory comes from the server once per flight, on the first open (flightgps).
+  let gpsEl = null, gpsOpenKey = null;
+  const gpsClose = () => { gpsEl?.remove(); gpsEl = null; F.gpsRender = null; };
+  F.gpsClose = gpsClose;
+  const gpsDist = (p) => (p.gx == null ? null : Math.round(Math.hypot(p.gx - (F.pos?.x || 0), p.gy - (F.pos?.y || 0))));
+  const gpsPick = (p) => {
+    F.gpsDest = { id: 'gps', name: p.name, gx: p.gx, gy: p.gy };
+    F.apTargetId = 'gps'; F.apCleared = false;
+    fsimToast(`◈ GPS: ${String(p.name).toUpperCase()} · ${gpsDist(p)}`);
+    gpsClose();
+  };
+  const gpsClear = () => {
+    F.gpsDest = null;
+    if (F.apTargetId === 'gps') F.apTargetId = null;   // the guide falls back to the nearest field
+    fsimToast('◈ GPS CLEARED');
+    gpsClose();
+  };
+  const gpsBtn = (cls, html, fn) => {
+    const b = document.createElement('button');
+    b.className = cls; b.tabIndex = -1; b.innerHTML = html;
+    // No focus, so a flight key pressed afterwards (Space fires) never presses the button again.
+    b.addEventListener('mousedown', (e) => e.preventDefault());
+    b.addEventListener('click', fn);
+    return b;
+  };
+  const gpsEsc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+  const gpsRender = () => {
+    if (!gpsEl) return;
+    const body = gpsEl.querySelector('.fsim-gps-body'), cur = gpsEl.querySelector('.fsim-gps-cur');
+    const locked = F.gpsDest && F.apTargetId === 'gps';
+    cur.replaceChildren();
+    if (locked) {
+      const s = document.createElement('span');
+      s.innerHTML = `TO <b>${gpsEsc(F.gpsDest.name)}</b> · ${gpsDist(F.gpsDest)}`;
+      cur.append(s, gpsBtn('fsim-gps-clr', 'CLEAR', gpsClear));
+    } else cur.textContent = 'Pick a destination. The guide shows it and nothing else.';
+    body.replaceChildren();
+    const note = (t) => { const d = document.createElement('div'); d.className = 'fsim-gps-note'; d.textContent = t; body.append(d); };
+    if (!F.gpsDir) { note('ACQUIRING…'); return; }
+    const far = (p) => gpsDist(p) ?? Infinity;
+    const regs = F.gpsDir.filter((g) => g.gx != null || g.fields?.length).slice().sort((a, b) => far(a) - far(b));
+    if (!regs.length) { note('NO CHARTS'); return; }
+    if (gpsOpenKey == null) gpsOpenKey = regs[0].id ?? '_';
+    for (const g of regs) {
+      const key = g.id ?? '_', open = key === gpsOpenKey, n = g.fields?.length || 0;
+      body.append(gpsBtn('fsim-gps-reg' + (open ? ' open' : ''),
+        `<i>${open ? '▾' : '▸'}</i><span>${gpsEsc(g.name)}</span><em>${n} field${n === 1 ? '' : 's'}</em><b>${g.gx == null ? '' : gpsDist(g)}</b>`,
+        () => { gpsOpenKey = open ? '' : key; gpsRender(); }));
+      if (!open) continue;
+      if (g.gx != null) body.append(gpsBtn('fsim-gps-f ctr', `<span>◎ ${gpsEsc(g.name)}</span><b>${gpsDist(g)}</b>`, () => gpsPick(g)));
+      const fs = (g.fields || []).slice().sort((a, b) => far(a) - far(b));
+      for (const f of fs) body.append(gpsBtn('fsim-gps-f', `<span>✈ ${gpsEsc(f.name)}${f.pad ? ' <em>PAD</em>' : ''}</span><b>${gpsDist(f)}</b>`, () => gpsPick(f)));
+      if (!fs.length) note('No airfields here.');
+    }
+  };
+  const gpsOpen = () => {
+    if (gpsEl) { gpsClose(); return; }
+    if (F.avionicsOut) { fsimToast('GPS: no signal while the boards reboot'); return; }
+    if (!F.powered) { fsimToast(F.engineOn ? 'GPS: no power on the bus' : 'GPS: no power, start the engine first'); return; }
+    mouseStick.setArmed(false);   // the pointer is for the list now, not the stick
+    gpsEl = document.createElement('div');
+    gpsEl.className = 'fsim-gps';
+    gpsEl.innerHTML = '<div class="fsim-gps-hd"><b>GPS · DESTINATION</b></div><div class="fsim-gps-cur"></div><div class="fsim-gps-body"></div>';
+    gpsEl.querySelector('.fsim-gps-hd').append(gpsBtn('fsim-gps-x', '✕', gpsClose));
+    document.body.appendChild(gpsEl);
+    F.gpsRender = gpsRender;
+    gpsRender();
+    if (!F.gpsDir) sendCmdSilent('flightgps');
   };
   let setExternal = () => {};   // assigned when the ◎ EXT button is wired below; V key + button share it
   let setWeapon = () => {};     // assigned in the weapons wiring below; 1/2 keys + WPN button share it
@@ -3836,11 +3954,12 @@ export function openFlightSim(opts = {}) {
     F.dk.subAskAt = performance.now();
     F.syncAcc = 99;
   };
-  const KEYS = new Set(['a', 'z', 'q', 'w', 'e', 's', 'y', 'h', 'f', 'g', 'j', 'v', 'x', 'c', '1', '2', '3', ' ', '[', ']', '\\', ',', '.', 'k', 'l', 'r', 't', 'i', 'n', 'b']);
+  const KEYS = new Set(['a', 'z', 'q', 'w', 'e', 's', 'y', 'h', 'f', 'g', 'j', 'v', 'x', 'c', '1', '2', '3', ' ', '[', ']', '\\', ',', '.', 'k', 'l', 'r', 't', 'i', 'n', 'b', 'p']);
   const onKeyDown = (e) => {
     const tag = (e.target && e.target.tagName) || '';
     if (tag === 'INPUT' || tag === 'TEXTAREA' || (e.target && e.target.isContentEditable)) return;
     const k = (e.key || '').toLowerCase();
+    if (k === 'escape' && gpsEl) { e.preventDefault(); gpsClose(); return; }
     // ── THE CAMERA OFF ITS MOUNT ────────────────────────────────────────────
     // Handled AHEAD of the `KEYS` allowlist rather than inside it, because most of what the camera
     // flies on (WASD, the arrows) is either absent from that set or bound to something else — and
@@ -3931,6 +4050,7 @@ export function openFlightSim(opts = {}) {
       case '[': if (!e.repeat) cycleApTarget(-1); break;   // cycle target (fields / landmarks / regions)
       case ']': if (!e.repeat) cycleApTarget(1); break;
       case '\\': if (!e.repeat) clearApTarget(); break;    // clear all waypoints
+      case 'p': if (!e.repeat) gpsOpen(); break;           // the GPS picker
       case ' ': F.firing = true; break;   // hold to fire guns (frame loop squirts bursts)
     }
   };
@@ -4355,6 +4475,7 @@ export function openFlightSim(opts = {}) {
       'ck:flaps': () => ckFlap(),
       'ck:gear': () => toggleGear(),
       'ck:arm': () => q('#fsim-arm')?.click(),
+      'ck:gps': () => gpsOpen(),
       power: ckMaster,
       lights: () => F.toggleLand?.(),
       cabin: () => F.toggleDome(),
@@ -4455,6 +4576,7 @@ export function openFlightSim(opts = {}) {
       'ck:flaps': () => ['FLAPS', `${['UP', '1', '2', 'FULL'][Math.round(clampNum(F.input.flaps || 0, 0, 1) * 3)]} · click for the next notch`],
       'ck:gear': () => ['GEAR', F.gearUp ? 'up · click to lower' : 'down · click to raise'],
       'ck:arm': () => ['MASTER ARM', F.armed ? 'ARMED · click to make safe' : 'SAFE · click to arm'],
+      'ck:gps': () => ['GPS', F.gpsDest && F.apTargetId === 'gps' ? `to ${F.gpsDest.name} · click to change` : 'click to pick a destination (P)'],
       power: () => ['POWER', `engine master · ${onOff(!!F.engineOn)}`],
       lights: () => ['LIGHTS', `landing lights · ${onOff(!!F.landingLight)}`],
       cabin: () => ['CABIN', `dome light · ${onOff(!!F.domeLight)}`],
@@ -4662,6 +4784,7 @@ export function openFlightSim(opts = {}) {
   add(q('#fsim-tgt-prev'), 'click', () => cycleApTarget(-1));
   add(q('#fsim-tgt-next'), 'click', () => cycleApTarget(1));
   add(q('#fsim-tgt-clear'), 'click', () => clearApTarget());
+  add(q('#fsim-tgt-name'), 'click', () => gpsOpen());   // the radio's TGT readout is the 2-D GPS
 
   // Focus model: the sim pane owns the keyboard by default on embark (so A/Z/Q/E/S…
   // drive the plane immediately). Clicking anywhere on the pane takes focus off the
@@ -5497,8 +5620,8 @@ function fsimFrameBody(now) {
     // to admit it. Without the abs a nose-up hover pitches back but never moves.
     if (Math.abs(s.airspeed) > 0.5) {
       // Ground pace is quick so you actually roll down the runway, then decays FAST with altitude
-      // (exp, groundDecay-ft e-fold) to the slow cruise pace (worldPace) so the sky doesn't rush past.
-      const pace = RENDER_TUNE.worldPace * (P.worldPaceMult || 1) * (1 + (RENDER_TUNE.groundBoost - 1) * Math.exp(-Math.max(0, s.altitude) / (RENDER_TUNE.groundDecay || 25)));
+      // (exp, groundDecay-ft e-fold), and the cruise stretch comes in higher up (paceAt).
+      const pace = paceAt(s.altitude, P.worldPaceMult || 1);
       const d = Math.abs(s.airspeed) * pace * h, hr = s.heading * Math.PI / 180;   // odometer distance is magnitude — backing up shouldn't wind travel/rollDist backwards
       // Ground track = air velocity + wind (airborne only — on the wheels the gear holds you to
       // the ground). A crosswind drifts you off the runway centreline; a head/tailwind slows/speeds
@@ -5760,10 +5883,9 @@ function fsimFrameBody(now) {
   // Transitions → tell the server. Track descent rate while airborne so touchdown knows
   // how hard the arrival was (soft squeak vs firm thump).
   if (!s.onGround) { F.touchVs = s.vs; F.peakAltSinceLift = Math.max(F.peakAltSinceLift || 0, s.altitude); }
-  if (!s.onGround && !F.reportedAirborne) { F.reportedAirborne = true; F.rolling = false; F.peakAltSinceLift = s.altitude; F.liftFloorFt = s.groundFt || 0; F.depPos = { x: F.pos.x, y: F.pos.y }; groundFx('liftoff'); sendCmdSilent('flightevent takeoff'); }
+  if (!s.onGround && !F.reportedAirborne) { F.reportedAirborne = true; F.rolling = false; F.peakAltSinceLift = s.altitude; F.liftFloorFt = s.groundFt || 0; groundFx('liftoff'); sendCmdSilent('flightevent takeoff'); }
   if (s.onGround && F.reportedAirborne) {
     F.reportedAirborne = false;
-    F.depPos = null;   // climb-out over — a later low pass gets normal CFIT
     const sinkFpm = -(F.touchVs || 0);   // descent rate at contact (ft/min; +ve = sinking)
     // A shaky rotation can hop the aircraft a few feet up and straight back down before it's
     // really established a climb — that's a rejected-takeoff bounce, not a hard landing, so
@@ -5999,7 +6121,7 @@ function fsimFrameBody(now) {
     let bestBore = Infinity;
     for (const c of F.contacts) {
       const drS = Math.min(CONTACT_DR_MAX, (now - (c.t || now)) / 1000);
-      const spd = (c.ias || 0) * RENDER_TUNE.worldPace, hr = (c.hdg || 0) * Math.PI / 180;
+      const spd = (c.ias || 0) * paceAt(c.alt), hr = (c.hdg || 0) * Math.PI / 180;
       const cx = c.x + Math.sin(hr) * spd * drS, cy = c.y - Math.cos(hr) * spd * drS;
       const dx = cx - F.pos.x, dy = cy - F.pos.y, rng = Math.hypot(dx, dy);
       if (rng < contactNear) contactNear = rng;
@@ -6142,7 +6264,9 @@ function fsimFrameBody(now) {
   // Destinations = airfields + named landmarks + spatial regions (same shape), so the guide can
   // lock onto any of them. When the pilot has cleared all waypoints (F.apCleared) we resolve
   // nothing and leave the readout blank — no auto-snap back to the nearest field.
-  const fieldList = [...(F.waypoint ? [F.waypoint] : []), ...(Array.isArray(F.fields) ? F.fields : []), ...(Array.isArray(F.landmarks) ? F.landmarks : []), ...(Array.isArray(F.regions) ? F.regions : [])];
+  // A GPS destination lasts only while the guide is on it (THE GPS PICKER).
+  if (F.gpsDest && F.apTargetId !== 'gps') F.gpsDest = null;
+  const fieldList = [...(F.gpsDest ? [F.gpsDest] : []), ...(F.waypoint ? [F.waypoint] : []), ...(Array.isArray(F.fields) ? F.fields : []), ...(Array.isArray(F.landmarks) ? F.landmarks : []), ...(Array.isArray(F.regions) ? F.regions : [])];
   const nmEl = document.getElementById('fsim-tgt-name');
   if (F.apCleared) {
     if (nmEl) nmEl.textContent = '—';
@@ -6370,7 +6494,9 @@ function fsimFrameBody(now) {
     landGuide,
     hud: true,
     threat: (F.aa && F.reportedAirborne) ? F.aa : null,   // AA envelope telegraph → pulsing banner + tape chevron
-    airports: F.fields, apTarget, apTargetId: F.apTargetId, viewYaw: F.viewYaw, extYaw: F.extOrbit || 0, extPitch: F.extPitch ?? REST_PITCH,
+    airports: navFields(F), apTarget, apTargetId: F.apTargetId,
+    // What a cockpit's GPS screen points at (interior-cockpit-kit.js panelGps): the target off the nose.
+    gpsTo: apTarget ? { rel: (((Math.atan2(apTarget.dx, -apTarget.dy) * 180 / Math.PI) - s.heading) % 360 + 540) % 360 - 180, dist: apTarget.dist } : null, viewYaw: F.viewYaw, extYaw: F.extOrbit || 0, extPitch: F.extPitch ?? REST_PITCH,
     // Looking off the nose (Q/E/S) → frame the view as a side cabin window instead of the
     // forward windscreen. The real, rotated Mode-7 world still renders behind the pane.
     windowClass: F.viewYaw ? F.cls : undefined,
@@ -6965,7 +7091,7 @@ function paintMfdContacts(ctx, W, H, F, cell) {
   const now = performance.now(), lim = Math.min(W, H) * 0.46;
   for (const c of cs) {
     const drS = Math.min(CONTACT_DR_MAX, (now - (c.t || now)) / 1000);
-    const spd = (c.ias || 0) * RENDER_TUNE.worldPace, hr = (c.hdg || 0) * Math.PI / 180;
+    const spd = (c.ias || 0) * paceAt(c.alt), hr = (c.hdg || 0) * Math.PI / 180;
     const cx = c.x + Math.sin(hr) * spd * drS, cy = c.y - Math.cos(hr) * spd * drS;
     let px = (cx - F.pos.x) * cell, py = (cy - F.pos.y) * cell;
     const mag = Math.hypot(px, py); let edge = false;
@@ -7052,6 +7178,13 @@ export function drakeSubmerged(msg) {
   if (msg.floodS) F.dk.subFloodS = +msg.floodS;
   if (msg.blowS) F.dk.subBlowS = +msg.blowS;
   F.dk.subFloor = msg.floor ?? null;
+}
+
+// The GPS directory, answering the picker's flightgps (THE GPS PICKER in openFlightSim).
+export function flightSimGps(msg) {
+  const F = _fsim; if (!F || !msg) return;
+  F.gpsDir = Array.isArray(msg.regions) ? msg.regions : [];
+  F.gpsRender?.();
 }
 
 export function flightSimContext(msg) {
@@ -7381,6 +7514,7 @@ export function closeFlightSim() {
   if (F.raf) cancelAnimationFrame(F.raf);
   if (F.toastT) clearTimeout(F.toastT);
   F.dkTipEl?.remove();   // the Drake switch tooltip lives on <body>, so the seat has to take it down
+  F.gpsClose?.();        // …and so does the GPS picker
   for (const [t, ty, fn, op] of F.listeners) { try { t.removeEventListener(ty, fn, op); } catch {} }
   try { disposeWindshield('fsim-ws'); } catch {}
   try { clearFlightDrugFx(document.getElementById('fsim-root')?.querySelector('.fsim-view'), document.getElementById('fsim-ws')); } catch {}

@@ -252,6 +252,7 @@ const OWNER = {
   'cockpit.js': { owner: 'cockpit.js', why: 'the flight sim and the charter cabin, one file, two mounts' },
   'freelook-view.js': { owner: 'freelook-view.js', why: 'the camera with no vehicle under it' },
   'helm-view.js': { owner: 'helm-mode.js', why: 'helm-view paints the chase; helm-mode owns .helm-root and closeHelm' },
+  'podracer-view.js': { owner: 'podracer-view.js', why: 'the podracer paints and owns .pod-root, its own chrome and closePodracer, the boat arrangement' },
   'boat-view.js': { owner: 'boat-view.js', why: 'the race boat paints and owns .boat-root, its own chrome and closeBoat — the cab arrangement, not the wheelhouse split' },
 };
 if (!seats.length) { ck('found any seats at all', false, 'has windshieldHTML been renamed?'); }

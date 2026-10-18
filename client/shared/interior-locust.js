@@ -49,7 +49,7 @@
 // Metres, origin at the eye, +x right (starboard, the exterior's +g), +y forward, +z up.
 import { FW_ROWS } from './vehicle-models.js';
 import { makeKit, C, clamp, pedal, SHINY, PANE, TEXTURE } from './interior-kit.js';
-import { contactShadow, hotspotHalo, SHADE } from './interior-cockpit-kit.js';
+import { contactShadow, hotspotHalo, SHADE, panelGps, gpsHotspot } from './interior-cockpit-kit.js';
 
 const TAU = Math.PI * 2;
 const num = (v, d = 0) => (Number.isFinite(+v) ? +v : d);
@@ -448,6 +448,8 @@ export function locustHotspots(P, live) {
     { id: 'ck:flaps', p: HAND.flap(R), r: 0.03, kind: 'click' },
   ];
   SWITCHES.forEach((id, i) => out.push({ id: 'ck:' + id, p: Pn.pt(SW_U0 + i * 0.03, SW_V, 0.01), r: 0.013, kind: 'click' }));
+  const g = GPS_AT(Pn);
+  out.push(gpsHotspot(Pn, g.u, g.v, 0.036));
   return out;
 }
 
@@ -455,6 +457,8 @@ export function locustHotspots(P, live) {
 // that took the hand cursor and did nothing. NAV is the panel lights now.
 const SWITCHES = ['master', 'land', 'panel'];
 const SW_U0 = -0.225, SW_V = -0.10;
+// The GPS: the empty hole in the lower row, under the altimeter. Its height is the panel's (r2 below).
+const GPS_AT = (Pn) => ({ u: -0.02, v: -Pn.hh * 0.18, hw: 0.042, hh: 0.03 });
 function panelOf(K, P) {
   const D = P.locust;
   const zc = (D.panelTop + D.panelBot) / 2 + 0, yc = D.panelY - 0.003;
@@ -499,6 +503,7 @@ function locustFit(P, live, push) {
   Pn.dial(-0.02, r1, r, (R.alt % 1000) / 1000, { a0: Math.PI / 2, sweep: TAU, ticks: 10, major: 1, frac2: (R.alt % 10000) / 10000, name: 'ALT' });
   Pn.dial(-0.19, r2, r * 0.85, clamp(0.5 + R.bank / 60, 0, 1), { a0: Math.PI * 0.9, sweep: Math.PI * 0.8, ticks: 4, major: 2, needle: C.white, name: 'TURN' });
   Pn.dial(-0.105, r2, r * 0.85, clamp(0.5 + R.vsi / 4000, 0, 1), { a0: Math.PI, sweep: Math.PI * 1.8, ticks: 8, major: 2, name: 'VSI' });
+  { const g = GPS_AT(Pn); panelGps(Pn, g.u, g.v, g.hw, g.hh, live); }
   const run = on ? R.rpm : 0;
   Pn.dial(0.07, r1, r, clamp(run / 1.05, 0, 1), { ticks: 14, major: 2, arcs: [[0.35, 0.86, C.green]], red: 0.9, name: 'RPM' });
   Pn.dial(0.07, r2, r * 0.85, on ? clamp(0.3 + R.thr * 0.6, 0, 1) : 0.05, { ticks: 10, major: 2, arcs: [[0.35, 0.9, C.green]], name: 'MAP' });

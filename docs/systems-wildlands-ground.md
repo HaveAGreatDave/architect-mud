@@ -72,12 +72,14 @@ The dev copy at `tools/worldmap/` (`node scripts/map/world-map-dump.mjs`, then o
 | 1 | Coldwater → the Scarletwastes → Terminus | trunk (the spine) |
 | 2 | Coldwater → the Reach | branch |
 | 3 | Coldwater → Deadwater | branch |
-| 4 | the Reach → the Scarletwastes | branch, leaves on Route 2 and merges into Route 1 |
+| 4 | the Reach → the Scarletwastes | branch, merges into Route 1 |
 | 5 | the Reach → Deadwater | branch, merges into Route 3 |
 
-One road leaves the Curtain's one gate and runs 24 tiles south (`hub` in voids.json, signed 1/2/3), where it splits three ways as a Y. Routes 4 and 5 are the Reach's roads; each joins a Coldwater road partway along and shares it into the destination (signed 1/4 and 3/5). A number may cover legs that chain through regions, which is how Route 1 is one route across two crossings.
+One road leaves the Curtain's one gate and runs 24 tiles south (`hub` in voids.json, signed 1/2/3), where it splits three ways as a Y. Routes 4 and 5 are the Reach's roads; each leaves the Reach's gate on its own and merges into a Coldwater road partway along, sharing it into the destination (signed 1/4 and 3/5). A number may cover legs that chain through regions, which is how Route 1 is one route across two crossings.
 
-**Sharing is built, not authored.** A road into an entrance that a hub road already reaches is built by `mergeInto` (join the hub road at the far end) or `cutOff` (leave on one hub road, cross, join another), whichever lays the least road of its own; a join is built backwards from the far road so it is tangent there, and is kept only within `MERGE_MAX` (45°) and when the whole road is at most `MERGE_DETOUR` (1.5×) the gap between the entrances. Otherwise a road is built on its own.
+**Sharing is built, not authored.** A road into an entrance that a hub road already reaches is built by `mergeInto` (join the hub road at the far end) or `cutOff` (leave on one hub road, cross, join another), whichever lays the least road of its own; a join is built backwards from the far road so it is tangent there, and is kept only within `MERGE_MAX` (25°) and when the whole road is at most `MERGE_DETOUR` (1.5×) the gap between the entrances. Otherwise a road is built on its own.
+
+⚠ **A link may only touch the roads it joins at its ends** (`linkClear` in state.js). Past its first and last ten tiles it has to open a gap to them, growing to `LINK_CLEAR` (8 tiles). Built backwards from a tangent join, a link can hug the road it joins and then cross it to reach its other end: at 45° with no clearance test, Route 5 crossed Route 3 in an X and ran six tiles beside it for forty more. An interchange here is a Y or a merge and nothing more.
 
 **Route numbers and types are content** (`content/map/routes.json`): `routes` maps a region pair to `{ number, type }`, and `types` defines each highway type (`half`-width in tiles, `lanes` 1–6, `dirt`, `label`, `shield`). `client/shared/highways.js` is the one reader, shared by the server and the map.
 
@@ -92,7 +94,19 @@ One road leaves the Curtain's one gate and runs 24 tiles south (`hub` in voids.j
 
 **Every piece carries its route numbers** (`tagNumbers`), which the boards (`passSign` prints "ROUTE 1 · OLD TRUNK ROAD"), the `route` command ("Route 1", with the real road length rather than the gate gap) and the map all read.
 
-**Road condition** (`conditionAt` in corridor.js, shipped as `road_cond` 0–1): a slow drift keyed to the MAP POSITION of the tarmac, so a stretch is good or bad for tens of tiles at a time and a stretch two routes share is in one state whichever route you drive it on (keyed to the journey it was three states at once). The windscreen draws three states of worn tarmac. **Good** is plain tarmac with the paint still readable. **Worn** has patches, cracks, faded paint and sand at the edges. **Broken** has potholes in the wheel tracks, slabs gone to gravel, heavy drift and no paint. ⚠ **It is a 3-D effect only**; the map does not draw it. A road that never ships `road_cond` gets the middle state, which is exactly the one worn look it always had, so the city's streets are unchanged.
+**Road condition** (`conditionAt` in corridor.js, shipped as `road_cond` 0–1): a slow drift keyed to the MAP POSITION of the tarmac, so a stretch is good or bad for tens of tiles at a time and a stretch two routes share is in one state whichever route you drive it on (keyed to the journey it was three states at once). The windscreen draws three states of worn tarmac. **Good** is plain tarmac with the paint still readable. **Worn** has patches, cracks, faded paint and sand at the edges. **Broken** has potholes in the wheel tracks, slabs gone to gravel, heavy drift and only scraps of paint. Measured on the network of 2026-10-08, about 60% of the road was good and 7% broken. ⚠ **It is a 3-D effect only**; the map does not draw it. A road that never ships `road_cond` gets the middle state, which is exactly the one worn look it always had, so the city's streets are unchanged.
+
+## How the road is drawn
+
+The cells carry the road for everything that is not a picture: physics, the odometer, the verge, the boards. The picture is a ribbon. `nearRibbons` in `plugins/trucking/roadnet.js` ships each road's centreline within 56 tiles of the viewer, with the paved half-width, the condition and the lane count at every vertex, inside the `roads` payload every seat already gets (as `roads.near`). `client/game/js/panels/glass/highway-ribbons.js` turns it into ground quads: shoulder, carriageway, wear and paint, laid along the curve and joined at every bend. `drawHighwayRibbons` in `windshield.js` pushes them, and the tile loop skips every corridor cell a ribbon covers. Without `roads.near` (an older server, a hand-made road) the cells draw as they always did; `RENDER_TUNE.roadRibbon = 0` forces that.
+
+- **One copy of every stretch.** Roads are laid trunk first, longest first, and a vertex lying on a road already laid, running the same way, is dropped. A branch starts where it leaves the road it shares and a merge ends where it joins, each carried one vertex onto the other road.
+- **A sharp join is filleted for the drawing only**, never more than 0.6 tiles off the built centreline, which stays inside the carriageway the cells answer for.
+- **Where two roads overlap, the lesser one gives way** (rank by type, trunk over branch over ramp, then by id): it is drawn first, its surface is skipped where the greater one covers it entirely, it paints no centre or lane lines while the two overlap, and no edge line is painted on another road's tarmac. The result is a plain gore at every fork and merge.
+- **An inspection plaza's apron is a ribbon too**, of the lowest rank, so it peels off the mainline and its paint sorts itself out.
+- ⚠ **Everything is in the paint range** of the ground mesh (gl/ground.js), never the base. Two roads overlap at every junction, and two depth-writing surfaces on one plane fight.
+- ⚠ **Every detail is keyed to distance along the road** (`a0` plus the vertex arc), never to the window, so a pothole stays where it is as the window moves.
+- **The floor under the road is the verge's ground.** Carriageway and shoulder cells carry `road_ground` (the verge terrain) and `districtBiome` reads it, so no band of the wrong ground shows in steps along the edges.
 
 ## Regions with more than one entrance
 

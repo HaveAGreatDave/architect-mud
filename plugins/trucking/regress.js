@@ -39,7 +39,7 @@ import { displayRung, setDisplayRung, DISPLAY_MODE_FLAG } from '../../server/eng
 import { HELP_GROUPS } from '../../server/engine/commands/world.js';
 import { query } from '../../server/models/db.js';
 import { getBroadcast, setBroadcast } from '../../server/engine/messaging.js';
-import { _test as truckTest } from './index.js';
+import { _test as truckTest, repush } from './index.js';
 import { TRAILER_TYPES, trailersAt, trailersOf, getTrailer, buyTrailer, hitchTrailer, dropTrailer, saveLoad, canDrop,
   posed, stockPose, stockSlots, findStockPose, STOCK_GAP, standStock, boxColour, boxLivery, paintTrailer, BOX_GREY,
   sellTrailer, trailerResale } from './trailers.js';
@@ -47,7 +47,7 @@ import { runScale, scaleAt, clearCustoms, afterDrive } from './scale.js';
 import { lockTick, lockVerdict, lockSelects, _forceLockDraw, doorDown, _test as lockTest } from './lock.js';
 import { emit } from '../../server/engine/events.js';
 import { hitcherAt, hitcherAhead, hitcherSOf, HITCHER_KINDS } from './hitchers.js';
-import { roadNetwork, roadCellAt, worldRoadProvider, clearRoadNet, farRoadLines, FAR_TOL } from './roadnet.js';
+import { roadNetwork, roadCellAt, worldRoadProvider, clearRoadNet, farRoadLines, FAR_TOL, nearRibbons, _test as _roadnetTest } from './roadnet.js';
 import { tryDoorBoard, rigLocked, passHitcher } from './state.js';
 import { effTruckParams, tuneRange, repairCost, wearFor, wearForImpact, bandOf, FIELD_CAP,
   breakChance, fixOdds, BREAKDOWNS, FIX_GRACE_TILES } from './rig.js';
@@ -1098,6 +1098,56 @@ async function regressBody({ run, check, getPlayer }) {
       // across a desert three regions away from the one it belongs to.
       check('…and nothing at all comes back where there is no road',
         farRoadLines(-99999, -99999, 320) === null);
+    }
+
+    // ── 1c-quater. THE ROAD UNDER YOU, AS ONE RIBBON ──────────────────────────
+    // The client draws the highway from these centrelines and stops drawing the cells they cover,
+    // so a ribbon that strays off the carriageway is a road painted beside the one you drive on.
+    {
+      const net = roadNetwork();
+      const roads = _roadnetTest.buildRibbons(net).filter((r) => r.pri >= 0);
+      check('the network comes back as ribbons, at least one per road', roads.length >= net.routes.length,
+        `${roads.length} runs for ${net.routes.length} roads`);
+      let off = null, n = 0;
+      for (const r of roads) for (const p of r.pts) {
+        n++;
+        const c = roadCellAt(Math.round(p.x), Math.round(p.y));
+        if (!(c && (c.flags?.terrain === 'road' || c.flags?.terrain === 'dirt_road')) && !off) off = `${p.x.toFixed(1)},${p.y.toFixed(1)}`;
+      }
+      check('…every vertex of a ribbon is on a road (a fillet never leaves the carriageway)', !off,
+        off ? `first miss at ${off}` : `${n} vertices`);
+      // ⚠ AN INTERCHANGE IS A Y OR A MERGE. Two roads may meet only where one of them starts or ends
+      // (it is carried onto the road it leaves or joins); anywhere else, overlapping tarmac is two
+      // highways crossing or running side by side, which is what linkClear in state.js exists to stop.
+      const dist = (r, x, y) => {
+        let best = Infinity;
+        for (let i = 0; i + 1 < r.pts.length; i++) {
+          const a = r.pts[i], b = r.pts[i + 1], bx = b.x - a.x, by = b.y - a.y, l2 = bx * bx + by * by;
+          const t = l2 < 1e-9 ? 0 : Math.max(0, Math.min(1, ((x - a.x) * bx + (y - a.y) * by) / l2));
+          best = Math.min(best, Math.hypot(x - (a.x + bx * t), y - (a.y + by * t)));
+        }
+        return best;
+      };
+      let cross = null;
+      for (const r of roads) {
+        const A0 = r.pts[0].a, A1 = r.pts[r.pts.length - 1].a;
+        for (const p of r.pts) {
+          if (p.a - A0 < 15 || A1 - p.a < 15) continue;
+          for (const o of roads) {
+            if (o === r || cross) continue;
+            const e0 = o.pts[0], e1 = o.pts[o.pts.length - 1];
+            if (Math.min(Math.hypot(p.x - e0.x, p.y - e0.y), Math.hypot(p.x - e1.x, p.y - e1.y)) < 15) continue;
+            if (dist(o, p.x, p.y) < p.w + 1.4) cross =`${r.id} meets ${o.id} at ${p.x.toFixed(0)},${p.y.toFixed(0)}`;
+          }
+        }
+      }
+      check('…and no two roads overlap except where one of them leaves or joins the other', !cross, cross || 'clear');
+      const mid = corridorPos(net.routes[0], net.routes[0].L * 0.5);
+      const near = nearRibbons(Math.round(mid.x), Math.round(mid.y));
+      check('…a seat on a road is sent the ribbons around it, keyed for the client cache',
+        !!near && near.r.length > 0 && typeof near.k === 'string' && near.r.every((r) => r.p.length % 5 === 0 && r.p.length >= 10),
+        near ? `${near.r.length} runs` : 'nothing');
+      check('…and nothing comes back where there is no road', nearRibbons(-99999, -99999) === null);
     }
 
     // ── EVERY REGION REACHES EVERY NEIGHBOUR THROUGH THE EXIT THAT FACES IT ──
@@ -3847,9 +3897,24 @@ async function regressBody({ run, check, getPlayer }) {
 
       const savedCredits = player.credits || 0;
       await setBalance(player, 40000);
-      const tooRich = await run('yard buy continental');
+      // The counter push that follows a purchase is captured off the wire: it has to name the new
+      // truck as `fresh`, which is what puts the Drive it key over the hand (depot-shell readyHtml).
+      const wire = [];
+      const savedWire = getBroadcast();
+      setBroadcast((_z, m, _ex, target) => { if (target === player.id) wire.push(m); });
+      let tooRich;
+      try { tooRich = await run('yard buy continental'); } finally { setBroadcast(savedWire); }
       check('a truck you can afford is bought', !!tooRich && !/cannot|have \d/.test(tooRich?.message || ''), tooRich?.message?.slice(0, 45));
       check('…and it cost the sticker price', player.credits === 40000 - TYPES.continental.price, player.credits);
+      const { rows: [boughtRow] } = await query("SELECT id FROM trucks WHERE owner_id=$1 AND type_id='continental' ORDER BY created_at DESC LIMIT 1", [player.id]);
+      const dealt = wire.find((m) => m?.type === 'truck_depot');
+      check('…and the counter dealt after it offers that truck to drive', !!boughtRow && dealt?.fresh === boughtRow.id,
+        `${dealt?.fresh} vs ${boughtRow?.id}`);
+      const later = [];
+      setBroadcast((_z, m, _ex, target) => { if (target === player.id) later.push(m); });
+      try { await repush(player, 'fleet'); } finally { setBroadcast(savedWire); }
+      check('…once: the next push of the counter names nothing', later.some((m) => m?.type === 'truck_depot') && !later.find((m) => m?.type === 'truck_depot')?.fresh,
+        later.find((m) => m?.type === 'truck_depot')?.fresh);
       // ── A YARD IS WHERE A FLEET LIVES ─────────────────────────────────────
       // This used to assert the opposite: a yard held ONE of yours and the second buy was refused,
       // so that `drive` never had to ask which. What that bought was an unambiguous verb and what

@@ -152,8 +152,8 @@ kbd{ background:#0f2231; border:1px solid #16242f; border-radius:3px; padding:0 
 </div>
 
 <script type="module">
-import { createState, step, readout, TYPES } from '../client/game/js/panels/flight-model.js';
-import { ensureWindshieldStyles, windshieldHTML, paintWindshield } from '../client/game/js/panels/windshield.js';
+import { createState, step, readout, TYPES } from '../../client/game/js/panels/flight-model.js';
+import { ensureWindshieldStyles, windshieldHTML, paintWindshield } from '../../client/game/js/panels/windshield.js';
 
 const clamp = (v,lo,hi)=>v<lo?lo:v>hi?hi:v;
 const lerp = (a,b,t)=>a+(b-a)*t;

@@ -44,7 +44,7 @@
 //
 // Pure: no clock, no camera, no DOM. `live` arrives as an argument.
 import { makeKit, C, clamp, pedal, SHINY, PANE, TEXTURE } from './interior-kit.js';
-import { contactShadow, hotspotHalo, eased, pressPulse } from './interior-cockpit-kit.js';
+import { contactShadow, hotspotHalo, eased, pressPulse, panelGps, gpsHotspot } from './interior-cockpit-kit.js';
 import { MESH_ROWS } from './vehicle-meshes.js';
 import { compileMesh } from './vehicle-mesh.js';
 
@@ -478,6 +478,9 @@ const PANEL = { v0: -0.105, v1: 0.0, row: -0.052 };
 const DIALS = { asi: [-0.175, -0.052, 0.040], tach: [0, -0.050, 0.048], alt: [0.175, -0.052, 0.040],
   oil: [-0.085, -0.128, 0.026], comp: [0, 0.035, 0.030], mag: [-0.215, -0.150], primer: [0.215, -0.150],
   carb: [0.085, -0.140], light: [0.140, -0.150] };
+// The GPS, under the tach and over the VNE placard: the one place on the board with room for it.
+// Unlettered, because the placard is where its name would go.
+const GPS = { u: 0, v: -0.135, hw: 0.045, hh: 0.03 };
 
 export function grasshopperHotspots(P, live) {
   const L = live || {}, Q = controls(P, L), Lo = P.cub.L;
@@ -490,6 +493,7 @@ export function grasshopperHotspots(P, live) {
     { id: 'yoke', p: add(Q.rear.tip, [0, 0.01, 0.06]), r: 0.08, kind: 'yoke' },
     { id: 'throttle', p: Q.tKnob, r: 0.04, kind: 'throttle' },
     { id: 'trim', p: Q.trimC, r: 0.05, kind: 'trim' },
+    gpsHotspot(Pn, GPS.u, GPS.v, 0.04),
   ];
 }
 
@@ -553,6 +557,7 @@ export function grasshopperFit(P, live, push) {
   // A placard: the type's single limit, painted.
   Pn.rect(-0.05, -0.185, 0.05, -0.172, T.cream, lumi * 0.5, 0.002);
   Pn.fitText('VNE 122 MPH', 0, -0.1785, 0.094, 0.009, T.ink, 0.1, 0.003);
+  panelGps(Pn, GPS.u, GPS.v, GPS.hw, GPS.hh, L, { label: false });
 
   // ── THE FUEL GAUGE: a wire on a cork float out of the tank cap, ahead of the glass ──
   const fuel = clamp(num(L.fuel, 1) > 1 ? num(L.fuel) / 100 : num(L.fuel, 1), 0, 1);

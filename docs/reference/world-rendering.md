@@ -797,7 +797,7 @@ window, the empty-is-a-real-answer case and the indoors exclusion.
 ### Close figures as meshes (as built)
 
 [actor3d.js](../../client/game/js/panels/actor3d.js) builds one skinned body (coat, trousers,
-shoes, hands and a face) on a 19-bone skeleton, with eight looping clips: walk, idle and wave, and
+shoes and hands) on a 19-bone skeleton, with eight looping clips: walk, idle and wave, and
 the five that street life stands people in (talk, listen, wait with arms folded, phone, smoke). The
 walk's joint curves follow clinical gait data, and its root motion is solved so the foot that's
 down stays still. The last two bones are the balls of the feet: in late stance the toes bend by
@@ -810,9 +810,11 @@ over the other) with the forearms kept clear of the coat. The coat's top slopes 
 the way the trapezius does (the `yoke` shape), and each sleeve starts in a closed cap that rounds
 over the shoulder, so there's no flat shelf and no open ring standing on it. The bake skins every
 vertex for every frame and writes two RGBA16F textures, positions and normals, with a column per
-vertex and three rows per frame: 832×720 texels, about 10 MB for the pair. It also writes the head
-and neck bones' matrices for every frame (`bones`), which the new head will ride
-([street-figure-heads.md](../proposals/street-figure-heads.md)). [gl/actors.js](../../client/game/js/panels/gl/actors.js) draws everybody in one
+vertex and two rows per frame: 916×480 texels, about 7 MB for the pair. The close-up body has no
+head: the bake writes the head and neck bones' matrices for every frame (`bones`), and a second
+program in gl/actors.js draws [actor-head.js](../../client/game/js/panels/actor-head.js)'s head on
+them, at one of three levels by height on screen, with a face from the baked atlas
+([street-figure-heads.md](../proposals/street-figure-heads.md)). The far body keeps its own head. [gl/actors.js](../../client/game/js/panels/gl/actors.js) draws everybody in one
 instanced call, picking and blending texture rows by `gl_VertexID` the way `gl/fauna.js` does for
 the birds.
 
@@ -1465,7 +1467,7 @@ went with the building.
 
 **Hulls Angels** (`hulls`) was on the promoted list and is gone with its building. It was a boat shed
 with no water, and in October 2026 it became **Ring Fenced**, a boxing gym (`gym` in
-[yards.js](../../client/game/js/panels/glass/models/yards.js)), while Keel moved to **Moor or Less**
+[yards.js](../../client/game/js/panels/glass/models/yards.js)), while Keel moved to **the Eastern Marina**
 on the water (`boatshed` and `landing_stage` in
 [waterfront.js](../../client/game/js/panels/glass/models/waterfront.js)). The `hulls` arm and its
 authored model were deleted rather than left for a building that no longer exists. See
@@ -1517,7 +1519,7 @@ keep working) and read by the load-shedding sites in place of `RENDER_TUNE`.
 **The allowlist is the whole design**, and it is a smaller idea than "let a caller override the
 tune". Most of `RENDER_TUNE` is **geometry** — `bldgFoot`, `bldgH`, `eh`, `fov` — and those same
 values are read again *outside* any frame by the collision helpers (`buildingRoofFtAt`,
-`groundObstructionAt`, `climbOutClear`) and by the shape capture. Let a view override one of those
+`groundObstructionAt`) and by the shape capture. Let a view override one of those
 and the picture and the solid world quietly stop being the same shape: you would drive through a
 building that is drawn where you can see it. `VIEW_TUNABLE` restricts overrides to keys that only
 ever decide **how much work to skip**, so that class of bug cannot be written — which is also why

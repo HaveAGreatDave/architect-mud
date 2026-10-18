@@ -23,6 +23,7 @@
 // somebody on their own does more than one thing, a stroll moves the feet as far as the figure, and
 // on a road three tiles wide everybody stands on its outer pavement rather than in a lane.
 import { actorBake, actorOutfit, actorStrideM, ACTOR_OUTFITS, ACTOR_MATERIALS, ACTOR_MATERIAL } from '../../client/game/js/panels/actor3d.js';
+import { faceHair } from '../../client/game/js/panels/actor-faces.js';
 import { LIFE } from '../../client/game/js/panels/glass/street-life.js';
 import { loadWindshield, stubCanvas } from './dom-stub.mjs';
 import { readFileSync } from 'node:fs';
@@ -36,7 +37,8 @@ const report = (...a) => { if (REPORT) console.log(...a); };
 // pixels tall, which has its own vertex budget and has to stand the same height.
 const bk = actorBake();
 const { nv, frames, top } = bk;
-checkBake(bk, 'bake', 2000, 4000);
+// The near body has no head (gl/actors.js draws actor-head.js's): about 1,830 vertices.
+checkBake(bk, 'bake', 1500, 4000);
 if (!bk.far) problems.push('the bake has no far body');
 else {
   checkBake(bk.far, 'far bake', 250, 500);
@@ -123,7 +125,10 @@ for (const [name, c] of Object.entries(clips)) {
     for (const p of Object.keys(seen)) {
       const c = o[p];
       if (!Array.isArray(c) || c.length !== 3 || c.some((x) => !(Number.isInteger(x) && x >= 0 && x <= 255))) { problems.push(`outfit part ${p} is ${JSON.stringify(c)}, not an 0..255 rgb`); break; }
-      seen[p].add(c.join());
+      // Hair is greyed by the face's age (faceHair), so it's counted as the palette colour it came from.
+      const src = p === 'hair' ? ACTOR_OUTFITS.hair.map(([h]) => h).find((h) => faceHair(h, o.face.layout).map(Math.round).join() === c.join()) : c;
+      if (!src) { problems.push(`hair ${c.join()} isn't a palette colour greyed by its face's age`); break; }
+      seen[p].add(src.join());
     }
     if (!(o.tone >= 0 && o.tone <= 5 && Number.isInteger(o.tone))) problems.push(`outfit tone ${o.tone} is outside the blob's six buckets`);
     if (i < 500) combos.add(o.coat.join() + '|' + o.legs.join() + '|' + o.skin.join());
@@ -225,8 +230,11 @@ ws.RENDER_TUNE.actorFarPx = 7.99;
 const tiny = frame(VIEW);
 if (tiny.recs.some((r) => r.lod)) problems.push('a far-body record for somebody under RENDER_TUNE.actorFarPx');
 ws.RENDER_TUNE.actorFarPx = farWas;
-const ALLOWED = new Set(['actor', 'lod', 'x', 'y', 'z', 's', 'hd', 'o', 'clip', 'ph', 'clip2', 'ph2', 'mix', 'lum', 'a', 'lx', 'ly']);
+const ALLOWED = new Set(['actor', 'lod', 'hl', 'x', 'y', 'z', 's', 'hd', 'o', 'clip', 'ph', 'clip2', 'ph2', 'mix', 'lum', 'a', 'lx', 'ly']);
 for (const r of recs) {
+  // The close-up body's head: a level, and a face off the outfit.
+  if (!r.lod && !(Number.isInteger(r.hl) && r.hl >= 0 && r.hl <= 2)) problems.push(`a close-up record's head level is ${r.hl}`);
+  if (!r.lod && !(r.o && r.o.face && Number.isInteger(r.o.face.layout) && Number.isInteger(r.o.face.hairStyle))) problems.push('a close-up record has no face to draw its head with');
   for (const k of Object.keys(r)) if (!ALLOWED.has(k)) problems.push(`an actor record carries '${k}'; a record may carry nothing that could name somebody`);
   for (const k of ['x', 'y', 's', 'hd', 'ph', 'lum', 'a']) if (!Number.isFinite(r[k])) problems.push(`an actor record's ${k} is ${r[k]}`);
   if (!(r.ph >= 0 && r.ph < 1)) problems.push(`an actor record's phase is ${r.ph}, outside 0..1`);

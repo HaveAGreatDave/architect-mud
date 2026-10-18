@@ -39,7 +39,7 @@
 //
 // Pure, like the rest of the interior: no clock, no camera, no DOM. `live` arrives as an argument.
 import { makeKit, C, clamp, pedal, SHINY, PANE, TEXTURE } from './interior-kit.js';
-import { contactShadow, eased, pressPulse, hotspotHalo } from './interior-cockpit-kit.js';
+import { contactShadow, eased, pressPulse, hotspotHalo, panelGps, gpsHotspot } from './interior-cockpit-kit.js';
 import { FW_ROWS } from './vehicle-models.js';
 
 const num = (v, d = 0) => (Number.isFinite(+v) ? +v : d);
@@ -790,6 +790,8 @@ const FLAPL = (P, R) => { const piv = [P.xCentre + 0.195, 0.17, -0.70], a = (26 
 const MAIN = (P) => { const rk = 12 * Math.PI / 180; return makeKit(() => {}).panel([P.xCentre, 0.78, -0.50], [1, 0, 0], [0, -Math.sin(rk), Math.cos(rk)]); };
 // Down is down: the handle sits low on the board with the gear down and high with it up.
 const GEARL = (P, R) => MAIN(P).pt(0.20, R.gear ? -0.28 : -0.19, 0.09);
+// The GPS, on the bare board outboard of the captain's airspeed, high enough to clear the yoke's horn.
+const GPS = { u: -0.90, v: 0.12, hw: 0.08, hh: 0.07 };
 
 function liveFit(P, live, push) {
   const K = makeKit(push), R = readLive(live), cx = P.xCentre, zF = P.lev.zF;
@@ -964,6 +966,7 @@ function liveFit(P, live, push) {
     Mp.dial(-0.12, -0.235, 0.034, clamp(R.hull, 0, 1) * 0.9, dialO({ ticks: 6, major: 2, arcs: [[0.6, 1, C.green]], name: 'HYD' }));
     Mp.dial(-0.22, -0.235, 0.034, R.fuel, dialO({ ticks: 8, major: 2, arcs: [[0, 0.15, C.red]], name: 'FUEL' }));
   }
+  panelGps(Mp, GPS.u, GPS.v, GPS.hw, GPS.hh, live);
   hotspotHalo(K, levHotspots(P, live), live);
 }
 
@@ -981,6 +984,7 @@ export function levHotspots(P, live) {
     { id: 'throttle', p: LEVER(P, R, 1).tip, r: 0.06, kind: 'throttle' },
     { id: 'ck:flaps', p: FLAPL(P, R).tip, r: 0.03, kind: 'click' },
     { id: 'ck:gear', p: GEARL(P, R), r: 0.03, kind: 'click' },
+    gpsHotspot(MAIN(P), GPS.u, GPS.v, 0.07),
   ];
   const O = overheadPanel(makeKit(() => {}), cx);
   out.push({ id: 'ck:land', p: O.pt(0.19, 0.44, 0.01), r: 0.016, kind: 'click' });

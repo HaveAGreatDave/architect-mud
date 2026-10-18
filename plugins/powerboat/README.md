@@ -453,7 +453,7 @@ two blocks to get round that, and the engine can wrap now
 ([docs/ai-behaviour.md](../../docs/ai-behaviour.md#a-schedule-block-and-the-night-shift)), so it is
 one block that says six until six.
 
-## Moor or Less, the second yard
+## The Eastern Marina, the second yard
 
 The cheap yard at the head of Ironside Street ([moor-or-less.md](../../docs/proposals/moor-or-less.md)):
 a landing stage of two sections, a hard with cradles, and Keel's shed, which is the covered slot, the

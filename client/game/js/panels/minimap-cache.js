@@ -30,7 +30,7 @@ const keyOf = (mapId, x, y, z) => `${mapId}:${x}:${y}:${z || 0}`;
  *
  * An interior's grid_x/grid_y default to 0, so a building whose rooms nobody laid out
  * has every room on one cell. Placed by that grid, the whole building is one tile and
- * walking room to room never moves you on the map (Moor or Less had the shed and the
+ * walking room to room never moves you on the map (the Eastern Marina had the shed and the
  * steam box both at 0,0; 66 other interiors did too). So off the world map a grid only
  * counts when no two rooms on the floor share a cell. The world map is always gridded:
  * two zones there can share a cell on purpose (the Echelon moors over water), and the

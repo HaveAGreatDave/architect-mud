@@ -16,7 +16,7 @@ import { effectiveSkill, awardSkillUse, skillCheck } from '../../server/engine/s
 import { grantSkillIp } from '../../server/engine/ip.js';
 import { registerMoveGate } from '../../server/engine/movement-gates.js';
 import { registerZoneReloadHook } from '../../server/engine/world.js';
-import { invalidateCoordIndex, crewedAircraft, hangarTileFor, clearHangarTiles, hangarHeading } from './state.js';
+import { invalidateCoordIndex, crewedAircraft, standTileFor, clearHangarTiles, hangarHeading } from './state.js';
 
 // A DEV-PANEL TILE EDIT MOVES THE WORLD, and `surfaceAt` is an index OVER positions rather than
 // a read THROUGH them — so without this it answers with the world as it stood at boot, for the
@@ -40,7 +40,7 @@ import {
   initFloat, initEngines, enginesAllStable, engineCount, syncEngineTemp,
   ENGINE_IDLE, ENGINE_STABLE_BAND, toDeg, degToCardinal, bearingDeg, groundTheme, vtolOnlyField,
   isContinuous, reconcile, pushContext, contextPayload, bandFromAltitude, effLoadout,
-  RENTAL_BILL_MS, rentalOpFee, fieldFor, nearestAirfield, listAirfields, listRegions, worldTerrainMap, craftIsVtol, runwayFor, airfieldForRunway, yachtFieldNear, isGroundRolling,
+  RENTAL_BILL_MS, rentalOpFee, fieldFor, nearestAirfield, listAirfields, listRegions, gpsDirectory, worldTerrainMap, craftIsVtol, runwayFor, airfieldForRunway, yachtFieldNear, isGroundRolling,
   isWalkableCabin, isCabinZone, boardCabin, lookPayload, pushWindowTo, closeHud,
   airfieldOf, fieldOpenTo, fieldName, PILOT_IP,
 } from './state.js';
@@ -110,7 +110,7 @@ function breakOffAttackers(player) {
 // `name` falls back to the type name so "embark mule" matches an unlettered craft.
 async function parkedPool(zoneId) {
   const { rows } = await query(
-    `SELECT a.id, a.name, a.type_id, a.is_wreck, a.owner_id, a.hangar_id, a.rental, a.custom_data, t.name tname, t.class tclass
+    `SELECT a.id, a.name, a.type_id, a.is_wreck, a.owner_id, a.hangar_id, a.rental, a.custom_data, t.name tname, t.class tclass, t.takeoff_mode tmode
      FROM aircraft a JOIN aircraft_types t ON t.id=a.type_id WHERE a.parked_zone_id=$1`, [zoneId]);
   return rows.filter(r => !r.is_wreck && r.custom_data?.charter !== true)
     .map(r => ({ ...r, name: r.name || r.tname }));
@@ -342,8 +342,10 @@ async function boardFound(found, player, broadcast, opts = {}) {
 
 // ── Aboard for the bench ─────────────────────────────────────────────────────
 // `hangaract service|launch <id>` (hangars.js) asks for this: board your own aircraft to work on
-// her or take her out. On a field with a GLASS hangar she stands on its floor, nose to the door;
-// on one without (a helipad, the Solenne's roof, a desert strip) she stays where she is parked, and
+// her or take her out. On a field with a GLASS hangar she stands on its floor, nose to the door,
+// unless she's a VTOL and the field has a helipad (standTileFor): skids can't taxi out of a shed,
+// so she's stood on the pad instead. On a field without either (a helipad, the Solenne's roof, a
+// desert strip) she stays where she is parked, and
 // that pad is the 3D area the bench works in. Null only off a field. Registered into hangars.js
 // rather than imported by it, because this file already imports that one.
 async function boardIntoHangar(player, acId, broadcast) {
@@ -353,7 +355,7 @@ async function boardIntoHangar(player, acId, broadcast) {
   const found = (await parkedPool(field.id)).find(r => r.id === acId);
   if (!found) return { type: 'emote', message: "She isn't parked here." };
   if (found.owner_id !== player.id) return { type: 'emote', message: 'Only her owner takes her out of here.' };
-  const tile = hangarTileFor(field, found.tclass === 'heavy');
+  const tile = standTileFor(field, { vtol: found.tmode === 'vtol', heavy: found.tclass === 'heavy' });
   return boardFound(found, player, broadcast, tile ? { at: tile } : {});
 }
 setHangarBoarder(boardIntoHangar);
@@ -2189,6 +2191,19 @@ async function cmdFlightWaypoint(args, raw, player) {
   return { type: 'emote', message: `<span class="text-cyan">✜ Target designated: tile ${cx}, ${cy}.</span>${tail}` };
 }
 
+// ── flightgps: the cockpit GPS asks for its directory ─────────────────────────
+// Sent silently the first time the pilot opens the GPS picker: every region and the airfields in
+// each (state.js gpsDirectory). It goes once, on request, rather than in the 2 s flight_ctx push,
+// because it is a few KB that only changes when the world does. A craft that needs a runway isn't
+// offered the helipads, as `nav` doesn't offer them; with no aircraft, everything is listed.
+async function cmdFlightGps(args, raw, player) {
+  const live = player.aircraftId ? liveAircraft.get(player.aircraftId) : null;
+  const vtol = live ? craftIsVtol(live) : true;
+  const regions = gpsDirectory().map(g => ({ ...g, fields: vtol ? g.fields : g.fields.filter(f => !f.pad) }));
+  sendToPlayer(player.id, { type: 'flight_gps', regions });
+  return { type: 'noop' };
+}
+
 // ── flight / status — a text readout of the aircraft you're aboard ─────────────
 async function cmdFlightStatus(args, raw, player) {
   const live = player.aircraftId ? liveAircraft.get(player.aircraftId) : null;
@@ -2461,7 +2476,7 @@ export const commands = {
   turn: cmdTurnVerb, descend: cmdDive, level: cmdLevelVerb,
   flaps: cmdFlapsVerb, gear: cmdGearVerb, status: cmdStatusVerb,
   flightsync: cmdFlightSync, flocksync: cmdFlockSync, flightevent: cmdFlightEvent, flightresume: cmdFlightResume, airhome: cmdAirHome,
-  flightwaypoint: cmdFlightWaypoint,
+  flightwaypoint: cmdFlightWaypoint, flightgps: cmdFlightGps,
   checkride: cmdCheckride,
   quack: cmdQuack,   // the Drake's loudspeaker
   champagne: cmdChampagne,   // the ice bucket (champagne.js)

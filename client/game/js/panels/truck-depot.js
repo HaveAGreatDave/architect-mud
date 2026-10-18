@@ -50,7 +50,7 @@ import { airHorn } from './engine-audio.js';
 import { cabServiceHost, cabPreview, cabView, cabFrame, cabRev } from './cab-view.js';
 // The chrome every depot shares: the head, the job tiles, the bay, holds and the purchase moment.
 import { ensureDepotStyles, headHtml, jobsHtml, mountBay, setBayOpen, bayHtml, leaveHtml, bayChipHtml, toastHtml,
-  statsHtml, serviceListHtml, armHolds, shellClick, clearViewModes, noteAct, notePush, money } from './depot-shell.js';
+  statsHtml, serviceListHtml, armHolds, shellClick, clearViewModes, noteAct, notePush, money, readyHtml } from './depot-shell.js';
 import { SHOTS } from './camera-tween.js';
 import { garageBed } from './garage-ambience.js';
 
@@ -113,7 +113,8 @@ export function openTruckDepot(msg) {
   B = {
     mode: 'yard',
     data: msg,
-    screen: SCREEN_FOR_TAB[msg.tab] || keep?.screen || 'lot',
+    // A push that names a truck you just bought or hired lands on the hand, where its key is.
+    screen: msg.fresh ? 'lot' : SCREEN_FOR_TAB[msg.tab] || keep?.screen || 'lot',
     selId: null,
     bench: { tab: 'service', psec: 'scheme', fslot: null, cslot: null, tune: null, paint: null, trim: null },
     lotSel: keep?.lotSel || null,
@@ -305,7 +306,7 @@ function lotScreen() {
       t.hereNow && !t.rental ? `<button class="vc-mini" data-hold="yard sell ${esc(t.id)}" title="Sell ${esc(t.name)}">Sell · ${money(t.resale)}</button>` : '',
       t.hereNow && t.rental ? `<button class="vc-mini" data-hold="yard return ${esc(t.id)}" title="Hand it back early, no refund">Hand it back</button>` : '',
     ].filter(Boolean).join('');
-    return `<div class="vc-wrap${here ? '' : ' away'}">
+    return `<div class="vc-wrap${here ? '' : ' away'}${t.id === d.fresh ? ' fresh' : ''}">
       <button class="vc-card ${style}" data-cmd="${here ? `drive ${esc(t.id)}` : ''}" ${here ? '' : 'disabled'}
           aria-label="${esc(`${t.name}, ${t.type}, ${t.rental ? 'hired' : 'owned'}${here ? ': climb in' : ''}`)}"
           title="${here ? 'Climb in: you start in the shed' : esc(t.impound ? 'Impounded' : `At ${t.whereName || 'another yard'}`)}">
@@ -323,7 +324,12 @@ function lotScreen() {
   const hireCard = `<div class="vc-wrap"><button class="vc-card slot" data-screen="rent" aria-label="Hire a truck">
       <canvas class="vc-cv" data-slot="rent" aria-hidden="true"></canvas>
       <span class="vc-plate"><b>Hire a truck</b><span class="vc-sub">${d.hasRental ? 'one out already' : 'by the day, back at any yard'}</span></span></button></div>`;
+  // The truck you just bought or hired, and one key into it: the card's own verb.
+  const nu = fleet.find((t) => t.id === d.fresh && t.hereNow && !t.impound);
+  const ready = nu ? readyHtml({ title: nu.rental ? `${nu.name}, yours for ${nu.rental.leftText}.` : `The ${nu.name} is yours.`,
+    sub: `In the shed, fuel ${pct(nu.fuel)}.`, label: 'Drive it', cmd: `drive ${nu.id}` }) : '';
   return `<div class="td-col td-lot-col">
+      ${ready}
       ${fleet.length ? '' : '<div class="td-hint">Nothing of yours in the shed. Buy one, or hire one for the afternoon.</div>'}
       <div class="vc-hand">${cards}${buyCard}${hireCard}</div>
       ${boxList()}
@@ -2021,10 +2027,10 @@ function ensureStyles() {
   /* The hint above the hand is in the flow; the old floor screen floated it over a 3-D scene. */
   .td-lot-col{overflow:auto;padding-right:2px}
   .td-lot-col .td-hint{position:static;transform:none;margin:0 0 4px;max-width:none}
-  /* ── THE BAY ── docked on the glass by the shell (.ds-bay). The tab body scrolls itself, so the
-     shell's body only lays it out. */
-  #td-svc .ds-bay-body{display:flex;flex-direction:column;overflow:hidden}
-  #td-svc .td-side.td-svc-body{width:auto;flex:1 1 auto;min-height:0}
+  /* ── THE BAY ── docked on the glass by the shell (.ds-bay). Nothing in it scrolls: the shell
+     sizes the bay to the page and scales it down when it won't fit (depot-shell.js fitBay). */
+  #td-svc .ds-bay-body{display:flex;flex-direction:column;overflow:clip}
+  #td-svc .td-side.td-svc-body{width:auto;flex:0 0 auto;overflow:clip}
   .td-plateform{display:flex;gap:6px}
   .td-plate-in{flex:1 1 auto;min-width:0;font-family:inherit;font-size:13px;padding:5px 7px;border-radius:6px;color:var(--td-fg);
     background:var(--td-surf-lo);border:1px solid color-mix(in srgb, var(--td-accent) 30%, transparent);text-transform:uppercase}

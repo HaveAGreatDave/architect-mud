@@ -1,0 +1,33 @@
+{
+  "ambient_events": [
+    "Somebody runs a starter turbine up on the stand for ten seconds, listens to it with their head on one side, and shuts it down.",
+    "A cable drum is walked across the floor on its edge and leaned against the wall.",
+    "Grit sifts down from the roof plates when a truck pulls into the shed next door.",
+    "The tube light over the stand flickers and comes back.",
+    "A binder bar is tapped along its length with a spanner, end to end, for the note."
+  ],
+  "ambient_theme": "indoors",
+  "bg_color": "#2a1410",
+  "color": "#ff7a3c",
+  "description": "A side bay off the shed, walled in salvaged plate. Turbines stand on stands along one wall with their covers off, and coils of steel cable hang on pegs above a bench of spanners. Under a tube light in the middle, a racer is up on blocks: two engines, a binder bar welded between them and a bathtub of a pod lying where its cables have been let out. A chequered strip is painted across the floor at the shed door, and a board on the wall says RACERS and the prices, chalked.",
+  "exits": {
+    "west": "zone_yard_deadleg"
+  },
+  "flags": {
+    "building_name": "The Deadleg",
+    "floor": "concrete",
+    "is_building": true,
+    "is_interior": true,
+    "podracer_lot": true,
+    "region_id": "region_scarletwastes",
+    "world_exit_zone": "zone_scw_1024_956"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_racerbay_deadleg",
+  "map_id": "map_int_yard_deadleg",
+  "marker": "RB",
+  "name": "The Deadleg racer bay",
+  "parent_zone": "zone_scw_1024_956"
+}

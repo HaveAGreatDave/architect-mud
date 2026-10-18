@@ -310,7 +310,7 @@ void main() {
     H *= Hc;
     // ⚠ A TUBE IS THIN, AND COVERAGE ALONE CANNOT SAY SO. An opaque board (every marquee panel is
     // opaque, see marqueeBand) is alpha 1 edge to edge, so without this every texel of it read as the
-    // axis of one enormous tube and the whole board went white-hot — Reel Estate's fascia at night.
+    // axis of one enormous tube and the whole board went white-hot — Midway Parks's name board at night.
     // A stroke is empty on BOTH sides of it along some direction; a board interior is full on both
     // and a board edge is empty on one side only, so neither passes.
     float thin = 0.0;

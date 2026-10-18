@@ -69,6 +69,9 @@ export function biomeOf(zone) {
 export function districtBiome(zone) {
   if (!zone) return null;
   const f = zone.flags || {};
+  // A void highway tile is drawn as road by the road channel; the ground under it is the verge's
+  // (plugins/trucking/corridor.js road_ground).
+  if (f.road_ground && TERRAIN_BIOME[f.road_ground]) return TERRAIN_BIOME[f.road_ground];
   if (f.terrain && TERRAIN_BIOME[f.terrain]) return TERRAIN_BIOME[f.terrain]; // authored terrain wins the ground tint
   const id = (zone.id || '').toLowerCase();
   const dr = zone.danger;

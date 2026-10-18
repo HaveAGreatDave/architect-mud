@@ -52,7 +52,7 @@
 //
 // Pure: no DOM, no camera. `live` is optional everywhere and every reader has a resting value.
 import { makeKit, C, clamp, pedal, SHINY, PANE, TEXTURE } from './interior-kit.js';
-import { eased, pressPulse, hotspotHalo } from './interior-cockpit-kit.js';
+import { eased, pressPulse, hotspotHalo, panelGps, gpsHotspot } from './interior-cockpit-kit.js';
 import { FW_ROWS } from './vehicle-models.js';
 
 const TAU = Math.PI * 2;
@@ -635,6 +635,8 @@ function flapTip(R) { const a = lerp(-0.55, 0.55, R.flap); return [FLAP_PIVOT[0]
 const SW_ROW = { o: [0.40, -0.18, CONS_Z + 0.0015], ids: ['master', 'panel', 'dome'], pitch: 0.028 };
 const swPos = (i) => [SW_ROW.o[0] + (i - (SW_ROW.ids.length - 1) / 2) * SW_ROW.pitch, SW_ROW.o[1], SW_ROW.o[2]];
 const GEAR = { u: -0.33, v: -0.07 };
+// The GPS: the gap low on the right of the main panel, between the trim dial and the fuel gauge.
+const GPS = { u: 0.194, v: -0.125, hw: 0.036, hh: 0.034 };
 
 export function reaperHotspots(P, live) {
   const R = readReaper(live), out = [];
@@ -647,6 +649,7 @@ export function reaperHotspots(P, live) {
   out.push({ id: 'ck:flaps', p: flapTip(R), r: 0.02, kind: 'click' });
   out.push({ id: 'yoke', p: add(stickTip(R), [0, 0.01, 0.07]), r: 0.07, kind: 'yoke' });
   out.push({ id: 'throttle', p: throttleTip(0, R.thr), r: 0.04, kind: 'throttle' });
+  out.push(gpsHotspot(makeKit(() => {}).panel([0, PANEL_Y, PZ], [1, 0, 0], [0, 0, 1]), GPS.u, GPS.v, 0.034));
   return out;
 }
 
@@ -719,6 +722,7 @@ export function reaperFit(P, live, push) {
   // ── FUEL QUANTITY (lower right): the two tank needles and the total counter ──
   Pn.dial(0.28, -0.125, 0.045, R.fuel, { a0: Math.PI * 1.25, sweep: Math.PI * 1.5, ticks: 10, major: 5, red: 0.0001, frac2: clamp(R.fuel * 1.02, 0, 1), arcs: [[0, 0.12, C.red]], name: 'FUEL' });
   Pn.digits(0.258, -0.16, 0.009, on ? String(Math.round(R.fuel * 10700)).padStart(5, ' ') : '     ', C.white);
+  panelGps(Pn, GPS.u, GPS.v, GPS.hw, GPS.hh, live);
 
   // ── ALONG THE TOP EDGE: the three fire T-handles, master caution, the AOA indexer ──
   const fire = on && R.hull < 0.2;

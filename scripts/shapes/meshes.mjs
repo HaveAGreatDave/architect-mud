@@ -53,7 +53,17 @@ for (const { file, doc } of docs) {
 // 3 — the class draws the file. Bind by what the renderer is asked for: a mesh's own id is its
 // class, except one named as another file's armedMesh.
 const armedOf = new Map(docs.filter((d) => d.doc.params.armedMesh).map((d) => [d.doc.params.armedMesh, d.doc.id]));
+// A file another lists under `variants` is that class drawn for that variant (the racer's types).
+const variantOf = new Map();
+for (const { doc } of docs) for (const [v, id] of Object.entries(doc.params.variants || {})) variantOf.set(id, [doc.id, v]);
+for (const [id, [cls, v]] of variantOf) {
+  const doc = docs.find((d) => d.doc.id === id)?.doc;
+  if (!doc) { problems.push('mesh_' + cls + '.json: variant ' + v + ' names mesh ' + id + ', which has no file'); continue; }
+  if (m.variantMeshFor(cls, v) !== id) { problems.push('mesh_' + id + '.json: aircraftFaces(' + cls + ', variant ' + v + ') does not draw it'); continue; }
+  if (meshDiff(m.aircraftFaces(cls, 1, false, v), compileMesh(doc.params, { detail: 1 }).faces)) problems.push('mesh_' + id + '.json: aircraftFaces(' + cls + ', ' + v + ') returns something other than the file');
+}
 for (const { doc } of docs) {
+  if (variantOf.has(doc.id)) continue;
   const cls = armedOf.get(doc.id) || doc.id, armed = armedOf.has(doc.id);
   if (m.meshIdFor(cls, armed) !== doc.id) { problems.push('mesh_' + doc.id + '.json: aircraftFaces(' + cls + (armed ? ', armed' : '') + ') does not draw it'); continue; }
   const live = m.aircraftFaces(cls, 1, armed, '');
@@ -64,7 +74,7 @@ const ws = readFileSync(new URL('../../client/game/js/panels/windshield.js', imp
 const vc = ws.match(/export const VEHICLE_CLASSES = \[([^\]]*)\]/);
 const classes = vc ? [...vc[1].matchAll(/'([^']+)'/g)].map((x) => x[1]) : [];
 for (const { doc } of docs) {
-  if (armedOf.has(doc.id)) continue;
+  if (armedOf.has(doc.id) || variantOf.has(doc.id)) continue;
   if (!classes.includes(doc.id)) problems.push('mesh_' + doc.id + '.json: class ' + doc.id + ' is not in VEHICLE_CLASSES (windshield.js), so no smoke and no Modelshop subject reaches it');
 }
 

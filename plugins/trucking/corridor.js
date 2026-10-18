@@ -1268,7 +1268,11 @@ export function corridorAt(route, x, y) {
   // road states that it is unmaintained, ONCE, and the renderer derives the whole worn look from
   // that plus the tile's own world coordinates (windshield.js, wornAsphalt). Coldwater's streets
   // never set it and are pixel-identical.
-  const deg = ((hit.leg.deg % 360) + 360) % 360;
+  //
+  // `road_ground` is the verge's terrain, carried on the carriageway and the shoulder. The road is
+  // drawn over the floor (as a ribbon, see roadnet.js nearRibbons), and the floor under it has to be
+  // the country it runs through or a band of the wrong ground shows in steps along both edges.
+  const deg =((hit.leg.deg % 360) + 360) % 360;
   // The width is a function of where you are on the road now — see pavedAt.
   //
   // ⚠ THE SHOULDER IS A FIXED WIDTH, NOT A RATIO. Making it 2×PAVED (which is what the two old
@@ -1297,7 +1301,7 @@ export function corridorAt(route, x, y) {
       flags: { terrain: 'road', icon: roadIcon(hit), road_deg: deg, road_t: +t.toFixed(3),
         road_w: +PAVED.toFixed(3), road_lanes: lanesAt(route, s), road_dirt: dirtAt(route, s) ? 1 : 0,
         road_type: typeNameAt(route, s), road_cond: +conditionAt(route, s).toFixed(2),
-        road_wear: 1, corridor_s: s, corridor_node: node,
+        road_wear: 1, road_ground: terrain, corridor_s: s, corridor_node: node,
         // The gantry over the highway at each end of a plaza's footprint. It rides the carriageway
         // cell because it spans it: a mark on a road tile, exactly as a dust strip's drums are (see
         // `strip` in deriveSurfaceCell), and the tile goes on being road underneath it.
@@ -1308,7 +1312,7 @@ export function corridorAt(route, x, y) {
   if (at < SHOULDER) {
     return { id, name: 'The Shoulder', danger,
       flags: { terrain: 'dirt_road', icon: roadIcon(hit), road_deg: deg, road_t: +(t - Math.sign(t) * ((PAVED + SHOULDER) / 2)).toFixed(3), road_w: +((SHOULDER - PAVED) / 2).toFixed(3),
-        corridor_s: s, corridor_node: node } };
+        road_ground: terrain, corridor_s: s, corridor_node: node } };
   }
   // ── THE PLAZA OWNS ITS OWN GROUND ──────────────────────────────────────────
   // Past the shoulder and inside a station's footprint, this tile belongs to the interchange: the

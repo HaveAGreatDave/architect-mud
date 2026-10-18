@@ -70,7 +70,8 @@ import { headMesh, hairMesh, HAIR_STYLES, HEAD_LEVELS } from '/client/game/js/pa
 import { HEAD_VERT, HEAD_FRAG, paintFace } from '/actor-head.js';
 import { actorFace, faceCell, faceHair, faceLip, FACE_LAYOUTS, FACE_ATLAS } from '/client/game/js/panels/actor-faces.js';
 
-const bk = actorBake();
+// With the old head on: the pieces below are found in it. The game's own near body has none.
+const bk = actorBake({ head: true });
 const TOP = bk.top;
 // Metres a walk cycle covers. The gait shot's walker is slowed to 0.6 so the eye can follow the feet.
 const STRIDE = actorStrideM();

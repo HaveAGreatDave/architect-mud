@@ -220,6 +220,7 @@ const COMMON_FIELDS = {
   paint: { t: 'str', hint: 'paint slot (params.paints) this part wears' },
   when: { t: 'str', hint: 'drawn only while this channel is above zero: a room seen through a door' },
   whenNot: { t: 'str', hint: 'drawn UNLESS this channel is above zero: a part that can break off' },
+  piece: { t: 'str', hint: 'a body the renderer poses on its own: a podracer turbine (L, R). Untagged faces ride the model' },
   anim: { t: 'obj', hint: 'a moving part: { ch, pivot: [f,g,h], axis: [f,g,h], ang: [at 0, at 1] degrees, slide: [f,g,h] at 1, span: [a, b] of the channel, back: [c, d] where it returns, def }; ch "gear" is the landing gear' },
 };
 export const PART_KINDS = {
@@ -303,7 +304,7 @@ export const PART_KINDS = {
 };
 // Face fields a `poly` may carry, beyond role/sh/p. Anything else is a typo that would reach the
 // renderer as a field nothing reads.
-const FACE_FIELDS = new Set(['role', 'sh', 'p', 'tint', 'art', 'uv', 'defl', 'side', 'hinge', 'visor', 'deck', 'pk', 'two', 'mat', 'cen', 'part', 'paint', 'anim', 'when', 'whenNot']);
+const FACE_FIELDS = new Set(['role', 'sh', 'p', 'tint', 'art', 'uv', 'defl', 'side', 'hinge', 'visor', 'deck', 'pk', 'two', 'mat', 'cen', 'part', 'paint', 'anim', 'when', 'whenNot', 'piece']);
 
 // ── The compiler ──────────────────────────────────────────────────────────────
 const ng = (x) => (x === 0 ? x : -x);
@@ -584,9 +585,28 @@ function applyXf(faces, from, xf) {
     [f, g] = [f * cy - g * sy, f * sy + g * cy];
     return [f + t[0], g + t[1], h + t[2]];
   };
+  // A moving part's hinge goes with it: the pivot moves like a point, the axis and a slide like a
+  // direction. Without this a hinged part in a moved group swung about where the group used to be
+  // (the racer's air brakes flew a metre off their turbine). Faces of one part share one anim, so
+  // each is moved once.
+  const L = (v) => { const o = X(v), z = X([0, 0, 0]); return [o[0] - z[0], o[1] - z[1], o[2] - z[2]]; };
+  const unit = (v) => { const l = Math.hypot(v[0], v[1], v[2]) || 1; return [v[0] / l, v[1] / l, v[2] / l]; };
+  const moved = new Map();
+  const xa = (a) => {
+    if (!a || typeof a !== 'object') return a;
+    if (moved.has(a)) return moved.get(a);
+    const b = { ...a };
+    if (a.pivot) b.pivot = X(a.pivot);
+    if (a.axis) b.axis = unit(L(a.axis));
+    if (a.slide) b.slide = L(a.slide);
+    if (a.then) b.then = xa(a.then);
+    moved.set(a, b);
+    return b;
+  };
   for (let i = from; i < faces.length; i++) {
     faces[i].p = faces[i].p.map(X);
     if (faces[i].hinge) faces[i].hinge = faces[i].hinge.map(X);
+    if (faces[i].anim) faces[i].anim = xa(faces[i].anim);
   }
 }
 
@@ -634,11 +654,42 @@ function emitPart(p, faces, cx, path, srcs) {
   // And the opposite (`whenNot`): a part that is there UNLESS a channel is set, so it still draws in
   // every renderer that passes no channels at all (the hangar, a card). A foot that has snapped off.
   if (p.whenNot) for (let i = from; i < faces.length; i++) if (!faces[i].whenNot) faces[i].whenNot = p.whenNot;
+  // A separately posed body (`piece`): the renderer moves these faces as one, about the body's own
+  // rest centre. An inner part's own piece wins.
+  if (p.piece) for (let i = from; i < faces.length; i++) if (!faces[i].piece) faces[i].piece = p.piece;
   if (p.paint && cx.paints) {
     const slot = cx.paints[p.paint];
-    if (slot) for (let i = from; i < faces.length; i++) if (faces[i].paint == null) faces[i].paint = p.paint;
+    if (slot) for (let i = from; i < faces.length; i++) if (faces[i].paint == null) {
+      faces[i].paint = p.paint;
+      // A ramp is read along the part's OWN axis, here, before any group moves it, so a ramp down
+      // a turbine stays put when the turbine is moved or mirrored.
+      if (slot.ramp) faces[i].rampAt = rampPos(faces[i].p, slot.ramp.axis);
+    }
   }
   for (let i = from; i < faces.length; i++) if (srcs[i] == null) srcs[i] = path;
+}
+
+// A paint slot's `ramp`: colour stops along one of the part's own axes, `{ axis: 'f' | 'g' | 'h',
+// stops: [[at, [r, g, b]], ...] }` with `at` rising. A face takes the colour at its centre, so a part
+// wants enough stations along that axis for the ramp to read as a gradient: heat tint down a nozzle,
+// a fade on a stripe.
+const RAMP_AXIS = { f: 0, g: 1, h: 2 };
+export const MESH_TEX = ['plastic', 'fabric', 'leather', 'rubber', 'brushed', 'cast', 'paint', 'wood', 'carpet'];
+function rampPos(pts, axis) {
+  const k = RAMP_AXIS[axis] ?? 0;
+  let t = 0;
+  for (const v of pts) t += v[k];
+  return t / pts.length;
+}
+function rampRgb(stops, at) {
+  if (at <= stops[0][0]) return stops[0][1].slice();
+  for (let i = 1; i < stops.length; i++) {
+    if (at <= stops[i][0]) {
+      const [a0, c0] = stops[i - 1], [a1, c1] = stops[i];
+      return mixRgb(c0, c1, (at - a0) / ((a1 - a0) || 1));
+    }
+  }
+  return stops[stops.length - 1][1].slice();
 }
 
 // params → { faces, warnings }. `detail` 1 is the near mesh, 0 the far LOD.
@@ -663,7 +714,9 @@ export function compileMesh(params, { detail = 1, scheme = null, finish = true }
       const s = sch[k] ? { ...s0, alt: undefined, ...sch[k] } : s0;
       // `mat` is what the slot is made of, resolved to its number here (vehicle-materials.js).
       const mk = matK(s.mat);
-      slots[k] = { name: k, rgb: s.rgb, livery: s.livery || 'base', ...(s.alt ? { alt: s.alt } : {}), ...(mk !== undefined ? { mat: mk } : {}) };
+      slots[k] = { name: k, rgb: s.rgb, livery: s.livery || 'base', ...(s.alt ? { alt: s.alt } : {}), ...(mk !== undefined ? { mat: mk } : {}),
+        // `tex` is the surface the GPU draws on it per pixel (gl/solids.js), as the cockpits' are.
+        ...(s.tex ? { tex: s.tex } : {}), ...(s.ramp ? { ramp: s.ramp } : {}) };
     }
     for (const f of faces) if (typeof f.paint === 'string') {
       const slot = slots[f.paint];
@@ -672,7 +725,9 @@ export function compileMesh(params, { detail = 1, scheme = null, finish = true }
       // The blend is taken from which way the facet FACES, at compile time, so it is identical in
       // every frame and every view: a colour that moved with the camera would shimmer, which the
       // renderer forbids by name (see camoHash in aircraft3d.js).
-      f.paint = slot.alt ? { ...slot, rgb: mixRgb(slot.rgb, slot.alt, sheenT(f.p)) } : slot;
+      f.paint = slot.ramp && f.rampAt != null ? { ...slot, rgb: rampRgb(slot.ramp.stops, f.rampAt) }
+        : slot.alt ? { ...slot, rgb: mixRgb(slot.rgb, slot.alt, sheenT(f.p)) } : slot;
+      delete f.rampAt;
     }
   }
   // The mesh's factory finish, on every face: what its paintwork is while nobody has repainted it.
@@ -796,7 +851,7 @@ export function resolveRotors(params) {
 const isPlain = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 const isNum = (v) => typeof v === 'number' && Number.isFinite(v);
 const isVec = (v, n) => Array.isArray(v) && v.length === n && v.every(isNum);
-const PARAM_KEYS = new Set(['name', 'note', 'portedFrom', 'armedMesh', 'scale', 'classFacts', 'groundPitch', 'navLamps', 'lamps', 'hull', 'cabin', 'rotors', 'finish', 'paints', 'schemes', 'parts']);
+const PARAM_KEYS = new Set(['name', 'note', 'portedFrom', 'armedMesh', 'variants', 'scale', 'classFacts', 'groundPitch', 'navLamps', 'lamps', 'hull', 'cabin', 'rotors', 'finish', 'paints', 'schemes', 'parts']);
 const MAT_HINT = 'a number from -1 to 1 or one of ' + Object.keys(VEHICLE_MATS).join(', ');
 
 function checkPart(p, path, errors, warnings, inMirror) {
@@ -891,9 +946,17 @@ export function validateMesh(params, file = '<mesh>') {
       if (!isPlain(s) || !isVec(s.rgb, 3)) errors.push(at('paints.' + k + ' needs rgb [r, g, b]'));
       if (s && s.livery != null && !['base', 'trim', 'fixed'].includes(s.livery)) errors.push(at('paints.' + k + '.livery must be base, trim or fixed'));
       if (s && s.mat != null && matK(s.mat) === undefined) errors.push(at('paints.' + k + '.mat must be ' + MAT_HINT));
+      if (s && s.tex != null && !MESH_TEX.includes(s.tex)) errors.push(at('paints.' + k + '.tex must be one of ' + MESH_TEX.join(', ')));
+      if (s && s.ramp != null) {
+        const r = s.ramp, ok = isPlain(r) && (r.axis == null || RAMP_AXIS[r.axis] != null) && Array.isArray(r.stops) && r.stops.length >= 2
+          && r.stops.every((st, i) => Array.isArray(st) && Number.isFinite(st[0]) && isVec(st[1], 3) && (i === 0 || st[0] > r.stops[i - 1][0]));
+        if (!ok) errors.push(at('paints.' + k + ".ramp must be { axis: 'f' | 'g' | 'h', stops: [[at, [r, g, b]], ...] } with at rising"));
+      }
     }
   }
   if (params.finish != null && matK(params.finish) === undefined) errors.push(at('finish must be ' + MAT_HINT));
+  if (params.variants != null && (!isPlain(params.variants) || !Object.values(params.variants).every((v) => typeof v === 'string' && v)))
+    errors.push(at('variants must be { variant: meshId }'));
   if (errors.length) return { errors, warnings };
   for (const detail of [0, 1]) {
     let faces;
@@ -942,7 +1005,7 @@ export function meshStats(faces) {
 // `canonicalJson` would put `kind` after `faces`, which is the first thing you look for.
 const KEY_ORDER = {
   doc: ['id', 'kind', 'params'],
-  params: ['name', 'note', 'portedFrom', 'armedMesh', 'scale', 'classFacts', 'groundPitch', 'navLamps', 'lamps', 'hull', 'cabin', 'rotors', 'finish', 'paints', 'schemes', 'parts'],
+  params: ['name', 'note', 'portedFrom', 'armedMesh', 'variants', 'scale', 'classFacts', 'groundPitch', 'navLamps', 'lamps', 'hull', 'cabin', 'rotors', 'finish', 'paints', 'schemes', 'parts'],
   cabin: ['note', 'mPerUnit', 'head', 'eye', 'pilotEye', 'floor', 'back', 'wall'],
   station: ['f', 'rg', 'rv', 'rvT', 'rvB', 'cz', 'keel', 'boxy', 'upper', 'u', 'minDetail', 'note'],
   face: ['role', 'sh', 'p'],
@@ -950,7 +1013,7 @@ const KEY_ORDER = {
   region: ['at', 'k', 'omit', 'role', 'tint', 'art', 'uvDiv', 'paint'],
   cap: ['kind', 'at', 'sh', 'role', 'tint', 'reverse', 'paint'],
   shade: ['base', 'amp', 'mul', 'alt', 'phase'],
-  paint: ['rgb', 'alt', 'livery', 'mat', 'note'],
+  paint: ['rgb', 'alt', 'livery', 'mat', 'tex', 'ramp', 'note'],
 };
 const ARRAY_OF = { parts: 'part', stations: 'station', faces: 'face', rotors: 'rotor', regions: 'region' };
 const OBJ_CTX = { params: 'params', cabin: 'cabin', capFore: 'cap', capAft: 'cap', shade: 'shade', sh: 'shade' };

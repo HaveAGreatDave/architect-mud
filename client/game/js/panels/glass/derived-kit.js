@@ -81,9 +81,10 @@ export function paintFoot(d, V) {
   const z1 = d.z1 != null ? V(d.z1) : (kerb ? V(d.z) + 2 * V(d.hh) : V(d.z) + V(d.hh));
   const at = (c, half) => ({ x: d.face === 'x', kerb, plane, x0: c - half, x1: c + half,
     z0: Math.min(z0, z1), z1: Math.max(z0, z1) });
-  if (d.kind === 'pilaster' && d.n > 1) {
-    const step = V(d.step), out = [];
-    for (let i = 0; i < d.n; i++) out.push(at(cx + (i - (d.n - 1) / 2) * step, w));
+  // `pier` marks a fin so the riser can keep its pipes off a colonnade; see `crossesPier`.
+  if (d.kind === 'pilaster') {
+    const step = d.n > 1 ? V(d.step) : 0, out = [];
+    for (let i = 0; i < (d.n || 1); i++) out.push({ ...at(cx + (i - ((d.n || 1) - 1) / 2) * step, w), pier: true });
     return out;
   }
   // A run of bollards is one part too, and its footprint is the whole run.
@@ -266,7 +267,7 @@ export function derivedTrim(m, fh, h, seed, forceRich) {
     // ── ⚠ AND A SQUAT DRUM GETS ITS CORNICE (RENDER_TUNE.drumTier) ─────────────────────────────
     //
     // The shaft rule above wants height over three radii, which is right for the fins and the
-    // collars up a tower and leaves every ROTUNDA with nothing: the Exchange's drum, Rising Sums'
+    // collars up a tower and leaves every ROTUNDA with nothing: the Exchange's drum, 7 Halcyon Boulevard'
     // stepped tiers and the glass prism's core all came out with no trim at all. A classical round
     // building has one thing a box has too, a cornice where the wall stops, so a drum that is a real
     // storey (not a disc, not a bead, not a cone) takes that one collar and nothing more.
@@ -426,7 +427,12 @@ const NO_KIT = new Set(['trm_wall', 'thornwall', 'damwall', 'pier', 'harbour_yar
   // hangs its shutter; the boat shed's street side is a door and a hatch and its water side is the
   // doors; a landing stage is a deck, and the kit reads its drums as walls. Each arm draws all four of
   // its own sides (building-styles.md §4.3).
-  'gym', 'boatshed', 'landing_stage']);
+  'gym', 'boatshed', 'landing_stage',
+  // ⚠ AND A HOARDING. The land office's board is the plot's only box, so the kit read it as the front
+  // wall and bolted a cable run across the top of the lettering, a downpipe up one edge and two
+  // fire-escape landings over the picture. Declining ground and wall was not enough: riser and stair
+  // live in other sections. A printed board on scaffold legs has none of those.
+  'land_office']);
 // What somebody had in the can. Saturated and light, because a tag is read against a wall that is
 // almost always the dark half of the frame — a dark tag on dark concrete is the `shadeOf(pal, 0.34)`
 // mistake the bracket colour already records, in a different costume.
@@ -477,16 +483,15 @@ export const TAG_COLS = ['#b8f03a', '#ff4a9a', '#5fd0ff', '#ffcf3e', '#ff6a4a', 
 // pane exactly where the door belongs, which is how the first building every player sees came to
 // have a window standing in its doorway. The arm draws its own frontage now (a door, the vats, the
 // main to Second Helpings, slit windows down the flanks), and the kit's downpipes ran through it.
-// ⚠ AND TINE & TEMPER DECLINES ITS WHOLE FRONTAGE, WHICH IS THE `helpings` CASE ON A SMALLER
-// SCALE. The arm draws an iron canopy across its own entrance and hangs a rail of pans under it,
-// and the kit hung a SECOND canopy over the top of that; `wall` then put a continuous glazed
-// ribbon across the brick, which on a `ty_unit_brick` palette is a black slab three storeys wide
-// with the ironmongery lost inside it. Neither is a mistake in the kit — a ribbon is right on a
-// shop and a canopy is right over a door — and both are wrong on a two-storey brick workshop whose
-// whole frontage is one lit window with iron hung in front of it, which is a thing only an arm can
-// draw. What replaces them is authored a few hundred lines down: a warm glazed shopfront with iron
-// mullions, and a clerestory under the eaves on the flanks, which is where a workshop's light
-// actually comes from.
+// ⚠ AND THE CHIP SHOP DECLINES ITS WHOLE FRONTAGE AND ITS ROOF BOARD, which is the `helpings` case
+// on a smaller scale. The `chippy` arm (twin-pass.js) draws one lit, fogged window with the door in
+// the middle, the name over it and a tin fish beside it. The kit's `ground` hung a canopy across
+// that and `wall` a glazed ribbon across the brick, which on `ty_unit_brick` is a black slab with
+// the shop lost inside it; a ribbon is right on a shop and a canopy over a door, and both are wrong
+// on a frontage that is one window. `signRoof` goes for the reason under `helpings`: nobody puts a
+// hoarding on a one-storey shop to repeat what is painted over its window. This was Tine &
+// Temper's entry until the unit changed hands (2026-10), and it declined the same two for the same
+// reason.
 // The kit sections the six slum trades decline, as one list so they cannot drift apart. Why each
 // is here is in the note under `flophouse` in KIT_DECLINE.
 // ⚠ `paint` replaced a knob. `TAG_DENSE` used to
@@ -585,7 +590,7 @@ const KIT_DECLINE = { meridian: ['signRoof', 'wall', 'pier'],   // 'wall' and 'p
   flophouse: SLUM_DECLINE, soup_kitchen: SLUM_DECLINE, bonesetter: SLUM_DECLINE, shebeen: SLUM_DECLINE,
   cornershop: SLUM_DECLINE,   // Bare Necessities, the Rag Row lock-up: an authored model, so it names its trade
   ruin: SLUM_DECLINE,
-  helpings: ['signRoof', 'wall', 'stair'], clone: ['stair', 'wall', 'riser'], kitchenware: ['ground', 'wall'],
+  helpings: ['signRoof', 'wall', 'stair'], clone: ['stair', 'wall', 'riser'], chip_shop: ['ground', 'wall', 'signRoof'],
   // Stuff It's canted window and painted sign ground ARE its shopfront, so the kit's glazed band
   // and awning would stand in front of the one thing the building is about.
   taxidermist: ['ground'],
@@ -601,11 +606,11 @@ const KIT_DECLINE = { meridian: ['signRoof', 'wall', 'pier'],   // 'wall' and 'p
   // Spirit Level is a steel shutter over the whole front with one hatch cut in it. A glazed
   // shopfront or a window grid on that wall is the one thing the building says it hasn't got.
   off_licence: ['ground', 'wall'],
-  // ⚠ THE INSTITUTE AND THE LAND OFFICE ARE DRUMS WITH ONE BOX EACH, and the kit's ground floor and
-  // window grid were landing on that box: a shopfront and a door hanging off the institute's frieze
-  // plate 0.78 h up, and glazing drawn across the land office's hoarding, over its lettering. The
+  // ⚠ THE INSTITUTE IS A DRUM WITH ONE BOX, and the kit's ground floor and window grid were landing
+  // on that box: a shopfront and a door hanging off its frieze plate 0.78 h up. (The land office had
+  // the same fault on its hoarding and now takes no kit at all; see NO_KIT.) The
   // Codfather says it outright: "no glazing on this building anywhere".
-  institute: ['ground', 'wall'], land_office: ['ground', 'wall'], fishmonger: ['ground', 'wall'],
+  institute: ['ground', 'wall'], fishmonger: ['ground', 'wall'],
   // ⚠ ASH MANAGEMENT AND TWO-CELL SUPPLY DRAW THEIR OWN OPENINGS, ROOFS AND LIGHT. The destructor's
   // windows, doors, ramp and roof plant are all its arm's, and the kit's office glazing on the hall
   // is what made it read as an office block. Two-Cell is a corrugated lean-to: no glazing grid, no
@@ -624,6 +629,16 @@ const KIT_DECLINE = { meridian: ['signRoof', 'wall', 'pier'],   // 'wall' and 'p
   // above the podium. The arm already refuses a mast for the same reason one rung higher — the
   // roof is a licensed helideck (`af_solenne`) and nothing may stand on it.
   solenne: ['ground', 'stair', 'roof', 'signRoof'],
+  // Solenne's two neighbours in its own glass, and Corbett on Lever Lane (docs/proposals/marrow-midrises.md).
+  // Each draws its own trim, and the kit was filling the sections they leave out on purpose: a fire
+  // escape bolted across Marrow House's fins, a downpipe on Kestrel's glass, a hoarding on all three
+  // roofs, and a neon tube round a 1930s stone plinth.
+  kestrelcourt: ['signRoof', 'riser', 'neon'],
+  marrowhouse: ['signRoof', 'stair', 'riser', 'neon'],
+  corbettmansions: ['signRoof', 'neon'],
+  // ⚠ THE SLIP CARRIES NO LETTERING, AND THAT IS ITS WHOLE DESCRIPTION. `sign` keeps the kit from
+  // naming the one building in Coldwater that doesn't.
+  slipback: ['sign', 'signRoof', 'neon', 'stair'],
   // ⚠ ST GARNEAU'S DECLINES EVERY SECTION THAT ASSUMES A SHOP, and it had been taking all four.
   // The kit's vocabulary is a commercial street's — a glazed shopfront with an awning over it, a
   // neon tube round the frontage, roof plant, a hoarding on the parapet — and `derivedStyle` reads
@@ -667,7 +682,7 @@ const KIT_DECLINE = { meridian: ['signRoof', 'wall', 'pier'],   // 'wall' and 'p
   sump: ['sign', 'signRoof', 'neon', 'wall', 'paint'],
   // The Halcyon building sites. A site's name is printed on its hoarding, which the arm draws, and
   // the kit was standing a lit board on legs on the podium deck, where it ran through the
-  // scaffold standards on Completion Date. Nobody puts neon on a building that isn't finished.
+  // scaffold standards on 7 Cowslip Rise. Nobody puts neon on a building that isn't finished.
   ...Object.fromEntries(['shell_tower', 'hf_frame', 'hf_jumpform', 'hf_wrap', 'hf_scaffold', 'hf_stalled',
     'hf_hoist', 'hf_halfbuilt', 'hf_climber', 'hf_flood', 'hf_topout'].map((t) => [t, ['signRoof', 'neon']])) };
 // Halcyon Fields signs in brushed metal and white light, never a neon tube. Every palette in the
@@ -865,6 +880,12 @@ function derivedKit(list, cand, deck, m, seed, A, have, rich, spars = [], mod = 
   // are the half that was invisible. Recorded at the funnels for `claims`' own stated reason: a
   // section that registered its parts by hand is a section somebody can forget.
   const mark = (p) => { const f = paintFoot(p, KA); if (f) for (const r of f) blocks.push(r); };
+  // The author's pilaster fins, taken before the kit pushes anything. A rank of piers is the
+  // composition of the wall it stands on, and a downpipe or a duct across it reads as a fault:
+  // Compound Interest's colonnade had a duct climbing its end pier and turning across the next two.
+  const authorPiers = blocks.filter((b) => b.pier && !b.x);
+  const crossesPier = (plane, x0, x1, z0, z1) => authorPiers.some((b) => Math.abs(b.plane - plane) <= 0.06
+    && x0 < b.x1 + 0.006 && x1 > b.x0 - 0.006 && z0 < b.z1 && z1 > b.z0);
   const push = (p) => {
     if (spent >= kitMax) return;
     list.push(p); spent++;
@@ -1407,16 +1428,24 @@ function derivedKit(list, cand, deck, m, seed, A, have, rich, spars = [], mod = 
   const riserX = main.cx + main.hw * (R(3) > 0.5 ? 0.82 : -0.82);
   if (wants('riser')) {
     const rx = riserX;
+    // ⚠ A PART THAT WOULD CROSS AN AUTHORED PIER IS DROPPED, NOT MOVED. `riserX` is shared with the
+    // stair, so moving it here would move the stair too; the flank service kit in 1d still plumbs
+    // the building.
     if (style === 'works') {
-      push({ kind: 'ductRun', cx: A(rx), cy: A(fy), z0: A(main.z0 + wallH * 0.08), z1: A(main.z1 - wallH * 0.12),
-        r: A(clamp(main.hw * 0.09, 0.012, 0.03)), run: A(-Math.sign(rx - main.cx) * main.hw * 0.5), pal });
+      const r = clamp(main.hw * 0.09, 0.012, 0.03), run = -Math.sign(rx - main.cx) * main.hw * 0.5;
+      const z0 = main.z0 + wallH * 0.08, z1 = main.z1 - wallH * 0.12;
+      if (!crossesPier(fy, Math.min(rx, rx + run) - r, Math.max(rx, rx + run) + r, z0, z1 + r))
+        push({ kind: 'ductRun', cx: A(rx), cy: A(fy), z0: A(z0), z1: A(z1), r: A(r), run: A(run), pal });
     } else {
+      const r = clamp(main.hw * 0.03, 0.006, 0.014), z1 = main.z1 - wallH * 0.06;
       // A symmetric facade (the Meridian's deco front) gets a matching pipe on the other flank.
       for (const x of RISER_PAIR.has(tradeOf(m)) ? [rx, 2 * main.cx - rx] : [rx])
-        push({ kind: 'pipe', cx: A(x), cy: A(fy), z0: A(main.z0), z1: A(main.z1 - wallH * 0.06),
-          r: A(clamp(main.hw * 0.03, 0.006, 0.014)), pal });
-      push({ kind: 'cableRun', cx: A(main.cx), cy: A(fy + 0.012), z: A(main.z1 - wallH * 0.14),
-        half: A(main.hw * 0.8), sag: A(wallH * 0.05), r: A(0.006), pal: 'infra' });
+        if (!crossesPier(fy, x - r, x + r, main.z0, z1))
+          push({ kind: 'pipe', cx: A(x), cy: A(fy), z0: A(main.z0), z1: A(z1), r: A(r), pal });
+      const cz = main.z1 - wallH * 0.14, sag = wallH * 0.05;
+      if (!crossesPier(fy + 0.012, main.cx - main.hw * 0.8, main.cx + main.hw * 0.8, cz - sag, cz))
+        push({ kind: 'cableRun', cx: A(main.cx), cy: A(fy + 0.012), z: A(cz),
+          half: A(main.hw * 0.8), sag: A(sag), r: A(0.006), pal: 'infra' });
     }
   }
 

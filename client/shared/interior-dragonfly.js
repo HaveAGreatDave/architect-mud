@@ -53,7 +53,7 @@
 //
 // Pure: no clock, no camera, no DOM. `live` arrives as an argument.
 import { makeKit, C, clamp, pedal, SHINY, PANE, TEXTURE } from './interior-kit.js';
-import { contactShadow, hotspotHalo } from './interior-cockpit-kit.js';
+import { contactShadow, hotspotHalo, panelGps, gpsHotspot } from './interior-cockpit-kit.js';
 import { MESH_ROWS } from './vehicle-meshes.js';
 
 const TAU = Math.PI * 2;
@@ -583,6 +583,8 @@ function collectiveAt(P, R) {
 }
 // The pod, and the switch row along the bottom of it.
 const POD = { hw: 0.30, hh: 0.14, rake: 0.42 };
+// The GPS: the right-hand end of the pod, under the VSI and outboard of the switch row.
+const GPS = { u: 0.245, v: -0.068, hw: 0.045, hh: 0.048 };
 function podPanel(K, P) {
   const o = [P.xCentre * 0.45, P.dashY, P.dashZ];
   return K.panel(o, [1, 0, 0], [0, Math.sin(POD.rake), Math.cos(POD.rake)]);
@@ -608,6 +610,7 @@ export function dragonflyHotspots(P, live) {
   out.push({ id: 'yoke', p: add(cyclicAt(P, R).top, [0, 0, 0.06]), r: 0.07, kind: 'yoke' });
   const c = collectiveAt(P, R);
   out.push({ id: 'throttle', p: add(c.end, mul(c.dir, 0.06)), r: 0.04, kind: 'throttle' });
+  out.push(gpsHotspot(Pn, GPS.u, GPS.v, 0.045));
   return out;
 }
 
@@ -688,6 +691,7 @@ export function dragonflyFit(P, live, push) {
   // Magnetic compass (a whisky compass, on the visor) and the hourmeter: tenths off the day's clock.
   const hrs = String(Math.floor(318 + R.hour * 10) % 10000).padStart(4, '0');
   Pn.digits(0.10, r2 + 0.012, 0.018, hrs, lit ? C.lcd : C.lampOff);
+  panelGps(Pn, GPS.u, GPS.v, GPS.hw, GPS.hh, live);
   [[R.fuel < 0.15, C.amber], [R.hull < 0.3, C.red], [R.temp > 0.85, C.red], [switchOn('clutch', R), C.green]]
     .forEach(([on, rgb], i) => {
       const a = 0.005 + (i % 2) * 0.05, b = r2 + 0.02 - (i >> 1) * 0.03;

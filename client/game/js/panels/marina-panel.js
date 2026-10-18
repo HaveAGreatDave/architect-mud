@@ -27,7 +27,7 @@ import { paintVehicleCard, paintSlotCard, cardStyleFor, cardSeed, ensureCardStyl
 import { boatServiceHost, boatPreview, boatView, boatFrame, boatRev } from './boat-view.js';
 import { ensureDepotStyles, headHtml, jobsHtml, mountBay, setBayOpen, bayHtml, leaveHtml, bayChipHtml,
   statsHtml, meterHtml, serviceListHtml, btnHtml, armHolds, shellClick, clearViewModes, noteAct, notePush,
-  esc, money, clamp01 } from './depot-shell.js';
+  esc, money, clamp01, readyHtml } from './depot-shell.js';
 import { SHOTS } from './camera-tween.js';
 import { garageBed } from './garage-ambience.js';
 import { TYPES } from './flight-model.js';
@@ -73,7 +73,8 @@ export function openMarina(msg = {}) {
   ensureDepotStyles();
   ensureMarinaStyles();
   ensureCardStyles();
-  const want = TAB_FOR[msg.tab] || st?.tab || 'lot';
+  // A push that names a hull you just bought or hired lands on the hand, where her key is.
+  const want = msg.fresh ? 'lot' : TAB_FOR[msg.tab] || st?.tab || 'lot';
   st = { host, data: msg, tab: want, onSend: msg.onSend || st?.onSend || null };
   draw();
 }
@@ -94,6 +95,7 @@ export function marinaSetData(msg = {}) {
   const before = st.data?.credits;
   st.data = msg;
   if (TAB_FOR[msg.tab]) st.tab = TAB_FOR[msg.tab];
+  if (msg.fresh) st.tab = 'lot';
   draw();
   notePush(st.host.querySelector('.ds-counter'), before, msg.credits);
 }
@@ -156,7 +158,7 @@ function lotBody(d) {
       !b.inYard ? '<button class="vc-mini" data-hold="tow" title="Somebody goes out for her, for a price">Tow her in</button>' : '',
     ].filter(Boolean).join('');
     const live = ready && !hard;
-    return `<div class="vc-wrap${ready ? '' : ' away'}">
+    return `<div class="vc-wrap${ready ? '' : ' away'}${b.id === d.fresh ? ' fresh' : ''}">
       <button class="vc-card ${cardStyleFor(b.id)}" ${live ? `data-cmd="${esc(cmd)}"` : ready ? '' : 'disabled'}
           aria-label="${esc(`${b.name}, ${b.rental ? 'hired' : 'owned'}${live ? ': take the helm' : ''}`)}"
           title="${live ? 'Take the helm: she starts in the covered slot' : hard && ready ? 'On a cradle: crane her in first' : esc(b.where || '')}">
@@ -171,7 +173,17 @@ function lotBody(d) {
   const slot = (tab, label, sub) => `<div class="vc-wrap"><button class="vc-card slot" data-tab="${tab}" aria-label="${label}">
       <canvas class="vc-cv" data-slot="${tab}" aria-hidden="true"></canvas>
       <span class="vc-plate"><b>${label}</b><span class="vc-sub">${sub}</span></span></button></div>`;
-  return `${fleet.length ? '' : '<p class="ds-hint">Nothing of yours on this water. Buy a hull, or hire one for the afternoon.</p>'}
+  // The hull you just bought or hired, and one key into her: the card's own verb, or the crane's
+  // hold when she has gone onto a cradle.
+  const nu = fleet.find((b) => b.id === d.fresh && b.inYard && !b.aboard && b.kind !== 'adrift');
+  const ready = !nu ? '' : readyHtml({
+    title: nu.rental ? `${nu.name}, yours for ${nu.rental.leftText}.` : `${nu.name} is yours.`,
+    sub: nu.where || '',
+    ...(nu.kind === 'hard'
+      ? { label: `Crane her in · ${money(d.craneFee)}`, hold: `boat take ${nu.id}`, ico: '⚓' }
+      : { label: 'Take the helm', cmd: `boat take ${nu.id}`, ico: '⚓' }),
+  });
+  return `${ready}${fleet.length ? '' : '<p class="ds-hint">Nothing of yours on this water. Buy a hull, or hire one for the afternoon.</p>'}
     <div class="vc-hand">${cards}${d.dealer ? slot('dealer', 'Buy a boat', `${(d.stock || []).length} on the line`) + slot('rent', 'Hire a boat', d.hasRental ? 'one out already' : 'by the afternoon') : ''}</div>`;
 }
 

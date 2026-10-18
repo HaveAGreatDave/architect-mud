@@ -267,6 +267,30 @@ Two consequences worth knowing before touching any of it:
   third of the way in. Before this a mesa made of `cliff` tiles had a top as dark as its own shadowed
   north face.
 
+### The face in relief (2026-10-08)
+
+Reported as cliffs that don't look natural, and up close they read as a ship's hull: each half-tile
+segment of a face was one flat plane in one tone, ruled into dead-level stripes. On the GL path
+(`RENDER_TUNE.cliffProfile`, default 1) `cliffFaceMesh` now builds each open side as columns of
+quads and carves them:
+
+- **Recessed beds.** Soft beds (`STRATA_RECESS`) weather back under the hard ones, so every hard bed
+  is a ledge with a shadow under it. The caprock never recesses.
+- **Buttresses and runnels.** `cliffFlute` pushes the face in and out off world position, about one
+  buttress and three runnels a tile, long down the wall. `cliffFlute` 0 turns them off.
+- **Dipping beds.** The strata cuts rise and fall gently across a massif instead of running level.
+- **A concave talus.** The apron is steep where it leaves the wall and flattens onto the plain.
+- **Per-facet light.** Slope along the wall is shaded per vertex from the flute's own derivative,
+  slope down it per quad, so buttresses round off while ledges stay crisp. Desert varnish streaks
+  down from the rim.
+
+Every one of those is a function of world position and z, and every column samples one fixed row
+list, so two tiles sharing a corner emit identical vertices there. `cliffLatticeSmoke` checks it on
+a real tile pair and fails if a single vertex disagrees.
+
+The canvas hairlines (strata and gullies) are skipped on this path; the beds and runnels are
+geometry now. `cliffProfile` 0 puts the flat face back, and the canvas path (no GL) is unchanged.
+
 **Nothing generates cliffs beyond the map rim.** `fillOffMap` only ever emits `scrub`/`redrock` into
 the wildlands fill, and `drawCliffMass` is driven by `hi`, which exists only on real map cells — so a
 massif can never run procedurally to the horizon.

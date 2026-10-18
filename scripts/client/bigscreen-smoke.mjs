@@ -42,6 +42,7 @@ const OWNER = {
   'cockpit.js':       { chrome: 'cockpit.js',   root: '.fsim',      why: 'the flight sim and the charter cabin, one file, two mounts' },
   'freelook-view.js': { chrome: 'freelook-view.js', root: '.fl-root', why: 'the camera with no vehicle under it' },
   'helm-view.js':     { chrome: 'helm-mode.js', root: '.helm-root', why: 'helm-view paints the chase; helm-mode owns the console, the chips and closeHelm' },
+  'podracer-view.js': { chrome: 'podracer-view.js', root: '.pod-root', why: 'the podracer paints and wears its own chrome, the boat arrangement' },
   'boat-view.js':     { chrome: 'boat-view.js', root: '.boat-root', why: 'the race boat paints and wears its own chrome — the cab arrangement rather than the wheelhouse split' },
 };
 

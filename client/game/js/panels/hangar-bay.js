@@ -24,7 +24,7 @@ import { liveriesFor } from '../../../shared/livery-sets.js';
 import { shellProfileFor } from '../../../shared/interior-shell.js';
 import { loadWindshield, isLoaded as windshieldLoaded, paintWindshield, disposeWindshield, glWorldInstalled, RENDER_TUNE } from './windshield-lazy.js';
 import { ensureDepotStyles, headHtml, jobsHtml, mountBay, setBayOpen, bayHtml, leaveHtml, bayChipHtml,
-  armHolds, shellClick, clearViewModes, noteAct, notePush } from './depot-shell.js';
+  armHolds, shellClick, clearViewModes, noteAct, notePush, money, readyHtml } from './depot-shell.js';
 import { SHOTS } from './camera-tween.js';
 import { garageBed } from './garage-ambience.js';
 
@@ -80,7 +80,8 @@ export function openHangarBay(data) {
   const craft = B.data.craft || [];
   if (data.select && craft.find(c => c.id === data.select)) {
     B.selId = data.select; B.screen = 'bench'; B.work = { ...craft.find(c => c.id === data.select).livery };
-  } else if (freshOpen) {
+  } else if (freshOpen || (data.fresh && craft.some(c => c.id === data.fresh))) {
+    // A push that names an aircraft you just bought or rented lands on the floor, where her key is.
     B.selId = null; B.screen = 'floor';
   } else if (B.selId && !craft.find(c => c.id === B.selId)) {
     B.selId = null; if (B.screen === 'bench') B.screen = 'floor';
@@ -232,7 +233,7 @@ function floorScreen() {
       c.rental ? tbtnMini('Return', `data-hold="cancelrental ${esc(c.id)}" title="Hand her back: the rental ends here"`)
         : tbtnMini('Sell', `data-hold="sell ${esc(c.id)}" title="Sell her outright: this can't be undone"`),
     ].filter(Boolean).join('');
-    return `<div class="vc-wrap">
+    return `<div class="vc-wrap${c.id === d.fresh ? ' fresh' : ''}">
       <button class="vc-card ${style}" data-act="${seated ? 'service' : 'bench'}" data-id="${esc(c.id)}"
           aria-label="${esc(`${c.tail}, ${c.typeName}: ${seated ? 'climb in and work on her' : 'open maintenance'}`)}"
           title="${seated ? (d.hangar ? 'Climb in on the hangar floor: the bench comes with you' : 'Climb in where she stands: the bench comes with you') : 'Maintenance, paint and tuning'}">
@@ -265,7 +266,12 @@ function floorScreen() {
         <span class="vc-plate"><b>${d.canBuy && d.canRent ? 'Buy or rent' : d.canBuy ? 'Buy' : 'Rent'}</b><span class="vc-sub">${(d.lots || []).length} on the line</span></span></button></div>` : '',
   ].join('');
   const hint = craft.length ? '' : `<div class="hb-hint">No aircraft of yours are here yet.${d.canBuy || d.canRent ? '' : ' There\'s no dealer or rental desk at this field either.'}</div>`;
-  return `<div class="hb-hand-col hb-thin">${hint}<div class="vc-hand">${cards}${charter}${slots}</div></div>
+  // The aircraft you just bought or rented, and one key into her: the card's own Fly.
+  const nu = craft.find(c => c.id === d.fresh);
+  const ready = nu ? readyHtml({ title: nu.rental ? `${nu.tail}, rented.` : `${nu.tail} is yours.`,
+    sub: `${nu.typeName}, ${nu.location === 'hangar' ? 'in the bay' : 'on the ramp'}, fuel ${nu.fuelPct}%.`,
+    label: 'Fly her', ico: '✈', attrs: `data-act="embark" data-id="${esc(nu.id)}" data-tail="${esc(nu.tail)}"` }) : '';
+  return `<div class="hb-hand-col hb-thin">${ready}${hint}<div class="vc-hand">${cards}${charter}${slots}</div></div>
     `;
 }
 // A mesh craft's factory scheme rides on livery.variant; 'stock' means the file's own paint.
@@ -707,6 +713,30 @@ function hopperTabHtml(c) {
   return gauge + hopperCansHtml(c, amt);
 }
 
+// The tank, and the pump if this field has one for her. The figures are the server's (fuelNow,
+// fuelCap, fillCost off buildCards); the key is the same `refuel <id>` the floor card sends, which
+// fills her whether you are sitting in her or standing beside her.
+function fuelTabHtml(c) {
+  const pct = Math.max(0, Math.min(100, c.fuelPct));
+  const col = pct < 15 ? '#ff6b6b' : pct < 40 ? '#ffb26b' : 'var(--hb-atm-accent)';
+  const verdict = pct === 0 ? 'Bone dry. She is not going anywhere.'
+    : pct >= 98 ? 'Brimmed.'
+    : `${c.fuelNow} of ${c.fuelCap} units of ${esc(c.fuelType)}.`;
+  const gauge = `<div class="hb-hull-gauge">
+      <div class="hb-hull-num" style="color:${col}">${pct}<small>%</small></div>
+      <div class="hb-hull-track"><i style="width:${pct}%;background:${col};color:${col}"></i>
+        <u style="left:20%"></u><u style="left:50%"></u><u style="left:80%"></u></div>
+      <div class="hb-hull-verdict">${verdict}</div>
+    </div>`;
+  const pumps = B.data?.fuelStocks || [];
+  if (!pumps.length) return gauge + `<div class="hb-note">No pumps at this field.</div>`;
+  if (!pumps.includes(c.fuelType)) return gauge + `<div class="hb-note">The pumps here are ${esc(pumps.join(' and '))}. She runs on ${esc(c.fuelType)}.</div>`;
+  if (pct >= 98) return gauge + `<div class="hb-note">Full. Nothing to pump.</div>`;
+  return gauge + `<div class="hb-repair-row">
+      <button class="hb-btn hb-accent" data-act="refuel" data-id="${esc(c.id)}">Fill her up · ${money(c.fillCost)}</button>
+    </div>`;
+}
+
 // ── Tuning: continuous dials + a live performance graph ───────────────────────
 // The five perf axes, in radar-ring order. MIRROR of state.js PERF_AXES — the axis
 // math below (computeAxesClient) mirrors state.perfAxes/computeStats so the graph
@@ -991,6 +1021,7 @@ function benchParts(c) {
   const fitted = (c.kitCatalog || []).filter(k => k.owned).length;
   const cards = [
     { id: 'hull', ico: '🔧', label: 'Repair', sub: `hull ${hull}%`, tone: hull >= 98 ? 'ok' : barTone(hull / 100) },
+    ...(!c.wreck ? [{ id: 'fuel', ico: '⛽', label: 'Fuel', sub: `${c.fuelPct}%`, tone: c.fuelPct >= 98 ? 'ok' : barTone(c.fuelPct / 100) }] : []),
     { id: 'paint', ico: '🎨', label: 'Livery', sub: dirty ? 'unsaved' : lookName, tone: dirty ? 'hot' : '' },
     ...(c.hopperCap > 0 && !c.wreck ? [{ id: 'hopper', ico: '💧', label: 'Hopper', sub: `${Math.round((c.hopperAmount || 0) / c.hopperCap * 100)}%` }] : []),
     ...(canTune ? [{ id: 'tuning', ico: '🎛', label: 'Tuning', sub: tuneDirty ? 'unsaved' : tuned ? 'tuned' : 'stock', tone: tuneDirty ? 'hot' : '' },
@@ -999,6 +1030,7 @@ function benchParts(c) {
   ];
   if (!cards.some(t => t.id === B.benchTab)) B.benchTab = cards[0].id;
   const body = B.benchTab === 'hull' ? hullTabHtml(c)
+    : B.benchTab === 'fuel' ? fuelTabHtml(c)
     : B.benchTab === 'hopper' ? hopperTabHtml(c)
     : B.benchTab === 'tuning' ? tuningTabHtml(c)
     : B.benchTab === 'kits' ? kitsTabHtml(c)
@@ -1059,7 +1091,7 @@ function onShellClick(e) {
 // The bench's jobs and pages in the shell's bay, on the cockpit's glass. The cockpit's chase camera
 // is the stage: each job swings it to the part it works on, the livery's Cabin page sits you in the
 // seat to see a retrim where it is worn, and the working paint rides on her until it is applied.
-const SHOT_FOR = { hull: 'quarter', paint: 'quarter', hopper: 'side', tuning: 'low', kits: 'front', weight: 'high' };
+const SHOT_FOR = { hull: 'quarter', fuel: 'side', paint: 'quarter', hopper: 'side', tuning: 'low', kits: 'front', weight: 'high' };
 function renderService() {
   const ck = CK;
   const host = ck?.cockpitServiceHost();
@@ -1796,7 +1828,8 @@ function ensureStyles() {
     border-bottom:1px solid color-mix(in srgb, var(--hb-atm-accent) 22%, transparent); }
   .hb-scope .hb-card-dot { width:6px; height:6px; border-radius:50%; background:var(--hb-atm-accent);
     box-shadow:0 0 8px var(--hb-atm-accent); animation:hbBayPulse 3s ease-in-out infinite; }
-  /* The single last-resort scroll region — and it fades in on every tab change. */
+  /* The counter's one last-resort scroll region, and it fades in on every tab change. In the bay
+     on the glass it doesn't scroll: the shell clips it open and scales the bay (fitBay). */
   .hb-scope .hb-bench-tabbody { flex:1 1 auto; min-height:0; overflow-y:auto; overflow-x:hidden; padding-right:3px;
     animation:hbTabFade .18s ease-out; }
   @keyframes hbTabFade { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:none; } }

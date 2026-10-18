@@ -47,7 +47,7 @@
 //
 // Pure: no clock, no camera, no DOM. `live` arrives as an argument.
 import { makeKit, C, clamp, pedal, SHINY, PANE, TEXTURE } from './interior-kit.js';
-import { contactShadow, hotspotHalo, facingPanel } from './interior-cockpit-kit.js';
+import { contactShadow, hotspotHalo, facingPanel, panelGps, gpsHotspot } from './interior-cockpit-kit.js';
 import { readings } from './interior-fit-craft.js';
 import { FW_ROWS } from './vehicle-models.js';
 
@@ -621,6 +621,8 @@ const PANEL_O = [0, 0.60, -0.43], PANEL_R = [1, 0, 0], PANEL_U = [0, -0.22, 1];
 // that took the hand cursor and did nothing. It is the panel lights now, the UV floods on the hood.
 const SWITCHES = [['master', 0.12], ['land', 0.16], ['panel', 0.20], ['dome', 0.24]];
 const SW_Z = -0.155;
+// The GPS: the empty place in the lower row, under the horizon, between the VSI and the boost gauge.
+const GPS = { u: 0, v: -0.055, hw: 0.042, hh: 0.034 };
 
 // Where the levers are — one table read by the drawing and by the hotspots.
 function levers(P, live) {
@@ -682,6 +684,7 @@ export function shrikeFit(P, live, push) {
   dial('ata', clamp(0.15 + R.thr * 0.85 - R.alt / 60000, 0, 1), { ticks: 10, major: 2, arcs: [[0.6, 0.85, C.green]], red: 0.92, name: 'ATA' });
   dial('cool', clamp(0.3 + R.rpm * 0.5, 0, 1), { a0: Math.PI * 0.85, sweep: Math.PI * 0.7, ticks: 4, major: 2, arcs: [[0.3, 0.8, C.green]], name: 'COOL' });
   dial('oil', clamp(num(L.oilTemp, 0.5), 0, 1), { a0: Math.PI * 0.85, sweep: Math.PI * 0.7, ticks: 4, major: 2, arcs: [[0.3, 0.8, C.green]], name: 'OIL' });
+  panelGps(Pn, GPS.u, GPS.v, GPS.hw, GPS.hh, L);
   // The foot row: fuel contents (two tanks), flap and trim position, the dive group.
   Pn.bar(-0.34, -0.17, -0.10, 0.010, R.fuel, R.fuel < 0.15 ? C.red : C.green);
   Pn.bar(-0.31, -0.17, -0.10, 0.010, R.fuel * 0.96, R.fuel < 0.15 ? C.red : C.green);
@@ -807,6 +810,7 @@ export function shrikeHotspots(P, live) {
   out.push({ id: 'throttle', p: add(lv.throttle.tip, [0.015, 0, 0]), r: 0.035, kind: 'throttle' });
   out.push({ id: 'trim', p: lv.trimC, r: 0.07, kind: 'trim' });
   out.push({ id: 'ck:flaps', p: [-0.33, 0.49, -0.64 - 0.06 * lv.flap.v], r: 0.02, kind: 'click' });
+  out.push(gpsHotspot(Pn, GPS.u, GPS.v, 0.04));
   return out;
 }
 

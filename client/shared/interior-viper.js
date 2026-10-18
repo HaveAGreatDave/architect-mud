@@ -49,7 +49,7 @@
 // Pure, like the rest of the interior: no clock, no camera, no DOM, apart from the eased switch
 // throw that interior-cockpit-kit.js keeps for every cockpit. `live` arrives as an argument.
 import { makeKit, C, clamp, pedal, SHINY, PANE, TEXTURE } from './interior-kit.js';
-import { eased, pressPulse, hotspotHalo, contactShadow } from './interior-cockpit-kit.js';
+import { eased, pressPulse, hotspotHalo, contactShadow, panelGps, gpsHotspot } from './interior-cockpit-kit.js';
 import { MESH_ROWS } from './vehicle-meshes.js';
 
 const TAU = Math.PI * 2;
@@ -436,6 +436,7 @@ const QUAD = { x: -0.74, y: 0.26, z: LCON.top };             // the power lever 
 const COLL = { pivot: [-0.36, -0.34, -0.86], len: 0.60 };
 const CYC = { base: [0, 0.30, -1.05] };
 const PED = { y: 0.60, z: -0.78, x: 0.17 };
+const GPS = { a: 0.485, b: 0.0, hw: 0.075, hh: 0.07 };       // the GPS, on the bare panel outboard of the right display
 const ARM = { a: 0.30, b: -0.13 };                           // the armament panel's master arm, on the front panel
 
 const panelKit = (K) => K.panel(PANEL.o, [1, 0, 0], PANEL.u, 'dash', 0.3);
@@ -453,6 +454,7 @@ function viperHotspots(P, live) {
   const Pn = panelKit(K);
   const out = LSW_IDS.map(([id, b]) => ({ id, p: Sp.pt(0, b, 0.01), r: 0.014, kind: 'click' }));
   out.push({ id: 'ck:arm', p: Pn.pt(ARM.a, ARM.b, 0.01), r: 0.016, kind: 'click' });
+  out.push(gpsHotspot(Pn, GPS.a, GPS.b, 0.07));
   const tip = cyclicTip(clamp(num(L.stickX), -1, 1), clamp(num(L.stickY), -1, 1));
   out.push({ id: 'yoke', p: add(tip, [0, 0.01, 0.07]), r: 0.07, kind: 'yoke' });
   out.push({ id: 'throttle', p: collectiveGrip(num(L.throttle)), r: 0.04, kind: 'throttle' });
@@ -714,6 +716,7 @@ export function viperFit(P, live, push) {
       Pn.digits(sx + 0.012, -0.094, 0.018, String(weapon.startsWith('gun') ? ammo : missiles).padStart(4, ' '), armed ? C.amber : G, false);
     }
   }
+  panelGps(Pn, GPS.a, GPS.b, GPS.hw, GPS.hh, L);
   // The EUFD above the standby cluster: fuel and rotor speed, and the master warning/caution lamps.
   Pn.rect(-0.13, 0.13, 0.13, 0.18, powered ? [6, 16, 10] : V.mpdGlass, powered ? 0.4 : 0, 0.003);
   if (powered) {

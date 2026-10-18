@@ -463,6 +463,32 @@ airframe's own power. Anybody standing in one is filtered out of the provider (`
 a parked Leviathan with cold engines would drag its own furnished lounge below the identical room
 in a building. **The room wins wherever there is a room.**
 
+### A landing writes where you are *(as built, 2026-10-08)*
+`parkAt` moves everyone aboard onto the field in RAM, and it now writes that room to their
+`players` row in the same call: one `UPDATE … WHERE id = ANY($2)` per landing. Before this the row
+still named the room they boarded from, so any restart after a landing (the dev server's `--watch`
+is a hard kill on Windows) put a pilot who had set down at The Strip back in the Coldwater Regional
+tower. A landing is an arrival, the same as stepping into a building, and `cmdMove` writes those
+through for the same reason.
+
+### Cruise pace *(as built, 2026-10-08)*
+The 3D cockpit moves the aircraft `airspeed × paceAt(altitude)` tiles a second (`paceAt` in
+[cockpit.js](../client/game/js/panels/cockpit.js)). It is `RENDER_TUNE.worldPace` (0.001 tiles per
+knot-second) times three terms: the runway rush (`groundBoost`, gone within a few dozen feet), the
+airframe's own `worldPaceMult` (the Reaper's 1.7), and the cruise stretch `AIR_PACE` (2). The
+stretch comes in with height on a squared curve over `AIR_PACE_RISE_FT` (500 ft), near zero below
+150 ft, so the takeoff roll, the climb-out past the field's buildings and a low approach move as
+they did before it. A Mule at cruise crosses from Coldwater to The
+Strip in about six minutes instead of twelve. Fuel burns by time, so range doubles with it. The
+text cockpit and the charter autopilot keep their own pace (`CRUISE_TILES`) and did not change.
+
+**No climb-out shield (2026-10-08).** The CFIT sweep (`buildingCollisionAt` in cockpit.js) used to
+skip buildings low and dead ahead within 4.5 tiles of liftoff (`climbOutClear` and the `F.depPos`
+corridor), from when the collision shape and the drawn building disagreed. Collision now follows
+the drawn shape, so both are gone: a building off the end of a runway is solid, and a pilot who
+can't out-climb it has to turn. The one window left is the visibility one (`VISIBLE_NEAR_F` to
+`VISIBLE_FAR_F`): nothing you can't see yet can hit you.
+
 ### The sky is a computed overlay
 An airborne craft carries its own `(grid_x, grid_y, altitude, heading)`.
 Flying advances `x/y`; the "view below" is read from the `map_world` zone at that
@@ -1109,6 +1135,17 @@ it with the same `[`/`]` and the windshield draws it through the same function, 
 gold airfield ring for a magenta crosshair. **One designation, three consumers**: the HUD
 ring, the bombsight, and the server's bomb gate.
 
+**The GPS picker** (cockpit.js, `gpsOpen`). Clicking a cockpit's GPS (a `ck:gps` hotspot; every
+aircraft has one: the Drake's screen, the Mayfly's stack GPS, the Carcass's phone, and on the
+other eight a small moving-map head, `panelGps` in interior-cockpit-kit.js, that points a magenta
+line at the target off `live.gpsTo`), the radio's TGT readout, or
+`P` opens every region on the charts, nearest first, each listing its airfields (helipads
+only for a VTOL). The list comes from `gpsDirectory()` in state.js, sent once per
+flight on request by the silent `flightgps`. A pick locks the guide onto that place **alone**:
+the heading tape and the Drake's map draw it and nothing else. Any other target choice (`[`/`]`,
+✕, a tablet designation) moves `apTargetId` off `'gps'`, and the frame drops the lock, so the
+other marks come back. It needs power, like the screen it opens from.
+
 **Air-to-air PvP — fully built and player-attributed** (also `combat.js`; blueprint +
 phase log in [proposals/systems-flight-pvp.md](proposals/systems-flight-pvp.md)). Two
 real players' aircraft fight each other end-to-end, server-authoritatively:
@@ -1266,6 +1303,13 @@ has **Fly** (`hangaract launch <id>`), Refuel, Store or Roll out, and Sell or Re
   field (the `land` event resolves the facade through `hangar_field`), not off-strip.
 - **The heavy bay.** A Leviathan doesn't fit the regular hangar. A field can have a second one with
   `flags.heavy_hangar`, and `hangarTileFor(field, true)` sends heavy-class aircraft there.
+- **The helipad on a field** *(as built, 2026-10-08)*. A rotorcraft sits on skids and can't taxi out
+  of a shed, so a field can carry a paved tile with `flags.helipad` (it must also be a `runway: 'pad'`
+  tile that `airfieldForRunway` gives to the field). `standTileFor` sends any `takeoff_mode: 'vtol'`
+  airframe there for `hangaract service|launch` instead of the hangar floor, and the bench's `hangar`
+  flag goes false so its copy and camera treat it as a pad. The cell carries `hp`, and
+  `paintAirfieldTile` draws a white ring, an H upright from the lead-in, and green lamps. Coldwater
+  Regional's is the stand at 926,905, at the end of the parallel taxiway.
 - **Coldwater Regional's hangars have their own taxiway**, away from the tower (924,901) and the
   terminal (arrivals 924,902, departures 924,903) on the runway's west edge. It runs east off the
   parallel taxiway over 927–928 × 903–904. The Hangar is at 927,902 with its door south onto 927,903;
@@ -1279,7 +1323,7 @@ has **Fly** (`hangaract launch <id>`), Refuel, Store or Roll out, and Sell or Re
 - **The taxiway network is painted** *(as built, 2026-10-04)*. Each paved tile's `flags.taxiway` is
   the sides its yellow centreline leaves by: a parallel taxiway down x=926 with exits onto the runway
   at 899, 901 and 903, the spur east to both hangar doors, a lead-in off the runway's south end
-  (925,904) running down to Kessler Street, and three stands (924,900, 926,905, 927,904). See
+  (925,904) running down to Kessler Street, two stands (924,900, 927,904) and the helipad (926,905). See
   [The paved field](#the-paved-field-as-built-2026-10-04) for how it is drawn.
 - **The doors are roller doors, shut by default.** One goes up as an aircraft taxis at it, stays up
   while one that came in through it is inside, goes up when an aircraft on the floor starts her engine,

@@ -13,6 +13,8 @@
 // Units are metres, Y up, the figure facing +Z with its left hand on +X. gl/actors.js maps that onto
 // GLASS's ground-plane tiles; windshield.js decides how many tiles a metre is (see actorMetreTiles).
 
+import { actorFace, faceHair, faceLip, FACE_LAYOUTS } from './actor-faces.js';
+
 // ── Matrices: column-major 4×4, element (row r, col c) at m[c * 4 + r] ─────────────────────────────
 function m4() { const m = new Float64Array(16); m[0] = m[5] = m[10] = m[15] = 1; return m; }
 function mul(a, b) {
@@ -153,7 +155,11 @@ const flatSole = (x, y, z) => [x, Math.max(y, 0.004), z];
 // `lod` 0 is the close-up body. 1 is the far one, for somebody a few pixels tall: six sides to every
 // loft, every other station, no face, and a hand or a shoe is a lump. It keeps the skeleton, the
 // weights and the material slots, so it plays the same clips in the same outfit.
-function buildBody(lod = 0) {
+//
+// `head` false leaves out the neck, the head and everything on it, which is the close-up body the
+// game bakes: gl/actors.js draws actor-head.js's head in their place, riding bk.bones. The far body
+// always keeps its own, and so does actorBake({ head: true }), which the Actor Lab and the gate use.
+function buildBody(lod = 0, head = true) {
   const M = meshBuilder();
   const far = lod > 0;
   const N = far ? 6 : 14, SUB = far ? 0 : 1;
@@ -191,25 +197,27 @@ function buildBody(lod = 0) {
     [0.78, 0.200, 0.142, 0, 0.0],
     [0.62, 0.205, 0.150, 0, 0.005],
   ]), N, SUB, coatW, COAT, yoke);
-  loft(M, [[1.57, 0.047, 0.05, 0, 0.0], [1.46, 0.052, 0.056, 0, -0.005]], N, SUB,
-    chainW([{ y: 1.53, a: B.head, b: B.neck, h: 0.025 }]), SKIN);
-  const head = rigid(B.head);
-  const jaw = (x, y, z) => { const t = clamp01((1.625 - y) / 0.085); return [x * (1 - 0.28 * t), y, z * (1 - 0.1 * t) + 0.01 * t]; };
-  ell([0, 1.645, 0.012], [0.077, 0.106, 0.094], 18, 12, head, SKIN, jaw);
-  if (!far) {
-    ellipsoid(M, [0, 1.632, 0.103], [0.013, 0.024, 0.018], 8, 6, head, SKIN);
-    ellipsoid(M, [0, 1.598, 0.093], [0.02, 0.0045, 0.006], 8, 4, head, LIP);
+  const onHead = rigid(B.head);
+  if (head) {
+    loft(M, [[1.57, 0.047, 0.05, 0, 0.0], [1.46, 0.052, 0.056, 0, -0.005]], N, SUB,
+      chainW([{ y: 1.53, a: B.head, b: B.neck, h: 0.025 }]), SKIN);
+    const jaw = (x, y, z) => { const t = clamp01((1.625 - y) / 0.085); return [x * (1 - 0.28 * t), y, z * (1 - 0.1 * t) + 0.01 * t]; };
+    ell([0, 1.645, 0.012], [0.077, 0.106, 0.094], 18, 12, onHead, SKIN, jaw);
+    if (!far) {
+      ellipsoid(M, [0, 1.632, 0.103], [0.013, 0.024, 0.018], 8, 6, onHead, SKIN);
+      ellipsoid(M, [0, 1.598, 0.093], [0.02, 0.0045, 0.006], 8, 4, onHead, LIP);
+    }
+    // The hair is an ellipsoid with everything under the hairline pulled up onto it: high at the
+    // brow, low at the nape.
+    const hair = (x, y, z) => { const f = 1.64 + 0.6 * Math.max(z, -0.1); return y < f ? [x * 0.93, f, z * 0.93] : [x, y, z]; };
+    ell([0, 1.668, 0.0], [0.084, 0.094, 0.1], 18, 10, onHead, HAIR, hair);
   }
-  // The hair is an ellipsoid with everything under the hairline pulled up onto it: high at the brow,
-  // low at the nape.
-  const hair = (x, y, z) => { const f = 1.64 + 0.6 * Math.max(z, -0.1); return y < f ? [x * 0.93, f, z * 0.93] : [x, y, z]; };
-  ell([0, 1.668, 0.0], [0.084, 0.094, 0.1], 18, 10, head, HAIR, hair);
   for (const s of [1, -1]) {
     const L = s > 0 ? 'L' : 'R', x = 0.195 * s, lx = 0.095 * s;
-    if (!far) {
-      ellipsoid(M, [0.077 * s, 1.643, 0.0], [0.011, 0.028, 0.018], 8, 5, head, SKIN);
-      ellipsoid(M, [0.029 * s, 1.66, 0.095], [0.012, 0.0075, 0.006], 8, 5, head, EYE);
-      ellipsoid(M, [0.03 * s, 1.684, 0.093], [0.02, 0.005, 0.008], 8, 4, head, HAIR);
+    if (head && !far) {
+      ellipsoid(M, [0.077 * s, 1.643, 0.0], [0.011, 0.028, 0.018], 8, 5, onHead, SKIN);
+      ellipsoid(M, [0.029 * s, 1.66, 0.095], [0.012, 0.0075, 0.006], 8, 5, onHead, EYE);
+      ellipsoid(M, [0.03 * s, 1.684, 0.093], [0.02, 0.005, 0.008], 8, 4, onHead, HAIR);
     }
     // The sleeve's top is a closed cap, the round of the shoulder: its inner half goes in under the
     // coat's yoke and its outer half falls away to the arm, so there's no open ring standing on
@@ -528,17 +536,28 @@ function toHalf(v) {
 // takes a bind-space point to where the bake puts it, root surge and drop to the ground included,
 // so a head drawn with them sits on the body exactly. Rows line up with the pose texture's frames
 // (a clip's row0 is its first row here too).
+//
+// The game's near body has no head of its own (buildBody `head` false), so its `top` is measured off
+// the old head riding the head bone, which is the number the old head gave. windshield.js sizes
+// everybody from it, so nobody changes height when their head does.
 export const ACTOR_HEAD_BONES = { texels: 6, head: 0, neck: 3 };
-let _bake = null, _job = null, _near = null;
+let _bake = null, _job = null, _near = null, _bakeHead = null;
 // The far body's clips have half the frames: at a few pixels nobody can count them.
 const clipFrames = (clip, lod) => (lod ? clip.frames >> 1 : clip.frames);
-function bakeBegin(lod = 0) {
+function bakeBegin(lod = 0, head = true) {
   solveRoot(CLIPS[0]);
-  const M = buildBody(lod);
+  const M = buildBody(lod, head);
   const nv = M.p.length / 3, rows = Math.ceil(nv / 1024), W = Math.ceil(nv / rows);
   const frames = CLIPS.reduce((x, c) => x + clipFrames(c, lod), 0), H = frames * rows;
+  // The old head's points on the head bone alone, to measure `top` with when the head isn't baked.
+  let crown = null;
+  if (!head) {
+    const F = buildBody(lod, true), c = [];
+    for (let v = 0; v < F.w.length; v++) if (F.b0[v] === B.head && F.b1[v] === B.head) c.push(F.p[v * 3], F.p[v * 3 + 1], F.p[v * 3 + 2]);
+    crown = new Float64Array(c);
+  }
   return {
-    lod, nv, nt: M.i.length / 3, W, rows, H, frames, top: 0, ci: 0, f: 0, F: 0, clips: {},
+    lod, nv, nt: M.i.length / 3, W, rows, H, frames, top: 0, ci: 0, f: 0, F: 0, clips: {}, crown,
     pos: new Uint16Array(W * H * 4), nrm: new Uint16Array(W * H * 4), preview: new Float32Array(nv * frames * 3),
     bones: lod ? null : new Float32Array(frames * ACTOR_HEAD_BONES.texels * 4),
     P: new Float32Array(nv * 3), Nn: new Float32Array(nv * 3), mat: new Float32Array(M.m),
@@ -565,6 +584,10 @@ function bakeFrame(J) {
   // Height: whichever foot is lowest touches the ground. The walk's bob comes out of this.
   const idle = clip.name === 'idle';
   for (let v = 0; v < nv; v++) { const y = (P[v * 3 + 1] -= minY); if (idle && y > J.top) J.top = y; }
+  if (idle && J.crown) {
+    const h = S[B.head], C = J.crown;
+    for (let i = 0; i < C.length; i += 3) { const y = h[1] * C[i] + h[5] * C[i + 1] + h[9] * C[i + 2] + h[13] - minY; if (y > J.top) J.top = y; }
+  }
   Nn.fill(0);
   for (let t = 0; t < ix.length; t += 3) {
     const i0 = ix[t] * 3, i1 = ix[t + 1] * 3, i2 = ix[t + 2] * 3;
@@ -596,31 +619,43 @@ function bakeFrame(J) {
   if (++J.f >= len) { J.f = 0; J.ci++; }
   return J.ci >= CLIPS.length;
 }
+const bakeOut = (J) => ({ nv: J.nv, nt: J.nt, W: J.W, rows: J.rows, H: J.H, frames: J.frames, pos: J.pos, nrm: J.nrm,
+  mat: J.mat, idx: J.ix, top: J.top, clips: J.clips, preview: J.preview, bones: J.bones });
 // Bake for up to `budgetMs`, then return: the finished bake once there is one, null until then.
-// The near body bakes first and the far one after it; the bake is ready once both are.
+// The near body (without its head) bakes first and the far one after it; the bake is ready once
+// both are.
 export function actorBakeStep(budgetMs = 2) {
   if (_bake) return _bake;
-  if (!_job) _job = bakeBegin(_near ? 1 : 0);
+  if (!_job) _job = _near ? bakeBegin(1, true) : bakeBegin(0, false);
   const t0 = performance.now();
   for (;;) {
     if (bakeFrame(_job)) {
-      const J = _job;
+      const out = bakeOut(_job);
       _job = null;
-      const out = { nv: J.nv, nt: J.nt, W: J.W, rows: J.rows, H: J.H, frames: J.frames, pos: J.pos, nrm: J.nrm,
-        mat: J.mat, idx: J.ix, top: J.top, clips: J.clips, preview: J.preview, bones: J.bones };
-      if (!_near) { _near = out; _job = bakeBegin(1); } else { _bake = { ..._near, far: out }; return _bake; }
+      if (!_near) { _near = out; _job = bakeBegin(1, true); } else { _bake = { ..._near, far: out }; return _bake; }
     }
     if (performance.now() - t0 >= budgetMs) return null;
   }
 }
 // The finished bake if there is one, without doing any work.
 export const actorBakeReady = () => _bake;
-// The whole bake at once, for the gate and the Modelshop.
-export function actorBake() { return actorBakeStep(Infinity); }
+// The whole bake at once, for the gate and the Modelshop. `head: true` is the near body with its old
+// head on, which the Actor Lab finds its parts in and the gate measures the bones against; its far
+// body is the game's.
+export function actorBake({ head = false } = {}) {
+  const bk = actorBakeStep(Infinity);
+  if (!head) return bk;
+  if (!_bakeHead) {
+    const J = bakeBegin(0, true);
+    while (!bakeFrame(J));
+    _bakeHead = { ...bakeOut(J), far: bk.far };
+  }
+  return _bakeHead;
+}
 // The body unposed, in bind space, with each vertex's two bones and the first one's weight: for the
 // gate, which measures the head's matrices against it. Built fresh; the game never calls it.
-export function actorBind(lod = 0) {
-  const M = buildBody(lod);
+export function actorBind(lod = 0, head = true) {
+  const M = buildBody(lod, head);
   return { p: new Float32Array(M.p), b0: new Uint8Array(M.b0), b1: new Uint8Array(M.b1), w: new Float32Array(M.w), mat: new Uint8Array(M.m), idx: new Uint16Array(M.i) };
 }
 
@@ -676,13 +711,19 @@ function pick(list, r) {
   return list[list.length - 1][0];
 }
 // `rand(k)` is a stable 0..1 per part index k (windshield.js passes the actor hash). Returns the five
-// colours, `mat` ([coat, trousers, shoes] as ACTOR_MATERIAL codes), and `tone`, the blob's six-way
+// colours, `mat` ([coat, trousers, shoes] as ACTOR_MATERIAL codes), `face` (actorFace's pick, its
+// layout's makeup and the lips' colour), and `tone`, the blob's six-way
 // bucket, taken from the coat's lightness so a figure keeps roughly its brightness when it crosses
 // between the mesh and the billboard.
 export function actorOutfit(rand) {
   const o = {};
   PARTS.forEach((p, k) => { o[p] = pick(ACTOR_OUTFITS[p], rand(k)); });
   o.mat = ['coat', 'legs', 'shoes'].map((p) => pick(ACTOR_MATERIALS[p], rand(MAT_K[p])));
+  // The face (actor-faces.js), off the same token. Its layout's age greys the hair wherever the hair
+  // is drawn, so the far body and the head agree; the lips' colour comes from the skin.
+  const f = actorFace(rand);
+  o.hair = faceHair(o.hair, f.layout).map(Math.round);
+  o.face = { ...f, makeup: FACE_LAYOUTS[f.layout].makeup, lip: faceLip(o.skin) };
   const [r, g, b] = o.coat;
   const luma = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
   o.tone = Math.max(0, Math.min(5, Math.floor(luma * 1.9 * 6)));

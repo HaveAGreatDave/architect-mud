@@ -171,7 +171,16 @@ for (let lv = 0; lv < HEAD_LEVELS.length; lv++) {
 }
 
 // ── 2. The bones ────────────────────────────────────────────────────────────────────────────────────
-const bk = actorBake(), bind = actorBind(), { nv, frames, preview, bones } = bk, T = ACTOR_HEAD_BONES.texels;
+// The bones are measured against the near body with its old head on (actorBake({ head: true })),
+// since the old head is what rides the head bone alone. The game bakes it without, and its bones and
+// height have to be the same.
+const bk = actorBake({ head: true }), bind = actorBind(), { nv, frames, preview, bones } = bk, T = ACTOR_HEAD_BONES.texels;
+{
+  const game = actorBake();
+  if (!game.bones || game.bones.length !== bones.length || game.bones.some((x, i) => x !== bones[i])) problems.push("the game's bake writes different bones from the head-on bake");
+  if (Math.abs(game.top - bk.top) > 1e-6) problems.push(`the game's near body stands ${game.top.toFixed(4)} m against ${bk.top.toFixed(4)} with its old head; everybody would change height`);
+  if ([ACTOR_MAT.hair, ACTOR_MAT.eyes, ACTOR_MAT.lips].some((m) => game.mat.includes(m))) problems.push("the game's near body still has hair, eyes or lips; the new head is drawn in their place");
+}
 if (!(bones instanceof Float32Array) || bones.length !== frames * T * 4) problems.push(`bk.bones is ${bones?.length} floats; expected ${frames} frames × ${T} texels × 4`);
 else {
   report(`bones: ${T} × ${frames} RGBA32F texels, ${(bones.byteLength / 1024).toFixed(1)} KB`);

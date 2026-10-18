@@ -1,0 +1,19 @@
+{
+  "description": "A tube light hung on chains over the racer stand, low enough to work by. One end of the tube is darker than the other.",
+  "flags": {
+    "aliases": "light,tube light,tube",
+    "interactions": [
+      "switch"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_racerbay_deadleg_light",
+  "light_type": "overhead",
+  "lumen_output": 1200,
+  "name": "chained tube light",
+  "object_type": "light",
+  "power_draw_kw": 18,
+  "price": 40,
+  "zone_id": "zone_racerbay_deadleg"
+}

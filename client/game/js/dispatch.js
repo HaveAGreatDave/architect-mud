@@ -66,11 +66,12 @@ import { pullConfig, receiveConfig } from './configsync.js';
 import { setTabletAccess, showTabletOffer } from './panels/smartbar.js';
 import { offerInterfaceTour, startInterfaceTour, startTabletTour, consumeTourHandoff } from './panels/tour.js';
 import { playIntroCinematic } from './panels/lazy-views.js';
-import { updateCockpit, closeCockpit, cabinAudio, openTargeting, openFlightSim, flightSimContext, drakeSubmerged, drakeChampagne, flightBurst, flightSimContacts, flightSimHopper, flightSimAirHit, flightSimKill, flightSimAaTracer, flightSimAirThreat, flightSimFireworks, flightSimLightning, isFlightSimActive, isCockpitHudActive, resumeFlightAfterLogin } from './panels/lazy-views.js';
+import { updateCockpit, closeCockpit, cabinAudio, openTargeting, openFlightSim, flightSimContext, flightSimGps, drakeSubmerged, drakeChampagne, flightBurst, flightSimContacts, flightSimHopper, flightSimAirHit, flightSimKill, flightSimAaTracer, flightSimAirThreat, flightSimFireworks, flightSimLightning, isFlightSimActive, isCockpitHudActive, resumeFlightAfterLogin } from './panels/lazy-views.js';
 import { openTextCockpit, updateTextCockpit, closeTextCockpit, isTextCockpitActive } from './panels/textcockpit.js';
 import { openHelm, closeHelm, isHelmActive, helmSetSky, helmSetWorld, helmSetContacts, helmSetFar, helmEndTransit, helmBeginTransit } from './panels/lazy-views.js';
 import { openCab, closeCab, cabContext, cabGalley, isCabActive } from './panels/lazy-views.js';
 import { openBoat, closeBoat, boatSetWorld, isBoatActive } from './panels/lazy-views.js';
+import { openPodracer, closePodracer, podracerSetWorld, isPodracerActive, isPodracerDepotActive, openPodracerDepot, closePodracerDepot, closePodracerBay } from './panels/lazy-views.js';
 import { openMarina, closeMarina, marinaSetData, isMarinaActive, openMarinaService, closeMarinaService } from './panels/lazy-views.js';
 import { openFreelook, closeFreelook, isFreelookActive, freelookSetSky, freelookSetActors, freelookSetContacts } from './panels/lazy-views.js';
 import { noteFirework, noteAAState, noteAAFire } from './panels/world-feed.js';
@@ -361,7 +362,7 @@ function setSleepBar(sleeping, dreaming) {
 // would otherwise wipe the whole application mid-purchase.
 function paneFreeForRoom() {
   return !isFlightSimActive() && !isCockpitHudActive() && !isHangarBayActive() && !isHelmActive()
-    && !isCabActive() && !isBoatActive() && !isTruckDepotActive() && !isMarinaActive() && !isFreelookActive()
+    && !isCabActive() && !isBoatActive() && !isPodracerActive() && !isPodracerDepotActive() && !isTruckDepotActive() && !isMarinaActive() && !isFreelookActive()
     && !isTextCockpitActive() && !isTextBreachActive() && !isTextHololockActive()
     && !isTextVaultActive() && !isTextSignalActive() && !isTextFishingActive()
     && !isTextCalibrationActive() && !isTextNullActive() && !isTextReadActive()
@@ -381,7 +382,7 @@ let claimRetry = null;
 
 // Whether a seat that draws the world in 3D owns the pane: the cockpit, the cab, a boat, the helm or
 // the free camera. Each draws a fireworks shell as a real burst, so the flat on-foot flash is not for them.
-const inGlassView = () => isFlightSimActive() || isCabActive() || isBoatActive() || isHelmActive() || isFreelookActive();
+const inGlassView = () => isFlightSimActive() || isCabActive() || isBoatActive() || isPodracerActive() || isHelmActive() || isFreelookActive();
 
 const handlers = {
   // The build this page was loaded against is the first one a socket reports. A later
@@ -1561,10 +1562,10 @@ const handlers = {
     // the refusal is here, and it points at the camera that IS reachable: every one of those seats
     // has this same camera on O. `freelook close` drops the viewer row the server just added, so a
     // refused open leaves nothing behind being pushed sky.
-    if (isFlightSimActive() || isCabActive() || isHelmActive() || isBoatActive()) {
+    if (isFlightSimActive() || isCabActive() || isHelmActive() || isBoatActive() || isPodracerActive()) {
       // ⚠ THE BOAT HAS NO O CAMERA, so it does not get the other three seats' hint. Pointing a
       // player at a key that does nothing is worse than the bare refusal.
-      appendHtml(isBoatActive()
+      appendHtml(isBoatActive() || isPodracerActive()
         ? 'You are at the helm, and a seat keeps the view. Get out first.'
         : 'You are in a seat, and a seat keeps the view. Press <b>O</b> for the free camera from here, or get out first.', 'msg-system');
       sendCmdSilent('freelook close');
@@ -1621,6 +1622,19 @@ const handlers = {
   // would be a second place the gauge can be written and a second place it can be forgotten.
   boat_fuel: (msg) => boatSetWorld(msg),
   boat_sim_close: () => { closeMarinaService(); closeBoat(); },
+  // The podracer seat (plugins/podracer, podracer-view.js): the boat's three routes.
+  podracer_sim: (msg) => { closeTruckDepot(); closePodracerDepot(); openPodracer({ ...msg, onSend: (c) => sendCmdSilent(c) }); },
+  podracer_ctx: (msg) => podracerSetWorld(msg),
+  podracer_sim_close: () => { closePodracerBay(); closePodracer(); },
+  // The racer bay's counter (podracer-depot.js). A payload with `service` is the bay overlay and only
+  // ever goes onto the seat; the counter is never drawn over a seat.
+  podracer_depot: (msg) => {
+    if (msg.service) { if (isPodracerActive()) openPodracerDepot({ ...msg, onSend: (c) => sendCmdSilent(c) }); return; }
+    if (isPodracerActive()) return;
+    openPodracerDepot({ ...msg, onSend: (c) => sendCmdSilent(c) });
+  },
+  podracer_close: () => closePodracerDepot(),
+  podracer_service_close: () => closePodracerBay(),
   // The yard screen. ⚠ NEVER OVER A SEAT — you can be standing in the marina with the helm open,
   // and a shop window blowing across the windscreen is the trap `truck_depot` already guards.
   // …EXCEPT THE SEAT'S OWN OVERLAY (`service`), which only ever goes ON a seat.
@@ -1672,6 +1686,7 @@ const handlers = {
   // when the cab has taken the pane over, because then you did not walk out, you drove.
   truck_depot_close: () => { closeTruckDepot(); if (!isCabActive()) sendCmdSilent('look'); },
   flight_ctx: (msg) => { flightSimContext(msg); },
+  flight_gps: (msg) => { flightSimGps(msg); },
   drake_sub: (msg) => { drakeSubmerged(msg); },   // plugins/submersible: the Drake's depth, air and hull rating
   flight_burst: (msg) => { flightBurst(msg); },        // a bomb going off — world-anchored fireball in the windshield
   flight_contacts: (msg) => { flightSimContacts(msg); },   // air-to-air traffic (Phase A: see other craft)

@@ -3602,9 +3602,8 @@ export function cabContext(ctx) {
 // windshield.js) — the same segments the building is DRAWN from, so what you can see is what you
 // can hit, and a model that changes shape on a seed collides as it actually looks.
 //
-// FOUR AVIATION GATES ARE DELIBERATELY DROPPED from cockpit.js's buildingCollisionAt:
+// THREE AVIATION GATES ARE DELIBERATELY DROPPED from cockpit.js's buildingCollisionAt:
 //   • `if (s.onGround) return null` — the entire premise there, and the opposite of ours
-//   • `climbOutClear` / the departure corridor — a shield for aircraft leaving a runway
 //   • the "must be visible on the glass" window (VISIBLE_NEAR_F..VISIBLE_FAR_F) — an aircraft
 //     rule ("a building that isn't drawn can't hurt you"); at 15 tiles of ground fog it would
 //     make near buildings non-solid, which is worse than the problem it solves

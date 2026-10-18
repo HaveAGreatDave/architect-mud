@@ -3116,9 +3116,11 @@ export function aircraftFaces(cls, detail = 1, armed = false, variant = '') {
   // edit here. The id spaces cannot collide — the schema's VEHICLE_IDS is what allots them.
   // An authored mesh answers first, so a class drawn from a mesh file can never fall through to the
   // Twin Otter. The heli arm below is what `setLegacyMeshes(true)` reaches, for the A/B.
-  const mid = meshIdFor(cls, armed);
-  // A mesh's `variant` is a paint job from its own `schemes` (the Drake's four).
-  const faces = mid ? compileMesh(meshRow(mid), { detail, scheme: variant || null }).faces
+  // A variant the class's mesh names in `variants` is a different model (the racer's types); any
+  // other is a paint job from the mesh's own `schemes` (the Drake's four).
+  const vmid = variantMeshFor(cls, variant);
+  const mid = vmid || meshIdFor(cls, armed);
+  const faces = mid ? compileMesh(meshRow(mid), { detail, scheme: vmid ? null : (variant || null) }).faces
     : cls === 'truck' ? buildTruck(variant || 'hauler', detail)
     : cls === 'heli' ? (armed ? buildAttackHeli() : buildHeli())
     : cls === 'ultralight' ? buildCessna(detail)
@@ -3173,6 +3175,13 @@ export function meshIdFor(cls, armed = false) {
   if (!base) return null;
   if (armed && base.armedMesh) return meshRow(base.armedMesh) ? base.armedMesh : null;
   return cls;
+}
+// The mesh a class draws for `variant` when its file lists one under `variants` (a model, not a
+// paint job): the podracer's types are one class with three bodies. Null when it does not.
+export function variantMeshFor(cls, variant) {
+  if (_legacyMeshes || !variant) return null;
+  const id = meshRow(cls)?.variants?.[variant];
+  return id && meshRow(id) ? id : null;
 }
 export function meshParams(id) { return meshRow(id); }
 export function meshIds() { return [...new Set([...Object.keys(MESH_ROWS), ..._meshOverride.keys()])]; }

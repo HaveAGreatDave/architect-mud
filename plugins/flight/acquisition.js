@@ -6,6 +6,7 @@
 import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
 import { adjustCredits } from '../../server/engine/economy.js';
+import { noteFreshVehicle } from '../../server/engine/fresh-vehicle.js';
 import { getZone, liveAircraft, persist, pushHud, sendToPlayer, REFUEL_PRICE_PER_UNIT, effStats, partDefs, partEnvelope, fieldFor as fieldOf, rentalOpFee, vtolOnlyField, acquirableTypes, airfieldOf, fieldName } from './state.js';
 import { refillChampagne, pushChampagne } from './champagne.js';
 import { allExits } from '../../server/engine/exits.js';
@@ -140,6 +141,8 @@ async function acquire(args, raw, player, kind) {
      VALUES ($1,$2,$3,$4,'map_world',$5,$6,'ground','n',$7,$8,20,$9,$10)`,
     [id, t.id, tailNum, player.id, field.grid_x, field.grid_y, field.id, Math.round((await typeCap(t.id)) * 0.5), kind === 'buy' ? 0 : 1, JSON.stringify(customData)]
   );
+  // The hangar's next push offers her as the way out (hangar-bay.js, the ready key over the floor).
+  noteFreshVehicle(player.id, id);
   if (kind === 'buy') {
     // Point-of-sale insurance offer as an in-browser accept/decline popup (server
     // { type:'confirm' } → showConfirmDialog): confirm binds cover via `insurebind`,

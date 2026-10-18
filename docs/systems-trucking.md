@@ -433,8 +433,8 @@ overhanging attic or a canopy reads as solid to the ground. A segment only block
 underside comes down to your roofline. **A third of the model set has mass over a truck's head**
 (678 drive-under cells across 89 models), so this is load-bearing, not a nicety.
 
-Four aviation gates are dropped: the `onGround` bail, `climbOutClear`/the departure corridor, the
-"must be visible on the glass" window, and the altitude penetration test. The **sweep is kept** — at
+Three aviation gates are dropped: the `onGround` bail, the "must be visible on the glass" window,
+and the altitude penetration test. The **sweep is kept** — at
 68 mph a truck covers most of a tile between frames and would tunnel through a wall.
 
 Off the *road* is still a law rather than a wall, though:
@@ -2720,7 +2720,7 @@ place just inside the South Gate. It's now **outside the Curtain**, under the ro
 
 |       | 909 | 910 | 911 | 912 |
 |---|---|---|---|---|
-| **917** | Best Offer | grass | **the South Lock** | grass |
+| **917** | 36 Kerbstone Row | grass | **the South Lock** | grass |
 | **918** | Windrow Lane | Windrow Lane | **the South Lock** | grass |
 | **919** | Curtain | Curtain | **SOUTH GATE** | Curtain |
 | **920** | waste | the weigh lane | **the Outer Lock** | waste |
@@ -2944,6 +2944,18 @@ the way the boards and the roadside sheds are: **a deceleration lane peeling off
 apron running alongside, a weighbridge deck built into it, a scanner arch over the deck, an office
 across the apron, and a signal gantry over your own lane telling you which of the two roads is
 yours.** One per road, seeded on (route, window), costing no rows and no tick.
+
+⚠ **A plaza keeps clear of junctions, and moves rather than disappearing.** `joinPointsFor` in
+`state.js` lists, once a week, every hub fork (wants 24 tiles clear either side) and every seam of
+a road built by merging into or cutting off another (30 tiles, about how far a merge takes to
+converge). A road cannot see the second kind from its own geometry, because the other road is the
+one that comes in. `plazasFor` keeps the station where it rolled if it is already clear; otherwise
+it moves to the place on the road furthest from every junction. It is never dropped: a road with no
+station is a free run for a smuggler. Before this, two of the six stations had their aprons in the
+gore of a merge.
+
+On the screen the apron is a ribbon of its own, of the lowest rank, so it peels off the mainline
+ribbon and its paint gives way where the two overlap (see [How the road is drawn](systems-wildlands-ground.md#how-the-road-is-drawn)).
 
 ### The apron is the road, peeled
 

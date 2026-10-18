@@ -54,6 +54,14 @@ function layout(P) {
   };
 }
 
+// The GPS at the top of the stack, where cessnaFit draws it: the one control the Mayfly's seat
+// takes clicks on (interior-shell.js), which opens the destination picker (cockpit.js 'ck:gps').
+export function cessnaGpsHotspot(P) {
+  const Y = layout(P), st = Y.stack;
+  const Pn = makeKit(() => {}).panel([0, Y.y, 0], [1, 0, 0], [0, 0, 1]);
+  return { id: 'ck:gps', p: Pn.pt(st.x, st.z1 - 0.049, 0.01), r: 0.045, kind: 'click' };
+}
+
 export function cessnaHotspots(P, live) {
   const L = live || {}, Y = layout(P), Kd = makeKit(() => {});
   const Pn = Kd.panel([0, Y.y, 0], [1, 0, 0], [0, 0, 1]);
@@ -66,6 +74,7 @@ export function cessnaHotspots(P, live) {
   out.push({ id: 'yoke', p: (([x, y, z]) => [x, y, z + 0.05])(Y.yoke(0, num(L.stickY))), r: 0.09, kind: 'yoke' });
   out.push({ id: 'throttle', p: [Y.throttle[0], Y.throttle[1] - 0.04, Y.throttle[2]], r: 0.03, kind: 'throttle' });
   out.push({ id: 'trim', p: Y.trim, r: 0.05, kind: 'trim' });
+  out.push(cessnaGpsHotspot(P));
   return out;
 }
 

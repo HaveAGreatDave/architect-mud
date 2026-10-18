@@ -324,7 +324,7 @@ export default async function regress({ run, check, getPlayer }) {
       wright ? 'works in ' + wright.work_zone_id + ' (' + (wz ? Y.berthKind(wz) : 'no zone') + ')' : 'no npc');
   }
 
-  // ── MOOR OR LESS, the cheap yard at the head of Ironside Street ──────────────
+  // ── THE EASTERN MARINA, the cheap yard at the head of Ironside Street ──────────
   //
   // A second yard is the first test of the claim the boatyard was built on: that a marina is flags
   // on tiles and nothing in yard.js knows a coordinate. So this asserts the yard works as a yard —

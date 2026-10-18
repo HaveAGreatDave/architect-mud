@@ -28,6 +28,7 @@ import { allExits } from '../../server/engine/exits.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
 import { query } from '../../server/models/db.js';
 import { prefersLoggedPanelsOrDefault } from '../../server/engine/presentation.js';
+import { takeFreshVehicle } from '../../server/engine/fresh-vehicle.js';
 import { BOAT_TYPES, TYPES } from '../../client/game/js/panels/flight-model.js';
 import { berthKind, berthCapacity, berthsNear, zonesNear, hullBand, REFIT_CAP, aboard, sweepBoatRentals, isOpenWater, MOVE_IN, rateAt } from './yard.js';
 import { boatRental, boatRentalLeft, fmtLeft, boatRentFee, BOAT_RENT_TERM_MS, boatServiceSheet, boatLiveryOf, schemeOf,
@@ -251,7 +252,9 @@ export async function pushMarina(player, zoneId, tab = 'fleet') {
   if (await prefersLoggedPanelsOrDefault(player)) return false;
   const panel = await marinaPanel(player, zoneId, tab);
   if (!panel) return false;
-  sendToPlayer(player.id, panel);
+  // The hull just bought or hired, which the counter offers to put you in (depot-shell readyHtml).
+  // Taken here and not in marinaPanel, which the seat's overlay is built from too.
+  sendToPlayer(player.id, { ...panel, fresh: takeFreshVehicle(player.id) });
   return true;
 }
 

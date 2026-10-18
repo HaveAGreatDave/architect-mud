@@ -749,6 +749,13 @@ A vehicle's exterior has one material number per face: positive is a metal (a mi
 - Trap: the engine used to match the Drake's slot names on every mesh. `belly` and `seam` are slots on the Mule, the Leviathan, the Reaper and the Shrike, so their bellies were 0.4 mirrors and the Reaper's guns took her chrome. A name means nothing now; say it in the file.
 - Trap: a role is what a face does, not what it's made of. Tyres are role `gear`, a 0.45 metal, so `pushWheel` stamps them `mk: rubber` and the caps `polished`. A gelcoat `mk` on a boat is paint and a livery coat replaces it; a fixed fitting or a tyre keeps its own.
 - A port held against its old builder (`portedFrom`) is compared without its `finish` (`compileMesh(..., { finish: false })`): the builder drew geometry and never declared one.
+- **A slot can name a surface** with `tex` (plastic, fabric, leather, rubber, brushed, cast, paint, wood, carpet: the cockpits' surfaces), drawn per pixel on the GPU in the model's own frame at `classFacts.metres` a unit (6 if unset). It goes up as tex 21-29, the triplanar form (`surfaceTexTri` in `gl/solids.js`), blended across three axis projections by the model-frame normal (`vNL`).
+- Trap: the cockpit's flat projection (`surfaceTex`, tex 1-9) takes its frame and its relief light from each face. On a turbine every facet got its own grain and relief, and the casing came out a patchwork. Use the triplanar form on anything curved.
+- **A mesh can name other models for its variants** with `variants: { variant: meshId }`: the class draws that file when asked for that variant (`variantMeshFor` in aircraft3d.js), where any other variant is a paint job from the mesh's `schemes`. The racer's three types are one class this way. `npm run shapes:smoke` (meshes.mjs) checks each named file is drawn for its variant.
+- Trap: a hinged part (`anim`) inside a moved group (`xf`) used to keep its pivot where the group used to be, so it swung about the wrong point (the racer's air brakes flew off their turbine). `applyXf` now moves the pivot, the axis and a slide with the faces.
+- Trap: a face with no `cen` measures which way is out from the model's origin. A racer's turbine docked beside the pod turned its inner side inside out and showed through; a separately posed body now hands its faces its own centre (`podracerModelPose` `cen`).
+- **A slot can carry a gradient** with `ramp`: `{ axis: 'f' | 'g' | 'h', stops: [[at, [r, g, b]], ...] }`, read along the part's own axis before any group moves it, one colour per face at its centre. Give the part stations along that axis or it reads as bands. The racer's hot section is the example: straw to bronze to purple to blue, soot at the lip.
+- **The own ship's light follows the sun** (`shipLightOf` in windshield.js, `uLmL` in the shader): in hard sun the shade side drops to 0.55 and the lit side gets 0.95 of the sun, wrapped round a curve; as the sun goes low, behind cloud (`sunFx.cloud`) or down, it goes back to an even 0.82. A mesh can set its own as `classFacts.light: [floor, sun, wrap]`. Before 2026-10-08 nothing was lit below 0.82 in any sun, and a round part read as grey card.
 
 ## Sky beam
 
@@ -1035,13 +1042,16 @@ Gate: `npm run gl:bay` ([scripts/shapes/bay.mjs](../../scripts/shapes/bay.mjs), 
 
 ### One world scale for aircraft
 
-`CONTACT_SIZE` is solved against the storey (3.5 m, so a tile is about 17.9 m), and `OWN_EXT_MUL` is 1, so your own aircraft draws at the size everybody else sees. Up to 10 m an aircraft is true size; above that its drawn span is 10 × √(real ÷ 10), so a Twin Otter is 14 m and the An-124 27 m. `chaseBack`/`chaseUp` were scaled by the same 1.84 the prop grew by, so the resting chase frames her as before. The truck and the hydro boat keep their own scale (`OWN_EXT_MUL_BY_CLS`), because the road and the sea are drawn at theirs. People (`ACTOR_S`, 1.75 m) and trees (`TREE_S`, about 7 m) are true size through `_trueK`, which is `_propK` without the seat's `propMul`. Birds are too: `BIRD_M_PER_TILE` in birds.js is 3.5 / 0.196, the flock sim and murmur.js convert every metric figure through it, and each species' drawn wingspan is the real bird's (`FAUNA_TILE` off `GOOSE_SPAN`, then the row's `scale`). See [systems-fauna.md](../systems-fauna.md).
+`CONTACT_SIZE` is solved against the storey (3.5 m, so a tile is about 17.9 m), and `OWN_EXT_MUL` is 1, so your own aircraft draws at the size everybody else sees. Up to 10 m an aircraft is true size; above that its drawn span is 10 × √(real ÷ 10), so a Twin Otter is 14 m and the An-124 27 m. `chaseBack`/`chaseUp` were scaled by the same 1.84 the prop grew by, so the resting chase frames her as before.
+
+**Aircraft are true height too (2026-10-08).** `CONTACT_VS` (1.6) stretched every drawn model's height, a leftover from when a contact was a speck. Buildings are not stretched (a storey is 0.196 tiles up and across), so a Twin Otter stood 10 m tall. Every height that has to agree with the drawn model now asks `vsOf(cls)`: 1 for the aircraft classes in `AIR_CLS`, 1.6 for boat hulls, the rig and the racer, whose sea and road are tuned to it (`boatride.mjs` restates it). The same day the Mule's mesh gained span in units, 2.048 → 2.484, with the nacelles moved out rigidly and nothing inboard of the fuselage touched, because her body was 22% long and 45% tall for a Twin Otter's span. `CONTACT_SIZE.prop` fell to 0.317 to hold the 14.1 m span. Whatever reads a class as a SIZE (the chase standoff, the shadow, the preview distance, the on-screen box estimates) reads `FRAME_SIZE`, which keeps her at 0.385. The truck and the hydro boat keep their own scale (`OWN_EXT_MUL_BY_CLS`), because the road and the sea are drawn at theirs. People (`ACTOR_S`, 1.75 m) and trees (`TREE_S`, about 7 m) are true size through `_trueK`, which is `_propK` without the seat's `propMul`. Birds are too: `BIRD_M_PER_TILE` in birds.js is 3.5 / 0.196, the flock sim and murmur.js convert every metric figure through it, and each species' drawn wingspan is the real bird's (`FAUNA_TILE` off `GOOSE_SPAN`, then the row's `scale`). See [systems-fauna.md](../systems-fauna.md).
 
 ### The aircraft hangar is the same shed
 
 An airfield's hangar tile (`flags.aircraft_hangar`) derives as `mark: 'bay'` with `bk: 'air'`, and everything that sizes the shed asks `bayDims(cell)`: the drawer, the door sensor, the CFIT roof probe, `groundObstructionAt` and the occluder slabs. `HANGAR_BAY` holds every airframe but the Leviathan. A tile that also carries `flags.heavy_hangar` derives `bk: 'heavy'` and gets `HEAVY_BAY`, a shed 1.8 tiles square that holds her (1.51 across, 1.72 long, 1.17 to her fin). It overhangs its tile by about 0.4 on every side, so site it where that lands on apron or water, never a runway; Coldwater Regional's is at 929,904, at the end of the east taxiway. `isAirBay` is true for both. Only the floor, its paint and the fittings differ between the two kinds; the shell, the roof, the lights and both sinks are one code path. The door's picture is shared too; what drives it isn't.
 
-- The height isn't just for the fin. The maintenance view's 3/4 camera orbits inside the building, because the cutaway is off, and a truck-height roof would put it on top of the roof.
+- The height isn't just for the fin. The maintenance view's 3/4 camera orbits inside the building, and a truck-height roof would put it on top of the roof.
+- The angle-driven cutaway is off (`BAY_CUTAWAY_ON`), but a service cutaway isn't: while a depot's bay is open on the glass (`.ds-bay.open`, read once a frame by `bayServiceUp`), `bayCutaway` returns 1 for the shed the eye or the vehicle is in. The canvas fades near faces as it always did at `cut` 1. GL has no fade, so `bayFace` drops the roof (`cut` faces) and every non-`keep` wall on a side the eye is outside of (`gone`, a bit per side, in the shell cache key). The occluder already skips a shed at `cut` > 0.5. It's a mode the player opens, not a function of the angle, which is what the old cutaway got wrong.
 - `setBayVehicles` takes any own ship and any contact on the ground, not trucks only. An aircraft rolling at a door used to find it shut. The cockpit marks a ground contact with `groundZ: 0`, not `onGround`, so both are read.
 
 ### A hangar door has a motor and a memory
@@ -1822,10 +1832,11 @@ Per-model arm timing: `setWindshieldProfiler(true, { arms: true })`, off by defa
 Three layers play motion baked into RGBA16F textures, read by `gl_VertexID`: `gl/fauna.js` (bird
 wingbeats), `gl/actors.js` (pedestrian clips) and `gl/cloth.js` (windsocks, the pier flag, the
 Pitch's shelters). Each arrives as a record in `FAUNA_SINK` (`inst`, `actor`, `cloth`), which
-`context.js` splits by kind. Texture units: 7 fauna, 20–21 actors, 24–25 cloth.
+`context.js` splits by kind. Texture units: 7 fauna, 20–21 actors, 22–23 the actors' head bones and
+face atlas, 24–25 cloth.
 
-- **Actors have two bodies.** `actor3d.js` bakes a close-up body (2,380 vertices) and a far one
-  (`bk.far`, 343). Between `RENDER_TUNE.actorFarPx` and `actorMeshPx` a figure is a `lod: 1` record;
+- **Actors have two bodies.** `actor3d.js` bakes a close-up body (1,832 vertices, no head:
+  `gl/actors.js` draws `actor-head.js`'s on its `bones`) and a far one (`bk.far`, 357, with its own). Between `RENDER_TUNE.actorFarPx` and `actorMeshPx` a figure is a `lod: 1` record;
   under `actorFarPx` it's still the canvas billboard. `scripts/shapes/actors.mjs` holds the split.
 - **A standing figure's spot is street life's.** With `RENDER_TUNE.actorLife` on, where somebody
   stands, which clip they play and which way they face come from `glass/street-life.js`, not
@@ -1860,6 +1871,16 @@ Measured: strokes 1563 → 1316 at Halcyon, 953 → 837 at Marrow, 592 → 503 a
 - **The caprock was darker than the plain.** Its palette comment claims *"the caprock top takes the sun"* and *"both sit deliberately in the redrock family"*, but `plateau` had luminance 55 against redrock's 99, so a cliff tile's cap came out at 73 and every massif read as a dark stain. A mesa top is the same rock as the plain; the face is what's dark. The cap is now 96 against the plain's 99, faces stay at 61 and 79.
 
 `cliffrelief.mjs` was run by nothing (an npm name in neither list and no chain, the `gl:neighbour` case). It's now in `pretest:regress` and `shapes:smoke`, plus `npm run gl:cliff`. It makes four claims: each knob against its own control (relief 1 is a power of 1, rough 0 removes the term), and roughness staying out of the level, which is why they were split. Mutation-tested 5 of 5. Trap: "1 is exactly what shipped" went out of date in the commit that made the split; relief 1 is still the identity but no longer the shipped massif.
+
+### The face in relief
+
+`RENDER_TUNE.cliffProfile` and `cliffFlute`; what it draws is in [systems-terrain.md](../systems-terrain.md#the-face-in-relief-2026-10-08). The traps:
+
+- **The quad count is the cost, not the noise.** Every ground quad is uploaded every frame, cached or not. At full detail everywhere it was 2.1× the flat face's quads. Columns go by distance (`cliffCols`: 3 inside 7 tiles, 2 inside 16, then 1), a side facing away gets one column, mid-bed rows exist only on beds that recess, the apron gets the cuts alone, and past 22 tiles the face drops its mid-beds. That's 1.47× on a 675-tile stress set.
+- **`frac` was a third of it.** It's a `Math.sin` per lattice corner. The flute field (`vnoise2dx`) runs on an integer hash and returns its own x-derivative, so the along-wall slope costs no extra lookups. Nothing else samples that field, so it owes nothing to `vnoise2`. Raw generation on the stress set went from 340 ms to 66 ms, under the flat face's 76.
+- **The cache reaches in to 2.5 tiles on this path**, against 10 on the flat one, because the relief draws no canvas strokes at any range. Driving past a Scarletwastes massif: 25 ms median against 44 before. A cold frame (nothing cached) is slower, 80 against 53.
+- **A row list per column breaks the shell.** A shared corner column is computed by both tiles, so the rows are fixed global lists clamped into each column's span, never chosen per segment. `cliffLatticeSmoke` checks a real tile pair vertex by vertex. A mutant that dips the beds per segment fails it on 48 vertices.
+- **The rim line's width is solved at each end.** Solved once from one end and applied to both, neighbours disagreed on the strip's lower edge by a fraction of a pixel, which was the join test's first red.
 
 ## The ballpark (`gl/ballpark.js`)
 

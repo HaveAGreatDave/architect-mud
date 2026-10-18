@@ -1587,7 +1587,10 @@ export function drakeHotspots(live) {
     const Sp = facingPanel(makeKit(() => {}), strip.o);
     for (const [id, u] of Object.entries(strip.at)) out.push({ id, p: Sp.pt(u, 0, 0.01), r: 0.019, kind: 'click' });
   }
-  { const Gk = gpsPanel(makeKit(() => {})); for (let i = 0; i < 4; i++) out.push({ id: 'gps' + i, p: Gk.pt(gpsTabX(i), GPS_TAB_Y, 0.006), r: 0.02, kind: 'click' }); }
+  { const Gk = gpsPanel(makeKit(() => {})); for (let i = 0; i < 4; i++) out.push({ id: 'gps' + i, p: Gk.pt(gpsTabX(i), GPS_TAB_Y, 0.006), r: 0.02, kind: 'click' });
+    // The screen itself opens the destination picker (cockpit.js 'ck:gps'). Nearest centre wins the
+    // hit test, so a press on a tab still lands on the tab.
+    out.push({ id: 'ck:gps', p: Gk.pt(0, -0.002, 0.006), r: 0.055, kind: 'click' }); }
   out.push({ id: 'throttle', p: add(drakeThrottleKnob(clamp(num(L.throttle), 0, 1)), [0, 0, 0.015]), r: 0.035, kind: 'throttle' });
   DRAKE_LEVER_AT.modes.forEach((p, k) => { if (p) out.push({ id: 'mode' + k, p, r: 0.022, kind: 'click' }); });
   if (DRAKE_LEVER_AT.conv) out.push({ id: 'modelever', p: DRAKE_LEVER_AT.conv, r: 0.03, kind: 'click' });

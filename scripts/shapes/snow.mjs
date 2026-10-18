@@ -711,6 +711,7 @@ try {
     // entire job is that pairing — could not see the file. Derive it from who calls
     // `windshieldHTML(` if this happens again; for now, a new seat goes here.
     'client/game/js/panels/boat-view.js',
+    'client/game/js/panels/podracer-view.js',
   ];
   let sites = 0;
   for (const f of SEATS) {

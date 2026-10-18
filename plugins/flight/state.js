@@ -8,7 +8,7 @@
 // engine-facing seam the whole plugin shares.
 
 import { query } from '../../server/models/db.js';
-import { world, getZone, getAllZones, getLivePlayer, getMinimapData, buildingEntranceDir, getRegion, addPlayerToZone, removePlayerFromZone, airfieldOf, getZoneFurniture } from '../../server/engine/world.js';
+import { world, getZone, getAllZones, getLivePlayer, getMinimapData, buildingEntranceDir, getRegion, addPlayerToZone, removePlayerFromZone, airfieldOf, getZoneFurniture, isTransientZone } from '../../server/engine/world.js';
 import { OPPOSITE } from '../../server/engine/directions.js';
 import { describeZone } from '../../server/engine/commands/describe.js';
 import { biomeOf, districtBiome } from './biomes.js';
@@ -477,6 +477,36 @@ export function listAirfields(opts = {}) {
   return out;
 }
 
+// The cockpit GPS's directory: every region, each with the airfields on its tiles, so the pilot
+// can pick a destination anywhere on the charts rather than only in tag range. A field belongs to
+// the region its tile is filed under (`flags.region_id`); one filed under none goes in a last
+// group with no centre. One entry per airfield id, however many tiles the field covers.
+// Memoised against the coord index the same way listRegions is, so a call after the first is
+// free until the world reloads. ⚠ Shared, like listRegions: never mutate what it returns.
+let _gpsDir = null, _gpsDirFor = null;
+export function gpsDirectory() {
+  const regions = listRegions();   // builds the index if it isn't yet
+  if (_gpsDir && _gpsDirFor === _coordIndex) return _gpsDir;
+  const groups = new Map(regions.map(r => [r.id, { id: r.id, name: r.name, gx: Math.round(r.cx), gy: Math.round(r.cy), fields: [] }]));
+  const loose = { id: null, name: 'Unfiled', gx: null, gy: null, fields: [] };
+  const seen = new Set();
+  for (const cell of _coordIndex.values()) {
+    const aid = cell.flags?.airfield_id;
+    if (!aid || seen.has(aid)) continue;
+    const z = getZone(cell.id);
+    if (z?.grid_x == null) continue;
+    seen.add(aid);
+    const f = { id: aid, name: fieldName(cell) || aid, gx: z.grid_x, gy: z.grid_y };
+    if (vtolOnlyField(cell)) f.pad = true;
+    (groups.get(cell.flags?.region_id) || loose).fields.push(f);
+  }
+  const out = [...groups.values()];
+  if (loose.fields.length) out.push(loose);
+  for (const g of out) g.fields.sort((a, b) => a.name.localeCompare(b.name));
+  _gpsDir = out; _gpsDirFor = _coordIndex;
+  return out;
+}
+
 // The Echelon's helipad field if she's within `range` tiles of (x,y). She's a small,
 // moving target, so a VTOL setting down *alongside* her — not just dead-centre on her one
 // tile — still lands on the pad. Keyed off flags.yacht so only the Echelon gets this
@@ -557,7 +587,27 @@ export function hangarTileFor(field, heavy = false) {
   }
   return heavy ? (hit.heavy || hit.reg) : (hit.reg || hit.heavy);
 }
-export function clearHangarTiles() { _hangarTiles.clear(); }
+// ── THE FIELD'S HELIPAD ──────────────────────────────────────────────────────
+// A rotorcraft can't taxi out of a shed: she sits on skids. So where a field has a paved tile with
+// `flags.helipad` (a `runway: 'pad'` tile joined to its paving, so airfieldForRunway gives it to the
+// field and a shutdown there still parks her at the field), `hangaract service|launch` stands a VTOL
+// airframe on it instead of on the hangar floor. Cached per field; a zone reload clears it.
+const _helipadTiles = new Map();
+export function helipadTileFor(field) {
+  if (!field) return null;
+  if (!_helipadTiles.has(field.id)) {
+    const hit = getAllZones().find(z => z.flags?.helipad && z.grid_x != null && airfieldForRunway(z)?.id === field.id);
+    _helipadTiles.set(field.id, hit || null);
+  }
+  return _helipadTiles.get(field.id);
+}
+// Where `hangaract service|launch` stands an airframe at this field: a VTOL on the helipad if there
+// is one, a heavy in the heavy bay, everything else on the regular hangar floor. Null means where
+// she's parked.
+export function standTileFor(field, { vtol = false, heavy = false } = {}) {
+  return (vtol && helipadTileFor(field)) || hangarTileFor(field, heavy);
+}
+export function clearHangarTiles() { _hangarTiles.clear(); _helipadTiles.clear(); }
 // Which way an aircraft on the hangar floor faces: out through the door, which is the facade's
 // entrance side. Headings are compass degrees stored as strings (toDeg).
 const ENT_DEG = { north: 0, east: 90, south: 180, west: 270 };
@@ -1242,6 +1292,10 @@ export function deriveSurfaceCell(cell, x, y, at = surfaceAt, live = true) {
   const pad = (af && (af.vtol_only || af.charter_vtol_only)) ? 1 : undefined;
   const bt = cell.flags?.building_type || undefined;
   const bn = cell.flags?.building_name || undefined;
+  // `trd`: the trade word a pun name carries under it on its sign (`flags.sign_trade`, "FLORIST").
+  // A name like Florist Gump or Stuff It doesn't say what the shop is for, and `building_type`
+  // is too coarse to (the florist is filed as a boutique). Absent on most tiles.
+  const trd = (bn && typeof cell.flags?.sign_trade === 'string' && cell.flags.sign_trade.trim().toUpperCase()) || undefined;
   // Door face + storey count so the windshield can angle the building's entrance
   // toward the street and scale its height by real floors (a 3-floor shop is not
   // a tower). `ent` is 'north'|'south'|'east'|'west' (cached in world.js); `flr`
@@ -1305,6 +1359,9 @@ export function deriveSurfaceCell(cell, x, y, at = surfaceAt, live = true) {
     rwy = r === 'ns' || r === 'ew' ? r : 'pad';
     if (rwy === 'pad' && cell.flags.taxiway) twy = String(cell.flags.taxiway).replace(/[^nesw]/g, '') || undefined;
   }
+  // A helipad stood on the paving (`flags.helipad`): the canopy paints a circle-H there instead of a
+  // stand. See helipadTileFor.
+  const hp = rwy === 'pad' && cell.flags?.helipad ? 1 : undefined;
   // AN INSPECTION PLAZA'S FURNITURE — the signal gantry over the highway, the lead-in lights down
   // the ramp, the weighbridge plates and the scanner arch over them. A mark rather than a building
   // type, for the reason a road sign is one: there is no mass worth extruding and a building would
@@ -1702,7 +1759,7 @@ export function deriveSurfaceCell(cell, x, y, at = surfaceAt, live = true) {
     && [[-1, 0], [1, 0]].some(([ox, oy]) => { const c = at(x + ox, y + oy); return !!(c?.flags?.gate_lock && typeof c.flags.gate_lock === 'object'); });
   const bk = cell.flags?.aircraft_hangar && cell.flags?.heavy_hangar ? 'heavy' : cell.flags?.aircraft_hangar ? 'air' : besideLock ? 'lock' : undefined;
   // A runway is not a street (see `rwy` above): no kerbs, no steam vents, no pedestrians on it.
-  return { prp, kind, biome, road: rwy ? 0 : road, danger: cell.danger, pad, bt, bn, ent, flr, mark, bk, strip, rwy, twy, rd, rdeg, rt, rw, rl, wr, rc, wake, sub, heading, cur, cld, ci, ft, hi, cf, pf: cell.flags?.park_feature, pw, em, og, sl, sgn, plz, lk, bf, bq, aa, brd: brd && brd.length ? brd : undefined, gft: gft && gft.length ? gft : undefined };
+  return { prp, kind, biome, road: rwy ? 0 : road, danger: cell.danger, pad, bt, bn, trd, ent, flr, mark, bk, strip, rwy, twy, hp, rd, rdeg, rt, rw, rl, wr, rc, wake, sub, heading, cur, cld, ci, ft, hi, cf, pf: cell.flags?.park_feature, pw, em, og, sl, sgn, plz, lk, bf, bq, aa, brd: brd && brd.length ? brd : undefined, gft: gft && gft.length ? gft : undefined };
 }
 
 // The flight window's half-width, named so the things that have to AGREE with it can say so
@@ -2648,6 +2705,16 @@ export async function parkAt(live, zoneId) {
     // uninvited pilot who set down on the yacht) run for a fly-in exactly as they
     // do for someone who walked in.
     emit('zone.entered', { actor: p, zone: occZone, from });
+  }
+  // WRITE THE LANDING THROUGH. The loop above moves everyone in RAM only, and nothing marks them
+  // for the periodic position flush, so the row still named the room they boarded from. Any
+  // restart (the dev server's --watch is a hard kill on Windows) then put a pilot who landed at
+  // The Strip back in the Coldwater Regional tower. A landing is an arrival, like stepping into a
+  // building, and cmdMove writes those through too. One write per landing, never per tick.
+  const aboard = [...live.occupants].filter(pid => getLivePlayer(pid));
+  if (aboard.length && !isTransientZone(occZone)) {
+    await query('UPDATE players SET current_zone=$1 WHERE id = ANY($2)', [occZone, aboard])
+      .catch(err => console.error(`[flight] landing position write failed: ${err.message}`));
   }
   // Anyone riding in the back (an escortee) gets out where the occupants do. This
   // is the arrival for them — see companions.js.

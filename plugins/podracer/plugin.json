@@ -1,0 +1,34 @@
+{
+  "name": "podracer",
+  "version": "0.1.0",
+  "description": "The Rasp Twinspool: two salvaged turbines on a binder towing a cockpit pod on two cables, sold and hired in the racer bay at the Deadleg and raced over the Scarletwastes. The client steps podracer-model.js; this keeps the row, checks the envelope and runs the depot (counter, bay overlay) to the depot standard.",
+  "hooks": [
+    "vehicle.contacts"
+  ],
+  "commands": [
+    "podracer",
+    "podracers",
+    "podsync",
+    "podevent"
+  ],
+  "actions": {
+    "registers": [],
+    "tagGated": []
+  },
+  "events": {
+    "emits": [],
+    "consumes": [
+      "player.login",
+      "player.logout",
+      "player.death",
+      "zone.entered"
+    ]
+  },
+  "dependencies": [],
+  "dataSchema": [
+    "podracers"
+  ],
+  "extensionPoints": [
+    "zones.flags.podracer_lot"
+  ]
+}

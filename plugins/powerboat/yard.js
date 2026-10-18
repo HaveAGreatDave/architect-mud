@@ -35,6 +35,7 @@
 import { query } from '../../server/models/db.js';
 import { getZone, getZoneNpcs, propsOf, getAllZones } from '../../server/engine/world.js';
 import { adjustCredits } from '../../server/engine/economy.js';
+import { noteFreshVehicle } from '../../server/engine/fresh-vehicle.js';
 import { getItem } from '../../server/engine/items-cache.js';
 import { TYPES, BOAT_TYPES } from '../../client/game/js/panels/flight-model.js';
 import { boatRental, boatRentalExpired, boatRentFee, BOAT_RENT_TERM_MS, BOAT_RENT_REFUSE, BOAT_SERVICE,
@@ -318,6 +319,7 @@ export async function cmdBoat(args, raw, player) {
      VALUES ($1, $2, $3, $4, $5, 1, 1, jsonb_build_object('home_berth', $5::text))`,
     [id, type.id, type.name, player.id, home.zone.id],
   );
+  noteFreshVehicle(player.id, id);
   return say(`<span class="text-green">Bought.</span> A ${type.name}, hull sound, tank full.`
     + `\n<span class="text-dim">She is at ${home.zone.name}, ${KIND_WORD[berthKind(home.zone)]}. ₵${type.price.toLocaleString()} gone.</span>`);
 }
@@ -381,6 +383,7 @@ async function boatRent(player, arg) {
      VALUES ($1, $2, $3, $4, $5, 1, 1, $6::jsonb)`,
     [id, type.id, `Hire ${type.name.split(' ').pop()}`, player.id, home.zone.id, JSON.stringify(cd)],
   );
+  noteFreshVehicle(player.id, id);
   return say(`<span class="text-green">Hired.</span> A ${type.name} for ${BOAT_RENT_TERM_MS / 3600000} hours, tank full.`
     + `\n<span class="text-dim">She is at ${home.zone.name}, ${KIND_WORD[berthKind(home.zone)]}. ₵${fee.toLocaleString()}.</span>`);
 }

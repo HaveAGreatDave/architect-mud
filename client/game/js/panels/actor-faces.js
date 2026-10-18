@@ -4,7 +4,7 @@
 // atlas (client/game/assets/actor-faces.png, baked by scripts/shapes/actor-faces.mjs --write from the
 // painter in tools/modelshop/face-masks.mjs), and the shader colours a layout with the person's own
 // skin, hair, lips and eyes. So the variety is layouts times colours, and a face costs one texture
-// fetch. docs/proposals/street-figure-heads.md is the plan this is phase 3 of.
+// fetch. gl/actors.js HEAD_FRAG draws it (docs/proposals/street-figure-heads.md).
 //
 // A texel is four masks:
 //   R  shade, a multiplier on everything (1.5 x R): the sockets, the shadows under the nose and lip,

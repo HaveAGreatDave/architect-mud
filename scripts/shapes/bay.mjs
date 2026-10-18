@@ -314,6 +314,41 @@ if (!orbitA || !orbitB || !orbitA.bay.length || !orbitB.bay.length) {
   else if (d) problems.push(`orbiting the camera moved ${d.moved} of the shed's coordinates (worst ${d.worst.toFixed(3)} tiles) — a building is following the eye`);
 }
 
+// THE SERVICE CUTAWAY. With a depot's bay open on the glass (`.ds-bay.open`), the shed the rig
+// stands in loses its roof and the walls on the camera's side, so the chase camera shows the rig
+// and not the roof. Folded, it's solid again. The rig is parked in the shed here and the camera is
+// up over the eaves; the DOM stub answers null to every selector, so the bay is "opened" by
+// answering that one. Both halves are measured: a cut that never happens and a cut that sticks.
+let nSvc = 0;
+{
+  const parked = { ...BASE, map: mapWith(R), external: true, extYaw: 30, extPitch: 0.7, extZoom: 1.4 };
+  const qs = globalThis.document.querySelector;
+  const before = collect(parked, 1);
+  globalThis.document.querySelector = (sel) => (sel === '.ds-bay.open' ? {} : qs.call(globalThis.document, sel));
+  let svc;
+  try { svc = collect(parked, 1); } finally { globalThis.document.querySelector = qs; }
+  const after = collect(parked, 1);
+  // The roof as plan area: everything lying wholly above the eaves, projected onto the ground. The
+  // portal frames' rafters climb to the ridge too and stay (they're structure, and thin), so the
+  // height alone can't tell a roof from a rafter; the area can.
+  const eaves = Math.min(...before.bay.flatMap((q) => q.p.map((v) => v[2])).filter((z) => z > 0.2));
+  const roof = (L) => L.bay.reduce((sum, q) => {
+    if (q.p.some((v) => v[2] < eaves - 1e-6)) return sum;
+    let a = 0;
+    for (let i = 0; i < q.p.length; i++) { const u = q.p[i], v = q.p[(i + 1) % q.p.length]; a += u[0] * v[1] - v[0] * u[1]; }
+    return sum + Math.abs(a) / 2;
+  }, 0);
+  if (!before || !svc || !after || !before.bay.length) {
+    problems.push('the service-cutaway comparison collected nothing: it cannot see the thing it is checking');
+  } else {
+    nSvc = before.bay.length - svc.bay.length;
+    if (!(svc.bay.length < before.bay.length)) problems.push(`with the bay open the shed kept all ${before.bay.length} faces: the service cutaway took nothing off`);
+    else if (!(roof(svc) < roof(before) * 0.3)) problems.push(`with the bay open ${roof(svc).toFixed(3)} sq tiles of the shed still lie over the eaves (solid ${roof(before).toFixed(3)}): the roof is still on`);
+    if (!svc.bay.length) problems.push('with the bay open the whole shed went: only the roof and the near walls should');
+    if (after.bay.length !== before.bay.length) problems.push(`with the bay shut again the shed has ${after.bay.length} faces against ${before.bay.length}: the cutaway stuck (the shell cache key)`);
+  }
+}
+
 // THE OFF SWITCH, which has to be the frame that shipped before this layer existed — and it is also
 // the CONTROL: with the shed back on the canvas, the canvas has to be painting one. An empty GL
 // tally beside an empty canvas tally is a scene with no depot in it, not a clean frame.
@@ -347,4 +382,4 @@ if (problems.length) {
   console.error('  is simply not in the frame — no error, no warning, an empty tile where a building is.');
   process.exit(1);
 }
-console.log(`✓ bay: the depot reaches the GPU as ${on.bay.length} faces standing ${span(on.bay).toFixed(2)} tiles tall; neither orbiting the camera nor moving it within its tile shifts any of them; its ${nLegend} floor legends and ${on.sprites.length} lights reach the decal and sprite layers in the CAMERA's frame and hold still in the map window under the same nudge; glBay 0 collects none, and the canvas control still paints one.`);
+console.log(`✓ bay: the depot reaches the GPU as ${on.bay.length} faces standing ${span(on.bay).toFixed(2)} tiles tall; neither orbiting the camera nor moving it within its tile shifts any of them; its ${nLegend} floor legends and ${on.sprites.length} lights reach the decal and sprite layers in the CAMERA's frame and hold still in the map window under the same nudge; an open bay takes ${nSvc} faces (the roof and the near walls) off the shed the rig stands in and gives them back when it shuts; glBay 0 collects none, and the canvas control still paints one.`);

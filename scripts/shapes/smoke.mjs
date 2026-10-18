@@ -179,7 +179,8 @@ async function main() {
   for (const f of cliff) problems.push(`cliff  ${f}`);
   const cliffLine = `High ground: corner lattice shared exactly across 2304 tiles (worst disagreement ${cliff.worst}), `
     + `smallest warped cap ${cliff.minArea.toFixed(2)} of a tile, and a lone stack keeps all ${cliff.outLo} wall bands across ${cliff.viewpoints} viewpoints `
-    + `(${cliff.inLo} still standing from a camera inside the rock, where a backface cull leaves none).`;
+    + `(${cliff.inLo} still standing from a camera inside the rock, where a backface cull leaves none), `
+    + `and the relief face meets its neighbour on all ${cliff.joinVerts} vertices of a shared corner.`;
 
   // ── VIEW ──
   // paintWindshield itself, once per view shape. Every other gate here enters BELOW it, so its own

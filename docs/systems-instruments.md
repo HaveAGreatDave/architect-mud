@@ -10,6 +10,8 @@
 | `musicbox` | Walnut Music Box | Sentimental Value Pawn |
 | `pluck` | House Guitar | The Coyote's Rest |
 | `organ` | Reed Organ | St Garneau's |
+| `piano` | the concert grand | The Coldwater Palais, on the stage |
+| `organ` | the theatre organ | The Coldwater Palais, in the pit |
 
 Four of those were authored, tuned and placed **nowhere** for months. A voice with no furniture is a
 voice no player can reach, and nothing failed, because unreachable isn't an exception — so regress now

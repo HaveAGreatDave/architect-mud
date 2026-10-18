@@ -41,6 +41,7 @@ import { registerMoveGate } from '../../server/engine/movement-gates.js';
 import { setPosture } from '../../server/engine/posture.js';
 import { query } from '../../server/models/db.js';
 import { adjustCredits } from '../../server/engine/economy.js';
+import { noteFreshVehicle, takeFreshVehicle } from '../../server/engine/fresh-vehicle.js';
 import { randomUUID } from 'crypto';
 import { getFlag, setFlag } from '../../server/engine/flags.js';
 import { prefersTextMinigamesOrDefault, prefersLoggedPanelsOrDefault } from '../../server/engine/presentation.js';
@@ -66,7 +67,7 @@ import { rentStock, rentFee, makeRental, activeRental, reclaimRental, sweepRenta
 import { stampIfMissing, serviceSheet, hornCatalogue, hornPrice, hornOf } from './service.js';
 import { registerZoneReloadHook } from '../../server/engine/world.js';
 import { registerCellOverlay, registerFarRoads } from '../flight/state.js';
-import { worldRoadProvider, farRoadLines } from './roadnet.js';
+import { worldRoadProvider, roadsNear } from './roadnet.js';
 
 // THE RIM GATES ARE DERIVED FROM TILE POSITIONS, so an editor moving a region's tiles moves the
 // mouths of its roads — and `regionGates` memoises per region for the life of the process. Left
@@ -103,7 +104,7 @@ registerCellOverlay(worldRoadProvider());
 // pilot sees hundreds, and the corridor used to simply stop out there in open waste. This hands
 // over the geometry instead of the cells — see the ⚠ on `registerFarRoads` for why widening the
 // window was the wrong answer, and why this one may not reach `surfaceAt` either.
-registerFarRoads((x, y, radius) => farRoadLines(x, y, radius));
+registerFarRoads((x, y, radius) => roadsNear(x, y, radius));
 
 // HOW LONG A CROSSING IS, ANSWERED BY THE THING THAT BUILDS IT. voidwalking decides how many rooms
 // a limb gets, and until now it divided a real distance by the UNANCHORED per-room constant (90) —
@@ -1093,7 +1094,8 @@ async function yardRent(player, bay, depot, typeArg) {
   const fee = rentFee(type);
   if ((player.credits || 0) < fee) return say(`The ${type.name} is ${fee}₵ for the day and you have ${player.credits || 0}₵.`);
   if (!(await adjustCredits(player, -fee, undefined, 'trucking:rental'))) return say(`That's ${fee}₵ and you have ${player.credits || 0}₵.`);
-  await makeRental(player.id, type.id, bay.id, fee);
+  const hired = await makeRental(player.id, type.id, bay.id, fee);
+  noteFreshVehicle(player.id, hired?.id);
   sendToPlayer(player.id, { type: 'player_update', credits: player.credits });
   await repush(player, 'fleet');
   return say(`<span class="item-grant">Hired: the ${type.name}, for ${RENT_TERM_MS / 3600000} hours. ${fee}₵.</span>\n`
@@ -1326,6 +1328,8 @@ async function depotPanel(player, hereIn, depotIn, tab = 'fleet', forceText = fa
   const payload = {
     type: 'truck_depot',
     tab,
+    // The truck just bought or hired here, which the counter offers to seat you in (depot-shell readyHtml).
+    fresh: forceText ? null : takeFreshVehicle(player.id),
     depot: depot.name || here.name,
     region, regionName: regionLabel(region),
     credits: player.credits || 0,
@@ -1724,7 +1728,8 @@ async function yardBuy(player, here, depot, typeId, plate) {
   // It is bought INTO THE BAY, not onto the street: a truck you just paid for is inside, under a
   // roof, and `drive` is what brings it out. (The row's zone is the bay's, which is also what makes
   // the garage floor able to show it standing next to the rest of your fleet.)
-  await buyTruck(player.id, key, here.id, plate);
+  const bought = await buyTruck(player.id, key, here.id, plate);
+  noteFreshVehicle(player.id, bought?.id);
   sendToPlayer(player.id, { type: 'player_update', credits: player.credits });
   await repush(player, 'fleet');
   return say(`<span class="item-grant">Bought: the ${type.name}${plate ? `, "${plate}"` : ''}. ${type.price}₵.</span>\n`

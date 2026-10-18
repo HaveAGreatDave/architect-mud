@@ -140,7 +140,9 @@ export async function street(opts = {}) {
   const map = Array.from({ length: N }, (_, j) => Array.from({ length: N }, (_, i) => {
     const k = (x + i - R) + ',' + (y + j - R);
     const c = w.cells[k];
-    if (!c) return bare;
+    // Off the placed map a patch IS the cell: the void highway's tiles come from the server's
+    // road overlay, not the snapshot, so `cells` is the only way to stand on one here.
+    if (!c) return (patch && patch[k]) || bare;
     return (patch && patch[k]) ? { ...c, ...patch[k] } : c;
   }));
 

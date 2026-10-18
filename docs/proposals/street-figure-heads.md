@@ -1,6 +1,6 @@
 # Street figure heads in the game
 
-**Status: phases 1 to 3 built; 4 and 5 are design.** The head is a client module ([actor-head.js](../../client/game/js/panels/actor-head.js)), the bake writes the two bones it rides, and the faces are a baked atlas ([actor-faces.js](../../client/game/js/panels/actor-faces.js)). The CPhL rink draws them on its players (*The rink's heads*, below). The street's figures still draw the bake's head; the Actor Lab draws the new one with the atlas's faces.
+**Status: phases 1 to 4 built; 5 is design.** The head is a client module ([actor-head.js](../../client/game/js/panels/actor-head.js)), the bake writes the two bones it rides, the faces are a baked atlas ([actor-faces.js](../../client/game/js/panels/actor-faces.js)), and [gl/actors.js](../../client/game/js/panels/gl/actors.js) draws them on every close-up figure. The CPhL rink draws them on its players too (*The rink's heads*, below). The game's near body has no head of its own; the far body and the billboard keep theirs.
 
 The game's close-up figures ([actor3d.js](../../client/game/js/panels/actor3d.js), drawn by [gl/actors.js](../../client/game/js/panels/gl/actors.js)) have the bake's head: an 18 × 12 ellipsoid with lumps for features, on a neck as wide as its jaw. Up close it reads as a mask. The new head has a brow, a nose, lips and a chin in its profile, shaped ears, a neck narrower than the jaw, five hair styles grown off the scalp, and a face painted per person. This is the plan for bringing it to the game.
 
@@ -67,17 +67,21 @@ The eyes are in the same place in every layout, so the shader draws the white, t
 
 The layouts (`FACE_LAYOUTS`) vary age, stubble or a beard, makeup, the mouth and the brows: seven with stubble, five with beards, seven with makeup, and never a beard with makeup. A layout's age greys the hair (`faceHair`), so a young face never gets white hair from the colour pick. The order dress (Wildblood marks, an Ascendant's implant) stays in the lab.
 
-The token picks a layout, an iris colour, a lipstick and a hair style (`actorFace`), exactly as it picks an outfit, from `rand(k)` slots 13 to 16, clear of the outfit's and of the ones `windshield.js` hashes. The colouring is one GLSL function, `FACE_GLSL`, which the lab's head shader includes now and the game's will in phase 4.
+The token picks a layout, an iris colour, a lipstick and a hair style (`actorFace`), exactly as it picks an outfit, from `rand(k)` slots 13 to 16, clear of the outfit's and of the ones `windshield.js` hashes. The colouring is one GLSL function, `FACE_GLSL`, which the lab's head shader and the game's (`HEAD_FRAG` in gl/actors.js) both include.
 
 The painter ([tools/modelshop/face-masks.mjs](../../tools/modelshop/face-masks.mjs)) is the lab's `paintFace` step for step, each colour turned into the mask it comes from. It's plain JS over arrays rather than a 2D canvas: the bake runs in Node, so the gate can rebuild the atlas and compare it, and a canvas stores premultiplied colour, which can't carry four independent masks through an alpha channel. It paints the whole atlas in about 2 seconds. `npm run actors:faces` re-bakes it; the lab's "faces" switch shows the atlas or the canvas paint.
 
-### 4. Drawing it
+### 4. Drawing it (built)
 
-A second program in gl/actors.js, sharing the instance stream: about six more floats an instance (layout, hair style, iris colour, flags). One instanced draw per level for heads, and one per level and hair style for hair, so at most 18 small draws, usually a handful. The bone texture and the atlas take units 22 and 23, which nothing binds now (fauna has 7, the murmuration and clouds 8 to 17, actors 20 and 21, cloth 24 and 25). The lighting is the actor shader's, not the lab's: the key, sky over ground, rim, the city's lights (`uWL*`), the night dim (`uDim`), fog and the linear output. The mirror prepass gets heads for free, because it calls the same `draw()`.
+A second program in gl/actors.js (`HEAD_VERT`, `HEAD_FRAG`) with its own instance stream, 31 floats a head: position and scale, both clips as the body has them, skin, hair, lips, lipstick and iris, brightness and alpha, and the layout with the hair style packed into one float. The instances are sorted by level and then hair style, so a level's skulls are one instanced draw and each style's hair another: at most 18 draws, usually a handful. WebGL2 has no base instance, so each draw re-points the instance attributes at its first record. The bones take unit 22 and the atlas 23. The lighting is the actor shader's, not the lab's: the key, sky over ground, rim, the city's lights (`uWL*`), the night dim (`uDim`), the paint-not-light cap, fog and the linear output. The mirror prepass gets heads for free, because it calls the same `draw()`.
+
+The face comes off the outfit: `actorOutfit` calls `actorFace` with the same `rand`, and puts the pick, its layout's makeup and the lips' colour on `o.face`. The layout's age greys `o.hair` itself, so the far body's hair matches the head's. A record carries `hl`, its head level, which `pushActorMesh` picks off the pixel height it already works out. Until the atlas has loaded, a one-texel stand-in draws plain skin.
+
+The game bakes the near body with `buildBody(0, false)`: no neck, head, hair, eyes, brows, nose, lips or ears. Its `top` is measured off the old head's points riding the head bone, so it's the old number to the micron and nobody changes height. `actorBake({ head: true })` still bakes the old head on, for the Actor Lab, which finds its parts in it, and for the gate, which measures the bones against it.
 
 ### 5. The body around it
 
-The shoulders are done: the coat's top slopes down from the neck instead of running out flat (the `yoke` shape in `buildBody`), and each sleeve starts in a closed cap that rounds over the shoulder instead of an open ring standing on it. The lab used to fake the slope in its vertex shader; it's geometry now, at both lods. What's left is `buildBody` at lod 0 dropping its head pieces, in the same change that draws the new head.
+The shoulders are done: the coat's top slopes down from the neck instead of running out flat (the `yoke` shape in `buildBody`), and each sleeve starts in a closed cap that rounds over the shoulder instead of an open ring standing on it. The lab used to fake the slope in its vertex shader; it's geometry now, at both lods. `buildBody` at lod 0 dropped its head pieces in the change that draws the new head (section 4).
 
 ## What it costs
 
@@ -105,10 +109,10 @@ What it settled that phase 4 can use:
 | 1 ✅ | The head generator is a pure client module with three levels; the lab imports it from there | [scripts/shapes/actor-head.mjs](../../scripts/shapes/actor-head.mjs): vertex budget per level, skull and ears closed and wound outward, the neck's top inside the skull, the ears attached, no slivers, the nose off the face, no hair below the hairline |
 | 2 ✅ | The bake writes head and neck matrices per frame (`bk.bones`) | the same gate: the matrices are rigid and put the bake's own head and neck vertices where the bake has them (to 0.2 µm); on every other frame of all eight clips the new neck's foot stays inside the collar and the head stays out of the coat |
 | 3 ✅ | The painter paints masks; `npm run actors:faces` bakes the atlas PNGs; the token picks a face | [scripts/shapes/actor-faces.mjs](../../scripts/shapes/actor-faces.mjs): the committed PNGs are what the painter makes, pixel for pixel; atlas size and mip alignment; both eyes, the lips and the brows on every face, a beard on the bearded and none on the rest; no eye or lip near a cell's edge; the same token always gets the same face, realistic tokens reach every layout, and the pick carries nothing but the face |
-| 4 | The head program in gl/actors.js, levels by pixel height; drop the near body's head pieces | `shapes:smoke`; `__glActors()` with the mesh on and off, from the cab and the standing camera; no record carries a token or an id |
+| 4 ✅ | The head program in gl/actors.js, levels by pixel height; drop the near body's head pieces | `shapes:smoke`; `__glActors()` with the mesh on and off, from the cab and the standing camera (its `fov` and `pitch` options zoom in on a face); [actor-head.mjs](../../scripts/shapes/actor-head.mjs): the game's bake has the same bones and height as the head-on one, and no hair, eyes or lips; [actors.mjs](../../scripts/shapes/actors.mjs): every close-up record has a head level and a face, and no record carries a token or an id |
 | 5 | Docs, and the far body checked against the near one | the far body still stands within 0.03 m of the near one |
 
-Phases 1 to 3 change nothing a player sees: the matrices and the atlas sit unused until phase 4 draws with them. The body's head pieces come out in the same change that draws the new head, never before. The shoulder change in phase 5 went in early, with phase 2, and players do see that.
+Phases 1 to 3 changed nothing a player sees: the matrices and the atlas sat unused until phase 4 drew with them. The body's head pieces came out in the same change that draws the new head. The shoulder change in phase 5 went in early, with phase 2, and players do see that.
 
 ## Left out
 

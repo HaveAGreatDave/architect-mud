@@ -1379,7 +1379,7 @@ export const WATERFRONT_ARMS = {
     }
     if (night) { const [wx, wy] = F(0, fh * 1.02); glowPool(ctx, cam, wx, wy, h * 0.18, '255,200,140', 10, alpha * 0.22); }
   },
-  // ══ MOOR OR LESS, at the head of Ironside Street ═════════════════════════════════════════
+  // ══ THE EASTERN MARINA, at the head of Ironside Street ═════════════════════════════════════
   // The cheap boatyard at the east end of the waterfront, and the opposite answer to Fairweather
   // on every point: tarred timber and galvanised tin rather than chrome and glass, a lamp on a pole
   // rather than light from inside, and a man in the shed rather than nobody. Keel built a hull for
@@ -1387,7 +1387,7 @@ export const WATERFRONT_ARMS = {
   // built himself when he finally moved her down to it.
   boatshed(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {
     // ⚠ THE WATER IS ON THE SHED'S LEFT, SEEN FROM THE STREET (local -x), AND THAT IS THIS TILE'S
-    // FACT RATHER THAN THE TYPE'S. Moor or Less faces west onto Ironside Hard and its wet slot is
+    // FACT RATHER THAN THE TYPE'S. The Eastern Marina faces west onto Ironside Hard and its wet slot is
     // the water tile to the north (zone_hulls_shop's `north` exit, which `coveredSlot` in
     // plugins/powerboat/yard.js reads). An arm is handed E and nothing else about its tile, so a
     // second boat shed must be sited with its water on the same hand or it needs an arm of its own.
@@ -1418,7 +1418,7 @@ export const WATERFRONT_ARMS = {
     //    just inside this door, so this is the shop front, and it looks like a shed.
     const GY = HY + fh * 0.004;
     if (frontVis) {
-      const tex = bakeSignText((name || 'MOOR OR LESS').toUpperCase(), '#e9e5d8', 0, false, true, true, { font: 'block' });
+      const tex = bakeSignText((name || 'EASTERN MARINA').toUpperCase(), '#e9e5d8', 0, false, true, true, { font: 'block' });
       const z0 = TOP - h * 0.24, z1 = TOP - h * 0.06, x0 = -HX * 0.86, x1 = HX * 0.86;
       const q = [[x0, z1], [x1, z1], [x1, z0], [x0, z0]].map(([u, z]) => { const [wx, wy] = F(u, GY + FACE_EPS); return cam.proj(wx, wy, z); });
       if (tex && q.every((p) => p.f > 0.12)) emitSurfaceText(ctx, cam, q, tex, false, alpha * 0.92, DETAIL_LIFT * 2, false, DETAIL_LIFT * 2.5);

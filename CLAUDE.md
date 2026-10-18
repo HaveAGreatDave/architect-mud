@@ -80,6 +80,9 @@ Entries marked **(as built)** describe what actually ships and outrank design in
 - [docs/proposals/halcyon-fields-infill.md](docs/proposals/halcyon-fields-infill.md): Halcyon Fields streets and 42 buildings (as built). A door's direction is fixed by `flags.entrance`
 - [docs/proposals/slush-fund.md](docs/proposals/slush-fund.md): the CPhL's own barn on the old South Gate ground (as built). Six tiles and one door; the five sealed tiles take no map code, and the general hockey `chatter` pool describes its rooms
 - [docs/proposals/moor-or-less.md](docs/proposals/moor-or-less.md): the cheap boatyard at the head of Ironside Street and Ring Fenced, the gym that replaced Hulls Angels (as built). The east shore past column 927 is outside the Curtain; a flat is never behind a camera test
+- [docs/proposals/marrow-midrises.md](docs/proposals/marrow-midrises.md): Kestrel Court and Marrow House in Solenne's glass, Corbett Mansions and Mixed Bag on Lever Lane, and The Slip at the old weigh-house (as built). Unit 4 moved to 916,910 and kept its id, so a storefront deed follows it. A `balcony` or `fireEscape` on a back face projected into the building until this build
+- [docs/proposals/batter-days.md](docs/proposals/batter-days.md): Batter Days Fish & Chips, the chippy that replaced Tine & Temper on Ironside Street (as built). A shop's name is a pun followed by its trade; the city's only public smoker and charcoal grill are in its prep room
+- [docs/proposals/coldwater-palais.md](docs/proposals/coldwater-palais.md): the Coldwater Palais, a three-tile music hall on Meltwater Row (as built). Laid out like the airport terminal; the middle tile is a doorless building walled by blocked connections, and the GLASS model lives in `PAL` constants, never `fh`/`h`
 - [docs/zone-redesign-2026-07.md](docs/zone-redesign-2026-07.md): why zone fields have the shape they do
 - [docs/lore-wildblood.md](docs/lore-wildblood.md): Wildblood canon, read before writing mutants or the Under. The Under was theirs first
 - [docs/systems-wildlands.md](docs/systems-wildlands.md): the Curtain and the Wildlands. Map and wall built; systems are design; its camp section is superseded by the Scarletwastes
@@ -102,6 +105,7 @@ Entries marked **(as built)** describe what actually ships and outrank design in
 - [docs/systems-corps.md](docs/systems-corps.md): corps, influence and power levers (Phases 0–3 built; espionage and NPC AI are design)
 - [docs/systems-flight.md](docs/systems-flight.md): aircraft, airfields, hazards, contracts, air combat, hangars. `registerCellOverlay` is render-only and must never feed `surfaceAt`
 - [docs/systems-helm.md](docs/systems-helm.md): the Echelon helm chase view and `echelon_bridge` verbs
+- [docs/reference/depot-shell.md](docs/reference/depot-shell.md): the depot standard every owned vehicle's depot meets (a room you walk into, a counter of cards that seat you, a bay overlay in the seat, buy/hire/sell/service, the log rung) and the shared shell it is built on. A new vehicle meets it
 - [docs/systems-trucking.md](docs/systems-trucking.md): driving the void highway (as built). The server derives the odometer from reported position; never trust a client distance
 - [docs/systems-broadcast.md](docs/systems-broadcast.md): channels, VINE scripts, hosts, camera feeds, show modes, the two sports
 - [docs/systems-surveillance.md](docs/systems-surveillance.md): SPECTER spy networks and the wanted system
@@ -122,6 +126,7 @@ Entries marked **(as built)** describe what actually ships and outrank design in
 - [docs/systems-instruments.md](docs/systems-instruments.md): playable instruments (as built). Notes use the `instrument_note` route, not dispatch
 - [docs/systems-procedural-audio.md](docs/systems-procedural-audio.md): generated sound: parameters+seed wire format, material tables, the `sfxDetail` tiers (as built)
 - [docs/systems-hockey-sound.md](docs/systems-hockey-sound.md): the CPhL's NHL '96-style FM soundset, its event table and crowd bed (as built). Avoid FM ratios 1 and 0.5 on anything that lasts: they put a sideband at 0 Hz
+- [docs/systems-deadball-sound.md](docs/systems-deadball-sound.md): the Grandstand's ballpark sound (as built): the bank, the mixer that hears the live world, the mix under the booth and the `scene` voices. Never `setRoom()` for a broadcast; the viewer's room is the room
 - [docs/systems-senses.md](docs/systems-senses.md): smell/listen/sight hooks and their in-memory-only contract (as built)
 - [docs/systems-durability.md](docs/systems-durability.md): item wear and repair (as built). `wear()` is sync; zero condition destroys the item
 - [docs/systems-ascension.md](docs/systems-ascension.md): the Ascendant defection arc and the Long Watch mirror (as built). The Rite must refuse a wanted player

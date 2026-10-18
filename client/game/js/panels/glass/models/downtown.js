@@ -14,10 +14,11 @@ import {
   drawGargoyle, drawRing, drawSmoke, dutyPhase, emitDecoFill, emitFace, emitFlat, emitLightRunner,
   emitRecessBay, emitSurfaceText, emitWire, facePals, facePt, faceYaw, frac, glowPool, helideck,
   hoistLine, keptOnCanvas, latticeTower, litStyle, markHidden, marqueeBand, mast, motionOn, motionPhase,
-  moveSeg, movingBox, mullions, neonBlade, reserveSignBand, rgb, roofClutter, roofCross, shadeOf,
+  moveSeg, movingBox, mullions, nearOrMesh, neonBlade, reserveSignBand, rgb, roofClutter, roofCross, shadeOf,
   SIGN_PICTO, slideToPlane, wallBadge, wallDisc, wallRose,
 } from '../../windshield.js';
 import { state } from '../../../state.js';
+import { drawEntrance } from '../entrance.js';
 
 // A halo-lit nameplate: a rim of light round the plate on the plane just behind its face, which
 // is what a plate stood off the stone and lit from behind throws onto the wall. In daylight the
@@ -519,6 +520,169 @@ function haloSealTex(night) {
   c._lit = k;
   _seal[k] = c;
   return c;
+}
+
+// ── THE COLDWATER PALAIS: THREE TILES, ONE BUILDING ────────────────────────────────────────────
+// A music hall from the Meridian's decade on Meltwater Row, and one somebody has kept up. All three
+// tiles face north onto the street: the box office foyer on the west (`palais_foyer`), the
+// auditorium and its stage house in the middle (`palais_stage`), the bar foyer on the east
+// (`palais_bar`). The foyers are the Meridian's own limestone and windows over a blind stone ground
+// floor, each with a drum on its outer corner and its door toward the middle. The middle is a blind
+// stone house behind a stepped frontispiece, with the blade standing off it and the marquee across
+// its foot, and the stage house rising behind it over Fisherman's Green.
+//
+// ⚠ IT IS BUILT THE WAY THE TERMINAL IS (see TERM), AND FOR TERM'S REASON: the whole building is in
+// constants, never fh and h. Both are rolled per tile, so three tiles sized off their own rolls are
+// three buildings with three cornice heights and a dark slot between each.
+// ⚠ `X` IS THE BUILDING'S OWN AXIS ALONG THE STREET. 0 is the middle of the stage tile and +X is
+// local +x on all three tiles, which on these north-facing tiles is WEST. A tile's centre is at
+// X = off (1 for the foyer, 0 for the stage, −1 for the bar), so a part at X lands at lx = X − off.
+// ⚠ EVERY BOX THAT ISN'T SQUARE TAKES `yaw` AND `fd`. Without them a long box keeps its long side
+// north–south whichever way the tile faces, and gl:mesh fails a model whose extent changes with
+// its facing (the terminal's note).
+// ⚠ NO FACE HERE EXISTS BY NIGHT ONLY. The night mesh is paired to the day one face for face
+// (gl/world.js), so the glass, the posters and the marquee's panel are always emitted and only
+// their colour follows the hour. Strokes and glows aren't mesh and may come and go.
+const PAL = {
+  front: 0.30,                                            // the wall plane on the street; the pavement runs on to the plot line
+  // the foyers
+  wHW: 0.42, wBack: -0.36, podium: 0.20, course: 0.215, wTop: 0.56, cornice: 0.585, atticTop: 0.63, atticHW: 0.34,
+  drumX: 0.34, drumY: 0.19, drumR: 0.11, drumTop: 0.70,
+  doorX: 0.10, doorW: 0.075, doorTop: 0.15,              // the door stands doorX in from the foyer's centre, toward the stage
+  // the auditorium, its frontispiece and the stage house behind it
+  aBack: -0.08, aTop: 0.62,
+  fHW: 0.17, fBack: 0.24, fFront: 0.34, fTop: 0.84,
+  tHW: 0.32, tFront: -0.06, tBack: -0.42, tTop: 1.04,
+  // the blade, standing off the frontispiece on the centre line
+  bladeT: 0.012, bladeOut: 0.13, bladeZ0: 0.32, bladeZ1: 1.0,
+  // the marquee across the stage tile's foot
+  mHW: 0.40, mFront: 0.47, mZ0: 0.21, mZ1: 0.27,
+};
+const PAL_STONE = 'ty_palais_stone', PAL_TRIM = 'ty_archive_col', PAL_BRONZE = 'ty_meridian_bronze', PAL_COPPER = 'ty_verdigris';
+const PAL_PINK = '255,122,184';   // the blade's tube and the drums' top ring: the punctuation, and nothing else on it is pink
+// The tile's kit: boxes, faces and points placed on the building's own X (see PAL).
+function palaisKit(ctx, cam, F, W3, E, off, seed, night, alpha) {
+  const yaw = faceYaw(E), dn = night ? clamp(+night, 0, 1) : 0;
+  const B = (X, y, hw, fd, z0, z1, p, s, roof = true) => {
+    const [bx, by] = F(X - off, y);
+    draw3DBoxAt(ctx, cam, bx, by, hw, z0, z1, p, seed + s, night, alpha, roof, yaw, fd);
+  };
+  const P = (X, y, z) => [X - off, y, z];
+  // A face that holds `day` by day and `lit` after dark: glass, a poster, the marquee's panel.
+  const glow = (pts, out, day, lit) => flatOut(ctx, cam, W3, pts.map(([X, y, z]) => P(X, y, z)), out,
+    rgb([0, 1, 2].map((i) => day[i] + (lit[i] - day[i]) * dn)), alpha);
+  // A painted face that takes the dusk with the stone round it: a frame, a door, a ground.
+  const paint = (pts, out, c) => flatOut(ctx, cam, W3, pts.map(([X, y, z]) => P(X, y, z)), out,
+    rgb(c.map((v) => v * (1 - 0.55 * dn))), alpha);
+  const at = (X, y) => F(X - off, y);
+  return { yaw, dn, B, P, glow, paint, at };
+}
+// A lit poster case: a bronze frame, the bill, a pink title band and two lines of print. On the
+// face plane `y`, facing the street.
+function palaisPoster(k, X, y, hw, z0, z1) {
+  const out = [0, 1, 0], f = 0.008;
+  k.paint([[X - hw - f, y, z1 + f], [X + hw + f, y, z1 + f], [X + hw + f, y, z0 - f], [X - hw - f, y, z0 - f]], out, [96, 70, 42]);
+  k.glow([[X - hw, y + 0.001, z1], [X + hw, y + 0.001, z1], [X + hw, y + 0.001, z0], [X - hw, y + 0.001, z0]], out, [214, 204, 178], [255, 238, 206]);
+  const band = (za, zb, day, lit) => k.glow([[X - hw * 0.8, y + 0.002, zb], [X + hw * 0.8, y + 0.002, zb], [X + hw * 0.8, y + 0.002, za], [X - hw * 0.8, y + 0.002, za]], out, day, lit);
+  const H = z1 - z0;
+  band(z0 + H * 0.70, z0 + H * 0.88, [176, 62, 112], [255, 110, 170]);
+  band(z0 + H * 0.46, z0 + H * 0.54, [60, 48, 40], [92, 70, 52]);
+  band(z0 + H * 0.28, z0 + H * 0.34, [60, 48, 40], [92, 70, 52]);
+}
+// ONE FOYER. `off` is the tile's centre on X and also which way is out: +1 the box office on the
+// west, −1 the bar on the east. Everything toward the stage is at −off.
+function palaisFoyer(ctx, cam, F, W3, E, m, seed, night, alpha, now, frontVis, off) {
+  const k = palaisKit(ctx, cam, F, W3, E, off, seed, night, alpha), { B, dn } = k;
+  const out = off, mid = -off;                        // + is away from the stage, − toward it
+  const cy = (PAL.front + PAL.wBack) / 2, fd = (PAL.front - PAL.wBack) / 2;
+  const ledge = facePals(E, { side: PAL_TRIM, roof: PAL_COPPER });
+  // 1) THE MASS: a blind stone ground floor, a string course, two floors of the Meridian's own
+  //    limestone and windows, a cornice flashed in copper, and a set-back attic over that.
+  B(off, cy, PAL.wHW, fd, 0, PAL.podium, PAL_STONE, 1);
+  B(off, cy, PAL.wHW + 0.01, fd + 0.01, PAL.podium, PAL.course, PAL_TRIM, 2);
+  B(off, cy, PAL.wHW, fd, PAL.course, PAL.wTop, 'ty_meridian', 3);
+  B(off, cy, PAL.wHW + 0.015, fd + 0.015, PAL.wTop, PAL.cornice, ledge, 4);
+  B(off, cy, PAL.atticHW, fd - 0.06, PAL.cornice, PAL.atticTop, facePals(E, { side: PAL_STONE, roof: PAL_COPPER }), 5);
+  // 2) THE JOINT to the stage tile: the ground floor and the cornice run on to the tile edge, so the
+  //    front is one elevation from drum to drum and the seam is a shadow line.
+  { const jx = off + mid * (PAL.wHW + 0.5) / 2, jw = (0.5 - PAL.wHW) / 2;
+    B(jx, cy, jw, fd, 0, PAL.wTop, PAL_STONE, 6);
+    B(jx, cy, jw, fd + 0.015, PAL.wTop, PAL.cornice, ledge, 7); }
+  // 3) THE DRUM on the outer corner: a stone stair tower standing half out of the block, bronze
+  //    speed lines round it, and a copper cap. The top line is a pink tube after dark.
+  const [rx, ry] = k.at(off + out * PAL.drumX, PAL.drumY), R = PAL.drumR, SC = WALL_COL[PAL_STONE], CU = WALL_COL[PAL_COPPER];
+  const shade = (c, k0) => (f) => { const s = (k0 + ((f && f.nl) || 0) * 0.4) * (1 - 0.5 * dn); return `rgb(${c[0] * s | 0},${c[1] * s | 0},${c[2] * s | 0})`; };
+  drawFacetDrum(ctx, cam, rx, ry, 0, PAL.drumTop, R, R, 16, alpha, shade(SC, 0.66), null, PAL_STONE);
+  drawFacetDrum(ctx, cam, rx, ry, PAL.drumTop, PAL.drumTop + 0.02, R + 0.008, R + 0.008, 16, alpha, shade(WALL_COL[PAL_TRIM], 0.7), null, PAL_TRIM);
+  drawFacetDrum(ctx, cam, rx, ry, PAL.drumTop + 0.02, PAL.drumTop + 0.07, R * 0.92, R * 0.35, 16, alpha, shade(CU, 0.72), shade(CU, 0.9), PAL_COPPER);
+  draw3DBoxAt(ctx, cam, rx, ry, 0.008, PAL.drumTop + 0.07, PAL.drumTop + 0.12, PAL_BRONZE, seed + 8, night, alpha, false);   // the finial
+  // ⚠ ONLY THE ARC OUTSIDE THE BLOCK. The drum stands half inside the foyer, so a whole ring put its
+  //    back half inside the stone, and every point of it came out in front of the wall once the
+  //    stroke was pulled toward the eye (glself, 18 points a foyer). `ring` drops each segment with
+  //    an end inside the block's footprint.
+  const inBlock = (lx, ly) => Math.abs(lx) <= PAL.wHW + 0.015 && ly <= PAL.front + 0.01 && ly >= PAL.wBack;
+  const ring = (z, r, css, lw) => {
+    const N = 24, cx = out * PAL.drumX, cyy = PAL.drumY;
+    for (let i = 0; i < N; i++) {
+      const a0 = i / N * 6.2832, a1 = (i + 1) / N * 6.2832;
+      const p0 = [cx + Math.cos(a0) * r, cyy + Math.sin(a0) * r], p1 = [cx + Math.cos(a1) * r, cyy + Math.sin(a1) * r];
+      if (inBlock(...p0) || inBlock(...p1)) continue;
+      const A = W3(p0[0], p0[1], z), Bw = W3(p1[0], p1[1], z);
+      const away = (q) => (q[0] - rx) * (q[0] - (cam.ex || 0)) + (q[1] - ry) * (q[1] - (cam.ey || 0)) >= 0;   // frontRing's test
+      if (away(A) || away(Bw)) continue;
+      emitWire(ctx, cam, A, Bw, lw, css, alpha, { pull: DECO_PULL });
+    }
+  };
+  const ringBronze = `rgba(${96 * (1 - 0.5 * dn) | 0},${70 * (1 - 0.5 * dn) | 0},${42 * (1 - 0.5 * dn) | 0},0.95)`;
+  for (const z of [0.30, 0.38, 0.46]) ring(z, R + 0.003, ringBronze, 2);
+  if (dn > 0.3) {
+    ring(0.54, R + 0.004, `rgba(${PAL_PINK},0.95)`, 2.2);
+    glowPool(ctx, cam, rx, ry, 0.54, PAL_PINK, 10, alpha * 0.32 * dn, { air: true });
+  }
+  // 4) THE DOOR, toward the stage: double bronze doors in a stone frame, the transom lettered with
+  //    what's through them (`m.door`), and a bronze canopy with a lit lip. A side light either side.
+  const dx0 = off + mid * PAL.doorX;
+  drawEntrance(ctx, cam, F, W3, E, seed + 20, night, alpha, {
+    x: dx0 - off, y: PAL.front, w: PAL.doorW, top: PAL.doorTop, leaves: 2, frameW: 0.012, depth: 0.01,
+    frame: [118, 86, 52], lobby: { day: [70, 56, 40], night: [255, 214, 160] },
+    transom: { hh: 0.014, day: [64, 52, 38], night: [255, 230, 186], label: m.door, ink: '#2a1c10', font: 'deco' },
+    canopy: { out: 0.13, half: 0.15, hh: 0.006, pal: PAL_BRONZE, strip: '255,226,180' },
+    lamp: '255,214,160', frontVis });
+  for (const s of [-1, 1]) {
+    const X = dx0 + s * 0.16, y = PAL.front + 0.003;
+    k.paint([[X - 0.04, y, 0.165], [X + 0.04, y, 0.165], [X + 0.04, y, 0.025], [X - 0.04, y, 0.025]], [0, 1, 0], [96, 70, 42]);
+    k.glow([[X - 0.032, y + 0.001, 0.157], [X + 0.032, y + 0.001, 0.157], [X + 0.032, y + 0.001, 0.033], [X - 0.032, y + 0.001, 0.033]], [0, 1, 0], [58, 66, 72], [255, 216, 168]);
+  }
+  // 5) A pier either side of the door bay up the two upper floors, standing through the cornice
+  //    with a stepped capital: the deco vertical, and the frame the foyer's windows sit in.
+  for (const s of [-1, 1]) {
+    const X = dx0 + s * 0.24;
+    B(X, PAL.front + 0.012, 0.018, 0.016, PAL.course, PAL.cornice + 0.03, PAL_TRIM, 30 + s);
+    B(X, PAL.front + 0.012, 0.010, 0.010, PAL.cornice + 0.03, PAL.cornice + 0.055, PAL_TRIM, 32 + s);
+  }
+  // 6) Night: the foyer through its doors, the stone washed from below, the lit windows above.
+  if (dn > 0) {
+    const [gx, gy] = k.at(dx0, PAL.front + 0.06);
+    glowPool(ctx, cam, gx, gy, 0.08, '255,206,150', 12, alpha * 0.40 * dn);
+    // The flood up the stone, a lamp rather than a halo for the stage tile's reason (see its step 7).
+    const [wx, wy] = k.at(off, PAL.front + 0.06);
+    glowPool(ctx, cam, wx, wy, 0.32, '255,214,160', 18, alpha * 0.34 * dn);
+  }
+}
+// The blade's lettering on one of its two faces, `s` = ±1 along X. Letters only the face turned to
+// the eye, with the corners ordered by screen x so neither face reads mirrored (neonBlade's ⚠).
+function palaisBladeText(ctx, cam, k, s, label, dn, alpha) {
+  const X = s * (PAL.bladeT + 0.002), y0 = PAL.fFront + 0.012, y1 = PAL.fFront + PAL.bladeOut - 0.012;
+  const z0 = PAL.bladeZ0 + 0.04, z1 = PAL.bladeZ1 - 0.04;
+  const [cx, cy] = k.at(X, (y0 + y1) / 2), [nx, ny] = k.at(X + s, (y0 + y1) / 2);
+  const ox = nx - cx, oy = ny - cy;
+  if (ox * ((cam.ex || 0) - cx) + oy * ((cam.ey || 0) - cy) <= 0) return;
+  const pj = (y, z) => { const [wx, wy] = k.at(X, y); return cam.proj(wx, wy, z); };
+  const a = pj(y0, z1), b = pj(y1, z1), c = pj(y1, z0), d = pj(y0, z0);
+  if (![a, b, c, d].every((p) => p.f > 0.12)) return;
+  const sw = a.sx > b.sx;
+  const tex = bakeSignText(label, dn > 0.3 ? '#ff7ab8' : '#e8c878', dn > 0.3 ? 1 : 0, true, true, true, { font: 'deco' });
+  if (tex) emitSurfaceText(ctx, cam, sw ? [b, a, d, c] : [a, b, c, d], tex, true, alpha, DETAIL_LIFT * 2, false, DETAIL_LIFT * 2.5);
 }
 
 export const DOWNTOWN_ARMS = {
@@ -2933,6 +3097,122 @@ export const DOWNTOWN_ARMS = {
     // 3. The fascia.
     if (frontVis) fasciaLettering(ctx, cam, F, 'DEPARTURES', night, alpha);
   },
+  palais_foyer(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // THE COLDWATER PALAIS, the box office foyer: the west
+    //                   third of the music hall. See PAL; the bar is the mirror of this on the east.
+    palaisFoyer(ctx, cam, F, W3, E, m, seed, night, alpha, now, frontVis, 1);
+  },
+  palais_bar(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // THE COLDWATER PALAIS, the bar foyer: the east third.
+    palaisFoyer(ctx, cam, F, W3, E, m, seed, night, alpha, now, frontVis, -1);
+  },
+  palais_stage(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // THE COLDWATER PALAIS, the middle third: the auditorium,
+    //                   the stage house behind it, and the front that says what the building is: a
+    //                   stepped frontispiece, the blade, and the marquee across its foot.
+    const k = palaisKit(ctx, cam, F, W3, E, 0, seed, night, alpha), { B, dn } = k;
+    const roofed = (side) => facePals(E, { side, roof: PAL_COPPER });
+    // 1) THE AUDITORIUM: a blind stone house the full width of the tile, so it meets both foyers'
+    //    joints at the tile edges. Two boxes, because a box is never wider than 0.44.
+    { const cy = (PAL.front + PAL.aBack) / 2, fd = (PAL.front - PAL.aBack) / 2;
+      for (const s of [-1, 1]) {
+        B(s * 0.25, cy, 0.25, fd, 0, PAL.aTop, roofed(PAL_STONE), 1 + s);
+        B(s * 0.25, cy, 0.25, fd + 0.012, PAL.aTop, PAL.aTop + 0.025, roofed(PAL_TRIM), 4 + s);
+        // Three speed lines across the blind front either side of the bay, the drums' rings carried
+        // over, so the wall between the marquee and the cornice is stone that was dressed rather than
+        // stone that was left.
+        for (const z of [0.40, 0.46, 0.52]) B(s * (PAL.fHW + 0.5) / 2, PAL.front + 0.004, (0.5 - PAL.fHW) / 2, 0.006, z, z + 0.012, PAL_TRIM, 12 + s);
+      } }
+    // 2) THE STAGE HOUSE over the back of the plot, a storey and a half over the house: the thing
+    //    that says theatre from the air and from the park. Copper on its cap, and a smoke vent on top,
+    //    because a stage with a fly tower over it has to be able to let a fire out through the roof.
+    { const cy = (PAL.tFront + PAL.tBack) / 2, fd = (PAL.tFront - PAL.tBack) / 2;
+      B(0, cy, PAL.tHW, fd, 0, PAL.tTop, PAL_STONE, 7);
+      B(0, cy, PAL.tHW + 0.015, fd + 0.015, PAL.tTop, PAL.tTop + 0.025, roofed(PAL_TRIM), 8);
+      B(0, cy, 0.05, 0.05, PAL.tTop + 0.025, PAL.tTop + 0.075, roofed(PAL_COPPER), 9);
+      // The scene dock either side of it, low, filling the corners behind the house out to the foyers.
+      for (const s of [-1, 1]) B(s * 0.41, cy + 0.01, 0.09, fd - 0.01, 0, 0.34, roofed(PAL_STONE), 10 + s);
+      // Piers up the back and the flanks, standing through the cap with a step at the top.
+      [-0.24, -0.10, 0.10, 0.24].forEach((X, i) => {
+        B(X, PAL.tBack - 0.012, 0.02, 0.014, 0.30, PAL.tTop + 0.04, PAL_TRIM, 20 + i);
+        B(X, PAL.tBack - 0.012, 0.011, 0.008, PAL.tTop + 0.04, PAL.tTop + 0.065, PAL_TRIM, 24 + i);
+      });
+      for (const s of [-1, 1]) for (const y of [-0.16, -0.32]) B(s * (PAL.tHW + 0.012), y, 0.014, 0.02, 0.36, PAL.tTop + 0.04, PAL_TRIM, 30 + s + (y < -0.2 ? 3 : 0));
+      // The dock door over the park, steel and shut, with a lamp over it.
+      { const y = PAL.tBack - 0.003, out = [0, -1, 0];
+        k.paint([[0.09, y, 0.25], [-0.09, y, 0.25], [-0.09, y, 0.004], [0.09, y, 0.004]], out, [74, 72, 66]);
+        for (let i = 1; i < 6; i++) { const z = 0.004 + 0.246 * i / 6; k.paint([[0.085, y - 0.001, z + 0.003], [-0.085, y - 0.001, z + 0.003], [-0.085, y - 0.001, z - 0.003], [0.085, y - 0.001, z - 0.003]], out, [52, 50, 46]); }
+        if (dn > 0) { const [lx, ly] = k.at(0, y - 0.04); glowPool(ctx, cam, lx, ly, 0.27, '255,214,160', 9, alpha * 0.4 * dn); } } }
+    // 3) THE FRONTISPIECE: a stone bay standing out of the house on the centre line, its top stepped
+    //    back three times, and fins up its face that rise past the parapet in step with the crown.
+    { const cy = (PAL.fFront + PAL.fBack) / 2, fd = (PAL.fFront - PAL.fBack) / 2;
+      B(0, cy, PAL.fHW, fd, 0, PAL.fTop, roofed(PAL_STONE), 40);
+      [[0.13, 0.04], [0.09, 0.04], [0.05, 0.03]].reduce((z, [hw, dz], i) => {
+        B(0, cy, hw, fd - 0.01 * (i + 1), z, z + dz, roofed(i === 2 ? PAL_COPPER : PAL_STONE), 41 + i); return z + dz; }, PAL.fTop);
+      [[0.045, 0.94], [0.105, 0.89], [0.165, 0.86]].forEach(([X, top], i) => {
+        for (const s of [-1, 1]) B(s * X, PAL.fFront + 0.008, 0.012, 0.012, 0.30, top, PAL_TRIM, 45 + i * 2 + (s > 0));
+      });
+      // The glass between the fins: the circle stair, lit warm after dark.
+      for (const s of [-1, 1]) for (const [a, b] of [[0.057, 0.093], [0.117, 0.153]]) {
+        k.glow([[s * a, PAL.fFront + 0.002, 0.78], [s * b, PAL.fFront + 0.002, 0.78], [s * b, PAL.fFront + 0.002, 0.33], [s * a, PAL.fFront + 0.002, 0.33]],
+          [0, 1, 0], [70, 86, 96], [255, 228, 176]);
+      } }
+    // 4) THE BLADE on the centre line: bronze, standing off the frontispiece over the street, its top
+    //    stepped like the bay behind it, and the name down both faces. It is the one place the
+    //    building says what it's called. Pink tube up its leading edge after dark.
+    { const cy = PAL.fFront + PAL.bladeOut / 2, fd = PAL.bladeOut / 2;
+      B(0, cy, PAL.bladeT, fd, PAL.bladeZ0, PAL.bladeZ1, PAL_BRONZE, 50, false);
+      [[0.8, 0.025], [0.6, 0.025], [0.4, 0.02]].reduce((z, [f, dz], i) => {
+        B(0, PAL.fFront + PAL.bladeOut * f / 2, PAL.bladeT * 0.9, PAL.bladeOut * f / 2, z, z + dz, PAL_BRONZE, 51 + i, i === 2); return z + dz; }, PAL.bladeZ1);
+      if (frontVis && m.blade) for (const s of [-1, 1]) palaisBladeText(ctx, cam, k, s, m.blade, dn, alpha);
+      if (dn > 0.3 && nearOrMesh()) {
+        const yE = PAL.fFront + PAL.bladeOut + 0.003;
+        emitWire(ctx, cam, W3(0, yE, PAL.bladeZ0 + 0.01), W3(0, yE, PAL.bladeZ1), 2.4, `rgba(${PAL_PINK},0.95)`, alpha, { pull: DECO_PULL });
+        const [gx, gy] = k.at(0, yE);
+        glowPool(ctx, cam, gx, gy, (PAL.bladeZ0 + PAL.bladeZ1) / 2, PAL_PINK, 16, alpha * 0.34 * dn, { air: true });
+      } }
+    // 5) THE MARQUEE across the foot of the house: a bronze slab out over the pavement, a milk-glass
+    //    panel on its face with the bill on it (`m.bill`, two lines), and a row of bulbs along its top
+    //    and bottom edges that are lit all evening.
+    { const cy = (PAL.front + PAL.mFront) / 2, fd = (PAL.mFront - PAL.front) / 2;
+      B(0, cy, PAL.mHW, fd, PAL.mZ0, PAL.mZ1, PAL_BRONZE, 60);
+      const y = PAL.mFront + 0.003, x0 = PAL.mHW - 0.02, z0 = PAL.mZ0 + 0.008, z1 = PAL.mZ1 - 0.008;
+      k.glow([[-x0, y, z1], [x0, y, z1], [x0, y, z0], [-x0, y, z0]], [0, 1, 0], [222, 214, 192], [255, 240, 208]);
+      for (const s of [-1, 1]) {   // the two ends, the same glass
+        const X = s * (PAL.mHW + 0.003);
+        k.glow([[X, PAL.front + 0.01, z1], [X, PAL.mFront - 0.01, z1], [X, PAL.mFront - 0.01, z0], [X, PAL.front + 0.01, z0]], [s, 0, 0], [222, 214, 192], [255, 240, 208]);
+      }
+      if (frontVis && m.bill) m.bill.slice(0, 2).forEach((line, i) => {
+        const zt = i ? (z0 + z1) / 2 - 0.002 : z1 - 0.004, zb = i ? z0 + 0.004 : (z0 + z1) / 2 + 0.002;
+        const tex = bakeSignText(line, '#2a1a12', 0, false, true, true, { font: 'condensed' });
+        const q = [[-x0 + 0.02, zt], [x0 - 0.02, zt], [x0 - 0.02, zb], [-x0 + 0.02, zb]].map(([X, z]) => { const [wx, wy] = k.at(X, y + 0.002); return cam.proj(wx, wy, z); });
+        if (tex && q.every((p) => p.f > 0.12)) emitSurfaceText(ctx, cam, q, tex, false, alpha, DETAIL_LIFT * 2, false, DETAIL_LIFT * 2.5);
+      });
+      if (nearOrMesh()) {
+        const bulb = dn > 0.3 ? 'rgba(255,236,196,0.98)' : 'rgba(204,196,176,0.9)';
+        for (const z of [PAL.mZ1 + 0.002, PAL.mZ0 - 0.002]) for (let i = 0; i <= 20; i++) {
+          const X = -x0 + 2 * x0 * i / 20;
+          emitWire(ctx, cam, W3(X - 0.004, PAL.mFront + 0.004, z), W3(X + 0.004, PAL.mFront + 0.004, z), 2.2, bulb, alpha, { pull: DECO_PULL });
+        }
+      }
+      if (dn > 0) {
+        const [gx, gy] = k.at(0, PAL.mFront - 0.02);
+        glowPool(ctx, cam, gx, gy, PAL.mZ0 - 0.01, '255,232,190', 18, alpha * 0.45 * dn);                   // the soffit lamps, on the pavement
+        glowPool(ctx, cam, gx, gy, (PAL.mZ0 + PAL.mZ1) / 2, '255,240,208', 20, alpha * 0.30 * dn, { air: true });   // the panel's own halo
+      } }
+    // 6) THE BILLS under the marquee: a lit case either side on the house wall and one on the bay.
+    for (const X of [-0.31, 0.31]) palaisPoster(k, X, PAL.front + 0.004, 0.05, 0.035, 0.175);
+    palaisPoster(k, 0, PAL.fFront + 0.004, 0.06, 0.035, 0.18);
+    // 7) Night: the stone floodlit from the marquee's top edge, the bay hardest and the house either
+    //    side of it softer, and a wash on the copper. ⚠ THESE ARE LAMPS, NOT HALOS (no `air`): on the
+    //    GPU a glowPool is also a point light, and the floods are what light the limestone. As halos
+    //    the front read as a dark wall with a lit sign on it, which is a cinema, not a music hall.
+    if (dn > 0) {
+      const [fx, fy] = k.at(0, PAL.fFront + 0.05);
+      glowPool(ctx, cam, fx, fy, 0.34, '255,222,176', 20, alpha * 0.45 * dn);
+      glowPool(ctx, cam, fx, fy, 0.62, '255,222,176', 22, alpha * 0.30 * dn);
+      for (const s of [-1, 1]) { const [hx, hy] = k.at(s * 0.33, PAL.front + 0.06); glowPool(ctx, cam, hx, hy, 0.40, '255,214,166', 16, alpha * 0.30 * dn); }
+      const [tx, ty] = k.at(0, (PAL.tFront + PAL.tBack) / 2);
+      glowPool(ctx, cam, tx, ty, PAL.tTop, '150,220,190', 12, alpha * 0.12 * dn, { air: true });
+    }
+  },
   power(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // THE POWER PLANT — 5 tiles. It had the mass (five segments) and still scored
     //                  3/4, because all five were the same palette and, worse, the two COOLING
     //                  TOWERS WERE BOXES. A cooling tower is the most recognisable silhouette in
@@ -3329,7 +3609,7 @@ export const DOWNTOWN_ARMS = {
     if (frontVis) marqueeBand(ctx, cam, dx, dy, E, fh * 1.00, wallTop * 0.80, m.neon || '#7fe3c0', night, alpha);
     if (night) { const [wx, wy] = F(0, fh * 1.00); glowPool(ctx, cam, wx, wy, h * 0.20, '150,235,215', 12, alpha * 0.26); }
   },
-  noodlebar(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // Oyelaran's — one storey, front wall folded open, a steam hood dumping the entire advertising budget into the street
+  noodlebar(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // Nico's Noodle Bar: one storey, front wall folded open, a steam hood dumping the entire advertising budget into the street
     const wallTop = h * 0.74;
     draw3DBoxAt(ctx, cam, dx, dy, fh * 0.90, 0, wallTop, pal, seed, night, alpha, true);
     const nbSgnW = fh * 0.86, nbSgnZ = wallTop * 0.74, nbRoom = { floor: wallTop * 0.62, wallTop, wall: fh * 0.90 };
@@ -3399,42 +3679,92 @@ export const DOWNTOWN_ARMS = {
     if (frontVis) { const [nx, ny] = F(fh * 0.34, fh * 0.62); neonBlade(ctx, cam, nx, ny, wallTop * 0.72, wallTop + h * 0.26, m.neon || '#ffd24a', night, alpha); }
     if (night) { const [wx, wy] = F(0, fh * 0.70); glowPool(ctx, cam, wx, wy, h * 0.18, '255,210,120', 10, alpha * 0.34); }   // nine little display lamps, left on
   },
-  cinema(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // REEL ESTATE — the only building in Coldwater whose SHAPE is advertising.
-    // Everything else on a street here is a box with a sign on it; a picture house is a sign with
-    // a box behind it, and the three masses say so in order of how much they cost to build. The
-    // auditorium is a blind brick shed, because that is what a cinema mostly is and nobody was
-    // ever meant to look at it. The frontage is glazed faience, hosed down, expensive, and one
-    // tile deep. And the blade is taller than either, which is the whole argument of the type.
-    const foyerTop = h * 0.40, fasciaTop = h * 0.56;
-    const houseTop = h * 0.94, loftTop = h * 1.18;
-    // 1) THE HOUSE — a blind flank with no fenestration at all. `ty_reel_flank` is in BRICK_WALL
+  cinema(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // MIDWAY PARKS CINEMA: a variety theatre that was given a screen and kept everything else.
+    // It went up as a music hall, so it has a music hall's front: cream faience between oxblood
+    // pilasters, a row of tall round-headed windows where the circle bar was, a raised centre on
+    // the parapet and a copper dome on each corner. Behind that the auditorium is a blind brick
+    // shed, and the stage house stands clear of its roof, because a theatre has to fly its
+    // scenery somewhere. The picture house is the two things bolted on later: the canopy and the
+    // blade, and the blade is still the tallest thing on the plot.
+    const canopy0 = h * 0.29, canopy1 = h * 0.35, nameZ = h * 0.43;
+    const winZ0 = h * 0.52, winZ1 = h * 0.72, frontTop = h * 0.78, parTop = h * 0.86;
+    const houseTop = h * 0.84, stageTop = h * 1.30, turretTop = h * 0.98;
+    const trim = 'ty_reel_trim', faceY = fh * 0.94, yaw = faceYaw(E);
+    // 1) THE HOUSE: a blind flank with no fenestration at all. `ty_reel_flank` is in BRICK_WALL
     //    rather than in FACADE_MAT, so it draws courses and NEVER a window grid: an auditorium
     //    with lit windows down the side of it would be a room you could see the film from.
-    draw3DBoxAt(ctx, cam, dx, dy, fh * 0.92, 0, houseTop, 'ty_reel_flank', seed, night, alpha, true);
-    // 2) THE FLY LOFT over the screen end, set back off the street and deliberately plainer. It
-    //    is the rewind room and the extract plant, and it is the part a pilot sees first.
-    { const [lx, ly] = F(0, -fh * 0.40); draw3DBoxAt(ctx, cam, lx, ly, fh * 0.60, houseTop, loftTop, 'ty_reel_loft', seed + 1, night, alpha, true, faceYaw(E), fh * 0.44); }
-    // 3) THE FRONTAGE — one tile deep, wider than the house, and the only part of the building
-    //    anybody was ever supposed to see. Faced in glazed tile: the family whose main event is
-    //    a highlight rather than a shadow, which is what makes it read as wet-looking at night.
-    { const [fx, fy] = F(0, fh * 0.62); draw3DBoxAt(ctx, cam, fx, fy, fh * 1.02, 0, foyerTop, pal, seed + 2, night, alpha, true, faceYaw(E), fh * 0.32); }
-    // 4) THE FASCIA — the band the title goes on. It OVERSAILS the frontage below it, which is
-    //    what throws the shadow that tells you the canopy is a separate thing from the wall.
-    { const [bx, by] = F(0, fh * 0.66); draw3DBoxAt(ctx, cam, bx, by, fh * 1.08, foyerTop, fasciaTop, pal, seed + 3, night, alpha, true, faceYaw(E), fh * 0.28); }
-    // 5) THE CANOPY. A shop's awning is a strip of canvas; this is a slab with lamps let into the
+    draw3DBoxAt(ctx, cam, dx, dy, fh * 0.90, 0, houseTop, 'ty_reel_flank', seed, night, alpha, true);
+    // 2) THE STAGE HOUSE over the far end, the full width of the house and half again its height.
+    //    It is what makes this read as a theatre from the air, and since the screen went into the
+    //    arch it has held nothing but the old flats and the extract fans.
+    { const [sx, sy] = F(0, -fh * 0.46); draw3DBoxAt(ctx, cam, sx, sy, fh * 0.78, houseTop, stageTop, 'ty_reel_loft', seed + 1, night, alpha, true, yaw, fh * 0.40); }
+    // 3) THE FRONT: two storeys of cream faience, one tile deep and wider than the house. Glazed
+    //    tile highlights rather than shadows, which is what makes it read as wet under the canopy.
+    { const [fx, fy] = F(0, fh * 0.62); draw3DBoxAt(ctx, cam, fx, fy, fh * 1.02, 0, frontTop, pal, seed + 2, night, alpha, true, yaw, fh * 0.32); }
+    // 4) THE PARAPET: an oxblood cornice oversailing the front, then a raised centre over the
+    //    middle bay with its own coping. The step is what says theatre rather than warehouse.
+    { const [cx, cy] = F(0, fh * 0.64); draw3DBoxAt(ctx, cam, cx, cy, fh * 1.06, frontTop, frontTop + h * 0.025, trim, seed + 3, night, alpha, true, yaw, fh * 0.33); }
+    { const [px, py] = F(0, fh * 0.74); draw3DBoxAt(ctx, cam, px, py, fh * 0.40, frontTop + h * 0.025, parTop, pal, seed + 4, night, alpha, true, yaw, fh * 0.20); }
+    { const [px, py] = F(0, fh * 0.74); draw3DBoxAt(ctx, cam, px, py, fh * 0.44, parTop, parTop + h * 0.02, trim, seed + 5, night, alpha, true, yaw, fh * 0.22); }
+    // 5) THE PILASTERS: one oxblood strip either side of the centre bay, from above the name band
+    //    to the cornice. The outer pair are the turrets.
+    for (const s of [-1, 1]) { const [qx, qy] = F(s * fh * 0.34, faceY); draw3DBoxAt(ctx, cam, qx, qy, fh * 0.05, h * 0.49, frontTop, trim, seed + 10 + s, night, alpha, false, yaw, fh * 0.04); }
+    // 6) THE CORNER TURRETS: square oxblood piers rising past the parapet, each under a copper dome.
+    //    Revolved by hand like the Hall of Records' dome, so it records itself as one drum and
+    //    paints as bands; see the three ⚠ there for why each half is the way it is.
+    const domeR = fh * 0.18, domeH = h * 0.22, CU = WALL_COL.ty_verdigris;
+    for (const s of [-1, 1]) {
+      const [tx, ty] = F(s * fh * 0.88, fh * 0.80);
+      draw3DBoxAt(ctx, cam, tx, ty, fh * 0.16, 0, turretTop, trim, seed + 12 + s, night, alpha, true, yaw, fh * 0.16);
+      const d0 = turretTop, apex = d0 + domeH;
+      if (SHAPE_SINK) SHAPE_SINK.push({ kind: 'drum', dx: tx, dy: ty, wz0: d0, wz1: apex, rb: domeR, rt: domeR * 0.08, n: 12, cap: false, pal: 'ty_verdigris' });
+      else {
+        const BANDS = 5, rAt = (t) => domeR * Math.sqrt(Math.max(0, 1 - t * t));
+        for (let i = 0; i < BANDS; i++) {
+          const t0 = i / BANDS, t1 = (i + 1) / BANDS, sh = 0.72 + 0.28 * t0;
+          const style = (f) => { const k = sh * (0.82 + (f.nl || 0) * 0.36);
+            return `rgb(${Math.round(CU[0] * k)},${Math.round(CU[1] * k)},${Math.round(CU[2] * k)})`; };
+          drawFacetDrum(ctx, cam, tx, ty, d0 + domeH * t0, d0 + domeH * t1, rAt(t0), rAt(t1), 14, alpha, style, null, 'ty_verdigris');
+        }
+      }
+      draw3DBoxAt(ctx, cam, tx, ty, fh * 0.025, apex, apex + h * 0.05, trim, seed + 14 + s, night, alpha, false);   // the finial
+    }
+    // 7) THE CIRCLE BAR'S WINDOWS: three tall round-headed lights across the first floor, each in
+    //    an oxblood surround. Flat quads on the face plane (a semicircle is a fan of triangles),
+    //    the surround first and the glass a hair in front of it. The bar has been shut for years,
+    //    so at night they show only what reaches them from the stair.
+    if (frontVis) {
+      const dusk = 1 - 0.55 * (+night || 0), TR8 = WALL_COL.ty_reel_trim;
+      const surround = `rgb(${Math.round(TR8[0] * dusk)},${Math.round(TR8[1] * dusk)},${Math.round(TR8[2] * dusk)})`;
+      const glass = night ? 'rgb(92,68,46)' : 'rgb(38,42,50)';
+      const arch = (cx, w, z0, z1, fill, lift) => {
+        const zs = z1 - w, P = (x, z) => W3(cx + x, faceY + 0.002, z), N = 6;
+        emitFlat(ctx, cam, [P(-w, zs), P(w, zs), P(w, z0), P(-w, z0)], fill, alpha, { lift, cullN: E });
+        for (let i = 0; i < N; i++) {
+          const a0 = Math.PI * i / N, a1 = Math.PI * (i + 1) / N;
+          emitFlat(ctx, cam, [P(0, zs), P(w * Math.cos(a0), zs + w * Math.sin(a0)), P(w * Math.cos(a1), zs + w * Math.sin(a1))], fill, alpha, { lift, cullN: E });
+        }
+      };
+      for (const [cx, w] of [[-fh * 0.60, fh * 0.11], [0, fh * 0.15], [fh * 0.60, fh * 0.11]]) {
+        arch(cx, w + fh * 0.03, winZ0 - h * 0.015, winZ1 + fh * 0.03, surround, DETAIL_LIFT);
+        arch(cx, w, winZ0, winZ1, glass, DETAIL_LIFT * 2);
+      }
+    }
+    // 8) THE CANOPY. A shop's awning is a strip of canvas; this is a slab with lamps let into the
     //    underside of it, so it is drawn in the soffit palette rather than in the door one and it
     //    reaches further out. `awning` rather than a bare box because the two extents differ: it
     //    spans the whole frontage and comes out about a third of a tile, and a square footprint
     //    wide enough to do the first would put the second in the middle of Meltwater Row.
-    awning(ctx, cam, dx, dy, E, fh * 1.04, fh * 1.18, h * 0.29, h * 0.35, 'ty_soffit', seed + 4, night, alpha, fh * 0.40);
-    // 6) THE NAME, on the fascia, and THE BLADE, which is the tallest thing on the plot by half
-    //    again. Anchored off the corner of the frontage so it stands clear of the fascia band and
-    //    reads end-on from up the street, the way the real ones were built to.
-    if (frontVis) marqueeBand(ctx, cam, dx, dy, E, fh * 0.96, h * 0.48, m.neon || '#ff4a7a', night, alpha);
-    if (frontVis) { const [nx, ny] = F(fh * 0.72, fh * 0.80); neonBlade(ctx, cam, nx, ny, h * 0.34, h * 1.62, m.neon || '#ff4a7a', night, alpha); }
-    // 7) Extract plant on the house roof. A hundred and eighty people in a sealed brick box need
+    awning(ctx, cam, dx, dy, E, fh * 1.04, fh * 1.18, canopy0, canopy1, 'ty_soffit', seed + 6, night, alpha, fh * 0.40);
+    // 9) THE NAME runs across the front over the canopy, and THE BLADE says the trade, down the
+    //    turret's face, so the two read as one sign and neither repeats the other. The name loses
+    //    its trailing trade word for the same reason. The blade stands off the turret rather than
+    //    on it, and starts above the canopy so the slab never cuts it.
+    if (frontVis) marqueeBand(ctx, cam, dx, dy, E, fh * 0.66, nameZ, m.neon || '#ff4a7a', night, alpha, (sign || '').replace(/\s+CINEMA$/, '') || sign);
+    if (frontVis) { const [nx, ny] = F(fh * 0.88, fh * 1.06); neonBlade(ctx, cam, nx, ny, canopy1 + h * 0.02, h * 1.50, m.neon || '#ff4a7a', night, alpha, 'CINEMA'); }
+    // 10) Extract plant on the house roof. A hundred and eighty people in a sealed brick box need
     //    moving air, and the fans are the only thing on this building that has never been let go.
-    roofClutter(ctx, cam, dx, dy, fh * 0.92, houseTop, 'citycore', seed + 5, night, alpha, now);
+    roofClutter(ctx, cam, dx, dy, fh * 0.90, houseTop, 'citycore', seed + 7, night, alpha, now);
     if (night) {
       // The canopy lamps, which are the point of a canopy: the light lands on the PAVEMENT, not
       // on the building, so this pool sits out at the lip rather than against the wall.

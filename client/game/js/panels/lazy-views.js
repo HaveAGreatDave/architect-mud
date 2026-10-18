@@ -73,6 +73,8 @@ const ifLoaded = (L, fn, fallback) => (...args) => {
 const cockpit = lazy('cockpit', () => import('./cockpit.js'));
 const cab = lazy('cab-view', () => import('./cab-view.js'));
 const boat = lazy('boat-view', () => import('./boat-view.js'));
+const podracer = lazy('podracer-view', () => import('./podracer-view.js'));
+const podDepot = lazy('podracer-depot', () => import('./podracer-depot.js'));
 const depot = lazy('truck-depot', () => import('./truck-depot.js'));
 const spray = lazy('spraycan', () => import('./spraycan.js'));
 // hangar-bay reaches GLASS through windshield-lazy.js, only when a view opens, so
@@ -98,6 +100,7 @@ export function cabinAudio(s) {
 export const openTargeting = call(cockpit, 'openTargeting');
 export const openFlightSim = call(cockpit, 'openFlightSim');
 export const flightSimContext = ifLoaded(cockpit, 'flightSimContext');
+export const flightSimGps = ifLoaded(cockpit, 'flightSimGps');
 export const drakeSubmerged = ifLoaded(cockpit, 'drakeSubmerged');
 export const drakeChampagne = ifLoaded(cockpit, 'drakeChampagne');
 export const flightBurst = ifLoaded(cockpit, 'flightBurst');
@@ -122,6 +125,18 @@ export const isBoatActive = ifLoaded(boat, 'isBoatActive', false);
 export const closeBoat = ifLoaded(boat, 'closeBoat');
 export const openBoat = call(boat, 'openBoat');
 export const boatSetWorld = ifLoaded(boat, 'boatSetWorld');   // boat_fuel arrives on every refuel, text rung included; a no-op with no boat view open
+
+// podracer-view.js
+export const isPodracerActive = ifLoaded(podracer, 'isPodracerActive', false);
+export const closePodracer = ifLoaded(podracer, 'closePodracer');
+export const openPodracer = call(podracer, 'openPodracer');
+export const podracerSetWorld = ifLoaded(podracer, 'podracerSetWorld');
+
+// podracer-depot.js (the racer bay's counter, and its overlay on the seat)
+export const isPodracerDepotActive = ifLoaded(podDepot, 'isPodracerDepotActive', false);
+export const openPodracerDepot = call(podDepot, 'openPodracerDepot');
+export const closePodracerDepot = ifLoaded(podDepot, 'closePodracerDepot');
+export const closePodracerBay = ifLoaded(podDepot, 'closePodracerBay');
 
 // truck-depot.js
 export const isTruckDepotActive = ifLoaded(depot, 'isTruckDepotActive', false);

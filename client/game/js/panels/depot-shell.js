@@ -77,8 +77,43 @@ export function mountBay(host, id, handlers = {}) {
     el.id = id;
     for (const [ev, fn] of Object.entries(handlers)) el.addEventListener(ev, fn);
     host.appendChild(el);
+    fitBay(el, host);
   }
   return el;
+}
+// ── ⚠ THE BAY NEVER SCROLLS ──────────────────────────────────────────────────
+// The wheel over the glass is the chase camera's dolly, and a bay that scrolled took the wheel for
+// itself whenever the pointer crossed it: the page moved when you meant to zoom, or both moved at
+// once. So the bay is as tall as what is in it, and when that won't fit under the CSS cap
+// (`max-height` on `.ds-bay.open`) it is scaled down whole, from its top-right corner, rather than
+// clipped or scrolled. The wheel over it goes on to whatever is under it, which is the seat's view.
+function fitBay(el, host) {
+  const fit = () => {
+    el.style.scale = ''; el.style.maxHeight = '';
+    if (!el.classList.contains('open')) return;
+    const cap = el.clientHeight, need = el.scrollHeight;
+    if (!(cap > 0) || need <= cap + 1) return;
+    el.style.maxHeight = 'none';
+    el.style.transformOrigin = 'top right';
+    // `scale`, not `transform`: the bay slides in on a transform animation, which would override it.
+    el.style.scale = Math.max(0.5, cap / need).toFixed(4);
+  };
+  // A page swap or an open/fold is a mutation; a new glass size is the host resizing. The bay itself
+  // isn't observed for size, because fitting it resizes it and that is a ResizeObserver loop.
+  let queued = false;
+  const later = () => { if (queued) return; queued = true; queueMicrotask(() => { queued = false; if (el.isConnected) fit(); }); };
+  if (typeof ResizeObserver === 'function') new ResizeObserver(later).observe(host);
+  if (typeof MutationObserver === 'function') new MutationObserver(later).observe(el, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
+  el.addEventListener('wheel', (e) => {
+    if (e.ctrlKey || e.defaultPrevented) return;
+    e.preventDefault(); e.stopPropagation();
+    const under = document.elementsFromPoint(e.clientX, e.clientY).find((n) => !el.contains(n));
+    under?.dispatchEvent(new WheelEvent('wheel', {
+      deltaX: e.deltaX, deltaY: e.deltaY, deltaZ: e.deltaZ, deltaMode: e.deltaMode,
+      clientX: e.clientX, clientY: e.clientY, screenX: e.screenX, screenY: e.screenY,
+      shiftKey: e.shiftKey, altKey: e.altKey, metaKey: e.metaKey, bubbles: true, cancelable: true,
+    }));
+  }, { passive: false });
 }
 /** Open or folded. `extra` is the depot's own scope class, for the tabs' styles. */
 export function setBayOpen(el, open, extra = '') { el.className = `ds-root ds-bay ${open ? 'open' : 'folded'}${extra ? ' ' + extra : ''}`; }
@@ -156,6 +191,21 @@ export function serviceListHtml(items, cmdFor) {
 export function btnHtml(label, { cmd = '', hold = '', ico = '', cls = '', attrs = '', disabled = false, why = '' } = {}) {
   const a = cmd ? `data-cmd="${esc(cmd)}"` : hold ? `data-hold="${esc(hold)}"` : '';
   return `<button class="ds-btn${cls ? ' ' + cls : ''}" ${a} ${attrs}${disabled ? ' disabled' : ''}${why ? ` title="${esc(why)}"` : ''}>${ico ? `<span class="ds-btn-ico" aria-hidden="true">${ico}</span>` : ''}${esc(label)}</button>`;
+}
+
+/**
+ * THE WAY INTO WHAT YOU JUST BOUGHT. A purchase or a hire lands on the hand with this over it: what
+ * she is, where she is, and one key that seats you, so getting from the till to the road is a click
+ * and not a card on another screen or a verb in the log. The server says which vehicle (`fresh` on
+ * the payload, server/engine/fresh-vehicle.js); the depot passes the same verb its card sends, or a
+ * hold when the card's way in costs money (the marina's crane). It goes when the hand is dealt
+ * without it.
+ */
+export function readyHtml({ title = '', sub = '', label = 'Drive it', cmd = '', hold = '', ico = '⏵', attrs = '' } = {}) {
+  return `<div class="ds-ready" role="status">
+    <span class="ds-ready-txt"><b>${esc(title)}</b>${sub ? `<span class="ds-dim ds-small">${esc(sub)}</span>` : ''}</span>
+    ${btnHtml(label, { cmd, hold, ico, cls: 'primary ds-ready-go', attrs })}
+  </div>`;
 }
 
 // ── Wiring ───────────────────────────────────────────────────────────────────
@@ -320,6 +370,16 @@ export function ensureDepotStyles() {
   .ds-tab-ico{opacity:.75}
   .ds-body{flex:1;min-height:0;overflow:auto;padding:10px 12px}
   .ds-hint{color:var(--ds-fg-dim);font-size:13px;margin:0 0 8px;max-width:60ch}
+  /* The way into what you just bought (readyHtml), and its card picked out in the hand. */
+  .ds-ready{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 12px;margin:0 0 12px;border-radius:10px;
+    background:linear-gradient(165deg,color-mix(in srgb, var(--ds-ok) 22%, var(--ds-surf)),var(--ds-surf-lo));
+    border:1px solid color-mix(in srgb, var(--ds-ok) 55%, transparent);
+    box-shadow:inset 0 1px 0 var(--ds-bevel-hi),0 2px 6px rgba(0,0,0,.25);animation:dsReadyIn .35s ease-out}
+  .ds-ready-txt{display:flex;flex-direction:column;gap:2px;flex:1;min-width:12ch}
+  .ds-ready-go{font-size:13px;padding:9px 16px}
+  .vc-wrap.fresh .vc-card{outline:2px solid var(--ds-ok);outline-offset:2px}
+  @keyframes dsReadyIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+  [data-motion="off"] .ds-ready{animation:none}
   .ds-foot{flex:0 0 auto;display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:7px 12px;font-size:11.5px;
     color:var(--ds-fg-dim);border-top:1px solid color-mix(in srgb, var(--ds-accent) 20%, transparent);
     background:color-mix(in srgb, var(--ds-surf-lo) 80%, transparent)}
@@ -365,7 +425,7 @@ export function ensureDepotStyles() {
   .ds-job-sub.hot{color:var(--ds-accent)}
   /* THE BAY: docked right on the glass, under the seat's chrome, above its dash. */
   .ds-bay{position:absolute;z-index:40;right:10px;top:46px;font-size:13px}
-  .ds-bay.open{bottom:12%;width:min(620px,58%);display:flex;flex-direction:column;gap:6px;padding:8px;overflow:hidden;
+  .ds-bay.open{max-height:calc(88% - 46px);width:min(620px,58%);display:flex;flex-direction:column;gap:6px;padding:8px;overflow:hidden;
     background:color-mix(in srgb, var(--bg2) 86%, transparent);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);
     border:1px solid color-mix(in srgb, var(--ds-accent) 36%, var(--border));border-radius:10px;
     box-shadow:0 12px 30px rgba(0,0,0,.55),inset 0 1px 0 rgba(255,255,255,.08);animation:dsBayIn .22s ease-out}
@@ -376,10 +436,11 @@ export function ensureDepotStyles() {
   .ds-bay-head{display:flex;align-items:center;gap:8px;flex:0 0 auto}
   .ds-bay-head .ds-title{flex:1 1 auto}
   .ds-bay-head .ds-bal{margin-left:0}
-  /* ⚠ THE PAGE KEEPS ITS FLOOR. Nine tiles in two rows on a short glass took every pixel and the
-     page under them measured zero; the page holds a minimum and the bay scrolls as a whole past it. */
-  .ds-bay.open{overflow-y:auto}
-  .ds-bay-body{flex:1 1 auto;min-height:140px;overflow:auto;padding-right:2px;scrollbar-width:thin}
+  /* ⚠ NOTHING IN THE BAY SCROLLS: the wheel is the camera's (see fitBay). The bay is as tall as
+     its page, and a page too tall for the glass scales the whole bay down. A depot's own scroll
+     region inside the page is clipped open rather than scrolled. */
+  .ds-bay-body{flex:0 0 auto;padding-right:2px}
+  .ds-bay.open .ds-bay-body,.ds-bay.open .ds-bay-body > *{overflow:clip}
   .ds-bay-foot{flex:0 0 auto;font-size:11px;text-align:center}
   .ds-note{flex:0 0 auto;font-size:11.5px;padding:4px 8px;border-radius:6px;background:var(--ds-surf-lo);
     border:1px solid color-mix(in srgb, var(--ds-accent) 40%, transparent)}
@@ -455,7 +516,7 @@ export function ensureDepotStyles() {
     .ds-jobs::-webkit-scrollbar{display:none}
   }
   @media (max-width:720px){
-    .ds-bay.open{left:8px;right:8px;width:auto;bottom:38%}
+    .ds-bay.open{left:8px;right:8px;width:auto;max-height:calc(62% - 46px)}
     .ds-head{height:auto;min-height:44px;flex-wrap:wrap;padding:7px 10px;gap:6px 10px}
     .ds-head .ds-title{flex:1 1 110px}
     .ds-head .ds-title .ds-dim{display:none}

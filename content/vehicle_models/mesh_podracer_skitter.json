@@ -1,0 +1,5046 @@
+{
+  "id": "podracer_skitter",
+  "kind": "mesh",
+  "params": {
+    "name": "Skitter Dart",
+    "note": "The light racer: the Twinspool cut down, small turbines with chrome intake spikes, in crop-sprayer green and white. Generated from mesh_podracer.json (scale it there, then re-cut); its sizes are PODRACER_TYPES.skitter in podracer-model.js.",
+    "classFacts": {
+      "contactSize": 0.3333,
+      "modelScale": 1,
+      "metres": 7.2
+    },
+    "navLamps": null,
+    "lamps": [
+      {
+        "at": [
+          -0.2014,
+          0,
+          0.0686
+        ],
+        "n": [
+          -1,
+          0,
+          0
+        ],
+        "rgb": "255,60,50",
+        "kind": "steady"
+      }
+    ],
+    "finish": "pearl",
+    "paints": {
+      "hull": {
+        "rgb": [
+          47,
+          138,
+          58
+        ],
+        "livery": "base",
+        "mat": "candy",
+        "tex": "paint"
+      },
+      "trim": {
+        "rgb": [
+          240,
+          238,
+          228
+        ],
+        "livery": "trim",
+        "mat": "pearl",
+        "tex": "paint"
+      },
+      "metal": {
+        "rgb": [
+          190,
+          196,
+          204
+        ],
+        "livery": "fixed",
+        "mat": "polished",
+        "tex": "brushed"
+      },
+      "chrome": {
+        "rgb": [
+          236,
+          240,
+          246
+        ],
+        "livery": "fixed",
+        "mat": "chrome"
+      },
+      "casing": {
+        "rgb": [
+          208,
+          212,
+          218
+        ],
+        "livery": "fixed",
+        "mat": "polished",
+        "tex": "brushed"
+      },
+      "burnt": {
+        "rgb": [
+          118,
+          96,
+          128
+        ],
+        "livery": "fixed",
+        "mat": "blued",
+        "tex": "cast",
+        "ramp": {
+          "axis": "f",
+          "stops": [
+            [
+              -0.295,
+              [
+                40,
+                36,
+                42
+              ]
+            ],
+            [
+              -0.27,
+              [
+                46,
+                42,
+                48
+              ]
+            ],
+            [
+              -0.25,
+              [
+                66,
+                80,
+                148
+              ]
+            ],
+            [
+              -0.215,
+              [
+                118,
+                74,
+                132
+              ]
+            ],
+            [
+              -0.175,
+              [
+                172,
+                110,
+                72
+              ]
+            ],
+            [
+              -0.13,
+              [
+                206,
+                174,
+                116
+              ]
+            ]
+          ]
+        }
+      },
+      "heat": {
+        "rgb": [
+          255,
+          140,
+          60
+        ],
+        "livery": "fixed",
+        "mat": "exhaust"
+      },
+      "dark": {
+        "rgb": [
+          24,
+          24,
+          28
+        ],
+        "livery": "fixed",
+        "mat": "matte",
+        "tex": "rubber"
+      },
+      "leather": {
+        "rgb": [
+          96,
+          28,
+          24
+        ],
+        "livery": "fixed",
+        "mat": "satin"
+      },
+      "intake": {
+        "rgb": [
+          40,
+          42,
+          48
+        ],
+        "livery": "fixed",
+        "mat": "steel",
+        "tex": "cast"
+      },
+      "coil": {
+        "rgb": [
+          196,
+          112,
+          62
+        ],
+        "livery": "fixed",
+        "mat": "polished"
+      }
+    },
+    "parts": [
+      {
+        "kind": "group",
+        "name": "pod body",
+        "note": "The Twinspool's pod, scaled to this one.",
+        "xf": {
+          "s": 0.8571
+        },
+        "parts": [
+          {
+            "kind": "loft",
+            "name": "pod",
+            "note": "The cockpit tub, sized for the seat: about 3.2 m long and 1.3 m across at 7.2 m to the unit, the ground seats' metre. Its nose tip is the ring both cables meet at.",
+            "sides": 16,
+            "section": "super",
+            "role": "body",
+            "exp": [
+              0.9,
+              0.8,
+              1.1
+            ],
+            "shade": {
+              "base": 0.62,
+              "amp": 0.34
+            },
+            "paint": "hull",
+            "stations": [
+              {
+                "f": 0.21,
+                "rg": 0.02,
+                "rvT": 0.018,
+                "rvB": 0.015,
+                "cz": 0.075
+              },
+              {
+                "f": 0.16,
+                "rg": 0.065,
+                "rvT": 0.042,
+                "rvB": 0.04,
+                "cz": 0.075
+              },
+              {
+                "f": 0.07,
+                "rg": 0.09,
+                "rvT": 0.048,
+                "rvB": 0.045,
+                "cz": 0.075
+              },
+              {
+                "f": -0.09,
+                "rg": 0.09,
+                "rvT": 0.046,
+                "rvB": 0.045,
+                "cz": 0.075
+              },
+              {
+                "f": -0.19,
+                "rg": 0.06,
+                "rvT": 0.034,
+                "rvB": 0.032,
+                "cz": 0.077
+              },
+              {
+                "f": -0.225,
+                "rg": 0.028,
+                "rvT": 0.018,
+                "rvB": 0.015,
+                "cz": 0.079
+              }
+            ],
+            "capFore": {
+              "kind": "apex",
+              "at": [
+                0.235,
+                0,
+                0.075
+              ],
+              "paint": "trim"
+            },
+            "capAft": {
+              "kind": "flat",
+              "sh": 0.4,
+              "paint": "dark"
+            }
+          },
+          {
+            "kind": "poly",
+            "name": "cockpit opening",
+            "note": "The open top of the tub, dark, round the driver.",
+            "faces": [
+              {
+                "role": "body",
+                "sh": 0.3,
+                "paint": "dark",
+                "p": [
+                  [
+                    0.05,
+                    -0.062,
+                    0.1245
+                  ],
+                  [
+                    0.05,
+                    0.062,
+                    0.1245
+                  ],
+                  [
+                    -0.13,
+                    0.062,
+                    0.123
+                  ],
+                  [
+                    -0.13,
+                    -0.062,
+                    0.123
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "kind": "tube",
+            "name": "coaming roll",
+            "note": "Oxblood leather rolled round the cockpit opening.",
+            "pts": [
+              [
+                0.055,
+                0,
+                0.124
+              ],
+              [
+                0.0504,
+                0.0204,
+                0.124
+              ],
+              [
+                0.0369,
+                0.0388,
+                0.124
+              ],
+              [
+                0.0158,
+                0.0534,
+                0.124
+              ],
+              [
+                -0.0106,
+                0.0628,
+                0.124
+              ],
+              [
+                -0.04,
+                0.066,
+                0.124
+              ],
+              [
+                -0.0694,
+                0.0628,
+                0.124
+              ],
+              [
+                -0.0958,
+                0.0534,
+                0.124
+              ],
+              [
+                -0.1169,
+                0.0388,
+                0.124
+              ],
+              [
+                -0.1304,
+                0.0204,
+                0.124
+              ],
+              [
+                -0.135,
+                0,
+                0.124
+              ],
+              [
+                -0.1304,
+                -0.0204,
+                0.124
+              ],
+              [
+                -0.1169,
+                -0.0388,
+                0.124
+              ],
+              [
+                -0.0958,
+                -0.0534,
+                0.124
+              ],
+              [
+                -0.0694,
+                -0.0628,
+                0.124
+              ],
+              [
+                -0.04,
+                -0.066,
+                0.124
+              ],
+              [
+                -0.0106,
+                -0.0628,
+                0.124
+              ],
+              [
+                0.0158,
+                -0.0534,
+                0.124
+              ],
+              [
+                0.0369,
+                -0.0388,
+                0.124
+              ],
+              [
+                0.0504,
+                -0.0204,
+                0.124
+              ],
+              [
+                0.055,
+                0,
+                0.124
+              ]
+            ],
+            "r": 0.007,
+            "sides": 6,
+            "role": "body",
+            "sh": 0.6,
+            "paint": "leather"
+          },
+          {
+            "kind": "poly",
+            "name": "windscreen",
+            "faces": [
+              {
+                "role": "glass",
+                "sh": 0.8,
+                "two": 1,
+                "p": [
+                  [
+                    0.075,
+                    -0.05,
+                    0.121
+                  ],
+                  [
+                    0.075,
+                    0.05,
+                    0.121
+                  ],
+                  [
+                    0.045,
+                    0.042,
+                    0.15
+                  ],
+                  [
+                    0.045,
+                    -0.042,
+                    0.15
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "kind": "drum",
+            "name": "helmet",
+            "f": -0.02,
+            "r": 0.028,
+            "z": [
+              0.118,
+              0.165
+            ],
+            "n": 10,
+            "role": "body",
+            "sh": {
+              "base": 0.6,
+              "alt": 0.08
+            },
+            "top": {
+              "sh": 0.8
+            },
+            "paint": "dark"
+          },
+          {
+            "kind": "tube",
+            "name": "cable eye",
+            "pts": [
+              [
+                0.2,
+                0,
+                0.075
+              ],
+              [
+                0.236,
+                0,
+                0.075
+              ]
+            ],
+            "r": 0.007,
+            "sides": 6,
+            "role": "strut",
+            "sh": 0.7,
+            "paint": "chrome"
+          },
+          {
+            "kind": "mirror",
+            "name": "pod flanks",
+            "note": "Rails, strakes, vents, fins, thrusters, mirrors and marker lamps, both sides.",
+            "parts": [
+              {
+                "kind": "tube",
+                "name": "flank rail",
+                "note": "A chrome rail down the flank, the pod's grab rail and rubbing strake.",
+                "pts": [
+                  [
+                    0.13,
+                    0.0813,
+                    0.075
+                  ],
+                  [
+                    0.0919,
+                    0.0919,
+                    0.075
+                  ],
+                  [
+                    0.0538,
+                    0.098,
+                    0.075
+                  ],
+                  [
+                    0.0156,
+                    0.098,
+                    0.075
+                  ],
+                  [
+                    -0.0225,
+                    0.098,
+                    0.075
+                  ],
+                  [
+                    -0.0606,
+                    0.098,
+                    0.075
+                  ],
+                  [
+                    -0.0987,
+                    0.0954,
+                    0.075
+                  ],
+                  [
+                    -0.1369,
+                    0.0839,
+                    0.075
+                  ],
+                  [
+                    -0.175,
+                    0.0725,
+                    0.075
+                  ]
+                ],
+                "r": 0.0045,
+                "sides": 6,
+                "role": "strut",
+                "sh": 0.85,
+                "paint": "chrome"
+              },
+              {
+                "kind": "tube",
+                "name": "rail post",
+                "pts": [
+                  [
+                    0.1,
+                    0.0797,
+                    0.075
+                  ],
+                  [
+                    0.1,
+                    0.0897,
+                    0.075
+                  ]
+                ],
+                "r": 0.003,
+                "sides": 5,
+                "role": "strut",
+                "sh": 0.7,
+                "paint": "chrome"
+              },
+              {
+                "kind": "tube",
+                "name": "rail post",
+                "pts": [
+                  [
+                    -0.03,
+                    0.088,
+                    0.075
+                  ],
+                  [
+                    -0.03,
+                    0.098,
+                    0.075
+                  ]
+                ],
+                "r": 0.003,
+                "sides": 5,
+                "role": "strut",
+                "sh": 0.7,
+                "paint": "chrome"
+              },
+              {
+                "kind": "tube",
+                "name": "rail post",
+                "pts": [
+                  [
+                    -0.15,
+                    0.07,
+                    0.075
+                  ],
+                  [
+                    -0.15,
+                    0.08,
+                    0.075
+                  ]
+                ],
+                "r": 0.003,
+                "sides": 5,
+                "role": "strut",
+                "sh": 0.7,
+                "paint": "chrome"
+              },
+              {
+                "kind": "tube",
+                "name": "lower strake",
+                "pts": [
+                  [
+                    0.11,
+                    0.0744,
+                    0.0557
+                  ],
+                  [
+                    0.065,
+                    0.0847,
+                    0.0547
+                  ],
+                  [
+                    0.02,
+                    0.0847,
+                    0.0547
+                  ],
+                  [
+                    -0.025,
+                    0.0847,
+                    0.0547
+                  ],
+                  [
+                    -0.07,
+                    0.0847,
+                    0.0547
+                  ],
+                  [
+                    -0.115,
+                    0.0777,
+                    0.0562
+                  ],
+                  [
+                    -0.16,
+                    0.0652,
+                    0.0588
+                  ]
+                ],
+                "r": 0.0035,
+                "sides": 5,
+                "role": "strut",
+                "sh": 0.8,
+                "paint": "trim"
+              },
+              {
+                "kind": "poly",
+                "name": "flank vent",
+                "faces": [
+                  {
+                    "role": "body",
+                    "sh": 0.3,
+                    "paint": "dark",
+                    "two": 1,
+                    "p": [
+                      [
+                        -0.02,
+                        0.0915,
+                        0.083
+                      ],
+                      [
+                        -0.075,
+                        0.0915,
+                        0.083
+                      ],
+                      [
+                        -0.075,
+                        0.0915,
+                        0.109
+                      ],
+                      [
+                        -0.02,
+                        0.0915,
+                        0.109
+                      ]
+                    ]
+                  }
+                ]
+              },
+              {
+                "kind": "tube",
+                "name": "vent slat",
+                "pts": [
+                  [
+                    -0.022,
+                    0.0935,
+                    0.0856
+                  ],
+                  [
+                    -0.073,
+                    0.0935,
+                    0.0856
+                  ]
+                ],
+                "r": 0.0018,
+                "sides": 4,
+                "role": "strut",
+                "sh": 0.8,
+                "paint": "chrome"
+              },
+              {
+                "kind": "tube",
+                "name": "vent slat",
+                "pts": [
+                  [
+                    -0.022,
+                    0.0935,
+                    0.0908
+                  ],
+                  [
+                    -0.073,
+                    0.0935,
+                    0.0908
+                  ]
+                ],
+                "r": 0.0018,
+                "sides": 4,
+                "role": "strut",
+                "sh": 0.8,
+                "paint": "chrome"
+              },
+              {
+                "kind": "tube",
+                "name": "vent slat",
+                "pts": [
+                  [
+                    -0.022,
+                    0.0935,
+                    0.096
+                  ],
+                  [
+                    -0.073,
+                    0.0935,
+                    0.096
+                  ]
+                ],
+                "r": 0.0018,
+                "sides": 4,
+                "role": "strut",
+                "sh": 0.8,
+                "paint": "chrome"
+              },
+              {
+                "kind": "tube",
+                "name": "vent slat",
+                "pts": [
+                  [
+                    -0.022,
+                    0.0935,
+                    0.1012
+                  ],
+                  [
+                    -0.073,
+                    0.0935,
+                    0.1012
+                  ]
+                ],
+                "r": 0.0018,
+                "sides": 4,
+                "role": "strut",
+                "sh": 0.8,
+                "paint": "chrome"
+              },
+              {
+                "kind": "tube",
+                "name": "vent slat",
+                "pts": [
+                  [
+                    -0.022,
+                    0.0935,
+                    0.1064
+                  ],
+                  [
+                    -0.073,
+                    0.0935,
+                    0.1064
+                  ]
+                ],
+                "r": 0.0018,
+                "sides": 4,
+                "role": "strut",
+                "sh": 0.8,
+                "paint": "chrome"
+              },
+              {
+                "kind": "tube",
+                "name": "vent frame",
+                "pts": [
+                  [
+                    -0.02,
+                    0.0935,
+                    0.083
+                  ],
+                  [
+                    -0.075,
+                    0.0935,
+                    0.083
+                  ],
+                  [
+                    -0.075,
+                    0.0935,
+                    0.109
+                  ],
+                  [
+                    -0.02,
+                    0.0935,
+                    0.109
+                  ],
+                  [
+                    -0.02,
+                    0.0935,
+                    0.083
+                  ]
+                ],
+                "r": 0.0022,
+                "sides": 4,
+                "role": "strut",
+                "sh": 0.8,
+                "paint": "metal"
+              },
+              {
+                "kind": "panel",
+                "name": "tail fin",
+                "note": "A canted fin on the tail, for looks and a little weathervane.",
+                "c": [
+                  [
+                    -0.16,
+                    0.032,
+                    0.115
+                  ],
+                  [
+                    -0.195,
+                    0.055,
+                    0.147
+                  ],
+                  [
+                    -0.222,
+                    0.057,
+                    0.147
+                  ],
+                  [
+                    -0.212,
+                    0.028,
+                    0.105
+                  ]
+                ],
+                "th": 0.004,
+                "role": "fin",
+                "sh": 0.8,
+                "paint": "trim"
+              },
+              {
+                "kind": "tube",
+                "name": "tail thruster",
+                "pts": [
+                  [
+                    -0.17,
+                    0.033,
+                    0.063
+                  ],
+                  [
+                    -0.25,
+                    0.033,
+                    0.063
+                  ]
+                ],
+                "r": 0.011,
+                "sides": 10,
+                "role": "nacelle",
+                "sh": 0.7,
+                "paint": "burnt"
+              },
+              {
+                "kind": "tube",
+                "name": "thruster lip",
+                "pts": [
+                  [
+                    -0.25,
+                    0.0445,
+                    0.063
+                  ],
+                  [
+                    -0.25,
+                    0.043,
+                    0.0688
+                  ],
+                  [
+                    -0.25,
+                    0.0388,
+                    0.073
+                  ],
+                  [
+                    -0.25,
+                    0.033,
+                    0.0745
+                  ],
+                  [
+                    -0.25,
+                    0.0273,
+                    0.073
+                  ],
+                  [
+                    -0.25,
+                    0.023,
+                    0.0688
+                  ],
+                  [
+                    -0.25,
+                    0.0215,
+                    0.063
+                  ],
+                  [
+                    -0.25,
+                    0.023,
+                    0.0573
+                  ],
+                  [
+                    -0.25,
+                    0.0272,
+                    0.053
+                  ],
+                  [
+                    -0.25,
+                    0.033,
+                    0.0515
+                  ],
+                  [
+                    -0.25,
+                    0.0388,
+                    0.053
+                  ],
+                  [
+                    -0.25,
+                    0.043,
+                    0.0573
+                  ],
+                  [
+                    -0.25,
+                    0.0445,
+                    0.063
+                  ]
+                ],
+                "r": 0.0022,
+                "sides": 4,
+                "role": "nacelle",
+                "sh": 0.85,
+                "paint": "chrome"
+              },
+              {
+                "kind": "tube",
+                "name": "thruster glow",
+                "pts": [
+                  [
+                    -0.2505,
+                    0.039,
+                    0.063
+                  ],
+                  [
+                    -0.2505,
+                    0.0382,
+                    0.066
+                  ],
+                  [
+                    -0.2505,
+                    0.036,
+                    0.0682
+                  ],
+                  [
+                    -0.2505,
+                    0.033,
+                    0.069
+                  ],
+                  [
+                    -0.2505,
+                    0.03,
+                    0.0682
+                  ],
+                  [
+                    -0.2505,
+                    0.0278,
+                    0.066
+                  ],
+                  [
+                    -0.2505,
+                    0.027,
+                    0.063
+                  ],
+                  [
+                    -0.2505,
+                    0.0278,
+                    0.06
+                  ],
+                  [
+                    -0.2505,
+                    0.03,
+                    0.0578
+                  ],
+                  [
+                    -0.2505,
+                    0.033,
+                    0.057
+                  ],
+                  [
+                    -0.2505,
+                    0.036,
+                    0.0578
+                  ],
+                  [
+                    -0.2505,
+                    0.0382,
+                    0.06
+                  ],
+                  [
+                    -0.2505,
+                    0.039,
+                    0.063
+                  ]
+                ],
+                "r": 0.0025,
+                "sides": 4,
+                "role": "nacelle",
+                "sh": 0.95,
+                "paint": "heat"
+              },
+              {
+                "kind": "tube",
+                "name": "mirror stalk",
+                "pts": [
+                  [
+                    0.06,
+                    0.06,
+                    0.122
+                  ],
+                  [
+                    0.055,
+                    0.085,
+                    0.138
+                  ]
+                ],
+                "r": 0.0022,
+                "sides": 4,
+                "role": "strut",
+                "sh": 0.8,
+                "paint": "chrome"
+              },
+              {
+                "kind": "tube",
+                "name": "mirror",
+                "pts": [
+                  [
+                    0.058,
+                    0.085,
+                    0.138
+                  ],
+                  [
+                    0.05,
+                    0.085,
+                    0.138
+                  ]
+                ],
+                "r": 0.008,
+                "sides": 8,
+                "role": "strut",
+                "sh": 0.8,
+                "paint": "chrome"
+              },
+              {
+                "kind": "tube",
+                "name": "nose marker",
+                "pts": [
+                  [
+                    0.15,
+                    0.0542,
+                    0.095
+                  ],
+                  [
+                    0.135,
+                    0.0619,
+                    0.097
+                  ]
+                ],
+                "r": 0.005,
+                "sides": 6,
+                "role": "strut",
+                "sh": 0.9,
+                "paint": "heat"
+              }
+            ]
+          },
+          {
+            "kind": "tube",
+            "name": "roll hoop",
+            "note": "A chrome hoop behind the helmet.",
+            "pts": [
+              [
+                -0.075,
+                -0.055,
+                0.12
+              ],
+              [
+                -0.08,
+                -0.045,
+                0.158
+              ],
+              [
+                -0.085,
+                0,
+                0.18
+              ],
+              [
+                -0.08,
+                0.045,
+                0.158
+              ],
+              [
+                -0.075,
+                0.055,
+                0.12
+              ]
+            ],
+            "r": 0.005,
+            "sides": 6,
+            "role": "strut",
+            "sh": 0.85,
+            "paint": "chrome"
+          },
+          {
+            "kind": "loft",
+            "name": "spine fairing",
+            "note": "The headrest fairing, tapering down the spine to the tail.",
+            "sides": 12,
+            "role": "body",
+            "paint": "hull",
+            "shade": {
+              "base": 0.62,
+              "amp": 0.34
+            },
+            "stations": [
+              {
+                "f": -0.07,
+                "rg": 0.032,
+                "rv": 0.03,
+                "cz": 0.122
+              },
+              {
+                "f": -0.12,
+                "rg": 0.03,
+                "rv": 0.026,
+                "cz": 0.12
+              },
+              {
+                "f": -0.19,
+                "rg": 0.016,
+                "rv": 0.012,
+                "cz": 0.11
+              }
+            ],
+            "capFore": {
+              "kind": "flat",
+              "sh": 0.5,
+              "paint": "leather"
+            },
+            "capAft": {
+              "kind": "apex",
+              "at": [
+                -0.205,
+                0,
+                0.11
+              ]
+            }
+          },
+          {
+            "kind": "tube",
+            "name": "spine stripe",
+            "pts": [
+              [
+                -0.07,
+                0,
+                0.1525
+              ],
+              [
+                -0.12,
+                0,
+                0.1465
+              ],
+              [
+                -0.19,
+                0,
+                0.1225
+              ]
+            ],
+            "r": 0.004,
+            "sides": 5,
+            "role": "strut",
+            "sh": 0.85,
+            "paint": "trim"
+          },
+          {
+            "kind": "tube",
+            "name": "nose collar",
+            "pts": [
+              [
+                0.19,
+                0.0395,
+                0.075
+              ],
+              [
+                0.19,
+                0.0365,
+                0.086
+              ],
+              [
+                0.19,
+                0.0279,
+                0.0953
+              ],
+              [
+                0.19,
+                0.0151,
+                0.1015
+              ],
+              [
+                0.19,
+                0,
+                0.1037
+              ],
+              [
+                0.19,
+                -0.0151,
+                0.1015
+              ],
+              [
+                0.19,
+                -0.0279,
+                0.0953
+              ],
+              [
+                0.19,
+                -0.0365,
+                0.086
+              ],
+              [
+                0.19,
+                -0.0395,
+                0.075
+              ],
+              [
+                0.19,
+                -0.0365,
+                0.064
+              ],
+              [
+                0.19,
+                -0.0279,
+                0.0547
+              ],
+              [
+                0.19,
+                -0.0151,
+                0.0485
+              ],
+              [
+                0.19,
+                0,
+                0.0463
+              ],
+              [
+                0.19,
+                0.0151,
+                0.0485
+              ],
+              [
+                0.19,
+                0.0279,
+                0.0547
+              ],
+              [
+                0.19,
+                0.0365,
+                0.064
+              ],
+              [
+                0.19,
+                0.0395,
+                0.075
+              ]
+            ],
+            "r": 0.0035,
+            "sides": 5,
+            "role": "strut",
+            "sh": 0.85,
+            "paint": "chrome"
+          },
+          {
+            "kind": "tube",
+            "name": "belly skid",
+            "pts": [
+              [
+                0.11,
+                0,
+                0.0242
+              ],
+              [
+                -0.03,
+                0,
+                0.02
+              ],
+              [
+                -0.16,
+                0,
+                0.0331
+              ]
+            ],
+            "r": 0.004,
+            "sides": 6,
+            "role": "strut",
+            "sh": 0.7,
+            "paint": "metal"
+          },
+          {
+            "kind": "tube",
+            "name": "skid post",
+            "pts": [
+              [
+                0.08,
+                0,
+                0.0326
+              ],
+              [
+                0.08,
+                0,
+                0.0226
+              ]
+            ],
+            "r": 0.003,
+            "sides": 5,
+            "role": "strut",
+            "sh": 0.7,
+            "paint": "metal"
+          },
+          {
+            "kind": "tube",
+            "name": "skid post",
+            "pts": [
+              [
+                -0.13,
+                0,
+                0.0372
+              ],
+              [
+                -0.13,
+                0,
+                0.0272
+              ]
+            ],
+            "r": 0.003,
+            "sides": 5,
+            "role": "strut",
+            "sh": 0.7,
+            "paint": "metal"
+          }
+        ]
+      },
+      {
+        "kind": "mirror",
+        "name": "turbines",
+        "parts": [
+          {
+            "kind": "group",
+            "name": "turbine",
+            "note": "Built round its own centre and moved out to the rest pose. Everything in it, the half of the binder included, is the R piece, and the L piece on the other side.",
+            "piece": "R",
+            "left": {
+              "piece": "L"
+            },
+            "xf": {
+              "t": [
+                0.8589,
+                0.198,
+                0
+              ],
+              "s": [
+                0.8333,
+                0.8,
+                0.8
+              ]
+            },
+            "parts": [
+              {
+                "kind": "loft",
+                "name": "casing",
+                "sides": 28,
+                "section": "super",
+                "role": "nacelle",
+                "exp": [
+                  1,
+                  1,
+                  1
+                ],
+                "shade": {
+                  "base": 0.56,
+                  "amp": 0.46
+                },
+                "paint": "casing",
+                "stations": [
+                  {
+                    "f": 0.27,
+                    "rg": 0.056,
+                    "rvT": 0.056,
+                    "rvB": 0.056,
+                    "cz": 0.09
+                  },
+                  {
+                    "f": 0.24,
+                    "rg": 0.072,
+                    "rvT": 0.072,
+                    "rvB": 0.072,
+                    "cz": 0.09
+                  },
+                  {
+                    "f": 0.1,
+                    "rg": 0.075,
+                    "rvT": 0.075,
+                    "rvB": 0.075,
+                    "cz": 0.09
+                  },
+                  {
+                    "f": -0.12,
+                    "rg": 0.068,
+                    "rvT": 0.068,
+                    "rvB": 0.068,
+                    "cz": 0.09
+                  }
+                ],
+                "capFore": {
+                  "kind": "flat",
+                  "sh": 0.4,
+                  "paint": "intake"
+                },
+                "capAft": {
+                  "kind": "flat",
+                  "sh": 0.4,
+                  "paint": "burnt"
+                },
+                "note": "Bare aluminium, the intake dark inside a chrome lip; the hot end is its own section."
+              },
+              {
+                "kind": "loft",
+                "name": "hot section",
+                "note": "Heat-tinted steel from the turbine stages back to the nozzle: straw where it leaves the casing, through bronze and purple to blue, and soot at the lip (the burnt slot ramp).",
+                "sides": 28,
+                "section": "super",
+                "role": "nacelle",
+                "exp": [
+                  1,
+                  1,
+                  1
+                ],
+                "shade": {
+                  "base": 0.56,
+                  "amp": 0.46
+                },
+                "paint": "burnt",
+                "stations": [
+                  {
+                    "f": -0.115,
+                    "rg": 0.069,
+                    "rvT": 0.069,
+                    "rvB": 0.069,
+                    "cz": 0.09
+                  },
+                  {
+                    "f": -0.14,
+                    "rg": 0.065,
+                    "rvT": 0.065,
+                    "rvB": 0.065,
+                    "cz": 0.09
+                  },
+                  {
+                    "f": -0.165,
+                    "rg": 0.0609,
+                    "rvT": 0.0609,
+                    "rvB": 0.0609,
+                    "cz": 0.09
+                  },
+                  {
+                    "f": -0.19,
+                    "rg": 0.0569,
+                    "rvT": 0.0569,
+                    "rvB": 0.0569,
+                    "cz": 0.09
+                  },
+                  {
+                    "f": -0.215,
+                    "rg": 0.0528,
+                    "rvT": 0.0528,
+                    "rvB": 0.0528,
+                    "cz": 0.09
+                  },
+                  {
+                    "f": -0.24,
+                    "rg": 0.0492,
+                    "rvT": 0.0492,
+                    "rvB": 0.0492,
+                    "cz": 0.09
+                  },
+                  {
+                    "f": -0.255,
+                    "rg": 0.0471,
+                    "rvT": 0.0471,
+                    "rvB": 0.0471,
+                    "cz": 0.09
+                  },
+                  {
+                    "f": -0.27,
+                    "rg": 0.045,
+                    "rvT": 0.045,
+                    "rvB": 0.045,
+                    "cz": 0.09
+                  }
+                ],
+                "capAft": {
+                  "kind": "flat",
+                  "sh": 0.3,
+                  "paint": "intake"
+                }
+              },
+              {
+                "kind": "cone",
+                "name": "tail cone",
+                "note": "The exhaust cone in the middle of the nozzle, so the back of the turbine reads as a turbine and not a lid.",
+                "f": -0.266,
+                "g": 0,
+                "h": 0.09,
+                "r": 0.024,
+                "n": 12,
+                "apex": [
+                  -0.305,
+                  0,
+                  0.09
+                ],
+                "role": "nacelle",
+                "paint": "metal"
+              },
+              {
+                "kind": "tube",
+                "name": "flame ring",
+                "note": "The hot ring round the tail cone.",
+                "pts": [
+                  [
+                    -0.267,
+                    0.034,
+                    0.09
+                  ],
+                  [
+                    -0.267,
+                    0.0314,
+                    0.103
+                  ],
+                  [
+                    -0.267,
+                    0.024,
+                    0.114
+                  ],
+                  [
+                    -0.267,
+                    0.013,
+                    0.1214
+                  ],
+                  [
+                    -0.267,
+                    0,
+                    0.124
+                  ],
+                  [
+                    -0.267,
+                    -0.013,
+                    0.1214
+                  ],
+                  [
+                    -0.267,
+                    -0.024,
+                    0.114
+                  ],
+                  [
+                    -0.267,
+                    -0.0314,
+                    0.103
+                  ],
+                  [
+                    -0.267,
+                    -0.034,
+                    0.09
+                  ],
+                  [
+                    -0.267,
+                    -0.0314,
+                    0.077
+                  ],
+                  [
+                    -0.267,
+                    -0.024,
+                    0.066
+                  ],
+                  [
+                    -0.267,
+                    -0.013,
+                    0.0586
+                  ],
+                  [
+                    -0.267,
+                    0,
+                    0.056
+                  ],
+                  [
+                    -0.267,
+                    0.013,
+                    0.0586
+                  ],
+                  [
+                    -0.267,
+                    0.024,
+                    0.066
+                  ],
+                  [
+                    -0.267,
+                    0.0314,
+                    0.077
+                  ],
+                  [
+                    -0.267,
+                    0.034,
+                    0.09
+                  ]
+                ],
+                "r": 0.004,
+                "sides": 5,
+                "role": "nacelle",
+                "sh": 0.95,
+                "paint": "heat"
+              },
+              {
+                "kind": "tube",
+                "name": "intake lip",
+                "pts": [
+                  [
+                    0.268,
+                    0.057,
+                    0.09
+                  ],
+                  [
+                    0.268,
+                    0.0527,
+                    0.1118
+                  ],
+                  [
+                    0.268,
+                    0.0403,
+                    0.1303
+                  ],
+                  [
+                    0.268,
+                    0.0218,
+                    0.1427
+                  ],
+                  [
+                    0.268,
+                    0,
+                    0.147
+                  ],
+                  [
+                    0.268,
+                    -0.0218,
+                    0.1427
+                  ],
+                  [
+                    0.268,
+                    -0.0403,
+                    0.1303
+                  ],
+                  [
+                    0.268,
+                    -0.0527,
+                    0.1118
+                  ],
+                  [
+                    0.268,
+                    -0.057,
+                    0.09
+                  ],
+                  [
+                    0.268,
+                    -0.0527,
+                    0.0682
+                  ],
+                  [
+                    0.268,
+                    -0.0403,
+                    0.0497
+                  ],
+                  [
+                    0.268,
+                    -0.0218,
+                    0.0373
+                  ],
+                  [
+                    0.268,
+                    0,
+                    0.033
+                  ],
+                  [
+                    0.268,
+                    0.0218,
+                    0.0373
+                  ],
+                  [
+                    0.268,
+                    0.0403,
+                    0.0497
+                  ],
+                  [
+                    0.268,
+                    0.0527,
+                    0.0682
+                  ],
+                  [
+                    0.268,
+                    0.057,
+                    0.09
+                  ]
+                ],
+                "r": 0.008,
+                "sides": 6,
+                "role": "nacelle",
+                "sh": 0.8,
+                "paint": "chrome"
+              },
+              {
+                "kind": "tube",
+                "name": "nozzle lip",
+                "pts": [
+                  [
+                    -0.27,
+                    0.046,
+                    0.09
+                  ],
+                  [
+                    -0.27,
+                    0.0425,
+                    0.1076
+                  ],
+                  [
+                    -0.27,
+                    0.0325,
+                    0.1225
+                  ],
+                  [
+                    -0.27,
+                    0.0176,
+                    0.1325
+                  ],
+                  [
+                    -0.27,
+                    0,
+                    0.136
+                  ],
+                  [
+                    -0.27,
+                    -0.0176,
+                    0.1325
+                  ],
+                  [
+                    -0.27,
+                    -0.0325,
+                    0.1225
+                  ],
+                  [
+                    -0.27,
+                    -0.0425,
+                    0.1076
+                  ],
+                  [
+                    -0.27,
+                    -0.046,
+                    0.09
+                  ],
+                  [
+                    -0.27,
+                    -0.0425,
+                    0.0724
+                  ],
+                  [
+                    -0.27,
+                    -0.0325,
+                    0.0575
+                  ],
+                  [
+                    -0.27,
+                    -0.0176,
+                    0.0475
+                  ],
+                  [
+                    -0.27,
+                    0,
+                    0.044
+                  ],
+                  [
+                    -0.27,
+                    0.0176,
+                    0.0475
+                  ],
+                  [
+                    -0.27,
+                    0.0325,
+                    0.0575
+                  ],
+                  [
+                    -0.27,
+                    0.0425,
+                    0.0724
+                  ],
+                  [
+                    -0.27,
+                    0.046,
+                    0.09
+                  ]
+                ],
+                "r": 0.006,
+                "sides": 6,
+                "role": "nacelle",
+                "sh": 0.8,
+                "paint": "chrome"
+              },
+              {
+                "kind": "tube",
+                "name": "casing seam",
+                "note": "The flange where the casing meets the hot section.",
+                "pts": [
+                  [
+                    -0.115,
+                    0.071,
+                    0.09
+                  ],
+                  [
+                    -0.115,
+                    0.0675,
+                    0.1119
+                  ],
+                  [
+                    -0.115,
+                    0.0574,
+                    0.1317
+                  ],
+                  [
+                    -0.115,
+                    0.0417,
+                    0.1474
+                  ],
+                  [
+                    -0.115,
+                    0.0219,
+                    0.1575
+                  ],
+                  [
+                    -0.115,
+                    0,
+                    0.161
+                  ],
+                  [
+                    -0.115,
+                    -0.0219,
+                    0.1575
+                  ],
+                  [
+                    -0.115,
+                    -0.0417,
+                    0.1474
+                  ],
+                  [
+                    -0.115,
+                    -0.0574,
+                    0.1317
+                  ],
+                  [
+                    -0.115,
+                    -0.0675,
+                    0.1119
+                  ],
+                  [
+                    -0.115,
+                    -0.071,
+                    0.09
+                  ],
+                  [
+                    -0.115,
+                    -0.0675,
+                    0.0681
+                  ],
+                  [
+                    -0.115,
+                    -0.0574,
+                    0.0483
+                  ],
+                  [
+                    -0.115,
+                    -0.0417,
+                    0.0326
+                  ],
+                  [
+                    -0.115,
+                    -0.0219,
+                    0.0225
+                  ],
+                  [
+                    -0.115,
+                    0,
+                    0.019
+                  ],
+                  [
+                    -0.115,
+                    0.0219,
+                    0.0225
+                  ],
+                  [
+                    -0.115,
+                    0.0417,
+                    0.0326
+                  ],
+                  [
+                    -0.115,
+                    0.0574,
+                    0.0483
+                  ],
+                  [
+                    -0.115,
+                    0.0675,
+                    0.0681
+                  ],
+                  [
+                    -0.115,
+                    0.071,
+                    0.09
+                  ]
+                ],
+                "r": 0.004,
+                "sides": 5,
+                "role": "nacelle",
+                "sh": 0.7,
+                "paint": "chrome"
+              },
+              {
+                "kind": "tube",
+                "name": "casing seam",
+                "pts": [
+                  [
+                    0,
+                    0.0765,
+                    0.09
+                  ],
+                  [
+                    0,
+                    0.0728,
+                    0.1136
+                  ],
+                  [
+                    0,
+                    0.0619,
+                    0.135
+                  ],
+                  [
+                    0,
+                    0.045,
+                    0.1519
+                  ],
+                  [
+                    0,
+                    0.0236,
+                    0.1628
+                  ],
+                  [
+                    0,
+                    0,
+                    0.1665
+                  ],
+                  [
+                    0,
+                    -0.0236,
+                    0.1628
+                  ],
+                  [
+                    0,
+                    -0.045,
+                    0.1519
+                  ],
+                  [
+                    0,
+                    -0.0619,
+                    0.135
+                  ],
+                  [
+                    0,
+                    -0.0728,
+                    0.1136
+                  ],
+                  [
+                    0,
+                    -0.0765,
+                    0.09
+                  ],
+                  [
+                    0,
+                    -0.0728,
+                    0.0664
+                  ],
+                  [
+                    0,
+                    -0.0619,
+                    0.045
+                  ],
+                  [
+                    0,
+                    -0.045,
+                    0.0281
+                  ],
+                  [
+                    0,
+                    -0.0236,
+                    0.0172
+                  ],
+                  [
+                    0,
+                    0,
+                    0.0135
+                  ],
+                  [
+                    0,
+                    0.0236,
+                    0.0172
+                  ],
+                  [
+                    0,
+                    0.045,
+                    0.0281
+                  ],
+                  [
+                    0,
+                    0.0619,
+                    0.045
+                  ],
+                  [
+                    0,
+                    0.0728,
+                    0.0664
+                  ],
+                  [
+                    0,
+                    0.0765,
+                    0.09
+                  ]
+                ],
+                "r": 0.003,
+                "sides": 5,
+                "role": "nacelle",
+                "sh": 0.7,
+                "paint": "chrome"
+              },
+              {
+                "kind": "poly",
+                "name": "fan",
+                "note": "The first stage, fourteen twisted blades behind the intake lip, so the intake reads as a turbine and not a hole.",
+                "paint": "metal",
+                "faces": [
+                  {
+                    "p": [
+                      [
+                        0.262,
+                        0.027,
+                        0.09
+                      ],
+                      [
+                        0.262,
+                        0.0536,
+                        0.0965
+                      ],
+                      [
+                        0.254,
+                        0.0513,
+                        0.107
+                      ],
+                      [
+                        0.254,
+                        0.0265,
+                        0.0954
+                      ]
+                    ],
+                    "role": "nacelle",
+                    "sh": 0.62
+                  },
+                  {
+                    "p": [
+                      [
+                        0.262,
+                        0.0243,
+                        0.1017
+                      ],
+                      [
+                        0.262,
+                        0.0455,
+                        0.1191
+                      ],
+                      [
+                        0.254,
+                        0.0388,
+                        0.1275
+                      ],
+                      [
+                        0.254,
+                        0.0215,
+                        0.1063
+                      ]
+                    ],
+                    "role": "nacelle",
+                    "sh": 0.74
+                  },
+                  {
+                    "p": [
+                      [
+                        0.262,
+                        0.0168,
+                        0.1111
+                      ],
+                      [
+                        0.262,
+                        0.0284,
+                        0.1359
+                      ],
+                      [
+                        0.254,
+                        0.0187,
+                        0.1407
+                      ],
+                      [
+                        0.254,
+                        0.0123,
+                        0.114
+                      ]
+                    ],
+                    "role": "nacelle",
+                    "sh": 0.62
+                  },
+                  {
+                    "p": [
+                      [
+                        0.262,
+                        0.006,
+                        0.1163
+                      ],
+                      [
+                        0.262,
+                        0.0056,
+                        0.1437
+                      ],
+                      [
+                        0.254,
+                        -0.0052,
+                        0.1438
+                      ],
+                      [
+                        0.254,
+                        0.0007,
+                        0.117
+                      ]
+                    ],
+                    "role": "nacelle",
+                    "sh": 0.74
+                  },
+                  {
+                    "p": [
+                      [
+                        0.262,
+                        -0.006,
+                        0.1163
+                      ],
+                      [
+                        0.262,
+                        -0.0182,
+                        0.1408
+                      ],
+                      [
+                        0.254,
+                        -0.028,
+                        0.1362
+                      ],
+                      [
+                        0.254,
+                        -0.0111,
+                        0.1146
+                      ]
+                    ],
+                    "role": "nacelle",
+                    "sh": 0.62
+                  },
+                  {
+                    "p": [
+                      [
+                        0.262,
+                        -0.0168,
+                        0.1111
+                      ],
+                      [
+                        0.262,
+                        -0.0385,
+                        0.1279
+                      ],
+                      [
+                        0.254,
+                        -0.0452,
+                        0.1195
+                      ],
+                      [
+                        0.254,
+                        -0.0207,
+                        0.1073
+                      ]
+                    ],
+                    "role": "nacelle",
+                    "sh": 0.74
+                  },
+                  {
+                    "p": [
+                      [
+                        0.262,
+                        -0.0243,
+                        0.1017
+                      ],
+                      [
+                        0.262,
+                        -0.0511,
+                        0.1074
+                      ],
+                      [
+                        0.254,
+                        -0.0536,
+                        0.0969
+                      ],
+                      [
+                        0.254,
+                        -0.0262,
+                        0.0966
+                      ]
+                    ],
+                    "role": "nacelle",
+                    "sh": 0.62
+                  },
+                  {
+                    "p": [
+                      [
+                        0.262,
+                        -0.027,
+                        0.09
+                      ],
+                      [
+                        0.262,
+                        -0.0536,
+                        0.0835
+                      ],
+                      [
+                        0.254,
+                        -0.0513,
+                        0.073
+                      ],
+                      [
+                        0.254,
+                        -0.0265,
+                        0.0846
+                      ]
+                    ],
+                    "role": "nacelle",
+                    "sh": 0.74
+                  },
+                  {
+                    "p": [
+                      [
+                        0.262,
+                        -0.0243,
+                        0.0783
+                      ],
+                      [
+                        0.262,
+                        -0.0455,
+                        0.0609
+                      ],
+                      [
+                        0.254,
+                        -0.0388,
+                        0.0525
+                      ],
+                      [
+                        0.254,
+                        -0.0215,
+                        0.0737
+                      ]
+                    ],
+                    "role": "nacelle",
+                    "sh": 0.62
+                  },
+                  {
+                    "p": [
+                      [
+                        0.262,
+                        -0.0168,
+                        0.0689
+                      ],
+                      [
+                        0.262,
+                        -0.0284,
+                        0.0441
+                      ],
+                      [
+                        0.254,
+                        -0.0187,
+                        0.0393
+                      ],
+                      [
+                        0.254,
+                        -0.0123,
+                        0.066
+                      ]
+                    ],
+                    "role": "nacelle",
+                    "sh": 0.74
+                  },
+                  {
+                    "p": [
+                      [
+                        0.262,
+                        -0.006,
+                        0.0637
+                      ],
+                      [
+                        0.262,
+                        -0.0056,
+                        0.0363
+                      ],
+                      [
+                        0.254,
+                        0.0052,
+                        0.0362
+                      ],
+                      [
+                        0.254,
+                        -0.0007,
+                        0.063
+                      ]
+                    ],
+                    "role": "nacelle",
+                    "sh": 0.62
+                  },
+                  {
+                    "p": [
+                      [
+                        0.262,
+                        0.006,
+                        0.0637
+                      ],
+                      [
+                        0.262,
+                        0.0182,
+                        0.0392
+                      ],
+                      [
+                        0.254,
+                        0.028,
+                        0.0438
+                      ],
+                      [
+                        0.254,
+                        0.0111,
+                        0.0654
+                      ]
+                    ],
+                    "role": "nacelle",
+                    "sh": 0.74
+                  },
+                  {
+                    "p": [
+                      [
+                        0.262,
+                        0.0168,
+                        0.0689
+                      ],
+                      [
+                        0.262,
+                        0.0385,
+                        0.0521
+                      ],
+                      [
+                        0.254,
+                        0.0452,
+                        0.0605
+                      ],
+                      [
+                        0.254,
+                        0.0207,
+                        0.0727
+                      ]
+                    ],
+                    "role": "nacelle",
+                    "sh": 0.62
+                  },
+                  {
+                    "p": [
+                      [
+                        0.262,
+                        0.0243,
+                        0.0783
+                      ],
+                      [
+                        0.262,
+                        0.0511,
+                        0.0726
+                      ],
+                      [
+                        0.254,
+                        0.0536,
+                        0.0831
+                      ],
+                      [
+                        0.254,
+                        0.0262,
+                        0.0834
+                      ]
+                    ],
+                    "role": "nacelle",
+                    "sh": 0.74
+                  }
+                ]
+              },
+              {
+                "kind": "cone",
+                "name": "spinner",
+                "f": 0.268,
+                "g": 0,
+                "h": 0.09,
+                "r": 0.028,
+                "n": 10,
+                "apex": [
+                  0.31,
+                  0,
+                  0.09
+                ],
+                "role": "nacelle",
+                "paint": "chrome"
+              },
+              {
+                "kind": "loft",
+                "name": "cowl band",
+                "sides": 28,
+                "section": "super",
+                "role": "nacelle",
+                "exp": [
+                  1,
+                  1,
+                  1
+                ],
+                "shade": {
+                  "base": 0.56,
+                  "amp": 0.46
+                },
+                "paint": "hull",
+                "stations": [
+                  {
+                    "f": 0.2,
+                    "rg": 0.077,
+                    "rvT": 0.077,
+                    "rvB": 0.077,
+                    "cz": 0.09
+                  },
+                  {
+                    "f": 0.12,
+                    "rg": 0.078,
+                    "rvT": 0.078,
+                    "rvB": 0.078,
+                    "cz": 0.09
+                  }
+                ]
+              },
+              {
+                "kind": "blade",
+                "name": "dorsal fin",
+                "outline": [
+                  [
+                    0.04,
+                    0.155
+                  ],
+                  [
+                    -0.18,
+                    0.155
+                  ],
+                  [
+                    -0.25,
+                    0.235
+                  ],
+                  [
+                    -0.04,
+                    0.21
+                  ]
+                ],
+                "t": 0.006,
+                "role": "fin",
+                "sh": [
+                  0.72,
+                  0.62
+                ],
+                "paint": "trim"
+              },
+              {
+                "kind": "panel",
+                "name": "split vane",
+                "c": [
+                  [
+                    -0.08,
+                    0.07,
+                    0.09
+                  ],
+                  [
+                    -0.15,
+                    0.165,
+                    0.1
+                  ],
+                  [
+                    -0.235,
+                    0.165,
+                    0.1
+                  ],
+                  [
+                    -0.19,
+                    0.07,
+                    0.09
+                  ]
+                ],
+                "th": 0.008,
+                "role": "wing",
+                "sh": 0.8,
+                "paint": "trim"
+              },
+              {
+                "kind": "tube",
+                "name": "cable pylon",
+                "pts": [
+                  [
+                    -0.15,
+                    -0.055,
+                    0.09
+                  ],
+                  [
+                    -0.15,
+                    -0.09,
+                    0.09
+                  ]
+                ],
+                "r": 0.012,
+                "sides": 6,
+                "role": "strut",
+                "sh": 0.65,
+                "paint": "metal"
+              },
+              {
+                "kind": "tube",
+                "name": "binder emitter",
+                "note": "A short arm toward the other turbine, ending in the emitter; the energy binder arcs across the gap between the two (drawPodracerArc in windshield.js). Torn, the arc goes and the arms stay.",
+                "pts": [
+                  [
+                    0.06,
+                    -0.06,
+                    0.12
+                  ],
+                  [
+                    0.06,
+                    -0.082,
+                    0.12
+                  ]
+                ],
+                "r": 0.015,
+                "sides": 8,
+                "role": "strut",
+                "sh": 0.62,
+                "paint": "metal"
+              },
+              {
+                "kind": "tube",
+                "name": "emitter cup",
+                "note": "The chrome cup the arc leaves from.",
+                "pts": [
+                  [
+                    0.06,
+                    -0.082,
+                    0.12
+                  ],
+                  [
+                    0.06,
+                    -0.092,
+                    0.12
+                  ]
+                ],
+                "r": 0.02,
+                "sides": 10,
+                "caps": 1,
+                "role": "strut",
+                "sh": 0.8,
+                "paint": "chrome"
+              },
+              {
+                "kind": "tube",
+                "name": "emitter coil",
+                "note": "A copper winding round the arm behind the cup.",
+                "pts": [
+                  [
+                    0.06,
+                    -0.068,
+                    0.12
+                  ],
+                  [
+                    0.06,
+                    -0.079,
+                    0.12
+                  ]
+                ],
+                "r": 0.019,
+                "sides": 10,
+                "caps": 1,
+                "role": "strut",
+                "sh": 0.7,
+                "paint": "coil"
+              },
+              {
+                "kind": "tube",
+                "name": "binder collar",
+                "note": "A polished clamp where the binder half meets the casing.",
+                "pts": [
+                  [
+                    0.06,
+                    -0.075,
+                    0.12
+                  ],
+                  [
+                    0.06,
+                    -0.095,
+                    0.12
+                  ]
+                ],
+                "r": 0.022,
+                "sides": 10,
+                "caps": 1,
+                "role": "strut",
+                "sh": 0.75,
+                "paint": "chrome"
+              },
+              {
+                "kind": "poly",
+                "name": "air brake 45",
+                "note": "A petal of the air brake, hinged at its front edge; it swings out into the air while the brake is held (channel airbrake). Brushed outside, candy inside, so it flashes red when it opens.",
+                "anim": {
+                  "ch": "airbrake",
+                  "pivot": [
+                    -0.012,
+                    0.0544,
+                    0.1444
+                  ],
+                  "axis": [
+                    0,
+                    -0.7071,
+                    0.7071
+                  ],
+                  "ang": [
+                    0,
+                    -62
+                  ]
+                },
+                "faces": [
+                  {
+                    "role": "nacelle",
+                    "sh": 0.75,
+                    "two": 1,
+                    "paint": "metal",
+                    "p": [
+                      [
+                        -0.012,
+                        0.0694,
+                        0.1266
+                      ],
+                      [
+                        -0.012,
+                        0.0608,
+                        0.1397
+                      ],
+                      [
+                        -0.092,
+                        0.0577,
+                        0.1372
+                      ],
+                      [
+                        -0.092,
+                        0.0659,
+                        0.1248
+                      ]
+                    ]
+                  },
+                  {
+                    "role": "nacelle",
+                    "sh": 0.75,
+                    "two": 1,
+                    "paint": "metal",
+                    "p": [
+                      [
+                        -0.012,
+                        0.0608,
+                        0.1397
+                      ],
+                      [
+                        -0.012,
+                        0.0497,
+                        0.1508
+                      ],
+                      [
+                        -0.092,
+                        0.0472,
+                        0.1477
+                      ],
+                      [
+                        -0.092,
+                        0.0577,
+                        0.1372
+                      ]
+                    ]
+                  },
+                  {
+                    "role": "nacelle",
+                    "sh": 0.75,
+                    "two": 1,
+                    "paint": "metal",
+                    "p": [
+                      [
+                        -0.012,
+                        0.0497,
+                        0.1508
+                      ],
+                      [
+                        -0.012,
+                        0.0366,
+                        0.1594
+                      ],
+                      [
+                        -0.092,
+                        0.0348,
+                        0.1559
+                      ],
+                      [
+                        -0.092,
+                        0.0472,
+                        0.1477
+                      ]
+                    ]
+                  },
+                  {
+                    "role": "nacelle",
+                    "sh": 0.5,
+                    "two": 1,
+                    "paint": "hull",
+                    "p": [
+                      [
+                        -0.012,
+                        0.0683,
+                        0.126
+                      ],
+                      [
+                        -0.012,
+                        0.0598,
+                        0.1389
+                      ],
+                      [
+                        -0.092,
+                        0.0567,
+                        0.1363
+                      ],
+                      [
+                        -0.092,
+                        0.0647,
+                        0.1242
+                      ]
+                    ]
+                  },
+                  {
+                    "role": "nacelle",
+                    "sh": 0.5,
+                    "two": 1,
+                    "paint": "hull",
+                    "p": [
+                      [
+                        -0.012,
+                        0.0598,
+                        0.1389
+                      ],
+                      [
+                        -0.012,
+                        0.0489,
+                        0.1498
+                      ],
+                      [
+                        -0.092,
+                        0.0463,
+                        0.1467
+                      ],
+                      [
+                        -0.092,
+                        0.0567,
+                        0.1363
+                      ]
+                    ]
+                  },
+                  {
+                    "role": "nacelle",
+                    "sh": 0.5,
+                    "two": 1,
+                    "paint": "hull",
+                    "p": [
+                      [
+                        -0.012,
+                        0.0489,
+                        0.1498
+                      ],
+                      [
+                        -0.012,
+                        0.036,
+                        0.1583
+                      ],
+                      [
+                        -0.092,
+                        0.0342,
+                        0.1547
+                      ],
+                      [
+                        -0.092,
+                        0.0463,
+                        0.1467
+                      ]
+                    ]
+                  }
+                ]
+              },
+              {
+                "kind": "tube",
+                "name": "air brake hinge 45",
+                "pts": [
+                  [
+                    -0.012,
+                    0.0699,
+                    0.1269
+                  ],
+                  [
+                    -0.012,
+                    0.0569,
+                    0.1469
+                  ],
+                  [
+                    -0.012,
+                    0.0369,
+                    0.1599
+                  ]
+                ],
+                "r": 0.0035,
+                "sides": 5,
+                "role": "nacelle",
+                "sh": 0.8,
+                "paint": "chrome"
+              },
+              {
+                "kind": "poly",
+                "name": "air brake 135",
+                "note": "A petal of the air brake, hinged at its front edge; it swings out into the air while the brake is held (channel airbrake). Brushed outside, candy inside, so it flashes red when it opens.",
+                "anim": {
+                  "ch": "airbrake",
+                  "pivot": [
+                    -0.012,
+                    -0.0544,
+                    0.1444
+                  ],
+                  "axis": [
+                    0,
+                    -0.7071,
+                    -0.7071
+                  ],
+                  "ang": [
+                    0,
+                    -62
+                  ]
+                },
+                "faces": [
+                  {
+                    "role": "nacelle",
+                    "sh": 0.75,
+                    "two": 1,
+                    "paint": "metal",
+                    "p": [
+                      [
+                        -0.012,
+                        -0.0366,
+                        0.1594
+                      ],
+                      [
+                        -0.012,
+                        -0.0497,
+                        0.1508
+                      ],
+                      [
+                        -0.092,
+                        -0.0472,
+                        0.1477
+                      ],
+                      [
+                        -0.092,
+                        -0.0348,
+                        0.1559
+                      ]
+                    ]
+                  },
+                  {
+                    "role": "nacelle",
+                    "sh": 0.75,
+                    "two": 1,
+                    "paint": "metal",
+                    "p": [
+                      [
+                        -0.012,
+                        -0.0497,
+                        0.1508
+                      ],
+                      [
+                        -0.012,
+                        -0.0608,
+                        0.1397
+                      ],
+                      [
+                        -0.092,
+                        -0.0577,
+                        0.1372
+                      ],
+                      [
+                        -0.092,
+                        -0.0472,
+                        0.1477
+                      ]
+                    ]
+                  },
+                  {
+                    "role": "nacelle",
+                    "sh": 0.75,
+                    "two": 1,
+                    "paint": "metal",
+                    "p": [
+                      [
+                        -0.012,
+                        -0.0608,
+                        0.1397
+                      ],
+                      [
+                        -0.012,
+                        -0.0694,
+                        0.1266
+                      ],
+                      [
+                        -0.092,
+                        -0.0659,
+                        0.1248
+                      ],
+                      [
+                        -0.092,
+                        -0.0577,
+                        0.1372
+                      ]
+                    ]
+                  },
+                  {
+                    "role": "nacelle",
+                    "sh": 0.5,
+                    "two": 1,
+                    "paint": "hull",
+                    "p": [
+                      [
+                        -0.012,
+                        -0.036,
+                        0.1583
+                      ],
+                      [
+                        -0.012,
+                        -0.0489,
+                        0.1498
+                      ],
+                      [
+                        -0.092,
+                        -0.0463,
+                        0.1467
+                      ],
+                      [
+                        -0.092,
+                        -0.0342,
+                        0.1547
+                      ]
+                    ]
+                  },
+                  {
+                    "role": "nacelle",
+                    "sh": 0.5,
+                    "two": 1,
+                    "paint": "hull",
+                    "p": [
+                      [
+                        -0.012,
+                        -0.0489,
+                        0.1498
+                      ],
+                      [
+                        -0.012,
+                        -0.0598,
+                        0.1389
+                      ],
+                      [
+                        -0.092,
+                        -0.0567,
+                        0.1363
+                      ],
+                      [
+                        -0.092,
+                        -0.0463,
+                        0.1467
+                      ]
+                    ]
+                  },
+                  {
+                    "role": "nacelle",
+                    "sh": 0.5,
+                    "two": 1,
+                    "paint": "hull",
+                    "p": [
+                      [
+                        -0.012,
+                        -0.0598,
+                        0.1389
+                      ],
+                      [
+                        -0.012,
+                        -0.0683,
+                        0.126
+                      ],
+                      [
+                        -0.092,
+                        -0.0647,
+                        0.1242
+                      ],
+                      [
+                        -0.092,
+                        -0.0567,
+                        0.1363
+                      ]
+                    ]
+                  }
+                ]
+              },
+              {
+                "kind": "tube",
+                "name": "air brake hinge 135",
+                "pts": [
+                  [
+                    -0.012,
+                    -0.0369,
+                    0.1599
+                  ],
+                  [
+                    -0.012,
+                    -0.0569,
+                    0.1469
+                  ],
+                  [
+                    -0.012,
+                    -0.0699,
+                    0.1269
+                  ]
+                ],
+                "r": 0.0035,
+                "sides": 5,
+                "role": "nacelle",
+                "sh": 0.8,
+                "paint": "chrome"
+              },
+              {
+                "kind": "poly",
+                "name": "air brake 225",
+                "note": "A petal of the air brake, hinged at its front edge; it swings out into the air while the brake is held (channel airbrake). Brushed outside, candy inside, so it flashes red when it opens.",
+                "anim": {
+                  "ch": "airbrake",
+                  "pivot": [
+                    -0.012,
+                    -0.0544,
+                    0.0356
+                  ],
+                  "axis": [
+                    0,
+                    0.7071,
+                    -0.7071
+                  ],
+                  "ang": [
+                    0,
+                    -62
+                  ]
+                },
+                "faces": [
+                  {
+                    "role": "nacelle",
+                    "sh": 0.75,
+                    "two": 1,
+                    "paint": "metal",
+                    "p": [
+                      [
+                        -0.012,
+                        -0.0694,
+                        0.0534
+                      ],
+                      [
+                        -0.012,
+                        -0.0608,
+                        0.0403
+                      ],
+                      [
+                        -0.092,
+                        -0.0577,
+                        0.0428
+                      ],
+                      [
+                        -0.092,
+                        -0.0659,
+                        0.0552
+                      ]
+                    ]
+                  },
+                  {
+                    "role": "nacelle",
+                    "sh": 0.75,
+                    "two": 1,
+                    "paint": "metal",
+                    "p": [
+                      [
+                        -0.012,
+                        -0.0608,
+                        0.0403
+                      ],
+                      [
+                        -0.012,
+                        -0.0497,
+                        0.0292
+                      ],
+                      [
+                        -0.092,
+                        -0.0472,
+                        0.0323
+                      ],
+                      [
+                        -0.092,
+                        -0.0577,
+                        0.0428
+                      ]
+                    ]
+                  },
+                  {
+                    "role": "nacelle",
+                    "sh": 0.75,
+                    "two": 1,
+                    "paint": "metal",
+                    "p": [
+                      [
+                        -0.012,
+                        -0.0497,
+                        0.0292
+                      ],
+                      [
+                        -0.012,
+                        -0.0366,
+                        0.0206
+                      ],
+                      [
+                        -0.092,
+                        -0.0348,
+                        0.0241
+                      ],
+                      [
+                        -0.092,
+                        -0.0472,
+                        0.0323
+                      ]
+                    ]
+                  },
+                  {
+                    "role": "nacelle",
+                    "sh": 0.5,
+                    "two": 1,
+                    "paint": "hull",
+                    "p": [
+                      [
+                        -0.012,
+                        -0.0683,
+                        0.054
+                      ],
+                      [
+                        -0.012,
+                        -0.0598,
+                        0.0411
+                      ],
+                      [
+                        -0.092,
+                        -0.0567,
+                        0.0437
+                      ],
+                      [
+                        -0.092,
+                        -0.0647,
+                        0.0558
+                      ]
+                    ]
+                  },
+                  {
+                    "role": "nacelle",
+                    "sh": 0.5,
+                    "two": 1,
+                    "paint": "hull",
+                    "p": [
+                      [
+                        -0.012,
+                        -0.0598,
+                        0.0411
+                      ],
+                      [
+                        -0.012,
+                        -0.0489,
+                        0.0302
+                      ],
+                      [
+                        -0.092,
+                        -0.0463,
+                        0.0333
+                      ],
+                      [
+                        -0.092,
+                        -0.0567,
+                        0.0437
+                      ]
+                    ]
+                  },
+                  {
+                    "role": "nacelle",
+                    "sh": 0.5,
+                    "two": 1,
+                    "paint": "hull",
+                    "p": [
+                      [
+                        -0.012,
+                        -0.0489,
+                        0.0302
+                      ],
+                      [
+                        -0.012,
+                        -0.036,
+                        0.0217
+                      ],
+                      [
+                        -0.092,
+                        -0.0342,
+                        0.0253
+                      ],
+                      [
+                        -0.092,
+                        -0.0463,
+                        0.0333
+                      ]
+                    ]
+                  }
+                ]
+              },
+              {
+                "kind": "tube",
+                "name": "air brake hinge 225",
+                "pts": [
+                  [
+                    -0.012,
+                    -0.0699,
+                    0.0531
+                  ],
+                  [
+                    -0.012,
+                    -0.0569,
+                    0.0331
+                  ],
+                  [
+                    -0.012,
+                    -0.0369,
+                    0.0201
+                  ]
+                ],
+                "r": 0.0035,
+                "sides": 5,
+                "role": "nacelle",
+                "sh": 0.8,
+                "paint": "chrome"
+              },
+              {
+                "kind": "poly",
+                "name": "air brake 315",
+                "note": "A petal of the air brake, hinged at its front edge; it swings out into the air while the brake is held (channel airbrake). Brushed outside, candy inside, so it flashes red when it opens.",
+                "anim": {
+                  "ch": "airbrake",
+                  "pivot": [
+                    -0.012,
+                    0.0544,
+                    0.0356
+                  ],
+                  "axis": [
+                    0,
+                    0.7071,
+                    0.7071
+                  ],
+                  "ang": [
+                    0,
+                    -62
+                  ]
+                },
+                "faces": [
+                  {
+                    "role": "nacelle",
+                    "sh": 0.75,
+                    "two": 1,
+                    "paint": "metal",
+                    "p": [
+                      [
+                        -0.012,
+                        0.0366,
+                        0.0206
+                      ],
+                      [
+                        -0.012,
+                        0.0497,
+                        0.0292
+                      ],
+                      [
+                        -0.092,
+                        0.0472,
+                        0.0323
+                      ],
+                      [
+                        -0.092,
+                        0.0348,
+                        0.0241
+                      ]
+                    ]
+                  },
+                  {
+                    "role": "nacelle",
+                    "sh": 0.75,
+                    "two": 1,
+                    "paint": "metal",
+                    "p": [
+                      [
+                        -0.012,
+                        0.0497,
+                        0.0292
+                      ],
+                      [
+                        -0.012,
+                        0.0608,
+                        0.0403
+                      ],
+                      [
+                        -0.092,
+                        0.0577,
+                        0.0428
+                      ],
+                      [
+                        -0.092,
+                        0.0472,
+                        0.0323
+                      ]
+                    ]
+                  },
+                  {
+                    "role": "nacelle",
+                    "sh": 0.75,
+                    "two": 1,
+                    "paint": "metal",
+                    "p": [
+                      [
+                        -0.012,
+                        0.0608,
+                        0.0403
+                      ],
+                      [
+                        -0.012,
+                        0.0694,
+                        0.0534
+                      ],
+                      [
+                        -0.092,
+                        0.0659,
+                        0.0552
+                      ],
+                      [
+                        -0.092,
+                        0.0577,
+                        0.0428
+                      ]
+                    ]
+                  },
+                  {
+                    "role": "nacelle",
+                    "sh": 0.5,
+                    "two": 1,
+                    "paint": "hull",
+                    "p": [
+                      [
+                        -0.012,
+                        0.036,
+                        0.0217
+                      ],
+                      [
+                        -0.012,
+                        0.0489,
+                        0.0302
+                      ],
+                      [
+                        -0.092,
+                        0.0463,
+                        0.0333
+                      ],
+                      [
+                        -0.092,
+                        0.0342,
+                        0.0253
+                      ]
+                    ]
+                  },
+                  {
+                    "role": "nacelle",
+                    "sh": 0.5,
+                    "two": 1,
+                    "paint": "hull",
+                    "p": [
+                      [
+                        -0.012,
+                        0.0489,
+                        0.0302
+                      ],
+                      [
+                        -0.012,
+                        0.0598,
+                        0.0411
+                      ],
+                      [
+                        -0.092,
+                        0.0567,
+                        0.0437
+                      ],
+                      [
+                        -0.092,
+                        0.0463,
+                        0.0333
+                      ]
+                    ]
+                  },
+                  {
+                    "role": "nacelle",
+                    "sh": 0.5,
+                    "two": 1,
+                    "paint": "hull",
+                    "p": [
+                      [
+                        -0.012,
+                        0.0598,
+                        0.0411
+                      ],
+                      [
+                        -0.012,
+                        0.0683,
+                        0.054
+                      ],
+                      [
+                        -0.092,
+                        0.0647,
+                        0.0558
+                      ],
+                      [
+                        -0.092,
+                        0.0567,
+                        0.0437
+                      ]
+                    ]
+                  }
+                ]
+              },
+              {
+                "kind": "tube",
+                "name": "air brake hinge 315",
+                "pts": [
+                  [
+                    -0.012,
+                    0.0369,
+                    0.0201
+                  ],
+                  [
+                    -0.012,
+                    0.0569,
+                    0.0331
+                  ],
+                  [
+                    -0.012,
+                    0.0699,
+                    0.0531
+                  ]
+                ],
+                "r": 0.0035,
+                "sides": 5,
+                "role": "nacelle",
+                "sh": 0.8,
+                "paint": "chrome"
+              },
+              {
+                "kind": "tube",
+                "name": "seam shadow",
+                "pts": [
+                  [
+                    0.006,
+                    0.0732,
+                    0.09
+                  ],
+                  [
+                    0.006,
+                    0.0707,
+                    0.1089
+                  ],
+                  [
+                    0.006,
+                    0.0634,
+                    0.1266
+                  ],
+                  [
+                    0.006,
+                    0.0518,
+                    0.1418
+                  ],
+                  [
+                    0.006,
+                    0.0366,
+                    0.1534
+                  ],
+                  [
+                    0.006,
+                    0.0189,
+                    0.1607
+                  ],
+                  [
+                    0.006,
+                    0,
+                    0.1632
+                  ],
+                  [
+                    0.006,
+                    -0.0189,
+                    0.1607
+                  ],
+                  [
+                    0.006,
+                    -0.0366,
+                    0.1534
+                  ],
+                  [
+                    0.006,
+                    -0.0518,
+                    0.1418
+                  ],
+                  [
+                    0.006,
+                    -0.0634,
+                    0.1266
+                  ],
+                  [
+                    0.006,
+                    -0.0707,
+                    0.1089
+                  ],
+                  [
+                    0.006,
+                    -0.0732,
+                    0.09
+                  ],
+                  [
+                    0.006,
+                    -0.0707,
+                    0.0711
+                  ],
+                  [
+                    0.006,
+                    -0.0634,
+                    0.0534
+                  ],
+                  [
+                    0.006,
+                    -0.0518,
+                    0.0382
+                  ],
+                  [
+                    0.006,
+                    -0.0366,
+                    0.0266
+                  ],
+                  [
+                    0.006,
+                    -0.0189,
+                    0.0193
+                  ],
+                  [
+                    0.006,
+                    0,
+                    0.0168
+                  ],
+                  [
+                    0.006,
+                    0.0189,
+                    0.0193
+                  ],
+                  [
+                    0.006,
+                    0.0366,
+                    0.0266
+                  ],
+                  [
+                    0.006,
+                    0.0518,
+                    0.0382
+                  ],
+                  [
+                    0.006,
+                    0.0634,
+                    0.0534
+                  ],
+                  [
+                    0.006,
+                    0.0707,
+                    0.0711
+                  ],
+                  [
+                    0.006,
+                    0.0732,
+                    0.09
+                  ]
+                ],
+                "r": 0.0018,
+                "sides": 4,
+                "role": "nacelle",
+                "sh": 0.35,
+                "paint": "dark"
+              },
+              {
+                "kind": "tube",
+                "name": "seam shadow",
+                "pts": [
+                  [
+                    -0.006,
+                    0.0728,
+                    0.09
+                  ],
+                  [
+                    -0.006,
+                    0.0703,
+                    0.1088
+                  ],
+                  [
+                    -0.006,
+                    0.0631,
+                    0.1264
+                  ],
+                  [
+                    -0.006,
+                    0.0515,
+                    0.1415
+                  ],
+                  [
+                    -0.006,
+                    0.0364,
+                    0.1531
+                  ],
+                  [
+                    -0.006,
+                    0.0188,
+                    0.1603
+                  ],
+                  [
+                    -0.006,
+                    0,
+                    0.1628
+                  ],
+                  [
+                    -0.006,
+                    -0.0188,
+                    0.1603
+                  ],
+                  [
+                    -0.006,
+                    -0.0364,
+                    0.1531
+                  ],
+                  [
+                    -0.006,
+                    -0.0515,
+                    0.1415
+                  ],
+                  [
+                    -0.006,
+                    -0.0631,
+                    0.1264
+                  ],
+                  [
+                    -0.006,
+                    -0.0703,
+                    0.1088
+                  ],
+                  [
+                    -0.006,
+                    -0.0728,
+                    0.09
+                  ],
+                  [
+                    -0.006,
+                    -0.0703,
+                    0.0712
+                  ],
+                  [
+                    -0.006,
+                    -0.0631,
+                    0.0536
+                  ],
+                  [
+                    -0.006,
+                    -0.0515,
+                    0.0385
+                  ],
+                  [
+                    -0.006,
+                    -0.0364,
+                    0.0269
+                  ],
+                  [
+                    -0.006,
+                    -0.0188,
+                    0.0197
+                  ],
+                  [
+                    -0.006,
+                    0,
+                    0.0172
+                  ],
+                  [
+                    -0.006,
+                    0.0188,
+                    0.0197
+                  ],
+                  [
+                    -0.006,
+                    0.0364,
+                    0.0269
+                  ],
+                  [
+                    -0.006,
+                    0.0515,
+                    0.0385
+                  ],
+                  [
+                    -0.006,
+                    0.0631,
+                    0.0536
+                  ],
+                  [
+                    -0.006,
+                    0.0703,
+                    0.0712
+                  ],
+                  [
+                    -0.006,
+                    0.0728,
+                    0.09
+                  ]
+                ],
+                "r": 0.0018,
+                "sides": 4,
+                "role": "nacelle",
+                "sh": 0.35,
+                "paint": "dark"
+              },
+              {
+                "kind": "tube",
+                "name": "seam shadow",
+                "pts": [
+                  [
+                    -0.109,
+                    0.0696,
+                    0.09
+                  ],
+                  [
+                    -0.109,
+                    0.0672,
+                    0.108
+                  ],
+                  [
+                    -0.109,
+                    0.0602,
+                    0.1248
+                  ],
+                  [
+                    -0.109,
+                    0.0492,
+                    0.1392
+                  ],
+                  [
+                    -0.109,
+                    0.0348,
+                    0.1502
+                  ],
+                  [
+                    -0.109,
+                    0.018,
+                    0.1572
+                  ],
+                  [
+                    -0.109,
+                    0,
+                    0.1596
+                  ],
+                  [
+                    -0.109,
+                    -0.018,
+                    0.1572
+                  ],
+                  [
+                    -0.109,
+                    -0.0348,
+                    0.1502
+                  ],
+                  [
+                    -0.109,
+                    -0.0492,
+                    0.1392
+                  ],
+                  [
+                    -0.109,
+                    -0.0602,
+                    0.1248
+                  ],
+                  [
+                    -0.109,
+                    -0.0672,
+                    0.108
+                  ],
+                  [
+                    -0.109,
+                    -0.0696,
+                    0.09
+                  ],
+                  [
+                    -0.109,
+                    -0.0672,
+                    0.072
+                  ],
+                  [
+                    -0.109,
+                    -0.0602,
+                    0.0552
+                  ],
+                  [
+                    -0.109,
+                    -0.0492,
+                    0.0408
+                  ],
+                  [
+                    -0.109,
+                    -0.0348,
+                    0.0298
+                  ],
+                  [
+                    -0.109,
+                    -0.018,
+                    0.0228
+                  ],
+                  [
+                    -0.109,
+                    0,
+                    0.0204
+                  ],
+                  [
+                    -0.109,
+                    0.018,
+                    0.0228
+                  ],
+                  [
+                    -0.109,
+                    0.0348,
+                    0.0298
+                  ],
+                  [
+                    -0.109,
+                    0.0492,
+                    0.0408
+                  ],
+                  [
+                    -0.109,
+                    0.0602,
+                    0.0552
+                  ],
+                  [
+                    -0.109,
+                    0.0672,
+                    0.072
+                  ],
+                  [
+                    -0.109,
+                    0.0696,
+                    0.09
+                  ]
+                ],
+                "r": 0.0018,
+                "sides": 4,
+                "role": "nacelle",
+                "sh": 0.35,
+                "paint": "dark"
+              },
+              {
+                "kind": "tube",
+                "name": "seam shadow",
+                "pts": [
+                  [
+                    -0.121,
+                    0.0692,
+                    0.09
+                  ],
+                  [
+                    -0.121,
+                    0.0668,
+                    0.1079
+                  ],
+                  [
+                    -0.121,
+                    0.0599,
+                    0.1246
+                  ],
+                  [
+                    -0.121,
+                    0.0489,
+                    0.1389
+                  ],
+                  [
+                    -0.121,
+                    0.0346,
+                    0.1499
+                  ],
+                  [
+                    -0.121,
+                    0.0179,
+                    0.1568
+                  ],
+                  [
+                    -0.121,
+                    0,
+                    0.1592
+                  ],
+                  [
+                    -0.121,
+                    -0.0179,
+                    0.1568
+                  ],
+                  [
+                    -0.121,
+                    -0.0346,
+                    0.1499
+                  ],
+                  [
+                    -0.121,
+                    -0.0489,
+                    0.1389
+                  ],
+                  [
+                    -0.121,
+                    -0.0599,
+                    0.1246
+                  ],
+                  [
+                    -0.121,
+                    -0.0668,
+                    0.1079
+                  ],
+                  [
+                    -0.121,
+                    -0.0692,
+                    0.09
+                  ],
+                  [
+                    -0.121,
+                    -0.0668,
+                    0.0721
+                  ],
+                  [
+                    -0.121,
+                    -0.0599,
+                    0.0554
+                  ],
+                  [
+                    -0.121,
+                    -0.0489,
+                    0.0411
+                  ],
+                  [
+                    -0.121,
+                    -0.0346,
+                    0.0301
+                  ],
+                  [
+                    -0.121,
+                    -0.0179,
+                    0.0232
+                  ],
+                  [
+                    -0.121,
+                    0,
+                    0.0208
+                  ],
+                  [
+                    -0.121,
+                    0.0179,
+                    0.0232
+                  ],
+                  [
+                    -0.121,
+                    0.0346,
+                    0.0301
+                  ],
+                  [
+                    -0.121,
+                    0.0489,
+                    0.0411
+                  ],
+                  [
+                    -0.121,
+                    0.0599,
+                    0.0554
+                  ],
+                  [
+                    -0.121,
+                    0.0668,
+                    0.0721
+                  ],
+                  [
+                    -0.121,
+                    0.0692,
+                    0.09
+                  ]
+                ],
+                "r": 0.0018,
+                "sides": 4,
+                "role": "nacelle",
+                "sh": 0.35,
+                "paint": "dark"
+              },
+              {
+                "kind": "tube",
+                "name": "casing stringer",
+                "pts": [
+                  [
+                    0.225,
+                    0.0674,
+                    0.1214
+                  ],
+                  [
+                    0.195,
+                    0.0679,
+                    0.1217
+                  ],
+                  [
+                    0.165,
+                    0.0685,
+                    0.122
+                  ],
+                  [
+                    0.135,
+                    0.0691,
+                    0.1222
+                  ],
+                  [
+                    0.105,
+                    0.0697,
+                    0.1225
+                  ],
+                  [
+                    0.075,
+                    0.0691,
+                    0.1222
+                  ],
+                  [
+                    0.045,
+                    0.0682,
+                    0.1218
+                  ],
+                  [
+                    0.015,
+                    0.0673,
+                    0.1214
+                  ],
+                  [
+                    -0.015,
+                    0.0665,
+                    0.121
+                  ],
+                  [
+                    -0.045,
+                    0.0656,
+                    0.1206
+                  ],
+                  [
+                    -0.075,
+                    0.0647,
+                    0.1202
+                  ],
+                  [
+                    -0.105,
+                    0.0639,
+                    0.1198
+                  ]
+                ],
+                "r": 0.0026,
+                "sides": 5,
+                "role": "nacelle",
+                "sh": 0.8,
+                "paint": "metal"
+              },
+              {
+                "kind": "tube",
+                "name": "casing stringer",
+                "pts": [
+                  [
+                    0.225,
+                    -0.0674,
+                    0.1214
+                  ],
+                  [
+                    0.195,
+                    -0.0679,
+                    0.1217
+                  ],
+                  [
+                    0.165,
+                    -0.0685,
+                    0.122
+                  ],
+                  [
+                    0.135,
+                    -0.0691,
+                    0.1222
+                  ],
+                  [
+                    0.105,
+                    -0.0697,
+                    0.1225
+                  ],
+                  [
+                    0.075,
+                    -0.0691,
+                    0.1222
+                  ],
+                  [
+                    0.045,
+                    -0.0682,
+                    0.1218
+                  ],
+                  [
+                    0.015,
+                    -0.0673,
+                    0.1214
+                  ],
+                  [
+                    -0.015,
+                    -0.0665,
+                    0.121
+                  ],
+                  [
+                    -0.045,
+                    -0.0656,
+                    0.1206
+                  ],
+                  [
+                    -0.075,
+                    -0.0647,
+                    0.1202
+                  ],
+                  [
+                    -0.105,
+                    -0.0639,
+                    0.1198
+                  ]
+                ],
+                "r": 0.0026,
+                "sides": 5,
+                "role": "nacelle",
+                "sh": 0.8,
+                "paint": "metal"
+              },
+              {
+                "kind": "tube",
+                "name": "casing stringer",
+                "pts": [
+                  [
+                    0.225,
+                    -0.0674,
+                    0.0586
+                  ],
+                  [
+                    0.195,
+                    -0.0679,
+                    0.0583
+                  ],
+                  [
+                    0.165,
+                    -0.0685,
+                    0.058
+                  ],
+                  [
+                    0.135,
+                    -0.0691,
+                    0.0578
+                  ],
+                  [
+                    0.105,
+                    -0.0697,
+                    0.0575
+                  ],
+                  [
+                    0.075,
+                    -0.0691,
+                    0.0578
+                  ],
+                  [
+                    0.045,
+                    -0.0682,
+                    0.0582
+                  ],
+                  [
+                    0.015,
+                    -0.0673,
+                    0.0586
+                  ],
+                  [
+                    -0.015,
+                    -0.0665,
+                    0.059
+                  ],
+                  [
+                    -0.045,
+                    -0.0656,
+                    0.0594
+                  ],
+                  [
+                    -0.075,
+                    -0.0647,
+                    0.0598
+                  ],
+                  [
+                    -0.105,
+                    -0.0639,
+                    0.0602
+                  ]
+                ],
+                "r": 0.0026,
+                "sides": 5,
+                "role": "nacelle",
+                "sh": 0.8,
+                "paint": "metal"
+              },
+              {
+                "kind": "tube",
+                "name": "casing stringer",
+                "pts": [
+                  [
+                    0.225,
+                    0.0674,
+                    0.0586
+                  ],
+                  [
+                    0.195,
+                    0.0679,
+                    0.0583
+                  ],
+                  [
+                    0.165,
+                    0.0685,
+                    0.058
+                  ],
+                  [
+                    0.135,
+                    0.0691,
+                    0.0578
+                  ],
+                  [
+                    0.105,
+                    0.0697,
+                    0.0575
+                  ],
+                  [
+                    0.075,
+                    0.0691,
+                    0.0578
+                  ],
+                  [
+                    0.045,
+                    0.0682,
+                    0.0582
+                  ],
+                  [
+                    0.015,
+                    0.0673,
+                    0.0586
+                  ],
+                  [
+                    -0.015,
+                    0.0665,
+                    0.059
+                  ],
+                  [
+                    -0.045,
+                    0.0656,
+                    0.0594
+                  ],
+                  [
+                    -0.075,
+                    0.0647,
+                    0.0598
+                  ],
+                  [
+                    -0.105,
+                    0.0639,
+                    0.0602
+                  ]
+                ],
+                "r": 0.0026,
+                "sides": 5,
+                "role": "nacelle",
+                "sh": 0.8,
+                "paint": "metal"
+              },
+              {
+                "kind": "loft",
+                "name": "intake duct",
+                "note": "The inside of the intake, behind the lip: dark, narrowing to the fan.",
+                "sides": 20,
+                "role": "nacelle",
+                "paint": "intake",
+                "shade": {
+                  "base": 0.3,
+                  "amp": 0.2
+                },
+                "stations": [
+                  {
+                    "f": 0.27,
+                    "rg": 0.054,
+                    "rv": 0.054,
+                    "cz": 0.09
+                  },
+                  {
+                    "f": 0.255,
+                    "rg": 0.05,
+                    "rv": 0.05,
+                    "cz": 0.09
+                  }
+                ]
+              },
+              {
+                "kind": "poly",
+                "name": "exhaust feather",
+                "faces": [
+                  {
+                    "role": "nacelle",
+                    "sh": 0.55,
+                    "two": 1,
+                    "paint": "burnt",
+                    "p": [
+                      [
+                        -0.266,
+                        0.047,
+                        0.09
+                      ],
+                      [
+                        -0.266,
+                        0.0409,
+                        0.1132
+                      ],
+                      [
+                        -0.29,
+                        0.0339,
+                        0.1092
+                      ],
+                      [
+                        -0.29,
+                        0.039,
+                        0.09
+                      ]
+                    ]
+                  }
+                ]
+              },
+              {
+                "kind": "poly",
+                "name": "exhaust feather",
+                "faces": [
+                  {
+                    "role": "nacelle",
+                    "sh": 0.65,
+                    "two": 1,
+                    "paint": "burnt",
+                    "p": [
+                      [
+                        -0.266,
+                        0.0423,
+                        0.1104
+                      ],
+                      [
+                        -0.266,
+                        0.0268,
+                        0.1286
+                      ],
+                      [
+                        -0.29,
+                        0.0222,
+                        0.1221
+                      ],
+                      [
+                        -0.29,
+                        0.0351,
+                        0.1069
+                      ]
+                    ]
+                  }
+                ]
+              },
+              {
+                "kind": "poly",
+                "name": "exhaust feather",
+                "faces": [
+                  {
+                    "role": "nacelle",
+                    "sh": 0.55,
+                    "two": 1,
+                    "paint": "burnt",
+                    "p": [
+                      [
+                        -0.266,
+                        0.0293,
+                        0.1267
+                      ],
+                      [
+                        -0.266,
+                        0.0074,
+                        0.1364
+                      ],
+                      [
+                        -0.29,
+                        0.0061,
+                        0.1285
+                      ],
+                      [
+                        -0.29,
+                        0.0243,
+                        0.1205
+                      ]
+                    ]
+                  }
+                ]
+              },
+              {
+                "kind": "poly",
+                "name": "exhaust feather",
+                "faces": [
+                  {
+                    "role": "nacelle",
+                    "sh": 0.65,
+                    "two": 1,
+                    "paint": "burnt",
+                    "p": [
+                      [
+                        -0.266,
+                        0.0105,
+                        0.1358
+                      ],
+                      [
+                        -0.266,
+                        -0.0135,
+                        0.135
+                      ],
+                      [
+                        -0.29,
+                        -0.0112,
+                        0.1274
+                      ],
+                      [
+                        -0.29,
+                        0.0087,
+                        0.128
+                      ]
+                    ]
+                  }
+                ]
+              },
+              {
+                "kind": "poly",
+                "name": "exhaust feather",
+                "faces": [
+                  {
+                    "role": "nacelle",
+                    "sh": 0.55,
+                    "two": 1,
+                    "paint": "burnt",
+                    "p": [
+                      [
+                        -0.266,
+                        -0.0105,
+                        0.1358
+                      ],
+                      [
+                        -0.266,
+                        -0.0317,
+                        0.1247
+                      ],
+                      [
+                        -0.29,
+                        -0.0263,
+                        0.1188
+                      ],
+                      [
+                        -0.29,
+                        -0.0087,
+                        0.128
+                      ]
+                    ]
+                  }
+                ]
+              },
+              {
+                "kind": "poly",
+                "name": "exhaust feather",
+                "faces": [
+                  {
+                    "role": "nacelle",
+                    "sh": 0.65,
+                    "two": 1,
+                    "paint": "burnt",
+                    "p": [
+                      [
+                        -0.266,
+                        -0.0293,
+                        0.1267
+                      ],
+                      [
+                        -0.266,
+                        -0.0436,
+                        0.1075
+                      ],
+                      [
+                        -0.29,
+                        -0.0362,
+                        0.1045
+                      ],
+                      [
+                        -0.29,
+                        -0.0243,
+                        0.1205
+                      ]
+                    ]
+                  }
+                ]
+              },
+              {
+                "kind": "poly",
+                "name": "exhaust feather",
+                "faces": [
+                  {
+                    "role": "nacelle",
+                    "sh": 0.55,
+                    "two": 1,
+                    "paint": "burnt",
+                    "p": [
+                      [
+                        -0.266,
+                        -0.0423,
+                        0.1104
+                      ],
+                      [
+                        -0.266,
+                        -0.0469,
+                        0.0868
+                      ],
+                      [
+                        -0.29,
+                        -0.0389,
+                        0.0874
+                      ],
+                      [
+                        -0.29,
+                        -0.0351,
+                        0.1069
+                      ]
+                    ]
+                  }
+                ]
+              },
+              {
+                "kind": "poly",
+                "name": "exhaust feather",
+                "faces": [
+                  {
+                    "role": "nacelle",
+                    "sh": 0.65,
+                    "two": 1,
+                    "paint": "burnt",
+                    "p": [
+                      [
+                        -0.266,
+                        -0.047,
+                        0.09
+                      ],
+                      [
+                        -0.266,
+                        -0.0409,
+                        0.0668
+                      ],
+                      [
+                        -0.29,
+                        -0.0339,
+                        0.0708
+                      ],
+                      [
+                        -0.29,
+                        -0.039,
+                        0.09
+                      ]
+                    ]
+                  }
+                ]
+              },
+              {
+                "kind": "poly",
+                "name": "exhaust feather",
+                "faces": [
+                  {
+                    "role": "nacelle",
+                    "sh": 0.55,
+                    "two": 1,
+                    "paint": "burnt",
+                    "p": [
+                      [
+                        -0.266,
+                        -0.0423,
+                        0.0696
+                      ],
+                      [
+                        -0.266,
+                        -0.0268,
+                        0.0514
+                      ],
+                      [
+                        -0.29,
+                        -0.0222,
+                        0.0579
+                      ],
+                      [
+                        -0.29,
+                        -0.0351,
+                        0.0731
+                      ]
+                    ]
+                  }
+                ]
+              },
+              {
+                "kind": "poly",
+                "name": "exhaust feather",
+                "faces": [
+                  {
+                    "role": "nacelle",
+                    "sh": 0.65,
+                    "two": 1,
+                    "paint": "burnt",
+                    "p": [
+                      [
+                        -0.266,
+                        -0.0293,
+                        0.0533
+                      ],
+                      [
+                        -0.266,
+                        -0.0074,
+                        0.0436
+                      ],
+                      [
+                        -0.29,
+                        -0.0061,
+                        0.0515
+                      ],
+                      [
+                        -0.29,
+                        -0.0243,
+                        0.0595
+                      ]
+                    ]
+                  }
+                ]
+              },
+              {
+                "kind": "poly",
+                "name": "exhaust feather",
+                "faces": [
+                  {
+                    "role": "nacelle",
+                    "sh": 0.55,
+                    "two": 1,
+                    "paint": "burnt",
+                    "p": [
+                      [
+                        -0.266,
+                        -0.0105,
+                        0.0442
+                      ],
+                      [
+                        -0.266,
+                        0.0135,
+                        0.045
+                      ],
+                      [
+                        -0.29,
+                        0.0112,
+                        0.0526
+                      ],
+                      [
+                        -0.29,
+                        -0.0087,
+                        0.052
+                      ]
+                    ]
+                  }
+                ]
+              },
+              {
+                "kind": "poly",
+                "name": "exhaust feather",
+                "faces": [
+                  {
+                    "role": "nacelle",
+                    "sh": 0.65,
+                    "two": 1,
+                    "paint": "burnt",
+                    "p": [
+                      [
+                        -0.266,
+                        0.0105,
+                        0.0442
+                      ],
+                      [
+                        -0.266,
+                        0.0317,
+                        0.0553
+                      ],
+                      [
+                        -0.29,
+                        0.0263,
+                        0.0612
+                      ],
+                      [
+                        -0.29,
+                        0.0087,
+                        0.052
+                      ]
+                    ]
+                  }
+                ]
+              },
+              {
+                "kind": "poly",
+                "name": "exhaust feather",
+                "faces": [
+                  {
+                    "role": "nacelle",
+                    "sh": 0.55,
+                    "two": 1,
+                    "paint": "burnt",
+                    "p": [
+                      [
+                        -0.266,
+                        0.0293,
+                        0.0533
+                      ],
+                      [
+                        -0.266,
+                        0.0436,
+                        0.0725
+                      ],
+                      [
+                        -0.29,
+                        0.0362,
+                        0.0755
+                      ],
+                      [
+                        -0.29,
+                        0.0243,
+                        0.0595
+                      ]
+                    ]
+                  }
+                ]
+              },
+              {
+                "kind": "poly",
+                "name": "exhaust feather",
+                "faces": [
+                  {
+                    "role": "nacelle",
+                    "sh": 0.65,
+                    "two": 1,
+                    "paint": "burnt",
+                    "p": [
+                      [
+                        -0.266,
+                        0.0423,
+                        0.0696
+                      ],
+                      [
+                        -0.266,
+                        0.0469,
+                        0.0932
+                      ],
+                      [
+                        -0.29,
+                        0.0389,
+                        0.0926
+                      ],
+                      [
+                        -0.29,
+                        0.0351,
+                        0.0731
+                      ]
+                    ]
+                  }
+                ]
+              },
+              {
+                "kind": "tube",
+                "name": "nozzle shadow",
+                "pts": [
+                  [
+                    -0.262,
+                    0.0455,
+                    0.09
+                  ],
+                  [
+                    -0.262,
+                    0.0439,
+                    0.1018
+                  ],
+                  [
+                    -0.262,
+                    0.0394,
+                    0.1128
+                  ],
+                  [
+                    -0.262,
+                    0.0322,
+                    0.1222
+                  ],
+                  [
+                    -0.262,
+                    0.0228,
+                    0.1294
+                  ],
+                  [
+                    -0.262,
+                    0.0118,
+                    0.1339
+                  ],
+                  [
+                    -0.262,
+                    0,
+                    0.1355
+                  ],
+                  [
+                    -0.262,
+                    -0.0118,
+                    0.1339
+                  ],
+                  [
+                    -0.262,
+                    -0.0227,
+                    0.1294
+                  ],
+                  [
+                    -0.262,
+                    -0.0322,
+                    0.1222
+                  ],
+                  [
+                    -0.262,
+                    -0.0394,
+                    0.1128
+                  ],
+                  [
+                    -0.262,
+                    -0.0439,
+                    0.1018
+                  ],
+                  [
+                    -0.262,
+                    -0.0455,
+                    0.09
+                  ],
+                  [
+                    -0.262,
+                    -0.0439,
+                    0.0782
+                  ],
+                  [
+                    -0.262,
+                    -0.0394,
+                    0.0672
+                  ],
+                  [
+                    -0.262,
+                    -0.0322,
+                    0.0578
+                  ],
+                  [
+                    -0.262,
+                    -0.0228,
+                    0.0506
+                  ],
+                  [
+                    -0.262,
+                    -0.0118,
+                    0.0461
+                  ],
+                  [
+                    -0.262,
+                    0,
+                    0.0445
+                  ],
+                  [
+                    -0.262,
+                    0.0118,
+                    0.0461
+                  ],
+                  [
+                    -0.262,
+                    0.0228,
+                    0.0506
+                  ],
+                  [
+                    -0.262,
+                    0.0322,
+                    0.0578
+                  ],
+                  [
+                    -0.262,
+                    0.0394,
+                    0.0672
+                  ],
+                  [
+                    -0.262,
+                    0.0439,
+                    0.0782
+                  ],
+                  [
+                    -0.262,
+                    0.0455,
+                    0.09
+                  ]
+                ],
+                "r": 0.002,
+                "sides": 4,
+                "role": "nacelle",
+                "sh": 0.3,
+                "paint": "dark"
+              },
+              {
+                "kind": "cone",
+                "name": "intake spike",
+                "note": "A long chrome spike out of the spinner: the Skitter Dart's mark.",
+                "f": 0.268,
+                "g": 0,
+                "h": 0.09,
+                "r": 0.012,
+                "n": 10,
+                "apex": [
+                  0.42,
+                  0,
+                  0.09
+                ],
+                "role": "nacelle",
+                "paint": "chrome"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

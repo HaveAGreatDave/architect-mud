@@ -1,0 +1,9 @@
+{
+  "a": "zone_yard_deadleg",
+  "b": "zone_racerbay_deadleg",
+  "blocked": false,
+  "dir": "east",
+  "id": "conn_deadleg_shed_east_racerbay",
+  "lockable": false,
+  "one_way": false
+}

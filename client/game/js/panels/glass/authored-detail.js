@@ -425,7 +425,8 @@ export const AUTHORED_DETAIL = {
   balcony: (c, d) => {
     const half = c.V(d.half), out = c.V(d.out), z = c.V(d.z), rail = d.rail ? c.V(d.rail) : 0;
     const slab = shadeOf(d.pal || c.pal, 0.95), under = shadeOf(d.pal || c.pal, 0.5);
-    const y0 = c.ly, y1 = c.ly + out;
+    // Out from the face, whichever face: see the ⚠ above the structural four.
+    const y0 = c.ly, y1 = c.ly + (c.ly < 0 ? -out : out);
     detailQuad(c.ctx, c.cam, c.F, [[c.lx - half, y0, z], [c.lx + half, y0, z], [c.lx + half, y1, z], [c.lx - half, y1, z]], slab, c.alpha, {});
     detailQuad(c.ctx, c.cam, c.F, [[c.lx - half, y1, z], [c.lx + half, y1, z], [c.lx + half, y1, z - out * 0.18], [c.lx - half, y1, z - out * 0.18]], under, c.alpha, {});
     if (rail > 0) {
@@ -457,7 +458,7 @@ export const AUTHORED_DETAIL = {
   fireEscape: (c, d) => {
     const half = c.V(d.half), out = c.V(d.out), z0 = c.V(d.z0), z1 = c.V(d.z1);
     const n = clamp(Math.round(d.flights || 3), 1, 8);
-    const y0 = c.ly, y1 = c.ly + out, step = (z1 - z0) / n;
+    const y0 = c.ly, y1 = c.ly + (c.ly < 0 ? -out : out), step = (z1 - z0) / n;
     const slab = shadeOf(d.pal || c.pal, 0.58), under = shadeOf(d.pal || c.pal, 0.32), rail = shadeOf(d.pal || c.pal, 0.92);
     const Q = (pts, fill, a, o) => detailQuad(c.ctx, c.cam, c.F, pts, fill, a, o || {});
     for (let i = 0; i <= n; i++) {
@@ -907,11 +908,12 @@ export const AUTHORED_DETAIL = {
   // this format could express before them, and each one is still flat quads through `emitFlat` —
   // adornment, never mass, so collision and the cold-open skyline do not move.
   //
-  // ⚠ ALL FOUR RESPECT THE FACE SIGN, WHICH THE OLDER PROJECTING PARTS DO NOT. `balcony` and
-  // `fireEscape` compute their outer plane as `ly + out`, so on a face at NEGATIVE y they project
-  // backwards into the building. That is latent rather than live — nothing authored today hangs one
-  // off a back face — but a canopy is a part somebody will put on all four sides on the first day,
-  // so these take `sgn` off the face and push outward from it.
+  // ⚠ ALL FOUR RESPECT THE FACE SIGN, AND SO NOW DO `balcony` AND `fireEscape`. Those two used to
+  // compute their outer plane as `ly + out`, so on a face at NEGATIVE y they projected backwards
+  // into the building. This note called that latent, and it wasn't: thirteen authored models hang a
+  // fire escape on a back wall or the -x flank, the Embassy among them, and every one of those was
+  // drawn inside its own mass. Kestrel Court's back balconies are what showed it (2026-10-08). All
+  // six take the outward direction off the face's sign.
 
   // A window that has a FRONT AND A BACK: a surround, glazing, a shadowed head and a sill you can
   // see the top of. The single biggest thing missing from the format, because a lit opening is

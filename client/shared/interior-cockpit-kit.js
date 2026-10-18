@@ -112,4 +112,34 @@ export function hotspotHalo(K, hotspots, live) {
   Hp.annulus(0, 0, h.r * 1.18, h.r * 1.24, HALO_RIM, 1, 0.013, 24);
 }
 
+// ── The panel GPS ────────────────────────────────────────────────────────────
+// A small moving-map head for a cockpit that had none: a bezel, a screen, a range ring, the
+// aircraft at the centre pointing up the screen, and a magenta course line out to the place the
+// target guide is on. `live.gpsTo` is { rel, dist } from cockpit.js: rel is the target's bearing
+// off the nose in degrees, so heading up needs no turning here. Dark without power.
+// Drawn on panel `Pn` at (u, v) in that panel's coords, hw × hh the half sizes. `gpsHotspot` takes
+// the same panel and centre, so the screen you see and the place you click are one spec; a click
+// opens the destination picker (cockpit.js 'ck:gps').
+const GPS_SCREEN = [10, 30, 24], GPS_DARK = [12, 14, 14], GPS_LINE = [44, 120, 88], GPS_SHIP = [235, 255, 240], GPS_MAG = [230, 90, 220];
+export function panelGps(Pn, u, v, hw, hh, live, o = {}) {
+  const L = live || {}, on = L.powered !== false;
+  const e = Math.min(hw, hh) * 0.16, sw = hw - e, sh = hh - e;
+  Pn.rect(u - hw, v - hh, u + hw, v + hh, o.bezel || [22, 24, 28], 0, 0.002);
+  Pn.rect(u - sw, v - sh, u + sw, v + sh, on ? GPS_SCREEN : GPS_DARK, on ? 0.6 : 0, 0.004);
+  if (o.label !== false) Pn.text('GPS', u, v - hh - 0.009, Math.min(0.0075, hh * 0.22));
+  if (!on) return;
+  const R = Math.min(sw, sh) * 0.78;
+  Pn.annulus(u, v, R - 0.0012, R + 0.0012, GPS_LINE, 0.8, 0.005, 20);
+  Pn.annulus(u, v, R * 0.5 - 0.001, R * 0.5 + 0.001, GPS_LINE, 0.6, 0.005, 16);
+  const s = R * 0.22;
+  Pn.plate([[u, v + s], [u + s * 0.7, v - s * 0.7], [u, v - s * 0.3], [u - s * 0.7, v - s * 0.7]], GPS_SHIP, 0.95, 0.007);
+  const g = L.gpsTo;
+  if (g && Number.isFinite(g.rel)) {
+    const t = Math.PI / 2 - g.rel * Math.PI / 180, cu = u + Math.cos(t) * R, cv = v + Math.sin(t) * R, d = s * 0.55;
+    Pn.spoke(u, v, t, s * 0.4, R, Math.max(0.0012, R * 0.035), GPS_MAG, 0.95, 0.006);
+    Pn.plate([[cu, cv + d], [cu + d, cv], [cu, cv - d], [cu - d, cv]], GPS_MAG, 1, 0.0075);
+  }
+}
+export const gpsHotspot = (Pn, u, v, r) => ({ id: 'ck:gps', p: Pn.pt(u, v, 0.01), r, kind: 'click' });
+
 export { clamp };

@@ -132,7 +132,7 @@ import { drakeProfile } from './interior-drake.js';
 // One cockpit per airframe. See interior-fit-craft.js.
 import { leviathanFit, reaperFit, shrikeFit, locustFit, grasshopperFit, viperFit, carcassFit, craftHotspots } from './interior-fit-craft.js';
 // The Mayfly is a Cessna 172 now, built on the cockpit kit to the Drake's standard (interior-cessna.js).
-import { cessnaFit, cessnaHotspots } from './interior-cessna.js';
+import { cessnaFit, cessnaHotspots, cessnaGpsHotspot } from './interior-cessna.js';
 // The Mule is a Twin Otter, on the same kit (interior-otter.js).
 import { otterFit, otterHotspots } from './interior-otter.js';
 const CRAFT_FIT = { mule: otterFit, leviathan: leviathanFit, reaper: reaperFit, shrike: shrikeFit, locust: locustFit,
@@ -152,6 +152,8 @@ import { mayflyProfile, MAYFLY_TRIM } from './interior-mayfly.js';
 import { dragonflyProfile, DRAGONFLY_TRIM } from './interior-dragonfly.js';
 import { viperProfile, VIPER_TRIM } from './interior-viper.js';
 import { carcassProfile } from './interior-carcass.js';
+// The podracer's open tub (interior-podracer.js). Its turbines are the craft's own mesh, drawn from the seat.
+import { podracerProfile } from './interior-podracer.js';
 import { grasshopperProfile, CUB_TRIM } from './interior-grasshopper.js';
 import { defaultLivery, aircraftLiveryModel } from './livery-sets.js';
 const CRAFT_PROFILE = {};
@@ -341,13 +343,23 @@ export const SHELL_PROFILES = {
   get viper() { return craftProfile('viper', viperProfile); },
   // The tub it came in, gutted.
   get carcass() { return craftProfile('carcass', carcassProfile); },
+  // The podracer: an open tub, the nose cowl ahead and the turbines out past it on their cables.
+  get podracer() { return craftProfile('podracer', podracerProfile); },
   // Quicksilver MX: open. ⚠ It builds its own room (`mayflyRoom`): a seat pan, a sling side panel
   // to your hip, the pusher engine's firewall behind your head and the wing's centre section a
   // hand's breadth over it. The "side window" is everything above the hip, which is the point.
   // ⚠ A CESSNA 172 NOW, NOT AN OPEN ULTRALIGHT: the airframe became a closed cabin (mesh_ultralight
   // .json), so the seat did too. Side by side, the pilot on the left, a centre strip in the
   // windscreen, a door each side with the window in it; the fit-out is interior-cessna.js.
-  get mayfly() { return craftProfile('mayfly', mayflyProfile); },
+  // ⚠ ONLY ITS GPS TAKES CLICKS. cessnaHotspots also lists BCN, NAV and STRB switches for circuits
+  // the sim doesn't have, which the cockpit-controls gate fails; the rest wait on those.
+  get mayfly() {
+    return craftProfile('mayfly', () => {
+      const P = mayflyProfile();
+      P.hotspots = function () { return [cessnaGpsHotspot(this)]; };
+      return P;
+    });
+  },
   bridge: {
     label: 'wheelhouse',
     xCentre: 0,
@@ -410,6 +422,7 @@ export const SHELL_CLASS = {
   heli: 'heli',           // the Dragonfly's Mini 500 bubble (interior-dragonfly.js); armed → viper
   bridge: 'bridge',       // the Echelon's wheelhouse — see helm-view, which sends it only from the bridge seat
   drake: 'drake',         // the inside of a duck's head, and you sit in the eye
+  podracer: 'podracer',   // an open tub on two cables (interior-podracer.js)
 };
 
 // ⚠ `armed` SPLITS THE HELICOPTERS: the Dragonfly and the Viper are both class `heli`, and the

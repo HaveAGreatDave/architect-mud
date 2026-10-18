@@ -58,6 +58,7 @@ import { makeVertexStream } from './stream.js';
 import { declareProgram, takeWarm } from './programs.js';
 import { linearOut, applyLinOut } from './colour.js';
 
+const SHIP_LIGHT_DEFAULT = [0.55, 0.95, 0.45];   // windshield.js shipLightOf
 const STRIDE = 15;   // pos3, colour3, alpha1, normal3, metal1, local3, tex1
 // ── THE CABIN VARIANT ────────────────────────────────────────────────────────
 // The interior layer is this layer with CABIN defined: 24 more floats a vertex, and the cockpit's
@@ -120,6 +121,7 @@ out float vFog;
 centroid out float vAlpha;
 centroid out vec3 vPos;
 centroid out vec3 vN;
+centroid out vec3 vNL;   // the normal as uploaded: in the own ship's frame, the frame vLocal is in
 centroid out float vMetal;
 centroid out vec3 vLocal;
 flat out int vTex;
@@ -157,7 +159,7 @@ void main() {
   vColor = aColor;
   vAlpha = aAlpha;
   vPos = wp.xyz; vN = uNMatOn > 0.5 ? uNMat * aNormal : mat3(uModel) * aNormal * uNScale; vMetal = aMetal;
-  vLocal = aLocal; vTex = int(aTex + 0.5);
+  vLocal = aLocal; vNL = aNormal; vTex = int(aTex + 0.5);
 #ifdef CABIN
   vCN = aCN; vCA = aCA; vCB = aCB; vCC = aCC; vR0 = aR0; vR1 = aR1; vMA = aMA;
 #endif
@@ -175,6 +177,7 @@ in float vFog;
 centroid in float vAlpha;
 centroid in vec3 vPos;
 centroid in vec3 vN;
+centroid in vec3 vNL;
 centroid in float vMetal;
 centroid in vec3 vLocal;
 flat in int vTex;
@@ -192,6 +195,7 @@ uniform float uUnderD;  // metres of water over the eye: caustics fade and blur 
 uniform vec3 uLmSun;    // the own ship's sun term (setShip); off on every other draw
 uniform float uLmOn;
 uniform float uLmK;
+uniform vec3 uLmL;      // the ship's own light: shade-side floor, sun share, wrap (shipLightOf in windshield.js)
 // The city's own lights, the same list the mass shader takes (world.js pickLights), and the night
 // outside them. Off (0 lights, dim 1) on every draw that does not hand them over.
 uniform int uWLN;
@@ -356,6 +360,25 @@ vec2 surfaceTex(int kind, vec3 L) {
   float v = (h - 0.5) * a.x + slope * a.y;
   return vec2(1.0 + v, v * 0.05);
 }
+// A vehicle's skin (tex 21-29: kind + 20, from a mesh paint slot's tex): the same surfaces, blended
+// across three axis projections by the smoothed normal so they wrap a curve without a seam. The
+// cockpit's flat projection takes its frame from each face, so on a turbine every facet had its own
+// grain and its own relief and the casing came out a patchwork. No relief term here for that reason.
+vec2 surfaceTexTri(int kind, vec3 L, vec3 N) {
+  vec3 w = pow(abs(N), vec3(4.0));
+  w /= max(w.x + w.y + w.z, 1e-5);
+  float px = max(length(fwidth(L)), 1e-5);
+  float h = w.x * texHeight(kind, L.yz, px) + w.y * texHeight(kind, L.xz, px) + w.z * texHeight(kind, L.xy, px);
+  float v = (h - 0.5) * texAmount(kind).x;
+  return vec2(1.0 + v, v * 0.05);
+}
+// ── COPPER (tex 12): THE FISHERMAN'S CASTING ─────────────────────────────────
+// Its surface, in metres of the monument's own frame (drawStatue sends 'lp'): shallow chasing marks
+// over sand-cast pits, both faded out before they are smaller than a pixel. The height only bends
+// the normal the reflection uses (cuN) and moves the value a little; it never adds a colour.
+float cuHeight(vec2 uv, float px) {
+  return 0.5 + (vnoise(uv * 26.0) - 0.5) * 0.6 * fade(26.0, px) + (vnoise(uv * 90.0) - 0.5) * 0.4 * fade(90.0, px);
+}
 #ifdef CABIN
 centroid in vec3 vCN; flat in vec4 vCA; flat in vec4 vCB; flat in vec4 vCC; flat in vec3 vR0; flat in vec3 vR1; flat in vec3 vMA;
 uniform vec3 uKey;        // what comes in through the glass, 0..1
@@ -499,6 +522,12 @@ void main() {
   if (vAlpha <= 0.002) discard;
   vec3 c = vColor;
   float alpha = vAlpha;
+  // Set by the copper branch only: the bump it puts on the reflected normal, and how much of the
+  // metal survives the verdigris (patina is matte).
+  bool cu = vTex == 12;
+  vec3 cuN = vec3(0.0);
+  float cuMet = 1.0;
+  vec3 cuF0 = vec3(0.0);
   if (vTex == 10) {
     // ── COCKPIT GLASS ─────────────────────────────────────────────────────────
     // Glass you look through, so it is nearly nothing straight on: what makes a pane apparent is
@@ -565,7 +594,42 @@ void main() {
     c = mix(c, c * 0.78 + vec3(0.05, 0.05, 0.045), runs * up * 0.35);
     float wet = uWaterZ > -1e8 ? (1.0 - smoothstep(0.0, 0.03, vPos.z - uWaterZ)) : 0.0;
     c *= 1.0 - wet * 0.18;
-  } else if (vTex > 0) { vec2 tx = surfaceTex(vTex, vLocal); c = max(c * tx.x + tx.y, 0.0); }
+  } else if (cu) {
+    // ── COPPER, CAST AND KEPT ───────────────────────────────────────────────
+    // A civic copper is waxed, so it stays copper: salmon where it is rubbed, a deeper russet
+    // where the weather has had it, in slow blotches. Verdigris only survives where the wax can't
+    // reach, as runs down the walls and pools on the ledges, and it is matte, so it takes the
+    // metal away as well as changing the hue.
+    vec3 fn = normalize(cross(dFdx(vLocal), dFdy(vLocal)));
+    float px = max(length(fwidth(vLocal)), 1e-5);
+    vec3 tt = normalize(cross(fn, abs(fn.z) < 0.9 ? vec3(0, 0, 1) : vec3(1, 0, 0)));
+    vec3 bb = cross(fn, tt);
+    vec2 uv = vec2(dot(vLocal, tt), dot(vLocal, bb));
+    float mott = vnoise(uv * 1.6 + vLocal.z * 0.9) * 0.65 + vnoise(uv * 5.0 + 3.7) * 0.35;
+    c *= mix(vec3(0.80, 0.72, 0.70), vec3(1.10, 1.04, 0.98), mott);
+    // ⚠ THE MIRROR'S TINT IS THE METAL'S, NOT THE LIT COLOUR'S. The colour that arrives is already
+    // lit, so on the shaded side it is dark, and a reflection tinted by it lets the blue sky through
+    // nearly untouched: the far side of the figure read as grey steel. Copper's reflectance is a
+    // property of copper, the same in sun and shade.
+    cuF0 = vec3(0.95, 0.64, 0.54) * mix(vec3(0.82, 0.74, 0.72), vec3(1.06, 1.02, 0.98), mott);
+    // The cast surface, as a slope: what makes the sheen break up across a face instead of
+    // sliding over it like a coat of lacquer.
+    float e = max(px * 1.5, 0.004);
+    float h = cuHeight(uv, px);
+    float gx = (cuHeight(uv + vec2(e, 0.0), px) - cuHeight(uv - vec2(e, 0.0), px)) / (2.0 * e);
+    float gy = (cuHeight(uv + vec2(0.0, e), px) - cuHeight(uv - vec2(0.0, e), px)) / (2.0 * e);
+    cuN = -(gx * tt + gy * bb) * 0.006;
+    c *= 1.0 + (h - 0.5) * 0.10;
+    // Runs on a wall (uv.x is horizontal there, so the streaks are long in z), pools on a ledge.
+    float wall = 1.0 - smoothstep(0.35, 0.7, abs(fn.z));
+    float runs = smoothstep(0.58, 0.88, vnoise(vec2(uv.x * 7.0, vLocal.z * 0.8 + vnoise(vec2(uv.x * 2.0, 1.7)) * 2.0)));
+    float pools = smoothstep(0.55, 0.85, vnoise(uv * 2.4 + 9.1)) * smoothstep(0.5, 0.9, fn.z);
+    float pat = mix(0.06, clamp(runs * wall * 0.75 + pools * 0.8, 0.0, 1.0), fade(7.0, px));
+    vec3 verd = vec3(0.34, 0.60, 0.50) * clamp(dot(c, vec3(0.299, 0.587, 0.114)) / 0.42, 0.25, 1.6);
+    c = mix(c, verd, pat * 0.85);
+    cuMet = 1.0 - pat * 0.9;
+  } else if (vTex > 20) { vec2 tx = surfaceTexTri(vTex - 20, vLocal, dot(vNL, vNL) > 0.01 ? normalize(vNL) : vec3(0.0, 0.0, 1.0)); c = max(c * tx.x + tx.y, 0.0); }
+  else if (vTex > 0) { vec2 tx = surfaceTex(vTex, vLocal); c = max(c * tx.x + tx.y, 0.0); }
 #ifdef CABIN
   if (vCB.x > -0.5 && vTex != 10) c = cabinShade(c);
 #endif
@@ -581,7 +645,12 @@ void main() {
   // or the night sky would just black the model out.
   // THE OWN SHIP'S SUN TERM, moved here from drawAircraftModel so its faces stay the same from frame
   // to frame: 0.82 + 0.5 · max(0, n·sun) · strength, on the face's own normal, as the CPU baked it.
-  if (uLmOn > 0.5 && dot(vN, vN) > 0.01) c *= 0.82 + 0.5 * max(0.0, dot(normalize(vN), uLmSun)) * uLmK;
+  // The light follows the sun's strength: hard sun drops the shade side to uLmL.x and wraps the lit
+  // side round a curve; with no sun it is an even 0.82. See shipLightOf in windshield.js.
+  if (uLmOn > 0.5 && dot(vN, vN) > 0.01) {
+    float nl = dot(normalize(vN), uLmSun), d = max(0.0, nl), wv = (nl * 0.5 + 0.5) * (nl * 0.5 + 0.5);
+    c *= mix(0.82, uLmL.x, uLmK) + uLmL.y * mix(d, wv, uLmL.z) * uLmK;
+  }
   if (dot(vN, vN) > 0.01 && vMetal <= 0.0) {
     vec3 na = normalize(vN);
     vec3 a = envAt(na.z * 0.5);
@@ -595,6 +664,7 @@ void main() {
     vec3 n = normalize(vN);
     vec3 d = normalize(vPos - uEye);
     if (dot(n, d) > 0.0) n = -n;
+    if (cu) n = normalize(n + cuN);
     float dn = dot(d, n);
     vec3 R = d - 2.0 * dn * n;
     // ⚠ A FLAT PLATE SEES A BLURRED WORLD. Its reflected ray barely changes across the face, so the
@@ -611,18 +681,29 @@ void main() {
       // the world, it only darkens it. Multiplied straight by a near-black it reflected nothing.
       // The untinted share (0.25 + Fresnel) is what reads as polish: a mirror shows the world in
       // its own colours, most of all at a grazing angle.
-      vec3 t = env * clamp(c * 1.275 + 0.35, 0.0, 1.0);
-      c = mix(c, mix(t, env, 0.25 + fres * 0.5), clamp(mtl * 1.1 + fres * 0.25, 0.0, 0.97));
+      // ⚠ COPPER KEEPS ITS OWN COLOUR IN THE MIRROR. It is a coloured conductor (its reflectance
+      // is about 0.95, 0.64, 0.54 square on), so only the Fresnel edge goes toward white; with the
+      // untinted floor every other metal takes, it read as a chrome figure with a pink cast.
+      // And a statue reflects a plaza and a skyline as much as a sky, so the sky it sees is half
+      // greyed: a pure blue in a copper mirror comes out mauve, which reads as paint.
+      if (cu) env = mix(env, vec3(dot(env, vec3(0.299, 0.587, 0.114))), 0.5);
+      vec3 t = cu ? env * cuF0 : env * clamp(c * 1.275 + 0.35, 0.0, 1.0);
+      float raw = cu ? 0.08 + fres * 0.55 : 0.25 + fres * 0.5;
+      c = mix(c, mix(t, env, raw), clamp((mtl * 1.1 + fres * 0.25) * cuMet, 0.0, 0.97));
     } else {
       c = mix(c, env, clamp(-mtl * (0.25 + 0.75 * fres), 0.0, 0.6));
     }
     // The sun in it: a tight hot core and a broad soft lobe around it, which is what makes polished
     // metal look wet. A flat plate gets the soft lobe only — the core on a plane lights the whole
     // face at once, the same way the horizon did.
+    // Copper's highlight is copper-coloured until the grazing edge, and it carries a wide warm sheen
+    // under a tighter lobe: the bump above moves both across a face, so a flat facet still shows a
+    // highlight travelling over it rather than lighting all at once.
     float sd = max(0.0, dot(R, uSun));
     float core = flatPlate ? 0.0 : pow(sd, 140.0);
-    float lobe = pow(sd, 14.0) * 0.28;
-    c = mix(c, vec3(1.0, 0.98, 0.93), clamp((core + lobe) * uSunK * max(0.3, abs(mtl)), 0.0, 0.95));
+    float lobe = cu ? pow(sd, 24.0) * 0.30 + pow(sd, 5.0) * 0.16 : pow(sd, 14.0) * 0.28;
+    vec3 gc = cu ? mix(vec3(1.0, 0.76, 0.58), vec3(1.0, 0.95, 0.90), fres) : vec3(1.0, 0.98, 0.93);
+    c = mix(c, gc, clamp((core + lobe) * uSunK * max(0.3, abs(mtl)) * cuMet, 0.0, 0.95));
   }
   // ── THE CITY'S LIGHTS ON A SOLID ───────────────────────────────────────────
   // A face with a normal is a surface; one without is a light line or a lamp and keeps its colour.
@@ -735,7 +816,7 @@ export function createSolidsLayer(gl, opt = {}) {
     model: gl.getUniformLocation(prog, 'uModel'),
     attA: gl.getUniformLocation(prog, 'uAttA'), attB: gl.getUniformLocation(prog, 'uAttB'), attOn: gl.getUniformLocation(prog, 'uAttOn'),
     nMat: gl.getUniformLocation(prog, 'uNMat'), nMatOn: gl.getUniformLocation(prog, 'uNMatOn'),
-    lmSun: gl.getUniformLocation(prog, 'uLmSun'), lmOn: gl.getUniformLocation(prog, 'uLmOn'), lmK: gl.getUniformLocation(prog, 'uLmK'),
+    lmSun: gl.getUniformLocation(prog, 'uLmSun'), lmOn: gl.getUniformLocation(prog, 'uLmOn'), lmK: gl.getUniformLocation(prog, 'uLmK'), lmL: gl.getUniformLocation(prog, 'uLmL'),
     nScale: gl.getUniformLocation(prog, 'uNScale'),
     fog: gl.getUniformLocation(prog, 'uFog'),
     fogNear: gl.getUniformLocation(prog, 'uFogNear'),
@@ -1162,7 +1243,11 @@ export function createSolidsLayer(gl, opt = {}) {
     gl.uniform1f(loc.nMatOn, S && S.nmat ? 1 : 0);
     if (S && S.nmat) gl.uniformMatrix3fv(loc.nMat, false, S.nmat);
     gl.uniform1f(loc.lmOn, S && S.sun ? 1 : 0);
-    if (S && S.sun) { gl.uniform3f(loc.lmSun, S.sun[0], S.sun[1], S.sun[2]); gl.uniform1f(loc.lmK, S.k || 0); }
+    if (S && S.sun) {
+      gl.uniform3f(loc.lmSun, S.sun[0], S.sun[1], S.sun[2]); gl.uniform1f(loc.lmK, S.k || 0);
+      const L = S.light || SHIP_LIGHT_DEFAULT;
+      gl.uniform3f(loc.lmL, L[0], L[1], L[2]);
+    }
     if (cabin) {
       const A = model ? attP : null;
       gl.uniform1f(loc.attOn, A ? 1 : 0);

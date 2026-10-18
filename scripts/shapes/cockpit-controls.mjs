@@ -31,6 +31,7 @@ for (const cls of Object.keys(BOAT_ROWS)) if (!SHELL_CLASS[cls]) SEATS.push([cls
 const NOT_FLIGHT = {
   truck: 'cab-view.js takes its clicks (truckHotspots, the fascia banks)',
   hydro: 'boat-view.js takes its clicks',
+  podracer: 'podracer-view.js takes its clicks (the levers drag, START, BRAKE and BOOST)',
   bridge: 'the wheelhouse has no hotspots; helm-view.js is its panel',
 };
 const isBoat = (cls) => cls === 'hydro' || (!!BOAT_ROWS[cls] && !SHELL_CLASS[cls]);

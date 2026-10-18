@@ -46,7 +46,7 @@
 // Frame: metres, the eye at the origin, +x right, +y forward, +z up. The centreline is `xCentre`
 // to the right of the eye; the co-pilot sits at 2·xCentre.
 import { makeKit, C, clamp, pedal, SHINY, PANE, TEXTURE, xfTurn } from './interior-kit.js';
-import { contactShadow, facingPanel, hotspotHalo } from './interior-cockpit-kit.js';
+import { contactShadow, facingPanel, hotspotHalo, panelGps, gpsHotspot } from './interior-cockpit-kit.js';
 import { FW_ROWS } from './vehicle-models.js';
 
 const TAU = Math.PI * 2;
@@ -459,6 +459,8 @@ function layout(P) {
       lamp: { z: top - 0.168, x: [-0.375, -0.295] },
       sw: { z: top - 0.218, x: [-0.375, -0.295] } },
     radio: { x: xC, w: 0.15, z0: top - 0.50, z1: top - 0.36 },
+    // The GPS, mid-panel between the engine column and the co-pilot's six-pack, under the annunciators.
+    gps: { x: xC + 0.18, z: top - 0.19, hw: 0.07, hh: 0.055 },
     col: (x) => ({ pivot: [x, 0.62, P.mule.zF + 0.05] }),
     con: { x0: xC - 0.13, x1: xC + 0.13, y0: -0.36, y1: 0.55, zb: roofIn - 0.12, zt: roofIn - 0.012 },
     quad: { y: 0.34, xs: [-0.090, -0.064, -0.024, 0.002, 0.042, 0.068] },
@@ -487,6 +489,7 @@ export function muleHotspots(P, live) {
   out.push({ id: 'ck:flaps', p: [Y.flap.x, lerp(Y.flap.y0, Y.flap.y1, clamp(num(L.flapNotch), 0, 3) / 3), Y.con.zb - 0.06], r: 0.025, kind: 'click' });
   out.push({ id: 'trim', p: add(Y.trim.c, [0, 0, -Y.trim.r]), r: 0.05, kind: 'trim' });
   out.push({ id: 'ck:dome', p: Y.dome, r: 0.035, kind: 'click' });
+  out.push(gpsHotspot(Pn, Y.gps.x, Y.gps.z, 0.06));
   const yk = yokeFrame(Y, 0, clamp(num(L.stickY), -1, 1));
   out.push({ id: 'yoke', p: yk.hub, r: 0.12, kind: 'yoke' });
   return out;
@@ -790,6 +793,7 @@ function muleFit(P, live, push) {
     Pn.knob(r.x + 0.08, z, 0.006, 0.010, [60, 60, 66], 0);
   });
   if (powered) Pn.digits(r.x + 0.00, unitZ[2] - 0.008, 0.016, String(Math.round(alt / 100) % 1000).padStart(3, '0'), T.amber, false);
+  panelGps(Pn, Y.gps.x, Y.gps.z, Y.gps.hw, Y.gps.hh, L);
 
   // ── ENGINE START, left of the clock ──────────────────────────────────────
   // ⚠ THE IGNITION IS ON THE PANEL IN FRONT OF YOU. The seat opens with the 2-D rows folded away,

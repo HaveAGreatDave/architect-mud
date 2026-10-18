@@ -39,7 +39,10 @@
 import { VOIDS, currentWindow } from '../voidwalking/index.js';
 import { surfaceAt } from '../flight/state.js';
 import { buildRoad, destsFor, gatePair, gateGeneration } from './state.js';
-import { corridorAt, corridorLocate, composeRoad, bucketOf, routeBuckets, pairKey, OFFROAD_R, PAVED_R, SHOULDER_W } from './corridor.js';
+import { corridorAt, corridorLocate, composeRoad, bucketOf, routeBuckets, pairKey, OFFROAD_R, PAVED_R, SHOULDER_W,
+  corridorPos, pavedAt, lanesAt, conditionAt, dirtAt } from './corridor.js';
+import { segmentAt } from '../../client/shared/highways.js';
+import { apronAt, PLAZA_LEN } from './plaza.js';
 
 // One built network per (week, gate generation). The roads are a pure function of exactly those two
 // things, so this is a memo rather than a cache with a coherence problem.
@@ -453,4 +456,226 @@ function buildFarRoadLines(net, x, y, radius) {
   return { w: PAVED_R + SHOULDER_W, lines: out.map((p) => p.map((v) => Math.round(v * 10) / 10)) };
 }
 
-export const _test = { buildNetwork, mergeIndices };
+// ── THE ROAD UNDER YOU, AS ONE PIECE OF TARMAC ───────────────────────────────
+//
+// Inside the map window the corridor arrives as cells, and a cell can only say "this square is
+// road, and the road here runs at this angle". Drawn that way a bend is a staircase of squares,
+// each laying its own stripes at its own angle, and a fork is three sets of stripes crossing.
+// So the client also gets the centreline itself, near the viewer, and draws the road as one
+// ribbon over the cells (windshield.js, drawHighwayRibbons). The cells stay what they are for
+// physics, the odometer and everything placed on the verge; only the drawing moves.
+//
+// Each run is a polyline of [x, y, w, c, n] per vertex: world tiles, the paved half-width
+// (pavedAt, so the taper is in it), the condition (conditionAt) and the lane count. `a0` is how
+// far along the road the first vertex is, so a dash or a pothole is a place on the road and does
+// not slide when the clip window moves. `id` keys the hashing per road.
+//
+// ⚠ ONE COPY OF EVERY STRETCH. Three roads leave Coldwater down one trunk, and Route 4 shares
+// Route 1 from where it joins. Drawn once per road, the shared tarmac would carry two or three
+// sets of paint at three dash phases. So roads are laid in priority order (trunk first, then the
+// longer) and a vertex that sits on an already-laid road, running the same way, is dropped. What
+// is left of a road is the part that is its own: a branch starts where it leaves the road it
+// shares, and a merge ends where it joins.
+//
+// ⚠ A SHARP JOIN IS ROUNDED FOR THE DRAWING ONLY. Where two built pieces meet at an angle (a merge
+// comes in at up to 45°) the polyline is filleted, never moving more than RIB_DEV tiles off the
+// built centreline, which is well inside the carriageway the cells answer for.
+const RIB_STEP = 2;          // longest gap between two shipped vertices, tiles
+const RIB_DEV = 0.6;         // how far a fillet may cut a corner
+const RIB_FILLET_DEG = 6;    // joins turning less than this are left alone (a built bend is ~2-5° a leg)
+const RIB_SHARE = 0.35;      // within this of a laid road, running the same way, is the laid road
+const RIB_PRI = { trunk: 3, branch: 2, spur: 1, ramp: 0 };
+const D2R = Math.PI / 180;
+
+function hashId(str) {
+  let h = 2166136261;
+  for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return (h >>> 0) % 100000;
+}
+
+// The route's legs as one polyline with a fillet at every sharp join. Each point keeps the route
+// `s` it stands for, so the width and the condition are read off the road that was built.
+function filletedPath(route) {
+  const legs = route.legs || [];
+  if (!legs.length) return [];
+  const v = [{ x: legs[0].x0, y: legs[0].y0, s: legs[0].s0 ?? 0 }];
+  for (const l of legs) v.push({ x: l.x0 + l.ux * l.len, y: l.y0 + l.uy * l.len, s: l.s1 ?? (l.s0 + l.len) });
+  const out = [v[0]];
+  for (let i = 1; i < v.length - 1; i++) {
+    const a = v[i - 1], b = v[i], c = v[i + 1];
+    const L1 = Math.hypot(b.x - a.x, b.y - a.y), L2 = Math.hypot(c.x - b.x, c.y - b.y);
+    if (L1 < 1e-6 || L2 < 1e-6) { out.push(b); continue; }
+    const u1x = (b.x - a.x) / L1, u1y = (b.y - a.y) / L1, u2x = (c.x - b.x) / L2, u2y = (c.y - b.y) / L2;
+    const th = Math.acos(Math.max(-1, Math.min(1, u1x * u2x + u1y * u2y)));
+    if (th < RIB_FILLET_DEG * D2R) { out.push(b); continue; }
+    const half = th / 2;
+    let T = (RIB_DEV / (1 / Math.cos(half) - 1)) * Math.tan(half);
+    T = Math.min(T, 0.5 * L1, 0.5 * L2);
+    const r = T / Math.tan(half);
+    const sg = u1x * u2y - u1y * u2x > 0 ? 1 : -1;
+    const p1x = b.x - u1x * T, p1y = b.y - u1y * T;
+    const cx = p1x - sg * u1y * r, cy = p1y + sg * u1x * r;
+    const steps = Math.max(2, Math.ceil(th / (3 * D2R)));
+    for (let k = 0; k <= steps; k++) {
+      const q = (sg * th * k) / steps, cs = Math.cos(q), sn = Math.sin(q);
+      const ox = p1x - cx, oy = p1y - cy;
+      out.push({ x: cx + ox * cs - oy * sn, y: cy + ox * sn + oy * cs, s: b.s - T + (2 * T * k) / steps });
+    }
+  }
+  out.push(v[v.length - 1]);
+  return out;
+}
+
+function buildRibbons(net) {
+  const order = net.routes.map((rt) => {
+    const segs = rt.segments || [];
+    const pri = segs.length ? Math.max(...segs.map((g) => RIB_PRI[g.type] ?? 1)) : 1;
+    return { rt, pri };
+  }).sort((p, q) => q.pri - p.pri || q.rt.L - p.rt.L);
+  const laid = [];   // [{ x, y, ux, uy }] every kept vertex with its direction, for the share test
+  const runs = [];
+  for (const { rt } of order) {
+    // Split long segments so no two vertices are more than RIB_STEP apart: the width and the
+    // condition change along a straight, and the share test needs points to test.
+    const raw = filletedPath(rt);
+    const pts = [];
+    for (let i = 0; i < raw.length; i++) {
+      const p = raw[i];
+      if (i) {
+        const q = raw[i - 1], L = Math.hypot(p.x - q.x, p.y - q.y), m = Math.ceil(L / RIB_STEP);
+        for (let k = 1; k < m; k++) pts.push({ x: q.x + (p.x - q.x) * k / m, y: q.y + (p.y - q.y) * k / m, s: q.s + (p.s - q.s) * k / m });
+      }
+      pts.push(p);
+    }
+    // ⚠ HALF A TILE PAST EACH END, AND NO CLIP TO PLACED GROUND. The tarmac paves over placed ground
+    // all the way to the gate (corridor.js composeRoad), so the ribbon does too; and the cell at
+    // each end is the ribbon's (it stops being drawn as a tile), so the ribbon covers all of it.
+    for (const [e, n] of [[0, 1], [pts.length - 1, pts.length - 2]]) {
+      const p = pts[e], q = pts[n], L = Math.hypot(p.x - q.x, p.y - q.y) || 1;
+      const x = { x: p.x + (p.x - q.x) / L * 0.5, y: p.y + (p.y - q.y) / L * 0.5, s: p.s };
+      if (e === 0) pts.unshift(x); else pts.push(x);
+    }
+    let a = 0;
+    for (let i = 0; i < pts.length; i++) { if (i) a += Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y); pts[i].a = a; }
+    const cut = pts;
+    if (cut.length < 2) continue;
+    // Which vertices are a road already laid.
+    const dir = (i) => {
+      const p = cut[Math.max(0, i - 1)], q = cut[Math.min(cut.length - 1, i + 1)];
+      const L = Math.hypot(q.x - p.x, q.y - p.y) || 1;
+      return [(q.x - p.x) / L, (q.y - p.y) / L];
+    };
+    const shared = cut.map((p, i) => {
+      const [ux, uy] = dir(i);
+      for (const o of laid) {
+        if (Math.abs(o.x - p.x) > RIB_STEP + 1 || Math.abs(o.y - p.y) > RIB_STEP + 1) continue;
+        if (Math.abs(ux * o.ux + uy * o.uy) < 0.98) continue;
+        // distance from p to the laid segment o -> o.next
+        const bx = o.nx - o.x, by = o.ny - o.y, l2 = bx * bx + by * by;
+        const t = l2 < 1e-9 ? 0 : Math.max(0, Math.min(1, ((p.x - o.x) * bx + (p.y - o.y) * by) / l2));
+        if (Math.hypot(p.x - (o.x + bx * t), p.y - (o.y + by * t)) < RIB_SHARE) return true;
+      }
+      return false;
+    });
+    // Runs of our own vertices, each carried one vertex into the shared stretch at either end so
+    // the ribbon reaches the road it leaves or joins rather than stopping short of it.
+    const id = hashId(`${rt.voidKey}|${rt.destKey}`);
+    for (let i = 0; i < cut.length;) {
+      if (shared[i]) { i++; continue; }
+      let j = i;
+      while (j + 1 < cut.length && !shared[j + 1]) j++;
+      const lo = Math.max(0, i - 1), hi = Math.min(cut.length - 1, j + 1);
+      if (hi > lo) {
+        const v = cut.slice(lo, hi + 1);
+        // The run's own rank, by the type of road it actually is rather than the whole journey's:
+        // the Deadwater road starts down the trunk it shares, and what is left of it is a branch.
+        const pri = Math.max(...v.map((p) => RIB_PRI[segmentAt(rt, p.s)?.type || 'branch'] ?? 1));
+        runs.push({ id, pri, dirt: dirtAt(rt, v[0].s) ? 1 : 0, a0: v[0].a, pts: v.map((p) => ({
+          x: p.x, y: p.y, a: p.a, w: pavedAt(rt, p.s), c: conditionAt(rt, p.s), n: lanesAt(rt, p.s) })) });
+      }
+      i = j + 1;
+    }
+    for (let i = 0; i + 1 < cut.length; i++) {
+      if (shared[i] && shared[i + 1]) continue;
+      const [ux, uy] = dir(i);
+      laid.push({ x: cut[i].x, y: cut[i].y, nx: cut[i + 1].x, ny: cut[i + 1].y, ux, uy });
+    }
+  }
+  // AN INSPECTION PLAZA'S APRON IS A ROAD TOO: it starts on the mainline, walks out, holds and walks
+  // back (plaza.js apronAt), so it is shipped as a run of the lowest rank and the paint sorts itself
+  // out where the two overlap. Only a plaza the cells actually show: on a stretch two roads share,
+  // the tile answers for one of them, and an apron with no station on it is a lay-by to nowhere.
+  for (const { rt } of order) {
+    for (const pz of rt.plazas || []) {
+      const shows = [4, 8, 12].some((u) => {
+        const ap = apronAt(rt, pz, u, pz.s0 + u), p = ap && corridorPos(rt, pz.s0 + u, ap.c);
+        return p && roadCellAt(Math.round(p.x), Math.round(p.y))?.flags?.scale_plaza?.name === pz.name;
+      });
+      if (!shows) continue;
+      const pts = [];
+      for (let u = 0; u <= PLAZA_LEN + 1e-9; u += 1) {
+        const s = pz.s0 + u, ap = apronAt(rt, pz, u, s);
+        if (!ap) continue;
+        const p = corridorPos(rt, s, ap.c);
+        pts.push({ x: p.x, y: p.y, a: u, w: ap.w, c: conditionAt(rt, s), n: 1 });
+      }
+      if (pts.length >= 2) runs.push({ id: hashId(pz.key), pri: -1, dirt: 0, a0: 0, pts });
+    }
+  }
+  return runs;
+}
+
+// The runs near (x, y), clipped to `radius` with one vertex beyond each end. Memoised on an
+// 8-tile cell, because the cab asks four times a second; the radius is grown by the cell's half
+// diagonal so the answer holds anywhere in the cell. `k` names the answer, so the client can tell
+// a new road from the same one sent again and only rebuild the geometry when it changes.
+export const RIBBON_R = 56;   // covers a cockpit's 73-tile window to its corners
+const RIB_CELL = 8;
+let _ribMemo = null;
+export function nearRibbons(x, y, radius = RIBBON_R) {
+  const net = roadNetwork();
+  if (!net.routes.length) return null;
+  if (!net._ribbons) net._ribbons = buildRibbons(net);
+  const cx = Math.round(x / RIB_CELL) * RIB_CELL, cy = Math.round(y / RIB_CELL) * RIB_CELL;
+  const r = radius + RIB_CELL * 0.71;
+  const m = _ribMemo;
+  if (m && m.net === net && m.cx === cx && m.cy === cy && m.r === r) return m.out;
+  const r2 = r * r, out = [];
+  for (const run of net._ribbons) {
+    const P = run.pts;
+    for (let i = 0; i < P.length;) {
+      const near = (k) => { const dx = P[k].x - cx, dy = P[k].y - cy; return dx * dx + dy * dy <= r2; };
+      if (!near(i)) { i++; continue; }
+      let j = i;
+      while (j + 1 < P.length && near(j + 1)) j++;
+      const lo = Math.max(0, i - 1), hi = Math.min(P.length - 1, j + 1);
+      if (hi > lo) {
+        const p = [];
+        for (let k = lo; k <= hi; k++) {
+          const q = P[k];
+          p.push(Math.round(q.x * 100) / 100, Math.round(q.y * 100) / 100, Math.round(q.w * 100) / 100, Math.round(q.c * 100) / 100, q.n);
+        }
+        out.push({ id: run.id, pri: run.pri, dirt: run.dirt, a0: Math.round(P[lo].a * 100) / 100, p });
+      }
+      i = j + 1;
+    }
+  }
+  const res = out.length ? { k: `${net.window}:${gateGeneration()}:${cx},${cy}`, sh: SHOULDER_W, r: out } : null;
+  _ribMemo = { net, cx, cy, r, out: res };
+  return res;
+}
+
+// What the far-road seam hands every seat: the far lines for the floor shader, and the near
+// ribbons for the ground pass. Either may be missing; the object is memoised so a seat that is
+// not moving is handed the same answer.
+let _roadsMemo = null;
+export function roadsNear(x, y, radius) {
+  const far = farRoadLines(x, y, radius), near = nearRibbons(x, y);
+  if (!far && !near) return null;
+  if (_roadsMemo && _roadsMemo.far === far && _roadsMemo.near === near) return _roadsMemo.out;
+  const out = { ...(far || { w: PAVED_R + SHOULDER_W, lines: [] }), near };
+  _roadsMemo = { far, near, out };
+  return out;
+}
+
+export const _test = { buildNetwork, mergeIndices, buildRibbons, filletedPath };

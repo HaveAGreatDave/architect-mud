@@ -203,6 +203,8 @@ function paved() {
     if (x === R && y >= R - 11 && y <= R - 6) return y === R - 6 ? { kind: 'field', rwy: 'ns', road: 1, flr: 0 } : { kind: 'land', rwy: 'ns', road: 1, flr: 0 };
     if (x === R + 1 && y >= R - 10 && y <= R - 6) return { kind: 'land', rwy: 'pad', twy: y === R - 10 ? 'sw' : y === R - 8 ? 'nsw' : 'ns', flr: 0 };
     if (x === R - 1 && y === R - 9) return { kind: 'land', rwy: 'pad', twy: 'e', flr: 0 };
+    // The helipad at the dead end of the parallel taxiway (`flags.helipad` → `hp`).
+    if (x === R + 1 && y === R - 5) return { kind: 'land', rwy: 'pad', twy: 'n', hp: 1, flr: 0 };
     return { kind: 'land', biome: 'city', flr: 0 };
   }));
 }
@@ -242,6 +244,13 @@ say(lampsOf(80, 255, 140) > 0, 'no green taxiway centreline light reached the sp
 say(lampsOf(255, 190, 60) > 0, 'no amber runway guard light at the hold-short reached the sprite sink');
 say(lampsOf(255, 244, 220) > 0, 'no approach light past the open north end reached the sprite sink');
 say(four.sinks.decals.some((d) => String(d.key).startsWith('afhold|')), 'the hold-short pushed no runway sign');
+// A rotorcraft is stood on the helipad to board, so it has to read as one: a white ring and an H.
+const padWhite = (groundRecs || []).filter((q) => {
+  if (!q.p || !isRgb(q.rgb, 236, 239, 243)) return false;
+  const cx = q.p.reduce((s, p) => s + p[0], 0) / q.p.length, cy = q.p.reduce((s, p) => s + p[1], 0) / q.p.length;
+  return Math.abs(cx - 1) < 0.45 && Math.abs(cy + 5) < 0.45;
+}).length;
+say(padWhite >= 20, `the helipad pushed ${padWhite} white quad(s): no touchdown ring or H`);
 say(four.early === 0, `${four.early} taxiway light op(s) painted before the GL composite`);
 
 ws.installGLWorld(null);

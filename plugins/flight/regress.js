@@ -20,7 +20,7 @@ import { computeStats, perfAxes, tuneRange, installedKits, KITS, TUNE_DIAL_MAX,
   PARTS, PART_SLOTS, slotsFor, installedParts, partDefs, partEnvelope, PYLON_MIN_TOW,
   shearRoll, surfacesWire, anyWingLost, resetSurfaces, SURFACE_KEYS,
   isWalkableCabin, cabinTypeOf, cabinEntryZone, isCabinZone, liveAircraft, getZone, loadAircraft, stalledState, CONTINUOUS_TYPES, listAirfields, nearestAirfield, listRegions, worldTerrainMap, salvoOf, bombLoad, bombAmmo, waypointFor, bounds as flightBounds,
-  vtolOnlyField, acquirableTypes, hangarRampFor, HANGAR_REACH, BANDS, airfieldOf, fieldOpenTo, fieldName } from './state.js';
+  vtolOnlyField, acquirableTypes, hangarRampFor, HANGAR_REACH, BANDS, airfieldOf, fieldOpenTo, fieldName, gpsDirectory } from './state.js';
 import { isFreightLicensed, ensureFreightDrops, isAirCargoUnlocked, hasCacheStanding,
   openOrders, placeCacheOrder, rawsCatalogue, trustFor, unitsPerPallet, palletPrice,
   waitingDropAt, FENCE_CACHES } from './contracts.js';
@@ -707,6 +707,22 @@ async function regressBody({ run, check, getPlayer }) {
   r = await run('flightwaypoint -99999 -99999');
   check('an out-of-world tile is clamped into the map, never stored raw', getPlayer().flightWaypoint && getPlayer().flightWaypoint.x > -99999, JSON.stringify(getPlayer().flightWaypoint));
   await run('flightwaypoint clear');
+
+  // ── The cockpit GPS's directory (flightgps → flight_gps) ────────────────────
+  // Every airfield on the charts appears once, under a region; a region with a rectangle has a centre.
+  {
+    const dir = gpsDirectory(), ids = dir.flatMap(g => g.fields.map(f => f.id));
+    const want = new Set(listAirfields().map(f => getZone(f.id)?.flags?.airfield_id).filter(Boolean));
+    check('gps directory lists every region', listRegions().every(r => dir.some(g => g.id === r.id)), dir.map(g => g.id).join(','));
+    check('…each airfield once', ids.length === new Set(ids).size, ids.join(','));
+    check('…and none missing', want.size === 0 || [...want].every(id => ids.includes(id)), [...want].filter(id => !ids.includes(id)).join(','));
+    check('…regions carry a centre to fly to', dir.filter(g => g.id).every(g => Number.isFinite(g.gx) && Number.isFinite(g.gy)));
+    const sent = [], savedBc = getBroadcast();
+    setBroadcast((zoneId, message, excludeId, targetId) => { sent.push(message); });
+    try { r = await run('flightgps'); } finally { setBroadcast(savedBc); }
+    const msg = sent.find(m => m?.type === 'flight_gps');
+    check('flightgps answers silently with the directory', r?.type === 'noop' && Array.isArray(msg?.regions), sent.map(m => m?.type).join(',') || 'nothing sent');
+  }
 
   r = await run('flightsync 0 0 0 0 0 0 0 1 0'); check('flightsync not aboard no-ops', r?.type === 'noop', r?.type);
   r = await run('flightevent takeoff'); check('flightevent not aboard no-ops', r?.type === 'noop', r?.type);
@@ -1471,6 +1487,15 @@ async function regressBody({ run, check, getPlayer }) {
     check('…and a heavy aircraft is sent to the heavy bay', heavyTile?.id === 'zone_district_929_904', heavyTile?.id);
     const vc = surfaceAt(929, 904), vcell = vc ? deriveSurfaceCell(vc, 929, 904, surfaceAt) : null;
     check('…which derives as the heavy bay', vcell?.mark === 'bay' && vcell?.bk === 'heavy', JSON.stringify({ mark: vcell?.mark, bk: vcell?.bk }));
+    // A helicopter can't taxi out of a shed, so a VTOL is stood on the field's helipad instead.
+    const { standTileFor, helipadTileFor, airfieldForRunway } = await import('./state.js');
+    const pad = helipadTileFor(ramp);
+    check('Coldwater Regional finds its helipad', pad?.id === 'zone_district_926_905', pad?.id);
+    check('…which the field owns, so a shutdown there parks at the field', airfieldForRunway(pad)?.id === ramp.id, airfieldForRunway(pad)?.id);
+    check('…and a VTOL is stood on it, not in the shed', standTileFor(ramp, { vtol: true })?.id === 'zone_district_926_905', standTileFor(ramp, { vtol: true })?.id);
+    check('…while a fixed-wing still gets the hangar floor', standTileFor(ramp, {})?.id === 'zone_district_927_902', standTileFor(ramp, {})?.id);
+    const pc = surfaceAt(926, 905), pcell = pc ? deriveSurfaceCell(pc, 926, 905, surfaceAt) : null;
+    check('…and the pad derives as a painted helipad', pcell?.rwy === 'pad' && pcell?.hp === 1, JSON.stringify({ rwy: pcell?.rwy, hp: pcell?.hp }));
     const hid = 'aircraft_regress_hangar';
     const savedZone = p.current_zone, savedBc = getBroadcast(), sent = [];
     await query('DELETE FROM aircraft WHERE id=$1', [hid]);
