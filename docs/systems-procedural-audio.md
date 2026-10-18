@@ -543,6 +543,46 @@ every load.
 The speech side of this (two channels, and Read Aloud ducking the TV) is in
 [systems-accessibility.md](systems-accessibility.md#speech-channels-what-a-typed-command-stops).
 
+## Cue loudness
+
+The limiter stops peaks, but nothing compared one preset with the next: each was set by ear on
+its own. [`scripts/audio/loudness-smoke.mjs`](../scripts/audio/loudness-smoke.mjs), in the
+`audio` gate group, renders every row under `content/audio_sfx` and `content/audio_ambient`
+through the real engine on the offline renderer at 48 kHz and measures it. It takes about 3 s
+of CPU.
+
+**The measure** is ITU-R BS.1770 K-weighted loudness, mono, channel weight 1:
+
+- A one-shot is its maximum momentary loudness: the loudest 400 ms window, 100 ms apart.
+  Integrated loudness means nothing on a 30 ms click. A cue shorter than 400 ms is padded with
+  silence, so a short tick reads quieter than a long tone at the same amplitude, which is how
+  it sounds.
+- A loop is its integrated loudness (gated at -70 LUFS and -10 LU) over 3 s of sustain after
+  its attack and decay. Sparkles aren't rendered. A loop with an LFO slower than about 0.3 Hz
+  (the emergency siren's 0.1 Hz sweep) is measured over part of a cycle.
+- Peak is the sample peak in dBFS, not true peak.
+
+Everything is the cue alone at gain 1: no bus, limiter, reverb or distance gain.
+
+**Targets** are in `TARGETS` at the top of the script, keyed `kind:category` (`sfx:ui`,
+`loop:environment`) with a fallback per kind. They started as each group's median on
+2026-10-18. A cue more than 4 LU from its target, or peaking over 0 dBFS, is an outlier. On
+that date 23 of 38 cues were, and none has been rebalanced: that's a separate decision.
+
+**The baseline**, [`scripts/audio/loudness-baseline.json`](../scripts/audio/loudness-baseline.json),
+holds every cue's loudness and peak. The gate fails on a new outlier, or on any cue whose
+loudness moved more than 1 LU from its recorded value, including a cue that got better. It
+writes nothing.
+
+```bash
+node scripts/audio/loudness-smoke.mjs --report   # every cue, outliers marked
+node scripts/audio/loudness-smoke.mjs --update   # rewrite the baseline
+```
+
+After changing a cue's level, or a target, on purpose, run `--update` and say why in the commit.
+An engine change that moves many cues at once fails the gate too; that's meant, since it changed
+the mix.
+
 ## The voice pool
 
 ⚠ **The pool and the tracker's channel count were the same number, and that is a bug,

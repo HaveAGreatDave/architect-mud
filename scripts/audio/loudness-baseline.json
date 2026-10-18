@@ -1,0 +1,154 @@
+{
+  "sfx_architect_notice": {
+    "lufs": -10,
+    "peak": -3
+  },
+  "sfx_combat_critical": {
+    "lufs": -22.2,
+    "peak": -10
+  },
+  "sfx_combat_death": {
+    "lufs": -9.6,
+    "peak": 1.9
+  },
+  "sfx_combat_gunshot": {
+    "lufs": -15.5,
+    "peak": 3.6
+  },
+  "sfx_combat_hit": {
+    "lufs": -22.3,
+    "peak": -3.3
+  },
+  "sfx_combat_punch": {
+    "lufs": -22.3,
+    "peak": -3.4
+  },
+  "sfx_combat_reload": {
+    "lufs": -17.5,
+    "peak": 0
+  },
+  "sfx_combat_slash": {
+    "lufs": -14,
+    "peak": 2.7
+  },
+  "sfx_combat_stab": {
+    "lufs": -15.2,
+    "peak": 3.9
+  },
+  "sfx_electrical_buzz": {
+    "lufs": -24,
+    "peak": -0.7
+  },
+  "sfx_hacking": {
+    "lufs": -13.5,
+    "peak": 0.7
+  },
+  "sfx_ice_break": {
+    "lufs": -10.5,
+    "peak": 3
+  },
+  "sfx_scanner": {
+    "lufs": -2.2,
+    "peak": 3.7
+  },
+  "sfx_terminal_boot": {
+    "lufs": -8.3,
+    "peak": -0.1
+  },
+  "sfx_terminal_login": {
+    "lufs": -14.4,
+    "peak": -6.2
+  },
+  "sfx_terminal_logout": {
+    "lufs": -16.5,
+    "peak": -6.4
+  },
+  "sfx_tv_power_off": {
+    "lufs": -17.9,
+    "peak": -1.1
+  },
+  "sfx_tv_power_on": {
+    "lufs": -22.1,
+    "peak": -8.2
+  },
+  "sfx_tv_relay_click": {
+    "lufs": -18.2,
+    "peak": 2.3
+  },
+  "sfx_ui_button": {
+    "lufs": -23.2,
+    "peak": -6.4
+  },
+  "sfx_ui_cancel": {
+    "lufs": -20.2,
+    "peak": -6.3
+  },
+  "sfx_ui_confirm": {
+    "lufs": -19.5,
+    "peak": -6.3
+  },
+  "sfx_ui_error": {
+    "lufs": -14.4,
+    "peak": 1.6
+  },
+  "sfx_ui_hover": {
+    "lufs": -31.5,
+    "peak": -12.2
+  },
+  "sfx_ui_menu": {
+    "lufs": -19.1,
+    "peak": -0.2
+  },
+  "sfx_ui_notification": {
+    "lufs": -9.7,
+    "peak": -0.1
+  },
+  "amb_emergency_siren": {
+    "lufs": -6.8,
+    "peak": -0.7
+  },
+  "amb_fire": {
+    "lufs": -20.7,
+    "peak": -9.4
+  },
+  "amb_generator": {
+    "lufs": -18.8,
+    "peak": -9.6
+  },
+  "amb_heavy_rain": {
+    "lufs": -8.5,
+    "peak": -1.4
+  },
+  "amb_hvac": {
+    "lufs": -25.2,
+    "peak": -19.4
+  },
+  "amb_machinery": {
+    "lufs": -15.3,
+    "peak": -7.2
+  },
+  "amb_neon_hum": {
+    "lufs": -23.8,
+    "peak": -17.5
+  },
+  "amb_rain": {
+    "lufs": -15.1,
+    "peak": -7.4
+  },
+  "amb_subway": {
+    "lufs": -34.2,
+    "peak": -19.5
+  },
+  "amb_tv_hum": {
+    "lufs": -33.9,
+    "peak": -26.8
+  },
+  "amb_tv_static": {
+    "lufs": -37.1,
+    "peak": -30.3
+  },
+  "amb_wind": {
+    "lufs": -27.2,
+    "peak": -11.8
+  }
+}
