@@ -1645,6 +1645,8 @@ hit, fight and injury before the broadcast began. Between beats the world plays 
 its own (carries, cycles, passes, dekes, dump-ins, rub-outs, a goalie playing it to his
 defence), and that hockey never shoots. A net lets a puck in only through its mouth and
 only while `W.allowGoal` names it, which the director sets for a goal and nothing else.
+A plan to reverse this, with the server playing each featured game as free hockey before it
+airs, is in [proposals/cluster-puck-free-play.md](proposals/cluster-puck-free-play.md) (design).
 
 **What the director stages.** Each payload type has a stager. Each one takes the men and
 the puck it needs, walks them through the beat and hands them back to the ambient play.
