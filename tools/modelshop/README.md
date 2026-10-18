@@ -1424,8 +1424,28 @@ defaults to whichever of dark/bone can actually be read against the board.
 them. The glass is a baked canvas mapped onto the wall the way sign lettering is, so it gets the
 same fit, depth and bloom. The two stand-off rails behind it are metal and go in the mesh.
 
-Jolene's is the only one so far. Its strokes are in `client/shared/neon-art.js`, traced off the
-owner's own sign rather than drawn by hand, so change it by retracing it, not by editing numbers.
+Jolene's strokes are in `client/shared/neon-art.js`, traced off the owner's own sign rather than
+drawn by hand, so change it by retracing it, not by editing numbers.
+
+The Cherry Pit's three (`cherrypit`, `livegirls`, `xxx`) are bent by hand in
+`client/shared/neon-signs.js`, with tube capitals drawn along each stroke's centreline. They add
+three fields to the artwork:
+
+| field | on | what it does |
+|---|---|---|
+| `grp` | a run | the circuit it is on |
+| `seq` | the artwork | the flasher: `{ on: [grp…], ms }` frames played in a loop off the wall clock, staggered by the building's seed |
+| `dead` | a run | glass that never lights (the cherry's stem and lower curve, after its room description) |
+| `glass` | the artwork | draws unlit tubes by day as pale glass rather than dark paint |
+
+A run whose circuit is off is drawn as unlit glass, not left out. Each frame is baked once and
+kept, so a flasher costs its frame count in textures and nothing per frame after that. Flashing
+only happens at night: by day every tube is unlit and the sign is one texture.
+
+⚠ **A bake with a script word in it is thrown away when the loaded font count changes.** The
+sign caches are emptied when `loadNeonFaces` lands the faces and this one wasn't, so a sign baked
+on the first frames kept the fallback hand. `document.fonts.check` can't stand in for it: it
+answers true for a family that hasn't been added to the set yet.
 
 ## The searchlight, and the one adornment that leaves the building
 
