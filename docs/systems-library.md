@@ -727,12 +727,11 @@ audible and stable, and that /a i u/ formants come out within 12% of their track
 Rhyme Test** section runs House et al.'s 50 six-word sets in a carrier phrase, each set
 once per back end in a shuffled order, with the back end hidden until the run ends. It
 reports % correct, the score corrected for guessing ((R − W/5) / N), and initial against
-final consonant sets, and keeps the last 20 runs in the browser's storage. The sets were
-typed from memory and then checked as far as a readable source allowed: 25 vary the
-first consonant and 25 the last, and a published one-word-per-set test list fits 49 of
-them. The odd one is in the heal/heat/beat/peel sets (27, 29, 34, 35; the comment above
-`VL_MRT_SETS` has the detail), so check those four against ANSI S3.2 before quoting a
-score.
+final consonant sets, and keeps the last 20 runs in the browser's storage. The sets match
+House et al.'s list as two independent copies print it (the comment above `VL_MRT_SETS`
+has the sources), with one word in doubt: set 26 has "tame" where one copy has "lame".
+Some papers use a variant list with kith, putt, jig and the like swapped in; that isn't
+this list, so don't compare its scores with one.
 
 ### Rebuilding the dictionary
 
