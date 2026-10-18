@@ -64,18 +64,26 @@ export function buildAtlas(tiles, maxSize = Infinity) {
     .map(([, g]) => g.slice().sort((x, y) => (x.key < y.key ? -1 : x.key > y.key ? 1 : 0)));
 
   const widest = Math.max(...tiles.map((t) => t.canvas.width)) + PAD * 2;
+  // ⚠ A BAND DOES NOT OWN ITS LAST ROW. Each group used to start a fresh row, so a group's partial
+  // last row, and a group of one, was a full page width of nothing: one 96x168 surface cost a 170px
+  // strip at texRes 3, and the city went 26px over the 2048 floor on the day it gained eleven
+  // palettes. The groups are sorted tallest first, so a shorter one carries on along the shelf the
+  // taller one left and always fits under its height. Still one pass, still deterministic.
   const layoutAt = (W) => {
     if (W < widest) return null;
-    let H = 0;
-    const rows = [];
+    const at = [];
+    let x = 0, y = 0, shelf = 0;
     for (const g of bands) {
       const cw = g[0].canvas.width + PAD * 2, ch = g[0].canvas.height + PAD * 2;
-      const cols = Math.max(1, Math.floor(W / cw));
-      rows.push({ g, cw, ch, cols, y: H });
-      H += Math.ceil(g.length / cols) * ch;
+      for (const t of g) {
+        if (x + cw > W) { y += shelf; x = 0; shelf = 0; }
+        if (!shelf) shelf = ch;
+        at.push([t, x, y]);
+        x += cw;
+      }
     }
-    H = pow2(H);
-    return H > maxSize ? null : { W, H, rows };
+    const H = pow2(y + shelf);
+    return H > maxSize ? null : { W, H, at };
   };
   // ⚠ THE PAGE IS CHOSEN ON ITS LONGEST AXIS, NOT ITS AREA, and picking area first is a bug that
   // looks like it works. Halving the width doubles the band count and therefore the height, so every
@@ -115,10 +123,9 @@ export function buildAtlas(tiles, maxSize = Infinity) {
   }
 
   const rect = new Map();
-  for (const band of best.rows) {
-    band.g.forEach((t, i) => {
-      const cx = (i % band.cols) * band.cw + PAD;
-      const cy = band.y + Math.floor(i / band.cols) * band.ch + PAD;
+  for (const [t, x, y] of best.at) {
+    {
+      const cx = x + PAD, cy = y + PAD;
       const tw = t.canvas.width, th = t.canvas.height;
       // The skirt: the tile drawn once oversized behind itself, then the tile on top. Cheaper than
       // four edge blits and gives the same result for a one-texel pad.
@@ -142,9 +149,10 @@ export function buildAtlas(tiles, maxSize = Infinity) {
         sctx.drawImage(t.surf, cx, cy);
       }
       rect.set(t.key, [cx / W, cy / H, (cx + tw) / W, (cy + th) / H]);
-    });
+    }
   }
-  return { canvas, matCanvas, surfCanvas, rect, size: [W, H], cell: [best.rows[0].cw, best.rows[0].ch], count: tiles.length, bands: best.rows.length };
+  const c0 = bands[0][0].canvas;
+  return { canvas, matCanvas, surfCanvas, rect, size: [W, H], cell: [c0.width + PAD * 2, c0.height + PAD * 2], count: tiles.length, bands: bands.length };
 }
 
 function pow2(n) { let p = 1; while (p < n) p *= 2; return p; }

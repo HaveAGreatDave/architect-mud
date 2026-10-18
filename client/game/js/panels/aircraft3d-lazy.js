@@ -97,6 +97,7 @@ export function slideEase(...a) { return (_m || _cold('slideEase')).slideEase(..
 export function sortTruckFaces(...a) { return (_m || _cold('sortTruckFaces')).sortTruckFaces(...a); }
 export function truckLivery(...a) { return (_m || _cold('truckLivery')).truckLivery(...a); }
 export function truckMeta(...a) { return (_m || _cold('truckMeta')).truckMeta(...a); }
+export function variantMeshFor(...a) { return (_m || _cold('variantMeshFor')).variantMeshFor(...a); }
 export function vehicleLamps(...a) { return (_m || _cold('vehicleLamps')).vehicleLamps(...a); }
 export function vehicleParamBase(...a) { return (_m || _cold('vehicleParamBase')).vehicleParamBase(...a); }
 export function vehicleParamIds(...a) { return (_m || _cold('vehicleParamIds')).vehicleParamIds(...a); }

@@ -68,9 +68,9 @@
       "constructed-irony": 7,
       "staged-reveal": 1,
       "aphoristic-closer": 2,
-      "caps-run": 122,
+      "caps-run": 120,
       "em-dash": 1,
-      "over-length": 382
+      "over-length": 379
     },
     "content/incidents": {
       "constructed-irony": 1,
@@ -126,7 +126,7 @@
       "aphoristic-closer": 4,
       "fiction-cliche": 34,
       "caps-run": 116,
-      "em-dash": 259,
+      "em-dash": 292,
       "over-length": 715
     },
     "docs/adr/0001-action-canonical-mutation-path.md": {
@@ -244,7 +244,7 @@
       "em-dash": 78
     },
     "docs/devpanel-js.md": {
-      "em-dash": 138
+      "em-dash": 122
     },
     "docs/flags-keys.md": {
       "vocab": 1,
@@ -272,7 +272,7 @@
       "jargon-metaphor": 1,
       "negative-parallelism": 1,
       "caps-run": 2,
-      "em-dash": 41
+      "em-dash": 40
     },
     "docs/plugin-standard.md": {
       "jargon-metaphor": 1,
@@ -296,7 +296,7 @@
     },
     "docs/proposals/coldwater-infill.md": {
       "constructed-irony": 1,
-      "em-dash": 34
+      "em-dash": 33
     },
     "docs/proposals/corporate-assets.md": {
       "vocab": 1,
@@ -616,7 +616,7 @@
     },
     "docs/systems-dreams.md": {
       "jargon-metaphor": 2,
-      "em-dash": 81
+      "em-dash": 80
     },
     "docs/systems-drinks.md": {
       "jargon-metaphor": 2,
@@ -665,7 +665,7 @@
     "docs/systems-ideologies.md": {
       "jargon-metaphor": 1,
       "constructed-irony": 1,
-      "em-dash": 37
+      "em-dash": 36
     },
     "docs/systems-instruments.md": {
       "jargon-metaphor": 2,
@@ -673,7 +673,7 @@
     },
     "docs/systems-jail.md": {
       "jargon-metaphor": 1,
-      "em-dash": 40
+      "em-dash": 39
     },
     "docs/systems-jobboard.md": {
       "em-dash": 21
@@ -695,7 +695,7 @@
       "em-dash": 59
     },
     "docs/systems-mining.md": {
-      "em-dash": 18
+      "em-dash": 17
     },
     "docs/systems-mis.md": {
       "constructed-irony": 1,
@@ -777,7 +777,7 @@
     },
     "docs/systems-terrain.md": {
       "jargon-metaphor": 1,
-      "em-dash": 94
+      "em-dash": 83
     },
     "docs/systems-trucking.md": {
       "jargon-metaphor": 10,
@@ -833,7 +833,7 @@
     },
     "plugins/ambient-life/README.md": {
       "jargon-metaphor": 1,
-      "em-dash": 23
+      "em-dash": 22
     },
     "plugins/amp/README.md": {
       "jargon-metaphor": 1,
@@ -1167,7 +1167,7 @@
       "em-dash": 2
     },
     "plugins/rolling/README.md": {
-      "em-dash": 8
+      "em-dash": 7
     },
     "plugins/sanity/README.md": {
       "em-dash": 16
@@ -1193,7 +1193,7 @@
     },
     "plugins/smuggle/README.md": {
       "jargon-metaphor": 2,
-      "em-dash": 22
+      "em-dash": 17
     },
     "plugins/sneak/README.md": {
       "em-dash": 8

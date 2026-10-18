@@ -3714,7 +3714,9 @@ export const DOWNTOWN_ARMS = {
     //    paints as bands; see the three ⚠ there for why each half is the way it is.
     const domeR = fh * 0.18, domeH = h * 0.22, CU = WALL_COL.ty_verdigris;
     for (const s of [-1, 1]) {
-      const [tx, ty] = F(s * fh * 0.88, fh * 0.80);
+      // 0.81, not 0.80: at 0.80 the pier's back face lands exactly on the cornice's centre line (0.64),
+      // and a perch point on that line rounds into the pier in modelTopAt but not in buildLedges.
+      const [tx, ty] = F(s * fh * 0.88, fh * 0.81);
       draw3DBoxAt(ctx, cam, tx, ty, fh * 0.16, 0, turretTop, trim, seed + 12 + s, night, alpha, true, yaw, fh * 0.16);
       const d0 = turretTop, apex = d0 + domeH;
       if (SHAPE_SINK) SHAPE_SINK.push({ kind: 'drum', dx: tx, dy: ty, wz0: d0, wz1: apex, rb: domeR, rt: domeR * 0.08, n: 12, cap: false, pal: 'ty_verdigris' });
