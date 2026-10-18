@@ -217,4 +217,44 @@ export default async ({ check }) => {
   check('/audio/samples answers from the cache too', smp?.status === 200 && Array.isArray(smp.body));
   check('…and never carries the sample blob', smp.body.every(r => r.data === undefined),
     smp.body.filter(r => r.data !== undefined).map(r => r.name).join(', '));
+
+  // ── A cue from another room says which room, and whether a door was shut ──
+  // The client builds the far room's reverb from `room` and keeps top end for
+  // an open way, so both have to arrive. Found on a real door, shut for the
+  // check and put back as it was. Loudness 3, because at 1 a shut door's third
+  // of a ninth is under the stop threshold and the next room hears nothing.
+  {
+    const { world, doorOnLink } = await import('../../server/engine/world.js');
+    const { allExits } = await import('../../server/engine/exits.js');
+    const { propagateAudio } = await import('../../server/engine/sounds.js');
+    const { spaceFor } = await import('./index.js');
+    let found = null;
+    for (const zone of world.zones.values()) {
+      for (const { dir, target } of allExits(zone)) {
+        const door = doorOnLink(zone.id, dir, target);
+        if (door && door.hp > 0 && world.zones.has(target)) { found = { zone, target, door }; break; }
+      }
+      if (found) break;
+    }
+    check('a door exists to test the propagation fields on', !!found);
+    if (found) {
+      const { zone, target, door } = found;
+      const was = door.is_open;
+      const hear = () => { const got = new Map(); propagateAudio(zone.id, { id: 'regress' }, 3, (z, m) => got.set(z, m)); return got; };
+      try {
+        door.is_open = false;
+        const shut = hear();
+        check('the origin\'s own message carries no distance fields',
+          !('hops' in shut.get(zone.id)) && !('room' in shut.get(zone.id)) && !('shut' in shut.get(zone.id)));
+        const beyond = shut.get(target);
+        check('through a shut door: hops, the door, and the source room',
+          beyond && beyond.hops >= 1 && beyond.room === spaceFor(zone), JSON.stringify(beyond && { hops: beyond.hops, shut: beyond.shut, room: beyond.room }));
+        // An open route round may beat the door, so `shut` is only asserted when the cue came through it.
+        if (beyond?.hops === 1) check('…counted as shut', beyond.shut === 1, `shut ${beyond.shut}`);
+        door.is_open = true;
+        const open = hear().get(target);
+        check('through the same door open: no shut count', open && !open.shut, `shut ${open?.shut}`);
+      } finally { door.is_open = was; }
+    }
+  }
 };

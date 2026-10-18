@@ -191,6 +191,11 @@ ambients are suppressed while a louder sound is "in the air" (`getInterruptLoudn
 - `distancePrefix` labels remote sounds *Nearby,* / *In the distance,* / *Faintly,*.
 - `propagateYell` is the all-caps variant; the sender is excluded from the origin broadcast and gets
   their own echo from the command.
+- `propagateAudio` is the audio-cue variant: gain falls a third per room and to a ninth more
+  across a closed door. Each room away gets `hops`, `from` (the doorway it came through),
+  `shut` (closed doors crossed) and `room` (the source room's reverb, from the resolver the
+  audio plugin registers with `setRoomSpaceResolver`). The client turns these into pan,
+  distance and wall filtering; see [the wall](systems-procedural-audio.md#the-room-the-wall-and-the-drive).
 
 > **Minor bug** (QA report): `dropWords` does a throwaway first random pass only to test emptiness, then
 > a second independent random pass for the actual output — the validated string isn't the one returned.

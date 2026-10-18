@@ -278,6 +278,7 @@ export const GROUPS = [
       'scripts/audio/noise-smoke.mjs',     // 5: stereo noise in three colours, offsets, width
       'scripts/audio/filter-smoke.mjs',    // 6: filter gain for peaking and shelf types
       'scripts/audio/space-smoke.mjs',     // 7: layer pan, cue send, named rooms, the ballpark
+      'scripts/audio/distance-smoke.mjs',  // a cue from another room: distance, door vs open way, the source room's reverb
       'scripts/audio/tools-smoke.mjs',     // 8: the Audio tab round-trips a layer; Voice Lab saves a voice
       'scripts/audio/mods-smoke.mjs',      // layer.mods patches LFO/env/random sources into a layer's stages
       'scripts/audio/rack-smoke.mjs',      // the Audio tab's Rack round-trips every row; its patches touch only mods

@@ -369,6 +369,42 @@
     return buf;
   }
 
+  // ── The room a sound came FROM ─────────────────────────────────────────────
+  //
+  // A gunshot in the church next door rings with the church's tail before it
+  // gets to you, then your own room has a go at it. The listener's reverb was
+  // the only one, so the church next door sounded like a shot in your kitchen.
+  //
+  // One convolver per source room, shared by every cue from that room, not one
+  // per cue: a convolver is the dearest node in the graph. Sharing is safe
+  // because each cue's pan and wall filters sit BEFORE the send, and a filter
+  // followed by a convolver is the same sound as the other way round.
+  //
+  // Keyed by bus and room, least recently used first out, capped at three. The
+  // listener's own room never gets one: a cue from a room with the same reverb
+  // sends into the listener's wet path instead. Evicting cuts that room's tail
+  // short, which needs four rooms making noise at once to hear.
+  const SOURCE_ROOM_CAP = 3;
+  const _sourceRooms = new Map();   // 'sfx:stone' -> { input, conv }
+  function sourceRoomInput(bus, space) {
+    const key = bus + ':' + space;
+    const hit = _sourceRooms.get(key);
+    if (hit) { _sourceRooms.delete(key); _sourceRooms.set(key, hit); return hit.input; }
+    if (_sourceRooms.size >= SOURCE_ROOM_CAP) {
+      const [oldKey, old] = _sourceRooms.entries().next().value;
+      old.input.disconnect(); old.conv.disconnect();
+      _sourceRooms.delete(oldKey);
+    }
+    const input = ctx.createGain();
+    const conv = ctx.createConvolver();
+    conv.buffer = impulseFor(space);
+    // Into the bus, not the master: the slider and the ducks still apply, and
+    // the listener's room still hears the far room's tail arrive.
+    input.connect(conv).connect(busFor(bus));
+    _sourceRooms.set(key, { input, conv });
+    return input;
+  }
+
   // Swap the room. `instant` is for boot; everything else crossfades, because a
   // reverb tail that changes character in one frame is a click.
   //
@@ -1589,6 +1625,32 @@
   // a panel already answered with its own cue gets no second one. Interface cues don't count.
   let _lastSfxAt = 0;
   function lastSfxAt() { return _lastSfxAt; }
+
+  // A sound from another room, per room crossed. `dry`: the direct path is
+  // 1/(1 + dry·rooms) of itself. `airDb`: the high shelf's cut. `openOct` and
+  // `shutOct`: octaves of top end lost through an open way and a closed door.
+  // A shut door was the only kind of wall, at an octave a room; an open doorway
+  // keeps most of its top end now, and a door takes more.
+  const DIST = { dry: 0.45, airDb: 3, openOct: 0.4, shutOct: 1.6 };
+
+  // The reverb a distant cue is sent to, through a gain of `level`. The source
+  // room's own convolver when it differs from the listener's; when it's the
+  // same room, or unknown, the listener's own reverb, through the bus's wet
+  // copy so the sliders and ducks still apply. Null for a bus with no reverb.
+  function distanceSend(category, room, level) {
+    if (!reverbNode || !(level > 0)) return null;
+    const bus = busName(category);
+    if (bus !== 'sfx' && bus !== 'ambient') return null;
+    const g = ctx.createGain();
+    if (room && SPACES[room] && room !== _space) {
+      g.gain.value = level * SPACES[room].wet;
+      g.connect(sourceRoomInput(bus, room));
+    } else {
+      g.gain.value = level;
+      g.connect(_busPath(bus, 'wet'));
+    }
+    return g;
+  }
   function playSfx(def, gainMultiplier = 1, opts = {}) {
     const c = init();
     if (!c || !def?.config) return null;
@@ -1612,12 +1674,37 @@
     // options rather than layer keys, because they are a property of the
     // LISTENER'S position, not of the sound — the same cue is muffled for one
     // player and not for another, and a cue definition must never carry that.
-    if (opts.muffle > 0) {
+    //
+    // `distance` is the rooms crossed, `shut` how many of those crossings were a
+    // closed door, and `room` the source room's reverb by name. The server's
+    // gain already falls a third per room; distance adds what gain can't say.
+    const dist = Math.max(0, Math.min(8, Number(opts.distance) || 0));
+    if (dist > 0) {
+      // Air. A high shelf, not a lowpass, and separate from the walls: a long
+      // way off through open doorways is duller, but it isn't behind anything.
+      const air = c.createBiquadFilter();
+      air.type = 'highshelf';
+      air.frequency.value = 2500;
+      air.gain.value = -Math.min(15, DIST.airDb * dist);
+      // Far away, less of a sound reaches you directly and more of it reaches
+      // you off the walls. So the direct path falls and the reverb send doesn't,
+      // which is the cue the ear reads as distance rather than as quiet.
+      const dryLevel = 1 / (1 + DIST.dry * dist);
+      const dry = c.createGain();
+      dry.gain.value = dryLevel;
+      air.connect(dry).connect(destination);
+      const wet = distanceSend(def.category, opts.room, 1 - dryLevel);
+      if (wet) air.connect(wet);
+      destination = air;
+    }
+    const muffle = opts.muffle != null ? opts.muffle
+      : dist > 0 ? Math.max(0, dist - (opts.shut || 0)) * DIST.openOct + (opts.shut || 0) * DIST.shutOct : 0;
+    if (muffle > 0) {
       const lp = c.createBiquadFilter();
       lp.type = 'lowpass';
-      // Roughly an octave of top end per wall. Floored at 400Hz: past that a
+      // `muffle` is octaves of top end taken off. Floored at 400Hz: past that a
       // sound stops being muffled and becomes a different sound.
-      lp.frequency.value = Math.max(400, 12000 / Math.pow(2, Math.min(5, opts.muffle)));
+      lp.frequency.value = Math.max(400, 12000 / Math.pow(2, Math.min(5, muffle)));
       lp.Q.value = 0.5;
       lp.connect(destination);
       destination = lp;
@@ -5319,6 +5406,7 @@ return out;
         master: masterGain, limiter: _limiter, limitTrim: _limitTrim, limit: { ...LIMIT, makeup: LIMIT_MAKEUP },
         buses, tvVoice: tvVoiceGain, tvFx: tvFxGain, reverbSend, reverbNode,
         space: _space, zoneSpace: _zoneSpace, roomOverride: _roomOverride,
+        sourceRooms: _sourceRooms, sourceRoomCap: SOURCE_ROOM_CAP,
       };
     },
     _noiseBuffer: (colour) => { ensureContext(); return noiseBuffer(colour); },

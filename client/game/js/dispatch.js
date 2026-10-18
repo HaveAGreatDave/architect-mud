@@ -1858,7 +1858,8 @@ const handlers = {
   audio_music: (msg) => { window.AudioEngine?.playMusic(msg.def, { restartIfSame: false, owner: msg.owner }); },
   // `from`/`hops` are only present when the cue reached you from ANOTHER room
   // (propagateAudio in server/engine/sounds.js) — the doorway it came through and
-  // the number of walls in the way. The mapping from a compass direction to a pan
+  // the rooms crossed; `shut` is how many of those crossings were a closed door
+  // and `room` the source room's reverb. The mapping from a compass direction to a pan
   // lives here rather than on the server, which sends the fact and not the sound.
   // A public-address announcement: two-tone chime, the line in the log, then
   // the words through the street horn (ORACLE's `pa` chain). The log line is
@@ -1868,7 +1869,7 @@ const handlers = {
     window.AudioEngine?.playSfx(PA_CHIME, GAME_SFX_GAIN);
     setTimeout(() => window.AudioEngine?.speak(msg.speech || msg.message, { seed: msg.seed || 'public_address', pa: true }), 1150);
   },
-  audio_sfx: (msg) => { window.AudioEngine?.playSfx(msg.def, (msg.gain ?? 1) * GAME_SFX_GAIN, { pan: panForDir(msg.from), muffle: msg.hops || 0 }); },
+  audio_sfx: (msg) => { window.AudioEngine?.playSfx(msg.def, (msg.gain ?? 1) * GAME_SFX_GAIN, { pan: panForDir(msg.from), distance: msg.hops || 0, shut: msg.shut || 0, room: msg.room }); },
   // Procedural cue: the server sent PARAMETERS and a seed, not layers. We build
   // the sound here from the shared generator — same seed, same field, ~100 bytes
   // on the wire instead of the several KB a serialised burst field costs.

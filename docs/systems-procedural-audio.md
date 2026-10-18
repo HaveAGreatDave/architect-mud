@@ -144,6 +144,37 @@ North and south pan **dead centre**, deliberately: this is a headphone pan, it c
 left/right and cannot carry front/back, so a sound from ahead and one from behind are
 honestly the same thing here.
 
+**Distance, doors and the room it came from.** The message also carries `shut`, how
+many of the `hops` crossed a closed, intact door (the same `doorOnLink` test the walk
+already makes, so no new reads), and `room`, the source room's space as `spaceFor`
+names it. The audio plugin hands `spaceFor` to the engine with `setRoomSpaceResolver`;
+the walk calls it once, for the origin. Both are left out when they'd be 0 or unknown.
+
+The client takes `distance` (the hops), `shut` and `room` as send options to `playSfx`:
+
+- **Walls.** A lowpass of 0.4 octave per open way through and 1.6 per closed door,
+  floored at 400 Hz. An open doorway keeps most of its top end; a door doesn't.
+  An explicit `muffle` (octaves) still overrides this.
+- **Air.** A high shelf at 2.5 kHz, 3 dB down per room, at most 15. Separate from
+  the walls, so far through open rooms is duller without sounding behind anything.
+- **Wet against dry.** The direct path falls to `1/(1 + 0.45·rooms)` and a reverb send
+  of the difference is added, so the reverb doesn't fall with it. The level drop itself
+  is still the server's third per room; this is the part gain can't say.
+- **The source room.** The send goes to a convolver holding the source room's impulse,
+  shared by every cue from that room and fed into the bus, so the listener's room
+  still hears it arrive. The pan and wall filters sit before the send, which is why
+  one convolver can serve every cue. At most three are kept, least recently used out
+  first. When the source room's space is the listener's own, or unknown, the send
+  goes into the listener's reverb through the bus's wet copy and no convolver is
+  made. It never calls `setRoom`: the listener's room stays the listener's. The `ui`
+  bus never gets a send.
+
+The constants are `DIST` in `audio-engine.js`. A distant cue costs four nodes over a
+near one (air, dry, send, lowpass) plus the panner, and distance 0 builds nothing
+extra. [scripts/audio/distance-smoke.mjs](../scripts/audio/distance-smoke.mjs) checks
+that further is quieter, darker and wetter, that a door is darker than an open way,
+that a source-room send uses that room's impulse and not the listener's, and the cap.
+
 **Drive.** Soft-clipping distortion per layer. Nothing in a game built out of failing
 hardware could sound *broken* before. It sits after the envelope and before the
 filter, which is what makes it behave like an amplifier rather than an effect: the

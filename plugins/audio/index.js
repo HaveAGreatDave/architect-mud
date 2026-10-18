@@ -10,7 +10,7 @@ import { sendToZone, sendToPlayer, getBroadcast } from '../../server/engine/mess
 import { on, emit } from '../../server/engine/events.js';
 import { registerDamageObserver } from '../../server/engine/damage-events.js';
 import { getFlag, setFlag } from '../../server/engine/flags.js';
-import { propagateAudio, getWeatherLeakGain, getWeatherLeakSource } from '../../server/engine/sounds.js';
+import { propagateAudio, getWeatherLeakGain, getWeatherLeakSource, setRoomSpaceResolver } from '../../server/engine/sounds.js';
 import { getZonePrecip, getWindKph, getZoneWindKph, getZonePowerStatus, activeWeatherEvent, isIndoorZone } from '../../server/engine/environment.js';
 // The game's one step clock. Borrowed, never re-derived — a cadence of our own
 // would drift the moment movement speed is tuned, and the symptom would be feet
@@ -1038,6 +1038,11 @@ on('zone.entered', ({ actor, zone: zoneId }) => {
   if (!actor?.id) return;
   sendToPlayer(actor.id, { type: 'audio_space', space: spaceFor(getZone(zoneId)) });
 });
+
+// A cue heard from another room carries that room's reverb as well as the
+// listener's (propagateAudio sends it as `room`), and this is how the engine
+// learns which room that is.
+setRoomSpaceResolver(spaceFor);
 
 // ── Making a sound you hear ten thousand times bearable ─────────────────────
 //

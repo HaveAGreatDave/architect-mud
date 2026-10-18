@@ -171,11 +171,20 @@ const BACK = { north: 'south', south: 'north', east: 'west', west: 'east',
   northeast: 'southwest', southwest: 'northeast', northwest: 'southeast', southeast: 'northwest',
   up: 'down', down: 'up' };
 
+// Which reverb a room has, by name ('hall', 'stone', 'tunnel'). The engine
+// can't know: the audio plugin decides it from the floor and the room's name
+// (spaceFor), so it hands that function in here. Unset, a cue carries no room
+// and the listener hears it in their own reverb only, as before.
+let spaceOf = null;
+export function setRoomSpaceResolver(fn) { spaceOf = typeof fn === 'function' ? fn : null; }
+
 export function propagateAudio(originZoneId, sfxDef, loudness, broadcastFn) {
-  // gain, plus how many rooms it crossed and through which of the listener's own
-  // exits it arrived. `hops` is the wall count, which is what muffles it; `gain`
-  // alone cannot say, because a closed door costs gain without adding distance.
-  const visited = new Map([[originZoneId, { gain: loudness, hops: 0, from: null }]]);
+  // gain, plus how many rooms it crossed, how many of those crossings were a
+  // shut door, and through which of the listener's own exits it arrived. `hops`
+  // is the distance. `shut` says how much of it was a closed door rather than
+  // an open way through, which keeps more top end. `gain` alone can't say
+  // either, because a closed door costs gain without adding distance.
+  const visited = new Map([[originZoneId, { gain: loudness, hops: 0, shut: 0, from: null }]]);
   const queue = [[originZoneId, loudness]];
   while (queue.length) {
     const [zoneId, gain] = queue.shift();
@@ -184,26 +193,31 @@ export function propagateAudio(originZoneId, sfxDef, loudness, broadcastFn) {
     if (hopGain < AUDIO_STOP_THRESHOLD) continue;
     const zone = world.zones.get(zoneId);
     if (!zone) continue;
-    const hops = visited.get(zoneId).hops;
+    const { hops, shut } = visited.get(zoneId);
     for (const { dir, target: neighborId } of allExits(zone)) {
       // A closed door on this edge muffles the crossing further; relax on a
       // louder path so an open route is still preferred over a doored one.
-      const nextGain = edgeMuffle(zoneId, dir, neighborId) ? hopGain * DOOR_MUFFLE_GAIN : hopGain;
+      const closed = edgeMuffle(zoneId, dir, neighborId) > 0;
+      const nextGain = closed ? hopGain * DOOR_MUFFLE_GAIN : hopGain;
       if (nextGain < AUDIO_STOP_THRESHOLD) continue;
       if (!visited.has(neighborId) || nextGain > visited.get(neighborId).gain) {
         // The direction is the LAST hop's, which is right: whatever route it
         // took to get near, it entered this room through one doorway.
-        visited.set(neighborId, { gain: nextGain, hops: hops + 1, from: BACK[dir] || null });
+        visited.set(neighborId, { gain: nextGain, hops: hops + 1, shut: shut + (closed ? 1 : 0), from: BACK[dir] || null });
         queue.push([neighborId, nextGain]);
       }
     }
   }
+  // One lookup for the whole walk: every listener hears the same source room.
+  // RAM only (the zone Map and a name test), never a query.
+  const room = visited.size > 1 && spaceOf ? spaceOf(world.zones.get(originZoneId)) || null : null;
   for (const [zoneId, v] of visited) {
     broadcastFn(zoneId, {
       type: 'audio_sfx', def: sfxDef, gain: Math.min(1, v.gain),
       // Omitted entirely at the origin, so a cue in your own room is byte-for-byte
-      // the message that shipped before any of this.
-      ...(v.hops ? { hops: v.hops, from: v.from } : {}),
+      // the message that shipped before any of this. `shut` and `room` are left
+      // out when they'd be 0 or unknown, to keep the message short.
+      ...(v.hops ? { hops: v.hops, from: v.from, ...(v.shut ? { shut: v.shut } : {}), ...(room ? { room } : {}) } : {}),
     });
   }
 }
