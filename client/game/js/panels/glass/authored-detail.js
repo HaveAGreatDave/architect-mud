@@ -14,27 +14,12 @@ import {
 import { DETAIL_SCHEMA } from '../../../../shared/building-model-schema.js';
 
 const _neonArtTex = new Map();
-// Which frame of an artwork's `seq` is showing at `now`, or -1 for a sign with no flasher. `phase`
-// staggers two buildings carrying the same sign so they don't flash in step.
-function neonArtFrame(art, now, phase) {
-  const seq = art.seq;
-  if (!seq || !seq.length) return -1;
-  const total = art._seqMs || (art._seqMs = seq.reduce((a, f) => a + f.ms, 0));
-  let t = (((now + phase) % total) + total) % total;
-  for (let i = 0; i < seq.length; i++) { if (t < seq[i].ms) return i; t -= seq[i].ms; }
-  return seq.length - 1;
-}
-function neonArtTex(name, lit, frame = -1, force = false) {
+function neonArtTex(name, lit) {
   const art = NEON_ART[name];
   if (!art) return null;
-  // One bake per frame, kept: a flasher costs its frame count in textures and nothing after that.
-  const key = name + '|' + (lit ? 1 : 0) + '|' + (lit ? frame : -1);
-  let c = force ? null : _neonArtTex.get(key);
+  const key = name + '|' + (lit ? 1 : 0);
+  let c = _neonArtTex.get(key);
   if (c) return c;
-  const on = lit && frame >= 0 ? new Set(art.seq[frame].on) : null;
-  // ⚠ A BOOLEAN, because the passes below compare it with `!==`: `lit` is 0 by day, and `0 !== false`
-  // skipped every run in both passes, so an unlit sign baked to an empty canvas.
-  const litRun = (run) => !!(lit && !run.dead && (!run.grp || !on || on.has(run.grp)));
   const pad = 14, S = (art.bake || art.w) / art.w;
   c = texCanvas(Math.round(art.w * S) + pad * 2, Math.round(art.h * S) + pad * 2);
   const g = c.getContext(String.fromCharCode(50, 100));
@@ -48,50 +33,21 @@ function neonArtTex(name, lit, frame = -1, force = false) {
       g.strokeText(run.word, run.x, run.y);
     } else { g.beginPath(); run.path(g); g.stroke(); }
   };
-  // Dark glass first and lit glass over it, so a lit tube's halo is never painted over by a dead
-  // one beside it. On a sign with no flasher and no dead runs this is the old single pass.
-  for (const pass of [false, true]) {
-    for (const run of art.runs) {
-      if (litRun(run) !== pass) continue;
-      if (pass) {
-        g.globalAlpha = 0.4; stroke(run, run.glow || run.c, run.lw * 2.4, 22); g.globalAlpha = 1;   // the halo
-        stroke(run, run.c, run.lw, 5);                                                                // the tube
-        stroke(run, run.core || 'rgba(255,248,236,0.85)', Math.max(1 / S, run.lw * 0.42), 0);         // the core
-      } else {
-        stroke(run, 'rgba(30,26,24,0.55)', run.lw + 2, 0);   // the tube's own shadow on the wall
-        // A dead tube at night is darker than an unlit one by day. `glass` on the artwork draws the
-        // daytime tube as the pale glass it is rather than as dark paint, which is the difference
-        // between red neon you can see on a red wall at noon and none at all.
-        stroke(run, lit ? neonDim(run.c, 0.3) : art.glass ? neonGlass(run.c, art.glass) : neonDim(run.c, 0.55), run.lw, 0);
-      }
+  for (const run of art.runs) {
+    if (lit) {
+      g.globalAlpha = 0.4; stroke(run, run.glow || run.c, run.lw * 2.4, 22); g.globalAlpha = 1;   // the halo
+      stroke(run, run.c, run.lw, 5);                                                                // the tube
+      stroke(run, run.core || 'rgba(255,248,236,0.85)', Math.max(1 / S, run.lw * 0.42), 0);         // the core
+    } else {
+      stroke(run, 'rgba(30,26,24,0.55)', run.lw + 2, 0);   // the tube's own shadow on the wall
+      stroke(run, neonDim(run.c, 0.55), run.lw, 0);
     }
   }
   c._lit = lit ? 1 : 0;
-  c._fonts = fontCount();
   _neonArtTex.set(key, c);
   return c;
 }
-// ⚠ A WORD BAKED BEFORE ITS FACE HAS LOADED IS BAKED IN THE FALLBACK. loadNeonFaces empties the
-// sign caches when the faces land and never knew about this one, so a bake that carries a word
-// remembers how many faces were loaded and is thrown away when that number moves.
-// `document.fonts.check` can't do this job: it answers true for a family that hasn't been added
-// to the set yet, which is exactly the state a face is in while it is still downloading.
-const fontCount = () => (typeof document !== 'undefined' && document.fonts && document.fonts.size) || 0;
-function neonArtCached(name, lit, frame) {
-  const art = NEON_ART[name];
-  if (!art) return null;
-  const c = _neonArtTex.get(name + '|' + (lit ? 1 : 0) + '|' + (lit ? frame : -1));
-  if (c && (art._noWord || c._fonts === fontCount())) return c;
-  if (art._noWord == null) art._noWord = !art.runs.some((r) => r.word);
-  return neonArtTex(name, lit, frame, true);
-}
 function neonScriptFont(px) { return `${Math.round(px)}px Sacramento,"Segoe Script","Brush Script MT",cursive`; }
-// Unlit glass: the tube's colour washed `k` of the way toward a pale grey.
-function neonGlass(hex, k) {
-  const n = parseInt(hex.slice(1), 16), P = [214, 208, 204];
-  const ch = (v, i) => Math.round(v + (P[i] - v) * k);
-  return `rgb(${ch((n >> 16) & 255, 0)},${ch((n >> 8) & 255, 1)},${ch(n & 255, 2)})`;
-}
 function neonDim(hex, k) {
   const n = parseInt(hex.slice(1), 16);
   return `rgb(${Math.round(((n >> 16) & 255) * k)},${Math.round(((n >> 8) & 255) * k)},${Math.round((n & 255) * k)})`;
@@ -107,8 +63,7 @@ export const AUTHORED_DETAIL = {
       const zz = z + hh * f, t = hh * 0.025, L = c.lx - half * 0.9, R = c.lx + half * 0.9;
       detailQuad(c.ctx, c.cam, c.F, [[L, y, zz + t], [R, y, zz + t], [R, y, zz - t], [L, y, zz - t]], rail, c.alpha, { lift: DETAIL_LIFT });
     }
-    const lit = powerNight(c.night) ? 1 : 0, art = NEON_ART[d.art];
-    const tex = neonArtCached(d.art, lit, lit && art ? neonArtFrame(art, c.now || 0, (c.seed % 997) * 7) : -1);
+    const tex = neonArtTex(d.art, powerNight(c.night) ? 1 : 0);
     if (!tex) return;
     const yT = y + out * SIGN_BOARD_OUT * 0.6;
     const pts = [[c.lx - half, yT, z + hh], [c.lx + half, yT, z + hh], [c.lx + half, yT, z - hh], [c.lx - half, yT, z - hh]];

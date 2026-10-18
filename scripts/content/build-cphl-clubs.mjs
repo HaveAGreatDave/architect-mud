@@ -255,10 +255,22 @@ function warlords() {
   return { box: 100, layers, small };
 }
 
-// BOOMTOWN BULLDOGS. A bulldog's head, square on: rose ears, a scowl, big hanging jowls,
-// a bone clamped in its underbite with the fangs up over it, bursting out of a rusted cog (the Rust Quarter),
-// on a chain collar with two tags hanging from it. The front tag reads RC.
-const BD = { orange: '#f37021', orangeDeep: '#b9480b', orangeDark: '#7c2d06', black: '#111111', bone: '#f6ead6', boneShade: '#d9c4a3', white: '#ffffff', mouth: '#5b0f12', steel: '#d3d8dc', steelDark: '#7b848b', nose: '#1b1b1b', boneWhite: '#fbf5e6', rust: '#8a3a12', rustDeep: '#5c260b' };
+// BOOMTOWN BULLDOGS. A bulldog's head, square on and lowered, cut in hard planes: a heavy
+// brow pulled down into a V over narrow yellow eyes, the snout wrinkled back in a snarl,
+// the upper fangs bared and the underbite's lower fangs jutting up past them, jowls slung
+// wide. A studded collar round the neck, and behind it all a rusted cog (the Rust Quarter).
+const BD = { orange: '#f37021', orangeDeep: '#b9480b', orangeDark: '#7c2d06', black: '#111111', bone: '#f6ead6', boneShade: '#d9c4a3', white: '#ffffff', mouth: '#4a0b0e',
+  steel: '#d3d8dc', steelDark: '#7b848b', nose: '#1b1b1b', rust: '#8a3a12', rustDeep: '#5c260b', eye: '#ffc62a', scar: '#f4b6a6' };
+// a closed polygon from its right half, run from a point on the centre line round to another
+const sym = (half) => poly([...half, ...half.slice(1, -1).reverse().map(([x, y]) => [100 - x, y])]);
+// both halves of a shape drawn on one side of the centre line
+const pair = (pts) => poly(pts) + poly(pts.map(([x, y]) => [100 - x, y]).reverse());
+const pairLine = (pts) => {
+  const one = (p) => 'M' + p.map(([x, y]) => P(x, y)).join('L');
+  return one(pts) + one(pts.map(([x, y]) => [100 - x, y]));
+};
+// points along a quadratic, a to b about c, without the first point
+const qp = (a, c, b, n = 6) => Array.from({ length: n }, (_, i) => qAt(a, c, b, (i + 1) / n));
 function bulldogs() {
   // the cog: twelve teeth
   const cog = [];
@@ -266,125 +278,124 @@ function bulldogs() {
     const a0 = (i / 12) * TAU - Math.PI / 2 + Math.PI / 12;
     for (const [da, r] of [[-0.2, 41.5], [-0.13, 49], [0.13, 49], [0.2, 41.5]]) cog.push([50 + r * Math.cos(a0 + da), 50 + r * Math.sin(a0 + da)]);
   }
-  // everything else is drawn in one frame and set down a touch smaller, so the tags fit
-  const h = T({ sx: 0.9, sy: 0.9, tx: 5, ty: -2.4 });
-  const S = (cmds) => shape(cmds, h);
-  const mirror = (cmds) => cmds.map((c) => (c[0] === 'Z' ? c : [c[0], ...c.slice(1).map((v, i) => (i % 2 === 0 ? 100 - v : v))]));
-  // the half-head, right side: skull, temple, then the jowl swinging out wide and
-  // hanging in a heavy lobe below the jaw line before it comes back to the chin
-  const half = [['M', 50, 8], ['C', 62, 8, 72, 9, 79, 14], ['C', 85, 18, 88, 25, 89, 33], ['C', 91, 41, 97, 48, 98.5, 59], ['C', 100.5, 72, 97, 87, 87.5, 93],
-    ['C', 80, 97, 71, 94.5, 65.5, 87.5], ['C', 60, 89.5, 55, 90, 50, 90]];
-  const head = [...half, ...mirror(half.slice(1).reverse().map((c, i, arr) => {
-    // walk the right half backwards: each curve's end becomes the previous one's start
-    const prevEnd = i + 1 < arr.length ? arr[i + 1].slice(-2) : [50, 8];
-    return ['C', c[3], c[4], c[1], c[2], prevEnd[0], prevEnd[1]];
-  })), ['Z']];
-  const neck = [['M', 17, 62], ['C', 18, 80, 32, 92, 50, 92], ['C', 68, 92, 82, 80, 83, 62], ['Z']];
-  const earR = [['M', 77, 13.4], ['C', 85, 8.6, 93.6, 10.6, 98.4, 18.4], ['C', 96.6, 23.4, 92.6, 26.2, 88.6, 27.4], ['C', 88, 21.6, 84, 16.4, 77, 13.4], ['Z']];
-  const ears = [...earR, ...mirror(earR)];
-  const earFold = [['M', 84, 13.6], ['C', 89, 12.6, 93.4, 14.4, 96, 18.4], ['C', 93, 19, 90.6, 21, 89.4, 24], ['C', 88.4, 19.6, 86.6, 16, 84, 13.6], ['Z']];
-  const jowlR = [['M', 97, 58], ['C', 99.5, 71, 96.6, 85.6, 87.5, 92], ['C', 80.4, 95.6, 72, 93.4, 66.4, 87.4], ['C', 78, 84, 84, 73, 85, 59], ['Z']];
-  const jowlFold = [['M', 75, 62], ['C', 82, 71, 82, 82, 74, 89], ['M', 25, 62], ['C', 18, 71, 18, 82, 26, 89]];
-  const muzzle = [['M', 50, 39], ['C', 62, 39, 72, 44, 77, 53], ['C', 82, 63, 78, 76, 68, 81.4], ['C', 62, 84.6, 56, 85.6, 50, 85.6], ['C', 44, 85.6, 38, 84.6, 32, 81.4],
-    ['C', 22, 76, 18, 63, 23, 53], ['C', 28, 44, 38, 39, 50, 39], ['Z']];
-  const browR = [['M', 50, 37.5], ['L', 53, 34.6], ['Q', 62, 25.4, 77.4, 26.6], ['L', 76.4, 31.4], ['Q', 63, 31, 54.6, 40.2], ['Z']];
-  const brow = [...browR, ...mirror(browR)];
-  const eyeR = [['M', 57.4, 36.6], ['Q', 64, 31.4, 71, 33.2], ['Q', 66.4, 39.4, 57.4, 36.6], ['Z']];
-  const eyes = [...eyeR, ...mirror(eyeR)];
-  const pupils = circle(...ap(h, 63.6, 35.3), 1.75) + circle(...ap(h, 36.4, 35.3), 1.75);
-  const wrinkles = [['M', 44, 21.6], ['Q', 50, 19.4, 56, 21.6], ['M', 46.6, 26.4], ['Q', 50, 25, 53.4, 26.4]];
-  const roll = [['M', 36.6, 44.4], ['Q', 50, 37.4, 63.4, 44.4], ['Q', 50, 41.6, 36.6, 44.4], ['Z']];
-  const nose = [['M', 50, 43.6], ['C', 58.6, 43.6, 62.6, 45.6, 62.6, 49.4], ['C', 62.6, 53.4, 57, 55, 50, 56.2], ['C', 43, 55, 37.4, 53.4, 37.4, 49.4], ['C', 37.4, 45.6, 41.4, 43.6, 50, 43.6], ['Z']];
-  const nostrils = poly(ellipsePts(45, 51.2, 2.4, 1.3, 0.3), h) + poly(ellipsePts(55, 51.2, 2.4, 1.3, -0.3), h);
-  const shine = poly(ellipsePts(46.8, 46.4, 3.8, 1.2, -0.08), h);
-  // the bone, clamped crosswise: the shaft between the jaws, a knob each end out past
-  // the jowls. Underbite below it, fangs up over it, the flews draped on top.
-  const boneD = [['M', 13, 67.4], ['L', 87, 67.4], ['C', 88.6, 61.4, 97.4, 61.6, 96.4, 67.4], ['C', 99.4, 69.6, 97.8, 76.6, 92.6, 74.4], ['C', 91.2, 76.2, 88.4, 75.6, 87, 73.6],
-    ['L', 13, 73.6], ['C', 11.6, 75.6, 8.8, 76.2, 7.4, 74.4], ['C', 2.2, 76.6, 0.6, 69.6, 3.6, 67.4], ['C', 2.6, 61.6, 11.4, 61.4, 13, 67.4], ['Z']];
-  const boneShine = [['M', 16, 69], ['L', 84, 69]];
-  const mouth = [['M', 31.4, 66.6], ['C', 38, 62, 45, 61.4, 50, 61.4], ['C', 55, 61.4, 62, 62, 68.6, 66.6], ['L', 68.6, 75], ['L', 31.4, 75], ['Z']];
-  const jaw = [['M', 32.6, 73.4], ['L', 67.4, 73.4], ['C', 67, 79.4, 59.4, 83.4, 50, 83.4], ['C', 40.6, 83.4, 33, 79.4, 32.6, 73.4], ['Z']];
-  const teeth = [];
-  for (let i = 0; i < 6; i++) { const x = 41.2 + i * 2.95; teeth.push(['M', x, 74.6], ['L', x + 1.45, 71.2], ['L', x + 2.9, 74.6], ['Z']); }
-  const fangR = [['M', 57.8, 75], ['C', 58.2, 69.6, 59.4, 65.2, 61.2, 61.4], ['C', 62.6, 65.4, 63.4, 70, 63, 74.6], ['Z']];
-  const fangs = [...fangR, ...mirror(fangR)];
-  const flewR = [['M', 50, 59.4], ['C', 56, 59.4, 63, 61.4, 70.6, 67.6], ['C', 66, 71.4, 60, 71.2, 54, 68.4], ['C', 52.4, 67.6, 51.2, 66.6, 50, 66.6], ['Z']];
-  const flews = [...flewR, ...mirror(flewR)];
-  const philtrum = [['M', 50, 55.6], ['L', 50, 61]];
-  const folds = [['M', 70.6, 50], ['C', 75, 55, 76, 60, 75, 64], ['M', 29.4, 50], ['C', 25, 55, 24, 60, 25, 64]];
-  // the chain: links along a curve under the chin, face-on and edge-on in turn
-  const a = [8, 76], c = [50, 112], b = [92, 76];
-  let links = '', linkHoles = '', edges = '';
-  const NL = 13;
-  for (let i = 0; i < NL; i++) {
-    const t = (i + 0.5) / NL, [x, y] = ap(h, ...qAt(a, c, b, t)), ang = qTan(a, c, b, t);
-    if (i % 2 === 0) { links += ellipse(x, y, 4.3, 3, ang, 24); linkHoles += ellipse(x, y, 2.3, 1.1, ang, 20); }
-    else edges += poly([[-4.2, -1], [4.2, -1], [4.2, 1], [-4.2, 1]].map(([px, py]) => [x + px * Math.cos(ang) - py * Math.sin(ang), y + px * Math.sin(ang) + py * Math.cos(ang)]));
+  // the neck and the collar round it, under the jaw
+  const neck = sym([[50, 60], [70, 60], [80, 66], ...qp([80, 66], [82, 86], [64, 95]), [50, 97]]);
+  const ca = [13, 72], cc = [50, 108], cb = [87, 72];
+  const collar = shape([['M', ...ca], ['Q', ...cc, ...cb]]);
+  let studs = '', spikes = '';
+  for (let i = 0; i < 9; i++) {
+    const t = 0.1 + (i * 0.8) / 8, [x, y] = qAt(ca, cc, cb, t), g = qTan(ca, cc, cb, t), nx = -Math.sin(g), ny = Math.cos(g), tx = Math.cos(g), ty = Math.sin(g);
+    spikes += poly([[x - tx * 2.6, y - ty * 2.6], [x + nx * 7.6, y + ny * 7.6], [x + tx * 2.6, y + ty * 2.6]]);
+    studs += circle(x, y, 1.6);
   }
-  // the tags hang from the middle link: the back one turned away, the front one reads RC
-  const TAGK = 0.78;
-  const tagCmds = [['M', -7, 1.5], ['Q', -7, -1, -4.5, -1], ['L', 4.5, -1], ['Q', 7, -1, 7, 1.5], ['L', 7, 14], ['Q', 7, 16.5, 4.5, 16.5], ['L', -4.5, 16.5], ['Q', -7, 16.5, -7, 14], ['Z']];
-  const tagT = (cx, cy, rot) => T({ tx: cx, ty: cy, rot, sx: TAGK, sy: TAGK });
-  const mid = ap(h, ...qAt(a, c, b, 0.5));
-  const back = tagT(mid[0] + 3.4, mid[1] + 2.2, 0.26), front = tagT(mid[0] - 1.4, mid[1] + 2.8, -0.07);
-  const tagHole = (t) => circle(...ap(t, 0, 2), 1.15 * TAGK);
-  const lt = (x, y) => T({ tx: ap(front, x, y)[0], ty: ap(front, x, y)[1], rot: front.rot, sx: 0.92 * TAGK, sy: 1.05 * TAGK });
-  const letters = glyph('R', lt(-5.9, 4.6)) + glyph('C', lt(0.4, 4.6));
-  const ring0 = ring(mid[0], mid[1] + 1.6, 1.3, 2.3);
+  // the head: flat skull, the brow's shelf, cheeks widening into jowls slung past the jaw
+  const head = sym([[50, 16.4], [67, 16.4], [79.4, 18.4], [87.4, 23.4], [91, 31], [94, 41], [96.4, 53], [96.6, 62], [93.4, 71], [86.4, 79], [77.6, 82.6], [70, 81], [64, 86.6], [56.4, 90], [50, 90.6]]);
+  // shade: the lower jowls and the side planes away from the light
+  const jowlShade = pair([[96.4, 53], [96.6, 62], [93.4, 71], [86.4, 79], [77.6, 82.6], [80.4, 74], [84.4, 63], [86, 54]]);
+  const temple = pair([[79.4, 18.4], [87.4, 23.4], [91, 31], [94, 41], [87.4, 37.6], [83, 30], [78.6, 23.6]]);
+  // ears: roses, folded over and pinned back flat at the corners of the skull, the left one
+  // torn
+  const earR = [[76.6, 19.6], [86.6, 13.4], [95.6, 14.4], [97.8, 19.6], [93.6, 26.4], [88.4, 27.8], [86.6, 23.2]];
+  const earL = [[23.4, 19.6], [13.4, 13.4], [8.8, 13.8], [9.6, 16.8], [6.6, 16.6], [2.2, 19.6], [6.4, 26.4], [11.6, 27.8], [13.4, 23.2]];
+  const earFold = pair([[84.4, 18.6], [92.4, 16.6], [95.4, 19.4], [91.4, 24]]);
+  // a scar down the left cheek, stitched
+  const scar = shape([['M', 28, 24.6], ['L', 26, 30.4], ['L', 27, 32.6], ['L', 24.6, 39.4], ['L', 25.4, 41.6], ['L', 22.8, 48]]);
+  const stitches = shape([['M', 24.4, 28.6], ['L', 28.8, 30], ['M', 23.4, 35.4], ['L', 27.8, 36.6], ['M', 22.2, 42.8], ['L', 26.6, 44]]);
+  // the forehead's furrows, a chevron of creases pulled down to the brow
+  const furrows = shape([['M', 42, 22.6], ['L', 50, 26], ['L', 58, 22.6], ['M', 37.4, 18.8], ['L', 44, 21], ['M', 62.6, 18.8], ['L', 56, 21],
+    ['M', 47.2, 34.4], ['L', 45.6, 28.6], ['M', 52.8, 34.4], ['L', 54.4, 28.6]]);
+  // the brow, a shelf of bone pulled down hard into a V on the bridge of the nose
+  const brow = pair([[50.4, 39.4], [51.8, 34.4], [61, 27.2], [72, 25.6], [81.4, 28.4], [83.2, 32.2], [76.4, 31.6], [65.6, 33.6], [56.6, 39.6], [52.4, 42.4]]);
+  // the eyes under it: narrow, slanted down to the nose, a dark socket round each
+  const socket = pair([[53.6, 42.2], [62.4, 35.2], [74.4, 32], [79.8, 33.4], [74.6, 40.4], [63.4, 45]]);
+  const eyeR = [[56.2, 41.4], [64.2, 36.6], [74.6, 34.2], [72.6, 38.6], [64, 42.4]];
+  const eyes = pair(eyeR);
+  const pupils = poly(ellipsePts(66.4, 38.8, 1.7, 2.3, 0.35, 16)) + poly(ellipsePts(33.6, 38.8, 1.7, 2.3, -0.35, 16));
+  const glints = circle(65.4, 37.6, 0.6) + circle(32.6, 37.6, 0.6);
+  // the muzzle: the pale lower face, the snout drawn up into rolls
+  const muzzle = sym([[50, 41.2], [55, 43], [62.4, 45.2], [70.4, 47.6], [77.4, 53], [80.4, 61], [78.4, 69.4], [71.6, 74], [62, 76.4], [50, 77]]);
+  const muzzleShade = pair([[77.4, 53], [80.4, 61], [78.4, 69.4], [71.6, 74], [72.4, 66], [73, 58]]);
+  const rolls = shape([['M', 39.4, 44.6], ['L', 44.6, 43.2], ['L', 50, 44.2], ['L', 55.4, 43.2], ['L', 60.6, 44.6], ['M', 34.6, 47.6], ['L', 38.4, 46.6], ['M', 65.4, 47.6], ['L', 61.6, 46.6]]);
+  const nose = sym([[50, 45.4], [57.4, 45], [62.8, 47.2], [62.6, 51.4], [58.2, 55], [53.2, 56], [50, 57.6]]);
+  const nostrils = pair([[52.6, 51.6], [57.8, 50], [59.8, 51.6], [55.6, 53.6]]);
+  const noseShine = poly([[45.4, 46.6], [52.4, 46.2], [50.6, 47.8], [44.6, 48.2]]);
+  // the mouth, open in a snarl: the flews drawn back off the upper teeth
+  const mouth = sym([[50, 59.6], [57, 59.4], [66.4, 62], [71.4, 67.4], [69, 73], [60, 75.4], [50, 76]]);
+  const flews = pair([[50, 57.6], [53.2, 56], [58.2, 55], [66.6, 56.8], [74.6, 61.6], [77.6, 68.6], [72.6, 67.6], [66.4, 62.6], [58.4, 60], [50, 60.4]]);
+  const flewLines = pairLine([[77.4, 53], [80, 58.6], [79.6, 66.4]]) + pairLine([[87.2, 52], [88.6, 62], [85.6, 72.4]]);
+  // upper teeth hung from the gum, the fangs at the corners long
+  let upper = '';
+  for (let i = 0; i < 4; i++) { const x = 42 + i * 4; upper += poly([[x, 60.2], [x + 4, 60.2], [x + 2, 64.6]]); }
+  const fangsUp = pair([[60.4, 60.6], [64.4, 61.8], [62, 70.4]]);
+  // the underbite: a wide lower jaw thrust out in front, its fangs jutting up past the lip
+  const jaw = sym([[50, 71.8], [58, 71.4], [66.2, 69.4], [70.4, 70.4], [69, 77.4], [61.6, 83.4], [50, 85.6]]);
+  const jawShade = pair([[66.2, 69.4], [70.4, 70.4], [69, 77.4], [61.6, 83.4], [50, 85.6], [50, 82.6], [59.4, 80.6], [65.4, 75.6]]);
+  let lower = '';
+  for (let i = 0; i < 4; i++) { const x = 42 + i * 4; lower += poly([[x, 72.2], [x + 2, 67.8], [x + 4, 72.2]]); }
+  const fangsLow = pair([[62.6, 71], [68.4, 69.8], [67.2, 57.6]]);
+  const chin = shape([['M', 45, 80.4], ['L', 50, 81.6], ['L', 55, 80.4]]);
+  const ink = BD.black;
+  // the dog is drawn full size and set down at k, small enough that the ears stay inside the
+  // cog's teeth (and inside the disc of the small drawing)
+  const fitAt = (k) => (l) => ({ ...l, d: xfD(l.d, k, 50, 46), ...(l.sw ? { sw: +(l.sw * k).toFixed(2) } : {}) });
+  const fit = fitAt(0.86);
   const layers = [
-    L(poly(cog), BD.rust, { stroke: BD.black, sw: 2.2 }),
-    L(circle(50, 50, 36.5), BD.black),
+    L(poly(cog), BD.rust, { stroke: ink, sw: 2.2 }),
+    L(circle(50, 50, 36.5), ink),
     L(ring(50, 50, 32, 33.6), BD.rustDeep),
-    L(S(neck), BD.orangeDeep, { stroke: BD.black, sw: 3.4 }),
-    // the chain goes round the neck behind the jowls, which hang over it
-    L(links + edges, BD.steel, { stroke: BD.black, sw: 1.3 }),
-    L(linkHoles, BD.black),
-    L(S(ears), BD.orange, { stroke: BD.black, sw: 3 }),
-    L(S([...earFold, ...mirror(earFold)]), BD.orangeDeep),
-    L(S(head), BD.orange, { stroke: BD.black, sw: 3.6 }),
-    L(S([...jowlR, ...mirror(jowlR)]), BD.orangeDeep),
-    L(S(jowlFold), 'none', { stroke: BD.black, sw: 1.6 }),
-    L(S(muzzle), BD.bone),
-    L(S(wrinkles), 'none', { stroke: BD.black, sw: 1.7 }),
-    L(S(eyes), BD.white, { stroke: BD.black, sw: 1.1 }),
-    L(pupils, BD.black),
-    L(S(brow), BD.black),
-    L(S(folds), 'none', { stroke: BD.boneShade, sw: 1.6 }),
-    L(S(mouth), BD.mouth),
-    L(S(jaw), BD.boneShade, { stroke: BD.black, sw: 1.4 }),
-    L(S(boneD), BD.boneWhite, { stroke: BD.black, sw: 1.8 }),
-    L(S(boneShine), 'none', { stroke: BD.boneShade, sw: 1.2 }),
-    L(S(teeth), BD.white, { stroke: BD.black, sw: 0.5 }),
-    L(S(fangs), BD.white, { stroke: BD.black, sw: 1 }),
-    L(S(flews), BD.bone, { stroke: BD.black, sw: 1.6 }),
-    L(S(philtrum), 'none', { stroke: BD.black, sw: 2 }),
-    L(S(roll), BD.boneShade, { stroke: BD.black, sw: 1 }),
-    L(S(nose), BD.nose),
-    L(nostrils, '#3c3c3c'),
-    L(shine, '#5d5d5d'),
-    L(shape(tagCmds, back), BD.steelDark, { stroke: BD.black, sw: 1.2 }),
-    L(shape(tagCmds, front), BD.steel, { stroke: BD.black, sw: 1.2 }),
-    L(tagHole(back) + tagHole(front), BD.black),
-    L(ring0, BD.steel, { stroke: BD.black, sw: 0.8 }),
-    L(letters, BD.black, { rule: 'evenodd' }),
-  ];
-  // small: the cog as a plain disc, the head, the muzzle, the scowl and nose, the fangs,
-  // the chain as one band and a single tag
-  const chain = shape([['M', ...a], ['Q', ...c, ...b]], h);
+    ...[L(neck, BD.orangeDark, { stroke: ink, sw: 3 }),
+    L(collar, 'none', { stroke: ink, sw: 10.4 }),
+    L(collar, 'none', { stroke: '#2a2a2a', sw: 7.2 }),
+    L(spikes, BD.steel, { stroke: ink, sw: 1.4 }),
+    L(studs, BD.steelDark),
+    L(head, BD.orange, { stroke: ink, sw: 3.6 }),
+    L(temple + jowlShade, BD.orangeDeep),
+    L(poly(earR) + poly(earL), BD.orangeDark, { stroke: ink, sw: 2.6 }),
+    L(earFold, BD.rustDeep),
+    L(scar, 'none', { stroke: ink, sw: 3.4 }),
+    L(scar, 'none', { stroke: BD.scar, sw: 1.6 }),
+    L(stitches, 'none', { stroke: ink, sw: 1 }),
+    L(furrows, 'none', { stroke: ink, sw: 1.8 }),
+    L(muzzle, BD.bone),
+    L(muzzleShade, BD.boneShade),
+    L(flewLines, 'none', { stroke: ink, sw: 1.6 }),
+    L(socket, BD.orangeDark),
+    L(eyes, BD.eye, { stroke: ink, sw: 1.1 }),
+    L(pupils, ink),
+    L(glints, BD.white),
+    L(brow, ink),
+    L(rolls, 'none', { stroke: ink, sw: 1.5 }),
+    L(mouth, BD.mouth, { stroke: ink, sw: 1.4 }),
+    L(upper, BD.white, { stroke: ink, sw: 0.6 }),
+    L(fangsUp, BD.white, { stroke: ink, sw: 1.1 }),
+    L(jaw, BD.bone, { stroke: ink, sw: 1.8 }),
+    L(jawShade, BD.boneShade),
+    L(chin, 'none', { stroke: ink, sw: 1.2 }),
+    L(lower, BD.white, { stroke: ink, sw: 0.6 }),
+    L(flews, BD.bone, { stroke: ink, sw: 1.8 }),
+    L(fangsLow, BD.white, { stroke: ink, sw: 1.3 }),
+    L(nose, BD.nose, { stroke: ink, sw: 1 }),
+    L(nostrils, '#000000'),
+    L(noseShine, '#5d5d5d'),
+  ].map(fit)];
+  // small: the cog as a disc, the head, the brow and eyes, the snarl, the collar as a band
   const small = [
     L(circle(50, 50, 47), BD.rust),
-    L(S(ears), BD.orange, { stroke: BD.black, sw: 5 }),
-    L(S(head), BD.orange, { stroke: BD.black, sw: 5 }),
-    L(S(muzzle), BD.bone),
-    L(S(brow), BD.black),
-    L(S(nose), BD.nose),
-    L(S(boneD), BD.boneWhite, { stroke: BD.black, sw: 3 }),
-    L(S(fangs), BD.white),
-    L(S(flews), BD.bone),
-    L(chain, 'none', { stroke: BD.black, sw: 8.5 }),
-    L(chain, 'none', { stroke: BD.steel, sw: 4 }),
-    L(shape(tagCmds, T({ tx: mid[0], ty: mid[1] + 1.4 })), BD.steel, { stroke: BD.black, sw: 2.6 }),
-  ];
+    ...[L(collar, 'none', { stroke: ink, sw: 11 }),
+    L(spikes, BD.steel, { stroke: ink, sw: 2 }),
+    L(head, BD.orange, { stroke: ink, sw: 5 }),
+    L(poly(earR) + poly(earL), BD.orangeDark, { stroke: ink, sw: 3.6 }),
+    L(jowlShade, BD.orangeDeep),
+    L(muzzle, BD.bone),
+    L(eyes, BD.eye),
+    L(brow, ink),
+    L(mouth, BD.mouth),
+    L(fangsUp, BD.white),
+    L(jaw, BD.bone, { stroke: ink, sw: 2.4 }),
+    L(flews, BD.bone, { stroke: ink, sw: 2.4 }),
+    L(fangsLow, BD.white, { stroke: ink, sw: 1.6 }),
+    L(nose, BD.nose),
+  ].map(fitAt(0.8))];
   return { box: 100, layers, small };
 }
 
@@ -699,7 +710,7 @@ function highlanders() {
 // with two side-handle nightsticks crossed behind it, and on its enamel the taped fist
 // coming straight at you, knuckles bloodied, D9 in marker on the tape where the badge
 // number goes.
-const GN = { purple: '#4b2a72', purpleDeep: '#2c1846', purpleLight: '#8e68c0', bone: '#efe5d2', boneShade: '#cdbb9d', boneDeep: '#a8977a', black: '#121014', stick: '#2a2530',
+const GN = { purple: '#4b2a72', purpleDeep: '#2c1846', purpleLight: '#8e68c0', bone: '#efe5d2', boneLight: '#faf5ea', boneShade: '#cdbb9d', boneDeep: '#a8977a', black: '#121014', stick: '#2a2530',
   tape: '#f7f4ee', tapeShade: '#c9c2b4', blood: '#a3141c' };
 function goons() {
   // the badge: a peaked top with two shoulders, flared sides, a point at the bottom
@@ -715,23 +726,50 @@ function goons() {
       shine: `M${P(...add(add([x0, y0], mul(u, 3)), mul(n, -1.2)))}L${P(...add(add([x1, y1], mul(u, -3)), mul(n, -1.2)))}` };
   };
   const sticks = [stick(7, 91, 93, 11), stick(93, 91, 7, 11)];
-  // the fist: four fingers rolled toward you, the thumb across them, the wrist taped
-  const fingers = [];
-  const fx = [26.5, 37.5, 48.5, 59.5];
-  for (let i = 0; i < 4; i++) {
-    const x = fx[i], top = 33 + [3, 0, 0.6, 3.6][i], w = 11.4;
-    fingers.push(rrect(x, top, w, 26 - [3, 0, 0.6, 3.6][i], 5.4));
-  }
-  const knuckleLines = shape([['M', 28, 46], ['Q', 32, 47.6, 36.4, 46], ['M', 39, 44.6], ['Q', 43.2, 46.2, 47.6, 44.6], ['M', 50, 45.2], ['Q', 54.2, 46.8, 58.6, 45.2], ['M', 61, 48], ['Q', 65, 49.6, 69.4, 48]]);
-  const blood = ellipse(43.6, 37.6, 2.6, 1.6, 0.2) + ellipse(56, 38, 2.2, 1.4, -0.3) + ellipse(43, 41.2, 0.9, 1.8) + ellipse(31.2, 40.6, 1.4, 1);
-  const thumb = shape([['M', 22.6, 54], ['C', 22.6, 50, 26, 48.6, 30, 49], ['L', 55.6, 52], ['C', 60, 52.6, 61.6, 55.4, 61, 58.4], ['C', 60.4, 61.4, 57, 62.6, 53, 62], ['L', 29, 60.4], ['C', 25, 60, 22.6, 58, 22.6, 54], ['Z']]);
-  const nail = shape([['M', 52.4, 53], ['C', 56, 53, 58.6, 54.6, 58.6, 57], ['C', 58.6, 59.4, 56, 60.4, 52.4, 60], ['Z']]);
-  const back = shape([['M', 25, 57], ['L', 71.4, 52], ['L', 70.6, 66], ['C', 64, 71, 36, 71, 28, 66], ['Z']]);
-  const wrist = shape([['M', 30, 64], ['C', 40, 68, 60, 68, 69.4, 63], ['L', 67.6, 88], ['C', 58, 91, 42, 91, 32.4, 88], ['Z']]);
-  const wraps = shape([['M', 31, 70], ['C', 42, 74, 58, 74, 68.8, 69], ['M', 31.6, 76.6], ['C', 42, 80.6, 58, 80.6, 68.4, 75.6], ['M', 32, 83], ['C', 42, 86.6, 58, 86.6, 68, 82]]);
-  const d9 = glyph('D', T({ tx: 36.6, ty: 71.4, sx: 1.9, sy: 1.75, rot: -0.04 })) + glyph('9', T({ tx: 50.4, ty: 70.8, sx: 1.9, sy: 1.75, rot: -0.04 }));
-  // the fist set on the enamel at k, its middle (47, 62) carried to (50, 56)
-  const k = 0.7, ox = (50 - 47 * k) / (1 - k), oy = (56 - 62 * k) / (1 - k), f = (d) => xfD(d, k, ox, oy), w = (sw) => +(sw * k).toFixed(2);
+  // the fist, raised and coming at you: four fingers curled, bent knuckles up and bloodied,
+  // the tips of the pinky and ring tucked under them, the thumb locked across the index
+  // and middle and running back into the heel of the hand, the wrist taped. Drawn in its
+  // own frame with the thumb on the right, lit from the upper left; `fist(k, cx, cy)` sets
+  // it down k big with the middle of its frame (51, 57) at (cx, cy).
+  const FING = [[22, 33.4, 34, 50.4], [32.6, 45.4, 29, 53.2], [44.6, 58, 27.4, 54.2], [57.2, 70.6, 29.4, 53.2]]; // pinky to index: x0, x1, top, bottom
+  const capOf = ([x0, x1]) => (x1 - x0) * 0.5;
+  const fingerD = (fg) => {
+    const [x0, x1, t, b] = fg, r = capOf(fg), rb = 3.4;
+    return shape([['M', x0, t + r], ['C', x0, t - r * 0.3, x1, t - r * 0.3, x1, t + r], ['L', x1, b - rb], ['Q', x1, b, x1 - rb, b], ['L', x0 + rb, b], ['Q', x0, b, x0, b - rb], ['Z']]);
+  };
+  // the shade down each finger's right side, and a fold where the knuckle turns into the face
+  const shadeD = (fg) => {
+    const [, x1, t, b] = fg, r = capOf(fg);
+    return shape([['M', x1 - 0.2, t + r * 0.7], ['L', x1 - 0.2, b - 3], ['Q', x1 - 0.4, b - 0.3, x1 - 3.4, b - 0.3], ['C', x1 - 3, b - 6, x1 - 3, t + r * 1.6, x1 - 3.2, t + r * 0.9],
+      ['C', x1 - 2.8, t + r * 0.5, x1 - 1.6, t + 0.6, x1 - 1, t + 0.8], ['Z']]);
+  };
+  const foldD = (fg) => { const [x0, x1, t] = fg, r = capOf(fg), y = t + r * 1.15; return shape([['M', x0 + 2.4, y], ['Q', (x0 + x1) / 2, y + 1.8, x1 - 3.4, y]]); };
+  // the curled tips of the pinky and ring, showing under them
+  const tips = rrect(23.2, 46.6, 9.6, 9.4, 4.2) + rrect(33.8, 49.4, 11, 9.6, 4.4);
+  // the heel of the hand behind the fingers, pinky side, down to the wrist
+  const palm = shape([['M', 22.4, 40], ['L', 22.6, 52], ['C', 23.6, 58.6, 27.6, 62.4, 33, 63.4], ['L', 68, 63.6], ['L', 70, 40], ['Z']]);
+  // the thumb across the fingers and the mound at its root, as one piece
+  const thumb = shape([['M', 81.4, 41], ['C', 74, 38.6, 61.6, 40.2, 52, 42.8], ['C', 46.6, 44.2, 44.4, 48.4, 45.4, 51.8], ['C', 46.4, 55.2, 50, 57, 54, 56.6],
+    ['L', 63.4, 55.8], ['C', 68, 58.4, 68.6, 61.6, 67.6, 64.2], ['C', 75, 62.8, 81.8, 57.2, 82.2, 49.6], ['C', 82.4, 45.4, 82.2, 42.8, 81.4, 41], ['Z']]);
+  const thumbShade = shape([['M', 46.2, 53.2], ['C', 48, 56, 50.8, 57, 54, 56.6], ['L', 63.4, 55.8], ['C', 66.8, 55.6, 70.8, 56.4, 74.2, 58.6],
+    ['C', 71.6, 55.2, 67.6, 53.6, 63.4, 53.6], ['L', 53.4, 54.2], ['C', 50.4, 54.4, 48, 54.2, 46.2, 53.2], ['Z'],
+    ['M', 67.6, 64.2], ['C', 75, 62.8, 81.8, 57.2, 82.2, 49.6], ['C', 80, 55.6, 75.6, 59.4, 70.2, 60.8], ['C', 69.6, 62, 68.8, 63.2, 67.6, 64.2], ['Z']]);
+  const nail = shape([['M', 51.8, 43.2], ['C', 48.2, 44.2, 46.2, 46.6, 46.6, 49.2], ['L', 51.6, 48.6], ['C', 52.4, 46.8, 52.6, 44.8, 51.8, 43.2], ['Z']]);
+  const thumbLines = shape([['M', 59.6, 41.4], ['Q', 61, 45.2, 60, 48.6], ['M', 63.4, 55.8], ['C', 67.4, 55.6, 71, 56.8, 74.6, 59.4]]);
+  const wristD = (bottom) => shape([['M', 32.6, 61.6], ['C', 42, 65.2, 58, 65.2, 67.8, 61.4], ['L', 68.4, bottom], ['C', 58, bottom + 3, 42, bottom + 3, 31.8, bottom], ['Z']]);
+  const wraps = shape([['M', 32.2, 69.4], ['C', 42, 73.4, 58, 71.8, 68, 67.6], ['M', 32, 77.2], ['C', 42, 81, 58, 79.4, 68.2, 75.4], ['M', 31.9, 85], ['C', 42, 88.6, 58, 87, 68.3, 83.2]]);
+  const d9 = glyph('D', T({ tx: 36.4, ty: 70.8, sx: 2, sy: 1.85, rot: -0.06 })) + glyph('9', T({ tx: 50.6, ty: 70, sx: 2, sy: 1.85, rot: -0.06 }));
+  // blood on the knuckles that landed (middle, ring, index), run down the faces, and spray
+  const blood = ellipse(51.2, 29, 3.2, 1.5, 0.05) + ellipse(38.8, 30.6, 2.8, 1.3, -0.1) + ellipse(63.8, 31, 2.2, 1.1, 0.1)
+    + circle(57.4, 23.4, 0.9) + circle(44.6, 23.6, 0.7) + circle(61.6, 25.2, 0.55) + circle(35.4, 25.6, 0.55) + circle(48.2, 21.6, 0.5);
+  const drips = shape([['M', 49.8, 29.4], ['C', 49.6, 32.6, 50, 35.4, 50.8, 37], ['C', 51.8, 35.4, 52.2, 32.6, 52, 29.4], ['Z'], ['M', 38, 31], ['C', 37.8, 33.2, 38.2, 34.8, 38.8, 35.8], ['C', 39.6, 34.8, 39.8, 33.2, 39.6, 31], ['Z']]);
+  const fist = (k, cx, cy, sw, bottom) => {
+    const ox = (cx - 51 * k) / (1 - k), oy = (cy - 57 * k) / (1 - k), f = (d) => xfD(d, k, ox, oy), w = (s) => +(s * k).toFixed(2);
+    const each = (fn) => FING.map((fg) => f(fn(fg))).join('');
+    return { w, sw: w(sw), wrist: f(wristD(bottom)), palm: f(palm), tips: f(tips), fingers: each(fingerD), shades: each(shadeD), folds: each(foldD),
+      thumb: f(thumb), thumbShade: f(thumbShade), nail: f(nail), thumbLines: f(thumbLines), wraps: f(wraps), d9: f(d9), blood: f(blood), drips: f(drips) };
+  };
+  const fz = fist(0.76, 50, 52, 2, 90);
   // knocks and a splash it has taken
   const dents = shape([['M', 20.4, 37.6], ['L', 23.2, 40.4], ['M', 21.2, 46], ['L', 22.6, 47.2], ['M', 79.4, 66.6], ['Q', 81, 68.6, 80, 71], ['M', 62.4, 88.2], ['L', 64.4, 86.4]]);
   const dentRing = ring(73.6, 31.4, 1.2, 2);
@@ -751,21 +789,40 @@ function goons() {
     L(dentRing, GN.boneDeep),
     L(splash, GN.blood),
     // the fist on the enamel
-    L(f(wrist), GN.tape, { stroke: GN.black, sw: w(2) }),
-    L(f(wraps), 'none', { stroke: GN.tapeShade, sw: w(1.4) }),
-    L(f(d9), GN.purpleDeep, { rule: 'evenodd' }),
-    L(f(back), GN.bone, { stroke: GN.black, sw: w(2) }),
-    L(f(fingers.join('')), GN.bone, { stroke: GN.black, sw: w(2) }),
-    L(f(knuckleLines), 'none', { stroke: GN.boneShade, sw: w(1.4) }),
-    L(f(blood), GN.blood),
-    L(f(thumb), GN.bone, { stroke: GN.black, sw: w(2) }),
-    L(f(nail), GN.boneShade),
+    L(fz.wrist, GN.tape, { stroke: GN.black, sw: fz.sw }),
+    L(fz.wraps, 'none', { stroke: GN.tapeShade, sw: fz.w(1.4) }),
+    L(fz.d9, GN.purpleDeep, { rule: 'evenodd' }),
+    L(fz.palm, GN.boneShade, { stroke: GN.black, sw: fz.sw }),
+    L(fz.tips, GN.bone, { stroke: GN.black, sw: fz.sw }),
+    L(fz.fingers, GN.bone),
+    L(fz.shades, GN.boneShade),
+    L(fz.folds, 'none', { stroke: GN.boneDeep, sw: fz.w(1.2) }),
+    L(fz.fingers, 'none', { stroke: GN.black, sw: fz.sw }),
+    L(fz.blood, GN.blood),
+    L(fz.drips, GN.blood),
+    L(fz.thumb, GN.bone),
+    L(fz.thumbShade, GN.boneShade),
+    L(fz.nail, GN.boneLight, { stroke: GN.boneDeep, sw: fz.w(0.9) }),
+    L(fz.thumbLines, 'none', { stroke: GN.boneDeep, sw: fz.w(1.2) }),
+    L(fz.thumb, 'none', { stroke: GN.black, sw: fz.sw }),
   ];
-  // small: the badge and its number
+  // small: the badge and the fist, bigger and inked heavier, D9 on its tape
+  const fm = fist(0.88, 50, 48.4, 3.4, 87.4);
   const small = [
     L(badge, GN.bone, { stroke: GN.black, sw: 3.4 }),
     L(inset(0.78), GN.purple),
-    L(glyph('D', T({ tx: 27.6, ty: 34, sx: 3.6, sy: 4 })) + glyph('9', T({ tx: 51.4, ty: 33.2, sx: 3.6, sy: 4 })), GN.bone, { rule: 'evenodd' }),
+    L(fm.wrist, GN.tape, { stroke: GN.black, sw: fm.sw }),
+    L(fm.d9, GN.purpleDeep, { rule: 'evenodd' }),
+    L(fm.palm, GN.boneShade, { stroke: GN.black, sw: fm.sw }),
+    L(fm.tips, GN.bone, { stroke: GN.black, sw: fm.sw }),
+    L(fm.fingers, GN.bone, { stroke: GN.black, sw: fm.sw }),
+    L(fm.shades, GN.boneShade),
+    L(fm.fingers, 'none', { stroke: GN.black, sw: fm.sw }),
+    L(fm.blood, GN.blood),
+    L(fm.drips, GN.blood),
+    L(fm.thumb, GN.bone, { stroke: GN.black, sw: fm.sw }),
+    L(fm.thumbShade, GN.boneShade),
+    L(fm.thumb, 'none', { stroke: GN.black, sw: fm.sw }),
   ];
   return { box: 100, layers, small };
 }
@@ -774,7 +831,8 @@ function goons() {
 // the harbour fog: back up and bristling, head down, one eye lit red, incisors out, claws
 // hooked over the iron, and its tail wound round the shank. Silver is the rim light the
 // harbour lamps put on it, and the club's; the fog is grey, so the red eye is the only
-// colour on it.
+// colour on it. Rat and anchor are drawn large and set down inside the silver piping, so
+// nothing of either crosses the rope.
 const WRAT = { field: '#1d1f22', fog: '#3a3e44', fogLight: '#5f656d', water: '#16181b', wave: '#3a3e44', rope: '#b39062', ropeDark: '#6e5532', rim: '#d3d9de', rimDeep: '#7d868d',
   rat: '#0d0f11', steel: '#8b949b', steelLight: '#c3cbd0', claw: '#d9cfb6', tooth: '#e9b23f', eye: '#ff3a2e', eyeCore: '#ffd9c8', gums: '#3a0a10', ink: '#141414' };
 // a tapered tube along a chain of cubic segments, for tails and ropes
@@ -812,6 +870,20 @@ function chainPts(segs, n = 16) {
 }
 // a polygon pulled inside a disc: points outside it are moved onto its edge
 const inDisc = (pts, cx, cy, R) => poly(pts.map(([x, y]) => { const d = Math.hypot(x - cx, y - cy); return d > R ? [cx + ((x - cx) * R) / d, cy + ((y - cy) * R) / d] : [x, y]; }));
+// a finished polygon path (M and L only) cut to a disc: each edge is split finely first, so
+// the part pulled onto the rim follows the circle instead of cutting a chord across it
+function clipToDisc(d, cx, cy, R) {
+  return d.split('Z').filter((s) => s.trim()).map((sub) => {
+    const nums = (sub.match(/-?\d*\.?\d+(?:e-?\d+)?/g) || []).map(Number), pts = [];
+    for (let i = 0; i + 1 < nums.length; i += 2) pts.push([nums[i], nums[i + 1]]);
+    const fine = [];
+    pts.forEach((a, i) => {
+      const b = pts[(i + 1) % pts.length], n = Math.max(1, Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1]) / 0.8));
+      for (let j = 0; j < n; j++) fine.push([a[0] + ((b[0] - a[0]) * j) / n, a[1] + ((b[1] - a[1]) * j) / n]);
+    });
+    return inDisc(fine, cx, cy, R);
+  }).join('');
+}
 function wharfRats() {
   const C = 50, ink = WRAT.ink;
   // ── the ring: a mooring line, silver piping inside it ──
@@ -824,7 +896,6 @@ function wharfRats() {
   // ── the anchor ──
   const shank = poly([[47.6, 36.6], [52.4, 36.6], [52.9, 82], [47.1, 82]]);
   const shankLight = poly([[48.2, 46], [49.2, 46], [49.2, 80], [48, 80]]);
-  const aring = ring(50, 34.4, 2.2, 4.2);
   const stock = poly([[28.4, 41], [50, 40], [71.6, 41], [71.6, 44.6], [50, 45.6], [28.4, 44.6]]) + circle(27.2, 42.8, 2.8) + circle(72.8, 42.8, 2.8);
   const arms = shape([['M', 23.8, 62.6], ['C', 25.4, 76, 37.6, 87.6, 50, 87.6], ['C', 62.4, 87.6, 74.6, 76, 76.2, 62.6], ['L', 71.4, 63.4], ['C', 70.2, 73.6, 60.6, 82.4, 50, 82.4],
     ['C', 39.4, 82.4, 29.8, 73.6, 28.6, 63.4], ['Z']]);
@@ -855,7 +926,7 @@ function wharfRats() {
   const gums = poly([[90.4, 31.2], [80, 33.4], [86.8, 36.4], [89.2, 34.4]]);
   const teeth = shape([['M', 87, 31.8], ['L', 89.8, 31.4], ['C', 89.8, 34, 89.4, 36.4, 88.4, 38], ['C', 87.6, 36.6, 87.2, 34.4, 87, 31.8], ['Z']]) +
     shape([['M', 84.4, 37.6], ['L', 86.6, 37], ['C', 86.4, 35.2, 86, 33.8, 85.2, 32.8], ['C', 84.6, 34.2, 84.4, 35.8, 84.4, 37.6], ['Z']]);
-  const whiskers = shape([['M', 87, 30], ['Q', 92, 26, 96.4, 24.6], ['M', 87.4, 31], ['Q', 92.4, 30, 97, 30.6], ['M', 86.6, 32], ['Q', 91, 34.4, 95.4, 37.4]]);
+  const whiskers = shape([['M', 87, 30], ['Q', 91, 26.8, 94.6, 25.6], ['M', 87.4, 31], ['Q', 91.6, 30.2, 95.2, 30.8], ['M', 86.6, 32], ['Q', 90.4, 34, 93.8, 35.8]]);
   const nose = poly(ellipsePts(91.2, 30.4, 1.3, 1, 0.4, 12));
   // the eye: lit red, slanted, a hard brow over it
   const eyeGlow = circle(78.2, 22.6, 4.6), eye = poly(ellipsePts(78.2, 22.8, 2.6, 1.3, 0.38, 20)), eyeCore = poly(ellipsePts(78.8, 23, 0.9, 0.5, 0.38, 12));
@@ -866,18 +937,11 @@ function wharfRats() {
   // the tail: down behind the stock, round the back of the shank and across the front of it
   const tailBack = taper([[[27.6, 37], [18, 44], [19.6, 58.4], [34, 62]], [[34, 62], [42, 64.4], [48, 62.2], [54, 60.2]], [[54, 60.2], [59.4, 58.4], [59.4, 52.4], [54, 52]]], 4.4, 2, 10);
   const tailFront = taper([[[54, 52], [48.6, 51.6], [43.6, 53.2], [41.8, 56.8]], [[41.8, 56.8], [40, 60.6], [41.2, 66.6], [45.6, 70]]], 2, 0.6, 10);
-  const layers = [
-    L(circle(C, C, 49.2), ink),
-    L(circle(C, C, 48), WRAT.field),
-    L(inDisc(ellipsePts(74, 26, 18, 18, 0, 48), C, C, 47.6), WRAT.fog),
-    L(inDisc(ellipsePts(76, 25, 11, 11, 0, 36), C, C, 47.6), WRAT.fogLight),
-    L(inDisc([...Array.from({ length: 25 }, (_, i) => [2 + i * 4, 78 + Math.sin(i * 0.9) * 1.2]), [98, 99], [2, 99]], C, C, 47.6), WRAT.water),
-    L(waves, 'none', { stroke: WRAT.wave, sw: 1 }),
-    L(ring(C, C, 42.2, 48), WRAT.rope),
-    L(twists, 'none', { stroke: WRAT.ropeDark, sw: 0.8 }),
-    L(ring(C, C, 47.6, 48.4) + ring(C, C, 42.2, 42.8), ink),
-    L(ring(C, C, 41, 42.2), WRAT.rim),
-    L(ring(C, C, 40.2, 41), ink),
+  // the scene (rat, anchor, the fog round the rat's head) set down at sk about the middle and
+  // nudged by (tx, ty): the most of it that stays inside the piping at radius 40
+  const sk = 0.83, so = (d) => xfD(d, sk, C + -2 / (1 - sk), C + 4.5 / (1 - sk)), ws = (sw) => +(sw * sk).toFixed(2);
+  const at = ([x, y]) => [C + (x - C) * sk - 2, C + (y - C) * sk + 4.5];
+  const scene = [
     // behind the anchor: the tail's far loop, the ear and the rat itself
     L(tailBack.d, WRAT.rat, { stroke: ink, sw: 0.6 }),
     L(tailBack.ticks, 'none', { stroke: WRAT.rimDeep, sw: 0.4 }),
@@ -900,25 +964,41 @@ function wharfRats() {
     L(arms + flukes + crown, WRAT.steel, { stroke: ink, sw: 1.4 }),
     L(shank, WRAT.steel, { stroke: ink, sw: 1.4 }),
     L(shankLight, WRAT.steelLight),
-    L(aring, WRAT.steel, { stroke: ink, sw: 1 }),
     L(stock, WRAT.steel, { stroke: ink, sw: 1.4 }),
     L(poly([[30, 41.8], [70, 41.8], [70, 42.6], [30, 42.6]]), WRAT.steelLight),
     L(claws, WRAT.claw, { stroke: ink, sw: 0.4 }),
     L(tailFront.d, WRAT.rat, { stroke: ink, sw: 0.6 }),
     L(tailFront.ticks, 'none', { stroke: WRAT.rimDeep, sw: 0.4 }),
+  ].map((l) => ({ ...l, d: so(l.d), ...(l.sw ? { sw: ws(l.sw) } : {}) }));
+  const fogAt = at([74, 26]), fogCore = at([76, 25]);
+  const layers = [
+    L(circle(C, C, 49.2), ink),
+    L(circle(C, C, 48), WRAT.field),
+    L(inDisc(ellipsePts(...fogAt, 18 * sk, 18 * sk, 0, 48), C, C, 40.2), WRAT.fog),
+    L(inDisc(ellipsePts(...fogCore, 11 * sk, 11 * sk, 0, 36), C, C, 40.2), WRAT.fogLight),
+    L(inDisc([...Array.from({ length: 25 }, (_, i) => [2 + i * 4, 78 + Math.sin(i * 0.9) * 1.2]), [98, 99], [2, 99]], C, C, 47.6), WRAT.water),
+    L(waves, 'none', { stroke: WRAT.wave, sw: 1 }),
+    L(ring(C, C, 42.2, 48), WRAT.rope),
+    L(twists, 'none', { stroke: WRAT.ropeDark, sw: 0.8 }),
+    L(ring(C, C, 47.6, 48.4) + ring(C, C, 42.2, 42.8), ink),
+    L(ring(C, C, 41, 42.2), WRAT.rim),
+    L(ring(C, C, 40.2, 41), ink),
+    ...scene,
   ];
-  // small: the head in silhouette, big, lit eye and teeth, in a silver ring
-  const sk = 2.1, fx = (50 - 77 * sk) / (1 - sk), fy = (50 - 25 * sk) / (1 - sk), z = (d) => xfD(d, sk, fx, fy);
+  // small: the head in silhouette, big, lit eye and teeth, in a silver ring. The body runs
+  // off the left of the drawing, so it is cut at the ring's inner edge.
+  const zk = 1.85, fx = (50 - 76 * zk) / (1 - zk), fy = (50 - 26 * zk) / (1 - zk), z = (d) => xfD(d, zk, fx, fy), cut = (d) => clipToDisc(z(d), C, C, 43.4);
   const small = [
     L(circle(C, C, 49.4), WRAT.rim),
     L(circle(C, C, 43.4), WRAT.field),
     L(circle(C, C, 30), WRAT.fogLight),
-    L(z(gums), WRAT.gums),
-    L(z(ear), WRAT.rat),
-    L(z(sil), WRAT.rat),
+    L(cut(gums), WRAT.gums),
+    L(cut(ear), WRAT.rat),
+    L(cut(sil), WRAT.rat),
     L(z(eye), WRAT.eye),
     L(z(brow), WRAT.rat),
     L(z(teeth), WRAT.tooth),
+    L(ring(C, C, 43.4, 44.6), ink),
   ];
   return { box: 100, layers, small };
 }
