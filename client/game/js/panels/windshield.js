@@ -1217,19 +1217,20 @@ export const RENDER_TUNE = {
   // texel of a default facade, which texels are glass, which are lit, and what the wall between the
   // panes is made of. On, a pane shades as glass, the wall takes its own family (a brick tenement
   // is brick, not 'window grid'), the relief stops at the panes, and the night dim spares exactly
-  // the lit rooms instead of guessing them by brightness. 0 is the city as it was: the page isn't
-  // built and the shader reads nothing from it.
-  glMatPage: 0,
+  // the lit rooms instead of guessing them by brightness. On by default since 2026-10-18; 0 is the
+  // city as it was: the page isn't built and the shader reads nothing from it.
+  glMatPage: 1,
   // Stage 3 of docs/proposals/glass-materials.md. `glEnvCube` reflects the sky as a cube (gl/envcube.js)
   // instead of a two-colour gradient, blurred by each surface's roughness; `glGGX` swaps the Phong
-  // highlight for a GGX lobe with the same peak. 0 is the reflection and highlight as shipped.
-  glEnvCube: 0,
-  glGGX: 0,
+  // highlight for a GGX lobe with the same peak. Both on by default since 2026-10-18; 0 is the
+  // reflection and highlight they replaced.
+  glEnvCube: 1,
+  glGGX: 1,
   // Stage 4: the surface page, height and roughness from the wall painters (brick, stone, concrete,
   // stucco so far). The relief reads height instead of the albedo's brightness where the page speaks.
   // `glHeightGain` scales height into the relief's units: 0.33 puts a brick joint at about the step
-  // the brightness gave it. 0 is the relief as shipped.
-  glSurfPage: 0,
+  // the brightness gave it. On by default since 2026-10-18; 0 is the relief it replaced.
+  glSurfPage: 1,
   glHeightGain: 0.33,
   // ── BIRDS ON THE BUILDINGS ──────────────────────────────────────────────────
   //
@@ -1363,17 +1364,13 @@ export const RENDER_TUNE = {
   // arithmetically what the 8-bit buffer was already doing — so the frame differs only by the bloom,
   // and the headroom ships without a re-grade nobody asked for riding in with it.
   //
-  // ⚠ AND IT SHIPS AT 0, ON THE MEASUREMENT. `__glHdr()` puts the curve at 0.25 moving 36% of a
-  // night frame and 55% of a noon one — it is by a wide margin the largest visual change anything
-  // in this feature makes, and all of it is re-grading surfaces that were already the colour
-  // somebody chose. Turning that on inside a change about brightness would be the exact mistake the
-  // split above exists to prevent, so the curve ships available and off.
-  //
-  // What it is FOR is making room at the top end for the bloom to land in rather than piling onto
-  // pixels already at white — which matters once the city has more emitters than it has now. Try
-  // 0.2-0.3 by eye against the real city, the way the three wall-wash cuts were decided; the bench
-  // can say how much moves and cannot say whether it looks better.
-  glTonemap: 0,
+  // ⚠ IT IS THE LARGEST VISUAL CHANGE IN THE FEATURE. `__glHdr()` puts the curve at 0.25 moving 36%
+  // of a night frame and 55% of a noon one, all of it re-grading surfaces that were already the colour
+  // somebody chose. It shipped off for that reason, separate from the buffer, and was turned on at 0.25
+  // by David on 2026-10-18 after an off/on comparison from the cab (21-26% of pixels moved by day).
+  // What it is for: room at the top end for the bloom to land in rather than piling onto white.
+  // 0 puts the composite back to a clamp.
+  glTonemap: 0.25,
   // Stop, applied before the curve. 1 is neutral and there is no reason to move it until somebody
   // wants the whole city lighter or darker as a deliberate act.
   glExposure: 1,
@@ -1381,8 +1378,9 @@ export const RENDER_TUNE = {
   // every layer drawing into the float target hands it linear values and the composite encodes back
   // to sRGB after the curve, so the blends between layers happen in light rather than in display
   // values. Only meaningful with `glHdr` and a float target; anywhere else it is 0 by construction.
-  // 0 is the city as it was.
-  glLinear: 0,
+  // Level 1 is on by default since 2026-10-18 (level 2 waits for stage 2 steps 3 and 4); 0 is the city
+  // as it was.
+  glLinear: 1,
   // ⚠ THERE IS DELIBERATELY NO `glEmit` BESIDE IT. An emission channel was built here, measured,
   // and removed: every emissive face is flat, and flat faces are already immune to what it would remove.
   // The account is on `faceEdges`'s neighbour in gl/world.js; read it before building one again.
@@ -2048,7 +2046,11 @@ export const RENDER_TUNE = {
 // before the first view is made. Browser-only by construction: the smoke stubs' matchMedia
 // answers false, so every gate still measures the full tier it was written against. A player (or
 // a tester) can opt back in with localStorage 'architect_gl_tier' = 'full'.
-export const PHONE_TIER = Object.freeze({ glSsao: 0, glShadow: 0, glMsaa: 0, glHdr: 0 });
+// The six materials switches turned on 2026-10-18 (the material and surface pages, the sky cube, GGX,
+// linear light and the tone curve) were only ever measured on one discrete GPU, so a phone keeps the
+// picture from before them too: two of them are whole extra atlas pages, and the last two need glHdr.
+export const PHONE_TIER = Object.freeze({ glSsao: 0, glShadow: 0, glMsaa: 0, glHdr: 0,
+  glMatPage: 0, glSurfPage: 0, glEnvCube: 0, glGGX: 0, glLinear: 0, glTonemap: 0 });
 export const GL_TIER = (() => {
   try {
     const mm = globalThis.matchMedia, sc = globalThis.screen;

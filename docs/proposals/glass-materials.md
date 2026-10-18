@@ -1,6 +1,6 @@
 # GLASS materials
 
-**Status: Stages 0 and 1 built (`glMatPage`); stage 2 steps 1 and 2 built (`glLinear`), steps 3 and 4 to do; stage 3 built (`glEnvCube`, `glGGX`); stage 4 built (`glSurfPage`). Every switch is off by default.** This is the plan for bringing GLASS 2's surface shading up to what
+**Status: Stages 0 and 1 built (`glMatPage`); stage 2 steps 1 and 2 built (`glLinear`), steps 3 and 4 to do; stage 3 built (`glEnvCube`, `glGGX`); stage 4 built (`glSurfPage`). Since 2026-10-18 every built switch is on by default (`glLinear` at level 1, `glTonemap` at 0.25), and off on the phone tier.** This is the plan for bringing GLASS 2's surface shading up to what
 three.js's `MeshStandardMaterial` does: linear colour with a tone curve, a GGX highlight driven by
 roughness, a prefiltered environment map, and material data per texel. Each stage ships behind a
 `RENDER_TUNE` switch whose 0 is today's picture.
@@ -356,7 +356,10 @@ As planned:
 - `shapes:smoke` and `client:smoke`. The GLSL sits in template literals, so comments inside it quote
   with single quotes, never backticks.
 - Before any default changes, measure on an integrated GPU and a phone. Every number so far comes
-  from one machine with an RTX 2070 SUPER.
+  from one machine with an RTX 2070 SUPER. The defaults went on on 2026-10-18 without that: the phone
+  tier (`PHONE_TIER`) keeps all six off, and an integrated GPU is still unmeasured. The six together
+  cost nothing measurable on the reference machine (3.6-4.7 ms of GPU against 2.4-3.9 off, inside run
+  spread).
 
 ## Also found
 
