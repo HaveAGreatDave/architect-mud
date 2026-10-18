@@ -685,12 +685,34 @@ writes its answer into the run as marks. Four passes, in this order:
 by `soldNucleus` only on a line sold at `excite` 0.35 or more; it now prefers a caps
 word, then the `'+'`, then the last stressed vowel, and replaces the `'+'` it lands on.
 
-What this does to the sound today: given words and compound tails lose stress
-(shorter, lower), `_M` adds a short pause and pre-boundary lengthening, and a sold
-line holds a better-chosen vowel. `pitchAt` doesn't read `'+'` yet, and `_M` doesn't
-reset declination yet: the phrase split in `speak()` resets only at a terminal break.
-`_M` carries `minor: 1` in `PH` for whichever change does that. Both belong to the
-accent-shape work (H\*, L+H\*, downstep), which will read these marks.
+Given words and compound tails lose stress (shorter, lower), and a sold line holds a
+better-chosen vowel. The marks are heard through the accent shapes below.
+
+### What the accents sound like
+
+`pitchAt` in `speak()` reads the marks. Every shape is a multiple of the voice's
+`lilt` (the `ACC` table), so natural 0, where `lilt` is 0, is still flat.
+
+- **The nucleus (`'+'`)** takes its shape from the break that ends its phrase
+  (`nucKind`). Before a full stop, `!`, ellipsis or the end of the line it's a fall
+  (H\* L): the vowel goes up 1.6 `lilt`, then falls through its back half to 1 `lilt`
+  below, and the rest of the phrase stays down. Before a comma, colon, dash or `_M` it
+  only falls to 0.3 below, and the boundary tone lifts it again. In a question it's
+  low (L\*, 0.6 below), and the question's rise does the rest.
+- **Prenuclear accents** (the other `'*'` vowels) peak at 1.15 `lilt`, and each one in
+  the phrase is 0.6 of the one before (downstep). The nucleus is downstepped once if
+  any came before it. Every break, `_M` included, starts the count again.
+- **Emphasis (`'!'`)** stays at 3.4 `lilt`, above all of these. A held (`'^'`) or drawn
+  nucleus starts from a plain accent (1 `lilt`) and keeps its own climb or sag, with
+  no fall.
+- **`_M`** gives back half of the declination so far, where a full stop gives back all
+  of it. It has the lightest boundary tone (1.035, against a comma's 1.07), and the
+  vowel before it lengthens by 1.08 where every other break gets 1.18.
+  `estimateDuration` shares `segmentDuration`, so pacing follows.
+
+The gate is `scripts/voice/contour-smoke.mjs`. It speaks lines on the worklet back
+end and reads the scheduled F0 track. Each check fails when the rule it covers is
+taken out.
 
 `_phonemesFor` strips `'+'` unless `opt.marks` is set, so a check about a sound
 doesn't have to spell it; `opt.excite` places `'^'` as `speak()` would.

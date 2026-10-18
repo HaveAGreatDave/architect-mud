@@ -3733,6 +3733,8 @@ return out;
       // listener hears which mark was written.
       if (!ctx.nxtCode) dur *= ev(1.30);
       else if (isTerm(ctx.nxtCode)) dur *= ev(1.30);
+      // (a minor break is a breath of a boundary, so it gets a breath of the lengthening)
+      else if (PH[ctx.nxtCode] && PH[ctx.nxtCode].minor) dur *= ev(1.08);
       else if (isBreak(ctx.nxtCode)) dur *= ev(1.18);
       // A post-vocalic /r/ is a colouring that takes time to sound: held a little longer
       // than an onset /r/, or the F3 dip that IS the /r/ is over before it is heard.
@@ -4632,14 +4634,43 @@ return out;
       // mark has its own, and it is most of what tells the ear which one was written:
       // a comma rises and hands over, a colon holds level and announces, a dash breaks
       // off flat, an ellipsis drifts down and away, a question climbs.
-      const BOUNDARY = { _C: 1.07, _S: 1.05, _D: 1.04, _E: 0.955, _Q: 1.13, _X: 1.02, _XX: 1.03 };
-      const pitchAt = (when, frac, stressed, f1, nextCode) => {
-        const fall = 1 - (phraseDecl[phraseIx] ?? V.decl) * frac;   // declination
+      // A minor break (_M, one nobody wrote) gets the lightest of these: the clause goes on.
+      const BOUNDARY = { _C: 1.07, _S: 1.05, _D: 1.04, _E: 0.955, _Q: 1.13, _X: 1.02, _XX: 1.03, _M: 1.035 };
+      // ACCENTS. placeAccents marks one vowel a phrase '+' (the nucleus) and leaves '*' on
+      // the other accented words; these are the shapes they get, in units of the voice's
+      // lilt, so natural 0 (lilt 0) still reads flat.
+      //   - The NUCLEUS of a statement is a fall (H* L): up on the vowel, then down
+      //     through it, and whatever follows in the phrase stays down there. That fall is
+      //     most of what an English listener hears as "this is the word that mattered".
+      //     Before a comma, colon, dash or minor break it only half falls and the boundary
+      //     tone lifts it again, the clause handing over; in a question it is low (L*)
+      //     and the question's rise does the rest.
+      //   - A PRENUCLEAR accent is a peak, and each one in a phrase is a step below the
+      //     last (DOWNSTEP), which is how a long line comes down to its nucleus instead
+      //     of bobbing level the whole way.
+      //   - Emphasis ('!') stays above all of them; a held '^' keeps its own climb.
+      const ACC = { nuc: 1.6, pre: 1.15, down: 0.6, fall: 1.0, half: 0.3, low: 0.6, postFall: 0.9, postStress: 0.75 };
+      const nucKind = end => (end === '_Q' ? 'low' : !end || isTerm(end) ? 'fall' : 'cont');
+      // state through the run: the nucleus kind once it has been said this phrase, the
+      // prenuclear accents so far (downstep), and how much of the declination a minor
+      // break has given back
+      let afterNuc = null, downN = 0, declOff = 0;
+      const pitchAt = (when, frac, stressed, f1, nextCode, nuc, dur) => {
+        const fall = 1 - (phraseDecl[phraseIx] ?? V.decl) * Math.max(0, frac - declOff);   // declination
         // Emphasis is a level ABOVE stress, not a louder version of it — it moves
         // pitch about twice as far, which is what makes "it is GONE" land.
-        const lift = stressed === 2 ? 1 + lilt * 3.4 * TUNING.emphasis
-                   : stressed       ? 1 + lilt
-                   :                  1 - lilt * 0.45;
+        let lift, fallTo = 0;
+        if (stressed === 2) lift = 1 + lilt * 3.4 * TUNING.emphasis;
+        else if (nuc === 'low') lift = 1 - lilt * ACC.low;
+        else if (nuc && !dur) lift = 1 + lilt;   // a held or drawn nucleus: its own climb or sag starts from a plain accent
+        else if (nuc) lift = 1 + lilt * ACC.nuc * (downN ? ACC.down : 1);   // downstepped once if anything came before it
+        else if (afterNuc === 'fall') lift = 1 - lilt * (stressed ? ACC.postStress : ACC.postFall);
+        else if (afterNuc === 'cont') lift = 1 - lilt * ACC.half;
+        else if (stressed && !afterNuc) { lift = 1 + lilt * ACC.pre * ACC.down ** downN; downN++; }
+        else lift = 1 - lilt * 0.45;
+        if (nuc === 'fall') fallTo = 1 - lilt * ACC.fall;
+        else if (nuc === 'cont') fallTo = 1 - lilt * ACC.half;
+        if (nuc) afterNuc = nuc;
         // CONTINUATION RISE. A comma is not a full stop: the clause is unfinished and
         // English says so by rising (or at least not falling) into the pause. Without
         // it a list reads as a series of separate little sentences, because every
@@ -4648,6 +4679,8 @@ return out;
         const f = pq(F0 * (phraseK[phraseIx] ?? 1) * fall * lift * hold * intrinsicF0(f1) * mix(micro));
         // (a stepped voice steps: a glide between semitones is a voice sliding again)
         glot.frequency.setTargetAtTime(f, when, V.steps ? 0.012 : 0.05);
+        // the nucleus falls from its peak through the back of the vowel
+        if (fallTo && dur) glot.frequency.setTargetAtTime(pq(F0 * (phraseK[phraseIx] ?? 1) * fall * fallTo * hold * intrinsicF0(f1)), when + dur * 0.35, Math.max(0.03, dur * 0.3));
         micro = 1;
         // SPECTRAL TILT tracks effort. A voice raised in emphasis doesn't just get
         // louder and higher, it gets BRIGHTER — the folds close harder and the
@@ -4672,6 +4705,7 @@ return out;
       // POLYSYLLABIC SHORTENING — see sylFrom/sylScale above. A syllable gets shorter
       let wordScale = sylScale(sylFrom(phon, 0));
       let pendingStress = 0, pendingHeld = false, pendingLong = 0, prevNasal = false, prevP = null, prevCode = null;
+      let pendingNuc = null;   // the kind of nucleus ('+') the next vowel carries, read off the break that ends its phrase
       const holdK = shoutLine ? Math.min(D.hold, 1.4) : D.hold;   // a shout is already held
 
       // `opt.trace`: an array the caller passes to get each phoneme's scheduled start (s,
@@ -4681,9 +4715,10 @@ return out;
         const code = phon[i];
         if (code === '^') { pendingHeld = true; continue; }
         if (isLong(code)) { pendingLong = +code.slice(1) || 0; continue; }
+        if (code === '+') { let j = i + 1; while (j < phon.length && !isBreak(phon[j])) j++; pendingNuc = nucKind(phon[j]); continue; }
         if (isMark(code)) { pendingStress = code === '!' ? 2 : 1; continue; }
         const p = PH[code]; if (!p) continue;
-        if (trace) trace.push({ p: code, at: t - t0 });
+        if (trace) trace.push({ p: code, at: t - t0, ...(p.t === 'V' && pendingNuc ? { nuc: pendingNuc } : null), ...(p.t === 'V' && pendingStress ? { acc: pendingStress } : null) });
         const long = pendingLong; pendingLong = 0;
         const nxt = phAt(i+1);
         let nj = i + 1; while (isMark(phon[nj])) nj++;
@@ -4807,7 +4842,9 @@ return out;
           // would just get quieter, which is a dropout, not a whisper.
           aspG.gain.setTargetAtTime(devoiced ? ASP_H * 0.8 : (V.breath * TUNING.breath + D.breath) * BREATH_K * nat, t, 0.01);
           if (p.t === 'V') {
-            const fv = pitchAt(t, (t - phraseT0) / (phraseDur[phraseIx] || totalDur), stressed, f[0], nxtCode);
+            const nuc = pendingNuc; pendingNuc = null;
+            // (a held or drawn nucleus has its own shape below, so it skips the fall)
+            const fv = pitchAt(t, (t - phraseT0) / (phraseDur[phraseIx] || totalDur), stressed, f[0], nxtCode, nuc, held || drawn ? 0 : dur);
             // The held nucleus climbs through the vowel to its peak and only eases at the end:
             // the shape of "SCOOORES", where a plain accent is a step.
             if (held && D.e > 0.3 && !drawn) {
@@ -4981,7 +5018,14 @@ return out;
         } else if (p.t==='P') {
           // A terminal pause ends the phrase: the next one starts from the top of the
           // speaker's range again, which is what re-pitching after a full stop is.
-          if (isTerm(code)) { phraseIx++; phraseT0 = t + dur/speed; }
+          if (isTerm(code)) { phraseIx++; phraseT0 = t + dur/speed; declOff = 0; }
+          // A MINOR BREAK RE-PITCHES PART WAY. The speaker takes a little breath, not a
+          // new sentence: half of the declination so far is given back, where a full
+          // stop gives all of it back.
+          else if (p.minor) declOff += Math.max(0, (t - phraseT0) / (phraseDur[phraseIx] || totalDur) - declOff) * 0.5;
+          // every break ends an intermediate phrase: the next one has its own nucleus and
+          // starts its downstep from the top
+          if (code !== '_') { afterNuc = null; downN = 0; }
           pendingStress = 0;
           // A WORD BOUNDARY IS NOT A PAUSE. This zeroed the voice at every `_`, so
           // a 40ms hole opened between every single word in the line — which is the

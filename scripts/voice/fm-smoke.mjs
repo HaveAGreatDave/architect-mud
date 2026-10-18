@@ -694,7 +694,12 @@ function driveCurveOf(d) {
     const wv = waver('He SCOOOOOORES!!!', { excite: 1 }), wp = waver('He SCORES!', { excite: 1 });
     check('a drawn-out call wavers (vibrato on the hold)', wv >= 0.015 && wp < 0.015, `${(wv * 100).toFixed(1)}% vs ${(wp * 100).toFixed(1)}% of F0`);
     const sag = run('Noooooo.', { excite: -0.7 }), no = run('No.', { excite: -0.7 });
-    check('a drawn-out vowel in grief sags', Math.min(...sag.v) < Math.min(...no.v), `${Math.min(...sag.v).toFixed(0)} vs ${Math.min(...no.v).toFixed(0)} Hz`);
+    // (the vowel's own pitch: the last two targets are the line's terminal contour and its
+    // creak, the same floor on both lines. Until the nucleus fell, "No." scheduled too few
+    // points to be found at all and this passed against an empty list.)
+    const own = (r) => r.v.slice(0, -2);
+    check('a drawn-out vowel in grief sags', own(sag).length && own(no).length && Math.min(...own(sag)) < Math.min(...own(no)),
+      `${Math.min(...own(sag)).toFixed(0)} vs ${Math.min(...own(no)).toFixed(0)} Hz`);
   }
 
   // ── aspiration goes THROUGH the tract ─────────────────────────────────────
