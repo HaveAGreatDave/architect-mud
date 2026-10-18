@@ -147,8 +147,6 @@ export function shush() {
   try { window.AudioEngine?.cancelSpeech?.('ui'); } catch { /* no context yet */ }
 }
 
-export function logReaderActive() { return mode !== 'off'; }
-
 export function setLogReaderMode(next) {
   const want = next || 'off';
   // Natural mode with no speechSynthesis (rare, but it happens in embedded

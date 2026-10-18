@@ -31,8 +31,8 @@ import { applyThirst, drinkLoad } from '../../server/engine/bodily.js';
 import { slakeLine, portionLine } from '../../server/engine/appetite.js';
 import { query } from '../../server/models/db.js';
 import { on } from '../../server/engine/events.js';
+import { pick } from '../../server/engine/util.js';
 
-const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 // n distinct random draws (or the whole pool if it's smaller).
 function sample(arr, n) {
   const pool = [...arr];

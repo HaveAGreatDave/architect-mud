@@ -219,8 +219,6 @@ export function rebase(P, rel) {
   return out;
 }
 
-// Whether a foot is planted at `t`: inside one of the clip's plants.
-export const plantAt = (clip, S, t) => (clip.plants || []).find((p) => p.foot === S && t >= p.from - 1e-9 && t <= p.to + 1e-9) || null;
 // How firmly a foot is held at `t`: 1 through a plant, easing in over the plant's `ease` (PLANT_EASE
 // unless it says) before it and out over it after (less where the clip's end or the same foot's
 // next plant is nearer), so a foot glides onto and off its spot and the pelvis follows smoothly. A

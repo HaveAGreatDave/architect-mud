@@ -24,8 +24,6 @@ let _raf = 0;
 let _started = 0;
 let _answered = false;
 
-export function isReadWindowActive() { return !!_el; }
-
 const CSS = `
 .rw-wrap{position:fixed;left:50%;bottom:12rem;transform:translateX(-50%);z-index:60;
   display:flex;flex-direction:column;align-items:center;gap:.5rem;pointer-events:auto;

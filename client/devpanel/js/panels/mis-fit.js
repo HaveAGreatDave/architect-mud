@@ -290,6 +290,7 @@ async function misFitReveal({ silent = true } = {}) {
   item.textContent = '🔞 MIS Fit';
   item.onclick = () => showPanel('mis-fit');
   nav.insertAdjacentElement('afterend', item);
+  if (typeof navRefresh === 'function') navRefresh();
   sessionStorage.setItem('misFitUnlocked', '1');
   if (!silent) showPanel('mis-fit');
   return true;

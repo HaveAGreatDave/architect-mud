@@ -358,6 +358,7 @@ async function cmdHack(args, raw, player) {
     // ⚠ WHAT IS LEFT, never a per-game constant. See the header.
     seconds: left,
     resolveCmd: 'alarmresolve',
+    resultWords: { won: ['You talk the panel down before it starts shouting.', 'Disarmed.'], lost: ['The panel takes your code and keeps counting.', 'Still armed.'] },
   });
 }
 

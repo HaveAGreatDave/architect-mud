@@ -33,8 +33,6 @@ export function registerStrainContributor(fn, owner = 'unknown') {
   if (typeof fn === 'function') contributors.set(owner, fn);
 }
 
-export function getStrainContributors() { return [...contributors.keys()]; }
-
 /**
  * Fire a strain event. Sync, memory-only, safe to call from anywhere including
  * the combat hot path. Returns nothing — callers must never wait on this.

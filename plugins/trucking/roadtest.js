@@ -71,7 +71,6 @@ const STAGE_TOTAL = 5;
 // lesson rather than parking it, exactly as a dropped connection ends a checkride.
 const rides = new Map();
 export const hasRoadTest = (pid) => rides.has(pid);
-export const roadTestState = (pid) => rides.get(pid) || null;
 
 // ── THE LICENCE ───────────────────────────────────────────────────────────────
 // The gate on `drive`, and the mirror of flight's `isPilotLicensed` — same shape, same one flag,

@@ -190,13 +190,3 @@ const real = keys => keys.filter(k => METHODS[k]);
 export const methodsForProfile = profile => real(BY_PROFILE[profile] || []);
 export const methodsForVessel = kind => real(BY_VESSEL[kind] || []);
 
-// What the player could have typed instead. Printed dim under every method, and
-// it is the whole reason this doesn't just hide the system behind one more verb:
-// a player who boils pasta four times has read `fill` and `cook` four times and
-// knows the long way round without ever having been made to look it up.
-//
-// These are the real command strings, built from the real names, so a player can
-// copy any line out of the transcript and it will do the same thing.
-export function stepLine(step) {
-  return `<span class="text-dim">  ${step}</span>`;
-}

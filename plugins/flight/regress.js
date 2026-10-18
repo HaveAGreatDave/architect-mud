@@ -34,7 +34,7 @@ import { buyFromVendor } from '../../server/engine/vendor.js';
 
 const nowSec = () => Math.floor(Date.now() / 1000);
 import { prefersTextTravel, textTravelTick, TEXT_TRAVEL_FLAG } from './textmode.js';
-import { startTextPilot, stopTextPilot, textPilotTick, landingGrade, statusLines, panelPayload, cmdTextLand, _test as tpTest } from './textpilot.js';
+import { startTextPilot, stopTextPilot, textPilotTick, landingGrade, statusLines, panelPayload, logRungWarnings, cmdTextLand, _test as tpTest } from './textpilot.js';
 import { query } from '../../server/models/db.js';
 import { TYPES as FM_TYPES, SURFACES as FM_SURFACES, createState as fmCreate, step as fmStep } from '../../client/game/js/panels/flight-model.js';
 
@@ -1397,6 +1397,21 @@ async function regressBody({ run, check, getPlayer }) {
     check('the autopilot climbs toward a commanded altitude', tpLive.fmState.altitude > 200, `alt=${Math.round(tpLive.fmState.altitude)}`);
     check("the assist doesn't leave her parked in a stall", !tpLive.fmState.stalled);
     check('status reads out real instruments', /ALT/.test(statusLines(tpLive)) && /HDG/.test(statusLines(tpLive)));
+
+    // The log rung hears a warning when the trouble CHANGES, never every tick.
+    {
+      const logPilot = { id: 'regress-logpilot', displayRung: 'log' };
+      delete tpLive._logWarnKey;
+      logRungWarnings(tpLive, logPilot);
+      check('a log-rung pilot has the airframe state latched', /^(ok|buffet|stall)\|/.test(tpLive._logWarnKey || ''), tpLive._logWarnKey);
+      const now = tpLive._logWarnKey;
+      tpLive._logWarnKey = 'stall|';
+      logRungWarnings(tpLive, logPilot);
+      check('a change of state is picked up', tpLive._logWarnKey === now, `${tpLive._logWarnKey} vs ${now}`);
+      delete tpLive._logWarnKey;
+      logRungWarnings(tpLive, { id: 'regress-textpilot', displayRung: 'textgames' });
+      check('a textgames pilot gets the panel and no log warnings', tpLive._logWarnKey === undefined);
+    }
 
     // The live ASCII panel: every field the renderer reads must actually be present,
     // because a missing one draws as `undefined` in the middle of the instruments.

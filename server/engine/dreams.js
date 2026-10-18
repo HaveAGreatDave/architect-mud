@@ -31,8 +31,8 @@
  * and never queries anything.
  */
 import { gatherHook } from './plugins.js';
+import { pick } from './util.js';
 
-const pick = (a) => a[Math.floor(Math.random() * a.length)];
 const maybe = (p) => Math.random() < p;
 
 // ── Slots ────────────────────────────────────────────────────────────────────

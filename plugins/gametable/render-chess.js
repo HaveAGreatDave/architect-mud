@@ -18,8 +18,7 @@
 // the rule that the client never computes legality.
 
 import { toAlgebraic, fromAlgebraic, generateMoves, typeOf, colorOf, PIECE_NAMES } from './games/chess.js';
-
-const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+import { escapeHtml as esc } from '../../server/engine/html.js';
 
 // Solid glyphs for both armies. Colour, not shape, tells the sides apart — an
 // outline set reads as "missing" against a dark board, and at this tilt the

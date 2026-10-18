@@ -252,6 +252,8 @@ export function installGL(hostFor) {
       // compiled ceiling — which is not "nothing happens", it is the OPPOSITE of nothing: every
       // frame runs the full thirty-two slots and the knob that exists to hold that down does not.
       glLightSlots: opts.glLightSlots,
+      // The light grid (gl/lightgrid.js). Dropped here, the road silently stays on its six.
+      glCluster: opts.glCluster,
       // ⚠ AND THIS ONE. It fails in the quietest way on the whole list: the near plane falls back
       // to the fixed 0.06 for every seat, which is the picture that already ships, so the tune key
       // exists, the slider moves, `gl:nearfit` passes against `nearFor` in isolation, and a camera

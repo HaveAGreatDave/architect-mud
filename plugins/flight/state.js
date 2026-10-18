@@ -65,7 +65,6 @@ export const GUN_COOLDOWN_MS = 550;  // min ms between bursts (server-enforced)
 // spent per sortie and rearmed free on parking at a field (guns stay infinite).
 export const MISSILE_RANGE = 8;           // client seeker range (tiles)
 export const MISSILE_RANGE_GATE = 9.5;    // server range gate (lenient for lag)
-export const MISSILE_CONE = 25;           // client seeker half-cone (deg off the nose)
 export const LOCK_TIME_MS = 2500;         // client hold-to-lock time
 export const MISSILE_FLIGHT_MS = 4000;    // launch → impact resolution window
 export const MISSILE_PK = 0.7;            // base kill probability of a clean shot

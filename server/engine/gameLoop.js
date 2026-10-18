@@ -26,6 +26,7 @@ import { carryCapacity } from './commands/inventory.js';
 import { flushDirtyPositions } from './commands/movement.js';
 import { flushAllRelations } from './relations.js';
 import { flushAllWear } from './durability.js';
+import { flushAllSkillIp } from './ip.js';
 import { flushAllMutations } from './mutations.js';
 import { effectiveStat, fatigueOf, fatigueLabel, FATIGUE_RUINED, adjustSanity } from './condition.js';
 import { query, logActivity } from '../models/db.js';
@@ -96,6 +97,7 @@ export function startGameLoop(broadcast) {
   schedule('15s', npcWanderTick);
   schedule('1m', flushDirtyPositions); // checkpoint moved players' current_zone/stamina in one batched write
   schedule('1m', flushAllRelations);   // coalesced upsert of who's met whom (engine/relations.js); logout flushes again
+  schedule('1m', flushAllSkillIp);     // coalesced skill-IP upsert (engine/ip.js); awardIp bumps RAM on the swing path, logout flushes again
   schedule('1m', flushAllWear);        // coalesced gear-condition write (engine/durability.js) — wear accrues in memory on the swing path
   schedule('1m', flushAllMutations);   // coalesced expression write (engine/mutations.js); logout flushes again
 
@@ -1973,7 +1975,7 @@ async function resourceTick() {
     const rows = [], params = [];
     players.forEach((p, i) => {
       const b = i * 8;
-      rows.push(`(${b + 1}::text, ${b + 2}::int, ${b + 3}::int, ${b + 4}::int, ${b + 5}::int, ${b + 6}::real, ${b + 7}::int, ${b + 8}::bigint)`);
+      rows.push(`($${b + 1}::text, $${b + 2}::int, $${b + 3}::int, $${b + 4}::int, $${b + 5}::int, $${b + 6}::real, $${b + 7}::int, $${b + 8}::bigint)`);
       // last_slept_at only for a sleeper. A stimulant also moves it on a waking player,
       // but its fatigue debt lives in RAM only, and saving the relief without the debt
       // would let a relog keep one and drop the other.

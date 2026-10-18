@@ -362,7 +362,8 @@ export function getPluginDevPanels() {
       return true;
     });
     if (!clean.length) continue;
-    out.push({ plugin: p.dirName || p.name, id: d.id, nav: d.nav || d.id, scripts: clean, navAlias: d.navAlias || null });
+    out.push({ plugin: p.dirName || p.name, id: d.id, nav: d.nav || d.id, scripts: clean, navAlias: d.navAlias || null,
+      navGroup: typeof d.navGroup === 'string' ? d.navGroup : null });
   }
   return out;
 }
@@ -374,4 +375,3 @@ export function getRegisteredHooks() {
   return result;
 }
 export function getRegisteredCommands() { return [...commands.keys()]; }
-export function getRegisteredRoutes() { return routeHandlers.map(r => r.prefix); }

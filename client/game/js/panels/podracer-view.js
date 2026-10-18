@@ -18,7 +18,7 @@
 import { paintWindshield, windshieldHTML, ensureWindshieldStyles, disposeWindshield, lastViewState, interiorHotspots, ROAD_RIG_MUL } from './windshield.js';
 import { EYE_M } from '../../../shared/interior-shell.js';
 import { updateEngineAudio, stopEngineAudio, spoolUp, spoolDown, hitFx, groundFx } from './engine-audio.js';
-import { PODRACER_TYPES, CRANK_S, createPodracerState, stepPodracer, placePodracer, shiftPodracerOrigin, podracerPose, podracerParts, tornBinder, mendBinder } from './podracer-model.js';
+import { PODRACER_TYPES, CRANK_S, createPodracerState, stepPodracer, placePodracer, shiftPodracerOrigin, podracerPose, podracerParts, podracerBurn, tornBinder, mendBinder } from './podracer-model.js';
 import { claimSeatKeyboard, endSeatKeyboard } from './seat-keys.js';
 import { ensureDepotStyles, jobsHtml, meterHtml, money } from './depot-shell.js';
 import { makeContactTrack } from './world-feed.js';
@@ -385,7 +385,7 @@ function frame(now) {
     const input = readInput(dt);
     st.dockToggle = false;
     if (st.fuel <= 0) { st.lever = [0, 0]; input.left = input.right = 0; }
-    else if (st.sim.running) st.fuel = Math.max(0, st.fuel - (0.0005 + 0.0045 * (st.sim.pedal[0] + st.sim.pedal[1]) / 2) * (st.p.burn ?? 1) * dt);
+    else st.fuel = Math.max(0, st.fuel - podracerBurn(st.sim, st.p, dt));
     stepPodracer(st.sim, input, st.p, dt);
     // The petals open in a quarter of a second and fold away a little slower.
     st.brakeAnim = clamp((st.brakeAnim || 0) + (input.brake || input.reverse ? dt / 0.25 : -dt / 0.4), 0, 1);

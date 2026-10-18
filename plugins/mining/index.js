@@ -28,6 +28,7 @@ import { on, emit } from '../../server/engine/events.js';
 import { setPosture, forceStand } from '../../server/engine/posture.js';
 import { escAttr } from '../../server/engine/text.js';
 import { loadZoneStock } from '../../server/engine/zone-stock.js';
+import { pick } from '../../server/engine/util.js';
 
 const ATTEMPT_MS = 3800;   // per-swing cadence — a touch slower than scavenging; stone is stubborn
 const MAX_SWING = 14;      // best possible 2d8-2d8 roll — reachability ceiling
@@ -47,7 +48,6 @@ const DEFAULT_BROADCAST = [
   'sets to work on the rock face, mining for anything worth hauling out.',
 ];
 
-function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 function roll2d8() { return Math.floor(Math.random() * 8) + 1 + Math.floor(Math.random() * 8) + 1; }
 function nowSec() { return Math.floor(Date.now() / 1000); }
 

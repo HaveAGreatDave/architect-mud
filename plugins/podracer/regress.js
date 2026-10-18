@@ -5,8 +5,11 @@
 // (`checkSync`) and the verbs' refusals, which write nothing.
 
 import { PODRACER_TYPES, createPodracerState, stepPodracer, podracerParts, placePodracer, breakBinder, tornBinder, mendBinder, toggleDock } from '../../client/game/js/panels/podracer-model.js';
-import { _test as seat } from './seat.js';
-import { _test as idx, rigs } from './index.js';
+import { _test as seat, mountRacer, dropSeat } from './seat.js';
+import { _test as idx, rigs, seated } from './index.js';
+import { _test as text, cmdPod } from './texthelm.js';
+import { displayRung, setDisplayRung, DISPLAY_MODE_FLAG } from '../../server/engine/presentation.js';
+import { setFlag } from '../../server/engine/flags.js';
 import { getZone } from '../../server/engine/world.js';
 import * as lot from './lot.js';
 
@@ -291,6 +294,120 @@ export default async function regress({ run, check, getPlayer }) {
     const near = idx.racerContactsNear(1024, 957, 26);
     check('a running racer is published as a contact', near.some((c) => c.id === 'pod_regress_pod' && c.cls === 'podracer' && c.podracer?.binder && c.podracer.L.dy < 0));
     rigs.delete('regress_pod');
+  }
+
+  // ── The text helm ───────────────────────────────────────────────────────────
+  //
+  // The textgames and log rungs drive the same model by `pod` orders (texthelm.js). Driven here on an
+  // open flat (`ground`), so the numbers are the model's and not whatever stands south of the shed.
+  {
+    const row = { id: 'regress_text_pod', type_id: 'podracer', condition: 1, fuel: 1, custom_data: {} };
+    const flat = { solid: () => false, surface: () => 'redrock' };
+    const who = { id: 'regress_text_pod_driver' };
+    const order = (r, words) => { text.runs.set(who.id, r); return cmdPod(words.split(' ').slice(1), words, who); };
+    const go = (r, secs) => { const ev = []; for (let t = 0; t < secs; t += 1) ev.push(...text.stepRun(r, Math.min(1, secs - t))); return ev; };
+    const fwdOf = (s) => (s.pod.vx * Math.sin(s.pod.a) - s.pod.vy * Math.cos(s.pod.a)) * p.tileMph;
+    try {
+      const r = text.makeRun(row, { x: 0, y: 0, heading: 0 }, { ground: flat });
+      check('a text racer comes out cold and docked', !r.s.running && r.s.mode === 'docked');
+      const cold = await order(r, 'pod full');
+      check('pod full with the turbines cold says to start them', cold?.type === 'error' && /pod start/.test(cold.message));
+      await order(r, 'pod start');
+      const lit = go(r, 2);
+      check('pod start cranks and lights the turbines', r.s.running && lit.includes('started'));
+      await order(r, 'pod full');
+      go(r, 15);
+      check('pod full, docked, tops out where the seat does', r.s.speed > 120 && r.s.speed < 175, r.s.speed.toFixed(0) + ' mph');
+      check('…burning fuel through the shared burn', r.fuel < 1 && r.fuel > 0.9, r.fuel.toFixed(3));
+      await order(r, 'pod launch');
+      go(r, 20);
+      check('pod launch runs it on to the type\'s top speed', r.s.mode === 'launched' && Math.abs(r.s.speed - p.topSpeed) < p.topSpeed * 0.05,
+        r.s.speed.toFixed(0) + ' of ' + p.topSpeed);
+      // A heading: flown to through the vanes and held, not swung through.
+      await order(r, 'pod 90');
+      let most = 0;
+      for (let t = 0; t < 8; t++) {
+        text.stepRun(r, 1);
+        const h = Math.atan2(Math.sin(r.s.eng[0].a) + Math.sin(r.s.eng[1].a), Math.cos(r.s.eng[0].a) + Math.cos(r.s.eng[1].a)) * 180 / Math.PI;
+        most = Math.max(most, h);
+      }
+      const h = ((Math.atan2(Math.sin(r.s.eng[0].a) + Math.sin(r.s.eng[1].a), Math.cos(r.s.eng[0].a) + Math.cos(r.s.eng[1].a)) * 180 / Math.PI) + 360) % 360;
+      check('pod 90 comes round onto 90 and holds it', Math.abs(h - 90) < 4 && r.s.binder && r.s.cable.every((c) => c.ok), h.toFixed(1));
+      check('…without swinging far through it', most < 100, most.toFixed(1));
+      check('pod west is a heading too', (await order(r, 'pod west'))?.type === 'emote' && r.want.bearing === 270);
+      await order(r, 'pod 90');
+      // The slide, armed for one turn: let go when the turn is done, and the whip fires.
+      await order(r, 'pod slide');
+      await order(r, 'pod right 90');
+      const slid = go(r, 5);
+      check('pod slide hangs it out through the next turn and whips it back', slid.some((e) => e?.type === 'whip') && !r.want.slide);
+      await order(r, 'pod brake');
+      go(r, 40);
+      check('pod brake brings it to a stop and lets go', r.s.speed < 2.5 && !r.want.brake, r.s.speed.toFixed(1));
+      await order(r, 'pod reverse');
+      go(r, 4);
+      check('pod reverse backs it up from a standstill', fwdOf(r.s) < -3 && fwdOf(r.s) > -p.revMph - 2, fwdOf(r.s).toFixed(1));
+      check('the status line reads the dials', /mph/.test(text.statusLine(r)) && /fuel \d+%/.test(text.statusLine(r)));
+      check('a nonsense order is refused with the orders', (await order(r, 'pod frobnicate'))?.type === 'error');
+      const killed = await order(r, 'pod kill');
+      check('pod kill shuts the turbines down', !r.s.running && killed?.type === 'emote');
+
+      // Dry: the levers go dead, as on the seat.
+      const d = text.makeRun(row, { x: 0, y: 0, heading: 0 }, { ground: flat });
+      await order(d, 'pod start'); go(d, 2); await order(d, 'pod full');
+      d.fuel = 0.0005;
+      go(d, 5);
+      check('a text racer that runs dry loses its levers', d.fuel === 0 && d.s.lever.every((l) => l === 0));
+
+      // A wall at full stretch: the same tear, and the run stops stepping at it for the seat's breakdown.
+      const w = text.makeRun(row, { x: 0, y: 0, heading: 0 }, { ground: { solid: (x, y) => y < -12, surface: () => 'redrock' } });
+      await order(w, 'pod start'); go(w, 2); await order(w, 'pod full'); await order(w, 'pod launch');
+      const hit = go(w, 20);
+      check('driven by text into a wall flat out, the binder tears', hit.includes('binder') && !w.s.binder);
+
+      // The real ground: the rule is the seat's map window's.
+      check('the open waste beyond every region is solid', text.solidAt(-5000, -5000));
+      const bay = getZone('zone_racerbay_deadleg');
+      const door = getZone(bay?.flags?.world_exit_zone);
+      check('the shed\'s bay door is not solid to a racer', door && !text.solidAt(door.grid_x, door.grid_y));
+      const out = text.makeRun(row, { x: door?.grid_x, y: door?.grid_y, heading: 180 });
+      check('pod look names the way to the shed door', /shed door/.test(text.lookLine(out)), text.lookLine(out).slice(0, 120));
+    } finally { text.runs.delete(who.id); }
+  }
+  {
+    // Seated at a text rung: the seat starts a text run rather than refusing, and is a contact.
+    const pl = getPlayer();
+    const saved = await displayRung(pl);
+    const row = { id: 'regress_text_pod_row', type_id: 'podracer', owner_id: pl.id, park_zone: 'zone_racerbay_deadleg', condition: 1, fuel: 1, custom_data: {} };
+    try {
+      const none = await run('pod');
+      check('pod outside a racer says how to get in one', none?.type === 'error' && /podracer/.test(none.message));
+      await setDisplayRung(pl, 'log');
+      const m = await mountRacer(pl, row);
+      check('a log-rung player is seated, not refused', m?.type === 'emote' && /pod start/.test(m.message) && text.runs.has(pl.id), m?.message?.slice(0, 80));
+      check('…on the log rung\'s pace', text.runs.get(pl.id)?.rung === 'log');
+      const rg = rigs.get(pl.id);
+      check('…and the text racer is published like any other', !!rg && idx.racerContactsNear(rg.x, rg.y, 5).some((c) => c.id === 'pod_' + pl.id));
+      const st = await run('pod start');
+      check('pod start answers from the seat', st?.type === 'emote', st?.message?.slice(0, 80));
+      // The real tick, with its narration: two seconds of it light the turbines in the shed door.
+      text.runs.get(pl.id).last -= 2000;
+      await text.tick();
+      check('the tick runs the seated text racer on', text.runs.get(pl.id)?.s.running === true && rigs.get(pl.id)?.at > 0);
+      const look = await run('pod look');
+      check('pod look answers from the shed door', /shed door/.test(look?.message || ''), look?.message?.slice(0, 80));
+      await setDisplayRung(pl, 'textgames');
+      await dropSeat(pl.id);
+      check('dropping the seat ends the text run', !text.runs.has(pl.id) && !rigs.has(pl.id));
+      const m2 = await mountRacer(pl, row);
+      check('a textgames player is seated on the textgames pace', m2?.type === 'emote' && text.runs.get(pl.id)?.rung === 'textgames');
+      await run('pod park');
+      check('pod park climbs out and ends the run', !text.runs.has(pl.id) && !seated.has(pl.id));
+    } finally {
+      await dropSeat(pl.id);
+      if (saved) await setDisplayRung(pl, saved);
+      else { await setFlag('player', DISPLAY_MODE_FLAG, '', pl).catch(() => {}); pl.displayRung = undefined; }
+    }
   }
 
   // ── The verbs ───────────────────────────────────────────────────────────────

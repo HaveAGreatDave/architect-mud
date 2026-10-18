@@ -608,12 +608,6 @@ export function isSeaRunning() { return running; }
 // the weather. This is the audio twin of RENDER_TUNE.glSeaState and it takes the same units.
 export function setSeaWindOverride(kt) { seaForced = kt == null ? -1 : kt; }
 
-// For the gate and the dev panel: everything the sea is doing, in one object.
-export function seaAudioState() {
-  const s = seaNow();
-  return { ...s, running, bed: !!bed, forced: seaForced, rollHz: ROLL_HZ, windHz: WIND_HZ };
-}
-
 // The test seam. Nothing in the game calls this; the smoke gate drives the scheduler a step at a
 // time so it can assert what was SCHEDULED without waiting out a 20-second swell in real time.
 export const _test = {

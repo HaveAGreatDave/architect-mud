@@ -37,7 +37,7 @@
 // Pure: a session and a time in, a number out. No DB, no player, no clock of its
 // own. Everything below is asserted by regress.
 import { BOIL_FULL_MS, BOIL_WARN_AT, WATER_LINES } from './config.js';
-import { apparentNow, levelOfTier, sessionRate, MAX_LEVEL } from './heat.js';
+import { apparentNow, levelOfTier, sessionRate } from './heat.js';
 
 // The marks, as [{ from, to, level }] spans from when the water went in to
 // `until`. Deliberately NOT `heatSpans` from quality.js: that one clamps to the
@@ -131,4 +131,3 @@ export function waterText(fraction) {
 // For the suite, and for anybody sanity-checking the tuning: how long a full pot
 // lasts at each position, in seconds.
 export const dryOutSeconds = level => (level <= 0 ? Infinity : Math.round(BOIL_FULL_MS / level / 1000));
-export const _levels = () => Array.from({ length: MAX_LEVEL + 1 }, (_, n) => n);

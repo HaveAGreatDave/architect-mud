@@ -17,6 +17,7 @@
 import { on } from '../../server/engine/events.js';
 import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
 import { drainZonePower, recomputePower } from '../../server/engine/environment.js';
+import { pick } from '../../server/engine/util.js';
 
 // The drug districts — grounds the ambient beats below. (Formerly the turf
 // board; the factions no longer contest these — they're just the map of where
@@ -34,7 +35,6 @@ export function isDrugWarZone(zoneId) { return DRUGWAR_ZONE_SET.has(zoneId); }
 // Ambient, diegetic, never part of any tutorial. All off the event bus, all
 // cheap and hard-gated so they read as texture, not spam.
 
-const pick = (a) => a[Math.floor(Math.random() * a.length)];
 const ambient = (msg) => ({ type: 'output', message: `<span class="msg-ambient">${msg}</span>` });
 
 // "Police don't save you" (near spawn) and "The machine is watching" (the drug

@@ -1659,10 +1659,7 @@ export async function describeZone(zone, player, out = {}) {
 				turretCooldowns.set(player.id, Date.now());
 				const dmg = Math.floor(Math.random() * 8) + 6;
 				player.hp = Math.max(1, player.hp - dmg);
-				await query("UPDATE players SET hp=$1 WHERE id=$2", [
-					player.hp,
-					player.id,
-				]);
+				player._resDirty = true; // flushDirtyResources persists it within a second
 				desc += `\n<span class="death-message">The turret fires. -${dmg} HP. (${player.hp}/${player.hp_max})</span>`;
 			}
 		}

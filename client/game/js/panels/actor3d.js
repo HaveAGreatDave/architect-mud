@@ -57,7 +57,6 @@ const BONES = [
   ['toeL', 13, [0, -0.06, 0.095]],
   ['toeR', 16, [0, -0.06, 0.095]],
 ];
-export const ACTOR_BONES = BONES.length;
 const B = {};
 BONES.forEach((b, i) => { B[b[0]] = i; });
 const REST = [];
@@ -457,8 +456,6 @@ const CLIPS = [
   { name: 'smoke', frames: 36, dur: 9.0, fn: smokePose },
 ];
 export const ACTOR_CLIPS = CLIPS.map(({ name, frames, dur }) => ({ name, frames, dur }));
-export const actorClipPose = (name, p) => CLIPS.find((c) => c.name === name).fn(p);
-export const actorFK = fk;
 export const ACTOR_BONE = B;
 
 // ── Root motion. The clip plays in place and the instance moves at a constant speed, so for the

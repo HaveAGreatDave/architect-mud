@@ -45,7 +45,7 @@
  * column here — the moment resonance persists, "rest to recover" stops being a
  * decision and becomes a countdown.
  */
-import { effectiveSkill, skillCheck } from './skills.js';
+import { skillCheck } from './skills.js';
 import {
   RANKS, rankIndex, rankAtLeast, getPsiAbility, abilityApplies,
   CHOOSE_FOCUS_AT, SECOND_FOCUS_AT,
@@ -300,8 +300,6 @@ export function signatureAt(zoneId) {
   return out;
 }
 
-export function clearSignatures(zoneId) { signatures.delete(zoneId); }
-
 // ── Gates ────────────────────────────────────────────────────────────────────
 
 /**
@@ -359,13 +357,6 @@ export function abilityRefusal(player, abilityId, targetKind = null) {
   }
 
   return null;
-}
-
-/** Gate 3: the skill floor, checked separately so callers can report it. */
-export async function meetsSkillFloor(player, abilityId) {
-  const ability = getPsiAbility(abilityId);
-  if (!ability || !ability.minSkill) return true;
-  return (await effectiveSkill(player, 'psionics')) >= ability.minSkill;
 }
 
 /** What this ability actually costs this player, focus multipliers applied. */

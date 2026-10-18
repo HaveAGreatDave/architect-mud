@@ -1002,7 +1002,6 @@ try {
   mmCanvas = localStorage.getItem('mm_canvas') !== '0'
     && (loadSettings().minimapRender || 'smooth') === 'smooth';
 } catch {}
-export function isCanvasMinimap() { return mmCanvas; }
 
 /** Settings hook (window._applyMinimapRender, registered in main.js). Re-renders
  *  the cached payload so the pill takes effect without waiting for a move. */

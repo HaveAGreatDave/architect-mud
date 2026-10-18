@@ -111,9 +111,14 @@ async function loadPluginPanels() {
       row.dataset.panel = p.navAlias || p.id;
       row.textContent = p.nav;
       row.onclick = () => showPanel(p.id);
-      nav.appendChild(row);
+      // devPanel.navGroup names one of the sidebar groups (.nav-group[data-group]
+      // in index.html); unnamed or unknown, the row lands in #nav-plugin-panels.
+      const group = p.navGroup
+        && document.querySelector(`.nav-group[data-group="${CSS.escape(p.navGroup)}"] .nav-group-body`);
+      (group || nav).appendChild(row);
     }
   }
+  if (typeof navRefresh === 'function') navRefresh();
   // Sequential, not Promise.all: a panel may reasonably depend on one registered
   // by a plugin it declares `after` in its manifest, and the server hands them
   // back in that same load order.

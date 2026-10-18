@@ -40,6 +40,7 @@
 // gracefully for a solo placement.
 
 import { EXTRA } from './archetypes-extra.js';
+import { cap } from '../../server/engine/util.js';
 
 // ── Pronouns ──────────────────────────────────────────────────────────────────
 const PRONOUNS = {
@@ -50,8 +51,6 @@ const PRONOUNS = {
 export function pronounsFor(sex) {
   return PRONOUNS[sex === 'male' ? 'male' : 'female'];
 }
-
-const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 
 // Resolve every pronoun token in a line for a given consort. Safe on lines that
 // carry no tokens at all (the common case for pure-action emotes).
@@ -1544,4 +1543,3 @@ export const PAIRINGS = {
   },
 };
 
-export function pairingOf(key) { return PAIRINGS[key] || null; }

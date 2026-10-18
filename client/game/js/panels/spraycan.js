@@ -26,7 +26,7 @@
 import { sendCmdSilent } from '../net.js';
 import { mountOverlay } from './minigame-common.js';
 import { openColorPicker, closeColorPicker } from './color-picker.js';
-import { tagPreview } from './windshield.js';
+import { tagPreview } from './tag-bake.js';   // a leaf: the preview without fetching GLASS
 import { TAG_FACES } from '../../../shared/tag-strokes.js';
 
 const F_BOLD = 1, F_ITALIC = 2, F_UNDER = 4, F_STRIKE = 8;

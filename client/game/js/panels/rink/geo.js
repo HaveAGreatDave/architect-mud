@@ -10,7 +10,6 @@ export const BOARD_H = 3.5, GLASS_H = 8.5;
 export const GOAL_X = [11, 189];                   // goal lines
 export const BLUE_X = [75, 125];
 export const NET_HALF = 3, NET_DEPTH = 3.3, NET_H = 4;
-export const CREASE_R = 6;
 export const MID_Y = RW / 2;
 
 // The away club defends the low end and attacks the high one, every period. That is how

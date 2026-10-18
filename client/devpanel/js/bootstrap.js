@@ -32,11 +32,6 @@ if (window.OPS_MODE) {
     n.insertAdjacentHTML('beforeend', OPS_LOCK_SVG);
     n.title = 'Read-only on production — look all you like; edit locally and deploy';
   });
-  // "World" keeps its live-world ops (Crime/Flight/Power/Bank); with the content
-  // panels only viewable under it, the plain label would oversell what it does.
-  nav.querySelectorAll('.nav-section').forEach(s => {
-    if (s.textContent.trim() === 'World') s.textContent = 'Live World';
-  });
   nav.insertAdjacentHTML('afterbegin',
     '<label id="ops-ro-toggle" title="Show the panels that are read-only on production">'
     + '<input type="checkbox" id="ops-ro-checkbox" onchange="setOpsShowReadonly(this.checked)"> show read-only ' + OPS_LOCK_SVG + '</label>');
@@ -50,20 +45,13 @@ function setOpsShowReadonly(show) {
   applyOpsReadonlyVisibility(show);
 }
 
-// Hiding the read-only entries would leave section headers standing over nothing,
-// so a section goes with the last visible item under it.
+// Hiding the read-only entries would leave group headers standing over nothing;
+// navRefresh (core/nav-groups.js) hides a group once nothing in it shows.
 function applyOpsReadonlyVisibility(show) {
   const nav = document.getElementById('nav');
   if (!nav) return;
   nav.querySelectorAll('.nav-item[data-ops-ro]').forEach(n => { n.style.display = show ? '' : 'none'; });
-  nav.querySelectorAll('.nav-section').forEach(s => {
-    let sib = s.nextElementSibling, any = false;
-    while (sib && !sib.classList.contains('nav-section')) {
-      if (sib.classList.contains('nav-item') && sib.style.display !== 'none') { any = true; break; }
-      sib = sib.nextElementSibling;
-    }
-    s.style.display = any ? '' : 'none';
-  });
+  if (typeof navRefresh === 'function') navRefresh();
 }
 
 // ── Boot splash ─────────────────────────────────────────────────────────────

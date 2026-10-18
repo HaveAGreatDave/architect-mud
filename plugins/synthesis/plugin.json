@@ -6,6 +6,6 @@
   "commands": ["synthesize", "synthresolve", "splice", "splicepreview", "splicebegin", "spliceresolve", "unseal", "reclaim", "cooktest", "splicetest"],
   "objectGatedCommands": {
     "synthesize": { "discoverVia": "furniture:flags.crafting_station", "exposed": false, "note": "The unambiguous drug-cooking verb. `cook` is owned by plugins/cooking and routes here via the `synthesis.cook` Action when the room/argument point at a chem lab; this is the escape hatch that always means drugs. The hub surfaces the 'cook' verb only." },
-    "splice":     { "discoverVia": "furniture:flags.crafting_station=chem_lab", "exposed": false, "note": "Master tier; requires a real chem-lab furniture + >=2 drug items + a Stabilizer. Not a specializedAction — surfaced as an action-link on chem-lab examine (furniture.describe hub) only once your Chemistry is high enough to splice." }
+    "splice":     { "discoverVia": "furniture:flags.crafting_station=chem_lab", "exposed": false, "note": "Master tier; requires a real chem-lab furniture + >=2 drug items + a Stabilizer. Not a specializedAction — surfaced as an action-link on chem-lab examine (furniture.describe hub) only once your Chemistry is high enough to splice. Typed designer subcommands (add/remove/qty/name/clear/show/preview/begin) ride on this verb; none is a verb of its own." }
   }
 }

@@ -36,6 +36,7 @@ import { conditionReport } from '../condition.js';
 import { acuityFor, perceptionBand, perceive, acuityNote, wouldOverload, EXTREME, OVERLOAD_STATUS, overloadText, SENSES, DOMINANT_FLAG, SECOND_FLAG } from '../senses.js';
 import { creatureFilthSmells, bodyOdourSelf } from '../hygiene.js';
 import { getMutations } from '../mutations.js';
+import { cap, withArticle } from '../util.js';
 
 // Naked body descriptions shown when every clothing layer is peeled. Split by sex
 // and gated by the viewer's MIS opt-in: MIS-off gets a plain "they're naked" line,
@@ -273,12 +274,6 @@ function renderSkillsText(groups) {
 }
 
 const BODY_SLOTS = ['head','torso','hands','legs','feet'];
-// Returns name (verbatim casing) preceded by "a"/"an" unless the last word is plural (ends in s, not ss).
-function withArticle(name) {
-  const lastWord = name.trim().split(/\s+/).pop();
-  if (/s$/i.test(lastWord) && !/ss$/i.test(lastWord)) return name;
-  return (/^[aeiou]/i.test(name) ? 'an ' : 'a ') + name;
-}
 
 const STAIN_DESCS = {
   blood: {
@@ -511,8 +506,6 @@ async function describePlayerAppearance(target, isSelf, viewer = null, broadcast
     if (!namedUsed) { namedUsed = true; return `${handle} ${nameVerb}`; }
     return theyVerb;
   }
-
-  const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
 
   if (bodyPieces.length) {
     sentences.push(cap(`${subject('is wearing', "they're wearing", "you're wearing")} ${bodyPieces.join(', ')}.`));

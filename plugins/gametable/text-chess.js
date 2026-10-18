@@ -203,13 +203,6 @@ export function narrateResult(table, line) {
   }
 }
 
-// The legal moves for the piece on a square — the text answer to "which squares
-// are glowing?", which is the one thing the pane gives away for free.
-export function narrateMoves(table, playerId, moves, from) {
-  if (!moves.length) return;
-  sendToPlayer(playerId, { type: 'output', message: movesLine(moves, from) });
-}
-
 // A destination list with the captures marked — the pane draws a dot for an
 // empty square and a ring for an occupied one, because "go here" and "take that"
 // are different decisions. Same two marks, in words.

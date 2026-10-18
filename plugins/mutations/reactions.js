@@ -33,6 +33,7 @@ import { on, emit } from '../../server/engine/events.js';
 import { visibilityOf } from '../../server/engine/mutations.js';
 import { getZone, getZoneNpcs, regionForZone } from '../../server/engine/world.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
+import { pick } from '../../server/engine/util.js';
 
 // Where a changed body is unremarkable. Region ids, because this is about a
 // culture rather than about a room.
@@ -85,8 +86,6 @@ const REPORT = [
   (n) => `${n} leaves. Not quickly, and not away from you so much as toward a telephone.`,
   (n) => `Somebody has gone for somebody. You didn't see who, and that's worse.`,
 ];
-
-const pick = (pool) => pool[Math.floor(Math.random() * pool.length)];
 
 /**
  * Which rungs a given visibility gets to use, and how many lines fire.
@@ -176,4 +175,3 @@ on('zone.entered', ({ actor: player, zone: zoneId }) => {
   if (reported) emit('mutation.reported', { player, zoneId, visibility });
 });
 
-export function _resetReactionCooldowns() { seen.clear(); }

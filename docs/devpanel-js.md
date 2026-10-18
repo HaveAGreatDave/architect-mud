@@ -35,8 +35,24 @@ The shared list/edit lifecycle that every panel rides on:
 The central dispatch table and panel lifecycle. **Must load after all `panels/*` and `ui/*` files** because the `PANELS` object literal evaluates function references at construction time.
 
 - **`PANELS`** — one entry per nav section (dashboard, zones, maps, world, power, enemies, items, npcs, furniture, recipes, scavenging, scripts, quests, vine, mutations, drugs, sounds, audio, bank, emergency, broadcasts, tags, worldstate, timeweather, players, validator, changes, aliases, devlog, gossip, flight, games, jobBoards). Each entry declares `title`, `fetch`, optional `description`, `columns`, `editForm`, `save`, `delete`, `noEdit`, `filter`, and `render`.
-- `activatePanelNav(name)` — highlights the active nav item.
+- `activatePanelNav(name)` — highlights the active nav item, then calls `navRefresh()` so the group holding it unfolds.
 - `showPanel(name)` / `loadPanel(name)` — fetch data, call the panel's render function, wire up the toolbar.
+
+### `nav-groups.js`
+The sidebar's folding groups and its jump-to filter. Loads after `panels.js`. The nav is
+Dashboard and Dev Log, the `#nav-filter` box, then six `.nav-group[data-group]` blocks in
+`index.html`: `live`, `map`, `content`, `scripting`, `media`, `server`.
+
+- A group is open when you opened it, or when it holds the panel on screen and you haven't
+  folded it. Only your clicks are stored (`localStorage` `devpanel-nav-groups`), so opening
+  a panel doesn't leave its group open for good.
+- The filter matches each row's label, its `data-panel` key and its group's name, word by
+  word. Enter opens the first match, Esc clears, Ctrl+K (Cmd+K) focuses it from anywhere and
+  opens the drawer on a phone.
+- **`navRefresh()`** recounts every group, hides one with nothing visible in it (ops mode's
+  read-only rows), and reapplies the folds and the filter. Anything that adds, hides or
+  activates a row calls it: `activatePanelNav`, `applyOpsReadonlyVisibility`,
+  `loadPluginPanels`, `misFitReveal`. A new row added from code needs the same call.
 
 ### `plugin-panels.js`
 **Dev-panel UI registration** — the seam that lets a plugin bring its own tab instead of
@@ -59,7 +75,7 @@ run against that intermediate state produced three failures that read as flakes 
   Incidents catalogue, and that was only caught because this seam's first user is a list.
 - **`loadPluginPanels()`** — boot step (called from `bootstrap.js` on `DOMContentLoaded`,
   deliberately not on the auth path). Reads `/dev/plugin-panels.json`, appends each nav row
-  into `#nav-plugin-panels`, then loads each declared script **sequentially in manifest
+  into the group its `navGroup` names (or `#nav-plugin-panels`, in Live World), then loads each declared script **sequentially in manifest
   order** — these are classic scripts sharing one global scope, so a panel registering with
   a helper from a sibling file needs that sibling to have run. Failure is quiet and total: a
   panel that will not load costs its tab and nothing else, because the builder is what you
@@ -346,7 +362,6 @@ The Rack: a Guitar Rig-style patch editor for SIREN cues, as the Audio tab's Rac
 - **Looks**: `RACK_SKINS` gives each unit an invented maker, model, finish and knob style. `RACK_DECO` adds the valves (their glow follows the output level), grilles, louvres and toggles. POWER toggles bypass and the amp's STANDBY mutes the layer in the preview; the rest only flip. None of it is saved.
 - **Playing**: `rackAudition()`, Hold, Loop and Auto, and a two-octave keyboard on the letter keys. An instrument plays the note; anything else is transposed. The scope, spectrum and meter come from an analyser on the cue's bus.
 - Chain units keep SIREN's fixed order; only the modulators reorder.
-
 
 ### `players.js`
 The Players panel and player editor.

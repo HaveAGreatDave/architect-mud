@@ -25,6 +25,8 @@
  * and every beat type the sim can emit has a branch. A text-only viewer gets the
  * penalties, the casualties and the pulled goalie, not just the goals.
  */
+import { cap } from '../../../server/engine/util.js';
+
 // Every barn's horn is that barn's horn. The soundset already varies a preset from a
 // seed, so a stable hash of the club name is the whole feature — no per-club audio, no
 // authoring, and the Ashway horn sounds like the Ashway horn forever.
@@ -459,7 +461,6 @@ export function narrate(ctx) {
   // does each thing as its line airs. `opt` marks a line the pacer may cut when a short slot
   // can't fit the whole game; the line carrying the payload is never optional. `opt:
   // 'colour'` marks a line that only colours the play, which goes before any that call it.
-  const cap = (x) => { const t = String(x || ''); return t.charAt(0).toUpperCase() + t.slice(1); };
   const call = (key, t, extra, sb, meta, gd, fx) => {
     const line = Array.isArray(key) ? pick(...key) : pick(key);
     if (!line) return false;

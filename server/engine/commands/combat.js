@@ -9,6 +9,7 @@ import { titleCaseName } from "../text.js";
 import { emit } from "../events.js";
 import { loggedPanelsSync } from "../presentation.js";
 import { randomUUID } from "crypto";
+import { pick } from '../util.js';
 
 // Resolve a corpse in the player's current zone by id (preferred, from a click)
 // or by a substring of its name (typed command).
@@ -194,8 +195,6 @@ async function cmdLootCorpse(targetStr, player, broadcast) {
 	}
 	return lootReply(await buildLootView({ id: targetPlayer.id, name: targetPlayer.handle, butcher_table: [] }, player), player);
 }
-
-const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
 // The shady-looting encounter. Broadcasts the devious attempt to any bystanders
 // plus the actor, and — only when awake witnesses are present — gates the loot

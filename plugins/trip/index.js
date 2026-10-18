@@ -35,13 +35,14 @@
  * See docs/systems-dreams.md.
  */
 import { query } from '../../server/models/db.js';
-import { getZone, world, getZoneNpcs, getZonePlayers, getZoneFurniture, addPlayerToZone, removePlayerFromZone } from '../../server/engine/world.js';
+import { getLivePlayer, getZone, world, getZoneNpcs, getZonePlayers, getZoneFurniture, addPlayerToZone, removePlayerFromZone } from '../../server/engine/world.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
 import { on } from '../../server/engine/events.js';
 import { addPhantom, removePhantom, clearPhantoms, getPhantomsInZone, matchPhantom, addTransform, addNpcTransform, addPlayerTransform, getNpcTransforms, clearTransforms, clearTransformsForRedress, beginTransformFade, getTransforms, setRoomTransform, setWeatherWarp } from '../../server/engine/phantoms.js';
 import { buildDreamscape, dissolveDreamscape, isDreamZone } from '../../server/engine/dreamscape.js';
 import { getRelation, relationTier } from '../../server/engine/relations.js';
 import { resolveDrugFx, ALL_FX } from '../../client/shared/drug-fx.js';
+import { wantsDrugFx } from '../../server/engine/drugs.js';
 
 // playerId -> { drugId, name, mode, endsAt, realZone, transformZone, timers[], intervals[], broadcast }
 const activeTrips = new Map();
@@ -115,7 +116,8 @@ function resolveEvents(hallu, durationSec) {
 // arc rather than restyling the client. The stronger field wins; an author who
 // wants the warped weather to take over says so with `fx_intensity`.
 function pushWeatherFieldFx(playerId, t) {
-  const field = t?.fx && ALL_FX.includes(t.fx) && t.fx !== 'none' ? t.fx : null;
+  // The log rung gets no screen effects (see `wantsDrugFx`), so it only ever clears.
+  const field = t?.fx && ALL_FX.includes(t.fx) && t.fx !== 'none' && wantsDrugFx(getLivePlayer(playerId)) ? t.fx : null;
   sendToPlayer(playerId, field
     ? { type: 'drug_fx', source: 'trip:weather', field, fieldIntensity: t.fx_intensity ?? 0.5, screen: [], intensity: 0 }
     : { type: 'drug_fx', source: 'trip:weather', clear: true });
@@ -160,12 +162,15 @@ async function startTrip({ player, drug, potency, broadcast }) {
   // drugs row and therefore no family) still needs somebody to drive it, and that
   // is this branch.
   const engineDriven = !!drug.effects?.phases;
+  // At the `log` rung the screen treatment is skipped and the trip is the log
+  // lines and the sound, as the phase engine already does (`wantsDrugFx`).
+  const fxOn = wantsDrugFx(player);
   if (mode !== 'phantom') {
-    sendToPlayer(player.id, {
+    if (fxOn) sendToPlayer(player.id, {
       type: 'trip_start', mode, palette, intensity, duration_seconds: durationSec,
       profile: engineDriven ? null : profile,
     });
-    if (!engineDriven) {
+    if (fxOn && !engineDriven) {
       const fx = resolveDrugFx(drug, 'peak', potency ?? 1);
       if (fx) sendToPlayer(player.id, { type: 'drug_fx', source: 'trip', ...fx });
     }
@@ -175,7 +180,7 @@ async function startTrip({ player, drug, potency, broadcast }) {
     // Timed descriptive events.
     for (const ev of resolveEvents(hallu, durationSec)) {
       const h = setTimeout(() => {
-        sendToPlayer(player.id, { type: 'trip_event', text: ev.text, palette: ev.palette || palette, intensity: ev.intensity ?? intensity });
+        sendToPlayer(player.id, { type: 'trip_event', text: ev.text, ...(fxOn ? { palette: ev.palette || palette, intensity: ev.intensity ?? intensity } : {}) });
       }, (ev.atSec || 0) * 1000);
       state.timers.push(h);
     }

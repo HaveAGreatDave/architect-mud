@@ -3,11 +3,10 @@ import { sendCmd } from './net.js';
 import { appendHtml, appendMsg, releaseScrollLock } from './render.js';
 import { MARKUP_HELP_HTML, STATUS_TEMPLATE } from './markup.js';
 import { appendToWhisperLog, sendToActiveTab } from './panels/whisper.js';
-import { openMusicPlayerPanel } from './panels/musicplayer.js';
+import { openMusicPlayerPanel, isPianoKeysLive } from './panels/lazy-views.js';
 import { DISCORD_INVITE } from './panels/links.js';
 import { isFlightSimActive, isCockpitHudActive } from './panels/lazy-views.js';
 import { isHangarBayWalkActive } from './panels/lazy-views.js';
-import { isPianoKeysLive } from './panels/piano.js';
 // THE CAB owns A/Z/X/C, the arrows, the comma and the full stop — nearly the whole letter row.
 // Without this guard every one of them is also a printable character, so the auto-focus below
 // pulled the caret into the command box on the first press and the rest of the drive went into it

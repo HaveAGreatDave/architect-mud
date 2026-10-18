@@ -26,6 +26,7 @@
 import { gatherHook, fireHook } from '../../server/engine/plugins.js';
 import { prefersLoggedPanelsOrDefault } from '../../server/engine/presentation.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
+import { escapeHtml as esc } from '../../server/engine/html.js';
 
 // Providers are gathered fresh per invocation rather than cached. The hook is a
 // pure in-memory room check by contract (kitchen's is `getZoneFurniture` and a
@@ -101,7 +102,6 @@ export async function buildWorkspaceView(player, providerKey = null) {
 // so the two can never disagree about what is on the bench. And every action it
 // prints is the same verb string the panel's buttons carry, which is this
 // plugin's founding rule: the HUD holds no gameplay logic.
-const esc = (s) => String(s ?? '').replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
 const link = (cmd, label) =>
   `<span class="action-link" data-action="cmd" data-cmd="${esc(cmd)}">${esc(label || cmd)}</span>`;
 

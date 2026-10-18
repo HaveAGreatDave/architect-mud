@@ -21,13 +21,6 @@ import { CHAPTERS, chapterById, chaptersInVolume } from './chapters.js';
 
 export const chapterFlag = (id) => `codex_ch_${id}`;
 
-export async function isChapterUnlocked(player, id) {
-  const ch = chapterById(id);
-  if (!ch) return false;
-  if (!ch.locked) return true; // Volume I and anything else authored open
-  return (await getFlag('player', chapterFlag(id), player)) === 'true';
-}
-
 /**
  * Every chapter's unlocked state in one pass. getFlag is per-key, so this is N
  * reads — but N is the size of the corpus (~15) and it only runs when the player

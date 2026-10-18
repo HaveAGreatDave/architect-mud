@@ -39,6 +39,7 @@ import { world } from '../../server/engine/world.js';
 import { sendToZone } from '../../server/engine/messaging.js';
 import { eligibleNpcs } from '../../server/engine/npc-banter.js';
 import { formatChitchat } from '../../server/engine/ai-behaviour.js';
+import { randInt } from '../../server/engine/util.js';
 
 // ── Tunables ──────────────────────────────────────────────────────────────────
 const REACT_GAP_MS   = 150_000;      // quiet per zone after a reaction, whatever airs
@@ -133,7 +134,6 @@ const GENERIC_LINES = [
 ];
 
 const rand    = (arr) => arr[Math.floor(Math.random() * arr.length)];
-const randInt = (lo, hi) => lo + Math.floor(Math.random() * (hi - lo + 1));
 
 // Fill {program}/{station}. Returns null when the line wants something this beat
 // has no value for, exactly the way banter skips an unresolvable topical thread.

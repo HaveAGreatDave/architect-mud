@@ -364,14 +364,40 @@ export function isApartmentZone(zone) {
 // A unit an NPC calls home is occupied and can't be rented. Tracked in the separate
 // `npc_residences` registry (NOT the player `apartments` ledger), kept in sync with
 // npc.home_zone. Returns { npc_id, npc_name } for the resident, or null.
+//
+// Read on every apartment entry, so the whole table (a few hundred rows) is held
+// as zone_id -> { npc_id, npc_name } and reloaded in one query when stale. Every
+// in-process writer calls invalidateNpcResidences: rehomeNpc and clearNpcResidence
+// here, and the dev panel's NPC sync, NPC delete and zone deletes in routes.js
+// (the FKs cascade, so a delete removes rows too). The TTL bounds the
+// out-of-process writer, the content import.
+const RESIDENCE_TTL_MS = 5 * 60_000;
+let _residences = null;   // Map zone_id -> { npc_id, npc_name }
+let _residencesAt = 0;
+let _residencesLoading = null;
+let _residencesGen = 0;   // bumped by every invalidate, so a read that started before a write isn't kept
+
+export function invalidateNpcResidences() { _residences = null; _residencesLoading = null; _residencesGen++; }
+
+async function npcResidences() {
+	if (_residences && Date.now() - _residencesAt < RESIDENCE_TTL_MS) return _residences;
+	if (!_residencesLoading) {
+		const gen = _residencesGen;
+		const loading = _residencesLoading = query(
+			`SELECT r.zone_id, r.npc_id, n.name AS npc_name FROM npc_residences r
+			 LEFT JOIN npcs n ON n.id = r.npc_id`,
+		).then(({ rows }) => {
+			const map = new Map(rows.map(r => [r.zone_id, { npc_id: r.npc_id, npc_name: r.npc_name }]));
+			if (gen === _residencesGen) { _residences = map; _residencesAt = Date.now(); }
+			return map;
+		}).finally(() => { if (_residencesLoading === loading) _residencesLoading = null; });
+	}
+	return _residencesLoading;
+}
+
 export async function getNpcResidence(zoneId) {
 	if (!zoneId) return null;
-	const { rows } = await query(
-		`SELECT r.npc_id, n.name AS npc_name FROM npc_residences r
-		 LEFT JOIN npcs n ON n.id = r.npc_id WHERE r.zone_id=$1 LIMIT 1`,
-		[zoneId],
-	);
-	return rows[0] || null;
+	return (await npcResidences()).get(zoneId) || null;
 }
 
 // The closest vacant apartment to `fromZoneId`, measured in walking distance (hops
@@ -380,8 +406,7 @@ export async function getNpcResidence(zoneId) {
 // player owner and no NPC resident. `exceptZoneId` is force-excluded (the unit an
 // NPC is being moved out of). Returns the zone id, or null if the whole map is full.
 export async function findNearestVacantApartment(fromZoneId, exceptZoneId) {
-	const { rows } = await query('SELECT zone_id FROM npc_residences');
-	const occupied = new Set(rows.map(r => r.zone_id));
+	const occupied = await npcResidences();
 	let best = null, bestHops = Infinity;
 	for (const z of world.zones.values()) {
 		if (!isApartmentZone(z) || z.id === exceptZoneId) continue;
@@ -412,6 +437,7 @@ export async function rehomeNpc(npc, newZoneId) {
 		 ON CONFLICT (zone_id) DO UPDATE SET npc_id=$2`,
 		[newZoneId, npc.id],
 	);
+	invalidateNpcResidences();
 	npc.home_zone = newZoneId;
 	moveNpcToZone(npc.id, newZoneId);
 }
@@ -423,6 +449,7 @@ export async function clearNpcResidence(npc) {
 	const fallback = world.zones.has('zone_residential_lobby') ? 'zone_residential_lobby' : npc.home_zone;
 	await clearNpcHomeOverride(npc.id); // same precedence rule as rehomeNpc
 	await query('DELETE FROM npc_residences WHERE npc_id=$1', [npc.id]);
+	invalidateNpcResidences();
 	await updateNpc(npc.id, { home_zone: fallback, zone_id: fallback });
 	npc.home_zone = fallback;
 	if (world.zones.has(fallback)) moveNpcToZone(npc.id, fallback);

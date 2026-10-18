@@ -71,7 +71,3 @@ export function reverseMods(player, source) {
   delete player._modLedger[source];
 }
 
-// Whether a source currently has mods applied.
-export function hasMods(player, source) {
-  return !!player._modLedger?.[source];
-}

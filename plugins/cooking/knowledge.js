@@ -91,11 +91,6 @@ export async function recordAttempt(playerId, key, band, soFar = 0) {
   return { learned: false, counted: true, count };
 }
 
-export async function knowsRecipe(playerId, key) {
-  if (STARTER_RECIPES.has(key)) return true;   // known without a row
-  return (await getFlagById(playerId, FLAG_PREFIX + key)) !== undefined;
-}
-
 // Write a dish into the cookbook, keeping the best band ever achieved. Returns
 // { learned, improved, band } so the caller can narrate the *new* thing only —
 // making the same stew twice shouldn't announce itself twice.

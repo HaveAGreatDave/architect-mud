@@ -22,13 +22,13 @@ import { generateRoster, listingCard, rerollState } from './roster.js';
 import {
   privateSpacesOf, placeListing, releaseConsort, pairMembers, holdsPrivateSpace, arrangementEntries,
 } from './hire.js';
+import { escapeHtml as esc } from '../../server/engine/html.js';
 
 const GEN_FLAG    = 'bliss_roster_gen';
 const REROLL_FLAG = 'bliss_roster_rolled';
 
 const link = (cmd, label) =>
   `<span class="action-link" data-action="cmd" data-cmd="${cmd}">${label || cmd}</span>`;
-const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
 // Identical to plugins/mis/index.js misGate — an unopted player must not learn
 // this surface exists by probing for it.

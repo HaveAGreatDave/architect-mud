@@ -34,8 +34,7 @@
  */
 import { sendToPlayer } from '../../server/engine/messaging.js';
 import { getZoneNpcs, getZonePlayers, world } from '../../server/engine/world.js';
-
-const pick = (a) => a[Math.floor(Math.random() * a.length)];
+import { pick } from '../../server/engine/util.js';
 
 // ── What the voices say ──────────────────────────────────────────────────────
 // Ordered by how far gone you have to be to hear them. The early ones are MUNDANE on

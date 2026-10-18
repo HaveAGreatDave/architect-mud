@@ -118,8 +118,6 @@ export function registerBodyPartProvider(fn, owner = 'unknown') {
   providerOwner = owner;
 }
 
-export function getBodyPartProviderOwner() { return providerOwner; }
-
 /**
  * The parts THIS body actually has: the base seven plus anything grown.
  *

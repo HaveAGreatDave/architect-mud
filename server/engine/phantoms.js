@@ -160,9 +160,6 @@ export function addNpcTransform(playerId, npcId, spec) {
   npcTransformsByPlayer.get(playerId).set(npcId, spec);
   return spec;
 }
-export function getNpcTransform(playerId, npcId) {
-  return npcTransformsByPlayer.get(playerId)?.get(npcId) ?? null;
-}
 export function getNpcTransforms(playerId) {
   const m = npcTransformsByPlayer.get(playerId);
   return m ? [...m.entries()].map(([npcId, spec]) => ({ npcId, ...spec })) : [];
@@ -364,10 +361,6 @@ export function clearPhantoms(playerId) {
 
 export function hasPhantoms(playerId) {
   return (byPlayer.get(playerId)?.size ?? 0) > 0;
-}
-
-export function getPhantom(playerId, id) {
-  return byPlayer.get(playerId)?.get(id) ?? null;
 }
 
 export function getPhantoms(playerId) {

@@ -133,79 +133,115 @@
          behind the "show read-only" toggle (see bootstrap.js). -->
     <!-- Phones drop the header logo to keep the header to one row, so the drawer carries it. -->
     <div class="logo nav-brand mobile-only">ARCHITECT <span>// DEV</span></div>
-    <div class="nav-item active" data-panel="dashboard" onclick="showPanel('dashboard')" style="border-left-color:var(--accent);color:var(--accent)">⬡ Dashboard</div>
+    <div class="nav-item active" data-panel="dashboard" onclick="showPanel('dashboard')">⬡ Dashboard</div>
     <div class="nav-item" data-panel="devlog" onclick="showPanel('devlog')">📓 Dev Log</div>
-    <div class="nav-section">World</div>
-    <div class="nav-item" data-panel="zones" onclick="showPanel('zones')">🗺 Zones</div>
-    <!-- The Studio is a SEPARATE local process (npm run studio, :5180) that edits
-         content/ files with no DB — so this is a link out, not a panel, and it is
-         revealed only on localhost where that server can exist. No data-panel: the
-         ops read-only sweep in bootstrap.js keys off that attribute. -->
-    <a class="nav-item" id="nav-map-studio" href="http://localhost:5180" target="_blank" rel="noopener"
-       onclick="return openLocalTool(event, 'studio')" style="display:none;text-decoration:none">🏗 Map Studio ↗</a>
-    <!-- Same shape and the same reasons: the Modelshop (npm run modelshop, :5181)
-         is a separate local process that edits GLASS building models as files. -->
-    <a class="nav-item" id="nav-modelshop" href="http://localhost:5181" target="_blank" rel="noopener"
-       onclick="return openLocalTool(event, 'modelshop')" style="display:none;text-decoration:none">🏛 Modelshop ↗</a>
-    <div class="nav-item" data-panel="voicelab" onclick="showPanel('voicelab')">🗣 Voice Lab</div>
-    <div class="nav-item" data-panel="emergency" onclick="showPanel('emergency')">⚖ Crime</div>
-    <!-- Tabs a PLUGIN declares, appended at boot by loadPluginPanels (see
-         js/core/plugin-panels.js). A plugin that wants an operator surface used to
-         need four hand-edits in this file and js/core/panels.js; it now ships the
-         panel in its own folder and says so in its manifest. Nothing is authored
-         here — the container is the seam. -->
-    <div id="nav-plugin-panels"></div>
-    <div class="nav-item" data-panel="flight" onclick="showPanel('flight')">✈ Flight</div>
-    <div class="nav-item" data-panel="power" onclick="showPanel('power')">⚡ Power</div>
-    <div class="nav-item" data-panel="bank" onclick="showPanel('bank')">₵ Bank</div>
-    <div class="nav-item" data-panel="enemies" onclick="showPanel('enemies')">👾 Enemies</div>
-    <div class="nav-item" data-panel="items" onclick="showPanel('items')">🗡 Items</div>
-    <div class="nav-item" data-panel="npcs" onclick="showPanel('npcs')">🧑 NPCs</div>
-    <div class="nav-item" data-panel="furniture" onclick="showPanel('furniture')">🪑 Furniture</div>
-    <div class="nav-item" data-panel="recipes" onclick="showPanel('recipes')">⚗ Recipes</div>
-    <div class="nav-item" data-panel="scavenging" onclick="showPanel('scavenging')">🔦 Scavenging</div>
-    <div class="nav-item" data-panel="fauna" onclick="showPanel('fauna')">🐦 Birds</div>
-    <div class="nav-item" data-panel="thermals" onclick="showPanel('thermals')">🌀 Thermals</div>
-    <div class="nav-item" data-panel="vine" onclick="showPanel('vine')">🌿 VINE Suite</div>
-    <div class="nav-children" id="nav-vine-children">
-      <div class="nav-item nav-child" data-panel="scripts" onclick="showPanel('scripts')">⎇ Scripts</div>
-      <div class="nav-item nav-child" data-panel="script-triggers" onclick="showPanel('script-triggers')">⚡ Triggers</div>
-      <div class="nav-item nav-child" data-panel="quests" onclick="showPanel('quests')">❗ Quests</div>
-      <div class="nav-item nav-child" data-panel="vine-dialogue" onclick="vsNavFamily('dialogue')">💬 Dialogue</div>
-      <div class="nav-item nav-child" data-panel="vine-ai" onclick="vsNavFamily('ai')">🧠 AI</div>
+    <!-- Jump-to filter over every row below (js/core/nav-groups.js). Enter opens
+         the first match, Esc clears; Ctrl+K focuses it from anywhere. -->
+    <input type="search" id="nav-filter" placeholder="Jump to… (Ctrl+K)" autocomplete="off" spellcheck="false"
+           oninput="navFilter(this.value)" onkeydown="navFilterKey(event)">
+    <!-- Groups fold, and the fold is remembered per browser; the group holding the
+         open panel always unfolds. data-group is the key a plugin's manifest names
+         as devPanel.navGroup (see js/core/plugin-panels.js). -->
+    <div class="nav-group" data-group="live">
+      <div class="nav-group-head" onclick="navToggleGroup('live')">Live World</div>
+      <div class="nav-group-body">
+        <div class="nav-item" data-panel="emergency" onclick="showPanel('emergency')">⚖ Crime</div>
+        <div class="nav-item" data-panel="flight" onclick="showPanel('flight')">✈ Flight</div>
+        <div class="nav-item" data-panel="power" onclick="showPanel('power')">⚡ Power</div>
+        <div class="nav-item" data-panel="bank" onclick="showPanel('bank')">₵ Bank</div>
+        <div class="nav-item" data-panel="fauna" onclick="showPanel('fauna')">🐦 Birds</div>
+        <div class="nav-item" data-panel="thermals" onclick="showPanel('thermals')">🌀 Thermals</div>
+        <!-- Tabs a PLUGIN declares, appended at boot by loadPluginPanels (see
+             js/core/plugin-panels.js). A plugin that wants an operator surface used to
+             need four hand-edits in this file and js/core/panels.js; it now ships the
+             panel in its own folder and says so in its manifest. Nothing is authored
+             here — the container is the seam. A manifest that names a devPanel.navGroup
+             goes into that group instead; this is where the rest land. -->
+        <div id="nav-plugin-panels"></div>
+      </div>
     </div>
-    <div class="nav-item" data-panel="mutations" onclick="showPanel('mutations')">☢ Mutations</div>
-    <div class="nav-item" data-panel="drugs" onclick="showPanel('drugs')">💊 Drugs</div>
-    <!-- One row, two tabs: dream/hallucination rooms + their presences, and drug
-         transforms. data-panel is the nav key, not a panel id — see NAV_ALIASES
-         in js/core/panels.js. -->
-    <div class="nav-item" data-panel="dreams" onclick="showPanel('dream_templates')">🌒 Unreality</div>
-    <div class="nav-item" data-panel="sounds" onclick="showPanel('sounds')">🔊 SoundScript</div>
-    <div class="nav-item" data-panel="audio" onclick="showPanel('audio')">🎵 Audio</div>
-    <!-- Read-only on /admin, and worth looking at there (what's on air, which
-         channel owns which studio); every write is refused client-side in api.js
-         and by CONTENT_READONLY server-side. -->
-    <div class="nav-item" data-panel="broadcasts" onclick="showPanel('broadcasts')">📺 Broadcasts</div>
-    <!-- BSM Studio — the visual editor for the .bsm scripts the panel above
-         imports (its "↑ BSM" button). Deliberately NOT a LOCAL_TOOLS entry and
-         must never become one: there is no second process to spawn. It is one
-         self-contained file served from this same origin that makes no network
-         call of its own, so it works wherever the panel does and needs neither
-         the localhost gate nor the launcher the Studio and Modelshop links use.
-         No data-panel: it is a link out, and the ops read-only sweep in
-         bootstrap.js keys off that attribute. -->
-    <a class="nav-item" id="nav-bsm-studio" href="/bsm-studio.html" target="_blank" rel="noopener"
-       title="Author a .bsm broadcast script, then import it from Broadcasts" style="text-decoration:none">📝 BSM Studio ↗</a>
-    <div class="nav-item" data-panel="tags" onclick="showPanel('tags')">🏷 Tags</div>
-    <div class="nav-item" data-panel="aliases" onclick="showPanel('aliases')">⤴ Aliases</div>
-    <div class="nav-section">Server</div>
-    <div class="nav-item" data-panel="worldstate" onclick="showPanel('worldstate')">📡 World State</div>
-    <div class="nav-item" data-panel="gossip" onclick="showPanel('gossip')">💬 Gossip</div>
-    <div class="nav-item" data-panel="timeweather" onclick="showPanel('timeweather')">🕐 Time & Weather</div>
-    <div class="nav-item" data-panel="players" onclick="showPanel('players')">👥 Players</div>
-    <div class="nav-item" data-panel="games" onclick="showPanel('games')">🃏 Games</div>
-    <div class="nav-item" data-panel="cards" onclick="showPanel('cards')">🎴 Cards</div>
-    <div class="nav-item" data-panel="backups" onclick="showPanel('backups')">🗄 Backups</div>
+    <div class="nav-group" data-group="map">
+      <div class="nav-group-head" onclick="navToggleGroup('map')">Map &amp; Models</div>
+      <div class="nav-group-body">
+        <div class="nav-item" data-panel="zones" onclick="showPanel('zones')">🗺 Zones</div>
+        <!-- The Studio is a SEPARATE local process (npm run studio, :5180) that edits
+             content/ files with no DB — so this is a link out, not a panel, and it is
+             revealed only on localhost where that server can exist. No data-panel: the
+             ops read-only sweep in bootstrap.js keys off that attribute. -->
+        <a class="nav-item" id="nav-map-studio" href="http://localhost:5180" target="_blank" rel="noopener"
+           onclick="return openLocalTool(event, 'studio')" style="display:none;text-decoration:none">🏗 Map Studio ↗</a>
+        <!-- Same shape and the same reasons: the Modelshop (npm run modelshop, :5181)
+             is a separate local process that edits GLASS building models as files. -->
+        <a class="nav-item" id="nav-modelshop" href="http://localhost:5181" target="_blank" rel="noopener"
+           onclick="return openLocalTool(event, 'modelshop')" style="display:none;text-decoration:none">🏛 Modelshop ↗</a>
+      </div>
+    </div>
+    <div class="nav-group" data-group="content">
+      <div class="nav-group-head" onclick="navToggleGroup('content')">Content</div>
+      <div class="nav-group-body">
+        <div class="nav-item" data-panel="enemies" onclick="showPanel('enemies')">👾 Enemies</div>
+        <div class="nav-item" data-panel="items" onclick="showPanel('items')">🗡 Items</div>
+        <div class="nav-item" data-panel="npcs" onclick="showPanel('npcs')">🧑 NPCs</div>
+        <div class="nav-item" data-panel="furniture" onclick="showPanel('furniture')">🪑 Furniture</div>
+        <div class="nav-item" data-panel="recipes" onclick="showPanel('recipes')">⚗ Recipes</div>
+        <div class="nav-item" data-panel="scavenging" onclick="showPanel('scavenging')">🔦 Scavenging</div>
+        <div class="nav-item" data-panel="mutations" onclick="showPanel('mutations')">☢ Mutations</div>
+        <div class="nav-item" data-panel="drugs" onclick="showPanel('drugs')">💊 Drugs</div>
+        <!-- One row, two tabs: dream/hallucination rooms + their presences, and drug
+             transforms. data-panel is the nav key, not a panel id — see NAV_ALIASES
+             in js/core/panels.js. -->
+        <div class="nav-item" data-panel="dreams" onclick="showPanel('dream_templates')">🌒 Unreality</div>
+        <div class="nav-item" data-panel="tags" onclick="showPanel('tags')">🏷 Tags</div>
+        <div class="nav-item" data-panel="aliases" onclick="showPanel('aliases')">⤴ Aliases</div>
+      </div>
+    </div>
+    <div class="nav-group" data-group="scripting">
+      <div class="nav-group-head" onclick="navToggleGroup('scripting')">Scripting</div>
+      <div class="nav-group-body">
+        <div class="nav-item" data-panel="vine" onclick="showPanel('vine')">🌿 VINE Suite</div>
+        <div class="nav-children" id="nav-vine-children">
+          <div class="nav-item nav-child" data-panel="scripts" onclick="showPanel('scripts')">⎇ Scripts</div>
+          <div class="nav-item nav-child" data-panel="script-triggers" onclick="showPanel('script-triggers')">⚡ Triggers</div>
+          <div class="nav-item nav-child" data-panel="quests" onclick="showPanel('quests')">❗ Quests</div>
+          <div class="nav-item nav-child" data-panel="vine-dialogue" onclick="vsNavFamily('dialogue')">💬 Dialogue</div>
+          <div class="nav-item nav-child" data-panel="vine-ai" onclick="vsNavFamily('ai')">🧠 AI</div>
+        </div>
+      </div>
+    </div>
+    <div class="nav-group" data-group="media">
+      <div class="nav-group-head" onclick="navToggleGroup('media')">Sound &amp; Media</div>
+      <div class="nav-group-body">
+        <div class="nav-item" data-panel="voicelab" onclick="showPanel('voicelab')">🗣 Voice Lab</div>
+        <div class="nav-item" data-panel="sounds" onclick="showPanel('sounds')">🔊 SoundScript</div>
+        <div class="nav-item" data-panel="audio" onclick="showPanel('audio')">🎵 Audio</div>
+        <!-- Read-only on /admin, and worth looking at there (what's on air, which
+             channel owns which studio); every write is refused client-side in api.js
+             and by CONTENT_READONLY server-side. -->
+        <div class="nav-item" data-panel="broadcasts" onclick="showPanel('broadcasts')">📺 Broadcasts</div>
+        <!-- BSM Studio — the visual editor for the .bsm scripts the panel above
+             imports (its "↑ BSM" button). Deliberately NOT a LOCAL_TOOLS entry and
+             must never become one: there is no second process to spawn. It is one
+             self-contained file served from this same origin that makes no network
+             call of its own, so it works wherever the panel does and needs neither
+             the localhost gate nor the launcher the Studio and Modelshop links use.
+             No data-panel: it is a link out, and the ops read-only sweep in
+             bootstrap.js keys off that attribute. -->
+        <a class="nav-item" id="nav-bsm-studio" href="/bsm-studio.html" target="_blank" rel="noopener"
+           title="Author a .bsm broadcast script, then import it from Broadcasts" style="text-decoration:none">📝 BSM Studio ↗</a>
+      </div>
+    </div>
+    <div class="nav-group" data-group="server">
+      <div class="nav-group-head" onclick="navToggleGroup('server')">Server</div>
+      <div class="nav-group-body">
+        <div class="nav-item" data-panel="worldstate" onclick="showPanel('worldstate')">📡 World State</div>
+        <div class="nav-item" data-panel="gossip" onclick="showPanel('gossip')">💬 Gossip</div>
+        <div class="nav-item" data-panel="timeweather" onclick="showPanel('timeweather')">🕐 Time & Weather</div>
+        <div class="nav-item" data-panel="players" onclick="showPanel('players')">👥 Players</div>
+        <div class="nav-item" data-panel="games" onclick="showPanel('games')">🃏 Games</div>
+        <div class="nav-item" data-panel="cards" onclick="showPanel('cards')">🎴 Cards</div>
+        <div class="nav-item" data-panel="backups" onclick="showPanel('backups')">🗄 Backups</div>
+      </div>
+    </div>
     <div style="margin-top:auto;padding:8px 0;border-top:1px solid var(--border)">
       <div class="nav-item" id="whisper-nav-btn" onclick="toggleWhisperPanel()" title="Whisper chat">💬 Chat</div>
     </div>
@@ -608,6 +644,7 @@
 <script src="/dev/js/panels/tags.js"></script>
 <script src="/dev/js/panels/aliases.js"></script>
 <script src="/dev/js/core/panels.js"></script>
+<script src="/dev/js/core/nav-groups.js"></script>
 <!-- After panels.js: registerDevPanel writes into PANELS and NAV_ALIASES, which
      that file declares. A plugin panel may depend on the core; the core may never
      depend on a plugin panel. -->

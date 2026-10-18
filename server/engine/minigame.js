@@ -41,12 +41,26 @@ import { prefersTextMinigamesOrDefault, prefersLoggedPanelsOrDefault } from './p
 // when someone writes them. What it guarantees today is that **no minigame is ever
 // a dead end** — which is the rule the whole ladder rests on.
 //
+// The hololock is the first family replaced. Its call site passes `turns: true`,
+// and at `log` the payload goes out as `render: 'turns'`, which opens a lock you
+// play a move at a time (client/shared/hololock-turns.js). Its odds are calibrated
+// so best play wins exactly as often as this roll did, and a gate holds them there
+// (scripts/a11y/hololock-odds.mjs; docs/proposals/hololock-turn-based.md).
+//
 // It also covers a family that has no character board at all (splice, the cook
-// game, fishing): those fall back UP to the graphical one at `textgames`, which is
-// correct there, but at `log` they resolve here instead.
-const RESULT_LINE = (won, name) => won
-  ? `<span class="msg-system">You work the ${name} until it gives. <b>Open.</b></span>`
-  : `<span class="msg-system">You work the ${name} and it holds. <span class="text-red">No good.</span></span>`;
+// game): those fall back UP to the graphical one at `textgames`, which is correct
+// there, but at `log` they resolve here instead. Fishing is the exception: it has
+// two stages, so its log rung settles both in the plugin (`settleLogBite`).
+// That line is a lock's. A family that isn't breaking into something passes its
+// own as `resultWords: { won: [sentence, verdict], lost: [sentence, verdict] }`,
+// so a log-rung player tuning an implant isn't told it came "Open."
+const RESULT_LINE = (won, name, words) => {
+  const [said, verdict] = (won ? words?.won : words?.lost)
+    || (won ? [`You work the ${name} until it gives.`, 'Open.'] : [`You work the ${name} and it holds.`, 'No good.']);
+  return won
+    ? `<span class="msg-system">${said} <b>${verdict}</b></span>`
+    : `<span class="msg-system">${said} <span class="text-red">${verdict}</span></span>`;
+};
 
 // TWO RESULT SHAPES, because the families genuinely differ: most report a boolean
 // `won`, but the synth/splice family reports a 0–100 SCORE (batch quality). A
@@ -64,7 +78,7 @@ export async function resolveForLogRung(player, payload, { skill = 'hacking' } =
     won: r.success,
     score,
     margin: r.margin,
-    line: RESULT_LINE(r.success, payload.deviceName || payload.recipeName || 'mechanism'),
+    line: RESULT_LINE(r.success, payload.deviceName || payload.recipeName || 'mechanism', payload.resultWords),
   };
 }
 
@@ -73,12 +87,17 @@ export async function resolveForLogRung(player, payload, { skill = 'hacking' } =
 // game. Calibrating an implant is not, so a family whose board is not about
 // breaking into something must say which skill it is actually about — otherwise
 // the bottom rung silently grades a different competence than the other two.
-export async function textRender(player, payload, { skill = 'hacking' } = {}) {
+//
+// `turns` says the family has a turn-based game for the log rung (only the
+// hololock, so far). It goes out unrolled, and the client plays it and reports
+// through the same resolve verb.
+export async function textRender(player, payload, { skill = 'hacking', turns = false } = {}) {
   if (!payload) return payload;
   // The bottom rung never opens a board — see above. `render: 'resolve'` tells the
   // client to fire the resolve verb straight away with the server's own outcome,
   // so the authoritative path is unchanged: the same verb, the same arguments.
   if (await prefersLoggedPanelsOrDefault(player)) {
+    if (turns) return { ...payload, render: 'turns' };
     const { won, score, line } = await resolveForLogRung(player, payload, { skill });
     // Both shapes ride along; the client hands both to `onResult`, and each
     // family's own callback reads whichever one it already read.

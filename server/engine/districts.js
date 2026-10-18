@@ -80,8 +80,6 @@ export function loadDistricts(rows = []) {
   return Object.keys(DISTRICTS).length;
 }
 
-export function districtsLoaded() { return Object.keys(DISTRICTS).length > 0; }
-
 // The zone lookup, INJECTED rather than imported. world.js imports this file, so
 // importing it back would close a cycle — the same one `broadcast-bridge.js` exists
 // to avoid elsewhere in the engine. Registered once at world init.

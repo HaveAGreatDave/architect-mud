@@ -167,8 +167,9 @@ export async function readObject(player, targetStr, broadcast) {
 
   // The board. `textRender` handles all three Display Mode rungs from one call —
   // a graphical panel, a text board, or an auto-resolved log line at the bottom
-  // rung — so nothing here needs to know which one the player is on.
-  await textRender(player, {
+  // rung — so nothing here needs to know which one the player is on. It only
+  // BUILDS the payload; until it was sent, the board never opened at any rung.
+  sendToPlayer(player.id, await textRender(player, {
     type: 'psychometry',
     itemName: item.name,
     itemId: item.id,
@@ -176,7 +177,8 @@ export async function readObject(player, targetStr, broadcast) {
     skill: 'psionics',
     difficulty: 4,
     resolveCmd: 'psiresolve',
-  }, { skill: 'psionics' });
+    resultWords: { won: ['You close your hand round it and let it talk.', 'It does.'], lost: ['You close your hand round it. It gives up very little.', 'Faint.'] },
+  }, { skill: 'psionics' }));
 
   await resolveStrain(player, broadcast);
   return null;   // the panel is the output

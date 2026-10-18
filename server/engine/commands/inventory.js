@@ -23,6 +23,7 @@ import { runEquipGates } from '../equip-gates.js';
 import { loggedPanelsSync } from '../presentation.js';
 import { conditionBand, effectiveCondition, wears } from '../durability.js';
 import { adjustSanity } from '../condition.js';
+import { withArticle } from '../util.js';
 
 // Throttle: only broadcast "rummages in container" once per 30s per player.
 const _ctrBroadcastTs = new Map();
@@ -46,7 +47,6 @@ export const EQUIP_SLOTS = {
 export const BODY_SLOTS = ['head', 'torso', 'hands', 'legs', 'feet'];
 // Layer name <-> stored integer. Higher = more outward = what others see.
 export const LAYERS = { underwear: 1, outerwear: 2, armor: 3 };
-export const LAYER_NAMES = { 1: 'underwear', 2: 'outerwear', 3: 'armor' };
 // Accessories: no layers, a fixed number of slots (index kept in `layer`).
 export const ACCESSORY_MAX = 3;
 
@@ -361,14 +361,6 @@ export function formatWeight(g) {
   g = Number(g) || 0;
   if (g < 1000) return `${Math.round(g)}g`;
   return `${(Math.round(g / 100) / 10).toString()}kg`;
-}
-
-// Prepend "a"/"an" to a name, preserving its original casing. Skips the article
-// when the name reads as plural (ends in s, but not ss).
-function withArticle(name) {
-  const lastWord = name.trim().split(/\s+/).pop();
-  if (/s$/i.test(lastWord) && !/ss$/i.test(lastWord)) return name;
-  return (/^[aeiou]/i.test(name) ? 'an ' : 'a ') + name;
 }
 
 // Sum of weight*quantity for everything inside a given container row.

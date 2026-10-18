@@ -19,14 +19,11 @@ import { sendToPlayer } from '../../server/engine/messaging.js';
 import { resolve as siftResolve } from '../../server/engine/sift.js';
 import { on, emit } from '../../server/engine/events.js';
 import { prefersLoggedPanelsOrDefault } from '../../server/engine/presentation.js';
+import { escapeHtml as esc } from '../../server/engine/html.js';
 
 const INVITE_TTL_MS = 60000;
 const sessions = new Map();   // playerId -> session (both participants map to the same object)
 const invites = new Map();    // targetId -> { fromId, fromHandle, timer }
-
-function esc(s) {
-  return String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-}
 
 // The player's swappable inventory: carried, un-equipped, non-quest.
 async function tradeableRows(playerId) {

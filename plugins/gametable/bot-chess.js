@@ -201,39 +201,3 @@ function asCoord(move) {
   return `${toAlgebraic(move.from)}${toAlgebraic(move.to)}${move.promotion || ''}`;
 }
 
-// Table talk. Fired on the bot's own move, sparingly — an opponent that
-// comments on every move is a chatbot, not a player.
-const CHATTER = {
-  capture: [
-    "That one's mine.",
-    'You left it hanging, friend.',
-    "Thanks. I'll take it.",
-  ],
-  check: [
-    'Check. Mind your king.',
-    'Company for your king.',
-  ],
-  quiet: [
-    'Your move.',
-    "I've got all night.",
-    'Take your time. Everyone does, against me.',
-  ],
-  losing: [
-    'Hm. That was better than it looked.',
-    "You've played before.",
-  ],
-};
-
-export function botChessChatter(game, seat, san) {
-  if (Math.random() > 0.22) return null;
-  let pool = CHATTER.quiet;
-  if (san?.includes('x')) pool = CHATTER.capture;
-  if (san?.includes('+')) pool = CHATTER.check;
-  const botSeat = game.seatByPlayer(seat.playerId);
-  if (botSeat) {
-    const balance = game.materialBalance();
-    const mine = botSeat.color === 'w' ? balance : -balance;
-    if (mine < -200) pool = CHATTER.losing;
-  }
-  return pool[Math.floor(Math.random() * pool.length)];
-}

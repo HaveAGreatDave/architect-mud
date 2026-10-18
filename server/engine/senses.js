@@ -34,6 +34,7 @@
  */
 import { gatherHook } from './plugins.js';
 import { effectAcuity } from './effects.js';
+import { clamp } from './util.js';
 
 // The senses the game knows about. A verb is free to exist before anything
 // contributes acuity to it — an unlisted sense simply always runs at baseline.
@@ -45,8 +46,6 @@ export const SENSES = ['smell', 'hearing', 'sight'];
 // world.js, cooking, bodily and district-ambience.
 export const BASE_FLOOR = 5;   // below this strength, you don't notice at all
 export const BASE_LIMIT = 3;   // how many things you can pick apart at once
-
-const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
 // ── The stat path ────────────────────────────────────────────────────────────
 //
@@ -113,8 +112,6 @@ const acuityContributors = new Map();
 export function registerAcuityContributor(fn, owner = 'unknown') {
   if (typeof fn === 'function') acuityContributors.set(owner, fn);
 }
-
-export function getAcuityContributors() { return [...acuityContributors.keys()]; }
 
 function contributedAcuity(player, sense) {
   let total = 0;

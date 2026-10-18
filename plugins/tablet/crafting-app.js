@@ -26,6 +26,7 @@ import { sendToPlayer } from '../../server/engine/messaging.js';
 import { getRecipeCache } from '../../server/engine/crafting.js';
 import { skillStatBonus, effectiveSkill } from '../../server/engine/skills.js';
 import { registerTabletApp } from './registry.js';
+import { getSkillLevels } from '../../server/engine/ip.js';
 
 const SPLICE_MIN_SKILL = 6; // mirrors plugins/synthesis SPLICE_MIN_SKILL
 
@@ -36,11 +37,8 @@ const ROLL = {
 };
 
 // Player skill LEVELS (ip/100), matching cmdRecipes / cmdCook.
-async function skillLevels(playerId) {
-  const { rows } = await query('SELECT skill_id, ip FROM player_skills WHERE player_id=$1', [playerId]);
-  const levels = {};
-  for (const r of rows) levels[r.skill_id] = Math.floor((r.ip || 0) / 100);
-  return levels;
+function skillLevels(playerId) {
+  return getSkillLevels(playerId);
 }
 
 // How many of each item the player holds (unequipped counts toward crafting).

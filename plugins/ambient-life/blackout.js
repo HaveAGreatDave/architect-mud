@@ -39,6 +39,7 @@ import { world, getZone } from '../../server/engine/world.js';
 import { sendToZone } from '../../server/engine/messaging.js';
 import { isIndoorZone, getEnvironmentState, getZonePowerStatus } from '../../server/engine/environment.js';
 import { isNpcAsleep } from '../../server/engine/ai-behaviour.js';
+import { randInt } from '../../server/engine/util.js';
 
 /**
  * Is this zone currently without supply?
@@ -67,7 +68,6 @@ const BEAT_MS = [1200, 3500];     // after the engine's own "the lights cut out"
 const lastReaction = new Map();   // zoneId -> ts
 
 const rand = arr => arr[Math.floor(Math.random() * arr.length)];
-const randInt = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
 
 // ── What they say ────────────────────────────────────────────────────────────
 //

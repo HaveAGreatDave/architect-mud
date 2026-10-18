@@ -312,8 +312,6 @@ export function airfieldOf(zoneOrId) {
   const id = zone?.flags?.airfield_id;
   return id ? world.airfields.get(id) || null : null;
 }
-export function getAirfield(id) { return world.airfields.get(id) || null; }
-export function getAllAirfields() { return [...world.airfields.values()]; }
 export { loadAirfields };
 
 // The region a tile belongs to, for resolveDefault's region rung. Membership is
@@ -1416,7 +1414,6 @@ export function getVenture(zoneId) { return world.orgVentures.get(zoneId) || nul
 export function getAllVentures() { return [...world.orgVentures.values()]; }
 export function getOrgVentures(orgId) { return [...world.orgVentures.values()].filter(v => v.org_id === orgId); }
 export function getVentureByVendor(npcId) { return [...world.orgVentures.values()].find(v => v.vendor_id === npcId) || null; }
-export function removeVentureFromCache(zoneId) { world.orgVentures.delete(zoneId); }
 
 // ─── Corp rackets (protection) ───────────────────────────────────────────────
 // world.orgRackets: npcId -> org_rackets row (one racket per shopkeeper). Keyed
@@ -1437,7 +1434,6 @@ export async function reloadRacket(npcId) {
 export function getRacket(npcId) { return world.orgRackets.get(npcId) || null; }
 export function getAllRackets() { return [...world.orgRackets.values()]; }
 export function getOrgRackets(orgId) { return [...world.orgRackets.values()].filter(r => r.org_id === orgId); }
-export function removeRacketFromCache(npcId) { world.orgRackets.delete(npcId); }
 
 export function getZone(id) { return world.zones.get(id) || null; }
 

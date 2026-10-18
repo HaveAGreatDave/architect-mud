@@ -103,6 +103,30 @@ Nothing writes those flags. No data migration was needed.
 "nothing happens". Flight already did this by accident: `startTextPilot` returning
 false (no physics profile for that airframe) drops the player back into the 3D sim.
 
+## Vehicles: a text helm, never a refusal
+
+Driving is a minigame by the STUCK test: delete the seat and the vehicle can't move. So every
+vehicle seat reads `prefersTextMinigames` at the moment you climb in, latches the answer, and on
+the text rungs starts a helm that runs **the same pure model on the server**:
+
+| Vehicle | Text helm | Verb | Shape |
+|---|---|---|---|
+| Aircraft | [plugins/flight/textpilot.js](../plugins/flight/textpilot.js) | flight's | intent (`climb to 3000`) |
+| Truck | [plugins/trucking/textdrive.js](../plugins/trucking/textdrive.js) | `drive`, `revs` | drives itself along the road; you work the box |
+| Powerboat | [plugins/powerboat/texthelm.js](../plugins/powerboat/texthelm.js) | `conn` | a bearing and a bell |
+| Podracer | [plugins/podracer/texthelm.js](../plugins/podracer/texthelm.js) | `pod` | a heading and a thrust, plus the racer's own moves |
+
+The rule they share: **an accessibility path may change the interface, never the odds.** Same
+model, same input shaping, same fuel burn, same ground, and every transition (a wreck, a
+breakdown, parking) through the seat's own function, so the two rungs can't drift into two games.
+A held key can't be typed, so a held control becomes a standing order the tick holds (the racer's
+air brakes until it stops, its slide through one turn). What the seat shows by eye has to be said:
+the racer's helm warns when something solid is under three seconds ahead and names what is round
+you on `pod look`. The two rungs differ in pace only: `log` hears the status line when it has
+changed, slowly enough for a screen reader; `textgames` hears it every few seconds.
+
+The podracer was the last seat that refused a text-rung player outright. None does now.
+
 ## Cost, and the tick rule
 
 `player_flags` is hydrated at login, so the predicates are awaited but are **not**
@@ -775,11 +799,12 @@ the context does not exist until then.
 ### ⚠ Why there is no "slow it down" option
 
 **WCAG 2.2.1 is already satisfied, by the ladder itself.** `textRender` never opens
-a board at the `log` rung — `resolveForLogRung` runs one 2d8−2d8 `skillCheck`
-against the same difficulty and reports it through the same resolve verb. That
-covers *every* minigame, the hololock included. The reflex demand is a property of
-the top two rungs only, and `log` is a supported way out of it that costs no
-content: same difficulty target, same authoritative verb, no timing.
+a board at the `log` rung. The hololock is played a move at a time in the log
+instead (below), and every other minigame gets `resolveForLogRung`: one 2d8−2d8
+`skillCheck` against the same difficulty, reported through the same resolve verb.
+The reflex demand is a property of the top two rungs only, and `log` is a
+supported way out of it that costs no content: same odds, same authoritative verb,
+no timing.
 
 (The `textgames` rung deliberately keeps the reflex — `texthololock.js` is the same
 loop with the drawing swapped, and that is the point of the middle rung. It is not
@@ -814,11 +839,24 @@ was tuned. That is a game change rather than a setting.
 
 What genuinely remains open is not a gap in coverage but a gap in *quality*:
 `resolveForLogRung` says of itself that it is **an interim shape**, and that the
-designed non-reflex equivalents — a turn-based breach, a paced cast — replace it
-per family when somebody writes them. Until then the untimed hololock is a dice
-roll rather than a game, and reaching it means dropping to the rung that also puts
-away every graphical panel. Both are real costs; neither is a dead end, which is
-the rule the ladder actually promises.
+designed non-reflex equivalents replace it per family when somebody writes them.
+
+**The hololock is the first one written** ([hololock-turn-based.md](proposals/hololock-turn-based.md)).
+At `log`, `hackDoor` sends `render: 'turns'` and
+[loghololock.js](../client/game/js/panels/loghololock.js) plays the lock in the log:
+ten cells, `probe N` for 1 feedback or `set N`, free if right and 3 if wrong, until
+every pin is set or the meter trips. It holds to the rule above the way the
+Reaction Time slider didn't. The lock's FEEDBACK capacity is calibrated so that
+**best** play wins exactly as often as the roll did, so no strategy beats the dice.
+[hololock-odds.mjs](../scripts/a11y/hololock-odds.mjs), in the `a11y` gate, solves
+the game exactly, plays the shipped rules, and fails if the odds drift past 3
+points. Because the capacity is announced before the first move, abandoning a
+started lock counts as tripping it (`abort`, a second `hack`, or a loss reported
+from anywhere), or a player would walk away from every low roll.
+
+Every other family is still a dice roll at `log`, and reaching any of them means
+dropping to the rung that also puts away every graphical panel. Both are real
+costs; neither is a dead end, which is the rule the ladder actually promises.
 
 `hololock.js` carries this reasoning at the `baseSpd` line so it isn't re-tried.
 
@@ -1163,11 +1201,33 @@ boolean `won`, but synth/splice reports a **0–100 score** (batch quality). A
 resolution that only produced a boolean would silently score every log-rung cook as
 zero. The score is derived from the same check's margin, so the two agree.
 
+The resolve line is a lock's ("until it gives. **Open.**"), so a family that isn't
+breaking into something passes its own words as `resultWords: { won: [sentence,
+verdict], lost: [sentence, verdict] }`. Calibration, the Mastery read,
+psychometry, signal hijack, demolition, the shop alarm and synth/splice all do. A
+family whose board isn't about hacking also passes the skill it grades on as
+`textRender`'s third argument; the cook and splice games were graded on hacking
+at this rung until that was fixed.
+
+⚠ **A two-stage family can't use the shared resolve.** Fishing's cast picks the
+catch and only then arms the fight, and the client's auto-resolve fires the
+resolve verb straight away. That reached `fishresolve` while the bite was still
+at the cast stage, the server refused it, and **a log-rung player never landed a
+fish**. So fishing's log rung is settled in the plugin (`settleLogBite`): a
+straight cast to a random depth, one fishing check against that catch's
+difficulty, then the same `cmdFishResolve` every other rung lands through.
+
+⚠ **`textRender` builds the payload; it doesn't send it.** Psychometry awaited it
+and dropped the result, so its board never opened at any rung. Its log rung reads
+the strongest impression, the one the tallest bar would have offered first.
+
 This is deliberately **interim** — the designed non-reflex equivalents (a
 turn-based breach, a paced cast) replace it per family when someone writes them.
+The hololock's is written: it passes `textRender(..., { turns: true })` and goes
+out as `render: 'turns'` (see "Why there is no slow it down option").
 What it guarantees today is that **no minigame is ever a dead end**, which is the
 rule the whole ladder rests on. It also covers families with no board at all
-(splice, the cook game): they fall back *up* to the graphical version at
+(the splice stages): they fall back *up* to the graphical version at
 `textgames`, and resolve at `log`.
 
 **Client: a skin, not a second game.** The drawing toolkit is
@@ -1187,6 +1247,26 @@ arms the fight through a second message, so the skin has to stay mounted between
 the two. Its column is drawn VERTICALLY, like the graphical board — depth is the
 axis the whole game is about (deep water hides the better catches), and rotating
 it to a horizontal bar to save lines would quietly throw that away.
+
+**The drug cook** ([textsynth.js](../client/game/js/panels/textsynth.js)) is the
+only one whose result is a 0–100 score rather than a win. `synthlab.js` grew
+`setSynthSkin({ frame, status, finish })`; with a skin installed the family init,
+the update functions, the quench ring and `finishCook` all run as before, and only
+the canvas and its pointer wiring are swapped out. The board picks one of five
+shapes from the game object's own state (band, press, gas, grind, blot), so it
+never repeats synthlab's form-to-family table. Its gauges are horizontal, the
+other way from fishing's: the canvas beaker is a level, not a place, and 40 cells
+across resolve finer than the narrowest band any difficulty draws, where a column
+would not.
+
+Its ergonomic differences are recorded in the file's header. The pestle and the
+dropper go where you point them by number or arrow key instead of by drag. The
+pestle moves to the next whole piece by itself, since grinding scores 1 whatever
+you do. The dropper doesn't, because when to lift it is the blotter's whole
+skill, and a tab's soak is drawn with the canvas's own cues (the dosed pip at
+0.82, darker past 1, red past 1.25) with no mark at 1.0. synthlab.js can't be
+linked in node (net.js imports `/shared/ws.js`), so `textui:smoke` reads its
+export list from source.
 
 **Circuit Breach is the worked example.** `circuithack.js` grew a *skin seam* rather
 than a fork: `setBreachSkin({ board, hud, status, finish })` swaps the renderer while
@@ -1363,9 +1443,11 @@ Two consequences worth knowing:
   set you can no longer read). The player's explicit stop is `tv off`, which deletes
   the registration directly rather than through the event.
 
-Still on panels only: the score bug, gameday and standings overlays. The commentary
-carries the score in words, so this is a degradation rather than a hole — but it is
-the next thing to write.
+The score bug and the standings flash are written out at this rung
+(`sendOverlayLines`, the score only when it changes). The **tablet's** TV and the
+**catch-up** a late tuner gets used to skip both: lines went to a panel that
+wasn't there and the score was never said. Both now stamp `toLog` and write the
+overlays out the same way. The gameday overlay stays panel-only (see above).
 
 ## Dialogue at the log rung — the conversation you type *(built 2026-08-11)*
 
@@ -1558,17 +1640,43 @@ don't diagnose the surface. **Anything else that opens a panel
 without writing to `#output` has this same bug** — the test is not "does it look bad",
 it is "if the player's eyes are shut, did anything happen at all".
 
+## The surfaces that never asked *(fixed 2026-10-18)*
+
+An audit of every panel the server sends found a set that never consulted the
+rung at all, so a log-rung player got the graphical version or nothing:
+
+- **Trip visuals** (`plugins/trip`) skipped `wantsDrugFx`, which the phase engine
+  and intoxication both honour. A log-rung trip is now its log lines and its sound.
+- **Strafe targeting** (`plugins/flight/combat.js`) opened its reticle at every
+  rung. At `log` it takes the continuous cockpit's inline piloting check.
+- **The concealment keypad** opened its pad at every rung. At `log` it names the
+  typed form, `keypad <thing> <code>`.
+- **The text pilot** repainted its instruments in the pane, which a screen reader
+  never hears, so a blind pilot wasn't told they'd stalled. At `log` the stall,
+  the buffet, low fuel and the all-clear are written out when they change
+  (`logRungWarnings` in `plugins/flight/textpilot.js`); `status` reads the full
+  instruments.
+- **The corp console and corp map** were panels only. At `log` both print the
+  console once as a snapshot, ending in the verbs (`consoleText` in
+  `plugins/corps/index.js`).
+
+**Staff surfaces are out of scope:** free look is staff-only and the Echelon helm
+is admin-only, so both stay 3D at every rung.
+
+`scripts/a11y/rung-sweep.mjs` keeps this closed: every client handler that opens a
+panel is matched to the server files that send it, and each such file must
+consult the rung or be on its allowlist with a reason.
+
 ## What still has no text form
 
 See the roadmap in the plan file for ordering. Done: circuit hack, hololock, vault crack, signal
 hijack — and on the panel side, **trade**, the **card-pack reveal** and the
 **workspace HUD**. Minigames: all families now RESOLVE at the log rung, so none is a dead end.
 Onboarding: **done** — the tour and chargen were the last two blocking surfaces in
-the prologue (see above). Still wanting a character board at : **splice/cook** (deeply
+the prologue (see above). Still wanting a character board at `textgames`: **splice/cook** (deeply
 canvas-coupled — its update functions draw, so a skin seam there is a real
-refactor rather than the five-line change it was elsewhere) and **fishing**
-(two-stage: the cast chooses the catch server-side, so its log-rung path needs
-plugin-side work rather than the shared fork). Panels: **all done.** The TV gameday sub-screen is still
+refactor rather than the five-line change it was elsewhere). Fishing has one (`textfishing.js`), and its log rung is settled in the plugin
+(see above). Panels: done, apart from the surfaces the rung sweep allowlists. The TV gameday sub-screen is still
 panel-only, which is a degradation rather than a hole — the commentary and the
 score line carry the game. All five puzzle minigames
 share one payload contract (`{skill, difficulty, deviceName, resolveCmd, id}` →

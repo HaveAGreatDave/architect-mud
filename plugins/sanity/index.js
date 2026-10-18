@@ -33,6 +33,7 @@ import { addPhantom, removePhantom, setRoomTransform } from '../../server/engine
 import { speakVoice } from './voices.js';
 import { beginDissociation, endDissociation, isDissociating } from '../../server/engine/dreamscape.js';
 import { getBroadcast } from '../../server/engine/messaging.js';
+import { pick } from '../../server/engine/util.js';
 
 // playerId -> { band, phantomIds:Set<string>, timers:Timeout[], audioOn:bool }
 const sanityState = new Map();
@@ -177,8 +178,6 @@ const DREAD_PHANTOMS = [
     depart: 'You look away for an instant, and when you look back the crowd has simply never been there.',
   },
 ];
-
-const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
 // Effective band, honouring the insane hysteresis flag on the player.
 // Exported for the regression suite.

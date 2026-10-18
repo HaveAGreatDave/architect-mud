@@ -709,12 +709,12 @@
     // via `interface_sfx` without this file growing another few hundred lines every
     // time a system gets a soundset.
     //
-    // LOAD-ORDER CONTRACT: a bank's <script> must come BEFORE this one in both
-    // client/game/index.html and client/devpanel/index.html. If it doesn't, the bank
-    // still plays (its own `play()` is self-contained) but the dev panel can't see it
-    // — a silent, confusing failure, so the tag order is commented at both sites.
-    // A bank that's an ES module (deadball-sfx.js) loads after this file and joins
-    // through addBank() below instead.
+    // LOAD-ORDER CONTRACT: a bank's <script> must come BEFORE this one in
+    // client/devpanel/index.html. If it doesn't, the bank still plays (its own `play()`
+    // is self-contained) but the dev panel can't see it — a silent, confusing failure,
+    // so the tag order is commented there. A bank that loads after this file joins
+    // through addBank() below instead: an ES module (deadball-sfx.js), and on the game
+    // page hockey-sfx.js, which the rink view injects on its first mount.
     ...(global.HockeySfx?.BUILTINS || []),
   ];
 

@@ -22,6 +22,8 @@
 //   noun        what the room calls it when there isn't one here
 //   lines       the prose: three fatigue tiers, the gain, the openers, the exits
 
+import { pick } from '../../server/engine/util.js';
+
 export const STATIONS = {
   // ── The bench: raw pressing strength ───────────────────────────────────────
   lift: {
@@ -249,7 +251,6 @@ export function repsFor(station, level) {
 // Pick a set line by remaining stamina fraction — the emptier the tank, the more
 // the reps visibly hurt. This is the progressive-exhaustion telegraph.
 export function setFlavor(station, staFrac) {
-  const pick = a => a[Math.floor(Math.random() * a.length)];
   if (staFrac > 0.6) return pick(station.strong);
   if (staFrac > 0.3) return pick(station.labored);
   return pick(station.gassed);

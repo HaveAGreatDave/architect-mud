@@ -203,8 +203,6 @@ export function updateCorpConsole(patch) {
   setDeckLevel(_overlay, (_data.architectHeat || 0) / 100);
 }
 
-export function closeCorpConsole() { close(); }
-
 function close() {
   if (_close) { _close(); _close = null; }
   _overlay = null;

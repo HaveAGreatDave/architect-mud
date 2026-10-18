@@ -432,7 +432,6 @@ export function coveredRoomAtTile(zoneId) {
   }
   return _slotIndex.get(zoneId) || null;
 }
-export const _forgetSlots = () => { _slotIndex = null; };
 
 export async function firstFreeBerth(zones) {
   for (const zone of zones) {

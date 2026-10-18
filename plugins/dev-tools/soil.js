@@ -27,8 +27,7 @@ import { getZonePlayers, getZoneNpcs, getAllLivePlayers } from '../../server/eng
 import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
 import { emit } from '../../server/engine/events.js';
 import { query } from '../../server/models/db.js';
-
-const pick = (a) => a[Math.floor(Math.random() * a.length)];
+import { pick } from '../../server/engine/util.js';
 
 // ── Voice ────────────────────────────────────────────────────────────────────
 // Three grades. Each is a complete set — self line, room line, NPC reactions —

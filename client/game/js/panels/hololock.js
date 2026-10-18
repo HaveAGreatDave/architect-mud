@@ -93,9 +93,10 @@ function generate(skill, difficulty) {
   // It was tried (2026-08-07) and reverted the same day.
   //
   // It wasn't needed in the first place: the `log` Display Mode rung never opens
-  // this board at all — server/engine/minigame.js `resolveForLogRung` settles the
-  // lock with one 2d8−2d8 skill check against the same difficulty, through the
-  // same resolve verb. An untimed route already exists, for every minigame.
+  // this board at all. It plays the lock a move at a time in the log instead
+  // (loghololock.js over client/shared/hololock-turns.js), untimed, with odds
+  // calibrated so best play wins exactly as often as a 2d8−2d8 skill check
+  // against the same difficulty, through the same resolve verb.
   //
   // And it was actively harmful:
   //

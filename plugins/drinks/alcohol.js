@@ -30,15 +30,6 @@ export function ethanolMl(build) {
   return ml;
 }
 
-// Total liquid volume, which is what makes a long drink weaker per mouthful
-// than a short one. Nothing special-cases dilution — the mixers and the ice are
-// simply volume, and the division does the rest.
-export function volumeMl(build) {
-  let ml = 0;
-  for (const c of build || []) ml += (Number(c?.pours) || 0) * POUR_ML;
-  return ml;
-}
-
 /**
  * The potency multiplier for a FULL vessel of this build, in standard units.
  * Handed straight to the existing `useDrug(..., { potencyMult })` path, so a

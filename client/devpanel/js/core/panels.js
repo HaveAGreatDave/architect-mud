@@ -547,6 +547,7 @@ function activatePanelNav(name) {
   document.querySelectorAll('.nav-item').forEach(el => el.classList.toggle('active', el.dataset.panel === nav));
   const group = document.getElementById('nav-vine-children');
   if (group) group.classList.toggle('open', VINE_GROUP_PANELS.has(name));
+  if (typeof navRefresh === 'function') navRefresh();   // unfold the group it lives in
 }
 
 async function showPanel(name) {

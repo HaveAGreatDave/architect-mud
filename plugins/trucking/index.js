@@ -28,6 +28,7 @@
 
 import { getZone, getAllZones, getMinimapData, addPlayerToZone, removePlayerFromZone, getLivePlayer } from '../../server/engine/world.js';
 import { saveDrivingState, restoreDrivingState } from './resume.js';
+import { cap } from '../../server/engine/util.js';
 // The damage model. `condition` is still the headline number every older reader uses; these four
 // components are what it is now DERIVED from. See damage.js for why the weakest link and not a mean.
 import { applyDamage, impactSplit, grindSplit, IMPACT_AREAS, damageOf, overall, PARTS, PART_LABELS, partBand,
@@ -709,7 +710,6 @@ function yardIndex() {
   }
   return _yardIndex;
 }
-export const resetDepotIndex = () => { _yardIndex = null; };
 const bayForYard = (zoneId) => (zoneId ? yardIndex().get(zoneId) || null : null);
 // The depot reachable from a zone id, from ANY of its three tiles — the same answer `depotHere`
 // gives a player, without needing one. Exported through _test so the reachability can be asserted.
@@ -3559,7 +3559,6 @@ async function cmdUnhitch(args, raw, player) {
   pushCab(rig);
   return say(`Legs down, pin out, air lines off. You pull forward and ${t.name} stands there without you${hadLoad ? ', load and all' : ''}. The truck feels like a different animal.`);
 }
-export const cap = (s) => String(s || '').charAt(0).toUpperCase() + String(s || '').slice(1);
 
 // ── stash / unstash ──────────────────────────────────────────────────────────
 // What makes the scale house a DECISION rather than a tax. Something goes in the trailer that is

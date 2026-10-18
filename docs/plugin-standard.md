@@ -70,7 +70,8 @@ let READMEs be generated:
     "id": "quests",                           // PANELS key; must not collide with a core panel
     "nav": "❗ Quests",                        // the sidebar row, glyph included
     "scripts": ["panel.js"],                  // loaded IN ORDER from this plugin's folder
-    "navAlias": null                          // highlight another panel's nav row instead
+    "navAlias": null,                         // highlight another panel's nav row instead
+    "navGroup": "content"                     // sidebar group: live, map, content, scripting, media, server
   }
 }
 ```

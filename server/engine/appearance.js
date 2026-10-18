@@ -3,6 +3,8 @@
  * and helpers for building physical description text.
  */
 
+import { pick } from './util.js';
+
 const HAIR_STYLES = ['mohawk', 'shaved', 'dreadlocks', 'braided', 'messy', 'slicked-back', 'curly', 'wavy', 'undercut', 'fade', 'afro', 'cornrows', 'pompadour', 'pixie'];
 const HAIR_LENGTHS = {
   shaved: 'shaved',
@@ -31,8 +33,6 @@ const STYLE_LENGTHS = {
   pompadour:     ['medium'],
   pixie:         ['short'],
 };
-
-function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 
 // Gaussian-ish using average of two randoms
 function randInRange(min, max) {

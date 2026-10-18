@@ -199,6 +199,22 @@ export async function setFlags(playerOrId, entries) {
   if (cache) for (const [k, v] of norm) cache.set(k, v);
 }
 
+// One key for many players in ONE round trip: a minute tick that flushes the same
+// flag for everyone who changed. `entries` is [[player, value], ...]; each needs
+// an id. Write-through to each hydrated cache, like setFlags.
+export async function setFlagForPlayers(key, entries) {
+  const norm = (entries || []).filter(([p]) => p?.id).map(([p, v]) => [p, v == null ? 'true' : String(v)]);
+  if (!norm.length) return;
+  const vals = norm.map((_, i) => `($${i * 2 + 2}::text, $1::text, $${i * 2 + 3}::text, EXTRACT(EPOCH FROM NOW()))`).join(',');
+  await query(
+    `INSERT INTO player_flags (player_id, flag_key, flag_value, updated_at)
+     VALUES ${vals}
+     ON CONFLICT (player_id, flag_key) DO UPDATE SET flag_value=EXCLUDED.flag_value, updated_at=EXCLUDED.updated_at`,
+    [key, ...norm.flatMap(([p, v]) => [p.id, v])]
+  );
+  for (const [p, v] of norm) (cacheOf(p) || cacheById(p.id))?.set(key, v);
+}
+
 // Clear several keys in ONE round trip.
 export async function clearFlagsIn(playerOrId, keys) {
   const playerId = typeof playerOrId === 'string' ? playerOrId : playerOrId?.id;

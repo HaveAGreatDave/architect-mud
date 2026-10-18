@@ -38,6 +38,7 @@ import { resolve as siftResolve } from '../../server/engine/sift.js';
 import { adjustRelation, getRelation } from '../../server/engine/relations.js';
 import { holdVendorGrudge } from '../../server/engine/vendor-grudge.js';
 import { zoneDanger } from '../../server/engine/danger.js';
+import { escapeHtml as esc } from '../../server/engine/html.js';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -60,7 +61,6 @@ export const RACKET_BANDS = [
 ];
 
 const err = (message) => ({ type: 'error', message });
-const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
 // Present fear for a racket row. Sync, zero queries — safe on the buy hot path.
 // Mirrors decayed() in relations.js, including the sub-day short circuit (drift

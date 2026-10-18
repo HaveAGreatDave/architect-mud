@@ -351,12 +351,30 @@ export async function resumeDueWaits(broadcast) {
   // A row the index held but the table doesn't was removed out of band.
   const found = new Set(rows.map(r => r.id));
   for (const id of dueIds) if (!found.has(id)) waitIndex.delete(id);
+  // Claim every runnable row in one DELETE before running any of them. A row
+  // somebody else removed in the meantime doesn't come back, so it doesn't run.
+  const runnable = rows.filter(r => !r.player_id || getLivePlayer(r.player_id)); // the rest logged off since the index was read
+  if (!runnable.length) return 0;
+  const { rows: claimed } = await query(
+    'DELETE FROM script_waits WHERE id = ANY($1) RETURNING id', [runnable.map(r => r.id)]);
+  const claimedIds = new Set(claimed.map(r => r.id));
   let ran = 0;
-  for (const row of rows) {
-    const actor = row.player_id ? getLivePlayer(row.player_id) : null;
-    if (row.player_id && !actor) continue; // logged off since the index was read
-    await query('DELETE FROM script_waits WHERE id=$1', [row.id]);
+  for (const row of runnable) {
     waitIndex.delete(row.id);
+    if (!claimedIds.has(row.id)) continue;
+    const actor = row.player_id ? getLivePlayer(row.player_id) : null;
+    if (row.player_id && !actor) {
+      // Logged off while an earlier chain in this batch ran: put the row back as
+      // it was, so it still lands the next time they're on.
+      await query(
+        `INSERT INTO script_waits (id, script_id, graph, node_id, player_id, params, due_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT (id) DO NOTHING`,
+        [row.id, row.script_id, JSON.stringify(row.graph || {}), row.node_id, row.player_id,
+         JSON.stringify(row.params || {}), row.due_at]
+      ).catch(e => console.error(`[graph] re-park of ${row.id} failed: ${e.message}`));
+      waitIndex.set(row.id, { playerId: row.player_id, dueAt: Number(row.due_at) });
+      continue;
+    }
     ran++;
     try {
       await runNodeChain(row.graph, row.node_id, {

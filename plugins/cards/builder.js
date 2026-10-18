@@ -10,6 +10,7 @@
 // Same instinct as firstSentence() in server/engine/commands/describe.js: take
 // whole units or none.
 import { getItem } from '../../server/engine/items-cache.js';
+import { cap } from '../../server/engine/util.js';
 
 // ── HOW THE PAGE IS SHARED ─────────────────────────────────────────────────────
 // A card is mostly a DESCRIPTION OF SOMEBODY, and the budgets say so. The two
@@ -213,8 +214,6 @@ export function pickQuote(candidates, budget = BUDGET.quote) {
   }
   return SILENCE;
 }
-
-const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
 
 /**
  * How the second prose region is SET, which is one decision and therefore lives in

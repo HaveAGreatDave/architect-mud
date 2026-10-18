@@ -627,4 +627,3 @@ export const commands = {
   squawk: cmdSquawk,
 };
 
-export const _hazardTest = { rollHazards };

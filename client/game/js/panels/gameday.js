@@ -64,9 +64,6 @@ const OUTCOME_GAP_MS = 480;   // beat between the final pitch landing and the pl
 
 // Motion durations for the field animation.
 const T_PITCH = 340, T_THROW = 380, T_RUN = 680, T_FLY = 1150, T_HOMER = 1500;
-// The at-bat's clock, for the 3-D view (gameday-grandstand.js), which lands each play when
-// this one would, so the booth's held line goes up at the same moment in either.
-export const GAMEDAY_CLOCK = Object.freeze({ REVEAL_STEP_MS, REVEAL_MAX_MS, OUTCOME_GAP_MS, T_PITCH, T_THROW, T_RUN, T_FLY, T_HOMER });
 
 // ── Field geometry (fractions of the .gd-field box; home bottom-centre) ──────────
 // The box is a touch wider than tall (aspect ~1.18), so an extended outfield fits with

@@ -21,6 +21,7 @@
   "devPanel": {
     "id": "feedback",
     "nav": "⚑ Feedback",
+    "navGroup": "server",
     "scripts": ["panel.js"]
   }
 }

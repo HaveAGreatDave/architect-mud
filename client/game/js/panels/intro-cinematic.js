@@ -138,8 +138,6 @@ const lerp    = (a, b, k) => a + (b - a) * k;
 
 let _ov = null, _raf = 0, _timers = [], _audio = null, _done = null, _finished = false, _cleanupCanvas = null;
 
-export function hasSeenIntro() { return localStorage.getItem(SEEN_KEY) === '1'; }
-
 // ── Audio ────────────────────────────────────────────────────────────────────
 // Deliberately tiny: two detuned sawtooth voices through a lowpass that opens as
 // the escalation builds, plus noise hits on the cuts. No samples, no assets.
@@ -1594,6 +1592,10 @@ export function playIntroCinematic(onDone, skyline, shore, opts) {
   _ov.id = 'intro-cinematic';
   _ov.setAttribute('role', 'dialog');
   _ov.setAttribute('aria-label', 'Opening sequence');
+  // Described, so entering the dialog says how to leave it. The log line naming
+  // Escape is sent in the same tick as this mount, and a polite announcement is
+  // cut off by the focus move a frame later, so the skip has to live in here too.
+  _ov.setAttribute('aria-describedby', 'intro-cine-skip-said intro-cine-wait-said');
   _ov.innerHTML = `
     <canvas id="intro-cine-cv"></canvas>
     <div class="intro-cine-vig"></div>
@@ -1657,6 +1659,7 @@ export function playIntroCinematic(onDone, skyline, shore, opts) {
              inside the gate rather than in the log so it's read as part of
              this screen, and it's static text, not a live region, so it never
              competes with anything. -->
+        <p class="sr-only" id="intro-cine-skip-said">About fifty seconds of words over music. Press Escape, or the Skip button, to skip it at any time.</p>
         <p class="sr-only" id="intro-cine-wait-said"></p>
       </div>
     </div>

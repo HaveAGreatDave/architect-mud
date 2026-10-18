@@ -16,8 +16,6 @@ import {
   MINCE_RATE, MINCE_CEILING_DROP,
 } from './config.js';
 
-export const isScored = row => !!row?.custom_data?.scored;
-export const isTenderised = row => !!row?.custom_data?.tenderised;
 export const marinatedAt = row => Number(row?.custom_data?.marinated_at) || 0;
 
 // How much good a marinade has done, 0..1. Time is the whole cost — pull it out

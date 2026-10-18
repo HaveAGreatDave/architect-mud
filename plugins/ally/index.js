@@ -72,7 +72,6 @@ export function allyOf(playerId) {
   const npcId = byPlayer.get(playerId);
   return npcId ? getNpc(npcId) : null;
 }
-export function employerOf(npcId) { return byNpc.get(npcId) || null; }
 
 function tell(playerId, text) {
   sendToPlayer(playerId, { type: 'output', message: `<span class="msg-system">${text}</span>` });

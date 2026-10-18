@@ -28,7 +28,8 @@ Everything is procedural. There are no samples.
 The soundset contains no synthesizer. A patch is a cue in the catalog's own shape (`{ id, name, group:
 'hockey', category, priority, vary, config: { duration, layers, retro } }`), so `sfx-catalog.js` folds it
 in, the dev panel lists and edits it, and an override saved there (`interface_sfx`) replaces the default
-for every client. A layer is an FM voice or a band of noise, exactly as [amp-format.md](amp-format.md)
+for every client. The game page doesn't load it at boot: the rink view injects it on its first mount and
+hands it to `SFXCatalog.addBank`, so the dev panel's `<script>` tag is the only static one. A layer is an FM voice or a band of noise, exactly as [amp-format.md](amp-format.md)
 describes: a carrier, a modulator ratio, a modulation index that falls as the sound dies (`index` to
 `indexEnd`), a pitch envelope (`pitchBend`), a biquad, and an exponential envelope.
 

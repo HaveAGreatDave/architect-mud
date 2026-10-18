@@ -25,6 +25,7 @@ import { typeOf, isLot, rowEng, rowCables, rowBinder, recoverFee, racerLiveryOf,
 import { adjustCredits } from '../../server/engine/economy.js';
 // A cycle with index.js, safe because `rigs` and `seated` are only read inside function bodies.
 import { rigs, seated } from './index.js';
+import { startTextPod, stopTextPod } from './texthelm.js';
 
 export const RADIUS = 20;               // must match RAD in client/game/js/panels/podracer-view.js
 // The Scarletwastes, where a racer may run. The client treats the rim as a wall; this is the check.
@@ -66,6 +67,8 @@ function bays() {
   return _bays;
 }
 export const _forgetBays = () => { _bays = null; };
+/** Every bay door, as world tiles: where the text helm's `pod home` steers for. */
+export function bayDoors() { return [...bays().keys()].map((k) => { const [x, y] = k.split(',').map(Number); return { x, y }; }); }
 /** The lot room whose bay door is the tile under (x, y), or null. */
 export function bayLotAt(x, y) { return bays().get(Math.round(x) + ',' + Math.round(y)) || null; }
 
@@ -131,14 +134,19 @@ export async function mountRacer(player, row) {
       ? 'The binder is torn out. The turbines will not light without it: <b>podracer service</b> welds a new one in.'
       : 'The binder is torn out and it is going nowhere. The racer bay at the Deadleg can send the flatbed: <b>podracer recover</b>.' };
   }
-  // The racer has no text rung yet. A helm you cannot see is a helm you cannot drive, so it says so
-  // rather than opening a pane nobody is looking at.
-  if (await prefersTextMinigamesOrDefault(player)) {
-    return { type: 'error', message: 'A racer is driven by eye, and there is no text helm for one yet. Switch display mode to visual to race.' };
-  }
   seated.set(player.id, row.id);
   rigs.delete(player.id);
   svcState.delete(player.id);
+  // The text rungs drive the same racer by orders (texthelm.js). The rung is read here, once, and
+  // latched on the run: the tick never asks.
+  if (await prefersTextMinigamesOrDefault(player)) {
+    startTextPod(player, row, at, (await prefersLoggedPanelsOrDefault(player)) ? 'log' : 'textgames');
+    sendToPlayer(player.id, { type: 'podracer_close' });
+    return { type: 'emote', message: (at.bay
+      ? 'The yard lets the racer down off the blocks in the shed door, turbines out at the hardpan. You climb into the pod and pull the straps over your shoulders.'
+      : 'You climb down into the pod and pull the straps over your shoulders. The turbines are cold.')
+      + ` <span class="text-dim">Heading ${Math.round(at.heading ?? 0)}. <b>pod start</b> lights the turbines, <b>pod half</b> or <b>pod full</b> for thrust, <b>pod 270</b> to steer for a heading, <b>pod look</b> for what is round you, <b>pod park</b> to climb out. <b>pod help</b> has every order.</span>` };
+  }
   const first = !(await getFlag('player', TAUGHT, player));
   sendToPlayer(player.id, { type: 'podracer_close' });
   sendToPlayer(player.id, { type: 'podracer_sim', ...seatContext(row, at, player.id), first });
@@ -296,6 +304,7 @@ export function standTileNear(x, y) {
 }
 
 async function leaveSeat(player, rig, zoneId, line, broadcast) {
+  stopTextPod(player.id);
   seated.delete(player.id);
   rigs.delete(player.id);
   sendToPlayer(player.id, { type: 'podracer_sim_close' });
@@ -310,7 +319,7 @@ async function leaveSeat(player, rig, zoneId, line, broadcast) {
 
 export async function parkRacer(player, broadcast) {
   const row = await seatedRow(player);
-  if (!row) { seated.delete(player.id); sendToPlayer(player.id, { type: 'podracer_sim_close' }); return null; }
+  if (!row) { stopTextPod(player.id); seated.delete(player.id); rigs.delete(player.id); sendToPlayer(player.id, { type: 'podracer_sim_close' }); return null; }
   const rig = rigs.get(player.id);
   if (rig && rig.speed > STOP_MPH) {
     return { type: 'error', message: 'Not at this speed. Take the levers off and let it stop.' };
@@ -452,6 +461,7 @@ export async function cmdPodEvent(args = [], raw, player, broadcast) {
 /** Drop the seat without a word: logout, login, death. Flushes what the racer had. */
 export async function dropSeat(playerId) {
   const rig = rigs.get(playerId);
+  stopTextPod(playerId);
   svcState.delete(playerId);
   seated.delete(playerId);
   rigs.delete(playerId);

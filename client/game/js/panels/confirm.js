@@ -1,7 +1,7 @@
 // Generic in-browser confirmation dialog, driven by a server { type:'confirm' }
 // message. Moveable (drag by the header). Confirming sends the server-supplied
 // command back down the wire; cancelling just closes.
-import { sendCmd } from '../net.js';
+import { sendCmd, emailCaught } from '../net.js';
 import { holdToConfirm } from './hold-confirm.js';
 
 let _el = null;
@@ -372,7 +372,7 @@ export function showClaimDialog(opts, onSend) {
       <label class="claim-label">Password
         <input class="confirm-input claim-password" type="password" autocomplete="new-password"></label>
       <label class="claim-label">Email
-        <input class="confirm-input claim-email" type="email" autocomplete="email"></label>
+        <input class="confirm-input claim-email" type="email" autocomplete="email" autocapitalize="off" autocorrect="off" spellcheck="false"></label>
       <div class="confirm-actions">
         <button class="confirm-cancel">Cancel</button>
         <button class="confirm-ok">Keep it</button>
@@ -395,6 +395,7 @@ export function showClaimDialog(opts, onSend) {
     if (!username) { user.focus(); return; }
     if (password.length < 8) { prompt.textContent = 'Passwords are 8 characters or more.'; prompt.style.color = 'var(--red)'; pass.focus(); return; }
     if (!email) { mail.focus(); return; }
+    if (emailCaught(email, prompt)) { mail.focus(); return; }
     closeClaimDialog();
     onSend({ username, password, email });
   };

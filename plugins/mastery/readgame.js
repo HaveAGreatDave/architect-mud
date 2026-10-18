@@ -102,6 +102,7 @@ async function sendPayload(player, enemy, ttlMs) {
     skill: await effectiveSkill(player, 'dodge'),
     difficulty: Math.max(1, (enemy.hit ?? 1) + (enemy.dodge ?? 1)),
     resolveCmd: 'readresolve',
+    resultWords: { won: [`You watch ${enemy.name} and see it coming.`, 'Read.'], lost: [`You watch ${enemy.name} and guess wrong.`, 'Missed it.'] },
     token: win.token,
     tells: TELLS[win.correct] || [],
     options: [...OPTIONS],

@@ -46,6 +46,7 @@ import { resolveInventoryItem } from '../../server/engine/inventory.js';
 import { registerMoveGate } from '../../server/engine/movement-gates.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
 import { getFlag } from '../../server/engine/flags.js';
+import { cap } from '../../server/engine/util.js';
 
 const SCAN_DIFF = 7;       // contraband scan — security is tighter than a bluffed warrant
 const BASE_DIFF = 5;       // wanted-bluff floor; a border guard is less networked than a scanner
@@ -55,7 +56,6 @@ const HEAT_MS = 45_000;    // a flagged pass keeps the guards on you this long
 
 const heat = new Map();    // `${tileId}:${playerId}` → epoch ms the checkpoint stays hot
 
-const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 const hot = (key) => Date.now() < (heat.get(key) || 0);
 const stoke = (key) => heat.set(key, Date.now() + HEAT_MS);
 const apprehend = (player, guards) => dispatchAction({ type: 'APPREHEND', actor: player, params: { officer: guards } });

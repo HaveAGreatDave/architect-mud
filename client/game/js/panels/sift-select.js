@@ -28,10 +28,6 @@ export function closeSiftPanel() {
   _el = null;
 }
 
-// True while the picker is up — the smartbar and anything else that wants to know
-// whether a bare number is currently spoken for can ask.
-export function isSiftPanelOpen() { return !!_el; }
-
 // Send one of the picker's own words and let the server answer. We never close
 // on click: the server's reply carries either a fresh page or an explicit close,
 // so the panel's lifetime is decided in one place rather than guessed at here.

@@ -23,7 +23,7 @@ import { getZoneFurniture } from '../../server/engine/world.js';
 import { getItem } from '../../server/engine/items-cache.js';
 import { isPluggedIn } from '../appliances/index.js';
 import { adjustCredits } from '../../server/engine/economy.js';
-import { randomUUID } from 'crypto';
+import { giveItemById } from '../../server/engine/inventory.js';
 
 // playerId:furnitureId -> last-vend timestamp. In-memory: a soft anti-spam guard,
 // not persisted (a restart forgives it, which is fine for grey slurry).
@@ -86,16 +86,8 @@ async function cmdVend(args, raw, player, broadcast) {
   let invId = null;
   await withTransaction(async (q) => {
     if (price > 0 && !(await adjustCredits(player, -price, q, 'vending:vend'))) { broke = true; return; }
-    let existing = [];
-    if (stack) {
-      const r = await q('SELECT id FROM player_inventory WHERE player_id=$1 AND item_id=$2 AND is_equipped=0 LIMIT 1', [player.id, item.id]);
-      existing = r.rows;
-    }
-    if (existing.length) await q('UPDATE player_inventory SET quantity=quantity+1 WHERE id=$1', [existing[0].id]);
-    else {
-      invId = randomUUID();
-      await q('INSERT INTO player_inventory (id, player_id, item_id, quantity, condition) VALUES ($1,$2,$3,1,1.0)', [invId, player.id, item.id]);
-    }
+    const given = await giveItemById(player.id, item.id, 1, { stack, q });
+    if (given.created) invId = given.id;
   });
   if (broke) return { type: 'error', message: `The ${machine.name} wants ₵${price}, and you haven't got it.` };
 

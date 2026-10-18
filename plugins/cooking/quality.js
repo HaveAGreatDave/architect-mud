@@ -15,8 +15,8 @@ import {
 import { QUALITY_BANDS, bandIndex, donenessAt } from './profiles.js';
 import { prepCeilingDrop, prepWindowMult, prepBurnMult, prepBonus } from './prep.js';
 import { apparentNow } from './heat.js';
+import { clamp } from '../../server/engine/util.js';
 
-const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 const HEAT_ORDER = ['low', 'mid', 'high'];
 
 // The four windows of a profiled cook, all derived from what the session stored.

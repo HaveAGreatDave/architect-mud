@@ -15,6 +15,7 @@ import { query } from '../../server/models/db.js';
 import { cmdUse } from '../../server/engine/commands/inventory.js';
 import { getDrugStatus, visibleIntoxication, isDrugItem } from '../../server/engine/drugs.js';
 import { dispatchAction } from '../../server/engine/actions.js';
+import { pick } from '../../server/engine/util.js';
 
 async function findDrug(targetStr, player) {
   if (!targetStr) return false;
@@ -148,7 +149,6 @@ const SELF_LINES = {
   ],
 };
 
-const pick = (a) => a[Math.floor(Math.random() * a.length)];
 const selfKey = (seen) =>
   seen.tripping ? "tripping"
   : SELF_LINES[seen.drugClass] ? seen.drugClass

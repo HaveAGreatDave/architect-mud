@@ -93,7 +93,6 @@ export function registerNullOperation({
 
 export function getNullOperation(id) { return operations.get(id) || null; }
 export function getNullOperations() { return [...operations.values()]; }
-export function getSubsystemKind(id) { return subsystemKinds.get(id) || null; }
 export function getSubsystemKinds() { return [...subsystemKinds.values()]; }
 
 /** Operations that make sense against a subsystem of this kind. */

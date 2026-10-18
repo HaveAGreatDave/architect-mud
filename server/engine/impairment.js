@@ -88,4 +88,3 @@ export function impairmentStatPenalty(player, stat) {
   return impairmentOf(player).statPenalties[stat] || 0;
 }
 
-export function getRegisteredImpairmentProviders() { return providers.map(p => p.owner); }

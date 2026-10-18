@@ -794,8 +794,6 @@ function windowRowFor(zoneId) {
   };
 }
 
-export async function loadWindows() { /* nothing to load — see windowFlagOf */ }
-
 // Build the set of zones flooded to full brightness by a light beacon: each
 // `flags.light_beacon` tile plus every same-map, same-level tile one grid-step
 // away (the 8 surrounding cells). One cheap query per beacon at init; there are
@@ -818,11 +816,6 @@ async function loadBeaconLitZones(query) {
   }
   state.beaconLitZones = lit;
 }
-
-// Kept as a no-op so the dev API's post-edit refresh stays a valid call: zone
-// flags are read live off `world.zones`, so a window edited in the panel is
-// already correct the moment the zone row is.
-export async function reloadWindows() { /* flags are read live */ }
 
 // Light reaching a zone through its window. Outdoor ambient, attenuated by
 // weather and then by the glass. A drawn curtain blocks it; broken glass passes
@@ -2242,15 +2235,6 @@ export function groundAccum(now = Date.now()) {
   GROUND_AT = now;
   if (dt > 0) stepGround(GROUND, dt, fallRates(state.currentPrecip, null, 0));
   return { wet: GROUND.wet, pond: GROUND.pond, snow: GROUND.snow, fell: GROUND.fell };
-}
-
-// Current global precipitation type. ⚠ IT IS THREE WORDS WIDE: 'none' | 'rain' | 'snow'.
-// rollAndSetCurrentPrecip is the only thing that ever writes it and it picks between those
-// three, so any consumer branching on 'sleet' / 'blizzard' / 'thunderstorm' here is dead code.
-// (This comment claimed the full taxonomy for months and several such branches were written
-// on the strength of it.) The day's SEVERITY, not this word, is how the model says "worse".
-export function getCurrentPrecipType() {
-  return state.currentPrecip;
 }
 
 // ---------------------------------------------------------------------------
@@ -4575,10 +4559,3 @@ export function getZoneOnGrid(zoneId) {
 // loader's known-hooks list alongside tick.minute / player.enterZone / etc.
 // ---------------------------------------------------------------------------
 
-export const ENVIRONMENT_HOOKS = [
-  'environment.tick30m',
-  'environment.tick24h',
-  'environment.weatherChange',
-  'environment.sunrise',
-  'environment.sunset',
-];

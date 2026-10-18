@@ -155,9 +155,6 @@ export function closeColorPicker({ silent = false } = {}) {
   if (!silent) done?.();
 }
 
-/** Is a picker up? Used by callers whose Esc handling has to yield to it. */
-export function colorPickerOpen() { return !!cpState; }
-
 /**
  * Open the picker under `anchor`.
  *

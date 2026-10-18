@@ -44,6 +44,7 @@ import { on } from '../../server/engine/events.js';
 import { setFlag } from '../../server/engine/flags.js';
 import { adjustRelation } from '../../server/engine/relations.js';
 import { courierVerb, deliver, crack, registerCourierAction, _courierTest } from './courier.js';
+import { clamp, pick } from '../../server/engine/util.js';
 
 // ── Tunables (defaults; adjustable via the tunables table without a redeploy) ──
 const T = {
@@ -192,7 +193,6 @@ function statCheck(player, stat, difficulty) {
   return (statValue(player, stat) - difficulty) + (roll2d8() - roll2d8()) >= 0;
 }
 
-function clamp(n, lo, hi) { return Math.max(lo, Math.min(hi, n)); }
 function tipFor(sat) { return Math.round(TIP_MAX * Math.max(0, sat - 40) / 60); }
 
 function out(pid, message) { sendToPlayer(pid, { type: 'output', message }); }
@@ -219,7 +219,6 @@ function eventPool(venue) {
   if (Array.isArray(venue.events) && venue.events.length) return venue.events;
   return POOLS[venue.pool] || DINER_EVENTS;
 }
-function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 
 function enqueueEvent(st) { st.queue.push({ ...pick(eventPool(st.venue)), rush: false }); }
 function enqueueRush(st) {

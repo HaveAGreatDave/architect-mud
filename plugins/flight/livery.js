@@ -9,6 +9,7 @@
 // camo hides, bright + gloss + hazard shouts. Nothing here reads the DB or DOM.
 
 import { defaultLivery, aircraftLiveryModel } from '../../client/shared/livery-sets.js';
+import { clamp } from '../../server/engine/util.js';
 
 // ── The model ─────────────────────────────────────────────────────────────────
 // LIVERY_DEFAULT is the floor every field falls back to, not what a new aircraft wears: that is its
@@ -56,13 +57,6 @@ export const PLATE_MAX = 16;
 export function cleanPlate(s) {
   if (typeof s !== 'string') return '';
   return [...s.toUpperCase()].filter(c => PLATE_CHARS.includes(c)).join('').replace(/ +/g, ' ').trim().slice(0, PLATE_MAX);
-}
-// What the plate actually reads: the override, else the cabin trim's own name, else the class default.
-export function plateText(cls, livery) {
-  const lv = livery || {};
-  if (lv.plate) return lv.plate;
-  const t = (CABIN_TRIMS[cls] || []).find(x => x.id === lv.itrim);
-  return (t && t.plate) || PLATE_DEFAULT[cls] || '';
 }
 
 // Nose art / decals — a cosmetic top layer (does NOT feed the signature).
@@ -262,7 +256,6 @@ export function schemeOf(livery, cls = null) {
 
 // ── Signature / conspicuousness ───────────────────────────────────────────────
 const CLAMP_LO = 0.75, CLAMP_HI = 1.25;   // ±25% band (the "meaningful, not dominant" call)
-const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
 
 // The paint signature multiplier: brightness × pattern × finish, clamped to ±25%.
 // >1 = shouts (easier to spot/hit), <1 = hides.

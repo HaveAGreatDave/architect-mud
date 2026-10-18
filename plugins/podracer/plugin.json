@@ -8,6 +8,7 @@
   "commands": [
     "podracer",
     "podracers",
+    "pod",
     "podsync",
     "podevent"
   ],

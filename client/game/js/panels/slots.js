@@ -249,8 +249,6 @@ export function openSlotsPanel(msg) {
   return mounted;
 }
 
-export function closeSlotsPanel() { if (live) { live.close(); live = null; } }
-
 function rainCoins(host, n) {
   for (let i = 0; i < n; i++) {
     const c = document.createElement('span');

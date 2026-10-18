@@ -37,8 +37,6 @@ const SR = typeof window !== 'undefined'
   ? (window.SpeechRecognition || window.webkitSpeechRecognition)
   : null;
 
-export function dictationSupported() { return !!SR; }
-
 let recog = null;
 let listening = false;
 let mode = 'off';

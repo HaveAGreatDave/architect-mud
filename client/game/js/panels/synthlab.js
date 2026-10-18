@@ -348,17 +348,69 @@ export function openSynthMinigame(opts = {}) {
   closeSynth();
   const family = FAMILIES[opts.family] ? opts.family : 'wet';
   const fam = FAMILIES[family];
-  const lab = mountLab({ title: 'CHIMERA-9', subtitle: 'COOK · ' + String(opts.recipeName || 'BATCH').toUpperCase(), accent: fam.accent, showInsta: false, test: !!opts.test });
+  const lab = _skin ? skinLab() : mountLab({ title: 'CHIMERA-9', subtitle: 'COOK · ' + String(opts.recipeName || 'BATCH').toUpperCase(), accent: fam.accent, showInsta: false, test: !!opts.test });
   const d = clamp(opts.difficulty || 5, 1, 14);
   _g = { lab, opts, family, closed: false, phase: 'work', t: 0, last: performance.now(), raf: null, difficulty: d,
     workScore: 0, quenchT: 0, quenchTapped: false, quenchDur: 1.4, result: null, resultT: 0, _resolved: false, _label: fam.label, beaker: { x: W / 2, y: H * 0.48, w: 120, h: 220 } };
   fam.init(_g);
-  wireCook(_g);
-  if (opts.test) buildFormChanger(_g);
+  if (_skin) wireSkin(_g); else wireCook(_g);
+  if (opts.test && !_skin) buildFormChanger(_g);
   _g.lab.ticker(fam.label);
   _g.raf = requestAnimationFrame(cookLoop);
 }
 function closeSynth() { if (_g && _g.lab) _g.lab.close(); }
+
+// ── The SKIN seam ────────────────────────────────────────────────────────────
+// Everything that decides the batch — the family init numbers, the update
+// functions, the quench window, finishCook's score — runs whether or not a skin
+// is installed. A skin replaces two things only: the canvas, and the pointer
+// wiring that reads it. textsynth.js installs one and plays the identical cook in
+// characters on the same requestAnimationFrame clock (see
+// docs/systems-display-mode.md, "Building a text minigame").
+//
+// A skin supplies { frame(g), status(text), finish(g), flash?(colour) }. frame
+// gets the live game object every tick; finish runs once the score has gone to
+// onResult. Null means the canvas bench, which is still the default.
+let _skin = null;
+export function setSynthSkin(skin) { _skin = skin; }
+
+// Stands in for mountLab's return value. The family code calls lab.ticker and
+// lab.flash and the loop calls lab.close, so those keep their meaning; there is
+// no canvas and no overlay. AX.stopAll matches what the real close does, or a
+// burner loop would outlive the board.
+function skinLab() {
+  let closed = false; const cbs = [];
+  return {
+    canvas: null,
+    ticker: (msg) => _skin?.status?.(msg),
+    flash: (col) => _skin?.flash?.(col),
+    mkBtn: () => ({}),
+    onClose: (fn) => cbs.push(fn),
+    close: () => { if (closed) return; closed = true; AX.stopAll(); cbs.forEach(fn => { try { fn(); } catch (e) { } }); },
+  };
+}
+function wireSkin(g) {
+  g.lab.onClose(() => { g.closed = true; if (g.raf) cancelAnimationFrame(g.raf); FAMILIES[g.family] && FAMILIES[g.family].exit(g); });
+}
+
+// Open the cook under the installed skin. Returns the game object, or null if no
+// skin is installed (the caller should open the canvas bench instead).
+export function startSynthGame(opts) { if (!_skin) return null; openSynthMinigame(opts); return _g; }
+export function stopSynthGame() { closeSynth(); }
+export function synthState() { return _g; }
+
+// The inputs, exactly as wireCook routes them. These are the only things a
+// player can do to a batch; a skin that needs another is a skin changing the game.
+//   synthDown(p) — press. Work phase: the family's input(down), with an optional
+//                  bench point (the nugget, a piece, a tab). Quench: the strike.
+//   synthUp()    — release.
+//   synthAim(p)  — move the tool (pestle, dropper) to a bench point.
+export function synthDown(p) { const g = _g; if (!g || g.closed) return; if (g.phase === 'work') FAMILIES[g.family].input(g, true, p); else if (g.phase === 'quench') quenchStrike(g); }
+export function synthUp() { const g = _g; if (!g || g.closed) return; if (g.phase === 'work') FAMILIES[g.family].input(g, false); }
+export function synthAim(p) { const g = _g; if (g && !g.closed && g.phase === 'work' && FAMILIES[g.family].move) FAMILIES[g.family].move(g, p); }
+// Read-only helpers a renderer needs: where the band is now, and the quench ring.
+export { bandCenter as synthBandCenter };
+export function synthRing(g) { return { r: QUENCH_R0 * (1 - clamp(g.quenchT / g.quenchDur, 0, 1)), target: QUENCH_RT, max: QUENCH_R0 }; }
 
 function wireCook(g) {
   const canvas = g.lab.canvas;
@@ -379,6 +431,9 @@ function cookLoop(now) {
   if (g.phase === 'work') g.t += dt;
   g.bgT = (g.bgT || 0) + dt;   // always-advancing clock for ambient motion (g.t freezes off-work)
   update(g, dt);
+  // A skin draws instead of the canvas. The guard stops a game that resolved (or a
+  // dev replay that replaced it) from scheduling one more frame of itself.
+  if (_skin) { if (g.closed || _g !== g) return; _skin.frame?.(g); g.raf = requestAnimationFrame(cookLoop); return; }
   G.clearRect(0, 0, W, H); drawBench();
   lightShaft(W / 2, 70, 340, H * 0.7, '130,225,175', .05);   // shared bench atmosphere (as splice)
   dustMotes(g.bgT, 42, '150,225,185');
@@ -399,11 +454,13 @@ function update(g, dt) {
   else if (g.phase === 'quench') { g.quenchT += dt; if (g.quenchT > g.quenchDur && !g.quenchTapped) finishCook(g, 'MISS', -0.08); }
   else if (g.phase === 'done') { g.resultT += dt; if (g.resultT > 1.15 && !g._resolved) { g._resolved = true;
     if (g.opts.test) { openSynthMinigame({ family: g.family, form: g.opts.form, difficulty: g.difficulty, recipeName: g.opts.recipeName, test: true, onResult: g.opts.onResult }); return; }  // dev loop — replay so you can keep switching forms
-    const cb = g.opts.onResult, score = g.result.score; g.lab.close(); if (cb) cb({ score }); } }
+    const cb = g.opts.onResult, score = g.result.score; g.lab.close(); if (cb) cb({ score }); if (_skin) _skin.finish?.(g); } }
 }
+// The quench ring closes from QUENCH_R0 to nothing over quenchDur; strike as it meets QUENCH_RT.
+const QUENCH_R0 = 150, QUENCH_RT = 34;
 function quenchStrike(g) {
   if (g.quenchTapped || g.phase !== 'quench') return; g.quenchTapped = true;
-  const R0 = 150, Rt = 34, R = R0 * (1 - clamp(g.quenchT / g.quenchDur, 0, 1)), err = Math.abs(R - Rt), tol = 12 + (16 - g.difficulty);
+  const Rt = QUENCH_RT, R = synthRing(g).r, err = Math.abs(R - Rt), tol = 12 + (16 - g.difficulty);
   if (err < tol * 0.4) { AX.perfect(); g.lab.flash('#4fe08a'); finishCook(g, 'PERFECT', 0.12); }
   else if (err < tol) { AX.good(); finishCook(g, 'GOOD', 0.06); }
   else { AX.click(); finishCook(g, 'OFF', 0); }

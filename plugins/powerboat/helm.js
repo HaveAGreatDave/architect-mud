@@ -135,7 +135,6 @@ function allMarks() {
 export function berthMarksNear(x, y, r = RADIUS) {
   return allMarks().filter((m) => Math.abs(m.x - x) <= r + 1 && Math.abs(m.y - y) <= r + 1);
 }
-export const _forgetMarks = () => { _marks = null; };
 
 // ── THE PAYLOAD ──────────────────────────────────────────────────────────────
 export function helmContext(boat, at, playerId = null) {

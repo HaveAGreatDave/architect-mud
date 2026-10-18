@@ -158,13 +158,22 @@ schedule('1m', async () => {
     `SELECT id, player_id, item_id, item_name, qty, drop_zone, vendor_id FROM smuggle_orders
       WHERE status='pending' AND deliver_at <= $1`,
     [Date.now()]).catch(() => ({ rows: [] }));
-  for (const o of rows) {
-    const cd = JSON.stringify({ ownerId: o.player_id, itemId: o.item_id, itemName: o.item_name, qty: o.qty, orderId: o.id, vendorId: o.vendor_id });
+  if (rows.length) {
+    // Every crate in one INSERT and every order in one UPDATE, not two round
+    // trips per delivery.
+    const params = [];
+    const values = rows.map((o) => {
+      const b = params.length;
+      const cd = JSON.stringify({ ownerId: o.player_id, itemId: o.item_id, itemName: o.item_name, qty: o.qty, orderId: o.id, vendorId: o.vendor_id });
+      params.push(`inv_mule_${randomUUID()}`, `_ground_${o.drop_zone}`, cd);
+      return `($${b + 1},$${b + 2},'item_mule_crate',1,$${b + 3}::jsonb)`;
+    });
     await query(
-      `INSERT INTO player_inventory (id, player_id, item_id, quantity, custom_data)
-       VALUES ($1,$2,'item_mule_crate',1,$3::jsonb)`,
-      [`inv_mule_${randomUUID()}`, `_ground_${o.drop_zone}`, cd]);
-    await query(`UPDATE smuggle_orders SET status='delivered' WHERE id=$1`, [o.id]);
+      `INSERT INTO player_inventory (id, player_id, item_id, quantity, custom_data) VALUES ${values.join(',')}`,
+      params);
+    await query(`UPDATE smuggle_orders SET status='delivered' WHERE id = ANY($1)`, [rows.map(o => o.id)]);
+  }
+  for (const o of rows) {
     const p = getLivePlayer(o.player_id);
     if (p) sendToPlayer(p.id, {
       type: 'output',

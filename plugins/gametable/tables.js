@@ -29,8 +29,4 @@ export async function loadAllTables() {
   }
 }
 
-export function chessTables() {
-  return [...activeTables.values()].filter(t => t instanceof ChessTable);
-}
-
 export { activeTables };

@@ -39,13 +39,13 @@ import { DISHES } from '../cooking/dishes.js';
 import { DRINKS } from '../drinks/recipes.js';
 import { isToilet, isShower } from '../bodily/index.js';
 import { zoneIsDark } from './blackout.js';
+import { randInt } from '../../server/engine/util.js';
 
 const START_CHANCE = 0.35;                 // per eligible zone, per tick
 const COOLDOWN_MS = [8 * 60_000, 20 * 60_000];
 const BEAT_GAP_MS = [12_000, 24_000];      // domestic time is slow time
 
 const rand = arr => arr[Math.floor(Math.random() * arr.length)];
-const randInt = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
 
 const zoneCooldown = new Map();   // zoneId → ts
 const activeHome = new Set();     // zoneId mid-routine

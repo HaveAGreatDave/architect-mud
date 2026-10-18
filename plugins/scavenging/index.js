@@ -22,6 +22,7 @@ import { on, emit } from '../../server/engine/events.js';
 import { setPosture, forceStand } from '../../server/engine/posture.js';
 import { escAttr } from '../../server/engine/text.js';
 import { loadZoneStock } from '../../server/engine/zone-stock.js';
+import { pick } from '../../server/engine/util.js';
 
 const ATTEMPT_MS = 3500;   // per-attempt cadence, sibling to the attack cooldown
 const MAX_SWING = 14;      // best possible 2d8-2d8 roll — reachability ceiling
@@ -41,7 +42,6 @@ const DEFAULT_BROADCAST = [
   'starts picking through the area, scavenging for anything useful.',
 ];
 
-function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 function roll2d8() { return Math.floor(Math.random() * 8) + 1 + Math.floor(Math.random() * 8) + 1; }
 function nowSec() { return Math.floor(Date.now() / 1000); }
 

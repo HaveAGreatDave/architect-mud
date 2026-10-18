@@ -49,13 +49,3 @@ registerShelterProvider((player) => {
   return { canSleep: true, restore: BUNK_RESTORE, reason: 'bunk' };
 });
 
-// Why the verb refused, when it refused for a reason this file owns. The engine's own "it's not
-// safe enough to sleep here" is the right answer for a day cab parked in the waste — but it is the
-// WRONG answer for a driver in an Orlov doing forty, and a system that cannot tell you which of
-// those you are is a system you argue with. Read by cmdDrive's own sleep hint.
-export function bunkRefusal(rig) {
-  if (!rig) return null;
-  if (!hasBunk(rig.typeId)) return "There's no bunk in this cab. It's a day truck, and this is a day truck seat.";
-  if (Math.abs(rig.speed || 0) > STOPPED_MPH) return "Not while it's rolling.";
-  return null;
-}

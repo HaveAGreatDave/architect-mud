@@ -272,4 +272,3 @@ export function buildTangent({ host, cohost, cohosts, state, rand = Math.random 
 export const tangentHoldMs = (text) =>
   Math.max(2200, Math.min(7000, 1500 + String(text || '').length * 45));
 
-export const _tangentTest = { pickFrom, runLines, runTopic };

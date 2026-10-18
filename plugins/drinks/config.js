@@ -1,8 +1,6 @@
 // Drinks balance knobs. Everything tunable lives here so the rest of the plugin
 // reads as logic rather than as numbers — same arrangement as cooking/config.js.
 
-import { QUALITY_BANDS } from '../../server/engine/quality-bands.js';
-
 // ── Composition ──────────────────────────────────────────────────────────────
 // How hard the worst ingredient drags the result down. A drink is a blend, so
 // this is gentler than cooking's: one cheap mixer doesn't ruin good gin the way
@@ -78,8 +76,6 @@ export const RESIDUE_MISMATCH_PENALTY = 1.1;
 // Difficulty is checked against the COOKING skill — see README. This scales the
 // margin into a sub-band nudge.
 export const SKILL_BAND_SCALE = 0.12;
-
-export const bandsList = () => QUALITY_BANDS;
 
 // ── What a machine serves, and what it charges ───────────────────────────────
 // A rig that pulls its own drink (furniture `flags.vend_drink`) hands over a cup

@@ -34,7 +34,7 @@ import { knockOut } from '../../server/engine/unconscious.js';
 import { adjustSanity } from '../../server/engine/condition.js';
 import { addPhantom } from '../../server/engine/phantoms.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
-import { strainBandOf, strainOf } from '../../server/engine/psionics.js';
+import { strainBandOf } from '../../server/engine/psionics.js';
 import { strainSelfLine, strainRoomLine } from './prose.js';
 
 /**
@@ -139,7 +139,3 @@ export async function resolveStrain(player, broadcast) {
   return band;
 }
 
-/** Regress/HUD seam. */
-export function strainSummary(player) {
-  return { strain: Math.round(strainOf(player)), band: strainBandOf(player) };
-}

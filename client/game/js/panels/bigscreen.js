@@ -55,8 +55,6 @@ let idleTimer = 0, lastInput = 0;
 // A WeakSet would not do: this iterates.
 const buttons = new Set();
 
-export function isBigScreen() { return on; }
-
 // ── THE BROWSER'S OWN FULLSCREEN ─────────────────────────────────────────────
 //
 // Asked for, never depended on. The class is the source of truth and the mode works without this;

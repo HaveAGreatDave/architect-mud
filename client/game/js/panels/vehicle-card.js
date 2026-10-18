@@ -25,7 +25,6 @@
 import { drawHangarFloorBay } from './aircraft3d.js';
 
 export const CARD_STYLES = ['floodlit', 'sunburst', 'showroom'];
-export const CARD_STYLE_NAMES = { floodlit: 'Under the floodlights', sunburst: 'Sunburst', showroom: 'Showroom' };
 
 // FNV-1a over the id. Stable across sessions and machines, which Math.random is not.
 export function cardSeed(id) {

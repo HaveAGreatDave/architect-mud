@@ -35,7 +35,7 @@ import { mutationNumber } from '../../server/engine/mutations.js';
 import { getEquippedWeapon } from '../../server/engine/inventory.js';
 import { registerAction } from '../../server/engine/actions.js';
 import { effectiveSkill, SKILLS } from '../../server/engine/skills.js';
-import { setFlag } from '../../server/engine/flags.js';
+import { setFlag, setFlagForPlayers } from '../../server/engine/flags.js';
 import { sendToPlayer, teachVerb } from '../../server/engine/messaging.js';
 import { world } from '../../server/engine/world.js';
 import { on } from '../../server/engine/events.js';
@@ -346,6 +346,25 @@ export async function flushInjuries(player) {
   }
 }
 
+// The minute tick's flush: every dirty player in one upsert rather than one
+// round trip each inside the awaited hook. Same clear-first, restore-on-throw
+// order as flushInjuries.
+async function flushInjuriesBatch(players) {
+  const batch = players.filter(p => p?._injuriesDirty);
+  if (!batch.length) return;
+  const entries = batch.map((p) => {
+    p._injuriesDirty = false;
+    p._injuriesBackdated = false;
+    return [p, serialize(injuriesOf(p))];
+  });
+  try {
+    await setFlagForPlayers(FLAG_KEY, entries);
+  } catch (e) {
+    for (const p of batch) p._injuriesDirty = true;
+    console.error(`[injury] batch flush failed for ${batch.length} player(s): ${e.message}`);
+  }
+}
+
 // Logout is the last chance to save what the minute tick hasn't: a dirty map,
 // or sleep credit that hasn't reached a severity step yet. The player is still
 // live when this event fires; the object is held for the async write.
@@ -395,7 +414,7 @@ export const hooks = {
       if (decay(player)) player._injuriesDirty = true;
       if (player._injuriesDirty) dirty.push(player);
     }
-    for (const p of dirty) await flushInjuries(p);
+    await flushInjuriesBatch(dirty);
   },
 
   // MEDICINE (Phase 5). Fired by the engine's consumable path for every item

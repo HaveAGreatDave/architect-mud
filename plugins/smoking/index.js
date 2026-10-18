@@ -34,6 +34,7 @@ import { resolve as siftResolve } from '../../server/engine/sift.js';
 import { burnCharge } from '../../server/engine/inventory.js';
 import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
 import { on } from '../../server/engine/events.js';
+import { pick } from '../../server/engine/util.js';
 
 // --- tunables ----------------------------------------------------------------
 const DEFAULT_SUPPRESS_SECONDS = 900;   // 15 min of no hunger decay per cigarette
@@ -43,8 +44,6 @@ const RECENT_SMOKE_MS  = 3 * 60 * 1000;   // "just smoked" window — cough is l
 const SMOKER_WINDOW_MS = 30 * 60 * 1000;  // still counts as a smoker — chronic cough
 const RECENT_COUGH_CHANCE  = 0.30;        // per tick right after a smoke
 const CHRONIC_COUGH_CHANCE = 0.05;        // per tick while a lingering smoker
-
-const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
 // Second-person framing so every onlooker in the room "thinks to themselves".
 const COOL_LINES = [

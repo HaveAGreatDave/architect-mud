@@ -46,6 +46,9 @@ async function cmdTalk(targetStr, player, broadcast) {
   // returning customer who's already learned the passphrase). Returns undefined
   // to fall through to normal dialogue/shop handling.
   const talkHook = await fireHook('npc.talk', { player, npc, broadcast });
+  // A hook that answers with a dialogue frame (the consort's keeper tree) gets the
+  // same bottom-rung treatment as the engine's own: written out, answered by `reply`.
+  if (talkHook?.type === 'dialogue' && loggedPanelsSync(player)) return openLogTalk(player, npc, talkHook, talkHook.node || 'root');
   if (talkHook !== undefined) return talkHook;
   // A dealer away from their table's room (their work zone) won't run the poker
   // dialogue tree — off duty, they just make random dealer small talk instead.

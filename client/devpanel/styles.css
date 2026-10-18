@@ -96,7 +96,33 @@
     flex-direction: column;
     overflow-y: auto;
   }
-  .nav-section { padding: 8px 12px 4px; font-size: 10px; text-transform: uppercase; letter-spacing: 2px; color: var(--text-dim); }
+  /* Folding groups (js/core/nav-groups.js). The head is a button-shaped row with
+     a chevron and a count; the group holding the open panel tints its head so a
+     folded group still says where you are. */
+  .nav-group { border-top: 1px solid var(--border); }
+  .nav-group-head {
+    display: flex; align-items: center; gap: 6px; cursor: pointer; user-select: none;
+    padding: 8px 12px 6px; font-size: 10px; text-transform: uppercase; letter-spacing: 2px; color: var(--text-dim);
+  }
+  .nav-group-head::before {
+    content: ''; width: 0; height: 0; flex: none;
+    border-left: 4px solid currentColor; border-top: 3px solid transparent; border-bottom: 3px solid transparent;
+    transition: transform 0.1s;
+  }
+  .nav-group.open > .nav-group-head::before { transform: rotate(90deg); }
+  .nav-group-head:hover { color: var(--text); }
+  .nav-group.has-active > .nav-group-head { color: var(--accent); }
+  .nav-group-count { margin-left: auto; letter-spacing: 0; opacity: 0.6; }
+  .nav-group-body { display: none; padding-bottom: 4px; }
+  .nav-group.open > .nav-group-body { display: block; }
+  #nav-filter {
+    margin: 6px 10px 6px; padding: 5px 8px; min-width: 0;
+    background: var(--bg3); border: 1px solid var(--border); border-radius: 2px; outline: none;
+    color: var(--text); font-family: var(--font); font-size: 11px;
+  }
+  #nav-filter:focus { border-color: var(--accent); }
+  .nav-item.nav-miss { display: none; }
+  .nav-children.nav-children-hit { max-height: none; }
   .nav-item {
     padding: 7px 16px;
     cursor: pointer;
@@ -770,7 +796,8 @@
        max-height, which taller rows outgrow. */
     .nav-item { padding: 11px 16px; font-size: 13px; }
     .nav-child { padding-left: 28px; font-size: 12px; }
-    .nav-section { padding-top: 14px; }
+    .nav-group-head { padding-top: 14px; padding-bottom: 10px; font-size: 11px; }
+    #nav-filter { font-size: 14px; padding: 8px 10px; margin: 6px 12px 8px; }
     .nav-children.open { max-height: 400px; }
 
     /* Toolbar: the title on one row, + New and the search on the next. The

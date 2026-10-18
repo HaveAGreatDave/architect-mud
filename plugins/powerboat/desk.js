@@ -90,8 +90,6 @@ export function deskRefusal(player) {
 
 export const deskReady = (player) => !deskRefusal(player);
 
-export function deskZoneName(zoneId) { return getZone(zoneId)?.name || ''; }
-
 /**
  * `use desk` — the sale and hire screen, or the same lists as text on the log rung. Falls through
  * (undefined) anywhere without a marina desk so every other `use` keeps working.

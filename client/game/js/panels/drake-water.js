@@ -20,8 +20,6 @@
 // the shared clock (seaClock), sampled in the MAP WINDOW'S frame, not the world's (seaFramePos).
 import { seaHeight, seaSlope, seaClock } from '../../../shared/sea-swell.js';
 
-// Below this she has stopped and floats.
-export const FLOAT_KT = 12;
 // Height under which the feet come out by themselves over LAND (there is no hull to land on there).
 export const SKI_AGL_FT = 60;
 // Under this speed a hull arrival never costs anything and neither does a wave. Only a

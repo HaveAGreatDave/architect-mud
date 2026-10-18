@@ -1,12 +1,6 @@
-import { command as textBreachCommand } from './panels/textbreach.js';
-import { command as textHololockCommand } from './panels/texthololock.js';
-import { command as textVaultCommand } from './panels/textvault.js';
-import { command as textSignalCommand } from './panels/textsignal.js';
-import { command as textFishingCommand } from './panels/textfishing.js';
-import { command as textNullCommand } from './panels/textnullboard.js';
-import { command as textCalibrationCommand } from './panels/textcalibration.js';
-import { command as textDemolitionCommand } from './panels/textdemolition.js';
+import { textRungCommand } from './panels/lazy-views.js';
 import { command as textAlarmCommand } from './panels/textalarm.js';
+import { command as textSynthCommand } from './panels/textsynth.js';
 import {
 	loadSettings,
 	saveSettings,
@@ -56,7 +50,6 @@ import { initRecipesPanel } from "./panels/recipes.js";
 import { initStatsPanel } from "./panels/stats.js";
 import { initSkillsPanel } from "./panels/skills.js";
 import { initContainerPanel } from "./panels/container.js";
-import { initWardrobePanel } from "./panels/wardrobe.js";
 import { initWorkspacePanel } from "./panels/workspace.js";
 import { initLootPanel } from "./panels/loot.js";
 import { initDialogue } from "./panels/dialogue.js";
@@ -72,14 +65,11 @@ import { initCustomPanelButton } from "./panels/custom/builder.js";
 import { refreshTempDisplay } from "./panels/environment.js";
 import { initWeatherFx, setWeatherFxEnabled } from "./panels/weather-fx.js";
 import { setMapOverlay, setMapColor, setMinimapRender } from "./panels/minimap.js";
-import { initAtmPanel } from "./panels/atm.js";
 import { initInsurancePanel } from "./panels/insurance.js";
 import { initWantedHud } from "./panels/wanted.js";
 import { setDistrictLegend } from "./panels/minimap.js";
-import { initTvPanel } from "./panels/tv.js";
-import { initMediaDeckPanel } from "./panels/mediadeck.js";
 import { initAudio } from "./panels/audio.js";
-import { initMusicPlayerPanel, stopMusicPlayer } from "./panels/musicplayer.js";
+import { stopMusicPlayer } from "./panels/lazy-views.js";
 import { stopEngineAudio } from "./panels/lazy-views.js";
 import { isFlightSimActive } from "./panels/lazy-views.js";
 import { isHangarBayWalkActive } from "./panels/lazy-views.js";
@@ -456,7 +446,8 @@ setWhoModalHandler(openWhoModal);
 // text minigame runs entirely client-side, so there is nothing server-side to
 // receive those words. Returns false when the board is shut, so the verbs stay
 // available to whatever else owns them.
-setMinigameCommandHandler((cmd) => textBreachCommand(cmd) || textHololockCommand(cmd) || textVaultCommand(cmd) || textSignalCommand(cmd) || textFishingCommand(cmd) || textCalibrationCommand(cmd) || textNullCommand(cmd) || textDemolitionCommand(cmd) || textAlarmCommand(cmd));
+// The eight lazy rungs answer false until one is loaded (lazy-views.js).
+setMinigameCommandHandler((cmd) => textRungCommand(cmd) || textAlarmCommand(cmd) || textSynthCommand(cmd));
 
 // Auth form: fill in the remembered name. The password is never stored
 // (remember.js); a remembered browser signs in with a token instead.
@@ -724,7 +715,6 @@ initRecipesPanel();
 initStatsPanel();
 initSkillsPanel();
 initContainerPanel();
-initWardrobePanel();
 initWorkspacePanel();
 initLootPanel();
 initDialogue();
@@ -732,12 +722,10 @@ initForecast();
 initWhisperPanel();
 initWho();
 initPlayersPanel();
-initAtmPanel();
 initInsurancePanel();
 initWantedHud();
-initTvPanel();
-initMediaDeckPanel();
-initMusicPlayerPanel();
+// The wardrobe, ATM, wall TV, media deck and music player init when they first load
+// (lazy-views.js), not here.
 
 window.addEventListener('game-disconnect', () => {
 	stopMusicPlayer();

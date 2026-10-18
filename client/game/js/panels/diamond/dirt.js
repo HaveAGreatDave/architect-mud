@@ -127,7 +127,6 @@ export function paintInfield(doc, { px = 2048, seed = 77 } = {}) {
 //
 // Each is a light touch that builds up. paintMark clips to its own rect (markRect), so what goes
 // up to the GPU is exactly what changed.
-export const MARK_KINDS = Object.freeze(['stride', 'dig', 'scar']);
 
 // Whether (x, z) is dirt on the painted canvas, paintInfield's shapes as a test: a cut-out round
 // home, a bag or the mound, a lane up a line, or inside the infield's arc and off its grass.

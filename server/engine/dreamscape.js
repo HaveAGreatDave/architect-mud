@@ -30,8 +30,8 @@
 import { query } from '../models/db.js';
 import { registerTransientZone, removeTransientZone, world, addPlayerToZone, removePlayerFromZone } from './world.js';
 import { sendToPlayer } from './messaging.js';
+import { pick } from './util.js';
 
-const pick = (a) => a[Math.floor(Math.random() * a.length)];
 const maybe = (p) => Math.random() < p;
 
 export const DREAM_ZONE_PREFIX = 'zone_dream_';

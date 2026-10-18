@@ -2239,6 +2239,127 @@ export function runWet({ W = 640, H = 360, hours = [23, 13], levels = [0, 0.35, 
 }
 if (typeof window !== 'undefined') window.__glWet = runWet;
 
+// ── `__glCluster()` ────────────────────────────────────────────────────────────────────────────
+//
+// The light grid (gl/lightgrid.js, RENDER_TUNE.glCluster) against the six uniform lights, on the
+// wet street, from the truck's chase view: a low eye, where every streak's mirror point crowds in
+// front of the camera and the grid's cells are longest. Per hour and per setting:
+//   lights / binned / entries / longest — the grid's own stats (`glLastFrame().lightGrid`)
+//   ms     — the world pass, painted `reps` times with the clock frozen, each one waited on
+//   moved  — share of the frame that differs from the six-light road
+//   brighter / blown — of that, how much got brighter, and how much is now at 250 or over
+//
+// ⚠ THE CHASE VIEW AND THE FINISHED FRAME, NOT THE CAB AND THE GL CANVAS. The cab's interior is
+// drawn into the world pass's own canvas after the world has been blitted, so by the time a bench
+// reads `glLastFrame().canvas` it holds the dashboard: from the cab seat, wet against dry measured
+// 0.00% (2026-10-17), and `__glWet` reads the same canvas. The chase view has no interior, so the
+// composited frame shows the street. The two controls on each hour (lights against none, wet
+// against dry) must move, or the rows under them measure nothing. With `show` the frames are left
+// on the page, six-light road above, grid below.
+export function runCluster({ W = 960, H = 540, hours = [23, 13], wet = 1, reps = 12, show = false } = {}) {
+  const holder = document.createElement('div');
+  holder.style.cssText = 'position:fixed;left:-10000px;top:0';
+  const el = document.createElement('canvas');
+  el.id = '__cluster' + (runCluster.n = (runCluster.n || 0) + 1);
+  el.width = W; el.height = H; el.style.width = W + 'px'; el.style.height = H + 'px';
+  holder.append(el); document.body.append(holder);
+  const uninstall = installGL(() => el);
+  const shot = () => {
+    if (!glLastFrame()) throw new Error('__glCluster: the GL pass drew nothing — RENDER_TUNE.gl is ' + RENDER_TUNE.gl);
+    return new Uint8ClampedArray(el.getContext('2d').getImageData(0, 0, el.width, el.height).data);
+  };
+  const realNow = performance.now, realRandom = Math.random;
+  const was = { force: RENDER_TUNE.wetForce, wet: RENDER_TUNE.glWet, gl: RENDER_TUNE.gl, cl: RENDER_TUNE.glCluster, lights: RENDER_TUNE.glLights };
+  const map = scene(true);
+  const rows = [], shown = [];
+  let rngS = 0;
+  try {
+    RENDER_TUNE.gl = 1; RENDER_TUNE.glWet = 1; RENDER_TUNE.wetForce = wet;
+    Math.random = () => { rngS = (rngS * 1664525 + 1013904223) >>> 0; return rngS / 4294967296; };
+    const view = (hour) => ({
+      cls: 'truck', external: true, phase: 'cruise', worldBlend: 1, height: 0, eyeH: 0.24, hour,
+      weather: 'clear', speed: 0, map, heading: 0, mapCenter: { x: 100, y: 100 },
+      mapOffset: { x: 0, y: 0 }, resFloor: 1, tune: { gl: 1, perfDS: 0 },
+    });
+    const paint = (hour) => { rngS = 12345; settleFade(() => { rngS = 12345; paintWindshield(el.id, view(hour)); }); };
+    // One world pass, waited on: a one-pixel readback can't return until the GPU has finished.
+    const timed = (hour) => {
+      const g = glLastFrame().canvas.getContext('webgl2');
+      const px = new Uint8Array(4);
+      const t = [];
+      for (let i = 0; i < reps; i++) {
+        rngS = 12345;
+        const t0 = realNow.call(performance);
+        paintWindshield(el.id, view(hour));
+        g.readPixels(0, 0, 1, 1, g.RGBA, g.UNSIGNED_BYTE, px);
+        t.push(realNow.call(performance) - t0);
+      }
+      t.sort((a, b) => a - b);
+      return t[t.length >> 1];
+    };
+    const movedOf = (a, b) => {
+      let o = 0, m = 0;
+      for (let i = 0; i < a.length; i += 4) {
+        if (a[i + 3] < 200) continue;
+        o++;
+        if (Math.abs(a[i] - b[i]) + Math.abs(a[i + 1] - b[i + 1]) + Math.abs(a[i + 2] - b[i + 2]) >= 12) m++;
+      }
+      return (100 * m / Math.max(1, o)).toFixed(2) + '%';
+    };
+    for (const hour of hours) {
+      // ⚠ THE CONTROLS FIRST. If the road doesn't move between wet and dry, or between the lights
+      // and none, the scene can't show the grid doing anything and a 0.00% below means nothing.
+      RENDER_TUNE.glCluster = 0;
+      paint(hour); const lit = shot();
+      RENDER_TUNE.glLights = 0; paint(hour); const dark = shot(); RENDER_TUNE.glLights = was.lights;
+      RENDER_TUNE.wetForce = 0; paint(hour); const dry = shot(); RENDER_TUNE.wetForce = wet;
+      rows.push({ hour: hour + ':00', glCluster: 'controls', moved: 'lights ' + movedOf(lit, dark) + ', wet ' + movedOf(lit, dry) });
+      const out = {};
+      for (const cl of [0, 1]) {
+        RENDER_TUNE.glCluster = cl;
+        paint(hour);
+        const f = glLastFrame();
+        out[cl] = { px: shot(), grid: f.lightGrid, lit: (f.lit || []).length, ms: timed(hour) };
+        if (show) { const im = new Image(); im.src = el.toDataURL(); im.style.cssText = 'display:block;width:' + W + 'px'; shown.push(im); }
+      }
+      const a = out[0].px, b = out[1].px;
+      let opaque = 0, moved = 0, brighter = 0, blown = 0, blown0 = 0;
+      for (let i = 0; i < a.length; i += 4) {
+        if (a[i + 3] < 200) continue;
+        opaque++;
+        const d = Math.abs(a[i] - b[i]) + Math.abs(a[i + 1] - b[i + 1]) + Math.abs(a[i + 2] - b[i + 2]);
+        if (d >= 12) moved++;
+        if (b[i] + b[i + 1] + b[i + 2] > a[i] + a[i + 1] + a[i + 2] + 12) brighter++;
+        if (Math.max(b[i], b[i + 1], b[i + 2]) >= 250) blown++;
+        if (Math.max(a[i], a[i + 1], a[i + 2]) >= 250) blown0++;
+      }
+      for (const cl of [0, 1]) {
+        const s = out[cl].grid || {};
+        rows.push({
+          hour: hour + ':00', glCluster: cl,
+          lights: cl ? s.lights || 0 : Math.min(6, out[cl].lit) + ' road, ' + out[cl].lit + ' pool', binned: s.binned || 0, entries: s.entries || 0, longest: s.maxCell || 0, cut: s.cut || 0,
+          ms: out[cl].ms.toFixed(2),
+          moved: cl ? (100 * moved / opaque).toFixed(2) + '%' : '-',
+          brighter: cl ? (100 * brighter / opaque).toFixed(2) + '%' : '-',
+          blown: (100 * (cl ? blown : blown0) / opaque).toFixed(2) + '%',
+        });
+      }
+    }
+  } finally {
+    RENDER_TUNE.wetForce = was.force; RENDER_TUNE.glWet = was.wet; RENDER_TUNE.gl = was.gl; RENDER_TUNE.glCluster = was.cl; RENDER_TUNE.glLights = was.lights;
+    performance.now = realNow; Math.random = realRandom;
+    uninstall && uninstall(); holder.remove();
+  }
+  if (show) {
+    const box = document.getElementById('__clusterShow') || document.body.appendChild(Object.assign(document.createElement('div'), { id: '__clusterShow' }));
+    box.style.cssText = 'position:fixed;left:0;top:0;z-index:99999;background:#000;max-height:100vh;overflow:auto';
+    box.replaceChildren(...shown);
+  }
+  console.table(rows);
+  return rows;
+}
+if (typeof window !== 'undefined') window.__glCluster = runCluster;
+
 // ── `__glMirror()` ─────────────────────────────────────────────────────────────────────────────
 //
 // Is there a CITY in the puddles, or only a smear?

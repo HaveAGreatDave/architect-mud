@@ -18,7 +18,6 @@
  * the hardware outright. Every fresh install seeds calibration BELOW 100: new
  * chrome under-performs, and tuning is how you get the number on the tin.
  */
-import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
 import { world } from '../../server/engine/world.js';
 import { adjustCredits } from '../../server/engine/economy.js';
@@ -27,7 +26,7 @@ import { emit } from '../../server/engine/events.js';
 import { setFlag, getFlag } from '../../server/engine/flags.js';
 import { burnAllMutations } from '../../server/engine/mutations.js';
 import { recomputeEquipped } from '../../server/engine/commands/inventory.js';
-import { resolveInventoryItem } from '../../server/engine/inventory.js';
+import { resolveInventoryItem, giveItemById } from '../../server/engine/inventory.js';
 import { getPlayerIdeologyRep, REP_TIERS } from '../../server/engine/ideologies.js';
 import { conditionBand } from '../../server/engine/durability.js';
 import {
@@ -163,12 +162,7 @@ async function ascendantRank(playerId) {
  */
 export async function giveItemRow(playerId, itemId, { condition = 1, customData = {} } = {}) {
   if (!itemId) return null;
-  const id = randomUUID();
-  await query(
-    `INSERT INTO player_inventory (id, player_id, item_id, quantity, condition, custom_data)
-     VALUES ($1,$2,$3,1,$4,$5)`,
-    [id, playerId, itemId, Math.max(0, Math.min(1, condition)), JSON.stringify(customData)]
-  );
+  const { id } = await giveItemById(playerId, itemId, 1, { stack: false, condition: Math.max(0, Math.min(1, condition)), customData });
   return id;
 }
 

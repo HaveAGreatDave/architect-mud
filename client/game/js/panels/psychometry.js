@@ -25,8 +25,6 @@ import { esc, bar, heading, ensureTextUiStyles, tap, deck, attachBoard, detachBo
 let _open = false;
 let _opts = null;
 
-export function isPsychometryActive() { return _open; }
-
 const W = 44;
 const ORDER = ['image', 'emotion', 'location', 'identity'];
 const LABEL = {
@@ -112,4 +110,3 @@ export function openPsychometry(opts) {
 // be a better experience, so shipping one skin honestly beats shipping two that
 // differ only in font. The ladder still works — `autoResolved` handles the bottom
 // rung before either is reached.
-export const openTextPsychometry = openPsychometry;

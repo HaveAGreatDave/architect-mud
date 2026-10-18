@@ -738,7 +738,6 @@ export function updateCardMachine(patch) {
 }
 
 export function closeCardMachine() { machine?.close(); }
-export function isCardMachineOpen() { return !!machine; }
 
 function renderMachine() {
   if (!machine) return;
@@ -949,8 +948,6 @@ function playVend(code, onSettled) {
 
 // ── the reveal ────────────────────────────────────────────────────────────────
 let show = null;
-
-export function isPackRevealOpen() { return !!show; }
 
 export function openPackReveal(msg) {
   ensurePackStyles();

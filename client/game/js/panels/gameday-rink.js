@@ -24,6 +24,7 @@ import { crestSvg, clubOf, onClubs } from './club-crest.js';
 import { GEO, DOTS } from './rink/geo.js';
 import { DT } from './rink/rig.js';
 import { SAVE, createDirector } from './rink/director.js';
+import { loadClassicScript } from '../classic-script.js';
 
 function _esc(s) { return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 // A club's crest beside its name, when the league's identities have arrived (club-crest.js).
@@ -73,7 +74,18 @@ export function createRinkView(host, opts = {}) {
   let costAvg = 0;
 
   // The ./rink modules load on first mount, so tv.js's import of this file stays cheap.
+  // The CPhL soundset (hockey-sfx.js, a classic script) comes with them rather than at boot:
+  // nothing else plays it. It joins the dev-panel catalog through addBank, so an override
+  // saved there still wins. Not awaited: until it lands, _sfx and the crowd stay silent,
+  // as they did when it was missing. A page (or gate) that already has it skips this.
+  function loadSoundset() {
+    if (!win || win.HockeySfx || win !== globalThis.window) return;
+    loadClassicScript('/shared/hockey-sfx.js')
+      .then(() => win.SFXCatalog?.addBank?.(win.HockeySfx?.BUILTINS, 'hockey', 'Hockey (Cluster Puck broadcast)'))
+      .catch((err) => console.error('[rink] soundset failed to load:', err?.message));
+  }
   function loadMods() {
+    if (!modsP) loadSoundset();
     return (modsP ??= Promise.all([import('./rink/textures.js'), import('./rink/sim.js'), import('./rink/render.js'), import('./gl/arena.js')])
       .then(([t, s, r, a]) => (mods = { createIce: t.createIce, createWorld: s.createWorld, createRenderer: r.createRenderer, createArenaRenderer: a.createArenaRenderer })));
   }

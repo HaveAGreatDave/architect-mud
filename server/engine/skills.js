@@ -1,5 +1,5 @@
 import { query } from '../models/db.js';
-import { awardIp, getSkillIp } from './ip.js';
+import { awardIp, getSkillIp, flushSkillIp } from './ip.js';
 import { effectiveStat } from './condition.js';
 import { sendToPlayer } from './messaging.js';
 
@@ -106,6 +106,7 @@ export async function awardSkillUse(playerId, skillId, margin = 0) {
 }
 
 export async function getPlayerSkills(playerId) {
+  await flushSkillIp(playerId);
   const { rows } = await query('SELECT skill_id, ip FROM player_skills WHERE player_id=$1', [playerId]);
   const result = {};
   for (const row of rows) result[row.skill_id] = { level: Math.floor((row.ip || 0) / 100), ip: row.ip || 0 };

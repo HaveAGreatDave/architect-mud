@@ -318,7 +318,6 @@ export function openMarinaService(msg) {
   drawService();
   if (same) notePush(document.getElementById('mar-svc'), was.data?.credits, msg.credits);
 }
-export function setMarinaServiceSend(fn) { if (sv) sv.onSend = fn; }
 
 export function closeMarinaService() {
   if (!sv) return;

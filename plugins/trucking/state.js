@@ -985,7 +985,6 @@ function previewRoute(voidKey, window, near = null) {
   _preview.set(key, route);
   return route;
 }
-export const _clearPreview = () => _preview.clear();   // regress only
 export { previewRoute as _previewRoute };   // regress only — the suite asserts it equals the joined route
 
 // Which void's road, if any, runs off the edge of the region this rig is standing in. A rig nowhere

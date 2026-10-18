@@ -30,10 +30,6 @@ function tell(playerId, text) {
   sendToPlayer(playerId, { type: 'output', message: `<span class="msg-system">${text}</span>` });
 }
 
-export function companionsAboard(aircraftId) {
-  return (riders.get(aircraftId) || []).map(r => getNpc(r.npcId)).filter(Boolean);
-}
-
 /**
  * Ask every plugin who's climbing aboard with this player, and board them.
  * `seats` is the craft's effective seat count (the caller owns effLoadout, so

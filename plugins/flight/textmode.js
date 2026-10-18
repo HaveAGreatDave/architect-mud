@@ -16,6 +16,7 @@
 // which outranks this everywhere, so text mode is a default, not a lockout.
 import { prefersLoggedPanelsOrDefault, DISPLAY_MODE_FLAG } from '../../server/engine/presentation.js';
 import { liveAircraft, getLivePlayer, sendToPlayer, isContinuous, BAND_LABEL, degToCardinal } from './state.js';
+import { pick } from '../../server/engine/util.js';
 
 // The preference is the game-wide Display Mode ladder
 // (server/engine/presentation.js), not flight's own flag any more.
@@ -68,8 +69,6 @@ function phaseOf(live) {
   if (vs < -300) return 'descent';
   return 'cruise';
 }
-
-const pick = arr => arr[Math.floor(Math.random() * arr.length)];
 
 // The one line a rider gets on the way in, so text mode never looks like a failure
 // to load something. Also tells them the door back to the view is still there.

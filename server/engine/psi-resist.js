@@ -61,7 +61,6 @@ export const CONTRIBUTOR_CAP = 8;
 export function registerPsiResistor(fn, owner = 'unknown') {
   if (typeof fn === 'function') resistors.set(owner, fn);
 }
-export function getPsiResistors() { return [...resistors.keys()]; }
 export function clearPsiResistor(owner) { resistors.delete(owner); }
 
 /**

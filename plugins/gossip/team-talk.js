@@ -9,6 +9,8 @@
 // longer name ("Wharf Rats"). A nickname that's an ordinary word in this city
 // ("rats", "saints") needs the full name, or every pest complaint starts a fight.
 
+import { pick } from '../../server/engine/util.js';
+
 const COMMON_WORDS = new Set(['rats', 'birds', 'saints', 'goons', 'ghouls']);
 
 const norm = (s) => ` ${String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()} `;
@@ -47,8 +49,6 @@ export function teamsNamed(text, aliases) {
   }
   return found;
 }
-
-const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
 // What a fan of `fav` says when `named` (a Set) includes their club, their rival,
 // or both. null when it's nothing to them.

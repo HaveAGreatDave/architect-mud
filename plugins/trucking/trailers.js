@@ -195,7 +195,6 @@ export async function refreshStanding(zoneId) {
   return list;
 }
 export function standingIn(zoneId) { return standing.get(zoneId)?.list || []; }
-export function forgetStanding(zoneId) { standing.delete(zoneId); }
 // The drawable set: standing boxes near a point, in the contact shape the cab already renders
 // aircraft and other rigs in — so a trailer in the yard costs the client no new channel and no new
 // code path. `~s` is the solo mesh: the same box you tow, with the tractor thrown away.
@@ -241,7 +240,6 @@ export function trailersNear(zoneIds, x, y, range = 26) {
 //
 // A trailer with no pose (yard stock, or a row written before trailers had a place) passes NEAR and
 // SQUARE for free — it has no position to be wrong about, so the only test left is the sensible one.
-export const HITCH_TILES = 0.5;
 export const HITCH_MPH = 6;
 export const HITCH_DEG = 30;
 // ⚠ YOU COUPLE TO THE PIN, NOT TO THE TRAILER. A round half-tile around the trailer's pose is a

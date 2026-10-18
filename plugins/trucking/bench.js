@@ -49,9 +49,10 @@ import { TRINKETS, TRINKET_IDS, CAB_SLOTS, installedTrinkets, trinketIn, trinket
 import { skillCheck, effectiveSkill, awardSkillUse } from '../../server/engine/skills.js';
 import { rigOf, pumpAt, FUEL_FULL, pushCab } from './state.js';
 import { wreckNear } from './corridor.js';
-import { say, cap, depotHere, depotZonesOf, yardIdOf, whichTruckLine, repush, hydrateFromTruck } from './index.js';
+import { say, depotHere, depotZonesOf, yardIdOf, whichTruckLine, repush, hydrateFromTruck } from './index.js';
 import { SERVICE, serviceSheet, servicePrice, stampService, hornCatalogue, hornPrice, hornOf, TRUCK_HORNS, HORN_IDS } from './service.js';
 import { isRental, RENT_REFUSE } from './rental.js';
+import { cap } from '../../server/engine/util.js';
 // ── rig: the bench ───────────────────────────────────────────────────────────
 // Repair, tune, kit, paint and pump, behind ONE verb with subcommands rather than five verbs.
 // That is not tidiness: `repair`, `tune`, `modify` and `paintset` are all already owned — by the
@@ -200,10 +201,7 @@ async function rigParts(player, what) {
   if (!(await adjustCredits(player, -cost, undefined, 'trucking:part'))) return say(`That's ${cost}₵ and you have ${player.credits || 0}₵.`);
   sendToPlayer(player.id, { type: 'player_update', credits: player.credits });
   const owner = spec.carry ? player.id : GROUND(player.current_zone);
-  const { rows } = await query('SELECT id FROM player_inventory WHERE player_id=$1 AND item_id=$2 LIMIT 1', [owner, spec.item]);
-  if (rows[0]) await query('UPDATE player_inventory SET quantity = quantity + 1 WHERE id=$1', [rows[0].id]);
-  else await query('INSERT INTO player_inventory (id, player_id, item_id, quantity, condition) VALUES ($1,$2,$3,1,1.0)',
-    [`inv_${randomUUID().slice(0, 12)}`, owner, spec.item]);
+  await giveItemById(owner, spec.item);
   return say(spec.carry
     ? `<span class="item-grant">${cap(spec.label)}, ${cost}₵. It goes in the cab and you'll feel it on every hill.</span>`
     : `<span class="item-grant">${cap(spec.label)}, ${cost}₵.</span>
@@ -959,10 +957,7 @@ async function rigStrip(player) {
   const got = STRIP_YIELD.find((y) => fab >= y.diff && (y.diff === 0 || chk.success)) || STRIP_YIELD[STRIP_YIELD.length - 1];
   w.stripped = true;
   const qty = got.qty || 1;
-  const { rows } = await query('SELECT id FROM player_inventory WHERE player_id=$1 AND item_id=$2 LIMIT 1', [player.id, got.item]);
-  if (rows[0]) await query('UPDATE player_inventory SET quantity = quantity + $1 WHERE id=$2', [qty, rows[0].id]);
-  else await query('INSERT INTO player_inventory (id, player_id, item_id, quantity, condition) VALUES ($1,$2,$3,$4,1.0)',
-    [`inv_${randomUUID().slice(0, 12)}`, player.id, got.item, qty]);
+  await giveItemById(player.id, got.item, qty);
   return say(`<span class="item-grant">You get the cover off and take ${got.label}.</span>
 `
     + `<span class="text-dim">${w.who ? `Whatever happened to ${w.who} out here, it isn't going to happen to their gearbox as well.` : 'Nobody is coming back for the rest of it.'}</span>`);

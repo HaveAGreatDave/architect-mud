@@ -375,6 +375,7 @@ As built (all in `server/engine/`):
 | player `current_zone` (+ move `stamina`) | `_posDirty` | `flushDirtyPositions` (commands/movement.js) | `'1m'` scheduler | ≤ ~1 min, **plus** an immediate write-through on interior/building **threshold** crossings |
 | combat `hp` (+ `stamina`) | `_resDirty` | `flushDirtyResources` (combat.js), called at end of `tick()` | 1 s (combat tick) | ≤ ~1 s |
 | survival `hunger`/`thirst`/`hp`/`stamina`/`body_temp_c` | deferred into a local `Set` | inline batch at end of `resourceTick` (gameLoop.js) | `'1m'` scheduler | ≤ ~1 min |
+| `player_skills.ip` from `awardIp` | `_pendingIp` Map (ip.js) | `flushAllSkillIp`; logout, reconnect and drain flush too; direct `player_skills` readers call `flushSkillIp` first | `'1m'` scheduler | ≤ ~1 min |
 
 `restRegenTick` (hp/stamina regen) writes nothing of its own — it sets `_resDirty` and rides
 `flushDirtyResources`. Position also folds `stamina` into its flush; combat also carries

@@ -36,7 +36,6 @@ import { sendCmdSilent } from '../net.js';
 import { CAB_VIEW_TUNE } from '../../../shared/cab-render-tune.js';   // this view's own load-shedding numbers — see that file for why they are not RENDER_TUNE's
 import { TILES_PER_MILE } from '../../../shared/road-units.js';   // the one tiles→miles conversion, shared with the server
 import { cbRadioHTML, wireCbRadio, cbTabKey } from './cb-radio.js';
-import { openTabletToChatTab } from './tablet-os.js';
 import { makeDraggable } from './confirm.js';
 // HUNGER AND THIRST COST NOTHING TO READ. They are already on the live player object and already
 // reach this client on every 'player_update' and every 'resource_tick', so the band on the glass
@@ -1320,8 +1319,9 @@ export function openCab(ctx = {}) {
     sendCmdSilent('park');
   });
   // The radio wires itself; the cab only tells it what pressing the set should open, because the
-  // tablet is the cab's business and not the radio's.
-  st.cbWidget = wireCbRadio(container, { openDeadhead: (key) => openTabletToChatTab(key) });
+  // tablet is the cab's business and not the radio's. The tablet is 900 KB, so it's fetched on the
+  // press, not with the cab.
+  st.cbWidget = wireCbRadio(container, { openDeadhead: (key) => import('./tablet-os.js').then((m) => m.openTabletToChatTab(key)) });
   // Hitching is a real verb with real rules; the button is a shortcut to typing it, which is why it
   // sends the command rather than reaching into the rig. Unhitching goes through the same button
   // once you are coupled, because "the thing behind me" is one question with two answers.

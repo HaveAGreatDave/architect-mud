@@ -197,8 +197,6 @@ export function seabedDepth(x, y, isLand, d = shoreDistance(x, y, isLand)) {
   return z > 0 ? z : 0;
 }
 
-export const seabedDepthTiles = (x, y, isLand, d) => seabedDepth(x, y, isLand, d) / SEA_TILE_M;
-
 // Gradient in metres per TILE, by central difference. ⚠ Not analytic, deliberately: the shore
 // distance is a min over squares and has no closed-form derivative worth writing, and nothing here
 // is lit per fragment on the CPU. The GLSL twin (phase 3) will do the same on the GPU.

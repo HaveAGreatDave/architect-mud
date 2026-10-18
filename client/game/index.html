@@ -430,7 +430,10 @@
 						id="auth-email"
 						placeholder="your@email.com"
 						aria-describedby="auth-error"
-						autocomplete="email" />
+						autocomplete="email"
+						autocapitalize="off"
+						autocorrect="off"
+						spellcheck="false" />
 				</div>
 				<div class="auth-field" id="username-field">
 					<label for="auth-username">Username</label>
@@ -746,6 +749,9 @@
 						id="forgot-email"
 						placeholder="your@email.com"
 						autocomplete="email"
+						autocapitalize="off"
+						autocorrect="off"
+						spellcheck="false"
 						aria-describedby="forgot-message"
 						style="width: 100%; box-sizing: border-box" />
 				</div>
@@ -908,10 +914,18 @@
 				<div id="verify-message" tabindex="-1"></div>
 				<div class="auth-field" style="margin: 0">
 					<label for="verify-resend-email">Email address</label>
+					<!-- Editable on purpose: a mistyped address is the usual reason a
+					     player is stuck here. Correcting it and pressing the button
+					     moves the account to the new address (doResendVerification). -->
 					<input
 						type="email"
 						id="verify-resend-email"
 						placeholder="your@email.com"
+						autocomplete="email"
+						autocapitalize="off"
+						autocorrect="off"
+						spellcheck="false"
+						aria-describedby="verify-error"
 						style="width: 100%; box-sizing: border-box" />
 				</div>
 				<button class="auth-btn" id="verify-resend-btn" style="margin: 0">
@@ -2610,17 +2624,18 @@
 			</div>
 		</div>
 
-		<script src="/shared/audio-engine.js"></script>
+		<!-- Deferred, so they don't hold up the parse. Deferred classic scripts and module
+		     scripts run in document order once parsing is done, so all three still run
+		     before main.js, in this order. -->
+		<script defer src="/shared/audio-engine.js"></script>
 		<!-- formant-cmudict.js (the 435 KB ORACLE lexicon) is fetched by audio-engine.js
 		     after load; until then speech uses the letter-to-sound rules. -->
 
-		<!-- hockey-sfx.js is a BANK: it must load BEFORE sfx-catalog.js, which folds its
-		     presets into the editable catalog. Loading it after would leave the CPhL
-		     sounds playable but invisible to the dev panel. -->
-		<script src="/shared/hockey-sfx.js"></script>
-		<script src="/shared/sfx-catalog.js"></script>
-		<script src="/shared/procedural-sfx.js"></script>
-		<script src="/shared/mod-parser.js"></script>
+		<!-- hockey-sfx.js (the CPhL soundset) isn't here: the rink view injects it on its
+		     first mount and folds it into the catalog with SFXCatalog.addBank. Likewise
+		     mod-parser.js, which the music player brings with it (lazy-views.js). -->
+		<script defer src="/shared/sfx-catalog.js"></script>
+		<script defer src="/shared/procedural-sfx.js"></script>
 		<script type="module" src="js/main.js"></script>
 
 		<a

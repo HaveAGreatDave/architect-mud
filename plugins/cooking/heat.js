@@ -174,8 +174,6 @@ export function setBurnerLevel(applianceId, level) {
   return l;
 }
 
-export function forgetBurner(applianceId) { burners.delete(String(applianceId)); }
-
 // Test/boot seam only. Never call this from a verb — a dial is set by turning it.
 export function _resetBurners() { burners.clear(); }
 

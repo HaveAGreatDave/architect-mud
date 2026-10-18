@@ -327,19 +327,19 @@ echoes `introdone` cannot stall the prologue. Three things were wrong at the edg
 
 All four properties are asserted in `scripts/a11y/smoke.mjs`.
 
-### Still open
+### The skip, said inside the dialog *(fixed 2026-10-18)*
 
-Two things in this path are known and **not** fixed:
+Two things in this path were known and open, and both are closed now:
 
-- **The skip instruction races the dialog.** The prologue sends the "press Escape to skip it" line and
-  the `intro_cinematic` push in the same tick. `#output` is `role="log"` (implicitly polite), and the
-  overlay takes focus a frame later — and a polite announcement is interrupted by a focus change. So
-  the sentence explaining the escape hatch is likely truncated by the thing it describes.
-- **The sequence itself is silent.** Beat text is written with `lineEl.innerHTML` and is never
-  announced. That is deliberate: a second continuous live region running the length of a cinematic is
-  exactly what [the one-live-region rule](systems-display-mode.md#the-log-rung-and-the-two-panes)
-  forbids, and CODEX Volume I carries the full text. What's missing is that nobody is *told* the next
-  minute is visual only, so it cannot be told apart from a freeze.
+- **The skip instruction raced the dialog.** The prologue sends the "press Escape to skip it" line and
+  the `intro_cinematic` push in the same tick, and the focus move a frame later cuts off a polite
+  announcement. So the dialog now carries `aria-describedby` pointing at an `.sr-only` line that says
+  how long it runs and how to skip it, and at the countdown sentence. Entering the dialog reads both;
+  the log line is a second copy, not the only one.
+- **The sequence was silent.** The beat line is now `aria-live="polite"` and `aria-atomic`, so the
+  visual rung hears the lines as they land (see the comment on `#intro-cine-line` in
+  [intro-cinematic.js](../client/game/js/panels/intro-cinematic.js)). It is a live region for the
+  length of the cinematic only, while nothing else is speaking.
 
 ---
 

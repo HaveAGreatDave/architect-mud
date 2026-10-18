@@ -36,6 +36,7 @@ export const GROUPS = [
       'scripts/client/automation-smoke.mjs',
       'scripts/client/bootscreen-smoke.mjs',
       'scripts/client/freelook-smoke.mjs',
+      'scripts/client/helm-smoke.mjs',   // the helm seat mounts, paints the chase pose, steers and comes down
       'scripts/client/bigscreen-smoke.mjs',
       'scripts/client/seatkeys-smoke.mjs',
       'scripts/client/boatseat-smoke.mjs',
@@ -136,6 +137,7 @@ export const GROUPS = [
       'scripts/shapes/signrange.mjs',
       'scripts/shapes/glao.mjs',
       'scripts/shapes/glfade.mjs',
+      'scripts/shapes/glcluster.mjs',    // the light grid lists every light that reaches a point
       'scripts/shapes/anchored.mjs',
       'scripts/shapes/lidless.mjs',
       'scripts/shapes/tilefit.mjs',
@@ -244,6 +246,8 @@ export const GROUPS = [
       'scripts/a11y/tablet-smoke.mjs',
       'scripts/a11y/focus-smoke.mjs',
       'scripts/a11y/speech-smoke.mjs',
+      'scripts/a11y/rung-sweep.mjs',      // every panel asks the Display Mode rung or says why not
+      'scripts/a11y/hololock-odds.mjs',   // the log rung's hololock wins as often as the dice it replaced
     ],
   },
   {

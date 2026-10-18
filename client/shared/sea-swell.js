@@ -232,7 +232,6 @@ export function setSeaHeading(rad) {
   ROT_ON = ROT_D !== 0;
   ROT_C = Math.cos(ROT_D); ROT_S = Math.sin(ROT_D);
 }
-export function seaHeading() { return ROT_D; }
 // The (cos, sin) pair the shaders take as uSeaRot.
 export function seaRotPair() { return [ROT_C, ROT_S]; }
 
@@ -444,13 +443,6 @@ function slopeRaw(u, v, t, roll, amp, wind, sp) {
     }
   }
   return [du, dv];
-}
-
-// The unit surface normal, z up. Handed the same arguments as seaHeight.
-export function seaNormal(u, v, t, roll = 0, amp = SEA_AMP, wind = 0, sp = SEA_SPREAD) {
-  const [du, dv] = seaSlope(u, v, t, roll, amp, wind, sp);
-  const n = Math.hypot(du, dv, 1);
-  return [-du / n, -dv / n, 1 / n];
 }
 
 // ── HOW ROUGH IT IS, AND HOW SLOWLY THAT CHANGES ──────────────────────────────────────────────

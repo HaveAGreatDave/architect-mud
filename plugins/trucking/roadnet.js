@@ -262,14 +262,6 @@ export function roadCellAt(x, y) {
 const _provider = composeRoad(roadCellAt, surfaceAt, tarmacCellAt);
 export function worldRoadProvider() { return _provider; }
 
-// Is this tile on the carriageway of any road in the world? The traffic question, not the render
-// one: it is what lets a rig out on the corridor be reported as traffic to a pilot overhead, and it
-// deliberately reads the same geometry the pilot is looking at rather than a range check.
-export function onRoadNetwork(x, y) {
-  const c = roadCellAt(Math.round(x), Math.round(y));
-  return !!c;
-}
-
 // ── THE ROAD AS SOMETHING YOU CAN SEE FROM TEN MILES UP ──────────────────────
 //
 // `roadCellAt` answers one tile, which is the right question for a map window and the wrong one for

@@ -35,6 +35,7 @@ import { hitcherAt } from './hitchers.js';
 import { wearFor, breakdownRoll } from './rig.js';
 import { roadTestTick } from './roadtest.js';
 import { createTruckState, step, truckReadout, truckShift, truckSplit } from '../../client/game/js/panels/flight-model.js';
+import { pick } from '../../server/engine/util.js';
 
 // One tile of city road, or one slice of corridor, per tick. 2s is deliberately unhurried: the
 // point of a long haul is that it takes a while, and a text player should be able to read the road
@@ -148,7 +149,6 @@ const CITY_LINES = [
   'Somebody has spray-canned a arrow on a wall. It points at nothing.',
   'A shutter comes down as you pass. Not for you, probably.',
 ];
-const pick = (a) => a[Math.floor(Math.random() * a.length)];
 
 // Everything distance costs, in one place, because a rung that skips one of them is a way to opt
 // out of a constraint the other rung obeys — which is exactly what the display-mode contract says

@@ -37,8 +37,3 @@ export function cphlLockup(sub = 'CPhL · COLDWATER HOCKEY', size = '30px') {
   );
 }
 
-// The persistent corner bug — the small always-on identifier a real channel leaves in
-// frame. Deliberately low-contrast: it is not competing with the game.
-export function cphlBug(label = 'CPhL') {
-  return `<div class="cphl-bug">${cphlMark('16px')}<span>${String(label).replace(/[<&]/g, '')}</span></div>`;
-}

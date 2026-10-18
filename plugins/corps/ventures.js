@@ -20,6 +20,7 @@ import {
   getZoneControl, setZoneControlCache,
 } from '../../server/engine/world.js';
 import { PERM, hasPerm } from '../../server/engine/org-perms.js';
+import { escapeHtml as esc } from '../../server/engine/html.js';
 
 const CLAIM_FEE = 400; // credits (from treasury) to take over a claimable business
 
@@ -76,7 +77,6 @@ export const CORP_ASSET_TYPES = {
 };
 
 const err = (message) => ({ type: 'error', message });
-const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
 // Resolve the asset type a zone is claimable as: `flags.claimable_asset` may be a
 // type key ('restaurant') or `true` (+ optional `flags.asset_type`, default diner).

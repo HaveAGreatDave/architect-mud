@@ -367,7 +367,6 @@ export function setFishingSkin(skin) { _skin = skin; }
 // The two inputs are ONE input at both stages — press and release — so a skin
 // wires one control and the stage decides what it means.
 export { primaryDown as fishingDown, primaryUp as fishingUp };
-export function fishingState() { return _state; }
 
 function render() {
   if (_skin) return _skin.frame(_state);

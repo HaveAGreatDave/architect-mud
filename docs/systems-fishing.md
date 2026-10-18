@@ -99,6 +99,18 @@ armed `pending`, the zone matches, and the player still carries a rod. Then:
 - **Lost** — "the big one got away"; `ROD_SNAP_CHANCE` (0.18) sheds rod condition
   (`ROD_SNAP_DAMAGE` 0.25; four bad reels retire a rod). The loop resumes.
 
+### The `log` rung
+
+The `log` Display Mode rung has no board, so the server settles both stages in
+`settleLogBite`: a straight cast to a random depth picks the catch from the same
+pool, then one fishing check against that catch's difficulty decides the reel,
+and the result lands through `cmdFishResolve` like any other. `textgames` plays
+the character board (`textfishing.js`), which is a skin over the same game.
+
+⚠ Don't route this rung through `textRender`'s shared resolve. The client fires
+the resolve verb at once, while the bite is still at the cast stage, and
+`cmdFishResolve` refuses it; until 2026-10-18 a log-rung player never landed a fish.
+
 ## Skill, gear, storage
 
 - **Skill:** `fishing` (survival; governed by **Reflexes + Cool**) — added to

@@ -59,7 +59,18 @@ export function flashlightDrainRate(flags) {
 // lit a light can't drop the entry that `light` just added.
 const litHolders = new Map();   // playerId → seq of the last add
 let litSeq = 0;
-function markLit(playerId) { if (playerId) litHolders.set(playerId, ++litSeq); }
+function markLit(playerId) { if (playerId) { litHolders.set(playerId, ++litSeq); beamCache.delete(playerId); } }
+
+// The perceive hook's answer per player: does a lit, charged light sit in their
+// top-level inventory? It fires on every move and swing in a dim room, so the
+// answer is cached. inventory.changed and every lit/battery write here bust it;
+// the TTL bounds the moves that fire no event (a wardrobe, a corp store), the
+// same moves the perceive read exists to catch.
+const BEAM_TTL_MS = 30_000;
+const beamCache = new Map();    // playerId -> { at, lit }
+const bustBeam = (playerId) => { if (playerId) beamCache.delete(playerId); };
+on('inventory.changed', ({ actor }) => bustBeam(actor?.id));
+on('player.logout', ({ id }) => bustBeam(id));
 
 const cdOf = (row) => {
   const cd = row?.custom_data;
@@ -122,6 +133,7 @@ async function unlight(args, raw, player) {
           AND COALESCE((o.custom_data->>'lit')::boolean, false) = true) AS other_lit`,
     [f.inv_id, player.id]);
   if (rows.length && !rows[0].other_lit) litHolders.delete(player.id);
+  bustBeam(player.id);
   return lookAfterToggle(player, `You switch off the ${f.name}.`);
 }
 
@@ -138,6 +150,7 @@ async function reload(args, raw, player) {
   await query(
     `UPDATE player_inventory SET custom_data = COALESCE(custom_data,'{}'::jsonb) || $1::jsonb WHERE id=$2`,
     [JSON.stringify({ battery: BATTERY_MAX }), f.inv_id]);
+  bustBeam(player.id);
   return { type: 'use', message: `You snap a fresh battery into the ${f.name}. Full charge.` };
 }
 
@@ -178,6 +191,12 @@ registerInputMatcher(TURN_RE, (args, raw, player) => {
 export const hooks = {
   'visibility.perceive': async (player, vis) => {
     if (LIGHT_LADDER.indexOf(vis.category) >= LIGHT_LADDER.indexOf(LIT_FLOOR)) return undefined;
+    const hit = beamCache.get(player.id);
+    if (hit && Date.now() - hit.at < BEAM_TTL_MS) {
+      if (!hit.lit) return undefined;
+      const boosted = floorVisibility(vis, LIT_FLOOR);
+      return boosted === vis ? undefined : boosted;
+    }
     const { rows } = await query(
       `SELECT 1 FROM player_inventory pi JOIN items i ON i.id = pi.item_id
         WHERE pi.player_id=$1 AND pi.container_id IS NULL AND jsonb_exists(i.tags,'flashlight')
@@ -185,6 +204,7 @@ export const hooks = {
           AND COALESCE((pi.custom_data->>'battery')::int, 0) > 0
         LIMIT 1`,
       [player.id]);
+    beamCache.set(player.id, { at: Date.now(), lit: rows.length > 0 });
     if (!rows.length) return undefined;
     // A lit light that reached this player by a move with no event (a corp store
     // withdrawal, a wardrobe) is found here the first time it matters, and from then on
@@ -249,6 +269,7 @@ schedule('1m', async () => {
       const drainacc = acc - spent;
       const battery = (f.custom_data?.battery ?? 0) - spent;
       if (battery <= 0) {
+        bustBeam(player.id);
         patches.push([f.inv_id, { lit: false, battery: 0, drainacc: 0 }]);
         sendToPlayer(player.id, { type: 'output', message: `<span class="ambient">Your ${f.name} flickers, browns out, and dies. Darkness closes back in.</span>` });
       } else {

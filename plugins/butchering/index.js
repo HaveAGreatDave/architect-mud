@@ -11,10 +11,9 @@
 // the plugin registers the BUTCHER action, and `loot <corpse>` dispatches it when
 // the corpse is empty-but-butcherable (no imports in either direction).
 
-import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
 import { getLivePlayer, getCorpse, getZoneCorpses, removeCorpse } from '../../server/engine/world.js';
-import { resolveInventoryItem } from '../../server/engine/inventory.js';
+import { resolveInventoryItem, giveItemById } from '../../server/engine/inventory.js';
 import { registerActivity } from '../../server/engine/activity-tick.js';
 import { skillCheck, awardSkillUse } from '../../server/engine/skills.js';
 import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
@@ -143,23 +142,10 @@ async function resolveButcher(player) {
 
 			// Named meat must never stack-merge across species: a dog haunch and
 			// a sewer rat are not interchangeable rows.
-			const { rows: existing } = (isStackable(meta) && !stamp)
-				? await query(
-						"SELECT id FROM player_inventory WHERE player_id=$1 AND item_id=$2 AND is_equipped=0 AND container_id IS NULL LIMIT 1",
-						[player.id, entry.item],
-					)
-				: { rows: [] };
-			if (existing.length) {
-				await query(
-					"UPDATE player_inventory SET quantity = quantity + $1 WHERE id = $2",
-					[qty, existing[0].id],
-				);
-			} else {
-				await query(
-					"INSERT INTO player_inventory (id,player_id,item_id,quantity,condition,custom_data) VALUES ($1,$2,$3,$4,1.0,$5)",
-					[randomUUID(), player.id, entry.item, qty, stamp ? JSON.stringify(stamp) : null],
-				);
-			}
+			await giveItemById(player.id, entry.item, qty, {
+				stack: isStackable(meta),
+				customData: stamp,
+			});
 			const label = qty > 1 ? `${qty}x ${carvedName}` : carvedName;
 			carved.push(
 				`<span class="action-link room-item" data-action="examine" data-target="${escAttr(itemName)}" title="Examine ${escAttr(itemName)}">${label}</span>`,

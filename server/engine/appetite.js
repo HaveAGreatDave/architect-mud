@@ -26,6 +26,7 @@
  * way (no bar, read from `conditionReport` and banded prose), and hunger and thirst were the
  * inconsistency. `condition` remains the precise diagnostic for anyone who wants a number.
  */
+import { pick } from './util.js';
 
 // Worst-first. `at` is the top of the band; `every` is game-minutes between repeats.
 const HUNGER_BANDS = [
@@ -158,8 +159,6 @@ export function appetiteMessages(player, gm = 1) {
 // same sentence at the same fullness becomes wallpaper within an hour and stops
 // being read at all. Several per band, picked at random, keeps the information
 // arriving as language rather than as a status code you learn to skip.
-const pick = (a) => a[Math.floor(Math.random() * a.length)];
-
 const SATIATION = {
   stuffed: [
     "You couldn't manage another bite, and you should probably stop trying.",

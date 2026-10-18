@@ -80,18 +80,6 @@ export function columnOf(i, j) {
   };
 }
 
-/** Nearest column centre to (x, y), for the hawk. Ground- and clock-free. */
-export function nearestColumn(x, y) {
-  const bi = Math.floor(x / THERMAL_CELL), bj = Math.floor(y / THERMAL_CELL);
-  let best = null, bd = Infinity;
-  for (let dj = -1; dj <= 1; dj++) for (let di = -1; di <= 1; di++) {
-    const c = columnOf(bi + di, bj + dj);
-    const d = Math.hypot(c.cx - x, c.cy - y);
-    if (d < bd) { bd = d; best = c; }
-  }
-  return best ? { ...best, d: bd } : null;
-}
-
 /**
  * The nearest column within `reach` tiles that is well into its life at `atMs`, or null. The
  * hawk asks this once per flight, at the flight's start, so it commits to a column that is
@@ -109,9 +97,6 @@ export function liveColumnNear(x, y, atMs, reach, minLife = 0.3) {
   return best ? { ...best, d: bd } : null;
 }
 
-// Life of a column at wall-clock `nowMs`, 0..1. Each column builds, holds and collapses over its
-// own period, then is dead for the last quarter of it, so the lift moves around the sky.
-export function columnLife(c, nowMs) { return lifeOf(c, nowMs); }
 function lifeOf(c, nowMs) {
   const u = ((nowMs / 1000) / c.period + c.phase) % 1;
   if (u >= 0.75) return 0;

@@ -211,13 +211,6 @@ export function fitSuffix(cd) {
   return '^' + codes.join('.');
 }
 
-// The whole mesh key for a truck, in one place — because it is assembled at five call sites (the
-// cab, the contact list, the depot floor, the walkaround, the dealer) and a suffix appended at four
-// of them is a truck that wears its bull bar everywhere except the one view you bought it for.
-export function truckVariant(typeId, { trailer = false, parked = false, cd = null } = {}) {
-  return `${typeId || 'hauler'}${trailer ? '+t' : ''}${parked ? '~p' : ''}${cd ? fitSuffix(cd) : ''}`;
-}
-
 // A fitting is owned once. Re-fitting one you already own is free — see rule 5 — so the price is
 // only ever charged on a code that is not already in the bag.
 export const ownsFit = (cd, id) => Array.isArray(cd?.owned_fits) && cd.owned_fits.includes(id);

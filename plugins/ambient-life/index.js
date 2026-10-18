@@ -39,6 +39,7 @@ import { homeLifeTick } from './home-life.js';
 import './intrusion.js';   // registers the zone.entered "someone's in my flat" reaction
 import './eviction.js';    // registers the npc.lockup "you don't belong here, out" escort
 import './blackout.js';    // registers the zone.power.changed "the lights just went" reaction
+import { randInt } from '../../server/engine/util.js';
 
 // ── Tunables ──────────────────────────────────────────────────────────────────
 const START_CHANCE     = 0.5;             // per eligible zone, per tick
@@ -87,8 +88,6 @@ export async function loadRoutines() {
     return false;
   }
 }
-// Dev-edit reload (also flips the loaded flag so a pre-first-tick edit sticks).
-export async function reloadRoutines() { loaded = await loadRoutines(); return loaded; }
 
 // ── Live interactive opportunities ──────────────────────────────────────────────
 // zoneId → { kind:'tip'|'order', expiresAt, actedBy:Set } while a clickable
@@ -107,7 +106,6 @@ const zoneCooldown = new Map(); // zoneId → ts; no new scene before this
 const activeScene  = new Set(); // zoneId with a paced vignette mid-run
 
 const rand    = (arr) => arr[Math.floor(Math.random() * arr.length)];
-const randInt = (min, max) => min + Math.floor(Math.random() * (max - min + 1));
 const actionLink = (cmd, label) =>
   `<span class="action-link" data-raw-cmd="${cmd}" data-label="${label}">[${label}]</span>`;
 

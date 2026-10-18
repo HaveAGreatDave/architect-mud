@@ -9,13 +9,13 @@
 // aggression, bluffFreq, semiBluffFreq, betSizing). Table talk & tilt come later.
 
 import { bestHand } from './games/holdem.js';
+import { clamp } from '../../server/engine/util.js';
 
 export function botId(npcId) { return `npc:${npcId}`; }
 export function isBotId(id) { return typeof id === 'string' && id.startsWith('npc:'); }
 
 const RV = { '2':2,'3':3,'4':4,'5':5,'6':6,'7':7,'8':8,'9':9,'10':10,'J':11,'Q':12,'K':13,'A':14 };
 const rankVal = c => RV[c.rank];
-const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
 
 // ── Hand strength ──────────────────────────────────────────────────────────
 

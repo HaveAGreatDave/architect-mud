@@ -98,6 +98,7 @@ export async function cmdCalibrate(args, raw, player) {
     skill: await effectiveSkill(player, TUNING_SKILL),
     difficulty,
     resolveCmd: 'calibrateresolve',
+    resultWords: { won: [`You bring the ${aug.name} into tune.`, 'Calibrated.'], lost: [`The ${aug.name} won't settle.`, 'Out of true.'] },
   }, { skill: TUNING_SKILL });
 }
 

@@ -11,7 +11,7 @@
 //
 // Tone: brutal, dry, street-level — matches the NPC banter library.
 
-const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+import { pick } from '../../server/engine/util.js';
 
 export const TEMPLATES = {
   kill_player: {

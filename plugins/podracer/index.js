@@ -11,8 +11,9 @@
 // on the seat while the racer stands in the shed door, buying, hiring and servicing, and on the log
 // rung the same verbs with no screen.
 //
-//   lot.js    buying, hiring, selling, servicing and listing, and the counter's payload
-//   seat.js   climbing in, the telemetry, the bay overlay, parking and the wreck
+//   lot.js       buying, hiring, selling, servicing and listing, and the counter's payload
+//   seat.js      climbing in, the telemetry, the bay overlay, parking and the wreck
+//   texthelm.js  the same racer driven by `pod` orders on the text Display Mode rungs
 
 import { on } from '../../server/engine/events.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
@@ -24,6 +25,7 @@ import { buyRacer, hireRacer, returnRacer, sellRacer, serviceRow, listRacers, ra
   racerLine, myRacers, racerPanel, sweepHires, recoverRacer, paintRow } from './lot.js';
 import { mountRacer, cmdPodSync, cmdPodEvent, dropSeat, bayLotAt, pushBay, svcState, recoverSeated } from './seat.js';
 import { PODRACER_TYPES, podracerPoseFrom } from '../../client/game/js/panels/podracer-model.js';
+import { cmdPod, textPodCtx } from './texthelm.js';
 
 // Every racer under way, by player id: the last report the server accepted.
 export const rigs = new Map();
@@ -160,6 +162,7 @@ async function paintCmd(player, tokens) {
     const rig = rigs.get(player.id);
     if (rig) rig.livery = livery;
     sendToPlayer(player.id, { type: 'podracer_ctx', livery });
+    textPodCtx(player.id, { livery });
   }
   await repush(player);
   return out;
@@ -180,7 +183,10 @@ async function serviceCmd(player, id) {
     if (ok) {
       // The live racer is put right too, or the next sync's one-way clamp writes the old wear back.
       Object.assign(rig, { hull: 1, fuel: 1, eng: [1, 1], cables: [true, true], binder: true });
-      sendToPlayer(player.id, { type: 'podracer_ctx', hull: 1, fuel: 1, eng: [1, 1], cables: [true, true], binder: true });
+      const fixed = { hull: 1, fuel: 1, eng: [1, 1], cables: [true, true], binder: true };
+      sendToPlayer(player.id, { type: 'podracer_ctx', ...fixed });
+      // A racer driven by text takes it the same way (texthelm.js).
+      textPodCtx(player.id, fixed);
     }
     await repush(player);
     return out;
@@ -197,6 +203,8 @@ async function serviceCmd(player, id) {
 export const commands = {
   podracer: cmdPodracer,
   podracers: (args, raw, player) => listRacers(player),
+  // The text helm's orders, on the textgames and log Display Mode rungs (texthelm.js).
+  pod: cmdPod,
   // Not typed by players: the seat's telemetry and its event reports, on the same wire `boatsync`
   // uses. Both are in NOT_PLAYER_TYPED in scripts/docs/verbs.mjs.
   podsync: cmdPodSync,

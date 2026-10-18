@@ -31,6 +31,7 @@ import { sendToPlayer } from '../../server/engine/messaging.js';
 import { adjustCredits } from '../../server/engine/economy.js';
 import { getFlag, setFlag } from '../../server/engine/flags.js';
 import { dispatchAction, registerAction } from '../../server/engine/actions.js';
+import { clamp, pick } from '../../server/engine/util.js';
 
 // ── Parcel classes (content authoring — the three shapes of a run) ─────────────
 // itemId: a real items row (content/items/item_parcel_*.json). payMult scales the
@@ -66,9 +67,7 @@ const T = {
   bountyMult:() => getTunable('work_fence_bounty_payout_mult', 2.0),// fenced value ≥ this × payout → bounty
 };
 
-const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
 function cheb(ax, ay, bx, by) { return Math.max(Math.abs(ax - bx), Math.abs(ay - by)); }
-function pick(a) { return a[Math.floor(Math.random() * a.length)]; }
 function now() { return Date.now(); }
 
 // ── Candidate endpoints: real, placed, named city tiles (live world Maps, no

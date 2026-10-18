@@ -23,6 +23,7 @@ import {
 import {
   slotsFor, slotLeft, totalLeft, fullestSlot, takeFromSlot, normaliseSlot, SLOT_CODES,
 } from './machine.js';
+import { escapeHtml as esc } from '../../server/engine/html.js';
 
 const MINT_FEE = 2500;
 // THESE TWO NUMBERS ARE COUPLED — never move one without the other.
@@ -120,8 +121,6 @@ function quotesFor(player) {
 // paid. The card never edits a quote to fit and this must not become the one
 // place that does.
 const pendingQuote = new Map();       // playerId -> string
-
-const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
 function quoteProblem(text) {
   const q = String(text || '').trim().replace(/\s+/g, ' ');

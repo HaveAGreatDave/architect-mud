@@ -7,6 +7,7 @@
 // Kept deliberately thin over the existing combat feel (piloting-checked rolls,
 // hull-damage ladder → breakup → crash) rather than a parallel combat engine.
 
+import { prefersLoggedPanelsOrDefault } from '../../server/engine/presentation.js';
 import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
 import { skillCheck, effectiveSkill, awardSkillUse } from '../../server/engine/skills.js';
@@ -896,7 +897,9 @@ async function cmdStrafe(args, raw, player) {
 
   // Continuous cockpit: no modal reticle deck — resolve the gun pass with a piloting
   // check inline (the FIRE button drives this straight from the flying cockpit).
-  if (isContinuous(live)) {
+  // The `log` rung takes the same path: the reticle is a reflex board a screen
+  // reader can't play, and this check is the one the log rung resolves on anyway.
+  if (isContinuous(live) || await prefersLoggedPanelsOrDefault(player)) {
     const chk = await skillCheck(player, 'piloting', target.accuracy || 6);
     await applyStrafeResult(live, player, target.id, target.name, chk.success);
     return { type: 'noop' };

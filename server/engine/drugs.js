@@ -226,7 +226,6 @@ export function skinPermeability(drugId) {
   if (Number.isFinite(authored)) return Math.max(0, Math.min(1, authored));
   return SKIN_PERMEABILITY[drug.flags?.drug_family] ?? SKIN_PERMEABILITY_DEFAULT;
 }
-export const _skinPermeabilityTable = { SKIN_PERMEABILITY, SKIN_PERMEABILITY_DEFAULT };
 const NEUTRAL_ROUTE = ROUTES.use;
 
 // Doses clear on a half-life rather than a flat -1/min step: the body sheds a
@@ -494,8 +493,6 @@ function withdrawalPhase(sinceOnset, wd) {
   if (sinceOnset < ramp + peak + taper * 0.6) return 'easing';
   return 'tail';
 }
-
-export const WITHDRAWAL_PHASES = ['onset', 'rising', 'peak', 'easing', 'tail'];
 
 // ── ONE MESSAGE OR MANY ──────────────────────────────────────────────────────
 //
@@ -1470,11 +1467,6 @@ export async function getDrugStatus(player) {
       toleranceGap: Math.max(0, tolerance - toleranceLethal),
     };
   });
-}
-
-export async function getPlayerDrugState(playerId) {
-  const { rows } = await query('SELECT * FROM player_drug_state WHERE player_id=$1', [playerId]);
-  return rows;
 }
 
 // Wipe the player's ACTIVE drug state on death: reverse every timed drug/withdrawal

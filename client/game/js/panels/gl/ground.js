@@ -16,6 +16,7 @@ import { makeVertexStream } from './stream.js';
 import { HEIGHT_FOG_GLSL, LIGHT_SHAFT_GLSL } from './fog.js';
 import { declareProgram, layerProgram } from './programs.js';
 import { linearOut, applyLinOut } from './colour.js';
+import { LIGHTGRID_GLSL, LIGHTGRID_UNIFORMS, createLightGridTextures, bindNoLightGrid, makeGroundGrid, buildGroundGrid } from './lightgrid.js';
 
 // pos3, colour3
 const STRIDE = 10;  // pos3, colour3, alpha1, road1, lat1, kerb1
@@ -582,6 +583,104 @@ float waterSparkle(vec2 w) {
 
 ${HEIGHT_FOG_GLSL}
 ${LIGHT_SHAFT_GLSL}
+// The light grid (gl/lightgrid.js, RENDER_TUNE.glCluster). Declared here rather than in the chunk,
+// because glsl-smoke can't see into an imported snippet.
+uniform highp sampler2D  uLGLight;
+uniform highp usampler2D uLGCell;
+uniform highp usampler2D uLGIdx;
+uniform int   uLGOn;
+uniform vec2  uLGOrigin;
+uniform float uLGInv;
+uniform ivec2 uLGDim;
+${LIGHTGRID_GLSL}
+// One light's streak and glint on the wet road. Its extent on the ground is 'measure' in
+// gl/lightgrid.js: change a term here, or its gain in main, and change that too
+// (scripts/shapes/glcluster.mjs holds the two together). The body is the loop body this used to be, with uWetP[i], uWetC[i], uWetR[i] as P, C, R.
+void wetLight(vec3 P, vec3 C, float R, inout vec3 add, inout vec3 glint) {
+    vec2 gp = P.xy;                 // the light's own ground point
+    vec2 toLight = gp - uEye;
+    float el = length(toLight);
+    if (el < 0.001) return;
+    toLight /= el;
+    // ⚠ A STREAK IS ANCHORED AT THE MIRROR POINT, NOT AT THE FOOT OF THE LIGHT, and putting it at
+    // the foot is why the road never reflected anything. Angle of incidence equals angle of
+    // reflection, so for an eye at height e and a light at height h the image of the light lands
+    // on the ground at e/(e+h) of the way from the EYE to the light — which for a cab (e about a
+    // fifth of a tile) and a sign three storeys up is barely a tile from the truck, nowhere near
+    // the sign. The old model put a blob at the light's own foot instead, and every light in a
+    // city is mounted on a BUILDING: measured, all six of the road's lights had their feet on
+    // building tiles, where there is no ground quad at all, so the term drew literally nothing.
+    // The bench read 0.00% coloured pixels on the road at every wetness and every hour, which is
+    // what a correct shader fed the wrong geometry looks like.
+    float k = uEyeH / max(0.05, uEyeH + P.z);
+    vec2 spec = uEye + toLight * (el * k);
+    vec2 rel = vWorld.xy - spec;
+    float along = dot(rel, toLight);                     // positive runs AWAY toward the light
+    float lat = dot(rel, vec2(-toLight.y, toLight.x));
+    // ⚠ AND THE SMEAR IS A ROUGHNESS, SO IT SCALES WITH THE DISTANCE TO THE LIGHT, not with the
+    // light's height. This is the whole reason a photograph of a wet street shows a streak yards
+    // long rather than a second copy of the sign: tarmac scatters over a wide angle, and a wide
+    // angle at ten tiles is a long streak. A mirror-smooth surface would be 'len' near zero, and
+    // it would be correct and would look nothing like the reference boards.
+    // ⚠ CLAMPED at both ends: a floor so a light overhead still marks the road, and a ceiling
+    // because from a cockpit 'el' is the width of the map. The Fresnel gate above is the real
+    // defence there and the clamp is the belt.
+    float len = clamp(el * 0.9, 0.8, 10.0);
+    float a = along >= 0.0 ? along / len : along / (len * 0.45);
+    // ⚠ AND IT IS WIDE ENOUGH TO COVER A LANE. At a tenth of the light's reach the streak was
+    // about 0.44 tiles across, which is half a road — and because its axis runs from the eye to
+    // a light mounted on a building beside the street, a narrow streak leaves the tarmac within a
+    // couple of tiles and spends the rest of its length on ground that draws no quad at all.
+    // Measured on the GL canvas directly rather than the composited frame (the cab's dash covers
+    // the near road, so the 2-D frame hides exactly the part being measured): the puddle field
+    // and the Fresnel term were both healthy — 51% of visible ground over pud 0.5 — and the
+    // streaks were contributing a few tenths of a per cent.
+    float t = lat / max(0.25, R * 0.25);
+    add += C * (exp(-a * a) * exp(-t * t));
+    // ── ⚠ AND THE SAME LIGHT AGAIN, AT THE WATER'S ROUGHNESS ────────────────────────────────
+    //
+    // This is not a second effect. It is the line above evaluated at the OTHER roughness, which
+    // is the model this whole block already states: damp tarmac scatters and standing water
+    // mirrors, one surface, two roughnesses. The note on 'len' says so in as many words — "a
+    // mirror-smooth surface would be 'len' near zero" — and then only ever computes the rough
+    // half, because the water was supposed to be served by the reflection buffer instead.
+    //
+    // ⚠ AND MEASURED, IT WAS NOT. A grazing reflection shows what is FAR away: for an eye a
+    // fifth of a tile up, the reflected ray off a puddle ten tiles ahead rises about a degree
+    // and a half, so it clears a three-storey frontage forty tiles further on and what the water
+    // is actually looking at is the horizon. At night that is a dark sky, so the buffer replaced
+    // dark tarmac with dark sky and the wet road at 23:00 came out as a pure subtraction:
+    // '__glWet()' measured 52% of the frame darker and 0.00% of it brighter, at any wetness, with
+    // the headlights off. A street with water lying in it does not get darker and nothing else.
+    //
+    // What the buffer cannot show is the lamp DIRECTLY OVERHEAD, because at a grazing angle its
+    // image lands a tile from the truck rather than under it — which is exactly the geometry
+    // 'spec' above already solves. So the water gets the same light, collapsed to a highlight
+    // instead of drawn out into a streak, and the two halves are weighted by the two halves of
+    // one field: the streak by 'smear' (the dry part) and this by 'imgW' (the water).
+    // ⚠ SHORTER THAN THE STREAK, NOT A POINT, AND THE FIRST CUT WAS A POINT. At a thirteenth of
+    // the scatter's length and a fifth of its width the highlight is smaller than a pixel over
+    // most of the road, and it has to land inside a POOL to be weighted at all — two independent
+    // placements, so it almost never did. Measured: 0.00% of the frame moved at every gain up to
+    // 12, and a gain of 400 was needed to move 0.98% of it, which is a term evaluated at a
+    // thousandth of its own peak. Water is rippled, not polished: the highlight is drawn out
+    // along the line to the light and is long enough to cross a pool, which is what makes it a
+    // reflection you can see rather than one that is technically present.
+    float glen = len * 0.45;
+    float ga = along >= 0.0 ? along / glen : along / (glen * 0.45);
+    float gt = lat / max(0.10, R * 0.12);
+    glint += C * (exp(-ga * ga) * exp(-gt * gt));
+}
+// One lamp's pool on the road. Its reach is 'poolRadius' in gl/lightgrid.js, the same contract
+// 'wetLight' has with 'measure'.
+vec3 poolLight(vec3 P, vec3 C) {
+  vec2 rel = vWorld.xy - P.xy;
+  float h = max(0.14, P.z);
+  float r2 = dot(rel, rel) + h * h;
+  // Inverse square above a lamp head (0.33): a tower beacon whitened the whole road.
+  float hs = min(1.0, (0.33 * 0.33) / (h * h));
+  return C * (hs * ((h * h * h) / (r2 * sqrt(r2))));
+}
 void main() {
   if (vAlpha <= 0.002) discard;
   // ⚠ FOLDED IN BEFORE THE MIX, never painted over the result. Everything below reads c as the road
@@ -1087,84 +1186,22 @@ void main() {
     mirK = clamp(imgW * refl * uReflGain * (1.0 / 32.0), 0.0, 1.0);
     c = c * (1.0 - mirK) + img * mirK;
   }
-  if (refl > 0.01 && uNWet > 0) {
+  if (refl > 0.01 && (uNWet > 0 || uLGOn == 1)) {
     vec3 add = vec3(0.0);
     vec3 glint = vec3(0.0);
-    for (int i = 0; i < MAX_WET; i++) {
-      if (i >= uNWet) break;
-      vec2 gp = uWetP[i].xy;                 // the light's own ground point
-      vec2 toLight = gp - uEye;
-      float el = length(toLight);
-      if (el < 0.001) continue;
-      toLight /= el;
-      // ⚠ A STREAK IS ANCHORED AT THE MIRROR POINT, NOT AT THE FOOT OF THE LIGHT, and putting it at
-      // the foot is why the road never reflected anything. Angle of incidence equals angle of
-      // reflection, so for an eye at height e and a light at height h the image of the light lands
-      // on the ground at e/(e+h) of the way from the EYE to the light — which for a cab (e about a
-      // fifth of a tile) and a sign three storeys up is barely a tile from the truck, nowhere near
-      // the sign. The old model put a blob at the light's own foot instead, and every light in a
-      // city is mounted on a BUILDING: measured, all six of the road's lights had their feet on
-      // building tiles, where there is no ground quad at all, so the term drew literally nothing.
-      // The bench read 0.00% coloured pixels on the road at every wetness and every hour, which is
-      // what a correct shader fed the wrong geometry looks like.
-      float k = uEyeH / max(0.05, uEyeH + uWetP[i].z);
-      vec2 spec = uEye + toLight * (el * k);
-      vec2 rel = vWorld.xy - spec;
-      float along = dot(rel, toLight);                     // positive runs AWAY toward the light
-      float lat = dot(rel, vec2(-toLight.y, toLight.x));
-      // ⚠ AND THE SMEAR IS A ROUGHNESS, SO IT SCALES WITH THE DISTANCE TO THE LIGHT, not with the
-      // light's height. This is the whole reason a photograph of a wet street shows a streak yards
-      // long rather than a second copy of the sign: tarmac scatters over a wide angle, and a wide
-      // angle at ten tiles is a long streak. A mirror-smooth surface would be 'len' near zero, and
-      // it would be correct and would look nothing like the reference boards.
-      // ⚠ CLAMPED at both ends: a floor so a light overhead still marks the road, and a ceiling
-      // because from a cockpit 'el' is the width of the map. The Fresnel gate above is the real
-      // defence there and the clamp is the belt.
-      float len = clamp(el * 0.9, 0.8, 10.0);
-      float a = along >= 0.0 ? along / len : along / (len * 0.45);
-      // ⚠ AND IT IS WIDE ENOUGH TO COVER A LANE. At a tenth of the light's reach the streak was
-      // about 0.44 tiles across, which is half a road — and because its axis runs from the eye to
-      // a light mounted on a building beside the street, a narrow streak leaves the tarmac within a
-      // couple of tiles and spends the rest of its length on ground that draws no quad at all.
-      // Measured on the GL canvas directly rather than the composited frame (the cab's dash covers
-      // the near road, so the 2-D frame hides exactly the part being measured): the puddle field
-      // and the Fresnel term were both healthy — 51% of visible ground over pud 0.5 — and the
-      // streaks were contributing a few tenths of a per cent.
-      float t = lat / max(0.25, uWetR[i] * 0.25);
-      add += uWetC[i] * (exp(-a * a) * exp(-t * t));
-      // ── ⚠ AND THE SAME LIGHT AGAIN, AT THE WATER'S ROUGHNESS ────────────────────────────────
-      //
-      // This is not a second effect. It is the line above evaluated at the OTHER roughness, which
-      // is the model this whole block already states: damp tarmac scatters and standing water
-      // mirrors, one surface, two roughnesses. The note on 'len' says so in as many words — "a
-      // mirror-smooth surface would be 'len' near zero" — and then only ever computes the rough
-      // half, because the water was supposed to be served by the reflection buffer instead.
-      //
-      // ⚠ AND MEASURED, IT WAS NOT. A grazing reflection shows what is FAR away: for an eye a
-      // fifth of a tile up, the reflected ray off a puddle ten tiles ahead rises about a degree
-      // and a half, so it clears a three-storey frontage forty tiles further on and what the water
-      // is actually looking at is the horizon. At night that is a dark sky, so the buffer replaced
-      // dark tarmac with dark sky and the wet road at 23:00 came out as a pure subtraction:
-      // '__glWet()' measured 52% of the frame darker and 0.00% of it brighter, at any wetness, with
-      // the headlights off. A street with water lying in it does not get darker and nothing else.
-      //
-      // What the buffer cannot show is the lamp DIRECTLY OVERHEAD, because at a grazing angle its
-      // image lands a tile from the truck rather than under it — which is exactly the geometry
-      // 'spec' above already solves. So the water gets the same light, collapsed to a highlight
-      // instead of drawn out into a streak, and the two halves are weighted by the two halves of
-      // one field: the streak by 'smear' (the dry part) and this by 'imgW' (the water).
-      // ⚠ SHORTER THAN THE STREAK, NOT A POINT, AND THE FIRST CUT WAS A POINT. At a thirteenth of
-      // the scatter's length and a fifth of its width the highlight is smaller than a pixel over
-      // most of the road, and it has to land inside a POOL to be weighted at all — two independent
-      // placements, so it almost never did. Measured: 0.00% of the frame moved at every gain up to
-      // 12, and a gain of 400 was needed to move 0.98% of it, which is a term evaluated at a
-      // thousandth of its own peak. Water is rippled, not polished: the highlight is drawn out
-      // along the line to the light and is long enough to cross a pool, which is what makes it a
-      // reflection you can see rather than one that is technically present.
-      float glen = len * 0.45;
-      float ga = along >= 0.0 ? along / glen : along / (glen * 0.45);
-      float gt = lat / max(0.10, uWetR[i] * 0.12);
-      glint += uWetC[i] * (exp(-ga * ga) * exp(-gt * gt));
+    if (uLGOn == 1) {
+      // Every light whose streak reaches this cell (gl/lightgrid.js), in place of the road's six.
+      uvec2 hc = lgCell(vWorld.xy);
+      for (uint k = 0u; k < hc.y; k++) {
+        int li = lgAt(hc.x + k);
+        vec4 P = lgP(li);
+        wetLight(P.xyz, lgC(li).rgb, P.w, add, glint);
+      }
+    } else {
+      for (int i = 0; i < MAX_WET; i++) {
+        if (i >= uNWet) break;
+        wetLight(uWetP[i], uWetC[i], uWetR[i], add, glint);
+      }
     }
     // ⚠ 4.5 WAS SWEPT, NOT CHOSEN. Measured on a lit street at full wetness, as the share of the
     // frame that moves against a dry road: 1.6 gives 0.96% (there, and invisible), 3.2 gives 3.8%,
@@ -1297,16 +1334,19 @@ void main() {
   // stands VERGE (0.38 tiles) off its own tile centre, so what reaches the next tile is a seventh
   // of the peak; if that ever reads as an edge, the fix is to hand the floor the same list under
   // its own name — 'seaLights' is the precedent — and not to widen anything here.
-  if (uPool > 0.001 && uNPool > 0 && uNight > 0.01 && uSurface > 0.5) {
+  if (uPool > 0.001 && (uNPool > 0 || uLGOn == 1) && uNight > 0.01 && uSurface > 0.5) {
     vec3 pool = vec3(0.0);
-    for (int i = 0; i < MAX_POOL; i++) {
-      if (i >= uNPool) break;
-      vec2 rel = vWorld.xy - uPoolP[i].xy;
-      float h = max(0.14, uPoolP[i].z);
-      float r2 = dot(rel, rel) + h * h;
-      // Inverse square above a lamp head (0.33): a tower beacon whitened the whole road.
-      float hs = min(1.0, (0.33 * 0.33) / (h * h));
-      pool += uPoolC[i] * (hs * ((h * h * h) / (r2 * sqrt(r2))));
+    if (uLGOn == 1) {
+      uvec2 hc = lgCell(vWorld.xy);
+      for (uint k = 0u; k < hc.y; k++) {
+        int li = lgAt(hc.x + k);
+        pool += poolLight(lgP(li).xyz, lgC(li).rgb);
+      }
+    } else {
+      for (int i = 0; i < MAX_POOL; i++) {
+        if (i >= uNPool) break;
+        pool += poolLight(uPoolP[i], uPoolC[i]);
+      }
     }
     // ⚠ IT ADDS INTO THE HEADROOM RATHER THAN ONTO THE ROAD. 'c + k' saturates a pale kerb to
     // white long before it saturates the tarmac beside it, so a pool crossing a painted line
@@ -1422,6 +1462,14 @@ export function createGroundLayer(gl) {
   const stream = makeVertexStream(gl, vao, STRIDE, [[loc.pos, 3, 0], [loc.color, 3, 12], [loc.alpha, 1, 24], [loc.road, 1, 28], [loc.lat, 1, 32], [loc.kerb, 1, 36]], 65536);
   let data = new Float32Array(0);
   let count = 0, splitA = 0, splitP = 0, splitB = 0;
+  // The light grid (RENDER_TUNE.glCluster): its textures, its reusable buffers, and the ground's own
+  // extent, which is the grid's extent. A fragment of this layer can't fall outside the quads it
+  // belongs to, so the bounds of what was uploaded bound every cell a fragment can read.
+  for (const n of LIGHTGRID_UNIFORMS) loc[n] = gl.getUniformLocation(prog, n);
+  const lgTex = createLightGridTextures(gl);
+  const lgGrid = makeGroundGrid();
+  let bx0 = Infinity, by0 = Infinity, bx1 = -Infinity, by1 = -Infinity;
+  let gridStats = null;
 
   const tris = (list) => list.reduce((n, q) => n + (q.p.length - 2) * 3, 0);
 
@@ -1447,9 +1495,15 @@ export function createGroundLayer(gl) {
     if (data.length < count * STRIDE) data = new Float32Array(Math.max(count * STRIDE, 1 << 16));
     const d = data;
     let o = 0;
+    bx0 = Infinity; by0 = Infinity; bx1 = -Infinity; by1 = -Infinity;
     for (const list of [base, paint, add, over]) for (let qi = 0; qi < list.length; qi++) {
       const q = list[qi];
       const p = q.p, c = q.rgb, qa = q.a == null ? 1 : q.a;
+      for (let k = 0; k < p.length; k++) {
+        const v = p[k];
+        if (v[0] < bx0) bx0 = v[0]; if (v[0] > bx1) bx1 = v[0];
+        if (v[1] < by0) by0 = v[1]; if (v[1] > by1) by1 = v[1];
+      }
       // ⚠ COLOUR IS PER VERTEX IN THE BUFFER AND USUALLY PER QUAD IN THE CALLER, and the two are
       // not in tension — a road has one colour and writes it four times. `rgbs` is for the caller
       // that needs the other: a cliff face is painted with a vertical GRADIENT, which is the one
@@ -1625,6 +1679,29 @@ export function createGroundLayer(gl) {
     // ⚠ NOT `|| 0.45`, because 0 is a legal setting (a wet road exactly as bright as a dry one) and
     // `0 || 0.45` is 0.45. The caller always sends a number; this only covers an undefined.
     gl.uniform1f(loc.wetDark, opts.wetDark == null ? 0.45 : opts.wetDark);
+    // ── THE LIGHT GRID (RENDER_TUNE.glCluster) ─────────────────────────────────────────────────
+    //
+    // With `gridLights` the streak, the glint and the pool walk every light whose footprint covers
+    // the fragment's cell, in place of the six and the pool's list above (those are still uploaded:
+    // the light shaft in the air reads the six whichever path the road takes). Without it, or with
+    // no live term to bin for, uLGOn is 0 and the shader is the uniform path to the bit.
+    let grid = null;
+    if (lgTex && opts.gridLights && opts.gridLights.length && bx1 >= bx0) {
+      const night = Math.min(1, Math.max(0, opts.night || 0));
+      const poolGain = opts.pool > 0 && night > 0.01 ? opts.pool * night : 0;
+      const wet = opts.wet > 0 ? opts.wet : 0;
+      if (wet > 0 || poolGain > 0) {
+        // The same numbers the uniforms below get: each footprint is sized by the gain its term
+        // is drawn at (see the ⚠ on footprints in gl/lightgrid.js).
+        grid = buildGroundGrid(lgGrid, opts.gridLights, [bx0, by0, bx1, by1],
+          { x: opts.eyeX || 0, y: opts.eyeY || 0, h: opts.eyeH == null ? 0.2 : opts.eyeH },
+          { wet, glint: opts.glint > 0 ? opts.glint : 0, pool: poolGain });
+        lgTex.upload(grid);
+      }
+    }
+    gridStats = grid && grid.n ? { lights: grid.n, binned: grid.binned, cells: grid.nx * grid.ny, size: grid.size, entries: grid.entries, maxCell: grid.maxCell, cut: grid.cut } : null;
+    // Units 3 to 5: the reflection and the sky hold 1 and 2.
+    if (lgTex) lgTex.bind(loc, 3, grid); else bindNoLightGrid(gl, loc, 3);
     gl.uniform1i(loc.refl, 1);
     // ⚠ UNIT 2, AND BOUND WHATEVER HAPPENS, for the same reason the reflection above is: sampling an
     // incomplete unit is undefined rather than black on some drivers, so the shader's own branch is
@@ -1719,7 +1796,8 @@ export function createGroundLayer(gl) {
     return count / 6;
   }
 
-  return { upload, draw, get quads() { return count / 6; } };
+  // `grid` is the last frame's light-grid stats, or null when the grid was off or had nothing to bin.
+  return { upload, draw, get quads() { return count / 6; }, get grid() { return gridStats; } };
 }
 
 declareProgram(VERT, FRAG);

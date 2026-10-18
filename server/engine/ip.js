@@ -18,6 +18,15 @@ const SKILL_CACHE_TTL_MS = 30_000;
 const _skillCache = new Map(); // playerId -> { at, exists, brains, ips: Map(skill_id -> ip) }
 on('player.logout', ({ id }) => { if (id) _skillCache.delete(id); });
 
+// IP earned by awardIp but not yet written. awardIp fires on nearly every combat
+// swing and dodge, so it bumps the cache and lands here instead of upserting per
+// roll; flushAllSkillIp writes every pending delta in one round trip on the '1m'
+// scheduler, and logout/reconnect/drain flush the one player. Checkpoint tier: a
+// crash loses at most a minute of skill-ups, which never rewards crashing.
+// Readers that go to player_skills directly (skills list, crafting gates, XP
+// sums) call flushSkillIp first so they never read behind the cache.
+const _pendingIp = new Map(); // playerId -> Map(skill_id -> delta)
+
 async function loadSkillCache(playerId) {
   const c = _skillCache.get(playerId);
   if (c && Date.now() - c.at < SKILL_CACHE_TTL_MS) return c;
@@ -31,6 +40,9 @@ async function loadSkillCache(playerId) {
     ? { at: Date.now(), exists: true, brains: Number(rows[0].stat_brains) || 1,
         ips: new Map(rows.filter(r => r.skill_id).map(r => [r.skill_id, r.ip || 0])) }
     : { at: Date.now(), exists: false, brains: 1, ips: new Map() };
+  // A TTL reload reads the DB, which doesn't have the unflushed deltas yet.
+  const pending = _pendingIp.get(playerId);
+  if (pending) for (const [skillId, d] of pending) entry.ips.set(skillId, (entry.ips.get(skillId) ?? 0) + d);
   _skillCache.set(playerId, entry);
   return entry;
 }
@@ -38,6 +50,14 @@ async function loadSkillCache(playerId) {
 // Cached read of a player's IP in one skill (0 when untrained).
 export async function getSkillIp(playerId, skillId) {
   return (await loadSkillCache(playerId)).ips.get(skillId) ?? 0;
+}
+
+// Every skill's LEVEL (ip/100) for a player, off the same cache: the crafting
+// and recipe gates used to SELECT player_skills on each use.
+export async function getSkillLevels(playerId) {
+  const levels = {};
+  for (const [skillId, ip] of (await loadSkillCache(playerId)).ips) levels[skillId] = Math.floor((ip || 0) / 100);
+  return levels;
 }
 
 // For callers that mutate player_skills outside this module (e.g. prologue's
@@ -96,16 +116,60 @@ export async function awardIp(playerId, skillId, margin = 0) {
   if (roll >= chance) return { awarded: 0, leveledUp: false };
 
   const newIp = current + 1;
-  // Upsert, not a presence-branched INSERT: a stale cache miss (row created by
-  // an out-of-band writer inside the TTL) must bump, never PK-collide.
-  await query(
-    `INSERT INTO player_skills (player_id, skill_id, ip) VALUES ($1,$2,1)
-     ON CONFLICT (player_id, skill_id) DO UPDATE SET ip = player_skills.ip + 1`,
-    [playerId, skillId]
-  );
+  let pending = _pendingIp.get(playerId);
+  if (!pending) _pendingIp.set(playerId, pending = new Map());
+  pending.set(skillId, (pending.get(skillId) ?? 0) + 1);
   cache.ips.set(skillId, newIp);
   const leveledUp = Math.floor(newIp / 100) > Math.floor(current / 100);
   return { awarded: 1, leveledUp };
+}
+
+// Write pending IP deltas. Additive upsert, not a presence-branched INSERT: a
+// row created by an out-of-band writer meanwhile must bump, never PK-collide.
+// The JOIN on players drops a character deleted since the award, which would
+// otherwise fail the whole batch on the FK. Deltas are taken up-front and put
+// back on a throw, so a failed flush retries next minute.
+async function writePending(entries) {
+  if (!entries.length) return;
+  const rows = [];
+  const params = [];
+  for (const [playerId, skills] of entries) {
+    for (const [skillId, d] of skills) {
+      const b = params.length;
+      rows.push(`($${b + 1}::text, $${b + 2}::text, $${b + 3}::int)`);
+      params.push(playerId, skillId, d);
+    }
+  }
+  try {
+    await query(
+      `INSERT INTO player_skills (player_id, skill_id, ip)
+       SELECT v.pid, v.sid, v.d FROM (VALUES ${rows.join(', ')}) AS v(pid, sid, d)
+         JOIN players p ON p.id = v.pid
+       ON CONFLICT (player_id, skill_id) DO UPDATE SET ip = player_skills.ip + EXCLUDED.ip`,
+      params
+    );
+  } catch (err) {
+    for (const [playerId, skills] of entries) {
+      let pending = _pendingIp.get(playerId);
+      if (!pending) _pendingIp.set(playerId, pending = new Map());
+      for (const [skillId, d] of skills) pending.set(skillId, (pending.get(skillId) ?? 0) + d);
+    }
+    console.error(`[ip] flush failed: ${err.message}`);
+  }
+}
+
+export async function flushSkillIp(playerId) {
+  const pending = _pendingIp.get(playerId);
+  if (!pending) return;
+  _pendingIp.delete(playerId);
+  await writePending([[playerId, pending]]);
+}
+
+export async function flushAllSkillIp() {
+  if (!_pendingIp.size) return;
+  const entries = [..._pendingIp.entries()];
+  _pendingIp.clear();
+  await writePending(entries);
 }
 
 // Deterministically grant a fixed number of IP to a skill — for EARNED, structured rewards
@@ -159,6 +223,7 @@ export function statSpent(p) {
 // Lifetime XP is never stored: it aggregates SUM(player_skills.ip) (which only
 // ever grows) plus players.bonus_xp (starting XP + non-skill grants).
 export async function getTotalXp(playerId) {
+  await flushSkillIp(playerId);
   const { rows } = await query(
     `SELECT COALESCE(bonus_xp, 0) AS bonus_xp,
             COALESCE((SELECT SUM(ip) FROM player_skills WHERE player_id=$1), 0) AS skill_ip
@@ -175,6 +240,7 @@ export async function getTotalXp(playerId) {
 // a floor — a survivor in the hole grinds back to 0 before a point is spendable.
 export async function getNetXp(playerId) {
   await ensureTunables();
+  await flushSkillIp(playerId);
   const { rows } = await query(
     `SELECT stat_brawn, stat_reflexes, stat_endurance, stat_brains, stat_cool, stat_senses,
             COALESCE(bonus_xp, 0) AS bonus_xp,
@@ -210,6 +276,7 @@ export async function raiseStat(playerId, statName) {
   if (!RAISABLE_STATS.includes(statName)) {
     return { error: `Unknown stat. Valid stats: ${RAISABLE_STATS.join(', ')}` };
   }
+  await flushSkillIp(playerId);
   const col = `stat_${statName}`;
   const { rows } = await query(
     `SELECT stat_brawn, stat_reflexes, stat_endurance, stat_brains, stat_cool, stat_senses,

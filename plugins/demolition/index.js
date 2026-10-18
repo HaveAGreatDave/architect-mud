@@ -157,6 +157,7 @@ async function cmdBreach(args, raw, player) {
     difficulty: Number(target.flags?.rig_difficulty) || 5,
     fuseMin: FUSE_MIN, fuseMax: FUSE_MAX, fuseDefault: FUSE_DEFAULT,
     resolveCmd: 'breachresolve',
+    resultWords: { won: [`You seat the charge on the ${target.name} and wire it clean.`, 'Armed.'], lost: [`The charge won't seat on the ${target.name}.`, 'Not armed.'] },
   }, { skill: 'science' });
 }
 
@@ -230,6 +231,7 @@ async function cmdDefuse(args, raw, player) {
     difficulty: left < 20 ? 8 : left < 45 ? 6 : 4,
     seconds: left,
     resolveCmd: 'defuseresolve',
+    resultWords: { won: ['You find the right wire and cut it.', 'Safe.'], lost: ['You find a wire. It was the wrong one.', 'Still live.'] },
   }, { skill: 'science' });
 }
 

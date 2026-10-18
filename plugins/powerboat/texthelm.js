@@ -42,6 +42,7 @@ import { wildlandsAt } from '../../client/shared/wildlands.js';
 import { aboard } from './yard.js';
 import { effBoatParams } from './service.js';
 import { rigs } from './index.js';
+import { clamp } from '../../server/engine/util.js';
 
 const TICK = '1s';
 // The bells, as fractions of the lever. ⚠ NOT EVENLY SPACED, because a bell is not a percentage.
@@ -119,7 +120,6 @@ export function stopTextHelm(playerId) {
 }
 
 const clamp01 = (v) => Math.max(0, Math.min(1, Number(v ?? 1)));
-const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
 /**
  * How much rudder to ask for, given how far off the ordered bearing she is.

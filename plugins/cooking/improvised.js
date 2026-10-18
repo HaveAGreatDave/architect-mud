@@ -133,11 +133,6 @@ const INFUSION_CEILING = 'decent';
 //
 // It stops at `superb`. `masterful` belongs to recipes somebody wrote down.
 const CEILINGS = ['acceptable', 'decent', 'good', 'very good', 'excellent', 'superb'];
-export const IMPROVISED_MAX = 'superb';
-
-export function complexityOf(sig) {
-  return reader(sig).kinds.length;
-}
 
 export function improvisedCeiling(complexity) {
   return CEILINGS[Math.max(0, Math.min(CEILINGS.length - 1, complexity))];

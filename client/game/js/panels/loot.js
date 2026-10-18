@@ -17,13 +17,6 @@ export function openLootPanel(data) {
   document.getElementById('loot-panel').classList.add('active');
 }
 
-export function refreshLootPanel(data) {
-  if (!document.getElementById('loot-panel').classList.contains('active')) return;
-  activeCorpseId = data.corpseId;
-  activeCorpseName = data.corpseName || null;
-  renderLootPanel(data);
-}
-
 export function closeLootPanel() {
   const cid = activeCorpseId;
   document.getElementById('loot-panel').classList.remove('active');
@@ -31,8 +24,6 @@ export function closeLootPanel() {
   activeCorpseName = null;
   if (cid) sendCmdSilent(`closeloot ${cid}`);
 }
-
-export function getActiveCorpseId() { return activeCorpseId; }
 
 function formatWeight(g) {
   g = Number(g) || 0;

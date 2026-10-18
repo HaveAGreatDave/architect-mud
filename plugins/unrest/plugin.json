@@ -55,6 +55,7 @@
   "devPanel": {
     "id": "unrest",
     "nav": "🔥 Unrest",
+    "navGroup": "live",
     "scripts": [
       "panel-incidents.js",
       "panel.js"

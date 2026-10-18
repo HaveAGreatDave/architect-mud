@@ -17,49 +17,37 @@ import { renderStatsPanel } from './panels/stats.js';
 import { renderSkillsPanel } from './panels/skills.js';
 import { receiveWhisper, sentWhisper, receiveChannelMsg, initChannels, initChannelHistory, receiveMOTD, refreshOnlinePlayers, rollbackSelfEcho, removeCorpChannels, setWhisperOwner } from './panels/whisper.js';
 import { openContainerPanel, refreshContainerPanel, getActiveContainerId, showContainerNotify } from './panels/container.js';
-import { openWardrobePanel, refreshWardrobePanel, getActiveWardrobeId, showWardrobeNotify } from './panels/wardrobe.js';
+// Activity panels: minigames, machines, consoles. Loaded when one opens (lazy-views.js).
+import {
+  openWardrobePanel, refreshWardrobePanel, getActiveWardrobeId, showWardrobeNotify, openLightViewDialog,
+  openMorphexPanel, closeMorphexPanel, openAtmPanel, closeAtmPanel, updateAtmPanel, playAtmDrainSfx,
+  openPianoPanel, closePianoPanel, onRoomNote, onVoiceConfig, openCardMachinePanel, cardMachineVend, openPackReveal,
+  openSlotsPanel, openCardMintPanel, cardMintStruck, openCorpConsole, updateCorpConsole, openCorpMap,
+  openMediaDeckPanel, updateMediaDeckBroadcast, applyMediaDeckOverlay, openDeviceInspectPanel, consumeExamineLogSuppression,
+  openCircuitHack, openTextBreach, isTextBreachActive, openNullBoard, openTextNullBoard, isTextNullActive,
+  openCalibration, openTextCalibration, isTextCalibrationActive, openTextHololock, isTextHololockActive, openLogHololock,
+  openTextVault, isTextVaultActive, openBombRig, openBombDefuse, openTextBombRig, openTextBombDefuse, isTextDemolitionActive,
+  openTextSignal, isTextSignalActive, openTextFishing, isTextFishingActive, openHololock, openSignalHijack,
+  openPirateConsole, closePirateConsole, openFishing, armFishFight, receiveCbMsg, applyCbContext, clearCbContext,
+  setYachtAmbience, yachtUnderway, yachtSettled, openVaultCrack, openSynthMinigame, openCookMenu,
+  openTvPanel, isTvOpen, shutdownTvPanel, renderTvDeck, tvViewsForChannel, tvOpenViews, applyAmpUnlocks, addAmpUnlock,
+} from './panels/lazy-views.js';
 import { openLootPanel, closeLootPanel } from './panels/loot.js';
 import { openWorkspacePanel, refreshWorkspacePanel, isWorkspaceOpen, workspaceClaimsContainerView } from './panels/workspace.js';
-import { openLightViewDialog } from './panels/lightview.js';
-import { openMorphexPanel, closeMorphexPanel } from './panels/morphex.js';
 import { updateForecast } from './panels/forecast.js';
-import { openAtmPanel, closeAtmPanel, updateAtmPanel, playAtmDrainSfx } from './panels/atm.js';
-import { openPianoPanel, closePianoPanel, onRoomNote, onVoiceConfig } from './panels/piano.js';
-import { openCardMachinePanel, cardMachineVend, openPackReveal } from './panels/cardpack.js';
-import { openSlotsPanel } from './panels/slots.js';
-import { openCardMintPanel, cardMintStruck } from './panels/cardmint.js';
 import { openInsurancePanel, updateInsurancePanel } from './panels/insurance.js';
 import { openWantedPoster } from './panels/wantedposter.js';
-import { openCorpConsole, updateCorpConsole } from './panels/corp-console.js';
 import { isA11yTablet, renderA11yTablet, close as closeA11yTablet, initA11yTablet } from './panels/tablet-a11y.js';
 import { openListDialog, closeListDialog, initListDialog } from './panels/listdialog.js';
 import { openTabletPanel, closeTabletPanel, tabletQuestUpdate, noteQuestLog, openTabletToSpecter, openTabletToReel, openTabletSpecterInstall, refreshTabletGearIfOpen, openTabletToMap, refreshTabletMapIfOpen, openTabletTvPanel } from './panels/lazy-views.js';
-import { openCorpMap } from './panels/corp-map.js';
 import { openVoidwalkStaging, appendVoidwalkChat } from './panels/voidwalk-staging.js';
-import { openMediaDeckPanel, updateMediaDeckBroadcast, applyMediaDeckOverlay } from './panels/mediadeck.js';
-import { openDeviceInspectPanel, consumeExamineLogSuppression } from './panels/deviceinspect.js';
-import { openCircuitHack } from './panels/circuithack.js';
 import { mountChess3D } from './panels/lazy-views.js';
-import { openTextBreach, isTextBreachActive, command as textBreachCommand } from './panels/textbreach.js';
-import { openNullBoard } from './panels/nullboard.js';
-import { openTextNullBoard, isTextNullActive } from './panels/textnullboard.js';
-import { openCalibration } from './panels/calibration.js';
-import { openTextCalibration, isTextCalibrationActive, command as textCalibrationCommand } from './panels/textcalibration.js';
-import { openTextHololock, isTextHololockActive, command as textHololockCommand } from './panels/texthololock.js';
-import { openTextVault, isTextVaultActive, command as textVaultCommand } from './panels/textvault.js';
-import { openBombRig, openBombDefuse } from './panels/demolition.js';
-import { openTextBombRig, openTextBombDefuse, isTextDemolitionActive } from './panels/textdemolition.js';
 import { openAlarmPanel } from './panels/alarmpanel.js';
 import { openTextAlarm, isTextAlarmActive } from './panels/textalarm.js';
-import { openTextSignal, isTextSignalActive, command as textSignalCommand } from './panels/textsignal.js';
-import { openTextFishing, isTextFishingActive, command as textFishingCommand } from './panels/textfishing.js';
+import { openTextSynth, isTextSynthActive } from './panels/textsynth.js';
 import { openTextRead, isTextReadActive } from './panels/textread.js';
 import { openReadWindow } from './panels/readwindow.js';
-import { openHololock } from './panels/hololock.js';
-import { openSignalHijack } from './panels/signalhijack.js';
-import { openPirateConsole, closePirateConsole } from './panels/piratedeck.js';
 import { openEmergencyConsole, closeEmergencyConsole } from './panels/ebconsole.js';
-import { openFishing, armFishFight } from './panels/fishing.js';
 import { openPsychometry } from './panels/psychometry.js';
 import { abortMacros, receiveMacros } from './panels/smartbar-macros.js';
 import { pullConfig, receiveConfig } from './configsync.js';
@@ -75,22 +63,16 @@ import { openPodracer, closePodracer, podracerSetWorld, isPodracerActive, isPodr
 import { openMarina, closeMarina, marinaSetData, isMarinaActive, openMarinaService, closeMarinaService } from './panels/lazy-views.js';
 import { openFreelook, closeFreelook, isFreelookActive, freelookSetSky, freelookSetActors, freelookSetContacts } from './panels/lazy-views.js';
 import { noteFirework, noteAAState, noteAAFire } from './panels/world-feed.js';
-import { receiveCbMsg, applyCbContext, clearCbContext } from './panels/cb-radio.js';
 import { airHorn } from './panels/lazy-views.js';
 import { openTruckDepot, closeTruckDepot, closeBayService, isTruckDepotActive } from './panels/lazy-views.js';
-import { setYachtAmbience, yachtUnderway, yachtSettled } from './panels/yacht-ambience.js';
 import { setDrugFx, clearDrugFx } from './panels/flight-drugfx.js';
 import { applyDrugFx } from './panels/drug-screen-fx.js';
-import { openVaultCrack } from './panels/vaultcrack.js';
 import { openConcealKeypad } from './panels/keypad.js';
 import { openSprayCan, updateSprayShelf } from './panels/lazy-views.js';
-import { openSynthMinigame, openCookMenu } from './panels/synthlab.js';
 import { openSpliceSelect, openSpliceStages, applySplicePreview } from './panels/lazy-views.js';
 import { showSpliceReport } from './panels/spliceReport.js';
 import { updateWantedHud, setWantedHeat } from './panels/wanted.js';
 import { showAccoladeUnlock } from './panels/accolades-banner.js';
-import { openTvPanel, isTvOpen, getTvActiveChannelId, appendTvMessage, updateTvTicker, applyTvOverlay, clearTvMessages, showTvOffAir, showTvOnAir, shutdownTvPanel, tvSpeak, renderTvSchedule, renderTvDeck, tvViewsForChannel, tvOpenViews } from './panels/tv.js';
-import { applyAmpUnlocks, addAmpUnlock } from './panels/musicplayer.js';
 import { applyEspState, handleEspWarning } from './esp.js';
 import { handleAlarmChirp, applyAlarmState, clearAlarmState } from './alarm.js';
 import { playPokerSfx } from './poker-sfx.js';
@@ -366,7 +348,7 @@ function paneFreeForRoom() {
     && !isTextCockpitActive() && !isTextBreachActive() && !isTextHololockActive()
     && !isTextVaultActive() && !isTextSignalActive() && !isTextFishingActive()
     && !isTextCalibrationActive() && !isTextNullActive() && !isTextReadActive()
-    && !isTextDemolitionActive() && !isTextAlarmActive();
+    && !isTextDemolitionActive() && !isTextAlarmActive() && !isTextSynthActive();
 }
 
 function autoResolved(msg, onResult) {
@@ -490,7 +472,7 @@ const handlers = {
     state.player = null;
     sessionRemove('reconnect-token');
     if (msg.needsVerification) {
-      showVerifyScreen('', msg.message);
+      showVerifyScreen(msg.email || '', msg.message);
       return;
     }
     const submitBtn = document.getElementById('auth-submit');
@@ -1370,8 +1352,9 @@ const handlers = {
     // fall back UP to the graphical one rather than leaving the player unable to
     // act — a rung with no implementation is never a dead end.
     if (autoResolved(msg, onResult)) return;
-    if (msg.render === 'text' && openTextBreach({ ...args, deviceName: msg.deviceName || 'DEVICE' })) return;
-    openCircuitHack({ ...args, atmName: msg.deviceName || 'DEVICE' });
+    const visual = () => openCircuitHack({ ...args, atmName: msg.deviceName || 'DEVICE' });
+    if (msg.render === 'text') { openTextBreach({ ...args, deviceName: msg.deviceName || 'DEVICE' }, visual); return; }
+    visual();
   },
 
   // Tuning an implant. Reports a 0-100 SCORE rather than a win, like the synth
@@ -1389,7 +1372,7 @@ const handlers = {
       onResult,
     };
     if (autoResolved(msg, onResult)) return;
-    if (msg.render === 'text' && openTextCalibration(args)) return;
+    if (msg.render === 'text') { openTextCalibration(args, () => openCalibration(args)); return; }
     openCalibration(args);
   },
 
@@ -1403,7 +1386,7 @@ const handlers = {
     };
     // Same capture — same carrier drift and hops, same decoys, same lock window.
     if (autoResolved(msg, args.onResult)) return;
-    if (msg.render === 'text' && openTextSignal(args)) return;
+    if (msg.render === 'text') { openTextSignal(args, () => openSignalHijack(args)); return; }
     openSignalHijack(args);
   },
 
@@ -1422,7 +1405,7 @@ const handlers = {
       onResult,
     };
     if (autoResolved(msg, onResult)) return;
-    if (msg.render === 'text' && openTextNullBoard(args)) return;
+    if (msg.render === 'text') { openTextNullBoard(args, () => openNullBoard(args)); return; }
     openNullBoard(args);
   },
 
@@ -1468,7 +1451,14 @@ const handlers = {
     // Same lock, drawn in characters — same sweep speed, same sweet-zone width,
     // same miss penalty, because it is the same loop with the drawing swapped.
     if (autoResolved(msg, args.onResult)) return;
-    if (msg.render === 'text' && openTextHololock(args)) return;
+    // The log rung: the same lock played a move at a time in the log, with odds
+    // calibrated to the dice roll it replaced (client/shared/hololock-turns.js).
+    // It speaks the device's name in a sentence, so not the shouted default.
+    if (msg.render === 'turns') {
+      openLogHololock({ ...args, deviceName: msg.deviceName || 'hololock' }, () => openHololock(args));
+      return;
+    }
+    if (msg.render === 'text') { openTextHololock(args, () => openHololock(args)); return; }
     openHololock(args);
   },
 
@@ -1485,7 +1475,10 @@ const handlers = {
       fragments: msg.fragments || {},
       resolveCmd: msg.resolveCmd || 'psiresolve',
     };
-    if (autoResolved(msg, () => {})) return;
+    // The log rung has no bars to choose between, so it reads the strongest
+    // impression, the one the board's tallest bar would have offered first.
+    const strongest = () => Object.entries(args.fragments).sort((a, b) => b[1] - a[1])[0]?.[0] || 'image';
+    if (autoResolved(msg, () => sendCmdSilent(`${args.resolveCmd} ${args.itemId} ${strongest()}`))) return;
     openPsychometry(args);
   },
 
@@ -1508,7 +1501,7 @@ const handlers = {
     // catch from the cast and arms the fight through `fishing_fight` below, which
     // is why the skin has to stay mounted between the two.
     if (autoResolved(msg, args.onResult)) return;
-    if (msg.render === 'text' && openTextFishing(args)) return;
+    if (msg.render === 'text') { openTextFishing(args, () => openFishing(args)); return; }
     openFishing(args);
   },
   // The server picked the catch from the cast and armed the fight — continue the
@@ -1746,7 +1739,7 @@ const handlers = {
     // just becomes a number you step rather than a wheel you drag, which also
     // makes it playable without a pointing device at all.
     if (autoResolved(msg, args.onResult)) return;
-    if (msg.render === 'text' && openTextVault(args)) return;
+    if (msg.render === 'text') { openTextVault(args, () => openVaultCrack(args)); return; }
     openVaultCrack(args);
   },
 
@@ -1768,7 +1761,7 @@ const handlers = {
         sendCmdSilent(`${resolveCmd} ${msg.chargeId} ${won ? 1 : 0} ${fuse ?? (msg.fuseDefault ?? 45)}`),
     };
     if (autoResolved(msg, args.onResult)) return;
-    if (msg.render === 'text' && openTextBombRig(args)) return;
+    if (msg.render === 'text') { openTextBombRig(args, () => openBombRig(args)); return; }
     openBombRig(args);
   },
 
@@ -1782,7 +1775,7 @@ const handlers = {
       onResult: ({ won }) => sendCmdSilent(`${resolveCmd} ${msg.chargeId} ${won ? 1 : 0}`),
     };
     if (autoResolved(msg, args.onResult)) return;
-    if (msg.render === 'text' && openTextBombDefuse(args)) return;
+    if (msg.render === 'text') { openTextBombDefuse(args, () => openBombDefuse(args)); return; }
     openBombDefuse(args);
   },
 
@@ -1809,9 +1802,9 @@ const handlers = {
   },
 
   synth_minigame: (msg) => {
-    // This family has no character board, so at `textgames` it falls back UP to the
-    // graphical one — correct, that rung's audience can see it. At `log` the server
-    // resolved it with a skill check, because opening a canvas for a screen-reader
+    // The cook game has a character board at `textgames` (textsynth.js, a skin over
+    // synthlab.js); the splice stages don't yet, so they fall back UP to the
+    // graphical one. At `log` the server resolved it with a skill check, because opening a canvas for a screen-reader
     // player is a dead end. It reports a SCORE, not a boolean, which is why the
     // helper hands both shapes to the callback.
     if (autoResolved(msg, ({ score }) => sendCmdSilent(msg.kind === 'splice'
@@ -1829,7 +1822,7 @@ const handlers = {
       });
     } else {
       // the cook game — family (from the drug's form) picks the single-stage minigame
-      openSynthMinigame({
+      const args = {
         family: msg.family || 'wet',
         form: msg.form || null,
         difficulty: msg.difficulty ?? 5,
@@ -1840,7 +1833,9 @@ const handlers = {
           if (msg.kind === 'test') return; // dev feel-test — verdict on-screen, no server resolve
           sendCmdSilent(`synthresolve ${msg.recipeId} ${score} ${msg.nonce || ''}`); // nonce: server rejects a resolve that wasn't armed
         },
-      });
+      };
+      if (msg.render === 'text' && openTextSynth(args)) return;
+      openSynthMinigame(args);
     }
   },
 

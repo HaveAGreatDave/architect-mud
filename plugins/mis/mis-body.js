@@ -56,10 +56,6 @@ export function markClimax(player) {
   player._misRefractoryUntil = Date.now() + refractoryMs(player);
 }
 
-export function inRefractory(player) {
-  return Date.now() < (player?._misRefractoryUntil || 0);
-}
-
 // 1 when fully recovered, ramping up from REFRACTORY_MIN_RATE at the moment of
 // climax. A smooth ramp rather than a hard gate: you can keep going, it just
 // isn't going anywhere for a while, which is both truer and less annoying than
@@ -123,17 +119,11 @@ export const COLLAPSE_MSGS = [
 // all three of those things: how it reads on examine, whether it soaked into
 // clothing, and how loudly the room can smell it.
 
-const FRESH_MS  = 10 * 60 * 1000;   // wet
 const DRY_MS    = 30 * 60 * 1000;   // dried; still visible, no longer smells
 
 export function fluidAgeMs(player) {
   const at = player?.appearance_data?.ejaculate_state?.at;
   return at ? Date.now() - at : null;
-}
-
-export function fluidIsFresh(player) {
-  const age = fluidAgeMs(player);
-  return age !== null && age < FRESH_MS;
 }
 
 // Fluid that lands on a clothed slot soaks in rather than sitting on skin —
@@ -299,9 +289,6 @@ const VOLUME_BANDS = [
 
 export function volumeBand(v) {
   return (VOLUME_BANDS.find(b => v >= b.at) || VOLUME_BANDS[VOLUME_BANDS.length - 1]).key;
-}
-export function volumeAdjective(v) {
-  return (VOLUME_BANDS.find(b => v >= b.at) || VOLUME_BANDS[VOLUME_BANDS.length - 1]).adj;
 }
 
 // Full recovery takes about four hours of not finishing. The curve is the whole

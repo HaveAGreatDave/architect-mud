@@ -3,8 +3,8 @@
 The Rasp Twinspool: two salvaged turbines on a binder, towing a cockpit pod on two cables. Sold and
 hired in the racer bay at the Deadleg, in the Scarletwastes, and raced over the region.
 
-**Status: Phase 1 built (2026-10-08).** Buy, hire, service, sell, recover, drive, park, break down and wreck, from a depot
-to the depot standard. Racing (courses, laps, times) is not built.
+**Status: Phase 1 built (2026-10-08); text helm built (2026-10-18).** Buy, hire, service, sell, recover, drive, park, break down and wreck, from a depot
+to the depot standard, on every Display Mode rung. Racing (courses, laps, times) is not built.
 
 ## The racers
 
@@ -91,6 +91,35 @@ and parts.
   have and puts the client back, keeps the racer inside the Scarletwastes box, and clamps the
   turbines' drawn offset to the cables.
 
+## The text helm
+
+On the `textgames` and `log` Display Mode rungs ([systems-display-mode.md](../../docs/systems-display-mode.md))
+the seat is [texthelm.js](texthelm.js): the same racer driven by `pod` orders, with no canvas.
+The seat is a surface you act through, so it reads `prefersTextMinigames`, latched when you climb
+in.
+
+- **One model.** The server steps `stepPodracer` once a second over the real elapsed time, in the
+  seat's 1/60 s frames, with the seat's lever travel, vane swing and inside-turbine cut, the same
+  fuel burn (`podracerBurn` in the model, which the seat now calls too) and the seat's solid ground
+  and surfaces (its map window's rule, through the flight sim's `deriveSurfaceCell`). A torn binder
+  goes to `breakdownRacer`, a wrecked pod to `wreckRacer`, climbing out to `parkRacer`, the row to
+  `flushRig`. The live racer is written to `rigs`, so a text racer is a contact like any other.
+  The yard's service and paint reach it through `textPodCtx`, as `podracer_ctx` reaches the seat.
+- **Orders, not keys.** A heading (`pod 270`, `pod west`, `pod left 30`, `pod home` for the shed
+  door) is flown through the same steer input A and D drive, so a hard turn at speed is a hard turn.
+  Thrust is a lever setting (`pod idle/slow/half/cruise/full`, `pod thrust 70`). `pod brake` holds
+  the air brakes until it stops; `pod reverse` backs up from a standstill. `pod launch` and
+  `pod dock` are F. `pod boost` holds the boost. `pod slide` arms the power slide for the next turn
+  and lets it go when the turn is done, which fires the whip as on the seat.
+- **Eyes.** The tick looks along the line of travel and warns when something solid is under three
+  seconds or two and a half tiles away. `pod look` names the nearest solid thing each of eight ways
+  and the bearing to the shed door. Nothing steers round it for you.
+- **Pace.** Events (a hit, a snap, the launch, the whip, the binder) are said as they happen. The
+  status line comes every 3 s moving on `textgames`, and every 10 s on `log`, only when it has
+  changed, so a screen reader keeps up. Bare `pod` reads it on demand.
+- **Not here:** a character board. At `textgames` the helm narrates into the log as `log` does, a
+  little faster; a live board through `textui.js` would need a client handler in `dispatch.js`.
+
 ## The depot
 
 The racer bay is the fourth depot on the shell, to the standard in
@@ -141,6 +170,7 @@ The racer bay is the fourth depot on the shell, to the standard in
 | `podracer paint [id] <scheme \| base=#hex trim=#hex finish=...>` | The spray booth: a scheme (factory, deadleg, icewater, hazard, nightshade, gunmetal, bone, verdigris) or your own pod and trim colours and a finish. 4% of the price, half that back to factory. In the bay, or sitting in it in the shed door, where it shows on the racer at once. Not on a hire |
 | `podracer recover [id]` | The yard's flatbed: in the seat, takes you and the racer back to its bay; in a bay, fetches one of yours from the waste. 3% of the price |
 | `podracer list`, `podracers` | Where your racers are and what shape they are in |
+| `pod [order]` | The text helm, on the text Display Mode rungs: `start`, `kill`, thrust (`idle`, `slow`, `half`, `cruise`, `full`, `thrust 0-100`), a heading (`270`, `west`, `left 30`, `right 90`, `straight`, `home`), `brake`, `reverse`, `launch`, `dock`, `boost`, `slide`, `look`, `park`, `help`. Bare, the dials |
 
 `podsync` and `podevent` are the seat's telemetry and event reports. Nobody types them.
 
@@ -159,7 +189,9 @@ None.
 
 ## Tick usage
 
-None. The seat's own sync flushes the row every ten seconds while a racer is running.
+The text helm's `1s` tick ([texthelm.js](texthelm.js)), which the scheduler skips on an empty
+server and which returns at once when nobody is racing by text. No query in it but the ten-second row flush the seat's sync also does.
+The seat's own sync flushes the row every ten seconds while a racer is running.
 
 ## Dependencies
 
@@ -183,5 +215,5 @@ The type row in `PODRACER_TYPES` (podracer-model.js). Its comment block explains
 ## Not built
 
 - Courses, laps and times.
-- A text rung. A text-mode player is refused with a line saying so.
+- A character board for the text helm at `textgames` (see The text helm).
 - An NPC at the counter. The verbs do the selling, as the truck depot's and the hangar's do.

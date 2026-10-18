@@ -25,14 +25,13 @@ import { getAllLivePlayers } from '../../server/engine/world.js';
 import { schedule } from '../../server/engine/scheduler.js';
 import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
 import { on } from '../../server/engine/events.js';
+import { pick } from '../../server/engine/util.js';
 
 // --- tunables ----------------------------------------------------------------
 const DEFAULT_HIGH_SECONDS = 300;     // 5 min stoned per joint
 const MUNCH_DRAIN = 2;                // hunger lost per tick while high (~8/min)
 const CRAVE_CHANCE = 0.35;            // per tick: a food-craving line
 const GIGGLE_CHANCE = 0.25;           // per tick: a fit of giggles
-
-const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
 const CRAVINGS = [
   'Your stomach growls. You would commit crimes for something salty right now.',

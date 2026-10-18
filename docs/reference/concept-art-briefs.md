@@ -2,7 +2,8 @@
 
 **STATUS: reference.** These are prompts, meant to be pasted whole into an image or chat model that
 knows nothing about this game. Everything a brief needs is inside it, which is why they repeat things
-the rest of the docs already say. They are written to be copied, not read end to end.
+the rest of the docs already say. They are written to be copied, not read end to end. The house
+style they sit inside, and the checklist for a finished piece, is [concept-art.md](concept-art.md).
 
 Each one is derived from three places, and if one of those moves the brief is stale: the order's
 `content/orgs/ideology_*.json` (creed, tenets, colour, the reader text), its section in

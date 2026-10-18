@@ -5846,6 +5846,7 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
   try {
     await q(`INSERT INTO npc_residences (zone_id, npc_id) VALUES ($1,$2)
              ON CONFLICT (zone_id) DO UPDATE SET npc_id=$2`, [rgZone, rgNpc]);
+    apt.invalidateNpcResidences(); // a direct write behind the residence cache
     const hit = await apt.getNpcResidence(rgZone);
     check('getNpcResidence returns the resident', hit?.npc_id === rgNpc, JSON.stringify(hit));
     const miss = await apt.getNpcResidence('zone_not_a_home_' + process.pid);
@@ -5856,6 +5857,7 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
       blocked?.type === 'error' && /lives here/i.test(blocked.message || ''), blocked?.message);
   } finally {
     await q('DELETE FROM npc_residences WHERE zone_id=$1', [rgZone]);
+    apt.invalidateNpcResidences();
   }
 }
 
@@ -5893,6 +5895,7 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
       await q(`INSERT INTO npc_residences (zone_id, npc_id) VALUES ($1,$2)
                ON CONFLICT (zone_id) DO UPDATE SET npc_id=$2`, [oldZone, npc.id]);
       await q('DELETE FROM npc_residences WHERE zone_id=$1', [nearZone]);
+      apt.invalidateNpcResidences(); // direct writes behind the residence cache
       npc.home_zone = oldZone;
       moveNpcToZone(npc.id, oldZone);
 
@@ -5920,6 +5923,7 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
       if (nearOrigNpc)
         await q(`INSERT INTO npc_residences (zone_id, npc_id) VALUES ($1,$2)
                  ON CONFLICT (zone_id) DO UPDATE SET npc_id=$2`, [nearZone, nearOrigNpc]);
+      apt.invalidateNpcResidences();
       await q('UPDATE npcs SET home_zone=$1, zone_id=$2 WHERE id=$3', [savedHome, savedZone, npc.id]);
       npc.home_zone = savedHome;
       moveNpcToZone(npc.id, savedZone);

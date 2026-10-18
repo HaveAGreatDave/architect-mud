@@ -35,6 +35,7 @@ import { ensureTunables } from '../../server/engine/tunables.js';
 import { statCost, getNetXp, RAISABLE_STATS } from '../../server/engine/ip.js';
 import { registerStatusEffect, applyEffect } from '../../server/engine/effects.js';
 import { STATIONS, STATION_VERBS, repsFor, setFlavor, stationFor } from './stations.js';
+import { pick } from '../../server/engine/util.js';
 
 const EXHAUSTED_TICKS = 45;   // ~45s locked out of the gym after you gas out completely
 
@@ -42,7 +43,6 @@ const EXHAUSTED_TICKS = 45;   // ~45s locked out of the gym after you gas out co
 // asserted against RAISABLE_STATS at load (see the sanity check below), so a typo
 // in stations.js fails at boot rather than silently training nothing.
 function levelOf(player, station) { return Number(player[`stat_${station.stat}`]) || 0; }
-function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 function out(pid, message) { sendToPlayer(pid, { type: 'output', message }); }
 function isExhausted(player) { return (player.statuses || []).some(s => s.name === 'exhausted'); }
 

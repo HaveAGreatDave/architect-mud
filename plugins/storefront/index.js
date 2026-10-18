@@ -177,6 +177,30 @@ const listingGen = new Map();     // zoneId -> bumped on every drop
 function dropListings(zoneId) {
   listingCache.delete(zoneId);
   listingGen.set(zoneId, (listingGen.get(zoneId) || 0) + 1);
+  dropRoomBoard(zoneId);
+}
+
+// The staff and buy-order boards that LOOK shows, held per shop the same way.
+// Every storefront_staff and storefront_orders writer calls dropRoomBoard (hire,
+// sack, the missed-payroll walkout, post, cancel, fill), and dropListings calls
+// it too, which covers sellshop and repossession. Only the room description
+// reads this copy: the commands that act on staff or orders read fresh. The TTL
+// bounds an outside write (a dev tool, the regress suite).
+const ROOM_BOARD_TTL_MS = 60_000;
+const roomBoardCache = new Map();  // zoneId -> { at, staff, orders }
+const roomBoardGen = new Map();    // zoneId -> bumped on every drop
+function dropRoomBoard(zoneId) {
+  roomBoardCache.delete(zoneId);
+  roomBoardGen.set(zoneId, (roomBoardGen.get(zoneId) || 0) + 1);
+}
+async function roomBoard(zoneId) {
+  const hit = roomBoardCache.get(zoneId);
+  if (hit && Date.now() - hit.at < ROOM_BOARD_TTL_MS) return hit;
+  const gen = roomBoardGen.get(zoneId) || 0;
+  const [staff, orders] = await Promise.all([staffFor(zoneId), ordersFor(zoneId)]);
+  const board = { at: Date.now(), staff, orders };
+  if ((roomBoardGen.get(zoneId) || 0) === gen) roomBoardCache.set(zoneId, board);
+  return board;
 }
 async function listingsFor(zoneId) {
   const hit = listingCache.get(zoneId);
@@ -632,12 +656,12 @@ async function describeRoom(zone) {
       `<span class="text-dim">(<span class="action-link" data-raw-cmd="deed" title="Read the terms">DEED</span> for the terms, ` +
       `<span class="action-link" data-raw-cmd="buyshop" title="Take on the mortgage">BUYSHOP</span> to sign)</span>`;
   }
-  const listings = await listingsFor(zone.id);
+  const [listings, board] = await Promise.all([listingsFor(zone.id), roomBoard(zone.id)]);
   const parts = [`<span class="text-dim">Proprietor: ${deed.owner_handle}.</span>`];
 
   // Whoever's on the payroll is standing right there — the deterrent only works
   // if a would-be thief can see it before they decide.
-  for (const m of await staffFor(zone.id)) {
+  for (const m of board.staff) {
     const cfg = ROLES[m.role];
     if (cfg) parts.push(`<span class="text-dim">${cfg.prose(m.name)}</span>`);
   }
@@ -645,7 +669,7 @@ async function describeRoom(zone) {
     parts.push(`<span style="color:var(--yellow)">The shutter is down over the front. The shop is shut.</span>`);
   }
   parts.push(waresBoard(zone, deed, listings));
-  const orders = ordersBoard(zone, deed, await ordersFor(zone.id));
+  const orders = ordersBoard(zone, deed, board.orders);
   if (orders) parts.push(orders);
   return parts.join('\n');
 }
@@ -871,6 +895,7 @@ export async function mortgageTick(todayOverride = null) {
       // owner finds out the hard way that payroll is the first thing to go.
       if (staff.length) {
         await query('DELETE FROM storefront_staff WHERE zone_id=$1', [deed.zone_id]);
+        dropRoomBoard(deed.zone_id);
         sendToPlayer(deed.owner_id, { type: 'output', message:
           `<span style="color:var(--red)">⚠ PAYROLL MISSED: ${staff.map(m => m.name).join(' and ')} ` +
           `${staff.length > 1 ? 'walk out of' : 'walks out of'} ${zoneName} without being asked twice.</span>` });
@@ -1075,6 +1100,7 @@ async function cmdHire(args, player) {
     `INSERT INTO storefront_staff (zone_id, role, npc_id, name, wage, hired_at)
      VALUES ($1,$2,NULL,$3,$4,$5) ON CONFLICT (zone_id, role) DO UPDATE SET name=$3, wage=$4, hired_at=$5`,
     [h.zone.id, role, name, cfg.wage, Math.floor(Date.now() / 1000)]);
+  dropRoomBoard(h.zone.id);
 
   const bc = getBroadcast();
   if (bc) bc(h.zone.id, { type: 'zone_event', message: cfg.hired(name) }, player.id);
@@ -1091,6 +1117,7 @@ async function cmdSack(args, player) {
   if (!member) return { type: 'error', message: role ? `You have no ${role} here.` : 'You have nobody on the books here.' };
 
   await query('DELETE FROM storefront_staff WHERE zone_id=$1 AND role=$2', [h.zone.id, member.role]);
+  dropRoomBoard(h.zone.id);
   const bc = getBroadcast();
   if (bc) bc(h.zone.id, { type: 'zone_event', message: `${member.name} hands back the keys and goes, without comment.` }, player.id);
   return { type: 'output', message: `You let <b>${member.name}</b> go. That's ${member.wage}₵ a cycle back in the till.` };
@@ -1399,6 +1426,7 @@ async function cmdBuyOrder(args, player) {
     const r = name ? siftResolve(name, orders) : { type: 'none' };
     if (r.type !== 'one') return { type: 'error', message: `Cancel which order? ${orders.map(o => o.name).join(', ') || '(none)'}` };
     await query('DELETE FROM storefront_orders WHERE id=$1', [r.candidate.id]);
+    dropRoomBoard(h.zone.id);
     return { type: 'output', message: `You withdraw the offer on ${r.candidate.name}.` };
   }
 
@@ -1421,6 +1449,7 @@ async function cmdBuyOrder(args, player) {
   await query(
     `INSERT INTO storefront_orders (id, zone_id, item_id, price, wanted, created_at) VALUES ($1,$2,$3,$4,$5,$6)`,
     [randomUUID(), h.zone.id, item.id, price, qty, Math.floor(Date.now() / 1000)]);
+  dropRoomBoard(h.zone.id);
   return { type: 'output', message:
     `Posted: <b>${item.name}</b>, <span style="color:var(--yellow)">${price}₵</span> each, up to ${qty}.\n` +
     `<span class="text-dim">Paid out of the till as people bring them in: keep it funded or the offer bounces.</span>` };
@@ -1491,6 +1520,7 @@ async function fillOrder(order, player) {
 
   await adjustCredits(player, order.price, undefined, 'storefront:supply');
   await query('DELETE FROM storefront_orders WHERE id=$1 AND wanted <= 0', [order.id]);
+  dropRoomBoard(zone.id);
   const { rows: t } = await query('SELECT till_credits FROM storefronts WHERE zone_id=$1', [zone.id]);
   setDeed(zone.id, { ...deed, till_credits: t[0]?.till_credits ?? 0 });
 

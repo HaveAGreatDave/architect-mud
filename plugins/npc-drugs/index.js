@@ -52,6 +52,7 @@ import { on, emit } from '../../server/engine/events.js';
 import { npcNextShiftInMins } from '../../server/engine/broadcast-bridge.js';
 import { getTimeScale } from '../../server/engine/gametime.js';
 import { getEnvironmentState } from '../../server/engine/environment.js';
+import { pick } from '../../server/engine/util.js';
 
 // ── Tunables ──────────────────────────────────────────────────────────────────
 const SEDATE_MS     = 90000;   // a downer runs ~90s on an NPC
@@ -79,7 +80,6 @@ const SPIKE_DC      = 6;       // Deception difficulty for a clean covert spike
 // ── State ───────────────────────────────────────────────────────────────────
 const DOSED = new Set();       // npcIds currently carrying an effect (drives the tick)
 
-const pick = (a) => a[Math.floor(Math.random() * a.length)];
 const roll2d8 = () => Math.floor(Math.random() * 8) + 1 + Math.floor(Math.random() * 8) + 1;
 const err = (message) => ({ type: 'error', message });
 const out = (message) => ({ type: 'output', message });

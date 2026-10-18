@@ -95,5 +95,3 @@ export function lookup(mapId, x, y, z) {
 /** Wipe everything. For a disconnect, or a content reload that could have moved tiles. */
 export function clearAll() { store.clear(); activeMap = null; }
 
-/** Diagnostics — used by the regress/dev surface, not by the renderer. */
-export function cacheSize() { return store.size; }

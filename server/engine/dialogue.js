@@ -15,6 +15,7 @@ import { query } from '../models/db.js';
 import { getTier, getReputation } from './ideologies.js';
 import { interp } from './interp.js';
 import { getRelation, relationTier, touchRelation, RELATION_TIERS } from './relations.js';
+import { escapeHtml as esc } from './html.js';
 
 // ── `{ on_air: true|false }` — don't talk to a man who is live ───────────────
 //
@@ -275,13 +276,10 @@ export function getLogTalk(playerId) { return logTalks.get(playerId) || null; }
 export function setLogTalk(playerId, talk) { logTalks.set(playerId, talk); }
 export function endLogTalk(playerId) { logTalks.delete(playerId); }
 
-// Escape authored content before it goes into the log as HTML. Node TEXT is
+// `esc` escapes authored content before it goes into the log as HTML. Node TEXT is
 // deliberately NOT escaped (it carries the engine's own spans — item grants,
 // speech tinting — exactly as the panel receives it), but option labels are
 // plain strings the panel escapes client-side, so they get escaped here.
-function esc(s) {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-}
 
 // What an option leads to, in words rather than the panel's glyph. Same rule
 // list (dialogueOptionKind), said out loud — a screen reader can't read an icon,

@@ -5766,9 +5766,13 @@ async function _tabletBroadcastPass(tickResults, activeChannels, nowMs, servedTh
     _recordBeat(state, result, programName, scorebugOverlay, gamedayOverlay, nowMs);
 
     for (const pid of viewers) {
-      if (formatted) sendToPlayer(pid, { type: 'broadcast', message: formatted, channel: channelId, style: result.style || 'raw', programName, ...(result.duration != null ? { duration: result.duration } : {}), ...(result.excite ? { excite: result.excite } : {}), ...(result.lex ? { lex: result.lex } : {}), ...(result.voice ? { voice: result.voice } : {}), ...(gamedayOverlay ? { hasGameday: true } : {}) });
+      // The `log` rung, as the room-set tick does it: the line goes to the log and
+      // the overlays are written out. Sync by contract (this is a tick).
+      const toLog = loggedPanelsSync(world.players.get(pid));
+      if (formatted) sendToPlayer(pid, { type: 'broadcast', message: formatted, channel: channelId, style: result.style || 'raw', programName, ...(toLog ? { toLog: true } : {}), ...(result.duration != null ? { duration: result.duration } : {}), ...(result.excite ? { excite: result.excite } : {}), ...(result.lex ? { lex: result.lex } : {}), ...(result.voice ? { voice: result.voice } : {}), ...(gamedayOverlay ? { hasGameday: true } : {}) });
       if (isMusic) sendToPlayer(pid, { type: 'audio_music', def: result.song, owner: 'tv' });
       if (isSample) sendToPlayer(pid, { type: 'audio_sample', def: result.sample });
+      if (toLog) { sendOverlayLines(pid, scorebugOverlay, standingsOverlay); continue; }
       if (scorebugOverlay) sendToPlayer(pid, { type: 'tv_overlay', channelId, overlay: scorebugOverlay });
       if (gamedayOverlay) sendToPlayer(pid, { type: 'tv_overlay', channelId, overlay: gamedayOverlay });
       if (standingsOverlay) sendToPlayer(pid, { type: 'tv_overlay', channelId, overlay: standingsOverlay });
@@ -5834,13 +5838,22 @@ function sendCatchUp(playerId, channelId) {
   catchUpSent.set(playerId, { channelId, beat });
   // Both surfaces that can tune are `tv` devices, so no [Radio]/[FEED] prefix.
   const formatted = formatMessage(beat.text, 'tv', null, beat.style);
+  const toLog = loggedPanelsSync(world.players.get(playerId));
   if (formatted) {
     sendToPlayer(playerId, {
       type: 'broadcast', message: formatted, channel: channelId, style: beat.style,
       programName: beat.programName, catchUp: true,
+      ...(toLog ? { toLog: true } : {}),
       ...(beat.duration != null ? { duration: beat.duration } : {}),
       ...(beat.hasGameday ? { hasGameday: true } : {}),
     });
+  }
+  // A log-rung viewer has no set to paint, so a late tuner hears the score in words.
+  if (toLog) {
+    const now = Date.now();
+    const bug = state.lastScorebug && now - (state.lastScorebugAt || 0) < CATCHUP_BUG_MAX_AGE_MS ? state.lastScorebug : null;
+    sendOverlayLines(playerId, bug, null);
+    return;
   }
   if (beat.graphic) sendToPlayer(playerId, { type: 'tv_overlay', channelId, overlay: beat.graphic });
   const now = Date.now();
@@ -8427,7 +8440,8 @@ async function cmdPirate(args, raw, player) {
   const difficulty = await hackDifficulty(player.id, dflags.hack_difficulty);
   const stationName = channelRuntime.get(dflags.channel_id)?.stationName || deck.name;
   pendingPirate.set(player.id, { deckId: deck.id, ts: Date.now() });
-  return textRender(player, { type: 'signal_hijack', deckId: deck.id, deckName: deck.name, stationName, skill, difficulty });
+  return textRender(player, { type: 'signal_hijack', deckId: deck.id, deckName: deck.name, stationName, skill, difficulty,
+    resultWords: { won: [`You ride the carrier until ${stationName || 'the station'} is yours.`, 'On air.'], lost: ['You lose the carrier in the noise.', 'Dead air.'] } });
 }
 
 // What a won Signal Hijack does to the deck's flags (pure; the caller saves them).

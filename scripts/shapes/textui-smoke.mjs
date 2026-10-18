@@ -33,6 +33,29 @@ for (const b of BASES) {
   }
 }
 
+// The cook game can't be linked in node: synthlab.js imports sendCmd from net.js,
+// which imports the browser-absolute '/shared/ws.js'. Its export list is read
+// from source instead. That is weaker than linking (it can't see a broken import
+// inside synthlab.js), and client:smoke parsing the file is what covers that half.
+const SOURCE_BASES = ['synthlab'];
+function sourceExports(src) {
+  const names = new Set();
+  for (const m of src.matchAll(/^export\s+(?:async\s+)?(?:function\*?|const|let|var|class)\s+([A-Za-z_$][\w$]*)/gm)) names.add(m[1]);
+  for (const m of src.matchAll(/^export\s*\{([^}]*)\}/gm)) {
+    for (const part of m[1].split(',')) { const n = part.trim().split(/\s+as\s+/).pop().trim(); if (n) names.add(n); }
+  }
+  return names;
+}
+for (const b of SOURCE_BASES) {
+  try {
+    exportsOf[b] = sourceExports(readFileSync(`${P}${b}.js`, 'utf8'));
+    console.log(`  ✓ ${b}.js exports read from source`);
+  } catch (e) {
+    bad(`${b}.js could not be read — ${e.message}`);
+    exportsOf[b] = new Set();
+  }
+}
+
 // Every base must still offer a skin seam. Losing one silently would strand its
 // text renderer on a game it can no longer drive.
 const SEAM = {
@@ -44,6 +67,7 @@ const SEAM = {
   // Nullcraft's board is TURN-BASED, so its seam exposes the two actions rather
   // than a start/stop clock pair — there is no timer to start or stop.
   nullboard: ['setNullSkin', 'generateNull', 'nullActions', 'stopNullGame', 'nullMove', 'nullProbe', 'NULL_COLS'],
+  synthlab: ['setSynthSkin', 'startSynthGame', 'stopSynthGame', 'synthDown', 'synthUp', 'synthAim', 'synthBandCenter', 'synthRing'],
 };
 for (const [b, names] of Object.entries(SEAM)) {
   for (const n of names) if (!exportsOf[b].has(n)) bad(`${b}.js no longer exports ${n} — its skin cannot drive the game`);
@@ -53,7 +77,7 @@ for (const [b, names] of Object.entries(SEAM)) {
 const SKINS = {
   textbreach: 'circuithack', texthololock: 'hololock',
   textvault: 'vaultcrack', textsignal: 'signalhijack', textfishing: 'fishing',
-  textnullboard: 'nullboard',
+  textnullboard: 'nullboard', textsynth: 'synthlab',
 };
 for (const [skin, base] of Object.entries(SKINS)) {
   const src = readFileSync(`${P}${skin}.js`, 'utf8');

@@ -131,7 +131,6 @@ export const DRINK_PROFILES = {
 };
 
 export const isModifierProfile = name => !!DRINK_PROFILES[name]?.modifier;
-export const dilutesProfile = name => !!DRINK_PROFILES[name]?.dilutes;
 // A medium (water, ice) fills the glass but contributes no quality of its own.
 export const isMediumProfile = name => !!DRINK_PROFILES[name]?.medium;
 

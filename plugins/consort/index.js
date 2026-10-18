@@ -40,7 +40,7 @@ import { renderDialogueNode } from '../../server/engine/dialogue.js';
 import { query } from '../../server/models/db.js';
 import { getItem } from '../../server/engine/items-cache.js';
 import { isStackable } from '../../server/engine/tags.js';
-import { randomUUID } from 'crypto';
+import { giveItemById } from '../../server/engine/inventory.js';
 import { ARCHETYPES, PAIRINGS, archetypeOf, renderLine, soloSafe, needsOther } from './archetypes.js';
 import { QUESTIONS, DYNAMIC_QUESTIONS, classifyAnswer, questionByKey, applicableDynamic, resolveLine } from './questions.js';
 import { gameMinutes } from '../../server/engine/clock.js';
@@ -49,6 +49,7 @@ import { impairmentOf } from '../../server/engine/impairment.js';
 import { rehydrateConsorts, consortRowsOf, privateSpacesOf } from './hire.js';
 import './bliss-app.js';   // registers the B.L.I.S.S. tablet app (MIS-gated)
 import { cmdBliss } from './bliss-cmd.js';   // …and the same register, by typing
+import { pick, randInt } from '../../server/engine/util.js';
 
 // ── Tunables ────────────────────────────────────────────────────────────────
 // Deliberately unhurried: these beats are meant to land rarely and mean something,
@@ -95,9 +96,6 @@ const moodCap    = new Map(); // npcId  -> arousal ceiling for the current warmi
 const lastSpoke  = new Map(); // npcId  -> ms of last spoken beat (any kind)
 const sceneAt    = new Map(); // zoneId -> ms the last two-hander began
 const sceneZones = new Set(); // zoneIds with a two-hander currently running
-
-const pick    = (arr) => arr[Math.floor(Math.random() * arr.length)];
-const randInt = (min, max) => min + Math.floor(Math.random() * (max - min + 1));
 
 const isConsort = (npc) => !!npc?.flags?.consort && !npc._dead;
 const layersOf  = (npc) => Array.isArray(npc.flags?.clothing_layers) ? npc.flags.clothing_layers : [];
@@ -2284,14 +2282,7 @@ async function cmdPour(args, raw, player) {
   const dp = withArt(item?.name || 'drink');
 
   // Hand it over — stack onto an existing loose stack if the drink stacks.
-  const stack = item && isStackable(item);
-  let existing = [];
-  if (stack) {
-    const r = await query('SELECT id FROM player_inventory WHERE player_id=$1 AND item_id=$2 AND is_equipped=0 AND container_id IS NULL LIMIT 1', [player.id, drinkId]);
-    existing = r.rows;
-  }
-  if (existing.length) await query('UPDATE player_inventory SET quantity=quantity+1 WHERE id=$1', [existing[0].id]);
-  else await query('INSERT INTO player_inventory (id, player_id, item_id, quantity, condition) VALUES ($1,$2,$3,1,1.0)', [randomUUID(), player.id, drinkId]);
+  await giveItemById(player.id, drinkId, 1, { stack: !!item && isStackable(item) });
 
   // She speaks in her own register — hot only for the keeper if MIS is on; the room
   // (if anyone else is aboard) just sees the tame pour.

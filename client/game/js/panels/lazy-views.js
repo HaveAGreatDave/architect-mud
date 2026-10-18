@@ -17,6 +17,7 @@
 // whole static graph (server/modulegraph.js). Import it from here.
 
 import { recordQuestLog } from './quest-log.js';
+import { loadClassicScript } from '../classic-script.js';
 
 // A view with GLASS in its static graph has already fetched windshield.js by the
 // time it resolves, so this import is a module-map hit, not a download. It hands
@@ -179,7 +180,14 @@ export const openMarinaService = call(marina, 'openMarinaService');
 
 // tablet-os.js (894 KB raw). Quest lines are recorded in quest-log.js whether or
 // not the tablet is loaded; the tablet only hears about them to refresh a screen.
-const tablet = lazy('tablet-os', () => import('./tablet-os.js'), { glass: false });
+// ⚠ The tablet imports tv.js and musicplayer.js itself, so it settles both wrappers below
+// before it resolves. Without that its TV app's view would sit in a tv.js the wrapper had
+// never seen (tvViewsForChannel would answer [] and the app would never get a broadcast),
+// and its music app would open with none of the player's unlocks.
+const tablet = lazy('tablet-os', () => import('./tablet-os.js').then(async (m) => {
+  await Promise.all([tv.load(), music.load()]);
+  return m;
+}), { glass: false });
 export const closeTabletPanel = ifLoaded(tablet, 'closeTabletPanel');
 export const tabletQuestUpdate = ifLoaded(tablet, 'tabletQuestUpdate');
 export const refreshTabletGearIfOpen = ifLoaded(tablet, 'refreshTabletGearIfOpen', false);
@@ -220,3 +228,200 @@ export const openSpliceStages = call(splice, 'openSpliceStages');
 const engineAudio = lazy('engine-audio', () => import('./engine-audio.js'), { glass: false });
 export const stopEngineAudio = ifLoaded(engineAudio, 'stopEngineAudio');
 export const airHorn = call(engineAudio, 'airHorn');
+
+// ── ACTIVITY PANELS ─────────────────────────────────────────────────────────────
+//
+// The minigames, the machines and the furniture panels: each one opens because the
+// player did something, so none belongs in the boot graph. About a megabyte of source
+// came off it with these. None has GLASS under it.
+//
+// ⚠ IF A MODULE IS ALSO REACHED SOME OTHER WAY, ITS FEEDS ARE call, NOT ifLoaded. A
+// text rung imports its board (textfishing.js → fishing.js), the cab imports the CB
+// radio, the tablet imports tv.js and the music player. A module that arrived that way
+// is live, but its wrapper here still reads as never loaded, so ifLoaded would drop a
+// feed it needed. call() gets the same instance from the module map.
+const panel = (name, loader) => lazy(name, loader, { glass: false });
+
+// A text rung's open answers whether it could open, and when it can't the caller falls
+// back UP to the graphical board, because a rung with no implementation is never a dead
+// end. Lazy, that answer comes later, so the fallback is handed in. A rung that fails to
+// load, or throws opening, falls back the same way.
+const openOr = (L, fn) => (args, fallback) => {
+  L.load().then((m) => m[fn](args)).then((ok) => { if (!ok) fallback(); }, (e) => {
+    console.error(`[lazy-views] ${fn} failed, opening the graphical board:`, e);
+    fallback();
+  });
+};
+
+// The text rungs. Each is active only once loaded, so its keyboard command and its
+// is-active guard answer false until then, synchronously, as main.js and
+// paneFreeForRoom need.
+const tBreach = panel('textbreach', () => import('./textbreach.js'));
+const tNull = panel('textnullboard', () => import('./textnullboard.js'));
+const tCal = panel('textcalibration', () => import('./textcalibration.js'));
+const tHolo = panel('texthololock', () => import('./texthololock.js'));
+const tVault = panel('textvault', () => import('./textvault.js'));
+const tDemo = panel('textdemolition', () => import('./textdemolition.js'));
+const tSignal = panel('textsignal', () => import('./textsignal.js'));
+const tFish = panel('textfishing', () => import('./textfishing.js'));
+// The log rung's hololock. It writes to the log and draws nothing, so it needs
+// no is-active guard in paneFreeForRoom, only a place in TEXT_RUNGS for its words.
+const tLogHolo = panel('loghololock', () => import('./loghololock.js'));
+export const openLogHololock = openOr(tLogHolo, 'openLogHololock');
+export const openTextBreach = openOr(tBreach, 'openTextBreach');
+export const openTextNullBoard = openOr(tNull, 'openTextNullBoard');
+export const openTextCalibration = openOr(tCal, 'openTextCalibration');
+export const openTextHololock = openOr(tHolo, 'openTextHololock');
+export const openTextVault = openOr(tVault, 'openTextVault');
+export const openTextBombRig = openOr(tDemo, 'openTextBombRig');
+export const openTextBombDefuse = openOr(tDemo, 'openTextBombDefuse');
+export const openTextSignal = openOr(tSignal, 'openTextSignal');
+export const openTextFishing = openOr(tFish, 'openTextFishing');
+export const isTextBreachActive = () => !!tBreach.get()?.isTextBreachActive();
+export const isTextNullActive = () => !!tNull.get()?.isTextNullActive();
+export const isTextCalibrationActive = () => !!tCal.get()?.isTextCalibrationActive();
+export const isTextHololockActive = () => !!tHolo.get()?.isTextHololockActive();
+export const isTextVaultActive = () => !!tVault.get()?.isTextVaultActive();
+export const isTextDemolitionActive = () => !!tDemo.get()?.isTextDemolitionActive();
+export const isTextSignalActive = () => !!tSignal.get()?.isTextSignalActive();
+export const isTextFishingActive = () => !!tFish.get()?.isTextFishingActive();
+// One handler for main.js's setMinigameCommandHandler: the first loaded rung that takes
+// the word. Order as it was when main.js chained them.
+const TEXT_RUNGS = [tBreach, tHolo, tLogHolo, tVault, tSignal, tFish, tCal, tNull, tDemo];
+export function textRungCommand(word) {
+  for (const L of TEXT_RUNGS) if (L.get()?.command(word)) return true;
+  return false;
+}
+
+// The graphical boards.
+const circuit = panel('circuithack', () => import('./circuithack.js'));
+const nullBoard = panel('nullboard', () => import('./nullboard.js'));
+const calib = panel('calibration', () => import('./calibration.js'));
+const holo = panel('hololock', () => import('./hololock.js'));
+const signal = panel('signalhijack', () => import('./signalhijack.js'));
+const vault = panel('vaultcrack', () => import('./vaultcrack.js'));
+const demo = panel('demolition', () => import('./demolition.js'));
+const fishing = panel('fishing', () => import('./fishing.js'));
+const synth = panel('synthlab', () => import('./synthlab.js'));
+export const openCircuitHack = call(circuit, 'openCircuitHack');
+export const openNullBoard = call(nullBoard, 'openNullBoard');
+export const openCalibration = call(calib, 'openCalibration');
+export const openHololock = call(holo, 'openHololock');
+export const openSignalHijack = call(signal, 'openSignalHijack');
+export const openVaultCrack = call(vault, 'openVaultCrack');
+export const openBombRig = call(demo, 'openBombRig');
+export const openBombDefuse = call(demo, 'openBombDefuse');
+export const openFishing = call(fishing, 'openFishing');
+export const armFishFight = call(fishing, 'armFishFight');   // the text rung's fish is in fishing.js too
+export const openSynthMinigame = call(synth, 'openSynthMinigame');
+export const openCookMenu = call(synth, 'openCookMenu');
+
+// The casino and the card machines.
+const cardpack = panel('cardpack', () => import('./cardpack.js'));
+const cardmint = panel('cardmint', () => import('./cardmint.js'));
+const slots = panel('slots', () => import('./slots.js'));
+export const openCardMachinePanel = call(cardpack, 'openCardMachinePanel');
+export const cardMachineVend = call(cardpack, 'cardMachineVend');   // plays the vend even with no machine open
+export const openPackReveal = call(cardpack, 'openPackReveal');
+export const openCardMintPanel = call(cardmint, 'openCardMintPanel');
+export const cardMintStruck = ifLoaded(cardmint, 'cardMintStruck');
+export const openSlotsPanel = call(slots, 'openSlotsPanel');
+
+// Machines and consoles. The ones with an init wire their index.html markup, which
+// only matters once they open, so init runs on load instead of at boot.
+const atm = panel('atm', () => import('./atm.js').then((m) => { m.initAtmPanel(); return m; }));
+export const openAtmPanel = call(atm, 'openAtmPanel');
+export const closeAtmPanel = ifLoaded(atm, 'closeAtmPanel');
+export const updateAtmPanel = ifLoaded(atm, 'updateAtmPanel');
+export const playAtmDrainSfx = call(atm, 'playAtmDrainSfx');
+
+const morphex = panel('morphex', () => import('./morphex.js'));
+export const openMorphexPanel = call(morphex, 'openMorphexPanel');
+export const closeMorphexPanel = ifLoaded(morphex, 'closeMorphexPanel');
+
+const pirate = panel('piratedeck', () => import('./piratedeck.js'));
+export const openPirateConsole = call(pirate, 'openPirateConsole');
+export const closePirateConsole = ifLoaded(pirate, 'closePirateConsole');
+
+const corpConsole = panel('corp-console', () => import('./corp-console.js'));
+export const openCorpConsole = call(corpConsole, 'openCorpConsole');
+export const updateCorpConsole = ifLoaded(corpConsole, 'updateCorpConsole');
+const corpMap = panel('corp-map', () => import('./corp-map.js'));
+export const openCorpMap = call(corpMap, 'openCorpMap');
+
+const inspect = panel('deviceinspect', () => import('./deviceinspect.js'));
+export const openDeviceInspectPanel = call(inspect, 'openDeviceInspectPanel');
+export const consumeExamineLogSuppression = ifLoaded(inspect, 'consumeExamineLogSuppression', false);
+
+const lightview = panel('lightview', () => import('./lightview.js'));
+export const openLightViewDialog = call(lightview, 'openLightViewDialog');
+
+const wardrobe = panel('wardrobe', () => import('./wardrobe.js').then((m) => { m.initWardrobePanel(); return m; }));
+export const openWardrobePanel = call(wardrobe, 'openWardrobePanel');
+export const refreshWardrobePanel = ifLoaded(wardrobe, 'refreshWardrobePanel');
+export const getActiveWardrobeId = () => wardrobe.get()?.getActiveWardrobeId() ?? null;
+export const showWardrobeNotify = ifLoaded(wardrobe, 'showWardrobeNotify');
+
+const mediadeck = panel('mediadeck', () => import('./mediadeck.js').then((m) => { m.initMediaDeckPanel(); return m; }));
+export const openMediaDeckPanel = call(mediadeck, 'openMediaDeckPanel');
+export const updateMediaDeckBroadcast = ifLoaded(mediadeck, 'updateMediaDeckBroadcast');
+export const applyMediaDeckOverlay = ifLoaded(mediadeck, 'applyMediaDeckOverlay');
+
+// Instruments. Another player's notes are heard whether or not your own keyboard is
+// open, so a note loads the module; a release for notes this client never heard doesn't.
+const piano = panel('piano', () => import('./piano.js'));
+export const openPianoPanel = call(piano, 'openPianoPanel');
+export const closePianoPanel = ifLoaded(piano, 'closePianoPanel');
+export const onRoomNote = (msg) => (msg?.allNotes ? ifLoaded : call)(piano, 'onRoomNote')(msg);
+export const onVoiceConfig = call(piano, 'onVoiceConfig');
+export const isPianoKeysLive = () => !!piano.get()?.isPianoKeysLive();
+
+// The CB radio. The cab imports it too, so every feed is call (see the ⚠ above).
+const cb = panel('cb-radio', () => import('./cb-radio.js'));
+export const receiveCbMsg = call(cb, 'receiveCbMsg');
+export const applyCbContext = call(cb, 'applyCbContext');
+export const clearCbContext = call(cb, 'clearCbContext');
+
+// The yacht's harbour and engine beds. Every move sends `ambience`, null almost
+// everywhere, so only a real one loads them (sea-audio and the shared swell come too).
+const yacht = panel('yacht-ambience', () => import('./yacht-ambience.js'));
+export const setYachtAmbience = (a) => (a ? call : ifLoaded)(yacht, 'setYachtAmbience')(a);
+export const yachtUnderway = call(yacht, 'yachtUnderway');
+export const yachtSettled = ifLoaded(yacht, 'yachtSettled');
+
+// The wall TV. Its exports already reach a panel() that's built on first use.
+const tv = panel('tv', () => import('./tv.js').then((m) => { m.initTvPanel(); return m; }));
+export const openTvPanel = call(tv, 'openTvPanel');
+export const isTvOpen = () => !!tv.get()?.isTvOpen();
+export const shutdownTvPanel = ifLoaded(tv, 'shutdownTvPanel');
+export const renderTvDeck = ifLoaded(tv, 'renderTvDeck');
+export const tvViewsForChannel = (id) => tv.get()?.tvViewsForChannel(id) ?? [];
+export const tvOpenViews = () => tv.get()?.tvOpenViews() ?? [];
+
+// The cassette player. Unlocks arrive at login, long before anyone opens it, so they
+// wait here and are handed over on load. mod-parser.js (window.ModParser, a classic
+// script) is only for its .MOD tapes, so it comes with it rather than at boot, and it
+// has to be in before the player opens: opening re-parses the stored tapes. A parser
+// that won't load costs the tapes ("IMPORT UNAVAILABLE"), never the player.
+let ampUnlocks = null;
+const music = panel('musicplayer', () => Promise.all([
+  import('./musicplayer.js'),
+  loadClassicScript('/shared/mod-parser.js').catch((e) => console.error('[lazy-views]', e.message)),
+]).then(([m]) => {
+  m.initMusicPlayerPanel();
+  if (ampUnlocks) m.applyAmpUnlocks(ampUnlocks);
+  ampUnlocks = null;
+  return m;
+}));
+export const openMusicPlayerPanel = call(music, 'openMusicPlayerPanel');
+export const stopMusicPlayer = ifLoaded(music, 'stopMusicPlayer');
+export function applyAmpUnlocks(ids) {
+  const m = music.get();
+  if (m) m.applyAmpUnlocks(ids);
+  else ampUnlocks = Array.isArray(ids) ? ids.slice() : [];
+}
+export function addAmpUnlock(id) {
+  const m = music.get();
+  if (m) m.addAmpUnlock(id);
+  else if (id) (ampUnlocks ??= []).push(id);
+}

@@ -124,6 +124,24 @@ export default async function regress({ run, check, getPlayer }) {
   r = await run('fishresolve zone_x 1 bogus-token');
   check('fishresolve without a pending bite is a no-op', r?.type === 'noop', r?.type);
 
+  // ── The log rung settles cast AND reel on the server ───────────────────────
+  // A resolve that arrives at the cast stage is refused: that refusal is why the
+  // log rung's old auto-resolve never landed a fish. settleLogBite must move the
+  // bite to the fight stage first. The fake player holds no rod, so a resolve
+  // that gets past the stage guard stops fishing with "rod's gone" — which is
+  // only reachable once the stage is right.
+  const armBite = () => {
+    p.posture = 'fishing';
+    p.fishState = { zoneId: DRY, streak: 0, lastAttempt: 0,
+      pending: { pool: [{ kind: 'monster', name: 'regress eel', difficulty: 5, weight: 1 }], token: 'regress-tok', armedAt: Date.now(), phase: 'cast' } };
+  };
+  armBite();
+  r = await run(`fishresolve ${DRY} 1 regress-tok`);
+  check('a resolve at the cast stage is refused', r?.type === 'noop' && p.posture === 'fishing' && !!p.fishState?.pending, `${r?.type} ${p.posture}`);
+  armBite();
+  await _test.settleLogBite(p, DRY, 'regress-tok');
+  check('the log rung settles a bite through the fight stage', p.posture !== 'fishing' && !p.fishState, `${p.posture} ${JSON.stringify(p.fishState?.pending?.phase)}`);
+
   p.posture = savedPosture; p.npcCombatTargetId = savedCombat;
   p.current_zone = savedZone;
   if (prevDry) world.zones.set(DRY, prevDry); else world.zones.delete(DRY);

@@ -30,6 +30,7 @@ import { resolve as siftResolve } from '../../server/engine/sift.js';
 import { on } from '../../server/engine/events.js';
 import { dispatchAction } from '../../server/engine/actions.js';
 import { describeZone } from '../../server/engine/commands/describe.js';
+import { pick } from '../../server/engine/util.js';
 
 // ── Tunables ──────────────────────────────────────────────────────────────────
 const NAKED_AT       = 500;              // heat at which every layer is off + graphic
@@ -78,8 +79,6 @@ function tieredZoneLine(zoneId, tame, graphic) {
 }
 
 // ── Dance lines ────────────────────────────────────────────────────────────────
-const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
-
 // index by tier (0-4). Tier 4 is the MIS-only graphic pool; non-MIS viewers fall
 // back to tier 3 (see danceTick).
 const DANCE = {

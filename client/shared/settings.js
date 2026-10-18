@@ -206,16 +206,6 @@ export function formatTemp(tempC) {
   return `${tempC}°C`;
 }
 
-export function formatTempPrecise(tempC, decimals = 1) {
-  if (tempC === null || tempC === undefined) return null;
-  try {
-    const raw = localStorage.getItem(SETTINGS_KEY);
-    const unit = raw ? (JSON.parse(raw).tempUnit || 'C') : 'C';
-    if (unit === 'F') return `${(tempC * 9 / 5 + 32).toFixed(decimals)}°F`;
-  } catch {}
-  return `${tempC.toFixed(decimals)}°C`;
-}
-
 export { SETTINGS_KEY };
 
 const LIGHT_THEMES = [

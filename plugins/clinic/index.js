@@ -23,6 +23,7 @@ import {
   getMutations, treatMutation, VISIBILITY,
   diagnoseMutation, undiagnosedMutations, suppressMutation,
 } from '../../server/engine/mutations.js';
+import { pick } from '../../server/engine/util.js';
 
 // Tuning. All overridable per-node so a back-alley cutter and a corporate
 // trauma bay can charge wildly different money off the same Action.
@@ -50,7 +51,6 @@ const BROKE = [
   `"Credit first, then the table. I've been stiffed by better-dressed corpses than you."`,
   `She glances at your hands, then your eyes. "You can't cover it. I'm sorry: I don't do favours on a Tuesday."`,
 ];
-const pick = (pool) => pool[Math.floor(Math.random() * pool.length)];
 
 // The bill: linear in what's actually wrong with you, floored so a scratch
 // isn't free, plus a flat surcharge if they have to stop a bleed first — then

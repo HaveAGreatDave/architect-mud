@@ -1,6 +1,8 @@
 import { createServer } from "http";
-import { readFileSync, existsSync, statSync } from "fs";
-import { brotliCompressSync, gzipSync, constants } from "zlib";
+import { existsSync } from "fs";
+import { readFile, stat } from "fs/promises";
+import { brotliCompress, gzip, constants } from "zlib";
+import { promisify } from "util";
 import { join, extname, dirname, relative, isAbsolute } from "path";
 import { fileURLToPath } from "url";
 import { WebSocketServer } from "ws";
@@ -67,10 +69,10 @@ import { getRegisteredSpecializedActions } from "./engine/specializedActions.js"
 import { takePendingSelection } from "./engine/sift.js";
 import { startGameLoop } from "./engine/gameLoop.js";
 import { zoneAudience } from "./engine/delivery.js";
-import { modulePreloadTags } from "./modulegraph.js";
+import { modulePreloadTags, staticModuleGraph } from "./modulegraph.js";
 import { loadPlugins, fireHook, getRegisteredCommands, getPluginDevPanels } from "./engine/plugins.js";
 import { emit } from "./engine/events.js";
-import { getNetXp, maxHpForEndurance, maxStaminaForEndurance } from "./engine/ip.js";
+import { getNetXp, maxHpForEndurance, maxStaminaForEndurance, flushSkillIp, flushAllSkillIp } from "./engine/ip.js";
 // Side-effect imports: register the Flag store and graph-engine Actions
 // (SET_FLAG, CLEAR_FLAG, GRANT_ITEM, TELEPORT, EXECUTE_SCRIPT, …) at boot.
 import { advanceDialogue, renderTalkLog, setLogTalk, endLogTalk, noteDialogueFrame, checkDialogueChoice, clearDialogueFrame } from "./engine/dialogue.js";
@@ -301,8 +303,20 @@ const COMPRESSIBLE = new Set([".html", ".js", ".css", ".json", ".svg", ".txt", "
 // handful of bytes saved.
 const COMPRESS_MIN_BYTES = 1024;
 
-// filePath -> { mtime, raw, br, gzip, type }
+// filePath -> { mtimeMs, checkedAt, lastMod, etag, type, raw, br, gzip }
 const assetCache = new Map();
+// filePath -> the fill in flight, so ten requests for a file nobody has asked for yet
+// read and compress it once.
+const assetFills = new Map();
+
+// ⚠ AND THE COMPRESSION IS OFF THE LOOP, BECAUSE "ONCE PER FILE VERSION" WAS STILL A STALL.
+// brotliCompressSync on windshield.js (12 MB) took 741 ms on the loop that delivers every
+// room and every swing, and a deploy makes every file a new version, so the first visitor
+// after one froze the world for each big file they pulled. zlib's async forms run on the
+// libuv threadpool, the read and the stat are fs/promises, and the ETag's hash is
+// WebCrypto's digest, which is async too. Nothing in a fill blocks the loop.
+const brotliAsync = promisify(brotliCompress);
+const gzipAsync = promisify(gzip);
 
 // ⚠ AND THE STAT IS RATE-LIMITED, BECAUSE HALF OF PROBLEM 2 ABOVE SURVIVED THE FIX FOR IT. That
 // note names the cost as "a synchronous readFileSync + statSync" on the loop that also delivers
@@ -342,16 +356,24 @@ function modulePreloadBlock() {
 	return _preloadBlock;
 }
 
-function getAsset(filePath) {
+async function getAsset(filePath) {
 	const hit = assetCache.get(filePath);
 	const now = Date.now();
 	// Asked recently enough — hand back what we have without touching the disk at all.
 	if (hit && now - hit.checkedAt < STAT_TTL_MS) return hit;
-	const mtimeMs = statSync(filePath).mtimeMs;
+	const inFlight = assetFills.get(filePath);
+	if (inFlight) return inFlight;
+	const fill = fillAsset(filePath, hit, now).finally(() => assetFills.delete(filePath));
+	assetFills.set(filePath, fill);
+	return fill;
+}
+
+async function fillAsset(filePath, hit, now) {
+	const { mtimeMs } = await stat(filePath);
 	if (hit && hit.mtimeMs === mtimeMs) { hit.checkedAt = now; return hit; }
 
 	const ext = extname(filePath);
-	let raw = readFileSync(filePath);
+	let raw = await readFile(filePath);
 
 	// Inject the modulepreload hints into the game shell. Done here, inside the
 	// cache fill, so the graph is walked once per mtime rather than per request —
@@ -363,34 +385,68 @@ function getAsset(filePath) {
 		);
 	}
 
+	const compress = COMPRESSIBLE.has(ext) && raw.length >= COMPRESS_MIN_BYTES;
+	// Quality 5 (not the default 11): 11 is for build-time asset pipelines and can
+	// take seconds on a large file, which would tie up a threadpool thread the fs
+	// calls also need. 5 lands within a few percent of 11 on JS for a fraction of the
+	// time, and it only ever runs once per file version.
+	const [br, gz, digest] = await Promise.all([
+		compress ? brotliAsync(raw, {
+			params: {
+				[constants.BROTLI_PARAM_QUALITY]: 5,
+				[constants.BROTLI_PARAM_SIZE_HINT]: raw.length,
+			},
+		}).catch(() => null) : null,   // fall through to gzip
+		compress ? gzipAsync(raw, { level: 6 }).catch(() => null) : null,   // fall through to raw
+		globalThis.crypto.subtle.digest("SHA-1", raw),
+	]);
 	const entry = {
 		mtimeMs,
 		checkedAt: now,
 		lastMod: new Date(mtimeMs).toUTCString(),
+		// ⚠ FROM THE BYTES SERVED, NOT THE MTIME. Two reasons. The shell's bytes aren't the
+		// file's: the modulepreload block is generated from the import graph, so a JS edit
+		// changes index.html's body without touching its mtime, and Last-Modified alone kept
+		// answering 304 with a preload list for a graph that no longer existed. And a deploy
+		// rewrites every mtime, so a date validator turns every unchanged file into a full
+		// download; a content hash still answers 304. Weak (W/), because the br and gzip
+		// bodies differ byte for byte and share it.
+		etag: `W/"${Buffer.from(digest).toString("base64url")}"`,
 		type: MIME[ext] || "text/plain",
 		raw,
-		br: null,
-		gzip: null,
+		br,
+		gzip: gz,
 	};
-	if (COMPRESSIBLE.has(ext) && raw.length >= COMPRESS_MIN_BYTES) {
-		// Quality 5 (not the default 11): 11 is for build-time asset pipelines and
-		// can take seconds on a large file, which would stall the loop we are
-		// trying to protect. 5 lands within a few percent of 11 on JS for a
-		// fraction of the time, and it only ever runs once per file version.
-		try {
-			entry.br = brotliCompressSync(raw, {
-				params: {
-					[constants.BROTLI_PARAM_QUALITY]: 5,
-					[constants.BROTLI_PARAM_SIZE_HINT]: raw.length,
-				},
-			});
-		} catch { /* fall through to gzip */ }
-		try {
-			entry.gzip = gzipSync(raw, { level: 6 });
-		} catch { /* fall through to raw */ }
-	}
 	assetCache.set(filePath, entry);
 	return entry;
+}
+
+// Fill the cache for what every visitor fetches before they can type (the shell, the
+// stylesheet, the classic scripts and the static module graph), in the background once
+// the port is open, so the first visitor after a deploy doesn't wait on a compress.
+// Lazy modules still fill on their first request.
+async function warmBootAssets() {
+	const gameRoot = join(__dirname, "../client/game");
+	const sharedRoot = join(__dirname, "../client/shared");
+	const toFile = (p) => p.startsWith("/shared/") ? join(sharedRoot, p.slice("/shared/".length)) : join(gameRoot, p);
+	const paths = ["index.html"];
+	try {
+		const html = await readFile(join(gameRoot, "index.html"), "utf8");
+		for (const m of html.matchAll(/\s(?:src|href)="([^"]+\.(?:js|css))"/g)) {
+			if (!/^(?:https?:)?\/\//.test(m[1])) paths.push(m[1].startsWith("/shared/") ? m[1] : m[1].replace(/^\//, ""));
+		}
+		paths.push(...staticModuleGraph(join(gameRoot, "js/main.js"), gameRoot));
+	} catch (err) {
+		console.error(`[assets] boot warm-up skipped: ${err.message}`);
+		return;
+	}
+	const files = [...new Set(paths.map(toFile))].filter((f) => existsSync(f));
+	const t0 = Date.now();
+	// A few at a time: the threadpool is four threads, and the fs calls share it.
+	for (let i = 0; i < files.length; i += 4) {
+		await Promise.all(files.slice(i, i + 4).map((f) => getAsset(f).catch(() => null)));
+	}
+	console.log(`  ⇢ ${files.length} boot asset(s) read and compressed in ${Date.now() - t0} ms`);
 }
 
 // Headers on every static file. nosniff stops a browser running a file as a
@@ -543,7 +599,7 @@ const httpServer = createServer(async (req, res) => {
 			res.writeHead(404); res.end("Not found"); return;
 		}
 		res.writeHead(200, { "Content-Type": "application/javascript; charset=utf-8" });
-		res.end(getAsset(scriptPath).raw);   // cached, like every other static file
+		res.end((await getAsset(scriptPath)).raw);   // cached, like every other static file
 		return;
 	}
 
@@ -603,20 +659,35 @@ const httpServer = createServer(async (req, res) => {
 	try {
 		// No build step means asset URLs never change, so browsers would serve
 		// stale JS/HTML after a deploy until a manual hard-refresh. The HTML stays
-		// on no-cache (revalidate every load; Last-Modified lets an unchanged file
-		// answer with a 304, and a redeploy rewrites mtimes to bust it). The ~82
-		// JS/CSS assets get a short max-age instead: revalidating each one cost a
-		// round trip per file on every load, which dominated load time. A deploy is
-		// at most max-age seconds stale for an already-open page.
+		// on no-cache (revalidate every load; the ETag lets an unchanged shell
+		// answer with a 304). The ~110 JS/CSS assets get a short max-age instead:
+		// revalidating each one cost a round trip per file on every load, which
+		// dominated load time.
+		//
+		// stale-while-revalidate covers the load after that minute: the cached copy
+		// runs at once and the revalidation (a 304 off the ETag, usually) happens
+		// behind it. ⚠ IT IS SHORT ON PURPOSE. Within the window a reload after a
+		// deploy runs the OLD modules once; that's a consistent old set, since they
+		// were all cached together, but a module the page had never fetched comes
+		// down new, and new beside old is where a renamed export breaks the boot.
+		// Ten minutes bounds that to somebody who reloaded right before the deploy.
 		const ext = extname(filePath);
-		const asset = getAsset(filePath);
+		const asset = await getAsset(filePath);
+		const cacheControl = ext === ".html" ? "no-cache" : "public, max-age=60, stale-while-revalidate=600";
 		// Dev only: lets the page run the browser's JS Self-Profiling API
 		// (`new Profiler(...)`), the one way to get a function-level frame profile
 		// without DevTools open. The policy has to arrive on the document itself,
 		// and on the 304 as well, or a cached reload silently loses it.
 		const devPolicy = ext === ".html" && process.env.NODE_ENV !== "production" ? { "Document-Policy": "js-profiling" } : {};
-		if (req.headers["if-modified-since"] === asset.lastMod) {
-			res.writeHead(304, devPolicy);
+		// If-None-Match wins when a client sends both (RFC 9110 §13.2.2). The date is
+		// only for a cache that holds no ETag, and never for the shell, whose bytes
+		// change with the import graph while its mtime doesn't (see the ⚠ on etag).
+		const inm = req.headers["if-none-match"];
+		const fresh = inm
+			? inm.split(",").some((t) => { t = t.trim(); return t === "*" || t.replace(/^W\//, "") === asset.etag.replace(/^W\//, ""); })
+			: ext !== ".html" && req.headers["if-modified-since"] === asset.lastMod;
+		if (fresh) {
+			res.writeHead(304, { "ETag": asset.etag, "Cache-Control": cacheControl, "Last-Modified": asset.lastMod, ...devPolicy });
 			res.end();
 			return;
 		}
@@ -632,8 +703,9 @@ const httpServer = createServer(async (req, res) => {
 
 		res.writeHead(200, {
 			"Content-Type": asset.type,
-			"Cache-Control": ext === ".html" ? "no-cache" : "public, max-age=60",
+			"Cache-Control": cacheControl,
 			"Last-Modified": asset.lastMod,
+			"ETag": asset.etag,
 			"Content-Length": body.length,
 			// Vary goes on anything we *could* have compressed, not just what we
 			// did — otherwise a shared cache that stored the raw copy would keep
@@ -1121,6 +1193,7 @@ async function logoutLiveSession(playerId, handle) {
 		if (player) await flushRelations(player).catch(() => {});
 		if (player) await flushMutations(player).catch(() => {});
 		if (player) await flushWear(player).catch(() => {});
+		if (player) await flushSkillIp(player.id).catch(() => {});
 	} catch (err) {
 		console.error(`[logout] teardown step failed for ${handle}: ${err?.stack || err}`);
 	} finally {
@@ -1333,8 +1406,11 @@ async function handleAuth(ws, session, msg) {
 		);
 		return;
 	}
+	// The address goes back so the verify screen can show what was recorded: a
+	// typo in it is why most of these accounts never verify. The password has
+	// been checked, so it's the player's own address.
 	if (isEmailVerificationEnabled() && !rows[0].email_verified) {
-		ws.send(JSON.stringify({ type: "auth_fail", message: "Please verify your email before logging in.", needsVerification: true }));
+		ws.send(JSON.stringify({ type: "auth_fail", message: "Please verify your email before logging in.", needsVerification: true, email: rows[0].email }));
 		return;
 	}
 	// The auth screen's pre-login Display Mode choice rides the auth message
@@ -1372,7 +1448,7 @@ async function handleAuthRemember(ws, session, msg) {
 	// Not expired, just unverified: the same answer the password login gives, so
 	// the player gets the verify screen and keeps the saved login.
 	if (isEmailVerificationEnabled() && !rows[0].email_verified) {
-		ws.send(JSON.stringify({ type: "auth_fail", message: "Please verify your email before logging in.", needsVerification: true }));
+		ws.send(JSON.stringify({ type: "auth_fail", message: "Please verify your email before logging in.", needsVerification: true, email: rows[0].email }));
 		return;
 	}
 	await finishAuth(ws, session, rows[0], msg.displayRung, false);
@@ -1650,6 +1726,7 @@ async function finishAuth(ws, session, player, seedDisplayRung, explicitDisplayR
 	if (priorSession) await flushRelations(priorSession).catch(() => {});
 	if (priorSession) await flushMutations(priorSession).catch(() => {});
 	if (priorSession) await flushWear(priorSession).catch(() => {});
+	if (priorSession) await flushSkillIp(priorSession.id).catch(() => {});
 	// Independent reads — one round trip's latency, not two.
 	// The ideology profile (stance + strongest path) is hydrated for the same
 	// reason: reputation decay consults it on every vendor price lookup, and five
@@ -2419,16 +2496,21 @@ async function boot() {
 		 AND player_id NOT IN (SELECT id FROM player_corpses WHERE expires_at > $1)`,
 		[Date.now()],
 	).catch(() => {});
-	await loadRecipes();
-	await loadDrugs();
-	await loadItems();
-	await reloadCrimes();
-	await reloadAliases();
-	await loadMutations();
-	await loadBanterLibrary();
-	// Subscribes one dispatcher per bound event name — must run before any
-	// player is connected, but is order-independent w.r.t. plugin event emitters.
-	await loadScriptTriggers();
+	// Each loader is one read of its own table into its own module cache, and none
+	// reads another's, so they go out together: one round trip of latency, not
+	// eight. loadScriptTriggers subscribes one dispatcher per bound event name:
+	// it must finish before any player is connected, but is order-independent
+	// w.r.t. plugin event emitters. Plugins load after all of them.
+	await Promise.all([
+		loadRecipes(),
+		loadDrugs(),
+		loadItems(),
+		reloadCrimes(),
+		reloadAliases(),
+		loadMutations(),
+		loadBanterLibrary(),
+		loadScriptTriggers(),
+	]);
 	await loadPlugins();
 	try {
 		await initEnvironment({
@@ -2477,6 +2559,7 @@ async function boot() {
 		console.log(`   Player:  http://localhost:${PORT}`);
 		console.log(`   Dev:     http://localhost:${PORT}/dev`);
 		console.log(`   Health:  http://localhost:${PORT}/health\n`);
+		warmBootAssets().catch((err) => console.error(`[assets] boot warm-up failed: ${err.message}`));
 	});
 }
 
@@ -2519,6 +2602,7 @@ async function drainForRestart() {
 	}
 	const results = await Promise.allSettled([
 		flushAllWear(),
+		flushAllSkillIp(),
 		flushAllRelations(),
 		flushAllMutations(),
 		flushPlayerCountLog(),

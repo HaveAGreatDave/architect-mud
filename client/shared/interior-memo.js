@@ -20,15 +20,8 @@
 // and the SAME face objects, which is what lets both skip the part entirely.
 
 let ENABLED = true;
-export function setInteriorMemo(on) { ENABLED = !!on; }
-export function interiorMemoOn() { return ENABLED; }
 
 const STATS = { hit: 0, miss: 0, khit: 0, kmiss: 0, phit: 0, pmiss: 0, pmove: 0 };
-export function interiorMemoStats(reset = false) {
-  const s = { ...STATS };
-  if (reset) for (const k of Object.keys(STATS)) STATS[k] = 0;
-  return s;
-}
 
 const isPlain = (o) => { const p = Object.getPrototypeOf(o); return p === Object.prototype || p === null; };
 const SEP = '\u0001';

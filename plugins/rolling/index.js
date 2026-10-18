@@ -12,7 +12,7 @@
 // The joint/cigarette items + the loose-leaf drugs are content (content/items and
 // content/drugs); this plugin only owns the verb.
 import { query, withTransaction } from '../../server/models/db.js';
-import { randomUUID } from 'crypto';
+import { giveItemById } from '../../server/engine/inventory.js';
 
 // loose material → smokeable product. 1 unit of quantity (1 gram) makes 1 product.
 const ROLLABLE = {
@@ -65,14 +65,8 @@ async function cmdRoll(args, raw, player, broadcast) {
     if (avail <= n) await q('DELETE FROM player_inventory WHERE id=$1', [row.id]);
     else await q('UPDATE player_inventory SET quantity=quantity-$1 WHERE id=$2', [n, row.id]);
     // produce n products
-    if (target.stack) {
-      const { rows: ex } = await q('SELECT id FROM player_inventory WHERE player_id=$1 AND item_id=$2 AND is_equipped=0 LIMIT 1', [player.id, target.product]);
-      if (ex[0]) await q('UPDATE player_inventory SET quantity=quantity+$1 WHERE id=$2', [n, ex[0].id]);
-      else await q('INSERT INTO player_inventory (id, player_id, item_id, quantity, condition) VALUES ($1,$2,$3,$4,1.0)', [randomUUID(), player.id, target.product, n]);
-    } else {
-      // hand-rolled cigarettes: a loose (non-pack) stack, smoked one at a time
-      await q('INSERT INTO player_inventory (id, player_id, item_id, quantity, condition, custom_data) VALUES ($1,$2,$3,$4,1.0,$5)', [randomUUID(), player.id, target.product, n, JSON.stringify({ loose: true, handrolled: true })]);
-    }
+    // hand-rolled cigarettes are a loose (non-pack) stack, smoked one at a time
+    await giveItemById(player.id, target.product, n, target.stack ? { q } : { q, customData: { loose: true, handrolled: true } });
   });
 
   const made = n === 1 ? target.one : `${n} ${target.many}`;

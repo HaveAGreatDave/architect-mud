@@ -35,6 +35,7 @@ import { registerStatusEffect, applyEffect, clearEffect } from '../../server/eng
 import { on } from '../../server/engine/events.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
 import { getLivePlayer } from '../../server/engine/world.js';
+import { pick } from '../../server/engine/util.js';
 
 // ── Tuning ───────────────────────────────────────────────────────────────────
 //
@@ -75,8 +76,6 @@ const LATE = [
   `Your body has finished arguing with itself. Something won. You aren't sure it was you.`,
   `The pain lets go all at once and leaves you shaking and wringing wet.`,
 ];
-
-const pick = (pool) => pool[Math.floor(Math.random() * pool.length)];
 
 // ── The status ───────────────────────────────────────────────────────────────
 //

@@ -28,7 +28,8 @@
 // catch, spawning a hooked monster, or snapping the rod on a botched reel.
 
 import { randomUUID } from 'crypto';
-import { textRender } from '../../server/engine/minigame.js';
+import { textRender, resolveForLogRung } from '../../server/engine/minigame.js';
+import { prefersLoggedPanelsOrDefault } from '../../server/engine/presentation.js';
 import { query } from '../../server/models/db.js';
 import { getZone, getAllZones, getLivePlayer, spawnEnemySync, propsOf } from '../../server/engine/world.js';
 import { registerActivity } from '../../server/engine/activity-tick.js';
@@ -304,10 +305,18 @@ async function runAttempt(player, st, nowMs) {
   const token = randomUUID();
   const avgDiff = Math.round(pool.reduce((s, e) => s + e.difficulty, 0) / pool.length);
   advanceState(player.id, { lastAttempt: nowMs, streak: 0, pending: { pool, token, armedAt: nowMs, phase: 'cast' } });
+  // The `log` rung has no board to cast with, so the server settles both stages
+  // here. It can't go through textRender's resolve like the one-stage families:
+  // the client's auto-resolve fires `fishresolve` while the bite is still at the
+  // cast stage, `cmdFishResolve` refuses it, and the fish times out every time.
+  if (await prefersLoggedPanelsOrDefault(player)) {
+    out(player.id, `${flavor}\n<span class="text-cyan">Something takes the line. You strike and start to reel.</span>`);
+    await settleLogBite(player, st.zoneId, token);
+    return;
+  }
   out(player.id, `${flavor}\n<span class="text-cyan">Something stirs the black water past your float: ready your cast.</span>`);
-  // At the `log` rung this resolves with a skill check instead of opening a board;
-  // at `textgames` it opens the character board. TWO-STAGE, so the mark rides the
-  // CAST payload — the server picks the catch from the cast and arms the fight.
+  // At `textgames` this opens the character board. TWO-STAGE, so the mark rides
+  // the CAST payload: the server picks the catch from the cast and arms the fight.
   sendToPlayer(player.id, await textRender(player, {
     type: 'fishing_game',
     zoneId: st.zoneId,
@@ -392,6 +401,20 @@ async function cmdFishCast(args, raw, player) {
     token,
   });
   return { type: 'noop' };
+}
+
+// The `log` rung's bite, cast and reel in one step. A straight cast to a random
+// depth, because choosing a depth is the board's decision and there is no board;
+// then the reel is one fishing check against THAT catch's difficulty, the same
+// number the reel fight is tuned to. It lands through cmdFishResolve, so stock,
+// bait, quests, XP and the snapped rod are the code every other rung runs.
+async function settleLogBite(player, zoneId, token) {
+  const st = getLivePlayer(player.id)?.fishState;
+  if (!st?.pending || st.pending.token !== token) return;
+  const target = pickCastTarget(st.pending.pool, Math.random(), 0.5);
+  advanceState(player.id, { pending: { ...st.pending, target, phase: 'fight', armedAt: Date.now() } });
+  const { won } = await resolveForLogRung(player, { difficulty: target.difficulty }, { skill: 'fishing' });
+  await cmdFishResolve([zoneId, won ? '1' : '0', token], '', player, sendToZone);
 }
 
 async function cmdFishResolve(args, raw, player, broadcast) {
@@ -500,6 +523,6 @@ export const commands = {
 };
 
 // Pure helpers exposed for the regression suite (never used in production).
-export const _test = { pickWeighted, pickCastTarget, BITE_CHANCE, ROD_SNAP_CHANCE, ATTEMPT_MS, fishingTableFor, bordersWater, DEFAULT_FISHING_TABLE, invalidateWaterIndex: () => { waterIndex = null; } };
+export const _test = { pickWeighted, pickCastTarget, settleLogBite, BITE_CHANCE, ROD_SNAP_CHANCE, ATTEMPT_MS, fishingTableFor, bordersWater, DEFAULT_FISHING_TABLE, invalidateWaterIndex: () => { waterIndex = null; } };
 
 console.log('[fishing] Plugin loaded.');

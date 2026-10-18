@@ -2095,15 +2095,10 @@ export function closeTvPanel()               { panel()?.close(); }
 export function shutdownTvPanel()            { panel()?.shutdown(); }
 export function applyTvOverlay(overlay)      { panel()?.applyOverlay(overlay); }
 export function appendTvMessage(t, s, d, g, c, x)  { panel()?.appendMessage(t, s, d, g, c, x); }
-export function updateTvTicker(text)         { panel()?.updateTicker(text); }
 export function showTvOffAir(content, type)  { panel()?.showOffAir(content, type); }
-export function showTvOnAir()                { panel()?.showOnAir(); }
-export function renderTvSchedule(data)       { panel()?.renderSchedule(data); }
 export function renderTvDeck(data)           { panel()?.renderDeck(data); }
-export function tvSpeak(text, style, win)    { panel()?.speak(text, style, win); }
 export function applyTvTheme(theme)          { panel()?.applyTheme(theme); }
 export function tvTunerInput(val)            { panel()?.tunerInput(val); }
-export function clearTvMessages()            { panel()?.clearMessages(); }
 export function isTvOpen()                   { return !!panel()?.isOpen(); }
 export function getTvActiveChannelId()       { return panel()?.activeChannelId() ?? null; }
 export function initTvPanel()                { panel()?.init(); }

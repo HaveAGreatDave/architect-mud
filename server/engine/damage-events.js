@@ -43,8 +43,6 @@ export function fireDamageToPlayer(player, hit) {
   }
 }
 
-export function getRegisteredDamageObservers() { return observers.map(o => o.owner); }
-
 // ── The enemy side (injury-system.md §8b) ────────────────────────────────────
 //
 // A separate list, not a flag on the same one, because the two sides are
@@ -71,8 +69,6 @@ export function fireDamageToEnemy(enemy, hit) {
     }
   }
 }
-
-export function getRegisteredEnemyDamageObservers() { return enemyObservers.map(o => o.owner); }
 
 // Multi-component attacks (an enemy swinging 1–2 kinetic + 2–3 energy) have no
 // single damage type. Pick the one that actually did the work: the component

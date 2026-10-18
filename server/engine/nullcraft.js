@@ -120,15 +120,6 @@ export function addTrace(playerId, trace = 0, heat = 0) {
 
 export function clearTrace(playerId) { playerState.delete(playerId); }
 
-/** Live transient operations against one target, expired entries dropped. */
-export function intrusionState(targetKey) {
-  const s = targetState.get(targetKey);
-  if (!s) return { ops: new Map(), trace: 0 };
-  const t = now();
-  for (const [sub, entry] of s.ops) if (entry.until <= t) s.ops.delete(sub);
-  return { ops: s.ops, trace: decayed(s.trace, s.at, TRACE_HALFLIFE_MS) };
-}
-
 /**
  * Is this subsystem currently suppressed?
  *

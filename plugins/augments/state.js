@@ -274,14 +274,6 @@ export function augmentStatBonus(player, stat) {
   return Math.round(total);
 }
 
-/** Effective condition including wear accrued this minute but not yet flushed. */
-export function effectiveAugCondition(player, augmentId) {
-  const rec = recordOf(player, augmentId);
-  if (!rec) return 0;
-  const pending = Number(player?._augWearPending?.get(augmentId)) || 0;
-  return Math.max(0, Math.min(1, Number(rec.condition ?? 1) - pending));
-}
-
 // --- persistence -----------------------------------------------------------
 
 /**

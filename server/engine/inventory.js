@@ -352,6 +352,30 @@ export async function spawnOnGround(itemId, zoneId, qty = 1) {
   return id;
 }
 
+// Put `qty` of an item into what `ownerId` carries: onto a loose stack already
+// there (unequipped, not in a container, mergeable) when `stack` is set, else as
+// a new row. A row with its own condition or custom_data never merges, so a worn
+// or instanced item keeps a row of its own. Inside withTransaction, pass the
+// client's query as `q`. Returns { id, created }.
+export async function giveItemById(ownerId, itemId, qty = 1, { stack = true, condition = 1, customData = null, q = query } = {}) {
+  if (stack && customData == null && condition >= FULL_CONDITION) {
+    const { rows } = await q(
+      `SELECT id FROM player_inventory WHERE player_id=$1 AND item_id=$2 AND is_equipped=0 AND container_id IS NULL AND ${MERGEABLE_SQL} LIMIT 1`,
+      [ownerId, itemId]
+    );
+    if (rows[0]) {
+      await q('UPDATE player_inventory SET quantity=quantity+$1 WHERE id=$2', [qty, rows[0].id]);
+      return { id: rows[0].id, created: false };
+    }
+  }
+  const id = randomUUID();
+  await q(
+    'INSERT INTO player_inventory (id, player_id, item_id, quantity, condition, custom_data) VALUES ($1,$2,$3,$4,$5,$6)',
+    [id, ownerId, itemId, qty, condition, customData == null ? null : JSON.stringify(customData)]
+  );
+  return { id, created: true };
+}
+
 // Burn one charge from a charged-pack row (item tag `pack_size` > 1, e.g. a pack
 // of cigarettes). Remaining charges ride on the row's custom_data.charges; a
 // sealed pack (no `charges` key) counts as full. The row is destroyed only on the

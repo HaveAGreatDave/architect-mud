@@ -23,6 +23,7 @@ import { skillCheck, awardSkillUse } from '../../server/engine/skills.js';
 import { schedule } from '../../server/engine/scheduler.js';
 import { on } from '../../server/engine/events.js';
 import { getBroadcast, sendToPlayer } from '../../server/engine/messaging.js';
+import { prefersLoggedPanelsOrDefault } from '../../server/engine/presentation.js';
 import {
   cmdVentureAsset, cmdWarehouse, handleVenturePurchase, runVentureTick, ventureConsoleBlock, ventureCount,
 } from './ventures.js';
@@ -219,6 +220,28 @@ async function buildConsolePayload(player) {
     directives: [],
     architectHeat: architectHeat(org, zones.length, assetCount),
   };
+}
+
+// The `log` rung's console: the same payload, printed ONCE as a snapshot rather
+// than a panel the patches keep current (the SPECTER `hub` shape). Type it again
+// for a fresh look. Every action on the panel is already a `corp` subcommand,
+// so the readout ends by naming them.
+export function consoleText(c) {
+  const lines = [`<span class="skills-header">${esc(c.org.name)} [${esc(c.org.tag)}]: TIER ${c.tierInfo.tier}</span>`];
+  lines.push(`Your rank: ${esc(c.you.rank)}`);
+  lines.push(`Treasury: ${c.treasury.balance}₵, income ${c.treasury.income}₵, upkeep ${c.treasury.upkeep}₵ a cycle`);
+  lines.push(`Members: ${c.tierInfo.members} of ${c.tierInfo.memberCap}, ${c.members.filter(m => m.online).length} online`);
+  lines.push(`Territory: ${c.tierInfo.zones} of ${c.tierInfo.slots} slots`);
+  for (const t of c.territory) lines.push(`  ${esc(t.zone)}: ${t.status}, influence ${t.influence}${t.challenger ? `, challenged by ${esc(t.challenger)}` : ''}`);
+  if (c.relations.length) lines.push(`Relations: ${c.relations.map(r => `${esc(r.name)} (${esc(r.stance)})`).join(', ')}`);
+  lines.push('<span class="text-dim">corp roster · corp contribute &lt;n&gt; · corp claim · corp invest · corp help for the rest</span>');
+  return { type: 'output', message: lines.join('\n') };
+}
+
+async function consoleFor(player) {
+  const payload = await buildConsolePayload(player);
+  if (payload?.type !== 'corp_console' || !(await prefersLoggedPanelsOrDefault(player))) return payload;
+  return consoleText(payload);
 }
 
 // Push a live console patch to every online member of an org (after treasury/
@@ -821,28 +844,47 @@ async function cmdBuild(player, typeArg, broadcast) {
 async function runTerritoryTick() {
   const rows = getAllZoneControl().filter(z => z.org_id);
   const net = new Map();
+  // Decided in RAM, then written as one statement per kind rather than one per
+  // zone and one per org.
+  const flips = [];   // [zone_id, new org_id]
+  const drift = [];   // [zone_id, influence]
   for (const z of rows) {
     // Extractors add income; turrets blunt the daily erosion of a contested zone.
     const income = (z.base_income || 0) + zoneExtractorIncome(z.zone_id);
     net.set(z.org_id, (net.get(z.org_id) || 0) + income - (z.base_upkeep || 0));
     const erode = Math.max(1, ERODE_PER_DAY - zoneDefense(z.zone_id));
     let inf = z.challenger_org_id ? z.influence - erode : Math.min(100, z.influence + CONSOLIDATE_PER_DAY);
-    if (inf <= 0 && z.challenger_org_id) {
-      const now = Math.floor(Date.now() / 1000);
-      await query('UPDATE zone_control SET org_id=$1, influence=$2, challenger_org_id=NULL, captured_at=$3 WHERE zone_id=$4', [z.challenger_org_id, START_INFLUENCE, now, z.zone_id]);
-    } else if (inf !== z.influence) {
-      await query('UPDATE zone_control SET influence=$1 WHERE zone_id=$2', [Math.max(0, inf), z.zone_id]);
-    }
+    if (inf <= 0 && z.challenger_org_id) flips.push([z.zone_id, z.challenger_org_id]);
+    else if (inf !== z.influence) drift.push([z.zone_id, Math.max(0, inf)]);
   }
-  for (const [orgId, delta] of net) {
-    if (delta > 0) await query('UPDATE orgs SET treasury=treasury+$1 WHERE id=$2', [delta, orgId]);
-    else if (delta < 0) await query('UPDATE orgs SET treasury=GREATEST(0, treasury+$1) WHERE id=$2', [delta, orgId]);
+  const valuesOf = (pairs, types) => pairs.map((_, i) => `($${i * 2 + 1}::${types[0]}, $${i * 2 + 2}::${types[1]})`).join(', ');
+  if (flips.length) {
+    const now = Math.floor(Date.now() / 1000);
+    const n = flips.length * 2;
+    await query(
+      `UPDATE zone_control AS zc SET org_id=v.org_id, influence=$${n + 1}, challenger_org_id=NULL, captured_at=$${n + 2}
+         FROM (VALUES ${valuesOf(flips, ['text', 'text'])}) AS v(zone_id, org_id) WHERE zc.zone_id = v.zone_id`,
+      [...flips.flat(), START_INFLUENCE, now]);
   }
-  for (const z of rows) {
-    const { rows: r } = await query('SELECT * FROM zone_control WHERE zone_id=$1', [z.zone_id]);
-    setZoneControlCache(z.zone_id, r[0] || null);
+  if (drift.length) {
+    await query(
+      `UPDATE zone_control AS zc SET influence=v.inf
+         FROM (VALUES ${valuesOf(drift, ['text', 'int'])}) AS v(zone_id, inf) WHERE zc.zone_id = v.zone_id`,
+      drift.flat());
   }
-  for (const orgId of net.keys()) await reloadOrg(orgId);
+  // A gain adds straight on; a loss floors at zero.
+  const deltas = [...net].filter(([, d]) => d !== 0);
+  if (deltas.length) {
+    await query(
+      `UPDATE orgs AS o SET treasury = CASE WHEN v.d > 0 THEN o.treasury + v.d ELSE GREATEST(0, o.treasury + v.d) END
+         FROM (VALUES ${valuesOf(deltas, ['text', 'int'])}) AS v(id, d) WHERE o.id = v.id`,
+      deltas.flat());
+  }
+  if (!rows.length) return;
+  const { rows: fresh } = await query('SELECT * FROM zone_control WHERE zone_id = ANY($1)', [rows.map(z => z.zone_id)]);
+  const freshById = new Map(fresh.map(r => [r.zone_id, r]));
+  for (const z of rows) setZoneControlCache(z.zone_id, freshById.get(z.zone_id) || null);
+  await Promise.all([...net.keys()].map(orgId => reloadOrg(orgId)));
   if (rows.length) console.log(`[corps] Territory tick: ${rows.length} zone(s), ${net.size} org(s) settled.`);
 }
 
@@ -1110,7 +1152,7 @@ async function cmdCorp(args, raw, player, broadcast) {
   const rawRest = raw.trim().split(/\s+/).slice(2);
   switch (sub) {
     case '':
-    case 'console':     return buildConsolePayload(player);
+    case 'console':     return consoleFor(player);
     case 'help':        return { type: 'output', message: USAGE };
     case 'found':       return cmdFound(player, rawRest.join(' '));
     case 'info':        return cmdInfo(player);
@@ -1130,7 +1172,9 @@ async function cmdCorp(args, raw, player, broadcast) {
     case 'setrank':
     case 'promote':     return cmdSetRank(player, rest[0], rest[1]);
     case 'claim':       return cmdClaim(player, broadcast);
-    case 'map':         return cmdCorpMap(player);
+    // The map is a picture of the city; at the `log` rung the console's territory
+    // list is the written form of it.
+    case 'map':         return (await prefersLoggedPanelsOrDefault(player)) ? consoleFor(player) : cmdCorpMap(player);
     case 'territory':   return cmdCorpTerritory(player); // big-map overlay layer (client-internal)
     case 'contest':     return cmdContest(player, broadcast);
     case 'raid':        return cmdRaid(player, broadcast);
@@ -1171,7 +1215,7 @@ async function doUseCorpTerminal(args, raw, player) {
   if (apt?.owner_type === 'org' && apt.owner_org_id && apt.owner_org_id !== m.org_id) {
     return err('ACCESS DENIED: this terminal is bound to another corporation.');
   }
-  return buildConsolePayload(player);
+  return consoleFor(player);
 }
 
 export const commands = {

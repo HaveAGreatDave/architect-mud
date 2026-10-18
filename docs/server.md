@@ -222,14 +222,27 @@ message, so a blocking read or an uncompressed megabyte is paid for by everyone 
 once, and held in memory keyed by mtime:
 
 - **Brotli (quality 5) with a gzip fallback**, negotiated off `Accept-Encoding`. Quality 5, not 11
-  — 11 is for build-time pipelines and can block the loop for seconds; 5 lands within a few percent
-  for a fraction of the cost, and only runs once per file version.
+  — 11 is for build-time pipelines and can take seconds; 5 lands within a few percent for a
+  fraction of the cost, and only runs once per file version.
+- **Nothing in a fill blocks the loop.** The stat and read are `fs/promises`, both compressions are
+  zlib's async forms (the libuv threadpool), and the ETag's SHA-1 is WebCrypto's async digest. The
+  sync brotli took 741 ms on `windshield.js`, once per file per deploy, with the world frozen behind
+  it. Concurrent requests for a file being filled share the one fill.
+- **The boot set is warmed after `listen`** (`warmBootAssets`): the shell, its script and link tags
+  and the static module graph, four at a time, so the first visitor after a deploy doesn't wait.
 - **Only text types**, and only files ≥ 1 KB. Running deflate over a `.png`/`.ico` burns CPU to make
   it marginally bigger.
 - **`Vary: Accept-Encoding` on anything compressible**, not just what was actually compressed —
   otherwise a shared cache can hand a brotli body to a client that never asked for one.
-- **mtime-keyed**, so an edited file is picked up without a restart, and `304` revalidation still
-  works off `Last-Modified`.
+- **mtime-keyed**, so an edited file is picked up without a restart.
+- **A weak ETag from the bytes served**, and `If-None-Match` wins over `If-Modified-Since`. The
+  shell's body includes the generated modulepreload block, which changes with the import graph
+  while `index.html`'s mtime doesn't, so a date validator kept a stale preload list alive; the
+  shell never answers a 304 off the date. A deploy rewrites every mtime, and the hash still lets an
+  unchanged file answer 304.
+- **JS and CSS are `max-age=60, stale-while-revalidate=600`**, the shell `no-cache`. The window is
+  short on purpose: inside it a reload after a deploy runs the old modules once, and a module the
+  page had never fetched arrives new beside them.
 
 Measured: the `client/game` + `client/shared` tree is **4.93 MB raw → 1.32 MB brotli (3.7×)**. The
 previous code did a synchronous `readFileSync` + `statSync` **per request** — ~82 blocking syscalls

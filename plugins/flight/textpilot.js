@@ -37,6 +37,7 @@ import {
   registerTextPilotTeardown, contextPayload, nearestAirfield, surfaceAt,
 } from './state.js';
 import { getMinimapData } from '../../server/engine/world.js';
+import { loggedPanelsSync } from '../../server/engine/presentation.js';
 import { TYPES as FM_TYPES, createState as fmCreate, step as fmStep, readout as fmReadout } from '../../client/game/js/panels/flight-model.js';
 import { checkGateProximity, checkrideEvent, evaluateCheckride } from './checkride.js';
 
@@ -102,7 +103,7 @@ export function startTextPilot(player, live) {
 export function stopTextPilot(live) {
   if (!live) return;
   delete live.textPilot; delete live.fmState; delete live.textTargets;
-  delete live._textPrevVs; delete live._textContactVs; delete live._textStatusCtr;
+  delete live._textPrevVs; delete live._textContactVs; delete live._textStatusCtr; delete live._logWarnKey;
 }
 registerTextPilotTeardown(stopTextPilot);   // `detach` clears the aircraft-side sim with the seat
 
@@ -129,6 +130,35 @@ export function statusLines(live) {
   if (fuelPct <= 15) line += '\n<span class="text-amber">⚠ Low fuel.</span>';
   if (s.onGround) line += '\n<span class="text-dim">On the ground.</span>';
   return line;
+}
+
+// ── The `log` rung's warnings ─────────────────────────────────────────────────
+// The panel repaints in the area pane every tick, which a screen reader never
+// hears. So a log-rung pilot is told the moment the airframe's trouble CHANGES:
+// a stall, a buffet, low fuel, and the all-clear once it's over. Not every tick,
+// which would be a torrent; `status` reads the full instruments on demand.
+// Sync by contract: this runs on the 1s sim sweep.
+export function logRungWarnings(live, pilot) {
+  if (!loggedPanelsSync(pilot)) return;
+  const s = live.fmState, p = fmTypeOf(live);
+  if (!s || !p) return;
+  const r = fmReadout(s, p);
+  const cap = effStats(live).fuelCap || 1;
+  const lowFuel = (live.row.fuel / cap) * 100 <= 15;
+  const state = r.stalled ? 'stall' : (live.row.airborne && r.stallMargin < 0.25) ? 'buffet' : 'ok';
+  const key = `${state}|${lowFuel ? 'low' : ''}`;
+  const prev = live._logWarnKey;
+  live._logWarnKey = key;
+  if (prev === undefined || prev === key) return;
+  const [prevState, prevFuel] = prev.split('|');
+  const lines = [];
+  if (state !== prevState) {
+    if (state === 'stall') lines.push('<span class="text-red">STALL. Nose down, power up.</span>');
+    else if (state === 'buffet') lines.push('<span class="text-amber">Buffet: she\'s getting slow.</span>');
+    else lines.push('<span class="text-cyan">Flying again. She\'s clean.</span>');
+  }
+  if (lowFuel && !prevFuel) lines.push('<span class="text-amber">Low fuel.</span>');
+  if (lines.length) sendToPlayer(pilot.id, { type: 'output', message: lines.join(' ') });
 }
 
 // ── The live panel ────────────────────────────────────────────────────────────
@@ -357,6 +387,7 @@ export async function textPilotTick() {
       if (live.pilotId) {
         const panel = panelPayload(live);
         if (panel) sendToPlayer(live.pilotId, panel);
+        logRungWarnings(live, getLivePlayer(live.pilotId));
       }
     }
   } finally { ticking = false; }

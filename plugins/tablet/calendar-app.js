@@ -11,6 +11,7 @@ import { gameToday, ymd, addGameDays, gameDaysBetween, MONTHS } from '../../serv
 import { on } from '../../server/engine/events.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
 import { registerTabletApp } from './registry.js';
+import { escapeHtml as esc } from '../../server/engine/html.js';
 
 const REM_FLAG = 'calendar_reminders';
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -18,12 +19,6 @@ const MONTH_RE = /^\d{4}-\d{2}$/;
 // Month names (both the short and the full label) come from the engine's shared
 // MONTHS table (server/engine/apartments.js) so the calendar reads the same as
 // rent notices — the naming-rights-sold-off in-world month names.
-
-// Minimal HTML escape — reminder text is player-authored and lands in a client
-// output span, so it can't be trusted to be markup-free.
-function esc(s) {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-}
 
 // The reminders in `list` that have come due (today or overdue) and haven't
 // pinged yet. Exported for the regress suite.

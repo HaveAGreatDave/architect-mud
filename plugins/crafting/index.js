@@ -23,12 +23,11 @@ import { getLivePlayer } from '../../server/engine/world.js';
 import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
 import { getPosture, setPosture } from '../../server/engine/posture.js';
 import { on } from '../../server/engine/events.js';
+import { getSkillLevels } from '../../server/engine/ip.js';
 import { loggedPanelsSync } from '../../server/engine/presentation.js';
 
 async function cmdRecipes(args, raw, player) {
-  const { rows: skillRows } = await query('SELECT skill_id, ip FROM player_skills WHERE player_id = $1', [player.id]);
-  const skills = {};
-  for (const r of skillRows) skills[r.skill_id] = Math.floor((r.ip || 0) / 100);
+  const skills = await getSkillLevels(player.id);
   const available = getAvailableRecipes(player, skills);
   if (!available.length) return renderRecipes([], player);
 

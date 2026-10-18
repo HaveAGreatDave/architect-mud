@@ -123,7 +123,3 @@ export function createWorkGate({ name, probe, reconcileMs = 60 * 60_000 }) {
   return gate;
 }
 
-export function getWorkGate(name) { return gates.get(name) || null; }
-export function allWorkGateStats() { return [...gates.values()].map(g => g.stats()); }
-// Test seam: drop registered gates so a suite can build fresh ones.
-export function _resetWorkGates() { gates.clear(); }

@@ -777,9 +777,4 @@ export async function charterDebug() {
   return { hour, pilots, log: flightLog.slice(0, 40) };
 }
 
-// True while a player is a non-controlling charter passenger.
-export function isCharterPassenger(player) {
-  return !!(player.aircraftId && activeCharters.has(player.aircraftId) && player.seat === 'passenger');
-}
-
 export const commands = { charter: cmdCharter, charterinfo: cmdCharterInfo, charterbook: cmdCharterBook, cancel: cmdCancel };

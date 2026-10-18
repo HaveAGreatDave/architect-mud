@@ -57,12 +57,17 @@ async function spawnEnemyCorpse(where, targetName, result) {
 	const zoneId = typeof where === 'string' ? where : where?.current_zone;
 	const corpseId = `corpse_${result.enemyId || randomUUID()}`;
 	if (result.loot?.length) {
-		for (const drop of result.loot) {
-			await query(
-				"INSERT INTO player_inventory (id,player_id,item_id,quantity,condition,custom_data) VALUES ($1,$2,$3,$4,0.8,$5)",
-				[randomUUID(), corpseId, drop.item_id, drop.quantity, drop.custom_data ? JSON.stringify(drop.custom_data) : null],
-			);
-		}
+		// Every drop in one INSERT: a kill with five drops was five round trips.
+		const params = [];
+		const rows = result.loot.map((drop) => {
+			const b = params.length;
+			params.push(randomUUID(), corpseId, drop.item_id, drop.quantity, drop.custom_data ? JSON.stringify(drop.custom_data) : null);
+			return `($${b + 1},$${b + 2},$${b + 3},$${b + 4},0.8,$${b + 5})`;
+		});
+		await query(
+			`INSERT INTO player_inventory (id,player_id,item_id,quantity,condition,custom_data) VALUES ${rows.join(",")}`,
+			params,
+		);
 	}
 	createCorpse({
 		id: corpseId,

@@ -40,9 +40,6 @@ export function escorteeOf(playerId) {
   const npcId = byPlayer.get(playerId);
   return npcId ? getNpc(npcId) : null;
 }
-export function escorterOf(npcId) {
-  return byNpc.get(npcId) || null;
-}
 
 function tell(playerId, text) {
   sendToPlayer(playerId, { type: 'output', message: `<span class="msg-system">${text}</span>` });

@@ -27,6 +27,7 @@ import { isNpcScheduledNow, isZoneWatched } from './broadcast-bridge.js';
 import { formatChitchat, isNpcAsleep } from './ai-behaviour.js';
 import { getEnvironmentState, getZoneWeatherType, isIndoorZone } from './environment.js';
 import { dispatchAction } from './actions.js';
+import { randInt } from './util.js';
 
 // ── Tunables ──────────────────────────────────────────────────────────────────
 const START_CHANCE    = 0.33;          // per eligible zone, per initiation tick
@@ -64,7 +65,6 @@ const activeScenes = new Map();
 const zoneCooldown = new Map();
 
 const rand = (arr) => arr[Math.floor(Math.random() * arr.length)];
-const randInt = (min, max) => min + Math.floor(Math.random() * (max - min + 1));
 
 // An NPC that can currently take part in idle banter.
 function isEligible(npc, zoneId) {

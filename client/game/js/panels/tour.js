@@ -221,10 +221,6 @@ function visible(n) {
   return r.width > 4 && r.height > 4;
 }
 
-export function hasSeenTour() {
-  return localStorage.getItem(SEEN_KEY) === '1';
-}
-
 // Is a walkthrough on screen right now? Used by the smart bar's tablet chip to tell
 // "the tutorial is running, it'll report back when it ends" from "nothing happened".
 export function tourRunning() {

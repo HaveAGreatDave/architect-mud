@@ -479,13 +479,6 @@ export const FADING_LINES = {
 export const lineFor = (table, profileName) => table[profileName] || table._;
 export const stagesFor = (profileName) => STAGE_LINES[profileName] || COOK_STAGES;
 
-// Stages *past* the peak window — only reachable by profiled food, which is the
-// only food that has a peak window to be past. Same shape as the two above.
-export const OVER_STAGES = [
-  { max: 0.5, text: 'past its best, going dry' },
-  { max: 1.0, text: 'starting to char, smoke curling off it' },
-];
-
 // Vessels. A pan or pot is an ordinary carried container with tags.vessel;
 // `heat_distribution` widens the forgiving band past the peak, `heat_retention`
 // widens the peak window itself. Cooking straight on the stove with no vessel

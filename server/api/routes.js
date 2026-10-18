@@ -27,6 +27,7 @@ import { isEmailVerificationEnabled, setEmailVerificationEnabled } from '../engi
 import { areRegistrationsOpen, registrationsClosedMessage, setRegistrationsOpen } from '../engine/registrations.js';
 import { randomAppearance } from '../engine/appearance.js';
 import { HANDLE_RE, handleProblem, handleTaken, insertNewPlayer, purgePlayers } from '../engine/new-player.js';
+import { emailProblem, normalizeEmail } from '../../client/shared/email-check.js';
 import { RUNGS as DISPLAY_RUNGS, DISPLAY_MODE_FLAG } from '../engine/presentation.js';
 import { setFlagById } from '../engine/flags.js';
 import { DEFAULT_CHITCHAT_LINES, isVendorWorkTime } from '../engine/ai-behaviour.js';
@@ -60,8 +61,9 @@ import { fireRoutes, fireHook } from '../engine/plugins.js';
 import { handlePlayerDeath } from '../engine/gameLoop.js';
 import { recomputePower, reloadPowerTopology, getEnvironmentState, markPowerTopologyDirty } from '../engine/environment.js';
 import { ensureTunables, getTunable, reloadTunables } from '../engine/tunables.js';
-import { getNetXp, statSpent, maxHpForEndurance } from '../engine/ip.js';
+import { getNetXp, statSpent, maxHpForEndurance, flushSkillIp } from '../engine/ip.js';
 import { SKILLS } from '../engine/skills.js';
+import { invalidateNpcResidences } from '../engine/apartments.js';
 import { ownTags } from '../engine/supertags.js';
 import { validateTags, validateZoneColumns } from '../engine/tags.js';
 import { getMotd, saveMotd } from '../engine/motd.js';
@@ -160,6 +162,7 @@ export const AUTH_LIMITS = {
   '/auth/forgot-password':     { limit:  5, windowMs: 60 * 60_000, globalLimit: 200 },
   '/auth/reset-password':      { limit: 10, windowMs: 60 * 60_000, globalLimit: 200 },
   '/auth/resend-verification': { limit:  5, windowMs: 60 * 60_000, globalLimit: 200 },
+  '/auth/change-email':        { limit:  5, windowMs: 60 * 60_000, globalLimit: 200 },
   '/auth/verify-email':        { limit: 30, windowMs: 60 * 60_000, globalLimit: 600 },
 };
 
@@ -310,6 +313,7 @@ async function dispatchApiRequest(url, method, body, headers) {
   if (path==='/auth/login' && method==='POST') return apiLogin(body);
   if (path==='/auth/verify-email' && method==='POST') return apiVerifyEmail(body);
   if (path==='/auth/resend-verification' && method==='POST') return apiResendVerification(body);
+  if (path==='/auth/change-email' && method==='POST') return apiChangeEmail(body);
   if (path==='/auth/forgot-password' && method==='POST') return apiForgotPassword(body);
   if (path==='/auth/reset-password'  && method==='POST') return apiResetPassword(body);
   // /auth/email-hint is deliberately gone. It took a username with no
@@ -601,7 +605,7 @@ async function apiRegister(body) {
   // path took any password and any username.
   if (String(password).length < 8) return {status:400,body:{error:'Passwords are 8 characters or more.'}};
   if (!/^[a-z0-9_.-]{3,24}$/i.test(String(username))) return {status:400,body:{error:'Usernames are 3 to 24 letters, numbers and _ . -'}};
-  const bad = handleProblem(handle);
+  const bad = handleProblem(handle) || emailProblem(email);
   if (bad) return {status:400,body:{error:bad}};
   try {
     if (await handleTaken(handle)) return {status:409,body:{error:'That name is taken.'}};
@@ -645,6 +649,8 @@ export async function claimGuestAccount(playerId, body) {
   if (!username||!password||!email) return {ok:false,error:'Username, password and email are all needed.'};
   if (String(password).length < 8) return {ok:false,error:'Passwords are 8 characters or more.'};
   if (!/^[a-z0-9_.-]{3,24}$/i.test(username)) return {ok:false,error:'Usernames are 3 to 24 letters, numbers and _ . -'};
+  const badMail = emailProblem(email);
+  if (badMail) return {ok:false,error:badMail};
   const {rows} = await query('SELECT role FROM players WHERE id=$1',[playerId]);
   if (rows[0]?.role !== 'guest') return {ok:false,error:'This character already has an account.'};
   try {
@@ -739,6 +745,44 @@ async function apiResendVerification(body) {
     return { status:502, body:{ error:"The email didn't send. Try again in a few minutes." } };
   }
   return { status:200, body:{ sent:true } };
+}
+
+// The verify screen's fix for an address recorded wrong. Resend looks accounts up
+// BY address, so a player whose address was mistyped could never reach their own
+// row: resending to the right address found nothing and said "Sent" anyway. This
+// takes the login instead, so only the owner can move it, and only while it's
+// unverified.
+async function apiChangeEmail(body) {
+  const { username, password, email } = body||{};
+  if (!username || !password || !email) return { status:400, body:{ error:'Username, password and email are all needed.' } };
+  const wait = accountLocked(username);
+  if (wait) return { status:429, headers:{ 'Retry-After': String(wait) }, body:{ error:'Too many failed attempts on this account. Wait a few minutes and try again.' } };
+  const { rows } = await query('SELECT * FROM players WHERE username=$1', [String(username).toLowerCase()]);
+  if (!rows.length || !(await verifyAndUpgrade(rows[0], password))) {
+    noteFailedLogin(username);
+    return { status:401, body:{ error:'Invalid credentials' } };
+  }
+  const p = rows[0];
+  if (p.email_verified) return { status:400, body:{ error:'This account is already verified. You can log in.' } };
+  const bad = emailProblem(email);
+  if (bad) return { status:400, body:{ error:bad } };
+  const to = normalizeEmail(email);
+  const token = randomBytes(32).toString('hex');
+  // One round trip: move the address, retire the old links, issue a new one.
+  await query(
+    `WITH addr AS (UPDATE players SET email=$2 WHERE id=$1),
+          old  AS (UPDATE email_verification_tokens SET used=TRUE WHERE player_id=$1 AND used=FALSE)
+     INSERT INTO email_verification_tokens (player_id, token, expires_at) VALUES ($1,$3,$4)`,
+    [p.id, to, token, Date.now() + 24 * 60 * 60 * 1000]
+  );
+  logActivity('email_changed_unverified', p.username);
+  try {
+    await sendVerificationEmail(to, `${clientBaseUrl()}/game?verify_token=${token}`);
+  } catch (e) {
+    console.error('[change-email] email failed:', e.message);
+    return { status:502, body:{ error:"The address is saved, but the email didn't send. Try again in a few minutes.", email:to } };
+  }
+  return { status:200, body:{ sent:true, email:to } };
 }
 
 // ⚠ ONE ANSWER, WHATEVER HAPPENED. Every path out of here that isn't a
@@ -1250,6 +1294,7 @@ export async function apiDeleteZone(id) {
       await query('DELETE FROM zones WHERE id=$1', [zid]);
       world.zones.delete(zid);
     }
+    invalidateNpcResidences(); // zone and NPC deletes both cascade into npc_residences
     // Clean up any interior maps whose entry zone or parent zone is among the deleted set.
     await query(
       `DELETE FROM maps WHERE entry_zone_id = ANY($1) OR parent_zone_id = ANY($1)`,
@@ -1562,6 +1607,7 @@ async function listVacantApartmentZones() {
 // housed NPC's unit un-rentable immediately, without touching the player ledger.
 async function syncNpcResidence(npcId, homeZone) {
   await query('DELETE FROM npc_residences WHERE npc_id=$1', [npcId]);
+  invalidateNpcResidences();
   if (!homeZone) return;
   const { rows } = await query(
     `SELECT 1 FROM zones WHERE id=$1 AND COALESCE((flags->>'is_apartment')::boolean,false)=true`, [homeZone]);
@@ -1569,6 +1615,7 @@ async function syncNpcResidence(npcId, homeZone) {
   await query(
     `INSERT INTO npc_residences (zone_id, npc_id) VALUES ($1,$2)
        ON CONFLICT (zone_id) DO UPDATE SET npc_id=$2`, [homeZone, npcId]);
+  invalidateNpcResidences();
 }
 
 export async function apiCreateNpc(body) {
@@ -1829,6 +1876,7 @@ export async function apiDeleteNpc(id) {
     if (npc?.zone_id) w.zones.get(npc.zone_id)?.npcs.delete(id);
     w.npcs.delete(id);
     await query('DELETE FROM npcs WHERE id=$1', [id]);
+    invalidateNpcResidences(); // the FK cascade drops their residence row
     return {status:200,body:{message:'NPC deleted'}};
   } catch(e) { return {status:400,body:{error:e.message}}; }
 }
@@ -2199,6 +2247,7 @@ async function apiGetPlayerProgression(id) {
   const {rows}=await query('SELECT id,stat_brawn,stat_reflexes,stat_endurance,stat_brains,stat_cool,stat_senses,COALESCE(gifted_stat_points,0) AS gifted_stat_points,COALESCE(bonus_xp,0) AS bonus_xp FROM players WHERE id=$1',[id]);
   if (!rows.length) return {status:404,body:{error:'Player not found'}};
   const p = rows[0];
+  await flushSkillIp(id);
   const {rows:skillRows}=await query('SELECT skill_id,ip FROM player_skills WHERE player_id=$1 ORDER BY ip DESC',[id]);
   const skills = skillRows.map(r=>({
     skill_id:r.skill_id,
@@ -2710,6 +2759,7 @@ async function apiDeleteApartment(zoneId) {
     await query('DELETE FROM apartments WHERE zone_id=$1', [zoneId]);
     await query('DELETE FROM zones WHERE id=$1', [zoneId]);
     world.zones.delete(zoneId);
+    invalidateNpcResidences();
     return { status:200, body:{ message:'Apartment unit and its zone deleted' } };
   } catch(e) { return { status:400, body:{error:e.message} }; }
 }

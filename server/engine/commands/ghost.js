@@ -4,6 +4,7 @@ import { describeZone } from './describe.js';
 import { drainZonePower } from '../environment.js';
 import { query } from '../../models/db.js';
 import { adjustSanity } from '../condition.js';
+import { pick } from '../util.js';
 
 const HAUNT_MESSAGES = [
   "An icy breath curls across your neck. There's nobody there.",
@@ -64,7 +65,6 @@ const GHOST_DRAIN_MESSAGES = [
   "A cold weight settles over everything. The power gutters out from somewhere behind the walls, and the darkness that rushes in isn't empty.",
 ];
 
-function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 function randomGhostAmbient(originalMsg) {
   if (originalMsg) {
     const m = String(originalMsg);

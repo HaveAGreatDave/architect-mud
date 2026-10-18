@@ -94,14 +94,6 @@ function signal(rig, st, until = 0) {
   rig._lockSig = { st, until };
 }
 
-// What the cab push paints into the lock's cells for this driver. Red lapses back to green.
-export function lockSignal(rig) {
-  const s = rig?._lockSig;
-  if (!s) return null;
-  if (s.until && Date.now() > s.until) { rig._lockSig = null; return null; }
-  return s.st;
-}
-
 // Called on every cab frame in the city leg (sync guard first, so it costs nothing away from the
 // gate) and from afterDrive on the text rung. `prev` is the zone the rig was on before this move.
 // Returns { stop: true } when a text run has to end.

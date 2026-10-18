@@ -33,6 +33,8 @@
 import { getZone, getZoneFurniture, getFurnitureById, updateFurniture } from '../../server/engine/world.js';
 import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
 import { zoneOwnerId } from '../../server/engine/zone-filth.js';
+import { prefersLoggedPanelsOrDefault } from '../../server/engine/presentation.js';
+import { escAttr } from '../../server/engine/text.js';
 
 const CODE_RE = /^\d{4,8}$/;
 const FACTORY_CODE = '1234';
@@ -123,6 +125,10 @@ async function cmdKeypad(args, raw, player, broadcast) {
   if (!disguise) return typed ? { type: 'error', message: error } : undefined;
 
   if (!typed) {
+    // The `log` rung gets no overlay, so it is told the typed form instead.
+    if (await prefersLoggedPanelsOrDefault(player)) {
+      return { type: 'output', message: `<span class="msg-system">A slim keypad wakes under your fingers. Type <b>keypad ${escAttr(disguise.name)} &lt;code&gt;</b> to enter the code.</span>` };
+    }
     return {
       type: 'conceal_keypad',
       furnitureId: disguise.id,

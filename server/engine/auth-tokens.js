@@ -115,11 +115,6 @@ export function signRememberToken(playerId) {
   return `${body}.${rememberMac(body)}`;
 }
 
-/** → playerId, or null when the token is forged, expired or revoked. */
-export function verifyRememberToken(raw) {
-  return readRememberToken(raw)?.playerId || null;
-}
-
 // → { playerId, issued, jti } for a valid token (jti is absent on tokens signed
 // before single use), or null.
 function readRememberToken(raw) {

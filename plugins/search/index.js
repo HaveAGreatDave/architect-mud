@@ -39,6 +39,7 @@
 import { gatherHook } from '../../server/engine/plugins.js';
 import { skillCheck, awardSkillUse } from '../../server/engine/skills.js';
 import { getZone } from '../../server/engine/world.js';
+import { pick } from '../../server/engine/util.js';
 
 // ---------------------------------------------------------------------------
 // Prose
@@ -57,8 +58,6 @@ const FAILURES = [
   'You check the corners, the gaps, the places things end up. The city has already been through here.',
   'You find a boot. One boot. You put it back roughly where you found it.',
 ];
-
-const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
 // ---------------------------------------------------------------------------
 // Cooldown

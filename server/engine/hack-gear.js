@@ -116,10 +116,6 @@ export async function getNullDevice(playerId) {
   });
 }
 
-export async function hasNullDevice(playerId) {
-  return !!(await getNullDevice(playerId));
-}
-
 const tagNum = (item, key) => {
   const n = Number(item?.tags?.[key]);
   return Number.isFinite(n) && n > 0 ? n : 0;

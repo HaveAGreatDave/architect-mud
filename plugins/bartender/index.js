@@ -39,6 +39,7 @@ import { sendToZone } from '../../server/engine/messaging.js';
 import { registerAction, dispatchAction } from '../../server/engine/actions.js';
 import { activeTables } from '../gametable/game-table.js';
 import { getZoneNowPlaying } from '../broadcast/index.js';
+import { pick, randInt } from '../../server/engine/util.js';
 
 // ── Tunables ──────────────────────────────────────────────────────────────────
 const NEW_PLAYER_MS     = 7 * 24 * 60 * 60 * 1000; // "first week or so"
@@ -300,9 +301,7 @@ const VOICES = {
 
 const voiceFor = (npc) => VOICES[npc?.id] || LOWRY_VOICE;
 
-const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 const fmt  = (line, name) => line.replace(/\{name\}/g, name || 'guest');
-const randInt = (min, max) => min + Math.floor(Math.random() * (max - min + 1));
 
 // Play a coworker exchange turn-by-turn, re-validating before each line: both must
 // still be on the floor, alive, and someone must still be around to witness it.

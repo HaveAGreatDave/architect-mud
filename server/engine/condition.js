@@ -351,7 +351,6 @@ const statContributors = new Map();
 export function registerStatContributor(fn, owner = 'unknown') {
   if (typeof fn === 'function') statContributors.set(owner, fn);
 }
-export function getStatContributors() { return [...statContributors.keys()]; }
 
 function contributedStat(player, stat) {
   let total = 0;

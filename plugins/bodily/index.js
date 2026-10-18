@@ -29,6 +29,7 @@ import './help.js';
 import { sendToPlayer, sendToZone, teachVerb } from '../../server/engine/messaging.js';
 import { coolSweat, coolSewerGrime, markWashed, checkFilthy } from '../../server/engine/hygiene.js';
 import { adjustRelation } from '../../server/engine/relations.js';
+import { pick } from '../../server/engine/util.js';
 
 // What counts as a toilet. Historically this only checked object_type==='toilet'
 // or a flags.toilet key, but most toilet furniture in content is typed 'furniture'
@@ -1494,8 +1495,6 @@ export const commands = {
   flush:    (args, raw, player)            => cmdFlush(args, player),
   shower:   (args, raw, player)            => cmdShower(player),
 };
-
-function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 
 const TOILET_PEE_MSGS = [
   `You use the toilet. Relief washes over you.`,

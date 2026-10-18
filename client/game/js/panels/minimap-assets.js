@@ -128,5 +128,3 @@ export function themeColor(name, fallback) {
 	_theme.set(name, out);
 	return out;
 }
-/** Drop the cache after a theme switch (main.js's theme applier calls this). */
-export function clearThemeCache() { _theme.clear(); notifyReady(); }

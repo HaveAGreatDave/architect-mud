@@ -15,7 +15,7 @@ import { textRender } from '../../server/engine/minigame.js';
 import { query } from '../../server/models/db.js';
 import { adjustCredits } from '../../server/engine/economy.js';
 import { getZone, getZonePlayers, getZoneNpcs, getZoneEnemies, getLivePlayer, getAllLivePlayers, spawnEnemySync, removeEnemyInstance, hasActivePlayers, world, insertFurniture, updateFurniture, deleteFurniture, getFurnitureById, getZoneFurniture } from '../../server/engine/world.js';
-import { resolveInventoryItem } from '../../server/engine/inventory.js';
+import { resolveInventoryItem, giveItemById } from '../../server/engine/inventory.js';
 // Pathing, stepping and neighbour lookups all left with `huntStep` — the search is
 // the engine's CHASE node now, so this plugin no longer moves anything itself.
 import { exitTargets } from '../../server/engine/exits.js';
@@ -183,15 +183,7 @@ async function cmdRetrieve(args, raw, player) {
   cameraBuffers.delete(furn.id);   // drop any in-memory rolling buffer for the pulled device
 
   if (itemId) {
-    const { rows: ex } = await query(
-      'SELECT id FROM player_inventory WHERE player_id=$1 AND item_id=$2 AND container_id IS NULL LIMIT 1',
-      [player.id, itemId]
-    );
-    if (ex.length) await query('UPDATE player_inventory SET quantity=quantity+1 WHERE id=$1', [ex[0].id]);
-    else await query(
-      'INSERT INTO player_inventory (id,player_id,item_id,quantity,condition) VALUES ($1,$2,$3,1,1.0)',
-      [randomUUID(), player.id, itemId]
-    );
+    await giveItemById(player.id, itemId);
   }
 
   return { type: 'output', message: `You pry the ${furn.name} loose and pocket it.` };
@@ -3036,7 +3028,6 @@ export async function hubDataFor(player) {
   const p = await buildHubPayload(player, true);
   return { net: p.net, tiles: p.tiles, alerts: p.alerts };
 }
-export function hasSpyDeck(playerId) { return playerHasSpyDeck(playerId); }
 
 // Your current heat, straight off the in-memory wanted runtime — no query, so the
 // tablet's home screen can read it on every render. Returns nulls-free zeros when
@@ -3163,16 +3154,6 @@ export async function selfDestructDevice(player, deviceId) {
   sendToZone(dev.zone_id, { type: 'zone_event', message:
     '<span class="text-dim">Something hidden nearby pops with a dry electrical snap. A thread of smoke unwinds from a seam in the wall.</span>' });
   return { ok: true };
-}
-
-// Clear a camera's live buffer without saving — the helper the tablet 'clear' action
-// reuses (same effect as the `wipe` verb, keyed by device id, owner-checked).
-export async function wipeCameraBuffer(player, deviceId) {
-  if (!deviceId) return false;
-  const { rows } = await query('SELECT 1 FROM security_devices WHERE id=$1 AND owner_id=$2', [deviceId, player.id]);
-  if (!rows.length) return false;
-  cameraBuffers.get(deviceId)?.reset();
-  return true;
 }
 
 // ── Patching a feed into a domestic screen ───────────────────────────────────

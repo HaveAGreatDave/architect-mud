@@ -51,6 +51,7 @@ import { rosterOf } from '../augments/state.js';
 import { getMutations } from '../../server/engine/mutations.js';
 import { isAwakened } from '../../server/engine/psionics.js';
 import { storedRank } from './state.js';
+import { clamp } from '../../server/engine/util.js';
 
 export const CHROME_COST = 12;      // ceiling lost per installed, working augment
 export const FLESH_PER_STEP = 20;   // …per this much total mutation expression
@@ -64,8 +65,6 @@ export const STAIN_HALF_LIFE_DAYS = 21;
 const STAIN_FLOOR = 1;
 // Don't dirty the row for rounding noise; the flush is coalesced, not chatty.
 const STAIN_WRITE_THRESHOLD = 1;
-
-const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
 // ── raw load ────────────────────────────────────────────────────────────────
 

@@ -55,6 +55,7 @@ import { gameToday } from '../../server/engine/apartments.js';
 import { emit } from '../../server/engine/events.js';
 import { query } from '../../server/models/db.js';
 import { normalizeRuns, coalesceRuns, renderStyled, decodePayload, safeFace } from './paint.js';
+import { escapeHtml as esc } from '../../server/engine/html.js';
 
 // One tag lives three game days. The clock is 1:1 by default (timeScale 1), so
 // that's three real days — long enough that a tag is worth putting up, short
@@ -81,8 +82,6 @@ export const CAN_CAPACITY = 120;
 // the shelf is full and you pick what goes, because the alternative is silently
 // eating the one somebody meant to keep.
 export const SAVE_CAP = 12;
-
-const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
 // --- The RAM authority ------------------------------------------------------
 

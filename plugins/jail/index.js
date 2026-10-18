@@ -127,14 +127,18 @@ function isContraband(itemId, tags) {
 // Bag confiscated contraband into the shared evidence locker, then evict the
 // oldest rows past the 50-item cap.
 async function lockUp(items, handle) {
-  for (const it of items) {
+  if (items.length) {
+    const params = [];
+    const rows = items.map((it) => {
+      const b = params.length;
+      params.push(randomUUID(), it.item_id, it.quantity, it.condition, JSON.stringify(it.custom_data || {}), handle || null);
+      return `($${b + 1},$${b + 2},$${b + 3},$${b + 4},$${b + 5},$${b + 6})`;
+    });
     await query(
       `INSERT INTO police_evidence (id, item_id, quantity, condition, custom_data, source_handle)
-       VALUES ($1,$2,$3,$4,$5,$6)`,
-      [randomUUID(), it.item_id, it.quantity, it.condition, JSON.stringify(it.custom_data || {}), handle || null]
+       VALUES ${rows.join(',')}`,
+      params
     );
-  }
-  if (items.length) {
     noteEvidenceAdded();   // the purge's clock (see purgeEvidence)
     await query(
       `DELETE FROM police_evidence WHERE id IN (
@@ -220,16 +224,21 @@ async function restoreHeld(playerId, held) {
       WHERE player_id = $1 AND item_id = $2`,
     [playerId, PRISON_JUMPSUIT]
   );
-  for (const it of items) {
-    await query(
-      `INSERT INTO player_inventory
-         (id, player_id, item_id, quantity, condition, is_equipped, slot, layer, custom_data, container_id)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
-      [randomUUID(), playerId, it.item_id, it.quantity ?? 1, it.condition ?? 1.0,
-       it.is_equipped ?? 0, it.slot ?? null, it.layer ?? 1,
-       JSON.stringify(it.custom_data || {}), it.container_id ?? null]
-    );
-  }
+  if (!items.length) return;
+  const params = [];
+  const rows = items.map((it) => {
+    const b = params.length;
+    params.push(randomUUID(), playerId, it.item_id, it.quantity ?? 1, it.condition ?? 1.0,
+      it.is_equipped ?? 0, it.slot ?? null, it.layer ?? 1,
+      JSON.stringify(it.custom_data || {}), it.container_id ?? null);
+    return `(${Array.from({ length: 10 }, (_, i) => `$${b + i + 1}`).join(',')})`;
+  });
+  await query(
+    `INSERT INTO player_inventory
+       (id, player_id, item_id, quantity, condition, is_equipped, slot, layer, custom_data, container_id)
+     VALUES ${rows.join(',')}`,
+    params
+  );
 }
 
 // ── Timers ───────────────────────────────────────────────────────────────────

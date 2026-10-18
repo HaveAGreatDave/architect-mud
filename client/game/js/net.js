@@ -4,6 +4,7 @@ import { appendMsg } from './render.js';
 import { autoLoginMessage, setRemember } from './remember.js';
 import { sessionGet, sessionRemove } from './session-store.js';
 import { rememberClientError } from './feedback-telemetry.js';
+import { emailProblem, suggestEmail } from '/shared/email-check.js';
 
 const WS_PROTOCOL = location.protocol === 'https:' ? 'wss:' : 'ws:';
 const WS_URL = `${WS_PROTOCOL}//${location.host}`;
@@ -324,6 +325,7 @@ export function doAuth() {
   if (!username || !password) { errEl.textContent = 'Username and password required.'; errEl.style.color = ''; return; }
   if (state.isRegister && !handle) { errEl.textContent = 'Handle required.'; errEl.style.color = ''; return; }
   if (state.isRegister && !email) { errEl.textContent = 'Email required.'; errEl.style.color = ''; return; }
+  if (state.isRegister && emailCaught(email, errEl)) return;
 
   if (_connection?.isConnecting()) {
     errEl.textContent = 'Still connecting to server... try again in a moment.';
@@ -400,6 +402,22 @@ export function doAuth() {
   }
 }
 
+// The address is the one field a player can't fix after registering if
+// verification is on, so it's checked before it leaves. A malformed address is
+// refused. A misspelt provider (gmial.com) is pointed out once; pressing
+// Register again with the same address sends it as typed, since the player may
+// really be on a domain one letter from Gmail's.
+let _warnedEmail = '';
+export function emailCaught(email, errEl) {
+  const bad = emailProblem(email);
+  const guess = !bad && suggestEmail(email);
+  if (!bad && (!guess || _warnedEmail === email)) return false;
+  _warnedEmail = email;
+  errEl.textContent = bad || `Did you mean ${guess}? Fix it, or press the button again to use ${email} as typed.`;
+  errEl.style.color = 'var(--red)';
+  return true;
+}
+
 // A guest sends only a name. The server answers like a login (auth_success),
 // then a remember token, which is this browser's only way back to the
 // character, so it's kept whatever the Remember box says.
@@ -431,7 +449,12 @@ export function showVerifyScreen(email, message) {
   document.getElementById('auth-screen').style.display = 'none';
   const screen = document.getElementById('verify-screen');
   screen.style.display = '';
-  document.getElementById('verify-message').textContent = message || 'Check your email for a verification link.';
+  // Name the address. A slightly wrong one is the usual reason nothing arrives,
+  // and the player can only spot it if they see it.
+  const where = email
+    ? ` It went to ${email}. If that's wrong, correct it below and press the button.`
+    : '';
+  document.getElementById('verify-message').textContent = (message || 'Check your email for a verification link.') + where;
   document.getElementById('verify-resend-email').value = email || '';
   document.getElementById('verify-error').textContent = '';
   // The auth screen just went display:none out from under the submit button, so
@@ -446,19 +469,27 @@ export async function doResendVerification() {
   const errEl = document.getElementById('verify-error');
   const btn = document.getElementById('verify-resend-btn');
   if (!email) { errEl.textContent = 'Enter your email address.'; errEl.style.color = 'var(--red)'; return; }
+  if (emailCaught(email, errEl)) return;
+  // The login the player just typed is still in the auth form. With it, the
+  // server finds the account by name and moves it to this address, which is how
+  // a mistyped address gets fixed. Without it (a saved login), resend can only
+  // look the address up, so a wrong one stays wrong.
+  const username = document.getElementById('auth-username').value.trim();
+  const password = document.getElementById('auth-password').value;
+  const byLogin = !!(username && password);
   btn.disabled = true;
   btn.textContent = 'Sending...';
   try {
-    const data = await fetch('/api/auth/resend-verification', {
+    const data = await fetch(byLogin ? '/api/auth/change-email' : '/api/auth/resend-verification', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email }),
+      body: JSON.stringify(byLogin ? { username, password, email } : { email }),
     }).then(r => r.json());
     if (data.error) {
       errEl.textContent = data.error;
       errEl.style.color = 'var(--red)';
     } else {
-      errEl.textContent = 'Sent. Check your inbox.';
+      errEl.textContent = data.email ? `Sent to ${data.email}. Check your inbox.` : 'Sent. Check your inbox.';
       errEl.style.color = 'var(--accent)';
     }
   } catch {

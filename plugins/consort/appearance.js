@@ -20,6 +20,8 @@
 // xmur3 + mulberry32: tiny, dependency-free, and stable across restarts — the
 // same seed string must produce the same consort forever, so Math.random() is
 // unusable here by construction.
+import { cap } from '../../server/engine/util.js';
+
 function xmur3(str) {
   let h = 1779033703 ^ str.length;
   for (let i = 0; i < str.length; i++) {
@@ -483,5 +485,3 @@ export function appearanceCard(a) {
   if (a.mod)  rows.push(['Chrome', cap(a.mod)]);
   return rows;
 }
-
-function cap(s) { return String(s || '').charAt(0).toUpperCase() + String(s || '').slice(1); }

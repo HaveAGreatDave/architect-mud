@@ -34,7 +34,6 @@ const knobs = new Set();          // live knob widgets to repaint
 const listeners = new Set();      // anything else that wants to know (the tablet tile)
 
 export function cbStateNow() { return { ...cb }; }
-export function onCbChange(fn) { listeners.add(fn); return () => listeners.delete(fn); }
 function announce() {
   for (const k of knobs) { try { k.paint(); } catch { /* a dead knob must not stop the rest */ } }
   for (const fn of listeners) { try { fn(cbStateNow()); } catch { /* ditto */ } }

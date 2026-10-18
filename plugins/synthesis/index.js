@@ -18,6 +18,7 @@
  * recipes/reagents/labs are content.
  */
 import { query, withTransaction } from '../../server/models/db.js';
+import { getSkillLevels } from '../../server/engine/ip.js';
 import { adjustSanity } from '../../server/engine/condition.js';
 import { textRender } from '../../server/engine/minigame.js';
 import { getRecipeCache, findRecipeByName } from '../../server/engine/crafting.js';
@@ -28,6 +29,8 @@ import { getDrugCache } from '../../server/engine/drugs.js';
 import { getFlag, setFlag } from '../../server/engine/flags.js';
 import { getTunable } from '../../server/engine/tunables.js';
 import { registerAction } from '../../server/engine/actions.js';
+import { escapeHtml } from '../../server/engine/html.js';
+import { prefersLoggedPanelsOrDefault } from '../../server/engine/presentation.js';
 import { randomUUID } from 'crypto';
 import { workspaceProvider } from './workspace.js';
 
@@ -140,9 +143,7 @@ async function cmdCook(args, raw, player, broadcast) {
   if (!recipe || recipe.skill_id !== SYNTH_SKILL) return { type: 'error', message: `You don't know how to cook "${name}".` };
 
   // Skill-rank gate (level + stat bonus), matching the crafting requirement style.
-  const { rows: skillRows } = await query('SELECT skill_id, ip FROM player_skills WHERE player_id=$1', [player.id]);
-  const levels = {};
-  for (const r of skillRows) levels[r.skill_id] = Math.floor((r.ip || 0) / 100);
+  const levels = await getSkillLevels(player.id);
   for (const [sid, minRank] of Object.entries(recipe.skill_req || {})) {
     if ((levels[sid] || 0) + skillStatBonus(player, sid) < minRank) {
       return { type: 'error', message: `You need ${sid.replace(/_/g, ' ')} rank ${minRank} to attempt this cook.` };
@@ -174,7 +175,8 @@ async function cmdCook(args, raw, player, broadcast) {
     recipeName: drug?.name || recipe.name,
     family, form: drug?.flags?.form || null, tier, difficulty,
     workspace: ws.label,
-  });
+    resultWords: { won: ['You hold the reaction steady to the end.', 'Clean batch.'], lost: ['The reaction runs away from you.', 'Spoiled.'] },
+  }, { skill: SYNTH_SKILL });
 }
 
 async function cmdSynthResolve(args, raw, player, broadcast) {
@@ -422,11 +424,14 @@ function badBatch(effects) {
 }
 
 
-async function cmdSplice(args, raw, player, broadcast) {
+// The designer's state, built once for both faces: the `splice_designer` panel and
+// the written bench a `log`-rung player reads (and anyone who types `splice show`).
+// Returns { error } when the player can't splice here at all.
+async function spliceBench(player) {
   const eff = await effectiveSkill(player, SYNTH_SKILL);
-  if (eff < SPLICE_MIN_SKILL) return { type: 'error', message: `Splicing is master's work: you need Chemistry ${SPLICE_MIN_SKILL}+ (you're at ${eff}).` };
+  if (eff < SPLICE_MIN_SKILL) return { error: `Splicing is master's work: you need Chemistry ${SPLICE_MIN_SKILL}+ (you're at ${eff}).` };
   const ws = await findWorkspace({ requires_station: 'chem_lab' }, player);
-  if (!ws || ws.mode !== 'lab') return { type: 'error', message: "Splicing needs a real chem lab: a cook kit can't hold the reaction." };
+  if (!ws || ws.mode !== 'lab') return { error: "Splicing needs a real chem lab: a cook kit can't hold the reaction." };
 
   const cache = getDrugCache();
   const { rows } = await query(
@@ -446,16 +451,219 @@ async function cmdSplice(args, raw, player, broadcast) {
     if (e.hallucination) blocks.hallucination = summariseHall(e.hallucination);
     if (Object.keys(blocks).length) drugs.push({ drug: r.drug_id, name: r.name, blocks, count: r.qty || 1, ...drugVisual(r.drug_id, cache[r.drug_id]) });
   }
-  if (drugs.length < 2) return { type: 'error', message: 'You need at least two different drugs on hand to splice.' };
-  const stab = await query('SELECT COALESCE(SUM(quantity),0)::int AS n FROM player_inventory WHERE player_id=$1 AND item_id=$2', [player.id, STABILIZER_ITEM]);
+  if (drugs.length < 2) return { error: 'You need at least two different drugs on hand to splice.' };
+  // Independent reads, so they go out together.
+  const [stab, { rows: kn }, three] = await Promise.all([
+    query('SELECT COALESCE(SUM(quantity),0)::int AS n FROM player_inventory WHERE player_id=$1 AND item_id=$2', [player.id, STABILIZER_ITEM]),
+    query('SELECT drug_id, times_used FROM player_drug_state WHERE player_id=$1 AND drug_id = ANY($2)', [player.id, drugs.map(d => d.drug)]),
+    allow3way(player),
+  ]);
   const stabilizerCount = stab.rows[0]?.n || 0;
 
   // familiarity: a drug's effects reveal with repeated use (learned-by-use)
-  const { rows: kn } = await query('SELECT drug_id, times_used FROM player_drug_state WHERE player_id=$1 AND drug_id = ANY($2)', [player.id, drugs.map(d => d.drug)]);
   const usedBy = {}; for (const k of kn) usedBy[k.drug_id] = k.times_used || 0;
   for (const d of drugs) d.known = Math.max(0.2, Math.min(1, 0.35 + (usedBy[d.drug] || 0) * 0.09));
 
-  return { type: 'splice_designer', drugs, minSkill: SPLICE_MIN_SKILL, baseDifficulty: SPLICE_BASE_DIFF, hasStabilizer: stabilizerCount > 0, stabilizerCount, allow3way: await allow3way(player) };
+  return { eff, drugs, stabilizerCount, allow3way: three };
+}
+
+function designerPayload(bench) {
+  return { type: 'splice_designer', drugs: bench.drugs, minSkill: SPLICE_MIN_SKILL, baseDifficulty: SPLICE_BASE_DIFF, hasStabilizer: bench.stabilizerCount > 0, stabilizerCount: bench.stabilizerCount, allow3way: bench.allow3way };
+}
+
+// ── The typed designer ───────────────────────────────────────────────────────
+// Everything the panel does has a verb, so a player can splice by typing, by
+// macro, or from the `log` rung, where there's no panel at all. The draft is the
+// panel's cradle held on the server: up to three { drug, qty } slots in order
+// (base, splice, splice-2) and a name. `splice begin` turns it into exactly the
+// payload the panel's SPLICE button sends, and hands it to the same cmdSpliceBegin,
+// so the odds, the costs and the product can't differ by interface. RAM only: a
+// draft is a few words of typing, not something worth a row.
+const spliceDrafts = new Map(); // playerId -> { slots: [{ drug, qty }], name }
+const NAME_MAX = 28;            // the panel's name field holds 28
+const SPLICE_SUBS_HELP = [
+  ['splice add <drug> [qty]', 'put a drug in the next slot: base first, then splice'],
+  ['splice remove <drug>', 'take it out again'],
+  ['splice qty <drug> <n>', 'how many doses of it go in'],
+  ['splice name <name>', 'name the compound'],
+  ['splice clear', 'empty the cradle'],
+  ['splice preview', 'difficulty, instability and what it will do'],
+  ['splice begin', 'start the reaction'],
+];
+
+function draftOf(player) {
+  let d = spliceDrafts.get(player.id);
+  if (!d) { d = { slots: [], name: '' }; spliceDrafts.set(player.id, d); }
+  return d;
+}
+
+// The panel's per-slot clamp: no more than you carry, and the server's batch cap.
+const slotLimit = (held) => Math.max(1, Math.min(MAX_BATCH, held?.count || 1));
+
+// The panel's payload, from a draft. Slots whose drug has left the inventory drop
+// out, as the panel only ever offers what you carry.
+function draftPayload(draft, bench) {
+  const keys = ['base', 'splice', 'splice2'];
+  const payload = {};
+  draft.slots
+    .map(s => ({ s, held: bench.drugs.find(d => d.drug === s.drug) }))
+    .filter(x => x.held)
+    .slice(0, bench.allow3way ? 3 : 2)
+    .forEach(({ s, held }, i) => { payload[keys[i]] = { drug: s.drug, qty: Math.min(s.qty, slotLimit(held)) }; });
+  if (draft.name) payload.name = draft.name;
+  return payload;
+}
+
+// The drug a typed name means, among the ones on the bench: exact name, then a
+// name that starts with it, then one that contains it. Two candidates at the same
+// tier is ambiguous, and says so rather than guessing.
+function matchDrug(words, drugs) {
+  const q = words.join(' ').trim().toLowerCase();
+  if (!q) return { error: 'Which drug?' };
+  for (const test of [(n) => n === q, (n) => n.startsWith(q), (n) => n.includes(q)]) {
+    const hits = drugs.filter(d => test(String(d.name).toLowerCase()));
+    if (hits.length === 1) return { drug: hits[0] };
+    if (hits.length > 1) return { error: `Which one: ${hits.map(h => h.name).join(', ')}?` };
+  }
+  return { error: `You don't have any "${escapeHtml(q)}" you can splice.` };
+}
+
+// A trailing number is a quantity: `splice add blue haze 3`.
+function splitQty(words) {
+  const last = words[words.length - 1];
+  if (words.length > 1 && /^\d+$/.test(last || '')) return { words: words.slice(0, -1), qty: parseInt(last, 10) };
+  return { words, qty: null };
+}
+
+const link = (cmd, label = cmd) => `<span class="action-link" data-raw-cmd="${escapeHtml(cmd)}">${escapeHtml(label)}</span>`;
+
+// What the panel's drug label shows, in words. Below 55% familiarity the panel
+// shows no effects at all; between that and 75% it scrambles them, which in text
+// is the block names without the numbers. A scramble read aloud is noise, and
+// showing the numbers would tell a typist more than the panel tells anyone.
+function drugLine(d) {
+  const blocks = Object.entries(d.blocks || {});
+  let fx;
+  if (d.known < 0.55) fx = 'effects unfamiliar: use it more to read them';
+  else if (d.known < 0.75) fx = `${blocks.map(([b]) => b).join(', ')} effects, hazy: use it more to read them`;
+  else fx = blocks.map(([b, s]) => `${b}: ${escapeHtml(s)}`).join('; ');
+  return `${escapeHtml(d.name)} ×${d.count}, ${d.form}. ${fx}.`;
+}
+
+// The written bench: the same state the panel draws.
+function benchText(bench, draft, note = '') {
+  const p = draftPayload(draft, bench);
+  const slotNames = ['Base', 'Splice', 'Splice 2'];
+  const filled = ['base', 'splice', 'splice2'].filter(k => p[k]);
+  const lines = [];
+  if (note) lines.push(note);
+  lines.push(`<b>Splice bench.</b> Chemistry ${bench.eff}. Stabilizer: ${bench.stabilizerCount ? `${bench.stabilizerCount} on hand, one per run` : 'none on hand, and you need one'}. ${bench.allow3way ? 'Three slots open.' : 'Two slots: a base and a splice.'}`);
+  lines.push('On hand:');
+  for (const d of bench.drugs) lines.push(`  ${drugLine(d)}`);
+  if (filled.length) {
+    lines.push('In the cradle:');
+    filled.forEach((k, i) => {
+      const held = bench.drugs.find(d => d.drug === p[k].drug);
+      lines.push(`  ${slotNames[i]}: ${escapeHtml(held.name)} ×${p[k].qty} (you have ${held.count}).`);
+    });
+  } else lines.push('The cradle is empty.');
+  lines.push(`Name: ${draft.name ? escapeHtml(draft.name) : 'none yet, so it takes the base drug\'s name'}.`);
+  lines.push(`<span class="text-dim">${SPLICE_SUBS_HELP.map(([c, what]) => `${link(c.replace(/ [<[].*$/, ''), c)}: ${what}`).join('. ')}.</span>`);
+  return { type: 'output', message: lines.join('\n') };
+}
+
+// The preview, in words: what the panel's risk readout says, plus the effects.
+function previewText(r) {
+  if (!r.ok) return { type: 'output', message: 'Put at least two drugs in the cradle first: a base and a splice.' };
+  const lines = [`<b>Preview.</b> Difficulty ${r.difficulty}. Instability ${Math.round(r.instability * 100)}%${r.instability >= 0.6 ? ', highly unstable' : ''}. Makes ${r.outputQty} dose${r.outputQty === 1 ? '' : 's'}; each counts as ${r.doseWeight} dose${r.doseWeight === 1 ? '' : 's'} and you overdose at ${r.odThreshold}.`];
+  for (const w of r.warnings || []) lines.push(`Warning: ${w}`);
+  lines.push(escapeHtml(r.summary));
+  return { type: 'output', message: lines.join('\n') };
+}
+
+async function cmdSplice(args, raw, player, broadcast) {
+  const words = (args || []).filter(Boolean);
+  const sub = (words[0] || '').toLowerCase();
+  const rest = words.slice(1);
+
+  if (sub === 'clear') { spliceDrafts.delete(player.id); return { type: 'output', message: 'You clear the cradle.' }; }
+  if (sub === 'help') return { type: 'output', message: SPLICE_SUBS_HELP.map(([c, what]) => `${c}: ${what}`).join('\n') };
+
+  const bench = await spliceBench(player);
+  if (bench.error) return { type: 'error', message: bench.error };
+  const draft = draftOf(player);
+  const logged = await prefersLoggedPanelsOrDefault(player);
+
+  // The panel, pre-filled with the draft, for anyone who can see it. A bare
+  // `splice` with nothing drafted is the panel exactly as it always opened.
+  const panel = (autoCommit = false, p = draftPayload(draft, bench)) => {
+    const msg = designerPayload(bench);
+    const drugs = ['base', 'splice', 'splice2'].filter(k => p[k]).map(k => ({ drug: p[k].drug, qty: p[k].qty, label: bench.drugs.find(d => d.drug === p[k].drug)?.name }));
+    if (drugs.length) msg.preset = { drugs, name: p.name || '', autoCommit };
+    return msg;
+  };
+
+  if (!sub || sub === 'show' || sub === 'status') {
+    if (!sub && !logged) return panel();
+    return benchText(bench, draft);
+  }
+
+  if (sub === 'add') {
+    const { words: w, qty } = splitQty(rest);
+    const m = matchDrug(w, bench.drugs);
+    if (m.error) return { type: 'error', message: m.error };
+    if (draft.slots.some(s => s.drug === m.drug.drug)) return { type: 'error', message: `${m.drug.name} is already in the cradle. Each slot needs a different drug.` };
+    const live = draft.slots.filter(s => bench.drugs.some(d => d.drug === s.drug));
+    const max = bench.allow3way ? 3 : 2;
+    if (live.length >= max) return { type: 'error', message: bench.allow3way ? "Three's the limit: a base and two splices." : "Two's the limit: a base and a splice." };
+    draft.slots = [...live, { drug: m.drug.drug, qty: Math.min(Math.max(1, qty || 1), slotLimit(m.drug)) }];
+    const role = draft.slots.length === 1 ? 'as the base' : 'as a splice';
+    return benchText(bench, draft, `You set ${escapeHtml(m.drug.name)} in the cradle ${role}.`);
+  }
+
+  if (sub === 'remove') {
+    const m = matchDrug(rest, bench.drugs.filter(d => draft.slots.some(s => s.drug === d.drug)));
+    if (m.error) return { type: 'error', message: draft.slots.length ? m.error : 'The cradle is empty.' };
+    draft.slots = draft.slots.filter(s => s.drug !== m.drug.drug);
+    return benchText(bench, draft, `You take ${escapeHtml(m.drug.name)} out of the cradle.`);
+  }
+
+  if (sub === 'qty' || sub === 'quantity') {
+    const { words: w, qty } = splitQty(rest);
+    if (qty == null) return { type: 'error', message: 'Usage: splice qty <drug> <number>' };
+    const m = matchDrug(w, bench.drugs.filter(d => draft.slots.some(s => s.drug === d.drug)));
+    if (m.error) return { type: 'error', message: draft.slots.length ? m.error : 'The cradle is empty.' };
+    const slot = draft.slots.find(s => s.drug === m.drug.drug);
+    slot.qty = Math.min(Math.max(1, qty), slotLimit(m.drug));
+    const capped = slot.qty < qty ? ` That's all ${m.drug.count < MAX_BATCH ? 'you have' : 'one batch takes'}.` : '';
+    return benchText(bench, draft, `${escapeHtml(m.drug.name)}: ${slot.qty} dose${slot.qty === 1 ? '' : 's'}.${capped}`);
+  }
+
+  if (sub === 'name') {
+    // Same filter cmdSpliceBegin applies, so what you see here is what gets made.
+    const typed = String(raw || '').replace(/^\s*\S+\s+name\s*/i, '');
+    draft.name = typed.replace(/[<>&"`]/g, '').replace(/\s+/g, ' ').trim().slice(0, NAME_MAX);
+    return benchText(bench, draft, draft.name ? `You'll call it ${escapeHtml(draft.name)}.` : 'Name cleared.');
+  }
+
+  if (sub === 'preview') {
+    return previewText(await splicePreviewResult(draftPayload(draft, bench)));
+  }
+
+  if (sub === 'begin' || sub === 'start') {
+    const payload = draftPayload(draft, bench);
+    if (!payload.splice) return { type: 'error', message: 'Put at least two drugs in the cradle first: a base and a splice.' };
+    // The panel won't commit without a name, so give the draft the one the server
+    // would have defaulted to, and both faces make the same thing.
+    if (!payload.name) payload.name = `${bench.drugs.find(d => d.drug === payload.base.drug).name} splice`.slice(0, NAME_MAX);
+    // The panel's commit path where there's a panel: it opens on the draft and
+    // presses SPLICE itself, so the reaction plays from the selection it shows.
+    if (!logged) return panel(true, payload);
+    const encoded = Buffer.from(JSON.stringify(payload)).toString('base64');
+    return cmdSpliceBegin([encoded], `splicebegin ${encoded}`, player, broadcast);
+  }
+
+  return { type: 'error', message: `Splice what? ${SPLICE_SUBS_HELP.map(([c]) => c).join(', ')}.` };
 }
 
 function summariseComposed(e) {
@@ -507,17 +715,32 @@ async function automatedStages(player) {
 }
 
 // Live preview as the player designs (reuses composeSplice — authoritative math).
-async function cmdSplicePreview(args, raw, player) {
-  let payload; try { payload = JSON.parse(Buffer.from(args[0] || '', 'base64').toString('utf8')); } catch { return { type: 'noop' }; }
+async function splicePreviewResult(payload) {
   const inputs = buildInputs(payload, getDrugCache());
   if (!inputs || inputs.length < 2) return { type: 'splice_preview', ok: false };
   const comp = composeSplice(inputs);
   return { type: 'splice_preview', ok: true, difficulty: comp.difficulty, instability: comp.instability, doseWeight: comp.doseWeight, odThreshold: comp.odThreshold, outputQty: comp.outputQty, warnings: comp.warnings, summary: summariseComposed(comp.effects) };
 }
 
+// At `log` there's no panel for the readout to land in, so it's written to the
+// log instead: the re-render shape, one result and two presentations.
+// The payload is read from `raw`, never `args`: the dispatcher lowercases args,
+// and lowercased base64 decodes to garbage, so every panel preview and splice
+// failed as "malformed" until this read the word as it was sent.
+function decodePayload(raw) {
+  const word = String(raw || '').trim().split(/\s+/)[1] || '';
+  return JSON.parse(Buffer.from(word, 'base64').toString('utf8'));
+}
+
+async function cmdSplicePreview(args, raw, player) {
+  let payload; try { payload = decodePayload(raw); } catch { return { type: 'noop' }; }
+  const r = await splicePreviewResult(payload);
+  return (await prefersLoggedPanelsOrDefault(player)) ? previewText(r) : r;
+}
+
 async function cmdSpliceBegin(args, raw, player, broadcast) {
   let payload;
-  try { payload = JSON.parse(Buffer.from(args[0] || '', 'base64').toString('utf8')); } catch { return { type: 'error', message: 'Malformed splice payload.' }; }
+  try { payload = decodePayload(raw); } catch { return { type: 'error', message: 'Malformed splice payload.' }; }
   // A splice name becomes the item's name, which other players see on shop
   // boards and in deals, and those render HTML: markup characters are dropped
   // here, as recipe names drop them (cooking/recipes.js dishName).
@@ -564,7 +787,8 @@ async function cmdSpliceBegin(args, raw, player, broadcast) {
     recipeName: name || `${inputs[0].name} splice`,
     difficulty: comp.difficulty, hard: true, instability: comp.instability, workspace: ws.label,
     automated, autoScore,
-  });
+    resultWords: { won: ['You hold the splice together while it takes.', 'It took.'], lost: ['The splice comes apart in your hands.', 'Failed.'] },
+  }, { skill: SYNTH_SKILL });
 }
 
 // Report card: the blended minigame+skill margin as a letter grade → potency.
@@ -823,7 +1047,7 @@ async function chemLabHub(f, player) {
 
 // Pure blend maths, exported for the regression suite (the minigame around it is
 // client-driven; this is the part with an opinion).
-export const _test = { composeSplice };
+export const _test = { composeSplice, spliceDrafts };
 
 export const hooks = {
   'furniture.describe': (f, player) => chemLabHub(f, player),

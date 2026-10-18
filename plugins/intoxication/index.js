@@ -29,6 +29,7 @@ import { on } from '../../server/engine/events.js';
 import { applyMods, reverseMods } from '../../server/engine/statmods.js';
 import { registerAction } from '../../server/engine/actions.js';
 import { wantsDrugFx } from '../../server/engine/drugs.js';
+import { pick } from '../../server/engine/util.js';
 
 // --- tunables ----------------------------------------------------------------
 const SLUR_MIN     = 30;   // speech starts slurring at/above this
@@ -100,7 +101,6 @@ const ROOM_STUMBLE = [
   "staggers in and grabs at the air for balance.",
 ];
 
-const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 const bandIndex = (lvl) => { let i = 0; for (let b = 0; b < BANDS.length; b++) if (lvl >= BANDS[b].at) i = b; return i; };
 
 // The band name for a meter level, for anything that wants to READ the state

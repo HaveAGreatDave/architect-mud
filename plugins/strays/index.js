@@ -44,6 +44,7 @@ import { adjustRelation } from '../../server/engine/relations.js';
 import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
 import { getEnvironmentState, getZonePrecip } from '../../server/engine/environment.js';
 import { query } from '../../server/models/db.js';
+import { pick } from '../../server/engine/util.js';
 
 // The day's weather with `currentPrecip` swapped for what is falling on THIS tile. Rain only
 // falls under a cell and never indoors, so off the headline she sheltered from rain in a dry
@@ -89,7 +90,6 @@ const WITNESS_SANITY    = -6;
 const WITNESS_WARMTH    = -12;
 
 const rand = (lo, hi) => lo + Math.random() * (hi - lo);
-const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
 // ─── Runtime state (RAM only, and that is correct) ─────────────────────────
 //

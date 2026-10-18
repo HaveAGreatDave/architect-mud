@@ -150,4 +150,3 @@ export function reconcilePanes(activeNames) {
   }
 }
 
-export function initPanes() { /* nothing to do at boot — panes are derived */ }

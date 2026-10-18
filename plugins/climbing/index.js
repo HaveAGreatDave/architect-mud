@@ -125,7 +125,9 @@ on('zone.entered', async ({ actor: player, opts }) => {
   const cost = climbCost(eff);
   player.stamina = Math.max(0, staminaOf(player) - cost);
   sendToPlayer(player.id, { type: 'resource_tick', player_update: { stamina: player.stamina } });
-  query('UPDATE players SET stamina=$1 WHERE id=$2', [player.stamina, player.id]).catch(() => {});
+  // Rides the position flush, which carries stamina: a write per climbed step
+  // was a round trip per move on scree.
+  player._posDirty = true;
   sendToPlayer(player.id, { type: 'output', message: '<span class="msg-system">You work your way up the loose face, testing every hold, and haul yourself onto it.</span>' });
 
   // Trained by doing, with no check to take a margin from — so it pays a flat,

@@ -493,7 +493,5 @@ export function classifyAnswer(question, text) {
 QUESTIONS.push(...MORE_QUESTIONS);
 DYNAMIC_QUESTIONS.push(...MORE_DYNAMIC);
 
-export const ALL_QUESTIONS = [...QUESTIONS, ...DYNAMIC_QUESTIONS];
-
 export const questionByKey = (key) =>
   QUESTIONS.find(q => q.key === key) || DYNAMIC_QUESTIONS.find(q => q.key === key) || null;

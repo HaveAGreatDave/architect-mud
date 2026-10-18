@@ -138,15 +138,11 @@ export function registerPsiAbility({
   });
 }
 
-export function getDiscipline(id) { return disciplines.get(id) || null; }
 export function getDisciplines() {
   return [...disciplines.values()].sort((a, b) => a.order - b.order);
 }
 export function getPsiAbility(id) { return abilities.get(id) || null; }
 export function getPsiAbilities() { return [...abilities.values()]; }
-export function abilitiesFor(discipline) {
-  return [...abilities.values()].filter(a => a.discipline === discipline);
-}
 export function abilityApplies(id, targetKind) {
   return !!abilities.get(id)?.appliesTo.has(targetKind);
 }

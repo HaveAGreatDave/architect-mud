@@ -35,10 +35,6 @@ const TTL_MS = 60 * 60 * 1000;
 let cache = null;         // { at, byItem: Map(item_id → [vendor]), vendors: [] }
 let inflight = null;
 
-// Exported for the regress suite and for anything that edits vendors — the dev
-// panel's NPC save is the one thing that can make this stale on purpose.
-export function invalidateStockists() { cache = null; }
-
 async function load() {
   const { rows } = await query(
     `SELECT id, name, vendor_shop_name, zone_id, vendor_inventory

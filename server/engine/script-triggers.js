@@ -144,10 +144,6 @@ async function runTrigger(t, actor, payload) {
   });
 }
 
-/** Introspection — used by the regress sweep and the dev panel. */
-export function getScriptTriggers() {
-  return [...TRIGGERS.values()].flat();
-}
 export function getTriggeredEvents() {
   return [...TRIGGERS.keys()];
 }

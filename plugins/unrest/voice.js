@@ -19,8 +19,7 @@
 // the content is.
 import { bearing } from '../../server/engine/map-text.js';
 import { allBlocks, blockInfo } from './blocks.js';
-
-const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+import { pick } from '../../server/engine/util.js';
 
 // The centre of the BUILT city, averaged over the cells the index actually
 // found — not the region's centre, which sits in 2,865 tiles of redrock waste.

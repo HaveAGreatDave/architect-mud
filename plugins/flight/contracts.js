@@ -16,6 +16,7 @@
 // in plugins/quests/index.js — so a player can't fake a delivery by walking there.
 
 import { randomUUID } from 'crypto';
+import { giveItemById } from '../../server/engine/inventory.js';
 import { query } from '../../server/models/db.js';
 import { getZone, liveAircraft, out, persist, fieldFor as fieldOf, isContinuous, pushContext, effLoadout, installedKits, BAND_BURN, REFUEL_PRICE_PER_UNIT, rentalOpFee, airfieldOf, fieldName } from './state.js';
 import { findPath } from '../../server/engine/pathfinding.js';
@@ -26,10 +27,10 @@ import { getFlag, setFlag } from '../../server/engine/flags.js';
 import { adjustCredits } from '../../server/engine/economy.js';
 import { registerPurchaseDelivery } from '../../server/engine/vendor.js';
 import { skillCheck, awardSkillUse } from '../../server/engine/skills.js';
+import { pick } from '../../server/engine/util.js';
 
 const nowSec = () => Math.floor(Date.now() / 1000);
 const cheb = (ax, ay, bx, by) => Math.max(Math.abs(ax - bx), Math.abs(ay - by));
-const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 const BOARD_TTL_S = 6 * 3600;       // an untaken posting is culled after this long
 const STALE_DONE_S = 24 * 3600;     // a turned-in/abandoned instance is swept after this long
 
@@ -741,9 +742,7 @@ async function deliverFenceDrop(player, live, d) {
   live.row.custom_data = cd; await persist(live);
   const manifest = d.contents || [];
   for (const m of manifest) {
-    const ex = await query('SELECT id FROM player_inventory WHERE player_id=$1 AND item_id=$2 AND container_id IS NULL LIMIT 1', [player.id, m.itemId]);
-    if (ex.rows.length) await query('UPDATE player_inventory SET quantity=quantity+$1 WHERE id=$2', [m.qty, ex.rows[0].id]);
-    else await query('INSERT INTO player_inventory (id,player_id,item_id,quantity) VALUES ($1,$2,$3,$4)', [randomUUID(), player.id, m.itemId, m.qty]);
+    await giveItemById(player.id, m.itemId, m.qty);
   }
   // Standing earned per pallet. Weighted by grade × volume, which lands at roughly a
   // flat 3–5 for any contraband pallet (units per pallet shrink as the tier climbs) and

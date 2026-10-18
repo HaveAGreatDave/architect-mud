@@ -83,12 +83,6 @@ function partEntries(enemy) {
   return out;
 }
 
-/** Wounds on an enemy instance, created lazily so untouched mobs allocate nothing. */
-export function enemyInjuries(enemy) {
-  if (!enemy) return null;
-  return enemy._injuries || null;
-}
-
 export function enemySeverity(enemy, part) {
   return enemy?._injuries?.get(part)?.sev || 0;
 }

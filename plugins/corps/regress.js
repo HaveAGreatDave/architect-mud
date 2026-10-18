@@ -2,7 +2,7 @@
 // Covers the corp-recruitment-poster `furniture.describe` branch: it claims only
 // `corp_poster` furniture and returns undefined for everything else, so the
 // posters plugin's own hook still runs (hook contract: last non-undefined wins).
-import { _corpPosterPitch, colorDistance, MIN_COLOR_DISTANCE, DESTABILIZE } from './index.js';
+import { _corpPosterPitch, consoleText, colorDistance, MIN_COLOR_DISTANCE, DESTABILIZE } from './index.js';
 import { CORP_ASSET_TYPES, ventureConsoleBlock, warehouseStoreCapacity } from './ventures.js';
 import { RACKET_BANDS, FEAR_HALFLIFE_DAYS, FEAR_CAP, fearNow, fearBand, racketConsoleBlock } from './rackets.js';
 
@@ -130,4 +130,12 @@ export default async function regress({ run, check }) {
   check('non-corp furniture → undefined (yields to other hooks)', _corpPosterPitch({ name: 'a chair', flags: { hero_poster: true } }) === undefined);
   check('flagless furniture → undefined', _corpPosterPitch({ name: 'a crate', flags: {} }) === undefined);
   check('null furniture → undefined (no throw)', _corpPosterPitch(null) === undefined);
+
+  // The log rung's console is the panel payload printed once, ending in the verbs.
+  const snap = consoleText({ org: { name: 'Regress <Co>', tag: 'RC' }, you: { rank: 'Boss' },
+    treasury: { balance: 500, income: 40, upkeep: 10 }, tierInfo: { tier: 1, memberCap: 6, members: 2, slots: 3, zones: 1 },
+    members: [{ online: true }, { online: false }], relations: [], territory: [{ zone: 'The Slip', status: 'HELD', influence: 60, challenger: null }] });
+  check('log console: a written snapshot, not a panel', snap.type === 'output' && /500₵/.test(snap.message) && /The Slip: HELD/.test(snap.message));
+  check('log console: escapes the corp name', /Regress &lt;Co&gt;/.test(snap.message));
+  check('log console: names the verbs', /corp help/.test(snap.message));
 }

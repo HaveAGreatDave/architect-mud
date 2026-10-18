@@ -938,6 +938,14 @@ export function podracerModelPose(pose, podHdg, p) {
   };
 }
 
+// The tank, as a share of it, a lit racer burns over dt seconds: an idle draw and the rest with the
+// spools. The seat and the text helm (plugins/podracer/texthelm.js) both burn through this, so the
+// two rungs run dry at the same moment.
+export function podracerBurn(s, p, dt) {
+  if (!s.running) return 0;
+  return (0.0005 + 0.0045 * (s.pedal[0] + s.pedal[1]) / 2) * (p.burn ?? 1) * dt;
+}
+
 export function podracerReadout(s, p) {
   return {
     speed: Math.round(s.speed),

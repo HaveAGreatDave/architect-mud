@@ -9,6 +9,7 @@
 import { query, withTransaction } from '../models/db.js';
 import { awardSkillUse, skillCheck, skillStatBonus } from './skills.js';
 import { emit } from './events.js';
+import { getSkillLevels } from './ip.js';
 import { isStackable } from './tags.js';
 
 // In-memory recipe cache. DB is the source of truth; this is just fast read access.
@@ -94,11 +95,7 @@ export async function checkCraftReady(player, recipeId, stationQuality = 'none')
   if (!recipe) return { ok: false, message: 'Unknown recipe.' };
 
   // Check skill requirements
-  const { rows: skillRows } = await query(
-    'SELECT skill_id, ip FROM player_skills WHERE player_id = $1', [player.id]
-  );
-  const playerSkills = {};
-  for (const r of skillRows) playerSkills[r.skill_id] = Math.floor((r.ip || 0) / 100);
+  const playerSkills = await getSkillLevels(player.id);
 
   for (const [skillId, minRank] of Object.entries(recipe.skill_req || {})) {
     if ((playerSkills[skillId] || 0) + skillStatBonus(player, skillId) < minRank) {

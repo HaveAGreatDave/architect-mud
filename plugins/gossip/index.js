@@ -29,6 +29,7 @@ import { sendToZone } from '../../server/engine/messaging.js';
 import * as pool from './pool.js';
 import { TEMPLATES, renderItem } from './templates.js';
 import { buildAliases, teamsNamed, fanReaction } from './team-talk.js';
+import { escapeHtml as esc } from '../../server/engine/html.js';
 
 // ── Tunables ────────────────────────────────────────────────────────────────
 const AMBIENT_CHANCE      = 0.06;     // per witnessed zone per tick, unprompted gossip
@@ -535,8 +536,6 @@ function gossipTick() {
 schedule('1m', () => { try { gossipTick(); } catch (e) { console.error('[gossip] tick error:', e.message); } });
 
 // ── Dev-panel route: live gossip pool inspector (read-only) ────────────────────
-const esc = (s) => String(s ?? '').replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
-
 export const routeHandler = async (path, method, body, auth) => {
   if (!path.startsWith('/gossip')) return null;
   if (!auth || !['dev', 'admin', 'builder', 'designer'].includes(auth.role)) {

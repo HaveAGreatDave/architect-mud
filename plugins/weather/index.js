@@ -173,18 +173,28 @@ function toDateString(value) {
   return String(value).slice(0, 10);
 }
 
+// Replace the stored forecast with `days` ([forecastDay, date, weatherType,
+// tempC, windKph, humidityPct] each): the DELETE, then every day in one INSERT.
+async function writeForecast(days) {
+  await query('DELETE FROM weather_forecast');
+  if (!days.length) return;
+  const values = days.map((_, i) => `(${[1, 2, 3, 4, 5, 6].map(k => `$${i * 6 + k}`).join(', ')})`);
+  await query(
+    `INSERT INTO weather_forecast (forecast_day, game_date, weather_type, temp_c, wind_kph, humidity_pct)
+     VALUES ${values.join(', ')}`,
+    days.flat()
+  );
+}
+
 // Always replaces all 7 days — no locking.
 async function regenerateFullForecast(startDate, climateProfile) {
-  await query('DELETE FROM weather_forecast');
+  const days = [];
   for (let i = 0; i < 7; i++) {
     const date = addDays(startDate, i);
     const { weatherType, tempC, windKph, humidityPct } = generateWeatherForDate(date, climateProfile);
-    await query(
-      `INSERT INTO weather_forecast (forecast_day, game_date, weather_type, temp_c, wind_kph, humidity_pct)
-       VALUES ($1, $2, $3, $4, $5, $6)`,
-      [i, date, weatherType, tempC, windKph, humidityPct]
-    );
+    days.push([i, date, weatherType, tempC, windKph, humidityPct]);
   }
+  await writeForecast(days);
 }
 
 async function loadForecast(setWeatherState, climateProfile) {
@@ -1303,14 +1313,8 @@ export const hooks = {
       { date: newDate, weatherType: generated.weatherType, tempC: generated.tempC, windKph: generated.windKph, humidityPct: generated.humidityPct, precipChance: generated.precipChance },
     ].map((f, i) => ({ ...f, forecastDay: i, severity: severityForForecast0(f.weatherType, f.tempC, f.windKph), ...heroFieldsFor(f.date) }));
 
-    await query('DELETE FROM weather_forecast');
-    for (const f of nextForecast) {
-      await query(
-        `INSERT INTO weather_forecast (forecast_day, game_date, weather_type, temp_c, wind_kph, humidity_pct)
-         VALUES ($1, $2, $3, $4, $5, $6)`,
-        [f.forecastDay, f.date, f.weatherType, f.tempC, f.windKph ?? 0, f.humidityPct ?? 60]
-      );
-    }
+    await writeForecast(nextForecast.map(f =>
+      [f.forecastDay, f.date, f.weatherType, f.tempC, f.windKph ?? 0, f.humidityPct ?? 60]));
     setWeatherState(nextForecast[0].weatherType, nextForecast[0].tempC, nextForecast);
     // Roll current precip against the new day's forecasted precipChance.
     rollAndSetCurrentPrecip(nextForecast[0].weatherType, nextForecast[0].tempC, nextForecast[0].precipChance ?? 0.05);

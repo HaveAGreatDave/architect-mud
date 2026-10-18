@@ -429,8 +429,20 @@ export async function cmdAttackDoor(dirStr, player, broadcast) {
 // (via the surveillance listener on `hololock.breached`).
 const HACK_LOCKOUT_MS = 5 * 60 * 1000;
 const HACK_PENDING_TTL_MS = 180 * 1000;
+// The `log` rung's lock is played a move at a time (client/shared/hololock-turns.js),
+// often by a screen reader, and 12 to 20 typed moves can run well past three
+// minutes. Expiring under a player who is still playing would void a won lock.
+const HACK_TURNS_TTL_MS = 20 * 60 * 1000;
 const hackLockout = new Map();  // playerId -> lockout-until ts
-const pendingHack = new Map();  // playerId -> { doorId, expires }
+const pendingHack = new Map();  // playerId -> { doorId, expires, turns }
+
+// A failed breach: the lockout, and the wear on the deck. Shared by a lost lock
+// and an abandoned turn-based one.
+async function tripBreach(player, lockTag) {
+  hackLockout.set(player.id, Date.now() + gameMsToReal(HACK_LOCKOUT_MS));
+  const deckMsg = await damageHackDeck(player.id);
+  return `The ${lockNoun(lockTag)}'s key sequence resets mid-spoof. Your deck is flagged: five-minute lockout.${deckMsg}`;
+}
 
 // The gate is the capability tag (`hack_device`), not a specific item id, and
 // WHICH deck answers decides how hard the lock reads and what a failure costs —
@@ -536,6 +548,19 @@ async function hackDoor(door, player, broadcast) {
   if (!(await hasHackDevice(player.id)))
     return { type:'error', message:`You need a hacking device to breach a ${lockNoun(lockTag)}.` };
 
+  // ⚠ AN ABANDONED TURN-BASED LOCK IS A TRIPPED ONE. That board announces the
+  // lock's capacity before the first move, so a player free to walk away from a
+  // bad roll and jack in again would only ever play the good one, and beat the
+  // dice its odds were calibrated to (docs/proposals/hololock-turn-based.md).
+  // Jacking in again with one unresolved costs what losing it would have,
+  // expired or not, since waiting out the window is the same walk-away.
+  const stale = pendingHack.get(player.id);
+  if (stale?.turns) {
+    pendingHack.delete(player.id);
+    const msg = await tripBreach(player, getLockTag(getDoorById(stale.doorId)) || lockTag);
+    return { type:'error', message:`You pulled your deck mid-sequence. ${msg}` };
+  }
+
   const lockedUntil = hackLockout.get(player.id) || 0;
   if (Date.now() < lockedUntil) {
     const secs = Math.ceil((lockedUntil - Date.now()) / 1000);
@@ -560,15 +585,19 @@ async function hackDoor(door, player, broadcast) {
     method: 'hack',
   });
 
-  pendingHack.set(player.id, { doorId: door.id, expires: Date.now() + HACK_PENDING_TTL_MS });
-  return textRender(player, {
+  // `turns`: the hololock has a turn-based game for the `log` rung, so textRender
+  // sends `render: 'turns'` there instead of rolling the dice for it.
+  const payload = await textRender(player, {
     type: 'hololock_game',
     doorId: door.id,
     deviceName: door.name || lockNoun(lockTag),
     skill: await effectiveSkill(player, 'hacking'),
     difficulty: await hackDifficulty(player.id, lockTag.difficulty),
     resolveCmd: 'hackresolve',
-  });
+  }, { turns: true });
+  const turns = payload?.render === 'turns';
+  pendingHack.set(player.id, { doorId: door.id, turns, expires: Date.now() + (turns ? HACK_TURNS_TTL_MS : HACK_PENDING_TTL_MS) });
+  return payload;
 }
 
 // SIFT picker replay for `hack` — the chosen candidate carries the resolved door.
@@ -587,9 +616,17 @@ async function cmdHackResolve(args, raw, player, broadcast) {
   // Must match a breach this player actually armed (anti-spoof), still fresh.
   const pending = pendingHack.get(player.id);
   pendingHack.delete(player.id);
-  if (!pending || pending.doorId !== doorId || Date.now() > pending.expires) return { type:'noop' };
-
+  if (!pending || pending.doorId !== doorId) return { type:'noop' };
   const door = getDoorById(doorId);
+  // A turn-based lock lost is tripped wherever you are and however long it took:
+  // the noops below would otherwise let a player walk out of the room, or wait
+  // out the window, and abandon a bad roll for free (see hackDoor).
+  if (pending.turns && !win) {
+    const lockTag = getLockTag(door);
+    return { type:'error', message: await tripBreach(player, lockTag) };
+  }
+  if (Date.now() > pending.expires) return { type:'noop' };
+
   if (!door) return { type:'noop' };
   // The door must still touch this zone and still be a locked, hackable lock.
   if (door.zone_id !== player.current_zone && !doorFarZoneIds(door).includes(player.current_zone))
@@ -605,9 +642,7 @@ async function cmdHackResolve(args, raw, player, broadcast) {
     // In-world lockout (the deck stays flagged) — scale the 5 game-minute cooldown
     // to real ms via the game-speed knob. (The pending-hack TTL above stays real:
     // it's the player's live minigame-completion window, not a world duration.)
-    hackLockout.set(player.id, Date.now() + gameMsToReal(HACK_LOCKOUT_MS));
-    const deckMsg = await damageHackDeck(player.id);
-    return { type:'error', message:`The ${lockNoun(lockTag)}'s key sequence resets mid-spoof. Your deck is flagged: five-minute lockout.${deckMsg}` };
+    return { type:'error', message: await tripBreach(player, lockTag) };
   }
 
   await updateDoor(door, { lock_state: 'unlocked' });

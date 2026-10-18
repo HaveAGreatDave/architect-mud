@@ -251,4 +251,3 @@ export function cardMintStruck(msg) {
   }, 1160);
 }
 
-export function closeCardMintPanel() { if (live) { live.close(); live = null; } }

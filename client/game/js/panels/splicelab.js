@@ -174,8 +174,13 @@ export function openSpliceSelect(msg) {
   game.qtyBase = 1; game.qtySplice = 1; game.qtySplice2 = 1;
   game.compoundName = '';
   game.difficulty = msg.baseDifficulty || 8;
+  // A typed draft (`splice add`, then `splice` or `splice begin`) arrives as a
+  // preset in the saved-recipe shape. It skips the power-up intro and lands in the
+  // cradle; with autoCommit it presses SPLICE too, so the reaction runs from the
+  // selection on screen, through the same commit the button uses.
+  game.preset = msg.preset || null;
   wireInput(game);
-  go(game, 'title');
+  go(game, game.preset ? 'select' : 'title');
   game.raf = requestAnimationFrame(loop);
 }
 
@@ -580,6 +585,11 @@ STAGES.select = {
     this._spillT = 0; this._alarmT = 0; this.lost = 0;
     this.mkBtns(); g.selected = []; this.sync();
     g.lab.ticker('');
+    if (g.preset) {
+      const { autoCommit, ...rec } = g.preset; g.preset = null;
+      this.loadRecipe(rec);
+      if (autoCommit && this.canCommit()) { this.commit(); return; }
+    }
     AX.loop('hood', { freq: 60, type: 'sawtooth', gain: .03, filt: 340, tremRate: 7, tremDepth: .3 });
   },
   exit() { AX.stop('hood'); game.lab.canvas.style.cursor = 'default'; },

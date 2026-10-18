@@ -384,6 +384,10 @@ export function pickLights(cam, sprites, night, held, slots = MAX_LIGHTS, keep =
   };
   const top = [];
   for (let j = 0; j < Math.min(slots, n); j++) top.push(make(idx[j]));
+  // The whole list, best first and every entry full, for the light grid (gl/lightgrid.js), which takes
+  // every light. Built only when read, so a frame with RENDER_TUNE.glCluster off allocates nothing; read
+  // it the same frame, since PL is reused. The wash splice below reorders the slots, never this.
+  const withAll = (res) => Object.defineProperty(res, 'all', { get: () => { const a = new Array(n); for (let j = 0; j < n; j++) a[j] = make(idx[j]); return a; } });
   const WASH = washSlots(slots);
   if (WASH > 0 && n > slots) {
     let have = 0;
@@ -397,10 +401,10 @@ export function pickLights(cam, sprites, night, held, slots = MAX_LIGHTS, keep =
         const j = want[k++], e = rest[j - slots];
         top[i] = e.p ? e : make(idx[j]);
       }
-      return top.concat(rest);
+      return withAll(top.concat(rest));
     }
   }
-  return n > slots ? top.concat(tail(slots)) : top;
+  return withAll(n > slots ? top.concat(tail(slots)) : top);
 }
 
 // Ramp each light's contribution toward its target and hand back the slots, weight applied. See the
@@ -1362,6 +1366,9 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   const dt = Math.min(LIGHT_DT_MAX, Math.max(0, tNow - (g.litT ?? tNow)));
   g.litT = tNow;
   let lightList = null;
+  // Every light, uncapped and unfaded, for the light grid (RENDER_TUNE.glCluster). Only the wet road
+  // reads it so far; everything else stays on `lightList`. See docs/proposals/glass-lights-and-taa.md.
+  let gridLights = null;
   // ⚠ CLAMPED TO THE COMPILED CEILING HERE AND NOWHERE ELSE. Everything downstream trusts this
   // number to be a real slot count; a tune value above MAX_LIGHTS would have pickLights ranking
   // lights into uniform slots the shader does not have, and context.js would silently drop them
@@ -1370,6 +1377,7 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   if (opts.glLights !== 0) {
     const ranked = pickLights(cam, opts.sprites, opts.night || 0, g.litHeld, SLOTS, g.litW);
     lightList = ranked ? fadeLights(ranked, g.litW, dt, SLOTS) : null;
+    if (opts.glCluster === 1 && ranked) gridLights = ranked.all || ranked;
     // The HELD set is what was WANTED this frame, not what is lit — an incumbent bonus given to a
     // light that is only still on screen because it is fading out would keep re-electing it.
     g.litHeld = ranked ? new Set(ranked.slice(0, SLOTS).map((e) => e.key)) : null;
@@ -1677,6 +1685,9 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
     // road reserves two of its six for washes and fills the rest with the best sources — the same
     // policy `WASH_SLOTS` applies one layer up, for the same reason.
     wetLights: roadLights(lightList),
+    // With the grid on, the streak, the glint and the pool take every light instead of the six and
+    // the slots (gl/lightgrid.js). The six above still feed the light shaft in the air.
+    gridLights,
     // The lamp pools take the whole list; the six above are the road's REFLECTION budget, and a
     // pool cut to them lit the ground only under the nearest lamps, which from the air was most.
     poolLights: lightList,
@@ -1851,6 +1862,6 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   // product of three things that can each be zero for a different reason — the tune, the wetness,
   // and whether the framebuffer was accepted — and a reflection that silently never ran looks
   // exactly like one that ran and was too faint to see.
-  return { interior, faces: g.faces || 0, builds, lights, lit: lightList || [], curtains, decals, decalBinds, strokes, scatter, solids, film, hazeFade, ship: (opts.ship || []).length, bay: (opts.bay || []).length, fauna: (opts.fauna || []).length, actors, bbTex: g.view.billboardTextures ? g.view.billboardTextures() : 0, ground, floor, wet: opts.glWet || 0, snow: opts.glSnow || 0, tracks: opts.tracks ? opts.tracks.n : 0, mirror: reflTex ? mirrorGain : 0, mirrorPeak: mirrorProbe, shadowSize: g.view.shadowSize || 0, hdr: graded, canvas: g.canvas };
+  return { interior, faces: g.faces || 0, builds, lights, lit: lightList || [], lightGrid: g.view.groundGrid ? g.view.groundGrid() : null,curtains, decals, decalBinds, strokes, scatter, solids, film, hazeFade, ship: (opts.ship || []).length, bay: (opts.bay || []).length, fauna: (opts.fauna || []).length, actors, bbTex: g.view.billboardTextures ? g.view.billboardTextures() : 0, ground, floor, wet: opts.glWet || 0, snow: opts.glSnow || 0, tracks: opts.tracks ? opts.tracks.n : 0, mirror: reflTex ? mirrorGain : 0, mirrorPeak: mirrorProbe, shadowSize: g.view.shadowSize || 0, hdr: graded, canvas: g.canvas };
 }
 
