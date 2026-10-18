@@ -702,7 +702,7 @@ The plan for linear colour, a GGX highlight, a prefiltered environment and per-t
 
 ### The material page (`RENDER_TUNE.glMatPage`)
 
-Off by default. On, the atlas gets a twin page at the same rects (unit 4): r glass coverage, g lit coverage, b 1 + the family of the tile's non-glass texels, with b = 0 meaning the page says nothing. The six skins with windows have a page (102 palettes: the default facade, the shopfront, curtain glass, the Spire, the Meridian, the pump); everything else falls back to its face's family and the brightness guess in the night dim. Four traps:
+On by default since 2026-10-18 (off on the phone tier). On, the atlas gets a twin page at the same rects (unit 4): r glass coverage, g lit coverage, b 1 + the family of the tile's non-glass texels, with b = 0 meaning the page says nothing. The six skins with windows have a page (102 palettes: the default facade, the shopfront, curtain glass, the Spire, the Meridian, the pump); everything else falls back to its face's family and the brightness guess in the night dim. Four traps:
 
 - The page and the albedo share each skin's layout and lit test (`paneLit`, `curtainGrid`, `spireLayout` and the rest beside `wallTex`). Don't write a second loop: a page one texel off shades a stripe of wall as glass.
 - b is constant across a tile. The page is minified with LINEAR filtering, and a blend of two family indices is a third, unrelated family. Glass is r, mixed by the shader; never a second family in b.
@@ -711,7 +711,7 @@ Off by default. On, the atlas gets a twin page at the same rects (unit 4): r gla
 
 ### Linear light (`RENDER_TUNE.glLinear`)
 
-Off by default; 1 makes the float target linear, 2 also lights the city's own shader in linear (gl/colour.js, and stage 2 of [glass-materials.md](../proposals/glass-materials.md)). Traps:
+Level 1 by default since 2026-10-18 (0 on the phone tier); 1 makes the float target linear, 2 also lights the city's own shader in linear (gl/colour.js, and stage 2 of [glass-materials.md](../proposals/glass-materials.md)). Traps:
 
 - Only the float target is ever linear. Eight bits of linear light band in the darks, so the mirror buffer, the room drawn alone, the sky pass and every 8-bit intermediate keep display values. A new pass that binds its own target sets `LIN.out` for it.
 - A new fragment shader that draws into the float target goes through `linearOut` and calls `applyLinOut` after `useProgram`, or at level 1 it is the one layer still blending in display values.
@@ -720,7 +720,7 @@ Off by default; 1 makes the float target linear, 2 also lights the city's own sh
 
 ### Sky reflections and the GGX highlight (`RENDER_TUNE.glEnvCube`, `glGGX`)
 
-Off by default. `glEnvCube` reflects a cube of the sky (gl/envcube.js) instead of the two-colour gradient, blurred by roughness; `glGGX` swaps the Phong highlight for a GGX lobe with the same peak. Traps:
+Both on by default since 2026-10-18 (off on the phone tier). `glEnvCube` reflects a cube of the sky (gl/envcube.js) instead of the two-colour gradient, blurred by roughness; `glGGX` swaps the Phong highlight for a GGX lobe with the same peak. Traps:
 
 - The sky has one definition, `SKY_DIR_GLSL` in gl/sky.js, used by the sky pass and the cube. Change the sky there, or the glass reflects a different sky from the one above it.
 - The one deliberate difference is the glow right round the sun. The sky pass passes `SUN_LOBE_SKY` (about 2° to half strength) and the cube `SUN_LOBE_CUBE` (about 6°), because at 32 texels a face the cube can't hold a 2° lobe without it flickering between texels. The old 6° lobe in the sky clipped to a white disc twenty times the sun's size.
@@ -730,7 +730,7 @@ Off by default. `glEnvCube` reflects a cube of the sky (gl/envcube.js) instead o
 
 ### The surface page (`RENDER_TUNE.glSurfPage`)
 
-Off by default. A third atlas page (unit 6): r height, g a roughness scale, b = 255 where it speaks. Every wall and roof surface has one (`wallSurf`, `roofSurf`) except the four speckled facades with no `FACADE_MAT` entry; the relief reads height there instead of brightness. Traps:
+On by default since 2026-10-18 (off on the phone tier). A third atlas page (unit 6): r height, g a roughness scale, b = 255 where it speaks. Every wall and roof surface has one (`wallSurf`, `roofSurf`) except the four speckled facades with no `FACADE_MAT` entry; the relief reads height there instead of brightness. Traps:
 
 - A painter and its height twin share their geometry through the generators above `matGrain` (materials) and above `wallTex` (skins and roofs). Change where a joint falls there, not in the painter, or the relief embosses the brick and leaves the mortar flat.
 - A new painter or skin needs a twin in `surfOf` or `SURF_TWIN`. `wallTexSmoke` fails a surface without one; without that check it would quietly read brightness again.
