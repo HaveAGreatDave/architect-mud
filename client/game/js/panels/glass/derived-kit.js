@@ -568,6 +568,10 @@ const KIT_DECLINE = { meridian: ['signRoof', 'wall', 'pier'],   // 'wall' and 'p
   // No Regerts is one lit strip up a dark wall and Fine Print one high band of glass: each draws its
   // own windows, once, and the kit's grid round them is what made both read as an ordinary block.
   tattooist: ['wall'], lending_library: ['wall', 'ground'],
+  // The Cherry Pit is a windowless box with a loud front, and its prose says so. The kit glazed the
+  // walls, and stood a NIGHTCLUB hoarding on the roof to repeat in a stranger's hand what the cherry
+  // over the door already says. A strip club's roof is the one part of it nobody is meant to look at.
+  strip: ['wall', 'signRoof', 'stair'],
   // ⚠ AND FOUR ARMS THAT DRAW THEIR OWN DOOR (glass/entrance.js), whose lowest box is not a shop.
   // The kit hung its shopfront and a second doorway inside the forge's hearth, across the
   // substation's palisade, under the library's lintel and on the glasshouse's plinth. Each now has

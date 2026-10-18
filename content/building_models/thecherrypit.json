@@ -1,28 +1,22 @@
 {
   "adorn": [
     {
-      "cx": 0,
-      "cy": 0,
-      "kind": "blinkLight",
-      "r": 1.5,
-      "rgb": "255,60,150",
-      "z": 0.82
+      "cx": 0.15,
+      "cy": 0.54,
+      "day": 0,
+      "kind": "glowPool",
+      "rgb": "255,40,80",
+      "s": 10,
+      "z": 0.01
     },
     {
-      "cx": -0.2,
-      "cy": 0.47,
+      "cx": -0.13,
+      "cy": 0.5,
+      "day": 0,
       "kind": "glowPool",
-      "rgb": "255,50,150",
-      "s": 20,
-      "z": 0.02
-    },
-    {
-      "cx": 0.2,
-      "cy": 0.47,
-      "kind": "glowPool",
-      "rgb": "180,60,255",
-      "s": 18,
-      "z": 0.02
+      "rgb": "255,60,140",
+      "s": 9,
+      "z": 0.01
     }
   ],
   "basis": {
@@ -39,146 +33,287 @@
     {
       "cx": 0,
       "cy": 0,
-      "half": 0.44,
-      "hh": 0.015,
+      "half": 0.4,
+      "hh": 0.016,
       "kind": "parapet",
-      "pal": "ty_club",
-      "z": 0.343
+      "pal": "ty_cherry_dk",
+      "z": 0.36
     },
     {
-      "cx": 0,
-      "cy": 0.44,
-      "half": 0.32,
-      "hh": 0.011,
+      "bars": 1,
+      "cx": 0.15,
+      "cy": 0.49,
+      "depth": 0.008,
+      "door": 1,
+      "glass": "#3a0e18",
+      "glow": "#ff5a86",
+      "half": 0.038,
+      "hh": 0.086,
+      "kind": "windowBay",
+      "pal": "ty_precast_dk",
+      "z": 0.088
+    },
+    {
+      "cx": 0.15,
+      "cy": 0.49,
+      "half": 0.085,
+      "hh": 0.008,
       "kind": "canopy",
-      "out": 0.105,
-      "pal": "ty_club",
-      "soffit": "#a01a5e",
-      "strip": "#ff9ad8",
-      "z": 0.257
+      "out": 0.055,
+      "pal": "ty_cherry_dk",
+      "soffit": "#2a0a10",
+      "strip": "#ff4f7a",
+      "z": 0.205
     },
     {
-      "cx": -0.34,
-      "cy": 0.46,
+      "art": "cherrypit",
+      "cx": 0,
+      "cy": 0.43,
+      "half": 0.24,
+      "hh": 0.17,
+      "kind": "neonArt",
+      "z": 0.48
+    },
+    {
+      "art": "livegirls",
+      "cx": -0.13,
+      "cy": 0.436,
+      "half": 0.1,
+      "hh": 0.105,
+      "kind": "neonArt",
+      "z": 0.155
+    },
+    {
+      "art": "xxx",
+      "cx": 0.15,
+      "cy": 0.436,
+      "half": 0.07,
+      "hh": 0.042,
+      "kind": "neonArt",
+      "z": 0.258
+    },
+    {
+      "art": "xxx",
+      "cx": -0.14,
+      "cy": 0.4,
+      "face": "x",
+      "half": 0.1,
+      "hh": 0.06,
+      "kind": "neonArt",
+      "z": 0.24
+    },
+    {
+      "art": "xxx",
+      "cx": -0.14,
+      "cy": -0.4,
+      "face": "x",
+      "half": 0.1,
+      "hh": 0.06,
+      "kind": "neonArt",
+      "z": 0.24
+    },
+    {
+      "color": "#ff2a5a",
+      "cx": 0,
+      "cy": 0.43,
+      "half": 0.26,
+      "kind": "neonRun",
+      "z": 0.664
+    },
+    {
+      "band": "#c8203c",
+      "count": 4,
+      "cx": -0.06,
+      "cy": 0.52,
       "kind": "bollard",
-      "pal": "ty_club",
-      "z": 0.004
+      "pal": "ty_precast_dk",
+      "step": 0.055,
+      "z": 0
     },
     {
-      "cx": 0.34,
-      "cy": 0.46,
-      "kind": "bollard",
-      "pal": "ty_club",
-      "z": 0.004
+      "cx": -0.37,
+      "cy": -0.4,
+      "kind": "pipe",
+      "pal": "ty_precast_dk",
+      "r": 0.006,
+      "z0": 0,
+      "z1": 0.36
     },
     {
-      "color": "#140a12",
-      "cx": -0.24,
-      "cy": 0.44,
-      "font": "script",
-      "half": 0.11,
-      "hh": 0.028,
-      "ink": "#ff9ad8",
-      "kind": "signBoard",
-      "label": "PIT",
-      "picto": "martini",
-      "z": 0.298
+      "cx": 0.24,
+      "cy": -0.4,
+      "drip": 1,
+      "hh": 0.035,
+      "kind": "vent",
+      "pal": "ty_precast_dk",
+      "w": 0.05,
+      "z": 0.25
     },
     {
-      "bars": 2,
-      "cx": -0.23,
-      "cy": 0.44,
-      "depth": 0.023,
-      "glass": "#1a0f18",
-      "glow": "#ffd0ea",
-      "half": 0.13,
-      "hh": 0.09,
+      "bars": 1,
+      "cx": 0.12,
+      "cy": -0.4,
+      "depth": 0.006,
+      "door": 1,
+      "glass": "#2a2426",
+      "glow": "#6a5040",
+      "half": 0.04,
+      "hh": 0.085,
       "kind": "windowBay",
-      "pal": "ty_club",
-      "z": 0.138
+      "pal": "ty_precast_dk",
+      "z": 0.085
     },
     {
-      "bars": 2,
-      "cx": 0.23,
-      "cy": 0.44,
-      "depth": 0.023,
-      "glass": "#1a0f18",
-      "glow": "#ffd0ea",
-      "half": 0.13,
-      "hh": 0.09,
-      "kind": "windowBay",
-      "pal": "ty_club",
-      "z": 0.138
+      "cx": 0.26,
+      "cy": -0.42,
+      "d": 0.024,
+      "hh": 0.032,
+      "kind": "binStack",
+      "n": 3,
+      "pal": "ty_precast_dk",
+      "w": 0.03,
+      "z": 0
+    },
+    {
+      "cx": 0.26,
+      "cy": -0.06,
+      "d": 0.05,
+      "hh": 0.03,
+      "kind": "acUnit",
+      "pal": "ty_precast_dk",
+      "w": 0.06,
+      "z": 0.36
+    },
+    {
+      "cx": -0.2,
+      "cy": -0.24,
+      "d": 0.045,
+      "hh": 0.026,
+      "kind": "acUnit",
+      "pal": "ty_precast_dk",
+      "w": 0.05,
+      "z": 0.515
     },
     {
       "cx": 0,
-      "cy": 0.44,
-      "depth": 0.023,
-      "door": 2,
-      "glass": "#1a0f18",
-      "glow": "#ffd0ea",
-      "half": 0.055,
-      "hh": 0.11,
-      "kind": "windowBay",
-      "pal": "ty_club",
-      "transom": 0.8,
-      "z": 0.11
+      "cy": 0.4,
+      "face": "x",
+      "kind": "grime",
+      "w": 0.26,
+      "z": 0.36
+    },
+    {
+      "cx": 0.2,
+      "cy": -0.4,
+      "kind": "grime",
+      "w": 0.12,
+      "z": 0.36
     }
   ],
   "id": "thecherrypit",
-  "neon": "#ff2e8e",
-  "note": "A club on the swanky west strip, and low enough that a tower trick would look silly on it. The form is a CROSS instead: a square main floor with a second one turned thirty degrees through it at the same height, so the plan has eight corners and the roofline steps round itself, under a faceted drum. It is the same coincident-box idea as chromeclinic.json used sideways — there for a chamfer, here deliberately coarse enough to read as two buildings jammed together, which is what the room description has always said the place is. RENDER_TUNE.legacyArms puts the strip arm back.",
-  "pal": "ty_club",
+  "neon": "#ff2a5a",
+  "note": "THE CHERRY PIT, on the corner of Cinder Lane and Filament Street. The room description is the brief: a windowless block of breeze-block painted arterial red, a padded vinyl door, and a pink neon cherry over it that has lost its stem and half its lower curve. So the building is a plain one-storey hall with a stage block behind it, and every bit of noise is on one false front bolted across the street face: the cherry and the name at the top, LIVE GIRLS to the left of the door, XXX over it, and a queue rail on the pavement. All three signs are neonArt with flashers (client/shared/neon-signs.js); the cherry's stem and lower curve are dead glass, and the stem catches for a blink once a cycle.\n\nIt replaced a violet cross-plan with a chrome drum, which read as a casino and was the loudest thing on a street of brick terraces even by day. The walls here are dull on purpose: by day it is a red box you would walk past, and at night the front is the only thing on the corner.\n\n⚠ NO WINDOWS, AND THE KIT IS TOLD SO. `KIT_DECLINE.strip` shuts the kit's `wall` section (it glazed the hall) and its `signRoof` (a NIGHTCLUB hoarding on legs, repeating the cherry in a stranger's hand). `ty_cherry` is in BRICK_WALL for the same reason: FACADE_MAT would paint a window grid on it.\n\n⚠ THE FALSE FRONT IS ITS OWN BOX, proud of the hall by 0.03, so every sign on it sits on a wall that exists at that plane. A sign authored on the hall's face at 0.40 would be inside it.",
+  "pal": "ty_cherry",
   "replaces": "strip",
   "segs": [
     {
       "cx": 0,
       "cy": 0,
-      "hw": 0.44,
-      "kind": "box",
-      "roof": true,
-      "z0": 0,
-      "z1": 0.343
-    },
-    {
-      "cx": 0,
-      "cy": 0,
+      "fd": 0.4,
       "hw": 0.4,
       "kind": "box",
+      "pal": "ty_cherry",
       "roof": true,
-      "z0": 0.12,
-      "z1": 0.46
+      "z0": 0,
+      "z1": 0.36
     },
     {
-      "cx": 0,
-      "cy": 0,
-      "hw": 0.34,
+      "cx": -0.08,
+      "cy": -0.19,
+      "fd": 0.18,
+      "hw": 0.27,
       "kind": "box",
+      "pal": "ty_cherry_dk",
       "roof": true,
-      "yaw": 0.52,
-      "z0": 0.12,
-      "z1": 0.46
+      "z0": 0,
+      "z1": 0.5
     },
     {
-      "cx": 0,
-      "cy": 0,
+      "cx": -0.08,
+      "cy": -0.19,
+      "fd": 0.19,
       "hw": 0.28,
       "kind": "box",
+      "pal": "ty_precast_dk",
       "roof": true,
-      "z0": 0.46,
-      "z1": 0.7
+      "z0": 0.5,
+      "z1": 0.515
     },
     {
-      "cap": true,
       "cx": 0,
-      "cy": 0,
-      "kind": "drum",
-      "n": 10,
-      "pal": "ty_volt_chrome",
-      "rb": 0.2,
-      "rt": 0.15,
-      "z0": 0.7,
-      "z1": 0.82
+      "cy": 0.415,
+      "fd": 0.015,
+      "hw": 0.27,
+      "kind": "box",
+      "pal": "ty_cherry",
+      "roof": true,
+      "z0": 0,
+      "z1": 0.68
+    },
+    {
+      "cx": 0,
+      "cy": 0.415,
+      "fd": 0.024,
+      "hw": 0.28,
+      "kind": "box",
+      "pal": "ty_cherry_dk",
+      "roof": true,
+      "z0": 0.68,
+      "z1": 0.6980000000000001
+    },
+    {
+      "cx": 0.15,
+      "cy": 0.46,
+      "fd": 0.03,
+      "hw": 0.065,
+      "kind": "box",
+      "pal": "ty_cherry_dk",
+      "roof": true,
+      "z0": 0,
+      "z1": 0.2
+    },
+    {
+      "cx": 0.15,
+      "cy": 0.5,
+      "fd": 0.012,
+      "hw": 0.07,
+      "kind": "box",
+      "pal": "ty_precast_dk",
+      "roof": true,
+      "z0": 0,
+      "z1": 0.012
+    },
+    {
+      "cx": -0.13,
+      "cy": 0.433,
+      "fd": 0.003,
+      "hw": 0.1,
+      "kind": "box",
+      "pal": "ty_stack_dk",
+      "roof": true,
+      "z0": 0.052,
+      "z1": 0.258
+    },
+    {
+      "cx": 0.15,
+      "cy": 0.433,
+      "fd": 0.003,
+      "hw": 0.072,
+      "kind": "box",
+      "pal": "ty_stack_dk",
+      "roof": true,
+      "z0": 0.214,
+      "z1": 0.302
     }
   ]
 }
