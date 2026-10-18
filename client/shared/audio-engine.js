@@ -3614,6 +3614,75 @@ return out;
       return ch.lines.reduce((m, l) => Math.max(m, l.end - ctx.currentTime), 0);
     }
 
+    // ── The worklet back end (a prototype) ───────────────────────────────────
+    // `backend: 'worklet'` on a speak() swaps the phoneme→audio stage and nothing else.
+    // The loop in speak() schedules exactly what it schedules for the graph, but into
+    // RECORDERS that stand in for the source-side nodes (glottis, formant bank, nasal zero,
+    // noise paths, voicing gains). After the loop the recorders are sampled into one
+    // parameter track per control, a frame every WK.frame seconds, with Web Audio's own
+    // setTargetAtTime/setValueAtTime semantics, and the tracks go to oracle-worklet.js,
+    // which runs an LF glottal pulse per cycle into a Klatt-style cascade. The output
+    // stage (ring, presence, compressor, drive, PA) is the same real nodes for both.
+    //
+    // Only the dev panel's Voice Lab asks for it. Until the module has loaded in the live
+    // context a worklet line falls back to the graph, and speak() says which one it used.
+    const WK_TRACK = ['f0', 'jitA', 'jitB', 'av', 'ah', 'af', 'f1', 'f2', 'f3', 'f4', 'q1', 'q2', 'q3', 'q4',
+      'nf', 'nq', 'nzf', 'nzdb', 'tilt', 'closure'];   // ⚠ the same list, in the same order, as TRACK in oracle-worklet.js
+    const WK = {
+      frame: 0.005,     // track resolution, s
+      cascK: 0.10,      // the cascade's level against the frication branch (a cascade peaks
+                        // at F1/B1 over its DC gain; the graph's bank is unity at each peak).
+                        // Set so both back ends read within ~1 dB on the Voice Lab's level line
+      srcK: 1, aspK: 1, fricK: 1, closureK: 1,
+      bwK: 1,           // every formant bandwidth, scaled
+      tiltK: 1,         // the graph's tilt corner, scaled, becomes the LF return phase
+      rk: 0.72,         // tp / te: where the flow peaks within the open phase
+      oqEffort: 0.12,   // open quotient falls this much per unit of voicing over 0.8
+      oqBreath: 1.0,    // and rises this much per unit of aspiration
+      cycJitter: 0.5,   // per-cycle random jitter, as a share of the LFO jitter depth
+      shimmer: 0.02,    // per-cycle amplitude spread
+    };
+    let _wkUrl = _SELF_SRC ? new URL('oracle-worklet.js', _SELF_SRC).href : '';
+    const _wkState = new WeakMap();   // context -> true | false | Promise
+    function loadOracleWorklet(c) {
+      c = c || ensureContext();
+      if (!c || !c.audioWorklet || !_wkUrl) return Promise.resolve(false);
+      if (_wkState.has(c)) return Promise.resolve(_wkState.get(c));
+      const p = c.audioWorklet.addModule(_wkUrl).then(() => { _wkState.set(c, true); return true; },
+        (e) => { _wkState.set(c, false); console.warn('[voice] worklet back end unavailable:', e && e.message); return false; });
+      _wkState.set(c, p);
+      return p;
+    }
+    // An AudioParam that remembers what it was told.
+    class RecParam {
+      constructor(v) { this.v0 = v; this.ev = []; }
+      get value() { return this.v0; }
+      set value(v) { this.v0 = v; }
+      setValueAtTime(v, t) { this.ev.push({ k: 0, v, t }); return this; }
+      setTargetAtTime(v, t, tc) { this.ev.push({ k: tc > 0 ? 1 : 0, v, t, tc }); return this; }
+      // Web Audio's timeline: events in time order (ties in the order they were made), a
+      // target approached from wherever the param was when the event began.
+      sample(t0, frames, step, out, col, stride) {
+        const ev = this.ev.slice().sort((a, b) => a.t - b.t);
+        let v = this.v0, act = null, j = 0;
+        const valAt = (t) => act ? act.v + (act.from - act.v) * Math.exp(-(t - act.t) / act.tc) : v;
+        for (let n = 0; n < frames; n++) {
+          const ft = t0 + n * step;
+          while (j < ev.length && ev[j].t <= ft) {
+            const e = ev[j++];
+            v = valAt(e.t);
+            if (e.k === 0) { v = e.v; act = null; } else act = { v: e.v, tc: e.tc, t: e.t, from: v };
+          }
+          out[n * stride + col] = valAt(ft);
+        }
+      }
+    }
+    const recNode = () => ({
+      frequency: new RecParam(0), Q: new RecParam(1), gain: new RecParam(1), detune: new RecParam(0),
+      connect: (x) => x, disconnect() {}, start() {}, stop() {}, setPeriodicWave() {},
+    });
+    const REC = { createOscillator: recNode, createGain: recNode, createBiquadFilter: recNode, createBufferSource: recNode };
+
     // ── A matchup, said the way a booth says it ──────────────────────────────
     // "Wharf Rats–Warlords" is two clubs, and a booth reads it "Wharf Rats versus
     // Warlords". An en dash between two names reads that way only for a voice that
@@ -3721,6 +3790,13 @@ return out;
       // 'ui' is a DRY bus (see busFor). Read Aloud is the caller, and a screen
       // reader carrying the room's reverb is harder to understand, not richer.
       const out = busFor(ui ? 'ui' : 'tv_voice');
+      // Which back end makes the sound (see WK above). `S` builds the source side: real
+      // nodes for the graph, recorders for the worklet.
+      const wk = opt.backend === 'worklet' && _wkState.get(c) === true && typeof global.AudioWorkletNode === 'function';
+      if (opt.backend === 'worklet' && !wk) loadOracleWorklet(c);
+      const S = wk ? REC : c;
+      // (the worklet's closed-tract crossfade; the graph does the same with the bank's gains)
+      const closure = wk ? new RecParam(0) : null;
 
       const master = c.createGain(); master.gain.value = 0.9 * (ui ? 1 : Math.max(0, Math.min(1, opt.gain ?? 1)));
       const ringGain = c.createGain(); ringGain.gain.value = 1 - ringAmt;
@@ -3802,13 +3878,13 @@ return out;
         voiceTail.connect(out);
       }
 
-      const glot = c.createOscillator(); glot.frequency.value = F0;
+      const glot = S.createOscillator(); glot.frequency.value = F0;
       glot.setPeriodicWave(glottalWave(c, Math.max(0.4, Math.min(0.85, V.oq + D.oq))));
       // The tilt filter used to be the ONLY thing standing in for glottal roll-off,
       // so it had to sit low (3.4k) and dulled the consonants along with the buzz.
       // The source now rolls off on its own, correctly, so this backs off to a
       // gentle top-end tame rather than a corrective.
-      const tilt = c.createBiquadFilter();
+      const tilt = S.createBiquadFilter();
       tilt.type = 'lowpass'; tilt.frequency.value = 5200; tilt.Q.value = 0.4;
       // JITTER + SHIMMER. A single LFO on F0 is vibrato, and vibrato is a *musical*
       // gesture — it reads as a synthesiser holding a note. Real jitter is aperiodic.
@@ -3816,10 +3892,10 @@ return out;
       // inside a phrase, which is enough to break the tone. Shimmer (the amplitude
       // half of the same roughness) rides the master gain, and matters more than its
       // size suggests: perfectly steady loudness is the other half of "machine".
-      const jit = c.createOscillator(); jit.type = 'triangle'; jit.frequency.value = 9;
-      const jitG = c.createGain(); jitG.gain.value = F0 * V.jitter * D.jitter; jit.connect(jitG).connect(glot.frequency);
-      const jit2 = c.createOscillator(); jit2.type = 'sine'; jit2.frequency.value = 6.3;
-      const jit2G = c.createGain(); jit2G.gain.value = F0 * V.jitter * 0.6 * D.jitter; jit2.connect(jit2G).connect(glot.frequency);
+      const jit = S.createOscillator(); jit.type = 'triangle'; jit.frequency.value = 9;
+      const jitG = S.createGain(); jitG.gain.value = F0 * V.jitter * D.jitter; jit.connect(jitG).connect(glot.frequency);
+      const jit2 = S.createOscillator(); jit2.type = 'sine'; jit2.frequency.value = 6.3;
+      const jit2G = S.createGain(); jit2G.gain.value = F0 * V.jitter * 0.6 * D.jitter; jit2.connect(jit2G).connect(glot.frequency);
       // GROWL. Audio-rate FM on the glottal source at HALF F0 — period doubling,
       // which is the actual mechanism behind creak and vocal fry: alternate cycles
       // come out at a different amplitude and the ear stops reading one clean
@@ -3864,28 +3940,28 @@ return out;
       // is what diplophonia — two pitches from one throat — actually is.
       let growlOsc = null, growl2Osc = null;
       if (growlAmt > 0) {
-        growlOsc = c.createOscillator();
+        growlOsc = S.createOscillator();
         growlOsc.type = OSC_WAVES.includes(V.growlWave) ? V.growlWave : 'sine';
         growlOsc.frequency.value = F0 * (V.growlRatio ?? 0.5);
-        const growlG = c.createGain(); growlG.gain.value = F0 * growlAmt;
+        const growlG = S.createGain(); growlG.gain.value = F0 * growlAmt;
         growlOsc.connect(growlG).connect(glot.frequency);
         if (V.growl2 > 0) {
-          growl2Osc = c.createOscillator();
+          growl2Osc = S.createOscillator();
           growl2Osc.type = OSC_WAVES.includes(V.growl2Wave) ? V.growl2Wave : 'sine';
           growl2Osc.frequency.value = F0 * (V.growl2Ratio ?? 1.5);
-          const g2 = c.createGain(); g2.gain.value = F0 * V.growl2;
+          const g2 = S.createGain(); g2.gain.value = F0 * V.growl2;
           growl2Osc.connect(g2).connect(glot.frequency);
         }
       }
-      const shim = c.createOscillator(); shim.type = 'sine'; shim.frequency.value = 5.1;
-      const shimG = c.createGain(); shimG.gain.value = 0.05; shim.connect(shimG).connect(master.gain);
+      const shim = S.createOscillator(); shim.type = 'sine'; shim.frequency.value = 5.1;
+      const shimG = S.createGain(); shimG.gain.value = 0.05; shim.connect(shimG).connect(master.gain);
       // VOICING sits at the SOURCE, ahead of the tract. It used to gate the bank's OUTPUT,
       // which cut every resonance dead at a voiceless consonant (a real tract rings out) and
       // left nothing for noise to excite: aspiration and /h/ had to be faked as a fixed band
       // beside the formants instead of breath through them. See `aspG` below.
-      const voiced = c.createGain(); voiced.gain.value = 0;
+      const voiced = S.createGain(); voiced.gain.value = 0;
       glot.connect(voiced).connect(tilt);
-      const tract = c.createGain(); tract.gain.value = 1;   // the bank's sum
+      const tract = S.createGain(); tract.gain.value = 1;   // the bank's sum
       // FOUR formants, not three. F4 is fixed high energy that the ear reads as
       // "a mouth", and its absence is a large part of why three-formant synths
       // sound like a kazoo. Q comes down across the board too: the old 10/13/16
@@ -3907,10 +3983,15 @@ return out;
       // than two written from the same idea. The handles come back because this
       // caller does something a static layer never does: it glides every band
       // across the utterance, phoneme to phoneme.
-      const bank = buildResonatorBank(tilt, tract, [0,1,2,3].map(k => {
+      const bands = [0,1,2,3].map(k => {
         const f = k === 3 ? 3600 : 500;
         return { freq: f, q: qFor(f, k), gain: k === 0 ? 1 : 0.4 };
-      }));
+      });
+      const bank = wk ? bands.map(b => {
+        const filter = REC.createBiquadFilter(), gain = REC.createGain();
+        filter.frequency.value = b.freq; filter.Q.value = b.q; gain.gain.value = b.gain;
+        return { filter, gain };
+      }) : buildResonatorBank(tilt, tract, bands);
       const forms = bank.map(b => b.filter), fgain = bank.map(b => b.gain);
 
       // ── Cascade-derived formant amplitudes ───────────────────────────────────
@@ -3978,11 +4059,11 @@ return out;
       // why the old table (three formant triples and a gain drop) rendered all three
       // as the same hum. A peaking filter with negative gain is a serviceable zero.
       // It sits on the voiced path only — fricative noise never goes through the nose.
-      const nzero = c.createBiquadFilter();
+      const nzero = S.createBiquadFilter();
       nzero.type = 'peaking'; nzero.frequency.value = 1500; nzero.Q.value = 4; nzero.gain.value = 0;
       tract.connect(nzero).connect(master);
 
-      const nz = c.createBufferSource(); nz.buffer = speechNoise(c); nz.loop = true;
+      const nz = S.createBufferSource(); nz.buffer = speechNoise(c); nz.loop = true;
       // ── Noise shaping: keep the peak, lose the spill ─────────────────────────
       // A single bandpass is 2-pole, so its skirts fall at only 6dB/octave and a
       // fricative sprays energy right across the spectrum either side of the band
@@ -3997,9 +4078,9 @@ return out;
       // The lowpass then removes the "air" above ~9kHz. English fricatives carry
       // essentially no contrastive information up there — /s/ peaks around 4–8k —
       // so it is pure hiss with nothing to lose by cutting it.
-      const nbp = c.createBiquadFilter(); nbp.type = 'bandpass'; nbp.frequency.value = 4000; nbp.Q.value = 3;
-      const nbp2 = c.createBiquadFilter(); nbp2.type = 'bandpass'; nbp2.frequency.value = 4000; nbp2.Q.value = 3;
-      const nlp = c.createBiquadFilter(); nlp.type = 'lowpass'; nlp.frequency.value = 9000; nlp.Q.value = 0.7;
+      const nbp = S.createBiquadFilter(); nbp.type = 'bandpass'; nbp.frequency.value = 4000; nbp.Q.value = 3;
+      const nbp2 = S.createBiquadFilter(); nbp2.type = 'bandpass'; nbp2.frequency.value = 4000; nbp2.Q.value = 3;
+      const nlp = S.createBiquadFilter(); nlp.type = 'lowpass'; nlp.frequency.value = 9000; nlp.Q.value = 0.7;
       // One helper so the two bandpasses can never drift apart — they must always
       // describe the same band or the cascade stops being a sharper version of it.
       const setNoiseBand = (f, q, when, tc) => {
@@ -4008,7 +4089,7 @@ return out;
           n.Q.setValueAtTime(q, when);
         }
       };
-      const noiseG = c.createGain(); noiseG.gain.value = 0;
+      const noiseG = S.createGain(); noiseG.gain.value = 0;
       nz.connect(nbp).connect(nbp2).connect(nlp).connect(noiseG).connect(master);
       // ASPIRATION: the same noise into the TRACT, so it comes out shaped by the formants
       // exactly as the voice does. That is what /h/ is (the /h/ of "he" and of "who" differ
@@ -4016,7 +4097,7 @@ return out;
       // vowel coming, which is half of how a listener hears which stop it was), and what
       // breath is. The frication path above is for noise made at a CONSTRICTION: fricatives
       // and the bursts of stops, which have their own spectra and bypass the tract.
-      const aspG = c.createGain(); aspG.gain.value = 0;
+      const aspG = S.createGain(); aspG.gain.value = 0;
       nz.connect(aspG).connect(tilt);
 
       // A queued line starts after the last one on its channel, one line gap on.
@@ -4051,6 +4132,7 @@ return out;
           // phoneme boundary, and the balance shift is part of the transition cue.
           fgain[k].gain.setTargetAtTime(A[k], when, k0);
         }
+        if (closure) closure.setTargetAtTime(0, when, k0);
       };
       // A CLOSED TRACT: the voice bar under /b d g/ and the voicing under /v z/. With the
       // mouth shut only the lowest resonance radiates (through the cheeks and throat), so F1
@@ -4066,6 +4148,7 @@ return out;
         forms[2].frequency.setTargetAtTime(L[2] * fshift, when, 0.012);
         fgain[0].gain.setTargetAtTime(MURMUR_F1, when, 0.006);
         for (let k = 1; k < 4; k++) fgain[k].gain.setTargetAtTime(keep, when, 0.006);
+        if (closure) closure.setTargetAtTime(1, when, 0.006);
       };
       // A breath in before a big call: you hear the caller fill his lungs, then it comes.
       // Through an open, neutral tract, like any breath.
@@ -4571,6 +4654,33 @@ return out;
       if (growl2Osc) src.push(growl2Osc);
       src.forEach(n => n.start(t0));
       src.forEach(n => n.stop(end+0.1));
+      // THE WORKLET'S HANDOFF. Everything the loop above scheduled is in the recorders;
+      // sample them into tracks from t0 and send them, with the line's constants.
+      if (wk) {
+        const frames = Math.ceil((end + 0.1 - t0) / WK.frame) + 1, NP = WK_TRACK.length;
+        const tracks = new Float32Array(frames * NP);
+        const P = {
+          f0: glot.frequency, jitA: jitG.gain, jitB: jit2G.gain, av: voiced.gain, ah: aspG.gain, af: noiseG.gain,
+          f1: forms[0].frequency, f2: forms[1].frequency, f3: forms[2].frequency, f4: forms[3].frequency,
+          q1: forms[0].Q, q2: forms[1].Q, q3: forms[2].Q, q4: forms[3].Q,
+          nf: nbp.frequency, nq: nbp.Q, nzf: nzero.frequency, nzdb: nzero.gain, tilt: tilt.frequency, closure,
+        };
+        WK_TRACK.forEach((key, col) => P[key].sample(t0, frames, WK.frame, tracks, col, NP));
+        const node = new global.AudioWorkletNode(c, 'oracle-voice', { numberOfInputs: 0, numberOfOutputs: 1,
+          outputChannelCount: [1], processorOptions: { seed: (hashName(String(opt.seed || text)) >>> 0) || 1 } });
+        const lineStats = opt.stats && typeof opt.stats === 'object' ? opt.stats : null;
+        node.port.onmessage = (e) => { if (e.data?.type === 'done' && lineStats) Object.assign(lineStats, e.data); };
+        node.port.postMessage({ type: 'line', frames, frame: WK.frame, t0, tracks, k: {
+          ...WK, f0: F0, fshift, oq: Math.max(0.4, Math.min(0.85, V.oq + D.oq)),
+          growl: growlAmt, growlRatio: V.growlRatio ?? 0.5, growl2: growlAmt > 0 ? (V.growl2 || 0) : 0, growl2Ratio: V.growl2Ratio ?? 1.5,
+          lpA: 1 - Math.exp(-2 * Math.PI * 9000 / c.sampleRate),
+        } }, [tracks.buffer]);
+        node.connect(master);
+        // cancel() stops a line by calling stop() with no time; the line ends itself.
+        src.length = 0;
+        src.push(lfo, { stop: (when) => { if (when !== undefined) return; node.port.postMessage({ type: 'stop' }); try { node.disconnect(); } catch { /* gone */ } } });
+      }
+      if (opt.tap && typeof opt.tap.connect === 'function') master.connect(opt.tap);
       // Ducks for this line's length: the TV under Read Aloud, and whatever
       // buses the caller named in `duck` ({ buses, dB }, or a list of buses at
       // -9 dB).
@@ -4586,7 +4696,7 @@ return out;
       // count and wait that long regardless, so a line that finished early left dead
       // air; handing back the truth lets them follow the voice instead of a timer.
       // `delay` is how long a queued line waits before it starts.
-      return { duration: end - t0, delay: t0 - c.currentTime, channel: chName };
+      return { duration: end - t0, delay: t0 - c.currentTime, channel: chName, backend: wk ? 'worklet' : 'graph' };
     }
 
     // Debug hook for the voice lab: the phoneme run a line will actually produce,
@@ -4600,7 +4710,8 @@ return out;
         return ph;
       } finally { _lex = null; }
     };
-    return { speak, cancel, left, readerDuck, tuning: TUNING, phonemesFor, estimate: estimateDuration, voiceFor: voiceFromName, phones: () => Object.keys(PH) };
+    return { speak, cancel, left, readerDuck, tuning: TUNING, phonemesFor, estimate: estimateDuration, voiceFor: voiceFromName, phones: () => Object.keys(PH),
+      wk: WK, loadWorklet: loadOracleWorklet, setWorkletUrl: (u) => { _wkUrl = u || ''; } };
   })();
 
   global.AudioEngine = {
@@ -4653,6 +4764,14 @@ return out;
     // spoken picks it up. Used by the voice lab (the dev panel's Voice Lab tab)
     // and read by tv.js for the inter-line gap.
     voiceTuning: Speech.tuning,
+    // ORACLE's worklet back end, a prototype the Voice Lab A/Bs against the node graph:
+    // a Promise of true once its module is loaded in the live context (speak() with
+    // `backend: 'worklet'` falls back to the graph until then), its constants (mutate and
+    // the next line picks them up), and where to load it from when this file wasn't
+    // loaded by a <script> tag.
+    loadVoiceWorklet: () => Speech.loadWorklet(),
+    voiceWorkletTuning: Speech.wk,
+    _setVoiceWorkletUrl: (url) => Speech.setWorkletUrl(url),
     _phonemesFor: (text, opt) => Speech.phonemesFor(text, opt),
     // One narrator's parameters, without speaking. Exposed because the draw ORDER
     // in voiceFromName is load-bearing — a field inserted above an existing one

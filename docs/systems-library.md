@@ -693,6 +693,34 @@ moving it far means refitting the hold or lines land on top of the voice. And
 `lineGapMs` lives here rather than in `tv.js` precisely so there is one pacing
 number, not two in different files quietly disagreeing.
 
+### The worklet back end and the rhyme test (prototype)
+
+The lab's **back end** select picks what turns the scheduled targets into sound. The
+default is the node graph that ships. `worklet` is a prototype in
+[`client/shared/oracle-worklet.js`](../client/shared/oracle-worklet.js): a
+Liljencrants-Fant glottal pulse built per cycle (open quotient, return phase, jitter and
+shimmer drawn per period), a Klatt cascade of five resonators for voicing and
+aspiration, a parallel band for frication and bursts, and a nasal pole-zero pair.
+Nothing in the game asks for it; `speak(text, { backend: 'worklet' })` does, and falls
+back to the graph until the module has loaded (the result's `backend` says which ran).
+
+Only the last stage swaps. In worklet mode `speak()` builds recorders in place of the
+source-side nodes, the same loop schedules the same targets into them, and they're
+sampled into 5 ms tracks with Web Audio's own `setTargetAtTime` semantics. The output
+chain (ring, presence, compressor, drive, PA) is the same real nodes for both. The
+tracks are listed twice, as `WK_TRACK` in the engine and `TRACK` in the worklet, and
+must stay in the same order. The worklet's constants are `AudioEngine.voiceWorkletTuning`.
+`cascK` sets its level and was matched to within about 1 dB of the graph on the lab's
+level line, because the louder of two voices tends to win an A/B.
+
+**A/B this line** plays the line on the graph and then on the worklet. The **Modified
+Rhyme Test** section runs House et al.'s 50 six-word sets in a carrier phrase, each set
+once per back end in a shuffled order, with the back end hidden until the run ends. It
+reports % correct, the score corrected for guessing ((R − W/5) / N), and initial against
+final consonant sets, and keeps the last 20 runs in the browser's storage. The sets were
+typed from the published list (25 vary the first consonant, 25 the last), so check a set
+against ANSI S3.2 before quoting a score.
+
 ### Rebuilding the dictionary
 
 [`scripts/content/build-formant-dict.mjs`](../scripts/content/build-formant-dict.mjs)
