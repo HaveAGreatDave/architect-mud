@@ -9,6 +9,8 @@
 // WHAT IT GUARDS:
 //   • a Read Aloud line doesn't stop a TV line, and a TV line doesn't stop Read Aloud
 //   • a new line on a channel replaces the last one on that channel only
+//   • a 'scene' line (an umpire, a stadium's PA) neither stops the TV nor is stopped by it;
+//     speechLeft() counts each channel's lines; `gain` sets a line under the others
 //   • `queue: true` waits behind the line speaking, and the queue is short
 //   • cancelSpeech('ui') stops Read Aloud only; cancelSpeech() still stops everything
 //   • a Read Aloud line ducks the tv bus for its own length
@@ -83,8 +85,22 @@ check('queue: each waits behind the one before', q3.res && q2.res && q3.res.dela
 const q4 = say('One too many.', { seed: 'announcer', queue: true });
 check('queue: it holds three waiting lines and no more', q4.res === null && q4.src.length === 0, JSON.stringify(q4.res));
 
+// The scene channel: voices inside a broadcast's picture (an umpire, a public address), beside
+// the booth rather than in its way.
+const sc1 = say('STRIKE!', { seed: 'umpire', channel: 'scene' });
+check('a scene line speaks and reports its channel', sc1.res && sc1.res.channel === 'scene', JSON.stringify(sc1.res));
+check('a scene line does not stop the TV', live(tv2) && !cancelled(q1));
+check('a scene line rides the tv voice sub-gain', sc1.made.some(n => n.out.some(e => e.dst === G.tvVoice)));
+check('speechLeft counts each channel\'s own lines', A.speechLeft('scene') > 0 && A.speechLeft('tv') > A.speechLeft('scene') && A.speechLeft('ui') === 0,
+  `${A.speechLeft('tv')} ${A.speechLeft('scene')} ${A.speechLeft('ui')}`);
+const sc2 = say('SAFE!', { seed: 'umpire', channel: 'scene', gain: 0.5 });
+check('a new scene line replaces the last scene line', cancelled(sc1));
+check('and leaves the TV speaking', live(tv2));
+check('`gain` sets a line under the others', sc2.made.some(n => n.kind === 'gain' && near(n.gain.value, 0.45)) && !sc1.made.some(n => n.kind === 'gain' && near(n.gain.value, 0.45)));
+
 A.cancelSpeech();
-check('cancelSpeech() with no channel stops everything', cancelled(tv2) && cancelled(q1) && cancelled(q3));
+check('cancelSpeech() with no channel stops everything', cancelled(tv2) && cancelled(q1) && cancelled(q3) && cancelled(sc2));
+check('speechLeft is 0 once a channel is stopped', A.speechLeft('tv') === 0 && A.speechLeft('scene') === 0);
 
 // ── logreader.js ──────────────────────────────────────────────────────────────
 const calls = [];

@@ -12397,6 +12397,32 @@ html[data-density="compact"][data-pane-claimed] #mobile-hud { display: none; }
 }
 .gdr-glow:hover, .gdr-glow:focus-visible { border-color: rgba(159,228,255,0.8); }
 .gdr-glow[aria-pressed="true"] { color: #6bb8ff; border-color: rgba(107,184,255,0.85); box-shadow: 0 0 10px rgba(107,184,255,0.55); }
+/* the fullscreen button takes the corner, so the glow sits beside it */
+.gdr-rink:has(.view-fs) .gdr-glow { right: 42px; }
+/* Fullscreen for a sports view (view-fullscreen.js): the bottom corner of Deadball's park and the
+   rink, faint until the picture's hovered, since the park's graphics use that corner too. */
+.view-fs {
+	position: absolute; right: 8px; bottom: 8px; z-index: 9; width: 28px; height: 28px; padding: 0;
+	display: flex; align-items: center; justify-content: center; cursor: pointer;
+	border-radius: 4px; border: 1px solid rgba(160,190,220,0.35); background: rgba(6,10,16,0.62); color: #9fb0c0;
+	opacity: 0.35; transition: opacity 0.2s;
+}
+.gds-park:hover .view-fs, .gdr-rink:hover .view-fs, #tv-gameday:hover > .view-fs, .view-fs:focus-visible { opacity: 1; }
+.view-fs:hover, .view-fs:focus-visible { border-color: rgba(159,228,255,0.8); color: #dff4ff; }
+@media (hover: none) { .view-fs { opacity: 0.8; } }
+/* Deadball's pitch camera (gameday-grandstand.js addCamButton): behind the batter or behind the
+   pitcher, beside the fullscreen button and as faint till the picture's hovered */
+.gds-cam {
+	position: absolute; right: 42px; bottom: 8px; z-index: 9; width: 28px; height: 28px; padding: 0;
+	display: flex; align-items: center; justify-content: center; cursor: pointer;
+	border-radius: 4px; border: 1px solid rgba(160,190,220,0.35); background: rgba(6,10,16,0.62); color: #9fb0c0;
+	opacity: 0.35; transition: opacity 0.2s;
+}
+.gds-park:not(:has(.view-fs)) .gds-cam { right: 8px; }
+.gds-park:hover .gds-cam, .gds-cam:focus-visible { opacity: 1; }
+.gds-cam:hover, .gds-cam:focus-visible { border-color: rgba(159,228,255,0.8); color: #dff4ff; }
+.gds-cam[aria-pressed="true"] { color: #7fd6b0; border-color: rgba(127,214,176,0.75); }
+@media (hover: none) { .gds-cam { opacity: 0.8; } }
 .gdr-head:empty, .gdr-strip:empty { display: none; }
 /* the card sits high on the ice, clear of the play under it */
 .gdr-rink .gdr-jumbo { top: 40%; }
@@ -12694,7 +12720,7 @@ html[data-density="compact"][data-pane-claimed] #mobile-hud { display: none; }
 	100% { transform: scale(1) rotate(0); }
 }
 
-/* World Series pre-game card — gold-accented, the two finalists face off. */
+/* The final's pre-game card — gold-accented, the two finalists face off. */
 .tv-fx-ws {
 	position: absolute; inset: 0; display: flex; flex-direction: column;
 	align-items: center; justify-content: center; gap: 10px;
@@ -12710,7 +12736,7 @@ html[data-density="compact"][data-pane-claimed] #mobile-hud { display: none; }
 .tv-fx-ws .tv-fx-mu-team .nm { text-shadow: 0 0 12px #ffb300; }
 .tv-fx-ws .tv-fx-mu-team .rec { color: #ffd24a; }
 
-/* World Series champion — trophy drops in, sunburst behind, gold everywhere. */
+/* A final's champion — trophy drops in, sunburst behind, gold everywhere. */
 .tv-fx-champ {
 	position: absolute; inset: 0; display: flex; flex-direction: column;
 	align-items: center; justify-content: center; gap: 6px; overflow: hidden;
@@ -12802,7 +12828,7 @@ html[data-density="compact"][data-pane-claimed] #mobile-hud { display: none; }
 .tv-fx-death-name { font-family: var(--font-mono); font-weight: 900; font-size: clamp(22px, 6vw, 44px); color: #fff; letter-spacing: 2px; }
 .tv-fx-death-sub { font-family: var(--font-mono); font-size: 0.6875rem; letter-spacing: 4px; text-transform: uppercase; color: rgba(200, 216, 230, 0.5); }
 
-/* The Cup pre-game reuses the World Series card's geometry, cold instead of gold. */
+/* The Cup pre-game reuses the Curtain Call card's geometry, cold instead of gold. */
 .tv-fx-cup { background: radial-gradient(ellipse at center, rgba(0, 20, 40, 0.55), rgba(0, 0, 0, 0.85)); }
 .tv-fx-cup .tv-fx-ws-banner { color: #cfe9ff; text-shadow: 0 0 22px #4fd2ff, 0 3px 0 rgba(0, 0, 0, 0.5); }
 .tv-fx-cup .tv-fx-ws-sub { color: #8fd0ee; }

@@ -19,6 +19,7 @@
 // The sim on the server decides everything. Nothing here can change a score.
 
 import { cphlMark, cphlLockup } from './cphl-brand.js';
+import { addFullscreenButton, leaveFullscreen } from './view-fullscreen.js';
 import { crestSvg, clubOf, onClubs } from './club-crest.js';
 import { GEO, DOTS } from './rink/geo.js';
 import { DT } from './rink/rig.js';
@@ -294,6 +295,7 @@ export function createRinkView(host, opts = {}) {
     if (!host || mounted) return;
     mounted = true;
     host.innerHTML = shell();
+    addFullscreenButton(host.querySelector('.gdr-rink'), host);
     canvas = host.querySelector('.gdr-canvas');
     host.querySelector('.gdr-glow')?.addEventListener('click', () => { setGlow(!glow); glowSave(win, glow); });
     const { createIce, createWorld } = mods;
@@ -398,6 +400,7 @@ export function createRinkView(host, opts = {}) {
     crowd = null;
     if (offClubs) { offClubs(); offClubs = null; }
     if (holdTimer) { clearTimeout(holdTimer); holdTimer = null; }
+    leaveFullscreen(host);
     if (host) host.innerHTML = '';
     mounted = false; canvas = null; W = null; D = null; R = null; ice = null;
     caption = ''; pendingCaption = null; pendingCard = null; last = null;

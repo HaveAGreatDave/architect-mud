@@ -26,13 +26,13 @@ export default async function regress({ run, check }) {
   check("baseball's batting races reach the cache", Array.isArray(bx.batters) && Array.isArray(bx.homers) && Array.isArray(bx.rbis), Object.keys(bx).join(','));
   check('…and the formatter prints them', /BATTING/.test(_test.formatExtras({ batters: [{ name: 'Okafor', avg: 0.342, ab: 38, hits: 13 }], homers: [], rbis: [], minAb: 15 }, 'baseball')), 'no BATTING race');
 
-  // ── Seasons / World Series ──────────────────────────────────────────────────
-  const wsView = await run('worldseries');
-  check('worldseries routed', wsView?.type === 'output', wsView?.message);
+  // ── Seasons and the finals ──────────────────────────────────────────────────
+  const wsView = await run('curtaincall');
+  check('curtaincall routed', wsView?.type === 'output', wsView?.message);
   const champs = await run('champions');
   check('champions routed', champs?.type === 'output', champs?.message);
 
-  // Season clock: the day math that decides when the World Series triggers.
+  // Season clock: the day math that decides when a final triggers.
   check('season length spans a 30-day month', _test.daysBetween('2035-01-01', '2035-01-31') === 30, 'jan');
   check('season length spans a month boundary', _test.daysBetween('2035-01-15', '2035-02-14') === 30, 'cross-month');
   check('daysBetween is null on unknown date', _test.daysBetween(null, '2035-01-01') === null, 'null-guard');
@@ -72,7 +72,7 @@ export default async function regress({ run, check }) {
   // Both leagues are configured, and each knows its own championship.
   check('two leagues are registered', !!_test.LEAGUES.baseball && !!_test.LEAGUES.hockey, Object.keys(_test.LEAGUES).join(','));
   check('hockey crowns the Coldwater Cup', _test.LEAGUES.hockey.final === 'COLDWATER CUP', _test.LEAGUES.hockey.final);
-  check('baseball still crowns the World Series', _test.LEAGUES.baseball.final === 'WORLD SERIES', _test.LEAGUES.baseball.final);
+  check('baseball crowns the Curtain Call', _test.LEAGUES.baseball.final === 'CURTAIN CALL', _test.LEAGUES.baseball.final);
 
   // ── Eras ────────────────────────────────────────────────────────────────────
   // A league's era names its roster. A season opened under any other one (or before eras

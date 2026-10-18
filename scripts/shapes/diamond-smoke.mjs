@@ -340,6 +340,23 @@ for (const hold of [undefined, 45000]) {
       const lb = moved.log.batter;
       if (lb) menOn.push({ r: { ...lb, end: lb.to >= 1 && lb.to <= 3 ? lb.to : null }, who: 'the batter', near: {}, last: null });
     }
+    // ── the ball inside the wall unless it's a home run (a grounder down the line once rolled on
+    // through the corner), and an infield pop-up watched coming down from behind the man under it
+    // (it climbed out of the high shot and read as a ball leaving the park) ──
+    if (plan && p.play && !hold) {
+      const b0 = plan.balls[0], end = Number.isFinite(b0.to) ? b0.to : b0.from + 8;
+      let past = false;
+      for (let t = b0.from; t <= end && !past; t += 0.02) {
+        const q = b0.path?.(t);
+        const dir = q ? Math.atan2(-q[0], q[2]) * 180 / Math.PI : 0;
+        if (q && Math.abs(dir) <= 45 && Math.hypot(q[0], q[2]) > fenceAt(dir) + 0.5) past = true;
+      }
+      check('a ball in play stays inside the wall unless it\'s a home run', !past || p.kind === 'homerun', label);
+      const hang = b0.path?.land - b0.from;
+      if (p.play.t === 'pu' && p.play.f[0] !== 2 && p.play.e !== 'drop' && hang >= 3) {
+        check('an infield pop-up is watched coming down', plan.cuts.some((c) => c.shot?.shot === 'fly'), label);
+      }
+    }
     // ── the replay: a play that earns one staged again in a world of its own is the same play ──
     const spec = plan ? replayOf(p, D.play, D.log) : null;
     if (spec) {

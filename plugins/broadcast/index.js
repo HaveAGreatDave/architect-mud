@@ -2,7 +2,7 @@ import { randomUUID } from 'crypto';
 import { textRender } from '../../server/engine/minigame.js';
 import { query } from '../../server/models/db.js';
 import { schedule } from '../../server/engine/scheduler.js';
-import { world, getZonePlayers, getZone, getZoneNpcs, getZoneEnemies, reloadZone, hasActivePlayers, insertFurniture, updateFurniture, deleteFurnitureWhere, getZoneFurniture, getFurnitureById, resolveLanding, getNpcsByFlag, moveNpcToZone } from '../../server/engine/world.js';
+import { zoneAtTile, world, getZonePlayers, getZone, getZoneNpcs, getZoneEnemies, reloadZone, hasActivePlayers, insertFurniture, updateFurniture, deleteFurnitureWhere, getZoneFurniture, getFurnitureById, resolveLanding, getNpcsByFlag, moveNpcToZone } from '../../server/engine/world.js';
 import { resolveInventoryItem } from '../../server/engine/inventory.js';
 import { sendToPlayer, sendToZone, teachVerb } from '../../server/engine/messaging.js';
 import { escAttr } from '../../server/engine/text.js';
@@ -24,10 +24,10 @@ import { sportsRng, sportsHash, sportsPick, sportsPickTagged, sportsFill, sports
 // Sport modules. One entry today; the registry shape is what a second sport plugs
 // into, so it exists now rather than being retrofitted around hockey later.
 import { BASEBALL } from './sports/baseball.js';
-import { gamedayPayloads, gamedayLeaders } from './sports/baseball-gameday.js';
+import { gamedayPayloads, gamedayLeaders, gameMvp } from './sports/baseball-gameday.js';
 import { venueField } from '../../client/game/js/panels/diamond/geo.js';
 import { skylineAround } from '../../server/engine/skyline.js';
-import { HOCKEY } from './sports/hockey.js';
+import { HOCKEY, rivalOf } from './sports/hockey.js';
 import {
   gameshowAiring, gameshowDayBucket, getGameshowGraph, gameshowOpenRound, gameshowResolveRound,
   gameshowTokens, gameshowForgetPlayer, makeGuessCommand, assembleGameshowGraph, gameshowPool,
@@ -211,6 +211,14 @@ function sendOverlayLines(playerId, scorebugOverlay, standingsOverlay) {
 
 // The TV-guide button asks for the tuned channel's running order + the current time.
 on('tv.schedule', ({ playerId, channelId }) => { sendTvSchedule(playerId, channelId); });
+// A final crowned: the city sees the champions' fireworks go up from the park's site, the tile its
+// venue stands on (plugins/fireworks), as the screen has them over the outfield.
+on('sports.champion', async ({ sport }) => {
+  const site = (await anySportsScript(sport))?.venue?.site;
+  if (!Number.isFinite(site?.x) || !Number.isFinite(site?.y)) return;
+  const zone = zoneAtTile('map_world', Math.floor(site.x), Math.floor(site.y));
+  if (zone) await dispatchAction({ type: 'fireworks.launch', params: { zoneId: zone.id, seconds: 45 } }).catch(() => null);
+});
 
 // The standings button. The league table already flashes up on air as a transient bug,
 // but that's server-thrown and auto-dismisses — this is the viewer pulling it up on
@@ -2408,8 +2416,9 @@ async function recordSimSwitches() {
 
 function sportsGameForSlot(script, slot, override, unavailable) {
   const seed = sportsHash(slot >>> 0, override?.worldSeries ? 0x77 : 0x00);
+  // a final's teams come seeded, the top seed first, and the top seed is the home side
   const matchup = override?.teams
-    ? { away: override.teams[0], home: override.teams[1] }
+    ? { away: override.teams[1], home: override.teams[0] }
     : sportsMatchupForSlot(slot, script.teams);
   if (!matchup) return null;
   // The whole club list rides along. A sport whose rosters belong to the LEAGUE rather
@@ -2437,7 +2446,7 @@ function sportsGameForSlot(script, slot, override, unavailable) {
 function assembleSportsGraph(script, broadcastId, slot, override) {
   const announcer = script.announcer || 'your announcer';
   const pools = script.pools || {};
-  const ws = !!override?.worldSeries;                       // World Series takeover?
+  const ws = !!override?.worldSeries;                       // a final's takeover?
   // The aired game is played by whoever is FIT — the injury chain, anchored to the same
   // season window the standings fold walks, so the broadcast and the table always agree
   // about who was missing.
@@ -2547,6 +2556,10 @@ function assembleSportsGraph(script, broadcastId, slot, override) {
   const GD = gamedayPayloads(game, gs.seed, { abbr: sportsAbbr, ordinal: sportsOrdinal, ledger: gamedayLedger('baseball'), venue: script.venue || null });
   const gdStandings = gamedayStandings('baseball');
   const gdLeaders = gamedayLeadersFor('baseball');
+  // the booth's call at the crack for every ball in play (BASEBALL.contactCall), drawn from a
+  // stream of its own so the lines the booth already picks don't move
+  const crng = sportsRng(sportsHash(gs.seed, 0xc0ac));
+  for (const p of GD.order) if (p.play && !p.phase) { const c = BASEBALL.contactCall(p, pools, crng, sportsFill); if (c) p.contact = { text: c, by: announcer }; }
   const beatGameday = (b) => GD.atbat.get(b);
   playOf = (b) => GD.atbat.get(b)?.play || null;
   // A ball in play's line agrees with its picture: the play's tags (where it went, how it was
@@ -2577,7 +2590,7 @@ function assembleSportsGraph(script, broadcastId, slot, override) {
   const pregameBug = bug('PRE-GAME', 0, 0, 0, [false, false, false]);
   say(pick(...(ws ? ['worldseries.intro', 'intro'] : ['intro'])), gameTok, pregameBug);
   const muGraphic = ws
-    ? { overlayType: 'sportsfx', kind: 'worldseries', away: away.name, home: home.name, awayRecord, homeRecord, duration: 4.6 }
+    ? { overlayType: 'sportsfx', kind: 'worldseries', final: sportMod.season?.finalName || 'Final', away: away.name, home: home.name, awayRecord, homeRecord, duration: 4.6 }
     : { overlayType: 'sportsfx', kind: 'matchup', away: away.name, home: home.name, awayRecord, homeRecord, duration: 4.0 };
   say(pick(...(ws ? ['worldseries.matchup', 'matchup.records', 'matchup'] : (hasRecords ? ['matchup.records', 'matchup'] : ['matchup']))), gameTok, pregameBug, muGraphic);
 
@@ -2725,6 +2738,7 @@ function assembleSportsGraph(script, broadcastId, slot, override) {
   const winName = winner();
   const winGraphic = {
     overlayType: 'sportsfx', kind: ws ? 'champion' : 'gamewin',
+    ...(ws ? { label: `${sportMod.season?.finalName || 'Final'} Champions` } : {}),
     winner: winName,
     loser: winName === away.name ? home.name : away.name,
     winScore: winName === away.name ? awayScore : homeScore,
@@ -2740,19 +2754,28 @@ function assembleSportsGraph(script, broadcastId, slot, override) {
   // The league table rides the game's first Gameday payload only: the view keeps it
   // for the game, and a late tuner gets it with the catch-up (sendCatchUp). That one
   // payload also carries the leaders, the venue's stamp and the season: its number,
-  // regular season or final, and in a final each side's seed.
+  // regular season or final, and in a final the final's name, each side's seed and both line-ups
+  // (the public address reads them before the first pitch). The last payload carries the game's
+  // end: who won, and in a final that they're champions and the game's most valuable player.
   {
     const s = seasonOf(sportMod.id);
     const seedOf = (team) => (team === s.finalistA ? 1 : team === s.finalistB ? 2 : null);
     // the venue's stamp: a client without that revision asks for it once (tv_venue)
     const venueRev = venueFor(script)?.rev || '';
-    const season = { n: s.seasonNo ?? null, phase: ws ? 'final' : 'regular', ...(ws ? { seedAway: seedOf(away.name), seedHome: seedOf(home.name) } : {}) };
-    let first = true;
+    const side = (t) => ({ team: t.name, pitcher: t.pitcher || '', lineup: Array.isArray(t.lineup) ? t.lineup.slice(0, 9) : [] });
+    const season = { n: s.seasonNo ?? null, phase: ws ? 'final' : 'regular',
+      ...(ws ? { name: sportMod.season?.finalName || 'Final', seedAway: seedOf(away.name), seedHome: seedOf(home.name), lineups: { away: side(away), home: side(home) } } : {}) };
+    let first = true, lastId = null;
+    const all = [];
     for (let id = startId; id; id = nodes[id].next) {
       const gd = nodes[id].gameday;
       if (!gd) continue;
+      all.push(gd); lastId = id;
       nodes[id].gameday = first ? { ...gd, standings: gdStandings, leaders: gdLeaders, season, ...(venueRev ? { venueRev } : {}) } : { ...gd };
       first = false;
+    }
+    if (lastId != null && winName) {
+      nodes[lastId].gameday = { ...nodes[lastId].gameday, end: { winner: winName, champion: !!ws, ...(ws ? { name: season.name, mvp: gameMvp(all, winName) } : {}) } };
     }
   }
   }
@@ -2766,7 +2789,7 @@ function assembleSportsGraph(script, broadcastId, slot, override) {
   // — so viewers see more baseball. These are already-computed games (pure per-slot
   // results; the standings fold counts each slot exactly once), so recapping them shows
   // more games without adding any: nothing is simulated or booked here, only re-shown.
-  // Not during the World Series (finalists own the screen) or the day's first slot (no
+  // Not during a final (the finalists own the screen) or the day's first slot (no
   // earlier games yet). Recap nodes are tagged `_recap` so the pacer fills the tail with
   // them instead of parking. Deterministic → identical reel on every TV.
   const slotOfDay = ((slot % SPORTS_GAMES_PER_DAY) + SPORTS_GAMES_PER_DAY) % SPORTS_GAMES_PER_DAY;
@@ -3037,7 +3060,7 @@ async function refreshSeason(nowMs, sport = 'baseball') {
 // the finalists take over the schedule from the WS slot until a champion is crowned.
 // A postseason belongs to ONE sport's season, and handing a takeover to the wrong sim
 // would drop two ballclubs onto the ice. Each script gets its own sport's final —
-// Deadball's World Series, Cluster Puck's Coldwater Cup — or nothing.
+// Deadball's Curtain Call, Cluster Puck's Coldwater Cup — or nothing.
 const overrideFor = (script) => postseasonOverride(sportOf(script).id);
 
 function postseasonOverride(sport) {
@@ -4584,7 +4607,7 @@ async function getCurrentMessage(state, nowMs) {
         // Warm THIS sport's record cache + season before its graph assembles — the
         // announcer's records line and any postseason takeover both read them.
         await refreshStandings(nowMs, sportOf(item.sportsScript).id);
-        await refreshSeason(nowMs, sportOf(item.sportsScript).id);      // is the World Series on? if so, run the finalists
+        await refreshSeason(nowMs, sportOf(item.sportsScript).id);      // is a final on? if so, run the finalists
         const spGraph = getSportsGraph(item.sportsScript, sportsSlotIndex(), overrideFor(item.sportsScript));
         if (spGraph) {
           state.currentFallbackMessages = item.fallbackMessages || [];
@@ -6068,7 +6091,7 @@ function _fmtHHMM(mins) {
 }
 // A nightly TV guide for a `@airtime`-locked sports channel: one row per featured slot,
 // stamped with the in-game clock time it airs, the night's matchup, and — during the
-// World Series — the finalists under a WORLD SERIES banner. So the Series' airtime is
+// final — the finalists under the final's banner. So the final's airtime is
 // obvious from the guide, matching the news posting. Continuous leagues return null (fall
 // back to the generic loop schedule).
 function _sportsScheduleSlots(script, cur) {
@@ -6092,7 +6115,7 @@ function _sportsScheduleSlots(script, cur) {
     const dayTag = dayDelta <= 0 ? '' : (dayDelta === 1 ? ', tomorrow' : `, in ${dayDelta}d`);
     let name;
     if (isWs && wsSlot != null && cand === wsSlot) {
-      name = `${mod.finalIcon || '⚾'} ${(mod.season?.finalName || 'World Series').toUpperCase()}: ${s.finalistA} vs ${s.finalistB}`;
+      name = `${mod.finalIcon || '⚾'} ${(mod.season?.finalName || 'Final').toUpperCase()}: ${s.finalistA} vs ${s.finalistB}`;
     } else {
       const gs = sportsGameForSlot(script, cand, null);
       name = gs ? `${brand}: ${gs.game.away.name} @ ${gs.game.home.name}` : (script.title || brand);
@@ -6132,7 +6155,7 @@ async function sendTvStandings(playerId) {
     type: 'tv_standings',
     sport,
     title: s.phase === 'worldseries'
-      ? `${(SPORTS[sport] || BASEBALL).brand || 'DEADBALL'}: ${((SPORTS[sport] || BASEBALL).season?.finalName || 'World Series').toUpperCase()}`
+      ? `${(SPORTS[sport] || BASEBALL).brand || 'DEADBALL'}: ${((SPORTS[sport] || BASEBALL).season?.finalName || 'Final').toUpperCase()}`
       : spec.title,
     phase: s.phase || 'regular',
     rows: (rows || []).map(spec.row),
@@ -6151,7 +6174,7 @@ function _sportsSlotLabel(item) {
   const brand = mod.brand || 'DEADBALL';
   const s = seasonOf(mod.id);
   if (s.phase === 'worldseries' && s.finalistA && s.finalistB) {
-    return `${mod.finalIcon || '⚾'} ${(mod.season?.finalName || 'World Series').toUpperCase()}: ${s.finalistA} vs ${s.finalistB}`;
+    return `${mod.finalIcon || '⚾'} ${(mod.season?.finalName || 'Final').toUpperCase()}: ${s.finalistA} vs ${s.finalistB}`;
   }
   const gs = sportsGameForSlot(item.sportsScript, sportsSlotIndex(), overrideFor(item.sportsScript));
   return gs ? `${brand}: ${gs.game.away.name} @ ${gs.game.home.name}` : (item.broadcastName || brand);
@@ -7955,17 +7978,28 @@ registerAction({
 // pools. Content owns the roster (media_broadcasts.sports_pools.teams), so this is the
 // authoritative, complete list; the gossip plugin reads it through this seam to pin
 // each NPC's favourite team to a fixed set (no table coupling, mirrors getStandings).
+// `rivals` pairs each club with its one rival inside its own league (rivalOf, the
+// pairing the hockey sim plays harder), and `sports` says which league it's in, so
+// a fan can be wound up by the right name.
 registerAction({
   type: 'broadcast.getSportsTeams',
   handler: async () => {
     const teams = new Set();
+    const rivals = {};
+    const sports = {};
     for (const sp of await sportsLibrary()) {
+      const league = [];
       for (const t of (Array.isArray(sp.teams) ? sp.teams : [])) {
         const name = typeof t === 'string' ? t : t?.name;
-        if (name) teams.add(name);
+        if (name) { teams.add(name); league.push(name); }
+      }
+      for (const name of league) {
+        const rival = rivalOf(name, league);
+        if (rival) rivals[name] = rival;
+        if (sp.sport) sports[name] = sp.sport;
       }
     }
-    return { teams: [...teams] };
+    return { teams: [...teams], rivals, sports };
   },
 });
 
@@ -7996,18 +8030,25 @@ registerAction({
 });
 
 // The next slot strictly AFTER `after` whose slot-of-day is one of `featured` (the
-// `@airtime` blocks). `featured` null/empty ⇒ the immediate next slot (continuous league).
-// Returns `{ slot, hour }` (hour = that block's in-game start hour). Pure.
-function nextAirSlot(after, featured, G) {
+// `@airtime` blocks) and, given `airs(slot)`, whose day the show is on the schedule for (a
+// Monday, Wednesday and Friday show isn't on on a Tuesday). It looks a week and a day ahead.
+// `featured` null/empty ⇒ the immediate next slot (continuous league). Returns `{ slot, hour }`
+// (hour = that block's in-game start hour). Pure.
+function nextAirSlot(after, featured, G, airs = null) {
   const feat = (Array.isArray(featured) && featured.length) ? featured.map((n) => ((n % G) + G) % G) : null;
   let slot = after + 1;
-  if (feat) {
-    for (let k = 1; k <= G; k++) { const c = after + k; if (feat.includes(((c % G) + G) % G)) { slot = c; break; } }
+  if (feat || airs) {
+    for (let k = 1; k <= G * 8; k++) {
+      const c = after + k;
+      if (feat && !feat.includes(((c % G) + G) % G)) continue;
+      if (airs && !airs(c)) continue;
+      slot = c; break;
+    }
   }
   return { slot, hour: (((slot % G) + G) % G) * (24 / G) };
 }
 
-// Lets the sportsleague schedule the World Series onto the normal nightly slot instead of
+// Lets the sportsleague schedule a final onto the normal nightly slot instead of
 // "the next hour", so it airs — and can be advertised — at a predictable in-game time.
 registerAction({
   type: 'broadcast.nextSportsAirSlot',
@@ -8017,7 +8058,20 @@ registerAction({
     // slot ITS league actually airs in — pinning the Cup to Deadball's hour would put
     // the biggest game of the hockey season on at a time nobody tunes in for it.
     const script = await anySportsScript(params.sport);
-    return nextAirSlot(after, script?.airSlots, SPORTS_GAMES_PER_DAY);
+    // ...and to a day its channel airs it: KSAB has Deadball on Monday, Wednesday and Friday, so a
+    // final pinned to a Tuesday was crowned without anyone seeing it. The days are the playlist's
+    // (the same walk as getNextOnAir); with no channel loaded, every day.
+    const G = SPORTS_GAMES_PER_DAY, now = sportsSlotIndex(), dow0 = getEnvironmentState()?.dayOfWeek;
+    const items = [];
+    for (const [, state] of channelRuntime) {
+      for (const i of state.playlist || []) {
+        if (i.playback_mode === 'sports' && i.sportsScript && (sportOf(i.sportsScript)?.id || 'baseball') === (params.sport || 'baseball')) items.push(i);
+      }
+    }
+    const airs = items.length && dow0 != null
+      ? (slot) => { const dow = ((Number(dow0) - 1 + Math.floor(slot / G) - Math.floor(now / G)) % 7 + 7) % 7 + 1; return items.some((i) => _slotAirsOn(i, dow)); }
+      : null;
+    return nextAirSlot(after, script?.airSlots, G, airs);
   },
 });
 
@@ -8146,7 +8200,7 @@ registerAction({
   },
 });
 
-// One specific slot's result — used to crown the World Series from the finalists' game
+// One specific slot's result — used to crown a final from the finalists' game
 // (pass their names as `teams` so the WS override, not the regular schedule, is simmed).
 registerAction({
   type: 'broadcast.getSlotResult',
@@ -10349,7 +10403,7 @@ export const _test = {
   // them without waiting for a ballgame to be scheduled.
   scorebugLine, standingsLines,
   // The live season cache. Exposed ONLY so the guide-caption suite can pin the
-  // phase it is asserting: `_sportsSlotLabel` takes the World Series branch when
+  // phase it is asserting: `_sportsSlotLabel` takes the final's branch when
   // one is pending, which is correct behaviour but made the test depend on
   // whatever phase the dev DB happened to be sitting in. Booting the server once
   // was enough to flip it and turn the suite red for a reason that had nothing to

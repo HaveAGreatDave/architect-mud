@@ -551,3 +551,72 @@ export function crowdMorph(o = {}) {
   }
   return out;
 }
+
+// ── a final's dress ─────────────────────────────────────────────────────────
+// What a final adds to the park (gl/ballpark.js setFinal): fan bunting along the front of the
+// upper deck in gold, white and red, a gold pennant over every light tower, the final's logo
+// painted on the grass behind the plate and in foul ground down both lines, and the trophy on its
+// table beside the mound for the champions. Batches by texture key as buildPark's: 'plain' and
+// 'finalLogo' (its texture is painted with the final's name); the trophy is its own batch, drawn
+// once the champions are crowned.
+export const TROPHY_AT = Object.freeze([-14, 0, 50]);
+// where each logo lies, its centre, its half-width and half-depth, and which way its top faces
+export const LOGOS = Object.freeze([
+  { c: [0, 0, -36], w: 14, d: 7, up: [0, 0, -1] },
+  { c: [-91, 0, 63], w: 11, d: 5.5, up: [0, 0, 1] },
+  { c: [91, 0, 63], w: 11, d: 5.5, up: [0, 0, 1] },
+]);
+export function buildDress(venue) {
+  const field = venueField(venue), out = new Map();
+  const B = (key) => { let b = out.get(key); if (!b) { b = createBatch(); out.set(key, b); } return b; };
+  const GOLD = lin('#e2b13c'), CREAM = lin('#f4efe0'), RED = lin('#b3261e');
+  // the bunting: a half-fan every other bay of the upper deck's front, hung from its top edge
+  const deck = bowlPath().filter((p) => len(p) < 255), N = deck.length;
+  for (let i = 1; i < N - 1; i += 2) {
+    const a = deck[i - 1], b = deck[i + 1], p = deck[i];
+    let n = norm(cross([0, 1, 0], sub(b, a)));
+    if (dot(n, norm(sub(p, [0, 0, 60]))) < 0) n = mul(n, -1);
+    const t = norm(sub(b, a)), c = add(madd(p, n, 63.6), [0, 53.8, 0]), R = 3.4, face = mul(n, -1);
+    [GOLD, CREAM, RED].forEach((col, s) => {
+      const r0 = R * (2 - s) / 3, r1 = R * (3 - s) / 3;
+      for (let k = 0; k < 10; k++) {
+        const a0 = Math.PI + Math.PI * k / 10, a1 = Math.PI + Math.PI * (k + 1) / 10;
+        const at = (r, an) => add(madd(c, t, Math.cos(an) * r), [0, Math.sin(an) * r, 0]);
+        quad(B('plain'), at(r0, a0), at(r1, a0), at(r1, a1), at(r0, a1), face, col, MAT.CLOTH);
+      }
+    });
+  }
+  // a pennant over each light tower's lamps
+  for (const T of field.towers) {
+    const fwd = T.dir, right = norm(cross(fwd, [0, 1, 0])), up = norm(cross(right, fwd)), top = madd(T.lamp, up, 11);
+    cylinder(B('plain'), top, 9, 0.18, lin('#d9d9d4'), MAT.METAL, 6);
+    const head = madd(top, up, 9);
+    quad(B('plain'), head, madd(head, up, -3.4), add(madd(madd(head, up, -1.7), right, 8), [0, 0, 0]), add(madd(madd(head, up, -1.7), right, 8), [0, 0, 0]), fwd, GOLD, MAT.CLOTH);
+  }
+  // the logos, flat on the grass, a hair over it
+  for (const L of LOGOS) {
+    const up = L.up, right = norm(cross(up, [0, 1, 0])), c = [L.c[0], 0.06, L.c[2]];
+    const P = (x, z) => madd(madd(c, right, x), up, z);
+    quad(B('finalLogo'), P(-L.w, -L.d), P(L.w, -L.d), P(L.w, L.d), P(-L.w, L.d), [0, 1, 0], WHITE, MAT.MATTE, [[0, 1], [1, 1], [1, 0], [0, 0]]);
+  }
+  // the trophy on its table: a draped table, a stepped base, the stem, the cup and two handles
+  const trophy = createBatch(2048), at = TROPHY_AT;
+  box(trophy, add(at, [0, 1.5, 0]), [2.2, 1.5, 1.4], 30, lin('#1d2a4a'), MAT.CLOTH);
+  const profile = [[0.9, 0], [0.9, 0.25], [0.62, 0.32], [0.55, 0.6], [0.22, 0.75], [0.18, 1.4], [0.3, 1.55], [0.75, 1.8], [1.05, 2.4], [1.15, 3.1], [1.1, 3.2], [0.9, 3.1]];
+  const base = add(at, [0, 3, 0]);
+  for (let k = 0; k + 1 < profile.length; k++) {
+    const [r0, y0] = profile[k], [r1, y1] = profile[k + 1];
+    for (let j = 0; j < 16; j++) {
+      const a0 = j / 16 * TAU, a1 = (j + 1) / 16 * TAU;
+      const p = (r, y, a) => add(base, [Math.sin(a) * r, y, Math.cos(a) * r]);
+      const nm = (a) => norm([Math.sin(a) * (y1 - y0), r0 - r1, Math.cos(a) * (y1 - y0)]);
+      vtx(trophy, p(r0, y0, a0), nm(a0), [0, 0], GOLD, MAT.METAL); vtx(trophy, p(r1, y1, a0), nm(a0), [0, 0], GOLD, MAT.METAL); vtx(trophy, p(r1, y1, a1), nm(a1), [0, 0], GOLD, MAT.METAL);
+      vtx(trophy, p(r0, y0, a0), nm(a0), [0, 0], GOLD, MAT.METAL); vtx(trophy, p(r1, y1, a1), nm(a1), [0, 0], GOLD, MAT.METAL); vtx(trophy, p(r0, y0, a1), nm(a1), [0, 0], GOLD, MAT.METAL);
+    }
+  }
+  for (const s of [-1, 1]) for (let k = 0; k < 6; k++) {
+    const a = -Math.PI / 2 + Math.PI * k / 5, h = add(base, [s * (1.15 + Math.cos(a) * 0.45), 2.7 + Math.sin(a) * 0.5, 0]);
+    box(trophy, h, [0.09, 0.09, 0.09], 0, GOLD, MAT.METAL);
+  }
+  return { opaque: out, trophy };
+}

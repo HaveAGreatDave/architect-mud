@@ -18,7 +18,7 @@
  * but the shape is what a second sport plugs into, so it exists now rather than
  * being retrofitted around hockey later.
  */
-import { sportsRng, sportsShuffle, sportsHash } from '../rng.js';
+import { sportsRng, sportsShuffle, sportsHash, sportsPickTagged } from '../rng.js';
 import {
   fieldSpots, groundChances, airChances, carry, evFor, hangTime, gradeOf, toPark, sprayOf, fenceAt,
   toFirst, throwTime, railRoom, RANGING, TRANSFER, POSITIONS,
@@ -575,6 +575,36 @@ export function playTags(kind, play, o = {}) {
   if (play.hr && play.hr !== 'plain') T.add(play.hr);
   if (play.e) T.add(play.e);
   return [...T].filter(Boolean);
+}
+
+// ── The call at the crack ────────────────────────────────────────────────────
+// What the booth says as the ball comes off the bat, before anyone knows how it ends: "Smoked on
+// the ground toward third!" A play's payload carries it (`contact`), and the 3-D Gameday has Chip
+// say it at the crack; his line about how it ended still comes as it lands. So it may only use
+// what's known at the crack: what kind of ball it is (the pool, contact.<ground|liner|fly|pop>),
+// how hard it was hit (a `.hard` or `.soft` pool first, past 100 or under 70 mph), and the tags
+// that say where it's going (CONTACT_TAGS). `{toward}` is the place, `{batter}` the hitter.
+export const CONTACT_TAGS = Object.freeze(new Set(['left', 'right', 'centre', 'line', 'deep', 'shallow', 'comebacker', 'catcher', 'foul', 'pull', 'oppo']));
+const GROUND_TOWARD = { 1: 'back to the mound', 2: 'in front of the plate', 3: 'toward first', 4: 'toward second', 5: 'toward third', 6: 'toward short' };
+const POP_OVER = { 1: 'over the mound', 3: 'over first', 4: 'over second', 5: 'over third', 6: 'over short' };
+export function contactToward(play) {
+  if (!play) return '';
+  const n = play.f?.[0] || 0, d = play.dir;
+  if (play.t === 'pu') return play.foul ? 'into foul ground' : n === 2 ? 'behind the plate' : POP_OVER[n] || 'into shallow centre';
+  if (play.t === 'gb' && GROUND_TOWARD[n]) return GROUND_TOWARD[n];
+  if (play.t === 'gb') return d < -15 ? 'through the left side' : d > 15 ? 'through the right side' : 'up the middle';
+  return d < -36 ? 'down the left-field line' : d < -15 ? 'to left' : d < -5 ? 'to left-centre' : d <= 5 ? 'to centre' : d <= 15 ? 'to right-centre' : d <= 36 ? 'to right' : 'down the right-field line';
+}
+export function contactCall(p, pools, rand, fill) {
+  const pl = p?.play;
+  if (!pl || p.phase || !pools) return '';
+  const type = { gb: 'ground', ld: 'liner', fb: 'fly', pu: 'pop' }[pl.t];
+  if (!type) return '';
+  const tags = playTags(p.kind, pl, { bats: p.bats }).filter((t) => CONTACT_TAGS.has(t));
+  const ev = Number(pl.ev) || 0, base = `contact.${type}`;
+  const keys = ev >= 100 ? [`${base}.hard`, base] : ev < 70 ? [`${base}.soft`, base] : [base];
+  const line = sportsPickTagged(pools, rand, tags, ...keys);
+  return line ? fill(line, { batter: p.batter || '', toward: contactToward(pl) }).trim() : '';
 }
 
 // ── The sim ──────────────────────────────────────────────────────────────────
@@ -1154,8 +1184,8 @@ export function foldGame(acc, game, { before, after } = {}) {
 export const eraOf = (r) => (r && r.outs ? (r.er * 27) / r.outs : 0);
 
 export const SEASON = {
-  finalName: 'World Series',
-  finalShort: 'WS',
+  finalName: 'Curtain Call',
+  finalShort: 'CC',
   // Column labels for the on-air standings bug and the `standings` command.
   columns: ['W', 'L', 'RD'],
   fold(table, game) {
@@ -1250,6 +1280,8 @@ export const BASEBALL = {
   synthDetail: synthPitches,
   synthPlay,
   playTags,
+  // the booth's call at the crack for a ball in play
+  contactCall,
   playDesc,
   playTokens,
   handOf,

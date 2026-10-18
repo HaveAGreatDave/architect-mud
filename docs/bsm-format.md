@@ -589,6 +589,8 @@ The server decides where every ball in play goes and who fields it (`synthPlay` 
 
 The pools that take tags are the ones a ball in play is called with: `atbat.groundout`, `atbat.flyout`, `atbat.popout`, `atbat.single`, `atbat.double`, `atbat.triple`, `atbat.doubleplay`, `atbat.tripleplay`, `atbat.sacfly`, `atbat.productout`, `atbat.error`, `atbat.error.throwing`, `rbi`, `hr`, `hr.solo` and `hr.grand`. A tag qualifies only the key it's written after: a solo home run off the foul pole opens `hr.solo.pole`, not `hr.pole`.
 
+**The call at the crack:** `contact.ground` · `contact.liner` · `contact.fly` · `contact.pop`, each with a `.hard` pool for a ball hit past 100 mph and a `.soft` one under 70 (falling back to the bare key). The server draws one for every ball in play (`contactCall` in [baseball.js](../plugins/broadcast/sports/baseball.js)) and the 3-D Gameday has the announcer say it as the ball comes off the bat, before his line about how it ended. So these lines may say what kind of ball it is and where it's going, never how it ends: no "base hit", no "he's got it". `{toward}` is the place ("toward third", "to right-centre", "down the left-field line") and `{batter}` the hitter; the only tags they open are where it's going (`CONTACT_TAGS`: `.left`, `.right`, `.centre`, `.line`, `.deep`, `.shallow`, `.comebacker`, `.catcher`, `.foul`, `.pull`, `.oppo`).
+
 | Tags | A play carries it when |
 |---|---|
 | `ground` `liner` `fly` `pop` `bloop` | that's what it was off the bat; a `bloop` is a single in the air |

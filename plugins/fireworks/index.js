@@ -17,6 +17,7 @@ import { sendToPlayer, sendToZone, getBroadcast } from '../../server/engine/mess
 import { propagateSound, propagateAudio, getSoundReach } from '../../server/engine/sounds.js';
 import { resolve as siftResolve } from '../../server/engine/sift.js';
 import { liveAircraft } from '../flight/state.js';
+import { registerAction } from '../../server/engine/actions.js';
 
 // The default launch point (used when the caster's own zone can't be resolved): the Clone
 // Facility's exterior tile on map_world (grid 918,903).
@@ -233,6 +234,18 @@ function cmdFireworks(args, raw, player) {
   startShow(secs, zone.id);
   return { type: 'emote', message: `🎆 A ${secs}s fireworks show erupts over ${zone.name}.` };
 }
+
+// Another system's show: `fireworks.launch` { zoneId, seconds } lights the sky over a tile, as the
+// command does (a final's last out over its park: plugins/broadcast). Refused while one's running.
+registerAction({
+  type: 'fireworks.launch',
+  handler: async ({ params = {} } = {}) => {
+    const zone = params.zoneId ? getZone(params.zoneId) : null;
+    if (!zone || !world.zones.has(zone.id) || showRunning) return { ok: false };
+    startShow(Math.max(5, Math.min(120, Number(params.seconds) || DEFAULT_SECONDS)), zone.id);
+    return { ok: true };
+  },
+});
 
 export const commands = {
   fireworks: cmdFireworks,

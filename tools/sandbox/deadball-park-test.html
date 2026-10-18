@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <title>Deadball park: visual test</title>
-<link rel="stylesheet" href="../client/game/styles.css">
+<link rel="stylesheet" href="../../client/game/styles.css">
 <!--
   VISUAL TEST for Deadball's Gameday views (docs/proposals/deadball-glass2.md).
 
@@ -17,10 +17,13 @@
 
   It shows the 2-D Gameday (client/game/js/panels/gameday.js), or with ?park=3d the
   Grandstand, the park in 3-D (gameday-grandstand.js), which the game shows by default unless
-  the deadball.grandstand flag is '0'. ?shot= holds one of its cameras (bat, cf,
+  the deadball.grandstand flag is '0'. ?cam=cf watches the pitches from behind the pitcher instead of
+  the batter (the camera button on the picture switches it too). ?shot= holds one of its cameras (bat, cf,
   high, side, bag, mound, sky), ?grade= picks the picture (arcade, broadcast or none),
   ?tube=1 puts it behind tube glass, ?w= sets the frame's width in CSS pixels, ?bug= the
-  station's bug in the corner (KSAB by default) and ?po=1 dresses the graphics for a final.
+  station's bug in the corner (KSAB by default) and ?po=1 plays the game as the Curtain Call, the final:
+  the line-ups read under searchlights before the first pitch, the park dressed for it, and the
+  champions crowned and piling on at the last out.
   Each at-bat is staged pitch by pitch (diamond/director.js) within 0.45 of its line's hold;
   every payload here holds ?hold= milliseconds (35000 by default, a line at the default clock),
   and ?speed= runs the park's clock slower (0.25) or stops it (0) for a look at one moment.
@@ -38,7 +41,7 @@
   The season the payloads' lines and leaders come from is a few dozen games between the
   script's clubs, folded as the standings fold them.
 
-  Serve the repo root over HTTP and open /sandbox/deadball-park-test.html (a file://
+  Serve the repo root over HTTP and open /tools/sandbox/deadball-park-test.html (a file://
   page can't fetch the .bsm or load the modules). ?slot=N picks the game, ?sim=2 plays
   it under sim v2 (errors, hit batters, steals, pickoffs, wild pitches), ?play= a filter
   below (runs, hits, dp, walk, k, bases, errors, half, inplay) and ?i=N a payload within it.
@@ -92,15 +95,17 @@
   </div>
 
   <!-- Classic script: sets window.AudioEngine so the Gameday SFX and the voice play here. -->
-  <script src="../client/shared/audio-engine.js"></script>
+  <!-- The voice's lexicon, which the engine would otherwise fetch from /shared/, the game's mount. -->
+  <script src="../../client/shared/formant-cmudict.js"></script>
+  <script src="../../client/shared/audio-engine.js"></script>
   <script type="module">
-    import { simGame, simGameV2, playTokens, playTags, SEASON } from '../plugins/broadcast/sports/baseball.js';
-    import { gamedayPayloads, gamedayLeaders } from '../plugins/broadcast/sports/baseball-gameday.js';
-    import { sportsRng, sportsHash, sportsPickTagged, sportsFill } from '../plugins/broadcast/rng.js';
-    import { createGamedayView } from '../client/game/js/panels/gameday.js';
-    import { createGrandstandView } from '../client/game/js/panels/gameday-grandstand.js';
-    import { setVenue } from '../client/game/js/panels/venue.js';
-    import { skylineFrom } from '../client/shared/skyline-manifest.js';
+    import { simGame, simGameV2, playTokens, playTags, contactCall, SEASON } from '../../plugins/broadcast/sports/baseball.js';
+    import { gamedayPayloads, gamedayLeaders, gameMvp } from '../../plugins/broadcast/sports/baseball-gameday.js';
+    import { sportsRng, sportsHash, sportsPickTagged, sportsFill } from '../../plugins/broadcast/rng.js';
+    import { createGamedayView } from '../../client/game/js/panels/gameday.js';
+    import { createGrandstandView } from '../../client/game/js/panels/gameday-grandstand.js';
+    import { setVenue } from '../../client/game/js/panels/venue.js';
+    import { skylineFrom } from '../../client/shared/skyline-manifest.js';
 
     const Q = new URLSearchParams(location.search);
     const HOLD_MS = Q.get('hold') ? +Q.get('hold') : 35000;
@@ -111,7 +116,7 @@
     if (Q.get('hud') === '0') document.head.insertAdjacentHTML('beforeend', '<style>.gds-hud { display: none; }</style>');
     const host = document.getElementById('tv-gameday');
     const view = Q.get('park') === '3d'
-      ? createGrandstandView(host, { force: true, preserve: true, shot: Q.get('shot') || undefined, grade: Q.get('grade') || undefined, tube: Q.get('tube') === '1', station: Q.get('bug') ?? 'KSAB',
+      ? createGrandstandView(host, { force: true, preserve: true, shot: Q.get('shot') || undefined, cam: Q.get('cam') || undefined, grade: Q.get('grade') || undefined, tube: Q.get('tube') === '1', station: Q.get('bug') ?? 'KSAB',
         speed: Q.get('speed') != null ? +Q.get('speed') : undefined, tier: Q.get('tier') || undefined })
       : createGamedayView(host);
     window.__view = view;
@@ -128,7 +133,7 @@
 
     // The .bsm's line library, clubs and players, parsed as the hockey sandbox parses its own.
     async function loadScript() {
-      const src = await (await fetch('../data/scripts/baseball.bsm')).text();
+      const src = await (await fetch('../../data/scripts/baseball.bsm')).text();
       const pools = {}, teams = [], players = [];
       let mode = null, key = null;
       for (const raw of src.split(/\r?\n/)) {
@@ -224,13 +229,24 @@
       if (order[0]) order[0] = { ...order[0], standings: tableFor(t) };
       // the leaders and the season ride the first payload on air, and a late tuner's catch-up;
       // here every break carries them, so a break reached by the filter has its table
-      const leaders = gamedayLeaders(x), season = { n: 3, phase: Q.get('po') === '1' ? 'final' : 'regular' };
+      const po = Q.get('po') === '1', side = (t) => ({ team: t.name, pitcher: t.pitcher, lineup: t.lineup });
+      const leaders = gamedayLeaders(x), season = { n: 3, phase: po ? 'final' : 'regular',
+        ...(po ? { name: 'Curtain Call', seedAway: 2, seedHome: 1, lineups: { away: side(game.away), home: side(game.home) } } : {}) };
+      // the last payload says how it ended, and in a final who's champion and the game's best man
+      const winner = game.awayScore > game.homeScore ? away : home;
+      if (order.length) order[order.length - 1] = { ...order[order.length - 1], end: { winner, champion: po, ...(po ? { name: 'Curtain Call', mvp: gameMvp(order, winner) } : {}) } };
       for (let i = 0; i < order.length; i++) if (i === 0 || order[i].phase === 'half') order[i] = { ...order[i], leaders, season };
       // how long each line holds on air, as the broadcast stamps it on the payload, and with ?hour=
       // the minute of the day each airs at, the first at that hour and each after a hold later
       for (let i = 0; i < order.length; i++) order[i] = { ...order[i], hold: HOLD_MS, ...(HOUR != null ? { clock: Math.round(HOUR * 60 + (i * HOLD_MS) / 60000) % 1440 } : {}), ...(WX ? { wx: WX } : {}) };
       const nrng = sportsRng(seed ^ 0x9e3779b9);
       const pickFor = (p) => (...keys) => sportsPickTagged(script.pools, nrng, playTags(p.kind, p.play, { bats: p.bats }), ...keys);
+      // the booth's call at the crack for each ball in play, from its own stream as the broadcast draws it
+      const crng = sportsRng(sportsHash(seed, 0xc0ac));
+      for (let i = 0; i < order.length; i++) {
+        const c = order[i].play && !order[i].phase ? contactCall(order[i], script.pools, crng, sportsFill) : '';
+        if (c) order[i] = { ...order[i], contact: { text: c, by: 'Chip Vega' } };
+      }
       const out = order.map((p) => ({ p, text: sportsFill(callFor(p, pickFor(p)) || p.desc || '', tokOf(p, away, home)).trim() || p.desc || '', card: cardFor(p) }));
       document.getElementById('head').textContent =
         `slot ${slot}${simV === 2 ? ' (sim v2)' : ''} · ${away} ${game.awayScore}, ${home} ${game.homeScore}` +
@@ -291,8 +307,8 @@
     // site. Here the map is the flight sim's bake, its cells read back as the zone rows they came from.
     async function loadVenue() {
       const [row, world] = await Promise.all([
-        fetch('../content/media_broadcasts/bc_1783289744953.json').then((r) => r.json()),
-        fetch('../client/game/flightsim-world.json').then((r) => r.json()),
+        fetch('../../content/media_broadcasts/bc_1783289744953.json').then((r) => r.json()),
+        fetch('../../client/game/flightsim-world.json').then((r) => r.json()),
       ]);
       const venue = row?.sports_pools?.venue;
       if (!venue?.site) return;

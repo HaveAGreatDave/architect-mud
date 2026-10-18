@@ -1,16 +1,16 @@
 # sportsleague
 
-**Purpose** — Maintains the persistent standings for the DEADBALL baseball broadcast. The broadcast plugin simulates a fresh game every airing; this plugin books each aired game's result into a league table (`sports_standings`) and lets players read it with `standings`. It is the foundation layer for a full league: later phases add month-long seasons, top-two World Series seeding off this table, a champion, and a reset.
+**Purpose** — Maintains the persistent standings for the DEADBALL baseball broadcast. The broadcast plugin simulates a fresh game every airing; this plugin books each aired game's result into a league table (`sports_standings`) and lets players read it with `standings`. It is the foundation layer for a full league: later phases add month-long seasons, top-two seeding into the final off this table, a champion, and a reset.
 
 ## Commands
 
 - `standings` — the league table (one row per team that has played), sorted by win % → wins → run diff. Shows W, L, PCT, RDIF, with a season/reigning-champion header.
-- `worldseries` — current season / World Series status + the reigning champion. A dev/admin can `worldseries start` to force-seed the Series immediately (testing, so you don't wait for the in-game month to roll).
-- `champions` — the World Series champions history (most recent first).
+- `curtaincall` — current season / Curtain Call status + the reigning champion. Hockey's is `cup`. A dev/admin can `curtaincall start` to force-seed the final immediately (testing, so you don't wait for the in-game month to roll).
+- `champions` — the champions history (most recent first).
 
-## Seasons & the World Series
+## Seasons & the Curtain Call
 
-A season runs **`SPORTS_SEASON_DAYS` in-game days** (default 30 ≈ a month, driven by `world_clock.game_date`). A 1-minute tick counts the days elapsed since the season began; when it hits the limit (and the runner-up has played at least `SPORTS_MIN_WS_GAMES`), the **top two teams** are seeded into a single-game **World Series**. Tune `SPORTS_SEASON_DAYS` (top of `index.js`) up if seasons feel too short on your clock, down if they drag. Broadcast reads the season (via `sportsleague.getSeason`) and runs *those two teams* with championship branding instead of a random matchup. When that game airs, its result crowns the champion, closes the season (kept as history), **wipes the standings**, and opens the next season. There is always a champion — the sim never ties.
+A season runs **`SPORTS_SEASON_DAYS` in-game days** (default 30 ≈ a month, driven by `world_clock.game_date`). A 1-minute tick counts the days elapsed since the season began; when it hits the limit (and the runner-up has played at least `SPORTS_MIN_WS_GAMES`), the **top two teams** are seeded into a single-game final, Deadball's **Curtain Call**. The top seed is the home side. The final's slot is the league's own airtime on a day its channel airs it. Tune `SPORTS_SEASON_DAYS` (top of `index.js`) up if seasons feel too short on your clock, down if they drag. Broadcast reads the season (via `sportsleague.getSeason`) and runs *those two teams* with championship branding instead of a random matchup. When that game airs, its result crowns the champion, closes the season (kept as history), **wipes the standings**, and opens the next season. There is always a champion — the sim never ties.
 
 **Eras.** A league in `LEAGUES` can name an `era` (the CPhL's is `cphl-8`, the eight
 neighbourhood clubs). Every season records the era it opened in, and when the league's era
@@ -39,7 +39,7 @@ has none.
 
 ## Extension points
 
-- Future season/World Series logic reads `sports_standings` for top-two seeding and resets it at season's end. It will live in this plugin.
+- Season and final logic reads `sports_standings` for top-two seeding and resets it at season's end. It will live in this plugin.
 
 ## Per-player races
 

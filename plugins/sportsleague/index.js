@@ -3,7 +3,7 @@
 // ONE LEAGUE PER SPORT. This started as "the baseball league for DEADBALL" and every
 // function assumed it. Cluster Puck made that assumption wrong rather than incomplete:
 // a hockey club would have appeared in Deadball's table, the CPhL could never crown
-// anything, and the World Series would have seeded two ballclubs into a hockey sim.
+// anything, and Deadball's final would have seeded two ballclubs into a hockey sim.
 // So `sport` is now threaded through the season row, both caches, every command and
 // both read seams, and LEAGUES below is the only place that knows a sport exists.
 //
@@ -20,7 +20,7 @@
 // meet in a single championship game. The "reset" is just a pointer: the new season's
 // `start_slot` moves forward, so its computed window starts fresh. Only `sports_season`
 // is persisted — a handful of writes per season, never per game.
-// Commands: `standings`, `worldseries`, `cup`, `champions`.
+// Commands: `standings`, `curtaincall`, `cup`, `champions`.
 import { query } from '../../server/models/db.js';
 import { emit } from '../../server/engine/events.js';
 import { registerAction, dispatchAction } from '../../server/engine/actions.js';
@@ -51,7 +51,9 @@ const SPORTS_MIN_WS_GAMES = 8;   // the #2 team must have played at least this m
 const LEAGUES = {
   baseball: {
     sport: 'baseball', icon: '⚾', show: 'DEADBALL', league: 'COLDWATER LEAGUE',
-    final: 'WORLD SERIES', finalTitle: 'World Series', finalCmd: 'worldseries',
+    // the final is the Curtain Call (the season's last act, under the city's wall); its phase
+    // in sports_season is still 'worldseries', a value, not a name anyone reads
+    final: 'CURTAIN CALL', finalTitle: 'Curtain Call', finalCmd: 'curtaincall', start: 'First Pitch',
     empty: 'No baseball games have been played yet. The DEADBALL standings are empty.',
     head: '  W   L    PCT   RDIF',
     cells: (r) => {
@@ -68,7 +70,7 @@ const LEAGUES = {
     sport: 'hockey', icon: '🏒', show: 'CLUSTER PUCK', league: 'CPhL',
     // The eight neighbourhood clubs (docs/systems-broadcast.md, the clubs table), October 2026.
     era: 'cphl-8',
-    final: 'COLDWATER CUP', finalTitle: 'Coldwater Cup', finalCmd: 'cup',
+    final: 'COLDWATER CUP', finalTitle: 'Coldwater Cup', finalCmd: 'cup', start: 'Puck Drop',
     empty: "The CPhL hasn't dropped a puck yet. The Cluster Puck standings are empty.",
     head: '  W   L  OTL   PTS     GD',
     cells: (r) => {
@@ -223,7 +225,7 @@ async function seedFinal(sport, season) {
   const gpd = clock.gamesPerDay || 8;
   const dayNow = Math.floor(clock.slot / gpd), dayWs = Math.floor(wsSlot / gpd);
   const when = dayWs <= dayNow ? 'tonight' : (dayWs === dayNow + 1 ? 'tomorrow night' : `in ${dayWs - dayNow} nights`);
-  emit('sports.worldseries', { sport, seasonNo: season.season_no, teams: [a.team, b.team], wsSlot, airHour, when });
+  emit('sports.worldseries', { sport, show: L.show, final: L.finalTitle, start: L.start, seasonNo: season.season_no, teams: [a.team, b.team], wsSlot, airHour, when });
   console.log(`[sportsleague] ${L.final} seeded (${sport} season ${season.season_no}): ${a.team} vs ${b.team} @ slot ${wsSlot} (${when}${airHour != null ? `, ${airHour}:00` : ''})`);
   return { ...season, phase: 'worldseries', finalist_a: a.team, finalist_b: b.team, ws_slot: wsSlot };
 }
@@ -249,7 +251,7 @@ async function crownChampion(sport, season) {
   invalidateSeason(sport);
   _standCaches.delete(sport);
   await ensureSeason(sport);   // opens the next season with start_slot = now (past ws_slot)
-  emit('sports.champion', { sport, seasonNo: season.season_no, champion: winner, runnerUp: loser, champScore, runScore, overtime: !!g.overtime });
+  emit('sports.champion', { sport, show: L.show, final: L.finalTitle, seasonNo: season.season_no, champion: winner, runnerUp: loser, champScore, runScore, overtime: !!g.overtime });
   console.log(`[sportsleague] ${L.final} CHAMPION (${sport} season ${season.season_no}): ${winner} beat ${loser} ${champScore}-${runScore}`);
 }
 
@@ -438,7 +440,7 @@ async function cmdChampions(args) {
   return { type: 'output', message: blocks.join('\n\n') };
 }
 
-// The championship status command, one per league (`worldseries`, `cup`). Everyone sees
+// The championship status command, one per league (`curtaincall`, `cup`). Everyone sees
 // the current final / season status + reigning champion; a dev/admin can `<cmd> start`
 // to force-seed it now (for testing without waiting for the in-game month to roll).
 async function cmdFinal(sport, args, raw, player) {
@@ -542,7 +544,7 @@ setTimeout(() => seasonTick().catch((e) => console.error('[sportsleague] boot se
 
 export const commands = {
   standings: (args) => cmdStandings(args),
-  worldseries: (args, raw, player) => cmdFinal('baseball', args, raw, player),
+  curtaincall: (args, raw, player) => cmdFinal('baseball', args, raw, player),
   cup: (args, raw, player) => cmdFinal('hockey', args, raw, player),
   champions: (args) => cmdChampions(args),
 };

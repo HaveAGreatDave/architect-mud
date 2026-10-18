@@ -713,6 +713,8 @@
     // client/game/index.html and client/devpanel/index.html. If it doesn't, the bank
     // still plays (its own `play()` is self-contained) but the dev panel can't see it
     // — a silent, confusing failure, so the tag order is commented at both sites.
+    // A bank that's an ES module (deadball-sfx.js) loads after this file and joins
+    // through addBank() below instead.
     ...(global.HockeySfx?.BUILTINS || []),
   ];
 
@@ -771,6 +773,17 @@
     });
   }
 
-  global.SFXCatalog = { get, applyOverrides, defaults, list, GROUPS };
+  // A bank that loads after this file: its presets join the list, under its group's label.
+  // Adding the same bank twice changes nothing.
+  function addBank(defs, group, label) {
+    for (const d of defs || []) {
+      if (!d?.id || _builtinById.has(d.id)) continue;
+      BUILTINS.push(d);
+      _builtinById.set(d.id, d);
+    }
+    if (group && label) GROUPS[group] = label;
+  }
+
+  global.SFXCatalog = { get, applyOverrides, defaults, list, addBank, GROUPS };
 
 })(typeof window !== 'undefined' ? window : globalThis);

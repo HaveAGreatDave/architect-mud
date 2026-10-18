@@ -46,7 +46,13 @@ export const TEMPLATES = (() => {
 export const KINDS = Object.freeze({
   sparks: Object.freeze({ n: 40, v: 46, drag: 4.5, g: 32, life: 0.4, width: 0.09, streak: 0.035, glow: 9, spread: 0.55 }),
   burst: Object.freeze({ n: 96, v: 85, drag: 1.4, g: 14, life: 2.2, width: 3.5, streak: 0.12, glow: 7, rise: 0.6 }),
+  // confetti from the upper deck: a strip `span` ft along the deck's front let go over `stagger`
+  // seconds, drifting `v` ft/s out over the field, falling `fall` ft/s and fluttering `sway` ft
+  // either way; a flake catches the lamps as it turns (its glow comes and goes)
+  confetti: Object.freeze({ n: 96, v: 2.6, drag: 1, g: 0, life: 9, width: 0.34, streak: 0.06, glow: 2.4, fall: 5.2, sway: 1.5, span: 34, stagger: 1.6 }),
 });
+// The confetti's colours, in linear light: gold, white, and the champions' own.
+export const CONFETTI = Object.freeze({ gold: [1, 0.72, 0.22], white: [1, 1, 1] });
 // How far apart the shells go up, at least: more than a third of a second, so no second ever has
 // more than three bursts in it (the plan's rule on flashing), and up to JITTER more at random.
 export const BEAT = 0.34, JITTER = 0.04;
@@ -63,11 +69,20 @@ export const DOWN = 0.5;
 export function wayAt(e, i, tau) {
   const K = KINDS[e.kind], T = TEMPLATES, o = i * 6;
   let d = [T[o], T[o + 1], T[o + 2]];
+  if (e.kind === 'confetti') return flakeAt(e, d, T[o + 3], tau - flakeDelay(d));
   if (e.kind === 'sparks') d = unit([e.dir[0] + d[0] * K.spread, e.dir[1] + d[1] * K.spread, e.dir[2] + d[2] * K.spread]);
   else { const c = Math.cos(e.spin), s = Math.sin(e.spin); d = [c * d[0] + s * d[2], d[1] < 0 ? d[1] * DOWN : d[1], -s * d[0] + c * d[2]]; }
   const v = K.v * T[o + 3] * (e.scale || 1), k = K.drag, ex = Math.exp(-k * tau);
   const along = v * (1 - ex) / k, fall = K.g * (tau / k - (1 - ex) / (k * k));
   return [e.at[0] + d[0] * along, e.at[1] + d[1] * along - fall, e.at[2] + d[2] * along];
+}
+// A flake: where along the deck it's let go (d.x), how far out from the front (d.z), when (its
+// d.y: flakeDelay), and k its own pace. `e.axis` runs along the deck and `e.out` over the field.
+export const flakeDelay = (d) => (d[1] * 0.5 + 0.5) * KINDS.confetti.stagger;
+function flakeAt(e, d, k, tau) {
+  const K = KINDS.confetti, A = e.axis, O = e.out, sw = Math.sin(tau * 2.1 * k + d[2] * 7) * K.sway * 0.5, sa = Math.cos(tau * 1.7 + d[0] * 9) * K.sway;
+  const along = d[0] * K.span / 2 + sa, out = 1 + (d[2] * 0.5 + 0.5) * 3 + K.v * tau * k + sw;
+  return [e.at[0] + A[0] * along + O[0] * out, Math.max(0.1, e.at[1] - K.fall * k * tau), e.at[2] + A[2] * along + O[2] * out];
 }
 // Particle i of effect e at time t: { at, glow } while it burns, or null. A burst's shell rises
 // from its launch for `rise` seconds first, drawn as particle 0 on its way up.
@@ -82,13 +97,36 @@ export function particleAt(e, i, t) {
       return { at: [e.from[0] + (e.at[0] - e.from[0]) * ease, e.from[1] + (e.at[1] - e.from[1]) * ease, e.from[2] + (e.at[2] - e.from[2]) * ease], glow: K.glow * 0.5 };
     }
   } else if (tau < 0) return null;
+  if (e.kind === 'confetti') {
+    const o = i * 6, d = [T[o], T[o + 1], T[o + 2]], u = tau - flakeDelay(d), life = K.life * T[o + 4];
+    if (u < 0 || u > life) return null;
+    const fade = Math.min(1, (life - u) / (life * 0.3));
+    return { at: wayAt(e, i, tau), glow: K.glow * (0.25 + 0.75 * Math.abs(Math.sin(u * 9 * T[o + 3] + d[0] * 30))) * fade };
+  }
   const life = K.life * T[i * 6 + 4];
   if (tau > life) return null;
   const fade = 1 - tau / life;
   return { at: wayAt(e, i, tau), glow: K.glow * fade * fade * (tau < 0.08 ? 1.6 : 1) };
 }
 // When the last of an effect's particles has gone out.
-export const endOf = (e) => (e.kind === 'trail' ? e.to + TRAIL.fade : e.t + KINDS[e.kind].life * 1.22);
+export const endOf = (e) => (e.kind === 'trail' ? e.to + TRAIL.fade : e.kind === 'beam' ? e.to : e.t + KINDS[e.kind].life * 1.22 + (KINDS[e.kind].stagger || 0));
+
+// Searchlights over the city before a final's first pitch: four shafts from out past the outfield,
+// each sweeping on its own clock. A beam is { kind: 'beam', from, to, at (its lamp), phase }; where
+// it points at time t is beamAt.
+export const BEAM = Object.freeze({ len: 1100, near: 6, far: 70, glow: 0.4, fade: 1.2, n: 10 });
+export function beamAt(e, t) {
+  if (t < e.from || t > e.to) return null;
+  const u = t - e.from, yaw = e.phase + 0.55 * Math.sin(u * 0.35 + e.phase * 3), el = (62 + 8 * Math.sin(u * 0.27 + e.phase)) * DEG;
+  const dir = [Math.sin(yaw) * Math.cos(el), Math.sin(el), Math.cos(yaw) * Math.cos(el)];
+  const fade = Math.min(1, u / BEAM.fade, (e.to - t) / BEAM.fade);
+  return { dir, glow: BEAM.glow * Math.max(0, fade) };
+}
+export function planSearchlights({ from, to, motion = true } = {}) {
+  if (!motion || !(to > from)) return [];
+  return [[-260, 30, 480, 0.5], [260, 30, 480, -0.5], [-520, 40, 260, 1.1], [520, 40, 260, -1.1]]
+    .map(([x, y, z, phase]) => ({ kind: 'beam', from, to, at: [x, y, z], phase }));
+}
 
 // The comet's tail: the last third of a second of the ball's way, head to tail, fading out once
 // the flight it's on is over.
@@ -144,6 +182,33 @@ export function planSpectacle(o) {
         colour: SHELLS[(colour + k) % SHELLS.length], second: SHELLS[(colour + k + 2) % SHELLS.length] });
     }
   }
+  return fx;
+}
+
+// The champions' show, from `t` (the last out held, the pile going on): confetti let go all along
+// the upper deck's front behind the plate, and fireworks over the outfield and further out over the
+// city, more of them and higher than a home run's. `colour` is the champions' own, in linear light.
+// Nothing for a viewer who's asked for less motion. Returns the effects.
+export const DECK = Object.freeze({ r: 134, y: 50, from: -112, to: -248, n: 8 });
+export function planChampion({ t, colour = CONFETTI.gold, motion = true, seed = 1 } = {}) {
+  const fx = [];
+  if (!motion || !Number.isFinite(t)) return fx;
+  const rand = seeded(seed >>> 0);
+  for (let k = 0; k < DECK.n; k++) {
+    const a = (DECK.from + (DECK.to - DECK.from) * (k + 0.5) / DECK.n) * DEG, at = [Math.sin(a) * DECK.r, DECK.y, Math.cos(a) * DECK.r];
+    const out = unit([-at[0], 0, 60 - at[2]]), axis = [-out[2], 0, out[0]];
+    fx.push({ kind: 'confetti', t: t + 0.15 * k * rand(), at, out, axis, colour });
+  }
+  const shell = (k, n, r0, y0, scale, t0) => {
+    const dir = Math.max(-42, Math.min(42, 84 * ((n > 1 ? k / (n - 1) : 0.5) - 0.5) + (rand() - 0.5) * 8));
+    const r = fenceAt(dir) + r0 + 40 * rand(), y = y0 + 40 * rand();
+    const at = [-Math.sin(dir * DEG) * r, y, Math.cos(dir * DEG) * r], from = [-Math.sin(dir * DEG) * (r + 14), 28, Math.cos(dir * DEG) * (r + 14)];
+    const c = Math.floor(rand() * SHELLS.length);
+    return { kind: 'burst', t: t0 + KINDS.burst.rise + (BEAT + JITTER / 2) * k + JITTER / 2 * rand(), at, from, spin: rand() * Math.PI * 2, scale,
+      colour: SHELLS[c], second: SHELLS[(c + 2) % SHELLS.length] };
+  };
+  for (let k = 0; k < 12; k++) fx.push(shell(k, 12, 55, 92, 1, t + 0.6));
+  for (let k = 0; k < 8; k++) fx.push(shell(k, 8, 260, 170, 1.5, t + 1.4));
   return fx;
 }
 

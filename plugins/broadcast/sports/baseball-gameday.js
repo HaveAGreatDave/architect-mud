@@ -151,6 +151,30 @@ export function gamedayLeaders(x = {}) {
   return { hr: (x.homers || []).map(bat), avg: (x.batters || []).map(bat), sb: (x.steals || []).map(bat), k: (x.strikeouts || []).map(arm) };
 }
 
+// The game's most valuable player, for the champion's card at the end of a final: the
+// winners' batter with the most bases and runs batted in (a hit's bases, plus one and a half a
+// run batted in), first to it on a tie. `payloads` are the game's, in order (gamedayPayloads
+// `order`). Returns { name, team, line ('2-4, HR, 3 RBI') } or null.
+const HIT_BASES = { single: 1, double: 2, triple: 3, homerun: 4 };
+const NO_AB = new Set(['walk', 'hitbypitch', 'sacfly', 'intentional']);
+export function gameMvp(payloads, winner) {
+  const by = new Map();
+  for (const p of payloads || []) {
+    if (p.phase || !p.batter || p.battingTeam !== winner) continue;
+    const r = by.get(p.batter) || { name: p.batter, team: winner, ab: 0, h: 0, hr: 0, rbi: 0, bases: 0 };
+    if (!NO_AB.has(p.kind)) r.ab++;
+    if (HIT_BASES[p.kind]) { r.h++; r.bases += HIT_BASES[p.kind]; }
+    if (p.kind === 'homerun') r.hr++;
+    r.rbi += p.rbi | 0;
+    by.set(p.batter, r);
+  }
+  let best = null;
+  for (const r of by.values()) if (!best || r.bases + 1.5 * r.rbi > best.bases + 1.5 * best.rbi) best = r;
+  if (!best) return null;
+  const parts = [`${best.h}-${best.ab}`, best.hr ? (best.hr > 1 ? `${best.hr} HR` : 'HR') : '', best.rbi ? `${best.rbi} RBI` : ''].filter(Boolean);
+  return { name: best.name, team: best.team, line: parts.join(', ') };
+}
+
 // The clocks a steal is run against, from the traits that decided it in the sim: the
 // pitcher's time to the plate (quicknessOf) and the catcher's pop time to the bag (armOf),
 // in seconds. A quick pitcher is about 1.2 to the plate and a strong arm about 1.85.

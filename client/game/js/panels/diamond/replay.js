@@ -18,6 +18,7 @@
 import { createWorld, DT } from './world.js';
 import { createDirector } from './director.js';
 import { castOf } from './cast.js';
+import { onField } from './play.js';
 
 // rate: how fast it plays, against the live game; after: how long after the play lands it
 // starts (s of the game's clock), once the line and the words are up (and later, once a home
@@ -34,8 +35,12 @@ const CLOSE = 0.15;
 // a catch at the wall isn't seen through it, looking at the glove. A shot by name with a track
 // that stays put (camera.js shotAt 'fly').
 function catchShot(at) {
-  const h = Math.hypot(at[0], at[2]) || 1, u = [at[0] / h, 0, at[2] / h], side = [-u[2], 0, u[0]];
-  const eye = [at[0] + side[0] * 42 - u[0] * 10, Math.max(6, at[1] + 6), at[2] + side[2] * 42 - u[2] * 10];
+  const h = Math.hypot(at[0], at[2]) || 1, u = [at[0] / h, 0, at[2] / h];
+  // the side with the field under it: by a foul line one of them is up in the seats
+  const spot = (k, w) => [at[0] - u[2] * k * w - u[0] * 10, 0, at[2] + u[0] * k * w - u[2] * 10];
+  let g = spot(1, 42);
+  for (const [k, w] of [[1, 42], [-1, 42], [1, 28], [-1, 28]]) if (onField(spot(k, w), 6)) { g = spot(k, w); break; }
+  const eye = [g[0], Math.max(6, at[1] + 6), g[2]];
   const aim = [at[0], Math.max(1.5, at[1]), at[2]];
   return { shot: 'fly', eye, at: aim, fov: 24, follow: 0, track: () => aim };
 }

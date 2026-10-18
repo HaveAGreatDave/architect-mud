@@ -15,6 +15,7 @@
 import { DEADBALL_SFX } from '../../../shared/deadball-sfx.js';
 import { prefersReducedMotion, playByPlayOn } from '../../../shared/settings.js';
 import { fenceAt } from './diamond/play.js';
+import { addFullscreenButton, leaveFullscreen } from './view-fullscreen.js';
 
 function _esc(str) {
   return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -337,7 +338,7 @@ export const GAMEDAY_CARDS = {
   extras: (fx) => ({ title: 'EXTRA INNINGS', sub: fx.inningOrd ? `${fx.inningOrd} · Free Baseball` : 'Free Baseball', cls: '' }),
   gamewin: (fx) => ({ title: 'FINAL', sub: fx.winner ? `${fx.winner} ${fx.winScore}–${fx.loseScore}` : '', cls: 'final' }),
   matchup: (fx) => ({ title: 'DEADBALL', sub: (fx.away && fx.home) ? `${fx.away} vs ${fx.home}` : '', cls: '' }),
-  worldseries: (fx) => ({ title: 'WORLD SERIES', sub: (fx.away && fx.home) ? `${fx.away} vs ${fx.home}` : '', cls: 'hot' }),
+  worldseries: (fx) => ({ title: String(fx.final || 'CURTAIN CALL').toUpperCase(), sub: (fx.away && fx.home) ? `${fx.away} vs ${fx.home}` : '', cls: 'hot' }),
   champion: (fx) => ({ title: '🏆 CHAMPIONS', sub: fx.winner || '', cls: 'hot' }),
 };
 
@@ -361,6 +362,7 @@ export function createGamedayView(host) {
   function _body() {
     if (!bodyEl || ![...host.children].includes(bodyEl)) {
       host.innerHTML = `<div class="gd-live sr-only" role="log" aria-live="polite"></div><div class="gd-body"></div>`;
+      addFullscreenButton(host, host);
       liveEl = host.querySelector('.gd-live');
       bodyEl = host.querySelector('.gd-body');
     }
@@ -961,6 +963,7 @@ export function createGamedayView(host) {
 
   function clear() {
     _stop(); _clearCard();
+    leaveFullscreen(host);
     if (host) host.innerHTML = '';
     field = null;
     caption = '';

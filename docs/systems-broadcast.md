@@ -797,8 +797,8 @@ sport module**; nothing else in the pipeline may branch on it.
 Deadball's sub-screen is the 2-D Gameday view ([gameday.js](../client/game/js/panels/gameday.js)).
 A high-fidelity 3-D one on Rinkside's pattern, with a 1990s arcade look and the park inside the
 Curtain on Halcyon Fields, is planned in [proposals/deadball-glass2.md](proposals/deadball-glass2.md)
-(Phases 0 to 3 built, and Phase 4 but for its sound; the park in 3-D is on by default: see the
-Grandstand below).
+(Phases 0 to 4 built; the park in 3-D is on by default: see the Grandstand below, and its sound in
+[systems-deadball-sound.md](systems-deadball-sound.md)).
 
 **The Gameday payload** is built by a pure module,
 [sports/baseball-gameday.js](../plugins/broadcast/sports/baseball-gameday.js), which the
@@ -963,10 +963,9 @@ Built so far (Phases 1 and 2 of the plan):
   up to the rubber. A long at-bat on a short hold leaves pitches out of the middle and the count
   goes through them. Every jump from one moment to the next is under a cut. Strike three, ball
   four and a hit batsman are played in full, the hitter walking off or heading to first, and a
-  strikeout and a walk get their splash words. The 2-D view's cues
-  ([client/shared/deadball-sfx.js](../client/shared/deadball-sfx.js)) play on the moment: the
-  mitt, the crack of the bat, a miss's whiff, the ball into a glove, and the play's own sound as
-  it lands;
+  strikeout and a walk get their splash words. Everything the park does is heard on its moment
+  through the park's mixer ([diamond/sound.js](../client/game/js/panels/diamond/sound.js)); the
+  bank, the mix and the voices are in [systems-deadball-sound.md](systems-deadball-sound.md);
 - the ball in play (Phase 3c): [diamond/plays.js](../client/game/js/panels/diamond/plays.js)
   plays out the payload's `play` as the server decided it. The ball goes off the bat on the
   spray, at the exit speed and launch angle the server drew: one on the ground rolls on play.js's
@@ -1270,6 +1269,32 @@ takes the page headless and screenshots a slot's plays at the moments the direct
 pitch, the catch, the throw, the tag, the landing and after), so the picture can be checked with
 nobody at the keyboard. The renderer's traps are in [glass-notes.md](reference/glass-notes.md#the-ballpark-glballparkjs).
 
+**The pitch camera.** The pitches are watched from behind the batter (`bat`) or, with the camera
+button on the picture (`.gds-cam`), from behind the pitcher on the long lens from centre field
+(`cf`). The choice is kept in this browser (`architect_deadball_cam`), and the sandbox takes
+`?cam=cf`. The director asks for it each at-bat (`pitchShot`), and the strike zone is drawn from
+either.
+
+**The call at the crack.** Every ball in play's payload carries `contact` ({ text, by }), the
+booth's line as it comes off the bat ("Smoked on the ground toward third!"), drawn on the server
+from the `contact.*` pools ([bsm-format.md](bsm-format.md)). The Grandstand has the announcer say it
+at the crack of the pitch that's put in play (the nth crack is the nth pitch the bat touched,
+`crackPitch` in diamond/sound.js, since the director names a pitch only once it's decided), and his
+line about how it ended waits for it. An infield pop-up is watched from behind the man under it
+from its peak on: the high shot lost the field as it climbed, and it read as a ball leaving the park.
+
+**The Curtain Call** (Deadball's one-game final) is dressed for it. The first payload's `season`
+carries the final's name, both seeds and both line-ups, and the last payload's `end` carries the
+champions and the game's most valuable player. The graphics go gold, with the seeds, the final's
+name under the count and "Winner Takes the Season" across the foot. The park gets bunting on the
+upper deck, pennants on the towers, the logo painted on the grass, a sold-out house and towels.
+Before the first pitch the public address reads both line-ups a card a man, under searchlights, to
+the organ's anthem. At the last out the frame holds, then CHAMPIONS!, the champions' card, the
+trophy, confetti off the upper deck, fireworks over the outfield and the city, and the champions
+piling on while the losers walk off. The city's own fireworks go up from the park's site as it's
+crowned. The sandbox page plays any game as the final with `?po=1`. All of it is under Phase 5 in
+[deadball-glass2.md](proposals/deadball-glass2.md#phases).
+
 ### Sim v2
 
 `simGameV2` in [sports/baseball.js](../plugins/broadcast/sports/baseball.js) adds the plays v1
@@ -1543,10 +1568,10 @@ into belongs to the sport module (`SEASON` in `sports/<name>.js`):
 | Table | W · L · PCT · RDIF | W · L · **OTL** · **PTS** · GD |
 | Points | — | 2 for a win, **1 for losing past sixty** |
 | Extras | — | scoring race + season casualty/death count |
-| Final | World Series (`worldseries`) | **Coldwater Cup** (`cup`) |
+| Final | **Curtain Call** (`curtaincall`) | **Coldwater Cup** (`cup`) |
 
 A postseason takeover applies **only to its own sport** (`overrideFor(script)`) —
-handing the World Series' finalists to the hockey sim would put two ballclubs on the ice.
+handing the Curtain Call's finalists to the hockey sim would put two ballclubs on the ice.
 
 **A new roster starts a fresh season.** Each league in `LEAGUES` can name an `era`, and a
 season records the era it opened in (`sports_season.era`). When they differ, the next

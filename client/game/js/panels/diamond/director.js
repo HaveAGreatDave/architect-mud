@@ -70,7 +70,7 @@ import { planSpectacle, KINDS as FX_KINDS } from './spectacle.js';
 import { planTrot, planTakeField, jogToDugout, dugoutOf, dugoutSpot as dugoutSpotOf } from './bases.js';
 import { makeBody, cloneBody, onOf, flat } from './bodies.js';
 import { strideOf, digOf, scarsOf } from './marks.js';
-import { planBetween, deckPlan, shotsBetween, BETWEEN } from './between.js';
+import { planBetween, planPile, deckPlan, shotsBetween, BETWEEN } from './between.js';
 import { planCrew, crewShots } from './crew.js';
 
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
@@ -332,6 +332,9 @@ function stageBodiesOf(W, bodies, tIn, play) {
 // moment: the mitt's pop, the bat's crack, a miss's whiff, the ball into a glove).
 export function createDirector(W, opts = {}) {
   const emit = (n, d) => opts.emit?.(n, d);
+  // the camera the pitches are watched from: the batter's ('bat', from behind the plate) or the
+  // pitcher's ('cf', the long lens from centre field), as the viewer picks it (`opts.pitchShot()`)
+  const pitchCam = () => (opts.pitchShot?.() === 'cf' ? 'cf' : 'bat');
   // `fx`: the payload's spectacle (diamond/spectacle.js), which the view hands the renderer
   const D = { log: [], played: [], views: null, landed: true, landAt: 0, until: 0, t0: 0, budget: 0, payload: null, fx: [], marks: [], queued: new Map(), drags: [], crew: null };
   // the last clip the director has queued for each body (`D.queued`, by slot: { clip, at, start,
@@ -410,7 +413,7 @@ export function createDirector(W, opts = {}) {
       const ballOr = (end) => (t) => (t < T.tRel ? from : path(Math.min(t, end)));
 
       // ── the cut in: everyone where this pitch has them ──
-      cut(T.tIn, T.ritual ? 'mound' : 'bat');
+      cut(T.tIn, T.ritual ? 'mound' : pitchCam());
       W.at(T.tIn, () => {
         for (const b of [P, C, H, U]) if (b) W.clearLayers(b.slot);
         // the catcher sets up across from where it's coming, while nobody's looking
@@ -420,7 +423,7 @@ export function createDirector(W, opts = {}) {
       // the pitcher: the walk back and the set, or straight into his motion
       if (T.ritual) {
         play(P, 'pitch_return', T.retStart, T.retStart, { speed: tempo });
-        cut(T.tSet, 'bat');
+        cut(T.tSet, pitchCam());
       }
       if (v.lead === 'set' && !S.windup) play(P, 'pitch_set', T.tSet, T.tSet, { speed: tempo });
       play(P, delivery.id, v.lead === 'set' ? (S.windup ? T.tSet : T.pStart) : T.tIn, T.pStart, { speed: tempo });
@@ -587,7 +590,7 @@ export function createDirector(W, opts = {}) {
     const cut = (at, shot) => W.at(at, () => emit('shot', shot));
     const sound = (at, cue) => W.at(at, () => emit('sound', cue));
     if (lead) W.at(W.t, () => emit('shot', 'sky'));
-    cut(t0, 'bat');
+    cut(t0, pitchCam());
     onDeck(cast, W.t, tMitt + 1, `${p.batter}|${p.inning}|${p.half}|${p.kind}`);
     const setup = [CATCHER_AT[0] + sh.setupX, CATCHER_AT[1], CATCHER_AT[2]];
     W.at(t0, () => { for (const b of [P, C, H, U]) if (b) W.clearLayers(b.slot); C.at = setup.slice(); W.setBall(null); });
@@ -884,6 +887,46 @@ export function createDirector(W, opts = {}) {
     if (!p || p.phase === 'half' || D.inningOver || p.walkoff || !Number.isFinite(o.until)) return null;
     const now = W.t, t = Math.max(now, D.landAt), from = Math.max(t + BETWEEN.settle, o.from ?? -Infinity), by = o.until - BETWEEN.margin;
     if (by - from < 3) return null;
+    const men = menNow(cast, t, from);
+    const gone = planBetween({ p, cast, men, by });
+    sendMen(men, gone, from);
+    // the cameras, and the on-deck hitter's swings with one for his shot
+    const deck = cast.find((c) => c.look.role === 'ondeck');
+    const rub = gone.find((g) => g.role === 'pitcher');
+    const shots = shotsBetween({ from, until: by, deck: deck ? (deck.at[0] > 0 ? 'deck3' : 'deck1') : null, rubAt: rub?.end });
+    for (const x of shots) W.at(x.at, () => emit('shot', x.shot));
+    if (deck) onDeck(cast, t, o.until, `${p.batter}|${p.inning}|${p.half}|between`, { place: false, at: shots.filter((x) => x.swing).map((x) => x.swing) });
+    W.at(from, () => W.setBall(null));
+    D.until = Math.max(D.until, o.until);
+    D.between = { gone, shots, from, until: o.until, by, men: men.map((m) => ({ slot: m.slot, role: m.role, still: m.still })) };
+    return D.between;
+  };
+
+  // The last out of a final (the payload's `end` says the champions): once the moment's held
+  // (`o.from`), the champions on the field pile on at the mound or the plate and the losers walk
+  // off (between.js planPile), the camera wide and then in on the pile, till `o.until`.
+  D.planPile = (o = {}) => {
+    const p = D.payload, cast = D.cast || [];
+    if (!p || !p.end?.champion || !Number.isFinite(o.until)) return null;
+    const t = Math.max(W.t, D.landAt), from = Math.max(t, o.from ?? -Infinity), by = o.until - BETWEEN.margin;
+    if (by - from < 2) return null;
+    const men = menNow(cast, t, from);
+    const gone = planPile({ p, end: p.end, men, by });
+    sendMen(men, gone, from);
+    W.at(from, () => W.setBall(null));
+    const winBat = p.end.winner === p.battingTeam;
+    W.at(from, () => emit('shot', 'high'));
+    W.at(from + 2.2, () => emit('shot', winBat ? 'bat' : 'mound'));
+    D.until = Math.max(D.until, o.until);
+    D.pile = { gone, from, until: o.until, by, winBat };
+    return D.pile;
+  };
+
+  // Everyone who can move, as he is at the landing `t` (the director's plan for him, what the world
+  // has him doing, or where the cast stands him), and when he's free: planBetween's and planPile's
+  // `men`.
+  function menNow(cast, t, from) {
+    const now = W.t;
     const planned = new Map([...(D.play?.bodies || []), ...(D.trot?.bodies || [])].map((B) => [B.slot, B]));
     const men = [];
     for (const c of cast) {
@@ -903,7 +946,10 @@ export function createDirector(W, opts = {}) {
       const go = still ? from : Math.max(t, done, P?.offAfter ?? -Infinity);
       men.push({ B, slot, role, go, done: B.clips.length, still, c });
     }
-    const gone = planBetween({ p, cast, men, by });
+    return men;
+  }
+  // The clips planned for each man sent somewhere, into the world, a still placed as `from` comes.
+  function sendMen(men, gone, from) {
     const at = new Map(gone.map((g) => [g.slot, g]));
     for (const m of men) {
       if (!at.has(m.slot)) continue;
@@ -914,17 +960,7 @@ export function createDirector(W, opts = {}) {
         W.at(e.issue ?? e.from ?? e.start, () => { W.play(m.slot, e.clip, { at: e.start, speed: e.speed, fade: e.fade, frame: e.given ? e.F : undefined, from: e.from, carry: e.carry }); D.played.push({ t: e.start, role: m.role, slot: m.slot, clip: e.clip, start: e.start }); });
       }
     }
-    // the cameras, and the on-deck hitter's swings with one for his shot
-    const deck = cast.find((c) => c.look.role === 'ondeck');
-    const rub = gone.find((g) => g.role === 'pitcher');
-    const shots = shotsBetween({ from, until: by, deck: deck ? (deck.at[0] > 0 ? 'deck3' : 'deck1') : null, rubAt: rub?.end });
-    for (const x of shots) W.at(x.at, () => emit('shot', x.shot));
-    if (deck) onDeck(cast, t, o.until, `${p.batter}|${p.inning}|${p.half}|between`, { place: false, at: shots.filter((x) => x.swing).map((x) => x.swing) });
-    W.at(from, () => W.setBall(null));
-    D.until = Math.max(D.until, o.until);
-    D.between = { gone, shots, from, until: o.until, by, men: men.map((m) => ({ slot: m.slot, role: m.role, still: m.still })) };
-    return D.between;
-  };
+  }
 
   // The fireworks: the wide shot over the outfield as the first shell goes up, and back to the
   // high camera once the last has burst. Returns when the last spark's out (0 for none).

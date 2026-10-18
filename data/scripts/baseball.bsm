@@ -829,11 +829,102 @@ That run in the top of the {inningOrd} stands up, and the {leader} steal it on t
 Go-ahead run in extras, home half comes up empty, and the {leader} make it stick. Ballgame.
 ::endlines
 
-# --- WORLD SERIES: one game, top two teams, winner takes the season ---------------
+# --- THE CRACK: what the booth says as the ball comes off the bat -----------------------
+# Said before anyone knows how it ends, so nothing here may give it away: no "base hit", no "he's
+# got it". {toward} is where it's going ("toward third", "to right-centre"); the .hard and .soft
+# pools are a ball hit past 100 mph or under 70. Tag suffixes (.left, .deep...) are the
+# CONTACT_TAGS in plugins/broadcast/sports/baseball.js.
+::lines contact.ground
+On the ground {toward}.
+Bounding ball {toward}.
+Hit on the ground, {toward}.
+Grounder {toward}.
+::endlines
+
+::lines contact.ground.hard
+Smoked on the ground {toward}!
+Rocket of a grounder {toward}!
+Hammered into the dirt {toward}!
+Sharp one {toward}!
+::endlines
+
+::lines contact.ground.soft
+Topped, rolling slow {toward}.
+Little nubber {toward}.
+Chopped, and it's dying {toward}.
+::endlines
+
+::lines contact.ground.comebacker
+Right back up the box!
+Back at the pitcher's feet!
+::endlines
+
+::lines contact.ground.line
+Down the line!
+::endlines
+
+::lines contact.liner
+Lined {toward}!
+Line drive {toward}!
+On a line {toward}!
+::endlines
+
+::lines contact.liner.hard
+Scorched on a line {toward}!
+Frozen rope {toward}!
+That's a laser {toward}!
+::endlines
+
+::lines contact.liner.soft
+Soft liner {toward}.
+::endlines
+
+::lines contact.fly
+Fly ball {toward}.
+Lifted {toward}.
+Up in the air {toward}.
+::endlines
+
+::lines contact.fly.hard
+Drive! Way back {toward}!
+Crushed! Deep {toward}!
+He got all of that one, {toward}!
+::endlines
+
+::lines contact.fly.soft
+Lazy fly {toward}.
+::endlines
+
+::lines contact.fly.deep
+Hit well, going back {toward}!
+That's got some carry {toward}!
+::endlines
+
+::lines contact.fly.shallow
+Looper {toward}.
+Shallow fly {toward}.
+::endlines
+
+::lines contact.pop
+Popped up {toward}.
+Sky-high pop-up {toward}.
+Straight up, and it's still going up.
+::endlines
+
+::lines contact.pop.foul
+Popped up, drifting into foul ground.
+::endlines
+
+::lines contact.pop.catcher
+Popped straight up behind the plate.
+::endlines
+
+# --- THE CURTAIN CALL: one game, top two teams, winner takes the season (the pools keep the old key) ---------------
 ::lines worldseries.intro
-This is it. THE WORLD SERIES. One game, two clubs, and a whole miserable season of baseball comes down to the next nine innings. Chip Vega, and I have never been more awake.
-Welcome to the DEADBALL WORLD SERIES. Winner takes the crown, loser takes the long walk home. Chip Vega in the booth, gripping the desk so hard my knuckles went.
-Nine innings from immortality. The World Series, folks. Last game of the season, and somebody's about to become a legend in a town that forgets fast.
+This is it. THE CURTAIN CALL. One game, two clubs, and a whole miserable season of baseball comes down to the next nine innings. Chip Vega, and I have never been more awake.
+Welcome to the DEADBALL CURTAIN CALL. Winner takes the crown, loser takes the long walk home. Chip Vega in the booth, gripping the desk so hard my knuckles went.
+Nine innings from immortality. The Curtain Call, folks. Last game of the season, and somebody's about to become a legend in a town that forgets fast.
+They call it the Curtain Call because it's the last act of the season, and because the Curtain is the one thing in this city nobody's knocked down. Yet. Chip Vega, let's go.
 ::endlines
 
 ::lines worldseries.matchup
@@ -843,14 +934,14 @@ Winner takes the season, loser takes nothing. {away} and {home}. Let's settle it
 ::endlines
 
 ::lines worldseries.final
-IT'S OVER! The {leader} are your DEADBALL WORLD SERIES CHAMPIONS! {home} {homeScore}, {away} {awayScore}. Carve it into whatever's still standing!
+IT'S OVER! The {leader} are your DEADBALL CURTAIN CALL CHAMPIONS! {home} {homeScore}, {away} {awayScore}. Carve it into whatever's still standing!
 CHAMPIONS! The {leader} take the whole thing, {homeScore} to {awayScore}! A season of blood and rust, and they're the last ones grinning!
-That's your ballgame and your SEASON! The {leader} win the World Series! {away} {awayScore}, {home} {homeScore}. Somewhere, a bookie weeps into his ledger.
+That's your ballgame and your SEASON! The {leader} take the Curtain Call! {away} {awayScore}, {home} {homeScore}. Somewhere, a bookie weeps into his ledger.
 ::endlines
 
 ::lines worldseries.outro
 The {leader} are champions. The rest of us go back to nothing. Chip Vega. Good night, and long live the kings, however briefly.
-Champions crowned, season buried. Chip Vega signing off on the World Series. Same dirt tomorrow, but tonight belongs to the {leader}.
+Champions crowned, season buried. Chip Vega signing off on the Curtain Call. Same dirt tomorrow, but tonight belongs to the {leader}.
 ::endlines
 
 # --- Final ---------------------------------------------------------------------

@@ -1168,7 +1168,7 @@ export function createTvView(root, opts = {}) {
         `<span class="tv-stp-rd">${hockey ? 'PTS' : 'RD'}</span></div>` +
       `<div class="tv-stp-list">${body}</div>` +
       `<div class="tv-sched-foot">${data.phase === 'worldseries'
-        ? (hockey ? 'Coldwater Cup: winner takes the season.' : 'World Series: winner takes the season.')
+        ? `${_esc(data.final || (hockey ? 'Coldwater Cup' : 'Curtain Call'))}: winner takes the season.`
         : (hockey ? 'Two points for a win, one for losing past sixty.' : 'Run differential over the season to date.')}</div>`;
   }
 
@@ -1435,7 +1435,7 @@ export function createTvView(root, opts = {}) {
       const rec = (r) => r && r !== '0-0' ? `<span class="rec">${_esc(r)}</span>` : '';
       inner =
         `<div class="tv-fx-ws">` +
-          `<div class="tv-fx-ws-banner">WORLD SERIES</div>` +
+          `<div class="tv-fx-ws-banner">${_esc(String(fx.final || 'Curtain Call').toUpperCase())}</div>` +
           `<div class="tv-fx-ws-sub">Winner Takes the Season</div>` +
           `<div class="tv-fx-mu-teams">` +
             `<div class="tv-fx-mu-team away">${_crest(fx.away, 72, 'tv-fx-mu-crest')}<span class="nm">${_esc(fx.away)}</span>${rec(fx.awayRecord)}</div>` +
@@ -1449,7 +1449,7 @@ export function createTvView(root, opts = {}) {
           `<div class="tv-fx-champ-rays"></div>` +
           `<div class="tv-fx-champ-trophy">🏆</div>` +
           `<div class="tv-fx-champ-team">${_esc(fx.winner)}</div>` +
-          `<div class="tv-fx-champ-label">${_esc(fx.label || 'World Series Champions')}</div>` +
+          `<div class="tv-fx-champ-label">${_esc(fx.label || 'Champions')}</div>` +
           `<div class="tv-fx-champ-score">${_esc(fx.winner)} ${fx.winScore}: ${fx.loseScore} ${_esc(fx.loser)}</div>` +
         `</div>`;
     } else return;

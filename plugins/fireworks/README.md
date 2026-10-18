@@ -11,5 +11,9 @@
 ## Commands
 - `fireworks` — admin only.
 
+## Registered actions
+
+- `fireworks.launch` { zoneId, seconds }: the same show from another system. The broadcast plugin calls it when a final is crowned, from the tile its park's venue stands on. Refused while a show is running.
+
 ## Notes
 The flight-sim path and the on-foot path are mutually exclusive by design: an airborne viewer gets the real burst, not the flat flash.

@@ -285,6 +285,50 @@ export function planBetween({ p, cast, men, by }) {
   return out;
 }
 
+// THE PILE (`planPile`). The last out of a final: the champions on the field go to the mound (to the
+// plate on a walk-off, where the man who scored it is) and pile on. The nearest is up and leaping
+// with both arms over his head (celebrate_leap); the rest come in from all round and dive on top of
+// him (pile_dive), each a little higher than the one before, so they lie heaped. The losers walk off
+// to their own dugout, and the umpires stay where they are. `end` is the payload's (`winner`);
+// `men` as planBetween has them. Returns, for each man sent, { slot, role, to, rest, end }.
+export const PILE = Object.freeze({ spread: 2.4, lift: 0.85, dive: rootAt(CLIPS.pile_dive, CLIPS.pile_dive.duration).at[1] });
+export function planPile({ p, end, men, by }) {
+  const winBat = end?.winner === p.battingTeam;
+  const centre = winBat ? [0, 0, 4] : [MOUND[0], 0, MOUND[1] - 1.5];
+  const bat = (m) => m.role === 'batter' || m.role === 'runner', field = (m) => ['pitcher', 'catcher', 'fielder'].includes(m.role);
+  const wins = men.filter((m) => (winBat ? bat(m) : field(m))), loses = men.filter((m) => (winBat ? field(m) : bat(m)));
+  wins.sort((a, b) => flat(a.B.spotAt(a.go), centre) - flat(b.B.spotAt(b.go), centre));
+  const out = [];
+  wins.forEach((m, i) => {
+    const here = m.B.spotAt(m.go);
+    if (i === 0) {
+      const spot = flat(here, centre) < 6 ? here : centre, face = faceTo(spot, [0, 0, winBat ? 60 : 0]);
+      const t = goTo(m.B, spot, face, m.go, { by, rest: 'celebrate_leap' });
+      if (t != null) out.push({ slot: m.slot, role: m.role, to: spot, rest: 'celebrate_leap', end: t });
+      return;
+    }
+    // he comes in on the side he's coming from, turned a little round the pile each time so two
+    // from the same side don't land on one another's line, and dives from a dive's length out
+    let u = sub(here, centre);
+    if (Math.hypot(u[0], u[2]) < 1) u = [Math.sin(i * 2.4), 0, Math.cos(i * 2.4)];
+    const a = Math.atan2(u[0], u[2]) + ((i % 3) - 1) * 0.35, r = PILE.dive + PILE.spread * (i % 2);
+    const from = [centre[0] + Math.sin(a) * r, 0, centre[2] + Math.cos(a) * r], face = faceTo(from, centre);
+    const t = goTo(m.B, from, face, m.go, { by: by - CLIPS.pile_dive.duration });
+    if (t == null) return;
+    const lie = Math.min(3, Math.ceil(i / 2)) * PILE.lift;
+    m.B.play('pile_dive', t + 0.1, { frame: { at: [from[0], groundHeight(from[0], from[2]) + lie, from[2]], yaw: face }, fade: 0.3 });
+    out.push({ slot: m.slot, role: m.role, to: centre, rest: 'pile_dive', end: t + 0.1 + CLIPS.pile_dive.duration });
+  });
+  // the losers off to their own side, the furthest from it first taking the deepest spot
+  const side = winBat ? -dugoutOf(p) : dugoutOf(p);
+  loses.sort((a, b) => flat(b.B.spotAt(b.go), dugoutSpot(side, 0)) - flat(a.B.spotAt(a.go), dugoutSpot(side, 0)));
+  loses.forEach((m, i) => {
+    const spot = dugoutSpot(side, loses.length - 1 - i), t = goTo(m.B, spot, faceTo(spot, [0, 0, 60]), m.go + 0.6 + 0.3 * i, { by, walk: true, via: [spot[0], 0, spot[2] + 10] });
+    if (t != null) out.push({ slot: m.slot, role: m.role, to: spot, rest: 'stand_idle', end: t, off: true });
+  });
+  return out;
+}
+
 // The on-deck hitter between pitches: his stance (bat_stance, a loop) from t0, and a practice swing
 // every six to eleven seconds till t1, with one starting at each time in `at` (for the camera on
 // him) and the rest kept clear of those. Returns [{ clip, t, fade }] in order.

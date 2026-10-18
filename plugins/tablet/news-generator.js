@@ -365,16 +365,18 @@ on('void.died', ({ handle, origin, cause }) => {
   record(pickOne(VOID_HEADLINES.died)({ handle, origin, cause }));
 });
 
-on('sports.champion', ({ champion, runnerUp, champScore, runScore }) => {
+// Both finals come through here, so the headline takes the show and the final's name from the
+// event (plugins/sportsleague LEAGUES): a Coldwater Cup isn't a Deadball one.
+on('sports.champion', ({ show, final, champion, runnerUp, champScore, runScore }) => {
   if (!champion) return;
-  record(`DEADBALL: ${champion} Crush ${runnerUp} ${champScore}-${runScore} to Take the Crown`);
+  record(`${show || 'DEADBALL'}: ${champion} Crush ${runnerUp} ${champScore}-${runScore} to Take the ${final || 'Crown'}`);
 });
 
-on('sports.worldseries', ({ teams, when, airHour }) => {
+on('sports.worldseries', ({ show, final, start, teams, when, airHour }) => {
   if (!Array.isArray(teams) || teams.length < 2) return;
   const time = Number.isFinite(airHour) ? `${String(airHour).padStart(2, '0')}:00` : 'this evening';
   const whenTxt = (when || 'tonight').replace(/^\w/, (c) => c.toUpperCase());
-  record(`DEADBALL WORLD SERIES SET: ${teams[0]} vs ${teams[1]}: First Pitch ${whenTxt}, ${time}; City Grinds to a Halt`);
+  record(`${show || 'DEADBALL'} ${String(final || 'Final').toUpperCase()} SET: ${teams[0]} vs ${teams[1]}: ${start || 'First Pitch'} ${whenTxt}, ${time}; City Grinds to a Halt`);
 });
 
 // Hero weather gets a headline per PHASE, not one per event. The approach line

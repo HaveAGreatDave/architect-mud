@@ -213,12 +213,17 @@ master Sound switch still silences it, because that one means silence.
 
 ### Speech channels: what a typed command stops
 
-The synth speaks on two channels, each with its own lines:
+The synth speaks on three channels, each with its own lines:
 
 | channel | who speaks on it | bus |
 |---|---|---|
 | `tv` | the TV, the announcer, the PA, the login welcome, the library | the tv bus's voice sub-gain |
+| `scene` | voices inside a broadcast's picture: Deadball's umpire, public address, vendor and arcade calls ([systems-deadball-sound.md](systems-deadball-sound.md)) | the tv bus's voice sub-gain |
 | `ui` | Read Aloud, in-world | the dry ui bus |
+
+`AudioEngine.speechLeft(channel)` says how long a channel has left to say, so a caller can keep its
+own sounds out from under a voice. `speak({ gain })` sets a line under the others on its bus; Read
+Aloud ignores it.
 
 A new line cancels only its own channel's line, or waits behind it with `queue: true` (up to three
 waiting). So the PA no longer cuts off the TV by cancelling it, and the other way round.

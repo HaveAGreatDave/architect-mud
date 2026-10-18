@@ -24,7 +24,7 @@
 
 import { readFileSync } from 'node:fs';
 
-const { sportsRng, sportsHash } = await import('../../plugins/broadcast/rng.js');
+const { sportsRng, sportsHash, sportsFill } = await import('../../plugins/broadcast/rng.js');
 const B = await import('../../plugins/broadcast/sports/baseball.js');
 const { gamedayPayloads } = await import('../../plugins/broadcast/sports/baseball-gameday.js');
 
@@ -132,6 +132,10 @@ const KINDS = {
   'atbat.triple': ['triple'], 'atbat.error': ['error:fielding'], 'atbat.error.throwing': ['error:throwing'], rbi: ['single', 'double', 'triple'],
   hr: ['homerun'], 'hr.solo': ['homerun'], 'hr.grand': ['homerun'],
 };
+// The call at the crack (baseball.js contactCall): a pool a kind of ball and how hard it was hit,
+// opened by any kind of play, since it's said before the play's decided.
+const ANY_PLAY = ['groundout', 'productout', 'doubleplay', 'tripleplay', 'flyout', 'sacfly', 'popout', 'single', 'double', 'triple', 'homerun', 'error:fielding', 'error:throwing'];
+for (const type of ['ground', 'liner', 'fly', 'pop']) for (const k of ['', '.hard', '.soft']) KINDS[`contact.${type}${k}`] = ANY_PLAY;
 const bare = Object.keys(KINDS).sort((a, b) => b.length - a.length);
 const silent = [];
 let suffixed = 0;
@@ -141,6 +145,15 @@ for (const key of Object.keys(pools)) {
   suffixed++;
   const tag = key.slice(base.length + 1);
   if (!KINDS[base].some((kind) => tagsFor(kind).has(tag))) silent.push(key);
+}
+// every ball in play of the season gets its call at the crack, every token filled
+{
+  let none = 0, open = 0;
+  plays.forEach((p, i) => {
+    const t = B.contactCall({ ...p, batter: 'Okafor' }, pools, sportsRng(sportsHash(i, 0xc0)), sportsFill);
+    if (!t) none++; else if (/[{}]/.test(t)) open++;
+  });
+  check('every ball in play has a call at the crack', !none && !open, `${none} without, ${open} with a token left open`);
 }
 check('every suffixed line pool has a play that opens it', suffixed > 30 && !silent.length, `${suffixed} pools; never open: ${silent.join(', ')}`);
 

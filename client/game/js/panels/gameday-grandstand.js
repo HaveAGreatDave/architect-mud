@@ -42,8 +42,8 @@
 // The sim on the server decides everything. Nothing here can change a score.
 
 import { createGamedayView, GAMEDAY_CARDS, pitchText, cardText } from './gameday.js';
-import { DEADBALL_SFX } from '../../../shared/deadball-sfx.js';
 import { venueOf, onVenue } from './venue.js';
+import { addFullscreenButton, leaveFullscreen } from './view-fullscreen.js';
 import { prefersReducedMotion, playByPlayOn } from '../../../shared/settings.js';
 
 // On wherever it can draw (it gives way to the 2-D view by itself where it can't); the flag set
@@ -61,6 +61,14 @@ const ADS = ['KSAB-TV', 'DEADBALL', 'COLDWATER', 'KSAB-TV'];
 // KITS: teal trim at home, rust away). The rest of the league's come off their names until the
 // clubs bring their own (Phase 5).
 const SIDE_COLOURS = { home: ['#36c4c4', '#145f63'], away: ['#e0702e', '#7c2f10'] };
+// A hex colour as linear light, for the champions' confetti.
+const linear = (hex) => [0, 2, 4].map((i) => { const c = parseInt(hex.slice(1 + i, 3 + i), 16) / 255; return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); });
+// A final: how long the last out's frame is held before the champions' finish (ms), how long a
+// line-up card stays up before a final's first pitch (ms), and how long the champions' card holds.
+const FINAL_HOLD_MS = 1200, INTRO_CARD_MS = 1700, CHAMP_MS = 30000;
+// The viewer's pitch camera, kept in this browser (a convenience, never a setting the server knows).
+const CAM_KEY = 'architect_deadball_cam';
+const CAM_ICON = '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M2 5h3l1.2-1.6h3.6L11 5h3v8H2z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><circle cx="8" cy="9" r="2.3" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>';
 
 // How long a replay leaves before the next payload's due (s), at the least.
 const REPLAY_MARGIN = 1;
@@ -103,6 +111,13 @@ export function createGrandstandView(host, opts = {}) {
   // the fans (gl/crowd.js createRoar): how loud each side is, on the live world's clock; `calm`
   // while the viewer has asked for less motion, when they get up without bouncing
   let roar = null, calm = false;
+  // what the park sounds like (diamond/sound.js): it hears the live world each frame
+  let snd = null;
+  // a final's last out, held still till this (the frame clock's ms)
+  let frozenUntil = 0;
+  // the camera the pitches are watched from (director.js pitchCam): the batter's, or the pitcher's
+  // from centre field, as the viewer last picked it here
+  let pitchCam = opts.cam === 'cf' || opts.cam === 'bat' ? opts.cam : readCam();
   // the marks the game's made in the dirt since the last frame (diamond/marks.js), and the game
   // they're from: a new one starts on a fresh infield; whether the grounds crew's mats are drawn,
   // and the world's time their drag has put the dirt back to (diamond/crew.js)
@@ -116,26 +131,28 @@ export function createGrandstandView(host, opts = {}) {
   const S = {
     away: '', home: '', awayTeam: '', homeTeam: '', aScore: 0, hScore: 0, inning: 0, half: '',
     balls: 0, strikes: 0, outs: 0, bases: [false, false, false], batter: '', pitcher: '', line: null, desc: '',
-    pitch: null, bats: '', lastBatter: '', matchup: null, steal: null, dist: null, splash: null,
+    pitch: null, pitches: [], bats: '', lastBatter: '', matchup: null, steal: null, dist: null, splash: null,
     leaders: null, seasonN: null, gold: false, tableRace: null, tableFoot: '', replay: false,
+    final: null, intro: null, champ: null,
   };
   const holds = {};
 
   const later = (ms, fn) => { timers.push(setTimeout(fn, Math.max(0, ms))); };
-  // a cue from the Deadball bank, on the TV's bus (nothing plays without the audio engine)
-  const sfx = (cue) => { if (DEADBALL_SFX[cue]) win?.AudioEngine?.playSfx?.(DEADBALL_SFX[cue]); };
+  // a sound the director planned, through the park's mixer
+  const sfx = (cue) => snd?.cue(cue);
   const stopTimers = () => { timers.forEach(clearTimeout); timers = []; };
 
   function loadMods() {
     return (modsP ??= Promise.all([import('./gl/ballpark.js'), import('./diamond/hud.js'), import('./diamond/camera.js'), import('./diamond/cast.js'),
       import('./diamond/world.js'), import('./diamond/director.js'), import('./diamond/spectacle.js'), import('./diamond/replay.js'), import('./gl/crowd.js'),
-      import('./diamond/crew.js'), import('./diamond/quality.js')])
-      .then(([park, hudMod, cam, cast, world, director, fx, rp, crowd, crew, quality]) => (mods = {
+      import('./diamond/crew.js'), import('./diamond/quality.js'), import('./diamond/sound.js')])
+      .then(([park, hudMod, cam, cast, world, director, fx, rp, crowd, crew, quality, sound]) => (mods = {
         ...park, hud: hudMod, project: cam.project, shotAt: cam.shotAt, numberOf: cast.numberOf, pictureAfter: director.pictureAfter, opensGame: director.opensGame,
         createWorld: world.createWorld, DT: world.DT, createDirector: director.createDirector, splashOf: fx.splashOf,
         replayOf: rp.replayOf, stageReplay: rp.stageReplay, REPLAY: rp.REPLAY, fxEnd: fx.endOf,
         cheerOf: fx.cheerOf, createRoar: crowd.createRoar, matAt: crew.matAt, sweptAlong: crew.sweptAlong,
         parkTier: quality.parkTier, rungsFor: quality.rungsFor, createGovernor: quality.createGovernor,
+        createParkSound: sound.createParkSound, crackPitch: sound.crackPitch, planChampion: fx.planChampion, planSearchlights: fx.planSearchlights,
       })));
   }
 
@@ -147,6 +164,7 @@ export function createGrandstandView(host, opts = {}) {
     unVenue?.(); unVenue = null;
     try { R?.dispose(); } catch { /* already gone */ }
     hud?.dispose();
+    snd?.dispose(); snd = null;
     R = null; hud = null; canvas = null; mounted = false;
     ro?.disconnect(); ro = null;
     host.innerHTML = '';
@@ -182,6 +200,8 @@ export function createGrandstandView(host, opts = {}) {
   function mount() {
     if (mounted || flat) return !flat;
     host.innerHTML = shell();
+    addFullscreenButton(host.querySelector('.gds-park'), host);
+    addCamButton(host.querySelector('.gds-park'));
     canvas = host.querySelector('.gds-canvas');
     size();
     // `opts.renderer` stands in for the GL park (the gates' recording renderer)
@@ -193,8 +213,9 @@ export function createGrandstandView(host, opts = {}) {
     govAt = 0;
     size();
     W = mods.createWorld();
-    D = mods.createDirector(W, { onLand: () => landPlay(cur), emit: fromDirector });
+    D = mods.createDirector(W, { onLand: () => landPlay(cur), emit: fromDirector, pitchShot: () => pitchCam });
     roar = mods.createRoar();
+    snd = mods.createParkSound({ win, state: () => ({ p: cur?.p || last, S }) });
     hud = mods.hud.createHud(host.querySelector('.gds-hud'), {
       theme: theme(),
       project: (p, w, h) => mods.project(view(), w, h, p),
@@ -251,9 +272,13 @@ export function createGrandstandView(host, opts = {}) {
     if (R.lost) { fallback('the WebGL context was lost'); return; }
     if (R.pending() && R.pump(14)) { lastNow = now; govAt = 0; draw(); return; }
     if (live) {
-      const dt = Math.min(0.25, Math.max(0, (now - (lastNow || now)) / 1000)) * speed;
+      // a final's last out holds still a moment before the champions' finish
+      const dt = Math.min(0.25, Math.max(0, (now - (lastNow || now)) / 1000)) * speed * (now < frozenUntil ? 0 : 1);
       acc += dt;
       while (acc >= mods.DT) { W.step(mods.DT); acc -= mods.DT; }
+      // the park's sounds, from what the live world did this frame
+      const loud = roar.at(W.t);
+      snd?.hear(W, { fx: D.fx, roar: loud });
       if (replayDue && W.t >= replayDue.at) startReplay();
       // a replay plays its own world, slower; the live one carries on behind it
       const RW = replay ? replay.W : W;
@@ -264,7 +289,7 @@ export function createGrandstandView(host, opts = {}) {
       for (const b of RW.bodies.values()) { const P = RW.pose(b.slot); if (P) R.setPose(b.slot, P); }
       R.setBall(RW.ballAt());
       R.setSpectacle?.(replay ? replay.D.fx : D.fx, RW.t);
-      R.setCrowd?.(roar.at(W.t), W.t, !calm);
+      R.setCrowd?.(loud, W.t, !calm);
       R.setTime?.(RW.t);
       if (marks.length) { R.markDirt?.(marks); marks = []; }
       dragFrame();
@@ -333,6 +358,29 @@ export function createGrandstandView(host, opts = {}) {
     R?.setCast(cast, { home: top ? p.fieldingTeam : p.battingTeam, away: top ? p.battingTeam : p.fieldingTeam });
     return cast;
   }
+  // The camera button, beside the full-screen one: the pitches from behind the batter or from behind
+  // the pitcher. A pitch on screen now cuts to the other at once; the next at-bat is shot from it.
+  function addCamButton(into) {
+    if (!into || !doc) return;
+    const btn = doc.createElement('button');
+    btn.type = 'button'; btn.className = 'gds-cam';
+    const paintBtn = () => {
+      btn.innerHTML = CAM_ICON;
+      btn.title = pitchCam === 'cf' ? 'Watching from behind the pitcher (switch to the batter)' : 'Watching from behind the batter (switch to the pitcher)';
+      btn.setAttribute('aria-label', btn.title);
+      btn.setAttribute('aria-pressed', String(pitchCam === 'cf'));
+    };
+    paintBtn();
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      pitchCam = pitchCam === 'cf' ? 'bat' : 'cf';
+      try { win?.localStorage?.setItem(CAM_KEY, pitchCam); } catch { /* no storage: this session only */ }
+      paintBtn();
+      if (!opts.shot && (shot === 'bat' || shot === 'cf')) setShot(pitchCam);
+    });
+    into.appendChild(btn);
+  }
+  function readCam() { try { return win?.localStorage?.getItem(CAM_KEY) === 'cf' ? 'cf' : 'bat'; } catch { return 'bat'; } }
   function stopLoop() { if (raf && win) win.cancelAnimationFrame(raf); raf = 0; }
   function setShot(s) { shot = s; draw(); paintHud(); }
 
@@ -343,8 +391,9 @@ export function createGrandstandView(host, opts = {}) {
     return {
       score: { away: S.away, home: S.home, aScore: S.aScore, hScore: S.hScore, half: S.half, inning: S.inning, bases: S.bases, awayTeam: S.awayTeam, homeTeam: S.homeTeam },
       count: { balls: S.balls, strikes: S.strikes, outs: S.outs },
-      pitch: S.pitch, bats: S.bats, zone: shot === 'bat' && !!S.pitch,
+      pitch: S.pitch, pitches: S.pitches, bats: S.bats, zone: (shot === 'bat' || shot === 'cf') && !!S.pitch,
       matchup: S.matchup, steal: S.steal, dist: S.dist, splash: S.splash, gold: S.gold, replay: S.replay,
+      final: S.final, intro: S.intro, champ: S.champ,
       leaders: S.tableRace ? { race: S.tableRace, rows: S.leaders?.[S.tableRace] || [], season: S.seasonN, foot: S.tableFoot } : null,
     };
   }
@@ -420,13 +469,8 @@ export function createGrandstandView(host, opts = {}) {
     c.landed = true;
     c.settle();
     const p = c.p;
-    // the play's own sound, as the 2-D view plays it
-    const outs = p.kind === 'tripleplay' ? 3 : p.kind === 'doubleplay' ? 2 : 1;
-    if (p.kind === 'homerun') sfx('homer');
-    else if (p.rbi > 0 || (p.phase === 'run' && p.runs > 0)) sfx('run');
-    else if (p.kind === 'strikeout') sfx('strikeout');
-    else if (p.out) { sfx('out'); for (let k = 1; k < outs; k++) later(150 * k, () => sfx('out')); }
-    else sfx('base');
+    // the play's own sting, the announcer's call and the crowd's word on it
+    snd?.land(p);
     // the words the play earns (a strikeout, ball four, a diving catch, a ball over the wall caught
     // back…: diamond/spectacle.js splashOf); a card the broadcast throws goes over them
     const own = mods.splashOf(p);
@@ -441,6 +485,8 @@ export function createGrandstandView(host, opts = {}) {
     land();
     // the fans whose play it was get up as it lands (a home run had them up off the bat)
     if (c.cheer) roar.cheer(fansOf(p, c.cheer.side), c.cheer.amp, W.t, c.cheer.hold);
+    // the last out of a final crowns the champions, and that's all its dead time is
+    if (p.end?.champion) { crown(c); return; }
     // a big play gets its replay once the line's up and any fireworks are out (it would hide
     // them), if the hold has room for it before the next payload's due: a payload that doesn't say
     // how long it holds gets none
@@ -460,7 +506,12 @@ export function createGrandstandView(host, opts = {}) {
   // ball or a third strike).
   function fromDirector(name, d) {
     if (name === 'shot') { liveShot = d; if (!opts.shot && !replay) setShot(d); return; }
-    if (name === 'sound') { sfx(d); return; }
+    if (name === 'sound') {
+      sfx(d);
+      // the booth's call at the crack, in words too
+      if (d === 'crack' && cur && mods.crackPitch(cur.p, cur.cracks = (cur.cracks || 0) + 1)?.result === 'inplay' && cur.p.contact?.text) say(cur.p.contact.text);
+      return;
+    }
     if (name === 'mark') { marks.push(d); return; }
     if (name === 'table') {
       if (d) return;
@@ -472,14 +523,15 @@ export function createGrandstandView(host, opts = {}) {
     const q = d.pitch, last = d.i === (cur.p.pitches || []).length - 1;
     S.balls = last ? Math.min(3, q.balls | 0) : q.balls | 0;
     S.strikes = last ? Math.min(2, q.strikes | 0) : q.strikes | 0;
-    S.pitch = q;
+    S.pitch = q; S.pitches = (cur.p.pitches || []).slice(0, d.i + 1);
     paint();
     say(pitchText(q, last));
   }
   // The play landed: the held line and any held card go up now.
   function land() {
     playing = false;
-    if (pendingCaption) { const p = pendingCaption; pendingCaption = null; showCaption(p.text); p.speak?.(); }
+    // the booth's line waits for the announcer's call, if he made one
+    if (pendingCaption) { const p = pendingCaption; pendingCaption = null; showCaption(p.text); if (p.speak) (snd ? snd.afterCall(p.speak) : p.speak()); }
     if (pendingCard) { const c = pendingCard; pendingCard = null; renderCard(c); }
   }
   // A card the broadcast throws is a splash word over the picture.
@@ -506,7 +558,56 @@ export function createGrandstandView(host, opts = {}) {
     if (p.line) S.line = p.line;
     // the game's leaders and its season ride its first payload, and a late tuner's catch-up
     if (p.leaders) S.leaders = p.leaders;
-    if (p.season) { S.seasonN = p.season.n ?? null; S.gold = p.season.phase === 'final'; }
+    if (p.season) {
+      S.seasonN = p.season.n ?? null; S.gold = p.season.phase === 'final';
+      // a final: its name and the seeds go up with the score, and the park's dressed for it
+      S.final = S.gold ? { name: p.season.name || 'Final', seeds: { away: p.season.seedAway ?? null, home: p.season.seedHome ?? null } } : null;
+      R?.setFinal?.(S.final);
+      if (!S.final) S.champ = null;
+    }
+  }
+  // Before a final's first pitch: searchlights over the city, the organ's anthem, and the public
+  // address reading both line-ups, a card a man, the visitors first, as many as the hold has room
+  // for. Returns whether it ran (the leaders' table gives way to it).
+  function introduce(p) {
+    const L = p.season?.lineups;
+    if (!S.final || !L || (p.inning | 0) !== 1 || p.half !== 'top') return false;
+    const until = Number.isFinite(p.hold) ? p.hold : 30000;
+    const cards = [];
+    for (const side of ['away', 'home']) {
+      const T = L[side];
+      if (!T) continue;
+      (T.lineup || []).forEach((name, k) => cards.push({ team: T.team, side, i: k + 1, n: 9, name, num: mods.numberOf(name) }));
+    }
+    const fit = Math.max(1, Math.floor((until - 3000) / INTRO_CARD_MS));
+    cards.slice(0, fit).forEach((it, k) => later(800 + k * INTRO_CARD_MS, () => {
+      S.intro = it; paintHud(); say(mods.hud.introSaid(it)); snd?.introduce(it);
+    }));
+    later(800 + Math.min(fit, cards.length) * INTRO_CARD_MS, () => { S.intro = null; paintHud(); });
+    D.fx = [...(D.fx || []), ...mods.planSearchlights({ from: W.t + 0.5, to: W.t + until / 1000 - 1, motion: !calm })];
+    D.until = Math.max(D.until || 0, W.t + until / 1000 - 0.5);
+    snd?.anthem();
+    return true;
+  }
+  // The last out of a final: the frame held a moment, then the champions' word, their card, the
+  // trophy out by the mound, confetti off the upper deck, fireworks over the outfield and the city,
+  // and the champions piling on (director.js planPile) till the next payload's due.
+  function crown(c) {
+    const p = c.p, e = p.end, side = e.winner === S.homeTeam ? 'home' : 'away';
+    frozenUntil = (win?.performance?.now?.() ?? Date.now()) + FINAL_HOLD_MS;
+    const t = W.t + FINAL_HOLD_MS / 1000;
+    const score = `${S.awayTeam} ${S.aScore | 0}, ${S.homeTeam} ${S.hScore | 0}`;
+    later(FINAL_HOLD_MS, () => {
+      R?.setChampion?.(true);
+      hold('splash', { kind: 'champion', word: 'CHAMPIONS!' }, OWN_SPLASH_MS);
+      hold('champ', { team: e.winner, side, name: e.name || S.final?.name, score, mvp: e.mvp || null }, CHAMP_MS);
+      say(mods.hud.champSaid(S.champ));
+    });
+    const fx = mods.planChampion({ t, colour: linear(SIDE_COLOURS[side][0]), motion: !calm, seed: (p.inning | 0) * 977 + (S.hScore | 0) * 31 + (S.aScore | 0) });
+    D.fx = [...(D.fx || []), ...fx];
+    D.until = Math.max(D.until || 0, ...fx.map(mods.fxEnd));
+    roar.cheer(side === 'home' ? 0 : 1, 1, t, 8);
+    if (Number.isFinite(p.hold) && c.cast) D.planPile?.({ from: t + 0.3, until: c.t0 + p.hold / 1000 });
   }
   // The matchup goes up as a man comes up, and not again for the rest of his turn.
   function matchupFor(p) {
@@ -528,6 +629,7 @@ export function createGrandstandView(host, opts = {}) {
   }
   function stage(p) {
     stopTimers(); stopTable(); stopWorld();
+    snd?.payload(p);
     const pend = pendingCaption;
     freshGame(p);
     // the sky at the minute the line aired (diamond/sky.js), a payload without one at night, and the
@@ -536,7 +638,7 @@ export function createGrandstandView(host, opts = {}) {
     R?.setHour?.(Number.isFinite(p.clock) ? p.clock / 60 : null);
     R?.setWeather?.(p.wx || null, { flash: !prefersReducedMotion() });
     const cast = castFor(p);
-    S.pitch = null; S.bats = p.bats || '';
+    S.pitch = null; S.pitches = []; S.bats = p.bats || '';
     if (p.phase === 'half') {
       // a fresh half: nobody on, nobody out, and the leaders over the picture
       sides(p);
@@ -550,7 +652,7 @@ export function createGrandstandView(host, opts = {}) {
       calm = prefersReducedMotion();
       D.changeover(p, cast, { motion: !calm });
       paint();
-      if (!startTable(p)) renderCard({ kind: 'half', inningOrd: p.inningOrd, half: p.half, batting: p.battingTeam, duration: 3.4 });
+      if (!introduce(p) && !startTable(p)) renderCard({ kind: 'half', inningOrd: p.inningOrd, half: p.half, batting: p.battingTeam, duration: 3.4 });
       // a changeover has no ball to land, so its line goes up a beat in
       pendingCaption = null;
       if (pend) later(420, () => { showCaption(pend.text); pend.speak?.(); });
@@ -656,6 +758,8 @@ export function createGrandstandView(host, opts = {}) {
     ro?.disconnect(); ro = null;
     try { R?.dispose(); } catch { /* already gone */ }
     hud?.dispose();
+    snd?.dispose(); snd = null;
+    leaveFullscreen(host);
     if (host) host.innerHTML = '';
     R = null; hud = null; canvas = null; mounted = false; W = null; D = null;
     last = null; caption = ''; pendingCaption = null; pendingCard = null; playing = false; shown = null; marks = []; dirtGame = null;

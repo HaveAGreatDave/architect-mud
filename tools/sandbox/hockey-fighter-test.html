@@ -69,8 +69,10 @@
 <body>
 <!-- The REAL engine and the REAL soundset, not a prototype-only synth. Both are
      dual-mode globals, so a plain <script> tag works straight off the filesystem. -->
-<script src="../client/shared/audio-engine.js"></script>
-<script src="../client/shared/hockey-sfx.js"></script>
+<!-- The voice's lexicon, which the engine would otherwise fetch from /shared/, the game's mount. -->
+<script src="../../client/shared/formant-cmudict.js"></script>
+<script src="../../client/shared/audio-engine.js"></script>
+<script src="../../client/shared/hockey-sfx.js"></script>
 <div class="wrap">
 
   <h1>CPhL &mdash; FIGHT VIEW / FIGURE ART TEST</h1>

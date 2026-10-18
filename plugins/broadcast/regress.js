@@ -114,6 +114,9 @@ export default async function regress({ check, run, getPlayer }) {
   check('same slot → identical matchup', a && b && a.game.away.name === b.game.away.name && a.game.home.name === b.game.home.name, JSON.stringify([a?.matchup, b?.matchup]));
   check('same slot → identical score', a.game.awayScore === b.game.awayScore && a.game.homeScore === b.game.homeScore, `${a.game.awayScore}-${a.game.homeScore} vs ${b.game.awayScore}-${b.game.homeScore}`);
   check('sim never ties', a.game.awayScore !== a.game.homeScore, `${a.game.awayScore}-${a.game.homeScore}`);
+  // a final's finalists come in seeded order, and the top seed is the home side
+  const fin = _test.sportsGameForSlot(script, 12345, { teams: ['Kings', 'Rats'], worldSeries: true });
+  check('a final: the top seed hosts', fin && fin.game.home.name === 'Kings' && fin.game.away.name === 'Rats', JSON.stringify(fin?.matchup));
   const c = _test.sportsGameForSlot(script, 12346, null);
   check('a different slot rolls a different game',
     a.game.away.name !== c.game.away.name || a.game.home.name !== c.game.home.name || a.game.awayScore !== c.game.awayScore || a.game.homeScore !== c.game.homeScore,
@@ -149,7 +152,9 @@ export default async function regress({ check, run, getPlayer }) {
     let all = '';
     try {
       for (let k = 0; k < 100; k++) all += fpGame(40000 + k * 97);
-      for (let k = 0; k < 4; k++) all += fpGame(50000 + k * 13, { worldSeries: true, teams: ['Rats', 'Kings'] });
+      // a final's teams come top seed first, and the top seed hosts (2026-10-14): Kings at home to
+      // Rats, the same four games these always were
+      for (let k = 0; k < 4; k++) all += fpGame(50000 + k * 13, { worldSeries: true, teams: ['Kings', 'Rats'] });
     } finally {
       _test.setSimSwitch('baseball', recorded);
     }
@@ -173,7 +178,7 @@ export default async function regress({ check, run, getPlayer }) {
   check('featuring every slot always airs', _test.sportsAiring({ airSlots: allSlots }) === true, 'all-slots');
   check('featuring no valid slot never airs', _test.sportsAiring({ airSlots: [-1] }) === false, 'empty-window');
 
-  // World Series airtime: the Series is pinned to the NEXT nightly @airtime slot (so it airs
+  // The final's airtime: it's pinned to the NEXT nightly @airtime slot (so it airs
   // — and is advertised in the news/TV guide — at the fixed evening time), not "the next hour".
   const G = _test.SPORTS_GAMES_PER_DAY;   // 8 → slot-of-day 6 == the 18:00–21:00 block
   const fromMorning = _test.nextAirSlot(40 * G + 0, [6], G);   // start of a day (slot-of-day 0)
@@ -181,6 +186,14 @@ export default async function regress({ check, run, getPlayer }) {
   const fromEvening = _test.nextAirSlot(40 * G + 6, [6], G);   // seeded DURING the evening block
   check('WS seeded at the evening slot rolls to the next night', fromEvening.slot === 41 * G + 6 && fromEvening.hour === 18, JSON.stringify(fromEvening));
   check('continuous league (no airSlots) uses the next slot', _test.nextAirSlot(100, null, G).slot === 101, JSON.stringify(_test.nextAirSlot(100, null, G)));
+  // KSAB's Deadball is on Monday, Wednesday and Friday: a final seeded on a Tuesday morning waits
+  // for Wednesday's evening slot rather than going out on a night nobody airs it. Day n's weekday
+  // is n % 7 here, 0 Monday, so day 36 is a Tuesday.
+  const mwf = (slot) => [0, 2, 4].includes(Math.floor(slot / G) % 7);
+  const tue = _test.nextAirSlot(36 * G, [6], G, mwf);
+  check('the final waits for a night its channel airs it', tue.slot === 37 * G + 6 && mwf(tue.slot), JSON.stringify(tue));
+  const wed = _test.nextAirSlot(35 * G + 7, [6], G, mwf);   // Monday night, after the game: Wednesday
+  check('...and skips the nights between', wed.slot === 37 * G + 6, JSON.stringify(wed));
 
   // ── News bulletin assembly ──────────────────────────────────────────────────
   // A news broadcast reads live stories and reads them out through anchor/reporter
@@ -2293,7 +2306,7 @@ export default async function regress({ check, run, getPlayer }) {
       },
     });
 
-    // PIN THE SEASON PHASE. `sportsSlotLabel` takes a World Series branch when one
+    // PIN THE SEASON PHASE. `sportsSlotLabel` takes a final's branch when one
     // is pending — correct behaviour, but it made these assertions depend on
     // whatever phase the dev DB was sitting in. Booting the server once advanced
     // baseball into `worldseries` and turned this suite red for a reason that had
@@ -2316,8 +2329,8 @@ export default async function regress({ check, run, getPlayer }) {
       // final outranks the regular caption, per sport, without leaking across.
       setPhase('baseball', { phase: 'worldseries', finalistA: 'Static Saints', finalistB: 'Bunker Hill Bruisers' });
       const wsBall = L(mkItem('baseball'));
-      check('guide: a pending World Series outranks the DEADBALL caption',
-        /WORLD SERIES: Static Saints vs Bunker Hill Bruisers/.test(wsBall || ''), String(wsBall));
+      check('guide: a pending Curtain Call outranks the DEADBALL caption',
+        /CURTAIN CALL: Static Saints vs Bunker Hill Bruisers/.test(wsBall || ''), String(wsBall));
       check('guide: …and a baseball final never re-captions the hockey slot',
         /^CLUSTER PUCK: /.test(L(mkItem('hockey')) || ''), String(L(mkItem('hockey'))));
     } finally {
@@ -2885,6 +2898,16 @@ export default async function regress({ check, run, getPlayer }) {
       // The linescore blanking out for the whole break was the original bug's twin —
       // the one moment a viewer is actually reading it.
       check('gameday: …but keeping the linescore alive', halves.every(g => g.line && Array.isArray(g.line.away) && g.line.away.length), 'half payload has no line snapshot');
+      // The booth's call at the crack (BASEBALL.contactCall): every ball in play carries one, in
+      // the announcer's name, and nothing else does.
+      {
+        const called = { ...script, pools: { ...script.pools, 'contact.ground': ['On the ground {toward}.'], 'contact.liner': ['Lined {toward}!'], 'contact.fly': ['Fly ball {toward}.'], 'contact.pop': ['Popped up {toward}.'] } };
+        const g3 = _test.assembleSportsGraph(called, 'bc_regress_contact', 12345, null);
+        const all3 = Object.values(g3.nodes || {}).map(n => n.data && n.data.gameday).filter(Boolean);
+        const inPlay = all3.filter(g => !g.phase && g.play);
+        check('gameday: every ball in play carries the call at the crack', inPlay.length > 10 && inPlay.every(g => g.contact && /\w/.test(g.contact.text) && !/[{}]/.test(g.contact.text) && g.contact.by === 'Chip Vega'), `${inPlay.filter(g => g.contact).length}/${inPlay.length}`);
+        check('gameday: …and nothing else does', all3.every(g => !g.contact || (g.play && !g.phase)));
+      }
       check('gameday: …and naming who is batting', halves.every(g => g.battingTeam && g.inningOrd && (g.half === 'top' || g.half === 'bottom')), 'half payload is missing its framing');
       check('gameday: at-bat payloads are untouched by all this', atbats.length > 0 && atbats.every(g => Array.isArray(g.pitches)), `${atbats.length} at-bat payloads`);
 

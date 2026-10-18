@@ -108,8 +108,9 @@ export const sprayVec = (dir) => [-Math.sin(dir * Math.PI / 180), 0, Math.cos(di
 // moment as `along(tau)` says (play.js rollAlong, so it reaches a fielder where and when the server
 // judged it would). It goes down off the bat at its launch angle, then hops, each about half the
 // last, until it rolls; it starts at the bat and is on the spray line through the plate within
-// 0.4 s. `mph` and `la` are the exit speed and launch angle.
-export function groundPath(from, dir, mph, la, t0, along) {
+// 0.4 s. `mph` and `la` are the exit speed and launch angle. `max` is as far from the plate as it
+// can go (the wall on its line): one hit hard down the line stops in the corner, not past it.
+export function groundPath(from, dir, mph, la, t0, along, max = Infinity) {
   const u = sprayVec(dir), s0 = Math.hypot(from[0], from[2]);
   const off = [from[0] - u[0] * s0, from[2] - u[2] * s0];
   // down to the dirt: from its height at its launch angle's speed, a chopper straight down
@@ -121,7 +122,7 @@ export function groundPath(from, dir, mph, la, t0, along) {
   let t = tDown, air = la < -10 ? 0.45 : Math.min(0.5, (-vy0 + GRAVITY * tDown) * 0.5 * 2 / GRAVITY);
   for (let k = 0; k < 6 && air > 0.03; k++) { hops.push([t, air]); t += air; air *= 0.5; }
   const at = (tt) => {
-    const tau = Math.max(0, tt - t0), s = Math.max(s0 * Math.max(0, 1 - tau / 0.3), along(tau)), k = Math.max(0, 1 - tau / 0.4);
+    const tau = Math.max(0, tt - t0), s = Math.min(max, Math.max(s0 * Math.max(0, 1 - tau / 0.3), along(tau))), k = Math.max(0, 1 - tau / 0.4);
     let y = BALL_R;
     if (tau < tDown) y = Math.max(BALL_R, from[1] + vy0 * tau - 0.5 * GRAVITY * tau * tau);
     else for (const [a, T] of hops) if (tau >= a && tau <= a + T) { const v = tau - a; y = BALL_R + 0.5 * GRAVITY * v * (T - v); break; }

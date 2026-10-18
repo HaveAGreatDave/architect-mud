@@ -205,6 +205,7 @@ export const GROUPS = [
       'scripts/shapes/anim-smoke.mjs',       // Deadball's players skinned: the rig's frames, four weights a vertex, every pose on the posed build's surface, the hands on the bat
       'scripts/shapes/diamond-smoke.mjs 16', // Deadball staged in 3-D: each pitch at its spot, every clip on the ball, every ball in play's gloves, throws and call at first, the line held to the landing (one game each, side by side)
       'scripts/shapes/diamond-smoke.mjs 41',
+      'scripts/shapes/final-smoke.mjs',      // Deadball's final: the champions' show, the searchlights, the dress, the gold graphics, the line-ups read and the pile
       'scripts/shapes/variety-smoke.mjs',    // Deadball's balls in play over a season: spray by handedness, every grade, every line pool reachable
       'scripts/shapes/bolt.mjs',
       'scripts/shapes/weatherfx-smoke.mjs',
@@ -255,13 +256,14 @@ export const GROUPS = [
   },
   {
     name: 'audio',
-    // SIREN scenes (the sea, the boat, the murmuration), the CPhL soundset rendered, and the
-    // mix and fidelity work in docs/proposals/siren-fidelity.md, one gate per step.
+    // SIREN scenes (the sea, the boat, the murmuration), the CPhL and Deadball soundsets rendered,
+    // and the mix and fidelity work in docs/proposals/siren-fidelity.md, one gate per step.
     gates: [
       'scripts/audio/sea-smoke.mjs',
       'scripts/audio/boat-smoke.mjs',
       'scripts/audio/murmur-smoke.mjs',
       'scripts/audio/hockey-smoke.mjs',
+      'scripts/audio/deadball-smoke.mjs',
       'scripts/audio/limiter-smoke.mjs',   // 1: the master limiter, and nothing around it
       'scripts/audio/duck-smoke.mjs',      // 2: duck gains per bus, and duck()'s schedule
       'scripts/audio/speech-channels-smoke.mjs',  // 3: a typed command stops Read Aloud, not the TV

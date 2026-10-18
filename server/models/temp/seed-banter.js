@@ -34,7 +34,7 @@ const TOPICAL = [
   ['"This {weather} again. When did the sky just give up?"', '"{temp} out there. I remember when that was a cold snap, not a Tuesday."', '"Everything\'s a Tuesday now."', 'pulls their collar up against it.'],
   ['"Forecast says {weather}. Forecast always says {weather}."', '"At least it\'s consistent. Nothing else out here is."', 'watches a scrap of trash cartwheel past.'],
   ['"Wind\'s doing {wind} down the canyon. Nearly took the sign off the wall."', '"Good. Maybe it takes the whole block next time."', '"You don\'t mean that."', '"...Ask me again at {temp}."'],
-  ['"You catch the DEADBALL table? {sports_leader} are top of the pile — {sports_record}."', '"Front-runners. I\'ll believe it when the season ends."', '"Money says they choke before the World Series."', 'spits, unimpressed.'],
+  ['"You catch the DEADBALL table? {sports_leader} are top of the pile — {sports_record}."', '"Front-runners. I\'ll believe it when the season ends."', '"Money says they choke before the Curtain Call."', 'spits, unimpressed.'],
   ['"{sports_leader} up top, {sports_cellar} face-down in the cellar. Same as ever."', '"Somebody\'s gotta lose. Might as well be {sports_cellar}."', '"Cold. True, but cold."'],
   ['"Put a few credits on {sports_leader} this week. {sports_record} — can\'t argue with form."', '"You always bet the favourite. That\'s how you stay broke."', '"...Fair."', 'laughs it off.'],
 ];

@@ -31,6 +31,16 @@ const files = fs.readdirSync(ROOT).filter((f) => f.endsWith('.js')).sort();
 // GLSL comments only — the JS around the literal keeps its own.
 const stripComments = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/\/\/[^\n]*/g, ' ');
 
+// ── ⚠ AND A RESERVED WORD AS A NAME ────────────────────────────────────────────────────────
+// `float al = 0.0, out = 1.0;` reads like any other declarator, and GLSL refuses it: `out` is a
+// storage qualifier. The confetti's flake shader shipped that way in spectacle.js, the park's whole
+// program failed to link, and the Grandstand fell back to the 2-D Gameday on every machine. GLSL ES
+// 3.00's keywords and the words it reserves for later, the ones a variable might plausibly be called.
+const RESERVED = new Set(['in', 'out', 'inout', 'uniform', 'const', 'layout', 'centroid', 'flat', 'smooth', 'attribute', 'varying', 'precision',
+  'highp', 'mediump', 'lowp', 'invariant', 'discard', 'return', 'break', 'continue', 'do', 'for', 'while', 'switch', 'case', 'default', 'if', 'else',
+  'true', 'false', 'struct', 'void', 'common', 'partition', 'active', 'asm', 'class', 'union', 'enum', 'typedef', 'template', 'this', 'resource',
+  'goto', 'inline', 'noinline', 'volatile', 'public', 'static', 'extern', 'external', 'interface', 'long', 'short', 'double', 'half', 'fixed',
+  'unsigned', 'superp', 'input', 'output', 'filter', 'sizeof', 'cast', 'namespace', 'using', 'sample', 'patch', 'subroutine', 'buffer', 'shared']);
 const problems = [];
 let shaders = 0, names = 0, asks = 0;
 
@@ -96,6 +106,7 @@ for (const f of files) {
       for (const part of d[1].split(',')) {
         const m2 = /^\s*([A-Za-z_]\w*)/.exec(part);
         if (m2 && /^[A-Z_][A-Z0-9_]*$/.test(m2[1])) capsOk.add(m2[1]);
+        if (m2 && RESERVED.has(m2[1])) problems.push(`${f}: shader declares a variable called '${m2[1]}', which GLSL reserves`);
       }
     }
     for (const u of bare.matchAll(/\b([A-Z][A-Z0-9]*_[A-Z0-9_]*)\b/g)) {
@@ -117,7 +128,7 @@ for (const f of files) {
 
 const uniq = [...new Set(problems)];
 if (uniq.length) {
-  console.error('\n✗ glsl-smoke — ' + uniq.length + ' undeclared name(s):');
+  console.error('\n✗ glsl-smoke — ' + uniq.length + ' bad name(s):');
   for (const p of uniq) console.error('  ' + p);
   process.exit(1);
 }

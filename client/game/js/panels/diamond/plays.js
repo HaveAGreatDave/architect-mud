@@ -29,7 +29,7 @@ import { CLIPS } from './clips.js';
 import { catchPoint, handAt, rootAt, sampleClip } from './anim.js';
 import { solvePose } from './rig.js';
 import { BAGS, DEG, MOUND as MOUND_AT } from './geo.js';
-import { toPark as onLine, rollAlong, rollTime, hangTime, toFirst, fenceAt, throwTime, firstStep, POSITIONS } from './play.js';
+import { toPark as onLine, rollAlong, rollTime, hangTime, toFirst, fenceAt, onField, throwTime, firstStep, POSITIONS } from './play.js';
 import { groundPath, flyPath, throwPath, fitPath, BALL_R, GRAVITY } from './flight.js';
 import { carried, toPark } from './world.js';
 import { planBases, stepOff } from './bases.js';
@@ -37,6 +37,10 @@ import {
   clamp, add, sub, mul, flat, wrap, faceTo, turn, ahead, HOME, hashStr, cycleFor, PLAYBACK, FADE, RUN_MAX, shortBy,
   timeFor, STOP, STOP_LEN, groundOf, sideOf, makeBody, runTo, settle, pullUp, endOf,
 } from './bodies.js';
+
+// How far round from straight behind a fielder the fly camera may swing, in the order it tries them
+// (degrees): toward either side, and past square to in front of him for a catch against the wall.
+const FLY_SWINGS = Object.freeze([0, 20, -20, 40, -40, 60, -60, 80, -80, 105, -105, 130, -130]);
 
 // When the ready set's hop lands (its last step).
 export const READY_STEP = (id) => Math.max(...CLIPS[id].events.filter((e) => e.kind === 'step').map((e) => e.t));
@@ -230,7 +234,7 @@ export function planPlay(ctx) {
   const isOut = OUTS.has(kind);
   const n0 = pl.f[0], F0 = fielder(n0);
   let path0;
-  if (ground) path0 = groundPath(from, pl.dir, pl.ev, pl.la, tBat, rollAlong(pl.ev, pl.la));
+  if (ground) path0 = groundPath(from, pl.dir, pl.ev, pl.la, tBat, rollAlong(pl.ev, pl.la), fence - 1.5);
   else if (isHR) {
     // into the seats: the bleachers rise from 11 ft, four feet back of the wall
     const y = clamp(11 + 0.6 * Math.max(0, pl.d - fence - 4), BALL_R, 34);
@@ -396,7 +400,7 @@ export function planPlay(ctx) {
       let tq = tServer;
       while (tq < tServer + 4 && !fits(tq)) tq += 0.02;
       const k = (tServer - tBat) / (tq - tBat), along = rollAlong(pl.ev, pl.la);
-      path0 = balls[0].path = groundPath(from, pl.dir, pl.ev, pl.la, tBat, (tau) => along(tau * k));
+      path0 = balls[0].path = groundPath(from, pl.dir, pl.ev, pl.la, tBat, (tau) => along(tau * k), fence - 1.5);
       best = plan(tq);
     }
     tM = best.t;
@@ -704,7 +708,12 @@ export function planPlay(ctx) {
       log.airCatch = null;
     }
     const hang = path0.land - tBat;
+    // a long fly from behind the man under it as it comes down; and an infielder's pop-up, which
+    // climbs out of the top of the high shot and left nothing in the picture but the sky (it read
+    // as a ball leaving the park), from behind him from its peak on, so he's there as it drops in.
+    // Not the catcher's: behind him is the backstop.
     if (n0 >= 7 && hang >= 3 && !drop) cuts.push({ at: tC - 1.5, shot: flyShot(ball) });
+    else if (pl.t === 'pu' && n0 !== 2 && hang >= 3 && !drop) cuts.push({ at: Math.max(tBat + 1.2, tBat + hang / 2), shot: flyShot(ball) });
   }
 
   // He gets under a ball he has time for, runs in early and pulls up, and waits for it.
@@ -723,9 +732,19 @@ export function planPlay(ctx) {
     if (r) pullUp(B, tStop, c.v * speed);
   }
 
-  // The camera from behind the man under a long fly, as it comes down.
+  // The camera from behind the man under a long fly, as it comes down. Straight back is 85 ft,
+  // which from a catch near the wall is up in the bleachers, so it stands as far back as the field
+  // allows and swings round toward the side with more room, lower the nearer it stands.
   function flyShot(ball) {
-    const out = faceTo(HOME, ball), eye = add([ball[0], 0, ball[2]], add(ahead(out, 85), [0, 26, 0]));
+    const out = faceTo(HOME, ball), g = [ball[0], 0, ball[2]];
+    let best = { swing: 0, d: 0 };
+    for (const swing of FLY_SWINGS) {
+      let d = 85;
+      while (d > 24 && !onField(add(g, ahead(out + swing, d)), 8)) d -= 4;
+      if (d > 24 && d > best.d) best = { swing, d };
+      if (best.d >= 60) break;
+    }
+    const d = best.d || 24, eye = add(g, add(ahead(out + best.swing, d), [0, Math.max(9, 26 * d / 85), 0]));
     return { shot: 'fly', eye, at: [ball[0], 5, ball[2]], fov: 30, follow: 0.45 };
   }
 

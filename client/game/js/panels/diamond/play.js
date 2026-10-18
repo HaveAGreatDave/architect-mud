@@ -39,6 +39,15 @@ const SHADE = Object.freeze({ 3: 1.5, 4: 3, 5: 3, 6: 3, 7: 6, 8: 6, 9: 6 });
 export const toPark = (dir, d, y = 0) => [-d * Math.sin(dir * DEG), y, d * Math.cos(dir * DEG)];
 export const sprayOf = (p) => Math.atan2(-p[0], p[2]) / DEG;
 export const fenceAt = (dir, fence = VENUE_DEFAULTS.fence) => fenceDistance(dir * DEG, fence);
+// Whether a ground point is on the field, `margin` feet in from its edge: fair ground short of the
+// fence, or the foul ground between a line and the rail, no further out than the pole. Past it are
+// the seats, and a camera stood there sees the backs of them.
+export function onField(p, margin = 0, fence = VENUE_DEFAULTS.fence) {
+  const dir = sprayOf(p);
+  if (Math.abs(dir) <= 45) return Math.hypot(p[0], p[2]) <= fenceAt(dir, fence) - margin;
+  const along = (Math.abs(p[0]) + p[2]) / Math.SQRT2, off = (Math.abs(p[0]) - p[2]) / Math.SQRT2;
+  return along >= 0 && along <= fence.line - margin && off <= FOUL_GROUND.line - margin;
+}
 
 // The nine's spots against a hitter who bats from `bats`: a right-hander pulls to left, so the
 // fielders shade that way.

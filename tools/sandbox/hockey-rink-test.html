@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <title>CPhL Rink — Gameday visual test</title>
-<link rel="stylesheet" href="../client/game/styles.css">
+<link rel="stylesheet" href="../../client/game/styles.css">
 <!--
   VISUAL TEST for the hockey Gameday sub-screen (client/game/js/panels/gameday-rink.js).
 
@@ -13,7 +13,7 @@
   say() is intercepted, and every (caption, gameday-payload) pair it emits is fed to
   the real view. If it looks right here it looks right on air, because it IS the air.
 
-  Serve the repo root over HTTP and open /sandbox/hockey-rink-test.html (a file://
+  Serve the repo root over HTTP and open /tools/sandbox/hockey-rink-test.html (a file://
   page can't fetch the .bsm or load the modules).
 -->
 <style>
@@ -67,13 +67,15 @@
     <div class="note">Click anything once to unlock audio. Goal = puck crosses the red goal line, then the mesh takes it.</div>
   </div>
 
-  <script src="../client/shared/audio-engine.js"></script>
-  <script src="../client/shared/hockey-sfx.js"></script>
+  <!-- The voice's lexicon, which the engine would otherwise fetch from /shared/, the game's mount. -->
+  <script src="../../client/shared/formant-cmudict.js"></script>
+  <script src="../../client/shared/audio-engine.js"></script>
+  <script src="../../client/shared/hockey-sfx.js"></script>
   <script type="module">
-    import { HOCKEY } from '../plugins/broadcast/sports/hockey.js';
-    import { sportsRng, sportsHash, sportsPick, sportsFill } from '../plugins/broadcast/rng.js';
-    import { createRinkView } from '../client/game/js/panels/gameday-rink.js';
-    import { setClubs } from '../client/game/js/panels/club-crest.js';
+    import { HOCKEY } from '../../plugins/broadcast/sports/hockey.js';
+    import { sportsRng, sportsHash, sportsPick, sportsFill } from '../../plugins/broadcast/rng.js';
+    import { createRinkView } from '../../client/game/js/panels/gameday-rink.js';
+    import { setClubs } from '../../client/game/js/panels/club-crest.js';
 
     const view = createRinkView(document.getElementById('tv-gameday'));
     view.showIdle();
@@ -82,7 +84,7 @@
     // view cares about are ::lines / ::teams / ::players — assets and directives are
     // the broadcast pipeline's business, not ours).
     async function loadScript() {
-      const src = await (await fetch('../data/scripts/hockey.bsm')).text();
+      const src = await (await fetch('../../data/scripts/hockey.bsm')).text();
       const pools = {}, teams = [], players = [];
       let mode = null, key = null;
       for (const raw of src.split(/\r?\n/)) {
@@ -166,7 +168,7 @@
     // The clubs' identities (kits, crests) as the broadcast row carries them; on air they
     // arrive once over tv_clubs.
     try {
-      const row = await (await fetch('../content/media_broadcasts/bc_cluster_puck.json')).json();
+      const row = await (await fetch('../../content/media_broadcasts/bc_cluster_puck.json')).json();
       script.clubs = row.sports_pools?.clubs || null;
       if (script.clubs) setClubs('hockey', 'sandbox', script.clubs);
     } catch { /* plays in hashed colours without them */ }

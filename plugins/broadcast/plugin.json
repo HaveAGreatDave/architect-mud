@@ -97,7 +97,7 @@
       "player.death",
       "flag.set",
       "npc.broadcast_say",
-      "zone.broadcast"
+      "zone.broadcast", "sports.champion"
     ]
   },
   "hooks": [

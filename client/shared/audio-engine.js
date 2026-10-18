@@ -3574,10 +3574,13 @@ return out;
     // other by cancelling each other, and a typed command (which cancels Read
     // Aloud) silenced the television too.
     //
-    // Two channels now, each with its own lines:
-    //   tv  the TV, the announcer, the PA, the welcome. Rides the tv bus's
-    //       voice sub-gain.
-    //   ui  Read Aloud (`channel: 'ui'`). Rides the dry ui bus.
+    // Three channels now, each with its own lines:
+    //   tv     the TV, the announcer, the PA, the welcome. Rides the tv bus's
+    //          voice sub-gain.
+    //   scene  voices inside a broadcast's picture (`channel: 'scene'`): an
+    //          umpire, a stadium's public address. Routed as tv, but a line
+    //          here never cuts off the booth on 'tv', nor the booth it.
+    //   ui     Read Aloud (`channel: 'ui'`). Rides the dry ui bus.
     // A new line cancels only its own channel, or with `queue: true` waits
     // behind it. cancel('ui') is what a typed command or Escape does;
     // cancel() with no channel still stops everything, for the TV panel and
@@ -3586,7 +3589,7 @@ return out;
     // The channels don't cancel each other. Instead a Read Aloud line ducks
     // the tv bus by READER_DUCK_DB for as long as it speaks, so the reader is
     // heard over the TV rather than instead of it.
-    const CHANNELS = { tv: { lines: [] }, ui: { lines: [] } };
+    const CHANNELS = { tv: { lines: [] }, scene: { lines: [] }, ui: { lines: [] } };
     const QUEUE_MAX = 3;          // lines that may wait behind the one speaking
     const READER_DUCK_DB = -12;
     const stopAll = (nodes) => nodes.forEach(n => { try { n.stop(); } catch { /* already stopped */ } });
@@ -3603,6 +3606,13 @@ return out;
     // synth: logreader.js calls it from a natural utterance's start event and
     // releases it from the end event.
     const readerDuck = (opts) => duck(['tv'], READER_DUCK_DB, opts || {});
+    // Seconds until a channel falls silent (0 when it is), queued lines included: for a
+    // caller that wants to keep its own sounds out from under a voice.
+    function left(channel = 'tv') {
+      const ch = CHANNELS[channel];
+      if (!ctx || !ch) return 0;
+      return ch.lines.reduce((m, l) => Math.max(m, l.end - ctx.currentTime), 0);
+    }
 
     // ── A matchup, said the way a booth says it ──────────────────────────────
     // "Wharf Rats–Warlords" is two clubs, and a booth reads it "Wharf Rats versus
@@ -3612,9 +3622,11 @@ return out;
     // hyphen never does: "Smith-Jones" is one name.
     const readMatchups = (text) => String(text).replace(/(\p{L})\s*–\s*(?=\p{Lu})/gu, '$1 versus ');
 
-    // speak(text, { seed, voice, lex, accent, pa, channel, excite, budget }). `excite` is how
+    // speak(text, { seed, voice, lex, accent, pa, channel, excite, budget, gain }). `excite` is how
     // hard the line is being sold, -1 (grave) to 1 (a goal call); see deliveryFor. The
     // hockey booth sends one with every line; nothing else does, and 0 changes nothing.
+    // `gain` (0-1, default 1) sets a voice under the others on its bus, as an umpire
+    // sits under the booth; Read Aloud ignores it.
     function speak(text, opt = {}){
       // `channel: 'ui'` is the log reader (client/game/js/logreader.js) — the
       // voice as an ACCESSIBILITY surface rather than as a broadcast. It bypasses
@@ -3626,7 +3638,7 @@ return out;
       if (!_settings.enabled || (!ui && !_settings.tv)) return;
       const c = ensureContext(); if (!c) return;
       if (c.state === 'suspended') c.resume();
-      const chName = ui ? 'ui' : 'tv';
+      const chName = ui ? 'ui' : opt.channel === 'scene' ? 'scene' : 'tv';
       const chan = CHANNELS[chName];
       chan.lines = chan.lines.filter(l => l.end > c.currentTime);
       const queued = !!opt.queue && chan.lines.length > 0;
@@ -3710,7 +3722,7 @@ return out;
       // reader carrying the room's reverb is harder to understand, not richer.
       const out = busFor(ui ? 'ui' : 'tv_voice');
 
-      const master = c.createGain(); master.gain.value = 0.9;
+      const master = c.createGain(); master.gain.value = 0.9 * (ui ? 1 : Math.max(0, Math.min(1, opt.gain ?? 1)));
       const ringGain = c.createGain(); ringGain.gain.value = 1 - ringAmt;
       const lfo = c.createOscillator(); lfo.frequency.value = 50;
       const lfoDepth = c.createGain(); lfoDepth.gain.value = ringAmt;
@@ -4588,7 +4600,7 @@ return out;
         return ph;
       } finally { _lex = null; }
     };
-    return { speak, cancel, readerDuck, tuning: TUNING, phonemesFor, estimate: estimateDuration, voiceFor: voiceFromName, phones: () => Object.keys(PH) };
+    return { speak, cancel, left, readerDuck, tuning: TUNING, phonemesFor, estimate: estimateDuration, voiceFor: voiceFromName, phones: () => Object.keys(PH) };
   })();
 
   global.AudioEngine = {
@@ -4633,6 +4645,8 @@ return out;
     // No channel stops every channel. 'ui' stops only Read Aloud, which is what
     // a typed command and Escape do; 'tv' stops only the TV and announcer.
     cancelSpeech: (channel) => Speech.cancel(channel),
+    // How long a channel ('tv' by default) has left to say, in seconds.
+    speechLeft: (channel) => Speech.left(channel),
     // The TV duck Read Aloud applies while it speaks, for the natural reader.
     readerDuck: (opts) => Speech.readerDuck(opts),
     // Live tunables — see the TUNING block in Speech. Mutate and the next line
@@ -4653,7 +4667,8 @@ return out;
     _phones: () => Speech.phones(),
     // Hand a custom synth (e.g. the flight-engine) the context + ambient bus + shared noise
     // buffer so it can build its own live, parameter-driven node graph on the ambient chain.
-    engineNodes: () => { const c = ensureContext(); if (!c) return null; return { ctx: c, bus: busFor('ambient'), noise: getNoiseBuffer() }; },
+    // `category` picks the bus as playSfx would (a broadcast's crowd rides 'tv_fx'); ambient by default.
+    engineNodes: (category) => { const c = ensureContext(); if (!c) return null; return { ctx: c, bus: busFor(category || 'ambient'), noise: getNoiseBuffer() }; },
     // For the audio gates: the graph and buffers a stub context can't show any
     // other way. Read-only views; nothing here changes what plays.
     _graph: () => {

@@ -708,6 +708,9 @@ for (const kind of ['sit', 'stand', 'cheer']) for (const far of [false, true]) {
     score: { away: 'CK', home: 'P9E', aScore: 12, hScore: 10, half: 'bottom', inning: 11, bases: [true, true, true], awayTeam: CLUB, homeTeam: CLUB2 },
     count: { balls: 3, strikes: 2, outs: 2 }, pitch: { velo: 101, type: 'Four-Seam Fastball', x: 0.5, y: 0.5, result: 'called' }, zone: true, bats: 'R',
   };
+  // a full count's worth and then some, to the corners of the plot and past them
+  base.pitches = [{ x: 0, y: 0, result: 'ball' }, { x: 1, y: 1, result: 'swinging' }, { x: 0.3, y: 0.9, result: 'foul' }, { x: 0.9, y: 0.1, result: 'ball' },
+    { x: 0.95, y: 0.5, result: 'hbp' }, { x: 0.6, y: 0.3, result: 'foul' }, { x: 0.1, y: 0.6, result: 'ball' }, base.pitch];
   const STATES = {
     'at-bat': { ...base, matchup: { batter: MAN, pitcher: MAN, bNum: 27, pNum: 31, bl: [612, 188, 44, 131, 41], pl: [14, 6, 612, 61, 201], batTeam: CLUB, pitchTeam: CLUB2 } },
     steal: { ...base, steal: { kind: 'caughtstealing', runner: MAN, num: 9, sb: 13, plate: 1.42, pop: 2.09, base: 3, team: CLUB } },
@@ -726,7 +729,7 @@ for (const kind of ['sit', 'stand', 'cheer']) for (const far of [false, true]) {
   const fitted = (m) => { const w = wordW(m, m.size); return !m.maxW || w <= m.maxW ? m.size : Math.max(m.min, m.size * m.maxW / w); };
   function boxOf(m) {
     switch (m.t) {
-      case 'panel': case 'chip': case 'band': case 'box': return [m.x, m.y, m.x + m.w, m.y + m.h];
+      case 'panel': case 'chip': case 'band': case 'box': case 'plot': return [m.x, m.y, m.x + m.w, m.y + m.h];
       case 'text': {
         const size = fitted(m), w = Math.min(wordW(m, size), m.maxW || Infinity);
         const x0 = m.align === 'center' ? m.x - w / 2 : m.align === 'right' ? m.x - w : m.x;
@@ -738,7 +741,7 @@ for (const kind of ['sit', 'stand', 'cheer']) for (const far of [false, true]) {
     }
   }
   const overlap = (a, b) => Math.min(a[2], b[2]) - Math.max(a[0], b[0]) > 0.5 && Math.min(a[3], b[3]) - Math.max(a[1], b[1]) > 0.5;
-  const PERSIST = new Set(['score', 'count', 'speed', 'bug']);
+  const PERSIST = new Set(['score', 'count', 'speed', 'bug', 'pitches']);
   for (const [sname, w, h] of SCREENS) for (const safe of [false, true]) for (const [st, state] of Object.entries(STATES)) {
     const where = `${sname}${safe ? ' behind the glass' : ''}, ${st}`;
     const L = H.layoutHud(state, w, h, { theme: { bug: 'KSAB' }, safe, project: (p) => C.project('bat', w, h, p) });
@@ -794,6 +797,15 @@ for (const kind of ['sit', 'stand', 'cheer']) for (const far of [false, true]) {
       worst = Math.max(worst, Math.abs((0.5 + dx * k) * w - pt.x), Math.abs((0.5 + dy * k) * h - pt.y));
     }
     check('zone: through the tube, the bulge undone', worst < 1e-3, worst.toExponential(2));
+    // the at-bat's flat zone: a dot per pitch, each inside the plot, numbered in order, and one down
+    // the middle in the middle of the zone
+    const plot = L.marks.find((m) => m.t === 'plot'), dots = L.marks.filter((m) => m.t === 'disc' && m.g === 'pitches');
+    const nums = L.marks.filter((m) => m.t === 'text' && m.g === 'pitches').map((m) => m.s);
+    check('pitches: a dot for each pitch of the at-bat, numbered in order', !!plot && dots.length === base.pitches.length && nums.join(',') === base.pitches.map((_, i) => i + 1).join(','), `${dots.length} dots, ${nums.join(',')}`);
+    check('pitches: every dot is on the plot', !!plot && dots.every((d) => d.x >= plot.x - 0.5 && d.x <= plot.x + plot.w + 0.5 && d.y >= plot.y - 0.5 && d.y <= plot.y + plot.h + 0.5));
+    const mid = dots[dots.length - 1], [zx, zy, zw, zh] = plot ? plot.zone : [0, 0, 0, 0];
+    check('pitches: one down the middle is in the middle of the zone', !!mid && Math.abs(mid.x - (zx + zw / 2)) < 0.5 && Math.abs(mid.y - (zy + zh / 2)) < 0.5 && mid.edge === '#ffffff');
+    check('pitches: no pitches, no plot', !H.layoutHud({ ...base, pitches: [] }, w, h, { project: proj }).marks.some((m) => m.g === 'pitches'));
   }
   // A card the broadcast throws shows whatever else is up: over the leaders' table (extra
   // innings at a break), and before the game has a score (the pre-game matchup).
@@ -841,7 +853,7 @@ for (const kind of ['sit', 'stand', 'cheer']) for (const far of [false, true]) {
     check('graphics: every mark paints', !threw, threw);
     const kinds = new Set();
     for (const state of Object.values(STATES)) for (const m of H.layoutHud(state, 730, 328, { project: (p) => C.project('bat', 730, 328, p), theme: { bug: 'KSAB' } }).marks) kinds.add(m.t);
-    check('graphics: the states between them use every kind of mark', ['panel', 'text', 'bulb', 'chip', 'bag', 'zone', 'mark', 'burst', 'disc', 'rays', 'veil', 'band', 'rule', 'box'].every((k) => kinds.has(k)), [...kinds].join(','));
+    check('graphics: the states between them use every kind of mark', ['panel', 'text', 'bulb', 'chip', 'bag', 'zone', 'mark', 'burst', 'disc', 'rays', 'veil', 'band', 'rule', 'box', 'plot'].every((k) => kinds.has(k)), [...kinds].join(','));
     hud.set(STATES['at-bat']);
     stub.runFrames(30);
     check('graphics: a card animates in and the loop stops', hud.layout.marks.some((m) => m.g === 'matchup'));

@@ -1,5 +1,5 @@
-// GLASS 2 · THE SPECTACLE. Fireworks, sparks off the bat and the comet's tail on a ball hit hard,
-// drawn into the ballpark's float target as light added over the frame, so they bloom off the
+// GLASS 2 · THE SPECTACLE. Fireworks, sparks off the bat, the comet's tail on a ball hit hard and a
+// final's confetti, drawn into the ballpark's float target as light added over the frame, so they bloom off the
 // lamps' threshold as the lamps do (gl/ballpark.js). What each is, when and where is planned in
 // diamond/spectacle.js; this draws them at a time.
 //
@@ -17,7 +17,7 @@
 // feet, because a long lens (centre field's, 3.7 degrees, on a replay) would otherwise draw sparks
 // at the plate two feet wide.
 
-import { TEMPLATES, TEMPLATE_N, KINDS, TRAIL, DOWN, trailAt, endOf } from '../diamond/spectacle.js';
+import { TEMPLATES, TEMPLATE_N, KINDS, TRAIL, DOWN, BEAM, trailAt, beamAt, endOf } from '../diamond/spectacle.js';
 import { makeVertexStream } from './stream.js';
 import { declareProgram } from './programs.js';
 
@@ -49,6 +49,8 @@ uniform float uMinW;
 uniform float uDown;
 uniform vec3 uCol;
 uniform vec3 uCol2;
+uniform vec3 uOut;
+uniform vec4 uFlake;
 out vec3 vCol; out vec2 vQ; out float vGlow;
 vec3 dirOf() {
   if (uKind == 0) return normalize(uAxis + aDir * uSpread);
@@ -60,13 +62,29 @@ vec3 wayAt(vec3 d, float tau) {
   float along = v * (1.0 - ex) / uDrag, fall = uG * (tau / uDrag - (1.0 - ex) / (uDrag * uDrag));
   return uAt + d * along - vec3(0.0, fall, 0.0);
 }
+// a flake of confetti 'u' seconds after it's let go (diamond/spectacle.js flakeAt): uFlake is
+// (fall, sway, span, drift), uAxis along the deck's front and uOut over the field
+vec3 flakeAt(float u) {
+  float sw = sin(u * 2.1 * aK.x + aDir.z * 7.0) * uFlake.y * 0.5, sa = cos(u * 1.7 + aDir.x * 9.0) * uFlake.y;
+  float al = aDir.x * uFlake.z * 0.5 + sa, far = 1.0 + (aDir.z * 0.5 + 0.5) * 3.0 + uFlake.w * u * aK.x + sw;
+  vec3 p = uAt + uAxis * al + uOut * far;
+  p.y = max(0.1, uAt.y - uFlake.x * aK.x * u);
+  return p;
+}
 void main() {
   int c = gl_VertexID;
   float along = (c == 1 || c == 4 || c == 5) ? 1.0 : 0.0, side = (c == 2 || c == 3 || c == 5) ? 1.0 : -1.0;
   float life = uLife * aK.y, glow = 0.0, fade = 1.0;
   vec3 head, tail;
   bool alive;
-  if (uKind == 1 && uTau < 0.0) {
+  if (uKind == 2) {
+    // let go along the deck over the stagger, catching the lamps as it turns
+    float u = uTau - (aDir.y * 0.5 + 0.5) * uRise;
+    alive = u >= 0.0 && u <= life;
+    head = flakeAt(u); tail = flakeAt(max(0.0, u - uStreak));
+    fade = clamp((life - u) / (life * 0.3), 0.0, 1.0);
+    glow = uGlow * (0.25 + 0.75 * abs(sin(u * 9.0 * aK.x + aDir.x * 30.0))) * fade;
+  } else if (uKind == 1 && uTau < 0.0) {
     // the shell on its way up, the first particle only
     float u = clamp((uTau + uRise) / uRise, 0.0, 1.0), u0 = clamp(u - 0.14, 0.0, 1.0);
     alive = gl_InstanceID == 0 && uTau + uRise >= 0.0;
@@ -89,6 +107,7 @@ void main() {
   vec3 p = mix(tail - dir * w * 0.5, head + dir * w * 0.5, along) + sv * side * w * 0.5;
   vQ = vec2(along, side);
   vCol = uKind == 0 ? mix(vec3(1.0, 0.93, 0.78), vec3(1.0, 0.5, 0.14), aK.z)
+       : uKind == 2 ? (aK.z < 0.45 ? vec3(1.0, 0.72, 0.22) : aK.z < 0.75 ? vec3(1.0) : uCol)
                     : mix(vec3(1.0, 0.97, 0.9), aK.z > 0.82 ? uCol2 : uCol, smoothstep(0.0, 0.3, uTau));
   vGlow = glow;
   gl_Position = uVP * vec4(p, 1.0);
@@ -167,6 +186,32 @@ export function createSpectacle(gl, prog) {
     return k / 6;
   }
 
+  // A searchlight: a shaft out of its lamp, widening and fading along it (the tail's ribbon and
+  // program, built the other way round: narrow at the lamp, wide at its end).
+  function beamTris(e, eye) {
+    const B = beamAt(e, now);
+    if (!B || !(B.glow > 0)) return 0;
+    const n = BEAM.n, pts = [];
+    for (let i = 0; i < n; i++) { const d = BEAM.len * i / (n - 1); pts.push([e.at[0] + B.dir[0] * d, e.at[1] + B.dir[1] * d, e.at[2] + B.dir[2] * d]); }
+    let k = 0;
+    const sideOf = (i) => {
+      const p = pts[i], ex = eye[0] - p[0], ey = eye[1] - p[1], ez = eye[2] - p[2], d = B.dir;
+      let sx = d[1] * ez - d[2] * ey, sy = d[2] * ex - d[0] * ez, sz = d[0] * ey - d[1] * ex;
+      const l = Math.hypot(sx, sy, sz) || 1, w = (BEAM.near + (BEAM.far - BEAM.near) * i / (n - 1)) * 0.5;
+      return [sx * w / l, sy * w / l, sz * w / l];
+    };
+    const put = (p, s, sign, u) => { trData.set([p[0] + s[0] * sign, p[1] + s[1] * sign, p[2] + s[2] * sign, u, sign, B.glow], k); k += 6; };
+    let s0 = sideOf(0);
+    for (let i = 0; i + 1 < n; i++) {
+      const s1 = sideOf(i + 1), u0 = i / (n - 1), u1 = (i + 1) / (n - 1);
+      put(pts[i], s0, -1, u0); put(pts[i + 1], s1, -1, u1); put(pts[i], s0, 1, u0);
+      put(pts[i], s0, 1, u0); put(pts[i + 1], s1, -1, u1); put(pts[i + 1], s1, 1, u1);
+      s0 = s1;
+    }
+    trst.write(trData, k);
+    return k / 6;
+  }
+
   // M: the frame's matrices and eye (camera.js shotMatrices, its lens fitted to the screen); h: the
   // canvas's height in pixels; o.fx the tier's spectacle (diamond/quality.js): 2 all of it, 1 half
   // the particles in each burst, 0 only the trails. Returns { draws, tris }.
@@ -178,8 +223,8 @@ export function createSpectacle(gl, prog) {
     // the thinnest a streak may be, in feet for each foot from the eye: MIN_PX of this lens's pixels
     minW = MIN_PX * 2 * Math.tan((M.fov || 40) * Math.PI / 360) / Math.max(1, h || 1);
     for (const e of list) {
-      if (e.kind === 'trail') {
-        const n = trailTris(e, M.eye);
+      if (e.kind === 'trail' || e.kind === 'beam') {
+        const n = e.kind === 'beam' ? beamTris(e, M.eye) : trailTris(e, M.eye);
         if (!n) continue;
         gl.useProgram(TR.p);
         gl.uniformMatrix4fv(TR.u('uVP'), false, M.viewProj);
@@ -194,12 +239,13 @@ export function createSpectacle(gl, prog) {
       gl.useProgram(P.p);
       gl.uniformMatrix4fv(P.u('uVP'), false, M.viewProj);
       gl.uniform3fv(P.u('uEye'), M.eye);
-      gl.uniform1i(P.u('uKind'), e.kind === 'sparks' ? 0 : 1);
-      gl.uniform3fv(P.u('uAt'), e.at); gl.uniform3fv(P.u('uFrom'), e.from || e.at); gl.uniform3fv(P.u('uAxis'), e.dir || [0, 1, 0]);
+      gl.uniform1i(P.u('uKind'), e.kind === 'sparks' ? 0 : e.kind === 'confetti' ? 2 : 1);
+      gl.uniform3fv(P.u('uAt'), e.at); gl.uniform3fv(P.u('uFrom'), e.from || e.at); gl.uniform3fv(P.u('uAxis'), e.axis || e.dir || [0, 1, 0]);
       gl.uniform1f(P.u('uSpin'), e.spin || 0); gl.uniform1f(P.u('uScale'), e.scale || 1); gl.uniform1f(P.u('uTau'), tau);
       gl.uniform1f(P.u('uV'), K.v); gl.uniform1f(P.u('uDrag'), K.drag); gl.uniform1f(P.u('uG'), K.g); gl.uniform1f(P.u('uLife'), K.life);
       gl.uniform1f(P.u('uWidth'), K.width); gl.uniform1f(P.u('uStreak'), K.streak); gl.uniform1f(P.u('uGlow'), K.glow);
-      gl.uniform1f(P.u('uSpread'), K.spread || 0); gl.uniform1f(P.u('uRise'), K.rise || 0); gl.uniform1f(P.u('uMinW'), minW); gl.uniform1f(P.u('uDown'), DOWN);
+      gl.uniform1f(P.u('uSpread'), K.spread || 0); gl.uniform1f(P.u('uRise'), K.rise ?? K.stagger ?? 0);
+      gl.uniform3fv(P.u('uOut'), e.out || [0, 0, 1]); gl.uniform4f(P.u('uFlake'), K.fall || 0, K.sway || 0, K.span || 0, K.v || 0); gl.uniform1f(P.u('uMinW'), minW); gl.uniform1f(P.u('uDown'), DOWN);
       gl.uniform3fv(P.u('uCol'), e.colour || [1, 1, 1]); gl.uniform3fv(P.u('uCol2'), e.second || e.colour || [1, 1, 1]);
       // the first of the templates: they're dealt round the sphere, so any first share of them is
       // the whole burst, thinner

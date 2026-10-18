@@ -584,6 +584,8 @@
 <!-- Banks load before the catalog that folds them in — see client/shared/sfx-catalog.js. -->
 <script src="/shared/hockey-sfx.js"></script>
 <script src="/shared/sfx-catalog.js"></script>
+<!-- The Deadball bank is an ES module, so it runs after the catalog and joins it with addBank. -->
+<script type="module" src="/shared/deadball-sfx.js"></script>
 <script src="/shared/procedural-sfx.js"></script>
 <script src="/shared/mod-parser.js"></script>
 <script src="/dev/js/panels/audio.js"></script>

@@ -49,7 +49,7 @@
 // ⚠ NO FACE CULLING, as in arena.js: the builders don't keep one winding, and every material
 // here is lit from the side that faces the eye.
 
-import { buildPark, crowdMorph, createBatch, ellipsoid, dragMat, lin, STRIDE, CROWD_STRIDE, CROWD_MORPH, MAT } from './ballpark-mesh.js';
+import { buildPark, buildDress, crowdMorph, createBatch, ellipsoid, dragMat, lin, STRIDE, CROWD_STRIDE, CROWD_MORPH, MAT } from './ballpark-mesh.js';
 import { CROWD_VS, flashesAt } from './crowd.js';
 import { paintInfield, paintMark, smoothPoly, DIRT_RECT } from '../diamond/dirt.js';
 import { boardLamps, BOARD_W, BOARD_H } from '../diamond/board.js';
@@ -491,7 +491,7 @@ void main() { vUV = aUV; vAlpha = aAlpha; vRed = aRed; gl_Position = uVP * vec4(
 for (const [vs, fs] of [[LIT_VS, LIT_FS], [SKIN_VS, LIT_FS], [SKIN_DEPTH_VS, DEPTH_FS], [CROWD_VS, CROWD_FS], [FULL_VS, SKY_FS], [FULL_VS, FINAL_FS], [CURTAIN_VS, CURTAIN_FRAG]]) declareProgram(vs, fs);
 
 // The textures whose clear texels are holes: the wall's distances, the monograms, the masks' bars.
-const ALPHA_TEST = new Set(['nums', 'logo', 'mask']);
+const ALPHA_TEST = new Set(['nums', 'logo', 'mask', 'finalLogo']);
 
 // The night the park was tuned at, and the park's light at any hour (diamond/sky.js): the sky's
 // colours, its ambient, how hard the towers burn, the air, the city's windows and lamps.
@@ -535,6 +535,23 @@ const padCanvas = (doc) => canvasOf(doc, 512, 256, (g) => {
 const seatCanvas = (doc) => canvasOf(doc, 256, 64, (g) => {
   g.fillStyle = '#3d4650'; g.fillRect(0, 0, 256, 64);
   for (let i = 0; i < 4; i++) { g.fillStyle = '#2d5f7d'; g.fillRect(i * 64 + 6, 8, 52, 40); g.fillStyle = 'rgba(0,0,0,0.35)'; g.fillRect(i * 64 + 6, 44, 52, 6); }
+});
+// A final's logo, painted on the grass (ballpark-mesh.js buildDress): its name in gold on a navy
+// roundel ringed in gold, and ONE GAME under it, on a clear ground.
+const finalLogoCanvas = (doc, name) => canvasOf(doc, 1024, 512, (g) => {
+  g.clearRect(0, 0, 1024, 512);
+  g.fillStyle = '#16264a'; g.strokeStyle = '#e2b13c'; g.lineWidth = 26;
+  g.beginPath(); g.ellipse(512, 256, 480, 220, 0, 0, Math.PI * 2); g.fill(); g.stroke();
+  g.lineWidth = 6; g.strokeStyle = '#f4efe0';
+  g.beginPath(); g.ellipse(512, 256, 440, 186, 0, 0, Math.PI * 2); g.stroke();
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  const words = String(name || 'Final').toUpperCase();
+  let px = 150;
+  g.font = HUD_FACES.big(px);
+  while (px > 40 && g.measureText(words).width > 780) { px -= 6; g.font = HUD_FACES.big(px); }
+  g.lineWidth = 10; g.strokeStyle = '#0b1220'; g.strokeText(words, 512, 236);
+  g.fillStyle = '#ffd75c'; g.fillText(words, 512, 236);
+  g.font = HUD_FACES.label(54); g.fillStyle = '#f4efe0'; g.fillText('ONE GAME', 512, 352);
 });
 // The ads round the front of the lower bowl behind the plate, four to a repeat.
 const adsCanvas = (doc, ads) => canvasOf(doc, 2048, 128, (g) => {
@@ -721,12 +738,16 @@ export function createBallparkRenderer(canvas, opts = {}) {
     // who rest sitting, once standing and once cheering, each getting up as his side roars. Each
     // kind's fans are dealt into a seeded order, so a tier that draws fewer (its `crowd`) draws the
     // first of them and thins every stand evenly, rather than emptying the back rows.
-    const crowd = [], morph = crowdMorph({ far: opts.crowd !== 'near', towels: !!opts.towels });
+    // A final sells every seat and hands out rally towels (setFinal): the same build, from the park
+    // built full, with the towel in every cheering fan's hand.
     const dealt = Object.fromEntries(['sit', 'stand', 'cheer'].map((kind) => [kind, dealFans(park.crowd[kind] || new Float32Array(0), CROWD_STRIDE)]));
-    const mb = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, mb); gl.bufferData(gl.ARRAY_BUFFER, morph, gl.STATIC_DRAW);
-    for (const [base, kind] of ['sit', 'stand', 'cheer'].entries()) {
-      const inst = dealt[kind];
-      if (!inst.length) continue;
+    const crowdOf = (src, towels) => {
+      const list = [], morph = crowdMorph({ far: opts.crowd !== 'near', towels });
+      const mb = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, mb); gl.bufferData(gl.ARRAY_BUFFER, morph, gl.STATIC_DRAW);
+      const deal = src === park.crowd ? dealt : Object.fromEntries(['sit', 'stand', 'cheer'].map((kind) => [kind, dealFans(src[kind] || new Float32Array(0), CROWD_STRIDE)]));
+      for (const [base, kind] of ['sit', 'stand', 'cheer'].entries()) {
+        const inst = deal[kind];
+        if (!inst.length) continue;
       const vao = gl.createVertexArray();
       gl.bindVertexArray(vao);
       gl.bindBuffer(gl.ARRAY_BUFFER, mb);
@@ -740,8 +761,14 @@ export function createBallparkRenderer(canvas, opts = {}) {
       gl.enableVertexAttribArray(4); gl.vertexAttribPointer(4, 4, gl.FLOAT, false, IS, 16); gl.vertexAttribDivisor(4, 1);
       gl.enableVertexAttribArray(5); gl.vertexAttribPointer(5, 3, gl.FLOAT, false, IS, 32); gl.vertexAttribDivisor(5, 1);
       gl.bindVertexArray(null);
-      crowd.push({ vao, base, n: morph.length / CROWD_MORPH, count: inst.length / CROWD_STRIDE, buffers: [ib] });
-    }
+        list.push({ vao, base, n: morph.length / CROWD_MORPH, count: inst.length / CROWD_STRIDE, buffers: [ib] });
+      }
+      list.mb = mb;
+      return list;
+    };
+    const dropCrowd = (list) => { for (const d of list) { gl.deleteVertexArray(d.vao); for (const b of d.buffers) gl.deleteBuffer(b); } gl.deleteBuffer(list.mb); };
+    const homeCrowd = crowdOf(park.crowd, !!opts.towels);
+    let crowd = homeCrowd, fullCrowd = null;
     // how loud each side's fans are (gl/crowd.js createRoar), the clock their bouncing keeps, and
     // whether they may bounce at all
     const roar = { home: 0, away: 0, t: 0, move: 1 };
@@ -1222,6 +1249,8 @@ export function createBallparkRenderer(canvas, opts = {}) {
       };
       litSetup(LIT);
       drawSet(opaque, 1);
+      if (final && dress) drawSet(dress.opaque, 1);
+      if (final && champ && dress) drawSet([dress.trophy], 1);
       if (TEX.sign) drawSet([signDraw], 1);
       if (ballAt) drawSet([ballDraw], 1);
       if (matDraw.n) drawSet([matDraw], 1);
@@ -1358,8 +1387,8 @@ export function createBallparkRenderer(canvas, opts = {}) {
         gl.deleteTexture(boardTex);
         for (const d of [...opaque, ...translucent, signDraw, ballDraw, matDraw]) { gl.deleteVertexArray(d.vao); gl.deleteBuffer(d.st.buf); }
         dropCity();
-        for (const d of crowd) { gl.deleteVertexArray(d.vao); for (const b of d.buffers) gl.deleteBuffer(b); }
-        gl.deleteBuffer(mb);
+        dropCrowd(homeCrowd); if (fullCrowd) dropCrowd(fullCrowd);
+        if (dress) for (const d of [...dress.opaque, dress.trophy]) { gl.deleteVertexArray(d.vao); gl.deleteBuffer(d.st.buf); }
         for (const body of bodies.values()) dropBody(body);
         bodies.clear();
         palette.dispose();
@@ -1367,6 +1396,31 @@ export function createBallparkRenderer(canvas, opts = {}) {
         gl.getExtension('WEBGL_lose_context')?.loseContext();
       } catch { /* a lost context has nothing left to free */ }
       lost = true; api.lost = true;
+    }
+
+    // A final (setFinal({ name }) or null): the park dressed for it (ballpark-mesh.js buildDress), its
+    // logo painted with the final's name, a full house waving towels; setChampion(true) puts the
+    // trophy out once the last out's made. The dress is built the first time a final asks for it.
+    let final = null, champ = false, dress = null;
+    function setFinal(f) {
+      const on = !!(f && f.name);
+      if (!on) { final = null; champ = false; crowd = homeCrowd; return; }
+      if (!dress) {
+        const d = buildDress(opts.venue);
+        dress = { opaque: [...d.opaque].map(([key, b]) => ({ key, ...upload(b) })), trophy: { key: 'trophy', ...upload(d.trophy) } };
+      }
+      if (!final || final.name !== f.name) {
+        if (TEX.finalLogo) gl.deleteTexture(TEX.finalLogo);
+        TEX.finalLogo = texture(finalLogoCanvas(doc, f.name), { repeat: false, premul: true });
+        loadHudFaces(doc).then(() => {
+          if (lost || !final || final.name !== f.name) return;
+          gl.deleteTexture(TEX.finalLogo); TEX.finalLogo = texture(finalLogoCanvas(doc, f.name), { repeat: false, premul: true });
+          opts.onAsset?.();
+        });
+      }
+      if (!fullCrowd) fullCrowd = crowdOf(buildPark(opts.venue, { full: true }).crowd, true);
+      crowd = fullCrowd;
+      final = { name: f.name };
     }
 
     const api = {
@@ -1391,6 +1445,7 @@ export function createBallparkRenderer(canvas, opts = {}) {
       setTime: (t) => { worldT = Number.isFinite(t) ? t : 0; weather.setTime(worldT); },
       get cityLights() { return cityLights.counts; },
       get streets() { return streets.counts; },
+      setFinal, setChampion: (on) => { champ = !!on; }, get final() { return final ? { ...final, champion: champ } : null; },
       setCrowd: (levels, t, move = true) => { roar.home = +levels?.[0] || 0; roar.away = +levels?.[1] || 0; roar.t = +t || 0; roar.move = move ? 1 : 0; },
       pending: () => queue.length,
       get park() { return park; },

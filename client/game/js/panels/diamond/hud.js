@@ -92,6 +92,11 @@ export const armLine = (pl) => `${pl[0]}–${pl[1]}   ${fmtEra(pl[3], pl[2])} ER
 
 // A pitch's name the way a broadcast prints it: FOUR-SEAM FASTBALL is 4-SEAM FASTBALL.
 export const pitchName = (type) => String(type || '').toUpperCase().replace(/\bFOUR-SEAM\b/, '4-SEAM').replace(/\bTWO-SEAM\b/, '2-SEAM');
+// Each pitch's dot in the at-bat's zone, by what it did: the 2-D view's colours (styles.css .gd-pitch).
+export const PITCH_COLOURS = Object.freeze({
+  ball: '#3b82f6', called: '#f97316', swinging: '#ef4444', foul: '#eab308', inplay: '#22c55e', hbp: '#a855f7',
+});
+const colourOfPitch = (p) => PITCH_COLOURS[p?.result] || PITCH_COLOURS.ball;
 
 // ── the graphics in words ─────────────────────────────────────────────────────
 // The canvas is hidden from a screen reader, so the view says what's on it
@@ -112,6 +117,10 @@ export function stealSaid(st, words = HUD_THEME.words) {
   const clocks = [st.plate && `pitcher to the plate ${Number(st.plate).toFixed(2)} seconds`, st.pop && `catcher's pop to ${BAG[st.base] || 'second'} ${Number(st.pop).toFixed(2)}`].filter(Boolean).join(', ');
   return [sentence(words[st.kind] || words.steal), [st.runner, st.sb && !caught ? `${many(st.sb, 'steal')} this season` : ''].filter(Boolean).join(', '), clocks].filter(Boolean).join('. ');
 }
+// A final's words: the line-up card as the public address reads it, and the champions' card.
+export const introSaid = (it) => `${it.team}, batting ${ORD[it.i] || it.i}: ${it.num != null ? `number ${it.num}, ` : ''}${it.name}.`;
+export const champSaid = (c) => [`${c.team}, ${c.name || 'final'} champions.`, c.score ? sentence(c.score) : '', c.mvp ? `Most valuable player, ${c.mvp.name}, ${c.mvp.line}.` : ''].filter(Boolean).join(' ');
+const ORD = ['', 'first', 'second', 'third', 'fourth', 'fifth', 'sixth', 'seventh', 'eighth', 'ninth'];
 export const distSaid = (d) => `${d.ft | 0} feet${Number(d.ev) > 0 ? `, ${d.ev | 0} miles an hour off the bat` : ''}`;
 export const splashSaid = (sp, words = HUD_THEME.words) => [sentence(words[sp.kind] || sp.word), sentence(sp.sub)].filter(Boolean).join(' ');
 // The leaders' table, its own race's number for each man.
@@ -127,12 +136,17 @@ export function tableSaid(L, races = HUD_THEME.races) {
 // and where a pitch crossed it from the payload's plot position: x and y run 0 to 1 over a
 // square whose middle half across and middle 56% down is the zone, the 2-D view's plot.
 export const ZONE = Object.freeze({ half: 0.708, low: 1.62, high: 3.45, z: 0.7 });
-export function pitchPoint(p, bats) {
+// Where a pitch crossed on the plot's square, [x, y] from 0 to 1, left to right as the umpire
+// sees it and top down.
+export function plotOf(p, bats) {
   const at = (v) => (Number.isFinite(Number(v)) && v !== null && v !== '' ? Math.max(0, Math.min(1, Number(v))) : 0.5);
   let x = at(p?.x);
-  const y = at(p?.y);
   // a pitch that hits him is on his side of the plate: a right-handed batter stands at +x
   if (p?.result === 'hbp' && (bats === 'R' || bats === 'L')) x = bats === 'R' ? Math.min(x, 1 - x) : Math.max(x, 1 - x);
+  return [x, at(p?.y)];
+}
+export function pitchPoint(p, bats) {
+  const [x, y] = plotOf(p, bats);
   const wx = (0.5 - x) * (ZONE.half * 2 / 0.5);
   const wy = ZONE.high - (y - 0.22) * ((ZONE.high - ZONE.low) / 0.56);
   return [wx, wy, ZONE.z];
@@ -149,11 +163,15 @@ export function throughTube(pt, w, h) {
 // ── the layout ────────────────────────────────────────────────────────────────
 // The smallest a word is set, in CSS pixels: the tablet's TV is about 330×160.
 export const TEXT_FLOOR = 6;
+// How wide a splash's band under its word is, on a safe area this wide.
+const SPLASH_BAND = (u, width) => Math.min(230 * u, width * 0.72);
 // The state (gameday-grandstand.js builds it from the payloads):
 //
 //   score    { away, home, aScore, hScore, half, inning, bases: [1st, 2nd, 3rd], awayTeam, homeTeam }
 //   count    { balls, strikes, outs }
 //   pitch    the last pitch thrown, as the payload has it: { velo, type, x, y, result }
+//   pitches  the at-bat's pitches so far, the last of them `pitch`: listed under the speed, and
+//            numbered in the zone
 //   zone     true to draw the zone over the plate (the batting view); needs o.project
 //   bats     the batter's side, 'L' or 'R', for a pitch that hits him
 //   matchup  { batter, pitcher, bNum, pNum, bl, pl, bats, throws, batTeam, pitchTeam }
@@ -163,6 +181,12 @@ export const TEXT_FLOOR = 6;
 //   replay   true while a replay plays (diamond/replay.js): its bug beside the score
 //   leaders  { race: 'hr' | 'avg' | 'sb' | 'k', rows, season, foot (the line across the foot) }
 //   gold     true in a final
+//   final    { name, seeds: { away, home } }: a final's name and the seeds, in gold under the count
+//            and beside each club, and its banner across the foot when nothing else is there
+//   intro    { team, side, i, n, num, name }: the line-ups read before a final's first pitch, a
+//            card a man
+//   champ    { team, side, name, score, mvp: { name, line } }: the champions' card, under the
+//            splash, once the last out's made
 //
 // `o`: { theme, safe (the tube glass is on), project(p) -> { x, y } | null (the picture's
 // camera, on this w×h) }. Returns { u, safe: [x0, y0, x1, y1], marks }, each mark a plain object
@@ -209,6 +233,8 @@ export function layoutHud(state, w, h, o = {}) {
     [[sc.away, sc.aScore, sc.awayTeam, 'away'], [sc.home, sc.hScore, sc.homeTeam, 'home']].forEach(([ab, runs, team, side], i) => {
       const cy = y + (i ? 30 : 13) * u;
       add({ t: 'chip', x: x + 11 * u, y: cy - 6 * u, w: 4 * u, h: 12 * u, colour: colourOf(team || ab, side), g: 'score' });
+      const seed = S.final?.seeds?.[side];
+      if (seed) text(seed, x + 6.5 * u, cy + 3 * u, 7 * u, 'label', '#ffd75c', { align: 'center', skew: 0, extrude: 0, stroke: 0, g: 'score' });
       text(String(ab || '').toUpperCase(), x + 19 * u, cy + 5.5 * u, 13 * u, 'big', chrome, { maxW: 39 * u, min: 10 * u, g: 'score' });
       text(runs | 0, x + 70 * u, cy + 6 * u, 15 * u, 'big', 'flame', { align: 'center', g: 'score' });
     });
@@ -238,6 +264,13 @@ export function layoutHud(state, w, h, o = {}) {
     });
   }
 
+  // a final's name in gold under the count: what tonight is
+  if (S.final?.name && S.count) {
+    const x = X0, y = Y0 + 68 * u, pw = 108 * u;
+    panel(x, y, pw, 16 * u, 6 * u, 'final');
+    text(`${String(S.final.name).toUpperCase()}  ·  ONE GAME`, x + 10 * u, y + 11.5 * u, 9 * u, 'tall', 'gold', { maxW: pw - 18 * u, min: 6.5 * u, skew: 0.1, extrude: 0, g: 'final' });
+  }
+
   // the pitch speed on the right, below where the batting view has the park's scoreboard; once a
   // home run's down, how far it went and how hard it was hit, in the same box
   if (S.dist && Number(S.dist.ft) > 0) {
@@ -252,6 +285,28 @@ export function layoutHud(state, w, h, o = {}) {
     text(S.pitch.velo | 0, x + 12 * u, y + 26 * u, 21 * u, 'big', gold ? 'gold' : 'flame', { maxW: 40 * u, g: 'speed' });
     text('MPH', x + 54 * u, y + 15 * u, 7.5 * u, 'label', gold ? '#ffd75c' : '#ffe04a', { skew: 0.1, extrude: 0, g: 'speed' });
     if (S.pitch.type) text(pitchName(S.pitch.type), x + 10 * u, y + 36 * u, 8.5 * u, 'tall', '#dfe6f4', { maxW: pw - 20 * u, min: 6.5 * u, skew: 0.1, extrude: 0, g: 'speed' });
+  }
+
+  // the at-bat's pitches under it on a flat strike zone, as the umpire sees it: a dot in each
+  // one's colour where it crossed, numbered in order, the latest ringed. On a screen too narrow
+  // for both, it gives way to a splash's band (SPLASH_BAND, splash below).
+  const pitches = Array.isArray(S.pitches) ? S.pitches : [];
+  const banded = S.splash?.sub && SPLASH_BAND(u, X1 - X0) / 2 > (X1 - X0) / 2 - 86 * u;
+  if (pitches.length && !banded) {
+    const pw = 82 * u, x = X1 - pw, y = Y0 + Math.max(bugH, (Y1 - Y0) * 0.2) + 46 * u;
+    const ph = Math.min(78 * u, Y1 - 40 * u - y);
+    if (ph >= 40 * u) {
+      panel(x, y, pw, ph, 6 * u, 'pitches');
+      // the plot is the payload's square (0 to 1 each way), the zone its middle half across and
+      // middle 56% down, so a dot lands where the 2-D view's plot has it
+      const s = ph - 8 * u, px = x + (pw - s) / 2, py = y + 4 * u, r = Math.max(3.2 * u, s * 0.065);
+      add({ t: 'plot', x: px, y: py, w: s, h: s, zone: [px + s * 0.25, py + s * 0.22, s * 0.5, s * 0.56], g: 'pitches' });
+      pitches.forEach((p, i) => {
+        const [qx, qy] = plotOf(p, S.bats), cx = px + qx * s, cy = py + qy * s, last = i === pitches.length - 1;
+        add({ t: 'disc', x: cx, y: cy, r, fill: colourOfPitch(p), edge: last ? '#ffffff' : '#0b1020', width: (last ? 1.6 : 0.8) * u, g: 'pitches' });
+        text(i + 1, cx, cy + r * 0.62, r * 1.6, 'label', 'white', { align: 'center', skew: 0, extrude: 0, stroke: 0, min: TEXT_FLOOR, g: 'pitches' });
+      });
+    }
   }
 
   // the zone over the plate, and where the last pitch crossed it
@@ -313,6 +368,31 @@ export function layoutHud(state, w, h, o = {}) {
     text('VS', cx + 1 * u, cy + 4.5 * u, 11 * u, 'big', chrome, { align: 'center', extrude: 1 * u, g: 'matchup' });
   }
 
+  // before a final's first pitch, a card for each man as the public address reads him
+  if (S.intro) {
+    const it = S.intro, pw = Math.min(250 * u, (X1 - X0) * 0.9), ph = 40 * u, x = (X0 + X1) / 2 - pw / 2, y = Y1 - ph - 3 * u;
+    panel(x, y, pw, ph, 9 * u, 'intro');
+    add({ t: 'chip', x: x + 10 * u, y: y + 9 * u, w: 24 * u, h: 22 * u, colour: colourOf(it.team, it.side), g: 'intro' });
+    if (it.num != null) text(it.num, x + 22 * u, y + 25 * u, 13 * u, 'big', chrome, { align: 'center', extrude: 1 * u, g: 'intro' });
+    text(`${String(it.team || '').toUpperCase()}  ·  ${it.i ? `BATTING ${it.i}` : 'STARTING PITCHER'}`, x + 42 * u, y + 13 * u, 8 * u, 'tall', 'gold', { maxW: pw - 54 * u, min: 6.5 * u, skew: 0.1, extrude: 0, g: 'intro' });
+    text(String(it.name || '').toUpperCase(), x + 42 * u, y + 31 * u, 15 * u, 'tall', chrome, { maxW: pw - 54 * u, min: 9 * u, skew: 0.14, extrude: 1 * u, g: 'intro' });
+  }
+  // the champions' card: the club, the score that won it, the most valuable player
+  if (S.champ) {
+    const c = S.champ, pw = Math.min(290 * u, (X1 - X0) * 0.94), ph = (c.mvp ? 58 : 42) * u, x = (X0 + X1) / 2 - pw / 2, y = Y1 - ph - 3 * u;
+    panel(x, y, pw, ph, 10 * u, 'champ');
+    add({ t: 'chip', x: x + 10 * u, y: y + 8 * u, w: 8 * u, h: 26 * u, colour: colourOf(c.team, c.side), g: 'champ' });
+    text(String(c.team || '').toUpperCase(), x + 26 * u, y + 24 * u, 19 * u, 'big', 'gold', { maxW: pw - 38 * u, min: 10 * u, extrude: 2 * u, deep: '#3a2204', edge: '#140a01', g: 'champ' });
+    if (c.score) text(String(c.score).toUpperCase(), x + 26 * u, y + 36 * u, 8.5 * u, 'tall', '#fff3bc', { maxW: pw - 38 * u, min: 6.5 * u, skew: 0.1, extrude: 0, g: 'champ' });
+    if (c.mvp) text(`MVP  ${String(c.mvp.name).toUpperCase()}  ·  ${c.mvp.line}`, x + 26 * u, y + 50 * u, 9.5 * u, 'tall', 'gold', { maxW: pw - 38 * u, min: 6.5 * u, skew: 0.1, extrude: 0, g: 'champ' });
+  }
+  // a final's banner across the foot when nothing else is there
+  if (S.final?.name && !S.matchup && !S.steal && !S.intro && !S.champ && !S.splash) {
+    const pw = Math.min(250 * u, (X1 - X0) * 0.8), ph = 18 * u, x = (X0 + X1) / 2 - pw / 2, y = Y1 - ph - 3 * u;
+    panel(x, y, pw, ph, 8 * u, 'banner');
+    text('WINNER TAKES THE SEASON', (X0 + X1) / 2, y + 12.5 * u, 10 * u, 'tall', 'gold', { align: 'center', maxW: pw - 20 * u, min: 7 * u, skew: 0.1, extrude: 0, g: 'banner' });
+  }
+
   splash();
   return { u, safe: [X0, Y0, X1, Y1], marks };
 
@@ -324,7 +404,7 @@ export function layoutHud(state, w, h, o = {}) {
     text(words[sp.kind] || sp.word, cx, cy + 12 * u, 34 * u, 'big', gold ? 'gold' : 'flame',
       { align: 'center', maxW: (X1 - X0) * 0.94, min: 18 * u, extrude: 3 * u, deep: gold ? '#3a2204' : '#5a0a0a', edge: gold ? '#140a01' : '#1a0303', g: 'splash' });
     if (sp.sub) {
-      const pw = Math.min(230 * u, (X1 - X0) * 0.72), ph = 22 * u, x = cx - pw / 2, y = cy + 24 * u;
+      const pw = SPLASH_BAND(u, X1 - X0), ph = 22 * u, x = cx - pw / 2, y = cy + 24 * u;
       panel(x, y, pw, ph, 8 * u, 'splash');
       text(String(sp.sub).toUpperCase(), cx, y + 15.5 * u, 11 * u, 'tall', chrome, { align: 'center', maxW: pw - 26 * u, min: 8 * u, skew: 0.12, extrude: 1 * u, g: 'splash' });
     }
@@ -386,7 +466,7 @@ const GOLDF = [[0, '#fff8d6'], [0.36, '#ffd75c'], [0.5, '#b07c18'], [0.55, '#7a4
 const FLAME = [[0, '#fffbe0'], [0.3, '#ffe04a'], [0.62, '#ff8c1a'], [1, '#d81e1e']];
 const FILLS = { chrome: CHROME, gold: GOLDF, flame: FLAME };
 // How each group comes in: the cards slide up, the splash punches in, the table fades up.
-const IN_MS = { matchup: 260, steal: 260, dist: 240, splash: 240, table: 300, replay: 200 };
+const IN_MS = { matchup: 260, steal: 260, dist: 240, splash: 240, table: 300, replay: 200, intro: 220, champ: 320, banner: 300 };
 const TAU = Math.PI * 2;
 
 // Paints a layout's marks with a 2-D context already scaled to CSS pixels. `t(group)` is how
@@ -479,6 +559,22 @@ function paintMark(g, m, grad, u) {
       g.restore();
       return;
     }
+    case 'plot': {
+      // the at-bat's flat zone: a dark square, and the zone in it drawn as the one over the plate
+      g.save();
+      g.fillStyle = 'rgba(2,6,16,0.55)'; g.fillRect(m.x, m.y, m.w, m.h);
+      const [zx, zy, zw, zh] = m.zone;
+      g.fillStyle = 'rgba(80,170,255,0.18)'; g.fillRect(zx, zy, zw, zh);
+      g.lineWidth = Math.max(0.6, 0.5 * u); g.strokeStyle = 'rgba(190,230,255,0.45)';
+      for (const f of [1 / 3, 2 / 3]) {
+        g.beginPath(); g.moveTo(zx + zw * f, zy); g.lineTo(zx + zw * f, zy + zh); g.stroke();
+        g.beginPath(); g.moveTo(zx, zy + zh * f); g.lineTo(zx + zw, zy + zh * f); g.stroke();
+      }
+      g.lineWidth = Math.max(1.2, 1.4 * u); g.strokeStyle = 'rgba(210,240,255,0.95)'; g.shadowColor = '#5ab4ff'; g.shadowBlur = 5 * u;
+      g.strokeRect(zx, zy, zw, zh);
+      g.restore();
+      return;
+    }
     case 'mark': {
       const { x, y, r } = m;
       const hl = g.createRadialGradient(x, y, 0, x, y, r * 2.3); hl.addColorStop(0, 'rgba(255,240,180,0.95)'); hl.addColorStop(0.35, 'rgba(255,190,60,0.6)'); hl.addColorStop(1, 'rgba(255,120,20,0)');
@@ -497,6 +593,9 @@ function paintMark(g, m, grad, u) {
       return;
     }
     case 'rays': {
+      // a canvas not laid out yet (a hidden tab) has no room for them, and a gradient can't be drawn
+      // to a negative radius
+      if (!(m.r > 0)) return;
       g.save(); g.translate(m.x, m.y);
       const sb = g.createRadialGradient(0, 0, m.r * 0.08, 0, 0, m.r); sb.addColorStop(0, 'rgba(255,226,110,0.42)'); sb.addColorStop(1, 'rgba(255,140,30,0)');
       g.globalCompositeOperation = 'lighter';

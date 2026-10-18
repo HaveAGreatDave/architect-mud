@@ -13,8 +13,12 @@ the play by play in words for a screen reader (4a), slow-motion replays (4b), a 
 up for the plays (4c), the dead time: the infield keeping the game's marks, the field
 resetting between at-bats and the grounds crew in the fifth (4d), the sky on Coldwater's clock,
 the park's weather and the city at night with its lights, its streets, the birds and the crowd's
-camera flashes (4e), and the tiers, the governor and the park on by default (4g). The sound bank,
-the mix and the voices (4f, waiting on the `siren-fidelity` branch) and Phases 5 to 7 are
+camera flashes (4e), the tiers, the governor and the park on by default (4g), and the sound: the
+bank, the mix, the announcer's calls, the umpire, the public address and a vendor (4f,
+[systems-deadball-sound.md](../systems-deadball-sound.md)); and Phase 5 but for the clubs: the three
+postseason bugs fixed, the final named the Curtain Call, its gold graphics, the park dressed for it,
+the line-ups read under searchlights, and the champions crowned with confetti, fireworks over the park
+and the city, a pile on the mound and the trophy. The sixteen club identities and Phases 6 and 7 are
 design.** A plan for giving Deadball a 3-D sub-screen the way Cluster Puck got Rinkside, at the
 highest fidelity the engine can reach. Deadball is a live sport on KSAB, and the broadcast borrows
 the look of a 1990s arcade baseball game. That means skinned, detailed players, authored animation
@@ -22,7 +26,7 @@ with a wide spread of plays, light from the park's own towers and a crowd that f
 Around them go chunky chrome lettering, splash words, trails and fireworks, an announcer over a full
 synthesised sound bank, a playoff package, and a park inside the Curtain on Halcyon Fields. What's
 built is in [systems-broadcast.md](../systems-broadcast.md#the-park-in-3-d-the-grandstand)
-and under Phases below. The audio engine work is on its own branch.
+and under Phases below. The audio engine work is [siren-fidelity.md](siren-fidelity.md), merged.
 
 How it got here, all on 2026-10-11:
 
@@ -981,9 +985,10 @@ the field has to stay the brightest thing in the picture.
 - **What the final gets today:** a "Winner Takes the Season" card, a champion's card with the trophy,
   a TV-guide label, the tablet's Championship phase and news headlines. It skips the recap reel and
   the standings flash.
-- **The name.** The script and the TV cards call it the World Series, which is Major League
-  Baseball's mark. The graphics here use an original name, Curtain Call, as a placeholder, and the
-  script and cards should follow whatever name is chosen.
+- **The name.** The script and the TV cards called it the World Series, which is Major League
+  Baseball's mark. It's the Curtain Call now (decided 2026-10-14): the season's last act, under the
+  city's wall. The player's verb is `curtaincall`; the season's phase in `sports_season` is still the
+  value 'worldseries', which nobody reads.
 - **Three bugs to fix on the way** (Phase 5):
   - the final's slot ignores KSAB's Monday, Wednesday and Friday mask, so some finals are crowned
     without airing;
@@ -1234,7 +1239,7 @@ trim, pants, cap, bill, helmet, undershirt, stirrups, number and edge, chest wor
 
 ### What the engine does today
 
-This is `main`. The `siren-fidelity` branch has since built the fixes (see below).
+This was `main` before the `siren-fidelity` work, which built the fixes and has merged (see below).
 
 - **Five buses** (music, sfx, ambient, tv and ui) feed a plain master gain with no limiter.
   - Players set a slider per bus.
@@ -1271,7 +1276,7 @@ and Sound Detail still decides what plays.
 ### Engine work in SIREN and ORACLE
 
 Split off into its own plan, [siren-fidelity.md](siren-fidelity.md), and built on the
-`siren-fidelity` branch in six commits, with its regress green. It isn't merged.
+`siren-fidelity` branch in six commits, with its regress green, and merged.
 
 - A brickwall limiter on the master, and `duck(buses, dB, { attack, hold, release })` per bus.
 - Two speech channels, `tv` and `ui`: typing cancels only Read Aloud, and Read Aloud ducks the TV
@@ -1910,6 +1915,17 @@ Phase 3, or with sim v2 if that comes later.
   cameras, the starlings at dusk only and toward the sunset, and the flashes never more than two in
   a second; `diamond-smoke` that every game opens on the street.
 
+- **4f built, the sound:** [diamond/sound.js](../../client/game/js/panels/diamond/sound.js), the
+  park's mixer, hears the live world each frame: the clips' catches, throws, tags, footsteps and
+  umpire's calls, the ball's bounces, the wall, the backstop and the seats, the spectacle, the fans
+  in the stands and the graphics as they go up, and plays them from the bank, now 59 patches with a
+  crowd bed, the park's air and the organ's one song. The mix sits under the booth with the duck
+  above; the announcer's calls, the umpire, the public address and a vendor speak on ORACLE's new
+  `scene` channel so they never cut Chip off, and Chip's held line waits for a call. Sound Detail
+  sets how much plays. No ballpark room: `setRoom()` would change the reverb on everything the
+  player hears, so the park's slap-back is baked into its sharp sounds. All of it is in
+  [systems-deadball-sound.md](../systems-deadball-sound.md); `deadball-smoke` (671 checks) is its
+  gate. The levels are the plan's starting point and haven't been set by ear.
 - **4g.1 built, the tiers and the governor:** [diamond/quality.js](../../client/game/js/panels/diamond/quality.js)
   holds the three tiers as the renderer's quality keys (dpr, msaa, how many towers cast, the
   occlusion's size, the lens's taps, the share of the fans drawn, the city's lights, the
@@ -1938,8 +1954,8 @@ Phase 3, or with sim v2 if that comes later.
   nothing new. A viewer's first open downloads about 0.7 MB of compressed scripts, the 0.7 MB
   face atlas and 64 KB of fonts, against 45 KB for the 2-D view. It goes on without the frame
   times on a real GPU the plan asked for (the look-dev machine has none), so the phone tier and
-  the governor are what stand between a weak GPU and a slow picture; and without 4f's sound
-  bank, so the 3-D view plays the 2-D view's nine cues. `ballpark-smoke` checks the 2-D view
+  the governor are what stand between a weak GPU and a slow picture. (It went on with the 2-D
+  view's nine cues; 4f has since given it its own sound.) `ballpark-smoke` checks the 2-D view
   for the flag at `'0'` and the Grandstand without it.
 
 **Phase 4: the broadcast.** On by default wherever WebGL2 and float targets work.
@@ -1958,6 +1974,38 @@ Phase 3, or with sim v2 if that comes later.
   confetti, fireworks and the trophy.
 - The three postseason bugs fixed, and the final renamed in the script and the cards.
 - Tested by: `--check`, `ballpark-smoke`, regress (the final airs, the #1 seed hosts).
+- **Built but the clubs (2026-10-14).** The sixteen identities wait.
+  - **The bugs.** `broadcast.nextSportsAirSlot` pins a final to the league's airtime on a day its
+    channel's playlist airs it (the walk getNextOnAir makes), up to a week and a day ahead; the
+    finalists go into the game top seed at home, for the airing and the crowning both, and the Cup's
+    too; the news takes the show and the final's name from the events (`show`, `final`, `start`).
+  - **The name.** Curtain Call in the league, the sport's `SEASON`, the script (one line says why
+    it's called that), the TV cards, the guide and the news.
+  - **The payload.** A final's first payload carries the final's `name`, both seeds and both
+    line-ups on `season`; every game's last payload carries `end` (the winner), and in a final that
+    they're champions and the game's most valuable player (`gameMvp`, baseball-gameday.js).
+  - **The graphics** (diamond/hud.js): the seeds beside the clubs, the final's name in gold under the
+    count, its banner across the foot when nothing else is there, a line-up card a man and the
+    champions' card with the most valuable player. Their colour chip stands in for a crest until the
+    clubs bring theirs.
+  - **The park** (gl/ballpark-mesh.js buildDress, gl/ballpark.js setFinal): fan bunting along the
+    upper deck's front, a gold pennant over every tower, the final's logo painted behind the plate
+    and in foul ground down both lines, every seat sold and the cheering fans waving towels.
+  - **Before the first pitch** (gameday-grandstand.js introduce): searchlights over the city
+    (spectacle.js planSearchlights), the organ's anthem, and the public address reading both
+    line-ups, the leaders' table giving way to it.
+  - **The last out** (crown): the frame holds for 1.2 s, then CHAMPIONS!, their card, the trophy out
+    by the mound, confetti off the upper deck (a third particle kind, spectacle.js planChampion),
+    fireworks over the outfield and further out over the city, and the champions piling on at the
+    mound, or at the plate after a walk-off (between.js planPile, two new clips: celebrate_leap and
+    pile_dive), the losers walking off. No replay and no dead time but that.
+  - **The city** sees the fireworks: a crowning launches the fireworks plugin's show
+    (`fireworks.launch`) from the tile the park's venue stands on.
+  - Not done: the anthem is the organ's cue, not a tracker song; the flame lettering is the splash's
+    own; the MVP's card has no portrait; the leaders' table doesn't close on the champions until the
+    next season, because the next season opens as the final's crowned.
+  - Tested by `final-smoke` (36 checks), `deadball-smoke`, `glsl-smoke` (which now refuses a
+    reserved word as a shader's variable, after one took the whole park down to 2-D) and regress.
 
 **Phase 6: a place in the world.**
 - Halcyon Field on the map: the six buildings, Vetch Green and their NPCs set aside on the holding
@@ -1993,8 +2041,8 @@ power grid.
 - **Trademarks.** Original clubs, marks and graphics only; the panels are generic. The final's
   current name in content is Major League Baseball's mark and should change.
 - **The announcer cut off, and loudness.** On `main` every typed command cancels speech, each
-  `speak()` cancels the last, and the master has no limiter. The `siren-fidelity` branch fixes all
-  three; until it merges, Phase 2's calls can't ship.
+  `speak()` cancels the last, and the master has no limiter. The `siren-fidelity` work fixed all
+  three, and has merged.
 - **Spectacle and comfort.** Fireworks, flashes and splash words can get to be too much. Reduced
   motion turns them into stills, nothing flashes more than three times a second, and the crowd's
   camera flashes stay small.
@@ -2026,6 +2074,7 @@ Decided on 2026-10-11:
 - **Sim v2:** in as soon as it's ready, switched on at a recorded slot rather than at a new season.
 - **The city on TV:** an abstraction, a set composed for the cameras round the full-size park (*On
   TV the city is a set*), not the map bent round it.
+- **The final's name** (2026-10-14): the Curtain Call.
 
 Still open:
 
@@ -2048,8 +2097,7 @@ Still open:
 9. **Time of day.** Follow Coldwater's clock (recommended), so a 19:00 first pitch is in the blue
    hour and the city's windows come on through the early innings, or always full night? And which
    start is right: the script's 19:00 or the playlist's 18:00, which is before sunset?
-10. **The final's name.** World Series is Major League Baseball's mark. What should it be called?
-    Curtain Call is the placeholder.
+10. **The final's name.** Decided: the Curtain Call (above).
 11. **The postseason.** Keep the one-game final (recommended for now), or add a bracket with series?
 12. **The 2-D Gameday:** keep it as a "classic" option players can pick, or only as the fallback?
 13. **The view's name:** "Grandstand" is a working name for the 3-D view, as "Rinkside" is the
