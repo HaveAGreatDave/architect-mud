@@ -49,6 +49,7 @@ Engineering notes for the GLASS renderer (`client/game/js/panels/windshield.js` 
 - [Building power outages](#building-power-outages)
 - [Point lights on walls](#point-lights-on-walls)
 - [Materials](#materials)
+- [The cel look (`RENDER_TUNE.glToon`, `glInk`)](#the-cel-look-render_tunegltoon-glink)
 - [Sky beam](#sky-beam)
 - [Trade words on signs](#trade-words-on-signs)
 - [Voltage and Aurelia rebuild (2026-09-20)](#voltage-and-aurelia-rebuild-2026-09-20)
@@ -778,6 +779,22 @@ A vehicle's exterior has one material number per face: positive is a metal (a mi
 - Trap: a face with no `cen` measures which way is out from the model's origin. A racer's turbine docked beside the pod turned its inner side inside out and showed through; a separately posed body now hands its faces its own centre (`podracerModelPose` `cen`).
 - **A slot can carry a gradient** with `ramp`: `{ axis: 'f' | 'g' | 'h', stops: [[at, [r, g, b]], ...] }`, read along the part's own axis before any group moves it, one colour per face at its centre. Give the part stations along that axis or it reads as bands. The racer's hot section is the example: straw to bronze to purple to blue, soot at the lip.
 - **The own ship's light follows the sun** (`shipLightOf` in windshield.js, `uLmL` in the shader): in hard sun the shade side drops to 0.55 and the lit side gets 0.95 of the sun, wrapped round a curve; as the sun goes low, behind cloud (`sunFx.cloud`) or down, it goes back to an even 0.82. A mesh can set its own as `classFacts.light: [floor, sun, wrap]`. Before 2026-10-08 nothing was lit below 0.82 in any sun, and a round part read as grey card.
+
+## The cel look (`RENDER_TUNE.glToon`, `glInk`)
+
+Off by default (2026-10-18). Two switches, both GL only and both on the city's mass alone: vehicles, people, the ground and the cockpit keep their own shading. Players switch both at once with the tablet's Settings → Cel Shading pill (`celShade` in client/shared/settings.js, applied by `_applyCelShade` in main.js and picked up by windshield.js through `__celShadePending` when it loads later); it takes effect on the next frame. `__wsTune.glToon` / `glInk` still set each half on its own from the console.
+
+- **`glToon`** is the light, in the mass shader (gl/context.js): the key term in `glToonBands` steps, the sun's shadow and the three occlusion terms with hard edges, the wall ramp flattened so each face is one tone, no relief, and a flat shade-side multiply (`TOON_SHADE`). Banding the key term on its own barely shows, because every face of a box has one normal and the overlays move a wall only a few percent between its lit and shaded sides. The shade-side multiply is what makes faces read as two tones.
+- **`glInk`** is the outline: Saito and Takahashi's edge detection from the depth buffer's differences (1990), run in gl/ssao.js on the occlusion's own depth prepass. There's no new geometry pass and no normal buffer. With ink on, that prepass runs at full resolution whatever `glSsaoRes` says, and the occlusion reads it at its own size.
+- Two kinds of line at two widths, in two channels of the ink texture. An outline is the near side of a step over 3% of the distance (a building against the sky, the street or a farther building): `glInkPx` CSS px wide, held to `glInkFar` tiles. Detail (creases, sills, rails) is half that width and gone by under half the distance.
+- Measured at 1280×720 in a cab on Marrow with `__glPassMs`: the shared prepass went from 0.19 ms to 0.34–0.45 ms of GPU, and the mass pass moved inside the run-to-run spread.
+
+Traps:
+
+- A step is a side steeper than `uSteep`, or one whose slope is all in the first tap and mostly gone over `THIN_REACH` taps. A test on a fixed fraction of the distance let both sides of every mullion draw (a mullion a few hundredths of a tile proud is 0.2% of the distance at ten tiles), and the curtain-wall towers came out cross-hatched black.
+- A feature a few taps across gets no line. With one width for every line, a balcony rail four pixels tall took a line on each edge and came out solid black; a tower of them read as a black grille.
+- Unit 7 of the mass program is the ink, bound on every draw to the lines or to nothing, for unit 4's reason (see [The material page](#the-material-page-render_tuneglmatpage)).
+- To see where lines land, set `INK_COL` in gl/context.js to `[1, 0, 0]` for one render and reload. That's how the rail problem was found. Change it back with a script that keeps CRLF: `sed -i` here rewrote the whole file to LF.
 
 ## Sky beam
 

@@ -165,6 +165,13 @@ window._applyDictation = setDictationMode;
 // screen-reader note at the top of logreader.js.
 window._applyLogVoice = setLogReaderMode;
 window._applyLogVoiceRate = setLogReaderRate;
+// Cel shading (Settings → Cel Shading): GLASS 2's banded light and ink lines, both halves at once.
+// windshield.js loads lazily, so the answer is left on window for it to pick up when it does, and
+// written straight into its tune when it already has (the next frame shows it).
+window._applyCelShade = (on) => {
+	window.__celShadePending = !!on;
+	if (window.__wsTune) window.__wsTune.glToon = window.__wsTune.glInk = on ? 1 : 0;
+};
 // Interface Sounds (Settings → Accessibility): the click a button makes. On by default.
 window._applyUiSound = setUiSoundMode;
 initUiSound();

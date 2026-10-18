@@ -6526,6 +6526,11 @@ const TOS_OPT_GROUPS = [
     { v: 'left', t: 'Sidebar Left', g: '⬅️' }, { v: 'right', t: 'Sidebar Right', g: '➡️' } ] },
   { key: 'weatherFx', label: 'Weather FX', opts: [
     { v: 'on', t: 'Weather FX On', g: '🌧️' }, { v: 'off', t: 'Off', g: '🚫' } ] },
+  // The 3-D views drawn as cel shading: flat light and ink outlines on the city (main.js
+  // _applyCelShade). GLASS 2 only; the 2-D fallback ignores it.
+  { key: 'celShade', label: 'Cel Shading', opts: [
+    { v: 'off', t: 'Off: the city as it is lit now', g: '◐' },
+    { v: 'on', t: 'On: flat light and ink outlines', g: '✎' } ] },
   { key: 'dpadSize', label: 'D-Pad Size', mobileOnly: true, opts: [
     { v: 'small', t: 'Small', g: 'S' }, { v: 'medium', t: 'Medium', g: 'M' }, { v: 'large', t: 'Large', g: 'L' } ] },
   { key: 'tempUnit', label: 'Temp Units', opts: [

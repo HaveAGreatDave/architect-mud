@@ -185,6 +185,113 @@ void main() {
   outColor = vec4(1.0 - occ / float(SSAO_TAPS));
 }`;
 
+// ── THE INK LINES OF THE CEL LOOK, FROM THE SAME DEPTH ──────────────────────────────────────
+//
+// RENDER_TUNE.glInk. The outline is Saito and Takahashi's (1990): profile and crease lines from the
+// depth buffer's differences, so no normal buffer is needed, for the reason the occlusion above
+// reconstructs its normal. Each side of a pixel gives a one-sided slope of the surface, turned into
+// the angle that surface makes in the plane through the eye and the screen row (or column). A plane
+// has the same angle on both sides at any tilt, so a grazing wall draws nothing; a crease is the
+// angle between the two sides; a silhouette is a near-90° fold against whatever is behind it.
+//
+// ⚠ THE FAR SIDE OF A STEP IS LEFT TO THE NEAR SIDE. Both pixels of a depth step see the fold, so
+// without this every building over a farther one wore a two-pixel line and every one over the sky
+// a one-pixel line. A pixel with a neighbour across a step in front of it draws nothing.
+// ⚠ A STEP IS A SIDE STEEPER THAN uSteep, OR ONE WHOSE SLOPE IS ALL IN THE FIRST TAP, never a fixed
+// fraction of the depth. A curtain wall's mullions stand a few hundredths of a tile proud, 0.2% of
+// the distance at ten tiles: over one tap that reads as a 45° slope and over THIN_REACH taps as
+// almost nothing, where a real slope reads the same over both. A 4% test let both sides of every
+// mullion draw, and the glass towers came out cross-hatched black.
+// ⚠ AND A FEATURE A FEW TAPS ACROSS GETS NONE: one that stands in front of what's THIN_REACH taps
+// out on both sides of an axis. A mullion or a pole is already a line on screen.
+// ⚠ TWO KINDS OF LINE, IN TWO CHANNELS, AT TWO WIDTHS. g is an outline: the near side of a step
+// bigger than OUTLINE_JUMP of the distance (a building against the sky, the street or a farther
+// building), at the full uStep. r is detail (a crease, a sill, a rail) at half the width. The mass
+// shader keeps outlines out to glInkFar and lets detail go much sooner. With one width for both, a
+// balcony rail four pixels tall took a two-pixel line on each edge and a curtain wall of them read
+// as a black grille.
+// ⚠ ONLY THE MASS IS IN THIS DEPTH, so the ground reads as the far plane and a building's foot gets
+// its line against the street. Vehicles, people and the ground itself get none.
+const INK_FRAG = `#version 300 es
+precision highp float;
+precision highp sampler2D;
+in vec2 vUV;
+uniform sampler2D uDepth;
+uniform float uFxn;
+uniform float uFyn;
+uniform float uCy0;
+uniform float uA;
+uniform float uB;
+uniform vec2 uTexel;      // one depth texel
+uniform float uStep;      // how far out an outline's taps sit, in texels; the line is about this wide
+uniform float uCrease;    // the fold, in radians, where a line starts
+uniform float uSteep;     // the tan of the angle off the screen plane past which a side is a step
+out vec4 outColor;
+// How far out, in taps, the second ring looks: for a step's slope fading, and for a thin feature.
+const float THIN_REACH = 2.5;
+// The step, as a fraction of the distance, that makes a line an outline rather than detail.
+const float OUTLINE_JUMP = 0.03;
+// How far a thin feature stands in front of what's around it, as a slope over THIN_REACH taps.
+const float THIN_PROUD = 0.5;
+
+float distAt(vec2 uv) {
+  float dz = texture(uDepth, uv).r;
+  if (dz >= 0.999999) return 1e6;
+  float den = dz * 2.0 - 1.0 - uA;
+  return den < -1e-6 ? uB / den : 1e6;
+}
+
+// The fold between the two sides of this pixel along one axis. 'rl' and 'rr' are dw/du over w on
+// the left and the right, in the direction u grows, and 'u' is this pixel's ray offset (x/z or y/z).
+// (1 + u·r, r) is the direction of the surface's trace in that plane, so atan of it is the trace's
+// angle, with no divide by zero.
+float fold(float rl, float rr, float u) {
+  float d = abs(atan(rr, 1.0 + u * rr) - atan(rl, 1.0 + u * rl));
+  return min(d, 6.2831853 - d);
+}
+
+// The line at this pixel with its taps 'st' texels apart. 'w' is this pixel's distance and 'u' its
+// ray offsets (x/z, y/z). Returns the line, and how far behind this pixel its furthest tap is as a
+// fraction of w (what decides an outline).
+vec2 lineAt(float st, float w, vec2 u) {
+  vec2 ox = vec2(uTexel.x * st, 0.0), oy = vec2(0.0, uTexel.y * st);
+  vec4 n = vec4(distAt(vUV - ox), distAt(vUV + ox), distAt(vUV - oy), distAt(vUV + oy)) / w;
+  vec4 m = vec4(distAt(vUV - ox * THIN_REACH), distAt(vUV + ox * THIN_REACH),
+                distAt(vUV - oy * THIN_REACH), distAt(vUV + oy * THIN_REACH)) / w;
+  // Focal length in texels is fxn·width/2. s is the slope from this pixel to each tap, about the
+  // tan of the angle off the screen plane, positive where the tap is further away; sf the same to
+  // the outer ring.
+  vec4 k = vec4(vec2(uFxn * 0.5 / (uTexel.x * st)), vec2(uFyn * 0.5 / (uTexel.y * st)));
+  vec4 s = (n - 1.0) * k;
+  vec4 sf = (m - 1.0) * k / THIN_REACH;
+  float e = smoothstep(uCrease, uCrease * 1.5, max(fold(-s.x, s.y, u.x), fold(-s.z, s.w, u.y)));
+  // How much each side is a step: steep, or lumped into the first tap (sf/s near 1/THIN_REACH
+  // rather than 1). The ratio is written without a divide, so s = 0 is 0 and not NaN.
+  vec4 lumped = smoothstep(vec4(0.3), vec4(0.6), abs(s))
+              * (1.0 - smoothstep(vec4(0.5), vec4(0.8), sf * s / max(s * s, vec4(1e-6))));
+  vec4 isStep = max(smoothstep(vec4(uSteep), vec4(2.0 * uSteep), abs(s)), lumped);
+  // The far side of a step draws nothing.
+  vec4 nearer = isStep * step(s, vec4(0.0));
+  e *= 1.0 - max(max(nearer.x, nearer.y), max(nearer.z, nearer.w));
+  // Nor does a thin feature: the outer ring steeply behind on both sides of an axis (a pole), or
+  // further behind than the inner ring's slope carries on to (a mullion standing off its glass).
+  vec4 behind = max(smoothstep(vec4(uSteep), vec4(2.0 * uSteep), sf),
+                    smoothstep(vec4(THIN_PROUD), vec4(2.0 * THIN_PROUD), (sf - s) * THIN_REACH));
+  e *= 1.0 - max(behind.x * behind.y, behind.z * behind.w);
+  return vec2(e, max(max(n.x, n.y), max(n.z, n.w)) - 1.0);
+}
+
+void main() {
+  float w = distAt(vUV);
+  if (w > 9e5) { outColor = vec4(0.0); return; }
+  vec2 ndc = vUV * 2.0 - 1.0;
+  vec2 u = vec2(ndc.x / uFxn, (ndc.y - uCy0) / uFyn);
+  // Detail at half the outline's reach, and never under a texel.
+  float detail = lineAt(max(1.0, floor(uStep * 0.5 + 0.5)), w, u).x;
+  vec2 o = lineAt(uStep, w, u);
+  outColor = vec4(detail, o.x * smoothstep(OUTLINE_JUMP, 2.0 * OUTLINE_JUMP, o.y), 0.0, 1.0);
+}`;
+
 // A separable-ish box over the noise. Four by four, one pass, because the kernel rotation is
 // per pixel and uncorrelated — there is no structure left for a wider or a two-pass blur to find.
 const BLUR_FRAG = `#version 300 es
@@ -223,10 +330,11 @@ function link(gl, vsrc, fsrc, bindPos) {
   return prog;
 }
 
-function colorTarget(gl, w, h) {
+// One channel, or two for the ink's detail and outline lines.
+function colorTarget(gl, w, h, two = false) {
   const tex = gl.createTexture();
   gl.bindTexture(gl.TEXTURE_2D, tex);
-  gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, w, h, 0, gl.RED, gl.UNSIGNED_BYTE, null);
+  gl.texImage2D(gl.TEXTURE_2D, 0, two ? gl.RG8 : gl.R8, w, h, 0, two ? gl.RG : gl.RED, gl.UNSIGNED_BYTE, null);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
@@ -260,17 +368,37 @@ export function createSSAOLayer(gl, posLoc) {
   };
   const bl = { src: gl.getUniformLocation(blurProg, 'uSrc'), texel: gl.getUniformLocation(blurProg, 'uTexel') };
   if (!uDepthVP || !ao.depth || !ao.kernel) return null;
+  // The ink program is linked the first time a frame asks for lines, and a device that won't link
+  // it still gets its occlusion.
+  let inkProg, ik = null;
+  function inkProgram() {
+    if (inkProg !== undefined) return ik;
+    inkProg = link(gl, FULL_VERT, INK_FRAG);
+    ik = inkProg ? {
+      depth: gl.getUniformLocation(inkProg, 'uDepth'),
+      fxn: gl.getUniformLocation(inkProg, 'uFxn'), fyn: gl.getUniformLocation(inkProg, 'uFyn'),
+      cy0: gl.getUniformLocation(inkProg, 'uCy0'), A: gl.getUniformLocation(inkProg, 'uA'),
+      B: gl.getUniformLocation(inkProg, 'uB'), texel: gl.getUniformLocation(inkProg, 'uTexel'),
+      step: gl.getUniformLocation(inkProg, 'uStep'), crease: gl.getUniformLocation(inkProg, 'uCrease'),
+      steep: gl.getUniformLocation(inkProg, 'uSteep'),
+    } : null;
+    return ik;
+  }
 
   // An empty VAO for the screen-filling triangle. It has no attributes — the vertices come from
   // gl_VertexID — but a bound VAO is what keeps the mass program's own array state out of it.
   const emptyVao = gl.createVertexArray();
 
-  let W = 0, H = 0, depthTex = null, depthFbo = null, raw = null, blurred = null;
+  // The depth is DW×DH, the occlusion W×H, the ink IW×IH. With no ink asked for, the depth is drawn
+  // at the occlusion's own size, as it was before the ink existed.
+  let DW = 0, DH = 0, depthTex = null, depthFbo = null;
+  let W = 0, H = 0, raw = null, blurred = null;
+  let IW = 0, IH = 0, inkT = null;
 
-  function resize(w, h) {
-    if (w === W && h === H && depthTex) return true;
-    dispose();
-    W = w; H = h;
+  function depthAt(w, h) {
+    if (w === DW && h === DH && depthTex) return true;
+    freeDepth();
+    DW = w; DH = h;
     depthTex = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, depthTex);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.DEPTH_COMPONENT24, w, h, 0, gl.DEPTH_COMPONENT, gl.UNSIGNED_INT, null);
@@ -289,29 +417,60 @@ export function createSSAOLayer(gl, posLoc) {
     gl.readBuffer(gl.NONE);
     const ok = gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE;
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-    if (!ok) { dispose(); return false; }
-    raw = colorTarget(gl, w, h);
-    blurred = colorTarget(gl, w, h);
-    if (!raw || !blurred) { dispose(); return false; }
+    if (!ok) { freeDepth(); return false; }
     return true;
   }
 
-  function dispose() {
-    if (depthFbo) gl.deleteFramebuffer(depthFbo);
-    if (depthTex) gl.deleteTexture(depthTex);
-    for (const t of [raw, blurred]) if (t) { gl.deleteFramebuffer(t.fbo); gl.deleteTexture(t.tex); }
-    depthFbo = depthTex = raw = blurred = null; W = H = 0;
+  function aoAt(w, h) {
+    if (w === W && h === H && raw) return true;
+    freeAo();
+    W = w; H = h;
+    raw = colorTarget(gl, w, h);
+    blurred = colorTarget(gl, w, h);
+    if (!raw || !blurred) { freeAo(); return false; }
+    return true;
   }
 
-  // Draws the mass into depth from the camera, then resolves occlusion into a texture. Returns the
-  // texture to sample, or null — and null is a full answer: the caller sets the strength to 0.
+  function inkAt(w, h) {
+    if (w === IW && h === IH && inkT) return true;
+    freeInk();
+    IW = w; IH = h;
+    inkT = colorTarget(gl, w, h, true);
+    if (!inkT) { freeInk(); return false; }
+    return true;
+  }
+
+  const freeTarget = (t) => { if (t) { gl.deleteFramebuffer(t.fbo); gl.deleteTexture(t.tex); } };
+  function freeDepth() {
+    if (depthFbo) gl.deleteFramebuffer(depthFbo);
+    if (depthTex) gl.deleteTexture(depthTex);
+    depthFbo = depthTex = null; DW = DH = 0;
+  }
+  function freeAo() { freeTarget(raw); freeTarget(blurred); raw = blurred = null; W = H = 0; }
+  function freeInk() { freeTarget(inkT); inkT = null; IW = IH = 0; }
+  function dispose() { freeDepth(); freeAo(); freeInk(); }
+
+  // The occlusion alone, as every caller before the ink asked for it. Returns the texture to sample,
+  // or null, and null is a full answer: the caller sets the strength to 0.
   function render(vao, count, viewProj, cam, w, h, opts) {
-    if (!count || !vao || !cam) return null;
-    if (!resize(w, h)) return null;
+    const r = pass(vao, count, viewProj, cam, [w, h], null, opts);
+    return r ? r.ao : null;
+  }
+
+  // Draws the mass into depth from the camera, then resolves what it was asked for. `aoWH` and
+  // `inkWH` are each [w, h] or null. Returns { ao, ink }, each a texture or null (a null term is a
+  // strength of 0 to the caller), or null when there was no depth to draw at all.
+  function pass(vao, count, viewProj, cam, aoWH, inkWH, opts) {
+    if (!count || !vao || !cam || (!aoWH && !inkWH)) return null;
+    // ⚠ THE INK SETS THE DEPTH'S SIZE WHEN IT'S ON. A line is a pixel wide, so it needs every pixel;
+    // the occlusion is blurred anyway and reads a full-size depth at its own spacing.
+    const wantInk = !!(inkWH && inkProgram());
+    const dWH = wantInk ? inkWH : aoWH;
+    if (!dWH || !depthAt(dWH[0], dWH[1])) return null;
 
     // ── 1. DEPTH, FROM THE CAMERA ──────────────────────────────────────────
     gl.bindFramebuffer(gl.FRAMEBUFFER, depthFbo);
-    gl.viewport(0, 0, W, H);
+    gl.viewport(0, 0, DW, DH);
     gl.disable(gl.BLEND);
     gl.enable(gl.DEPTH_TEST);
     gl.depthFunc(gl.LEQUAL);
@@ -326,34 +485,57 @@ export function createSSAOLayer(gl, posLoc) {
     gl.drawArrays(gl.TRIANGLES, 0, count);
     gl.bindVertexArray(null);
 
-    // ── 2. OCCLUSION ───────────────────────────────────────────────────────
     const fxn = 2 * cam.FL / cam.W;
     const fyn = 2 * cam.depth / cam.H;
     const cy0 = 1 - 2 * cam.horizonY / cam.H;
-    gl.bindFramebuffer(gl.FRAMEBUFFER, raw.fbo);
-    gl.viewport(0, 0, W, H);
     gl.disable(gl.DEPTH_TEST);
     gl.depthMask(false);
-    gl.useProgram(aoProg);
     gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, depthTex);
-    gl.uniform1i(ao.depth, 0);
-    gl.uniform3fv(ao.kernel, KERNEL);
-    gl.uniform1f(ao.fxn, fxn); gl.uniform1f(ao.fyn, fyn); gl.uniform1f(ao.cy0, cy0);
-    gl.uniform1f(ao.A, opts.A); gl.uniform1f(ao.B, opts.B);
-    gl.uniform1f(ao.radius, opts.radius);
-    gl.uniform1f(ao.bias, opts.bias);
-    gl.uniform2f(ao.texel, 1 / W, 1 / H);
     gl.bindVertexArray(emptyVao);
-    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    let aoTex = null, inkTex = null;
 
-    // ── 3. AND THE NOISE OFF IT ────────────────────────────────────────────
-    gl.bindFramebuffer(gl.FRAMEBUFFER, blurred.fbo);
-    gl.useProgram(blurProg);
-    gl.bindTexture(gl.TEXTURE_2D, raw.tex);
-    gl.uniform1i(bl.src, 0);
-    gl.uniform2f(bl.texel, 1 / W, 1 / H);
-    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    if (aoWH && aoAt(aoWH[0], aoWH[1])) {
+      // ── 2. OCCLUSION ─────────────────────────────────────────────────────
+      gl.bindFramebuffer(gl.FRAMEBUFFER, raw.fbo);
+      gl.viewport(0, 0, W, H);
+      gl.useProgram(aoProg);
+      gl.bindTexture(gl.TEXTURE_2D, depthTex);
+      gl.uniform1i(ao.depth, 0);
+      gl.uniform3fv(ao.kernel, KERNEL);
+      gl.uniform1f(ao.fxn, fxn); gl.uniform1f(ao.fyn, fyn); gl.uniform1f(ao.cy0, cy0);
+      gl.uniform1f(ao.A, opts.A); gl.uniform1f(ao.B, opts.B);
+      gl.uniform1f(ao.radius, opts.radius);
+      gl.uniform1f(ao.bias, opts.bias);
+      gl.uniform2f(ao.texel, 1 / W, 1 / H);
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+
+      // ── 3. AND THE NOISE OFF IT ──────────────────────────────────────────
+      gl.bindFramebuffer(gl.FRAMEBUFFER, blurred.fbo);
+      gl.useProgram(blurProg);
+      gl.bindTexture(gl.TEXTURE_2D, raw.tex);
+      gl.uniform1i(bl.src, 0);
+      gl.uniform2f(bl.texel, 1 / W, 1 / H);
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+      aoTex = blurred.tex;
+    }
+
+    if (wantInk && inkAt(DW, DH)) {
+      // ── 4. THE INK LINES ─────────────────────────────────────────────────
+      gl.bindFramebuffer(gl.FRAMEBUFFER, inkT.fbo);
+      gl.viewport(0, 0, IW, IH);
+      gl.useProgram(inkProg);
+      gl.bindTexture(gl.TEXTURE_2D, depthTex);
+      gl.uniform1i(ik.depth, 0);
+      gl.uniform1f(ik.fxn, fxn); gl.uniform1f(ik.fyn, fyn); gl.uniform1f(ik.cy0, cy0);
+      gl.uniform1f(ik.A, opts.A); gl.uniform1f(ik.B, opts.B);
+      gl.uniform2f(ik.texel, 1 / DW, 1 / DH);
+      gl.uniform1f(ik.step, opts.inkStep > 0 ? opts.inkStep : 1);
+      gl.uniform1f(ik.crease, opts.inkCrease > 0 ? opts.inkCrease : 0.6);
+      // tan 76°: steeper than any wall a pixel's line should be drawn along.
+      gl.uniform1f(ik.steep, opts.inkSteep > 0 ? opts.inkSteep : 4);
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+      inkTex = inkT.tex;
+    }
     gl.bindVertexArray(null);
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
@@ -373,10 +555,10 @@ export function createSSAOLayer(gl, posLoc) {
     // pointing at whatever is bound, and that would be the occlusion buffer.
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, null);
-    return blurred.tex;
+    return { ao: aoTex, ink: inkTex };
   }
 
-  return { render, dispose, get size() { return [W, H]; } };
+  return { render, pass, dispose, get size() { return [W, H]; } };
 }
 
 // ── THE SAME OCCLUSION FROM A DEPTH TEXTURE AND A PLAIN PERSPECTIVE MATRIX ────────────────────
@@ -462,3 +644,4 @@ export function createDepthSSAO(gl) {
 const AO_FRAG_TAPS = AO_FRAG.split('SSAO_TAPS').join(String(SSAO_TAPS));
 declareProgram(FULL_VERT, AO_FRAG_TAPS);
 declareProgram(FULL_VERT, BLUR_FRAG);
+declareProgram(FULL_VERT, INK_FRAG);

@@ -61,6 +61,9 @@ const STRIDE = 21;
 // ⚠ AN INDEX PAST THIS IS UNDEFINED BEHAVIOUR IN GLSL ES, not a clamp — see the ⚠ on `wallMaterialId`.
 export const MAX_MATERIALS = 24;
 
+// The cel look's ink (RENDER_TUNE.glInk): near black, a little blue, so it sits in the city's palette.
+const INK_COL = [0.04, 0.04, 0.07];
+
 const VERT = `#version 300 es
 in vec3 aPos;
 in vec3 aNormal;
@@ -286,6 +289,17 @@ uniform float uBevelTilt;
 uniform highp sampler2D uSsao;
 uniform float uSsaoStr;
 uniform vec2 uViewport;
+// The cel look (RENDER_TUNE.glToon): the key light in uToonBands flat steps, the sun's shadow and
+// the occlusion with hard edges, one tone per face. 0 skips every branch it guards.
+uniform float uToon;
+uniform float uToonBands;
+// The cel look's ink lines (RENDER_TUNE.glInk), resolved in gl/ssao.js off the same depth prepass
+// as the occlusion: r is detail, g is outline. 0 makes the lookup unreachable, as uSsaoStr does.
+// uInkFade is where each fades, in tiles ahead: detail over x..y, outlines over z..w.
+uniform highp sampler2D uInk;
+uniform float uInkStr;
+uniform vec4 uInkFade;
+uniform vec3 uInkCol;
 uniform vec4 uMat[GLASS_MAX_MAT];
 uniform float uSheen[GLASS_MAX_MAT];
 uniform float uSpec[GLASS_MAX_MAT];
@@ -328,6 +342,28 @@ out vec4 outColor;
 // Perceptual-ish luminance. The relief term reads the albedo as a height field, and a green mortar
 // joint and a red one are the same depth of joint.
 float lum(vec3 c) { return dot(c, vec3(0.299, 0.587, 0.114)); }
+
+// ── CEL STEPS ───────────────────────────────────────────────────────────────
+// x rounded to the nearest of n even steps, and a hard step at an edge. Each edge is about a pixel
+// wide, from the value's own rate of change across the pixel, so a band on a curve is antialiased
+// rather than stair-stepped. ⚠ The width has a floor: on a flat face the value doesn't change,
+// fwidth is 0, and smoothstep with equal edges is undefined. ⚠ Only call these behind a uniform
+// branch (uToon), for the derivative reason sunShadow gives.
+float toonBands(float x, float n) {
+  float y = x * n;
+  float w = max(fwidth(y), 1e-4);
+  float i = floor(y);
+  return (i + smoothstep(0.5 - w, 0.5 + w, y - i)) / n;
+}
+float toonStep(float edge, float x) {
+  float w = max(fwidth(x), 1e-4);
+  return smoothstep(edge - w, edge + w, x);
+}
+// Where the occlusion turns into the cel look's one step of shade, and how dark that step is.
+const float TOON_AO_CUT = 0.85;
+const float TOON_AO_DARK = 0.72;
+// How dark the cel look's shade side is, on a face turned fully from the key.
+const float TOON_SHADE = 0.7;
 
 // 1.0 where the sun cannot see this point, 0.0 where it can.
 //
@@ -505,7 +541,8 @@ void main() {
     // is snow — so leaving this standing embosses the brickwork of the wall underneath onto the
     // drift lying on the ledge. Same argument as the floor mixing its material toward the hillshade
     // rather than toward flat white: what goes is the texture, not the shape.
-    float k = uMat[wallMat].w * uBumpStr * texW * (1.0 - snowW);
+    // And the cel look has none: its faces are flat by definition.
+    float k = uMat[wallMat].w * uBumpStr * texW * (1.0 - snowW) * (1.0 - uToon);
     // ⚠ NO RELIEF WHERE ANY OF THE THREE TAPS IS GLASS. A pane is the biggest step in value on a
     // facade, and the relief reads value as height, so a wall texel beside a lit window embossed a
     // ridge round it. That is why 'window grid' bump had to stay at 0.18; with the page on, the
@@ -591,6 +628,14 @@ void main() {
   // the single most dangerous number in this shader, and it is cheaper to make it impossible than
   // to prove the four things upstream of it can never produce one.
   float shK = shKraw > 0.0 ? min(shKraw, 1.0) : 0.0;
+  // ── THE CEL LOOK'S LIGHT (RENDER_TUNE.glToon) ───────────────────────────────
+  // The key term in a few flat steps, and the sun's shadow with a hard edge at half coverage (the
+  // map's four taps give five levels; see sunShadow). shK carries uShadowStr, so it's divided out
+  // for the step and put back.
+  if (uToon > 0.0) {
+    lit = mix(lit, toonBands(lit, uToonBands), uToon);
+    if (uShadowStr > 0.0) shK = mix(shK, toonStep(0.5, shK / uShadowStr) * uShadowStr, uToon);
+  }
   lit = mix(lit, 0.0, shK);
   // The palette colour is what a flat-shaded face gets; the atlas is what a textured one gets.
   // Mixed rather than branched because a branch here is a branch per fragment, and the untextured
@@ -649,7 +694,11 @@ void main() {
   vec3 topCol = mix(skyD, keyD, lit);
   float aTop = uStr * (0.06 + 0.14 * lit);
   float aBot = uStr * (0.30 + 0.22 * (1.0 - lit));
-  vec3 shaded = mix(mix(surfD, topCol, aTop), mix(surfD, shadowD, aBot), clamp(vRamp, 0.0, 1.0));
+  // A cel face is one tone, so the ramp goes to its middle on a wall and to its top on a roof, where
+  // a horizontal face's ramp already sits.
+  float ramp = clamp(vRamp, 0.0, 1.0);
+  if (uToon > 0.0) ramp = mix(ramp, 0.5 * (1.0 - abs(n0.z)), uToon);
+  vec3 shaded = mix(mix(surfD, topCol, aTop), mix(surfD, shadowD, aBot), ramp);
   vec3 base = mix(surfD, shaded, clamp(uVLight, 0.0, 1.0) * solid);
   if (uLinIn > 0.5) base = glassLin(base);
   // ⚠ THE SHADOW HAS TO DARKEN THE SURFACE, NOT ONLY STEER THE KEY TERM — and for solid faces it
@@ -673,6 +722,11 @@ void main() {
   // the bevel block. Exactly 1.0 when the width is 0, because bevelK is initialised to 0 and the
   // block that writes it is guarded by that same uniform.
   base *= lf(1.0 + BEVEL_SHADE * bevelK);
+  // The cel look's shade side: a flat multiply off the banded key term, so a face turned from the
+  // light is a whole step darker. The overlays above move a wall only a few percent between its lit
+  // and its shaded side, and banding that still reads as one tone. Every face takes it, flat ones
+  // too, as the sun's shadow above does, or a sill would stand out bright on a shaded wall.
+  if (uToon > 0.0) base *= lf(mix(1.0, mix(TOON_SHADE, 1.0, lit), uToon));
   // ── CONTACT OCCLUSION ───────────────────────────────────────────────────────
   //
   // Ambient occlusion is a CONTACT effect — the ground robs a surface of sky the closer that
@@ -724,6 +778,14 @@ void main() {
     float k = ss >= 0.0 && ss <= 1.0 ? 1.0 - uSsaoStr * (1.0 - ss) : 1.0;
     occ *= k;
     base *= lf(k);
+  }
+  // The cel look's occlusion: one flat step of shade where the three terms above take more than
+  // TOON_AO_CUT off, in place of their gradient. base already carries occ, so it's divided back
+  // out; occ is at least 0.2 with all three at full strength, and the floor covers uAo past 1.
+  if (uToon > 0.0) {
+    float occM = mix(occ, mix(TOON_AO_DARK, 1.0, toonStep(TOON_AO_CUT, occ)), uToon);
+    base *= lf(occM / max(occ, 1e-3));
+    occ = occM;
   }
   // The occlusion also scales the light terms added below (reflection, highlight, sheen), which A
   // added as display values, so at level 2 it is a linear factor like the ones above.
@@ -982,6 +1044,17 @@ void main() {
   // line and moved 0.0% of wall pixels at every seat: everything above IS light arriving at a wall,
   // and every emissive surface in the city is a FLAT face, which 'solid' has already excused from
   // all of it. The account is beside faceEdges in world.js.
+  // ── THE INK LINES (RENDER_TUNE.glInk) ───────────────────────────────────────
+  // After the lights, so a line under a lamp stays a line; before the fog, so the haze takes it with
+  // the wall. Detail goes first with distance and the outline last (see gl/ssao.js for the split).
+  // ⚠ SANITISED WITH A COMPARISON, for the SSAO lookup's reason above.
+  if (uInkStr > 0.0) {
+    vec2 e = textureLod(uInk, gl_FragCoord.xy / uViewport, 0.0).rg;
+    e = (e.x >= 0.0 && e.x <= 1.0 && e.y >= 0.0 && e.y <= 1.0) ? e : vec2(0.0);
+    float ink = max(e.x * (1.0 - smoothstep(uInkFade.x, uInkFade.y, vDepth)),
+                    e.y * (1.0 - smoothstep(uInkFade.z, uInkFade.w, vDepth))) * uInkStr;
+    base = mix(base, uInkCol, ink);
+  }
   // GLASS's own fog curve, squared, scaled by the same amount its slider sets — see fogWeight.
   float ff = clamp((vDepth - uFogNear) / max(0.001, uFogFar - uFogNear), 0.0, 1.0);
   float fog = ff * ff * uFogAmt;
@@ -1205,6 +1278,12 @@ export function createGLView(canvas, opts = {}) {
     ssao: gl.getUniformLocation(prog, 'uSsao'),
     ssaoStr: gl.getUniformLocation(prog, 'uSsaoStr'),
     viewport: gl.getUniformLocation(prog, 'uViewport'),
+    toon: gl.getUniformLocation(prog, 'uToon'),
+    toonBands: gl.getUniformLocation(prog, 'uToonBands'),
+    ink: gl.getUniformLocation(prog, 'uInk'),
+    inkStr: gl.getUniformLocation(prog, 'uInkStr'),
+    inkFade: gl.getUniformLocation(prog, 'uInkFade'),
+    inkCol: gl.getUniformLocation(prog, 'uInkCol'),
     // Same spelling rule as the light arrays above: asked for WITHOUT the subscript, so the name is
     // one a shader in this file actually declares and gl:glsl has something to check it against.
     matTab: gl.getUniformLocation(prog, 'uMat'),
@@ -1543,8 +1622,11 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
   // CSS pixels; handing it the device-pixel height puts the whole vertical axis out by 1/dpr, which
   // is the bug that once lifted the city 38 px off the ground and is exactly zero at dpr 1 — that
   // is to say, invisible in every synthetic scene and every headless test.
+  // ⚠ AND THE CEL LOOK'S INK LINES COME OUT OF THE SAME PASS (RENDER_TUNE.glInk), off the same depth
+  // prepass, so either one asks for it. Returns { ao, ink }, each a texture or null, or null.
   function ssaoPass(cam, opts, W, H) {
-    if (!(opts.ssao > 0) || !count || !cam) return null;
+    const wantAo = opts.ssao > 0, wantInk = opts.ink > 0;
+    if (!(wantAo || wantInk) || !count || !cam) return null;
     if (!ssao && !ssaoTried) {
       ssaoTried = true;                       // one attempt per view; a driver that refused once will refuse again
       try { ssao = createSSAOLayer(gl, loc.pos); } catch { ssao = null; }
@@ -1561,8 +1643,12 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
       // frequency and the result is blurred and sampled in normalised coordinates with LINEAR
       // filtering, so half resolution costs a quarter of the fill for no visible change.
       const rs = opts.ssaoRes > 0 && opts.ssaoRes < 1 ? opts.ssaoRes : 1;
-      return timed('ssao', () => ssao.render(vao, count, new Float32Array(vp), { ...cam, H: camH }, Math.max(1, Math.round(W * rs)), Math.max(1, Math.round(H * rs)),
-        { A, B, radius: opts.ssaoRadius > 0 ? opts.ssaoRadius : 0.5, bias: opts.ssaoBias > 0 ? opts.ssaoBias : 0.02 }));
+      const aoWH = wantAo ? [Math.max(1, Math.round(W * rs)), Math.max(1, Math.round(H * rs))] : null;
+      // The lines at the full backing store, never at the occlusion's fraction: a line is a pixel wide.
+      const inkWH = wantInk ? [W, H] : null;
+      return timed('ssao', () => ssao.pass(vao, count, new Float32Array(vp), { ...cam, H: camH }, aoWH, inkWH,
+        { A, B, radius: opts.ssaoRadius > 0 ? opts.ssaoRadius : 0.5, bias: opts.ssaoBias > 0 ? opts.ssaoBias : 0.02,
+          inkStep: opts.inkStep, inkCrease: opts.inkCrease, inkSteep: opts.inkSteep }));
     } catch { return null; }
   }
 
@@ -1645,13 +1731,14 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     // ⚠ A COPY OF THE MATRIX, never mat4f's: that one is a shared scratch the next draw overwrites.
     if (!into && !fade) worldSun = sun ? { tex: sun.tex, vp: new Float32Array(sunVP(opts)), texel: sun.texel, bias: opts.sunShadow.bias } : null;
     const W = into ? into[0] : canvas.width, H = into ? into[1] : canvas.height;
-    const ssaoTex = fade ? fadeKept.ssaoTex : into ? null : ssaoPass(cam, opts, W, H);
+    const occl = fade ? fadeKept.occl : into ? null : ssaoPass(cam, opts, W, H);
+    const ssaoTex = occl ? occl.ao : null, inkTex = occl ? occl.ink : null;
     if (!into && !fade) beginTarget(opts);
     if (!into) gl.viewport(0, 0, W, H);
     // Split only on the screen, with a band to split on and a later pass to draw it: the mirror has
     // no floor drawn after it, and with no band the second pass would cost a draw to find nothing.
     const split = !into && !fade && !!opts.fadeSplit && opts.hazeNear != null && !opts.skipMass && count > 0;
-    if (!fade) fadeKept = split ? { envTex, sun, ssaoTex } : null;
+    if (!fade) fadeKept = split ? { envTex, sun, occl } : null;
     gl.enable(gl.DEPTH_TEST);
     gl.depthFunc(gl.LEQUAL);
     // ⚠ NO BACKFACE CULL. The mesh carries every face of every solid, and a building here is not
@@ -1892,6 +1979,21 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
       gl.uniform1i(loc.ssao, 2);
       // The BACKING-STORE size, not the camera's — this is divided into gl_FragCoord, which is in
       // device pixels, and the occlusion texture was rendered at that same size.
+      gl.uniform2f(loc.viewport, W, H);
+    }
+    // ── THE CEL LOOK (RENDER_TUNE.glToon, glInk) ────────────────────────────────
+    // Written every frame for the strengths' reason above. ⚠ UNIT 7 IS THE INK, BOUND ON EVERY DRAW
+    // TO THE LINES OR TO NOTHING, for unit 4's reason.
+    gl.uniform1f(loc.toon, opts.toon > 0 ? Math.min(1, opts.toon) : 0);
+    gl.uniform1f(loc.toonBands, opts.toonBands > 0 ? opts.toonBands : 3);
+    gl.uniform1f(loc.inkStr, inkTex ? Math.min(1, opts.ink) : 0);
+    gl.activeTexture(gl.TEXTURE7); gl.bindTexture(gl.TEXTURE_2D, inkTex); gl.uniform1i(loc.ink, 7);
+    if (inkTex) {
+      // Outlines hold to `far`; detail is gone by under half of it.
+      const far = opts.inkFar > 0 ? opts.inkFar : 24;
+      gl.uniform4f(loc.inkFade, far * 0.15, far * 0.45, far * 0.35, far);
+      const ic = cIn(opts.inkCol || INK_COL);
+      gl.uniform3f(loc.inkCol, ic[0], ic[1], ic[2]);
       gl.uniform2f(loc.viewport, W, H);
     }
     gl.bindVertexArray(vao);

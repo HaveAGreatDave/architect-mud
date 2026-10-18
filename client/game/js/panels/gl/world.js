@@ -1478,6 +1478,11 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
     // preview reach this function too, and a bench that silently got a term it did not ask for
     // cannot measure it.
     ssao: opts.glSsao || 0, ssaoRes: opts.glSsaoRes, ssaoRadius: SSAO_TUNE.radius, ssaoBias: SSAO_TUNE.bias,
+    // The cel look (RENDER_TUNE.glToon, glInk), off here by default for the bevel's reason. The ink
+    // comes out of the occlusion's depth prepass. Its width is in CSS px, so a phone at dpr 3 draws
+    // the line a desktop does.
+    toon: opts.glToon || 0, toonBands: opts.glToonBands,
+    ink: opts.glInk || 0, inkStep: Math.max(1, Math.round((opts.glInkPx > 0 ? opts.glInkPx : 1) * dpr)), inkFar: opts.glInkFar,
     // The far dissolve drawn after the ground rather than with the mass. See drawFade below.
     fadeSplit: (opts.glHazeSplit == null ? 1 : opts.glHazeSplit) > 0,
     mat: deps.matTable || null };

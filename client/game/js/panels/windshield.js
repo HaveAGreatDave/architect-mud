@@ -1300,6 +1300,25 @@ export const RENDER_TUNE = {
   // switch — the guard in the shader is on this uniform and the pass is not even created.
   glSsao: 0.5,
   glSsaoRes: 0.5,     // the SSAO buffer as a fraction of the frame. 1 = full resolution as shipped; 0.5 costs a quarter of the fill (the result is blurred and sampled with LINEAR filtering, so it reads the same).
+  // ── THE CEL LOOK ─────────────────────────────────────────────────────────────
+  //
+  // Two halves, each its own switch, both GL only and both on the city's mass alone (vehicles,
+  // people and the ground keep their own shading). See "The cel look" in glass-notes.md.
+  //
+  // `glToon` is the light: the key term in `glToonBands` flat steps, the sun's shadow and the
+  // occlusion with hard edges, one tone per face, and no relief. 0 is the exact off switch (every
+  // branch is on its uniform); 1 is the full look, and between them it mixes.
+  //
+  // `glInk` is the outline, drawn off the occlusion's depth prepass (gl/ssao.js), so with glSsao on
+  // it costs one full-screen pass, and with glSsao off it pays for the prepass itself. ⚠ IT PUTS
+  // THAT PREPASS AT FULL RESOLUTION, whatever glSsaoRes says: a line is a pixel wide, and the
+  // occlusion reads the bigger depth at its own size. `glInkPx` is the line width in CSS px and
+  // `glInkFar` the distance in tiles by which the lines have faded out.
+  glToon: 0,
+  glToonBands: 3,
+  glInk: 0,
+  glInkPx: 1.5,
+  glInkFar: 24,
   // ── HOW MANY OF THE CITY'S LIGHTS REACH THE WALLS ───────────────────────────
   //
   // The runtime light count for the mass shader, under the compiled ceiling MAX_LIGHTS (32).
@@ -24712,6 +24731,9 @@ if (typeof window !== 'undefined') {
   // (lazy) module is left on window and applied now.
   window.__thermalStats = thermalStats;
   if (window.__thermalDebugPending != null) { RENDER_TUNE.thermalDebug = window.__thermalDebugPending ? 1 : 0; delete window.__thermalDebugPending; }
+  // Settings → Cel Shading (main.js `_applyCelShade`). The setting is applied at boot, before any
+  // view has loaded this module, so it leaves its answer on window and it lands here.
+  if (window.__celShadePending != null) { RENDER_TUNE.glToon = RENDER_TUNE.glInk = window.__celShadePending ? 1 : 0; }
   // `.murmur` in the client lands here. It can be typed before any view has loaded this
   // module (it is lazy), so a request made earlier is left on window and picked up now.
   window.__murmuration = murmuration;
@@ -52964,7 +52986,7 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
       // Street lamps and neon into the cab, now that this frame's lights are all in the sink.
       applyCabinStreetLight();
       if (STROKE_SINK) STROKE_SINK.deep = true;
-      const out = GL_HOOK(GL_CELLS, cam, { night, nb: clamp((night - 0.30) / 0.20, 0, 1), host: GL_HOST, id: GL_ID, far: FAR, haze: HAZE_BAND, fog: FOG_STATE, skyBand: SKY_BAND, light: LIGHT_STATE, sprites: SPRITE_SINK, strokes: STROKE_SINK, ownWater: OWN_WATER_Z, glLights: TUNE.glLights, glNeonTube: TUNE.glNeonTube, glNeonFlicker: TUNE.glNeonFlicker, glAO: TUNE.glAO, glBakedAo: TUNE.glBakedAo, msaa: TUNE.glMsaa, glFxaa: TUNE.glFxaa, glShadow: TUNE.glShadow, glWet: wetGround(), glPond: pondGround(), glFogH: fogGround(), glScatter: scatterGround(), glPool: TUNE.glPool, glNightDark: (TUNE.nightDark || 0) * (1 - moonLift(sun)), glSnow: snowGround(), glPudRoad: TUNE.glPudRoad, glPuddle: TUNE.glPuddle, glMirrorMass: TUNE.glMirrorMass, glHazeSplit: TUNE.glHazeSplit, glMirrorSky: TUNE.glMirrorSky, glWetDark: TUNE.glWetDark, glGroundBias: TUNE.glGroundBias, lids: lidUpload(), glRipple: TUNE.glRipple, glGlint: TUNE.glGlint, glMirror: TUNE.glMirror, glMirrorRes: TUNE.glMirrorRes, glMat: TUNE.glMat, glSpec: TUNE.glSpec, glBump: TUNE.glBump, glMatPage: TUNE.glMatPage, glEnvCube: TUNE.glEnvCube, glGGX: TUNE.glGGX, envSky: SKY_ENV, glSurfPage: TUNE.glSurfPage, glHeightGain: TUNE.glHeightGain, glEnvCity: TUNE.glEnvCity, glEnvDim: TUNE.glEnvDim, glBevel: TUNE.glBevel, glSsao: TUNE.glSsao, glSsaoRes: TUNE.glSsaoRes, glLightSlots: TUNE.glLightSlots, glCluster: TUNE.glCluster, nearFit: TUNE.nearFit, glHdr: TUNE.glHdr, glLinear: TUNE.glLinear, glBloom: TUNE.glBloom, glTonemap: TUNE.glTonemap, glExposure: TUNE.glExposure, sun, worldBlend: WORLD_BLEND,
+      const out = GL_HOOK(GL_CELLS, cam, { night, nb: clamp((night - 0.30) / 0.20, 0, 1), host: GL_HOST, id: GL_ID, far: FAR, haze: HAZE_BAND, fog: FOG_STATE, skyBand: SKY_BAND, light: LIGHT_STATE, sprites: SPRITE_SINK, strokes: STROKE_SINK, ownWater: OWN_WATER_Z, glLights: TUNE.glLights, glNeonTube: TUNE.glNeonTube, glNeonFlicker: TUNE.glNeonFlicker, glAO: TUNE.glAO, glBakedAo: TUNE.glBakedAo, msaa: TUNE.glMsaa, glFxaa: TUNE.glFxaa, glShadow: TUNE.glShadow, glWet: wetGround(), glPond: pondGround(), glFogH: fogGround(), glScatter: scatterGround(), glPool: TUNE.glPool, glNightDark: (TUNE.nightDark || 0) * (1 - moonLift(sun)), glSnow: snowGround(), glPudRoad: TUNE.glPudRoad, glPuddle: TUNE.glPuddle, glMirrorMass: TUNE.glMirrorMass, glHazeSplit: TUNE.glHazeSplit, glMirrorSky: TUNE.glMirrorSky, glWetDark: TUNE.glWetDark, glGroundBias: TUNE.glGroundBias, lids: lidUpload(), glRipple: TUNE.glRipple, glGlint: TUNE.glGlint, glMirror: TUNE.glMirror, glMirrorRes: TUNE.glMirrorRes, glMat: TUNE.glMat, glSpec: TUNE.glSpec, glBump: TUNE.glBump, glMatPage: TUNE.glMatPage, glEnvCube: TUNE.glEnvCube, glGGX: TUNE.glGGX, envSky: SKY_ENV, glSurfPage: TUNE.glSurfPage, glHeightGain: TUNE.glHeightGain, glEnvCity: TUNE.glEnvCity, glEnvDim: TUNE.glEnvDim, glBevel: TUNE.glBevel, glSsao: TUNE.glSsao, glSsaoRes: TUNE.glSsaoRes, glToon: TUNE.glToon, glToonBands: TUNE.glToonBands, glInk: TUNE.glInk, glInkPx: TUNE.glInkPx, glInkFar: TUNE.glInkFar, glLightSlots: TUNE.glLightSlots, glCluster: TUNE.glCluster, nearFit: TUNE.nearFit, glHdr: TUNE.glHdr, glLinear: TUNE.glLinear, glBloom: TUNE.glBloom, glTonemap: TUNE.glTonemap, glExposure: TUNE.glExposure, sun, worldBlend: WORLD_BLEND,
         // ⚠ THE DECK, FOR THE REFLECTION AND FOR NOTHING ELSE IN THIS PASS. It is DRAWN by the
         // second hook after the world is blitted; what the world pass wants it for is the mirror
         // prepass, which is the only chance a puddle gets to be handed a sky.
