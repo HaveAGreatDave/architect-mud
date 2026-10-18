@@ -12,6 +12,7 @@
 // clunks, and gust thumps. All guarded — silent if the audio engine isn't up.
 
 import { TRUCK_HORNS } from '../../../shared/truck-horns.js';
+import { seatLive } from './seat-audio.js';
 function AE() { return window.AudioEngine; }
 
 // Per-class engine character.
@@ -340,28 +341,37 @@ const THUNDER_SAMPLES = [
   'smp_457b9e5f-a133-4351-bd19-deedb2e96fd4',   // thunder5
   'smp_94055023-841c-4346-8f75-ba4b85a28eee',   // thunder6
 ];
-export function playThunderSample(gain = 0.6) {
+// `position` (seatSpot in seat-audio.js) places the clap in a GLASS seat. The caller's gain already
+// says how far off it is, so the panner only gives it a direction: no rolloff, no doppler.
+export function playThunderSample(gain = 0.6, position = null) {
   const ae = AE(); if (!ae?.playSample) return;
   const id = THUNDER_SAMPLES[(Math.random() * THUNDER_SAMPLES.length) | 0];
-  try { ae.playSample({ id, snes_bits: 0, category: 'ambient', priority: 4, config: { gain: 1 } }, { gain }); } catch {}
+  const at = position ? { position, rolloff: 0, doppler: false } : {};
+  try { ae.playSample({ id, snes_bits: 0, category: 'ambient', priority: 4, config: { gain: 1 } }, { gain, ...at }); } catch {}
 }
 
 // Proximity of the aircraft to the nearest storm cell of the live weather field: 1 inside the
 // cell, falling to 0 by ~STORM_FALLOFF tiles beyond its edge. Drives thunder cadence + volume so
-// only storms actually near the plane rumble (distant cells stay silent). Returns 0 if we have no
-// field / position (the old always-on ambient cadence is retired in favour of this).
+// only storms actually near the plane rumble (distant cells stay silent). `near` is 0 if we have no
+// field / position (the old always-on ambient cadence is retired in favour of this). `at` is where
+// the clap comes from, relative to the aircraft in tiles: the nearest storm cell's edge on our
+// side, or somewhere a few tiles off when we're inside it.
 const STORM_FALLOFF = 45;
-function stormProximity(s) {
+function stormNearest(s) {
   const cells = s?.sky?.field?.cells; const ax = s?.acX, ay = s?.acY;
-  if (!cells || !cells.length || ax == null || ay == null) return 0;
-  let near = 0;
+  if (!cells || !cells.length || ax == null || ay == null) return { near: 0, at: null };
+  let near = 0, at = null;
   for (const c of cells) {
     if (c.type !== 'storm') continue;
-    const edge = Math.hypot(c.x - ax, c.y - ay) - (c.r || 0);
+    const d = Math.hypot(c.x - ax, c.y - ay), edge = d - (c.r || 0);
     const n = edge <= 0 ? 1 : Math.max(0, 1 - edge / STORM_FALLOFF);
-    if (n > near) near = n;
+    if (n > near) {
+      near = n;
+      if (edge > 0) at = [(c.x - ax) * edge / d, (c.y - ay) * edge / d, 0];
+      else { const a = Math.random() * Math.PI * 2, r = 3 + Math.random() * 5; at = [Math.cos(a) * r, Math.sin(a) * r, 0]; }
+    }
   }
-  return near;
+  return { near, at };
 }
 // `s` = the cockpit state: { sky, airborne, spd, atmos:{windKt,turb} }. The bed is driven by
 // the SAME sampled atmosphere the flight model uses — so the precip hiss swells with the gusts
@@ -384,11 +394,12 @@ function applyWeather(s) {
     // frequent + louder). No fixed cadence: distant storms stay silent, and a min-interval keeps
     // claps from clustering. Replaces the old always-on synthesized rumble that sounded like static.
     if (key === 'storm') {
-      const near = stormProximity(s);
+      const { near, at } = stormNearest(s);
       const nowMs = Date.now();
       if (near > 0.08 && nowMs - _lastThunder > 2600 && Math.random() < 0.04 + near * 0.15) {
         _lastThunder = nowMs;
-        playThunderSample(0.3 + near * 0.6);
+        // placed only while a seat is painting; the clap is relative to the aircraft either way
+        playThunderSample(0.3 + near * 0.6, at && seatLive() ? at : null);
       }
     }
   }
@@ -1099,7 +1110,11 @@ function aaGunFxDef(near) {
     // Rolling report tail — the boom rolling out across the landscape, delayed and lowpassed.
     { waveform: 'noise', noiseMix: 1, delay: rollDelay, filter: { type: 'lowpass', freq: 300 + n * 260, q: 0.7 }, adsr: { a: 0.02, d: 0.35 - n * 0.1, s: 0, r: 0.28 }, gain: 0.06 + n * 0.12 } ] } };
 }
-export function aaGunFx(near) { const ae = AE(); try { ae?.init?.(); ae?.playSfx?.(aaGunFxDef(near)); } catch {} }
+// `position` (seatSpot) puts the battery where it is; `near` already set the level, so no rolloff.
+export function aaGunFx(near, position = null) {
+  const ae = AE();
+  try { ae?.init?.(); ae?.playSfx?.(aaGunFxDef(near), 1, position ? { position, rolloff: 0, doppler: false } : {}); } catch {}
+}
 
 // Rounds striking the airframe — an impact crack, a short metallic ring off the skin, and a
 // low structural thud. Fires on any confirmed air hit (AA or air-to-air guns) via air_hit.

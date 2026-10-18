@@ -17,6 +17,7 @@ import { state } from '../state.js';
 import { sfx, clampInt, clampNum, esc, mountOverlay, ensureChassisStyles, deviceHeader, bezelScrews, crtOverlays, deckStrip, setDeckLevel } from './minigame-common.js';
 import { updateBoatContacts, stopBoatContacts, KT_TO_MPH } from './boat-audio.js';
 import { tweenOrbit } from './camera-tween.js';
+import { seatSpot } from './seat-audio.js';
 import { playCabinAudio, updateEngineAudio, stopEngineAudio, creak, spoolUp, spoolDown, groundFx, flapWhir, stallHorn, varioTick, gearFx, quackStart, QUACK_SQUEEZE_MS, visorFx, detentFx, gunFx, aaWarn, tracerFx, aaGunFx, hitFx, lockTone, mslWarble, missileFx, missileRippleFx, flareFx, spraySfx, diveSiren } from './engine-audio.js';
 import { navHomeHTML, drawNavHome } from './nav-home.js';   // the HOME arrow on the water, boat or sub
 import { drakeWaterFrame, judgeWaterTouchdown, seaRough, drakeFeetAnim, BOAT_MAX_KT, SUB_MAX_KT } from './drake-water.js';   // the Drake on the water: hull landings, boat and sub modes
@@ -7348,7 +7349,7 @@ export function flightSimAaTracer(msg) {
   F.aaTracerHit = !!msg.hit;                             // server's hit/miss → tracer geometry
   F.aaTracerSeed = Math.random() * 100;                  // stable per-volley spread pattern
   const near = msg.near ?? 0.5;
-  try { aaGunFx(near); } catch {}   // the gun's heavy report from below…
+  try { aaGunFx(near, seatSpot(msg.x, msg.y)); } catch {}   // the gun's heavy report from below, from where the battery is…
   try { tracerFx(near); } catch {}  // …and the round whipping past you
 }
 
@@ -7361,7 +7362,8 @@ export function flightSimFireworks(msg) {
   if (msg.sfx && F.pos) {
     const d = Math.max(Math.abs(msg.x - F.pos.x), Math.abs(msg.y - F.pos.y));   // chebyshev tiles
     const gain = Math.max(0, 1 - d / 40);
-    if (gain > 0.05) { try { window.AudioEngine?.playSfx(msg.sfx, gain); } catch {} }
+    const at = seatSpot(msg.x, msg.y);   // and from where it burst, in a seat; the gain already has the distance
+    if (gain > 0.05) { try { window.AudioEngine?.playSfx(msg.sfx, gain, at ? { position: at, rolloff: 0, doppler: false } : {}); } catch {} }
   }
 }
 

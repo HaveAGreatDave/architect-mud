@@ -6555,6 +6555,13 @@ const TOS_AUDIO_TOGGLES = [
   { key: 'welcome', label: 'Welcome Voice', on: '👋', off: '🔕' },
   { key: 'muteWhenHidden', label: 'Mute When Hidden', on: '🙈', off: '▶️' },
 ];
+// How a vehicle seat places sound around you (AudioEngine's spatialAudio, applied in settings.js).
+const TOS_SPATIAL_OPTS = [
+  { v: 'auto', t: 'Auto: headphone 3D for the nearest few, simpler panning past them (fewer on a phone)', g: 'Auto' },
+  { v: 'hrtf', t: 'Headphone 3D for the nearest few on any device', g: 'HRTF' },
+  { v: 'equalpower', t: 'Simple 3D panning: cheapest on a slow device', g: 'Simple' },
+  { v: 'stereo', t: 'Left and right only, no pitch shift as things pass', g: 'Stereo' },
+];
 const TOS_VOL_SLIDERS = [
   { key: 'masterVolume', label: 'Master', g: '🔊' },
   { key: 'musicVolume', label: 'Music', g: '🎵' },
@@ -6799,7 +6806,7 @@ function renderTabletSettings(d) {
         <span class="tos-btn-sub" data-reset-sidebar="1" style="margin:0">Reset to Default</span></div>` +
       `<div class="tos-set-row"><span class="tos-set-label">Home App Layout<span class="tos-set-val">Tile order, groups &amp; stashed apps</span></span>
         <span class="tos-btn-sub" data-reset-apps="1" style="margin:0">Reset to Default</span></div>`,
-    Sound: soundRow + audioToggleRows + volRows +
+    Sound: soundRow + audioToggleRows + volRows + tosPillRow('3D Sound', 'spatialAudio', s.spatialAudio || 'auto', TOS_SPATIAL_OPTS) +
       `<div class="tos-set-row"><span class="tos-set-label">Sound Settings<span class="tos-set-val">Toggles &amp; volumes</span></span>
         <span class="tos-btn-sub" data-reset-sound="1" style="margin:0">Reset to Default</span></div>`,
     Discord: renderDiscordPage(),

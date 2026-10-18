@@ -1072,6 +1072,7 @@
       tone.frequency.setValueAtTime(freq, time);
       if (layer.detune) tone.detune.setValueAtTime(layer.detune, time);
       if (P) P.pitch = [tone.detune, 1];
+      if (_dopSink) _dopSink.push(tone.detune);
       if (layer.pitchBend?.to) {
         tone.frequency.setTargetAtTime(layer.pitchBend.to, time, Math.max(0.01, (layer.pitchBend.time || 0.2) / 3));
       }
@@ -1177,11 +1178,14 @@
           if (d2To != null) g2.gain.setTargetAtTime(d2To, time, tc2);
           m2.connect(g2).connect(mod.frequency);
           if (P) { P['op2.index'] = [g2.gain, r2]; P['op2.ratio'] = [m2.detune, 1]; }
+          if (_dopSink) _dopSink.push(m2.detune);
           m2.start(time);
           nodes.push(m2);
         }
         mod.connect(modGain).connect(tone.frequency);
         if (P) { P['fm.index'] = [modGain.gain, modRate]; P['fm.ratio'] = [mod.detune, 1]; }
+        // Doppler moves the modulators with the carrier, so a ratio stays a ratio.
+        if (_dopSink) _dopSink.push(mod.detune);
         mod.start(time);
         nodes.push(mod);
       }
@@ -1196,6 +1200,7 @@
       // low rate was, and two beds at different rates don't repeat together
       if (layer.noiseRate > 0) noiseSrc.playbackRate.value = layer.noiseRate;
       if (P) P['noise.rate'] = [noiseSrc.playbackRate, 1];
+      if (_dopSink && noiseSrc.detune) _dopSink.push(noiseSrc.detune);
     }
 
     let mixPoint = gain;
@@ -1261,6 +1266,8 @@
       mixPoint = filter;
       // cutoff moves on detune, in cents, so a mod's depth is the same interval at any cutoff
       if (P) { P['filter.cutoff'] = [filter.detune, 1]; P['filter.q'] = [filter.Q, 1]; }
+      // the whole spectrum shifts, so the filter's shape goes with the pitch
+      if (_dopSink) _dopSink.push(filter.detune);
     }
 
     if (layer.tremolo?.rate) {
@@ -1567,7 +1574,11 @@
     } else {
       warmth.connect(gainNode);
     }
-    gainNode.connect(opts.destination || busFor(def.category));
+    // A positioned sample (a GLASS seat's thunder) goes through a panner, and its
+    // doppler rides the source's detune like a song's vibrato does.
+    const sp = spatialOpen(opts.destination || busFor(def.category), opts, def.config);
+    gainNode.connect(sp ? sp.input : (opts.destination || busFor(def.category)));
+    spatialBind(sp, [srcNode.detune]);
 
     srcNode.start(schedTime);
     srcNode.stop(endAt);
@@ -1580,7 +1591,7 @@
     };
     const voiceToken = occupyVoice(idx, def.priority ?? 5, stopFn);
     const msUntilFree = Math.max(100, (endAt - c.currentTime + 0.1) * 1000);
-    setTimeout(() => freeVoice(idx, voiceToken), msUntilFree);
+    setTimeout(() => { freeVoice(idx, voiceToken); spatialClose(sp); }, msUntilFree);
 
     // Voice handle: per-channel monophony (a new note cuts the one still ringing with
     // a short fade, avoiding the click of a hard stop) plus the params and running
@@ -1591,6 +1602,7 @@
       baseRate: rate, basePeak: peak, baseNote: def.base_note ?? 60,
       _rate: rate, _vol: peak, _toneTarget: null,
       attachAux(n) { auxNodes.push(n); },
+      move: (pos, vel) => spatialMove(sp, pos, vel),
       cut(atTime) {
         const t = Math.max(atTime, c.currentTime);
         gainNode.gain.cancelScheduledValues(t);
@@ -1606,7 +1618,7 @@
     ensureContext();
     const buf = await loadSample(def);
     if (!buf) return;
-    _playSampleFromBuffer(buf, def, opts, ctx.currentTime);
+    return _playSampleFromBuffer(buf, def, opts, ctx.currentTime);
   }
 
   // ── SFX (one-shots) ────────────────────────────────────────────────────────
@@ -1651,6 +1663,242 @@
     }
     return g;
   }
+
+  // ── 3D: where a sound is, for the GLASS seats ──────────────────────────────
+  // A room hears a sound from a doorway: the server walked the exits and sends
+  // `pan`, `muffle` and `distance`, and that path is untouched. A seat is
+  // different. Its camera has a position and a heading every frame, and so does
+  // the aircraft or truck going past, so the sound can come from where the thing
+  // is and move as it moves.
+  //
+  // `position` is an ordinary send option, like `pan`: it says where the sound is
+  // for this listener, so a cue definition never carries it. It is world
+  // coordinates in whatever units the seat uses, and the seat says how many
+  // metres a unit is in its pose. The listener's pose is set by the seat each
+  // frame; nothing else ever sets it.
+  //
+  // The panner sits at the listener-relative position, with the context's own
+  // listener left at the origin facing -z. Doing the rotation here, rather than
+  // through AudioListener, gives one code path on every browser (Safari's
+  // listener has no AudioParams) and a position a gate can read.
+  //
+  // DOPPLER. Web Audio dropped PannerNode's, so it's done here: the velocities of
+  // the source and the listener along the line between them give a pitch ratio,
+  // which goes out as cents from one ConstantSource into every detune the cue
+  // built (carrier, FM operators, noise, filter), smoothed and clamped.
+  //
+  // HRTF is the best panner and costs a convolution per voice, so only
+  // `hrtfCap` voices get it and the rest are equal-power. A phone gets fewer.
+  const SPATIAL = {
+    hrtfCap: 6, hrtfCapCompact: 2,
+    speed: 343,          // metres per second
+    minRatio: 0.5, maxRatio: 2,
+    tau: 0.06,           // doppler smoothing, seconds
+    moveTau: 0.03,       // position smoothing, seconds: long enough to stop zipper noise
+    velTau: 0.12,        // smoothing for a velocity derived from successive positions
+  };
+  // 'auto' (HRTF up to the cap, then equal-power), 'hrtf' (the same, no phone cap),
+  // 'equalpower', or 'stereo' (a stereo pan from the same position, no doppler).
+  // Read from _settings.spatialAudio.
+  const SPATIAL_MODES = ['auto', 'hrtf', 'equalpower', 'stereo'];
+  const _listener = { p: [0, 0, 0], f: [0, 1, 0], u: [0, 0, 1], r: [1, 0, 0], v: [0, 0, 0], mpu: 1, t: null, set: false };
+  const _spatial = new Set();
+  let _hrtfLive = 0;
+  // While a positioned cue builds, buildLayer pushes every detune it makes here.
+  let _dopSink = null;
+
+  const _dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+  const _sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+  const _cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+  const _norm = (a) => { const l = Math.hypot(a[0], a[1], a[2]); return l > 1e-9 ? [a[0] / l, a[1] / l, a[2] / l] : null; };
+  const _vec = (v, fb) => {
+    if (Array.isArray(v)) return [+v[0] || 0, +v[1] || 0, +v[2] || 0];
+    if (v && typeof v === 'object') return [+v.x || 0, +v.y || 0, +v.z || 0];
+    return fb;
+  };
+  const _nowS = () => (typeof performance !== 'undefined' ? performance.now() : Date.now()) / 1000;
+
+  function spatialMode() {
+    const m = _settings.spatialAudio;
+    return SPATIAL_MODES.includes(m) ? m : 'auto';
+  }
+  function hrtfCap() {
+    const m = spatialMode();
+    if (m === 'equalpower' || m === 'stereo' || _mono) return 0;
+    if (m === 'hrtf') return SPATIAL.hrtfCap;
+    const compact = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
+    return compact ? SPATIAL.hrtfCapCompact : SPATIAL.hrtfCap;
+  }
+
+  // A velocity from successive positions, when the caller didn't give one. A gap
+  // over half a second, or a speed past four times sound, is a teleport and
+  // resets it rather than swooping the pitch.
+  function _trackVelocity(o, p, vel, t) {
+    if (vel) { o.v = vel; o.t = t; o.p = p; return; }
+    if (o.t != null && o.p) {
+      const dt = t - o.t;
+      if (dt > 1e-3 && dt < 0.5) {
+        const raw = _sub(p, o.p).map(x => x / dt);
+        const c = SPATIAL.speed / o.mpu;
+        if (Math.hypot(raw[0], raw[1], raw[2]) > c * 4) o.v = [0, 0, 0];
+        else {
+          const k = 1 - Math.exp(-dt / SPATIAL.velTau);
+          o.v = o.v.map((x, i) => x + (raw[i] - x) * k);
+        }
+      } else if (dt >= 0.5) o.v = [0, 0, 0];
+    }
+    o.t = t; o.p = p;
+  }
+
+  // The seat's camera, each frame. `pos`, `fwd` and `up` are vectors ([x,y,z] or
+  // {x,y,z}) in the seat's world units; `right` is optional and is fwd × up when
+  // left out, which is right for a right-handed frame. A frame whose y runs south
+  // (the map's) is left-handed, so a seat on it passes `right` itself. `vel` is
+  // units per second; left out, it's derived from successive poses.
+  // `metresPerUnit` scales the speed of sound to those units. Null resets.
+  function setListenerPose(pose) {
+    if (!pose) {
+      Object.assign(_listener, { p: [0, 0, 0], f: [0, 1, 0], u: [0, 0, 1], r: [1, 0, 0], v: [0, 0, 0], t: null, set: false });
+      return;
+    }
+    if (pose.metresPerUnit > 0) _listener.mpu = pose.metresPerUnit;
+    const f = _norm(_vec(pose.fwd, _listener.f)) || _listener.f;
+    let u = _norm(_vec(pose.up, _listener.u)) || _listener.u;
+    const r = _norm(pose.right ? _vec(pose.right, null) : _cross(f, u)) || _listener.r;
+    u = _norm(_cross(r, f)) || u;   // square it up against fwd and right
+    // _cross(r, f) is up for a right-handed (r, f, u); a left-handed frame's comes out
+    // down, so keep the caller's sense of up.
+    if (_dot(u, _vec(pose.up, u)) < 0) u = [-u[0], -u[1], -u[2]];
+    _listener.f = f; _listener.u = u; _listener.r = r;
+    _trackVelocity(_listener, _vec(pose.pos, _listener.p), pose.vel ? _vec(pose.vel, null) : null, pose.t ?? _nowS());
+    _listener.set = true;
+    for (const s of _spatial) _place(s, false);
+  }
+
+  // Where a source is for the listener: x right, y up, z forward.
+  function _relative(p) {
+    const d = _sub(p, _listener.p);
+    return [_dot(d, _listener.r), _dot(d, _listener.u), _dot(d, _listener.f)];
+  }
+
+  function _dopplerRatio(s) {
+    const d = _sub(s.p, _listener.p);
+    const u = _norm(d);
+    if (!u) return s.ratio;
+    const c = SPATIAL.speed / _listener.mpu;
+    const vl = _dot(_listener.v, u);   // listener closing on the source: up
+    const vs = _dot(s.v, u);           // source moving away: down
+    const ratio = (c + vl) / Math.max(c * 0.05, c + vs);
+    return Math.max(SPATIAL.minRatio, Math.min(SPATIAL.maxRatio, ratio));
+  }
+
+  function _place(s, first) {
+    if (!ctx || s.closed) return;
+    const t = ctx.currentTime;
+    const rel = _relative(s.p);
+    s.rel = rel;
+    if (s.panner) {
+      // Web Audio's frame: x right, y up, -z ahead.
+      const xyz = [rel[0], rel[1], -rel[2]];
+      if (s.panner.positionX) {
+        ['positionX', 'positionY', 'positionZ'].forEach((k, i) => {
+          if (first) s.panner[k].setValueAtTime(xyz[i], t);
+          else s.panner[k].setTargetAtTime(xyz[i], t, SPATIAL.moveTau);
+        });
+      } else s.panner.setPosition(xyz[0], xyz[1], xyz[2]);
+    } else if (s.stereo) {
+      const dist = Math.hypot(rel[0], rel[1], rel[2]);
+      const pan = Math.max(-1, Math.min(1, rel[0] / Math.max(dist, s.ref)));
+      const att = s.ref / (s.ref + s.rolloff * Math.max(0, dist - s.ref));
+      if (first) { s.stereo.pan.setValueAtTime(pan, t); s.att.gain.setValueAtTime(att, t); }
+      else { s.stereo.pan.setTargetAtTime(pan, t, SPATIAL.moveTau); s.att.gain.setTargetAtTime(att, t, SPATIAL.moveTau); }
+    }
+    s.ratio = _dopplerRatio(s);
+    if (s.dop) {
+      const cents = 1200 * Math.log2(s.ratio) * s.dopAmt;
+      if (first) s.dop.offset.setValueAtTime(cents, t);
+      else s.dop.offset.setTargetAtTime(cents, t, SPATIAL.tau);
+    }
+  }
+
+  // The panner (or stereo fallback) and the doppler source for one positioned
+  // voice, connected into `dest`. Returns null when `opts.position` is absent, so
+  // every unpositioned cue builds exactly the graph it always did.
+  //   opts.position  where it is, world units
+  //   opts.velocity  units per second; left out, derived from move() calls
+  //   opts.ref       distance at full level (default 1 unit)
+  //   opts.rolloff   inverse-distance rolloff (default 1; 0 leaves level to the caller)
+  //   opts.doppler   0..1 scale on the shift, or false; default the cue's own
+  //                  config.doppler, else 1
+  function spatialOpen(dest, opts, config) {
+    if (!opts || opts.position == null || !ctx) return null;
+    const mode = spatialMode();
+    const s = {
+      p: _vec(opts.position, [0, 0, 0]), v: _vec(opts.velocity, [0, 0, 0]), t: _nowS(), mpu: 1,
+      ref: opts.ref > 0 ? opts.ref : 1, rolloff: opts.rolloff >= 0 ? opts.rolloff : 1,
+      autoVel: opts.velocity == null, ratio: 1, rel: [0, 0, 0],
+      panner: null, stereo: null, att: null, dop: null, hrtf: false, closed: false, input: null,
+    };
+    if (mode !== 'stereo' && ctx.createPanner) {
+      const p = ctx.createPanner();
+      s.hrtf = _hrtfLive < hrtfCap();
+      if (s.hrtf) _hrtfLive++;
+      p.panningModel = s.hrtf ? 'HRTF' : 'equalpower';
+      p.distanceModel = 'inverse';
+      p.refDistance = s.ref;
+      p.rolloffFactor = s.rolloff;
+      p.maxDistance = opts.maxDistance > 0 ? opts.maxDistance : 10000;
+      p.connect(dest);
+      s.panner = p;
+      s.input = p;
+    } else if (ctx.createStereoPanner) {
+      s.att = ctx.createGain();
+      s.stereo = ctx.createStereoPanner();
+      s.stereo.connect(s.att).connect(dest);
+      s.input = s.stereo;
+    } else return null;
+    const amt = opts.doppler === false ? 0 : Number.isFinite(opts.doppler) ? opts.doppler
+      : config && config.doppler === false ? 0 : Number.isFinite(config?.doppler) ? config.doppler : 1;
+    s.dopAmt = Math.max(0, Math.min(1, amt));
+    if (s.dopAmt > 0 && mode !== 'stereo' && ctx.createConstantSource) {
+      s.dop = ctx.createConstantSource();
+      s.dop.offset.value = 0;
+      s.dop.start(ctx.currentTime);
+    }
+    s.mpu = _listener.mpu;
+    _spatial.add(s);
+    _place(s, true);
+    return s;
+  }
+  // Wire the detunes a build collected to the voice's doppler source.
+  function spatialBind(s, params) {
+    if (!s || !s.dop || !params) return;
+    for (const p of params) { try { s.dop.connect(p); } catch { /* a param this browser lacks */ } }
+  }
+  function spatialMove(s, pos, vel) {
+    if (!s || s.closed || pos == null) return;
+    s.mpu = _listener.mpu;
+    _trackVelocity(s, _vec(pos, s.p), vel != null ? _vec(vel, null) : null, _nowS());
+    _place(s, false);
+  }
+  function spatialClose(s) {
+    if (!s || s.closed) return;
+    s.closed = true;
+    _spatial.delete(s);
+    if (s.hrtf) _hrtfLive = Math.max(0, _hrtfLive - 1);
+    if (s.dop) { try { s.dop.stop(); } catch { /* already stopped */ } }
+  }
+  // What a positioned voice is doing, for a gate or a debug overlay.
+  const spatialState = (s) => (s ? { rel: s.rel.slice(), ratio: s.ratio, cents: s.dop ? 1200 * Math.log2(s.ratio) * s.dopAmt : 0,
+    model: s.panner ? (s.hrtf ? 'HRTF' : 'equalpower') : 'stereo', closed: s.closed } : null);
+  // Build a cue's layers with the doppler sink open, then wire it.
+  function _buildPositioned(s, fn) {
+    if (!s || !s.dop) return fn();
+    const prev = _dopSink;
+    _dopSink = [];
+    try { return fn(); } finally { spatialBind(s, _dopSink); _dopSink = prev; }
+  }
+
   function playSfx(def, gainMultiplier = 1, opts = {}) {
     const c = init();
     if (!c || !def?.config) return null;
@@ -1709,7 +1957,10 @@
       lp.connect(destination);
       destination = lp;
     }
-    if (opts.pan && c.createStereoPanner) {
+    // A `position` (a GLASS seat's) takes the place of `pan`; see spatialOpen.
+    const sp = spatialOpen(destination, opts, def.config);
+    if (sp) destination = sp.input;
+    else if (opts.pan && c.createStereoPanner) {
       const p = c.createStereoPanner();
       p.pan.value = Math.max(-1, Math.min(1, opts.pan));
       p.connect(destination);
@@ -1727,7 +1978,7 @@
     const sustain = opts.sustain === true;
     // (a cue with `retro` goes through the sample-and-hold and bit-depth stage first)
     const into = def.config.retro ? retroStage(c, def.config.retro, def.config, destination, time + duration + cueTail(def.config)) : destination;
-    const sound = buildSound(def.config, into, time, sustain ? null : duration);
+    const sound = _buildPositioned(sp, () => buildSound(def.config, into, time, sustain ? null : duration));
     const voiceToken = occupyVoice(idx, priority, () => sound.release(c.currentTime));
     // `duck` on the cue ducks other buses while it plays: a shout over a crowd
     // bed is { buses: ['ambient'], dB: -8 }. A one-shot holds it for its
@@ -1745,13 +1996,14 @@
         cueDuck?.release();
         sound.release(c.currentTime);
         const tail = Math.max(...(def.config.layers || [def.config]).map(l => l.adsr?.r ?? 0.15), 0.15);
-        setTimeout(() => freeVoice(idx, voiceToken), (tail + 0.1) * 1000);
+        setTimeout(() => { freeVoice(idx, voiceToken); spatialClose(sp); }, (tail + 0.1) * 1000);
       };
       // A held voice whose release never arrives is a stuck note that outlives the
       // room, and a lost keyup is ordinary — an alt-tab, a focus change, a dropped
       // note-off from someone else's client. The cap is not tuning, it is the only
       // thing standing between a bug elsewhere and a drone nobody can silence.
       const capT = setTimeout(end, (opts.maxHold ?? 30) * 1000);
+      if (sp) return { release: end, move: (pos, vel) => spatialMove(sp, pos, vel), state: () => spatialState(sp) };
       return { release: end };
     }
     // Hold the slot for the longest layer's own release, not a flat default — the
@@ -1759,8 +2011,9 @@
     // freeing its slot roughly a second before it stopped being audible.
     const tail = Math.max(def.config.adsr?.r ?? 0,
       ...(def.config.layers || []).map(l => (l.delay ?? 0) + (l.adsr?.r ?? 0)), 0.15);
-    setTimeout(() => freeVoice(idx, voiceToken), (duration + tail + 0.1) * 1000);
-    return null;
+    setTimeout(() => { freeVoice(idx, voiceToken); spatialClose(sp); }, (duration + tail + 0.1) * 1000);
+    // A positioned one-shot can be moved while it rings (a jet's roar passing).
+    return sp ? { move: (pos, vel) => spatialMove(sp, pos, vel), state: () => spatialState(sp) } : null;
   }
 
   // ── Offline render ─────────────────────────────────────────────────────────
@@ -1870,7 +2123,9 @@
     return cancels;
   }
 
-  function loopSound(def) {
+  // `opts.position` (and the rest of spatialOpen's options) places the loop for a
+  // GLASS seat; moveLoop moves it each frame.
+  function loopSound(def, opts = {}) {
     const c = init();
     if (!c || !def) return;
     const id = def.id || def.name;
@@ -1889,16 +2144,28 @@
     // that happens to be implemented as a loop is still an EFFECT, and a truck's air horn following
     // the ambience slider would be a horn that gets quieter when you turn the wind down.
     const loopCat = def.category === 'tv' || def.category === 'tv_fx' ? def.category : def.category === 'sfx' ? 'sfx' : 'ambient';
-    const sound = buildSound(def.config || {}, cueBus(loopCat, def.config?.send), time, null);
+    const bus = cueBus(loopCat, def.config?.send);
+    const sp = spatialOpen(bus, opts, def.config);
+    const sound = _buildPositioned(sp, () => buildSound(def.config || {}, sp ? sp.input : bus, time, null));
     const baseGain = def.config?.gain ?? 1;
     // Optional randomized decoration (beeps/clunks/chirps) riding over the bed.
     const sparkleCancels = Array.isArray(def.config?.sparkle) && def.config.sparkle.length
       ? _startSparkles(def.config.sparkle, def.category)
       : null;
-    const entry = { voiceIdx: idx, release: sound.release, gainNode: sound.gainNode, baseGain, sparkleCancels };
+    const entry = { voiceIdx: idx, release: sound.release, gainNode: sound.gainNode, baseGain, sparkleCancels, sp };
     activeLoops.set(id, entry);
-    entry.voiceToken = occupyVoice(idx, priority, () => { sound.release(c.currentTime); if (sparkleCancels) sparkleCancels.forEach(fn => fn()); activeLoops.delete(id); });
+    entry.voiceToken = occupyVoice(idx, priority, () => { sound.release(c.currentTime); if (sparkleCancels) sparkleCancels.forEach(fn => fn()); activeLoops.delete(id); _closeLater(sp); });
   }
+
+  // A positioned voice's panner outlives its release by the release itself.
+  function _closeLater(sp) { if (sp) setTimeout(() => spatialClose(sp), 2000); }
+
+  // Move a positioned loop: `pos` in the seat's world units, `vel` optional.
+  function moveLoop(id, pos, vel) {
+    const loop = activeLoops.get(id);
+    if (loop?.sp) spatialMove(loop.sp, pos, vel);
+  }
+  const loopState = (id) => spatialState(activeLoops.get(id)?.sp);
 
   function stopLoop(id) {
     const loop = activeLoops.get(id);
@@ -1910,6 +2177,7 @@
     if (v && v.token === loop.voiceToken) { v.stop(false); freeVoice(loop.voiceIdx, loop.voiceToken); }
     else loop.release?.(ctx ? ctx.currentTime : 0);
     activeLoops.delete(id);
+    _closeLater(loop.sp);
   }
 
   // Rides an already-playing loop's volume up/down without restarting it —
@@ -5398,6 +5666,14 @@ return out;
     // buffer so it can build its own live, parameter-driven node graph on the ambient chain.
     // `category` picks the bus as playSfx would (a broadcast's crowd rides 'tv_fx'); ambient by default.
     engineNodes: (category) => { const c = ensureContext(); if (!c) return null; return { ctx: c, bus: busFor(category || 'ambient'), noise: getNoiseBuffer() }; },
+    // 3D for the GLASS seats: the seat's camera each frame (null when the seat
+    // closes), a positioned loop moved each frame, and what a positioned voice
+    // is doing. playSfx, playSample and loopSound take `position` as an option.
+    setListenerPose, moveLoop, loopState,
+    // The player's choice, one of spatialModes(); applies to voices started after it.
+    setSpatialAudio: (mode) => { _settings.spatialAudio = SPATIAL_MODES.includes(mode) ? mode : 'auto'; },
+    spatialModes: () => SPATIAL_MODES.slice(),
+    _spatialStats: () => ({ live: _spatial.size, hrtf: _hrtfLive, cap: hrtfCap(), mode: spatialMode(), listener: { ..._listener } }),
     // For the audio gates: the graph and buffers a stub context can't show any
     // other way. Read-only views; nothing here changes what plays.
     _graph: () => {

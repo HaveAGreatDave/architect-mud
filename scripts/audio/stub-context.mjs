@@ -48,6 +48,12 @@ export function makeContext() {
     createBufferSource() { const n = mkNode('buffersrc'); n.buffer = null; n.loop = false; n.playbackRate = mkParam(n, 'playbackRate', 1); n.detune = mkParam(n, 'detune', 0); return n; }
     createDelay() { const n = mkNode('delay'); n.delayTime = mkParam(n, 'delayTime', 0); return n; }
     createStereoPanner() { const n = mkNode('panner'); n.pan = mkParam(n, 'pan', 0); return n; }
+    createPanner() {
+      const n = mkNode('panner3d');
+      Object.assign(n, { panningModel: 'equalpower', distanceModel: 'inverse', refDistance: 1, rolloffFactor: 1, maxDistance: 10000 });
+      for (const k of ['positionX', 'positionY', 'positionZ', 'orientationX', 'orientationY', 'orientationZ']) n[k] = mkParam(n, k, 0);
+      return n;
+    }
     createChannelSplitter(k = 6) { const n = mkNode('splitter'); n.outputs = k; return n; }
     createChannelMerger(k = 6) { const n = mkNode('merger'); n.inputs = k; return n; }
     createDynamicsCompressor() { const n = mkNode('comp'); for (const k of ['threshold', 'knee', 'ratio', 'attack', 'release']) n[k] = mkParam(n, k, 0); return n; }

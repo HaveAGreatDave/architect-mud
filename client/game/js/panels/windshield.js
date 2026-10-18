@@ -35,6 +35,7 @@ import { veilHTML, VEIL_CSS, veilHold, veilPainted, veilReset } from './glass-ve
 import { setVehicleParams, clearVehicleParams, vehicleParamBase, vehicleParamIds, aircraftFaces, wingtipStation, meshLamps, vehicleLamps, liveryPalette, faceBaseRgb, shadeRgb, hex2rgb, drawRotorFX, PROP_STATIONS, drawCockpitProp, glassSheen, drawNoseArt, drawTruckDoorArt, drawBoatHullArt, boatExhaustPorts, deflectSurface, hingeVisorFace, visorHidden, jazzTex, jazzUV, overlayJazz, drawCanopyGlass, sortTruckFaces, _resetTruckOrder, JAZZ_ROLE, OCCLUDE_ROLE, VIPER_SCALE, depthPassBuild, depthPassCommit , truckMeta, rotorsFor, hasMainRotor, meshParams, meshIds } from './aircraft3d.js';
 import { rasterDepth, depthTarget, lightBasis, rasterShadow, shadeRaster, readPixels, depthWinAt } from './model-raster.js';
 import { playThunderSample } from './engine-audio.js';
+import { seatAudioFrame, seatSpot } from './seat-audio.js';   // contacts' engines placed in 3D, and the listener's pose
 import { FLOOR_Z, BUILDING_FOOT, floorsFor, BUILDING_TUNE, buildingScale, CURTAIN_H } from '../../../shared/skyline-scale.js';
 import { fireworksAround, aaLive, AA_FIRE_MS } from './world-feed.js';   // world events kept by tile, whatever seat is open
 import { drawAAEmplacement } from './glass/aa-emplacement.js';   // the four AA batteries (drawAAMark)
@@ -5017,7 +5018,8 @@ function paintWindshieldFrame(id, view) {
       // samples (not a synth noise burst, which read as static).
       if (dist < 30) {
         const near = clamp(1 - dist / 30, 0, 1);
-        setTimeout(() => playThunderSample(0.28 + near * 0.5), Math.min(1400, dist * 40));
+        // From where it struck, placed when it lands (the craft has moved on by then).
+        setTimeout(() => playThunderSample(0.28 + near * 0.5, seatSpot(s.gx, s.gy)), Math.min(1400, dist * 40));
       }
     }
     _pendingStrikes.length = 0;
@@ -5742,6 +5744,8 @@ function paintWindshieldFrame(id, view) {
       // hides the POINTERS, never the things they point at.
       const marks = NAV_MARKS.on && !fcam;
       if (vw.contacts) drawContacts(ctx, cam, vw, W, H, sunFx, now, marks);   // air-to-air traffic (Phase A: see other craft)
+      // The same contacts heard from where they are, and the listener turned with the look (seat-audio.js).
+      try { seatAudioFrame(id, vw, now); } catch { /* audio is never load-bearing */ }
       drawGunTracers(ctx, cam, v, now);
       drawConvergenceMark(ctx, cam, v, now);   // where the two guns meet (the Drake's CONV knob)   // 3D gun tracers — own rounds + any nearby shooter's, streaking through world space toward where they're aiming
       if (v.missiles) drawMissiles(ctx, cam, v, now);   // our own shots in the air: motor flare + smoke trail, weaving downrange

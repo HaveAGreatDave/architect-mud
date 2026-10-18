@@ -469,6 +469,8 @@ export function applySettings(settings) {
   // Sums the stereo image to one channel for anyone with hearing in one ear, or
   // wearing one earbud. Applied to the master bus, so it catches every category.
   window.AudioEngine?.setMonoAudio?.((settings.monoAudio || 'off') === 'on');
+  // How a vehicle seat places sound in 3D: 'auto', 'hrtf', 'equalpower' or 'stereo'.
+  window.AudioEngine?.setSpatialAudio?.(settings.spatialAudio || 'auto');
   // The ROOT font size — client/game/styles.css hangs `html { font-size }` off it
   // and every font-size in that sheet is a rem, so this one line scales the whole
   // interface. Keep the fallback in step with DEFAULT_SETTINGS above and with the

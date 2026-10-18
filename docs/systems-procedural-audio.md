@@ -574,6 +574,69 @@ every load.
 The speech side of this (two channels, and Read Aloud ducking the TV) is in
 [systems-accessibility.md](systems-accessibility.md#speech-channels-what-a-typed-command-stops).
 
+## Position and doppler in a seat
+
+A GLASS seat (the cockpit, the cab, the boats, the podracer) draws its world in 3D, and its
+sound was stereo at best: an aircraft crossing the nose or a rig overtaking on the left made no
+sound. The MUD rooms don't use any of this; they keep `pan`, `muffle` and `distance` from the
+server's propagation.
+
+**The API.** `position` is a send option on `playSfx`, `playSample` and `loopSound` (its second
+argument), like `pan`: it's where the sound is for this listener, so a cue never carries it.
+With it come `velocity` (units a second; left out, it's worked out from successive moves),
+`ref` (the distance at full level, default 1), `rolloff` (inverse-distance, default 1; 0 leaves
+the level to the caller) and `doppler` (0 to 1, or false). A cue can turn doppler off with its
+own `config.doppler: false`. A positioned `playSfx` returns `{ move(pos, vel), state() }`;
+`moveLoop(id, pos, vel)` moves a loop and `loopState(id)` reads one. `setListenerPose({ pos, fwd,
+up, right, vel, metresPerUnit })` is the seat's camera, once a frame; null resets it. `right`
+defaults to fwd × up, which is right for a right-handed frame. The map's y runs south, so a seat
+passes `right` itself.
+
+**The panner** is a PannerNode at the listener-relative position, with the context's own
+listener left at the origin facing -z: the rotation is done in the engine, not through
+AudioListener, so there's one path on every browser (Safari's listener has no AudioParams) and a
+gate can read the position. Positions move with a 30 ms `setTargetAtTime`, so a frame-rate step
+doesn't zipper. It takes the place of `pan` in the cue's chain, after the cue's gain and before
+any muffle or distance stage.
+
+**Doppler.** Web Audio dropped PannerNode's, so the engine works it out: the source's and the
+listener's speeds along the line between them give `(c + vListener) / (c + vSource)`, with `c`
+343 m/s in the seat's units, clamped to 0.5–2. It goes out as cents from one ConstantSource per
+voice into every detune the cue built: the carrier, both FM operators (so a ratio stays a
+ratio), the noise source and the filter, and a sample's source. It's smoothed over 60 ms. A
+cue's build collects those params through `_dopSink`, which is null for every unpositioned cue.
+
+**The budget.** HRTF costs a convolution per voice, so only six positioned voices get it (two
+on a coarse-pointer device) and the rest are equal-power. A positioned voice adds two nodes (the
+panner and the doppler source) and still takes a slot in the 32-voice pool. The player's
+choice is `spatialAudio` (the tablet's Sound page, **3D Sound**): `auto`, `hrtf` (no phone
+cap), `equalpower`, or `stereo`, which is a stereo pan and an inverse-distance gain from the same
+position, with no doppler. Mono audio turns HRTF off.
+
+**The seats** ([seat-audio.js](../client/game/js/panels/seat-audio.js)). `paintWindshieldFrame`
+calls `seatAudioFrame(id, view)` once a paint, so every seat that paints contacts is covered by
+one call. The frame's origin is the player's own vehicle (`acX`/`acY`), in tiles (about 17.9 m),
+x east, y south, z up. A contact's `dx`/`dy` are already in it, so the listener's velocity is
+zero and a contact's is the closing speed. The nearest three contacts within 30 tiles get an
+engine loop on the ambient bus at priority 1, voiced by class (prop, ultralight, helicopter,
+jet, truck, boat), and the pose and positions are sent at most every 33 ms. A mirror (`bare`)
+never drives the listener, and a second view id can't take over until the first has been quiet
+for half a second. When the seat stops painting for 0.7 s (closed, or a hidden tab that froze
+rAF), the watchdog stops every voice and resets the pose.
+
+`seatSpot(x, y)` turns an absolute tile into a `position` in that frame, or null when no seat is
+painting, so a caller falls back to the old stereo cue. Placed that way: a near lightning
+strike's clap and the storm thunder (from the nearest storm cell's edge, `stormNearest` in
+engine-audio.js), an AA battery's report, and a fireworks burst. Those callers already set the
+level from the distance, so they pass `rolloff: 0` and `doppler: false`.
+
+**Gate** (`spatial-smoke`): no position builds no panner and no doppler source; a source
+passing in front goes left to right and from sharp to flat through 1 at the closest point;
+doppler reaches every detune; turning the listener east, west and south moves the panner
+correctly; a left-handed frame with `right` given keeps east on the right; a listener closing
+on a still source hears it sharp; HRTF stops at the cap; `equalpower` and `stereo` build what
+they say; `doppler: false` on the send or the cue builds no doppler source.
+
 ## Cue loudness
 
 The limiter stops peaks, but nothing compared one preset with the next: each was set by ear on
