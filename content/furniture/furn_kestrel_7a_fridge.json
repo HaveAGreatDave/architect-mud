@@ -1,0 +1,20 @@
+{
+  "description": "An undercounter fridge that hums in a low key and shudders when it stops.",
+  "flags": {
+    "aliases": [
+      "fridge",
+      "refrigerator"
+    ],
+    "appliance_grade": "consumer",
+    "container": 40000,
+    "interactions": [
+      "lean"
+    ],
+    "preserves": "refrigerated"
+  },
+  "id": "furn_kestrel_7a_fridge",
+  "name": "the fridge",
+  "object_type": "container",
+  "power_draw_kw": 0.1,
+  "zone_id": "zone_kestrel_7a"
+}

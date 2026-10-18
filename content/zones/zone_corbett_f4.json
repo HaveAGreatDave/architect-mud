@@ -1,0 +1,25 @@
+{
+  "ambient_theme": "indoors",
+  "description": "The fourth floor landing, at the top of a long stone flight: polished boards, a runner down the middle and a tall sash window onto Lever Lane. Front doors with brass numbers face each other, 4A to the west and 4B to the east. The lift cage hangs dark in its lattice shaft.",
+  "exits": {
+    "down": "zone_corbett_lobby",
+    "east": "zone_corbett_4b",
+    "up": "zone_corbett_f8",
+    "west": "zone_corbett_4a"
+  },
+  "flags": {
+    "building_name": "Corbett Mansions",
+    "building_type": "apartment",
+    "floor": "boards",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_916_906"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 1,
+  "id": "zone_corbett_f4",
+  "map_id": "map_int_corbett",
+  "name": "Corbett Mansions, Fourth Floor Landing",
+  "parent_zone": "zone_district_916_906"
+}

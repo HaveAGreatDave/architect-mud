@@ -13,6 +13,6 @@
   "grid_z": -1,
   "id": "zone_util_zone_glass_house",
   "map_id": "map_int_glass",
-  "name": "Glass Half Full — The Stokehold",
+  "name": "The Winter Garden — The Stokehold",
   "parent_zone": "zone_district_896_915"
 }

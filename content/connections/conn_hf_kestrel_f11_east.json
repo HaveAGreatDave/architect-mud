@@ -1,0 +1,9 @@
+{
+  "a": "zone_kestrel_f11",
+  "b": "zone_kestrel_11b",
+  "blocked": false,
+  "dir": "east",
+  "id": "conn_hf_kestrel_f11_east",
+  "lockable": false,
+  "one_way": false
+}

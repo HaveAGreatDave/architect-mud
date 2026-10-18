@@ -17,6 +17,7 @@
     "floors": 2,
     "is_building": true,
     "region_id": "region_coldwater",
+    "sign_trade": "FLORIST",
     "world_exit_zone": "zone_district_909_913"
   },
   "grid_x": 909,

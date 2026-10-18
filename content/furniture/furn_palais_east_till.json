@@ -1,0 +1,17 @@
+{
+  "description": "A brass till with round keys and a bell, older than the bar it stands on.",
+  "flags": {
+    "aliases": [
+      "till",
+      "register",
+      "cash"
+    ],
+    "hack_difficulty": 3,
+    "vendor_npc_id": "npc_palais_barman",
+    "vendor_safe": true
+  },
+  "id": "furn_palais_east_till",
+  "name": "the till",
+  "object_type": "fixture",
+  "zone_id": "zone_palais_east_bar"
+}

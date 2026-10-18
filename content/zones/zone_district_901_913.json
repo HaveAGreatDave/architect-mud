@@ -4,7 +4,7 @@
   "description": "Fourteen storeys, clad to the seventh, and the only shell in the quarter where nothing at all moves. The crane is up, inspected and rigged, and nobody has been on it since spring. The frame is sheeted at the top against the weather and the sheeting has been renewed at least twice, which somebody is paying for and nobody is talking about.",
   "exits": {},
   "flags": {
-    "building_name": "Break Clause",
+    "building_name": "5 Cinder Lane",
     "building_type": "shell_tower",
     "district": "halcyon_fields",
     "entrance": "east",
@@ -17,7 +17,7 @@
   "grid_z": 0,
   "id": "zone_district_901_913",
   "map_id": "map_world",
-  "marker": "BC",
-  "name": "Break Clause",
+  "marker": "C5",
+  "name": "5 Cinder Lane",
   "parent_zone": null
 }

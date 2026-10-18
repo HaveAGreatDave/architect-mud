@@ -1,0 +1,11 @@
+{
+  "description": "A fabric-shaded pendant hanging from a plaster ceiling rose, the plaster painted over so many times the leaves have gone soft.",
+  "flags": {},
+  "id": "furn_light_zone_corbett_12b",
+  "light_type": "overhead",
+  "lumen_output": 1500,
+  "name": "the ceiling rose",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_corbett_12b"
+}

@@ -1,0 +1,271 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "jitter": 20,
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "cash_up",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "player_check",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "no": "off_random",
+        "type": "condition",
+        "yes": "home_idle"
+      },
+      "off_random": {
+        "options": [
+          "go_home_off",
+          "have_life"
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_PRESENT",
+        "no": "work_wait",
+        "type": "condition",
+        "yes": "work_say"
+      },
+      "post_shift": {
+        "options": [
+          "go_home_ps",
+          "home_life_ps"
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "work_wait": {
+        "jitter": 20,
+        "next": "check_work",
+        "seconds": 25,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "Lasko shakes a cocktail with both hands, very fast, and pours it without spilling a drop.",
+    "He holds a glass up to the light, finds something wrong with it, and polishes it again.",
+    "He straightens the bottles on the back bar so the labels face the room.",
+    "\"In my day,\" he says to the mirror, and doesn't finish.",
+    "He listens to the band through the open door, nods once, and goes back to work."
+  ],
+  "description": "A tall, stooped man of about seventy in a white bar jacket buttoned to the collar, his moustache waxed to two fine points. He pours without looking and polishes without stopping, and he has an opinion about every band that has played here in the last forty years.",
+  "dialogue_tree": {
+    "acts": {
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"The Sunday pianist. Nobody comes to hear her because she's on a Sunday, and that's their loss.\" He lowers his voice. \"The Tuesday comedian, avoid. The bands are bands. Some nights one of them is good and the whole room knows it before the first number is over.\"\n\n\"And if you play yourself, the grand on the stage is open. Minnie's rule. She'll tell you the rest of the rule.\""
+    },
+    "bye": {
+      "options": [],
+      "text": "\"Mind the step on the way out,\" he says. \"Everybody misses it.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "What have you got?",
+          "next": "__shop__"
+        },
+        {
+          "label": "What's a sidecar?",
+          "next": "sidecar"
+        },
+        {
+          "label": "Who's good, out of the acts?",
+          "next": "acts"
+        },
+        {
+          "label": "Nothing, thanks.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Evening.\" Lasko sets a coaster down in front of you. \"What'll it be?\"",
+      "text_by_relation": {
+        "familiar": "\"A sidecar,\" he says, and starts shaking one before you sit down.",
+        "first": "The barman finishes polishing a glass, holds it up to the light, and only then looks at you.\n\n\"Lionel Lasko. I've kept this bar since before you were born, probably.\" He sets a coaster down. \"Sidecars are the house drink. Whiskey if you must, beer if you're working. What'll it be?\"",
+        "known": "\"Back again.\" He is already reaching for the brandy."
+      }
+    },
+    "sidecar": {
+      "options": [
+        {
+          "label": "One of those.",
+          "next": "__shop__"
+        },
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Brandy, orange, lemon, sugar on the rim.\" He spins a coupe on the bar with one finger. \"It was the house drink on the opening night. I've made more of them than anyone alive. Call it arithmetic.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a white bar jacket buttoned to the collar",
+      "a black bow tie",
+      "black trousers with a satin stripe",
+      "polished black shoes"
+    ],
+    "personality": "vendor"
+  },
+  "home_activities": [],
+  "home_zone": "zone_meridian_unit_503",
+  "hp": 44,
+  "hp_max": 44,
+  "id": "npc_palais_barman",
+  "name": "Lionel Lasko",
+  "npc_type": "vendor",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_drink_palais_sidecar",
+      "price": 14
+    },
+    {
+      "item_id": "item_drink_rust_whiskey",
+      "price": 10
+    },
+    {
+      "item_id": "item_drug_beer",
+      "price": 6
+    },
+    {
+      "item_id": "item_iced_tea_carton",
+      "price": 4
+    }
+  ],
+  "vendor_restock_rate": 3,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 17,
+        "to": 27
+      }
+    ],
+    "mon": [
+      {
+        "from": 17,
+        "to": 25
+      }
+    ],
+    "sat": [
+      {
+        "from": 17,
+        "to": 27
+      }
+    ],
+    "sun": [
+      {
+        "from": 17,
+        "to": 24
+      }
+    ],
+    "thu": [
+      {
+        "from": 17,
+        "to": 25
+      }
+    ],
+    "tue": [
+      {
+        "from": 17,
+        "to": 25
+      }
+    ],
+    "wed": [
+      {
+        "from": 17,
+        "to": 25
+      }
+    ]
+  },
+  "vendor_shop_name": "The Coldwater Palais Bar",
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_palais_east_bar"
+}

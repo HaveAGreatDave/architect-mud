@@ -1,0 +1,25 @@
+{
+  "ambient_theme": "indoors",
+  "description": "The seventh floor landing, four flights up and the same as the last, except for a pushchair folded against the wall and the smell of somebody's dinner. Doors A and B face each other across the lino. Through the stair glass you can see over Adequate!'s roof to the green.",
+  "exits": {
+    "down": "zone_kestrel_f3",
+    "east": "zone_kestrel_7b",
+    "up": "zone_kestrel_f11",
+    "west": "zone_kestrel_7a"
+  },
+  "flags": {
+    "building_name": "Kestrel Court",
+    "building_type": "apartment",
+    "floor": "linoleum",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_913_908"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 2,
+  "id": "zone_kestrel_f7",
+  "map_id": "map_int_kestrel",
+  "name": "Kestrel Court, Seventh Floor Landing",
+  "parent_zone": "zone_district_913_908"
+}

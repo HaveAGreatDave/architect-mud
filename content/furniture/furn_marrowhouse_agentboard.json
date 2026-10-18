@@ -1,0 +1,15 @@
+{
+  "description": "A letting agent's board propped against a column: AVAILABLE, 4,200 SQ FT, WILL DIVIDE, and a phone number with the last two digits worn off.",
+  "flags": {
+    "aliases": [
+      "board",
+      "letting board",
+      "sign",
+      "agent"
+    ]
+  },
+  "id": "furn_marrowhouse_agentboard",
+  "name": "the letting board",
+  "object_type": "decoration",
+  "zone_id": "zone_marrowhouse_suite"
+}

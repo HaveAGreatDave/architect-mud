@@ -9,7 +9,7 @@
     "west": "zone_hf_peppercorn_desk"
   },
   "flags": {
-    "building_name": "Peppercorn",
+    "building_name": "5 Cowslip Rise",
     "building_type": "atrium_court",
     "district": "halcyon_fields",
     "entrance": "east",
@@ -24,7 +24,7 @@
   "grid_z": 0,
   "id": "zone_district_904_913",
   "map_id": "map_world",
-  "marker": "PA",
-  "name": "Peppercorn",
+  "marker": "R5",
+  "name": "5 Cowslip Rise",
   "parent_zone": null
 }

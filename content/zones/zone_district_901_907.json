@@ -16,6 +16,7 @@
     "facade": true,
     "is_building": true,
     "region_id": "region_coldwater",
+    "sign_trade": "NIGHTCLUB",
     "world_exit_zone": "zone_district_902_907"
   },
   "grid_x": 901,

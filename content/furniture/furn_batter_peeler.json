@@ -1,0 +1,14 @@
+{
+  "description": "A drum peeler on legs with a rough lining, plumbed to the drain. A sack of potatoes goes in the top and comes out of the hatch peeled and slightly smaller.",
+  "flags": {
+    "aliases": [
+      "peeler",
+      "drum",
+      "rumbler"
+    ]
+  },
+  "id": "furn_batter_peeler",
+  "name": "the peeler",
+  "object_type": "fixture",
+  "zone_id": "zone_batter_prep"
+}

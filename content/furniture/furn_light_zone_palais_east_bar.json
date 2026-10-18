@@ -1,0 +1,11 @@
+{
+  "description": "Glass globes on bronze stems along the bar, and the mirror behind it doubles every one.",
+  "flags": {},
+  "id": "furn_light_zone_palais_east_bar",
+  "light_type": "overhead",
+  "lumen_output": 1200,
+  "name": "the bar lights",
+  "object_type": "light",
+  "power_draw_kw": 0.03,
+  "zone_id": "zone_palais_east_bar"
+}

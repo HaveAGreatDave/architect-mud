@@ -1,0 +1,28 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A deep, narrow shop with shelves to the ceiling on both sides and a counter at the back under hanging cards of batteries, earplugs and cigarettes. Soap, socks, mugs, mops, tea, drain cleaner: it's all in here somewhere. The handwritten card over each shelf says what it holds, and none of them is right.",
+  "exits": {
+    "north": "zone_corbett_lobby"
+  },
+  "flags": {
+    "building_name": "Corbett Mansions",
+    "building_type": "apartment",
+    "floor": "boards",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "The shop window onto Lever Lane, crammed with sun-faded boxes and a cardboard sign that says IF WE HAVEN'T GOT IT YOU DON'T NEED IT.",
+      "light": 0.75,
+      "name": "the shop window",
+      "visibility": 0.5
+    },
+    "world_exit_zone": "zone_district_916_906"
+  },
+  "grid_x": 0,
+  "grid_y": 1,
+  "grid_z": 0,
+  "id": "zone_corbett_shop",
+  "map_id": "map_int_corbett",
+  "name": "Corbett Mansions, Mixed Bag Variety Store",
+  "parent_zone": "zone_district_916_906"
+}

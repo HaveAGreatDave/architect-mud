@@ -1,18 +1,20 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#6a6275",
-  "description": "A narrow frontage between two wider ones, with no sign at all. The door is good: steel core, three hinges, a spyhole at the height of a short woman's eye. The window is bricked to a slot and the slot is glazed with wire glass. People who need to find it find it, and the ones who don't, don't.",
+  "ambient_theme": "urban",
+  "bg_color": "#2e1e1a",
+  "color": "#e8c8a8",
+  "description": "Twelve storeys of red brick banded in stone, stepped back twice, with a bay of windows up the middle. CORBETT MANSIONS is cut across the stone ground floor in letters a foot high. Below it are a carved doorcase and a shopfront under a striped awning: MIXED BAG over VARIETY STORE. A timber water tank stands on the roof.",
   "exits": {
     "east": "zone_district_917_906",
-    "west": "zone_slip_shop"
+    "west": "zone_corbett_lobby"
   },
   "flags": {
-    "building_name": "The Slip",
-    "building_type": "fence",
+    "building_name": "Corbett Mansions",
+    "building_type": "apartment",
     "district": "yards",
     "entrance": "east",
     "facade": true,
+    "floors": 12,
     "is_building": true,
     "region_id": "region_coldwater",
     "world_exit_zone": "zone_district_917_906"
@@ -22,7 +24,7 @@
   "grid_z": 0,
   "id": "zone_district_916_906",
   "map_id": "map_world",
-  "marker": "SL",
-  "name": "The Slip",
+  "marker": "CN",
+  "name": "Corbett Mansions",
   "parent_zone": null
 }

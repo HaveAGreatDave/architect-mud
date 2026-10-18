@@ -1,0 +1,15 @@
+{
+  "description": "The arch round the stage, gilt plaster stepped in toward the curtain in five bands, a sunburst at the top of it. The gilt has been touched up in places, carefully.",
+  "flags": {
+    "aliases": [
+      "proscenium",
+      "arch",
+      "gilt",
+      "sunburst"
+    ]
+  },
+  "id": "furn_palais_proscenium",
+  "name": "the proscenium",
+  "object_type": "decoration",
+  "zone_id": "zone_palais_stalls"
+}

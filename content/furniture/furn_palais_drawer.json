@@ -1,0 +1,17 @@
+{
+  "description": "A steel drawer under the box office counter, locked with a key on a chain round the box office manager's wrist.",
+  "flags": {
+    "aliases": [
+      "drawer",
+      "cash drawer",
+      "cash"
+    ],
+    "hack_difficulty": 3,
+    "vendor_npc_id": "npc_palais_boxoffice",
+    "vendor_safe": true
+  },
+  "id": "furn_palais_drawer",
+  "name": "the cash drawer",
+  "object_type": "fixture",
+  "zone_id": "zone_palais_foyer"
+}

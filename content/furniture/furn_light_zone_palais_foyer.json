@@ -1,0 +1,11 @@
+{
+  "description": "A chandelier of stacked glass rings, five tiers of them, hung from a plaster rose. Every ring is clean.",
+  "flags": {},
+  "id": "furn_light_zone_palais_foyer",
+  "light_type": "overhead",
+  "lumen_output": 2600,
+  "name": "the chandelier",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_palais_foyer"
+}

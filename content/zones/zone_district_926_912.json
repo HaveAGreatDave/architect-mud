@@ -4,8 +4,8 @@
   "bg_color": "#1e1c19",
   "description": "A house, and still obviously a house: brick, a pitched roof with a chimney that is lit most evenings, and a square bay window to the left of the door with the curtains open and a waiting room behind them. What tells you it is not somebody's front room is the canopy over the door on two iron posts, the bench under it, and the brass plate beside the bell, which is polished and small and says only a name and three letters after it. There is a water bowl on the step. It is filled twice a day and it is not decorative.",
   "exits": {
-    "south": "zone_district_926_913",
-    "north": "zone_paws_wait"
+    "north": "zone_paws_wait",
+    "south": "zone_district_926_913"
   },
   "flags": {
     "building_name": "Paws for Thought",
@@ -16,6 +16,7 @@
     "floors": 2,
     "is_building": true,
     "region_id": "region_coldwater",
+    "sign_trade": "VET",
     "world_exit_zone": "zone_district_926_913"
   },
   "grid_x": 926,

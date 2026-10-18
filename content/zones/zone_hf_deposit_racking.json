@@ -6,7 +6,7 @@
     "west": "zone_hf_deposit_counter"
   },
   "flags": {
-    "building_name": "Deposit Taken",
+    "building_name": "4 Sorrel Way",
     "building_type": "atrium_court",
     "floor": "concrete",
     "is_building": true,
@@ -18,6 +18,6 @@
   "grid_z": 0,
   "id": "zone_hf_deposit_racking",
   "map_id": "map_int_hf_deposit",
-  "name": "Deposit Taken — The Racking Floor",
+  "name": "4 Sorrel Way — The Racking Floor",
   "parent_zone": "zone_district_895_915"
 }

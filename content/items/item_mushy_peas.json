@@ -1,0 +1,15 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_mushy_peas",
+  "name": "tub of mushy peas",
+  "tags": {
+    "consumable": true,
+    "description": "A foam tub of marrowfat peas boiled to a green paste. It will stay hotter than anything else in the bag for twenty minutes.",
+    "restore_hunger": 10,
+    "stackable": true
+  },
+  "type": "consumable",
+  "value": 4,
+  "weight": 250
+}

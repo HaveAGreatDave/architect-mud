@@ -1,0 +1,16 @@
+{
+  "description": "A painted board over the range: FISH SUPPER, CHIPS, SAUSAGE, PEAS, PICKLED EGG, SCRAPS. The prices are in marker on strips of tape, and the fish has been re-taped twice.",
+  "flags": {
+    "aliases": [
+      "board",
+      "menu",
+      "menu board",
+      "prices"
+    ],
+    "examine_detail": "Under the tape on the fish, the first price is still legible. It was half what it is now."
+  },
+  "id": "furn_batter_board",
+  "name": "the menu board",
+  "object_type": "decoration",
+  "zone_id": "zone_batter_shop"
+}

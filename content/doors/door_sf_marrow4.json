@@ -1,7 +1,7 @@
 {
-  "connection_id": "conn_district_913_908_north_x4s1",
+  "connection_id": "conn_district_916_910_south_4osj",
   "door_type": "shutter",
-  "exit_dir": "south",
+  "exit_dir": "north",
   "flags": {},
   "hololock_difficulty": 5,
   "hp": 700,
@@ -24,6 +24,6 @@
       }
     }
   },
-  "target_zone": "zone_district_913_908",
+  "target_zone": "zone_district_916_910",
   "zone_id": "zone_sf_marrow4"
 }

@@ -5,7 +5,7 @@
   "description": "A counter, a chair on your side of it, and a curtain behind. Nothing is displayed, because nothing here is for browsing: you say what you have, she says a number, and one of you leaves. The room is scrupulously clean, which is its own kind of statement about what happens in it.",
   "exits": {
     "down": "zone_util_zone_slip_shop",
-    "east": "zone_district_916_906",
+    "east": "zone_district_917_917",
     "west": "zone_slip_back"
   },
   "flags": {
@@ -20,13 +20,13 @@
       "name": "the barred window",
       "visibility": 0.6
     },
-    "world_exit_zone": "zone_district_916_906"
+    "world_exit_zone": "zone_district_917_917"
   },
   "grid_x": 0,
   "grid_y": 0,
   "grid_z": 0,
   "id": "zone_slip_shop",
   "map_id": "map_int_slip",
-  "name": "The Slip — Shop",
-  "parent_zone": "zone_district_916_906"
+  "name": "The Slip, Shop",
+  "parent_zone": "zone_district_917_917"
 }

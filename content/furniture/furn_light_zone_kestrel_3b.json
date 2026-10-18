@@ -1,0 +1,11 @@
+{
+  "description": "A paper lantern shade over a bare bulb in the middle of the ceiling. Every tenant has meant to replace it.",
+  "flags": {},
+  "id": "furn_light_zone_kestrel_3b",
+  "light_type": "overhead",
+  "lumen_output": 1400,
+  "name": "the ceiling light",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_kestrel_3b"
+}

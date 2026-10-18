@@ -4,8 +4,8 @@
   "bg_color": "#1a1714",
   "description": "The last shop before the South Gate and it is built like it knows that. The whole frontage is behind a folding grille, and behind the grille the window is glass block rather than glass, so there is nothing to see in and nothing to throw at. What is open is a hatch: a steel shutter with a rectangle cut in it at chest height, lit from inside, with a lipped sill and a turntable set into the sill so that nothing ever passes hand to hand. After dark the hatch is the only lit thing on this road, and the shop behind it is entirely black.",
   "exits": {
-    "west": "zone_district_918_914",
-    "east": "zone_spirit_shop"
+    "east": "zone_spirit_shop",
+    "west": "zone_district_918_914"
   },
   "flags": {
     "building_name": "Spirit Level",
@@ -16,6 +16,7 @@
     "floors": 2,
     "is_building": true,
     "region_id": "region_coldwater",
+    "sign_trade": "OFF LICENCE",
     "world_exit_zone": "zone_district_918_914"
   },
   "grid_x": 919,

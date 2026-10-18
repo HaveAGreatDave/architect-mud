@@ -1,9 +1,10 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "description": "The lane stops here. The back of a noodle bar closes the south end and the wind piles whatever it's carrying against it. The only useful light is a work lamp on a stalk, and it belongs to the workshop opposite, which isn't lending it.",
+  "description": "The lane bends here and drops south to Marrow Street. The wind piles whatever it's carrying into the corner. The only useful light is a work lamp on a stalk, and it belongs to the workshop opposite, which isn't lending it.",
   "exits": {
     "north": "zone_district_917_906",
+    "south": "zone_district_917_908",
     "west": "zone_district_916_907"
   },
   "flags": {

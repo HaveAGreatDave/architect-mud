@@ -1,0 +1,20 @@
+{
+  "description": "A round-shouldered cream fridge with a chrome handle like a car door.",
+  "flags": {
+    "aliases": [
+      "fridge",
+      "refrigerator"
+    ],
+    "appliance_grade": "consumer",
+    "container": 40000,
+    "interactions": [
+      "lean"
+    ],
+    "preserves": "refrigerated"
+  },
+  "id": "furn_corbett_4a_fridge",
+  "name": "the fridge",
+  "object_type": "container",
+  "power_draw_kw": 0.1,
+  "zone_id": "zone_corbett_4a"
+}

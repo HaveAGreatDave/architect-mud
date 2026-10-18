@@ -3,13 +3,13 @@
   "ambient_theme": "urban",
   "bg_color": "#0f1721",
   "color": "#c6e8ff",
-  "description": "The tallest thing in Halcyon Fields that is not the Spire, nineteen floors of shearing glass on a chrome podium, with a lit collar at every fifth level. It was named before the streets round it were laid, which means it has spent four years being the prime location in a field. The entrance is a double-height slot in the chrome podium on the Cinder Lane side, with the name cut into the stone above it in letters a foot high and a lit collar directly overhead that makes the doorway the brightest thing on the lane.",
+  "description": "The tallest thing in Halcyon Fields that is not the Spire, nineteen floors of shearing glass on a chrome podium, with a lit collar at every fifth level. It was sold off the plan before the streets round it were laid, which means it has spent four years as the best address in a field. The entrance is a double-height slot in the chrome podium on the Cinder Lane side, with the number cut into the stone above it in figures a foot high and a lit collar directly overhead that makes the doorway the brightest thing on the lane.",
   "exits": {
     "east": "zone_hf_prime_lobby",
     "west": "zone_district_902_912"
   },
   "flags": {
-    "building_name": "Prime Location",
+    "building_name": "4 Cinder Lane",
     "building_type": "torque_tower",
     "district": "halcyon_fields",
     "entrance": "west",
@@ -24,7 +24,7 @@
   "grid_z": 0,
   "id": "zone_district_903_912",
   "map_id": "map_world",
-  "marker": "PL",
-  "name": "Prime Location",
+  "marker": "C4",
+  "name": "4 Cinder Lane",
   "parent_zone": null
 }

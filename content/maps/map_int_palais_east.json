@@ -1,0 +1,6 @@
+{
+  "entry_zone_id": "zone_palais_east_bar",
+  "id": "map_int_palais_east",
+  "name": "The Coldwater Palais",
+  "parent_zone_id": "zone_district_910_909"
+}

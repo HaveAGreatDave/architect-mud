@@ -12,13 +12,13 @@
     "floor": "boards",
     "is_building": true,
     "is_interior": true,
-    "world_exit_zone": "zone_district_916_906"
+    "world_exit_zone": "zone_district_917_917"
   },
   "grid_x": -1,
   "grid_y": 0,
   "grid_z": 0,
   "id": "zone_slip_back",
   "map_id": "map_int_slip",
-  "name": "The Slip — Behind the Curtain",
-  "parent_zone": "zone_district_916_906"
+  "name": "The Slip, Behind the Curtain",
+  "parent_zone": "zone_district_917_917"
 }

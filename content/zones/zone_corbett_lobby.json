@@ -1,0 +1,31 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A long hall with a black-and-white tiled floor and a dado of brown glazed tile. A stone stair with a brass rail climbs past a birdcage lift that hasn't moved in years. Brass letter flaps are set into the wall in rows. To the south a bead curtain opens into Mixed Bag Variety Store, smelling of firelighters and boiled sweets.",
+  "exits": {
+    "down": "zone_util_zone_corbett_lobby",
+    "east": "zone_district_916_906",
+    "south": "zone_corbett_shop",
+    "up": "zone_corbett_f4"
+  },
+  "flags": {
+    "building_name": "Corbett Mansions",
+    "building_type": "apartment",
+    "floor": "tile",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "A half-moon of coloured glass over the street door, the lead between the panes black with age. The light comes through it red and green on the tiles.",
+      "light": 0.6,
+      "name": "the fanlight",
+      "visibility": 0.3
+    },
+    "world_exit_zone": "zone_district_916_906"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_corbett_lobby",
+  "map_id": "map_int_corbett",
+  "name": "Corbett Mansions, Lobby",
+  "parent_zone": "zone_district_916_906"
+}

@@ -16,6 +16,7 @@
     "facade": true,
     "is_building": true,
     "region_id": "region_coldwater",
+    "sign_trade": "CLINIC",
     "world_exit_zone": "zone_district_915_909"
   },
   "grid_x": 915,

@@ -1,0 +1,266 @@
+{
+  "adorn": [
+    {
+      "cx": 0,
+      "cy": 0.39,
+      "day": 0.25,
+      "kind": "glowPool",
+      "rgb": "255,214,160",
+      "s": 14,
+      "z": 0.1
+    },
+    {
+      "cx": -0.2,
+      "cy": 0.37,
+      "day": 0,
+      "kind": "glowPool",
+      "rgb": "255,224,176",
+      "s": 9,
+      "z": 0.08
+    },
+    {
+      "cx": 0.2,
+      "cy": 0.37,
+      "day": 0,
+      "kind": "glowPool",
+      "rgb": "255,224,176",
+      "s": 9,
+      "z": 0.08
+    }
+  ],
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "name",
+      "key": "Marrow House"
+    }
+  ],
+  "detail": [
+    {
+      "cx": 0,
+      "cy": 0.33,
+      "depth": 0.016,
+      "door": 2,
+      "glass": "#2a2014",
+      "glow": "#ffd890",
+      "half": 0.07,
+      "hh": 0.06,
+      "kind": "windowBay",
+      "pal": "ty_marble_bronze",
+      "transom": 0.72,
+      "z": 0.06
+    },
+    {
+      "bars": 2,
+      "cx": -0.2,
+      "cy": 0.33,
+      "depth": 0.012,
+      "glass": "#2a2014",
+      "glow": "#ffdca0",
+      "half": 0.075,
+      "hh": 0.065,
+      "kind": "windowBay",
+      "pal": "ty_marble_bronze",
+      "z": 0.075
+    },
+    {
+      "bars": 2,
+      "cx": 0.2,
+      "cy": 0.33,
+      "depth": 0.012,
+      "glass": "#2a2014",
+      "glow": "#ffdca0",
+      "half": 0.075,
+      "hh": 0.065,
+      "kind": "windowBay",
+      "pal": "ty_marble_bronze",
+      "z": 0.075
+    },
+    {
+      "cx": 0,
+      "cy": 0.33,
+      "half": 0.14,
+      "hh": 0.006,
+      "kind": "canopy",
+      "out": 0.1,
+      "pal": "ty_marble_bronze",
+      "soffit": "#3a2a18",
+      "strip": "#ffe2b8",
+      "z": 0.132
+    },
+    {
+      "bare": true,
+      "cx": 0,
+      "cy": 0.33,
+      "font": "deco",
+      "half": 0.2,
+      "hh": 0.012,
+      "ink": "#5a3e1e",
+      "kind": "signBoard",
+      "label": "$name",
+      "nightInk": "#ffe0a8",
+      "z": 0.158
+    },
+    {
+      "cx": 0,
+      "cy": 0.3,
+      "glow": "#ffce78",
+      "glowFrom": 0.4,
+      "kind": "pilaster",
+      "n": 5,
+      "out": 0.016,
+      "pal": "ty_marble_col",
+      "step": 0.12,
+      "w": 0.012,
+      "z0": 0.18,
+      "z1": 0.78
+    },
+    {
+      "cx": 0,
+      "cy": -0.3,
+      "kind": "pilaster",
+      "n": 5,
+      "out": 0.016,
+      "pal": "ty_marble_col",
+      "step": 0.12,
+      "w": 0.012,
+      "z0": 0.18,
+      "z1": 0.78
+    },
+    {
+      "cx": 0,
+      "cy": 0.3,
+      "face": "x",
+      "kind": "pilaster",
+      "n": 5,
+      "out": 0.016,
+      "pal": "ty_marble_col",
+      "step": 0.12,
+      "w": 0.012,
+      "z0": 0.18,
+      "z1": 0.78
+    },
+    {
+      "cx": 0,
+      "cy": -0.3,
+      "face": "x",
+      "kind": "pilaster",
+      "n": 5,
+      "out": 0.016,
+      "pal": "ty_marble_col",
+      "step": 0.12,
+      "w": 0.012,
+      "z0": 0.18,
+      "z1": 0.78
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "half": 0.255,
+      "hh": 0.01,
+      "kind": "parapet",
+      "pal": "ty_marble_bronze",
+      "z": 0.97
+    },
+    {
+      "cx": -0.1,
+      "cy": -0.03,
+      "half": 0.05,
+      "hh": 0.025,
+      "kind": "louvreBank",
+      "n": 6,
+      "pal": "ty_marble_col",
+      "z": 1.005
+    },
+    {
+      "cx": 0.12,
+      "cy": 0.08,
+      "d": 0.04,
+      "hh": 0.02,
+      "kind": "acUnit",
+      "pal": "ty_cold",
+      "w": 0.05,
+      "z": 0.97
+    },
+    {
+      "count": 4,
+      "cx": 0,
+      "cy": 0.43,
+      "hh": 0.03,
+      "kind": "bollard",
+      "pal": "ty_marble_bronze",
+      "r": 0.012,
+      "step": 0.09,
+      "z": 0
+    }
+  ],
+  "id": "marrowhouse",
+  "note": "MARROW HOUSE: six storeys of offices on Marrow Street, between Solenne and Nico's (docs/proposals/marrow-midrises.md).\n\nSolenne in miniature, on purpose: a pale stone podium with a bronze canopy over the doors and the name in bronze on the stone, then Solenne's champagne glass (`ty_solenne`) between stone fins that run gold at night, a stone band, one storey set back under a bronze coping, and a plant room. Half Kestrel's height and a smaller plot, so it reads as the low building on the block.\n\n⚠ EVERY MASS IS A SQUARE, the plant room included, for the reason in Kestrel's note.\n\n⚠ THE GLASS DRAWS ITS OWN STOREYS. No window repeats on the shaft; the fins are the rhythm.",
+  "pal": "ty_solenne",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.33,
+      "kind": "box",
+      "pal": "ty_marble_col",
+      "roof": true,
+      "z0": 0,
+      "z1": 0.18
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.3,
+      "kind": "box",
+      "pal": "ty_solenne",
+      "roof": true,
+      "z0": 0.18,
+      "z1": 0.78
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.312,
+      "kind": "box",
+      "pal": "ty_marble_col",
+      "roof": true,
+      "z0": 0.78,
+      "z1": 0.8
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.25,
+      "kind": "box",
+      "pal": "ty_solenne",
+      "roof": true,
+      "z0": 0.8,
+      "z1": 0.95
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.26,
+      "kind": "box",
+      "pal": "ty_marble_bronze",
+      "roof": true,
+      "z0": 0.95,
+      "z1": 0.97
+    },
+    {
+      "cx": -0.1,
+      "cy": -0.1,
+      "hw": 0.07,
+      "kind": "box",
+      "pal": "ty_marble_col",
+      "roof": true,
+      "z0": 0.97,
+      "z1": 1.04
+    }
+  ],
+  "trade": "marrowhouse"
+}

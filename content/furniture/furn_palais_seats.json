@@ -1,0 +1,18 @@
+{
+  "description": "Red plush tip-up seats with brass numbers on the backs. Some of the plush has been patched in a red that is nearly the same.",
+  "flags": {
+    "aliases": [
+      "seats",
+      "seat",
+      "stalls",
+      "chairs"
+    ],
+    "interactions": [
+      "sit"
+    ]
+  },
+  "id": "furn_palais_seats",
+  "name": "the stalls seats",
+  "object_type": "furniture",
+  "zone_id": "zone_palais_stalls"
+}

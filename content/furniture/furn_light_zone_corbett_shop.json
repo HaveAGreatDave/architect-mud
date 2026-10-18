@@ -1,0 +1,11 @@
+{
+  "description": "Two long fluorescent tubes down the middle of the ceiling, one of them flickering at the end.",
+  "flags": {},
+  "id": "furn_light_zone_corbett_shop",
+  "light_type": "overhead",
+  "lumen_output": 2200,
+  "name": "the strip lights",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_corbett_shop"
+}

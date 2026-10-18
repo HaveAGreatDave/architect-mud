@@ -5,7 +5,7 @@
     "down": "zone_hf_relief_lobby"
   },
   "flags": {
-    "building_name": "Light Relief",
+    "building_name": "1 Kerbstone Row",
     "building_type": "chrome_tower",
     "floor": "linoleum",
     "is_building": true,
@@ -17,6 +17,6 @@
   "grid_z": 0,
   "id": "zone_hf_relief_canteen",
   "map_id": "map_int_hf_relief",
-  "name": "Light Relief — The Fifth Collar",
+  "name": "1 Kerbstone Row — The Fifth Collar",
   "parent_zone": "zone_district_892_915"
 }

@@ -18,6 +18,7 @@
     "floors": 5,
     "is_building": true,
     "region_id": "region_coldwater",
+    "sign_trade": "AUGMENTS",
     "world_exit_zone": "zone_district_894_907"
   },
   "grid_x": 893,

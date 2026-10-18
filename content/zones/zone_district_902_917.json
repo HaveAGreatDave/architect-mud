@@ -9,7 +9,7 @@
     "south": "zone_hf_stampduty_undercroft"
   },
   "flags": {
-    "building_name": "Stamp Duty",
+    "building_name": "Halcyon Records Office",
     "building_type": "lens_hall",
     "district": "halcyon_fields",
     "entrance": "north",
@@ -24,7 +24,7 @@
   "grid_z": 0,
   "id": "zone_district_902_917",
   "map_id": "map_world",
-  "marker": "DU",
-  "name": "Stamp Duty",
+  "marker": "RE",
+  "name": "Halcyon Records Office",
   "parent_zone": null
 }

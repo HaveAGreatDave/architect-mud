@@ -1,0 +1,15 @@
+{
+  "description": "The clerk's hatch onto the lay-by, a sliding window with a brass tray under it, plated over from outside with a sheet of steel. The tray is still there. A ticket for forty tonnes of aggregate is still in it, dated before the Curtain.",
+  "flags": {
+    "aliases": [
+      "hatch",
+      "tray",
+      "ticket",
+      "window"
+    ]
+  },
+  "id": "furn_slip_hatch",
+  "name": "the plated hatch",
+  "object_type": "decoration",
+  "zone_id": "zone_slip_shop"
+}

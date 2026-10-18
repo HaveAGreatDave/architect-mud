@@ -1,0 +1,15 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_scraps",
+  "name": "scraps",
+  "tags": {
+    "consumable": true,
+    "description": "A paper twist of loose batter skimmed off the fryer. Crisp, salty, and the cheapest hot thing on Ironside Street.",
+    "restore_hunger": 5,
+    "stackable": true
+  },
+  "type": "consumable",
+  "value": 1,
+  "weight": 60
+}

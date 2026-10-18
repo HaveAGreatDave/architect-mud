@@ -7,7 +7,7 @@
     "up": "zone_hf_glassceiling_apex"
   },
   "flags": {
-    "building_name": "Glass Ceiling",
+    "building_name": "Halcyon Point",
     "building_type": "glass_prism",
     "floor": "stone",
     "is_building": true,
@@ -25,6 +25,6 @@
   "grid_z": 0,
   "id": "zone_hf_glassceiling_lobby",
   "map_id": "map_int_hf_glassceiling",
-  "name": "Glass Ceiling — The Lobby",
+  "name": "Halcyon Point — The Lobby",
   "parent_zone": "zone_district_904_911"
 }

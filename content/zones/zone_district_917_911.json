@@ -17,6 +17,7 @@
     "floors": 3,
     "is_building": true,
     "region_id": "region_coldwater",
+    "sign_trade": "CHEMIST",
     "world_exit_zone": "zone_district_917_912"
   },
   "grid_x": 917,

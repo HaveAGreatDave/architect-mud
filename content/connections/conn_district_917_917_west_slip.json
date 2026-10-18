@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_917_917",
+  "b": "zone_slip_shop",
+  "blocked": false,
+  "dir": "west",
+  "id": "conn_district_917_917_west_slip",
+  "lockable": true,
+  "one_way": false
+}

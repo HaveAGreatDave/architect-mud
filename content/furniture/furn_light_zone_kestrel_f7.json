@@ -1,0 +1,11 @@
+{
+  "description": "A round bulkhead light in a wire guard over the fire door. It comes on when you open the door and stays on longer than it needs to.",
+  "flags": {},
+  "id": "furn_light_zone_kestrel_f7",
+  "light_type": "overhead",
+  "lumen_output": 900,
+  "name": "the landing light",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_kestrel_f7"
+}

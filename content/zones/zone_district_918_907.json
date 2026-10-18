@@ -1,22 +1,22 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "bg_color": "#2f3a26",
-  "color": "#8ba36a",
-  "description": "The face of Tine & Temper, a low brick smithy with a slate roof and a chimney that never quite goes cold. Racks of blackened pans and bright new tines hang either side of the door, and the whole frontage rings faintly when the wind gets into them. The road runs off to the east.",
+  "ambient_theme": "urban",
+  "bg_color": "#221a14",
+  "color": "#e8b866",
+  "description": "A low brick shop with a slate roof and a steel flue up the back corner, breathing steam and frying oil for as long as it is open. The front is one wide window, fogged on the inside, with a glass door in the middle. BATTER DAYS is painted over it in cream on dark green, with FISH & CHIPS smaller underneath, and a tin fish hangs off a bracket over the pavement. Rows of hooks still run along the brick either side of the door from when the place sold pans.",
   "exits": {
     "east": "zone_district_919_907",
-    "west": "zone_kitchenware"
+    "west": "zone_batter_shop"
   },
   "flags": {
-    "building_name": "Tine & Temper",
-    "building_type": "kitchenware",
+    "building_name": "Batter Days Fish & Chips",
+    "building_type": "chip_shop",
     "district": "industrial",
     "entrance": "east",
     "facade": true,
+    "floors": 1,
     "is_building": true,
     "region_id": "region_coldwater",
-    "scavenging_table_id": "scav_west_wastes",
     "world_exit_zone": "zone_district_919_907"
   },
   "grid_x": 918,
@@ -24,7 +24,7 @@
   "grid_z": 0,
   "id": "zone_district_918_907",
   "map_id": "map_world",
-  "marker": "TT",
-  "name": "Tine & Temper",
+  "marker": "BT",
+  "name": "Batter Days Fish & Chips",
   "parent_zone": null
 }

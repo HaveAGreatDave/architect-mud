@@ -1,0 +1,31 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A high-ceilinged flat with a picture rail and a boarded-up fireplace. A kitchenette fills the old scullery. The sash window looks down Lever Lane to the Meridian. The lane is loud until two and busy again by six. The bathroom is through a panelled door at the back.",
+  "exits": {
+    "north": "zone_corbett_12b_bath",
+    "west": "zone_corbett_f12"
+  },
+  "flags": {
+    "building_name": "Corbett Mansions",
+    "building_type": "apartment",
+    "floor": "boards",
+    "is_apartment": true,
+    "is_building": true,
+    "is_interior": true,
+    "rent_cost": 280,
+    "window": {
+      "description": "A tall sash window with the city spread out under it.",
+      "light": 0.8,
+      "name": "the sash window",
+      "visibility": 0.85
+    },
+    "world_exit_zone": "zone_district_916_906"
+  },
+  "grid_x": 1,
+  "grid_y": 0,
+  "grid_z": 3,
+  "id": "zone_corbett_12b",
+  "map_id": "map_int_corbett",
+  "name": "Corbett Mansions, Unit 12B",
+  "parent_zone": "zone_district_916_906"
+}

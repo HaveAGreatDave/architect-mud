@@ -1,0 +1,29 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A tall foyer floored in black and cream stone, laid in a sunburst from the box office window. Bronze rails, plaster fluted like a shell over the doors, and a chandelier of stacked glass rings that somebody climbs a ladder to dust. Framed bills line the walls, the oldest gone brown. The stalls are through the doors to the east.",
+  "exits": {
+    "east": "zone_palais_stalls",
+    "north": "zone_district_908_909"
+  },
+  "flags": {
+    "building_name": "The Coldwater Palais",
+    "building_type": "palais_foyer",
+    "floor": "stone",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "Tall windows in bronze frames either side of the doors, looking out on Meltwater Row. The glass is clean enough to see your own reflection in it over the street.",
+      "light": 0.7,
+      "name": "the foyer windows",
+      "visibility": 0.8
+    },
+    "world_exit_zone": "zone_district_908_909"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_palais_foyer",
+  "map_id": "map_int_palais",
+  "name": "The Coldwater Palais: The Box Office Foyer",
+  "parent_zone": "zone_district_908_909"
+}

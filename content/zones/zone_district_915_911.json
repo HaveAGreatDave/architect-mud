@@ -17,6 +17,7 @@
     "floors": 3,
     "is_building": true,
     "region_id": "region_coldwater",
+    "sign_trade": "MUSIC",
     "world_exit_zone": "zone_district_915_912"
   },
   "grid_x": 915,

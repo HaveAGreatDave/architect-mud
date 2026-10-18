@@ -1,0 +1,9 @@
+{
+  "a": "zone_corbett_lobby",
+  "b": "zone_corbett_shop",
+  "blocked": false,
+  "dir": "south",
+  "id": "conn_hf_corbett_lobby_south",
+  "lockable": false,
+  "one_way": false
+}

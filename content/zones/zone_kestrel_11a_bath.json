@@ -1,0 +1,22 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A narrow bathroom in white tile, the grout already going grey: a short bath with a shower over it, a basin under a mirror cabinet, and a toilet you have to flush twice. The fan comes on with the light and runs for ten minutes after it goes off.",
+  "exits": {
+    "south": "zone_kestrel_11a"
+  },
+  "flags": {
+    "building_name": "Kestrel Court",
+    "building_type": "apartment",
+    "floor": "tile",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_913_908"
+  },
+  "grid_x": -1,
+  "grid_y": -1,
+  "grid_z": 3,
+  "id": "zone_kestrel_11a_bath",
+  "map_id": "map_int_kestrel",
+  "name": "Kestrel Court, Unit 11A Bathroom",
+  "parent_zone": "zone_district_913_908"
+}

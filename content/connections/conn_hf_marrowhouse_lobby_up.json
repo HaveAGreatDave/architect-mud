@@ -1,0 +1,9 @@
+{
+  "a": "zone_marrowhouse_lobby",
+  "b": "zone_marrowhouse_suite",
+  "blocked": false,
+  "dir": "up",
+  "id": "conn_hf_marrowhouse_lobby_up",
+  "lockable": false,
+  "one_way": false
+}

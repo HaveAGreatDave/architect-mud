@@ -1,0 +1,20 @@
+{
+  "description": "Two electric rings on the worktop. One of them heats.",
+  "flags": {
+    "aliases": [
+      "hob",
+      "rings",
+      "cooker",
+      "stove"
+    ],
+    "interactions": [
+      "lean"
+    ],
+    "stove_tier": "low"
+  },
+  "id": "furn_kestrel_7b_hob",
+  "name": "the hob",
+  "object_type": "fixture",
+  "power_draw_kw": 0.3,
+  "zone_id": "zone_kestrel_7b"
+}

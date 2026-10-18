@@ -1,9 +1,0 @@
-{
-  "capacity_kw": 200,
-  "flags": {},
-  "generator_id": "gen_zone_util_zone_hock_pawn",
-  "id": "zone_hock_pawn",
-  "max_capacity_kw": 200,
-  "name": "In Hock We Trust",
-  "source_type": "city_grid"
-}

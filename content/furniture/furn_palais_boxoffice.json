@@ -1,0 +1,16 @@
+{
+  "description": "A bronze kiosk with a curved glass front and a slot at the bottom for money and tickets. A card in the window gives the doors as eight o'clock. Behind the glass there is a cash drawer, a book of tickets and a stool.",
+  "flags": {
+    "aliases": [
+      "box office",
+      "kiosk",
+      "window",
+      "tickets",
+      "glass"
+    ]
+  },
+  "id": "furn_palais_boxoffice",
+  "name": "the box office",
+  "object_type": "fixture",
+  "zone_id": "zone_palais_foyer"
+}

@@ -9,7 +9,7 @@
     "west": "zone_hf_root_lab"
   },
   "flags": {
-    "building_name": "Root Cause",
+    "building_name": "7 Cinder Lane",
     "building_type": "vertical_farm",
     "district": "halcyon_fields",
     "entrance": "east",
@@ -24,7 +24,7 @@
   "grid_z": 0,
   "id": "zone_district_901_914",
   "map_id": "map_world",
-  "marker": "RT",
-  "name": "Root Cause",
+  "marker": "C7",
+  "name": "7 Cinder Lane",
   "parent_zone": null
 }

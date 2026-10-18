@@ -1,0 +1,23 @@
+{
+  "ambient_theme": "outdoors",
+  "description": "Grey membrane inside a stone parapet with a bronze rail, and the lift motor room padlocked in the middle. The brochure called it a roof terrace. Washing lines run from the motor room to the rail. The Basin lies to the north, Marrow Street to the south, and Solenne's glass goes up and up to the east.",
+  "exits": {
+    "down": "zone_kestrel_f11"
+  },
+  "flags": {
+    "building_name": "Kestrel Court",
+    "building_type": "apartment",
+    "floor": "concrete",
+    "is_building": true,
+    "is_interior": true,
+    "open_sky": true,
+    "world_exit_zone": "zone_district_913_908"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 4,
+  "id": "zone_kestrel_roof",
+  "map_id": "map_int_kestrel",
+  "name": "Kestrel Court, Roof",
+  "parent_zone": "zone_district_913_908"
+}

@@ -16,6 +16,7 @@
     "facade": true,
     "is_building": true,
     "region_id": "region_coldwater",
+    "sign_trade": "WELDING",
     "world_exit_zone": "zone_district_921_906"
   },
   "grid_x": 922,

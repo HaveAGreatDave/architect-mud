@@ -1,0 +1,18 @@
+{
+  "description": "A heavy old cash register with round keys and a drawer that comes out with a bang.",
+  "flags": {
+    "aliases": [
+      "till",
+      "register",
+      "cash register",
+      "drawer"
+    ],
+    "hack_difficulty": 3,
+    "vendor_npc_id": "npc_mixedbag_lark",
+    "vendor_safe": true
+  },
+  "id": "furn_corbett_till",
+  "name": "the till",
+  "object_type": "fixture",
+  "zone_id": "zone_corbett_shop"
+}

@@ -1,0 +1,15 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_choc_ice",
+  "name": "a choc ice",
+  "tags": {
+    "consumable": true,
+    "description": "A block of vanilla ice cream in a thin shell of chocolate, wrapped in foil. Cold enough to hurt your teeth, and gone in four bites.",
+    "restore_hunger": 8,
+    "stackable": true
+  },
+  "type": "consumable",
+  "value": 4,
+  "weight": 80
+}

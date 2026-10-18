@@ -1,24 +1,25 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "description": "A stretch of hardy, knee-high grass gone silver-green and gnawed short by whatever still grazes out here. The wind moves through it in long slow waves. Something rustles, then goes very still.",
-  "exits": {
-    "east": "zone_district_910_909",
-    "north": "zone_district_909_908",
-    "south": "zone_district_909_910",
-    "west": "zone_district_908_909"
-  },
+  "ambient_theme": "urban",
+  "bg_color": "#2a2219",
+  "color": "#e8c878",
+  "description": "The middle of the Palais is blind stone with a stepped bay standing out of it, and a bronze blade off the bay with PALAIS down both faces in letters taller than a man. Across its foot runs a marquee ringed with bulbs, the bill in black capitals on milk glass. The stage house rises behind, copper on top.",
+  "exits": {},
   "flags": {
-    "district": "wasteland",
-    "region_id": "region_coldwater",
-    "scavenging_table_id": "scav_west_wastes",
-    "terrain": "forest"
+    "building_name": "The Coldwater Palais",
+    "building_type": "palais_stage",
+    "district": "commercial",
+    "entrance": "north",
+    "floors": 5,
+    "is_building": true,
+    "region_id": "region_coldwater"
   },
   "grid_x": 909,
   "grid_y": 909,
   "grid_z": 0,
   "id": "zone_district_909_909",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "marker": "MH",
+  "name": "The Coldwater Palais",
   "parent_zone": null
 }

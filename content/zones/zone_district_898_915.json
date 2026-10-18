@@ -9,7 +9,7 @@
     "south": "zone_district_898_916"
   },
   "flags": {
-    "building_name": "Top of the Market",
+    "building_name": "17 Kerbstone Row",
     "building_type": "torque_tower",
     "district": "halcyon_fields",
     "entrance": "south",
@@ -24,7 +24,7 @@
   "grid_z": 0,
   "id": "zone_district_898_915",
   "map_id": "map_world",
-  "marker": "TE",
-  "name": "Top of the Market",
+  "marker": "17",
+  "name": "17 Kerbstone Row",
   "parent_zone": null
 }

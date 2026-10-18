@@ -3,13 +3,13 @@
   "ambient_theme": "urban",
   "bg_color": "#0e151d",
   "color": "#b0d6f0",
-  "description": "A tower that shears as it rises, each floor turned a few degrees on the one below, so the corner you are looking at walks round the building as you drive past it and the whole thing looks slightly wrung out. The entrance is a chrome drum canopy on the lane side with one door in it, and the door is thicker than a door needs to be. The name is cut into the canopy fascia, small, in letters about four inches high.",
+  "description": "A tower that shears as it rises, each floor turned a few degrees on the one below, so the corner you are looking at walks round the building as you drive past it and the whole thing looks slightly wrung out. The entrance is a chrome drum canopy on the lane side with one door in it, and the door is thicker than a door needs to be. The number is cut into the canopy fascia, small, in figures about four inches high.",
   "exits": {
     "east": "zone_district_902_911",
     "west": "zone_hf_safe_hall"
   },
   "flags": {
-    "building_name": "Safe as Houses",
+    "building_name": "1 Cinder Lane",
     "building_type": "torque_tower",
     "district": "halcyon_fields",
     "entrance": "east",
@@ -24,7 +24,7 @@
   "grid_z": 0,
   "id": "zone_district_901_911",
   "map_id": "map_world",
-  "marker": "HB",
-  "name": "Safe as Houses",
+  "marker": "C1",
+  "name": "1 Cinder Lane",
   "parent_zone": null
 }

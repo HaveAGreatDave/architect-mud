@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_916_906",
+  "b": "zone_corbett_lobby",
+  "blocked": false,
+  "dir": "west",
+  "id": "conn_hf_district_916_906_west",
+  "lockable": true,
+  "one_way": false
+}

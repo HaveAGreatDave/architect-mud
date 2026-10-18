@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_913_908",
+  "b": "zone_kestrel_lobby",
+  "blocked": false,
+  "dir": "north",
+  "id": "conn_hf_district_913_908_north",
+  "lockable": true,
+  "one_way": false
+}

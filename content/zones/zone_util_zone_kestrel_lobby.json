@@ -1,0 +1,18 @@
+{
+  "description": "A low concrete room under the lobby, warm and loud, with the boiler and the pumps along one wall and the junction box on the other. The bins live here in winter, which is why it smells the way it does.",
+  "exits": {
+    "up": "zone_kestrel_lobby"
+  },
+  "flags": {
+    "floor": "concrete",
+    "is_interior": true,
+    "world_exit_zone": "zone_district_913_908"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_kestrel_lobby",
+  "map_id": "map_int_kestrel",
+  "name": "Kestrel Court, The Boiler Room",
+  "parent_zone": "zone_district_913_908"
+}

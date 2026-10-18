@@ -1,0 +1,11 @@
+{
+  "description": "Small shaded lamps along the circle rail, low enough not to bother anyone watching the stage.",
+  "flags": {},
+  "id": "furn_light_zone_palais_circle",
+  "light_type": "overhead",
+  "lumen_output": 1800,
+  "name": "the circle lamps",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_palais_circle"
+}

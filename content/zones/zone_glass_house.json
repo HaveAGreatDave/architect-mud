@@ -6,7 +6,7 @@
     "south": "zone_district_896_915"
   },
   "flags": {
-    "building_name": "Glass Half Full",
+    "building_name": "The Winter Garden",
     "building_type": "winter_garden",
     "floor": "stone",
     "is_building": true,
@@ -24,6 +24,6 @@
   "grid_z": 0,
   "id": "zone_glass_house",
   "map_id": "map_int_glass",
-  "name": "Glass Half Full — The Long House",
+  "name": "The Winter Garden — The Long House",
   "parent_zone": "zone_district_896_915"
 }

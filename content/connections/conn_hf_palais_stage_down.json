@@ -1,0 +1,9 @@
+{
+  "a": "zone_palais_stage",
+  "b": "zone_util_zone_palais_stage",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_hf_palais_stage_down",
+  "lockable": false,
+  "one_way": false
+}

@@ -1,0 +1,18 @@
+{
+  "description": "A brick-vaulted basement under the hall, with the boiler in one vault and the junction box in the next. The shop's stock overflows down here in boxes stacked to the vaults, labelled in Effie's hand.",
+  "exits": {
+    "up": "zone_corbett_lobby"
+  },
+  "flags": {
+    "floor": "concrete",
+    "is_interior": true,
+    "world_exit_zone": "zone_district_916_906"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_corbett_lobby",
+  "map_id": "map_int_corbett",
+  "name": "Corbett Mansions, The Basement",
+  "parent_zone": "zone_district_916_906"
+}

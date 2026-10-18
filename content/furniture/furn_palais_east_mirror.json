@@ -1,0 +1,15 @@
+{
+  "description": "The mirror behind the bar, the length of the room, its silvering gone grey at the edges. The bottles on its glass shelves double in it so the bar looks twice as well stocked as it is.",
+  "flags": {
+    "aliases": [
+      "mirror",
+      "back bar",
+      "bottles",
+      "shelves"
+    ]
+  },
+  "id": "furn_palais_east_mirror",
+  "name": "the back bar",
+  "object_type": "decoration",
+  "zone_id": "zone_palais_east_bar"
+}

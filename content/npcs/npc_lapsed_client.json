@@ -76,7 +76,7 @@
     "personality": "unemployed"
   },
   "home_activities": [],
-  "home_zone": "zone_district_913_908",
+  "home_zone": "zone_district_916_910",
   "hp": 34,
   "hp_max": 34,
   "id": "npc_lapsed_client",
@@ -91,5 +91,5 @@
   "vendor_stock_size": 10,
   "wander_zones": [],
   "wanders": 0,
-  "work_zone_id": "zone_district_913_908"
+  "work_zone_id": "zone_district_916_910"
 }

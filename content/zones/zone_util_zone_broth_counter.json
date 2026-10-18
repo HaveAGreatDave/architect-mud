@@ -8,13 +8,13 @@
   "flags": {
     "floor": "concrete",
     "is_interior": true,
-    "world_exit_zone": "zone_district_917_908"
+    "world_exit_zone": "zone_district_916_908"
   },
   "grid_x": 0,
   "grid_y": 0,
   "grid_z": -1,
   "id": "zone_util_zone_broth_counter",
   "map_id": "map_int_broth",
-  "name": "Oyelaran's — The Counter — Utility Room",
-  "parent_zone": "zone_district_917_908"
+  "name": "Nico's Noodle Bar — The Counter — Utility Room",
+  "parent_zone": "zone_district_916_908"
 }

@@ -1,0 +1,11 @@
+{
+  "description": "A glass globe on the ceiling with a pull-cord switch.",
+  "flags": {},
+  "id": "furn_light_zone_corbett_4b_bath",
+  "light_type": "overhead",
+  "lumen_output": 800,
+  "name": "the bathroom light",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_corbett_4b_bath"
+}

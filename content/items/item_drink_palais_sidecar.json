@@ -1,0 +1,19 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_drink_palais_sidecar",
+  "name": "a sidecar",
+  "tags": {
+    "consumable": true,
+    "description": "Brandy, orange liqueur and lemon, shaken hard and poured into a coupe with a sugared rim. It was the house drink on the first night and it still is.",
+    "hydrating": true,
+    "laced_drug": "drug_alcohol",
+    "laced_potency": 1,
+    "restore_sanity": 6,
+    "restore_thirst": 20,
+    "stackable": true
+  },
+  "type": "consumable",
+  "value": 14,
+  "weight": 300
+}

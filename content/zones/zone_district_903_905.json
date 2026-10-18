@@ -4,8 +4,8 @@
   "bg_color": "#1a2024",
   "description": "No glazing at all, which on a street of shopfronts is the thing you notice before you notice the smell. The building is a counter with a roof on it: a marble slab the full width of the frontage, canted toward you, open to the street behind a canvas awning let down on two poles, and a crushed-ice bed on the slab with the morning on it in rows. The ice melts off the front edge all day and runs into the gutter, and there is a strip of pavement outside this shop that has not been dry since anybody can remember. The name is painted on the fascia in blue on white, and the lettering is a great deal older than the man behind the slab.",
   "exits": {
-    "south": "zone_district_903_906",
-    "north": "zone_codfather_slab"
+    "north": "zone_codfather_slab",
+    "south": "zone_district_903_906"
   },
   "flags": {
     "building_name": "The Codfather",
@@ -16,6 +16,7 @@
     "floors": 1,
     "is_building": true,
     "region_id": "region_coldwater",
+    "sign_trade": "FISHMONGER",
     "world_exit_zone": "zone_district_903_906"
   },
   "grid_x": 903,

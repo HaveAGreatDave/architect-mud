@@ -1,0 +1,16 @@
+{
+  "description": "A pedestal basin under a mirror cabinet, the mirror going black at the edges.",
+  "flags": {
+    "aliases": [
+      "basin",
+      "sink",
+      "mirror",
+      "tap"
+    ],
+    "water_source": true
+  },
+  "id": "furn_kestrel_7a_bath_basin",
+  "name": "the basin",
+  "object_type": "sink",
+  "zone_id": "zone_kestrel_7a_bath"
+}

@@ -2,5 +2,5 @@
   "entry_zone_id": "zone_soak_front",
   "id": "map_int_soak",
   "name": "Lather & Lye — Interior",
-  "parent_zone_id": "zone_district_916_908"
+  "parent_zone_id": null
 }

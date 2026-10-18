@@ -1,0 +1,28 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A whole open floor with nobody on it: grey carpet tiles, a raised floor with the access panels showing, columns in a grid and the glass on every side. A letting agent's board leans on a column: AVAILABLE, 4,200 SQ FT, WILL DIVIDE. The view of Solenne is the selling point, and it's mostly Solenne.",
+  "exits": {
+    "down": "zone_marrowhouse_lobby"
+  },
+  "flags": {
+    "building_name": "Marrow House",
+    "building_type": "office",
+    "floor": "carpet",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "Glass on every side. To the west, Solenne goes up out of sight. To the north, the Basin.",
+      "light": 0.95,
+      "name": "the curtain wall",
+      "visibility": 0.95
+    },
+    "world_exit_zone": "zone_district_915_908"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 1,
+  "id": "zone_marrowhouse_suite",
+  "map_id": "map_int_marrowhouse",
+  "name": "Marrow House, Fourth Floor, To Let",
+  "parent_zone": "zone_district_915_908"
+}

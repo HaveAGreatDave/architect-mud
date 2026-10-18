@@ -9,7 +9,7 @@
     "west": "zone_district_893_912"
   },
   "flags": {
-    "building_name": "Terms Agreed",
+    "building_name": "8 Vetch Mews",
     "building_type": "cascade_block",
     "district": "halcyon_fields",
     "entrance": "west",
@@ -24,7 +24,7 @@
   "grid_z": 0,
   "id": "zone_district_894_912",
   "map_id": "map_world",
-  "marker": "TA",
-  "name": "Terms Agreed",
+  "marker": "V8",
+  "name": "8 Vetch Mews",
   "parent_zone": null
 }

@@ -1,0 +1,16 @@
+{
+  "description": "Rows of brass letter flaps in the wall, one per flat, each with a number engraved on a little brass plate. The polish has gone from all of them but 4A's.",
+  "flags": {
+    "aliases": [
+      "letter flaps",
+      "flaps",
+      "letterbox",
+      "post",
+      "mail"
+    ]
+  },
+  "id": "furn_corbett_letterflaps",
+  "name": "the letter flaps",
+  "object_type": "decoration",
+  "zone_id": "zone_corbett_lobby"
+}

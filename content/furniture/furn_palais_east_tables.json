@@ -1,0 +1,18 @@
+{
+  "description": "Round tables with marble tops and bronze feet, two chairs to each and usually four people.",
+  "flags": {
+    "aliases": [
+      "tables",
+      "table",
+      "chairs",
+      "chair"
+    ],
+    "interactions": [
+      "sit"
+    ]
+  },
+  "id": "furn_palais_east_tables",
+  "name": "the little tables",
+  "object_type": "furniture",
+  "zone_id": "zone_palais_east_bar"
+}

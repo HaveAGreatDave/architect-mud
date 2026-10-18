@@ -1,0 +1,21 @@
+{
+  "description": "A concert grand in black, the dust sheet folded back off the lid and the stool set square to it. The keys have gone the colour of old teeth. It is in tune.",
+  "flags": {
+    "aliases": [
+      "piano",
+      "grand",
+      "concert grand",
+      "keys"
+    ],
+    "examine_detail": "A card on the music desk, in Minnie Pruett's handwriting, says anyone may play it, and anyone who can't shouldn't.",
+    "instrument": "piano",
+    "interactions": [
+      "examine",
+      "play"
+    ]
+  },
+  "id": "furn_palais_piano",
+  "name": "the concert grand",
+  "object_type": "furniture",
+  "zone_id": "zone_palais_stage"
+}

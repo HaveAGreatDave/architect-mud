@@ -7,18 +7,18 @@
     "west": "zone_broth_counter"
   },
   "flags": {
-    "building_name": "Oyelaran's",
+    "building_name": "Nico's Noodle Bar",
     "building_type": "noodle_bar",
     "floor": "tile",
     "is_building": true,
     "is_interior": true,
-    "world_exit_zone": "zone_district_917_908"
+    "world_exit_zone": "zone_district_916_908"
   },
   "grid_x": 1,
   "grid_y": 0,
   "grid_z": 0,
   "id": "zone_broth_galley",
   "map_id": "map_int_broth",
-  "name": "Oyelaran's — Galley",
-  "parent_zone": "zone_district_917_908"
+  "name": "Nico's Noodle Bar — Galley",
+  "parent_zone": "zone_district_916_908"
 }

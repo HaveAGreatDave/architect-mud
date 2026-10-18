@@ -1,0 +1,7 @@
+{
+  "capacity_kw": 5000,
+  "generator_id": "gen_zone_util_zone_kestrel_lobby",
+  "id": "zone_kestrel_11a",
+  "name": "Kestrel Court — Unit 11A",
+  "source_type": "junction_box"
+}

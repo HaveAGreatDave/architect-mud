@@ -9,7 +9,7 @@
     "south": "zone_holder_gauge"
   },
   "flags": {
-    "building_name": "Holding Pattern",
+    "building_name": "Kerbstone Row Gasholder",
     "building_type": "gasholder",
     "district": "halcyon_fields",
     "entrance": "north",
@@ -24,7 +24,7 @@
   "grid_z": 0,
   "id": "zone_district_905_917",
   "map_id": "map_world",
-  "marker": "HP",
-  "name": "Holding Pattern",
+  "marker": "KR",
+  "name": "Kerbstone Row Gasholder",
   "parent_zone": null
 }

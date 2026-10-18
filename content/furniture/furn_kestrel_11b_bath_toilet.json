@@ -1,0 +1,8 @@
+{
+  "description": "A wall-hung toilet with a push button. It flushes like a train going past.",
+  "flags": {},
+  "id": "furn_kestrel_11b_bath_toilet",
+  "name": "the toilet",
+  "object_type": "toilet",
+  "zone_id": "zone_kestrel_11b_bath"
+}

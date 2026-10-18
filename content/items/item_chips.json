@@ -1,0 +1,15 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_chips",
+  "name": "chips",
+  "tags": {
+    "consumable": true,
+    "description": "A paper cone of thick-cut chips, soft in the middle. Too hot to eat for the first minute and gone by the fifth.",
+    "restore_hunger": 22,
+    "stackable": true
+  },
+  "type": "consumable",
+  "value": 6,
+  "weight": 300
+}

@@ -1,0 +1,7 @@
+{
+  "capacity_kw": 5000,
+  "generator_id": "gen_zone_util_zone_kestrel_lobby",
+  "id": "zone_kestrel_f7",
+  "name": "Kestrel Court — Seventh Floor Landing",
+  "source_type": "junction_box"
+}

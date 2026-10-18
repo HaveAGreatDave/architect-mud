@@ -1,0 +1,6 @@
+{
+  "entry_zone_id": "zone_marrowhouse_lobby",
+  "id": "map_int_marrowhouse",
+  "name": "Marrow House",
+  "parent_zone_id": "zone_district_915_908"
+}

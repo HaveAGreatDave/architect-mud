@@ -1,0 +1,11 @@
+{
+  "description": "A milk-glass pendant on a brass chain over the stairhead. It lights the landing yellow.",
+  "flags": {},
+  "id": "furn_light_zone_corbett_f12",
+  "light_type": "overhead",
+  "lumen_output": 1000,
+  "name": "the landing pendant",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_corbett_f12"
+}

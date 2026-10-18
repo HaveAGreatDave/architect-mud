@@ -15,6 +15,7 @@
     "facade": true,
     "is_building": true,
     "region_id": "region_coldwater",
+    "sign_trade": "VEHICLE POUND",
     "world_exit_zone": "zone_district_918_918"
   },
   "grid_x": 919,

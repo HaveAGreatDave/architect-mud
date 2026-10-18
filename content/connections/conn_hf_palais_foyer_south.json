@@ -1,0 +1,9 @@
+{
+  "a": "zone_palais_foyer",
+  "b": "zone_palais_dressing",
+  "blocked": true,
+  "dir": "south",
+  "id": "conn_hf_palais_foyer_south",
+  "lockable": false,
+  "one_way": false
+}

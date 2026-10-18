@@ -1,0 +1,16 @@
+{
+  "description": "An iron lift cage with a folding gate, painted black, in a shaft of iron lattice up the middle of the stair. The cage sits at the ground floor with its gate pulled shut.",
+  "flags": {
+    "aliases": [
+      "lift",
+      "cage",
+      "elevator",
+      "gate"
+    ],
+    "examine_detail": "A card in a brass frame on the gate says the lift is out of use until the residents' committee decides otherwise. The card is older than anyone on the committee."
+  },
+  "id": "furn_corbett_lift",
+  "name": "the birdcage lift",
+  "object_type": "decoration",
+  "zone_id": "zone_corbett_lobby"
+}

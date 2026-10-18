@@ -1,0 +1,11 @@
+{
+  "description": "A single fluorescent tube in a cage over the prep table, with a fly paper hanging from it that nobody has changed.",
+  "flags": {},
+  "id": "furn_light_zone_batter_prep",
+  "light_type": "overhead",
+  "lumen_output": 1500,
+  "name": "the strip light",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_batter_prep"
+}

@@ -1,0 +1,25 @@
+{
+  "ambient_theme": "indoors",
+  "description": "The eleventh floor landing, the top one. The stair carries on to a steel door marked Roof. The lino is newer up here, because the old lot curled in the heat under the roof. Below the stair glass the whole of Marrow Street is laid out, with Solenne going up past you like a wall of water.",
+  "exits": {
+    "down": "zone_kestrel_f7",
+    "east": "zone_kestrel_11b",
+    "up": "zone_kestrel_roof",
+    "west": "zone_kestrel_11a"
+  },
+  "flags": {
+    "building_name": "Kestrel Court",
+    "building_type": "apartment",
+    "floor": "linoleum",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_913_908"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 3,
+  "id": "zone_kestrel_f11",
+  "map_id": "map_int_kestrel",
+  "name": "Kestrel Court, Eleventh Floor Landing",
+  "parent_zone": "zone_district_913_908"
+}

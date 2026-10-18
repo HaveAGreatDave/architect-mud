@@ -1,0 +1,11 @@
+{
+  "description": "A caged lamp over the roof door, bright enough to find the door by and not much else.",
+  "flags": {},
+  "id": "furn_light_zone_kestrel_roof",
+  "light_type": "overhead",
+  "lumen_output": 600,
+  "name": "the stair-head lamp",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_kestrel_roof"
+}

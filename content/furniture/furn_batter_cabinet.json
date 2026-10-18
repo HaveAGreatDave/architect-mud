@@ -1,0 +1,16 @@
+{
+  "description": "A glass cabinet on the counter with heat lamps in its roof. Battered fish, sausages and a tray of loose scraps sit on the racks, all of it the same gold.",
+  "flags": {
+    "aliases": [
+      "cabinet",
+      "hot cabinet",
+      "glass",
+      "counter",
+      "lamps"
+    ]
+  },
+  "id": "furn_batter_cabinet",
+  "name": "the hot cabinet",
+  "object_type": "fixture",
+  "zone_id": "zone_batter_shop"
+}

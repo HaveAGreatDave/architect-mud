@@ -2,12 +2,12 @@
   "ambient_events": [],
   "ambient_theme": "indoors",
   "bg_color": "#221a16",
-  "description": "A hot little room with two ports cut into the auditorium. At the left port, an enormous cast-iron projector, oiled and threaded. The right-hand one was stripped for parts and now holds a kettle. Between them, on a milk crate, a plastic tape player wired into the house feed. A rewind bench runs under the ports with an open ledger and a pencil.",
+  "description": "A hot little room built into the back of the circle long after the circle was, breeze block against the old plaster, with two ports cut through toward the arch. At the left port, an enormous cast-iron projector, oiled and threaded. The right-hand one was stripped for parts and now holds a kettle. Between them, on a milk crate, a plastic tape player wired into the house feed. A rewind bench runs under the ports with an open ledger and a pencil.",
   "exits": {
     "down": "zone_reel_foyer"
   },
   "flags": {
-    "building_name": "Reel Estate",
+    "building_name": "Midway Parks Cinema",
     "building_type": "cinema",
     "floor": "boards",
     "is_building": true,
@@ -19,6 +19,6 @@
   "grid_z": 1,
   "id": "zone_reel_box",
   "map_id": "map_int_reel",
-  "name": "Reel Estate — The Projection Box",
+  "name": "Midway Parks Cinema — The Projection Box",
   "parent_zone": "zone_district_912_914"
 }

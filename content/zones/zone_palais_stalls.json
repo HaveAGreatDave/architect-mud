@@ -1,0 +1,25 @@
+{
+  "ambient_theme": "indoors",
+  "description": "Rows of red plush seats rake down toward the stage under a ceiling painted with a blue sky and gold clouds. The proscenium is gilt plaster, stepped in toward the curtain. In the pit a theatre organ sits on its lift. Doors at the back lead to the foyers either side, and a stair curves up to the circle.",
+  "exits": {
+    "east": "zone_palais_east_bar",
+    "south": "zone_palais_stage",
+    "up": "zone_palais_circle",
+    "west": "zone_palais_foyer"
+  },
+  "flags": {
+    "building_name": "The Coldwater Palais",
+    "building_type": "palais_foyer",
+    "floor": "carpet",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_908_909"
+  },
+  "grid_x": 1,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_palais_stalls",
+  "map_id": "map_int_palais",
+  "name": "The Coldwater Palais: The Stalls",
+  "parent_zone": "zone_district_908_909"
+}

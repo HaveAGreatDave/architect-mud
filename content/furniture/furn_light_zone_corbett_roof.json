@@ -1,0 +1,11 @@
+{
+  "description": "A bulkhead lamp over the roof door with a moth trapped in the glass.",
+  "flags": {},
+  "id": "furn_light_zone_corbett_roof",
+  "light_type": "overhead",
+  "lumen_output": 600,
+  "name": "the stair-head lamp",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_corbett_roof"
+}

@@ -1,0 +1,15 @@
+{
+  "description": "Rows of clay chimney pots on the party walls. None of them has had smoke out of it in years. One has a gull's nest in it.",
+  "flags": {
+    "aliases": [
+      "chimneys",
+      "chimney",
+      "pots",
+      "nest"
+    ]
+  },
+  "id": "furn_corbett_chimneys",
+  "name": "the chimney pots",
+  "object_type": "decoration",
+  "zone_id": "zone_corbett_roof"
+}

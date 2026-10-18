@@ -1,20 +1,29 @@
 {
   "adorn": [
     {
-      "cx": 0,
-      "cy": 0.46,
+      "cx": -0.06,
+      "cy": 0.44,
+      "day": 0,
       "kind": "glowPool",
       "rgb": "255,214,160",
       "s": 5,
       "z": 0.3
     },
     {
-      "cx": 0,
-      "cy": 0.48,
+      "cx": -0.06,
+      "cy": 0.47,
+      "day": 0,
       "kind": "glowPool",
       "rgb": "255,200,140",
       "s": 9,
-      "z": 0.02
+      "z": 0.06
+    },
+    {
+      "cx": -0.06,
+      "cy": -0.24,
+      "kind": "dish",
+      "s": 0.6,
+      "z": 0.52
     }
   ],
   "basis": {
@@ -30,13 +39,13 @@
   "detail": [
     {
       "bars": 0,
-      "cx": 0,
-      "cy": 0.43,
+      "cx": -0.06,
+      "cy": 0.39,
       "depth": 0.016,
       "door": 1,
       "glass": "#2a2c30",
       "glow": "#3a3430",
-      "half": 0.055,
+      "half": 0.05,
       "hh": 0.105,
       "kind": "windowBay",
       "pal": "ty_stack_dk",
@@ -45,8 +54,8 @@
     },
     {
       "bars": 0,
-      "cx": 0,
-      "cy": 0.43,
+      "cx": -0.06,
+      "cy": 0.39,
       "depth": 0.004,
       "glass": "#ffd8a0",
       "glow": "#ffd8a0",
@@ -57,9 +66,18 @@
       "z": 0.19
     },
     {
+      "cx": 0.09,
+      "cy": 0.39,
+      "half": 0.06,
+      "hh": 0.045,
+      "kind": "shutter",
+      "pal": "ty_stack_dk",
+      "z": 0.2
+    },
+    {
       "bars": 3,
-      "cx": 0,
-      "cy": 0.43,
+      "cx": 0.02,
+      "cy": 0.39,
       "depth": 0.012,
       "glass": "#4a5a52",
       "glow": "#a8b89a",
@@ -67,11 +85,11 @@
       "hh": 0.014,
       "kind": "windowBay",
       "pal": "ty_stack_dk",
-      "z": 0.42
+      "z": 0.43
     },
     {
       "cx": 0,
-      "cy": 0.42,
+      "cy": 0.39,
       "kind": "pilaster",
       "n": 2,
       "out": 0.012,
@@ -79,39 +97,38 @@
       "step": 0.32,
       "w": 0.02,
       "z0": 0.05,
-      "z1": 0.66
+      "z1": 0.62
     },
     {
       "cx": 0,
-      "cy": 0.42,
-      "drip": 0.5,
+      "cy": 0.39,
+      "drip": 0.6,
       "kind": "grime",
       "w": 0.15,
-      "z": 0.66
+      "z": 0.62
     },
     {
-      "cx": 0.3,
-      "cy": 0.38,
-      "face": "x",
-      "kind": "pipe",
+      "cx": 0.1,
+      "cy": 0.39,
+      "half": 0.08,
+      "kind": "cableRun",
       "pal": "ty_stack_dk",
-      "r": 0.01,
-      "z0": 0.05,
-      "z1": 0.56
-    },
-    {
-      "cx": -0.3,
-      "cy": -0.38,
-      "face": "x",
-      "kind": "pipe",
-      "pal": "ty_stack_dk",
-      "r": 0.01,
-      "z0": 0.05,
-      "z1": 0.56
+      "r": 0.004,
+      "sag": 0.04,
+      "z": 0.5
     },
     {
       "cx": 0,
-      "cy": 0.38,
+      "cy": 0.39,
+      "half": 0.15,
+      "kind": "conduit",
+      "pal": "ty_stack_dk",
+      "r": 0.006,
+      "z": 0.09
+    },
+    {
+      "cx": 0.12,
+      "cy": 0.17,
       "drip": 0.6,
       "face": "x",
       "hh": 0.03,
@@ -121,17 +138,70 @@
       "z": 0.4
     },
     {
-      "cx": 0.18,
-      "cy": -0.4,
-      "half": 0.09,
+      "cx": -0.1,
+      "cy": 0.17,
+      "d": 0.03,
+      "drip": 0.5,
+      "face": "x",
+      "hh": 0.035,
+      "kind": "acUnit",
+      "pal": "ty_cold",
+      "w": 0.045,
+      "z": 0.3
+    },
+    {
+      "cx": 0.2,
+      "cy": 0.3,
+      "face": "x",
+      "kind": "pipe",
+      "pal": "ty_stack_dk",
+      "r": 0.01,
+      "z0": 0.05,
+      "z1": 0.52
+    },
+    {
+      "cx": -0.2,
+      "cy": -0.3,
+      "face": "x",
+      "kind": "pipe",
+      "pal": "ty_stack_dk",
+      "r": 0.01,
+      "z0": 0.05,
+      "z1": 0.52
+    },
+    {
+      "cx": 0,
+      "cy": -0.3,
+      "drip": 0.8,
+      "face": "x",
+      "kind": "grime",
+      "w": 0.24,
+      "z": 0.52
+    },
+    {
+      "band": "#c8a030",
+      "count": 3,
+      "cx": 0.25,
+      "cy": 0.44,
+      "hh": 0.035,
+      "kind": "bollard",
+      "pal": "ty_stack_dk",
+      "r": 0.014,
+      "step": 0.07,
+      "z": 0.05
+    },
+    {
+      "cx": 0.14,
+      "cy": -0.32,
+      "half": 0.08,
       "hh": 0.08,
       "kind": "shutter",
       "pal": "ty_stack_dk",
       "z": 0.13
     },
     {
-      "cx": -0.2,
-      "cy": -0.43,
+      "cx": -0.16,
+      "cy": -0.36,
       "d": 0.035,
       "hh": 0.035,
       "kind": "binStack",
@@ -139,21 +209,52 @@
       "n": 3,
       "pal": "ty_stack_dk",
       "w": 0.04,
-      "z": 0.004
+      "z": 0.05
     },
     {
-      "cx": 0.2,
-      "cy": -0.2,
-      "hh": 0.08,
+      "cx": 0,
+      "cy": 0.22,
+      "half": 0.18,
+      "hh": 0.012,
+      "kind": "parapet",
+      "pal": "ty_stack_dk",
+      "z": 0.65
+    },
+    {
+      "cx": 0.16,
+      "cy": -0.18,
+      "hh": 0.09,
       "kind": "antennaCluster",
       "n": 3,
       "pal": "ty_stack_dk",
       "r": 0.04,
-      "z": 0.56
+      "z": 0.52
+    },
+    {
+      "cx": 0.06,
+      "cy": 0.2,
+      "d": 0.04,
+      "hh": 0.03,
+      "kind": "roofBulkhead",
+      "pal": "ty_oc_brick_dk",
+      "w": 0.04,
+      "z": 0.65
+    },
+    {
+      "cx": 0.33,
+      "cy": 0.4,
+      "kind": "streetLamp",
+      "out": 0.1,
+      "pal": "ty_stack_dk",
+      "r": 0.02,
+      "rgb": "255,190,120",
+      "s": 6,
+      "z0": 0.05,
+      "z1": 0.62
     }
   ],
   "id": "theslip",
-  "note": "THE SLIP — the fence on Lever Lane that nobody signposts.\n\nThe tile's prose: a narrow frontage between two wider ones, no sign at all, a good steel door\n(steel core, three hinges, a spyhole at the height of a short woman's eye) and a window bricked down\nto a slot glazed with wire glass. People who need to find it find it.\n\nSo the street face is a narrow brick bay standing forward of a plainer, wider block behind it, and\nthe bay carries only the door, the slot and a lamp. There is no lettering anywhere on the building,\nwhich is the one thing on Lever Lane that tells you what it is. The flanks are blank brick with a\ndownpipe; the back is a yard door and bins.\n\nIt stands in for the `slipback` arm (`replaces`), which stays in LEGACY_MODELS.",
+  "note": "THE SLIP: the fence nobody signposts, in the old weigh-house at the top of the lay-by off The Gate Road, beside the Shingles (docs/proposals/marrow-midrises.md). A weigh slip is the ticket a weighbridge clerk hands a lorry driver; the name was there before Sluice was.\n\nA squat brick office stands forward of a lower store behind it. The office front carries the steel door with its lamp and spyhole light, the clerk's hatch plated over with a steel shutter, and the old window bricked to a slot of wire glass. The weighbridge kit is still bolted on: conduit to where the plates were, a slack cable to a lamp post that still works, yellow-banded kerb bollards. The store has aerials and a dish; there are bins and a yard shutter at the back.\n\n⚠ NO LETTERING ANYWHERE. A blank front is the one thing that tells you what it is.\n\nIt stands in for the `slipback` arm (`replaces`), which stays in LEGACY_MODELS.",
   "pal": "ty_oc_brick",
   "replaces": "slipback",
   "segs": [
@@ -170,44 +271,41 @@
     {
       "cx": 0,
       "cy": -0.06,
-      "fd": 0.34,
-      "hw": 0.38,
+      "hw": 0.29,
       "kind": "box",
       "pal": "ty_oc_brick_dk",
       "roof": true,
       "z0": 0.05,
-      "z1": 0.56
+      "z1": 0.52
     },
     {
       "cx": 0,
-      "cy": 0.28,
-      "fd": 0.14,
+      "cy": 0.22,
       "hw": 0.17,
       "kind": "box",
       "pal": "ty_oc_brick",
       "roof": true,
       "z0": 0.05,
-      "z1": 0.66
+      "z1": 0.62
     },
     {
       "cx": 0,
-      "cy": 0.28,
-      "fd": 0.15,
-      "hw": 0.18,
+      "cy": 0.22,
+      "hw": 0.185,
       "kind": "box",
       "pal": "ty_stack_dk",
       "roof": true,
-      "z0": 0.66,
-      "z1": 0.69
+      "z0": 0.62,
+      "z1": 0.65
     },
     {
-      "cx": -0.24,
-      "cy": -0.2,
+      "cx": -0.22,
+      "cy": -0.18,
       "hw": 0.04,
       "kind": "box",
       "pal": "ty_oc_brick_dk",
       "roof": true,
-      "z0": 0.56,
+      "z0": 0.52,
       "z1": 0.72
     }
   ]

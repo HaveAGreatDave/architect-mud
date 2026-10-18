@@ -3,13 +3,13 @@
   "ambient_theme": "urban",
   "bg_color": "#15222d",
   "color": "#9fe0ff",
-  "description": "The crescent's twin, one storey shorter and curved the other way, so that where it meets its neighbour the two arcs make a shallow bowl of paving between them that the estate calls a square and nobody else calls anything. The whole ground floor is a physiotherapy practice, which is a joke the practice made first and put on the door.",
+  "description": "The crescent's twin, one storey shorter and curved the other way, so that where it meets its neighbour the two arcs make a shallow bowl of paving between them that the estate calls a square and nobody else calls anything. The whole ground floor is a physiotherapy practice, with a skeleton in the window wearing a back brace.",
   "exits": {
     "north": "zone_hf_bent_front",
     "south": "zone_district_896_910"
   },
   "flags": {
-    "building_name": "Bent Double",
+    "building_name": "9 Halcyon Boulevard",
     "building_type": "chrome_slab",
     "district": "halcyon_fields",
     "entrance": "south",
@@ -24,7 +24,7 @@
   "grid_z": 0,
   "id": "zone_district_896_909",
   "map_id": "map_world",
-  "marker": "BN",
-  "name": "Bent Double",
+  "marker": "H9",
+  "name": "9 Halcyon Boulevard",
   "parent_zone": null
 }

@@ -1,0 +1,30 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A double-height reception hall in pale stone and bronze, with a long desk nobody sits behind and a fig tree in a planter that somebody waters. Two lifts work, which on this street makes it the most expensive building per square foot. The stair is behind a frosted glass door.",
+  "exits": {
+    "down": "zone_util_zone_marrowhouse_lobby",
+    "south": "zone_district_915_908",
+    "up": "zone_marrowhouse_suite"
+  },
+  "flags": {
+    "building_name": "Marrow House",
+    "building_type": "office",
+    "floor": "tile",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "Floor-to-ceiling champagne glass onto Marrow Street, tinted so that the street looks like late afternoon at any hour.",
+      "light": 0.8,
+      "name": "the front glass",
+      "visibility": 0.8
+    },
+    "world_exit_zone": "zone_district_915_908"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_marrowhouse_lobby",
+  "map_id": "map_int_marrowhouse",
+  "name": "Marrow House, Reception",
+  "parent_zone": "zone_district_915_908"
+}

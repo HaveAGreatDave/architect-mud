@@ -1,0 +1,16 @@
+{
+  "description": "A rail of costumes in clear plastic covers: a tailcoat, a sequinned dress that weighs more than it looks, three identical sailor suits.",
+  "flags": {
+    "aliases": [
+      "costumes",
+      "rail",
+      "clothes",
+      "tailcoat",
+      "dress"
+    ]
+  },
+  "id": "furn_palais_costumes",
+  "name": "the costume rail",
+  "object_type": "decoration",
+  "zone_id": "zone_palais_dressing"
+}

@@ -9,7 +9,7 @@
     "south": "zone_hf_wellappointed_lobby"
   },
   "flags": {
-    "building_name": "Well Appointed",
+    "building_name": "10 Kerbstone Row",
     "building_type": "bead_tower",
     "district": "halcyon_fields",
     "entrance": "north",
@@ -24,7 +24,7 @@
   "grid_z": 0,
   "id": "zone_district_896_917",
   "map_id": "map_world",
-  "marker": "WB",
-  "name": "Well Appointed",
+  "marker": "10",
+  "name": "10 Kerbstone Row",
   "parent_zone": null
 }

@@ -1,13 +1,13 @@
 {
   "ambient_theme": "indoors",
-  "description": "Double height, stone the colour of the outside, and largely empty on purpose. There is a desk at the far end, a lift bank of four, and about thirty feet of nothing between them and the door, which is a thing you pay for. The only decoration is the name again, in the same letters as outside, cut into the wall behind the desk so that anybody standing at it has it over their shoulder.",
+  "description": "Double height, stone the colour of the outside, and largely empty on purpose. There is a desk at the far end, a lift bank of four, and about thirty feet of nothing between them and the door, which is a thing you pay for. The only decoration is the number again, in the same figures as outside, cut into the wall behind the desk so that anybody standing at it has it over their shoulder.",
   "exits": {
     "down": "zone_util_zone_hf_prime_lobby",
     "up": "zone_hf_prime_sky",
     "west": "zone_district_903_912"
   },
   "flags": {
-    "building_name": "Prime Location",
+    "building_name": "4 Cinder Lane",
     "building_type": "torque_tower",
     "floor": "stone",
     "is_building": true,
@@ -25,6 +25,6 @@
   "grid_z": 0,
   "id": "zone_hf_prime_lobby",
   "map_id": "map_int_hf_prime",
-  "name": "Prime Location — The Podium Lobby",
+  "name": "4 Cinder Lane — The Podium Lobby",
   "parent_zone": "zone_district_903_912"
 }

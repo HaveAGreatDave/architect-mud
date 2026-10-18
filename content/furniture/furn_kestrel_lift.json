@@ -1,0 +1,16 @@
+{
+  "description": "Brushed steel doors with a button panel beside them. Somebody has taped them shut and written \"out of order\" on the tape, and somebody else has added \"since when\" underneath.",
+  "flags": {
+    "aliases": [
+      "lift",
+      "elevator",
+      "button",
+      "doors"
+    ],
+    "examine_detail": "The inspection card behind the scratched plastic by the buttons was signed nine years ago. The space for the next signature is empty."
+  },
+  "id": "furn_kestrel_lift",
+  "name": "the lift",
+  "object_type": "decoration",
+  "zone_id": "zone_kestrel_lobby"
+}

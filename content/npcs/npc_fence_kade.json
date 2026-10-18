@@ -219,6 +219,14 @@
       "item_id": "item_breacher_shotgun",
       "price": 2605,
       "stock": 2
+    },
+    {
+      "item_id": "item_pawn_radio",
+      "price": 35
+    },
+    {
+      "item_id": "item_pawn_watch",
+      "price": 40
     }
   ],
   "vendor_restock_rate": 1,

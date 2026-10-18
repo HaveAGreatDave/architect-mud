@@ -1,0 +1,14 @@
+{
+  "description": "A brass bell on a coiled spring over the doorway. It rings when anybody comes through the bead curtain, and Effie looks up every time.",
+  "flags": {
+    "aliases": [
+      "bell",
+      "curtain",
+      "bead curtain"
+    ]
+  },
+  "id": "furn_corbett_bell",
+  "name": "the shop bell",
+  "object_type": "decoration",
+  "zone_id": "zone_corbett_shop"
+}

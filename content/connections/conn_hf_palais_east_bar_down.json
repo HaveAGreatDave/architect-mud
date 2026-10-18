@@ -1,0 +1,9 @@
+{
+  "a": "zone_palais_east_bar",
+  "b": "zone_util_zone_palais_east_bar",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_hf_palais_east_bar_down",
+  "lockable": false,
+  "one_way": false
+}

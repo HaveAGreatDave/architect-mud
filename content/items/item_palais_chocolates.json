@@ -1,0 +1,16 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_palais_chocolates",
+  "name": "a box of chocolates",
+  "tags": {
+    "consumable": true,
+    "description": "A flat box of chocolates with the Palais blade printed on the lid. Nine in a tray, each in a paper cup. The card says which is which and is wrong about two of them.",
+    "restore_hunger": 12,
+    "restore_sanity": 4,
+    "stackable": true
+  },
+  "type": "consumable",
+  "value": 9,
+  "weight": 200
+}

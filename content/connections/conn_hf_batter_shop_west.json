@@ -1,0 +1,9 @@
+{
+  "a": "zone_batter_shop",
+  "b": "zone_batter_prep",
+  "blocked": false,
+  "dir": "west",
+  "id": "conn_hf_batter_shop_west",
+  "lockable": false,
+  "one_way": false
+}

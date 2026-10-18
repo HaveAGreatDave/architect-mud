@@ -1,0 +1,16 @@
+{
+  "description": "A claw-foot bath with a shower head on a hose and a curtain on a ring rail above it.",
+  "flags": {
+    "aliases": [
+      "bath",
+      "bathtub",
+      "shower",
+      "tub",
+      "curtain"
+    ]
+  },
+  "id": "furn_corbett_8a_bath_shower",
+  "name": "the bath",
+  "object_type": "shower",
+  "zone_id": "zone_corbett_8a_bath"
+}

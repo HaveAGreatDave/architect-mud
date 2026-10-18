@@ -1,0 +1,342 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "jitter": 20,
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "cash_up",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "player_check",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "no": "off_random",
+        "type": "condition",
+        "yes": "home_idle"
+      },
+      "off_random": {
+        "options": [
+          "go_home_off",
+          "have_life"
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_PRESENT",
+        "no": "work_wait",
+        "type": "condition",
+        "yes": "work_say"
+      },
+      "post_shift": {
+        "options": [
+          "go_home_ps",
+          "home_life_ps"
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "work_wait": {
+        "jitter": 20,
+        "next": "check_work",
+        "seconds": 25,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "Hesketh lowers a basket into the middle fryer and the whole shop hisses.",
+    "He shakes a basket of chips, looks at them, and drops them back in for another minute.",
+    "He wraps a supper in two sheets of paper without looking down, and slides it across the counter.",
+    "\"Salt and vinegar?\" he asks, already doing it.",
+    "He skims the scraps off the top of the oil into the tray in the cabinet.",
+    "He wipes a porthole in the steamed-up window with his sleeve and looks out at Ironside Street."
+  ],
+  "description": "A heavy man in his forties with a shaved head and forearms speckled with small white burn scars from spitting fat. He moves behind the counter without looking, and talks to the fryers more than to the customers. A pencil lives behind one ear and a tea towel over one shoulder.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "\"Mind, it's hot,\" he says, already turning back to the fryer."
+    },
+    "fish": {
+      "actions": [
+        {
+          "action": "GPS_TO",
+          "zone": "zone_district_903_905"
+        }
+      ],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"The Codfather, out west by the water. Fawle drops it off at six with the ice still on.\" He lifts a fillet out of the tray to show you. \"I smoke the haddock myself out the back, on the drum. Nobody asks for haddock. I do it anyway.\""
+    },
+    "good": {
+      "options": [
+        {
+          "label": "A supper, then.",
+          "next": "__shop__"
+        },
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"The supper.\" He taps the cabinet glass over the fish. \"Cod, chips, done in beef dripping, which is the only right way and costs me more than the fish does. It'll keep you going a whole shift.\"\n\n\"Scraps if you're broke. Nobody leaves here hungry, they just leave here with less.\""
+    },
+    "late": {
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Have to be.\" He jerks his head east, toward the Yards. \"The depots change shift at two. Two hundred people come off the trucks hungry, and they don't want noodles, whatever Nico tells you. They want something they can eat in the cab out of paper. I do more between midnight and two than the whole afternoon.\"\n\n\"Sundays I close at ten. Even the trucks stop Sundays.\""
+    },
+    "pans": {
+      "options": [
+        {
+          "label": "Where is Ration Nine?",
+          "next": "ration"
+        },
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Tove's place. Pots, pans and that.\" He shrugs. \"Ration Nine had all the same stuff on a rack across the road, cheaper and open later. She lasted about as long as you'd think.\"\n\n\"She left the hooks along the front. I hang the menu off two of them. The rest I've not got round to.\""
+    },
+    "ration": {
+      "actions": [
+        {
+          "action": "GPS_TO",
+          "zone": "zone_district_920_908"
+        }
+      ],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Across the road and down one, at the Marrow Street end.\" He points with a pair of tongs. \"Groceries, and the pans if you want them. Mind the chiller. It bites.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "What have you got?",
+          "next": "__shop__"
+        },
+        {
+          "label": "What's good?",
+          "next": "good"
+        },
+        {
+          "label": "You're open late.",
+          "next": "late"
+        },
+        {
+          "label": "Didn't this place sell pans?",
+          "next": "pans"
+        },
+        {
+          "label": "Where does the fish come from?",
+          "next": "fish"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing, thanks.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"What can I get you?\" He doesn't look up from the fryer.",
+      "text_by_relation": {
+        "familiar": "\"The usual,\" he says, and it is not a question. He drops a fish in the batter.",
+        "first": "The man behind the counter shakes a basket, hooks it on the side of the fryer and wipes his hands on the tea towel.\n\n\"Gil. Batter Days.\" He nods at the board. \"Fish, chips, sausage, peas. Scraps are a credit if you're skint. What can I get you?\"",
+        "known": "\"Back again.\" He is already reaching for the paper. \"Supper?\""
+      }
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a white tunic gone cream at the cuffs",
+      "a blue-striped apron spotted with batter",
+      "black work trousers and steel-toed clogs",
+      "a paper hat folded flat in his back pocket, unworn"
+    ],
+    "personality": "vendor"
+  },
+  "home_activities": [],
+  "home_zone": "zone_meridian_unit_201",
+  "hp": 48,
+  "hp_max": 48,
+  "id": "npc_batter_fryer",
+  "name": "Gil Hesketh",
+  "npc_type": "vendor",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_fish_supper",
+      "price": 16
+    },
+    {
+      "item_id": "item_chips",
+      "price": 6
+    },
+    {
+      "item_id": "item_battered_sausage",
+      "price": 7
+    },
+    {
+      "item_id": "item_mushy_peas",
+      "price": 4
+    },
+    {
+      "item_id": "item_pickled_egg",
+      "price": 3
+    },
+    {
+      "item_id": "item_scraps",
+      "price": 1
+    },
+    {
+      "item_id": "item_vinegar",
+      "price": 6
+    },
+    {
+      "item_id": "item_iced_tea_carton",
+      "price": 4
+    }
+  ],
+  "vendor_restock_rate": 3,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 11,
+        "to": 27
+      }
+    ],
+    "mon": [
+      {
+        "from": 11,
+        "to": 26
+      }
+    ],
+    "sat": [
+      {
+        "from": 11,
+        "to": 27
+      }
+    ],
+    "sun": [
+      {
+        "from": 12,
+        "to": 22
+      }
+    ],
+    "thu": [
+      {
+        "from": 11,
+        "to": 26
+      }
+    ],
+    "tue": [
+      {
+        "from": 11,
+        "to": 26
+      }
+    ],
+    "wed": [
+      {
+        "from": 11,
+        "to": 26
+      }
+    ]
+  },
+  "vendor_shop_name": "Batter Days Fish & Chips",
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_batter_shop"
+}

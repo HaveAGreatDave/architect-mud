@@ -16,6 +16,7 @@
     "floors": 2,
     "is_building": true,
     "region_id": "region_coldwater",
+    "sign_trade": "TAXIDERMIST",
     "world_exit_zone": "zone_district_918_914"
   },
   "grid_x": 917,

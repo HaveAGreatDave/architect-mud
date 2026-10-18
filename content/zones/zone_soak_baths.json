@@ -11,8 +11,7 @@
     "building_type": "bathhouse",
     "floor": "boards",
     "is_building": true,
-    "is_interior": true,
-    "world_exit_zone": "zone_district_916_908"
+    "is_interior": true
   },
   "grid_x": 1,
   "grid_y": 0,
@@ -20,5 +19,5 @@
   "id": "zone_soak_baths",
   "map_id": "map_int_soak",
   "name": "Lather & Lye — The Baths",
-  "parent_zone": "zone_district_916_908"
+  "parent_zone": null
 }

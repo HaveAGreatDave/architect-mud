@@ -1,0 +1,9 @@
+{
+  "a": "zone_corbett_f4",
+  "b": "zone_corbett_f8",
+  "blocked": false,
+  "dir": "up",
+  "id": "conn_hf_corbett_f4_up",
+  "lockable": false,
+  "one_way": false
+}

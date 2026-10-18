@@ -15,6 +15,6 @@
   "grid_z": -1,
   "id": "zone_util_zone_hulls_shop",
   "map_id": "map_int_hulls",
-  "name": "Moor or Less — The Pump Pit",
+  "name": "Eastern Marina: The Pump Pit",
   "parent_zone": "zone_district_921_901"
 }

@@ -1,0 +1,22 @@
+{
+  "ambient_theme": "indoors",
+  "description": "Small black-and-white hexagonal tiles, a claw-foot bath under a ring rail with a shower on a hose, a basin on chrome legs and a toilet with a pull-chain. The frosted window has a ventilator in the top pane that clatters in the wind. The hot water comes up from the basement and takes its time.",
+  "exits": {
+    "south": "zone_corbett_12a"
+  },
+  "flags": {
+    "building_name": "Corbett Mansions",
+    "building_type": "apartment",
+    "floor": "tile",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_916_906"
+  },
+  "grid_x": -1,
+  "grid_y": -1,
+  "grid_z": 3,
+  "id": "zone_corbett_12a_bath",
+  "map_id": "map_int_corbett",
+  "name": "Corbett Mansions, Unit 12A Bathroom",
+  "parent_zone": "zone_district_916_906"
+}

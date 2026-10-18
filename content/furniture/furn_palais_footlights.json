@@ -1,0 +1,15 @@
+{
+  "description": "A row of lamps in a brass trough along the lip of the stage, each with a coloured gel. Two of the gels have melted at the corners.",
+  "flags": {
+    "aliases": [
+      "footlights",
+      "lamps",
+      "trough",
+      "gels"
+    ]
+  },
+  "id": "furn_palais_footlights",
+  "name": "the footlights",
+  "object_type": "decoration",
+  "zone_id": "zone_palais_stage"
+}

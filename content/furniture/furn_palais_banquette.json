@@ -1,0 +1,18 @@
+{
+  "description": "A long seat in green leather along the wall under the bills, buttoned and worn smooth at the ends.",
+  "flags": {
+    "aliases": [
+      "banquette",
+      "seat",
+      "bench"
+    ],
+    "interactions": [
+      "sit",
+      "lean"
+    ]
+  },
+  "id": "furn_palais_banquette",
+  "name": "the banquette",
+  "object_type": "furniture",
+  "zone_id": "zone_palais_foyer"
+}

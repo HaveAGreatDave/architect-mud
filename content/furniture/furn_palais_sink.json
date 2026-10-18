@@ -1,0 +1,18 @@
+{
+  "description": "A small sink with a cracked tile splashback and a bar of soap worn to a sliver.",
+  "flags": {
+    "aliases": [
+      "sink",
+      "tap",
+      "basin"
+    ],
+    "interactions": [
+      "lean"
+    ],
+    "water_source": true
+  },
+  "id": "furn_palais_sink",
+  "name": "the sink",
+  "object_type": "sink",
+  "zone_id": "zone_palais_dressing"
+}

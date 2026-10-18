@@ -17,6 +17,7 @@
     "is_building": true,
     "region_id": "region_coldwater",
     "scavenging_table_id": "scav_west_wastes",
+    "sign_trade": "CASINO",
     "world_exit_zone": "zone_district_921_909"
   },
   "grid_x": 921,

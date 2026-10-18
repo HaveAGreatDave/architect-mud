@@ -1,19 +1,20 @@
 {
   "ambient_events": [],
-  "ambient_theme": "indoors",
-  "bg_color": "#3a3550",
-  "color": "#e8e0ff",
-  "description": "A narrow shopfront wedged between the studio blocks, its window whitewashed from the inside and a letting notice taped to the glass at a hopeful angle. The old fascia has been unbolted, leaving four bright screw-holes and a ghost of the name that used to be there. Whoever takes it gets the best-looked-at forty feet of pavement on Marrow Street.",
+  "ambient_theme": "urban",
+  "bg_color": "#2e2a22",
+  "color": "#ecdcb8",
+  "description": "Twelve storeys of champagne glass between pale stone fins, put up by Solenne's developers on the rest of the plot. From the street it could be Solenne's little sister. Behind the glass the flats are the size flats always were. A glass stair tower climbs the east end, and KESTREL COURT is set in bronze letters over the door.",
   "exits": {
-    "north": "zone_sf_marrow4",
+    "north": "zone_kestrel_lobby",
     "south": "zone_district_913_909"
   },
   "flags": {
-    "building_name": "Unit 4, Marrow Street",
-    "building_type": "shop",
+    "building_name": "Kestrel Court",
+    "building_type": "apartment",
     "district": "marrow",
     "entrance": "south",
     "facade": true,
+    "floors": 12,
     "is_building": true,
     "region_id": "region_coldwater",
     "world_exit_zone": "zone_district_913_909"
@@ -23,7 +24,7 @@
   "grid_z": 0,
   "id": "zone_district_913_908",
   "map_id": "map_world",
-  "marker": "M4",
-  "name": "Unit 4, Marrow Street",
+  "marker": "KC",
+  "name": "Kestrel Court",
   "parent_zone": null
 }

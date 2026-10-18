@@ -1,0 +1,762 @@
+{
+  "adorn": [
+    {
+      "cx": 0.17,
+      "cy": 0.38,
+      "depth": 0.1,
+      "half": 0.16,
+      "kind": "awning",
+      "lip": 0.055,
+      "pal": "ty_ff_patch",
+      "z0": 0.086,
+      "z1": 0.098
+    },
+    {
+      "cx": -0.22,
+      "cy": 0.43,
+      "day": 0.3,
+      "kind": "glowPool",
+      "rgb": "255,206,140",
+      "s": 12,
+      "z": 0.07
+    },
+    {
+      "cx": 0.17,
+      "cy": 0.44,
+      "day": 0,
+      "kind": "glowPool",
+      "rgb": "255,216,150",
+      "s": 15,
+      "z": 0.06
+    },
+    {
+      "cx": 0,
+      "cy": 0.44,
+      "day": 0,
+      "kind": "glowPool",
+      "rgb": "255,224,168",
+      "s": 10,
+      "z": 0.15
+    },
+    {
+      "cx": 0.06,
+      "cy": -0.06,
+      "day": 0,
+      "kind": "glowPool",
+      "rgb": "255,200,140",
+      "s": 6,
+      "z": 1.1
+    }
+  ],
+  "basis": {
+    "fh": 0.4,
+    "h": 1
+  },
+  "bind": [
+    {
+      "by": "name",
+      "key": "Corbett Mansions"
+    }
+  ],
+  "detail": [
+    {
+      "cx": -0.22,
+      "cy": 0.38,
+      "depth": 0.016,
+      "door": 2,
+      "glass": "#20160f",
+      "glow": "#ffcf8a",
+      "half": 0.06,
+      "hh": 0.055,
+      "kind": "windowBay",
+      "pal": "ty_corbett_stone",
+      "transom": 0.7,
+      "z": 0.055
+    },
+    {
+      "cap": true,
+      "cx": -0.22,
+      "cy": 0.38,
+      "kind": "pilaster",
+      "n": 2,
+      "out": 0.014,
+      "pal": "ty_corbett_stone",
+      "step": 0.15,
+      "w": 0.012,
+      "z0": 0,
+      "z1": 0.122
+    },
+    {
+      "bars": 3,
+      "cx": 0.17,
+      "cy": 0.38,
+      "depth": 0.012,
+      "glass": "#2a2014",
+      "glow": "#ffd890",
+      "half": 0.15,
+      "hh": 0.038,
+      "kind": "windowBay",
+      "pal": "ty_corbett_stone",
+      "z": 0.046
+    },
+    {
+      "color": "#1f3b2c",
+      "cx": 0.17,
+      "cy": 0.38,
+      "font": "condensed",
+      "half": 0.11,
+      "hh": 0.005,
+      "ink": "#efe6cc",
+      "kind": "signBoard",
+      "label": "VARIETY STORE",
+      "z": 0.104
+    },
+    {
+      "color": "#1f3b2c",
+      "cx": 0.17,
+      "cy": 0.38,
+      "font": "showcard",
+      "half": 0.15,
+      "hh": 0.009,
+      "ink": "#f4d67c",
+      "kind": "signBoard",
+      "label": "MIXED BAG",
+      "z": 0.118
+    },
+    {
+      "bare": true,
+      "cx": 0,
+      "cy": 0.38,
+      "font": "deco",
+      "half": 0.31,
+      "hh": 0.016,
+      "ink": "#4a3a28",
+      "kind": "signBoard",
+      "label": "$name",
+      "nightInk": "#ffe0a8",
+      "z": 0.147
+    },
+    {
+      "count": 6,
+      "kind": "repeat",
+      "of": {
+        "bars": 2,
+        "cx": -0.25,
+        "cy": 0.34,
+        "depth": 0.01,
+        "glass": "#221a14",
+        "glow": "#ffd8a0",
+        "half": 0.034,
+        "hh": 0.026,
+        "kind": "windowBay",
+        "pal": "ty_corbett_stone",
+        "transom": 0.55,
+        "z": 0.2083
+      },
+      "step": {
+        "z": 0.0833
+      }
+    },
+    {
+      "count": 6,
+      "kind": "repeat",
+      "of": {
+        "bars": 2,
+        "cx": -0.15,
+        "cy": 0.34,
+        "depth": 0.01,
+        "glass": "#221a14",
+        "glow": "#ffd8a0",
+        "half": 0.034,
+        "hh": 0.026,
+        "kind": "windowBay",
+        "pal": "ty_corbett_stone",
+        "transom": 0.55,
+        "z": 0.2083
+      },
+      "step": {
+        "z": 0.0833
+      }
+    },
+    {
+      "count": 6,
+      "kind": "repeat",
+      "of": {
+        "bars": 2,
+        "cx": 0.15,
+        "cy": 0.34,
+        "depth": 0.01,
+        "glass": "#221a14",
+        "glow": "#ffd8a0",
+        "half": 0.034,
+        "hh": 0.026,
+        "kind": "windowBay",
+        "pal": "ty_corbett_stone",
+        "transom": 0.55,
+        "z": 0.2083
+      },
+      "step": {
+        "z": 0.0833
+      }
+    },
+    {
+      "count": 6,
+      "kind": "repeat",
+      "of": {
+        "bars": 2,
+        "cx": 0.25,
+        "cy": 0.34,
+        "depth": 0.01,
+        "glass": "#221a14",
+        "glow": "#ffd8a0",
+        "half": 0.034,
+        "hh": 0.026,
+        "kind": "windowBay",
+        "pal": "ty_corbett_stone",
+        "transom": 0.55,
+        "z": 0.2083
+      },
+      "step": {
+        "z": 0.0833
+      }
+    },
+    {
+      "count": 9,
+      "kind": "repeat",
+      "of": {
+        "bars": 3,
+        "cx": 0,
+        "cy": 0.39,
+        "depth": 0.01,
+        "glass": "#221a14",
+        "glow": "#ffd8a0",
+        "half": 0.055,
+        "hh": 0.026,
+        "kind": "windowBay",
+        "pal": "ty_corbett_stone",
+        "transom": 0.55,
+        "z": 0.2083
+      },
+      "step": {
+        "z": 0.0833
+      }
+    },
+    {
+      "count": 3,
+      "kind": "repeat",
+      "of": {
+        "bars": 2,
+        "cx": -0.19,
+        "cy": 0.28,
+        "depth": 0.01,
+        "glass": "#221a14",
+        "glow": "#ffd8a0",
+        "half": 0.034,
+        "hh": 0.026,
+        "kind": "windowBay",
+        "pal": "ty_corbett_stone",
+        "transom": 0.55,
+        "z": 0.7125
+      },
+      "step": {
+        "z": 0.0833
+      }
+    },
+    {
+      "count": 3,
+      "kind": "repeat",
+      "of": {
+        "bars": 2,
+        "cx": 0.19,
+        "cy": 0.28,
+        "depth": 0.01,
+        "glass": "#221a14",
+        "glow": "#ffd8a0",
+        "half": 0.034,
+        "hh": 0.026,
+        "kind": "windowBay",
+        "pal": "ty_corbett_stone",
+        "transom": 0.55,
+        "z": 0.7125
+      },
+      "step": {
+        "z": 0.0833
+      }
+    },
+    {
+      "count": 6,
+      "kind": "repeat",
+      "of": {
+        "bars": 2,
+        "cx": -0.25,
+        "cy": -0.34,
+        "depth": 0.01,
+        "glass": "#221a14",
+        "glow": "#ffd8a0",
+        "half": 0.034,
+        "hh": 0.026,
+        "kind": "windowBay",
+        "pal": "ty_corbett_stone",
+        "transom": 0.55,
+        "z": 0.2083
+      },
+      "step": {
+        "z": 0.0833
+      }
+    },
+    {
+      "count": 6,
+      "kind": "repeat",
+      "of": {
+        "bars": 2,
+        "cx": -0.15,
+        "cy": -0.34,
+        "depth": 0.01,
+        "glass": "#221a14",
+        "glow": "#ffd8a0",
+        "half": 0.034,
+        "hh": 0.026,
+        "kind": "windowBay",
+        "pal": "ty_corbett_stone",
+        "transom": 0.55,
+        "z": 0.2083
+      },
+      "step": {
+        "z": 0.0833
+      }
+    },
+    {
+      "count": 6,
+      "kind": "repeat",
+      "of": {
+        "bars": 2,
+        "cx": 0.13,
+        "cy": -0.34,
+        "depth": 0.01,
+        "glass": "#221a14",
+        "glow": "#ffd8a0",
+        "half": 0.034,
+        "hh": 0.026,
+        "kind": "windowBay",
+        "pal": "ty_corbett_stone",
+        "transom": 0.55,
+        "z": 0.2083
+      },
+      "step": {
+        "z": 0.0833
+      }
+    },
+    {
+      "count": 7,
+      "kind": "repeat",
+      "of": {
+        "bars": 0,
+        "cx": 0,
+        "cy": -0.34,
+        "depth": 0.01,
+        "glass": "#221a14",
+        "glow": "#ffd8a0",
+        "half": 0.02,
+        "hh": 0.02,
+        "kind": "windowBay",
+        "pal": "ty_corbett_stone",
+        "transom": 0,
+        "z": 0.2083
+      },
+      "step": {
+        "z": 0.0833
+      }
+    },
+    {
+      "count": 3,
+      "kind": "repeat",
+      "of": {
+        "bars": 2,
+        "cx": -0.18,
+        "cy": -0.28,
+        "depth": 0.01,
+        "glass": "#221a14",
+        "glow": "#ffd8a0",
+        "half": 0.034,
+        "hh": 0.026,
+        "kind": "windowBay",
+        "pal": "ty_corbett_stone",
+        "transom": 0.55,
+        "z": 0.7125
+      },
+      "step": {
+        "z": 0.0833
+      }
+    },
+    {
+      "count": 3,
+      "kind": "repeat",
+      "of": {
+        "bars": 2,
+        "cx": 0.18,
+        "cy": -0.28,
+        "depth": 0.01,
+        "glass": "#221a14",
+        "glow": "#ffd8a0",
+        "half": 0.034,
+        "hh": 0.026,
+        "kind": "windowBay",
+        "pal": "ty_corbett_stone",
+        "transom": 0.55,
+        "z": 0.7125
+      },
+      "step": {
+        "z": 0.0833
+      }
+    },
+    {
+      "cx": 0.25,
+      "cy": -0.34,
+      "flights": 5,
+      "half": 0.07,
+      "kind": "fireEscape",
+      "out": 0.05,
+      "pal": "ty_cold",
+      "z0": 0.1833,
+      "z1": 0.65
+    },
+    {
+      "count": 6,
+      "kind": "repeat",
+      "of": {
+        "bars": 2,
+        "cx": -0.13,
+        "cy": 0.34,
+        "depth": 0.01,
+        "face": "x",
+        "glass": "#221a14",
+        "glow": "#ffd8a0",
+        "half": 0.034,
+        "hh": 0.026,
+        "kind": "windowBay",
+        "pal": "ty_corbett_stone",
+        "transom": 0.55,
+        "z": 0.2083
+      },
+      "step": {
+        "z": 0.0833
+      }
+    },
+    {
+      "count": 6,
+      "kind": "repeat",
+      "of": {
+        "bars": 2,
+        "cx": 0.13,
+        "cy": 0.34,
+        "depth": 0.01,
+        "face": "x",
+        "glass": "#221a14",
+        "glow": "#ffd8a0",
+        "half": 0.034,
+        "hh": 0.026,
+        "kind": "windowBay",
+        "pal": "ty_corbett_stone",
+        "transom": 0.55,
+        "z": 0.2083
+      },
+      "step": {
+        "z": 0.0833
+      }
+    },
+    {
+      "count": 6,
+      "kind": "repeat",
+      "of": {
+        "bars": 2,
+        "cx": -0.13,
+        "cy": -0.34,
+        "depth": 0.01,
+        "face": "x",
+        "glass": "#221a14",
+        "glow": "#ffd8a0",
+        "half": 0.034,
+        "hh": 0.026,
+        "kind": "windowBay",
+        "pal": "ty_corbett_stone",
+        "transom": 0.55,
+        "z": 0.2083
+      },
+      "step": {
+        "z": 0.0833
+      }
+    },
+    {
+      "count": 6,
+      "kind": "repeat",
+      "of": {
+        "bars": 2,
+        "cx": 0.13,
+        "cy": -0.34,
+        "depth": 0.01,
+        "face": "x",
+        "glass": "#221a14",
+        "glow": "#ffd8a0",
+        "half": 0.034,
+        "hh": 0.026,
+        "kind": "windowBay",
+        "pal": "ty_corbett_stone",
+        "transom": 0.55,
+        "z": 0.2083
+      },
+      "step": {
+        "z": 0.0833
+      }
+    },
+    {
+      "count": 3,
+      "kind": "repeat",
+      "of": {
+        "bars": 2,
+        "cx": 0,
+        "cy": 0.28,
+        "depth": 0.01,
+        "face": "x",
+        "glass": "#221a14",
+        "glow": "#ffd8a0",
+        "half": 0.034,
+        "hh": 0.026,
+        "kind": "windowBay",
+        "pal": "ty_corbett_stone",
+        "transom": 0.55,
+        "z": 0.7125
+      },
+      "step": {
+        "z": 0.0833
+      }
+    },
+    {
+      "count": 3,
+      "kind": "repeat",
+      "of": {
+        "bars": 2,
+        "cx": 0,
+        "cy": -0.28,
+        "depth": 0.01,
+        "face": "x",
+        "glass": "#221a14",
+        "glow": "#ffd8a0",
+        "half": 0.034,
+        "hh": 0.026,
+        "kind": "windowBay",
+        "pal": "ty_corbett_stone",
+        "transom": 0.55,
+        "z": 0.7125
+      },
+      "step": {
+        "z": 0.0833
+      }
+    },
+    {
+      "cx": -0.2,
+      "cy": 0.34,
+      "face": "x",
+      "kind": "pipe",
+      "pal": "ty_cold",
+      "r": 0.011,
+      "z0": 0.1667,
+      "z1": 0.6667
+    },
+    {
+      "cx": -0.05,
+      "cy": -0.42,
+      "d": 0.033,
+      "hh": 0.03,
+      "kind": "binStack",
+      "lid": "#2a2226",
+      "n": 3,
+      "pal": "ty_cold",
+      "w": 0.04,
+      "z": 0.004
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "half": 0.355,
+      "hh": 0.007,
+      "kind": "parapet",
+      "pal": "ty_corbett_stone",
+      "z": 0.6827
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "half": 0.295,
+      "hh": 0.006,
+      "kind": "parapet",
+      "pal": "ty_corbett_stone",
+      "z": 0.9307
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "half": 0.195,
+      "hh": 0.006,
+      "kind": "parapet",
+      "pal": "ty_corbett_stone",
+      "z": 1
+    },
+    {
+      "cx": 0.06,
+      "cy": -0.06,
+      "hh": 0.06,
+      "kind": "tankFrame",
+      "pal": "ty_corbett_tank",
+      "r": 0.07,
+      "rise": 0.04,
+      "z": 1
+    },
+    {
+      "cx": -0.11,
+      "cy": 0.08,
+      "d": 0.045,
+      "hh": 0.03,
+      "kind": "roofBulkhead",
+      "pal": "ty_corbett",
+      "w": 0.05,
+      "z": 1
+    },
+    {
+      "cx": -0.32,
+      "cy": 0.2,
+      "hh": 0.045,
+      "kind": "stack",
+      "pal": "ty_corbett",
+      "r": 0.022,
+      "z": 0.6827
+    },
+    {
+      "cx": -0.32,
+      "cy": -0.2,
+      "hh": 0.045,
+      "kind": "stack",
+      "pal": "ty_corbett",
+      "r": 0.022,
+      "z": 0.6827
+    },
+    {
+      "cx": 0.32,
+      "cy": 0.2,
+      "hh": 0.045,
+      "kind": "stack",
+      "pal": "ty_corbett",
+      "r": 0.022,
+      "z": 0.6827
+    },
+    {
+      "cx": 0.32,
+      "cy": -0.2,
+      "hh": 0.045,
+      "kind": "stack",
+      "pal": "ty_corbett",
+      "r": 0.022,
+      "z": 0.6827
+    }
+  ],
+  "id": "corbettmansions",
+  "note": "CORBETT MANSIONS: twelve storeys of interwar red-brick mansion flats on Lever Lane, beside Watts The Damage, with Mixed Bag Variety Store in the ground floor (docs/proposals/marrow-midrises.md).\n\nA block built to look like a bank, and shaped like one too: a two-storey stone plinth, a brick shaft banded in stone, then two setbacks with a stone cornice under each, and an attic carrying the timber water tank. A bay of wide windows runs up the middle of the front past the first setback, and a stair tower runs up the back. It stops at twelve so the Meridian, two tiles away, stays the tower.\n\n⚠ THE NAME IS THE BIGGEST LETTERING ON THE FRONT, AND IT IS ABOVE THE SHOP'S. CORBETT MANSIONS is cut across the whole stone frieze at the top of the plinth; MIXED BAG and VARIETY STORE are boards on the shopfront below it, over the awning. Two names on one front, and different businesses, so it is allowed.\n\n⚠ EVERY MASS IS A SQUARE. F() rotates a box's position to the entrance and leaves its footprint pointing north, so the bay and the stair tower are square boxes off centre, and the setbacks are centred squares. Nothing here can turn out from under itself at another facing.\n\n⚠ THE BRICK IS IN BRICK_WALL, so the wall draws no window grid, and every window is authored, one repeat per column with one row per storey.",
+  "pal": "ty_corbett",
+  "segs": [
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.38,
+      "kind": "box",
+      "pal": "ty_corbett_stone",
+      "roof": true,
+      "z0": 0,
+      "z1": 0.1667
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.34,
+      "kind": "box",
+      "roof": true,
+      "z0": 0.1667,
+      "z1": 0.6667
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.35,
+      "kind": "box",
+      "pal": "ty_corbett_stone",
+      "roof": false,
+      "z0": 0.4127,
+      "z1": 0.4207
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.362,
+      "kind": "box",
+      "pal": "ty_corbett_stone",
+      "roof": true,
+      "z0": 0.6667,
+      "z1": 0.6827
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.28,
+      "kind": "box",
+      "roof": true,
+      "z0": 0.6827,
+      "z1": 0.9167
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.3,
+      "kind": "box",
+      "pal": "ty_corbett_stone",
+      "roof": true,
+      "z0": 0.9167,
+      "z1": 0.9307
+    },
+    {
+      "cx": 0,
+      "cy": 0,
+      "hw": 0.2,
+      "kind": "box",
+      "roof": true,
+      "z0": 0.9307,
+      "z1": 1
+    },
+    {
+      "cx": 0,
+      "cy": 0.3,
+      "hw": 0.09,
+      "kind": "box",
+      "roof": true,
+      "z0": 0.1667,
+      "z1": 0.9583
+    },
+    {
+      "cx": 0,
+      "cy": 0.3,
+      "hw": 0.1,
+      "kind": "box",
+      "pal": "ty_corbett_stone",
+      "roof": true,
+      "z0": 0.9583,
+      "z1": 0.9743
+    },
+    {
+      "cx": 0,
+      "cy": -0.27,
+      "hw": 0.07,
+      "kind": "box",
+      "roof": true,
+      "z0": 0.1667,
+      "z1": 0.7833
+    }
+  ],
+  "trade": "corbettmansions"
+}

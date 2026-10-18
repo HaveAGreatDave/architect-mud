@@ -1,0 +1,30 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A long room with the bar down one side and a mirror behind it the full length, a bottle on every glass shelf. The ceiling is a shallow vault of gold leaf, dull but whole. Little round tables, a brass foot rail, and a door at the west end through to the stalls, kept open so the band carries.",
+  "exits": {
+    "down": "zone_util_zone_palais_east_bar",
+    "north": "zone_district_910_909",
+    "west": "zone_palais_stalls"
+  },
+  "flags": {
+    "building_name": "The Coldwater Palais",
+    "building_type": "palais_bar",
+    "floor": "tile",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "Tall windows in bronze frames onto Meltwater Row, the Palais's own marquee lighting the pavement outside.",
+      "light": 0.7,
+      "name": "the bar windows",
+      "visibility": 0.8
+    },
+    "world_exit_zone": "zone_district_910_909"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_palais_east_bar",
+  "map_id": "map_int_palais_east",
+  "name": "The Coldwater Palais: The Crush Bar",
+  "parent_zone": "zone_district_910_909"
+}

@@ -7,7 +7,7 @@
     "south": "zone_course_reading"
   },
   "flags": {
-    "building_name": "Course Correction",
+    "building_name": "The Halcyon Institute",
     "building_type": "institute",
     "floor": "boards",
     "is_building": true,
@@ -19,6 +19,6 @@
   "grid_z": 0,
   "id": "zone_course_theatre",
   "map_id": "map_int_course",
-  "name": "Course Correction — The Lecture Theatre",
+  "name": "The Halcyon Institute — The Lecture Theatre",
   "parent_zone": "zone_district_896_911"
 }

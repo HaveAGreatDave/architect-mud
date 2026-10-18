@@ -1,29 +1,23 @@
 {
   "ambient_events": [],
-  "ambient_theme": "urban",
-  "bg_color": "#2c231c",
-  "color": "#8ba36a",
-  "description": "A narrow shopfront with its whole front wall folded open to the street and a counter running the length of it, nine stools, no tables. A steam hood over the range dumps a column of onion-and-bone smell straight into Marrow Street, and the smell does all the advertising. A paper lantern hangs where a sign should be, OYELARAN'S brushed down one side and a 9 on the other.",
+  "ambient_theme": "city",
+  "description": "A gap between two shopfronts that's been a road for as long as the shops have had back doors. Grease from the noodle bar's bins has darkened the gravel along the west side, and every cat in the Yards knows it. North it climbs to Lever Lane; south it comes out on Marrow Street.",
   "exits": {
-    "north": "zone_broth_counter",
+    "north": "zone_district_917_907",
     "south": "zone_district_917_909"
   },
   "flags": {
-    "building_name": "Oyelaran's",
-    "building_type": "noodle_bar",
     "district": "marrow",
-    "entrance": "south",
-    "facade": true,
-    "is_building": true,
     "region_id": "region_coldwater",
-    "world_exit_zone": "zone_district_917_909"
+    "scavenging_table_id": "scav_roadside_junk",
+    "street_life": true,
+    "terrain": "road"
   },
   "grid_x": 917,
   "grid_y": 908,
   "grid_z": 0,
   "id": "zone_district_917_908",
   "map_id": "map_world",
-  "marker": "OY",
-  "name": "Oyelaran's",
+  "name": "Lever Lane",
   "parent_zone": null
 }

@@ -1,0 +1,31 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A high-ceilinged flat with a picture rail and a boarded-up fireplace. A kitchenette fills the old scullery. The sash window looks over the grass to the Basin. In the afternoon the light off the water goes gold on the picture rail. The bathroom is through a panelled door at the back.",
+  "exits": {
+    "east": "zone_corbett_f4",
+    "north": "zone_corbett_4a_bath"
+  },
+  "flags": {
+    "building_name": "Corbett Mansions",
+    "building_type": "apartment",
+    "floor": "boards",
+    "is_apartment": true,
+    "is_building": true,
+    "is_interior": true,
+    "rent_cost": 240,
+    "window": {
+      "description": "A tall sash window, its cords replaced with string.",
+      "light": 0.8,
+      "name": "the sash window",
+      "visibility": 0.85
+    },
+    "world_exit_zone": "zone_district_916_906"
+  },
+  "grid_x": -1,
+  "grid_y": 0,
+  "grid_z": 1,
+  "id": "zone_corbett_4a",
+  "map_id": "map_int_corbett",
+  "name": "Corbett Mansions, Unit 4A",
+  "parent_zone": "zone_district_916_906"
+}

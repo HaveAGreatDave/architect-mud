@@ -1,0 +1,11 @@
+{
+  "description": "Recessed light panels in a grid across the ceiling, all of them on, for nobody.",
+  "flags": {},
+  "id": "furn_light_zone_marrowhouse_suite",
+  "light_type": "overhead",
+  "lumen_output": 2400,
+  "name": "the ceiling panels",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_marrowhouse_suite"
+}

@@ -1,0 +1,15 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_pickled_egg",
+  "name": "pickled egg",
+  "tags": {
+    "consumable": true,
+    "description": "A hard-boiled egg fished out of a jar of vinegar on the counter, grey-white and rubbery, wrapped in a square of paper.",
+    "restore_hunger": 7,
+    "stackable": true
+  },
+  "type": "consumable",
+  "value": 3,
+  "weight": 70
+}

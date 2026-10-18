@@ -6,10 +6,10 @@
   "exits": {
     "down": "zone_util_zone_broth_counter",
     "east": "zone_broth_galley",
-    "south": "zone_district_917_908"
+    "south": "zone_district_916_908"
   },
   "flags": {
-    "building_name": "Oyelaran's",
+    "building_name": "Nico's Noodle Bar",
     "building_type": "noodle_bar",
     "floor": "linoleum",
     "is_building": true,
@@ -20,13 +20,13 @@
       "name": "the shopfront window",
       "visibility": 0.9
     },
-    "world_exit_zone": "zone_district_917_908"
+    "world_exit_zone": "zone_district_916_908"
   },
   "grid_x": 0,
   "grid_y": 0,
   "grid_z": 0,
   "id": "zone_broth_counter",
   "map_id": "map_int_broth",
-  "name": "Oyelaran's — The Counter",
-  "parent_zone": "zone_district_917_908"
+  "name": "Nico's Noodle Bar — The Counter",
+  "parent_zone": "zone_district_916_908"
 }

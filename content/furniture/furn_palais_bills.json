@@ -1,0 +1,16 @@
+{
+  "description": "Framed posters down both walls, one for every season the Palais has been open. The newest are photographs. The oldest are hand-lettered, and the ink has gone the colour of tea.",
+  "flags": {
+    "aliases": [
+      "bills",
+      "posters",
+      "frames",
+      "playbills"
+    ],
+    "examine_detail": "The one nearest the door is from the opening season. The top line is a dance band, the prices are in a currency the city stopped using, and at the bottom it promises that the Palais will never close. So far it hasn't."
+  },
+  "id": "furn_palais_bills",
+  "name": "the old bills",
+  "object_type": "decoration",
+  "zone_id": "zone_palais_foyer"
+}

@@ -38,8 +38,8 @@ keys today, distributed very unevenly:
 | `bale` · `brass` · `frost` · `chrome` | 5 · 5 · 4 · 4 | straw and fibre · gilt · etched glass · mirror |
 | `lattice` · `struct` · `deco` · `pump` | 3 · 2 · 1 · 1 | see-through truss · structural steel · the Meridian · a fuel dispenser |
 
-⚠ **`deco` is one key.** The art-deco surface in this city is `ty_meridian` and nothing else wears
-it. That is a fact about the city rather than a limit of the format — see §2.4.
+⚠ **`deco` is one key.** The art-deco surface in this city is `ty_meridian`, worn by the Meridian and
+the Coldwater Palais's foyers. That is a fact about the city rather than a limit of the format — see §2.4.
 
 **MODERNITY.** `placeModern(place)` answers 0..1 and everything district-shaped in the derived kit
 reads it: how likely a frontage is to carry neon, a ribbon of glazing, a lit roof armature, a corner
@@ -211,8 +211,13 @@ stepped capitals is art deco's whole silhouette; the same part with `glow` set i
 skyline's. One part, two periods, and which one a building gets is read off axes that already exist.
 A second deco building needs a palette key and that part, not a new mechanism.
 
-**This quarter is one building deep.** If you want a deco *street*, the honest entry cost is a handful
-of limestone and bronze keys in `DECO_WALL` / `BRASS_WALL` and a rule about which tiles get them.
+**This quarter is two buildings deep.** The Coldwater Palais on Meltwater Row (2026-10,
+[coldwater-palais.md](../proposals/coldwater-palais.md)) is the Meridian's decade and the Meridian's
+stone: its foyers' windowed floors wear `ty_meridian` itself, and its blind stage house and ground
+floors are `ty_palais_stone`, a paler limestone in STONE_WALL, because an auditorium has no windows
+and the deco skin is a window grid. Bronze is `ty_meridian_bronze`, roofs are `ty_verdigris`, and it
+lettered its blade in the `deco` hand. If you want a deco *street*, the honest entry cost is still a
+handful of limestone and bronze keys and a rule about which tiles get them.
 
 ### 2.5 The Yards and the works — industrial
 
@@ -628,6 +633,24 @@ building done, check it against what that arm does:
   pass doesn't bring it back.
 
 ---
+
+### 4.6 Names
+
+A player has to be able to find a place by what it's for.
+
+- **A place people go to for a service gets a plain name**: the Eastern Marina, the Ironside Clinic,
+  Fairweather Marina, Precinct 9, Fire Station 4. Where there are two of a thing, say which one by
+  where it is.
+- **A pun is for a shop, and it carries its trade on the sign.** Dosed & Confused says CHEMIST under
+  it, Stuff It says TAXIDERMIST. Set `flags.sign_trade` on every map_world tile of the building; GLASS
+  sets it as the second line on whichever board carries the name (`tradeSub` in `windshield.js`). A
+  name that already says the trade (Nico's Noodle Bar, Batter Days Fish & Chips) needs no flag.
+- The word is the plain shopfront noun a passer-by would look for, not a second joke.
+
+`building_type` can't stand in for the flag: the florist is filed as a `boutique` and the music shop
+as a `shop`. Unflagged, the sign falls back to the model's `SIGN_WORD`, which is right for a bodega
+and wrong for those. A vertical blade can't take a second line, so a building whose only name sign is
+a blade needs a horizontal board as well.
 
 ## 5. How to check yourself
 

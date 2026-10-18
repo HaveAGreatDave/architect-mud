@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_palais_programme",
+  "name": "a Palais programme",
+  "tags": {
+    "description": "A folded card printed in two colours, the Palais drawn on the front in the style of the old bills. Inside: this week's acts, the bar prices, and a paragraph on the building's history that leaves out anything embarrassing.",
+    "stackable": true
+  },
+  "type": "media",
+  "value": 3,
+  "weight": 20
+}

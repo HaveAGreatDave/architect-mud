@@ -1,5 +1,5 @@
 {
-  "connection_id": "conn_district_916_906_west_6af3",
+  "connection_id": "conn_district_917_917_west_slip",
   "door_type": "basic",
   "exit_dir": "west",
   "flags": {},
@@ -23,5 +23,5 @@
     }
   },
   "target_zone": "zone_slip_shop",
-  "zone_id": "zone_district_916_906"
+  "zone_id": "zone_district_917_917"
 }

@@ -1,0 +1,9 @@
+{
+  "a": "zone_corbett_4a",
+  "b": "zone_corbett_4a_bath",
+  "blocked": false,
+  "dir": "north",
+  "id": "conn_hf_corbett_4a_north",
+  "lockable": false,
+  "one_way": false
+}

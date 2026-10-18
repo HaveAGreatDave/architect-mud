@@ -1,0 +1,16 @@
+{
+  "description": "Three plastic lines between the motor room and the bronze rail. A sheet, two shirts and a towel that has gone stiff in the wind.",
+  "flags": {
+    "aliases": [
+      "washing",
+      "lines",
+      "sheet",
+      "shirts",
+      "towel"
+    ]
+  },
+  "id": "furn_kestrel_washing",
+  "name": "the washing lines",
+  "object_type": "decoration",
+  "zone_id": "zone_kestrel_roof"
+}

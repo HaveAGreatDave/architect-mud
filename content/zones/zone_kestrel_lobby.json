@@ -1,0 +1,30 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A lobby faced in Solenne's pale stone for the first three metres and painted plasterboard after that. Steel mailboxes line one wall, half the names out of date. The lift doors are taped shut with \"out of order\" on the tape. The stair climbs a glass tower you can see the street through.",
+  "exits": {
+    "down": "zone_util_zone_kestrel_lobby",
+    "south": "zone_district_913_908",
+    "up": "zone_kestrel_f3"
+  },
+  "flags": {
+    "building_name": "Kestrel Court",
+    "building_type": "apartment",
+    "floor": "tile",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "The stair tower is glazed from the pavement to the roof, so the lobby gets daylight down the full height of the building. Marrow Street goes past on the other side of it.",
+      "light": 0.85,
+      "name": "the stair glass",
+      "visibility": 0.8
+    },
+    "world_exit_zone": "zone_district_913_908"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_kestrel_lobby",
+  "map_id": "map_int_kestrel",
+  "name": "Kestrel Court, Lobby",
+  "parent_zone": "zone_district_913_908"
+}

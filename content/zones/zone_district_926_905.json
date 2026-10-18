@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "city",
   "color": "#9aa0b0",
-  "description": "A broad grey ribbon of cracked asphalt, its painted centreline dwindling to a pale seam in the heat-shimmer. Weeds push up through the expansion joints. A windsock hangs limp at the far edge.",
+  "description": "A square of patched concrete at the dead end of the taxiway, with a white ring and a white H on it so the helicopters know where to sit. Rotor wash has blown it cleaner than anything else in the docks. Green lamps ring the circle, and the harbour laps at two sides.",
   "exits": {
     "east": "zone_district_927_905",
     "north": "zone_district_926_904",
@@ -11,6 +11,7 @@
   },
   "flags": {
     "district": "docks",
+    "helipad": true,
     "region_id": "region_coldwater",
     "runway": "pad",
     "scavenging_table_id": "scav_industrial_salvage",
@@ -22,6 +23,6 @@
   "grid_z": 0,
   "id": "zone_district_926_905",
   "map_id": "map_world",
-  "name": "Runway",
+  "name": "Helipad",
   "parent_zone": null
 }

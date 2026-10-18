@@ -1,0 +1,9 @@
+{
+  "a": "zone_kestrel_11b",
+  "b": "zone_kestrel_11b_bath",
+  "blocked": false,
+  "dir": "north",
+  "id": "conn_hf_kestrel_11b_north",
+  "lockable": false,
+  "one_way": false
+}

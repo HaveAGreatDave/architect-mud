@@ -3,7 +3,6 @@
   "ambient_theme": "city",
   "description": "Loose stone crunches underfoot, greyed with dust and old oil. A dead streetlight leans at the verge, and the wind carries grit that finds your teeth. Tyre tracks braid off into the haze.",
   "exits": {
-    "east": "zone_district_908_909",
     "north": "zone_district_907_908",
     "south": "zone_district_907_910",
     "west": "zone_district_906_909"

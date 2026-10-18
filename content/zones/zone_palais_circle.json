@@ -1,0 +1,22 @@
+{
+  "ambient_theme": "indoors",
+  "description": "The circle hangs over the back of the stalls on a curve of plaster, three rows deep, the seats older and softer than the ones below. A brass rail runs along the front. From up here the stage is small and bright and the whole room is in front of you, which is what the extra credits used to buy.",
+  "exits": {
+    "down": "zone_palais_stalls"
+  },
+  "flags": {
+    "building_name": "The Coldwater Palais",
+    "building_type": "palais_foyer",
+    "floor": "carpet",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_908_909"
+  },
+  "grid_x": 1,
+  "grid_y": 0,
+  "grid_z": 1,
+  "id": "zone_palais_circle",
+  "map_id": "map_int_palais",
+  "name": "The Coldwater Palais: The Dress Circle",
+  "parent_zone": "zone_district_908_909"
+}

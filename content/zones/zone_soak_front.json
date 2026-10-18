@@ -5,8 +5,7 @@
   "description": "Two chairs, one mirror, and a long bench of men waiting who are in no hurry at all. The tiles are green to shoulder height and beyond that the paint has gone soft with steam. Strops hang from the chair arms; a row of jars holds combs in blue fluid that stopped being antiseptic some time ago and is now purely a gesture. Through the arch at the back, the air turns to water.",
   "exits": {
     "down": "zone_util_zone_soak_front",
-    "east": "zone_soak_baths",
-    "south": "zone_district_916_908"
+    "east": "zone_soak_baths"
   },
   "flags": {
     "building_name": "Lather & Lye",
@@ -19,8 +18,7 @@
       "light": 0.85,
       "name": "the shopfront window",
       "visibility": 0.9
-    },
-    "world_exit_zone": "zone_district_916_908"
+    }
   },
   "grid_x": 0,
   "grid_y": 0,
@@ -28,5 +26,5 @@
   "id": "zone_soak_front",
   "map_id": "map_int_soak",
   "name": "Lather & Lye — Barber Floor",
-  "parent_zone": "zone_district_916_908"
+  "parent_zone": null
 }

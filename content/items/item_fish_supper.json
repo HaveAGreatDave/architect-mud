@@ -1,0 +1,17 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_fish_supper",
+  "name": "fish supper",
+  "tags": {
+    "consumable": true,
+    "description": "Battered cod laid on chips and wrapped twice in paper, the inner sheet already going clear with fat. The batter is the thick, blistered kind. Salt and vinegar whether you asked or not.",
+    "restore_hp": 4,
+    "restore_hunger": 45,
+    "stackable": true,
+    "well_fed": true
+  },
+  "type": "consumable",
+  "value": 16,
+  "weight": 500
+}

@@ -1,20 +1,19 @@
 {
   "ambient_events": [],
-  "ambient_theme": "urban",
-  "bg_color": "#26221a",
-  "color": "#8ba36a",
-  "description": "A granite shopfront with bars on every pane and three gilt balls on a bracket over the door, the oldest sign in the trade and still the only one that needs no explaining. The window is crammed floor to ceiling with other people's worst days: dead men's watches, hocked tools, a wedding band on a nail. The fascia reads CASH & CARRION · WE BUY · WE HOLD · WE DON'T REMEMBER, and under it a smaller brass plate says H. HOCK, LICENSED APPRAISER. The shutter is up a hopeful eighteen inches. Something inside is always quietly pricing you.",
+  "ambient_theme": "indoors",
+  "bg_color": "#3a3550",
+  "color": "#e8e0ff",
+  "description": "A wide, low brick shopfront with its window whitewashed from the inside and a letting notice taped to the glass. Four bright screw-holes and a ghost of a name show where the fascia came off. Solenne's glass goes up across the road. Whoever takes it gets the busiest forty feet of pavement on Marrow Street.",
   "exits": {
     "north": "zone_district_916_909",
-    "south": "zone_hock_pawn"
+    "south": "zone_sf_marrow4"
   },
   "flags": {
-    "building_name": "Cash & Carrion",
-    "building_type": "fence",
+    "building_name": "Unit 4, Marrow Street",
+    "building_type": "shop",
     "district": "marrow",
     "entrance": "north",
     "facade": true,
-    "floors": 4,
     "is_building": true,
     "region_id": "region_coldwater",
     "world_exit_zone": "zone_district_916_909"
@@ -24,8 +23,7 @@
   "grid_z": 0,
   "id": "zone_district_916_910",
   "map_id": "map_world",
-  "marker": "HK",
-  "name": "Cash & Carrion",
+  "marker": "M4",
+  "name": "Unit 4, Marrow Street",
   "parent_zone": null
 }
-

@@ -19,6 +19,7 @@
     "facade": true,
     "is_building": true,
     "region_id": "region_coldwater",
+    "sign_trade": "GROCERY",
     "world_exit_zone": "zone_district_897_906"
   },
   "grid_x": 897,

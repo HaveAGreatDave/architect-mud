@@ -7,7 +7,7 @@
     "west": "zone_hulls_shop"
   },
   "flags": {
-    "building_name": "Moor or Less",
+    "building_name": "Eastern Marina",
     "building_type": "boatshed",
     "floor": "boards",
     "is_building": true,
@@ -19,6 +19,6 @@
   "grid_z": 0,
   "id": "zone_hulls_back",
   "map_id": "map_int_hulls",
-  "name": "Moor or Less — The Steam Box",
+  "name": "Eastern Marina: The Steam Box",
   "parent_zone": "zone_district_921_901"
 }

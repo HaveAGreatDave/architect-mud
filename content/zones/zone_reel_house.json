@@ -2,12 +2,12 @@
   "ambient_events": [],
   "ambient_theme": "indoors",
   "bg_color": "#181418",
-  "description": "A hundred and eighty seats sloping down to a screen that fills the end wall, the ceiling lost in the dark. Six seats in row F have been reupholstered, a bright red patch in the brown. The organ sits in a pit below the screen, console open, stops out. It smells of warm dust and, faintly, oranges.",
+  "description": "A variety house with a screen in it. A hundred and eighty seats slope down to the proscenium, a gilt plaster arch with a lyre at its crown, and the screen hangs inside it where the house curtain used to be, over a stage nobody has stood on in forty years. Boxes stack two high either side of the arch, roped off and dark. The circle sweeps round overhead on iron columns, and the beam comes out of the back wall of it. Six seats in row F have been reupholstered, a bright red patch in the brown. The organ sits in the pit in front of the stage, console open, stops out. It smells of warm dust and, faintly, oranges.",
   "exits": {
     "west": "zone_reel_foyer"
   },
   "flags": {
-    "building_name": "Reel Estate",
+    "building_name": "Midway Parks Cinema",
     "building_type": "cinema",
     "floor": "carpet",
     "is_building": true,
@@ -19,6 +19,6 @@
   "grid_z": 0,
   "id": "zone_reel_house",
   "map_id": "map_int_reel",
-  "name": "Reel Estate — The Auditorium",
+  "name": "Midway Parks Cinema — The Auditorium",
   "parent_zone": "zone_district_912_914"
 }

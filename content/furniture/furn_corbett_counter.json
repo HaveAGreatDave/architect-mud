@@ -1,0 +1,16 @@
+{
+  "description": "A wooden counter worn pale at the front edge, with a glass jar of boiled sweets on one end and a spike of receipts on the other.",
+  "flags": {
+    "aliases": [
+      "counter",
+      "sweets",
+      "jar",
+      "receipts",
+      "spike"
+    ]
+  },
+  "id": "furn_corbett_counter",
+  "name": "the counter",
+  "object_type": "fixture",
+  "zone_id": "zone_corbett_shop"
+}

@@ -1,24 +1,30 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive.",
+  "ambient_theme": "urban",
+  "bg_color": "#2a2219",
+  "color": "#e8c878",
+  "description": "The west foyer of the Palais: three floors of limestone with a round stone tower on the corner, banded in bronze and capped in green copper. Two bronze doors under a canopy, BOX OFFICE lettered in the glass over them, a lit window either side. The stone has been washed this year. Nobody washes stone any more.",
   "exits": {
-    "east": "zone_district_909_909",
     "north": "zone_district_908_908",
-    "south": "zone_district_908_910",
-    "west": "zone_district_907_909"
+    "south": "zone_palais_foyer"
   },
   "flags": {
-    "district": "wasteland",
+    "building_name": "The Coldwater Palais",
+    "building_type": "palais_foyer",
+    "district": "commercial",
+    "entrance": "north",
+    "facade": true,
+    "floors": 3,
+    "is_building": true,
     "region_id": "region_coldwater",
-    "scavenging_table_id": "scav_west_wastes",
-    "terrain": "forest"
+    "world_exit_zone": "zone_district_908_908"
   },
   "grid_x": 908,
   "grid_y": 909,
   "grid_z": 0,
   "id": "zone_district_908_909",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "marker": "BX",
+  "name": "The Coldwater Palais",
   "parent_zone": null
 }

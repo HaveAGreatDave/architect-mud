@@ -8,7 +8,7 @@
   "flags": {
     "floor": "concrete",
     "is_interior": true,
-    "world_exit_zone": "zone_district_913_908"
+    "world_exit_zone": "zone_district_916_910"
   },
   "grid_x": 0,
   "grid_y": 0,
@@ -16,5 +16,5 @@
   "id": "zone_util_zone_sf_marrow4",
   "map_id": "map_int_sf_marrow4",
   "name": "Unit 4, Marrow Street — Utility Room",
-  "parent_zone": "zone_district_913_908"
+  "parent_zone": "zone_district_916_910"
 }

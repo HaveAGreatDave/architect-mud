@@ -1,0 +1,11 @@
+{
+  "description": "Two bare fluorescent tubes over the counter, and the heat lamps in the cabinet, which do most of the work.",
+  "flags": {},
+  "id": "furn_light_zone_batter_shop",
+  "light_type": "overhead",
+  "lumen_output": 1200,
+  "name": "the counter lights",
+  "object_type": "light",
+  "power_draw_kw": 0.03,
+  "zone_id": "zone_batter_shop"
+}

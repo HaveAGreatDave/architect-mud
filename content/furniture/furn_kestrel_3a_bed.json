@@ -1,0 +1,18 @@
+{
+  "description": "A divan bed with a sprung mattress gone soft at the edge you sit on.",
+  "flags": {
+    "aliases": [
+      "bed",
+      "divan",
+      "mattress"
+    ],
+    "interactions": [
+      "lie",
+      "sit"
+    ]
+  },
+  "id": "furn_kestrel_3a_bed",
+  "name": "the bed",
+  "object_type": "furniture",
+  "zone_id": "zone_kestrel_3a"
+}

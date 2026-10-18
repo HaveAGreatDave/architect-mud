@@ -9,7 +9,7 @@
     "south": "zone_hf_deposit_counter"
   },
   "flags": {
-    "building_name": "Deposit Taken",
+    "building_name": "4 Sorrel Way",
     "building_type": "atrium_court",
     "district": "halcyon_fields",
     "entrance": "north",
@@ -24,7 +24,7 @@
   "grid_z": 0,
   "id": "zone_district_895_915",
   "map_id": "map_world",
-  "marker": "DT",
-  "name": "Deposit Taken",
+  "marker": "S4",
+  "name": "4 Sorrel Way",
   "parent_zone": null
 }

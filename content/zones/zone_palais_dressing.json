@@ -1,0 +1,22 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A corridor of narrow rooms off the side of the stage, doors propped open. Mirrors ringed with bulbs, a rail of costumes in plastic, a sink with a cracked tile splashback, and a kettle. The walls are signed in pen and lipstick by everyone who has played here, back to names the city has forgotten.",
+  "exits": {
+    "east": "zone_palais_stage"
+  },
+  "flags": {
+    "building_name": "The Coldwater Palais",
+    "building_type": "palais_foyer",
+    "floor": "boards",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_908_909"
+  },
+  "grid_x": 0,
+  "grid_y": 1,
+  "grid_z": 0,
+  "id": "zone_palais_dressing",
+  "map_id": "map_int_palais",
+  "name": "The Coldwater Palais: The Dressing Rooms",
+  "parent_zone": "zone_district_908_909"
+}

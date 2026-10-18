@@ -333,5 +333,5 @@
   "vendor_stock_size": 20,
   "wander_zones": [],
   "wanders": 0,
-  "work_zone_id": "zone_soak_front"
+  "work_zone_id": null
 }

@@ -1,0 +1,8 @@
+{
+  "description": "A toilet with a high cistern and a pull-chain with a china handle that says Pull.",
+  "flags": {},
+  "id": "furn_corbett_4b_bath_toilet",
+  "name": "the toilet",
+  "object_type": "toilet",
+  "zone_id": "zone_corbett_4b_bath"
+}

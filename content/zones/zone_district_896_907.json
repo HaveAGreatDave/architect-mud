@@ -19,6 +19,7 @@
     "facade": true,
     "is_building": true,
     "region_id": "region_coldwater",
+    "sign_trade": "LAUNDERETTE",
     "world_exit_zone": "zone_district_896_906"
   },
   "grid_x": 896,

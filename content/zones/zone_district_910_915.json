@@ -16,6 +16,7 @@
     "floors": 1,
     "is_building": true,
     "region_id": "region_coldwater",
+    "sign_trade": "AMUSEMENTS",
     "world_exit_zone": "zone_district_911_915"
   },
   "grid_x": 910,

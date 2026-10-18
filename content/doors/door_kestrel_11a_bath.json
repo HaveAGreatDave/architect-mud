@@ -1,0 +1,26 @@
+{
+  "connection_id": "conn_hf_kestrel_11a_north",
+  "door_type": "basic",
+  "exit_dir": "south",
+  "flags": {},
+  "hololock_difficulty": 5,
+  "hp": 1000,
+  "hp_max": 1000,
+  "id": "door_kestrel_11a_bath",
+  "is_locked": 0,
+  "is_open": 0,
+  "lock_state": "unlocked",
+  "name": null,
+  "tags": {
+    "lock:privacylock": {
+      "messages": {
+        "denied": "The bolt is on the other side.",
+        "lock": "You slide the bolt across.",
+        "unlock": "You slide the bolt back."
+      },
+      "privacySide": "zone_kestrel_11a_bath"
+    }
+  },
+  "target_zone": "zone_kestrel_11a",
+  "zone_id": "zone_kestrel_11a_bath"
+}

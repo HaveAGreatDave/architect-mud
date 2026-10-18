@@ -1,0 +1,31 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A two-room flat with a galley kitchen, a bed and a woodblock floor lifting at the corners. A picture window opens onto a balcony just wide enough for a chair. From here the Basin fills the bottom half of the window. You can hear the stairs through the west wall. The bathroom is through a door at the back.",
+  "exits": {
+    "east": "zone_kestrel_f7",
+    "north": "zone_kestrel_7a_bath"
+  },
+  "flags": {
+    "building_name": "Kestrel Court",
+    "building_type": "apartment",
+    "floor": "boards",
+    "is_apartment": true,
+    "is_building": true,
+    "is_interior": true,
+    "rent_cost": 200,
+    "window": {
+      "description": "A bronze-framed picture window onto the balcony. From up here the Basin is most of the view.",
+      "light": 0.85,
+      "name": "the balcony window",
+      "visibility": 0.9
+    },
+    "world_exit_zone": "zone_district_913_908"
+  },
+  "grid_x": -1,
+  "grid_y": 0,
+  "grid_z": 2,
+  "id": "zone_kestrel_7a",
+  "map_id": "map_int_kestrel",
+  "name": "Kestrel Court, Unit 7A",
+  "parent_zone": "zone_district_913_908"
+}

@@ -1,0 +1,19 @@
+{
+  "description": "A built-in wardrobe with sliding doors that stick halfway. A rail, a shelf, and a smell of mothballs from three tenants ago.",
+  "flags": {
+    "aliases": [
+      "wardrobe",
+      "closet",
+      "cupboard"
+    ],
+    "container": 60000,
+    "interactions": [
+      "lean"
+    ],
+    "wardrobe": true
+  },
+  "id": "furn_kestrel_7a_wardrobe",
+  "name": "the wardrobe",
+  "object_type": "container",
+  "zone_id": "zone_kestrel_7a"
+}

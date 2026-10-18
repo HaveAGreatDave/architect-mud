@@ -1,0 +1,17 @@
+{
+  "description": "A brass rail along the front of the circle, polished bright by elbows.",
+  "flags": {
+    "aliases": [
+      "rail",
+      "brass rail",
+      "balcony"
+    ],
+    "interactions": [
+      "lean"
+    ]
+  },
+  "id": "furn_palais_rail",
+  "name": "the brass rail",
+  "object_type": "furniture",
+  "zone_id": "zone_palais_circle"
+}

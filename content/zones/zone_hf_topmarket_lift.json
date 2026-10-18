@@ -1,13 +1,13 @@
 {
   "ambient_theme": "indoors",
-  "description": "A narrow ground-floor lobby with one lift in it and nothing else: no desk, no cloakroom, four feet of stone floor and a pair of doors. On the wall, a single framed card with the name on it and no menu, no prices and no hours. The lift has two buttons. The upper one does not light until somebody upstairs decides it does.",
+  "description": "A narrow ground-floor lobby with one lift in it and nothing else: no desk, no cloakroom, four feet of stone floor and a pair of doors. On the wall, a single framed card with the address on it and no menu, no prices and no hours. The lift has two buttons. The upper one does not light until somebody upstairs decides it does.",
   "exits": {
     "down": "zone_util_zone_hf_topmarket_lift",
     "south": "zone_district_898_915",
     "up": "zone_hf_topmarket_crown"
   },
   "flags": {
-    "building_name": "Top of the Market",
+    "building_name": "17 Kerbstone Row",
     "building_type": "torque_tower",
     "floor": "stone",
     "is_building": true,
@@ -25,6 +25,6 @@
   "grid_z": 0,
   "id": "zone_hf_topmarket_lift",
   "map_id": "map_int_hf_topmarket",
-  "name": "Top of the Market — The Restaurant Lobby",
+  "name": "17 Kerbstone Row — The Restaurant Lobby",
   "parent_zone": "zone_district_898_915"
 }

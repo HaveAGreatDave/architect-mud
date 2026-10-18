@@ -1,10 +1,12 @@
-# Moor or Less and Ring Fenced *(as built)*
+# The Eastern Marina and Ring Fenced *(as built)*
 
 **Status: BUILT.** A cheap boatyard at the head of Ironside Street, and a boxing gym in the shed
 it replaced on Lever Lane. Four tiles re-dressed, two buildings, three GLASS arms, two map icons,
 one powerboat flag (`yard_rate`) and one weightbench flag (`station_style`).
 
-Built 2026-10-07.
+Built 2026-10-07. It opened as Moor or Less and was renamed the Eastern Marina on 2026-10-08: a
+place a player has to find by what it's for gets a plain name (see
+[building-styles.md](../reference/building-styles.md#46-names)).
 
 ## 1. Why Hulls Angels went
 
@@ -28,7 +30,7 @@ waterfront, between the Guardian Battery (918,901) and the Load of Old Rope whar
 |---|---|---|
 | 919,901 | grass | **Ironside Hard**: the end of Ironside Street, a slipway into the Basin |
 | 920,901 | grass | **Ironside Hard**: the same concrete, with cradles (`boat_hardstanding: 3`) |
-| 921,901 | grass | **Moor or Less**: Keel's shed (`boatshed`, entrance west) |
+| 921,901 | grass | **the Eastern Marina**: Keel's shed (`boatshed`, entrance west) |
 | 919,900 | water | **The Inner Stage** (`landing_stage`, `marina_berths: 3`) |
 | 919,899 | water | **The Outer Stage** (`landing_stage`, `marina_berths: 2`, `boat_fuel`) |
 | 921,900 | water | unchanged, but it is the shed's wet slot (the shed room's `north` exit) |
@@ -41,7 +43,7 @@ isn't a road, and 920,901 is the only side of the shed plot that isn't water or 
 **It's cheaper, and that's a flag.** `flags.yard_rate` is a multiple of the Ascendant list
 (`MOVE_IN`, `REFIT_RATE`, the service, paint and decal prices) read by
 [yard.js](../../plugins/powerboat/yard.js) `yardRate`/`rateAt`/`moveInFee`, by the crane in
-helm.js and by the yard screen's quotes. Moor or Less sets 0.6 on every zone it lets. It doesn't
+helm.js and by the yard screen's quotes. The Eastern Marina sets 0.6 on every zone it lets. It doesn't
 touch the price of a hull, a hire or fuel: those are the same boats and the same fuel.
 
 **One room is the desk, the shed and the bench.** `desk.js` sells only where a `marina_desk`

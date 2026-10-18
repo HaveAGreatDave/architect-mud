@@ -5,7 +5,6 @@
   "description": "A pocket of kept parkland: mown grass, planted beds, a low hedge that someone actually trims. Birds have found it, and so have the people who come to sit and not be moved along.",
   "exits": {
     "east": "zone_district_909_910",
-    "north": "zone_district_908_909",
     "south": "zone_district_908_911",
     "west": "zone_district_907_910"
   },

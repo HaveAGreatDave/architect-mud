@@ -2,6 +2,6 @@
   "capacity_kw": 5000,
   "generator_id": "gen_zone_util_zone_course_theatre",
   "id": "zone_course_reading",
-  "name": "Course Correction — The Reading Room",
+  "name": "The Halcyon Institute — The Reading Room",
   "source_type": "junction_box"
 }

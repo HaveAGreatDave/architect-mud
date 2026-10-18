@@ -1,0 +1,15 @@
+{
+  "description": "A laminated sheet pinned by the mailboxes. Bins out Tuesday. No bikes on the landings. The roof is not a beer garden. Flats to let: ask at the door.",
+  "flags": {
+    "aliases": [
+      "notice",
+      "sheet",
+      "board",
+      "rules"
+    ]
+  },
+  "id": "furn_kestrel_notice",
+  "name": "the residents' notice",
+  "object_type": "decoration",
+  "zone_id": "zone_kestrel_lobby"
+}

@@ -15,6 +15,7 @@
     "floors": 3,
     "is_building": true,
     "region_id": "region_coldwater",
+    "sign_trade": "HARBOUR OFFICE",
     "world_exit_zone": "zone_district_908_908"
   },
   "grid_x": 908,

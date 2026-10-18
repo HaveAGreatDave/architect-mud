@@ -1,0 +1,30 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A tiled room with a steel counter across the back and a glass hot cabinet on it, the battered fish lined up gold under its lamps. Behind the counter three fryers sit under a hood, the oil in them never quite still. A menu board hangs above the range, its prices changed in marker on tape. Salt, vinegar and a squeeze bottle of brown sauce stand on a shelf under the window, beside a bench for people waiting.",
+  "exits": {
+    "down": "zone_util_zone_batter_shop",
+    "east": "zone_district_918_907",
+    "west": "zone_batter_prep"
+  },
+  "flags": {
+    "building_name": "Batter Days Fish & Chips",
+    "building_type": "chip_shop",
+    "floor": "tile",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "The shop window onto Ironside Street, fogged from the inside to head height. Somebody has wiped a porthole in it with a sleeve to see who is coming.",
+      "light": 0.8,
+      "name": "the steamed-up window",
+      "visibility": 0.4
+    },
+    "world_exit_zone": "zone_district_918_907"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_batter_shop",
+  "map_id": "map_int_batter",
+  "name": "Batter Days Fish & Chips — The Shop",
+  "parent_zone": "zone_district_918_907"
+}

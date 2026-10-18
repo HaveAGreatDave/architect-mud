@@ -1,0 +1,17 @@
+{
+  "description": "Deep seats in faded green velvet, three rows of them on a curve, with more room for your knees than anywhere downstairs.",
+  "flags": {
+    "aliases": [
+      "seats",
+      "seat",
+      "chairs"
+    ],
+    "interactions": [
+      "sit"
+    ]
+  },
+  "id": "furn_palais_cseats",
+  "name": "the circle seats",
+  "object_type": "furniture",
+  "zone_id": "zone_palais_circle"
+}

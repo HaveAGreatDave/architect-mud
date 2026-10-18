@@ -5,7 +5,7 @@ import { initEnvironment, getZoneVisibility } from '../../server/engine/environm
 import { query } from '../../server/models/db.js';
 
 const BUILDINGS = [
-  { name: 'Reel Estate',  facade: 'zone_district_912_914', street: 'zone_district_911_914', entry: 'zone_reel_foyer',      npc: 'npc_reel_nissen',           rooms: ['zone_reel_foyer', 'zone_reel_house', 'zone_reel_box', 'zone_util_zone_reel_foyer'] },
+  { name: 'Midway Parks', facade: 'zone_district_912_914', street: 'zone_district_911_914', entry: 'zone_reel_foyer',      npc: 'npc_reel_nissen',           rooms: ['zone_reel_foyer', 'zone_reel_house', 'zone_reel_box', 'zone_util_zone_reel_foyer'] },
   { name: 'Photo Finish', facade: 'zone_district_914_914', street: 'zone_district_915_914', entry: 'zone_pfin_shop',       npc: 'npc_pfin_glennie',          rooms: ['zone_pfin_shop', 'zone_pfin_settle', 'zone_util_zone_pfin_shop'] },
   { name: 'Stuff It',     facade: 'zone_district_917_914', street: 'zone_district_918_914', entry: 'zone_stuffit_shop',    npc: 'npc_stuffit_vandersloot',   rooms: ['zone_stuffit_shop', 'zone_stuffit_work', 'zone_util_zone_stuffit_shop'] },
   { name: 'Fine Print',   facade: 'zone_district_903_908', street: 'zone_district_903_907', entry: 'zone_fineprint_room',  npc: 'npc_fprint_ashgrove',       rooms: ['zone_fineprint_room', 'zone_fineprint_stack', 'zone_util_zone_fineprint_room'] },

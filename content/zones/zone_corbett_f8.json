@@ -1,0 +1,25 @@
+{
+  "ambient_theme": "indoors",
+  "description": "The eighth floor landing, four long flights higher. The runner here is a different colour, as if somebody ran out and bought the nearest thing. Doors 8A and 8B face each other across it. The window looks down into Watts's yard next door, and the blue flash of the welder comes up the wall when he works late.",
+  "exits": {
+    "down": "zone_corbett_f4",
+    "east": "zone_corbett_8b",
+    "up": "zone_corbett_f12",
+    "west": "zone_corbett_8a"
+  },
+  "flags": {
+    "building_name": "Corbett Mansions",
+    "building_type": "apartment",
+    "floor": "boards",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_916_906"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 2,
+  "id": "zone_corbett_f8",
+  "map_id": "map_int_corbett",
+  "name": "Corbett Mansions, Eighth Floor Landing",
+  "parent_zone": "zone_district_916_906"
+}

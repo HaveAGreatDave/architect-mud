@@ -15,6 +15,7 @@
     "is_building": true,
     "region_id": "region_coldwater",
     "scavenging_table_id": "scav_consumer_trash",
+    "sign_trade": "BONESETTER",
     "street_life": true,
     "world_exit_zone": "zone_district_924_916"
   },

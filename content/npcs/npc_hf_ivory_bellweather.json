@@ -157,7 +157,7 @@
           "next": "root"
         }
       ],
-      "text": "\"They are furious about it and they will never say so.\" She is enjoying this enormously. \"There were three pinned notes downstairs within a week of the signage going up.\"\n\n\"The estate named it. The estate names everything in this quarter with a joke in it, and they have been doing it since the first hoarding went up, and the fellows have decided the correct response is dignity.\" She stamps something. \"Which is of course exactly the response that makes the name funny. I have pointed this out. It did not help.\""
+      "text": "\"They are furious about it and they will never say so.\" She is enjoying this enormously. \"The estate put a plate by the door that says RESIDENCE'S FOR FELLOWS, and there were three pinned notes downstairs within a week of it going up.\"\n\n\"The estate letters everything in this quarter off one template and nobody proofreads the template, and the fellows have decided the correct response is dignity.\" She stamps something. \"Which is why the correction is typed, signed by four of them and pinned at eye level. I have pointed out that this is not dignity. It did not help.\""
     },
     "root": {
       "options": [
@@ -166,7 +166,7 @@
           "next": "__shop__"
         },
         {
-          "label": "Do they mind the building being called that?",
+          "label": "Do they mind the signage?",
           "next": "name"
         },
         {
@@ -271,7 +271,7 @@
       }
     ]
   },
-  "vendor_shop_name": "Ivory Tower",
+  "vendor_shop_name": "15 Kerbstone Row",
   "vendor_stock_size": 10,
   "wander_zones": [],
   "wanders": 0,

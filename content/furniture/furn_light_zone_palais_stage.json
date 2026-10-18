@@ -1,0 +1,11 @@
+{
+  "description": "Spotlights on a bar over the stage, and footlights in a trough along the lip. When they are all up the boards look warm and everyone in the stalls looks dark.",
+  "flags": {},
+  "id": "furn_light_zone_palais_stage",
+  "light_type": "overhead",
+  "lumen_output": 1200,
+  "name": "the stage lights",
+  "object_type": "light",
+  "power_draw_kw": 0.03,
+  "zone_id": "zone_palais_stage"
+}

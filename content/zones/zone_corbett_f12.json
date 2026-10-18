@@ -1,0 +1,25 @@
+{
+  "ambient_theme": "indoors",
+  "description": "The twelfth floor landing, the top one. The stair narrows and goes on up to a door in the roof. The doors to 12A and 12B are the original panelled oak. The window at the end has the whole of Lever Lane in it, and the Meridian's copper crown off to the south-east.",
+  "exits": {
+    "down": "zone_corbett_f8",
+    "east": "zone_corbett_12b",
+    "up": "zone_corbett_roof",
+    "west": "zone_corbett_12a"
+  },
+  "flags": {
+    "building_name": "Corbett Mansions",
+    "building_type": "apartment",
+    "floor": "boards",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_916_906"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 3,
+  "id": "zone_corbett_f12",
+  "map_id": "map_int_corbett",
+  "name": "Corbett Mansions, Twelfth Floor Landing",
+  "parent_zone": "zone_district_916_906"
+}

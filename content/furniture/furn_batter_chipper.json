@@ -1,0 +1,14 @@
+{
+  "description": "A cast-iron chipper bolted to the wall at chest height, with a lever as long as your arm and a grid of blades that pushes a whole potato through in one pull.",
+  "flags": {
+    "aliases": [
+      "chipper",
+      "lever",
+      "blades"
+    ]
+  },
+  "id": "furn_batter_chipper",
+  "name": "the chipper",
+  "object_type": "fixture",
+  "zone_id": "zone_batter_prep"
+}

@@ -4,8 +4,8 @@
   "bg_color": "#22211c",
   "description": "Four columns and a pediment on a building one room deep, which is a joke somebody built rather than told: the portico is stone, correct, and about two and a half times the architectural seriousness the shed behind it can support. Cut into the pediment, in Roman capitals, spaced by somebody who had run out of room by the fourth word: THE COLDWATER MVSEVM OF THE WORLD BEFORE. The doors under it are open in the day and there is no charge and there never has been, and a slotted box on a post beside them says DONATIONS and is almost empty.",
   "exits": {
-    "west": "zone_district_915_914",
-    "east": "zone_pastperf_hall"
+    "east": "zone_pastperf_hall",
+    "west": "zone_district_915_914"
   },
   "flags": {
     "building_name": "Past Perfect",
@@ -16,6 +16,7 @@
     "floors": 2,
     "is_building": true,
     "region_id": "region_coldwater",
+    "sign_trade": "MUSEUM",
     "world_exit_zone": "zone_district_915_914"
   },
   "grid_x": 916,

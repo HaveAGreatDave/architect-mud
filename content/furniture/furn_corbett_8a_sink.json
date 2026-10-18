@@ -1,0 +1,19 @@
+{
+  "description": "A deep white butler sink with a brass tap, in the old scullery corner.",
+  "flags": {
+    "aliases": [
+      "sink",
+      "kitchen sink",
+      "butler sink",
+      "tap"
+    ],
+    "interactions": [
+      "lean"
+    ],
+    "water_source": true
+  },
+  "id": "furn_corbett_8a_sink",
+  "name": "the kitchen sink",
+  "object_type": "sink",
+  "zone_id": "zone_corbett_8a"
+}

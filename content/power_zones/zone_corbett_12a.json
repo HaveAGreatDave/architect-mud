@@ -1,0 +1,7 @@
+{
+  "capacity_kw": 5000,
+  "generator_id": "gen_zone_util_zone_corbett_lobby",
+  "id": "zone_corbett_12a",
+  "name": "Corbett Mansions — Unit 12A",
+  "source_type": "junction_box"
+}

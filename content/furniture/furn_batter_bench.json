@@ -1,0 +1,17 @@
+{
+  "description": "A wooden bench along the side wall, its seat worn pale by people waiting for their number.",
+  "flags": {
+    "aliases": [
+      "bench",
+      "seat"
+    ],
+    "interactions": [
+      "sit",
+      "lean"
+    ]
+  },
+  "id": "furn_batter_bench",
+  "name": "the bench",
+  "object_type": "furniture",
+  "zone_id": "zone_batter_shop"
+}

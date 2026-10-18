@@ -1,0 +1,15 @@
+{
+  "description": "A bronze board by the lifts with twelve slots for tenants' names. Two are filled: a production company on the second floor and a firm of loss adjusters on the fifth.",
+  "flags": {
+    "aliases": [
+      "directory",
+      "board",
+      "tenants",
+      "names"
+    ]
+  },
+  "id": "furn_marrowhouse_directory",
+  "name": "the directory board",
+  "object_type": "decoration",
+  "zone_id": "zone_marrowhouse_lobby"
+}

@@ -9,7 +9,7 @@
     "south": "zone_district_897_914"
   },
   "flags": {
-    "building_name": "Fit for Purpose",
+    "building_name": "7 Sorrel Way",
     "building_type": "cascade_block",
     "district": "halcyon_fields",
     "entrance": "south",
@@ -24,7 +24,7 @@
   "grid_z": 0,
   "id": "zone_district_897_913",
   "map_id": "map_world",
-  "marker": "FC",
-  "name": "Fit for Purpose",
+  "marker": "S7",
+  "name": "7 Sorrel Way",
   "parent_zone": null
 }

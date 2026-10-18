@@ -1,0 +1,18 @@
+{
+  "description": "A bar of dark wood with a brass top and a brass foot rail, long enough for twenty people to stand at in the interval and not be served.",
+  "flags": {
+    "aliases": [
+      "bar",
+      "counter",
+      "rail",
+      "foot rail"
+    ],
+    "interactions": [
+      "lean"
+    ]
+  },
+  "id": "furn_palais_east_counter",
+  "name": "the bar",
+  "object_type": "fixture",
+  "zone_id": "zone_palais_east_bar"
+}

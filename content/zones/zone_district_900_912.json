@@ -4,7 +4,7 @@
   "description": "Clad to the eighth and open above it, with the floor plates stacked on the core like a set of plates on a spindle. The crane has been slewed and parked in the same position for long enough that the gulls have an arrangement with it. The hoarding advertises a completion that was last summer and nobody has taken it down, because taking it down would be a statement.",
   "exits": {},
   "flags": {
-    "building_name": "Under Offer",
+    "building_name": "4 Kettle Lane",
     "building_type": "shell_tower",
     "district": "halcyon_fields",
     "entrance": "west",
@@ -17,7 +17,7 @@
   "grid_z": 0,
   "id": "zone_district_900_912",
   "map_id": "map_world",
-  "marker": "UO",
-  "name": "Under Offer",
+  "marker": "K4",
+  "name": "4 Kettle Lane",
   "parent_zone": null
 }

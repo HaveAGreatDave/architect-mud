@@ -1,0 +1,16 @@
+{
+  "description": "A mirror in every room, each one ringed with bulbs, each one with a shelf under it crowded with pots, brushes and good-luck cards.",
+  "flags": {
+    "aliases": [
+      "mirror",
+      "mirrors",
+      "shelf",
+      "cards"
+    ],
+    "examine_detail": "The walls round the mirrors are covered in signatures. One of them, low down by the door, is just a drawing of a cat."
+  },
+  "id": "furn_palais_mirrors",
+  "name": "the dressing mirrors",
+  "object_type": "decoration",
+  "zone_id": "zone_palais_dressing"
+}

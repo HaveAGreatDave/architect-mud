@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_915_908",
+  "b": "zone_marrowhouse_lobby",
+  "blocked": false,
+  "dir": "north",
+  "id": "conn_hf_district_915_908_north",
+  "lockable": true,
+  "one_way": false
+}

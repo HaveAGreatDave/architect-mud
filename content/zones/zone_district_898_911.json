@@ -9,7 +9,7 @@
     "west": "zone_hf_salad_pack"
   },
   "flags": {
-    "building_name": "Salad Days",
+    "building_name": "1 Kettle Lane",
     "building_type": "vertical_farm",
     "district": "halcyon_fields",
     "entrance": "east",
@@ -24,7 +24,7 @@
   "grid_z": 0,
   "id": "zone_district_898_911",
   "map_id": "map_world",
-  "marker": "SY",
-  "name": "Salad Days",
+  "marker": "L1",
+  "name": "1 Kettle Lane",
   "parent_zone": null
 }

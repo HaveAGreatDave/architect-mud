@@ -1,0 +1,23 @@
+{
+  "ambient_theme": "outdoors",
+  "description": "A flat roof behind a brick parapet with a stone coping. A big timber water tank stands in the middle on steel legs, banded with iron hoops and streaked white by gulls. Chimney pots line the party walls. The Meridian's copper crown is to the south-east, Solenne's glass to the south-west and the Basin to the north-west.",
+  "exits": {
+    "down": "zone_corbett_f12"
+  },
+  "flags": {
+    "building_name": "Corbett Mansions",
+    "building_type": "apartment",
+    "floor": "concrete",
+    "is_building": true,
+    "is_interior": true,
+    "open_sky": true,
+    "world_exit_zone": "zone_district_916_906"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 4,
+  "id": "zone_corbett_roof",
+  "map_id": "map_int_corbett",
+  "name": "Corbett Mansions, Roof",
+  "parent_zone": "zone_district_916_906"
+}

@@ -2,13 +2,13 @@
   "ambient_events": [],
   "ambient_theme": "urban",
   "bg_color": "#241c22",
-  "description": "The last lit thing on Meltwater Row before the road gives up. A blade sign four storeys tall stands off the corner in stacked letters, R E E L, and about a third of the bulbs in it are out in a pattern that has not changed in years. Under it a canopy runs out over the pavement on two chained rods, its underside a grid of little lamps, and under that a run of glazed doors with brass push-plates worn down to the white metal. The letter board beside the doors reads NOW SHOWING · THE METER READER · 8PM ONLY, and it has read that for long enough that the board has faded around the letters.",
+  "description": "The last lit thing on Meltwater Row before the road gives up, and the only front on it that was built to be looked at. It went up as a music hall: cream faience between oxblood pilasters, three tall round-headed windows where the circle bar was, and a copper dome on each corner like a pair of hatpins. Behind it the stage house climbs two storeys past the roof. MIDWAY PARKS runs across the front in tubes, and off the corner a blade four storeys tall spells CINEMA downwards, a third of its bulbs out in a pattern that hasn't changed in years. Under it all a canopy on chained rods, lamps let into its underside, over glazed doors with brass push-plates worn to the white metal. The letter board reads NOW SHOWING · THE METER READER · 8PM ONLY, and has read it long enough to fade round the letters.",
   "exits": {
     "east": "zone_reel_foyer",
     "west": "zone_district_911_914"
   },
   "flags": {
-    "building_name": "Reel Estate",
+    "building_name": "Midway Parks Cinema",
     "building_type": "cinema",
     "district": "nightlife",
     "entrance": "west",
@@ -16,6 +16,7 @@
     "floors": 3,
     "is_building": true,
     "region_id": "region_coldwater",
+    "sign_trade": "CINEMA",
     "world_exit_zone": "zone_district_911_914"
   },
   "grid_x": 912,
@@ -23,7 +24,7 @@
   "grid_z": 0,
   "id": "zone_district_912_914",
   "map_id": "map_world",
-  "marker": "RE",
-  "name": "Reel Estate",
+  "marker": "MW",
+  "name": "Midway Parks Cinema",
   "parent_zone": null
 }

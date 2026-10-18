@@ -16,6 +16,7 @@
     "facade": true,
     "is_building": true,
     "region_id": "region_coldwater",
+    "sign_trade": "FABRICATION",
     "world_exit_zone": "zone_district_925_908"
   },
   "grid_x": 925,

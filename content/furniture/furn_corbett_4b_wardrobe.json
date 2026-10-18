@@ -1,0 +1,19 @@
+{
+  "description": "A mahogany wardrobe with a long mirror in its door, too big to have come up the stairs, so it must have come in through the window.",
+  "flags": {
+    "aliases": [
+      "wardrobe",
+      "closet",
+      "mirror"
+    ],
+    "container": 70000,
+    "interactions": [
+      "lean"
+    ],
+    "wardrobe": true
+  },
+  "id": "furn_corbett_4b_wardrobe",
+  "name": "the wardrobe",
+  "object_type": "container",
+  "zone_id": "zone_corbett_4b"
+}

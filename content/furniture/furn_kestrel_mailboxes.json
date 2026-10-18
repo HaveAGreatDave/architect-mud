@@ -1,0 +1,16 @@
+{
+  "description": "Two rows of steel mailboxes with a slot and a name strip each. Most strips are typed. A few are written in biro over the old name, and one just says \"not him\".",
+  "flags": {
+    "aliases": [
+      "mailboxes",
+      "mailbox",
+      "boxes",
+      "post",
+      "names"
+    ]
+  },
+  "id": "furn_kestrel_mailboxes",
+  "name": "the mailboxes",
+  "object_type": "decoration",
+  "zone_id": "zone_kestrel_lobby"
+}

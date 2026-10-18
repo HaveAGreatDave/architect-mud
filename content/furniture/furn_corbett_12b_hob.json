@@ -1,0 +1,21 @@
+{
+  "description": "A small enamel cooker with two rings and an oven nobody trusts.",
+  "flags": {
+    "aliases": [
+      "cooker",
+      "hob",
+      "rings",
+      "stove",
+      "oven"
+    ],
+    "interactions": [
+      "lean"
+    ],
+    "stove_tier": "low"
+  },
+  "id": "furn_corbett_12b_hob",
+  "name": "the cooker",
+  "object_type": "fixture",
+  "power_draw_kw": 0.3,
+  "zone_id": "zone_corbett_12b"
+}

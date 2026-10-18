@@ -1,0 +1,15 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_battered_sausage",
+  "name": "battered sausage",
+  "tags": {
+    "consumable": true,
+    "description": "A sausage dipped in the fish batter and fried until the batter splits. It tastes mostly of the batter.",
+    "restore_hunger": 18,
+    "stackable": true
+  },
+  "type": "consumable",
+  "value": 7,
+  "weight": 180
+}

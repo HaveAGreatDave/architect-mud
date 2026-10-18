@@ -1,0 +1,6 @@
+{
+  "entry_zone_id": "zone_kestrel_lobby",
+  "id": "map_int_kestrel",
+  "name": "Kestrel Court",
+  "parent_zone_id": "zone_district_913_908"
+}

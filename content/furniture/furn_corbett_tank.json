@@ -1,0 +1,17 @@
+{
+  "description": "A round tank of timber staves on four steel legs, held together with iron hoops and dripping slowly from one seam. A ladder goes up the side to a hatch in the lid.",
+  "flags": {
+    "aliases": [
+      "tank",
+      "water tank",
+      "ladder",
+      "hoops",
+      "lid"
+    ],
+    "examine_detail": "Painted on a stave near the bottom, almost gone: Corbett & Sons, 1931."
+  },
+  "id": "furn_corbett_tank",
+  "name": "the water tank",
+  "object_type": "decoration",
+  "zone_id": "zone_corbett_roof"
+}

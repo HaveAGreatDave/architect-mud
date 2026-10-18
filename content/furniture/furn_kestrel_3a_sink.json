@@ -1,0 +1,19 @@
+{
+  "description": "A steel sink and drainer at the end of the galley worktop, with a mixer tap that runs hot after a long wait.",
+  "flags": {
+    "aliases": [
+      "sink",
+      "kitchen sink",
+      "tap",
+      "drainer"
+    ],
+    "interactions": [
+      "lean"
+    ],
+    "water_source": true
+  },
+  "id": "furn_kestrel_3a_sink",
+  "name": "the kitchen sink",
+  "object_type": "sink",
+  "zone_id": "zone_kestrel_3a"
+}

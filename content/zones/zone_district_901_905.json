@@ -4,8 +4,8 @@
   "bg_color": "#191620",
   "description": "A shuttered unit at street level with a door beside it, and the door is the business. Up the right-hand side of the building, from the pavement to the first floor, runs a tall narrow window in four panes, and behind the glass, lit all night, are the flash sheets: hundreds of designs inked on card and pinned edge to edge up the whole stair. From the far pavement it is a vertical strip of light on a dark building and it is the only thing of its shape anywhere in Coldwater. Painted over the door, in an outlined script somebody was clearly paid well for: NO REGERTS.",
   "exits": {
-    "south": "zone_district_901_906",
-    "north": "zone_regerts_stair"
+    "north": "zone_regerts_stair",
+    "south": "zone_district_901_906"
   },
   "flags": {
     "building_name": "No Regerts",
@@ -16,6 +16,7 @@
     "floors": 2,
     "is_building": true,
     "region_id": "region_coldwater",
+    "sign_trade": "TATTOOS",
     "world_exit_zone": "zone_district_901_906"
   },
   "grid_x": 901,

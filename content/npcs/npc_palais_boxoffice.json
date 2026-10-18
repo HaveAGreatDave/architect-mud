@@ -1,0 +1,299 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "jitter": 20,
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "cash_up",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "player_check",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "no": "off_random",
+        "type": "condition",
+        "yes": "home_idle"
+      },
+      "off_random": {
+        "options": [
+          "go_home_off",
+          "have_life"
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_PRESENT",
+        "no": "work_wait",
+        "type": "condition",
+        "yes": "work_say"
+      },
+      "post_shift": {
+        "options": [
+          "go_home_ps",
+          "home_life_ps"
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "work_wait": {
+        "jitter": 20,
+        "next": "check_work",
+        "seconds": 25,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "Pruett tears a ticket along its perforation without looking at it.",
+    "She straightens a frame on the wall by a hair, then steps back to check.",
+    "\"Doors at eight,\" she tells nobody in particular. \"Not five past.\"",
+    "She polishes the box office glass with a cloth she keeps in her sleeve.",
+    "She runs a finger down the seating plan and makes a small mark in pencil."
+  ],
+  "description": "A small woman in her sixties with silver hair set in waves and a pencil through them. She wears a bottle-green uniform jacket with brass buttons, too formal for anyone else in the city and exactly right on her. She knows every seat in the house by number and most of the people who have sat in them.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "\"Enjoy the show,\" she says, and goes back to the seating plan."
+    },
+    "history": {
+      "options": [
+        {
+          "label": "Where's the Meridian?",
+          "next": "meridian"
+        },
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Built the same decade as the Meridian, by the same people, out of the same stone.\" She says it like a catechism. \"It's been a music hall, a cinema for a bit, a dance hall, a shelter, a music hall again. It's never been shut for longer than a month.\"\n\n\"That's not luck. Somebody fixes the roof every year whether there's money or not. Mostly that's me.\""
+    },
+    "meridian": {
+      "actions": [
+        {
+          "action": "GPS_TO",
+          "zone": "zone_district_918_908"
+        }
+      ],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"East, along Marrow Street, past the Deadline. The stepped one with the green crown, you can't miss it.\" She points with the pen. \"Same stone as ours. Look at it in the rain and you'll see it's the same colour as these walls when they're wet.\""
+    },
+    "piano": {
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"The grand on the stage? Anyone may play it.\" She holds up a finger. \"Anyone who can. If you can't, the organ is worse, so don't try that either.\"\n\n\"Go through to the stalls and up on to the stage. Sit down at it and play. If people come in to listen, that's how most of the acts we book started.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "What have you got?",
+          "next": "__shop__"
+        },
+        {
+          "label": "What's on?",
+          "next": "whatson"
+        },
+        {
+          "label": "How old is this place?",
+          "next": "history"
+        },
+        {
+          "label": "Can anyone play the piano?",
+          "next": "piano"
+        },
+        {
+          "label": "Nothing, thanks.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Box office.\" Pruett looks at you over her glasses. \"What can I do for you?\"",
+      "text_by_relation": {
+        "familiar": "\"Your usual seat's free,\" she says. \"I kept it.\"",
+        "first": "The woman in the box office finishes writing something, caps her pen, and looks up through the glass.\n\n\"Minnie Pruett. I run the front of house, which means everything you can see and most of what you can't.\" She taps the card in the window. \"Doors at eight. Programmes, ices and chocolates from me. Drinks from Lionel at the bar, east side. What can I do for you?\"",
+        "known": "\"Back again.\" She is already reaching for a programme. \"Good.\""
+      }
+    },
+    "whatson": {
+      "options": [
+        {
+          "label": "A programme, then.",
+          "next": "__shop__"
+        },
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Something every night.\" She turns the programme round so you can read it. \"Bands mostly, and dancing after, when the floor's cleared. A comedian on Tuesdays, who is not as good as he thinks. A pianist on Sundays, who is better than she thinks.\"\n\n\"Whoever's on, the organ goes up at the interval. That's been true since before I was born.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a bottle-green uniform jacket with brass buttons",
+      "a cream blouse with a cameo at the collar",
+      "a black pencil skirt and low-heeled shoes",
+      "reading glasses on a chain"
+    ],
+    "personality": "vendor"
+  },
+  "home_activities": [],
+  "home_zone": "zone_meridian_unit_503",
+  "hp": 36,
+  "hp_max": 36,
+  "id": "npc_palais_boxoffice",
+  "name": "Minnie Pruett",
+  "npc_type": "vendor",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_palais_programme",
+      "price": 3
+    },
+    {
+      "item_id": "item_choc_ice",
+      "price": 4
+    },
+    {
+      "item_id": "item_palais_chocolates",
+      "price": 9
+    }
+  ],
+  "vendor_restock_rate": 3,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 12,
+        "to": 23
+      }
+    ],
+    "mon": [
+      {
+        "from": 12,
+        "to": 22
+      }
+    ],
+    "sat": [
+      {
+        "from": 12,
+        "to": 23
+      }
+    ],
+    "sun": [
+      {
+        "from": 14,
+        "to": 21
+      }
+    ],
+    "thu": [
+      {
+        "from": 12,
+        "to": 22
+      }
+    ],
+    "tue": [
+      {
+        "from": 12,
+        "to": 22
+      }
+    ],
+    "wed": [
+      {
+        "from": 12,
+        "to": 22
+      }
+    ]
+  },
+  "vendor_shop_name": "The Coldwater Palais Box Office",
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_palais_foyer"
+}

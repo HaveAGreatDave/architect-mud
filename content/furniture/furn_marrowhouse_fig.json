@@ -1,0 +1,16 @@
+{
+  "description": "A weeping fig in a bronze planter, real and healthy, with a watering can hidden behind it.",
+  "flags": {
+    "aliases": [
+      "fig",
+      "tree",
+      "plant",
+      "planter",
+      "watering can"
+    ]
+  },
+  "id": "furn_marrowhouse_fig",
+  "name": "the fig tree",
+  "object_type": "decoration",
+  "zone_id": "zone_marrowhouse_lobby"
+}

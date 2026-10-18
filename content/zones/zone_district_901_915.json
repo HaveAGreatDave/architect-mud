@@ -9,7 +9,7 @@
     "west": "zone_hf_groundrent_counter"
   },
   "flags": {
-    "building_name": "Ground Rent",
+    "building_name": "Halcyon Estate Office",
     "building_type": "atrium_court",
     "district": "halcyon_fields",
     "entrance": "east",
@@ -24,7 +24,7 @@
   "grid_z": 0,
   "id": "zone_district_901_915",
   "map_id": "map_world",
-  "marker": "GR",
-  "name": "Ground Rent",
+  "marker": "EO",
+  "name": "Halcyon Estate Office",
   "parent_zone": null
 }

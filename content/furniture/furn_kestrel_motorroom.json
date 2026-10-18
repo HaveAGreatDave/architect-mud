@@ -1,0 +1,16 @@
+{
+  "description": "A stone-clad box with a steel door and a padlock, a grille in the wall, and a danger sign for the lift machinery. Nothing inside it has turned in years.",
+  "flags": {
+    "aliases": [
+      "motor room",
+      "box",
+      "door",
+      "padlock",
+      "machinery"
+    ]
+  },
+  "id": "furn_kestrel_motorroom",
+  "name": "the lift motor room",
+  "object_type": "decoration",
+  "zone_id": "zone_kestrel_roof"
+}

@@ -1,0 +1,24 @@
+{
+  "ambient_theme": "indoors",
+  "description": "Bare boards, worn pale down the middle where everybody stands, with a brass edge on the lip and a row of footlights under it. A concert grand stands stage left with its dust sheet folded back. Overhead the fly tower goes up into the dark, ropes and painted cloths hanging in it. A trap door leads down.",
+  "exits": {
+    "down": "zone_util_zone_palais_stage",
+    "north": "zone_palais_stalls",
+    "west": "zone_palais_dressing"
+  },
+  "flags": {
+    "building_name": "The Coldwater Palais",
+    "building_type": "palais_foyer",
+    "floor": "boards",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_908_909"
+  },
+  "grid_x": 1,
+  "grid_y": 1,
+  "grid_z": 0,
+  "id": "zone_palais_stage",
+  "map_id": "map_int_palais",
+  "name": "The Coldwater Palais: The Stage",
+  "parent_zone": "zone_district_908_909"
+}

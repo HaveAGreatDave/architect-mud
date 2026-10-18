@@ -1,0 +1,8 @@
+{
+  "description": "An electric shower box on the wall over the bath. The water comes out warm, then hot, then warm again.",
+  "flags": {},
+  "id": "furn_kestrel_7a_bath_shower",
+  "name": "the shower",
+  "object_type": "shower",
+  "zone_id": "zone_kestrel_7a_bath"
+}

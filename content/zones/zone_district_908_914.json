@@ -17,6 +17,7 @@
     "floors": 2,
     "is_building": true,
     "region_id": "region_coldwater",
+    "sign_trade": "FISHING TACKLE",
     "world_exit_zone": "zone_district_908_913"
   },
   "grid_x": 908,

@@ -16,6 +16,7 @@
     "floors": 2,
     "is_building": true,
     "region_id": "region_coldwater",
+    "sign_trade": "LIBRARY",
     "world_exit_zone": "zone_district_903_907"
   },
   "grid_x": 903,

@@ -1,0 +1,11 @@
+{
+  "description": "Lamps in fluted bronze cups along the side walls and a ring of them round the painted ceiling. They go down before the show and come up at the end.",
+  "flags": {},
+  "id": "furn_light_zone_palais_stalls",
+  "light_type": "overhead",
+  "lumen_output": 2400,
+  "name": "the house lights",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_palais_stalls"
+}

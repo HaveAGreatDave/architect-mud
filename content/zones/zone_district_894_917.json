@@ -9,7 +9,7 @@
     "south": "zone_hf_rightofway_passage"
   },
   "flags": {
-    "building_name": "Right of Way",
+    "building_name": "6 Kerbstone Row",
     "building_type": "atrium_court",
     "district": "halcyon_fields",
     "entrance": "north",
@@ -24,7 +24,7 @@
   "grid_z": 0,
   "id": "zone_district_894_917",
   "map_id": "map_world",
-  "marker": "RW",
-  "name": "Right of Way",
+  "marker": "K6",
+  "name": "6 Kerbstone Row",
   "parent_zone": null
 }

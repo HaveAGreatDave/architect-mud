@@ -1,0 +1,25 @@
+{
+  "ambient_theme": "indoors",
+  "description": "The third floor landing: brown lino between two flat doors, A to the west and B to the east, and a fire door back to the stair. Through the stair glass Marrow Street runs off in both directions. A dead spider plant stands under the window. Somebody still waters it.",
+  "exits": {
+    "down": "zone_kestrel_lobby",
+    "east": "zone_kestrel_3b",
+    "up": "zone_kestrel_f7",
+    "west": "zone_kestrel_3a"
+  },
+  "flags": {
+    "building_name": "Kestrel Court",
+    "building_type": "apartment",
+    "floor": "linoleum",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_913_908"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 1,
+  "id": "zone_kestrel_f3",
+  "map_id": "map_int_kestrel",
+  "name": "Kestrel Court, Third Floor Landing",
+  "parent_zone": "zone_district_913_908"
+}

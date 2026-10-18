@@ -185,7 +185,7 @@
           "next": "root"
         }
       ],
-      "text": "\"Probably not.\" She laughs, briefly. \"There is an analysis on the card and it is real, and what it says is that there is a bit of iron in it and a bit of sulphur and it will not hurt you.\"\n\n\"It is cold, it is free with a room, and drinking a glass of it takes five minutes you would otherwise spend getting up. I sell it as water. The building is called what it is called and I did not name it.\""
+      "text": "\"Probably not.\" She laughs, briefly. \"There is an analysis on the card and it is real, and what it says is that there is a bit of iron in it and a bit of sulphur and it will not hurt you.\"\n\n\"It is cold, it is free with a room, and drinking a glass of it takes five minutes you would otherwise spend getting up. I sell it as water. The estate printed RESTORATIVE on the card and I did not write the card.\""
     },
     "what": {
       "options": [
@@ -291,7 +291,7 @@
       }
     ]
   },
-  "vendor_shop_name": "Second Wind",
+  "vendor_shop_name": "5 Kettle Lane",
   "vendor_stock_size": 10,
   "wander_zones": [],
   "wanders": 0,

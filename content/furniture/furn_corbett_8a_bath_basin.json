@@ -1,0 +1,15 @@
+{
+  "description": "A white basin on chrome legs, with separate hot and cold taps and a crack in the glaze.",
+  "flags": {
+    "aliases": [
+      "basin",
+      "sink",
+      "taps"
+    ],
+    "water_source": true
+  },
+  "id": "furn_corbett_8a_bath_basin",
+  "name": "the basin",
+  "object_type": "sink",
+  "zone_id": "zone_corbett_8a_bath"
+}

@@ -1,0 +1,9 @@
+{
+  "a": "zone_palais_stage",
+  "b": "zone_palais_dressing",
+  "blocked": false,
+  "dir": "west",
+  "id": "conn_hf_palais_stage_west",
+  "lockable": false,
+  "one_way": false
+}

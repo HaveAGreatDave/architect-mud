@@ -9,7 +9,7 @@
     "south": "zone_district_897_910"
   },
   "flags": {
-    "building_name": "Curve Appeal",
+    "building_name": "11 Halcyon Boulevard",
     "building_type": "chrome_slab",
     "district": "halcyon_fields",
     "entrance": "south",
@@ -24,7 +24,7 @@
   "grid_z": 0,
   "id": "zone_district_897_909",
   "map_id": "map_world",
-  "marker": "CU",
-  "name": "Curve Appeal",
+  "marker": "11",
+  "name": "11 Halcyon Boulevard",
   "parent_zone": null
 }

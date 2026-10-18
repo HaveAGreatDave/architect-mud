@@ -1,0 +1,7 @@
+{
+  "capacity_kw": 5000,
+  "generator_id": "gen_zone_util_zone_kestrel_lobby",
+  "id": "zone_kestrel_7a_bath",
+  "name": "Kestrel Court — Unit 7A Bathroom",
+  "source_type": "junction_box"
+}

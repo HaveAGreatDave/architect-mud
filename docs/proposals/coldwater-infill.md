@@ -43,7 +43,7 @@ None of them needs a line of new engine code to be worth entering.
 
 | # | Name | `building_type` | Site | Entrance | Marker | Vendor | Hooks |
 |---|------|-----------------|------|----------|--------|--------|-------|
-| 1 | **Reel Estate** | `cinema` | 912,914 Meltwater Row | west | `RE` | Gower Nissen | betatapes, [instruments](../systems-instruments.md) |
+| 1 | **Midway Parks Cinema** (was Reel Estate) | `cinema` | 912,914 Meltwater Row | west | `MW` | Gower Nissen | betatapes, [instruments](../systems-instruments.md) |
 | 2 | **Photo Finish** | `bookmaker` | 914,914 Kiln Lane | east | `PF` | Ada Glennie | [broadcast](../systems-broadcast.md) sports leagues |
 | 3 | **Stuff It** | `taxidermist` | 917,914 The Gate Road | east | `TX` | Marnie Vandersloot | fauna, hunting, the Wildlands road |
 | 4 | **Fine Print** | `lending_library` | 903,908 Greenside Yard | north | `LI` | Lowell Ashgrove | [library](../systems-library.md) |
@@ -53,7 +53,15 @@ generator and a `power_zones` row and a lit fixture per room, a junction box, a 
 dialogue tree and a safe, its stock as real items, a hand-written `drawTypeModel` arm with its own
 palettes, a registered map icon, and its props. 112 new content files and four new arms.
 
-### 1. Reel Estate — the dead cinema, which was already canon
+### 1. Midway Parks Cinema (was Reel Estate): the dead cinema, which was already canon
+
+**Renamed and rebuilt as a theatre, 2026-10-08.** It was a picture-house front on a brick shed. Now
+it's a music hall that was given a screen: cream faience between oxblood pilasters, three
+round-headed windows where the circle bar was, a copper dome on each corner and a brick stage house
+behind. The name runs across the front and the blade spells CINEMA, so the two read as one sign.
+Inside, the screen hangs in the proscenium over the old stage, with boxes either side and a circle
+overhead. It still shows films, and the zone, NPC and item ids keep their `reel` prefix. The rest
+of this section describes the first build.
 
 Coldwater's prose has referred to a dead cinema for months. From Chrome Court's roof you can see
 "the whole Marquee below in pink and cyan, the dead cinema and the precinct floodlights", and there

@@ -4,8 +4,8 @@
   "bg_color": "#1b201c",
   "description": "The street shutter is down, painted badly with another shop's name as a joke. An external steel stair bolted to the flank wall climbs to the first floor, lit by one bulb at the turn. Up there, a band of clerestory glass the length of the building, and a row of low shaded lamps. On a quiet night you can hear the balls from the stair.",
   "exits": {
-    "west": "zone_district_911_915",
-    "east": "zone_pocket_hall"
+    "east": "zone_pocket_hall",
+    "west": "zone_district_911_915"
   },
   "flags": {
     "building_name": "Pocket Money",
@@ -16,6 +16,7 @@
     "floors": 2,
     "is_building": true,
     "region_id": "region_coldwater",
+    "sign_trade": "POOL HALL",
     "world_exit_zone": "zone_district_911_915"
   },
   "grid_x": 912,

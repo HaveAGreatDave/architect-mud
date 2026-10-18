@@ -1,0 +1,9 @@
+{
+  "a": "zone_palais_foyer",
+  "b": "zone_palais_stalls",
+  "blocked": false,
+  "dir": "east",
+  "id": "conn_hf_palais_foyer_east",
+  "lockable": false,
+  "one_way": false
+}

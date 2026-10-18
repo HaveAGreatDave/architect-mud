@@ -1,0 +1,18 @@
+{
+  "description": "An iron bedstead with brass knobs, a horsehair mattress and a lot of blankets.",
+  "flags": {
+    "aliases": [
+      "bed",
+      "bedstead",
+      "mattress"
+    ],
+    "interactions": [
+      "lie",
+      "sit"
+    ]
+  },
+  "id": "furn_corbett_8a_bed",
+  "name": "the bed",
+  "object_type": "furniture",
+  "zone_id": "zone_corbett_8a"
+}

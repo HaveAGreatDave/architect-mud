@@ -5,7 +5,6 @@
   "description": "Clipped lawn rolls out in soft terraces, dotted with young trees and the odd bolted bench. Someone tends this, rare out here: raked paths, and the smell of cut grass.",
   "exits": {
     "east": "zone_district_910_910",
-    "north": "zone_district_909_909",
     "south": "zone_district_909_911",
     "west": "zone_district_908_910"
   },

@@ -1,0 +1,7 @@
+{
+  "capacity_kw": 5000,
+  "generator_id": "gen_zone_util_zone_palais_east_bar",
+  "id": "zone_palais_east_bar",
+  "name": "The Coldwater Palais — The Crush Bar",
+  "source_type": "junction_box"
+}

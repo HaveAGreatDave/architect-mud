@@ -1,0 +1,109 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "go_home": {
+        "action_type": "GO_HOME",
+        "next": "wait",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "wait",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "wait",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "no": "off_random",
+        "type": "condition",
+        "yes": "home_idle"
+      },
+      "off_random": {
+        "options": [
+          "go_home",
+          "have_life"
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "off_home_check",
+        "type": "start"
+      },
+      "wait": {
+        "jitter": 60,
+        "next": "off_home_check",
+        "seconds": 60,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "Bram turns a page of the ledger and runs his pencil down a column, lips moving.",
+    "He stops on the landing, puts a hand on the rail, and gets his breath back.",
+    "\"Rounded down again,\" he says to nobody, and makes a note."
+  ],
+  "description": "A thin old man in a three-piece suit gone shiny at the knees, with a ledger under his arm and a pencil behind his ear. He takes the stairs one at a time with a hand on the rail and a pause on every landing, and he has opinions about where everything in the shop should go.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "\"Mind the third step down,\" he says. \"It's loose. It's been loose since the war.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "You had the shop?",
+          "next": "shop"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Never mind.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Mm?\" He looks up from the ledger and keeps his finger on the line.",
+      "text_by_relation": {
+        "familiar": "\"Sit down a minute,\" he says, \"these stairs aren't getting any shorter.\"",
+        "first": "The old man looks up from a ledger, finger on the line he was reading.\n\n\"Tolley. Bram. Fourth floor, the polished one.\" He taps the ledger. \"Did my niece charge you right? She rounds down. Forty years I had that shop and I never once rounded down.\"",
+        "known": "\"Mm. You.\" He goes back to the ledger. \"She's moved the candles again, I suppose.\""
+      }
+    },
+    "shop": {
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Forty years. It was a tobacconist when I took it, and a sweet shop, and then whatever people asked for.\" He shrugs. \"That's all a variety store is. You keep saying yes. Effie says yes faster than I did.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a brown three-piece suit shiny at the knees",
+      "a collarless shirt with a stud",
+      "braces and polished black boots"
+    ],
+    "personality": "retired"
+  },
+  "home_activities": [],
+  "home_zone": "zone_corbett_4a",
+  "hp": 26,
+  "hp_max": 26,
+  "id": "npc_mixedbag_tolley",
+  "name": "Bram Tolley",
+  "npc_type": "npc",
+  "sex": "male",
+  "studio_zone_id": null,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

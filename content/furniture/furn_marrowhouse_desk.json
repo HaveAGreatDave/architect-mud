@@ -1,0 +1,15 @@
+{
+  "description": "A long curved desk in pale stone with a bronze lip, a bell and a sign that says PLEASE RING. Nobody comes.",
+  "flags": {
+    "aliases": [
+      "desk",
+      "reception",
+      "bell",
+      "sign"
+    ]
+  },
+  "id": "furn_marrowhouse_desk",
+  "name": "the reception desk",
+  "object_type": "fixture",
+  "zone_id": "zone_marrowhouse_lobby"
+}

@@ -7,8 +7,7 @@
   },
   "flags": {
     "floor": "concrete",
-    "is_interior": true,
-    "world_exit_zone": "zone_district_916_908"
+    "is_interior": true
   },
   "grid_x": 0,
   "grid_y": 0,
@@ -16,5 +15,5 @@
   "id": "zone_util_zone_soak_front",
   "map_id": "map_int_soak",
   "name": "Lather & Lye — Barber Floor — Utility Room",
-  "parent_zone": "zone_district_916_908"
+  "parent_zone": null
 }

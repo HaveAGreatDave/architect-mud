@@ -1,0 +1,16 @@
+{
+  "description": "A big brass-rimmed dial from the weighbridge, still on the wall where the clerk could read it. The needle rests on nothing. Sluice looks at it while she names a price, and never at you.",
+  "flags": {
+    "aliases": [
+      "dial",
+      "weigh dial",
+      "needle",
+      "scale",
+      "gauge"
+    ]
+  },
+  "id": "furn_slip_dial",
+  "name": "the weigh dial",
+  "object_type": "decoration",
+  "zone_id": "zone_slip_shop"
+}

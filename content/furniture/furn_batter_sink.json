@@ -1,0 +1,18 @@
+{
+  "description": "A deep steel sink with a tall swan-neck tap, for rinsing potatoes by the sackful.",
+  "flags": {
+    "aliases": [
+      "sink",
+      "tap",
+      "basin"
+    ],
+    "interactions": [
+      "lean"
+    ],
+    "water_source": true
+  },
+  "id": "furn_batter_sink",
+  "name": "the sink",
+  "object_type": "sink",
+  "zone_id": "zone_batter_prep"
+}

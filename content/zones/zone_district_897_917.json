@@ -9,7 +9,7 @@
     "south": "zone_hf_changeofuse_lobby"
   },
   "flags": {
-    "building_name": "Change of Use",
+    "building_name": "12 Kerbstone Row",
     "building_type": "chrome_slab",
     "district": "halcyon_fields",
     "entrance": "north",
@@ -24,7 +24,7 @@
   "grid_z": 0,
   "id": "zone_district_897_917",
   "map_id": "map_world",
-  "marker": "CK",
-  "name": "Change of Use",
+  "marker": "12",
+  "name": "12 Kerbstone Row",
   "parent_zone": null
 }

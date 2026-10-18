@@ -1,19 +1,20 @@
 {
   "ambient_events": [],
   "ambient_theme": "urban",
-  "bg_color": "#2a2721",
-  "color": "#8ba36a",
-  "description": "A hardware shop with its stock spilling out under the awning: coils of rope, a barrel of rebar offcuts, a pallet of grey buckets. The sign reads NUTS TO THAT: WE HAVE IT, PROBABLY, and someone has amended PROBABLY in a different paint. The doorway smells of cut metal and machine oil from ten feet away.",
+  "bg_color": "#2e2a22",
+  "color": "#ecdcb8",
+  "description": "Six storeys of champagne glass in pale stone fins, Solenne's style at a quarter of its height. A bronze canopy runs out over a revolving door, and MARROW HOUSE is set in bronze letters on the stone above it. The directory board by the door has room for twelve tenants and lists two.",
   "exits": {
-    "north": "zone_bolt_shop",
+    "north": "zone_marrowhouse_lobby",
     "south": "zone_district_915_909"
   },
   "flags": {
-    "building_name": "Nuts to That",
-    "building_type": "hardware",
+    "building_name": "Marrow House",
+    "building_type": "office",
     "district": "marrow",
     "entrance": "south",
     "facade": true,
+    "floors": 6,
     "is_building": true,
     "region_id": "region_coldwater",
     "world_exit_zone": "zone_district_915_909"
@@ -23,7 +24,7 @@
   "grid_z": 0,
   "id": "zone_district_915_908",
   "map_id": "map_world",
-  "marker": "NT",
-  "name": "Nuts to That",
+  "marker": "MO",
+  "name": "Marrow House",
   "parent_zone": null
 }

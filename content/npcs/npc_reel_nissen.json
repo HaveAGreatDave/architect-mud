@@ -270,6 +270,10 @@
           "next": "seats"
         },
         {
+          "label": "This was a theatre?",
+          "next": "theatre"
+        },
+        {
           "label": "Why not just close it?",
           "next": "close"
         },
@@ -313,6 +317,15 @@
         }
       ],
       "text": "\"Enough,\" he says. \"Rows A through E and G through N. That's what's for sale.\"\n\nHe looks at you for the first time in the conversation.\n\n\"Row F is not for sale. Not the six. I'll not be talked round on it and I'll not be asked twice, and if you want to know why, come back when you've sat in one.\""
+    },
+    "theatre": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Variety,\" he says. \"Comics, a dog act, a woman who sang with her back to the house, twice nightly. A man called Parks built it with what he made running the fair on the waste ground opposite. Midway Parks. He thought that was clever.\"\n\nHe turns a page.\n\n\"My father hung a screen in the arch the year the comics stopped coming. He took THEATRE off the front, put CINEMA up the blade, and meant to do the rest. He never got round to it and neither have I. The stage is still there behind the screen. Nobody's stood on it in forty years.\""
     }
   },
   "faction": null,
@@ -400,7 +413,7 @@
       }
     ]
   },
-  "vendor_shop_name": "Reel Estate",
+  "vendor_shop_name": "Midway Parks Cinema",
   "vendor_stock_size": 10,
   "wander_zones": [],
   "wanders": 0,

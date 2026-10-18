@@ -1,0 +1,16 @@
+{
+  "description": "Floor-to-ceiling shelving on both walls, packed two deep. A handwritten card over each section: KITCHEN, BATHROOM, SMOKES, MISC, MORE MISC.",
+  "flags": {
+    "aliases": [
+      "shelves",
+      "shelving",
+      "cards",
+      "stock"
+    ],
+    "examine_detail": "Behind the drain cleaner on the MORE MISC shelf there is a single boxed snow globe of a city that isn't this one. It has no price on it."
+  },
+  "id": "furn_corbett_shelves",
+  "name": "the shelves",
+  "object_type": "decoration",
+  "zone_id": "zone_corbett_shop"
+}

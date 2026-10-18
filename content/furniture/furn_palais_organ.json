@@ -1,0 +1,20 @@
+{
+  "description": "A theatre organ on its lift in the pit, the console cream and gilt, three keyboards stepped like a staircase and a horseshoe of coloured stop tabs. The pipes are behind grilles either side of the proscenium. The lid is closed but not locked.",
+  "flags": {
+    "aliases": [
+      "organ",
+      "console",
+      "pipes"
+    ],
+    "examine_detail": "A brass plate on the console gives the maker, the year, and the name of the man who played it on the first night. Somebody still polishes the plate.",
+    "instrument": "organ",
+    "interactions": [
+      "examine",
+      "play"
+    ]
+  },
+  "id": "furn_palais_organ",
+  "name": "the theatre organ",
+  "object_type": "furniture",
+  "zone_id": "zone_palais_stalls"
+}

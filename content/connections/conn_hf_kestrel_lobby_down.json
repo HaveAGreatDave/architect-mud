@@ -1,0 +1,9 @@
+{
+  "a": "zone_kestrel_lobby",
+  "b": "zone_util_zone_kestrel_lobby",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_hf_kestrel_lobby_down",
+  "lockable": false,
+  "one_way": false
+}

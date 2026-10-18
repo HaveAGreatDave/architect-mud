@@ -1,0 +1,18 @@
+{
+  "description": "The space under the stage, low and crowded with timber posts. The trap lifts stand on their counterweights, ropes greased and coiled. A row of old painted flats leans along one wall. The junction box is by the stair, labelled in three generations of handwriting.",
+  "exits": {
+    "up": "zone_palais_stage"
+  },
+  "flags": {
+    "floor": "concrete",
+    "is_interior": true,
+    "world_exit_zone": "zone_district_908_909"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_palais_stage",
+  "map_id": "map_int_palais",
+  "name": "The Coldwater Palais: The Trap Room",
+  "parent_zone": "zone_district_908_909"
+}

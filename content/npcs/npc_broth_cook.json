@@ -131,7 +131,7 @@
     }
   },
   "chitchat": [
-    "Mek slides a bowl down the counter without looking, and it stops exactly where it should.",
+    "Nico slides a bowl down the counter without looking, and it stops exactly where it should.",
     "\"Sit. Eat. Talk after.\"",
     "The stockpot lid lifts on a shoulder of steam and settles again."
   ],
@@ -200,7 +200,7 @@
           "next": "bye"
         }
       ],
-      "text": "Mek doesn't stop moving. \"Nine stools, four things on the board, two of those are lies.\" A bowl goes down the counter and stops dead in front of an empty seat. \"Sit anywhere. If you're not eating, stand further back, you're in the steam.\""
+      "text": "Nico doesn't stop moving. \"Nine stools, four things on the board, two of those are lies.\" A bowl goes down the counter and stops dead in front of an empty seat. \"Sit anywhere. If you're not eating, stand further back, you're in the steam.\""
     }
   },
   "faction": null,
@@ -217,7 +217,7 @@
   "hp": 40,
   "hp_max": 40,
   "id": "npc_broth_cook",
-  "name": "Mek Oyelaran",
+  "name": "Nico Nakamura",
   "npc_type": "vendor",
   "sex": "male",
   "studio_zone_id": null,
@@ -356,7 +356,7 @@
       }
     ]
   },
-  "vendor_shop_name": "Oyelaran's",
+  "vendor_shop_name": "Nico's Noodle Bar",
   "vendor_stock_size": 24,
   "wander_zones": [],
   "wanders": 0,

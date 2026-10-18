@@ -1,0 +1,17 @@
+{
+  "description": "An old steel till under the counter, the drawer held shut with a padlock when the shop closes.",
+  "flags": {
+    "aliases": [
+      "till",
+      "drawer",
+      "cash drawer"
+    ],
+    "hack_difficulty": 3,
+    "vendor_npc_id": "npc_batter_fryer",
+    "vendor_safe": true
+  },
+  "id": "furn_batter_cashbox",
+  "name": "the till",
+  "object_type": "fixture",
+  "zone_id": "zone_batter_shop"
+}

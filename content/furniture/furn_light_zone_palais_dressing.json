@@ -1,0 +1,11 @@
+{
+  "description": "Bare bulbs round every mirror. Most of them work.",
+  "flags": {},
+  "id": "furn_light_zone_palais_dressing",
+  "light_type": "overhead",
+  "lumen_output": 2000,
+  "name": "the mirror bulbs",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_palais_dressing"
+}

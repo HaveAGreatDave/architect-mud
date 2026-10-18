@@ -1,0 +1,15 @@
+{
+  "description": "Red velvet, gold fringed, gathered up into the arch. It smells of dust and old perfume, and comes down in one heavy sweep when somebody hauls the rope.",
+  "flags": {
+    "aliases": [
+      "curtain",
+      "tabs",
+      "velvet",
+      "rope"
+    ]
+  },
+  "id": "furn_palais_curtain",
+  "name": "the house curtain",
+  "object_type": "decoration",
+  "zone_id": "zone_palais_stage"
+}

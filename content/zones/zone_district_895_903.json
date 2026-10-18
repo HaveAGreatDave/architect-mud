@@ -15,6 +15,7 @@
     "facade": true,
     "is_building": true,
     "region_id": "region_coldwater",
+    "sign_trade": "RAD GEAR",
     "world_exit_zone": "zone_district_896_903"
   },
   "grid_x": 895,

@@ -16,6 +16,7 @@
     "floors": 1,
     "is_building": true,
     "region_id": "region_coldwater",
+    "sign_trade": "SALVAGE",
     "world_exit_zone": "zone_district_904_906"
   },
   "grid_x": 904,

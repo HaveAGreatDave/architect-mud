@@ -9,7 +9,7 @@
     "south": "zone_district_892_916"
   },
   "flags": {
-    "building_name": "Light Relief",
+    "building_name": "1 Kerbstone Row",
     "building_type": "chrome_tower",
     "district": "halcyon_fields",
     "entrance": "south",
@@ -24,7 +24,7 @@
   "grid_z": 0,
   "id": "zone_district_892_915",
   "map_id": "map_world",
-  "marker": "LG",
-  "name": "Light Relief",
+  "marker": "K1",
+  "name": "1 Kerbstone Row",
   "parent_zone": null
 }

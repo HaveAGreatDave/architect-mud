@@ -1,0 +1,18 @@
+{
+  "description": "A low cellar under the shop, cold, and smelling of old oil. Drums of fryer fat stand in two rows, clean on the left and used on the right. The junction box is on the wall at the foot of the steps.",
+  "exits": {
+    "up": "zone_batter_shop"
+  },
+  "flags": {
+    "floor": "concrete",
+    "is_interior": true,
+    "world_exit_zone": "zone_district_918_907"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_batter_shop",
+  "map_id": "map_int_batter",
+  "name": "Batter Days Fish & Chips — The Cellar",
+  "parent_zone": "zone_district_918_907"
+}

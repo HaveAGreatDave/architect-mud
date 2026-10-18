@@ -100,12 +100,12 @@
       "color": "#1a0e16",
       "cx": -0.12,
       "cy": 0.423,
-      "font": "hanzi",
+      "font": "condensed",
       "half": 0.155,
       "hh": 0.026,
       "ink": "#ff9ac6",
       "kind": "signBoard",
-      "label": "時裝",
+      "label": "$trade",
       "z": 0.415
     },
     {

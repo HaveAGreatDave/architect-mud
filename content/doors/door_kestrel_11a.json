@@ -1,0 +1,22 @@
+{
+  "connection_id": "conn_hf_kestrel_f11_west",
+  "door_type": "basic",
+  "exit_dir": "east",
+  "flags": {},
+  "hololock_difficulty": 5,
+  "hp": 1000,
+  "hp_max": 1000,
+  "id": "door_kestrel_11a",
+  "is_locked": 0,
+  "is_open": 0,
+  "lock_state": "locked",
+  "name": "Unit 11A door",
+  "tags": {
+    "lock:hololock": {
+      "canHack": true,
+      "difficulty": 5
+    }
+  },
+  "target_zone": "zone_kestrel_f11",
+  "zone_id": "zone_kestrel_11a"
+}
