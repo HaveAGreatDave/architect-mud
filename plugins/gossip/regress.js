@@ -1,6 +1,7 @@
 // Gossip plugin regression suite — run by tests/regress.js (never loaded in production).
 import * as pool from './pool.js';
 import { renderItem } from './templates.js';
+import { buildAliases, teamsNamed, fanReaction } from './team-talk.js';
 import { emit } from '../../server/engine/events.js';
 import { dispatchAction } from '../../server/engine/actions.js';
 
@@ -55,6 +56,27 @@ export default async function regress({ run, check, getPlayer }) {
     check('sports line names the speaker\'s winning team', /Rustpile Rats/.test(line || ''), (line || '').slice(0, 120));
     const neutral = renderItem(sportsItem, false, { fav: null });
     check('sports line renders without a favourite team', !!neutral && /7|4/.test(neutral), (neutral || '').slice(0, 120));
+  }
+
+  // team talk: a club named in speech, by full name or a nickname nobody shares
+  const league = ['Waterfront Wharf Rats', 'Rustpile Rats', 'Coldwater Kingfishers', 'Static Saints'];
+  const aliases = buildAliases(league);
+  const named = (t) => [...teamsNamed(t, aliases)].sort().join(',');
+  check('team talk: a nickname names its club', named('go kingfishers!') === 'Coldwater Kingfishers', named('go kingfishers!'));
+  check('team talk: a shared nickname needs more', named('rats in the walls again') === '', named('rats in the walls again'));
+  check('team talk: two words settle a shared nickname', named('the Wharf Rats stink') === 'Waterfront Wharf Rats', named('the Wharf Rats stink'));
+  check('team talk: a common-word nickname needs the full name', named('saints preserve us') === '' && named('Static Saints!') === 'Static Saints', named('saints preserve us'));
+  const fan = (set) => fanReaction('Coldwater Kingfishers', 'Rustpile Rats', new Set(set));
+  check('team talk: a fan cheers their club', /Coldwater Kingfishers/.test(fan(['Coldwater Kingfishers']) || ''), fan(['Coldwater Kingfishers']));
+  check('team talk: a fan rounds on the rival', /Rustpile Rats/.test(fan(['Rustpile Rats']) || ''), fan(['Rustpile Rats']));
+  check('team talk: any other club is nothing to them', fan(['Static Saints']) === null, fan(['Static Saints']));
+  check('team talk: no favourite, no reaction', fanReaction(null, null, new Set(['Static Saints'])) === null, 'null fav');
+  const roster = await dispatchAction({ type: 'broadcast.getSportsTeams' }).catch(() => null);
+  if (roster?.teams?.length) {
+    const oneWay = Object.entries(roster.rivals || {}).filter(([t, r]) => roster.rivals[r] !== t);
+    check('team talk: rivals are mutual across every league', oneWay.length === 0, oneWay.map(p => p.join('>')).join('; '));
+    const crossLeague = Object.entries(roster.rivals || {}).filter(([t, r]) => roster.sports?.[t] !== roster.sports?.[r]);
+    check('team talk: a rival is in the same league', crossLeague.length === 0, crossLeague.map(p => p.join('>')).join('; '));
   }
 
   // gc prunes an item aged well past its half-life

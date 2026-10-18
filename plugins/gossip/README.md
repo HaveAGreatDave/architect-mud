@@ -49,6 +49,22 @@ The four `gossip.*` / `crime.witnessed` events are emitted by small additions at
 their seams (poker cash-out, vendor buy, apartment rent, surveillance
 `raiseCrime`) so gossip never re-implements witness logic or economy hooks.
 
+## Team talk
+
+Every NPC backs one club (`favTeam`, a stable hash of its id into the pinned
+roster), and every club has one rival inside its own league
+(`broadcast.getSportsTeams` returns `rivals`, paired by the hockey sim's
+`rivalOf`; the DEADBALL league is paired the same way). On `player.say`, a line
+that names a club ([team-talk.js](team-talk.js)) gets an answer from the fans in
+the room: a cheer for their own club, contempt for its rival, and a grudge line
+when both are named. Anyone else's club is nothing to them.
+
+A club is named by its full name or a short form no other club shares
+("Kingfishers", "Wharf Rats"). Nicknames that are ordinary words here ("rats",
+"saints", "birds", "goons", "ghouls") need the full name. At most two fans
+answer a line, and a fan who's answered sits out 90 seconds. Sleeping, fighting
+and `no_banter` NPCs stay quiet.
+
 ## Ask-only secrets
 
 Some gossip is too sensitive to blurt out unprompted. An item with `askOnly:true`

@@ -15,7 +15,7 @@
 import { on, emit } from '../../server/engine/events.js';
 import { schedule } from '../../server/engine/scheduler.js';
 import { getZone, getZoneNpcs, world } from '../../server/engine/world.js';
-import { formatChitchat } from '../../server/engine/ai-behaviour.js';
+import { formatChitchat, isNpcAsleep } from '../../server/engine/ai-behaviour.js';
 import { resolve as siftResolve, createSelectionState, formatSelectionPage } from '../../server/engine/sift.js';
 import { registerInputMatcher } from '../../server/engine/plugins.js';
 import { registerAction, dispatchAction } from '../../server/engine/actions.js';
@@ -28,6 +28,7 @@ import { getBuildingName } from '../../server/engine/apartments.js';
 import { sendToZone } from '../../server/engine/messaging.js';
 import * as pool from './pool.js';
 import { TEMPLATES, renderItem } from './templates.js';
+import { buildAliases, teamsNamed, fanReaction } from './team-talk.js';
 
 // ── Tunables ────────────────────────────────────────────────────────────────
 const AMBIENT_CHANCE      = 0.06;     // per witnessed zone per tick, unprompted gossip
@@ -51,6 +52,8 @@ const zn = (id) => getZone(id)?.name || 'somewhere';
 // roster is fixed, `favTeam(npc)` returns the same team for the life of the world.
 const teamRoster = new Set();
 let rosterPinned = false;   // true once the full content roster is loaded
+const teamRivals = new Map();   // team -> its one rival in its own league (from the pin)
+let teamAliases = null;         // built lazily from the roster; null = rebuild
 
 function favTeam(npc) {
   if (!npc?.id || teamRoster.size === 0) return null;
@@ -68,6 +71,8 @@ async function pinRoster(attempt = 0) {
   const teams = Array.isArray(res?.teams) ? res.teams : [];
   if (teams.length) {
     for (const t of teams) teamRoster.add(t);
+    for (const [t, r] of Object.entries(res.rivals || {})) teamRivals.set(t, r);
+    teamAliases = null;
     rosterPinned = true;
     return;
   }
@@ -228,7 +233,9 @@ on('sports.game', ({ gameId, away, home, awayScore, homeScore, winner }) => {
   if (winner !== away && winner !== home) return;
   // Fallback only: until the content roster is pinned, learn teams from the games
   // themselves so a bare world still has allegiances. Once pinned, the set is frozen.
-  if (!rosterPinned) { teamRoster.add(away); teamRoster.add(home); }
+  if (!rosterPinned && !(teamRoster.has(away) && teamRoster.has(home))) {
+    teamRoster.add(away); teamRoster.add(home); teamAliases = null;
+  }
   add('sports_score', {
     coalesceKey: `sports|${gameId || `${away}|${home}`}`, capGroup: 'sports',
     vars: { away, home, awayScore, homeScore, winner },
@@ -398,6 +405,43 @@ registerAction({
 });
 
 registerInputMatcher(/^ask\s+.+\s+about\s+(?:gossip|rumou?rs?|news|word)\s*$/i, cmdAskAbout, 'gossip');
+
+// ── Team talk: name a club and its fans answer ─────────────────────────────────
+// A player who says a club's name in earshot of a fan gets a cheer; the club's
+// rival gets a fan's contempt. Up to TEAM_TALK_MAX fans answer one line, and a
+// fan who's just had their say sits the next TEAM_TALK_COOLDOWN_MS out, so a room
+// can't be farmed into a chant. In-memory, like the tell cooldown above.
+const TEAM_TALK_MAX = 2;
+const TEAM_TALK_COOLDOWN_MS = 90_000;
+const teamTalkUntil = new Map();   // npcId -> ts
+
+function onSayTeams({ player, text, zoneId, broadcast }) {
+  if (!player?.id || !text || !zoneId || teamRoster.size === 0) return undefined;
+  if (!teamAliases) teamAliases = buildAliases([...teamRoster]);
+  const named = teamsNamed(text, teamAliases);
+  if (!named.size) return undefined;
+  const now = Date.now();
+  const fans = gossipNpcs(zoneId).filter(n => !isNpcAsleep(n) && now >= (teamTalkUntil.get(n.id) || 0));
+  for (let i = fans.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [fans[i], fans[j]] = [fans[j], fans[i]];
+  }
+  let spoke = 0;
+  for (const npc of fans) {
+    if (spoke >= TEAM_TALK_MAX) break;
+    const fav = favTeam(npc);
+    const line = fanReaction(fav, teamRivals.get(fav) || null, named);
+    if (!line) continue;
+    teamTalkUntil.set(npc.id, now + TEAM_TALK_COOLDOWN_MS);
+    const msg = formatChitchat(npc.name, line);
+    if (broadcast) broadcast(zoneId, msg);
+    else sendToZone(zoneId, msg);
+    spoke++;
+  }
+  return undefined;
+}
+
+export const hooks = { 'player.say': onSayTeams };
 
 // ── Tick: gc + blackout news + passphrase seed + ambient gossip ────────────────
 const lastPower = new Map();
