@@ -4,13 +4,16 @@
 to reverse how Cluster Puck is made. Today the server decides every beat of a game, and Rinkside
 stages each one on the ice as the booth's line for it airs. Under this plan the server plays each
 featured game as free hockey before it airs, and the booth and Rinkside both work from what
-happened. Phase 0 played 100 games of free play with no director: the play holds up, and four
-things need fixing before anything is built on it ([Phase 0 results](#phase-0-results)).
+happened. Phase 0 played 100 games of free play with no director: the play holds up, the
+home-side bias it found has a confirmed fix, and three things need fixing before anything is built
+on it ([Phase 0 results](#phase-0-results)).
 
 Read with [systems-broadcast.md](../systems-broadcast.md#hockey-specifics-as-built) (the sim, the
 narrator, the pacing and Rinkside as built), the read tiers in
 [architecture.md](../architecture.md#read-tiers-where-data-lives-at-runtime), and the free-tier
-budgets in [ops-usage-watch.md](../ops-usage-watch.md).
+budgets in [ops-usage-watch.md](../ops-usage-watch.md). The decision layer is worked out in
+[cluster-puck-ai.md](cluster-puck-ai.md), and the look that follows this plan in
+[cluster-puck-glass2.md](cluster-puck-glass2.md).
 
 ## The short version
 
@@ -57,7 +60,8 @@ reason: the broadcast round them is stronger than the games it narrates.
 - Most of the director goes, and the hockey on screen runs at hockey speed.
 - Hits, scrums and chances can happen that nobody scripted.
 - The text stays first-class, because the booth reads the same event log the picture is drawn from.
-- A game that's played rather than staged is one a person could one day take part in.
+- A game that's played rather than staged is one a person can take part in later. Decided on
+  2026-10-18: one person controls a whole team ([People in the seat](cluster-puck-ai.md#people-in-the-seat)).
 
 ## Where the game lives
 
@@ -98,7 +102,8 @@ The betting desk's rule also holds: a game is decided before it airs, and
   Each decision rolls the odds `simGame` uses now: `CHANCE_TABLE` for what a shot does, `clubProfile`
   for shooting, goaltending, discipline and violence, the rivalry multipliers, and the injury bands.
   The physics only carries the puck. That keeps a featured game playing the same sport as the
-  off-air games round it.
+  off-air games round it. [cluster-puck-ai.md](cluster-puck-ai.md) works this out in full: odds per
+  shot from an expected-goal model in place of `CHANCE_TABLE`'s per chance, and the momentum meter.
 - **The league's rules.** An injured man isn't replaced, a fight's loser serves five and the
   winner's side gets the power play, overtime ends on the first goal or the first fatality, a draw
   is taken at the dot its stoppage implies, and a depleted club calls up from the reserve. All of
@@ -270,7 +275,8 @@ payload gives away today.
    Phase 0's free play doesn't yet match `simGame`: fewer goals (4.9 against 6.4), from shots taken
    farther out. Its scores also look more like hockey's, with closer games and fewer shutouts.
    Either the decision layer is tuned to `simGame`'s numbers, or `simGame` is retuned to free
-   play's, which needs a new sim version so past games replay as they aired.
+   play's, which needs a new sim version so past games replay as they aired. The AI plan recommends
+   one target for both: hockey's shape with the CPhL's scoring ([Targets](cluster-puck-ai.md#targets)).
 2. **Slot length.** At real speed, an hour slot can't hold sixty minutes of hockey with its
    stoppages and two intermissions. Periods of about 12 minutes of play fit an hour, and three-hour
    slots (`world_clock.time_scale` 1) hold the full game. Which?
@@ -279,8 +285,6 @@ payload gives away today.
 4. **A sim version.** Stored rows free old games from the code, but a change to the decision layer's
    odds still needs a version stamp, as baseball's `@sim 2` has, so the change starts from a slot the
    server records.
-5. **Players on the ice.** Nothing here depends on anyone playing rather than watching. A decision
-   layer built with it in mind would take input from a socket as well as from dice.
 
 ## Phases
 
@@ -290,9 +294,8 @@ together, because the booth and the picture have to read the same game.
 - **Phase 0: can free play make a game?** Done on 2026-10-18; see the results below.
 - **Phase 1: the server's game.** The headless switch, the seeded stream, the cosmetics moved to
   their own dice, the blade worked out without the renderer's state, and the decision layer. Then
-  the four fixes from Phase 0: a fair tie-break when both sides reach the puck on the same step, a
-  power play that's worth something, club identity in how a side skates and passes, and the lean
-  copy running in a worker. Then the referee, the league's rules and goalies the puck meets. A gate
+  the fixes from Phase 0: the fair tie-break it confirmed, a power play that's worth something, club
+  identity in how a side skates and passes, and the lean copy running in a worker. Then the referee, the league's rules and goalies the puck meets. A gate
   plays a set of seeded games and fails when shots, goals, penalties, fights or casualties a game
   leave the target's bands, or when a game costs more than its CPU budget. Phase 0's harness is
   where the gate starts.
@@ -340,21 +343,38 @@ The figures below were checked by re-running the harness's summary over its per-
 - **Clubs:** they differ only through the dice. Free play's results by club don't follow
   `simGame`'s: the Boomtown Bulldogs scored 2.2 a game in free play and 4.5 in `simGame`.
 
-The four things to fix before building on it:
+**The home-side bias has a confirmed fix.** `ambient()` reads `pk.carrier` once and then runs side
+`'a'` before side `'h'`, so a puck both sides reached on the same step went to the home side: home
+had 52.7% of possession (t = -12.7). The fix takes two changes: the loose-puck check has to see a
+puck the first side just took, and the side that goes first has to alternate each step. Either one
+alone hands the edge to the away side (52.6%). With both, a follow-up run of 20 games split evenly:
 
-1. **A home-side bias.** `ambient()` reads `pk.carrier` once and then runs side `'a'` before side
-   `'h'`, so a puck both sides reach on the same step goes to the home side. Home had 52.7% of
-   possession (t = -12.7). Fixing the stale read, or swapping the order, moves the edge to the away
-   side (52.6%), so it needs a fair tie-break.
-2. **A weak power play.** Five on four adds only 27% to the shot rate, so power-play goals are rare:
+| | Before | With the fair tie-break |
+|---|---|---|
+| Away possession | 47.3% (t = -12.7) | 50.5% (t = 1.4) |
+| Away offensive-zone time | 47.2% | 50.5% |
+| Away shot attempts | 45.6% | 50.2% |
+| Possession changes a game | 408 | 359 |
+
+About 50 of the possession changes a game had been the second side taking the puck off a man who'd
+just picked it up.
+
+**With no decision layer at all** (3 games, nothing shoots), each 20-minute period ran without a
+whistle and still never stalled: no dead or pinned puck, no frozen pairs, skaters under 1.5 ft/s
+6.4% of the time and the puck loose 25% of the time. The carrier spent 34% of the game in a shooting
+area, so the decision layer only has to choose to shoot; the play already gets there.
+
+The three things still to fix before building on it:
+
+1. **A weak power play.** Five on four adds only 27% to the shot rate, so power-play goals are rare:
    0.5 a game against `simGame`'s 3.5.
-3. **No club identity in the play.** Clubs should differ in how they skate and pass as well as in
+2. **No club identity in the play.** Clubs should differ in how they skate and pass as well as in
    their dice.
-4. **A lean, seeded copy for the server, off the main thread,** with the seeding, the dice and the
+3. **A lean, seeded copy for the server, off the main thread,** with the seeding, the dice and the
    blade fixed as [The server's game](#the-servers-game) describes.
+
+The rules the open play lacks (offside, icing, the pulled goalie) are Phase 1 work as well. Line
+changes don't apply, because each club dresses six.
 
 Smaller notes: about twice the passing you'd expect (1,541 attempts a game), the puck loose 28% of
 the time, and backhands 17% of shots against `simGame`'s 13%.
-
-Not run: a baseline with no decision layer, which would show how much of each number the dice set
-and how much the play does.

@@ -1653,7 +1653,9 @@ its own (carries, cycles, passes, dekes, dump-ins, rub-outs, a goalie playing it
 defence), and that hockey never shoots. A net lets a puck in only through its mouth and
 only while `W.allowGoal` names it, which the director sets for a goal and nothing else.
 A plan to reverse this, with the server playing each featured game as free hockey before it
-airs, is in [proposals/cluster-puck-free-play.md](proposals/cluster-puck-free-play.md) (design).
+airs, is in [proposals/cluster-puck-free-play.md](proposals/cluster-puck-free-play.md) (design),
+with its AI in [proposals/cluster-puck-ai.md](proposals/cluster-puck-ai.md) and the look that
+follows it in [proposals/cluster-puck-glass2.md](proposals/cluster-puck-glass2.md).
 
 **What the director stages.** Each payload type has a stager. Each one takes the men and
 the puck it needs, walks them through the beat and hands them back to the ambient play.
