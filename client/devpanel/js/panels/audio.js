@@ -2,8 +2,8 @@
 // from the existing Sounds panel (panels/sounds.js), which is the text-based
 // gameplay Sound system. Never merge the two.
 //
-// Functional forms + instant local preview, no canvas/timeline editor yet
-// (that's a deferred phase-2 piece). Preview buttons call window.AudioEngine
+// Functional forms + instant local preview; the patch editor is the Rack sub-tab
+// (panels/audio-rack.js), and a timeline editor is still to come. Preview buttons call window.AudioEngine
 // directly against the browser's own AudioContext — no server round-trip.
 
 // tv_fx is a broadcast's effects: the tv bus, through the effects sub-gain that
@@ -70,9 +70,11 @@ function renderAudioPanel(data) {
     ['ambient', 'Ambient'],
     ['samples', 'Samples'],
     ['events', 'Event Routes'],
+    // the patch editor (audio-rack.js): not a list, so it has no count
+    ['rack', '🎛 Rack'],
   ];
   const tabBar = tabs.map(([key, label]) => `
-    <button class="action-btn${_audioTab === key ? ' selected' : ''}" style="${_audioTab === key ? 'background:var(--accent);color:#000' : ''}" onclick="setAudioTab('${key}')">${label} (${_audioData[key].length})</button>
+    <button class="action-btn${_audioTab === key ? ' selected' : ''}" style="${_audioTab === key ? 'background:var(--accent);color:#000' : ''}" onclick="setAudioTab('${key}')">${label}${_audioData[key] ? ` (${_audioData[key].length})` : ''}</button>
   `).join('');
 
   panel.innerHTML = `
@@ -81,7 +83,8 @@ function renderAudioPanel(data) {
       <div style="display:flex;flex-wrap:wrap;gap:6px">
         <button class="action-btn" onclick="verifyAllAudio()" title="Re-fetch from the server, confirm every asset loads, and report any broken references or malformed configs">✔ Save &amp; Verify</button>
         <button class="action-btn danger" onclick="stopAllAudioPreviews()">⏹ Stop</button>
-        ${_audioTab === 'samples'
+        ${_audioTab === 'rack' ? ''
+          : _audioTab === 'samples'
           ? `<button class="action-btn" onclick="newAudioAsset('samples')">⬆ Upload Sample</button>`
           : _audioTab === 'events'
             ? `<button class="action-btn" onclick="newAudioAsset('events')">+ New Event Route</button>`
@@ -104,6 +107,8 @@ function setAudioTab(tab) {
 function renderAudioTabBody() {
   const body = document.getElementById('audio-tab-body');
   const rows = _audioData[_audioTab];
+
+  if (_audioTab === 'rack') { renderRack(body); return; }
 
   if (_audioTab === 'events') {
     if (!rows.length) { body.innerHTML = '<div style="padding:24px;color:var(--text-dim)">No event routes configured. Add one to map a game event to audio.</div>'; return; }
@@ -467,6 +472,7 @@ function _genericAudioRow(r, indent) {
     <td style="text-align:right;white-space:nowrap">
       <button class="action-btn${_audioTab === 'songs' && r.id === _playingSongId ? ' danger' : ''}" style="font-size:10px;padding:3px 8px" onclick="previewAudioAsset('${_audioTab}','${r.id}')">${_audioTab === 'songs' && r.id === _playingSongId ? '⏹' : '▶'}</button>
       <button class="action-btn" style="font-size:10px;padding:3px 8px;margin-left:4px" onclick="editAudioAsset('${_audioTab}','${r.id}')">✏</button>
+      ${['sfx', 'instruments', 'ambient'].includes(_audioTab) ? `<button class="action-btn" style="font-size:10px;padding:3px 8px;margin-left:4px" onclick="openInRack('${_audioTab}','${r.id}')" title="Open in the Rack">🎛</button>` : ''}
       <button class="action-btn" style="font-size:10px;padding:3px 8px;margin-left:4px" onclick="exportAudioAsset('${_audioTab}','${r.id}')" title="Export as JSON">⬇</button>
       <button class="action-btn danger" style="font-size:10px;padding:3px 8px;margin-left:4px" onclick="deleteAudioAsset('${_audioTab}','${r.id}','${r.name.replace(/'/g, "\\'")}')">✕</button>
     </td>
@@ -1846,6 +1852,7 @@ function openAudioModal(tab, row) {
       <div id="sfx-layers-container"></div>
       <div class="field" style="display:flex;align-items:center;gap:14px;margin-top:10px">
         <button type="button" class="action-btn" id="am-preview" style="padding:4px 14px" title="Play the full multi-layer sound with the current unsaved values">▶ Preview</button>
+        ${row.id ? `<button type="button" class="action-btn" style="padding:4px 14px" onclick="openInRack('sfx','${row.id}')" title="Open the saved sound in the Rack (unsaved edits here are dropped)">🎛 Open in Rack</button>` : ''}
         <span><input type="checkbox" id="am-enabled" ${row.enabled !== 0 ? 'checked' : ''}>
         <label for="am-enabled" style="margin:0;cursor:pointer">Enabled</label></span>
       </div>`;

@@ -895,17 +895,133 @@
   // the rest, and leaving it unset on them keeps their graphs as they were.
   const GAIN_FILTERS = new Set(['peaking', 'lowshelf', 'highshelf']);
 
+  // ── MODS: patchable modulation ─────────────────────────────────────────────
+  // `layer.mods` is a list of sources, each patched by its `to` list into any
+  // parameter the layer built. Every LFO above this (vibrato, tremolo) is wired
+  // to one target for good; a mod goes wherever it is patched, including into
+  // another mod's rate or depth. The Rack in the dev panel's Audio tab is the
+  // editor for it, and docs/amp-format.md has the format.
+  //
+  //   { id:'lfo1', type:'lfo', wave:'triangle', rate:3, fade:0.4, to:[{ param:'filter.cutoff', amount:1200 }] }
+  //
+  // Sources: `lfo` (bipolar, -1..1), `env` (unipolar 0..1 on its own a/d/s/r),
+  // `rand` (bipolar sample-and-hold from a seed, `smooth` glides between steps).
+  // Each target is in its own unit: cents for pitch, ratio and cutoff, index
+  // units for the FM operators, seconds for echo time, 0..1 for the rest.
+  //
+  // A target whose stage the layer doesn't have is skipped, and a patch that
+  // would close a loop between mods is dropped: Web Audio mutes a cycle with no
+  // delay in it, so it would silence the mod rather than do anything.
+  // A layer without `mods` builds exactly the graph it built before.
+  const MOD_TYPES = new Set(['lfo', 'env', 'rand']);
+  const MOD_TARGETS = ['pitch', 'fm.index', 'fm.ratio', 'op2.index', 'op2.ratio', 'filter.cutoff', 'filter.q',
+    'amp', 'pan', 'echo.time', 'echo.feedback', 'noise.rate'];
+  function modTargetSet(mods) {
+    const s = new Set();
+    for (const m of mods) for (const c of (Array.isArray(m?.to) ? m.to : [])) if (c?.param) s.add(c.param);
+    return s;
+  }
+  // The patches that survive: known source types with ids, and mod->mod edges
+  // that don't close a loop, taken in authored order so the first patch wins.
+  function modPatches(mods) {
+    const byId = new Map();
+    for (const m of mods) if (m && MOD_TYPES.has(m.type) && m.id && !byId.has(m.id)) byId.set(m.id, m);
+    const edges = new Map([...byId.keys()].map(k => [k, new Set()]));
+    const reaches = (from, to) => {
+      const seen = new Set(), q = [from];
+      while (q.length) { const k = q.pop(); if (k === to) return true; if (seen.has(k)) continue; seen.add(k); q.push(...(edges.get(k) || [])); }
+      return false;
+    };
+    const patches = [];
+    for (const m of byId.values()) {
+      for (const c of (Array.isArray(m.to) ? m.to : [])) {
+        if (!c || typeof c.param !== 'string' || !Number.isFinite(c.amount) || c.amount === 0) continue;
+        const mm = /^mod\.(.+)\.(rate|amount)$/.exec(c.param);
+        if (mm) {
+          if (!byId.has(mm[1]) || reaches(mm[1], m.id)) continue;   // unknown, self or a loop
+          edges.get(m.id).add(mm[1]);
+        }
+        patches.push({ mod: m, param: c.param, amount: c.amount });
+      }
+    }
+    return { byId, patches };
+  }
+  // Seeded, so a rendered cue is the same cue every time.
+  function modRandom(seed) {
+    let a = (Number.isFinite(seed) ? seed : 1) >>> 0 || 1;
+    return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  }
+  // P maps a target name to [AudioParam, scale]; the cable's gain is amount * scale.
+  // `span` is how long the note can last, for the random steps. Returns release hooks.
+  function buildMods(mods, P, time, span, nodes) {
+    const { byId, patches } = modPatches(mods);
+    const out = new Map();      // id -> the source's depth gain, which every cable leaves from
+    const releases = [];
+    for (const m of byId.values()) {
+      let src = null;
+      if (m.type === 'lfo') {
+        src = ctx.createOscillator();
+        src.type = OSC_WAVES.includes(m.wave) ? m.wave : 'sine';
+        src.frequency.setValueAtTime(Math.max(0, Number.isFinite(m.rate) ? m.rate : 2), time);
+        P[`mod.${m.id}.rate`] = [src.frequency, 1];
+      } else if (ctx.createConstantSource) {
+        src = ctx.createConstantSource();
+        const o = src.offset;
+        if (m.type === 'env') {
+          const a = Math.max(0.001, m.a ?? 0.01), d = Math.max(0.001, m.d ?? 0.2), s = Math.max(0, Math.min(1, m.s ?? 0));
+          o.setValueAtTime(0, time);
+          o.linearRampToValueAtTime(1, time + a);
+          if (m.curve === 'exp') o.setTargetAtTime(s, time + a, d / 3);
+          else o.linearRampToValueAtTime(s, time + a + d);
+          const r = Math.max(0.005, m.r ?? 0.2);
+          releases.push((t) => { o.cancelScheduledValues(t); o.setTargetAtTime(0, t, r / 3); });
+        } else {
+          const rate = Math.max(0.05, Math.min(200, Number.isFinite(m.rate) ? m.rate : 4));
+          const rnd = modRandom(m.seed);
+          const steps = Math.min(4000, Math.ceil(span * rate) + 1);
+          o.setValueAtTime(rnd() * 2 - 1, time);
+          for (let i = 1; i < steps; i++) {
+            const v = rnd() * 2 - 1, t = time + i / rate;
+            if (m.smooth) o.linearRampToValueAtTime(v, t); else o.setValueAtTime(v, t);
+          }
+        }
+      }
+      if (!src) continue;   // no ConstantSource on this browser: the env and rand mods sit out
+      const depth = ctx.createGain();
+      if (m.fade > 0) { depth.gain.setValueAtTime(0, time); depth.gain.linearRampToValueAtTime(1, time + m.fade); }
+      else depth.gain.value = 1;
+      src.connect(depth);
+      src.start(time);
+      nodes.push(src);
+      out.set(m.id, depth);
+      P[`mod.${m.id}.amount`] = [depth.gain, 1];
+    }
+    for (const p of patches) {
+      const from = out.get(p.mod.id), target = P[p.param];
+      if (!from || !target) continue;           // the layer has no such stage
+      const cable = ctx.createGain();
+      cable.gain.value = p.amount * target[1];
+      from.connect(cable).connect(target[0]);
+    }
+    return releases;
+  }
+
   function buildLayer(layer, destination, time, holdSeconds) {
     const nodes = [];
     if (layer.delay) time = time + layer.delay;
+    const mods = Array.isArray(layer.mods) && layer.mods.length ? layer.mods : null;
+    const P = mods ? Object.create(null) : null;   // mod targets, filled as each stage is built
+    const wants = mods ? modTargetSet(mods) : null;
     // PAN, per layer: -1 is hard left, 1 hard right. Last in the chain, after
     // the echo, so a panned layer's echo comes from the same side. The cue-wide
     // `pan` option in playSfx still sits after this, for where the listener is.
-    if (Number.isFinite(layer.pan) && layer.pan !== 0 && ctx.createStereoPanner) {
+    // A mod patched into `pan` gets a centred panner to move.
+    if (((Number.isFinite(layer.pan) && layer.pan !== 0) || wants?.has('pan')) && ctx.createStereoPanner) {
       const p = ctx.createStereoPanner();
-      p.pan.value = Math.max(-1, Math.min(1, layer.pan));
+      p.pan.value = Math.max(-1, Math.min(1, layer.pan || 0));
       p.connect(destination);
       destination = p;
+      if (P) P.pan = [p.pan, 1];
     }
     const adsr = layer.adsr || { a: 0.01, d: 0.05, s: 0.7, r: 0.15 };
     const gain = ctx.createGain();
@@ -919,6 +1035,7 @@
       const freq = layer.freq || 440;
       tone.frequency.setValueAtTime(freq, time);
       if (layer.detune) tone.detune.setValueAtTime(layer.detune, time);
+      if (P) P.pitch = [tone.detune, 1];
       if (layer.pitchBend?.to) {
         tone.frequency.setTargetAtTime(layer.pitchBend.to, time, Math.max(0.01, (layer.pitchBend.time || 0.2) / 3));
       }
@@ -1023,10 +1140,12 @@
           const d2To = op2.indexEnd != null ? op2.indexEnd * (r2To || r2) : op2.depthTo;
           if (d2To != null) g2.gain.setTargetAtTime(d2To, time, tc2);
           m2.connect(g2).connect(mod.frequency);
+          if (P) { P['op2.index'] = [g2.gain, r2]; P['op2.ratio'] = [m2.detune, 1]; }
           m2.start(time);
           nodes.push(m2);
         }
         mod.connect(modGain).connect(tone.frequency);
+        if (P) { P['fm.index'] = [modGain.gain, modRate]; P['fm.ratio'] = [mod.detune, 1]; }
         mod.start(time);
         nodes.push(mod);
       }
@@ -1040,6 +1159,7 @@
       // `noiseRate` plays it slower or faster: below 1 it's darker, the way hiss sampled at a
       // low rate was, and two beds at different rates don't repeat together
       if (layer.noiseRate > 0) noiseSrc.playbackRate.value = layer.noiseRate;
+      if (P) P['noise.rate'] = [noiseSrc.playbackRate, 1];
     }
 
     let mixPoint = gain;
@@ -1103,6 +1223,8 @@
       // leaving a driven layer sounding exactly like an undriven one.
       mixPoint.connect(filter);
       mixPoint = filter;
+      // cutoff moves on detune, in cents, so a mod's depth is the same interval at any cutoff
+      if (P) { P['filter.cutoff'] = [filter.detune, 1]; P['filter.q'] = [filter.Q, 1]; }
     }
 
     if (layer.tremolo?.rate) {
@@ -1120,6 +1242,16 @@
       mixPoint = tGain;
     }
 
+    // A gain stage for a mod patched into `amp`, built only when one is: depth 1
+    // swings the layer between silence and double, as tremolo does.
+    if (wants?.has('amp')) {
+      const aGain = ctx.createGain();
+      aGain.gain.value = 1;
+      mixPoint.connect(aGain);
+      mixPoint = aGain;
+      P.amp = [aGain.gain, 1];
+    }
+
     // Echo: delay + feedback loop. mix 0–1; delay in seconds; feedback 0–1.
     if (layer.echo?.mix > 0) {
       const mix = layer.echo.mix;
@@ -1132,6 +1264,11 @@
       mixPoint.connect(wet).connect(delayNode);
       delayNode.connect(fb).connect(delayNode);
       delayNode.connect(destination);
+      if (P) {
+        P['echo.time'] = [delayNode.delayTime, 1];
+        // feedback past 1 runs away, so a depth of 1 is all the room left under 0.95
+        P['echo.feedback'] = [fb.gain, Math.max(0, 0.95 - fb.gain.value)];
+      }
     } else {
       mixPoint.connect(destination);
     }
@@ -1169,6 +1306,13 @@
       noiseSrc.start(time, noiseOffset(layer));
       nodes.push(noiseSrc);
     }
+
+    // Every stage is built and registered, so the mods can be patched into them.
+    // A held note's random steps run to the 30 s cap playSfx releases it at.
+    const span = holdSeconds != null
+      ? (layer.adsr?.a ?? 0.01) + (layer.adsr?.d ?? 0.05) + holdSeconds + (layer.adsr?.r ?? 0.15)
+      : 30;
+    const modReleases = mods ? buildMods(mods, P, time, span, nodes) : null;
 
     // ADSR. `curve: 'exp'` decays and releases exponentially (exp(-t/τ), τ = d/3, so after
     // `d` it's 5% of the way from peak to sustain), which is how a struck thing dies: a hard
@@ -1229,6 +1373,7 @@
         gain.gain.setValueAtTime(envelopeAt(t), t);
         gain.gain.linearRampToValueAtTime(0, t + releaseTime);
       }
+      if (modReleases) for (const r of modReleases) r(t);
       for (const n of nodes) {
         try { n.stop(t + releaseTime + 0.02); } catch { /* lfo already stopped */ }
       }
@@ -4727,6 +4872,8 @@ return out;
     // a cue rendered offline through the same graph (a Promise of an AudioBuffer), and a
     // rendered buffer as WAV bytes
     renderSfx, wavBytes,
+    // what a layer's `mods` can be patched into, for the Rack's jacks
+    MOD_TARGETS,
     // whether the retro stage's worklet is loaded in the live context (true once it is), and
     // where to load it from when this file wasn't loaded by a <script> tag
     retroReady: () => (ctx ? _retroState.get(ctx) === true : false),

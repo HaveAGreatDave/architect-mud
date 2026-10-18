@@ -271,6 +271,51 @@ The `config` object is the synth recipe passed directly to the Web Audio layer b
 | `echo.feedback` | float | `0.35` | Feedback gain (0–0.95); values near 1 create long reverb tails |
 | `pitchBend.to` | float | — | Target frequency in Hz at end of bend |
 | `pitchBend.time` | float | `0.2` | Bend duration in seconds |
+| `mods` | array | none | **Patchable modulation**: LFO, envelope and random sources patched into the layer's stages. See [Mods](#mods) |
+| `rack` | object | none | Editor-only. The Rack keeps bypassed units (`rack.bypass`) and cable colours (`rack.colors`) here. SIREN never reads it |
+
+### Mods
+
+`mods` is a list of sources. Each has an `id`, a `type` and a `to` list of cables, and one source with several cables is one oscillator, so its phase is shared. The Audio tab's Rack (`client/devpanel/js/panels/audio-rack.js`) is the editor for it.
+
+```json
+"mods": [
+  { "id": "lfo1", "type": "lfo", "wave": "triangle", "rate": 3, "fade": 0.4,
+    "to": [{ "param": "filter.cutoff", "amount": 1200 }, { "param": "pan", "amount": 0.6 }] },
+  { "id": "env1", "type": "env", "a": 0.001, "d": 0.3, "s": 0, "r": 0.2, "to": [{ "param": "fm.index", "amount": 4 }] },
+  { "id": "rnd1", "type": "rand", "rate": 8, "seed": 3, "smooth": true, "to": [{ "param": "mod.lfo1.rate", "amount": 2 }] }
+]
+```
+
+| Source | Keys | Output |
+|--------|------|--------|
+| `lfo` | `wave` (`sine` `triangle` `square` `sawtooth`), `rate` Hz (default 2), `fade` seconds to fade in | -1..1 |
+| `env` | `a` `d` `s` `r`, `curve: "exp"` | 0..1, released with the layer |
+| `rand` | `rate` Hz (default 4), `seed`, `smooth` to glide between steps | -1..1, the same steps for the same seed |
+
+A cable's `amount` is in its target's own unit:
+
+| `param` | Moves | `amount` unit |
+|---------|-------|---------------|
+| `pitch` | the carrier's detune | cents |
+| `fm.index`, `op2.index` | the operator's index | index units, scaled by the operator's Hz like `index` |
+| `fm.ratio`, `op2.ratio` | the operator's detune | cents |
+| `filter.cutoff` | the biquad's detune | cents, so 1200 is an octave at any cutoff |
+| `filter.q` | the biquad's Q | Q |
+| `amp` | a gain stage after tremolo, built only for this | 0..1; 1 swings from silence to double |
+| `pan` | the layer's panner, built centred if `pan` is unset | -1..1 |
+| `echo.time` | the delay line | seconds |
+| `echo.feedback` | the feedback gain | 0..1 of the room left under 0.95 |
+| `noise.rate` | the noise playback rate | rate |
+| `mod.<id>.rate` | another LFO's rate | Hz |
+| `mod.<id>.amount` | another mod's depth (base 1) | depth |
+
+The rules:
+
+- A target whose stage the layer doesn't have is skipped: `filter.cutoff` with `formants` and no `filter`, or `echo.time` with no echo.
+- A patch that would close a loop between mods is dropped, the first patch in authored order winning. Web Audio mutes a cycle with no delay in it. The Rack refuses one outright.
+- A layer without `mods` builds exactly the graph it built before. `scripts/audio/mods-smoke.mjs` guards that and the targets; `AudioEngine.MOD_TARGETS` lists them.
+- ORACLE doesn't use `buildLayer`, so mods don't reach the voice.
 
 ### Retro stage (SFX)
 

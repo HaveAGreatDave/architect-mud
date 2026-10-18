@@ -51,6 +51,8 @@ export function makeContext() {
     createChannelSplitter(k = 6) { const n = mkNode('splitter'); n.outputs = k; return n; }
     createChannelMerger(k = 6) { const n = mkNode('merger'); n.inputs = k; return n; }
     createDynamicsCompressor() { const n = mkNode('comp'); for (const k of ['threshold', 'knee', 'ratio', 'attack', 'release']) n[k] = mkParam(n, k, 0); return n; }
+    // its start() takes no offset, and the stub's would overwrite the `offset` param
+    createConstantSource() { const n = mkNode('constant'); n.offset = mkParam(n, 'offset', 1); n.start = (t) => { n.started = t ?? 0; }; return n; }
     createWaveShaper() { const n = mkNode('shaper'); n.curve = null; n.oversample = 'none'; return n; }
     createConvolver() { const n = mkNode('convolver'); n.buffer = null; return n; }
     createPeriodicWave() { return { kind: 'wave' }; }

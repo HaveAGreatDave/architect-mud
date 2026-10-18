@@ -327,7 +327,7 @@ The Sounds & Ambience panel.
 - Holds `AMBIENT_THEMES`, `SOUND_CATEGORIES`.
 
 ### `audio.js`
-The Audio editor — procedural Web Audio assets (instruments, songs, sfx, ambient, samples). **Separate from `sounds.js`**, which is the text-based gameplay Sound system; the two are never merged. Functional forms plus instant local preview through `window.AudioEngine` against the browser's own `AudioContext` (no server round-trip); no canvas/timeline editor yet.
+The Audio editor — procedural Web Audio assets (instruments, songs, sfx, ambient, samples). **Separate from `sounds.js`**, which is the text-based gameplay Sound system; the two are never merged. Functional forms plus instant local preview through `window.AudioEngine` against the browser's own `AudioContext` (no server round-trip). The patch editor is the Rack, in `audio-rack.js`.
 
 - **Panel/tabs**: `renderAudioPanel()`, `setAudioTab()`, `renderAudioTabBody()`, `findAudioAsset()`, `_resolveInstrumentsById()`.
 - **Preview**: `previewAudioAsset()`, `stopAllAudioPreviews()`.
@@ -336,6 +336,17 @@ The Audio editor — procedural Web Audio assets (instruments, songs, sfx, ambie
 - **Editor + save**: `newAudioAsset()`, `editAudioAsset()`, and per-type form/save handlers. The interface-SFX editor also edits a layer's envelope shape (`adsr.curve`) and the cue's retro stage (`_sfxReadRetro()`).
 - **Hockey sound board**: `renderHockeyBoard()` over the Hockey group, with `hkPlay()`, `hkTakes()`, `hkMoment()`, `hkCrowd()` and `hkWav()` (see [systems-hockey-sound.md](systems-hockey-sound.md)).
 - Holds `AUDIO_IMPORT_FIELDS` (the per-type field lists for import/export).
+- The Rack is its last sub-tab, drawn by `audio-rack.js`. Every sfx, instrument and ambient row has a 🎛 button that opens it there.
+
+### `audio-rack.js`
+The Rack: a Guitar Rig-style patch editor for SIREN cues, as the Audio tab's Rack sub-tab. It loads after `audio.js`, whose `findAudioAsset`, `_previewCategory`, `setAudioTab` and `AUDIO_IMPORT_FIELDS` it uses. It is a view of the row's own `config` and saves through the same `/audio/<tab>` routes as the forms. The keys are in [amp-format.md](amp-format.md#mods).
+
+- **Model**, pure and run in Node by `scripts/audio/rack-smoke.mjs`: `rackFromRow()` / `rackToRow()`, `rackAdd()`, `rackRemove()`, `rackBypass()`, `rackPatch()` / `rackUnpatch()`, `rackLiveTargets()`, and the catalogue in `RACK_UNITS`, `RACK_MODS`, `RACK_CUE_UNITS` and `RACK_TARGETS`. `RACK_TARGETS` must match `AudioEngine.MOD_TARGETS`, and the gate checks it.
+- **View**: `renderRack()`, `rackRender()`, `openInRack(tab, id)`. Knobs drag relatively; cables are an SVG overlay over the stack; the rear view shows the jack panels.
+- **Looks**: `RACK_SKINS` gives each unit an invented maker, model, finish and knob style. `RACK_DECO` adds the valves (their glow follows the output level), grilles, louvres and toggles. POWER toggles bypass and the amp's STANDBY mutes the layer in the preview; the rest only flip. None of it is saved.
+- **Playing**: `rackAudition()`, Hold, Loop and Auto, and a two-octave keyboard on the letter keys. An instrument plays the note; anything else is transposed. The scope, spectrum and meter come from an analyser on the cue's bus.
+- Chain units keep SIREN's fixed order; only the modulators reorder.
+
 
 ### `players.js`
 The Players panel and player editor.

@@ -951,3 +951,316 @@
 body.ops-mode #publish-all-btn,
 body.ops-mode #reject-all-btn,
 body.ops-mode #new-btn { display: none !important; }
+
+/* ── Rack (panels/audio-rack.js) ───────────────────────────────────────────
+   The Audio tab's patch editor. Faceplates are built from the theme's own
+   tokens so every theme gets a rack in its colours; --fam is the unit
+   family's accent and --cc a cable's colour. */
+.rk-root { display: grid; grid-template-columns: 200px minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); height: calc(100vh - 134px); min-height: 520px; outline: none; font-family: var(--font); }
+.rk-dim { color: var(--text-dim); font-size: 11px; }
+.rk-spacer { flex: 1; }
+
+.rk-browser { border-right: 1px solid var(--border); background: var(--bg2); overflow-y: auto; padding: 8px 0 20px; }
+.rk-browser-head { font-size: 10px; letter-spacing: 3px; color: var(--text-dim); padding: 4px 12px 8px; }
+.rk-group { margin-bottom: 8px; }
+.rk-group-name { font-size: 10px; text-transform: uppercase; letter-spacing: 2px; color: var(--text-dim); padding: 6px 12px 3px; border-top: 1px solid var(--border); }
+.rk-comp { display: flex; align-items: center; gap: 8px; padding: 5px 12px; font-size: 12px; color: var(--text); cursor: grab; user-select: none; border-left: 2px solid transparent; }
+.rk-comp:hover { background: var(--bg3); border-left-color: var(--fam); color: var(--text-bright); }
+.rk-comp.rk-off { opacity: 0.35; cursor: not-allowed; }
+.rk-comp-dot { width: 8px; height: 8px; border-radius: 2px; background: var(--fam); box-shadow: 0 0 6px var(--fam); flex: none; }
+
+.rk-main { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.rk-head, .rk-split { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 6px 12px; background: var(--bg2); border-bottom: 1px solid var(--border); }
+.rk-head .action-btn, .rk-split .action-btn { font-size: 11px; padding: 3px 9px; }
+.rk-kind { font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--bg); background: var(--accent); padding: 2px 6px; }
+.rk-name { background: var(--bg); border: 1px solid var(--border); color: var(--text-bright); font: inherit; font-size: 13px; padding: 3px 8px; width: 220px; }
+.rk-dirty { color: var(--orange); font-size: 11px; min-width: 70px; }
+.rk-split-label { font-size: 10px; letter-spacing: 3px; color: var(--text-dim); margin-right: 4px; }
+.rk-lane { display: flex; align-items: center; gap: 6px; padding: 3px 4px 3px 8px; border: 1px solid var(--border); background: var(--bg); cursor: pointer; font-size: 11px; color: var(--text-dim); }
+.rk-lane.rk-sel { border-color: var(--accent); color: var(--text-bright); box-shadow: inset 0 -2px 0 var(--accent); }
+.rk-lane.rk-muted { opacity: 0.45; }
+.rk-lane-n { font-weight: 700; color: var(--accent); }
+.rk-lane-btn { width: 16px; height: 16px; line-height: 16px; text-align: center; font-size: 9px; border: 1px solid var(--border); color: var(--text-dim); }
+.rk-lane-btn.on { background: var(--yellow); color: #000; border-color: var(--yellow); }
+
+/* The stack: two rack rails down the sides, units screwed between them. */
+.rk-stack { flex: 1; min-height: 0; overflow: auto; position: relative; padding: 10px 26px 60px;
+  background:
+    linear-gradient(90deg, transparent 10px, var(--bg3) 10px 16px, transparent 16px calc(100% - 16px), var(--bg3) calc(100% - 16px) calc(100% - 10px), transparent calc(100% - 10px)),
+    repeating-linear-gradient(0deg, var(--bg) 0 3px, color-mix(in srgb, var(--bg) 92%, var(--text) 8%) 3px 4px); }
+.rk-stack.rk-drop { box-shadow: inset 0 0 0 2px var(--accent); }
+.rk-rail-note { font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: var(--text-dim); text-align: center; margin: 0 0 6px; opacity: 0.7; }
+.rk-divider { display: flex; align-items: center; gap: 10px; margin: 14px auto 8px; max-width: 1000px; color: var(--text-dim); font-size: 10px; letter-spacing: 3px; text-transform: uppercase; }
+.rk-divider::before, .rk-divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+.rk-empty { max-width: 1000px; margin: 0 auto; padding: 14px; border: 1px dashed var(--border); color: var(--text-dim); font-size: 12px; text-align: center; }
+
+.rk-unit { position: relative; display: grid; grid-template-columns: 16px minmax(0, 1fr) 16px; max-width: 1000px; margin: 0 auto 5px;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--bg3) 80%, var(--text) 9%), var(--bg2) 60%, color-mix(in srgb, var(--bg2) 85%, #000 15%));
+  border: 1px solid #000; box-shadow: inset 0 1px 0 color-mix(in srgb, var(--text) 18%, transparent), inset 0 -1px 0 #000, 0 3px 0 rgba(0, 0, 0, 0.55); }
+.rk-unit::before { content: ''; position: absolute; left: 16px; right: 16px; top: 0; height: 2px; background: var(--fam); opacity: 0.85; box-shadow: 0 0 10px var(--fam); }
+.rk-ear { grid-row: 1 / 4; display: flex; flex-direction: column; justify-content: space-between; align-items: center; padding: 6px 0;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--bg3) 70%, var(--text) 12%), var(--bg3)); border-right: 1px solid #000; }
+.rk-ear:last-child { grid-column: 3; border-right: 0; border-left: 1px solid #000; }
+.rk-ear i { width: 8px; height: 8px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #ddd, #666 45%, #222 75%); box-shadow: 0 1px 0 #000; position: relative; }
+.rk-ear i::after { content: ''; position: absolute; left: 1px; right: 1px; top: 3.5px; height: 1px; background: #222; transform: rotate(35deg); }
+.rk-plate, .rk-face, .rk-rear { grid-column: 2; }
+.rk-plate { display: flex; align-items: center; gap: 8px; padding: 5px 10px 3px; font-size: 11px; }
+.rk-uname { color: var(--text-bright); letter-spacing: 2px; text-transform: uppercase; font-weight: 700; font-size: 11px; }
+.rk-uname b { color: var(--fam); font-weight: 400; letter-spacing: 1px; text-transform: none; }
+.rk-led { width: 10px; height: 10px; border-radius: 50%; background: #300; border: 1px solid #000; cursor: pointer; flex: none; }
+.rk-led.on { background: var(--fam); box-shadow: 0 0 8px var(--fam), inset 0 -2px 2px rgba(0, 0, 0, 0.3); }
+.rk-x { color: var(--text-dim); cursor: pointer; padding: 0 4px; font-size: 11px; }
+.rk-x:hover { color: var(--red); }
+.rk-grip { color: var(--text-dim); cursor: grab; letter-spacing: -2px; }
+.rk-face { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; padding: 4px 12px 10px; }
+.rk-knobs { display: flex; flex-wrap: wrap; gap: 4px 6px; }
+.rk-bypassed { padding: 6px 0 4px; font-size: 10px; letter-spacing: 4px; color: var(--text-dim); }
+.rk-unit-off { filter: saturate(0.25) brightness(0.8); }
+.rk-unit-off::before { opacity: 0.2; box-shadow: none; }
+.rk-inert .rk-face { opacity: 0.4; }
+
+.rk-knob { position: relative; display: flex; flex-direction: column; align-items: center; width: 64px; cursor: ns-resize; user-select: none; touch-action: none; }
+.rk-knob.rk-small { width: 50px; }
+.rk-knob label { font-size: 9px; letter-spacing: 1px; text-transform: uppercase; color: var(--text-dim); margin-top: 2px; white-space: nowrap; cursor: inherit; }
+.rk-k-svg { line-height: 0; border-radius: 50%; }
+.rk-modded .rk-k-svg { box-shadow: 0 0 0 2px var(--ring), 0 0 10px var(--ring); }
+.rk-k-track { fill: none; stroke: #000; stroke-width: 4; stroke-linecap: round; opacity: 0.6; }
+.rk-k-val { fill: none; stroke: var(--fam); stroke-width: 4; stroke-linecap: round; filter: drop-shadow(0 0 3px var(--fam)); }
+.rk-k-cap { fill: color-mix(in srgb, var(--bg) 70%, #000 30%); stroke: color-mix(in srgb, var(--text) 25%, transparent); stroke-width: 1; }
+.rk-k-ptr { stroke: var(--text-bright); stroke-width: 2.2; stroke-linecap: round; }
+.rk-turning .rk-k-cap { stroke: var(--fam); }
+.rk-lcd { margin-top: 1px; min-width: 46px; text-align: center; font-size: 10px; padding: 1px 3px; color: var(--fam); background: #020403; border: 1px solid #000; box-shadow: inset 0 1px 2px #000; text-shadow: 0 0 4px var(--fam); }
+.rk-switch { display: flex; border: 1px solid #000; box-shadow: 0 1px 0 color-mix(in srgb, var(--text) 10%, transparent); }
+.rk-switch button { background: var(--bg); color: var(--text-dim); border: 0; border-right: 1px solid #000; font: inherit; font-size: 9px; padding: 4px 6px; text-transform: uppercase; cursor: pointer; }
+.rk-switch button:last-child { border-right: 0; }
+.rk-switch button.on { background: var(--fam); color: #000; font-weight: 700; }
+.rk-display { background: #020403; border: 1px solid #000; box-shadow: inset 0 1px 3px #000; }
+.rk-shape { background: #020403; border: 1px solid #000; }
+.rk-shape path { fill: none; stroke: var(--fam); stroke-width: 1.6; filter: drop-shadow(0 0 2px var(--fam)); }
+
+/* Jacks: a socket you can see into. */
+.rk-jack { display: inline-block; width: 12px; height: 12px; border-radius: 50%; cursor: crosshair; vertical-align: middle; flex: none;
+  background: radial-gradient(circle, #000 0 32%, #8a8a95 36% 52%, #2a2a30 58% 100%); box-shadow: 0 0 0 1px #000; }
+.rk-knob .rk-jack { position: absolute; top: 0; right: 2px; width: 10px; height: 10px; }
+.rk-jack.rk-big { width: 22px; height: 22px; }
+.rk-jack-out { box-shadow: 0 0 0 2px var(--cc), 0 0 6px var(--cc); }
+.rk-jack.rk-dead { opacity: 0.25; cursor: not-allowed; }
+.rk-jack.rk-patched { box-shadow: 0 0 0 1px #000, 0 0 5px var(--text-bright); }
+.rk-patching .rk-jack-in:not(.rk-can) { opacity: 0.2; }
+.rk-jack.rk-can { animation: rk-pulse 0.8s ease-in-out infinite; }
+@keyframes rk-pulse { 50% { box-shadow: 0 0 0 3px var(--green), 0 0 10px var(--green); } }
+.rk-out, .rk-depth { display: flex; align-items: center; gap: 5px; font-size: 9px; letter-spacing: 2px; color: var(--text-dim); }
+.rk-cablelist { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: center; flex-basis: 100%; }
+.rk-cable-row { display: flex; align-items: center; gap: 2px; padding: 2px 4px; border: 1px solid var(--border); background: color-mix(in srgb, var(--bg) 80%, transparent); }
+.rk-cdot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; box-shadow: 0 0 4px currentColor; }
+
+/* Rear view: the faces turn away and the jack panels show. */
+.rk-view-front .rk-rear { display: none; }
+.rk-view-rear .rk-face { display: none; }
+.rk-view-rear .rk-unit { background: repeating-linear-gradient(45deg, var(--bg2) 0 6px, color-mix(in srgb, var(--bg2) 85%, #000 15%) 6px 12px); }
+.rk-rear { display: flex; flex-wrap: wrap; gap: 8px 18px; padding: 6px 14px 10px; align-items: flex-end; }
+.rk-rear-jack { display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 54px; }
+.rk-rear-jack label { font-size: 9px; letter-spacing: 1px; text-transform: uppercase; color: var(--text-dim); }
+.rk-flipping .rk-unit { animation: rk-flip-out 0.15s ease-in forwards; }
+.rk-flipin .rk-unit { animation: rk-flip-in 0.18s ease-out; }
+@keyframes rk-flip-out { to { transform: perspective(900px) rotateX(88deg); opacity: 0.4; } }
+@keyframes rk-flip-in { from { transform: perspective(900px) rotateX(-88deg); opacity: 0.4; } }
+
+/* Cables: a shadow, a body and a highlight, so they read as round. */
+.rk-cables { position: absolute; left: 0; top: 0; pointer-events: none; z-index: 6; overflow: visible; }
+.rk-wire path { fill: none; stroke-linecap: round; }
+.rk-wire-shadow { stroke: rgba(0, 0, 0, 0.55); stroke-width: 8; transform: translate(2px, 4px); }
+.rk-wire-body { stroke-width: 5; }
+.rk-wire-shine { stroke: rgba(255, 255, 255, 0.35); stroke-width: 1.2; transform: translate(-0.8px, -1.2px); }
+.rk-wire-hit { stroke: transparent; stroke-width: 14; pointer-events: stroke; cursor: pointer; }
+.rk-wire:hover .rk-wire-body { stroke-width: 7; }
+.rk-wire-dead { opacity: 0.35; }
+.rk-wire-temp { opacity: 0.85; }
+.rk-plug { stroke: #000; stroke-width: 2; }
+.rk-nocables.rk-view-front .rk-wire { opacity: 0.18; }
+.rk-nocables.rk-view-front .rk-wire-hit { pointer-events: none; }
+
+.rk-pop { position: fixed; z-index: 1000; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 8px 10px; background: var(--bg2); border: 1px solid var(--accent); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6); --fam: var(--accent); }
+.rk-pop-h { font-size: 11px; color: var(--text-bright); display: flex; gap: 6px; align-items: center; }
+
+.rk-transport { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 7px 12px; background: linear-gradient(180deg, var(--bg3), var(--bg2)); border-top: 1px solid #000; box-shadow: inset 0 1px 0 color-mix(in srgb, var(--text) 12%, transparent); }
+.rk-tbtn { background: var(--bg); color: var(--text); border: 1px solid #000; box-shadow: inset 0 1px 0 color-mix(in srgb, var(--text) 15%, transparent), 0 2px 0 #000; font: inherit; font-size: 11px; letter-spacing: 1px; padding: 6px 10px; cursor: pointer; user-select: none; }
+.rk-tbtn:active { transform: translateY(1px); box-shadow: inset 0 1px 3px #000; }
+.rk-tbtn.on { color: #000; background: var(--green); box-shadow: 0 0 8px var(--green); }
+.rk-play { color: var(--green); font-size: 14px; padding: 4px 14px; }
+.rk-scope { background: #020403; border: 1px solid #000; box-shadow: inset 0 1px 3px #000; height: 40px; }
+.rk-meter { width: 80px; height: 8px; background: #020403; border: 1px solid #000; position: relative; overflow: hidden; }
+.rk-meter i { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: linear-gradient(90deg, var(--green) 60%, var(--yellow) 82%, var(--red)); }
+.rk-keys-hint { margin-left: auto; }
+
+.rk-picker { padding: 18px 22px; overflow: auto; grid-column: 1 / -1; }
+.rk-pick-head { margin-bottom: 14px; display: flex; gap: 12px; align-items: baseline; }
+.rk-pick-head b { letter-spacing: 4px; color: var(--accent); }
+.rk-pick-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 18px; }
+.rk-pick-col h4 { margin: 0 0 6px; font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: var(--text-dim); }
+.rk-pick-list { display: flex; flex-direction: column; margin-top: 8px; max-height: 60vh; overflow: auto; border: 1px solid var(--border); }
+.rk-pick { text-align: left; background: none; border: 0; border-bottom: 1px solid var(--border); color: var(--text); font: inherit; font-size: 12px; padding: 5px 8px; cursor: pointer; }
+.rk-pick:hover { background: var(--bg3); color: var(--text-bright); }
+
+@media (max-width: 760px) {
+  .rk-root { grid-template-columns: 1fr; height: auto; }
+  .rk-browser { max-height: 180px; border-right: 0; border-bottom: 1px solid var(--border); }
+  .rk-stack { padding: 8px 18px 40px; min-height: 60vh; }
+  .rk-keys-hint { display: none; }
+}
+
+/* ── Rack skins: finishes, name plates, knobs, glass ──────────────────────
+   Each unit's maker picks a finish (rk-fin-*) and a knob (rk-ks-*). These are
+   materials, so they keep their own colours whatever the theme; the theme
+   still owns the accents, LEDs, cables and LCDs. --ink is the printing on the
+   panel and --tick its scale marks. */
+.rk-unit { --ink: var(--text-bright); --tick: var(--text-dim); color: var(--ink); }
+.rk-plate { border-bottom: 1px solid rgba(0, 0, 0, 0.35); box-shadow: 0 1px 0 rgba(255, 255, 255, 0.1); padding: 6px 10px 5px; gap: 9px; }
+.rk-badge { font: 900 9px/1 'Arial Black', 'Helvetica Neue', Arial, sans-serif; letter-spacing: 2px; padding: 3px 6px 2px; border: 1.5px solid currentColor; border-radius: 2px; color: var(--ink); opacity: 0.9; white-space: nowrap; }
+.rk-model { font: italic 700 16px/1 Georgia, 'Times New Roman', serif; color: var(--ink); white-space: nowrap; letter-spacing: 0.3px; }
+.rk-code { font: 700 10px/1 var(--font); color: var(--ink); opacity: 0.7; letter-spacing: 1px; }
+.rk-unit .rk-uname { font-size: 9px; font-weight: 400; letter-spacing: 2px; color: var(--ink); opacity: 0.55; padding-left: 9px; border-left: 1px solid currentColor; }
+.rk-vents { width: 54px; height: 11px; flex: none; border-radius: 2px; background: repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.6) 0 3px, transparent 3px 6px); box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.7), 0 1px 0 rgba(255, 255, 255, 0.12); }
+.rk-serial { font: 8px/1 var(--font); color: var(--ink); opacity: 0.45; letter-spacing: 1px; white-space: nowrap; }
+.rk-unit .rk-knob label, .rk-unit .rk-rear-jack label, .rk-unit .rk-out, .rk-unit .rk-depth { color: var(--ink); opacity: 0.8; }
+.rk-unit .rk-x, .rk-unit .rk-grip { color: var(--ink); opacity: 0.6; }
+.rk-comp-name { display: flex; flex-direction: column; line-height: 1.2; }
+.rk-comp-name small { font: italic 10px Georgia, serif; color: var(--text-dim); }
+
+/* Knob parts. */
+.rk-k-ticks { stroke: var(--tick); stroke-width: 1; fill: none; }
+.rk-k-track { stroke-width: 3; }
+.rk-k-val { stroke-width: 3; }
+.rk-k-shadow { fill: rgba(0, 0, 0, 0.55); filter: blur(1.2px); }
+.rk-k-edge { stroke: rgba(0, 0, 0, 0.65); stroke-width: 0.8; }
+.rk-k-knurl { fill: none; stroke: rgba(0, 0, 0, 0.45); stroke-width: 1.8; }
+.rk-k-engrave { stroke: #15161a; stroke-width: 1.8; stroke-linecap: round; }
+.rk-k-ptr-dark { stroke: #241808; stroke-width: 1.5; stroke-linecap: round; }
+.rk-k-gloss { fill: rgba(255, 255, 255, 0.2); }
+.rk-ks-bakelite .rk-k-ptr { stroke: #f4efe2; }
+
+/* Glass over every screen: a bezel and a reflection across the top. */
+.rk-glass { position: relative; display: inline-block; line-height: 0; border-radius: 3px; padding: 2px; background: #000;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.14), inset 0 0 0 1px #000, 0 2px 3px rgba(0, 0, 0, 0.5); }
+.rk-glass::after { content: ''; position: absolute; inset: 2px; border-radius: 2px; pointer-events: none;
+  background: linear-gradient(165deg, rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0.04) 38%, transparent 40%), radial-gradient(ellipse at 50% 120%, rgba(0, 0, 0, 0.5), transparent 60%); }
+.rk-glass > canvas, .rk-glass > svg { border: 0; box-shadow: none; }
+.rk-lcd { border-radius: 2px; background: linear-gradient(180deg, #050a06, #010201); }
+
+/* Brushed aluminium: fine grain across, a soft sheen down. */
+.rk-unit.rk-fin-brushed { --ink: #16181c; --tick: #2a2d33;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.45), rgba(255, 255, 255, 0) 28%, rgba(0, 0, 0, 0.05) 70%, rgba(0, 0, 0, 0.22)),
+    repeating-linear-gradient(90deg, #a2a6ad 0 1px, #b9bdc3 1px 2px, #abafb5 2px 3px, #b3b7bd 3px 5px); }
+.rk-fin-brushed .rk-badge { background: #16181c; color: #c9ccd2; border-color: #16181c; }
+.rk-fin-brushed .rk-model { text-shadow: 0 1px 0 rgba(255, 255, 255, 0.5); }
+
+/* Black anodised, with a gloss band. */
+.rk-unit.rk-fin-black { --ink: #e9eaf0; --tick: #8d8f9a;
+  background: linear-gradient(180deg, #3a3c44 0%, #1d1e23 18%, #121317 55%, #0b0c0e 100%); }
+.rk-fin-black .rk-model { text-shadow: 0 -1px 0 #000; }
+
+/* Cream enamel, a 60s console. */
+.rk-unit.rk-fin-cream { --ink: #2c2317; --tick: #5c4c35;
+  background: radial-gradient(ellipse at 30% 0%, rgba(255, 255, 255, 0.55), transparent 60%), linear-gradient(180deg, #efe6cf, #ddd1b2 70%, #c9bc9a); }
+.rk-fin-cream .rk-plate { border-bottom-color: #8d7d5c; }
+.rk-fin-cream .rk-badge { background: #8a2a1e; color: #f3e9cf; border-color: #8a2a1e; }
+.rk-fin-cream .rk-model { color: #6b2318; }
+
+/* Black tolex with gold piping: an amp head. */
+.rk-unit.rk-fin-tolex { --ink: #e9cf86; --tick: #b8994c;
+  background: radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.06) 1px, transparent 1.2px) 0 0 / 3px 3px, linear-gradient(180deg, #2a2a2a, #121212);
+  box-shadow: inset 0 2px 0 #c9a54b, inset 0 -2px 0 #c9a54b, inset 0 3px 0 #000, 0 3px 0 rgba(0, 0, 0, 0.6); }
+.rk-fin-tolex .rk-model { font: italic 700 19px/1 'Brush Script MT', 'Segoe Script', Georgia, cursive; color: #f0d78e; text-shadow: 0 1px 0 #000, 0 0 6px rgba(240, 215, 142, 0.3); }
+.rk-fin-tolex .rk-badge { border-color: #c9a54b; }
+
+/* Red lacquer, a stompbox. */
+.rk-unit.rk-fin-red { --ink: #fff2e4; --tick: #ffc9b8;
+  background: radial-gradient(ellipse at 35% -20%, rgba(255, 255, 255, 0.35), transparent 55%), linear-gradient(180deg, #b3241f, #7c1210 70%, #5a0b09); }
+.rk-fin-red .rk-model { font: 900 18px/1 Impact, 'Arial Black', sans-serif; font-style: normal; letter-spacing: 1px; text-shadow: 0 2px 0 rgba(0, 0, 0, 0.45); }
+
+/* Walnut cheeks on a dark face: the tape echo. */
+.rk-unit.rk-fin-wood { --ink: #ecdfc3; --tick: #a99677; background: linear-gradient(180deg, #2c2620, #1a1612); }
+.rk-fin-wood .rk-ear { background: repeating-linear-gradient(97deg, #5c3a22 0 3px, #70472a 3px 5px, #4d301b 5px 9px, #66402a 9px 11px), #5c3a22; }
+.rk-fin-wood .rk-ear i { opacity: 0.7; }
+.rk-fin-wood .rk-badge { background: #ecdfc3; color: #2c2620; border-color: #ecdfc3; }
+
+/* Olive drab with stencilled lettering and rivets. */
+.rk-unit.rk-fin-military { --ink: #e7e5c6; --tick: #c6c39d;
+  background: radial-gradient(circle at 6px 50%, #2b3019 2px, transparent 2.5px), radial-gradient(circle at calc(100% - 6px) 50%, #2b3019 2px, transparent 2.5px),
+    linear-gradient(180deg, #5d6740, #454d2e 60%, #353b22); }
+.rk-fin-military .rk-model, .rk-fin-military .rk-badge { font-family: Stencil, 'Stencil Std', Impact, sans-serif; font-style: normal; letter-spacing: 2px; text-transform: uppercase; }
+.rk-fin-military .rk-model { font-size: 15px; }
+
+/* Blue anodised: the modulators. */
+.rk-unit.rk-fin-blue { --ink: #dce9ff; --tick: #8ea7cc;
+  background: linear-gradient(180deg, #3a5a82 0%, #213a5a 22%, #172b45 60%, #0f1e33 100%); }
+.rk-fin-blue .rk-model { text-shadow: 0 -1px 0 #000; }
+
+/* The back of every unit is the same bare steel. */
+.rk-stack.rk-view-rear .rk-unit { --ink: #d7d9de; --tick: #888;
+  background: radial-gradient(circle at 2px 2px, rgba(255, 255, 255, 0.05) 1px, transparent 1.5px) 0 0 / 6px 6px, linear-gradient(180deg, #3a3c41, #24262a); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 3px 0 rgba(0, 0, 0, 0.55); }
+.rk-stack.rk-view-rear .rk-model { opacity: 0.35; }
+.rk-patching .rk-wire-hit, .rk-reordering .rk-wire-hit { pointer-events: none; }
+
+/* ── Rack decoration: valves, grilles, louvres, switches ───────────────────
+   --level is the output level, 0..1, set by the meter loop on #rk-root. */
+.rk-root { --level: 0; }
+.rk-deco { order: 99; margin-left: auto; display: flex; align-items: center; gap: 12px; align-self: stretch; padding: 2px 0; }
+
+/* Valves behind a window: glass envelope, getter flash on top, a filament
+   that glows amber with the level and flickers a little. */
+.rk-tubes { display: flex; align-items: flex-end; gap: 6px; padding: 4px 8px 0; border-radius: 4px 4px 0 0; align-self: stretch;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.85), rgba(0, 0, 0, 0.55)); box-shadow: inset 0 2px 6px #000, 0 1px 0 rgba(255, 255, 255, 0.1); }
+.rk-tube { position: relative; width: 16px; height: 46px; border-radius: 8px 8px 3px 3px;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.28), rgba(255, 255, 255, 0.05) 30%, rgba(255, 255, 255, 0.02) 70%, rgba(255, 255, 255, 0.18)),
+    linear-gradient(180deg, #8f8f99 0 5px, transparent 5px);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18); }
+.rk-tube::before { content: ''; position: absolute; left: 3px; right: 3px; top: 9px; height: 22px; border: 1px solid #55555e; border-radius: 2px; background: repeating-linear-gradient(0deg, #3c3c44 0 2px, #26262c 2px 4px); }
+.rk-tube::after { content: ''; position: absolute; left: 1px; right: 1px; bottom: -2px; height: 6px; border-radius: 2px; background: #1b1b1f; box-shadow: 0 -1px 0 #444; }
+.rk-tube i { position: absolute; left: 50%; top: 14px; width: 6px; height: 14px; transform: translateX(-50%); border-radius: 3px; z-index: 1;
+  background: radial-gradient(ellipse at 50% 50%, #fff3c4, #ffae3b 40%, rgba(255, 110, 20, 0) 75%);
+  opacity: calc(0.45 + var(--level) * 0.55);
+  box-shadow: 0 0 calc(6px + var(--level) * 18px) calc(1px + var(--level) * 5px) rgba(255, 140, 40, calc(0.35 + var(--level) * 0.5));
+  animation: rk-flicker 2.3s steps(9) infinite; }
+.rk-tube:nth-child(2) i { animation-delay: -0.8s; }
+.rk-tube:nth-child(3) i { animation-delay: -1.5s; }
+@keyframes rk-flicker { 0%, 100% { filter: brightness(1); } 30% { filter: brightness(0.92); } 55% { filter: brightness(1.06); } 80% { filter: brightness(0.96); } }
+.rk-unit-off .rk-tube i { opacity: 0.06; box-shadow: none; animation: none; }
+
+/* Speaker cloth: a woven tweed, framed. */
+.rk-grill { align-self: stretch; min-height: 44px; border-radius: 3px; box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.8), 0 1px 0 rgba(255, 255, 255, 0.12); }
+.rk-grill-cloth { width: 120px;
+  background: repeating-linear-gradient(45deg, rgba(0, 0, 0, 0.35) 0 1px, transparent 1px 3px), repeating-linear-gradient(-45deg, rgba(255, 230, 170, 0.12) 0 1px, transparent 1px 3px), linear-gradient(180deg, #4a3c26, #2b2215);
+  border: 2px solid #c9a54b; }
+/* Punched steel: a hex of holes. */
+.rk-grill-perf { width: 84px; border: 1px solid #000;
+  background: radial-gradient(circle, #000 1.3px, transparent 1.7px) 0 0 / 6px 6px, radial-gradient(circle, #000 1.3px, transparent 1.7px) 3px 3px / 6px 6px, linear-gradient(180deg, #6f727a, #44464c); }
+
+/* Exhaust louvres, with heat rising off them while the patch plays. */
+.rk-exhaust { position: relative; width: 70px; align-self: stretch; min-height: 40px; border-radius: 3px; overflow: hidden; border: 1px solid #000;
+  background: repeating-linear-gradient(180deg, #0a0a0c 0 3px, #55575e 3px 4px, #2b2c31 4px 7px); box-shadow: inset 0 0 6px #000; }
+.rk-exhaust i { position: absolute; inset: -40% 0 0; opacity: calc(var(--level) * 0.9);
+  background: repeating-linear-gradient(90deg, transparent 0 6px, rgba(255, 170, 90, 0.18) 6px 9px, transparent 9px 14px);
+  filter: blur(2px); animation: rk-heat 1.6s linear infinite; }
+@keyframes rk-heat { from { transform: translateY(18%) skewX(4deg); } 50% { transform: translateY(0) skewX(-4deg); } to { transform: translateY(-18%) skewX(4deg); } }
+
+/* A lamp blinking at the LFO's own rate. */
+.rk-lamp { width: 14px; height: 14px; border-radius: 50%; border: 2px solid #111; background: #2a0d00; box-shadow: 0 0 0 2px #777;
+  animation: rk-blink 1s steps(1) infinite; }
+@keyframes rk-blink { 50% { background: #ffb24a; box-shadow: 0 0 0 2px #777, 0 0 10px #ff9a2a; } }
+.rk-unit-off .rk-lamp { animation: none; }
+
+/* Bat-handle toggles: a chrome nut, a lever that throws up or down. */
+.rk-switches { display: flex; gap: 10px; align-items: center; }
+.rk-sw { display: flex; flex-direction: column; align-items: center; gap: 1px; cursor: pointer; user-select: none; }
+.rk-sw-leg { font: 700 7px/1 var(--font); letter-spacing: 1px; color: var(--ink); opacity: 0.75; }
+.rk-sw label { font: 8px/1 var(--font); letter-spacing: 1px; color: var(--ink); opacity: 0.85; margin-top: 2px; cursor: pointer; }
+.rk-sw-body { position: relative; width: 20px; height: 22px; }
+.rk-sw-body::before { content: ''; position: absolute; left: 3px; top: 4px; width: 14px; height: 14px; border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #fff, #b8bbc2 35%, #55585f 75%, #222); box-shadow: 0 1px 2px #000, inset 0 0 0 1px rgba(0, 0, 0, 0.4); }
+.rk-sw-body i { position: absolute; left: 50%; top: 50%; width: 5px; height: 13px; margin-left: -2.5px; border-radius: 3px 3px 2px 2px; transform-origin: 50% 0;
+  background: linear-gradient(90deg, #6d7078, #f2f3f6 45%, #8c8f97); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
+  transform: rotate(0deg); transition: transform 0.07s ease-in; }
+.rk-sw-body i::after { content: ''; position: absolute; left: -1px; right: -1px; bottom: -2px; height: 5px; border-radius: 50%; background: radial-gradient(circle at 40% 30%, #fff, #9a9da5); }
+.rk-sw.up .rk-sw-body i { transform: rotate(180deg); }
+.rk-sw:active .rk-sw-body::before { filter: brightness(0.9); }
