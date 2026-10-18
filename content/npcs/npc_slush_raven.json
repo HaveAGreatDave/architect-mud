@@ -1,0 +1,106 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [
+    "Raven walks once round the resurfacer, kicking each tyre.",
+    "He fills the wash-water tank from a hose and watches the gauge.",
+    "He pulls the respirator up, takes two breaths through it, and pulls it down again.",
+    "He scrapes a ridge of snow off the conditioner into a bucket.",
+    "\"Blade wants a sharpen,\" he says, to the blade."
+  ],
+  "description": "A lean man in his fifties in a navy ice-crew parka, RAVEN stencilled across the back. A respirator hangs round his neck on a cracked strap and a ring of keys hangs off his belt. He's wiping down the resurfacer's blade with a rag, one edge at a time.",
+  "dialogue_tree": {
+    "broadcast": {
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Sped up. They put me through in half a minute while Tug reads out the goals.\" He folds the rag. \"I watched it once. I looked like I was late for something.\""
+    },
+    "bye": {
+      "options": [],
+      "text": "\"Stay off the pad till it's set,\" he says, and goes back to the blade."
+    },
+    "fuel": {
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"League fuel.\" He nods at a drum by the gate with no label on it. \"It comes in that. I wear the mask and I don't ask.\""
+    },
+    "machine": {
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"The league's got the one.\" He pats the flank. \"Every barn in the CPhL, she goes on a flatbed and I go in the cab. Twenty-six years.\"\n\n\"Mind, she's older than me in places. The conditioner's off a machine they scrapped in Ashway.\""
+    },
+    "pattern": {
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Crew pull the nets first. You can't do a crease round a net.\" He draws it on the boards with a finger. \"In by the gate, the middle in four ovals, each one a strip nearer the bench. Then a lap on the inside of the boards and a lap on the boards. Out the way you came.\"\n\n\"Overlap every pass by a few inches or you leave a line. Five and a half minutes, if nobody's left a glove out.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "How do you do the ice?",
+          "next": "pattern"
+        },
+        {
+          "label": "Is that the league's Zamboni?",
+          "next": "machine"
+        },
+        {
+          "label": "What does it run on?",
+          "next": "fuel"
+        },
+        {
+          "label": "Do they show you on the broadcast?",
+          "next": "broadcast"
+        }
+      ],
+      "text": "\"Mind the edge of the pad,\" he says. \"I've just done it.\"",
+      "text_by_relation": {
+        "familiar": "\"Pull up a bucket.\" He hooks one over with his boot and goes on with the blade.",
+        "first": "The man by the resurfacer pulls his respirator down to his chin.\n\n\"Ken Raven. I drive the Zamboni.\" He taps the machine with the rag. \"The league's one, the one on the broadcast. Don't touch the blade.\"",
+        "known": "\"You again.\" He nods and keeps wiping."
+      }
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a navy ice-crew parka with RAVEN stencilled across the back",
+      "a grey hooded sweatshirt",
+      "canvas work trousers and cleated rubber boots",
+      "grey boxer shorts"
+    ]
+  },
+  "home_activities": [],
+  "home_zone": "zone_slush_rinkside",
+  "hp": 34,
+  "hp_max": 34,
+  "id": "npc_slush_raven",
+  "name": "Ken Raven",
+  "npc_type": "npc",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_slush_rinkside"
+}

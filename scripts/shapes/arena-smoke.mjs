@@ -112,7 +112,9 @@ body(skaters[2], 'skater jersey over the head', { jerseyUp: 1 }, BUD);
 body(skaters[3], 'skater visor', { face: 'visor' }, BUD);
 body(skaters[4], 'skater bloodied', { blood: 1, react: 1 }, BUD);
 {
-  const medic = W.extras.find((b) => b.kind === 'medic');
+  const medic = W.extras.find((b) => b.kind === 'medic' && !b.crew), crew = W.extras.find((b) => b.crew);
+  if (crew) body(crew, 'ice crew', null, BUD);
+  check('the ice crew exist to build', !!crew);
   if (medic) body(medic, 'medic', null, BUD);
   check('a medic exists to build', !!medic);
 }
@@ -144,10 +146,12 @@ body(skaters[8], 'skater missing his head', null, BUD);
   n0 = b.n; const t0 = t.n;
   M.buildNet(b, t, GOAL_X[0], -1, MID_Y, NET_HALF, NET_DEPTH, NET_H, 0.4);
   check('net: frame and mesh built', b.n > n0 && t.n > t0);
-  W.startZamboni(46);
-  for (let i = 0; i < 240; i++) W.step(DT);
+  W.startZamboni(10);   // (half a second of a ten-times time-lapse: in at the gate, short of the limbs)
+  for (let i = 0; i < 60; i++) W.step(DT);
   check('the Zamboni is out', !!W.zamboni);
   if (W.zamboni) { n0 = b.n; const t1 = t.n; M.buildZamboni(b, t, W.zamboni, W.t); check('Zamboni: body and lettering built', b.n > n0 && t.n > t1); }
+  // (and off again: left out, it drives the pattern and sweeps up the limbs the checks below build)
+  W.zamboni = null;
   check('furniture: finite', finite(b) && finite(t));
   // the tail a shot leaves: a ribbon through its last points, faced to the camera
   const tl = M.createBatch();
@@ -393,14 +397,14 @@ body(skaters[8], 'skater missing his head', null, BUD);
     ['scrape', () => ice.scrape(140, 60, 1, 0, 2.5, 9), 140, 60],
     ['puck mark', () => ice.puckMark(30, 2, 0, -1), 30, 2],
     ['smear', () => ice.smear(80, 30, 81, 30.5, 0.4, 0.3), 80, 30],
-    ['resurface', () => ice.resurface(120, 50, 3.7, 0), 120, 50],
+    ['resurface', () => ice.resurface(119, 50, 0, 121, 50, 0, 3.7), 120, 50],
   ];
   for (const [name, fn, x, y] of marks) {
     fresh(); fn(); ice.flush();
     check(`a ${name} lists its tile`, ice.dirty[tileOf(x, y)] === 1);
     check(`a ${name} lists only nearby tiles`, ice.dirty.reduce((a, v) => a + v, 0) <= 6, `${ice.dirty.reduce((a, v) => a + v, 0)} tiles`);
   }
-  fresh(); ice.resurface(120, 50, 3.7, 0);
+  fresh(); ice.resurface(119, 50, 0, 121, 50, 0, 3.7);
   check('a resurface marks the wet mask for upload', ice.wetDirty === true);
 }
 

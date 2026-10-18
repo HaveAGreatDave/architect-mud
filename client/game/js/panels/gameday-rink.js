@@ -316,7 +316,7 @@ export function createRinkView(host, opts = {}) {
     D = createDirector(W, {
       onLand: () => { if (!landed) { landed = true; if (last) head(last); } reveal(); },
       emit: (name, data) => { if (name === 'sfx') _sfx(data.key, data); },
-      zamboniSpeed: opts.zamboniSpeed,
+      zamboniLapse: opts.zamboniLapse,
     });
     makeRenderer();
     start();

@@ -695,7 +695,11 @@ export function createArenaRenderer(canvas, overlay, W0, ice) {
         M.quad(B.rows, [CX0, y, z0 + bob], [CX1, y, z0 + bob], [CX1, y, z0 + 2.2 + bob], [CX0, y, z0 + 2.2 + bob], [1, 1, 1, 1], [0, (i * ROWH) / H, 1, ((i + 1) * ROWH - 0.5) / H], null);
       }
       // the props the ice reflects whatever the quality: nets, the Zamboni
-      for (const [gx, dir, side] of [[GOAL_X[0], -1, 'a'], [GOAL_X[1], 1, 'h']]) M.buildNet(d, B.netm, gx, dir, MID_Y, NET_HALF, NET_DEPTH, NET_H, (W.netBulge[side] || 0) * 0.7);
+      for (const [gx, dir, side] of [[GOAL_X[0], -1, 'a'], [GOAL_X[1], 1, 'h']]) {
+        // (a net the ice crew have off its pegs is drawn where they have it, and not once it's out the gate)
+        const o = W.nets && W.nets[side];
+        if (!(o && o.out)) M.buildNet(d, B.netm, gx + (o ? o.dx : 0), dir, MID_Y + (o ? o.dy : 0), NET_HALF, NET_DEPTH, NET_H, (W.netBulge[side] || 0) * 0.7);
+      }
       if (W.zamboni) M.buildZamboni(d, B.label, W.zamboni, W.t);
       propsN = d.n;
       // the men

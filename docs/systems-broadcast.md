@@ -1665,7 +1665,8 @@ is shorter.
 | File | What it holds |
 |---|---|
 | `geo.js` | The sheet in feet: 200 by 85, goal lines at 11 and 189, blue lines, dots, boards as segments, 24 far glass panels. `GEO` and `DOTS` in model units for the broadcast regress. |
-| `sim.js` | The world, stepped at 120 Hz: skaters, goalies, officials, medics, the puck, debris, severed limbs, particles, the glass, the Zamboni. Between beats it plays cosmetic hockey. |
+| `sim.js` | The world, stepped at 120 Hz: skaters, goalies, officials, medics, the ice crew and the nets they move, the puck, debris, severed limbs, particles, the glass, the Zamboni. Between beats it plays cosmetic hockey. |
+| `zamboni.js` | The Zamboni's pattern: the path, a driver's speed along it, and `coverage()`, the proof it covers the sheet. Pure. |
 | `director.js` | One payload in, choreography out. `SAVE` and `kitFor` live here. |
 | `camera.js` | The broadcast camera both renderers draw through: its modes, the easing, the projection `P`, and `matrices()`, the same camera as GL matrices. |
 | `render.js` | The 2-D renderer: Mode-7 ice, the bowl, the boards, the reflections, the overlays. The fallback when there's no WebGL2. |
@@ -1761,10 +1762,11 @@ the puck it needs, walks them through the beat and hands them back to the ambien
   slowly, and the players take their helmets off.
 - *Penalties*: the referee's arm goes up and the whistle goes, and the man skates to the
   box. His side plays a man short until a play's strength says otherwise (`lineUp`).
-- *The intermission*: everyone skates off, the linesman taking the puck with him, and the
-  Zamboni comes on through the gate in the end wall. The booth's line that says the period
-  is back carries a `resume` cue: eleven seconds before it the Zamboni drives off through
-  its gate, and six seconds before it both teams come back on over the boards, so the
+- *The intermission*: everyone skates off, the linesman taking the puck with him, the ice
+  crew take the nets off, and the Zamboni comes on through the gate in the end wall and
+  does the whole sheet (see *The Zamboni* below). The booth's line that says the period is
+  back carries a `resume` cue: the Zamboni is through its gate seven and a half seconds
+  before it, and six and a half before it both teams come back on over the boards, so the
   opening draw finds them lined up.
 - *Scrums* and *the pulled goalie* (he skates to the bench and a sixth skater comes on)
   each have their own.
@@ -2029,8 +2031,10 @@ Player motion is eased too: a skater turns into a new heading rather than stoppi
 on it, two men who bump are eased apart over a few steps with their closing speed taken
 off, and a man pushed out of a net slides out. Fighters skate in to square up. The view steps frames that arrive within 4 ms of the running average as
 the average, so vsync jitter doesn't make the 120 Hz world alternate one step and three. Its modes are broadcast, zoom, push (a goal), fight, death,
-and a framing that follows the Zamboni. `renderer.view = 'low'` puts it on the rail just
-inside the near glass at head height, which is where the reflections show best.
+and the Zamboni's time-lapse, a locked-off shot of the whole sheet from high up, solved for
+the screen's shape the way the broadcast framing is. `renderer.view = 'low'` puts the
+broadcast framing on the rail just inside the near glass at head height, which is where
+the reflections show best.
 
 **The ice keeps the game.** It is one canvas, and things are painted into it as they
 happen: every skate stroke traced from where the blade actually is, a fan of snow at each
@@ -2083,14 +2087,32 @@ lit triangles with a depth buffer:
 The frame governor in `gameday-rink.js` steps through the renderer's own `rungs`: for the
 arena, resolution, then the mirror's size, then the men in the reflection.
 
-The Zamboni comes on through a gate in the end wall, clear of the net (`GATE_Y`), and laps
-the sheet inside the boards, each lap a strip further in and starting by the gate, then
-runs down the middle. Whatever is left lying in its path (a stick, a glove, a limb) goes
-in under the front of it. Its conditioner paints a clean copy of the sheet back over its
-strip, so the lines and logos survive, and leaves a wet mask the renderer draws as darker,
-glossier ice that freezes off over about forty seconds. Called off (`W.zamboniOff`), it
-drives out through the nearer gate. The next period starts on the ice it left: fresh where
-it got to, and still marked where it didn't.
+**The Zamboni.** Ken Raven drives it (`content/npcs/npc_slush_raven.json`, rinkside at
+Golden Goose Gardens), and the booth names him as it comes on. First the ice crew, two men
+in navy, come in through the gates in the end walls and slide each net off its pegs and out
+(`W.netsOff`); the Zamboni waits for both. Its pattern ([zamboni.js](../client/game/js/panels/rink/zamboni.js))
+is a real one: in through the gate in the left end wall (`GATE_Y`, clear of the net), the
+middle in four ovals 28 ft across, each a strip nearer the near boards, then a lap inside
+the boards and one strip out a lap on them, then back along the far boards and out the way
+it came. Every strip overlaps the last by about five inches, and `coverage()` proves every
+square foot inside the boards is covered. The path is straights, arcs no tighter than 14
+ft and smooth lane changes; the rear axle follows it and the machine points along it, so it
+turns as a wheeled machine does. Its speed is a driver's: 11 ft/s on the straights, slower
+through the turns by how tight they are, eased up from a stop and down to one, walking pace
+through the gate. The sheet takes about five and a half minutes of that (`zamboniTime()`).
+
+The broadcast shows it as a time-lapse: the director sets `lapse` so the machine is through
+its gate seven and a half seconds before the `resume` cue (ten times over with no cue), a
+TIME-LAPSE bug sits in the top right while it's out, and the camera holds a locked-off shot
+of the whole sheet. Everything about the machine runs on its own clock, `dt × lapse`, and so
+does the water freezing behind it, which carries on at that rate after it's gone until the
+last strip has set. Whatever is left lying in its path (a stick, a glove, a limb) goes in
+under the front of it. Its conditioner paints a clean copy of the sheet back over the strip
+it swept since the last step, so the lines and logos survive, and leaves a wet mask the
+renderer draws as darker, glossier ice. As it goes off it has the crew put the nets back
+(`W.netsOn`). The period starts on dry ice with nothing on it: `ice.markedFeet()`, the
+square feet still carrying a mark, is none. Called off early (`W.zamboniOff`, the period
+back before the break said), it lifts the conditioner and drives to the nearer gate.
 
 **Things that trip people up.**
 
@@ -2119,7 +2141,11 @@ it got to, and still marked where it didn't.
 - The heavy modules (`textures.js`, `render.js`, `gl/arena.js`) load on first mount, so
   tv.js's import of the view stays cheap.
 - A new kind of mark painted into the ice has to `touch` its tiles, or the GL sheet goes
-  stale while the 2-D one is right. `arena-smoke.mjs` checks each kind.
+  stale while the 2-D one is right. `arena-smoke.mjs` checks each kind. It also has to
+  `markFt` the feet it lands on, or the sheet reads fresh with the mark still on it.
+- Moving the Zamboni's pattern means running `coverage()` (the rink smoke does): an oval
+  pulled in from the ends by three feet leaves strips of old ice in the corners. And it
+  doesn't come on until `W.netsOut()`: a net on its pegs is in the way of both laps.
 - Don't upload a canvas sub-rectangle with `UNPACK_SKIP_PIXELS`/`ROWS`. It's in the WebGL2
   spec, and headless Chromium on SwiftShader ignores the skips: every tile arrived as the
   sheet's top-left corner. The arena copies a tile into a small canvas first.
@@ -2222,7 +2248,7 @@ resolves, every goal goes in and no save does, the faceoff is taken on the named
 the named centres with the puck dropped from the linesman's hand (three in four as the
 line airs), a fight's loser ends with nothing left, a man carried off is gone, a death
 stops the building, the pulled goalie leaves an empty net and a sixth skater, and the
-Zamboni lays wet ice and is gone through its gate before the period's first draw. A pass
+Zamboni has the nets off, leaves no marked foot of the sheet and is gone through its gate before the teams come on, the puck going down on dry ice with the nets back on. Its pattern covers every square foot. A pass
 is lifted only when the booth called a saucer, and a one-timer or a tip is struck within
 1.2 s of the pass (or the shot it redirects) from the man the booth said fed it. A
 breakaway's shooter is nearer their goalie than any man of theirs from when he has the puck

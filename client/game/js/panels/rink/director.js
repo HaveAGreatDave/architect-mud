@@ -2195,8 +2195,10 @@ export function createDirector(W, opts = {}) {
 
   // ── intermission ──────────────────────────────────────────────────────────
   // Everyone off: the teams skate to the benches, the linesman takes the puck off with him,
-  // and the Zamboni comes on through the end gate. It laps the sheet laying clean ice, and
-  // sweeps up whatever was left lying on it, until the period's opening draw calls it off.
+  // and the ice crew take the nets off. Then the Zamboni comes on through the end gate and
+  // does the whole sheet (zamboni.js), as a time-lapse sped up to finish before the teams
+  // come back, sweeping up whatever was left lying on it; going off, it has the nets put
+  // back on.
   function stageIntermission(p) {
     const B = begin('intermission');
     // the period is over: the buzzer
@@ -2206,25 +2208,33 @@ export function createDirector(W, opts = {}) {
     W.fight = null; W.lamp = 0;
     for (const b of [...W.team.a, ...W.team.h, W.goalie.a, W.goalie.h]) if (b && b.active && !busyBody(b)) leave(b, b.x, false);
     const [lin, ref] = W.officials;
+    // the ice crew take the nets off while the teams go off
+    W.netsOff();
     B.ownsCam = true;
     land(B);
-    // When the booth says the period is back (`resume`), the Zamboni has gone off and the
-    // teams are out and lined up for the draw: it leaves eleven seconds before, they come on
-    // six before. Without the cue, both happen when the period's first draw arrives.
+    // When the booth says the period is back (`resume`), the teams come on six and a half
+    // seconds before it, so the opening draw finds them lined up, and the Zamboni is through
+    // its gate a second before that. Without the cue, the teams come on when the period's
+    // first draw arrives.
     const back = cueOf(p, 'resume');
-    if (back != null) {
-      at(B, Math.max(8, back - 11), () => W.zamboniOff());
-      at(B, Math.max(10, back - 6.5), () => { teamsOn(); B.regroup = 'C'; B.stopped = true; W.cam.mode = 'broadcast'; });
-    }
+    if (back != null) at(B, Math.max(10, back - 6.5), () => { W.zamboniOff(); teamsOn(); B.regroup = 'C'; B.stopped = true; W.cam.mode = 'broadcast'; });
     B.update = () => {
       if (B.stopped) return;
       // the linesman collects the puck and goes off with it; the referee goes straight off
       if (lin.active && !busyBody(lin) && fetchPuck(lin)) leave(lin, lin.x, false);
       if (ref.active && !busyBody(ref)) leave(ref, ref.x, false);
-      // the Zamboni once the ice is clear, or near enough
-      if (!W.zamboni && !B.zam && (W.skaters().length === 0 || W.t - B.t0 > 6)) { B.zam = true; W.startZamboni(opts.zamboniSpeed || 28); W.cam.mode = 'zam'; }
+      // The Zamboni once the ice is clear, or near enough: the whole sheet, shown as a
+      // time-lapse sped up to finish inside what's left of the break (about five and a half
+      // minutes of a driver's time in a typical half minute on air), or ten times over
+      // without the cue.
+      if (!W.zamboni && !B.zam && W.netsOut() && (W.skaters().length === 0 || W.t - B.t0 > 6)) {
+        B.zam = true;
+        const left = back != null ? back - 7.5 - (W.t - B.t0) : null;
+        W.startZamboni(opts.zamboniLapse || (left != null ? clamp(W.zamboniTime() / Math.max(1, left), 3, 60) : 10));
+        W.cam.mode = 'zam';
+      }
       const z = W.zamboni;
-      W.cam.focus = z ? [Math.max(z.x, 6), z.y] : [pk.x, pk.y];
+      W.cam.focus = z ? [z.x, z.y] : [pk.x, pk.y];
     };
     B.cleanup = () => endIntermission();
     return B;
@@ -2234,6 +2244,8 @@ export function createDirector(W, opts = {}) {
   function endIntermission() {
     if (!D.intermission) return;
     W.zamboniOff();
+    // (the Zamboni leaving puts the nets back; one that never came on doesn't)
+    if (!W.zamboni) W.netsOn();
     teamsOn();
     D.mournTo = 0;
     D.intermission = null;

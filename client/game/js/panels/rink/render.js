@@ -92,7 +92,11 @@ export function createRenderer(canvas, W0, ice, { cam: from = null } = {}) {
     const items = [];
     const push = (x, y, z, f, bias = 0) => { const p = P(x, y, z); if (p) items.push({ d: p.d + bias, f }); };
     for (const b of W.bodies()) push(b.x, b.y, 3, () => drawBody(ctx, P, drawnJoints(W, b), opts(b, camPos, 'full')));
-    for (const [gx, dir, side] of [[GOAL_X[0], -1, 'a'], [GOAL_X[1], 1, 'h']]) push(gx + dir * NET_DEPTH / 2, MID_Y, 2, () => net(P, gx, dir, side));
+    for (const [gx, dir, side] of [[GOAL_X[0], -1, 'a'], [GOAL_X[1], 1, 'h']]) {
+      // (a net the ice crew have off its pegs is drawn where they have it, and not once it's out the gate)
+      const o = W.nets && W.nets[side], dx = o ? o.dx : 0, dy = o ? o.dy : 0;
+      if (!(o && o.out)) push(gx + dx + dir * NET_DEPTH / 2, MID_Y + dy, 2, () => net(dx || dy ? (x, y, z) => P(x + dx, y + dy, z) : P, gx, dir, side));
+    }
     if (!W.puck.hidden) push(pp[0], pp[1], 0, () => puck(P, pp), -0.3);
     for (const d of W.debris) push(d.x, d.y, 0, () => debris(P, d));
     for (const l of W.limbs) push(l.pts[0].x, l.pts[0].y, 0, () => drawSevered(ctx, P, l, opts(l.owner || { side: l.side }, camPos, 'full')));
@@ -145,7 +149,11 @@ export function createRenderer(canvas, W0, ice, { cam: from = null } = {}) {
     const items = [];
     const push = (x, y, z, f) => { const p = PR(x, y, z); if (p) items.push({ d: p.d, f }); };
     if (api.quality.reflBodies) for (const bd of W.bodies()) push(bd.x, bd.y, 3, () => drawBody(ctx, PR, drawnJoints(W, bd), opts(bd, camR, 'refl')));
-    for (const [gx, dir, side] of [[GOAL_X[0], -1, 'a'], [GOAL_X[1], 1, 'h']]) push(gx + dir * NET_DEPTH / 2, MID_Y, 2, () => net(PR, gx, dir, side));
+    for (const [gx, dir, side] of [[GOAL_X[0], -1, 'a'], [GOAL_X[1], 1, 'h']]) {
+      // (a net the ice crew have off its pegs is drawn where they have it, and not once it's out the gate)
+      const o = W.nets && W.nets[side], dx = o ? o.dx : 0, dy = o ? o.dy : 0;
+      if (!(o && o.out)) push(gx + dx + dir * NET_DEPTH / 2, MID_Y + dy, 2, () => net(dx || dy ? (x, y, z) => PR(x + dx, y + dy, z) : PR, gx, dir, side));
+    }
     if (W.zamboni) push(W.zamboni.x, W.zamboni.y, 3, () => zamboni(PR, W.zamboni, camR));
     items.sort((p, q) => q.d - p.d);
     for (const it of items) it.f();

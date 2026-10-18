@@ -20,8 +20,9 @@
 // to the Zamboni. Only the replay's own camera (`snap`) jumps to its framing when a replay
 // starts (`cam.cut` changing), and that happens behind the wipe that covers the switch.
 //
-// Modes come from the director (`W.cam.mode`); `view = 'low'` puts the default and Zamboni
-// framings on the rail just inside the near glass, where the reflections show best.
+// Modes come from the director (`W.cam.mode`); `view = 'low'` puts the default framing on
+// the rail just inside the near glass, where the reflections show best. The Zamboni's
+// time-lapse is the one locked-off shot, the whole sheet from high up, in either view.
 
 import { clamp } from './util.js';
 import { RL, RW, GOAL_X } from './geo.js';
@@ -72,9 +73,9 @@ export function createRinkCamera(W, { snap = false, from = null } = {}) {
       // the replay: down at ice level and close, following the puck a beat behind; never
       // backed up behind the near boards
       case 'replay': return { lx: f[0] + clamp(fv[0] * 0.3, -10, 10), ly: clamp(f[1] + 3, 24, RW - 4), lz: 1.4, dist: 24, pitch: 0.2, fm: 1 };
-      case 'zam':
-        if (api.view === 'low') return { lx: clamp(f[0], 30, RL - 30), ly: 39, lz: 0.4, dist: 38, pitch: 0.105, fm: 1 };
-        return { lx: clamp(f[0], 44, RL - 44), ly: clamp(f[1] * 0.45 + 22, 28, 46), lz: 0, dist: 60, pitch: 0.5, fm: 1 };
+      // the Zamboni is a time-lapse, and a time-lapse is shot locked off: high and wide, the
+      // whole sheet in the picture, in either view
+      case 'zam': return wholeSheet(aspect);
       case 'death': return { lx: clamp(f[0], 44, RL - 44), ly: clamp(f[1], 14, RW - 6), lz: 0.8, dist: 28 - Math.min(8, (W.t - (c.since || W.t)) * 0.6), pitch: 0.42, fm: 1 };
       default: return broadcast(f, c, aspect);
     }
@@ -118,6 +119,24 @@ export function createRinkCamera(W, { snap = false, from = null } = {}) {
       ly = clamp(ly, 6, 60);
     }
     return { lx: X, ly, lz: 0, dist, pitch: 0.54 - (dist - 44) * 0.0015, fm: 1 };
+  }
+  // Solved like the broadcast framing: pulled back until the four corners of the sheet are
+  // all inside the picture. Cached by the screen's shape, since nothing else moves it.
+  let sheetFor = null, sheet = null;
+  function wholeSheet(aspect) {
+    if (sheet && Math.abs(aspect - sheetFor) < 1e-3) return sheet;
+    const pitch = 0.66, cp = Math.cos(pitch), sp = Math.sin(pitch), vlo = -0.4 / aspect, vhi = 0.4 / aspect;
+    const must = [[-1, -1, 0], [RL + 1, -1, 0], [-1, RW + 1, 3.5], [RL + 1, RW + 1, 3.5]];
+    let dist = 150, ly = RW / 2;
+    for (let it = 0; it < 60; it++) {
+      const cy0 = ly - dist * cp, cz = dist * sp;
+      let um = 0, v0 = 1e9, v1 = -1e9;
+      for (const q of must) { const dy = q[1] - cy0, dz = q[2] - cz, d = dy * cp - dz * sp, up = dy * sp + dz * cp; um = Math.max(um, Math.abs(q[0] - RL / 2) / d); v0 = Math.min(v0, up / d); v1 = Math.max(v1, up / d); }
+      if (um > 0.47 || v1 - v0 > vhi - vlo) { dist *= 1.04; continue; }
+      if (v0 < vlo) ly -= 1.5; else if (v1 > vhi) ly += 1.5; else break;
+    }
+    sheetFor = aspect; sheet = { lx: RL / 2, ly, lz: 0, dist, pitch, fm: 1 };
+    return sheet;
   }
 
   // Ease toward the framing and return this frame's camera for a w×h view:

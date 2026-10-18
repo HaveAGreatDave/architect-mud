@@ -7,7 +7,7 @@
 // a stub canvas, and checks that what happened on the ice agrees with what was said:
 // every goal goes into the net and no save does, the faceoff is taken on the right dot,
 // the fight's loser ends with nothing left, a man carried off is gone, a death stops the
-// building, the Zamboni lays fresh ice.
+// building, the Zamboni leaves the whole sheet fresh.
 //
 // And that NOTHING TELEPORTS: the puck never moves farther in a step than a shot carries
 // it, no man does either (except coming on over the boards), and the camera never jumps.
@@ -28,6 +28,7 @@ const { createRinkCamera } = await import('../../client/game/js/panels/rink/came
 const { sportsRng, sportsHash, sportsPick, sportsFill } = await import('../../plugins/broadcast/rng.js');
 const HOCKEY = (await import('../../plugins/broadcast/sports/hockey.js')).default;
 const { paceCalls } = await import('../../plugins/broadcast/sports/hockey-pacing.js');
+const { coverage: zamboniCoverage } = await import('../../client/game/js/panels/rink/zamboni.js');
 
 let failures = 0, passes = 0;
 const check = (label, ok, detail) => {
@@ -47,6 +48,9 @@ const teams = block('teams'), players = block('players');
 const clubs = JSON.parse(fs.readFileSync(new URL('../../content/media_broadcasts/bc_cluster_puck.json', import.meta.url), 'utf8')).sports_pools?.clubs || null;
 const { setClubs, clubOf } = await import('../../client/game/js/panels/club-crest.js');
 if (clubs) setClubs('hockey', 'smoke', clubs);
+// THE ZAMBONI'S PATTERN COVERS THE SHEET: every square foot inside the boards is under its
+// conditioner at least once, so a period always starts on fresh ice
+{ const missed = zamboniCoverage(4); check('the Zamboni pattern covers every foot of the sheet', missed === 0, `${missed} sq ft missed`); }
 check('every club in the league has an identity', teams.every((t) => !!clubOf(t)), teams.filter((t) => !clubOf(t)).join(', '));
 
 function gameLines(slot) {
@@ -88,7 +92,7 @@ async function play(slot) {
   const rs = W.ice.resurface; W.ice.resurface = (...a) => { resurfaced.n++; return rs(...a); };
   let lastFight = null, tApply = 0, landedAt = null, grabAt = null, boxAt = null, sawBreakaway = false, wearAtBreak = 0, rushB = null;
   // (the sheet as the Zamboni leaves it, before the teams come out and cut it up again)
-  let zamOn = false, wearAfterZam = null;
+  let zamOn = false, wearAfterZam = null, markedAfterZam = null, markedWhere = "";
   const draws = { n: 0, onCue: 0 };
   // THE PUCK NEVER SNAPS. It never moves farther in a step than a shot carries it, and
   // nobody gains it from beyond his reach: where his blade can get to (`W.inReach`, the box
@@ -296,7 +300,7 @@ async function play(slot) {
       if (boxAt == null && D.state.beat && D.state.beat.toBox) boxAt = W.t - tApply;
       // (this payload's rush: staged as it arrives, or once a draw it waited on goes down)
       if (!rushB && D.state.beat && D.state.beat.kind === 'rush') rushB = D.state.beat;
-      if (zamOn && !W.zamboni) wearAfterZam = W.ice.wear;
+      if (zamOn && !W.zamboni) { wearAfterZam = W.ice.wear; markedAfterZam = W.ice.markedFeet(); markedWhere = W.ice.markedWhere(40).map((q) => q.join(",")).join(" "); }
       zamOn = !!W.zamboni;
       if (W.t >= next) { next = W.t + 10; view.renderer.render(W.t * 1000); renders++; }
       if (until && until()) break;
@@ -365,7 +369,7 @@ async function play(slot) {
     // (an intermission's one cue is the period coming back, a minute on: the lines after it
     // carry the time to then)
     const limit = g.type === 'intermission' ? 3 : Math.max({ injury: 22, death: 16, fight: 16 }[g.type] || 14, lastCue + 10);
-    if (g.type === 'intermission') { wearAtBreak = W.ice.wear; wearAfterZam = null; }
+    if (g.type === 'intermission') { wearAtBreak = W.ice.wear; wearAfterZam = markedAfterZam = null; }
     run(limit, () => !D.busy());
     // a draw and a hit land when their line airs
     const cueT = (ev) => { const c = (g.cues || []).find((q) => q.ev === ev); return c ? c.ms / 1000 : null; };
@@ -463,18 +467,20 @@ async function play(slot) {
     }
     if (g.type === 'intermission') {
       check(`${label}: the board goes up over the ice`, !!host.find('.gdri') && !!host.find('.gdr-canvas'));
-      run(8);
-      check(`${label}: the Zamboni is out`, !!W.zamboni && resurfaced.n > 50, `${resurfaced.n} passes`);
+      run(9);
+      // the crew have both nets off and out through the gates before it goes on
+      check(`${label}: the nets are off for the Zamboni`, W.nets.a.out && W.nets.h.out && !W.nets.job);
+      check(`${label}: the Zamboni is out, on a time-lapse`, !!W.zamboni && resurfaced.n > 50 && W.zamboni.lapse > 1, `${resurfaced.n} passes`);
       check(`${label}: the ice is wet behind it`, W.ice.wetness > 0.5);
     }
-    // the period starts on resurfaced ice, the Zamboni gone off through its gate (driven,
-    // not removed: it has the length of the draw to get there). The sheet is measured as it
-    // leaves, before the teams have skated out and cut it up again.
-    if (g.type === 'faceoff' && g.reason === 'period') {
-      if (W.zamboni) run(8, () => !W.zamboni);
-      // (the opening draw has had no Zamboni since the sheet was laid: it's the sheet as it is)
-      const w = wearAfterZam ?? W.ice.wear;
-      check(`${label}: resurfaced ice and the Zamboni gone`, !W.zamboni && w < Math.max(0.05, wearAtBreak * 0.7), `zamboni ${W.zamboni ? `${W.zamboni.x.toFixed(0)},${W.zamboni.y.toFixed(0)}` : 'off'}, wear ${wearAtBreak.toFixed(3)} → ${w.toFixed(3)}`);
+    // THE PERIOD STARTS ON FRESH ICE. The Zamboni drove off through its gate (driven, not
+    // removed) before the teams came on, leaving not one marked foot of the sheet, measured as
+    // it leaves, before the teams cut it up again; and the puck goes down on dry ice with both
+    // nets back on their pegs. (The 1st has had no Zamboni.)
+    if (g.type === 'faceoff' && g.reason === 'period' && g.section !== '1st') {
+      const N = W.nets;
+      check(`${label}: the Zamboni left the whole sheet fresh`, !W.zamboni && markedAfterZam === 0 && wearAfterZam === 0, `zamboni ${W.zamboni ? `${W.zamboni.x.toFixed(0)},${W.zamboni.y.toFixed(0)}` : 'off'}, ${markedAfterZam} marked sq ft as it left (${markedWhere}), wear ${wearAtBreak.toFixed(3)} → ${wearAfterZam}`);
+      check(`${label}: the puck goes down on dry ice, the nets back on`, W.ice.wetness === 0 && N.state === 'on' && !N.job && !N.a.dx && !N.a.dy && !N.h.dx && !N.h.dy, `wetness ${W.ice.wetness.toFixed(2)}, nets ${N.state}${N.job ? ' moving' : ''}`);
     }
     // ten men dressed, whatever has happened (unless a goalie is pulled or a man is short)
     const n = W.mates('a').length + W.mates('h').length;

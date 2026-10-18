@@ -9,7 +9,12 @@
 // A clean copy of the sheet is kept beside it. The Zamboni paints that copy back over the
 // strip it covers, so fresh ice keeps its lines and logos, and it leaves a wet mask the
 // renderer turns into a shine that dries off. `wear` climbs as the sheet gets cut up and is
-// what dulls the reflections over a period; resurfacing takes it back down.
+// what dulls the reflections over a period; resurfacing takes it down in step with how much
+// of the marked ice it has covered, so a whole pass leaves none.
+//
+// WHICH FEET ARE MARKED is kept too, a cell a square foot: every mark sets its cells and a
+// resurfaced strip clears the ones it covers. `markedFeet()` is how much of the sheet still
+// carries a mark, which is what fresh ice means, and the rink smoke checks it's none.
 //
 // Boards and crowd never change and are shared by every view on the page.
 
@@ -49,6 +54,18 @@ export function createIce(doc) {
   // tile is listed before `flush()` paints it.
   const TX = Math.ceil(canvas.width / ICE_TILE), TY = Math.ceil(canvas.height / ICE_TILE);
   Object.assign(ice, { tiles: { TX, TY, size: ICE_TILE }, dirty: new Uint8Array(TX * TY), dirtyAll: true, wetDirty: false });
+  // the marked feet, a cell a square foot, counting only the cells on the ice: a mark's
+  // footprint near a corner spills past the boards, where no Zamboni goes
+  const marked = new Uint8Array(RL * RW), onIce = new Uint8Array(RL * RW);
+  for (let j = 0; j < RW; j++) for (let i = 0; i < RL; i++) {
+    const px = i + 0.5, py = j + 0.5, qx = Math.min(Math.max(px, RC), RL - RC), qy = Math.min(Math.max(py, RC), RW - RC);
+    onIce[j * RL + i] = Math.hypot(px - qx, py - qy) < RC - 0.5 ? 1 : 0;
+  }
+  let nMarked = 0;
+  const markFt = (x, y, r = 0) => {
+    const a = Math.max(0, Math.floor(x - r)), b = Math.min(RL - 1, Math.floor(x + r)), c0 = Math.max(0, Math.floor(y - r)), d = Math.min(RW - 1, Math.floor(y + r));
+    for (let j = c0; j <= d; j++) for (let i = a; i <= b; i++) if (onIce[j * RL + i] && !marked[j * RL + i]) { marked[j * RL + i] = 1; nMarked++; }
+  };
   function touch(x0, y0, x1, y1) {
     const a = Math.max(0, Math.floor(Math.min(x0, x1) / ICE_TILE)), b = Math.min(TX - 1, Math.floor(Math.max(x0, x1) / ICE_TILE));
     const c0 = Math.max(0, Math.floor(Math.min(y0, y1) / ICE_TILE)), d = Math.min(TY - 1, Math.floor(Math.max(y0, y1) / ICE_TILE));
@@ -104,7 +121,8 @@ export function createIce(doc) {
       c.beginPath(); c.moveTo(IX(gx), IY(31.5)); c.lineTo(IX(gx - dir * 11), IY(28.5)); c.moveTo(IX(gx), IY(53.5)); c.lineTo(IX(gx - dir * 11), IY(56.5)); c.stroke();
     }
     c.restore();
-    q.blood.clear(); q.cut.clear(); q.n = 0;
+    q.blood.clear(); q.cut.clear(); q.n = 0; q.strips.length = 0;
+    marked.fill(0); nMarked = 0;
     bc.clearRect(0, 0, base.width, base.height); bc.drawImage(canvas, 0, 0);
     wc.clearRect(0, 0, wetCv.width, wetCv.height);
     ice.wear = 0; ice.wetness = 0;
@@ -117,13 +135,13 @@ export function createIce(doc) {
   // on a big hit. Batched, a frame of marks is a handful of fills and strokes. There is no
   // clip: everything that marks the ice is kept inside the boards by the sim already.
   const BLOOD = ['rgba(118,8,14,', 'rgba(132,10,16,', 'rgba(104,4,12,'];
-  const q = { blood: new Map(), cut: new Map(), n: 0 };
+  const q = { blood: new Map(), cut: new Map(), n: 0, strips: [] };
   const bucket = (m, k) => { let a = m.get(k); if (!a) { a = []; m.set(k, a); } return a; };
   function blood(x, y, rad, alpha, seed) {
     const r = rng(seed || ((x * 73 + y * 151) | 0));
     const shade = () => (r() * 3) | 0;
     bucket(q.blood, shade() + '|' + alpha).push(IX(x), IY(y), rad * TPX, rad * TPX * (0.6 + r() * 0.4), r() * 3);
-    touchFt(x, y, rad * 3 + 0.5);
+    touchFt(x, y, rad * 3 + 0.5); markFt(x, y, rad * 2.5);
     const n = 2 + (r() * 4) | 0;
     for (let i = 0; i < n; i++) {
       const a = r() * TAU, d = rad * (0.9 + r() * 1.8), sz = rad * (0.15 + r() * 0.35) * TPX;
@@ -135,11 +153,15 @@ export function createIce(doc) {
   // Thousands of them over a period grey the sheet out, which is the point.
   function cut(x0, y0, x1, y1, a) {
     bucket(q.cut, a).push(IX(x0), IY(y0), IX(x1), IY(y1));
-    touch(IX(x0) - 2, IY(y0) - 2, IX(x1) + 2, IY(y1) + 2);
+    touch(IX(x0) - 2, IY(y0) - 2, IX(x1) + 2, IY(y1) + 2); markFt(x0, y0); markFt(x1, y1);
     ice.wear = Math.min(1, ice.wear + a * 0.00045);
     if (++q.n > 3000) flush();
   }
   function flush() {
+    flushMarks();
+    if (q.strips.length) paintStrips();
+  }
+  function flushMarks() {
     if (!q.n) return;
     q.n = 0;
     for (const [k, v] of q.blood) {
@@ -165,7 +187,7 @@ export function createIce(doc) {
   function scrape(x, y, dx, dy, len, seed) {
     const r = rng(seed || ((x * 31 + y * 17) | 0));
     const l = Math.hypot(dx, dy) || 1, ux = dx / l, uy = dy / l, nx = -uy, ny = ux;
-    touchFt(x, y, 1.2); touchFt(x + ux * len, y + uy * len, 1.6);
+    touchFt(x, y, 1.2); touchFt(x + ux * len, y + uy * len, 1.6); markFt(x, y, 1); markFt(x + ux * len, y + uy * len, 1.5);
     c.save(); c.lineCap = 'round';
     for (let k = 0; k < 7; k++) {
       const off = (k - 3) * 0.16, bend = (r() - 0.5) * 0.5, L = len * (0.65 + r() * 0.35);
@@ -187,7 +209,7 @@ export function createIce(doc) {
   // A puck that hits the wall hard leaves rubber on the ice at its foot.
   function puckMark(x, y, dx, dy) {
     const l = Math.hypot(dx, dy) || 1;
-    touchFt(x, y, 1.2);
+    touchFt(x, y, 1.2); markFt(x, y, 1);
     c.save(); c.lineCap = 'round';
     c.strokeStyle = 'rgba(30,34,40,0.32)'; c.lineWidth = 0.22 * TPX;
     c.beginPath(); c.moveTo(IX(x - dx / l * 0.9), IY(y - dy / l * 0.9)); c.lineTo(IX(x), IY(y)); c.stroke();
@@ -196,32 +218,70 @@ export function createIce(doc) {
   // a smear: a body or a limb sliding through something wet
   function smear(x0, y0, x1, y1, w, alpha) {
     touch(IX(Math.min(x0, x1) - w), IY(Math.max(y0, y1) + w), IX(Math.max(x0, x1) + w), IY(Math.min(y0, y1) - w));
+    markFt(x0, y0, w); markFt(x1, y1, w);
     c.save();
     c.strokeStyle = `rgba(120,10,14,${alpha})`; c.lineWidth = w * TPX; c.lineCap = 'round';
     c.beginPath(); c.moveTo(IX(x0), IY(y0)); c.lineTo(IX(x1), IY(y1)); c.stroke();
     c.restore();
   }
-  // The Zamboni's pass: the clean sheet painted back over a strip `w` feet either side of
-  // the conditioner, at heading `h`, and the strip marked wet. Marks, blood and all go.
-  function resurface(x, y, w, h = 0) {
-    flush();
-    const ux = Math.cos(h), uy = Math.sin(h), nx = -uy * w, ny = ux * w;
-    touchFt(x, y, w + 1);
-    // ⚠ ONE CLIP, NOT TWO. Inside the rink's rounded clip, this strip's clip made Chromium
-    // erase the whole sheet (seen headless on SwiftShader, on the 2-D and GL paths alike).
-    // The rink clip isn't needed: the clean copy is already transparent outside the
-    // boards, and drawing transparent pixels over the ice changes nothing.
+  // The Zamboni's pass: the clean sheet painted back over the strip the conditioner swept
+  // between two of its positions (`x0, y0` heading `h0`, to `x1, y1` heading `h1`), `w` feet
+  // either side of its middle, and the strip marked wet. Marks, blood and all go. Queued and
+  // painted with the frame's other marks, since a time-lapse lays a lot of strip a frame.
+  function resurface(x0, y0, h0, x1, y1, h1, w) {
+    flushMarks();
+    const n0x = -Math.sin(h0) * w, n0y = Math.cos(h0) * w, n1x = -Math.sin(h1) * w, n1y = Math.cos(h1) * w;
+    // (an inch past each end, so strips a step apart meet)
+    const el = Math.hypot(x1 - x0, y1 - y0) || 1, kx = (x1 - x0) / el * 0.1, ky = (y1 - y0) / el * 0.1;
+    const quad = [x0 - n0x - kx, y0 - n0y - ky, x1 - n1x + kx, y1 - n1y + ky, x1 + n1x + kx, y1 + n1y + ky, x0 + n0x - kx, y0 + n0y - ky];
+    q.strips.push(quad, x0, y0, x1, y1, w);
+    let ax = Infinity, ay = Infinity, bx = -Infinity, by = -Infinity;
+    for (let k = 0; k < 8; k += 2) { ax = Math.min(ax, quad[k]); bx = Math.max(bx, quad[k]); ay = Math.min(ay, quad[k + 1]); by = Math.max(by, quad[k + 1]); }
+    touch(IX(ax) - 2, IY(by) - 2, IX(bx) + 2, IY(ay) + 2);
+    // the feet it covers are fresh: a cell whose middle is inside the strip
+    if (nMarked) {
+      const before = nMarked;
+      for (let j = Math.max(0, Math.floor(ay)); j <= Math.min(RW - 1, Math.floor(by)); j++) {
+        for (let i = Math.max(0, Math.floor(ax)); i <= Math.min(RL - 1, Math.floor(bx)); i++) {
+          if (marked[j * RL + i] && inQuad(quad, i + 0.5, j + 0.5)) { marked[j * RL + i] = 0; nMarked--; }
+        }
+      }
+      ice.wear *= nMarked / before;
+    } else ice.wear = 0;
+    ice.wetness = 1; ice.wetDirty = true;
+    if (q.strips.length > 6 * 400) paintStrips();
+  }
+  // (the quad's corners go round anticlockwise, so a point inside is left of every edge)
+  const inQuad = (Q, px, py) => {
+    for (let k = 0; k < 8; k += 2) {
+      const ax = Q[k], ay = Q[k + 1], bx = Q[(k + 2) % 8], by = Q[(k + 3) % 8];
+      if ((bx - ax) * (py - ay) - (by - ay) * (px - ax) < 0) return false;
+    }
+    return true;
+  };
+  function paintStrips() {
+    const L = q.strips;
+    // ⚠ ONE CLIP, NOT TWO. Inside the rink's rounded clip, the strip's clip made Chromium erase
+    // the whole sheet (seen headless on SwiftShader, on the 2-D and GL paths alike). The rink
+    // clip isn't needed: the clean copy is already transparent outside the boards, and drawing
+    // transparent pixels over the ice changes nothing. The frame's strips are one path.
     c.save();
     c.beginPath();
-    c.moveTo(IX(x + nx - ux * 0.8), IY(y + ny - uy * 0.8)); c.lineTo(IX(x + nx + ux * 0.8), IY(y + ny + uy * 0.8));
-    c.lineTo(IX(x - nx + ux * 0.8), IY(y - ny + uy * 0.8)); c.lineTo(IX(x - nx - ux * 0.8), IY(y - ny - uy * 0.8));
-    c.closePath(); c.clip();
+    for (let k = 0; k < L.length; k += 6) {
+      const Q = L[k];
+      c.moveTo(IX(Q[0]), IY(Q[1])); c.lineTo(IX(Q[2]), IY(Q[3])); c.lineTo(IX(Q[4]), IY(Q[5])); c.lineTo(IX(Q[6]), IY(Q[7])); c.closePath();
+    }
+    c.clip();
     c.drawImage(base, 0, 0);
     c.restore();
-    wc.fillStyle = 'rgba(255,255,255,0.9)';
-    wc.beginPath(); wc.arc(x * WPX, (RW - y) * WPX, w * WPX, 0, TAU); wc.fill();
-    ice.wear = Math.max(0, ice.wear - 0.0016);
-    ice.wetness = 1; ice.wetDirty = true;
+    wc.save();
+    wc.strokeStyle = 'rgba(255,255,255,0.9)'; wc.lineCap = 'round';
+    for (let k = 0; k < L.length; k += 6) {
+      wc.lineWidth = L[k + 5] * 2 * WPX; wc.beginPath();
+      wc.moveTo(L[k + 1] * WPX, (RW - L[k + 2]) * WPX); wc.lineTo(L[k + 3] * WPX, (RW - L[k + 4]) * WPX); wc.stroke();
+    }
+    wc.restore();
+    L.length = 0;
   }
   // The water freezes off: the wet mask fades over about half a minute.
   function dry(dt) {
@@ -232,7 +292,9 @@ export function createIce(doc) {
     if (ice.wetness === 0) wc.clearRect(0, 0, wetCv.width, wetCv.height);
   }
   reset();
-  return Object.assign(ice, { reset, blood, cut, scrape, puckMark, smear, resurface, dry, flush });
+  return Object.assign(ice, { reset, blood, cut, scrape, puckMark, smear, resurface, dry, flush, markedFeet: () => nMarked,
+    // (the first few still marked, as [x, y] feet: for a check that fails to say where)
+    markedWhere: (n = 12) => { const out = []; for (let k = 0; k < marked.length && out.length < n; k++) if (marked[k]) out.push([k % RL, (k / RL) | 0]); return out; } });
 }
 
 let shared = null;

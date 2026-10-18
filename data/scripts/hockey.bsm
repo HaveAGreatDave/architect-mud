@@ -403,7 +403,7 @@ Both teams are lined up for the opening draw.
 ::lines section.start
 Here comes the {sectionOrd} period. Both teams are back out.
 The {sectionOrd} period, and the linesman is skating the puck out to centre.
-Back for the {sectionOrd}. The ice is wet where the Zamboni got to.
+Back for the {sectionOrd}, on fresh ice.
 ::endlines
 
 ::lines section.end
@@ -1522,15 +1522,16 @@ Sorted. For now.
 {goalie} is coming out.
 ::endlines
 
+# Ken Raven drives the league's one Zamboni, at every barn (content/npcs/npc_slush_raven.json).
 ::lines pbp.zamboni.on
-Zamboni's out.
-Here's the Zamboni.
-The ice crew's on.
+Zamboni's out. Ken Raven at the wheel.
+Here's Ken Raven with the Zamboni.
+Nets are off, and Ken Raven brings the Zamboni on.
 ::endlines
 
 ::lines pbp.zamboni.lap
 Fresh ice going down.
-Another lap.
+Ken Raven, working the middle.
 The Zamboni goes round again.
 ::endlines
 

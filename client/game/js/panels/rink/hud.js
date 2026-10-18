@@ -8,6 +8,8 @@ import { TAU, clamp } from './util.js';
 
 const FACE = '"Saira Condensed", "Arial Narrow", "Roboto Condensed", sans-serif';
 export const OFFICIAL_KIT = { jersey: '#f1f1ee', trim: '#141414', pants: '#141414', sock: '#141414', glove: '#e2b896', helmet: '#141414', stripes: true };
+// the ice crew, who take the nets off for the Zamboni: the arena's navy, no helmet
+export const CREW_KIT = { jersey: '#1f2f4f', trim: '#9fc4ff', pants: '#22262c', sock: '#22262c', glove: '#3a3f46', helmet: '#1f2f4f' };
 export const MEDIC_KIT = { jersey: '#eeeeea', trim: '#b8141c', pants: '#2a2e36', sock: '#2a2e36', glove: '#d8d8d8', helmet: '#eeeeea' };
 
 // A keeper's mask colours, for both renderers. ⚠ THE CLUB'S, NOT THE KIT'S: a mask is the same
@@ -30,7 +32,7 @@ export function maskColours(K) {
   return { base, trim, edge };
 }
 
-export const kitOf = (W, b) => (b.kind === 'official' ? OFFICIAL_KIT : b.kind === 'medic' ? MEDIC_KIT : (W.kits[b.side] || W.kits.a));
+export const kitOf = (W, b) => (b.kind === 'official' ? OFFICIAL_KIT : b.crew ? CREW_KIT : b.kind === 'medic' ? MEDIC_KIT : (W.kits[b.side] || W.kits.a));
 
 // The options figure.js (and arena-mesh.js) build a body from.
 export function bodyOpts(W, b) {
@@ -90,7 +92,22 @@ export function glowTail(W) {
 // while a replay is on the screen.
 export function hudActive(W, live = W) {
   const B = W.banner, Wp = live.wipe;
-  return !!(W.replayOn || (W.fight && W.fight.hud) || (B && W.t - B.t0 < (B.dur || 1.3)) || (Wp && live.t - Wp.t0 < Wp.dur));
+  return !!(W.replayOn || lapsing(W) || (W.fight && W.fight.hud) || (B && W.t - B.t0 < (B.dur || 1.3)) || (Wp && live.t - Wp.t0 < Wp.dur));
+}
+
+// THE TIME-LAPSE BUG, while the Zamboni is out: the sheet is being shown sped up, and says so.
+const lapsing = (W) => !!(W.zamboni && !W.zamboni.leaving && W.zamboni.lapse > 1.5);
+function drawLapse(ctx, W, w, h, u) {
+  const bw = 150 * u, bh = 26 * u, bx = w - bw - 16 * u, by = 14 * u;
+  ctx.save(); ctx.transform(1, 0, -0.18, 1, by * 0.18, 0);
+  ctx.fillStyle = 'rgba(8,10,14,0.82)'; ctx.fillRect(bx, by, bw, bh);
+  ctx.fillStyle = '#c8141c'; ctx.fillRect(bx, by, 6 * u, bh);
+  // two arrows, fast-forward
+  ctx.fillStyle = '#f4efe2';
+  for (const ox of [0, 9]) { ctx.beginPath(); ctx.moveTo(bx + (14 + ox) * u, by + bh * 0.28); ctx.lineTo(bx + (22 + ox) * u, by + bh * 0.5); ctx.lineTo(bx + (14 + ox) * u, by + bh * 0.72); ctx.closePath(); ctx.fill(); }
+  ctx.font = `800 ${16 * u}px ${FACE}`; ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
+  ctx.fillText('TIME-LAPSE', bx + 38 * u, by + bh * 0.54, bw - 44 * u);
+  ctx.restore();
 }
 
 // THE WIPE: the league's band swept across the picture, in and out of a replay. It covers
@@ -113,6 +130,7 @@ function drawWipe(ctx, live, w, h, u) {
 }
 
 export function drawHud(ctx, W, w, h, u, live = W) {
+  if (lapsing(W)) drawLapse(ctx, W, w, h, u);
   if (W.replayOn) {
     // the replay: letterboxed, with the bug in the corner and its light blinking
     const bar = h * 0.07;

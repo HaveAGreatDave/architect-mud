@@ -16,6 +16,7 @@ import {
   RL, RW, RC, MID_Y, BOARD_H, GLASS_H, GOAL_X, BLUE_X, NET_HALF, NET_DEPTH, NET_H,
   insideRink, attackDir, panelAt, PANELS, PANEL_X0, PANEL_W,
 } from './geo.js';
+import { PLAN as ZPLAN, planAt, ZW, COND, AXLE, GATE_Y, GATE_OUT } from './zamboni.js';
 import { DT, G, skaterRig, skaterFeet, goalieRig, bladeWorld, bladeLocal, keepOut, makeRag, stepRag, makeLimb, stepLimb, SEVER, SHOTS, sweeps, cadence, releaseAt } from './rig.js';
 
 // ── stickhandling ─────────────────────────────────────────────────────────────
@@ -149,7 +150,7 @@ export function createWorld(ice, seedKey) {
     t: 0, rand, ice,
     team: { a: [], h: [] }, goalie: { a: null, h: null }, officials: [], extras: [],
     puck: { x: 100, y: MID_Y, z: 0, vx: 0, vy: 0, vz: 0, carrier: null, target: null, held: null, passT0: 0, inNet: null, owner: null, home: null, tail: null, drawn: null, drawn0: null },
-    parts: [], spray: [], debris: [], limbs: [], stretcher: null, zamboni: null,
+    parts: [], spray: [], debris: [], limbs: [], stretcher: null, zamboni: null, dryLapse: 0,
     flex: new Float32Array(PANELS), cracks: [], glassBlood: [], broken: new Set(),
     crowd: 0.15, shake: 0, boardShake: 0, hitstop: 0, lamp: 0, lampSide: null, mourning: 0, dim: 0,
     banner: null, fight: null,
@@ -1326,67 +1327,113 @@ export function createWorld(ice, seedKey) {
     });
   }
 
-  // THE ZAMBONI follows the boards round in laps, each one a strip further in, the way a
-  // driver does it, and finishes with passes down the middle. `z.speed` is feet a second;
-  // a broadcast runs it faster than life so a lap fits in the time the booth talks over it.
-  // The conditioner sits behind the machine and lays the clean sheet back as it goes.
-  const ZW = 7.4;                                        // strip width
-  function zamboniPath(d) {
-    // a rounded rectangle inset `d` from the boards, as a list of points every two feet
-    const r = Math.max(2.5, 28 - d), x0 = d, x1 = RL - d, y0 = d, y1 = RW - d, pts = [];
-    const seg = (ax, ay, bx, by) => { const n = Math.max(1, Math.round(hyp(bx - ax, by - ay) / 2)); for (let i = 0; i < n; i++) pts.push([lerp(ax, bx, i / n), lerp(ay, by, i / n)]); };
-    const arc = (cx, cy, a0) => { const n = Math.max(2, Math.round(r * Math.PI / 4)); for (let i = 0; i < n; i++) { const a = a0 + (i / n) * Math.PI / 2; pts.push([cx + Math.cos(a) * r, cy + Math.sin(a) * r]); } };
-    seg(x0 + r, y0, x1 - r, y0); arc(x1 - r, y0 + r, -Math.PI / 2);
-    seg(x1, y0 + r, x1, y1 - r); arc(x1 - r, y1 - r, 0);
-    seg(x1 - r, y1, x0 + r, y1); arc(x0 + r, y1 - r, Math.PI / 2);
-    seg(x0, y1 - r, x0, y0 + r); arc(x0 + r, y0 + r, Math.PI);
-    return pts;
-  }
-  // It comes on and goes off through the gate in an end wall, clear of the net (`GATE_Y`),
-  // and is never simply there: on, it drives in and joins its first lap on that end; called
-  // off (`W.zamboniOff`, the period about to start), it drives to the nearer gate and out.
-  const GATE_Y = 52.5, GATE_OUT = 16;
-  W.startZamboni = (speed = 22) => {
-    // every lap starts and ends on the left end by the gate, so each one steps in from the
-    // last there, clear of the net
-    const route = [[-GATE_OUT, GATE_Y], [-6, GATE_Y]];
-    for (let d = 4.8; d < MID_Y - ZW * 0.4; d += ZW) {
-      const L = zamboniPath(d);
-      let j = 0, bd = Infinity;
-      L.forEach((q, k) => { if (Math.abs(q[0] - d) < 0.5 && Math.abs(q[1] - GATE_Y) < bd) { bd = Math.abs(q[1] - GATE_Y); j = k; } });
-      route.push(...L.slice(j), ...L.slice(0, j));
-    }
-    route.push([RC + 6, MID_Y], [RL - RC - 6, MID_Y]);
-    W.zamboni = { t: 0, route, i: 0, x: route[0][0], y: route[0][1], h: 0, speed, done: false, wake: [] };
+  // THE ZAMBONI drives the pattern in zamboni.js: in through the gate, the middle in ovals,
+  // the two laps along the boards, and out the way it came. It keeps its own clock, machine
+  // time, at a driver's pace; the broadcast shows it as a time-lapse, `z.lapse` machine
+  // seconds to every second on air, which the director sets so the sheet is done inside the
+  // break. The path is for the rear axle and the machine points along it, so it turns like a
+  // wheeled machine; its origin, which the renderers draw round, is `AXLE` ahead of that.
+  // The conditioner behind lays the clean sheet back over the strip it sweeps.
+  W.zamboniTime = () => ZPLAN.T;
+
+  // THE NETS COME OFF FOR IT, as at any rink, or the Zamboni couldn't do the creases or the
+  // ice behind them. Two of the ice crew come in through the gates in the end walls, each
+  // slides his end's net off its pegs and out through the gate (`W.netsOff`), and once the
+  // Zamboni has gone they push them back on (`W.netsOn`, which the Zamboni leaving asks for
+  // itself). `W.nets[side]` is how far a net is off its pegs and whether it's out through
+  // the gate; the renderers draw it there. A crewman's moves are in feet from his own end
+  // wall (`u`) and across (`y`): skate in, set against the mouth, push it back and round to
+  // the gate and out; and the same backwards, from behind it, to put it on.
+  W.nets = { a: { dx: 0, dy: 0, out: false }, h: { dx: 0, dy: 0, out: false }, state: 'on', want: 'on' };
+  const crew = [0, 1].map((i) => { const m = makeBody('medic', 'o', i, 6161 + i); m.crew = true; m.active = false; m.stick = false; m.helmet = false; W.extras.push(m); return m; });
+  const NET_U = GOAL_X[0];
+  const CREW = {
+    off: [[[-3, GATE_Y], [13.5, 50], 10, null], [[13.5, 50], [12.9, MID_Y], 5, null], [[12.9, MID_Y], [10.4, GATE_Y], 6, 1.9], [[10.4, GATE_Y], [-2.6, GATE_Y], 7, 1.9]],
+    on: [[[-9.4, GATE_Y], [3.6, GATE_Y], 7, -4.9], [[3.6, GATE_Y], [6.1, MID_Y], 6, -4.9], [[6.1, MID_Y], [4, GATE_Y], 8, null], [[4, GATE_Y], [-3, GATE_Y], 10, null]],
   };
+  W.netsOff = () => { W.nets.want = 'off'; };
+  W.netsOn = () => { W.nets.want = 'on'; };
+  W.netsOut = () => W.nets.state === 'off' && !W.nets.job;
+  function stepNets(dt) {
+    const N = W.nets;
+    if (!N.job) {
+      if (N.want === N.state) return;
+      N.job = { kind: N.want, leg: 0, d: 0 };
+      crew.forEach((m) => { m.active = true; m.hold = holdCrew; m.x0 = null; });
+    }
+    const J = N.job, legs = CREW[J.kind];
+    J.d += legs[J.leg][2] * dt;
+    while (J.leg < legs.length && J.d >= hyp(legs[J.leg][1][0] - legs[J.leg][0][0], legs[J.leg][1][1] - legs[J.leg][0][1])) {
+      J.d -= hyp(legs[J.leg][1][0] - legs[J.leg][0][0], legs[J.leg][1][1] - legs[J.leg][0][1]); J.leg++;
+    }
+    if (J.leg >= legs.length) {
+      N.state = J.kind; N.job = null;
+      for (const side of ['a', 'h']) Object.assign(N[side], J.kind === 'off' ? { out: true } : { dx: 0, dy: 0, out: false });
+      crew.forEach((m) => { m.active = false; m.hold = null; });
+      return;
+    }
+    const [a, b, , off] = legs[J.leg], L = hyp(b[0] - a[0], b[1] - a[1]), k = Math.min(1, J.d / L);
+    const u = lerp(a[0], b[0], k), y = lerp(a[1], b[1], k);
+    crew.forEach((m, i) => {
+      const side = i ? 'h' : 'a', sx = (q) => (i ? RL - q : q);
+      const px = m.x, py = m.y;
+      m.x = sx(u); m.y = y;
+      // (set against the net he faces it; otherwise he faces where he's going)
+      m.h = off != null ? (off > 0 === !i ? Math.PI : 0) : Math.atan2(b[1] - a[1], sx(b[0]) - sx(a[0]));
+      m.vx = m.x0 == null ? 0 : (m.x - px) / dt; m.vy = m.x0 == null ? 0 : (m.y - py) / dt;
+      m.amp = clamp(hyp(m.vx, m.vy) / 18, 0, 0.8);
+      if (m.x0 == null) { m.x0 = m.x; m.y0 = m.y; }
+      if (off != null) { const n = N[side]; n.out = false; n.dx = sx(u - off) - sx(NET_U); n.dy = y - MID_Y; }
+    });
+  }
+  // the crew are moved by their job, not by skating physics
+  function holdCrew() {}
+  W.startZamboni = (lapse = 10) => {
+    W.zamboni = { mt: 0, i: 0, lapse, x: 0, y: 0, h: 0, v: 0, ax: 0, ay: 0, down: false, cond: null, done: false, leaving: null };
+    placeZamboni(W.zamboni, planAt(0));
+  };
+  function placeZamboni(z, q) {
+    z.ax = q.x; z.ay = q.y; z.h = q.h; z.v = q.v; z.i = q.i; z.down = q.down;
+    z.x = q.x + Math.cos(q.h) * AXLE; z.y = q.y + Math.sin(q.h) * AXLE;
+  }
+  // Called off before it's done (the period back sooner than the break said), it lifts the
+  // conditioner and drives to the nearer gate and out, still on the time-lapse.
   W.zamboniOff = () => {
     const z = W.zamboni; if (!z || z.leaving) return;
     const gx = z.x < RL / 2 ? 0 : RL, out = gx ? 1 : -1;
-    z.route = [[z.x, z.y], [gx - out * 14, GATE_Y], [gx - out * 4, GATE_Y], [gx + out * GATE_OUT, GATE_Y]];
-    z.i = 0; z.done = false; z.leaving = true; z.speed = Math.max(z.speed, 26);
+    z.leaving = { route: [[z.x, z.y], [gx - out * 14, GATE_Y], [gx - out * 4, GATE_Y], [gx + out * GATE_OUT, GATE_Y]], i: 0 };
+    z.down = false; z.cond = null;
   };
   function stepZamboni(dt) {
     const z = W.zamboni; if (!z) return;
-    z.t += dt;
-    if (z.done) return;
-    let move = z.speed * dt;
-    while (move > 0 && z.i < z.route.length - 1) {
-      const [tx, ty] = z.route[z.i + 1], d = hyp(tx - z.x, ty - z.y);
-      if (d <= move) { z.x = tx; z.y = ty; z.i++; move -= d; } else { z.x += (tx - z.x) / d * move; z.y += (ty - z.y) / d * move; move = 0; }
+    const md = dt * z.lapse;
+    if (z.leaving) {
+      const L = z.leaving;
+      let move = 9 * md;
+      while (move > 0 && L.i < L.route.length - 1) {
+        const [tx, ty] = L.route[L.i + 1], d = hyp(tx - z.x, ty - z.y);
+        if (d <= move) { z.x = tx; z.y = ty; L.i++; move -= d; } else { z.x += (tx - z.x) / d * move; z.y += (ty - z.y) / d * move; move = 0; }
+      }
+      if (L.i >= L.route.length - 1) { W.zamboni = null; W.netsOn(); return; }
+      const [tx, ty] = L.route[L.i + 1];
+      z.h += angWrap(Math.atan2(ty - z.y, tx - z.x) - z.h) * (1 - Math.exp(-md * 2));
+      return;
     }
-    if (z.i >= z.route.length - 1) { if (z.leaving) W.zamboni = null; else z.done = true; return; }
-    const [tx, ty] = z.route[Math.min(z.route.length - 1, z.i + 2)];
-    z.h += angWrap(Math.atan2(ty - z.y, tx - z.x) - z.h) * (1 - Math.exp(-dt * 5));
-    const on = z.x > 2 && z.x < RL - 2;
-    if (on && z.t - (z.paintAt || 0) > 0.04) {
-      z.paintAt = z.t;
-      W.ice.resurface(z.x - Math.cos(z.h) * 5.6, z.y - Math.sin(z.h) * 5.6, ZW / 2, z.h);
-      if (rand() < 0.4) W.burst('spray', z.x - Math.cos(z.h) * 5.8, z.y - Math.sin(z.h) * 5.8, 0.4, 1, 1.5, [0, 0, 0.6]);
-      // what's left lying on the ice goes in under the front of it: sticks, gloves, and the rest
-      const fx = z.x + Math.cos(z.h) * 4, fy = z.y + Math.sin(z.h) * 4, under = (x, y) => hyp(x - fx, y - fy) < ZW * 0.6;
-      if (W.debris.some((d) => under(d.x, d.y))) W.debris = W.debris.filter((d) => !under(d.x, d.y));
-      if (W.limbs.some((l) => under(l.pts[0].x, l.pts[0].y))) W.limbs = W.limbs.filter((l) => !under(l.pts[0].x, l.pts[0].y));
-    }
+    z.mt += md;
+    const q = planAt(z.mt, z.i);
+    if (q.end) { W.zamboni = null; W.dryLapse = z.lapse; W.netsOn(); return; }
+    placeZamboni(z, q);
+    if (!z.down) { z.cond = null; return; }
+    // the strip the conditioner swept since it was last laid, once it's gone far enough to lay
+    const cx = z.ax - Math.cos(z.h) * COND, cy = z.ay - Math.sin(z.h) * COND, c0 = z.cond;
+    if (!c0) { z.cond = [cx, cy, z.h]; return; }
+    if (hyp(cx - c0[0], cy - c0[1]) < 0.6) return;
+    W.ice.resurface(c0[0], c0[1], c0[2], cx, cy, z.h, ZW / 2);
+    z.cond = [cx, cy, z.h];
+    // what's left lying on the ice goes in under the front of it: sticks, gloves, and the rest
+    const fx = z.x + Math.cos(z.h) * 4, fy = z.y + Math.sin(z.h) * 4, under = (x, y) => hyp(x - fx, y - fy) < ZW * 0.6;
+    if (W.debris.some((d) => under(d.x, d.y))) W.debris = W.debris.filter((d) => !under(d.x, d.y));
+    if (W.limbs.some((l) => under(l.pts[0].x, l.pts[0].y))) W.limbs = W.limbs.filter((l) => !under(l.pts[0].x, l.pts[0].y));
   }
 
   // ── what the renderers draw ───────────────────────────────────────────────
@@ -1588,7 +1635,11 @@ export function createWorld(ice, seedKey) {
     stepLimbs(dt);
     stepParts(dt); stepSpray(dt);
     stepZamboni(dt);
-    W.ice.dry(dt);
+    stepNets(dt);
+    // (the water freezes on the machine's time-lapse while it's out, and goes on freezing on
+    // it once it's gone, until the last strip has set: the period starts on dry ice)
+    W.ice.dry(dt * (W.zamboni ? W.zamboni.lapse : W.dryLapse || 1));
+    if (W.dryLapse && W.ice.wetness <= 0) W.dryLapse = 0;
     for (let i = 0; i < PANELS; i++) W.flex[i] *= Math.exp(-dt * 7);
     W.netBulge.a *= Math.exp(-dt * 4); W.netBulge.h *= Math.exp(-dt * 4);
     W.shake *= Math.exp(-dt * 6); W.boardShake *= Math.exp(-dt * 5);
