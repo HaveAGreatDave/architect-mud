@@ -214,7 +214,14 @@ A game with people in it can't be played before it airs, so the server plays it 
 worker, at 60 Hz.
 
 - **Inputs** come over the socket as small frames, 20 to 30 a second: the stick's direction, the
-  buttons and a sequence number.
+  buttons and a sequence number. They get a message type and a route of their own in
+  `server/index.js`, as `instrument_note` has: the route only emits, and the plugin checks that the
+  sender is one of the game's two players and does the rate limiting. The type goes in
+  `UNTHROTTLED_TYPES`, because the bucket every other type shares refills at 15 a second with
+  bursts of 40, and would silently drop a quarter to half of a player's inputs within a few
+  seconds. It goes in `IDLE_ACTIVITY_TYPES` too, or the idle-logoff sweep warns a player at 15
+  minutes and cuts them off at 20, in the middle of a game. Inputs never pass through
+  `handleCommand` and never touch the database.
 - **The two players** get state 15 to 20 times a second. Each one's own man is predicted on his client
   with the same motor code and corrected toward the server's; everyone else is drawn from the
   server's state. It plays at about 100 ms of round trip and turns sluggish past about 250.
@@ -263,7 +270,8 @@ follows the free-play plan's Phase 4 (Rinkside playing back the server's game).
 - **A4: club styles.** The style record, its defaults from `clubProfile`, the coach's systems.
 - **A5: momentum.** The meter in the server's game and in `simGame`, behind a new sim version.
 - **A6: people.** A person's controller on one machine in the sandbox first (one person against the
-  AI), then live games over the socket with prediction, then spectators and the booth on the delay.
+  AI), then live games over the socket, with the input route and prediction, then spectators and
+  the booth on the delay.
 
 ## Open questions
 

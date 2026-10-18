@@ -20,7 +20,8 @@ budgets in [ops-usage-watch.md](../ops-usage-watch.md). The decision layer is wo
 - The server plays a featured game headless, in a worker, an hour or more before it airs. Wherever
   a man decides something, it rolls the odds `simGame` uses today.
 - It stores the result once. Standings, the injury ledger, recaps and wagers read the stored
-  result, and the 53 off-air games a week stay on `simGame`.
+  result, and the 53 off-air games a week stay on `simGame`. The stored positions are read back
+  only around air time, never at boot.
 - The booth narrates the game's event log knowing how each play ends, and keeps what fits in the
   hour, most important first.
 - Rinkside plays the game back at real speed from chunks sent a few seconds ahead, and poses the
@@ -132,9 +133,10 @@ advance. Every game before it is either an off-air `simGame`, which costs nothin
 the server has already played, so a featured game never waits on another.
 
 `sportsHeartbeat` runs every minute, and the scheduler skips it while nobody's online. It checks a
-flag in RAM: has the next featured game been played? If not, it posts the game to a
-`worker_threads` worker, which keeps the work off the event loop the rest of the server runs on.
-With hour-long slots, that's an hour of slack for a few seconds of work.
+flag in RAM for the featured game on air, if there is one, and for the next featured game: has it
+been played? It posts any that hasn't to a `worker_threads` worker, the earlier first, which keeps
+the work off the event loop the rest of the server runs on. With hour-long slots, that's an hour of
+slack for a few seconds of work.
 
 Off-air games never go physical. The CPhL airs on Tuesday, Thursday and Sunday at 18:00, which is
 three of the 56 games in a week.
@@ -197,17 +199,31 @@ CREATE TABLE IF NOT EXISTS sports_featured_games (
 );
 ```
 
-- **One write** per featured game, when the worker finishes. The same write clears the previous
-  game's track, so storage holds one or two tracks at most.
-- **One read at boot:** `box` for the featured games in the standings and injury window, cached in
-  RAM. `computeStandings` and `ledgerAt` read a featured slot's row instead of re-running the slot.
-  A featured slot with no row, because the server was down for it, folds as `simGame`, so a game
-  nobody saw stays a statistical one. A row still counts for nothing until its slot has ended, as
-  now.
-- **The track** is read only when the server boots with a featured game pending or on air, at about
-  1 to 2 MB of Neon egress each time. It's stored rather than replayed after a restart, because a
-  deploy can change the sim or the Node version, and a re-run wouldn't match the events the booth
-  is calling.
+- **One write** per featured game, when the worker finishes. The same write clears the track of
+  every game whose slot has ended, and never the track of the game on air, so storage holds one or
+  two tracks at most: the game on air and the next one. Clearing "the previous game's track" would
+  clear the airing game's as soon as the next game was played, and a restart mid-game would have no
+  picture to go back to.
+- **One read at boot:** `slot` and `box` for the featured games in the standings and injury window,
+  cached in RAM, and nothing else; `events` and `track` are the big columns and stay out of it. The
+  same read sets the heartbeat's flags. `computeStandings` and `ledgerAt` read a featured slot's row
+  instead of re-running the slot. A featured slot with no row, because the server was down for it,
+  folds as `simGame`, so a game nobody saw stays a statistical one. A row still counts for nothing
+  until its slot has ended, as now.
+- **The track and the events load late, never at boot.** Every boot is a world load, and there are
+  several a day: about four deploys, plus cold starts, which have measured anywhere from 0.3 to 13
+  a day ([ops-usage-watch.md](../ops-usage-watch.md)). A game is almost always played and waiting,
+  so a read at boot would be paid on nearly every load, on top of a boot payload of about 13 MB.
+  The server keeps what the worker hands back in RAM until air. After a restart, the heartbeat
+  reads the track and the events a few minutes before the game's slot starts, or the booth or a
+  Rinkside viewer's first request does, so a boot pays only when it lands just before or during a
+  featured broadcast. They're stored rather than replayed after a restart, because a deploy can
+  change the sim or the Node version, and a re-run wouldn't match the events the booth is calling.
+- **The track is deflated before it's stored, and read back as base64.** `pg` returns a BYTEA
+  column as hex text, two characters a byte, so a raw track (about 4.5 MB an hour, from the sample
+  size under [The picture](#the-picture)) would cost about 9 MB of egress a read. Deflated, it's 1
+  to 2 MB, and `SELECT encode(track, 'base64')` sends four characters for every three bytes, so a
+  read costs 2 to 3 MB. A write sends the buffer as binary.
 - **Per step, per tick and per viewer:** no queries. The game, its chunks and its lines are all in
   RAM.
 
@@ -300,7 +316,9 @@ together, because the booth and the picture have to read the same game.
   leave the target's bands, or when a game costs more than its CPU budget. Phase 0's harness is
   where the gate starts.
 - **Phase 2: storage and the folds.** The feature table, the worker, the heartbeat's check, the boot
-  read, and `computeStandings` and `ledgerAt` reading featured rows.
+  read, the deflated track and the late read of the track and events, and `computeStandings` and
+  `ledgerAt` reading featured rows. A test checks that the boot read selects neither `track` nor
+  `events`, and that a write never clears the track of a game on air.
 - **Phase 3: the booth.** The narrator over the event log, the event scores, the reversed pacer, and
   air-time stamps on lines.
 - **Phase 4: Rinkside plays it back.** Chunks over the socket, playback and posing, late tuners and
