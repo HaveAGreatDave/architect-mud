@@ -1,0 +1,16 @@
+{
+  "description": "A round hole in the stands three rows across, its edges ragged concrete and bent rebar. Rainwater stands in the bottom of it with a seat cushion floating in it.",
+  "flags": {
+    "aliases": [
+      "crater",
+      "hole",
+      "rope",
+      "rebar",
+      "cushion"
+    ]
+  },
+  "id": "furn_hughson_crater",
+  "name": "the crater",
+  "object_type": "decoration",
+  "zone_id": "zone_hughson_nine"
+}

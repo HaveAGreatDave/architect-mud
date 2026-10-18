@@ -92,7 +92,11 @@ function check(id) {
 
 const args = process.argv.slice(2);
 let ids;
-if (args.length) ids = args.map((a) => { const [x, y] = a.split(','); return `zone_district_${x}_${y}`; });
+// A coordinate names whatever stands on that tile of the world, which isn't always
+// zone_district_<x>_<y>: the Hughson Coliseum's tiles are zone_ballpark_<x>_<y>.
+const atTile = new Map();
+for (const z of zones.values()) if (z.map_id === 'map_world' && (z.grid_z || 0) === 0) atTile.set(`${z.grid_x},${z.grid_y}`, z.id);
+if (args.length) ids = args.map((a) => { const [x, y] = a.split(','); return atTile.get(`${Number(x)},${Number(y)}`) || `zone_district_${x}_${y}`; });
 else {
   ids = [];
   for (const z of zones.values()) {

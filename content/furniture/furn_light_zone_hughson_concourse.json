@@ -1,0 +1,11 @@
+{
+  "description": "Caged bulbs along the concourse ceiling, every fourth one out, and a red EXIT sign at each ramp.",
+  "flags": {},
+  "id": "furn_light_zone_hughson_concourse",
+  "light_type": "overhead",
+  "lumen_output": 1200,
+  "name": "the concourse lights",
+  "object_type": "light",
+  "power_draw_kw": 0.03,
+  "zone_id": "zone_hughson_concourse"
+}

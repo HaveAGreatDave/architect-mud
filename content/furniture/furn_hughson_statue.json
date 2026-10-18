@@ -1,0 +1,19 @@
+{
+  "description": "A bronze of Sir Charles B. Hughson on a granite plinth, hat in one hand and the other raised toward the stands. The toes of his shoes are rubbed bright gold by people touching them for luck on the way in.",
+  "flags": {
+    "aliases": [
+      "statue",
+      "bronze",
+      "sir charles",
+      "charles",
+      "hughson",
+      "plinth",
+      "shoes"
+    ],
+    "examine_detail": "Cut into the front of the plinth: Sir Charles B. Hughson. He would not sell."
+  },
+  "id": "furn_hughson_statue",
+  "name": "the statue of Sir Charles",
+  "object_type": "decoration",
+  "zone_id": "zone_hughson_rotunda"
+}

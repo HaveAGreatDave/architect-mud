@@ -32,3 +32,13 @@ What was taken out, and what you need to put back when you re-site it:
    `conn_district_916_908_north_2k6w` and `door_basic_zone_district_916_908_in`.
 4. `npc_soak_barber.work_zone_id` set back to `zone_soak_front`.
 5. A map icon for the tile, if the new site's quarter needs one.
+
+## The holding map (2026-10-18)
+
+A second way to store a building keeps its tile. The Charles B. Hughson Coliseum took nine tiles of
+Halcyon Fields, and the six buildings and the green on them moved, tiles and all, onto
+`map_set_aside`, a map of their own that nothing on the world connects to. Each keeps its facade,
+so its door, its map code and its model come back with it, and its keepers carry `flags.set_aside`,
+which the game loop reads to pause them in their rooms. How it was done and how to put one back are
+in [hughson-coliseum.md](hughson-coliseum.md#3-what-was-set-aside). Reach for it when a whole block
+goes, and for the route above when one building gives up its tile to another.

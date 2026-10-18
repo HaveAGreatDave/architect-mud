@@ -481,10 +481,36 @@ function boardFrame(field) {
 
 // ── the crowd's figures ─────────────────────────────────────────────────────
 // One figure a kind, instanced over the crowd's positions: 7 floats a vertex, position (3),
-// normal (3) and the part (0 skin, 1 shirt, 2 trousers, 3 hair, 4 a rally towel). `far` is
-// the coarse level, about half the triangles, for a crowd seen from the broadcast cameras.
+// normal (3) and the part. `far` is the coarse level for a crowd seen from the broadcast cameras.
+//
+// ⚠ IT READS AS A PERSON BY ITS SILHOUETTE, so the shape is in the outline, not the detail: a torso
+// lofted from rings (hips, waist, chest, shoulders broader than the hips), a head on top of it,
+// upper arms and forearms, hands, legs and shoes. The look-dev's egg on tubes read as a bottle from
+// the cameras' distances, sitting or walking.
+//
+// ⚠ THE PART IS A CODE THE SHADERS READ BY RANGE: below 0.5 skin, below 1.5 shirt, below 2.5
+// trousers, below 3.5 dark (hair, shoes), 4 a rally towel. The quarter values inside a range say
+// which limb a vertex is on, for the walker (gl/streetlife.js), whose arms and legs swing:
+//   0 face and neck   0.25 a hand   1 the shirt   1.25 a sleeve   1.75 the hips
+//   2.25 a leg        3 hair        3.25 a shoe
+export const CROWD_PART = Object.freeze({ skin: 0, hand: 0.25, shirt: 1, sleeve: 1.25, hips: 1.75, leg: 2.25, hair: 3, shoe: 3.25, towel: 4 });
+const CP = CROWD_PART;
+// Each pose's joints, in feet, the figure facing +z. Every pose is built from the same pieces in
+// the same order, so the three pair up vertex for vertex (crowdMorph).
+const CROWD_POSE = {
+  stand: { lift: 0, lean: 0, hip: [0.19, 3.15, 0], knee: [0.21, 1.72, 0.04], ankle: [0.21, 0.28, 0], shoe: [0.21, 0.13, 0.1],
+    sh: [0.48, 4.68, 0], elbow: [0.56, 3.86, 0.04], wrist: [0.53, 3.06, 0.16], hand: [0.53, 2.93, 0.18] },
+  sit: { lift: -1.45, lean: -0.1, hip: [0.19, 1.75, 0.02], knee: [0.21, 1.8, 1.38], ankle: [0.21, 0.3, 1.5], shoe: [0.21, 0.13, 1.62],
+    sh: [0.48, 3.23, -0.1], elbow: [0.55, 2.42, 0.1], wrist: [0.32, 2.04, 0.74], hand: [0.29, 1.97, 0.84] },
+  cheer: { lift: 0, lean: 0, hip: [0.19, 3.15, 0], knee: [0.21, 1.72, 0.04], ankle: [0.21, 0.28, 0], shoe: [0.21, 0.13, 0.1],
+    sh: [0.48, 4.68, 0], elbow: [0.78, 5.5, 0.1], wrist: [0.66, 6.34, 0.15], hand: [0.64, 6.5, 0.15] },
+};
+// The torso's rings from the crotch to the top of the shoulders: height, half-width, half-depth,
+// and the part of the band above it.
+const TORSO = [[2.92, 0.24, 0.16, CP.hips], [3.2, 0.4, 0.25, CP.hips], [3.62, 0.35, 0.22, CP.shirt], [4.25, 0.44, 0.26, CP.shirt], [4.68, 0.5, 0.24, CP.shirt], [4.96, 0.3, 0.18, CP.shirt]];
 export function crowdMesh(kind, { towels = false, far = false } = {}) {
-  const ER = far ? 4 : 6, EC = far ? 6 : 10, TC = far ? 4 : 6;
+  const ER = far ? 4 : 5, EC = far ? 6 : 10, TC = far ? 4 : 6, SR = 2, SC = far ? 3 : 5;
+  const J = CROWD_POSE[kind === 'sit' ? 'sit' : kind === 'cheer' ? 'cheer' : 'stand'];
   const out = [];
   const push = (p, n, part) => out.push(p[0], p[1], p[2], n[0], n[1], n[2], part);
   const ell = (c, r, part, rows = ER, cols = EC, vmax = 1) => {
@@ -506,26 +532,32 @@ export function crowdMesh(kind, { towels = false, far = false } = {}) {
       for (const q of [q0, q1, q2, q0, q2, q3]) push(q[0], q[1], part);
     }
   };
-  if (kind === 'sit') {
-    ell([0, 2.42, -0.12], [0.39, 0.88, 0.29], 1);
-    ell([0, 3.78, -0.05], [0.27, 0.32, 0.29], 0); ell([0, 3.86, -0.09], [0.285, 0.3, 0.3], 3, Math.ceil(ER * 2 / 3), EC, 0.5);
-    for (const sg of [-1, 1]) {
-      tube([sg * 0.22, 1.62, -0.05], [sg * 0.25, 1.66, 0.95], 0.23, 0.19, 2); tube([sg * 0.25, 1.66, 0.95], [sg * 0.25, 0.3, 1.1], 0.16, 0.12, 2);
-      tube([sg * 0.46, 3.15, -0.08], [sg * 0.52, 2.3, 0.18], 0.14, 0.12, 1); tube([sg * 0.52, 2.3, 0.18], [sg * 0.24, 1.95, 0.75], 0.1, 0.08, 0);
-    }
-  } else {
-    ell([0, 3.95, 0], [0.34, 1.0, 0.25], 1);
-    ell([0, 5.42, 0.04], [0.27, 0.32, 0.29], 0); ell([0, 5.5, 0.0], [0.285, 0.3, 0.3], 3, Math.ceil(ER * 2 / 3), EC, 0.5);
-    for (const sg of [-1, 1]) {
-      tube([sg * 0.22, 3.1, 0], [sg * 0.24, 1.6, 0.05], 0.2, 0.16, 2); tube([sg * 0.24, 1.6, 0.05], [sg * 0.25, 0.1, 0], 0.15, 0.11, 2);
-      if (kind === 'stand') { tube([sg * 0.45, 4.75, 0], [sg * 0.55, 3.8, 0.05], 0.12, 0.1, 1); tube([sg * 0.55, 3.8, 0.05], [sg * 0.5, 2.95, 0.25], 0.09, 0.07, 0); }
-      else { tube([sg * 0.45, 4.75, 0], [sg * 0.75, 5.6, 0.1], 0.12, 0.1, 1); tube([sg * 0.75, 5.6, 0.1], [sg * 0.6, 6.5, 0.15], 0.09, 0.07, 0); }
-    }
-    if (kind === 'cheer' && towels) {
-      // a rally towel in the right hand, caught mid-wave, both faces
-      const q = (a, b, c2, d) => { const n = norm(cross(sub(b, a), sub(d, a))); for (const p of [a, b, c2, a, c2, d]) push(p, n, 4); for (const p of [a, c2, b, a, d, c2]) push(p, mul(n, -1), 4); };
-      q([0.62, 6.45, 0.14], [1.55, 6.75, 0.0], [1.6, 7.75, -0.05], [0.58, 7.5, 0.1]);
-    }
+  // the torso, lofted ring to ring; sitting, it drops to the seat and leans back a little
+  const ring = (k, ph) => {
+    const [y, rx, rz] = TORSO[k], f = (y - TORSO[0][0]) / (TORSO[TORSO.length - 1][0] - TORSO[0][0]);
+    const c = [0, y + J.lift, J.lean * f];
+    return [[c[0] + Math.sin(ph) * rx, c[1], c[2] + Math.cos(ph) * rz], norm([Math.sin(ph) / rx, 0, Math.cos(ph) / rz])];
+  };
+  for (let k = 0; k + 1 < TORSO.length; k++) for (let j = 0; j < EC; j++) {
+    const p0 = j / EC * TAU, p1 = (j + 1) / EC * TAU;
+    const a = ring(k, p0), b = ring(k, p1), c = ring(k + 1, p1), d = ring(k + 1, p0);
+    for (const q of [a, b, c, a, c, d]) push(q[0], q[1], TORSO[k][3]);
+  }
+  // the head on the shoulders, and the hair over it
+  const top = TORSO[TORSO.length - 1][0] + J.lift, hz = J.lean;
+  ell([0, top + 0.33, hz + 0.03], [0.25, 0.31, 0.27], CP.skin);
+  ell([0, top + 0.41, hz - 0.01], [0.27, 0.29, 0.29], CP.hair, Math.ceil(ER * 2 / 3), EC, 0.5);
+  for (const sg of [-1, 1]) {
+    const m = (v) => [sg * v[0], v[1], v[2]];
+    tube(m(J.hip), m(J.knee), 0.24, 0.18, CP.leg); tube(m(J.knee), m(J.ankle), 0.17, 0.12, CP.leg);
+    ell(m(J.shoe), [0.14, 0.12, 0.3], CP.shoe, SR, SC);
+    tube(m(J.sh), m(J.elbow), 0.14, 0.11, CP.sleeve); tube(m(J.elbow), m(J.wrist), 0.1, 0.08, CP.sleeve);
+    ell(m(J.hand), [0.075, 0.1, 0.075], CP.hand, SR, SC);
+  }
+  if (kind === 'cheer' && towels) {
+    // a rally towel in the right hand, caught mid-wave, both faces
+    const q = (a, b, c2, d) => { const n = norm(cross(sub(b, a), sub(d, a))); for (const p of [a, b, c2, a, c2, d]) push(p, n, CP.towel); for (const p of [a, c2, b, a, d, c2]) push(p, mul(n, -1), CP.towel); };
+    q([0.62, 6.45, 0.14], [1.55, 6.75, 0.0], [1.6, 7.75, -0.05], [0.58, 7.5, 0.1]);
   }
   return new Float32Array(out);
 }
@@ -536,7 +568,7 @@ export const CROWD_VERTEX = 7;
 // pieces in the same order, so their vertices pair up; the towel only the cheer holds is folded
 // into the hand in the other two.
 export const CROWD_MORPH = 19;
-const CROWD_HAND = { sit: [0.24, 1.95, 0.75], stand: [0.5, 2.95, 0.25] };
+const CROWD_HAND = { sit: CROWD_POSE.sit.hand, stand: CROWD_POSE.stand.hand };
 export function crowdMorph(o = {}) {
   const sit = crowdMesh('sit', { ...o, towels: false }), stand = crowdMesh('stand', { ...o, towels: false }), cheer = crowdMesh('cheer', o);
   const V = CROWD_VERTEX, n = cheer.length / V, body = sit.length / V;

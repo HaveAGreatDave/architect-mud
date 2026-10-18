@@ -1,0 +1,11 @@
+{
+  "description": "A caged lamp on a pole at the end of the aisle, leaning toward the crater.",
+  "flags": {},
+  "id": "furn_light_zone_hughson_nine",
+  "light_type": "lamp",
+  "lumen_output": 800,
+  "name": "the aisle lamp",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_hughson_nine"
+}

@@ -1,0 +1,24 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "urban",
+  "bg_color": "#2a1d18",
+  "color": "#d8c9a8",
+  "description": "The third-base end of the Hughson Coliseum's grandstand, where the brick steps down toward the left-field corner under a light tower.",
+  "exits": {},
+  "flags": {
+    "building_name": "Charles B. Hughson Coliseum",
+    "building_type": "ballpark_sw",
+    "district": "halcyon_fields",
+    "entrance": "south",
+    "floors": 2,
+    "region_id": "region_coldwater",
+    "venue_lights": true
+  },
+  "grid_x": 895,
+  "grid_y": 913,
+  "grid_z": 0,
+  "id": "zone_ballpark_895_913",
+  "map_id": "map_world",
+  "name": "Charles B. Hughson Coliseum",
+  "parent_zone": null
+}

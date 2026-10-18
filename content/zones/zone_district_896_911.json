@@ -5,7 +5,6 @@
   "color": "#d2cdb8",
   "description": "A stone box wearing an order of pilasters two storeys tall and a shallow pediment it does not need, up six steps from the boulevard. The inscription across the frieze reads THAT WHICH CONTINUES IS NOT THEREBY THE SAME, which is cut deep and well and is a translation of something nobody here can name the original of. Beneath it, on a modest brass plate at eye height: THE HALCYON INSTITUTE · PUBLIC LECTURES · ADMISSION FREE.",
   "exits": {
-    "north": "zone_district_896_910",
     "south": "zone_course_theatre"
   },
   "flags": {
@@ -17,13 +16,15 @@
     "floors": 4,
     "is_building": true,
     "region_id": "region_coldwater",
-    "world_exit_zone": "zone_district_896_910"
+    "set_aside": true,
+    "set_aside_from": "896,911",
+    "world_exit_zone": "zone_district_896_912"
   },
-  "grid_x": 896,
-  "grid_y": 911,
+  "grid_x": 2,
+  "grid_y": 1,
   "grid_z": 0,
   "id": "zone_district_896_911",
-  "map_id": "map_world",
+  "map_id": "map_set_aside",
   "marker": "HI",
   "name": "The Halcyon Institute",
   "parent_zone": null

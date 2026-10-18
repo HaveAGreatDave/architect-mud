@@ -716,6 +716,9 @@ export const BUILDING_TYPE_ICON = Object.freeze({
   // centre line, centre circle and the two goal mouths. Only the door tile has a facade, so only
   // `ice_rink` needs a row; the hall's back and the four stands are sealed mass and draw none.
   ice_rink: 'bldg_ice_rink',
+  // The Charles B. Hughson Coliseum: a diamond in a fan of outfield, from above. Its two gates are
+  // the park's only facades, so only they need a row; the other seven tiles are sealed mass.
+  ballpark: 'bldg_ballpark', ballpark_bleachers: 'bldg_ballpark',
 });
 
 // Gated on the `facade` tag so interior tiles (which also carry is_building) never

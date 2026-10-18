@@ -1,0 +1,16 @@
+{
+  "description": "A front-row seat behind home plate, folded up and kept clean. A brass plate on the back reads SIR CHARLES. The seats either side of it are scuffed. This one is not.",
+  "flags": {
+    "aliases": [
+      "sir charles's seat",
+      "charles's seat",
+      "brass plate",
+      "front row",
+      "empty seat"
+    ]
+  },
+  "id": "furn_hughson_charlesseat",
+  "name": "Sir Charles's seat",
+  "object_type": "decoration",
+  "zone_id": "zone_hughson_stands"
+}

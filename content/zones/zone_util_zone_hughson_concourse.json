@@ -1,0 +1,18 @@
+{
+  "description": "Under the concourse: the switchgear for the light towers, six breakers in a row with a tower number painted over each. Two of them are taped in the off position. The building's junction box is on the wall by the door.",
+  "exits": {
+    "up": "zone_hughson_concourse"
+  },
+  "flags": {
+    "floor": "concrete",
+    "is_interior": true,
+    "world_exit_zone": "zone_ballpark_897_913"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_hughson_concourse",
+  "map_id": "map_int_hughson",
+  "name": "The Coliseum — Plant Room",
+  "parent_zone": "zone_ballpark_897_913"
+}

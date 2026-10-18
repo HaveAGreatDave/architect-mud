@@ -1,0 +1,29 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A lounge above the concourse with a long bar down one side and windows over the field down the other. The carpet is patterned with baseballs and worn through to the backing in a path from the stairs to the bar.",
+  "exits": {
+    "down": "zone_hughson_concourse",
+    "up": "zone_hughson_pressbox"
+  },
+  "flags": {
+    "building_name": "Charles B. Hughson Coliseum",
+    "building_type": "ballpark",
+    "floor": "carpet",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "Tall windows over the first-base line, filmed with old smoke. The field is green below them and the towers are level with the glass.",
+      "light": 0.6,
+      "name": "the club windows",
+      "visibility": 0.8
+    },
+    "world_exit_zone": "zone_ballpark_897_913"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hughson_club",
+  "map_id": "map_int_hughson",
+  "name": "The Coliseum — Club Level",
+  "parent_zone": "zone_ballpark_897_913"
+}

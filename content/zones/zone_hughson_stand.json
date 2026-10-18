@@ -1,0 +1,22 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A tiled room off the concourse, under the third-base stands. A steel counter runs the width of it with a hot plate, a beer tap and a stack of paper boats, under a hand-painted menu board. A roll of waivers hangs on a nail by the till.",
+  "exits": {
+    "east": "zone_hughson_concourse"
+  },
+  "flags": {
+    "building_name": "Charles B. Hughson Coliseum",
+    "building_type": "ballpark",
+    "floor": "tile",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_ballpark_897_913"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hughson_stand",
+  "map_id": "map_int_hughson",
+  "name": "The Coliseum — Concessions",
+  "parent_zone": "zone_ballpark_897_913"
+}

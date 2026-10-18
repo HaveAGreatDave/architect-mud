@@ -1,0 +1,16 @@
+{
+  "description": "A bronze plaque set into the brick: The Charles B. Hughson Coliseum. For Sir Charles, who kept the gates open. Under it, on a newer steel plate: Halcyon Fields Estates gratefully acknowledges the existing structure.",
+  "flags": {
+    "aliases": [
+      "plaque",
+      "dedication",
+      "dedication plaque",
+      "plate",
+      "steel plate"
+    ]
+  },
+  "id": "furn_hughson_plaque",
+  "name": "the dedication plaque",
+  "object_type": "decoration",
+  "zone_id": "zone_hughson_rotunda"
+}

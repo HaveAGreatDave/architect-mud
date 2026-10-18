@@ -364,6 +364,7 @@ The catcher throws off the mask, finds it, and squeezes it. {outs} away.
 {batter} is retired. {outs} away.
 That's {batter} put out. {outs} down.
 ::endlines
+Good evening from the Charles B. Hughson Coliseum. Chip Vega in the booth, and Sir Charles is out front in bronze, same as every night.
 
 # --- Non-scoring baserunners --------------------------------------------------
 ::lines atbat.single
@@ -416,6 +417,10 @@ A little flare off the end of the bat drops in. Base hit, {batter}.
 Diving stop by {fielder}, but there's no play. Infield hit, {batter}.
 ::endlines
 
+Folks ask me who Sir Charles was. He owned this ground. Halcyon offered him a fortune for it three times, and three times he sent the cheque back with two tickets in the envelope.
+People rub the shoes on the Sir Charles statue out front for luck. The shoes are gold now. The luck's still bronze.
+They keep Sir Charles's seat behind home plate empty. Nobody sits in it. Not even the drunks, and that's saying something.
+Halcyon built a whole estate round this ballpark because Sir Charles wouldn't sell. You can still see the offices sulking over the left-field wall.
 ::lines atbat.single.catcher
 {batter} dribbles one in front of the plate, and the catcher has no play.
 ::endlines

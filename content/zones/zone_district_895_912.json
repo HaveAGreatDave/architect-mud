@@ -10,14 +10,16 @@
     "district": "halcyon_fields",
     "park_feature": "benches",
     "region_id": "region_coldwater",
+    "set_aside": true,
+    "set_aside_from": "895,912",
     "street_life": true,
     "terrain": "park"
   },
-  "grid_x": 895,
-  "grid_y": 912,
+  "grid_x": 1,
+  "grid_y": 2,
   "grid_z": 0,
   "id": "zone_district_895_912",
-  "map_id": "map_world",
+  "map_id": "map_set_aside",
   "name": "Vetch Green",
   "parent_zone": null
 }

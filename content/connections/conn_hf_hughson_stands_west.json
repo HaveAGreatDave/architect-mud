@@ -1,0 +1,9 @@
+{
+  "a": "zone_hughson_stands",
+  "b": "zone_hughson_nine",
+  "blocked": false,
+  "dir": "west",
+  "id": "conn_hf_hughson_stands_west",
+  "lockable": false,
+  "one_way": false
+}

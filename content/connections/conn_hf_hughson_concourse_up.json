@@ -1,0 +1,9 @@
+{
+  "a": "zone_hughson_concourse",
+  "b": "zone_hughson_club",
+  "blocked": false,
+  "dir": "up",
+  "id": "conn_hf_hughson_concourse_up",
+  "lockable": false,
+  "one_way": false
+}

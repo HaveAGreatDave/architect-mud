@@ -1,11 +1,11 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "description": "A wide run of packed gravel and grit, graded flat by traffic and rain into something almost like a road. Puddles stand in the ruts, skinned with a chemical sheen. Nothing grows in the margins.",
+  "description": "A wide run of packed gravel and grit, graded flat by traffic and rain. The Hughson Coliseum's bleacher gate opens off the south side, two iron gates in the outfield wall. Puddles stand in the ruts.",
   "exits": {
     "east": "zone_district_896_910",
     "north": "zone_district_895_909",
-    "south": "zone_district_895_911",
+    "south": "zone_ballpark_895_911",
     "west": "zone_district_894_910"
   },
   "flags": {

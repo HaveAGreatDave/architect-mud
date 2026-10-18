@@ -239,7 +239,8 @@
       "a clean white shirt and a development-coloured tie",
       "good shoes he polishes at the desk when it is quiet",
       "vest and plain underthings"
-    ]
+    ],
+    "set_aside": true
   },
   "home_activities": [],
   "home_zone": "zone_plot_office",

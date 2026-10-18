@@ -392,7 +392,11 @@
         "Vendor just walked past selling something he called \"meat adjacent.\" I didn't follow up. I value what's left of me.",
         "The stadium clock froze at 6:66 four years ago and honestly it's never been wrong about the mood.",
         "Somewhere out past the outfield wall a dog is howling in perfect rhythm with the crowd. Nobody brought a dog.",
-        "They retired a number here once. Not for a player. For a guy who survived a full season in the cheap seats. Brave soul."
+        "They retired a number here once. Not for a player. For a guy who survived a full season in the cheap seats. Brave soul.",
+        "Folks ask me who Sir Charles was. He owned this ground. Halcyon offered him a fortune for it three times, and three times he sent the cheque back with two tickets in the envelope.",
+        "People rub the shoes on the Sir Charles statue out front for luck. The shoes are gold now. The luck's still bronze.",
+        "They keep Sir Charles's seat behind home plate empty. Nobody sits in it. Not even the drunks, and that's saying something.",
+        "Halcyon built a whole estate round this ballpark because Sir Charles wouldn't sell. You can still see the offices sulking over the left-field wall."
       ],
       "contact.fly": [
         "Fly ball {toward}.",
@@ -548,7 +552,8 @@
         "Good evening, wasteland, and welcome to DEADBALL. Chip Vega in the booth, and we've got nine innings of ball for whoever's still got working eyes.",
         "Chip Vega here at the ballpark, where the lights work maybe sixty percent of the time and the hot dogs are legally a dare. Let's play ball.",
         "This is DEADBALL on Coldwater League radio. I'm Chip Vega. Somewhere out there the sun's setting on a stadium that has definitely, definitely been condemned.",
-        "Welcome back to the ballgame. Chip Vega, and I'll be your only friend for the next nine innings."
+        "Welcome back to the ballgame. Chip Vega, and I'll be your only friend for the next nine innings.",
+        "Good evening from the Charles B. Hughson Coliseum. Chip Vega in the booth, and Sir Charles is out front in bronze, same as every night."
       ],
       "matchup": [
         "Tonight it's the {away} in from out of town to face the {home} on their home dirt.",
@@ -829,7 +834,7 @@
         },
         "tallFloors": 6
       },
-      "name": "Halcyon Field",
+      "name": "Charles B. Hughson Coliseum",
       "site": {
         "bearing": 315,
         "block": {

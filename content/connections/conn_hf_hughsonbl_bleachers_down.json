@@ -1,0 +1,9 @@
+{
+  "a": "zone_hughsonbl_bleachers",
+  "b": "zone_util_zone_hughsonbl_bleachers",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_hf_hughsonbl_bleachers_down",
+  "lockable": false,
+  "one_way": false
+}

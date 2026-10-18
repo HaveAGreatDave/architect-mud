@@ -1,0 +1,26 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A long concourse under the stands, its concrete floor sticky in patches and lit by caged bulbs. The concession stand is through an opening to the west, under a hand-painted menu board. Stairs climb to the club level, and the ramps lead north to the stands.",
+  "exits": {
+    "down": "zone_util_zone_hughson_concourse",
+    "north": "zone_hughson_stands",
+    "south": "zone_hughson_rotunda",
+    "up": "zone_hughson_club",
+    "west": "zone_hughson_stand"
+  },
+  "flags": {
+    "building_name": "Charles B. Hughson Coliseum",
+    "building_type": "ballpark",
+    "floor": "concrete",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_ballpark_897_913"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hughson_concourse",
+  "map_id": "map_int_hughson",
+  "name": "The Coliseum — Concourse",
+  "parent_zone": "zone_ballpark_897_913"
+}

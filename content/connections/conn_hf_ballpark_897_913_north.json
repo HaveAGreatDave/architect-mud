@@ -1,0 +1,9 @@
+{
+  "a": "zone_ballpark_897_913",
+  "b": "zone_hughson_rotunda",
+  "blocked": false,
+  "dir": "north",
+  "id": "conn_hf_ballpark_897_913_north",
+  "lockable": true,
+  "one_way": false
+}

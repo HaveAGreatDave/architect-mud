@@ -1,0 +1,11 @@
+{
+  "description": "Globe lamps on iron brackets round the wall of the rotunda, one with its glass missing.",
+  "flags": {},
+  "id": "furn_light_zone_hughson_rotunda",
+  "light_type": "overhead",
+  "lumen_output": 2400,
+  "name": "the rotunda lamps",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_hughson_rotunda"
+}

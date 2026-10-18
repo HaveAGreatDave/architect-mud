@@ -5,7 +5,6 @@
   "color": "#cfd6c4",
   "description": "A single-storey glazed office not much bigger than a shed, and bolted to the front of it on a scaffold frame, twice its height and three times its width, a hoarding. The artist's impression on it shows a boulevard of pale buildings under a blue sky, with trees at even spacing and people walking in both directions. The trees are not here. The people are not here. Under the picture, in letters a foot high: HALCYON FIELDS · PLOTS RELEASED · ENQUIRE WITHIN.",
   "exits": {
-    "north": "zone_district_897_910",
     "south": "zone_plot_office"
   },
   "flags": {
@@ -17,14 +16,16 @@
     "floors": 2,
     "is_building": true,
     "region_id": "region_coldwater",
+    "set_aside": true,
+    "set_aside_from": "897,911",
     "sign_trade": "LAND OFFICE",
-    "world_exit_zone": "zone_district_897_910"
+    "world_exit_zone": "zone_district_897_912"
   },
-  "grid_x": 897,
-  "grid_y": 911,
+  "grid_x": 3,
+  "grid_y": 1,
   "grid_z": 0,
   "id": "zone_district_897_911",
-  "map_id": "map_world",
+  "map_id": "map_set_aside",
   "marker": "OF",
   "name": "Halcyon Land Office",
   "parent_zone": null

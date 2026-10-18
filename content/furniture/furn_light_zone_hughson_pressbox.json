@@ -1,0 +1,11 @@
+{
+  "description": "A gooseneck lamp clamped to the desk and bent down over the scorebook.",
+  "flags": {},
+  "id": "furn_light_zone_hughson_pressbox",
+  "light_type": "lamp",
+  "lumen_output": 600,
+  "name": "the desk lamp",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_hughson_pressbox"
+}

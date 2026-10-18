@@ -4,21 +4,22 @@
   "color": "#8fd08a",
   "description": "A stand of six birches, semi-mature when they were craned in and doing better than the ones along Sorrel Way. Somebody has been eating their lunch under them: the grass is worn in one spot the size of a person.",
   "exits": {
-    "east": "zone_district_898_912",
     "west": "zone_district_896_912"
   },
   "flags": {
     "district": "halcyon_fields",
     "park_feature": "grove",
     "region_id": "region_coldwater",
+    "set_aside": true,
+    "set_aside_from": "897,912",
     "street_life": true,
     "terrain": "park"
   },
-  "grid_x": 897,
-  "grid_y": 912,
+  "grid_x": 3,
+  "grid_y": 2,
   "grid_z": 0,
   "id": "zone_district_897_912",
-  "map_id": "map_world",
+  "map_id": "map_set_aside",
   "name": "Vetch Green",
   "parent_zone": null
 }

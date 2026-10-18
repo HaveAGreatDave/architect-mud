@@ -1,0 +1,19 @@
+{
+  "description": "Green wooden seats with iron arms, bolted in rows to the concrete. The paint has worn off the arms where hands go.",
+  "flags": {
+    "aliases": [
+      "seat",
+      "seats",
+      "row",
+      "rows",
+      "chair"
+    ],
+    "interactions": [
+      "sit"
+    ]
+  },
+  "id": "furn_hughson_seats",
+  "name": "the seats",
+  "object_type": "furniture",
+  "zone_id": "zone_hughson_stands"
+}

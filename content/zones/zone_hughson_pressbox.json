@@ -1,0 +1,28 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A narrow box under the roof of the stands, glazed along the front. Two microphones stand on a desk with a scorebook open between them, and a cushion is tied to one of the chairs. The name stencilled on the back of that chair is VEGA.",
+  "exits": {
+    "down": "zone_hughson_club"
+  },
+  "flags": {
+    "building_name": "Charles B. Hughson Coliseum",
+    "building_type": "ballpark",
+    "floor": "linoleum",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "A long sloped window over home plate, a crack across one pane mended with tape. From here the whole field fits in the glass.",
+      "light": 0.6,
+      "name": "the press box glass",
+      "visibility": 1
+    },
+    "world_exit_zone": "zone_ballpark_897_913"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hughson_pressbox",
+  "map_id": "map_int_hughson",
+  "name": "The Coliseum — Press Box",
+  "parent_zone": "zone_ballpark_897_913"
+}

@@ -4,7 +4,6 @@
   "description": "A row of young trees stands in chrome grilles along the north kerb, each one strapped to three stakes and each one dead. The straps are still tight.",
   "exits": {
     "east": "zone_district_896_914",
-    "north": "zone_district_895_913",
     "south": "zone_district_895_915",
     "west": "zone_district_894_914"
   },

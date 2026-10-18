@@ -1,0 +1,9 @@
+{
+  "a": "zone_hughsonbl_bleachers",
+  "b": "zone_hughson_stands",
+  "blocked": false,
+  "dir": "south",
+  "id": "conn_hf_hughsonbl_bleachers_south",
+  "lockable": false,
+  "one_way": false
+}

@@ -226,7 +226,8 @@
       "a good tweed skirt and jacket that have been very good indeed",
       "flat shoes she can stand in for six hours",
       "a slip and plain underthings"
-    ]
+    ],
+    "set_aside": true
   },
   "home_activities": [],
   "home_zone": "zone_going_strong",

@@ -101,6 +101,7 @@
     ]
   },
   "hooks": [
-    "tick.minute"
+    "tick.minute",
+    "venue.lit"
   ]
 }

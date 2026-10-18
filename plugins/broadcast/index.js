@@ -2917,10 +2917,35 @@ async function sportsHeartbeat() {
   const nowMs = Date.now();
   await recordSimSwitches();
   const chans = sportsChannels();
+// ── GAME NIGHTS AT THE PARK ─────────────────────────────────────────────────────
+// A venue's light towers are on while the show that plays there is on air. The venue is content
+// (`sports_pools.venue.site.block`, the tiles the park stands on), so this names no park: any
+// sports script with a block lights it. The map derive asks `venue.lit` for every tile carrying
+// `flags.venue_lights` (plugins/flight/state.js); ⚠ SYNC AND QUERY-FREE, because the map window is,
+// so it answers from this set, which the heartbeat below keeps. A view that is open when it changes
+// is told by a `venue_lit` push (client/game/js/panels/world-feed.js keeps it by tile).
+let _venueLit = new Set();   // "x,y" of every tile of a venue whose show is on air now
+function venueLit({ x, y } = {}) { return _venueLit.has(`${x},${y}`) ? { on: 1 } : undefined; }
+function refreshVenueLights(chans) {
+  const next = new Set();
+  for (const { script } of chans) {
+    const b = script?.venue?.site?.block;
+    if (!b || ![b.x0, b.x1, b.y0, b.y1].every(Number.isFinite)) continue;
+    for (let x = b.x0; x <= b.x1; x++) for (let y = b.y0; y <= b.y1; y++) next.add(`${x},${y}`);
+  }
+  const on = [...next].filter((k) => !_venueLit.has(k)), off = [..._venueLit].filter((k) => !next.has(k));
+  _venueLit = next;
+  if (!on.length && !off.length) return;
+  const xy = (k) => k.split(',').map(Number);
+  const msg = { type: 'venue_lit', on: on.map(xy), off: off.map(xy) };
+  for (const id of world.players.keys()) sendToPlayer(id, msg);
+}
+
   if (!chans.length) return;
   // Background postseason detection, per sport, with no viewer needed. Deduped so two
   // channels carrying the same sport cost one round trip.
   for (const sport of new Set(chans.map(c => sportOf(c.script).id))) await refreshSeason(nowMs, sport);
+  refreshVenueLights(chans);
   const slot = sportsSlotIndex();
   const endsAtMs = sportsSlotEndsAtMs();
   // EACH CHANNEL SIMULATES ITS OWN GAME. This used to sim chans[0] and emit that one
@@ -10362,6 +10387,7 @@ export const _test = {
   // the sport's script as the venue and club handlers find it
   anySportsScript,
   sportsGameForSlot, sportsMatchupForSlot, roundRobinRounds, sportsSlotIndex,
+  venueLit, refreshVenueLights,
   sportsSlotMs, sportsAiring, SPORTS_GAMES_PER_DAY, nextAirSlot,
   assembleNewsGraph, newsFill, newsSceneNames,
   // The weather report had no test seam at all, which is how a two-line handover and a
@@ -11717,6 +11743,7 @@ export const hooks = {
     for (const zoneId of zones) {
       const npcsHere = getZoneNpcs(zoneId);
       const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+  'venue.lit': venueLit,
 
       for (const f of getZoneFurniture(zoneId)) {
         const fl = f.flags || {};

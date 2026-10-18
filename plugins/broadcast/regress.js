@@ -4367,3 +4367,23 @@ export default async function regress({ check, run, getPlayer }) {
       _test.camerasIn('zone_stgarneau_pantry').length === before);
   }
 }
+
+  // ── Game nights at the park ─────────────────────────────────────────────────
+  // The light towers follow the show that plays there: every tile of a venue's block answers
+  // venue.lit while it's on air, nothing does once it's off, and the map derive puts it on the cell.
+  {
+    const { venueLit, refreshVenueLights } = _test;
+    const chans = [{ script: { venue: { site: { block: { x0: 895, x1: 897, y0: 911, y1: 913 } } } } }];
+    refreshVenueLights(chans);
+    check('venue lights: every tile of the block is lit while its show is on', venueLit({ x: 895, y: 911 })?.on === 1 && venueLit({ x: 897, y: 913 })?.on === 1);
+    check('venue lights: a tile off the block is not', venueLit({ x: 898, y: 912 }) === undefined);
+    const { deriveSurfaceCell } = await import('../flight/state.js');
+    const z = getZone('zone_ballpark_896_912');
+    if (z && typeof deriveSurfaceCell === 'function') {
+      check('venue lights: the derive puts the game night on the park cell', deriveSurfaceCell(z, 896, 912).vl === 1);
+      check('venue lights: a static bake never bakes one in', deriveSurfaceCell(z, 896, 912, undefined, false).vl === 0);
+    }
+    refreshVenueLights([]);
+    check('venue lights: off air, the towers go dark', venueLit({ x: 896, y: 912 }) === undefined);
+    if (z && typeof deriveSurfaceCell === 'function') check('venue lights: and the cell says so', deriveSurfaceCell(z, 896, 912).vl === 0);
+  }

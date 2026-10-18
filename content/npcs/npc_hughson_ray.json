@@ -1,0 +1,259 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "jitter": 20,
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "cash_up",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "player_check",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "no": "off_random",
+        "type": "condition",
+        "yes": "home_idle"
+      },
+      "off_random": {
+        "options": [
+          "go_home_off",
+          "have_life"
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_PRESENT",
+        "no": "work_wait",
+        "type": "condition",
+        "yes": "work_say"
+      },
+      "post_shift": {
+        "options": [
+          "go_home_ps",
+          "home_life_ps"
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "work_wait": {
+        "jitter": 20,
+        "next": "check_work",
+        "seconds": 25,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "Dombrowski turns three franks on the hot plate with his fingers.",
+    "He tops up the chilli from a steel pot and stirs it with the ladle he serves it with.",
+    "He pulls a beer, holds it to the light, and pours the top inch away.",
+    "Somewhere above, the crowd groans. He nods as if he expected it.",
+    "He straightens the stack of waivers on the counter."
+  ],
+  "description": "A heavy man in his fifties in a white paper hat and an apron with chilli down the front, his forearms red from the hot plate. A pencil rides behind one ear. He wipes the counter in slow circles and looks up every time the crowd makes a noise.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "\"Enjoy the game,\" he says. \"Sign the waiver.\""
+    },
+    "charles": {
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"He owned the ground. Halcyon wanted it for offices, three times, and three times he sent the cheque back with two tickets in the envelope. So they built the whole estate round him.\"\n\nHe looks past you at the rotunda. \"He used to stand at the gate on opening day and shake every hand that came through. Mine too. I was nine. Nobody knows who started calling him Sir. He never asked anybody to stop.\""
+    },
+    "games": {
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Monday, Wednesday, Friday. Six o'clock, on KSAB, and here.\" He taps the counter. \"When the towers come on, I'm open. When they go off, I'm not.\""
+    },
+    "nine": {
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Something came down in it one night. Nobody was sitting there, which is the only good thing about a bad season.\" He shrugs. \"They roped it off and kept the numbers on the seats. Chip on the radio says his ex-wife sat there. Chip says a lot of things.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "What do you sell?",
+          "next": "__shop__"
+        },
+        {
+          "label": "Who was Sir Charles?",
+          "next": "charles"
+        },
+        {
+          "label": "What happened to section nine?",
+          "next": "nine"
+        },
+        {
+          "label": "When do they play?",
+          "next": "games"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing, thanks.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Widowmaker, beer, coffee.\" He points the ladle at the board. \"What'll it be?\"",
+      "text_by_relation": {
+        "familiar": "\"The usual, with the onions.\" It is already on the counter.",
+        "first": "The man behind the counter wipes his hands on his apron.\n\n\"Ray Dombrowski. I do the stand.\" He nods up at the board. \"Widowmaker comes with a waiver. Everybody signs it. Nobody reads it.\"",
+        "known": "\"You came back.\" He already has a boat in his hand."
+      }
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "an apron with chilli down the front",
+      "a white paper hat",
+      "a short-sleeved shirt with the Coliseum's crest on the pocket",
+      "work trousers",
+      "boxer shorts"
+    ]
+  },
+  "home_activities": [],
+  "home_zone": "zone_hughson_stand",
+  "hp": 42,
+  "hp_max": 42,
+  "id": "npc_hughson_ray",
+  "name": "Ray Dombrowski",
+  "npc_type": "vendor",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_widowmaker",
+      "price": 7
+    },
+    {
+      "item_id": "item_drug_beer",
+      "price": 5
+    },
+    {
+      "item_id": "item_drug_coffee",
+      "price": 4
+    }
+  ],
+  "vendor_restock_rate": 3,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 16,
+        "to": 22
+      }
+    ],
+    "mon": [
+      {
+        "from": 16,
+        "to": 22
+      }
+    ],
+    "sat": [],
+    "sun": [],
+    "thu": [],
+    "tue": [],
+    "wed": [
+      {
+        "from": 16,
+        "to": 22
+      }
+    ]
+  },
+  "vendor_shop_name": "Concessions",
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_hughson_stand"
+}

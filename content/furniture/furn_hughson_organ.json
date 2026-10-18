@@ -1,0 +1,15 @@
+{
+  "description": "An electric organ in a booth at the top of the aisle, its speakers wired to the light towers. A card taped above the keys has one song title on it.",
+  "flags": {
+    "aliases": "organ,ballpark organ,keys,booth",
+    "instrument": "organ",
+    "interactions": [
+      "examine",
+      "play"
+    ]
+  },
+  "id": "furn_hughson_organ",
+  "name": "the ballpark organ",
+  "object_type": "furniture",
+  "zone_id": "zone_hughson_stands"
+}

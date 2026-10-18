@@ -1,0 +1,11 @@
+{
+  "description": "The near light tower's lower bank, angled back over the bleachers so the cheap seats can see their feet.",
+  "flags": {},
+  "id": "furn_light_zone_hughsonbl_bleachers",
+  "light_type": "overhead",
+  "lumen_output": 1200,
+  "name": "the bleacher floods",
+  "object_type": "light",
+  "power_draw_kw": 0.03,
+  "zone_id": "zone_hughsonbl_bleachers"
+}

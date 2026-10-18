@@ -1,0 +1,15 @@
+{
+  "description": "A steel scoreboard on four legs behind the top row, nine innings across and a lamp for every ball, strike and out. The clock in its middle has stopped at a time that is not on the dial.",
+  "flags": {
+    "aliases": [
+      "scoreboard",
+      "clock",
+      "lamps",
+      "legs"
+    ]
+  },
+  "id": "furn_hughsonbl_scoreboard",
+  "name": "the scoreboard",
+  "object_type": "decoration",
+  "zone_id": "zone_hughsonbl_bleachers"
+}

@@ -1,0 +1,11 @@
+{
+  "description": "Two fluorescent tubes over the counter, one of them slow to come on.",
+  "flags": {},
+  "id": "furn_light_zone_hughson_stand",
+  "light_type": "overhead",
+  "lumen_output": 1800,
+  "name": "the counter lights",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_hughson_stand"
+}

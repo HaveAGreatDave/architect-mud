@@ -1,0 +1,9 @@
+{
+  "a": "zone_hughson_rotunda",
+  "b": "zone_hughson_tickets",
+  "blocked": false,
+  "dir": "east",
+  "id": "conn_hf_hughson_rotunda_east",
+  "lockable": false,
+  "one_way": false
+}

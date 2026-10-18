@@ -1,0 +1,15 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_widowmaker",
+  "name": "Widowmaker",
+  "tags": {
+    "consumable": true,
+    "description": "A foot-long frank in a split bun under chilli, raw onion and a yellow sauce, in a paper boat with a waiver printed on the side. Sold at the Hughson Coliseum.",
+    "restore_hunger": 26,
+    "stackable": true
+  },
+  "type": "consumable",
+  "value": 7,
+  "weight": 260
+}

@@ -798,7 +798,9 @@ Deadball's sub-screen is the 2-D Gameday view ([gameday.js](../client/game/js/pa
 A high-fidelity 3-D one on Rinkside's pattern, with a 1990s arcade look and the park inside the
 Curtain on Halcyon Fields, is planned in [proposals/deadball-glass2.md](proposals/deadball-glass2.md)
 (Phases 0 to 4 built; the park in 3-D is on by default: see the Grandstand below, and its sound in
-[systems-deadball-sound.md](systems-deadball-sound.md)).
+[systems-deadball-sound.md](systems-deadball-sound.md)). The park is on the map too, as the Charles
+B. Hughson Coliseum on nine tiles of Halcyon Fields, and its light towers come on while Deadball is
+on air ([proposals/hughson-coliseum.md](proposals/hughson-coliseum.md)).
 
 **The Gameday payload** is built by a pure module,
 [sports/baseball-gameday.js](../plugins/broadcast/sports/baseball-gameday.js), which the

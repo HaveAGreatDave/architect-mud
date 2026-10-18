@@ -1,0 +1,11 @@
+{
+  "description": "A strip light over the ticket counter with a dead fly in the diffuser.",
+  "flags": {},
+  "id": "furn_light_zone_hughson_tickets",
+  "light_type": "overhead",
+  "lumen_output": 1200,
+  "name": "the office strip light",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_hughson_tickets"
+}

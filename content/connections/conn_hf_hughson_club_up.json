@@ -1,0 +1,9 @@
+{
+  "a": "zone_hughson_club",
+  "b": "zone_hughson_pressbox",
+  "blocked": false,
+  "dir": "up",
+  "id": "conn_hf_hughson_club_up",
+  "lockable": false,
+  "one_way": false
+}

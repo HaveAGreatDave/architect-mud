@@ -79,6 +79,8 @@ const conn = (store, a, b, dir, lockable = false) => store.patch('connections', 
  *
  * spec = {
  *   slug, name, type, x, y, entrance, floors, marker, district,
+ *   facadeId?,   // the door tile's id, when it isn't the tile's own zone_district_<x>_<y>
+ *   roomName?,   // what the rooms are called before their own name, when `name` is too long for it
  *   facade:   { description, bgColor?, color? },
  *   rooms:    [{ key, name, description, floor, window?, from?, dir? }]   // rooms[0] is the entry
  *   lights:   { <roomKey>: { name, description, lumens, type? } }
@@ -88,7 +90,7 @@ const conn = (store, a, b, dir, lockable = false) => store.patch('connections', 
  * }
  */
 export async function authorBuilding(store, spec) {
-  const facadeId = `zone_district_${spec.x}_${spec.y}`;
+  const facadeId = spec.facadeId || `zone_district_${spec.x}_${spec.y}`;
   const mapId = `map_int_${spec.slug}`;
   const streetId = streetFor(store, spec);
   const roomId = (key) => `zone_${spec.slug}_${key}`;
@@ -103,6 +105,7 @@ export async function authorBuilding(store, spec) {
   delete flags.scavenging_table_id;
   delete flags.street_life;
   store.patch('zones', facadeId, {
+    id: facadeId,                         // a new tile has no row yet for the patch to keep it from
     name: spec.name,
     description: spec.facade.description,
     ambient_theme: 'urban',
@@ -175,7 +178,7 @@ export async function authorBuilding(store, spec) {
     if (r === entry) exits[spec.entrance] = facadeId;   // ← the way out faces the entrance side
     else { exits[OPPOSITE[r.dir]] = roomId(r.from); conn(store, roomId(r.from), id, r.dir); }
     store.patch('zones', id, {
-      id, name: `${spec.name} — ${r.name}`,
+      id, name: `${spec.roomName || spec.name} — ${r.name}`,
       description: r.description,
       ambient_theme: 'indoors',
       map_id: mapId, parent_zone: facadeId,
@@ -227,7 +230,7 @@ export async function authorBuilding(store, spec) {
   conn(store, roomId(anchorKey), util.utilityRoomId, 'down');
   if (spec.utility) {
     store.patch('zones', util.utilityRoomId, {
-      name: `${spec.name} — ${spec.utility.name}`,
+      name: `${spec.roomName || spec.name} — ${spec.utility.name}`,
       description: spec.utility.description,
       flags: { ...(store.get('zones', util.utilityRoomId).flags || {}), floor: spec.utility.floor || 'stone' },
     });

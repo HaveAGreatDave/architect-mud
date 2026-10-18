@@ -1,11 +1,10 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "description": "Loose stone crunches underfoot, greyed with dust and old oil. A dead streetlight leans at the verge, and the wind carries grit that finds your teeth. Tyre tracks braid off into the haze.",
+  "description": "Loose stone crunches underfoot, greyed with dust and old oil. The brick outfield wall of the Hughson Coliseum runs along the south side, and the scoreboard's steel legs stand over it. A dead streetlight leans at the verge.",
   "exits": {
     "east": "zone_district_897_910",
     "north": "zone_district_896_909",
-    "south": "zone_district_896_911",
     "west": "zone_district_895_910"
   },
   "flags": {

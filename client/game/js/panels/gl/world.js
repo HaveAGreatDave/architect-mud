@@ -567,7 +567,7 @@ function windowKeyOf(cells) {
   // where you are standing, when a storm faults a junction box under your feet. Leave it out and
   // the vertex buffer is not stale, so the blackout arrives at the next corner instead of now.
   const parts = cells.map((it) => it.gx + ',' + it.gy + ':' + (it.c.bt || '') + ':' + (it.c.bn || '') + ':' + meshParams(it)
-    + ':' + (it.c.pw == null ? '' : it.c.pw) + (it.c.em ? 'e' : '') + (it.c.og ? 'o' : ''));
+    + ':' + (it.c.pw == null ? '' : it.c.pw) + (it.c.em ? 'e' : '') + (it.c.og ? 'o' : '') + (it.c.vl ? 'v' : ''));
   parts.sort();
   return parts.join(';');
 }
@@ -626,7 +626,7 @@ if (typeof window !== 'undefined') {
 // here and is itself a function of the tile, so this is belt and braces; it is stated anyway,
 // because 'another term happens to cover it' is exactly how a cache bug waits.
 const meshParams = (it) => it.fh + ':' + it.h + ':' + it.seed + ':' + it.E[0] + ',' + it.E[1]
-  + ':' + (it.c && it.c.biome || '') + ':' + (it.wx | 0);
+  + ':' + (it.c && it.c.biome || '') + ':' + (it.wx | 0) + (it.c && it.c.vl ? ':v' : '');   // a lit venue is another mesh
 
 // ── WHAT THE SUN PASS IS HANDED, OR NOTHING AT ALL ──────────────────────────
 //
@@ -963,7 +963,9 @@ const SSAO_TUNE = {
 
 // The district a GL cell stands in, in the shape windshield.js's `setTilePlace` wants. One place,
 // so the day capture and the night capture below cannot disagree about where the building is.
-const placeOf = (it) => ({ biome: it.c && it.c.biome, wx: it.wx, wy: it.wy });
+// ⚠ AND ITS GAME NIGHT (`vl`): a venue's arm lights its field and lamps from the place, and both
+// captures are of what the arm draws, so a place without it bakes an unlit park into the mesh.
+const placeOf = (it) => ({ biome: it.c && it.c.biome, wx: it.wx, wy: it.wy, vl: it.c && it.c.vl });
 
 // The skyline strip reads each cell's mesh every frame for two numbers (topZ, avgRgb). The cells array
 // is fixed for a map window, so the lookups (a meshParams string and two Map hits per cell) are done

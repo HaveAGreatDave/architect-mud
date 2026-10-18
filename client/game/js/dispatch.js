@@ -62,7 +62,7 @@ import { openBoat, closeBoat, boatSetWorld, isBoatActive } from './panels/lazy-v
 import { openPodracer, closePodracer, podracerSetWorld, isPodracerActive, isPodracerDepotActive, openPodracerDepot, closePodracerDepot, closePodracerBay } from './panels/lazy-views.js';
 import { openMarina, closeMarina, marinaSetData, isMarinaActive, openMarinaService, closeMarinaService } from './panels/lazy-views.js';
 import { openFreelook, closeFreelook, isFreelookActive, freelookSetSky, freelookSetActors, freelookSetContacts } from './panels/lazy-views.js';
-import { noteFirework, noteAAState, noteAAFire } from './panels/world-feed.js';
+import { noteFirework, noteAAState, noteAAFire, noteVenueLit } from './panels/world-feed.js';
 import { airHorn } from './panels/lazy-views.js';
 import { openTruckDepot, closeTruckDepot, closeBayService, isTruckDepotActive } from './panels/lazy-views.js';
 import { setDrugFx, clearDrugFx } from './panels/flight-drugfx.js';
@@ -1696,6 +1696,7 @@ const handlers = {
   // An AA battery changed state, or opened up: every view draws the battery (the `aa` mark), so
   // every view is told. Kept by tile in world-feed.js.
   aa_state: (msg) => { noteAAState(msg); },
+  venue_lit: (msg) => { noteVenueLit(msg); },
   aa_fire: (msg) => { noteAAFire(msg); },
   // A shell climbing before it bursts: one tile away (or on the launch tile) on-foot players see
   // a streaking trail rise and detonate at its apex — the whistle is tuned to peak there. Farther

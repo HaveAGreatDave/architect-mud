@@ -5,7 +5,6 @@
   "color": "#cfc2a4",
   "description": "A wide brick front with a run of clerestory glazing high up under the eaves, because a saleroom is lit from above or it is not lit at all. At street level there is one ordinary door for people and, beside it, a goods door wide enough and high enough to take a piano upright, with a rail let into the stone at ankle height where trolleys have been running into it for years. 8 HALCYON BOULEVARD is painted straight onto the brick in a serif two feet tall, and under it, in half the size: VALUATIONS · CLEARANCES · WEDNESDAYS.",
   "exits": {
-    "north": "zone_district_895_910",
     "south": "zone_going_saleroom"
   },
   "flags": {
@@ -17,14 +16,16 @@
     "floors": 4,
     "is_building": true,
     "region_id": "region_coldwater",
+    "set_aside": true,
+    "set_aside_from": "895,911",
     "sign_trade": "AUCTIONEERS",
-    "world_exit_zone": "zone_district_895_910"
+    "world_exit_zone": "zone_district_895_912"
   },
-  "grid_x": 895,
-  "grid_y": 911,
+  "grid_x": 1,
+  "grid_y": 1,
   "grid_z": 0,
   "id": "zone_district_895_911",
-  "map_id": "map_world",
+  "map_id": "map_set_aside",
   "marker": "H8",
   "name": "8 Halcyon Boulevard",
   "parent_zone": null

@@ -1,0 +1,20 @@
+{
+  "description": "A steel counter with a hot plate, a beer tap and a stack of paper boats. The menu board over it is hand-painted: Widowmaker, beer, coffee. Under the Widowmaker, smaller: waiver included.",
+  "flags": {
+    "aliases": [
+      "stand",
+      "concession",
+      "concession stand",
+      "counter",
+      "menu",
+      "menu board",
+      "board",
+      "tap",
+      "hot plate"
+    ]
+  },
+  "id": "furn_hughson_counter",
+  "name": "the concession stand",
+  "object_type": "furniture",
+  "zone_id": "zone_hughson_stand"
+}

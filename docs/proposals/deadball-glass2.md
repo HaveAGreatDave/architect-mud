@@ -18,8 +18,9 @@ bank, the mix, the announcer's calls, the umpire, the public address and a vendo
 [systems-deadball-sound.md](../systems-deadball-sound.md)); and Phase 5 but for the clubs: the three
 postseason bugs fixed, the final named the Curtain Call, its gold graphics, the park dressed for it,
 the line-ups read under searchlights, and the champions crowned with confetti, fireworks over the park
-and the city, a pile on the mound and the trophy. The sixteen club identities and Phases 6 and 7 are
-design.** A plan for giving Deadball a 3-D sub-screen the way Cluster Puck got Rinkside, at the
+and the city, a pile on the mound and the trophy; and Phase 6 but for seats in person, the park on the
+map as the Charles B. Hughson Coliseum ([hughson-coliseum.md](hughson-coliseum.md)). The sixteen club
+identities, seats in person and Phase 7 are design.** A plan for giving Deadball a 3-D sub-screen the way Cluster Puck got Rinkside, at the
 highest fidelity the engine can reach. Deadball is a live sport on KSAB, and the broadcast borrows
 the look of a 1990s arcade baseball game. That means skinned, detailed players, authored animation
 with a wide spread of plays, light from the park's own towers and a crowd that fills the stands.
@@ -41,7 +42,7 @@ How it got here, all on 2026-10-11:
   on television and "arcade" names only its look. It adds a high-score table of the league's
   leaders, a spread of plays from the ball off the bat to errors and stolen bases, and a proper grip
   on the bat. The audio engine work went to its own plan and branch.
-- Decided the same day: the park is **Halcyon Field**; on the map it takes a compact block of nine
+- Decided the same day: the park is Halcyon Field (renamed the **Charles B. Hughson Coliseum** on 2026-10-18, for Sir Charles); on the map it takes a compact block of nine
   tiles, six buildings and Vetch Green, which are set aside for later use rather than deleted; and
   sim v2 goes in as soon as it's ready, without waiting for a new season. A first site at full scale
   took 41 buildings and was turned down.
@@ -90,7 +91,7 @@ this branch or ahead of it.
   rally towels and searchlights. It ends with confetti and fireworks over the city.
 - **Sound:** a high-fidelity SIREN bank of about 50 cues sits 9 dB under the announcer and ducks
   6 dB further while the announcer speaks. ORACLE calls the big plays.
-- **A place in the world:** Halcyon Field stands inside the Curtain on a block of nine tiles in
+- **A place in the world:** The Charles B. Hughson Coliseum stands inside the Curtain on a block of nine tiles in
   Halcyon Fields, six buildings and Vetch Green, set aside for later use. No street closes, and its
   gates open onto Halcyon Boulevard and Sorrel Way. On the map it's drawn at the map's compressed
   scale, as GLASS draws every landmark. It's lit on game nights and seen from the streets, the towers
@@ -783,7 +784,7 @@ ballpark lights in real HDR values, so bloom and the tone curve have something t
 
 ### Where the park stands
 
-Halcyon Field stands inside the Curtain, in Halcyon Fields, the Glasshouse's own estate, built in
+The Charles B. Hughson Coliseum stands inside the Curtain, in Halcyon Fields, the Glasshouse's own estate, built in
 one campaign in a deliberately narrow palette ([halcyon-fields-infill.md](halcyon-fields-infill.md)).
 
 **On the map it's a block of nine tiles:** x 895 to 897, y 911 to 913, the middle of the north half
@@ -793,7 +794,9 @@ of the estate's central block.
   Boulevard; Fixed Assets, Grounds for Concern and Fit for Purpose along Sorrel Way; and the three
   tiles of Vetch Green between them. None is in the Glasshouse district and none has a Modelshop
   model. They hold 11 rooms, 4 NPCs and 31 pieces of furniture, all self-contained: nothing else in
-  the repo points at them. They're set aside for later use (see *The park on the map*).
+  the repo points at them. They're set aside for later use (see *The park on the map*). As built,
+  six street tiles and a grass tile did point in, and those links were cut
+  ([hughson-coliseum.md](hughson-coliseum.md#3-what-was-set-aside)).
 - **No street closes.** The block is bounded by Halcyon Boulevard to the north and Sorrel Way to the
   south, with Vested Interest, Terms Agreed and Artist's Impression to the west and Salad Days and
   Second Wind to the east, all of which keep their doors.
@@ -1778,7 +1781,9 @@ Phase 3, or with sim v2 if that comes later.
   own beat; with reduced motion he stands without the bouncing. Most fans are the home side's,
   more of the visitors' up the third-base line. This is the plan's crowd without the
   vertex-animation clips: a crowd seen from the cameras' distances reads by standing up, not by
-  what its hands do. The camera flashes at night are 4e's.
+  what its hands do. The camera flashes at night are 4e's. On 2026-10-18 the figure was rebuilt to
+  read as a person by its outline: a lofted torso with shoulders, a head on top of it, arms in two
+  parts, hands and shoes ([hughson-coliseum.md](hughson-coliseum.md#7-on-tv)).
 
 - **4d.1 built, the infield keeps the game:** every pitch leaves the pitcher's stride where his
   front foot lands and the hitter's back foot dug into his box, and every slide and dive its scar,
@@ -1838,7 +1843,7 @@ Phase 3, or with sim v2 if that comes later.
   ([diamond/sky.js](../../client/game/js/panels/diamond/sky.js)): the sky's zenith and horizon, the
   ambient from above and below, the haze, the stars, the city's glow and its windows and lamps.
   Deadball airs from 18:00, so a game starts as the sun goes down, the horizon warm in the west
-  (over left field at Halcyon Field, taken against the venue's bearing) and cooler away from it,
+  (over left field at the Charles B. Hughson Coliseum, taken against the venue's bearing) and cooler away from it,
   goes through the blue hour as the windows come on, and is the night the park was tuned at from
   20:00. The keyframes moved out of the windshield to
   [client/shared/sky-keys.js](../../client/shared/sky-keys.js), so both blend the same table, and the
@@ -2008,13 +2013,19 @@ Phase 3, or with sim v2 if that comes later.
     reserved word as a shader's variable, after one took the whole park down to 2-D) and regress.
 
 **Phase 6: a place in the world.**
-- Halcyon Field on the map: the six buildings, Vetch Green and their NPCs set aside on the holding
+- The Charles B. Hughson Coliseum on the map: the six buildings, Vetch Green and their NPCs set aside on the holding
   map, the player-row check and its one-shot, the type, the tiles, the fill, the model, the gates on
   their streets, the game-night lights.
 - Seats in person, last.
 - Tested by: `shapes:smoke`, `sitecheck.mjs`, `content:lint`, a walk from Sorrel Way through the
   main gate in regress, and a set-aside gate: nothing on the holding map connects to the world, and
   every set-aside building still resolves its interiors, furniture and NPCs.
+- **Built 2026-10-18 but for seats in person**, as [hughson-coliseum.md](hughson-coliseum.md)
+  describes, and the park renamed the Charles B. Hughson Coliseum the same day, for Sir Charles.
+  Three things differ from this plan. The South Lock wasn't the precedent: it's a road mark, not a
+  building, so the park is nine building types drawn by one arm, as the Slush Fund's six are. The
+  block wasn't self-contained: six street tiles and the grass at 898,912 pointed into it, and those
+  links were cut. And a set-aside facade's way out names the green beside it on the holding map.
 
 **Phase 7: optional.** A longer postseason; a pitch-by-pitch booth; a park per club; the batter's
 season line; the throwback presets; the same lighting for Rinkside; the skyline dimming with the
@@ -2047,9 +2058,8 @@ power grid.
   motion turns them into stills, nothing flashes more than three times a second, and the crowd's
   camera flashes stay small.
 - **Scope.** Seats in person are a feature of their own and come last.
-- **The park isn't on the map.** Until Phase 6 puts it there, a player who walks or flies over
-  south-west Halcyon Fields finds the estate where the broadcast shows a ballpark. Putting it there
-  means setting aside six buildings and Vetch Green.
+- **The park wasn't on the map.** Phase 6 put it there on 2026-10-18 and set aside six buildings and
+  Vetch Green to do it ([hughson-coliseum.md](hughson-coliseum.md)).
 - **Content set aside.** The park takes six buildings (11 rooms, 4 NPCs) and Vetch Green out of play
   from a campaign that shipped recently. Nothing is deleted. The risk is player rows that point into
   those zones; the check before the move finds them.
@@ -2067,7 +2077,7 @@ power grid.
 
 Decided on 2026-10-11:
 
-- **The site and the name:** Halcyon Field, on the nine-tile block under *Where the park stands*. A
+- **The site and the name:** the Charles B. Hughson Coliseum, on the nine-tile block under *Where the park stands*. A
   first site at full scale took 41 buildings; the most the park may take is eight to twelve tiles.
 - **The buildings it displaces:** six buildings and Vetch Green, set aside for later use, as under
   *The park on the map*.
@@ -2101,7 +2111,7 @@ Still open:
 11. **The postseason.** Keep the one-game final (recommended for now), or add a bracket with series?
 12. **The 2-D Gameday:** keep it as a "classic" option players can pick, or only as the fallback?
 13. **The view's name:** "Grandstand" is a working name for the 3-D view, as "Rinkside" is the
-    rink's. The park is Halcyon Field either way.
+    rink's. The park is the Charles B. Hughson Coliseum either way.
 14. **A place in the world.** The park on the map in Phase 6 (recommended), and seats in person
     later?
 15. **The Curtain.** Draw it as GLASS does, about 53 ft (recommended, so the TV and the windshield

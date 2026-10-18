@@ -1,0 +1,21 @@
+{
+  "description": "A desk at the window with two microphones, a monitor and the night's scorebook, kept in pencil. The chair with the cushion on it has VEGA stencilled on the back.",
+  "flags": {
+    "aliases": [
+      "desk",
+      "broadcast desk",
+      "microphones",
+      "microphone",
+      "scorebook",
+      "monitor",
+      "chair"
+    ],
+    "interactions": [
+      "sit"
+    ]
+  },
+  "id": "furn_hughson_desk",
+  "name": "the broadcast desk",
+  "object_type": "furniture",
+  "zone_id": "zone_hughson_pressbox"
+}

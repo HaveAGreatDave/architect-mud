@@ -1,0 +1,18 @@
+{
+  "description": "A steel cash drawer under the concession counter, chained to the frame, with a key lock and a dent in the front.",
+  "flags": {
+    "aliases": [
+      "cash drawer",
+      "drawer",
+      "till",
+      "cash"
+    ],
+    "hack_difficulty": 3,
+    "vendor_npc_id": "npc_hughson_ray",
+    "vendor_safe": true
+  },
+  "id": "furn_hughson_till",
+  "name": "the cash drawer",
+  "object_type": "fixture",
+  "zone_id": "zone_hughson_stand"
+}

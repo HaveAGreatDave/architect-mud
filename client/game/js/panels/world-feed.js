@@ -108,3 +108,17 @@ export function makeContactTrack() {
     get raw() { return list; },
   };
 }
+
+// ── VENUE LIGHTS ─────────────────────────────────────────────────────────────
+// The cell says whether a venue's light towers were on when the window was sent (`vl`, the
+// Hughson Coliseum's game nights); these say what changed since, by tile. A view left open over the
+// park through first pitch sees the towers come on without waiting for its window to move.
+const VENUE = new Map();
+export function noteVenueLit(msg) {
+  for (const [list, on] of [[msg && msg.on, 1], [msg && msg.off, 0]]) {
+    if (!Array.isArray(list)) continue;
+    for (const p of list) if (Array.isArray(p) && Number.isFinite(p[0]) && Number.isFinite(p[1])) VENUE.set(p[0] + ',' + p[1], on);
+  }
+}
+// 1 or 0 if the venue on tile (x, y) has changed since its cell was sent, or undefined.
+export function venueLive(x, y) { return VENUE.size ? VENUE.get(x + ',' + y) : undefined; }

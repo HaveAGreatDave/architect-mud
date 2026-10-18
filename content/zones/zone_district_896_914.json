@@ -1,10 +1,9 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "description": "The middle of the street, and the only stretch of Halcyon Fields where you can stand in a road and see buildings on both sides of you. It is not much, but it is the first of it.",
+  "description": "The middle of Sorrel Way, under the Hughson Coliseum's grandstand: brick piers and arched openings along the north side, and the estate's chrome along the south. Ticket stubs collect in the gutter.",
   "exits": {
     "east": "zone_district_897_914",
-    "north": "zone_district_896_913",
     "west": "zone_district_895_914"
   },
   "flags": {

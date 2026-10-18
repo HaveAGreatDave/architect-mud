@@ -594,6 +594,12 @@
     aa_kind: { label: 'AA Build', shape: 'enum', scope: 'zone', group: 'Zone: Law & Hazard',
       options: ['guardian', 'sam', 'flak', 'truck'],
       help: 'Which emplacement the 3D views draw on an aa_site deck: guardian (concrete ring, twin autocannon, radar), sam (bag berm, missile rail), flak (sunk pit, long gun on a cruciform cradle) or truck (an autocannon on a dead truck). Match it to the room description.' },
+    set_aside: { label: 'Set Aside', shape: 'flag', scope: 'zone', group: 'Zone: Structure',
+      help: 'A tile moved off the world onto the holding map, map_set_aside, to make room for something else, with its interiors, furniture and NPCs kept whole (docs/proposals/hughson-coliseum.md). Its NPCs carry the same flag, which the game loop reads to keep them in their rooms with their routines paused. Nothing on the holding map connects to the world. A building comes back by moving its tile onto a new plot and reconnecting its door.' },
+    set_aside_from: { label: 'Set Aside From', shape: 'text', scope: 'zone', group: 'Zone: Structure',
+      help: 'Where a set-aside tile stood on map_world, as "x,y". Only a record: nothing reads it but a person putting the building back.' },
+    venue_lights: { label: 'Venue Lights', shape: 'flag', scope: 'zone', group: 'Zone: Flight',
+      help: 'A tile of a sports venue whose light towers come on for its game nights (the Hughson Coliseum). The broadcast plugin answers `venue.lit` from memory while the show that plays there is on air, the map derive puts it on the cell as `vl`, and a `venue_lit` push tells views that are already open. Put it on every tile of the venue.' },
     aa_site: { label: 'AA Emplacement', shape: 'flag', scope: 'zone', group: 'Zone: Law & Hazard',
       help: 'Exposed anti-aircraft emplacement (aa-sites plugin): the standable tile that fires on overflying aircraft and can be assaulted on foot. Pairs with an aa_sites row.' },
 

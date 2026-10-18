@@ -1,0 +1,16 @@
+{
+  "description": "A row of iron turnstiles with brass counters on top, the arms worn smooth. The counters read in the millions and none of them agree.",
+  "flags": {
+    "aliases": [
+      "turnstile",
+      "turnstiles",
+      "counter",
+      "counters",
+      "arms"
+    ]
+  },
+  "id": "furn_hughson_turnstiles",
+  "name": "the turnstiles",
+  "object_type": "decoration",
+  "zone_id": "zone_hughson_rotunda"
+}

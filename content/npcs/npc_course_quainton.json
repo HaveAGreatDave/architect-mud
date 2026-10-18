@@ -239,7 +239,8 @@
       "a soft-collared shirt, no tie, because nobody made him",
       "corduroy trousers gone shiny at the knee from a notebook",
       "vest and plain underthings"
-    ]
+    ],
+    "set_aside": true
   },
   "home_activities": [],
   "home_zone": "zone_course_reading",

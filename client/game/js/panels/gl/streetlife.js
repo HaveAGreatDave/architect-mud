@@ -113,8 +113,11 @@ void main() {
   // a stride of 2.6 ft, a step each foot
   float ph = w.x / 5.2 * 6.2831853 + iB.z * 40.0, sw = sin(ph), side = sign(aPos.x);
   vec3 p = aPos, n = aN, nn = aN;
-  if (aPart > 1.5 && aPart < 2.5) { p = swing(p, n, 3.1, sw * 0.42 * side, nn); n = nn; }
-  else if ((aPart > 0.5 && aPart < 1.5 && abs(aPos.x) > 0.36) || (aPart < 0.5 && aPos.y < 3.6)) { p = swing(p, n, 4.75, -sw * 0.34 * side, nn); n = nn; }
+  // which limb a vertex is on comes from its part (ballpark-mesh.js CROWD_PART): a leg or a shoe swings
+  // about the hip, a sleeve or a hand about the shoulder, the other way
+  bool leg = (aPart > 2.1 && aPart < 2.4) || (aPart > 3.1 && aPart < 3.4), arm = (aPart > 1.1 && aPart < 1.4) || (aPart > 0.1 && aPart < 0.4);
+  if (leg) { p = swing(p, n, 3.15, sw * 0.42 * side, nn); n = nn; }
+  else if (arm) { p = swing(p, n, 4.68, -sw * 0.34 * side, nn); n = nn; }
   p.y += abs(cos(ph)) * 0.1;
   p *= iC.w;
   vec2 d = normalize(iA.zw); vec3 fwd = vec3(d.x, 0.0, d.y), right = vec3(d.y, 0.0, -d.x);

@@ -1,0 +1,21 @@
+{
+  "description": "A long mahogany bar with a brass rail along its foot and stools along it. The mirror behind it is lit, and the bottles in front of the mirror are mostly empty.",
+  "flags": {
+    "aliases": [
+      "bar",
+      "club bar",
+      "rail",
+      "stool",
+      "stools",
+      "mirror",
+      "bottles"
+    ],
+    "interactions": [
+      "sit"
+    ]
+  },
+  "id": "furn_hughson_bar",
+  "name": "the club bar",
+  "object_type": "furniture",
+  "zone_id": "zone_hughson_club"
+}

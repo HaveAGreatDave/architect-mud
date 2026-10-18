@@ -1,0 +1,18 @@
+{
+  "description": "The space under the bleacher planks: dust, dropped cups, coins in the gaps, and the scoreboard's cables running up a steel leg. The junction box is bolted to the leg.",
+  "exits": {
+    "up": "zone_hughsonbl_bleachers"
+  },
+  "flags": {
+    "floor": "dirt",
+    "is_interior": true,
+    "world_exit_zone": "zone_ballpark_895_911"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_hughsonbl_bleachers",
+  "map_id": "map_int_hughsonbl",
+  "name": "The Coliseum — Undercroft",
+  "parent_zone": "zone_ballpark_895_911"
+}

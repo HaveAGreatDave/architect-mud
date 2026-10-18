@@ -2,10 +2,9 @@
   "ambient_events": [],
   "ambient_theme": "forest",
   "color": "#8ba36a",
-  "description": "Open grassland quietly reclaiming old ground, seedheads nodding over the buried kerb of a road that used to matter. Insects drone. The horizon wobbles in the heat.",
+  "description": "A strip of grass between the Hughson Coliseum's first-base wall and Kettle Lane, seedheads nodding over a buried kerb. A path is worn across it to a loading door in the brick.",
   "exits": {
-    "east": "zone_district_899_912",
-    "west": "zone_district_897_912"
+    "east": "zone_district_899_912"
   },
   "flags": {
     "district": "halcyon_fields",

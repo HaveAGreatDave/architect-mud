@@ -135,7 +135,7 @@ async function forceNpcWorkRecheck() {
   try {
     for (const [, npc] of world.npcs) {
       if (npc._dead) continue;
-      if (npc._aboard || npc._escorting || npc._charterHeld) continue;   // riding aboard a vehicle, walking with a player, or placed by a plugin — frozen
+      if (npc._aboard || npc._escorting || npc._charterHeld || npc.flags?.set_aside) continue;   // set aside off the map, riding aboard a vehicle, walking with a player, or placed by a plugin — frozen
       const ai = npc._ai;
       if (!ai || !npc.behaviour_graph?._start) continue;
       ai.waitUntil = null; // drop any pending WAIT (work-wait, have-life, or sleep)
@@ -2133,7 +2133,11 @@ async function npcWanderTick() {
     // plugins/flight/charter.js). Two owners of one position means the graph walks
     // them out while the plugin puts them back, once a second, and the room hears
     // every departure and none of the returns.
-    if (npc._aboard || npc._escorting || npc._charterHeld) continue;
+    //
+    // And set aside (`flags.set_aside`): a building moved off the world onto the holding map,
+    // map_set_aside, keeps its people in their rooms with their routines paused. Its street is
+    // gone, so a graph that walked them to work or to an ATM would walk them nowhere.
+    if (npc._aboard || npc._escorting || npc._charterHeld || npc.flags?.set_aside) continue;
 
     // Self-heal: legacy autonomous NPCs (vendor/employed/unemployed/actor) seeded
     // without a graph get their type default so they tick on VINE instead of the

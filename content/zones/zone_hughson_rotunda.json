@@ -1,0 +1,30 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A round brick hall inside the main gate, floored in terrazzo worn grey in front of the turnstiles. A bronze of Sir Charles stands in the middle on a granite plinth, with a plaque on the wall behind him. The ticket office is east and the concourse north.",
+  "exits": {
+    "east": "zone_hughson_tickets",
+    "north": "zone_hughson_concourse",
+    "south": "zone_ballpark_897_913"
+  },
+  "flags": {
+    "building_name": "Charles B. Hughson Coliseum",
+    "building_type": "ballpark",
+    "floor": "tile",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "Three iron gates in brick arches, folded back against the wall on game nights. Sorrel Way is outside, and the corner of Kettle Lane.",
+      "light": 0.5,
+      "name": "the gates",
+      "visibility": 0.6
+    },
+    "world_exit_zone": "zone_ballpark_897_913"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hughson_rotunda",
+  "map_id": "map_int_hughson",
+  "name": "The Coliseum — Rotunda",
+  "parent_zone": "zone_ballpark_897_913"
+}

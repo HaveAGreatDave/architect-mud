@@ -37,8 +37,11 @@ const isUrban = (z) => {
 // of the map. An interior resolves its position by following world_exit_zone out
 // to its facade instead; a facade that has itself gone missing yields no cell at
 // all, which is correct — a room we cannot place is a room the sim must not touch.
+// ⚠ ON THE WORLD MAP, NOT "NOT 0,0". An interior's grid is 0,0 or a local layout, and the holding
+// map's set-aside tiles (map_set_aside) sit at small grid numbers with Coldwater's region on them;
+// rejecting only 0,0 let those in as cell 0,0, the sinkhole the regress check looks for.
 const hasRealCoords = (z) =>
-  Number.isFinite(z?.grid_x) && Number.isFinite(z?.grid_y) && !(z.grid_x === 0 && z.grid_y === 0);
+  z?.map_id === 'map_world' && Number.isFinite(z?.grid_x) && Number.isFinite(z?.grid_y) && !(z.grid_x === 0 && z.grid_y === 0);
 
 function anchorFor(zone) {
   if (hasRealCoords(zone)) return zone;

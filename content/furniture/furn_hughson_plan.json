@@ -1,0 +1,15 @@
+{
+  "description": "A printed plan of the park pinned to the wall, every section numbered. Section nine is crossed out in red, and somebody has drawn a small circle beside it.",
+  "flags": {
+    "aliases": [
+      "plan",
+      "seating plan",
+      "map",
+      "section nine"
+    ]
+  },
+  "id": "furn_hughson_plan",
+  "name": "the seating plan",
+  "object_type": "decoration",
+  "zone_id": "zone_hughson_tickets"
+}

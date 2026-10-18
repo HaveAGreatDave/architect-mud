@@ -937,7 +937,12 @@ export function createBallparkRenderer(canvas, opts = {}) {
       const draw = () => canvasOf(doc, 2048, 264, (g) => {
         g.fillStyle = '#0c0e12'; g.fillRect(0, 0, 2048, 264);
         g.strokeStyle = '#ffbe5a'; g.lineWidth = 6; g.strokeRect(10, 10, 2028, 244);
-        g.font = HUD_FACES.big(150); g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#ffd68c';
+        // A long name steps the face down before fillText's maxWidth squeezes it: squeezed, the
+        // Charles B. Hughson Coliseum's 27 letters came out at 70% of their width.
+        let size = 150;
+        g.font = HUD_FACES.big(size);
+        while (size > 96 && (g.measureText?.(text)?.width || 0) > 1900) g.font = HUD_FACES.big(size -= 6);
+        g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#ffd68c';
         g.fillText(text, 1024, 140, 1900);
       });
       TEX.sign = texture(draw(), { repeat: false, af: 16 });

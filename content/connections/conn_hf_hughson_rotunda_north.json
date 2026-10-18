@@ -1,0 +1,9 @@
+{
+  "a": "zone_hughson_rotunda",
+  "b": "zone_hughson_concourse",
+  "blocked": false,
+  "dir": "north",
+  "id": "conn_hf_hughson_rotunda_north",
+  "lockable": false,
+  "one_way": false
+}

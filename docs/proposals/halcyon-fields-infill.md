@@ -8,6 +8,12 @@ Every building here was renamed on 2026-10-08 to its street address or a plain H
 this page uses the new names throughout; the old ones and the reason are in
 [*The fifth pass*](#the-fifth-pass-addresses-not-puns-2026-10-08).
 
+Six of these buildings and Vetch Green are no longer on the map. On 2026-10-18 the Charles B.
+Hughson Coliseum, Deadball's ballpark, took the nine tiles x 895 to 897, y 911 to 913: 8 Halcyon
+Boulevard, the Halcyon Institute, the Halcyon Land Office, 3, 5 and 7 Sorrel Way and the green
+between them. They're set aside on the holding map `map_set_aside`, whole, not deleted; see
+[hughson-coliseum.md](hughson-coliseum.md#3-what-was-set-aside).
+
 Halcyon Fields is 164 tiles. Before this, 27 of them were buildings, 24 were road, and a hundred
 were meadow with a tower standing in it. Four streets ran through it — Halcyon Boulevard along the
 top, Kerbstone Row across the middle, Kettle Lane and Cinder Lane down through it — and the biggest

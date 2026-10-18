@@ -1522,6 +1522,12 @@ export function deriveSurfaceCell(cell, x, y, at = surfaceAt, live = true) {
     }
     aa = { k: cell.flags.aa_kind || 'guardian', s: st ? st.s : 1, o };
   }
+  // `vl`: a venue's game night. 1 while the show that plays there is on air, so the park's light
+  // towers come on; the broadcast plugin answers `venue.lit` from RAM, and a view open when it
+  // changes is told by a `venue_lit` push. ⚠ SYNC, and gated on the tile's own flag, so it is asked
+  // of the nine tiles of the Hughson Coliseum and nothing else. A static bake (`live` false) says 0.
+  let vl;
+  if (cell.flags?.venue_lights) vl = live && gatherHookSync('venue.lit', { x, y, id: cell.id }).some((r) => r && r.on) ? 1 : 0;
   // A yacht that's recently sailed streams a decaying wake to every pilot in view.
   let wake, sub, heading;
   if (mark === 'yacht') {
@@ -1758,7 +1764,7 @@ export function deriveSurfaceCell(cell, x, y, at = surfaceAt, live = true) {
     && [[-1, 0], [1, 0]].some(([ox, oy]) => { const c = at(x + ox, y + oy); return !!(c?.flags?.gate_lock && typeof c.flags.gate_lock === 'object'); });
   const bk = cell.flags?.aircraft_hangar && cell.flags?.heavy_hangar ? 'heavy' : cell.flags?.aircraft_hangar ? 'air' : besideLock ? 'lock' : undefined;
   // A runway is not a street (see `rwy` above): no kerbs, no steam vents, no pedestrians on it.
-  return { prp, kind, biome, road: rwy ? 0 : road, danger: cell.danger, pad, bt, bn, trd, ent, flr, mark, bk, strip, rwy, twy, hp, rd, rdeg, rt, rw, rl, wr, rc, wake, sub, heading, cur, cld, ci, ft, hi, cf, pf: cell.flags?.park_feature, pw, em, og, sl, sgn, plz, lk, bf, bq, aa, brd: brd && brd.length ? brd : undefined, gft: gft && gft.length ? gft : undefined };
+  return { prp, kind, biome, road: rwy ? 0 : road, danger: cell.danger, pad, bt, bn, trd, ent, flr, mark, bk, strip, rwy, twy, hp, rd, rdeg, rt, rw, rl, wr, rc, wake, sub, heading, cur, cld, ci, ft, hi, cf, pf: cell.flags?.park_feature, pw, em, og, sl, sgn, plz, lk, bf, bq, aa, vl, brd: brd && brd.length ? brd : undefined, gft: gft && gft.length ? gft : undefined };
 }
 
 // The flight window's half-width, named so the things that have to AGREE with it can say so

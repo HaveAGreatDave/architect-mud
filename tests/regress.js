@@ -6177,6 +6177,66 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
   check('every building interior leaves toward its map entrance arrow', misaligned.length === 0, misaligned.join(' | '));
 }
 
+// ── The Hughson Coliseum, and the block it set aside (real content) ─────────
+// Deadball's park on the map (scripts/content/hughson-coliseum.mjs). A walk in at the main gate on
+// Sorrel Way, round to the bleachers and out of the bleacher gate onto Halcyon Boulevard, on real
+// tiles; and the holding map it moved the old block onto: nothing there connects to the world,
+// and every set-aside building still has its interiors, furniture and people.
+{
+  const p = getPlayer();
+  const savedZone = p.current_zone;
+  const step = async (dir) => { p._lastStepAt = 0; return cmdMove(dir, p, broadcast); };
+  try {
+    removePlayerFromZone(p.id, p.current_zone);
+    p.current_zone = 'zone_district_897_914';
+    addPlayerToZone(p.id, p.current_zone);
+    await step('north');
+    check('Coliseum: north from Sorrel Way through the main gate lands in the rotunda', p.current_zone === 'zone_hughson_rotunda', p.current_zone);
+    for (const [dir, want] of [['north', 'zone_hughson_concourse'], ['north', 'zone_hughson_stands'], ['north', 'zone_hughsonbl_bleachers']]) {
+      await step(dir);
+      check(`Coliseum: ${dir} reaches ${want}`, p.current_zone === want, p.current_zone);
+    }
+    await step('north');
+    check('Coliseum: north out of the bleachers comes out on Halcyon Boulevard', p.current_zone === 'zone_district_895_910', p.current_zone);
+  } finally {
+    removePlayerFromZone(p.id, p.current_zone);
+    p.current_zone = savedZone;
+    addPlayerToZone(p.id, savedZone);
+  }
+  const { getZoneFurniture } = await import('../server/engine/world.js');
+  const park = [...world.zones.values()].filter((z) => z.map_id === 'map_world' && z.flags?.building_name === 'Charles B. Hughson Coliseum');
+  check('Coliseum: nine tiles on the map, all lit on game nights', park.length === 9 && park.every((z) => z.flags?.venue_lights), park.length);
+  check('Coliseum: only the two gates are doors', park.filter((z) => z.flags?.facade).map((z) => z.id).sort().join() === 'zone_ballpark_895_911,zone_ballpark_897_913');
+  // A room a vendor works in is a shop and shuts outside his hours (plugins/commerce/shopdoor.js),
+  // so the way through to the stands must never be anybody's counter.
+  const counterIn = (id) => [...world.npcs.values()].filter((n) => n.work_zone_id === id && (n.vendor_inventory || []).length).map((n) => n.name);
+  check('Coliseum: nobody keeps a counter on the way to the stands', ['zone_hughson_rotunda', 'zone_hughson_concourse', 'zone_hughson_stands', 'zone_hughsonbl_bleachers'].every((id) => !counterIn(id).length),
+    ['zone_hughson_rotunda', 'zone_hughson_concourse', 'zone_hughson_stands', 'zone_hughsonbl_bleachers'].flatMap(counterIn).join(', '));
+
+  const held = [...world.zones.values()].filter((z) => z.map_id === 'map_set_aside');
+  const leaks = [];
+  for (const z of held) for (const [d, t] of Object.entries(z.exits || {})) if (world.zones.get(t)?.map_id === 'map_world') leaks.push(`${z.id} ${d}→${t}`);
+  for (const z of world.zones.values()) {
+    if (z.map_id !== 'map_world') continue;
+    for (const [d, t] of Object.entries(z.exits || {})) if (world.zones.get(t)?.map_id === 'map_set_aside') leaks.push(`${z.id} ${d}→${t}`);
+  }
+  check('set aside: the holding map holds the old block', held.length >= 9, held.length);
+  check('set aside: nothing on the holding map connects to the world', leaks.length === 0, leaks.join(' | '));
+  const broken = [];
+  for (const f of held.filter((z) => z.flags?.facade)) {
+    const m = [...world.maps.values()].find((mm) => mm.parent_zone_id === f.id);
+    const entry = m && world.zones.get(m.entry_zone_id);
+    if (!entry) { broken.push(`${f.id}: no interior`); continue; }
+    if (world.zones.get(f.flags.world_exit_zone)?.map_id !== 'map_set_aside') broken.push(`${f.id}: way out is ${f.flags.world_exit_zone}`);
+    const rooms = [...world.zones.values()].filter((z) => z.map_id === m.id);
+    if (!rooms.some((r) => getZoneFurniture(r.id).length)) broken.push(`${f.id}: no furniture inside`);
+  }
+  check('set aside: every building keeps its interior, its furniture and a way out on the holding map', broken.length === 0, broken.join(' | '));
+  const people = [...world.npcs.values()].filter((n) => n.flags?.set_aside);
+  const lost = people.filter((n) => { const h = world.zones.get(n.home_zone); return !h || world.zones.get(h.parent_zone)?.map_id !== 'map_set_aside'; });
+  check('set aside: its four keepers are home in their set-aside rooms', people.length === 4 && !lost.length, `${people.length} ${lost.map((n) => n.id).join(',')}`);
+}
+
 // ── Layer 2f: statmods ledger — caps and their current values stay consistent ─
 // The ledger is the substrate every timed buff/debuff writes through (drugs,
 // phases, withdrawal, intoxication). A cap can fall through BOTH paths — reversing

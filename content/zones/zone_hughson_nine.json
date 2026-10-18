@@ -1,0 +1,22 @@
+{
+  "ambient_theme": "indoors",
+  "description": "The seats down the third-base line end at a crater. The concrete steps go down into it and stop at the edge. A rope is tied across the top row, and the seats either side of the hole are still numbered.",
+  "exits": {
+    "east": "zone_hughson_stands"
+  },
+  "flags": {
+    "building_name": "Charles B. Hughson Coliseum",
+    "building_type": "ballpark",
+    "floor": "concrete",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_ballpark_897_913"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hughson_nine",
+  "map_id": "map_int_hughson",
+  "name": "The Coliseum — Section Nine",
+  "parent_zone": "zone_ballpark_897_913"
+}

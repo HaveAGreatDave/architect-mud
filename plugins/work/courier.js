@@ -26,7 +26,7 @@
 import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
 import { getTunable } from '../../server/engine/tunables.js';
-import { world, getZone } from '../../server/engine/world.js';
+import { world, getZone, isSetAside } from '../../server/engine/world.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
 import { adjustCredits } from '../../server/engine/economy.js';
 import { getFlag, setFlag } from '../../server/engine/flags.js';
@@ -78,6 +78,7 @@ function candidateZones() {
   for (const z of world.zones.values()) {
     if (z.grid_x == null || z.grid_y == null) continue;
     if (!z.name || z.flags?.work_venue) continue;
+    if (isSetAside(z)) continue;   // off the world on the holding map: nobody could get there
     out.push(z);
   }
   return out;

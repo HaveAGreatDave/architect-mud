@@ -1,0 +1,22 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A narrow office behind three barred windows onto the rotunda. Rolls of tickets hang on a rack, a cash box is chained to the counter, and a seating plan is pinned to the wall with section nine crossed out in red pen.",
+  "exits": {
+    "west": "zone_hughson_rotunda"
+  },
+  "flags": {
+    "building_name": "Charles B. Hughson Coliseum",
+    "building_type": "ballpark",
+    "floor": "linoleum",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_ballpark_897_913"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hughson_tickets",
+  "map_id": "map_int_hughson",
+  "name": "The Coliseum — Ticket Office",
+  "parent_zone": "zone_ballpark_897_913"
+}

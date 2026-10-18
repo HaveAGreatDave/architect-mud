@@ -49,6 +49,8 @@ nothing, silently; wire a reader first.
 | `flightdeck` | flight | cockpit room of a walkable aircraft: home of TAKE CONTROLS / HAND OFF and the NAV console |
 | `home_slots` | — (not yet) | authored decor anchors a walkable-base room offers, each `{ id, kind, label }`. **No reader yet** — the anchors are authored AHEAD of the decor feature ([proposals/leviathan-flying-base.md](proposals/leviathan-flying-base.md)). Deliberate, not residue: don't strip it |
 | `aa_kind` | aa-sites | which build the battery on this deck is drawn as: `guardian`, `sam`, `flak` or `truck` (client/game/js/panels/glass/aa-emplacement.js), carried on the map cell as `aa.k`. Every `aa_site` tile needs one; the aa-sites regress fails a deck without it |
+| `set_aside` / `set_aside_from` | engine (`gameLoop.js`, for its NPCs) | a tile moved off the world onto the holding map `map_set_aside` to make room for something else, its interiors, furniture and NPCs kept whole. Nothing on the holding map connects to the world ([hughson-coliseum.md](proposals/hughson-coliseum.md#3-what-was-set-aside)). `set_aside_from` is where it stood on `map_world`, as `"x,y"`: a record for whoever puts the building back, which nothing reads |
+| `venue_lights` | broadcast + flight (`state.js` → cell `vl`) | a tile of a sports venue whose light towers come on for its game nights: `venue.lit` is asked for it, and GLASS lights the towers (glass/models/coliseum.js) |
 | `aa_site` | aa-sites | this surface tile is an AA emplacement's exposed gun deck — drives the map AA POI (`⌖` / "AA battery") and the `aa` map mark every GLASS view draws |
 | `airspace_restricted` | flight | AA-gated airspace over this zone |
 | `always_lit` | environment | never dark regardless of power/time |
@@ -143,6 +145,7 @@ nothing, silently; wire a reader first.
 
 | key | owner | meaning |
 |---|---|---|
+| `set_aside` | engine (`gameLoop.js`) | this NPC's building is set aside on the holding map: the game loop skips them, so they stay in their rooms with their routines paused (their street is gone). Cleared when the building comes back |
 | `aa_engineer` | aa-sites | bunker engineer who repairs a strafed AA battery; value = the owning `aa_sites.id` |
 | `bank_teller` | atm | a bank counter clerk — `deposit`/`withdraw <amount> from <them>` bypasses the terminal entirely (no cap, no fee, no power gate). Presence alone does NOT lift the cap; they must be addressed |
 | `audience_door` | broadcast | studio doorman — while alive, present on the tile outside a channel's `studio_zone_id`, and on shift (08:00–02:00), the way in needs a `custom_data.show_pass` stamped for the showing airing right now. Kill him, wait him out, or catch him off shift and the door is just a door (see [systems-broadcast.md](systems-broadcast.md#studio-audience-door)) |

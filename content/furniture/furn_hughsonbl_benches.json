@@ -1,0 +1,21 @@
+{
+  "description": "Long plank benches on steel frames, numbered in paint along their fronts. Initials are cut into most of the planks, some of them inside hearts.",
+  "flags": {
+    "aliases": [
+      "bench",
+      "benches",
+      "bleacher benches",
+      "plank",
+      "planks",
+      "initials"
+    ],
+    "interactions": [
+      "sit",
+      "lie"
+    ]
+  },
+  "id": "furn_hughsonbl_benches",
+  "name": "the bleacher benches",
+  "object_type": "furniture",
+  "zone_id": "zone_hughsonbl_bleachers"
+}

@@ -1,4 +1,4 @@
-import { getAllZones, getZone, resolveLanding, propsOf } from '../../server/engine/world.js';
+import { getAllZones, getZone, resolveLanding, propsOf, isSetAside } from '../../server/engine/world.js';
 import { findPath } from '../../server/engine/pathfinding.js';
 import { allExits } from '../../server/engine/exits.js';
 import { resolve as siftResolve, createSelectionState, formatSelectionPage } from '../../server/engine/sift.js';
@@ -235,7 +235,8 @@ function resolveByName(query, player, routeOpts) {
 
   // Water tiles are invisible to GPS — they can't be a destination (Coldwater Basin and
   // its ilk would otherwise clutter every name match), so drop them before resolving.
-  const landZones = getAllZones().filter(z => propsOf(z.id).routable);
+  // A set-aside building keeps its name on the holding map, and no route reaches it.
+  const landZones = getAllZones().filter(z => propsOf(z.id).routable && !isSetAside(z));
 
   // Option D: the typed name is an exact match for several tiles (terrain / a long
   // street). Route to the nearest rather than SIFT's tie-break pick or a dead picker.

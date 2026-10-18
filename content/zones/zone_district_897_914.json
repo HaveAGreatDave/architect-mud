@@ -1,10 +1,10 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "description": "Cable covers run across the road here in yellow rubber, taped down and lifting at the corners, feeding a site nobody is working on today. The tape has been retaped twice.",
+  "description": "The corner outside the Hughson Coliseum's main gate, a brick rotunda with the name in bronze over three iron gates. Cable covers run across the road in yellow rubber, feeding the light towers. Crowd barriers are chained to the lamp posts.",
   "exits": {
     "east": "zone_district_898_914",
-    "north": "zone_district_897_913",
+    "north": "zone_ballpark_897_913",
     "west": "zone_district_896_914"
   },
   "flags": {

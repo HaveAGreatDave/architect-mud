@@ -168,6 +168,10 @@ REM the join can only match a trailer whose truck is GONE, so a box genuinely on
 REM a fifth wheel is invisible to it and this is a no-op once none are left.
 call :run "oneshots/repark-orphan-trailers.mjs" "stand up trailers hitched to sold trucks"
 
+REM Moves players, floor items and corpses out of set-aside buildings (map_set_aside)
+REM into the Hughson Coliseum rotunda. Converges: it reads the set-aside zones each run.
+call :run "oneshots/set-aside-players.mjs" "move players out of set-aside buildings"
+
 REM --- Policy, not repair: opt in explicitly ---------------------------------
 REM Lifts players carrying negative net XP after a stat retune up to exactly 0.
 REM That debt is real and deliberate - writing it off is a decision, so it only

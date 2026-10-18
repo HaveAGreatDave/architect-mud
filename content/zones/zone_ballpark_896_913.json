@@ -1,0 +1,24 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "urban",
+  "bg_color": "#2a1d18",
+  "color": "#d8c9a8",
+  "description": "The Hughson Coliseum's grandstand along Sorrel Way: brick piers and arched openings with the concourse lit behind them, and the upper deck's steel above.",
+  "exits": {},
+  "flags": {
+    "building_name": "Charles B. Hughson Coliseum",
+    "building_type": "ballpark_s",
+    "district": "halcyon_fields",
+    "entrance": "south",
+    "floors": 3,
+    "region_id": "region_coldwater",
+    "venue_lights": true
+  },
+  "grid_x": 896,
+  "grid_y": 913,
+  "grid_z": 0,
+  "id": "zone_ballpark_896_913",
+  "map_id": "map_world",
+  "name": "Charles B. Hughson Coliseum",
+  "parent_zone": null
+}

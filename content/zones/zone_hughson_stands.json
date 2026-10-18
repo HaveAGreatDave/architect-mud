@@ -1,0 +1,30 @@
+{
+  "ambient_theme": "indoors",
+  "description": "Green wooden seats in rows behind home plate, bolted to concrete steps. The diamond lies below, the outfield wall beyond it, six light towers over all of it. One seat in the front row has a brass plate on it and nobody in it. Section nine is west, the bleachers north.",
+  "exits": {
+    "north": "zone_hughsonbl_bleachers",
+    "south": "zone_hughson_concourse",
+    "west": "zone_hughson_nine"
+  },
+  "flags": {
+    "building_name": "Charles B. Hughson Coliseum",
+    "building_type": "ballpark",
+    "floor": "concrete",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "The diamond, the infield dirt raked in arcs, and the outfield running out to a padded wall with numbers painted on it. The scoreboard stands on legs past centre field.",
+      "light": 0.9,
+      "name": "the field",
+      "visibility": 1
+    },
+    "world_exit_zone": "zone_ballpark_897_913"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hughson_stands",
+  "map_id": "map_int_hughson",
+  "name": "The Coliseum — The Stands",
+  "parent_zone": "zone_ballpark_897_913"
+}

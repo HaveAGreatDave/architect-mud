@@ -128,6 +128,18 @@ function tileIndex() {
   return _tileIdx;
 }
 
+// ── SET ASIDE ────────────────────────────────────────────────────────────────
+// A building moved off the world onto the holding map, `map_set_aside`, to make room for something
+// else, with its rooms kept whole (docs/proposals/hughson-coliseum.md). Nothing there connects to
+// the world, so nothing should send a player there: a courier run, a GPS route. Its tiles carry
+// real-looking grid numbers on their own map, so a test that only rejects 0,0 lets them in; the
+// rooms inside are on their own interior maps and are known by their facade.
+export function isSetAside(zone) {
+  if (!zone) return false;
+  if (zone.map_id === 'map_set_aside') return true;
+  return !!zone.parent_zone && world.zones.get(zone.parent_zone)?.map_id === 'map_set_aside';
+}
+
 /** The zone on a grid tile of a map, from the same lazy index. Sync and query-free. */
 export function zoneAtTile(mapId, x, y, z = 0) {
   return tileIndex().get(`${mapId}|${x},${y},${z}`) || null;

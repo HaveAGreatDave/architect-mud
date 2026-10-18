@@ -17121,6 +17121,16 @@ const BLDG_TYPE_3D = {
   ice_rink_stand_e: { a: 'civic',     h: 0.14 },
   ice_rink_plant_w: { a: 'industrial', h: 0.14 },
   ice_rink_plant_e: { a: 'civic',     h: 0.14 },
+  // The Hughson Coliseum's nine tiles (glass/models/coliseum.js): the grandstand, its corners, the field.
+  ballpark:           { a: 'civic', h: 0.18 },
+  ballpark_s:         { a: 'civic', h: 0.18 },
+  ballpark_e:         { a: 'civic', h: 0.18 },
+  ballpark_sw:        { a: 'civic', h: 0.12 },
+  ballpark_ne:        { a: 'civic', h: 0.12 },
+  ballpark_bleachers: { a: 'civic', h: 0.12 },
+  ballpark_w:         { a: 'civic', h: 0.08 },
+  ballpark_n:         { a: 'civic', h: 0.08 },
+  ballpark_c:         { a: 'civic', h: 0.04 },
   default:          { a: 'citycore',  h: 0.22 }, // fallback when a type has no entry / fails to load
 };
 // The archetype + base height for a map cell: a building tile (has `bt`) renders its
@@ -52812,7 +52822,7 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     // ⚠ NOT RESTORED PER ITEM, AND IT DOES NOT NEED TO BE: every item in this loop sets it before it
     // draws, and the passes that run OUTSIDE the loop and capture other tiles' models — the shadow
     // pass, the occluder pre-pass, the cold-open skyline — each set or clear it themselves.
-    setTilePlace({ biome: it.c.biome, wx: it.wx, wy: it.wy, trd: it.c.trd });   // `trd`: see `tradeSub`
+    setTilePlace({ biome: it.c.biome, wx: it.wx, wy: it.wy, trd: it.c.trd, vl: it.c.vl });   // `trd`: see `tradeSub`; `vl`: a venue's game night
     // ── AND WHETHER ITS FEED IS UP ────────────────────────────────────────────────────────────
     //
     // ⚠ ARMED HERE AND CLEARED BELOW, AND NOT LEFT TO THE NEXT ITEM THE WAY `setTilePlace` IS.

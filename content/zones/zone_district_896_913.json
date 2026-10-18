@@ -5,8 +5,7 @@
   "color": "#c8e4d4",
   "description": "A low glass drum between two short curved wings, set back off Sorrel Way behind four tables that are outside whatever the weather is doing. The lantern on top is lit all day. The number is in chrome script across the drum, and beneath it, on a chalkboard propped against the glass, somebody writes up the soup every morning and spells it differently each time.",
   "exits": {
-    "north": "zone_hf_grounds_room",
-    "south": "zone_district_896_914"
+    "north": "zone_hf_grounds_room"
   },
   "flags": {
     "building_name": "5 Sorrel Way",
@@ -17,13 +16,15 @@
     "floors": 2,
     "is_building": true,
     "region_id": "region_coldwater",
-    "world_exit_zone": "zone_district_896_914"
+    "set_aside": true,
+    "set_aside_from": "896,913",
+    "world_exit_zone": "zone_district_896_912"
   },
-  "grid_x": 896,
-  "grid_y": 913,
+  "grid_x": 2,
+  "grid_y": 3,
   "grid_z": 0,
   "id": "zone_district_896_913",
-  "map_id": "map_world",
+  "map_id": "map_set_aside",
   "marker": "S5",
   "name": "5 Sorrel Way",
   "parent_zone": null
