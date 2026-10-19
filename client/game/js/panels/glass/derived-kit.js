@@ -402,6 +402,9 @@ const NO_KIT = new Set(['trm_wall', 'thornwall', 'damwall', 'pier', 'harbour_yar
   // doors; a landing stage is a deck, and the kit reads its drums as walls. Each arm draws all four of
   // its own sides (building-styles.md §4.3).
   'gym', 'boatshed', 'landing_stage',
+  // The Coliseum draws all nine tiles itself. Its named entries carry `noKit`, but a tile that
+  // resolves to the bare type got the roof hoarding on legs, stood on a shell rail over the field.
+  'ballpark',
   // ⚠ AND A HOARDING. The land office's board is the plot's only box, so the kit read it as the front
   // wall and bolted a cable run across the top of the lettering, a downpipe up one edge and two
   // fire-escape landings over the picture. Declining ground and wall was not enough: riser and stair

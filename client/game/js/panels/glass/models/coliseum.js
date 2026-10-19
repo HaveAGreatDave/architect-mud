@@ -68,12 +68,17 @@ const MOUND = [0.70, 0.70];
 const STAND = 1.10;                // where the grandstand starts, along both lines
 const BACK = 1.40;                 // where the stands end: the inner face of the bowl wall
 const LOW = -0.6;                  // past this the stands step down toward the corners
-const BLEACH = -1.28;              // the bleachers' front, along the north and west edges
-const SCOREBOARD = { u: -1.06, v: -1.06, w: 0.32, z0: 0.11, z1: 0.24 };
+const SCOREBOARD = { u: -1.22, v: -1.22, w: 0.32, z0: 0.36, z1: 0.50 };   // over the top row in centre
+// The outfield stands: rows round home from the back of the wall out to the bowl, rising to the
+// wall's top course, so the front row leans over the padding.
+const OSTAND = { r0: WALL_R + 0.03, row: 0.09, z0: 0.03, rise: 0.025 };
 
 // ── THE BOWL ─────────────────────────────────────────────────────────────────────────────────
 // One wall round all four sides, its outer face at OUT and its inner at BACK, in five courses up.
 const OUT = 1.47;
+// ⚠ EVERY HEIGHT IN THIS FILE IS DRAWN ZK TIMES TALLER. The arm's primitives scale z once, so the
+// numbers keep the proportions they were drawn and measured at (the shells' nesting gaps).
+const ZK = 1.4;
 const Z = { plinth: 0.04, wall: 0.34, frieze: 0.37, cler: 0.43, corn: 0.46 };
 const DECK = 1.13;                 // the east and west decks reach in from the wall to here, under the rails
 const RAIL_OUT = [1.19, 1.25, 0.49], RAIL_IN = [1.16, 1.19, 0.475];   // the girder's two steps: from, to, top
@@ -88,12 +93,19 @@ const BGATE = { u: -0.96, hw: 0.24, face: -1.48, top: 0.44 };
 // half-span, `zs` where it springs, `rise` to its crown) and `len` long north to south. The first is
 // fixed over the bleachers; the other two ride the rails' lower steps and nest under it, so each is a
 // little narrower and lower than the one before. `open` and `shut` are where each one's north end is.
+// ⚠ A SPLIT ROOF, A STACK AT EACH END. Six half-tile shells, listed north to south: three nest at the
+// boulevard end and three at Sorrel Way, and the two smallest meet over the middle of the bowl. Open,
+// each stack reaches half a tile in, over the back rows only. One stack of three full-tile shells
+// reached a whole tile in and roofed most of the outfield seats.
 // ⚠ THE GAPS ARE MEASURED. At the crown and at mid-span each shell clears the one above it by 0.025
 // to 0.03 (0.85, 0.825, 0.80 at the crown), which is what lets them nest. Change a rise and check.
 const SHELLS = [
-  { c: 1.22, zs: 0.49, rise: 0.36, len: 1.00, open: -1.47, shut: -1.47 },
-  { c: 1.175, zs: 0.475, rise: 0.35, len: 1.00, open: -1.45, shut: -0.52 },
-  { c: 1.145, zs: 0.46, rise: 0.34, len: 1.04, open: -1.43, shut: 0.43 },
+  { c: 1.22, zs: 0.49, rise: 0.36, len: 0.50, open: -1.47, shut: -1.47 },
+  { c: 1.175, zs: 0.475, rise: 0.35, len: 0.50, open: -1.45, shut: -0.98 },
+  { c: 1.145, zs: 0.46, rise: 0.34, len: 0.50, open: -1.43, shut: -0.495 },
+  { c: 1.145, zs: 0.46, rise: 0.34, len: 0.50, open: 0.93, shut: 0.005 },
+  { c: 1.175, zs: 0.475, rise: 0.35, len: 0.50, open: 0.95, shut: 0.49 },
+  { c: 1.22, zs: 0.49, rise: 0.36, len: 0.50, open: 0.97, shut: 0.97 },
 ];
 const NF = 12;                     // facets across a vault
 for (const S of SHELLS) {
@@ -209,9 +221,13 @@ export const COLISEUM_ARMS = {
     const L = (u, v) => { const du = u - cu, dv = v - cv; return [du * D[1] - dv * D[0], du * D[0] + dv * D[1]]; };
     const Ld = (du, dv) => [du * D[1] - dv * D[0], du * D[0] + dv * D[1]];
     const P = (u, v) => F(...L(u, v));
-    const B3 = (u, v, z) => { const [wx, wy] = P(u, v); return [wx, wy, z]; };   // a block point, in the world
+    const B3 = (u, v, z) => { const [wx, wy] = P(u, v); return [wx, wy, z * ZK]; };   // a block point, in the world
     const W3L = (a, b, z) => { const [wx, wy] = F(a, b); return [wx, wy, z]; };   // a local point, in the world
     const yaw0 = faceYaw(E), NEAR = nearOrMesh();
+    // the imported draws that take a height, scaled as the primitives below are (see ZK)
+    const drum = (c, k, x, y, z0, z1, ...r) => drawFacetDrum(c, k, x, y, z0 * ZK, z1 * ZK, ...r);
+    const pool = (c, k, x, y, z, ...r) => glowPool(c, k, x, y, z * ZK, ...r);
+    const blink = (c, k, x, y, z, ...r) => blinkLight(c, k, x, y, z * ZK, ...r);
     const st = parkState(now, night), dn = st.dn, dusk = 1 - 0.6 * dn;
     const ledge = facePals(E, { side: TRIM, roof: COPPER });   // a course flashed in copper on top
     // The block direction (u, v, z) as a world direction, for the painter's key and the GPU's normal.
@@ -226,7 +242,7 @@ export const COLISEUM_ARMS = {
       const su = (u1 - u0) / nu, sv = (v1 - v0) / nv;
       for (let i = 0; i < nu; i++) for (let j = 0; j < nv; j++) {
         const [cx, cy] = P(u0 + su * (i + 0.5), v0 + sv * (j + 0.5));
-        draw3DBoxAt(ctx, cam, cx, cy, su / 2, z0, z1, p, seed + s + i * 7 + j * 13, night, alpha, roof, yaw0, sv / 2);
+        draw3DBoxAt(ctx, cam, cx, cy, su / 2, z0 * ZK, z1 * ZK, p, seed + s + i * 7 + j * 13, night, alpha, roof, yaw0, sv / 2);
       }
     };
     // A box along a segment, drawn by the tile its middle is on.
@@ -236,7 +252,7 @@ export const COLISEUM_ARMS = {
       const [lx, ly] = Ld(b[0] - a[0], b[1] - a[1]), len = Math.hypot(lx, ly);
       if (len < 1e-4) return;
       const [cx, cy] = P(mu, mv);
-      draw3DBoxAt(ctx, cam, cx, cy, len / 2, z0, z1, p, seed + s, night, alpha, roof, yaw0 + Math.atan2(ly, lx), thick / 2);
+      draw3DBoxAt(ctx, cam, cx, cy, len / 2, z0 * ZK, z1 * ZK, p, seed + s, night, alpha, roof, yaw0 + Math.atan2(ly, lx), thick / 2);
     };
     // A segment cut wherever it crosses a tile line, so each piece is drawn whole by one tile.
     const segCut = (a, b, ...rest) => {
@@ -261,7 +277,7 @@ export const COLISEUM_ARMS = {
     const flat = (poly, z, col, opts) => {
       const c = clipPoly(poly, X0, X1, Y0, Y1);
       if (c.length < 3) return;
-      flatOut(ctx, cam, W3L, c.map(([u, v]) => [...L(u, v), z]), [0, 0, 1], rgb(cl255(col)), alpha, opts);
+      flatOut(ctx, cam, W3L, c.map(([u, v]) => [...L(u, v), z * ZK]), [0, 0, 1], rgb(cl255(col)), alpha, opts);
     };
     // A flat laid on the top of a box: a hair above it, and a lift so the painter puts it after the
     // box's own roof, whose centre is its centre.
@@ -270,7 +286,7 @@ export const COLISEUM_ARMS = {
     // colour, so after dark a lit one glows. The caller has already clipped it to the tile.
     const face = (pts, out, col, opts) => {
       if (pts.length < 3) return;
-      flatOut(ctx, cam, W3L, pts.map(([u, v, z]) => [...L(u, v), z]), [...Ld(out[0], out[1]), out[2]], rgb(cl255(col)), alpha, opts);
+      flatOut(ctx, cam, W3L, pts.map(([u, v, z]) => [...L(u, v), z * ZK]), [...Ld(out[0], out[1]), out[2]], rgb(cl255(col)), alpha, opts);
     };
     // A face the GPU lights as the material family `fam` from the albedo `alb`, and the canvas paints
     // with the painter's fixed key. ⚠ A PALE FACE CARRIES ITS OWN DUSK: the mass shader dims at night
@@ -353,7 +369,7 @@ export const COLISEUM_ARMS = {
     for (const b of [[HP[0], HP[1] - BASE], [HP[0] - BASE, HP[1] - BASE], [HP[0] - BASE, HP[1]], HP]) box(b[0] - 0.016, b[0] + 0.016, b[1] - 0.016, b[1] + 0.016, 0, 0.012, CONC, true, 5);
     if (inTile(...MOUND)) {
       const [mx, my] = P(...MOUND), mud = rgb(cl255(dirt));
-      drawFacetDrum(ctx, cam, mx, my, 0, 0.012, 0.055, 0.035, 10, alpha, () => mud, mud, GRANITE);
+      drum(ctx, cam, mx, my, 0, 0.012, 0.055, 0.035, 10, alpha, () => mud, mud, GRANITE);
     }
     box(HP[0] - WALL_R, HP[0], HP[1] - 0.004, HP[1] + 0.004, 0, 0.006, CONC, true, 6);
     box(HP[0] - 0.004, HP[0] + 0.004, HP[1] - WALL_R, HP[1], 0, 0.006, CONC, true, 7);
@@ -363,7 +379,7 @@ export const COLISEUM_ARMS = {
     for (const p of [[HP[0] - WALL_R - 0.01, HP[1]], [HP[0], HP[1] - WALL_R - 0.01]]) {
       if (!inTile(...p)) continue;
       const [px, py] = P(...p);
-      drawFacetDrum(ctx, cam, px, py, 0, 0.28, 0.006, 0.006, 6, alpha, () => rgb([214 * dusk, 186 * dusk, 40 * dusk]), 'rgb(120,104,24)', STEEL);
+      drum(ctx, cam, px, py, 0, 0.28, 0.006, 0.006, 6, alpha, () => rgb([214 * dusk, 186 * dusk, 40 * dusk]), 'rgb(120,104,24)', STEEL);
     }
 
     // 3) THE GRANDSTAND: an L along Sorrel Way and the east side, raked in three tiers to the bowl
@@ -385,16 +401,27 @@ export const COLISEUM_ARMS = {
     // Section nine: a crater in the third-base seats, rope round it.
     fan([0.05, 1.27], 0.06, 0, 2 * Math.PI, 0.114, [26, 24, 22], 10, ON_TOP);
 
-    // 4) THE BLEACHERS along the outfield edges, two tiers of planks behind the wall.
-    box(-BACK, 0.9, BLEACH, BLEACH + 0.1, 0, 0.06, CONC, true, 50);
-    box(-BACK, 0.9, -BACK, BLEACH, 0, 0.11, CONC, true, 51);
-    box(BLEACH, BLEACH + 0.1, -BACK, 0.9, 0, 0.06, CONC, true, 52);
-    box(-BACK, BLEACH, -BACK, 0.9, 0, 0.11, CONC, true, 53);
-    const plank = [124 * dusk, 112 * dusk, 92 * dusk];
-    flat([[-BACK, BLEACH + 0.005], [0.9, BLEACH + 0.005], [0.9, BLEACH + 0.095], [-BACK, BLEACH + 0.095]], 0.064, plank, ON_TOP);
-    flat([[BLEACH + 0.005, -1.28], [BLEACH + 0.095, -1.28], [BLEACH + 0.095, 0.9], [BLEACH + 0.005, 0.9]], 0.064, plank, ON_TOP);
-    flat([[-BACK, -BACK], [0.9, -BACK], [0.9, BLEACH - 0.005], [-BACK, BLEACH - 0.005]], 0.114, plank, ON_TOP);
-    flat([[-BACK, -BACK], [BLEACH - 0.005, -BACK], [BLEACH - 0.005, 0.9], [-BACK, 0.9]], 0.114, plank, ON_TOP);
+    // 4) THE OUTFIELD STANDS: rows round home from the back of the wall out to the bowl, each a step
+    //    higher, each run cut where its row meets the bowl wall, in chords about 0.16 long with a seat
+    //    flat on each.
+    {
+      const seat = SEAT.map((c) => c * dusk), lim = BACK - 0.005;
+      const at = (r, t) => [HP[0] + r * Math.cos(t), HP[1] + r * Math.sin(t)];
+      for (let k = 0; ; k++) {
+        const r0 = OSTAND.r0 + k * OSTAND.row, r1 = r0 + OSTAND.row, rm = (r0 + r1) / 2;
+        if (rm > Math.hypot(HP[0] + lim, HP[1] + lim)) break;
+        const z = OSTAND.z0 + k * OSTAND.rise;
+        // the row's run inside the bowl: u and v both >= -lim at its middle radius
+        const off = Math.acos(Math.min(1, (HP[0] + lim) / rm)), a0 = Math.PI + off, a1 = 1.5 * Math.PI - off;
+        if (a1 <= a0) continue;
+        const n = Math.max(1, Math.ceil((a1 - a0) * rm / 0.16));
+        for (let q = 0; q < n; q++) {
+          const p0 = a0 + (a1 - a0) * q / n, p1 = a0 + (a1 - a0) * (q + 1) / n;
+          segCut(at(rm, p0), at(rm, p1), OSTAND.row, 0, z, CONC, true, 50 + k);
+          flat([at(r0 + 0.008, p0), at(r1 - 0.01, p0), at(r1 - 0.01, p1), at(r0 + 0.008, p1)], z + 0.004, seat, ON_TOP);
+        }
+      }
+    }
 
     // 5) THE SCOREBOARD past centre field, on two legs, square to home plate.
     {
@@ -404,13 +431,13 @@ export const COLISEUM_ARMS = {
       if (inTile(s.u, s.v)) {
         for (const t of [-0.32, 0.32]) {
           const [lx, ly] = P(s.u + Math.cos(a) * s.w * t, s.v + Math.sin(a) * s.w * t);
-          drawFacetDrum(ctx, cam, lx, ly, 0, s.z0, 0.01, 0.01, 6, alpha, () => rgb([70 * dusk, 74 * dusk, 78 * dusk]), 'rgb(40,42,44)', STEEL);
+          drum(ctx, cam, lx, ly, 0, s.z0, 0.01, 0.01, 6, alpha, () => rgb([70 * dusk, 74 * dusk, 78 * dusk]), 'rgb(40,42,44)', STEEL);
         }
         // its face toward the field: the line score's lamps, lit on a game night
         const nu = Math.cos(a - Math.PI / 2), nv = Math.sin(a - Math.PI / 2), off = 0.017;
         const pts = [[ea[0] + nu * off, ea[1] + nv * off, s.z1 - 0.012], [eb[0] + nu * off, eb[1] + nv * off, s.z1 - 0.012], [eb[0] + nu * off, eb[1] + nv * off, s.z0 + 0.012], [ea[0] + nu * off, ea[1] + nv * off, s.z0 + 0.012]];
         face(pts, [nu, nv, 0], st.game ? mixRgb([30, 34, 30], [250, 214, 120], 0.35 + 0.4 * dn) : [24, 26, 26]);
-        if (st.game && dn > 0.05) glowPool(ctx, cam, ...P(s.u + nu * 0.06, s.v + nv * 0.06), (s.z0 + s.z1) / 2, '250,214,120', 14, alpha * 0.35 * dn);
+        if (st.game && dn > 0.05) pool(ctx, cam, ...P(s.u + nu * 0.06, s.v + nv * 0.06), (s.z0 + s.z1) / 2, '250,214,120', 14, alpha * 0.35 * dn);
       }
     }
 
@@ -479,8 +506,10 @@ export const COLISEUM_ARMS = {
           [-su, 0, 0], mixRgb(LAMP_OFF, LAMP_ON, st.towerK > 0.01 ? 0.35 + 0.65 * st.towerK : 0));
       }
     }
-    // The sill the fixed shell's north end stands on, along the top of the boulevard wall.
+    // The sills the two fixed shells stand on, along the top of the boulevard wall and of Sorrel Way's.
     box(-SHELLS[0].c, SHELLS[0].c, -OUT, -BACK, Z.corn, SHELLS[0].zs, TRIM, true, 280);
+    const SL = SHELLS[SHELLS.length - 1];
+    box(-SL.c, SL.c, BACK, OUT, Z.corn, SL.zs, TRIM, true, 281);   // and the one the Sorrel Way stack stands on
 
     // 7) THE FOUR LIGHT TOWERS, one at each corner: a fluted limestone shaft, two setbacks, a bronze
     //    lamp house with its floods turned to the field, a stepped crown and a finial. They were the
@@ -520,15 +549,15 @@ export const COLISEUM_ARMS = {
         vface(pts, [nu, nv, 0], lampCol);
       }
       const [tx, ty] = P(tu, tv);
-      drawFacetDrum(ctx, cam, tx, ty, T.z3, T.z3 + 0.07, 0.014, 0.004, 8, alpha, () => rgb(BRONZE_RGB.map((c) => c * dusk)), rgb(BRONZE_RGB.map((c) => c * dusk)), BRONZE);
-      if (dn > 0.3) blinkLight(ctx, cam, tx, ty, T.z3 + 0.08, '255,60,40', now, seed + su * 3 + sv, alpha, 1.6);
+      drum(ctx, cam, tx, ty, T.z3, T.z3 + 0.07, 0.014, 0.004, 8, alpha, () => rgb(BRONZE_RGB.map((c) => c * dusk)), rgb(BRONZE_RGB.map((c) => c * dusk)), BRONZE);
+      if (dn > 0.3) blink(ctx, cam, tx, ty, T.z3 + 0.08, '255,60,40', now, seed + su * 3 + sv, alpha, 1.6);
       if (st.towerK > 0.01) {
         // the floods burning, and the pool each tower throws on the field
         const ex = tu - su * 0.07, ey = tv - sv * 0.07;
-        glowPool(ctx, cam, ...P(ex, ey), 0.815, '255,246,224', 26, alpha * (0.25 + 0.55 * st.towerK) * (0.4 + 0.6 * dn), { max: 90 });
+        pool(ctx, cam, ...P(ex, ey), 0.815, '255,246,224', 26, alpha * (0.25 + 0.55 * st.towerK) * (0.4 + 0.6 * dn), { max: 90 });
         if (dn > 0.05) {
           const toward = Math.atan2(MOUND[1] - tv, MOUND[0] - tu);
-          glowPool(ctx, cam, ...P(tu + Math.cos(toward) * 0.95, tv + Math.sin(toward) * 0.95), 0.02, '236,248,224', 70, alpha * 0.22 * dn * st.towerK, { max: 140 });
+          pool(ctx, cam, ...P(tu + Math.cos(toward) * 0.95, tv + Math.sin(toward) * 0.95), 0.02, '236,248,224', 70, alpha * 0.22 * dn * st.towerK, { max: 140 });
         }
       }
     }
@@ -589,8 +618,8 @@ export const COLISEUM_ARMS = {
         if (NEAR) for (let k = -3; k <= 3; k++) emitWire(ctx, cam, B3(bu + k * 0.012, yd + 0.002, 0.005), B3(bu + k * 0.012, yd + 0.002, 0.158), 1.2, 'rgba(30,32,34,0.92)', alpha, { pull: 0.004 });
         // a bronze lantern over it, on the body's face, lit from dusk
         const [lx, ly] = P(bu, gf + 0.0095);
-        drawFacetDrum(ctx, cam, lx, ly, 0.214, 0.262, 0.0085, 0.0085, 8, alpha, () => rgb(dn > 0.05 ? [255, 214, 150] : BRONZE_RGB), rgb(BRONZE_RGB), BRONZE);
-        if (dn > 0.05) glowPool(ctx, cam, lx, ly, 0.238, '255,206,140', 7, alpha * 0.6 * dn);
+        drum(ctx, cam, lx, ly, 0.214, 0.262, 0.0085, 0.0085, 8, alpha, () => rgb(dn > 0.05 ? [255, 214, 150] : BRONZE_RGB), rgb(BRONZE_RGB), BRONZE);
+        if (dn > 0.05) pool(ctx, cam, lx, ly, 0.238, '255,206,140', 7, alpha * 0.6 * dn);
       }
       // THE NAME PLATE. Flat, not a box (a box wears its palette's window skin over the lettering),
       // standing 0.016 off the stone so the backlight has somewhere to come out of.
@@ -629,14 +658,14 @@ export const COLISEUM_ARMS = {
         for (const [txt, za, zb, hw] of lines) {
           const quad = (ox, oz) => { const y = yg + (ox ? 0.001 : 0.002), sx = ox * 0.0016, sz = oz * 0.0016;
             return [B3(gu - hw + sx, y, zb + sz), B3(gu + hw + sx, y, zb + sz), B3(gu + hw + sx, y, za + sz), B3(gu - hw + sx, y, za + sz)].map((p) => cam.proj(p[0], p[1], p[2])); };
-          embossText(ctx, cam, quad, txt, '#ecc97e', '#120c06', night, alpha, { font: 'deco', fit: (2 * hw) / (zb - za) });
+          embossText(ctx, cam, quad, txt, '#ecc97e', '#120c06', night, alpha, { font: 'deco', fit: (2 * hw) / ((zb - za) * ZK) });
         }
       }
       // floodlit from below after dark, and backlit
       if (dn > 0.05) {
-        glowPool(ctx, cam, ...P(gu, gf + 0.05), pz0 - 0.03, '255,214,150', 16, alpha * 0.4 * dn);
-        glowPool(ctx, cam, ...P(gu, yp - 0.006), (pz0 + pz1) / 2, '255,200,120', 18, alpha * 0.3 * dn, { add: true });
-        glowPool(ctx, cam, ...P(gu, gf + 0.06), 0.09, '255,206,150', 14, alpha * 0.4 * dn);   // the lobby through the doors
+        pool(ctx, cam, ...P(gu, gf + 0.05), pz0 - 0.03, '255,214,150', 16, alpha * 0.4 * dn);
+        pool(ctx, cam, ...P(gu, yp - 0.006), (pz0 + pz1) / 2, '255,200,120', 18, alpha * 0.3 * dn, { add: true });
+        pool(ctx, cam, ...P(gu, gf + 0.06), 0.09, '255,206,150', 14, alpha * 0.4 * dn);   // the lobby through the doors
       }
       // The rising sun on the setback's face: a gilt baseball for its disc, red stitching, nine rays.
       {
@@ -678,8 +707,8 @@ export const COLISEUM_ARMS = {
         for (const sg of [-1, 1]) box(bu + sg * 0.05 - 0.005, bu + sg * 0.05 + 0.005, gf - 0.008, gf + 0.01, 0, 0.19, TRIM, true, 462);
         if (NEAR) for (let k = -3; k <= 3; k++) emitWire(ctx, cam, B3(bu + k * 0.012, yd - 0.002, 0.005), B3(bu + k * 0.012, yd - 0.002, 0.185), 1.2, 'rgba(30,32,34,0.92)', alpha, { pull: 0.004 });
         const [lx, ly] = P(bu, gf - 0.0095);
-        drawFacetDrum(ctx, cam, lx, ly, 0.215, 0.26, 0.008, 0.008, 8, alpha, () => rgb(dn > 0.05 ? [255, 214, 150] : BRONZE_RGB), rgb(BRONZE_RGB), BRONZE);
-        if (dn > 0.05) glowPool(ctx, cam, lx, ly, 0.238, '255,206,140', 7, alpha * 0.6 * dn);
+        drum(ctx, cam, lx, ly, 0.215, 0.26, 0.008, 0.008, 8, alpha, () => rgb(dn > 0.05 ? [255, 214, 150] : BRONZE_RGB), rgb(BRONZE_RGB), BRONZE);
+        if (dn > 0.05) pool(ctx, cam, lx, ly, 0.238, '255,206,140', 7, alpha * 0.6 * dn);
       }
       const pz0 = 0.26, pz1 = 0.345, phw = 0.15, yp = gf - 0.014, yg = yp - 0.0015;
       const PQ = (y, x0, x1, za, zb, col) => face([[x1, y, zb], [x0, y, zb], [x0, y, za], [x1, y, za]], [0, -1, 0], col);
@@ -692,9 +721,9 @@ export const COLISEUM_ARMS = {
         const hw = 0.125, za = pz0 + 0.016, zb = pz1 - 0.016;
         const quad = (ox, oz) => { const y = yg - (ox ? 0.001 : 0.002), sx = -ox * 0.0016, sz = oz * 0.0016;
           return [B3(gu + hw + sx, y, zb + sz), B3(gu - hw + sx, y, zb + sz), B3(gu - hw + sx, y, za + sz), B3(gu + hw + sx, y, za + sz)].map((p) => cam.proj(p[0], p[1], p[2])); };
-        embossText(ctx, cam, quad, 'BLEACHERS', '#ecc97e', '#120c06', night, alpha, { font: 'deco', fit: (2 * hw) / (zb - za) });
+        embossText(ctx, cam, quad, 'BLEACHERS', '#ecc97e', '#120c06', night, alpha, { font: 'deco', fit: (2 * hw) / ((zb - za) * ZK) });
       }
-      if (dn > 0.05) glowPool(ctx, cam, ...P(gu, gf - 0.05), pz0 - 0.03, '255,214,150', 14, alpha * 0.4 * dn);
+      if (dn > 0.05) pool(ctx, cam, ...P(gu, gf - 0.05), pz0 - 0.03, '255,214,150', 14, alpha * 0.4 * dn);
     }
 
     // 10) THE ROOF. Each shell is its panels across the vault, the glazing down its crown, three
@@ -732,7 +761,7 @@ export const COLISEUM_ARMS = {
       const su = (u1 - u0) / nu, sv = (v1 - v0) / nv;
       for (let i = 0; i < nu; i++) for (let j = 0; j < nv; j++) {
         const [cx, cy] = P(u0 + su * (i + 0.5), v0 + sv * (j + 0.5));
-        SHAPE_SINK.push({ kind: 'box', dx: cx, dy: cy, hwRaw: su / 2, fdRaw: sv / 2, wz0: z0, wz1: z1, pal: FINC, roof: true, yaw: yaw0 });
+        SHAPE_SINK.push({ kind: 'box', dx: cx, dy: cy, hwRaw: su / 2, fdRaw: sv / 2, wz0: z0 * ZK, wz1: z1 * ZK, pal: FINC, roof: true, yaw: yaw0 });
       }
     };
     // Each box tops out where its facet does over the part of it this tile holds: a facet cut at a
@@ -798,18 +827,18 @@ export const COLISEUM_ARMS = {
     if (dn > 0.05 && st.domeK > 0.01) {
       for (const [u, v] of [[0, 1.5], [0, -1.5], [1.5, 0], [-1.5, 0], [-0.9, 1.5], [0.9, -1.5], [1.5, -0.9], [-1.5, 0.9]]) {
         if (!inTile(clamp(u, -1.49, 1.49), clamp(v, -1.49, 1.49))) continue;
-        glowPool(ctx, cam, ...P(u, v), (Z.frieze + Z.cler) / 2, '255,232,194', 22, alpha * 0.35 * dn * st.domeK, { air: true });
+        pool(ctx, cam, ...P(u, v), (Z.frieze + Z.cler) / 2, '255,232,194', 22, alpha * 0.35 * dn * st.domeK, { air: true });
       }
-      if (inTile(0, 0)) glowPool(ctx, cam, ...P(0, 0), 0.86, '255,236,206', 60, alpha * 0.16 * dn * st.domeK, { air: true, max: 150 });
+      if (inTile(0, 0)) pool(ctx, cam, ...P(0, 0), 0.86, '255,236,206', 60, alpha * 0.16 * dn * st.domeK, { air: true, max: 150 });
     }
     if (st.towerK > 0.01 && dn > 0.05) for (const su of [1, -1]) for (let j = 0; j < 7; j++) {
       const v = -1.26 + j * 0.42, u = su * (DECK - 0.01);
       if (!inTile(u, v)) continue;
-      glowPool(ctx, cam, ...P(u, v), 0.415, '255,246,224', 8, alpha * 0.5 * st.towerK);
+      pool(ctx, cam, ...P(u, v), 0.415, '255,246,224', 8, alpha * 0.5 * st.towerK);
     }
     if (dn > 0.05) for (const [u, v] of [[0, 1.55], [-0.9, 1.55], [1.55, 0], [1.55, -0.9], [-1.55, 0.3], [0.3, -1.55]]) {
       if (!inTile(clamp(u, -1.49, 1.49), clamp(v, -1.49, 1.49))) continue;
-      glowPool(ctx, cam, ...P(u, v), 0.08, '255,210,150', 16, alpha * 0.3 * dn);   // the concourse windows on the pavement
+      pool(ctx, cam, ...P(u, v), 0.08, '255,210,150', 16, alpha * 0.3 * dn);   // the concourse windows on the pavement
     }
   },
 };
