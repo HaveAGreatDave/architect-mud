@@ -224,6 +224,7 @@ export function createClothLayer(gl) {
   const prog = layerProgram(gl, VERT, FRAG, 'cloth');
   const A = (n) => gl.getAttribLocation(prog, n);
   const U = (n) => gl.getUniformLocation(prog, n);
+  let lgLoc = null;
   const loc = {
     uv: A('aUV'), face: A('aFace'), mat: A('aMat'),
     pos: A('iPos'), dim: A('iDim'), anim: A('iAnim'), colA: A('iColA'), colB: A('iColB'), warm: A('iWarm'),
@@ -257,7 +258,6 @@ export function createClothLayer(gl) {
     const at = (l, n, off) => [l, n, off * 4];
     const stream = makeVertexStream(gl, vao, STRIDE, [
       at(loc.pos, 4, 0), at(loc.dim, 4, 4), at(loc.anim, 4, 8), at(loc.colA, 3, 12), at(loc.colB, 3, 15),
-  let lgLoc = null;
       at(loc.warm, 3, 18), at(loc.patch, 4, 21), at(loc.tag, 4, 25), at(loc.weather, 1, 29),
     ], STRIDE * 64);
     gl.bindVertexArray(vao);
@@ -358,6 +358,10 @@ export function createClothLayer(gl) {
     for (let i = 0; i < nW; i++) { const Q = WL[i]; wlP.set(Q.p, i * 3); wlC.set(Q.rgb, i * 3); wlR[i] = Q.rw == null ? Q.r : Q.rw; }
     gl.uniform1i(loc.wlN, nW);
     if (nW) { gl.uniform3fv(loc.wlP, wlP); gl.uniform3fv(loc.wlC, wlC); gl.uniform1fv(loc.wlR, wlR); }
+    // The wall's light grid (RENDER_TUNE.glCluster), bound through opts.lightGrid from context.js.
+    // Bound on every draw, grid or not: the samplers need units of their own either way.
+    if (!lgLoc) { lgLoc = {}; for (const n of LIGHTGRID_UNIFORMS) lgLoc[n] = U(n); }
+    if (opts.lightGrid) opts.lightGrid(lgLoc, 8); else bindNoLightGrid(gl, lgLoc, 8);
     gl.uniform1i(loc.posT, POS_UNIT);
     gl.uniform1i(loc.tagT, TAG_UNIT);
     gl.uniform2f(loc.tagGrid, tagGrid[0], tagGrid[1]);
@@ -394,7 +398,3 @@ export function createClothLayer(gl) {
 }
 
 declareProgram(VERT, FRAG);
-    // The wall's light grid (RENDER_TUNE.glCluster), bound through opts.lightGrid from context.js.
-    // Bound on every draw, grid or not: the samplers need units of their own either way.
-    if (!lgLoc) { lgLoc = {}; for (const n of LIGHTGRID_UNIFORMS) lgLoc[n] = U(n); }
-    if (opts.lightGrid) opts.lightGrid(lgLoc, 8); else bindNoLightGrid(gl, lgLoc, 8);

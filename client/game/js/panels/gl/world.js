@@ -215,7 +215,6 @@ export const LIGHT_TUNE = {
   // wall past its daytime tone, so it can't drown a sign: it only undoes the night dim near a light,
   // tinted by it. 'lift' is the strength, 0 off; 'liftR' the share of the road's reach it takes.
   lift: 2.2, liftR: 0.8,
-};
   // A sign's own light on its own wall (stage A2; context.js, the grid loop): 'sign' is the strength,
   // 0 off, and it needs glCluster 1. 'signR' is the share of the road's reach it takes: about the
   // patch of facade a sign hangs on, well inside the wall's tile. ⚠ AT MOST liftR, because the grid
@@ -224,6 +223,7 @@ export const LIGHT_TUNE = {
   // 0.15 was too short to see on the Modelshop street at any strength (0.05% of the frame at 5);
   // 0.35 shows at 2 to 4 (2026-10-18). Strength is still to be judged on a sign-heavy street.
   sign: 0, signR: 0.35,
+};
 
 // ── CONTACT OCCLUSION, AS TWO NUMBERS ───────────────────────────────────────
 //
@@ -377,9 +377,9 @@ export function pickLights(cam, sprites, night, held, slots = MAX_LIGHTS, keep =
       r,
       rw: r * (isWash ? LIGHT_TUNE.washR : LIGHT_TUNE.wallR),
       rl: r * LIGHT_TUNE.liftR,
-      lamp: [c[0] / 255 * s.a * nightK, c[1] / 255 * s.a * nightK, c[2] / 255 * s.a * nightK],
       // How far the sign's own light reaches on its wall (stage A2), and nothing for an area wash.
       sr: isWash ? 0 : r * Math.min(LIGHT_TUNE.signR, LIGHT_TUNE.liftR),
+      lamp: [c[0] / 255 * s.a * nightK, c[1] / 255 * s.a * nightK, c[2] / 255 * s.a * nightK],
       key: PL.key[i],
       wash: isWash,
       score: sc[i],
@@ -1251,6 +1251,8 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   // cockpit gets (uUnder), and no waterline at all.
   const SOLID_WATER = SUB ? { under: Math.min(1, SUB / 0.14), underD: SUB * 7 } : { water: opts.ownWater };
   if (cam) cam.near = nearFor(cam, cssH, opts.nearFit == null ? 1 : opts.nearFit);
+  // No jitter left over from a frame that threw between setting it and the TAA split.
+  setJitter(0, 0);
   if (!W || !H) return null;
   const g = sceneGL(id, W, H, opts.msaa == null ? 1 : opts.msaa);
   // No WebGL2 on this machine, or the driver took the context away. Either way the pass draws
@@ -1271,8 +1273,6 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
       const fn = g.view[k];
       if (typeof fn !== 'function' || k === 'lost') continue;
       g.view[k] = function (...a) {
-  // No jitter left over from a frame that threw between setting it and the TAA split.
-  setJitter(0, 0);
         const T = window.__glPT; if (!T) return fn.apply(this, a);
         const t0 = performance.now();
         try { return fn.apply(this, a); } finally { T[k] = (T[k] || 0) + performance.now() - t0; }
@@ -1404,6 +1404,9 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
     // light that is only still on screen because it is fading out would keep re-electing it.
     g.litHeld = ranked ? new Set(ranked.slice(0, SLOTS).map((e) => e.key)) : null;
   } else { g.litHeld = null; g.litW.clear(); }
+  // The wall's light grid, built once here so the mirror prepass and the main pass read the same one
+  // (setLightGrid in context.js). null, at glCluster 0, clears it and every layer stays on the slots.
+  if (g.view.setLightGrid) g.view.setLightGrid(gridLights);
   // ⚠ THE WALL PASS STILL GETS NOTHING BY DAY, and that is where the night gate moved to rather
   // than being deleted. `pickLights` now builds the list at every hour so the road can reflect in
   // daylight, but a wall wash at noon is the saturation bug this feature was tuned against — and
@@ -1424,9 +1427,6 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   const wetOn = (opts.glWet > 0 && opts.glWetWall > 0);
   // ⚠ A THIRD REASON TO HAND THE MASS THE LIGHTS. In-scattering reads the same list and is live
   // in weather the other two are not, so without this a lamp throws a cone over the road and none
-  // The wall's light grid, built once here so the mirror prepass and the main pass read the same one
-  // (setLightGrid in context.js). null, at glCluster 0, clears it and every layer stays on the slots.
-  if (g.view.setLightGrid) g.view.setLightGrid(gridLights);
   // over the wall behind it — a shaft that stops at the kerb.
   // ⚠ SCALED BY THE NIGHT, AND THAT IS PHYSICS RATHER THAN A SAFETY VALVE. A street lamp in
   // daytime fog throws no beam you can see: the sun is scattering orders more light through the
@@ -1441,6 +1441,9 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   // is lit and one in a dark lot isn't. Only at night, and only when the night actually dims.
   const lampLift = LIGHT_TUNE.lift * Math.min(1, Math.max(0, opts.night || 0)) / (LIGHT_TUNE.wet || 1);
   const liftOn = lampLift > 0.01 && (opts.glNightDark || 0) > 0;
+  // A2, a sign on its own wall: at night only, like the wash, and only where the grid is.
+  const signLift = LIGHT_TUNE.sign * Math.min(1, Math.max(0, opts.night || 0));
+  const signOn = signLift > 0.01 && opts.glCluster === 1;
   const wallLights = (washOn || wetOn || scatterOn || liftOn) ? lightList : null;
   // ── THE CITY THE GLASS REFLECTS ───────────────────────────────────────────────────────────
   //
@@ -1463,9 +1466,6 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
     // lights. Handing it the plain `cam` slides every highlight in the city by the window offset,
     // which does not read as a bug: it reads as the sun being somewhere else.
     eye: eyePos(camAt),
-  // A2, a sign on its own wall: at night only, like the wash, and only where the grid is.
-  const signLift = LIGHT_TUNE.sign * Math.min(1, Math.max(0, opts.night || 0));
-  const signOn = signLift > 0.01 && opts.glCluster === 1;
     // The city in the glass. ⚠ REBUILT EVERY FRAME AND NOT WITH THE MASS BUFFER — the bearing to
     // a building changes as the camera moves WITHIN a tile, so keyed to the buffer the reflection
     // would snap a tile at a time. See gl/skyline.js.
@@ -1571,6 +1571,19 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
         fog: opts.fogBand })
     : null;
   if (SUB) drawOpts.skipMass = true;   // under the sea: see skipMass in context.js
+  // ── TAA (RENDER_TUNE.glTaa; gl/taa.js) ──────────────────────────────────────────────────────
+  //
+  // From here to the split before the sprites every layer is drawn a sub-pixel off. The matrix the
+  // history is reprojected against is this frame's without the jitter, so it's taken first. The
+  // float target decides whether there's anything to split, and this frame's isn't bound yet, so
+  // last frame's answer gates it: a frame jittered with no resolve is a sub-pixel shift, nothing more.
+  let taaJit = null, taaVP = null, taaDone = false;
+  if (opts.glTaa > 0 && g.view.taaSplit && (!g.view.hdrLive || g.view.hdrLive() || !g.taa)) {
+    taaVP = viewProjMatrix(camAt, cssH);
+    g.taaN = (g.taaN || 0) + 1;
+    taaJit = jitterFor(g.taaN, g.canvas.width, g.canvas.height);
+    setJitter(taaJit.x, taaJit.y);
+  } else g.taa = null;
   g.view.draw(camAt, drawOpts);
   // What the layers below are really drawing into. `opts.hdr` is only the ask: a device that refused
   // the float format keeps it at 1 and renders into the eight-bit canvas, where a gain clips.
@@ -1591,19 +1604,6 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   // 253 own-ship triangles in a cab. Both list lengths are reported beside it.
   // The city's lights and its night, as the mass takes them, so a lit lock is lit by its lamps.
   const solids = g.view.drawSolids ? g.view.drawSolids(camAt, cssH, { fog: opts.fogBand, ...SOLID_WATER,
-  // ── TAA (RENDER_TUNE.glTaa; gl/taa.js) ──────────────────────────────────────────────────────
-  //
-  // From here to the split before the sprites every layer is drawn a sub-pixel off. The matrix the
-  // history is reprojected against is this frame's without the jitter, so it's taken first. The
-  // float target decides whether there's anything to split, and this frame's isn't bound yet, so
-  // last frame's answer gates it: a frame jittered with no resolve is a sub-pixel shift, nothing more.
-  let taaJit = null, taaVP = null, taaDone = false;
-  if (opts.glTaa > 0 && g.view.taaSplit && (!g.view.hdrLive || g.view.hdrLive() || !g.taa)) {
-    taaVP = viewProjMatrix(camAt, cssH);
-    g.taaN = (g.taaN || 0) + 1;
-    taaJit = jitterFor(g.taaN, g.canvas.width, g.canvas.height);
-    setJitter(taaJit.x, taaJit.y);
-  } else g.taa = null;
     lights: lightList, lightWrap: LIGHT_TUNE.wrap, lightFocus: LIGHT_TUNE.focus,
     nightDim: 1 - (opts.night || 0) * (opts.glNightDark || 0) }) : 0;
 
@@ -1810,6 +1810,22 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   // ⚠ THE GAIN ONLY EXISTS WHERE THERE IS SOMEWHERE TO PUT IT. Against the 8-bit canvas a glow at
   // 3.0 clamps on the way into the buffer and every one of them comes out flat white; the headroom
   // to hold it is the float target, so the gain is conditional on it and is exactly 1 without it.
+  // ── THE TAA SPLIT ─────────────────────────────────────────────────────────────────────────────
+  //
+  // Everything above went through the temporal resolve; everything below is drawn unjittered over
+  // its result and never enters the history: the light sprites, the Curtain, the decals and their
+  // lettering, the strokes, the billboards and the cabin (gl/taa.js says why). `shift` is how far
+  // the map window recentred since last frame, which the window frame jumps by.
+  if (taaJit) {
+    setJitter(0, 0);
+    const now = opts.now || 0, wc = opts.wc || { x: 0, y: 0 }, p = g.taa;
+    const shift = p ? [wc.x - p.wc.x, wc.y - p.wc.y] : [0, 0];
+    const reset = !p || p.w !== g.canvas.width || p.h !== g.canvas.height || !(Math.abs(now - p.t) < TAA_TUNE.maxGapMs)
+      || Math.abs(shift[0]) > TAA_TUNE.maxShift || Math.abs(shift[1]) > TAA_TUNE.maxShift;
+    taaDone = g.view.taaSplit({ reproj: reset ? null : reprojMatrix(p.vp, taaVP, shift), jit: taaJit, reset });
+    g.taa = taaDone ? { vp: taaVP, wc: { x: wc.x, y: wc.y }, w: g.canvas.width, h: g.canvas.height, t: now } : null;
+    if (TAA_TUNE.debug) TAA_TUNE.last = { vp: taaVP, prev: p ? p.vp : null, shift, reset, cam: { fx: camAt.fx, fy: camAt.fy, ox: camAt.ox, oy: camAt.oy, near: camAt.near, back: camAt.back, EH: camAt.EH, sinh: camAt.sinh, cosh: camAt.cosh } };
+  }
   const lights = g.view.drawSprites(cam, opts.sprites, cssH, hdrLive ? EMISSIVE_GAIN : 1);
   // ⚠ AFTER THE MASS, ALWAYS. It is depth-TESTED and writes none of its own, so the buildings
   // have to be in the buffer before it is asked what stands in front of it.
@@ -1832,22 +1848,6 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
     { tube: opts.glNeonTube, flicker: opts.glNeonFlicker, now: opts.now }, clothLit);
   const decalBinds = g.view.decalCost ? g.view.decalCost() : null;
   // The wires — masts, rails, braces, cables, light-runners. After the mass for the same reason
-  // ── THE TAA SPLIT ─────────────────────────────────────────────────────────────────────────────
-  //
-  // Everything above went through the temporal resolve; everything below is drawn unjittered over
-  // its result and never enters the history: the light sprites, the Curtain, the decals and their
-  // lettering, the strokes, the billboards and the cabin (gl/taa.js says why). `shift` is how far
-  // the map window recentred since last frame, which the window frame jumps by.
-  if (taaJit) {
-    setJitter(0, 0);
-    const now = opts.now || 0, wc = opts.wc || { x: 0, y: 0 }, p = g.taa;
-    const shift = p ? [wc.x - p.wc.x, wc.y - p.wc.y] : [0, 0];
-    const reset = !p || p.w !== g.canvas.width || p.h !== g.canvas.height || !(Math.abs(now - p.t) < TAA_TUNE.maxGapMs)
-      || Math.abs(shift[0]) > TAA_TUNE.maxShift || Math.abs(shift[1]) > TAA_TUNE.maxShift;
-    taaDone = g.view.taaSplit({ reproj: reset ? null : reprojMatrix(p.vp, taaVP, shift), jit: taaJit, reset });
-    g.taa = taaDone ? { vp: taaVP, wc: { x: wc.x, y: wc.y }, w: g.canvas.width, h: g.canvas.height, t: now } : null;
-    if (TAA_TUNE.debug) TAA_TUNE.last = { vp: taaVP, prev: p ? p.vp : null, shift, reset, cam: { fx: camAt.fx, fy: camAt.fy, ox: camAt.ox, oy: camAt.oy, near: camAt.near, back: camAt.back, EH: camAt.EH, sinh: camAt.sinh, cosh: camAt.cosh } };
-  }
   // the Curtain and the signage are: depth-tested, writing none of its own.
   const strokes = g.view.drawStrokes ? g.view.drawStrokes(cam, opts.strokes, cssH) : 0;
   // The scatter carries the renderer own fog curve, because the 2-D drawers tint by fogTint at
