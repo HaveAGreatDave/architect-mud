@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_903_906",
+  "b": "zone_district_903_907",
+  "blocked": false,
+  "dir": "south",
+  "id": "conn_hf_district_903_906_south",
+  "lockable": false,
+  "one_way": false
+}

@@ -1,0 +1,11 @@
+{
+  "description": "A small safe set into the back wall, its door standing open on an empty shelf. Whoever cleared the shop out didn't try to take it.",
+  "flags": {
+    "hack_difficulty": 6,
+    "shop_vault": true
+  },
+  "id": "furn_sf_ironside5_vault",
+  "name": "wall safe",
+  "object_type": "fixture",
+  "zone_id": "zone_sf_ironside5_shop"
+}

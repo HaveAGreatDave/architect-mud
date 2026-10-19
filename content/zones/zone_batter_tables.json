@@ -1,0 +1,28 @@
+{
+  "ambient_theme": "indoors",
+  "description": "Four timber picnic tables on the pavement under the orange awnings, out of the rain and not out of the wind. Salt and vinegar stand on each one. Gulls patrol the kerb. You can see along Greenside Row both ways from here.",
+  "exits": {
+    "west": "zone_batter_shop"
+  },
+  "flags": {
+    "building_name": "Batter Days Fish & Chips",
+    "building_type": "chip_shop",
+    "floor": "concrete",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "Greenside Row, from under the awnings. Traffic, puddles, and the gulls waiting for somebody to drop a chip.",
+      "light": 1,
+      "name": "the street",
+      "visibility": 1
+    },
+    "world_exit_zone": "zone_district_903_906"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_batter_tables",
+  "map_id": "map_int_batter",
+  "name": "Batter Days Fish & Chips: The Tables",
+  "parent_zone": "zone_district_903_906"
+}

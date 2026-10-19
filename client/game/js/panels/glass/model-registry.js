@@ -141,8 +141,13 @@ export const NAMED_MODELS = {
   firedforgotten:                 { type: 'ff_kiln',     pal: 'ty_ff_brick', neon: '#ff8a4a' },
   // ⚠ `trade` NAMED, because the signage tables and KIT_DECLINE key on `tradeOf`, and an arm's
   // case label IS its trade unless it says otherwise: `chippy` would reach every one as a miss.
-  // Batter Days took over Tine & Temper's unit, and its brick shell, in 2026-10.
-  batterdaysfishchips:            { type: 'chippy',      pal: 'ty_unit_brick', neon: '#ffd27a', trade: 'chip_shop' },
+  // Batter Days moved onto the front of the Codfather's fish works in 2026-10 and was repainted
+  // blue and orange. Its old brick unit on Ironside Street kept the shell as `ironsideunit`.
+  batterdaysfishchips:            { type: 'chippy',      pal: 'ty_bd_blue', neon: '#f08a2a', trade: 'chip_shop' },
+  unit5ironsidestreet:            { type: 'ironsideunit', pal: 'ty_unit_brick', neon: '#c8c0aa', noKit: true },
+  // ⚠ `noKit`: the works carries no sign anywhere, and every kit section that letters a wall or
+  // stands a hoarding would be one. Its arm draws all of its openings itself.
+  thecodfather:                   { type: 'fishworks',   pal: 'ty_fw_tin', trade: 'fish_works', noKit: true },
   twocellsupply:                  { type: 'twocell',     pal: 'ty_2cell',    neon: '#9fe8ff' },
   fallowprovisions:               { type: 'fallow',      pal: 'ty_fallow' },
   // The four numbered Units are all EMPTY EX-TENANT SHELLS, and looking alike is correct for
@@ -465,6 +470,8 @@ export const TYPE_MODEL = {
   // type, like the pontoon and the boathouse, so the yard's look is the type's and not the name's.
   boatshed:          { type: 'boatshed',          pal: 'ty_oc_board_dk' },
   landing_stage:     { type: 'landing_stage',     pal: 'ty_pier_deck' },
+  fish_quay:         { type: 'fish_quay',         pal: 'ty_dw_timber' },          // the Codfather's quay: timber on tarred piles
+  fish_works:        { type: 'fishworks',         pal: 'ty_fw_tin', noKit: true },
   // The fuel berth moored to its north face: the pontoon's float in the slab's own materials.
   fuel_dock:         { type: 'fuel_dock',         pal: 'ty_hf_ice',   neon: '#7fe4ff' },
   // ⚠ PEARL RATHER THAN `ty_aur_frost`, WHICH WAS THE FIRST CHOICE AND MEASURED WRONG. Both are

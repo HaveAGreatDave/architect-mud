@@ -1,23 +1,23 @@
 {
   "ambient_events": [],
   "ambient_theme": "urban",
-  "bg_color": "#1a2024",
-  "description": "No glazing at all, which on a street of shopfronts is the thing you notice before you notice the smell. The building is a counter with a roof on it: a marble slab the full width of the frontage, canted toward you, open to the street behind a canvas awning let down on two poles, and a crushed-ice bed on the slab with the morning on it in rows. The ice melts off the front edge all day and runs into the gutter, and there is a strip of pavement outside this shop that has not been dry since anybody can remember. The name is painted on the fascia in blue on white, and the lettering is a great deal older than the man behind the slab.",
+  "bg_color": "#1b2226",
+  "color": "#8fa4ac",
+  "description": "A long tin-clad shed with a refrigeration plant humming on the roof and no name on it anywhere. Its front is built onto the back of Batter Days. The only door this side is a steel staff door onto the car park, propped open on a fish box.",
   "exits": {
-    "north": "zone_codfather_slab",
-    "south": "zone_district_903_906"
+    "east": "zone_district_904_905",
+    "west": "zone_codfather_slab"
   },
   "flags": {
     "building_name": "The Codfather",
-    "building_type": "fishmonger",
+    "building_type": "fish_works",
     "district": "filaments",
-    "entrance": "south",
+    "entrance": "east",
     "facade": true,
     "floors": 1,
     "is_building": true,
     "region_id": "region_coldwater",
-    "sign_trade": "FISHMONGER",
-    "world_exit_zone": "zone_district_903_906"
+    "world_exit_zone": "zone_district_904_905"
   },
   "grid_x": 903,
   "grid_y": 905,

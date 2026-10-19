@@ -1,0 +1,11 @@
+{
+  "description": "A string of round bulbs under the awning, two of them gone, warm against the blue paint.",
+  "flags": {},
+  "id": "furn_light_zone_batter_tables",
+  "light_type": "string",
+  "lumen_output": 900,
+  "name": "the festoon lights",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_batter_tables"
+}

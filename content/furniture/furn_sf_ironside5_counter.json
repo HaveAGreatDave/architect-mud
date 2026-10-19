@@ -1,0 +1,11 @@
+{
+  "description": "The old steel chip shop counter, bolted through the tiles, with the hot cabinet gone from the top of it and the glass well underneath still whole.",
+  "flags": {
+    "shop_display": true,
+    "woven": true
+  },
+  "id": "furn_sf_ironside5_counter",
+  "name": "display counter",
+  "object_type": "fixture",
+  "zone_id": "zone_sf_ironside5_shop"
+}

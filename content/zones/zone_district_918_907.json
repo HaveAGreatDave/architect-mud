@@ -2,15 +2,15 @@
   "ambient_events": [],
   "ambient_theme": "urban",
   "bg_color": "#221a14",
-  "color": "#e8b866",
-  "description": "A low brick shop with a slate roof and a steel flue up the back corner, breathing steam and frying oil for as long as it is open. The front is one wide window, fogged on the inside, with a glass door in the middle. BATTER DAYS is painted over it in cream on dark green, with FISH & CHIPS smaller underneath, and a tin fish hangs off a bracket over the pavement. Rows of hooks still run along the brick either side of the door from when the place sold pans.",
+  "color": "#8a7a68",
+  "description": "A low brick shop with a slate roof, empty. The wide front window is boarded over with sheets of ply and a letting notice is stapled to the board by the door. A cold steel flue runs up the back corner, and rows of empty hooks still run along the brick either side of the door.",
   "exits": {
     "east": "zone_district_919_907",
-    "west": "zone_batter_shop"
+    "west": "zone_sf_ironside5_shop"
   },
   "flags": {
-    "building_name": "Batter Days Fish & Chips",
-    "building_type": "chip_shop",
+    "building_name": "Unit 5, Ironside Street",
+    "building_type": "shop",
     "district": "industrial",
     "entrance": "east",
     "facade": true,
@@ -24,7 +24,7 @@
   "grid_z": 0,
   "id": "zone_district_918_907",
   "map_id": "map_world",
-  "marker": "BT",
-  "name": "Batter Days Fish & Chips",
+  "marker": "I5",
+  "name": "Unit 5, Ironside Street",
   "parent_zone": null
 }

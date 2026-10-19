@@ -49,6 +49,8 @@ export const TYPE_FLOORS = {
   // The beacon is authored tall on purpose: it is the only built thing north of the shoreline and
   // it has to be the thing you steer by from the water, the road and the air.
   pier: 1, harbour_yard: 1, lighthouse: 12,
+  // The Codfather's fish works: one tall storey of tin shed.
+  fish_works: 1,
   // A compact harbour crane stands about seven storeys to the slew house, which is what every
   // fraction in its arm — the boom height, the counterweight, the hook travel — is measured against.
   quay_crane: 7,

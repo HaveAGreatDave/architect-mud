@@ -175,6 +175,7 @@ nothing, silently; wire a reader first.
 | `drug_buyer` | drugwar | buys drugs from players |
 | `food_buyer` | cooking | pays the specialist rate (70% vs 40%) for plated meals, and the quality band scales the payout — a masterful plate is worth ~7.5x a poor one |
 | `bounty_buyer` | engine (vendor) | pays the specialist rate (70% vs 40%) for anything tagged `vermin_part` — proof-of-kill an exterminator sent you for. Same lever as `drug_buyer`/`food_buyer`, hung on the ITEM TAG rather than an id, so the next pest anybody writes is already worth something to the right buyer |
+| `fish_buyer` | engine (vendor) | pays the specialist rate (70% vs 40%) for anything tagged `raw_fish`, the catch off a fishing line. The same lever as `bounty_buyer`. Ignatius Fawle at the Codfather's weigh-in carries it |
 | `fights_for_you` | ally | consent gate for the `ally <name>` verb, exactly as `escortable` gates `escort`. Without it the verb refuses, so an NPC only ever fights for you because something in the world said it could |
 | `ally_targets` | ally | array of enemy TEMPLATE ids this NPC is willing to attack (`["enemy_sewer_roach", …]`). Absent or empty = anything hostile. Content names the targets; no code does |
 | `ally_withdraw_pct` | ally | HP percentage at which an ally breaks contact and goes home rather than dying (default 30). It narrows the window on getting them killed; it does not close it |

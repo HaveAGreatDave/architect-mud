@@ -5,7 +5,6 @@
   "exits": {
     "east": "zone_district_903_904",
     "north": "zone_district_902_903",
-    "south": "zone_district_902_905",
     "west": "zone_district_901_904"
   },
   "flags": {

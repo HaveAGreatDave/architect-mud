@@ -5,7 +5,7 @@
   "name": "scraps",
   "tags": {
     "consumable": true,
-    "description": "A paper twist of loose batter skimmed off the fryer. Crisp, salty, and the cheapest hot thing on Ironside Street.",
+    "description": "A paper twist of loose batter skimmed off the fryer. Crisp, salty, and the cheapest hot thing in the Filaments.",
     "restore_hunger": 5,
     "stackable": true
   },

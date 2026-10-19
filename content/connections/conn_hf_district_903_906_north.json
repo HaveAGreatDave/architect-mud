@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_903_906",
+  "b": "zone_batter_shop",
+  "blocked": false,
+  "dir": "north",
+  "id": "conn_hf_district_903_906_north",
+  "lockable": true,
+  "one_way": false
+}

@@ -1,25 +1,30 @@
 {
   "ambient_events": [],
-  "ambient_theme": "city",
-  "description": "Where Filament Street stops being a street and becomes the back of three businesses. Tarmac laid in one pour and patched in nine, the fishmonger's shutter on the north side and a stack of returned crates against it that nobody has counted this year. It drains toward the middle rather than the kerb, and in summer you can tell.",
+  "ambient_theme": "urban",
+  "bg_color": "#13243a",
+  "color": "#f08a2a",
+  "description": "A bright chip shop painted harbour blue, with orange awnings over a wide lit window and BATTER DAYS in orange across the front. Picnic tables stand under the awnings. A steel flue up the back breathes steam, and behind it the tin shed of the fish works carries straight on.",
   "exits": {
-    "east": "zone_district_904_906",
-    "north": "zone_district_903_905",
-    "south": "zone_district_903_907",
-    "west": "zone_district_902_906"
+    "north": "zone_batter_shop",
+    "south": "zone_district_903_907"
   },
   "flags": {
+    "building_name": "Batter Days Fish & Chips",
+    "building_type": "chip_shop",
     "district": "filaments",
+    "entrance": "south",
+    "facade": true,
+    "floors": 1,
+    "is_building": true,
     "region_id": "region_coldwater",
-    "scavenging_table_id": "scav_roadside_junk",
-    "street_life": true,
-    "terrain": "asphalt"
+    "world_exit_zone": "zone_district_903_907"
   },
   "grid_x": 903,
   "grid_y": 906,
   "grid_z": 0,
   "id": "zone_district_903_906",
   "map_id": "map_world",
-  "name": "Filament Yard",
+  "marker": "BT",
+  "name": "Batter Days Fish & Chips",
   "parent_zone": null
 }

@@ -1,0 +1,15 @@
+{
+  "description": "Red hose reels bolted along the wall at head height, one to every two places at the table. The floor under them never dries.",
+  "flags": {
+    "aliases": [
+      "hose",
+      "hoses",
+      "reels",
+      "reel"
+    ]
+  },
+  "id": "furn_codfather_hoses",
+  "name": "the hose reels",
+  "object_type": "fixture",
+  "zone_id": "zone_codfather_slab"
+}

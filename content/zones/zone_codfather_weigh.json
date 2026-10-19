@@ -1,0 +1,29 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A high shed with a roller door open onto the quay. Boxes of fish come in off the boats here and go onto a brass scale by the door, and the weight is chalked on the box. A wooden drawer under the scale holds the cash. Boat crews wait their turn with their catch.",
+  "exits": {
+    "north": "zone_district_903_904",
+    "south": "zone_codfather_slab"
+  },
+  "flags": {
+    "building_name": "The Codfather",
+    "building_type": "fish_works",
+    "floor": "concrete",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "The roller door is up. Past it are the quay, two berths and the grey water of the Basin.",
+      "light": 0.8,
+      "name": "the roller door",
+      "visibility": 0.9
+    },
+    "world_exit_zone": "zone_district_903_905"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_codfather_weigh",
+  "map_id": "map_int_codfather",
+  "name": "The Codfather: The Landing Hall",
+  "parent_zone": "zone_district_903_905"
+}

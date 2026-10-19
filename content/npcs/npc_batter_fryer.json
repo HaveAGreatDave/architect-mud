@@ -125,7 +125,8 @@
     "He wraps a supper in two sheets of paper without looking down, and slides it across the counter.",
     "\"Salt and vinegar?\" he asks, already doing it.",
     "He skims the scraps off the top of the oil into the tray in the cabinet.",
-    "He wipes a porthole in the steamed-up window with his sleeve and looks out at Ironside Street."
+    "The swing door at the back bangs open and a box of fillets on ice comes through. He takes it without looking round.",
+    "He wipes a porthole in the steamed-up window with his sleeve and looks out at the tables."
   ],
   "description": "A heavy man in his forties with a shaved head and forearms speckled with small white burn scars from spitting fat. He moves behind the counter without looking, and talks to the fryers more than to the customers. A pencil lives behind one ear and a tea towel over one shoulder.",
   "dialogue_tree": {
@@ -137,7 +138,7 @@
       "actions": [
         {
           "action": "GPS_TO",
-          "zone": "zone_district_903_905"
+          "zone": "zone_district_903_904"
         }
       ],
       "options": [
@@ -146,7 +147,7 @@
           "next": "root"
         }
       ],
-      "text": "\"The Codfather, out west by the water. Fawle drops it off at six with the ice still on.\" He lifts a fillet out of the tray to show you. \"I smoke the haddock myself out the back, on the drum. Nobody asks for haddock. I do it anyway.\""
+      "text": "\"Through there.\" He points the tongs at the swing door behind him. \"Fawle lands it off the boats in the morning and it's in my batter by the afternoon. Nobody in the city eats fresher, and most of them have no idea.\"\n\n\"Got a catch of your own? He'll buy it. Go out the front and round to the quay, or the staff door off the car park.\""
     },
     "good": {
       "options": [
@@ -168,35 +169,16 @@
           "next": "root"
         }
       ],
-      "text": "\"Have to be.\" He jerks his head east, toward the Yards. \"The depots change shift at two. Two hundred people come off the trucks hungry, and they don't want noodles, whatever Nico tells you. They want something they can eat in the cab out of paper. I do more between midnight and two than the whole afternoon.\"\n\n\"Sundays I close at ten. Even the trucks stop Sundays.\""
+      "text": "\"Have to be. The Yards change shift at two, and two hundred people come off the trucks hungry. They want something they can eat in the cab out of paper. I do more between midnight and two than the whole afternoon.\"\n\n\"Sundays I close at ten. Even the trucks stop Sundays.\""
     },
-    "pans": {
-      "options": [
-        {
-          "label": "Where is Ration Nine?",
-          "next": "ration"
-        },
-        {
-          "label": "Back up.",
-          "next": "root"
-        }
-      ],
-      "text": "\"Tove's place. Pots, pans and that.\" He shrugs. \"Ration Nine had all the same stuff on a rack across the road, cheaper and open later. She lasted about as long as you'd think.\"\n\n\"She left the hooks along the front. I hang the menu off two of them. The rest I've not got round to.\""
-    },
-    "ration": {
-      "actions": [
-        {
-          "action": "GPS_TO",
-          "zone": "zone_district_920_908"
-        }
-      ],
+    "moved": {
       "options": [
         {
           "label": "Back up.",
           "next": "root"
         }
       ],
-      "text": "\"Across the road and down one, at the Marrow Street end.\" He points with a pair of tongs. \"Groceries, and the pans if you want them. Mind the chiller. It bites.\""
+      "text": "\"Ironside, yeah. Brick place by the Meridian.\" He shrugs. \"Fawle had a front he wasn't using and I had a delivery I was walking across town for. Now it comes through a door.\"\n\n\"The old unit's boarded up. Somebody'll take it. Somebody always does.\""
     },
     "root": {
       "options": [
@@ -213,12 +195,12 @@
           "next": "late"
         },
         {
-          "label": "Didn't this place sell pans?",
-          "next": "pans"
-        },
-        {
           "label": "Where does the fish come from?",
           "next": "fish"
+        },
+        {
+          "label": "Didn't you used to be on Ironside Street?",
+          "next": "moved"
         },
         {
           "actions": [],

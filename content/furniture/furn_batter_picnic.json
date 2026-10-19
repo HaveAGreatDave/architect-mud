@@ -1,0 +1,21 @@
+{
+  "description": "Four timber picnic tables with the benches built on, painted blue once and weathered grey on top. Somebody has carved a fish into the end of one.",
+  "flags": {
+    "aliases": [
+      "tables",
+      "table",
+      "picnic table",
+      "picnic tables",
+      "benches",
+      "bench"
+    ],
+    "interactions": [
+      "sit",
+      "lean"
+    ]
+  },
+  "id": "furn_batter_picnic",
+  "name": "the picnic tables",
+  "object_type": "furniture",
+  "zone_id": "zone_batter_tables"
+}

@@ -2,10 +2,9 @@
   "description": "A steel table with a lip round the edge, a tub of batter on it under a damp cloth and a whisk standing up in the tub.",
   "flags": {
     "aliases": [
-      "table",
+      "prep table",
       "batter",
-      "tub",
-      "prep table"
+      "tub"
     ]
   },
   "id": "furn_batter_table",

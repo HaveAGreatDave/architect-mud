@@ -1,7 +1,7 @@
 {
-  "connection_id": "conn_district_903_905_north_1vn0",
+  "connection_id": "conn_hf_district_903_905_west",
   "door_type": "basic",
-  "exit_dir": "north",
+  "exit_dir": "west",
   "flags": {},
   "hololock_difficulty": 5,
   "hp": 1000,
@@ -16,9 +16,9 @@
       "canHack": true,
       "difficulty": 4,
       "messages": {
-        "denied": "The shop lock reads your hand and declines to recognise it.",
-        "lock": "The bolt drops and the shopfront goes quiet.",
-        "unlock": "The bolt lifts. The shop door swings in."
+        "denied": "The staff door lock reads your hand and declines to recognise it.",
+        "lock": "The bolt drops. Inside, the icemaker keeps thumping.",
+        "unlock": "The bolt lifts. The steel door swings out on a wall of cold air."
       }
     }
   },

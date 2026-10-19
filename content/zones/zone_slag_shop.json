@@ -6,7 +6,7 @@
   "exits": {
     "down": "zone_util_zone_slag_shop",
     "north": "zone_slag_back",
-    "south": "zone_district_904_905"
+    "south": "zone_district_902_905"
   },
   "flags": {
     "building_name": "Slag & Wares",
@@ -20,7 +20,7 @@
       "name": "the shopfront window",
       "visibility": 0.9
     },
-    "world_exit_zone": "zone_district_904_905"
+    "world_exit_zone": "zone_district_902_905"
   },
   "grid_x": 0,
   "grid_y": 0,
@@ -28,5 +28,5 @@
   "id": "zone_slag_shop",
   "map_id": "map_int_slag",
   "name": "Slag & Wares — Shop",
-  "parent_zone": "zone_district_904_905"
+  "parent_zone": "zone_district_902_905"
 }

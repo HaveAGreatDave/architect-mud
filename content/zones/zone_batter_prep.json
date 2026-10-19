@@ -1,8 +1,9 @@
 {
   "ambient_theme": "indoors",
-  "description": "A narrow back room with a drain in the middle of the floor and the walls tiled to shoulder height. A drum peeler the size of a cement mixer stands in the corner beside a chipper bolted to the wall, and potato sacks are stacked to the window. A steel table holds a tub of batter under a cloth. The back door is propped open on a drum smoker and a charcoal grill.",
+  "description": "A narrow back room with a drain in the floor and the walls tiled to shoulder height. A drum peeler stands beside a wall chipper, and potato sacks are stacked to the ceiling. A drum smoker and a charcoal grill stand by the extractor. A swing door north goes straight into the fish works.",
   "exits": {
-    "east": "zone_batter_shop"
+    "north": "zone_codfather_slab",
+    "south": "zone_batter_shop"
   },
   "flags": {
     "building_name": "Batter Days Fish & Chips",
@@ -10,13 +11,13 @@
     "floor": "tile",
     "is_building": true,
     "is_interior": true,
-    "world_exit_zone": "zone_district_918_907"
+    "world_exit_zone": "zone_district_903_906"
   },
   "grid_x": 0,
   "grid_y": 0,
   "grid_z": 0,
   "id": "zone_batter_prep",
   "map_id": "map_int_batter",
-  "name": "Batter Days Fish & Chips — The Prep Room",
-  "parent_zone": "zone_district_918_907"
+  "name": "Batter Days Fish & Chips: The Prep Room",
+  "parent_zone": "zone_district_903_906"
 }

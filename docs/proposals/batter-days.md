@@ -6,6 +6,12 @@ map icon.
 
 Built 2026-10-08.
 
+⚠ **Moved on 2026-10-18.** Batter Days now stands at 903,906 on Greenside Row, built onto the front
+of the Codfather's fish works, painted blue and orange with awnings and picnic tables. Its rooms,
+keeper and dishes moved with it; its old unit here is Unit 5, Ironside Street. The build script below
+was replaced by `scripts/content/fish-works.mjs`, and the GLASS section describes the old brick arm,
+which is now `ironsideunit`. [fish-works.md](fish-works.md) is the current record.
+
 ## 1. Why Tine & Temper went
 
 Tine & Temper sold pans, pots and utensils. Every item on its list was also on the kitchenware rack

@@ -1,30 +1,30 @@
 {
-  "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8f4f3a",
-  "description": "A hand-cart the size of a room, roofed with corrugate and dug into the hardpan where the west road empties out. Sorted salvage lies on boards either side, in grades. A bell on a pole rings whenever something heavy moves out on the flats. SLAG & WARES is chalked on the tailboard.",
+  "ambient_events": [
+    "Somebody in wellingtons comes out of the steel door, lights a cigarette and goes back in before it is finished.",
+    "A van backs into a bay, beeping, and the driver starts throwing boxes of ice into the back.",
+    "Water runs out of the open van and across the tarmac to the drain.",
+    "A gull stands on the lamp post and watches the door."
+  ],
+  "ambient_theme": "urban",
+  "color": "#5a5f62",
+  "description": "A square of cracked tarmac with four bays painted on it, two of them taken by vans with the backs open and ice water running out. A lamp post stands in the corner. On the west side a steel door with a push bar is propped open on a fish box, and a hose lies across the step.",
   "exits": {
-    "north": "zone_slag_shop",
-    "south": "zone_district_904_906"
+    "east": "zone_district_905_905",
+    "north": "zone_district_904_904",
+    "south": "zone_district_904_906",
+    "west": "zone_district_903_905"
   },
   "flags": {
-    "building_name": "Slag & Wares",
-    "building_type": "junkyard",
-    "district": "docks",
-    "entrance": "south",
-    "facade": true,
-    "floors": 1,
-    "is_building": true,
+    "district": "filaments",
     "region_id": "region_coldwater",
-    "sign_trade": "SALVAGE",
-    "world_exit_zone": "zone_district_904_906"
+    "street_life": true,
+    "terrain": "road"
   },
   "grid_x": 904,
   "grid_y": 905,
   "grid_z": 0,
   "id": "zone_district_904_905",
   "map_id": "map_world",
-  "marker": "SW",
-  "name": "Slag & Wares",
+  "name": "The Codfather: Staff Car Park",
   "parent_zone": null
 }

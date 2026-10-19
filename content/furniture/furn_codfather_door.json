@@ -1,0 +1,15 @@
+{
+  "description": "A corrugated roller door, rolled up into its drum, with a chain hanging down the side to lower it. The bottom rail is dented where boxes have hit it.",
+  "flags": {
+    "aliases": [
+      "roller door",
+      "door",
+      "shutter",
+      "chain"
+    ]
+  },
+  "id": "furn_codfather_door",
+  "name": "the roller door",
+  "object_type": "fixture",
+  "zone_id": "zone_codfather_weigh"
+}

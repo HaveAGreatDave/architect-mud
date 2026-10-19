@@ -1,0 +1,11 @@
+{
+  "description": "One bare bulb on a flex where the counter lights used to be.",
+  "flags": {},
+  "id": "furn_light_zone_sf_ironside5_shop",
+  "light_type": "overhead",
+  "lumen_output": 1200,
+  "name": "the bare bulb",
+  "object_type": "light",
+  "power_draw_kw": 0.03,
+  "zone_id": "zone_sf_ironside5_shop"
+}

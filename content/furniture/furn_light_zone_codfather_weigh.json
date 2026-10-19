@@ -1,0 +1,11 @@
+{
+  "description": "Three enamel shades on long flexes over the scale, swinging a little when the roller door lets the wind in.",
+  "flags": {},
+  "id": "furn_light_zone_codfather_weigh",
+  "light_type": "overhead",
+  "lumen_output": 1800,
+  "name": "the shed lamps",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_codfather_weigh"
+}

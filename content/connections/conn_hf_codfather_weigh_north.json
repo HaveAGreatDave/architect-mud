@@ -1,0 +1,9 @@
+{
+  "a": "zone_codfather_weigh",
+  "b": "zone_district_903_904",
+  "blocked": false,
+  "dir": "north",
+  "id": "conn_hf_codfather_weigh_north",
+  "lockable": false,
+  "one_way": false
+}

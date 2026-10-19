@@ -1,9 +1,9 @@
 {
   "a": "zone_district_903_905",
-  "b": "zone_district_903_906",
+  "b": "zone_codfather_slab",
   "blocked": false,
-  "dir": "south",
-  "id": "conn_district_903_905_south_3xts",
+  "dir": "west",
+  "id": "conn_hf_district_903_905_west",
   "lockable": true,
   "one_way": false
 }

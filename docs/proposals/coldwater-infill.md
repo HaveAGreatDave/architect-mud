@@ -201,6 +201,9 @@ awning, with the ice melting off the front edge into a gutter that has not been 
 memory. His scale is a quarter of an ounce in the customer's favour, set by his father, deliberately,
 and never corrected. He is wearily aware of what his grandfather named the shop.
 
+⚠ **Superseded on 2026-10-18.** The Codfather is now a fish works with no shopfront and no sign,
+and Batter Days is built onto its front. See [fish-works.md](fish-works.md).
+
 **Sole Survivor** is the smallest building in Coldwater and is drawn at a scale nothing else here is:
 eleven feet wide, one slope of roof off the neighbour's gable, and a window at **bench height**
 rather than eye height, so what the street sees through it is a pair of hands. A boot the size of a

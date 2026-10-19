@@ -1,0 +1,9 @@
+{
+  "a": "zone_sf_ironside5_shop",
+  "b": "zone_util_zone_sf_ironside5_shop",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_hf_sf_ironside5_shop_down",
+  "lockable": false,
+  "one_way": false
+}

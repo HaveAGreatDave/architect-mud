@@ -1,0 +1,18 @@
+{
+  "description": "A low cellar under the shop, cold and still smelling of old oil. Rings on the floor show where the fat drums stood. The junction box is on the wall at the foot of the steps.",
+  "exits": {
+    "up": "zone_sf_ironside5_shop"
+  },
+  "flags": {
+    "floor": "concrete",
+    "is_interior": true,
+    "world_exit_zone": "zone_district_918_907"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_sf_ironside5_shop",
+  "map_id": "map_int_sf_ironside5",
+  "name": "Unit 5, Ironside Street: The Cellar",
+  "parent_zone": "zone_district_918_907"
+}

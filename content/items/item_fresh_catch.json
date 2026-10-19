@@ -10,6 +10,7 @@
     "food_profile": "dense_meat",
     "needs_cooking": true,
     "perishable": true,
+    "raw_fish": true,
     "restore_hunger": 16,
     "spoil_rate": "fast",
     "stackable": true,

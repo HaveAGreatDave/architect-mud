@@ -16675,6 +16675,16 @@ const WALL_COL = { uptown: [46, 64, 92], civic: [72, 68, 60], citycore: [52, 56,
   // worn into a dish at the selling end, wet ice, and sun-bleached canvas.
   ty_cod: [206, 214, 210], ty_cod_marble: [188, 190, 186], ty_cod_ice: [222, 234, 240],
   ty_cod_awn: [188, 176, 150],
+  // The Codfather as a fish works: galvanised corrugated sheet, the darker sheet of its roof and
+  // trims, the refrigeration plant on the roof, and the one frosted strip window onto the car park.
+  ty_fw_tin: [146, 154, 156], ty_fw_tin_dk: [78, 86, 90], ty_fw_plant: [118, 124, 128],
+  ty_fw_frost: [200, 214, 218],
+  // Batter Days Fish & Chips on the front of it: harbour-blue render, the navy of its trims, the
+  // orange of its awnings and lettering, and the cream it picks its window frames out in.
+  ty_bd_blue: [46, 96, 156], ty_bd_blue_dk: [24, 48, 84], ty_bd_orange: [236, 128, 40],
+  ty_bd_cream: [236, 228, 208],
+  // Unit 5, Ironside Street: the ply over Batter Days' old window.
+  ty_unit_ply: [156, 128, 88],
   // Sole Survivor — the terrace's own brick, because it is built out of the gap in one, plus the
   // black of a painted iron roof and an iron sign, and one small warm window.
   ty_sole: [92, 66, 56], ty_sole_dk: [34, 32, 30], ty_sole_glass: [122, 96, 62],
@@ -17124,7 +17134,10 @@ const BLDG_TYPE_3D = {
   hardware:         { a: 'citycore',    h: 0.13 }, // Nuts to That, stock under the awning
   bathhouse:        { a: 'citycore',    h: 0.14 }, // Lather & Lye, venting steam
   noodle_bar:       { a: 'oldcoldwater', h: 0.09 }, // Nico's Noodle Bar, one storey, open front
-  chip_shop:        { a: 'citycore',    h: 0.11 }, // Batter Days, one storey of brick under slate
+  chip_shop:        { a: 'citycore',    h: 0.11 }, // Batter Days, one storey of painted render under its awnings
+  // The Codfather's fish works: a tall single-storey shed, a head higher than the chip shop built
+  // onto its front, so from Greenside Row the shop reads as the front of something bigger.
+  fish_works:       { a: 'docks',       h: 0.15 },
   outfitter:        { a: 'citycore',    h: 0.13 }, // Layers
   bodega:           { a: 'oldcoldwater', h: 0.11 }, // Bodega Vu, on the Ironside corner
   butcher:          { a: 'oldcoldwater', h: 0.10 }, // Meat Your Maker, single storey with a flat roof
@@ -17704,6 +17717,7 @@ function palNeon(pal) {
 // Palette keys that render as CORRUGATED METAL SIDING (vertical ribs + rivets) instead of the
 // default windowed curtain wall — for hangars/sheds, which shouldn't carry lit office windows.
 const METAL_WALL = new Set([
+  'ty_fw_tin', 'ty_fw_tin_dk', 'ty_fw_plant',   // the Codfather's fish works: a corrugated shed and its plant
   'ty_arrivals',   // the airfield's panel cladding: arrivals is glazed on its airside face and clad everywhere else
   // …and the terminal's livery fascia, which carries its lettering. As a windowed wall it drew rows
   // of lit office windows either side of the name and all along the joint between the two halves.
@@ -17749,7 +17763,7 @@ const PUMP_WALL = new Set(['ty_pump']);
 // Flat painted surfaces that are emphatically not facades: the canopy soffit, a painted kerb, the
 // kiosk's panel wall. Same reason as STRUCT_WALL — the default branch's job is windows, and none of
 // these has any.
-const PLAIN_WALL = new Set([
+const PLAIN_WALL = new Set(['ty_bd_blue_dk', 'ty_bd_orange', 'ty_bd_cream',   // Batter Days' trims, canvas and frames: flat paint
   'ty_hfv_tray',
   // The control tower's painted concrete and its dark steel. Its drums carried the airfield's
   // `ty_arrivals` cladding, which is METAL_WALL, so on the GPU every drum on the tower took that one
@@ -18055,7 +18069,7 @@ const TILE_WALL = new Set([
 // RENDERED STUCCO, cracking off in sheets. The one material in the set whose features are
 // IRREGULAR — everything else here is on a grid — so it is what a street reaches for when it needs
 // a surface that is not a rhythm.
-const STUCCO_WALL = new Set(['ty_trm_creche', 'ty_trm_hall', 'ty_trm_hall_dk', 'ty_sw_walk',
+const STUCCO_WALL = new Set(['ty_bd_blue', 'ty_trm_creche', 'ty_trm_hall', 'ty_trm_hall_dk', 'ty_sw_walk',
   'ty_sw_walk_dk', 'ty_dw_paint', 'ty_fallow', 'ty_embassy_cream',
   // Midway Parks's stage house, which is rendered because nobody at street level can see it.
   'ty_reel_loft',
@@ -18108,7 +18122,7 @@ const SHOP_GLASS = new Set([
 // nail heads that have bled rust down the board, and the silvering that sun puts on the top of a
 // wall and never on the bottom. The variation is the whole point — a uniform plank texture reads
 // as corrugated sheet, which is the family next door.
-const TIMBER_WALL = new Set(['ty_corbett_tank', 'ty_reach_saloon', 'ty_reach_saloon_dk', 'ty_reach_board', 'ty_reach_shack',
+const TIMBER_WALL = new Set(['ty_unit_ply', 'ty_corbett_tank', 'ty_reach_saloon', 'ty_reach_saloon_dk', 'ty_reach_board', 'ty_reach_shack',
   'ty_reach_merc', 'ty_reach_merc_dk', 'ty_reach_grey', 'ty_reach_grey_dk', 'ty_reach_bath',
   'ty_reach_scorch',   // scorched board is still board — burnt timber, not a burnt facade
   'ty_reach_motel', 'ty_reach_water', 'ty_reach_assay_dk', 'ty_reach_awning', 'ty_reach_porch',
@@ -18137,7 +18151,7 @@ const SHAKE_ROOF = new Set(['ty_reach_shake', 'ty_reach_motel_roof', 'ty_reach_b
 // MATERIAL. Etched glass is what a nightclub's dance hall and a couture vitrine are lit through,
 // and neither of them is a coolant cylinder — both wanted the same painter and a colour of their
 // own, which is all a family is.
-const FROST_WALL = new Set(['ty_clone_vat', 'ty_volt_frost', 'ty_aur_frost', 'ty_aur_pearl']);
+const FROST_WALL = new Set(['ty_clone_vat', 'ty_volt_frost', 'ty_aur_frost', 'ty_aur_pearl', 'ty_fw_frost']);
 // A MIRROR, WHICH THIS CITY HAS NEVER HAD. `ty_hf_chrome` and its neighbours are in PLAIN_WALL, and
 // that family's own comment is exact about what they are: a seamless clad panel, flat fill, no
 // coursing, no grid — "the difference between chrome and pale stone". Pale stone's opposite is not

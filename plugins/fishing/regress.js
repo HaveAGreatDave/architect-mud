@@ -4,6 +4,8 @@
 // plus the pure weighted-pick helper.
 import { _test } from './index.js';
 import { world } from '../../server/engine/world.js';
+import { getItem } from '../../server/engine/items-cache.js';
+import { computeSellUnitPrice } from '../../server/engine/vendor.js';
 
 export default async function regress({ run, check, getPlayer }) {
   const p = getPlayer();
@@ -147,4 +149,14 @@ export default async function regress({ run, check, getPlayer }) {
   if (prevDry) world.zones.set(DRY, prevDry); else world.zones.delete(DRY);
   _test.invalidateWaterIndex();
   delete p.fishState;
+
+  // ── Selling the catch (the Codfather's weigh-in) ──────────────────────────
+  // A `fish_buyer` pays the specialist 70% for anything tagged `raw_fish`; everyone else 40%.
+  check('a fish buyer pays the specialist rate', computeSellUnitPrice(100, 0, 0, { fishBuyer: true }) === 70,
+    String(computeSellUnitPrice(100, 0, 0, { fishBuyer: true })));
+  check('anyone else pays the ordinary rate for a fish', computeSellUnitPrice(100, 0, 0, {}) === 40);
+  // Every catch on the two fishing tables carries the tag, or the fishmonger pays the ordinary rate.
+  const untagged = ['item_fresh_catch', 'item_sludge_carp', 'item_razorgill', 'item_irontooth_bass',
+    'item_ashen_pike', 'item_coldwater_sturgeon', 'item_glass_eel'].filter((id) => !getItem(id)?.tags?.raw_fish);
+  check('every catch is tagged raw_fish', !untagged.length, untagged.join(', '));
 }

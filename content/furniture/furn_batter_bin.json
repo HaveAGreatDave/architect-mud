@@ -1,0 +1,14 @@
+{
+  "description": "A steel bin chained to the awning post, full of chip paper. The gulls have had the lid off twice today.",
+  "flags": {
+    "aliases": [
+      "bin",
+      "rubbish",
+      "litter bin"
+    ]
+  },
+  "id": "furn_batter_bin",
+  "name": "the bin",
+  "object_type": "decoration",
+  "zone_id": "zone_batter_tables"
+}

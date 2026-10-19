@@ -1,0 +1,9 @@
+{
+  "a": "zone_batter_prep",
+  "b": "zone_codfather_slab",
+  "blocked": false,
+  "dir": "north",
+  "id": "conn_hf_batter_prep_north",
+  "lockable": false,
+  "one_way": false
+}

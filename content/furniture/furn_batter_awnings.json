@@ -1,0 +1,14 @@
+{
+  "description": "Orange canvas awnings on steel arms along the front and side of the shop, with a scalloped edge. Rain runs off the front in a line onto the pavement.",
+  "flags": {
+    "aliases": [
+      "awning",
+      "awnings",
+      "canvas"
+    ]
+  },
+  "id": "furn_batter_awnings",
+  "name": "the awnings",
+  "object_type": "decoration",
+  "zone_id": "zone_batter_tables"
+}

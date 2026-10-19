@@ -1,0 +1,33 @@
+{
+  "ambient_theme": "indoors",
+  "description": "An empty shop with the fryers gone and four bright squares on the tiles where they stood. The counter is still bolted to the floor. Daylight comes in round the edges of the boards over the window. A safe is set into the back wall with its door open.",
+  "exits": {
+    "down": "zone_util_zone_sf_ironside5_shop",
+    "east": "zone_district_918_907"
+  },
+  "flags": {
+    "building_name": "Unit 5, Ironside Street",
+    "building_type": "shop",
+    "floor": "tile",
+    "is_building": true,
+    "is_interior": true,
+    "is_storefront": true,
+    "shop_price": 6500,
+    "shop_term": 10,
+    "shop_upkeep": 45,
+    "window": {
+      "description": "Sheets of ply screwed over the shop window from outside. Light gets in round the edges, and so does the noise of Ironside Street.",
+      "light": 0.35,
+      "name": "the boarded window",
+      "visibility": 0.1
+    },
+    "world_exit_zone": "zone_district_918_907"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_sf_ironside5_shop",
+  "map_id": "map_int_sf_ironside5",
+  "name": "Unit 5, Ironside Street",
+  "parent_zone": "zone_district_918_907"
+}

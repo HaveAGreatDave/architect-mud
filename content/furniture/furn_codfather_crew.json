@@ -1,0 +1,16 @@
+{
+  "description": "Three or four men in oilskins sitting on upturned boxes by the roller door, waiting for the scale. They talk about weather and prices and nothing else.",
+  "flags": {
+    "aliases": [
+      "crews",
+      "crew",
+      "fishermen",
+      "men",
+      "oilskins"
+    ]
+  },
+  "id": "furn_codfather_crew",
+  "name": "the boat crews",
+  "object_type": "decoration",
+  "zone_id": "zone_codfather_weigh"
+}

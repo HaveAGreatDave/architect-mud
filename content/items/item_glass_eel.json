@@ -5,7 +5,8 @@
   "name": "glass eel",
   "tags": {
     "description": "A translucent ribbon of an eel, its organs a faint glowing knot behind glassy skin. Rare, delicate, and worth real money to the right buyer. It only ever takes live bait.",
-    "misc": true
+    "misc": true,
+    "raw_fish": true
   },
   "type": "misc",
   "value": 55,

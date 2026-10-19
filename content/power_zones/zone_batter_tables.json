@@ -1,0 +1,7 @@
+{
+  "capacity_kw": 5000,
+  "generator_id": "gen_zone_util_zone_batter_shop",
+  "id": "zone_batter_tables",
+  "name": "Batter Days Fish & Chips — The Tables",
+  "source_type": "junction_box"
+}

@@ -3,7 +3,6 @@
   "ambient_theme": "city",
   "description": "Washing lines cross overhead from window to window, low enough to duck under if you're tall. The road below is patched in three shades of tar and worn back to cobbles along the crown, where the wheels go.",
   "exits": {
-    "east": "zone_district_903_906",
     "north": "zone_district_902_905",
     "south": "zone_district_902_907",
     "west": "zone_district_901_906"

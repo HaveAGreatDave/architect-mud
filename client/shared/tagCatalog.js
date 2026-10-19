@@ -119,6 +119,8 @@
       help: 'Catch-all flavor marker for key items, artifacts, accessories.' },
     vermin_part: { label: 'Vermin Part', shape: 'flag', scope: 'class', group: 'Type',
       help: "Proof of a pest killed — a carapace, a tail. An NPC flagged `bounty_buyer` pays the specialist rate (0.7 of value) for these, the way `drug_buyer` and `food_buyer` do for theirs; everyone else pays the ordinary 0.4. It's the tag, not the item id, that the price hangs on, so the next pest anybody writes is already worth something to the right person." },
+    raw_fish: { label: 'Raw Fish', shape: 'flag', scope: 'class', group: 'Type',
+      help: "A whole fish as it comes off the line, before anybody has cooked it. An NPC flagged `fish_buyer` pays the specialist rate (0.7 of value) for these, the way `bounty_buyer` does for `vermin_part`; everyone else pays the ordinary 0.4. Put it on every new catch, so the fishmonger buys it without another edit." },
 
     // --- Equipment ---
     slot: { label: 'Equip Slot', shape: 'enum', scope: 'class', group: 'Equipment',

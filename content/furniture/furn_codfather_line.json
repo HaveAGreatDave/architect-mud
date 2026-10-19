@@ -1,0 +1,16 @@
+{
+  "description": "A steel table the length of the room with a lip round the edge and a gutter down the middle that runs to the drain. Knives hang on a magnetic strip above each place.",
+  "flags": {
+    "aliases": [
+      "table",
+      "gutting table",
+      "line",
+      "knives",
+      "gutter"
+    ]
+  },
+  "id": "furn_codfather_line",
+  "name": "the gutting table",
+  "object_type": "fixture",
+  "zone_id": "zone_codfather_slab"
+}

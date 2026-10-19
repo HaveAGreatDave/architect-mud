@@ -1,7 +1,7 @@
 {
-  "description": "Marble the full width of the shop, canted at the street, worn into a shallow dish at the selling end by a hundred and ten years of the same four movements. The ice is banked on it in rows with the morning laid along them, best at eye level, and the gutter outside has not been dry in living memory.",
+  "description": "The marble slab from when the place was a shop, now at the end of the gutting table. It is worn into a dish at one end, and the best fish is laid out on it for Gil.",
   "flags": {
-    "aliases": "slab,marble,counter,ice",
+    "aliases": "slab,marble,ice",
     "interactions": [
       "examine"
     ]
@@ -11,7 +11,7 @@
   "id": "furn_cod_slab",
   "light_type": null,
   "lumen_output": null,
-  "name": "the slab",
+  "name": "the marble slab",
   "object_type": "fixture",
   "power_draw_kw": null,
   "price": 0,

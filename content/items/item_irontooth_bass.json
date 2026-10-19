@@ -9,6 +9,7 @@
     "food_noun": "bass",
     "food_profile": "dense_meat",
     "needs_cooking": true,
+    "raw_fish": true,
     "restore_hunger": 22,
     "stackable": true,
     "well_fed": true

@@ -655,6 +655,9 @@ export const BUILDING_TYPE_ICON = Object.freeze({
   lending_library: 'bldg_lending_library',
   pool_hall: 'bldg_pool_hall', amusements: 'bldg_amusements',
   fishmonger: 'bldg_fishmonger', cobbler: 'bldg_cobbler',
+  // The Codfather as a works: a fish over a stack of boxes. (`fish_quay` and `staff_lot` need no
+  // row: neither is a facade, and the icon lookup is gated on one.)
+  fish_works: 'bldg_fishworks',
   photographer: 'bldg_photographer', locksmith: 'bldg_locksmith', tattooist: 'bldg_tattooist',
   vet: 'bldg_vet', off_licence: 'bldg_off_licence', museum: 'bldg_museum',
   // Fairweather Marina, on the west shore. A vault with a hull under it and the sling coming down off

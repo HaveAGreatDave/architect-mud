@@ -1,9 +1,9 @@
 {
-  "capacity_kw": 200,
+  "capacity_kw": 5000,
   "flags": {},
   "generator_id": "gen_zone_util_zone_codfather_slab",
   "id": "zone_util_zone_codfather_slab",
   "max_capacity_kw": 200,
-  "name": "The Codfather — The Slab — Utility Room",
-  "source_type": "city_grid"
+  "name": "The Codfather: The Plant Room",
+  "source_type": "junction_box"
 }
