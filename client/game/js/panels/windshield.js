@@ -30472,6 +30472,7 @@ export function kitLedges(cell, wx, wy) {
       const per = 8 * r;
       const n = Math.max(PERCH_MIN_PTS, Math.round(per / PERCH_STEP));
       const pts = [];
+      let ux0 = Infinity, ux1 = -Infinity, uy0 = Infinity, uy1 = -Infinity;
       for (const [sx, sy, nrm] of sides) {
         const m = Math.max(2, Math.round(n / 4));
         for (let i = 0; i < m; i++) {
@@ -30483,6 +30484,7 @@ export function kitLedges(cell, wx, wy) {
           if (!(held >= z - hh - PERCH_SAME_Z)) continue;
           if (inMass(px, py, z)) continue;
           pts.push({ x: wx + px * ct - py * stn, y: wy + px * stn + py * ct, out: nrm + th });
+          ux0 = Math.min(ux0, px); ux1 = Math.max(ux1, px); uy0 = Math.min(uy0, py); uy1 = Math.max(uy1, py);
         }
       }
       // Two points is a corner rather than a ledge — `buildLedges` draws the same line.
@@ -30511,8 +30513,11 @@ export function kitLedges(cell, wx, wy) {
       // dropped.
       // ⚠ PROBED INWARD OF THE CAP. The band overhangs its own wall by design, so a probe on the
       // outer edge is a probe into thin air on a building that is perfectly solid.
+      // ⚠ ONE SIDE LEFT IS A RUN, NOT A RING. A coping on a block that mostly stands inside a taller
+      // one (Dead Space Interiors' brick porch, 2 cm proud of the main box) keeps only its front edge,
+      // and a straight row of birds there is right. `ring` says what survived still goes round a corner.
       out.push({ z, pts, len: pts.length * PERCH_STEP, kind: d.kind, deep: hh, mid: null,
-        mount: null, ring: true });
+        mount: null, ring: Math.min(ux1 - ux0, uy1 - uy0) >= r });
       continue;
     }
     const spec = KIT_PERCH[d.kind];
@@ -30618,14 +30623,20 @@ export function buildLedges(cell, wx, wy, copings = true) {
     if (!ring) continue;
     const pts = [];
     for (const r of ring.pts) {
+      // ⚠ THE COVER TEST READS THE POINT BACK THE WAY `modelTopAt` WILL. The ring's own local
+      // coordinates and the same point taken out to the world and back differ in the last bits, and
+      // on the edge of an overhang (a tower's band 6 mm proud over the Coliseum's cornice) that was
+      // the difference between buried here and covered there: a bird under the band.
+      const px = wx + r.lx * ct - r.ly * stn, py = wy + r.lx * stn + r.ly * ct;
+      const ox = px - wx, oy = py - wy, qx = ox * ct + oy * stn, qy = -ox * stn + oy * ct;
       let buried = false;
       for (const t of segs) {
         if (t === s || V(t.z1) <= z + PERCH_COVER_EPS) continue;
-        if (segContains(t, r.lx, r.ly, V)) { buried = true; break; }
+        if (segContains(t, qx, qy, V)) { buried = true; break; }
       }
       if (!buried && caps && underCoping(caps, r.lx, r.ly, z)) buried = true;
       if (buried) continue;
-      pts.push({ x: wx + r.lx * ct - r.ly * stn, y: wy + r.lx * stn + r.ly * ct, out: r.out + th });
+      pts.push({ x: px, y: py, out: r.out + th });
     }
     // Two points is a corner rather than a ledge, and it is what a buried tier eroded down to
     // rounding looks like.

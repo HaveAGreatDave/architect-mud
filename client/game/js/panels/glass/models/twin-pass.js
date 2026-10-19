@@ -782,7 +782,7 @@ export const TWIN_PASS_ARMS = {
     for (let i = 0; i <= 4; i++) { const x = -fh * 0.90 + i * fh * 0.45;
       tcFlat(ctx, cam, W3, [[x - fh * 0.012, yF + fh * 0.14, 0.005], [x + fh * 0.012, yF + fh * 0.14, 0.005], [x + fh * 0.012, yF + fh * 0.62, 0.005], [x - fh * 0.012, yF + fh * 0.62, 0.005]], [0, 0, 1], [200, 196, 170], 'plain', alpha, dn); }
     { const [cx, cy] = F(-fh * 0.225, yF + fh * 0.40);
-      draw3DBoxAt(ctx, cam, cx, cy, fh * 0.15, h * 0.02, h * 0.09, 'ty_grind', seed + 6, night, alpha, false, yaw, fh * 0.24);
+      draw3DBoxAt(ctx, cam, cx, cy, fh * 0.15, h * 0.02, h * 0.09, 'ty_grind', seed + 6, night, alpha, true, yaw, fh * 0.24);
       draw3DBoxAt(ctx, cam, cx, cy, fh * 0.12, h * 0.09, h * 0.14, 'ty_watts_roller', seed + 7, night, alpha, true, yaw, fh * 0.13); }
     // 4) THE SIGN: a painted board on two posts at the kerb, the bulb and crossed wrenches on the
     //    left and the name beside it. Paint, not tube, so lamps light it after dark.

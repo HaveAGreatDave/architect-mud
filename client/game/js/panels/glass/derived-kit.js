@@ -564,7 +564,10 @@ const KIT_DECLINE = { meridian: ['signRoof', 'wall', 'pier'],   // 'wall' and 'p
   flophouse: SLUM_DECLINE, soup_kitchen: SLUM_DECLINE, bonesetter: SLUM_DECLINE, shebeen: SLUM_DECLINE,
   cornershop: SLUM_DECLINE,   // Bare Necessities, the Rag Row lock-up: an authored model, so it names its trade
   ruin: SLUM_DECLINE,
-  helpings: ['signRoof', 'wall', 'stair'], clone: ['stair', 'wall', 'riser'], chip_shop: ['ground', 'wall', 'signRoof'],
+  helpings: ['signRoof', 'wall', 'stair'], clone: ['stair', 'wall', 'riser'],
+  // Batter Days paints its own name across its fascia, so the kit's board is a second sign, and a
+  // small one that lost its lettering past 1.2 tiles (the signfloor gate).
+  chip_shop: ['ground', 'wall', 'signRoof', 'sign'],
   // Grounds for Concern draws its own shopfront round the corner, its door, its awning and its cup;
   // the kit's glazed band, window grid and roof board would be a second frontage over it.
   coffee_shop: ['ground', 'wall', 'signRoof', 'stair'],

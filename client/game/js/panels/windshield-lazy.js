@@ -141,6 +141,7 @@ export function deadbandStep(...a) { return (_m || _cold('deadbandStep')).deadba
 export function decoOcclusionSmoke(...a) { return (_m || _cold('decoOcclusionSmoke')).decoOcclusionSmoke(...a); }
 export function derivedTrim(...a) { return (_m || _cold('derivedTrim')).derivedTrim(...a); }
 export function disposeWindshield(...a) { return (_m || _cold('disposeWindshield')).disposeWindshield(...a); }
+export function drawArmPart(...a) { return (_m || _cold('drawArmPart')).drawArmPart(...a); }
 export function drawShiftKnob(...a) { return (_m || _cold('drawShiftKnob')).drawShiftKnob(...a); }
 export function drawWildScatter(...a) { return (_m || _cold('drawWildScatter')).drawWildScatter(...a); }
 export function encounterW(...a) { return (_m || _cold('encounterW')).encounterW(...a); }
@@ -301,6 +302,7 @@ export function wallMaterialOf(...a) { return (_m || _cold('wallMaterialOf')).wa
 export function wallMaterialTable(...a) { return (_m || _cold('wallMaterialTable')).wallMaterialTable(...a); }
 export function wallPaletteInfo(...a) { return (_m || _cold('wallPaletteInfo')).wallPaletteInfo(...a); }
 export function wallPaletteKeys(...a) { return (_m || _cold('wallPaletteKeys')).wallPaletteKeys(...a); }
+export function wallPanesPainted(...a) { return (_m || _cold('wallPanesPainted')).wallPanesPainted(...a); }
 export function wallSpanAt(...a) { return (_m || _cold('wallSpanAt')).wallSpanAt(...a); }
 export function wallSurf(...a) { return (_m || _cold('wallSurf')).wallSurf(...a); }
 export function wallTexMixed(...a) { return (_m || _cold('wallTexMixed')).wallTexMixed(...a); }

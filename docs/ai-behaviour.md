@@ -134,7 +134,7 @@ Out ports: `ifTrue`, `ifFalse`.
 | `AT_WORK_ZONE` | — | NPC is already in their assigned broadcast studio zone |
 | `IS_VENDOR_WORK_TIME` | — | Current day+hour falls within the vendor NPC's `vendor_schedule` |
 | `AT_HOME` | — | NPC is in their `home_zone` |
-| `VENUE_LIT` | `x`, `y` (a tile of the venue) | the venue on that map tile is lit for its show. Asks the `venue.lit` sync hook, the same question the flight derive puts for a map cell, so it's true from the moment the towers come on until they go off. Sir Charles Hughson goes to the ball game on it ([meridian-penthouse.md](proposals/meridian-penthouse.md)) |
+| `VENUE_LIT` | `x`, `y` (a tile of the venue) | the venue on that map tile is lit for its show. Asks the `venue.lit` sync hook, the same question the flight derive puts for a map cell, so it's true from the moment the towers come on until they go off. Sir Charles Hughson goes to the ball game on it |
 
 ### `action`
 
