@@ -233,7 +233,8 @@
       "a bar apron folded down and tied at the waist",
       "dark trousers and shoes that have been resoled twice"
     ],
-    "personality": "vendor"
+    "personality": "vendor",
+    "set_aside": true
   },
   "home_activities": [],
   "home_zone": "zone_wrapparty_bar",

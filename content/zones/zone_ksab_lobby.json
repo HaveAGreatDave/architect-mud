@@ -4,8 +4,8 @@
   "bg_color": "#2a2436",
   "description": "The story floor: a bullpen of mismatched desks shoved into a horseshoe around a whiteboard nobody has erased in months, three drafts deep in different hands. Index cards march across a corkboard wall in acts, half of them pinned crooked, one just reading FIX THE ENDING. A wall of muted monitors carries the feed the room is writing for, and the carpet is worn to grey tramlines between the coffee urn and the door. A sign over the board reads FUNNY BY FOUR OR IT AIRS SAD.",
   "exits": {
-    "north": "zone_district_913_910",
-    "south": "zone_ksab_gallery"
+    "north": "zone_ksab_gallery",
+    "south": "zone_district_913_910"
   },
   "flags": {
     "building_name": "KSAB Writers' Wing",
@@ -14,9 +14,9 @@
     "is_building": true,
     "is_interior": true,
     "window": {
-      "description": "A full-height pane onto the street, kept just clean enough to trade through. Whatever the weather is doing out there, it's doing it in plain view.",
+      "description": "Full-height glass onto the lot: the swept court, the gatehouse at the gate and the red lamp over the stage door.",
       "light": 0.85,
-      "name": "the shopfront window",
+      "name": "the lot window",
       "visibility": 0.9
     },
     "world_exit_zone": "zone_district_913_910"

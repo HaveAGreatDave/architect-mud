@@ -2,7 +2,7 @@
   "a": "zone_district_912_911",
   "b": "zone_studio_1782953094650",
   "blocked": false,
-  "dir": "east",
+  "dir": "west",
   "id": "conn_district_913_911_east_wegl",
   "lockable": true,
   "one_way": false

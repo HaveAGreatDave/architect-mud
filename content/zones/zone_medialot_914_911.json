@@ -1,0 +1,25 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "city",
+  "color": "#8ba36a",
+  "description": "Painted bays on concrete behind the lot's wall. Two KSAB news vans stand nose-out with their masts folded, and the Sentinel's van is backed up to the paper's loading dock. A water tower stands in the corner on four legs, the station's disc on its tank.",
+  "exits": {
+    "west": "zone_medialot_913_911"
+  },
+  "flags": {
+    "district": "nightlife",
+    "media_lot": {
+      "part": "parking",
+      "wall": "es"
+    },
+    "region_id": "region_coldwater",
+    "terrain": "concrete"
+  },
+  "grid_x": 914,
+  "grid_y": 911,
+  "grid_z": 0,
+  "id": "zone_medialot_914_911",
+  "map_id": "map_world",
+  "name": "Media Lot Car Park",
+  "parent_zone": null
+}

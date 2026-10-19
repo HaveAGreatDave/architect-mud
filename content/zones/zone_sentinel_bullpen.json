@@ -5,7 +5,8 @@
   "description": "A bullpen of secondhand terminals and gaffer-taped desks under a big cracked situation-wall that scrolls the city's feeds, its lower third permanently glitched into confetti. Spikes bristle with rejected copy, a printer coughs out a ribbon of dispatches onto the floor, and the whole room smells of hot electronics and cold coffee. A brass plaque insists TRUTH, IF AFFORDABLE.",
   "exits": {
     "east": "zone_sentinel_editor",
-    "north": "zone_district_914_910"
+    "north": "zone_district_914_910",
+    "south": "zone_sentinel_press"
   },
   "flags": {
     "building_name": "Coldwater Sentinel",

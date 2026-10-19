@@ -1,0 +1,22 @@
+{
+  "description": "A painted board on the press hall door, in Ludd's hand: handbills, running orders, setlists, menus, wreath cards, writs. The last line is priced separately, in smaller letters.",
+  "flags": {
+    "aliases": [
+      "board",
+      "jobbing board",
+      "list",
+      "prices"
+    ],
+    "notable": true
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_sentinel_jobboard",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the jobbing board",
+  "object_type": "decoration",
+  "power_draw_kw": 0,
+  "price": 0,
+  "zone_id": "zone_sentinel_press"
+}

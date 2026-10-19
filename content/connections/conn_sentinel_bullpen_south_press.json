@@ -1,0 +1,9 @@
+{
+  "a": "zone_sentinel_bullpen",
+  "b": "zone_sentinel_press",
+  "blocked": false,
+  "dir": "south",
+  "id": "conn_sentinel_bullpen_south_press",
+  "lockable": true,
+  "one_way": false
+}

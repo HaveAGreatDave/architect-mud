@@ -1,10 +1,9 @@
 {
   "ambient_events": [],
   "ambient_theme": "forest",
-  "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive.",
+  "description": "Foundry Way along the wall of KSAB's car park, a storey of cream render with a cyan stripe at its foot. A water tower stands up behind it, the station's disc on the tank. Grit drifts against the wall.",
   "exits": {
     "east": "zone_district_915_912",
-    "north": "zone_district_914_911",
     "south": "zone_district_914_913",
     "west": "zone_district_913_912"
   },

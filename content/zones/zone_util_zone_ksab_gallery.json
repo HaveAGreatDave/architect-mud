@@ -11,7 +11,7 @@
     "world_exit_zone": "zone_district_913_910"
   },
   "grid_x": 0,
-  "grid_y": 1,
+  "grid_y": -1,
   "grid_z": -1,
   "id": "zone_util_zone_ksab_gallery",
   "map_id": "map_int_ksab",

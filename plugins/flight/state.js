@@ -1476,6 +1476,23 @@ export function deriveSurfaceCell(cell, x, y, at = surfaceAt, live = true) {
       dn: dn || undefined, ld: ld ? 1 : undefined, cw: cw || undefined, ce: ce || undefined, he: he || undefined, ha,
       sg, sc: sg && scale != null && scale !== x ? scale - x : undefined };
   }
+  // THE MEDIA LOT'S GROUND (docs/proposals/media-lot.md): KSAB's gate court and its car park,
+  // drawn by glass/media-lot.js. A mark for the camp's reason: the tiles are ground people walk and
+  // drive on, and a building tile would leave the walk graph. `p` is the part ('c' the court, 'p'
+  // the car park), `w` the sides the lot's wall stands on and `g` the side the gate is in.
+  // ⚠ THE WALL AND THE GATE FOLLOW THE MOVEMENT GRAPH, for the South Lock's reason: content names
+  // the sides, and a wall is kept only where the tile has no exit and a gate only where it has one,
+  // so nothing can draw a wall across a door or a gate onto a blocked side.
+  let ml;
+  const mlf = cell.flags?.media_lot;
+  if (mlf && typeof mlf === 'object') {
+    const ex = cell.exits || (cell.id && getZone(cell.id)?.exits) || null;
+    const SIDE = { n: 'north', e: 'east', s: 'south', w: 'west' };
+    let w = '';
+    for (const s of String(mlf.wall || '')) if (SIDE[s] && ex && !ex[SIDE[s]] && !w.includes(s)) w += s;
+    const g = SIDE[mlf.gate] && ex && ex[SIDE[mlf.gate]] ? mlf.gate : undefined;
+    ml = { p: mlf.part === 'parking' ? 'p' : 'c', w: w || undefined, g };
+  }
   // An airfield's hangar is the same shed at aircraft scale (windshield.js bayDims): a `bay` mark,
   // told apart by `bk`, so every reader of the shed (door, CFIT roof, occlusion) takes it for free.
   const mark = (cell.flags?.vehicle_bay || cell.flags?.aircraft_hangar) ? 'bay'
@@ -1485,6 +1502,7 @@ export function deriveSurfaceCell(cell, x, y, at = surfaceAt, live = true) {
     : cell.flags?.junction_pylons ? 'pylons'
     : plzDrawn ? 'plaza'
     : lk ? 'lock'
+    : ml ? 'lot'
     : strip ? 'strip'
     // Old Coldwater's tent camp (docs/proposals/old-coldwater.md). ⚠ A MARK AND DELIBERATELY NOT A
     // `building_type`: a building tile leaves the walk graph and joins the CFIT collision sweep, so
@@ -1764,7 +1782,7 @@ export function deriveSurfaceCell(cell, x, y, at = surfaceAt, live = true) {
     && [[-1, 0], [1, 0]].some(([ox, oy]) => { const c = at(x + ox, y + oy); return !!(c?.flags?.gate_lock && typeof c.flags.gate_lock === 'object'); });
   const bk = cell.flags?.aircraft_hangar && cell.flags?.heavy_hangar ? 'heavy' : cell.flags?.aircraft_hangar ? 'air' : besideLock ? 'lock' : undefined;
   // A runway is not a street (see `rwy` above): no kerbs, no steam vents, no pedestrians on it.
-  return { prp, kind, biome, road: rwy ? 0 : road, danger: cell.danger, pad, bt, bn, trd, ent, flr, mark, bk, strip, rwy, twy, hp, rd, rdeg, rt, rw, rl, wr, rc, wake, sub, heading, cur, cld, ci, ft, hi, cf, pf: cell.flags?.park_feature, pw, em, og, sl, sgn, plz, lk, bf, bq, aa, vl, brd: brd && brd.length ? brd : undefined, gft: gft && gft.length ? gft : undefined };
+  return { prp, kind, biome, road: rwy ? 0 : road, danger: cell.danger, pad, bt, bn, trd, ent, flr, mark, bk, strip, rwy, twy, hp, rd, rdeg, rt, rw, rl, wr, rc, wake, sub, heading, cur, cld, ci, ft, hi, cf, pf: cell.flags?.park_feature, pw, em, og, sl, sgn, plz, lk, ml, bf, bq, aa, vl, brd: brd && brd.length ? brd : undefined, gft: gft && gft.length ? gft : undefined };
 }
 
 // The flight window's half-width, named so the things that have to AGREE with it can say so

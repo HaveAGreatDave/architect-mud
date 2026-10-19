@@ -3,20 +3,20 @@
   "ambient_theme": "indoors",
   "bg_color": "#3a3550",
   "color": "#e8e0ff",
-  "description": "A blunt windowless slab of soundstage, KSAB's call letters bolted twelve feet tall across the crete in channel-lit violet, and one letter's ballast is dead, so it buzzes KS·B to anyone counting. A quilted loading roll-door stands dented beside the personnel entrance; a box-office window is cut into the crete beside it, lit from below, with a hand-lettered card taped inside the glass: TICKETS HERE. PAGES GO NORTH TO THE WRITERS' WING. A red ON AIR bulb over the door glows whether or not a soul is inside.",
+  "description": "KSAB's sound stage: a blind shell with the call letters across it, one of them dark, and the transmitter mast over the roof. Its doors face into the lot: a scene dock door, the stage door under a red ON AIR lamp, and a box office window with a card taped inside: TICKETS HERE.",
   "exits": {
-    "east": "zone_studio_1782953094650",
-    "west": "zone_district_911_911"
+    "east": "zone_medialot_913_911",
+    "west": "zone_studio_1782953094650"
   },
   "flags": {
     "building_name": "KSAB-TV Studio Stage",
     "building_type": "studio",
     "district": "nightlife",
-    "entrance": "west",
+    "entrance": "east",
     "facade": true,
     "is_building": true,
     "region_id": "region_coldwater",
-    "world_exit_zone": "zone_district_911_911"
+    "world_exit_zone": "zone_medialot_913_911"
   },
   "grid_x": 912,
   "grid_y": 911,

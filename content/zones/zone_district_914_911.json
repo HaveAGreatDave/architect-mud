@@ -5,8 +5,7 @@
   "color": "#c2564a",
   "description": "The back-door pub for the studio block, which is why it opens at eleven at night and does its best trade at two in the morning. No window worth the name, one door, and a red bulb over it that is on when the bar is. A brass plate by the handle reads WRAP PARTY, and somebody long ago scratched underneath it, accurately, EVERY NIGHT.",
   "exits": {
-    "north": "zone_wrapparty_bar",
-    "south": "zone_district_914_912"
+    "north": "zone_wrapparty_bar"
   },
   "flags": {
     "building_name": "Wrap Party",
@@ -17,14 +16,16 @@
     "floors": 2,
     "is_building": true,
     "region_id": "region_coldwater",
+    "set_aside": true,
+    "set_aside_from": "914,911",
     "sign_trade": "PUB",
-    "world_exit_zone": "zone_district_914_912"
+    "world_exit_zone": "zone_district_914_911"
   },
-  "grid_x": 914,
-  "grid_y": 911,
+  "grid_x": 3,
+  "grid_y": 9,
   "grid_z": 0,
   "id": "zone_district_914_911",
-  "map_id": "map_world",
+  "map_id": "map_set_aside",
   "marker": "WP",
   "name": "Wrap Party",
   "parent_zone": null

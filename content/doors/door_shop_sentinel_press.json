@@ -1,0 +1,27 @@
+{
+  "connection_id": "conn_sentinel_bullpen_south_press",
+  "door_type": "basic",
+  "exit_dir": "south",
+  "flags": {},
+  "hololock_difficulty": 5,
+  "hp": 1000,
+  "hp_max": 1000,
+  "id": "door_shop_sentinel_press",
+  "is_locked": 0,
+  "is_open": 0,
+  "lock_state": "locked",
+  "name": null,
+  "tags": {
+    "lock:shoplock": {
+      "canHack": true,
+      "difficulty": 4,
+      "messages": {
+        "denied": "The press hall lock reads your hand and declines to recognise it.",
+        "lock": "The bolt drops and the press hall door shuts.",
+        "unlock": "The bolt lifts. The press hall door swings in."
+      }
+    }
+  },
+  "target_zone": "zone_sentinel_press",
+  "zone_id": "zone_sentinel_bullpen"
+}

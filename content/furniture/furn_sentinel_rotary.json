@@ -1,0 +1,23 @@
+{
+  "description": "The Sentinel's own press: a train of steel cylinders in a frame the length of a bus, fed off a reel of newsprint taller than a man. It runs once a night for the morning edition, and the bullpen floor shakes while it does.",
+  "flags": {
+    "aliases": [
+      "rotary press",
+      "rotary",
+      "cylinders",
+      "newsprint",
+      "reel"
+    ],
+    "notable": true
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_sentinel_rotary",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the rotary press",
+  "object_type": "fixture",
+  "power_draw_kw": 12,
+  "price": 0,
+  "zone_id": "zone_sentinel_press"
+}

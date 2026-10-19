@@ -6285,6 +6285,76 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
   check('Meltwater set-aside: Vessa Orme keeps her Meridian flat and has no shop to go to', world.npcs.get('npc_smith_vessa')?.work_zone_id == null && !world.npcs.get('npc_smith_vessa')?.flags?.set_aside);
 }
 
+// ── The Media Lot, phase 1 (real content) ─────────────────────────────────────────────────────
+// scripts/content/media-lot.mjs (docs/proposals/media-lot.md). KSAB's block is walled: Just My Type
+// and Wrap Party are set aside, the court and the car park are open ground inside the wall, and the
+// stage and the Writers' Wing turned to open onto the court. The walk stays on the open ground,
+// because both buildings' entry rooms are counters (a vendor's room shuts outside his hours) and
+// the stage door is ticketed on a taping night, so their doors are read from the exits instead.
+{
+  const COURT = 'zone_medialot_913_911', PARK = 'zone_medialot_914_911';
+  const STAGE = 'zone_district_912_911', WRITERS = 'zone_district_913_910';
+  const ex = (id) => world.zones.get(id)?.exits || {};
+  const p = getPlayer();
+  const savedZone = p.current_zone;
+  const step = async (dir) => { p._lastStepAt = 0; return cmdMove(dir, p, broadcast); };
+  const put = (id) => { removePlayerFromZone(p.id, p.current_zone); p.current_zone = id; addPlayerToZone(p.id, id); };
+  try {
+    put('zone_district_913_912');
+    await step('north');
+    check('Media Lot: north from Foundry Way through the gate lands in the court', p.current_zone === COURT, p.current_zone);
+    await step('east');
+    check('Media Lot: east of the court is the car park', p.current_zone === PARK, p.current_zone);
+    await step('south');
+    check('Media Lot: the car park is walled on Foundry Way', p.current_zone === PARK, p.current_zone);
+    await step('west');
+    await step('south');
+    check('Media Lot: back out through the gate onto Foundry Way', p.current_zone === 'zone_district_913_912', p.current_zone);
+    put('zone_district_911_911');
+    await step('east');
+    check('Media Lot: Meltwater Row has no door into the stage any more', p.current_zone === 'zone_district_911_911', p.current_zone);
+  } finally {
+    put(savedZone);
+  }
+  const court = world.zones.get(COURT), park = world.zones.get(PARK);
+  check('Media Lot: the court and the car park are open concrete ground on the map',
+    [court, park].every((z) => z?.map_id === 'map_world' && !z.flags?.facade && !z.flags?.building_type && z.flags?.terrain === 'concrete' && z.flags?.media_lot),
+    [court, park].map((z) => `${z?.id}:${z?.map_id}:${z?.flags?.terrain}`).join());
+  const floor = 'zone_studio_1782953094650', lobby = 'zone_ksab_lobby', vault = 'zone_ksab_gallery';
+  check('Media Lot: the stage opens east onto the court, and its floor leaves the same way',
+    world.zones.get(STAGE)?.flags?.entrance === 'east' && world.zones.get(STAGE)?.flags?.world_exit_zone === COURT
+      && ex(STAGE).east === COURT && ex(COURT).west === STAGE && ex(STAGE).west === floor && ex(floor).east === STAGE,
+    JSON.stringify({ stage: ex(STAGE), court: ex(COURT), floor: ex(floor) }));
+  check('Media Lot: the Writers\' Wing opens south onto the court, and its story floor leaves the same way',
+    world.zones.get(WRITERS)?.flags?.entrance === 'south' && world.zones.get(WRITERS)?.flags?.world_exit_zone === COURT
+      && ex(WRITERS).south === COURT && ex(COURT).north === WRITERS && ex(lobby).south === WRITERS && ex(lobby).north === vault && ex(vault).south === lobby,
+    JSON.stringify({ wing: ex(WRITERS), lobby: ex(lobby), vault: ex(vault) }));
+  check('Media Lot: Marrow Street has no door into the Writers\' Wing any more', !Object.values(ex('zone_district_913_909')).includes(WRITERS), JSON.stringify(ex('zone_district_913_909')));
+  const held = ['zone_district_913_911', 'zone_district_914_911'].map((id) => world.zones.get(id));
+  check('Media Lot: Just My Type and Wrap Party are on the holding map', held.every((z) => z?.map_id === 'map_set_aside' && z.flags?.set_aside), held.map((z) => `${z?.id}:${z?.map_id}`).join());
+  check('Media Lot: Birdie Stavros is set aside with Wrap Party', !!world.npcs.get('npc_wrap_stavros')?.flags?.set_aside);
+  const { getZoneFurniture } = await import('../server/engine/world.js');
+  const ludd = world.npcs.get('npc_print_ludd'), press = getZoneFurniture('zone_sentinel_press').map((f) => f.id);
+  check('Media Lot: Pavel Ludd keeps the Sentinel\'s press hall, with his own presses in it',
+    ludd?.work_zone_id === 'zone_sentinel_press' && ludd?.home_zone === 'zone_sentinel_press' && press.includes('furn_justmytype_1') && press.includes('furn_sentinel_rotary'),
+    `${ludd?.work_zone_id} ${press.join(',')}`);
+  // The bullpen is the way to the editor's office, and a counter in it would shut the paper at night.
+  const counters = [...world.npcs.values()].filter((n) => n.work_zone_id === 'zone_sentinel_bullpen' && (n.vendor_inventory || []).length);
+  check('Media Lot: nobody keeps a counter in the Sentinel\'s bullpen', !counters.length, counters.map((n) => n.name).join());
+  const dot = world.npcs.get('npc_ksab_gate');
+  check('Media Lot: Dot keeps the gate and sells nothing, so the court never shuts', dot?.work_zone_id === COURT && !(dot?.vendor_inventory || []).length, dot?.work_zone_id);
+  const { surfaceAt, deriveSurfaceCell } = await import('../plugins/flight/state.js');
+  const cellOf = (x, y) => { const c = surfaceAt(x, y); return c ? deriveSurfaceCell(c, x, y, surfaceAt, false) : null; };
+  const mc = cellOf(913, 911), mp = cellOf(914, 911);
+  check('Media Lot: GLASS draws the gate on the court\'s Foundry Way side and walls the car park on two sides',
+    mc?.mark === 'lot' && mc.ml?.p === 'c' && mc.ml?.g === 's' && !mc.ml?.w && mp?.mark === 'lot' && mp.ml?.p === 'p' && mp.ml?.w === 'es' && !mp.ml?.g,
+    JSON.stringify({ court: mc?.ml, park: mp?.ml }));
+  const { lotSolidAt } = await import('../client/game/js/panels/glass/media-lot.js');
+  let lane = 0;
+  for (let y = 0.5; y >= -0.5; y -= 0.02) lane = Math.max(lane, lotSolidAt(-0.1, y, mc?.ml));
+  check('Media Lot: a truck drives in through the gate and stops at the car park wall', lane === 0 && lotSolidAt(0, 0.478, mp?.ml) > 0, `gate lane ${lane}`);
+}
+
 // ── Layer 2f: statmods ledger — caps and their current values stay consistent ─
 // The ledger is the substrate every timed buff/debuff writes through (drugs,
 // phases, withdrawal, intoxication). A cap can fall through BOTH paths — reversing

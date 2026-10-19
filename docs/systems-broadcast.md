@@ -2355,8 +2355,11 @@ A stamped unit **never** merges into an existing stack; `show_pass` is registere
 `INSTANCE_KEYS` + `NOT_INSTANCED_SQL` so pickUp/give/drop honour that too — two passes to two
 different nights must never collapse into one row carrying the wrong date.
 
-As built at KSAB-TV: **Orsino Tull** (`npc_ksab_doorman`) on the facade `zone_district_913_911`,
-**Dovie Deeb** (`npc_ksab_boxoffice`) selling `item_holo_ticket` at 25₵ from the same tile.
+As built at KSAB-TV: **Orsino Tull** (`npc_ksab_doorman`) on the stage's facade `zone_district_912_911`,
+**Dovie Deeb** (`npc_ksab_boxoffice`) selling `item_holo_ticket` at 25₵ from the same tile. Since the
+Media Lot ([proposals/media-lot.md](proposals/media-lot.md)) the stage door opens onto the lot's
+court, so the audience comes in through the gate on Foundry Way; the facade kept its id, so the
+door works as it did.
 
 ---
 

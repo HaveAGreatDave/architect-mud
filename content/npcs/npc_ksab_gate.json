@@ -1,0 +1,279 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "jitter": 20,
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "cash_up",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "home_life_ps",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "ifFalse": "off_random",
+        "ifTrue": "home_idle",
+        "type": "condition"
+      },
+      "off_random": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_off",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_IN_ZONE",
+        "ifFalse": "check_work",
+        "ifTrue": "work_say",
+        "type": "condition"
+      },
+      "post_shift": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_ps",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "check_work",
+        "type": "action"
+      },
+      "work_wait": {
+        "next": "player_check",
+        "seconds": 60,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "Dot waves a news van through and writes its number in the book.",
+    "She turns a page in the visitors' book and runs a finger down it.",
+    "A delivery rider asks for the Sentinel. She points east without looking up.",
+    "She tries the gatehouse lamp, off and on again, and leaves it on.",
+    "A buzzer goes somewhere behind the stage door. Dot checks her watch and writes the time down."
+  ],
+  "description": "A short woman in her sixties in a navy guard's blazer with KSAB's disc on the pocket, a cardigan buttoned under it. Reading glasses hang on a cord against her chest. She has a visitors' book open on the gatehouse ledge and a pen on a chain, and she looks up at everyone who comes through the gate.",
+  "dialogue_tree": {
+    "bar": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"The Deadline, on the corner of Marrow Street. Out the gate, west to Meltwater Row and up to the corner.\" She looks at her watch. \"They open when the shifts finish. The shifts don't finish.\""
+    },
+    "bye": {
+      "options": [],
+      "text": "\"Sign out on your way past,\" she says, already writing."
+    },
+    "lot": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"KSAB's lot. The stage, the writers and the car park.\" She nods at the wall to the east. \"The paper's next door. They rent bays for their vans and walk through here to get to them, and they sign the book like everybody else.\""
+    },
+    "park": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Bays are for the station's vans and the paper's.\" She looks past you at the street. \"If you've brought a rig, there's room at the back. Keep it off the paper's dock or the morning edition doesn't go out.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "What is this place?",
+          "next": "lot"
+        },
+        {
+          "label": "Where's the stage door?",
+          "next": "stage"
+        },
+        {
+          "label": "Can I park here?",
+          "next": "park"
+        },
+        {
+          "label": "Where's the bar?",
+          "next": "bar"
+        }
+      ],
+      "text": "\"Sign the book.\" She turns the visitors' book round and holds out the pen on its chain. \"Stage is west, writers straight on, car park through on the right.\"",
+      "text_by_relation": {
+        "familiar": "\"Go on through.\" She writes your name in the book herself.",
+        "first": "\"Dot.\" She doesn't get up. \"I do the gate. Everybody signs the book, including the people who own the building.\" She turns it round for you. \"Stage is west, writers straight on, and the car park's through on the right.\"",
+        "known": "\"You again.\" She has the book turned round before you reach the booth."
+      }
+    },
+    "stage": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"West side of the court, under the red lamp. When the lamp's lit they're taping, and Orsino on the door will want a pass. The box office is the window beside him.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a navy guard's blazer with KSAB's disc on the breast pocket",
+      "a grey cardigan, buttoned to the neck",
+      "a white blouse with a frayed collar",
+      "a plain bra and cotton knickers"
+    ],
+    "personality": "guard"
+  },
+  "home_activities": [],
+  "home_zone": "zone_meridian_unit_404",
+  "hp": 60,
+  "hp_max": 60,
+  "id": "npc_ksab_gate",
+  "name": "Dot Kowalczyk",
+  "npc_type": "civilian",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 6,
+        "to": 22
+      }
+    ],
+    "mon": [
+      {
+        "from": 6,
+        "to": 22
+      }
+    ],
+    "sat": [
+      {
+        "from": 6,
+        "to": 22
+      }
+    ],
+    "sun": [
+      {
+        "from": 6,
+        "to": 22
+      }
+    ],
+    "thu": [
+      {
+        "from": 6,
+        "to": 22
+      }
+    ],
+    "tue": [
+      {
+        "from": 6,
+        "to": 22
+      }
+    ],
+    "wed": [
+      {
+        "from": 6,
+        "to": 22
+      }
+    ]
+  },
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_medialot_913_911"
+}

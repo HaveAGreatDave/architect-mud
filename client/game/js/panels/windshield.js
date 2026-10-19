@@ -39,6 +39,7 @@ import { seatAudioFrame, seatSpot } from './seat-audio.js';   // contacts' engin
 import { FLOOR_Z, BUILDING_FOOT, floorsFor, BUILDING_TUNE, buildingScale, CURTAIN_H } from '../../../shared/skyline-scale.js';
 import { fireworksAround, aaLive, AA_FIRE_MS } from './world-feed.js';   // world events kept by tile, whatever seat is open
 import { drawAAEmplacement } from './glass/aa-emplacement.js';   // the four AA batteries (drawAAMark)
+import { drawMediaLot, lotSolidAt } from './glass/media-lot.js';   // the Media Lot's court and car park (drawLotMark)
 import { skylineFar, SKYLINE_BASE_FAR } from '../../../shared/skyline-tall.js';
 import { hnoise2, hn2h, fbm2 } from '../../../shared/landform.js';
 import { BIOME_GROUND } from '../../../shared/ground-palette.js';
@@ -17574,6 +17575,8 @@ export function groundObstructionAt(wx, wy, cell, px, py, clearZ = 0.01, stepZ =
   // passes `cellAt`, a lookup of the cells round the point, because a lane draws the wall of the
   // empty tiles it claims and that plate stands on a tile with no lock of its own. See lockWallZAt.
   if (cellAt) { const lz = lockWallZAt(px, py, cellAt); if (lz > 0) return lz; }
+  // THE MEDIA LOT'S WALL, the same reason: its ground is a mark with no mass. See lotWallZAt.
+  if (cellAt) { const mz = lotWallZAt(px, py, cellAt); if (mz > 0) return mz; }
   // ⚠ THE ONE HOLE IN A BUILDING, and it is named rather than general: a depot bay is a shed you
   // drive into, so at ground level it is open. Everything about this is deliberately narrow — it
   // is keyed on a mark the world derivation only puts on a tile authored `flags.vehicle_bay`, it
@@ -37930,6 +37933,76 @@ function drawAAMark(ctx, cam, it, v, night, alpha, now, sun, sky, od) {
 }
 const AA_OPEN = { n: [0, -1], e: [1, 0], s: [0, 1], w: [-1, 0] };
 const AA_FACES = 1400;   // the 2-D path's cap, as the statue has one: a sort that grows without bound is a frame that does
+// ── THE MEDIA LOT'S GROUND ───────────────────────────────────────────────────
+//
+// KSAB's gate court and car park inside the lot's wall (the `lot` mark; the build is
+// glass/media-lot.js, docs/proposals/media-lot.md). Drawn during the sweep for the AA battery's
+// reason: on GL the faces go to BAY_SINK, and a closure queued by `emitFace` runs after the
+// composite has read every sink. On the 2-D path they are collected, sorted far to near and painted
+// as one queued closure at the tile's depth.
+// ⚠ THE GATE'S NAME GOES ON AT EMIT TIME ON GL, AND INSIDE THE CLOSURE ON THE 2-D PATH. On GL the
+// decal layer draws after the solids, so the board is under its letters either way. On the canvas
+// the lettering is a blit, and blitted during the sweep it lands under the board painted at flush.
+function drawLotMark(ctx, cam, it, night, alpha, now, sun, od) {
+  const ml = it.c.ml;
+  if (!ml) return;
+  const toGL = !!BAY_SINK && TUNE.glBay !== 0;
+  const EX = (cam.ex || 0) - cam.ox, EY = (cam.ey || 0) - cam.oy, EZ = cam.EH == null ? 0.2 : cam.EH;
+  const soft = [], words = [];
+  const face = (pts, rgb, a) => {
+    if (toGL) { BAY_SINK.push({ p: pts.map(([x, y, z]) => [x + cam.ox, y + cam.oy, z]), rgb, a }); return; }
+    if (soft.length >= LOT_FACES) return;
+    const pr = [];
+    for (const [x, y, z] of pts) { const q = cam.proj(x, y, z); if (!q || q.f <= 0.10) return; pr.push(q); }
+    let f = 0; for (const q of pr) f += q.f; f /= pr.length;
+    soft.push({ f, pr, css: `rgba(${rgb[0] | 0},${rgb[1] | 0},${rgb[2] | 0},${a})` });
+  };
+  // ⚠ THE FACE IS NAMED. Left to default, bakeSignText takes `_signFace`, which is whatever building
+  // the sweep drew last, and the gate came out in a bar's script hand.
+  const text = (quad, label, css, lit) => {
+    const tex = bakeSignText(label, css, lit ? 1 : 0, false, true, true, { font: 'block' });
+    if (!tex) return;
+    const put = () => {
+      const P = quad.map(([x, y, z]) => cam.proj(x, y, z));
+      if (P.every((p) => p && p.f > 0.065)) emitSurfaceText(ctx, cam, P, tex, false, alpha);
+    };
+    if (toGL) put(); else words.push(put);
+  };
+  drawMediaLot({
+    dx: it.dx, dy: it.dy, part: ml.p, wall: ml.w || '', gate: ml.g || '',
+    eye: [EX, EY, EZ], near: eyeRange(cam, it.dx, it.dy) < 6,
+    seed: it.seed, now, night, alpha, wet: clamp(wetGround(), 0, 1), sun,
+    face, text,
+    light: (x, y, z, rgb, s0, a) => glowPool(ctx, cam, x, y, z, rgb, s0, a * alpha),
+  });
+  if (!toGL && (soft.length || words.length)) {
+    soft.sort((p, q) => q.f - p.f);
+    emitFace(od, () => {
+      for (const fc of soft) {
+        ctx.fillStyle = fc.css; ctx.beginPath(); ctx.moveTo(fc.pr[0].sx, fc.pr[0].sy);
+        for (let i = 1; i < fc.pr.length; i++) ctx.lineTo(fc.pr[i].sx, fc.pr[i].sy);
+        ctx.closePath(); ctx.fill();
+      }
+      for (const w of words) w();
+    });
+  }
+}
+const LOT_FACES = 1600;   // the 2-D path's cap, as AA_FACES
+
+// The lot's wall, piers, gatehouse, vans, dock and tower legs, to a truck: lotSolidAt answers from
+// the constants glass/media-lot.js draws with. ⚠ IT READS THE CELLS AROUND THE POINT, for
+// lockWallZAt's reason: a wall's band reaches a hand past its own tile's edge.
+function lotWallZAt(px, py, cellAt) {
+  const rx = Math.round(px), ry = Math.round(py);
+  for (let oy = -1; oy <= 1; oy++) for (let ox = -1; ox <= 1; ox++) {
+    const ml = cellAt(rx + ox, ry + oy)?.ml;
+    if (!ml) continue;
+    const z = lotSolidAt(px - (rx + ox), py - (ry + oy), ml);
+    if (z > 0) return z;
+  }
+  return 0;
+}
+
 
 // Incoming ground-AA volley as REAL 3D world tracers: rounds leave the emplacement's tile
 // on the ground (wz 0) and climb through world space toward — and deliberately just past —
@@ -41388,6 +41461,10 @@ export function markRenderSmoke() {
     ...['guardian', 'sam', 'flak', 'truck'].flatMap((k) => [0, 1, 2].flatMap((s) => [-3, -8].map((dy) => [`aa:${k}:${s}:${-dy}`, (night, alpha) =>
       drawAAMark(SHAPE_STUB_CTX, SHAPE_STUB_CAM, { dx: 0, dy, wx: 7, wy: 7 + s, seed: 3, c: { mark: 'aa', aa: { k, s, o: 'e' }, cur: dy === -3 && s === 1 ? 'ns' : undefined, ci: [[1, 0]] } },
         { contacts: [] }, night, alpha, 1000, null, null, 1)]))),
+    // The Media Lot's two parts, near and far, and a gate on every side, because the gate is built in
+    // a frame turned to its side and only the south one is authored today.
+    ...[['c', '', 's'], ['p', 'es', ''], ['c', '', 'n'], ['c', 'w', 'e'], ['p', 'nesw', 'w']].flatMap(([p, w, g]) => [-3, -8].map((dy) => [`lot:${p}:${w}:${g}:${-dy}`, (night, alpha) =>
+      drawLotMark(SHAPE_STUB_CTX, SHAPE_STUB_CAM, { dx: 0, dy, wx: 7, wy: 7, seed: 3, c: { mark: 'lot', ml: { p, w, g } } }, night, alpha, 1000, null, 1)])),
   ];
   for (const [key, fn] of cases) {
     for (const night of [0, 0.9]) {
@@ -52672,6 +52749,9 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
       drawAAMark(ctx, cam, it, v, night, alpha, now, sun, sky, od);
       if (!it.c.cur) continue;
     }
+    // THE MEDIA LOT'S COURT AND CAR PARK (drawLotMark), drawn during the sweep for the battery's
+    // reason. `continue` because the tile is still concrete underneath and the ground pass painted it.
+    if (it.c.mark === 'lot') { drawLotMark(ctx, cam, it, night, alpha, now, sun, od); continue; }
     if (it.c.mark === 'camp') {
       ADORN_TIER = (TUNE.detailNear || 0) > 0 && eyeRange(cam, it.dx, it.dy) < TUNE.detailNear ? ADORN_NEAR : ADORN_RICH;
       try { drawTentCamp(ctx, cam, it.dx, it.dy, BUILDING_FOOT * RENDER_TUNE.bldgFoot, it.seed, night, alpha, it.c.cur ? (it.c.ci || campInward(map, it.rx, it.ry, it.c.cur)) : null, now); }

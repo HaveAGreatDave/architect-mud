@@ -182,10 +182,10 @@
           "next": "bye"
         }
       ],
-      "text": "\"Board outside is what we do and it's in order of how much of it we do.\" He raises his voice over the press without appearing to notice he is doing it. \"Handbills today. Handbills most days.\"",
+      "text": "\"Board on the door is what I do on the side, in order of how much of it I do.\" He raises his voice over the press without appearing to notice he is doing it. \"Handbills today. Handbills most days.\"",
       "text_by_relation": {
         "familiar": "He stops the press when he sees you, which costs him about eleven minutes and which he does anyway.\n\n\"Pulled you a proof,\" he says, taking it off the line. \"It's nothing, it's a spare. Look at the margin down the right, that's the roller going, and I want somebody other than me to say they can see it.\"",
-        "first": "The press stops, which is the loudest thing that has happened in the room.\n\n\"Ludd.\" He wipes his hands on his front, which achieves nothing. \"Board outside is the list, and it's in order, so if the thing you want is near the bottom it's near the bottom for a reason.\"\n\nHe puts a hand flat on the machine.\n\n\"Two presses. This one runs. The other one is why this one still runs. People suggest I sell it about twice a year.\"",
+        "first": "The press stops, which is the loudest thing that has happened in the room.\n\n\"Ludd.\" He wipes his hands on his front, which achieves nothing. \"Board on the door is the list, and it's in order, so if the thing you want is near the bottom it's near the bottom for a reason.\"\n\nHe puts a hand flat on the machine.\n\n\"The big one's the paper's, and I run it at night. These two are mine. This one runs. The other one is why this one still runs. People suggest I sell it about twice a year.\"",
         "known": "\"You.\" He doesn't stop the press this time, which is a promotion. \"Line's full. Come back at four or read it off the line, I don't mind which.\""
       }
     },
@@ -218,7 +218,7 @@
     "personality": "vendor"
   },
   "home_activities": [],
-  "home_zone": "zone_justmytype_floor",
+  "home_zone": "zone_sentinel_press",
   "hp": 44,
   "hp_max": 44,
   "id": "npc_print_ludd",
@@ -277,9 +277,9 @@
       }
     ]
   },
-  "vendor_shop_name": "Just My Type",
+  "vendor_shop_name": "Sentinel Press Hall",
   "vendor_stock_size": 8,
   "wander_zones": [],
   "wanders": 0,
-  "work_zone_id": "zone_justmytype_floor"
+  "work_zone_id": "zone_sentinel_press"
 }

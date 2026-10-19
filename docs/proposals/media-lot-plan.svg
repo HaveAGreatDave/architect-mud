@@ -1,0 +1,278 @@
+<svg viewBox="0 0 1240 1260" xmlns="http://www.w3.org/2000/svg" font-family="'Segoe UI',system-ui,sans-serif">
+  <rect width="1240" height="1260" fill="#0b0e13"/>
+
+  <!-- Title -->
+  <text x="40" y="48" fill="#e6edf3" font-size="28" font-weight="700">The Media Lot</text>
+  <text x="40" y="76" fill="#8b98a5" font-size="15">Proposal. The site plan, then Foundry Way from the street. Tiles x 912 to 914, y 910 to 911.</text>
+  <g transform="translate(1190,46)">
+    <text x="0" y="0" fill="#6b7684" font-size="12" text-anchor="middle">N</text>
+    <line x1="0" y1="4" x2="0" y2="24" stroke="#6b7684" stroke-width="1.4"/>
+    <polygon points="0,2 -4,10 4,10" fill="#6b7684"/>
+  </g>
+
+  <!-- ===================== SITE PLAN ===================== -->
+  <!-- Streets -->
+  <rect x="120" y="120" width="920" height="80" fill="#1b212b"/>
+  <rect x="120" y="120" width="80" height="560" fill="#1b212b"/>
+  <rect x="120" y="600" width="920" height="80" fill="#1b212b"/>
+  <text x="900" y="166" fill="#8b98a5" font-size="14" text-anchor="middle">Marrow Street</text>
+  <text transform="translate(166 300) rotate(-90)" fill="#8b98a5" font-size="14" text-anchor="middle">Meltwater Row</text>
+  <text x="300" y="646" fill="#8b98a5" font-size="14" text-anchor="middle">Foundry Way</text>
+  <text x="900" y="646" fill="#6b7684" font-size="13" text-anchor="middle">Tallow Row</text>
+
+  <!-- Neighbours to the east -->
+  <rect x="800" y="200" width="200" height="200" fill="#1f252e" stroke="#2f3742"/>
+  <rect x="800" y="400" width="200" height="200" fill="#1f252e" stroke="#2f3742"/>
+  <text x="900" y="298" fill="#6b7684" font-size="14" text-anchor="middle">Co-Pay &amp; Pray</text>
+  <text x="900" y="318" fill="#566170" font-size="12" text-anchor="middle">clinic, not part of the lot</text>
+  <text x="900" y="498" fill="#6b7684" font-size="14" text-anchor="middle">Treble Maker</text>
+  <text x="900" y="518" fill="#566170" font-size="12" text-anchor="middle">music shop, not part of the lot</text>
+
+  <!-- The Deadline (912,910) -->
+  <path d="M 250 200 H 400 V 400 H 200 V 250 A 50 50 0 0 1 250 200 Z" fill="#d8cbab" stroke="#00000055"/>
+  <text x="300" y="292" fill="#2a241a" font-size="17" font-weight="700" text-anchor="middle">The Deadline</text>
+  <text x="300" y="313" fill="#5a4f3c" font-size="12.5" text-anchor="middle">the lot's pub</text>
+  <text x="300" y="330" fill="#5a4f3c" font-size="12.5" text-anchor="middle">door on the street</text>
+
+  <!-- KSAB Writers' Wing (913,910) -->
+  <rect x="400" y="200" width="200" height="200" fill="#d8cbab" stroke="#00000055"/>
+  <circle cx="572" cy="372" r="24" fill="#c2d6dc" stroke="#8aa5ad"/>
+  <text x="490" y="282" fill="#2a241a" font-size="16" font-weight="700" text-anchor="middle">KSAB Writers' Wing</text>
+  <text x="490" y="303" fill="#5a4f3c" font-size="12.5" text-anchor="middle">three floors of writers</text>
+  <text x="490" y="320" fill="#5a4f3c" font-size="12.5" text-anchor="middle">door into the lot</text>
+
+  <!-- Coldwater Sentinel (914,910) -->
+  <rect x="600" y="200" width="200" height="200" fill="#d8cbab" stroke="#00000055"/>
+  <circle cx="700" cy="224" r="9" fill="#f2ead8" stroke="#2a241a" stroke-width="1.2"/>
+  <line x1="700" y1="224" x2="700" y2="218" stroke="#2a241a" stroke-width="1.2"/>
+  <line x1="700" y1="224" x2="705" y2="226" stroke="#2a241a" stroke-width="1.2"/>
+  <text x="700" y="288" fill="#2a241a" font-size="16" font-weight="700" text-anchor="middle">Coldwater Sentinel</text>
+  <text x="700" y="309" fill="#5a4f3c" font-size="12.5" text-anchor="middle">front counter on the street</text>
+  <text x="700" y="326" fill="#5a4f3c" font-size="12.5" text-anchor="middle">press hall behind the glass</text>
+  <rect x="640" y="400" width="80" height="16" fill="#a89c80" stroke="#00000055"/>
+  <text x="680" y="412" fill="#2a241a" font-size="10" text-anchor="middle">loading dock</text>
+
+  <!-- KSAB Stage 7 (912,911) -->
+  <rect x="200" y="400" width="200" height="200" fill="#cbbd9b" stroke="#00000055"/>
+  <g stroke="#b3a582" stroke-width="1.2">
+    <line x1="206" y1="475" x2="394" y2="475"/>
+    <line x1="206" y1="500" x2="394" y2="500"/>
+    <line x1="206" y1="525" x2="394" y2="525"/>
+    <line x1="206" y1="550" x2="394" y2="550"/>
+    <line x1="206" y1="575" x2="394" y2="575"/>
+  </g>
+  <text x="300" y="586" fill="#39d6ff" font-size="104" font-weight="700" text-anchor="middle" opacity="0.92">7</text>
+  <text x="300" y="434" fill="#2a241a" font-size="16" font-weight="700" text-anchor="middle">KSAB Stage 7</text>
+  <text x="300" y="453" fill="#5a4f3c" font-size="12.5" text-anchor="middle">the sound stage and the mast</text>
+  <polygon points="226,590 240,590 233,568" fill="none" stroke="#6b7684" stroke-width="1.4"/>
+  <circle cx="233" cy="566" r="2.6" fill="#ff4d4d"/>
+
+  <!-- The Lot, the gate court (913,911) -->
+  <rect x="400" y="400" width="200" height="200" fill="#3b414b" stroke="#00000055"/>
+  <text x="500" y="448" fill="#e6edf3" font-size="16" font-weight="700" text-anchor="middle">The Media Lot</text>
+  <text x="500" y="467" fill="#aab4bf" font-size="12.5" text-anchor="middle">gate court</text>
+  <rect x="476" y="486" width="48" height="8" fill="#c9d1d9"/>
+  <text x="500" y="508" fill="#8b98a5" font-size="10" text-anchor="middle">directory</text>
+  <g fill="#ffe2a8">
+    <circle cx="418" cy="418" r="3.5"/>
+    <circle cx="582" cy="418" r="3.5"/>
+    <circle cx="418" cy="582" r="3.5"/>
+    <circle cx="582" cy="582" r="3.5"/>
+  </g>
+  <!-- the ways in from the gate -->
+  <g fill="none" stroke="#39d6ff" stroke-width="1.5" stroke-dasharray="5 5" opacity="0.75">
+    <path d="M 492 588 V 530 H 470 V 416"/>
+    <path d="M 492 560 H 416"/>
+    <path d="M 508 572 H 640"/>
+  </g>
+
+  <!-- Lot Parking (914,911) -->
+  <rect x="600" y="400" width="200" height="200" fill="#353b44" stroke="#00000055"/>
+  <rect x="669" y="418" width="22" height="28" rx="3" fill="#d9d0b8"/>
+  <text x="750" y="430" fill="#e6edf3" font-size="14" font-weight="700" text-anchor="middle">Media Lot</text>
+  <text x="750" y="447" fill="#e6edf3" font-size="14" font-weight="700" text-anchor="middle">Car Park</text>
+  <g stroke="#e8da98" stroke-width="1.4" opacity="0.8">
+    <line x1="612" y1="470" x2="612" y2="520"/><line x1="640" y1="470" x2="640" y2="520"/>
+    <line x1="668" y1="470" x2="668" y2="520"/><line x1="696" y1="470" x2="696" y2="520"/>
+    <line x1="724" y1="470" x2="724" y2="520"/>
+    <line x1="612" y1="528" x2="612" y2="578"/><line x1="640" y1="528" x2="640" y2="578"/>
+    <line x1="668" y1="528" x2="668" y2="578"/><line x1="696" y1="528" x2="696" y2="578"/>
+    <line x1="724" y1="528" x2="724" y2="578"/>
+    <line x1="612" y1="524" x2="724" y2="524"/>
+  </g>
+  <rect x="615" y="476" width="22" height="38" rx="3" fill="#e9eef2"/>
+  <circle cx="626" cy="486" r="4.5" fill="#39d6ff"/>
+  <rect x="671" y="534" width="22" height="38" rx="3" fill="#e9eef2"/>
+  <circle cx="682" cy="544" r="4.5" fill="#39d6ff"/>
+  <!-- the water tower -->
+  <g fill="#8b98a5">
+    <rect x="742" y="526" width="6" height="6"/><rect x="780" y="526" width="6" height="6"/>
+    <rect x="742" y="564" width="6" height="6"/><rect x="780" y="564" width="6" height="6"/>
+  </g>
+  <circle cx="764" cy="548" r="20" fill="#c9d1d9" stroke="#8b98a5"/>
+  <circle cx="764" cy="548" r="9" fill="#39d6ff"/>
+  <text x="764" y="552" fill="#0b0e13" font-size="11" font-weight="700" text-anchor="middle">7</text>
+  <text x="764" y="590" fill="#aab4bf" font-size="11" text-anchor="middle">water tower</text>
+
+  <!-- The wall: round the whole block, open only at the gate -->
+  <g fill="none" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M 250 200 H 800 V 600 H 548 M 452 600 H 200 V 250 A 50 50 0 0 1 250 200" stroke="#efe3c6" stroke-width="6"/>
+    <path d="M 250 200 H 800 V 600 H 548 M 452 600 H 200 V 250 A 50 50 0 0 1 250 200" stroke="#39d6ff" stroke-width="1.6" opacity="0.85"/>
+  </g>
+
+  <!-- The gate -->
+  <circle cx="440" cy="600" r="11" fill="#efe3c6" stroke="#00000066"/>
+  <circle cx="560" cy="600" r="11" fill="#efe3c6" stroke="#00000066"/>
+  <line x1="453" y1="600" x2="500" y2="600" stroke="#f2ead8" stroke-width="3.5" stroke-linecap="round"/>
+  <line x1="453" y1="600" x2="500" y2="600" stroke="#ff6a5a" stroke-width="3.5" stroke-dasharray="7 5"/>
+  <circle cx="514" cy="590" r="11" fill="#c2d6dc" stroke="#8aa5ad"/>
+  <text x="500" y="664" fill="#e6edf3" font-size="13" font-weight="700" text-anchor="middle">the gate</text>
+
+  <!-- Doors -->
+  <g fill="#39d6ff">
+    <polygon points="322,200 338,200 330,187"/>
+    <polygon points="692,200 708,200 700,187"/>
+    <polygon points="462,400 478,400 470,413"/>
+    <polygon points="400,552 400,568 413,560"/>
+  </g>
+  <!-- Street doors that close -->
+  <g stroke="#ff7a6a" stroke-width="2.4" stroke-linecap="round">
+    <line x1="193" y1="513" x2="207" y2="527"/><line x1="193" y1="527" x2="207" y2="513"/>
+    <line x1="493" y1="193" x2="507" y2="207"/><line x1="493" y1="207" x2="507" y2="193"/>
+    <line x1="693" y1="593" x2="707" y2="607"/><line x1="693" y1="607" x2="707" y2="593"/>
+  </g>
+
+  <!-- Legend -->
+  <g font-size="12.5" fill="#c9d1d9">
+    <rect x="120" y="710" width="14" height="14" fill="#d8cbab"/>
+    <text x="142" y="722">lot buildings: one render, one roofline</text>
+    <rect x="418" y="710" width="14" height="14" fill="#3b414b" stroke="#6b7684"/>
+    <text x="440" y="722">lot ground: walk or drive in</text>
+    <line x1="636" y1="717" x2="664" y2="717" stroke="#efe3c6" stroke-width="6"/>
+    <line x1="636" y1="717" x2="664" y2="717" stroke="#39d6ff" stroke-width="1.6"/>
+    <text x="672" y="722">the wall</text>
+    <polygon points="738,724 752,724 745,711" fill="#39d6ff"/>
+    <text x="760" y="722">a door</text>
+    <line x1="820" y1="711" x2="832" y2="723" stroke="#ff7a6a" stroke-width="2.4"/>
+    <line x1="820" y1="723" x2="832" y2="711" stroke="#ff7a6a" stroke-width="2.4"/>
+    <text x="840" y="722">a street door that closes</text>
+    <line x1="1010" y1="717" x2="1040" y2="717" stroke="#39d6ff" stroke-width="1.5" stroke-dasharray="5 5"/>
+    <text x="1048" y="722">the way in</text>
+  </g>
+
+  <!-- ===================== ELEVATION ===================== -->
+  <line x1="40" y1="768" x2="1200" y2="768" stroke="#1f252e" stroke-width="2"/>
+  <text x="40" y="806" fill="#e6edf3" font-size="18" font-weight="700">Foundry Way, looking north</text>
+  <text x="40" y="830" fill="#8b98a5" font-size="13.5">A sketch of the south face, lined up with the plan above. West is on the left; a storey is about 34 px.</text>
+
+  <!-- ground -->
+  <rect x="120" y="1170" width="920" height="26" fill="#1b212b"/>
+  <line x1="120" y1="1170" x2="1040" y2="1170" stroke="#2f3742" stroke-width="1.5"/>
+
+  <!-- back: the Writers' Wing, seen through the gate -->
+  <rect x="404" y="1060" width="192" height="110" fill="#b9ad8e" stroke="#00000044"/>
+  <g fill="#2c3540">
+    <rect x="414" y="1078" width="146" height="12"/>
+    <rect x="414" y="1112" width="146" height="12"/>
+  </g>
+  <rect x="540" y="1078" width="14" height="12" fill="#ffd98a"/>
+  <g stroke="#d8cbab" stroke-width="1.4">
+    <line x1="404" y1="1098" x2="566" y2="1098"/>
+    <line x1="404" y1="1102" x2="566" y2="1102"/>
+    <line x1="404" y1="1132" x2="566" y2="1132"/>
+  </g>
+  <rect x="446" y="1134" width="48" height="5" fill="#efe3c6"/>
+  <rect x="458" y="1139" width="24" height="31" fill="#2c3540"/>
+  <rect x="458" y="1139" width="24" height="6" fill="#ffe2a8" opacity="0.8"/>
+  <rect x="566" y="1046" width="30" height="124" rx="14" fill="#c2d6dc" opacity="0.92"/>
+  <g stroke="#9db3ba" stroke-width="1">
+    <line x1="568" y1="1066" x2="594" y2="1066"/><line x1="568" y1="1086" x2="594" y2="1086"/>
+    <line x1="568" y1="1106" x2="594" y2="1106"/><line x1="568" y1="1126" x2="594" y2="1126"/>
+    <line x1="568" y1="1146" x2="594" y2="1146"/>
+  </g>
+
+  <!-- back: the Sentinel's rear, over the car park wall -->
+  <rect x="604" y="1060" width="192" height="110" fill="#b9ad8e" stroke="#00000044"/>
+  <g fill="#2c3540">
+    <rect x="618" y="1072" width="12" height="14"/><rect x="646" y="1072" width="12" height="14"/>
+    <rect x="674" y="1072" width="12" height="14"/><rect x="702" y="1072" width="12" height="14"/>
+    <rect x="618" y="1104" width="12" height="14"/><rect x="646" y="1104" width="12" height="14"/>
+    <rect x="674" y="1104" width="12" height="14"/><rect x="702" y="1104" width="12" height="14"/>
+  </g>
+  <line x1="604" y1="1094" x2="796" y2="1094" stroke="#d8cbab" stroke-width="1.4"/>
+
+  <!-- the water tower, in front of the Sentinel's back wall -->
+  <g stroke="#8b98a5" stroke-width="2.2">
+    <line x1="744" y1="1170" x2="750" y2="990"/>
+    <line x1="784" y1="1170" x2="778" y2="990"/>
+  </g>
+  <g stroke="#6b7684" stroke-width="1.2">
+    <line x1="746" y1="1110" x2="782" y2="1050"/><line x1="782" y1="1110" x2="746" y2="1050"/>
+    <line x1="748" y1="1050" x2="780" y2="996"/><line x1="780" y1="1050" x2="748" y2="996"/>
+  </g>
+  <rect x="736" y="938" width="56" height="52" rx="4" fill="#c9d1d9" stroke="#8b98a5"/>
+  <path d="M 732 938 L 764 912 L 796 938 Z" fill="#a9b4bf"/>
+  <circle cx="764" cy="964" r="15" fill="#39d6ff"/>
+  <text x="764" y="970" fill="#0b0e13" font-size="17" font-weight="700" text-anchor="middle">7</text>
+
+  <!-- the mast on the stage roof, drawn before the stage so the gable covers its foot -->
+  <g stroke="#8b98a5" stroke-width="1.6" fill="none">
+    <line x1="240" y1="992" x2="252" y2="842"/>
+    <line x1="264" y1="992" x2="252" y2="842"/>
+    <line x1="242" y1="960" x2="262" y2="960"/>
+    <line x1="244" y1="928" x2="260" y2="928"/>
+    <line x1="246" y1="896" x2="258" y2="896"/>
+    <line x1="248" y1="868" x2="256" y2="868"/>
+  </g>
+  <circle cx="252" cy="838" r="4" fill="#ff4d4d"/>
+
+  <!-- front: KSAB Stage 7, the south gable -->
+  <path d="M 200 1170 V 1000 Q 300 952 400 1000 V 1170 Z" fill="#cbbd9b" stroke="#00000055"/>
+  <path d="M 200 1000 Q 300 952 400 1000" fill="none" stroke="#e8dcc0" stroke-width="3"/>
+  <text x="300" y="1132" fill="#39d6ff" font-size="124" font-weight="700" text-anchor="middle" opacity="0.92">7</text>
+  <line x1="200" y1="1162" x2="400" y2="1162" stroke="#39d6ff" stroke-width="3"/>
+
+  <!-- lamps in the court -->
+  <line x1="418" y1="1170" x2="418" y2="1118" stroke="#8b98a5" stroke-width="2"/>
+  <circle cx="418" cy="1116" r="4" fill="#ffe2a8"/>
+  <line x1="584" y1="1170" x2="584" y2="1118" stroke="#8b98a5" stroke-width="2"/>
+  <circle cx="584" cy="1116" r="4" fill="#ffe2a8"/>
+
+  <!-- front: the gate -->
+  <rect x="430" y="1092" width="22" height="78" rx="8" fill="#efe3c6" stroke="#00000055"/>
+  <rect x="548" y="1092" width="22" height="78" rx="8" fill="#efe3c6" stroke="#00000055"/>
+  <g stroke="#39d6ff" stroke-width="1">
+    <line x1="430" y1="1110" x2="452" y2="1110"/><line x1="430" y1="1116" x2="452" y2="1116"/><line x1="430" y1="1122" x2="452" y2="1122"/>
+    <line x1="548" y1="1110" x2="570" y2="1110"/><line x1="548" y1="1116" x2="570" y2="1116"/><line x1="548" y1="1122" x2="570" y2="1122"/>
+  </g>
+  <rect x="426" y="1082" width="148" height="12" fill="#efe3c6" stroke="#00000055"/>
+  <rect x="458" y="1059" width="84" height="23" fill="#10161d" stroke="#39d6ff" stroke-width="1.2"/>
+  <text x="500" y="1076" fill="#39d6ff" font-size="15" font-weight="700" text-anchor="middle" letter-spacing="2">KSAB</text>
+  <rect x="501" y="1128" width="42" height="5" fill="#efe3c6"/>
+  <rect x="505" y="1133" width="34" height="37" rx="9" fill="#c2d6dc" stroke="#8aa5ad"/>
+  <rect x="509" y="1140" width="26" height="10" fill="#ffe2a8" opacity="0.85"/>
+  <line x1="455" y1="1148" x2="503" y2="1148" stroke="#f2ead8" stroke-width="3.5" stroke-linecap="round"/>
+  <line x1="455" y1="1148" x2="503" y2="1148" stroke="#ff6a5a" stroke-width="3.5" stroke-dasharray="7 5"/>
+
+  <!-- front: the car park wall, a news van's dish showing over it -->
+  <line x1="650" y1="1131" x2="650" y2="1138" stroke="#c9d1d9" stroke-width="2"/>
+  <ellipse cx="650" cy="1126" rx="10" ry="5" fill="#e9eef2"/>
+  <rect x="600" y="1132" width="200" height="38" fill="#e2d6b8" stroke="#00000055"/>
+  <line x1="600" y1="1134" x2="800" y2="1134" stroke="#f2ead8" stroke-width="2"/>
+  <line x1="600" y1="1162" x2="800" y2="1162" stroke="#39d6ff" stroke-width="3"/>
+
+  <!-- neighbour -->
+  <rect x="800" y="1102" width="200" height="68" fill="#2a313b" stroke="#3a434f"/>
+  <text x="900" y="1142" fill="#6b7684" font-size="13" text-anchor="middle">Treble Maker</text>
+
+  <!-- labels under the street -->
+  <g font-size="12.5" fill="#aab4bf" text-anchor="middle">
+    <text x="160" y="1216" fill="#6b7684" font-size="11.5">Meltwater Row</text>
+    <text x="300" y="1216">KSAB Stage 7</text>
+    <text x="300" y="1233" font-size="11">the number on the gable</text>
+    <text x="500" y="1216">the gate</text>
+    <text x="500" y="1233" font-size="11">the Writers' Wing behind it</text>
+    <text x="700" y="1216">Media Lot Car Park</text>
+    <text x="700" y="1233" font-size="11">the Sentinel's back, the tower</text>
+  </g>
+</svg>

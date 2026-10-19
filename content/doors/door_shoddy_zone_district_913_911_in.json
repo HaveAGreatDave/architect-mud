@@ -1,7 +1,7 @@
 {
   "connection_id": "conn_district_913_911_east_wegl",
   "door_type": "shoddy",
-  "exit_dir": "east",
+  "exit_dir": "west",
   "flags": {},
   "hololock_difficulty": 0,
   "hp": 300,

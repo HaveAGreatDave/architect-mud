@@ -1,0 +1,24 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#221f1a",
+  "description": "The Sentinel's press hall, behind the bullpen. The paper's rotary press takes up most of it, a train of steel drums fed off a reel of newsprint. Pavel Ludd's flatbed stands by the back wall with its twin under a sheet, a drying line strung over both. The type cases are by the door.",
+  "exits": {
+    "north": "zone_sentinel_bullpen"
+  },
+  "flags": {
+    "building_name": "Coldwater Sentinel",
+    "building_type": "office",
+    "floor": "concrete",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_914_910"
+  },
+  "grid_x": 0,
+  "grid_y": 1,
+  "grid_z": 0,
+  "id": "zone_sentinel_press",
+  "map_id": "map_int_sentinel",
+  "name": "Press Hall",
+  "parent_zone": "zone_district_914_910"
+}

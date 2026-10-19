@@ -5,8 +5,7 @@
   "color": "#9aa3b5",
   "description": "A jobbing printer wedged into the back of the studio block, with a roller door instead of a window and the door up more often than not. Handbills dry on a line strung across the opening. The board outside lists what they do in order of how much of it they do: HANDBILLS, RUNNING ORDERS, SETLISTS, MENUS, WREATH CARDS, WRITS. The last one is not a joke and is priced accordingly.",
   "exits": {
-    "north": "zone_justmytype_floor",
-    "south": "zone_district_913_912"
+    "north": "zone_justmytype_floor"
   },
   "flags": {
     "building_name": "Just My Type",
@@ -17,14 +16,16 @@
     "floors": 2,
     "is_building": true,
     "region_id": "region_coldwater",
+    "set_aside": true,
+    "set_aside_from": "913,911",
     "sign_trade": "PRINTER",
-    "world_exit_zone": "zone_district_913_912"
+    "world_exit_zone": "zone_district_913_911"
   },
-  "grid_x": 913,
-  "grid_y": 911,
+  "grid_x": 1,
+  "grid_y": 9,
   "grid_z": 0,
   "id": "zone_district_913_911",
-  "map_id": "map_world",
+  "map_id": "map_set_aside",
   "marker": "PR",
   "name": "Just My Type",
   "parent_zone": null

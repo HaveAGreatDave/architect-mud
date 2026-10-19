@@ -1,10 +1,10 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "description": "Loose stone crunches underfoot, greyed with dust and old oil. A dead streetlight leans at the verge, and the wind carries grit that finds your teeth. Tyre tracks braid off into the haze.",
+  "description": "Foundry Way at KSAB's gate: two rendered piers with the station's name on a slab between them, a raised barrier arm, and a round gatehouse with a lamp in it. The lot's wall runs east past a water tower. Tyre tracks turn in under the barrier.",
   "exits": {
     "east": "zone_district_914_912",
-    "north": "zone_district_913_911",
+    "north": "zone_medialot_913_911",
     "south": "zone_district_913_913",
     "west": "zone_district_912_912"
   },

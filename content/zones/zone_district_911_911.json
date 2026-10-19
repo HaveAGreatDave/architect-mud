@@ -1,9 +1,8 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "description": "A wide run of packed gravel and grit, graded flat by traffic and rain into something almost like a road. Puddles stand in the ruts, skinned with a chemical sheen. Nothing grows in the margins.",
+  "description": "Meltwater Row beside KSAB's sound stage, a long blind wall with the lot's other buildings behind it. The stage's doors are round the back, inside the lot; the gate is on Foundry Way. Puddles stand in the ruts.",
   "exits": {
-    "east": "zone_district_912_911",
     "north": "zone_district_911_910",
     "south": "zone_district_911_912",
     "west": "zone_district_910_911"

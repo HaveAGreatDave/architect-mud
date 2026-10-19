@@ -1,0 +1,14 @@
+{
+  "description": "Caged lamps on chains over the press, hung low enough to read a proof by.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_sentinel_press",
+  "light_type": "overhead",
+  "lumen_output": 2600,
+  "name": "press hall lamps",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "price": 0,
+  "zone_id": "zone_sentinel_press"
+}

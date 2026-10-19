@@ -4,7 +4,7 @@
   "bg_color": "#1e1a28",
   "description": "The script vault: rolling stacks packed rail to rail with bound shooting drafts, continuity binders and tape logs going back further than anyone upstairs admits the station does. A card index sits by the door in a drawer cabinet the size of a coffin, and a lone reading carrel waits under a lamp with a legal pad already on it. It smells of toner, old plastic and the dust that gets into paper. Somewhere in here is the episode they pulled.",
   "exits": {
-    "north": "zone_ksab_lobby"
+    "south": "zone_ksab_lobby"
   },
   "flags": {
     "building_name": "KSAB Writers' Wing",
@@ -15,7 +15,7 @@
     "world_exit_zone": "zone_district_913_910"
   },
   "grid_x": 0,
-  "grid_y": 1,
+  "grid_y": -1,
   "grid_z": 0,
   "id": "zone_ksab_gallery",
   "map_id": "map_int_ksab",

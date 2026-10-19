@@ -1,11 +1,10 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "description": "Loose stone crunches underfoot, greyed with dust and old oil. A dead streetlight leans at the verge, and the wind carries grit that finds your teeth. Tyre tracks braid off into the haze.",
+  "description": "Marrow Street outside the back of KSAB's Writers' Wing, glass behind a strip of verge, with the Deadline on the corner to the west and the Sentinel's door to the east. The writers' own door is inside the lot, through the gate on Foundry Way.",
   "exits": {
     "east": "zone_district_914_909",
     "north": "zone_district_913_908",
-    "south": "zone_district_913_910",
     "west": "zone_district_912_909"
   },
   "flags": {
