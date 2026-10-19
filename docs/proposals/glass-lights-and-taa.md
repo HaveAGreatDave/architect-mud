@@ -1,7 +1,8 @@
 # GLASS 2 clustered lights and TAA
 
-**Status: A1 started (the light grid and the wet road, behind `glCluster` 0, 2026-10-17; see
-[A1 as built](#a1-as-built-2026-10-17)); B and A2 are design.** Two pieces of work for GLASS 2, each behind a `RENDER_TUNE` switch
+**Status: A1 built (2026-10-18, see [A1 finished](#a1-finished-2026-10-18)); B built and still
+being judged (see [B as built](#b-as-built-2026-10-18)); A2 built (see [A2 as built](#a2-as-built-2026-10-18)).
+All three switches are 0.** Two pieces of work for GLASS 2, each behind a `RENDER_TUNE` switch
 whose 0 is today's picture: a clustered light list that lifts the per-frame light cap, then a new
 short-reach light from each sign onto its own wall (`glCluster`); and temporal anti-aliasing
 (`glTaa`). Both stay on WebGL2. Neither needs WebGPU: the light list goes in data textures, and TAA
@@ -117,12 +118,45 @@ canvas and is blind the same way.
 | Frame moved, 13:00 | | 27.5% |
 | Frame time, interleaved, median | 32.1 ms | 34.3 ms |
 
-The extra light is the streaks, not the pools. With pools off the frame still moves 37.8% (mean 9.4
-levels); pools alone on a dry night move 9.9% (mean 2.0). The streak gain of 4.5 was swept against
-six lights, and summed over sixty it lays a pink sheet over the road and the pavement in place of
-separate streaks. That's a look decision, the same kind as the wall wash, and it has to be made
-before `glCluster` goes to 1. The options are the grid for pools only (the streak keeps the six),
-or a re-tuned streak (gain or width) judged by eye for many lights.
+The extra light was blamed on the streaks here, and that was wrong: "pools off" still had the glint
+in it. See below.
+
+## A1 finished (2026-10-18)
+
+**The sheet was the glint.** The glint is the highlight inside the puddles, drawn at `uGlint` 8.
+With the glint off, the grid adds 5.6% of a night frame against six lights and 1.6% at noon; with it
+on, 29.6% and 26.4%, pink by night and red by day. The grid path now has its own size and gain for
+the streak and the glint (`LIGHTGRID_TUNE.streakW`, `streakK`, `glintW`, `glintK`, as uniforms in
+ground.js), swept on the Modelshop wet street and judged by eye at 23:00 and 13:00. Glint size 0.5
+and gain 0.3 give separate reflections under each sign and a mean change of +0.3 levels against six
+lights: the road carries the light it did, spread over every sign. The streak keeps its own width.
+
+**What reads the grid now:**
+
+| Layer | Terms | Grid |
+|---|---|---|
+| gl/ground.js, the wet road | streak, glint, pool | the road's own, on the ground plane |
+| gl/context.js, the wall | lamp lift, wash, wet lobe | the wall's (mass mode: a disc of the larger of `rw` and `rl`) |
+| gl/actors.js, solids.js, cloth.js | the lamps on them | the wall's |
+
+The wall's grid is built once a frame by world.js (`setLightGrid` in context.js, right after
+`pickLights`), so the mirror prepass and the main pass read the same one, and the layers bind it
+through `opts.lightGrid` on texture units 8 to 10. On a dry night the wall moves 0.71% of a frame
+against the slots: walls near lamps the slots dropped now lift.
+
+**What stays on the slots, and why:**
+
+- The sea (gl/water.js): its glitter falls off as 1/(1+d²) with no cut-off, on purpose, so across a
+  harbour every light reaches every fragment and a grid would list them all.
+- The light shafts (the wall's and the road's): they integrate along the view ray, so a light has
+  no local footprint.
+- Decals and billboards: they work in other frames (`windowFrame`, the plain camera), and what they
+  light (tarps, ground scatter) is small.
+
+**Traps:** the wall shader needs prototypes for `glassLin` and `glassSrgb`, because linearOut
+splices the colour helpers in just before main(), after `massLight`; without them the city falls
+back to 2-D everywhere. And the road's off-grid skip (a light wholly outside the ground) must not
+apply in mass mode, where a wall past the grid reads the edge cell.
 
 ## B: TAA (`glTaa`, needs `glHdr` 1)
 
@@ -161,6 +195,48 @@ would move it, when the context is restored, and when `glTaa` or `glHdr` changes
 **Plumbing.** `glTaa` and `glCluster` go into the options `GL_HOOK` is called with in windshield.js,
 and into the `gl:opts` allowlist.
 
+## B as built (2026-10-18)
+
+`RENDER_TUNE.glTaa`, 0. [gl/taa.js](../../client/game/js/panels/gl/taa.js) holds the resolve, its
+two history buffers, the Halton jitter and the reprojection matrix; `JITTER` in gl/camera.js puts the
+offset in column 2 of the projection; `split` in gl/hdr.js resolves the colour, blits the depth into
+a texture, runs the resolve and leaves a single-sample framebuffer bound over the result; world.js
+jitters from the mass to the film and splits before the sprites, so the sprites, the Curtain, the
+decals and lettering, the strokes, the billboards and the cabin never enter the history.
+
+**The bug that hid it.** The first build subtracted the jitter from the pixel's position before
+reprojecting. The history stands for the unjittered picture, so that sampled it half a pixel off in a
+new direction every frame and a still camera's picture wandered with the jitter: with the history at
+98%, 9.4% of a still frame changed every frame. With the subtraction gone it's 0.78%, the same as TAA
+off. The resolve also runs in a compressed space (c / (1 + max c)) so a lit window's HDR value
+doesn't outvote its neighbours.
+
+**What it does, measured** against a supersampled reference: the same frame with TAA's clamp off
+and the current frame at 2%, on a frozen clock, which is a running average of the jittered frames
+(Modelshop wet street, chase seat, 960×540):
+
+| | TAA off | TAA on |
+|---|---|---|
+| Still, whole frame, mean error | 1.13 | 0.62 |
+| Still, distant buildings | 0.77 | 0.25 |
+| Crawling 0.01 tiles a frame | about even | about even |
+
+So it removes most of the aliasing on a still or slow view and is about break-even in motion, where
+the 3x3 clamp throws much of the history away. The motion numbers drift between runs by as much as
+the settings differ (caches and fades warm up, and the jitter phase carries over), so the clamp and
+blend weights (`TAA_TUNE`) are left at 1.0 and 0.1 to be judged by eye in the game. A wider clamp
+measured worse (ghosting); a heavier current weight measured better in motion and worse when still.
+
+**Debug views** (`TAA_TUNE.debug`): 1 colours each pixel by its path (red reset, magenta behind the
+camera, blue reprojected off screen, green history, red rising with motion); 2 paints the depth the
+resolve reads; 3 writes motion and depth for `TAA_TUNE.probe` points into `TAA_TUNE.probed`, read
+back as floats. The composite grades the picture, so read numbers from mode 3, not off the canvas.
+With the debug on, world.js also leaves the frame's matrices in `TAA_TUNE.last`.
+
+**`gl:taa`** ([scripts/shapes/gltaa.mjs](../../scripts/shapes/gltaa.mjs)) checks the CPU half: jitter 0
+is the old projection, a jitter moves NDC by exactly itself, the reprojection matches a direct
+projection across a recentre, and the sequence stays inside the pixel.
+
 ## A2: a light from each sign onto its own wall
 
 A new term in the mass loop, for point sources only (never `s.wash`). Its reach comes from the sign's
@@ -170,6 +246,18 @@ own sprite radius, so it covers about the patch of facade the sign is mounted on
 
 - the lettering on Nuts to That and "CASH & CARRION" reads as well with it on as off, and
 - `__glLights` shows the wall pixels it moves staying near the sign.
+
+## A2 as built (2026-10-18)
+
+`LIGHT_TUNE.sign`, 0, in gl/world.js, and it needs `glCluster` 1: the slot path would need another
+uniform array, and the uniform budget is what caps the slots. Each light that isn't an area wash
+carries `sr`, `signR` (0.35) of its reach, in the spare slot of the light table (`lgC.w`). The wall's
+grid loop adds the light's own colour within `sr`, weighted by facing, and caps the total at the
+wall's undimmed colour, so a sign can tint the bricks it hangs on and never light them past
+daylight. `signR` must stay at most `liftR`, or the light is cut at a cell edge (`gl:cluster` checks).
+
+On the Modelshop street, which has few signs, strengths 2 to 4 move 0.3% to 0.6% of a night frame.
+The strength is still to be judged on a sign-heavy street, against the two conditions above.
 
 ## Checks
 

@@ -158,6 +158,7 @@ void main() {
 
 import { declareProgram, takeWarm, compileShader } from './programs.js';
 import { LINEAR_GLSL } from './colour.js';
+import { createTAA } from './taa.js';
 
 
 function link(gl, fsrc) {
@@ -270,6 +271,9 @@ export function createHDRLayer(gl) {
   let ldr = null;     // the graded eight-bit frame FXAA reads; built on first use
   let chain = [];      // per octave: { bright, a, b }
   let bound = false;
+  // The temporal resolve (gl/taa.js) and what the layers after it draw into: the resolved colour
+  // with a single-sample depth texture the multisampled depth is blitted into. See `split`.
+  let taa = null, taaTried = false, post = null, splitDone = false;
 
   function dispose() {
     if (msFbo) gl.deleteFramebuffer(msFbo);
@@ -278,7 +282,8 @@ export function createHDRLayer(gl) {
     for (const t of [resolved, ldr, ...chain.flatMap((c) => [c.bright, c.a, c.b])]) {
       if (t) { gl.deleteFramebuffer(t.fbo); gl.deleteTexture(t.tex); }
     }
-    msFbo = msColor = msDepth = resolved = ldr = null; chain = []; W = H = 0;
+    if (post) { gl.deleteFramebuffer(post.fbo); gl.deleteTexture(post.depth); }
+    msFbo = msColor = msDepth = resolved = ldr = post = null; chain = []; W = H = 0;
   }
 
   function resize(w, h, cap = 4) {
@@ -327,6 +332,66 @@ export function createHDRLayer(gl) {
     gl.bindFramebuffer(gl.FRAMEBUFFER, msFbo);
     gl.viewport(0, 0, w, h);
     bound = true;
+    splitDone = false;
+    return true;
+  }
+
+  // ── THE TAA SPLIT (RENDER_TUNE.glTaa) ──────────────────────────────────────────────────────
+  //
+  // Called between the layers that go through the temporal resolve and the ones that don't (the
+  // signs: see gl/taa.js). Resolves the colour as composite would, blits the multisampled depth into
+  // a texture, runs the resolve, copies its output back over the resolved colour, and leaves a
+  // single-sample framebuffer bound over that colour and depth, so the layers after it test against
+  // the city and draw on top of the resolved picture. composite then skips its own resolve.
+  //
+  // ⚠ THE LAYERS AFTER IT LOSE MSAA, which costs them little: a sprite, a decal and a stroke get
+  // their edges from texture filtering and alpha, not from coverage.
+  //
+  // Returns false, and leaves the frame on the multisampled target untouched, when it can't (no
+  // program, no depth texture): the caller then draws on as if there were no TAA.
+  function split(o = {}) {
+    if (!bound || splitDone) return false;
+    if (!taa && !taaTried) { taaTried = true; taa = createTAA(gl, (w, h) => target(gl, w, h, gl.RGBA16F)); }
+    if (!taa) return false;
+    if (!post) {
+      const depth = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, depth);
+      gl.texStorage2D(gl.TEXTURE_2D, 1, gl.DEPTH_COMPONENT24, W, H);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.bindTexture(gl.TEXTURE_2D, null);
+      const fbo = gl.createFramebuffer();
+      gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, resolved.tex, 0);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, depth, 0);
+      const ok = gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE;
+      gl.bindFramebuffer(gl.FRAMEBUFFER, msFbo);
+      if (!ok) { gl.deleteFramebuffer(fbo); gl.deleteTexture(depth); taa = null; return false; }
+      post = { fbo, depth };
+    }
+    resolveScene();
+    gl.bindFramebuffer(gl.READ_FRAMEBUFFER, msFbo);
+    gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, post.fbo);
+    gl.blitFramebuffer(0, 0, W, H, 0, 0, W, H, gl.DEPTH_BUFFER_BIT, gl.NEAREST);
+    gl.bindFramebuffer(gl.READ_FRAMEBUFFER, null);
+    gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
+    const out = taa.run(resolved.tex, post.depth, W, H, o);
+    if (out) {
+      gl.bindFramebuffer(gl.READ_FRAMEBUFFER, out.fbo);
+      gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, resolved.fbo);
+      gl.blitFramebuffer(0, 0, W, H, 0, 0, W, H, gl.COLOR_BUFFER_BIT, gl.NEAREST);
+      gl.bindFramebuffer(gl.READ_FRAMEBUFFER, null);
+      gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
+    }
+    gl.bindFramebuffer(gl.FRAMEBUFFER, post.fbo);
+    gl.viewport(0, 0, W, H);
+    gl.bindVertexArray(null);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.depthMask(true);
+    gl.enable(gl.DEPTH_TEST);
+    splitDone = true;
     return true;
   }
 
@@ -392,7 +457,9 @@ export function createHDRLayer(gl) {
   function composite(opts = {}) {
     if (!bound) return null;
     bound = false;
-    resolveScene();
+    // After a TAA split the resolved colour already holds the frame, with the late layers on it.
+    if (splitDone) { splitDone = false; gl.disable(gl.DEPTH_TEST); gl.depthMask(false); gl.disable(gl.BLEND); gl.disable(gl.CULL_FACE); gl.bindVertexArray(emptyVao); }
+    else resolveScene();
     const bloomOn = opts.bloom > 0;
     gl.activeTexture(gl.TEXTURE0);
     if (bloomOn) gatherBloom(opts);
@@ -440,7 +507,8 @@ export function createHDRLayer(gl) {
   function resolve(opts = {}) {
     if (!bound) return null;
     bound = false;
-    resolveScene();
+    if (splitDone) { splitDone = false; gl.disable(gl.DEPTH_TEST); gl.depthMask(false); gl.disable(gl.BLEND); gl.disable(gl.CULL_FACE); gl.bindVertexArray(emptyVao); }
+    else resolveScene();
     const bloomOn = opts.bloom > 0;
     gl.activeTexture(gl.TEXTURE0);
     if (bloomOn) gatherBloom(opts);
@@ -482,10 +550,11 @@ export function createHDRLayer(gl) {
       overOnePct: +(over / (W * H) * 100).toFixed(2) };
   }
 
-  return { bind, composite, resolve, peak, dispose, get size() { return [W, H]; }, get samples() { return samples; },
+  return { bind, split, composite, resolve, peak, dispose, get size() { return [W, H]; }, get samples() { return samples; },
     // The framebuffer the scene is drawing into while bound, so a pass that has to rebind it after
-    // drawing somewhere else can say so without asking the driver (see cloudvol.js).
-    get drawFbo() { return bound ? msFbo : null; } };
+    // drawing somewhere else can say so without asking the driver (see cloudvol.js). After a TAA
+    // split that is the single-sample one the late layers draw into.
+    get drawFbo() { return bound ? (splitDone ? post.fbo : msFbo) : null; } };
 }
 
 for (const f of [BRIGHT_FRAG, BLUR_FRAG, DOWN_FRAG, COMPOSITE_FRAG, FXAA_FRAG]) declareProgram(FULL_VERT, f);

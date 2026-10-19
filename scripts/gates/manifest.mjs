@@ -139,6 +139,7 @@ export const GROUPS = [
       'scripts/shapes/glao.mjs',
       'scripts/shapes/glfade.mjs',
       'scripts/shapes/glcluster.mjs',    // the light grid lists every light that reaches a point
+      'scripts/shapes/gltaa.mjs',        // the TAA jitter and reprojection matrix, as arithmetic
       'scripts/shapes/anchored.mjs',
       'scripts/shapes/lidless.mjs',
       'scripts/shapes/tilefit.mjs',

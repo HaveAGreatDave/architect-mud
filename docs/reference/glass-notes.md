@@ -138,6 +138,7 @@ Engineering notes for the GLASS renderer (`client/game/js/panels/windshield.js` 
 - [Truss web LOD](#truss-web-lod)
 - [Cliff massifs](#cliff-massifs)
 - [The ballpark (`gl/ballpark.js`)](#the-ballpark-glballparkjs)
+- [The light grid and TAA (`glCluster`, `glTaa`)](#the-light-grid-and-taa-glcluster-gltaa)
 
 ## Big screen and seat layout
 
@@ -2037,3 +2038,20 @@ Deadball's 3-D park, on by default (the `deadball.grandstand` flag set to `'0'` 
 - **A man the sim leaves on his bag can still be forced off it.** On a double play that ends the inning with the bases loaded, sim v2 gives the man on third `off` (his run can't count) and the man from second `to: 3`. Held on third, the man forced from second ran onto him, 0.95 ft apart. With a man coming to his bag, bases.js has him go on contact and ease up half way to the next.
 - **`setVenue` keys on the venue object.** [venue.js](../../client/game/js/panels/venue.js) replaces the object when a new revision arrives, and only then is the city rebuilt; mutating the held object in place does nothing.
 
+## The light grid and TAA (`glCluster`, `glTaa`)
+
+Both are off. The plan, what was measured and the traps are in
+[glass-lights-and-taa.md](../proposals/glass-lights-and-taa.md); the short version:
+
+- **The light grid** (gl/lightgrid.js) bins every light in the frame by where it can land, on the
+  ground plane, so the wet road, the wall, people, solids and cloth read every light instead of the
+  slots. Each footprint is the extent of the shader term it stands for, at that term's gain, so a
+  term changed in ground.js or context.js has to change its footprint too. `gl:cluster` fails if any
+  point a light reaches is in a cell that doesn't list it.
+- **The glint, not the streak,** is what sums into a sheet over many lights; the grid path draws it
+  smaller and fainter (`LIGHTGRID_TUNE.glintW`, `glintK`).
+- **TAA** (gl/taa.js) jitters the city, the ground, the water and the people and resolves them into a
+  reprojected history; sprites, lettering, wires and the cabin are drawn after it, unjittered. Never
+  subtract the jitter from the pixel position before reprojecting: the history stands for the
+  unjittered picture, and that made a still camera's image wander. Read TAA numbers off mode 3 of
+  `TAA_TUNE.debug`, not off the canvas, which the composite grades.

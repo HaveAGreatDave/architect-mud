@@ -102,6 +102,7 @@
     "voice:suspects": "node scripts/voice/suspects.mjs",
     "gl:fade": "node scripts/shapes/glfade.mjs",
     "gl:cluster": "node scripts/shapes/glcluster.mjs",
+    "gl:taa": "node scripts/shapes/gltaa.mjs",
     "models:anchored": "node scripts/shapes/anchored.mjs",
     "shapes:atlasfit": "node scripts/shapes/atlasfit.mjs",
     "gl:ao": "node scripts/shapes/glao.mjs",

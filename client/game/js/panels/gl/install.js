@@ -256,6 +256,8 @@ export function installGL(hostFor) {
       glLightSlots: opts.glLightSlots,
       // The light grid (gl/lightgrid.js). Dropped here, the road silently stays on its six.
       glCluster: opts.glCluster,
+      // Temporal anti-aliasing (gl/taa.js). Dropped here, the split never happens and nothing says so.
+      glTaa: opts.glTaa,
       // ⚠ AND THIS ONE. It fails in the quietest way on the whole list: the near plane falls back
       // to the fixed 0.06 for every seat, which is the picture that already ships, so the tune key
       // exists, the slider moves, `gl:nearfit` passes against `nearFor` in isolation, and a camera

@@ -16,6 +16,7 @@
 //      per-cell cut keeping the strongest when it bites.
 import { readFileSync } from 'node:fs';
 import { LIGHTGRID_TUNE, makeGroundGrid, buildGroundGrid, cellOf, peakOf } from '../../client/game/js/panels/gl/lightgrid.js';
+import { LIGHT_TUNE } from '../../client/game/js/panels/gl/world.js';
 
 const problems = [];
 const check = (cond, msg) => { if (!cond) problems.push(msg); };
@@ -44,12 +45,12 @@ const check = (cond, msg) => { if (!cond) problems.push(msg); };
       'vec2 spec = uEye + toLight * (el * k);',
       'float len = clamp(el * 0.9, 0.8, 10.0);',
       'float a = along >= 0.0 ? along / len : along / (len * 0.45);',
-      'float t = lat / max(0.25, R * 0.25);',
-      'add += C * (exp(-a * a) * exp(-t * t));',
-      'float glen = len * 0.45;',
+      'float t = lat / (max(0.25, R * 0.25) * sw);',
+      'add += C * (sk * exp(-a * a) * exp(-t * t));',
+      'float glen = len * 0.45 * gw;',
       'float ga = along >= 0.0 ? along / glen : along / (glen * 0.45);',
-      'float gt = lat / max(0.10, R * 0.12);',
-      'glint += C * (exp(-ga * ga) * exp(-gt * gt));',
+      'float gt = lat / (max(0.10, R * 0.12) * gw);',
+      'glint += C * (gk * exp(-ga * ga) * exp(-gt * gt));',
     ]],
     poolLight: [pool, [
       'float h = max(0.14, P.z);',
@@ -89,12 +90,14 @@ function reaches(L, x, y, eye, terms) {
       const along = rx * tx + ry * ty, lat = rx * -ty + ry * tx;
       const len = Math.min(10, Math.max(0.8, el * 0.9));
       const a = along >= 0 ? along / len : along / (len * 0.45);
-      const t = lat / Math.max(0.25, L.r * 0.25);
-      if (C * 4.5 * 0.02 * terms.wet * Math.exp(-a * a) * Math.exp(-t * t) > EPS) return true;
-      const glen = len * 0.45;
+      const sw = terms.streakW > 0 ? terms.streakW : 1, sk = terms.streakK >= 0 ? terms.streakK : 1;
+      const t = lat / (Math.max(0.25, L.r * 0.25) * sw);
+      if (C * sk * 4.5 * 0.02 * terms.wet * Math.exp(-a * a) * Math.exp(-t * t) > EPS) return true;
+      const gw = terms.glintW > 0 ? Math.min(2, terms.glintW) : 1, gk = terms.glintK >= 0 ? terms.glintK : 1;
+      const glen = len * 0.45 * gw;
       const ga = along >= 0 ? along / glen : along / (glen * 0.45);
-      const gt = lat / Math.max(0.10, L.r * 0.12);
-      if (C * terms.glint * terms.wet * Math.exp(-ga * ga) * Math.exp(-gt * gt) > EPS) return true;
+      const gt = lat / (Math.max(0.10, L.r * 0.12) * gw);
+      if (C * gk * terms.glint * terms.wet * Math.exp(-ga * ga) * Math.exp(-gt * gt) > EPS) return true;
     }
   }
   if (terms.pool > 0) {
@@ -179,6 +182,10 @@ function coverage(g, sc, terms, label) {
 
 const g = makeGroundGrid();
 const WET = { wet: 1, glint: 8, pool: 0 }, NIGHT = { wet: 0, glint: 8, pool: 1.6 }, BOTH = { wet: 1, glint: 8, pool: 1.6 };
+// The grid path's own streak factors (LIGHTGRID_TUNE.streakW, streakK): narrow and strong, the shape
+// it was tuned to.
+const NARROW = { ...BOTH, streakW: 0.3, streakK: 2.5, glintW: 0.5, glintK: 0.3 };
+const WIDE = { ...BOTH, streakW: 1.5, glintW: 2, glintK: 1.5 };
 const SCENES = [
   [1, 220, 34, 0.2],    // a cab in a lit street
   [2, 400, 70, 0.2],    // the densest night frame, a wide window
@@ -189,7 +196,7 @@ const SCENES = [
 const report = [];
 for (const [seed, n, span, eh] of SCENES) {
   const sc = scene(seed, n, span, eh);
-  for (const [tag, terms] of [['wet night', BOTH], ['wet day', WET], ['dry night', NIGHT]]) {
+  for (const [tag, terms] of [['wet night', BOTH], ['wet day', WET], ['dry night', NIGHT], ['wet night, narrow', NARROW], ['wet night, wide', WIDE]]) {
     const label = `scene ${seed} ${tag} (${n} lights, ${span} tiles, eye ${eh})`;
     buildGroundGrid(g, sc.lights, sc.bounds, sc.eye, terms);
     check(g.n === Math.min(sc.lights.length, LIGHTGRID_TUNE.maxLights), `${label}: ${g.n} lights in the table`);
@@ -227,7 +234,30 @@ for (const [seed, n, span, eh] of SCENES) {
   }
 }
 
-check(hits > 10000, `only ${hits} light-reaches-point pairs were sampled; the scenes are too sparse to test anything`);
+// Mass mode, the wall's grid: every light is a disc of the larger of its two reaches (massLight in
+// context.js cuts both off hard), so any point nearer than that in x,y must be listed.
+{
+  const sc = scene(21, 300, 60, 0.2);
+  const R = rng(5);
+  for (const L of sc.lights) { L.rw = L.r * (0.2 + R() * 0.4); L.rl = R() < 0.2 ? 0 : L.r * 0.8; }
+  buildGroundGrid(g, sc.lights, sc.bounds, sc.eye, { mass: true });
+  structure(g, 'mass');
+  check(g.cut === 0, `mass: the per-cell cut bit (${g.cut})`);
+  let missed = 0, pairs = 0;
+  for (let y = sc.bounds[1] - 3; y <= sc.bounds[3] + 3; y += 0.37) for (let x = sc.bounds[0] - 3; x <= sc.bounds[2] + 3; x += 0.37) {
+    const listed = new Set(listOf(g, cellOf(g, x, y)));
+    for (let i = 0; i < g.n; i++) {
+      const L = sc.lights[i], reach = Math.max(L.rw, L.rl);
+      if (Math.hypot(x - L.p[0], y - L.p[1]) >= reach) continue;
+      pairs++; hits++;
+      if (!listed.has(i) && missed++ < 3) problems.push(`mass: light ${i} reaches (${x.toFixed(2)}, ${y.toFixed(2)}) and that point's cell doesn't list it`);
+    }
+  }
+  check(pairs > 1000, `mass: only ${pairs} pairs sampled`);
+  if (missed > 3) problems.push(`mass: ...and ${missed - 3} more misses`);
+}
+
+check(hits > 10000,`only ${hits} light-reaches-point pairs were sampled; the scenes are too sparse to test anything`);
 
 if (problems.length) {
   console.error(`✗ gl:cluster: ${problems.length} problem(s)`);
@@ -236,4 +266,4 @@ if (problems.length) {
   process.exit(1);
 }
 if (process.argv.includes('--verbose')) console.log('  per scene, wet night: ' + report.join('; '));
-console.log(`✓ gl:cluster: ${SCENES.length} scenes x 3 weathers, ${samples} sample points, ${hits} light-reaches-point pairs, every one listed in its cell.`);
+console.log(`✓ gl:cluster: ${SCENES.length} scenes x 5 weathers, ${samples} sample points, ${hits} light-reaches-point pairs, every one listed in its cell.`);

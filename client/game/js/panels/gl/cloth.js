@@ -21,6 +21,7 @@ import { makeVertexStream } from './stream.js';
 import { clothBake, CLOTH_KINDS, CLOTH_BANDS, CLOTH_FRAMES } from '../cloth3d.js';
 import { declareProgram, layerProgram } from './programs.js';
 import { linearOut, applyLinOut } from './colour.js';
+import { LIGHTGRID_GLSL, LIGHTGRID_UNIFORMS, bindNoLightGrid } from './lightgrid.js';
 
 // Per instance: x, y, z, heading | sx, sy, sz, wind | phase, seed, alpha, lum | colour A rgb |
 // colour B rgb | warm rgb | patch u0 v0 u1 v1 | paint cell, u0, v0, size | weathering
@@ -135,6 +136,16 @@ out vec4 outColor;
 float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 void main() {
   if (vAlpha <= 0.002) discard;
+// The light grid (gl/lightgrid.js, RENDER_TUNE.glCluster), the wall's, bound by context.js on
+// units 8 to 10. Declared here rather than in the chunk: glsl-smoke can't see into an imported one.
+uniform highp sampler2D  uLGLight;
+uniform highp usampler2D uLGCell;
+uniform highp usampler2D uLGIdx;
+uniform int   uLGOn;
+uniform vec2  uLGOrigin;
+uniform float uLGInv;
+uniform ivec2 uLGDim;
+${LIGHTGRID_GLSL}
   // Flat normal off the surface itself, turned toward the eye: a sheet is seen from both sides.
   vec3 n = normalize(cross(dFdx(vW), dFdy(vW)));
   if (dot(n, uEye - vW) < 0.0) n = -n;
@@ -177,14 +188,30 @@ void main() {
   // The city's lamps as well as the camp's fires: wrapped and two-sided, as decals.js lights a tarp,
   // because a lamp on the far side of a sheet still shows through it.
   vec3 dye = 0.35 + 0.65 * base / max(0.2, max(base.r, max(base.g, base.b)));
-  for (int i = 0; i < 12; i++) {
-    if (i >= uWLN) break;
-    vec3 d = uWLP[i] - vW;
-    float dist = length(d);
-    float att = clamp(1.0 - dist / max(0.001, uWLR[i]), 0.0, 1.0);
-    if (att <= 0.0) continue;
-    float diff = (abs(dot(n, d / max(0.001, dist))) + 0.5) / 1.5;
-    c += uWLC[i] * dye * (att * att * diff);
+  if (uLGOn == 1) {
+    // Every light whose reach covers this cell (gl/lightgrid.js, the wall's grid), not the twelve.
+    uvec2 hc = lgCell(vW.xy);
+    for (uint k = 0u; k < hc.y; k++) {
+      int li = lgAt(hc.x + k);
+      vec3 P = lgP(li).xyz, LC = lgX(li).rgb;
+      float LR = lgX(li).w;
+      vec3 d = P - vW;
+      float dist = length(d);
+      float att = clamp(1.0 - dist / max(0.001, LR), 0.0, 1.0);
+      if (att <= 0.0) continue;
+      float diff = (abs(dot(n, d / max(0.001, dist))) + 0.5) / 1.5;
+      c += LC * dye * (att * att * diff);
+    }
+  } else {
+    for (int i = 0; i < 12; i++) {
+      if (i >= uWLN) break;
+      vec3 d = uWLP[i] - vW;
+      float dist = length(d);
+      float att = clamp(1.0 - dist / max(0.001, uWLR[i]), 0.0, 1.0);
+      if (att <= 0.0) continue;
+      float diff = (abs(dot(n, d / max(0.001, dist))) + 0.5) / 1.5;
+      c += uWLC[i] * dye * (att * att * diff);
+    }
   }
   // Cloth is paint, not light: over 1 the bloom takes it for an emitter (as in actors.js).
   c /= max(1.0, max(c.r, max(c.g, c.b)));
@@ -230,6 +257,7 @@ export function createClothLayer(gl) {
     const at = (l, n, off) => [l, n, off * 4];
     const stream = makeVertexStream(gl, vao, STRIDE, [
       at(loc.pos, 4, 0), at(loc.dim, 4, 4), at(loc.anim, 4, 8), at(loc.colA, 3, 12), at(loc.colB, 3, 15),
+  let lgLoc = null;
       at(loc.warm, 3, 18), at(loc.patch, 4, 21), at(loc.tag, 4, 25), at(loc.weather, 1, 29),
     ], STRIDE * 64);
     gl.bindVertexArray(vao);
@@ -366,3 +394,7 @@ export function createClothLayer(gl) {
 }
 
 declareProgram(VERT, FRAG);
+    // The wall's light grid (RENDER_TUNE.glCluster), bound through opts.lightGrid from context.js.
+    // Bound on every draw, grid or not: the samplers need units of their own either way.
+    if (!lgLoc) { lgLoc = {}; for (const n of LIGHTGRID_UNIFORMS) lgLoc[n] = U(n); }
+    if (opts.lightGrid) opts.lightGrid(lgLoc, 8); else bindNoLightGrid(gl, lgLoc, 8);

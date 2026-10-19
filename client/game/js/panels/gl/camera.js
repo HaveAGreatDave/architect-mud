@@ -173,6 +173,15 @@ export function zRow(near = NEAR, far = FAR) {
 // in world.js and every pass here is handed the same `cam`, so one derivation reaches all of them
 // — which matters because two passes drawing into one depth buffer from two different near planes
 // do not disagree visibly, they disagree by a hair that reads as z-fighting.
+// ── TAA JITTER (RENDER_TUNE.glTaa) ─────────────────────────────────────────────────────────────
+//
+// A sub-pixel offset in NDC, set by world.js for the layers that go through the temporal resolve
+// (gl/taa.js) and put back to 0 before the ones that don't. It moves clip x,y by JITTER * w, which
+// is column 2 of the projection below, so at 0 the matrix is the one this file always returned and
+// the parity gate holds it still. Every layer builds its matrix here, so one setting reaches all.
+export const JITTER = { x: 0, y: 0 };
+export function setJitter(x, y) { JITTER.x = x; JITTER.y = y; }
+
 export function projMatrix(cam, H, near = (cam && cam.near) || NEAR, far = FAR) {
   const fxn = 2 * cam.FL / cam.W;
   const fyn = 2 * cam.depth / H;
@@ -182,7 +191,7 @@ export function projMatrix(cam, H, near = (cam && cam.near) || NEAR, far = FAR) 
   return [
     fxn, 0, 0, 0,
     0, fyn, 0, 0,
-    0, cy0, A, 1,
+    JITTER.x, cy0 + JITTER.y, A, 1,
     0, 0, B, 0,
   ];
 }

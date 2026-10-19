@@ -21,6 +21,7 @@ const IDENT = new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1])
 import { makeVertexStream } from './stream.js';
 import { declareProgram, layerProgram, compileShader } from './programs.js';
 import { linearOut, applyLinOut } from './colour.js';
+import { LIGHTGRID_GLSL, LIGHTGRID_UNIFORMS, bindNoLightGrid } from './lightgrid.js';
 
 const SHIP_LIGHT_DEFAULT = [0.55, 0.95, 0.45];   // windshield.js shipLightOf
 const STRIDE = 15;   // pos3, colour3, alpha1, normal3, metal1, local3, tex1
@@ -166,6 +167,16 @@ uniform int uWLN;
 uniform vec3 uWLP[12];
 uniform vec3 uWLC[12];
 uniform float uWLR[12];
+// The light grid (gl/lightgrid.js, RENDER_TUNE.glCluster), the wall's, bound by context.js on
+// units 8 to 10. Declared here rather than in the chunk: glsl-smoke can't see into an imported one.
+uniform highp sampler2D  uLGLight;
+uniform highp usampler2D uLGCell;
+uniform highp usampler2D uLGIdx;
+uniform int   uLGOn;
+uniform vec2  uLGOrigin;
+uniform float uLGInv;
+uniform ivec2 uLGDim;
+${LIGHTGRID_GLSL}
 uniform float uWLDim;
 uniform float uWLWrap;
 uniform float uWLFocus;
@@ -688,14 +699,30 @@ void main() {
     vec3 n = normalize(vN);
     if (dot(n, uEye - vPos) < 0.0) n = -n;
     vec3 lamp = vec3(0.0);
-    for (int i = 0; i < 12; i++) {
-      if (i >= uWLN) break;
-      vec3 d = uWLP[i] - vPos;
-      float dist = length(d);
-      float att = clamp(1.0 - dist / max(0.001, uWLR[i]), 0.0, 1.0);
-      if (att <= 0.0) continue;
-      float diff = max(0.0, (dot(n, d / max(0.001, dist)) + uWLWrap) / (1.0 + uWLWrap));
-      lamp += uWLC[i] * (pow(att, uWLFocus) * diff);
+    if (uLGOn == 1) {
+      // Every light whose reach covers this cell (gl/lightgrid.js, the wall's grid), not the twelve.
+      uvec2 hc = lgCell(vPos.xy);
+      for (uint k = 0u; k < hc.y; k++) {
+        int li = lgAt(hc.x + k);
+        vec3 P = lgP(li).xyz, LC = lgY(li).yzw;
+        float LR = (lgY(li).x > 0.0 ? lgY(li).x : lgX(li).w);
+        vec3 d = P - vPos;
+        float dist = length(d);
+        float att = clamp(1.0 - dist / max(0.001, LR), 0.0, 1.0);
+        if (att <= 0.0) continue;
+        float diff = max(0.0, (dot(n, d / max(0.001, dist)) + uWLWrap) / (1.0 + uWLWrap));
+        lamp += LC * (pow(att, uWLFocus) * diff);
+      }
+    } else {
+      for (int i = 0; i < 12; i++) {
+        if (i >= uWLN) break;
+        vec3 d = uWLP[i] - vPos;
+        float dist = length(d);
+        float att = clamp(1.0 - dist / max(0.001, uWLR[i]), 0.0, 1.0);
+        if (att <= 0.0) continue;
+        float diff = max(0.0, (dot(n, d / max(0.001, dist)) + uWLWrap) / (1.0 + uWLWrap));
+        lamp += uWLC[i] * (pow(att, uWLFocus) * diff);
+      }
     }
     c += max(vec3(0.0), undimmed - c) * min(vec3(1.0), lamp);
   }
@@ -753,6 +780,7 @@ export function createSolidsLayer(gl, opt = {}) {
   const cabin = !!opt.cabin;
   const VS = cabin ? VERT_C : VERT, FS = cabin ? FRAG_C : FRAG, ST = cabin ? STRIDE + CAB : STRIDE;
   const prog = layerProgram(gl, VS, FS, 'solids');
+  let lgLoc = null;
 
   const loc = {
     pos: gl.getAttribLocation(prog, 'aPos'),
@@ -1237,6 +1265,10 @@ export function createSolidsLayer(gl, opt = {}) {
     }
     gl.uniform1i(loc.wlN, nW);
     if (nW) { gl.uniform3fv(loc.wlP, wlP); gl.uniform3fv(loc.wlC, wlC); gl.uniform1fv(loc.wlR, wlR); }
+    // The wall's light grid (RENDER_TUNE.glCluster), bound through opts.lightGrid from context.js.
+    // Bound on every draw, grid or not: the samplers need units of their own either way.
+    if (!lgLoc) { lgLoc = {}; for (const n of LIGHTGRID_UNIFORMS) lgLoc[n] = gl.getUniformLocation(prog, n); }
+    if (opts.lightGrid) opts.lightGrid(lgLoc, 8); else bindNoLightGrid(gl, lgLoc, 8);
     gl.uniform1f(loc.wlDim, opts.nightDim == null ? 1 : opts.nightDim);
     gl.uniform1f(loc.wlWrap, opts.lightWrap || 0);
     gl.uniform1f(loc.wlFocus, opts.lightFocus || 2);

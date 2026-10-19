@@ -16,7 +16,7 @@ import { makeVertexStream } from './stream.js';
 import { HEIGHT_FOG_GLSL, LIGHT_SHAFT_GLSL } from './fog.js';
 import { declareProgram, layerProgram } from './programs.js';
 import { linearOut, applyLinOut } from './colour.js';
-import { LIGHTGRID_GLSL, LIGHTGRID_UNIFORMS, createLightGridTextures, bindNoLightGrid, makeGroundGrid, buildGroundGrid } from './lightgrid.js';
+import { LIGHTGRID_TUNE, LIGHTGRID_GLSL, LIGHTGRID_UNIFORMS, createLightGridTextures, bindNoLightGrid, makeGroundGrid, buildGroundGrid } from './lightgrid.js';
 
 // pos3, colour3
 const STRIDE = 10;  // pos3, colour3, alpha1, road1, lat1, kerb1
@@ -592,11 +592,20 @@ uniform int   uLGOn;
 uniform vec2  uLGOrigin;
 uniform float uLGInv;
 uniform ivec2 uLGDim;
+// How wide a streak is, and how strong, on the grid path only (LIGHTGRID_TUNE in gl/lightgrid.js).
+// The 4.5 below was swept against six lights; summed over sixty at that width the streaks merge
+// into one sheet, so the grid narrows them. The uniform path passes 1.0 for both.
+uniform float uLGStreakW;
+uniform float uLGStreakK;
+// And the glint's: its size (length and width together) and gain. It's the glint, not the streak,
+// that sums into a sheet over sixty lights: gain 8, and every highlight crowds in front of a low eye.
+uniform float uLGGlintW;
+uniform float uLGGlintK;
 ${LIGHTGRID_GLSL}
 // One light's streak and glint on the wet road. Its extent on the ground is 'measure' in
 // gl/lightgrid.js: change a term here, or its gain in main, and change that too
 // (scripts/shapes/glcluster.mjs holds the two together). The body is the loop body this used to be, with uWetP[i], uWetC[i], uWetR[i] as P, C, R.
-void wetLight(vec3 P, vec3 C, float R, inout vec3 add, inout vec3 glint) {
+void wetLight(vec3 P, vec3 C, float R, float sw, float sk, float gw, float gk, inout vec3 add, inout vec3 glint) {
     vec2 gp = P.xy;                 // the light's own ground point
     vec2 toLight = gp - uEye;
     float el = length(toLight);
@@ -635,8 +644,8 @@ void wetLight(vec3 P, vec3 C, float R, inout vec3 add, inout vec3 glint) {
     // the near road, so the 2-D frame hides exactly the part being measured): the puddle field
     // and the Fresnel term were both healthy — 51% of visible ground over pud 0.5 — and the
     // streaks were contributing a few tenths of a per cent.
-    float t = lat / max(0.25, R * 0.25);
-    add += C * (exp(-a * a) * exp(-t * t));
+    float t = lat / (max(0.25, R * 0.25) * sw);
+    add += C * (sk * exp(-a * a) * exp(-t * t));
     // ── ⚠ AND THE SAME LIGHT AGAIN, AT THE WATER'S ROUGHNESS ────────────────────────────────
     //
     // This is not a second effect. It is the line above evaluated at the OTHER roughness, which
@@ -666,10 +675,10 @@ void wetLight(vec3 P, vec3 C, float R, inout vec3 add, inout vec3 glint) {
     // thousandth of its own peak. Water is rippled, not polished: the highlight is drawn out
     // along the line to the light and is long enough to cross a pool, which is what makes it a
     // reflection you can see rather than one that is technically present.
-    float glen = len * 0.45;
+    float glen = len * 0.45 * gw;
     float ga = along >= 0.0 ? along / glen : along / (glen * 0.45);
-    float gt = lat / max(0.10, R * 0.12);
-    glint += C * (exp(-ga * ga) * exp(-gt * gt));
+    float gt = lat / (max(0.10, R * 0.12) * gw);
+    glint += C * (gk * exp(-ga * ga) * exp(-gt * gt));
 }
 // One lamp's pool on the road. Its reach is 'poolRadius' in gl/lightgrid.js, the same contract
 // 'wetLight' has with 'measure'.
@@ -1195,12 +1204,12 @@ void main() {
       for (uint k = 0u; k < hc.y; k++) {
         int li = lgAt(hc.x + k);
         vec4 P = lgP(li);
-        wetLight(P.xyz, lgC(li).rgb, P.w, add, glint);
+        wetLight(P.xyz, lgC(li).rgb, P.w, uLGStreakW, uLGStreakK, uLGGlintW, uLGGlintK, add, glint);
       }
     } else {
       for (int i = 0; i < MAX_WET; i++) {
         if (i >= uNWet) break;
-        wetLight(uWetP[i], uWetC[i], uWetR[i], add, glint);
+        wetLight(uWetP[i], uWetC[i], uWetR[i], 1.0, 1.0, 1.0, 1.0, add, glint);
       }
     }
     // ⚠ 4.5 WAS SWEPT, NOT CHOSEN. Measured on a lit street at full wetness, as the share of the
@@ -1466,6 +1475,10 @@ export function createGroundLayer(gl) {
   // extent, which is the grid's extent. A fragment of this layer can't fall outside the quads it
   // belongs to, so the bounds of what was uploaded bound every cell a fragment can read.
   for (const n of LIGHTGRID_UNIFORMS) loc[n] = gl.getUniformLocation(prog, n);
+  loc.lgStreakW = gl.getUniformLocation(prog, 'uLGStreakW');
+  loc.lgStreakK = gl.getUniformLocation(prog, 'uLGStreakK');
+  loc.lgGlintW = gl.getUniformLocation(prog, 'uLGGlintW');
+  loc.lgGlintK = gl.getUniformLocation(prog, 'uLGGlintK');
   const lgTex = createLightGridTextures(gl);
   const lgGrid = makeGroundGrid();
   let bx0 = Infinity, by0 = Infinity, bx1 = -Infinity, by1 = -Infinity;
@@ -1695,13 +1708,17 @@ export function createGroundLayer(gl) {
         // is drawn at (see the ⚠ on footprints in gl/lightgrid.js).
         grid = buildGroundGrid(lgGrid, opts.gridLights, [bx0, by0, bx1, by1],
           { x: opts.eyeX || 0, y: opts.eyeY || 0, h: opts.eyeH == null ? 0.2 : opts.eyeH },
-          { wet, glint: opts.glint > 0 ? opts.glint : 0, pool: poolGain });
+          { wet, glint: opts.glint > 0 ? opts.glint : 0, pool: poolGain, streakW: LIGHTGRID_TUNE.streakW, streakK: LIGHTGRID_TUNE.streakK, glintW: LIGHTGRID_TUNE.glintW, glintK: LIGHTGRID_TUNE.glintK });
         lgTex.upload(grid);
       }
     }
     gridStats = grid && grid.n ? { lights: grid.n, binned: grid.binned, cells: grid.nx * grid.ny, size: grid.size, entries: grid.entries, maxCell: grid.maxCell, cut: grid.cut } : null;
     // Units 3 to 5: the reflection and the sky hold 1 and 2.
     if (lgTex) lgTex.bind(loc, 3, grid); else bindNoLightGrid(gl, loc, 3);
+    gl.uniform1f(loc.lgStreakW, LIGHTGRID_TUNE.streakW > 0 ? LIGHTGRID_TUNE.streakW : 1);
+    gl.uniform1f(loc.lgStreakK, LIGHTGRID_TUNE.streakK >= 0 ? LIGHTGRID_TUNE.streakK : 1);
+    gl.uniform1f(loc.lgGlintW, LIGHTGRID_TUNE.glintW > 0 ? Math.min(2, LIGHTGRID_TUNE.glintW) : 1);
+    gl.uniform1f(loc.lgGlintK, LIGHTGRID_TUNE.glintK >= 0 ? LIGHTGRID_TUNE.glintK : 1);
     gl.uniform1i(loc.refl, 1);
     // ⚠ UNIT 2, AND BOUND WHATEVER HAPPENS, for the same reason the reflection above is: sampling an
     // incomplete unit is undefined rather than black on some drivers, so the shader's own branch is

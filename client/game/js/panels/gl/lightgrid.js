@@ -29,7 +29,7 @@
 // declares the names in LIGHTGRID_UNIFORMS in its own shader, where the gate can see them.
 
 export const LIGHTGRID_TUNE = {
-  // How many lights the grid holds. The light table is one texture row of LG_W texels, two a light.
+  // How many lights the grid holds. The light table is LG_W texels wide, two a light, in two rows.
   maxLights: 512,
   maxCells: 64,      // per axis; the cell table is allocated at this size once
   cellMin: 1.0,      // tiles. 0.75 cost half as much again in the binning (27k entries against 17k
@@ -43,6 +43,17 @@ export const LIGHTGRID_TUNE = {
   perCell: 512,
   // The cut-off, in output colour: below half a step of an 8-bit channel.
   eps: 1 / 512,
+  // The road streak and the glint on the grid path, as factors on what the six-light path draws
+  // (uLGStreakW/K and uLGGlintW/K in ground.js). Width is both axes for the glint, at most 2.
+  // ⚠ THE GLINT IS WHAT SUMMED INTO A SHEET, NOT THE STREAK. At the six-light settings the grid
+  // brightened 29.6% of a wet street at 23:00 and 26.4% at 13:00 (pink by night, red by day); with
+  // the glint off it added 5.6% and 1.6%. Swept 2026-10-18 on the Modelshop wet street, judged by
+  // eye at both hours: glint 0.5 / 0.3 gives separate reflections under each sign and a mean change
+  // of +0.3 levels against six lights, so the road carries the light it did, spread over every sign.
+  streakW: 1,
+  streakK: 1,
+  glintW: 0.5,
+  glintK: 0.3,
 };
 
 // The gains the shader puts on each term, at most. ground.js: the streak is added as
@@ -61,7 +72,7 @@ export const LIGHTGRID_UNIFORMS = ['uLGLight', 'uLGCell', 'uLGIdx', 'uLGOn', 'uL
 
 // The declarations, for a consumer to paste (not splice: see the ⚠ above about glsl-smoke):
 //
-//   uniform highp sampler2D  uLGLight;   // RGBA32F, two texels a light: (x, y, z, r), (rgb, 0)
+//   uniform highp sampler2D  uLGLight;   // RGBA32F, two rows of two texels a light (lgP/lgC, lgX/lgY)
 //   uniform highp usampler2D uLGCell;    // RG32UI, a cell's (offset, count)
 //   uniform highp usampler2D uLGIdx;     // R32UI, the light indices, cell by cell
 //   uniform int   uLGOn;                 // 1 when the grid is bound and current
@@ -79,7 +90,13 @@ int lgAt(uint k) {
   return int(texelFetch(uLGIdx, ivec2(i % LG_W, i / LG_W), 0).r);
 }
 vec4 lgP(int li) { return texelFetch(uLGLight, ivec2(li * 2, 0), 0); }
+// lgC is (rgbRaw, sr): sr is the sign-on-its-wall reach (LIGHT_TUNE.signR), 0 for a wash.
 vec4 lgC(int li) { return texelFetch(uLGLight, ivec2(li * 2 + 1, 0), 0); }
+// The second row, for the wall and the solids lit like it: (rgb, rw) and (rl, lamp). 'rgb' is the
+// wash colour, with its gain and the night folded in; 'lamp' the night-weighted colour a solid
+// object catches (actors, solids). Both as pickLights makes them.
+vec4 lgX(int li) { return texelFetch(uLGLight, ivec2(li * 2, 1), 0); }
+vec4 lgY(int li) { return texelFetch(uLGLight, ivec2(li * 2 + 1, 1), 0); }
 `;
 
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
@@ -123,18 +140,18 @@ function setRect(k, sx, sy, dx, dy, a0, a1, w) {
 // ⚠ A LIGHT OVER THE EYE HAS NO DIRECTION, and the shader skips it below el = 0.001. The float the
 // GPU computes isn't this double, so near that line the answer could go either way: the light gets a
 // square round the eye big enough for any direction, which is conservative whichever way it falls.
-function measure(L, ex, ey, eh, wet, glint, pool, eps) {
+function measure(L, ex, ey, eh, wet, glint, pool, eps, sw = 1, sk = 1, gw = 1, gk = 1) {
   fpRects = 0;
   const C = peakOf(L);
-  const Ks = wet > 0 ? sigmas(C * STREAK_GAIN * wet, eps) : 0;
-  const Kg = wet > 0 && glint > 0 ? sigmas(C * glint * wet, eps) : 0;
+  const Ks = wet > 0 ? sigmas(C * STREAK_GAIN * wet * sk, eps) : 0;
+  const Kg = wet > 0 && glint > 0 ? sigmas(C * glint * wet * gk, eps) : 0;
   if (Ks > 0 || Kg > 0) {
     let dx = L.p[0] - ex, dy = L.p[1] - ey;
     const el = Math.hypot(dx, dy);
-    const ws = Ks * Math.max(0.25, (L.r || 0) * 0.25), wg = Kg * Math.max(0.10, (L.r || 0) * 0.12);
+    const ws = Ks * Math.max(0.25, (L.r || 0) * 0.25) * sw, wg = Kg * Math.max(0.10, (L.r || 0) * 0.12) * gw;
     if (el < 0.002) {
       // len is at its floor of 0.8 here; any direction, so a square.
-      const s = Math.max(Ks, Kg) * 0.8 + Math.max(ws, wg);
+      const s = Math.max(Ks, Kg * gw) * 0.8 + Math.max(ws, wg);
       setRect(fpRects++, ex, ey, 1, 0, -s, s, s);
     } else {
       dx /= el; dy /= el;
@@ -142,7 +159,7 @@ function measure(L, ex, ey, eh, wet, glint, pool, eps) {
       const sx = ex + dx * el * k, sy = ey + dy * el * k;
       const len = clamp(el * 0.9, 0.8, 10);
       if (Ks > 0) setRect(fpRects++, sx, sy, dx, dy, -Ks * len * 0.45, Ks * len, ws);
-      const glen = len * 0.45;
+      const glen = len * 0.45 * gw;
       if (Kg > 0) setRect(fpRects++, sx, sy, dx, dy, -Kg * glen * 0.45, Kg * glen, wg);
     }
   }
@@ -199,6 +216,7 @@ export function makeGroundGrid() {
   const T = LIGHTGRID_TUNE;
   return {
     light: new Float32Array(LG_W * 4),
+    light2: new Float32Array(LG_W * 4),
     cell: new Uint32Array(T.maxCells * T.maxCells * 2),
     index: new Uint32Array(IDX_CAP),
     pairCell: new Uint32Array(PAIR_CAP),
@@ -220,6 +238,10 @@ export function makeGroundGrid() {
 export function buildGroundGrid(g, lights, bounds, eye, terms) {
   const T = LIGHTGRID_TUNE;
   const wet = terms.wet || 0, glint = terms.glint || 0, pool = terms.pool || 0, eps = T.eps;
+  const sw = terms.streakW > 0 ? terms.streakW : 1, sk = terms.streakK >= 0 ? terms.streakK : 1;
+  const gw = terms.glintW > 0 ? Math.min(2, terms.glintW) : 1, gk = terms.glintK >= 0 ? terms.glintK : 1;
+  // `mass`: the wall's grid, every light a disc of its reach (see massLight in context.js).
+  const mass = !!terms.mass;
   g.n = 0; g.binned = 0; g.entries = 0; g.cut = 0; g.maxCell = 0; g.nx = 0; g.ny = 0;
   if (!lights || !lights.length || !bounds) return g;
   const bx0 = bounds[0], by0 = bounds[1];
@@ -239,8 +261,15 @@ export function buildGroundGrid(g, lights, bounds, eye, terms) {
     const L = lights[i], c = L.rgbRaw || L.rgb || [0, 0, 0];
     const o = i * 8;
     g.light[o] = L.p[0]; g.light[o + 1] = L.p[1]; g.light[o + 2] = L.p[2]; g.light[o + 3] = L.r || 0;
-    g.light[o + 4] = c[0]; g.light[o + 5] = c[1]; g.light[o + 6] = c[2]; g.light[o + 7] = 0;
-    measure(L, eye.x, eye.y, eye.h, wet, glint, pool, eps);
+    g.light[o + 4] = c[0]; g.light[o + 5] = c[1]; g.light[o + 6] = c[2]; g.light[o + 7] = L.sr || 0;
+    const wc = L.rgb || c, rw = L.rw == null ? (L.r || 0) : L.rw, rl = L.rl || 0;
+    g.light2[o] = wc[0]; g.light2[o + 1] = wc[1]; g.light2[o + 2] = wc[2]; g.light2[o + 3] = rw;
+    const lc = L.lamp || L.rgb || c;
+    g.light2[o + 4] = rl; g.light2[o + 5] = lc[0]; g.light2[o + 6] = lc[1]; g.light2[o + 7] = lc[2];
+    // The wall's terms all cut off hard at a reach (massLight in context.js), so its footprint is a
+    // disc of the larger one. Distance in x,y is never more than in 3-D, so it can only over-list.
+    if (mass) { fpRects = 0; fpDisc = Math.max(rw, rl) > 0 ? Math.max(rw, rl) + PAD : 0; }
+    else measure(L, eye.x, eye.y, eye.h, wet, glint, pool, eps, sw, sk, gw, gk);
     const pr = fpDisc, px = L.p[0], py = L.p[1];
     if (!fpRects && !(pr > 0)) continue;
     g.binned++;
@@ -253,8 +282,10 @@ export function buildGroundGrid(g, lights, bounds, eye, terms) {
       if (px - pr < x0) x0 = px - pr; if (px + pr > x1) x1 = px + pr;
       if (py - pr < y0) y0 = py - pr; if (py + pr > y1) y1 = py + pr;
     }
-    // Entirely off the ground: no fragment can read it (the bounds are the ground's own extent).
-    if (x1 < bx0 - size || y1 < by0 - size || x0 > gx1 + size || y0 > gy1 + size) continue;
+    // Entirely off the ground: no fragment can read it (the road's bounds are the ground's own
+    // extent). ⚠ NOT IN MASS MODE: the wall's bounds are the lights' extent, a wall past them reads
+    // the edge cell, and the edge cell has to list a light that only reaches out there.
+    if (!mass && (x1 < bx0 - size || y1 < by0 - size || x0 > gx1 + size || y0 > gy1 + size)) continue;
     const cy0 = clamp(Math.floor((y0 - by0) / size), 0, ny - 1), cy1 = clamp(Math.floor((y1 - by0) / size), 0, ny - 1);
     for (let cy = cy0; cy <= cy1; cy++) {
       const ya = cy === 0 ? -Infinity : by0 + cy * size, yb = cy === ny - 1 ? Infinity : by0 + (cy + 1) * size;
@@ -324,7 +355,7 @@ export function createLightGridTextures(gl) {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     return t;
   };
-  const light = mk(gl.RGBA32F, LG_W, 1);
+  const light = mk(gl.RGBA32F, LG_W, 2);
   const cell = mk(gl.RG32UI, T.maxCells, T.maxCells);
   const idx = mk(gl.R32UI, LG_W, IDX_ROWS);
   gl.bindTexture(gl.TEXTURE_2D, null);
@@ -340,6 +371,7 @@ export function createLightGridTextures(gl) {
     gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4);
     gl.bindTexture(gl.TEXTURE_2D, light);
     gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, g.n * 2, 1, gl.RGBA, gl.FLOAT, g.light.subarray(0, g.n * 8));
+    gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 1, g.n * 2, 1, gl.RGBA, gl.FLOAT, g.light2.subarray(0, g.n * 8));
     gl.bindTexture(gl.TEXTURE_2D, cell);
     gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, g.nx, g.ny, gl.RG_INTEGER, gl.UNSIGNED_INT, g.cell.subarray(0, g.nx * g.ny * 2));
     const rows = Math.ceil(g.entries / LG_W);

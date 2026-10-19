@@ -49,6 +49,7 @@ import { createSkylineStrip } from './skyline.js';
 import { NEAR, zRow } from './camera.js';
 import { declareProgram, prewarmPrograms, layerProgram } from './programs.js';
 import { linearOut, applyLinOut, LIN, linRgb } from './colour.js';
+import { LIGHTGRID_GLSL, LIGHTGRID_UNIFORMS, createLightGridTextures, bindNoLightGrid, makeGroundGrid, buildGroundGrid } from './lightgrid.js';
 import { createEnvCube, ENV_MAX_LOD } from './envcube.js';
 
 // Floats per vertex: position 3, normal 3, colour 3, atlas uv 2, wall ramp 1, alpha 1, flat 1,
@@ -213,6 +214,8 @@ uniform float uLightWrap;
 // (uLightLR, its reach in tiles) and how strongly (uLampLift, 0 off). See the loop below.
 uniform float uLightLR[GLASS_MAX_LIGHTS];
 uniform float uLampLift;
+// A sign's own light on its own wall (LIGHT_TUNE.sign; grid path only, see the grid loop below).
+uniform float uSignLift;
 // The falloff exponent over the reach. 2.0 is the broad wash this pass shipped with; above it the
 // same energy moves in toward the source — a hot core, a fast edge, a faint tail. See LIGHT_TUNE.
 uniform float uLightFocus;
@@ -409,6 +412,86 @@ float sunShadow(vec3 wp, vec3 n) {
 
 ${HEIGHT_FOG_GLSL}
 ${LIGHT_SHAFT_GLSL}
+// The light grid (gl/lightgrid.js, RENDER_TUNE.glCluster). Declared here rather than in the chunk,
+// because glsl-smoke can't see into an imported snippet. Units 8 to 10.
+uniform highp sampler2D  uLGLight;
+uniform highp usampler2D uLGCell;
+uniform highp usampler2D uLGIdx;
+uniform int   uLGOn;
+uniform vec2  uLGOrigin;
+uniform float uLGInv;
+uniform ivec2 uLGDim;
+${LIGHTGRID_GLSL}
+// ⚠ PROTOTYPES, because linearOut (gl/colour.js) splices the colour helpers in just before main(),
+// which is after this function: without them the program doesn't compile and the city falls back
+// to 2-D on every machine.
+vec3 glassLin(vec3 c);
+vec3 glassSrgb(vec3 c);
+// One light on a wall: the lamp lift, the wash and the wet lobe. The body is the loop body this used
+// to be, with uLightP[i], uLightRaw[i], uLightC[i], uLightR[i], uLightLR[i] as P, raw, C, R, LR.
+// Its reach is the larger of R and LR, which is the disc gl/lightgrid.js bins it by (mass mode).
+void massLight(vec3 P, vec3 raw, vec3 C, float R, float LR, vec3 n, vec3 Vw, float wetW, inout vec3 lamp, inout vec3 base) {
+  vec3 d = P - vWorld;
+  float dist = length(d);
+  float la = clamp(1.0 - dist / max(0.001, LR), 0.0, 1.0);
+  // The lift's weight was tuned on display colours, so it reads them back at level 2.
+  lamp += (uLinIn > 0.5 ? glassSrgb(raw) : raw) * (la * la * max(0.0, (dot(n, d / max(0.001, dist)) + 0.5) / 1.5));
+  float att = clamp(1.0 - dist / max(0.001, R), 0.0, 1.0);
+  if (att <= 0.0) return;
+  // ⚠ WRAPPED, AND MEASURED INTO IT RATHER THAN CHOSEN. Straight lambert is the obvious term and
+  // it lights almost nothing here: the commonest light in GLASS is a sign mounted FLUSH on the
+  // wall behind it, so the direction from that wall to the light is nearly perpendicular to its
+  // own normal and the cosine is ~0. Measured, a pure cosine moved 0.5% of the wall pixels in a
+  // dense night frame — a feature that draws nothing and looks like restraint. 'uLightWrap' is
+  // how far round the light reaches; 0 is exactly lambert, so the term the shader shipped with
+  // is still expressible and still in the file.
+  float diff = max(0.0, (dot(n, d / max(0.001, dist)) + uLightWrap) / (1.0 + uLightWrap));
+  // ⚠ SHAPED, AND THE SHAPE IS MOST OF WHAT SEPARATES A BLOOM FROM A TINT. Linear-clamped and
+  // squared is a broad soft field: half way out it still carries a quarter of the peak, which
+  // over the reach this pass used to be given was a quarter of the light seven storeys up a
+  // facade. At uLightFocus 2.0 this line is exactly the term that shipped.
+  // ⚠ ONE FALLOFF, SPENT TWICE. 'pow(att, uLightFocus)' is the same number for this term and for
+  // the wet lobe below, and it was evaluated once for each — a second pow per light per fragment,
+  // over up to GLASS_MAX_LIGHTS lights, on every pixel of every wall in the city. The arithmetic
+  // is unchanged; it is the same value read twice instead of computed twice.
+  float fall = pow(att, uLightFocus);
+  base += C * (fall * diff);
+  // ── AND THE SAME LIGHT AGAIN, IN THE WATER ON THE WALL ────────────────────
+  //
+  // The albedo darkening above is most of what says WET by day and almost nothing at night, and
+  // the measurement is blunt about it: 7.68% of a daylight frame moves and 0.09% of a night one.
+  // The reason is not the wall wash being off (tested — turning it back on moves this number by
+  // nothing). It is that after dark the wall's own albedo is a small part of the final pixel:
+  // most of what you see is the neon ADDED on top, and darkening what is underneath an addition
+  // does not change it. What a wet wall does at night is REFLECT that neon, and reflection is the
+  // one thing water adds to a surface.
+  //
+  // ⚠ MULTIPLIED BY wetW, NEVER BRANCHED ON IT. wetW is per fragment, and a per-fragment branch
+  // here is exactly the undefined behaviour the note at the top of the material block is written
+  // around. Dry, this whole term is zero by arithmetic.
+  //
+  // ⚠ AND THE "A LOBE ON A FLAT BOX IS NOT A HIGHLIGHT" OBJECTION DOES NOT APPLY TO THESE LIGHTS,
+  // which is the whole reason it is worth having. That objection is about the SUN: one direction
+  // for the entire city, so a lobe evaluated across a planar face has one value and simply paints
+  // the wall lighter. A sign is a metre from the bricks it is bolted to, so the direction to it
+  // swings hard across the face and the lobe lands as a hot spot beside the sign — which is what
+  // a wet wall under neon actually looks like.
+  //
+  // ⚠ IT IS NOT THE WALL WASH COMING BACK. That was reverted five times for flattening a facade,
+  // and it flattened because it was DIFFUSE — a broad field over the whole wall. This is a tight
+  // lobe gated on standing water, so it cannot reach a dry frame at all.
+  // ⚠ A UNIFORM BRANCH, NOT A PER-FRAGMENT ONE — which is the distinction the note above is
+  // drawing rather than a rule against branching here at all. What it forbids is branching on
+  // 'wetW', which varies per fragment; 'uWet' is a uniform, so this is the same shape as the
+  // 'uScatter' gate a few lines down and a dry frame simply does not run the lobe. Dry, the term
+  // was already zero BY ARITHMETIC — it was paying a normalize, a dot and a pow per light per
+  // fragment to arrive at that zero, on every pixel of every wall, which in a district of tall
+  // towers is most of the frame. The wet frame is unchanged to the bit.
+  if (uWet > 0.001) {
+    vec3 Hl = normalize(d / max(0.001, dist) + Vw);
+    base += raw * (pow(max(0.0, dot(n, Hl)), WET_LOBE) * WET_NEON * wetW * fall);
+  }
+}
 void main() {
   // ⚠ THE FAR DISSOLVE IS SPLIT ACROSS TWO DRAWS, because the floor and the roads are drawn AFTER
   // this pass and test against its depth. A building at 20% opacity in the haze band still wrote
@@ -972,74 +1055,45 @@ void main() {
   // never brighter than it is by day. The cap is what the additive wash below lacked (it drowned the
   // signage and was switched off); this term cannot.
   vec3 lamp = vec3(0.0);
+  vec3 sign = vec3(0.0);
   // The city own lights, added on top of the key shading.
-  for (int i = 0; i < GLASS_MAX_LIGHTS; i++) {
-    if (i >= uNLight) break;
-    vec3 d = uLightP[i] - vWorld;
-    float dist = length(d);
-    float la = clamp(1.0 - dist / max(0.001, uLightLR[i]), 0.0, 1.0);
-    // The lift's weight was tuned on display colours, so it reads them back at level 2.
-    lamp += (uLinIn > 0.5 ? glassSrgb(uLightRaw[i]) : uLightRaw[i]) * (la * la * max(0.0, (dot(n, d / max(0.001, dist)) + 0.5) / 1.5));
-    float att = clamp(1.0 - dist / max(0.001, uLightR[i]), 0.0, 1.0);
-    if (att <= 0.0) continue;
-    // ⚠ WRAPPED, AND MEASURED INTO IT RATHER THAN CHOSEN. Straight lambert is the obvious term and
-    // it lights almost nothing here: the commonest light in GLASS is a sign mounted FLUSH on the
-    // wall behind it, so the direction from that wall to the light is nearly perpendicular to its
-    // own normal and the cosine is ~0. Measured, a pure cosine moved 0.5% of the wall pixels in a
-    // dense night frame — a feature that draws nothing and looks like restraint. 'uLightWrap' is
-    // how far round the light reaches; 0 is exactly lambert, so the term the shader shipped with
-    // is still expressible and still in the file.
-    float diff = max(0.0, (dot(n, d / max(0.001, dist)) + uLightWrap) / (1.0 + uLightWrap));
-    // ⚠ SHAPED, AND THE SHAPE IS MOST OF WHAT SEPARATES A BLOOM FROM A TINT. Linear-clamped and
-    // squared is a broad soft field: half way out it still carries a quarter of the peak, which
-    // over the reach this pass used to be given was a quarter of the light seven storeys up a
-    // facade. At uLightFocus 2.0 this line is exactly the term that shipped.
-    // ⚠ ONE FALLOFF, SPENT TWICE. 'pow(att, uLightFocus)' is the same number for this term and for
-    // the wet lobe below, and it was evaluated once for each — a second pow per light per fragment,
-    // over up to GLASS_MAX_LIGHTS lights, on every pixel of every wall in the city. The arithmetic
-    // is unchanged; it is the same value read twice instead of computed twice.
-    float fall = pow(att, uLightFocus);
-    base += uLightC[i] * (fall * diff);
-    // ── AND THE SAME LIGHT AGAIN, IN THE WATER ON THE WALL ────────────────────
-    //
-    // The albedo darkening above is most of what says WET by day and almost nothing at night, and
-    // the measurement is blunt about it: 7.68% of a daylight frame moves and 0.09% of a night one.
-    // The reason is not the wall wash being off (tested — turning it back on moves this number by
-    // nothing). It is that after dark the wall's own albedo is a small part of the final pixel:
-    // most of what you see is the neon ADDED on top, and darkening what is underneath an addition
-    // does not change it. What a wet wall does at night is REFLECT that neon, and reflection is the
-    // one thing water adds to a surface.
-    //
-    // ⚠ MULTIPLIED BY wetW, NEVER BRANCHED ON IT. wetW is per fragment, and a per-fragment branch
-    // here is exactly the undefined behaviour the note at the top of the material block is written
-    // around. Dry, this whole term is zero by arithmetic.
-    //
-    // ⚠ AND THE "A LOBE ON A FLAT BOX IS NOT A HIGHLIGHT" OBJECTION DOES NOT APPLY TO THESE LIGHTS,
-    // which is the whole reason it is worth having. That objection is about the SUN: one direction
-    // for the entire city, so a lobe evaluated across a planar face has one value and simply paints
-    // the wall lighter. A sign is a metre from the bricks it is bolted to, so the direction to it
-    // swings hard across the face and the lobe lands as a hot spot beside the sign — which is what
-    // a wet wall under neon actually looks like.
-    //
-    // ⚠ IT IS NOT THE WALL WASH COMING BACK. That was reverted five times for flattening a facade,
-    // and it flattened because it was DIFFUSE — a broad field over the whole wall. This is a tight
-    // lobe gated on standing water, so it cannot reach a dry frame at all.
-    // ⚠ A UNIFORM BRANCH, NOT A PER-FRAGMENT ONE — which is the distinction the note above is
-    // drawing rather than a rule against branching here at all. What it forbids is branching on
-    // 'wetW', which varies per fragment; 'uWet' is a uniform, so this is the same shape as the
-    // 'uScatter' gate a few lines down and a dry frame simply does not run the lobe. Dry, the term
-    // was already zero BY ARITHMETIC — it was paying a normalize, a dot and a pow per light per
-    // fragment to arrive at that zero, on every pixel of every wall, which in a district of tall
-    // towers is most of the frame. The wet frame is unchanged to the bit.
-    if (uWet > 0.001) {
-      vec3 Hl = normalize(d / max(0.001, dist) + Vw);
-      base += uLightRaw[i] * (pow(max(0.0, dot(n, Hl)), WET_LOBE) * WET_NEON * wetW * fall);
+  if (uLGOn == 1) {
+    // Every light whose reach covers this cell (gl/lightgrid.js, mass mode), in place of the slots.
+    // The table holds display colours; the uniform path is handed them already linear at level 2.
+    uvec2 hc = lgCell(vWorld.xy);
+    for (uint k = 0u; k < hc.y; k++) {
+      int li = lgAt(hc.x + k);
+      vec4 P = lgP(li), X = lgX(li), Y = lgY(li);
+      vec3 raw = lgC(li).rgb, C = X.rgb;
+      if (uLinIn > 0.5) { raw = glassLin(raw); C = glassLin(C); }
+      massLight(P.xyz, raw, C, X.w, Y.x, n, Vw, wetW, lamp, base);
+      // ── A SIGN'S OWN LIGHT ON ITS OWN WALL (LIGHT_TUNE.sign, stage A2) ──────────────────────
+      //
+      // Not the wall wash: that was a broad field over the whole facade and was cut six times for
+      // drowning the lettering. This reaches only the sign's own patch of wall (lgC.w is the
+      // light's 'sr', a share of its reach, and 0 for an area wash), and is capped below at the
+      // wall's undimmed colour, so a sign can tint the bricks it hangs on and never light them past
+      // daylight. Grid path only: the slot path would need another uniform array, and the uniform
+      // budget is what caps the slots at all (see MAX_LIGHTS).
+      float SR = lgC(li).w;
+      if (uSignLift > 0.0 && SR > 0.0) {
+        vec3 sd = P.xyz - vWorld;
+        float sdist = length(sd);
+        float sa = clamp(1.0 - sdist / SR, 0.0, 1.0);
+        sign += raw * (sa * sa * max(0.0, (dot(n, sd / max(0.001, sdist)) + 0.6) / 1.6));
+      }
+    }
+  } else {
+    for (int i = 0; i < GLASS_MAX_LIGHTS; i++) {
+      if (i >= uNLight) break;
+      massLight(uLightP[i], uLightRaw[i], uLightC[i], uLightR[i], uLightLR[i], n, Vw, wetW, lamp, base);
     }
   }
   // A lift toward the undimmed wall is a mix, so at level 2 it runs on display values (see the overlays).
   vec3 liftW = min(vec3(1.0), lamp * uLampLift);
   if (uLinIn > 0.5) { vec3 bD = glassSrgb(base); base = glassLin(bD + max(vec3(0.0), glassSrgb(undimmed) - bD) * liftW); }
   else base += max(vec3(0.0), undimmed - base) * liftW;
+  base += min(sign * uSignLift, max(vec3(0.0), undimmed - base));
   // ⚠ AND THERE IS NO EMISSION TERM HERE, WHICH WAS MEASURED RATHER THAN ASSUMED. One sat on this
   // line and moved 0.0% of wall pixels at every seat: everything above IS light arriving at a wall,
   // and every emissive surface in the city is a FLAT face, which 'solid' has already excused from
@@ -1253,6 +1307,7 @@ export function createGLView(canvas, opts = {}) {
     lightR: gl.getUniformLocation(prog, 'uLightR'),
     lightLR: gl.getUniformLocation(prog, 'uLightLR'),
     lampLift: gl.getUniformLocation(prog, 'uLampLift'),
+    signLift: gl.getUniformLocation(prog, 'uSignLift'),
     lightWrap: gl.getUniformLocation(prog, 'uLightWrap'),
     lightFocus: gl.getUniformLocation(prog, 'uLightFocus'),
     ao: gl.getUniformLocation(prog, 'uAo'),
@@ -1308,6 +1363,34 @@ export function createGLView(canvas, opts = {}) {
     surfPageOn: gl.getUniformLocation(prog, 'uSurfPageOn'),
     heightGain: gl.getUniformLocation(prog, 'uHeightGain'),
   };
+  // The light grid for the wall (RENDER_TUNE.glCluster; gl/lightgrid.js in mass mode).
+  for (const n of LIGHTGRID_UNIFORMS) loc[n] = gl.getUniformLocation(prog, n);
+  const lgTex = createLightGridTextures(gl);
+  const lgGrid = makeGroundGrid();
+  let massGrid = null, wallGridNow = null;
+  // ── THE WALL'S LIGHT GRID (RENDER_TUNE.glCluster) ──────────────────────────────────────────
+  //
+  // Every light in the frame, each a disc of its reach (gl/lightgrid.js, mass mode), built once a
+  // frame by world.js right after pickLights so the mirror prepass and the main pass read the same
+  // one. The wall, the people, the solids and the cloth all read it: each binds it through
+  // `bindWallGrid` (handed to the layers as opts.lightGrid) on units 8 to 10. Its extent is the
+  // lights' own; a fragment past it reads the edge cell, which lists what reaches past. null clears.
+  function setLightGrid(list) {
+    wallGridNow = null;
+    if (lgTex && list && list.length) {
+      let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+      for (let i = 0; i < list.length; i++) {
+        const p = list[i].p;
+        if (p[0] < x0) x0 = p[0]; if (p[0] > x1) x1 = p[0]; if (p[1] < y0) y0 = p[1]; if (p[1] > y1) y1 = p[1];
+      }
+      const wg = buildGroundGrid(lgGrid, list, [x0 - 4, y0 - 4, x1 + 4, y1 + 4], { x: 0, y: 0, h: 0 }, { mass: true });
+      if (wg.n) { lgTex.upload(wg); wallGridNow = wg; }
+    }
+    massGrid = wallGridNow ? { lights: wallGridNow.n, binned: wallGridNow.binned, cells: wallGridNow.nx * wallGridNow.ny, size: wallGridNow.size, entries: wallGridNow.entries, maxCell: wallGridNow.maxCell, cut: wallGridNow.cut } : null;
+  }
+  function bindWallGrid(L, unit) {
+    if (lgTex) lgTex.bind(L, unit, wallGridNow); else bindNoLightGrid(gl, L, unit);
+  }
 
   // Scratch, filled per frame and never reallocated: the arrays are the same size every frame and
   // a fresh Float32Array per light per frame is garbage on the hot path.
@@ -1680,6 +1763,10 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
   // rather than `opts.hdr`, which is only what was asked for.
   function hdrLive() { return targetLive; }
 
+  // The TAA split (RENDER_TUNE.glTaa): see `split` in hdr.js. False, with the frame left as it was,
+  // when the float target isn't live or the resolve can't run.
+  function taaSplit(o) { return !!(hdr && targetLive && hdr.split && hdr.split(o)); }
+
   // And the other end of it. A no-op when the float path is not live, which is what makes the
   // caller free to call it unconditionally.
   function composite(opts = {}) {
@@ -1849,6 +1936,13 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     }
     gl.uniform1i(loc.nLight, nL);
     gl.uniform1f(loc.lampLift, opts.lampLift > 0 ? opts.lampLift : 0);
+    gl.uniform1f(loc.signLift, opts.signLift > 0 ? opts.signLift : 0);
+    // The wall's light grid (setLightGrid below): the lift, the wash and the wet lobe walk every
+    // light whose reach covers the fragment's cell in place of the slots above, which are still
+    // uploaded, because the light shaft in the air integrates along the view ray and keeps them.
+    // The wall walks it only when one of its own three terms is live (`gridWall`).
+    bindWallGrid(loc, 8);
+    if (!(opts.gridWall && wallGridNow)) gl.uniform1i(loc.uLGOn, 0);
     if (nL) {
       gl.uniform3fv(loc.lightP, lightP); gl.uniform3fv(loc.lightC, lightC); gl.uniform3fv(loc.lightRaw, lightRaw); gl.uniform1fv(loc.lightR, lightR); gl.uniform1fv(loc.lightLR, lightLR);
       gl.uniform1f(loc.lightWrap, opts.lightWrap == null ? 0 : opts.lightWrap);
@@ -2406,6 +2500,8 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
   }
   function drawSolids(cam, cssH, opts) {
     let n = 0;
+    opts = opts || {};
+    opts.lightGrid = bindWallGrid;
     // The translucent range alone (rotor blades and discs): see `film` in solids.js. The birds and
     // the murmuration are drawn by the solid call and must not be drawn twice.
     if (opts && opts.film) return (solidQuads ? solidsLayer().draw(cam, cssH || canvas.height, opts) : 0)
@@ -2422,6 +2518,8 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
   }
 
   function drawActors(cam, cssH, opts) {
+    opts = opts || {};
+    opts.lightGrid = bindWallGrid;
     return actorInst ? actorLayer().draw(cam, cssH || canvas.height, opts || {}) : 0;
   }
 
@@ -2533,7 +2631,7 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
   // Handed the window's cells and the eye in the MESH frame; see gl/skyline.js and the ⚠ on 
   // in world.js. Called before , because the strip is a uniform that draw reads.
   function setSkyline(cells, eye, facesOf) { try { skylineLayer().update(cells, eye, facesOf); } catch { /* no strip is the flat environment, which is the picture that shipped */ } }
-  const api = { murmurGPU: () => mg, gl, setSkyline, upload, uploadGroups, draw, drawFade, beginTarget, hdrLive, composite, hdrPeak, setMatPage, setSurfPage, drawSeabed, drawSeabedPoints, drawSprites, drawCurtain, drawDecals, decalCost, drawStrokes, drawBillboards, billboardTextures, drawGround, groundGrid: () => (grd ? grd.grid : null), drawFloor, drawWater, drawCloudDeck, drawCloudVolume, drawMirror, mirrorPeak, uploadSolids, uploadShip, drawSolids, drawActors, uploadInterior, drawInterior, drawInteriorAlone, setAtlas, lost: () => gl.isContextLost(),
+  const api = { murmurGPU: () => mg, gl, setSkyline, upload, uploadGroups, draw, drawFade, beginTarget, hdrLive, composite, hdrPeak, setMatPage, setSurfPage, drawSeabed, drawSeabedPoints, drawSprites, drawCurtain, drawDecals, decalCost, drawStrokes, drawBillboards, billboardTextures, drawGround, groundGrid: () => (grd ? grd.grid : null), wallGrid: () => massGrid, setLightGrid, taaSplit, drawFloor, drawWater, drawCloudDeck, drawCloudVolume, drawMirror, mirrorPeak, uploadSolids, uploadShip, drawSolids, drawActors, uploadInterior, drawInterior, drawInteriorAlone, setAtlas, lost: () => gl.isContextLost(),
     maxTexture: gl.getParameter(gl.MAX_TEXTURE_SIZE), get triangles() { return count / 3; },
     // The mesh's own box, for the caller that has to fit a light projection to it — and the shadow
     // map's size, which is 0 when the driver refused it. A zero there next to a sun that is up is

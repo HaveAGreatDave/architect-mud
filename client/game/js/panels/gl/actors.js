@@ -28,6 +28,7 @@ import { headMesh, hairMesh, HEAD_LEVELS, HAIR_STYLES, FACE, HAIRLINE_GLSL } fro
 import { FACE_ATLAS, FACE_GLSL } from '../actor-faces.js';
 import { declareProgram, takeWarm } from './programs.js';
 import { linearOut, applyLinOut } from './colour.js';
+import { LIGHTGRID_GLSL, LIGHTGRID_UNIFORMS, bindNoLightGrid } from './lightgrid.js';
 
 // Per instance: x, y, z, tiles per metre | clip A row0, frames, phase, heading | clip B row0, frames,
 // phase, share of B | coat rgb | trousers rgb | skin rgb | hair rgb | shoes rgb | brightness, alpha |
@@ -161,6 +162,16 @@ uniform float uDim;
 uniform vec3 uWLP[12];
 uniform vec3 uWLC[12];
 uniform float uWLR[12];
+// The light grid (gl/lightgrid.js, RENDER_TUNE.glCluster), the wall's, bound by context.js on
+// units 8 to 10. Declared here rather than in the chunk: glsl-smoke can't see into an imported one.
+uniform highp sampler2D  uLGLight;
+uniform highp usampler2D uLGCell;
+uniform highp usampler2D uLGIdx;
+uniform int   uLGOn;
+uniform vec2  uLGOrigin;
+uniform float uLGInv;
+uniform ivec2 uLGDim;
+${LIGHTGRID_GLSL}
 out vec4 outColor;
 float h1(vec3 p) { return fract(sin(dot(p, vec3(12.9898, 78.233, 37.719))) * 43758.5453); }
 float vnoise(vec3 p) {
@@ -288,14 +299,30 @@ void main() {
   // ── THE STREETLIGHT ON THEM ──────────────────────────────────────────────
   // A figure under a lamp takes its colour on the side facing it, coloured by what they wear, so
   // somebody walking past a sign at night is lit by it and dark again beyond it.
-  for (int i = 0; i < 12; i++) {
-    if (i >= uWLN) break;
-    vec3 d = uWLP[i] - vWT;
-    float dist = length(d);
-    float att = clamp(1.0 - dist / max(0.001, uWLR[i]), 0.0, 1.0);
-    if (att <= 0.0) continue;
-    float diff = max(0.0, (dot(n, d / max(0.001, dist)) + 0.4) / 1.4);
-    c += col * uWLC[i] * (att * att * diff * 1.6);
+  if (uLGOn == 1) {
+    // Every light whose reach covers this cell (gl/lightgrid.js, the wall's grid), not the twelve.
+    uvec2 hc = lgCell(vWT.xy);
+    for (uint k = 0u; k < hc.y; k++) {
+      int li = lgAt(hc.x + k);
+      vec3 P = lgP(li).xyz, LC = lgY(li).yzw;
+      float LR = (lgY(li).x > 0.0 ? lgY(li).x : lgX(li).w);
+      vec3 d = P - vWT;
+      float dist = length(d);
+      float att = clamp(1.0 - dist / max(0.001, LR), 0.0, 1.0);
+      if (att <= 0.0) continue;
+      float diff = max(0.0, (dot(n, d / max(0.001, dist)) + 0.4) / 1.4);
+      c += col * LC * (att * att * diff * 1.6);
+    }
+  } else {
+    for (int i = 0; i < 12; i++) {
+      if (i >= uWLN) break;
+      vec3 d = uWLP[i] - vWT;
+      float dist = length(d);
+      float att = clamp(1.0 - dist / max(0.001, uWLR[i]), 0.0, 1.0);
+      if (att <= 0.0) continue;
+      float diff = max(0.0, (dot(n, d / max(0.001, dist)) + 0.4) / 1.4);
+      c += col * uWLC[i] * (att * att * diff * 1.6);
+    }
   }
   // A figure is paint, not light, and the bloom takes anything over 1 for an emitter (HDR_TUNE in
   // world.js), so an orange coat under a warm lamp glowed like a sign. Scaled down rather than
@@ -424,6 +451,16 @@ uniform int uWLN;
 uniform vec3 uWLP[12];
 uniform vec3 uWLC[12];
 uniform float uWLR[12];
+// The light grid (gl/lightgrid.js, RENDER_TUNE.glCluster), the wall's, bound by context.js on
+// units 8 to 10. Declared here rather than in the chunk: glsl-smoke can't see into an imported one.
+uniform highp sampler2D  uLGLight;
+uniform highp usampler2D uLGCell;
+uniform highp usampler2D uLGIdx;
+uniform int   uLGOn;
+uniform vec2  uLGOrigin;
+uniform float uLGInv;
+uniform ivec2 uLGDim;
+${LIGHTGRID_GLSL}
 out vec4 outColor;
 float h1(vec3 p) { return fract(sin(dot(p, vec3(12.9898, 78.233, 37.719))) * 43758.5453); }
 float vnoise(vec3 p) {
@@ -520,14 +557,30 @@ void main() {
   }
   c *= lum;
   c *= min(1.0, uDim / mix(1.0, 0.62, clamp((1.0 - lum) / 0.38, 0.0, 1.0)));
-  for (int i = 0; i < 12; i++) {
-    if (i >= uWLN) break;
-    vec3 d = uWLP[i] - vWT;
-    float dist = length(d);
-    float att = clamp(1.0 - dist / max(0.001, uWLR[i]), 0.0, 1.0);
-    if (att <= 0.0) continue;
-    float diff = max(0.0, (dot(n, d / max(0.001, dist)) + 0.4) / 1.4);
-    c += col * uWLC[i] * (att * att * diff * 1.6);
+  if (uLGOn == 1) {
+    // Every light whose reach covers this cell (gl/lightgrid.js, the wall's grid), not the twelve.
+    uvec2 hc = lgCell(vWT.xy);
+    for (uint k = 0u; k < hc.y; k++) {
+      int li = lgAt(hc.x + k);
+      vec3 P = lgP(li).xyz, LC = lgY(li).yzw;
+      float LR = (lgY(li).x > 0.0 ? lgY(li).x : lgX(li).w);
+      vec3 d = P - vWT;
+      float dist = length(d);
+      float att = clamp(1.0 - dist / max(0.001, LR), 0.0, 1.0);
+      if (att <= 0.0) continue;
+      float diff = max(0.0, (dot(n, d / max(0.001, dist)) + 0.4) / 1.4);
+      c += col * LC * (att * att * diff * 1.6);
+    }
+  } else {
+    for (int i = 0; i < 12; i++) {
+      if (i >= uWLN) break;
+      vec3 d = uWLP[i] - vWT;
+      float dist = length(d);
+      float att = clamp(1.0 - dist / max(0.001, uWLR[i]), 0.0, 1.0);
+      if (att <= 0.0) continue;
+      float diff = max(0.0, (dot(n, d / max(0.001, dist)) + 0.4) / 1.4);
+      c += col * uWLC[i] * (att * att * diff * 1.6);
+    }
   }
   // Paint, not light: see the same line in FRAG.
   c /= max(1.0, max(c.r, max(c.g, c.b)));
@@ -618,6 +671,8 @@ export function createActorLayer(gl) {
     keyDir: HU('uKeyDir'), dim: HU('uDim'),
     wlN: HU('uWLN'), wlP: HU('uWLP'), wlC: HU('uWLC'), wlR: HU('uWLR'),
   };
+  // The wall's light grid (RENDER_TUNE.glCluster), which context.js binds through opts.lightGrid.
+  for (const n of LIGHTGRID_UNIFORMS) { loc[n] = gl.getUniformLocation(prog, n); hloc[n] = HU(n); }
   // Where each instance attribute sits in a record, in floats. Re-pointed per draw at the draw's
   // first instance, since WebGL2 has no base instance.
   const HINST = [
@@ -900,6 +955,8 @@ export function createActorLayer(gl) {
       gl.uniform1i(U.wlN, nW);
       gl.uniform1f(U.dim, opts.nightDim > 0 ? opts.nightDim : 1);
       if (nW) { gl.uniform3fv(U.wlP, wlP); gl.uniform3fv(U.wlC, wlC); gl.uniform1fv(U.wlR, wlR); }
+      // Bound on every draw, grid or not: the samplers need units of their own either way.
+      if (opts.lightGrid) opts.lightGrid(U, 8); else bindNoLightGrid(gl, U, 8);
     };
     uniforms(loc);
     gl.uniform1f(loc.look, ACTOR_LOOK.on ? 1 : 0);
