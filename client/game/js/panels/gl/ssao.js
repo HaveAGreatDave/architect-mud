@@ -484,6 +484,9 @@ export function createSSAOLayer(gl, posLoc) {
     gl.bindVertexArray(vao);
     gl.drawArrays(gl.TRIANGLES, 0, count);
     gl.bindVertexArray(null);
+    // Anything else that should take the lines (the Pitch's tents, gl/cloth.js) draws its depth here,
+    // with this matrix, so it outlines against the city. It may change state; the blend goes back off.
+    if (opts.extraDepth) { try { opts.extraDepth(viewProj); } catch { /* a layer that can't draw just takes no lines */ } gl.disable(gl.BLEND); }
 
     const fxn = 2 * cam.FL / cam.W;
     const fyn = 2 * cam.depth / cam.H;

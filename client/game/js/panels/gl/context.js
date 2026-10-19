@@ -1731,7 +1731,9 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
       const inkWH = wantInk ? [W, H] : null;
       return timed('ssao', () => ssao.pass(vao, count, new Float32Array(vp), { ...cam, H: camH }, aoWH, inkWH,
         { A, B, radius: opts.ssaoRadius > 0 ? opts.ssaoRadius : 0.5, bias: opts.ssaoBias > 0 ? opts.ssaoBias : 0.02,
-          inkStep: opts.inkStep, inkCrease: opts.inkCrease, inkSteep: opts.inkSteep }));
+          inkStep: opts.inkStep, inkCrease: opts.inkCrease, inkSteep: opts.inkSteep,
+          // The tents take the lines too: their depth goes in with the mass's (gl/cloth.js).
+          extraDepth: wantInk && clothInst ? (vp) => clothLayer().drawDepth(vp, cam) : null }));
     } catch { return null; }
   }
 
@@ -1820,6 +1822,7 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     const W = into ? into[0] : canvas.width, H = into ? into[1] : canvas.height;
     const occl = fade ? fadeKept.occl : into ? null : ssaoPass(cam, opts, W, H);
     const ssaoTex = occl ? occl.ao : null, inkTex = occl ? occl.ink : null;
+    if (!fade && !into) inkFrame = null;   // set again below when this pass has lines; the cloth reads it
     if (!into && !fade) beginTarget(opts);
     if (!into) gl.viewport(0, 0, W, H);
     // Split only on the screen, with a band to split on and a later pass to draw it: the mirror has
@@ -2089,6 +2092,7 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
       const ic = cIn(opts.inkCol || INK_COL);
       gl.uniform3f(loc.inkCol, ic[0], ic[1], ic[2]);
       gl.uniform2f(loc.viewport, W, H);
+      if (!into) inkFrame = { tex: inkTex, str: Math.min(1, opts.ink), fade: [far * 0.15, far * 0.45, far * 0.35, far], col: ic, W, H };
     }
     gl.bindVertexArray(vao);
     // skipMass (plugins/submersible): the eye is under the sea, and the city is above it — seen from
@@ -2308,7 +2312,7 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
       // ⚠ IT TAKES THE MASS CAMERA. The rig is collected in MAP-WINDOW tiles for exactly the reason
       // the mesh is — see the ⚠ above on mMassCam — so it reflects through the same shifted camera
       // and lands on the same pixels at the same depth.
-      if (solidQuads || faunaInst || actorInst || clothInst || cloudList.length) drawSolids(mMassCam, cssH, { fog: opts.fog || null, actors: true });
+      if (solidQuads || faunaInst || actorInst || clothInst || cloudList.length) drawSolids(mMassCam, cssH, { fog: opts.fog || null, actors: true, noInk: true });
       // ── AND THE SKY OVER ALL OF IT ────────────────────────────────────────────────────────────
       //
       // A puddle shows what is ABOVE it, and above most of a street is sky. The buffer held the city
@@ -2439,6 +2443,8 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
   let cll = null;
   const clothLayer = () => (cll || (cll = createClothLayer(gl)));
   let clothInst = 0;
+  // The main pass's ink lines, for the cloth to draw on itself as the walls do (null: none).
+  let inkFrame = null;
   const clothRecs = [];
   // ⚠ AND A MURMURATION ARRIVES AS ONE RECORD (`.cloud`), NOT AS ITS BIRDS. Its simulation is stepped
   // HERE, once a frame, because this is the one call guaranteed to come before both the mirror prepass
@@ -2509,7 +2515,7 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     if (solidQuads) n += solidsLayer().draw(cam, cssH || canvas.height, opts || {});
     if (ownQuads) n += ownLayer().draw(cam, cssH || canvas.height, opts || {});
     if (faunaInst) faunaLayer().draw(cam, cssH || canvas.height, opts || {});
-    if (clothInst) clothLayer().draw(cam, cssH || canvas.height, opts || {});
+    if (clothInst) clothLayer().draw(cam, cssH || canvas.height, { ...opts, ink: opts.noInk ? null : inkFrame });
     // People only when asked: the main pass draws them after the ground instead (drawActors, and the
     // note beside its call in world.js), and only the mirror prepass wants them here.
     if (actorInst && opts && opts.actors) actorLayer().draw(cam, cssH || canvas.height, opts);

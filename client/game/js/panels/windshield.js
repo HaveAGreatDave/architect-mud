@@ -47989,14 +47989,19 @@ const CLOTH_HANDS = [
   'throw', 'hand', 'stencil', 'roller', 'hand', 'throw', 'hand',
 ];
 const CLOTH_ATLAS_COLS = 4, CLOTH_ATLAS_ROWS = 4, CLOTH_CELL_W = 256, CLOTH_CELL_H = 128;
+// ⚠ BAKED AT TWICE THE CELL. A slogan bakes about 500 px wide, and squeezed into 256 the stencil's
+// speckle and the roller's dry bands went to a grey noise that read on a near tent as no letters.
+const CLOTH_ATLAS_SCALE = 2;
 let _clothAtlas = null;
 function clothAtlas() {
   if (_clothAtlas) return _clothAtlas;
   if (typeof document === 'undefined') return null;
   const c = document.createElement('canvas');
-  c.width = CLOTH_ATLAS_COLS * CLOTH_CELL_W; c.height = CLOTH_ATLAS_ROWS * CLOTH_CELL_H;
+  c.width = CLOTH_ATLAS_COLS * CLOTH_CELL_W * CLOTH_ATLAS_SCALE; c.height = CLOTH_ATLAS_ROWS * CLOTH_CELL_H * CLOTH_ATLAS_SCALE;
   const g = c.getContext('2d');
   if (!g) return null;
+  g.scale(CLOTH_ATLAS_SCALE, CLOTH_ATLAS_SCALE);
+  g.imageSmoothingQuality = 'high';
   const cell = (i) => [(i % CLOTH_ATLAS_COLS) * CLOTH_CELL_W, Math.floor(i / CLOTH_ATLAS_COLS) * CLOTH_CELL_H];
   // Cell 0: the eye, as the pier flag always wore it.
   { const [x, y] = cell(0); g.save(); g.translate(x, y); paintEyeFlag(g, CLOTH_CELL_W, CLOTH_CELL_H, 1); g.restore(); }
@@ -48022,7 +48027,7 @@ function clothAtlas() {
     const w = tex.width * s, h = tex.height * s;
     try { g.drawImage(tex, x + (CLOTH_CELL_W - w) / 2, y + (CLOTH_CELL_H - h) / 2, w, h); } catch { /* a stub canvas */ }
   }
-  _clothAtlas = { canvas: c, cols: CLOTH_ATLAS_COLS, rows: CLOTH_ATLAS_ROWS, ver: 1, cells };
+  _clothAtlas = { canvas: c, cols: CLOTH_ATLAS_COLS, rows: CLOTH_ATLAS_ROWS, ver: 2, cells };
   return _clothAtlas;
 }
 // A paint cell for a tent, off its seed: the struck-through eye one time in four, else a slogan.

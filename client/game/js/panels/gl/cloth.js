@@ -27,7 +27,7 @@ import { LIGHTGRID_GLSL, LIGHTGRID_UNIFORMS, bindNoLightGrid } from './lightgrid
 // colour B rgb | warm rgb | patch u0 v0 u1 v1 | paint cell, u0, v0, width | weathering | paint height
 const STRIDE = 31;
 // Units no other layer binds: 0-5 the world pass, 7 fauna.js, 8-17 the murmuration, 20-21 actors.js.
-const POS_UNIT = 24, TAG_UNIT = 25;
+const POS_UNIT = 24, TAG_UNIT = 25, INK_UNIT = 26;
 
 const VERT = `#version 300 es
 precision highp float;
@@ -68,6 +68,7 @@ out vec4 vPatch;
 out vec4 vTag;
 out float vWeather;
 out float vTagH;
+out float vDepth;
 vec3 at(float band, float fr) {
   return texelFetch(uPosT, ivec2(gl_VertexID, int(band) * int(uFrames) + int(fr)), 0).xyz;
 }
@@ -101,6 +102,7 @@ void main() {
   vTagH = iTagH;
   vec4 clip = uViewProj * vec4(w, 1.0);
   gl_Position = clip;
+  vDepth = clip.w;
   float ff = clamp((clip.w - uFogNear) / max(1e-3, uFogFar - uFogNear), 0.0, 1.0);
   vFog = ff * ff * uFogAmt;
 }`;
@@ -122,6 +124,7 @@ in vec4 vPatch;
 in vec4 vTag;
 in float vWeather;
 in float vTagH;
+in float vDepth;
 uniform vec3 uFog;
 uniform vec3 uEye;
 uniform vec2 uKeyDir;
@@ -150,6 +153,13 @@ ${LIGHTGRID_GLSL}
 // one tone per face and a shade side. 0 skips every branch it guards.
 uniform float uToon;
 uniform float uToonBands;
+// The cel look's ink lines, the walls' texture (context.js): r detail, g outline, faded by distance
+// as the walls fade them. The tents' depth went into the pass that drew them ('drawDepth').
+uniform highp sampler2D uInk;
+uniform float uInkStr;
+uniform vec4 uInkFade;
+uniform vec3 uInkCol;
+uniform vec2 uViewport;
 out vec4 outColor;
 float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 // context.js's toonBands: n even steps, each edge about a pixel wide. Only behind the uToon branch.
@@ -246,6 +256,14 @@ void main() {
       c += uWLC[i] * dye * (att * att * diff);
     }
   }
+  // The ink, after the lights and before the fog, where the walls take it.
+  if (uInkStr > 0.0) {
+    vec2 e = textureLod(uInk, gl_FragCoord.xy / uViewport, 0.0).rg;
+    e = (e.x >= 0.0 && e.x <= 1.0 && e.y >= 0.0 && e.y <= 1.0) ? e : vec2(0.0);
+    float ink = max(e.x * (1.0 - smoothstep(uInkFade.x, uInkFade.y, vDepth)),
+                    e.y * (1.0 - smoothstep(uInkFade.z, uInkFade.w, vDepth))) * uInkStr;
+    c = mix(c, uInkCol, ink);
+  }
   // Cloth is paint, not light: over 1 the bloom takes it for an emitter (as in actors.js).
   c /= max(1.0, max(c.r, max(c.g, c.b)));
   c = mix(c, uFog, vFog);
@@ -267,6 +285,7 @@ export function createClothLayer(gl) {
     wlN: U('uWLN'), wlP: U('uWLP'), wlC: U('uWLC'), wlR: U('uWLR'),
     eye: U('uEye'), keyDir: U('uKeyDir'), key: U('uKey'), sky: U('uSky'), shadow: U('uShadow'), str: U('uStr'),
     tagT: U('uTagT'), tagGrid: U('uTagGrid'), toon: U('uToon'), toonBands: U('uToonBands'),
+    ink: U('uInk'), inkStr: U('uInkStr'), inkFade: U('uInkFade'), inkCol: U('uInkCol'), viewport: U('uViewport'),
   };
   const INST = [loc.pos, loc.dim, loc.anim, loc.colA, loc.colB, loc.warm, loc.patch, loc.tag, loc.weather, loc.tagH];
 
@@ -336,10 +355,10 @@ export function createClothLayer(gl) {
   const lineLen = (L, sx, sy, sz) => { let s = 0; for (const d of L.d) s += Math.hypot(d[0] * sx, d[1] * sy, d[2] * sz); return s / L.n; };
 
   // The paint atlas: a canvas windshield.js bakes once, re-uploaded only when its `ver` changes.
-  // ⚠ PREMULTIPLIED, AND MIPMAPPED TO LEVEL 3. Straight alpha filtered the clear round each letter
+  // ⚠ PREMULTIPLIED, AND MIPMAPPED TO LEVEL 4. Straight alpha filtered the clear round each letter
   // as black, which outlined every slogan in a dark fringe; the shader divides it back out. Without
-  // mips a 1024-wide atlas squeezed onto a tent at range shimmered. Past level 3 a texel spans two
-  // cells and the next slogan bleeds in.
+  // mips a 2048-wide atlas squeezed onto a tent at range shimmered. Past level 4 (512 px cells) a
+  // texel spans two cells and the next slogan bleeds in.
   let tagTex = null, tagVer = -1, tagGrid = [1, 1], tagAspect = 2;
   function atlasFrom(a) {
     if (!a || !a.canvas || a.ver === tagVer) return;
@@ -349,7 +368,7 @@ export function createClothLayer(gl) {
     gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, a.canvas);
     gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAX_LEVEL, 3);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAX_LEVEL, 4);
     gl.generateMipmap(gl.TEXTURE_2D);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
@@ -419,7 +438,7 @@ export function createClothLayer(gl) {
   function draw(cam, cssH, opts = {}) {
     if (!n) return 0;
     gl.useProgram(prog); applyLinOut(gl, prog);
-    gl.uniformMatrix4fv(loc.viewProj, false, viewProjMatrix(cam, cssH, opts.near, opts.far));
+    gl.uniformMatrix4fv(loc.viewProj, false, opts.vp || viewProjMatrix(cam, cssH, opts.near, opts.far));
     const f = opts.fog;
     gl.uniform3f(loc.fog, f ? f.col[0] : 0, f ? f.col[1] : 0, f ? f.col[2] : 0);
     gl.uniform1f(loc.fogNear, f ? f.near : 1e9);
@@ -449,13 +468,18 @@ export function createClothLayer(gl) {
     gl.uniform1f(loc.toonBands, opts.toonBands > 0 ? opts.toonBands : 3);
     gl.uniform1f(loc.bands, CLOTH_BANDS.length);
     gl.uniform1f(loc.frames, CLOTH_FRAMES);
+    // The ink, bound on every draw to the lines or to nothing (context.js's rule for its unit 7).
+    const K = opts.ink;
+    gl.uniform1f(loc.inkStr, K && K.tex ? K.str : 0);
+    gl.activeTexture(gl.TEXTURE0 + INK_UNIT); gl.bindTexture(gl.TEXTURE_2D, K ? K.tex : null); gl.uniform1i(loc.ink, INK_UNIT);
+    if (K) { gl.uniform4f(loc.inkFade, K.fade[0], K.fade[1], K.fade[2], K.fade[3]); gl.uniform3f(loc.inkCol, K.col[0], K.col[1], K.col[2]); gl.uniform2f(loc.viewport, K.W, K.H); }
     gl.activeTexture(gl.TEXTURE0 + TAG_UNIT);
     gl.bindTexture(gl.TEXTURE_2D, tagTex);
     gl.enable(gl.DEPTH_TEST);
     gl.depthMask(true);
     gl.disable(gl.CULL_FACE);
-    gl.enable(gl.BLEND);
-    gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+    if (opts.depthOnly) { gl.disable(gl.BLEND); gl.colorMask(false, false, false, false); }
+    else { gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA); }
     let tris = 0;
     for (const k in meshes) {
       const M = meshes[k];
@@ -468,6 +492,9 @@ export function createClothLayer(gl) {
       tris += (M.count / 3) * M.n;
     }
     gl.bindVertexArray(null);
+    if (opts.depthOnly) gl.colorMask(true, true, true, true);
+    gl.activeTexture(gl.TEXTURE0 + INK_UNIT);
+    gl.bindTexture(gl.TEXTURE_2D, null);
     gl.activeTexture(gl.TEXTURE0 + POS_UNIT);
     gl.bindTexture(gl.TEXTURE_2D, null);
     gl.activeTexture(gl.TEXTURE0 + TAG_UNIT);
@@ -476,7 +503,10 @@ export function createClothLayer(gl) {
     return tris;
   }
 
-  return { upload, draw, get instances() { return n; } };
+  // The tents into the ink lines' depth prepass (gl/ssao.js), with that pass's own matrix.
+  const drawDepth = (vp, cam) => draw(cam, 0, { vp, depthOnly: true });
+
+  return { upload, draw, drawDepth, get instances() { return n; } };
 }
 
 declareProgram(VERT, FRAG);
