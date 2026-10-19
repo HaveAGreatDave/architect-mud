@@ -4,19 +4,22 @@
  * The textures the players wear (gl/ballplayer-mesh.js maps them):
  *
  *   kitAtlas   2048², a jersey in each of 28 slots of 512×256 (the cast's slots, diamond/cast.js)
- *              with the club's nickname across the chest and the man's number on the back, and in
- *              the last row each side's trousers and socks;
- *   logoAtlas  512×256, each side's monogram for the cap and the helmet, on clear;
+ *              with the club's wordmark or nickname across the chest and the man's number on the
+ *              back, and in the last row each side's trousers and socks;
+ *   logoAtlas  512×256, each side's badge for the cap and the helmet, on clear: its crest's small
+ *              drawing, or the house kit's monogram;
  *   leather, wood, mask: the gloves, the bat, the masks' bars.
  *
- * Until the clubs bring their own identities (Phase 5 of docs/proposals/deadball-glass2.md) the
- * home side wears cream with navy pinstripes and the away side grey with black and rust
- * (KITS in gl/ballplayer-mesh.js); the words on them are the clubs' own.
+ * A side whose club has an identity (sports_pools.clubs) wears its own kit, home at home and road
+ * away, with its wordmark across the chest and its crest's small drawing on the cap and helmet
+ * (sideKit in gl/ballplayer-mesh.js). Any other side wears the house kit: cream with navy
+ * pinstripes at home, grey with black and rust away, its nickname on the chest.
  *
  * DOM only for the canvases: nothing here reads the page.
  */
 
-import { KITS, kitCell, KIT_PANTS, KIT_SOCKS } from '../gl/ballplayer-mesh.js';
+import { KITS, sideKit, kitCell, KIT_PANTS, KIT_SOCKS } from '../gl/ballplayer-mesh.js';
+import { paintCrest } from '../club-crest.js';
 
 const SERIF = '"FreeSerif", Georgia, "Times New Roman", serif';
 const SANS = '"FreeSans", "Arial Narrow", Arial, sans-serif';
@@ -27,16 +30,44 @@ const canvasOf = (doc, w, h) => { const c = doc.createElement('canvas'); c.width
 // A club's nickname, the last word of its name: "Precinct 9 Enforcers" wears ENFORCERS.
 export const nicknameOf = (name) => String(name || '').trim().split(/\s+/).filter(Boolean).pop() || '';
 
+const kitOf = (kit) => (typeof kit === 'string' ? KITS[kit] || KITS.home : kit || KITS.home);
+// Flannel at a distance: a light and dark speckle over the cloth.
+function flannel(g, W, H, seed) {
+  const r = rng(seed);
+  for (let i = 0; i < 2200; i++) { g.fillStyle = r() < 0.5 ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'; g.fillRect(r() * W, r() * H, 1, 1); }
+}
+// A club's own jersey: its wordmark arched across the chest (serif at home, block on the road),
+// the placket piped in its trim, its number on the back in its two number colours.
+function paintClubJersey(g, K, num, W, H, seed) {
+  if (K.fabric === 'flannel') flannel(g, W, H, seed);
+  g.fillStyle = K.ink; g.fillRect(126, 0, 4, H); g.fillStyle = K.trim; g.fillRect(130, 0, 1.5, H); g.fillRect(124.5, 0, 1.5, H);
+  // the arch keeps to the front of the shirt, 63 texels either side of the placket (wider wraps
+  // round the ribs), so a long word sets its letters closer and smaller
+  const word = K.wordmark.toUpperCase().slice(0, 10), road = K.sig.startsWith('away:'), n = word.length;
+  const half = 63 * Math.min(1, (n - 1) / 4), gap = n > 1 ? (2 * half) / (n - 1) : 0, px = Math.round(Math.min(34, gap ? gap * 1.6 : 34));
+  g.font = road ? `bold ${px}px ${SANS}` : `bold ${px + 2}px ${SERIF}`; g.textAlign = 'center'; g.lineJoin = 'round';
+  for (let i = 0; i < n; i++) {
+    const t = n > 1 ? (i - (n - 1) / 2) * gap / 190 : 0, cx = 128 + t * 190, cy = 102 - Math.cos(t * 2.2) * 13;
+    g.save(); g.translate(cx, cy); g.rotate(t * 0.55);
+    g.lineWidth = Math.max(2.5, px * 0.15); g.strokeStyle = K.trim; g.strokeText(word[i], 0, 0); g.fillStyle = K.ink; g.fillText(word[i], 0, 0);
+    g.restore();
+  }
+  const [fill, edge] = K.number;
+  g.font = `bold 95px ${SANS}`; g.textAlign = 'center'; g.lineJoin = 'round';
+  g.lineWidth = 8; g.strokeStyle = edge || K.trim; g.strokeText(num, 384, 165); g.fillStyle = fill || K.ink; g.fillText(num, 384, 165);
+}
+
 // One jersey into a 512×256 rect at (x, y): the chest a quarter of the way across, the back
-// three quarters, the collar at the top.
-export function paintJersey(g, x, y, side, nickname, number) {
-  const K = KITS[side] || KITS.home, W = 512, H = 256;
+// three quarters, the collar at the top. `kit` is sideKit's, or a side for its house kit.
+export function paintJersey(g, x, y, kit, nickname, number) {
+  const K = kitOf(kit), W = 512, H = 256;
   g.save();
   g.beginPath(); g.rect(x, y, W, H); g.clip();
   g.translate(x, y);
   g.fillStyle = K.base; g.fillRect(0, 0, W, H);
   const num = String(number ?? '');
-  if (side === 'home') {
+  if (!K.house) paintClubJersey(g, K, num, W, H, (Number(number) || 0) * 7 + 3);
+  else if (K === KITS.home) {
     g.fillStyle = 'rgba(22,38,74,0.85)';
     for (let px = 1.5; px < W; px += 7.5) g.fillRect(px, 0, 1, H);
     g.fillStyle = K.ink; g.fillRect(127, 0, 3, H);
@@ -71,18 +102,19 @@ export function paintJersey(g, x, y, side, nickname, number) {
   g.fillStyle = grd; g.fillRect(0, 0, W, H);
   g.restore();
 }
-function paintPants(g, x, y, side) {
-  const K = KITS[side] || KITS.home;
+function paintPants(g, x, y, kit) {
+  const K = kitOf(kit);
   g.save(); g.beginPath(); g.rect(x, y, 512, 256); g.clip(); g.translate(x, y);
-  g.fillStyle = K.base; g.fillRect(0, 0, 512, 256);
-  if (side === 'home') { g.fillStyle = 'rgba(22,38,74,0.8)'; for (let px = 2; px < 512; px += 7.5) g.fillRect(px, 0, 1, 256); }
+  g.fillStyle = K.house ? K.base : K.pants; g.fillRect(0, 0, 512, 256);
+  if (!K.house && K.fabric === 'flannel') flannel(g, 512, 256, 11);
+  if (K === KITS.home) { g.fillStyle = 'rgba(22,38,74,0.8)'; for (let px = 2; px < 512; px += 7.5) g.fillRect(px, 0, 1, 256); }
   else { g.fillStyle = K.ink; g.fillRect(122, 0, 10, 256); g.fillRect(378, 0, 10, 256); g.fillStyle = K.trim; g.fillRect(132, 0, 4, 256); g.fillRect(388, 0, 4, 256); }
   g.restore();
 }
-function paintSocks(g, x, y, side) {
-  const K = KITS[side] || KITS.home;
+function paintSocks(g, x, y, kit) {
+  const K = kitOf(kit);
   g.save(); g.beginPath(); g.rect(x, y, 512, 256); g.clip(); g.translate(x, y);
-  g.fillStyle = K.ink; g.fillRect(0, 0, 512, 256);
+  g.fillStyle = K.house ? K.ink : K.stirrups; g.fillRect(0, 0, 512, 256);
   g.fillStyle = K.trim; g.fillRect(0, 70, 512, 22); g.fillStyle = '#f0efe8'; g.fillRect(0, 96, 512, 10); g.fillStyle = K.trim; g.fillRect(0, 110, 512, 12);
   // the stirrup cut: the white sanitary sock showing through near the foot
   g.fillStyle = '#ecebe4';
@@ -91,41 +123,50 @@ function paintSocks(g, x, y, side) {
 }
 const cellRect = (c) => [Math.round(c[0] * KIT_SIZE), Math.round(c[1] * KIT_SIZE)];
 
+// The kits the two sides wear tonight, for `teams` ({ home, away } names).
+export const kitsFor = (teams) => ({ home: sideKit('home', teams?.home), away: sideKit('away', teams?.away) });
+
 // The whole kit atlas for a cast: `teams` is { home, away } names; `cast` is diamond/cast.js's.
-// Returns the canvas and a key per slot, so a later cast repaints only the slots that changed.
+// Returns the canvas and a key per slot, so a later cast repaints only the slots that changed,
+// and a side's trousers and socks only when its kit does.
 export function paintKitAtlas(doc, cast, teams, into = null) {
   const c = into || canvasOf(doc, KIT_SIZE, KIT_SIZE), g = c.getContext('2d');
   const keys = into && into.__keys ? into.__keys : new Array(28).fill(null);
-  const dirty = [];
-  if (!into) {
-    g.fillStyle = '#808080'; g.fillRect(0, 0, KIT_SIZE, KIT_SIZE);
-    for (const side of ['home', 'away']) {
-      paintPants(g, ...cellRect(KIT_PANTS[side]), side);
-      paintSocks(g, ...cellRect(KIT_SOCKS[side]), side);
-    }
-    dirty.push([0, KIT_SIZE * 7 / 8, KIT_SIZE, KIT_SIZE / 8]);
+  const legs = into && into.__legs ? into.__legs : {};
+  const dirty = [], wear = kitsFor(teams);
+  if (!into) { g.fillStyle = '#808080'; g.fillRect(0, 0, KIT_SIZE, KIT_SIZE); }
+  for (const side of ['home', 'away']) {
+    if (legs[side] === wear[side].sig) continue;
+    legs[side] = wear[side].sig;
+    const p = cellRect(KIT_PANTS[side]), s = cellRect(KIT_SOCKS[side]);
+    paintPants(g, ...p, wear[side]);
+    paintSocks(g, ...s, wear[side]);
+    dirty.push([...p, 512, 256], [...s, 512, 256]);
   }
   for (const m of cast || []) {
     const side = m.look.side, slot = m.look.slot;
     if ((side !== 'home' && side !== 'away') || m.look.role === 'crew') continue;
-    const nick = nicknameOf(teams?.[side]), key = `${side}|${nick}|${m.look.number}`;
+    const nick = nicknameOf(teams?.[side]), key = `${wear[side].sig}|${nick}|${m.look.number}`;
     if (keys[slot] === key) continue;
     keys[slot] = key;
     const [x, y] = cellRect(kitCell(slot));
-    paintJersey(g, x, y, side, nick, m.look.number);
+    paintJersey(g, x, y, wear[side], nick, m.look.number);
     dirty.push([x, y, 512, 256]);
   }
   c.__keys = keys;
+  c.__legs = legs;
   return { canvas: c, dirty };
 }
 
-// Each side's monogram, the first letter of its nickname: the home side's in script, the away
-// side's in block, on clear.
+// What each side wears on its cap and helmet, on clear: a club's crest in its small drawing, or
+// the house kit's monogram, the first letter of the nickname (script at home, block away).
 export function paintLogos(doc, teams) {
-  const c = canvasOf(doc, 512, 256), g = c.getContext('2d');
+  const c = canvasOf(doc, 512, 256), g = c.getContext('2d'), wear = kitsFor(teams);
   g.clearRect(0, 0, 512, 256);
   for (const [i, side] of [[0, 'home'], [1, 'away']]) {
-    const K = KITS[side], t = (nicknameOf(teams?.[side])[0] || (side === 'home' ? 'H' : 'A')).toUpperCase();
+    const K = wear[side];
+    if (!K.house && paintCrest(g, K.club, 128 + i * 256, 128, 232, { small: true })) continue;
+    const t = (nicknameOf(teams?.[side])[0] || (side === 'home' ? 'H' : 'A')).toUpperCase();
     g.font = side === 'home' ? `italic bold 200px ${SERIF}` : `bold 190px ${SANS}`;
     g.textAlign = 'center'; g.textBaseline = 'middle'; g.lineJoin = 'round';
     g.lineWidth = 14; g.strokeStyle = '#f2f0e8'; g.strokeText(t, 128 + i * 256, 136);

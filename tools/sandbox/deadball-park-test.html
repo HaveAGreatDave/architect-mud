@@ -36,6 +36,7 @@
   server's way (client/shared/skyline-manifest.js) over the flight sim's baked world
   (client/game/flightsim-world.json), so it can trail the live map by a bake; ?city=0
   leaves it out, and ?hud=0 hides the graphics so the picture can be judged on its own.
+  ?clubs=0 leaves the league's clubs out, so both sides wear the house kits.
   ?tier= starts the picture on a tier (full, laptop or phone, diamond/quality.js) instead of the
   one the screen picks; the governor still steps it down when frames come slow.
   The season the payloads' lines and leaders come from is a few dozen games between the
@@ -105,6 +106,7 @@
     import { createGamedayView } from '../../client/game/js/panels/gameday.js';
     import { createGrandstandView } from '../../client/game/js/panels/gameday-grandstand.js';
     import { setVenue } from '../../client/game/js/panels/venue.js';
+    import { setClubs } from '../../client/game/js/panels/club-crest.js';
     import { skylineFrom } from '../../client/shared/skyline-manifest.js';
 
     const Q = new URLSearchParams(location.search);
@@ -320,6 +322,11 @@
       setVenue('baseball', 'sandbox', { ...venue, skyline: skylineFrom(zones, venue.site, { radius: 40 }) });
     }
     if (Q.get('park') === '3d' && Q.get('city') !== '0') loadVenue().catch((err) => console.warn('[sandbox] no city:', err && err.message));
+    // The league's clubs as the server sends them (tv_clubs): a club with an identity wears its
+    // kit and crest, the rest the house kits. ?clubs=0 leaves them out, so every side is in house kit.
+    if (Q.get('clubs') !== '0') fetch('../../content/media_broadcasts/bc_1783289744953.json').then((r) => r.json())
+      .then((row) => { if (row?.sports_pools?.clubs) setClubs('baseball', 'sandbox', row.sports_pools.clubs); })
+      .catch((err) => console.warn('[sandbox] no clubs:', err && err.message));
 
     script = await loadScript();
     const q = Q;

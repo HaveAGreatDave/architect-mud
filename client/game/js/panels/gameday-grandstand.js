@@ -43,6 +43,7 @@
 
 import { createGamedayView, GAMEDAY_CARDS, pitchText, cardText } from './gameday.js';
 import { venueOf, onVenue } from './venue.js';
+import { clubOf, onClubs } from './club-crest.js';
 import { addFullscreenButton, leaveFullscreen } from './view-fullscreen.js';
 import { prefersReducedMotion, playByPlayOn } from '../../../shared/settings.js';
 
@@ -57,10 +58,23 @@ function _esc(s) { return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '
 
 // The ads round the bowl behind the plate.
 const ADS = ['KSAB-TV', 'DEADBALL', 'COLDWATER', 'KSAB-TV'];
-// The two clubs on tonight wear their kits' colours on the graphics too (gl/ballplayer-mesh.js
-// KITS: teal trim at home, rust away). The rest of the league's come off their names until the
-// clubs bring their own (Phase 5).
+// The two clubs on tonight wear their kits' colours on the graphics too, top and bottom, home kit
+// at home and road away, as the players wear them (sideKit in gl/ballplayer-mesh.js, which this
+// stays off to keep the park's modules lazy). A club with an identity: on top its kit's ink when
+// the ink is a colour and its trim when the ink is near black or grey, under it the darkest of
+// its ink, base and cap. Any other club: the house kit's teal at home and rust away. The rest of
+// the league's come off their names (diamond/hud.js).
 const SIDE_COLOURS = { home: ['#36c4c4', '#145f63'], away: ['#e0702e', '#7c2f10'] };
+const rgbOf = (h) => { const n = parseInt(String(h).slice(1, 7), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
+const chroma = (h) => { const c = rgbOf(h); return (Math.max(...c) - Math.min(...c)) / 255; };
+const lum = (h) => { const [r, g, b] = rgbOf(h); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
+function sideColours(side, team) {
+  const s = side === 'away' ? 'away' : 'home', own = team ? clubOf(team, 'baseball')?.kit?.[s === 'away' ? 'road' : 'home'] : null;
+  if (!own || !own.ink || !own.trim) return SIDE_COLOURS[s];
+  const top = chroma(own.ink) > 0.3 ? own.ink : own.trim;
+  const under = [own.ink, own.base, own.cap].filter((c) => c && c !== top).sort((a, b) => lum(a) - lum(b))[0] || own.ink;
+  return [top, under];
+}
 // A hex colour as linear light, for the champions' confetti.
 const linear = (hex) => [0, 2, 4].map((i) => { const c = parseInt(hex.slice(1 + i, 3 + i), 16) / 255; return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); });
 // A final: how long the last out's frame is held before the champions' finish (ms), how long a
@@ -93,7 +107,7 @@ export function createGrandstandView(host, opts = {}) {
   if (!opts.force && !grandstandOn(win)) return createGamedayView(host);
 
   let flat = null;              // the 2-D view, once the 3-D one has given way to it
-  let R = null, hud = null, canvas = null, mounted = false, modsP = null, mods = null, ro = null, raf = 0, unVenue = null;
+  let R = null, hud = null, canvas = null, mounted = false, modsP = null, mods = null, ro = null, raf = 0, unVenue = null, unClubs = null, dressed = null;
   // the picture's quality (diamond/quality.js): the tier the screen starts on, and the governor that
   // steps it down a rung when frames come slow and back up when they've been quick a while, fed the
   // time between frames while they run (`govAt`, the last one's)
@@ -161,7 +175,7 @@ export function createGrandstandView(host, opts = {}) {
     if (flat) return;
     if (why) console.warn('[grandstand] drawing in 2-D:', why);
     stopTimers(); stopLoop(); stopTable(); dropHolds(); stopWorld();
-    unVenue?.(); unVenue = null;
+    unVenue?.(); unVenue = null; unClubs?.(); unClubs = null; dressed = null;
     try { R?.dispose(); } catch { /* already gone */ }
     hud?.dispose();
     snd?.dispose(); snd = null;
@@ -194,7 +208,7 @@ export function createGrandstandView(host, opts = {}) {
   function theme() {
     return {
       bug: String(opts.station || '').toUpperCase().slice(0, 10),
-      colourOf: (team) => (team && team === S.homeTeam ? SIDE_COLOURS.home : team && team === S.awayTeam ? SIDE_COLOURS.away : null),
+      colourOf: (team) => (team && team === S.homeTeam ? sideColours('home', team) : team && team === S.awayTeam ? sideColours('away', team) : null),
     };
   }
   function mount() {
@@ -227,6 +241,7 @@ export function createGrandstandView(host, opts = {}) {
     // the city round the park: the venue this browser holds, then any newer one the server sends
     setCity();
     unVenue = onVenue((sport) => { if (sport === 'baseball') { setCity(); draw(); } });
+    unClubs = onClubs((sport) => { if (sport === 'baseball') redress(); });
     return true;
   }
   function setCity() {
@@ -355,8 +370,15 @@ export function createGrandstandView(host, opts = {}) {
   // Who's on the field for this payload, and the clubs whose kits they wear.
   function castFor(p) {
     const top = p.half === 'top', cast = mods.castOf(p);
-    R?.setCast(cast, { home: top ? p.fieldingTeam : p.battingTeam, away: top ? p.battingTeam : p.fieldingTeam });
+    dressed = { cast, teams: { home: top ? p.fieldingTeam : p.battingTeam, away: top ? p.battingTeam : p.fieldingTeam } };
+    R?.setCast(dressed.cast, dressed.teams);
     return cast;
+  }
+  // A club's kit arriving (club-crest.js) dresses the side on now in it, and its colours
+  // go on the graphics.
+  function redress() {
+    if (dressed && R) R.setCast(dressed.cast, dressed.teams);
+    paintHud(); draw();
   }
   // The camera button, beside the full-screen one: the pitches from behind the batter or from behind
   // the pitcher. A pitch on screen now cuts to the other at once; the next at-bat is shot from it.
@@ -603,7 +625,7 @@ export function createGrandstandView(host, opts = {}) {
       hold('champ', { team: e.winner, side, name: e.name || S.final?.name, score, mvp: e.mvp || null }, CHAMP_MS);
       say(mods.hud.champSaid(S.champ));
     });
-    const fx = mods.planChampion({ t, colour: linear(SIDE_COLOURS[side][0]), motion: !calm, seed: (p.inning | 0) * 977 + (S.hScore | 0) * 31 + (S.aScore | 0) });
+    const fx = mods.planChampion({ t, colour: linear(sideColours(side, side === 'home' ? S.homeTeam : S.awayTeam)[0]), motion: !calm, seed: (p.inning | 0) * 977 + (S.hScore | 0) * 31 + (S.aScore | 0) });
     D.fx = [...(D.fx || []), ...fx];
     D.until = Math.max(D.until || 0, ...fx.map(mods.fxEnd));
     roar.cheer(side === 'home' ? 0 : 1, 1, t, 8);
@@ -754,7 +776,7 @@ export function createGrandstandView(host, opts = {}) {
   function clear() {
     if (flat) { flat.clear(); flat = null; }
     stopTimers(); stopLoop(); stopTable(); dropHolds(); stopWorld();
-    unVenue?.(); unVenue = null;
+    unVenue?.(); unVenue = null; unClubs?.(); unClubs = null; dressed = null;
     ro?.disconnect(); ro = null;
     try { R?.dispose(); } catch { /* already gone */ }
     hud?.dispose();

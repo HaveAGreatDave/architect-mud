@@ -34,6 +34,7 @@ import { solvePose, mirrorPose, POSES, BONE, bindPoses } from '../diamond/rig.js
 export { solvePose, mirrorPose, POSES };
 import { headMesh, hairMesh, skullPoint, ZC as SKULL_ZC } from '../actor-head.js';
 import { FACE_LAYOUTS, actorFace, faceHair, faceLip } from '../actor-faces.js';
+import { clubOf } from '../club-crest.js';
 
 const TAU = Math.PI * 2;
 const add = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
@@ -54,12 +55,32 @@ export function hashStr(s) { let h = 2166136261; for (const ch of String(s)) { h
 const decode = (c) => (c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4));
 export const hex = (h) => { const n = parseInt(String(h).slice(1, 7), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((v) => decode(v / 255)); };
 
-// The kits until the clubs bring their own (Phase 5): home cream with navy pinstripes and teal,
-// away grey with black and rust.
+// The house kits, for a club with no identity of its own: home cream with navy pinstripes and
+// teal, away grey with black and rust.
 export const KITS = {
-  home: { base: '#f2f0e8', ink: '#16264a', trim: '#1d8a8c', cap: '#16264a', under: '#1d3b30', helmet: '#16264a', belt: '#16264a' },
-  away: { base: '#9a9da2', ink: '#17171a', trim: '#b04a1c', cap: '#17171a', under: '#2c2c2c', helmet: '#121214', belt: '#111111' },
+  home: { base: '#f2f0e8', ink: '#16264a', trim: '#1d8a8c', cap: '#16264a', under: '#1d3b30', helmet: '#16264a', belt: '#16264a', house: true, sig: 'house:home' },
+  away: { base: '#9a9da2', ink: '#17171a', trim: '#b04a1c', cap: '#17171a', under: '#2c2c2c', helmet: '#121214', belt: '#111111', house: true, sig: 'house:away' },
 };
+// The kit a side wears tonight. A club with an identity (sports_pools.clubs, held by
+// club-crest.js) wears its own, the home kit at home and the road kit away, with anything it
+// leaves out filled from the house kit; any other club wears the house kit. `sig` names the kit,
+// so the atlas and the bodies rebuild when a club's arrives; `club` carries the crest.
+const _worn = new WeakMap();
+export function sideKit(side, team) {
+  const s = side === 'away' ? 'away' : 'home', house = KITS[s];
+  const club = team ? clubOf(team, 'baseball') : null, own = club?.kit?.[s === 'away' ? 'road' : 'home'];
+  if (!own || typeof own !== 'object') return house;
+  let k = _worn.get(own);
+  if (!k || k.club !== club) {
+    k = { ...house, pants: own.base || house.base, stirrups: own.ink || house.ink, ...own, house: false, club };
+    k.bill = k.bill || k.cap;
+    k.number = Array.isArray(own.number) && own.number.length ? own.number : [k.ink, k.trim];
+    k.wordmark = String(own.wordmark || '').trim();
+    k.sig = `${s}:${hashStr(JSON.stringify(own) + '|' + JSON.stringify(club.crest?.small || club.crest?.layers || null))}`;
+    _worn.set(own, k);
+  }
+  return k;
+}
 export const SKINS = ['#e9c2a0', '#d9a77f', '#b77a52', '#8d5a3b', '#5e3a26', '#f0cdb0'];
 export const HAIRS = ['#1d1510', '#3a2416', '#5b3a1e', '#141414', '#7a5530', '#2a1c12'];
 
@@ -400,11 +421,11 @@ export const helmetBand = (flapSide) => (a) => 1.678 - 0.062 * (1 - Math.cos(a))
 // How far each bill drops at its tip, and the mask's bars from the brow to under the chin, in metres.
 export const BILL_DROP = Object.freeze({ cap: 0.012, helmet: 0.006 });
 export const MASK_SPAN = Object.freeze([1.705, 1.505]);
-function cap(G, W, s, look, col, under, cell) {
+function cap(G, W, s, look, col, under, cell, billTop = col) {
   const F = headFrame(W, look);
   skullShell(G, F, capBand, 0.011, { col, mat: MAT.CLOTH });
   ellipsoid(G, 'plain', toHead(F, [0, 1.7505 + 0.0125, SKULL_ZC]), [W.head[0], W.head[1], W.head[2]], [0.03 * s, 0.018 * s, 0.03 * s], 5, 8, col, MAT.CLOTH);
-  bill(G, F, capBand, 0.011, 0.074, 1.25, BILL_DROP.cap, col, under, MAT.CLOTH);
+  bill(G, F, capBand, 0.011, 0.074, 1.25, BILL_DROP.cap, billTop, under, MAT.CLOTH);
   if (cell != null) logoOn(G, F, capBand, 0.011, -0.42, 0.42, capBand(0) + 0.004, capBand(0) + 0.044, cell, MAT.CLOTH);
 }
 // The batting helmet: the shell comes down over the ear facing the pitcher and stops above the
@@ -464,10 +485,11 @@ const PLAIN = Object.freeze({
 
 // Builds one player into `G`'s batches. `pose` is a pose table entry with `at` and `yaw`; `look`
 // says who he is: { id, side ('home' | 'away'), role ('ump', 'crew', 'catcher', 'pitcher'...), slot
-// (his jersey's cell in the kit atlas), glove ('L' | 'R'), helmet, flapSide, mask, battingGloves }.
+// (his jersey's cell in the kit atlas), glove ('L' | 'R'), helmet, flapSide, mask, battingGloves,
+// kit (sideKit's; the house kit for his side when it's missing) }.
 export function buildPlayer(G, pose, look) {
   const { J, W, s } = solvePose(pose);
-  const plain = PLAIN[look.role] || null, ump = !!plain, side = look.side === 'away' ? 'away' : 'home', kit = KITS[side];
+  const plain = PLAIN[look.role] || null, ump = !!plain, side = look.side === 'away' ? 'away' : 'home', kit = look.kit || KITS[side];
   const navyU = hex(plain ? plain.shirt : '#1d2740'), greyU = hex(plain ? plain.pants : '#7d8186');
   const under = ump ? navyU : hex(kit.ink), trim = ump ? navyU : hex(kit.trim), skin = hex(look.skin);
   const jersey = G.skin ? KIT_REL : kitCell(look.slot ?? 0), pants = KIT_PANTS[side], socks = KIT_SOCKS[side];
@@ -495,7 +517,7 @@ export function buildPlayer(G, pose, look) {
   if (look.role === 'catcher') catcherGear(G, J, W, s, look, hex(kit.helmet));
   else if (ump) { cap(G, W, s, look, hex(plain.cap), hex(plain.capUnder), null); if (look.mask) mask(G, W, s, look); }
   else if (look.helmet) helmet(G, W, s, look, look.flapSide || 1, hex(kit.helmet), logo);
-  else cap(G, W, s, look, hex(kit.cap), hex(kit.under), logo);
+  else cap(G, W, s, look, hex(kit.cap), hex(kit.under), logo, hex(kit.bill || kit.cap));
   for (const S of ['L', 'R']) {
     // a hand on a bat holds the bat, glove or no glove
     G.cur = [[BONE[(J['grip' + S] ? 'fist' : 'hand') + S], 1]];

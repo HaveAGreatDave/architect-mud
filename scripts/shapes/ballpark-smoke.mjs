@@ -69,7 +69,8 @@ const PM = await import(P + 'gl/ballplayer-mesh.js');
 const { castOf, castKey, bodyKey, leadOff, crewDue, CREW_HOLD } = await import(P + 'diamond/cast.js');
 const { FACE } = await import(P + 'actor-head.js');
 const { FACE_LAYOUTS } = await import(P + 'actor-faces.js');
-const { MASK_BARS, nicknameOf } = await import(P + 'diamond/kits.js');
+const { MASK_BARS, nicknameOf, paintKitAtlas, paintLogos, kitsFor } = await import(P + 'diamond/kits.js');
+const { setClubs } = await import(P + 'club-crest.js');
 const { createGrandstandView } = await import(P + 'gameday-grandstand.js');
 
 let failures = 0, passes = 0;
@@ -652,6 +653,38 @@ for (const kind of ['sit', 'stand', 'cheer']) for (const far of [false, true]) {
   const onSecond = castOf({ ...p, basesBefore: [false, true, false], moves: [{ from: 2, to: 3, name: 'Halvorsen' }] }).find((c) => c.id === 'Halvorsen');
   check('cast: a runner keeps his body from bag to bag', onFirst && onSecond && bodyKey(onFirst) === bodyKey(onSecond) && onFirst.look.slot !== onSecond.look.slot);
   check('kits: a club wears its nickname', nicknameOf('Precinct 9 Enforcers') === 'Enforcers');
+  // a club with an identity wears its own kit, home at home and road away, filled from the house
+  // kit; a club without one, and every club before the set arrives, wears the house kit
+  {
+    const own = { base: '#efe9dc', ink: '#151113', trim: '#c8302c', cap: '#151113', wordmark: 'TESTERS' };
+    const club = { colours: ['#c8302c'], crest: { box: 100, layers: [{ d: 'M10 10L90 10L90 90Z', fill: '#c8302c' }], small: [{ d: 'M20 20L80 20L80 80Z', fill: '#151113' }] },
+      kit: { home: own, road: { ...own, base: '#8f9296', bill: '#c8302c', wordmark: 'TESTVILLE' } } };
+    const teams = { home: 'Test Testers', away: 'Plain Placeholders' };
+    check('kits: before the clubs arrive both sides wear the house kits', PM.sideKit('home', teams.home) === PM.KITS.home && PM.sideKit('away', teams.home) === PM.KITS.away);
+    setClubs('baseball', 'smoke', { [teams.home]: club });
+    const h = PM.sideKit('home', teams.home), r = PM.sideKit('away', teams.home), plain = PM.sideKit('away', teams.away);
+    check('kits: a club wears its home kit at home and its road kit away', !h.house && h.wordmark === 'TESTERS' && r.wordmark === 'TESTVILLE' && r.base === '#8f9296' && h.sig !== r.sig);
+    check('kits: what a club leaves out comes from the house kit', h.helmet === PM.KITS.home.helmet && h.bill === own.cap && r.bill === '#c8302c' && h.pants === own.base && h.number.length === 2);
+    check('kits: a club with no identity wears the house kit', plain === PM.KITS.away);
+    const wear = kitsFor(teams), cast = castOf(p).filter((c) => c.look.role !== 'ump' && c.look.role !== 'crew');
+    check('kits: a cast is dressed in its clubs\' kits', wear.home === h && wear.away === plain);
+    // the cap's colour follows the kit: the same man, house and club, builds differently
+    const m = cast.find((c) => c.look.side === 'home' && !c.look.helmet && c.look.role !== 'catcher');
+    if (m) {
+      const colours = (kit) => { const G1 = PM.createPlayerSet(); PM.buildPlayer(G1, Object.assign(PM.POSES.stand(), { at: [0, 0, 0], yaw: 0 }), PM.lookOf({ ...m.look, ...(kit ? { kit } : {}) })); return [...G1.batches.get('plain').data.subarray(0, G1.batches.get('plain').n * M.STRIDE)].join(); };
+      check('kits: a body built in a club\'s kit is coloured by it', colours(h) !== colours(null) && colours(PM.KITS.home) === colours(null));
+    }
+    let threw = null, atlas = null;
+    try {
+      atlas = paintKitAtlas(document, cast, { home: 'Plain Placeholders', away: 'Plain Placeholders' });
+      const again = paintKitAtlas(document, cast, teams, atlas.canvas);
+      check('kits: a club\'s kit arriving repaints its side\'s jerseys and legs, and only its side\'s', again.dirty.length === cast.filter((c) => c.look.side === 'home').length + 2, `${again.dirty.length} rects`);
+      check('kits: the same kits again repaint nothing', paintKitAtlas(document, cast, teams, atlas.canvas).dirty.length === 0);
+      paintLogos(document, teams);
+    } catch (e) { threw = e.message; }
+    check('kits: the atlas and the badges paint in a club\'s kit', !threw, threw);
+    setClubs('baseball', '', {});
+  }
   // faces: the same twice, never a makeup layout, and no ballplayer past forty
   let unstable = 0, makeup = 0, old = 0;
   for (let i = 0; i < 300; i++) {

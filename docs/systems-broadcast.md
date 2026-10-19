@@ -1602,9 +1602,20 @@ about 5 KB. Regress holds every Deadball club under 24 KB.
 **How it reaches a viewer.** Every Gameday payload carries `clubsRev` (`clubsRevOf`, now in
 `sports/clubs.js` and shared by both sports), and the client asks with `tv_clubs` as it does
 for hockey. The crest shows on the score bug, both standings tables and the matchup cards;
-`_crest` in `tv.js` looks a name up in either league's set. The players on the field still
-wear the house kits (home cream and teal, away grey and rust) and the Grandstand's graphics
-stay in those colours to match; dressing a side in its club's kit is the next step.
+`_crest` in `tv.js` looks a name up in either league's set.
+
+**What the players wear.** In the Grandstand a side whose club has an identity wears its own
+kit: the home kit at home and the road kit away, its `wordmark` arched across the chest, its
+`number` colours on the back, and the crest's `small` drawing on the cap and the helmet.
+`sideKit(side, team)` in `gl/ballplayer-mesh.js` picks it, filling anything the kit leaves
+out from the house kit; a club without an identity wears the house kit (home cream with navy
+pinstripes and teal, away grey with black and rust). `diamond/kits.js` paints the atlas from
+it, keyed on the kit's `sig`, and `gl/ballpark.js` keys each body on it too, so when the set
+arrives mid-game the Grandstand repaints and rebuilds the side wearing it. The graphics'
+two colours follow the worn kit: the kit's ink on top when the ink is a colour (its trim when
+the ink is black or grey), the darkest of ink, base and cap under it. Only `fabric:
+'flannel'` gets the speckled cloth. The 2-D Gameday's figures still wear the house colours.
+`tools/sandbox/deadball-park-test.html` loads the set from the row; `?clubs=0` leaves it out.
 
 ### Leagues (`sportsleague`)
 

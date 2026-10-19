@@ -37,7 +37,7 @@ import { SKIN_GLSL, createBonePalette } from './skin.js';
 import { bodyKey } from '../diamond/cast.js';
 // the view loads this module lazily and takes the cast from it, so the 2-D path never fetches it
 export { castOf } from '../diamond/cast.js';
-import { paintKitAtlas, paintLogos, paintLeather, paintWood, paintMask } from '../diamond/kits.js';
+import { paintKitAtlas, paintLogos, paintLeather, paintWood, paintMask, kitsFor } from '../diamond/kits.js';
 import { FACE_GLSL, FACE_ATLAS } from '../actor-faces.js';
 import { HAIRLINE_GLSL } from '../actor-head.js';
 import { buildCityscape, FACADE_GLSL, STREET_GLSL, LIGHT_STRIDE } from './cityscape.js';
@@ -831,17 +831,22 @@ export function createBallparkRenderer(canvas, opts = {}) {
         }
         gl.generateMipmap(T2);
       }
-      const lk = `${teams?.home}|${teams?.away}`;
+      // what each side wears (its club's kit, or the house kit): the caps' badges and the bodies'
+      // colours follow it, so a club's kit arriving mid-game repaints and rebuilds its side
+      const wear = kitsFor(teams);
+      const lk = `${teams?.home}|${teams?.away}|${wear.home.sig}|${wear.away.sig}`;
       if (lk !== logoKey) {
         logoKey = lk;
         if (TEX.logo) gl.deleteTexture(TEX.logo);
         TEX.logo = texture(paintLogos(doc, teams), { repeat: false });
       }
+      const kitOf = (c) => (c.look.role === 'ump' || c.look.role === 'crew' ? null : wear[c.look.side === 'away' ? 'away' : 'home']);
+      const keyOf = (c) => { const k = kitOf(c); return k ? `${bodyKey(c)}|${k.sig}` : bodyKey(c); };
       // who stays, who goes, who's to be built
-      const want = new Map(cast.map((c) => [bodyKey(c), c]));
+      const want = new Map(cast.map((c) => [keyOf(c), { ...c, kit: kitOf(c) }]));
       for (const [k, body] of bodies) if (!want.has(k)) { dropBody(body); bodies.delete(k); }
       queue = [...want].filter(([k]) => !bodies.has(k));
-      members = cast.map((c) => ({ key: bodyKey(c), slot: c.look.slot }));
+      members = cast.map((c) => ({ key: keyOf(c), slot: c.look.slot }));
       HA.fill(0); HB.fill(0); HC.fill(0); HD.fill(0);
       for (const c of cast) {
         const look = lookOf({ ...c.look });
@@ -859,7 +864,7 @@ export function createBallparkRenderer(canvas, opts = {}) {
       while (queue.length && performance.now() - t0 < budget) {
         const [key, c] = queue.shift();
         const G = createPlayerSet({ skin: true });
-        buildBody(G, lookOf({ ...c.look, scale: c.scale }));
+        buildBody(G, lookOf({ ...c.look, scale: c.scale, ...(c.kit ? { kit: c.kit } : {}) }));
         bodies.set(key, { batches: [...G.batches].map(([k, b]) => ({ key: k, ...uploadSkin(b) })) });
       }
       refreshCasters();
