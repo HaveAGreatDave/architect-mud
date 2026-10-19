@@ -23435,6 +23435,10 @@ globalThis.document?.addEventListener?.('visibilitychange', () => {
   RENDER_TUNE.gl = 1;
   console.info(`[windshield] back in view: trying GLASS 2 again (${GL_REVIVES}/${GL_REVIVE_MAX})`);
 });
+// Settings → Renderer (main.js `_applyGlass`). The player's own choice, so it clears GL_AUTO_OFF:
+// GLASS 1 picked is never revived onto GLASS 2 by the handler above, and GLASS 2 picked after an
+// auto-off is back on the next frame.
+export function setGlass(on) { RENDER_TUNE.gl = on ? 1 : 0; GL_AUTO_OFF = false; }
 // ── WHAT WAS THE RENDERER BEING TOLD? ───────────────────────────────────────
 // A picture is a question about the INPUT as often as about the code, and the input arrives from
 // four callers with fifty fields. "The runway band looks like it is above the ground" cannot be
@@ -24834,6 +24838,9 @@ if (typeof window !== 'undefined') {
   // Settings → Cel Shading (main.js `_applyCelShade`). The setting is applied at boot, before any
   // view has loaded this module, so it leaves its answer on window and it lands here.
   if (window.__celShadePending != null) { RENDER_TUNE.glToon = RENDER_TUNE.glInk = window.__celShadePending ? 1 : 0; }
+  // Settings → Renderer, the same way.
+  window.__setGlass = setGlass;
+  if (window.__glassPending != null) setGlass(window.__glassPending);
   // `.murmur` in the client lands here. It can be typed before any view has loaded this
   // module (it is lazy), so a request made earlier is left on window and picked up now.
   window.__murmuration = murmuration;

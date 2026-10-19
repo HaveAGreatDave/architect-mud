@@ -172,6 +172,17 @@ window._applyCelShade = (on) => {
 	window.__celShadePending = !!on;
 	if (window.__wsTune) window.__wsTune.glToon = window.__wsTune.glInk = on ? 1 : 0;
 };
+// Renderer (Settings → Renderer): GLASS 2 or GLASS 1, handed over the same way. Only a CHANGE is
+// passed on, because applySettings runs on every pill press: re-sending GLASS 2 then would undo
+// the switch-off GLASS 2 does on itself when it fails.
+let glassPicked = null;
+window._applyGlass = (on) => {
+	on = !!on;
+	if (on === glassPicked) return;
+	glassPicked = on;
+	window.__glassPending = on;
+	window.__setGlass?.(on);
+};
 // Interface Sounds (Settings → Accessibility): the click a button makes. On by default.
 window._applyUiSound = setUiSoundMode;
 initUiSound();

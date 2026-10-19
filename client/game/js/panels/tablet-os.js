@@ -6531,6 +6531,11 @@ const TOS_OPT_GROUPS = [
   { key: 'celShade', label: 'Cel Shading', opts: [
     { v: 'off', t: 'Off: the city as it is lit now', g: '◐' },
     { v: 'on', t: 'On: flat light and ink outlines', g: '✎' } ] },
+  // GLASS 2 or GLASS 1 for the 3-D views (main.js _applyGlass). GLASS 1 is the fallback for a
+  // machine that can't keep up, and it has no cel shading.
+  { key: 'glass', label: 'Renderer', opts: [
+    { v: '2', t: 'GLASS 2: the GPU renderer, lit and shadowed', g: 'G2', s: 'font-size:0.6875rem;letter-spacing:1px' },
+    { v: '1', t: 'GLASS 1: the 2-D painter, lighter on a slow machine', g: 'G1', s: 'font-size:0.6875rem;letter-spacing:1px' } ] },
   { key: 'dpadSize', label: 'D-Pad Size', mobileOnly: true, opts: [
     { v: 'small', t: 'Small', g: 'S' }, { v: 'medium', t: 'Medium', g: 'M' }, { v: 'large', t: 'Large', g: 'L' } ] },
   { key: 'tempUnit', label: 'Temp Units', opts: [

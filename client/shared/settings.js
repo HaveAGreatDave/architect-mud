@@ -6,7 +6,7 @@ export const DEFAULT_AUDIO_SETTINGS = { enabled: true, music: true, sfx: true, t
 // default look of the product; keep it in step with the inline boot script in
 // client/game/index.html, which sets the same value before any module loads so the
 // first paint isn't a different colour from the second.
-const DEFAULT_SETTINGS = { theme: 'iron', fontSize: '16', density: 'comfortable', sidebarPosition: 'left', motion: 'on', weatherFx: 'on', tempUnit: 'C', contrast: 0, dpadSize: 'small', pokerFelt: 'green', pokerFeltColor: '#1a4a1a', extraLore: 'off', mapOverlay: 'labels', mapColor: 'off', minimapRender: 'smooth', celShade: 'off', uiFont: 'mono', statusGlyphs: 'off', monoAudio: 'off', uiSound: 'on', dictation: 'off', logVoice: 'off', logVoiceRate: '1', playByPlay: 'on', audio: DEFAULT_AUDIO_SETTINGS };
+const DEFAULT_SETTINGS = { theme: 'iron', fontSize: '16', density: 'comfortable', sidebarPosition: 'left', motion: 'on', weatherFx: 'on', tempUnit: 'C', contrast: 0, dpadSize: 'small', pokerFelt: 'green', pokerFeltColor: '#1a4a1a', extraLore: 'off', mapOverlay: 'labels', mapColor: 'off', minimapRender: 'smooth', celShade: 'off', glass: '2', uiFont: 'mono', statusGlyphs: 'off', monoAudio: 'off', uiSound: 'on', dictation: 'off', logVoice: 'off', logVoiceRate: '1', playByPlay: 'on', audio: DEFAULT_AUDIO_SETTINGS };
 
 // ── The accessibility surface, declared once ─────────────────────────────────
 //
@@ -579,6 +579,11 @@ export function applySettings(settings) {
 
   // Cel shading in the 3-D views (RENDER_TUNE.glToon + glInk). Off by default. Same hook pattern.
   window._applyCelShade?.((settings.celShade || 'off') === 'on');
+
+  // Which renderer draws the 3-D views: GLASS 2 (the GPU, the default) or GLASS 1 (the 2-D
+  // painter). A real setting for the same reason Minimap is: GLASS 1 is the fallback for a
+  // machine GLASS 2 is too much for. Same hook pattern.
+  window._applyGlass?.((settings.glass || '2') !== '1');
 
   const audio = settings.audio || DEFAULT_AUDIO_SETTINGS;
   window.AudioEngine?.applyVolumeSettings(audio);
