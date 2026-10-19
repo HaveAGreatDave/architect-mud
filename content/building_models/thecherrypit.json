@@ -1,8 +1,8 @@
 {
   "adorn": [
     {
-      "cx": 0.15,
-      "cy": 0.54,
+      "cx": 0.1,
+      "cy": 0.42,
       "day": 0,
       "kind": "glowPool",
       "rgb": "255,40,80",
@@ -10,13 +10,31 @@
       "z": 0.01
     },
     {
-      "cx": -0.13,
-      "cy": 0.5,
+      "cx": -0.27,
+      "cy": 0.38,
       "day": 0,
       "kind": "glowPool",
       "rgb": "255,60,140",
       "s": 9,
       "z": 0.01
+    },
+    {
+      "cx": 0.33,
+      "cy": -0.12,
+      "day": 0,
+      "kind": "glowPool",
+      "rgb": "255,160,70",
+      "s": 11,
+      "z": 0.005
+    },
+    {
+      "cx": 0.28,
+      "cy": -0.22,
+      "day": 0.3,
+      "kind": "glowPool",
+      "rgb": "255,190,120",
+      "s": 4,
+      "z": 0.18
     }
   ],
   "basis": {
@@ -31,141 +49,259 @@
   ],
   "detail": [
     {
-      "cx": 0,
-      "cy": 0,
-      "half": 0.4,
-      "hh": 0.016,
+      "cx": -0.07,
+      "cy": -0.02,
+      "half": 0.335,
+      "hh": 0.014,
       "kind": "parapet",
       "pal": "ty_cherry_dk",
-      "z": 0.36
+      "z": 0.34
     },
     {
-      "bars": 1,
-      "cx": 0.15,
-      "cy": 0.49,
+      "bars": 5,
+      "cx": 0.1,
+      "cy": 0.385,
       "depth": 0.008,
       "door": 1,
-      "glass": "#3a0e18",
+      "glass": "#1c0a0e",
       "glow": "#ff5a86",
-      "half": 0.038,
-      "hh": 0.086,
+      "half": 0.04,
+      "hh": 0.085,
       "kind": "windowBay",
       "pal": "ty_precast_dk",
       "z": 0.088
     },
     {
-      "cx": 0.15,
-      "cy": 0.49,
-      "half": 0.085,
-      "hh": 0.008,
+      "cx": 0.1,
+      "cy": 0.385,
+      "half": 0.078,
+      "hh": 0.007,
       "kind": "canopy",
-      "out": 0.055,
-      "pal": "ty_cherry_dk",
+      "out": 0.048,
+      "pal": "ty_cherry",
       "soffit": "#2a0a10",
       "strip": "#ff4f7a",
-      "z": 0.205
-    },
-    {
-      "art": "cherrypit",
-      "cx": 0,
-      "cy": 0.43,
-      "half": 0.24,
-      "hh": 0.17,
-      "kind": "neonArt",
-      "z": 0.48
+      "z": 0.206
     },
     {
       "art": "livegirls",
-      "cx": -0.13,
-      "cy": 0.436,
+      "cx": -0.27,
+      "cy": 0.311,
       "half": 0.1,
-      "hh": 0.105,
+      "hh": 0.1,
       "kind": "neonArt",
-      "z": 0.155
+      "z": 0.2
     },
     {
       "art": "xxx",
-      "cx": 0.15,
-      "cy": 0.436,
-      "half": 0.07,
-      "hh": 0.042,
+      "cx": 0.1,
+      "cy": 0.311,
+      "half": 0.068,
+      "hh": 0.038,
       "kind": "neonArt",
-      "z": 0.258
-    },
-    {
-      "art": "xxx",
-      "cx": -0.14,
-      "cy": 0.4,
-      "face": "x",
-      "half": 0.1,
-      "hh": 0.06,
-      "kind": "neonArt",
-      "z": 0.24
-    },
-    {
-      "art": "xxx",
-      "cx": -0.14,
-      "cy": -0.4,
-      "face": "x",
-      "half": 0.1,
-      "hh": 0.06,
-      "kind": "neonArt",
-      "z": 0.24
+      "z": 0.29
     },
     {
       "color": "#ff2a5a",
-      "cx": 0,
-      "cy": 0.43,
-      "half": 0.26,
+      "cx": -0.07,
+      "cy": 0.337,
+      "half": 0.33,
       "kind": "neonRun",
-      "z": 0.664
+      "z": 0.4
+    },
+    {
+      "art": "cherrypit",
+      "cx": 0.31,
+      "cy": 0.336,
+      "half": 0.1,
+      "hh": 0.075,
+      "kind": "neonArt",
+      "z": 0.64
+    },
+    {
+      "color": "#161014",
+      "cx": 0.31,
+      "cy": 0.36,
+      "font": "condensed",
+      "half": 0.09,
+      "hh": 0.02,
+      "ink": "#efe6cf",
+      "kind": "signBoard",
+      "label": "ALL NUDE",
+      "nightInk": "#ffe0a0",
+      "z": 0.513
+    },
+    {
+      "color": "#161014",
+      "cx": 0.31,
+      "cy": 0.36,
+      "font": "condensed",
+      "half": 0.09,
+      "hh": 0.02,
+      "ink": "#efe6cf",
+      "kind": "signBoard",
+      "label": "AMAT UR NITE",
+      "nightInk": "#ffe0a0",
+      "z": 0.47
+    },
+    {
+      "color": "#161014",
+      "cx": 0.31,
+      "cy": 0.36,
+      "font": "condensed",
+      "half": 0.09,
+      "hh": 0.02,
+      "ink": "#efe6cf",
+      "kind": "signBoard",
+      "label": "NO COVER B4 9",
+      "nightInk": "#ffe0a0",
+      "z": 0.427
     },
     {
       "band": "#c8203c",
       "count": 4,
-      "cx": -0.06,
-      "cy": 0.52,
+      "cx": -0.12,
+      "cy": 0.37,
       "kind": "bollard",
       "pal": "ty_precast_dk",
       "step": 0.055,
       "z": 0
     },
     {
-      "cx": -0.37,
+      "cx": -0.0375,
+      "cy": 0.37,
+      "half": 0.0825,
+      "kind": "cableRun",
+      "pal": "ty_cherry",
+      "r": 0.0025,
+      "sag": 0.012,
+      "z": 0.034
+    },
+    {
+      "cx": 0.385,
+      "cy": -0.12,
+      "flip": true,
+      "kind": "streetLamp",
+      "out": 0.04,
+      "pal": "ty_precast_dk",
+      "r": 0.004,
+      "rgb": "255,168,72",
+      "s": 14,
+      "z0": 0,
+      "z1": 0.3
+    },
+    {
+      "bars": 1,
+      "cx": 0.22,
+      "cy": 0.26,
+      "depth": 0.006,
+      "door": 1,
+      "face": "x",
+      "glass": "#2a2426",
+      "glow": "#7a5a40",
+      "half": 0.034,
+      "hh": 0.08,
+      "kind": "windowBay",
+      "pal": "ty_precast_dk",
+      "z": 0.08
+    },
+    {
+      "cx": 0.3,
+      "cy": -0.15,
+      "d": 0.012,
+      "hh": 0.016,
+      "kind": "binStack",
+      "lid": "#c8203c",
+      "n": 2,
+      "pal": "ty_stack_dk",
+      "w": 0.012,
+      "z": 0
+    },
+    {
+      "cx": -0.04,
+      "cy": 0.26,
+      "face": "x",
+      "flights": 2,
+      "half": 0.075,
+      "kind": "fireEscape",
+      "out": 0.03,
+      "pal": "ty_dw_rust",
+      "z0": 0,
+      "z1": 0.34
+    },
+    {
+      "bars": 0,
+      "cx": -0.17,
+      "cy": 0.26,
+      "depth": 0.004,
+      "face": "x",
+      "glass": "#0e0809",
+      "glow": "#160c0e",
+      "half": 0.028,
+      "hh": 0.026,
+      "kind": "windowBay",
+      "pal": "ty_cherry_dk",
+      "z": 0.26
+    },
+    {
+      "cx": 0.1,
+      "cy": 0.26,
+      "face": "x",
+      "hh": 0.045,
+      "kind": "tag",
+      "n": 2,
+      "v": 3,
+      "w": 0.06,
+      "z": 0.13
+    },
+    {
+      "cx": 0,
+      "cy": 0.26,
+      "face": "x",
+      "kind": "grime",
+      "w": 0.33,
+      "z": 0.34
+    },
+    {
+      "art": "xxx",
+      "cx": -0.14,
+      "cy": -0.37,
+      "face": "x",
+      "half": 0.1,
+      "hh": 0.06,
+      "kind": "neonArt",
+      "z": 0.22
+    },
+    {
+      "cx": 0,
       "cy": -0.4,
+      "face": "x",
+      "kind": "grime",
+      "w": 0.33,
+      "z": 0.34
+    },
+    {
+      "cx": -0.37,
+      "cy": -0.36,
       "kind": "pipe",
       "pal": "ty_precast_dk",
       "r": 0.006,
       "z0": 0,
-      "z1": 0.36
+      "z1": 0.34
     },
     {
-      "cx": 0.24,
-      "cy": -0.4,
+      "cx": 0.12,
+      "cy": -0.36,
       "drip": 1,
       "hh": 0.035,
       "kind": "vent",
       "pal": "ty_precast_dk",
       "w": 0.05,
-      "z": 0.25
+      "z": 0.24
     },
     {
-      "bars": 1,
-      "cx": 0.12,
-      "cy": -0.4,
-      "depth": 0.006,
-      "door": 1,
-      "glass": "#2a2426",
-      "glow": "#6a5040",
-      "half": 0.04,
-      "hh": 0.085,
-      "kind": "windowBay",
-      "pal": "ty_precast_dk",
-      "z": 0.085
-    },
-    {
-      "cx": 0.26,
-      "cy": -0.42,
+      "cx": 0.14,
+      "cy": -0.38,
       "d": 0.024,
       "hh": 0.032,
       "kind": "binStack",
@@ -175,14 +311,29 @@
       "z": 0
     },
     {
-      "cx": 0.26,
-      "cy": -0.06,
+      "cx": 0,
+      "cy": -0.36,
+      "kind": "grime",
+      "w": 0.2,
+      "z": 0.34
+    },
+    {
+      "cx": -0.07,
+      "cy": 0.337,
+      "drip": 0.6,
+      "kind": "grime",
+      "w": 0.3,
+      "z": 0.42
+    },
+    {
+      "cx": 0.12,
+      "cy": 0.12,
       "d": 0.05,
       "hh": 0.03,
       "kind": "acUnit",
       "pal": "ty_precast_dk",
       "w": 0.06,
-      "z": 0.36
+      "z": 0.34
     },
     {
       "cx": -0.2,
@@ -192,128 +343,211 @@
       "kind": "acUnit",
       "pal": "ty_precast_dk",
       "w": 0.05,
-      "z": 0.515
+      "z": 0.475
     },
     {
-      "cx": 0,
-      "cy": 0.4,
-      "face": "x",
-      "kind": "grime",
-      "w": 0.26,
-      "z": 0.36
-    },
-    {
-      "cx": 0.2,
-      "cy": -0.4,
-      "kind": "grime",
-      "w": 0.12,
-      "z": 0.36
+      "cx": 0.19,
+      "cy": -0.02,
+      "d": 0.035,
+      "hh": 0.045,
+      "kind": "roofBulkhead",
+      "pal": "ty_cherry_dk",
+      "w": 0.04,
+      "z": 0.34
     }
   ],
   "id": "thecherrypit",
   "neon": "#ff2a5a",
-  "note": "THE CHERRY PIT, on the corner of Cinder Lane and Filament Street. The room description is the brief: a windowless block of breeze-block painted arterial red, a padded vinyl door, and a pink neon cherry over it that has lost its stem and half its lower curve. So the building is a plain one-storey hall with a stage block behind it, and every bit of noise is on one false front bolted across the street face: the cherry and the name at the top, LIVE GIRLS to the left of the door, XXX over it, and a queue rail on the pavement. All three signs are neonArt with flashers (client/shared/neon-signs.js); the cherry's stem and lower curve are dead glass, and the stem catches for a blink once a cycle.\n\nIt replaced a violet cross-plan with a chrome drum, which read as a casino and was the loudest thing on a street of brick terraces even by day. The walls here are dull on purpose: by day it is a red box you would walk past, and at night the front is the only thing on the corner.\n\n⚠ NO WINDOWS, AND THE KIT IS TOLD SO. `KIT_DECLINE.strip` shuts the kit's `wall` section (it glazed the hall) and its `signRoof` (a NIGHTCLUB hoarding on legs, repeating the cherry in a stranger's hand). `ty_cherry` is in BRICK_WALL for the same reason: FACADE_MAT would paint a window grid on it.\n\n⚠ THE FALSE FRONT IS ITS OWN BOX, proud of the hall by 0.03, so every sign on it sits on a wall that exists at that plane. A sign authored on the hall's face at 0.40 would be inside it.",
+  "note": "THE CHERRY PIT, on the corner of Cinder Lane and Filament Street. The room description is the brief: a windowless block painted arterial red, a padded vinyl door, and a pink neon cherry that has lost its stem and half its lower curve. It's a roadside strip club: a one-storey hall with a taller stage house behind it, a low sign fascia across the street face, and the loud part on a pole sign at the mouth of the side lot.\n\nThe street face, left to right: LIVE GIRLS on the corner, a queue of four posts and a sagging rope, and a steel porch with a barred cage door, a speakeasy hatch, a doorman's stool and a red awning with one end torn and hanging. XXX is over the porch and a pink tube runs along the top of the fascia. The pole carries the cherry and the name in a cabinet, and under it a black changeable-letter board: ALL NUDE / AMAT UR NITE / NO COVER B4 9, with the E gone. The name is on the pole and nowhere else.\n\nThe side lot (+x) is tarmac gone to gravel under one sodium lamp. The stage door is at the back of it with crates to sit on and a bulb over it, the skip is against the back, and a rusted fire stair climbs the flank to the roof hatch. Two blacked-out slots and a tag are on that flank as well.\n\n⚠ NO BRICK. `ty_cherry` and `ty_cherry_dk` are in PLAIN_WALL. In BRICK_WALL the hall read as tidy brickwork, and STUCCO's GPU relief reads as brick from the street too. The paint is flat and the grime parts do the weathering.\n\n⚠ NO WINDOWS, AND THE KIT IS TOLD SO. `KIT_DECLINE.strip` shuts the kit's `wall` section (it glazed the hall), its `signRoof` (a NIGHTCLUB hoarding repeating the cherry) and its `stair`.\n\n⚠ LIVE GIRLS IS ON THE LEFT CORNER ON PURPOSE. A free corner on the fascia gets the kit's 夜總會 trade blade, which would say the trade a fourth time.\n\n⚠ ON A FLANK (`face: 'x'`) A PART'S `cx` RUNS FRONT TO BACK THE OTHER WAY: on the +x flank a positive `cx` is toward the back. The stage door is at cx 0.22 for that reason.\n\n⚠ EVERY NEON PIECE IS ANCHORED 0.03 BEHIND ITS BACKING. neonArt bends its tubes 0.036 proud of the plane its `cy` names, so a `cy` on the backing's face floated the cherry clear of a cabinet 0.032 deep. Anchored 0.03 back, the tubes sit 0.006 off the board.\n\n⚠ THE LETTERBOARD IS BLACK WITH LIGHT LETTERS. A light board washed its own dark letters out at night.",
   "pal": "ty_cherry",
   "replaces": "strip",
   "segs": [
     {
-      "cx": 0,
-      "cy": 0,
-      "fd": 0.4,
-      "hw": 0.4,
+      "cx": -0.07,
+      "cy": -0.02,
+      "fd": 0.34,
+      "hw": 0.33,
       "kind": "box",
       "pal": "ty_cherry",
       "roof": true,
       "z0": 0,
-      "z1": 0.36
+      "z1": 0.34
     },
     {
-      "cx": -0.08,
-      "cy": -0.19,
-      "fd": 0.18,
-      "hw": 0.27,
+      "cx": -0.1,
+      "cy": -0.18,
+      "fd": 0.16,
+      "hw": 0.24,
       "kind": "box",
       "pal": "ty_cherry_dk",
       "roof": true,
       "z0": 0,
-      "z1": 0.5
+      "z1": 0.46
     },
     {
-      "cx": -0.08,
-      "cy": -0.19,
-      "fd": 0.19,
-      "hw": 0.28,
+      "cx": -0.1,
+      "cy": -0.18,
+      "fd": 0.17,
+      "hw": 0.25,
       "kind": "box",
       "pal": "ty_precast_dk",
       "roof": true,
-      "z0": 0.5,
-      "z1": 0.515
+      "z0": 0.46,
+      "z1": 0.475
     },
     {
-      "cx": 0,
-      "cy": 0.415,
-      "fd": 0.015,
-      "hw": 0.27,
+      "cx": -0.07,
+      "cy": 0.325,
+      "fd": 0.012,
+      "hw": 0.335,
       "kind": "box",
       "pal": "ty_cherry",
       "roof": true,
       "z0": 0,
-      "z1": 0.68
+      "z1": 0.42
     },
     {
-      "cx": 0,
-      "cy": 0.415,
-      "fd": 0.024,
-      "hw": 0.28,
+      "cx": -0.07,
+      "cy": 0.325,
+      "fd": 0.02,
+      "hw": 0.345,
       "kind": "box",
       "pal": "ty_cherry_dk",
       "roof": true,
-      "z0": 0.68,
-      "z1": 0.6980000000000001
+      "z0": 0.42,
+      "z1": 0.432
     },
     {
-      "cx": 0.15,
-      "cy": 0.46,
+      "cx": 0.1,
+      "cy": 0.355,
       "fd": 0.03,
       "hw": 0.065,
       "kind": "box",
-      "pal": "ty_cherry_dk",
+      "pal": "ty_precast_dk",
       "roof": true,
       "z0": 0,
       "z1": 0.2
     },
     {
-      "cx": 0.15,
-      "cy": 0.5,
-      "fd": 0.012,
+      "cx": 0.1,
+      "cy": 0.392,
+      "fd": 0.008,
       "hw": 0.07,
       "kind": "box",
       "pal": "ty_precast_dk",
       "roof": true,
       "z0": 0,
-      "z1": 0.012
+      "z1": 0.01
     },
     {
-      "cx": -0.13,
-      "cy": 0.433,
+      "cx": 0.1,
+      "cy": 0.388,
+      "fd": 0.004,
+      "hw": 0.016,
+      "kind": "box",
+      "pal": "ty_stack_dk",
+      "roof": true,
+      "z0": 0.128,
+      "z1": 0.148
+    },
+    {
+      "cx": 0.158,
+      "cy": 0.432,
+      "fd": 0.002,
+      "hw": 0.018,
+      "kind": "box",
+      "pal": "ty_cherry",
+      "roof": true,
+      "z0": 0.168,
+      "z1": 0.204
+    },
+    {
+      "cx": 0.2,
+      "cy": 0.37,
+      "fd": 0.009,
+      "hw": 0.009,
+      "kind": "box",
+      "pal": "ty_precast_dk",
+      "roof": true,
+      "z0": 0,
+      "z1": 0.034
+    },
+    {
+      "cx": -0.27,
+      "cy": 0.338,
       "fd": 0.003,
       "hw": 0.1,
       "kind": "box",
       "pal": "ty_stack_dk",
       "roof": true,
-      "z0": 0.052,
-      "z1": 0.258
+      "z0": 0.1,
+      "z1": 0.3
     },
     {
-      "cx": 0.15,
-      "cy": 0.433,
+      "cx": 0.1,
+      "cy": 0.338,
       "fd": 0.003,
-      "hw": 0.072,
+      "hw": 0.07,
       "kind": "box",
       "pal": "ty_stack_dk",
       "roof": true,
-      "z0": 0.214,
-      "z1": 0.302
+      "z0": 0.25,
+      "z1": 0.33
+    },
+    {
+      "cx": 0.31,
+      "cy": 0.35,
+      "fd": 0.009,
+      "hw": 0.009,
+      "kind": "box",
+      "pal": "ty_precast_dk",
+      "roof": true,
+      "z0": 0,
+      "z1": 0.56
+    },
+    {
+      "cx": 0.31,
+      "cy": 0.35,
+      "fd": 0.016,
+      "hw": 0.105,
+      "kind": "box",
+      "pal": "ty_stack_dk",
+      "roof": true,
+      "z0": 0.56,
+      "z1": 0.72
+    },
+    {
+      "cx": 0.31,
+      "cy": 0.35,
+      "fd": 0.01,
+      "hw": 0.1,
+      "kind": "box",
+      "pal": "ty_precast_dk",
+      "roof": true,
+      "z0": 0.4,
+      "z1": 0.54
+    },
+    {
+      "cx": 0.33,
+      "cy": -0.04,
+      "fd": 0.36,
+      "hw": 0.07,
+      "kind": "box",
+      "pal": "ty_yard_tarmac",
+      "roof": true,
+      "z0": 0,
+      "z1": 0.004
+    },
+    {
+      "cx": 0.33,
+      "cy": -0.31,
+      "fd": 0.028,
+      "hw": 0.045,
+      "kind": "box",
+      "pal": "ty_stack_dk",
+      "roof": true,
+      "z0": 0,
+      "z1": 0.05
     }
   ]
 }

@@ -17788,6 +17788,10 @@ const PUMP_WALL = new Set(['ty_pump']);
 // kiosk's panel wall. Same reason as STRUCT_WALL — the default branch's job is windows, and none of
 // these has any.
 const PLAIN_WALL = new Set(['ty_bd_blue_dk', 'ty_bd_orange', 'ty_bd_cream', 'ty_gfc_green',  // Grounds for Concern's painted shopfront
+  // The Cherry Pit: block painted over in arterial red, with no window in the street face. It was
+  // in BRICK_WALL and read as a tidy brick hall; STUCCO's GPU relief reads as brick from the
+  // street too. Flat paint, and the model's grime parts do the weathering.
+  'ty_cherry', 'ty_cherry_dk',
 
   'ty_hfv_tray',
   // The control tower's painted concrete and its dark steel. Its drums carried the airfield's
@@ -17961,8 +17965,6 @@ const BRICK_WALL = new Set(['ty_gfc_brick',   // Grounds for Concern
   'ty_reel_flank',
   // Pocket Money's hall and Sole Survivor's lean-to. Both are made of the terrace they are in.
   'ty_pocket', 'ty_sole',
-  // The Cherry Pit: painted block with no window in it anywhere, which is the point of the place.
-  'ty_cherry', 'ty_cherry_dk',
   // A locksmith's slot, a walk-up over a shuttered unit, a converted house, and a shed with a
   // portico on it. All four are made of the terrace or the yard they were built in.
   'ty_skel', 'ty_regerts', 'ty_paws', 'ty_negeq', 'ty_spirit', 'ty_past',
