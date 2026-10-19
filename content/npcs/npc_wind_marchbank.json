@@ -226,7 +226,8 @@
       "a plain grey nursing dress with the sleeves rolled to the elbow",
       "soft-soled shoes for a floor she crosses four hundred times a day",
       "a slip and plain underthings"
-    ]
+    ],
+    "set_aside": true
   },
   "home_activities": [],
   "home_zone": "zone_wind_balcony",

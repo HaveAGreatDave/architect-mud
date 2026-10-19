@@ -12,6 +12,15 @@
   - The resident keeps reacting for **as long as you're actually there**, and calms down (alarm ends) the moment you clear off.
 - **The charge:** after the alarm has run ~10s (`CALL_MS`) **and the intruder has actually entered** the unit, `burglary.reported` fires (merely rattling the lock and leaving is at most an attempt — no charge). Attacked mid-alarm → the resident flees toward the entrance (per-tick dodge roll); clearing the unit also fires `burglary.reported`. Killed first → nothing reported.
 
+## A resident's own lines
+
+The lines above are shared by everybody. A resident with a voice of their own carries
+`flags.alarm_lines`, keyed by the beat: `wake`, `notice`, `door` (yelled through the door),
+`inside`, and `reported` or `gone` when it's over. Each is a list in the chitchat convention:
+"quoted" is speech, a bare line is an emote after the name. A beat they have no lines for uses
+the shared pool. Sir Charles Hughson in the Meridian penthouse is the first: a dour Scot doesn't
+scream for help in his own house.
+
 ## Safe-sleep forcefield gate
 While a break-in is actively underway at a unit (the intruder is at the door or inside), the owner **cannot raise the safe-sleep quantum forcefield** — neither by `sleep`-ing nor by disconnecting to offline-sleep. This closes the "wall yourself off / DC to safety mid-burglary" exploit and makes the *player* being burglarized a real victim (they sleep exposed). Implemented as the `forcefield.gate` hook (below); the same intruder-presence check that drives the NPC alarms (`threatPresent`) is what the gate reads. The complementary direction holds in the engine: a door protecting an *already*-forcefielded unit refuses **both** the hack (at hack-arm and hack-resolve) and a physical `attack door` bash ([doors.js](../../server/engine/commands/doors.js) `doorForcefieldActive`) — the quantum shield is proof against brute force as well as the deck.
 

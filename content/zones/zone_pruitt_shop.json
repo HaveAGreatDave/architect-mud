@@ -1,0 +1,30 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A small shop with a glass case of pretzels on hooks, sacks of peanuts open along the wall with scoops in them, and the roasting drum turning in the window over a gas ring. Paper cones are stacked by the till.",
+  "exits": {
+    "down": "zone_util_zone_pruitt_shop",
+    "east": "zone_pruitt_roastery",
+    "west": "zone_parkside_894_912"
+  },
+  "flags": {
+    "building_name": "Pruitt's Peanuts & Pretzels",
+    "building_type": "peanut_roaster",
+    "floor": "boards",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "The roasting drum turns in the window, its copper gone dark at the bottom. Vetch Mews is outside, and the side of the Coliseum.",
+      "light": 0.6,
+      "name": "the shop window",
+      "visibility": 0.6
+    },
+    "world_exit_zone": "zone_parkside_894_912"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_pruitt_shop",
+  "map_id": "map_int_pruitt",
+  "name": "Pruitt's — Shop",
+  "parent_zone": "zone_parkside_894_912"
+}

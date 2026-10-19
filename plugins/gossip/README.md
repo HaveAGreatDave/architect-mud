@@ -52,7 +52,8 @@ their seams (poker cash-out, vendor buy, apartment rent, surveillance
 ## Team talk
 
 Every NPC backs one club (`favTeam`, a stable hash of its id into the pinned
-roster), and every club has one rival inside its own league
+roster, unless `flags.fav_team` names a club the league has: Sir Charles
+Hughson backs the Coldwater Basin Blue Birds), and every club has one rival inside its own league
 (`broadcast.getSportsTeams` returns `rivals`, paired by the hockey sim's
 `rivalOf`; the DEADBALL league is paired the same way). On `player.say`, a line
 that names a club ([team-talk.js](team-talk.js)) gets an answer from the fans in

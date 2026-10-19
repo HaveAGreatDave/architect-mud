@@ -1,0 +1,9 @@
+{
+  "a": "zone_parkside_898_913",
+  "b": "zone_hcbox_windows",
+  "blocked": false,
+  "dir": "north",
+  "id": "conn_hf_parkside_898_913_north",
+  "lockable": true,
+  "one_way": false
+}

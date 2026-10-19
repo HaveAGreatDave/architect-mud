@@ -17080,6 +17080,9 @@ const WALL_COL = { uptown: [46, 64, 92], civic: [72, 68, 60], citycore: [52, 56,
   ty_reach_assay: [118, 116, 108], ty_reach_assay_dk: [76, 74, 68],
   ty_reach_grey: [96, 94, 90], ty_reach_grey_dk: [58, 56, 54],
   ty_reach_bath: [108, 98, 86], ty_reach_bath_roof: [70, 62, 52], ty_reach_skin: [140, 136, 128],
+  // Grounds for Concern on Greenside Row: red brick, a bottle-green timber shopfront, a cream cornice,
+  // and the glazed white cup on the roof (glass/models/greenside.js).
+  ty_gfc_brick: [134, 70, 52], ty_gfc_green: [40, 70, 54], ty_gfc_cream: [226, 214, 188], ty_gfc_cup: [236, 232, 222],
   ty_door: [20, 22, 26] };
 const BLDG_H = { uptown: 0.36, civic: 0.21, citycore: 0.18, marquee: 0.22, freight: 0.14, industrial: 0.26, infra: 0.32, ruins: 0.16, oldcoldwater: 0.11, docks: 0.17, __nofly: 0.6 };
 
@@ -17135,6 +17138,9 @@ const BLDG_TYPE_3D = {
   hardware:         { a: 'citycore',    h: 0.13 }, // Nuts to That, stock under the awning
   bathhouse:        { a: 'citycore',    h: 0.14 }, // Lather & Lye, venting steam
   noodle_bar:       { a: 'oldcoldwater', h: 0.09 }, // Nico's Noodle Bar, one storey, open front
+  coffee_shop:      { a: 'citycore',    h: 0.11 }, // Grounds for Concern, one storey on the Greenside corner
+  car_park:         { a: 'citycore',    h: 0.02 }, // a lot: paint, kerbs and parked cars (glass/models/greenside.js)
+  staff_lot:        { a: 'citycore',    h: 0.02 }, // the Codfather's staff car park, drawn by the same arm
   chip_shop:        { a: 'citycore',    h: 0.11 }, // Batter Days, one storey of painted render under its awnings
   // The Codfather's fish works: a tall single-storey shed, a head higher than the chip shop built
   // onto its front, so from Greenside Row the shop reads as the front of something bigger.
@@ -17160,16 +17166,23 @@ const BLDG_TYPE_3D = {
   ice_rink_stand_e: { a: 'civic',     h: 0.14 },
   ice_rink_plant_w: { a: 'industrial', h: 0.14 },
   ice_rink_plant_e: { a: 'civic',     h: 0.14 },
-  // The Hughson Coliseum's nine tiles (glass/models/coliseum.js): the grandstand, its corners, the field.
-  ballpark:           { a: 'civic', h: 0.18 },
-  ballpark_s:         { a: 'civic', h: 0.18 },
-  ballpark_e:         { a: 'civic', h: 0.18 },
-  ballpark_sw:        { a: 'civic', h: 0.12 },
-  ballpark_ne:        { a: 'civic', h: 0.12 },
-  ballpark_bleachers: { a: 'civic', h: 0.12 },
-  ballpark_w:         { a: 'civic', h: 0.08 },
-  ballpark_n:         { a: 'civic', h: 0.08 },
-  ballpark_c:         { a: 'civic', h: 0.04 },
+  // The Hughson Coliseum's nine tiles (glass/models/coliseum.js): the corners with their light towers,
+  // and the rest under the roof's vault.
+  ballpark:           { a: 'civic', h: 0.30 },
+  ballpark_sw:        { a: 'civic', h: 0.30 },
+  ballpark_ne:        { a: 'civic', h: 0.30 },
+  ballpark_bleachers: { a: 'civic', h: 0.30 },
+  ballpark_s:         { a: 'civic', h: 0.26 },
+  ballpark_e:         { a: 'civic', h: 0.26 },
+  ballpark_w:         { a: 'civic', h: 0.26 },
+  ballpark_n:         { a: 'civic', h: 0.26 },
+  ballpark_c:         { a: 'civic', h: 0.26 },
+  // The trades round it (glass/models/parkside.js).
+  box_office:         { a: 'civic',    h: 0.12 },
+  frank_stand:        { a: 'citycore', h: 0.11 },
+  peanut_roaster:     { a: 'citycore', h: 0.12 },
+  sports_bar:         { a: 'marquee',  h: 0.20 },
+  souvenir_shop:      { a: 'citycore', h: 0.12 },
   default:          { a: 'citycore',  h: 0.22 }, // fallback when a type has no entry / fails to load
 };
 // The archetype + base height for a map cell: a building tile (has `bt`) renders its
@@ -17766,7 +17779,8 @@ const PUMP_WALL = new Set(['ty_pump']);
 // Flat painted surfaces that are emphatically not facades: the canopy soffit, a painted kerb, the
 // kiosk's panel wall. Same reason as STRUCT_WALL — the default branch's job is windows, and none of
 // these has any.
-const PLAIN_WALL = new Set(['ty_bd_blue_dk', 'ty_bd_orange', 'ty_bd_cream',   // Batter Days' trims, canvas and frames: flat paint
+const PLAIN_WALL = new Set(['ty_bd_blue_dk', 'ty_bd_orange', 'ty_bd_cream', 'ty_gfc_green',  // Grounds for Concern's painted shopfront
+
   'ty_hfv_tray',
   // The control tower's painted concrete and its dark steel. Its drums carried the airfield's
   // `ty_arrivals` cladding, which is METAL_WALL, so on the GPU every drum on the tower took that one
@@ -17912,7 +17926,8 @@ const STONE_WALL = new Set(['__statue_stone', 'ty_marble', 'ty_marble_col', 'ty_
 // difference at distance: stone reads as blocks, brick reads as texture. Soot up the wall where
 // something has been burning against it for fifty years, and the pale bloom of salts coming back
 // out of the mortar underneath it.
-const BRICK_WALL = new Set([
+const BRICK_WALL = new Set(['ty_gfc_brick',   // Grounds for Concern
+
   // 8 Halcyon Boulevard's saleroom shell and The Winter Garden's knee-wall. A saleroom is lit from a
   // clerestory, so its long walls carry no openings at all and must never draw a window grid.
   // The plant. A pumping station is a brick hall with arched openings rather than a grid, an
@@ -18054,7 +18069,8 @@ const BRASS_WALL = new Set(['ty_hf_gold', 'ty_meridian_bronze', 'ty_marble_bronz
 // GLAZED TILE. What you face a thing in when it has to be hosed down: a clinic's flank, a
 // bathhouse, a butcher's slab wall, a vat room. The only material here whose main event is a
 // HIGHLIGHT rather than a shadow, which is what keeps it from reading as very small brick.
-const TILE_WALL = new Set([
+const TILE_WALL = new Set(['ty_gfc_cup',   // the cup on Grounds for Concern's roof is glazed ceramic
+
   // Kettle Lane Pumping Station's terracotta dressings. Moulded, glazed and proud of itself, which is
   // exactly what this family draws.
   'ty_sw_bath', 'ty_sw_milk', 'ty_sw_milk_dk', 'ty_trm_ward', 'ty_trm_ward_dk', 'ty_embassy_faience',
@@ -18072,7 +18088,7 @@ const TILE_WALL = new Set([
 // RENDERED STUCCO, cracking off in sheets. The one material in the set whose features are
 // IRREGULAR — everything else here is on a grid — so it is what a street reaches for when it needs
 // a surface that is not a rhythm.
-const STUCCO_WALL = new Set(['ty_bd_blue', 'ty_trm_creche', 'ty_trm_hall', 'ty_trm_hall_dk', 'ty_sw_walk',
+const STUCCO_WALL = new Set(['ty_bd_blue', 'ty_gfc_cream','ty_trm_creche', 'ty_trm_hall', 'ty_trm_hall_dk', 'ty_sw_walk',
   'ty_sw_walk_dk', 'ty_dw_paint', 'ty_fallow', 'ty_embassy_cream',
   // Midway Parks's stage house, which is rendered because nobody at street level can see it.
   'ty_reel_loft',
@@ -37933,6 +37949,7 @@ function drawAAMark(ctx, cam, it, v, night, alpha, now, sun, sky, od) {
 }
 const AA_OPEN = { n: [0, -1], e: [1, 0], s: [0, 1], w: [-1, 0] };
 const AA_FACES = 1400;   // the 2-D path's cap, as the statue has one: a sort that grows without bound is a frame that does
+
 // ── THE MEDIA LOT'S GROUND ───────────────────────────────────────────────────
 //
 // KSAB's gate court and car park inside the lot's wall (the `lot` mark; the build is
@@ -38002,7 +38019,6 @@ function lotWallZAt(px, py, cellAt) {
   }
   return 0;
 }
-
 
 // Incoming ground-AA volley as REAL 3D world tracers: rounds leave the emplacement's tile
 // on the ground (wz 0) and climb through world space toward — and deliberately just past —
@@ -49943,7 +49959,7 @@ const SIGN_TRADE = {
   // `pan` is deliberately absent from `PICTO_ACCENT` — so this says what the shop sells without
   // repainting it. Same for `hook` on the yards below. The six trades above carry no mark for the
   // opposite reason: theirs would have landed on a hue somebody chose for a bar or a substation.
-  kitchenware: ['slab', 'pan'], chip_shop: ['slab', 'fork'],
+  kitchenware: ['slab', 'pan'], chip_shop: ['slab', 'fork'], coffee_shop: ['slab', 'mug'],
   // Stencil is what a works actually letters itself in — see the ⚠ in SIGN_FONT. These mostly do
   // not sign themselves at all now (UNSIGNED_TRADE), so this is the hand for the ones that opt back
   // in with `signWorks`, and for their gate numbers and bay legends.
@@ -50028,6 +50044,7 @@ const SIGN_HANZI = {
   church: '廟', undertaker: '殯儀',   // ⚠ NO police AND NO civic: a station and a city hall do not hang a lit trade blade on the corner
   studio: '電視', ksabstudio: '電視', greenhouse: '花圃', junkyard: '廢料',
   kitchenware: '廚具',   // 廚具: kitchen implements
+  coffee_shop: '咖啡',
   chip_shop: '炸魚',     // 炸魚: fried fish
 };
 // ── WHAT THE SHOP SELLS, IN ENGLISH ────────────────────────────────────────────────────────────
@@ -50068,7 +50085,7 @@ const SIGN_WORD = {
   chrome: 'PROSTHETICS', asc_vats: 'PROSTHETICS', asc_weave: 'PROSTHETICS',
   undertaker: 'UNDERTAKER',
   studio: 'BROADCAST', greenhouse: 'NURSERY', junkyard: 'SALVAGE',
-  kitchenware: 'KITCHEN', chip_shop: 'TAKEAWAY',   // not FISH & CHIPS: the name board already says it
+  kitchenware: 'KITCHEN', chip_shop: 'TAKEAWAY', coffee_shop: 'COFFEE',   // not FISH & CHIPS: the name board already says it
   pool_hall: 'BILLIARDS', cinema: 'CINEMA', locksmith: 'LOCKSMITH', fence: 'PAWNBROKER',
 };
 // ── A NAME THAT DOESN'T SAY WHAT THE PLACE IS FOR GETS ITS TRADE UNDER IT ──────────────────────
@@ -50099,6 +50116,7 @@ const TRADE_NOUNS = new Set(`MARINA CLINIC SURGERY PHARMACY CHEMIST BAR PUB TAVE
 const signWords = (s) => String(s || '').toUpperCase().replace(/[^A-Z0-9]+/g, ' ').trim().split(' ');
 // `asked` is the caller's own `sub`. Returns the sub to set: '' for none.
 function tradeSub(label, asked) {
+  if (asked === false) return '';   // the arm letters its own trade line (Second Helpings)
   if (!((RENDER_TUNE.punSub ?? 1) > 0) || !_bladeSign || !label) return asked;
   if (label !== _bladeSign && bldgSlug(label) !== bldgSlug(_bladeSign)) return asked;   // not the name board
   const word = (_place && _place.trd) || SIGN_WORD[tradeOf(_bladeBasis && _bladeBasis.m)] || '';
@@ -53053,7 +53071,7 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     // ⚠ NOT RESTORED PER ITEM, AND IT DOES NOT NEED TO BE: every item in this loop sets it before it
     // draws, and the passes that run OUTSIDE the loop and capture other tiles' models — the shadow
     // pass, the occluder pre-pass, the cold-open skyline — each set or clear it themselves.
-    setTilePlace({ biome: it.c.biome, wx: it.wx, wy: it.wy, trd: it.c.trd, vl: it.c.vl });   // `trd`: see `tradeSub`; `vl`: a venue's game night
+    setTilePlace({ biome: it.c.biome, wx: it.wx, wy: it.wy, trd: it.c.trd, vl: it.c.vl, vr: it.c.vr });   // `trd`: see `tradeSub`; `vl`/`vr`: a venue's game night and roof
     // ── AND WHETHER ITS FEED IS UP ────────────────────────────────────────────────────────────
     //
     // ⚠ ARMED HERE AND CLEARED BELOW, AND NOT LEFT TO THE NEXT ITEM THE WAY `setTilePlace` IS.

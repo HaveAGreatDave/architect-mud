@@ -1,0 +1,15 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_pruitt_pretzel",
+  "name": "salted pretzel",
+  "tags": {
+    "consumable": true,
+    "description": "A soft pretzel the size of a hand, knotted, brown and shining, with coarse salt that falls off as you carry it. One dip of mustard.",
+    "restore_hunger": 14,
+    "stackable": true
+  },
+  "type": "consumable",
+  "value": 4,
+  "weight": 150
+}

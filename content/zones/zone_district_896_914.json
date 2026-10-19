@@ -1,7 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "description": "The middle of Sorrel Way, under the Hughson Coliseum's grandstand: brick piers and arched openings along the north side, and the estate's chrome along the south. Ticket stubs collect in the gutter.",
+  "description": "The middle of Sorrel Way, under the Hughson Coliseum's south wall: limestone fins and lit windows along the north side, and the estate's chrome along the south. Ticket stubs collect in the gutter.",
   "exits": {
     "east": "zone_district_897_914",
     "west": "zone_district_895_914"

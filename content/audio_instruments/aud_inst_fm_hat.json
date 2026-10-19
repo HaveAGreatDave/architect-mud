@@ -1,0 +1,52 @@
+{
+  "category": "fm",
+  "config": {
+    "layers": [
+      {
+        "adsr": {
+          "a": 0.0005,
+          "curve": "exp",
+          "d": 0.04,
+          "r": 0.02,
+          "s": 0
+        },
+        "filter": {
+          "freq": 7000,
+          "q": 0.7,
+          "type": "highpass"
+        },
+        "gain": 0.3,
+        "noiseMix": 1,
+        "noiseSeed": 233,
+        "waveform": "square"
+      },
+      {
+        "adsr": {
+          "a": 0.0005,
+          "curve": "exp",
+          "d": 0.03,
+          "r": 0.02,
+          "s": 0
+        },
+        "filter": {
+          "freq": 5000,
+          "q": 0.7,
+          "type": "highpass"
+        },
+        "fm": {
+          "index": 2.5,
+          "indexEnd": 2,
+          "ratio": 1.47,
+          "time": 0.05
+        },
+        "gain": 0.03,
+        "waveform": "square"
+      }
+    ]
+  },
+  "enabled": 1,
+  "id": "aud_inst_fm_hat",
+  "name": "FM: Hi-hat",
+  "sample_id": null,
+  "waveform": "square"
+}

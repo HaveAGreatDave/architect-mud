@@ -31,7 +31,9 @@
   it a hold later, so the sky goes down through the game as it does on air (diamond/sky.js);
   ?wx= a weather word (rain, snow, thunderstorm, fog, ash...), ?rate= how hard it falls (0 to 1)
   and ?event= a city-wide event (ion_storm, acid_rain) put the weather over the park on every
-  payload (diamond/weather.js).
+  payload (diamond/weather.js). ?roof=0 opens the Coliseum's roof and ?roof=1 shuts it on every
+  payload, as the broadcast sends where it is (shut until a payload says otherwise); ?roof=move
+  opens it on the first payload and shuts it on the second, to watch the shells roll.
   The city round the park is the league's venue from content with a skyline built the
   server's way (client/shared/skyline-manifest.js) over the flight sim's baked world
   (client/game/flightsim-world.json), so it can trail the live map by a bake; ?city=0
@@ -114,6 +116,9 @@
     const HOUR = Q.get('hour') != null && Q.get('hour') !== '' && Number.isFinite(+Q.get('hour')) ? +Q.get('hour') : null;
     // the weather over the park on every payload, as the broadcast puts it on air
     const WX = Q.get('wx') || Q.get('event') ? { word: Q.get('wx') || 'clear', precip: 'none', rate: Q.get('rate') != null ? +Q.get('rate') : 0.6, ...(Q.get('event') ? { event: Q.get('event') } : {}) } : null;
+    // and where the roof is on every payload (the broadcast's `roof`), or ?roof=move to roll it shut
+    const ROOF = Q.get('roof');
+    const roofOf = (i) => (ROOF === '0' || ROOF === '1' ? { roof: +ROOF } : ROOF === 'move' ? { roof: i % 2 } : {});
     if (Q.get('w')) document.getElementById('tv-window').style.width = `${+Q.get('w')}px`;
     if (Q.get('hud') === '0') document.head.insertAdjacentHTML('beforeend', '<style>.gds-hud { display: none; }</style>');
     const host = document.getElementById('tv-gameday');
@@ -240,7 +245,7 @@
       for (let i = 0; i < order.length; i++) if (i === 0 || order[i].phase === 'half') order[i] = { ...order[i], leaders, season };
       // how long each line holds on air, as the broadcast stamps it on the payload, and with ?hour=
       // the minute of the day each airs at, the first at that hour and each after a hold later
-      for (let i = 0; i < order.length; i++) order[i] = { ...order[i], hold: HOLD_MS, ...(HOUR != null ? { clock: Math.round(HOUR * 60 + (i * HOLD_MS) / 60000) % 1440 } : {}), ...(WX ? { wx: WX } : {}) };
+      for (let i = 0; i < order.length; i++) order[i] = { ...order[i], hold: HOLD_MS, ...(HOUR != null ? { clock: Math.round(HOUR * 60 + (i * HOLD_MS) / 60000) % 1440 } : {}), ...(WX ? { wx: WX } : {}), ...roofOf(i) };
       const nrng = sportsRng(seed ^ 0x9e3779b9);
       const pickFor = (p) => (...keys) => sportsPickTagged(script.pools, nrng, playTags(p.kind, p.play, { bats: p.bats }), ...keys);
       // the booth's call at the crack for each ball in play, from its own stream as the broadcast draws it

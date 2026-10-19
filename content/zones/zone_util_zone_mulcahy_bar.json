@@ -1,0 +1,18 @@
+{
+  "description": "The beer cellar: kegs on a stillage, the lines running up through the ceiling to the taps, and the junction box by the hatch.",
+  "exits": {
+    "up": "zone_mulcahy_bar"
+  },
+  "flags": {
+    "floor": "stone",
+    "is_interior": true,
+    "world_exit_zone": "zone_parkside_898_911"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_mulcahy_bar",
+  "map_id": "map_int_mulcahy",
+  "name": "Mulcahy's — Cellar",
+  "parent_zone": "zone_parkside_898_911"
+}

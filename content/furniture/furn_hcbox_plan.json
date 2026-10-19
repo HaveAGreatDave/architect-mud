@@ -1,0 +1,15 @@
+{
+  "description": "A framed plan of the park, every section numbered, with section nine hatched out and stamped across in red to say it isn't for sale.",
+  "flags": {
+    "aliases": [
+      "plan",
+      "seating plan",
+      "section nine",
+      "map"
+    ]
+  },
+  "id": "furn_hcbox_plan",
+  "name": "the seating plan",
+  "object_type": "decoration",
+  "zone_id": "zone_hcbox_windows"
+}

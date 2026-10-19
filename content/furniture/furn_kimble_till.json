@@ -1,0 +1,18 @@
+{
+  "description": "A drawer under the glass counter with a key on a string.",
+  "flags": {
+    "aliases": [
+      "till",
+      "cash drawer",
+      "drawer",
+      "cash"
+    ],
+    "hack_difficulty": 3,
+    "vendor_npc_id": "npc_kimble_odessa",
+    "vendor_safe": true
+  },
+  "id": "furn_kimble_till",
+  "name": "the cash drawer",
+  "object_type": "fixture",
+  "zone_id": "zone_kimble_shop"
+}

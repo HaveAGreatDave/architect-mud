@@ -102,20 +102,20 @@ for (const id of SET_ASIDE_NPCS) {
 // repoints it at the new door. The bleacher gate's street likewise.
 const main = await authorBuilding(store, {
   slug: 'hughson', name: NAME, roomName: ROOMS, type: 'ballpark', facadeId: parkId(897, 913),
-  x: 897, y: 913, entrance: 'south', floors: 3, marker: 'HC', district: DISTRICT,
+  x: 897, y: 913, entrance: 'south', floors: 5, marker: 'HC', district: DISTRICT,
   utilityAnchor: 'concourse',
 
   facade: {
     bgColor: '#2a1d18', color: '#d8c9a8',
-    description: 'The main gate of the Charles B. Hughson Coliseum: a round brick rotunda on Sorrel Way, arched along the top, with the name in bronze letters over three iron gates. The light towers stand over the stands behind it.',
+    description: 'The main gate of the Charles B. Hughson Coliseum: a stepped limestone frontispiece on Sorrel Way between two fluted pylons, the name in raised gilt on a bronze plate over bronze doors and a sunburst fanlight. The steel vault of the roof rises behind it.',
   },
 
   rooms: [
     { key: 'rotunda', name: 'Rotunda', floor: 'tile',
-      description: 'A round brick hall inside the main gate, floored in terrazzo worn grey in front of the turnstiles. A bronze of Sir Charles stands in the middle on a granite plinth, with a plaque on the wall behind him. The ticket office is east and the concourse north.',
+      description: 'A round hall inside the main gate, floored in terrazzo with a brass sunburst laid in it, worn grey in front of the turnstiles. A bronze of Sir Charles stands in the middle on a granite plinth, with a plaque on the wall behind him. The ticket office is east and the concourse north.',
       window: {
         name: 'the gates',
-        description: 'Three iron gates in brick arches, folded back against the wall on game nights. Sorrel Way is outside, and the corner of Kettle Lane.',
+        description: 'Bronze doors under a sunburst fanlight, folded back against the stone on game nights. Sorrel Way is outside, and the corner of Kettle Lane.',
         light: 0.5, visibility: 0.6,
       } },
     { key: 'tickets', name: 'Ticket Office', floor: 'linoleum', from: 'rotunda', dir: 'east',
@@ -131,10 +131,10 @@ const main = await authorBuilding(store, {
       description: 'A tiled room off the concourse, under the third-base stands. A steel counter runs the width of it with a hot plate, a beer tap and a stack of paper boats, under a hand-painted menu board. A roll of waivers hangs on a nail by the till.',
       window: null },
     { key: 'stands', name: 'The Stands', floor: 'concrete', from: 'concourse', dir: 'north',
-      description: 'Green wooden seats in rows behind home plate, bolted to concrete steps. The diamond lies below, the outfield wall beyond it, six light towers over all of it. One seat in the front row has a brass plate on it and nobody in it. Section nine is west, the bleachers north.',
+      description: 'Green wooden seats in rows behind home plate, bolted to concrete steps. The diamond lies below and the outfield wall beyond it, and the roof\'s steel shells arch over the far end on their rails. One seat in the front row has a brass plate on it and nobody in it. Section nine is west, the bleachers north.',
       window: {
         name: 'the field',
-        description: 'The diamond, the infield dirt raked in arcs, and the outfield running out to a padded wall with numbers painted on it. The scoreboard stands on legs past centre field.',
+        description: 'The diamond, the infield dirt raked in arcs, and the outfield running out to a padded wall with numbers painted on it. The scoreboard stands on legs past centre field, under the roof.',
         light: 0.9, visibility: 1,
       } },
     { key: 'nine', name: 'Section Nine', floor: 'concrete', from: 'stands', dir: 'west',
@@ -144,7 +144,7 @@ const main = await authorBuilding(store, {
       description: 'A lounge above the concourse with a long bar down one side and windows over the field down the other. The carpet is patterned with baseballs and worn through to the backing in a path from the stairs to the bar.',
       window: {
         name: 'the club windows',
-        description: 'Tall windows over the first-base line, filmed with old smoke. The field is green below them and the towers are level with the glass.',
+        description: 'Tall windows over the first-base line, filmed with old smoke. The field is green below them, and the lamps along the roof\'s rails hang level with the glass.',
         light: 0.6, visibility: 0.8,
       } },
     { key: 'pressbox', name: 'Press Box', floor: 'linoleum', from: 'club', dir: 'up',
@@ -158,14 +158,14 @@ const main = await authorBuilding(store, {
 
   utility: {
     name: 'Plant Room', floor: 'concrete',
-    description: 'Under the concourse: the switchgear for the light towers, six breakers in a row with a tower number painted over each. Two of them are taped in the off position. The building\'s junction box is on the wall by the door.',
+    description: 'Under the concourse: the switchgear for the four light towers and the lamps on the rails, a breaker for each, two taped in the off position. The roof\'s drive is caged at the back, three motors and a chain as thick as a wrist. The junction box is by the door.',
   },
 
   lights: {
     rotunda: { name: 'the rotunda lamps', description: 'Globe lamps on iron brackets round the wall of the rotunda, one with its glass missing.', lumens: 2400 },
     stand: { name: 'the counter lights', description: 'Two fluorescent tubes over the counter, one of them slow to come on.', lumens: 1800 },
     tickets: { name: 'the office strip light', description: 'A strip light over the ticket counter with a dead fly in the diffuser.', lumens: 1200 },
-    stands: { name: 'the light towers', description: 'Six steel towers round the park, each with a bank of floodlamps aimed at the field. Not every lamp in every bank comes on.', lumens: 9000 },
+    stands: { name: 'the floods', description: 'Banks of floodlamps on the four light towers and along the roof\'s rails, all aimed at the field. Not every lamp in every bank comes on.', lumens: 9000 },
     nine: { name: 'the aisle lamp', description: 'A caged lamp on a pole at the end of the aisle, leaning toward the crater.', lumens: 800, type: 'lamp' },
     club: { name: 'the bar lights', description: 'Brass pendant lamps over the bar, and a lit mirror behind it.', lumens: 2000 },
     pressbox: { name: 'the desk lamp', description: 'A gooseneck lamp clamped to the desk and bent down over the scorebook.', lumens: 600, type: 'lamp' },
@@ -296,16 +296,16 @@ store.patch('furniture', 'furn_light_zone_hughson_concourse', {
 
 const bleachers = await authorBuilding(store, {
   slug: 'hughsonbl', name: NAME, roomName: ROOMS, type: 'ballpark_bleachers', facadeId: parkId(895, 911),
-  x: 895, y: 911, entrance: 'north', floors: 2, marker: 'BG', district: DISTRICT,
+  x: 895, y: 911, entrance: 'north', floors: 5, marker: 'BG', district: DISTRICT,
 
   facade: {
     bgColor: '#2a1d18', color: '#d8c9a8',
-    description: 'The bleacher gate of the Hughson Coliseum, two iron gates in the outfield wall on Halcyon Boulevard. The brick is lower here, and the backs of the bleachers show over it. A painted board beside the gates says BLEACHERS.',
+    description: 'The bleacher gate of the Hughson Coliseum on Halcyon Boulevard: two grille gates between fluted pylons, BLEACHERS in gilt on a bronze plate over them, and the fixed end of the roof over the wall.',
   },
 
   rooms: [
     { key: 'bleachers', name: 'Bleachers', floor: 'boards',
-      description: 'Plank benches climb in tiers behind the outfield wall, open to the sky and splintered at the edges. The scoreboard stands on steel legs behind the top row. The bleacher gate is north, and an aisle runs south round the outfield to the stands.',
+      description: 'Plank benches climb in tiers behind the outfield wall, under the fixed end of the roof, splintered at the edges. The scoreboard stands on steel legs behind the top row. The bleacher gate is north, and an aisle runs south round the outfield to the stands.',
       window: {
         name: 'the outfield',
         description: 'The outfield grass and the padded wall below, a distance painted on it in white. Somebody has chalked a lower number underneath.',
@@ -346,20 +346,20 @@ store.patch('furniture', 'furn_light_zone_hughsonbl_bleachers', {
 // [x, y, building_type, floors, description]. Every one faces south (the bleacher gate alone faces
 // north) and coliseum.js draws them from constants so the nine meet.
 const SEALED = [
-  [896, 911, 'ballpark_n', 1,
-    'The outfield wall of the Hughson Coliseum along Halcyon Boulevard: plain brick, with the backs of the bleachers above it and the scoreboard on its legs.'],
-  [897, 911, 'ballpark_ne', 2,
-    'The right-field corner of the Hughson Coliseum, where the brick drops to bleacher height and a light tower stands over the corner.'],
-  [895, 912, 'ballpark_w', 1,
-    'The left-field side of the Hughson Coliseum, brick backing onto the Vetch Mews plots, with a light tower over it.'],
-  [896, 912, 'ballpark_c', 1,
-    'The field of the Hughson Coliseum: grass, a dirt infield, and the stands round it.'],
-  [897, 912, 'ballpark_e', 3,
-    'The first-base grandstand of the Hughson Coliseum, its brick flank to Kettle Lane, with louvres and a loading door set in the wall.'],
-  [895, 913, 'ballpark_sw', 2,
-    'The third-base end of the Hughson Coliseum\'s grandstand, where the brick steps down toward the left-field corner under a light tower.'],
-  [896, 913, 'ballpark_s', 3,
-    'The Hughson Coliseum\'s grandstand along Sorrel Way: brick piers and arched openings with the concourse lit behind them, and the upper deck\'s steel above.'],
+  [896, 911, 'ballpark_n', 4,
+    'The north wall of the Hughson Coliseum along Halcyon Boulevard: limestone ranked with pale fins between tall windows, and over it the fixed end of the roof with a fan window in its arch.'],
+  [897, 911, 'ballpark_ne', 5,
+    'The north-east corner of the Hughson Coliseum, where a stepped limestone light tower stands over the wall with its floods turned in to the field.'],
+  [895, 912, 'ballpark_w', 4,
+    'The west wall of the Hughson Coliseum: limestone and pale fins behind the Vetch Mews frontage, and along the top the rails the roof rolls on.'],
+  [896, 912, 'ballpark_c', 4,
+    'The field of the Hughson Coliseum under its roof of three steel shells, which roll open on dry days: grass, a dirt infield, and the stands round it.'],
+  [897, 912, 'ballpark_e', 4,
+    'The first-base side of the Hughson Coliseum: limestone and fins, a glazed clerestory under the cornice, a loading door, and along the top the rails the roof rolls on.'],
+  [895, 913, 'ballpark_sw', 5,
+    'The south-west corner of the Hughson Coliseum, a stepped limestone light tower over the third-base end.'],
+  [896, 913, 'ballpark_s', 4,
+    'The Hughson Coliseum along Sorrel Way: limestone on a granite plinth, pale fins between tall lit windows, and over it the south end of the roof, a fan window in a steel arch.'],
 ];
 for (const [x, y, type, floors, description] of SEALED) {
   const id = parkId(x, y);
@@ -369,13 +369,13 @@ for (const [x, y, type, floors, description] of SEALED) {
     map_id: 'map_world', grid_x: x, grid_y: y, grid_z: 0, parent_zone: null,
     exits: {}, ambient_theme: 'urban', ambient_events: prev.ambient_events || [],
     color: '#d8c9a8', bg_color: '#2a1d18',
-    flags: { district: DISTRICT, region_id: REGION, building_name: NAME, building_type: type, floors, entrance: 'south', venue_lights: true },
+    flags: { district: DISTRICT, region_id: REGION, building_name: NAME, building_type: type, floors, entrance: 'south', venue_lights: true, venue_roof: true },
   });
 }
 // The two doors carry the same flag: game nights light the towers on every tile of the park.
 for (const id of [parkId(897, 913), parkId(895, 911)]) {
   const z = store.get('zones', id);
-  store.patch('zones', id, { grid_x: Number(id.split('_')[2]), grid_y: Number(id.split('_')[3]), grid_z: 0, flags: { ...z.flags, venue_lights: true } });
+  store.patch('zones', id, { grid_x: Number(id.split('_')[2]), grid_y: Number(id.split('_')[3]), grid_z: 0, flags: { ...z.flags, venue_lights: true, venue_roof: true } });
 }
 // Fill any column a fresh row needs from a neighbour's, so the import's NOT NULLs are met.
 {
@@ -413,13 +413,13 @@ for (const [x, y] of tiles) {
 // ── 4. THE STREETS ROUND IT ──────────────────────────────────────────────────────────────────
 const GROUND = [
   [896, 910, 'Halcyon Boulevard',
-    'Loose stone crunches underfoot, greyed with dust and old oil. The brick outfield wall of the Hughson Coliseum runs along the south side, and the scoreboard\'s steel legs stand over it. A dead streetlight leans at the verge.'],
+    'Loose stone crunches underfoot, greyed with dust and old oil. The limestone north wall of the Hughson Coliseum runs along the south side, the fixed end of its roof standing over it. A dead streetlight leans at the verge.'],
   [895, 910, 'Halcyon Boulevard',
-    'A wide run of packed gravel and grit, graded flat by traffic and rain. The Hughson Coliseum\'s bleacher gate opens off the south side, two iron gates in the outfield wall. Puddles stand in the ruts.'],
+    'A wide run of packed gravel and grit, graded flat by traffic and rain. The Hughson Coliseum\'s bleacher gate opens off the south side, two grille gates under BLEACHERS in gilt. Puddles stand in the ruts.'],
   [897, 914, 'Sorrel Way',
-    'The corner outside the Hughson Coliseum\'s main gate, a brick rotunda with the name in bronze over three iron gates. Cable covers run across the road in yellow rubber, feeding the light towers. Crowd barriers are chained to the lamp posts.'],
+    'The corner outside the Hughson Coliseum\'s main gate, a stepped limestone frontispiece with the name in gilt over bronze doors. Cable covers run across the road in yellow rubber, feeding the floods. Crowd barriers are chained to the lamp posts.'],
   [896, 914, 'Sorrel Way',
-    'The middle of Sorrel Way, under the Hughson Coliseum\'s grandstand: brick piers and arched openings along the north side, and the estate\'s chrome along the south. Ticket stubs collect in the gutter.'],
+    'The middle of Sorrel Way, under the Hughson Coliseum\'s south wall: limestone fins and lit windows along the north side, and the estate\'s chrome along the south. Ticket stubs collect in the gutter.'],
   [898, 912, 'Grasslands',
     'A strip of grass between the Hughson Coliseum\'s first-base wall and Kettle Lane, seedheads nodding over a buried kerb. A path is worn across it to a loading door in the brick.'],
 ];

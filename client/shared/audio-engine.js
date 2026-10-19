@@ -927,9 +927,51 @@
     return c;
   }
 
+  // The other clippers `driveType` picks, normalised the same way, so full scale in
+  // is full scale out at any drive. `soft` (or none) is driveCurve above.
+  //   hard  clips flat at the rails: buzzier, the sound of an op-amp run out of headroom
+  //   tube  tanh pushed off-centre, so the two halves clip differently: even harmonics,
+  //         warmer, and a DC offset that buildLayer blocks after it
+  //   fuzz  a curve that's nearly a square wave by half drive: a fuzz pedal
+  const DRIVE_TYPES = new Set(['hard', 'tube', 'fuzz']);
+  function driveCurveOf(amount, type) {
+    if (!DRIVE_TYPES.has(type)) return driveCurve(amount);
+    const k = Math.round(Math.max(0, Math.min(1, amount)) * 20) / 20;
+    const key = `${type}:${k}`;
+    let c = _driveCurves.get(key);
+    if (c) return c;
+    const n = 2048, g = 1 + k * 24, bias = 0.4 * k;
+    const f = type === 'hard' ? (x) => Math.max(-1, Math.min(1, x * g))
+      : type === 'tube' ? (x) => Math.tanh(x * g + bias) - Math.tanh(bias)
+      : (x) => Math.sign(x) * (1 - Math.exp(-Math.abs(x) * g * 2));
+    c = new Float32Array(n);
+    let peak = 0;
+    for (let i = 0; i < n; i++) { c[i] = f((i / (n - 1)) * 2 - 1); peak = Math.max(peak, Math.abs(c[i])); }
+    for (let i = 0; i < n; i++) c[i] /= peak || 1;
+    _driveCurves.set(key, c);
+    return c;
+  }
+
+  // A wavefolder's curve. The signal reaches it at a quarter of its level (see `fold`
+  // in buildLayer), so the curve folds four times harder to make up: full scale in is
+  // `folds` quarter-turns of a sine, from 1 (a soft saturation) at amount 0 to 6 at 1.
+  function foldCurve(amount) {
+    const k = Math.round(Math.max(0, Math.min(1, amount)) * 20) / 20;
+    const key = `fold:${k}`;
+    let c = _driveCurves.get(key);
+    if (c) return c;
+    const n = 4096, folds = 1 + k * 5;
+    c = new Float32Array(n);
+    for (let i = 0; i < n; i++) c[i] = Math.sin(((i / (n - 1)) * 2 - 1) * 4 * folds * Math.PI / 2);
+    _driveCurves.set(key, c);
+    return c;
+  }
+
   // Filter types whose `gain` (dB) means something. Web Audio ignores gain on
   // the rest, and leaving it unset on them keeps their graphs as they were.
   const GAIN_FILTERS = new Set(['peaking', 'lowshelf', 'highshelf']);
+  // The types a `slope: 24` doubles.
+  const SLOPE_FILTERS = new Set(['lowpass', 'highpass', 'bandpass', 'notch']);
 
   // ── MODS: patchable modulation ─────────────────────────────────────────────
   // `layer.mods` is a list of sources, each patched by its `to` list into any
@@ -941,17 +983,26 @@
   //   { id:'lfo1', type:'lfo', wave:'triangle', rate:3, fade:0.4, to:[{ param:'filter.cutoff', amount:1200 }] }
   //
   // Sources: `lfo` (bipolar, -1..1), `env` (unipolar 0..1 on its own a/d/s/r),
-  // `rand` (bipolar sample-and-hold from a seed, `smooth` glides between steps).
-  // Each target is in its own unit: cents for pitch, ratio and cutoff, index
-  // units for the FM operators, seconds for echo time, 0..1 for the rest.
+  // `rand` (bipolar sample-and-hold from a seed, `smooth` glides between steps),
+  // `seq` (a step sequencer: `steps` of -1..1 played at `rate` steps a second,
+  // round and round, `glide` sliding between them).
+  // Each target is in its own unit: cents for pitch, ratio, cutoff and the swept
+  // stages, index units for the FM operators, seconds for echo time, 0..1 for the rest.
   //
   // A target whose stage the layer doesn't have is skipped, and a patch that
   // would close a loop between mods is dropped: Web Audio mutes a cycle with no
   // delay in it, so it would silence the mod rather than do anything.
   // A layer without `mods` builds exactly the graph it built before.
-  const MOD_TYPES = new Set(['lfo', 'env', 'rand']);
+  const MOD_TYPES = new Set(['lfo', 'env', 'rand', 'seq']);
   const MOD_TARGETS = ['pitch', 'fm.index', 'fm.ratio', 'op2.index', 'op2.ratio', 'filter.cutoff', 'filter.q',
-    'amp', 'pan', 'echo.time', 'echo.feedback', 'noise.rate'];
+    'amp', 'pan', 'echo.time', 'echo.feedback', 'noise.rate',
+    'sub.level', 'fold.amount', 'ring.freq', 'eq.freq', 'phaser.rate', 'phaser.freq', 'chorus.rate', 'chorus.depth'];
+  // Register a stage's AudioParam as a target. A doubled stage (a 24 dB filter, a
+  // second echo head, the sub under the oscillator, a phaser's allpasses) registers
+  // each of its params under the one name, and a cable reaches all of them.
+  function modTarget(P, name, param, scale = 1) {
+    if (P) (P[name] ||= []).push([param, scale]);
+  }
   function modTargetSet(mods) {
     const s = new Set();
     for (const m of mods) for (const c of (Array.isArray(m?.to) ? m.to : [])) if (c?.param) s.add(c.param);
@@ -987,9 +1038,9 @@
     let a = (Number.isFinite(seed) ? seed : 1) >>> 0 || 1;
     return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
   }
-  // P maps a target name to [AudioParam, scale]; the cable's gain is amount * scale.
-  // `span` is how long the note can last, for the random steps. Returns release hooks.
-  function buildMods(mods, P, time, span, nodes) {
+  // P maps a target name to a list of [AudioParam, scale]; each cable's gain is amount * scale.
+  // `span` is how long the note can last, for the random and sequenced steps. Returns release hooks.
+  function buildMods(mods, P, time, span, nodes, layer) {
     const { byId, patches } = modPatches(mods);
     const out = new Map();      // id -> the source's depth gain, which every cable leaves from
     const releases = [];
@@ -999,7 +1050,7 @@
         src = ctx.createOscillator();
         src.type = OSC_WAVES.includes(m.wave) ? m.wave : 'sine';
         src.frequency.setValueAtTime(Math.max(0, Number.isFinite(m.rate) ? m.rate : 2), time);
-        P[`mod.${m.id}.rate`] = [src.frequency, 1];
+        modTarget(P, `mod.${m.id}.rate`, src.frequency, 1);
       } else if (ctx.createConstantSource) {
         src = ctx.createConstantSource();
         const o = src.offset;
@@ -1011,6 +1062,17 @@
           else o.linearRampToValueAtTime(s, time + a + d);
           const r = Math.max(0.005, m.r ?? 0.2);
           releases.push((t) => { o.cancelScheduledValues(t); o.setTargetAtTime(0, t, r / 3); });
+        } else if (m.type === 'seq') {
+          // the steps go round for as long as the note can last, like the random's
+          const steps = (Array.isArray(m.steps) && m.steps.length ? m.steps.slice(0, 64) : [0])
+            .map(v => Math.max(-1, Math.min(1, Number(v) || 0)));
+          const rate = Math.max(0.05, Math.min(200, Number.isFinite(m.rate) ? m.rate : 8));
+          const n = Math.min(4000, Math.ceil(span * rate) + 1);
+          o.setValueAtTime(steps[0], time);
+          for (let i = 1; i < n; i++) {
+            const v = steps[i % steps.length], t = time + i / rate;
+            if (m.glide) o.linearRampToValueAtTime(v, t); else o.setValueAtTime(v, t);
+          }
         } else {
           const rate = Math.max(0.05, Math.min(200, Number.isFinite(m.rate) ? m.rate : 4));
           const rnd = modRandom(m.seed);
@@ -1030,14 +1092,17 @@
       src.start(time);
       nodes.push(src);
       out.set(m.id, depth);
-      P[`mod.${m.id}.amount`] = [depth.gain, 1];
+      modTarget(P, `mod.${m.id}.amount`, depth.gain, 1);
+      if (_probe) _probe('mod', m.id, depth, layer);
     }
     for (const p of patches) {
-      const from = out.get(p.mod.id), target = P[p.param];
-      if (!from || !target) continue;           // the layer has no such stage
-      const cable = ctx.createGain();
-      cable.gain.value = p.amount * target[1];
-      from.connect(cable).connect(target[0]);
+      const from = out.get(p.mod.id), targets = P[p.param];
+      if (!from || !targets) continue;          // the layer has no such stage
+      for (const [param, scale] of targets) {
+        const cable = ctx.createGain();
+        cable.gain.value = p.amount * scale;
+        from.connect(cable).connect(param);
+      }
     }
     return releases;
   }
@@ -1138,6 +1203,9 @@
   function buildLayer(layer, destination, time, holdSeconds) {
     const nodes = [];
     if (layer.delay) time = time + layer.delay;
+    // `mute`: the Rack's power switch on a layer's last source. It builds nothing, so a
+    // saved cue plays the silence the editor showed. The gain node is for setLoopGain.
+    if (layer.mute) return { release() {}, gainNode: ctx.createGain() };
     if (layer.modes && !layer.waveform) {
       // a struck object rings for its own decays; holdSeconds doesn't hold it
       if (Number.isFinite(layer.pan) && layer.pan !== 0 && ctx.createStereoPanner) {
@@ -1160,12 +1228,12 @@
       p.pan.value = Math.max(-1, Math.min(1, layer.pan || 0));
       p.connect(destination);
       destination = p;
-      if (P) P.pan = [p.pan, 1];
+      modTarget(P, 'pan', p.pan, 1);
     }
     const adsr = layer.adsr || { a: 0.01, d: 0.05, s: 0.7, r: 0.15 };
     const gain = ctx.createGain();
     gain.gain.setValueAtTime(0, time);
-    let tone = null;
+    let tone = null, sub = null;
     const noiseMix = layer.noiseMix ?? (layer.waveform === 'noise' ? 1 : 0);
 
     if (noiseMix < 1) {
@@ -1174,10 +1242,26 @@
       const freq = layer.freq || 440;
       tone.frequency.setValueAtTime(freq, time);
       if (layer.detune) tone.detune.setValueAtTime(layer.detune, time);
-      if (P) P.pitch = [tone.detune, 1];
+      modTarget(P, 'pitch', tone.detune, 1);
       if (_dopSink) _dopSink.push(tone.detune);
       if (layer.pitchBend?.to) {
         tone.frequency.setTargetAtTime(layer.pitchBend.to, time, Math.max(0.01, (layer.pitchBend.time || 0.2) / 3));
+      }
+      // SUB: a second oscillator one or two octaves under the first, for weight. It
+      // follows whatever moves the pitch (detune, the bend, vibrato, a `pitch` cable,
+      // doppler) but not FM: a sub is a clean floor under the tone. `level` is against
+      // the oscillator's own, and it shares the oscillator's side of `noiseMix`.
+      if (layer.sub?.level > 0) {
+        const div = Math.pow(2, layer.sub.octave === 2 ? 2 : 1);
+        sub = ctx.createOscillator();
+        sub.type = OSC_WAVES.includes(layer.sub.wave) ? layer.sub.wave : 'sine';
+        sub.frequency.setValueAtTime(freq / div, time);
+        if (layer.detune) sub.detune.setValueAtTime(layer.detune, time);
+        if (layer.pitchBend?.to) {
+          sub.frequency.setTargetAtTime(layer.pitchBend.to / div, time, Math.max(0.01, (layer.pitchBend.time || 0.2) / 3));
+        }
+        modTarget(P, 'pitch', sub.detune, 1);
+        if (_dopSink) _dopSink.push(sub.detune);
       }
       if (layer.vibrato?.rate) {
         const lfo = ctx.createOscillator();
@@ -1185,6 +1269,7 @@
         const lfoGain = ctx.createGain();
         lfoGain.gain.value = layer.vibrato.depth || 10;
         lfo.connect(lfoGain).connect(tone.detune);
+        if (sub) lfoGain.connect(sub.detune);
         lfo.start(time);
         nodes.push(lfo);
       }
@@ -1280,13 +1365,15 @@
           const d2To = op2.indexEnd != null ? op2.indexEnd * (r2To || r2) : op2.depthTo;
           if (d2To != null) g2.gain.setTargetAtTime(d2To, time, tc2);
           m2.connect(g2).connect(mod.frequency);
-          if (P) { P['op2.index'] = [g2.gain, r2]; P['op2.ratio'] = [m2.detune, 1]; }
+          modTarget(P, 'op2.index', g2.gain, r2);
+          modTarget(P, 'op2.ratio', m2.detune, 1);
           if (_dopSink) _dopSink.push(m2.detune);
           m2.start(time);
           nodes.push(m2);
         }
         mod.connect(modGain).connect(tone.frequency);
-        if (P) { P['fm.index'] = [modGain.gain, modRate]; P['fm.ratio'] = [mod.detune, 1]; }
+        modTarget(P, 'fm.index', modGain.gain, modRate);
+        modTarget(P, 'fm.ratio', mod.detune, 1);
         // Doppler moves the modulators with the carrier, so a ratio stays a ratio.
         if (_dopSink) _dopSink.push(mod.detune);
         mod.start(time);
@@ -1302,7 +1389,7 @@
       // `noiseRate` plays it slower or faster: below 1 it's darker, the way hiss sampled at a
       // low rate was, and two beds at different rates don't repeat together
       if (layer.noiseRate > 0) noiseSrc.playbackRate.value = layer.noiseRate;
-      if (P) P['noise.rate'] = [noiseSrc.playbackRate, 1];
+      modTarget(P, 'noise.rate', noiseSrc.playbackRate, 1);
       if (_dopSink && noiseSrc.detune) _dopSink.push(noiseSrc.detune);
     }
 
@@ -1324,10 +1411,72 @@
     // volume control is one nobody can use.
     if (layer.drive > 0) {
       const shaper = ctx.createWaveShaper();
-      shaper.curve = driveCurve(layer.drive);
+      shaper.curve = driveCurveOf(layer.drive, layer.driveType);
       shaper.oversample = '4x';   // the clipper makes harmonics above Nyquist; fold them back
       mixPoint.connect(shaper);
       mixPoint = shaper;
+      // the tube's lopsided curve leaves a DC offset riding on the signal: block it,
+      // as the coupling capacitor after a real valve stage does
+      if (layer.driveType === 'tube') {
+        const dcBlock = ctx.createBiquadFilter();
+        dcBlock.type = 'highpass';
+        dcBlock.frequency.value = 12;
+        dcBlock.Q.value = -3.01;   // dB for a highpass: Butterworth, no bump
+        mixPoint.connect(dcBlock);
+        mixPoint = dcBlock;
+      }
+    }
+
+    // FOLD: a wavefolder. Past full scale the wave folds back on itself instead of
+    // clipping, so turning it up adds bands of harmonics rather than squaring the
+    // wave off. The signal reaches the curve at a quarter of its level and the curve
+    // folds four times harder to make up (foldCurve), which leaves headroom for a
+    // `fold.amount` cable to push it through more folds: depth 1 doubles them.
+    if (layer.fold) {
+      const pre = ctx.createGain();
+      pre.gain.value = 0.25;
+      const shaper = ctx.createWaveShaper();
+      shaper.curve = foldCurve(layer.fold.amount ?? 0.5);
+      shaper.oversample = '4x';
+      mixPoint.connect(pre).connect(shaper);
+      mixPoint = shaper;
+      modTarget(P, 'fold.amount', pre.gain, 0.25);
+    }
+
+    // RING: the signal times an oscillator. Every partial splits in two, at the sum
+    // and the difference of the two frequencies, and neither is the note any more:
+    // bells, robots, a radio between stations. `ratio` ties the oscillator to the
+    // note so an instrument keeps its character up the keyboard (and follows a bend);
+    // `freq` is fixed Hz, for an effect. `mix` is how much of the product replaces the
+    // dry signal. The product's gain IS the oscillator: a gain of 0 with the
+    // oscillator wired into it multiplies the two at audio rate.
+    const rc = layer.ring;
+    if (rc && (rc.ratio > 0 || rc.freq > 0)) {
+      const carrier = layer.freq || 440;
+      const ro = ctx.createOscillator();
+      ro.type = OSC_WAVES.includes(rc.wave) ? rc.wave : 'sine';
+      ro.frequency.setValueAtTime(rc.ratio > 0 ? carrier * rc.ratio : rc.freq, time);
+      if (rc.ratio > 0 && layer.pitchBend?.to) {
+        ro.frequency.setTargetAtTime(layer.pitchBend.to * rc.ratio, time, Math.max(0.01, (layer.pitchBend.time || 0.2) / 3));
+      }
+      const product = ctx.createGain();
+      product.gain.value = 0;
+      ro.connect(product.gain);
+      const mix = Math.max(0, Math.min(1, rc.mix ?? 1));
+      const sum = ctx.createGain();
+      const wet = ctx.createGain();
+      wet.gain.value = mix;
+      mixPoint.connect(product).connect(wet).connect(sum);
+      if (mix < 1) {
+        const dry = ctx.createGain();
+        dry.gain.value = 1 - mix;
+        mixPoint.connect(dry).connect(sum);
+      }
+      mixPoint = sum;
+      modTarget(P, 'ring.freq', ro.detune, 1);
+      if (_dopSink) _dopSink.push(ro.detune);
+      ro.start(time);
+      nodes.push(ro);
     }
 
     // FORMANTS — a parallel resonator bank instead of the single filter, using
@@ -1368,9 +1517,68 @@
       mixPoint.connect(filter);
       mixPoint = filter;
       // cutoff moves on detune, in cents, so a mod's depth is the same interval at any cutoff
-      if (P) { P['filter.cutoff'] = [filter.detune, 1]; P['filter.q'] = [filter.Q, 1]; }
+      modTarget(P, 'filter.cutoff', filter.detune, 1);
+      modTarget(P, 'filter.q', filter.Q, 1);
       // the whole spectrum shifts, so the filter's shape goes with the pitch
       if (_dopSink) _dopSink.push(filter.detune);
+      // `slope: 24` doubles the filter: a second stage at the same cutoff, flat, so the
+      // skirt falls twice as fast and the resonance is still the first stage's alone.
+      // Only the passes and the notch double; a shelf or a peak doubled is just twice
+      // the boost, which the gain already says.
+      if (layer.filter.slope === 24 && SLOPE_FILTERS.has(filter.type)) {
+        const f2 = ctx.createBiquadFilter();
+        f2.type = filter.type;
+        // Q is in dB for the passes (-3.01 is Butterworth) and a plain Q for the rest
+        f2.Q.value = filter.type === 'lowpass' || filter.type === 'highpass' ? -3.01 : filter.Q.value;
+        f2.frequency.setValueAtTime(layer.filter.freq || 4000, time);
+        if (layer.filter.to) {
+          f2.frequency.setTargetAtTime(layer.filter.to, time, Math.max(0.01, (layer.filter.time || 0.2) / 3));
+        }
+        mixPoint.connect(f2);
+        mixPoint = f2;
+        modTarget(P, 'filter.cutoff', f2.detune, 1);
+        if (_dopSink) _dopSink.push(f2.detune);
+      }
+    }
+
+    // EQ: three bands after the filter, a low shelf, a peak and a high shelf, each a
+    // boost or cut in dB. The filter shapes the sound; this is for where it sits.
+    // An `eq.freq` cable sweeps the middle band, in cents.
+    if (layer.eq) {
+      const e = layer.eq;
+      const band = (type, freq, dB, q) => {
+        const b = ctx.createBiquadFilter();
+        b.type = type;
+        b.frequency.value = freq;
+        b.gain.value = Math.max(-24, Math.min(24, Number(dB) || 0));
+        if (q != null) b.Q.value = q;
+        mixPoint.connect(b);
+        mixPoint = b;
+        return b;
+      };
+      band('lowshelf', e.lowFreq || 200, e.low);
+      const mid = band('peaking', e.midFreq || 1000, e.mid, Math.max(0.1, e.q ?? 0.9));
+      band('highshelf', e.highFreq || 4000, e.high);
+      modTarget(P, 'eq.freq', mid.detune, 1);
+    }
+
+    // COMP: a compressor on the layer, then make-up gain. Squashing a layer evens out
+    // its envelope: a pluck that sustains, a hit with its peak taken off and its body
+    // brought up. A probe hears of it so the Rack can show the gain it's taking off.
+    if (layer.comp) {
+      const c = layer.comp;
+      const dc = ctx.createDynamicsCompressor();
+      const clamp = (v, lo, hi, d) => Math.max(lo, Math.min(hi, Number.isFinite(v) ? v : d));
+      dc.threshold.value = clamp(c.threshold, -100, 0, -24);
+      dc.ratio.value = clamp(c.ratio, 1, 20, 4);
+      dc.knee.value = clamp(c.knee, 0, 40, 6);
+      dc.attack.value = clamp(c.attack, 0, 1, 0.005);
+      dc.release.value = clamp(c.release, 0, 1, 0.15);
+      const makeup = ctx.createGain();
+      makeup.gain.value = Math.pow(10, clamp(c.makeup, -24, 24, 0) / 20);
+      mixPoint.connect(dc).connect(makeup);
+      mixPoint = makeup;
+      if (_probe) _probe('comp', 'comp', dc, layer);
     }
 
     if (layer.tremolo?.rate) {
@@ -1395,7 +1603,84 @@
       aGain.gain.value = 1;
       mixPoint.connect(aGain);
       mixPoint = aGain;
-      P.amp = [aGain.gain, 1];
+      modTarget(P, 'amp', aGain.gain, 1);
+    }
+
+    // PHASER: allpass stages swept by their own LFO, mixed back with the dry signal.
+    // Where the stages have turned the phase half a cycle the two cancel, and those
+    // notches moving up and down are the whoosh; every two stages add a notch.
+    // `depth` 1 sweeps two octaves either side of `freq`, and `mix` 0.5 is the
+    // deepest notch. Cables: `phaser.rate` the LFO, `phaser.freq` every stage, in cents.
+    if (layer.phaser) {
+      const ph = layer.phaser;
+      const n = [2, 4, 6, 8, 12].includes(ph.stages) ? ph.stages : 4;
+      const mix = Math.max(0, Math.min(1, ph.mix ?? 0.5));
+      const lfo = ctx.createOscillator();
+      lfo.frequency.setValueAtTime(Math.max(0, Number.isFinite(ph.rate) ? ph.rate : 0.5), time);
+      const sweep = ctx.createGain();
+      sweep.gain.value = Math.max(0, Math.min(1, ph.depth ?? 0.7)) * 2400;
+      lfo.connect(sweep);
+      let x = mixPoint;
+      for (let i = 0; i < n; i++) {
+        const ap = ctx.createBiquadFilter();
+        ap.type = 'allpass';
+        ap.frequency.value = Math.max(20, ph.freq || 800);
+        ap.Q.value = 0.6;
+        sweep.connect(ap.detune);
+        x.connect(ap);
+        x = ap;
+        modTarget(P, 'phaser.freq', ap.detune, 1);
+      }
+      const sum = ctx.createGain();
+      const wet = ctx.createGain(); wet.gain.value = mix;
+      const dry = ctx.createGain(); dry.gain.value = 1 - mix;
+      x.connect(wet).connect(sum);
+      mixPoint.connect(dry).connect(sum);
+      mixPoint = sum;
+      modTarget(P, 'phaser.rate', lfo.frequency, 1);
+      lfo.start(time);
+      nodes.push(lfo);
+    }
+
+    // CHORUS: two copies through short delays that wander, each a little sharp and then
+    // a little flat against the dry signal, one in each ear on opposite sides of one
+    // LFO. 10-30 ms of `delay` is a chorus; under 5 ms with `feedback` it's a flanger.
+    // `depth` is how far the delay swings, as a fraction of it, so it never reaches
+    // zero. The two voices make the layer stereo from here on: a chorus is width.
+    if (layer.chorus) {
+      const cc = layer.chorus;
+      const base = Math.max(0.0005, Math.min(0.05, cc.delay ?? 0.015));
+      const mix = Math.max(0, Math.min(1, cc.mix ?? 0.5));
+      const fbv = Math.max(0, Math.min(0.9, cc.feedback ?? 0));
+      const lfo = ctx.createOscillator();
+      lfo.frequency.setValueAtTime(Math.max(0, Number.isFinite(cc.rate) ? cc.rate : 0.8), time);
+      const swing = ctx.createGain();
+      swing.gain.value = Math.max(0, Math.min(1, cc.depth ?? 0.3)) * base;
+      lfo.connect(swing);
+      const flip = ctx.createGain();
+      flip.gain.value = -1;
+      swing.connect(flip);
+      const merge = ctx.createChannelMerger(2);
+      const dry = ctx.createGain();
+      dry.gain.value = 1 - mix;
+      mixPoint.connect(dry);
+      dry.connect(merge, 0, 0);
+      dry.connect(merge, 0, 1);
+      for (const [side, mod] of [[0, swing], [1, flip]]) {
+        const d = ctx.createDelay(0.1);
+        d.delayTime.value = base;
+        mod.connect(d.delayTime);
+        const wet = ctx.createGain();
+        wet.gain.value = mix;
+        mixPoint.connect(d);
+        if (fbv > 0) { const fb = ctx.createGain(); fb.gain.value = fbv; d.connect(fb).connect(d); }
+        d.connect(wet).connect(merge, 0, side);
+      }
+      mixPoint = merge;
+      modTarget(P, 'chorus.rate', lfo.frequency, 1);
+      modTarget(P, 'chorus.depth', swing.gain, base);
+      lfo.start(time);
+      nodes.push(lfo);
     }
 
     // Echo: delay + feedback loop. mix 0–1; delay in seconds; feedback 0–1.
@@ -1410,10 +1695,18 @@
       mixPoint.connect(wet).connect(delayNode);
       delayNode.connect(fb).connect(delayNode);
       delayNode.connect(destination);
-      if (P) {
-        P['echo.time'] = [delayNode.delayTime, 1];
-        // feedback past 1 runs away, so a depth of 1 is all the room left under 0.95
-        P['echo.feedback'] = [fb.gain, Math.max(0, 0.95 - fb.gain.value)];
+      modTarget(P, 'echo.time', delayNode.delayTime, 1);
+      // feedback past 1 runs away, so a depth of 1 is all the room left under 0.95
+      modTarget(P, 'echo.feedback', fb.gain, Math.max(0, 0.95 - fb.gain.value));
+      // `heads: 2` is a second playback head half a delay further down the tape, so
+      // every repeat comes back twice, the second on the off-beat: a tape echo's gallop
+      if (layer.echo.heads === 2) {
+        const head2 = ctx.createDelay(1.0);
+        head2.delayTime.value = (layer.echo.delay ?? 0.18) / 2;
+        const h2 = ctx.createGain();
+        h2.gain.value = 0.7;
+        delayNode.connect(head2).connect(h2).connect(destination);
+        modTarget(P, 'echo.time', head2.delayTime, 0.5);
       }
     } else {
       mixPoint.connect(destination);
@@ -1425,6 +1718,14 @@
       else tone.connect(gain);
       tone.start(time);
       nodes.push(tone);
+      if (sub) {
+        const subGain = ctx.createGain();
+        subGain.gain.value = Math.min(1, layer.sub.level);
+        sub.connect(subGain).connect(toneGain || gain);
+        modTarget(P, 'sub.level', subGain.gain, 1);
+        sub.start(time);
+        nodes.push(sub);
+      }
     }
     if (noiseSrc) {
       const noiseGain = ctx.createGain();
@@ -1458,7 +1759,7 @@
     const span = holdSeconds != null
       ? (layer.adsr?.a ?? 0.01) + (layer.adsr?.d ?? 0.05) + holdSeconds + (layer.adsr?.r ?? 0.15)
       : 30;
-    const modReleases = mods ? buildMods(mods, P, time, span, nodes) : null;
+    const modReleases = mods ? buildMods(mods, P, time, span, nodes, layer) : null;
 
     // ADSR. `curve: 'exp'` decays and releases exponentially (exp(-t/τ), τ = d/3, so after
     // `d` it's 5% of the way from peak to sustain), which is how a struck thing dies: a hard
@@ -1809,6 +2110,10 @@
   let _hrtfLive = 0;
   // While a positioned cue builds, buildLayer pushes every detune it makes here.
   let _dopSink = null;
+  // While a cue played with `opts.probe` builds, buildLayer hands it the nodes an
+  // editor would watch: probe(kind, id, node, layer), for each mod's output ('mod')
+  // and each compressor ('comp'). The Rack reads its live knobs and meters off them.
+  let _probe = null;
 
   const _dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
   const _sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
@@ -2081,7 +2386,9 @@
     const sustain = opts.sustain === true;
     // (a cue with `retro` goes through the sample-and-hold and bit-depth stage first)
     const into = def.config.retro ? retroStage(c, def.config.retro, def.config, destination, time + duration + cueTail(def.config)) : destination;
-    const sound = _buildPositioned(sp, () => buildSound(def.config, into, time, sustain ? null : duration));
+    _probe = typeof opts.probe === 'function' ? opts.probe : null;
+    let sound;
+    try { sound = _buildPositioned(sp, () => buildSound(def.config, into, time, sustain ? null : duration)); } finally { _probe = null; }
     const voiceToken = occupyVoice(idx, priority, () => sound.release(c.currentTime));
     // `duck` on the cue ducks other buses while it plays: a shout over a crowd
     // bed is { buses: ['ambient'], dB: -8 }. A one-shot holds it for its
@@ -2365,14 +2672,64 @@
     }
   }
 
-  function makeSongPlayer(def, outputGain) {
-    const c = ctx;
+  // A song's rows: which it plays, from where to where, and how long each one is.
+  function songShape(def) {
     const channels = (Array.isArray(def.channels) ? def.channels : []).slice(0, MAX_CHANNELS);
     const length = channels.reduce((m, ch) => Math.max(m, ch.length), 0);
     const loopStart = def.loop_start || 0;
     const loopEnd = def.loop_end > loopStart ? def.loop_end : (length - 1);
     const stepSeconds = 60 / (def.tempo || 120) / STEPS_PER_BEAT;
+    return { channels, length, loopStart, loopEnd, stepSeconds };
+  }
+
+  // How long after a song's last row its notes can still be sounding: a release and an
+  // echo's tail. A song played once keeps its player this long before it lets go.
+  const SONG_TAIL = 3;
+
+  // ONE TRACKER NOTE. The step's pitch, level and velocity go into every layer of its
+  // instrument, so a layered instrument (`config.layers`: an ensemble of detuned saws, a
+  // drum with a skin and a body) plays each layer at the note, moved by the layer's
+  // `tune` in semitones. A song used to set `freq` on the config alone, which a layered
+  // config never reads, so every layer sounded at its own authored pitch whatever the
+  // note was. A layered instrument's level is its layers' gains.
+  //
+  // HOW LONG IT SOUNDS. A step's `len` holds the note that many rows from its onset: its
+  // release starts a tenth of a row before the row it ends on, and never before its
+  // attack and decay are done. Without `len` a note is held 0.9 of a row past its attack
+  // and decay, which every song before `len` was written against, so their timing is
+  // unchanged. A row is a 16th note, so until `len` a long note could only be an
+  // instrument whose decay held it, the same length for every note it played.
+  function songNote(instrument, step, freq, dest, time, stepSeconds) {
+    const base = instrument.config || {};
+    const vol = step.vol ?? 1;
+    const wave = instrument.waveform || 'square';
+    const at = (l) => freq * Math.pow(2, (l.tune || 0) / 12);
+    const layers = Array.isArray(base.layers) && base.layers.length
+      ? base.layers.map(l => ({ ...l, waveform: l.waveform || wave, freq: at(l) }))
+      : [{ ...base, waveform: wave, freq: at(base) }];
+    const len = step.len > 0 ? step.len : 0;
+    const releases = layers.map(l => {
+      l.gain = (l.gain ?? 1) * vol;
+      // …and the same number again as VELOCITY, which reaches the timbre rather
+      // than the level (see `fm.bright` in buildLayer). A step's vol was applied
+      // to gain and nowhere else, which is why an authored instrument could not
+      // do the one thing that makes a struck instrument sound struck.
+      l.velocity = vol;
+      const ad = (l.adsr?.a ?? 0.01) + (l.adsr?.d ?? 0.05);
+      return buildLayer(l, dest, time, len ? Math.max(0, (len - 0.1) * stepSeconds - ad) : stepSeconds * 0.9);
+    });
+    return { release: (t) => releases.forEach(r => r.release(t)) };
+  }
+
+  // opts.once plays the song through a single time and stops, letting what's ringing
+  // ring out (a title card's theme), then calls opts.onEnd. opts.offline builds it into
+  // whatever context `ctx` is for renderSong: no voice pool, no timers, no samples.
+  function makeSongPlayer(def, outputGain, opts = {}) {
+    const c = ctx;
+    const { channels, loopStart, loopEnd, stepSeconds } = songShape(def);
     const priority = def.priority ?? 5;
+    const once = !!opts.once, offline = !!opts.offline;
+    let ringsUntil = 0;   // when the last scheduled note can still be sounding
 
     // Optional per-channel stereo pan (MOD import sets Amiga L-R-R-L). Songs without
     // channel_pan stay mono — hand-authored content is unaffected.
@@ -2449,8 +2806,10 @@
 
         // Sample-backed instrument: pitch-shift the sample buffer instead of synthesis.
         // Route through this channel's gain node (not the SFX bus) so the song's
-        // per-channel mix, fades, and Music volume all apply.
+        // per-channel mix, fades, and Music volume all apply. Offline, it's left out:
+        // its buffer is decoded on the live context.
         if (instrument._sampleDef) {
+          if (offline) return;
           const midi = _noteToMidi(step.note);
           const sampleOpts = { note: midi, gain: step.vol ?? 1, destination: channelGains[chIdx] };
           const onVoice = (v) => { if (v) { channelVoice[chIdx] = v; if (fx) applySampleFx(v, fx, time, stepSeconds); } };
@@ -2468,22 +2827,18 @@
 
         const freq = noteToFreq(step.note);
         if (freq == null) return;
-        const config = { ...(instrument.config || {}), waveform: instrument.waveform || 'square', freq };
-        config.gain = (config.gain ?? 1) * (step.vol ?? 1);
-        // …and the same number again as VELOCITY, which reaches the timbre rather
-        // than the level (see `fm.bright` in buildLayer). A step's vol was applied
-        // to gain and nowhere else, which is why an authored instrument could not
-        // do the one thing that makes a struck instrument sound struck.
-        config.velocity = step.vol ?? 1;
-        const idx = allocateVoice(priority);
+        const rows = step.len > 1 ? step.len : 1;
+        ringsUntil = Math.max(ringsUntil, time + rows * stepSeconds + SONG_TAIL);
+        const idx = offline ? -2 : allocateVoice(priority);
         if (idx === -1) return;
-        const sound = buildSound(config, channelGains[chIdx], time, stepSeconds * 0.9);
+        const sound = songNote(instrument, step, freq, channelGains[chIdx], time, stepSeconds);
         channelVoice[chIdx] = { cut: (t) => sound.release(t), srcNode: null };
+        if (offline) return;
         const voiceToken = occupyVoice(idx, priority, () => sound.release(c.currentTime));
-        const ms = Math.max(0, (time - c.currentTime) * 1000) + (stepSeconds * 1000) + 200;
+        const ms = Math.max(0, (time - c.currentTime) * 1000) + (rows * stepSeconds * 1000) + 200;
         setTimeout(() => freeVoice(idx, voiceToken), ms);
       });
-      if (def.onStep) {
+      if (def.onStep && !offline) {
         const delay = Math.max(0, (time - c.currentTime) * 1000);
         const active = channels.map(ch => !!(ch[stepIdx % ch.length]?.note));
         setTimeout(() => def.onStep(stepIdx, active), delay);
@@ -2497,10 +2852,24 @@
         nextStepTime += stepSeconds;
         currentStep++;
         if (currentStep > loopEnd) {
+          // Played through once: schedule nothing more, and let go of the player once
+          // the last notes have rung out.
+          if (once) {
+            stopped = true;
+            clearInterval(timer);
+            setTimeout(() => { stop(); opts.onEnd?.(); }, Math.max(0, ringsUntil - c.currentTime) * 1000);
+            return;
+          }
           currentStep = loopStart;
           if (onLoopWrap) onLoopWrap();
         }
       }
+    }
+
+    // Offline: every row from the loop start to the loop end once, each at its time from
+    // zero, which is what a song played once does live.
+    function renderAll() {
+      for (let i = loopStart; i <= loopEnd; i++) scheduleStep(i, (i - loopStart) * stepSeconds);
     }
 
     function start() {
@@ -2539,7 +2908,7 @@
       channelGains[chIdx].gain.setTargetAtTime(weight, c.currentTime, 0.2);
     }
 
-    return { start, pause, resume, stop, setChannelWeight, set onLoopWrap_(fn) { onLoopWrap = fn; }, gainNode: outputGain };
+    return { start, pause, resume, stop, setChannelWeight, renderAll, set onLoopWrap_(fn) { onLoopWrap = fn; }, gainNode: outputGain };
   }
 
   let activePlayer = null;
@@ -2574,7 +2943,13 @@
     }
     const gain = c.createGain();
     gain.connect(musicGain);
-    activePlayer = makeSongPlayer(def, gain);
+    // opts.once: through a single time, then the player is let go of, so the same song
+    // asked for again starts from the top instead of being skipped as already playing.
+    const player = makeSongPlayer(def, gain, {
+      once: !!opts.once,
+      onEnd: () => { if (activePlayer === player) { activePlayer = null; activeSongId = null; activeOwner = null; } },
+    });
+    activePlayer = player;
     activePlayer.onLoopWrap_ = () => {
       if (pendingNext) {
         const next = pendingNext;
@@ -2583,6 +2958,29 @@
       }
     };
     activePlayer.start();
+  }
+
+  // A song rendered offline, once through from its loop start, as a Promise of an
+  // AudioBuffer: the song twin of renderSfx, for a gate or a download. Synth instruments
+  // only, since a sample is decoded on the live context. The caller attaches
+  // `_instrumentsById` as for playMusic. `tail` keeps rendering after the last row for
+  // the releases and echoes (SONG_TAIL by default); `stereo` renders two channels, so
+  // `channel_pan` is heard (a browser's context; the Node test double is mono).
+  async function renderSong(def, opts = {}) {
+    const OAC = global.OfflineAudioContext || global.webkitOfflineAudioContext;
+    if (!OAC || !def) return null;
+    const sr = opts.sampleRate || (ctx && ctx.sampleRate) || 48000;
+    const { loopStart, loopEnd, stepSeconds } = songShape(def);
+    const seconds = Math.max(0, loopEnd - loopStart + 1) * stepSeconds + (opts.tail ?? SONG_TAIL);
+    const off = new OAC(opts.stereo ? 2 : 1, Math.max(1, Math.ceil(sr * seconds)), sr);
+    const live = ctx;
+    ctx = off;
+    try {
+      let dest = off.destination;
+      if (opts.gain != null && opts.gain !== 1) { const g = off.createGain(); g.gain.value = opts.gain; g.connect(dest); dest = g; }
+      makeSongPlayer(def, dest, { offline: true }).renderAll();
+    } finally { ctx = live; }
+    return off.startRendering();
   }
 
   function stopMusic() {
@@ -5737,11 +6135,13 @@ return out;
   global.AudioEngine = {
     init, onUnlock, applyVolumeSettings, setMonoAudio,
     playSfx, lastSfxAt, playSample, clearSampleCache,
-    // a cue rendered offline through the same graph (a Promise of an AudioBuffer), and a
-    // rendered buffer as WAV bytes
-    renderSfx, wavBytes,
+    // a cue rendered offline through the same graph (a Promise of an AudioBuffer), a song
+    // rendered once through the same way, and a rendered buffer as WAV bytes
+    renderSfx, renderSong, wavBytes,
     // what a layer's `mods` can be patched into, for the Rack's jacks
     MOD_TARGETS,
+    // the waveshaper curves a layer's `drive`/`driveType` and `fold` build, for the Rack's displays
+    shaperCurve: (kind, amount, type) => (kind === 'fold' ? foldCurve(amount) : driveCurveOf(amount, type)),
     // whether the retro stage's worklet is loaded in the live context (true once it is), and
     // where to load it from when this file wasn't loaded by a <script> tag
     retroReady: () => (ctx ? _retroState.get(ctx) === true : false),

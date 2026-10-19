@@ -1,0 +1,9 @@
+{
+  "a": "zone_kimble_shop",
+  "b": "zone_kimble_stock",
+  "blocked": false,
+  "dir": "north",
+  "id": "conn_hf_kimble_shop_north",
+  "lockable": false,
+  "one_way": false
+}

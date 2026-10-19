@@ -1,0 +1,22 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A back room with a safe, a long table and a rack of ticket rolls in every colour the park uses. A calendar on the wall has the game nights ringed in green pencil.",
+  "exits": {
+    "south": "zone_hcbox_windows"
+  },
+  "flags": {
+    "building_name": "Coliseum Box Office",
+    "building_type": "box_office",
+    "floor": "linoleum",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_parkside_898_913"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hcbox_office",
+  "map_id": "map_int_hcbox",
+  "name": "Box Office — Counting Room",
+  "parent_zone": "zone_parkside_898_913"
+}

@@ -1,0 +1,269 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "jitter": 20,
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "cash_up",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "player_check",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "no": "off_random",
+        "type": "condition",
+        "yes": "home_idle"
+      },
+      "off_random": {
+        "options": [
+          "go_home_off",
+          "have_life"
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_PRESENT",
+        "no": "work_wait",
+        "type": "condition",
+        "yes": "work_say"
+      },
+      "post_shift": {
+        "options": [
+          "go_home_ps",
+          "home_life_ps"
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "work_wait": {
+        "jitter": 20,
+        "next": "check_work",
+        "seconds": 25,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "Rourke rolls the franks a quarter turn each with the tongs, one, two, three.",
+    "He scrapes the griddle with a steel blade and the smoke goes up the chimney.",
+    "A roar comes over the wall from the bleachers. He doesn't look up.",
+    "He pumps a zigzag of mustard down a frank in one stroke.",
+    "He taps the tongs together twice, which seems to mean next."
+  ],
+  "description": "A tall, stooped man in a paper hat and a striped apron, his sleeves rolled to the elbow and a pair of tongs in one hand at all times. He turns the franks to the crowd noise from next door.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "\"Enjoy the game. Napkins are on the shelf.\""
+    },
+    "here": {
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"This plot was glass and a lobby with nobody in it.\" He waves the tongs at the boulevard. \"The crowd walked past it twice a week, three times, and nobody sold them a thing. Now somebody does.\""
+    },
+    "ray": {
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Ray does the Widowmaker inside, with the waiver.\" He shrugs. \"It's a good frank. It's a lot of frank. Mine is the one you can eat walking up the steps to the bleachers.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "What do you sell?",
+          "next": "__shop__"
+        },
+        {
+          "label": "Cheaper than in there?",
+          "next": "ray"
+        },
+        {
+          "label": "How long have you been here?",
+          "next": "here"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing, thanks.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Frank or sausage?\" The tongs are already moving.",
+      "text_by_relation": {
+        "familiar": "\"Two franks, mustard, no onion.\" It is in a boat before you finish the nod.",
+        "first": "The man behind the hatch clicks his tongs at you.\n\n\"Fitz. Fitz Rourke. Franks, sausages, something to wash them down.\" He nods at the gate next door. \"Cheaper out here than in there, and I don't make you sign anything.\"",
+        "known": "\"You again. Mustard?\""
+      }
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a red-and-white striped apron",
+      "a paper hat",
+      "a short-sleeved white shirt",
+      "black work trousers",
+      "boxer shorts"
+    ]
+  },
+  "home_activities": [],
+  "home_zone": "zone_fitzfranks_kitchen",
+  "hp": 44,
+  "hp_max": 44,
+  "id": "npc_fitz_rourke",
+  "name": "Fitz Rourke",
+  "npc_type": "vendor",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_fitz_frank",
+      "price": 5
+    },
+    {
+      "item_id": "item_fitz_sausage",
+      "price": 7
+    },
+    {
+      "item_id": "item_arcline_cola",
+      "price": 4
+    },
+    {
+      "item_id": "item_lemon_soda",
+      "price": 4
+    },
+    {
+      "item_id": "item_drug_beer",
+      "price": 5
+    }
+  ],
+  "vendor_restock_rate": 3,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 15,
+        "to": 22
+      }
+    ],
+    "mon": [
+      {
+        "from": 15,
+        "to": 22
+      }
+    ],
+    "sat": [
+      {
+        "from": 11,
+        "to": 15
+      }
+    ],
+    "sun": [],
+    "thu": [
+      {
+        "from": 11,
+        "to": 16
+      }
+    ],
+    "tue": [
+      {
+        "from": 11,
+        "to": 16
+      }
+    ],
+    "wed": [
+      {
+        "from": 15,
+        "to": 22
+      }
+    ]
+  },
+  "vendor_shop_name": "Fitz's Franks",
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_fitzfranks_counter"
+}

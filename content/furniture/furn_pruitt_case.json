@@ -1,0 +1,16 @@
+{
+  "description": "A glass case with pretzels hung on brass hooks in rows, salted and plain, a bowl of mustard on top with a sign that says ONE DIP.",
+  "flags": {
+    "aliases": [
+      "case",
+      "pretzels",
+      "pretzel case",
+      "hooks",
+      "mustard"
+    ]
+  },
+  "id": "furn_pruitt_case",
+  "name": "the pretzel case",
+  "object_type": "furniture",
+  "zone_id": "zone_pruitt_shop"
+}

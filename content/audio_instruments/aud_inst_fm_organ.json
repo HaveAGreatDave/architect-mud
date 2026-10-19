@@ -1,0 +1,103 @@
+{
+  "category": "fm",
+  "config": {
+    "layers": [
+      {
+        "adsr": {
+          "a": 0.006,
+          "d": 0.05,
+          "r": 0.07,
+          "s": 1
+        },
+        "gain": 0.105,
+        "tremolo": {
+          "depth": 0.08,
+          "rate": 6.7
+        },
+        "waveform": "sine"
+      },
+      {
+        "adsr": {
+          "a": 0.006,
+          "d": 0.05,
+          "r": 0.07,
+          "s": 1
+        },
+        "gain": 0.077,
+        "tremolo": {
+          "depth": 0.08,
+          "rate": 6.7
+        },
+        "tune": 12,
+        "waveform": "sine"
+      },
+      {
+        "adsr": {
+          "a": 0.006,
+          "d": 0.05,
+          "r": 0.07,
+          "s": 1
+        },
+        "gain": 0.056,
+        "tune": 19,
+        "waveform": "sine"
+      },
+      {
+        "adsr": {
+          "a": 0.006,
+          "d": 0.05,
+          "r": 0.07,
+          "s": 1
+        },
+        "gain": 0.05,
+        "tune": 24,
+        "waveform": "sine"
+      },
+      {
+        "adsr": {
+          "a": 0.006,
+          "d": 0.05,
+          "r": 0.07,
+          "s": 1
+        },
+        "gain": 0.035,
+        "tune": -12,
+        "waveform": "sine"
+      },
+      {
+        "adsr": {
+          "a": 0.001,
+          "curve": "exp",
+          "d": 0.3,
+          "r": 0.05,
+          "s": 0
+        },
+        "gain": 0.085,
+        "tune": 19,
+        "waveform": "sine"
+      },
+      {
+        "adsr": {
+          "a": 0.0005,
+          "d": 0.004,
+          "r": 0.003,
+          "s": 0
+        },
+        "filter": {
+          "freq": 2600,
+          "q": 0.8,
+          "type": "bandpass"
+        },
+        "gain": 0.045,
+        "noiseMix": 1,
+        "noiseSeed": 211,
+        "waveform": "sine"
+      }
+    ]
+  },
+  "enabled": 1,
+  "id": "aud_inst_fm_organ",
+  "name": "FM: Arena organ",
+  "sample_id": null,
+  "waveform": "sine"
+}

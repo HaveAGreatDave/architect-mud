@@ -58,6 +58,11 @@ let teamAliases = null;         // built lazily from the roster; null = rebuild
 
 function favTeam(npc) {
   if (!npc?.id || teamRoster.size === 0) return null;
+  // An authored allegiance wins (`flags.fav_team`, a club's full name), for the
+  // character whose club is part of who they are. One the league doesn't have
+  // falls through to the hash, so a renamed club can't leave them backing nobody.
+  const own = npc.flags?.fav_team;
+  if (own && teamRoster.has(own)) return own;
   const teams = [...teamRoster].sort();
   const s = String(npc.id);
   let h = 0;
@@ -582,3 +587,6 @@ export const routeHandler = async (path, method, body, auth) => {
 };
 
 export const commands = { gossip: cmdGossip, spread: cmdSpread, rumor: cmdSpread };
+
+// Exposed for the regress suite.
+export const _test = { favTeam, teamRoster };

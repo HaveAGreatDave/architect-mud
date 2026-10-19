@@ -1,0 +1,9 @@
+{
+  "a": "zone_mulcahy_bar",
+  "b": "zone_util_zone_mulcahy_bar",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_hf_mulcahy_bar_down",
+  "lockable": false,
+  "one_way": false
+}

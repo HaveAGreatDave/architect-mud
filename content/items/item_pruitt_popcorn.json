@@ -1,0 +1,15 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_pruitt_popcorn",
+  "name": "bag of popcorn",
+  "tags": {
+    "consumable": true,
+    "description": "Popcorn in a striped paper bag, buttered at the top and dry at the bottom, the way it always is.",
+    "restore_hunger": 8,
+    "stackable": true
+  },
+  "type": "consumable",
+  "value": 3,
+  "weight": 90
+}

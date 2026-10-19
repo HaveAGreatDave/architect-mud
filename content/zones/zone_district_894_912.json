@@ -5,8 +5,7 @@
   "color": "#c6e6d8",
   "description": "Four steps of falling height coming down toward the mews, each terrace planted and each one behind a glass balustrade with the protective film still on it. The film has been on long enough to have gone milky and to have started lifting at the corners. From the green you can see the irrigation running on a timer into beds that nobody has yet put anything in. The way in is a glazed slot at the bottom of the lowest step, off the mews, with a chrome plate beside it reading TERRACES OPEN TO VIEW and an arrow that points at nothing in particular.",
   "exits": {
-    "east": "zone_hf_terms_hall",
-    "west": "zone_district_893_912"
+    "east": "zone_hf_terms_hall"
   },
   "flags": {
     "building_name": "8 Vetch Mews",
@@ -17,13 +16,15 @@
     "floors": 8,
     "is_building": true,
     "region_id": "region_coldwater",
-    "world_exit_zone": "zone_district_893_912"
+    "set_aside": true,
+    "set_aside_from": "894,912",
+    "world_exit_zone": "zone_district_894_912"
   },
-  "grid_x": 894,
-  "grid_y": 912,
+  "grid_x": 3,
+  "grid_y": 9,
   "grid_z": 0,
   "id": "zone_district_894_912",
-  "map_id": "map_world",
+  "map_id": "map_set_aside",
   "marker": "V8",
   "name": "8 Vetch Mews",
   "parent_zone": null

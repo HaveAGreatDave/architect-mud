@@ -1,6 +1,6 @@
 {
   "ambient_theme": "indoors",
-  "description": "Green wooden seats in rows behind home plate, bolted to concrete steps. The diamond lies below, the outfield wall beyond it, six light towers over all of it. One seat in the front row has a brass plate on it and nobody in it. Section nine is west, the bleachers north.",
+  "description": "Green wooden seats in rows behind home plate, bolted to concrete steps. The diamond lies below and the outfield wall beyond it, and the roof's steel shells arch over the far end on their rails. One seat in the front row has a brass plate on it and nobody in it. Section nine is west, the bleachers north.",
   "exits": {
     "north": "zone_hughsonbl_bleachers",
     "south": "zone_hughson_concourse",
@@ -13,7 +13,7 @@
     "is_building": true,
     "is_interior": true,
     "window": {
-      "description": "The diamond, the infield dirt raked in arcs, and the outfield running out to a padded wall with numbers painted on it. The scoreboard stands on legs past centre field.",
+      "description": "The diamond, the infield dirt raked in arcs, and the outfield running out to a padded wall with numbers painted on it. The scoreboard stands on legs past centre field, under the roof.",
       "light": 0.9,
       "name": "the field",
       "visibility": 1

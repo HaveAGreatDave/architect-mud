@@ -178,12 +178,12 @@ export function createWeather(gl, prog) {
     return k > 0.002 ? { sky: col.map((v) => (v / m) * k * FLASH.sky), up: col.map((v) => (v / m) * k * FLASH.up) } : null;
   }
 
-  // M: the frame's matrices, eye and lens (camera.js shotMatrices); w, h the canvas's size in pixels.
-  // Returns { draws, tris }.
-  function draw(M, w, h) {
+  // M: the frame's matrices, eye and lens (camera.js shotMatrices); w, h the canvas's size in pixels;
+  // `o.fall` false for a camera nothing falls on (under a shut roof). Returns { draws, tris }.
+  function draw(M, w, h, o = {}) {
     let draws = 0, tris = 0;
     const minW = (MIN_PX * 2 * Math.tan(((M.fov || 40) * Math.PI) / 360)) / Math.max(1, h || 1);
-    const f = we.fall;
+    const f = o.fall === false ? null : we.fall;
     if (f) {
       const n = Math.round(MAX_FALL * Math.min(1, f.n / MAX_FALL) * (0.35 + 0.65 * f.rate));
       const fw = [M.at[0] - M.eye[0], M.at[1] - M.eye[1], M.at[2] - M.eye[2]], fl = Math.hypot(fw[0], fw[2]) || 1;

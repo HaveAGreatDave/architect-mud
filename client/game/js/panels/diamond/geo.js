@@ -28,18 +28,42 @@ export function moundHeight(x, z) {
 }
 export const groundHeight = (x, z) => Math.max(0, moundHeight(x, z));
 
+// ── THE BOWL ────────────────────────────────────────────────────────────────
+// The Charles B. Hughson Coliseum as the map draws it (glass/models/coliseum.js), at the
+// broadcast's size: one square wall along the foul lines, as the map's park stands on the tile
+// grid, its outer face `near` feet behind home on the two near sides and `far` feet out on the two
+// far ones. The map packs the park into nine tiles, so the broadcast takes its plan from the bowl,
+// not from the field: the map's block coordinates (tiles from the block's centre, u east, v south)
+// go to the bowl's feet by `fromBlock`, and its heights by `ftUp` (its cornice at 0.46 tiles is
+// 104 ft). The field and the stands are the broadcast's own.
+//
+// The bowl's frame: `s3` feet along the third-base line, `s1` feet along the first-base line. The
+// map's u (east) runs to -s3 and its v (south) to -s1, so Sorrel Way and the main gate are on the
+// s1 = -near face, Halcyon Boulevard on the s1 = far one, and the roof's rails run along s1.
+export const BOWL = Object.freeze({ near: 168, far: 445 });
+export const sf = (s3, s1, y = 0) => [(s3 - s1) / Math.SQRT2, y, (s3 + s1) / Math.SQRT2];
+export const sOf = (p) => [(p[0] + p[2]) / Math.SQRT2, (p[2] - p[0]) / Math.SQRT2];
+export const fromBlock = (w) => -BOWL.near + ((1.47 - w) / 2.94) * (BOWL.near + BOWL.far);
+export const ftUp = (z) => z * 226;
+// The light towers at the corners (the map's TOWER.at, 1.37 tiles out) and the lamp rows under the
+// two decks the roof's rails run along (its DECK, 1.13), at the height of the map's deck lamps.
+const TOWER_AT = [fromBlock(1.37), fromBlock(-1.37)], DECK_AT = [fromBlock(1.13), fromBlock(-1.13)];
+const LAMP_Y = ftUp(0.816), DECK_LAMP_Y = ftUp(0.415), DECK_MID = (fromBlock(1.26) + fromBlock(-1.26)) / 2;
+
 // The venue's defaults: a fence 330 ft down the lines and 400 to centre, 9.5 ft high; the
-// scoreboard behind right-centre; six light towers, four of them casting the night's shadows.
+// scoreboard behind right-centre; and the lights, four towers at the corners of the bowl and a lamp
+// row under each deck. The four towers cast the night's shadows. With the roof shut they're outside
+// it, so each tower's light moves to the lamps under a deck (`under`, ballpark-mesh.js roofLights).
 export const VENUE_DEFAULTS = Object.freeze({
   fence: Object.freeze({ line: 330, centre: 400, curve: 1.6, height: 9.5 }),
   board: Object.freeze({ bearing: -31, r: 420 }),
   towers: Object.freeze([
-    { base: [-190, 0, 20], h: 150, aim: [0, 0, 110] },
-    { base: [190, 0, 20], h: 150, aim: [0, 0, 110] },
-    { base: [-245, 0, 300], h: 155, aim: [0, 0, 150] },
-    { base: [245, 0, 300], h: 155, aim: [0, 0, 150] },
-    { base: [-110, 0, -150], h: 125, aim: [0, 0, 60] },
-    { base: [110, 0, -150], h: 125, aim: [0, 0, 60] },
+    { kind: 'tower', base: sf(TOWER_AT[0], TOWER_AT[1]), h: LAMP_Y, aim: [0, 0, 120], under: sf(DECK_AT[0], 260, DECK_LAMP_Y) },
+    { kind: 'tower', base: sf(TOWER_AT[1], TOWER_AT[0]), h: LAMP_Y, aim: [0, 0, 120], under: sf(DECK_AT[1], 40, DECK_LAMP_Y) },
+    { kind: 'tower', base: sf(TOWER_AT[0], TOWER_AT[0]), h: LAMP_Y, aim: [0, 0, 110], under: sf(DECK_AT[0], 40, DECK_LAMP_Y) },
+    { kind: 'tower', base: sf(TOWER_AT[1], TOWER_AT[1]), h: LAMP_Y, aim: [0, 0, 170], under: sf(DECK_AT[1], 260, DECK_LAMP_Y) },
+    { kind: 'deck', base: sf(DECK_AT[0], DECK_MID), h: DECK_LAMP_Y, aim: [0, 0, 150] },
+    { kind: 'deck', base: sf(DECK_AT[1], DECK_MID), h: DECK_LAMP_Y, aim: [0, 0, 150] },
   ]),
   // The lamps that work. The booth says the lights work about sixty percent of the time,
   // so each tower's bank of 24 is dealt from this seed until a venue lists its own.
@@ -84,27 +108,25 @@ function towersOf(list, v) {
     const d = [t.aim[0] - lamp[0], t.aim[1] - lamp[1], t.aim[2] - lamp[2]];
     const l = Math.hypot(d[0], d[1], d[2]) || 1;
     const live = Array.isArray(t.live) ? t.live.slice(0, 24) : Array.from({ length: 24 }, () => r() < lit);
-    return { base: t.base.slice(), h: t.h, aim: t.aim.slice(), lamp, dir: [d[0] / l, d[1] / l, d[2] / l], live, frac: live.filter(Boolean).length / live.length };
+    // where its light comes from with the roof shut, and which way it points from there
+    let under = null;
+    if (Array.isArray(t.under)) {
+      const u = [t.aim[0] - t.under[0], t.aim[1] - t.under[1], t.aim[2] - t.under[2]], ul = Math.hypot(u[0], u[1], u[2]) || 1;
+      under = { lamp: t.under.slice(), dir: [u[0] / ul, u[1] / ul, u[2] / ul] };
+    }
+    return { kind: t.kind || 'tower', base: t.base.slice(), h: t.h, aim: t.aim.slice(), lamp, dir: [d[0] / l, d[1] / l, d[2] / l], under, live, frac: live.filter(Boolean).length / live.length };
   });
 }
 
-// The park's outline on the ground: the bowl and its upper deck along the lines, the
-// bleachers, the board behind right-centre and the rear towers. Inside it is the park; the
-// city set is cleared from it and the outer wall is built along it.
+// The park's outline on the ground: the bowl's outer face (BOWL), a square on the foul lines, from
+// the corner behind home out along the first-base side, across the boulevard face past centre
+// field, back down the third-base side and along Sorrel Way. Inside it is the park; the city set is
+// cleared from it and the bowl's wall is built along it. A venue's own fence and board stand inside
+// the same bowl, so `field` doesn't move it.
 export function parkOutline(field = venueField()) {
-  const P = [];
-  const pol = (th, r) => [Math.sin(th) * r, 0, Math.cos(th) * r];
-  const line = (side, s, d) => [side * (s + d) / Math.SQRT2, 0, (s - d) / Math.SQRT2];
-  const boardTh = field.board.bearing, boardR = field.board.r;
-  for (let k = 0; k <= 18; k++) P.push(pol((-112.5 - 135 * k / 18) * DEG, 192));
-  P.push(line(1, 62, 150), line(1, 251, 150), line(1, 251, 112), line(1, 322, 112));
-  for (let d = 44; d >= -44; d -= 1) {
-    let r = fenceDistance(d * DEG, field.fence) + (Math.abs(d) < 8 ? 12 : 42);
-    if (Math.abs(d - boardTh) <= 8) r = Math.max(r, boardR + 8);
-    P.push(pol(d * DEG, r));
-  }
-  P.push(line(-1, 322, 112), line(-1, 251, 112), line(-1, 251, 150), line(-1, 62, 150));
-  return P;
+  void field;
+  const n = -BOWL.near, f = BOWL.far;
+  return [sf(n, n), sf(n, f), sf(f, f), sf(f, n)];
 }
 
 // Whether a ground point is inside the outline, or within `margin` feet of it.

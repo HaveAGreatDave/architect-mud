@@ -1,0 +1,18 @@
+{
+  "description": "A two-group lever espresso machine in chrome and green enamel, older than anybody who works here. Pulling a shot takes both hands and most of your weight.",
+  "flags": {
+    "aliases": [
+      "machine",
+      "lever machine",
+      "espresso machine",
+      "lever rig",
+      "rig",
+      "lever",
+      "levers"
+    ]
+  },
+  "id": "furn_grounds_machine",
+  "name": "the lever machine",
+  "object_type": "fixture",
+  "zone_id": "zone_grounds_cafe"
+}

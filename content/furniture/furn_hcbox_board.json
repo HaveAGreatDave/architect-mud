@@ -1,0 +1,15 @@
+{
+  "description": "A painted board over the windows lists the stands, the club and the bleachers, each with a price in cream on green. The bleachers' price has been painted over twice and is lower each time.",
+  "flags": {
+    "aliases": [
+      "board",
+      "fare board",
+      "fares",
+      "prices"
+    ]
+  },
+  "id": "furn_hcbox_board",
+  "name": "the fare board",
+  "object_type": "decoration",
+  "zone_id": "zone_hcbox_windows"
+}

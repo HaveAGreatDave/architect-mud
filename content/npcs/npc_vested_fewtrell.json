@@ -252,7 +252,8 @@
       "a stiff collar and a plain dark tie",
       "black trousers with a crease kept by a press he owns",
       "vest and plain underthings"
-    ]
+    ],
+    "set_aside": true
   },
   "home_activities": [],
   "home_zone": "zone_vested_smoking",

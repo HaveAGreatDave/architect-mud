@@ -1,0 +1,69 @@
+{
+  "category": "fm",
+  "config": {
+    "layers": [
+      {
+        "adsr": {
+          "a": 0.0008,
+          "curve": "exp",
+          "d": 0.18,
+          "r": 0.06,
+          "s": 0
+        },
+        "filter": {
+          "freq": 2400,
+          "q": 0.55,
+          "type": "bandpass"
+        },
+        "gain": 0.55,
+        "noiseMix": 1,
+        "noiseSeed": 227,
+        "waveform": "sine"
+      },
+      {
+        "adsr": {
+          "a": 0.0005,
+          "curve": "exp",
+          "d": 0.09,
+          "r": 0.04,
+          "s": 0
+        },
+        "filter": {
+          "freq": 6500,
+          "q": 0.7,
+          "type": "highpass"
+        },
+        "gain": 0.22,
+        "noiseMix": 1,
+        "noiseSeed": 229,
+        "waveform": "sine"
+      },
+      {
+        "adsr": {
+          "a": 0.0008,
+          "curve": "exp",
+          "d": 0.08,
+          "r": 0.04,
+          "s": 0
+        },
+        "fm": {
+          "index": 1.4,
+          "indexEnd": 0.1,
+          "ratio": 1.41,
+          "time": 0.03
+        },
+        "gain": 0.35,
+        "pitchBend": {
+          "time": 0.04,
+          "to": 140
+        },
+        "waveform": "sine"
+      }
+    ]
+  },
+  "enabled": 1,
+  "id": "aud_inst_fm_snare",
+  "name": "FM: Snare",
+  "sample_id": null,
+  "waveform": "sine"
+}

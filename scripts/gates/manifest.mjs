@@ -285,7 +285,9 @@ export const GROUPS = [
       'scripts/audio/spatial-smoke.mjs',   // a GLASS seat's 3D: a pass goes left to right and sharp to flat; the pose turns the panner
       'scripts/audio/tools-smoke.mjs',     // 8: the Audio tab round-trips a layer; Voice Lab saves a voice
       'scripts/audio/mods-smoke.mjs',      // layer.mods patches LFO/env/random sources into a layer's stages
+      'scripts/audio/fx-smoke.mjs',        // the effect stages (sub, fold, ring, 24 dB, EQ, comp, phaser, chorus, two heads), mute, the seq mod, the probe
       'scripts/audio/rack-smoke.mjs',      // the Audio tab's Rack round-trips every row; its patches touch only mods
+      'scripts/audio/tracker-smoke.mjs',   // a song's held notes, layered instruments and play-once; the KSAB-7 theme and its open
       'scripts/audio/loudness-smoke.mjs',  // every cue preset's LUFS and peak against its target; ratcheted by loudness-baseline.json
       'scripts/audio/modes-smoke.mjs',     // struck surfaces: metal rings longer than wood, peaks at the modes, as loud as the old path
     ],

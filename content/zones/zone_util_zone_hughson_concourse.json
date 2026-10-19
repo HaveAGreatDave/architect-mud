@@ -1,5 +1,5 @@
 {
-  "description": "Under the concourse: the switchgear for the light towers, six breakers in a row with a tower number painted over each. Two of them are taped in the off position. The building's junction box is on the wall by the door.",
+  "description": "Under the concourse: the switchgear for the four light towers and the lamps on the rails, a breaker for each, two taped in the off position. The roof's drive is caged at the back, three motors and a chain as thick as a wrist. The junction box is by the door.",
   "exits": {
     "up": "zone_hughson_concourse"
   },

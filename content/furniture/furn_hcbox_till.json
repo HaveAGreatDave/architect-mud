@@ -1,0 +1,18 @@
+{
+  "description": "A steel drawer under the middle window, chained to the counter.",
+  "flags": {
+    "aliases": [
+      "till",
+      "cash drawer",
+      "drawer",
+      "cash"
+    ],
+    "hack_difficulty": 3,
+    "vendor_npc_id": "npc_hcbox_okafor",
+    "vendor_safe": true
+  },
+  "id": "furn_hcbox_till",
+  "name": "the cash drawer",
+  "object_type": "fixture",
+  "zone_id": "zone_hcbox_windows"
+}

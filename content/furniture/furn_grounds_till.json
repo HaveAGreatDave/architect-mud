@@ -1,0 +1,18 @@
+{
+  "description": "A brass till under the counter that rings like a bicycle bell. The drawer is padlocked at closing.",
+  "flags": {
+    "aliases": [
+      "till",
+      "drawer",
+      "cash drawer",
+      "register"
+    ],
+    "hack_difficulty": 3,
+    "vendor_npc_id": "npc_tobiah_gresh",
+    "vendor_safe": true
+  },
+  "id": "furn_grounds_till",
+  "name": "the till",
+  "object_type": "fixture",
+  "zone_id": "zone_grounds_cafe"
+}

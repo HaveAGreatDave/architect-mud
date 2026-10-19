@@ -1,0 +1,17 @@
+{
+  "description": "A steel bench with a scale, a heat sealer and a roll of foil bags printed with the café's name in brown.",
+  "flags": {
+    "aliases": [
+      "bench",
+      "bagging bench",
+      "scale",
+      "sealer",
+      "heat sealer",
+      "bags"
+    ]
+  },
+  "id": "furn_grounds_bench",
+  "name": "the bagging bench",
+  "object_type": "fixture",
+  "zone_id": "zone_grounds_roastery"
+}

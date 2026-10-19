@@ -1,0 +1,18 @@
+{
+  "description": "Framed photographs of the green in rain, snow, fog and one clear day, taken by regulars. Every one hangs slightly crooked and none of them are for sale.",
+  "flags": {
+    "aliases": [
+      "photographs",
+      "photos",
+      "photo",
+      "pictures",
+      "gallery",
+      "frames"
+    ],
+    "examine_detail": "On the back of the clear-day one, in pencil: \"Acid rain twenty minutes later. Worth it.\""
+  },
+  "id": "furn_grounds_photos",
+  "name": "the photographs",
+  "object_type": "decoration",
+  "zone_id": "zone_grounds_cafe"
+}

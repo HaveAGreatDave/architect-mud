@@ -1,0 +1,11 @@
+{
+  "description": "A caged fluorescent tube over the roaster, its plastic diffuser gone brown from the heat.",
+  "flags": {},
+  "id": "furn_light_zone_grounds_roastery",
+  "light_type": "overhead",
+  "lumen_output": 1800,
+  "name": "the strip light",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_grounds_roastery"
+}

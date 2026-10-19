@@ -1,0 +1,30 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "urban",
+  "bg_color": "#1d2219",
+  "color": "#e3c98c",
+  "description": "A narrow shop on Sorrel Way with green-and-cream bunting over the door, pennants hung in the window in fans, a card machine glowing behind the glass, and SOUVENIRS & CARDS in gilt on the fascia.",
+  "exits": {
+    "north": "zone_kimble_shop",
+    "south": "zone_district_894_914"
+  },
+  "flags": {
+    "building_name": "Kimble's Souvenirs & Cards",
+    "building_type": "souvenir_shop",
+    "district": "halcyon_fields",
+    "entrance": "south",
+    "facade": true,
+    "floors": 1,
+    "is_building": true,
+    "region_id": "region_coldwater",
+    "world_exit_zone": "zone_district_894_914"
+  },
+  "grid_x": 894,
+  "grid_y": 913,
+  "grid_z": 0,
+  "id": "zone_parkside_894_913",
+  "map_id": "map_world",
+  "marker": "KM",
+  "name": "Kimble's Souvenirs & Cards",
+  "parent_zone": null
+}

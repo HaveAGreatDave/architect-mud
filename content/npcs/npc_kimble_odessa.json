@@ -1,0 +1,265 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "jitter": 20,
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "cash_up",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "player_check",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "no": "off_random",
+        "type": "condition",
+        "yes": "home_idle"
+      },
+      "off_random": {
+        "options": [
+          "go_home_off",
+          "have_life"
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_PRESENT",
+        "no": "work_wait",
+        "type": "condition",
+        "yes": "work_say"
+      },
+      "post_shift": {
+        "options": [
+          "go_home_ps",
+          "home_life_ps"
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "work_wait": {
+        "jitter": 20,
+        "next": "check_work",
+        "seconds": 25,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "Kimble refolds a pennant somebody left crooked and pins it back up.",
+    "She fluffs a foam finger back into shape and drops it in the bin.",
+    "She bends the peak of a cap over her knee, tries it on, and bends it again.",
+    "The card machine hums. She gives it a pat as she passes.",
+    "She writes a label for a signed ball in careful capitals."
+  ],
+  "description": "A wiry woman in her forties with a measuring tape round her neck and pins in her lapel, a Coliseum cap pushed back on her head. She refolds every pennant a customer has touched.",
+  "dialogue_tree": {
+    "ball": {
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Off the night something came down in section nine.\" She doesn't open the case. \"A boy brought it in the next morning, still warm, he said. I gave him a cap for it. It is not for sale, and he still comes in.\""
+    },
+    "bye": {
+      "options": [],
+      "text": "\"Come back on a game night. It's a madhouse. You'll love it.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "What do you sell?",
+          "next": "__shop__"
+        },
+        {
+          "label": "What's the scorched ball?",
+          "next": "ball"
+        },
+        {
+          "label": "Why the sunburst?",
+          "next": "sun"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing, thanks.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Pennant, cap, or something to wave?\" She has the tape in her hand already.",
+      "text_by_relation": {
+        "familiar": "\"Your size is under the counter.\" It is.",
+        "first": "The woman behind the counter looks up from a pennant she is pinning.\n\n\"Odessa Kimble. If it has the Coliseum on it, I sell it, and if it doesn't, I can sew it on.\" She nods at the machine in the corner. \"Cards are over there. The machine takes money, not arguments.\"",
+        "known": "\"You again. The caps are new in.\""
+      }
+    },
+    "sun": {
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"It's over the main gate, with a ball for the sun.\" She points out of the window at the corner. \"Sir Charles had it put there when they built the place. He said a park should look like the morning. I put it on everything.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a Coliseum cap pushed back on the head",
+      "a measuring tape round the neck",
+      "a green cardigan bristling with pins",
+      "a striped shirt",
+      "jeans"
+    ]
+  },
+  "home_activities": [],
+  "home_zone": "zone_kimble_stock",
+  "hp": 34,
+  "hp_max": 34,
+  "id": "npc_kimble_odessa",
+  "name": "Odessa Kimble",
+  "npc_type": "vendor",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_coliseum_pennant",
+      "price": 8
+    },
+    {
+      "item_id": "item_coliseum_cap",
+      "price": 16
+    },
+    {
+      "item_id": "item_foam_finger",
+      "price": 6
+    },
+    {
+      "item_id": "item_coliseum_scorecard",
+      "price": 2
+    }
+  ],
+  "vendor_restock_rate": 3,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 10,
+        "to": 20
+      }
+    ],
+    "mon": [
+      {
+        "from": 10,
+        "to": 20
+      }
+    ],
+    "sat": [
+      {
+        "from": 10,
+        "to": 16
+      }
+    ],
+    "sun": [],
+    "thu": [
+      {
+        "from": 10,
+        "to": 18
+      }
+    ],
+    "tue": [
+      {
+        "from": 10,
+        "to": 18
+      }
+    ],
+    "wed": [
+      {
+        "from": 10,
+        "to": 20
+      }
+    ]
+  },
+  "vendor_shop_name": "Kimble's Souvenirs & Cards",
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_kimble_shop"
+}

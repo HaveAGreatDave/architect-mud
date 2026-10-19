@@ -141,6 +141,9 @@ export const NAMED_MODELS = {
   firedforgotten:                 { type: 'ff_kiln',     pal: 'ty_ff_brick', neon: '#ff8a4a' },
   // ⚠ `trade` NAMED, because the signage tables and KIT_DECLINE key on `tradeOf`, and an arm's
   // case label IS its trade unless it says otherwise: `chippy` would reach every one as a miss.
+  // Grounds for Concern, the corner café on Greenside Row (glass/models/greenside.js). Its trade is
+  // `coffee_shop`, which is what the kit declines and the trade sign reads.
+  groundsforconcern:              { type: 'groundscafe', pal: 'ty_gfc_brick', neon: '#ffd9a0', trade: 'coffee_shop' },
   // Batter Days moved onto the front of the Codfather's fish works in 2026-10 and was repainted
   // blue and orange. Its old brick unit on Ironside Street kept the shell as `ironsideunit`.
   batterdaysfishchips:            { type: 'chippy',      pal: 'ty_bd_blue', neon: '#f08a2a', trade: 'chip_shop' },
@@ -163,7 +166,7 @@ export const NAMED_MODELS = {
   thepapertomb:                   { type: 'papertomb',   pal: 'ty_tomb' },          // twin: Precinct 9 keeps `police`
   ironsideclinic:                 { type: 'stitch',     pal: 'ty_stitch', neon: '#6affa8' },   // twin: Co-Pay & Pray keeps `clinic`
   campgiardia:                    { type: 'campgiardia', pal: 'ty_giardia' },        // twin: Grease Expectations keeps `diner`
-  wattsthedamage:                 { type: 'watts',       pal: 'ty_watts', neon: '#ffcf3e' },    // twin: Nuts to That keeps `hardware`
+  wattsthedamage:                 { type: 'watts',       pal: 'ty_watts' },                     // twin: Nuts to That keeps `hardware`
   slagwares:                      { type: 'slagwares',   pal: 'ty_slagw' },          // twins: Salvage Rites keeps `junkyard`
   theslip:                        { type: 'slipback',    pal: 'ty_slip' },           // twin: the Marrow Street fence (Cash & Carrion) is authored
   sentimentalvaluepawn:           { type: 'sentimental', pal: 'ty_sentimental', neon: '#ffcf3e' },
@@ -392,6 +395,10 @@ export const TYPE_MODEL = {
   // Reuses the shop mesh with its own iron-toned palette + warm sign, the same
   // "nearest existing model, bespoke colour" call the Ascendant campus makes.
   kitchenware:      { type: 'shop',      pal: 'ty_kitchen', neon: '#ff9a3e' },
+  coffee_shop:      { type: 'shop',      pal: 'ty_gfc_brick', neon: '#ffd9a0' },
+  // A car park is ground, not a building: paint, kerbs, a lamp and parked cars (glass/models/greenside.js).
+  car_park:         { type: 'car_park',  pal: 'ty_yard_tarmac' },
+  staff_lot:        { type: 'car_park',  pal: 'ty_yard_tarmac' },   // the Codfather's staff car park, the same lot
   chip_shop:        { type: 'shop',      pal: 'ty_unit_brick', neon: '#ffd27a' },
   butcher:          { type: 'butcher',   pal: 'ty_butcher', neon: '#ff3e4a' },
   // St Garneau's. NO NEON, and that is the point: it is the one building on the
@@ -435,15 +442,21 @@ export const TYPE_MODEL = {
   // 911-913, from the north-west), and `facing` is the entrance the tile was authored with, which the
   // arm turns the park's block coordinates by (see the ⚠ on the frame in coliseum.js). Registered by
   // type, never by name: all nine carry the park's name.
-  ballpark:           { type: 'ballpark', pal: 'ty_unit_brick', noKit: true, bc: 2, br: 2, facing: 'south' },
-  ballpark_s:         { type: 'ballpark', pal: 'ty_unit_brick', noKit: true, bc: 1, br: 2, facing: 'south' },
-  ballpark_sw:        { type: 'ballpark', pal: 'ty_unit_brick', noKit: true, bc: 0, br: 2, facing: 'south' },
-  ballpark_e:         { type: 'ballpark', pal: 'ty_unit_brick', noKit: true, bc: 2, br: 1, facing: 'south' },
-  ballpark_c:         { type: 'ballpark', pal: 'ty_unit_brick', noKit: true, bc: 1, br: 1, facing: 'south' },
-  ballpark_w:         { type: 'ballpark', pal: 'ty_unit_brick', noKit: true, bc: 0, br: 1, facing: 'south' },
-  ballpark_ne:        { type: 'ballpark', pal: 'ty_unit_brick', noKit: true, bc: 2, br: 0, facing: 'south' },
-  ballpark_n:         { type: 'ballpark', pal: 'ty_unit_brick', noKit: true, bc: 1, br: 0, facing: 'south' },
-  ballpark_bleachers: { type: 'ballpark', pal: 'ty_unit_brick', noKit: true, bc: 0, br: 0, facing: 'north' },
+  ballpark:           { type: 'ballpark', pal: 'ty_palais_stone', noKit: true, bc: 2, br: 2, facing: 'south' },
+  ballpark_s:         { type: 'ballpark', pal: 'ty_palais_stone', noKit: true, bc: 1, br: 2, facing: 'south' },
+  ballpark_sw:        { type: 'ballpark', pal: 'ty_palais_stone', noKit: true, bc: 0, br: 2, facing: 'south' },
+  ballpark_e:         { type: 'ballpark', pal: 'ty_palais_stone', noKit: true, bc: 2, br: 1, facing: 'south' },
+  ballpark_c:         { type: 'ballpark', pal: 'ty_palais_stone', noKit: true, bc: 1, br: 1, facing: 'south' },
+  ballpark_w:         { type: 'ballpark', pal: 'ty_palais_stone', noKit: true, bc: 0, br: 1, facing: 'south' },
+  ballpark_ne:        { type: 'ballpark', pal: 'ty_palais_stone', noKit: true, bc: 2, br: 0, facing: 'south' },
+  ballpark_n:         { type: 'ballpark', pal: 'ty_palais_stone', noKit: true, bc: 1, br: 0, facing: 'south' },
+  ballpark_bleachers: { type: 'ballpark', pal: 'ty_palais_stone', noKit: true, bc: 0, br: 0, facing: 'north' },
+  // The trades on the plots either side of the park (glass/models/parkside.js), one type each.
+  box_office:    { type: 'box_office',     pal: 'ty_palais_stone', noKit: true },
+  frank_stand:   { type: 'frank_stand',    pal: 'ty_cod',          noKit: true },
+  peanut_roaster: { type: 'peanut_roaster', pal: 'ty_corbett',     noKit: true },
+  sports_bar:    { type: 'sports_bar',     pal: 'ty_embassy_brick', noKit: true },
+  souvenir_shop: { type: 'souvenir_shop',  pal: 'ty_reel',         noKit: true },
   // ── THE BASIN JETTY ────────────────────────────────────────────────────
   // Four types for one place, because a run of deck, the yard you leave the truck in, the quay
   // beside it and the thing on the head are four different buildings that happen to be in a line.

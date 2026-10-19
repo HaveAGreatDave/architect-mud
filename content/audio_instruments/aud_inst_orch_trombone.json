@@ -1,0 +1,96 @@
+{
+  "category": "orchestral",
+  "config": {
+    "layers": [
+      {
+        "adsr": {
+          "a": 0.035,
+          "d": 0.2,
+          "r": 0.18,
+          "s": 0.85
+        },
+        "detune": -4,
+        "echo": {
+          "delay": 0.11,
+          "feedback": 0.3,
+          "mix": 0.12
+        },
+        "filter": {
+          "freq": 800,
+          "q": 1.1,
+          "type": "lowpass"
+        },
+        "gain": 0.16,
+        "mods": [
+          {
+            "a": 0.04,
+            "d": 0.25,
+            "id": "bl",
+            "r": 0.2,
+            "s": 0.5,
+            "to": [
+              {
+                "amount": 2100,
+                "param": "filter.cutoff"
+              }
+            ],
+            "type": "env"
+          }
+        ],
+        "waveform": "sawtooth"
+      },
+      {
+        "adsr": {
+          "a": 0.04,
+          "d": 0.22,
+          "r": 0.18,
+          "s": 0.85
+        },
+        "detune": 5,
+        "filter": {
+          "freq": 800,
+          "q": 0.8,
+          "type": "lowpass"
+        },
+        "gain": 0.13,
+        "mods": [
+          {
+            "a": 0.045,
+            "d": 0.28,
+            "id": "bl",
+            "r": 0.2,
+            "s": 0.45,
+            "to": [
+              {
+                "amount": 1800,
+                "param": "filter.cutoff"
+              }
+            ],
+            "type": "env"
+          }
+        ],
+        "waveform": "sawtooth"
+      },
+      {
+        "adsr": {
+          "a": 0.04,
+          "d": 0.3,
+          "r": 0.18,
+          "s": 0.5
+        },
+        "filter": {
+          "freq": 1100,
+          "q": 1.1,
+          "type": "bandpass"
+        },
+        "gain": 0.2,
+        "waveform": "sawtooth"
+      }
+    ]
+  },
+  "enabled": 1,
+  "id": "aud_inst_orch_trombone",
+  "name": "Orchestra: Trombones",
+  "sample_id": null,
+  "waveform": "sawtooth"
+}

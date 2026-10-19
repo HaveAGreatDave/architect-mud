@@ -750,7 +750,9 @@ function compileBsm(text) {
   // string spoken as narration — deliberately NOT added to npcIds, so importing a sports
   // broadcast never spawns a studio NPC. See docs/bsm-format.md#sports-broadcasts-type-sports.
   const sportsScript = { sport: meta.sport || 'baseball', announcer: meta.announcer, teams, players, pools: weatherPools, title: meta.titlecard || '', airSlots: (meta.airSlots && meta.airSlots.length) ? meta.airSlots : null, ...(meta.sim ? { sim: { version: meta.sim } } : {}),
-    ...(Object.keys(say).length ? { say } : {}), ...(meta.voice ? { voice: meta.voice } : {}) };
+    ...(Object.keys(say).length ? { say } : {}), ...(meta.voice ? { voice: meta.voice } : {}),
+    // the network's open: plays under the title card, once, and the card holds for it
+    ...(meta.theme ? { theme: meta.theme } : {}) };
 
   // News broadcasts (@type news) are the weather/sports siblings: a line library (::lines
   // pools) whose facts come from the live news generator each airing. Anchors, reporters,

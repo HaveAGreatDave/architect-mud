@@ -63,6 +63,11 @@ const AI_CONDITIONS = [
   { type: 'AT_WORK_ZONE',         label: 'At Work Zone',          params: [] },
   { type: 'IS_VENDOR_WORK_TIME',  label: 'Vendor Work Time',      params: [] },
   { type: 'AT_HOME',              label: 'At Home',               params: [] },
+  // True while the venue on that map tile is lit for its show (the venue.lit hook).
+  { type: 'VENUE_LIT', label: 'Venue Lit', params: [
+    { key: 'x', label: 'Tile x', type: 'number', default: 0 },
+    { key: 'y', label: 'Tile y', type: 'number', default: 0 },
+  ]},
 ];
 
 // ── Action type catalogue ─────────────────────────────────────────────────────
@@ -112,6 +117,12 @@ const AI_ACTIONS = [
   { type: 'EMOTE',     label: 'Emote',     params: [
     { key: 'message', label: 'Action text', type: 'text', default: '' },
   ]},
+  // Sit on a piece of furniture in the room, by name or alias; STAND gets up again.
+  { type: 'SIT',       label: 'Sit',       params: [
+    { key: 'furniture', label: 'Furniture name or alias', type: 'text', default: '' },
+    { key: 'message',   label: 'Emote on sitting',        type: 'text', default: '' },
+  ]},
+  { type: 'STAND',     label: 'Stand',     params: [] },
   { type: 'GO_TO_WORK', label: 'Go To Work', params: [
     { key: 'zone_id',              label: 'Work Zone (override)', type: 'text',   default: '' },
     { key: 'arrive_by',            label: 'Arrive By (hour)',     type: 'number', default: 20 },

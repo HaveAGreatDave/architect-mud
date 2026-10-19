@@ -1,0 +1,7 @@
+{
+  "capacity_kw": 5000,
+  "generator_id": "gen_zone_util_zone_hcbox_windows",
+  "id": "zone_hcbox_windows",
+  "name": "Box Office — Ticket Hall",
+  "source_type": "junction_box"
+}

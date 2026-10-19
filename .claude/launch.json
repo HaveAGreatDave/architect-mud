@@ -112,6 +112,15 @@
         "client"
       ],
       "port": 5591
+    },
+    {
+      "name": "rack-lab",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "C:/Users/david/AppData/Local/Temp/claude/C--Users-david-Documents-GitHub-architect/208d31eb-4b39-4c02-b150-ab883ad06f22/scratchpad/racklab/serve.mjs",
+        "5610"
+      ],
+      "port": 5610
     }
   ]
 }

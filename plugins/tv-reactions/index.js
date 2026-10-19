@@ -169,6 +169,21 @@ function pickLine(beat) {
   return PLAIN_GENERIC_LINES.length ? rand(PLAIN_GENERIC_LINES) : null;
 }
 
+// A character with a voice of their own can carry their own lines for a mode,
+// `flags.tv_lines: { sports: [...] }`, in the same quoted/bare convention. They
+// take the place of the shared pool for that mode only; any other mode, or a pool
+// whose lines all want a token this beat lacks, falls back to the shared ones.
+function pickLineFor(speaker, beat) {
+  const own = speaker?.flags?.tv_lines?.[beat.mode];
+  if (Array.isArray(own) && own.length) {
+    for (let i = 0; i < 4; i++) {
+      const line = resolveLine(rand(own), beat);
+      if (line) return line;
+    }
+  }
+  return pickLine(beat);
+}
+
 // ── The listener ──────────────────────────────────────────────────────────────
 const lastReactAt = new Map();   // zoneId → timestamp
 
@@ -193,10 +208,10 @@ function onBroadcastMessage(beat) {
     .filter(npc => now - (npc._ai?.lastSay || 0) >= SAY_GAP_MS);
   if (!candidates.length) return;
 
-  const line = pickLine(beat);
+  const speaker = rand(candidates);
+  const line = pickLineFor(speaker, beat);
   if (!line) return;
 
-  const speaker = rand(candidates);
   // Claim the slot NOW, before the delay, or three beats landing inside the same
   // couple of seconds each queue their own reaction and the room answers the
   // television in chorus.
@@ -217,4 +232,4 @@ on('broadcast.message', onBroadcastMessage);
 export const commands = {};
 
 // Exposed for the regress suite.
-export const _test = { pickLine, resolveLine, onBroadcastMessage, lastReactAt, MODE_LINES, GENERIC_LINES, MUTE_STYLES };
+export const _test = { pickLine, pickLineFor, resolveLine, onBroadcastMessage, lastReactAt, MODE_LINES, GENERIC_LINES, MUTE_STYLES };

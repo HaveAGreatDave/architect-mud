@@ -1,0 +1,30 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "urban",
+  "bg_color": "#2a1d18",
+  "color": "#d8c9a8",
+  "description": "A low limestone pavilion beside the Coliseum's main gate, three barred ticket windows under a bronze canopy and BOX OFFICE in gilt over them. A queue rail of brass tube runs along the pavement in front.",
+  "exits": {
+    "north": "zone_hcbox_windows",
+    "south": "zone_district_898_914"
+  },
+  "flags": {
+    "building_name": "Coliseum Box Office",
+    "building_type": "box_office",
+    "district": "halcyon_fields",
+    "entrance": "south",
+    "facade": true,
+    "floors": 1,
+    "is_building": true,
+    "region_id": "region_coldwater",
+    "world_exit_zone": "zone_district_898_914"
+  },
+  "grid_x": 898,
+  "grid_y": 913,
+  "grid_z": 0,
+  "id": "zone_parkside_898_913",
+  "map_id": "map_world",
+  "marker": "TO",
+  "name": "Coliseum Box Office",
+  "parent_zone": null
+}

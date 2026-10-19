@@ -1,0 +1,17 @@
+{
+  "description": "An A-board that goes out by the door in the morning. Four things are chalked on it in a confident hand, and three of them have been rubbed out. The one left says FILTER.",
+  "flags": {
+    "aliases": [
+      "board",
+      "chalk board",
+      "chalkboard",
+      "a-board",
+      "menu",
+      "sign"
+    ]
+  },
+  "id": "furn_grounds_board",
+  "name": "the chalk board",
+  "object_type": "decoration",
+  "zone_id": "zone_grounds_cafe"
+}

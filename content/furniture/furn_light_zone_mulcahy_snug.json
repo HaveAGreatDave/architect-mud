@@ -1,0 +1,11 @@
+{
+  "description": "Two wall lamps with fringed shades, and a picture light over the photograph.",
+  "flags": {},
+  "id": "furn_light_zone_mulcahy_snug",
+  "light_type": "overhead",
+  "lumen_output": 900,
+  "name": "the snug lamps",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_mulcahy_snug"
+}

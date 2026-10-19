@@ -1,0 +1,30 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A white-tiled room with a steel counter across it and a serving hatch onto the boulevard. Mustard and relish stand in pump jars, the steam cabinet ticks, and a menu board hangs over the griddle.",
+  "exits": {
+    "down": "zone_util_zone_fitzfranks_counter",
+    "north": "zone_parkside_894_911",
+    "south": "zone_fitzfranks_kitchen"
+  },
+  "flags": {
+    "building_name": "Fitz's Franks",
+    "building_type": "frank_stand",
+    "floor": "tile",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "A hatch onto Halcyon Boulevard with a steel shelf for the paper boats. The bleacher gate is next door.",
+      "light": 0.7,
+      "name": "the serving hatch",
+      "visibility": 0.7
+    },
+    "world_exit_zone": "zone_parkside_894_911"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_fitzfranks_counter",
+  "map_id": "map_int_fitzfranks",
+  "name": "Fitz's Franks — Counter",
+  "parent_zone": "zone_parkside_894_911"
+}

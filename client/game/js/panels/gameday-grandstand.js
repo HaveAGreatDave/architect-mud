@@ -307,6 +307,8 @@ export function createGrandstandView(host, opts = {}) {
     // at rest the last one stays up. A stopped clock draws only when something asks.
     if (live && (D.busy() || replayDue || replay)) { if (speed > 0) draw(); }
     else { live = false; govAt = 0; }
+    // the roof rolling over the park keeps the picture going until it's there
+    if (!raf && R.roof?.moving) draw();
   }
   function stopWorld() { D?.stop(); live = false; cur = null; stopReplay(); }
   // The grounds crew's mats this frame (diamond/crew.js), and the dirt they've gone over since the
@@ -645,6 +647,9 @@ export function createGrandstandView(host, opts = {}) {
     // viewer who's asked for less motion
     R?.setHour?.(Number.isFinite(p.clock) ? p.clock / 60 : null);
     R?.setWeather?.(p.wx || null, { flash: !prefersReducedMotion() });
+    // and the park's roof as it was when the line aired (1 shut, 0 open), which rolls over the map's
+    // ninety seconds when it changes; a payload without one leaves it where it is
+    if (p.roof != null) { R?.setRoof?.(p.roof); draw(); }
     const cast = castFor(p);
     S.pitch = null; S.pitches = []; S.bats = p.bats || '';
     if (p.phase === 'half') {

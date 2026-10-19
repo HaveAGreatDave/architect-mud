@@ -15,4 +15,6 @@ export { OLD_COLDWATER_ARMS } from './old-coldwater.js';
 export { HALCYON_ARMS } from './halcyon-fields.js';
 export { ASHWAY_ARMS } from './ashway.js';
 export { COLISEUM_ARMS } from './coliseum.js';
+export { PARKSIDE_ARMS } from './parkside.js';
 export { PALAIS_BOWL_ARMS } from './palais-bowl.js';
+export { GREENSIDE_ARMS } from './greenside.js';

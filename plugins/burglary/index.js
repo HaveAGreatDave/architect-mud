@@ -18,7 +18,7 @@ import { schedule } from '../../server/engine/scheduler.js';
 import { sendToZone } from '../../server/engine/messaging.js';
 import { on, emit } from '../../server/engine/events.js';
 import { setPosture } from '../../server/engine/posture.js';
-import { moveEntity } from '../../server/engine/ai-behaviour.js';
+import { moveEntity, formatChitchat } from '../../server/engine/ai-behaviour.js';
 import { findPath } from '../../server/engine/pathfinding.js';
 
 // ── Tunables ─────────────────────────────────────────────────────────────────
@@ -80,6 +80,17 @@ const SCREAM_LINES = [
 ];
 const pick = (pool, name) => pool[Math.floor(Math.random() * pool.length)](name);
 
+// A resident with a voice of their own carries `flags.alarm_lines`, keyed by the
+// beat (`wake`, `notice`, `door`, `inside`, and `reported` or `gone` when it's
+// over), each a list in the chitchat convention: "quoted" is speech, bare is an
+// emote after the name. A beat they have no lines for uses the shared pool.
+// Returns the message to send.
+function alarmLine(npc, beat, pool) {
+  const own = npc?.flags?.alarm_lines?.[beat];
+  if (Array.isArray(own) && own.length) return formatChitchat(npc.name, own[Math.floor(Math.random() * own.length)]);
+  return { type: 'zone_event', message: pick(pool, npc.name) };
+}
+
 // True once the intruder has actually crossed into the unit (vs. still picking
 // the door from outside) — the threat level that drives which lines play.
 function intruderInside(intr) {
@@ -90,9 +101,10 @@ function intruderInside(intr) {
 // Broadcast an alarm line to the unit, and — while the intruder is still outside
 // working the door — to their side too, so the burglar hears the yelling.
 function alarmSay(npc, intr, message, throughDoor) {
-  sendToZone(npc.zone_id, { type: 'zone_event', message });
+  const msg = typeof message === 'string' ? { type: 'zone_event', message } : message;
+  sendToZone(npc.zone_id, msg);
   if (throughDoor && intr.entranceZoneId && intr.entranceZoneId !== npc.zone_id) {
-    sendToZone(intr.entranceZoneId, { type: 'zone_event', message });
+    sendToZone(intr.entranceZoneId, msg);
   }
 }
 
@@ -104,7 +116,7 @@ function alarmPulse(npc, state) {
   if (!live || !npcAlive(live)) { endAlarm(live || npc); return; }
 
   const inside = intruderInside(state.intr);
-  alarmSay(live, state.intr, pick(inside ? SCREAM_LINES : DOOR_YELL_LINES, live.name), !inside);
+  alarmSay(live, state.intr, alarmLine(live, inside ? 'inside' : 'door', inside ? SCREAM_LINES : DOOR_YELL_LINES), !inside);
   state.timers.push(setTimeout(() => alarmPulse(live, state), inside ? INSIDE_LINE_MS : DOOR_LINE_MS));
 }
 
@@ -125,7 +137,7 @@ function startAlarm(npc, intr) {
   ALARMS.set(npc.id, state);
 
   // Opening beat: startled awake, or (if already up) first realising the threat.
-  alarmSay(npc, intr, pick(wasAsleep ? WAKE_LINES : NOTICE_LINES, npc.name), true);
+  alarmSay(npc, intr, alarmLine(npc, wasAsleep ? 'wake' : 'notice', wasAsleep ? WAKE_LINES : NOTICE_LINES), true);
 
   // Then an escalating stream of reactions (through-the-door yells → screams once
   // the intruder is inside). The charge + calm-down are driven by the tick, so
@@ -283,12 +295,10 @@ function alarmTick() {
     // once they've been at it long enough for the call to land, and let the
     // resident calm down (alarm ends) the moment the intruder clears off.
     if (!threatPresent(state.intr)) {
-      sendToZone(npc.zone_id, {
-        type: 'zone_event',
-        message: state.charged
-          ? `${npc.name} sags against the wall, shaking: the police are on their way.`
-          : `${npc.name} goes still, listening hard... whoever it was is gone.`,
-      });
+      const beat = state.charged ? 'reported' : 'gone';
+      sendToZone(npc.zone_id, alarmLine(npc, beat, [state.charged
+        ? (name) => `${name} sags against the wall, shaking: the police are on their way.`
+        : (name) => `${name} goes still, listening hard... whoever it was is gone.`]));
       endAlarm(npc);
       continue;
     }
@@ -303,3 +313,6 @@ function alarmTick() {
   }
 }
 schedule('5s', () => { try { alarmTick(); } catch (e) { console.error('[burglary] tick error:', e.message); } });
+
+// Exposed for the regress suite.
+export const _test = { alarmLine };

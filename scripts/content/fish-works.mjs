@@ -102,11 +102,9 @@ const unlink = (id, target) => {
 //
 // ⚠ `terrain: road`, for Moor or Less's reason: `streetFor` refuses an entrance whose neighbour is
 // not a road, and the works' only street door opens onto this.
-// ⚠ NO `building_type` YET. The lot is drawn by the `car_park` arm (glass/models/greenside.js), which
-// is not on main; until it is, the tile is plain tarmac. Then it takes `building_type: 'staff_lot'`,
-// `entrance: 'south'`, `floors: 1` and the `staff_lot` rows beside `car_park`'s.
 {
-  const flags = { region_id: 'region_coldwater', district: 'filaments', terrain: 'road', street_life: true };
+  const flags = { region_id: 'region_coldwater', district: 'filaments', terrain: 'road',
+    building_type: 'staff_lot', entrance: 'south', floors: 1, street_life: true };
   store.patch('zones', LOT, {
     name: 'The Codfather: Staff Car Park',
     description: 'A square of cracked tarmac with four bays painted on it, two of them taken by vans with the backs open and ice water running out. A lamp post stands in the corner. On the west side a steel door with a push bar is propped open on a fish box, and a hose lies across the step.',

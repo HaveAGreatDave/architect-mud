@@ -1,0 +1,16 @@
+{
+  "description": "A flat steel griddle the length of the counter, black with use, a row of franks rolling on it and onions going soft at the far end.",
+  "flags": {
+    "aliases": [
+      "griddle",
+      "franks",
+      "onions",
+      "grill",
+      "steam cabinet"
+    ]
+  },
+  "id": "furn_fitzfranks_griddle",
+  "name": "the griddle",
+  "object_type": "furniture",
+  "zone_id": "zone_fitzfranks_counter"
+}

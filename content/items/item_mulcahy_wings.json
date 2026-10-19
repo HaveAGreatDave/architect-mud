@@ -1,0 +1,15 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_mulcahy_wings",
+  "name": "basket of wings",
+  "tags": {
+    "consumable": true,
+    "description": "A paper-lined basket of chicken wings in a red sauce that gets hotter for a minute after you stop eating it, with a pot of something cool that doesn't help.",
+    "restore_hunger": 22,
+    "stackable": true
+  },
+  "type": "consumable",
+  "value": 9,
+  "weight": 300
+}

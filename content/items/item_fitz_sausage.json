@@ -1,0 +1,15 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_fitz_sausage",
+  "name": "sausage on a roll",
+  "tags": {
+    "consumable": true,
+    "description": "A split sausage on a roll under fried peppers and onions, more onion than roll by the time it reaches you. It leaks down the wrist.",
+    "restore_hunger": 26,
+    "stackable": true
+  },
+  "type": "consumable",
+  "value": 7,
+  "weight": 240
+}

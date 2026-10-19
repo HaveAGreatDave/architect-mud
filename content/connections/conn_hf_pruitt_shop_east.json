@@ -1,0 +1,9 @@
+{
+  "a": "zone_pruitt_shop",
+  "b": "zone_pruitt_roastery",
+  "blocked": false,
+  "dir": "east",
+  "id": "conn_hf_pruitt_shop_east",
+  "lockable": false,
+  "one_way": false
+}

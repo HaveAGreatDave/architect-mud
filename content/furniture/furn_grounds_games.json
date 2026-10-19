@@ -1,0 +1,17 @@
+{
+  "description": "A shelf of board games by the window, every box taped at the corners. The chess set is short a white bishop and uses a salt cellar instead.",
+  "flags": {
+    "aliases": [
+      "shelf",
+      "games",
+      "board games",
+      "games shelf",
+      "chess",
+      "chess set"
+    ]
+  },
+  "id": "furn_grounds_games",
+  "name": "the games shelf",
+  "object_type": "decoration",
+  "zone_id": "zone_grounds_cafe"
+}

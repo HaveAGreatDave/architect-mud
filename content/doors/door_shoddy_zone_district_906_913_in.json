@@ -1,7 +1,7 @@
 {
   "connection_id": "conn_district_906_913_west_jl7k",
   "door_type": "shoddy",
-  "exit_dir": "west",
+  "exit_dir": "south",
   "flags": {},
   "hololock_difficulty": 0,
   "hp": 300,

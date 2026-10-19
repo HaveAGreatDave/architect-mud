@@ -1,0 +1,30 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "urban",
+  "bg_color": "#1f1a14",
+  "color": "#d9b77a",
+  "description": "A two-storey brick tavern on the corner of Halcyon Boulevard and Kettle Lane, green paint and gold leaf on the windows, pennants in a line under the eaves and MULCAHY'S in green neon over the door. The game is on a set in the window.",
+  "exits": {
+    "north": "zone_district_898_910",
+    "south": "zone_mulcahy_bar"
+  },
+  "flags": {
+    "building_name": "Mulcahy's Sports Bar",
+    "building_type": "sports_bar",
+    "district": "halcyon_fields",
+    "entrance": "north",
+    "facade": true,
+    "floors": 2,
+    "is_building": true,
+    "region_id": "region_coldwater",
+    "world_exit_zone": "zone_district_898_910"
+  },
+  "grid_x": 898,
+  "grid_y": 911,
+  "grid_z": 0,
+  "id": "zone_parkside_898_911",
+  "map_id": "map_world",
+  "marker": "MB",
+  "name": "Mulcahy's Sports Bar",
+  "parent_zone": null
+}

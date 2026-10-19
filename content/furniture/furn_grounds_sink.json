@@ -1,0 +1,19 @@
+{
+  "description": "A deep steel sink with a hose on the tap, for the milk jugs and the roaster's chaff tray.",
+  "flags": {
+    "aliases": [
+      "sink",
+      "tap",
+      "hose",
+      "basin"
+    ],
+    "interactions": [
+      "lean"
+    ],
+    "water_source": true
+  },
+  "id": "furn_grounds_sink",
+  "name": "the sink",
+  "object_type": "sink",
+  "zone_id": "zone_grounds_roastery"
+}

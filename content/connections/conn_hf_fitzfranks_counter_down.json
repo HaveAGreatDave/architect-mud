@@ -1,0 +1,9 @@
+{
+  "a": "zone_fitzfranks_counter",
+  "b": "zone_util_zone_fitzfranks_counter",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_hf_fitzfranks_counter_down",
+  "lockable": false,
+  "one_way": false
+}

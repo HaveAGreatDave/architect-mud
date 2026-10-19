@@ -1,0 +1,103 @@
+{
+  "category": "fm",
+  "config": {
+    "layers": [
+      {
+        "adsr": {
+          "a": 0.012,
+          "d": 0.22,
+          "r": 0.12,
+          "s": 0.72
+        },
+        "detune": -3,
+        "echo": {
+          "delay": 0.2,
+          "feedback": 0.28,
+          "mix": 0.14
+        },
+        "fm": {
+          "bright": 0.8,
+          "index": 2.4,
+          "indexEnd": 1.5,
+          "ratio": 2,
+          "time": 0.12
+        },
+        "gain": 0.17,
+        "mods": [
+          {
+            "fade": 0.45,
+            "id": "vb",
+            "rate": 5.6,
+            "to": [
+              {
+                "amount": 9,
+                "param": "pitch"
+              }
+            ],
+            "type": "lfo",
+            "wave": "sine"
+          }
+        ],
+        "waveform": "sine"
+      },
+      {
+        "adsr": {
+          "a": 0.016,
+          "d": 0.22,
+          "r": 0.12,
+          "s": 0.65
+        },
+        "detune": 4,
+        "fm": {
+          "bright": 0.8,
+          "index": 1.8,
+          "indexEnd": 1.1,
+          "ratio": 1.5,
+          "time": 0.1
+        },
+        "gain": 0.12,
+        "tune": 12,
+        "waveform": "sine"
+      },
+      {
+        "adsr": {
+          "a": 0.014,
+          "d": 0.22,
+          "r": 0.12,
+          "s": 0.68
+        },
+        "detune": 2,
+        "fm": {
+          "bright": 0.8,
+          "index": 1.6,
+          "indexEnd": 1,
+          "ratio": 3,
+          "time": 0.1
+        },
+        "gain": 0.1,
+        "waveform": "sine"
+      },
+      {
+        "adsr": {
+          "a": 0.02,
+          "d": 0.3,
+          "r": 0.14,
+          "s": 0.7
+        },
+        "detune": 6,
+        "filter": {
+          "freq": 2400,
+          "q": 0.7,
+          "type": "lowpass"
+        },
+        "gain": 0.05,
+        "waveform": "sawtooth"
+      }
+    ]
+  },
+  "enabled": 1,
+  "id": "aud_inst_fm_lead",
+  "name": "FM: Brass lead",
+  "sample_id": null,
+  "waveform": "sine"
+}

@@ -66,12 +66,15 @@ export const SHOTS = Object.freeze({
   // a riser in a well across the field, following them: the director places it (`crew` specs)
   crew: Object.freeze({ eye: [-56, 22, 14], at: [50, 3, 110], fov: 7, dof: 700, shadow: [[50, 0, 110], 24] }),
   // high behind home with the city beyond: back from a break and between innings, and the
-  // fireworks over the outfield
-  sky: Object.freeze({ eye: [0, 118, -176], at: [-40, 130, 1200], fov: 50, shadow: [[0, 0, 140], 300] }),
+  // fireworks over the outfield. ⚠ UNDER THE ROOF'S LINE AND IN FRONT OF THE DECK: the Coliseum's
+  // shells spring from the decks behind the stands (gl/ballpark-mesh.js), and an eye up at 118 ft sat
+  // on the shut roof's skin; any further back and it's inside the first-base deck. The lens is a
+  // little wider than it was, because the shells over the outfield are nearer.
+  sky: Object.freeze({ eye: [0, 100, -128], at: [-40, 128, 1200], fov: 56, shadow: [[0, 0, 140], 300] }),
   // the main gate from the crossing outside it, the crowd going in: before a game's first pitch. The
   // renderer stands it on its own venue's crossing (diamond/streets.js streetShot); this is where it
   // stands with no city round the park
-  street: Object.freeze({ eye: [-41, 6, -298], at: [0, 38, -198], fov: 54, shadow: [[0, 0, -230], 140] }),
+  street: Object.freeze({ eye: [198, 6, -254], at: [120, 70, -120], fov: 54, shadow: [[150, 0, -170], 140] }),
   // a home run side on, riding beside the ball: the director places it (`homer` specs, shotAt)
   homer: Object.freeze({ eye: [-60, 40, 200], at: [0, 50, 220], fov: 38, dof: 160, shadow: [[0, 0, 240], 120] }),
 });

@@ -302,6 +302,9 @@ function batHandoff(clip, t, P, run, s) {
     // how much faster the bat moves the wrist than the curve does, along the segment's way
     const dv = [0, 1, 2].map((i) => ((nearBat[S][i] - atBat[S][i]) + (curveNear[S][i] - curveAt[S][i])) / (side * BAT_EPS));
     out['wr' + S] = [0, 1, 2].map((i) => P['wr' + S][i] + d[i] * h00 + dv[i] * dt * h10 * (release ? 1 : -1));
+    // the solver keeps a free hand off the body (rig.js HULL) by other means than a hand on a bat,
+    // so its push comes in as the bat's hold goes out: at the key the hand is where the bat had it
+    out['clear' + S] = 1 - h00;
   }
   return out;
 }
@@ -435,6 +438,7 @@ export function mixPose(a, b, w, opts = {}) {
     else { const A = ankle3(pa, ground, s), B = ankle3(pb, ground, s); P['ank' + S] = [0, 1, 2].map((i) => lerp(A[i], B[i], w)); }
     P['plant' + S] = both;
   }
+  for (const S of FEET) if (a['clear' + S] != null || b['clear' + S] != null) P['clear' + S] = lerp(a['clear' + S] ?? 1, b['clear' + S] ?? 1, w);
   if (a.bat && b.bat) P.bat = { knob: [0, 1, 2].map((i) => lerp(a.bat.knob[i], b.bat.knob[i], w)), dir: norm([0, 1, 2].map((i) => lerp(a.bat.dir[i], b.bat.dir[i], w))), bottom: (w < 0.5 ? a : b).bat.bottom };
   else if ((w < 0.5 ? a : b).bat) P.bat = (w < 0.5 ? a : b).bat;
   return guardMix(P);

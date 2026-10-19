@@ -1,0 +1,15 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_fitz_frank",
+  "name": "frank",
+  "tags": {
+    "consumable": true,
+    "description": "A frank in a steamed bun with mustard down it in a zigzag, wrapped in wax paper that has already given up. From Fitz's by the bleacher gate.",
+    "restore_hunger": 18,
+    "stackable": true
+  },
+  "type": "consumable",
+  "value": 5,
+  "weight": 170
+}

@@ -29,7 +29,7 @@
 
 import { createBatch, vtx, MAT, STRIDE } from './ballpark-mesh.js';
 import { DEG } from '../diamond/geo.js';
-import { solvePose, mirrorPose, POSES, BONE, bindPoses } from '../diamond/rig.js';
+import { solvePose, mirrorPose, POSES, BONE, bindPoses, SC_JOINT } from '../diamond/rig.js';
 // the pose language moved to the rig; the gates and the renderer still find it here
 export { solvePose, mirrorPose, POSES };
 import { headMesh, hairMesh, skullPoint, ZC as SKULL_ZC } from '../actor-head.js';
@@ -148,7 +148,14 @@ function emitGrid(G, rows, cols, pos, opt) {
   for (let i = 0; i < rows; i++) for (let j = 0; j < cols; j++) {
     const n = cross(sub(at(i, j + 1), at(i, j - 1)), sub(at(Math.min(i + 1, rows - 1), j), at(Math.max(i - 1, 0), j)));
     const l = len(n);
-    N.push(l > 1e-9 ? mul(n, 1 / l) : [0, 1, 0]);
+    if (l > 1e-9) { N.push(mul(n, 1 / l)); continue; }
+    // a pole, where the row pinches to a point: out from the middle of the next row in, whichever
+    // way the pole faces (a fixed up shaded a pole facing anywhere else as a dark dot)
+    const k = i === 0 ? 1 : i === rows - 1 ? rows - 2 : i;
+    let m = [0, 0, 0];
+    for (let jj = 0; jj < cols; jj++) m = add(m, at(k, jj));
+    const d = sub(at(i, j), mul(m, 1 / cols)), ld = len(d);
+    N.push(ld > 1e-9 ? mul(d, 1 / ld) : [0, 1, 0]);
   }
   let sign = flip ? -1 : 1;
   if (centre) { let sm = 0; for (let k = 0; k < P.length; k += 7) sm += dot(N[k], sub(P[k], centre)); sign = sm < 0 ? -1 : 1; }
@@ -160,7 +167,7 @@ function emitGrid(G, rows, cols, pos, opt) {
       const q = (ii, jj) => {
         const idx = ii * cols + (wrap ? jj % cols : jj);
         const c = typeof col === 'function' ? col(ii, jj % cols, P[idx], i) : col;
-        return { p: P[idx], n: mul(N[idx], sign), uv: uv(ii, jj), col: c, mat: m, w: wts ? wts(ii) : G.cur };
+        return { p: P[idx], n: mul(N[idx], sign), uv: uv(ii, jj), col: c, mat: m, w: wts ? wts(ii, jj % cols) : G.cur };
       };
       const a = q(i, j), bq = q(i, j + 1), c = q(i + 1, j + 1), d = q(i + 1, j);
       tri(b, a, bq, c); tri(b, a, c, d);
@@ -176,28 +183,42 @@ function ellipsoid(G, key, c, ax, r, rows, cols, col, mat, { vmin = 0, vmax = 1,
   }, { key, col: typeof col === 'function' ? (ii, jj, p) => col(p) : col, mat, centre: c });
 }
 
-// The body's profiles: where each ring sits and how wide and deep it is, and what it's made of.
-const TORSO = [
-  ['pelvis', [0, -0.40, -0.03], 0.36, 0.27, 'pants'], ['pelvis', [0, -0.27, -0.04], 0.55, 0.40, 'pants'],
-  ['pelvis', [0, -0.08, -0.02], 0.62, 0.43, 'pants'], ['pelvis', [0, 0.10, 0.00], 0.605, 0.41, 'pants'],
-  ['pelvis', [0, 0.20, 0.01], 0.59, 0.40, 'belt'], ['pelvis', [0, 0.27, 0.01], 0.585, 0.395, 'belt'],
-  ['spine', [0, 0.02, 0.015], 0.585, 0.395, 'jersey'], ['spine', [0, 0.26, 0.025], 0.61, 0.415, 'jersey'],
-  ['chest', [0, 0.04, 0.035], 0.66, 0.445, 'jersey'], ['chest', [0, 0.24, 0.045], 0.71, 0.465, 'jersey'],
-  ['chest', [0, 0.41, 0.025], 0.735, 0.43, 'jersey'], ['chest', [0, 0.53, -0.01], 0.64, 0.35, 'jersey'],
-  ['chest', [0, 0.61, -0.025], 0.42, 0.28, 'jersey'], ['neck', [0, 0.02, 0.0], 0.24, 0.225, 'skin'],
-];
-const LEG = [[-0.24, 0.30, 0.32, 'pants'], [0.10, 0.31, 0.33, 'pants'], [0.55, 0.285, 0.30, 'pants'], [1.05, 0.245, 0.26, 'pants'], [1.42, 0.222, 0.235, 'pants'],
-  [1.62, 0.218, 0.228, 'pants'], [1.86, 0.22, 0.226, 'pants'], [1.875, 0.172, 0.182, 'sock'], [2.12, 0.176, 0.196, 'sock'], [2.45, 0.156, 0.172, 'sock'],
-  [2.78, 0.118, 0.128, 'sock'], [3.02, 0.102, 0.108, 'sock']];
+// The body's profiles. The torso's rings: [frame, height in it, half-width, depth in front, depth
+// behind, what it's made of]. The torso is the body without its arms: narrow under them, deep at
+// the chest and the seat, the jersey bloused a touch over the belt. The breadth of the shoulders is
+// the arms' own (ARM's cap), so an arm hanging at the side lies against the ribs and an arm across
+// the chest passes in front of it; the hull the rig keeps the arms off (diamond/rig.js HULL)
+// stands just inside these.
+export const TORSO = Object.freeze([
+  ['pelvis', -0.42, 0.30, 0.22, 0.26, 'pants'], ['pelvis', -0.30, 0.54, 0.36, 0.44, 'pants'], ['pelvis', -0.12, 0.61, 0.38, 0.46, 'pants'],
+  ['pelvis', 0.06, 0.595, 0.38, 0.41, 'pants'], ['pelvis', 0.18, 0.57, 0.375, 0.385, 'pants'], ['pelvis', 0.22, 0.575, 0.385, 0.385, 'belt'],
+  ['pelvis', 0.30, 0.57, 0.38, 0.38, 'belt'], ['spine', 0.03, 0.578, 0.402, 0.377, 'jersey'], ['spine', 0.26, 0.58, 0.41, 0.37, 'jersey'],
+  ['chest', 0.02, 0.60, 0.44, 0.385, 'jersey'], ['chest', 0.20, 0.625, 0.475, 0.405, 'jersey'], ['chest', 0.36, 0.615, 0.45, 0.42, 'jersey'],
+  ['chest', 0.47, 0.6, 0.39, 0.4, 'jersey'], ['chest', 0.55, 0.5, 0.31, 0.34, 'jersey'], ['chest', 0.61, 0.29, 0.23, 0.25, 'jersey'],
+  ['neck', 0.02, 0.24, 0.225, 0.225, 'skin'],
+].map(Object.freeze));
+// A leg, hip to ankle, and an arm, shoulder to wrist: [along it from the joint, half-width across,
+// half-depth, what it's made of]. The pants are cut full through the thigh and gathered below the
+// knee, bloused over the elastic, the stirrup sock below. The arm's tube starts just short of the
+// shoulder joint, inside the deltoid (`deltoid`, on the collarbone, so the cap stays on top of the
+// shoulder wherever the arm swings: a cap on the arm stood up behind it like a pad whenever the
+// arm came across); the sleeve ends half way down the upper arm in its piping, and the undershirt
+// runs on to the wrist.
+const LEG = [[-0.24, 0.31, 0.33, 'pants'], [0.08, 0.322, 0.342, 'pants'], [0.5, 0.302, 0.318, 'pants'], [1.0, 0.262, 0.276, 'pants'], [1.4, 0.24, 0.252, 'pants'],
+  [1.6, 0.236, 0.246, 'pants'], [1.8, 0.242, 0.252, 'pants'], [1.88, 0.234, 0.244, 'pants'], [1.905, 0.2, 0.208, 'pants'], [1.93, 0.176, 0.186, 'sock'],
+  [2.15, 0.18, 0.198, 'sock'], [2.45, 0.158, 0.172, 'sock'], [2.78, 0.12, 0.13, 'sock'], [3.02, 0.104, 0.11, 'sock']];
 const SLACKS = [[-0.24, 0.30, 0.32, 'pants'], [0.10, 0.31, 0.33, 'pants'], [0.55, 0.285, 0.30, 'pants'], [1.05, 0.25, 0.26, 'pants'], [1.55, 0.225, 0.235, 'pants'],
   [2.1, 0.205, 0.215, 'pants'], [2.6, 0.19, 0.20, 'pants'], [3.0, 0.18, 0.19, 'pants']];
-const ARM = [[-0.18, 0.235, 0.25, 'sleeve'], [0.06, 0.25, 0.26, 'sleeve'], [0.30, 0.232, 0.24, 'sleeve'], [0.45, 0.224, 0.23, 'sleeve'], [0.47, 0.226, 0.232, 'trim'], [0.50, 0.226, 0.232, 'trim'],
-  [0.505, 0.168, 0.175, 'under'], [0.72, 0.158, 0.168, 'under'], [0.98, 0.133, 0.14, 'under'], [1.22, 0.148, 0.15, 'under'], [1.62, 0.112, 0.098, 'under'], [1.86, 0.094, 0.08, 'under']];
+const ARM = [[-0.035, 0, 0, 'sleeve'], [-0.03, 0.12, 0.124, 'sleeve'], [-0.02, 0.175, 0.18, 'sleeve'],
+  [-0.02, 0.21, 0.216, 'sleeve'], [0.1, 0.218, 0.223, 'sleeve'], [0.24, 0.212, 0.218, 'sleeve'], [0.38, 0.208, 0.214, 'sleeve'],
+  [0.43, 0.207, 0.213, 'trim'], [0.455, 0.206, 0.212, 'trim'], [0.462, 0.186, 0.19, 'under'], [0.47, 0.172, 0.178, 'under'],
+  [0.62, 0.178, 0.184, 'under'], [0.82, 0.154, 0.16, 'under'], [0.98, 0.143, 0.15, 'under'], [1.14, 0.152, 0.157, 'under'],
+  [1.42, 0.127, 0.114, 'under'], [1.7, 0.103, 0.082, 'under'], [1.86, 0.094, 0.076, 'under'], [1.89, 0.08, 0.066, 'under'], [1.91, 0, 0, 'under']];
 
 function sampleProfile(prof, n0 = 3) {
   const out = [];
   for (let i = 0; i < prof.length - 1; i++) {
-    const a = prof[i], b = prof[i + 1], n = (b[0] - a[0] < 0.03) ? 1 : n0;
+    const a = prof[i], b = prof[i + 1], n = Math.max(1, Math.min(n0, Math.round((b[0] - a[0]) / 0.11)));
     for (let k = 0; k < n; k++) { const t = k / n; out.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t, a[3]]); }
   }
   out.push(prof[prof.length - 1]);
@@ -218,7 +239,7 @@ function limb(G, J0, J1, J2, ref, prof, s, keyOf, colOf, matOf, uvOf, rig = null
     return sv < L1 ? madd(J0, T1, sv) : madd(J1, T2, sv - L1);
   };
   const tanAt = (sv) => norm(lerp(T1, T2, smooth(L1 - w, L1 + w, sv)));
-  const cols = 22, rows = rings.length;
+  const cols = 20, rows = rings.length;
   const wOf = rig ? (sv) => {
     const t = smooth(L1 - w, L1 + w, sv), up = rig.root ? rig.root[2] * (1 - smooth(rig.root[0] * s, rig.root[1] * s, sv)) : 0;
     return [[rig.parent, up], [rig.a, (1 - t) * (1 - up)], [rig.b, t * (1 - up)]];
@@ -236,48 +257,144 @@ function limb(G, J0, J1, J2, ref, prof, s, keyOf, colOf, matOf, uvOf, rig = null
     wts: wOf ? (ii) => wOf(rings[Math.min(ii, rows - 1)][0] * s) : undefined,
   });
 }
+// The deltoid under the sleeve: a cap over the shoulder joint, riding the collarbone, rounder on top
+// than under, where the arm's own tube runs on out of it.
+function deltoid(G, J, W, S, s, keyOf, colOf, matOf, uvOf) {
+  const C = W['clav' + S] || W.chest, sg = S === 'L' ? 1 : -1, c = add(J['sh' + S], m3v(C, [-sg * 0.015 * s, 0, 0])), rows = 7, cols = 14;
+  // its poles, where a sphere's grid pinches, point down into the arm and up into the trapezius,
+  // where nothing sees them; on top a pole showed as a dark dot
+  const Pa = norm([sg * 0.6, -0.8, 0]), Qa = [0, 0, 1], Ra = cross(Pa, Qa);
+  // the jersey's stripes laid on from the front, so they run down the shoulder and don't gather at a pole
+  const unitAt = (i, j) => { const th = i / (rows - 1) * Math.PI, ph = j / cols * TAU, ct = Math.cos(th), st = Math.sin(th); return [0, 1, 2].map((k) => Pa[k] * ct + st * (Qa[k] * Math.cos(ph) + Ra[k] * Math.sin(ph))); };
+  emitGrid(G, rows, cols, (i, j) => {
+    const u = unitAt(i, j);
+    return add(c, m3v(C, [u[0] * 0.19 * s, u[1] * (u[1] > 0 ? 0.135 : 0.12) * s, u[2] * 0.2 * s]));
+  },{ key: keyOf('sleeve'), col: colOf('sleeve'), mat: matOf('sleeve'), uv: (i, j) => { const u = unitAt(i, j); return uvOf('sleeve', clamp(0.5 + sg * u[0] * 0.5, 0, 1), clamp(0.3 - u[1] * 0.3, 0, 1)); }, centre: c, wts: () => [[BONE['clav' + S], 1]] });
+}
 // The torso's frames as bones, for a skinned body.
 const FRAME_BONE = { pelvis: BONE.pelvis, spine: BONE.spine, chest: BONE.chest, neck: BONE.neck };
 const LEG_RIG = { L: { a: BONE.thighL, b: BONE.shinL, parent: BONE.pelvis, root: [-0.24, 0.25, 0.5] }, R: { a: BONE.thighR, b: BONE.shinR, parent: BONE.pelvis, root: [-0.24, 0.25, 0.5] } };
-const ARM_RIG = { L: { a: BONE.upperArmL, b: BONE.forearmL, parent: BONE.chest, root: [-0.18, 0.2, 0.35] }, R: { a: BONE.upperArmR, b: BONE.forearmR, parent: BONE.chest, root: [-0.18, 0.2, 0.35] } };
+const ARM_RIG = { L: { a: BONE.upperArmL, b: BONE.forearmL, parent: BONE.clavL, root: [-0.21, 0.12, 0.3] }, R: { a: BONE.upperArmR, b: BONE.forearmR, parent: BONE.clavR, root: [-0.21, 0.12, 0.3] } };
+// The top of the torso at either side, over the shoulder blade and up to the neck, rides its
+// collarbone (BONE.clavL, clavR) by up to CLAV_RIDE: a shrug lifts it and a reach across carries it
+// forward, with the arm's own cap. The posed build moves it as the skin would: by the girdle's turn
+// since the bind pose (the rig's frames), about the sternoclavicular joint.
+const CLAV_RIDE = 0.55;
+const clavShare = (yc, sinA) => CLAV_RIDE * smooth(0.28, 0.5, yc) * (1 - smooth(0.6, 0.68, yc)) * smooth(0.3, 0.85, Math.abs(sinA));
+const tr3 = (M) => [[M[0][0], M[1][0], M[2][0]], [M[0][1], M[1][1], M[2][1]], [M[0][2], M[1][2], M[2][2]]];
+const m3m = (a, b) => [m3v(a, b[0]), m3v(a, b[1]), m3v(a, b[2])];
+const BIND_W = new Map();
+function bindGirdle(s) {
+  let g = BIND_W.get(s);
+  if (!g) {
+    const { W } = solvePose(bindPoses(s).body);
+    BIND_W.set(s, (g = { L: m3m(tr3(W.chest), W.clavL), R: m3m(tr3(W.chest), W.clavR) }));
+  }
+  return g;
+}
 function torso(G, J, W, s, keyOf, colOf, matOf, uvOf, extra = 0, front = 0) {
-  const R = TORSO.map(([f, o, w, d, part]) => {
-    const M = W[f];
-    return { f, c: add(J[f], m3v(M, mul(o, s))), X: M[0], Z: M[2], w: (w + extra) * s, d: (d + extra + (part === 'jersey' ? front : 0)) * s, part };
+  const R = TORSO.map(([f, y, w, df, db, part]) => {
+    const M = W[f], add2 = part === 'jersey' ? front : 0;
+    return { f, y, c: add(J[f], m3v(M, [0, y * s, 0])), X: M[0], Z: M[2], w: (w + extra) * s, df: (df + extra + add2) * s, db: (db + extra + add2 * 0.6) * s, part };
   });
   const rings = [];
+  // a ring's height in the chest's frame, for what rides the collarbones (the neck's ring stands
+  // about where the chest's top one does)
+  const yc = (r) => (r.f === 'chest' ? r.y : r.f === 'neck' ? 0.64 : -1);
   for (let i = 0; i < R.length - 1; i++) {
     const a = R[i], b = R[i + 1];
     for (let k = 0; k < 3; k++) {
       const t = k / 3, p0 = R[Math.max(0, i - 1)].c, p3 = R[Math.min(R.length - 1, i + 2)].c, t2 = t * t, t3 = t2 * t;
       // Catmull-Rom through the ring centres
       const c = [0, 1, 2].map((q) => 0.5 * ((2 * a.c[q]) + (-p0[q] + b.c[q]) * t + (2 * p0[q] - 5 * a.c[q] + 4 * b.c[q] - p3[q]) * t2 + (-p0[q] + 3 * a.c[q] - 3 * b.c[q] + p3[q]) * t3));
-      rings.push({ c, X: norm(lerp(a.X, b.X, t)), Z: norm(lerp(a.Z, b.Z, t)), w: a.w + (b.w - a.w) * t, d: a.d + (b.d - a.d) * t, part: a.part, v: (i + t) / (R.length - 1), f0: a.f, f1: b.f, t });
+      rings.push({ c, X: norm(lerp(a.X, b.X, t)), Z: norm(lerp(a.Z, b.Z, t)), w: a.w + (b.w - a.w) * t, df: a.df + (b.df - a.df) * t, db: a.db + (b.db - a.db) * t,
+        part: a.part, v: (i + t) / (R.length - 1), f0: a.f, f1: b.f, t, yc: yc(a) + (yc(b) - yc(a)) * t });
     }
   }
   const L = R[R.length - 1];
-  rings.push({ c: L.c, X: L.X, Z: L.Z, w: L.w, d: L.d, part: L.part, v: 1, f0: L.f, f1: L.f, t: 0 });
-  const cols = 32, pw = 2.5, sp = (x) => Math.sign(x) * Math.pow(Math.abs(x), 2 / pw);
+  rings.push({ c: L.c, X: L.X, Z: L.Z, w: L.w, df: L.df, db: L.db, part: L.part, v: 1, f0: L.f, f1: L.f, t: 0, yc: yc(L) });
+  // the girdle's turn since the bind pose, each side, in the chest's frame
+  const Gb = bindGirdle(s), Cw = W.chest, CwT = tr3(Cw);
+  const turn = {};
+  for (const S of ['L', 'R']) turn[S] = W['clav' + S] ? m3m(m3m(CwT, W['clav' + S]), tr3(Gb[S])) : null;
+  const scOf = (S) => [(S === 'L' ? 1 : -1) * SC_JOINT[0] * s, SC_JOINT[1] * s, SC_JOINT[2] * s];
+  const cols = 34, pw = 2.5, sp = (x) => Math.sign(x) * Math.pow(Math.abs(x), 2 / pw);
   emitGrid(G, rings.length, cols, (i, j) => {
-    const r = rings[i], a = (j / cols - 0.25) * TAU;
-    return add(r.c, add(mul(r.X, sp(Math.sin(a)) * r.w), mul(r.Z, sp(Math.cos(a)) * r.d)));
+    const r = rings[i], a = (j / cols - 0.25) * TAU, ca = Math.cos(a);
+    const p = add(r.c, add(mul(r.X, sp(Math.sin(a)) * r.w), mul(r.Z, sp(ca) * (ca > 0 ? r.df : r.db))));
+    const w = G.skin ? 0 : clavShare(r.yc, Math.sin(a)), S = Math.sin(a) > 0 ? 'L' : 'R';
+    if (!(w > 0) || !turn[S]) return p;
+    // about the collarbone's joint, by the share that rides it
+    const sc = scOf(S), Lc = m3v(CwT, sub(p, J.chest)), moved = add(sc, m3v(turn[S], sub(Lc, sc)));
+    return add(J.chest, m3v(Cw, lerp(Lc, moved, w)));
   }, {
     key: (i) => keyOf(rings[i].part), col: (ii) => colOf(rings[Math.min(ii, rings.length - 1)].part), mat: (i) => matOf(rings[i].part),
     uv: (i, j) => uvOf(rings[i].part, j / cols, rings[i].v), centre: J.chest,
-    wts: (ii) => { const r = rings[Math.min(ii, rings.length - 1)]; return r.f0 === r.f1 ? [[FRAME_BONE[r.f0], 1]] : [[FRAME_BONE[r.f0], 1 - r.t], [FRAME_BONE[r.f1], r.t]]; },
+    wts: (ii, jj) => {
+      const r = rings[Math.min(ii, rings.length - 1)];
+      const base = r.f0 === r.f1 ? [[FRAME_BONE[r.f0], 1]] : [[FRAME_BONE[r.f0], 1 - r.t], [FRAME_BONE[r.f1], r.t]];
+      const sa = Math.sin((jj / cols - 0.25) * TAU), w = clavShare(r.yc, sa);
+      return w > 0 ? [...base.map(([b, x]) => [b, x * (1 - w)]), [BONE[sa > 0 ? 'clavL' : 'clavR'], w]] : base;
+    },
   });
 }
-function shoe(G, J, S, s, col) {
+// A shoe's sole lies flat when the foot does: a planted foot's line from the ankle to the toe runs
+// down at FOOT_PITCH (diamond/anim.js puts the ankle 0.28 ft up and the toe 0.07 ft up, 0.62 out),
+// so the sole is that line turned back up by as much, and its bottom 0.28 ft under the ankle.
+const FOOT_PITCH = Math.asin((0.28 - 0.07) / 0.62);
+// The cleat's outline from the heel to the toe: [along the sole from under the ankle, half-width,
+// the upper's top over the sole's bottom, the bottom's lift (the toe springs up)], in feet.
+const CLEAT = [[-0.235, 0.05, 0.19, 0.016], [-0.215, 0.095, 0.255, 0.006], [-0.15, 0.125, 0.3, 0], [-0.05, 0.14, 0.31, 0], [0.08, 0.15, 0.27, 0],
+  [0.22, 0.156, 0.22, 0], [0.36, 0.165, 0.17, 0], [0.5, 0.168, 0.135, 0.004], [0.62, 0.158, 0.11, 0.012], [0.71, 0.13, 0.092, 0.022],
+  [0.77, 0.085, 0.076, 0.032], [0.8, 0.02, 0.058, 0.04]];
+// the steel spikes under it: [along, across]
+const SPIKES = [[0.45, 0.1], [0.45, -0.1], [0.58, 0.105], [0.58, -0.105], [0.7, 0.06], [0.7, -0.06], [0.76, 0], [-0.17, 0], [-0.1, 0.075], [-0.1, -0.075]];
+// A cleat: black leather over a firm sole, a white stripe sweeping up the outside to the heel,
+// laces up the instep and steel spikes under it. `col` is the leather; `stripe` false for the
+// umpires' and the crew's plain shoes, which have no spikes either.
+function shoe(G, J, S, s, col, stripe = true) {
   const an = J['an' + S], toe = J['toe' + S];
-  const fwd = norm(sub(toe, an)), side = norm(cross([0, 1, 0], fwd)), up = norm(cross(fwd, side));
-  const heel = madd(madd(an, fwd, -0.2 * s), up, -0.14 * s), L = len(sub(toe, heel));
-  const ax = norm(sub(toe, heel)), upA = norm(sub(up, mul(ax, dot(up, ax)))), sideA = norm(cross(upA, ax));
-  const ST = [[0, 0.07, 0.07, 0.06], [0.06, 0.13, 0.12, 0.10], [0.25, 0.165, 0.16, 0.11], [0.45, 0.17, 0.15, 0.09], [0.65, 0.175, 0.105, 0.05], [0.85, 0.16, 0.08, 0.035], [0.97, 0.1, 0.05, 0.03], [1.0, 0.02, 0.02, 0.03]];
-  emitGrid(G, ST.length, 20, (i, j) => {
-    const [t, w, h, cy] = ST[i], c = madd(madd(heel, ax, t * L), upA, cy * s), a = j / 20 * TAU;
-    const yy = Math.cos(a) > 0 ? Math.cos(a) * h : Math.cos(a) * Math.min(h, 0.05);   // a flat sole
-    return add(c, add(mul(sideA, Math.sin(a) * w * s), mul(upA, yy * s)));
-  }, { key: 'plain', col, mat: MAT.LEATHER, centre: madd(heel, ax, 0.4 * L) });
+  const F = norm(sub(toe, an)), side0 = norm(cross(norm(sub(J['kn' + S], an)), F)), U = norm(cross(F, side0));
+  const Fs = norm(add(mul(F, Math.cos(FOOT_PITCH)), mul(U, Math.sin(FOOT_PITCH)))), Us = norm(sub(mul(U, Math.cos(FOOT_PITCH)), mul(F, Math.sin(FOOT_PITCH))));
+  const Sd = norm(cross(Us, Fs)), out = S === 'L' ? 1 : -1, base = madd(an, Us, -0.28 * s);
+  const at = (along, across, up) => add(base, add(mul(Fs, along * s), add(mul(Sd, across * s), mul(Us, up * s))));
+  const sole = hex('#1b1b1c'), white = hex('#e8e6e0'), lace = mul(col, 1.9), cols = 14;
+  // the sole: from the ground up to where the upper sits on it, a hair wider than the upper
+  const soleTop = (i) => (CLEAT[i][0] < 0 ? 0.055 : 0.04) + CLEAT[i][3];
+  emitGrid(G, CLEAT.length, cols, (i, j) => {
+    const [x, w, , lift] = CLEAT[i], a = j / cols * TAU, ca = Math.cos(a), sa = Math.sin(a);
+    const y = lift + (soleTop(i) - lift) * (0.5 + 0.5 * Math.sign(ca) * Math.pow(Math.abs(ca), 0.25));
+    return at(x, (w + 0.012) * Math.sign(sa) * Math.pow(Math.abs(sa), 0.5), y);
+  }, { key: 'plain', col: sole, mat: MAT.MATTE, centre: at(0.25, 0, 0.05) });
+  // the upper, its cross-section a rounded box on the sole
+  emitGrid(G, CLEAT.length, cols, (i, j) => {
+    const [x, w, top] = CLEAT[i], yb = soleTop(i) - 0.004, a = j / cols * TAU, ca = Math.cos(a), sa = Math.sin(a);
+    const hh = (top - yb) / 2, y = yb + hh + hh * Math.sign(ca) * Math.pow(Math.abs(ca), ca < 0 ? 0.35 : 0.9);
+    return at(x, w * Math.sign(sa) * Math.pow(Math.abs(sa), 0.7), y);
+  }, {
+    key: 'plain', mat: MAT.LEATHER, centre: at(0.25, 0, 0.1),
+    col: (ii, jj) => {
+      const [x, , top] = CLEAT[ii], a = jj / cols * TAU, ca = Math.cos(a), sa = Math.sin(a), f = 0.5 - 0.5 * ca;
+      // laces in rungs up the instep, and the stripe along the outside, rising toward the heel
+      if (ca > 0.82 && x > 0.06 && x < 0.5 && Math.abs(sa) < 0.4) return Math.round(x * 30) % 2 ? lace : mul(lace, 0.7);
+      const mid = 0.42 + 0.22 * clamp((0.45 - x) / 0.6, 0, 1);
+      if (stripe && sa * out > 0.55 && x > -0.2 && x < 0.62 && Math.abs(f - mid) < 0.09 && top > 0.09) return white;
+      return col;
+    },
+  });
+  if (!stripe) return;
+  // the spikes, little steel pyramids under the sole
+  const b = G.B('plain'), steel = hex('#9a9c9f');
+  for (const [x, z] of SPIKES) {
+    const lift = x < 0 ? 0 : x > 0.7 ? 0.02 : 0;
+    const tip = at(x, z, lift - 0.032), r = 0.018;
+    const c4 = [[r, r], [r, -r], [-r, -r], [-r, r]].map(([u, v]) => at(x + u, z + v, lift + 0.002));
+    for (let k = 0; k < 4; k++) {
+      const p1 = c4[k], p2 = c4[(k + 1) % 4], n = norm(cross(sub(p2, p1), sub(tip, p1)));
+      const nn = dot(n, Us) > 0 ? mul(n, -1) : n, v = (p) => ({ p, n: nn, uv: [0, 0], col: steel, mat: MAT.METAL, w: G.cur });
+      tri(b, v(p1), v(p2), v(tip));
+    }
+  }
 }
 // A hand: round a bat's handle a fist of ridged fingers, a thumb, a heel and a strap; otherwise
 // open along the forearm.
@@ -285,7 +402,7 @@ function hand(G, J, S, s, col, mat) {
   const c = J['hand' + S];
   if (J['grip' + S]) {
     const d = J.batDir, back = norm(sub(J['wr' + S], c)), bk = norm(sub(back, mul(d, dot(back, d)))), side = norm(cross(d, bk));
-    const Wd = 0.29 * s, rows = 18, cols = 28;
+    const Wd = 0.29 * s, rows = 15, cols = 22;
     emitGrid(G, rows, cols, (i, j) => {
       const t = i / (rows - 1), a = j / cols * TAU, along = (t - 0.5) * Wd;
       const cap = Math.pow(Math.max(0, 1 - Math.pow(Math.abs(2 * t - 1), 6)), 0.5);
@@ -295,26 +412,89 @@ function hand(G, J, S, s, col, mat) {
       const rr = Math.max(r * cap, 0.048 * s);
       return add(madd(c, d, along), add(mul(bk, Math.cos(a) * rr), mul(side, Math.sin(a) * rr)));
     }, { key: 'plain', col, mat, centre: c });
-    const heel = madd(c, bk, 0.1 * s);
-    ellipsoid(G, 'plain', heel, [side, d, bk], [0.075 * s, 0.11 * s, 0.075 * s], 10, 14, col, mat);
-    const strap = add(heel, mul(norm(sub(J['wr' + S], heel)), Math.min(0.09 * s, len(sub(J['wr' + S], heel)) * 0.6)));
-    ellipsoid(G, 'plain', strap, [side, d, bk], [0.068 * s, 0.05 * s, 0.068 * s], 8, 12, mul(col, 0.55), mat);
-    const th = add(madd(c, d, Wd * 0.32), mul(add(mul(bk, -0.35), mul(side, S === 'L' ? 0.95 : -0.95)), 0.072 * s));
-    ellipsoid(G, 'plain', th, [side, d, bk], [0.03 * s, 0.075 * s, 0.032 * s], 8, 10, mul(col, 0.95), mat);
+    // the hand itself, from the wrist out to the knuckles round the handle: without it the fingers
+    // held the bat a fifth of a foot short of the forearm, a fist floating off the end of the arm.
+    // The wrist sits where the rig puts it from the grip, so the hand rides the fist's bone whole
+    const w = J['wr' + S], toC = sub(c, w), Lh = len(toC), a1 = mul(toC, 1 / (Lh || 1)), a3 = norm(cross(a1, d));
+    ellipsoid(G, 'plain', lerp(w, c, 0.5), [a3, a1, d], [0.068 * s, Lh / 2 + 0.03 * s, 0.112 * s], 9, 14, col, mat);
+    // the thumb, down the side of the handle past the fingers
+    const sg = S === 'L' ? 1 : -1, tb = madd(madd(lerp(w, c, 0.55), side, sg * 0.075 * s), d, 0.04 * s), tt = add(madd(c, d, Wd * 0.38), mul(add(mul(bk, -0.25), mul(side, sg * 0.9)), 0.066 * s));
+    tube(G, [[tb, 0.036 * s, 0.032 * s], [lerp(tb, tt, 0.5), 0.034 * s, 0.03 * s], [tt, 0.03 * s, 0.027 * s], [madd(tt, norm(sub(tt, tb)), 0.025 * s), 0.012 * s, 0.011 * s]], side, 7, { key: 'plain', col: mul(col, 0.95), mat, centre: lerp(tb, tt, 0.5) });
     return;
   }
-  const hd = J['hdir' + S], pm = J['palm' + S], sd = norm(cross(pm, hd));
-  ellipsoid(G, 'plain', c, [sd, hd, pm], [0.085 * s, 0.17 * s, 0.05 * s], 10, 14, col, mat);
-  ellipsoid(G, 'plain', madd(madd(c, sd, 0.075 * s * (S === 'L' ? -1 : 1)), hd, -0.04 * s), [sd, hd, pm], [0.03 * s, 0.08 * s, 0.035 * s], 6, 8, col, mat);
+  // open: the palm from the wrist to the knuckles, four fingers curled a little toward it and the
+  // thumb off its side, in the hand's frame (hd to the fingertips, pm out of the palm, the thumb on
+  // +sd for the right hand and -sd for the left)
+  const hd = J['hdir' + S], pm = J['palm' + S], sd = norm(cross(pm, hd)), th = S === 'L' ? -1 : 1, wr = J['wr' + S];
+  const P = (x, y, z) => add(wr, add(mul(sd, th * x * s), add(mul(hd, y * s), mul(pm, z * s))));
+  ellipsoid(G, 'plain', P(0, 0.16, -0.005), [sd, hd, pm], [0.112 * s, 0.155 * s, 0.045 * s], 9, 14, col, mat);
+  for (let f = 0; f < 4; f++) {
+    const x = 0.075 - f * 0.05, L = [0.22, 0.24, 0.225, 0.18][f], st = [];
+    for (let k = 0; k <= 5; k++) { const u = k / 5, r = (0.027 - 0.004 * u) * (k === 5 ? 0.45 : 1); st.push([P(x * (1 + 0.15 * u), 0.29 + L * u, 0.035 * u * u), r * s, r * 0.9 * s]); }
+    tube(G, st, sd, 6, { key: 'plain', col, mat, centre: P(x, 0.29 + L / 2, 0) });
+  }
+  const tst = [];
+  for (let k = 0; k <= 5; k++) { const u = k / 5, r = (0.034 - 0.006 * u) * (k === 5 ? 0.5 : 1); tst.push([P(0.08 + 0.12 * u, 0.06 + 0.17 * u, 0.02 + 0.05 * u), r * s, r * s]); }
+  tube(G, tst, pm, 6, { key: 'plain', col, mat, centre: P(0.14, 0.15, 0.04) });
 }
+// A tube along a path: stations [point, half-width, half-depth], its width laid along `side` made
+// square to the path at each one. Rows along it, `cols` round it.
+function tube(G, st, side, cols, opt) {
+  emitGrid(G, st.length, cols, (i, j) => {
+    const c = st[i][0], t = norm(sub(st[Math.min(i + 1, st.length - 1)][0], st[Math.max(i - 1, 0)][0]));
+    let x = sub(side, mul(t, dot(side, t)));
+    x = len(x) < 1e-5 ? norm(cross(t, Math.abs(t[1]) < 0.9 ? [0, 1, 0] : [1, 0, 0])) : norm(x);
+    const z = cross(t, x), a = j / cols * TAU;
+    return add(c, add(mul(x, Math.sin(a) * st[i][1]), mul(z, Math.cos(a) * st[i][2])));
+  }, opt);
+}
+// A glove on hand S, in the hand's frame as an open hand's: x toward the thumb, y to the
+// fingertips, z out of the palm (the pocket's side). A fielder's: the body over the palm and the
+// back of the hand, four long finger stalls fanned a little and curled toward the pocket, laced
+// across their tips, the thumb's stall off the side, the web laced between it and the first
+// finger, and the strap at the wrist. A catcher's mitt: a round, thick pillow with a deep pocket
+// and a laced rim.
 function glove(G, J, S, s, kind) {
-  const hd = J['hdir' + S], pm = J['palm' + S], sd = norm(cross(pm, hd));
-  const c = madd(madd(J['wr' + S], hd, kind === 'catcher' ? 0.27 * s : 0.3 * s), pm, 0.05 * s);
-  const r = kind === 'catcher' ? [0.29, 0.29, 0.13] : [0.2, 0.34, 0.1];
-  const leather = kind === 'catcher' ? hex('#5a3820') : hex('#8a5a2e');
-  ellipsoid(G, 'leather', c, [sd, hd, pm], mul(r, s), 14, 20, leather, MAT.LEATHER, { deform: (l) => { if (l[2] > 0) l[2] *= 0.45; return l; } });
-  ellipsoid(G, 'plain', madd(c, hd, r[1] * 0.75 * s), [sd, hd, pm], [r[0] * 0.55 * s, r[1] * 0.3 * s, r[2] * 0.6 * s], 8, 12, mul(leather, 0.55), MAT.LEATHER);
-  ellipsoid(G, 'leather', madd(c, hd, -r[1] * 0.85 * s), [sd, hd, pm], [r[0] * 0.95 * s, 0.07 * s, r[2] * 1.05 * s], 8, 14, mul(leather, 0.85), MAT.LEATHER);
+  const hd = J['hdir' + S], pm = J['palm' + S], sd = norm(cross(pm, hd)), th = S === 'L' ? -1 : 1, wr = J['wr' + S];
+  const P = (x, y, z) => add(wr, add(mul(sd, th * x * s), add(mul(hd, y * s), mul(pm, z * s))));
+  const catcher = kind === 'catcher', leather = catcher ? hex('#5a3820') : hex('#8a5a2e'), lace = mul(leather, 0.42), dark = mul(leather, 0.62);
+  if (catcher) {
+    // the pillow, its palm side dished into the pocket
+    ellipsoid(G, 'leather', P(0, 0.27, 0.02), [sd, hd, pm], [0.3 * s, 0.3 * s, 0.13 * s], 14, 22, leather, MAT.LEATHER,
+      { deform: (l) => { if (l[2] > 0) { const q = 1 - Math.min(1, (l[0] * l[0] + l[1] * l[1]) / (0.09 * s * s)); l[2] = l[2] * 0.42 - 0.07 * s * q; } return l; } });
+    // the rim round the pocket, laced
+    const rim = [];
+    for (let k = 0; k <= 24; k++) { const a = k / 24 * TAU; rim.push([P(Math.sin(a) * 0.255, 0.27 + Math.cos(a) * 0.255, 0.05), 0.05 * s, 0.045 * s]); }
+    tube(G, rim, pm, 8, { key: 'plain', col: (ii) => (ii % 2 ? lace : dark), mat: MAT.LEATHER, centre: P(0, 0.27, 0.05) });
+    // the thumb's bulge and the strap
+    ellipsoid(G, 'leather', P(0.2, 0.16, 0.0), [sd, hd, pm], [0.09 * s, 0.14 * s, 0.09 * s], 8, 12, leather, MAT.LEATHER);
+    tube(G, [[P(0, 0.02, -0.02), 0.11 * s, 0.07 * s], [P(0, 0.07, -0.02), 0.115 * s, 0.075 * s]], sd, 12, { key: 'plain', col: lace, mat: MAT.LEATHER, centre: P(0, 0.045, -0.02) });
+    return;
+  }
+  // the body: the palm's pad on its side, the back of the hand on the other
+  ellipsoid(G, 'leather', P(0.01, 0.2, 0.0), [sd, hd, pm], [0.19 * s, 0.2 * s, 0.075 * s], 11, 18, leather, MAT.LEATHER,
+    { deform: (l) => { if (l[2] > 0) l[2] *= 0.6; return l; } });
+  // the finger stalls, the first next to the thumb, laced across their tips
+  const ROOTS = [[0.105, 0.6], [0.035, 0.58], [-0.035, 0.53], [-0.105, 0.44]];
+  ROOTS.forEach(([x, L], f) => {
+    const st = [];
+    for (let k = 0; k <= 6; k++) {
+      const u = k / 6, end = k === 6 ? 0.4 : k === 5 ? 0.8 : 1;
+      st.push([P(x * (1 + 0.28 * u), 0.3 + L * u, 0.075 * u * u), 0.044 * end * s, 0.04 * end * s]);
+    }
+    tube(G, st, sd, 8, { key: 'leather', col: (ii) => (ii >= 5 ? lace : f % 2 ? mul(leather, 0.93) : leather), mat: MAT.LEATHER, centre: P(x, 0.3 + L / 2, 0.02) });
+  });
+  // the thumb's stall, out from the heel of the palm toward the first finger's tip
+  const tst = [];
+  for (let k = 0; k <= 6; k++) { const u = k / 6, end = k === 6 ? 0.4 : k === 5 ? 0.8 : 1; tst.push([P(0.15 + 0.2 * u, 0.1 + 0.42 * u, 0.02 + 0.06 * u * u), 0.05 * end * s, 0.046 * end * s]); }
+  tube(G, tst, pm, 8, { key: 'leather', col: (ii) => (ii >= 5 ? lace : leather), mat: MAT.LEATHER, centre: P(0.25, 0.3, 0.03) });
+  // the web, laced in a basket between the thumb and the first finger, bowed out behind the pocket
+  emitGrid(G, 6, 5, (i, j) => {
+    const v = i / 5, u = j / 4, y = 0.36 + 0.46 * v, xi = 0.12 * (1 + 0.28 * (y - 0.3) / 0.6), xt = 0.15 + 0.2 * Math.min(1, (y - 0.1) / 0.42);
+    return P(xi + (xt - xi) * u, y, 0.045 - 0.035 * Math.sin(u * Math.PI));
+  }, { key: 'plain', col: (ii, jj) => ((ii + jj) % 2 ? lace : dark), mat: MAT.LEATHER, wrap: false, centre: P(0.18, 0.6, 0.2) });
+  // the strap at the wrist
+  tube(G, [[P(0, -0.01, -0.03), 0.12 * s, 0.075 * s], [P(0, 0.05, -0.03), 0.125 * s, 0.078 * s]], sd, 12, { key: 'plain', col: dark, mat: MAT.LEATHER, centre: P(0, 0.02, -0.03) });
 }
 function bat(G, J, s) {
   const k = J.batKnob, d = J.batDir, L = 2.8 * s;
@@ -433,10 +613,14 @@ function cap(G, W, s, look, col, under, cell, billTop = col) {
 function helmet(G, W, s, look, flapSide, col, cell) {
   const F = headFrame(W, look), ear = earFall, band = helmetBand(flapSide);
   const t = (a, y) => 0.021 + (Math.sin(a) * flapSide > 0 ? 0.009 * ear(a) * Math.exp(-(((y - 1.615) / 0.045) ** 2)) : 0);
-  skullShell(G, F, band, t, { col, mat: MAT.GLOSS, rows: 14, cols: 48 });
-  skullShell(G, F, band, (a, y) => t(a, y) - 0.005, { col: hex('#141414'), mat: MAT.CLOTH, rows: 14, cols: 48 });
+  skullShell(G, F, band, t, { col, mat: MAT.GLOSS, rows: 14, cols: 40 });
+  skullShell(G, F, band, (a, y) => t(a, y) - 0.005, { col: hex('#141414'), mat: MAT.CLOTH, rows: 14, cols: 40 });
   bill(G, F, band, 0.022, 0.036, 0.62, BILL_DROP.helmet, col, mul(col, 0.6), MAT.GLOSS);
   if (cell != null) logoOn(G, F, band, 0.022, flapSide * 1.15, flapSide * 1.75, 1.665, 1.715, cell, MAT.GLOSS, flapSide > 0);
+  // the vents over the crown, and the hole in the flap over the ear
+  const hole = hex('#0b0b0c');
+  for (const [a, y] of [[0.42, 1.742], [-0.42, 1.742], [Math.PI, 1.728]]) spotOn(G, F, a, y, 0.1, 0.006, 0.0225, hole);
+  spotOn(G, F, flapSide * 1.62, 1.6, 0.13, 0.012, t(flapSide * 1.62, 1.6) + 0.0015, hole);
 }
 // A mask's bars a few centimetres off the face, from the brow to under the chin.
 function mask(G, W, s, look) {
@@ -450,18 +634,114 @@ function mask(G, W, s, look) {
   }, { key: 'mask', col: [0.2, 0.2, 0.22], mat: MAT.METAL, wrap: false, centre: F.c, uv: (i, j) => [j / 12, i / 8] });
 }
 // The catcher: a hard skull cap worn back to front, the mask, a chest protector and shin guards.
+// The catcher's shin guards down the front of each leg, hip-relative as a leg's profile: a cap over
+// the knee, then plates down the shin with a groove ('v') between each.
+const SHIN_GUARD = [[1.32, 0.24, 0.265, 'g'], [1.45, 0.272, 0.295, 'g'], [1.58, 0.275, 0.298, 'g'], [1.7, 0.25, 0.27, 'g'], [1.74, 0.232, 0.25, 'v'],
+  [1.78, 0.243, 0.262, 'g'], [2.08, 0.222, 0.24, 'g'], [2.11, 0.206, 0.222, 'v'], [2.14, 0.218, 0.235, 'g'], [2.48, 0.196, 0.212, 'g'],
+  [2.51, 0.18, 0.195, 'v'], [2.54, 0.19, 0.205, 'g'], [2.88, 0.172, 0.186, 'g'], [3.06, 0.162, 0.175, 'g']];
+// A foot's frame as its shoe stands: `at` under the ankle on the sole's bottom, Fs along the sole,
+// Us up off it, Sd to the player's left (shoe has it).
+function footFrame(J, S, s) {
+  const an = J['an' + S], F = norm(sub(J['toe' + S], an)), side0 = norm(cross(norm(sub(J['kn' + S], an)), F)), U = norm(cross(F, side0));
+  const Fs = norm(add(mul(F, Math.cos(FOOT_PITCH)), mul(U, Math.sin(FOOT_PITCH)))), Us = norm(sub(mul(U, Math.cos(FOOT_PITCH)), mul(F, Math.sin(FOOT_PITCH))));
+  return { at: madd(an, Us, -0.28 * s), Fs, Us, Sd: norm(cross(Us, Fs)) };
+}
+// The catcher: a hard skull cap worn back to front, the mask and the throat guard hanging under
+// it, a chest protector of padded panels from the belt to the collarbones with a cap over each
+// shoulder, and shin guards over the knees and down to flaps over the laces.
 function catcherGear(G, J, W, s, look, col) {
-  const F = headFrame(W, look);
+  const F = headFrame(W, look), cur = G.cur;
   skullShell(G, F, (a) => 1.672 - 0.05 * (1 - Math.cos(a)) / 2, 0.02, { col, mat: MAT.GLOSS });
   mask(G, W, s, look);
+  // the throat guard: a black plate hanging from the mask's chin, in front of the neck
+  emitGrid(G, 3, 7, (i, j) => { const a = (j / 6 - 0.5) * 1.3, y = 1.505 - 0.05 * i / 2; return toHead(F, [Math.sin(a) * 0.05, y, SKULL_ZC + 0.07 + Math.cos(a) * 0.035 - 0.012 * i]); },
+    { key: 'plain', col: hex('#141414'), mat: MAT.GLOSS, wrap: false, centre: F.c });
+  const groove = mul(col, 0.45);
   for (const S of ['L', 'R']) {
-    limb(G, J['hip' + S], J['kn' + S], J['an' + S], m3v(W.pelvis, [0, 0, 1]), [[1.35, 0.255, 0.28, 'g'], [1.6, 0.265, 0.29, 'g'], [2.0, 0.215, 0.235, 'g'], [2.6, 0.185, 0.2, 'g'], [3.05, 0.17, 0.18, 'g']], s,
-      () => 'plain', () => col, () => MAT.GLOSS, () => [0, 0], LEG_RIG[S]);
+    limb(G, J['hip' + S], J['kn' + S], J['an' + S], m3v(W.pelvis, [0, 0, 1]), SHIN_GUARD, s,
+      () => 'plain', (p) => (p === 'v' ? groove : col), () => MAT.GLOSS, () => [0, 0], LEG_RIG[S]);
+    // the flap over the laces
+    const f = footFrame(J, S, s);
+    G.cur = [[BONE['foot' + S], 1]];
+    ellipsoid(G, 'plain', add(f.at, add(mul(f.Fs, 0.2 * s), mul(f.Us, 0.2 * s))), [f.Sd, f.Fs, f.Us], [0.13 * s, 0.17 * s, 0.05 * s], 6, 12, col, MAT.GLOSS,
+      { deform: (l) => { if (l[2] < 0) l[2] *= 0.3; return l; } });
   }
-  const pad = hex('#1a2b52');
-  const pts = TORSO.slice(5, 12).map(([f, o, w, d]) => ({ c: add(J[f], m3v(W[f], mul(o, s))), X: W[f][0], Z: W[f][2], w: (w + 0.05) * s, d: (d + 0.09) * s }));
-  emitGrid(G, pts.length, 12, (i, j) => { const r = pts[i], a = (j / 11 - 0.5) * 190 * DEG; return add(r.c, add(mul(r.X, Math.sin(a) * r.w), mul(r.Z, Math.pow(Math.max(0, Math.cos(a)), 0.7) * r.d))); },
-    { key: 'plain', col: (ii, jj) => mul(pad, jj % 3 === 0 ? 0.75 : 1), mat: MAT.CLOTH, wrap: false, centre: J.chest, wts: (ii) => [[FRAME_BONE[TORSO[5 + Math.min(ii, pts.length - 1)][0]], 1]] });
+  // the chest protector, its panels standing proud between the seams
+  const pad = hex('#1a2b52'), seam = mul(pad, 0.5), rows = TORSO.slice(5, 14);
+  const pts = rows.map(([f, y, w, df]) => ({ c: add(J[f], m3v(W[f], [0, y * s, 0])), X: W[f][0], Z: W[f][2], w: (w + 0.045) * s, d: (df + 0.085) * s }));
+  emitGrid(G, pts.length, 15, (i, j) => {
+    const r = pts[i], a = (j / 14 - 0.5) * 190 * DEG, sunk = j % 3 === 0 || i % 2 === 1 ? 0.975 : 1;
+    return add(r.c, add(mul(r.X, Math.sin(a) * r.w), mul(r.Z, Math.pow(Math.max(0, Math.cos(a)), 0.7) * r.d * sunk)));
+  }, { key: 'plain', col: (ii, jj) => (jj % 3 === 0 || ii % 2 === 1 ? seam : pad), mat: MAT.CLOTH, wrap: false, centre: J.chest, wts: (ii) => [[FRAME_BONE[rows[Math.min(ii, pts.length - 1)][0]], 1]] });
+  // a padded cap over each shoulder, on its collarbone, over the top of the deltoid
+  for (const [S, sg] of [['L', 1], ['R', -1]]) {
+    const C = W['clav' + S] || W.chest;
+    G.cur = [[BONE['clav' + S], 1]];
+    ellipsoid(G, 'plain', add(J['sh' + S], m3v(C, [-sg * 0.01 * s, 0.05 * s, 0.01 * s])), C, [0.235 * s, 0.135 * s, 0.245 * s], 7, 14, pad, MAT.CLOTH, { vmax: 0.6 });
+  }
+  G.cur = cur;
+}
+// A spot on headwear's shell, dark, a little proud of it: a vent, or the ear's hole in a helmet's flap.
+function spotOn(G, F, a0, y0, ra, ry, t, col) {
+  emitGrid(G, 2, 10, (i, j) => { const ph = j / 10 * TAU; return toHead(F, skullOut(y0 + ry * Math.sin(ph) * i, a0 + ra * Math.cos(ph) * i, t)); },
+    { key: 'plain', col, mat: MAT.MATTE, centre: F.c });
+}
+// The plate umpire's ball bags, one on each hip.
+function ballBags(G, J, W, s, col) {
+  const cur = G.cur;
+  G.cur = [[BONE.pelvis, 1]];
+  for (const sg of [1, -1]) {
+    ellipsoid(G, 'plain', add(J.pelvis, m3v(W.pelvis, [sg * 0.52 * s, 0.03 * s, 0.16 * s])), W.pelvis, [0.12 * s, 0.15 * s, 0.13 * s], 7, 10, col, MAT.CLOTH);
+    ellipsoid(G, 'plain', add(J.pelvis, m3v(W.pelvis, [sg * 0.53 * s, 0.15 * s, 0.17 * s])), W.pelvis, [0.125 * s, 0.035 * s, 0.135 * s], 5, 10, mul(col, 0.7), MAT.CLOTH);
+  }
+  G.cur = cur;
+}
+// The belt's buckle in front and its loops round it, on the belt rings (TORSO's pelvis +0.22 and +0.30).
+function beltDress(G, J, W, s, extra, col) {
+  const cur = G.cur, w = (0.5725 + extra) * s, d = (0.3825 + extra) * s, y = 0.26 * s, pw = 2.5, sp = (x) => Math.sign(x) * Math.pow(Math.abs(x), 2 / pw);
+  G.cur = [[BONE.pelvis, 1]];
+  const on = (a, out) => add(J.pelvis, m3v(W.pelvis, [sp(Math.sin(a)) * (w + out), y, sp(Math.cos(a)) * (d + out)]));
+  ellipsoid(G, 'plain', on(0, 0.012 * s), W.pelvis, [0.075 * s, 0.05 * s, 0.014 * s], 5, 10, hex('#b9b3a3'), MAT.METAL);
+  for (const a of [-2.4, -1.35, -0.62, 0.62, 1.35, 2.4]) {
+    const n = norm(sub(on(a, 0.01 * s), on(a, 0)));
+    ellipsoid(G, 'plain', on(a, 0.006 * s), [norm(cross(W.pelvis[1], n)), W.pelvis[1], n], [0.016 * s, 0.062 * s, 0.009 * s], 4, 6, mul(col, 0.75), MAT.LEATHER);
+  }
+  G.cur = cur;
+}
+// The jersey's neckline piped in the trim, round the torso's top ring of jersey (chest +0.61).
+function collar(G, J, W, s, col, extra) {
+  const [, y, w0, df0, db0] = TORSO[14], cur = G.cur, pw = 2.5, sp = (x) => Math.sign(x) * Math.pow(Math.abs(x), 2 / pw), st = [];
+  G.cur = [[BONE.chest, 1]];
+  for (let k = 0; k <= 18; k++) {
+    const a = k / 18 * TAU, ca = Math.cos(a), w = (w0 + extra) * s + 0.004, d = ((ca > 0 ? df0 : db0) + extra) * s + 0.004;
+    st.push([add(J.chest, m3v(W.chest, [sp(Math.sin(a)) * w, y * s + 0.01 * s, sp(ca) * d])), 0.016 * s, 0.016 * s]);
+  }
+  tube(G, st, W.chest[1], 4, { key: 'plain', col, mat: MAT.CLOTH, centre: add(J.chest, m3v(W.chest, [0, y * s, 0])) });
+  G.cur = cur;
+}
+// A band round the forearm at the wrist, and a hitter's guard over the elbow he leads with.
+function wristband(G, J, S, s, col) {
+  const cur = G.cur, el = J['el' + S], d = norm(sub(J['wr' + S], el)), L = len(sub(J['wr' + S], el)), side = norm(cross(d, J['epole' + S] || [0, 1, 0]));
+  G.cur = [[BONE['forearm' + S], 1]];
+  tube(G, [0.66, 0.73, 0.8].map((u, i) => [madd(el, d, L * u), (i === 1 ? 0.122 : 0.116) * s, (i === 1 ? 0.106 : 0.1) * s]), side, 12,
+    { key: 'plain', col, mat: MAT.CLOTH, centre: madd(el, d, L * 0.73) });
+  G.cur = cur;
+}
+// A batting glove's cuff round the wrist, over the end of the sleeve, its strap darker, closed over
+// the wrist so that looking down the forearm shows glove and not the sleeve inside it.
+function gloveCuff(G, J, S, s, col) {
+  const cur = G.cur, el = J['el' + S], d = norm(sub(J['wr' + S], el)), L = len(sub(J['wr' + S], el)), side = norm(cross(d, J['epole' + S] || [0, 1, 0]));
+  G.cur = [[BONE['forearm' + S], 1]];
+  tube(G, [[0.85, 0.104, 0.088], [0.89, 0.112, 0.095], [0.94, 0.11, 0.094], [1.0, 0.104, 0.09], [1.05, 0.088, 0.077], [1.09, 0.055, 0.048], [1.11, 0, 0]].map(([u, a, b]) => [madd(el, d, L * u), a * s, b * s]), side, 12,
+    { key: 'plain', col: (ii) => (ii === 1 || ii === 2 ? mul(col, 0.6) : col), mat: MAT.LEATHER, centre: madd(el, d, L * 0.95) });
+  G.cur = cur;
+}
+function elbowGuard(G, J, S, s, col) {
+  const cur = G.cur, el = J['el' + S], pole = J['epole' + S] || [0, -1, 0], up = norm(sub(J['sh' + S], el)), fo = norm(sub(J['wr' + S], el));
+  const along = norm(sub(up, fo)), across = norm(cross(pole, along));
+  G.cur = [[BONE['upperArm' + S], 0.5], [BONE['forearm' + S], 0.5]];
+  ellipsoid(G, 'plain', madd(el, pole, 0.08 * s), [across, along, pole], [0.15 * s, 0.21 * s, 0.1 * s], 8, 12, col, MAT.GLOSS);
+  G.cur = cur;
 }
 
 // ── one player ─────────────────────────────────────────────────────────────────
@@ -473,6 +753,13 @@ export function lookOf(o) {
   L.eyeBlack = r() < 0.3;
   // cropped, neat, tousled, now and then long under the cap; the umpires keep it short
   L.hairStyle = o.role === 'ump' ? [0, 1][Math.floor(r() * 2)] : [0, 1, 0, 1, 2, 0, 1, 3][Math.floor(r() * 8)];
+  // what he wears that's his own, off a draw of its own so the looks above don't move: a band on
+  // one wrist or both, and a hitter's guard over the elbow he leads with (his helmet's flap side)
+  if (o.role !== 'ump' && o.role !== 'crew') {
+    const g = rng(hashStr('gear:' + o.id)), w = g(), lead = (o.flapSide ?? 1) > 0 ? 'L' : 'R';
+    L.wristbands = w < 0.4 ? null : w < 0.7 ? 'both' : w < 0.85 ? 'L' : 'R';
+    L.elbowGuard = o.helmet && g() < 0.35 ? lead : null;
+  }
   return Object.assign(L, o);
 }
 
@@ -506,10 +793,19 @@ export function buildPlayer(G, pose, look) {
   for (const S of ['L', 'R']) {
     limb(G, J['hip' + S], J['kn' + S], J['an' + S], m3v(W.pelvis, [0, 0, 1]), ump ? SLACKS : LEG, s, keyOf, colOf, matOf, legUv, LEG_RIG[S]);
     limb(G, J['sh' + S], J['el' + S], J['wr' + S], m3v(W.chest, [0, 0, -1]), ARM, s, keyOf, colOf, matOf, uvOf, ARM_RIG[S]);
+    deltoid(G, J, W, S, s, keyOf, colOf, matOf, uvOf);
     G.cur = [[BONE['foot' + S], 1]];
-    shoe(G, J, S, s, ump ? hex(plain.shoe) : hex('#151515'));
+    shoe(G, J, S, s, ump ? hex(plain.shoe) : hex('#151515'), !ump);
   }
   torso(G, J, W, s, keyOf, colOf, matOf, uvOf, look.girth || 0, ump ? plain.girth : 0);
+  beltDress(G, J, W, s, look.girth || 0, ump ? hex(plain.belt) : hex(kit.belt));
+  if (!ump) collar(G, J, W, s, trim, look.girth || 0);
+  // his own: a band at the wrist, a guard over the elbow he leads with
+  const band = hex(kit.ink);
+  for (const S of ['L', 'R']) if (!ump && (look.wristbands === 'both' || look.wristbands === S)) wristband(G, J, S, s, band);
+  if (!ump && look.elbowGuard) elbowGuard(G, J, look.elbowGuard, s, hex(kit.helmet));
+  if (!ump && look.battingGloves) for (const S of ['L', 'R']) gloveCuff(G, J, S, s, hex(look.battingGloves));
+  if (look.role === 'ump' && look.mask) ballBags(G, J, W, s, mul(navyU, 0.9));
   head(G, J, W, s, look);
   look.s = s;
   const logo = side === 'home' ? 0 : 1;

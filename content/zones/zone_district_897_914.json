@@ -1,7 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "description": "The corner outside the Hughson Coliseum's main gate, a brick rotunda with the name in bronze over three iron gates. Cable covers run across the road in yellow rubber, feeding the light towers. Crowd barriers are chained to the lamp posts.",
+  "description": "The corner outside the Hughson Coliseum's main gate, a stepped limestone frontispiece with the name in gilt over bronze doors. Cable covers run across the road in yellow rubber, feeding the floods. Crowd barriers are chained to the lamp posts.",
   "exits": {
     "east": "zone_district_898_914",
     "north": "zone_ballpark_897_913",

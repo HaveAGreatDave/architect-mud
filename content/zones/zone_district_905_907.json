@@ -4,6 +4,7 @@
   "description": "The road narrows here for no reason anybody living can account for, then widens again twenty feet on. A bench faces the green with its slats replaced one at a time in four different woods.",
   "exits": {
     "east": "zone_district_906_907",
+    "south": "zone_greenside_905_908",
     "west": "zone_district_904_907"
   },
   "flags": {

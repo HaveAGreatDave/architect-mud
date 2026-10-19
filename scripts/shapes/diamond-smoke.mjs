@@ -1092,7 +1092,7 @@ for (const { p, seed } of runs) {
 
 // ── 2. the view ──────────────────────────────────────────────────────────────
 // A renderer that records what it's handed: the cast, the poses by slot, the ball, the shots.
-const rec = { poses: new Map(), balls: 0, frames: 0, roar: [0, 0], marks: 0, resets: 0, hours: [], wx: [] };
+const rec = { poses: new Map(), balls: 0, frames: 0, roar: [0, 0], marks: 0, resets: 0, hours: [], wx: [], roof: [] };
 const renderer = () => ({
   kind: 'stub', lost: false, quality: { dpr: 1, tube: false }, casters: [],
   setCast(cast) { rec.cast = cast; return 0; },
@@ -1101,6 +1101,7 @@ const renderer = () => ({
   render() { rec.frames++; return true; },
   setCrowd(levels) { rec.roar = [Math.max(rec.roar[0], levels[0]), Math.max(rec.roar[1], levels[1])]; },
   markDirt(list) { rec.marks += list.length; }, resetDirt() { rec.resets++; }, setHour(h) { rec.hours.push(h); }, setWeather(wx, o) { rec.wx.push({ wx, o }); }, setTime() {},
+  setRoof(r) { rec.roof.push(r); }, roof: { p: 1, to: 1, moving: false },
   setBoard() {}, setVenue() { return null; }, pump() { return 0; }, pending: () => 0, dispose() {},
   // a city round the park, so a game opens on the street
   city: { buildings: 1 },
@@ -1334,6 +1335,15 @@ const renderer = () => ({
     v.apply({ ...p });
     const w3 = rec.wx[rec.wx.length - 1];
     check('the weather: a payload\'s weather reaches the renderer, its lightning not flashing for less motion, and none is none', w1.wx === wx && w1.o.flash === true && w2.o.flash === false && w3.wx === null, JSON.stringify([w1.o, w2.o, w3.wx]));
+    // and the venue's roof as the line aired (the broadcast's `roof`), so the shells stand where the
+    // map's do; a payload without one leaves them where they are
+    const n0 = rec.roof.length;
+    v.apply({ ...p, roof: 1 });
+    const r1 = rec.roof[rec.roof.length - 1];
+    v.apply({ ...p, roof: 0 });
+    const r2 = rec.roof[rec.roof.length - 1];
+    v.apply({ ...p });
+    check('the roof: a payload\'s roof reaches the renderer, and one without leaves it where it is', r1 === 1 && r2 === 0 && rec.roof.length === n0 + 2, JSON.stringify(rec.roof.slice(n0)));
   }
   v.clear();
   check('cleared', host.children.length === 0);

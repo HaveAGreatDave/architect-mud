@@ -66,6 +66,22 @@ export default async function regress({ run, check, getPlayer }) {
   check('team talk: a shared nickname needs more', named('rats in the walls again') === '', named('rats in the walls again'));
   check('team talk: two words settle a shared nickname', named('the Wharf Rats stink') === 'Waterfront Wharf Rats', named('the Wharf Rats stink'));
   check('team talk: a common-word nickname needs the full name', named('saints preserve us') === '' && named('Static Saints!') === 'Static Saints', named('saints preserve us'));
+  // An authored allegiance beats the hash, but only for a club the league has: a
+  // renamed or retired club must leave the fan backing somebody, not nobody.
+  {
+    const { _test } = await import('./index.js');
+    const { favTeam, teamRoster } = _test;
+    const saved = [...teamRoster];
+    teamRoster.clear();
+    for (const t of ['Coldwater Crows', 'Rustpile Rats', 'Static Saints']) teamRoster.add(t);
+    const authored = favTeam({ id: 'npc_favtest', flags: { fav_team: 'Static Saints' } });
+    check('fav_team: an authored club wins over the hash', authored === 'Static Saints', authored);
+    const hashed = favTeam({ id: 'npc_favtest' });
+    const stray = favTeam({ id: 'npc_favtest', flags: { fav_team: 'Nowhere Nobodies' } });
+    check('fav_team: a club the league lacks falls back to the hash', stray === hashed && !!hashed, `${stray} vs ${hashed}`);
+    teamRoster.clear();
+    for (const t of saved) teamRoster.add(t);
+  }
   const fan = (set) => fanReaction('Coldwater Kingfishers', 'Rustpile Rats', new Set(set));
   check('team talk: a fan cheers their club', /Coldwater Kingfishers/.test(fan(['Coldwater Kingfishers']) || ''), fan(['Coldwater Kingfishers']));
   check('team talk: a fan rounds on the rival', /Rustpile Rats/.test(fan(['Rustpile Rats']) || ''), fan(['Rustpile Rats']));

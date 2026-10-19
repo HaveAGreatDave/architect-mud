@@ -1,0 +1,11 @@
+{
+  "description": "A bare bulb over the dough table, and the orange of the oven door under it.",
+  "flags": {},
+  "id": "furn_light_zone_pruitt_roastery",
+  "light_type": "overhead",
+  "lumen_output": 1000,
+  "name": "the oven light",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_pruitt_roastery"
+}

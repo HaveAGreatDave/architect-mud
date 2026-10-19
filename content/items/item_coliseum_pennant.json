@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_coliseum_pennant",
+  "name": "Coliseum pennant",
+  "tags": {
+    "description": "A green felt pennant with the Coliseum's gold sunburst at the wide end and COLISEUM down the tail. It is for waving at a game or nailing to a wall, and most of them end up nailed.",
+    "stackable": true
+  },
+  "type": "misc",
+  "value": 8,
+  "weight": 60
+}

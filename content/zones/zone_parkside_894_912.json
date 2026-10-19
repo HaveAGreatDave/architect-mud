@@ -1,0 +1,30 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "urban",
+  "bg_color": "#2b2014",
+  "color": "#e8cf9a",
+  "description": "A brick shop on Vetch Mews with a big copper roasting drum turning in the window, a green awning, and PEANUTS & PRETZELS in gilt on the fascia. It smells of salt and burnt sugar for a block in every direction.",
+  "exits": {
+    "east": "zone_pruitt_shop",
+    "west": "zone_district_893_912"
+  },
+  "flags": {
+    "building_name": "Pruitt's Peanuts & Pretzels",
+    "building_type": "peanut_roaster",
+    "district": "halcyon_fields",
+    "entrance": "west",
+    "facade": true,
+    "floors": 1,
+    "is_building": true,
+    "region_id": "region_coldwater",
+    "world_exit_zone": "zone_district_893_912"
+  },
+  "grid_x": 894,
+  "grid_y": 912,
+  "grid_z": 0,
+  "id": "zone_parkside_894_912",
+  "map_id": "map_world",
+  "marker": "PP",
+  "name": "Pruitt's Peanuts & Pretzels",
+  "parent_zone": null
+}

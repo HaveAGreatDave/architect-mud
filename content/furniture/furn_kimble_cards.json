@@ -1,0 +1,14 @@
+{
+  "description": "A card machine wedged between the cap tree and the window, foil sleeves in three columns behind the glass. A hand-written card taped to it says the players are at the front.",
+  "flags": {
+    "click_cmd": "buypack",
+    "interactions": [],
+    "notable": true,
+    "vends_packs": 1
+  },
+  "id": "furn_kimble_cards",
+  "name": "Architect Draft card machine",
+  "object_type": "fixture",
+  "power_draw_kw": 0.4,
+  "zone_id": "zone_kimble_shop"
+}

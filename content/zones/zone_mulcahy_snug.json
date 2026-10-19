@@ -1,0 +1,22 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A small back room with three tables and a dartboard, the carpet worn to the weave between the oche and the board. A framed photograph hangs over the fireplace.",
+  "exits": {
+    "north": "zone_mulcahy_bar"
+  },
+  "flags": {
+    "building_name": "Mulcahy's Sports Bar",
+    "building_type": "sports_bar",
+    "floor": "carpet",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_parkside_898_911"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_mulcahy_snug",
+  "map_id": "map_int_mulcahy",
+  "name": "Mulcahy's — The Snug",
+  "parent_zone": "zone_parkside_898_911"
+}

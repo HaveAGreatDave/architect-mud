@@ -1,6 +1,6 @@
 {
   "ambient_theme": "indoors",
-  "description": "A round brick hall inside the main gate, floored in terrazzo worn grey in front of the turnstiles. A bronze of Sir Charles stands in the middle on a granite plinth, with a plaque on the wall behind him. The ticket office is east and the concourse north.",
+  "description": "A round hall inside the main gate, floored in terrazzo with a brass sunburst laid in it, worn grey in front of the turnstiles. A bronze of Sir Charles stands in the middle on a granite plinth, with a plaque on the wall behind him. The ticket office is east and the concourse north.",
   "exits": {
     "east": "zone_hughson_tickets",
     "north": "zone_hughson_concourse",
@@ -13,7 +13,7 @@
     "is_building": true,
     "is_interior": true,
     "window": {
-      "description": "Three iron gates in brick arches, folded back against the wall on game nights. Sorrel Way is outside, and the corner of Kettle Lane.",
+      "description": "Bronze doors under a sunburst fanlight, folded back against the stone on game nights. Sorrel Way is outside, and the corner of Kettle Lane.",
       "light": 0.5,
       "name": "the gates",
       "visibility": 0.6

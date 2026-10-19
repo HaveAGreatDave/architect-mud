@@ -1,0 +1,77 @@
+{
+  "category": "orchestral",
+  "config": {
+    "layers": [
+      {
+        "adsr": {
+          "a": 0.008,
+          "d": 0.05,
+          "r": 0.08,
+          "s": 1
+        },
+        "detune": -4,
+        "echo": {
+          "delay": 0.23,
+          "feedback": 0.45,
+          "mix": 0.3
+        },
+        "gain": 0.32,
+        "tremolo": {
+          "depth": 0.12,
+          "rate": 6.4
+        },
+        "waveform": "triangle"
+      },
+      {
+        "adsr": {
+          "a": 0.008,
+          "d": 0.05,
+          "r": 0.08,
+          "s": 1
+        },
+        "detune": -4,
+        "gain": 0.145,
+        "tremolo": {
+          "depth": 0.12,
+          "rate": 6.4
+        },
+        "tune": 12,
+        "waveform": "sine"
+      },
+      {
+        "adsr": {
+          "a": 0.008,
+          "d": 0.05,
+          "r": 0.08,
+          "s": 1
+        },
+        "detune": -4,
+        "gain": 0.065,
+        "tune": 19,
+        "waveform": "sine"
+      },
+      {
+        "adsr": {
+          "a": 0.001,
+          "d": 0.004,
+          "r": 0.003,
+          "s": 0
+        },
+        "filter": {
+          "freq": 2400,
+          "q": 0.8,
+          "type": "bandpass"
+        },
+        "gain": 0.08,
+        "noiseMix": 1,
+        "noiseSeed": 107,
+        "waveform": "triangle"
+      }
+    ]
+  },
+  "enabled": 1,
+  "id": "aud_inst_orch_organ",
+  "name": "Ballpark organ",
+  "sample_id": null,
+  "waveform": "triangle"
+}

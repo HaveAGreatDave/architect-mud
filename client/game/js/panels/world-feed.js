@@ -119,6 +119,63 @@ export function noteVenueLit(msg) {
     if (!Array.isArray(list)) continue;
     for (const p of list) if (Array.isArray(p) && Number.isFinite(p[0]) && Number.isFinite(p[1])) VENUE.set(p[0] + ',' + p[1], on);
   }
+  _venueEpoch++;
 }
 // 1 or 0 if the venue on tile (x, y) has changed since its cell was sent, or undefined.
 export function venueLive(x, y) { return VENUE.size ? VENUE.get(x + ',' + y) : undefined; }
+
+// ── VENUE ROOFS ──────────────────────────────────────────────────────────────
+// The cell says whether a venue's roof was shut when the window was sent (`vr`, 1 shut); a
+// `venue_roof` push says it has started to move since, and these remember when. The roof travels
+// for ROOF_MS from where it was, so a view open over the Coliseum when the rain comes watches the
+// shells roll south and close, and one opened afterwards finds it shut.
+// ⚠ THE MESH IS KEYED ON THE STATE, NOT THE POSITION. GLASS 2 caches a building's mesh per key
+// (gl/world.js `meshParams`), so a roof at rest is mesh and a moving one can't be: while it moves the
+// key says so and the arm draws the shells as decals. `venueEpoch` is what tells the GL pass to
+// rebuild its window, once when a move starts and once when it ends.
+export const ROOF_MS = 90000;
+const ROOF = new Map();       // "x,y" → { to, from, t0, done }
+let _venueEpoch = 0;
+const roofAt = (e, now) => {
+  const u = Math.min(1, Math.max(0, (now - e.t0) / ROOF_MS));
+  const s = u * u * (3 - 2 * u);   // the drive eases out of rest and back into it
+  return e.from + (e.to - e.from) * s;
+};
+export function noteVenueRoof(msg) {
+  const now = Date.now();
+  for (const [list, to] of [[msg && msg.shut, 1], [msg && msg.open, 0]]) {
+    if (!Array.isArray(list)) continue;
+    for (const p of list) {
+      if (!Array.isArray(p) || !Number.isFinite(p[0]) || !Number.isFinite(p[1])) continue;
+      const k = p[0] + ',' + p[1], cur = ROOF.get(k);
+      if (cur && cur.to === to) continue;
+      // From wherever it is now; a roof this view never saw move starts from the other end.
+      ROOF.set(k, { to, from: cur ? roofAt(cur, now) : 1 - to, t0: now, done: false });
+    }
+  }
+  _venueEpoch++;
+}
+// The roof on tile (x, y) since its cell was sent: `p` how shut it is now (0 open, 1 shut), `to` where
+// it is going, `moving` until it gets there. Undefined if it hasn't moved in this view.
+export function venueRoof(x, y, now = Date.now()) {
+  if (!ROOF.size) return undefined;
+  const e = ROOF.get(x + ',' + y);
+  if (!e) return undefined;
+  return { p: roofAt(e, now), to: e.to, moving: now - e.t0 < ROOF_MS };
+}
+// Bumped whenever a venue's lights or roof change state, including a roof arriving where it was
+// going, which no message announces. The GL pass keys its window on it.
+export function venueEpoch(now = Date.now()) {
+  for (const e of ROOF.values()) if (!e.done && now - e.t0 >= ROOF_MS) { e.done = true; _venueEpoch++; }
+  return _venueEpoch;
+}
+// What a venue tile's mesh is built as: `vl` its game night, `vr` its roof (1 shut, 0 open, null
+// none) and `vrm` whether that roof is moving. `cell` is the map window's cell for the tile.
+export function venueState(x, y, cell, now = Date.now()) {
+  const lit = venueLive(x, y), r = venueRoof(x, y, now);
+  return {
+    vl: lit !== undefined ? lit : (cell && cell.vl ? 1 : 0),
+    vr: r ? r.to : (cell && cell.vr != null ? cell.vr : null),
+    vrm: r && r.moving ? 1 : 0,
+  };
+}

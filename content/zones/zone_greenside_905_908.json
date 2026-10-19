@@ -1,0 +1,32 @@
+{
+  "ambient_events": [
+    "A car noses into a bay, stops, and the driver sits for a minute with the engine off before getting out.",
+    "A delivery van stops across two bays with its hazards on.",
+    "Somebody comes out of the café with a tray of cups and walks them to a car with the window down."
+  ],
+  "ambient_theme": "urban",
+  "color": "#5a5f62",
+  "description": "Five bays of fresh tarmac beside Grounds for Concern, lined in white with a concrete stop at the head of each. A blue sign on a post reserves it for customers. A lamp post stands by the entrance off Greenside Row, and bollards close the far end at Voss Avenue.",
+  "exits": {
+    "north": "zone_district_905_907",
+    "south": "zone_district_905_909",
+    "west": "zone_greenside_904_908"
+  },
+  "flags": {
+    "building_name": "Greenside Car Park",
+    "building_type": "car_park",
+    "district": "filaments",
+    "entrance": "north",
+    "floors": 1,
+    "region_id": "region_coldwater",
+    "street_life": true,
+    "terrain": "asphalt"
+  },
+  "grid_x": 905,
+  "grid_y": 908,
+  "grid_z": 0,
+  "id": "zone_greenside_905_908",
+  "map_id": "map_world",
+  "name": "Greenside Car Park",
+  "parent_zone": null
+}

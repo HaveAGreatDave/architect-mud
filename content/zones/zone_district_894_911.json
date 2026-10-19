@@ -5,7 +5,6 @@
   "color": "#c8c0ae",
   "description": "A stone townhouse front with a shallow portico and four steps up to a black door. No sign, no board, no plate, no name anywhere on it. The ground-floor windows are shuttered on the inside and the first-floor ones have been bricked flush and faced over so neatly that you have to look twice. One lamp burns over the door in a wrought bracket, and it is the only lit thing on this stretch of the boulevard after six.",
   "exits": {
-    "north": "zone_district_894_910",
     "south": "zone_vested_hall"
   },
   "flags": {
@@ -17,13 +16,15 @@
     "floors": 4,
     "is_building": true,
     "region_id": "region_coldwater",
-    "world_exit_zone": "zone_district_894_910"
+    "set_aside": true,
+    "set_aside_from": "894,911",
+    "world_exit_zone": "zone_district_894_911"
   },
-  "grid_x": 894,
-  "grid_y": 911,
+  "grid_x": 1,
+  "grid_y": 9,
   "grid_z": 0,
   "id": "zone_district_894_911",
-  "map_id": "map_world",
+  "map_id": "map_set_aside",
   "marker": "H6",
   "name": "6 Halcyon Boulevard",
   "parent_zone": null

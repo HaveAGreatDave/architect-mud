@@ -5,7 +5,6 @@
   "color": "#cddbd8",
   "description": "A pale rendered block stepped back at every floor, so that each storey gives the one below it a balcony running the full width, and every balcony faces south across the meadow. The rails are painted white and repainted often. There are more chairs on them than there are people in them. At street level a modest door under a glass canopy, and a plate beside it reading 5 KETTLE LANE · CONVALESCENT ROOMS · NO APPOINTMENT NEEDED.",
   "exits": {
-    "east": "zone_district_899_913",
     "west": "zone_wind_day"
   },
   "flags": {
@@ -17,13 +16,15 @@
     "floors": 4,
     "is_building": true,
     "region_id": "region_coldwater",
-    "world_exit_zone": "zone_district_899_913"
+    "set_aside": true,
+    "set_aside_from": "898,913",
+    "world_exit_zone": "zone_district_898_913"
   },
-  "grid_x": 898,
-  "grid_y": 913,
+  "grid_x": 9,
+  "grid_y": 9,
   "grid_z": 0,
   "id": "zone_district_898_913",
-  "map_id": "map_world",
+  "map_id": "map_set_aside",
   "marker": "K5",
   "name": "5 Kettle Lane",
   "parent_zone": null

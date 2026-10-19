@@ -662,6 +662,14 @@ on('flight.bombImpact', ({ zoneId }) => {
   if (zoneId) propagateAudio(zoneId, SFX_BOMB_IMPACT, 1.0, sendToZone);
 });
 
+// A breaching charge going off: the target coming in, as a procedural `break`.
+// The only demolishable thing in the world is a colonnade of glass vats, and a
+// blast takes every window in the room with it, so it's glass at full force. The
+// bang itself is the room's text; this is what's left falling.
+on('demolition.detonated', ({ zoneId }) => {
+  if (zoneId) combatSfx(zoneId, { action: 'break', surface: 'glass', intensity: 1 });
+});
+
 const _lastFlak = new Map();   // siteId → ms of last ground report (per-site bark throttle)
 on('flight.aaFired', ({ zoneId, siteId }) => {
   if (!zoneId) return;

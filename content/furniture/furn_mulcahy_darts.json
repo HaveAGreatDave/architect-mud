@@ -1,0 +1,15 @@
+{
+  "description": "A dartboard on a cabinet, the treble twenty chewed to cork. A slate beside it has a game nobody finished.",
+  "flags": {
+    "aliases": [
+      "dartboard",
+      "darts",
+      "board",
+      "slate"
+    ]
+  },
+  "id": "furn_mulcahy_darts",
+  "name": "the dartboard",
+  "object_type": "decoration",
+  "zone_id": "zone_mulcahy_snug"
+}

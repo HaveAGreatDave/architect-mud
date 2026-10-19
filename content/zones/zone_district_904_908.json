@@ -8,7 +8,6 @@
   "bg_color": "#20262a",
   "description": "A chemist's shop facing the green, with the traditional two glass carboys in the window, one red and one green, lit from behind and full of something that is almost certainly water. The lettering on the glass is gold leaf and original and beautiful, which makes the laminated sheet taped beneath it reading NO SCRIPTS AFTER 8 read worse than it needs to.",
   "exits": {
-    "north": "zone_district_904_907",
     "south": "zone_pillcollins_counter"
   },
   "flags": {
@@ -19,14 +18,16 @@
     "facade": true,
     "is_building": true,
     "region_id": "region_coldwater",
+    "set_aside": true,
+    "set_aside_from": "904,908",
     "sign_trade": "CHEMIST",
-    "world_exit_zone": "zone_district_904_907"
+    "world_exit_zone": "zone_district_904_908"
   },
-  "grid_x": 904,
-  "grid_y": 908,
+  "grid_x": 7,
+  "grid_y": 5,
   "grid_z": 0,
   "id": "zone_district_904_908",
-  "map_id": "map_world",
+  "map_id": "map_set_aside",
   "marker": "PC",
   "name": "Pill Collins",
   "parent_zone": null

@@ -1,0 +1,16 @@
+{
+  "description": "A zinc-topped counter with a glass case of butter tarts at one end and a knock box at the other. The zinc is dented where the portafilters get banged out.",
+  "flags": {
+    "aliases": [
+      "counter",
+      "zinc",
+      "case",
+      "glass case",
+      "knock box"
+    ]
+  },
+  "id": "furn_grounds_counter",
+  "name": "the counter",
+  "object_type": "fixture",
+  "zone_id": "zone_grounds_cafe"
+}

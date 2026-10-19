@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>KSAB-7 Sports: opens and graphics</title>
+<link rel="stylesheet" href="../../client/game/styles.css">
+<style>
+  /* The sandbox for KSAB-7 Sports' broadcast package: each sport's open from its content row, with
+     its theme through the real audio engine, and a scrubber to stop the picture on any frame. Serve the repo root (npx serve -p 5555 .) and open
+     /tools/sandbox/ksab-sports-test. ?card=cphl starts on the hockey open, ?t=21.9 parks the
+     card on a frame, ?motion=off is the game's Motion switch. */
+  html, body { margin: 0; min-height: 100%; background: radial-gradient(ellipse at 50% 20%, #1b1f26, #08090b 70%); color: #9fb8b2; font-family: monospace; }
+  .stage { display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 18px 16px 40px; }
+  .screen { position: relative; width: min(960px, 100%); aspect-ratio: 16 / 9; background: #000; border-radius: 6px; overflow: hidden;
+    box-shadow: 0 0 0 2px #2c3037, 0 0 0 5px #0d0f12, 0 18px 50px rgba(0, 0, 0, 0.7); }
+  .screen svg { display: block; width: 100%; height: 100%; }
+  .bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: center; max-width: 960px; }
+  button, select { background: #0f1a1c; color: #c8f3ea; border: 1px solid #2b5a55; border-radius: 4px; padding: 6px 12px; font: 13px monospace; cursor: pointer; }
+  button:hover { border-color: #3df0d8; }
+  input[type=range] { width: min(560px, 80vw); }
+  .clock { min-width: 230px; text-align: center; color: #3df0d8; }
+  .note { font-size: 12px; opacity: 0.7; max-width: 960px; text-align: center; line-height: 1.5; }
+</style>
+</head>
+<body>
+  <div class="stage">
+    <div class="screen" id="screen"></div>
+    <div class="bar">
+      <button id="play-db">▶ Deadball open + theme</button>
+      <button id="play-hk">▶ Cluster Puck open + theme</button>
+      <button id="stop">■ Stop</button>
+      <button id="motion">Motion: on</button>
+    </div>
+    <div class="bar">
+      <input type="range" id="scrub" min="0" max="34.55" step="0.01" value="0">
+      <span class="clock" id="clock">0.00 s · bar 1.0</span>
+    </div>
+    <div class="note">The cards are the content rows (content/media_graphics), the themes are content/audio_songs/aud_song_ksab7_deadball_theme.json
+      and aud_song_ksab7_cphl_theme.json through client/shared/audio-engine.js, each played once as a title card's theme is. Drag the scrubber to stop the
+      picture on a frame.</div>
+
+    <!-- The real set: the TV panel's markup from client/game/index.html, driven by tv.js's own
+         createTvView, tuned to KSAB-TV on 7, with the overlays the broadcast sends. -->
+    <div class="bar" style="margin-top: 18px">
+      <button id="tv-card">Title card on the set</button>
+      <button id="tv-bb">Deadball bug</button>
+      <button id="tv-run">Run scores</button>
+      <button id="tv-hk">Cluster Puck bug</button>
+      <button id="tv-mu">Matchup card</button>
+      <button id="tv-hr">Home run card</button>
+      <button id="tv-goal">Goal card</button>
+    </div>
+    <div id="tv-stage" style="position: relative; width: 760px; max-width: 100%; height: 520px;"></div>
+  </div>
+  <!-- the game's modules import /shared/… from the game server's root; here the repo is the root -->
+  <script type="importmap">{ "imports": { "/shared/": "/client/shared/" } }</script>
+  <script src="../../client/shared/audio-engine.js"></script>
+  <script type="module">
+    // each open's theme, which is also its clock: the card holds for the song's length
+    const THEMES = { bb_deadball_title: 'aud_song_ksab7_deadball_theme', cphl_title: 'aud_song_ksab7_cphl_theme' };
+    const screen = document.getElementById('screen');
+    const clock = document.getElementById('clock');
+    const scrub = document.getElementById('scrub');
+    const q = new URLSearchParams(location.search);
+    const get = (p) => fetch(p).then((r) => r.json());
+    // the card's faces are at /shared/fonts/ in the game; here the repo is the root
+    const card = async (id) => (await get(`../../content/media_graphics/${id}.json`)).content.replaceAll('url(/shared/fonts/', 'url(/client/shared/fonts/');
+    const songs = {};
+    let clockOf = { row: 60 / 132 / 4 }, started = 0, raf = 0;
+
+    async function themeDef(id) {
+      if (songs[id]) return songs[id];
+      const def = await get(`../../content/audio_songs/${id}.json`);
+      const rows = await Promise.all(def.instrument_ids.map((i) => get(`../../content/audio_instruments/${i}.json`)));
+      def._instrumentsById = Object.fromEntries(rows.map((r) => [r.id, r]));
+      return (songs[id] = def);
+    }
+    // As tv.js mounts an svg card: parsed into the page, so its <style> runs.
+    async function show(id, { music = false, at = null } = {}) {
+      window.AudioEngine?.stopMusic();
+      const def = await themeDef(THEMES[id]), svg = await card(id);
+      const row = 60 / def.tempo / 4;
+      clockOf = { row, seconds: Math.max(...def.channels.map((c) => c.length)) * row };
+      screen.innerHTML = svg;
+      scrub.max = clockOf.seconds.toFixed(2);
+      started = performance.now();
+      if (music) window.AudioEngine.playMusic(def, { once: true, owner: 'sandbox' });
+      if (at != null) park(at);
+      cancelAnimationFrame(raf);
+      const tick = () => {
+        const t = (performance.now() - started) / 1000;
+        if (!screen.dataset.parked) { tell(t); scrub.value = t; }
+        raf = requestAnimationFrame(tick);
+      };
+      tick();
+    }
+    function tell(t) {
+      const BAR = clockOf.row * 16, bar = Math.floor(t / BAR) + 1, row = Math.floor((t % BAR) / clockOf.row);
+      clock.textContent = `${t.toFixed(2)} s · bar ${bar}.${row}`;
+    }
+    // stop every animation in the card on one moment
+    function park(t) {
+      screen.dataset.parked = '1';
+      window.AudioEngine?.stopMusic();
+      for (const a of screen.getAnimations({ subtree: true })) { a.pause(); a.currentTime = t * 1000; }
+      tell(t);
+    }
+    scrub.addEventListener('input', () => park(+scrub.value));
+    document.getElementById('play-db').onclick = () => { delete screen.dataset.parked; show('bb_deadball_title', { music: true }); };
+    document.getElementById('play-hk').onclick = () => { delete screen.dataset.parked; show('cphl_title', { music: true }); };
+    document.getElementById('stop').onclick = () => { window.AudioEngine?.stopMusic(); park(+scrub.value); };
+    const motion = document.getElementById('motion');
+    const setMotion = (on) => { document.documentElement.setAttribute('data-motion', on ? 'on' : 'off'); motion.textContent = `Motion: ${on ? 'on' : 'off'}`; };
+    motion.onclick = () => setMotion(document.documentElement.getAttribute('data-motion') === 'off');
+    setMotion(q.get('motion') !== 'off');
+    const first = q.get('card') === 'cphl' ? 'cphl_title' : 'bb_deadball_title';
+    show(first, { at: q.has('t') ? +q.get('t') : 0 }).then(() => { if (!q.has('t')) delete screen.dataset.parked; });
+
+    // ── the real set ──
+    const page = new DOMParser().parseFromString(await (await fetch('../../client/game/index.html')).text(), 'text/html');
+    const stage = document.getElementById('tv-stage');
+    stage.innerHTML = page.getElementById('tv-panel').outerHTML;
+    const root = stage.querySelector('#tv-panel');
+    root.style.position = 'absolute';
+    const { createTvView } = await import('../../client/game/js/panels/tv.js');
+    const tv = createTvView(root, { key: 'sandbox' });
+    tv.init?.();
+    tv.open({ channelId: 'ch_7_1782953079593', channelNumber: 7, channelName: 'KSAB-TV', stationName: '', programName: 'DEADBALL', channelList: [{ number: 7, id: 'ch_7_1782953079593', name: 'KSAB-TV' }] });
+    const say = (t) => tv.appendMessage(`Chip Vega says, "${t}"`, 'raw');
+    let bb = { overlayType: 'scorebug', sport: 'baseball', away: 'Slagworks Sluggers', home: 'Yards Junkdogs', awayAbbr: 'SLG', homeAbbr: 'YJD', awayScore: 2, homeScore: 1, status: 'TOP 7TH', outs: 1, bases: [true, false, true] };
+    document.getElementById('tv-card').onclick = async () => tv.appendMessage(await card('bb_deadball_title'), 'svg');
+    document.getElementById('tv-bb').onclick = () => { tv.applyOverlay(bb); say('Runners at the corners, one away in the seventh.'); };
+    document.getElementById('tv-run').onclick = () => { bb = { ...bb, awayScore: bb.awayScore + 1, outs: 2, bases: [false, true, false], status: 'BOT 7TH' }; tv.applyOverlay(bb); say('He scores! And the Sluggers add one more.'); };
+    document.getElementById('tv-hk').onclick = () => { tv.applyOverlay({ overlayType: 'scorebug', sport: 'hockey', away: 'Westside Warlords', home: 'Yard Birds', awayAbbr: 'WSW', homeAbbr: 'YRD', awayScore: 3, homeScore: 3, status: '2ND 08:42', strength: 'pp', shotsAway: 21, shotsHome: 17, rivalry: true }); say('Power play for the Warlords, and the building is losing its mind.'); };
+    document.getElementById('tv-mu').onclick = () => tv.applyOverlay({ overlayType: 'sportsfx', kind: 'matchup', show: 'DEADBALL', away: 'Slagworks Sluggers', home: 'Yards Junkdogs', awayRecord: '9-4', homeRecord: '7-6', duration: 4 });
+    document.getElementById('tv-hr').onclick = () => tv.applyOverlay({ overlayType: 'sportsfx', kind: 'homerun', batter: 'Reyes', team: 'Slagworks Sluggers', duration: 4 });
+    document.getElementById('tv-goal').onclick = () => tv.applyOverlay({ overlayType: 'sportsfx', kind: 'hockeygoal', shooter: 'Vance', team: 'Westside Warlords', away: 'Westside Warlords', home: 'Yard Birds', awayScore: 4, homeScore: 3, strength: 'pp', duration: 4 });
+  </script>
+</body>
+</html>

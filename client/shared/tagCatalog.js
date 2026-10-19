@@ -602,6 +602,8 @@
       help: 'Where a set-aside tile stood on map_world, as "x,y". Only a record: nothing reads it but a person putting the building back.' },
     venue_lights: { label: 'Venue Lights', shape: 'flag', scope: 'zone', group: 'Zone: Flight',
       help: 'A tile of a sports venue whose light towers come on for its game nights (the Hughson Coliseum). The broadcast plugin answers `venue.lit` from memory while the show that plays there is on air, the map derive puts it on the cell as `vl`, and a `venue_lit` push tells views that are already open. Put it on every tile of the venue.' },
+    venue_roof: { label: 'Venue Roof', shape: 'flag', scope: 'zone', group: 'Zone: Flight',
+      help: 'A tile of a sports venue with a retractable roof (the Hughson Coliseum), which shuts for rain, snow, storms and ash and opens after twenty dry minutes. The broadcast plugin answers `venue.roof` from memory, the map derive puts it on the cell as `vr`, and a `venue_roof` push tells views that are already open, which animate it. Tiles group by building name; put it on every tile of the venue.' },
     aa_site: { label: 'AA Emplacement', shape: 'flag', scope: 'zone', group: 'Zone: Law & Hazard',
       help: 'Exposed anti-aircraft emplacement (aa-sites plugin): the standable tile that fires on overflying aircraft and can be assaulted on foot. Pairs with an aa_sites row.' },
 

@@ -5,8 +5,7 @@
   "color": "#e8e0ff",
   "description": "Less a shop than a barnacle: a stall grown into the footing of the overpass, roofed by the overpass itself and walled in pegboard. Cable hangs in coils off every hook, sorted by nothing. The hand-cut board reads OHM SWEET OHM, and under it, smaller, TESTED MEANS IT LIT UP ONCE. Something in the back is charging, and you can hear it doing it. The stall is north; Voss Avenue runs south.",
   "exits": {
-    "north": "zone_mq_amp_shop",
-    "south": "zone_district_905_909"
+    "north": "zone_mq_amp_shop"
   },
   "flags": {
     "building_name": "Ohm Sweet Ohm",
@@ -16,14 +15,16 @@
     "facade": true,
     "is_building": true,
     "region_id": "region_coldwater",
+    "set_aside": true,
+    "set_aside_from": "905,908",
     "sign_trade": "ELECTRONICS",
-    "world_exit_zone": "zone_district_905_909"
+    "world_exit_zone": "zone_district_905_908"
   },
-  "grid_x": 905,
-  "grid_y": 908,
+  "grid_x": 9,
+  "grid_y": 5,
   "grid_z": 0,
   "id": "zone_district_905_908",
-  "map_id": "map_world",
+  "map_id": "map_set_aside",
   "marker": "AE",
   "name": "Ohm Sweet Ohm",
   "parent_zone": null

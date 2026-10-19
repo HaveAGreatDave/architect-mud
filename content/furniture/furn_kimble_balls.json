@@ -1,0 +1,16 @@
+{
+  "description": "Baseballs on little stands under the glass, every one signed and labelled in pen. One label just says FOUL, SECTION NINE, and the ball is scorched.",
+  "flags": {
+    "aliases": [
+      "balls",
+      "signed balls",
+      "baseballs",
+      "counter",
+      "glass counter"
+    ]
+  },
+  "id": "furn_kimble_balls",
+  "name": "the signed balls",
+  "object_type": "decoration",
+  "zone_id": "zone_kimble_shop"
+}

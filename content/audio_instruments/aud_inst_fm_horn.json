@@ -1,0 +1,76 @@
+{
+  "category": "fm",
+  "config": {
+    "layers": [
+      {
+        "adsr": {
+          "a": 0.02,
+          "d": 0.12,
+          "r": 0.22,
+          "s": 0.9
+        },
+        "drive": 0.1,
+        "filter": {
+          "freq": 2400,
+          "q": 0.5,
+          "type": "lowpass"
+        },
+        "fm": {
+          "index": 1.6,
+          "indexEnd": 0.8,
+          "ratio": 2,
+          "time": 0.12
+        },
+        "gain": 0.12,
+        "waveform": "sine"
+      },
+      {
+        "adsr": {
+          "a": 0.026,
+          "d": 0.15,
+          "r": 0.2,
+          "s": 0.85
+        },
+        "detune": 2.5,
+        "fm": {
+          "index": 0.9,
+          "indexEnd": 0.45,
+          "ratio": 2,
+          "time": 0.15
+        },
+        "gain": 0.13,
+        "tune": 12,
+        "waveform": "sine"
+      },
+      {
+        "adsr": {
+          "a": 0.03,
+          "d": 0.18,
+          "r": 0.2,
+          "s": 0.8
+        },
+        "detune": -1.4,
+        "gain": 0.08,
+        "tune": 19.02,
+        "waveform": "sine"
+      },
+      {
+        "adsr": {
+          "a": 0.034,
+          "d": 0.2,
+          "r": 0.18,
+          "s": 0.7
+        },
+        "detune": 1.9,
+        "gain": 0.05,
+        "tune": 24,
+        "waveform": "sine"
+      }
+    ]
+  },
+  "enabled": 1,
+  "id": "aud_inst_fm_horn",
+  "name": "FM: Goal horn",
+  "sample_id": null,
+  "waveform": "sine"
+}

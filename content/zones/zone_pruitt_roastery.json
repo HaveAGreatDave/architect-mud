@@ -1,0 +1,22 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A back room with a dough table dusted white, a pretzel oven, and sacks of raw peanuts stacked on pallets. A chalk tally on the wall counts the sacks left to the end of the season.",
+  "exits": {
+    "west": "zone_pruitt_shop"
+  },
+  "flags": {
+    "building_name": "Pruitt's Peanuts & Pretzels",
+    "building_type": "peanut_roaster",
+    "floor": "concrete",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_parkside_894_912"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_pruitt_roastery",
+  "map_id": "map_int_pruitt",
+  "name": "Pruitt's — Roasting Room",
+  "parent_zone": "zone_parkside_894_912"
+}

@@ -1,0 +1,80 @@
+{
+  "category": "orchestral",
+  "config": {
+    "layers": [
+      {
+        "adsr": {
+          "a": 0.0008,
+          "curve": "exp",
+          "d": 0.17,
+          "r": 0.08,
+          "s": 0
+        },
+        "echo": {
+          "delay": 0.12,
+          "feedback": 0.28,
+          "mix": 0.12
+        },
+        "filter": {
+          "freq": 3800,
+          "q": 0.6,
+          "type": "bandpass"
+        },
+        "gain": 0.68,
+        "noiseMix": 1,
+        "noiseSeed": 31,
+        "waveform": "triangle"
+      },
+      {
+        "adsr": {
+          "a": 0.0008,
+          "curve": "exp",
+          "d": 0.06,
+          "r": 0.04,
+          "s": 0
+        },
+        "gain": 0.5,
+        "mods": [
+          {
+            "a": 0.001,
+            "d": 0.03,
+            "id": "tk",
+            "r": 0.05,
+            "s": 0,
+            "to": [
+              {
+                "amount": 300,
+                "param": "pitch"
+              }
+            ],
+            "type": "env"
+          }
+        ],
+        "waveform": "triangle"
+      },
+      {
+        "adsr": {
+          "a": 0.0005,
+          "curve": "exp",
+          "d": 0.09,
+          "r": 0.05,
+          "s": 0
+        },
+        "filter": {
+          "freq": 6000,
+          "q": 0.7,
+          "type": "highpass"
+        },
+        "gain": 0.3,
+        "noiseMix": 1,
+        "noiseSeed": 47,
+        "waveform": "triangle"
+      }
+    ]
+  },
+  "enabled": 1,
+  "id": "aud_inst_orch_snare",
+  "name": "Orchestra: Snare drum",
+  "sample_id": null,
+  "waveform": "triangle"
+}

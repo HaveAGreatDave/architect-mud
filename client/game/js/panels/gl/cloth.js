@@ -24,8 +24,8 @@ import { linearOut, applyLinOut } from './colour.js';
 import { LIGHTGRID_GLSL, LIGHTGRID_UNIFORMS, bindNoLightGrid } from './lightgrid.js';
 
 // Per instance: x, y, z, heading | sx, sy, sz, wind | phase, seed, alpha, lum | colour A rgb |
-// colour B rgb | warm rgb | patch u0 v0 u1 v1 | paint cell, u0, v0, size | weathering
-const STRIDE = 30;
+// colour B rgb | warm rgb | patch u0 v0 u1 v1 | paint cell, u0, v0, width | weathering | paint height
+const STRIDE = 31;
 // Units no other layer binds: 0-5 the world pass, 7 fauna.js, 8-17 the murmuration, 20-21 actors.js.
 const POS_UNIT = 24, TAG_UNIT = 25;
 
@@ -44,6 +44,7 @@ in vec3 iWarm;
 in vec4 iPatch;
 in vec4 iTag;
 in float iWeather;
+in float iTagH;
 uniform highp sampler2D uPosT;
 uniform int uW;
 uniform float uBands;
@@ -66,6 +67,7 @@ out vec3 vWarm;
 out vec4 vPatch;
 out vec4 vTag;
 out float vWeather;
+out float vTagH;
 vec3 at(float band, float fr) {
   return texelFetch(uPosT, ivec2(gl_VertexID, int(band) * int(uFrames) + int(fr)), 0).xyz;
 }
@@ -96,6 +98,7 @@ void main() {
   vPatch = iPatch;
   vTag = iTag;
   vWeather = iWeather;
+  vTagH = iTagH;
   vec4 clip = uViewProj * vec4(w, 1.0);
   gl_Position = clip;
   float ff = clamp((clip.w - uFogNear) / max(1e-3, uFogFar - uFogNear), 0.0, 1.0);
@@ -118,6 +121,7 @@ in vec3 vWarm;
 in vec4 vPatch;
 in vec4 vTag;
 in float vWeather;
+in float vTagH;
 uniform vec3 uFog;
 uniform vec3 uEye;
 uniform vec2 uKeyDir;
@@ -132,10 +136,6 @@ uniform int uWLN;
 uniform vec3 uWLP[12];
 uniform vec3 uWLC[12];
 uniform float uWLR[12];
-out vec4 outColor;
-float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
-void main() {
-  if (vAlpha <= 0.002) discard;
 // The light grid (gl/lightgrid.js, RENDER_TUNE.glCluster), the wall's, bound by context.js on
 // units 8 to 10. Declared here rather than in the chunk: glsl-smoke can't see into an imported one.
 uniform highp sampler2D  uLGLight;
@@ -146,6 +146,22 @@ uniform vec2  uLGOrigin;
 uniform float uLGInv;
 uniform ivec2 uLGDim;
 ${LIGHTGRID_GLSL}
+// The cel look (RENDER_TUNE.glToon), the walls' (context.js): the key light in uToonBands flat steps,
+// one tone per face and a shade side. 0 skips every branch it guards.
+uniform float uToon;
+uniform float uToonBands;
+out vec4 outColor;
+float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+// context.js's toonBands: n even steps, each edge about a pixel wide. Only behind the uToon branch.
+float toonBands(float x, float n) {
+  float y = x * n;
+  float w = max(fwidth(y), 1e-4);
+  float i = floor(y);
+  return (i + smoothstep(0.5 - w, 0.5 + w, y - i)) / n;
+}
+const float TOON_SHADE = 0.7;
+void main() {
+  if (vAlpha <= 0.002) discard;
   // Flat normal off the surface itself, turned toward the eye: a sheet is seen from both sides.
   vec3 n = normalize(cross(dFdx(vW), dFdy(vW)));
   if (dot(n, uEye - vW) < 0.0) n = -n;
@@ -162,27 +178,44 @@ ${LIGHTGRID_GLSL}
     m *= 1.0 - 0.46 * dirt;
     base = mix(base, base * m * vec3(1.0 + 0.04 * dirt, 1.0, 1.0 - 0.12 * dirt), vWeather);
   }
-  // Paint out of the atlas: a cell placed on face 0, or the whole face when size is negative.
+  // Paint out of the atlas: a cell placed on face 0, or the whole face when the width is negative.
+  // The height in v comes with the record (upload), worked out from the face's real size, so a
+  // slogan keeps its letters' shape on a long tunnel and a short lean-to alike.
+  // ⚠ THE GRADIENTS ARE TAKEN HERE, BEFORE THE BRANCH. The atlas is mipmapped (or it shimmers at a
+  // cab's range), and an implicit LOD inside a per-fragment branch is undefined.
+  vec2 q = vTag.w < 0.0 ? uv : (uv - vTag.yz) / vec2(vTag.w, max(vTagH, 1e-3));
+  vec2 qx = dFdx(q) / uTagGrid, qy = dFdy(q) / uTagGrid;
   if (vTag.x >= 0.0 && (f0 || vTag.w < 0.0)) {
-    vec2 q = vTag.w < 0.0 ? uv : (uv - vTag.yz) / vec2(vTag.w, vTag.w * 0.5);
     if (q.x >= 0.0 && q.x <= 1.0 && q.y >= 0.0 && q.y <= 1.0) {
       float cell = vTag.x;
       vec2 cxy = vec2(mod(cell, uTagGrid.x), floor(cell / uTagGrid.x));
-      vec4 t = texture(uTagT, (cxy + q) / uTagGrid);
+      // Premultiplied (atlasFrom), so filtering the paint's edge against the clear round it gives
+      // a thinner coat of the same colour, not the dark fringe a straight-alpha filter makes.
+      vec4 t = textureGrad(uTagT, (cxy + q) / uTagGrid, qx, qy);
+      vec3 ink = t.rgb / max(t.a, 1e-3);
       // Paint soaks into cloth: it takes the weave's grain and never reads brighter than a dye.
-      base = mix(base, t.rgb * (0.82 + 0.18 * hash(floor(uv * 40.0))), t.a * 0.92);
+      base = mix(base, ink * (0.82 + 0.18 * hash(floor(uv * 40.0))), t.a * 0.92);
     }
   }
   // The walls' light: the key's lit side, the sky on top, the shadow pooling toward the foot.
   float up = max(n.z, 0.0);
   float litC = clamp(0.5 + dot(n.xy, uKeyDir) * 0.5, 0.0, 1.0);
   float lit = litC * (1.0 - up) + 0.86 * up;
+  // The cel look: the key in flat steps, and the foot's shadow ramp held at one tone per face (the
+  // middle on a wall, the top on a roof), as context.js does the walls'.
+  float ramp = clamp(uv.y, 0.0, 1.0);
+  if (uToon > 0.0) {
+    lit = mix(lit, toonBands(lit, uToonBands), uToon);
+    ramp = mix(ramp, 0.5 * (1.0 - abs(n.z)), uToon);
+  }
   vec3 surf = base * (0.50 + 0.48 * lit);
   vec3 topCol = mix(uSky, uKey, lit);
   // Half the walls' top wash: a tarp is matt and dark, and the full wash lifted it past the old flat fill.
   float aTop = uStr * (0.03 + 0.07 * lit);
   float aBot = uStr * (0.30 + 0.22 * (1.0 - lit));
-  vec3 shaded = mix(mix(surf, topCol, aTop), mix(surf, uShadow, aBot), clamp(uv.y, 0.0, 1.0));
+  vec3 shaded = mix(mix(surf, topCol, aTop), mix(surf, uShadow, aBot), ramp);
+  // And the cel look's shade side: a face turned from the key is a whole step darker.
+  if (uToon > 0.0) shaded *= mix(1.0, mix(TOON_SHADE, 1.0, lit), uToon);
   // Firelight is coloured by the cloth it lands on, the way a lamp's is.
   vec3 c = shaded * vLum + vWarm * (0.35 + 0.65 * base / max(0.2, max(base.r, max(base.g, base.b)))) * (0.5 + 0.5 * lit);
   // The city's lamps as well as the camp's fires: wrapped and two-sided, as decals.js lights a tarp,
@@ -228,14 +261,14 @@ export function createClothLayer(gl) {
   const loc = {
     uv: A('aUV'), face: A('aFace'), mat: A('aMat'),
     pos: A('iPos'), dim: A('iDim'), anim: A('iAnim'), colA: A('iColA'), colB: A('iColB'), warm: A('iWarm'),
-    patch: A('iPatch'), tag: A('iTag'), weather: A('iWeather'),
+    patch: A('iPatch'), tag: A('iTag'), weather: A('iWeather'), tagH: A('iTagH'),
     posT: U('uPosT'), w: U('uW'), bands: U('uBands'), frames: U('uFrames'), viewProj: U('uViewProj'),
     fog: U('uFog'), fogNear: U('uFogNear'), fogFar: U('uFogFar'), fogAmt: U('uFogAmt'),
     wlN: U('uWLN'), wlP: U('uWLP'), wlC: U('uWLC'), wlR: U('uWLR'),
     eye: U('uEye'), keyDir: U('uKeyDir'), key: U('uKey'), sky: U('uSky'), shadow: U('uShadow'), str: U('uStr'),
-    tagT: U('uTagT'), tagGrid: U('uTagGrid'),
+    tagT: U('uTagT'), tagGrid: U('uTagGrid'), toon: U('uToon'), toonBands: U('uToonBands'),
   };
-  const INST = [loc.pos, loc.dim, loc.anim, loc.colA, loc.colB, loc.warm, loc.patch, loc.tag, loc.weather];
+  const INST = [loc.pos, loc.dim, loc.anim, loc.colA, loc.colB, loc.warm, loc.patch, loc.tag, loc.weather, loc.tagH];
 
   // One mesh per kind, made the first time that kind is drawn.
   const meshes = {};
@@ -258,7 +291,7 @@ export function createClothLayer(gl) {
     const at = (l, n, off) => [l, n, off * 4];
     const stream = makeVertexStream(gl, vao, STRIDE, [
       at(loc.pos, 4, 0), at(loc.dim, 4, 4), at(loc.anim, 4, 8), at(loc.colA, 3, 12), at(loc.colB, 3, 15),
-      at(loc.warm, 3, 18), at(loc.patch, 4, 21), at(loc.tag, 4, 25), at(loc.weather, 1, 29),
+      at(loc.warm, 3, 18), at(loc.patch, 4, 21), at(loc.tag, 4, 25), at(loc.weather, 1, 29), at(loc.tagH, 1, 30),
     ], STRIDE * 64);
     gl.bindVertexArray(vao);
     for (const l of INST) if (l >= 0) gl.vertexAttribDivisor(l, 1);
@@ -273,26 +306,59 @@ export function createClothLayer(gl) {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     gl.bindTexture(gl.TEXTURE_2D, null);
     gl.activeTexture(gl.TEXTURE0);
-    meshes[kind] = { vao, stream, count: bk.idx.length, posT: t, bk, data: new Float32Array(STRIDE * 16), n: 0 };
+    meshes[kind] = { vao, stream, count: bk.idx.length, posT: t, bk, f0: face0Steps(bk), data: new Float32Array(STRIDE * 16), n: 0 };
     return meshes[kind];
   }
 
+  // Face 0's grid lines in the unit shape, as steps: one line per row of the grid (along u) and one
+  // per column (along v). A record's own scale turns them into the face's real width and height,
+  // which is what the paint needs to keep its shape: the faces run from a squat lean-to roof to a
+  // tunnel side three times as long as it is tall, and one fixed ratio stretched a slogan on all of them.
+  function face0Steps(bk) {
+    const rows = new Map(), cols = new Map();
+    const add = (m, k, t, p) => { if (!m.has(k)) m.set(k, []); m.get(k).push([t, p]); };
+    for (let i = 0; i < bk.nv; i++) {
+      if (bk.face[i] !== 0) continue;
+      const u = bk.uv[i * 2], v = bk.uv[i * 2 + 1], p = [bk.rest[i * 3], bk.rest[i * 3 + 1], bk.rest[i * 3 + 2]];
+      add(rows, v, u, p); add(cols, u, v, p);
+    }
+    const steps = (m) => {
+      const d = [];
+      for (const pts of m.values()) {
+        pts.sort((a, b) => a[0] - b[0]);
+        for (let k = 1; k < pts.length; k++) d.push(pts[k][1].map((c, j) => c - pts[k - 1][1][j]));
+      }
+      return { d, n: Math.max(1, m.size) };
+    };
+    return { u: steps(rows), v: steps(cols) };
+  }
+  // The mean length of those lines under a record's scale.
+  const lineLen = (L, sx, sy, sz) => { let s = 0; for (const d of L.d) s += Math.hypot(d[0] * sx, d[1] * sy, d[2] * sz); return s / L.n; };
+
   // The paint atlas: a canvas windshield.js bakes once, re-uploaded only when its `ver` changes.
-  let tagTex = null, tagVer = -1, tagGrid = [1, 1];
+  // ⚠ PREMULTIPLIED, AND MIPMAPPED TO LEVEL 3. Straight alpha filtered the clear round each letter
+  // as black, which outlined every slogan in a dark fringe; the shader divides it back out. Without
+  // mips a 1024-wide atlas squeezed onto a tent at range shimmered. Past level 3 a texel spans two
+  // cells and the next slogan bleeds in.
+  let tagTex = null, tagVer = -1, tagGrid = [1, 1], tagAspect = 2;
   function atlasFrom(a) {
     if (!a || !a.canvas || a.ver === tagVer) return;
     if (!tagTex) tagTex = gl.createTexture();
     gl.activeTexture(gl.TEXTURE0 + TAG_UNIT);
     gl.bindTexture(gl.TEXTURE_2D, tagTex);
-    gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+    gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, a.canvas);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAX_LEVEL, 3);
+    gl.generateMipmap(gl.TEXTURE_2D);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     gl.bindTexture(gl.TEXTURE_2D, null);
     gl.activeTexture(gl.TEXTURE0);
     tagVer = a.ver; tagGrid = [a.cols, a.rows];
+    tagAspect = (a.canvas.width / a.cols) / (a.canvas.height / a.rows) || 2;
   }
 
   let n = 0;
@@ -328,8 +394,21 @@ export function createClothLayer(gl) {
       const P = r.patch || [0, 0, 0, 0];
       d[o + 21] = P[0]; d[o + 22] = P[1]; d[o + 23] = P[2]; d[o + 24] = P[3];
       const T = r.tag;
-      d[o + 25] = T && tagTex ? T.cell : -1; d[o + 26] = T ? T.u || 0 : 0; d[o + 27] = T ? T.v || 0 : 0; d[o + 28] = T ? T.size : 0;
+      let tu = T ? T.u || 0 : 0, tv = T ? T.v || 0 : 0, tw = T ? T.size : 0, th = tw * 0.5;
+      if (T && tw > 0) {
+        // The width is the record's; the height is what keeps the cell's aspect on this face at this
+        // scale. Shrunk to fit, then slid back inside a margin, so no slogan runs off a seam.
+        const sx = r.sx ?? 1, sy = r.sy ?? 1, sz = r.sz ?? 1;
+        const Lu = lineLen(M.f0.u, sx, sy, sz), Lv = lineLen(M.f0.v, sx, sy, sz);
+        th = Lv > 1e-6 ? tw * Lu / (Lv * tagAspect) : tw * 0.5;
+        const fit = Math.min(1, 0.9 / tw, 0.8 / th);
+        tw *= fit; th *= fit;
+        tu = Math.min(Math.max(tu, 0.05), 0.95 - tw);
+        tv = Math.min(Math.max(tv, 0.06), 0.9 - th);
+      }
+      d[o + 25] = T && tagTex ? T.cell : -1; d[o + 26] = tu; d[o + 27] = tv; d[o + 28] = tw;
       d[o + 29] = r.weather || 0;
+      d[o + 30] = th;
       M.n++; n++;
     }
     for (const k in meshes) { const M = meshes[k]; if (M.n) M.stream.write(M.data, M.n * STRIDE); }
@@ -365,6 +444,9 @@ export function createClothLayer(gl) {
     gl.uniform1i(loc.posT, POS_UNIT);
     gl.uniform1i(loc.tagT, TAG_UNIT);
     gl.uniform2f(loc.tagGrid, tagGrid[0], tagGrid[1]);
+    // The cel look, as the walls take it (world.js hands the same two numbers to both).
+    gl.uniform1f(loc.toon, opts.toon > 0 ? Math.min(1, opts.toon) : 0);
+    gl.uniform1f(loc.toonBands, opts.toonBands > 0 ? opts.toonBands : 3);
     gl.uniform1f(loc.bands, CLOTH_BANDS.length);
     gl.uniform1f(loc.frames, CLOTH_FRAMES);
     gl.activeTexture(gl.TEXTURE0 + TAG_UNIT);

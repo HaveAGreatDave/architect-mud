@@ -1,0 +1,11 @@
+{
+  "description": "A caged bulb over the sink, steamed up.",
+  "flags": {},
+  "id": "furn_light_zone_fitzfranks_kitchen",
+  "light_type": "overhead",
+  "lumen_output": 900,
+  "name": "the kitchen light",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_fitzfranks_kitchen"
+}

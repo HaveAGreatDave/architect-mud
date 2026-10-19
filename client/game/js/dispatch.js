@@ -62,7 +62,7 @@ import { openBoat, closeBoat, boatSetWorld, isBoatActive } from './panels/lazy-v
 import { openPodracer, closePodracer, podracerSetWorld, isPodracerActive, isPodracerDepotActive, openPodracerDepot, closePodracerDepot, closePodracerBay } from './panels/lazy-views.js';
 import { openMarina, closeMarina, marinaSetData, isMarinaActive, openMarinaService, closeMarinaService } from './panels/lazy-views.js';
 import { openFreelook, closeFreelook, isFreelookActive, freelookSetSky, freelookSetActors, freelookSetContacts } from './panels/lazy-views.js';
-import { noteFirework, noteAAState, noteAAFire, noteVenueLit } from './panels/world-feed.js';
+import { noteFirework, noteAAState, noteAAFire, noteVenueLit, noteVenueRoof } from './panels/world-feed.js';
 import { airHorn } from './panels/lazy-views.js';
 import { openTruckDepot, closeTruckDepot, closeBayService, isTruckDepotActive } from './panels/lazy-views.js';
 import { setDrugFx, clearDrugFx } from './panels/flight-drugfx.js';
@@ -1697,6 +1697,8 @@ const handlers = {
   // every view is told. Kept by tile in world-feed.js.
   aa_state: (msg) => { noteAAState(msg); },
   venue_lit: (msg) => { noteVenueLit(msg); },
+  // A venue's roof has started to open or close (the Hughson Coliseum's, on the weather).
+  venue_roof: (msg) => { noteVenueRoof(msg); },
   aa_fire: (msg) => { noteAAFire(msg); },
   // A shell climbing before it bursts: one tile away (or on the launch tile) on-foot players see
   // a streaking trail rise and detonate at its apex — the whistle is tuned to peak there. Farther
@@ -1856,7 +1858,8 @@ const handlers = {
   // `owner` (set by the broadcast plugin on TV playback) says which surface asked
   // for this song, so closing that surface can stop it without silencing a zone
   // theme or the player's own AMP tape — they all share one music player.
-  audio_music: (msg) => { window.AudioEngine?.playMusic(msg.def, { restartIfSame: false, owner: msg.owner }); },
+  // `once`: a title card's theme, played through a single time (a song otherwise loops)
+  audio_music: (msg) => { window.AudioEngine?.playMusic(msg.def, { restartIfSame: false, owner: msg.owner, once: !!msg.once }); },
   // `from`/`hops` are only present when the cue reached you from ANOTHER room
   // (propagateAudio in server/engine/sounds.js) — the doorway it came through and
   // the rooms crossed; `shut` is how many of those crossings were a closed door

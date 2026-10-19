@@ -764,7 +764,7 @@ There is **no show-type registry** — a type is a `playback_mode` string branch
 
 - **`weather`** reads the live 7-day forecast; **`sports`** simulates a fresh game; **`news`** pulls from the news generator, which assembles **live → wire → tabloid**: live event-sourced stories, then date-seeded canonical-lore "wire" stories (the Long Watch framed as terrorists, the Ascendants as establishment, the Architect as "the Machine"; fixed outlet bylines like Coldwater Sentinel / Basin Civic Wire), padded with tabloid filler. Their announcers/anchors are **name strings** — no NPC is spawned.
 - **The news type has a weather desk.** A `news` script that authors `wx.*` pools gets a weather segment between the rundown and the kicker, read by `@meteorologist`, off the SAME live 7-day forecast `weather` reads. It uses the weather type's own pool suffixes (`wx.sky.*`/`wx.warn.*`/`wx.trend.*`) so a hero event — acid rain, ion storm — is named as itself rather than as the ordinary weather underneath it. It reports today and the first severe day ahead, not the whole week: the week belongs to DOOMCAST. A file with no `wx.*` pools airs no segment at all.
-- **Title-card / theme sync**: when a `news`/`talkshow`/`morning` script declares both `@titlecard` and `@theme`, the assembler folds the theme onto the `title_card` node (`{ type: 'title_card', theme }`) instead of emitting a separate `music` node after it. The intro song then starts as the card appears and the card holds for the theme's length, so the first anchor/cold-open line doesn't step on the intro. With a theme but no title card, it still plays as a standalone `music` node.
+- **Title-card / theme sync**: when a `news`/`talkshow`/`morning`/`sports` script declares both `@titlecard` and `@theme`, the assembler folds the theme onto the `title_card` node (`{ type: 'title_card', theme }`) instead of emitting a separate `music` node after it. The intro song then starts as the card appears and the card holds for the theme's length, so the first anchor/cold-open line doesn't step on the intro. With a theme but no title card, it still plays as a standalone `music` node. **A card's theme plays once**: the walker's result carries `songOnce`, the `audio_music` message carries `once`, and the client plays the song through a single time (`playMusic(def, { once: true })`). Before 2026-10-18 it looped like any song, so every theme went round and round under the anchor until the set was switched off. A `music` node still loops.
 - **`sports`** is keyed to an absolute airing time-window so a re-simmed same-slot game produces the same `gameId`. While a game airs, the plugin **emits a `sports.game` event every 60s** with payload `{ channelId, gameId, sport, away, home, awayScore, homeScore, winner, endsAtMs }` — consumed by the **sportsbet**, **sportsleague**, and **gossip** plugins (they read `winner`; there is no `result` field). Score-bug and standings overlays ride `tv_overlay`; a postseason takeover pulls standings back through the `sportsleague.getStandings`/`getSeason` actions. **Each channel simulates its own game** and the `gameId` is keyed to the broadcast as well as the slot — with two sports sharing a channel, one result broadcast to every channel would settle a hockey wager against a ballgame's score. See [Sports — two codes, one pipeline](#sports--two-codes-one-pipeline).
 - **`morning`** is the talk show's daytime cousin — also **acted live**, by two resident host NPCs on the studio couch, but its variable is the WORLD rather than a guest: every segment reads something live (the clock, the forecast, `news.getStories`, the `martial_law`/`nuclear_event` flags, the power map), and the ticker is assembled from those facts rather than authored. Every pool is a `host >> cohost` exchange pair, so the couch's back-and-forth survives the shuffle. Airtime is just its daily playlist slot — no separate gate. The middle of the show is a **shuffled, weighted running order** of five segments (the hotplate, the mailbag, a sports desk off the live league tables, an `audience` beat that names the real viewer count via the `{watching}` runtime token, and a plug for the channel's own evening), each of which drops out cleanly when its live source is empty — so two mornings differ in shape, not just in wording. Only the run-in and the sign-off are fixed. See [Morning Shows](bsm-format.md#morning-shows-type-morning).
 - **`gameshow`** is the only broadcast type a **player can be inside**. Its variable is its **`@subject`** — what the show asks about, which owns the material, the round plan, the parsing and the scoring while [gameshow.js](../plugins/broadcast/gameshow.js) owns everything a game show has regardless (cast, guess window, purse, cooldown, relay). Two ship, both **zero-query by contract** because an episode is assembled on the broadcast tick for every set in the city. **`retail`** (The Last Lot) asks what something is worth, dealt from `items.value` via the boot-loaded item cache, so every item added later becomes a prize with no authoring: four rounds — over-or-under, closest-without-going-over, order-three-lots, and a ±20% Showcase. **`basin`** (Jackpot Protocol) asks what you know about the city, dealt from the district registry and the orders' own creeds: four multiple-choice rounds on a widening field, answered with a letter. Both go through the single `guess` verb, and an absent or unknown `@subject` resolves to `retail` — which is what every game show was before subjects existed. Subjects live in [plugins/broadcast/gameshow-subjects.js](../plugins/broadcast/gameshow-subjects.js). **Anyone standing in the channel's `studio_zone_id` when a round opens is a contestant**, and the existing studio relay televises their spoken answer citywide; with nobody there the contestants are name-only strings and the show plays out identically. Round control is a pair of *instantaneous* side-effect nodes (`gameshow_round` / `gameshow_reveal`) — **the guess window is the host's patter between them**, not a timer — and the outcome reaches air through the `{winner}`/`{verdict}`/`{guesses}` tokens rather than by graph branching (the `FLAG_SET` broadcast condition is a stub that always returns `false`). Wins pay credits gated by a 6-hour `player_flags.gameshow_win_cooldown`; the Showcase also grants the actual lot. Lives in the sibling module [plugins/broadcast/gameshow.js](../plugins/broadcast/gameshow.js). See [Game Shows](bsm-format.md#game-shows-type-gameshow).
@@ -1296,6 +1296,83 @@ trophy, confetti off the upper deck, fireworks over the outfield and the city, a
 piling on while the losers walk off. The city's own fireworks go up from the park's site as it's
 crowned. The sandbox page plays any game as the final with `?po=1`. All of it is under Phase 5 in
 [deadball-glass2.md](proposals/deadball-glass2.md#phases).
+
+### The network's package (KSAB-7 Sports)
+
+Both shows air on KSAB-TV, channel 7, and look and sound like one network's sports desk.
+
+**The theme.** Deadball opens to KSAB-7 Sports' theme (`@theme ksab7_deadball_theme`), 34.5
+seconds at 132 bpm for a brass section, strings, timpani, snare, bass drum, cymbals and a
+glockenspiel. It's built on the park organist's one song (`DIRGE` in
+[deadball-sfx.js](../client/shared/deadball-sfx.js)): bar 1 is the organ alone playing its first
+three notes in D major, the orchestra comes in under the third, and the theme from there is that
+song, the horns first and the trumpets an octave up, with its third bar kept in the minor so it
+lands as ♭VI, ♭VII, I. A canon on its opening call lifts it a tone into E for the last statement.
+The score is [scripts/content/build-ksab-theme.mjs](../scripts/content/build-ksab-theme.mjs),
+written as notes and bar lines it checks, and it writes the song and the fourteen
+`aud_inst_orch_*` instruments; run it after editing the score (`--check` fails when the files are
+behind). Long notes use a step's `len` and the instruments are layered
+([amp-format.md](amp-format.md#channel--step-shape)). `node scripts/audio/song-render.mjs
+ksab7_deadball_theme --wav theme.wav` renders it to listen to. The card holds for the theme and
+the sports pacer counts the card for that long (`holdOf` reads `nodeHoldMs`), so the game still
+fills its slot.
+
+**The hockey theme.** Cluster Puck opens to the network's theme for the CPhL (`@theme
+ksab7_cphl_theme`), 25.6 seconds at 150 bpm, so a row is a tenth of a second. It's FM, like the
+rink ([systems-hockey-sound.md](systems-hockey-sound.md)): brass, a slap bass, a power chord, an
+arena organ, a bell running sixteenths and a kit, the eleven `aud_inst_fm_*` instruments, with the
+orchestra's timpani and cymbals under them. It takes the network's call from Deadball's theme
+(5 5 5 1, here in A♭) and its ending (♭VI, ♭VII, I), and its tune rises a fourth the way the call
+does, first in F minor and then in A♭. The goal horn is A♭3, so the horn is the tonic: it sounds
+with the lamp in the CPhL's own open, and under the last chord, where the band stops and leaves it
+on its own before the button. The score is
+[scripts/content/build-cphl-theme.mjs](../scripts/content/build-cphl-theme.mjs), in Deadball's
+format, with a fader on each part so the mix is one number a channel. Every FM carrier is a sine
+and no ratio is 1 or 0.5, which would put a wandering DC offset in the note. Its levels sit with
+Deadball's (a peak of about 1.3 before the master limiter, the tune in A♭ around -14 dBFS), with
+less of its energy under 150 Hz: 15% to Deadball's 20%. Chromium's own render agrees with
+`song-render.mjs` within 0.6 dB a bar, but where every drum strikes on one sample it peaked about
+0.1 higher, which is why the last chord's drums are softer than the button's.
+`node scripts/audio/song-render.mjs ksab7_cphl_theme --wav theme.wav` renders it.
+
+**The opens.** [scripts/content/build-ksab-opens.mjs](../scripts/content/build-ksab-opens.mjs)
+writes both title cards into their scripts' `::asset` blocks and their `media_graphics` rows.
+Deadball's (`bb_deadball_title`) is cut to the theme: the park dark under the organ, every light
+tower on with the orchestra's first chord, the network's mark on the brass call, DEAD and BALL on
+the horns' first and third notes, the lower third (LIVE, the Charles B. Hughson Coliseum, Chip
+Vega) with the trumpets, the ball alight for the lift, gold and fireworks on the key change, a
+punch on each kick, a stamp on the last note. Cluster Puck keeps its own four-second open, and its
+theme was written to it: the first hit as the CPhL's mark lands, the horn with the lamp. The
+network's part is a block laid over the drawing between `ksab7:begin` and `ksab7:end` markers and
+cut to the rest of the theme: the room red with the lamp, the screen dimmed for the call with the
+network's mark slammed into the middle and sent to its corner as the tune starts, LIVE on the
+call's last note, light across the wordmark on each phrase, the letters flaring on the organ's
+stabs and the kicks, the rule filling with the organ's climb, spotlights and the crowd's camera
+flashes for the tune in A♭, and the lamp on every beat of the last bar. A block at the end of the
+drawing can only lay things over it, never move it. Both are CSS animation inside the SVG, so the style is the page's: classes and keyframes are prefixed
+`k7d-` and `k7h-`, and both stop on their last frame for reduced motion
+(`prefers-reduced-motion` or `[data-motion="off"]`). Their faces are the client's own, loaded from
+`/shared/fonts/` under `K7` family names. Don't run `build-cluster-puck.mjs` to ship the hockey
+card: its rows have drifted from `hockey.bsm` and it would put the Sunday game back to Tuesday
+and Thursday.
+
+**On the set.** tv.js builds the network's tag from the tuned channel, never from a name in the
+client: the station's call letters and its number (`_networkLabel()`: KSAB-TV on 7 is KSAB 7) over
+SPORTS. The score bug wears it as a header, with the CPhL's mark beside it on a hockey night, and
+under it a colour chip for each club (its own colour once the club set has arrived, otherwise
+one its name always gives it), the leader's score lit, a score that just went up pulsing amber
+once, and TOP and BOT as arrows. Every sports card goes up with the tag in its corner, the
+ballgame's headlines are set in the network's display face, and a matchup card with no lockup of
+its own writes the show's name as a chrome wordmark. The Grandstand's corner bug gets the same
+label. A station with no name gets the bug as it was.
+
+[tools/sandbox/ksab-sports-test.html](../tools/sandbox/ksab-sports-test.html) plays both opens
+from their rows with their themes through the real engine, parks either on any frame
+(`?t=21.9`, `?card=cphl`, `?motion=off`), and mounts the real set from `client/game/index.html`
+with tv.js to show the bug and the cards. Serve the repo root. The gate is
+[scripts/audio/tracker-smoke.mjs](../scripts/audio/tracker-smoke.mjs): held notes, layered
+instruments and play-once on the live player, each theme's files against its script, no FM ratio
+of 1 or 0.5 in either, and every timeline in each open against its theme's length.
 
 ### Sim v2
 

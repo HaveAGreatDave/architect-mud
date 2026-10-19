@@ -1,0 +1,15 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_butter_tart",
+  "name": "butter tart",
+  "tags": {
+    "consumable": true,
+    "description": "A short pastry case filled with butter, brown sugar and egg, set soft in the middle. Whether it should have raisins is argued about here, and the answer is no.",
+    "restore_hunger": 9,
+    "stackable": true
+  },
+  "type": "consumable",
+  "value": 4,
+  "weight": 90
+}

@@ -178,6 +178,162 @@ export function scoreShowcase(entries, price, band = SHOWCASE_BAND) {
   }) || null;
 }
 
+export const retailSubject = registerGameshowSubject({
+  id: 'retail',
+
+  // Formats in fixed order so the episode has a shape: a fast binary warm-up, the
+  // canonical pricing round, the hard one, then the money.
+  plan: [
+    { format: 'overunder', tier: 'mid', count: 2 },
+    { format: 'price', tier: 'mid', count: 1 },
+    { format: 'lot', tier: 'cheap', count: 3 },
+    { format: 'showcase', tier: 'dear', count: 1, showcase: true },
+  ],
+
+  episode(rand, ctx) {
+    const tiers = gameshowTiers(gameshowPool(ctx.cache), rand);
+    const contestantNames = ctx.contestantNames || [];
+
+    return {
+      round(spec) {
+        let prizes = deal(tiers, spec.tier, spec.count);
+        if (prizes.length < spec.count) return null;   // catalog too thin for this format
+
+        // Over-or-under needs two lots that aren't near-neighbours, else the answer is a
+        // coin flip. Keep dealing replacements for the second lot until the gap is real.
+        if (spec.format === 'overunder') {
+          let guard = 0;
+          while (guard++ < 12 && Math.max(prizes[0].value, prizes[1].value) / Math.min(prizes[0].value, prizes[1].value) < OVERUNDER_MIN_RATIO) {
+            const [next] = deal(tiers, spec.tier, 1);
+            if (!next) break;
+            prizes = [prizes[0], next];
+          }
+          if (Math.max(prizes[0].value, prizes[1].value) / Math.min(prizes[0].value, prizes[1].value) < OVERUNDER_MIN_RATIO) return null;
+        }
+
+        // Ordering three lots is only answerable if their prices are DISTINCT — two items at
+        // the same value make the correct order ambiguous and the round unwinnable. Keep
+        // swapping out duplicates until all three differ.
+        if (spec.format === 'lot') {
+          let guard = 0;
+          while (guard++ < 20 && new Set(prizes.map(p => p.value)).size < prizes.length) {
+            const dupAt = prizes.findIndex((p, i) => prizes.findIndex(q => q.value === p.value) !== i);
+            const [next] = deal(tiers, spec.tier, 1);
+            if (!next) break;
+            prizes = prizes.map((p, i) => (i === dupAt ? next : p));
+          }
+          if (new Set(prizes.map(p => p.value)).size < prizes.length) return null;   // couldn't separate them
+        }
+
+        const isShowcase = !!spec.showcase;
+        const price = prizes[0].value;
+        // Lots read cheapest-first, for the ordering round's reveal.
+        const ranked = prizes.map((p, i) => ({ slot: i + 1, ...p })).sort((a, b) => a.value - b.value);
+
+        const tok = {
+          prize: prizes[0].name,
+          prize2: prizes[1]?.name || '',
+          prize3: prizes[2]?.name || '',
+          price: money(price),
+          price2: prizes[1] ? money(prizes[1].value) : '',
+          price3: prizes[2] ? money(prizes[2].value) : '',
+          // Every lot with its price, in the order they were shown — for a multi-item reveal.
+          // The two-lot case (higher-or-lower) gets "against" rather than a comma: this token
+          // is read out right after {guesses}, which is itself a comma list of names, and two
+          // comma lists in a row parse as one run-on roster.
+          prices: prizes.length === 2
+            ? `${prizes[0].name} at ${money(prizes[0].value)} against ${prizes[1].name} at ${money(prizes[1].value)}`
+            : prizes.map(p => `${p.name} at ${money(p.value)}`).join(', '),
+          // The right answer, read out as prose.
+          order: ranked.map(p => `${p.name} at ${money(p.value)}`).join(', then '),
+          total: money(prizes.reduce((s, p) => s + p.value, 0)),
+        };
+
+        // What the strangers said. Baked now so the reveal is deterministic and identical
+        // on every set, whether or not a player ever turns up.
+        const npcGuesses = contestantNames.slice(0, 3).map((name) => {
+          if (spec.format === 'overunder') {
+            const pick = rand() < 0.5 ? 'higher' : 'lower';
+            return { name, value: pick, label: pick };
+          }
+          if (spec.format === 'lot') {
+            const order = sportsShuffle([1, 2, 3], rand);
+            return { name, value: order, label: order.join('-') };
+          }
+          const v = npcGuessValue(price, rand);
+          return { name, value: v, label: money(v) };
+        });
+
+        const correct = spec.format === 'overunder'
+          ? (prizes[1].value > prizes[0].value ? 'higher' : 'lower')
+          : spec.format === 'lot'
+            ? prizes.map((p, i) => ({ i: i + 1, v: p.value })).sort((a, b) => a.v - b.v).map(x => x.i)
+            : null;
+
+        // The price card. A multi-lot round shows every lot's price, or the card contradicts
+        // the line that just aired. The ORDERING round lists them cheapest-first, because that
+        // ordering is the answer; every other round lists them as they were shown, so the card
+        // matches the order the host read them out in.
+        const cardOrder = spec.format === 'lot' ? ranked : prizes;
+        const cardText = prizes.length > 1
+          ? `ACTUAL RETAIL PRICES\n\n${cardOrder.map(p => `${String(p.name).toUpperCase()} · ${money(p.value)}₵`).join('\n')}`
+          : `${String(prizes[0].name).toUpperCase()}\n\nACTUAL RETAIL PRICE · ${money(price)}₵`;
+
+        return {
+          tok,
+          cardText,
+          isShowcase,
+          grantsItem: isShowcase,
+          node: { prizes: prizes.map(p => ({ id: p.id, name: p.name, value: p.value })), price, correct, npcGuesses },
+          keys: { intro: isShowcase ? 'showcase_intro' : `round_intro.${spec.format}`, reveal: isShowcase ? 'showcase_reveal' : 'reveal' },
+        };
+      },
+    };
+  },
+
+  score(format, entries, round) {
+    switch (format) {
+      case 'overunder': return scoreOverUnder(entries, round.correct);
+      case 'lot':       return scoreLot(entries, round.correct);
+      case 'showcase':  return scoreShowcase(entries, round.price);
+      default:          return scorePrice(entries, round.price);
+    }
+  },
+
+  parse(format, args) {
+    const text = String(Array.isArray(args) ? args.join(' ') : (args || '')).trim();
+    if (!text) return null;
+
+    if (format === 'overunder') {
+      const w = text.toLowerCase().replace(/[^a-z]/g, '');
+      if (['higher', 'high', 'over', 'up', 'h'].includes(w)) return { value: 'higher', label: 'higher', spoken: 'Higher.' };
+      if (['lower', 'low', 'under', 'down', 'l'].includes(w)) return { value: 'lower', label: 'lower', spoken: 'Lower.' };
+      return null;
+    }
+
+    if (format === 'lot') {
+      const nums = text.match(/[1-3]/g);
+      if (!nums || nums.length !== 3) return null;
+      const order = nums.map(Number);
+      if (new Set(order).size !== 3) return null;
+      return { value: order, label: order.join('-'), spoken: `${order.join(', then ')}.` };
+    }
+
+    // price / showcase — a plain number, commas and a leading ₵ tolerated.
+    const m = text.replace(/[,₵]/g, '').match(/\d+/);
+    if (!m) return null;
+    const v = Number(m[0]);
+    if (!Number.isFinite(v) || v <= 0) return null;
+    return { value: v, label: money(v), spoken: `${money(v)} credits.` };
+  },
+
+  hint(format) {
+    if (format === 'overunder') return 'Say `guess higher` or `guess lower`.';
+    if (format === 'lot') return 'Order all three: `guess 2 1 3`, cheapest first.';
+    return 'Name a price in credits: `guess 400`.';
+  },
+});
+
 // ═════════════════════════════════════════════════════════════════════════════
 // BASIN — "what do you actually know about this city?"
 //
@@ -278,6 +434,140 @@ function buildChoice(rand, { question, answer, distractors, optionCount, subtitl
     card: options.map((o, i) => `${CHOICE_LETTERS[i].toUpperCase()} · ${String(o).toUpperCase()}`).join('\n'),
   };
 }
+
+// The categories, in the order the plan draws them. Each returns a buildChoice payload or
+// null. A category that can't answer today is skipped and the next one tried, so a thin
+// world degrades to a shorter show rather than a broken one.
+const BASIN_CATEGORIES = {
+  district(rand, state) {
+    const pool = state.districts;
+    const d = pool[state.districtIdx++ % pool.length];
+    if (!d) return null;
+    return buildChoice(rand, {
+      question: `Which part of town is this? "${redactAnswer(speakable(d.blurb), d.name)}"`,
+      subtitle: 'THE BASIN',
+      answer: d.name,
+      distractors: pool.map(x => x.name),
+      optionCount: state.optionCount,
+    });
+  },
+  order(rand, state) {
+    const pool = state.orders;
+    const o = pool[state.orderIdx++ % pool.length];
+    if (!o) return null;
+    return buildChoice(rand, {
+      question: `Whose creed is this? "${redactAnswer(speakable(o.creed), o.name)}"`,
+      subtitle: 'THE ORDERS',
+      answer: o.name,
+      distractors: pool.map(x => x.name),
+      optionCount: state.optionCount,
+    });
+  },
+  resident(rand, state) {
+    const pool = state.residents;
+    const r = pool[state.residentIdx++ % pool.length];
+    if (!r) return null;
+    return buildChoice(rand, {
+      question: `Where does ${r.name} go home to at night?`,
+      subtitle: 'WHO LIVES WHERE',
+      answer: r.district,
+      distractors: state.districts.map(x => x.name),
+      optionCount: state.optionCount,
+    });
+  },
+};
+
+export const basinSubject = registerGameshowSubject({
+  id: 'basin',
+
+  // Rising difficulty by widening the field, not by getting obscurer: three options to
+  // warm up, then four, and the finale is four on the category with the most material.
+  plan: [
+    { format: 'choice', category: 'district', optionCount: 3 },
+    { format: 'choice', category: 'order',    optionCount: 3 },
+    { format: 'choice', category: 'resident', optionCount: 4 },
+    { format: 'choice', category: 'district', optionCount: 4, showcase: true },
+  ],
+
+  episode(rand, ctx) {
+    const contestantNames = ctx.contestantNames || [];
+    // Shuffled once per episode and then walked with an index, so a four-round show never
+    // asks the same district twice — the retail pool gets this from `deal` shifting a
+    // shuffled array; this is the same guarantee for a pool that isn't consumed.
+    const state = {
+      districts: sportsShuffle(districtPool(), rand),
+      orders: sportsShuffle(orderPool(), rand),
+      residents: sportsShuffle(residentPool(), rand),
+      districtIdx: 0, orderIdx: 0, residentIdx: 0,
+      optionCount: 3,
+    };
+
+    return {
+      round(spec) {
+        state.optionCount = Math.min(CHOICE_LETTERS.length, Math.max(3, Number(spec.optionCount) || 3));
+        // Try the named category, then any other — a world with no orgs loaded still gets
+        // a show out of its districts.
+        const order = [spec.category, ...Object.keys(BASIN_CATEGORIES).filter(k => k !== spec.category)];
+        let q = null;
+        for (const cat of order) {
+          q = BASIN_CATEGORIES[cat]?.(rand, state) || null;
+          if (q) break;
+        }
+        if (!q) return null;
+
+        const isShowcase = !!spec.showcase;
+
+        // The strangers answer at random — a letter each, deterministic from the episode
+        // rng. They are wrong about as often as three people picking blind, which is the
+        // honest rate and leaves the round genuinely winnable by whoever is in the studio.
+        const npcGuesses = contestantNames.slice(0, 3).map((name) => {
+          const letter = CHOICE_LETTERS[Math.floor(rand() * q.options.length)];
+          return { name, value: letter, label: letter.toUpperCase() };
+        });
+
+        const answerText = q.options[CHOICE_LETTERS.indexOf(q.correct)];
+        const tok = {
+          question: q.question,
+          options: q.spoken,
+          answer: `${q.correct.toUpperCase()}, ${answerText}`,
+          answer_letter: q.correct.toUpperCase(),
+          answer_text: answerText,
+          // `prize` is read by the shared prize_copy/verdict pools, so a subject that has
+          // no lot still has something for the announcer to point at.
+          prize: q.subtitle || 'tonight’s question',
+        };
+
+        return {
+          tok,
+          cardText: `${q.subtitle || 'THE ANSWER'}\n\n${q.card}\n\nCORRECT · ${q.correct.toUpperCase()}`,
+          isShowcase,
+          // Nothing is handed over but money: a quiz has no lot to give away, and granting
+          // a random item as a consolation would put untraceable loot on the floor.
+          grantsItem: false,
+          node: { prizes: [], price: 0, correct: q.correct, npcGuesses, question: q.question, options: q.options },
+          keys: { intro: isShowcase ? 'showcase_intro' : 'round_intro.choice', reveal: isShowcase ? 'showcase_reveal' : 'reveal' },
+        };
+      },
+    };
+  },
+
+  // Right or wrong, first one in wins. Ties go to whoever answered first, same as retail.
+  score(format, entries, round) {
+    return entries.find(e => String(e.value) === String(round.correct)) || null;
+  },
+
+  parse(format, args) {
+    const text = String(Array.isArray(args) ? args.join(' ') : (args || '')).trim().toLowerCase();
+    if (!text) return null;
+    // First letter only, so "b", "B.", "answer b" and "b, the ashway" all land the same.
+    const m = text.match(/\b([a-d])\b/);
+    if (!m) return null;
+    const letter = m[1];
+    return { value: letter, label: letter.toUpperCase(), spoken: `${letter.toUpperCase()}.` };
+  },
+
+  hint() { return 'Answer with a letter: `guess b`.'; },
+});
 
 // Test seam for regress.js — never used in production paths.
 export const _subjectsTest = {

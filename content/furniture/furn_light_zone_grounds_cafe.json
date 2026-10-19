@@ -1,5 +1,5 @@
 {
-  "description": "A row of pendant bulbs with visible filaments, chosen to look old and doing a good job of it.",
+  "description": "Enamel pendant lamps on long flexes, one over each table, and a strip light under the counter.",
   "flags": {
     "interactions": [
       "switch"
@@ -10,7 +10,7 @@
   "id": "furn_light_zone_grounds_cafe",
   "light_type": "lamp",
   "lumen_output": 1200,
-  "name": "filament pendants",
+  "name": "the pendant lamps",
   "object_type": "light",
   "power_draw_kw": null,
   "price": 30,

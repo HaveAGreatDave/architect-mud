@@ -1,10 +1,10 @@
 {
-  "description": "Six steel towers round the park, each with a bank of floodlamps aimed at the field. Not every lamp in every bank comes on.",
+  "description": "Banks of floodlamps on the four light towers and along the roof's rails, all aimed at the field. Not every lamp in every bank comes on.",
   "flags": {},
   "id": "furn_light_zone_hughson_stands",
   "light_type": "overhead",
   "lumen_output": 9000,
-  "name": "the light towers",
+  "name": "the floods",
   "object_type": "light",
   "power_draw_kw": 0.02,
   "zone_id": "zone_hughson_stands"

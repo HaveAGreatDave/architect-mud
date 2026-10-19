@@ -1042,8 +1042,8 @@ body.ops-mode #new-btn { display: none !important; }
 .rk-face { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; padding: 4px 12px 10px; }
 .rk-knobs { display: flex; flex-wrap: wrap; gap: 4px 6px; }
 .rk-bypassed { padding: 6px 0 4px; font-size: 10px; letter-spacing: 4px; color: var(--text-dim); }
-.rk-unit-off { filter: saturate(0.25) brightness(0.8); }
-.rk-unit-off::before { opacity: 0.2; box-shadow: none; }
+.rk-unit-off .rk-face { filter: saturate(0.55) brightness(0.78); }
+.rk-unit-off::before { opacity: 0.12; box-shadow: none; }
 .rk-inert .rk-face { opacity: 0.4; }
 
 .rk-knob { position: relative; display: flex; flex-direction: column; align-items: center; width: 64px; cursor: ns-resize; user-select: none; touch-action: none; }
@@ -1096,14 +1096,16 @@ body.ops-mode #new-btn { display: none !important; }
 /* Cables: a shadow, a body and a highlight, so they read as round. */
 .rk-cables { position: absolute; left: 0; top: 0; pointer-events: none; z-index: 6; overflow: visible; }
 .rk-wire path { fill: none; stroke-linecap: round; }
-.rk-wire-shadow { stroke: rgba(0, 0, 0, 0.55); stroke-width: 8; transform: translate(2px, 4px); }
-.rk-wire-body { stroke-width: 5; }
-.rk-wire-shine { stroke: rgba(255, 255, 255, 0.35); stroke-width: 1.2; transform: translate(-0.8px, -1.2px); }
+.rk-wire-shadow { stroke: rgba(0, 0, 0, 0.5); stroke-width: 9; transform: translate(3px, 6px); filter: blur(2px); }
+.rk-wire-edge { stroke: rgba(0, 0, 0, 0.7); stroke-width: 7; }
+.rk-wire-body { stroke: var(--cc); stroke-width: 5; }
+.rk-wire-sig { stroke: var(--cc); stroke-width: 9; opacity: calc(var(--sig, 0) * 0.85); filter: blur(3px); }
+.rk-wire-shine { stroke: rgba(255, 255, 255, 0.38); stroke-width: 1.2; transform: translate(-0.8px, -1.3px); }
+.rk-wire-boot { stroke: color-mix(in srgb, var(--cc) 55%, #000); stroke-width: 8.5; stroke-linecap: round; }
 .rk-wire-hit { stroke: transparent; stroke-width: 14; pointer-events: stroke; cursor: pointer; }
 .rk-wire:hover .rk-wire-body { stroke-width: 7; }
 .rk-wire-dead { opacity: 0.35; }
 .rk-wire-temp { opacity: 0.85; }
-.rk-plug { stroke: #000; stroke-width: 2; }
 .rk-nocables.rk-view-front .rk-wire { opacity: 0.18; }
 .rk-nocables.rk-view-front .rk-wire-hit { pointer-events: none; }
 
@@ -1115,7 +1117,7 @@ body.ops-mode #new-btn { display: none !important; }
 .rk-tbtn:active { transform: translateY(1px); box-shadow: inset 0 1px 3px #000; }
 .rk-tbtn.on { color: #000; background: var(--green); box-shadow: 0 0 8px var(--green); }
 .rk-play { color: var(--green); font-size: 14px; padding: 4px 14px; }
-.rk-scope { background: #020403; border: 1px solid #000; box-shadow: inset 0 1px 3px #000; height: 40px; }
+.rk-scope { background: #020403; display: block; }
 .rk-meter { width: 80px; height: 8px; background: #020403; border: 1px solid #000; position: relative; overflow: hidden; }
 .rk-meter i { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: linear-gradient(90deg, var(--green) 60%, var(--yellow) 82%, var(--red)); }
 .rk-keys-hint { margin-left: auto; }
@@ -1291,3 +1293,143 @@ body.ops-mode #new-btn { display: none !important; }
 .rk-sw-body i::after { content: ''; position: absolute; left: -1px; right: -1px; bottom: -2px; height: 5px; border-radius: 50%; background: radial-gradient(circle at 40% 30%, #fff, #9a9da5); }
 .rk-sw.up .rk-sw-body i { transform: rotate(180deg); }
 .rk-sw:active .rk-sw-body::before { filter: brightness(0.9); }
+
+/* ── Rack, second pass: power, screens, live modulation, the keyboard ──────
+   --i is a unit's place down the rack, for the mains warm-up's stagger;
+   --sig a cable's live signal, 0..1, set every frame while the patch plays. */
+
+/* Rails with their mounting holes, three to a rack unit, scrolling with the rack. */
+.rk-stack { background-attachment: local, local;
+  background:
+    repeating-linear-gradient(180deg, transparent 0 5px, #000 5px 10px, transparent 10px 15px) 4px 0 / 5px 100% no-repeat local,
+    repeating-linear-gradient(180deg, transparent 0 5px, #000 5px 10px, transparent 10px 15px) calc(100% - 4px) 0 / 5px 100% no-repeat local,
+    linear-gradient(90deg, #4a4d55 0, #8b8f98 3px, #5d6068 7px, #2c2e33 13px, transparent 13px calc(100% - 13px), #2c2e33 calc(100% - 13px), #5d6068 calc(100% - 7px), #8b8f98 calc(100% - 3px), #4a4d55 100%) local,
+    repeating-linear-gradient(0deg, var(--bg) 0 3px, color-mix(in srgb, var(--bg) 92%, var(--text) 8%) 3px 4px) local; }
+.rk-unit { box-shadow: inset 0 1px 0 color-mix(in srgb, var(--text) 18%, transparent), inset 0 -1px 0 #000, 0 4px 0 rgba(0, 0, 0, 0.55), 0 8px 14px rgba(0, 0, 0, 0.35); }
+
+/* LEDs are lenses: a dome, a hot centre, a glow round them. */
+.rk-led { width: 11px; height: 11px; background: radial-gradient(circle at 35% 30%, #5a2020, #2a0505 60%, #120202); box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.15), 0 0 0 1px #000; }
+.rk-led.on { background: radial-gradient(circle at 35% 30%, #fff 0 12%, var(--fam) 40%, color-mix(in srgb, var(--fam) 60%, #000) 100%);
+  box-shadow: 0 0 6px var(--fam), 0 0 14px color-mix(in srgb, var(--fam) 60%, transparent), 0 0 0 1px #000; }
+.rk-tag { font: 700 8px/1 var(--font); letter-spacing: 2px; padding: 3px 5px; border: 1px solid currentColor; color: var(--orange); opacity: 0.85; }
+.rk-tag-off { color: var(--ink); opacity: 0.5; }
+
+/* Switched off, the faceplate stays where it is and goes dark. */
+.rk-unit-off .rk-led, .rk-mains-off .rk-led { background: radial-gradient(circle at 35% 30%, #3a3a3a, #111 70%); box-shadow: 0 0 0 1px #000; }
+.rk-unit-off .rk-lcd, .rk-mains-off .rk-lcd { color: #18241a; text-shadow: none; }
+.rk-unit-off .rk-k-val, .rk-mains-off .rk-k-val { stroke: rgba(128, 128, 128, 0.25); filter: none; }
+.rk-unit-off .rk-display, .rk-mains-off .rk-display { opacity: 0.55; }
+.rk-unit-off .rk-lamp, .rk-mains-off .rk-lamp { animation: none; background: #1a0800; box-shadow: 0 0 0 2px #555; }
+.rk-mains-off .rk-tube i { opacity: 0.05; box-shadow: none; animation: none; }
+.rk-mains-off .rk-unit::before { opacity: 0.1; box-shadow: none; }
+.rk-mains-off .rk-unit:not([data-unit="master"]) .rk-face { filter: brightness(0.7) saturate(0.6); }
+.rk-knob-off { pointer-events: none; opacity: 0.6; }
+.rk-switch-off { pointer-events: none; opacity: 0.45; }
+.rk-unit-off .rk-sw-power { position: relative; z-index: 1; }
+
+/* The mains coming on: each unit lights a moment after the one above it. */
+.rk-warmup .rk-unit .rk-led.on { animation: rk-led-on 0.5s calc(var(--i, 0) * 70ms) both; }
+.rk-warmup .rk-unit .rk-screen { animation: rk-crt-on 0.6s calc(var(--i, 0) * 70ms + 120ms) both; }
+.rk-warmup .rk-unit .rk-tube i { animation: rk-tube-warm 1.6s calc(var(--i, 0) * 70ms) both; }
+@keyframes rk-led-on { 0% { filter: brightness(0.1); } 40% { filter: brightness(1.8); } 100% { filter: none; } }
+@keyframes rk-crt-on { 0% { filter: brightness(0) ; transform: scaleY(0.04); } 40% { filter: brightness(2.2); transform: scaleY(0.08); } 70% { transform: scaleY(1); } 100% { filter: none; transform: none; } }
+@keyframes rk-tube-warm { from { opacity: 0.05; box-shadow: none; } }
+
+/* Screens: glass with scanlines and a curve of reflection, a deeper bezel. */
+.rk-screen { padding: 3px; border-radius: 4px; background: linear-gradient(180deg, #111, #000);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.12), inset 0 0 0 1px #000, inset 0 2px 4px rgba(0, 0, 0, 0.9), 0 2px 4px rgba(0, 0, 0, 0.55); }
+.rk-screen::before { content: ''; position: absolute; inset: 3px; border-radius: 2px; pointer-events: none; z-index: 1;
+  background: repeating-linear-gradient(180deg, rgba(0, 0, 0, 0.22) 0 1px, transparent 1px 3px); mix-blend-mode: multiply; }
+.rk-screen::after { inset: 3px; z-index: 2; }
+.rk-screen canvas { border-radius: 2px; }
+.rk-screen-vu { background: linear-gradient(180deg, #2a2a2a, #0b0b0b); }
+.rk-screen-vu::before { background: none; }
+.rk-screen-seq canvas { cursor: crosshair; }
+
+/* Knobs: the cables' reach as a thin arc, and a dot that rides them while it plays. */
+.rk-k-range { fill: none; stroke-width: 2.4; stroke-linecap: round; opacity: 0.8; }
+.rk-k-live { opacity: 0; transition: opacity 0.25s; filter: drop-shadow(0 0 3px #fff); stroke: #fff; stroke-width: 0.8; }
+.rk-moving .rk-k-live { opacity: 1; transition: none; }
+.rk-k-svg svg { overflow: visible; display: block; }
+.rk-knob { width: 66px; }
+.rk-knob.rk-small { width: 52px; }
+.rk-lcd { font-variant-numeric: tabular-nums; letter-spacing: 0.5px; }
+
+/* Jacks you can see into, a chrome ring round each, and a fat one for OUT. */
+.rk-jack { background: radial-gradient(circle, #000 0 30%, #2b2b30 33%, #cfd2d8 40%, #7c7f87 55%, #2a2a30 62% 100%); box-shadow: 0 0 0 1px #000, 0 1px 1px rgba(255, 255, 255, 0.15); }
+.rk-jack-out { box-shadow: 0 0 0 2px var(--cc), 0 0 8px var(--cc), 0 0 0 3px #000; width: 14px; height: 14px; }
+.rk-jack.rk-big.rk-jack-out { width: 24px; height: 24px; }
+.rk-jack:hover:not(.rk-dead) { filter: brightness(1.3); }
+.rk-patching .rk-jack-out:not(.rk-can) { opacity: 0.25; }
+
+/* Plugs: the knurled nut, the coloured cap, a glint. */
+.rk-plug-nut { fill: url(#rk-g-chrome); stroke: #000; stroke-width: 1.2; }
+.rk-plug-cap { fill: var(--cc); stroke: rgba(0, 0, 0, 0.6); stroke-width: 1; }
+.rk-plug-hi { fill: rgba(255, 255, 255, 0.7); }
+.rk-wire-dead .rk-wire-sig { opacity: 0; }
+
+/* A jack's list, and the cable popover. */
+.rk-pop { border-radius: 3px; background: linear-gradient(180deg, var(--bg3), var(--bg2)); }
+.rk-menu { align-items: stretch; min-width: 210px; max-width: 280px; padding: 6px 4px; }
+.rk-menu .rk-pop-h { padding: 2px 6px 6px; border-bottom: 1px solid var(--border); }
+.rk-menu-list { display: flex; flex-direction: column; max-height: 50vh; overflow-y: auto; }
+.rk-menu-g { font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: var(--text-dim); padding: 7px 8px 2px; }
+.rk-menu-i { display: flex; align-items: center; gap: 6px; text-align: left; background: none; border: 0; color: var(--text); font: inherit; font-size: 12px; padding: 4px 10px; cursor: pointer; }
+.rk-menu-i:hover { background: var(--bg); color: var(--text-bright); }
+.rk-menu-i.on { color: var(--green); }
+.rk-menu-i.dead { opacity: 0.4; }
+.rk-menu-warn { font-size: 11px; color: var(--orange); padding: 6px 8px; }
+
+/* The mains: a red rocker with a lit window, the push-button on the random. */
+.rk-rocker { display: flex; flex-direction: column; align-items: center; gap: 3px; cursor: pointer; user-select: none; }
+.rk-rocker label { font: 700 8px/1 var(--font); letter-spacing: 2px; color: var(--ink); cursor: pointer; }
+.rk-rocker-body { position: relative; width: 26px; height: 36px; border-radius: 3px; background: #111; box-shadow: inset 0 0 0 2px #333, 0 2px 3px rgba(0, 0, 0, 0.6); }
+.rk-rocker-body i { position: absolute; left: 4px; right: 4px; top: 4px; bottom: 4px; border-radius: 2px;
+  background: linear-gradient(180deg, #5a0d0a, #2c0504 55%, #4b0a08); box-shadow: inset 0 -6px 0 rgba(0, 0, 0, 0.45); transition: all 0.08s; }
+.rk-rocker.on .rk-rocker-body i { background: linear-gradient(180deg, #ff5a3a, #d61e12 50%, #7c0d07); box-shadow: inset 0 6px 0 rgba(0, 0, 0, 0.35), 0 0 12px rgba(255, 60, 30, 0.75); }
+.rk-push { display: flex; flex-direction: column; align-items: center; gap: 3px; cursor: pointer; user-select: none; }
+.rk-push i { width: 18px; height: 18px; border-radius: 50%; background: radial-gradient(circle at 40% 35%, #fff, #d8dbe2 30%, #7a7d86 75%, #33353a); box-shadow: 0 2px 0 #000, 0 3px 4px rgba(0, 0, 0, 0.5); }
+.rk-push:active i { transform: translateY(2px); box-shadow: 0 0 0 #000, 0 1px 2px rgba(0, 0, 0, 0.5); }
+.rk-push label { font: 8px/1 var(--font); letter-spacing: 1px; color: var(--ink); cursor: pointer; }
+
+/* More finishes. */
+.rk-unit.rk-fin-graphite { --ink: #e4e6ea; --tick: #9aa0aa;
+  background: repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.025) 0 1px, transparent 1px 3px), linear-gradient(180deg, #4b4f57, #2d3036 40%, #1d1f23); }
+.rk-fin-graphite .rk-model { text-shadow: 0 -1px 0 #000; }
+.rk-unit.rk-fin-orange { --ink: #1d1006; --tick: #4a2a0e;
+  background: radial-gradient(ellipse at 30% -20%, rgba(255, 255, 255, 0.4), transparent 55%), linear-gradient(180deg, #ff8a2a, #e5620d 70%, #b84a07); }
+.rk-fin-orange .rk-model { font: 900 18px/1 Impact, 'Arial Black', sans-serif; font-style: normal; letter-spacing: 1px; color: #1d1006; }
+.rk-fin-orange .rk-badge { background: #1d1006; color: #ff9a40; border-color: #1d1006; }
+.rk-unit.rk-fin-seafoam { --ink: #0f2a28; --tick: #2d5b56;
+  background: radial-gradient(ellipse at 30% 0%, rgba(255, 255, 255, 0.5), transparent 60%), linear-gradient(180deg, #a8e3d6, #7cc8b8 70%, #5aa898); }
+.rk-fin-seafoam .rk-badge { background: #0f2a28; color: #bff0e5; border-color: #0f2a28; }
+.rk-fin-seafoam .rk-model { color: #0d3d37; }
+
+/* The transport: two rows, the keyboard under the scopes. */
+.rk-transport { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 6px 14px; }
+.rk-tp-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.rk-tp-keys { flex-wrap: nowrap; }
+.rk-meter { height: 10px; background: #020403; }
+.rk-meter i { background: linear-gradient(90deg, var(--green) 60%, var(--yellow) 82%, var(--red));
+  -webkit-mask: repeating-linear-gradient(90deg, #000 0 3px, transparent 3px 4px); mask: repeating-linear-gradient(90deg, #000 0 3px, transparent 3px 4px); }
+.rk-mains-note { font-size: 10px; letter-spacing: 1px; color: var(--red); margin-left: 6px; }
+.rk-keys-hint { margin-left: 10px; max-width: 240px; line-height: 1.3; }
+
+/* The keyboard: ivory keys and ebony ones, which go down when they're played. */
+.rk-keys { --kw: 23px; --bw: 14px; position: relative; display: flex; height: 54px; flex: none; padding: 4px 4px 0;
+  background: linear-gradient(180deg, #2a1c12, #120b06); border-radius: 4px 4px 2px 2px; box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.08), 0 2px 4px rgba(0, 0, 0, 0.6); user-select: none; touch-action: none; }
+.rk-keys::before { content: ''; position: absolute; left: 4px; right: 4px; top: 4px; height: 3px; background: linear-gradient(180deg, #8a1a1a, #3a0808); z-index: 3; }
+.rk-key { position: relative; cursor: pointer; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; transition: transform 0.04s, background 0.04s; }
+.rk-key-w { width: var(--kw); height: 100%; border-radius: 0 0 4px 4px; margin-right: 0;
+  background: linear-gradient(180deg, #e9e5da 0, #fffdf6 12%, #f3efe4 80%, #d8d2c2 100%); border: 1px solid #6d6555; border-top: 0;
+  box-shadow: inset 0 -5px 0 #cfc8b6, inset -1px 0 0 rgba(255, 255, 255, 0.7), 0 2px 1px rgba(0, 0, 0, 0.5); z-index: 1; }
+.rk-key-w.down { background: linear-gradient(180deg, #d2cdbf 0, #ece8dc 15%, #e2dccd 100%); box-shadow: inset 0 -1px 0 #cfc8b6, inset 0 3px 5px rgba(0, 0, 0, 0.3); transform: translateY(1px); }
+.rk-key-b { position: absolute; top: 4px; width: var(--bw); height: 60%; margin-left: 4px; border-radius: 0 0 3px 3px; z-index: 2;
+  background: linear-gradient(180deg, #1a1a1d 0, #2f2f34 70%, #0c0c0e 86%, #3a3a40 100%); border: 1px solid #000;
+  box-shadow: inset 0 -6px 0 #3e3e44, inset 1px 0 0 rgba(255, 255, 255, 0.12), 0 3px 3px rgba(0, 0, 0, 0.6); }
+.rk-key-b.down { background: linear-gradient(180deg, #121214, #26262a 85%, #1b1b1e); box-shadow: inset 0 -2px 0 #3e3e44, 0 1px 1px rgba(0, 0, 0, 0.6); transform: translateY(1px); }
+.rk-key.down::after { content: ''; position: absolute; left: 30%; right: 30%; bottom: 14px; height: 3px; border-radius: 2px; background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+.rk-key em { font: 9px/1 var(--font); font-style: normal; color: rgba(0, 0, 0, 0.45); margin-bottom: 9px; }
+.rk-key-b em { color: rgba(255, 255, 255, 0.45); margin-bottom: 7px; }
+.rk-key b { position: absolute; top: 6px; font: 700 8px/1 var(--font); color: rgba(0, 0, 0, 0.35); }
+@media (max-width: 760px) { .rk-keys { --kw: 18px; --bw: 11px; height: 56px; } .rk-key em { display: none; } }

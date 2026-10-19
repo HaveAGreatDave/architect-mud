@@ -1,0 +1,12 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_foam_finger",
+  "name": "foam finger",
+  "tags": {
+    "description": "A giant green foam hand with one finger raised, the right one, and WE'RE NUMBER 1 printed up it. Nobody at the Coliseum has believed that in years."
+  },
+  "type": "misc",
+  "value": 6,
+  "weight": 80
+}

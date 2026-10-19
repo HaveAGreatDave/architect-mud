@@ -210,7 +210,8 @@
       "a long-sleeved thermal top pushed to the elbow",
       "work trousers tucked into short rubber boots",
       "plain underthings"
-    ]
+    ],
+    "set_aside": true
   },
   "home_activities": [],
   "home_zone": "zone_hf_salad_tray",

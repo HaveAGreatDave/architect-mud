@@ -2,16 +2,24 @@
   "ambient_events": [],
   "ambient_theme": "indoors",
   "bg_color": "#291f1a",
-  "description": "Six tables and a counter with a machine on it that is worth more than the lease. The walls are a gallery of other people's photographs of the green in every weather, all of them slightly crooked and none of them for sale. A shelf by the window holds board games with the boxes taped at the corners, and a jar for the honesty box that people are mostly honest with.",
+  "description": "Six tables and a zinc counter, with a two-group lever machine on it that is worth more than the lease. Photographs of the green hang on every wall, all slightly crooked. A shelf by the window holds board games with taped corners and an honesty jar. The roastery is through the back.",
   "exits": {
-    "north": "zone_district_906_908"
+    "down": "zone_util_zone_grounds_cafe",
+    "north": "zone_district_906_908",
+    "south": "zone_grounds_roastery"
   },
   "flags": {
     "building_name": "Grounds for Concern",
-    "building_type": "shop",
+    "building_type": "coffee_shop",
     "floor": "boards",
     "is_building": true,
     "is_interior": true,
+    "window": {
+      "description": "Plate glass onto Greenside Row with the name across it in gold leaf, backwards from in here. The awning keeps the rain off the two tables outside.",
+      "light": 0.85,
+      "name": "the front window",
+      "visibility": 0.85
+    },
     "world_exit_zone": "zone_district_906_908"
   },
   "grid_x": 0,

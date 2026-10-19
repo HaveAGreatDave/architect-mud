@@ -23,15 +23,17 @@ export const STREETS = Object.freeze({
   walkers: 1900, walk: Object.freeze([4.0, 5.2]), reach: 1300, onStreets: 0.3,
   fade: 24,
 });
-// The gates: the main gate behind home plate and three more, their bearings from home plate
-// (degrees, 0 out to centre field) and the share of the crowd each takes.
+// The gates, their bearings from home plate (degrees, 0 out to centre field) and the share of the
+// crowd each takes: the Coliseum's main gate on Sorrel Way, straight across from home plate on the
+// third-base side (gl/ballpark-mesh.js), its bleacher gate on Halcyon Boulevard past right-centre,
+// and a door on each of the other two sides.
 export const GATES = Object.freeze([
-  Object.freeze({ name: 'main', bearing: 180, share: 0.55 }), Object.freeze({ name: 'first', bearing: -128, share: 0.15 }),
-  Object.freeze({ name: 'third', bearing: 128, share: 0.15 }), Object.freeze({ name: 'centre', bearing: 0, share: 0.15 }),
+  Object.freeze({ name: 'main', bearing: 135, share: 0.55 }), Object.freeze({ name: 'first', bearing: -105, share: 0.15 }),
+  Object.freeze({ name: 'third', bearing: 105, share: 0.15 }), Object.freeze({ name: 'bleachers', bearing: -8, share: 0.15 }),
 ]);
-// The street camera: the crossing nearest this point behind home plate, a street camera's height up,
-// looking at the main gate's sign, and its lens.
-export const STREET_EYE = Object.freeze({ near: Object.freeze([0, 0, -320]), y: 6, at: Object.freeze([0, 38, -198]), fov: 54 });
+// The street camera: the crossing nearest this point out from the main gate on Sorrel Way, a street
+// camera's height up, looking up at the gate and the name plate over it, and its lens.
+export const STREET_EYE = Object.freeze({ near: Object.freeze([226, 0, -226]), y: 6, at: Object.freeze([120, 70, -120]), fov: 54 });
 // The floats a car and a walker take (gl/streetlife.js reads them):
 //   car: where it is or its way starts (x, z), the way it goes (x, z), how long the way is (0 parked),
 //     its speed, its phase, its paint (linear r, g, b), whether its lights are on, its seed;
@@ -179,7 +181,9 @@ export function streetLife(set, outline) {
     const [i, j] = k.split(',').map(Number), c = P(i, j);
     if (t === 'plaza' && !away(c)) plaza.push([i, j, c]);
     else if (t === 'road') {
-      const ring = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([di, dj]) => set.cells.get((i + di) + ',' + (j + dj)) === 'plaza');
+      // ⚠ THE RING ROAD IS THE ONE BESIDE THE SUPERBLOCK, plaza or park: the Coliseum's square bowl
+      // fills its superblock, so there's no plaza between the wall and the road
+      const ring = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([di, dj]) => { const n = set.cells.get((i + di) + ',' + (j + dj)); return n === 'plaza' || n === 'park'; });
       (ring ? plaza : streets).push([i, j, c]);
     }
   }

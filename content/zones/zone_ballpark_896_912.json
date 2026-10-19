@@ -3,16 +3,17 @@
   "ambient_theme": "urban",
   "bg_color": "#2a1d18",
   "color": "#d8c9a8",
-  "description": "The field of the Hughson Coliseum: grass, a dirt infield, and the stands round it.",
+  "description": "The field of the Hughson Coliseum under its roof of three steel shells, which roll open on dry days: grass, a dirt infield, and the stands round it.",
   "exits": {},
   "flags": {
     "building_name": "Charles B. Hughson Coliseum",
     "building_type": "ballpark_c",
     "district": "halcyon_fields",
     "entrance": "south",
-    "floors": 1,
+    "floors": 4,
     "region_id": "region_coldwater",
-    "venue_lights": true
+    "venue_lights": true,
+    "venue_roof": true
   },
   "grid_x": 896,
   "grid_y": 912,

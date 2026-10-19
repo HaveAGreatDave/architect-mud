@@ -111,7 +111,16 @@ A song is a tracker-style pattern that sequences instrument notes across one or 
 | `note` | string | Standard notation: note name + octave — `C4` `F#3` `Bb5` `Eb2`. `"R"` or `""` = rest |
 | `instrument` | string | ID of the instrument row to use for this step |
 | `vol` | float | Per-step velocity scalar (0–1). Multiplied against the instrument's `gain` |
+| `len` | int | Optional. Holds a synth note this many rows from its onset: its release starts a tenth of a row before the row it ends on, and never before its attack and decay are done. Without it a note is held 0.9 of a row past its attack and decay, which every song before `len` was written against. Sample-backed steps ignore it |
 | `fx` | object | Optional tracker effect on a sample-backed step (see **Step effects** below) |
+
+**A layered instrument** (`config.layers`, the shape in [Layered configs](#layered-configs-sfx)) plays every layer at the step's pitch, moved by the layer's own `tune` in semitones (`-12` an octave down, `17.57` a glockenspiel's second partial), with the step's `vol` on each layer's gain. That's how one instrument row is an ensemble: two sawtooths a few cents apart, or a drum with a skin and a body. Its level is its layers' gains. A layer that names no `waveform` gets the row's, and the Audio tab's Rack writes it onto the first layer when it saves, so a layered row should name a waveform on every layer, a noise layer too.
+
+### Played once, and rendered
+
+A song loops from `loop_end` back to `loop_start` for as long as it plays. `AudioEngine.playMusic(def, { once: true })` plays it through a single time instead and lets what's ringing ring out, which is how a title card's theme plays ([systems-broadcast.md](systems-broadcast.md#music-cues)). `AudioEngine.renderSong(def)` renders a song once through offline, as `renderSfx` does a cue: synth instruments only, since a sample is decoded on the live context.
+
+`node scripts/audio/song-render.mjs <song name>` renders a shipped song through the real engine on the Node renderer and prints its levels by channel and by bar; `--wav file.wav` writes it in stereo, panned by `channel_pan` and held under -1 dBFS as the master limiter holds it. The Node renderer keeps every node it was given, so it renders a note at a time; a 35-second orchestral song takes about a minute at 48 kHz.
 
 ### Step effects (`fx`)
 
@@ -272,8 +281,21 @@ The `config` object is the synth recipe passed directly to the Web Audio layer b
 | `echo.feedback` | float | `0.35` | Feedback gain (0–0.95); values near 1 create long reverb tails |
 | `pitchBend.to` | float | — | Target frequency in Hz at end of bend |
 | `pitchBend.time` | float | `0.2` | Bend duration in seconds |
-| `mods` | array | none | **Patchable modulation**: LFO, envelope and random sources patched into the layer's stages. See [Mods](#mods) |
-| `rack` | object | none | Editor-only. The Rack keeps bypassed units (`rack.bypass`) and cable colours (`rack.colors`) here. SIREN never reads it |
+| `mute` | bool | — | The layer builds nothing and is silent. The Rack writes it when a layer's last source is switched off |
+| `sub` | object | — | **Sub oscillator**: `{level, octave, wave}`, a second oscillator one (`octave: 1`) or two (`2`) octaves under `freq`. Follows detune, the bend, vibrato and a `pitch` cable; not FM. `level` 0–1 against the oscillator's own |
+| `driveType` | string | `"soft"` | The clipper `drive` uses: `soft` (tanh), `hard` (flat at the rails), `tube` (lopsided, even harmonics, DC blocked after it) or `fuzz`. Every type is full scale in, full scale out |
+| `fold.amount` | float | `0.5` | **Wavefolder**, after drive: past full scale the wave folds back instead of clipping. 0 is a soft saturation, 1 about six folds |
+| `ring` | object | — | **Ring modulator**, after fold: `{ratio, freq, mix, wave}`. The signal times an oscillator at `ratio` × the note (or `freq` Hz without a ratio), so each partial becomes the sum and the difference. `mix` 0–1, default 1 |
+| `filter.slope` | int | `12` | `24` doubles a lowpass, highpass, bandpass or notch with a second, flat stage at the same cutoff |
+| `eq` | object | — | **Three-band EQ**, after the filter: `low`, `mid`, `high` in dB (±24), at `lowFreq` (200), `midFreq` (1000, Q `q` 0.9) and `highFreq` (4000) |
+| `comp` | object | — | **Compressor**, after the EQ: `threshold` dB (-24), `ratio` (4), `attack` s (0.005), `release` s (0.15), `knee` dB (6), `makeup` dB (0) |
+| `phaser` | object | — | **Phaser**, after tremolo: `rate` Hz (0.5), `depth` 0–1 (0.7, two octaves either side at 1), `freq` Hz centre (800), `stages` 2/4/6/8/12 (4), `mix` (0.5, the deepest notches) |
+| `chorus` | object | — | **Chorus / flanger**, after the phaser: two delays of `delay` s (0.015) swinging by `depth` (0.3, a fraction of the delay) at `rate` Hz (0.8), one in each ear, with `feedback` (0–0.9) and `mix` (0.5). Under 5 ms with feedback it's a flanger. The layer is stereo from here |
+| `echo.heads` | int | `1` | `2` adds a second playback head half a delay further down, so each repeat comes back twice |
+| `mods` | array | none | **Patchable modulation**: LFO, envelope, random and sequencer sources patched into the layer's stages. See [Mods](#mods) |
+| `rack` | object | none | Editor-only. The Rack keeps switched-off units (`rack.bypass`, with `_src` holding the sources' crossfade while one is off) and cable colours (`rack.colors`) here. SIREN never reads it |
+
+The order of a layer's stages is fixed: oscillator (with FM and the sub) and noise, the envelope, drive, fold, ring, filter or formants, EQ, compressor, tremolo, the `amp` cable's gain, phaser, chorus, echo, pan.
 
 ### Mods
 
@@ -293,6 +315,7 @@ The `config` object is the synth recipe passed directly to the Web Audio layer b
 | `lfo` | `wave` (`sine` `triangle` `square` `sawtooth`), `rate` Hz (default 2), `fade` seconds to fade in | -1..1 |
 | `env` | `a` `d` `s` `r`, `curve: "exp"` | 0..1, released with the layer |
 | `rand` | `rate` Hz (default 4), `seed`, `smooth` to glide between steps | -1..1, the same steps for the same seed |
+| `seq` | `steps` (up to 64 values, -1..1), `rate` steps a second (default 8), `glide`; `snap: 12` is the Rack's, for editing in twelfths | -1..1, the steps round and round. At 1200 cents into `pitch`, a twelfth is a semitone |
 
 A cable's `amount` is in its target's own unit:
 
@@ -308,6 +331,12 @@ A cable's `amount` is in its target's own unit:
 | `echo.time` | the delay line | seconds |
 | `echo.feedback` | the feedback gain | 0..1 of the room left under 0.95 |
 | `noise.rate` | the noise playback rate | rate |
+| `sub.level` | the sub's level | 0..1 |
+| `fold.amount` | the level going into the folder | 1 doubles the folds |
+| `ring.freq` | the ring oscillator's detune | cents |
+| `eq.freq` | the EQ's middle band | cents |
+| `phaser.rate`, `phaser.freq` | the phaser's LFO; every stage's centre | Hz; cents |
+| `chorus.rate`, `chorus.depth` | the chorus's LFO; its swing | Hz; depth |
 | `mod.<id>.rate` | another LFO's rate | Hz |
 | `mod.<id>.amount` | another mod's depth (base 1) | depth |
 
@@ -316,7 +345,9 @@ The rules:
 - A target whose stage the layer doesn't have is skipped: `filter.cutoff` with `formants` and no `filter`, or `echo.time` with no echo.
 - A patch that would close a loop between mods is dropped, the first patch in authored order winning. Web Audio mutes a cycle with no delay in it. The Rack refuses one outright.
 - A layer without `mods` builds exactly the graph it built before. `scripts/audio/mods-smoke.mjs` guards that and the targets; `AudioEngine.MOD_TARGETS` lists them.
+- A doubled stage (a 24 dB filter, a second echo head, the sub) takes the cable on each of its params.
 - ORACLE doesn't use `buildLayer`, so mods don't reach the voice.
+- `playSfx(def, gain, { probe })` calls `probe(kind, id, node, layer)` for each mod's output (`'mod'`) and each compressor (`'comp'`) while the cue builds. The Rack hangs an analyser on each to move its knobs, light its cables and drive its screens as the patch plays. `scripts/audio/fx-smoke.mjs` guards the stages, `mute`, the sequencer and the probe.
 
 ### Retro stage (SFX)
 

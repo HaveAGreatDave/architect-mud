@@ -232,6 +232,62 @@
     ]);
   }
 
+  // ── BREAK ────────────────────────────────────────────────────────────────────
+  // Something giving way: a pane or a vat coming in, a plate on the floor, a
+  // plank splintering. One crack, then the pieces landing. On the modal path each
+  // piece is a short modal hit pitched above the whole (smaller pieces ring
+  // higher), scattered over 150 to 400 ms and across the stereo field, quieter as
+  // they go. Wood has the shortest decays in MODES, so the same pieces read as
+  // splinters rather than shards.
+  //
+  // BREAK_SHARDS is the node budget. A piece costs 2 × modes + 5 nodes (the bank,
+  // its strike, its out gain and a panner), and the crack a few more, so full is
+  // at most 5 pieces of 3 modes and limited 3 of 2 (modes-smoke.mjs counts them).
+  const BREAK_SHARDS = { full: { shards: 5, modes: 3 }, limited: { shards: 3, modes: 2 } };
+
+  function shatter({ surface: surf = 'glass', intensity = 0.7, detail = null } = {}) {
+    const i = clamp01(intensity);
+    const s = surface(surf);
+    // the crack: the first instant of the break, on either path
+    const crack = { noiseMix: 1,
+      // a stiff surface (its pitch barely bends) cracks brighter
+      filter: { type: 'highpass', freq: vary(lerp(900, 2400, (s.bend - 0.8) / 0.18), 0.15), q: 0.8 },
+      adsr: { a: 0.0005, d: vary(0.05, 0.25), s: 0, r: 0.04 },
+      gain: vary(0.14 + 0.16 * i, 0.12) };
+    const budget = MODES[surf] && BREAK_SHARDS[detail];
+    if (!budget) {
+      // No modes: the crack, and the pieces as bandpassed noise ticks.
+      const ticks = [];
+      for (let k = 0; k < 3; k++) {
+        ticks.push({ noiseMix: 1, delay: 0.04 + (0.11 + 0.36 * i) * (k + rnd()) / 3,
+          filter: { type: 'bandpass', freq: vary(s.freq * lerp(1.1, 2, rnd()), 0.15), q: Math.min(3, s.q * 0.6) },
+          adsr: { a: 0.001, d: vary(s.decay * 0.4, 0.3), s: 0, r: 0.04 },
+          gain: vary((0.3 + 0.35 * i) * (1 - 0.2 * k), 0.2) });
+      }
+      const end = Math.max(...ticks.map(t => t.delay + t.adsr.d + t.adsr.r));
+      crack.gain *= 1.8;   // with nothing ringing under it, the crack carries the break
+      return def('break', end + 0.05, [crack, ...ticks], 5);
+    }
+    const m = MODES[surf];
+    const layers = [crack];
+    // a harder break throws more pieces further apart in time
+    const n = Math.max(2, Math.round(budget.shards * lerp(0.6, 1, i)));
+    const span = lerp(0.12, 0.37, i);
+    for (let k = 0; k < n; k++) {
+      const l = modalLayer(surf, { intensity: i * lerp(1, 0.6, k / n), weight: lerp(0.4, 0, rnd()), limit: budget.modes, ring: lerp(0.5, 0.25, rnd()) });
+      // the first is the thing itself, in the middle; the pieces are smaller, so
+      // higher, and land to either side
+      const up = k === 0 ? 1 : lerp(1.2, 1.9, rnd());
+      for (const p of l.modes.partials) p.freq *= up;
+      l.delay = k === 0 ? 0.002 : 0.03 + span * (k - 1 + rnd()) / Math.max(1, n - 1);
+      l.pan = k === 0 ? 0 : (rnd() * 2 - 1) * 0.6;
+      l.gain = vary(m.level * (0.1 + 0.13 * i) * lerp(1, 0.45, k / n), 0.12);
+      layers.push(l);
+    }
+    const end = Math.max(...layers.map(l => (l.delay || 0) + l.adsr.d + l.adsr.r));
+    return def('break', end + 0.05, layers, 5);
+  }
+
   // ── CHOP ─────────────────────────────────────────────────────────────────────
   // Impact + blade transient + optional wet squelch. The single most reused
   // generator: every chop, cut, mince and tenderise in the game is this function
@@ -1776,7 +1832,7 @@
   // No seed means "vary freely", which is what a purely client-side caller wants.
   //
   // `detail` is the client's Sound Detail rung ('full' or 'limited'), and only the
-  // client passes it: with it, a hit or a step on a surface in MODES is modal; without
+  // client passes it: with it, a hit, a break or a step on a surface in MODES is modal; without
   // it every cue is the one it always was.
   function buildActionCue({ action, material: mat, intensity = 0.5, surface: surf, vessel, heat, flow, state, powered, wet, foot, weight, calibre, duration, seed, detail } = {}) {
     rnd = Number.isFinite(seed) ? mulberry32(seed) : Math.random;
@@ -1801,6 +1857,7 @@
       case 'lock':     return lock({ surface: surf, intensity, state });
       case 'chop':    return chop({ material: mat, intensity, state });
       case 'impact':  return impact({ surface: surf || vessel || 'metal', intensity, weight: weight ?? intensity, detail });
+      case 'break':   return shatter({ surface: surf || vessel || 'glass', intensity, detail });
       case 'scrape':  return scrape({ surface: surf || vessel || 'metal', intensity });
       case 'stir':    return stir({ material: mat, vessel, intensity, state });
       case 'pour':    return pour({ material: mat, flow: flow ?? intensity, state });
@@ -1884,8 +1941,8 @@
     // Kept as an alias: the system started as cooking-only and the name is in
     // the regression suite and the docs. Same function.
     buildCookingCue: buildActionCue,
-    MATERIALS, SURFACES, STATES, STREAM_SURFACES, FLATUS_STYLES, INSTRUMENTS, FOOTSTEPS, DOORS, LOCKS, BIRD_VOICES, MODES, FOOT_MODES, MODE_LIMIT,
-    chop, impact, scrape, stir, pour, sizzle, boil, stream, flatus, microwave, note, footstep, door, lock, birdCall,
+    MATERIALS, SURFACES, STATES, STREAM_SURFACES, FLATUS_STYLES, INSTRUMENTS, FOOTSTEPS, DOORS, LOCKS, BIRD_VOICES, MODES, FOOT_MODES, MODE_LIMIT, BREAK_SHARDS,
+    chop, impact, shatter, scrape, stir, pour, sizzle, boil, stream, flatus, microwave, note, footstep, door, lock, birdCall,
     // Musical notes have their own entry point rather than riding buildActionCue:
     // there is no seed (nothing is random) and the argument names are the ones a
     // caller actually has — instrument, note, velocity.

@@ -1,0 +1,20 @@
+{
+  "description": "A television in a wooden cabinet on a shelf high at the end of the bar, the sound down and the picture up. It stays on KSAB, channel 7.",
+  "flags": {
+    "aliases": "set,tv,television,screen",
+    "broadcast_device_type": "tv",
+    "broadcast_receiver": true,
+    "channel_default": 7,
+    "interactions": [
+      "watch"
+    ],
+    "tuned_channel": 7,
+    "tv": true,
+    "tv_dial_freq": 7
+  },
+  "id": "furn_mulcahy_set",
+  "name": "the set over the bar",
+  "object_type": "tv",
+  "power_draw_kw": 0.3,
+  "zone_id": "zone_mulcahy_bar"
+}

@@ -1,0 +1,9 @@
+{
+  "a": "zone_grounds_cafe",
+  "b": "zone_grounds_roastery",
+  "blocked": false,
+  "dir": "south",
+  "id": "conn_hf_grounds_cafe_south",
+  "lockable": false,
+  "one_way": false
+}

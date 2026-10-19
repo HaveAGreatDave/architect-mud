@@ -134,6 +134,7 @@ Out ports: `ifTrue`, `ifFalse`.
 | `AT_WORK_ZONE` | — | NPC is already in their assigned broadcast studio zone |
 | `IS_VENDOR_WORK_TIME` | — | Current day+hour falls within the vendor NPC's `vendor_schedule` |
 | `AT_HOME` | — | NPC is in their `home_zone` |
+| `VENUE_LIT` | `x`, `y` (a tile of the venue) | the venue on that map tile is lit for its show. Asks the `venue.lit` sync hook, the same question the flight derive puts for a map cell, so it's true from the moment the towers come on until they go off. Sir Charles Hughson goes to the ball game on it ([meridian-penthouse.md](proposals/meridian-penthouse.md)) |
 
 ### `action`
 
@@ -156,6 +157,8 @@ Executes one action and stops the tick. The cursor is saved to the `next` port's
 | `IDLE` | — | No-op; useful as the terminal action in a branch |
 | `SET_FLAG` | `scope: 'self'`, `flag`, `value` | Write to blackboard flags (self-scope only; world-scope is a no-op currently) |
 | `EMOTE` | `message` | Broadcast `"NpcName <message>"` to the NPC's current zone (e.g. `"waves at the camera"`) |
+| `SIT` | `furniture` (name or alias), `message?` | Sit on that piece of furniture in the current room: `setPosture(entity, 'sitting', { sittingOn: name })`, the fields a seated player has, which the room text reads to show the seat as taken. A no-op on the seat they're already in, so a graph can pass through it every lap; `message` is emoted only on sitting down. No furniture by that name in the room, no-op |
+| `STAND` | — | Back to standing through the posture substrate. ⚠ Run it before the graph walks away from a `SIT`: nothing on the way out stands an NPC up, and `moveEntity` doesn't touch posture |
 | `BROADCAST_SAY` | `channel_id`, `text` | Inject a line of dialogue into a broadcast channel feed as this NPC |
 | `START_QUEST` | `quest_id`, `cooldown_s` | Offer a quest (dispatch the quests plugin's `START_QUEST`) to every player in the entity's zone. Per-player/per-quest cooldown via the blackboard so it fires once, not every tick; the plugin no-ops if the player already has it. Editor renders a jump into that quest's VINE editor. |
 | `GO_TO_WORK` | `zone_id?`, `arrive_by?` (hour), `depart_early_minutes?` | Commute to `zone_id` ?? `work_zone_id` ?? `studio_zone_id` ?? the broadcast-schedule studio, several zones per tick; returns RUNNING until arrived. **Checks no schedule of its own** — with `zone_id` + `arrive_by` it holds until the commute window opens, otherwise it leaves immediately, so gate it behind `CHECK_WORK`/`CHECK_VENDOR_WORK`. The window sizes itself off the real path length converted to game-minutes (`COMMUTE_TILES_PER_REAL_MIN` × `timeScale`) plus a buffer of half the trip, floor 5 min. **Late arrivals catch up** rather than waiting out the 24h ring: if the NPC's own schedule (`isNpcScheduledNow` / `vendor_schedule`) says they should be at work now, they leave on this tick; an NPC with bare `arrive_by` params and no schedule behind it gets `LATE_CATCHUP_GRACE_MINUTES` (240 game-min) instead. Destinations resolve facade → interior entry |

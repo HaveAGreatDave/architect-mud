@@ -1,0 +1,28 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A narrow back room taken up by a drum roaster on cast-iron legs, its cooling tray out front and its flue going up through the ceiling. Jute sacks of green beans are stacked to the window. A scale, a heat sealer and a roll of bags stand on the bench.",
+  "exits": {
+    "north": "zone_grounds_cafe"
+  },
+  "flags": {
+    "building_name": "Grounds for Concern",
+    "building_type": "coffee_shop",
+    "floor": "concrete",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "A small window onto Voss Avenue, filmed brown on the inside from years of roasting.",
+      "light": 0.5,
+      "name": "the back window",
+      "visibility": 0.3
+    },
+    "world_exit_zone": "zone_district_906_908"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_grounds_roastery",
+  "map_id": "map_int_grounds",
+  "name": "Grounds for Concern Roastery",
+  "parent_zone": "zone_district_906_908"
+}

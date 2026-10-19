@@ -1,0 +1,9 @@
+{
+  "a": "zone_hcbox_windows",
+  "b": "zone_hcbox_office",
+  "blocked": false,
+  "dir": "north",
+  "id": "conn_hf_hcbox_windows_north",
+  "lockable": false,
+  "one_way": false
+}

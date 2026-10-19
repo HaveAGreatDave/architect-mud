@@ -241,6 +241,30 @@
     {
       "item_id": "item_scrap_torch",
       "price": 150
+    },
+    {
+      "item_id": "item_loyalty_chip",
+      "price": 12
+    },
+    {
+      "item_id": "item_glowing_scrap",
+      "price": 15
+    },
+    {
+      "item_id": "item_cracked_circuit",
+      "price": 18
+    },
+    {
+      "item_id": "item_depleted_battery",
+      "price": 20
+    },
+    {
+      "item_id": "item_signal_board",
+      "price": 62
+    },
+    {
+      "item_id": "item_drone_core",
+      "price": 170
     }
   ],
   "vendor_restock_rate": 1,

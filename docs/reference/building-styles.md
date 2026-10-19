@@ -211,7 +211,13 @@ stepped capitals is art deco's whole silhouette; the same part with `glow` set i
 skyline's. One part, two periods, and which one a building gets is read off axes that already exist.
 A second deco building needs a palette key and that part, not a new mechanism.
 
-**This quarter is two buildings deep.** The Coldwater Palais on Meltwater Row (2026-10,
+**This quarter is three buildings deep.** The Charles B. Hughson Coliseum in Halcyon Fields
+(2026-10, [hughson-coliseum.md](../proposals/hughson-coliseum.md)) is the third: `ty_palais_stone` on a
+granite plinth, fins in `ty_marble_col`, `ty_meridian_bronze` and `ty_verdigris`, its name in raised
+gilt on a bronze plate in the `deco` hand, and a later steel roof over it. The trades round it take
+the same stone and gilt at a smaller size.
+
+**Before the Coliseum it was two.** The Coldwater Palais on Meltwater Row (2026-10,
 [coldwater-palais.md](../proposals/coldwater-palais.md)) is the Meridian's decade and the Meridian's
 stone: its foyers' windowed floors wear `ty_meridian` itself, and its blind stage house and ground
 floors are `ty_palais_stone`, a paler limestone in STONE_WALL, because an auditorium has no windows

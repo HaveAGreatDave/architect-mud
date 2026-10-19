@@ -817,9 +817,11 @@ export function resolveNamedDestination(zone, typedNameRaw, dirFilter) {
 }
 
 // Who is currently occupying a named piece of furniture — seated/lying players
-// (posture + sittingOn) and NPCs a plugin has parked on it (runtime onFurniture,
-// e.g. a consort soaking in the jacuzzi). Rendered as a dim aside on the furniture
-// line so a glance shows the jacuzzi/loungers are taken.
+// (posture + sittingOn), NPCs seated the same way (the AI's SIT node), and NPCs a
+// plugin has parked on it (runtime onFurniture, e.g. a consort soaking in the
+// jacuzzi). Rendered as a dim aside on the furniture line so a glance shows the
+// jacuzzi/loungers are taken. A sleeping NPC is left to the "(sleeping)" tag on
+// the people line, so their bed isn't listed twice.
 function furnitureOccupants(fname, zonePlayers, npcs, viewer) {
 	const names = [];
 	for (const p of zonePlayers) {
@@ -827,7 +829,7 @@ function furnitureOccupants(fname, zonePlayers, npcs, viewer) {
 			names.push(viewer && p.id === viewer.id ? "you" : p.handle);
 	}
 	for (const n of npcs) {
-		if (n.onFurniture === fname) names.push(n.name);
+		if (n.onFurniture === fname || (n.posture === "sitting" && n.sittingOn === fname)) names.push(n.name);
 	}
 	return names;
 }

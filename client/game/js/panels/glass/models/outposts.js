@@ -1576,11 +1576,11 @@ export const OUTPOST_ARMS = {
       const nhw = fh * 0.60, ny = FR + FACE_EPS;
       for (const [label, nz0, nz1] of [['SECOND HELPINGS', h * 0.685, h * 0.795], ['SOYLENT SOLUTIONS', h * 0.575, h * 0.685]]) {
         const q = [P3(-nhw, ny, nz1), P3(nhw, ny, nz1), P3(nhw, ny, nz0), P3(-nhw, ny, nz0)];
-        const tex = bakeSignText(label, '#2f9a58', 0, false, true, true, { font: 'condensed' });
+        const tex = bakeSignText(label, '#2f9a58', 0, false, true, true, { font: 'condensed', sub: false });
         if (tex && q.every((p) => p.f > 0.12)) {
           // Raised letters: dark copies stepped down and right behind the face read as the shaded
           // returns of block letters, the same treatment as the clone facility's name next door.
-          const side = bakeSignText(label, '#123d22', 0, false, true, true, { font: 'condensed' });
+          const side = bakeSignText(label, '#123d22', 0, false, true, true, { font: 'condensed', sub: false });
           if (side) for (let k = 3; k >= 1; k--) {
             const ox = fh * 0.005 * k, oz = -h * 0.004 * k;
             emitSurfaceText(ctx, cam, [P3(-nhw + ox, ny, nz1 + oz), P3(nhw + ox, ny, nz1 + oz), P3(nhw + ox, ny, nz0 + oz), P3(-nhw + ox, ny, nz0 + oz)], side, false, alpha, DETAIL_LIFT * 2, false, DETAIL_LIFT * (2.5 - 0.35 * k));

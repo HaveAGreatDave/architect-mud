@@ -1,0 +1,15 @@
+{
+  "description": "Felt pennants in every colour the league has ever worn, pinned in rows from the skirting to the ceiling. The Coliseum's own, green with a gold sunburst, hang at eye height.",
+  "flags": {
+    "aliases": [
+      "pennants",
+      "pennant wall",
+      "wall",
+      "posters"
+    ]
+  },
+  "id": "furn_kimble_pennants",
+  "name": "the pennant wall",
+  "object_type": "decoration",
+  "zone_id": "zone_kimble_shop"
+}

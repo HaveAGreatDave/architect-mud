@@ -1,0 +1,18 @@
+{
+  "description": "Boxes of last season's caps, a rail of pennants in plastic, and the junction box by the steps.",
+  "exits": {
+    "up": "zone_kimble_shop"
+  },
+  "flags": {
+    "floor": "concrete",
+    "is_interior": true,
+    "world_exit_zone": "zone_parkside_894_913"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_kimble_shop",
+  "map_id": "map_int_kimble",
+  "name": "Kimble's — Cellar",
+  "parent_zone": "zone_parkside_894_913"
+}

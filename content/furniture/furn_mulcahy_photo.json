@@ -1,0 +1,17 @@
+{
+  "description": "A framed photograph of a man in a good coat at the gate of the Coliseum on its opening day, hat in one hand, shaking hands with a queue that runs out of the picture. Somebody has written SIR CHARLES on the mount in fountain pen.",
+  "flags": {
+    "aliases": [
+      "photograph",
+      "photo",
+      "picture",
+      "sir charles",
+      "charles",
+      "fireplace"
+    ]
+  },
+  "id": "furn_mulcahy_photo",
+  "name": "the photograph over the fireplace",
+  "object_type": "decoration",
+  "zone_id": "zone_mulcahy_snug"
+}

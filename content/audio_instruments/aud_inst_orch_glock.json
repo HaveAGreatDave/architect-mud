@@ -1,0 +1,46 @@
+{
+  "category": "orchestral",
+  "config": {
+    "layers": [
+      {
+        "adsr": {
+          "a": 0.001,
+          "curve": "exp",
+          "d": 1.4,
+          "r": 0.5,
+          "s": 0
+        },
+        "echo": {
+          "delay": 0.21,
+          "feedback": 0.38,
+          "mix": 0.25
+        },
+        "fm": {
+          "index": 1.4,
+          "indexEnd": 0.1,
+          "ratio": 3.5,
+          "time": 0.25
+        },
+        "gain": 0.2,
+        "waveform": "sine"
+      },
+      {
+        "adsr": {
+          "a": 0.001,
+          "curve": "exp",
+          "d": 0.4,
+          "r": 0.2,
+          "s": 0
+        },
+        "gain": 0.05,
+        "tune": 17.57,
+        "waveform": "sine"
+      }
+    ]
+  },
+  "enabled": 1,
+  "id": "aud_inst_orch_glock",
+  "name": "Orchestra: Glockenspiel",
+  "sample_id": null,
+  "waveform": "sine"
+}

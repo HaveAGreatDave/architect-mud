@@ -293,7 +293,7 @@ const ANIMAL_KEYWORDS = ['cat', 'dog', 'kitten', 'puppy', 'hound', 'feline', 'ca
 // a heuristic over names and cannot be right about a creature nobody called a
 // dog. It is also what the room pane's "Animals here:" row keys off (describe.js),
 // so a listed animal and a pettable one are the same set by construction.
-function isAnimal(entity) {
+export function isAnimal(entity) {
   if (entity?.flags?.animal === true) return true;
   const lower = String(entity?.name || '').toLowerCase();
   return ANIMAL_KEYWORDS.some(k => lower.includes(k));

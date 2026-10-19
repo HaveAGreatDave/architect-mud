@@ -399,7 +399,7 @@ const POI_BY_BUILDING = {
   // Somewhere people live. A hotel is in here because the Embassy is a place with rooms
   // that happens to have a bar, not a bar that happens to have rooms.
   apartment: 'residence', residential: 'residence', hotel: 'residence', hostel: 'residence',
-  restaurant: 'restaurant', diner: 'restaurant', noodle_bar: 'restaurant', chip_shop: 'restaurant',
+  restaurant: 'restaurant', diner: 'restaurant', noodle_bar: 'restaurant', chip_shop: 'restaurant', coffee_shop: 'restaurant',
   // Food you carry out, one hue over from food you sit down to.
   grocery: 'grocery', bodega: 'grocery', butcher: 'grocery',
   // Everything else with a shelf and a till.

@@ -627,7 +627,7 @@ export const BUILDING_TYPE_ICON = Object.freeze({
   // TYPE_MODEL arm, so the map and the air agree.
   bank: 'bldg_bank', blade_shop: 'bldg_bladeshop', bodega: 'bldg_bodega',
   dept_store: 'bldg_deptstore', hardware: 'bldg_hardware', junkyard: 'bldg_junkyard',
-  kitchenware: 'bldg_kitchenware', laundromat: 'bldg_laundromat', chip_shop: 'bldg_chipshop',
+  kitchenware: 'bldg_kitchenware', laundromat: 'bldg_laundromat', chip_shop: 'bldg_chipshop', coffee_shop: 'bldg_coffee',
   noodle_bar: 'bldg_noodlebar', outfitter: 'bldg_outfitter',
   // The Coldwater Palais (docs/proposals/coldwater-palais.md): a ticket on the box office, a coupe
   // on the bar. The stage tile has no door, so the facade gate keeps its proscenium off the map
@@ -722,6 +722,10 @@ export const BUILDING_TYPE_ICON = Object.freeze({
   // The Charles B. Hughson Coliseum: a diamond in a fan of outfield, from above. Its two gates are
   // the park's only facades, so only they need a row; the other seven tiles are sealed mass.
   ballpark: 'bldg_ballpark', ballpark_bleachers: 'bldg_ballpark',
+  // The trades round the Coliseum, each a mark of what it sells: a ticket, a frank in a bun, a pretzel,
+  // a pint, a pennant.
+  box_office: 'bldg_box_office', frank_stand: 'bldg_frank_stand', peanut_roaster: 'bldg_peanut_roaster',
+  sports_bar: 'bldg_sports_bar', souvenir_shop: 'bldg_souvenir_shop',
 });
 
 // Gated on the `facade` tag so interior tiles (which also carry is_building) never

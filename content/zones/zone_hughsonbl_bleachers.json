@@ -1,6 +1,6 @@
 {
   "ambient_theme": "indoors",
-  "description": "Plank benches climb in tiers behind the outfield wall, open to the sky and splintered at the edges. The scoreboard stands on steel legs behind the top row. The bleacher gate is north, and an aisle runs south round the outfield to the stands.",
+  "description": "Plank benches climb in tiers behind the outfield wall, under the fixed end of the roof, splintered at the edges. The scoreboard stands on steel legs behind the top row. The bleacher gate is north, and an aisle runs south round the outfield to the stands.",
   "exits": {
     "down": "zone_util_zone_hughsonbl_bleachers",
     "north": "zone_ballpark_895_911",

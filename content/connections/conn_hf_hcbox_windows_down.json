@@ -1,0 +1,9 @@
+{
+  "a": "zone_hcbox_windows",
+  "b": "zone_util_zone_hcbox_windows",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_hf_hcbox_windows_down",
+  "lockable": false,
+  "one_way": false
+}

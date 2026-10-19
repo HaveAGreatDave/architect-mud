@@ -1,0 +1,16 @@
+{
+  "description": "A copper drum on a spit in the window, turning over a blue gas ring, the peanuts inside rattling as it goes round. A thermometer on the end reads hot.",
+  "flags": {
+    "aliases": [
+      "drum",
+      "roasting drum",
+      "roaster",
+      "peanuts",
+      "gas ring"
+    ]
+  },
+  "id": "furn_pruitt_drum",
+  "name": "the roasting drum",
+  "object_type": "furniture",
+  "zone_id": "zone_pruitt_shop"
+}

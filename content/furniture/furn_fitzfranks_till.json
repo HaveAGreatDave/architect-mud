@@ -1,0 +1,18 @@
+{
+  "description": "A drawer under the hatch with a bell on it that rings every time it opens.",
+  "flags": {
+    "aliases": [
+      "till",
+      "cash drawer",
+      "drawer",
+      "cash"
+    ],
+    "hack_difficulty": 3,
+    "vendor_npc_id": "npc_fitz_rourke",
+    "vendor_safe": true
+  },
+  "id": "furn_fitzfranks_till",
+  "name": "the cash drawer",
+  "object_type": "fixture",
+  "zone_id": "zone_fitzfranks_counter"
+}

@@ -1,0 +1,63 @@
+{
+  "category": "fm",
+  "config": {
+    "layers": [
+      {
+        "adsr": {
+          "a": 0.001,
+          "curve": "exp",
+          "d": 0.2,
+          "r": 0.05,
+          "s": 0
+        },
+        "gain": 0.42,
+        "pitchBend": {
+          "time": 0.07,
+          "to": 48
+        },
+        "waveform": "sine"
+      },
+      {
+        "adsr": {
+          "a": 0.0005,
+          "curve": "exp",
+          "d": 0.018,
+          "r": 0.01,
+          "s": 0
+        },
+        "fm": {
+          "index": 3.5,
+          "indexEnd": 0,
+          "ratio": 1.41,
+          "time": 0.012
+        },
+        "gain": 0.22,
+        "tune": 12,
+        "waveform": "sine"
+      },
+      {
+        "adsr": {
+          "a": 0.0005,
+          "curve": "exp",
+          "d": 0.006,
+          "r": 0.004,
+          "s": 0
+        },
+        "filter": {
+          "freq": 3200,
+          "q": 0.7,
+          "type": "bandpass"
+        },
+        "gain": 0.08,
+        "noiseMix": 1,
+        "noiseSeed": 223,
+        "waveform": "sine"
+      }
+    ]
+  },
+  "enabled": 1,
+  "id": "aud_inst_fm_kick",
+  "name": "FM: Kick",
+  "sample_id": null,
+  "waveform": "sine"
+}

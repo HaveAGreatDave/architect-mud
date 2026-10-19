@@ -143,6 +143,28 @@ for (const surface of ['metal', 'glass', 'ceramic']) {
   }
 }
 
+// ── break: pieces on the modal path, capped ──────────────────────────────────
+const BREAK_CAP = { full: 60, limited: 36 };
+for (const surface of ['glass', 'ceramic', 'wood']) {
+  check(`${surface} break: not modal without detail`, !modal(cue({ action: 'break', surface, seed: 1 })));
+  const a = JSON.stringify(cue({ action: 'break', surface, seed: 9, detail: 'full' }));
+  check(`${surface} break: the same seed builds the same break`, a === JSON.stringify(cue({ action: 'break', surface, seed: 9, detail: 'full' })));
+  check(`${surface} break: two seeds build two different breaks`, a !== JSON.stringify(cue({ action: 'break', surface, seed: 10, detail: 'full' })));
+  for (const detail of [undefined, 'limited', 'full']) {
+    let worst = -Infinity, finite = true, most = 0;
+    for (let seed = 1; seed <= 6; seed++) {
+      const { d, nodes } = await render(cue({ action: 'break', surface, intensity: 1, seed, detail }));
+      for (const x of d) if (!Number.isFinite(x)) { finite = false; break; }
+      worst = Math.max(worst, peakDb(d));
+      most = Math.max(most, nodes);
+    }
+    const tag = detail || 'no detail';
+    check(`${surface} break at ${tag}: every sample is finite`, finite);
+    check(`${surface} break at ${tag}: peaks at or under ${PEAK} dBFS`, worst <= PEAK, `peaked at ${worst.toFixed(1)} dBFS`);
+    if (detail) check(`${surface} break at ${detail}: at most ${BREAK_CAP[detail]} nodes`, most <= BREAK_CAP[detail], `built ${most}`);
+  }
+}
+
 // ── loudness against the old path ────────────────────────────────────────────
 for (const [action, list] of [['impact', SURFACES], ['footstep', FOOTINGS]]) {
   for (const surface of list) {

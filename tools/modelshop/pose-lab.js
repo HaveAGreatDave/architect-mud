@@ -385,6 +385,11 @@ function frame(now) {
     }
     syncTime();
   }
+  paint();
+  if (playing) draw();
+}
+// The player in his pose at the playhead, and the picture.
+function paint() {
   if (baked && frameOf) {
     const f = carriedNow();
     if (baked.root && !cam.shot) cam.focus = [f.at[0], f.at[1] + 3, f.at[2]];
@@ -396,7 +401,28 @@ function frame(now) {
   const w = canvas.clientWidth, h = canvas.clientHeight, k = Math.min(devicePixelRatio || 1, 2);
   if (canvas.width !== Math.round(w * k) || canvas.height !== Math.round(h * k)) { canvas.width = Math.round(w * k); canvas.height = Math.round(h * k); }
   R.render(shotNow());
-  if (playing) draw();
+}
+// The frame at the playhead drawn now and saved as `name`.png in the OS temp dir (the Modelshop's
+// /api/shot), every body built first. The canvas is read in the same task as the draw: the park's
+// context doesn't keep its drawing buffer, so a read after the frame is shown gets nothing.
+async function shoot(name, from = null) {
+  if (!R || R.lost) return null;
+  if (!from) { while (R.pending() && R.pump(200)); paint(); }
+  const blob = await new Promise((r) => (from || canvas).toBlob(r, 'image/png'));
+  const res = await fetch('/api/shot?name=' + encodeURIComponent(name), { method: 'POST', headers: { 'content-type': 'image/png' }, body: blob });
+  return res.json();
+}
+// The frame at clip time `at` drawn now and copied onto a canvas of its own, for a script to lay
+// several out side by side and `shoot(name, sheet)` them as one.
+function still(at) {
+  if (!R || R.lost) return null;
+  seek(at);
+  while (R.pending() && R.pump(200));
+  paint();
+  const c = document.createElement('canvas');
+  c.width = canvas.width; c.height = canvas.height;
+  c.getContext('2d').drawImage(canvas, 0, 0);
+  return c;
 }
 
 // ── the timeline ───────────────────────────────────────────────────────────────
@@ -544,5 +570,6 @@ await loadLibrary();
 const first = new URLSearchParams(location.search).get('clip');
 const pick = library.find((c) => c.doc.id === first) || library[0];
 if (pick) { $('clip').value = pick.doc.id; open(pick.doc); }
-// for a look from a script: which clip is open, the playhead, and the renderer
-window.__lab = { get doc() { return doc; }, get t() { return t; }, set t(v) { seek(v); draw(); }, set laps(v) { laps = v; draw(); }, view, get renderer() { return R; } };
+// for a look from a script: which clip is open, the playhead, the camera (an orbit's az, el and
+// dist round its focus, or a broadcast shot by name), the renderer, `still` and `shoot`
+window.__lab = { get doc() { return doc; }, get t() { return t; }, set t(v) { seek(v); draw(); }, set laps(v) { laps = v; draw(); }, view, cam, still, shoot, get renderer() { return R; } };

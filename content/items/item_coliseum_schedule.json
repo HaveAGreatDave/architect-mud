@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_coliseum_schedule",
+  "name": "pocket schedule",
+  "tags": {
+    "description": "A folded green card with the season printed inside: Monday, Wednesday and Friday at six, every week. That is the whole schedule, and they print it anyway.",
+    "stackable": true
+  },
+  "type": "misc",
+  "value": 1,
+  "weight": 4
+}

@@ -5,7 +5,6 @@
   "color": "#e07ad8",
   "description": "A chrome column with glazed growing trays cantilevered off it in opposed pairs, six pairs up, each one lit magenta from under the tray above. After dark it is the only thing in the quarter that is not cyan or pearl, and from Kettle Lane it reads as a ladder of pink rungs going up into nothing. The smell at the door is wet peat and cut leaves and it does not belong to any other building on this street.",
   "exits": {
-    "east": "zone_district_899_911",
     "west": "zone_hf_salad_pack"
   },
   "flags": {
@@ -17,13 +16,15 @@
     "floors": 10,
     "is_building": true,
     "region_id": "region_coldwater",
-    "world_exit_zone": "zone_district_899_911"
+    "set_aside": true,
+    "set_aside_from": "898,911",
+    "world_exit_zone": "zone_district_898_911"
   },
-  "grid_x": 898,
-  "grid_y": 911,
+  "grid_x": 7,
+  "grid_y": 9,
   "grid_z": 0,
   "id": "zone_district_898_911",
-  "map_id": "map_world",
+  "map_id": "map_set_aside",
   "marker": "L1",
   "name": "1 Kettle Lane",
   "parent_zone": null

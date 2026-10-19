@@ -1,0 +1,274 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "jitter": 20,
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "cash_up",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "player_check",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "no": "off_random",
+        "type": "condition",
+        "yes": "home_idle"
+      },
+      "off_random": {
+        "options": [
+          "go_home_off",
+          "have_life"
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_PRESENT",
+        "no": "work_wait",
+        "type": "condition",
+        "yes": "work_say"
+      },
+      "post_shift": {
+        "options": [
+          "go_home_ps",
+          "home_life_ps"
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "work_wait": {
+        "jitter": 20,
+        "next": "check_work",
+        "seconds": 25,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "Okafor tears a ticket off the roll along the perforation without looking.",
+    "She stamps a date on a stub, blows on it, and squares it on the counter.",
+    "She counts a stack of notes, loses her place at forty, and starts again.",
+    "She looks over her glasses at the queue rail as if somebody had leaned on it.",
+    "She rings a game night on the calendar in green pencil."
+  ],
+  "description": "A small woman in her sixties in a green cardigan with the Coliseum's sunburst on the pocket, half-moon glasses on a chain and a roll of tickets on her wrist like a bracelet. She counts change twice, once for you and once for her.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "\"Keep your stub,\" she says. \"They check.\""
+    },
+    "games": {
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Monday, Wednesday, Friday. First pitch at six, gates at five.\" She slides a pocket schedule across. \"It has been those three nights for forty years. It is printed on the card in case anybody forgets.\""
+    },
+    "nine": {
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Because I do not sell seats that are a hole.\" She takes her glasses off. \"Something came down in it one night. Sir Charles had the numbers kept on the seats, so nobody would forget where it was.\""
+    },
+    "roof": {
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"It shuts when it rains and opens when it stops, and it takes its time either way.\" She nods up at the ceiling. \"They put it on after my time started. It cost more than the park did. The park was built to last, so they built the roof to match.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "What do you sell?",
+          "next": "__shop__"
+        },
+        {
+          "label": "When do they play?",
+          "next": "games"
+        },
+        {
+          "label": "Why is section nine hatched out?",
+          "next": "nine"
+        },
+        {
+          "label": "What does the roof do?",
+          "next": "roof"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing, thanks.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Stands, club or bleachers?\" She has a ticket half off the roll already.",
+      "text_by_relation": {
+        "familiar": "\"Stands, behind first, on the aisle.\" It is on the counter before you ask.",
+        "first": "The woman behind the glass looks at you over her half-moon glasses.\n\n\"Bernadette Okafor. I sell the tickets, and I have sold them since before you were born.\" She taps the fare board. \"Stands, club or bleachers?\"",
+        "known": "\"Back again.\" She is already tearing one off."
+      }
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a green cardigan with the Coliseum's sunburst on the pocket",
+      "half-moon glasses on a chain",
+      "a white blouse",
+      "a grey wool skirt",
+      "flat black shoes"
+    ]
+  },
+  "home_activities": [],
+  "home_zone": "zone_hcbox_office",
+  "hp": 38,
+  "hp_max": 38,
+  "id": "npc_hcbox_okafor",
+  "name": "Bernadette Okafor",
+  "npc_type": "vendor",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_coliseum_ticket",
+      "price": 12
+    },
+    {
+      "item_id": "item_coliseum_schedule",
+      "price": 1
+    },
+    {
+      "item_id": "item_coliseum_scorecard",
+      "price": 2
+    }
+  ],
+  "vendor_restock_rate": 3,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 10,
+        "to": 19
+      }
+    ],
+    "mon": [
+      {
+        "from": 10,
+        "to": 19
+      }
+    ],
+    "sat": [
+      {
+        "from": 10,
+        "to": 14
+      }
+    ],
+    "sun": [],
+    "thu": [
+      {
+        "from": 10,
+        "to": 17
+      }
+    ],
+    "tue": [
+      {
+        "from": 10,
+        "to": 17
+      }
+    ],
+    "wed": [
+      {
+        "from": 10,
+        "to": 19
+      }
+    ]
+  },
+  "vendor_shop_name": "Coliseum Box Office",
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_hcbox_windows"
+}

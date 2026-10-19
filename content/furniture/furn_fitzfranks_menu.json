@@ -1,0 +1,15 @@
+{
+  "description": "A board over the griddle in hand-painted red: frank, sausage on a roll, cola, lemon soda, beer. Under it, smaller, a note that the Widowmaker is inside and they don't do it here.",
+  "flags": {
+    "aliases": [
+      "menu",
+      "menu board",
+      "board",
+      "prices"
+    ]
+  },
+  "id": "furn_fitzfranks_menu",
+  "name": "the menu board",
+  "object_type": "decoration",
+  "zone_id": "zone_fitzfranks_counter"
+}

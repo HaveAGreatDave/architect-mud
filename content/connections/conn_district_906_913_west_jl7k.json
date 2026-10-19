@@ -2,7 +2,7 @@
   "a": "zone_district_917_916",
   "b": "zone_jolenes_bar",
   "blocked": false,
-  "dir": "west",
+  "dir": "south",
   "id": "conn_district_906_913_west_jl7k",
   "lockable": true,
   "one_way": false

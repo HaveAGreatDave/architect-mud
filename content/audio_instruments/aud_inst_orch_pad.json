@@ -1,0 +1,79 @@
+{
+  "category": "orchestral",
+  "config": {
+    "layers": [
+      {
+        "adsr": {
+          "a": 0.18,
+          "d": 0.3,
+          "r": 0.45,
+          "s": 0.9
+        },
+        "detune": -9,
+        "echo": {
+          "delay": 0.17,
+          "feedback": 0.42,
+          "mix": 0.22
+        },
+        "filter": {
+          "freq": 3500,
+          "q": 0.6,
+          "type": "lowpass"
+        },
+        "gain": 0.12,
+        "mods": [
+          {
+            "fade": 0.5,
+            "id": "vb",
+            "rate": 5.6,
+            "to": [
+              {
+                "amount": 11,
+                "param": "pitch"
+              }
+            ],
+            "type": "lfo",
+            "wave": "sine"
+          }
+        ],
+        "waveform": "sawtooth"
+      },
+      {
+        "adsr": {
+          "a": 0.2,
+          "d": 0.3,
+          "r": 0.45,
+          "s": 0.9
+        },
+        "detune": 9,
+        "filter": {
+          "freq": 3200,
+          "q": 0.6,
+          "type": "lowpass"
+        },
+        "gain": 0.12,
+        "mods": [
+          {
+            "fade": 0.55,
+            "id": "vb",
+            "rate": 5.1,
+            "to": [
+              {
+                "amount": 10,
+                "param": "pitch"
+              }
+            ],
+            "type": "lfo",
+            "wave": "sine"
+          }
+        ],
+        "waveform": "sawtooth"
+      }
+    ]
+  },
+  "enabled": 1,
+  "id": "aud_inst_orch_pad",
+  "name": "Orchestra: Strings, sustained",
+  "sample_id": null,
+  "waveform": "sawtooth"
+}

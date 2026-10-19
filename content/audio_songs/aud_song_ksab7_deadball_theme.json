@@ -1,0 +1,10014 @@
+{
+  "category": "theme",
+  "channel_pan": [
+    0.12,
+    0.22,
+    -0.28,
+    -0.36,
+    0.3,
+    0.38,
+    0.42,
+    -0.45,
+    -0.15,
+    0.35,
+    -0.1,
+    0.05,
+    -0.05,
+    0,
+    -0.3,
+    -0.05
+  ],
+  "channels": [
+    [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "len": 3,
+        "note": "D5",
+        "vol": 0.85
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "note": "A4",
+        "vol": 0.722
+      },
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "note": "A4",
+        "vol": 0.68
+      },
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "len": 2,
+        "note": "A4",
+        "vol": 0.765
+      },
+      null,
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "len": 8,
+        "note": "D5",
+        "vol": 0.85
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "len": 2,
+        "note": "A4",
+        "vol": 0.595
+      },
+      null,
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "len": 2,
+        "note": "D5",
+        "vol": 0.637
+      },
+      null,
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "len": 2,
+        "note": "F#5",
+        "vol": 0.68
+      },
+      null,
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "len": 2,
+        "note": "A5",
+        "vol": 0.722
+      },
+      null,
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "len": 3,
+        "note": "A4",
+        "vol": 0.807
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "note": "A4",
+        "vol": 0.722
+      },
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "len": 4,
+        "note": "D5",
+        "vol": 0.816
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "len": 4,
+        "note": "F#5",
+        "vol": 0.85
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "len": 4,
+        "note": "E5",
+        "vol": 0.782
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "len": 6,
+        "note": "D5",
+        "vol": 0.816
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "len": 2,
+        "note": "C#5",
+        "vol": 0.748
+      },
+      null,
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "len": 8,
+        "note": "A4",
+        "vol": 0.782
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "len": 4,
+        "note": "Bb4",
+        "vol": 0.807
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "len": 4,
+        "note": "A4",
+        "vol": 0.765
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "len": 4,
+        "note": "G4",
+        "vol": 0.782
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "len": 4,
+        "note": "A4",
+        "vol": 0.782
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "len": 16,
+        "note": "D5",
+        "vol": 0.85
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "note": "B4",
+        "vol": 0.68
+      },
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "note": "B4",
+        "vol": 0.612
+      },
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "note": "B4",
+        "vol": 0.646
+      },
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "note": "B4",
+        "vol": 0.68
+      },
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "note": "D5",
+        "vol": 0.714
+      },
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "note": "D5",
+        "vol": 0.646
+      },
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "note": "D5",
+        "vol": 0.68
+      },
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "note": "D5",
+        "vol": 0.748
+      },
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "len": 2,
+        "note": "G4",
+        "vol": 0.697
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "len": 2,
+        "note": "G4",
+        "vol": 0.722
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "len": 2,
+        "note": "G4",
+        "vol": 0.748
+      },
+      null,
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "len": 2,
+        "note": "A4",
+        "vol": 0.765
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "len": 2,
+        "note": "A4",
+        "vol": 0.782
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "len": 2,
+        "note": "A4",
+        "vol": 0.799
+      },
+      null,
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "len": 3,
+        "note": "B4",
+        "vol": 0.85
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "note": "B4",
+        "vol": 0.765
+      },
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "len": 4,
+        "note": "E5",
+        "vol": 0.85
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "len": 4,
+        "note": "G#5",
+        "vol": 0.85
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "len": 4,
+        "note": "F#5",
+        "vol": 0.807
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "len": 6,
+        "note": "E5",
+        "vol": 0.85
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "len": 2,
+        "note": "D#5",
+        "vol": 0.782
+      },
+      null,
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "len": 8,
+        "note": "B4",
+        "vol": 0.807
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "len": 4,
+        "note": "C5",
+        "vol": 0.85
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "len": 4,
+        "note": "B4",
+        "vol": 0.799
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "len": 4,
+        "note": "A4",
+        "vol": 0.807
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "len": 4,
+        "note": "B4",
+        "vol": 0.816
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "len": 16,
+        "note": "E5",
+        "vol": 0.85
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "len": 2,
+        "note": "E5",
+        "vol": 0.782
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "len": 2,
+        "note": "E5",
+        "vol": 0.782
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "len": 2,
+        "note": "E5",
+        "vol": 0.816
+      },
+      null,
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "note": "B4",
+        "vol": 0.68
+      },
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "note": "C#5",
+        "vol": 0.697
+      },
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "note": "D#5",
+        "vol": 0.722
+      },
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "note": "E5",
+        "vol": 0.748
+      },
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "note": "F#5",
+        "vol": 0.765
+      },
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "note": "G#5",
+        "vol": 0.79
+      },
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "note": "A5",
+        "vol": 0.816
+      },
+      null,
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "len": 10,
+        "note": "B5",
+        "vol": 0.85
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "len": 2,
+        "note": "B5",
+        "vol": 0.85
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "len": 3,
+        "note": "A4",
+        "vol": 0.807
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "note": "F#4",
+        "vol": 0.68
+      },
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "note": "F#4",
+        "vol": 0.637
+      },
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "len": 2,
+        "note": "F#4",
+        "vol": 0.722
+      },
+      null,
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "len": 8,
+        "note": "A4",
+        "vol": 0.807
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "len": 2,
+        "note": "F#4",
+        "vol": 0.552
+      },
+      null,
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "len": 2,
+        "note": "A4",
+        "vol": 0.595
+      },
+      null,
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "len": 2,
+        "note": "D5",
+        "vol": 0.637
+      },
+      null,
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "len": 2,
+        "note": "F#5",
+        "vol": 0.68
+      },
+      null,
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "len": 3,
+        "note": "F#4",
+        "vol": 0.722
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "note": "F#4",
+        "vol": 0.637
+      },
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "len": 4,
+        "note": "A4",
+        "vol": 0.731
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "len": 4,
+        "note": "D5",
+        "vol": 0.765
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "len": 4,
+        "note": "C#5",
+        "vol": 0.697
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "len": 6,
+        "note": "A4",
+        "vol": 0.731
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "len": 2,
+        "note": "A4",
+        "vol": 0.68
+      },
+      null,
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "len": 8,
+        "note": "E4",
+        "vol": 0.697
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "len": 4,
+        "note": "F4",
+        "vol": 0.722
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "len": 4,
+        "note": "F4",
+        "vol": 0.68
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "len": 4,
+        "note": "E4",
+        "vol": 0.697
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "len": 4,
+        "note": "E4",
+        "vol": 0.697
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "len": 16,
+        "note": "A4",
+        "vol": 0.765
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "note": "G4",
+        "vol": 0.637
+      },
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "note": "G4",
+        "vol": 0.578
+      },
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "note": "G4",
+        "vol": 0.612
+      },
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "note": "G4",
+        "vol": 0.646
+      },
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "note": "B4",
+        "vol": 0.68
+      },
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "note": "B4",
+        "vol": 0.612
+      },
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "note": "B4",
+        "vol": 0.646
+      },
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "note": "B4",
+        "vol": 0.714
+      },
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "len": 2,
+        "note": "E4",
+        "vol": 0.663
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "len": 2,
+        "note": "E4",
+        "vol": 0.689
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "len": 2,
+        "note": "E4",
+        "vol": 0.714
+      },
+      null,
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "len": 2,
+        "note": "F#4",
+        "vol": 0.731
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "len": 2,
+        "note": "F#4",
+        "vol": 0.748
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "len": 2,
+        "note": "F#4",
+        "vol": 0.765
+      },
+      null,
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "len": 3,
+        "note": "G#4",
+        "vol": 0.782
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "note": "G#4",
+        "vol": 0.697
+      },
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "len": 4,
+        "note": "B4",
+        "vol": 0.782
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "len": 4,
+        "note": "E5",
+        "vol": 0.807
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "len": 4,
+        "note": "D#5",
+        "vol": 0.748
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "len": 6,
+        "note": "B4",
+        "vol": 0.782
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "len": 2,
+        "note": "B4",
+        "vol": 0.722
+      },
+      null,
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "len": 8,
+        "note": "F#4",
+        "vol": 0.748
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "len": 4,
+        "note": "G4",
+        "vol": 0.782
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "len": 4,
+        "note": "G4",
+        "vol": 0.731
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "len": 4,
+        "note": "F#4",
+        "vol": 0.748
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "len": 4,
+        "note": "F#4",
+        "vol": 0.748
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "len": 16,
+        "note": "B4",
+        "vol": 0.807
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "len": 2,
+        "note": "B4",
+        "vol": 0.765
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "len": 2,
+        "note": "B4",
+        "vol": 0.765
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "len": 2,
+        "note": "B4",
+        "vol": 0.799
+      },
+      null,
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "note": "G#4",
+        "vol": 0.663
+      },
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "note": "A4",
+        "vol": 0.68
+      },
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "note": "B4",
+        "vol": 0.697
+      },
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "note": "C#5",
+        "vol": 0.722
+      },
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "note": "D#5",
+        "vol": 0.748
+      },
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "note": "E5",
+        "vol": 0.765
+      },
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "note": "F#5",
+        "vol": 0.79
+      },
+      null,
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "len": 10,
+        "note": "G#5",
+        "vol": 0.85
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trumpet",
+        "len": 2,
+        "note": "G#5",
+        "vol": 0.85
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_horn",
+        "len": 3,
+        "note": "F#4",
+        "vol": 0.85
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_horn",
+        "len": 8,
+        "note": "F#4",
+        "vol": 0.637
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_horn",
+        "len": 3,
+        "note": "A3",
+        "vol": 0.85
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_horn",
+        "note": "A3",
+        "vol": 0.765
+      },
+      {
+        "instrument": "aud_inst_orch_horn",
+        "len": 4,
+        "note": "D4",
+        "vol": 0.85
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_horn",
+        "len": 4,
+        "note": "F#4",
+        "vol": 0.85
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_horn",
+        "len": 4,
+        "note": "E4",
+        "vol": 0.807
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_horn",
+        "len": 6,
+        "note": "D4",
+        "vol": 0.85
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_horn",
+        "len": 2,
+        "note": "C#4",
+        "vol": 0.782
+      },
+      null,
+      {
+        "instrument": "aud_inst_orch_horn",
+        "len": 8,
+        "note": "A3",
+        "vol": 0.807
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_horn",
+        "len": 4,
+        "note": "Bb3",
+        "vol": 0.85
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_horn",
+        "len": 4,
+        "note": "A3",
+        "vol": 0.782
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_horn",
+        "len": 4,
+        "note": "G3",
+        "vol": 0.807
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_horn",
+        "len": 4,
+        "note": "A3",
+        "vol": 0.807
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_horn",
+        "len": 16,
+        "note": "D4",
+        "vol": 0.85
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_horn",
+        "len": 8,
+        "note": "F#4",
+        "vol": 0.68
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_horn",
+        "len": 8,
+        "note": "E4",
+        "vol": 0.663
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_horn",
+        "len": 8,
+        "note": "E4",
+        "vol": 0.68
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_horn",
+        "len": 8,
+        "note": "C#4",
+        "vol": 0.663
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_horn",
+        "len": 8,
+        "note": "D4",
+        "vol": 0.68
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_horn",
+        "len": 8,
+        "note": "E4",
+        "vol": 0.697
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_horn",
+        "len": 8,
+        "note": "F#4",
+        "vol": 0.722
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_horn",
+        "len": 8,
+        "note": "A4",
+        "vol": 0.765
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_horn",
+        "len": 4,
+        "note": "A3",
+        "vol": 0.748
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_horn",
+        "len": 4,
+        "note": "D4",
+        "vol": 0.765
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_horn",
+        "len": 4,
+        "note": "F#4",
+        "vol": 0.807
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_horn",
+        "len": 2,
+        "note": "C4",
+        "vol": 0.68
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_horn",
+        "len": 2,
+        "note": "C4",
+        "vol": 0.706
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_horn",
+        "len": 2,
+        "note": "C4",
+        "vol": 0.731
+      },
+      null,
+      {
+        "instrument": "aud_inst_orch_horn",
+        "len": 2,
+        "note": "D4",
+        "vol": 0.748
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_horn",
+        "len": 2,
+        "note": "D4",
+        "vol": 0.765
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_horn",
+        "len": 2,
+        "note": "D4",
+        "vol": 0.782
+      },
+      null,
+      {
+        "instrument": "aud_inst_orch_horn",
+        "len": 3,
+        "note": "B3",
+        "vol": 0.85
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_horn",
+        "note": "B3",
+        "vol": 0.765
+      },
+      {
+        "instrument": "aud_inst_orch_horn",
+        "len": 4,
+        "note": "E4",
+        "vol": 0.85
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_horn",
+        "len": 4,
+        "note": "G#4",
+        "vol": 0.85
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_horn",
+        "len": 4,
+        "note": "F#4",
+        "vol": 0.807
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_horn",
+        "len": 6,
+        "note": "E4",
+        "vol": 0.85
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_horn",
+        "len": 2,
+        "note": "D#4",
+        "vol": 0.782
+      },
+      null,
+      {
+        "instrument": "aud_inst_orch_horn",
+        "len": 8,
+        "note": "B3",
+        "vol": 0.807
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_horn",
+        "len": 4,
+        "note": "C4",
+        "vol": 0.85
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_horn",
+        "len": 4,
+        "note": "B3",
+        "vol": 0.799
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_horn",
+        "len": 4,
+        "note": "A3",
+        "vol": 0.807
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_horn",
+        "len": 4,
+        "note": "B3",
+        "vol": 0.816
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_horn",
+        "len": 16,
+        "note": "E4",
+        "vol": 0.85
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_horn",
+        "len": 2,
+        "note": "E4",
+        "vol": 0.765
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_horn",
+        "len": 2,
+        "note": "E4",
+        "vol": 0.765
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_horn",
+        "len": 2,
+        "note": "E4",
+        "vol": 0.807
+      },
+      null,
+      {
+        "instrument": "aud_inst_orch_horn",
+        "len": 8,
+        "note": "E4",
+        "vol": 0.68
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_horn",
+        "len": 10,
+        "note": "E5",
+        "vol": 0.85
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_horn",
+        "len": 2,
+        "note": "E5",
+        "vol": 0.85
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_horn",
+        "len": 3,
+        "note": "D4",
+        "vol": 0.85
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_horn",
+        "len": 8,
+        "note": "D4",
+        "vol": 0.637
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_horn",
+        "len": 3,
+        "note": "F#3",
+        "vol": 0.612
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_horn",
+        "note": "F#3",
+        "vol": 0.527
+      },
+      {
+        "instrument": "aud_inst_orch_horn",
+        "len": 4,
+        "note": "A3",
+        "vol": 0.612
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_horn",
+        "len": 4,
+        "note": "D4",
+        "vol": 0.629
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_horn",
+        "len": 4,
+        "note": "C#4",
+        "vol": 0.578
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_horn",
+        "len": 6,
+        "note": "A3",
+        "vol": 0.612
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_horn",
+        "len": 2,
+        "note": "A3",
+        "vol": 0.561
+      },
+      null,
+      {
+        "instrument": "aud_inst_orch_horn",
+        "len": 8,
+        "note": "E3",
+        "vol": 0.595
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_horn",
+        "len": 4,
+        "note": "F3",
+        "vol": 0.612
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_horn",
+        "len": 4,
+        "note": "F3",
+        "vol": 0.578
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_horn",
+        "len": 4,
+        "note": "E3",
+        "vol": 0.595
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_horn",
+        "len": 4,
+        "note": "E3",
+        "vol": 0.595
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_horn",
+        "len": 16,
+        "note": "F#3",
+        "vol": 0.646
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_horn",
+        "len": 16,
+        "note": "A3",
+        "vol": 0.637
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_horn",
+        "len": 16,
+        "note": "A3",
+        "vol": 0.637
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_horn",
+        "len": 8,
+        "note": "F3",
+        "vol": 0.646
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_horn",
+        "len": 8,
+        "note": "G3",
+        "vol": 0.663
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_horn",
+        "len": 16,
+        "note": "D4",
+        "vol": 0.697
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_horn",
+        "len": 4,
+        "note": "D3",
+        "vol": 0.68
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_horn",
+        "len": 4,
+        "note": "A3",
+        "vol": 0.714
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_horn",
+        "len": 4,
+        "note": "D4",
+        "vol": 0.748
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_horn",
+        "len": 2,
+        "note": "G3",
+        "vol": 0.663
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_horn",
+        "len": 2,
+        "note": "G3",
+        "vol": 0.689
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_horn",
+        "len": 2,
+        "note": "G3",
+        "vol": 0.714
+      },
+      null,
+      {
+        "instrument": "aud_inst_orch_horn",
+        "len": 2,
+        "note": "A3",
+        "vol": 0.731
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_horn",
+        "len": 2,
+        "note": "A3",
+        "vol": 0.748
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_horn",
+        "len": 2,
+        "note": "A3",
+        "vol": 0.765
+      },
+      null,
+      {
+        "instrument": "aud_inst_orch_horn",
+        "len": 3,
+        "note": "G#3",
+        "vol": 0.765
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_horn",
+        "note": "G#3",
+        "vol": 0.68
+      },
+      {
+        "instrument": "aud_inst_orch_horn",
+        "len": 4,
+        "note": "B3",
+        "vol": 0.765
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_horn",
+        "len": 4,
+        "note": "E4",
+        "vol": 0.782
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_horn",
+        "len": 4,
+        "note": "D#4",
+        "vol": 0.731
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_horn",
+        "len": 6,
+        "note": "B3",
+        "vol": 0.765
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_horn",
+        "len": 2,
+        "note": "B3",
+        "vol": 0.714
+      },
+      null,
+      {
+        "instrument": "aud_inst_orch_horn",
+        "len": 8,
+        "note": "F#3",
+        "vol": 0.731
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_horn",
+        "len": 4,
+        "note": "G3",
+        "vol": 0.765
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_horn",
+        "len": 4,
+        "note": "G3",
+        "vol": 0.722
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_horn",
+        "len": 4,
+        "note": "F#3",
+        "vol": 0.731
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_horn",
+        "len": 4,
+        "note": "F#3",
+        "vol": 0.731
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_horn",
+        "len": 16,
+        "note": "G#3",
+        "vol": 0.782
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_horn",
+        "len": 2,
+        "note": "B3",
+        "vol": 0.748
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_horn",
+        "len": 2,
+        "note": "B3",
+        "vol": 0.748
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_horn",
+        "len": 2,
+        "note": "B3",
+        "vol": 0.79
+      },
+      null,
+      {
+        "instrument": "aud_inst_orch_horn",
+        "len": 8,
+        "note": "B3",
+        "vol": 0.663
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_horn",
+        "len": 10,
+        "note": "B4",
+        "vol": 0.85
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_horn",
+        "len": 2,
+        "note": "B4",
+        "vol": 0.85
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trombone",
+        "len": 3,
+        "note": "A3",
+        "vol": 0.85
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trombone",
+        "len": 8,
+        "note": "A3",
+        "vol": 0.595
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trombone",
+        "len": 16,
+        "note": "D3",
+        "vol": 0.357
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trombone",
+        "len": 16,
+        "note": "E3",
+        "vol": 0.357
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trombone",
+        "len": 8,
+        "note": "D3",
+        "vol": 0.383
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trombone",
+        "len": 8,
+        "note": "E3",
+        "vol": 0.399
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trombone",
+        "len": 16,
+        "note": "A3",
+        "vol": 0.425
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trombone",
+        "len": 16,
+        "note": "F#3",
+        "vol": 0.595
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trombone",
+        "len": 16,
+        "note": "E3",
+        "vol": 0.595
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trombone",
+        "len": 8,
+        "note": "D3",
+        "vol": 0.612
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trombone",
+        "len": 8,
+        "note": "E3",
+        "vol": 0.629
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trombone",
+        "len": 16,
+        "note": "F#3",
+        "vol": 0.663
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trombone",
+        "len": 4,
+        "note": "D3",
+        "vol": 0.765
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trombone",
+        "len": 4,
+        "note": "G3",
+        "vol": 0.782
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trombone",
+        "len": 8,
+        "note": "B3",
+        "vol": 0.807
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trombone",
+        "len": 2,
+        "note": "E3",
+        "vol": 0.68
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trombone",
+        "len": 2,
+        "note": "E3",
+        "vol": 0.706
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trombone",
+        "len": 2,
+        "note": "E3",
+        "vol": 0.731
+      },
+      null,
+      {
+        "instrument": "aud_inst_orch_trombone",
+        "len": 2,
+        "note": "F#3",
+        "vol": 0.748
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trombone",
+        "len": 2,
+        "note": "F#3",
+        "vol": 0.765
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trombone",
+        "len": 2,
+        "note": "F#3",
+        "vol": 0.782
+      },
+      null,
+      {
+        "instrument": "aud_inst_orch_trombone",
+        "len": 16,
+        "note": "G#3",
+        "vol": 0.722
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trombone",
+        "len": 16,
+        "note": "F#3",
+        "vol": 0.722
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trombone",
+        "len": 8,
+        "note": "E3",
+        "vol": 0.731
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trombone",
+        "len": 8,
+        "note": "F#3",
+        "vol": 0.748
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trombone",
+        "len": 16,
+        "note": "G#3",
+        "vol": 0.765
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trombone",
+        "len": 2,
+        "note": "G#3",
+        "vol": 0.765
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trombone",
+        "len": 2,
+        "note": "G#3",
+        "vol": 0.765
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trombone",
+        "len": 2,
+        "note": "G#3",
+        "vol": 0.807
+      },
+      null,
+      {
+        "instrument": "aud_inst_orch_trombone",
+        "len": 8,
+        "note": "G#3",
+        "vol": 0.68
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trombone",
+        "len": 10,
+        "note": "G#3",
+        "vol": 0.85
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trombone",
+        "len": 2,
+        "note": "G#3",
+        "vol": 0.85
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trombone",
+        "len": 3,
+        "note": "F#3",
+        "vol": 0.85
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trombone",
+        "len": 8,
+        "note": "D3",
+        "vol": 0.595
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trombone",
+        "len": 16,
+        "note": "A2",
+        "vol": 0.357
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trombone",
+        "len": 16,
+        "note": "A2",
+        "vol": 0.357
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trombone",
+        "len": 8,
+        "note": "Bb2",
+        "vol": 0.383
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trombone",
+        "len": 8,
+        "note": "C3",
+        "vol": 0.399
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trombone",
+        "len": 16,
+        "note": "D3",
+        "vol": 0.425
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trombone",
+        "len": 16,
+        "note": "D3",
+        "vol": 0.595
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trombone",
+        "len": 16,
+        "note": "A2",
+        "vol": 0.595
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trombone",
+        "len": 8,
+        "note": "Bb2",
+        "vol": 0.612
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trombone",
+        "len": 8,
+        "note": "C3",
+        "vol": 0.629
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trombone",
+        "len": 16,
+        "note": "D3",
+        "vol": 0.663
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trombone",
+        "len": 4,
+        "note": "G2",
+        "vol": 0.722
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trombone",
+        "len": 4,
+        "note": "D3",
+        "vol": 0.748
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trombone",
+        "len": 8,
+        "note": "G3",
+        "vol": 0.765
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trombone",
+        "len": 2,
+        "note": "C3",
+        "vol": 0.68
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trombone",
+        "len": 2,
+        "note": "C3",
+        "vol": 0.706
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trombone",
+        "len": 2,
+        "note": "C3",
+        "vol": 0.731
+      },
+      null,
+      {
+        "instrument": "aud_inst_orch_trombone",
+        "len": 2,
+        "note": "D3",
+        "vol": 0.748
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trombone",
+        "len": 2,
+        "note": "D3",
+        "vol": 0.765
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trombone",
+        "len": 2,
+        "note": "D3",
+        "vol": 0.782
+      },
+      null,
+      {
+        "instrument": "aud_inst_orch_trombone",
+        "len": 16,
+        "note": "E3",
+        "vol": 0.722
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trombone",
+        "len": 16,
+        "note": "B2",
+        "vol": 0.722
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trombone",
+        "len": 8,
+        "note": "C3",
+        "vol": 0.731
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trombone",
+        "len": 8,
+        "note": "D3",
+        "vol": 0.748
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trombone",
+        "len": 16,
+        "note": "E3",
+        "vol": 0.765
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trombone",
+        "len": 2,
+        "note": "E3",
+        "vol": 0.765
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trombone",
+        "len": 2,
+        "note": "E3",
+        "vol": 0.765
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trombone",
+        "len": 2,
+        "note": "E3",
+        "vol": 0.807
+      },
+      null,
+      {
+        "instrument": "aud_inst_orch_trombone",
+        "len": 8,
+        "note": "E3",
+        "vol": 0.68
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trombone",
+        "len": 10,
+        "note": "E3",
+        "vol": 0.85
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_trombone",
+        "len": 2,
+        "note": "E3",
+        "vol": 0.85
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_tuba",
+        "len": 3,
+        "note": "D2",
+        "vol": 0.85
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_tuba",
+        "len": 5,
+        "note": "D2",
+        "vol": 0.68
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_tuba",
+        "len": 2,
+        "note": "D2",
+        "vol": 0.722
+      },
+      null,
+      {
+        "instrument": "aud_inst_orch_tuba",
+        "len": 5,
+        "note": "D2",
+        "vol": 0.51
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_tuba",
+        "len": 5,
+        "note": "D2",
+        "vol": 0.418
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_tuba",
+        "len": 4,
+        "note": "D2",
+        "vol": 0.459
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_tuba",
+        "len": 5,
+        "note": "A1",
+        "vol": 0.51
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_tuba",
+        "len": 5,
+        "note": "A1",
+        "vol": 0.418
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_tuba",
+        "len": 4,
+        "note": "A1",
+        "vol": 0.459
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_tuba",
+        "len": 6,
+        "note": "Bb1",
+        "vol": 0.51
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_tuba",
+        "len": 4,
+        "note": "C2",
+        "vol": 0.493
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_tuba",
+        "len": 4,
+        "note": "C2",
+        "vol": 0.51
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_tuba",
+        "len": 5,
+        "note": "D2",
+        "vol": 0.561
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_tuba",
+        "len": 5,
+        "note": "D2",
+        "vol": 0.46
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_tuba",
+        "len": 4,
+        "note": "D2",
+        "vol": 0.505
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_tuba",
+        "len": 5,
+        "note": "D2",
+        "vol": 0.748
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_tuba",
+        "len": 5,
+        "note": "D2",
+        "vol": 0.613
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_tuba",
+        "len": 4,
+        "note": "D2",
+        "vol": 0.673
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_tuba",
+        "len": 5,
+        "note": "A1",
+        "vol": 0.748
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_tuba",
+        "len": 5,
+        "note": "A1",
+        "vol": 0.613
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_tuba",
+        "len": 4,
+        "note": "A1",
+        "vol": 0.673
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_tuba",
+        "len": 6,
+        "note": "Bb1",
+        "vol": 0.748
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_tuba",
+        "len": 4,
+        "note": "C2",
+        "vol": 0.722
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_tuba",
+        "len": 4,
+        "note": "C2",
+        "vol": 0.748
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_tuba",
+        "len": 5,
+        "note": "D2",
+        "vol": 0.765
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_tuba",
+        "len": 5,
+        "note": "D2",
+        "vol": 0.627
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_tuba",
+        "len": 4,
+        "note": "D2",
+        "vol": 0.689
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_tuba",
+        "len": 5,
+        "note": "G1",
+        "vol": 0.765
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_tuba",
+        "len": 5,
+        "note": "G1",
+        "vol": 0.627
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_tuba",
+        "len": 4,
+        "note": "G1",
+        "vol": 0.689
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_tuba",
+        "len": 2,
+        "note": "C2",
+        "vol": 0.68
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_tuba",
+        "len": 2,
+        "note": "C2",
+        "vol": 0.706
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_tuba",
+        "len": 2,
+        "note": "C2",
+        "vol": 0.731
+      },
+      null,
+      {
+        "instrument": "aud_inst_orch_tuba",
+        "len": 2,
+        "note": "D2",
+        "vol": 0.748
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_tuba",
+        "len": 2,
+        "note": "D2",
+        "vol": 0.765
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_tuba",
+        "len": 2,
+        "note": "D2",
+        "vol": 0.782
+      },
+      null,
+      {
+        "instrument": "aud_inst_orch_tuba",
+        "len": 5,
+        "note": "E2",
+        "vol": 0.807
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_tuba",
+        "len": 5,
+        "note": "E2",
+        "vol": 0.662
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_tuba",
+        "len": 4,
+        "note": "E2",
+        "vol": 0.727
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_tuba",
+        "len": 5,
+        "note": "B1",
+        "vol": 0.807
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_tuba",
+        "len": 5,
+        "note": "B1",
+        "vol": 0.662
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_tuba",
+        "len": 4,
+        "note": "B1",
+        "vol": 0.727
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_tuba",
+        "len": 6,
+        "note": "C2",
+        "vol": 0.807
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_tuba",
+        "len": 4,
+        "note": "D2",
+        "vol": 0.782
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_tuba",
+        "len": 4,
+        "note": "D2",
+        "vol": 0.807
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_tuba",
+        "len": 5,
+        "note": "E2",
+        "vol": 0.833
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_tuba",
+        "len": 5,
+        "note": "E2",
+        "vol": 0.683
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_tuba",
+        "len": 4,
+        "note": "E2",
+        "vol": 0.75
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_tuba",
+        "len": 2,
+        "note": "E2",
+        "vol": 0.807
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_tuba",
+        "len": 2,
+        "note": "E2",
+        "vol": 0.807
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_tuba",
+        "len": 2,
+        "note": "E2",
+        "vol": 0.85
+      },
+      null,
+      {
+        "instrument": "aud_inst_orch_tuba",
+        "len": 8,
+        "note": "E2",
+        "vol": 0.722
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_tuba",
+        "len": 10,
+        "note": "E2",
+        "vol": 0.85
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_tuba",
+        "len": 2,
+        "note": "E2",
+        "vol": 0.85
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "A4",
+        "vol": 0.357
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "D5",
+        "vol": 0.25
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "F#5",
+        "vol": 0.25
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "A4",
+        "vol": 0.357
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "D5",
+        "vol": 0.25
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "F#5",
+        "vol": 0.25
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "A4",
+        "vol": 0.357
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "D5",
+        "vol": 0.25
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "A4",
+        "vol": 0.357
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "D5",
+        "vol": 0.25
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "F#5",
+        "vol": 0.25
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "A4",
+        "vol": 0.357
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "D5",
+        "vol": 0.25
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "F#5",
+        "vol": 0.25
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "A4",
+        "vol": 0.357
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "D5",
+        "vol": 0.25
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "A4",
+        "vol": 0.357
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "D5",
+        "vol": 0.25
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "E5",
+        "vol": 0.25
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "A4",
+        "vol": 0.357
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "D5",
+        "vol": 0.25
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "E5",
+        "vol": 0.25
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "A4",
+        "vol": 0.357
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "D5",
+        "vol": 0.25
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "A4",
+        "vol": 0.357
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "C#5",
+        "vol": 0.25
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "E5",
+        "vol": 0.25
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "A4",
+        "vol": 0.357
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "C#5",
+        "vol": 0.25
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "E5",
+        "vol": 0.25
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "A4",
+        "vol": 0.357
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "C#5",
+        "vol": 0.25
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "Bb4",
+        "vol": 0.357
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "D5",
+        "vol": 0.25
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "F5",
+        "vol": 0.25
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "Bb4",
+        "vol": 0.357
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "D5",
+        "vol": 0.25
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "F5",
+        "vol": 0.25
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "Bb4",
+        "vol": 0.357
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "D5",
+        "vol": 0.25
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "G4",
+        "vol": 0.357
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "C5",
+        "vol": 0.25
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "E5",
+        "vol": 0.25
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "G4",
+        "vol": 0.357
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "C5",
+        "vol": 0.25
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "E5",
+        "vol": 0.25
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "G4",
+        "vol": 0.357
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "C5",
+        "vol": 0.25
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "A4",
+        "vol": 0.357
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "D5",
+        "vol": 0.25
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "F#5",
+        "vol": 0.25
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "A4",
+        "vol": 0.357
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "D5",
+        "vol": 0.25
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "F#5",
+        "vol": 0.25
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "A4",
+        "vol": 0.357
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "D5",
+        "vol": 0.25
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "A4",
+        "vol": 0.357
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "D5",
+        "vol": 0.25
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "F#5",
+        "vol": 0.25
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "A4",
+        "vol": 0.357
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "D5",
+        "vol": 0.25
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "F#5",
+        "vol": 0.25
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "A4",
+        "vol": 0.357
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "D5",
+        "vol": 0.25
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "A4",
+        "vol": 0.527
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "D5",
+        "vol": 0.369
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "F#5",
+        "vol": 0.369
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "A4",
+        "vol": 0.527
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "D5",
+        "vol": 0.369
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "F#5",
+        "vol": 0.369
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "A4",
+        "vol": 0.527
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "D5",
+        "vol": 0.369
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "A4",
+        "vol": 0.527
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "D5",
+        "vol": 0.369
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "F#5",
+        "vol": 0.369
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "A4",
+        "vol": 0.527
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "D5",
+        "vol": 0.369
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "F#5",
+        "vol": 0.369
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "A4",
+        "vol": 0.527
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "D5",
+        "vol": 0.369
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "A4",
+        "vol": 0.527
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "D5",
+        "vol": 0.369
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "E5",
+        "vol": 0.369
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "A4",
+        "vol": 0.527
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "D5",
+        "vol": 0.369
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "E5",
+        "vol": 0.369
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "A4",
+        "vol": 0.527
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "D5",
+        "vol": 0.369
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "A4",
+        "vol": 0.527
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "C#5",
+        "vol": 0.369
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "E5",
+        "vol": 0.369
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "A4",
+        "vol": 0.527
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "C#5",
+        "vol": 0.369
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "E5",
+        "vol": 0.369
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "A4",
+        "vol": 0.527
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "C#5",
+        "vol": 0.369
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "Bb4",
+        "vol": 0.527
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "D5",
+        "vol": 0.369
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "F5",
+        "vol": 0.369
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "Bb4",
+        "vol": 0.527
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "D5",
+        "vol": 0.369
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "F5",
+        "vol": 0.369
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "Bb4",
+        "vol": 0.527
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "D5",
+        "vol": 0.369
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "G4",
+        "vol": 0.527
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "C5",
+        "vol": 0.369
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "E5",
+        "vol": 0.369
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "G4",
+        "vol": 0.527
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "C5",
+        "vol": 0.369
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "E5",
+        "vol": 0.369
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "G4",
+        "vol": 0.527
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "C5",
+        "vol": 0.369
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "A4",
+        "vol": 0.527
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "D5",
+        "vol": 0.369
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "F#5",
+        "vol": 0.369
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "A4",
+        "vol": 0.527
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "D5",
+        "vol": 0.369
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "F#5",
+        "vol": 0.369
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "A4",
+        "vol": 0.527
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "D5",
+        "vol": 0.369
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "A4",
+        "vol": 0.527
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "D5",
+        "vol": 0.369
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "F#5",
+        "vol": 0.369
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "A4",
+        "vol": 0.527
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "D5",
+        "vol": 0.369
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "F#5",
+        "vol": 0.369
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "A4",
+        "vol": 0.527
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "D5",
+        "vol": 0.369
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "G4",
+        "vol": 0.595
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "B4",
+        "vol": 0.416
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "D5",
+        "vol": 0.416
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "G4",
+        "vol": 0.595
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "B4",
+        "vol": 0.416
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "D5",
+        "vol": 0.416
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "G4",
+        "vol": 0.595
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "B4",
+        "vol": 0.416
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "G4",
+        "vol": 0.595
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "B4",
+        "vol": 0.416
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "D5",
+        "vol": 0.416
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "G4",
+        "vol": 0.595
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "B4",
+        "vol": 0.416
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "D5",
+        "vol": 0.416
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "G4",
+        "vol": 0.595
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "B4",
+        "vol": 0.416
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "G4",
+        "vol": 0.663
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "C5",
+        "vol": 0.464
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "E5",
+        "vol": 0.464
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "G4",
+        "vol": 0.663
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "C5",
+        "vol": 0.464
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "E5",
+        "vol": 0.464
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "G4",
+        "vol": 0.663
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "C5",
+        "vol": 0.464
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "A4",
+        "vol": 0.663
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "D5",
+        "vol": 0.464
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "F#5",
+        "vol": 0.464
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "A4",
+        "vol": 0.663
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "D5",
+        "vol": 0.464
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "F#5",
+        "vol": 0.464
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "A4",
+        "vol": 0.663
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "D5",
+        "vol": 0.464
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "G#4",
+        "vol": 0.612
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "B4",
+        "vol": 0.428
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "E5",
+        "vol": 0.428
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "G#4",
+        "vol": 0.612
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "B4",
+        "vol": 0.428
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "E5",
+        "vol": 0.428
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "G#4",
+        "vol": 0.612
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "B4",
+        "vol": 0.428
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "G#4",
+        "vol": 0.612
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "B4",
+        "vol": 0.428
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "E5",
+        "vol": 0.428
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "G#4",
+        "vol": 0.612
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "B4",
+        "vol": 0.428
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "E5",
+        "vol": 0.428
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "G#4",
+        "vol": 0.612
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "B4",
+        "vol": 0.428
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "B4",
+        "vol": 0.612
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "E5",
+        "vol": 0.428
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "F#5",
+        "vol": 0.428
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "B4",
+        "vol": 0.612
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "E5",
+        "vol": 0.428
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "F#5",
+        "vol": 0.428
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "B4",
+        "vol": 0.612
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "E5",
+        "vol": 0.428
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "B4",
+        "vol": 0.612
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "Eb5",
+        "vol": 0.428
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "F#5",
+        "vol": 0.428
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "B4",
+        "vol": 0.612
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "Eb5",
+        "vol": 0.428
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "F#5",
+        "vol": 0.428
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "B4",
+        "vol": 0.612
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "Eb5",
+        "vol": 0.428
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "C5",
+        "vol": 0.612
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "E5",
+        "vol": 0.428
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "G5",
+        "vol": 0.428
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "C5",
+        "vol": 0.612
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "E5",
+        "vol": 0.428
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "G5",
+        "vol": 0.428
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "C5",
+        "vol": 0.612
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "E5",
+        "vol": 0.428
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "A4",
+        "vol": 0.612
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "D5",
+        "vol": 0.428
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "F#5",
+        "vol": 0.428
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "A4",
+        "vol": 0.612
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "D5",
+        "vol": 0.428
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "F#5",
+        "vol": 0.428
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "A4",
+        "vol": 0.612
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "D5",
+        "vol": 0.428
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "G#4",
+        "vol": 0.612
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "B4",
+        "vol": 0.428
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "E5",
+        "vol": 0.428
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "G#4",
+        "vol": 0.612
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "B4",
+        "vol": 0.428
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "E5",
+        "vol": 0.428
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "G#4",
+        "vol": 0.612
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "B4",
+        "vol": 0.428
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "G#4",
+        "vol": 0.612
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "B4",
+        "vol": 0.428
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "E5",
+        "vol": 0.428
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "G#4",
+        "vol": 0.612
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "B4",
+        "vol": 0.428
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "E5",
+        "vol": 0.428
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "G#4",
+        "vol": 0.612
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "B4",
+        "vol": 0.428
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "G#4",
+        "vol": 0.68
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "B4",
+        "vol": 0.476
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "E5",
+        "vol": 0.476
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "G#4",
+        "vol": 0.68
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "B4",
+        "vol": 0.476
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "E5",
+        "vol": 0.476
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "G#4",
+        "vol": 0.68
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "B4",
+        "vol": 0.476
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "G#4",
+        "vol": 0.68
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "B4",
+        "vol": 0.476
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "E5",
+        "vol": 0.476
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "G#4",
+        "vol": 0.68
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "B4",
+        "vol": 0.476
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "E5",
+        "vol": 0.476
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "G#4",
+        "vol": 0.68
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "B4",
+        "vol": 0.476
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "E5",
+        "vol": 0.425
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "E5",
+        "vol": 0.458
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "E5",
+        "vol": 0.491
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "E5",
+        "vol": 0.524
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "E5",
+        "vol": 0.557
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "E5",
+        "vol": 0.59
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "E5",
+        "vol": 0.623
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "E5",
+        "vol": 0.656
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "E5",
+        "vol": 0.689
+      },
+      {
+        "instrument": "aud_inst_orch_strings",
+        "note": "E5",
+        "vol": 0.722
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_strings",
+        "len": 2,
+        "note": "E6",
+        "vol": 0.765
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_pad",
+        "len": 8,
+        "note": "F#4",
+        "vol": 0.255
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_pad",
+        "len": 8,
+        "note": "F#4",
+        "vol": 0.255
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_pad",
+        "len": 8,
+        "note": "D4",
+        "vol": 0.255
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_pad",
+        "len": 8,
+        "note": "C#4",
+        "vol": 0.255
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_pad",
+        "len": 8,
+        "note": "D4",
+        "vol": 0.255
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_pad",
+        "len": 8,
+        "note": "E4",
+        "vol": 0.255
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_pad",
+        "len": 8,
+        "note": "F#4",
+        "vol": 0.255
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_pad",
+        "len": 8,
+        "note": "F#4",
+        "vol": 0.255
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_pad",
+        "len": 8,
+        "note": "F#4",
+        "vol": 0.425
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_pad",
+        "len": 8,
+        "note": "F#4",
+        "vol": 0.425
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_pad",
+        "len": 8,
+        "note": "D4",
+        "vol": 0.425
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_pad",
+        "len": 8,
+        "note": "C#4",
+        "vol": 0.425
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_pad",
+        "len": 8,
+        "note": "D4",
+        "vol": 0.425
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_pad",
+        "len": 8,
+        "note": "E4",
+        "vol": 0.425
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_pad",
+        "len": 8,
+        "note": "F#4",
+        "vol": 0.425
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_pad",
+        "len": 8,
+        "note": "F#4",
+        "vol": 0.425
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_pad",
+        "len": 8,
+        "note": "B4",
+        "vol": 0.468
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_pad",
+        "len": 8,
+        "note": "B4",
+        "vol": 0.468
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_pad",
+        "len": 8,
+        "note": "E4",
+        "vol": 0.51
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_pad",
+        "len": 8,
+        "note": "F#4",
+        "vol": 0.552
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_pad",
+        "len": 8,
+        "note": "G#4",
+        "vol": 0.51
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_pad",
+        "len": 8,
+        "note": "G#4",
+        "vol": 0.51
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_pad",
+        "len": 8,
+        "note": "E4",
+        "vol": 0.51
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_pad",
+        "len": 8,
+        "note": "Eb4",
+        "vol": 0.51
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_pad",
+        "len": 8,
+        "note": "E4",
+        "vol": 0.51
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_pad",
+        "len": 8,
+        "note": "F#4",
+        "vol": 0.51
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_pad",
+        "len": 8,
+        "note": "G#4",
+        "vol": 0.51
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_pad",
+        "len": 8,
+        "note": "G#4",
+        "vol": 0.51
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_pad",
+        "len": 8,
+        "note": "G#4",
+        "vol": 0.552
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_pad",
+        "len": 8,
+        "note": "G#4",
+        "vol": 0.552
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_pad",
+        "len": 10,
+        "note": "G#4",
+        "vol": 0.85
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_pad",
+        "len": 2,
+        "note": "G#4",
+        "vol": 0.85
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D2",
+        "vol": 0.153
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D2",
+        "vol": 0.192
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D2",
+        "vol": 0.231
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D2",
+        "vol": 0.27
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D2",
+        "vol": 0.308
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D2",
+        "vol": 0.347
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D2",
+        "vol": 0.386
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D2",
+        "vol": 0.425
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D2",
+        "vol": 0.722
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D3",
+        "vol": 0.448
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D3",
+        "vol": 0.448
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D2",
+        "vol": 0.722
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D3",
+        "vol": 0.448
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D3",
+        "vol": 0.448
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D2",
+        "vol": 0.722
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D3",
+        "vol": 0.448
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D2",
+        "vol": 0.722
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D3",
+        "vol": 0.448
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D3",
+        "vol": 0.448
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D2",
+        "vol": 0.722
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D3",
+        "vol": 0.448
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D3",
+        "vol": 0.448
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D2",
+        "vol": 0.722
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D3",
+        "vol": 0.448
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D2",
+        "vol": 0.51
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D3",
+        "vol": 0.316
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D3",
+        "vol": 0.316
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D2",
+        "vol": 0.51
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D3",
+        "vol": 0.316
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D3",
+        "vol": 0.316
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D2",
+        "vol": 0.51
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D3",
+        "vol": 0.316
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D2",
+        "vol": 0.51
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D3",
+        "vol": 0.316
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D3",
+        "vol": 0.316
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D2",
+        "vol": 0.51
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D3",
+        "vol": 0.316
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D3",
+        "vol": 0.316
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D2",
+        "vol": 0.51
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D3",
+        "vol": 0.316
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "A2",
+        "vol": 0.51
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "A3",
+        "vol": 0.316
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "A3",
+        "vol": 0.316
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "A2",
+        "vol": 0.51
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "A3",
+        "vol": 0.316
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "A3",
+        "vol": 0.316
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "A2",
+        "vol": 0.51
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "A3",
+        "vol": 0.316
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "A2",
+        "vol": 0.51
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "A3",
+        "vol": 0.316
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "A3",
+        "vol": 0.316
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "A2",
+        "vol": 0.51
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "A3",
+        "vol": 0.316
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "A3",
+        "vol": 0.316
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "A2",
+        "vol": 0.51
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "A3",
+        "vol": 0.316
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "Bb2",
+        "vol": 0.51
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "Bb3",
+        "vol": 0.316
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "Bb3",
+        "vol": 0.316
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "Bb2",
+        "vol": 0.51
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "Bb3",
+        "vol": 0.316
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "Bb3",
+        "vol": 0.316
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "Bb2",
+        "vol": 0.51
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "Bb3",
+        "vol": 0.316
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "C2",
+        "vol": 0.51
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "C3",
+        "vol": 0.316
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "C3",
+        "vol": 0.316
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "C2",
+        "vol": 0.51
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "C3",
+        "vol": 0.316
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "C3",
+        "vol": 0.316
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "C2",
+        "vol": 0.51
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "C3",
+        "vol": 0.316
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D2",
+        "vol": 0.51
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D3",
+        "vol": 0.316
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D3",
+        "vol": 0.316
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D2",
+        "vol": 0.51
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D3",
+        "vol": 0.316
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D3",
+        "vol": 0.316
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D2",
+        "vol": 0.51
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D3",
+        "vol": 0.316
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D2",
+        "vol": 0.51
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D3",
+        "vol": 0.316
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D3",
+        "vol": 0.316
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D2",
+        "vol": 0.51
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D3",
+        "vol": 0.316
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D3",
+        "vol": 0.316
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D2",
+        "vol": 0.51
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D3",
+        "vol": 0.316
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D2",
+        "vol": 0.765
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D3",
+        "vol": 0.474
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D3",
+        "vol": 0.474
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D2",
+        "vol": 0.765
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D3",
+        "vol": 0.474
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D3",
+        "vol": 0.474
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D2",
+        "vol": 0.765
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D3",
+        "vol": 0.474
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D2",
+        "vol": 0.765
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D3",
+        "vol": 0.474
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D3",
+        "vol": 0.474
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D2",
+        "vol": 0.765
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D3",
+        "vol": 0.474
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D3",
+        "vol": 0.474
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D2",
+        "vol": 0.765
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D3",
+        "vol": 0.474
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "A2",
+        "vol": 0.765
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "A3",
+        "vol": 0.474
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "A3",
+        "vol": 0.474
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "A2",
+        "vol": 0.765
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "A3",
+        "vol": 0.474
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "A3",
+        "vol": 0.474
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "A2",
+        "vol": 0.765
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "A3",
+        "vol": 0.474
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "A2",
+        "vol": 0.765
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "A3",
+        "vol": 0.474
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "A3",
+        "vol": 0.474
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "A2",
+        "vol": 0.765
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "A3",
+        "vol": 0.474
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "A3",
+        "vol": 0.474
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "A2",
+        "vol": 0.765
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "A3",
+        "vol": 0.474
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "Bb2",
+        "vol": 0.765
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "Bb3",
+        "vol": 0.474
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "Bb3",
+        "vol": 0.474
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "Bb2",
+        "vol": 0.765
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "Bb3",
+        "vol": 0.474
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "Bb3",
+        "vol": 0.474
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "Bb2",
+        "vol": 0.765
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "Bb3",
+        "vol": 0.474
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "C2",
+        "vol": 0.765
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "C3",
+        "vol": 0.474
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "C3",
+        "vol": 0.474
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "C2",
+        "vol": 0.765
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "C3",
+        "vol": 0.474
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "C3",
+        "vol": 0.474
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "C2",
+        "vol": 0.765
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "C3",
+        "vol": 0.474
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D2",
+        "vol": 0.765
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D3",
+        "vol": 0.474
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D3",
+        "vol": 0.474
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D2",
+        "vol": 0.765
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D3",
+        "vol": 0.474
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D3",
+        "vol": 0.474
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D2",
+        "vol": 0.765
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D3",
+        "vol": 0.474
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D2",
+        "vol": 0.765
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D3",
+        "vol": 0.474
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D3",
+        "vol": 0.474
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D2",
+        "vol": 0.765
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D3",
+        "vol": 0.474
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D3",
+        "vol": 0.474
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D2",
+        "vol": 0.765
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D3",
+        "vol": 0.474
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "G2",
+        "vol": 0.782
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "G3",
+        "vol": 0.485
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "G3",
+        "vol": 0.485
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "G2",
+        "vol": 0.782
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "G3",
+        "vol": 0.485
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "G3",
+        "vol": 0.485
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "G2",
+        "vol": 0.782
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "G3",
+        "vol": 0.485
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "G2",
+        "vol": 0.782
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "G3",
+        "vol": 0.485
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "G3",
+        "vol": 0.485
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "G2",
+        "vol": 0.782
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "G3",
+        "vol": 0.485
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "G3",
+        "vol": 0.485
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "G2",
+        "vol": 0.782
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "G3",
+        "vol": 0.485
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "C2",
+        "vol": 0.807
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "C3",
+        "vol": 0.501
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "C3",
+        "vol": 0.501
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "C2",
+        "vol": 0.807
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "C3",
+        "vol": 0.501
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "C3",
+        "vol": 0.501
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "C2",
+        "vol": 0.807
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "C3",
+        "vol": 0.501
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D2",
+        "vol": 0.807
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D3",
+        "vol": 0.501
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D3",
+        "vol": 0.501
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D2",
+        "vol": 0.807
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D3",
+        "vol": 0.501
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D3",
+        "vol": 0.501
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D2",
+        "vol": 0.807
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D3",
+        "vol": 0.501
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "E2",
+        "vol": 0.85
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "E3",
+        "vol": 0.527
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "E3",
+        "vol": 0.527
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "E2",
+        "vol": 0.85
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "E3",
+        "vol": 0.527
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "E3",
+        "vol": 0.527
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "E2",
+        "vol": 0.85
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "E3",
+        "vol": 0.527
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "E2",
+        "vol": 0.85
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "E3",
+        "vol": 0.527
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "E3",
+        "vol": 0.527
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "E2",
+        "vol": 0.85
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "E3",
+        "vol": 0.527
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "E3",
+        "vol": 0.527
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "E2",
+        "vol": 0.85
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "E3",
+        "vol": 0.527
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "B2",
+        "vol": 0.85
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "B3",
+        "vol": 0.527
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "B3",
+        "vol": 0.527
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "B2",
+        "vol": 0.85
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "B3",
+        "vol": 0.527
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "B3",
+        "vol": 0.527
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "B2",
+        "vol": 0.85
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "B3",
+        "vol": 0.527
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "B2",
+        "vol": 0.85
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "B3",
+        "vol": 0.527
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "B3",
+        "vol": 0.527
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "B2",
+        "vol": 0.85
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "B3",
+        "vol": 0.527
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "B3",
+        "vol": 0.527
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "B2",
+        "vol": 0.85
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "B3",
+        "vol": 0.527
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "C2",
+        "vol": 0.85
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "C3",
+        "vol": 0.527
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "C3",
+        "vol": 0.527
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "C2",
+        "vol": 0.85
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "C3",
+        "vol": 0.527
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "C3",
+        "vol": 0.527
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "C2",
+        "vol": 0.85
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "C3",
+        "vol": 0.527
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D2",
+        "vol": 0.85
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D3",
+        "vol": 0.527
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D3",
+        "vol": 0.527
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D2",
+        "vol": 0.85
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D3",
+        "vol": 0.527
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D3",
+        "vol": 0.527
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D2",
+        "vol": 0.85
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "D3",
+        "vol": 0.527
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "E2",
+        "vol": 0.85
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "E3",
+        "vol": 0.527
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "E3",
+        "vol": 0.527
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "E2",
+        "vol": 0.85
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "E3",
+        "vol": 0.527
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "E3",
+        "vol": 0.527
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "E2",
+        "vol": 0.85
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "E3",
+        "vol": 0.527
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "E2",
+        "vol": 0.85
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "E3",
+        "vol": 0.527
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "E3",
+        "vol": 0.527
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "E2",
+        "vol": 0.85
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "E3",
+        "vol": 0.527
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "E3",
+        "vol": 0.527
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "E2",
+        "vol": 0.85
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "E3",
+        "vol": 0.527
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "E2",
+        "vol": 0.85
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "E3",
+        "vol": 0.527
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "E3",
+        "vol": 0.527
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "E2",
+        "vol": 0.85
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "E3",
+        "vol": 0.527
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "E3",
+        "vol": 0.527
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "E2",
+        "vol": 0.85
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "E3",
+        "vol": 0.527
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "E2",
+        "vol": 0.85
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "E3",
+        "vol": 0.527
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "E3",
+        "vol": 0.527
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "E2",
+        "vol": 0.85
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "E3",
+        "vol": 0.527
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "E3",
+        "vol": 0.527
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "E2",
+        "vol": 0.85
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "note": "E3",
+        "vol": 0.527
+      },
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "len": 10,
+        "note": "E2",
+        "vol": 0.85
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_cellos",
+        "len": 2,
+        "note": "E2",
+        "vol": 0.85
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "A2",
+        "vol": 0.17
+      },
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "A2",
+        "vol": 0.237
+      },
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "A2",
+        "vol": 0.304
+      },
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "A2",
+        "vol": 0.37
+      },
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "A2",
+        "vol": 0.437
+      },
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "A2",
+        "vol": 0.504
+      },
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "A2",
+        "vol": 0.571
+      },
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "A2",
+        "vol": 0.637
+      },
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "D2",
+        "vol": 0.765
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "D2",
+        "vol": 0.51
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "A2",
+        "vol": 0.51
+      },
+      null,
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "A2",
+        "vol": 0.51
+      },
+      null,
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "D2",
+        "vol": 0.722
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "A2",
+        "vol": 0.637
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "Bb2",
+        "vol": 0.595
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "C3",
+        "vol": 0.637
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "D2",
+        "vol": 0.722
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "D2",
+        "vol": 0.297
+      },
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "D2",
+        "vol": 0.425
+      },
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "D2",
+        "vol": 0.552
+      },
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "D2",
+        "vol": 0.68
+      },
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "D2",
+        "vol": 0.765
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "A2",
+        "vol": 0.425
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "D2",
+        "vol": 0.51
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "A2",
+        "vol": 0.722
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "A2",
+        "vol": 0.425
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "E2",
+        "vol": 0.51
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "Bb2",
+        "vol": 0.722
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "C3",
+        "vol": 0.722
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "C3",
+        "vol": 0.51
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "D2",
+        "vol": 0.807
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "D2",
+        "vol": 0.255
+      },
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "D2",
+        "vol": 0.328
+      },
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "D2",
+        "vol": 0.401
+      },
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "D2",
+        "vol": 0.474
+      },
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "D2",
+        "vol": 0.546
+      },
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "D2",
+        "vol": 0.619
+      },
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "D2",
+        "vol": 0.692
+      },
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "D2",
+        "vol": 0.765
+      },
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "G2",
+        "vol": 0.765
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "D2",
+        "vol": 0.255
+      },
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "D2",
+        "vol": 0.31
+      },
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "D2",
+        "vol": 0.364
+      },
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "D2",
+        "vol": 0.419
+      },
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "D2",
+        "vol": 0.474
+      },
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "D2",
+        "vol": 0.528
+      },
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "D2",
+        "vol": 0.583
+      },
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "D2",
+        "vol": 0.637
+      },
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "len": 2,
+        "note": "C3",
+        "vol": 0.595
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "len": 2,
+        "note": "C3",
+        "vol": 0.62
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "len": 2,
+        "note": "C3",
+        "vol": 0.646
+      },
+      null,
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "len": 2,
+        "note": "D2",
+        "vol": 0.663
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "len": 2,
+        "note": "D2",
+        "vol": 0.68
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "len": 2,
+        "note": "D2",
+        "vol": 0.697
+      },
+      null,
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "E2",
+        "vol": 0.85
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "E2",
+        "vol": 0.51
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "B2",
+        "vol": 0.552
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "B2",
+        "vol": 0.765
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "B2",
+        "vol": 0.468
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "F#2",
+        "vol": 0.51
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "C3",
+        "vol": 0.765
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "D3",
+        "vol": 0.765
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "E2",
+        "vol": 0.85
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "E2",
+        "vol": 0.552
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "B2",
+        "vol": 0.595
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "E2",
+        "vol": 0.85
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "E2",
+        "vol": 0.765
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "E2",
+        "vol": 0.807
+      },
+      null,
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "E2",
+        "vol": 0.255
+      },
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "E2",
+        "vol": 0.334
+      },
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "E2",
+        "vol": 0.413
+      },
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "E2",
+        "vol": 0.492
+      },
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "E2",
+        "vol": 0.571
+      },
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "E2",
+        "vol": 0.65
+      },
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "E2",
+        "vol": 0.729
+      },
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "E2",
+        "vol": 0.807
+      },
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "E2",
+        "vol": 0.85
+      },
+      null,
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "E2",
+        "vol": 0.34
+      },
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "E2",
+        "vol": 0.388
+      },
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "E2",
+        "vol": 0.436
+      },
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "E2",
+        "vol": 0.483
+      },
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "E2",
+        "vol": 0.531
+      },
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "E2",
+        "vol": 0.579
+      },
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "E2",
+        "vol": 0.627
+      },
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "E2",
+        "vol": 0.675
+      },
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "E2",
+        "vol": 0.722
+      },
+      null,
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "E2",
+        "vol": 0.85
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.34
+      },
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.453
+      },
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.567
+      },
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.68
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.272
+      },
+      null,
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.272
+      },
+      null,
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.272
+      },
+      null,
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.51
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.297
+      },
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.358
+      },
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.419
+      },
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.48
+      },
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.54
+      },
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.601
+      },
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.662
+      },
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.722
+      },
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.65
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.433
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.433
+      },
+      null,
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.65
+      },
+      null,
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.433
+      },
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.231
+      },
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.433
+      },
+      null,
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.433
+      },
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.231
+      },
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.65
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.433
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.433
+      },
+      null,
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.65
+      },
+      null,
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.433
+      },
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.231
+      },
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.433
+      },
+      null,
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.433
+      },
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.231
+      },
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.65
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.433
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.433
+      },
+      null,
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.65
+      },
+      null,
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.433
+      },
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.231
+      },
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.433
+      },
+      null,
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.433
+      },
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.231
+      },
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.65
+      },
+      null,
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.433
+      },
+      null,
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.433
+      },
+      null,
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.433
+      },
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.433
+      },
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.383
+      },
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.443
+      },
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.504
+      },
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.565
+      },
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.625
+      },
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.686
+      },
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.747
+      },
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.807
+      },
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.689
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.459
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.459
+      },
+      null,
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.459
+      },
+      null,
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.459
+      },
+      null,
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.459
+      },
+      null,
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.459
+      },
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.459
+      },
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.34
+      },
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.374
+      },
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.408
+      },
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.442
+      },
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.476
+      },
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.51
+      },
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.544
+      },
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.578
+      },
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.612
+      },
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.646
+      },
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.68
+      },
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.714
+      },
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.748
+      },
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.782
+      },
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.816
+      },
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.85
+      },
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.765
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.51
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.51
+      },
+      null,
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.765
+      },
+      null,
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.51
+      },
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.272
+      },
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.51
+      },
+      null,
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.51
+      },
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.272
+      },
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.765
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.51
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.51
+      },
+      null,
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.765
+      },
+      null,
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.51
+      },
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.272
+      },
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.51
+      },
+      null,
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.51
+      },
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.272
+      },
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.765
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.51
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.51
+      },
+      null,
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.765
+      },
+      null,
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.51
+      },
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.272
+      },
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.51
+      },
+      null,
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.51
+      },
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.272
+      },
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.765
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.51
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.51
+      },
+      null,
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.765
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.51
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.51
+      },
+      null,
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.807
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.765
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.807
+      },
+      null,
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.34
+      },
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.413
+      },
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.486
+      },
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.559
+      },
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.631
+      },
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.704
+      },
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.777
+      },
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.85
+      },
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.765
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_snare",
+        "note": "G3",
+        "vol": 0.85
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_bassdrum",
+        "note": "A1",
+        "vol": 0.85
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_bassdrum",
+        "note": "A1",
+        "vol": 0.595
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_bassdrum",
+        "note": "A1",
+        "vol": 0.51
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_bassdrum",
+        "note": "A1",
+        "vol": 0.637
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_bassdrum",
+        "note": "A1",
+        "vol": 0.468
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_bassdrum",
+        "note": "A1",
+        "vol": 0.637
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_bassdrum",
+        "note": "A1",
+        "vol": 0.468
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_bassdrum",
+        "note": "A1",
+        "vol": 0.637
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_bassdrum",
+        "note": "A1",
+        "vol": 0.468
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_bassdrum",
+        "note": "A1",
+        "vol": 0.68
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_bassdrum",
+        "note": "A1",
+        "vol": 0.722
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_bassdrum",
+        "note": "A1",
+        "vol": 0.595
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_bassdrum",
+        "note": "A1",
+        "vol": 0.637
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_bassdrum",
+        "note": "A1",
+        "vol": 0.85
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_bassdrum",
+        "note": "A1",
+        "vol": 0.51
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_bassdrum",
+        "note": "A1",
+        "vol": 0.68
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_bassdrum",
+        "note": "A1",
+        "vol": 0.51
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_bassdrum",
+        "note": "A1",
+        "vol": 0.68
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_bassdrum",
+        "note": "A1",
+        "vol": 0.51
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_bassdrum",
+        "note": "A1",
+        "vol": 0.68
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_bassdrum",
+        "note": "A1",
+        "vol": 0.51
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_bassdrum",
+        "note": "A1",
+        "vol": 0.765
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_bassdrum",
+        "note": "A1",
+        "vol": 0.637
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_bassdrum",
+        "note": "A1",
+        "vol": 0.68
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_bassdrum",
+        "note": "A1",
+        "vol": 0.85
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_bassdrum",
+        "note": "A1",
+        "vol": 0.85
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    [
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_swell",
+        "len": 12,
+        "note": "C5",
+        "vol": 0.765
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_crash",
+        "note": "C5",
+        "vol": 0.85
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_crash",
+        "note": "C5",
+        "vol": 0.68
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_crash",
+        "note": "C5",
+        "vol": 0.765
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_crash",
+        "note": "C5",
+        "vol": 0.51
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_crash",
+        "note": "C5",
+        "vol": 0.595
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_crash",
+        "note": "C5",
+        "vol": 0.637
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_swell",
+        "len": 12,
+        "note": "C5",
+        "vol": 0.85
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_crash",
+        "note": "C5",
+        "vol": 0.85
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_crash",
+        "note": "C5",
+        "vol": 0.595
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_crash",
+        "note": "C5",
+        "vol": 0.722
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_crash",
+        "note": "C5",
+        "vol": 0.68
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_swell",
+        "len": 12,
+        "note": "C5",
+        "vol": 0.85
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_crash",
+        "note": "C5",
+        "vol": 0.765
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_crash",
+        "note": "C5",
+        "vol": 0.85
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    [
+      {
+        "instrument": "aud_inst_orch_organ",
+        "len": 4,
+        "note": "A3",
+        "vol": 0.595
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_organ",
+        "len": 4,
+        "note": "D4",
+        "vol": 0.612
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_organ",
+        "len": 8,
+        "note": "F#4",
+        "vol": 0.68
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_glock",
+        "len": 3,
+        "note": "B5",
+        "vol": 0.595
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_glock",
+        "note": "B5",
+        "vol": 0.51
+      },
+      {
+        "instrument": "aud_inst_orch_glock",
+        "len": 4,
+        "note": "E6",
+        "vol": 0.612
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_glock",
+        "len": 4,
+        "note": "G#6",
+        "vol": 0.637
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_glock",
+        "len": 4,
+        "note": "F#6",
+        "vol": 0.595
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_glock",
+        "len": 6,
+        "note": "E6",
+        "vol": 0.612
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_glock",
+        "len": 2,
+        "note": "D#6",
+        "vol": 0.552
+      },
+      null,
+      {
+        "instrument": "aud_inst_orch_glock",
+        "len": 8,
+        "note": "B5",
+        "vol": 0.595
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_glock",
+        "len": 4,
+        "note": "C6",
+        "vol": 0.612
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_glock",
+        "len": 4,
+        "note": "B5",
+        "vol": 0.578
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_glock",
+        "len": 4,
+        "note": "A5",
+        "vol": 0.578
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_glock",
+        "len": 4,
+        "note": "B5",
+        "vol": 0.595
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_glock",
+        "len": 16,
+        "note": "E6",
+        "vol": 0.663
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_glock",
+        "len": 12,
+        "note": "E6",
+        "vol": 0.68
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_glock",
+        "len": 4,
+        "note": "E6",
+        "vol": 0.722
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_pad",
+        "len": 3,
+        "note": "B4",
+        "vol": 0.595
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_pad",
+        "note": "B4",
+        "vol": 0.595
+      },
+      {
+        "instrument": "aud_inst_orch_pad",
+        "len": 4,
+        "note": "E5",
+        "vol": 0.595
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_pad",
+        "len": 4,
+        "note": "G#5",
+        "vol": 0.595
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_pad",
+        "len": 4,
+        "note": "F#5",
+        "vol": 0.595
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_pad",
+        "len": 6,
+        "note": "E5",
+        "vol": 0.595
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_pad",
+        "len": 2,
+        "note": "D#5",
+        "vol": 0.595
+      },
+      null,
+      {
+        "instrument": "aud_inst_orch_pad",
+        "len": 8,
+        "note": "B4",
+        "vol": 0.595
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_pad",
+        "len": 4,
+        "note": "C5",
+        "vol": 0.595
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_pad",
+        "len": 4,
+        "note": "B4",
+        "vol": 0.595
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_pad",
+        "len": 4,
+        "note": "A4",
+        "vol": 0.595
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_pad",
+        "len": 4,
+        "note": "B4",
+        "vol": 0.595
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_pad",
+        "len": 16,
+        "note": "E5",
+        "vol": 0.595
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_pad",
+        "len": 10,
+        "note": "E5",
+        "vol": 0.85
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_pad",
+        "len": 2,
+        "note": "E5",
+        "vol": 0.85
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  ],
+  "enabled": 1,
+  "id": "aud_song_ksab7_deadball_theme",
+  "instrument_ids": [
+    "aud_inst_orch_bassdrum",
+    "aud_inst_orch_cellos",
+    "aud_inst_orch_crash",
+    "aud_inst_orch_glock",
+    "aud_inst_orch_horn",
+    "aud_inst_orch_organ",
+    "aud_inst_orch_pad",
+    "aud_inst_orch_snare",
+    "aud_inst_orch_strings",
+    "aud_inst_orch_swell",
+    "aud_inst_orch_timpani",
+    "aud_inst_orch_trombone",
+    "aud_inst_orch_trumpet",
+    "aud_inst_orch_tuba"
+  ],
+  "loop_end": 0,
+  "loop_start": 0,
+  "name": "ksab7_deadball_theme",
+  "priority": 6,
+  "tempo": 132
+}

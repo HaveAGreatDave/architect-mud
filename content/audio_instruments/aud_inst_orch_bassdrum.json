@@ -1,0 +1,75 @@
+{
+  "category": "orchestral",
+  "config": {
+    "layers": [
+      {
+        "adsr": {
+          "a": 0.002,
+          "curve": "exp",
+          "d": 1.2,
+          "r": 0.3,
+          "s": 0
+        },
+        "gain": 0.3,
+        "mods": [
+          {
+            "a": 0.001,
+            "d": 0.07,
+            "id": "bt",
+            "r": 0.05,
+            "s": 0,
+            "to": [
+              {
+                "amount": 900,
+                "param": "pitch"
+              }
+            ],
+            "type": "env"
+          }
+        ],
+        "waveform": "sine"
+      },
+      {
+        "adsr": {
+          "a": 0.001,
+          "curve": "exp",
+          "d": 0.35,
+          "r": 0.2,
+          "s": 0
+        },
+        "filter": {
+          "freq": 180,
+          "q": 0.8,
+          "type": "lowpass"
+        },
+        "gain": 0.13,
+        "noiseMix": 1,
+        "noiseSeed": 59,
+        "waveform": "sine"
+      },
+      {
+        "adsr": {
+          "a": 0.0005,
+          "curve": "exp",
+          "d": 0.015,
+          "r": 0.02,
+          "s": 0
+        },
+        "filter": {
+          "freq": 1200,
+          "q": 0.7,
+          "type": "bandpass"
+        },
+        "gain": 0.03,
+        "noiseMix": 1,
+        "noiseSeed": 61,
+        "waveform": "sine"
+      }
+    ]
+  },
+  "enabled": 1,
+  "id": "aud_inst_orch_bassdrum",
+  "name": "Orchestra: Bass drum",
+  "sample_id": null,
+  "waveform": "sine"
+}

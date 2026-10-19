@@ -1,0 +1,80 @@
+{
+  "category": "fm",
+  "config": {
+    "layers": [
+      {
+        "adsr": {
+          "a": 0.004,
+          "d": 0.35,
+          "r": 0.07,
+          "s": 0.6
+        },
+        "detune": -6,
+        "fm": {
+          "index": 3,
+          "indexEnd": 1.8,
+          "ratio": 3,
+          "time": 0.2
+        },
+        "gain": 0.09,
+        "waveform": "sine"
+      },
+      {
+        "adsr": {
+          "a": 0.004,
+          "d": 0.35,
+          "r": 0.07,
+          "s": 0.6
+        },
+        "detune": 5,
+        "fm": {
+          "index": 2.6,
+          "indexEnd": 1.6,
+          "ratio": 3,
+          "time": 0.2
+        },
+        "gain": 0.08,
+        "tune": 7,
+        "waveform": "sine"
+      },
+      {
+        "adsr": {
+          "a": 0.004,
+          "d": 0.3,
+          "r": 0.07,
+          "s": 0.55
+        },
+        "fm": {
+          "index": 2,
+          "indexEnd": 1,
+          "ratio": 2,
+          "time": 0.2
+        },
+        "gain": 0.05,
+        "tune": 12,
+        "waveform": "sine"
+      },
+      {
+        "adsr": {
+          "a": 0.004,
+          "d": 0.3,
+          "r": 0.07,
+          "s": 0.6
+        },
+        "detune": 8,
+        "filter": {
+          "freq": 1800,
+          "q": 1.2,
+          "type": "lowpass"
+        },
+        "gain": 0.05,
+        "waveform": "sawtooth"
+      }
+    ]
+  },
+  "enabled": 1,
+  "id": "aud_inst_fm_power",
+  "name": "FM: Power chord",
+  "sample_id": null,
+  "waveform": "sine"
+}

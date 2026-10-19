@@ -395,7 +395,7 @@ const COL_PITCH_RICH = 0.085;
 // pier section gets window bays, a coping band and a roller shutter. The beacon is here on a
 // stronger version of the same argument: the whole of it is that nobody here built it, and the
 // kit's entire job is to make a building look like the street it stands on.
-const NO_KIT = new Set(['trm_wall', 'thornwall', 'damwall', 'pier', 'harbour_yard', 'lighthouse', 'quay_crane', 'pontoon', 'fuel_dock',
+const NO_KIT = new Set(['trm_wall', 'thornwall', 'damwall', 'pier', 'harbour_yard', 'lighthouse', 'quay_crane', 'pontoon', 'fuel_dock', 'car_park', 'staff_lot',
   // ⚠ AND THREE BUILDINGS WHOSE WHOLE FRONT IS A STORY THE KIT WOULD WRITE OVER. The gym's front is a
   // bricked-up mast doorway with a door cut into it, which is exactly where the works ground floor
   // hangs its shutter; the boat shed's street side is a door and a hatch and its water side is the
@@ -565,6 +565,9 @@ const KIT_DECLINE = { meridian: ['signRoof', 'wall', 'pier'],   // 'wall' and 'p
   cornershop: SLUM_DECLINE,   // Bare Necessities, the Rag Row lock-up: an authored model, so it names its trade
   ruin: SLUM_DECLINE,
   helpings: ['signRoof', 'wall', 'stair'], clone: ['stair', 'wall', 'riser'], chip_shop: ['ground', 'wall', 'signRoof'],
+  // Grounds for Concern draws its own shopfront round the corner, its door, its awning and its cup;
+  // the kit's glazed band, window grid and roof board would be a second frontage over it.
+  coffee_shop: ['ground', 'wall', 'signRoof', 'stair'],
   // Stuff It's canted window and painted sign ground ARE its shopfront, so the kit's glazed band
   // and awning would stand in front of the one thing the building is about.
   taxidermist: ['ground'],

@@ -104,50 +104,58 @@ const LEAF = { c: '#5ce07a', glow: '#22b84a', core: '#e2ffe8' };
 
 export const NEON_SIGNS = {
   // ── THE CHERRY PIT ───────────────────────────────────────────────────────────────────────────
-  // The room description is the brief: "the cherry in pink neon over the door has lost its stem and
-  // half its lower curve, so what actually buzzes up there is a lopsided circle." So the stem and
-  // the leaf are dark glass and so is the bottom-right of the fruit. The rest of the cherry buzzes
-  // and stutters, the shine winks, and once a cycle the dead stem catches for a blink, which is the
-  // tube trying. The name beside it is the one circuit in the place that has never failed.
+  // Two cherries on a forked stem, after the room description: the stems and the leaf are dark
+  // glass, and the back cherry has lost the bottom-right of its curve, so it buzzes as a lopsided
+  // circle. Each cherry is its own circuit: the front one holds, the back one drops out on its own,
+  // the shines wink, and once a cycle the dead stems catch for a blink, which is the tube trying.
+  // The name beside them is the one circuit in the place that has never failed.
   cherrypit: (() => {
-    const CX = 92, CY = 120, R = 58;
-    const arc = (a0, a1, r = R) => (g) => { g.moveTo(CX + r * Math.cos(a0), CY + r * Math.sin(a0)); g.arc(CX, CY, r, a0, a1); };
-    const P = Math.PI;
+    const P = Math.PI, R = 40;
+    // One cherry: round from `a0` to `a1`, with the dimple at the top where its stem goes in.
+    const fruit = (cx, cy, a0, a1) => (g) => {
+      g.moveTo(cx + R * Math.cos(a0), cy + R * Math.sin(a0));
+      g.arc(cx, cy, R, a0, 1.44 * P);
+      g.quadraticCurveTo(cx - 3, cy - R + 2, cx + 1, cy - R + 8);
+      g.quadraticCurveTo(cx + 6, cy - R + 2, cx + R * Math.cos(1.56 * P), cy + R * Math.sin(1.56 * P));
+      g.arc(cx, cy, R, 1.56 * P, a1);
+    };
+    const arc = (cx, cy, r, a0, a1) => (g) => { g.moveTo(cx + r * Math.cos(a0), cy + r * Math.sin(a0)); g.arc(cx, cy, r, a0, a1); };
+    const BX = 64, BY = 140, FX = 140, FY = 150, KX = 122, KY = 20;   // back cherry, front cherry, the fork
     return {
       w: 440, h: 200, bake: 560, glass: 0.55,
       runs: [
         // Dead glass first, so the lit tubes' halo lands on top of it.
-        { ...RED, lw: 7, dead: true, path: arc(0.12 * P, 0.62 * P) },   // the lower curve, gone
-        { ...LEAF, lw: 6, dead: true, path: (g) => {                    // the leaf, gone
-          g.moveTo(112, 34); g.quadraticCurveTo(150, 6, 172, 30); g.quadraticCurveTo(138, 52, 112, 34);
+        { ...RED, lw: 7, dead: true, path: arc(BX, BY, R, 0.12 * P, 0.62 * P) },   // the back cherry's lower curve, gone
+        { ...LEAF, lw: 6, dead: true, path: (g) => {                                // the leaf, gone
+          g.moveTo(KX, KY + 2); g.quadraticCurveTo(156, -2, 180, 20); g.quadraticCurveTo(146, 40, KX, KY + 2);
         } },
-        { ...LEAF, lw: 6, grp: 'stem', path: (g) => {                   // the stem: dead, except when it isn't
-          g.moveTo(CX + 2, CY - R + 4); g.quadraticCurveTo(CX + 4, 40, 128, 14);
+        // The forked stem: dead, except when it isn't.
+        { ...LEAF, lw: 6, grp: 'stem', path: (g) => {
+          g.moveTo(BX + 1, BY - R + 4); g.quadraticCurveTo(BX + 14, 50, KX, KY);
+          g.moveTo(FX + 1, FY - R + 4); g.quadraticCurveTo(FX - 4, 60, KX, KY);
         } },
-        // The fruit: from the bottom-left round over the top and down to the right, with the dimple
-        // where the stem goes in.
-        { ...RED, lw: 7, grp: 'body', path: (g) => {
-          g.moveTo(CX + R * Math.cos(0.62 * P), CY + R * Math.sin(0.62 * P));
-          g.arc(CX, CY, R, 0.62 * P, 1.44 * P);
-          g.quadraticCurveTo(CX - 4, CY - R + 2, CX + 2, CY - R + 10);
-          g.quadraticCurveTo(CX + 8, CY - R + 2, CX + R * Math.cos(1.56 * P), CY + R * Math.sin(1.56 * P));
-          g.arc(CX, CY, R, 1.56 * P, 2.12 * P);
-        } },
-        { c: '#ffd0e4', glow: '#ff6aa8', core: '#ffffff', lw: 5, grp: 'shine', path: arc(1.06 * P, 1.32 * P, 36) },
+        // The back cherry, missing its bottom right, and the front one whole, over it.
+        { ...RED, lw: 7, grp: 'back', path: fruit(BX, BY, 0.62 * P, 2.12 * P) },
+        { ...RED, lw: 7, grp: 'front', path: fruit(FX, FY, 0.5 * P, 2.5 * P) },
+        { c: '#ffd0e4', glow: '#ff6aa8', core: '#ffffff', lw: 4.5, grp: 'shine', path: arc(FX, FY, 24, 1.06 * P, 1.34 * P) },
+        { c: '#ffd0e4', glow: '#ff6aa8', core: '#ffffff', lw: 4.5, grp: 'shine2', path: arc(BX, BY, 24, 1.06 * P, 1.34 * P) },
         // The name: a small "the" and the rest in script. Sacramento is a monoline script, so its
         // stroke is close enough to the centreline of a bent tube.
         { ...PINK, lw: 2.2, word: 'the', x: 246, y: 80, size: 40 },
         { ...PINK, lw: 2.6, word: 'Cherry Pit', x: 300, y: 146, size: 70 },
       ],
+      // Each cherry is its own circuit: the back one is the bad one and drops out on its own.
       seq: [
-        { on: ['body', 'shine'], ms: 2200 },
+        { on: ['front', 'back', 'shine', 'shine2'], ms: 2200 },
+        { on: ['front', 'shine'], ms: 70 },
+        { on: ['front', 'back', 'shine', 'shine2'], ms: 120 },
+        { on: ['front', 'shine'], ms: 60 },
+        { on: ['front', 'back'], ms: 900 },
         { on: [], ms: 70 },
-        { on: ['body', 'shine'], ms: 120 },
-        { on: [], ms: 60 },
-        { on: ['body'], ms: 900 },
-        { on: ['body', 'shine'], ms: 1500 },
-        { on: ['body', 'shine', 'stem'], ms: 90 },
-        { on: ['body', 'shine'], ms: 1300 },
+        { on: ['front', 'back', 'shine', 'shine2'], ms: 1500 },
+        { on: ['front', 'back', 'shine', 'shine2', 'stem'], ms: 90 },
+        { on: ['front', 'shine'], ms: 400 },
+        { on: ['front', 'back', 'shine', 'shine2'], ms: 1300 },
       ],
     };
   })(),

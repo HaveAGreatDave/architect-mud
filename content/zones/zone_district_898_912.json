@@ -1,21 +1,21 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
+  "ambient_theme": "urban",
   "color": "#8ba36a",
-  "description": "A strip of grass between the Hughson Coliseum's first-base wall and Kettle Lane, seedheads nodding over a buried kerb. A path is worn across it to a loading door in the brick.",
+  "description": "A paved yard between the Coliseum's east wall and Kettle Lane, where the food carts park in a row under tarpaulins: a lemonade cart, a candy-floss wheel, a cart of roasting chestnuts. On game nights they roll out to the gates. A loading door is set in the limestone.",
   "exits": {
     "east": "zone_district_899_912"
   },
   "flags": {
     "district": "halcyon_fields",
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "terrain": "concrete"
   },
   "grid_x": 898,
   "grid_y": 912,
   "grid_z": 0,
   "id": "zone_district_898_912",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "name": "Cart Yard",
   "parent_zone": null
 }

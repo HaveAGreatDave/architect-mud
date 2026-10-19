@@ -30,6 +30,7 @@ import { jitterFor, reprojMatrix, TAA_TUNE } from './taa.js';
 import { createSkylineStrip } from './skyline.js';
 import { FOG_H_SCALE } from './fog.js';
 import { SHADOW_BIAS_TILES } from './shadow.js';
+import { venueState, venueEpoch } from '../world-feed.js';
 
 const scenes = new Map();
 
@@ -567,11 +568,14 @@ function texVariant(key, win) {
 // The key per cells array. windshield.js hands over the same array every frame until the map window
 // changes (GL_CELL_CACHE, which nothing may push to or mutate), so the strings, the sort and the join
 // run once per window instead of once per frame: hundreds of strings a frame from an aircraft.
+// ⚠ AND ONCE PER VENUE CHANGE. A venue's lights and roof (world-feed.js) are pushed while the window
+// stands still, so the memo carries the venue epoch and a push rebuilds the key once.
 const WINDOW_KEYS = new WeakMap();
 function windowKey(cells) {
-  let key = WINDOW_KEYS.get(cells);
-  if (key === undefined) WINDOW_KEYS.set(cells, key = windowKeyOf(cells));
-  return key;
+  const ep = venueEpoch();
+  let k = WINDOW_KEYS.get(cells);
+  if (k === undefined || k.ep !== ep) WINDOW_KEYS.set(cells, k = { key: windowKeyOf(cells), ep });
+  return k.key;
 }
 function windowKeyOf(cells) {
   // ⚠ bt/bn decide WHICH model this is and meshParams decides what that model was BUILT AS.
@@ -582,7 +586,7 @@ function windowKeyOf(cells) {
   // where you are standing, when a storm faults a junction box under your feet. Leave it out and
   // the vertex buffer is not stale, so the blackout arrives at the next corner instead of now.
   const parts = cells.map((it) => it.gx + ',' + it.gy + ':' + (it.c.bt || '') + ':' + (it.c.bn || '') + ':' + meshParams(it)
-    + ':' + (it.c.pw == null ? '' : it.c.pw) + (it.c.em ? 'e' : '') + (it.c.og ? 'o' : '') + (it.c.vl ? 'v' : ''));
+    + ':' + (it.c.pw == null ? '' : it.c.pw) + (it.c.em ? 'e' : '') + (it.c.og ? 'o' : ''));
   parts.sort();
   return parts.join(';');
 }
@@ -641,7 +645,17 @@ if (typeof window !== 'undefined') {
 // here and is itself a function of the tile, so this is belt and braces; it is stated anyway,
 // because 'another term happens to cover it' is exactly how a cache bug waits.
 const meshParams = (it) => it.fh + ':' + it.h + ':' + it.seed + ':' + it.E[0] + ',' + it.E[1]
-  + ':' + (it.c && it.c.biome || '') + ':' + (it.wx | 0) + (it.c && it.c.vl ? ':v' : '');   // a lit venue is another mesh
+  + ':' + (it.c && it.c.biome || '') + ':' + (it.wx | 0) + venueKey(it);
+// ⚠ A VENUE IS ANOTHER MESH FOR EACH OF ITS STATES: lit or not, its roof shut, open or moving. The
+// state is the cell's as amended by any push since (world-feed.js `venueState`), and the capture is
+// handed the same answer through `placeOf`, so the key and the mesh it names can't disagree. Read
+// the cell alone and a push made the arm draw one state into the cache entry of another.
+const isVenue = (c) => !!c && (c.vl != null || c.vr != null);
+function venueKey(it) {
+  if (!isVenue(it.c)) return '';
+  const s = venueState(it.wx, it.wy, it.c);
+  return (s.vl ? ':v' : '') + (s.vr == null ? '' : ':r' + s.vr + (s.vrm ? 'm' : ''));
+}
 
 // ── WHAT THE SUN PASS IS HANDED, OR NOTHING AT ALL ──────────────────────────
 //
@@ -978,9 +992,15 @@ const SSAO_TUNE = {
 
 // The district a GL cell stands in, in the shape windshield.js's `setTilePlace` wants. One place,
 // so the day capture and the night capture below cannot disagree about where the building is.
-// ⚠ AND ITS GAME NIGHT (`vl`): a venue's arm lights its field and lamps from the place, and both
-// captures are of what the arm draws, so a place without it bakes an unlit park into the mesh.
-const placeOf = (it) => ({ biome: it.c && it.c.biome, wx: it.wx, wy: it.wy, vl: it.c && it.c.vl });
+// ⚠ AND ITS GAME NIGHT AND ITS ROOF (`vl`, `vr`, `vrm`): a venue's arm lights its field and lamps and
+// places its roof from the place, and both captures are of what the arm draws, so a place without
+// them bakes an unlit, roofless park into the mesh. `mesh` tells the arm this is a capture, which
+// draws the state the key names and never the position a moving roof has reached.
+const placeOf = (it) => {
+  const p = { biome: it.c && it.c.biome, wx: it.wx, wy: it.wy, vl: it.c && it.c.vl };
+  if (isVenue(it.c)) Object.assign(p, venueState(it.wx, it.wy, it.c), { mesh: 1 });
+  return p;
+};
 
 // The skyline strip reads each cell's mesh every frame for two numbers (topZ, avgRgb). The cells array
 // is fixed for a map window, so the lookups (a meshParams string and two Map hits per cell) are done
@@ -1605,6 +1625,8 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   // The city's lights and its night, as the mass takes them, so a lit lock is lit by its lamps.
   const solids = g.view.drawSolids ? g.view.drawSolids(camAt, cssH, { fog: opts.fogBand, ...SOLID_WATER,
     lights: lightList, lightWrap: LIGHT_TUNE.wrap, lightFocus: LIGHT_TUNE.focus,
+    // The cel look, for the cloth (gl/cloth.js), so a tent is banded beside the wall it stands by.
+    toon: opts.glToon || 0, toonBands: opts.glToonBands,
     nightDim: 1 - (opts.night || 0) * (opts.glNightDark || 0) }) : 0;
 
   const fl = opts.floor;

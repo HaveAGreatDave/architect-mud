@@ -4,6 +4,7 @@
   "description": "The east end of Glacier Street, where it meets the Gate Road. The kerb on the south corner is chipped all along by the back wheels of coaches turning in on game nights.",
   "exits": {
     "east": "zone_district_918_915",
+    "south": "zone_district_917_916",
     "west": "zone_district_916_915"
   },
   "flags": {

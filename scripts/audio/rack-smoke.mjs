@@ -30,7 +30,7 @@ function sortKeys(v) {
 }
 
 const NAMES = ['rackFromRow', 'rackToRow', 'rackAdd', 'rackRemove', 'rackBypass', 'rackPatch', 'rackUnpatch', 'rackCanAdd',
-  'rackUnitsOf', 'rackLiveTargets', 'rackAddLayer', 'rackDeleteLayer', 'RACK_TARGETS', 'RACK_UNITS'];
+  'rackUnitsOf', 'rackLiveTargets', 'rackAddLayer', 'rackDeleteLayer', 'RACK_TARGETS', 'RACK_UNITS', 'RACK_MODS'];
 const R = new Function(readFileSync(join(ROOT, 'client/devpanel/js/panels/audio-rack.js'), 'utf8') + `\nreturn { ${NAMES.join(', ')} };`)();
 
 // What the save sends, minus the id the URL carries.
@@ -130,6 +130,70 @@ check(`all ${shipped} shipped rows round-trip`, bad.length === 0, bad.slice(0, 5
   check('a two-layer sfx saves as layers', Array.isArray(R.rackToRow(bare).config.layers));
   R.rackDeleteLayer(bare, 1);
   check('the last layer can\'t be deleted', R.rackDeleteLayer(bare, 0) === false);
+}
+
+// ── Every unit goes in, switches off and comes back exactly ─────────────────
+{
+  const r = R.rackFromRow('sfx', { id: 'u', name: 'u', config: { waveform: 'sawtooth', freq: 220 } });
+  for (const u of R.RACK_UNITS) {
+    if (u.fixed || u.source || u.key === 'formants') continue;
+    const why = R.rackAdd(r, 0, u.key);
+    check(`${u.key}: goes in`, why === true, String(why));
+    // an emptied layer.rack is the editor's, and the save drops it
+    const bare = (l) => { const o = structuredClone(l); if (o.rack && !Object.keys(o.rack.bypass || {}).length) delete o.rack; return o; };
+    const before = bare(r.layers[0]);
+    R.rackBypass(r, 0, u.key);
+    check(`${u.key}: switched off, it leaves the layer`, R.rackUnitsOf(r.layers[0]).some(x => x.key === u.key && !x.on) && !u.owns.some(p => p in r.layers[0] && p.indexOf('.') < 0));
+    R.rackBypass(r, 0, u.key);
+    check(`${u.key}: switched back on, it's as it was`, same(bare(r.layers[0]), before));
+  }
+  const live = R.rackLiveTargets(r.layers[0]);
+  check('every new stage\'s jacks are live once it\'s in', ['sub.level', 'fold.amount', 'ring.freq', 'eq.freq', 'phaser.rate', 'phaser.freq', 'chorus.rate', 'chorus.depth'].every(p => live.has(p)));
+}
+
+// ── The sources' power switches ─────────────────────────────────────────────
+{
+  const mix = R.rackFromRow('sfx', { id: 'm', name: 'm', config: { waveform: 'square', freq: 200, noiseMix: 0.3 } });
+  const L = () => mix.layers[0];
+  const orig = structuredClone(L());
+  R.rackBypass(mix, 0, 'osc');
+  check('oscillator off with noise on: all noise', L().noiseMix === 1 && !L().mute);
+  R.rackBypass(mix, 0, 'noise');
+  check('both off: the layer is muted', L().mute === true);
+  R.rackBypass(mix, 0, 'osc');
+  check('oscillator back on alone: no noise', L().noiseMix === 0 && !L().mute);
+  R.rackBypass(mix, 0, 'noise');
+  check('both back on: exactly as authored', same(L(), orig) || same({ ...L(), rack: undefined }, orig), JSON.stringify(L()));
+  check('a saved rack carries no source stash once both are on', !('rack' in R.rackToRow(mix).config));
+
+  const solo = R.rackFromRow('sfx', { id: 's', name: 's', config: { waveform: 'sine', freq: 300 } });
+  R.rackBypass(solo, 0, 'osc');
+  check('the only source off mutes the layer, and the save says so', R.rackToRow(solo).config.mute === true);
+  check('a muted layer has no live jacks', R.rackLiveTargets(solo.layers[0]).size === 0);
+  R.rackBypass(solo, 0, 'osc');
+  check('and on again it plays as before', !('mute' in solo.layers[0]) && !('rack' in R.rackToRow(solo).config));
+
+  const hiss = R.rackFromRow('sfx', { id: 'h', name: 'h', config: { waveform: 'noise' } });
+  R.rackAdd(hiss, 0, 'osc');
+  check('an oscillator added to pure noise keeps the noise', hiss.layers[0].waveform === 'sawtooth' && hiss.layers[0].noiseMix === 0.5);
+}
+
+// ── Patching into nothing is refused, with the reason ───────────────────────
+{
+  const r = R.rackFromRow('sfx', { id: 'p', name: 'p', config: { waveform: 'sine', freq: 300 } });
+  const id = R.rackAdd(r, 0, 'lfo');
+  const why = R.rackPatch(r, 0, id, 'filter.cutoff');
+  check('a cable into a filter that isn\'t there is refused', typeof why === 'string' && /Filter/.test(why), String(why));
+  R.rackAdd(r, 0, 'filter');
+  R.rackBypass(r, 0, 'filter');
+  check('and into one that\'s switched off', /switched off/.test(String(R.rackPatch(r, 0, id, 'filter.cutoff'))));
+  R.rackBypass(r, 0, 'filter');
+  check('and goes in once it\'s on', R.rackPatch(r, 0, id, 'filter.cutoff') === true);
+  const seq = R.rackAdd(r, 0, 'seq');
+  check('a sequencer patches like any mod', R.rackPatch(r, 0, seq, 'pitch', 1200) === true && Array.isArray(r.layers[0].mods.find(m => m.id === seq).steps));
+  const short = R.rackFromRow('sfx', { id: 'q', name: 'q', config: { duration: 0.12, waveform: 'sine' } });
+  const lfo = short.layers[0].mods?.[0] ?? (R.rackAdd(short, 0, 'lfo'), short.layers[0].mods[0]);
+  check('a new LFO on a short hit is fast enough to be heard moving', lfo.rate >= 8, String(lfo.rate));
 }
 
 // ── The jacks are the engine's targets ──────────────────────────────────────

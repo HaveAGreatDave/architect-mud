@@ -1,0 +1,30 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A long dark bar with a brass rail and a set high on the wall at the end of it, tuned to KSAB. Pennants and team photographs cover every wall, and the floor is sawdust over boards. A booth at the back is kept for whoever was there first.",
+  "exits": {
+    "down": "zone_util_zone_mulcahy_bar",
+    "north": "zone_parkside_898_911",
+    "south": "zone_mulcahy_snug"
+  },
+  "flags": {
+    "building_name": "Mulcahy's Sports Bar",
+    "building_type": "sports_bar",
+    "floor": "boards",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "Green-painted windows with MULCAHY'S in gold leaf, backwards from in here. Halcyon Boulevard is outside, and the Coliseum's north wall across the corner.",
+      "light": 0.5,
+      "name": "the front windows",
+      "visibility": 0.6
+    },
+    "world_exit_zone": "zone_parkside_898_911"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_mulcahy_bar",
+  "map_id": "map_int_mulcahy",
+  "name": "Mulcahy's — Bar",
+  "parent_zone": "zone_parkside_898_911"
+}

@@ -1,0 +1,16 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_coliseum_cap",
+  "name": "Coliseum cap",
+  "tags": {
+    "bulkiness": 1,
+    "description": "A green wool ball cap with the Coliseum's sunburst stitched on the front in gold thread. The peak comes flat and is meant to be bent by its owner over a season.",
+    "insulation": 0.4,
+    "layer": "outerwear",
+    "slot": "head"
+  },
+  "type": null,
+  "value": 16,
+  "weight": 110
+}

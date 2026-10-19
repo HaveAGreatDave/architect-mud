@@ -1,0 +1,91 @@
+{
+  "category": "orchestral",
+  "config": {
+    "layers": [
+      {
+        "adsr": {
+          "a": 0.002,
+          "curve": "exp",
+          "d": 1.6,
+          "r": 0.5,
+          "s": 0
+        },
+        "echo": {
+          "delay": 0.19,
+          "feedback": 0.4,
+          "mix": 0.2
+        },
+        "filter": {
+          "freq": 900,
+          "q": 0.7,
+          "type": "lowpass"
+        },
+        "fm": {
+          "index": 0.9,
+          "indexEnd": 0.05,
+          "ratio": 2.44,
+          "time": 0.25
+        },
+        "gain": 0.28,
+        "mods": [
+          {
+            "a": 0.001,
+            "d": 0.12,
+            "id": "st",
+            "r": 0.05,
+            "s": 0,
+            "to": [
+              {
+                "amount": 45,
+                "param": "pitch"
+              }
+            ],
+            "type": "env"
+          }
+        ],
+        "waveform": "sine"
+      },
+      {
+        "adsr": {
+          "a": 0.001,
+          "curve": "exp",
+          "d": 0.25,
+          "r": 0.2,
+          "s": 0
+        },
+        "filter": {
+          "freq": 320,
+          "q": 0.9,
+          "type": "bandpass"
+        },
+        "gain": 0.13,
+        "noiseMix": 1,
+        "noiseSeed": 11,
+        "waveform": "sine"
+      },
+      {
+        "adsr": {
+          "a": 0.0005,
+          "curve": "exp",
+          "d": 0.02,
+          "r": 0.02,
+          "s": 0
+        },
+        "filter": {
+          "freq": 2200,
+          "q": 0.7,
+          "type": "bandpass"
+        },
+        "gain": 0.05,
+        "noiseMix": 1,
+        "noiseSeed": 23,
+        "waveform": "sine"
+      }
+    ]
+  },
+  "enabled": 1,
+  "id": "aud_inst_orch_timpani",
+  "name": "Orchestra: Timpani",
+  "sample_id": null,
+  "waveform": "sine"
+}

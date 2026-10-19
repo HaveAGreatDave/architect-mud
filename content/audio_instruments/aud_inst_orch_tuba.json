@@ -1,0 +1,58 @@
+{
+  "category": "orchestral",
+  "config": {
+    "layers": [
+      {
+        "adsr": {
+          "a": 0.03,
+          "d": 0.2,
+          "r": 0.16,
+          "s": 0.8
+        },
+        "filter": {
+          "freq": 260,
+          "q": 0.9,
+          "type": "lowpass"
+        },
+        "gain": 0.17,
+        "mods": [
+          {
+            "a": 0.035,
+            "d": 0.22,
+            "id": "bl",
+            "r": 0.2,
+            "s": 0.45,
+            "to": [
+              {
+                "amount": 1700,
+                "param": "filter.cutoff"
+              }
+            ],
+            "type": "env"
+          }
+        ],
+        "waveform": "sawtooth"
+      },
+      {
+        "adsr": {
+          "a": 0.03,
+          "d": 0.2,
+          "r": 0.16,
+          "s": 0.85
+        },
+        "filter": {
+          "freq": 400,
+          "q": 0.7,
+          "type": "lowpass"
+        },
+        "gain": 0.1,
+        "waveform": "triangle"
+      }
+    ]
+  },
+  "enabled": 1,
+  "id": "aud_inst_orch_tuba",
+  "name": "Orchestra: Tuba",
+  "sample_id": null,
+  "waveform": "sawtooth"
+}

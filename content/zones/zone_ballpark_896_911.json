@@ -3,16 +3,17 @@
   "ambient_theme": "urban",
   "bg_color": "#2a1d18",
   "color": "#d8c9a8",
-  "description": "The outfield wall of the Hughson Coliseum along Halcyon Boulevard: plain brick, with the backs of the bleachers above it and the scoreboard on its legs.",
+  "description": "The north wall of the Hughson Coliseum along Halcyon Boulevard: limestone ranked with pale fins between tall windows, and over it the fixed end of the roof with a fan window in its arch.",
   "exits": {},
   "flags": {
     "building_name": "Charles B. Hughson Coliseum",
     "building_type": "ballpark_n",
     "district": "halcyon_fields",
     "entrance": "south",
-    "floors": 1,
+    "floors": 4,
     "region_id": "region_coldwater",
-    "venue_lights": true
+    "venue_lights": true,
+    "venue_roof": true
   },
   "grid_x": 896,
   "grid_y": 911,

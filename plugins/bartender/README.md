@@ -51,10 +51,23 @@ copy of this plugin.** The shared `TIPS` pool stays common (the verbs it teaches
 universal), but the per-player "which tips have you heard" memory is keyed
 `npcId:playerId`, so draining Lowry's pool doesn't leave Marla with nothing to say.
 
-Current voices: **Lowry** (`npc_embassy_barkeep`, the Embassy), **Marla Kest**
-(`npc_1784515589442`, The Coyote's Rest in the Reach), and **Sully Holt**
-(`npc_barkeep`, The Dead Pigeon in Coldwater). Sully has no `coworkerId` — nobody
-else works the Pigeon, and the tick guards on that key, so omitting it is the opt-out.
+Current voices, with the coworker each one pairs with:
+
+| Bartender | NPC id | Bar | Coworker |
+|---|---|---|---|
+| Lowry Cormack | `npc_embassy_barkeep` | the Embassy, days | Orion Thale |
+| Imogen Cardew | `npc_embassy_barkeep_night` | the Embassy, nights | Orion Thale |
+| Marla Kest | `npc_1784515589442` | The Coyote's Rest, the Reach | Doc Teller |
+| Sully Holt | `npc_barkeep` | The Dead Pigeon, Coldwater | none |
+| Molly Darton | `npc_soup_molly` | Jolene's | none |
+| Thomasina Tillery | `npc_bld_926_917_lobby` | The Counter, Old Coldwater | none |
+| Roz Vance | `npc_casino_runner` | the Lucky Bastard (floor runner) | Margo Duvall |
+| Rue Castellan | `npc_voltage_bartender` | Voltage, Halcyon Fields | Bishop |
+
+A bar with nobody else on the floor has no `coworkerId`, and the tick guards on that
+key, so omitting it is the opt-out. A coworker only counts if they work the same
+room on overlapping hours. Every bartender-personality NPC in `content/npcs/` has a
+voice now, so the Lowry fallback only catches a bartender added later without one.
 
 Sully is also the worked example of the trap in the Scope note below: his till-safe
 sat behind that bar with `vendor_npc_id: npc_barkeep` on it, while he himself had a

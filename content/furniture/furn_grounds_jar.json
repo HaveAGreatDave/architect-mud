@@ -1,0 +1,15 @@
+{
+  "description": "A pickle jar with HONESTY BOX written on a strip of tape, half full of coins and two buttons.",
+  "flags": {
+    "aliases": [
+      "jar",
+      "honesty jar",
+      "honesty box",
+      "pickle jar"
+    ]
+  },
+  "id": "furn_grounds_jar",
+  "name": "the honesty jar",
+  "object_type": "decoration",
+  "zone_id": "zone_grounds_cafe"
+}

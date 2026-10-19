@@ -37,6 +37,7 @@ import { acuityFor, perceptionBand, perceive, acuityNote, wouldOverload, EXTREME
 import { creatureFilthSmells, bodyOdourSelf } from '../hygiene.js';
 import { getMutations } from '../mutations.js';
 import { cap, withArticle } from '../util.js';
+import { isAnimal } from './social.js';
 
 // Naked body descriptions shown when every clothing layer is peeled. Split by sex
 // and gated by the viewer's MIS opt-in: MIS-off gets a plain "they're naked" line,
@@ -1000,6 +1001,11 @@ async function cmdExamine(targetStr, player, broadcast) {
       }
       const talkLink   = `<span class="action-link" data-action="talk" data-target="${escAttr(linkName)}" title="Talk to ${escAttr(c.name)}">talk</span>`;
       const attackLink = `<span class="action-link" data-action="attack" data-target="${escAttr(linkName)}" title="Attack ${escAttr(c.name)}">attack</span>`;
+      // An animal gets `pet` in place of `talk`, by the same predicate `pet` uses.
+      if (!seen && isAnimal(c)) {
+        const petLink = `<span class="action-link" data-action="pet" data-target="${escAttr(linkName)}" title="Pet ${escAttr(c.name)}">pet</span>`;
+        return { type:'examine', message:`${c.name}\n${c.description}${postureLine}\n<span class="text-dim">Actions:</span> ${petLink}  ${attackLink}` };
+      }
       // A transformed person answers with the shape, not the biography — no
       // clothing line, no posture note about a body the viewer cannot see.
       if (seen) {

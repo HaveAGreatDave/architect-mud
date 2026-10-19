@@ -1,0 +1,11 @@
+{
+  "description": "A single tube over the long table, one end gone pink.",
+  "flags": {},
+  "id": "furn_light_zone_hcbox_office",
+  "light_type": "overhead",
+  "lumen_output": 1200,
+  "name": "the strip light",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_hcbox_office"
+}

@@ -1,0 +1,9 @@
+{
+  "a": "zone_parkside_898_911",
+  "b": "zone_mulcahy_bar",
+  "blocked": false,
+  "dir": "south",
+  "id": "conn_hf_parkside_898_911_south",
+  "lockable": true,
+  "one_way": false
+}

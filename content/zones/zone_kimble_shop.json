@@ -1,0 +1,30 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A narrow shop lined with pennants, caps on a tree by the door, foam fingers in a bin, and a glass counter of signed balls on stands. A card machine hums in the corner, and the walls are papered with old game posters.",
+  "exits": {
+    "down": "zone_util_zone_kimble_shop",
+    "north": "zone_kimble_stock",
+    "south": "zone_parkside_894_913"
+  },
+  "flags": {
+    "building_name": "Kimble's Souvenirs & Cards",
+    "building_type": "souvenir_shop",
+    "floor": "linoleum",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "Pennants hung in fans in the window, faded on the street side. Sorrel Way is outside, and the Coliseum's south-west tower.",
+      "light": 0.6,
+      "name": "the shop window",
+      "visibility": 0.6
+    },
+    "world_exit_zone": "zone_parkside_894_913"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_kimble_shop",
+  "map_id": "map_int_kimble",
+  "name": "Kimble's — Shop",
+  "parent_zone": "zone_parkside_894_913"
+}

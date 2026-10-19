@@ -1,0 +1,18 @@
+{
+  "description": "A twelve-kilo drum roaster on cast-iron legs, the drum turning behind a little glass port. A cooling tray stirs the beans on the front. The flue goes up through the ceiling to the cup on the roof.",
+  "flags": {
+    "aliases": [
+      "roaster",
+      "drum",
+      "drum roaster",
+      "cooling tray",
+      "tray",
+      "port",
+      "flue"
+    ]
+  },
+  "id": "furn_grounds_roaster",
+  "name": "the roaster",
+  "object_type": "fixture",
+  "zone_id": "zone_grounds_roastery"
+}

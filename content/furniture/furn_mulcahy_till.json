@@ -1,0 +1,18 @@
+{
+  "description": "A till at the far end of the bar with a bell that has been taped silent.",
+  "flags": {
+    "aliases": [
+      "till",
+      "cash drawer",
+      "drawer",
+      "cash"
+    ],
+    "hack_difficulty": 3,
+    "vendor_npc_id": "npc_mulcahy_declan",
+    "vendor_safe": true
+  },
+  "id": "furn_mulcahy_till",
+  "name": "the cash drawer",
+  "object_type": "fixture",
+  "zone_id": "zone_mulcahy_bar"
+}

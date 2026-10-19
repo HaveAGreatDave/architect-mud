@@ -1,0 +1,11 @@
+{
+  "description": "A tube light that flickers when the sewing machine runs.",
+  "flags": {},
+  "id": "furn_light_zone_kimble_stock",
+  "light_type": "overhead",
+  "lumen_output": 1000,
+  "name": "the stockroom tube",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "zone_id": "zone_kimble_stock"
+}

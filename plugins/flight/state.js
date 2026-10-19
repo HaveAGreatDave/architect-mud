@@ -1546,6 +1546,11 @@ export function deriveSurfaceCell(cell, x, y, at = surfaceAt, live = true) {
   // of the nine tiles of the Hughson Coliseum and nothing else. A static bake (`live` false) says 0.
   let vl;
   if (cell.flags?.venue_lights) vl = live && gatherHookSync('venue.lit', { x, y, id: cell.id }).some((r) => r && r.on) ? 1 : 0;
+  // `vr`: a venue's roof, 1 shut and 0 open, from the broadcast plugin's `venue.roof` (the weather at
+  // the park). ⚠ SYNC, and gated on `flags.venue_roof` the same way. A static bake shows it shut, so a
+  // picture of the Coliseum with no weather behind it is the dome.
+  let vr;
+  if (cell.flags?.venue_roof) vr = !live || gatherHookSync('venue.roof', { x, y, id: cell.id }).some((r) => r && r.shut) ? 1 : 0;
   // A yacht that's recently sailed streams a decaying wake to every pilot in view.
   let wake, sub, heading;
   if (mark === 'yacht') {
@@ -1782,7 +1787,7 @@ export function deriveSurfaceCell(cell, x, y, at = surfaceAt, live = true) {
     && [[-1, 0], [1, 0]].some(([ox, oy]) => { const c = at(x + ox, y + oy); return !!(c?.flags?.gate_lock && typeof c.flags.gate_lock === 'object'); });
   const bk = cell.flags?.aircraft_hangar && cell.flags?.heavy_hangar ? 'heavy' : cell.flags?.aircraft_hangar ? 'air' : besideLock ? 'lock' : undefined;
   // A runway is not a street (see `rwy` above): no kerbs, no steam vents, no pedestrians on it.
-  return { prp, kind, biome, road: rwy ? 0 : road, danger: cell.danger, pad, bt, bn, trd, ent, flr, mark, bk, strip, rwy, twy, hp, rd, rdeg, rt, rw, rl, wr, rc, wake, sub, heading, cur, cld, ci, ft, hi, cf, pf: cell.flags?.park_feature, pw, em, og, sl, sgn, plz, lk, ml, bf, bq, aa, vl, brd: brd && brd.length ? brd : undefined, gft: gft && gft.length ? gft : undefined };
+  return { prp, kind, biome, road: rwy ? 0 : road, danger: cell.danger, pad, bt, bn, trd, ent, flr, mark, bk, strip, rwy, twy, hp, rd, rdeg, rt, rw, rl, wr, rc, wake, sub, heading, cur, cld, ci, ft, hi, cf, pf: cell.flags?.park_feature, pw, em, og, sl, sgn, plz, lk, ml, bf, bq, aa, vl, vr, brd: brd && brd.length ? brd : undefined, gft: gft && gft.length ? gft : undefined };
 }
 
 // The flight window's half-width, named so the things that have to AGREE with it can say so

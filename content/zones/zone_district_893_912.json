@@ -3,7 +3,7 @@
   "ambient_theme": "city",
   "description": "The dead end. Coldwater Recital Hall's back wall closes it off: forty feet of blank chrome with a stage door in it, a bell, and a grille over the bell. Delivery vans reverse the whole length of the mews rather than try to turn here.",
   "exits": {
-    "east": "zone_district_894_912",
+    "east": "zone_parkside_894_912",
     "south": "zone_district_893_913"
   },
   "flags": {

@@ -5,7 +5,7 @@
 // gl/ballplayer-mesh.js buildBody). Node has no GPU, so this skins them on the CPU with the same
 // sum the shader does (skinPoint) and holds the result to the stills the 1c builder lofts:
 //
-//   1. THE RIG. Twenty bones; every pose in the table solves to finite frames, each one a turn
+//   1. THE RIG. Twenty-two bones; every pose in the table solves to finite frames, each one a turn
 //      (orthonormal and right-handed) or folded to nothing; the bind frames skin to the identity.
 //   2. THE BODIES. A fielder, a catcher, an umpire and a hitter built for skinning: every vertex on
 //      up to four bones with weights summing to one; the bind pose skins every vertex to itself;
@@ -69,7 +69,7 @@ const solved = (name, mirror = false, scale = 1) => {
 const rowsFor = (name, mirror = false, scale = 1) => RIG.skinRows(RIG.boneFrames(solved(name, mirror, scale)), RIG.bindFrames(scale));
 
 // ── 1. the rig ───────────────────────────────────────────────────────────────
-check('rig: twenty bones, each named once', NB === 20 && new Set(RIG.BONES).size === NB && RIG.BONES.every((n, i) => RIG.BONE[n] === i));
+check('rig: twenty-two bones, each named once', NB === 22 && new Set(RIG.BONES).size === NB && RIG.BONES.every((n, i) => RIG.BONE[n] === i));
 {
   let bad = [], folded = 0;
   for (const name of Object.keys(PM.POSES)) for (const mirror of [false, true]) {

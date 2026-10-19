@@ -41,6 +41,12 @@ Pools exist for `sports`, `news`, `dynamic_news`, `gameshow`, `talkshow`, `morni
 A line may embed `{program}` or `{station}`, and **a line whose token has no value on this beat is
 skipped in favour of one that resolves** — the same rule banter applies to its topical threads.
 
+A character with a voice of their own can carry lines for a mode in `flags.tv_lines`
+(`{ sports: [...] }`, the same quoted/bare convention). The speaker is chosen first, so their
+own pool replaces the shared one for that mode only, and a pool that can't resolve on this beat
+falls back to the shared lines. Sir Charles Hughson is the first: he talks back to the ball game in
+his own words, at home on his set and in his seat at the Coliseum, where the video board is on 7.
+
 ## The other half: banter about the show
 
 Reacting to a beat is one thing; *arguing about the programme* is the other, and that lives in

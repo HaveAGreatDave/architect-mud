@@ -1,0 +1,6 @@
+{
+  "entry_zone_id": "zone_hcbox_windows",
+  "id": "map_int_hcbox",
+  "name": "Coliseum Box Office",
+  "parent_zone_id": "zone_parkside_898_913"
+}

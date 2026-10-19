@@ -1,0 +1,72 @@
+{
+  "category": "orchestral",
+  "config": {
+    "layers": [
+      {
+        "adsr": {
+          "a": 0.001,
+          "curve": "exp",
+          "d": 2.6,
+          "r": 1.2,
+          "s": 0
+        },
+        "filter": {
+          "freq": 3500,
+          "q": 0.5,
+          "type": "highpass"
+        },
+        "gain": 0.3,
+        "noiseMix": 1,
+        "noiseSeed": 71,
+        "waveform": "square",
+        "width": 0.9
+      },
+      {
+        "adsr": {
+          "a": 0.001,
+          "curve": "exp",
+          "d": 2,
+          "r": 1,
+          "s": 0
+        },
+        "filter": {
+          "freq": 2500,
+          "q": 0.6,
+          "type": "highpass"
+        },
+        "fm": {
+          "index": 3.5,
+          "indexEnd": 1.2,
+          "ratio": 2.37,
+          "time": 1.5
+        },
+        "gain": 0.06,
+        "waveform": "square"
+      },
+      {
+        "adsr": {
+          "a": 0.001,
+          "curve": "exp",
+          "d": 1.2,
+          "r": 0.6,
+          "s": 0
+        },
+        "filter": {
+          "freq": 7000,
+          "q": 0.8,
+          "type": "bandpass"
+        },
+        "gain": 0.14,
+        "noiseMix": 1,
+        "noiseSeed": 83,
+        "waveform": "square",
+        "width": 0.7
+      }
+    ]
+  },
+  "enabled": 1,
+  "id": "aud_inst_orch_crash",
+  "name": "Orchestra: Crash cymbal",
+  "sample_id": null,
+  "waveform": "square"
+}

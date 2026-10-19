@@ -102,6 +102,7 @@
   },
   "hooks": [
     "tick.minute",
-    "venue.lit"
+    "venue.lit",
+    "venue.roof"
   ]
 }

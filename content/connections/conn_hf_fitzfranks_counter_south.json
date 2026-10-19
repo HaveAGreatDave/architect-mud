@@ -1,0 +1,9 @@
+{
+  "a": "zone_fitzfranks_counter",
+  "b": "zone_fitzfranks_kitchen",
+  "blocked": false,
+  "dir": "south",
+  "id": "conn_hf_fitzfranks_counter_south",
+  "lockable": false,
+  "one_way": false
+}

@@ -1,0 +1,7228 @@
+{
+  "category": "theme",
+  "channel_pan": [
+    0.06,
+    -0.2,
+    0.24,
+    -0.38,
+    0,
+    0.4,
+    0.3,
+    -0.32,
+    0,
+    -0.14,
+    0,
+    0.04,
+    0.3,
+    -0.06,
+    -0.18
+  ],
+  "channels": [
+    [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_lead",
+        "len": 3,
+        "note": "C5",
+        "vol": 1
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_lead",
+        "len": 3,
+        "note": "Ab5",
+        "vol": 1
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_lead",
+        "note": "Eb5",
+        "vol": 0.85
+      },
+      {
+        "instrument": "aud_inst_fm_lead",
+        "note": "Eb5",
+        "vol": 0.8
+      },
+      {
+        "instrument": "aud_inst_fm_lead",
+        "len": 2,
+        "note": "Eb5",
+        "vol": 0.9
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_lead",
+        "len": 8,
+        "note": "Ab5",
+        "vol": 1
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_lead",
+        "len": 4,
+        "note": "C5",
+        "vol": 0.95
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_lead",
+        "len": 4,
+        "note": "F5",
+        "vol": 1
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_lead",
+        "len": 3,
+        "note": "Eb5",
+        "vol": 0.9
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_lead",
+        "len": 3,
+        "note": "Db5",
+        "vol": 0.88
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_lead",
+        "len": 2,
+        "note": "C5",
+        "vol": 0.9
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_lead",
+        "len": 6,
+        "note": "Ab5",
+        "vol": 1
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_lead",
+        "len": 2,
+        "note": "F5",
+        "vol": 0.9
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_lead",
+        "len": 4,
+        "note": "Eb5",
+        "vol": 0.9
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_lead",
+        "len": 4,
+        "note": "Db5",
+        "vol": 0.88
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_lead",
+        "len": 4,
+        "note": "Bb4",
+        "vol": 0.92
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_lead",
+        "len": 4,
+        "note": "Eb5",
+        "vol": 0.98
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_lead",
+        "len": 3,
+        "note": "Db5",
+        "vol": 0.9
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_lead",
+        "len": 3,
+        "note": "C5",
+        "vol": 0.88
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_lead",
+        "len": 2,
+        "note": "Bb4",
+        "vol": 0.88
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_lead",
+        "len": 4,
+        "note": "Ab4",
+        "vol": 0.9
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_lead",
+        "len": 4,
+        "note": "C5",
+        "vol": 0.95
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_lead",
+        "len": 8,
+        "note": "F5",
+        "vol": 1
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_lead",
+        "len": 4,
+        "note": "Eb5",
+        "vol": 0.95
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_lead",
+        "len": 4,
+        "note": "Ab5",
+        "vol": 1
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_lead",
+        "len": 3,
+        "note": "G5",
+        "vol": 0.92
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_lead",
+        "len": 3,
+        "note": "F5",
+        "vol": 0.9
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_lead",
+        "len": 2,
+        "note": "Eb5",
+        "vol": 0.92
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_lead",
+        "len": 6,
+        "note": "Bb5",
+        "vol": 1
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_lead",
+        "len": 2,
+        "note": "Ab5",
+        "vol": 0.9
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_lead",
+        "len": 4,
+        "note": "G5",
+        "vol": 0.92
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_lead",
+        "len": 4,
+        "note": "Eb5",
+        "vol": 0.9
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_lead",
+        "len": 4,
+        "note": "Ab5",
+        "vol": 0.95
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_lead",
+        "len": 4,
+        "note": "C6",
+        "vol": 1
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_lead",
+        "len": 3,
+        "note": "Bb5",
+        "vol": 0.92
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_lead",
+        "len": 3,
+        "note": "Ab5",
+        "vol": 0.9
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_lead",
+        "len": 2,
+        "note": "G5",
+        "vol": 0.9
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_lead",
+        "len": 6,
+        "note": "F5",
+        "vol": 0.95
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_lead",
+        "len": 2,
+        "note": "Eb5",
+        "vol": 0.88
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_lead",
+        "len": 4,
+        "note": "F5",
+        "vol": 0.92
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_lead",
+        "len": 4,
+        "note": "G5",
+        "vol": 0.95
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_lead",
+        "len": 2,
+        "note": "G#5",
+        "vol": 0.88
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_lead",
+        "len": 2,
+        "note": "G#5",
+        "vol": 0.88
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_lead",
+        "len": 2,
+        "note": "G#5",
+        "vol": 0.92
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_lead",
+        "len": 2,
+        "note": "Bb5",
+        "vol": 0.9
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_lead",
+        "len": 2,
+        "note": "Bb5",
+        "vol": 0.9
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_lead",
+        "len": 2,
+        "note": "Bb5",
+        "vol": 0.94
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_lead",
+        "len": 10,
+        "note": "C6",
+        "vol": 0.76
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_lead",
+        "len": 2,
+        "note": "C6",
+        "vol": 0.86
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_brass",
+        "len": 3,
+        "note": "Ab4",
+        "vol": 0.95
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_brass",
+        "len": 3,
+        "note": "Eb5",
+        "vol": 0.95
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_brass",
+        "note": "C5",
+        "vol": 0.8
+      },
+      {
+        "instrument": "aud_inst_fm_brass",
+        "note": "C5",
+        "vol": 0.75
+      },
+      {
+        "instrument": "aud_inst_fm_brass",
+        "len": 2,
+        "note": "C5",
+        "vol": 0.85
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_brass",
+        "len": 8,
+        "note": "Eb5",
+        "vol": 0.95
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_brass",
+        "len": 16,
+        "note": "Ab4",
+        "vol": 0.5
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_brass",
+        "len": 16,
+        "note": "F4",
+        "vol": 0.5
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_brass",
+        "len": 16,
+        "note": "G4",
+        "vol": 0.52
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_brass",
+        "len": 16,
+        "note": "Ab4",
+        "vol": 0.55
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_brass",
+        "len": 4,
+        "note": "C5",
+        "vol": 0.8
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_brass",
+        "len": 4,
+        "note": "Eb5",
+        "vol": 0.85
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_brass",
+        "len": 3,
+        "note": "Eb5",
+        "vol": 0.8
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_brass",
+        "len": 3,
+        "note": "Db5",
+        "vol": 0.78
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_brass",
+        "len": 2,
+        "note": "C5",
+        "vol": 0.8
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_brass",
+        "len": 6,
+        "note": "G5",
+        "vol": 0.85
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_brass",
+        "len": 2,
+        "note": "F5",
+        "vol": 0.78
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_brass",
+        "len": 4,
+        "note": "Eb5",
+        "vol": 0.8
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_brass",
+        "len": 4,
+        "note": "Bb4",
+        "vol": 0.78
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_brass",
+        "len": 4,
+        "note": "F5",
+        "vol": 0.8
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_brass",
+        "len": 4,
+        "note": "Ab5",
+        "vol": 0.85
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_brass",
+        "len": 3,
+        "note": "G5",
+        "vol": 0.8
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_brass",
+        "len": 3,
+        "note": "F5",
+        "vol": 0.78
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_brass",
+        "len": 2,
+        "note": "Eb5",
+        "vol": 0.78
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_brass",
+        "len": 6,
+        "note": "Db5",
+        "vol": 0.8
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_brass",
+        "len": 2,
+        "note": "C5",
+        "vol": 0.75
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_brass",
+        "len": 4,
+        "note": "Db5",
+        "vol": 0.78
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_brass",
+        "len": 4,
+        "note": "Eb5",
+        "vol": 0.82
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_brass",
+        "len": 2,
+        "note": "E5",
+        "vol": 0.84
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_brass",
+        "len": 2,
+        "note": "E5",
+        "vol": 0.84
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_brass",
+        "len": 2,
+        "note": "E5",
+        "vol": 0.88
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_brass",
+        "len": 2,
+        "note": "Gb5",
+        "vol": 0.86
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_brass",
+        "len": 2,
+        "note": "Gb5",
+        "vol": 0.86
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_brass",
+        "len": 2,
+        "note": "Gb5",
+        "vol": 0.9
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_brass",
+        "len": 10,
+        "note": "Ab5",
+        "vol": 0.76
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_brass",
+        "len": 2,
+        "note": "Ab5",
+        "vol": 0.86
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_brass",
+        "len": 3,
+        "note": "F4",
+        "vol": 0.95
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_brass",
+        "len": 3,
+        "note": "C5",
+        "vol": 0.95
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_brass",
+        "len": 8,
+        "note": "Ab4",
+        "vol": 0.8
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_brass",
+        "len": 16,
+        "note": "Eb4",
+        "vol": 0.42
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_brass",
+        "len": 8,
+        "note": "C4",
+        "vol": 0.46
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_brass",
+        "len": 8,
+        "note": "F4",
+        "vol": 0.5
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_brass",
+        "len": 16,
+        "note": "Ab4",
+        "vol": 0.55
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_brass",
+        "len": 16,
+        "note": "G4",
+        "vol": 0.55
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_brass",
+        "len": 16,
+        "note": "Ab4",
+        "vol": 0.55
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_brass",
+        "len": 16,
+        "note": "F4",
+        "vol": 0.58
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_brass",
+        "len": 2,
+        "note": "B4",
+        "vol": 0.8
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_brass",
+        "len": 2,
+        "note": "B4",
+        "vol": 0.8
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_brass",
+        "len": 2,
+        "note": "B4",
+        "vol": 0.84
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_brass",
+        "len": 2,
+        "note": "Db5",
+        "vol": 0.82
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_brass",
+        "len": 2,
+        "note": "Db5",
+        "vol": 0.82
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_brass",
+        "len": 2,
+        "note": "Db5",
+        "vol": 0.86
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_brass",
+        "len": 10,
+        "note": "Eb5",
+        "vol": 0.76
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_brass",
+        "len": 2,
+        "note": "Eb5",
+        "vol": 0.86
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_power",
+        "len": 9,
+        "note": "F3",
+        "vol": 0.95
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_power",
+        "len": 8,
+        "note": "Db3",
+        "vol": 0.7
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_power",
+        "len": 8,
+        "note": "Eb3",
+        "vol": 0.76
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_power",
+        "len": 3,
+        "note": "Ab3",
+        "vol": 1
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_power",
+        "len": 8,
+        "note": "Ab3",
+        "vol": 0.85
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_power",
+        "len": 2,
+        "note": "F3",
+        "vol": 0.748
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_power",
+        "note": "F3",
+        "vol": 0.527
+      },
+      {
+        "instrument": "aud_inst_fm_power",
+        "note": "F3",
+        "vol": 0.527
+      },
+      {
+        "instrument": "aud_inst_fm_power",
+        "len": 2,
+        "note": "F3",
+        "vol": 0.748
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_power",
+        "len": 2,
+        "note": "F3",
+        "vol": 0.748
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_power",
+        "len": 2,
+        "note": "F3",
+        "vol": 0.748
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_power",
+        "note": "F3",
+        "vol": 0.527
+      },
+      {
+        "instrument": "aud_inst_fm_power",
+        "note": "F3",
+        "vol": 0.527
+      },
+      {
+        "instrument": "aud_inst_fm_power",
+        "len": 2,
+        "note": "F3",
+        "vol": 0.748
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_power",
+        "len": 2,
+        "note": "F3",
+        "vol": 0.748
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_power",
+        "len": 2,
+        "note": "Db3",
+        "vol": 0.748
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_power",
+        "note": "Db3",
+        "vol": 0.527
+      },
+      {
+        "instrument": "aud_inst_fm_power",
+        "note": "Db3",
+        "vol": 0.527
+      },
+      {
+        "instrument": "aud_inst_fm_power",
+        "len": 2,
+        "note": "Db3",
+        "vol": 0.748
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_power",
+        "len": 2,
+        "note": "Db3",
+        "vol": 0.748
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_power",
+        "len": 2,
+        "note": "Db3",
+        "vol": 0.748
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_power",
+        "note": "Db3",
+        "vol": 0.527
+      },
+      {
+        "instrument": "aud_inst_fm_power",
+        "note": "Db3",
+        "vol": 0.527
+      },
+      {
+        "instrument": "aud_inst_fm_power",
+        "len": 2,
+        "note": "Db3",
+        "vol": 0.748
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_power",
+        "len": 2,
+        "note": "Db3",
+        "vol": 0.748
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_power",
+        "len": 2,
+        "note": "Eb3",
+        "vol": 0.774
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_power",
+        "note": "Eb3",
+        "vol": 0.546
+      },
+      {
+        "instrument": "aud_inst_fm_power",
+        "note": "Eb3",
+        "vol": 0.546
+      },
+      {
+        "instrument": "aud_inst_fm_power",
+        "len": 2,
+        "note": "Eb3",
+        "vol": 0.774
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_power",
+        "len": 2,
+        "note": "Eb3",
+        "vol": 0.774
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_power",
+        "len": 2,
+        "note": "Eb3",
+        "vol": 0.774
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_power",
+        "note": "Eb3",
+        "vol": 0.546
+      },
+      {
+        "instrument": "aud_inst_fm_power",
+        "note": "Eb3",
+        "vol": 0.546
+      },
+      {
+        "instrument": "aud_inst_fm_power",
+        "len": 2,
+        "note": "Eb3",
+        "vol": 0.774
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_power",
+        "len": 2,
+        "note": "Eb3",
+        "vol": 0.774
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_power",
+        "len": 2,
+        "note": "F3",
+        "vol": 0.792
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_power",
+        "note": "F3",
+        "vol": 0.558
+      },
+      {
+        "instrument": "aud_inst_fm_power",
+        "note": "F3",
+        "vol": 0.558
+      },
+      {
+        "instrument": "aud_inst_fm_power",
+        "len": 2,
+        "note": "F3",
+        "vol": 0.792
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_power",
+        "len": 2,
+        "note": "F3",
+        "vol": 0.792
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_power",
+        "len": 2,
+        "note": "F3",
+        "vol": 0.792
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_power",
+        "note": "F3",
+        "vol": 0.558
+      },
+      {
+        "instrument": "aud_inst_fm_power",
+        "note": "F3",
+        "vol": 0.558
+      },
+      {
+        "instrument": "aud_inst_fm_power",
+        "len": 2,
+        "note": "F3",
+        "vol": 0.792
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_power",
+        "len": 2,
+        "note": "F3",
+        "vol": 0.792
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_power",
+        "len": 2,
+        "note": "Db3",
+        "vol": 0.9
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_power",
+        "len": 2,
+        "note": "Db3",
+        "vol": 0.8
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_power",
+        "len": 2,
+        "note": "Db3",
+        "vol": 0.85
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_power",
+        "len": 6,
+        "note": "Db3",
+        "vol": 0.9
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_power",
+        "len": 2,
+        "note": "Eb3",
+        "vol": 0.9
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_power",
+        "len": 2,
+        "note": "Eb3",
+        "vol": 0.8
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_power",
+        "len": 2,
+        "note": "Eb3",
+        "vol": 0.85
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_power",
+        "len": 3,
+        "note": "Ab3",
+        "vol": 0.828
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_power",
+        "len": 3,
+        "note": "Ab3",
+        "vol": 0.828
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_power",
+        "len": 2,
+        "note": "Ab3",
+        "vol": 0.828
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_power",
+        "len": 2,
+        "note": "Ab3",
+        "vol": 0.662
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_power",
+        "len": 2,
+        "note": "Ab3",
+        "vol": 0.662
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_power",
+        "len": 2,
+        "note": "Ab3",
+        "vol": 0.662
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_power",
+        "len": 2,
+        "note": "Ab3",
+        "vol": 0.662
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_power",
+        "len": 3,
+        "note": "Eb3",
+        "vol": 0.828
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_power",
+        "len": 3,
+        "note": "Eb3",
+        "vol": 0.828
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_power",
+        "len": 2,
+        "note": "Eb3",
+        "vol": 0.828
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_power",
+        "len": 2,
+        "note": "Eb3",
+        "vol": 0.662
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_power",
+        "len": 2,
+        "note": "Eb3",
+        "vol": 0.662
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_power",
+        "len": 2,
+        "note": "Eb3",
+        "vol": 0.662
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_power",
+        "len": 2,
+        "note": "Eb3",
+        "vol": 0.662
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_power",
+        "len": 3,
+        "note": "F3",
+        "vol": 0.846
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_power",
+        "len": 3,
+        "note": "F3",
+        "vol": 0.846
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_power",
+        "len": 2,
+        "note": "F3",
+        "vol": 0.846
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_power",
+        "len": 2,
+        "note": "F3",
+        "vol": 0.677
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_power",
+        "len": 2,
+        "note": "F3",
+        "vol": 0.677
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_power",
+        "len": 2,
+        "note": "F3",
+        "vol": 0.677
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_power",
+        "len": 2,
+        "note": "F3",
+        "vol": 0.677
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_power",
+        "len": 3,
+        "note": "Db3",
+        "vol": 0.864
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_power",
+        "len": 3,
+        "note": "Db3",
+        "vol": 0.864
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_power",
+        "len": 2,
+        "note": "Db3",
+        "vol": 0.864
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_power",
+        "len": 2,
+        "note": "Db3",
+        "vol": 0.691
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_power",
+        "len": 2,
+        "note": "Db3",
+        "vol": 0.691
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_power",
+        "len": 2,
+        "note": "Db3",
+        "vol": 0.691
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_power",
+        "len": 2,
+        "note": "Db3",
+        "vol": 0.691
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_power",
+        "len": 2,
+        "note": "E3",
+        "vol": 0.86
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_power",
+        "len": 2,
+        "note": "E3",
+        "vol": 0.86
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_power",
+        "len": 2,
+        "note": "E3",
+        "vol": 0.9
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_power",
+        "len": 2,
+        "note": "Gb3",
+        "vol": 0.88
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_power",
+        "len": 2,
+        "note": "Gb3",
+        "vol": 0.88
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_power",
+        "len": 2,
+        "note": "Gb3",
+        "vol": 0.92
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_power",
+        "len": 10,
+        "note": "Ab3",
+        "vol": 0.76
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_power",
+        "len": 2,
+        "note": "Ab3",
+        "vol": 0.86
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_bass",
+        "len": 9,
+        "note": "F2",
+        "vol": 1
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_bass",
+        "len": 2,
+        "note": "Db2",
+        "vol": 0.8
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_bass",
+        "len": 2,
+        "note": "Db2",
+        "vol": 0.7
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_bass",
+        "len": 2,
+        "note": "Db2",
+        "vol": 0.72
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_bass",
+        "len": 2,
+        "note": "Db2",
+        "vol": 0.75
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_bass",
+        "len": 2,
+        "note": "Eb2",
+        "vol": 0.8
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_bass",
+        "len": 2,
+        "note": "Eb2",
+        "vol": 0.82
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_bass",
+        "len": 2,
+        "note": "Eb2",
+        "vol": 0.86
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_bass",
+        "len": 2,
+        "note": "Eb2",
+        "vol": 0.9
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_bass",
+        "len": 3,
+        "note": "Ab2",
+        "vol": 1
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_bass",
+        "len": 4,
+        "note": "Ab2",
+        "vol": 0.85
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_bass",
+        "len": 4,
+        "note": "G2",
+        "vol": 0.85
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_bass",
+        "len": 2,
+        "note": "F2",
+        "vol": 0.85
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_bass",
+        "note": "F2",
+        "vol": 0.595
+      },
+      {
+        "instrument": "aud_inst_fm_bass",
+        "note": "F2",
+        "vol": 0.629
+      },
+      {
+        "instrument": "aud_inst_fm_bass",
+        "len": 2,
+        "note": "F3",
+        "vol": 0.765
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_bass",
+        "len": 2,
+        "note": "F2",
+        "vol": 0.68
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_bass",
+        "len": 2,
+        "note": "F2",
+        "vol": 0.807
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_bass",
+        "note": "F2",
+        "vol": 0.595
+      },
+      {
+        "instrument": "aud_inst_fm_bass",
+        "note": "F2",
+        "vol": 0.629
+      },
+      {
+        "instrument": "aud_inst_fm_bass",
+        "len": 2,
+        "note": "F3",
+        "vol": 0.765
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_bass",
+        "len": 2,
+        "note": "C3",
+        "vol": 0.731
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_bass",
+        "len": 2,
+        "note": "Db2",
+        "vol": 0.85
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_bass",
+        "note": "Db2",
+        "vol": 0.595
+      },
+      {
+        "instrument": "aud_inst_fm_bass",
+        "note": "Db2",
+        "vol": 0.629
+      },
+      {
+        "instrument": "aud_inst_fm_bass",
+        "len": 2,
+        "note": "Db3",
+        "vol": 0.765
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_bass",
+        "len": 2,
+        "note": "Db2",
+        "vol": 0.68
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_bass",
+        "len": 2,
+        "note": "Db2",
+        "vol": 0.807
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_bass",
+        "note": "Db2",
+        "vol": 0.595
+      },
+      {
+        "instrument": "aud_inst_fm_bass",
+        "note": "Db2",
+        "vol": 0.629
+      },
+      {
+        "instrument": "aud_inst_fm_bass",
+        "len": 2,
+        "note": "Db3",
+        "vol": 0.765
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_bass",
+        "len": 2,
+        "note": "Ab2",
+        "vol": 0.731
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_bass",
+        "len": 2,
+        "note": "Eb2",
+        "vol": 0.88
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_bass",
+        "note": "Eb2",
+        "vol": 0.616
+      },
+      {
+        "instrument": "aud_inst_fm_bass",
+        "note": "Eb2",
+        "vol": 0.651
+      },
+      {
+        "instrument": "aud_inst_fm_bass",
+        "len": 2,
+        "note": "Eb3",
+        "vol": 0.792
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_bass",
+        "len": 2,
+        "note": "Eb2",
+        "vol": 0.704
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_bass",
+        "len": 2,
+        "note": "Eb2",
+        "vol": 0.836
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_bass",
+        "note": "Eb2",
+        "vol": 0.616
+      },
+      {
+        "instrument": "aud_inst_fm_bass",
+        "note": "Eb2",
+        "vol": 0.651
+      },
+      {
+        "instrument": "aud_inst_fm_bass",
+        "len": 2,
+        "note": "Eb3",
+        "vol": 0.792
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_bass",
+        "len": 2,
+        "note": "Bb2",
+        "vol": 0.757
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_bass",
+        "len": 2,
+        "note": "F2",
+        "vol": 0.9
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_bass",
+        "note": "F2",
+        "vol": 0.63
+      },
+      {
+        "instrument": "aud_inst_fm_bass",
+        "note": "F2",
+        "vol": 0.666
+      },
+      {
+        "instrument": "aud_inst_fm_bass",
+        "len": 2,
+        "note": "F3",
+        "vol": 0.81
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_bass",
+        "len": 2,
+        "note": "F2",
+        "vol": 0.72
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_bass",
+        "len": 2,
+        "note": "F2",
+        "vol": 0.855
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_bass",
+        "note": "F2",
+        "vol": 0.63
+      },
+      {
+        "instrument": "aud_inst_fm_bass",
+        "note": "F2",
+        "vol": 0.666
+      },
+      {
+        "instrument": "aud_inst_fm_bass",
+        "len": 2,
+        "note": "F3",
+        "vol": 0.81
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_bass",
+        "len": 2,
+        "note": "C3",
+        "vol": 0.774
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_bass",
+        "len": 2,
+        "note": "Db2",
+        "vol": 0.95
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_bass",
+        "len": 2,
+        "note": "Db2",
+        "vol": 0.85
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_bass",
+        "len": 2,
+        "note": "Db2",
+        "vol": 0.9
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_bass",
+        "len": 6,
+        "note": "Db2",
+        "vol": 0.95
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_bass",
+        "len": 2,
+        "note": "Eb2",
+        "vol": 0.95
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_bass",
+        "len": 2,
+        "note": "Eb2",
+        "vol": 0.85
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_bass",
+        "len": 2,
+        "note": "Eb2",
+        "vol": 0.9
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_bass",
+        "len": 2,
+        "note": "C3",
+        "vol": 0.85
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_bass",
+        "len": 2,
+        "note": "Db3",
+        "vol": 0.88
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_bass",
+        "len": 2,
+        "note": "D3",
+        "vol": 0.92
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_bass",
+        "len": 2,
+        "note": "Eb3",
+        "vol": 1
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_bass",
+        "len": 2,
+        "note": "Ab2",
+        "vol": 0.92
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_bass",
+        "len": 2,
+        "note": "Ab2",
+        "vol": 0.681
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_bass",
+        "len": 2,
+        "note": "Ab3",
+        "vol": 0.81
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_bass",
+        "len": 2,
+        "note": "Ab2",
+        "vol": 0.699
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_bass",
+        "len": 2,
+        "note": "Ab2",
+        "vol": 0.874
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_bass",
+        "len": 2,
+        "note": "Ab2",
+        "vol": 0.681
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_bass",
+        "len": 2,
+        "note": "Ab3",
+        "vol": 0.81
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_bass",
+        "len": 2,
+        "note": "Ab2",
+        "vol": 0.736
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_bass",
+        "len": 2,
+        "note": "G2",
+        "vol": 0.92
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_bass",
+        "len": 2,
+        "note": "G2",
+        "vol": 0.681
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_bass",
+        "len": 2,
+        "note": "G3",
+        "vol": 0.81
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_bass",
+        "len": 2,
+        "note": "G2",
+        "vol": 0.699
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_bass",
+        "len": 2,
+        "note": "G2",
+        "vol": 0.874
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_bass",
+        "len": 2,
+        "note": "G2",
+        "vol": 0.681
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_bass",
+        "len": 2,
+        "note": "G3",
+        "vol": 0.81
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_bass",
+        "len": 2,
+        "note": "G2",
+        "vol": 0.736
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_bass",
+        "len": 2,
+        "note": "F2",
+        "vol": 0.94
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_bass",
+        "len": 2,
+        "note": "F2",
+        "vol": 0.696
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_bass",
+        "len": 2,
+        "note": "F3",
+        "vol": 0.827
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_bass",
+        "len": 2,
+        "note": "F2",
+        "vol": 0.714
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_bass",
+        "len": 2,
+        "note": "F2",
+        "vol": 0.893
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_bass",
+        "len": 2,
+        "note": "F2",
+        "vol": 0.696
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_bass",
+        "len": 2,
+        "note": "F3",
+        "vol": 0.827
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_bass",
+        "len": 2,
+        "note": "F2",
+        "vol": 0.752
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_bass",
+        "len": 2,
+        "note": "Db2",
+        "vol": 0.96
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_bass",
+        "len": 2,
+        "note": "Db2",
+        "vol": 0.71
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_bass",
+        "len": 2,
+        "note": "Db3",
+        "vol": 0.845
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_bass",
+        "len": 2,
+        "note": "Db2",
+        "vol": 0.73
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_bass",
+        "len": 2,
+        "note": "Db2",
+        "vol": 0.912
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_bass",
+        "len": 2,
+        "note": "Db2",
+        "vol": 0.71
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_bass",
+        "len": 2,
+        "note": "Db3",
+        "vol": 0.845
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_bass",
+        "len": 2,
+        "note": "Db2",
+        "vol": 0.768
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_bass",
+        "len": 2,
+        "note": "E2",
+        "vol": 0.9
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_bass",
+        "len": 2,
+        "note": "E2",
+        "vol": 0.9
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_bass",
+        "len": 2,
+        "note": "E2",
+        "vol": 0.94
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_bass",
+        "len": 2,
+        "note": "Gb2",
+        "vol": 0.92
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_bass",
+        "len": 2,
+        "note": "Gb2",
+        "vol": 0.92
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_bass",
+        "len": 2,
+        "note": "Gb2",
+        "vol": 0.96
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_bass",
+        "len": 10,
+        "note": "Ab2",
+        "vol": 0.8
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_bass",
+        "len": 2,
+        "note": "Ab2",
+        "vol": 0.9
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_organ",
+        "len": 2,
+        "note": "Ab5",
+        "vol": 0.92
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_organ",
+        "len": 2,
+        "note": "Ab5",
+        "vol": 0.85
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_organ",
+        "len": 2,
+        "note": "Ab5",
+        "vol": 0.9
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_organ",
+        "len": 6,
+        "note": "Ab5",
+        "vol": 0.95
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_organ",
+        "len": 2,
+        "note": "Bb5",
+        "vol": 0.92
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_organ",
+        "len": 2,
+        "note": "Bb5",
+        "vol": 0.85
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_organ",
+        "len": 2,
+        "note": "Bb5",
+        "vol": 0.9
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_organ",
+        "len": 2,
+        "note": "C6",
+        "vol": 0.85
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_organ",
+        "len": 2,
+        "note": "Db6",
+        "vol": 0.88
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_organ",
+        "len": 2,
+        "note": "D6",
+        "vol": 0.92
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_organ",
+        "len": 2,
+        "note": "Eb6",
+        "vol": 1
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_organ",
+        "len": 2,
+        "note": "C5",
+        "vol": 0.46
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_organ",
+        "len": 2,
+        "note": "C5",
+        "vol": 0.46
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_organ",
+        "len": 2,
+        "note": "C5",
+        "vol": 0.46
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_organ",
+        "len": 2,
+        "note": "C5",
+        "vol": 0.46
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_organ",
+        "len": 2,
+        "note": "Bb4",
+        "vol": 0.46
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_organ",
+        "len": 2,
+        "note": "Bb4",
+        "vol": 0.46
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_organ",
+        "len": 2,
+        "note": "Bb4",
+        "vol": 0.46
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_organ",
+        "len": 2,
+        "note": "Bb4",
+        "vol": 0.46
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_organ",
+        "len": 2,
+        "note": "C5",
+        "vol": 0.47
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_organ",
+        "len": 2,
+        "note": "C5",
+        "vol": 0.47
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_organ",
+        "len": 2,
+        "note": "C5",
+        "vol": 0.47
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_organ",
+        "len": 2,
+        "note": "C5",
+        "vol": 0.47
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_organ",
+        "len": 2,
+        "note": "Db5",
+        "vol": 0.48
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_organ",
+        "len": 2,
+        "note": "Db5",
+        "vol": 0.48
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_organ",
+        "len": 2,
+        "note": "Db5",
+        "vol": 0.48
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_organ",
+        "len": 2,
+        "note": "Db5",
+        "vol": 0.48
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_organ",
+        "len": 2,
+        "note": "B5",
+        "vol": 0.76
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_organ",
+        "len": 2,
+        "note": "B5",
+        "vol": 0.76
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_organ",
+        "len": 2,
+        "note": "B5",
+        "vol": 0.8
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_organ",
+        "len": 2,
+        "note": "Db6",
+        "vol": 0.78
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_organ",
+        "len": 2,
+        "note": "Db6",
+        "vol": 0.78
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_organ",
+        "len": 2,
+        "note": "Db6",
+        "vol": 0.82
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_organ",
+        "len": 10,
+        "note": "Eb5",
+        "vol": 0.56
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_organ",
+        "len": 2,
+        "note": "Eb5",
+        "vol": 0.66
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_organ",
+        "len": 2,
+        "note": "F5",
+        "vol": 0.85
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_organ",
+        "len": 2,
+        "note": "F5",
+        "vol": 0.8
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_organ",
+        "len": 2,
+        "note": "F5",
+        "vol": 0.85
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_organ",
+        "len": 6,
+        "note": "F5",
+        "vol": 0.9
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_organ",
+        "len": 2,
+        "note": "G5",
+        "vol": 0.85
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_organ",
+        "len": 2,
+        "note": "G5",
+        "vol": 0.8
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_organ",
+        "len": 2,
+        "note": "G5",
+        "vol": 0.85
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_organ",
+        "len": 2,
+        "note": "Ab5",
+        "vol": 0.8
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_organ",
+        "len": 2,
+        "note": "Bb5",
+        "vol": 0.82
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_organ",
+        "len": 2,
+        "note": "B5",
+        "vol": 0.86
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_organ",
+        "len": 2,
+        "note": "C6",
+        "vol": 0.92
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_organ",
+        "len": 2,
+        "note": "Ab4",
+        "vol": 0.414
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_organ",
+        "len": 2,
+        "note": "Ab4",
+        "vol": 0.414
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_organ",
+        "len": 2,
+        "note": "Ab4",
+        "vol": 0.414
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_organ",
+        "len": 2,
+        "note": "Ab4",
+        "vol": 0.414
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_organ",
+        "len": 2,
+        "note": "G4",
+        "vol": 0.414
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_organ",
+        "len": 2,
+        "note": "G4",
+        "vol": 0.414
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_organ",
+        "len": 2,
+        "note": "G4",
+        "vol": 0.414
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_organ",
+        "len": 2,
+        "note": "G4",
+        "vol": 0.414
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_organ",
+        "len": 2,
+        "note": "Ab4",
+        "vol": 0.423
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_organ",
+        "len": 2,
+        "note": "Ab4",
+        "vol": 0.423
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_organ",
+        "len": 2,
+        "note": "Ab4",
+        "vol": 0.423
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_organ",
+        "len": 2,
+        "note": "Ab4",
+        "vol": 0.423
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_organ",
+        "len": 2,
+        "note": "Ab4",
+        "vol": 0.432
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_organ",
+        "len": 2,
+        "note": "Ab4",
+        "vol": 0.432
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_organ",
+        "len": 2,
+        "note": "Ab4",
+        "vol": 0.432
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_organ",
+        "len": 2,
+        "note": "Ab4",
+        "vol": 0.432
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_organ",
+        "len": 2,
+        "note": "G#5",
+        "vol": 0.72
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_organ",
+        "len": 2,
+        "note": "G#5",
+        "vol": 0.72
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_organ",
+        "len": 2,
+        "note": "G#5",
+        "vol": 0.76
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_organ",
+        "len": 2,
+        "note": "Bb5",
+        "vol": 0.74
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_organ",
+        "len": 2,
+        "note": "Bb5",
+        "vol": 0.74
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_organ",
+        "len": 2,
+        "note": "Bb5",
+        "vol": 0.78
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_organ",
+        "len": 10,
+        "note": "C5",
+        "vol": 0.56
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_organ",
+        "len": 2,
+        "note": "C5",
+        "vol": 0.66
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_bell",
+        "len": 3,
+        "note": "Ab6",
+        "vol": 0.6
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_bell",
+        "note": "Eb6",
+        "vol": 0.5
+      },
+      {
+        "instrument": "aud_inst_fm_bell",
+        "note": "Eb6",
+        "vol": 0.46
+      },
+      {
+        "instrument": "aud_inst_fm_bell",
+        "len": 2,
+        "note": "Eb6",
+        "vol": 0.55
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_bell",
+        "len": 8,
+        "note": "Ab6",
+        "vol": 0.66
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_bell",
+        "note": "C6",
+        "vol": 0.7
+      },
+      {
+        "instrument": "aud_inst_fm_bell",
+        "note": "Eb6",
+        "vol": 0.476
+      },
+      {
+        "instrument": "aud_inst_fm_bell",
+        "note": "Ab6",
+        "vol": 0.476
+      },
+      {
+        "instrument": "aud_inst_fm_bell",
+        "note": "C6",
+        "vol": 0.476
+      },
+      {
+        "instrument": "aud_inst_fm_bell",
+        "note": "Eb6",
+        "vol": 0.7
+      },
+      {
+        "instrument": "aud_inst_fm_bell",
+        "note": "Ab6",
+        "vol": 0.476
+      },
+      {
+        "instrument": "aud_inst_fm_bell",
+        "note": "C6",
+        "vol": 0.476
+      },
+      {
+        "instrument": "aud_inst_fm_bell",
+        "note": "Eb6",
+        "vol": 0.476
+      },
+      {
+        "instrument": "aud_inst_fm_bell",
+        "note": "Ab6",
+        "vol": 0.7
+      },
+      {
+        "instrument": "aud_inst_fm_bell",
+        "note": "C6",
+        "vol": 0.476
+      },
+      {
+        "instrument": "aud_inst_fm_bell",
+        "note": "Eb6",
+        "vol": 0.476
+      },
+      {
+        "instrument": "aud_inst_fm_bell",
+        "note": "Ab6",
+        "vol": 0.476
+      },
+      {
+        "instrument": "aud_inst_fm_bell",
+        "note": "C6",
+        "vol": 0.7
+      },
+      {
+        "instrument": "aud_inst_fm_bell",
+        "note": "Eb6",
+        "vol": 0.476
+      },
+      {
+        "instrument": "aud_inst_fm_bell",
+        "note": "Ab6",
+        "vol": 0.476
+      },
+      {
+        "instrument": "aud_inst_fm_bell",
+        "note": "C6",
+        "vol": 0.476
+      },
+      {
+        "instrument": "aud_inst_fm_bell",
+        "note": "Eb6",
+        "vol": 0.7
+      },
+      {
+        "instrument": "aud_inst_fm_bell",
+        "note": "G6",
+        "vol": 0.476
+      },
+      {
+        "instrument": "aud_inst_fm_bell",
+        "note": "Bb6",
+        "vol": 0.476
+      },
+      {
+        "instrument": "aud_inst_fm_bell",
+        "note": "Eb6",
+        "vol": 0.476
+      },
+      {
+        "instrument": "aud_inst_fm_bell",
+        "note": "G6",
+        "vol": 0.7
+      },
+      {
+        "instrument": "aud_inst_fm_bell",
+        "note": "Bb6",
+        "vol": 0.476
+      },
+      {
+        "instrument": "aud_inst_fm_bell",
+        "note": "Eb6",
+        "vol": 0.476
+      },
+      {
+        "instrument": "aud_inst_fm_bell",
+        "note": "G6",
+        "vol": 0.476
+      },
+      {
+        "instrument": "aud_inst_fm_bell",
+        "note": "Bb6",
+        "vol": 0.7
+      },
+      {
+        "instrument": "aud_inst_fm_bell",
+        "note": "Eb6",
+        "vol": 0.476
+      },
+      {
+        "instrument": "aud_inst_fm_bell",
+        "note": "G6",
+        "vol": 0.476
+      },
+      {
+        "instrument": "aud_inst_fm_bell",
+        "note": "Bb6",
+        "vol": 0.476
+      },
+      {
+        "instrument": "aud_inst_fm_bell",
+        "note": "Eb6",
+        "vol": 0.7
+      },
+      {
+        "instrument": "aud_inst_fm_bell",
+        "note": "G6",
+        "vol": 0.476
+      },
+      {
+        "instrument": "aud_inst_fm_bell",
+        "note": "Bb6",
+        "vol": 0.476
+      },
+      {
+        "instrument": "aud_inst_fm_bell",
+        "note": "Eb6",
+        "vol": 0.476
+      },
+      {
+        "instrument": "aud_inst_fm_bell",
+        "note": "C6",
+        "vol": 0.7
+      },
+      {
+        "instrument": "aud_inst_fm_bell",
+        "note": "F6",
+        "vol": 0.476
+      },
+      {
+        "instrument": "aud_inst_fm_bell",
+        "note": "Ab6",
+        "vol": 0.476
+      },
+      {
+        "instrument": "aud_inst_fm_bell",
+        "note": "C6",
+        "vol": 0.476
+      },
+      {
+        "instrument": "aud_inst_fm_bell",
+        "note": "F6",
+        "vol": 0.7
+      },
+      {
+        "instrument": "aud_inst_fm_bell",
+        "note": "Ab6",
+        "vol": 0.476
+      },
+      {
+        "instrument": "aud_inst_fm_bell",
+        "note": "C6",
+        "vol": 0.476
+      },
+      {
+        "instrument": "aud_inst_fm_bell",
+        "note": "F6",
+        "vol": 0.476
+      },
+      {
+        "instrument": "aud_inst_fm_bell",
+        "note": "Ab6",
+        "vol": 0.7
+      },
+      {
+        "instrument": "aud_inst_fm_bell",
+        "note": "C6",
+        "vol": 0.476
+      },
+      {
+        "instrument": "aud_inst_fm_bell",
+        "note": "F6",
+        "vol": 0.476
+      },
+      {
+        "instrument": "aud_inst_fm_bell",
+        "note": "Ab6",
+        "vol": 0.476
+      },
+      {
+        "instrument": "aud_inst_fm_bell",
+        "note": "C6",
+        "vol": 0.7
+      },
+      {
+        "instrument": "aud_inst_fm_bell",
+        "note": "F6",
+        "vol": 0.476
+      },
+      {
+        "instrument": "aud_inst_fm_bell",
+        "note": "Ab6",
+        "vol": 0.476
+      },
+      {
+        "instrument": "aud_inst_fm_bell",
+        "note": "C6",
+        "vol": 0.476
+      },
+      {
+        "instrument": "aud_inst_fm_bell",
+        "note": "Db6",
+        "vol": 0.7
+      },
+      {
+        "instrument": "aud_inst_fm_bell",
+        "note": "F6",
+        "vol": 0.476
+      },
+      {
+        "instrument": "aud_inst_fm_bell",
+        "note": "Ab6",
+        "vol": 0.476
+      },
+      {
+        "instrument": "aud_inst_fm_bell",
+        "note": "Db6",
+        "vol": 0.476
+      },
+      {
+        "instrument": "aud_inst_fm_bell",
+        "note": "F6",
+        "vol": 0.7
+      },
+      {
+        "instrument": "aud_inst_fm_bell",
+        "note": "Ab6",
+        "vol": 0.476
+      },
+      {
+        "instrument": "aud_inst_fm_bell",
+        "note": "Db6",
+        "vol": 0.476
+      },
+      {
+        "instrument": "aud_inst_fm_bell",
+        "note": "F6",
+        "vol": 0.476
+      },
+      {
+        "instrument": "aud_inst_fm_bell",
+        "note": "Ab6",
+        "vol": 0.7
+      },
+      {
+        "instrument": "aud_inst_fm_bell",
+        "note": "Db6",
+        "vol": 0.476
+      },
+      {
+        "instrument": "aud_inst_fm_bell",
+        "note": "F6",
+        "vol": 0.476
+      },
+      {
+        "instrument": "aud_inst_fm_bell",
+        "note": "Ab6",
+        "vol": 0.476
+      },
+      {
+        "instrument": "aud_inst_fm_bell",
+        "note": "Db6",
+        "vol": 0.7
+      },
+      {
+        "instrument": "aud_inst_fm_bell",
+        "note": "F6",
+        "vol": 0.476
+      },
+      {
+        "instrument": "aud_inst_fm_bell",
+        "note": "Ab6",
+        "vol": 0.476
+      },
+      {
+        "instrument": "aud_inst_fm_bell",
+        "note": "Db6",
+        "vol": 0.476
+      },
+      {
+        "instrument": "aud_inst_fm_bell",
+        "len": 2,
+        "note": "E6",
+        "vol": 0.6
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_bell",
+        "len": 2,
+        "note": "E6",
+        "vol": 0.6
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_bell",
+        "len": 2,
+        "note": "E6",
+        "vol": 0.64
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_bell",
+        "len": 2,
+        "note": "Gb6",
+        "vol": 0.62
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_bell",
+        "len": 2,
+        "note": "Gb6",
+        "vol": 0.62
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_bell",
+        "len": 2,
+        "note": "Gb6",
+        "vol": 0.66
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_bell",
+        "len": 12,
+        "note": "Ab6",
+        "vol": 0.75
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_bell",
+        "len": 4,
+        "note": "Ab6",
+        "vol": 0.8
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_horn",
+        "len": 13,
+        "note": "Ab3",
+        "vol": 0.75
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_horn",
+        "len": 14,
+        "note": "Ab3",
+        "vol": 0.75
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "F2",
+        "vol": 0.722
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "Eb2",
+        "vol": 0.153
+      },
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "Eb2",
+        "vol": 0.199
+      },
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "Eb2",
+        "vol": 0.245
+      },
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "Eb2",
+        "vol": 0.291
+      },
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "Eb2",
+        "vol": 0.338
+      },
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "Eb2",
+        "vol": 0.384
+      },
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "Eb2",
+        "vol": 0.43
+      },
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "Eb2",
+        "vol": 0.476
+      },
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "Ab2",
+        "vol": 0.807
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "Eb2",
+        "vol": 0.51
+      },
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "Eb2",
+        "vol": 0.468
+      },
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "Eb2",
+        "vol": 0.552
+      },
+      null,
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "Ab2",
+        "vol": 0.722
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "Db2",
+        "vol": 0.595
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "Eb2",
+        "vol": 0.17
+      },
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "Eb2",
+        "vol": 0.221
+      },
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "Eb2",
+        "vol": 0.272
+      },
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "Eb2",
+        "vol": 0.323
+      },
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "Eb2",
+        "vol": 0.374
+      },
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "Eb2",
+        "vol": 0.425
+      },
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "Eb2",
+        "vol": 0.476
+      },
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "Eb2",
+        "vol": 0.527
+      },
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "Ab2",
+        "vol": 0.637
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "F2",
+        "vol": 0.51
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "len": 2,
+        "note": "E2",
+        "vol": 0.552
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "len": 2,
+        "note": "E2",
+        "vol": 0.552
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "len": 2,
+        "note": "E2",
+        "vol": 0.587
+      },
+      null,
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "len": 2,
+        "note": "Gb2",
+        "vol": 0.57
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "len": 2,
+        "note": "Gb2",
+        "vol": 0.57
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "len": 2,
+        "note": "Gb2",
+        "vol": 0.603
+      },
+      null,
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "Ab2",
+        "vol": 0.595
+      },
+      null,
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "Ab2",
+        "vol": 0.212
+      },
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "Ab2",
+        "vol": 0.249
+      },
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "Ab2",
+        "vol": 0.285
+      },
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "Ab2",
+        "vol": 0.322
+      },
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "Ab2",
+        "vol": 0.358
+      },
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "Ab2",
+        "vol": 0.395
+      },
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "Ab2",
+        "vol": 0.431
+      },
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "Ab2",
+        "vol": 0.468
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_timpani",
+        "note": "Ab2",
+        "vol": 0.722
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_kick",
+        "note": "D3",
+        "vol": 0.9
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_kick",
+        "note": "D3",
+        "vol": 0.9
+      },
+      {
+        "instrument": "aud_inst_fm_kick",
+        "note": "D3",
+        "vol": 0.558
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_kick",
+        "note": "D3",
+        "vol": 0.558
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_kick",
+        "note": "D3",
+        "vol": 0.558
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_kick",
+        "note": "D3",
+        "vol": 0.558
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_kick",
+        "note": "D3",
+        "vol": 0.558
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_kick",
+        "note": "D3",
+        "vol": 0.81
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_kick",
+        "note": "D3",
+        "vol": 0.558
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_kick",
+        "note": "D3",
+        "vol": 0.81
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_kick",
+        "note": "D3",
+        "vol": 0.558
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_kick",
+        "note": "D3",
+        "vol": 0.81
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_kick",
+        "note": "D3",
+        "vol": 0.558
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_kick",
+        "note": "D3",
+        "vol": 0.81
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_kick",
+        "note": "D3",
+        "vol": 0.558
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_kick",
+        "note": "D3",
+        "vol": 0.81
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_kick",
+        "note": "D3",
+        "vol": 0.558
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_kick",
+        "note": "D3",
+        "vol": 0.81
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_kick",
+        "note": "D3",
+        "vol": 0.558
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_kick",
+        "note": "D3",
+        "vol": 0.81
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_kick",
+        "note": "D3",
+        "vol": 0.558
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_kick",
+        "note": "D3",
+        "vol": 0.81
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_kick",
+        "note": "D3",
+        "vol": 0.558
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_kick",
+        "note": "D3",
+        "vol": 0.81
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_kick",
+        "note": "D3",
+        "vol": 0.558
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_kick",
+        "note": "D3",
+        "vol": 0.81
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_kick",
+        "note": "D3",
+        "vol": 0.81
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_kick",
+        "note": "D3",
+        "vol": 0.81
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_kick",
+        "note": "D3",
+        "vol": 0.81
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_kick",
+        "note": "D3",
+        "vol": 0.81
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_kick",
+        "note": "D3",
+        "vol": 0.81
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_kick",
+        "note": "D3",
+        "vol": 0.81
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_kick",
+        "note": "D3",
+        "vol": 0.81
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_kick",
+        "note": "D3",
+        "vol": 0.558
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_kick",
+        "note": "D3",
+        "vol": 0.81
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_kick",
+        "note": "D3",
+        "vol": 0.558
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_kick",
+        "note": "D3",
+        "vol": 0.81
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_kick",
+        "note": "D3",
+        "vol": 0.558
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_kick",
+        "note": "D3",
+        "vol": 0.558
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_kick",
+        "note": "D3",
+        "vol": 0.81
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_kick",
+        "note": "D3",
+        "vol": 0.558
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_kick",
+        "note": "D3",
+        "vol": 0.558
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_kick",
+        "note": "D3",
+        "vol": 0.81
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_kick",
+        "note": "D3",
+        "vol": 0.558
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_kick",
+        "note": "D3",
+        "vol": 0.558
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_kick",
+        "note": "D3",
+        "vol": 0.81
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_kick",
+        "note": "D3",
+        "vol": 0.558
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_kick",
+        "note": "D3",
+        "vol": 0.558
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_kick",
+        "note": "D3",
+        "vol": 0.81
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_kick",
+        "note": "D3",
+        "vol": 0.558
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_kick",
+        "note": "D3",
+        "vol": 0.558
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_kick",
+        "note": "D3",
+        "vol": 0.81
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_kick",
+        "note": "D3",
+        "vol": 0.558
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_kick",
+        "note": "D3",
+        "vol": 0.558
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_kick",
+        "note": "D3",
+        "vol": 0.81
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_kick",
+        "note": "D3",
+        "vol": 0.558
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_kick",
+        "note": "D3",
+        "vol": 0.558
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_kick",
+        "note": "D3",
+        "vol": 0.81
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_kick",
+        "note": "D3",
+        "vol": 0.558
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_kick",
+        "note": "D3",
+        "vol": 0.558
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_kick",
+        "note": "D3",
+        "vol": 0.81
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_kick",
+        "note": "D3",
+        "vol": 0.81
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_kick",
+        "note": "D3",
+        "vol": 0.81
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_kick",
+        "note": "D3",
+        "vol": 0.81
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_kick",
+        "note": "D3",
+        "vol": 0.81
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_kick",
+        "note": "D3",
+        "vol": 0.81
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_kick",
+        "note": "D3",
+        "vol": 0.702
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_kick",
+        "note": "D3",
+        "vol": 0.81
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_snare",
+        "note": "E3",
+        "vol": 0.22
+      },
+      {
+        "instrument": "aud_inst_fm_snare",
+        "note": "E3",
+        "vol": 0.336
+      },
+      {
+        "instrument": "aud_inst_fm_snare",
+        "note": "E3",
+        "vol": 0.452
+      },
+      {
+        "instrument": "aud_inst_fm_snare",
+        "note": "E3",
+        "vol": 0.568
+      },
+      {
+        "instrument": "aud_inst_fm_snare",
+        "note": "E3",
+        "vol": 0.684
+      },
+      {
+        "instrument": "aud_inst_fm_snare",
+        "note": "E3",
+        "vol": 0.8
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_snare",
+        "note": "E3",
+        "vol": 0.3
+      },
+      {
+        "instrument": "aud_inst_fm_snare",
+        "note": "E3",
+        "vol": 0.393
+      },
+      {
+        "instrument": "aud_inst_fm_snare",
+        "note": "E3",
+        "vol": 0.486
+      },
+      {
+        "instrument": "aud_inst_fm_snare",
+        "note": "E3",
+        "vol": 0.579
+      },
+      {
+        "instrument": "aud_inst_fm_snare",
+        "note": "E3",
+        "vol": 0.671
+      },
+      {
+        "instrument": "aud_inst_fm_snare",
+        "note": "E3",
+        "vol": 0.764
+      },
+      {
+        "instrument": "aud_inst_fm_snare",
+        "note": "E3",
+        "vol": 0.857
+      },
+      {
+        "instrument": "aud_inst_fm_snare",
+        "note": "E3",
+        "vol": 0.95
+      },
+      {
+        "instrument": "aud_inst_fm_snare",
+        "note": "E3",
+        "vol": 0.9
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_snare",
+        "note": "E3",
+        "vol": 0.36
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_snare",
+        "note": "E3",
+        "vol": 0.62
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_snare",
+        "note": "E3",
+        "vol": 0.9
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_snare",
+        "note": "E3",
+        "vol": 0.9
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_snare",
+        "note": "E3",
+        "vol": 0.9
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_snare",
+        "note": "E3",
+        "vol": 0.9
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_snare",
+        "note": "E3",
+        "vol": 0.9
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_snare",
+        "note": "E3",
+        "vol": 0.9
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_snare",
+        "note": "E3",
+        "vol": 0.9
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_snare",
+        "note": "E3",
+        "vol": 0.9
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_snare",
+        "note": "E3",
+        "vol": 0.9
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_snare",
+        "note": "E3",
+        "vol": 0.62
+      },
+      {
+        "instrument": "aud_inst_fm_snare",
+        "note": "E3",
+        "vol": 0.9
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_snare",
+        "note": "E3",
+        "vol": 0.9
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_snare",
+        "note": "E3",
+        "vol": 0.62
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_snare",
+        "note": "E3",
+        "vol": 0.9
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_snare",
+        "note": "E3",
+        "vol": 0.62
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_snare",
+        "note": "E3",
+        "vol": 0.62
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_snare",
+        "note": "E3",
+        "vol": 0.9
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_snare",
+        "note": "E3",
+        "vol": 0.35
+      },
+      {
+        "instrument": "aud_inst_fm_snare",
+        "note": "E3",
+        "vol": 0.443
+      },
+      {
+        "instrument": "aud_inst_fm_snare",
+        "note": "E3",
+        "vol": 0.536
+      },
+      {
+        "instrument": "aud_inst_fm_snare",
+        "note": "E3",
+        "vol": 0.629
+      },
+      {
+        "instrument": "aud_inst_fm_snare",
+        "note": "E3",
+        "vol": 0.721
+      },
+      {
+        "instrument": "aud_inst_fm_snare",
+        "note": "E3",
+        "vol": 0.814
+      },
+      {
+        "instrument": "aud_inst_fm_snare",
+        "note": "E3",
+        "vol": 0.907
+      },
+      {
+        "instrument": "aud_inst_fm_snare",
+        "note": "E3",
+        "vol": 1
+      },
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_snare",
+        "note": "E3",
+        "vol": 0.9
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_snare",
+        "note": "E3",
+        "vol": 0.9
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_snare",
+        "note": "E3",
+        "vol": 0.36
+      },
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_snare",
+        "note": "E3",
+        "vol": 0.9
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_snare",
+        "note": "E3",
+        "vol": 0.9
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_snare",
+        "note": "E3",
+        "vol": 0.36
+      },
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_snare",
+        "note": "E3",
+        "vol": 0.9
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_snare",
+        "note": "E3",
+        "vol": 0.9
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_snare",
+        "note": "E3",
+        "vol": 0.36
+      },
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_snare",
+        "note": "E3",
+        "vol": 0.9
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_snare",
+        "note": "E3",
+        "vol": 0.9
+      },
+      {
+        "instrument": "aud_inst_fm_snare",
+        "note": "E3",
+        "vol": 0.62
+      },
+      {
+        "instrument": "aud_inst_fm_snare",
+        "note": "E3",
+        "vol": 0.9
+      },
+      {
+        "instrument": "aud_inst_fm_snare",
+        "note": "E3",
+        "vol": 0.9
+      },
+      {
+        "instrument": "aud_inst_fm_snare",
+        "note": "E3",
+        "vol": 0.9
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_snare",
+        "note": "E3",
+        "vol": 0.62
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_snare",
+        "note": "E3",
+        "vol": 0.9
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_snare",
+        "note": "E3",
+        "vol": 0.9
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_snare",
+        "note": "E3",
+        "vol": 0.62
+      },
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_snare",
+        "note": "E3",
+        "vol": 0.9
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_snare",
+        "note": "E3",
+        "vol": 0.68
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_snare",
+        "note": "E3",
+        "vol": 1
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_hat",
+        "note": "C6",
+        "vol": 0.806
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_hat",
+        "note": "C6",
+        "vol": 0.468
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_hat",
+        "note": "C6",
+        "vol": 0.806
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_hat",
+        "note": "C6",
+        "vol": 0.468
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_hat",
+        "note": "C6",
+        "vol": 0.806
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_hat",
+        "note": "C6",
+        "vol": 0.468
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_hat",
+        "note": "C6",
+        "vol": 0.806
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_hat",
+        "note": "C6",
+        "vol": 0.468
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_hat",
+        "note": "C6",
+        "vol": 0.806
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_hat",
+        "note": "C6",
+        "vol": 0.468
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_hat",
+        "note": "C6",
+        "vol": 0.806
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_hat",
+        "note": "C6",
+        "vol": 0.468
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_hat",
+        "note": "C6",
+        "vol": 0.806
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_hat",
+        "note": "C6",
+        "vol": 0.468
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_hat",
+        "note": "C6",
+        "vol": 0.806
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_hat",
+        "note": "C6",
+        "vol": 0.468
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_hat",
+        "note": "C6",
+        "vol": 0.806
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_hat",
+        "note": "C6",
+        "vol": 0.468
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_hat",
+        "note": "C6",
+        "vol": 0.806
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_hat",
+        "note": "C6",
+        "vol": 0.468
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_hat",
+        "note": "C6",
+        "vol": 0.806
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_hat",
+        "note": "C6",
+        "vol": 0.468
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_hat",
+        "note": "C6",
+        "vol": 0.806
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_hat",
+        "note": "C6",
+        "vol": 0.468
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_hat",
+        "note": "C6",
+        "vol": 0.806
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_hat",
+        "note": "C6",
+        "vol": 0.468
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_hat",
+        "note": "C6",
+        "vol": 0.806
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_hat",
+        "note": "C6",
+        "vol": 0.468
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_hat",
+        "note": "C6",
+        "vol": 0.806
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_hat",
+        "note": "C6",
+        "vol": 0.468
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_hat",
+        "note": "C6",
+        "vol": 0.806
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_hat",
+        "note": "C6",
+        "vol": 0.468
+      },
+      null,
+      {
+        "instrument": "aud_inst_fm_hat",
+        "note": "C6",
+        "vol": 0.806
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_hat",
+        "note": "C6",
+        "vol": 0.806
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_hat",
+        "note": "C6",
+        "vol": 0.806
+      },
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_hat",
+        "note": "C6",
+        "vol": 0.806
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_hat",
+        "note": "C6",
+        "vol": 0.725
+      },
+      {
+        "instrument": "aud_inst_fm_hat",
+        "note": "C6",
+        "vol": 0.421
+      },
+      {
+        "instrument": "aud_inst_fm_hat",
+        "note": "C6",
+        "vol": 0.725
+      },
+      {
+        "instrument": "aud_inst_fm_hat",
+        "note": "C6",
+        "vol": 0.421
+      },
+      {
+        "instrument": "aud_inst_fm_hat",
+        "note": "C6",
+        "vol": 0.725
+      },
+      {
+        "instrument": "aud_inst_fm_hat",
+        "note": "C6",
+        "vol": 0.421
+      },
+      {
+        "instrument": "aud_inst_fm_hat",
+        "note": "C6",
+        "vol": 0.725
+      },
+      {
+        "instrument": "aud_inst_fm_hat",
+        "note": "C6",
+        "vol": 0.421
+      },
+      {
+        "instrument": "aud_inst_fm_hat",
+        "note": "C6",
+        "vol": 0.725
+      },
+      {
+        "instrument": "aud_inst_fm_hat",
+        "note": "C6",
+        "vol": 0.421
+      },
+      {
+        "instrument": "aud_inst_fm_hat",
+        "note": "C6",
+        "vol": 0.725
+      },
+      {
+        "instrument": "aud_inst_fm_hat",
+        "note": "C6",
+        "vol": 0.421
+      },
+      {
+        "instrument": "aud_inst_fm_hat",
+        "note": "C6",
+        "vol": 0.725
+      },
+      {
+        "instrument": "aud_inst_fm_hat",
+        "note": "C6",
+        "vol": 0.421
+      },
+      {
+        "instrument": "aud_inst_fm_hat",
+        "note": "C6",
+        "vol": 0.725
+      },
+      {
+        "instrument": "aud_inst_fm_hat",
+        "note": "C6",
+        "vol": 0.421
+      },
+      {
+        "instrument": "aud_inst_fm_hat",
+        "note": "C6",
+        "vol": 0.725
+      },
+      {
+        "instrument": "aud_inst_fm_hat",
+        "note": "C6",
+        "vol": 0.421
+      },
+      {
+        "instrument": "aud_inst_fm_hat",
+        "note": "C6",
+        "vol": 0.725
+      },
+      {
+        "instrument": "aud_inst_fm_hat",
+        "note": "C6",
+        "vol": 0.421
+      },
+      {
+        "instrument": "aud_inst_fm_hat",
+        "note": "C6",
+        "vol": 0.725
+      },
+      {
+        "instrument": "aud_inst_fm_hat",
+        "note": "C6",
+        "vol": 0.421
+      },
+      {
+        "instrument": "aud_inst_fm_hat",
+        "note": "C6",
+        "vol": 0.725
+      },
+      {
+        "instrument": "aud_inst_fm_hat",
+        "note": "C6",
+        "vol": 0.421
+      },
+      {
+        "instrument": "aud_inst_fm_hat",
+        "note": "C6",
+        "vol": 0.725
+      },
+      {
+        "instrument": "aud_inst_fm_hat",
+        "note": "C6",
+        "vol": 0.421
+      },
+      {
+        "instrument": "aud_inst_fm_hat",
+        "note": "C6",
+        "vol": 0.725
+      },
+      {
+        "instrument": "aud_inst_fm_hat",
+        "note": "C6",
+        "vol": 0.421
+      },
+      {
+        "instrument": "aud_inst_fm_hat",
+        "note": "C6",
+        "vol": 0.725
+      },
+      {
+        "instrument": "aud_inst_fm_hat",
+        "note": "C6",
+        "vol": 0.421
+      },
+      {
+        "instrument": "aud_inst_fm_hat",
+        "note": "C6",
+        "vol": 0.725
+      },
+      {
+        "instrument": "aud_inst_fm_hat",
+        "note": "C6",
+        "vol": 0.421
+      },
+      {
+        "instrument": "aud_inst_fm_hat",
+        "note": "C6",
+        "vol": 0.725
+      },
+      {
+        "instrument": "aud_inst_fm_hat",
+        "note": "C6",
+        "vol": 0.421
+      },
+      {
+        "instrument": "aud_inst_fm_hat",
+        "note": "C6",
+        "vol": 0.725
+      },
+      {
+        "instrument": "aud_inst_fm_hat",
+        "note": "C6",
+        "vol": 0.421
+      },
+      {
+        "instrument": "aud_inst_fm_hat",
+        "note": "C6",
+        "vol": 0.725
+      },
+      {
+        "instrument": "aud_inst_fm_hat",
+        "note": "C6",
+        "vol": 0.421
+      },
+      {
+        "instrument": "aud_inst_fm_hat",
+        "note": "C6",
+        "vol": 0.725
+      },
+      {
+        "instrument": "aud_inst_fm_hat",
+        "note": "C6",
+        "vol": 0.421
+      },
+      {
+        "instrument": "aud_inst_fm_hat",
+        "note": "C6",
+        "vol": 0.725
+      },
+      {
+        "instrument": "aud_inst_fm_hat",
+        "note": "C6",
+        "vol": 0.421
+      },
+      {
+        "instrument": "aud_inst_fm_hat",
+        "note": "C6",
+        "vol": 0.725
+      },
+      {
+        "instrument": "aud_inst_fm_hat",
+        "note": "C6",
+        "vol": 0.421
+      },
+      {
+        "instrument": "aud_inst_fm_hat",
+        "note": "C6",
+        "vol": 0.725
+      },
+      {
+        "instrument": "aud_inst_fm_hat",
+        "note": "C6",
+        "vol": 0.421
+      },
+      {
+        "instrument": "aud_inst_fm_hat",
+        "note": "C6",
+        "vol": 0.725
+      },
+      {
+        "instrument": "aud_inst_fm_hat",
+        "note": "C6",
+        "vol": 0.421
+      },
+      {
+        "instrument": "aud_inst_fm_hat",
+        "note": "C6",
+        "vol": 0.725
+      },
+      {
+        "instrument": "aud_inst_fm_hat",
+        "note": "C6",
+        "vol": 0.421
+      },
+      {
+        "instrument": "aud_inst_fm_hat",
+        "note": "C6",
+        "vol": 0.725
+      },
+      {
+        "instrument": "aud_inst_fm_hat",
+        "note": "C6",
+        "vol": 0.421
+      },
+      {
+        "instrument": "aud_inst_fm_hat",
+        "note": "C6",
+        "vol": 0.725
+      },
+      {
+        "instrument": "aud_inst_fm_hat",
+        "note": "C6",
+        "vol": 0.421
+      },
+      {
+        "instrument": "aud_inst_fm_hat",
+        "note": "C6",
+        "vol": 0.725
+      },
+      {
+        "instrument": "aud_inst_fm_hat",
+        "note": "C6",
+        "vol": 0.421
+      },
+      {
+        "instrument": "aud_inst_fm_hat",
+        "note": "C6",
+        "vol": 0.725
+      },
+      {
+        "instrument": "aud_inst_fm_hat",
+        "note": "C6",
+        "vol": 0.421
+      },
+      {
+        "instrument": "aud_inst_fm_hat",
+        "note": "C6",
+        "vol": 0.725
+      },
+      {
+        "instrument": "aud_inst_fm_hat",
+        "note": "C6",
+        "vol": 0.421
+      },
+      {
+        "instrument": "aud_inst_fm_hat",
+        "note": "C6",
+        "vol": 0.725
+      },
+      {
+        "instrument": "aud_inst_fm_hat",
+        "note": "C6",
+        "vol": 0.421
+      },
+      {
+        "instrument": "aud_inst_fm_hat",
+        "note": "C6",
+        "vol": 0.725
+      },
+      {
+        "instrument": "aud_inst_fm_hat",
+        "note": "C6",
+        "vol": 0.421
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_crash",
+        "note": "C5",
+        "vol": 0.85
+      },
+      {
+        "instrument": "aud_inst_orch_swell",
+        "len": 8,
+        "note": "C5",
+        "vol": 0.637
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_crash",
+        "note": "C5",
+        "vol": 0.807
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_crash",
+        "note": "C5",
+        "vol": 0.85
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_crash",
+        "note": "C5",
+        "vol": 0.468
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_crash",
+        "note": "C5",
+        "vol": 0.765
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_crash",
+        "note": "C5",
+        "vol": 0.51
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_crash",
+        "note": "C5",
+        "vol": 0.68
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_swell",
+        "len": 8,
+        "note": "C5",
+        "vol": 0.68
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_crash",
+        "note": "C5",
+        "vol": 0.85
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_crash",
+        "note": "C5",
+        "vol": 0.595
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_crash",
+        "note": "C5",
+        "vol": 0.765
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_crash",
+        "note": "C5",
+        "vol": 0.765
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_crash",
+        "note": "C5",
+        "vol": 0.697
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_orch_crash",
+        "note": "C5",
+        "vol": 0.85
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    [
+      {
+        "instrument": "aud_inst_fm_tom",
+        "note": "Ab3",
+        "vol": 0.5
+      },
+      {
+        "instrument": "aud_inst_fm_tom",
+        "note": "Ab3",
+        "vol": 0.55
+      },
+      {
+        "instrument": "aud_inst_fm_tom",
+        "note": "F3",
+        "vol": 0.62
+      },
+      {
+        "instrument": "aud_inst_fm_tom",
+        "note": "F3",
+        "vol": 0.7
+      },
+      {
+        "instrument": "aud_inst_fm_tom",
+        "note": "Db3",
+        "vol": 0.8
+      },
+      {
+        "instrument": "aud_inst_fm_tom",
+        "note": "Db3",
+        "vol": 0.92
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "instrument": "aud_inst_fm_tom",
+        "note": "Ab3",
+        "vol": 0.65
+      },
+      {
+        "instrument": "aud_inst_fm_tom",
+        "note": "F3",
+        "vol": 0.72
+      },
+      {
+        "instrument": "aud_inst_fm_tom",
+        "note": "Db3",
+        "vol": 0.82
+      },
+      {
+        "instrument": "aud_inst_fm_tom",
+        "note": "Db3",
+        "vol": 0.95
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  ],
+  "enabled": 1,
+  "id": "aud_song_ksab7_cphl_theme",
+  "instrument_ids": [
+    "aud_inst_fm_bass",
+    "aud_inst_fm_bell",
+    "aud_inst_fm_brass",
+    "aud_inst_fm_hat",
+    "aud_inst_fm_horn",
+    "aud_inst_fm_kick",
+    "aud_inst_fm_lead",
+    "aud_inst_fm_organ",
+    "aud_inst_fm_power",
+    "aud_inst_fm_snare",
+    "aud_inst_fm_tom",
+    "aud_inst_orch_crash",
+    "aud_inst_orch_swell",
+    "aud_inst_orch_timpani"
+  ],
+  "loop_end": 0,
+  "loop_start": 0,
+  "name": "ksab7_cphl_theme",
+  "priority": 6,
+  "tempo": 150
+}

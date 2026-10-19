@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_coliseum_ticket",
+  "name": "Coliseum ticket",
+  "tags": {
+    "description": "A stub off the roll at the Coliseum box office, green for the stands, the date stamped crooked across it. Good for one game, and for arguing with an usher who says otherwise.",
+    "stackable": true
+  },
+  "type": "misc",
+  "value": 12,
+  "weight": 2
+}

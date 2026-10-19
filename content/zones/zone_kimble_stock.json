@@ -1,0 +1,22 @@
+{
+  "ambient_theme": "indoors",
+  "description": "Shelves of boxed caps and rolled pennants to the ceiling, a sewing machine for letters, and a crate of foam fingers waiting to be fluffed up.",
+  "exits": {
+    "south": "zone_kimble_shop"
+  },
+  "flags": {
+    "building_name": "Kimble's Souvenirs & Cards",
+    "building_type": "souvenir_shop",
+    "floor": "concrete",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_parkside_894_913"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_kimble_stock",
+  "map_id": "map_int_kimble",
+  "name": "Kimble's — Stockroom",
+  "parent_zone": "zone_parkside_894_913"
+}

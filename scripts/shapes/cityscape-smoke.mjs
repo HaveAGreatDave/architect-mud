@@ -232,7 +232,16 @@ check('the facades are the shader\'s', city.opaque.get('city')?.n > 0 && (() => 
   for (let i = 0; i < segs.length; i += strides.segs) where.push([segs[i], segs[i + 1], segs[i + 2]], [segs[i + 3], segs[i + 4], segs[i + 5]]);
   for (let i = 0; i < beams.length; i += strides.beams) where.push([beams[i], beams[i + 1], beams[i + 2]]);
   for (let i = 0; i < plumes.length; i += strides.plumes) where.push([plumes[i], plumes[i + 1], plumes[i + 2]]);
-  const far = where.filter((p) => !set.placed.some(({ at }) => Math.hypot(p[0] - at[0], p[2] - at[2]) <= 1.6 * T) || p[1] < -2);
+  // within a tile and a half of a building, or within its own reach: a quay crane's boom lamps stand
+  // two and a half tiles out from its middle, and only a neighbouring crane covered them
+  const reachOf = (b) => {
+    const s = cityShape(b);
+    let r = 0;
+    for (const g of s?.segs || []) for (const q of [...(g.pts || []), ...(g.bot || []), ...(g.top || []), ...(g.ribs || []).flatMap((x) => [x[0], x[1]]), ...(g.p ? [g.p] : [])]) r = Math.max(r, Math.hypot(q[0], q[1]));
+    return r * T;
+  };
+  const reach = set.placed.map(({ b }) => Math.max(1.6 * T, reachOf(b) + 0.4 * T));
+  const far = where.filter((p) => !set.placed.some(({ at }, i) => Math.hypot(p[0] - at[0], p[2] - at[2]) <= reach[i]) || p[1] < -2);
   check('every light on its building', far.length === 0, `${far.length} of ${where.length} off`);
   check('no light inside the park', where.every((p) => !insidePoly(outline, p)), `${where.filter((p) => insidePoly(outline, p)).length}`);
   let dark = 0;

@@ -1,0 +1,7 @@
+{
+  "capacity_kw": 5000,
+  "generator_id": "gen_zone_util_zone_kimble_shop",
+  "id": "zone_kimble_shop",
+  "name": "Kimble's — Shop",
+  "source_type": "junction_box"
+}

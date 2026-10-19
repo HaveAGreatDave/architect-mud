@@ -47,6 +47,23 @@ export default async function regress({ check }) {
     if (hadZone) world.zones.set(zid, hadZone); else world.zones.delete(zid);
   }
 
+  // ── A resident's own lines (flags.alarm_lines) ───────────────────────────────
+  // Speech renders as speech, a bare line as an emote after the name, and a beat
+  // they have no lines for uses the shared pool. Sir Charles is the first user.
+  {
+    const { _test } = await import('./index.js');
+    const shared = [(n) => `${n} shared`];
+    const own = { name: 'Test Scot', flags: { alarm_lines: { door: ['"Away you go."'], inside: ['folds his arms.'] } } };
+    const door = _test.alarmLine(own, 'door', shared);
+    check('alarm_lines: an own speech line', door?.type === 'output' && /Test Scot says, "Away you go\."/.test(door.message), JSON.stringify(door));
+    const inside = _test.alarmLine(own, 'inside', shared);
+    check('alarm_lines: an own emote line', inside?.type === 'zone_event' && inside.message === 'Test Scot folds his arms.', JSON.stringify(inside));
+    const wake = _test.alarmLine(own, 'wake', shared);
+    check('alarm_lines: a beat with no own lines uses the shared pool', wake?.message === 'Test Scot shared', JSON.stringify(wake));
+    const plain = _test.alarmLine({ name: 'Test Resident' }, 'door', shared);
+    check('alarm_lines: a resident with none uses the shared pool', plain?.message === 'Test Resident shared', JSON.stringify(plain));
+  }
+
   // ── Forcefield gate: an active break-in denies the safe-sleep forcefield ─────
   // (works for a player-owned unit with no NPCs — the point of this gate). A
   // throwaway intruder-player stands in a throwaway unit zone.

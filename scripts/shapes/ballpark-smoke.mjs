@@ -8,8 +8,13 @@
 //      knows, every normal a unit, the ground inside the park's outline, the crowd in the
 //      seats, and the whole inside its triangle budget. A venue's fence moves the wall, its
 //      distances and the warning track's uniform; its board moves the board; its towers
-//      their lamps. The outer wall faces out along the whole outline at the heights it's
-//      given, and the sign for the park's name hangs outside it behind home plate.
+//      their lamps. The bowl round it is the map's Coliseum (glass/models/coliseum.js): the
+//      outline its square on the foul lines, the wall facing out on all four sides and in over
+//      the stands, a tower at each corner, the name plate on the main gate across from home on
+//      Sorrel Way. The roof's three shells cover the bowl shut and nest open, clear each other,
+//      and spring from the rails; the lights cross from the towers to the decks with no jump;
+//      the roof's travel eases over the map's ninety seconds; and the plates letter his name
+//      over COLISEUM, raised and never squeezed.
 //   2. THE MATRICES AGREE WITH THE PINHOLE. camera.js writes each shot out as GL matrices
 //      and works the same shot out from the camera's own axes. If they drift, the director
 //      (which frames with `project`) and the picture disagree about what's in shot. Every
@@ -140,22 +145,125 @@ check('defaults: about sixty percent of the lamps work', lit > 0.45 && lit < 0.8
 check('defaults: the same park twice', (() => { const b = M.buildPark(null); return b.crowd.sit.length === base.crowd.sit.length && b.opaque.get('plain').n === base.opaque.get('plain').n; })());
 check('defaults: the board inside the outline', G.insideOutline(base.outline, base.board.c, 12));
 {
-  // the outer wall: a face along every edge of the outline, facing out, at the heights it's given
+  // the bowl: the Coliseum's square on the foul lines, as the map draws it, a wall on each side of
+  // it facing out, between the plinth and the frieze
   const b = base.opaque.get('exterior'), heights = new Set();
-  let faces = 0, inward = 0, len = 0, per = 0;
+  const { BOWL } = G, n = -BOWL.near, f = BOWL.far;
+  const edgeD = (p) => Math.min(...base.outline.map((a, i) => { const c = base.outline[(i + 1) % base.outline.length], ab = [c[0] - a[0], c[2] - a[2]], ap = [p[0] - a[0], p[2] - a[2]], t = Math.max(0, Math.min(1, (ap[0] * ab[0] + ap[1] * ab[1]) / (ab[0] * ab[0] + ab[1] * ab[1]))); return Math.hypot(ap[0] - ab[0] * t, ap[1] - ab[1] * t); }));
+  check('defaults: the outline is the bowl\'s square on the foul lines', base.outline.length === 4 && [[n, n], [n, f], [f, f], [f, n]].every(([a, c], i) => { const q = G.sOf(base.outline[i]); return Math.abs(q[0] - a) < 1e-6 && Math.abs(q[1] - c) < 1e-6; }));
+  // its outside on the outline and facing out, its inside the wall's thickness in and facing the stands
+  let outer = 0, inner = 0, wrong = 0;
   for (let v = 0; v < b.n; v += 6) {
-    const o = v * M.STRIDE, q = o + M.STRIDE, top = b.data[o + 2 * M.STRIDE + 1];
-    const mid = [(b.data[o] + b.data[q]) / 2, 0, (b.data[o + 2] + b.data[q + 2]) / 2], n = [b.data[o + 3], 0, b.data[o + 5]];
-    faces++; heights.add(top); len += Math.hypot(b.data[q] - b.data[o], b.data[q + 2] - b.data[o + 2]);
-    if (G.insideOutline(base.outline, [mid[0] + n[0] * 2, 0, mid[2] + n[2] * 2]) || !G.insideOutline(base.outline, [mid[0] - n[0] * 2, 0, mid[2] - n[2] * 2])) inward++;
+    const o = v * M.STRIDE, q = o + M.STRIDE;
+    const mid = [(b.data[o] + b.data[q]) / 2, 0, (b.data[o + 2] + b.data[q + 2]) / 2], nn = [b.data[o + 3], 0, b.data[o + 5]];
+    const out = !G.insideOutline(base.outline, [mid[0] + nn[0] * 30, 0, mid[2] + nn[2] * 30]);
+    // (the north and south walls run two feet past the corners, over the east and west ones' ends)
+    const d = edgeD(mid);
+    for (let k = 0; k < 6; k++) heights.add(Math.round(b.data[o + k * M.STRIDE + 1] * 100) / 100);
+    if (out && d <= 3) outer++; else if (!out && d > 10 && d < 20) inner++; else wrong++;
   }
-  for (let i = 0; i < base.outline.length; i++) { const a = base.outline[i], c = base.outline[(i + 1) % base.outline.length]; per += Math.hypot(c[0] - a[0], c[2] - a[2]); }
-  check('defaults: the outer wall faces out all round', faces > 50 && inward === 0 && Math.abs(len - per) < 0.5, `${inward} of ${faces} face in; ${len.toFixed(0)} ft of a ${per.toFixed(0)} ft outline`);
-  const H = M.EXTERIOR_H;
-  check('defaults: the outer wall at its four heights', [...heights].every((h) => [H.stand, H.line, H.outfield, H.eye].includes(h)) && heights.has(H.stand) && heights.has(H.outfield) && heights.has(H.eye), [...heights].join(','));
-  check('defaults: the grandstand\'s wall behind the plate, the batter\'s eye\'s in centre', M.exteriorHeight([0, 0, -192]) === H.stand && M.exteriorHeight([0, 0, G.fenceDistance(0, base.field.fence) + 12]) === H.eye);
-  const { c } = M.PARK_SIGN;
-  check('defaults: the sign hangs outside the wall behind the plate', base.sign.n === 6 && c[2] < 0 && !G.insideOutline(base.outline, c) && G.insideOutline(base.outline, c, 8) && base.sign.data[5] === -1);
+  check('defaults: the bowl\'s wall faces out on all four sides, on the outline, and in over the stands', outer === 4 && inner === 4 && wrong === 0, `${outer} out, ${inner} in, ${wrong} wrong`);
+  const Z = M.BOWL_Z;
+  check('defaults: the wall stands from the plinth to the frieze', heights.size === 2 && heights.has(Math.round(Z.plinth * 100) / 100) && heights.has(Math.round(Z.wall * 100) / 100), [...heights].join(','));
+  // the plates: the main gate's on Sorrel Way straight across from home plate, standing off the
+  // frontispiece outside the wall and facing out, and the bleacher gate's on the boulevard
+  const { c, n: sn } = M.PARK_SIGN, [s3, s1] = G.sOf(c);
+  const signN = [base.sign.data[3], base.sign.data[4], base.sign.data[5]];
+  check('defaults: the name plate hangs on the main gate, across from home on Sorrel Way, facing out', base.sign.n === 12 && Math.abs(s3) < 1 && s1 < n && s1 > n - 8 && !G.insideOutline(base.outline, c) && G.insideOutline(base.outline, c, 8)
+    && signN.every((v, i) => Math.abs(v - sn[i]) < 1e-6) && sn[0] > 0 && sn[2] < 0, `s3 ${s3.toFixed(1)}, s1 ${s1.toFixed(1)}`);
+  check('defaults: the plate is the map\'s, 0.47 by 0.14 tiles', Math.abs(M.PARK_SIGN.w / M.PARK_SIGN.h - (0.47 * (BOWL.near + BOWL.far) / 2.94) / (0.14 * 226)) < 1e-6);
+  // the lights: a tower at each corner of the bowl with its lamps up in its lamp house and a place
+  // under a deck for its light when the roof is shut, and a row under each deck
+  const towers = base.field.towers.filter((T) => T.kind === 'tower'), decks = base.field.towers.filter((T) => T.kind === 'deck');
+  const nearCorner = (T) => Math.min(...base.outline.map((p) => Math.hypot(p[0] - T.base[0], p[2] - T.base[2])));
+  check('defaults: four towers at the corners and a lamp row under each deck', towers.length === 4 && decks.length === 2 && towers.every((T) => nearCorner(T) < 40 && G.insideOutline(base.outline, T.base) && T.lamp[1] > 170 && T.under && G.insideOutline(base.outline, T.under.lamp) && T.under.lamp[1] < M.BOWL_Z.corn),
+    towers.map((T) => nearCorner(T).toFixed(0)).join(','));
+  // the lamps, the beacons, the lanterns and the halo: whole triangles, finite, lit
+  let lampBad = 0;
+  for (const [k, lb] of Object.entries(base.lamps)) {
+    if (!(lb.n > 0 && lb.n % 3 === 0)) lampBad++;
+    for (let v = 0; v < lb.n; v++) { const o = v * M.STRIDE; for (let j = 0; j < M.STRIDE; j++) if (!Number.isFinite(lb.data[o + j])) lampBad++; if (lb.data[o + 11] !== M.MAT.EMISSIVE) lampBad++; }
+    void k;
+  }
+  check('defaults: the lamps build, every one lit', lampBad === 0 && ['tower', 'deck', 'beacon', 'lantern', 'halo'].every((k) => base.lamps[k]?.n > 0), `${lampBad}`);
+}
+
+// ── the roof ─────────────────────────────────────────────────────────────────
+// The map's three shells at the broadcast's size: the first fixed over the boulevard end, the other
+// two riding the rails. Shut they cover the bowl from Sorrel Way to the boulevard, each lapping the
+// next; open they nest under the first. At the crown and at mid-span each clears the one over it.
+{
+  const { BOWL } = G, kh = (BOWL.near + BOWL.far) / 2.94;
+  const run = (i, p) => { const S = M.SHELLS[i], d = G.sOf(M.shellShift(i, p))[1]; return [G.fromBlock(S.shut + S.len) + d, G.fromBlock(S.shut) + d]; };
+  const shut = [0, 1, 2].map((i) => run(i, 1)), open = [0, 1, 2].map((i) => run(i, 0));
+  check('the roof: three shells, the first fixed', base.roof.length === 3 && base.roof[0].fixed && !base.roof[1].fixed && !base.roof[2].fixed);
+  check('the roof: shut, the shells cover the bowl from Sorrel Way to the boulevard, each lapping the next',
+    shut[2][0] <= -BOWL.near + 2 && shut[0][1] >= BOWL.far - 1 && shut[1][0] < shut[0][0] && shut[2][1] > shut[1][0] && shut[1][1] > shut[0][0], JSON.stringify(shut.map((r) => r.map((v) => +v.toFixed(0)))));
+  // (the last is a little longer than the first, so its south end shows past it, as on the map)
+  check('the roof: open, the two that travel nest under the first', [1, 2].every((i) => open[i][1] <= open[0][1] + 1e-6 && (Math.min(open[i][1], open[0][1]) - Math.max(open[i][0], open[0][0])) / (open[i][1] - open[i][0]) > 0.9), JSON.stringify(open.map((r) => r.map((v) => +v.toFixed(0)))));
+  const zAt = (a, u) => { const P = a.pts; for (let k = 0; k < P.length - 1; k++) if (u >= P[k][0] && u <= P[k + 1][0]) return P[k][1] + (u - P[k][0]) / (P[k + 1][0] - P[k][0]) * (P[k + 1][1] - P[k][1]); return NaN; };
+  const arch = M.SHELLS.map((S) => M.shellArch(S));
+  const gaps = [0, 1].flatMap((i) => [0, M.SHELLS[i + 1].c / 2].map((u) => G.ftUp(zAt(arch[i], u) - zAt(arch[i + 1], u))));
+  check('the roof: each shell clears the one over it by five to eight feet at the crown and mid-span', gaps.every((g) => g > 5 && g < 8), gaps.map((g) => g.toFixed(1)).join(', '));
+  // the map's decks reach in to 1.13 tiles and the outer rail's step stands to 1.25
+  check('the roof: the shells spring from the decks\' rails, each lower than the one over it', M.SHELLS.every((S, i) => S.c >= 1.13 && S.c <= 1.25 && G.ftUp(S.zs) >= M.BOWL_Z.corn - 1e-6 && (i === 0 || (S.zs < M.SHELLS[i - 1].zs && S.c < M.SHELLS[i - 1].c))), M.SHELLS.map((S) => (S.c * kh).toFixed(0)).join(', '));
+  let bad = 0, badN = 0, badMat = 0, tris = 0;
+  for (const r of base.roof) {
+    const d = r.batch.data; tris += r.batch.n / 3;
+    for (let v = 0; v < r.batch.n; v++) {
+      const o = v * M.STRIDE;
+      for (let k = 0; k < M.STRIDE; k++) if (!Number.isFinite(d[o + k])) bad++;
+      if (Math.abs(Math.hypot(d[o + 3], d[o + 4], d[o + 5]) - 1) > 1e-3) badN++;
+      if (![M.MAT.METAL, M.MAT.GLAZE, M.MAT.GILT, M.MAT.CONCRETE].includes(d[o + 11])) badMat++;
+    }
+  }
+  check('the roof: every shell finite, its normals units, metal, glass, bronze and painted steel', bad === 0 && badN === 0 && badMat === 0 && tris > 1000 && tris < 5000, `${bad}/${badN}/${badMat}, ${tris} triangles`);
+  // the lights go with it: open, the towers; shut, their light has gone over to the decks; and no
+  // light moves while it's lit
+  const T6 = base.field.towers;
+  const L0 = M.roofLights(T6, 0), L1 = M.roofLights(T6, 1);
+  check('the roof: open, the towers light the field; shut, the lamps under the decks do',
+    T6.every((T, i) => (T.kind === 'deck' ? L0[i].k === 1 && L1[i].k === 1 : L0[i].k === 1 && L0[i].lamp === T.lamp && L1[i].k === 1 && L1[i].lamp === T.under.lamp)));
+  let jumps = 0;
+  for (let s = 0.01; s <= 1.0001; s += 0.01) {
+    const a = M.roofLights(T6, s - 0.01), b = M.roofLights(T6, s);
+    a.forEach((L, i) => { if (L.lamp !== b[i].lamp && (L.k > 0.03 || b[i].k > 0.03)) jumps++; });
+  }
+  check('the roof: no light jumps while it\'s lit', jumps === 0, `${jumps}`);
+  // and the roof's travel: the first state heard is where it is; a change eases out of rest and in
+  // again over the map's ninety seconds, from wherever it had got to
+  const tr = M.roofTrack(90000);
+  tr.set(true, 1000);
+  const a0 = tr.at(1000);
+  tr.set(false, 2000);
+  const a1 = tr.at(2000), a2 = tr.at(2000 + 45000), a3 = tr.at(2000 + 90000), mv = tr.moving(2000 + 1000), still = !tr.moving(2000 + 90001);
+  tr.set(true, 2000 + 120000); tr.set(false, 2000 + 165000);
+  const back = tr.at(2000 + 165000);
+  check('the roof: its travel starts where it is, eases over ninety seconds, and turns back from wherever it has got to',
+    a0 === 1 && a1 === 1 && Math.abs(a2 - 0.5) < 1e-9 && a3 === 0 && mv && still && Math.abs(back - 0.5) < 1e-9 && tr.to === 0, [a0, a1, a2, a3, back].join(', '));
+  tr.set(undefined, 999999);
+  check('the roof: a payload with no roof leaves it where it is', tr.to === 0);
+}
+
+// ── the plates ───────────────────────────────────────────────────────────────
+// His name goes on the main gate's plate the way the map letters it: his name over COLISEUM, each
+// line in its own band, raised (a shadow, a highlight and the gilt face), never squeezed.
+{
+  const RB = await import(P + 'gl/ballpark.js');
+  const calls = [];
+  const rec = { createElement: () => ({ width: 0, height: 0, getContext: () => new Proxy({}, {
+    get: (t, k) => (k in t ? t[k] : k === 'translate' ? (x, y) => { t.__x = (t.__x || 0) + x; t.__y = (t.__y || 0) + y; }
+      : k === 'save' ? () => (t.__s ??= []).push([t.__x || 0, t.__y || 0]) : k === 'restore' ? () => { [t.__x, t.__y] = t.__s.pop(); } : k === 'measureText' ? (s) => ({ width: String(s).length * (parseFloat(t.font) || 10) * 0.7, actualBoundingBoxAscent: (parseFloat(t.font) || 10) * 0.7 })
+      : k === 'createLinearGradient' ? () => ({ addColorStop() {} }) : k === 'fillText' ? (...a) => calls.push({ a: [a[0], a[1] + (t.__x || 0), a[2] + (t.__y || 0), ...a.slice(3)], font: t.font, fill: t.fillStyle }) : () => {}),
+    set: (t, k, v) => { t[k] = v; return true; } }) }) };
+  RB.paintPlateCanvas(rec, 'Charles B. Hughson Coliseum');
+  const of = (s) => calls.filter((c) => c.a[0] === s);
+  const A = M.PLATE_ATLAS, name = of('CHARLES B. HUGHSON'), col = of('COLISEUM'), bl = of('BLEACHERS');
+  const inCell = (c, [x, y, w, h]) => c.a[1] > x && c.a[1] < x + w && c.a[2] > y && c.a[2] < y + h;
+  check('the plates: his name over COLISEUM, as the map sets them', JSON.stringify(RB.plateLines('Charles B. Hughson Coliseum')) === '["CHARLES B. HUGHSON","COLISEUM"]');
+  check('the plates: each line raised, a shadow, a highlight and its gilt face, in the deco hand', [name, col, bl].every((l) => l.length === 3 && l.every((c) => /Limelight/.test(c.font))), [name.length, col.length, bl.length].join(','));
+  check('the plates: never squeezed to fit', calls.every((c) => c.a.length === 3), calls.filter((c) => c.a.length !== 3).map((c) => c.a[0]).join(', '));
+  check('the plates: his name over COLISEUM on the main gate\'s, BLEACHERS on the bleacher gate\'s', name.every((c) => inCell(c, A.main)) && col.every((c) => inCell(c, A.main)) && bl.every((c) => inCell(c, A.bleach)) && name[2].a[2] < col[2].a[2]);
 }
 
 // A venue of its own: a short porch, a deep centre field, a high wall, the board in left-centre.

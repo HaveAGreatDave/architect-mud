@@ -13,9 +13,9 @@
   "description": "A long room with a plank floor that has been danced on since before anybody currently standing on it was born. The bar is a run of salvaged bowling lane, waxed to a shine at the elbows and nowhere else, and behind it stand a mirror, a rank of bottles and a hand-lettered card reading NO CREDIT, NO EXCEPTIONS, ASK ANYWAY. Two feet of stage at the far end holds a stool, a microphone on a bent boom and an upright piano shoved hard against the wall. Overhead, a wagon-wheel fitting with three bulbs out. The sign over the pass reads JOLENE S in rope light, the apostrophe having burnt out years ago and stayed burnt out, and nobody working here is named Jolene. It smells of fryer oil, spilled whiskey and the hot dust of a light left on too long.",
   "exits": {
     "down": "zone_jolenes_util",
-    "east": "zone_district_917_916",
-    "north": "zone_jolenes_kitchen",
-    "up": "zone_jolenes_loft"
+    "north": "zone_district_917_916",
+    "up": "zone_jolenes_loft",
+    "west": "zone_jolenes_kitchen"
   },
   "flags": {
     "building_name": "Jolene's",

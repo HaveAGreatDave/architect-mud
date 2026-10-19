@@ -1,12 +1,16 @@
-// GLASS 2 · THE BALLPARK. Deadball's park drawn by WebGL2 (the Grandstand, gameday-grandstand.js).
-// Six light towers (lamp banks the venue reports working or not) are the only lights: linear light
+// GLASS 2 · THE BALLPARK. Deadball's park drawn by WebGL2 (the Grandstand, gameday-grandstand.js), in
+// the Charles B. Hughson Coliseum as the map has it: the deco bowl and its roof (ballpark-mesh.js
+// buildBowl). Six lights (lamp banks the venue reports working or not) are the only lights: the four
+// corner towers and the rows under the two decks, the towers' crossing to the decks as the roof
+// shuts (setRoof, roofLights). Linear light
 // and GGX into hdr.js's multisampled float target, so lamps bloom; the last pass here applies the
 // filmic curve and encodes. Parts: the park mesh (ballpark-mesh.js, pure, gated); the field painted
 // in the shader with the infield canvas (diamond/dirt.js; markDirt re-uploads only touched texels,
 // smoothDirt, setMats); the crowd (gl/crowd.js, instanced, setCrowd); the scoreboard from a 240×84
 // mask (diamond/board.js); skinned players (gl/ballplayer-mesh.js buildBody, diamond/rig.js, built a
 // few a frame so a cast never stalls, posed by gl/skin.js from diamond/cast.js or 'setPose'; faces
-// from the atlas as in the Actor Lab); the brick EXTERIOR and lit name; and the city set
+// from the atlas as in the Actor Lab); the bowl's limestone EXTERIOR and the name plates
+// (paintPlates); the roof's three shells on their rails; and the city set
 // (client/shared/city-set.js via gl/cityscape.js, sodium pools, gl/curtain.js), reached by the
 // towers through a narrower beam.
 // Frame order (docs/proposals/deadball-glass2.md): 1. tower shadow maps (gl/spotshadow.js);
@@ -18,7 +22,9 @@
 // 'createBallparkRenderer' returns null with no WebGL2, float target or shader, and the view falls
 // back to the 2-D Gameday. ⚠ NO FACE CULLING, as in arena.js: builders don't keep one winding.
 
-import { buildPark, buildDress, crowdMorph, createBatch, ellipsoid, dragMat, lin, STRIDE, CROWD_STRIDE, CROWD_MORPH, MAT } from './ballpark-mesh.js';
+import { buildPark, buildDress, crowdMorph, createBatch, ellipsoid, dragMat, lin, STRIDE, CROWD_STRIDE, CROWD_MORPH, MAT, BAY, PLATE_ATLAS, roofLights, roofTrack, shellShift } from './ballpark-mesh.js';
+import { insideOutline } from '../diamond/geo.js';
+import { ROOF_MS } from '../world-feed.js';
 import { CROWD_VS, flashesAt } from './crowd.js';
 import { paintInfield, paintMark, smoothPoly, DIRT_RECT } from '../diamond/dirt.js';
 import { boardLamps, BOARD_W, BOARD_H } from '../diamond/board.js';
@@ -63,8 +69,10 @@ layout(location = 2) in vec2 aUv;
 layout(location = 3) in vec3 aCol;
 layout(location = 4) in float aMat;
 uniform mat4 uVP;
+// where a batch is drawn from where it was built: a shell of the roof on its rails, nothing else
+uniform vec3 uShift;
 out vec3 vPos; out vec3 vNrm; out vec2 vUv; out vec3 vCol; flat out int vMat;
-void main() { vPos = aPos; vNrm = aNrm; vUv = aUv; vCol = aCol; vMat = int(aMat + 0.5); gl_Position = uVP * vec4(aPos, 1.0); }`;
+void main() { vPos = aPos + uShift; vNrm = aNrm; vUv = aUv; vCol = aCol; vMat = int(aMat + 0.5); gl_Position = uVP * vec4(vPos, 1.0); }`;
 // The players: the same, skinned by their bones (gl/skin.js). A folded bone's vertices have no
 // normal, and draw nothing.
 const SKIN_VS = `#version 300 es
@@ -178,72 +186,52 @@ void headShade(inout vec3 alb, inout float rough, inout float f0s, inout float w
 }
 `;
 
-// The park's outer wall (ballpark-mesh.js buildExterior), in the manner of the city ballparks of
-// the early 1990s: brick piers, a ground arcade lit from the concourse, a band of arched windows
-// with the club level lit behind, an open steel tier under the upper deck with its ceiling lamps
-// showing, cast-stone bands and a cornice, and the floods at its foot washing the brick. vUv is
-// (feet along, feet up); vCol is (seed, height / 100, 1 for the outfield's lower wall).
+// The bowl's wall between the fins (ballpark-mesh.js buildBowl), as the map's Coliseum has it:
+// limestone in coursed ashlar, and in every bay between the fins a tall window onto the concourse in
+// a bronze frame with its glazing bars, a bronze spandrel over it and a gilt chevron in the
+// spandrel, the concourse lit behind every night with people against the light, and the floods at
+// the wall's foot washing up the stone. vUv is (feet along from the first fin, feet up); vCol.r is
+// a seed a side. The numbers are the map's (glass/models/coliseum.js) at the broadcast's size.
+const g3 = (hex) => `vec3(${lin(hex).map((v) => v.toFixed(5)).join(', ')})`;
 const EXTERIOR_GLSL = `
 float wallHash(vec2 p) { vec3 p3 = fract(vec3(p.xyx) * 0.1031); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.x + p3.y) * p3.z); }
-void exterior(out vec3 alb, out float rough, out float f0s, out vec3 emis) {
-  float u = vUv.x, v = vUv.y, H = vCol.g * 100.0; bool outfield = vCol.b > 0.5;
-  const float BAY = 26.0; float bu = (fract(u / BAY) - 0.5) * BAY; float bayI = floor(u / BAY);
+float rectAA(vec2 p, vec2 lo, vec2 hi, vec2 fw) { vec2 a = smoothstep(lo - fw, lo + fw, p) * (1.0 - smoothstep(hi - fw, hi + fw, p)); return a.x * a.y; }
+const vec3 STONE = ${g3('#a48a66')}, BRONZE = ${g3('#604428')}, GILT_C = ${g3('#deb260')}, GLASS_C = ${g3('#1c262e')};
+const vec3 FLOOD = vec3(1.0, 0.8, 0.58);
+void exterior(out vec3 alb, out float rough, out float f0s, out vec3 emis, out float metal) {
+  float u = vUv.x, v = vUv.y;
   vec2 fw = fwidth(vUv) + 1e-3;
-  vec4 n1 = texture(uGrass, vUv / 6.0);
-  // brick, coursed, the coursing fading out with distance
-  float course = abs(fract(v / 0.22) - 0.5), cfw = fwidth(v / 0.22);
-  float mortar = (1.0 - smoothstep(0.38, 0.38 + cfw * 1.5, course)) * (1.0 - smoothstep(0.2, 0.6, cfw));
-  vec3 brick = vec3(0.20, 0.068, 0.040) * (0.82 + 0.3 * n1.r) * (1.0 - 0.25 * (1.0 - mortar));
-  vec3 stone = vec3(0.34, 0.30, 0.24) * (0.9 + 0.15 * n1.g);
-  vec3 steel = vec3(0.020, 0.060, 0.045);
-  alb = brick; rough = 0.86; f0s = 0.03; emis = vec3(0.0);
-  // the piers stand between the openings, at the bay's ends
-  float pier = smoothstep(9.5, 9.5 + fw.x * 2.0, abs(bu));
-  // the arcade: openings about seventeen feet wide, round heads springing at sixteen feet
-  float aw = 8.6, spring = 16.0;
-  float dA = (v < spring) ? abs(bu) - aw : length(vec2(bu, v - spring)) - aw;
-  float arch = 1.0 - smoothstep(-fw.x, fw.x, dA);
-  float voussoir = (1.0 - smoothstep(0.0, 1.6, abs(dA - 0.8))) * step(spring - 1.0, v);
-  alb = mix(alb, stone, voussoir * 0.85);
-  // the concourse behind the arches, lit from its ceiling, people moving against it
-  float ceilG = smoothstep(2.0, spring + aw, v);
-  float crowd = step(v, 6.4) * smoothstep(0.3, 0.7, wallHash(vec2(floor(u / 1.6), 3.0)));
-  vec3 inside = vec3(1.0, 0.70, 0.40) * (0.35 + 0.9 * ceilG) * (1.0 - 0.75 * crowd);
-  alb = mix(alb, vec3(0.02), arch); rough = mix(rough, 0.6, arch);
-  emis += inside * arch * 0.12;
-  // cast-stone bands over the arcade and at the cornice
-  float band1 = step(abs(v - 26.0), 1.2), corn = step(H - 3.5, v);
-  alb = mix(alb, stone, max(band1, corn));
-  if (!outfield && H > 60.0) {
-    // arched windows on the second tier, the club level lit behind them
-    float wv = 31.0, wt = 41.0, ww = 4.2;
-    float dW = (v < wt) ? max(abs(bu) - ww, wv - v) : length(vec2(bu, v - wt)) - ww;
-    float win = 1.0 - smoothstep(-fw.x, fw.x, dW);
-    float clubLit = step(0.25, wallHash(vec2(bayI, 11.0)));
-    alb = mix(alb, vec3(0.015, 0.017, 0.02), win); rough = mix(rough, 0.12, win); f0s = mix(f0s, 0.06, win);
-    emis += vec3(1.0, 0.82, 0.58) * win * clubLit * (0.05 + 0.1 * smoothstep(wv, wt + ww, v));
-    alb = mix(alb, stone, step(abs(v - 50.0), 1.0));
-    // the open steel tier: green columns and braces, and behind them the upper concourse in
-    // shadow, its ceiling lamps in a row and the deck's underside catching their light
-    if (v > 52.0 && v < H - 4.0) {
-      float col = 1.0 - smoothstep(1.4, 1.4 + fw.x * 2.0, abs(bu));
-      float brace = (1.0 - smoothstep(0.5, 0.5 + fw.x * 2.0, abs(abs(bu) - (v - 52.0) * 0.5))) * step(v, 76.0);
-      float rail = step(abs(v - 56.0), 0.35) + step(abs(v - 59.0), 0.25);
-      float frame = clamp(col + brace + rail, 0.0, 1.0);
-      vec2 lp = vec2(fract(u / 13.0) - 0.5, v - (H - 9.0));
-      float lampDot = exp(-dot(lp * vec2(13.0, 1.0), lp * vec2(13.0, 1.0)) / 0.5);
-      float soffit = smoothstep(H - 16.0, H - 6.0, v);
-      vec3 upper = vec3(1.0, 0.84, 0.62) * (0.012 + 0.05 * soffit + 1.6 * lampDot);
-      alb = mix(vec3(0.01), steel, frame); rough = mix(0.7, 0.45, frame);
-      emis += upper * (1.0 - frame);
-    }
-  }
-  // the piers stay brick through the arcade
-  alb = mix(alb, brick * 1.08, pier * (1.0 - band1) * (1.0 - corn) * step(v, 50.0) * (1.0 - voussoir));
-  emis *= 1.0 - pier * step(v, 50.0);
-  // the floods at the wall's foot: warm light up the brick, strongest on the piers
-  float wash = exp(-v / 34.0) * (0.55 + 0.45 * pier) * (0.8 + 0.2 * cos(bu * 0.24));
-  emis += alb * vec3(1.0, 0.78, 0.55) * wash * 2.4 * (1.0 - arch);
+  vec4 n1 = texture(uGrass, vUv / 9.0);
+  const float BAY = ${BAY.toFixed(4)};
+  float bu = (fract(u / BAY) - 0.5) * BAY, bayI = floor(u / BAY);
+  vec2 q = vec2(bu, v);
+  // the ashlar: courses of 2.6 ft, the joints staggered a course, fading out with distance
+  float cv = v / 2.6, ju = u / 5.4 + 0.5 * mod(floor(cv), 2.0);
+  float jw = max(fwidth(cv), fwidth(ju)), fade = 1.0 - smoothstep(0.08, 0.3, jw);
+  float joint = max(1.0 - smoothstep(0.02, 0.02 + jw * 1.5, abs(fract(cv + 0.5) - 0.5)), 1.0 - smoothstep(0.01, 0.01 + jw * 1.5, abs(fract(ju + 0.5) - 0.5))) * fade;
+  alb = STONE * (0.88 + 0.2 * n1.g) * (1.0 - 0.16 * joint);
+  rough = 0.82; f0s = 0.03; metal = 0.0; emis = vec3(0.0);
+  // the window, its frame and the spandrel over it
+  float frame = rectAA(q, vec2(-17.1, 21.2), vec2(17.1, 65.8), fw);
+  float glass = rectAA(q, vec2(-15.4, 22.6), vec2(15.4, 64.4), fw);
+  float span = rectAA(q, vec2(-15.4, 66.9), vec2(15.4, 74.1), fw);
+  float bronze = max(frame, span);
+  alb = mix(alb, BRONZE * (0.9 + 0.2 * n1.r), bronze); metal = bronze; rough = mix(rough, 0.34, bronze);
+  // the glazing bars, one up the middle and one across every ten and a half feet
+  float hb = abs(fract((v - 22.6) / 10.45 + 0.5) - 0.5) * 10.45;
+  float bars = max(1.0 - smoothstep(0.3, 0.3 + fw.x * 1.5, abs(bu)), 1.0 - smoothstep(0.25, 0.25 + fw.y * 1.5, hb));
+  float pane = glass * (1.0 - bars);
+  alb = mix(alb, GLASS_C, pane); metal *= 1.0 - pane; rough = mix(rough, 0.07, pane); f0s = mix(f0s, 0.06, pane);
+  // the concourse behind it, lit every night but for a bay here and there, its people against the light
+  float lit = step(0.16, wallHash(vec2(bayI, vCol.r * 17.0 + 3.0)));
+  float crowd = step(v, 29.0) * smoothstep(0.35, 0.7, wallHash(vec2(floor(u / 1.8), 7.0)));
+  emis += vec3(1.0, 0.80, 0.56) * pane * lit * (0.06 + 0.08 * smoothstep(22.6, 64.4, v)) * (1.0 - 0.8 * crowd);
+  // the gilt chevron: an inverted V from the spandrel's lower corners up to its middle
+  float ax = abs(bu), yl = 67.8 + (1.0 - ax / 7.1) * 4.3;
+  float chev = step(ax, 7.1) * smoothstep(yl - fw.y, yl + fw.y, v) * (1.0 - smoothstep(yl + 1.36 - fw.y, yl + 1.36 + fw.y, v));
+  alb = mix(alb, GILT_C, chev * span); rough = mix(rough, 0.26, chev * span);
+  // the floods at the wall's foot, warm up the stone
+  emis += alb * FLOOD * exp(-(v - 9.0) / 46.0) * 0.5 * (1.0 - pane);
 }
 `;
 
@@ -254,6 +242,9 @@ uniform sampler2D uTex; uniform sampler2D uDirt; uniform sampler2D uGrass; unifo
 uniform int uTextured; uniform float uAlphaTest; uniform float uAlpha; uniform float uEmis;
 uniform vec3 uFence; uniform vec2 uBoardRes; uniform vec3 uBoardOn;
 uniform float uCityLit; uniform float uPoolK;
+// the roof: how shut it is (0 open, 1 shut), which keeps the rain off the field, and how much of the
+// floods' light comes out through its glazing and the clerestory
+uniform float uRoof; uniform float uDome;
 uniform int uLSh[6]; uniform int uSpotN;
 uniform sampler2D uFaceAtlas;
 // a skinned player's slot: his face's place in the head arrays, and his jersey's cell in the kit
@@ -305,14 +296,36 @@ void main() {
   float rough = 0.85, metal = 0.0, wrap = 0.0, f0s = 0.04, ao = 1.0;
   vec3 emis = vec3(0.0);
   // the city and the park's outside stand past where the floods are aimed (below)
-  bool far = vMat == ${MAT.FACADE} || vMat == ${MAT.STREET} || vMat == ${MAT.EXTERIOR};
+  bool far = vMat == ${MAT.FACADE} || vMat == ${MAT.STREET} || vMat == ${MAT.EXTERIOR} || vMat == ${MAT.DECO} || vMat == ${MAT.GILT} || vMat == ${MAT.PLAQUE};
   if (vMat == ${MAT.FACADE}) { facade(alb, rough, f0s, emis, metal); ao = mix(0.62, 1.0, smoothstep(0.0, 1.6, vPos.y)); }
   else if (vMat == ${MAT.STREET}) { street(alb, rough, f0s); }
   else if (vMat == ${MAT.EXTERIOR}) {
     // from inside the park its back is plain
     if (dot(N, V) < 0.0) { alb = vec3(0.022, 0.021, 0.02); rough = 0.95; N = -N; }
-    else exterior(alb, rough, f0s, emis);
+    else exterior(alb, rough, f0s, emis, metal);
     ao = mix(0.62, 1.0, smoothstep(0.0, 1.6, vPos.y));
+  } else if (vMat == ${MAT.DECO}) {
+    // the bowl's stone, its towers and its gates: coursed, mottled, and washed by the floods at its foot
+    float cv = vPos.y / 2.6, jw = fwidth(cv);
+    float joint = (1.0 - smoothstep(0.02, 0.02 + jw * 1.5, abs(fract(cv + 0.5) - 0.5))) * (1.0 - smoothstep(0.08, 0.3, jw));
+    vec4 nz = texture(uGrass, (vPos.xz + vPos.yy) / 9.0);
+    alb = vCol * (0.9 + 0.18 * nz.g) * (1.0 - 0.12 * joint);
+    rough = 0.8; f0s = 0.03;
+    emis = alb * vec3(1.0, 0.8, 0.58) * exp(-vPos.y / 50.0) * 0.5;
+    ao = mix(0.62, 1.0, smoothstep(0.0, 1.6, vPos.y));
+  } else if (vMat == ${MAT.GILT}) {
+    // its bronze, its gilt and its rails: metal, and the floods' warm light on the low work
+    rough = 0.3; metal = 1.0;
+    emis = alb * vec3(1.0, 0.8, 0.58) * exp(-vPos.y / 60.0) * 0.35;
+  } else if (vMat == ${MAT.PLAQUE}) {
+    // a name plate, bronze and gilt as painted, floodlit from below after dark
+    rough = 0.36; f0s = 0.08; metal = 0.25;
+    emis = alb * vec3(1.0, 0.86, 0.66) * 0.9;
+  } else if (vMat == ${MAT.GLAZE}) {
+    // glass lit from inside after dark: the roof's glazing and the clerestory by how shut the roof
+    // is (uv.x 0), the towers' slits, the lobby and the gates every night (uv.x 1)
+    rough = 0.06; f0s = 0.06;
+    emis = vUv.x > 0.5 ? vec3(1.0, 0.83, 0.6) * 0.14 : vec3(1.0, 0.84, 0.62) * 0.16 * uDome;
   } else if (vMat == ${MAT.GROUND}) {
     // the field, painted: grass and its mowing, the track, the lines, then the infield canvas
     vec2 xz = vPos.xz;
@@ -341,8 +354,9 @@ void main() {
     alb = alb * (1.0 - dirt.a) + dirt.rgb * (0.82 + 0.36 * g3.r) * (0.92 + 0.16 * g1.b);
     rough = mix(0.86, 0.96, max(dirt.a, trk)); f0s = 0.012;
     // wet: the dirt and the track darker with a dull sheen, and puddles lying flat in their low
-    // spots that catch the floods; the grass a little darker
-    float wetD = uWet * max(dirt.a, trk), wetG = uWet * (1.0 - max(dirt.a, trk));
+    // spots that catch the floods; the grass a little darker. Under the roof it stays dry.
+    float wetIn = uWet * (1.0 - uRoof);
+    float wetD = wetIn * max(dirt.a, trk), wetG = wetIn * (1.0 - max(dirt.a, trk));
     float pud = wetD * smoothstep(0.54, 0.68, g1.b * 0.45 + g2.g * 0.55);
     alb *= 1.0 - 0.46 * wetD - 0.12 * wetG;
     rough = mix(mix(rough, 0.64, wetD * 0.8 + wetG * 0.1), 0.2, pud); f0s = mix(f0s, 0.03, wetD + wetG * 0.3);
@@ -395,7 +409,7 @@ void main() {
   }
   // cloth has a sheen at grazing angles
   if (vMat == ${MAT.CLOTH}) col += dif * pow(1.0 - NoV, 4.0) * 0.05 * uSkyUp;
-  // what lights itself: windows, the arcade, the floods at the wall's foot
+  // what lights itself: windows, the concourse, the floods at the wall's foot, the glass of the roof
   col += emis * uCityLit;
   o = vec4(airOf(col, vPos), uAlpha * tex.a);
 }`;
@@ -545,6 +559,115 @@ const netCanvas = (doc) => canvasOf(doc, 128, 128, (g) => {
   g.clearRect(0, 0, 128, 128); g.strokeStyle = 'rgba(30,30,30,1)'; g.lineWidth = 3;
   for (let i = 0; i <= 128; i += 16) { g.beginPath(); g.moveTo(i, 0); g.lineTo(i, 128); g.stroke(); g.beginPath(); g.moveTo(0, i); g.lineTo(128, i); g.stroke(); }
 });
+
+// ── the name plates ─────────────────────────────────────────────────────────
+// The two plates over the Coliseum's gates (ballpark-mesh.js PLATE_ATLAS), painted as the map makes
+// the main gate's at the Meridian's standard (glass/models/coliseum.js, section 8): a dark bronze
+// plate, a double gilt fillet, a five-ray sunburst rising at each end, and the venue's name in raised
+// gilt in the deco hand, his name over COLISEUM, each line set to its own width so the letters keep
+// their proportions, every letter catching the light along its top and casting its shadow down and
+// to the right onto the bronze. The bleacher gate's says BLEACHERS inside a single fillet. Every
+// measure is the map's, in its tiles, across the plate's own width and height.
+// ⚠ HIS NAME IS NEVER SQUEEZED. A line too long for its band is set smaller, never narrower: a
+// squeezed name read as a different hand from the map's.
+export const DECO_FACE = (px) => `${Math.round(px)}px Limelight, "Copperplate Gothic Bold", Copperplate, "Sitka Banner", Optima, "Palatino Linotype", serif`;
+let decoP = null;
+export function loadDecoFace(doc) {
+  if (decoP) return decoP;
+  if (!doc?.fonts || typeof FontFace === 'undefined') return (decoP = Promise.resolve(false));
+  decoP = new FontFace('Limelight', 'url(' + new URL('../../../../shared/fonts/limelight.woff2', import.meta.url).href + ')').load()
+    .then((f) => { doc.fonts.add(f); return true; }, () => false);
+  return decoP;
+}
+// The lines a venue's name is set in: all but its last word over its last.
+export function plateLines(name) {
+  const words = (String(name || '').trim() || 'Charles B. Hughson Coliseum').toUpperCase().split(/\s+/);
+  const last = words.length > 1 ? words.pop() : '';
+  return last ? [words.join(' '), last] : [words.join(' ')];
+}
+export function paintPlateCanvas(doc, name) {
+  const A = PLATE_ATLAS;
+  return canvasOf(doc, A.w, A.h, (g) => {
+    g.clearRect(0, 0, A.w, A.h);
+    // one plate into its cell: `pw`, `ph` its width and height in the map's tiles
+    const plate = ([cx, cy, cw, ch], pw, ph, paint) => {
+      const sx = cw / pw, sy = ch / ph;
+      g.save(); g.translate(cx, cy);
+      // the bronze, darker toward its edges, with a fine grain along it
+      const grd = g.createLinearGradient(0, 0, 0, ch);
+      grd.addColorStop(0, '#17110b'); grd.addColorStop(0.5, '#2a1f15'); grd.addColorStop(1, '#130e09');
+      g.fillStyle = grd; g.fillRect(0, 0, cw, ch);
+      g.globalAlpha = 0.06; g.fillStyle = '#d8b07a';
+      for (let y = 3; y < ch; y += 7) g.fillRect(0, y, cw, 1);
+      g.globalAlpha = 1;
+      paint(sx, sy, cw, ch);
+      g.restore();
+    };
+    // gilt: the light along its top, its face, and the shadow it casts down and right
+    const giltFill = (y0, y1) => { const f = g.createLinearGradient(0, y0, 0, y1); f.addColorStop(0, '#fbe7ae'); f.addColorStop(0.45, '#ecc97e'); f.addColorStop(1, '#b4873c'); return f; };
+    const giltRect = (x, y, w, h, d) => {
+      g.fillStyle = 'rgba(10,6,2,0.85)'; g.fillRect(x + d, y + d, w, h);
+      g.fillStyle = 'rgba(255,244,210,0.6)'; g.fillRect(x - d * 0.35, y - d * 0.35, w, h);
+      g.fillStyle = giltFill(y, y + h); g.fillRect(x, y, w, h);
+    };
+    const giltPoly = (pts, d) => {
+      const path = (ox, oy) => { g.beginPath(); pts.forEach(([x, y], i) => (i ? g.lineTo(x + ox, y + oy) : g.moveTo(x + ox, y + oy))); g.closePath(); };
+      const ys = pts.map((p) => p[1]);
+      path(d, d); g.fillStyle = 'rgba(10,6,2,0.85)'; g.fill();
+      path(-d * 0.35, -d * 0.35); g.fillStyle = 'rgba(255,244,210,0.6)'; g.fill();
+      path(0, 0); g.fillStyle = giltFill(Math.min(...ys), Math.max(...ys)); g.fill();
+    };
+    // a line of raised gilt letters, as large as its band allows without squeezing, centred in it
+    const letters = (text, x0, x1, y0, y1) => {
+      const bw = x1 - x0, bh = y1 - y0;
+      g.textAlign = 'center'; g.textBaseline = 'alphabetic';
+      let px = bh / 0.7;
+      g.font = DECO_FACE(px);
+      const m = g.measureText?.(text);
+      const cap = m && m.actualBoundingBoxAscent > 0 ? m.actualBoundingBoxAscent / px : 0.7;
+      px = Math.min(px, (bh * 0.84) / cap);
+      g.font = DECO_FACE(px);
+      const w = g.measureText?.(text)?.width || 0;
+      if (w > bw * 0.97) { px *= (bw * 0.97) / w; g.font = DECO_FACE(px); }
+      const cx = (x0 + x1) / 2, base = (y0 + y1) / 2 + (cap * px) / 2, d = Math.max(2, px * 0.045);
+      g.fillStyle = 'rgba(10,6,2,0.85)'; g.fillText(text, cx + d, base + d * 1.2);
+      g.fillStyle = 'rgba(255,244,210,0.6)'; g.fillText(text, cx - d * 0.35, base - d * 0.35);
+      g.fillStyle = giltFill(base - cap * px, base); g.fillText(text, cx, base);
+    };
+
+    // THE MAIN GATE: his name over COLISEUM. The plate is 0.47 by 0.14 tiles; its double fillet a
+    // gilt border 0.0055 in and a fine line 0.0024 wide 0.012 in.
+    plate(A.main, 0.47, 0.14, (sx, sy, cw, ch) => {
+      const ft = 0.0055, inn = 0.012, lt = 0.0024, d = 3;
+      giltRect(0, 0, cw, ft * sy, d); giltRect(0, ch - ft * sy, cw, ft * sy, d);
+      giltRect(0, 0, ft * sx, ch, d); giltRect(cw - ft * sx, 0, ft * sx, ch, d);
+      giltRect(inn * sx, inn * sy, cw - 2 * inn * sx, lt * sy, 2); giltRect(inn * sx, ch - inn * sy - lt * sy, cw - 2 * inn * sx, lt * sy, 2);
+      giltRect(inn * sx, inn * sy, lt * sx, ch - 2 * inn * sy, 2); giltRect(cw - inn * sx - lt * sx, inn * sy, lt * sx, ch - 2 * inn * sy, 2);
+      // a five-ray sunburst at each end, rising from the inner line
+      for (const sg of [-1, 1]) {
+        const cx = cw / 2 + sg * (0.235 - inn - 0.022) * sx, cy = ch - (inn + 0.002) * sy, r = 0.075, w = 0.0024;
+        for (let k = 1; k < 6; k++) {
+          const a = (Math.PI * k) / 6, c = Math.cos(a), s = Math.sin(a);
+          const P = (du, dz) => [cx + du * sx, cy - dz * sy];
+          giltPoly([P(-s * w, c * w), P(s * w, -c * w), P(c * r * 0.3 + s * w, s * r - c * w), P(c * r * 0.3 - s * w, s * r + c * w)], 2.5);
+        }
+      }
+      // the lettering: his line 0.449 to 0.493 and 0.18 either side of the middle, COLISEUM 0.379 to
+      // 0.445 and 0.165 either side, on a plate from 0.36 to 0.50
+      const [l1, l2] = plateLines(name);
+      const Y = (z) => (0.50 - z) * sy, X = (du) => cw / 2 + du * sx;
+      if (l2) { letters(l1, X(-0.18), X(0.18), Y(0.493), Y(0.449)); letters(l2, X(-0.165), X(0.165), Y(0.445), Y(0.379)); }
+      else letters(l1, X(-0.20), X(0.20), Y(0.46), Y(0.40));
+    });
+    // THE BLEACHER GATE: BLEACHERS inside a single fillet, on a plate 0.30 by 0.085 tiles
+    plate(A.bleach, 0.30, 0.085, (sx, sy, cw, ch) => {
+      const ft = 0.005, d = 3;
+      giltRect(0, 0, cw, ft * sy, d); giltRect(0, ch - ft * sy, cw, ft * sy, d);
+      giltRect(0, 0, ft * sx, ch, d); giltRect(cw - ft * sx, 0, ft * sx, ch, d);
+      letters('BLEACHERS', cw / 2 - 0.125 * sx, cw / 2 + 0.125 * sx, 0.016 * sy, ch - 0.016 * sy);
+    });
+  });
+}
 
 // The painted canvases are the same for every park and every mount: made once a document.
 const _canvases = new WeakMap();
@@ -703,6 +826,11 @@ export function createBallparkRenderer(canvas, opts = {}) {
     };
     const opaque = [...park.opaque].map(([key, b]) => ({ key, ...upload(b) }));
     const translucent = [...park.translucent].map(([key, b]) => ({ key, ...upload(b) }));
+    // what burns on its own (the towers' floods, the decks' rows, the beacons, the gates' lanterns and
+    // the plates' halo), each at its own strength a frame; and the roof's shells, each drawn where
+    // the roof has got to (ballpark-mesh.js shellShift)
+    const lampDraws = Object.entries(park.lamps).filter(([, b]) => b.n).map(([kind, b]) => ({ key: 'lamp', kind, emis: 1, ...upload(b) }));
+    const shells = park.roof.map((r, i) => ({ key: 'shell', i, fixed: r.fixed, ...upload(r.batch) }));
     // the crowd: one figure in its three poses (ballpark-mesh.js crowdMorph), drawn once for the fans
     // who rest sitting, once standing and once cheering, each getting up as his side roars. Each
     // kind's fans are dealt into a seeded order, so a tier that draws fewer (its `crowd`) draws the
@@ -905,7 +1033,7 @@ export function createBallparkRenderer(canvas, opts = {}) {
         streetCam = streetShot(set);
         city.stats.streets = life.stats;
       }
-      paintSign(v.name);
+      paintPlates(v.name);
       return city?.stats || null;
     }
     function dropCity() {
@@ -934,31 +1062,21 @@ export function createBallparkRenderer(canvas, opts = {}) {
       st.write(new Float32Array(out), out.length);
       return { vao, st, n: out.length / 7 };
     }
-    // The name in lit letters on a dark face, in the graphics' own face once it has loaded.
-    function paintSign(name) {
+    // The name plates over the gates (paintPlateCanvas), in the deco hand once it has loaded.
+    let plateAsk = 0;
+    function paintPlates(name) {
       if (TEX.sign) { gl.deleteTexture(TEX.sign); TEX.sign = null; }
-      const text = String(name || '').trim().toUpperCase();
-      if (!text) return;
-      const draw = () => canvasOf(doc, 2048, 264, (g) => {
-        g.fillStyle = '#0c0e12'; g.fillRect(0, 0, 2048, 264);
-        g.strokeStyle = '#ffbe5a'; g.lineWidth = 6; g.strokeRect(10, 10, 2028, 244);
-        // A long name steps the face down before fillText's maxWidth squeezes it: squeezed, the
-        // Charles B. Hughson Coliseum's 27 letters came out at 70% of their width.
-        let size = 150;
-        g.font = HUD_FACES.big(size);
-        while (size > 96 && (g.measureText?.(text)?.width || 0) > 1900) g.font = HUD_FACES.big(size -= 6);
-        g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#ffd68c';
-        g.fillText(text, 1024, 140, 1900);
-      });
-      TEX.sign = texture(draw(), { repeat: false, af: 16 });
-      loadHudFaces(doc).then((ok) => {
-        if (!ok || lost || cityVenue?.name !== name || !TEX.sign) return;
+      TEX.sign = texture(paintPlateCanvas(doc, name), { repeat: false, af: 16 });
+      const ask = ++plateAsk;
+      loadDecoFace(doc).then((ok) => {
+        if (!ok || lost || ask !== plateAsk || !TEX.sign) return;
         gl.deleteTexture(TEX.sign);
-        TEX.sign = texture(draw(), { repeat: false, af: 16 });
+        TEX.sign = texture(paintPlateCanvas(doc, name), { repeat: false, af: 16 });
         opts.onAsset?.();
       });
     }
     const signDraw = { key: 'sign', ...upload(park.sign) };
+    paintPlates(opts.venue?.name);
 
     // ── the ball ──────────────────────────────────────────────────────────────
     // Where the director's world has it (diamond/world.js), or nowhere. A sphere a little over its
@@ -1055,19 +1173,37 @@ export function createBallparkRenderer(canvas, opts = {}) {
       matDraw.n = matBatch.n;
     }
 
-    // ── the lights ────────────────────────────────────────────────────────────
-    // Each tower burns in proportion to its working lamps; the two behind the plate are
-    // smaller banks.
+    // ── the lights and the roof ───────────────────────────────────────────────
+    // Each light burns in proportion to its working lamps, a deck's row a little less than a tower.
+    // Where each one is depends on the roof (ballpark-mesh.js roofLights): open, the four towers and
+    // the decks' rows; shut, the towers' light has gone over to the lamps under the decks.
     const LPos = new Float32Array(18), LCol = new Float32Array(18), LDir = new Float32Array(18);
-    park.field.towers.slice(0, 6).forEach((T, i) => {
-      const k = NIGHT.towers * (T.frac / 0.62) * (T.base[2] < 0 ? 0.7 : 1);
-      LPos.set(T.lamp, i * 3); LCol.set([k, k * 0.965, k * 0.9], i * 3); LDir.set(T.dir, i * 3);
-    });
+    const lightsOf = park.field.towers.slice(0, 6);
+    const lightK = lightsOf.map((T) => NIGHT.towers * (T.frac / 0.62) * (T.kind === 'deck' ? 0.85 : 1));
+    function placeLights(p) {
+      roofLights(lightsOf, p).forEach((L, i) => {
+        const k = lightK[i] * L.k;
+        LPos.set(L.lamp, i * 3); LCol.set([k, k * 0.965, k * 0.9], i * 3); LDir.set(L.dir, i * 3);
+      });
+    }
+    // The roof's travel (roofTrack): a payload's `roof` says where it is going, and a change takes the
+    // map's ninety seconds (world-feed.js ROOF_MS). Shut until a payload says otherwise, as the map's
+    // static picture is.
+    const roofT = roofTrack(ROOF_MS);
+    const clock = () => (opts.now ? opts.now() : typeof performance !== 'undefined' ? performance.now() : Date.now());
+    function setRoof(shut) {
+      const now = clock();
+      if (shut != null) roofT.set(!!+shut, now);
+      return roofT.at(now);
+    }
+    let roofNow = roofT.at(clock());
+    placeLights(roofNow);
     const fence = park.field.fence;
-    // the four towers on the field side cast; the two behind the plate don't
+    // the towers cast, as many as there are maps, wherever their light is; the decks' rows don't
     const LSh = new Int32Array(6).fill(-1);
-    { let k = 0; park.field.towers.slice(0, 6).forEach((T, i) => { if (T.base[2] >= 0 && k < shadows.count) LSh[i] = k++; }); }
-    const casting = park.field.towers.filter((T, i) => LSh[i] >= 0);
+    { let k = 0; lightsOf.forEach((T, i) => { if (T.kind !== 'deck' && k < shadows.count) LSh[i] = k++; }); }
+    const casting = lightsOf.map((T, i) => i).filter((i) => LSh[i] >= 0);
+    const lampOf = (i) => [LPos[i * 3], LPos[i * 3 + 1], LPos[i * 3 + 2]];
 
     // The depth the frame was drawn with, resolved into a texture the lens and the occlusion read.
     // A blit from the multisampled target costs no second pass over the park.
@@ -1119,11 +1255,11 @@ export function createBallparkRenderer(canvas, opts = {}) {
     });
     // the birds (gl/parkbirds.js): the gulls lit from below by the share of the towers' light the
     // field throws back up, and the starlings out toward the sunset in the evening; both down out
-    // of the rain, the snow and the lightning
+    // of the rain, the snow and the lightning, and nowhere under a shut roof
     const BIRD_FLOOD = 0.12;
     const birdFlood = [0, 1, 2].map((c) => { let s = 0; for (let i = 0; i < 6; i++) s += LCol[i * 3 + c]; return (s / 6) * BIRD_FLOOD; });
     const birdLook = (q) => {
-      const aloft = q.birds !== false && !weather.look.fall && !weather.look.bolts;
+      const aloft = q.birds !== false && !weather.look.fall && !weather.look.bolts && roofNow < 0.5;
       return {
         up: frameUp, dn: look.dn, flood: birdFlood, night: look.night, sun: look.sun, evening: hourNow == null || hourNow >= 12,
         fogDens: q.fog ? look.fogDens : 0, fogH: NIGHT.fogH, fogCol: look.fog, gulls: aloft, starlings: aloft,
@@ -1153,6 +1289,11 @@ export function createBallparkRenderer(canvas, opts = {}) {
       if (shot === 'street' && streetCam) shot = { ...streetCam, shadow: [[streetCam.at[0], 0, streetCam.at[2] - 30], 140] };
       const M = shotMatrices(shot, w / h), q = api.quality;
       let tris = 0, draws = 0;
+      // where the roof has got to, and the lights with it; under it, nothing falls on the camera
+      roofNow = roofT.at(clock());
+      placeLights(roofNow);
+      const underRoof = roofNow > 0.5 && insideOutline(park.outline, M.eye);
+      for (const d of lampDraws) d.emis = d.kind === 'tower' ? Math.max(0, 1 - 2 * roofNow) : d.kind === 'deck' ? 1 : look.lights;
       const flash = weather.flashAt(), add3 = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
       frameUp = flash ? add3(look.up, flash.up) : look.up;
       frameZen = flash ? add3(look.zen, flash.sky) : look.zen; frameHor = flash ? add3(look.hor, flash.sky) : look.hor; frameAway = flash ? add3(look.horAway, flash.sky) : look.horAway;
@@ -1167,7 +1308,7 @@ export function createBallparkRenderer(canvas, opts = {}) {
       const nCast = q.shadows === true ? casting.length : Math.max(0, Math.min(casting.length, q.shadows | 0));
       if (nCast && casters.length) {
         const [focus, radius] = M.shadow || [[0, 0, 60], 80];
-        spotN = shadows.render(casting.slice(0, nCast).map((T) => ({ lamp: T.lamp, focus, radius })), (vp, own) => {
+        spotN = shadows.render(casting.slice(0, nCast).map((i) => ({ lamp: lampOf(i), focus, radius })), (vp, own) => {
           gl.useProgram(SKD.p);
           gl.uniformMatrix4fv(SKD.u('uVP'), false, vp);
           palette.bind(9); gl.uniform1i(SKD.u('uBones'), 9);
@@ -1210,6 +1351,7 @@ export function createBallparkRenderer(canvas, opts = {}) {
         gl.uniform3f(P.u('uFence'), fence.line, fence.centre, fence.curve);
         gl.uniform2f(P.u('uBoardRes'), BOARD_W, BOARD_H); gl.uniform3f(P.u('uBoardOn'), 6.0, 3.0, 0.7);
         gl.uniform1f(P.u('uCityLit'), look.cityLit); gl.uniform1f(P.u('uPoolK'), look.pool);
+        gl.uniform1f(P.u('uRoof'), roofNow); gl.uniform1f(P.u('uDome'), roofNow); gl.uniform3f(P.u('uShift'), 0, 0, 0);
         shadows.bind(P.u, 4);
         gl.uniform1iv(P.u('uLSh'), LSh); gl.uniform1i(P.u('uSpotN'), spotN);
         gl.uniform1i(P.u('uHeadSlot'), 0); gl.uniform4f(P.u('uKitCell'), 0, 0, 0, 0);
@@ -1221,13 +1363,21 @@ export function createBallparkRenderer(canvas, opts = {}) {
           gl.uniform1i(P.u('uTextured'), t ? 1 : 0);
           gl.uniform1f(P.u('uAlphaTest'), ALPHA_TEST.has(d.key) ? 0.5 : -1);
           gl.uniform1f(P.u('uAlpha'), alpha);
-          gl.uniform1f(P.u('uEmis'), d.key === 'sign' ? NIGHT.sign : 1);
+          gl.uniform1f(P.u('uEmis'), d.key === 'sign' ? NIGHT.sign : d.emis ?? 1);
           gl.bindVertexArray(d.vao); gl.drawArrays(gl.TRIANGLES, 0, d.n);
           tris += d.n / 3; draws++;
         }
       };
       litSetup(LIT);
       drawSet(opaque, 1);
+      drawSet(lampDraws, 1);
+      // the roof's shells, each where the roof has got to on its rails
+      for (const d of shells) {
+        const s = shellShift(d.i, roofNow);
+        gl.uniform3f(LIT.u('uShift'), s[0], s[1], s[2]);
+        drawSet([d], 1);
+      }
+      gl.uniform3f(LIT.u('uShift'), 0, 0, 0);
       if (final && dress) drawSet(dress.opaque, 1);
       if (final && champ && dress) drawSet([dress.trophy], 1);
       if (TEX.sign) drawSet([signDraw], 1);
@@ -1306,8 +1456,8 @@ export function createBallparkRenderer(canvas, opts = {}) {
       }
       const fx = spectacle.draw(M, h, { fx: q.fx });
       tris += fx.tris; draws += fx.draws;
-      // what falls and the bolts (each sets its own blend)
-      const wd = weather.draw(M, w, h);
+      // what falls and the bolts (each sets its own blend); nothing falls under a shut roof
+      const wd = weather.draw(M, w, h, { fall: !underRoof });
       tris += wd.tris; draws += wd.draws;
       gl.depthMask(true); gl.disable(gl.BLEND);
       gl.bindVertexArray(null);
@@ -1364,7 +1514,7 @@ export function createBallparkRenderer(canvas, opts = {}) {
         if (depth) { gl.deleteFramebuffer(depth.fbo); gl.deleteTexture(depth.tex); depth = null; }
         for (const t of Object.values(TEX)) gl.deleteTexture(t);
         gl.deleteTexture(boardTex);
-        for (const d of [...opaque, ...translucent, signDraw, ballDraw, matDraw]) { gl.deleteVertexArray(d.vao); gl.deleteBuffer(d.st.buf); }
+        for (const d of [...opaque, ...translucent, ...lampDraws, ...shells, signDraw, ballDraw, matDraw]) { gl.deleteVertexArray(d.vao); gl.deleteBuffer(d.st.buf); }
         dropCity();
         dropCrowd(homeCrowd); if (fullCrowd) dropCrowd(fullCrowd);
         if (dress) for (const d of [...dress.opaque, dress.trophy]) { gl.deleteVertexArray(d.vao); gl.deleteBuffer(d.st.buf); }
@@ -1419,6 +1569,10 @@ export function createBallparkRenderer(canvas, opts = {}) {
       // setWeather(wx, { flash }): the weather over the park (diamond/weather.js), with no lightning
       // flash for less motion; setTime(t): the world's time, which what falls, the bolts and the
       // city's moving lights are drawn at
+      // setRoof(shut): where the venue's roof is going (a payload's `roof`, 1 shut, 0 open; null
+      // keeps it), the first one heard taken as where it is; `roof` is { p, to, moving } now, and the
+      // view keeps drawing while it moves
+      setRoof, get roof() { const now = clock(); return { p: roofT.at(now), to: roofT.to, moving: roofT.moving(now) }; },
       render, setBoard, setCast, setPose, setBall, setSpectacle: (fx, t) => spectacle.set(fx, t), pump, setVenue, dispose, stats,
       markDirt, resetDirt, smoothDirt, setMats, dirtStats, setHour, setWeather, get look() { return look; },
       setTime: (t) => { worldT = Number.isFinite(t) ? t : 0; weather.setTime(worldT); },

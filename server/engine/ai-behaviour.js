@@ -14,7 +14,8 @@ import { dispatchAction } from './actions.js';
 import { isNpcScheduledNow, getNpcStudioZone, isZoneWatched, npcNextShiftInMins } from './broadcast-bridge.js';
 import { getShopperForNpc, closeShopSession, didBuyThisSession } from './vendor-session.js';
 import { getNpcChitchat, getNpcHomeActivities } from './npc-personality.js';
-import { setPosture, forceStand } from './posture.js';
+import { setPosture, forceStand, getPosture } from './posture.js';
+import { gatherHookSync } from './plugins.js';
 import { npcWashAtHome } from './hygiene.js';
 import { on, emit } from './events.js';
 
@@ -1447,6 +1448,16 @@ function evalCondition(node, entity) {
     case 'AT_HOME':
       return !!(entity.home_zone && zoneId === entity.home_zone);
 
+    // True while the venue on the tile at (x, y) is lit for its show. It asks the
+    // `venue.lit` sync hook, the same question the flight derive puts for a map
+    // cell, so the engine never names whoever answers. An NPC who goes to the
+    // game sets off when the towers come on and comes home when they go off.
+    case 'VENUE_LIT': {
+      const x = Number(params.x), y = Number(params.y);
+      if (!Number.isFinite(x) || !Number.isFinite(y)) return false;
+      return gatherHookSync('venue.lit', { x, y }).some(r => r && r.on);
+    }
+
     default: {
       const fn = pluginConditions.get(type);
       if (fn) {
@@ -2028,6 +2039,35 @@ async function execAction(node, entity, ctx) {
       // it renders in the shared dim-italic .msg-zone-event colour — not a
       // one-off inline yellow that made VINE emotes stand out from the rest.
       broadcast(zoneId, { type: 'zone_event', message: `${entity.name} ${msg}` });
+      break;
+    }
+
+    // SIT: sit down on a named piece of furniture in this room, matched by its
+    // name or one of its aliases. It goes through the posture substrate, the same
+    // fields a seated player has, and the room text reads them to show the seat
+    // as taken. Running it again on the seat they're already in does nothing, so a
+    // graph can pass through it every lap; `message` is emoted on sitting down.
+    case 'SIT': {
+      const want = String(params.furniture || '').trim().toLowerCase();
+      if (!want || !zoneId) break;
+      const named = (f) => {
+        if (String(f.name || '').toLowerCase() === want) return true;
+        const al = f.flags?.aliases;
+        const list = Array.isArray(al) ? al : (typeof al === 'string' ? al.split(',') : []);
+        return list.some(a => String(a).trim().toLowerCase() === want);
+      };
+      const seat = getZoneFurniture(zoneId).find(named);
+      if (!seat) break;
+      if (getPosture(entity) === 'sitting' && entity.sittingOn === seat.name) break;
+      setPosture(entity, 'sitting', { sittingOn: seat.name });
+      if (params.message) broadcast(zoneId, { type: 'zone_event', message: `${entity.name} ${params.message}` });
+      break;
+    }
+
+    // STAND: get up again. A graph runs it before walking away from a SIT, or
+    // the NPC is still in the chair as far as the posture substrate knows.
+    case 'STAND': {
+      if (getPosture(entity) !== 'standing') setPosture(entity, 'standing');
       break;
     }
 

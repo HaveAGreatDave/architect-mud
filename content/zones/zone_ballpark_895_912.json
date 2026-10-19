@@ -3,16 +3,17 @@
   "ambient_theme": "urban",
   "bg_color": "#2a1d18",
   "color": "#d8c9a8",
-  "description": "The left-field side of the Hughson Coliseum, brick backing onto the Vetch Mews plots, with a light tower over it.",
+  "description": "The west wall of the Hughson Coliseum: limestone and pale fins behind the Vetch Mews frontage, and along the top the rails the roof rolls on.",
   "exits": {},
   "flags": {
     "building_name": "Charles B. Hughson Coliseum",
     "building_type": "ballpark_w",
     "district": "halcyon_fields",
     "entrance": "south",
-    "floors": 1,
+    "floors": 4,
     "region_id": "region_coldwater",
-    "venue_lights": true
+    "venue_lights": true,
+    "venue_roof": true
   },
   "grid_x": 895,
   "grid_y": 912,

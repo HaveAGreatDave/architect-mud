@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_coliseum_scorecard",
+  "name": "scorecard and pencil",
+  "tags": {
+    "description": "A card ruled for nine innings and two line-ups, with a stub of pencil tucked in the fold. The back has a diagram of how to score a double play.",
+    "stackable": true
+  },
+  "type": "misc",
+  "value": 2,
+  "weight": 10
+}

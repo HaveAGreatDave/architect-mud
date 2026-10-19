@@ -48,7 +48,7 @@
       },
       "go_home_ps": {
         "action_type": "GO_HOME",
-        "next": "home_life_ps",
+        "next": "check_work",
         "type": "action"
       },
       "go_to_atm": {
@@ -58,7 +58,7 @@
       },
       "go_to_work": {
         "action_type": "GO_TO_WORK",
-        "next": "work_wait",
+        "next": "player_check",
         "type": "action"
       },
       "have_life": {
@@ -78,39 +78,27 @@
       },
       "off_home_check": {
         "condition_type": "AT_HOME",
-        "ifFalse": "off_random",
-        "ifTrue": "home_idle",
-        "type": "condition"
+        "no": "off_random",
+        "type": "condition",
+        "yes": "home_idle"
       },
       "off_random": {
-        "branch_0": "have_life",
-        "branch_1": "go_home_off",
-        "branches": [
-          {
-            "weight": 1
-          },
-          {
-            "weight": 5
-          }
+        "options": [
+          "go_home_off",
+          "have_life"
         ],
         "type": "random"
       },
       "player_check": {
-        "condition_type": "PLAYER_IN_ZONE",
-        "ifFalse": "check_work",
-        "ifTrue": "work_say",
-        "type": "condition"
+        "condition_type": "PLAYER_PRESENT",
+        "no": "work_wait",
+        "type": "condition",
+        "yes": "work_say"
       },
       "post_shift": {
-        "branch_0": "have_life",
-        "branch_1": "go_home_ps",
-        "branches": [
-          {
-            "weight": 1
-          },
-          {
-            "weight": 5
-          }
+        "options": [
+          "go_home_ps",
+          "home_life_ps"
         ],
         "type": "random"
       },
@@ -120,12 +108,13 @@
       },
       "work_say": {
         "action_type": "VENDOR_CHITCHAT",
-        "next": "check_work",
+        "next": "work_wait",
         "type": "action"
       },
       "work_wait": {
-        "next": "player_check",
-        "seconds": 60,
+        "jitter": 20,
+        "next": "check_work",
+        "seconds": 25,
         "type": "wait"
       }
     }
@@ -135,13 +124,64 @@
     "taps out a puck, knocks the basket twice, and starts again from the beginning",
     "\"The board says four things. Three of them are rubbed out. That is the menu.\"",
     "wipes down a table nobody has sat at yet, then does the one beside it",
-    "\"The roaster goes on at half five. I have had the conversation. It goes on at half five.\""
+    "\"The roaster goes on at half five. I have had the conversation. It goes on at half five.\"",
+    "carries two cups out to a car in the car park and comes back drying his hands on his apron"
   ],
-  "description": "A young man with a burn scar across one forearm in the exact shape of a steam wand, which he will explain to anybody and has never once presented as a cautionary tale. He roasts on the premises, at volume, at half five in the morning, and the whole of Greenside Row has an opinion about it that he has heard.",
+  "description": "A young man with a burn scar across one forearm in the exact shape of a steam wand. His canvas apron has gone dark down the front. He moves between the machine and the tables without hurrying, and he smells of the roast.",
   "dialogue_tree": {
     "bye": {
       "options": [],
       "text": "\"Right you are.\""
+    },
+    "chemist": {
+      "actions": [
+        {
+          "action": "GPS_TO",
+          "zone": "zone_district_917_911"
+        }
+      ],
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Dosed & Confused, on Tallow Row. Sabra keeps the same drawers Perpetua did, near enough, and she's open later.\""
+    },
+    "good": {
+      "options": [
+        {
+          "label": "Go on, then.",
+          "next": "__shop__"
+        },
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Bishop's Blend, if you've got a minute to sit with it. House roast on the lever rig, short and thick.\" He nods at the case. \"And a butter tart. No raisins. Don't start.\""
+    },
+    "nextdoor": {
+      "options": [
+        {
+          "label": "Where do I get medicine now?",
+          "next": "chemist"
+        },
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"The chemist and Teodor's stall went the same month. Perpetua retired, and Teodor sold his boards to the Clinkerman at Slag & Wares.\" He shrugs. \"The landlord put a car park on one and grass on the other. I got the car park.\""
+    },
+    "roaster": {
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Twelve-kilo drum, out the back. It goes on at half five because that's when the beans want it.\" He points at the ceiling. \"The flue comes out through the cup on the roof. People think the cup is steaming. It's the roast.\""
     },
     "root": {
       "options": [
@@ -150,6 +190,21 @@
           "next": "__shop__"
         },
         {
+          "label": "What's good?",
+          "next": "good"
+        },
+        {
+          "label": "Tell me about the roaster.",
+          "next": "roaster"
+        },
+        {
+          "label": "What happened next door?",
+          "next": "nextdoor"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
           "label": "Another time.",
           "next": "bye"
         }
@@ -185,12 +240,28 @@
   "studio_zone_id": null,
   "vendor_inventory": [
     {
-      "item_id": "item_coffee_grounds",
-      "price": 12
+      "item_id": "item_drug_coffee",
+      "price": 5
+    },
+    {
+      "item_id": "item_drink_bishops_blend",
+      "price": 20
     },
     {
       "item_id": "item_cold_brew_can",
       "price": 10
+    },
+    {
+      "item_id": "item_butter_tart",
+      "price": 4
+    },
+    {
+      "item_id": "item_dripping_bread",
+      "price": 9
+    },
+    {
+      "item_id": "item_coffee_grounds",
+      "price": 12
     },
     {
       "item_id": "item_chicory_sachet",
@@ -199,17 +270,9 @@
     {
       "item_id": "item_chipped_mug",
       "price": 4
-    },
-    {
-      "item_id": "item_dripping_bread",
-      "price": 9
-    },
-    {
-      "item_id": "item_drink_bishops_blend",
-      "price": 20
     }
   ],
-  "vendor_restock_rate": 1,
+  "vendor_restock_rate": 3,
   "vendor_schedule": {
     "fri": [
       {

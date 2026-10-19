@@ -1,0 +1,42 @@
+{
+  "category": "fm",
+  "config": {
+    "layers": [
+      {
+        "adsr": {
+          "a": 0.001,
+          "curve": "exp",
+          "d": 0.25,
+          "r": 0.06,
+          "s": 0
+        },
+        "fm": {
+          "bright": 1,
+          "index": 1.5,
+          "indexEnd": 0.1,
+          "ratio": 3,
+          "time": 0.1
+        },
+        "gain": 0.2,
+        "waveform": "sine"
+      },
+      {
+        "adsr": {
+          "a": 0.001,
+          "curve": "exp",
+          "d": 0.05,
+          "r": 0.03,
+          "s": 0
+        },
+        "gain": 0.04,
+        "tune": 24,
+        "waveform": "sine"
+      }
+    ]
+  },
+  "enabled": 1,
+  "id": "aud_inst_fm_bell",
+  "name": "FM: Arp bell",
+  "sample_id": null,
+  "waveform": "sine"
+}

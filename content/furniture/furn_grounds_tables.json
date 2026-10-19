@@ -1,0 +1,18 @@
+{
+  "description": "Six small tables with marble tops on iron bases. No two of the chairs match.",
+  "flags": {
+    "aliases": [
+      "table",
+      "tables",
+      "chair",
+      "chairs"
+    ],
+    "interactions": [
+      "sit"
+    ]
+  },
+  "id": "furn_grounds_tables",
+  "name": "the tables",
+  "object_type": "furniture",
+  "zone_id": "zone_grounds_cafe"
+}

@@ -3,7 +3,7 @@
   "ambient_theme": "urban",
   "bg_color": "#2a1d18",
   "color": "#d8c9a8",
-  "description": "The bleacher gate of the Hughson Coliseum, two iron gates in the outfield wall on Halcyon Boulevard. The brick is lower here, and the backs of the bleachers show over it. A painted board beside the gates says BLEACHERS.",
+  "description": "The bleacher gate of the Hughson Coliseum on Halcyon Boulevard: two grille gates between fluted pylons, BLEACHERS in gilt on a bronze plate over them, and the fixed end of the roof over the wall.",
   "exits": {
     "north": "zone_district_895_910",
     "south": "zone_hughsonbl_bleachers"
@@ -14,10 +14,11 @@
     "district": "halcyon_fields",
     "entrance": "north",
     "facade": true,
-    "floors": 2,
+    "floors": 5,
     "is_building": true,
     "region_id": "region_coldwater",
     "venue_lights": true,
+    "venue_roof": true,
     "world_exit_zone": "zone_district_895_910"
   },
   "grid_x": 895,

@@ -1,0 +1,265 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "jitter": 20,
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "cash_up",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "player_check",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "no": "off_random",
+        "type": "condition",
+        "yes": "home_idle"
+      },
+      "off_random": {
+        "options": [
+          "go_home_off",
+          "have_life"
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_PRESENT",
+        "no": "work_wait",
+        "type": "condition",
+        "yes": "work_say"
+      },
+      "post_shift": {
+        "options": [
+          "go_home_ps",
+          "home_life_ps"
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "work_wait": {
+        "jitter": 20,
+        "next": "check_work",
+        "seconds": 25,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "Pruitt gives the roasting drum a shove to help it round.",
+    "She twists a rope of dough into a knot in three moves and lays it on the tray.",
+    "She scoops peanuts into a cone and shakes salt over the top.",
+    "She chalks another line through the sack tally on the wall.",
+    "She taps the thermometer on the drum and grunts."
+  ],
+  "description": "A broad woman with flour to the elbows and a scoop in her apron pocket, her grey hair tied up in a green scarf. She shakes the drum by hand when she thinks it is going too slowly.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "\"Shells on the floor, not in your pockets.\""
+    },
+    "charles": {
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Everybody round here knew him a little.\" She shakes the drum. \"He bought a cone from my mother every opening day and paid with a note so she couldn't give change. He never sold the ground, and he never haggled over a peanut either.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "What do you sell?",
+          "next": "__shop__"
+        },
+        {
+          "label": "What's the tally on the wall?",
+          "next": "tally"
+        },
+        {
+          "label": "Did you know Sir Charles?",
+          "next": "charles"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing, thanks.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Peanuts, pretzel, popcorn.\" She holds up the scoop. \"Pick one, or I pick for you.\"",
+      "text_by_relation": {
+        "familiar": "\"A cone and a pretzel, salt on both.\" She is filling the cone already.",
+        "first": "The woman at the drum wipes her hands down her apron.\n\n\"Lorna Pruitt. Peanuts, pretzels and popcorn, and that is the whole list.\" She sniffs at the drum. \"Those are nearly done. Wait for them.\"",
+        "known": "\"You came back for the peanuts. They all do.\""
+      }
+    },
+    "tally": {
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Sacks to the end of the season.\" She taps the chalk. \"When it gets to nought, the season is over, whatever the league says. It has never once been wrong.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a green apron floured to the hem",
+      "a green headscarf",
+      "a cream blouse with the sleeves pushed up",
+      "brown wool trousers",
+      "sturdy boots"
+    ]
+  },
+  "home_activities": [],
+  "home_zone": "zone_pruitt_roastery",
+  "hp": 36,
+  "hp_max": 36,
+  "id": "npc_pruitt_lorna",
+  "name": "Lorna Pruitt",
+  "npc_type": "vendor",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_pruitt_peanuts",
+      "price": 3
+    },
+    {
+      "item_id": "item_pruitt_pretzel",
+      "price": 4
+    },
+    {
+      "item_id": "item_pruitt_popcorn",
+      "price": 3
+    },
+    {
+      "item_id": "item_lemon_soda",
+      "price": 4
+    }
+  ],
+  "vendor_restock_rate": 3,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 14,
+        "to": 22
+      }
+    ],
+    "mon": [
+      {
+        "from": 14,
+        "to": 22
+      }
+    ],
+    "sat": [
+      {
+        "from": 10,
+        "to": 14
+      }
+    ],
+    "sun": [],
+    "thu": [
+      {
+        "from": 10,
+        "to": 16
+      }
+    ],
+    "tue": [
+      {
+        "from": 10,
+        "to": 16
+      }
+    ],
+    "wed": [
+      {
+        "from": 14,
+        "to": 22
+      }
+    ]
+  },
+  "vendor_shop_name": "Pruitt's Peanuts & Pretzels",
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_pruitt_shop"
+}

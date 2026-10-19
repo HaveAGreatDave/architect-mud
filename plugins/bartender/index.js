@@ -209,6 +209,84 @@ const MARLA_COWORKER = [
   ],
 ];
 
+// ── Imogen Cardew ⇄ Orion Thale (the Embassy, nights) ─────────────────────────
+// The same felt as Lowry's pair, after he's gone home. Orion deals 08:00 to
+// 04:00 and she pours 20:00 to 08:00, so the two of them share the small hours.
+// She reads; he squares the deck. Neither says much.
+const IMOGEN_COWORKER = [
+  [
+    ['O', `"Table's empty. Read me a line."`],
+    ['L', `"'The keeper lit the lamp at six and didn't ask who for.'" She turns the page. "That's the chapter."`],
+    ['O', `"Sounds like this job."`],
+  ],
+  [
+    ['L', `"You've squared that deck four times since midnight, Orion."`],
+    ['O', `"Five. You were reading for one of them."`],
+  ],
+  [
+    ['O', `"Lowry tells that story louder."`],
+    ['L', `"Lowry tells it to people who are awake."`],
+  ],
+  [
+    ['L', `"Coffee? It's that or the Swill."`],
+    ['O', `"Neither, on shift."`],
+    ['L', `puts the kettle on anyway, and drinks it herself.`],
+  ],
+  [
+    ['O', `glances at the stairwell. "Somebody's been sitting on the third step a while."`],
+    ['L', `"Let them. It's warmer than the street."`],
+  ],
+];
+
+// ── Roz Vance ⇄ Margo Duvall (the Lucky Bastard) ──────────────────────────────
+// The floor runner and the old dealer who calls every card aloud. Their shifts
+// are the same 19:00 to 03:00 (Roz is off Tuesdays, Margo Thursdays). Margo says
+// "hon"; Roz is always on her way somewhere else.
+const ROZ_COWORKER = [
+  [
+    ['O', `"Water for seat four, hon. He's started arguing with the river."`],
+    ['L', `"He's had six. I'll bring him water and call it a highball."`],
+  ],
+  [
+    ['L', `"Your table's full again, Margo. Mine are all watching yours."`],
+    ['O', `riffles the deck one-handed. "They like being read to."`],
+    ['L', `"Nobody tips me for a bedtime story."`],
+  ],
+  [
+    ['O', `"How many free ones tonight?"`],
+    ['L', `"Forty-one. The house is up on all of them."`],
+    ['O', `"Forty-two, then. Bring me a tonic."`],
+  ],
+  [
+    ['L', `"Somebody asked me if you ever miss a call."`],
+    ['O', `squares the deck with a soft snap. "What did you tell them?"`],
+    ['L', `"That I've carried trays past you eleven years and I'm still waiting."`],
+  ],
+];
+
+// ── Rue Castellan ⇄ Bishop (Voltage) ──────────────────────────────────────────
+// The ice bar and the VIP rope, on the same floor and the same 22:00 shift, each
+// with something in one ear telling them about the room.
+const RUE_COWORKER = [
+  [
+    ['O', `touches his earpiece. "Two coming down off the stair. Neither of them can see straight."`],
+    ['L', `"I've got water lined up. They'll order a Voltage anyway."`],
+  ],
+  [
+    ['L', `"You've let nobody up for an hour, Bishop."`],
+    ['O', `"Nobody's had a band for an hour. Rope's just math."`],
+  ],
+  [
+    ['O', `"Water, when you've a second."`],
+    ['L', `slides a glass down the rail to the foot of the stair without looking.`],
+  ],
+  [
+    ['L', `"Bud says the one in the silver jacket's been cut off twice already."`],
+    ['O', `"Third time, I'll walk him out. Politely."`],
+    ['L', `"Send him past the bar on the way. He owes me for two."`],
+  ],
+];
+
 // ── The set (shared by every bartender) ───────────────────────────────────────
 // Keyed on the playback_mode of what's airing, so a ball game, a sermon and the
 // news each get their own remarks. {program} is the show as somebody would say
@@ -383,6 +461,190 @@ const VOICES = {
     ],
     coworkerId: 'npc_reach_dealer',
     coworker: MARLA_COWORKER,
+  },
+
+  // Imogen Cardew: the Embassy's night shift (20:00 to 08:00). Same bottles as
+  // Lowry, fewer speeches: a paperback face-down by the taps, reading glasses in
+  // grey hair. Heat at this hour is something she'd like settled before it arrives.
+  npc_embassy_barkeep_night: {
+    welcomes: [
+      `"New, and up at this hour. That's two things against you, {name}." <span class="text-dim">She marks her page with a beer mat.</span> "Imogen. I've got the bar till eight."`,
+      `looks at you over her reading glasses. "First week, {name}? Sit down. I'll pour you something cheap."`,
+      `"Lowry has the days and I have the nights, {name}. Same bottles. Imogen."`,
+    ],
+    graduation: [
+      `"That's all I know that's any use to you, {name}. The rest is in the paperback, and it's mostly about a lighthouse."`,
+      `"You're coming in at this hour on purpose now, {name}. That's how I know you've settled."`,
+    ],
+    veteranAdvice: [
+      `"Advice, at this hour? Go to bed, {name}. Nobody ever does."`,
+      `"Whatever you're about to do, {name}, do it after you've slept."`,
+      `turns a page without reading it. "You've been here long enough to give the advice. Go and give it to someone."`,
+    ],
+    heat: [
+      `"You're wanted, {name}. I can tell by how you keep looking at the stairs."`,
+      `"I don't ask, this late. I'd like you settled up before whoever it is gets here."`,
+      `pours yours and moves the bottle out of reach. "One. Then you can be wanted somewhere else."`,
+    ],
+    idle: [
+      `picks up the paperback, reads half a page, and puts it face-down again.`,
+      `pushes her reading glasses up into her hair and counts the till.`,
+      `refills the Swill jug and wipes the ring it left.`,
+      `glances at the stairwell, then back at the page.`,
+      `"Canapés are from the afternoon by now. Same price."`,
+      `"Rent's due upstairs every week. People come down here to drink about it."`,
+      `"The Reserve's for celebrating. It doesn't get ordered much after midnight."`,
+      `"Lowry leaves the glasses clean and the Swill low. Every night."`,
+    ],
+    coworkerId: 'npc_orion_dex',
+    coworker: IMOGEN_COWORKER,
+  },
+
+  // Molly Darton: Jolene's, the bar with a cook in it. She feeds people first
+  // and asks nothing, so a wanted guest gets a plate before anything else. Twelve
+  // a plate, and nothing if you haven't got twelve. No coworker keys: she works
+  // the pass alone.
+  npc_soup_molly: {
+    welcomes: [
+      `"Well, hello, {name}. You're new and you're hungry. Tell me I'm wrong about one of them." <span class="text-dim">She's already reaching for a plate.</span>`,
+      `"Sit down, {name}, anywhere but the stage. Molly. A plate's twelve, and it's nothing if you haven't got twelve."`,
+      `taps the spoon twice on the pan. "New face. When did you last eat, {name}? And don't lie to me about it."`,
+    ],
+    graduation: [
+      `"You've stopped asking what things cost, {name}. Now you ask what's on. That's the whole course, honey."`,
+      `"You're feeding yourself now, {name}. I can tell from the door. Come in anyway."`,
+    ],
+    veteranAdvice: [
+      `"Advice? Eat before you go out that door. It's all I've got and it's never been wrong."`,
+      `"Whatever you make out there, {name}, keep the words. They'll always come for the tape."`,
+      `"You know where the food is and you know what it costs. Sit down, sugar."`,
+    ],
+    heat: [
+      `"I don't care who's after you, sugar. You're eating first." <span class="text-dim">A plate goes down on the pass.</span> "They can wait ten minutes. Everything should."`,
+      `"You've got heat on you, {name}. Sit at the end by the pass, where the door can't see you."`,
+      `looks you over, then the door, and cuts you the corner piece without a word.`,
+      `"Half this room has had somebody looking for them, {name}. Most of them ate here while it was going on."`,
+    ],
+    idle: [
+      `scrapes the pan and picks the tune up where she left it.`,
+      `"Macaroni's out of the oven. Ten minutes. Nobody touch it."`,
+      `pats the wig with the back of her wrist to check it's still there.`,
+      `writes a line on the back of a delivery invoice, reads it, and crosses half of it out.`,
+      `"Corner pieces are spoken for. Don't ask me who by."`,
+      `glances at the stage, the stool and the bent microphone, and goes back to the pass.`,
+      `"Cash only. Three people ruined the tab for everybody in 61, and I remember their faces."`,
+      `"Sit at my bar long enough and a plate turns up. Don't fight it, honey."`,
+    ],
+  },
+
+  // Thomasina Tillery: The Counter, Old Coldwater. Half a room behind a waist-high
+  // wall and a tarpaulin; you drink standing in the lane, and nothing electric has
+  // worked since the box went. Amused by everything, one hand always out of sight.
+  // Heat is ordinary down here. No coworker keys: she's the whole staff.
+  npc_bld_926_917_lobby: {
+    welcomes: [
+      `"New, {name}? Stand in the lane, elbows inside. That's the whole bar." <span class="text-dim">She pours with one hand. The other stays under the counter.</span>`,
+      `looks you over, amused. "Fresh off the vat and you walked all the way down here. Thomasina. Whiskey or the other thing."`,
+      `"Mind the tarp, {name}, it's holding the weather out. Lean on the counter. Thomasina, and I take cash."`,
+    ],
+    graduation: [
+      `"You've stopped looking at my other hand, {name}. Took you a week. Most people never manage it."`,
+      `"You know which way to shuffle when the rain comes in from the south. You'll do, {name}."`,
+    ],
+    veteranAdvice: [
+      `"Advice? Keep your elbows in and your money in the bank. The lane's got hands."`,
+      `grins. "You've stood at my counter long enough to know what I'd say, {name}. Say it yourself."`,
+      `"Walk home the long way, {name}, under the lights. The short way hasn't got any."`,
+    ],
+    heat: [
+      `"Wanted, {name}? Down here that's half my regulars." <span class="text-dim">She doesn't stop smiling.</span> "Keep facing the lane."`,
+      `"Nothing electric in here works, {name}, cameras included. Out in the lane's another matter."`,
+      `pours you one and slides it along without looking at you. Her other hand stays where it is.`,
+    ],
+    idle: [
+      `pours a whiskey one-handed. The other hand stays under the counter.`,
+      `"Rain's coming from the south. Everybody two feet left."`,
+      `ties the corner of the tarp down tighter and goes back to pouring.`,
+      `"Spirit beer's eighteen. Whiskey's eleven. If you want it cold, walk uptown."`,
+      `"Power's been off since the box went. The whiskey tastes the same."`,
+      `watches the lane over your shoulder, amused at something out there.`,
+      `counts coins out of a tin by feel without looking down.`,
+    ],
+  },
+
+  // Roz Vance: the Lucky Bastard's floor runner. She isn't behind a bar; she
+  // carries the free drinks that keep the tables full, and says so. A wanted guest
+  // is the house's business only once they start winning.
+  npc_casino_runner: {
+    welcomes: [
+      `"First time in, {name}? Drinks are free while you're playing. Roz. Wave, don't grab."`,
+      `sets a highball by your elbow on the way past. "On the house, {name}. The cage is by the lamp. You'll want it later."`,
+      `"You're new, {name}. Keep your stake in your pocket till you've had a look round. Then sit down and I'll keep the glass full."`,
+    ],
+    graduation: [
+      `"You've stopped counting the free drinks, {name}. Count the chips instead."`,
+      `"You know where the cage is and when to go to it, {name}. That's more than most of my tables."`,
+    ],
+    veteranAdvice: [
+      `"Leave while you're up, {name}. I tell everyone. I've seen four people do it."`,
+      `"Drinks are free. You know about everything after that."`,
+      `"Sit at Margo's table if you want to see the cards. She calls every one out loud, and she's never called one wrong."`,
+    ],
+    heat: [
+      `"Somebody's looking for you, {name}." <span class="text-dim">She doesn't slow down.</span> "The house doesn't mind, as long as you're losing."`,
+      `"Wanted's fine in here, {name}. Wanted and winning, and the cage starts making calls."`,
+      `sets a drink down by you and keeps walking, quicker than she came.`,
+    ],
+    idle: [
+      `threads between two tables with a full tray and spills nothing.`,
+      `swaps an empty glass for a full one at a slot machine without breaking stride.`,
+      `straightens the tag on her halter, the one that says ROZ.`,
+      `"Free while you're sitting. Stand up and they cost."`,
+      `"Wave, don't grab. I've got two hands and a tray, and the tray's busier."`,
+      `stops by the cage for a fresh tray and is back on the floor before it's settled.`,
+      `"Winners tip. Losers drink more. I'm fine either way."`,
+      `catches a glass sliding off a table edge and sets it upright without looking.`,
+    ],
+    coworkerId: 'npc_neonvig_backroom_dealer',
+    coworker: ROZ_COWORKER,
+  },
+
+  // Rue Castellan: the ice bar at Voltage, Halcyon Fields. A comms bud in one ear
+  // tells her who's flush, who's cut off and who's about to be a problem, so heat
+  // reaches her before the guest does. The stair is Bishop's, at the rope.
+  npc_voltage_bartender: {
+    welcomes: [
+      `"First night, {name}? You're holding the rail like the floor's moving." <span class="text-dim">A static fizz lands in front of you.</span> "Start with that. You'll want to remember this one."`,
+      `touches the bud at her ear, listens, and looks at you. "New, and nobody's got you on a list yet. Enjoy it, {name}. Rue. Talk fast."`,
+      `"Welcome to Voltage, {name}. The board's behind me, the floor's behind you, and the stair is Bishop's business."`,
+    ],
+    graduation: [
+      `"You've stopped asking what's in them, {name}. Now you just point. That's the lesson."`,
+      `"Bud says you're a regular now, {name}. I don't argue with the bud."`,
+    ],
+    veteranAdvice: [
+      `"You know the board. Static fizz before midnight, the Voltage after, water on the way out. Nobody does the last one."`,
+      `"Advice? Know when you're done. The bud tells me about a minute before you find out."`,
+      `"Same as ever, {name}. You can outrun the bass. You can't outrun the tab."`,
+    ],
+    heat: [
+      `touches the bud and looks straight at you. "You're on a list tonight, {name}. Not mine. Drink fast and stay off the stair."`,
+      `"Bud's been saying your name, {name}, and it isn't because you're flush."`,
+      `"Heat's the door's problem, and Bishop's already seen you. Pay cash."`,
+      `builds your drink with one hand and keeps the other on the bud.`,
+    ],
+    idle: [
+      `lines up four Voltages under the ice-light and starts them in the same second.`,
+      `listens to the bud, nods, and cuts somebody off down the rail without turning round.`,
+      `wipes down the ice bar, and the light comes up blue through the wet.`,
+      `"Neon martini if you want to look good. Plasma shot once you've stopped trying."`,
+      `"Static fizz is eleven and you'll remember tonight. The rest of the board costs more."`,
+      `"Talk fast. The drop's in about a minute and I won't hear you after."`,
+      `flicks a glance at the rope and the stair, then back to the rail.`,
+      `"Water's free. Ask for it. Nobody does."`,
+    ],
+    coworkerId: 'npc_voltage_bouncer',
+    coworker: RUE_COWORKER,
   },
 };
 

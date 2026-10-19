@@ -1,0 +1,15 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_pruitt_peanuts",
+  "name": "cone of peanuts",
+  "tags": {
+    "consumable": true,
+    "description": "A paper cone of peanuts in the shell, still warm from Pruitt's drum and salted on the outside. The shells go on the floor. Everybody's do.",
+    "restore_hunger": 10,
+    "stackable": true
+  },
+  "type": "consumable",
+  "value": 3,
+  "weight": 120
+}

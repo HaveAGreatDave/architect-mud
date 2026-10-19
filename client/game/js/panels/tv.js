@@ -137,6 +137,7 @@ export function createTvView(root, opts = {}) {
   let _gamedayView = null;
   let _gamedaySport = null;   // which sport the mounted sub-screen renders
   let _stationName = '';      // the tuned station's name, for a sub-screen's corner bug
+  let _channelNumber = 0;     // and its number, for the network's tag on a sports bug
   let _gamedayOpen = false;
   let _lastGameday = null;
   let _scheduleOpen = false;
@@ -437,6 +438,7 @@ export function createTvView(root, opts = {}) {
 
     const stationEl = el('station-name');
     _stationName = data.stationName || data.channelName || '';
+    _channelNumber = data.deckInput ? 0 : (data.channelNumber > 0 ? data.channelNumber : 0);
     if (stationEl) stationEl.textContent = _stationName || '——';
     setAll('channel-num', data.deckInput ? 'CH 0' : (data.channelNumber > 0) ? `CH ${data.channelNumber}` : '——');
     const pnEl = el('program-name');
@@ -827,15 +829,42 @@ export function createTvView(root, opts = {}) {
   // scores, and a status line. Baseball adds the diamond + out dots when the payload
   // carries `bases`/`outs`; a sport without those simply shows the bar with no
   // diamond. Updated in place so it stays constant between plays.
+  // THE NETWORK'S TAG on its sports graphics: the call letters and the channel, the way a
+  // station brands its sports desk. "KSAB-TV" on 7 reads KSAB 7. Built from the channel the
+  // set is tuned to, so it names no station; a station with no name gets no tag.
+  function _networkLabel() {
+    const calls = String(_stationName || '').replace(/[-\s]*(TV|television)$/i, '').trim();
+    return calls ? `${calls}${_channelNumber ? ` ${_channelNumber}` : ''}` : '';
+  }
+  function _networkTag() {
+    const label = _networkLabel();
+    return label ? `<div class="tv-net-tag"><b>${_esc(label)}</b><i>SPORTS</i></div>` : '';
+  }
+  // A club's colour for the chip beside its name: its own where it has one, otherwise one
+  // the name always gives it.
+  function _teamColour(name, sport) {
+    const own = clubOf(name, sport)?.colours?.[0];
+    if (own) return own;
+    let h = 0;
+    for (const ch of String(name || '')) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+    return `hsl(${h % 360}, 62%, 48%)`;
+  }
+
   function _applyScorebug(sb) {
     const host = el('scorebug');
     if (!host) return;
+    const prev = _lastScorebug;
     _lastScorebug = sb;
     const away = _esc(sb.awayAbbr || sb.away || 'AWY');
     const home = _esc(sb.homeAbbr || sb.home || 'HOM');
     const aScore = Number.isFinite(sb.awayScore) ? sb.awayScore : 0;
     const hScore = Number.isFinite(sb.homeScore) ? sb.homeScore : 0;
     const aLead = aScore > hScore, hLead = hScore > aScore;
+    // A score that just went up pulses once. Only within the same game: a new game's
+    // first bug is not a run.
+    const same = prev && prev.away === sb.away && prev.home === sb.home;
+    const aBump = same && aScore > (prev.awayScore | 0) ? ' bump' : '';
+    const hBump = same && hScore > (prev.homeScore | 0) ? ' bump' : '';
 
     let diamond = '';
     if (Array.isArray(sb.bases)) {
@@ -875,13 +904,23 @@ export function createTvView(root, opts = {}) {
     // A rivalry stays flagged all night, not just at the face-off — someone joining in
     // the second period should be able to see why the penalty count looks like that.
     const rivalChip = sb.rivalry ? `<div class="tv-sb-rival" title="Rivalry night">RIVALRY</div>` : '';
+    // The half of the inning as an arrow, the way a bug writes it: TOP 7TH is ▲ 7TH.
+    const half = /^(TOP|BOT)\s+(.+)$/i.exec(sb.status || '');
+    const status = half
+      ? `<span class="tv-sb-half ${half[1].toLowerCase()}" aria-label="${half[1].toUpperCase() === 'TOP' ? 'top' : 'bottom'}"></span>${_esc(half[2])}`
+      : _esc(sb.status || '');
+    const sport = sb.sport === 'hockey' ? 'hockey' : 'baseball';
+    const row = (name, abbr, score, lead, bump) =>
+      `<div class="tv-sb-row ${lead ? 'lead' : ''}"><span class="tv-sb-chip" style="--chip:${_teamColour(name, sport)}"></span>` +
+      `${_crest(name, 16, 'tv-sb-crest')}<span class="tv-sb-team">${abbr}</span><span class="tv-sb-num${bump}">${score}</span></div>`;
+    const tag = _networkTag();
+    host.classList.toggle('tv-sb-net', !!tag);
     host.innerHTML =
-      brand +
-      `<div class="tv-sb-scores">` +
-        `<div class="tv-sb-row ${aLead ? 'lead' : ''}">${_crest(sb.away, 16, 'tv-sb-crest')}<span class="tv-sb-team">${away}</span><span class="tv-sb-num">${aScore}</span></div>` +
-        `<div class="tv-sb-row ${hLead ? 'lead' : ''}">${_crest(sb.home, 16, 'tv-sb-crest')}<span class="tv-sb-team">${home}</span><span class="tv-sb-num">${hScore}</span></div>` +
-      `</div>` +
-      `<div class="tv-sb-state">${diamond}${strength}${rivalChip}<div class="tv-sb-status">${_esc(sb.status || '')}</div>${outs}${sog}</div>`;
+      (tag ? `<div class="tv-sb-top">${tag}${brand}</div>` : brand) +
+      `<div class="tv-sb-body">` +
+        `<div class="tv-sb-scores">` + row(sb.away, away, aScore, aLead, aBump) + row(sb.home, home, hScore, hLead, hBump) + `</div>` +
+        `<div class="tv-sb-state">${diamond}${strength}${rivalChip}<div class="tv-sb-status">${status}</div>${outs}${sog}</div>` +
+      `</div>`;
     host.classList.add('on');
     // A score-bug means a game is on air — that's when the standings button is worth
     // offering. Same reveal pattern as the Gameday toggle.
@@ -916,7 +955,7 @@ export function createTvView(root, opts = {}) {
     if (_gamedayView && _gamedaySport === want) return _gamedayView;
     _gamedayView?.clear();
     _gamedaySport = want;
-    _gamedayView = want === 'hockey' ? createRinkView(hostEl) : createGrandstandView(hostEl, { station: _stationName });
+    _gamedayView = want === 'hockey' ? createRinkView(hostEl) : createGrandstandView(hostEl, { station: _networkLabel() || _stationName });
     return _gamedayView;
   }
 
@@ -1351,13 +1390,13 @@ export function createTvView(root, opts = {}) {
         `</div>`;
     } else if (fx.kind === 'matchup') {
       const rec = (r) => r && r !== '0-0' ? `<span class="rec">${_esc(r)}</span>` : '';
-      // A branded show puts its lockup on the card; Deadball keeps the plain label it
-      // has always had, so this stays additive rather than a restyle of the ballgame.
+      // A branded show puts its lockup on the card; any other writes its own name as a
+      // wordmark under the line, in the network's display face.
       inner =
         `<div class="tv-fx-matchup${fx.brand === 'cphl' ? ' cphl' : ''}">` +
           (fx.brand === 'cphl'
             ? cphlLockup('Tonight in the CPhL', '34px')
-            : `<div class="tv-fx-mu-label">Tonight on ${_esc(fx.show || 'DEADBALL')}</div>`) +
+            : `<div class="tv-fx-mu-label">Tonight on</div><div class="tv-fx-mu-show">${_esc(fx.show || 'DEADBALL')}</div>`) +
           `<div class="tv-fx-mu-teams">` +
             `<div class="tv-fx-mu-team away">${_crest(fx.away, 72, 'tv-fx-mu-crest')}<span class="nm">${_esc(fx.away)}</span>${rec(fx.awayRecord)}</div>` +
             `<div class="tv-fx-mu-vs">vs</div>` +
@@ -1454,7 +1493,9 @@ export function createTvView(root, opts = {}) {
           `<div class="tv-fx-champ-score">${_esc(fx.winner)} ${fx.winScore}: ${fx.loseScore} ${_esc(fx.loser)}</div>` +
         `</div>`;
     } else return;
-    host.innerHTML = inner;
+    // every card goes up under the network's tag, as everything on a sports desk does
+    const tag = _networkTag();
+    host.innerHTML = (tag ? `<div class="tv-fx-net">${tag}</div>` : '') + inner;
     host.className = `tv-fx-host on fx-${fx.kind}`;
     if (_fxTimer) clearTimeout(_fxTimer);
     _fxTimer = setTimeout(_clearSportsFx, (fx.duration || 3.5) * 1000);

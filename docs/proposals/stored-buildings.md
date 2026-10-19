@@ -120,3 +120,16 @@ Fisherman's Green across Meltwater Row, and four buildings came off the map for 
 To put one back, follow the Coliseum's steps, delete or reuse the `zone_lot_` tile on its plot, and
 for Florist Gump restore the two florist lines.
 
+## Pill Collins and Ohm Sweet Ohm (set aside 2026-10-18)
+
+Two Greenside Row shops taken out so Grounds for Concern could have a car park and a garden beside it.
+[scripts/content/grounds-for-concern.mjs](../../scripts/content/grounds-for-concern.mjs) did it; the
+rest is in [grounds-for-concern.md](grounds-for-concern.md).
+
+| Was at | Building | Holding grid | Keeper |
+|---|---|---|---|
+| 904,908 | Pill Collins | 7,5 | Perpetua Lisk: lives in the Filament Buildings, so her `work_zone_id` is `null` |
+| 905,908 | Ohm Sweet Ohm | 9,5 | Teodor Skene: lives in the Yards tenement, so his `work_zone_id` is `null` |
+
+Their plots are `zone_greenside_904_908` (Greenside Gardens) and `zone_greenside_905_908` (Greenside
+Car Park). Teodor's signal boards, drone cores and loyalty chips are sold by the Clinkerman now.

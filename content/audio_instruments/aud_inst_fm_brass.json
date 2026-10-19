@@ -1,0 +1,64 @@
+{
+  "category": "fm",
+  "config": {
+    "layers": [
+      {
+        "adsr": {
+          "a": 0.02,
+          "d": 0.3,
+          "r": 0.16,
+          "s": 0.8
+        },
+        "detune": -5,
+        "fm": {
+          "bright": 0.6,
+          "index": 1.7,
+          "indexEnd": 0.9,
+          "ratio": 3,
+          "time": 0.15
+        },
+        "gain": 0.16,
+        "waveform": "sine"
+      },
+      {
+        "adsr": {
+          "a": 0.025,
+          "d": 0.3,
+          "r": 0.16,
+          "s": 0.75
+        },
+        "detune": 5,
+        "fm": {
+          "index": 1.2,
+          "indexEnd": 0.5,
+          "ratio": 1.5,
+          "time": 0.12
+        },
+        "gain": 0.07,
+        "tune": 12,
+        "waveform": "sine"
+      },
+      {
+        "adsr": {
+          "a": 0.03,
+          "d": 0.3,
+          "r": 0.18,
+          "s": 0.8
+        },
+        "detune": 7,
+        "filter": {
+          "freq": 1600,
+          "q": 0.7,
+          "type": "lowpass"
+        },
+        "gain": 0.06,
+        "waveform": "sawtooth"
+      }
+    ]
+  },
+  "enabled": 1,
+  "id": "aud_inst_fm_brass",
+  "name": "FM: Brass section",
+  "sample_id": null,
+  "waveform": "sine"
+}

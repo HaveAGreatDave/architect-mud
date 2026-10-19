@@ -1,7 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "indoors",
-  "description": "A cramped below-grade utility room under Grounds for Concern: bare concrete, sweating pipes, and the building junction box humming in its steel cabinet.",
+  "description": "A low cellar under the café, smelling of coffee and damp. Spare sacks stand on pallets off the floor and the water heater ticks in the corner. The junction box is on the wall by the steps.",
   "exits": {
     "up": "zone_grounds_cafe"
   },
@@ -15,6 +15,6 @@
   "grid_z": -1,
   "id": "zone_util_zone_grounds_cafe",
   "map_id": "map_int_grounds",
-  "name": "Grounds for Concern — Utility Room",
+  "name": "Grounds for Concern Cellar",
   "parent_zone": "zone_district_906_908"
 }

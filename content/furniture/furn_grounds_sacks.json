@@ -1,0 +1,17 @@
+{
+  "description": "Jute sacks of green coffee stacked to the window, stencilled with farm names and weights in kilos. The top one has been slit open and taped shut again.",
+  "flags": {
+    "aliases": [
+      "sacks",
+      "sack",
+      "beans",
+      "green beans",
+      "jute",
+      "coffee"
+    ]
+  },
+  "id": "furn_grounds_sacks",
+  "name": "the sacks",
+  "object_type": "decoration",
+  "zone_id": "zone_grounds_roastery"
+}

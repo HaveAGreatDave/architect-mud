@@ -51,6 +51,8 @@ export const TYPE_FLOORS = {
   pier: 1, harbour_yard: 1, lighthouse: 12,
   // The Codfather's fish works: one tall storey of tin shed.
   fish_works: 1,
+  // Grounds for Concern and its car park: one storey, and one storey of nothing.
+  coffee_shop: 1, car_park: 1, staff_lot: 1,
   // A compact harbour crane stands about seven storeys to the slew house, which is what every
   // fraction in its arm — the boom height, the counterweight, the hook travel — is measured against.
   quay_crane: 7,
@@ -72,11 +74,12 @@ export const TYPE_FLOORS = {
   // it two; the arms draw to fixed heights so the six tiles meet, and these are what the collision
   // sweep and the skyline read. Every tile also authors its own `flags.floors`.
   ice_rink: 5, ice_rink_hall: 5, ice_rink_stand_w: 2, ice_rink_stand_e: 2, ice_rink_plant_w: 2, ice_rink_plant_e: 2,
-  // The Charles B. Hughson Coliseum, nine tiles, one park (glass/models/coliseum.js): the grandstand
-  // three storeys along Sorrel Way and Kettle Lane, the corners two, the field and the outfield wall
-  // one. The arm draws to fixed heights so the nine meet; these are what collision and the skyline read.
-  ballpark: 3, ballpark_s: 3, ballpark_e: 3, ballpark_sw: 2, ballpark_ne: 2, ballpark_bleachers: 2,
-  ballpark_w: 1, ballpark_n: 1, ballpark_c: 1,
+  // The Charles B. Hughson Coliseum, nine tiles, one park (glass/models/coliseum.js): the four corners
+  // five storeys to the tops of their light towers, the rest four, to the crown of the roof's vault.
+  // The arm draws to fixed heights so the nine meet; these are what collision and the skyline read.
+  ballpark: 5, ballpark_bleachers: 5, ballpark_sw: 5, ballpark_ne: 5,
+  ballpark_s: 4, ballpark_e: 4, ballpark_w: 4, ballpark_n: 4, ballpark_c: 4,
+  box_office: 1, frank_stand: 1, peanut_roaster: 1, sports_bar: 2, souvenir_shop: 1,   // the trades round the Coliseum (glass/models/parkside.js)
   palais_bowl_w: 1, palais_bowl: 1, palais_bowl_e: 1,   // the Palais Bowl's tiers; only the canopy stands up
 };
 

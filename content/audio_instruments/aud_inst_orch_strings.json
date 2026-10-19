@@ -1,0 +1,45 @@
+{
+  "category": "orchestral",
+  "config": {
+    "layers": [
+      {
+        "adsr": {
+          "a": 0.006,
+          "d": 0.09,
+          "r": 0.08,
+          "s": 0.35
+        },
+        "detune": -8,
+        "filter": {
+          "freq": 4500,
+          "q": 0.7,
+          "type": "lowpass"
+        },
+        "gain": 0.24,
+        "noiseMix": 0.04,
+        "waveform": "sawtooth"
+      },
+      {
+        "adsr": {
+          "a": 0.008,
+          "d": 0.09,
+          "r": 0.08,
+          "s": 0.35
+        },
+        "detune": 9,
+        "filter": {
+          "freq": 4000,
+          "q": 0.7,
+          "type": "lowpass"
+        },
+        "gain": 0.24,
+        "waveform": "sawtooth"
+      }
+    ]
+  },
+  "enabled": 1,
+  "id": "aud_inst_orch_strings",
+  "name": "Orchestra: Violins, spiccato",
+  "sample_id": null,
+  "waveform": "sawtooth"
+}

@@ -15,7 +15,10 @@
     "west": "zone_district_903_905"
   },
   "flags": {
+    "building_type": "staff_lot",
     "district": "filaments",
+    "entrance": "south",
+    "floors": 1,
     "region_id": "region_coldwater",
     "street_life": true,
     "terrain": "road"

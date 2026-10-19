@@ -201,6 +201,32 @@ export default async function regress({ check, run, getPlayer }) {
   check('featuring every slot always airs', _test.sportsAiring({ airSlots: allSlots }) === true, 'all-slots');
   check('featuring no valid slot never airs', _test.sportsAiring({ airSlots: [-1] }) === false, 'empty-window');
 
+  // ── The network's open ──────────────────────────────────────────────────────
+  // A sports script's @theme rides its title card as the news's does, and the card holds for
+  // it. Deadball's is KSAB-7 Sports' theme (scripts/content/build-ksab-theme.mjs), 19 bars at
+  // 132 bpm; the open drawn on the card is cut to the same length.
+  {
+    const deadball = JSON.parse(readFileSync(new URL('../../content/media_broadcasts/bc_1783289744953.json', import.meta.url), 'utf8')).sports_pools;
+    const g = _test.assembleSportsGraph(deadball, 'bc_regress_open', 40001, null);
+    const card = g && Object.values(g.nodes).find((n) => n.type === 'title_card');
+    check('network open: Deadball\'s title card carries its theme', card?.data?.theme === 'ksab7_deadball_theme' && card?.data?.graphic_id === 'bb_deadball_title', JSON.stringify(card?.data));
+    const hold = card ? _test.nodeHoldMs(card) : 0;
+    check('network open: the card holds for the whole theme', Math.abs(hold - (19 * 16 * 60000) / 132 / 4) < 1, String(hold));
+  }
+  // Cluster Puck's is the network's hockey theme (scripts/content/build-cphl-theme.mjs), 16 bars at
+  // 150 bpm, and the row has to say so as the script does: the row is what ships.
+  {
+    const row = JSON.parse(readFileSync(new URL('../../content/media_broadcasts/bc_cluster_puck.json', import.meta.url), 'utf8')).sports_pools;
+    const bsm = readFileSync(new URL('../../data/scripts/hockey.bsm', import.meta.url), 'utf8');
+    const theme = (/^@theme\s+(\S+)/m.exec(bsm) || [])[1];
+    check('network open: the hockey row plays the theme its script names', theme === 'ksab7_cphl_theme' && row.theme === theme, `${row.theme} vs ${theme}`);
+    const g = _test.assembleSportsGraph(row, 'bc_regress_open_cphl', 41, null);
+    const card = g && Object.values(g.nodes).find((n) => n.type === 'title_card');
+    check('network open: Cluster Puck\'s title card carries its theme', card?.data?.theme === 'ksab7_cphl_theme' && card?.data?.graphic_id === 'cphl_title', JSON.stringify(card?.data));
+    const hold = card ? _test.nodeHoldMs(card) : 0;
+    check('network open: the hockey card holds for the whole theme', Math.abs(hold - (16 * 16 * 60000) / 150 / 4) < 1, String(hold));
+  }
+
   // The final's airtime: it's pinned to the NEXT nightly @airtime slot (so it airs
   // — and is advertised in the news/TV guide — at the fixed evening time), not "the next hour".
   const G = _test.SPORTS_GAMES_PER_DAY;   // 8 → slot-of-day 6 == the 18:00–21:00 block
@@ -4419,7 +4445,6 @@ export default async function regress({ check, run, getPlayer }) {
     check('droid: a droid that leaves takes the picture with it',
       _test.camerasIn('zone_stgarneau_pantry').length === before);
   }
-}
 
   // ── Game nights at the park ─────────────────────────────────────────────────
   // The light towers follow the show that plays there: every tile of a venue's block answers
@@ -4440,3 +4465,39 @@ export default async function regress({ check, run, getPlayer }) {
     check('venue lights: off air, the towers go dark', venueLit({ x: 896, y: 912 }) === undefined);
     if (z && typeof deriveSurfaceCell === 'function') check('venue lights: and the cell says so', deriveSurfaceCell(z, 896, 912).vl === 0);
   }
+  // The roof follows the weather at the park: it shuts the minute anything falls, stays shut through
+  // twenty dry minutes so a shower's edge doesn't work it, and opens after. The weather is handed in,
+  // so the check doesn't depend on the sky the suite happens to boot under.
+  {
+    const { venueRoof, refreshVenueRoofs, _roofState } = _test;
+    const saved = new Map(_roofState);
+    const t0 = Date.now();
+    try {
+      _roofState.clear();
+      refreshVenueRoofs(t0, false, () => true);
+      check('venue roof: shut in the rain, every tile of the park', venueRoof({ x: 895, y: 911 })?.shut === 1 && venueRoof({ x: 897, y: 913 })?.shut === 1);
+      check('venue roof: a tile off the park has no roof', venueRoof({ x: 898, y: 912 }) === undefined);
+      refreshVenueRoofs(t0 + 60e3, false, () => false);
+      check('venue roof: still shut a minute after the rain stops', venueRoof({ x: 896, y: 912 })?.shut === 1);
+      refreshVenueRoofs(t0 + 21 * 60e3, false, () => false);
+      check('venue roof: open after twenty dry minutes', venueRoof({ x: 896, y: 912 })?.shut === 0);
+      // and each Gameday line airs with it, so the broadcast's park has its shells where the map's are
+      // (gl/ballpark.js setRoof); a script whose site names no block has no roof to send
+      const sited = { _venueSite: { x: 897.55, y: 913.55, mid: { x: 896, y: 912 } } };
+      check('venue roof: a Gameday line airs with the roof open', _test.gamedayOnAir({ kind: 'single' }, sited).roof === 0);
+      check('venue roof: …and with no block, no roof', !('roof' in _test.gamedayOnAir({ kind: 'single' }, { _venueSite: { x: 897.55, y: 913.55 } })));
+      const { deriveSurfaceCell } = await import('../flight/state.js');
+      const z = getZone('zone_ballpark_896_912');
+      if (z && typeof deriveSurfaceCell === 'function') {
+        check('venue roof: the derive puts an open roof on the park cell', deriveSurfaceCell(z, 896, 912).vr === 0);
+        check('venue roof: a static bake shows it shut', deriveSurfaceCell(z, 896, 912, undefined, false).vr === 1);
+      }
+      refreshVenueRoofs(t0 + 22 * 60e3, false, () => true);
+      check('venue roof: and shuts again the minute it rains', venueRoof({ x: 896, y: 912 })?.shut === 1);
+      check('venue roof: …and the next Gameday line airs with it shut', _test.gamedayOnAir({ kind: 'single' }, { _venueSite: { x: 897.55, y: 913.55, mid: { x: 896, y: 912 } } }).roof === 1);
+    } finally {
+      _roofState.clear(); for (const [k, v] of saved) _roofState.set(k, v);
+      refreshVenueRoofs(Date.now(), false);
+    }
+  }
+}

@@ -12,7 +12,7 @@
     "is_building": true,
     "is_interior": true,
     "window": {
-      "description": "Tall windows over the first-base line, filmed with old smoke. The field is green below them and the towers are level with the glass.",
+      "description": "Tall windows over the first-base line, filmed with old smoke. The field is green below them, and the lamps along the roof's rails hang level with the glass.",
       "light": 0.6,
       "name": "the club windows",
       "visibility": 0.8

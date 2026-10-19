@@ -1,0 +1,270 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "jitter": 20,
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "cash_up",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "player_check",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "no": "off_random",
+        "type": "condition",
+        "yes": "home_idle"
+      },
+      "off_random": {
+        "options": [
+          "go_home_off",
+          "have_life"
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_PRESENT",
+        "no": "work_wait",
+        "type": "condition",
+        "yes": "work_say"
+      },
+      "post_shift": {
+        "options": [
+          "go_home_ps",
+          "home_life_ps"
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "work_wait": {
+        "jitter": 20,
+        "next": "check_work",
+        "seconds": 25,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "Mulcahy pulls a pint without looking away from the set.",
+    "He wipes the bar in a long sweep and flicks the towel back over his shoulder.",
+    "The bar groans at something on the set. Mulcahy says nothing, which says plenty.",
+    "He straightens a pennant on the wall that was straight already.",
+    "He chalks a score on the slate by the till."
+  ],
+  "description": "A thickset man in his fifties with a broken nose and a green waistcoat, a bar towel over one shoulder and his eyes on the set over the bar whatever he is doing with his hands.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "\"Mind the step on the way out. It's been there longer than me.\""
+    },
+    "photo": {
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Sir Charles, opening day, at his own gate.\" He doesn't need to look at it. \"He shook every hand that came through. My grandfather's is in there somewhere, out of shot. Halcyon wanted the ground and he sent the cheque back. That's the whole story, and it's a good one.\""
+    },
+    "root": {
+      "options": [
+        {
+          "label": "What do you sell?",
+          "next": "__shop__"
+        },
+        {
+          "label": "Who's in the photograph?",
+          "next": "photo"
+        },
+        {
+          "label": "How's the team?",
+          "next": "team"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing, thanks.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"What'll it be?\" His eyes go back to the set.",
+      "text_by_relation": {
+        "familiar": "\"Your usual, and your stool.\" The stool is pulled out.",
+        "first": "The man behind the bar gives you a look, then a nod.\n\n\"Declan Mulcahy. It's my name on the window, so it's my bar.\" He jerks a thumb at the set. \"Game's on three nights a week, and the rest of the time we talk about it.\"",
+        "known": "\"You found your way back.\" He sets a glass down in front of you."
+      }
+    },
+    "team": {
+      "options": [
+        {
+          "label": "Back up.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Losing in an interesting way.\" He watches the set for a moment. \"Losing in a boring way is worse. Ask anybody at this bar.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a green waistcoat",
+      "a bar towel over one shoulder",
+      "a white shirt with the sleeves gartered",
+      "dark trousers",
+      "boxer shorts"
+    ]
+  },
+  "home_activities": [],
+  "home_zone": "zone_mulcahy_snug",
+  "hp": 46,
+  "hp_max": 46,
+  "id": "npc_mulcahy_declan",
+  "name": "Declan Mulcahy",
+  "npc_type": "vendor",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_drug_beer",
+      "price": 5
+    },
+    {
+      "item_id": "item_mulcahy_wings",
+      "price": 9
+    },
+    {
+      "item_id": "item_cream_soda",
+      "price": 4
+    },
+    {
+      "item_id": "item_arcline_cola",
+      "price": 4
+    }
+  ],
+  "vendor_restock_rate": 3,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 12,
+        "to": 23
+      }
+    ],
+    "mon": [
+      {
+        "from": 12,
+        "to": 23
+      }
+    ],
+    "sat": [
+      {
+        "from": 12,
+        "to": 23
+      }
+    ],
+    "sun": [
+      {
+        "from": 12,
+        "to": 20
+      }
+    ],
+    "thu": [
+      {
+        "from": 12,
+        "to": 23
+      }
+    ],
+    "tue": [
+      {
+        "from": 12,
+        "to": 23
+      }
+    ],
+    "wed": [
+      {
+        "from": 12,
+        "to": 23
+      }
+    ]
+  },
+  "vendor_shop_name": "Mulcahy's Sports Bar",
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_mulcahy_bar"
+}

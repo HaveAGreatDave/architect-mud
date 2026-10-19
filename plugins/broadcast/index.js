@@ -2469,7 +2469,9 @@ function assembleSportsGraph(script, broadcastId, slot, override) {
     return id;
   };
   add({ type: 'start' });
-  if (script.title) add({ type: 'title_card', graphic_id: script.title });
+  // A `@theme` rides the card as it does on the news: the network's open starts with the
+  // card, plays through once, and the card holds until it ends.
+  if (script.title) add({ type: 'title_card', graphic_id: script.title, theme: script.theme || null });
 
   const winner = () => (homeScore === awayScore ? '' : (homeScore > awayScore ? home.name : away.name));
 
@@ -2859,7 +2861,9 @@ function assembleSportsGraph(script, broadcastId, slot, override) {
     lastFloor = recapPerLine;
   }
 
-  const holdOf = (nd) => (nd.type === 'start' ? 0 : Math.ceil((nd.type === 'title_card' ? (nd.duration ?? 10) * 1000 : (nd.holdMs ?? 5000)) / BROADCAST_TICK_MS) * BROADCAST_TICK_MS);
+  // A title card holds as the walker holds it (nodeHoldMs), so a card carrying the
+  // network's theme is counted for the theme's length, not the bare card's ten seconds.
+  const holdOf = (nd) => (nd.type === 'start' ? 0 : Math.ceil((nd.type === 'title_card' ? nodeHoldMs({ type: 'title_card', data: nd }) : (nd.holdMs ?? 5000)) / BROADCAST_TICK_MS) * BROADCAST_TICK_MS);
   const played = Object.values(nodes).reduce((sum, nd) => sum + holdOf(nd), 0);
   const tail = nodes[prevId] || nodes[outroId];
   if (tail) tail.holdMs = Math.max(lastFloor, slotMs - (played - holdOf(tail)));
@@ -2879,9 +2883,13 @@ function assembleSportsGraph(script, broadcastId, slot, override) {
   // the betting system — the result is known at bet-lock time, paid at air's end.
   graph._game = { away: away.name, home: home.name, awayScore, homeScore, winner: winner() };
   // Where the park stands, when the script names it (sports_pools.venue.site), so each
-  // line's payload can carry the weather over it as the line airs (gamedayOnAir).
-  const site = script.venue?.site;
-  graph._venueSite = Number.isFinite(site?.x) && Number.isFinite(site?.y) ? { x: site.x, y: site.y } : null;
+  // line's payload can carry the weather over it as the line airs (gamedayOnAir), and the
+  // middle tile of its block, which `venue.roof` answers for.
+  const site = script.venue?.site, blk = site?.block;
+  graph._venueSite = Number.isFinite(site?.x) && Number.isFinite(site?.y) ? {
+    x: site.x, y: site.y,
+    ...(blk && [blk.x0, blk.x1, blk.y0, blk.y1].every(Number.isFinite) ? { mid: { x: Math.round((blk.x0 + blk.x1) / 2), y: Math.round((blk.y0 + blk.y1) / 2) } } : {}),
+  } : null;
   return graph;
 }
 
@@ -2917,10 +2925,6 @@ function sportsChannels() {
   }
   return out;
 }
-async function sportsHeartbeat() {
-  const nowMs = Date.now();
-  await recordSimSwitches();
-  const chans = sportsChannels();
 // ── GAME NIGHTS AT THE PARK ─────────────────────────────────────────────────────
 // A venue's light towers are on while the show that plays there is on air. The venue is content
 // (`sports_pools.venue.site.block`, the tiles the park stands on), so this names no park: any
@@ -2945,11 +2949,83 @@ function refreshVenueLights(chans) {
   for (const id of world.players.keys()) sendToPlayer(id, msg);
 }
 
+// ── THE ROOF OVER THE PARK ──────────────────────────────────────────────────────
+// A venue with `flags.venue_roof` on its tiles (the Hughson Coliseum) shuts its roof for the
+// weather: anything falling at the middle of the venue, or a storm, a blizzard or ash over it. It
+// opens again once it has been dry for ROOF_DRY_MS, so a shower's edge passing doesn't work it like
+// a bellows. The tiles of one venue are grouped by `building_name` and share one answer. The map
+// derive asks `venue.roof` for every tile with the flag (plugins/flight/state.js); ⚠ SYNC AND
+// QUERY-FREE, like `venue.lit`, so it answers from this set. A view open when the roof starts to
+// move is told by a `venue_roof` push and animates it (client/game/js/panels/world-feed.js).
+const ROOF_DRY_MS = 20 * 60 * 1000;
+const ROOF_SHUT_WORDS = new Set(['thunderstorm', 'storm', 'blizzard', 'ash']);
+let _roofShut = new Set();          // "x,y" of every tile of a venue whose roof is shut now
+const _roofState = new Map();       // venue name → { shut, dryAt }
+let _roofVenues = null, _roofAt = 0;
+function roofVenues(nowMs) {
+  // The tiles change only with content, so the scan is redone every ten minutes rather than every beat.
+  if (_roofVenues && nowMs - _roofAt < 10 * 60 * 1000) return _roofVenues;
+  const by = new Map();
+  for (const z of world.zones.values()) {
+    if (!z.flags?.venue_roof || z.map_id !== 'map_world' || !Number.isFinite(z.grid_x)) continue;
+    const k = z.flags.building_name || z.id;
+    if (!by.has(k)) by.set(k, []);
+    by.get(k).push([z.grid_x, z.grid_y]);
+  }
+  _roofVenues = [...by].map(([name, tiles]) => ({
+    name, tiles,
+    cx: Math.round(tiles.reduce((s, t) => s + t[0], 0) / tiles.length),
+    cy: Math.round(tiles.reduce((s, t) => s + t[1], 0) / tiles.length),
+  }));
+  _roofAt = nowMs;
+  return _roofVenues;
+}
+// Is it weather to shut a roof in, at grid (x, y)?
+function roofWeather(x, y) {
+  const p = getPrecipAtGrid(x, y);
+  return (p && p.precipRate > 0) || ROOF_SHUT_WORDS.has(getWeatherTypeAtGrid(x, y));
+}
+// Where a venue's roof should be now, with the dry spell before it opens. The first answer for a
+// venue is the weather's own, so a restart in the sun doesn't wait twenty minutes to open.
+function roofDecide(v, nowMs, wet = roofWeather(v.cx, v.cy)) {
+  const s = _roofState.get(v.name);
+  if (!s) { const n = { shut: !!wet, dryAt: wet ? 0 : nowMs }; _roofState.set(v.name, n); return n.shut; }
+  if (wet) { s.shut = true; s.dryAt = 0; return true; }
+  if (!s.dryAt) s.dryAt = nowMs;
+  if (s.shut && nowMs - s.dryAt >= ROOF_DRY_MS) s.shut = false;
+  return s.shut;
+}
+function venueRoof({ x, y } = {}) {
+  if (!_roofVenues) refreshVenueRoofs(Date.now(), false);
+  const v = _roofVenues && _roofVenues.find((r) => r.tiles.some((t) => t[0] === x && t[1] === y));
+  if (!v) return undefined;
+  return { shut: _roofShut.has(`${x},${y}`) ? 1 : 0 };
+}
+function refreshVenueRoofs(nowMs = Date.now(), push = true, weather = null) {
+  const next = new Set();
+  for (const v of roofVenues(nowMs)) {
+    const shut = roofDecide(v, nowMs, weather ? weather(v) : undefined);
+    if (shut) for (const [x, y] of v.tiles) next.add(`${x},${y}`);
+  }
+  const all = (_roofVenues || []).flatMap((v) => v.tiles.map(([x, y]) => `${x},${y}`));
+  const shut = all.filter((k) => next.has(k) && !_roofShut.has(k)), open = all.filter((k) => !next.has(k) && _roofShut.has(k));
+  _roofShut = next;
+  if (!push || (!shut.length && !open.length)) return;
+  const xy = (k) => k.split(',').map(Number);
+  const msg = { type: 'venue_roof', shut: shut.map(xy), open: open.map(xy) };
+  for (const id of world.players.keys()) sendToPlayer(id, msg);
+}
+
+async function sportsHeartbeat() {
+  const nowMs = Date.now();
+  await recordSimSwitches();
+  const chans = sportsChannels();
+  refreshVenueLights(chans);
+  refreshVenueRoofs(nowMs);
   if (!chans.length) return;
   // Background postseason detection, per sport, with no viewer needed. Deduped so two
   // channels carrying the same sport cost one round trip.
   for (const sport of new Set(chans.map(c => sportOf(c.script).id))) await refreshSeason(nowMs, sport);
-  refreshVenueLights(chans);
   const slot = sportsSlotIndex();
   const endsAtMs = sportsSlotEndsAtMs();
   // EACH CHANNEL SIMULATES ITS OWN GAME. This used to sim chans[0] and emit that one
@@ -3044,8 +3120,11 @@ function gamedayLedger(sport) {
 // as an ion storm; and the world's clock (`clock`, the minute of the day), which the 3-D
 // park's sky follows from sunset through the blue hour to night. Both are read when the line
 // airs, not when the game is assembled, because rain falls only under a weather cell, the cells
-// drift across the city during a game, and the sky darkens through it.
-// Sync and query-free (the cells and the clock are in memory), once per aired line.
+// drift across the city during a game, and the sky darkens through it. A park with a roof
+// (`venue.roof` answers for its block's middle tile) gets where the roof is too (`roof`, 1 shut,
+// 0 open), so the 3-D park's shells stand where the map's do; a change airs with the next line and
+// the client rolls them over the map's ninety seconds.
+// Sync and query-free (the cells, the clock and the roofs are in memory), once per aired line.
 function gamedayOnAir(gd, graph) {
   const site = graph && graph._venueSite;
   if (!site) return gd;
@@ -3053,7 +3132,8 @@ function gamedayOnAir(gd, graph) {
   const event = getWeatherEvent()?.type;
   const wx = { word: getWeatherTypeAtGrid(site.x, site.y), precip: precipType, rate: Math.round((precipRate || 0) * 100) / 100, ...(event ? { event } : {}) };
   const minutes = getEnvironmentState()?.minutes;
-  return { ...gd, wx, ...(Number.isFinite(minutes) ? { clock: Math.round(minutes) % 1440 } : {}) };
+  const roof = site.mid ? venueRoof(site.mid) : undefined;
+  return { ...gd, wx, ...(Number.isFinite(minutes) ? { clock: Math.round(minutes) % 1440 } : {}), ...(roof ? { roof: roof.shut } : {}) };
 }
 
 // A team's record from its own league's cached standings, or '0-0' if it hasn't played.
@@ -4844,7 +4924,6 @@ function _channelDeck(channelId) {
 // for the channel it is plugged into; a VCR is channel 0 and nothing else.
 function _zoneDeck(zoneId, channelId = null, strict = false) {
   const decks = getZoneFurniture(zoneId).filter(f => f.flags && 'media_deck' in f.flags);
-  if (!decks.length) return null;
   const match = channelId ? decks.find(f => f.flags.channel_id === channelId) : null;
   if (match) return match;
   if (strict) return _fedDeck(zoneId, channelId);
@@ -5599,7 +5678,7 @@ async function broadcastTick() {
           // the latch hydrated at login and never awaits (see presentation.js).
           const toLog = loggedPanelsSync(player);
           if (formatted) sendToPlayer(player.id, { type: 'broadcast', message: formatted, channel: channelId, style: result.style || 'raw', programName, ...(toLog ? { toLog: true } : {}), ...(result.duration != null ? { duration: result.duration } : {}), ...(result.excite ? { excite: result.excite } : {}), ...(result.lex ? { lex: result.lex } : {}), ...(result.voice ? { voice: result.voice } : {}), ...(gamedayOverlay ? { hasGameday: true } : {}) });
-          if (isMusic) sendToPlayer(player.id, { type: 'audio_music', def: result.song, owner: 'tv' });
+          if (isMusic) sendToPlayer(player.id, { type: 'audio_music', def: result.song, owner: 'tv', ...(result.songOnce ? { once: true } : {}) });
           if (isSample) sendToPlayer(player.id, { type: 'audio_sample', def: result.sample });
           // A log-rung viewer has no panel to take an overlay, so the score and the
           // standings flash are written out instead (score only when it changes —
@@ -5859,7 +5938,7 @@ async function _tabletBroadcastPass(tickResults, activeChannels, nowMs, servedTh
       // the overlays are written out. Sync by contract (this is a tick).
       const toLog = loggedPanelsSync(world.players.get(pid));
       if (formatted) sendToPlayer(pid, { type: 'broadcast', message: formatted, channel: channelId, style: result.style || 'raw', programName, ...(toLog ? { toLog: true } : {}), ...(result.duration != null ? { duration: result.duration } : {}), ...(result.excite ? { excite: result.excite } : {}), ...(result.lex ? { lex: result.lex } : {}), ...(result.voice ? { voice: result.voice } : {}), ...(gamedayOverlay ? { hasGameday: true } : {}) });
-      if (isMusic) sendToPlayer(pid, { type: 'audio_music', def: result.song, owner: 'tv' });
+      if (isMusic) sendToPlayer(pid, { type: 'audio_music', def: result.song, owner: 'tv', ...(result.songOnce ? { once: true } : {}) });
       if (isSample) sendToPlayer(pid, { type: 'audio_sample', def: result.sample });
       if (toLog) { sendOverlayLines(pid, scorebugOverlay, standingsOverlay); continue; }
       if (scorebugOverlay) sendToPlayer(pid, { type: 'tv_overlay', channelId, overlay: scorebugOverlay });
@@ -7865,10 +7944,13 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
           const themeName = node.data?.theme;
           const themeSong = themeName ? getSongDefByName(themeName) : null;
           const themeSample = themeSong ? null : (themeName ? getSampleDefByName(themeName) : null);
+          // A theme is played ONCE (`songOnce`): it's the card's sting, and the card ends
+          // when it does. A song otherwise loops until the set goes off, so every theme
+          // used to carry on round and round under the anchor for the rest of the show.
           if ((themeSong || themeSample) && liveActed && stageZoneId) {
-            sendToZone(stageZoneId, themeSong ? { type: 'audio_music', def: themeSong } : { type: 'audio_sample', def: themeSample });
+            sendToZone(stageZoneId, themeSong ? { type: 'audio_music', def: themeSong, once: true } : { type: 'audio_sample', def: themeSample });
           }
-          return { text: cardContent + caption, key: `graphic:${channelId}:${gid}:${nowMs}`, style: graphicStyle(graphic), ...(themeSong ? { song: themeSong } : {}), ...(themeSample ? { sample: themeSample } : {}) };
+          return { text: cardContent + caption, key: `graphic:${channelId}:${gid}:${nowMs}`, style: graphicStyle(graphic), ...(themeSong ? { song: themeSong, songOnce: true } : {}), ...(themeSample ? { sample: themeSample } : {}) };
         }
         // Graphic missing or empty — log it and skip straight to the next card this
         // tick (no dead 5s hold on a card that can't render).
@@ -10444,6 +10526,7 @@ export const _test = {
   // Lets the regress suite drive a tick by hand and assert what actually reached a
   // player — the Tablet TV's portable tuner has no zone furniture, so "did a program
   // come out the other end" is only observable this way.
+  venueLit, refreshVenueLights, venueRoof, refreshVenueRoofs, roofDecide, _roofState,
   broadcastTick, tabletTuners,
   // Exported so regress can assert what actually rides the wire to the Gameday
   // sub-screen — the half-inning changeover payload has no other observable.
@@ -10451,7 +10534,6 @@ export const _test = {
   // the sport's script as the venue and club handlers find it
   anySportsScript,
   sportsGameForSlot, sportsMatchupForSlot, roundRobinRounds, sportsSlotIndex,
-  venueLit, refreshVenueLights,
   sportsSlotMs, sportsAiring, SPORTS_GAMES_PER_DAY, nextAirSlot,
   assembleNewsGraph, newsFill, newsSceneNames,
   // The weather report had no test seam at all, which is how a two-line handover and a
@@ -11803,6 +11885,7 @@ const CHANNEL_REVERT_LINES = [
 
 export const hooks = {
   'venue.lit': venueLit,
+  'venue.roof': venueRoof,
   'tick.minute': async () => {
     const zones = new Set();
     for (const p of world.players.values()) if (p?.current_zone) zones.add(p.current_zone);

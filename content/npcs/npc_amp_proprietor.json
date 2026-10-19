@@ -314,5 +314,5 @@
   "vendor_stock_size": 24,
   "wander_zones": [],
   "wanders": 0,
-  "work_zone_id": "zone_mq_amp_shop"
+  "work_zone_id": null
 }

@@ -1,0 +1,9 @@
+{
+  "a": "zone_mulcahy_bar",
+  "b": "zone_mulcahy_snug",
+  "blocked": false,
+  "dir": "south",
+  "id": "conn_hf_mulcahy_bar_south",
+  "lockable": false,
+  "one_way": false
+}

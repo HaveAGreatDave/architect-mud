@@ -5,19 +5,19 @@
   "color": "#ffd9a0",
   "description": "The face of Jolene's.",
   "exits": {
-    "east": "zone_district_918_916",
-    "west": "zone_jolenes_bar"
+    "north": "zone_district_917_915",
+    "south": "zone_jolenes_bar"
   },
   "flags": {
     "building_name": "Jolene's",
     "building_type": "honkytonk",
     "district": "ashway",
-    "entrance": "east",
+    "entrance": "north",
     "facade": true,
     "is_building": true,
     "region_id": "region_coldwater",
     "sign_trade": "HONKY TONK",
-    "world_exit_zone": "zone_district_918_916"
+    "world_exit_zone": "zone_district_917_915"
   },
   "grid_x": 917,
   "grid_y": 916,

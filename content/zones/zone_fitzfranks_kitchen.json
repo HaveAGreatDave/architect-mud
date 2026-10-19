@@ -1,0 +1,22 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A narrow kitchen with a chest freezer, a sink, and crates of buns stacked to the ceiling. A radio on the shelf is tuned to KSAB.",
+  "exits": {
+    "north": "zone_fitzfranks_counter"
+  },
+  "flags": {
+    "building_name": "Fitz's Franks",
+    "building_type": "frank_stand",
+    "floor": "tile",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_parkside_894_911"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_fitzfranks_kitchen",
+  "map_id": "map_int_fitzfranks",
+  "name": "Fitz's Franks — Kitchen",
+  "parent_zone": "zone_parkside_894_911"
+}

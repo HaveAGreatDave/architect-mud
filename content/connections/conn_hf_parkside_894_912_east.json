@@ -1,0 +1,9 @@
+{
+  "a": "zone_parkside_894_912",
+  "b": "zone_pruitt_shop",
+  "blocked": false,
+  "dir": "east",
+  "id": "conn_hf_parkside_894_912_east",
+  "lockable": true,
+  "one_way": false
+}

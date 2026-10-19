@@ -1,0 +1,30 @@
+{
+  "ambient_theme": "indoors",
+  "description": "A narrow hall behind the ticket windows, terrazzo underfoot and a brass rail to queue along. The fares are painted on a board over the glass: stands, club, bleachers. A seating plan of the park is framed on the back wall.",
+  "exits": {
+    "down": "zone_util_zone_hcbox_windows",
+    "north": "zone_hcbox_office",
+    "south": "zone_parkside_898_913"
+  },
+  "flags": {
+    "building_name": "Coliseum Box Office",
+    "building_type": "box_office",
+    "floor": "stone",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "Three windows onto Sorrel Way, each with a brass grille and a slot worn smooth at the bottom. The Coliseum's main gate is next door.",
+      "light": 0.5,
+      "name": "the ticket windows",
+      "visibility": 0.6
+    },
+    "world_exit_zone": "zone_parkside_898_913"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hcbox_windows",
+  "map_id": "map_int_hcbox",
+  "name": "Box Office — Ticket Hall",
+  "parent_zone": "zone_parkside_898_913"
+}

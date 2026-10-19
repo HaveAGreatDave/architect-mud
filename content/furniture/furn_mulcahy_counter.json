@@ -1,0 +1,20 @@
+{
+  "description": "A long mahogany bar with a brass foot rail, scarred with rings and initials. The taps are in a row at the near end and the till at the far one.",
+  "flags": {
+    "aliases": [
+      "bar",
+      "counter",
+      "rail",
+      "taps",
+      "stool",
+      "stools"
+    ],
+    "interactions": [
+      "sit"
+    ]
+  },
+  "id": "furn_mulcahy_counter",
+  "name": "the bar",
+  "object_type": "furniture",
+  "zone_id": "zone_mulcahy_bar"
+}

@@ -85,6 +85,38 @@ function twoCellLogoTex(bars, lit) {
   return c;
 }
 
+// Watts the Damage's mark: a light bulb over two crossed wrenches, laid out like a skull and
+// crossbones, in red and black paint on the cream board. Baked once; it's paint, so never lit.
+let _wattsLogo;
+function wattsLogoTex() {
+  if (_wattsLogo !== undefined) return _wattsLogo;
+  if (typeof document === 'undefined') return null;
+  const S = 128, c = document.createElement('canvas'); c.width = S; c.height = S;
+  const g = c.getContext('2d');
+  if (g) {
+    const INK = '#2a2824', BOARD = '#e2d6b6';
+    const wrench = (ang) => {   // a shank with an open jaw at each end
+      g.save(); g.translate(64, 72); g.rotate(ang);
+      g.fillStyle = INK; g.fillRect(-6, -44, 12, 88);
+      for (const s of [-1, 1]) {
+        g.fillStyle = INK; g.beginPath(); g.arc(0, s * 46, 15, 0, Math.PI * 2); g.fill();
+        g.fillStyle = BOARD; g.fillRect(-6, s > 0 ? s * 46 : s * 46 - 16, 12, 16);
+      }
+      g.restore();
+    };
+    wrench(Math.PI / 4); wrench(-Math.PI / 4);
+    g.fillStyle = '#a3261c'; g.strokeStyle = INK; g.lineWidth = 4;   // the bulb
+    g.beginPath(); g.arc(64, 42, 25, Math.PI * 0.78, Math.PI * 2.22); g.lineTo(75, 78); g.lineTo(53, 78); g.closePath(); g.fill(); g.stroke();
+    g.fillStyle = '#6e6a62'; g.fillRect(53, 80, 22, 14);
+    g.fillStyle = INK; for (const y of [84, 89]) g.fillRect(53, y, 22, 2);
+    g.strokeStyle = '#ffe9a8'; g.lineWidth = 3;   // the filament
+    g.beginPath(); g.moveTo(57, 76); g.lineTo(58, 48); g.lineTo(64, 56); g.lineTo(70, 48); g.lineTo(71, 76); g.stroke();
+  }
+  c._lit = 0;
+  _wattsLogo = c;
+  return c;
+}
+
 export const TWIN_PASS_ARMS = {
   // ══ THE TWIN PASS ═══════════════════════════════════════════
   // Every arm below exists because two Coldwater buildings of the same type were rendering as the
@@ -720,27 +752,65 @@ export const TWIN_PASS_ARMS = {
       draw3DBoxAt(ctx, cam, bx, by, fh * 0.30, h * 0.34, h * 0.50, 'ty_giardia_tarp', seed + 41, night, alpha, true, 0.12, fh * 0.03); }
   },
   watts(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // WATTS THE DAMAGE — the twin of Nuts to That on the `hardware` mesh. The
-    // difference is that Watts works IN THE STREET: the roller door is UP, the bench is pulled half
-    // out of the shop, and the whole frontage is open. Nuts to That is a closed room full of drawers.
-    const wallTop = h * 0.80, parapet = h * 0.90;
-    draw3DBoxAt(ctx, cam, dx, dy, fh * 0.88, 0, wallTop, pal, seed, night, alpha, false);
-    draw3DBoxAt(ctx, cam, dx, dy, fh * 0.96, wallTop, parapet, 'ty_watts_roller', seed + 1, night, alpha, true);
-    // 1) THE ROLLER, UP — a rolled drum of shutter under the head, not a slab over the opening.
-    if (frontVis) { const [rx, ry] = F(0, fh * 0.90);
-      drawFacetDrum(ctx, cam, rx, ry, wallTop * 0.72, wallTop * 0.88, fh * 0.10, fh * 0.10, 8, alpha,
-        (f) => 'rgb(' + (96 + f.nl * 44 | 0) + ',' + (84 + f.nl * 40 | 0) + ',' + (56 + f.nl * 26 | 0) + ')', 'rgb(62,52,34)');
-      draw3DBoxAt(ctx, cam, rx, ry, fh * 0.66, 0, wallTop * 0.70, 'ty_grind', seed + 4, night, alpha, true, 0, fh * 0.08); }
-    // 2) THE BENCH, HALF IN THE STREET — the building's whole personality, and it crosses the
-    //    building line, which nothing else on the strip does.
-    { const [bx, by] = F(0, fh * 1.20);
-      draw3DBoxAt(ctx, cam, bx, by, fh * 0.46, h * 0.20, h * 0.28, 'ty_watts_roller', seed + 8, night, alpha, true);
-      for (const t of [-1, 1]) { const [lx, ly] = F(t * fh * 0.40, fh * 1.20);
-        draw3DBoxAt(ctx, cam, lx, ly, fh * 0.05, 0, h * 0.20, 'ty_grind', seed + 10 + t, night, alpha, false); } }
-    // 3) A work lamp on a stalk over the bench, and a spool of cable running back inside.
-    { const [lx, ly] = F(fh * 0.38, fh * 1.20);
-      draw3DBoxAt(ctx, cam, lx, ly, fh * 0.03, h * 0.28, h * 0.74, 'ty_grind', seed + 14, night, alpha, false);
-      glowPool(ctx, cam, lx, ly, h * 0.72, '255,232,180', 9, alpha * (night ? 0.62 : 0.20)); }
-    if (frontVis) marqueeBand(ctx, cam, dx, dy, E, fh * 0.74, parapet * 0.96, m.neon || '#ffcf3e', night, alpha, 'WATTS THE DAMAGE');
+    // difference is that Watts is a small workshop set to the back of its tile, with a tarmac lot in
+    // front for whatever's broken and a painted board on posts at the kerb. It had a neon marquee on
+    // a full-tile box until 2026-10-18, which read as a bar, not a repair shop.
+    // Local frame: +y is the street.
+    const yaw = faceYaw(E), dn = night ? clamp(night, 0, 1) : 0, near = nearOrMesh();
+    const wallTop = h * 0.46, parapet = h * 0.52;
+    const sx = fh * 0.70, yB = -fh * 0.92, yF = -fh * 0.06, cy0 = (yB + yF) / 2, sd = (yF - yB) / 2;
+    // 1) THE SHOP: one low storey on the back half, a parapet course and a roof vent.
+    { const [cx, cy] = F(0, cy0);
+      draw3DBoxAt(ctx, cam, cx, cy, sx, 0, wallTop, pal, seed, night, alpha, false, yaw, sd);
+      draw3DBoxAt(ctx, cam, cx, cy, sx + fh * 0.03, wallTop, parapet, 'ty_watts_roller', seed + 1, night, alpha, true, yaw, sd + fh * 0.03); }
+    { const [vx, vy] = F(-fh * 0.36, cy0 - fh * 0.10);
+      draw3DBoxAt(ctx, cam, vx, vy, fh * 0.08, parapet, parapet + h * 0.06, 'ty_unit_shut', seed + 2, night, alpha, true); }
+    // 2) THE ROLLER DOOR, half up with the bay lit behind it, and a door for people beside it.
+    const yW = yF + 0.003, dTop = h * 0.32, dUp = h * 0.15, rx0 = -fh * 0.52, rx1 = fh * 0.06;
+    tcFlat(ctx, cam, W3, [[rx0, yW, dTop], [rx1, yW, dTop], [rx1, yW, dUp], [rx0, yW, dUp]], [0, 1, 0], [118, 104, 70], 'metal', alpha, dn);
+    tcGlow(ctx, cam, W3, [[rx0, yW, dUp], [rx1, yW, dUp], [rx1, yW, 0.002], [rx0, yW, 0.002]], [0, 1, 0], [52, 48, 42], [255, 222, 160], dn, alpha);
+    if (near) for (let k = 1; k < 6; k++) { const z = dUp + (dTop - dUp) * k / 6;
+      emitWire(ctx, cam, W3(rx0, yW + 0.001, z), W3(rx1, yW + 0.001, z), 1, 'rgba(70,62,44,0.8)', alpha, { pull: 0.01 }); }
+    drawEntrance(ctx, cam, F, W3, E, seed, night, alpha, {
+      x: fh * 0.34, y: yF + fh * 0.005, w: fh * 0.07, top: h * 0.26, leaves: 1,
+      frame: [60, 58, 54], lobby: { day: [70, 62, 50], night: [255, 214, 150] }, frontVis });
+    { const [lx, ly] = F((rx0 + rx1) / 2, yF + fh * 0.05);   // the lamp over the roller
+      glowPool(ctx, cam, lx, ly, dTop + h * 0.03, '255,232,180', 9, alpha * (night ? 0.55 : 0.12)); }
+    // 3) THE LOT: tarmac to the kerb, four painted bays, and one customer's car waiting on parts.
+    const yK = fh * 1.04;
+    tcFlat(ctx, cam, W3, [[-fh * 0.98, yF, 0.003], [fh * 0.98, yF, 0.003], [fh * 0.98, yK, 0.003], [-fh * 0.98, yK, 0.003]], [0, 0, 1], [58, 58, 60], 'plain', alpha, dn);
+    for (let i = 0; i <= 4; i++) { const x = -fh * 0.90 + i * fh * 0.45;
+      tcFlat(ctx, cam, W3, [[x - fh * 0.012, yF + fh * 0.14, 0.005], [x + fh * 0.012, yF + fh * 0.14, 0.005], [x + fh * 0.012, yF + fh * 0.62, 0.005], [x - fh * 0.012, yF + fh * 0.62, 0.005]], [0, 0, 1], [200, 196, 170], 'plain', alpha, dn); }
+    { const [cx, cy] = F(-fh * 0.225, yF + fh * 0.40);
+      draw3DBoxAt(ctx, cam, cx, cy, fh * 0.15, h * 0.02, h * 0.09, 'ty_grind', seed + 6, night, alpha, false, yaw, fh * 0.24);
+      draw3DBoxAt(ctx, cam, cx, cy, fh * 0.12, h * 0.09, h * 0.14, 'ty_watts_roller', seed + 7, night, alpha, true, yaw, fh * 0.13); }
+    // 4) THE SIGN: a painted board on two posts at the kerb, the bulb and crossed wrenches on the
+    //    left and the name beside it. Paint, not tube, so lamps light it after dark.
+    const yS = fh * 0.86, z0 = h * 0.30, z1 = h * 0.50, x0 = -fh * 0.86, x1 = fh * 0.86, e = fh * 0.02;
+    for (const u of [-0.70, 0.70]) { const [px, py] = F(fh * u, yS - fh * 0.01);
+      draw3DBoxAt(ctx, cam, px, py, fh * 0.025, 0, z0, 'ty_grind', seed + 10, night, alpha, false); }
+    tcFlat(ctx, cam, W3, [[x0 - e, yS, z1 + h * 0.01], [x1 + e, yS, z1 + h * 0.01], [x1 + e, yS, z0 - h * 0.01], [x0 - e, yS, z0 - h * 0.01]], [0, 1, 0], [52, 50, 46], 'metal', alpha, dn);
+    tcFlat(ctx, cam, W3, [[x1 + e, yS - 0.002, z1 + h * 0.01], [x0 - e, yS - 0.002, z1 + h * 0.01], [x0 - e, yS - 0.002, z0 - h * 0.01], [x1 + e, yS - 0.002, z0 - h * 0.01]], [0, -1, 0], [52, 50, 46], 'metal', alpha, dn);
+    tcFlat(ctx, cam, W3, [[x0, yS + 0.001, z1], [x1, yS + 0.001, z1], [x1, yS + 0.001, z0], [x0, yS + 0.001, z0]], [0, 1, 0], [226, 214, 182], 'timber', alpha, dn);
+    if (frontVis) {
+      const P = (u, z) => { const [wx, wy] = F(u, yS + 0.002 + FACE_EPS); return cam.proj(wx, wy, z); };
+      const m0 = z0 + (z1 - z0) * 0.06, m1 = z1 - (z1 - z0) * 0.06, L = m1 - m0, a = x0 + fh * 0.03, b = a + L;
+      const logo = wattsLogoTex();
+      const ql = [P(a, m1), P(b, m1), P(b, m0), P(a, m0)];
+      if (logo && ql.every((p) => p.f > 0.12)) emitSurfaceText(ctx, cam, ql, logo, false, alpha, DETAIL_LIFT * 2, false, DETAIL_LIFT * 2.5);
+      const n0 = b + fh * 0.04, n1 = x1 - fh * 0.03, split = m0 + L * 0.40;
+      const t1 = bakeSignText(sign || 'WATTS THE DAMAGE', '#a3261c', 0, false, true, true, { font: 'stencil', fit: (n1 - n0) / (m1 - split) });
+      const q1 = [P(n0, m1), P(n1, m1), P(n1, split), P(n0, split)];
+      if (t1 && q1.every((p) => p.f > 0.12)) emitSurfaceText(ctx, cam, q1, t1, false, alpha, DETAIL_LIFT * 2, false, DETAIL_LIFT * 2.5);
+      const r0 = n0 + (n1 - n0) * 0.18, r1 = n1 - (n1 - n0) * 0.18;
+      const t2 = bakeSignText('REPAIR SHOP', '#2a2824', 0, false, true, true, { font: 'stencil', fit: (r1 - r0) / (split - m0) });
+      const q2 = [P(r0, split), P(r1, split), P(r1, m0), P(r0, m0)];
+      if (t2 && q2.every((p) => p.f > 0.12)) emitSurfaceText(ctx, cam, q2, t2, false, alpha, DETAIL_LIFT * 2, false, DETAIL_LIFT * 2.5);
+    }
+    if (dn > 0) for (const u of [-0.40, 0.40]) {   // two gooseneck lamps over the board
+      if (near) emitWire(ctx, cam, W3(fh * u, yS, z1 + h * 0.01), W3(fh * u, yS + fh * 0.07, z1 + h * 0.03), 1.6, 'rgba(48,50,52,0.95)', alpha, { pull: 0.02 });
+      const [gx, gy] = F(fh * u, yS + fh * 0.07); glowPool(ctx, cam, gx, gy, z1, '255,226,170', 8, alpha * 0.45 * dn);
+    }
   },
   slagwares(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {   // SLAG & WARES — one of two junkyard twins promoted off the scrapyard mesh
     // (bales, grabber crane, site shack), which is a plant this is not. It is a PITCH: a hand-cart

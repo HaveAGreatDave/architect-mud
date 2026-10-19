@@ -544,6 +544,8 @@ All the standard headers (`@broadcast`, `@channel`, `@category`, `@length`) work
 | `@announcer "Chip Vega"` | The play-by-play voice — a display **name**, surrounding quotes stripped. Available in lines as `{announcer}`. Not an NPC. |
 | `@airtime 19` | Optional. Feature only the game(s) covering these **in-game hours** (0–23, comma/space-separated) each day — one full game, snapped to the grid, at a fixed time of day; the channel is dark otherwise. Omit for **continuous** back-to-back games all day. The league itself always plays a full slate on the in-game clock (one game every 3 in-game hours → 8/in-game-day, ~1/team/day) and the standings advance regardless of what's aired; `@airtime` only picks which of those games this channel *shows*. `19` → the 18:00–21:00 game. |
 | `@sim 2` | Optional, baseball only. Play sim v2 (errors, hit batters, steals, caught stealing, pickoffs, throws over, double steals, wild pitches, passed balls). Compiles to `sports_pools.sim.version`. Omit for v1. The server records the slot v2 starts at, the first slot of the next in-game day after it first sees this, and never moves it, so every game that has aired replays as it aired. Removing the line records an end slot the same way; a version that has played and ended can't be switched back on. See [systems-broadcast.md](systems-broadcast.md#sim-v2). |
+| `@titlecard <graphic_id>` | The card shown before the first pitch or the opening draw. Pair it with a `::asset <graphic_id>` block. |
+| `@theme <song>` | Optional. An `audio_songs` name that plays under the title card, once; the card holds for its length, and the pacer counts it for that long. Compiles to `sports_pools.theme`. Deadball's is KSAB-7 Sports' theme, `ksab7_deadball_theme` (see [systems-broadcast.md](systems-broadcast.md#the-networks-package-ksab-7-sports)). |
 
 ## Team & player pools
 
@@ -659,7 +661,7 @@ Every spoken line also carries a **score-bug** — a persistent on-screen graphi
 }
 ```
 
-The client renderer (`_applyScorebug` in [tv.js](../client/game/js/panels/tv.js)) **always** draws the two team/score rows (leader highlighted) and the `status` line. It draws the diamond only when `bases` is present and the out dots only when `outs` is present. So a future sport emits the same overlay with `status` set to its clock/period and simply omits `bases`/`outs` — same bug, no diamond — or adds its own optional field plus a matching client branch. Baseball's final bug drops `outs`/`bases` too, showing just the score under `FINAL`.
+The client renderer (`_applyScorebug` in [tv.js](../client/game/js/panels/tv.js)) **always** draws the two team/score rows (leader highlighted, a colour chip for each club, a score that just went up pulsing once) and the `status` line, with `TOP` and `BOT` drawn as arrows. On a station with a name it wears the network's tag as a header (see [systems-broadcast.md](systems-broadcast.md#the-networks-package-ksab-7-sports)). It draws the diamond only when `bases` is present and the out dots only when `outs` is present. So a future sport emits the same overlay with `status` set to its clock/period and simply omits `bases`/`outs` — same bug, no diamond — or adds its own optional field plus a matching client branch. Baseball's final bug drops `outs`/`bases` too, showing just the score under `FINAL`.
 
 ## Compiler & runtime contract (as built)
 
@@ -675,6 +677,7 @@ The client renderer (`_applyScorebug` in [tv.js](../client/game/js/panels/tv.js)
     airSlots: [6],               // @airtime → in-game 3h block indices, or null for continuous
     say:     { [word]: 'PH …' }, // ::say block, only when there is one
     voice:   { ring: 0, … },     // @voice, only when there is one
+    theme:   'ksab7_deadball_theme', // @theme, only when there is one
   }
   ```
 - **Import** ([broadcast.js](../client/devpanel/js/panels/broadcast.js) `_bcImportSave`): saved with `playback_mode = 'sports'`, `loop = 1`, `override_duration = @length`, `sports_pools` = the `sportsScript` (new `media_broadcasts.sports_pools` JSONB column). No studio/host is created — asset-only.
