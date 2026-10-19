@@ -6212,6 +6212,27 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
   const counterIn = (id) => [...world.npcs.values()].filter((n) => n.work_zone_id === id && (n.vendor_inventory || []).length).map((n) => n.name);
   check('Coliseum: nobody keeps a counter on the way to the stands', ['zone_hughson_rotunda', 'zone_hughson_concourse', 'zone_hughson_stands', 'zone_hughsonbl_bleachers'].every((id) => !counterIn(id).length),
     ['zone_hughson_rotunda', 'zone_hughson_concourse', 'zone_hughson_stands', 'zone_hughsonbl_bleachers'].flatMap(counterIn).join(', '));
+  check('Coliseum: every tile is under the retractable roof', park.every((z) => z.flags?.venue_roof), park.filter((z) => !z.flags?.venue_roof).map((z) => z.id).join());
+  // The trades round it (scripts/content/hughson-parkside.mjs): each door opens off the street its
+  // entrance faces into its own counter, where its keeper works, and the five Halcyon buildings
+  // they replaced are on the holding map.
+  {
+    const { zoneAtTile } = await import('../server/engine/world.js');
+    const TRADES = [[894, 911, 'north', 'zone_fitzfranks_counter', 'npc_fitz_rourke'], [894, 912, 'west', 'zone_pruitt_shop', 'npc_pruitt_lorna'],
+      [894, 913, 'south', 'zone_kimble_shop', 'npc_kimble_odessa'], [898, 911, 'north', 'zone_mulcahy_bar', 'npc_mulcahy_declan'], [898, 913, 'south', 'zone_hcbox_windows', 'npc_hcbox_okafor']];
+    const D = { north: [0, -1], south: [0, 1], east: [1, 0], west: [-1, 0] }, OPP = { north: 'south', south: 'north', east: 'west', west: 'east' };
+    const bad = [];
+    for (const [x, y, ent, room, npc] of TRADES) {
+      const f = zoneAtTile('map_world', x, y), street = zoneAtTile('map_world', x + D[ent][0], y + D[ent][1]);
+      if (!f || f.id !== `zone_parkside_${x}_${y}`) { bad.push(`${x},${y}: ${f?.id}`); continue; }
+      if (street?.exits?.[OPP[ent]] !== f.id || f.exits?.[ent] !== street.id) bad.push(`${f.id}: street link`);
+      if (f.exits?.[OPP[ent]] !== room) bad.push(`${f.id}: into ${f.exits?.[OPP[ent]]}`);
+      if (world.npcs.get(npc)?.work_zone_id !== room) bad.push(`${npc}: works in ${world.npcs.get(npc)?.work_zone_id}`);
+    }
+    check('Coliseum trades: five doors off their streets into their own counters, each with its keeper', !bad.length, bad.join(' | '));
+    const replaced = ['zone_district_894_911', 'zone_district_894_912', 'zone_district_894_913', 'zone_district_898_911', 'zone_district_898_913'].map((id) => world.zones.get(id));
+    check('Coliseum trades: the five Halcyon buildings they replaced are on the holding map', replaced.every((z) => z?.map_id === 'map_set_aside' && z.flags?.set_aside), replaced.map((z) => `${z?.id}:${z?.map_id}`).join());
+  }
 
   const held = [...world.zones.values()].filter((z) => z.map_id === 'map_set_aside');
   const leaks = [];
@@ -6234,8 +6255,34 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
   check('set aside: every building keeps its interior, its furniture and a way out on the holding map', broken.length === 0, broken.join(' | '));
   const people = [...world.npcs.values()].filter((n) => n.flags?.set_aside);
   const lost = people.filter((n) => { const h = world.zones.get(n.home_zone); return !h || world.zones.get(h.parent_zone)?.map_id !== 'map_set_aside'; });
-  // Four from the Coliseum's block, plus Rufus Bandy (Skeleton Crew) and Dilys Trantham (Rest Assured).
-  check('set aside: its six keepers are home in their set-aside rooms', people.length === 6 && !lost.length, `${people.length} ${lost.map((n) => n.id).join(',')}`);
+  // Four from the Coliseum's block, Rufus Bandy (Skeleton Crew), Dilys Trantham (Rest Assured) and
+  // Meltwater Row's three, at least. No exact count: more buildings get set aside, sometimes two
+  // sessions at once, and the thing that matters is that nobody paused is standing on a street.
+  check('set aside: every set-aside keeper is home in a set-aside room', people.length >= 9 && !lost.length, `${people.length} ${lost.map((n) => n.id).join(',')}`);
+}
+
+// ── Midway Parks on the florist's plot, and Meltwater Row's four set aside (real content) ─────
+// scripts/content/set-aside-meltwater.mjs. The cinema moved with its id to 909,914, facing the
+// green. Its door is a shop door that locks outside Gower Nissen's hours, so this reads the exits
+// rather than walking them: in from Meltwater Row, through the foyer to the auditorium behind it.
+// The plots it and the four left are waste ground, and the screen shows the projection box's tape.
+{
+  const { zoneAtTile } = await import('../server/engine/world.js');
+  const ex = (id) => world.zones.get(id)?.exits || {};
+  const mid = world.zones.get('zone_district_912_914');
+  check('Midway Parks: stands at 909,914 facing north', mid?.map_id === 'map_world' && mid.grid_x === 909 && mid.grid_y === 914 && mid.flags?.entrance === 'north', `${mid?.grid_x},${mid?.grid_y} ${mid?.flags?.entrance}`);
+  check('Midway Parks: Meltwater Row, facade, foyer and auditorium join front to back',
+    ex('zone_district_909_913').south === mid?.id && ex(mid?.id).north === 'zone_district_909_913' && ex(mid?.id).south === 'zone_reel_foyer'
+      && ex('zone_reel_foyer').north === mid?.id && ex('zone_reel_foyer').south === 'zone_reel_house' && ex('zone_reel_house').north === 'zone_reel_foyer',
+    JSON.stringify({ street: ex('zone_district_909_913').south, facade: ex(mid?.id), foyer: ex('zone_reel_foyer'), house: ex('zone_reel_house') }));
+  check('Midway Parks: its way out is Meltwater Row', mid?.flags?.world_exit_zone === 'zone_district_909_913', mid?.flags?.world_exit_zone);
+  const plots = [[907, 914], [908, 914], [912, 913], [912, 914]].map(([x, y]) => zoneAtTile('map_world', x, y));
+  check('Meltwater set-aside: the four empty plots are waste ground', plots.every((z) => z?.id?.startsWith('zone_lot_') && z.flags?.terrain === 'grass'), plots.map((z) => z?.id).join());
+  const held = ['zone_district_907_914', 'zone_district_908_914', 'zone_district_909_914', 'zone_district_912_913'].map((id) => world.zones.get(id));
+  check('Meltwater set-aside: Loafing Around, Rod Almighty, Florist Gump and the Grind House are on the holding map', held.every((z) => z?.map_id === 'map_set_aside' && z.flags?.set_aside), held.map((z) => `${z?.id}:${z?.map_id}`).join());
+  const keepers = ['npc_florist_fairweather', 'npc_rod_prendergast', 'npc_loafing_coyne'].map((id) => world.npcs.get(id));
+  check('Meltwater set-aside: the florist, the tackle man and the baker are set aside with their shops', keepers.every((n) => n?.flags?.set_aside), keepers.map((n) => `${n?.id}:${!!n?.flags?.set_aside}`).join());
+  check('Meltwater set-aside: Vessa Orme keeps her Meridian flat and has no shop to go to', world.npcs.get('npc_smith_vessa')?.work_zone_id == null && !world.npcs.get('npc_smith_vessa')?.flags?.set_aside);
 }
 
 // ── Layer 2f: statmods ledger — caps and their current values stay consistent ─

@@ -222,7 +222,8 @@
       "a flannel shirt buttoned to the wrist",
       "canvas trousers and rubber boots turned down at the top"
     ],
-    "personality": "vendor"
+    "personality": "vendor",
+    "set_aside": true
   },
   "home_activities": [],
   "home_zone": "zone_rodalmighty_shop",

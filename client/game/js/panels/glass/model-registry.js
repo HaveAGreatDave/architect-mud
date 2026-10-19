@@ -374,6 +374,11 @@ export const TYPE_MODEL = {
   palais_foyer:     { type: 'palais_foyer', pal: 'ty_palais_stone', noKit: true, door: 'BOX OFFICE' },
   palais_stage:     { type: 'palais_stage', pal: 'ty_palais_stone', noKit: true, blade: 'PALAIS', bill: ['LIVE ON STAGE', 'DANCING NIGHTLY'] },
   palais_bar:       { type: 'palais_bar',   pal: 'ty_palais_stone', noKit: true, door: 'BAR' },
+  // The Palais Bowl, the open-air theatre on the three tiles behind it (palais-bowl.js): walkable
+  // tiles, one bowl of tiers over three types, and no words on it.
+  palais_bowl_w:    { type: 'palais_bowl_w', pal: 'ty_palais_stone', noKit: true },
+  palais_bowl:      { type: 'palais_bowl',   pal: 'ty_palais_stone', noKit: true },
+  palais_bowl_e:    { type: 'palais_bowl_e', pal: 'ty_palais_stone', noKit: true },
   gun_shop:         { type: 'armory',    pal: 'ty_armory', neon: '#ff6a4a' },
   blade_shop:       { type: 'armory',    pal: 'ty_forge',  neon: '#ff8a2a' },
   casino:           { type: 'casino',    pal: 'ty_casino', neon: '#ff3e8a' },

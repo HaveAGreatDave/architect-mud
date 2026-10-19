@@ -1,0 +1,20 @@
+{
+  "description": "The lowest row of the bowl, close enough to the stage to see the band's shoes. The stone is warm late into the evening.",
+  "flags": {
+    "aliases": "tier,front tier,bench,benches,seat,seats,steps",
+    "interactions": [
+      "examine",
+      "sit"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_bowl_tiers",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the front tier",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_district_909_910"
+}

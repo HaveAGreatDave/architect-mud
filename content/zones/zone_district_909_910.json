@@ -2,15 +2,19 @@
   "ambient_events": [],
   "ambient_theme": "forest",
   "color": "#8fd08a",
-  "description": "Clipped lawn rolls out in soft terraces, dotted with young trees and the odd bolted bench. Someone tends this, rare out here: raked paths, and the smell of cut grass.",
+  "description": "A low stone stage against the back wall of the Palais, under a stone canopy on two piers, with the scene dock doors behind it. Tiers of stone benches rise away from it in a shallow bowl. On a warm night the Palais opens the dock doors and the band plays out here instead.",
   "exits": {
     "east": "zone_district_910_910",
     "south": "zone_district_909_911",
     "west": "zone_district_908_910"
   },
   "flags": {
+    "building_name": "The Palais Bowl",
+    "building_type": "palais_bowl",
     "district": "commercial",
-    "park_feature": "grove",
+    "entrance": "north",
+    "floors": 1,
+    "icon": "palais-bowl",
     "region_id": "region_coldwater",
     "street_life": true,
     "terrain": "park"
@@ -20,6 +24,6 @@
   "grid_z": 0,
   "id": "zone_district_909_910",
   "map_id": "map_world",
-  "name": "Fisherman's Green",
+  "name": "The Palais Bowl",
   "parent_zone": null
 }

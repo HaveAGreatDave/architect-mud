@@ -299,5 +299,5 @@
   "vendor_stock_size": 12,
   "wander_zones": [],
   "wanders": 0,
-  "work_zone_id": "zone_grindhouse_interior"
+  "work_zone_id": null
 }

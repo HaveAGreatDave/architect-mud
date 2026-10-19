@@ -2622,6 +2622,33 @@ Scoped to zones that currently contain a **player**: a tape reverting in an empt
 unobservable and a pointless write, and sweeping ~5,800 zones a minute to find out would cost
 more than the feature is worth. (This is the broadcast plugin's only engine hook.)
 
+### A set fed from another room (`flags.deck_feed`)
+
+*Built 2026-10-18.* A deck answers for sets in its own room, so a screen in one room and its tape
+player in another showed nothing: Midway Parks's tape player is in the projection box and its
+screen is in the auditorium. A receiver can name the deck that feeds it, as a furniture id in
+`flags.deck_feed`. The viewer's-room lookup (`_zoneDeck` with `strict`) follows it when the room has
+no deck of its own on that channel; nothing else does, so loading or ejecting still needs you at the
+deck. A fed room's cached resolution catches up on the 10-second TTL.
+
+### A deck's programme (`flags.deck_programme`)
+
+*Built 2026-10-18.* A deck can keep a programme, shaped like a vendor's hours, in game hours:
+
+```json
+"deck_programme": { "fri": [{ "from": 22, "to": 24, "tape": "bc_sister_steel" }], "sat": [{ "from": 22, "to": 24, "tape": "bc_sister_steel" }] }
+```
+
+- Inside a showing its tape should be up; outside every showing, `deck_default` should.
+- The deck changes tape once, at the edge of a showing, and records the showing in
+  `flags.deck_programme_key`. Between edges a player can put on anything and it stays.
+- A showing whose tape isn't in the deck's library doesn't run: a player took it, and putting it
+  back would make a second copy.
+- It runs from the playback path, so only while somebody is watching. The proprietor's revert
+  (above) wants the programme's tape too (`_deckWants`).
+- Midway Parks's deck runs the Grind House's Sister Steel as the late show on Friday and Saturday,
+  and The Meter Reader the rest of the time.
+
 
 ---
 

@@ -226,7 +226,8 @@
       "a collarless shirt with the sleeves rolled past the elbow",
       "heavy cotton trousers and an apron tied twice round"
     ],
-    "personality": "vendor"
+    "personality": "vendor",
+    "set_aside": true
   },
   "home_activities": [],
   "home_zone": "zone_loafing_shop",

@@ -216,7 +216,8 @@
       "fingerless gloves with the wool gone hard at the tips",
       "a long skirt and wellingtons"
     ],
-    "personality": "vendor"
+    "personality": "vendor",
+    "set_aside": true
   },
   "home_activities": [],
   "home_zone": "zone_floristgump_shop",

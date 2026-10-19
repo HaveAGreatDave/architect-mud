@@ -230,6 +230,8 @@ nothing, silently; wire a reader first.
 | `camera_id` | broadcast | media_cameras row this camera feeds |
 | `camera_label` | broadcast | MEDIA_CAMERAS (and NPC, for a `camera_droid`). The name a camera goes out under — "Camera 2 (wide)". Read by the roster in `loadChannelRuntimes`; without it the only name a bolted-down unit can have is one `_cameraLabel` derives from its id, so the crew number has to be smuggled into the primary key |
 | `channel_id` | broadcast | channel a deck/TV is tuned to |
+| `deck_feed` | broadcast | on a RECEIVER: the furniture id of the deck in another room that feeds it, followed only by the viewer's-room lookup ([systems-broadcast.md](systems-broadcast.md#a-set-fed-from-another-room-flagsdeck_feed)) |
+| `deck_programme` / `deck_programme_key` | broadcast | on a DECK: showings by day and game hour, each naming a tape, shaped like vendor hours; the key records the last showing the deck put on, so it changes tape once per edge |
 | `chargen` | prologue | character-generation terminal |
 | `concealed` | surveillance / concealment | hidden from the room's furniture list entirely (`commands/describe.js`). A planted spy device sets it at plant time; a concealment cabinet flips it on the piece it hides |
 | `dead_drop` | deaddrop | this container is findable **as a cache** by the `search.provider` in `plugins/deaddrop`. ⚠ It is a separate opt-in and must never be derived from `concealed`: 53 of the world's 58 concealed rows are planted spy devices, so a roll keyed on `concealed` would turn `search` into a counter-surveillance sweep and end SPECTER's plant-a-camera game. A cache carries all three of `container` + `concealed` + `dead_drop` |

@@ -5,12 +5,13 @@
     "broadcast_device_type": "tv",
     "broadcast_receiver": true,
     "channel_default": 0,
-    "tuned_channel": 0,
-    "tv": true,
-    "tv_dial_freq": 0,
+    "deck_feed": "furn_reel_deck",
     "interactions": [
       "watch"
-    ]
+    ],
+    "tuned_channel": 0,
+    "tv": true,
+    "tv_dial_freq": 0
   },
   "hp": null,
   "hp_max": null,

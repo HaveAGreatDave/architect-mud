@@ -152,7 +152,7 @@
     "\"You want the organ? Nobody wants the organ. Go on, then.\"",
     "He looks at the clock, then at the door, then at the clock, in that order, and gets on with the books."
   ],
-  "description": "A narrow, dry man of about sixty in a cardigan shiny at the elbows, on the kiosk stool with a ledger open in front of him. He owns the flats upstairs and the shop next door, and the cinema eats the rent. He's doing sums.",
+  "description": "A narrow, dry man of about sixty in a cardigan shiny at the elbows, on the kiosk stool with a ledger open in front of him. He owns the flats upstairs and a shop round the corner, and the cinema eats the rent. He's doing sums.",
   "dialogue_tree": {
     "bye": {
       "options": [],
@@ -191,11 +191,24 @@
           "next": "film_print"
         },
         {
+          "label": "And the late show?",
+          "next": "film_late"
+        },
+        {
           "label": "Back.",
           "next": "root"
         }
       ],
       "text": "\"The Meter Reader,\" he says. \"Eight o'clock. Ninety-four minutes, and about eleven of them are good.\"\n\nHe says it the way you'd read a gas meter.\n\n\"It's the one everybody's seen and the one everybody's got an opinion about. I have heard the opinion. I have heard it in this foyer at some length, more than once, and I'll tell you now I don't disagree with any of it.\""
+    },
+    "film_late": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "film"
+        }
+      ],
+      "text": "\"Sister Steel,\" he says. \"Friday and Saturday, ten o'clock. Auggie Prine, Meltwater Drive-In Releasing, certified unsuitable for corporate viewing, which is the only review it's ever had.\"\n\nHe makes a note in the ledger.\n\n\"The tape's Vessa Orme's. She ran it on the set in her shop until her customers knew it by heart, and then she lent it me, because a picture like that wants a screen. It does better than the eight o'clock. I've stopped asking why.\""
     },
     "film_print": {
       "options": [
@@ -325,7 +338,7 @@
           "next": "root"
         }
       ],
-      "text": "\"Variety,\" he says. \"Comics, a dog act, a woman who sang with her back to the house, twice nightly. A man called Parks built it with what he made running the fair on the waste ground opposite. Midway Parks. He thought that was clever.\"\n\nHe turns a page.\n\n\"My father hung a screen in the arch the year the comics stopped coming. He took THEATRE off the front, put CINEMA up the blade, and meant to do the rest. He never got round to it and neither have I. The stage is still there behind the screen. Nobody's stood on it in forty years.\""
+      "text": "\"Variety,\" he says. \"Comics, a dog act, a woman who sang with her back to the house, twice nightly. A man called Parks built it with what he made running the fair on the green opposite. Midway Parks. He thought that was clever.\"\n\nHe turns a page.\n\n\"My father hung a screen in the arch the year the comics stopped coming. He took THEATRE off the front, put CINEMA up the blade, and meant to do the rest. He never got round to it and neither have I. The stage is still there behind the screen. Nobody's stood on it in forty years.\""
     }
   },
   "faction": null,

@@ -2,24 +2,24 @@
   "ambient_events": [],
   "ambient_theme": "urban",
   "bg_color": "#241c22",
-  "description": "The last lit thing on Meltwater Row before the road gives up, and the only front on it that was built to be looked at. It went up as a music hall: cream faience between oxblood pilasters, three tall round-headed windows where the circle bar was, and a copper dome on each corner like a pair of hatpins. Behind it the stage house climbs two storeys past the roof. MIDWAY PARKS runs across the front in tubes, and off the corner a blade four storeys tall spells CINEMA downwards, a third of its bulbs out in a pattern that hasn't changed in years. Under it all a canopy on chained rods, lamps let into its underside, over glazed doors with brass push-plates worn to the white metal. The letter board reads NOW SHOWING · THE METER READER · 8PM ONLY, and has read it long enough to fade round the letters.",
+  "description": "It faces Fisherman's Green and the bronze fisherman across Meltwater Row, and it's the only front on this side of the green that was built to be looked at. It went up as a music hall: cream faience between oxblood pilasters, three tall round-headed windows where the circle bar was, and a copper dome on each corner like a pair of hatpins. Behind it the stage house climbs two storeys past the roof. MIDWAY PARKS runs across the front in tubes, and off the corner a blade four storeys tall spells CINEMA downwards, a third of its bulbs out in a pattern that hasn't changed in years. Under it all a canopy on chained rods, lamps let into its underside, over glazed doors with brass push-plates worn to the white metal. The letter board reads THE METER READER 8PM FRI SAT LATE SISTER STEEL. The first half has been up long enough to fade round the letters, and the second half is in newer letters that don't match.",
   "exits": {
-    "east": "zone_reel_foyer",
-    "west": "zone_district_911_914"
+    "north": "zone_district_909_913",
+    "south": "zone_reel_foyer"
   },
   "flags": {
     "building_name": "Midway Parks Cinema",
     "building_type": "cinema",
     "district": "nightlife",
-    "entrance": "west",
+    "entrance": "north",
     "facade": true,
     "floors": 3,
     "is_building": true,
     "region_id": "region_coldwater",
     "sign_trade": "CINEMA",
-    "world_exit_zone": "zone_district_911_914"
+    "world_exit_zone": "zone_district_909_913"
   },
-  "grid_x": 912,
+  "grid_x": 909,
   "grid_y": 914,
   "grid_z": 0,
   "id": "zone_district_912_914",

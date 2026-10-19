@@ -1,0 +1,22 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "city",
+  "description": "Scrub on the corner of Foundry Way with the slab of a long shed still in it, black and gritty at one end where a forge stood. Nothing grows on that end.",
+  "exits": {
+    "north": "zone_district_912_912",
+    "south": "zone_lot_912_914",
+    "west": "zone_district_911_913"
+  },
+  "flags": {
+    "district": "nightlife",
+    "region_id": "region_coldwater",
+    "terrain": "grass"
+  },
+  "grid_x": 912,
+  "grid_y": 913,
+  "grid_z": 0,
+  "id": "zone_lot_912_913",
+  "map_id": "map_world",
+  "name": "Waste Ground",
+  "parent_zone": null
+}

@@ -1,0 +1,22 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "city",
+  "description": "Rough grass over broken tarmac, running back from Meltwater Row to a line of fence posts where a hoarding stood. Past it the road gives up and the ground starts to mean it.",
+  "exits": {
+    "east": "zone_district_913_914",
+    "north": "zone_lot_912_913",
+    "west": "zone_district_911_914"
+  },
+  "flags": {
+    "district": "nightlife",
+    "region_id": "region_coldwater",
+    "terrain": "grass"
+  },
+  "grid_x": 912,
+  "grid_y": 914,
+  "grid_z": 0,
+  "id": "zone_lot_912_914",
+  "map_id": "map_world",
+  "name": "Waste Ground",
+  "parent_zone": null
+}

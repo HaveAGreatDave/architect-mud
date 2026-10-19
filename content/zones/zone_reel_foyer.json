@@ -5,9 +5,9 @@
   "description": "A theatre's foyer, kept as one. Gilt plaster overhead, mirrored panels gone grey at the edges, and a double stair sweeping up either side to the circle, the left flight roped off at the bottom. Carpet the colour of an old wound is worn to the weave in two tracks: door to kiosk, kiosk to the auditorium doors. Everything else is immaculate, which tells you nobody walks on it. The kiosk is a glazed booth with a brass dish under the window and a card taped inside the glass reading ONE PRICE. The confectionery cabinet beside it holds four things, spaced out to look like more. A hatch in the floor behind the kiosk goes down to where the building's wiring lives.",
   "exits": {
     "down": "zone_util_zone_reel_foyer",
-    "east": "zone_reel_house",
-    "up": "zone_reel_box",
-    "west": "zone_district_912_914"
+    "north": "zone_district_912_914",
+    "south": "zone_reel_house",
+    "up": "zone_reel_box"
   },
   "flags": {
     "building_name": "Midway Parks Cinema",

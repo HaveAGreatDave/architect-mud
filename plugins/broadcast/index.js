@@ -4847,7 +4847,66 @@ function _zoneDeck(zoneId, channelId = null, strict = false) {
   if (!decks.length) return null;
   const match = channelId ? decks.find(f => f.flags.channel_id === channelId) : null;
   if (match) return match;
-  return strict ? null : decks[0];
+  if (strict) return _fedDeck(zoneId, channelId);
+  return decks[0] || null;
+}
+
+// A set fed from another room. Midway Parks's tape player stands in the projection box and its
+// screen hangs in the auditorium, and a deck only answers for sets in its own room, so the screen
+// names the deck that feeds it: `flags.deck_feed`, a furniture id, on the receiver. Only the
+// viewer's-room path (`strict`) follows the cable, so the deck's own verbs still need you standing
+// at it. A fed room's cached resolution isn't evicted when the deck changes tape; the 10s TTL
+// catches it up.
+function _fedDeck(zoneId, channelId) {
+  for (const f of getZoneFurniture(zoneId)) {
+    const id = f.flags?.deck_feed;
+    if (!id) continue;
+    const deck = getFurnitureById(id);
+    if (deck?.flags && 'media_deck' in deck.flags && (!channelId || deck.flags.channel_id === channelId)) return deck;
+  }
+  return null;
+}
+
+// ── Deck programmes ──────────────────────────────────────────────────────────
+// A deck can keep a programme, shaped like a vendor's hours: `flags.deck_programme` is
+// { fri: [{ from: 22, to: 24, tape: 'bc_sister_steel' }], … } in game hours. Inside a showing the
+// tape it names should be up; outside every showing, `deck_default` should.
+//
+// The deck changes tape at the EDGE of a showing, once, and remembers the showing it last put on
+// (`deck_programme_key`). Between edges a player can put on what they like and it stays: the late
+// show starts at ten whatever you did at nine. A showing whose tape isn't in the deck's library
+// doesn't run, because a player walked off with it and putting it back would make a second copy.
+//
+// It runs from the playback path, so it only runs while somebody is watching, and an empty
+// cinema writes nothing.
+const DECK_DAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+function _deckShowing(flags, env = getEnvironmentState()) {
+  const prog = flags?.deck_programme;
+  if (!prog || typeof prog !== 'object' || !env) return null;
+  const day = DECK_DAYS[(Number(env.dayOfWeek) || 1) - 1];
+  const hour = (Number(env.minutes) || 0) / 60;
+  for (const s of Array.isArray(prog[day]) ? prog[day] : []) {
+    if (s?.tape && hour >= Number(s.from) && hour < Number(s.to)) return { key: `${day}:${s.from}`, tape: s.tape };
+  }
+  return null;
+}
+// The tape the deck should be playing now, if it has it: the showing's, else the house default.
+function _deckWants(flags, env) {
+  const lib = Array.isArray(flags?.deck_cassettes) ? flags.deck_cassettes : [];
+  const show = _deckShowing(flags, env);
+  return show && lib.includes(show.tape) ? show.tape : (flags?.deck_default || null);
+}
+async function _runDeckProgramme(deck, env) {
+  const fl = deck?.flags;
+  if (!fl?.deck_programme) return;
+  const key = _deckShowing(fl, env)?.key || 'house';
+  if (fl.deck_programme_key === key) return;
+  const tape = _deckWants(fl, env);
+  const next = { ...fl, deck_programme_key: key };
+  if (tape && (fl.deck_cassettes || []).includes(tape)) next.deck_active = tape;
+  await updateFurniture(deck.id, { flags: next }).catch(() => {});
+  // The cache is keyed by the viewer's room, and a deck may feed a room other than its own.
+  _deckCache.clear();
 }
 
 // Returns undefined when the deck isn't pirated (caller falls through to the
@@ -4934,6 +4993,7 @@ async function _getDeckMessage(zoneId, nowMs, state, strict = false) {
     const deck = _zoneDeck(zoneId, state?.channelId || null, strict);
     const dflags = deck?.flags && typeof deck.flags === 'object' ? deck.flags : null;
     if (dflags?.deck_cam_source?.deviceId) return _camPatchMessage(deck, dflags, nowMs);
+    if (dflags?.deck_programme) await _runDeckProgramme(deck);
   }
 
   // Cache key carries the channel: one room can be resolving several channels
@@ -10411,6 +10471,8 @@ export const _test = {
   garbleLine: _garbleLine, actorImpairment: _actorImpairment,
   collapseLine: _collapseLine, slurLine: _slurLine, deliveryStyle: _deliveryStyle, DELIVERY: _DELIVERY,
   tangentCohosts: _tangentCohosts, anchorDisplayFor: _anchorDisplayFor,
+  // a deck that keeps a programme
+  deckShowing: _deckShowing, deckWants: _deckWants,
   camerasIn: _camerasIn, uplinkOk: _uplinkOk, portableDeckLive: _portableDeckLive,
   channelTransmitterLive, absentReaction: _absentReaction, ABSENT_HOUSE, dispatchDroid: _dispatchDroid, shotOrder: _shotOrder, channelDroids: _channelDroids, locationCallState: _locationCallState, preshowActTick, maybeStartTangent: _maybeStartTangent,
   TANGENT_FLOOR, TANGENT_CHANCE,
@@ -11752,14 +11814,16 @@ export const hooks = {
       for (const f of getZoneFurniture(zoneId)) {
         const fl = f.flags || {};
 
-        // A tape deck whose owner wants their tape on.
+        // A tape deck whose owner wants their tape on: the default, or the showing a programme
+        // has on now (see _deckShowing).
         const deckOwner = fl.deck_owner_npc;
-        if (deckOwner && fl.deck_default && fl.deck_active !== fl.deck_default) {
+        const wants = _deckWants(fl);
+        if (deckOwner && wants && fl.deck_active !== wants) {
           const npc = npcsHere.find(n => n.id === deckOwner);
           if (npc) {
-            const next = { ...fl, deck_active: fl.deck_default };
+            const next = { ...fl, deck_active: wants };
             const lib = Array.isArray(next.deck_cassettes) ? next.deck_cassettes : [];
-            if (!lib.includes(fl.deck_default)) next.deck_cassettes = [...lib, fl.deck_default];
+            if (!lib.includes(wants)) next.deck_cassettes = [...lib, wants];
             await updateFurniture(f.id, { flags: next }).catch(() => {});
             sendToZone(zoneId, { type: 'zone_event', message: pick(OWNER_REVERT_LINES).replace(/\$npc/g, npc.name) });
           }

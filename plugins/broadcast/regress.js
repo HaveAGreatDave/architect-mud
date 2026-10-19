@@ -54,6 +54,29 @@ export default async function regress({ check, run, getPlayer }) {
     }
   }
 
+  // ── A screen fed from another room, and the late show ───────────────────────
+  // Midway Parks's tape player stands in the projection box and its screen hangs in the
+  // auditorium. The screen names the deck that feeds it (`deck_feed`) and the viewer's-room
+  // lookup follows it; nothing else does. The deck's programme puts Sister Steel on at ten on
+  // Friday and Saturday nights, and The Meter Reader the rest of the time.
+  {
+    const deck = world.furniture.get('furn_reel_deck');
+    if (deck) {
+      const fed = _test.zoneDeck('zone_reel_house', 'ch_0_vcr', true);
+      check('deck feed: the auditorium screen shows the projection box deck', fed?.id === 'furn_reel_deck', fed?.id);
+      check('deck feed: a verb in the auditorium finds no deck there', _test.zoneDeck('zone_reel_house') === null);
+      check('deck feed: and the feed carries channel 0 only', _test.zoneDeck('zone_reel_house', 'ch_7_1782953079593', true) === null);
+      const at = (dayOfWeek, h) => ({ dayOfWeek, minutes: h * 60 });
+      check('deck programme: Friday at 22:30 the late show is Sister Steel', _test.deckWants(deck.flags, at(5, 22.5)) === 'bc_sister_steel');
+      check('deck programme: Friday at 21:00 it is the house tape', _test.deckWants(deck.flags, at(5, 21)) === deck.flags.deck_default);
+      check('deck programme: Thursday has no late show', _test.deckWants(deck.flags, at(4, 22.5)) === deck.flags.deck_default);
+      check('deck programme: a showing whose tape somebody took falls back to the house tape',
+        _test.deckWants({ ...deck.flags, deck_cassettes: [deck.flags.deck_default] }, at(5, 22.5)) === deck.flags.deck_default);
+      check('deck programme: each night\'s showing is its own edge',
+        _test.deckShowing(deck.flags, at(5, 22.5))?.key === 'fri:22' && _test.deckShowing(deck.flags, at(6, 23))?.key === 'sat:22');
+    }
+  }
+
   // ── A TAPE MAY NOT SHADOW ANOTHER LEAGUE'S SCHEDULED GAME ───────────────────
   // The deck outranks the schedule and a cassette carries no day mask, only its
   // script's airSlots — so a Deadball tape left in KSAB's own deck offered a ballgame

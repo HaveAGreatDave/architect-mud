@@ -1,0 +1,20 @@
+{
+  "description": "Stone benches in six curved rows, each a step higher than the last. The edges are rounded off by sitting, and the aisle steps are cut into them at an angle.",
+  "flags": {
+    "aliases": "tiers,tier,steps,benches,bench,seats,seat",
+    "interactions": [
+      "examine",
+      "sit"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_bowl_tiers_w",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the tiers",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_district_908_910"
+}

@@ -1,0 +1,21 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "city",
+  "description": "The other half of the cleared plot. A pallet of reclaimed brick waits under a tarp in the middle of it, and across the road the bronze fisherman has a clear view of nothing at all.",
+  "exits": {
+    "north": "zone_district_908_913",
+    "west": "zone_lot_907_914"
+  },
+  "flags": {
+    "district": "commercial",
+    "region_id": "region_coldwater",
+    "terrain": "grass"
+  },
+  "grid_x": 908,
+  "grid_y": 914,
+  "grid_z": 0,
+  "id": "zone_lot_908_914",
+  "map_id": "map_world",
+  "name": "Waste Ground",
+  "parent_zone": null
+}

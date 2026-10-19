@@ -102,3 +102,34 @@ the middle of the stage tile, +X is west) and each arm draws the parts on its ow
 - **No tickets.** The doors are open whenever the building is, and nobody checks.
 - **The stage tile has no map icon.** The icon lookup is gated on `facade`, and the stage has no door.
   `bldg_palais_stage` is registered so the type isn't the one without an icon if that changes.
+
+## 7. The Palais Bowl *(as built 2026-10-18)*
+
+An open-air theatre on the three tiles of Fisherman's Green behind the Palais, 908 to 910 on row
+910. Its stage backs onto the stage house's scene dock doors, so on a warm night the Palais can play
+out here. The content is written by
+[scripts/content/palais-bowl.mjs](../../scripts/content/palais-bowl.mjs) and the model is
+[glass/models/palais-bowl.js](../../client/game/js/panels/glass/models/palais-bowl.js).
+
+| tile | type | what |
+|---|---|---|
+| 908,910 | `palais_bowl_w` | the west tiers and an aisle |
+| 909,910 | `palais_bowl` | the stage, its canopy on two piers, the paved floor, and the front tier |
+| 910,910 | `palais_bowl_e` | the east tiers and an aisle |
+
+- ⚠ **The tiles stay walkable.** They keep their ids, their exits and `terrain: park`, and carry no
+  `is_building` or `facade`, so you walk in off Meltwater Row or up from the statue. The
+  `building_type` is only there for GLASS. The wall between the Palais's stage tile and 909,910
+  (`conn_hf_district_909_909_south`) was already there.
+- **Furniture:** the tiers on each tile take `sit`, and the stage is a decoration. Prue Gantry still
+  sleeps on the middle tile.
+- **GLASS:** one function over three arms, in constants (`BOWL`) for the Palais's reason. Six stone
+  tiers in a shallow half-ellipse are short chord boxes laid along the curve, each drawn by the tile
+  that holds its middle, with two aisles left open. The stage, canopy and floor are on the middle
+  tile. After dark a row of bulbs runs along the canopy's lip and a light falls on the stage. The
+  tiles lose the park's own dressing, since a park tile with a type draws its model instead.
+- **Registrations:** `TYPE_MODEL` (`noKit`), `TYPE_FLOORS` (1), `BLDG_TYPE_3D`, the shapes and lights
+  bakes, and the map icon `palais-bowl.svg` as the middle tile's `flags.icon`, because a tile that
+  isn't a facade gets no building icon.
+- **Not built:** nothing is booked. The bill doesn't change, and the bowl is empty unless a player
+  sings in it.

@@ -4,6 +4,29 @@ A stored building has a complete interior and a GLASS model in `content/` but no
 rooms exist and its NPCs exist, but there's no way in. Nothing gets deleted, so you can put one back
 without rebuilding it.
 
+## The register
+
+Every building that's stored, so they can be looked at again and either re-sited or retired. Add a
+row whenever one comes off the map, and take it out when one goes back.
+
+| Building | Trade | Stood at | Stored | Where it is now | Why |
+|---|---|---|---|---|---|
+| Lather & Lye | barber and bathhouse | 916,908 Marrow Street | 2026-10-08 | rooms only, no tile | gave its plot to Nico's Noodle Bar |
+| 8 Halcyon Boulevard | auctioneers | 895,911 | 2026-10-18 | holding map 1,1 | the Hughson Coliseum |
+| The Halcyon Institute | institute | 896,911 | 2026-10-18 | holding map 2,1 | the Hughson Coliseum |
+| Halcyon Land Office | land office | 897,911 | 2026-10-18 | holding map 3,1 | the Hughson Coliseum |
+| Vetch Green | green, three tiles | 895 to 897,912 | 2026-10-18 | holding map 1 to 3,2 | the Hughson Coliseum |
+| 3 Sorrel Way | offices | 895,913 | 2026-10-18 | holding map 1,3 | the Hughson Coliseum |
+| 5 Sorrel Way | offices | 896,913 | 2026-10-18 | holding map 2,3 | the Hughson Coliseum |
+| 7 Sorrel Way | offices | 897,913 | 2026-10-18 | holding map 3,3 | the Hughson Coliseum |
+| Skeleton Crew | locksmith | 898,905 | 2026-10-18 | holding map 1,5 | out of place by the Glasshouse towers |
+| Rest Assured | lodging house | 900,905 | 2026-10-18 | holding map 3,5 | out of place by the Glasshouse towers |
+| Corner the Market | grocer | 897,907 | 2026-10-18 | holding map 5,5 | out of place by the Glasshouse towers |
+| Florist Gump | florist | 909,914 Meltwater Row | 2026-10-18 | holding map 1,7 | Midway Parks Cinema took its plot |
+| Rod Almighty | fishing tackle | 908,914 Meltwater Row | 2026-10-18 | holding map 3,7 | taken out for now |
+| Loafing Around | bakery | 907,914 Meltwater Row | 2026-10-18 | holding map 5,7 | taken out for now |
+| Grind House | bladesmith | 912,913 Foundry Way | 2026-10-18 | holding map 7,7 | taken out for now; its film shows at Midway Parks |
+
 ## Lather & Lye (stored 2026-10-08)
 
 The barber's and bathhouse that stood on Marrow Street at 916,908. It gave its tile to Nico's Noodle
@@ -65,3 +88,35 @@ Filaments-to-Glasshouse transition along Kettle Green is designed.
   anyone left in these rooms and lists any rented room at Rest Assured.
 
 To put one back, follow the Coliseum's steps, and delete or reuse the `zone_kettle_` tile on its plot.
+
+## Florist Gump, Rod Almighty, Loafing Around and the Grind House (set aside 2026-10-18)
+
+Midway Parks Cinema moved from 912,914 onto Florist Gump's plot at 909,914, where it faces
+Fisherman's Green across Meltwater Row, and four buildings came off the map for now.
+[scripts/content/set-aside-meltwater.mjs](../../scripts/content/set-aside-meltwater.mjs) did it.
+
+| Was at | Building | Holding grid | Keeper |
+|---|---|---|---|
+| 909,914 | Florist Gump | 1,7 | Doreen Fairweather, set aside |
+| 908,914 | Rod Almighty | 3,7 | Yusuf Prendergast, set aside |
+| 907,914 | Loafing Around | 5,7 | Abel Coyne, set aside |
+| 912,913 | Grind House | 7,7 | Vessa Orme: lives in the Meridian, so her `work_zone_id` is `null` instead |
+
+- Each facade moved whole with its id, as the Coliseum's did, and its `world_exit_zone` names itself.
+- **Midway kept its id.** `zone_district_912_914` stands at 909,914 with its door north, its door's
+  connection turned from east to south, and its auditorium moved behind the foyer. The old street
+  link from 912,914 west, `conn_district_912_914_west_cv4h`, was removed.
+- The four empty plots (907,914, 908,914, 912,913 and the cinema's old 912,914) are grass named
+  Waste Ground, `zone_lot_<x>_<y>`, with a `power_zones` row copied from the building's.
+- **The Grind House's film.** Its tape, Sister Steel, was already in Midway's deck and never played.
+  It's the late show now, 22:00 to midnight on Friday and Saturday (`flags.deck_programme`), and the
+  auditorium's screen takes its picture from the deck in the projection box (`flags.deck_feed`).
+  See [systems-broadcast.md](../systems-broadcast.md#media-deck--cassettes).
+- Two lines that named the florist were rewritten so nothing points at a shop that isn't there:
+  Pavel Ludd's writs node and Just My Type's drying line. Gower Nissen's dialogue says the fair was
+  on the green opposite, and has a `film_late` node for the late show.
+- Run `scripts\oneshots.bat prod` after the deploy, as for the others.
+
+To put one back, follow the Coliseum's steps, delete or reuse the `zone_lot_` tile on its plot, and
+for Florist Gump restore the two florist lines.
+

@@ -1,0 +1,20 @@
+{
+  "description": "Stone benches in six curved rows, stepping down to the stage. A flat red cushion sits on the top row with nobody on it.",
+  "flags": {
+    "aliases": "tiers,tier,steps,benches,bench,seats,seat,cushion",
+    "interactions": [
+      "examine",
+      "sit"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_bowl_tiers_e",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the tiers",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_district_910_910"
+}

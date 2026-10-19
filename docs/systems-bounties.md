@@ -83,7 +83,7 @@ where players stand at the wrong one). **Posting and redeeming both require a bo
 which is what makes a board a place people meet, and what stops the tablet app from
 turning every board in the city into decoration.
 
-Three ship as content, in the Grind House, the Cherry Pit and Bishop's Blend.
+Three ship as content, in the Grind House, the Cherry Pit and Bishop's Blend. The Grind House is set aside for now ([stored-buildings.md](proposals/stored-buildings.md)), so two are on the map.
 
 The board's `furniture.describe` hook says how much paper is on it before you read it,
 so a player who never types `bounty` still finds out the system exists by walking past.

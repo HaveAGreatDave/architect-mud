@@ -17110,6 +17110,9 @@ const BLDG_TYPE_3D = {
   palais_foyer:     { a: 'citycore',  h: 0.18 },   // the Coldwater Palais: three tiles, one music hall (downtown.js, PAL)
   palais_stage:     { a: 'citycore',  h: 0.30 },
   palais_bar:       { a: 'citycore',  h: 0.18 },
+  palais_bowl_w:    { a: 'citycore',  h: 0.08 },   // the Palais Bowl: open-air tiers behind it (palais-bowl.js)
+  palais_bowl:      { a: 'citycore',  h: 0.22 },
+  palais_bowl_e:    { a: 'citycore',  h: 0.08 },
   gun_shop:         { a: 'citycore',   h: 0.13 }, // squat riveted blockhouse
   blade_shop:       { a: 'citycore',   h: 0.12 }, // low forge shed, chimney short
   casino:           { a: 'marquee',    h: 0.17 }, // neon-drowned gambling house

@@ -5,7 +5,6 @@
   "color": "#8ba36a",
   "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive.",
   "exits": {
-    "north": "zone_district_912_912",
     "south": "zone_grindhouse_interior"
   },
   "flags": {
@@ -16,14 +15,16 @@
     "facade": true,
     "is_building": true,
     "region_id": "region_coldwater",
+    "set_aside": true,
+    "set_aside_from": "912,913",
     "sign_trade": "BLADESMITH",
-    "world_exit_zone": "zone_district_912_912"
+    "world_exit_zone": "zone_district_912_913"
   },
-  "grid_x": 912,
-  "grid_y": 913,
+  "grid_x": 7,
+  "grid_y": 7,
   "grid_z": 0,
   "id": "zone_district_912_913",
-  "map_id": "map_world",
+  "map_id": "map_set_aside",
   "marker": "GH",
   "name": "Grind House",
   "parent_zone": null

@@ -1,0 +1,21 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "city",
+  "description": "Cleared ground behind builder's mesh, two shopfronts wide, rolled flat and already going green at the edges. The next wall still carries the pale outline of a pitched roof, and a capped gas main stands up out of the rubble on a post.",
+  "exits": {
+    "east": "zone_lot_908_914",
+    "north": "zone_district_907_913"
+  },
+  "flags": {
+    "district": "commercial",
+    "region_id": "region_coldwater",
+    "terrain": "grass"
+  },
+  "grid_x": 907,
+  "grid_y": 914,
+  "grid_z": 0,
+  "id": "zone_lot_907_914",
+  "map_id": "map_world",
+  "name": "Waste Ground",
+  "parent_zone": null
+}

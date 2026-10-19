@@ -1,0 +1,19 @@
+{
+  "description": "A stone platform a step high with boards laid over it, scuffed pale where the band stands. Behind it the Palais's scene dock doors, iron, painted green, and a padlock that is only on when nothing is.",
+  "flags": {
+    "aliases": "stage,platform,canopy,boards,dock doors,doors",
+    "interactions": [
+      "examine"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_bowl_stage",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the stage",
+  "object_type": "decoration",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_district_909_910"
+}

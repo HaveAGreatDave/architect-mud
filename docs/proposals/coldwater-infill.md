@@ -43,7 +43,7 @@ None of them needs a line of new engine code to be worth entering.
 
 | # | Name | `building_type` | Site | Entrance | Marker | Vendor | Hooks |
 |---|------|-----------------|------|----------|--------|--------|-------|
-| 1 | **Midway Parks Cinema** (was Reel Estate) | `cinema` | 912,914 Meltwater Row | west | `MW` | Gower Nissen | betatapes, [instruments](../systems-instruments.md) |
+| 1 | **Midway Parks Cinema** (was Reel Estate) | `cinema` | 909,914 Meltwater Row (was 912,914) | north | `MW` | Gower Nissen | betatapes, [instruments](../systems-instruments.md) |
 | 2 | **Photo Finish** | `bookmaker` | 914,914 Kiln Lane | east | `PF` | Ada Glennie | [broadcast](../systems-broadcast.md) sports leagues |
 | 3 | **Stuff It** | `taxidermist` | 917,914 The Gate Road | east | `TX` | Marnie Vandersloot | fauna, hunting, the Wildlands road |
 | 4 | **Fine Print** | `lending_library` | 903,908 Greenside Yard | north | `LI` | Lowell Ashgrove | [library](../systems-library.md) |
@@ -76,7 +76,7 @@ else in the city has a sign that is structurally the tallest thing on the plot. 
 second new shape: a slab cantilevered out over the pavement with its underside lit, which is a
 soffit nobody else in the city has.
 
-**Why it is at 912,914.** Meltwater Row runs south out of the Marquee, past the statue, and gives
+**Why it was at 912,914.** (It moved to 909,914 on 2026-10-18, onto Florist Gump's plot facing Fisherman's Green; see [stored-buildings.md](stored-buildings.md).) Meltwater Row runs south out of the Marquee, past the statue, and gives
 out into the Slag Pan. A cinema is the last lit thing on the way out of town, next door to the Grind
 House and opposite the park. The site is currently `Grasslands`, `district: wasteland`, carrying
 `scavenging_table_id: scav_west_wastes` — a tile the world had forgotten about, one block from the
