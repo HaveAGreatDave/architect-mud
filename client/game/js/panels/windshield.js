@@ -1714,6 +1714,11 @@ export const RENDER_TUNE = {
   // there and bake exactly what they did, so `atlasfit`'s ceiling at texRes 3 doesn't move. What
   // grows is the texRes 1 page, by the ~86 default-facade palettes at 32×64 instead of 16×32.
   paneFloor: 2,
+  // ── AND ON THE MESH, NO PAINTED WINDOWS AT ALL ──────────────────────────────────────────────
+  // 1: every wall whose palette paints the grid gets real `windowBay`s from the kit (derived-kit's
+  // `glazeWalls`), and that face samples a bare bake of its palette, so the two never share a wall.
+  // GLASS 2 only: the lean list and the 2-D painter keep the painted grid. 0 is the old picture.
+  glazeAll: 1,
   // ── A SIGN STANDS ON THE WALL, NOT IN IT ────────────────────────────────────────────────────
   // 0 puts every marquee back on its own half-width. `marqueeBand` pushed itself out along the
   // entrance normal by `half * 0.94`, which makes the sign's WIDTH decide its STAND-OFF — so a band
@@ -17871,8 +17876,8 @@ const STONE_WALL = new Set(['__statue_stone', 'ty_marble', 'ty_marble_col', 'ty_
   // is the claim the building is making and the reason the joke lands.
   'ty_past_stone',
   // The Coldwater Palais's limestone. STONE_WALL and not DECO_WALL: the Meridian's skin is a window
-  // grid, and an auditorium and a stage house have no windows. The foyers' upper floors wear the
-  // Meridian's own key, which is where the Palais keeps its windows.
+  // grid, and an auditorium and a stage house have no windows. The foyers' windows are parts the
+  // arm draws between its piers (`palaisLights`), on this same stone.
   'ty_palais_stone',
   // Terminus, the Quiet Ground (2026-09-27).
   'ty_trm_grave', 'ty_trm_marker',
@@ -19309,8 +19314,17 @@ const feltPatch = (S) => ({ pw: Math.max(3, Math.round(S * 0.28)), ph: Math.max(
 // page and both blend caches — because the pane grid is sized in `tr` and a page one `tr` off the
 // albedo shades a stripe of wall as glass.
 const wallTr = (biome) => (RENDER_TUNE.paneFloor > 0 && isDefaultFacade(biome) ? Math.max(TR(), RENDER_TUNE.paneFloor) : TR());
-function wallTex(biome, night, win = WIN_ON) {
-  const tr = wallTr(biome), nite = night > 0.4;
+// ⚠ A BARE BAKE STOPS AT texRes 2. It has no panes to spend texels on, and a street can hold a
+// palette both ways, so the page holds both: at texRes 3 the whole city twice over is past the 2048
+// page `atlasfit` holds it to. Texture resolution only ever bought a facade its window detail.
+const BARE_TR_MAX = 2;
+const bareTr = (biome) => Math.min(wallTr(biome), BARE_TR_MAX);
+function wallTex(biome, night, win = WIN_ON, bare = false) {
+  // `bare`: the facade's material with no window grid through it, for a wall the kit has hung real
+  // bays on (`RENDER_TUNE.glazeAll`). Only a palette that paints the grid has a bare bake; anything
+  // else already is one, and asking for it hands back the ordinary texture under the ordinary key.
+  const bareOn = bare && wallPanesPainted(biome);
+  const tr = bareOn ? bareTr(biome) : wallTr(biome), nite = night > 0.4;
   // ⚠ ONLY THE NIGHT BAKE VARIES, AND THE KEY ONLY GROWS WHEN IT DOES. A building with its feed
   // down looks exactly like its neighbours in daylight — its windows are not lit then either — so
   // the day texture is shared whatever the grid is doing, which keeps the day atlas at one entry
@@ -19323,7 +19337,7 @@ function wallTex(biome, night, win = WIN_ON) {
   // facade while every counter reports the feature working.
   const winMode = nite ? win : WIN_ON;
   return getTex('wall:' + biome + (nite ? ':n' : '') + ':' + tr + ':' + NQ()
-    + (winMode === WIN_ON ? '' : ':p' + winMode), () => {
+    + (winMode === WIN_ON ? '' : ':p' + winMode) + (bareOn ? ':b' : ''), () => {
     // ── ⚠ BRICK BAKES AT TWICE THE TEXELS, AND IT IS THE ONLY SURFACE THAT DOES ────────────────
     //
     // Walls are 16×32 texels per building tile, too few for brick (a brick at four by three pixels).
@@ -19802,6 +19816,8 @@ function wallTex(biome, night, win = WIN_ON) {
     }
     // The accent this building's lights burn, if its model named one. See `palNeon`.
     const acc = NEON > 0 ? palNeon(biome) : null;
+    // A bare bake stops here: the material, dimmed for the night, and the kit's bays are the windows.
+    if (bareOn) return c;
     const { ys, ww, wh, px } = paneGrid(tr);
     // The material above and the surround below are the wall; this loop is the WINDOWS, and it is the one thing here that is sized as a
     // fraction of a building rather than of a storey.
@@ -20008,11 +20024,11 @@ const _wallMix = new Map();  // biome:texRes → { c, q } — the composited can
 // bake rather than three. The day texture has no lit rooms in it to take away, so both ends of a
 // dusk crossfade share it and only the destination changes — and at q<=0 the answer is the ordinary
 // day texture whatever the grid is doing, which is the correct picture and not a shortcut.
-export function wallTexMixed(biome, NB, win = WIN_ON) {
+export function wallTexMixed(biome, NB, win = WIN_ON, bare = false) {
   const q = Math.round(clamp(NB, 0, 1) * WALL_MIX_STEPS);
-  if (q <= 0) return wallTex(biome, 0);
-  if (q >= WALL_MIX_STEPS) return wallTex(biome, 1, win);
-  const day = wallTex(biome, 0);
+  if (q <= 0) return wallTex(biome, 0, WIN_ON, bare);
+  if (q >= WALL_MIX_STEPS) return wallTex(biome, 1, win, bare);
+  const day = wallTex(biome, 0, WIN_ON, bare);
   // ⚠ KEYED ON THE RESOLUTION AS WELL AS THE PALETTE, BECAUSE TWO SEATS NOW DISAGREE ABOUT IT. The
   // cab runs `texRes` 2 and every other view runs 1 (see cab-render-tune.js), and with one entry per
   // palette the two hand back the SAME canvas — which the size check below then resizes, and
@@ -20024,7 +20040,7 @@ export function wallTexMixed(biome, NB, win = WIN_ON) {
   // blacked-out building from a lit one gives both the same canvas — and whichever of them is
   // drawn second in the frame decides what the first one looked like.
   const mk = biome + ':' + wallTr(biome) + ':' + NQ()
-    + (win === WIN_ON ? '' : ':p' + win);
+    + (win === WIN_ON ? '' : ':p' + win) + (bare && wallPanesPainted(biome) ? ':b' : '');
   let e = _wallMix.get(mk);
   if (!e) { e = { c: texCanvas(day.width, day.height), q: -1 }; _wallMix.set(mk, e); }
   // ⚠ The texRes slider still resizes the baked variants under us — it moves TR() and therefore the
@@ -20039,7 +20055,7 @@ export function wallTexMixed(biome, NB, win = WIN_ON) {
     g.clearRect(0, 0, e.c.width, e.c.height);
     g.drawImage(day, 0, 0);
     g.globalAlpha = q / WALL_MIX_STEPS;
-    g.drawImage(wallTex(biome, 1, win), 0, 0);
+    g.drawImage(wallTex(biome, 1, win, bare), 0, 0);
     g.globalAlpha = 1;
     e.q = q;
   }
@@ -20105,27 +20121,34 @@ function wallMatKind(biome) {
   if (DECO_WALL.has(biome)) return 'deco';
   return isDefaultFacade(biome) ? 'facade' : null;
 }
+// Does this palette's wall texture paint the window grid? The kit asks before it glazes a wall for
+// real, and `wallTex` before it bakes one bare (see `RENDER_TUNE.glazeAll`).
+export function wallPanesPainted(biome) { return wallMatKind(biome) === 'facade'; }
 // One canvas per palette per resolution per grid state, redrawn in place as dusk crosses a step, for
 // the reason wallTexMixed's own canvas is (see its ⚠). The atlas copies it at build time.
 const _wallMat = new Map();
-export function wallMatMixed(biome, NB, win = WIN_ON) {
+export function wallMatMixed(biome, NB, win = WIN_ON, bare = false) {
   const kind = wallMatKind(biome);
   if (!kind) return null;
+  // ⚠ A BARE FACADE HAS NO GLASS IN IT, so its page is the wall's family with r and g at zero
+  // everywhere. Without its own entry it would take the page with the grid on, and the shader would
+  // put a reflection and a lit room on every texel where a pane used to be.
+  const bareOn = bare && kind === 'facade';
   const q = Math.round(clamp(NB, 0, 1) * WALL_MIX_STEPS);
   // Sized FROM the albedo, so the two can't disagree about a tile's size whatever wallTex decides.
-  const alb = wallTexMixed(biome, NB, win);
-  const mk = biome + ':' + wallTr(biome) + ':' + NQ() + (win === WIN_ON ? '' : ':p' + win);
+  const alb = wallTexMixed(biome, NB, win, bareOn);
+  const mk = biome + ':' + wallTr(biome) + ':' + NQ() + (win === WIN_ON ? '' : ':p' + win) + (bareOn ? ':b' : '');
   let e = _wallMat.get(mk);
   if (!e) { e = { c: texCanvas(alb.width, alb.height), q: -1 }; _wallMat.set(mk, e); }
   if (e.c.width !== alb.width || e.c.height !== alb.height) { e.c.width = alb.width; e.c.height = alb.height; e.q = -1; }
-  if (e.q !== q) { paintWallMat(e.c, kind, biome, q, win); e.q = q; }
+  if (e.q !== q) { paintWallMat(e.c, kind, biome, q, win, bareOn); e.q = q; }
   return e.c;
 }
 // The day bake has no lit rooms and the night bake has them, and the albedo blends the two by q; r
 // and b are the same in both, so the blended page is the night page with its g scaled by q. Painted
 // that way rather than blended, because a canvas blend could round b, and b is an index.
 const MAT_PAGE_FAMILY = { shop: 'metal', curtain: 'metal', spire: 'chrome', deco: 'deco', pump: 'pump' };
-function paintWallMat(c, kind, biome, q, win) {
+function paintWallMat(c, kind, biome, q, win, bare = false) {
   const tr = wallTr(biome), W = c.width, H = c.height, g = c.getContext('2d');
   const nite = q > 0, winMode = nite ? win : WIN_ON;
   // What the texels that aren't glass are made of: the facade's painter, or the skin's frame.
@@ -20135,7 +20158,7 @@ function paintWallMat(c, kind, biome, q, win) {
   const put = (x, y, w, h, glass, lit) => { g.fillStyle = `rgb(${glass ? 255 : 0},${lit ? lev : 0},${fam})`; g.fillRect(x, y, w, h); };
   g.globalAlpha = 1; g.globalCompositeOperation = 'source-over';
   put(0, 0, W, H, false, false);
-  MAT_PAGE_PAINTERS[kind](put, { tr, W, H, nite, winMode, biome });
+  if (!bare) MAT_PAGE_PAINTERS[kind](put, { tr, W, H, nite, winMode, biome });
 }
 // Each mirrors its branch of wallTex in drawing ORDER as well as geometry, so a frame drawn over a
 // pane in the albedo is drawn over it here too.
@@ -20530,19 +20553,21 @@ function surfOf(biome) {
   const f = FACADE_MAT[biome], twin = f && SURF_TWIN.get(f.paint);
   return twin ? { twin, amp: FACADE_AMP, panes: true } : null;
 }
-export function wallSurf(biome) {
+export function wallSurf(biome, bare = false) {
   const S = surfOf(biome);
   if (!S) return null;
   // Sized from the day albedo, which is the size every variant of this palette's wall takes.
-  const alb = wallTex(biome, 0);
+  // A bare facade's relief runs on where the panes were flattened, so it is the material's own.
+  const bareOn = bare && !!S.panes;
+  const alb = wallTex(biome, 0, WIN_ON, bareOn), trS = bareOn ? bareTr(biome) : wallTr(biome);
   // ⚠ A CUT LATTICE IS ITS OWN KEY: the cut changes the member sizes and the tile's size with them.
-  return getTex('wallsurf:' + biome + ':' + wallTr(biome) + (S.cut ? ':cut' : ''), () => {
+  return getTex('wallsurf:' + biome + ':' + trS + (S.cut ? ':cut' : '') + (bareOn ? ':b' : ''), () => {
     const c = texCanvas(alb.width, alb.height), g = c.getContext('2d');
-    const tr = wallTr(biome), W = c.width, H = c.height;
+    const tr = trS, W = c.width, H = c.height;
     S.twin(g, W, H, WALL_COL[biome] || [52, 56, 66], tr, S.amp, S.cut);
     // The panes are glass, and the relief stops at glass anyway (the material page); flat here so a
     // pane's edge doesn't read as a cliff from the wall beside it.
-    if (S.panes) {
+    if (S.panes && !bareOn) {
       const { ww, wh } = paneGrid(tr);
       for (const [x, y] of panes(W, H, tr)) surfPut(g, x, y, ww, wh, 0.5, 0.5);
     }
@@ -40967,6 +40992,39 @@ function modelFor(cell) {
 // quietly skipped a tenth of the city would measure a cost that is not the real one.
 // How far off the origin the arm is run so its ENTRANCE faces the stub camera. See the note inside;
 const MESH_BACK = 8;
+// ── WHICH WALLS BAKE BARE (RENDER_TUNE.glazeAll) ─────────────────────────────────────────────
+//
+// The kit records each wall it put real bays on (derived-kit's `glazeWalls`), in the model's own
+// frame; `detailLayer` hands those over with the frame the building was drawn in. Here every mass
+// wall lying in one of those planes, facing the same way and overlapping it, is flagged `bare`, and
+// gl/world.js gives that face the palette's bare bake. A wall the kit did not glaze keeps its grid.
+// ⚠ BY GEOMETRY, NOT BY BOX. A mesh face carries no note of which box drew it, and the kit's boxes
+// are the SHAPE capture's; the plane and the extent are the one thing both agree on.
+// ⚠ ONLY A PALETTE THAT PAINTS THE GRID. A box with a stone front and a stucco side can share a
+// plane with a glazed wall and must keep its own skin.
+const BARE_PLANE_TOL = 0.02;
+function markBareWalls(faces, stash, ox, oy) {
+  for (const q of faces) {
+    if (q.kind !== 'wall' || q.flat || typeof q.pal !== 'string' || !q.n || !wallPanesPainted(q.pal)) continue;
+    for (const { g, dx, dy, E } of stash) {
+      const bx = dx - ox, by = dy - oy;
+      const nlx = q.n[0] * E[1] - q.n[1] * E[0], nly = q.n[0] * E[0] + q.n[1] * E[1];
+      const loc = q.p.map((p) => {
+        const rx = p[0] - bx, ry = p[1] - by;
+        return [rx * E[1] - ry * E[0], rx * E[0] + ry * E[1], p[2]];
+      });
+      const hit = g.some((w) => {
+        if (nlx * w.n[0] + nly * w.n[1] < 0.95) return false;
+        const across = w.n[0] ? 0 : 1, along = 1 - across;   // a flank's plane is in x, its run in y
+        if (loc.some((p) => Math.abs(p[across] - w.plane) > BARE_PLANE_TOL)) return false;
+        const a0 = Math.min(...loc.map((p) => p[along])), a1 = Math.max(...loc.map((p) => p[along]));
+        const z0 = Math.min(...loc.map((p) => p[2])), z1 = Math.max(...loc.map((p) => p[2]));
+        return a1 > w.a0 + 0.01 && a0 < w.a1 - 0.01 && z1 > w.z0 + 0.01 && z0 < w.z1 - 0.01;
+      });
+      if (hit) { q.bare = 1; break; }
+    }
+  }
+}
 export function captureModelMesh(m, opts = {}) {
   const { fh = 0.4, h = 1, seed = 3, E = [0, 1], night = 0, place } = opts;
   // ⚠ THE TIER IS LEFT ALONE, and the first cut zeroed it.  does not touch it
@@ -41025,6 +41083,7 @@ export function captureModelMesh(m, opts = {}) {
     const ox = -E[0] * MESH_BACK, oy = -E[1] * MESH_BACK;
     drawTypeModel(SHAPE_STUB_CTX, SHAPE_STUB_CAM, ox, oy, fh, h, m, seed, night, 1, 1000, E);
     for (const q of MESH_SINK) for (const p of q.p) { p[0] -= ox; p[1] -= oy; }
+    if (MESH_SINK.glazed) markBareWalls(MESH_SINK, MESH_SINK.glazed, ox, oy);
     return MESH_SINK;
   } finally {
     setTilePlace(prevPlace);
@@ -50498,6 +50557,23 @@ function facadeLights(cam, dx, dy, fh, h, m, seed, night, alpha, E) {
 // its boards, and a gate nobody flew a free camera through couldn't see it.
 function eyeRange(cam, dx, dy) { return Math.hypot(dx - (cam.ex || 0), dy - (cam.ey || 0)); }
 
+// ── ONE KIT PART, DRAWN BY AN ARM ──────────────────────────────────────────────────────────────
+//
+// For an arm that draws its own building (`noKit`, as the Palais does) and still wants the kit's
+// part rather than a lookalike: a `windowBay` here is the same surround, reveal, sill, glass and
+// mullions every kit window has, in both renderers, because it is the same painter. `d` is a part
+// as a detail list writes it, with plain numbers rather than affine triples, in the arm's own
+// frame: `F(lx, ly)` is the arm's `F`, and `face: 'x'` turns it onto a flank exactly as
+// `detailLayer` does (cx along −y, cy the flank's plane).
+export function drawArmPart(ctx, cam, F, E, d, night, alpha, pal) {
+  const fn = AUTHORED_DETAIL[d.kind];
+  if (!fn || SHAPE_SINK) return;   // trim is not mass; the shape capture never sees it (see detailLayer)
+  const side = d.face === 'x';
+  const V = (p) => (Array.isArray(p) ? p[2] : (p || 0));
+  const Eu = side ? [E[1], -E[0]] : E;
+  fn({ ctx, cam, V, E: Eu, th: Math.atan2(-Eu[0], Eu[1]), seed: 0, night, alpha, now: 0, pal,
+    lx: V(d.cx), ly: V(d.cy), F: side ? (a, b) => F(b, -a) : F }, d);
+}
 function detailLayer(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E) {
   // ⚠ THE NEAR TIER, NOT THE RICH ONE, AND THAT IS THE WHOLE COST STORY. Trim is the cheapest kind
   // of canvas work — flat fills, no gradient, no blur — and there is a lot of it, so drawing it on
@@ -50545,6 +50621,9 @@ function detailLayer(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E) {
   // → lean, keeping `framecost` calibrated.
   const list = derivedTrim(m, fh, h, seed, !!(MESH_SINK || FLAT_OFF));
   if (!list.length) return;
+  // The walls the kit glazed for real, in the frame this building is drawn in, for `captureModelMesh`
+  // to find the faces that bake bare (`markBareWalls`). Only a capture has anywhere to put them.
+  if (MESH_SINK && list.glazed) (MESH_SINK.glazed || (MESH_SINK.glazed = [])).push({ g: list.glazed, dx, dy, E });
   const th = Math.atan2(-E[0], E[1]);
   const V = (p) => (p ? p[0] * fh + p[1] * h + p[2] : 0);
   const hostF = cam.proj(dx, dy, 0).f;

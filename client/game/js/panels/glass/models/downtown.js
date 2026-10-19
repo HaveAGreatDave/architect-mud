@@ -10,7 +10,7 @@
 import {
   DECO_LIFT, DECO_PULL, DETAIL_LIFT, FACE_EPS, FLAT_OFF, GL_CELLS, MESH_SINK, SHAPE_SINK,
   TILE_REACH, TR, TUNE, WALL_COL, _bladeBasis, awning, bakeSignText, blinkLight, clamp,
-  clipToAperture, decoHidden, dish, doorReveal, draw3DBoxAt, drawBarrelRoof, drawFacetDrum,
+  clipToAperture, decoHidden, dish, doorReveal, draw3DBoxAt, drawArmPart, drawBarrelRoof, drawFacetDrum,
   drawGargoyle, drawRing, drawSmoke, dutyPhase, emitDecoFill, emitFace, emitFlat, emitLightRunner,
   emitRecessBay, emitSurfaceText, emitWire, facePals, facePt, faceYaw, frac, glowPool, helideck,
   hoistLine, keptOnCanvas, latticeTower, litStyle, markHidden, marqueeBand, mast, motionOn, motionPhase,
@@ -526,8 +526,8 @@ function haloSealTex(night) {
 // A music hall from the Meridian's decade on Meltwater Row, and one somebody has kept up. All three
 // tiles face north onto the street: the box office foyer on the west (`palais_foyer`), the
 // auditorium and its stage house in the middle (`palais_stage`), the bar foyer on the east
-// (`palais_bar`). The foyers are the Meridian's own limestone and windows over a blind stone ground
-// floor, each with a drum on its outer corner and its door toward the middle. The middle is a blind
+// (`palais_bar`). The foyers are two storeys of stone with real windows between their piers, over a
+// blind stone ground floor, each with a drum on its outer corner and its door toward the middle. The middle is a blind
 // stone house behind a stepped frontispiece, with the blade standing off it and the marquee across
 // its foot, and the stage house rising behind it over Fisherman's Green.
 //
@@ -589,6 +589,34 @@ function palaisPoster(k, X, y, hw, z0, z1) {
   band(z0 + H * 0.46, z0 + H * 0.54, [60, 48, 40], [92, 70, 52]);
   band(z0 + H * 0.28, z0 + H * 0.34, [60, 48, 40], [92, 70, 52]);
 }
+// The foyer's windows. `dX` is the door's X; the piers stand at dX ± 0.24 and the drum is tangent to
+// the front at drumX out from the tile's centre. `du` is measured outward (away from the stage), so
+// one table serves both foyers. Every light clears a pier by a hand's width and the drum entirely.
+const PAL_LIGHTS = [{ du: -0.13, half: 0.040 }, { du: 0, half: 0.040 }, { du: 0.13, half: 0.040 }];   // the door bay
+const PAL_LOW = { z: 0.311, hh: 0.064 }, PAL_HIGH = { z: 0.471, hh: 0.064 };   // two storeys, course to cornice
+function palaisLights(ctx, cam, F, E, k, out, off, dX, night, alpha) {
+  const glow = '#ffd9a8', y = PAL.front;
+  // A light two storeys tall: two bays at the foyer's local `lx` (F's own frame, X − off).
+  const bay = (lx, half, ly = y, face) => {
+    for (const { z, hh } of [PAL_LOW, PAL_HIGH]) {
+      drawArmPart(ctx, cam, F, E, { kind: 'windowBay', ...(face ? { face } : {}), cx: lx, cy: ly, z, half, hh,
+        depth: 0.012, pal: PAL_BRONZE, bars: half > 0.03 ? 1 : 0, transom: 0.28, glow }, night, alpha, PAL_BRONZE);
+    }
+  };
+  const sz0 = PAL_LOW.z + PAL_LOW.hh + 0.004, sz1 = PAL_HIGH.z - PAL_HIGH.hh - 0.004;
+  for (const { du, half } of PAL_LIGHTS) {
+    const X = dX + du * out;
+    bay(X - off, half);
+    // The spandrel between its two storeys: a bronze panel, on the building's own X like every paint.
+    k.paint([[X - half, y + 0.004, sz1], [X + half, y + 0.004, sz1], [X + half, y + 0.004, sz0], [X - half, y + 0.004, sz0]], [0, 1, 0], [104, 76, 46]);
+  }
+  // One narrow light in each outer bay: between the outer pier and the drum, and between the inner
+  // pier and the joint to the stage tile.
+  for (const u of [0.195, -0.43]) bay(u * out, 0.024);
+  // And two on the outer flank, behind the drum, where it leaves the wall clear. A flank part's `cx`
+  // runs along −y and its `cy` is the flank's plane (see drawArmPart).
+  for (const ly of [-0.24, -0.08]) bay(-ly, 0.034, out * PAL.wHW, 'x');
+}
 // ONE FOYER. `off` is the tile's centre on X and also which way is out: +1 the box office on the
 // west, −1 the bar on the east. Everything toward the stage is at −off.
 function palaisFoyer(ctx, cam, F, W3, E, m, seed, night, alpha, now, frontVis, off) {
@@ -596,11 +624,15 @@ function palaisFoyer(ctx, cam, F, W3, E, m, seed, night, alpha, now, frontVis, o
   const out = off, mid = -off;                        // + is away from the stage, − toward it
   const cy = (PAL.front + PAL.wBack) / 2, fd = (PAL.front - PAL.wBack) / 2;
   const ledge = facePals(E, { side: PAL_TRIM, roof: PAL_COPPER });
-  // 1) THE MASS: a blind stone ground floor, a string course, two floors of the Meridian's own
-  //    limestone and windows, a cornice flashed in copper, and a set-back attic over that.
+  // 1) THE MASS: a blind stone ground floor, a string course, two floors of the same stone with
+  //    real windows in them (step 5b), a cornice flashed in copper, and a set-back attic over that.
+  // ⚠ NOT THE MERIDIAN'S SKIN, WHICH THESE FLOORS WORE UNTIL 2026-10-18. `ty_meridian` paints its
+  //    windows into the texture on a pitch of its own, so they ran straight behind the piers and the
+  //    drum, and at this storey height they came out as squat stripes. The windows are parts now,
+  //    placed between the piers, and the wall behind them is plain ashlar.
   B(off, cy, PAL.wHW, fd, 0, PAL.podium, PAL_STONE, 1);
   B(off, cy, PAL.wHW + 0.01, fd + 0.01, PAL.podium, PAL.course, PAL_TRIM, 2);
-  B(off, cy, PAL.wHW, fd, PAL.course, PAL.wTop, 'ty_meridian', 3);
+  B(off, cy, PAL.wHW, fd, PAL.course, PAL.wTop, PAL_STONE, 3);
   B(off, cy, PAL.wHW + 0.015, fd + 0.015, PAL.wTop, PAL.cornice, ledge, 4);
   B(off, cy, PAL.atticHW, fd - 0.06, PAL.cornice, PAL.atticTop, facePals(E, { side: PAL_STONE, roof: PAL_COPPER }), 5);
   // 2) THE JOINT to the stage tile: the ground floor and the cornice run on to the tile edge, so the
@@ -660,6 +692,11 @@ function palaisFoyer(ctx, cam, F, W3, E, m, seed, night, alpha, now, frontVis, o
     B(X, PAL.front + 0.012, 0.018, 0.016, PAL.course, PAL.cornice + 0.03, PAL_TRIM, 30 + s);
     B(X, PAL.front + 0.012, 0.010, 0.010, PAL.cornice + 0.03, PAL.cornice + 0.055, PAL_TRIM, 32 + s);
   }
+  // 5b) THE WINDOWS, which are the kit's own `windowBay` (drawArmPart): three tall lights in the door
+  //     bay between the piers, and one narrow light in each outer bay, every one two storeys with a
+  //     bronze spandrel between. Placed off the piers and the drum, so nothing crosses either.
+  //     `u` is distance from the foyer's centre measured outward (away from the stage).
+  palaisLights(ctx, cam, F, E, k, out, off, dx0, night, alpha);
   // 6) Night: the foyer through its doors, the stone washed from below, the lit windows above.
   if (dn > 0) {
     const [gx, gy] = k.at(dx0, PAL.front + 0.06);

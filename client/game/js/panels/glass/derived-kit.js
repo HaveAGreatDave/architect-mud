@@ -8,7 +8,7 @@ import {
   RENDER_TUNE, SECTION_MIN, SECTION_OF, SIGN_TRADE, SIGN_WORD, SUB_MAX_ASP, TUNE, WALL_PLANE_TOL,
   _derived, _place, accentOf, armSignsItself, clamp, dRand, derivedStyle, hanziFor, hexRgb,
   placeModern, segFit, shapeForModel, spansLess, stackBox, standOnMass, tagBandFor, tagHandFor,
-  tradeOf, trimPalFor,
+  tradeOf, trimPalFor, wallPanesPainted,
 } from '../windshield.js';
 import { FLOOR_Z } from '../../../../shared/skyline-scale.js';
 import { shadeOf } from './authored-detail.js';
@@ -132,7 +132,8 @@ export function derivedTrim(m, fh, h, seed, forceRich) {
   // would mint a cache entry per tile for a model that is otherwise identical across a whole street.
   const mod = placeModern(_place);
   const k = fh + ':' + h + ':' + seed + ':' + (RENDER_TUNE.derivedKit ? 1 : 0) + ':' + (rich ? 1 : 0)
-    + ':' + Math.round(mod * 20) + ':' + (_place && HANZI_BIOMES.has(_place.biome) ? 1 : 0);
+    + ':' + Math.round(mod * 20) + ':' + (_place && HANZI_BIOMES.has(_place.biome) ? 1 : 0)
+    + ':' + (RENDER_TUNE.glazeAll ? 1 : 0);
   let list = byScale.get(k);
   if (list) return list;
   // What somebody has already drawn for this building, and which sections that covers.
@@ -165,7 +166,7 @@ export function derivedTrim(m, fh, h, seed, forceRich) {
   // advertisement standing through the hospital sign that this table exists to prevent, on the two
   // buildings it was written for.
   for (const s of (KIT_DECLINE[tradeOf(m)] || [])) have.add(s);
-  const kit = [];
+  const kit = [], glazed = [];
   const segs = shapeForModel(m, seed);
   if (segs && segs.length) {
     const V = (p) => (p ? p[0] * fh + p[1] * h + p[2] : 0);
@@ -332,7 +333,7 @@ export function derivedTrim(m, fh, h, seed, forceRich) {
     // has to be able to say so, or the kit paints on both.
     const blocks = [];
     if (base) for (const d of base) { const f = paintFoot(d, V); if (f) for (const r of f) blocks.push(r); }
-    if (cand.length) derivedKit(kit, cand, deck, m, seed, A, have, rich, spars, mod, _place, claims, blocks, mass);
+    if (cand.length) derivedKit(kit, cand, deck, m, seed, A, have, rich, spars, mod, _place, claims, blocks, mass, glazed);
   }
   // ⚠ THE BASE IS CONCATENATED, NEVER MUTATED. `ARM_DETAIL`'s lists are module constants shared by
   // every tile of that type and `m.detail` is the baked model record — pushing onto either would
@@ -341,6 +342,8 @@ export function derivedTrim(m, fh, h, seed, forceRich) {
   // mass the arm no longer has is put back on the surface under it, once per model per scale.
   list = standOnMass(base ? base.concat(kit) : kit, segs,
     (p) => (Array.isArray(p) ? p[0] * fh + p[1] * h + p[2] : (p || 0)));
+  // The walls the kit put real windows on, for `captureModelMesh` to bake bare. See `glazeWalls`.
+  if (glazed.length) list.glazed = glazed;
   byScale.set(k, list);
   return list;
 }
@@ -791,7 +794,7 @@ const NO_AD_TRADE = new Set(['power', 'dynamo', 'dw_turbine', 'trm_charge', 'sig
 // `cand` is every usable box — what a wall part stands on. `deck` is the subset with a real, roughly
 // square roof face — what a roof part stands ON. They differ for every shed in the city: a box under
 // a barrel roof is a fine wall and not a floor you can put a water tank on. See the ⚠ in derivedTrim.
-function derivedKit(list, cand, deck, m, seed, A, have, rich, spars = [], mod = MODERN_NEUTRAL, place = null, claims = [], blocks = [], mass = cand) {
+function derivedKit(list, cand, deck, m, seed, A, have, rich, spars = [], mod = MODERN_NEUTRAL, place = null, claims = [], blocks = [], mass = cand, glazed = []) {
   if (!RENDER_TUNE.derivedKit || NO_KIT.has(m.type) || m.noKit) return;
   const wants = (s) => !have.has(s);   // a section somebody already drew is theirs; stay out of it
   const pal = m.pal;
@@ -1521,9 +1524,9 @@ function derivedKit(list, cand, deck, m, seed, A, have, rich, spars = [], mod = 
   // because until `face` worked there was nowhere else to put it. So a building in Coldwater has a
   // facade and three blank elevations, and a truck turning a corner drives past the back of a set.
   //
-  // ⚠ WHAT GOES ON A FLANK IS SERVICE, NOT FACADE. No windows: the wall texture is already drawing
-  // a window grid on all four sides (65 `FACADE_MAT` palettes of it), and Phase 2 measured what
-  // adding geometry on top of that buys — 0.77% of a close frame. No awning, no doorway, no name
+  // ⚠ WHAT GOES ON A FLANK HERE IS SERVICE, NOT FACADE. The windows come last, in section 7
+  // (`glazeWalls`), so they can step round all of this; this section used to say a flank needed
+  // none because the texture painted a grid there, which is the grid section 7 replaces. No awning, no doorway, no name
   // board, no pavement props either, and those for a different reason: every one of them is derived
   // from the ENTRANCE, and a building has one of those. What a flank has is the plumbing — a riser,
   // a cable drop, a condenser, an extract grille, a conduit run — which is exactly what the dense
@@ -1552,8 +1555,19 @@ function derivedKit(list, cand, deck, m, seed, A, have, rich, spars = [], mod = 
     push({ kind: style === 'works' ? 'ductRun' : 'pipe', face: 'x', cx: along(main.fd * 0.35), cy: A(svcX),
       z0: A(main.z0 + wallH * 0.04), z1: A(main.z1 - wallH * 0.08),
       r: A(style === 'works' ? Math.max(r, 0.012) : r), run: A(main.fd * 0.5), pal: 'infra' });
+    // ⚠ WITH THE FLANKS GLAZED (`glazeWalls`) A RUN ACROSS THE WALL GOES BETWEEN TWO ROWS OF
+    // WINDOWS, not at a fraction of the wall: at 0.34 the conduit crossed the second floor's glass
+    // and the whole row was dropped to make room for it. `gapAt` is the middle of the nearest gap.
+    const glz = RENDER_TUNE.glazeAll && floors > 1;
+    const gapAt = (t) => {
+      if (!glz) return main.z0 + wallH * t;
+      const f = clamp(Math.round(t * floors - 1.12), 0, floors - 2);
+      return main.z0 + wallH * (f + 1.12) / floors;
+    };
+    // The sag hangs below the line, so in a gap it is held to a third of a storey's spare wall.
+    const gapSag = glz ? Math.min(wallH * 0.04, Math.max(0.004, (wallH / floors - 0.11) * 0.33)) : wallH * 0.04;
     push({ kind: 'cableRun', face: 'x', cx: along(-main.fd * 0.1), cy: A(svcX + Math.sign(svcX) * 0.004),
-      z: A(main.z1 - wallH * 0.18), half: A(main.fd * 0.55), sag: A(wallH * 0.04), r: A(0.005), pal: 'infra' });
+      z: A(glz ? gapAt(0.82) + gapSag * 0.5 : main.z1 - wallH * 0.18), half: A(main.fd * 0.55), sag: A(gapSag), r: A(0.005), pal: 'infra' });
     // The other flank: the machinery you walk past, and a run across the wall.
     push({ kind: 'acUnit', drip: 1, face: 'x', cx: along(main.fd * 0.2), cy: A(othX),
       w: A(Math.min(main.fd * 0.26, 0.03)), d: A(Math.min(main.fd * 0.18, 0.02)),
@@ -1565,7 +1579,7 @@ function derivedKit(list, cand, deck, m, seed, A, have, rich, spars = [], mod = 
     }
     if (wallH > 0.3 && dRand(seed, 205) > 0.45) {
       push({ kind: 'conduit', face: 'x', cx: along(0), cy: A(othX),
-        z: A(main.z0 + wallH * 0.34), half: A(main.fd * 0.6), r: A(0.005), pal: 'infra' });
+        z: A(gapAt(0.34)), half: A(main.fd * 0.6), r: A(0.005), pal: 'infra' });
     }
     // And the back, which only the air ever sees: the cheapest pair on the list.
     const by2 = main.cy - main.fd;
@@ -2629,4 +2643,124 @@ function derivedKit(list, cand, deck, m, seed, A, have, rich, spars = [], mod = 
         half: A(main.hw * 1.02), hh: A(courseHH), pal });
     }
   }
+  // The front grid above is the kit's; a wall it glazed is a wall the texture no longer paints.
+  if (rich && RENDER_TUNE.glazeAll && winSpent > 0 && wallPanesPainted(main.sg.pal || pal)) {
+    glazed.push({ n: [0, 1], plane: fy, a0: main.cx - main.hw, a1: main.cx + main.hw, z0: main.z0, z1: main.z1 });
+  }
+  if (rich && RENDER_TUNE.glazeAll) glazeWalls(list, cand, mass, m, seed, A, style, main, signTop,
+    claims, blocks, glazed, (KIT_DECLINE[tradeOf(m)] || []).includes('wall'));
 }
+
+// ── 7. EVERY OTHER WALL A PAINTED WINDOW WAS ON ───────────────────────────────────────────────
+//
+// Section 1 glazes the front of the biggest box, and section 1d's ⚠ explains why the flanks got
+// plumbing and no windows: the wall texture already painted a grid on all four sides. That grid is
+// two texels by three a pane at texRes 1 and four by six at the `paneFloor`, tiled over the wall
+// with no idea where a pier, a riser or the next floor is, and beside a real bay it reads as a
+// smudge. Reported from the street (2026-10-18) as "the right windows are bad", on a flank.
+//
+// So on the mesh, every wall whose palette paints the grid gets real bays instead, and the face is
+// recorded in `glazed` so `captureModelMesh` bakes it bare (`wallTex`'s `bare`): the two never
+// share a wall. A palette in a family (brick hall, stone civic, curtain glass) paints no grid and is
+// left alone, because a blind wall there is the building's design and not a missing window.
+//
+// ⚠ IT RUNS LAST, so it can step round everything already hung: risers, the fire escape, the gable
+// ad, tags, condensers (`blocks`, which records x-face parts with `x: true`). A bay that would land
+// on one is dropped, never moved: a column of windows with one missing reads as a building.
+// ⚠ ITS OWN CEILING, OUTSIDE `spent`. Pushed last, it could never starve another section anyway,
+// and counting it against `kitMax` would make the budget say a building was full when it wasn't.
+// ⚠ A BAY INSIDE OTHER MASS IS SKIPPED. A wing standing against a flank hides that stretch of it,
+// and a bay there costs eight quads nobody sees and pokes its sill through the wing's wall.
+// ⚠ THE FRONT OF THE BASE IS NOT GLAZED HERE. Below `signTop` is the shopfront band, which the
+// ground section dresses; a front face is glazed only from the name band up.
+// ⚠ A WALL RUNS OUT OF COLUMNS BEFORE IT RUNS OUT OF FLOORS. Vertical rhythm is what reads as
+// storeys (section 1's ⚠), so a tall wall over its share keeps every floor and thins the columns.
+const GLAZE_MAX_RICH = 96, GLAZE_FACE_MAX = 30;
+function glazeWalls(list, cand, mass, m, seed, A, style, main, signTop, claims, blocks, glazed, declined) {
+  if (declined) return;
+  const warm = style === 'front' ? '#bfe4ff' : '#e8d6a8', unlit = '#1b2430';
+  const wr = parseInt(warm.slice(1, 3), 16), wg = parseInt(warm.slice(3, 5), 16), wb = parseInt(warm.slice(5, 7), 16);
+  const cl = (x) => Math.max(0, Math.min(255, Math.round(x)));
+  // The same warmth-and-brightness roll the front grid gives its rooms (see `paneLit` there).
+  const glowOf = (k) => {
+    const t = dRand(seed, k * 7 + 3) * 2 - 1, v = 0.72 + dRand(seed, k * 7 + 5) * 0.38;
+    return 'rgb(' + cl((wr + t * 26) * v) + ',' + cl((wg + t * 4) * v) + ',' + cl((wb - t * 34) * v) + ')';
+  };
+  const wpal = trimPalFor(m);
+  // Is the point just outside a wall inside some OTHER box? `e` is the box the wall belongs to.
+  const inOther = (e, x, y, z) => mass.some((o) => o !== e && z > o.z0 && z < o.z1
+    && Math.abs(x - o.cx) < o.hw && Math.abs(y - o.cy) < o.fd);
+  // Clear of every part on this plane? `xFace` says which kind of plane: blocks carry `x` for a flank.
+  const clear = (xFace, plane, a0, a1, z0, z1) => blocks.every((b) => !!b.x !== xFace || Math.abs(b.plane - plane) > 0.06
+    || a0 > b.x1 + 0.012 || a1 < b.x0 - 0.012 || z0 > b.z1 + 0.012 || z1 < b.z0 - 0.012)
+    && claims.every((c) => !!c.x !== xFace || Math.abs(c.cy - plane) > 0.06
+    || a0 > c.x1 + 0.012 || a1 < c.x0 - 0.012 || z0 > c.z1 + 0.012 || z1 < c.z0 - 0.012);
+  // Every wall of every candidate box, but the one section 1 already did.
+  const faces = [];
+  for (const e of cand) {
+    const wallH = e.z1 - e.z0;
+    // Under 0.06 is a plinth or a lip, not a storey; the texture's grid on it is a few texels high.
+    if (!(wallH > 0.06) || !wallPanesPainted(e.sg.pal || m.pal)) continue;
+    const yB = e.cy - e.fd, yF = e.cy + e.fd, xP = e.cx + e.hw, xN = e.cx - e.hw;
+    // ⚠ THE SIGN OF THE PLANE IS WHICH SIDE THE PAINTER PUTS IT, for section 1d's reason: a wall
+    // on the wrong side of the origin would be drawn facing in. Declined rather than got wrong.
+    if (xP > 0.02) faces.push({ e, x: true, out: 1, plane: xP, c: e.cy, half: e.fd, wallH });
+    if (xN < -0.02) faces.push({ e, x: true, out: -1, plane: xN, c: e.cy, half: e.fd, wallH });
+    if (yB < -0.02) faces.push({ e, x: false, out: -1, plane: yB, c: e.cx, half: e.hw, wallH });
+    if (e !== main && yF > 0.02) faces.push({ e, x: false, out: 1, plane: yF, c: e.cx, half: e.hw, wallH, front: true });
+  }
+  // The broadest walls first, so the ceiling runs out on the small ones.
+  faces.sort((a, b) => b.half * b.wallH - a.half * a.wallH);
+  // ⚠ A GABLE AD IS PAINTED ON A BLIND WALL, and that is what it is for. Glazed round, it was a
+  // billboard with a row of windows above it and four below. The flank carrying one stays blind.
+  const R3 = (q) => (Array.isArray(q) ? q[2] : (q || 0));
+  const gable = list.filter((d) => d.kind === 'bladePanel' && d.face === 'x').map((d) => R3(d.cy));
+  // The ad is hung on the biggest box's own flank plane (`adX`), so the match is tight: a podium's
+  // flank stands a few hundredths out from the tower's and keeps its windows.
+  const blind = (f) => f.x && gable.some((p) => Math.abs(p - f.plane) < 0.01);
+  let n = 0, k = 600, any = false;
+  const bandOnly = [];
+  for (const f of faces) {
+    const { e, wallH } = f;
+    // A band too short for a window (a podium lip, a parapet storey) takes no bays; it bakes bare
+    // with the rest of the building below, rather than keeping a grid a few texels high.
+    // So is a front wall that stands wholly in the shopfront band: the ground section dresses it.
+    // And a wall the building's ceiling has run out for: smaller than everything before it, by the sort.
+    if (wallH < 0.09 || (f.front && e.z1 < signTop + 0.1) || n >= GLAZE_MAX_RICH || blind(f)) { bandOnly.push(f); continue; }
+    const floors = clamp(Math.round(wallH / 0.17), 1, FLOOR_MAX_RICH);
+    const share = Math.max(1, Math.min(GLAZE_FACE_MAX, GLAZE_MAX_RICH - n));
+    const cols = clamp(Math.round((f.half * 1.5) / (1.5 * COL_PITCH_RICH)), 1, Math.min(COL_MAX_RICH, Math.max(1, Math.floor(share / floors))));
+    const cw = (f.half * 1.5) / cols;
+    const wh = Math.min(0.042, wallH / (floors * 2.9)), ww = Math.min(cw * 0.33, wh * 0.68);
+    const fr = Math.min(ww, wh) * 0.26;   // the surround: see `faceClaim`
+    let put = 0;
+    for (let fl = 0; fl < floors && put < GLAZE_FACE_MAX && n < GLAZE_MAX_RICH; fl++) {
+      // A lone storey on a short box centres its window rather than losing it off the top.
+      const z = Math.min(e.z0 + wallH * ((fl + 0.62) / floors), e.z1 - 0.012 - wh);
+      if (z - wh < e.z0 + 0.008) continue;
+      if (f.front && z - wh < signTop + 0.02) continue;
+      for (let i = 0; i < cols && put < GLAZE_FACE_MAX && n < GLAZE_MAX_RICH; i++) {
+        const t = f.c - f.half * 0.75 + cw * (i + 0.5);   // along the wall, in the model's own x or y
+        // A flank's own along-axis is −y (see section 1d), so its rectangle is tested in those units.
+        const a = f.x ? -t : t;
+        if (!clear(f.x, f.plane, a - ww - fr, a + ww + fr, z - wh - fr, z + wh + fr)) continue;
+        const px = f.x ? f.plane + f.out * 0.012 : t, py = f.x ? t : f.plane + f.out * 0.012;
+        if (inOther(e, px, py, z)) continue;
+        const lit = dRand(seed, k * 3 + 1) > 0.34;
+        const p = { kind: 'windowBay', ...(f.x ? { face: 'x' } : {}), cx: A(a), cy: A(f.plane), z: A(z),
+          half: A(ww), hh: A(wh), depth: A(Math.min(ww, wh) * 0.3), pal: wpal, bars: 1, transom: 0.3,
+          glow: lit ? glowOf(k) : unlit };
+        k++;
+        list.push(p); n++; put++;
+        const c = faceClaim(p, (q) => (Array.isArray(q) ? q[2] : (q || 0))); if (c) claims.push(c);
+      }
+    }
+    // A wall every bay was refused on (a fire escape across it, a wing in front) bakes bare as well:
+    // on a building whose other walls are glazed, a painted grid on this one is the odd one out.
+    if (put) { any = true; glazed.push(glazeRec(f)); } else bandOnly.push(f);
+  }
+  if (any || glazed.length) for (const f of bandOnly) glazed.push(glazeRec(f));
+}
+// A glazed wall, in the model's own frame: `n` the outward normal, `plane` where the wall is along
+// it, a0..a1 its run along the wall in plain x (front and back) or plain y (a flank).
+const glazeRec = (f) => ({ n: f.x ? [f.out, 0] : [0, f.out], plane: f.plane, a0: f.c - f.half, a1: f.c + f.half, z0: f.e.z0, z1: f.e.z1 });

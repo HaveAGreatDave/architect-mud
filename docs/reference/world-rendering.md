@@ -344,6 +344,31 @@ Two things carry it:
 A palette with no `FACADE_MAT` entry keeps the speckled tint that has always shipped, so the table
 is additive.
 
+#### On the mesh, no painted windows at all: `RENDER_TUNE.glazeAll` (as built, 2026-10-18)
+
+The painted grid is two texels by three a pane at texRes 1 and four by six at `paneFloor`, tiled over
+the wall with no idea where a pier, a riser or the next floor is. Beside the kit's real `windowBay`s
+it reads as a smudge, and until this change it was all a building's flanks and back ever had.
+
+So in GLASS 2 every wall whose palette paints the grid (`wallPanesPainted`, the `facade` kind) gets
+real bays from the kit, and that face samples a **bare** bake of its palette: the material and its
+night dim, no grid. The two never share a wall.
+
+- **The kit** (derived-kit's section 7, `glazeWalls`) runs last, so it steps round every part already
+  hung: risers, the fire escape, tags, condensers. It glazes the flanks and back of every candidate
+  box, and the fronts of boxes above the shopfront band. A run across a flank (the conduit, the cable)
+  goes in the gap between two rows. A flank carrying a gable ad stays blind. A wall too short for a
+  storey, or past the building's ceiling, bakes bare with no bays rather than keep its grid.
+- **The capture** (`markBareWalls` in `captureModelMesh`) flags each mass wall lying in a glazed
+  plane, facing the same way, with a grid-painting palette. By geometry, because a mesh face doesn't
+  know which box drew it.
+- **The atlas** keys a bare face `w:<pal>~` (gl/world.js `TEX_BARE`), and `wallTex`, `wallTexMixed`,
+  `wallMatMixed` and `wallSurf` each take `bare`. The material page of a bare wall has no glass in it,
+  or the shader would put a reflection where every pane used to be.
+- **GLASS 1 and the lean list are unchanged.** They keep the painted grid.
+- An arm drawn with `noKit` gets none of this, and draws its own windows if it wants them:
+  `drawArmPart` runs one kit part through the same painter, as the Palais foyers do.
+
 Three rules before you add a family:
 
 - **A palette belongs to exactly one family.** Two memberships means the answer depends on which

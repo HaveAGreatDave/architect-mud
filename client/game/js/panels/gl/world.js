@@ -545,6 +545,10 @@ function sceneGL(id, w, h, msaa = 1) {
 // ⚠ THE SEPARATOR MUST NOT APPEAR IN A PALETTE KEY. They are identifiers (`ty_precast`,
 // `marquee`), so a bar is safe and a colon would not have been.
 const TEX_WIN_SEP = '|';
+// The bare bake of a facade palette: its material with no painted window grid. On the PALETTE part
+// of the key, before any grid variant, so `texVariant` needs no change and a blackout of a bare wall
+// is `w:pal~|0`. A palette key never contains it.
+const TEX_BARE = '~';
 function texVariant(key, win) {
   return (win == null || key.charCodeAt(0) === 114 /* 'r' — a roof */) ? key : key + TEX_WIN_SEP + win;
 }
@@ -1020,7 +1024,9 @@ function tileMesh(deps, it) {
         // inside the per-model memo and paid once per model rather than per copy per rebuild —
         // exactly as `uv` and `mat` are, and for exactly the same reason.
         edge: faceEdges(f),
-        texKey: f.pal ? (f.kind === 'roof' ? 'r:' : 'w:') + f.pal : null,
+        // A wall the kit glazed for real samples its palette's bare bake (`TEX_BARE`), and that
+        // is a different surface, so it is a different key. See `markBareWalls` in windshield.js.
+        texKey: f.pal ? (f.kind === 'roof' ? 'r:' : 'w:') + f.pal + (f.bare && f.kind !== 'roof' ? TEX_BARE : '') : null,
         // ── WHICH MATERIAL FAMILY THIS SURFACE IS, RESOLVED ONCE PER MODEL ────────────────
         //
         // Exactly the same shape of fact as `texKey` — a pure function of the palette key and
@@ -1310,16 +1316,17 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
       for (const tk of need) {
         const roof = tk[0] === 'r';
         const bar = tk.indexOf(TEX_WIN_SEP);
-        const pal = bar === -1 ? tk.slice(2) : tk.slice(2, bar);
+        const pk = bar === -1 ? tk.slice(2) : tk.slice(2, bar);
+        const bare = pk.endsWith(TEX_BARE), pal = bare ? pk.slice(0, -TEX_BARE.length) : pk;
         // undefined is the ordinary bake, which is what wallTexMixed's own default means — so a
         // key with no variant on it produces byte-for-byte the canvas it always produced.
         const win = bar === -1 ? undefined : +tk.slice(bar + 1);
-        const canvas = roof ? roofTex(pal, opts.night || 0) : wallTexMixed(pal, opts.nb || 0, win);
+        const canvas = roof ? roofTex(pal, opts.night || 0) : wallTexMixed(pal, opts.nb || 0, win, bare);
         // Null for every surface the page has nothing to say about yet, which is all but the facades.
-        const mat = matOn && !roof ? wallMatMixed(pal, opts.nb || 0, win) : null;
+        const mat = matOn && !roof ? wallMatMixed(pal, opts.nb || 0, win, bare) : null;
         // Height doesn't change with the hour or the grid, so the page is keyed on the palette alone
         // (and a roof's on its kind of deck).
-        const surf = !surfOn ? null : roof ? (roofSurf ? roofSurf(pal) : null) : wallSurf(pal);
+        const surf = !surfOn ? null : roof ? (roofSurf ? roofSurf(pal) : null) : wallSurf(pal, bare);
         if (canvas && canvas.width) tiles.push({ key: tk, canvas, mat, surf });
       }
       g.atlas = buildAtlas(tiles, g.view.maxTexture || 2048);

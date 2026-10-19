@@ -76,15 +76,20 @@ three buildings with three cornice heights. Parts are placed on the building's o
 the middle of the stage tile, +X is west) and each arm draws the parts on its own tile.
 
 - **The foyers** (`palaisFoyer`, mirrored by `off`): a blind stone ground floor, two floors of the
-  Meridian's own windowed limestone (`ty_meridian`), a copper-flashed cornice and an attic. A stone
+  same stone with real windows in them, a copper-flashed cornice and an attic. The windows
+  (`palaisLights`) are the kit's own `windowBay`, drawn by the arm through `drawArmPart`: three tall
+  bronze-framed lights in the door bay between the piers, a narrow one in each outer bay, two on the
+  outer flank behind the drum, every one two storeys with a bronze spandrel between. A stone
   drum on the outer corner with bronze speed lines and a copper cap; its top line is a pink tube after
   dark. The door sits toward the stage, bronze, under a canopy, with BOX OFFICE or BAR in the transom.
 - **The stage tile**: a blind auditorium the width of the tile, a stage house behind it a storey and
   a half higher with a smoke vent, a scene dock door over the park, and a stepped frontispiece on the
   centre line with fins and lit glass. The bronze blade stands off the bay with PALAIS down both
   faces (gilt by day, pink after dark). The marquee carries the bill on milk glass with a row of bulbs.
-- New palette `ty_palais_stone` (STONE_WALL, so blind ashlar with no window grid). The foyers'
-  windowed floors wear `ty_meridian`.
+- New palette `ty_palais_stone` (STONE_WALL, so blind ashlar with no window grid), on every wall.
+  The foyers' upper floors wore `ty_meridian` until 2026-10-18; that skin paints its windows into the
+  texture on its own pitch, so they ran behind the piers and the drum and came out as squat stripes
+  at this storey height. Don't put a windowed skin back behind authored piers.
 - The blade's word and the bill are on the registry rows (`blade`, `bill`, `door`), so the arm
   carries no Coldwater words. All three rows set `noKit`.
 - The name appears once, on the blade. The marquee says what's on and the transoms say what's through

@@ -38,6 +38,13 @@ function bakeAll(tr) {
   for (const k of keys) {
     const w = wallTexMixed(k, 0.5); if (w && w.width) tiles.push({ key: 'w:' + k, canvas: w });
     const r = roofTex(k, 0.5);      if (r && r.width) tiles.push({ key: 'r:' + k, canvas: r });
+    // A grid-painting palette also has its bare bake, for the walls the kit glazed for real
+    // (RENDER_TUNE.glazeAll). A street can hold both, so the page has to hold both.
+    // ⚠ AT THE RATES THAT SHIP ONLY. Brick bakes at a fixed floor size, so at texRes 3 the city twice
+    // over is past one page whatever the bare bake is capped at; a frame's atlas holds what is in view.
+    if (RENDER_TUNE.glazeAll && tr <= 2 && ws.wallPanesPainted(k)) {
+      const b = wallTexMixed(k, 0.5, undefined, true); if (b && b.width) tiles.push({ key: 'w:' + k + '~', canvas: b });
+    }
   }
   return tiles;
 }

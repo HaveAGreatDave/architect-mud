@@ -1,6 +1,6 @@
 {
-  "total": 89198,
-  "perModel": 2787,
+  "total": 116253,
+  "perModel": 2689,
   "worstKey": "named:themeridianlobby",
   "seeds": 6,
   "note": "MEAN faces over 6 seeds, not one. npm run gl:mesh -- --write re-blesses this. Say why in the commit."
