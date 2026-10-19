@@ -1102,7 +1102,10 @@ Estate's cinema screen is.
 - The public address and the crowd are heard live.
 - Tickets are bought at the turnstile, and a foul ball into your section could become an item.
 
-This is the largest piece of the place-in-the-world work and comes last.
+This is the largest piece of the place-in-the-world work and comes last. Its plan is
+[coliseum-seats.md](coliseum-seats.md): a park clock worked out on the server so a seat sees every
+pitch with no cuts, the booth's lines paced by it, fouls decided on the server, a text feed for the
+stands, tickets and the caught ball.
 
 ## Server changes
 
@@ -1217,8 +1220,9 @@ fallback does.
 
 What it took (October 2026, with the league cut to eight): `scripts/content/build-deadball-clubs.mjs`
 with a `--check` gate and a 24 KB budget a club; `clubsRevOf` moved out of hockey.js to
-`sports/clubs.js`; `clubsRev` on every Deadball payload. Still to do: the 3-D and 2-D players
-wearing their club's kit rather than the house kits, and the Grandstand's graphics following. Baseball kit fields: jersey, fabric (pinstripe, flannel, plain),
+`sports/clubs.js`; `clubsRev` on every Deadball payload; the 3-D players in their club's kit,
+wordmark and cap crest (`sideKit` in `gl/ballplayer-mesh.js`), and the Grandstand's graphics in
+the kit's colours. Still to do: the 2-D Gameday's figures. Baseball kit fields: jersey, fabric (pinstripe, flannel, plain),
 trim, pants, cap, bill, helmet, undershirt, stirrups, number and edge, chest wordmark.
 
 ## Text parity and accessibility
@@ -1455,7 +1459,8 @@ Phase 3, or with sim v2 if that comes later.
   monograms and the leather, wood and mask textures. A lefty batter or pitcher is his pose in a
   mirror. Fewer players have long hair than the look-dev gave them, and no umpire does. The
   players cast the towers' shadows, and the faces shade as the Actor Lab's do. Their colours stay
-  placeholders (cream and navy at home, grey and rust away) until Phase 5 brings the clubs'.
+  placeholders (cream and navy at home, grey and rust away) for a club without an identity; a
+  club with one wears its own (Phase 5).
 - **1d built:** `diamond/hud.js`, the arcade package as a canvas over the picture, a pure layout
   the gate checks at the wall TV's, the tablet's and the sandbox's sizes and a painter: the score
   with the bases, the count as lamps, the pitch speed, the zone with the last pitch (through the
@@ -2018,7 +2023,7 @@ Phase 3, or with sim v2 if that comes later.
 - The Charles B. Hughson Coliseum on the map: the six buildings, Vetch Green and their NPCs set aside on the holding
   map, the player-row check and its one-shot, the type, the tiles, the fill, the model, the gates on
   their streets, the game-night lights.
-- Seats in person, last.
+- Seats in person, last ([coliseum-seats.md](coliseum-seats.md)).
 - Tested by: `shapes:smoke`, `sitecheck.mjs`, `content:lint`, a walk from Sorrel Way through the
   main gate in regress, and a set-aside gate: nothing on the holding map connects to the world, and
   every set-aside building still resolves its interiors, furniture and NPCs.

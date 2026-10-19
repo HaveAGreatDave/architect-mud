@@ -220,6 +220,6 @@ nights, and Ray Dombrowski's hours follow them.
 
 - **Seats in person**, the plan's last and largest piece: watching the game from the stands in the
   3-D view with no graphics, tickets at the turnstile, and a foul ball as an item. Today the stands'
-  video board is a television on channel 7.
+  video board is a television on channel 7. The plan is [coliseum-seats.md](coliseum-seats.md).
 - **People in the map's stands.** The map's park has no crowd; on a game night it's lit and empty.
 - **New plots for the set-aside buildings.** They wait on the holding map.
