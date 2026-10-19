@@ -241,6 +241,14 @@ export function planRotate(tree, facadeId, k = 1) {
     errors.push(`${facade.name || facadeId}'s interior also opens onto ${[...away].join(', ')} — turning it would swing a door whose far side does not turn`);
     return { errors, warnings, writes, label: 'Rotate' };
   }
+  // …and the same on the facade. Every exit onto this map is taken for the street door and
+  // re-aimed, so a second one (the Media Lot's stage and Writers' Wing open onto the backlot as
+  // well as the court) would be dropped, with its far end's link, and not come back on a turn back.
+  const onMap = new Set(Object.values(facade.exits || {}).filter((t) => !ids.has(t) && byId.get(t)?.map_id === facade.map_id));
+  if (onMap.size > 1) {
+    errors.push(`${facade.name || facadeId} opens onto ${[...onMap].join(', ')}, and turning it would swing a door whose far side does not turn`);
+    return { errors, warnings, writes, label: 'Rotate' };
+  }
 
   const from = facade.flags.entrance;
   const to = rotateDir(from, k);
