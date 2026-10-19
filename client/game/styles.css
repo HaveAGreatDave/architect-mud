@@ -12012,16 +12012,19 @@ html[data-density="compact"][data-pane-claimed] #mobile-hud { display: none; }
 .gd-fielder, .gd-ball, .gd-runner, .gd-batter, .gd-fbase { position: absolute; }
 .gd-fielder {
 	width: 16px; height: 16px; margin: -8px 0 0 -8px; border-radius: 50%;
-	background: rgba(12,28,22,0.94); border: 1.5px solid var(--tv-header-color, #37d67a);
+	background: var(--gd-fld-under, rgba(12,28,22,0.94)); border: 1.5px solid var(--gd-fld-top, var(--tv-header-color, #37d67a));
 	color: var(--tv-text); font-size: 0.4375rem; font-weight: bold; letter-spacing: 0.2px;
 	display: flex; align-items: center; justify-content: center;
 	box-shadow: 0 0 5px rgba(0,220,180,0.25); transition: left .5s ease, top .5s ease; z-index: 3;
 }
+/* the fielding side's colours and the batting side's edge (sideColours in gameday.js) */
+.gd-field[style*="--gd-fld-top"] .gd-fielder { color: #fff; box-shadow: 0 0 5px rgba(0,0,0,0.5); }
 .gd-batter {
 	width: 9px; height: 9px; margin: -4.5px 0 0 -4.5px; border-radius: 2px; background: #fff;
+	outline: 1.5px solid var(--gd-bat-top, transparent);
 	box-shadow: 0 0 5px rgba(255,255,255,0.7); transition: left .5s ease, top .5s ease; z-index: 5;
 }
-.gd-batter.outed { opacity: 0.25; background: #ff5a5a; box-shadow: none; }
+.gd-batter.outed { opacity: 0.25; background: #ff5a5a; box-shadow: none; outline: none; }
 .gd-runner {
 	width: 10px; height: 10px; margin: -5px 0 0 -5px; border-radius: 50%; background: #ffd23e;
 	box-shadow: 0 0 6px rgba(255,210,62,0.75); transition: left .6s ease, top .6s ease; z-index: 5;

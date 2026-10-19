@@ -1614,7 +1614,9 @@ it, keyed on the kit's `sig`, and `gl/ballpark.js` keys each body on it too, so 
 arrives mid-game the Grandstand repaints and rebuilds the side wearing it. The graphics'
 two colours follow the worn kit: the kit's ink on top when the ink is a colour (its trim when
 the ink is black or grey), the darkest of ink, base and cap under it. Only `fabric:
-'flannel'` gets the speckled cloth. The 2-D Gameday's figures still wear the house colours.
+'flannel'` gets the speckled cloth. The pair comes from `sideColours` in `gameday.js`, which
+the 2-D Gameday shares: its fielders' discs take the fielding side's two colours and the batter
+an edge in the batting side's top one, from the next payload after the set arrives.
 `tools/sandbox/deadball-park-test.html` loads the set from the row; `?clubs=0` leaves it out.
 
 ### Leagues (`sportsleague`)

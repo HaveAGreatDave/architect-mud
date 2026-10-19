@@ -41,9 +41,9 @@
 //
 // The sim on the server decides everything. Nothing here can change a score.
 
-import { createGamedayView, GAMEDAY_CARDS, pitchText, cardText } from './gameday.js';
+import { createGamedayView, GAMEDAY_CARDS, pitchText, cardText, sideColours } from './gameday.js';
 import { venueOf, onVenue } from './venue.js';
-import { clubOf, onClubs } from './club-crest.js';
+import { onClubs } from './club-crest.js';
 import { addFullscreenButton, leaveFullscreen } from './view-fullscreen.js';
 import { prefersReducedMotion, playByPlayOn } from '../../../shared/settings.js';
 
@@ -58,23 +58,9 @@ function _esc(s) { return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '
 
 // The ads round the bowl behind the plate.
 const ADS = ['KSAB-TV', 'DEADBALL', 'COLDWATER', 'KSAB-TV'];
-// The two clubs on tonight wear their kits' colours on the graphics too, top and bottom, home kit
-// at home and road away, as the players wear them (sideKit in gl/ballplayer-mesh.js, which this
-// stays off to keep the park's modules lazy). A club with an identity: on top its kit's ink when
-// the ink is a colour and its trim when the ink is near black or grey, under it the darkest of
-// its ink, base and cap. Any other club: the house kit's teal at home and rust away. The rest of
-// the league's come off their names (diamond/hud.js).
-const SIDE_COLOURS = { home: ['#36c4c4', '#145f63'], away: ['#e0702e', '#7c2f10'] };
-const rgbOf = (h) => { const n = parseInt(String(h).slice(1, 7), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
-const chroma = (h) => { const c = rgbOf(h); return (Math.max(...c) - Math.min(...c)) / 255; };
-const lum = (h) => { const [r, g, b] = rgbOf(h); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
-function sideColours(side, team) {
-  const s = side === 'away' ? 'away' : 'home', own = team ? clubOf(team, 'baseball')?.kit?.[s === 'away' ? 'road' : 'home'] : null;
-  if (!own || !own.ink || !own.trim) return SIDE_COLOURS[s];
-  const top = chroma(own.ink) > 0.3 ? own.ink : own.trim;
-  const under = [own.ink, own.base, own.cap].filter((c) => c && c !== top).sort((a, b) => lum(a) - lum(b))[0] || own.ink;
-  return [top, under];
-}
+// The two clubs on tonight wear their kits' colours on the graphics too (sideColours in
+// gameday.js, which the 2-D field shares). The rest of the league's come off their names
+// (diamond/hud.js).
 // A hex colour as linear light, for the champions' confetti.
 const linear = (hex) => [0, 2, 4].map((i) => { const c = parseInt(hex.slice(1 + i, 3 + i), 16) / 255; return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); });
 // A final: how long the last out's frame is held before the champions' finish (ms), how long a

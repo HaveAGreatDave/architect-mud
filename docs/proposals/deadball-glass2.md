@@ -1222,7 +1222,8 @@ What it took (October 2026, with the league cut to eight): `scripts/content/buil
 with a `--check` gate and a 24 KB budget a club; `clubsRevOf` moved out of hockey.js to
 `sports/clubs.js`; `clubsRev` on every Deadball payload; the 3-D players in their club's kit,
 wordmark and cap crest (`sideKit` in `gl/ballplayer-mesh.js`), and the Grandstand's graphics in
-the kit's colours. Still to do: the 2-D Gameday's figures. Baseball kit fields: jersey, fabric (pinstripe, flannel, plain),
+the kit's colours, which the 2-D Gameday's fielders and batter wear too (`sideColours` in
+`gameday.js`). Baseball kit fields: jersey, fabric (pinstripe, flannel, plain),
 trim, pants, cap, bill, helmet, undershirt, stirrups, number and edge, chest wordmark.
 
 ## Text parity and accessibility

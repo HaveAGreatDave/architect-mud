@@ -16,6 +16,26 @@ import { DEADBALL_SFX } from '../../../shared/deadball-sfx.js';
 import { prefersReducedMotion, playByPlayOn } from '../../../shared/settings.js';
 import { fenceAt } from './diamond/play.js';
 import { addFullscreenButton, leaveFullscreen } from './view-fullscreen.js';
+import { clubOf } from './club-crest.js';
+
+// ── the clubs' colours ───────────────────────────────────────────────────────────
+// A side's two colours, top and bottom, as its players wear them: home kit at home and road
+// away (sideKit in gl/ballplayer-mesh.js, which this stays off so the 2-D view stays light). A
+// club with an identity (sports_pools.clubs): on top its kit's ink when the ink is a colour and
+// its trim when the ink is near black or grey, under it the darkest of its ink, base and cap.
+// Any other club: the house kit's teal at home and rust away. Both views' graphics use it, and
+// the 2-D field's fielders and batter wear it.
+const HOUSE_COLOURS = { home: ['#36c4c4', '#145f63'], away: ['#e0702e', '#7c2f10'] };
+const rgbOf = (h) => { const n = parseInt(String(h).slice(1, 7), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
+const chroma = (h) => { const c = rgbOf(h); return (Math.max(...c) - Math.min(...c)) / 255; };
+const lum = (h) => { const [r, g, b] = rgbOf(h); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
+export function sideColours(side, team) {
+  const s = side === 'away' ? 'away' : 'home', own = team ? clubOf(team, 'baseball')?.kit?.[s === 'away' ? 'road' : 'home'] : null;
+  if (!own || !own.ink || !own.trim) return HOUSE_COLOURS[s];
+  const top = chroma(own.ink) > 0.3 ? own.ink : own.trim;
+  const under = [own.ink, own.base, own.cap].filter((c) => c && c !== top).sort((a, b) => lum(a) - lum(b))[0] || own.ink;
+  return [top, under];
+}
 
 function _esc(str) {
   return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -461,7 +481,7 @@ export function createGamedayView(host) {
   // field and its tokens, the rail, win probability and the caption. A camera-cut wipe
   // sweeps it in so each play reads as a fresh replay rather than a mutation of the last,
   // unless the viewer has asked for less motion.
-  function _shell() {
+  function _shell(p) {
     calm = prefersReducedMotion();
     const body = _body();
     body.innerHTML =
@@ -474,6 +494,13 @@ export function createGamedayView(host) {
       `<div class="gd-winprob"></div>` +
       `<div class="gd-caption"><span class="gd-cap-tag">◆ Chip Vega</span><span class="gd-cap-text">${_esc(caption)}</span></div>`;
     field = host.querySelector('.gd-field');
+    // the fielders in the fielding side's colours, the batter edged in the batting side's
+    if (field && p) {
+      const top = p.half === 'top', [fTop, fUnder] = sideColours(top ? 'home' : 'away', p.fieldingTeam), [bTop] = sideColours(top ? 'away' : 'home', p.battingTeam);
+      field.style.setProperty('--gd-fld-top', fTop);
+      field.style.setProperty('--gd-fld-under', fUnder);
+      field.style.setProperty('--gd-bat-top', bTop);
+    }
     if (calm) return;
     const wipe = document.createElement('div'); wipe.className = 'gd-wipe';
     body.appendChild(wipe);
@@ -700,7 +727,7 @@ export function createGamedayView(host) {
     const away = isTop ? { abbr: p.battingAbbr } : { abbr: p.fieldingAbbr };
     const home = isTop ? { abbr: p.fieldingAbbr } : { abbr: p.battingAbbr };
 
-    _shell();
+    _shell(p);
 
     // A fresh half starts empty, always: nobody on, nobody out. Saying so explicitly
     // is what erases the previous half's terminal frame.
@@ -744,7 +771,7 @@ export function createGamedayView(host) {
   function _applyRun(p) {
     const isTop = p.half === 'top';
     const outsAfter = Math.max(0, Math.min(3, p.outs | 0));
-    _shell();
+    _shell(p);
     field.classList.add('replaying');
     const before = p.basesBefore || [false, false, false];
     const runners = {};
@@ -836,7 +863,7 @@ export function createGamedayView(host) {
 
     // Build the shell once; the field + its tokens persist through this at-bat so they
     // can animate. The header/side get repainted each step; the field does not.
-    _shell();
+    _shell(p);
     field.classList.add('replaying');   // the ◉ REPLAY bug shows while the play runs; cleared when it lands
 
     // Existing runners on base at the start (lit), plus the batter waiting at the plate.

@@ -33,7 +33,8 @@
 import { __install } from './rink-dom-stub.mjs';
 
 const stub = __install();
-const { createGamedayView, pitchText, __test: GD } = await import('../../client/game/js/panels/gameday.js');
+const { createGamedayView, pitchText, sideColours, __test: GD } = await import('../../client/game/js/panels/gameday.js');
+const { setClubs } = await import('../../client/game/js/panels/club-crest.js');
 const { sportsRng } = await import('../../plugins/broadcast/rng.js');
 const { simGame, simGameV2 } = await import('../../plugins/broadcast/sports/baseball.js');
 const { gamedayPayloads } = await import('../../plugins/broadcast/sports/baseball-gameday.js');
@@ -200,6 +201,32 @@ function play(seed, v = 1) {
 let payloads = 0;
 for (const seed of seeds) payloads += play(seed);
 for (const seed of seedsV2) payloads += play(seed, 2);
+
+// ── the clubs' colours ─────────────────────────────────────────────────────────
+// A club with an identity wears its kit's colours (ink when it's a colour, else trim, over the
+// darkest of ink, base and cap), home kit at home and road away; any other the house pair. The
+// field's fielders wear the fielding side's, the batter the batting side's edge.
+{
+  const house = sideColours('home', 'Plain Placeholders');
+  setClubs('baseball', 'smoke', {
+    Inkers: { kit: { home: { base: '#0d1b2e', ink: '#1d55d8', trim: '#e0243a', cap: '#0d1b2e' }, road: { base: '#9aa0a8', ink: '#0d1b2e', trim: '#1d55d8', cap: '#0d1b2e' } } },
+    Blackers: { kit: { home: { base: '#efe9dc', ink: '#151113', trim: '#c8302c', cap: '#151113' } } },
+  });
+  check('colours: a club with no identity keeps the house pair', sideColours('home', 'Plain Placeholders') === house && house[0] === '#36c4c4');
+  check('colours: a coloured ink goes on top, the darkest under it', sideColours('home', 'Inkers').join() === '#1d55d8,#0d1b2e', sideColours('home', 'Inkers').join());
+  check('colours: a black ink gives way to the trim on top', sideColours('home', 'Blackers').join() === '#c8302c,#151113', sideColours('home', 'Blackers').join());
+  check('colours: away is the road kit', sideColours('away', 'Inkers').join() === '#1d55d8,#0d1b2e' && sideColours('away', 'Blackers') === sideColours('away', 'Nobody'), sideColours('away', 'Inkers').join());
+  const game = gameFor(seeds[0], 1), { order } = gamedayPayloads(game, seeds[0], { abbr, ordinal });
+  const p = { ...order.find((q) => !q.phase && q.half === 'top'), fieldingTeam: 'Inkers', battingTeam: 'Blackers' };
+  const host = stub.makeHost(), view = createGamedayView(host);
+  view.apply(p);
+  const st = host.find('.gd-field')?.style;
+  check('field: the fielders wear the fielding side\'s colours and the batter the batting side\'s edge',
+    st && st.getPropertyValue('--gd-fld-top') === '#1d55d8' && st.getPropertyValue('--gd-fld-under') === '#0d1b2e' && st.getPropertyValue('--gd-bat-top') === sideColours('away', 'Blackers')[0],
+    st && ['--gd-fld-top', '--gd-fld-under', '--gd-bat-top'].map((k) => st.getPropertyValue(k)).join());
+  view.clear(); stub.runTimers(60000);
+  setClubs('baseball', '', {});
+}
 
 console.log(`gameday smoke: ${seeds.length} v1 games and ${seedsV2.length} v2 games, ${payloads} payloads, ${passes} checks passed${failures ? `, ${failures} FAILED` : ''}`);
 process.exit(failures ? 1 : 0);
