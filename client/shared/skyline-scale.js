@@ -51,8 +51,8 @@ export const TYPE_FLOORS = {
   pier: 1, harbour_yard: 1, lighthouse: 12,
   // The Codfather's fish works: one tall storey of tin shed.
   fish_works: 1,
-  // Grounds for Concern and its car park: one storey, and one storey of nothing.
-  coffee_shop: 1, car_park: 1, staff_lot: 1,
+  // Grounds for Concern and its car park: one storey, and one storey of nothing. So is a plot to let.
+  coffee_shop: 1, car_park: 1, staff_lot: 1, vacant_plot: 1,
   // A compact harbour crane stands about seven storeys to the slew house, which is what every
   // fraction in its arm — the boom height, the counterweight, the hook travel — is measured against.
   quay_crane: 7,

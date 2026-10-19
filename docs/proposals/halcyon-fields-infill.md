@@ -515,7 +515,7 @@ street number or the developer's name, and that is what these carry now.
   Winter Garden, whose vault is older than the road outside it.
 
 ⚠ **The puns are not unique to the quarter.** The Filaments has a café called Grounds for Concern
-(906,908) with its own rooms, generator and vendor, and it keeps its name. Until this pass it was
+(906,908 then, 908,907 now) with its own rooms, generator and vendor, and it keeps its name. Until this pass it was
 also drawing the Halcyon café's model, because `NAMED_MODELS` binds by name and both had the same
 one; it now draws its own type, `shop`. So the rename is scoped to rows that belong to the quarter
 (its tiles, their interior maps and rooms, and the generators, power_zones, furniture and NPCs on

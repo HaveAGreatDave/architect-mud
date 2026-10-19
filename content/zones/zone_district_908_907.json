@@ -1,29 +1,35 @@
 {
-  "ambient_events": [],
-  "ambient_theme": "city",
-  "description": "A square block of grey brick with a lantern on top of it: eight sides, glazed the whole way round, and a mast standing out of the roof with a black ball on it two thirds of the way up. At one o'clock the ball drops to the foot of the mast. ANY PORT is on the door in gold leaf, which is the only gold leaf on this stretch of water.",
+  "ambient_events": [
+    "The roaster inside reaches some threshold and the smell of it rolls out across the road.",
+    "A chair is dragged out from under a table outside with a long scrape and somebody sits down heavily.",
+    "Steam goes up from the cup on the roof and drifts off over Meltwater Row."
+  ],
+  "ambient_theme": "urban",
+  "bg_color": "#291f1a",
+  "color": "#e8c89a",
+  "description": "A one-storey brick café on the corner of Greenside Row and Meltwater Row, built in an L round its own car park, with the Basin behind it. It's glazed along Greenside Row under a green and cream striped awning, and the roastery runs back down Meltwater Row. A white cup the size of a water tank stands on the roof and steams when they roast.",
   "exits": {
-    "north": "zone_bld_908_907_lobby",
-    "south": "zone_district_908_908"
+    "east": "zone_grounds_cafe",
+    "west": "zone_district_907_907"
   },
   "flags": {
-    "building_name": "Any Port",
-    "building_type": "harbour_office",
+    "building_name": "Grounds for Concern",
+    "building_type": "coffee_shop",
     "district": "filaments",
-    "entrance": "south",
+    "entrance": "west",
     "facade": true,
-    "floors": 3,
+    "floors": 1,
     "is_building": true,
     "region_id": "region_coldwater",
-    "sign_trade": "HARBOUR OFFICE",
-    "world_exit_zone": "zone_district_908_908"
+    "sign_trade": "COFFEE",
+    "world_exit_zone": "zone_district_907_907"
   },
   "grid_x": 908,
   "grid_y": 907,
   "grid_z": 0,
   "id": "zone_district_908_907",
   "map_id": "map_world",
-  "marker": "AP",
-  "name": "Any Port",
+  "marker": "GC",
+  "name": "Grounds for Concern",
   "parent_zone": null
 }

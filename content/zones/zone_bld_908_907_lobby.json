@@ -6,12 +6,12 @@
     "down": "zone_util_zone_bld_908_907_lobby",
     "east": "zone_bld_908_907_loft",
     "north": "zone_bld_908_907_tide",
-    "south": "zone_district_908_907"
+    "west": "zone_district_910_906"
   },
   "flags": {
     "is_building": true,
     "is_interior": true,
-    "world_exit_zone": "zone_district_908_907"
+    "world_exit_zone": "zone_district_910_906"
   },
   "grid_x": 0,
   "grid_y": 0,
@@ -19,5 +19,5 @@
   "id": "zone_bld_908_907_lobby",
   "map_id": "map_int_bld_908_907",
   "name": "The Berth Office",
-  "parent_zone": "zone_district_908_907"
+  "parent_zone": "zone_district_910_906"
 }

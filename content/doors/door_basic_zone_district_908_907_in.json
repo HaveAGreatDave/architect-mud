@@ -1,7 +1,7 @@
 {
   "connection_id": "conn_bld_908_907_lobby_south_ckxr",
   "door_type": "basic",
-  "exit_dir": "north",
+  "exit_dir": "east",
   "flags": {},
   "hololock_difficulty": 5,
   "hp": 1000,
@@ -13,5 +13,5 @@
   "name": null,
   "tags": {},
   "target_zone": "zone_bld_908_907_lobby",
-  "zone_id": "zone_district_908_907"
+  "zone_id": "zone_district_910_906"
 }

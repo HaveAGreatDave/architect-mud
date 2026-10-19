@@ -5,7 +5,7 @@
   },
   "flags": {
     "is_interior": true,
-    "world_exit_zone": "zone_district_908_907"
+    "world_exit_zone": "zone_district_910_906"
   },
   "grid_x": 0,
   "grid_y": 0,
@@ -13,5 +13,5 @@
   "id": "zone_util_zone_bld_908_907_lobby",
   "map_id": "map_int_bld_908_907",
   "name": "The Berth Office — Utility Room",
-  "parent_zone": "zone_district_908_907"
+  "parent_zone": "zone_district_910_906"
 }

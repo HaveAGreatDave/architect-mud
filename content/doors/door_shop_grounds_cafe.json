@@ -1,7 +1,7 @@
 {
   "connection_id": "conn_district_906_908_south_rz25",
   "door_type": "basic",
-  "exit_dir": "south",
+  "exit_dir": "east",
   "flags": {},
   "hololock_difficulty": 5,
   "hp": 1000,
@@ -23,5 +23,5 @@
     }
   },
   "target_zone": "zone_grounds_cafe",
-  "zone_id": "zone_district_906_908"
+  "zone_id": "zone_district_908_907"
 }

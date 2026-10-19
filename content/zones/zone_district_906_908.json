@@ -1,35 +1,31 @@
 {
   "ambient_events": [
-    "The roaster inside reaches some threshold and the smell of it rolls out across the road.",
-    "A chair is dragged out from under a table outside with a long scrape and somebody sits down heavily.",
-    "Steam goes up from the cup on the roof and drifts off over Meltwater Row."
+    "The wind gets into the mesh panels and they rattle against their feet all along the front.",
+    "Somebody stops at the letting board, reads the number, and doesn't write it down.",
+    "A carrier bag crosses the slab and catches on the fence."
   ],
   "ambient_theme": "urban",
-  "bg_color": "#291f1a",
-  "color": "#e8c89a",
-  "description": "A one-storey brick café on the corner of Greenside Row and Meltwater Row, glazed along both streets under a green and cream striped awning. A white cup the size of a water tank stands on the roof and steams when they roast. Two tables out front, and the car park to the west.",
+  "color": "#8a8478",
+  "description": "The bare concrete slab where Grounds for Concern stood, fenced off from Greenside Row with mesh panels on concrete feet. One panel is off its foot and leans on the next. A letting board on two posts says PLOT TO LET and gives a number, and under it somebody has written ENGAGED. Bolt holes in the slab mark where the counter was.",
   "exits": {
     "north": "zone_district_906_907",
-    "south": "zone_grounds_cafe"
+    "west": "zone_greenside_905_908"
   },
   "flags": {
-    "building_name": "Grounds for Concern",
-    "building_type": "coffee_shop",
+    "building_name": "Vacant Plot",
+    "building_type": "vacant_plot",
     "district": "filaments",
     "entrance": "north",
-    "facade": true,
     "floors": 1,
-    "is_building": true,
     "region_id": "region_coldwater",
-    "sign_trade": "COFFEE",
-    "world_exit_zone": "zone_district_906_907"
+    "street_life": true,
+    "terrain": "concrete"
   },
   "grid_x": 906,
   "grid_y": 908,
   "grid_z": 0,
   "id": "zone_district_906_908",
   "map_id": "map_world",
-  "marker": "GC",
-  "name": "Grounds for Concern",
+  "name": "Vacant Plot",
   "parent_zone": null
 }

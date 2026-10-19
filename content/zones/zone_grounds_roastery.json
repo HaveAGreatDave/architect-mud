@@ -11,12 +11,12 @@
     "is_building": true,
     "is_interior": true,
     "window": {
-      "description": "A small window onto Voss Avenue, filmed brown on the inside from years of roasting.",
+      "description": "A small window onto the car park, filmed brown on the inside from years of roasting.",
       "light": 0.5,
       "name": "the back window",
       "visibility": 0.3
     },
-    "world_exit_zone": "zone_district_906_908"
+    "world_exit_zone": "zone_district_908_907"
   },
   "grid_x": 0,
   "grid_y": 0,
@@ -24,5 +24,5 @@
   "id": "zone_grounds_roastery",
   "map_id": "map_int_grounds",
   "name": "Grounds for Concern Roastery",
-  "parent_zone": "zone_district_906_908"
+  "parent_zone": "zone_district_908_907"
 }

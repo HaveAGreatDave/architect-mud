@@ -5,8 +5,8 @@
   "description": "Six tables and a zinc counter, with a two-group lever machine on it that is worth more than the lease. Photographs of the green hang on every wall, all slightly crooked. A shelf by the window holds board games with taped corners and an honesty jar. The roastery is through the back.",
   "exits": {
     "down": "zone_util_zone_grounds_cafe",
-    "north": "zone_district_906_908",
-    "south": "zone_grounds_roastery"
+    "south": "zone_grounds_roastery",
+    "west": "zone_district_908_907"
   },
   "flags": {
     "building_name": "Grounds for Concern",
@@ -20,7 +20,7 @@
       "name": "the front window",
       "visibility": 0.85
     },
-    "world_exit_zone": "zone_district_906_908"
+    "world_exit_zone": "zone_district_908_907"
   },
   "grid_x": 0,
   "grid_y": 0,
@@ -28,5 +28,5 @@
   "id": "zone_grounds_cafe",
   "map_id": "map_int_grounds",
   "name": "Grounds for Concern",
-  "parent_zone": "zone_district_906_908"
+  "parent_zone": "zone_district_908_907"
 }

@@ -2,7 +2,9 @@
 
 **Status: BUILT.** The corner café on Greenside Row, rebuilt in place with a roastery and a cellar,
 a GLASS arm of its own and a map icon, and a car park and a small garden on the plots where Pill
-Collins and Ohm Sweet Ohm stood. Built 2026-10-18.
+Collins and Ohm Sweet Ohm stood. Built 2026-10-18. On 2026-10-19 it moved to Any Port's plot at
+908,907 as an L round its own car park, Any Port moved behind the water tower, and its old plot
+was left to let (§6). §1 to §5 describe the first build; §6 says what the move changed.
 
 ## 1. What changed
 
@@ -79,4 +81,47 @@ Both arms are in [greenside.js](../../client/game/js/panels/glass/models/greensi
 ## 5. Not built
 
 - The roaster has no schedule: the cup steams at every hour.
-- The car park isn't parking. No vehicle a player drives can use it.
+- The car park isn't parking. No vehicle a player drives can use it. Neither is the café's own lot.
+
+## 6. The waterside swap *(as built, 2026-10-19)*
+
+| Tile | Was | Is |
+|---|---|---|
+| 910,906 | The Strand, a sand tile | **Any Port**, door west onto Meltwater Row (909,906), district `docks` |
+| 908,907 | Any Port | **Grounds for Concern**, door west onto the end of Greenside Row (907,907) |
+| 906,908 | Grounds for Concern | **Vacant Plot**, walkable, `building_type: vacant_plot`, `terrain: concrete` |
+
+[scripts/content/waterside-swap.mjs](../../scripts/content/waterside-swap.mjs) does all of it and
+is idempotent. Each facade took the tile's id, the way The Slip took the weigh-house's
+([marrow-midrises.md](marrow-midrises.md)): every room, map, door, connection, furniture row and
+NPC kept its id and follows the facade. The connection files keep their ids too, so
+`conn_district_906_908_south_rz25` now joins 908,907 to the café going east.
+
+- **"Behind" the water tower is north of it.** High Water Mark's door is south, onto Meltwater Row.
+  `sitecheck.mjs` passes 910,906, and its one road neighbour is Meltwater Row to the west, so that's
+  Any Port's door. The Strand still runs past it at 911,906.
+- **The café still faces Greenside Row.** The roastery is still south of the café inside, and on the
+  map it's the wing down Meltwater Row (908,908), so the two agree. Its back window looks onto the
+  car park now. Tobiah's "What happened next door?" became "Didn't you used to be up the road?".
+- **The plot is fenced on two sides.** It joins Greenside Row (north) and the old car park (west),
+  which now joins it back. Geometry projects links to Meltwater Row and Voss Avenue that its exits
+  don't have, so they're blocked connection files (`mint-connections.mjs --write`). The car park and
+  the garden lost their mentions of the café.
+
+### GLASS
+
+- **`groundscafe` is an L of two masses**: the café across the whole Greenside Row front, and the
+  roastery down the +x side (Meltwater Row) behind it. The door moved to the right of the big window
+  so it stays near the Meltwater Row corner, and the corner glazing turns onto +x. The cup sits on
+  the roastery roof; the flue climbs the roastery's lot wall. The Basin end of the café has one
+  window, and its lot side two.
+- **The car park is in the −x, −y corner**, in tile units like the `car_park` arm: tarmac out to
+  the quay edge, three bays nosed in to the roastery wall, two cars, the aisle and an arrow in from
+  Meltwater Row, bollards along the water, a lamp column and the P sign. The cars and the sign are
+  `parkedCar` and `lotSign`, shared with `car_park`.
+- **`vacant_plot`** is a type arm in the same file: the bare slab with the counter's strip and bolt
+  holes, the roaster's scorch, cracks and weeds, mesh fence panels on concrete feet on three sides
+  (one leaning), a gap to walk in by and a letting board. Registered in `TYPE_MODEL`,
+  `BLDG_TYPE_3D`, `TYPE_FLOORS` and `NO_KIT`; no map icon, as the car park has none.
+- After the move: `npm run shapes:bake` and `node scripts/snapshot-flight-world.mjs` (after a local
+  `content:import`).

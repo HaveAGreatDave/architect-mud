@@ -161,10 +161,10 @@
       ],
       "text": "\"Bishop's Blend, if you've got a minute to sit with it. House roast on the lever rig, short and thick.\" He nods at the case. \"And a butter tart. No raisins. Don't start.\""
     },
-    "nextdoor": {
+    "moved": {
       "options": [
         {
-          "label": "Where do I get medicine now?",
+          "label": "Where do I get medicine round here?",
           "next": "chemist"
         },
         {
@@ -172,7 +172,7 @@
           "next": "root"
         }
       ],
-      "text": "\"The chemist and Teodor's stall went the same month. Perpetua retired, and Teodor sold his boards to the Clinkerman at Slag & Wares.\" He shrugs. \"The landlord put a car park on one and grass on the other. I got the car park.\""
+      "text": "\"Greenside Row, by the gardens. The harbour office went round behind the water tower, and its plot came with a car park and a view of the Basin, so I took it.\" He looks at the roaster. \"Moving that took four men and a morning I won't get back.\""
     },
     "roaster": {
       "options": [
@@ -198,8 +198,8 @@
           "next": "roaster"
         },
         {
-          "label": "What happened next door?",
-          "next": "nextdoor"
+          "label": "Didn't you used to be up the road?",
+          "next": "moved"
         },
         {
           "actions": [],

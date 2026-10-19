@@ -8,7 +8,7 @@
   "flags": {
     "is_building": true,
     "is_interior": true,
-    "world_exit_zone": "zone_district_908_907"
+    "world_exit_zone": "zone_district_910_906"
   },
   "grid_x": 1,
   "grid_y": 0,
@@ -16,5 +16,5 @@
   "id": "zone_bld_908_907_loft",
   "map_id": "map_int_bld_908_907",
   "name": "The Signal Loft",
-  "parent_zone": "zone_district_908_907"
+  "parent_zone": "zone_district_910_906"
 }

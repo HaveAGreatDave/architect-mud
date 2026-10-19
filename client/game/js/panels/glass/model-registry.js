@@ -399,6 +399,8 @@ export const TYPE_MODEL = {
   // A car park is ground, not a building: paint, kerbs, a lamp and parked cars (glass/models/greenside.js).
   car_park:         { type: 'car_park',  pal: 'ty_yard_tarmac' },
   staff_lot:        { type: 'car_park',  pal: 'ty_yard_tarmac' },   // the Codfather's staff car park, the same lot
+  // An empty plot to let: a bare slab behind mesh fencing and a letting board (glass/models/greenside.js).
+  vacant_plot:      { type: 'vacant_plot', pal: 'ty_quay_deck' },
   chip_shop:        { type: 'shop',      pal: 'ty_unit_brick', neon: '#ffd27a' },
   butcher:          { type: 'butcher',   pal: 'ty_butcher', neon: '#ff3e4a' },
   // St Garneau's. NO NEON, and that is the point: it is the one building on the

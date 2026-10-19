@@ -1,13 +1,15 @@
-// Greenside Row: Grounds for Concern, the corner café, and the car park beside it.
+// Greenside Row: Grounds for Concern, the corner café, its old car park, and the plot it left.
 //
 // Every arm takes drawTypeModelArm's arguments and its prologue locals, in this order:
 //   (ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis)
 // How a tile becomes a building is in docs/reference/world-rendering.md; the content is written by
-// scripts/content/grounds-for-concern.mjs and described in docs/proposals/grounds-for-concern.md.
+// scripts/content/grounds-for-concern.mjs and scripts/content/waterside-swap.mjs, and described in
+// docs/proposals/grounds-for-concern.md.
 //
 // `car_park` is a TYPE arm and carries nothing of Coldwater's: any walkable lot tile with
 // `building_type: car_park` draws through it (the Codfather's staff lot points at it too).
 // `groundscafe` is bound to the café by name in NAMED_MODELS, with `trade: 'coffee_shop'`.
+// `vacant_plot` is a TYPE arm like the car park: a walkable plot to let, with nothing of Coldwater's.
 import {
   DETAIL_LIFT, FACE_EPS, MESH_SINK, SHAPE_SINK, bakeSignText, clamp, draw3DBoxAt, drawFacetDrum,
   drawSmoke, emitFlat, emitSurfaceText, emitWire, faceYaw, glowPool, groundPaint, marqueeBand,
@@ -80,67 +82,104 @@ function roofCup(ctx, cam, F, W3, cx, cy, z0, seed, night, alpha, now, E) {
   }
 }
 
+// ── A PARKED CAR AND THE LOT SIGN ─────────────────────────────────────────────────────────────
+// Shared by the car park and the café's own lot, in tile units. `box` is the arm's box closure.
+// A car is long in x and noses in toward +x: four wheels, the body, the glasshouse set back toward
+// the tail, and its roof. `s0` offsets the seeds so two lots don't shade their cars alike.
+function parkedCar(box, cx, cy, paintPal, i, s0 = 0) {
+  const SLAB = 0.006;
+  for (const wx of [-0.075, 0.075]) for (const wy of [-0.044, 0.044]) box(cx + wx, cy + wy, 0.018, SLAB, SLAB + 0.020, 'ty_door', s0 + 20 + i * 4, true, 0.007);
+  box(cx, cy, 0.118, SLAB + 0.010, SLAB + 0.040, paintPal, s0 + 30 + i, true, 0.046);           // the body
+  box(cx - 0.012, cy, 0.064, SLAB + 0.040, SLAB + 0.066, 'ty_yacht_glass', s0 + 40 + i, false, 0.039);   // the glasshouse
+  box(cx - 0.012, cy, 0.060, SLAB + 0.066, SLAB + 0.069, paintPal, s0 + 50 + i, true, 0.037);    // the roof
+}
+// The sign at a lot's way in: a white P on blue and CUSTOMERS ONLY under it, on a post. `side` +1
+// faces +y, −1 faces −y, and `show` is the arm's own test that its face is toward the camera.
+function lotSign(ctx, cam, F, W3, box, sx, sy, side, h, alpha, dn, night, show, s0) {
+  const sz0 = h * 0.42, sz1 = h * 0.66, sw = 0.034, yf = sy + side * 0.0045;
+  box(sx, sy, 0.005, 0, sz0, 'ty_pier_steel', s0, true, 0.005);
+  box(sx, sy, sw, sz0, sz1, 'ty_door', s0 + 1, true, 0.004);
+  flat(ctx, cam, W3, [[sx - sw * 0.92, yf, sz1 - 0.003], [sx + sw * 0.92, yf, sz1 - 0.003], [sx + sw * 0.92, yf, sz0 + 0.003], [sx - sw * 0.92, yf, sz0 + 0.003]], [0, side, 0], [34, 78, 156], alpha, dn, [60, 110, 200]);
+  if (!show) return;
+  const tex = bakeSignText('P', '#ffffff', night ? 1 : 0, false, true, true, { font: 'condensed', sub: 'CUSTOMERS ONLY' });
+  if (!tex) return;
+  // Read from its own side, left to right: from −y the viewer's right is −x.
+  const u = sw * 0.8 * side;
+  const q = [[-u, sz1 - 0.006], [u, sz1 - 0.006], [u, sz0 + 0.006], [-u, sz0 + 0.006]]
+    .map(([du, zz]) => { const [wx, wy] = F(sx + du, sy + side * 0.0055); return cam.proj(wx, wy, zz); });
+  if (q.every((p) => p.f > 0.12)) emitSurfaceText(ctx, cam, q, tex, false, alpha, DETAIL_LIFT * 2, false, DETAIL_LIFT * 2.4);
+}
+
 export const GREENSIDE_ARMS = {
   // ══ GROUNDS FOR CONCERN ═════════════════════════════════════════════════════════════════════
-  // The brief is the facade prose (zone_district_906_908): a one-storey brick café on the corner of
-  // Greenside Row and Meltwater Row, glazed along both streets under a green and cream striped
-  // awning, two tables out front, a white cup on the roof that steams when they roast, and the car
-  // park to the west. The frontage reads in order from the corner: the corner window, the door, the
-  // big window with the tables under the awning, then the car park side with the roaster's flue.
+  // The brief is the facade prose (zone_district_908_907): a one-storey brick café on the corner of
+  // Greenside Row and Meltwater Row, built in an L round its own car park with the Basin behind it,
+  // glazed along Greenside Row under a green and cream striped awning, the roastery running back
+  // down Meltwater Row, and a white cup on the roof that steams when they roast.
   //
-  // Local frame: +y is Greenside Row, +x is the door's right (the car park), −x the Meltwater Row
-  // corner, −y the back on Voss Avenue. All four are streets or the lot, so all four are drawn.
+  // Local frame: +y is Greenside Row (the door), +x the Meltwater Row corner, −x the Basin, −y the
+  // stretch of Meltwater Row the car park opens onto. The L is two masses: THE CAFÉ across the whole
+  // front, and THE ROASTERY down the +x side behind it. The car park fills the −x, −y corner.
   //
   // ⚠ THE BOX IS SET BACK FROM THE STREET, and so is everything on its front: the front wall is at
-  // `WF`, not `fh`, which leaves the pavement in front of it for the tables. Anything mounted on the
-  // front is measured from `WF`.
+  //    `WF`, not `fh`, which leaves the pavement in front of it for the tables. Anything mounted on
+  //    the front is measured from `WF`.
+  // ⚠ THE CAR PARK IS IN TILE UNITS, the `car_park` arm's reason: a car is a car whatever the tile
+  //    rolled. Its edges that meet the building are the building's (`XM`, `YM`, in `fh`), so every
+  //    measure in it is still affine.
   groundscafe(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {
     const dn = night ? clamp(night, 0, 1) : 0, near = nearOrMesh();
     const YAW = faceYaw(E);
     const BRICK = pal || 'ty_gfc_brick', GREEN = 'ty_gfc_green', CREAM = 'ty_gfc_cream';
-    const BX = fh * 0.92, WF = fh * 0.70, WB = -fh * 0.92;          // the box across, its front, its back
-    const FD = (WF - WB) / 2, CY = (WF + WB) / 2;                    // half-depth and centre in local y
+    const BX = fh * 0.92, WF = fh * 0.70, WB = -fh * 0.92;          // the front's half-width, its face, the roastery's back
+    const YM = fh * 0.02, XM = fh * 0.18;                             // the inside corner: the café's back wall, the roastery's lot wall
     const plinth = h * 0.06, wallTop = h * 1.00, cornice = h * 1.06, roofZ = h * 1.17;
     const sill = h * 0.13, glassTop = h * 0.64, clere0 = h * 0.68, clere1 = h * 0.78, fascia0 = h * 0.81;
     const box = (lx, ly, hw, z0, z1, p, s, roof, hd) => { const [x, y] = F(lx, ly); draw3DBoxAt(ctx, cam, x, y, hw, z0, z1, p, seed + s, night, alpha, roof, YAW, hd); };
+    const paint = (x0, y0, x1, y1, z, fill) => groundPaint(ctx, cam, [F(x0, y0), F(x1, y0), F(x1, y1), F(x0, y1)], z, fill, alpha);
     const GLASS_DAY = [62, 78, 76], GLASS_LIT = [255, 214, 158], CLERE_DAY = [92, 104, 98], CLERE_LIT = [255, 226, 180];
 
-    // 1) THE SHELL: a dark plinth, red brick to the cornice, a cream cornice, and a brick parapet
-    //    under a cream coping. One storey, so the silhouette is the parapet and the cup on it.
-    box(0, CY, BX * 1.02, 0, plinth, 'ty_dw_slate', 1, false, FD * 1.02);
-    box(0, CY, BX, plinth, wallTop, BRICK, 0, false, FD);
-    box(0, CY, BX * 1.035, wallTop, cornice, CREAM, 2, false, FD * 1.035);
-    box(0, CY, BX * 0.99, cornice, roofZ - h * 0.03, BRICK, 3, false, FD * 0.99);
-    box(0, CY, BX * 1.01, roofZ - h * 0.03, roofZ, CREAM, 4, true, FD * 1.01);
+    // 1) THE SHELL, both wings: a dark plinth, red brick to the cornice, a cream cornice, and a brick
+    //    parapet under a cream coping. One storey, so the silhouette is the parapet and the cup on it.
+    //    [centre x, centre y, half x, half y] per wing; the cornice and coping stand a little proud.
+    const WINGS = [[0, (WF + YM) / 2, BX, (WF - YM) / 2], [(XM + BX) / 2, (YM + WB) / 2, (BX - XM) / 2, (YM - WB) / 2]];
+    WINGS.forEach(([cx, cy, hx, hy], i) => {
+      const k = i * 5, o = fh * 0.018;
+      box(cx, cy, hx + o * 0.6, 0, plinth, 'ty_dw_slate', 1 + k, false, hy + o * 0.6);
+      box(cx, cy, hx, plinth, wallTop, BRICK, 0 + k, false, hy);
+      box(cx, cy, hx + o, wallTop, cornice, CREAM, 2 + k, false, hy + o);
+      box(cx, cy, hx - o * 0.3, cornice, roofZ - h * 0.03, BRICK, 3 + k, false, hy - o * 0.3);
+      box(cx, cy, hx + o * 0.3, roofZ - h * 0.03, roofZ, CREAM, 4 + k, true, hy + o * 0.3);
+    });
 
     // 2) THE SHOPFRONT, Greenside Row. A green timber frame standing proud of the brick: a stallriser,
     //    the glass, a transom, a clerestory band lit from the café after dark, and the fascia over it
-    //    all with the name. The door is left of the big window, near the corner.
+    //    all with the name. The door is right of the big window, near the Meltwater Row corner.
     // ⚠ THE GLASS IS UNLIT FACES, NOT A PALETTE SLAB, the terminal's reason: after dark it is a lit room
     //    seen from outside and must hold its warm fill, which a palette slab would dim.
-    const DX = -fh * 0.50, DW = fh * 0.085;                           // the door's centre and half-width
-    const panes = [[-BX * 0.94, DX - DW - fh * 0.05], [DX + DW + fh * 0.05, BX * 0.94]];
+    const DX = fh * 0.50, DW = fh * 0.085;                            // the door's centre and half-width
+    const BIG = [-BX * 0.94, DX - DW - fh * 0.05], SMALL = [DX + DW + fh * 0.05, BX * 0.94];
     const yG = WF + fh * 0.012;
     box(0, WF + fh * 0.012, BX * 0.97, plinth, sill, GREEN, 10, true, fh * 0.014);                 // the stallriser
     box(0, WF + fh * 0.016, BX * 0.98, fascia0, wallTop, GREEN, 11, false, fh * 0.018);           // the fascia board
-    for (const [a, b] of panes) {
+    for (const [a, b] of [BIG, SMALL]) {
       flat(ctx, cam, W3, [[a, yG + 0.002, glassTop], [b, yG + 0.002, glassTop], [b, yG + 0.002, sill], [a, yG + 0.002, sill]], [0, 1, 0], GLASS_DAY, alpha, dn, GLASS_LIT);
     }
     flat(ctx, cam, W3, [[-BX * 0.94, yG + 0.002, clere1], [BX * 0.94, yG + 0.002, clere1], [BX * 0.94, yG + 0.002, clere0], [-BX * 0.94, yG + 0.002, clere0]], [0, 1, 0], CLERE_DAY, alpha, dn, CLERE_LIT);
     // The frame: a transom bar, a head under the fascia, and mullions splitting the big window in three.
     box(0, WF + fh * 0.022, BX * 0.95, glassTop, clere0, GREEN, 12, true, fh * 0.012);
     box(0, WF + fh * 0.022, BX * 0.95, clere1, fascia0, GREEN, 13, true, fh * 0.012);
-    { const [a, b] = panes[1];
+    { const [a, b] = BIG;
       for (const t of [0, 1 / 3, 2 / 3, 1]) box(a + (b - a) * t, WF + fh * 0.024, fh * 0.012, sill, fascia0, GREEN, 14, false, fh * 0.012); }
-    for (const x of [panes[0][0], panes[0][1]]) box(x, WF + fh * 0.024, fh * 0.012, sill, fascia0, GREEN, 15, false, fh * 0.012);
-    // Inside, after dark: pendant lamps over the tables, and the counter's light along the back.
+    for (const x of SMALL) box(x, WF + fh * 0.024, fh * 0.012, sill, fascia0, GREEN, 15, false, fh * 0.012);
+    // Inside, after dark: pendant lamps over the tables, and the light on the pavement under the windows.
     if (night) {
       for (const t of [0.2, 0.5, 0.8]) {
-        const [gx, gy] = F(panes[1][0] + (panes[1][1] - panes[1][0]) * t, WF - fh * 0.12);
+        const [gx, gy] = F(BIG[0] + (BIG[1] - BIG[0]) * t, WF - fh * 0.12);
         glowPool(ctx, cam, gx, gy, glassTop * 0.92, '255,206,140', 8, alpha * 0.45 * dn);
       }
       const [wx, wy] = F(0, WF + fh * 0.12);
-      glowPool(ctx, cam, wx, wy, plinth + 0.004, '255,214,160', 18, alpha * 0.28 * dn);   // the pavement under the windows
+      glowPool(ctx, cam, wx, wy, plinth + 0.004, '255,214,160', 18, alpha * 0.28 * dn);
     }
     drawEntrance(ctx, cam, F, W3, E, seed, night, alpha, {
       x: DX, y: WF + fh * 0.012, w: DW, z0: plinth, top: glassTop, leaves: 1, frameW: fh * 0.014, depth: 0.006,
@@ -151,12 +190,12 @@ export const GREENSIDE_ARMS = {
     //    the front wall is `WF` and `marqueeBand`'s half-width is also its stand-off.
     const SGN = fh * 0.46, sgnZ = (fascia0 + wallTop) / 2, sgnRoom = { floor: fascia0, wallTop, wall: SGN };
     reserveSignBand(SGN, sgnZ, sgnRoom);   // nothing the kit hangs may cross the name
-    if (frontVis) { const [nx, ny] = F(fh * 0.20, WF + fh * 0.03 - SGN); marqueeBand(ctx, cam, nx, ny, E, SGN, sgnZ, m.neon || '#ffd9a0', night, alpha, undefined, sgnRoom); }
+    if (frontVis) { const [nx, ny] = F(-fh * 0.20, WF + fh * 0.03 - SGN); marqueeBand(ctx, cam, nx, ny, E, SGN, sgnZ, m.neon || '#ffd9a0', night, alpha, undefined, sgnRoom); }
 
     // 4) THE AWNING over the big window and the door: green and cream stripes sloping out from under
     //    the clerestory to a scalloped valance, on two folding arms. Paint and cloth, so adornment.
     {
-      const a = DX - DW - fh * 0.02, b = BX * 0.95, yW = WF + fh * 0.03, yL = WF + fh * 0.21;
+      const a = -BX * 0.95, b = DX + DW + fh * 0.02, yW = WF + fh * 0.03, yL = WF + fh * 0.21;
       const zW = clere0 - h * 0.005, zL = glassTop - h * 0.03, val = h * 0.04, n = 9;
       const STRIPE = [[46, 88, 62], [226, 214, 188]];
       for (let i = 0; i < n; i++) {
@@ -171,14 +210,14 @@ export const GREENSIDE_ARMS = {
     }
 
     // 5) THE TABLES OUT FRONT: two bistro tables on the pavement under the awning, two chairs each.
-    for (const [i, tx] of [[0, fh * 0.12], [1, fh * 0.58]]) {
+    for (const [i, tx] of [[0, -fh * 0.12], [1, -fh * 0.58]]) {
       const [tX, tY] = F(tx, WF + fh * 0.17), r = fh * 0.05;
       drawFacetDrum(ctx, cam, tX, tY, 0, h * 0.20, r * 0.12, r * 0.12, 6, alpha, drumSkin([44, 46, 48], 1 - 0.5 * dn), null, 'ty_door');
       drawFacetDrum(ctx, cam, tX, tY, h * 0.20, h * 0.215, r, r, 12, alpha, drumSkin([214, 210, 200], 1 - 0.5 * dn), 'rgb(220,216,206)', 'ty_fuel_white');
       for (const s of [-1, 1]) box(tx + s * r * 1.9, WF + fh * 0.17, fh * 0.028, 0, h * 0.13, GREEN, 20 + i * 2 + (s > 0 ? 1 : 0), true, fh * 0.028);
     }
     // The chalk board by the door: four lines chalked on it and three of them struck through.
-    { const bx = DX + DW + fh * 0.10, by = WF + fh * 0.13, bw = fh * 0.045, bz0 = h * 0.015, bz1 = h * 0.30;
+    { const bx = DX - DW - fh * 0.10, by = WF + fh * 0.13, bw = fh * 0.045, bz0 = h * 0.015, bz1 = h * 0.30;
       box(bx, by, bw, 0, bz1, 'ty_door', 30, true, fh * 0.010);
       if (near && frontVis) {
         const yb = by + fh * 0.010 + 0.0015;
@@ -190,57 +229,100 @@ export const GREENSIDE_ARMS = {
       } }
 
     // 6) THE CORNER: the window turns onto Meltwater Row, so the café reads as glass from the junction,
-    //    and a bench stands under it. The back half of the flank is the roastery: brick, one high window.
+    //    and a bench stands under it. Past the café the flank is the roastery: brick, one high window.
     {
-      const xF = -BX - fh * 0.012, y0 = WF - fh * 0.10, y1 = -fh * 0.25, near1 = WF - fh * 0.02;
-      box(-BX - fh * 0.012, (near1 + y1) / 2, fh * 0.014, plinth, sill, GREEN, 40, true, (near1 - y1) / 2);
-      box(-BX - fh * 0.016, (near1 + y1) / 2, fh * 0.018, fascia0, wallTop, GREEN, 41, false, (near1 - y1) / 2);
-      flat(ctx, cam, W3, [[xF - 0.002, y0, glassTop], [xF - 0.002, y1, glassTop], [xF - 0.002, y1, sill], [xF - 0.002, y0, sill]], [-1, 0, 0], GLASS_DAY, alpha, dn, GLASS_LIT);
-      flat(ctx, cam, W3, [[xF - 0.002, near1, clere1], [xF - 0.002, y1, clere1], [xF - 0.002, y1, clere0], [xF - 0.002, near1, clere0]], [-1, 0, 0], CLERE_DAY, alpha, dn, CLERE_LIT);
-      for (const t of [0, 0.5, 1]) box(-BX - fh * 0.022, y0 + (y1 - y0) * t, fh * 0.012, sill, fascia0, GREEN, 42, false, fh * 0.012);
-      box(-BX - fh * 0.022, (near1 + y1) / 2, fh * 0.012, glassTop, clere0, GREEN, 43, true, (near1 - y1) / 2);
-      box(-BX - fh * 0.11, (y0 + y1) / 2, fh * 0.035, 0, h * 0.11, 'ty_dw_timber', 44, true, (y0 - y1) * 0.32);   // the bench
-      flat(ctx, cam, W3, [[xF, -fh * 0.52, h * 0.70], [xF, -fh * 0.74, h * 0.70], [xF, -fh * 0.74, h * 0.52], [xF, -fh * 0.52, h * 0.52]], [-1, 0, 0], [70, 60, 50], alpha, dn, [236, 168, 96]);
-      if (night) { const [gx, gy] = F(-BX - fh * 0.12, (y0 + y1) / 2); glowPool(ctx, cam, gx, gy, glassTop * 0.6, '255,210,150', 12, alpha * 0.35 * dn); }
+      const xF = BX + fh * 0.012, y0 = WF - fh * 0.10, y1 = YM + fh * 0.06, near1 = WF - fh * 0.02;
+      box(BX + fh * 0.012, (near1 + y1) / 2, fh * 0.014, plinth, sill, GREEN, 40, true, (near1 - y1) / 2);
+      box(BX + fh * 0.016, (near1 + y1) / 2, fh * 0.018, fascia0, wallTop, GREEN, 41, false, (near1 - y1) / 2);
+      flat(ctx, cam, W3, [[xF + 0.002, y0, glassTop], [xF + 0.002, y1, glassTop], [xF + 0.002, y1, sill], [xF + 0.002, y0, sill]], [1, 0, 0], GLASS_DAY, alpha, dn, GLASS_LIT);
+      flat(ctx, cam, W3, [[xF + 0.002, near1, clere1], [xF + 0.002, y1, clere1], [xF + 0.002, y1, clere0], [xF + 0.002, near1, clere0]], [1, 0, 0], CLERE_DAY, alpha, dn, CLERE_LIT);
+      for (const t of [0, 0.5, 1]) box(BX + fh * 0.022, y0 + (y1 - y0) * t, fh * 0.012, sill, fascia0, GREEN, 42, false, fh * 0.012);
+      box(BX + fh * 0.022, (near1 + y1) / 2, fh * 0.012, glassTop, clere0, GREEN, 43, true, (near1 - y1) / 2);
+      box(BX + fh * 0.11, (y0 + y1) / 2, fh * 0.035, 0, h * 0.11, 'ty_dw_timber', 44, true, (y0 - y1) * 0.32);   // the bench
+      const xR = BX + fh * 0.004;
+      flat(ctx, cam, W3, [[xR, -fh * 0.40, h * 0.70], [xR, -fh * 0.62, h * 0.70], [xR, -fh * 0.62, h * 0.52], [xR, -fh * 0.40, h * 0.52]], [1, 0, 0], [70, 60, 50], alpha, dn, [236, 168, 96]);
+      if (night) { const [gx, gy] = F(BX + fh * 0.12, (y0 + y1) / 2); glowPool(ctx, cam, gx, gy, glassTop * 0.6, '255,210,150', 12, alpha * 0.35 * dn); }
+    }
+    // The Basin end of the café: one window in a green frame, looking out over the water.
+    {
+      const xF = -BX - fh * 0.004, yc = (WF + YM) / 2;
+      box(-BX - fh * 0.008, yc, fh * 0.010, sill - h * 0.01, glassTop + h * 0.02, GREEN, 45, true, fh * 0.13);
+      flat(ctx, cam, W3, [[xF - 0.012 * fh, yc + fh * 0.11, glassTop], [xF - 0.012 * fh, yc - fh * 0.11, glassTop], [xF - 0.012 * fh, yc - fh * 0.11, sill], [xF - 0.012 * fh, yc + fh * 0.11, sill]], [-1, 0, 0], GLASS_DAY, alpha, dn, GLASS_LIT);
     }
 
-    // 7) THE CAR PARK SIDE: two windows into the café, and the roaster's flue. It comes out of the
-    //    roastery low on the wall, climbs the brick on brackets, turns over the parapet and runs across
-    //    the roof into the cup's plinth, which is why the cup steams.
-    const CUPX = fh * 0.10, CUPY = -fh * 0.30;
+    // 7) THE CAR PARK SIDE of the café: two windows into it, between the Basin end and the roastery.
     {
-      const xF = BX + fh * 0.004;
-      for (const yc of [WF - fh * 0.32, WF - fh * 0.70]) {
-        box(BX + fh * 0.008, yc, fh * 0.010, sill - h * 0.01, glassTop + h * 0.02, GREEN, 50, true, fh * 0.11);
-        flat(ctx, cam, W3, [[xF + fh * 0.012, yc + fh * 0.09, glassTop], [xF + fh * 0.012, yc - fh * 0.09, glassTop], [xF + fh * 0.012, yc - fh * 0.09, sill], [xF + fh * 0.012, yc + fh * 0.09, sill]], [1, 0, 0], GLASS_DAY, alpha, dn, GLASS_LIT);
+      const yF = YM - fh * 0.004;
+      for (const xc of [-fh * 0.66, -fh * 0.26]) {
+        box(xc, YM - fh * 0.008, fh * 0.12, sill - h * 0.01, glassTop + h * 0.02, GREEN, 50, true, fh * 0.010);
+        flat(ctx, cam, W3, [[xc - fh * 0.10, yF - fh * 0.012, glassTop], [xc + fh * 0.10, yF - fh * 0.012, glassTop], [xc + fh * 0.10, yF - fh * 0.012, sill], [xc - fh * 0.10, yF - fh * 0.012, sill]], [0, -1, 0], GLASS_DAY, alpha, dn, GLASS_LIT);
       }
-      const r = fh * 0.035, fx = BX + r + fh * 0.01, fz1 = roofZ + h * 0.10;
+    }
+
+    // 8) THE ROASTERY'S LOT WALL and the flue. It comes out of the roastery low on the wall, climbs
+    //    the brick on brackets, turns over the parapet and runs across the roof into the cup's plinth,
+    //    which is why the cup steams. A small window beside it, filmed brown.
+    const CUPX = (XM + BX) / 2, CUPY = -fh * 0.34;
+    {
+      const r = fh * 0.035, fx = XM - r - fh * 0.01, fz1 = roofZ + h * 0.10;
+      const xW = XM - fh * 0.004;
+      flat(ctx, cam, W3, [[xW, -fh * 0.06, h * 0.58], [xW, -fh * 0.20, h * 0.58], [xW, -fh * 0.20, h * 0.36], [xW, -fh * 0.06, h * 0.36]], [-1, 0, 0], [84, 66, 44], alpha, dn, [214, 150, 84]);
       const [qx, qy] = F(fx, CUPY);
       drawFacetDrum(ctx, cam, qx, qy, h * 0.30, fz1, r, r, 10, alpha, drumSkin([176, 182, 186], 1 - 0.5 * dn), null, 'ty_wh_metal');
-      box(BX + fh * 0.02, CUPY, fh * 0.03, h * 0.24, h * 0.36, 'ty_wh_metal', 51, true, fh * 0.06);    // where it leaves the roastery
+      box(XM - fh * 0.02, CUPY, fh * 0.03, h * 0.24, h * 0.36, 'ty_wh_metal', 51, true, fh * 0.06);    // where it leaves the roastery
       // Across the roof, square duct on two stands, into the plinth.
-      const runA = fx + r, runB = CUPX + 0.05, zd0 = fz1 - r * 2, zd1 = fz1;
-      box((runA + runB) / 2, CUPY, (runA - runB) / 2, zd0, zd1, 'ty_wh_metal', 52, true, r);
-      for (const t of [0.3, 0.75]) box(runB + (runA - runB) * t, CUPY, fh * 0.012, roofZ, zd0, 'ty_wh_metal', 53, false, fh * 0.012);
+      const runA = fx - r, runB = CUPX - 0.05, zd0 = fz1 - r * 2, zd1 = fz1;
+      box((runA + runB) / 2, CUPY, (runB - runA) / 2, zd0, zd1, 'ty_wh_metal', 52, true, r);
+      for (const t of [0.35, 0.75]) box(XM + (runB - XM) * t, CUPY, fh * 0.012, roofZ, zd0, 'ty_wh_metal', 53, false, fh * 0.012);
       if (near) for (const z of [h * 0.50, h * 0.78]) {
-        emitWire(ctx, cam, W3(BX, CUPY - r, z), W3(fx, CUPY - r, z), 1.4, 'rgba(60,64,66,0.95)', alpha, { pull: 0.02 });
-        emitWire(ctx, cam, W3(BX, CUPY + r, z), W3(fx, CUPY + r, z), 1.4, 'rgba(60,64,66,0.95)', alpha, { pull: 0.02 });
+        emitWire(ctx, cam, W3(XM, CUPY - r, z), W3(fx, CUPY - r, z), 1.4, 'rgba(60,64,66,0.95)', alpha, { pull: 0.02 });
+        emitWire(ctx, cam, W3(XM, CUPY + r, z), W3(fx, CUPY + r, z), 1.4, 'rgba(60,64,66,0.95)', alpha, { pull: 0.02 });
       }
     }
     roofCup(ctx, cam, F, W3, CUPX, CUPY, roofZ, seed, night, alpha, now, E);
 
-    // 8) THE BACK on Voss Avenue: the roastery's steel door, a pallet of jute sacks waiting to go in,
-    //    and two bins.
+    // 9) THE ROASTERY'S BACK on Meltwater Row: its steel door, a pallet of jute sacks waiting to go in,
+    //    and a bin.
     {
       const yF = WB - fh * 0.004;
-      flat(ctx, cam, W3, [[fh * 0.30, yF, plinth], [fh * 0.08, yF, plinth], [fh * 0.08, yF, h * 0.58], [fh * 0.30, yF, h * 0.58]], [0, -1, 0], [44, 66, 52], alpha, dn);
-      if (night) emitWire(ctx, cam, W3(fh * 0.19, yF - 0.002, plinth + 0.003), W3(fh * 0.19, yF - 0.002, h * 0.56), 1.6, 'rgba(255,200,140,0.9)', alpha, { pull: 0.02, glow: 4, glowCss: 'rgb(255,200,140)' });
-      box(fh * 0.62, WB - fh * 0.12, fh * 0.13, 0, h * 0.035, 'ty_pallet', 60, true, fh * 0.09);
-      for (const [k, sx, sy, sz] of [[0, 0.54, -0.10, 0], [1, 0.70, -0.10, 0], [2, 0.62, -0.13, 1]]) {
+      flat(ctx, cam, W3, [[fh * 0.80, yF, plinth], [fh * 0.58, yF, plinth], [fh * 0.58, yF, h * 0.58], [fh * 0.80, yF, h * 0.58]], [0, -1, 0], [44, 66, 52], alpha, dn);
+      if (night) emitWire(ctx, cam, W3(fh * 0.69, yF - 0.002, plinth + 0.003), W3(fh * 0.69, yF - 0.002, h * 0.56), 1.6, 'rgba(255,200,140,0.9)', alpha, { pull: 0.02, glow: 4, glowCss: 'rgb(255,200,140)' });
+      box(fh * 0.43, WB - fh * 0.11, fh * 0.10, 0, h * 0.035, 'ty_pallet', 60, true, fh * 0.08);
+      for (const [k, sx, sz] of [[0, 0.37, 0], [1, 0.49, 0], [2, 0.43, 1]]) {
         const z0 = h * 0.035 + sz * h * 0.085;
-        box(fh * sx, WB - fh * 0.12 + fh * sy * 0.2, fh * 0.075, z0, z0 + h * 0.085, 'ty_sw_hide', 61 + k, true, fh * 0.06);
+        box(fh * sx, WB - fh * 0.11, fh * 0.06, z0, z0 + h * 0.085, 'ty_sw_hide', 61 + k, true, fh * 0.055);
       }
-      for (const bx of [-fh * 0.40, -fh * 0.60]) box(bx, WB - fh * 0.08, fh * 0.07, 0, h * 0.24, 'ty_helpings', 65, true, fh * 0.06);
+      box(fh * 0.25, WB - fh * 0.09, fh * 0.06, 0, h * 0.24, 'ty_helpings', 65, true, fh * 0.06);
+    }
+
+    // 10) THE CAR PARK, in the corner of the L: tarmac out to the Basin, three bays nosed in to the
+    //     roastery wall with a stop at the head of each, two cars, the aisle in from Meltwater Row with
+    //     an arrow on it, bollards along the water, a lamp column and the P sign at the way in.
+    {
+      const SLAB = 0.006, KERB = 0.016, z = SLAB + 0.0012;
+      const LX0 = -0.465, LX1 = XM - fh * 0.03, LY0 = -0.465, LY1 = YM - fh * 0.03;
+      const LINE = dn > 0.5 ? 'rgba(200,204,206,0.62)' : 'rgba(236,238,236,0.80)';
+      box((LX0 + LX1) / 2, (LY0 + LY1) / 2, (LX1 - LX0) / 2, 0, SLAB, 'ty_yard_tarmac', 70, true, (LY1 - LY0) / 2);
+      box(LX0 - 0.006, (LY0 + LY1) / 2, 0.010, 0, KERB, 'ty_quay_deck', 71, true, (LY1 - LY0) / 2);   // the quay edge
+      const BAY = 0.13, STOP = LX1 - 0.035, BY0 = LY1 - 0.02;
+      for (let i = 0; i <= 3; i++) paint(STOP - 0.27, BY0 - i * BAY - 0.004, STOP + 0.02, BY0 - i * BAY + 0.004, z, LINE);
+      for (let i = 0; i < 3; i++) box(STOP, BY0 - (i + 0.5) * BAY, 0.010, SLAB, SLAB + 0.008, 'ty_quay_deck', 72 + i, true, 0.045);
+      for (const [i, paintPal] of [[0, 'ty_crane_cab'], [2, 'ty_fuel_red']]) parkedCar(box, STOP - 0.125, BY0 - (i + 0.5) * BAY, paintPal, i, 100);
+      // The aisle and the way in at the −y end, with an arrow pointing in.
+      const AX = (LX0 + STOP - 0.27) / 2;
+      paint(AX - 0.025, LY0 + 0.05, AX + 0.025, LY0 + 0.19, z, 'rgba(236,238,236,0.55)');
+      groundPaint(ctx, cam, [F(AX - 0.06, LY0 + 0.19), F(AX + 0.06, LY0 + 0.19), F(AX, LY0 + 0.27)], z, 'rgba(236,238,236,0.55)', alpha);
+      box((STOP - 0.25 + LX1) / 2, LY0 - 0.006, (LX1 - STOP + 0.25) / 2, 0, KERB, 'ty_quay_deck', 76, true, 0.010);   // the kerb either side of the way in
+      for (const by of [LY1 - 0.06, (LY0 + LY1) / 2, LY0 + 0.08]) {
+        const [px, py] = F(LX0 + 0.02, by);
+        drawFacetDrum(ctx, cam, px, py, 0, h * 0.20, 0.011, 0.011, 8, alpha, drumSkin([58, 62, 66], 1 - 0.5 * dn), 'rgb(220,200,90)', 'ty_pier_steel');
+      }
+      { const [lx, ly] = F(LX0 + 0.04, LY0 + 0.04), top = h * 1.30;
+        drawFacetDrum(ctx, cam, lx, ly, 0, top, 0.009, 0.007, 8, alpha, drumSkin([96, 104, 112], 1 - 0.5 * dn), null, 'ty_pier_steel');
+        box(LX0 + 0.08, LY0 + 0.04, 0.045, top - 0.012, top, 'ty_pier_steel', 77, true, 0.016);
+        glowPool(ctx, cam, ...F(LX0 + 0.12, LY0 + 0.04), top - 0.014, '255,224,176', 9, alpha * (night ? 0.7 : 0.1));
+        if (night) glowPool(ctx, cam, ...F(AX, (LY0 + LY1) / 2), SLAB + 0.003, '255,214,160', 26, alpha * 0.32 * dn); }
+      lotSign(ctx, cam, F, W3, box, STOP - 0.22, LY0 - 0.02, -1, h, alpha, dn, night, !frontVis, 140);
     }
   },
 
@@ -278,37 +360,109 @@ export const GREENSIDE_ARMS = {
     // 3) The wheel stops, one at the head of each bay.
     for (let i = 0; i < 5; i++) box(0.425, Y0 + (i + 0.5) * BAY, 0.010, SLAB, SLAB + 0.008, 'ty_quay_deck', 10 + i, true, 0.045);
     // 4) Three cars, nose in to the stops.
-    const CARS = [[0, 'ty_fuel_red'], [1, 'ty_crane_cab'], [3, 'ty_fuel_white']];
-    for (const [i, paintPal] of CARS) {
-      const cy = Y0 + (i + 0.5) * BAY, cx = 0.30;
-      for (const wx of [-0.075, 0.075]) for (const wy of [-0.044, 0.044]) box(cx + wx, cy + wy, 0.018, SLAB, SLAB + 0.020, 'ty_door', 20 + i * 4, true, 0.007);
-      box(cx, cy, 0.118, SLAB + 0.010, SLAB + 0.040, paintPal, 30 + i, true, 0.046);           // the body
-      box(cx - 0.012, cy, 0.064, SLAB + 0.040, SLAB + 0.066, 'ty_yacht_glass', 40 + i, false, 0.039);   // the glasshouse
-      box(cx - 0.012, cy, 0.060, SLAB + 0.066, SLAB + 0.069, paintPal, 50 + i, true, 0.037);    // the roof
-    }
+    for (const [i, paintPal] of [[0, 'ty_fuel_red'], [1, 'ty_crane_cab'], [3, 'ty_fuel_white']]) parkedCar(box, 0.30, Y0 + (i + 0.5) * BAY, paintPal, i);
     // 5) The lamp column by the way in, and its pool on the tarmac after dark.
     { const [lx, ly] = F(-0.40, 0.40), top = h * 1.30;
       drawFacetDrum(ctx, cam, lx, ly, 0, top, 0.009, 0.007, 8, alpha, drumSkin([96, 104, 112], 1 - 0.5 * dn), null, 'ty_pier_steel');
       box(-0.36, 0.40, 0.045, top - 0.012, top, 'ty_pier_steel', 60, true, 0.016);
       glowPool(ctx, cam, ...F(-0.32, 0.40), top - 0.014, '255,224,176', 9, alpha * (night ? 0.7 : 0.1));
       if (night) glowPool(ctx, cam, ...F(-0.15, 0.25), SLAB + 0.003, '255,214,160', 26, alpha * 0.32 * dn); }
-    // 6) The sign by the way in: a white P on blue and CUSTOMERS ONLY under it, on a post.
-    { const sx = 0.40, sy = 0.43, sz0 = h * 0.42, sz1 = h * 0.66, sw = 0.034;
-      box(sx, sy, 0.005, 0, sz0, 'ty_pier_steel', 70, true, 0.005);
-      box(sx, sy, sw, sz0, sz1, 'ty_door', 71, true, 0.004);
-      flat(ctx, cam, W3, [[sx - sw * 0.92, sy + 0.0045, sz1 - 0.003], [sx + sw * 0.92, sy + 0.0045, sz1 - 0.003], [sx + sw * 0.92, sy + 0.0045, sz0 + 0.003], [sx - sw * 0.92, sy + 0.0045, sz0 + 0.003]], [0, 1, 0], [34, 78, 156], alpha, dn, [60, 110, 200]);
-      if (frontVis) {
-        const tex = bakeSignText('P', '#ffffff', night ? 1 : 0, false, true, true, { font: 'condensed', sub: 'CUSTOMERS ONLY' });
-        if (tex) {
-          const q = [[-sw * 0.8, sz1 - 0.006], [sw * 0.8, sz1 - 0.006], [sw * 0.8, sz0 + 0.006], [-sw * 0.8, sz0 + 0.006]]
-            .map(([u, zz]) => { const [wx, wy] = F(sx + u, sy + 0.0055); return cam.proj(wx, wy, zz); });
-          if (q.every((p) => p.f > 0.12)) emitSurfaceText(ctx, cam, q, tex, false, alpha, DETAIL_LIFT * 2, false, DETAIL_LIFT * 2.4);
-        }
-      } }
+    // 6) The sign by the way in.
+    lotSign(ctx, cam, F, W3, box, 0.40, 0.43, 1, h, alpha, dn, night, frontVis, 70);
     // 7) Bollards across the back, so people can walk through to the far street and cars can't.
     for (const bx of [-0.28, -0.12, 0.04, 0.20, 0.36]) {
       const [px, py] = F(bx, -0.44);
       drawFacetDrum(ctx, cam, px, py, 0, h * 0.20, 0.011, 0.011, 8, alpha, drumSkin([58, 62, 66], 1 - 0.5 * dn), 'rgb(220,200,90)', 'ty_pier_steel');
     }
+  },
+  // ══ THE VACANT PLOT ═════════════════════════════════════════════════════════════════════════
+  // An empty plot to let: the bare slab a building stood on, fenced off with mesh panels on
+  // concrete feet along the street, the far side and the back, with a gap in the front run to walk
+  // in by. One panel is off its foot and leans. A letting board on two posts stands inside the gap.
+  // The slab keeps the marks of what stood there: a paler strip and its bolt holes, a scorched
+  // square, cracks and weeds. The +x side is left open, onto whatever is next door.
+  //
+  // ⚠ IN TILE UNITS, NOT fh AND h, the car park's reason: a fence is a fence whatever the tile
+  //    rolled. Only the heights of the panels and the board take `h`.
+  // ⚠ THE MESH IS TWO FACES, back to back. `flat` culls a wall-like face from behind, and you can
+  //    see a mesh panel from both sides.
+  vacant_plot(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis) {
+    const dn = night ? clamp(night, 0, 1) : 0, near = nearOrMesh();
+    const YAW = faceYaw(E);
+    const box = (lx, ly, hw, z0, z1, p, s, roof, hd) => { const [x, y] = F(lx, ly); draw3DBoxAt(ctx, cam, x, y, hw, z0, z1, p, seed + s, night, alpha, roof, YAW, hd); };
+    const paint = (x0, y0, x1, y1, z, fill) => groundPaint(ctx, cam, [F(x0, y0), F(x1, y0), F(x1, y1), F(x0, y1)], z, fill, alpha);
+    const SLAB = 0.010, z = SLAB + 0.0012, FOOT = 0.012, PANEL = h * 0.62;
+    // 1) The ground, and the slab on it.
+    paint(-0.48, -0.48, 0.48, 0.48, 0.0008, dn > 0.5 ? 'rgba(62,58,50,0.85)' : 'rgba(104,96,82,0.85)');
+    box(0, 0.01, 0.40, 0, SLAB, pal || 'ty_quay_deck', 0, true, 0.39);
+    box(0.475, 0, 0.010, 0, 0.014, 'ty_quay_deck', 1, true, 0.47);   // the kerb on the open side
+    // 2) The marks on the slab: the counter's strip and its bolt holes, the scorch where the roaster
+    //    stood, three cracks, and weeds coming up along them and round the edge.
+    paint(-0.24, 0.10, 0.18, 0.15, z, 'rgba(196,192,182,0.45)');
+    for (let i = 0; i < 6; i++) paint(-0.22 + i * 0.075 - 0.005, 0.12, -0.22 + i * 0.075 + 0.005, 0.13, z + 0.0002, 'rgba(30,28,26,0.85)');
+    paint(0.10, -0.30, 0.27, -0.13, z, 'rgba(44,38,32,0.50)');
+    const CRACKS = [[[-0.38, -0.20], [-0.18, -0.05], [-0.05, -0.12]], [[0.05, 0.36], [0.12, 0.22], [0.30, 0.18]], [[-0.30, 0.34], [-0.34, 0.20]]];
+    for (const c of CRACKS) for (let i = 0; i + 1 < c.length; i++) {
+      const [ax, ay] = c[i], [bx, by] = c[i + 1], l = Math.hypot(bx - ax, by - ay), nx = -(by - ay) / l * 0.003, ny = (bx - ax) / l * 0.003;
+      groundPaint(ctx, cam, [F(ax + nx, ay + ny), F(bx + nx, by + ny), F(bx - nx, by - ny), F(ax - nx, ay - ny)], z + 0.0003, 'rgba(28,26,24,0.8)', alpha);
+    }
+    const WEED = dn > 0.5 ? 'rgba(52,70,40,0.8)' : 'rgba(92,128,62,0.85)';
+    for (const [wx, wy, r] of [[-0.18, -0.05, 0.016], [-0.05, -0.12, 0.012], [0.12, 0.22, 0.014], [-0.34, 0.20, 0.018], [0.39, -0.36, 0.024], [-0.39, 0.38, 0.022], [0.38, 0.30, 0.02]]) {
+      paint(wx - r, wy - r * 0.7, wx + r, wy + r * 0.7, z + 0.0004, WEED);
+    }
+
+    // 3) The fence. A run is panels between posts; each post is a concrete foot and an upright, and
+    //    each panel a frame of wire round a mesh. Mass is the feet and the uprights only.
+    const MESH = dn > 0.5 ? [96, 100, 104] : [168, 174, 178], RAIL = 'rgba(150,156,160,0.95)';
+    const mesh = (q, out) => {
+      flat(ctx, cam, W3, q, out, MESH, alpha * 0.42, dn);
+      flat(ctx, cam, W3, q, out.map((v) => -v), MESH, alpha * 0.42, dn);
+      // ⚠ NO PULL ON THE FRAME. It stands free in the air, not on a surface, so it has nothing to win a
+      //    depth tie against; a pull only dragged its corners out through the posts beside it (`glself`).
+      if (near) for (let i = 0; i < 4; i++) emitWire(ctx, cam, W3(...q[i]), W3(...q[(i + 1) % 4]), 1.2, RAIL, alpha, { pull: 0 });
+    };
+    let s0 = 10;
+    const run = (x0, y0, x1, y1, n, out, skip = -1) => {
+      for (let k = 0; k <= n; k++) {
+        const t = k / n, px = x0 + (x1 - x0) * t, py = y0 + (y1 - y0) * t;
+        box(px, py, 0.016, 0, FOOT, 'ty_quay_deck', s0++, true, 0.008);
+        box(px, py, 0.003, FOOT, PANEL, 'ty_pier_steel', s0++, false, 0.003);
+        // ⚠ A PANEL STOPS AT THE FACE OF ITS POSTS, not at their centres: a rail ending inside an
+        //    upright is pulled out through it (`glself`).
+        if (k < n && k !== skip) {
+          const u = (k + 1) / n, l = Math.hypot(x1 - x0, y1 - y0), ix = (x1 - x0) / l * 0.005, iy = (y1 - y0) / l * 0.005;
+          const qx = x0 + (x1 - x0) * u - ix, qy = y0 + (y1 - y0) * u - iy, ax = px + ix, ay = py + iy;
+          const za = FOOT + 0.004, zb = PANEL - 0.004;
+          mesh([[ax, ay, zb], [qx, qy, zb], [qx, qy, za], [ax, ay, za]], out);
+        }
+      }
+    };
+    run(-0.46, 0.46, 0.08, 0.46, 3, [0, 1, 0]);             // the street, up to the gap
+    run(0.26, 0.46, 0.46, 0.46, 1, [0, 1, 0], 0);           // past the gap: its panel is the one that leans
+    run(-0.46, -0.46, -0.46, 0.46, 5, [-1, 0, 0]);          // the far side
+    run(-0.46, -0.46, 0.46, -0.46, 5, [0, -1, 0]);          // the back
+    // The leaning panel: off its foot at the gap end, its top resting inward against the corner post.
+    { const lean = 0.05, zb = PANEL - 0.01;
+      mesh([[0.28, 0.46 - lean, zb], [0.45, 0.46 - lean * 0.3, zb], [0.45, 0.46, FOOT], [0.28, 0.43, 0.004]], [0, 0.9, 0.4]);
+      box(0.24, 0.40, 0.008, 0, FOOT, 'ty_quay_deck', s0++, true, 0.016); }   // its foot, kicked over
+
+    // 4) The letting board inside the gap, on two posts, facing the street: PLOT TO LET, and a
+    //    scrawl under it in marker.
+    { const bx = 0.18, by = 0.40, bw = 0.075, bz0 = h * 0.42, bz1 = h * 0.78;
+      for (const s of [-1, 1]) box(bx + s * bw * 0.8, by, 0.004, 0, bz0 + (bz1 - bz0) * 0.5, 'ty_dw_timber', 80 + s, true, 0.004);
+      box(bx, by, bw, bz0, bz1, 'ty_fuel_white', 82, true, 0.004);
+      if (frontVis) {
+        const tex = bakeSignText('PLOT TO LET', '#20262c', 0, false, true, true, { font: 'condensed' });
+        if (tex) {
+          const q = [[-bw * 0.86, bz1 - (bz1 - bz0) * 0.10], [bw * 0.86, bz1 - (bz1 - bz0) * 0.10], [bw * 0.86, bz0 + (bz1 - bz0) * 0.40], [-bw * 0.86, bz0 + (bz1 - bz0) * 0.40]]
+            .map(([u, zz]) => { const [wx, wy] = F(bx + u, by + 0.0055); return cam.proj(wx, wy, zz); });
+          if (q.every((p) => p.f > 0.12)) emitSurfaceText(ctx, cam, q, tex, false, alpha, DETAIL_LIFT * 2, false, DETAIL_LIFT * 2.4);
+        }
+        if (near) {
+          const zs = bz0 + (bz1 - bz0) * 0.22, yb = by + 0.0056, k = bz1 - bz0;
+          emitWire(ctx, cam, W3(bx - bw * 0.5, yb, zs), W3(bx - bw * 0.1, yb, zs + k * 0.06), 1.3, 'rgba(170,40,36,0.9)', alpha, { pull: 0.02 });
+          emitWire(ctx, cam, W3(bx - bw * 0.1, yb, zs + k * 0.06), W3(bx + bw * 0.5, yb, zs - k * 0.02), 1.3, 'rgba(170,40,36,0.9)', alpha, { pull: 0.02 });
+        }
+      } }
   },
 };

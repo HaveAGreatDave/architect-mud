@@ -395,7 +395,7 @@ const COL_PITCH_RICH = 0.085;
 // pier section gets window bays, a coping band and a roller shutter. The beacon is here on a
 // stronger version of the same argument: the whole of it is that nobody here built it, and the
 // kit's entire job is to make a building look like the street it stands on.
-const NO_KIT = new Set(['trm_wall', 'thornwall', 'damwall', 'pier', 'harbour_yard', 'lighthouse', 'quay_crane', 'pontoon', 'fuel_dock', 'car_park', 'staff_lot',
+const NO_KIT = new Set(['trm_wall', 'thornwall', 'damwall', 'pier', 'harbour_yard', 'lighthouse', 'quay_crane', 'pontoon', 'fuel_dock', 'car_park', 'staff_lot', 'vacant_plot',
   // ⚠ AND THREE BUILDINGS WHOSE WHOLE FRONT IS A STORY THE KIT WOULD WRITE OVER. The gym's front is a
   // bricked-up mast doorway with a door cut into it, which is exactly where the works ground floor
   // hangs its shutter; the boat shed's street side is a door and a hatch and its water side is the

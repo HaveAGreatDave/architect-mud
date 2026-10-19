@@ -2,11 +2,11 @@
   "ambient_events": [
     "Somebody sits on the end of a bench with a paper cup and both hands round it.",
     "A pigeon works its way along the gravel path, checking every stone.",
-    "The smell of roasting coffee comes over from the café and settles in the beds."
+    "A dog is let off its lead at the gate and does one lap of the path."
   ],
   "ambient_theme": "urban",
   "color": "#8fd08a",
-  "description": "A small public garden off Greenside Row: two benches, a gravel path and beds of something hardy. The brick wall of Fine Print is on the west side and the café's car park on the east. A square of paler turf by the path marks where the chemist's step was.",
+  "description": "A small public garden off Greenside Row: two benches, a gravel path and beds of something hardy. The brick wall of Fine Print is on the west side and a car park on the east. A square of paler turf by the path marks where the chemist's step was.",
   "exits": {
     "east": "zone_greenside_905_908",
     "north": "zone_district_904_907",

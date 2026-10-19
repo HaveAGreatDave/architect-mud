@@ -3,6 +3,7 @@
   "ambient_theme": "city",
   "description": "Greenside Row bends east along the water and drops onto Meltwater Row. A rust-scabbed railing stands between the kerb and the Basin. Someone has chained a bicycle frame to it; the wheels left a long time ago.",
   "exits": {
+    "east": "zone_district_908_907",
     "north": "zone_district_907_906",
     "south": "zone_district_907_908",
     "west": "zone_district_906_907"

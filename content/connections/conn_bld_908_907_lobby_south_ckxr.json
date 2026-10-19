@@ -1,8 +1,8 @@
 {
   "a": "zone_bld_908_907_lobby",
-  "b": "zone_district_908_907",
+  "b": "zone_district_910_906",
   "blocked": false,
-  "dir": "south",
+  "dir": "west",
   "id": "conn_bld_908_907_lobby_south_ckxr",
   "lockable": true,
   "one_way": false
