@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_912_909",
+  "b": "zone_medialot_912_910",
+  "blocked": true,
+  "dir": "south",
+  "id": "conn_district_912_909_south_p92e",
+  "lockable": false,
+  "one_way": false
+}

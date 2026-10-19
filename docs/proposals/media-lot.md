@@ -47,17 +47,17 @@ the street said they belonged to one place.
 
 | Tile | Zone | What | Door |
 |---|---|---|---|
-| 912,910 | `zone_district_912_910` | **The Deadline**, the lot's pub | north onto Marrow Street, as before |
+| 912,910 | `zone_medialot_912_910` | **Media Lot Backlot** (was the Deadline, set aside 2026-10-19) | open to the stage and the Writers' Wing, walled on both streets |
 | 913,910 | `zone_district_913_910` | **KSAB Writers' Wing** | south into the court (was north onto Marrow Street) |
-| 914,910 | `zone_district_914_910` | **Coldwater Sentinel** | north onto Marrow Street, as before |
+| 914,910 | `zone_district_914_910` | **Coldwater Sentinel** | south onto the car park (north onto Marrow Street until 2026-10-19) |
 | 912,911 | `zone_district_912_911` | **KSAB-TV Studio Stage** | east into the court (was west onto Meltwater Row) |
 | 913,911 | `zone_medialot_913_911` | **The Media Lot**, the gate court: open concrete | the gate, south onto Foundry Way |
 | 914,911 | `zone_medialot_914_911` | **Media Lot Car Park**: open concrete | open to the court, walled on Foundry Way |
 
 - **The gate is on Foundry Way**, the only street the two freed tiles touch.
 - **Inside the wall,** the stage and the Writers' Wing open onto the court and the car park opens
-  off it. **On the street,** the Deadline and the Sentinel keep their doors, so the pub and the
-  paper's front counter stay public.
+  off it. Until 2026-10-19 the Deadline and the Sentinel kept their street doors; now every door
+  on the block is inside the wall (below).
 - **Three street doors closed.** Meltwater Row (911,911) lost its way into the stage, Marrow Street
   (913,909) its way into the Writers' Wing, and Foundry Way (914,912) Wrap Party's old door, which
   is a blocked connection now (`conn_district_914_912_north_ygvl`). The other two needed no file,
@@ -69,6 +69,28 @@ the street said they belonged to one place.
 - ⚠ **`sitecheck.mjs` fails both tiles, correctly.** It asks whether a building could go there, and
   the answer is no: the court is the only way into the lot and the street of two buildings, and the
   car park has no street door. Never build on either.
+
+### The block closed *(built 2026-10-19)*
+
+David asked for the rest of the block closed off, with every door inside the lot. The lot's wall now
+runs the whole way round:
+
+- **The Deadline is set aside** on `map_set_aside` at 5,9, with Corva (`npc_greenroom_bartender`)
+  and Ivor Marrow (`npc_greenroom_guest`). They move into the lounge and the booth, since a
+  set-aside keeper sleeps in a set-aside room, and Ivor's residence row on Solenne flat A passes to
+  Jerry Rosenberg, who shares the flat.
+- **Its tile is the backlot** (`zone_medialot_912_910`, part `backlot`): a scene dock walled on Marrow
+  Street and Meltwater Row, painted flats leaning on the wall and crates by the stage. It's reached
+  from the stage's facade (north) and the Writers' Wing's (west).
+- **The Sentinel turned** to open south onto the car park beside its dock. Its link into the bullpen
+  kept its id and turned north; the press hall moved to the bullpen's north (grid 0,-1), and its
+  shop door turned with it. Marrow Street has no door on the block now.
+- **The buildings carry the wall.** A building tile with `flags.media_lot.part: 'building'` keeps its
+  mass and takes no mark; the derive gives it `ml.p = 'x'`, and the sweep draws the wall along its
+  street faces before the building (the stage on `ws`, the Writers' Wing on `n`, the Sentinel on
+  `ne`). The derive counts only exits onto `map_world`, so a building's link into its rooms doesn't
+  open its wall.
+- Dot no longer sends anyone to the bar, and the usher and the Palais box office no longer name it.
 
 ## 4. What came off the map
 

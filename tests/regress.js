@@ -6333,6 +6333,18 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
   const held = ['zone_district_913_911', 'zone_district_914_911'].map((id) => world.zones.get(id));
   check('Media Lot: Just My Type and Wrap Party are on the holding map', held.every((z) => z?.map_id === 'map_set_aside' && z.flags?.set_aside), held.map((z) => `${z?.id}:${z?.map_id}`).join());
   check('Media Lot: Birdie Stavros is set aside with Wrap Party', !!world.npcs.get('npc_wrap_stavros')?.flags?.set_aside);
+  // 2026-10-19: the whole block closed. The Deadline is set aside with Corva and Ivor Marrow, its
+  // corner is the backlot, and the Sentinel's only door opens onto the car park.
+  const BACK = 'zone_medialot_912_910', SENT = 'zone_district_914_910';
+  check('Media Lot: the Deadline is on the holding map with its two regulars',
+    world.zones.get('zone_district_912_910')?.map_id === 'map_set_aside' && ['npc_greenroom_bartender', 'npc_greenroom_guest'].every((id) => world.npcs.get(id)?.flags?.set_aside));
+  check('Media Lot: the backlot is reached from the stage and the Writers\' Wing, and nothing on the street reaches it',
+    ex(BACK).south === STAGE && ex(BACK).east === WRITERS && ex(STAGE).north === BACK && ex(WRITERS).west === BACK
+      && !Object.values(ex('zone_district_912_909')).includes(BACK) && !Object.values(ex('zone_district_911_910')).includes(BACK), JSON.stringify(ex(BACK)));
+  check('Media Lot: the Sentinel opens south onto the car park, and Marrow Street has no door into it',
+    world.zones.get(SENT)?.flags?.entrance === 'south' && ex(SENT).south === PARK && ex(PARK).north === SENT && ex(SENT).north === 'zone_sentinel_bullpen'
+      && ex('zone_sentinel_bullpen').south === SENT && ex('zone_sentinel_bullpen').north === 'zone_sentinel_press' && !Object.values(ex('zone_district_914_909')).includes(SENT),
+    JSON.stringify({ sent: ex(SENT), bullpen: ex('zone_sentinel_bullpen') }));
   const { getZoneFurniture } = await import('../server/engine/world.js');
   const ludd = world.npcs.get('npc_print_ludd'), press = getZoneFurniture('zone_sentinel_press').map((f) => f.id);
   check('Media Lot: Pavel Ludd keeps the Sentinel\'s press hall, with his own presses in it',
@@ -6349,6 +6361,11 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
   check('Media Lot: GLASS draws the gate on the court\'s Foundry Way side and walls the car park on two sides',
     mc?.mark === 'lot' && mc.ml?.p === 'c' && mc.ml?.g === 's' && !mc.ml?.w && mp?.mark === 'lot' && mp.ml?.p === 'p' && mp.ml?.w === 'es' && !mp.ml?.g,
     JSON.stringify({ court: mc?.ml, park: mp?.ml }));
+  const bl = cellOf(912, 910), st = cellOf(912, 911), wr = cellOf(913, 910), se = cellOf(914, 910);
+  check('Media Lot: the backlot is walled on both streets, and the buildings carry the wall on their street faces without losing their mass',
+    bl?.mark === 'lot' && bl.ml?.p === 'b' && bl.ml?.w === 'nw' && st?.ml?.w === 'ws' && wr?.ml?.w === 'n' && se?.ml?.w === 'ne'
+      && [st, wr, se].every((c) => c?.ml?.p === 'x' && c.mark !== 'lot' && c.bt),
+    JSON.stringify({ bl: bl?.ml, st: st?.ml, wr: wr?.ml, se: se?.ml }));
   const { lotSolidAt } = await import('../client/game/js/panels/glass/media-lot.js');
   let lane = 0;
   for (let y = 0.5; y >= -0.5; y -= 0.02) lane = Math.max(lane, lotSolidAt(-0.1, y, mc?.ml));

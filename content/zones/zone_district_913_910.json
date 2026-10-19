@@ -6,7 +6,8 @@
   "description": "KSAB's Writers' Wing, its marquee reading WRITERS' WING · SCRIPT LOCKED 04:00. Through the glass, whiteboards stand in rows, and one desk lamp is burning at an hour when nothing should be. Its door faces into the lot.",
   "exits": {
     "north": "zone_ksab_lobby",
-    "south": "zone_medialot_913_911"
+    "south": "zone_medialot_913_911",
+    "west": "zone_medialot_912_910"
   },
   "flags": {
     "building_name": "KSAB Writers' Wing",
@@ -16,6 +17,10 @@
     "facade": true,
     "floors": 2,
     "is_building": true,
+    "media_lot": {
+      "part": "building",
+      "wall": "n"
+    },
     "region_id": "region_coldwater",
     "world_exit_zone": "zone_medialot_913_911"
   },

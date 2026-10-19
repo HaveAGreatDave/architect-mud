@@ -1,11 +1,10 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "description": "A wide run of packed gravel and grit, graded flat by traffic and rain into something almost like a road. Puddles stand in the ruts, skinned with a chemical sheen. Nothing grows in the margins.",
+  "description": "Marrow Street at the corner of KSAB's lot. The wall turns here, cream render over a dark plinth, and painted flats show over the coping behind it. A dead neon bracket on the wall is the last of the bar that stood on the corner. Puddles stand in the ruts.",
   "exits": {
     "east": "zone_district_913_909",
     "north": "zone_district_912_908",
-    "south": "zone_district_912_910",
     "west": "zone_district_911_909"
   },
   "flags": {

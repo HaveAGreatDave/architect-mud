@@ -1,11 +1,10 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "description": "The road here is more suggestion than surface: compacted gravel, broken kerbstones, a storm drain choked with silt. Somebody dragged a mattress halfway across it and gave up.",
+  "description": "Marrow Street outside the Coldwater Sentinel, its gilt masthead over a front door bricked up and rendered over. A card in the old counter window sends deliveries round to the KSAB gate on Foundry Way. Somebody dragged a mattress halfway across the road and gave up.",
   "exits": {
     "east": "zone_district_915_909",
     "north": "zone_district_914_908",
-    "south": "zone_district_914_910",
     "west": "zone_district_913_909"
   },
   "flags": {

@@ -1,7 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "description": "Marrow Street outside the back of KSAB's Writers' Wing, glass behind a strip of verge, with the Deadline on the corner to the west and the Sentinel's door to the east. The writers' own door is inside the lot, through the gate on Foundry Way.",
+  "description": "Marrow Street along the back of KSAB's Writers' Wing, with the lot's wall running either side of it, cream render with a cyan stripe at its foot. Every door on the block is inside the wall, through the gate on Foundry Way.",
   "exits": {
     "east": "zone_district_914_909",
     "north": "zone_district_913_908",

@@ -59,6 +59,9 @@ const VANS = [
   [0.335, -0.24, true, 1, 'dish'],      // along the east wall
   [0.05, -0.245, true, 1, 'paper'],     // backed up to the paper's dock, cab to the aisle
 ];
+// The backlot's flats along each wall, [u0, u1, paint], and its crates, [x, y, height].
+const FLATS = [[-0.42, -0.25, 0], [-0.23, -0.04, 1], [-0.02, 0.16, 2], [0.18, 0.34, 3]];
+const CRATES = [[0.18, 0.40, M(1.5)], [0.27, 0.40, M(0.75)], [0.18, 0.31, M(0.75)], [0.40, 0.12, M(1.5)]];
 const DOCK = { x0: -0.08, x1: 0.18, y0: -0.5, y1: -0.405, z: M(1.2) };
 
 // ── SHADING ──
@@ -102,6 +105,8 @@ const PAL = {
   concrete: [152, 150, 142], bay: [232, 218, 152], walk: [218, 212, 196],
   red: [196, 40, 36], white: [236, 232, 224], lamp: [255, 226, 170],
   cart: [214, 216, 210], cartRoof: [57, 214, 255],
+  flats: [[168, 92, 74], [92, 120, 104], [196, 172, 120], [88, 104, 140], [150, 132, 160]],
+  timber: [140, 112, 78], timberTop: [166, 138, 100],
 };
 
 // ── THE BUILD ────────────────────────────────────────────────────────────────
@@ -319,6 +324,35 @@ export function drawMediaLot(o) {
     lamp(-0.45, 0.02);
   }
 
+  // ── THE BACKLOT ──
+  // Where the Deadline stood: a scene dock in the lot's north-west corner. Painted flats lean on the
+  // inside of both walls, a street of shopfronts with nothing behind it, and crates stand by the
+  // stage. Flats are two faces back to back, timber-coloured behind.
+  if (o.part === 'b') {
+    const top = LOT.WALL_H - M(0.4), inner = LOT.WALL_C - LOT.WALL_T / 2 - 0.002, lean = M(0.9);
+    for (const s of String(o.wall || '')) {
+      if (!OUT[s]) continue;
+      const F = frame(s);
+      for (let i = 0; i < FLATS.length; i++) {
+        const [u0, u1, k] = FLATS[i];
+        const front = [F(u0, inner - lean, 0), F(u1, inner - lean, 0), F(u1, inner, top), F(u0, inner, top)];
+        face(front, PAL.flats[(k + (s === 'w' ? 2 : 0)) % PAL.flats.length], 'paint');
+        // A painted shopfront: a dark window band and a lighter sign band, by eye only.
+        if (o.near) {
+          const at = (t, zf) => { const p = F(u0 + (u1 - u0) * t, inner - lean * (1 - zf) - 0.0015, top * zf); return p; };
+          face([at(0.12, 0.18), at(0.88, 0.18), at(0.88, 0.55), at(0.12, 0.55)], PAL.board, 'paint');
+          face([at(0.08, 0.66), at(0.92, 0.66), at(0.92, 0.80), at(0.08, 0.80)], PAL.paperBand, 'paint');
+        }
+        for (const t of [0.15, 0.85]) {
+          const u = u0 + (u1 - u0) * t;
+          strut(F(u, inner - lean - M(0.9), 0), F(u, inner - lean * 0.45, top * 0.55), M(0.05), PAL.timber, 'paint');
+        }
+      }
+    }
+    for (const [x, y, h] of CRATES) box(T, x, y, M(0.75), M(0.75), 0, h, PAL.timber, 'paint', PAL.timberTop);
+    lamp(0.30, 0.30);
+  }
+
   // A van: a box body on four wheels with a lower cab at one end. `kind` decides the paint and
   // what's on the roof: KSAB's folded mast, the satellite van's dish, the paper's band.
   function van([x, y, along, face1, kind]) {
@@ -439,6 +473,9 @@ export function lotSolidAt(lx, ly, ml) {
     if (Math.abs(v - LOT.WALL_C) <= LOT.WALL_T / 2 + WALL_BAND && Math.abs(u) >= PIER_OUT && Math.abs(u) <= 0.5) return LOT.WALL_H;
     for (const su of [-1, 1]) if (Math.hypot(u - su * PIER_U, v - LOT.WALL_C) <= LOT.PIER_R + ROUND_PAD) return LOT.PIER_H;
     if (Math.hypot(u - LOT.BOOTH_U, v - LOT.BOOTH_V) <= LOT.BOOTH_R + ROUND_PAD) return LOT.BOOTH_H;
+  }
+  if (ml.p === 'b') {
+    for (const [x, y, h] of CRATES) if (Math.abs(lx - x) <= M(0.75) + ROUND_PAD && Math.abs(ly - y) <= M(0.75) + ROUND_PAD) return h;
   }
   if (ml.p === 'p') {
     const pad = ROUND_PAD;

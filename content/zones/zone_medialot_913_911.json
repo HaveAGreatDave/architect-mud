@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "city",
   "color": "#8ba36a",
-  "description": "A swept concrete court inside KSAB's gate. The stage door is west under a red ON AIR lamp; the Writers' Wing is north. The car park opens east. A board by the gatehouse lists the stage, the writers and the paper, and points the bar back out through the gate.",
+  "description": "A swept concrete court inside KSAB's gate. The stage door is west under a red ON AIR lamp; the Writers' Wing is north. The car park opens east. A board by the gatehouse lists the stage, the writers and the paper.",
   "exits": {
     "east": "zone_medialot_914_911",
     "north": "zone_district_913_910",

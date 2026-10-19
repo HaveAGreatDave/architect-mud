@@ -1488,10 +1488,16 @@ export function deriveSurfaceCell(cell, x, y, at = surfaceAt, live = true) {
   if (mlf && typeof mlf === 'object') {
     const ex = cell.exits || (cell.id && getZone(cell.id)?.exits) || null;
     const SIDE = { n: 'north', e: 'east', s: 'south', w: 'west' };
+    // Only a way onto the map counts: a building's link into its own rooms is an exit too, and the
+    // stage's into its floor is west, the side its wall stands on.
+    const open = (dir) => { const to = ex?.[dir]; return !!to && getZone(to)?.map_id === 'map_world'; };
     let w = '';
-    for (const s of String(mlf.wall || '')) if (SIDE[s] && ex && !ex[SIDE[s]] && !w.includes(s)) w += s;
-    const g = SIDE[mlf.gate] && ex && ex[SIDE[mlf.gate]] ? mlf.gate : undefined;
-    ml = { p: mlf.part === 'parking' ? 'p' : 'c', w: w || undefined, g };
+    for (const s of String(mlf.wall || '')) if (SIDE[s] && ex && !open(SIDE[s]) && !w.includes(s)) w += s;
+    const g = SIDE[mlf.gate] && open(SIDE[mlf.gate]) ? mlf.gate : undefined;
+    // `x`: one of the lot's buildings, which carries the wall along its street faces and nothing
+    // else; it stays a building and takes no mark (drawLotMark in windshield.js draws it alongside).
+    const P = { parking: 'p', backlot: 'b', building: 'x' };
+    ml = { p: P[mlf.part] || 'c', w: w || undefined, g };
   }
   // An airfield's hangar is the same shed at aircraft scale (windshield.js bayDims): a `bay` mark,
   // told apart by `bk`, so every reader of the shed (door, CFIT roof, occlusion) takes it for free.
@@ -1502,7 +1508,7 @@ export function deriveSurfaceCell(cell, x, y, at = surfaceAt, live = true) {
     : cell.flags?.junction_pylons ? 'pylons'
     : plzDrawn ? 'plaza'
     : lk ? 'lock'
-    : ml ? 'lot'
+    : ml && ml.p !== 'x' ? 'lot'
     : strip ? 'strip'
     // Old Coldwater's tent camp (docs/proposals/old-coldwater.md). ⚠ A MARK AND DELIBERATELY NOT A
     // `building_type`: a building tile leaves the walk graph and joins the CFIT collision sweep, so

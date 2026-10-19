@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_911_910",
+  "b": "zone_medialot_912_910",
+  "blocked": true,
+  "dir": "east",
+  "id": "conn_district_911_910_east_hwc3",
+  "lockable": false,
+  "one_way": false
+}

@@ -1,7 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "description": "Loose stone crunches underfoot, greyed with dust and old oil. A dead streetlight leans at the verge, and the wind carries grit that finds your teeth. Tyre tracks braid off into the haze.",
+  "description": "Meltwater Row along the wall at the back of KSAB's lot, cream render with a cyan stripe, the tops of painted flats showing over it. A dead streetlight leans at the verge, and the wind carries grit that finds your teeth.",
   "exits": {
     "north": "zone_district_911_909",
     "south": "zone_district_911_911",

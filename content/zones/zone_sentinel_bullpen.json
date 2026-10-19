@@ -5,8 +5,8 @@
   "description": "A bullpen of secondhand terminals and gaffer-taped desks under a big cracked situation-wall that scrolls the city's feeds, its lower third permanently glitched into confetti. Spikes bristle with rejected copy, a printer coughs out a ribbon of dispatches onto the floor, and the whole room smells of hot electronics and cold coffee. A brass plaque insists TRUTH, IF AFFORDABLE.",
   "exits": {
     "east": "zone_sentinel_editor",
-    "north": "zone_district_914_910",
-    "south": "zone_sentinel_press"
+    "north": "zone_sentinel_press",
+    "south": "zone_district_914_910"
   },
   "flags": {
     "building_name": "Coldwater Sentinel",
@@ -15,9 +15,9 @@
     "is_building": true,
     "is_interior": true,
     "window": {
-      "description": "A full-height pane onto the street, kept just clean enough to trade through. Whatever the weather is doing out there, it's doing it in plain view.",
+      "description": "A wired pane onto the lot's car park: the paper's van at the dock, KSAB's vans in their bays and the water tower over the wall.",
       "light": 0.85,
-      "name": "the shopfront window",
+      "name": "the yard window",
       "visibility": 0.9
     },
     "world_exit_zone": "zone_district_914_910"

@@ -1,7 +1,7 @@
 {
   "connection_id": "conn_district_914_910_south_v3gs",
   "door_type": "basic",
-  "exit_dir": "south",
+  "exit_dir": "north",
   "flags": {},
   "hololock_difficulty": 5,
   "hp": 1000,

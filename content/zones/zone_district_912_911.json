@@ -6,6 +6,7 @@
   "description": "KSAB's sound stage: a blind shell with the call letters across it, one of them dark, and the transmitter mast over the roof. Its doors face into the lot: a scene dock door, the stage door under a red ON AIR lamp, and a box office window with a card taped inside: TICKETS HERE.",
   "exits": {
     "east": "zone_medialot_913_911",
+    "north": "zone_medialot_912_910",
     "west": "zone_studio_1782953094650"
   },
   "flags": {
@@ -15,6 +16,10 @@
     "entrance": "east",
     "facade": true,
     "is_building": true,
+    "media_lot": {
+      "part": "building",
+      "wall": "ws"
+    },
     "region_id": "region_coldwater",
     "world_exit_zone": "zone_medialot_913_911"
   },

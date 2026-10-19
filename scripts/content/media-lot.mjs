@@ -46,7 +46,7 @@ const Z = (x, y) => `zone_district_${x}_${y}`;
 const STAGE = Z(912, 911), WRITERS = Z(913, 910), SENTINEL = Z(914, 910);
 const STUDIO = 'zone_studio_1782953094650';
 const LOBBY = 'zone_ksab_lobby', VAULT = 'zone_ksab_gallery', VAULT_UTIL = 'zone_util_zone_ksab_gallery';
-const COURT = 'zone_medialot_913_911', PARK = 'zone_medialot_914_911';
+const COURT = 'zone_medialot_913_911', PARK = 'zone_medialot_914_911', BACKLOT = 'zone_medialot_912_910';
 const BULLPEN = 'zone_sentinel_bullpen', PRESS = 'zone_sentinel_press';
 const LUDD = 'npc_print_ludd', GUARD = 'npc_ksab_gate';
 
@@ -63,12 +63,21 @@ const fillLike = (like) => {
 };
 
 // ── 1. SET ASIDE JUST MY TYPE AND WRAP PARTY ──────────────────────────────────────────────────
-// [x, y, holding grid x, holding grid y, building name, keeper set aside]
+// [x, y, holding grid x, holding grid y, building name, people set aside with it, and where each sleeps now]
+// ⚠ THE DEADLINE WENT ON 2026-10-19, when the whole block was closed off: its tile was the lot's
+// only corner with no way in from the court. Corva and Ivor Marrow lived in the Solenne; a set-aside
+// keeper has to sleep in a set-aside room, so they move into their bar, and Ivor's residence row on
+// Solenne flat A passes to Jerry Rosenberg, who shares it, so the flat doesn't come up for rent.
 const SET_ASIDE = [
-  [913, 911, 1, 9, 'Just My Type', null],
-  [914, 911, 3, 9, 'Wrap Party', 'npc_wrap_stavros'],
+  [913, 911, 1, 9, 'Just My Type', []],
+  [914, 911, 3, 9, 'Wrap Party', [['npc_wrap_stavros', null]]],
+  [912, 910, 5, 9, 'The Deadline', [['npc_greenroom_bartender', 'zone_greenroom_lounge'], ['npc_greenroom_guest', 'zone_greenroom_booth']]],
 ];
-for (const [x, y, gx, gy, name, keeper] of SET_ASIDE) {
+{
+  const row = store.get('npc_residences', 'zone_solenne_apt_a');
+  if (row?.npc_id === 'npc_greenroom_guest') store.put('npc_residences', { ...row, npc_id: 'npc_jerry_rosenberg' });
+}
+for (const [x, y, gx, gy, name, keepers] of SET_ASIDE) {
   const id = Z(x, y), z = must('zones', id);
   if (z.flags?.building_name !== name) throw new Error(`${id} is "${z.flags?.building_name}", not ${name}; the site has moved since this file was written`);
   if (z.map_id === 'map_world') {
@@ -83,9 +92,9 @@ for (const [x, y, gx, gy, name, keeper] of SET_ASIDE) {
       flags: { ...z.flags, set_aside: true, set_aside_from: `${x},${y}`, world_exit_zone: id },
     });
   }
-  if (keeper) {
+  for (const [keeper, home] of keepers) {
     const n = must('npcs', keeper);
-    store.patch('npcs', keeper, { flags: { ...(n.flags || {}), set_aside: true } });
+    store.patch('npcs', keeper, { ...(home ? { home_zone: home } : {}), flags: { ...(n.flags || {}), set_aside: true } });
   }
 }
 
@@ -104,15 +113,21 @@ const ground = (id, x, y, name, description, exits, lot) => {
   });
 };
 ground(COURT, 913, 911, 'The Media Lot',
-  'A swept concrete court inside KSAB\'s gate. The stage door is west under a red ON AIR lamp; the Writers\' Wing is north. The car park opens east. A board by the gatehouse lists the stage, the writers and the paper, and points the bar back out through the gate.',
+  'A swept concrete court inside KSAB\'s gate. The stage door is west under a red ON AIR lamp; the Writers\' Wing is north. The car park opens east. A board by the gatehouse lists the stage, the writers and the paper.',
   { south: Z(913, 912), west: STAGE, north: WRITERS, east: PARK },
   { part: 'court', gate: 's' });
 ground(PARK, 914, 911, 'Media Lot Car Park',
-  'Painted bays on concrete behind the lot\'s wall. Two KSAB news vans stand nose-out with their masts folded, and the Sentinel\'s van is backed up to the paper\'s loading dock. A water tower stands in the corner on four legs, the station\'s disc on its tank.',
-  { west: COURT },
+  'Painted bays on concrete behind the lot\'s wall. Two KSAB news vans stand nose-out with their masts folded, and the Sentinel\'s van is backed up to the paper\'s loading dock, beside the paper\'s only door. A water tower stands in the corner on four legs, the station\'s disc on its tank.',
+  { west: COURT, north: SENTINEL },
   { part: 'parking', wall: 'es' });
+// The backlot, where the Deadline stood: the lot's north-west corner, walled on Marrow Street and
+// Meltwater Row, and reached round the side of the stage or the Writers' Wing.
+ground(BACKLOT, 912, 910, 'Media Lot Backlot',
+  'A scene dock behind the lot\'s wall, where the corner bar used to be. Painted flats lean against the render in ranks, a street of shopfronts with nothing behind them, and timber crates stencilled KSAB are stacked by the stage\'s scene door. The Writers\' Wing is east and the stage is south.',
+  { south: STAGE, east: WRITERS },
+  { part: 'backlot', wall: 'nw' });
 // The city grid feeds the new tiles as it fed the old ones.
-for (const [x, y, id, name] of [[913, 911, COURT, 'The Media Lot'], [914, 911, PARK, 'Media Lot Car Park']]) {
+for (const [x, y, id, name] of [[913, 911, COURT, 'The Media Lot'], [914, 911, PARK, 'Media Lot Car Park'], [912, 910, BACKLOT, 'Media Lot Backlot']]) {
   const pz = store.get('power_zones', Z(x, y));
   if (pz) store.patch('power_zones', id, { ...pz, id, name });
 }
@@ -123,8 +138,8 @@ for (const [x, y, id, name] of [[913, 911, COURT, 'The Media Lot'], [914, 911, P
   store.put('zones', {
     ...z,
     description: 'KSAB\'s sound stage: a blind shell with the call letters across it, one of them dark, and the transmitter mast over the roof. Its doors face into the lot: a scene dock door, the stage door under a red ON AIR lamp, and a box office window with a card taped inside: TICKETS HERE.',
-    exits: { east: COURT, west: STUDIO },
-    flags: { ...z.flags, entrance: 'east', world_exit_zone: COURT },
+    exits: { east: COURT, west: STUDIO, north: BACKLOT },
+    flags: { ...z.flags, entrance: 'east', world_exit_zone: COURT, media_lot: { part: 'building', wall: 'ws' } },
   });
   const s = must('zones', STUDIO);
   const exits = { ...s.exits };
@@ -146,8 +161,8 @@ for (const [x, y, id, name] of [[913, 911, COURT, 'The Media Lot'], [914, 911, P
   store.put('zones', {
     ...z,
     description: 'KSAB\'s Writers\' Wing, its marquee reading WRITERS\' WING · SCRIPT LOCKED 04:00. Through the glass, whiteboards stand in rows, and one desk lamp is burning at an hour when nothing should be. Its door faces into the lot.',
-    exits: { south: COURT, north: LOBBY },
-    flags: { ...z.flags, entrance: 'south', world_exit_zone: COURT },
+    exits: { south: COURT, north: LOBBY, west: BACKLOT },
+    flags: { ...z.flags, entrance: 'south', world_exit_zone: COURT, media_lot: { part: 'building', wall: 'n' } },
   });
   const lobby = must('zones', LOBBY);
   store.put('zones', {
@@ -175,9 +190,9 @@ for (const [x, y, id, name] of [[913, 911, COURT, 'The Media Lot'], [914, 911, P
 // the Writers' Wing close. Foundry Way's link north at the gate is the court's now.
 {
   const gone = new Set(SET_ASIDE.map(([x, y]) => Z(x, y)));
-  const turned = new Set([STAGE, WRITERS]);
+  const turned = new Set([STAGE, WRITERS, SENTINEL]);
   for (const z of store.all('zones')) {
-    if (z.map_id !== 'map_world' || z.id === COURT || z.id === PARK || turned.has(z.id)) continue;
+    if (z.map_id !== 'map_world' || z.id === COURT || z.id === PARK || z.id === BACKLOT || turned.has(z.id)) continue;
     const exits = { ...(z.exits || {}) };
     let changed = false;
     for (const [dir, to] of Object.entries(exits)) if (gone.has(to) || turned.has(to)) { delete exits[dir]; changed = true; }
@@ -190,9 +205,35 @@ const STREETS = [
   [913, 912, 'Foundry Way at KSAB\'s gate: two rendered piers with the station\'s name on a slab between them, a raised barrier arm, and a round gatehouse with a lamp in it. The lot\'s wall runs east past a water tower. Tyre tracks turn in under the barrier.'],
   [914, 912, 'Foundry Way along the wall of KSAB\'s car park, a storey of cream render with a cyan stripe at its foot. A water tower stands up behind it, the station\'s disc on the tank. Grit drifts against the wall.'],
   [911, 911, 'Meltwater Row beside KSAB\'s sound stage, a long blind wall with the lot\'s other buildings behind it. The stage\'s doors are round the back, inside the lot; the gate is on Foundry Way. Puddles stand in the ruts.'],
-  [913, 909, 'Marrow Street outside the back of KSAB\'s Writers\' Wing, glass behind a strip of verge, with the Deadline on the corner to the west and the Sentinel\'s door to the east. The writers\' own door is inside the lot, through the gate on Foundry Way.'],
+  [913, 909, 'Marrow Street along the back of KSAB\'s Writers\' Wing, with the lot\'s wall running either side of it, cream render with a cyan stripe at its foot. Every door on the block is inside the wall, through the gate on Foundry Way.'],
+  [912, 909, 'Marrow Street at the corner of KSAB\'s lot. The wall turns here, cream render over a dark plinth, and painted flats show over the coping behind it. A dead neon bracket on the wall is the last of the bar that stood on the corner. Puddles stand in the ruts.'],
+  [914, 909, 'Marrow Street outside the Coldwater Sentinel, its gilt masthead over a front door bricked up and rendered over. A card in the old counter window sends deliveries round to the KSAB gate on Foundry Way. Somebody dragged a mattress halfway across the road and gave up.'],
+  [911, 910, 'Meltwater Row along the wall at the back of KSAB\'s lot, cream render with a cyan stripe, the tops of painted flats showing over it. A dead streetlight leans at the verge, and the wind carries grit that finds your teeth.'],
 ];
 for (const [x, y, description] of STREETS) { must('zones', Z(x, y)); store.patch('zones', Z(x, y), { description }); }
+
+// ── 5b. THE SENTINEL TURNS TO FACE THE CAR PARK ──────────────────────────────────────────────
+// 2026-10-19: every door on the block opens inside the wall. The Sentinel's door is the one by its
+// dock now. Its link into the bullpen keeps its id and turns north, the bullpen leaves by the
+// south, and the press hall (step 6) moves to the bullpen's north.
+{
+  const z = must('zones', SENTINEL);
+  store.put('zones', {
+    ...z,
+    description: 'The Coldwater Sentinel\'s back door, beside the loading dock where its van backs in: a steel door under a lamp, stencilled NO PARKING. Through a wired window, a wall of feed-screens flickers through headlines, and a printer inside never stops chattering.',
+    exits: { south: PARK, north: BULLPEN },
+    flags: { ...z.flags, entrance: 'south', world_exit_zone: PARK, media_lot: { part: 'building', wall: 'ne' } },
+  });
+  must('connections', 'conn_district_914_910_south_v3gs');
+  store.patch('connections', 'conn_district_914_910_south_v3gs', { a: SENTINEL, b: BULLPEN, dir: 'north' });
+  must('doors', 'door_basic_zone_district_914_910_in');
+  store.patch('doors', 'door_basic_zone_district_914_910_in', { zone_id: SENTINEL, exit_dir: 'north', target_zone: BULLPEN });
+  const b = must('zones', BULLPEN);
+  store.put('zones', {
+    ...b,
+    flags: { ...b.flags, window: { ...(b.flags?.window || {}), name: 'the yard window', description: 'A wired pane onto the lot\'s car park: the paper\'s van at the dock, KSAB\'s vans in their bays and the water tower over the wall.' } },
+  });
+}
 
 // ── 6. THE SENTINEL'S PRESS HALL, AND PAVEL LUDD IN IT ──────────────────────────────────────
 {
@@ -203,21 +244,24 @@ for (const [x, y, description] of STREETS) { must('zones', Z(x, y)); store.patch
     id: PRESS, name: 'Press Hall',
     description: 'The Sentinel\'s press hall, behind the bullpen. The paper\'s rotary press takes up most of it, a train of steel drums fed off a reel of newsprint. Pavel Ludd\'s flatbed stands by the back wall with its twin under a sheet, a drying line strung over both. The type cases are by the door.',
     ambient_theme: 'indoors', ambient_events: prev.ambient_events || [], bg_color: '#221f1a',
-    map_id: bullpen.map_id, parent_zone: SENTINEL, grid_x: 0, grid_y: 1, grid_z: 0,
-    exits: { north: BULLPEN },
+    map_id: bullpen.map_id, parent_zone: SENTINEL, grid_x: 0, grid_y: -1, grid_z: 0,
+    exits: { south: BULLPEN },
     flags: {
       building_name: 'Coldwater Sentinel', building_type: 'office', floor: 'concrete',
       is_building: true, is_interior: true, world_exit_zone: SENTINEL,
     },
   });
-  store.patch('zones', BULLPEN, { exits: { ...bullpen.exits, south: PRESS } });
+  {
+    const exits = Object.fromEntries(Object.entries(must('zones', BULLPEN).exits || {}).filter(([, t]) => t !== PRESS && t !== SENTINEL));
+    store.patch('zones', BULLPEN, { exits: { ...exits, south: SENTINEL, north: PRESS } });
+  }
   // The press hall is Ludd's counter, so its door is a shop door that shuts outside his hours.
   const conn = 'conn_sentinel_bullpen_south_press';
-  store.put('connections', { id: conn, a: BULLPEN, b: PRESS, dir: 'south', blocked: false, lockable: true, one_way: false });
+  store.put('connections', { id: conn, a: BULLPEN, b: PRESS, dir: 'north', blocked: false, lockable: true, one_way: false });
   const shopDoor = must('doors', 'door_shop_justmytype_floor');
   store.put('doors', {
     ...shopDoor,
-    id: 'door_shop_sentinel_press', connection_id: conn, zone_id: BULLPEN, exit_dir: 'south', target_zone: PRESS,
+    id: 'door_shop_sentinel_press', connection_id: conn, zone_id: BULLPEN, exit_dir: 'north', target_zone: PRESS,
     tags: { 'lock:shoplock': { canHack: true, difficulty: 4, messages: {
       denied: 'The press hall lock reads your hand and declines to recognise it.',
       lock: 'The bolt drops and the press hall door shuts.',
@@ -333,7 +377,7 @@ for (const [x, y, description] of STREETS) { must('zones', Z(x, y)); store.patch
         options: [{ label: 'Back.', next: 'root' }],
       },
       bar: {
-        text: '"The Deadline, on the corner of Marrow Street. Out the gate, west to Meltwater Row and up to the corner." She looks at her watch. "They open when the shifts finish. The shifts don\'t finish."',
+        text: '"There was one, on the corner. The Deadline." She nods at the backlot. "Station wanted the ground for scenery, so it\'s flats now. The crews drink wherever\'s open when the shift finishes, and the shift doesn\'t finish."',
         options: [{ label: 'Back.', next: 'root' }],
       },
       bye: {

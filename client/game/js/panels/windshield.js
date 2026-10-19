@@ -15669,7 +15669,14 @@ function drawMode7Floor(ctx, W, H, horizonY, depth0, v, sky, gTop, now, sun, cha
   // caller's string measured the feature at exactly 0.00% and looked like a shader that did nothing.
   // ⚠ 'LUT' STARTS null AND IS BUILT CONDITIONALLY, so this is guarded rather than indexed: an
   // unbuilt window is not water, it is no answer, and a throw here takes the whole GL pass down.
-  const _lutMid = LUT && LUT[mh >> 1], _camCell = _lutMid && _lutMid[mh >> 1];
+  // ⚠ THE TILE UNDER THE CAMERA, NOT THE WINDOW'S CENTRE. A free camera roams up to RECENTER_R
+  // (freelook-view.js) from the centre before the window follows, and floorZAt lets it sink wherever
+  // ITS tile is sea. Reading the centre instead meant a dive off a window opened on land got the
+  // surface view from underneath: the sea's underside, the city floating over it, no seabed. Indexed
+  // exactly as seabed-scene.js's landFromLUT, so the two always agree on which tile is water.
+  const _camR = LUT && mh ? (mh - 1) / 2 : 0;
+  const _camRow = LUT && LUT[clamp(Math.floor(ay) + _camR, 0, mh - 1)];
+  const _camCell = _camRow && _camRow[clamp(Math.floor(ax) + _camR, 0, _camRow.length - 1)];
   const _camWater = _camCell ? (_camCell[3] || 0) : 0;
   // ── THE DRAKE GOING UNDER (plugins/submersible) ──────────────────────────
   // `subHull` is how far her hull has sunk, in metres, eased by the cockpit. Where the EYE is then
@@ -41490,7 +41497,7 @@ export function markRenderSmoke() {
         { contacts: [] }, night, alpha, 1000, null, null, 1)]))),
     // The Media Lot's two parts, near and far, and a gate on every side, because the gate is built in
     // a frame turned to its side and only the south one is authored today.
-    ...[['c', '', 's'], ['p', 'es', ''], ['c', '', 'n'], ['c', 'w', 'e'], ['p', 'nesw', 'w']].flatMap(([p, w, g]) => [-3, -8].map((dy) => [`lot:${p}:${w}:${g}:${-dy}`, (night, alpha) =>
+    ...[['c', '', 's'], ['p', 'es', ''], ['c', '', 'n'], ['c', 'w', 'e'], ['p', 'nesw', 'w'], ['b', 'nw', ''], ['b', 'es', ''], ['x', 'ne', '']].flatMap(([p, w, g]) => [-3, -8].map((dy) => [`lot:${p}:${w}:${g}:${-dy}`, (night, alpha) =>
       drawLotMark(SHAPE_STUB_CTX, SHAPE_STUB_CAM, { dx: 0, dy, wx: 7, wy: 7, seed: 3, c: { mark: 'lot', ml: { p, w, g } } }, night, alpha, 1000, null, 1)])),
   ];
   for (const [key, fn] of cases) {
@@ -52786,6 +52793,8 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     // THE MEDIA LOT'S COURT AND CAR PARK (drawLotMark), drawn during the sweep for the battery's
     // reason. `continue` because the tile is still concrete underneath and the ground pass painted it.
     if (it.c.mark === 'lot') { drawLotMark(ctx, cam, it, night, alpha, now, sun, od); continue; }
+    // One of the lot's buildings: the wall along its street faces, then on to the building itself.
+    if (it.c.ml?.p === 'x') drawLotMark(ctx, cam, it, night, alpha, now, sun, od);
     if (it.c.mark === 'camp') {
       ADORN_TIER = (TUNE.detailNear || 0) > 0 && eyeRange(cam, it.dx, it.dy) < TUNE.detailNear ? ADORN_NEAR : ADORN_RICH;
       try { drawTentCamp(ctx, cam, it.dx, it.dy, BUILDING_FOOT * RENDER_TUNE.bldgFoot, it.seed, night, alpha, it.c.cur ? (it.c.ci || campInward(map, it.rx, it.ry, it.c.cur)) : null, now); }

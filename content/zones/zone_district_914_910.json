@@ -3,20 +3,24 @@
   "ambient_theme": "urban",
   "bg_color": "#25211b",
   "color": "#8ba36a",
-  "description": "A narrow storefront newsroom, its window stencilled COLDWATER SENTINEL · ALL THE NEWS THAT SURVIVES in gold gone to flake. Behind the glass a wall of feed-screens flickers through headlines faster than anyone could read, and a printer somewhere inside never stops chattering. A stack of today's edition sits in a wire cage by the door, chained to the frame.",
+  "description": "The Coldwater Sentinel's back door, beside the loading dock where its van backs in: a steel door under a lamp, stencilled NO PARKING. Through a wired window, a wall of feed-screens flickers through headlines, and a printer inside never stops chattering.",
   "exits": {
-    "north": "zone_district_914_909",
-    "south": "zone_sentinel_bullpen"
+    "north": "zone_sentinel_bullpen",
+    "south": "zone_medialot_914_911"
   },
   "flags": {
     "building_name": "Coldwater Sentinel",
     "building_type": "office",
     "district": "nightlife",
-    "entrance": "north",
+    "entrance": "south",
     "facade": true,
     "is_building": true,
+    "media_lot": {
+      "part": "building",
+      "wall": "ne"
+    },
     "region_id": "region_coldwater",
-    "world_exit_zone": "zone_district_914_909"
+    "world_exit_zone": "zone_medialot_914_911"
   },
   "grid_x": 914,
   "grid_y": 910,
