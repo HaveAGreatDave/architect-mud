@@ -208,7 +208,7 @@ export const GROUPS = [
       'scripts/shapes/cityscape-smoke.mjs',  // the city round it: the set composed from the content tree's skyline, every building placed and shaped, the streets from their arms
       'scripts/shapes/anim-smoke.mjs',       // Deadball's players skinned: the rig's frames, four weights a vertex, every pose on the posed build's surface, the hands on the bat
       'scripts/shapes/diamond-smoke.mjs 16', // Deadball staged in 3-D: each pitch at its spot, every clip on the ball, every ball in play's gloves, throws and call at first, the line held to the landing (one game each, side by side)
-      'scripts/shapes/diamond-smoke.mjs 41',
+      { run: 'scripts/shapes/diamond-smoke.mjs 41', budget: 90, why: '36 s of CPU alone, 65 s beside seven other gates (2026-10-19). The time is the animation solver (diamond/anim.js, rig.js) posing every body at every check, not the smoke; dropping the long-hold pass to every fourth at-bat saved 8%' },
       'scripts/shapes/final-smoke.mjs',      // Deadball's final: the champions' show, the searchlights, the dress, the gold graphics, the line-ups read and the pile
       'scripts/shapes/variety-smoke.mjs',    // Deadball's balls in play over a season: spray by handedness, every grade, every line pool reachable
       'scripts/shapes/bolt.mjs',
