@@ -1081,10 +1081,36 @@
       "band": "WATCH",
       "bootPayloadBytes": 13904607,
       "loadsPerDay": 1.4852116223911604
+    },
+    {
+      "at": "2026-10-19T15:39:05.630Z",
+      "cycleStart": "2026-10-01T00:00:00.000Z",
+      "elapsed": 0.6017,
+      "used": {
+        "neon.transfer": 1343734727,
+        "neon.compute": 38.103611111111114,
+        "neon.storage": 0,
+        "neon.branches": 8,
+        "render.bandwidth": 701718589.1051998,
+        "render.instanceHours": 445.1166666666667,
+        "render.buildMinutes": 28.320966666666674
+      },
+      "ratios": {
+        "neon.transfer": 0.416,
+        "neon.compute": 0.6333,
+        "neon.storage": 0,
+        "neon.branches": 0.8,
+        "render.bandwidth": 0.0109,
+        "render.instanceHours": 0.9864,
+        "render.buildMinutes": 0.0941
+      },
+      "band": "WATCH",
+      "bootPayloadBytes": 13904871,
+      "loadsPerDay": 1.6073941695521055
     }
   ],
   "lastAlert": {
-    "at": "2026-10-18T12:37:35.953Z",
+    "at": "2026-10-19T15:39:05.630Z",
     "band": "WATCH"
   }
 }
