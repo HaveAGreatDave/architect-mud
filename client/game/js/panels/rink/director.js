@@ -28,7 +28,7 @@
 import { clamp, lerp, angWrap, rng, hash, hyp } from './util.js';
 import { RL, RW, MID_Y, GOAL_X, NET_HALF, NET_H, DOT_FT, BOARD_H, GLASS_H, attackDir, insideRink, panelAt, PANEL_W, PANEL_X0, PANELS } from './geo.js';
 import { SHOTS, releaseAt, bladeWorld, skaterRig } from './rig.js';
-import { makeBody } from './sim.js';
+import { makeBody, ratingsFor } from './sim.js';
 import { createReplay } from './replay.js';
 import { createRinkCamera } from './camera.js';
 import { clubOf } from '../club-crest.js';
@@ -111,6 +111,7 @@ export function createDirector(W, opts = {}) {
     b.name = surname(name); b.num = numFor(name);
     // he shoots the way he always has: about two in five of the league are righties
     b.hand = hash('hand:' + name) % 5 < 2 ? 'R' : 'L';
+    b.rt = ratingsFor(name);
     if (D.beat) D.beat.locked.add(b);
     return b;
   }

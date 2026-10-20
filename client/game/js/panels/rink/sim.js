@@ -53,7 +53,13 @@ export function dribble(c, pk, T, dt, rand = Math.random, pocket = null) {
   // (a poke, a rub-out, a hit) or let go (a pass, a shot). So however a touch lands, the
   // puck is drawn back softly if it strays past a short gap from where his blade is.
   // (a slapshot's puck sits right where the blade comes down; a sweep carries it, below)
-  const gap = shooting ? (sweeps(SHOTS[c.act]) ? 1.0 : 0.3) : sp > 18 ? 1.9 : 1.2;
+  // THE CONTROL BUDGET. In the between-plays game (`c.ctl` set, 0 to 1: see `control` in
+  // the sim) the leash is only as long as his hands are good, and a puck that gets past it
+  // is gone: he's lost it (`c.lost`), and the play turns it loose. A play the director is
+  // staging leaves `ctl` null and keeps the leash, because its puck goes where the facts say.
+  const free = c.ctl != null && !shooting;
+  const gap = shooting ? (sweeps(SHOTS[c.act]) ? 1.0 : 0.3) : (sp > 18 ? 1.9 : 1.2) * (free ? 0.8 + 0.5 * c.ctl : 1);
+  if (free && d > gap + 0.6 + 1.6 * c.ctl) { c.lost = true; return false; }
   if (d > gap) {
     // (eased, and never faster than a hard pass: the puck slides back, it doesn't jump)
     const k = Math.min((1 - Math.exp(-dt * 14)) * (d - gap), 45 * dt) / d;
@@ -94,7 +100,9 @@ export function dribble(c, pk, T, dt, rand = Math.random, pocket = null) {
   const tr = c.turnRate || 0, hF = c.h + tr * iv, hM = c.h + tr * iv * 0.5;
   const px = c.x + Math.cos(hM) * sp * iv, py = c.y + Math.sin(hM) * sp * iv;
   const [bu, bv] = bladeLocal(c, T + iv, true);
-  const tx = px + bu * Math.cos(hF) - bv * Math.sin(hF), ty = py + bu * Math.sin(hF) + bv * Math.cos(hF);
+  let tx = px + bu * Math.cos(hF) - bv * Math.sin(hF), ty = py + bu * Math.sin(hF) + bv * Math.cos(hF);
+  // (a touch is only as true as his control: off by more at speed, and more the less he has)
+  if (free) { const err = (1 - c.ctl) * (0.35 + sp * 0.05); tx += (rand() - 0.5) * 2 * err; ty += (rand() - 0.5) * 2 * err; }
   pk.vx = (tx - pk.x) / iv; pk.vy = (ty - pk.y) / iv;
   if (sp > 21 && rand() < 0.3) pk.vz = 1.2;                // a push at speed lifts it a little
   pk.spin = (pk.spin || 0) + (rand() - 0.5) * 30;
@@ -105,6 +113,14 @@ export function dribble(c, pk, T, dt, rand = Math.random, pocket = null) {
 const SKINS = ['#e0b08c', '#c48d68', '#8f5e40', '#f0c9a8', '#a87454', '#6a4330', '#d9a27e'];
 const HAIRS = ['#2a1c14', '#5a3a22', '#141210', '#8a6a3a', '#3b2a1e', '#c9b48a', '#6b2d16'];
 const ROLE = ['LW', 'C', 'RW', 'LD', 'RD', 'F'];
+// A MAN'S RATINGS COME OFF HIS NAME, as his hand does, so he plays the same way all season:
+// skating (his legs), hands (keeping the puck), passing and checking, each 0 to 1 and
+// bunched round the middle. A man with no name yet takes his body's. They shape only the
+// between-plays game; what the broadcast reports is the server's.
+export function ratingsFor(key) {
+  const r = rng(hash('rt:' + key)), g = () => (r() + r() + r()) / 3;
+  return { skate: g(), hands: g(), pass: g(), check: g() };
+}
 
 export function makeBody(kind, side, slot, seed) {
   const r = rng(seed);
@@ -137,6 +153,7 @@ export function makeBody(kind, side, slot, seed) {
     meetPass: undefined, chkAt: undefined, chkN: undefined, tussle: null, hold: undefined, down: undefined,
     fountain: undefined, shatterNext: undefined, holdOff: undefined, plant: undefined, track: undefined,
     gloveHold: undefined, actHold: undefined, bfE: undefined, bfT: undefined,
+    rt: ratingsFor(seed), ctl: null, shaky: 0, lost: false, bobbleAt: undefined, tryAt: undefined, beaten: undefined,
   };
 }
 
@@ -218,6 +235,32 @@ export function createWorld(ice, seedKey) {
     if (b && b.act === 'receive' && b.actT < 0.82) { b.actT = 0.82; b.actDur = 0.12 / 0.18; }
     if (b) { b.carrying = true; pk.owner = b.side; if (b.kind === 'skater') W.amb.poss = b.side; }
     return true;
+  };
+  // A PUCK COMING TO A STICK CAN BE BOBBLED. In the between-plays game, a man taking a pass or
+  // a loose puck cushions it only as well as his hands allow: it's harder the faster it comes
+  // at him, from behind him or onto his backhand, off the ice, or with a man on him. Bobbled,
+  // it kicks off his blade and he's a moment getting back to it. A staged play always takes it.
+  W.take = (b) => {
+    const pk = W.puck;
+    if (W.puckScripted || W.frozen || b.scripted || b.kind !== 'skater' || pk.hidden || !b.rt) return W.give(b, true);
+    if (W.t - (b.bobbleAt ?? -9) < 0.35) return false;
+    const rx = pk.vx - (b.vx || 0), ry = pk.vy - (b.vy || 0), rel = hyp(rx, ry);
+    const ch = Math.cos(b.h), sn = Math.sin(b.h);
+    // (coming the way he faces is from behind him; across to the side his stick isn't on is
+    // his backhand)
+    const behind = rel > 1 ? clamp((rx * ch + ry * sn) / rel, 0, 1) : 0;
+    const lat = rel > 1 ? (-rx * sn + ry * ch) / rel : 0, back = (b.hand === 'R' ? lat < -0.4 : lat > 0.4) ? 1 : 0;
+    const opp = W.team[b.side === 'a' ? 'h' : 'a'];
+    let near = 99; for (const o of opp) if (o.active && !o.rag) near = Math.min(near, hyp(o.x - b.x, o.y - b.y));
+    const hard = clamp((rel - 22) / 60, 0, 0.6) + behind * 0.2 + back * 0.12 + (pk.z > 0.3 ? 0.12 : 0) + clamp((5 - near) / 5, 0, 1) * 0.15;
+    const p = clamp(hard * (1.25 - b.rt.hands) - 0.04, 0, 0.6);
+    if (rand() >= p) { const ok = W.give(b, true); if (ok) b.shaky = Math.max(b.shaky || 0, p * 0.6); return ok; }
+    // off the blade: some of what it came in at, turned off to one side
+    b.bobbleAt = W.t; b.shaky = Math.max(b.shaky || 0, 0.25);
+    const k = 0.35 + rand() * 0.2, s = rand() < 0.5 ? -1 : 1;
+    W.loose((b.vx || 0) * 0.7 + rx * k - ry * 0.3 * s, (b.vy || 0) * 0.7 + ry * k + rx * 0.3 * s, rand() < 0.3 ? 2 : 0);
+    W.sfx('stick', { x: b.x });
+    return false;
   };
   // A man goes and gets the puck. It goes on sliding however it was sliding: nothing pulls
   // it to him. He skates to where he'll meet it, whatever his script or his position asked
@@ -447,7 +490,7 @@ export function createWorld(ice, seedKey) {
         h.reachTo = [pk.x, pk.y];
         // (not while he's still digging for it with a man on him: `holdOff`, a battle)
         const rel = hyp(pk.vx - (h.vx || 0), pk.vy - (h.vy || 0));
-        if ((W.t - h.inReachAt > 0.08 || rel > 12) && !(h.holdOff > W.t)) { h.inReachAt = null; W.give(h, true); W.sfx('receive'); }
+        if ((W.t - h.inReachAt > 0.08 || rel > 12) && !(h.holdOff > W.t)) { h.inReachAt = null; if (W.take(h)) W.sfx('receive'); }
       } else {
         // (his moment starts over only once it's been out of reach a little while: a puck
         // riding the near edge of the box goes in and out of it step to step, and one that
@@ -526,7 +569,7 @@ export function createWorld(ice, seedKey) {
       // it isn't put on his stick.
       const able = tg.active && !tg.rag && tg.stick;
       const dm = hyp(pk.x - tg.x, pk.y - tg.y), feet = dm < 1.4;
-      if (able && pk.z < 1.2 && (d < 2.6 || inReach(tg, pk.x, pk.y) || feet)) { W.give(tg, true); W.sfx('receive'); }
+      if (able && pk.z < 1.2 && (d < 2.6 || inReach(tg, pk.x, pk.y) || feet)) { if (W.take(tg)) W.sfx('receive'); }
       else if (!able) { tg.reachTo = null; unface(tg); pk.target = null; }
       else {
         // (gone by him: going away from him, and well past the nearest it came, which a pass
@@ -1037,6 +1080,71 @@ export function createWorld(ice, seedKey) {
   }
   const roles = { a: new Map(), h: new Map() }, roleAt = {};
 
+  // ── keeping it and taking it ──────────────────────────────────────────────
+  const RT0 = { skate: 0.5, hands: 0.5, pass: 0.5, check: 0.5 };
+  // HOW MUCH CONTROL HE HAS, 0 to 1: his hands, less what he's asking of them (speed, a hard
+  // turn), less the man on him (a man on the side he's shielding it from counts for less), less
+  // what his last touch left him (`shaky`: a bobble, a check he rode out). dribble reads it.
+  function control(m, opp) {
+    const rt = m.rt || RT0, sp = hyp(m.vx || 0, m.vy || 0);
+    let press = 0;
+    for (const o of opp) {
+      if (!o.active || o.rag) continue;
+      const d = hyp(o.x - m.x, o.y - m.y);
+      if (d > 7) continue;
+      const lv = -(o.x - m.x) * Math.sin(m.h) + (o.y - m.y) * Math.cos(m.h), shielded = m.protect && Math.sign(lv) === m.protect;
+      press = Math.max(press, (7 - d) / 7 * (0.7 + 0.6 * (o.rt || RT0).check) * (shielded ? 0.55 : 1));
+    }
+    return clamp(0.5 + 0.45 * rt.hands - 0.22 * clamp(sp / 24, 0, 1) - 0.2 * clamp(Math.abs(m.turnRate || 0) / 3, 0, 1) - 0.3 * press - (m.shaky || 0), 0.05, 1);
+  }
+  // A DEFENDER GOES AT THE CARRIER, by stick or by body, and what he gets depends on where he
+  // is, not on a roll alone. Each man tries at most every so often.
+  // - A stick check needs his blade near the puck: better the closer it is, worse if the
+  //   carrier is shielding it from his side, better the shakier the carrier. A miss costs
+  //   little but a moment.
+  // - A body check needs closing speed: harder in, against the boards, on a man off balance,
+  //   the better. It knocks the puck loose rather than winning it. A miss takes him out of the
+  //   play: he goes by, and is a while getting back.
+  // Returns true when the puck came off the carrier.
+  function checkOn(m, c) {
+    if (m.scripted || m.rag || m.blend || !m.stick || m.act || W.t < (m.tryAt ?? 0)) return false;
+    const dx = c.x - m.x, dy = c.y - m.y, d = hyp(dx, dy);
+    if (d > 4 || d < 0.01) return false;
+    const pk = W.puck, rt = m.rt || RT0, crt = c.rt || RT0, ctl = c.ctl ?? 0.7;
+    const close = ((m.vx || 0) - (c.vx || 0)) * dx / d + ((m.vy || 0) - (c.vy || 0)) * dy / d;
+    const wall = c.y < 9 || c.y > RW - 9 || c.x < 16 || c.x > RL - 16;
+    const bw = bladeWorld(m, W.t, true), toPuck = hyp(bw[0] - pk.x, bw[1] - pk.y);
+    const lv = -(m.x - c.x) * Math.sin(c.h) + (m.y - c.y) * Math.cos(c.h), shielded = c.protect && Math.sign(lv) === c.protect;
+    // (he picks the one that's on: a man coming in hard with the shoulder, otherwise the stick)
+    if (close > 7 && d < 3.2 && rt.check > 0.35) {
+      const balance = 0.5 * crt.skate + 0.5 * ctl;
+      const p = clamp(close / 22, 0, 1) * (0.45 + 0.55 * rt.check) * (1.15 - balance) * (wall ? 1.35 : 1);
+      m.tryAt = W.t + 1.6;
+      W.act(m, 'shove', 0.5);
+      if (rand() < p) {
+        W.act(c, 'stagger', 0.6); c.react = 0.5; c.shaky = 0.4;
+        W.loose((c.vx || 0) * 0.5 + (rand() - 0.5) * 14, (c.vy || 0) * 0.5 + (wall ? (MID_Y - c.y) * 0.3 : (rand() - 0.5) * 14), 0);
+        W.sfx('check', { soft: !wall }); if (wall) W.boardShake = Math.max(W.boardShake, 0.3);
+        return true;
+      }
+      // missed him: carried on past where he was, and a while turning back
+      m.tx = m.x + (m.vx || 0) * 0.7; m.ty = m.y + (m.vy || 0) * 0.7; m.beaten = W.t + 0.7; m.tryAt = W.t + 2.4;
+      c.shaky = Math.max(c.shaky || 0, 0.1);
+      return false;
+    }
+    if (toPuck > 3.2) return false;
+    const p = clamp(1 - toPuck / 3.2, 0, 1) * (shielded ? 0.35 : 1) * (1.2 - ctl) * (0.5 + 0.5 * rt.hands) * 0.55;
+    m.tryAt = W.t + 0.7 + rand() * 0.4;
+    W.act(m, rand() < 0.5 ? 'poke' : 'lift', 0.35);
+    W.sfx('stick', { x: m.x });
+    if (rand() >= p) { c.shaky = Math.max(c.shaky || 0, 0.08); return false; }
+    // knocked off his stick: the checker has it if it's on his blade, otherwise it squirts away
+    if (toPuck < 1.6) { W.loose(0, 0); W.give(m, true); }
+    else { const a = Math.atan2(pk.y - m.y, pk.x - m.x) + (rand() - 0.5) * 1.2; W.loose(Math.cos(a) * 12 + (c.vx || 0) * 0.3, Math.sin(a) * 12 + (c.vy || 0) * 0.3, 0); }
+    c.shaky = 0.25;
+    return true;
+  }
+
   function ambient(dt) {
     const pk = W.puck, A = W.amb;
     const carrier = pk.carrier;
@@ -1064,6 +1172,9 @@ export function createWorld(ice, seedKey) {
       const onHim = carrier && team.some((o) => o.scripted && o.charging === carrier);
       for (const m of team) {
         if (m.scripted || m.rag || m.blend || !W.frozen) m.idle = null;
+        // (control is the between-plays game's: anyone else's puck is on the leash)
+        m.ctl = null;
+        if (m.shaky) m.shaky = Math.max(0, m.shaky - dt * 0.6);
         if (m.scripted || m.rag || m.blend) continue;
         const isD = m.slot === 3 || m.slot === 4;
         let tx, ty, mv = 19;
@@ -1141,8 +1252,15 @@ export function createWorld(ice, seedKey) {
         // man who went there at once braked and reversed on the spot. The spot is followed
         // with a short lag instead, so he carries on a moment and swings round. A man after a
         // loose puck goes straight where it's going.
+        // (a man who missed his check goes on by before he can turn back to it)
+        if (m.beaten > W.t) { tx = m.tx; ty = m.ty; }
         const kT = m.through > W.t || !Number.isFinite(m.tx) ? 1 : 1 - Math.exp(-dt * 4);
-        m.tx += (tx - m.tx) * kT; m.ty += (ty - m.ty) * kT; m.maxV = mv; m.acc = 26;
+        // (his legs: a quick man is a little quicker to his spot and off the mark, and a man
+        // with the puck gives up a stride for it, more the poorer his hands)
+        const rt = m.rt || RT0;
+        m.tx += (tx - m.tx) * kT; m.ty += (ty - m.ty) * kT;
+        m.maxV = mv * (0.93 + 0.14 * rt.skate) * (m === carrier ? 0.97 - 0.05 * (1 - rt.hands) : 1); m.acc = 26 * (0.88 + 0.24 * rt.skate);
+        if (m === carrier && free) m.ctl = control(m, opp);
         // what he does with his stick and his eyes
         m.protect = 0; m.defend = null; m.look = null;
         if (m === carrier) {
@@ -1167,26 +1285,22 @@ export function createWorld(ice, seedKey) {
           if ((inReach(m, pk.x, pk.y) || hyp(pk.x - m.x, pk.y - m.y) < 1.4) && hyp(pk.vx, pk.vy) < 45) {
             if (m.inReachAt == null) m.inReachAt = W.t;
             m.reachTo = [pk.x, pk.y];
-            if (W.t - m.inReachAt > 0.08) { m.inReachAt = null; W.give(m, true); W.sfx('receive'); break; }
+            if (W.t - m.inReachAt > 0.08 && W.t - (m.bobbleAt ?? -9) > 0.35) { m.inReachAt = null; if (W.take(m)) { W.sfx('receive'); break; } }
           } else { m.inReachAt = null; if (m.reachTo && pk.target !== m) m.reachTo = null; }
         }
       }
-      // the forechecker takes it back
-      if (carrier && carrier.side !== side && fore && !fore.scripted && W.t - A.lastTurn > 4.5) {
-        const d = hyp(fore.x - carrier.x, fore.y - carrier.y);
-        if (d < 3 && rand() < dt * 0.9) {
-          A.lastTurn = W.t;
-          const nearWall = carrier.y < 10 || carrier.y > RW - 10;
-          if (nearWall && rand() < 0.5) {
-            // pinned on the wall: a rub-out, the puck squirts loose
-            W.act(carrier, 'stagger', 0.6); carrier.react = 0.5;
-            W.loose((rand() - 0.5) * 18, (MID_Y - carrier.y) * 0.4, 0);
-            W.sfx('check', { soft: true }); W.boardShake = Math.max(W.boardShake, 0.3);
-          } else { W.act(fore, 'poke', 0.35); W.give(fore); W.sfx('stick'); }
-        }
+      // a carrier whose touch got away from him has lost it: it goes on as it was going
+      if (carrier && carrier.side === side && carrier.lost) {
+        carrier.lost = false; carrier.shaky = Math.max(carrier.shaky || 0, 0.3);
+        W.loose(pk.vx, pk.vy, 0);
+        continue;
+      }
+      // the men of theirs on him go at it (a turnover just made gets a moment's grace)
+      if (carrier && carrier.side !== side && carrier.kind === 'skater' && W.t - A.lastTurn > 0.8) {
+        for (const m of team) if (checkOn(m, carrier)) { A.lastTurn = W.t; break; }
       }
     }
-    if (!free || !carrier || carrier.kind !== 'skater') return;
+    if (!free || !carrier || carrier.kind !== 'skater' || pk.carrier !== carrier) return;
     // the carrier moves it
     const side = carrier.side, dir = attackDir(side);
     if (W.t > A.nextPass) {
@@ -1243,6 +1357,8 @@ export function createWorld(ice, seedKey) {
           if (W.puck.carrier !== carrier) return;
           const spd = kind === 'drop' ? clamp(pd * 1.8, 16, 28) : 62 + rand() * 18;
           W.pass(carrier, to, spd);
+          // (only as true as his passing: a poorer passer's is off line by a few degrees)
+          { const p0 = W.puck, err = (1 - (carrier.rt || RT0).pass) * 0.09 * (rand() - 0.5) * 2, c0 = Math.cos(err), s0 = Math.sin(err), vx = p0.vx; p0.vx = vx * c0 - p0.vy * s0; p0.vy = vx * s0 + p0.vy * c0; }
           if (kind === 'saucer') W.puck.vz = 7;
           const tt = hyp(to.x - carrier.x, to.y - carrier.y) / spd;
           if (!to.scripted) W.act(to, 'receive', tt + 0.25, [carrier.x, carrier.y]);
