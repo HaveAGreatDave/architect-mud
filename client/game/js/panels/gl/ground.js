@@ -673,6 +673,16 @@ void wetLight(vec3 P, vec3 C, float R, float sw, float sk, float gw, float gk, i
 }
 // One lamp's pool on the road. Its reach is 'poolRadius' in gl/lightgrid.js, the same contract
 // 'wetLight' has with 'measure'.
+//
+// A light's brightness for its pool, 0 for neon. Lamps reach the list as pure white
+// (LIGHT_TUNE.srcGate) and neon only when saturated, so saturation tells them apart. Neon shows on
+// the road through its reflections alone; its own glow is enough. POOL_NEON 1 gives it a pool back.
+const float POOL_NEON = 0.0;
+float poolLum(vec3 c) {
+  float mx = max(c.r, max(c.g, c.b)), mn = min(c.r, min(c.g, c.b));
+  float sat = mx > 1e-5 ? (mx - mn) / mx : 0.0;
+  return dot(c, vec3(0.299, 0.587, 0.114)) * mix(1.0, POOL_NEON, smoothstep(0.15, 0.35, sat));
+}
 vec3 poolLight(vec3 P, vec3 C) {
   vec2 rel = vWorld.xy - P.xy;
   float h = max(0.14, P.z);
@@ -1343,12 +1353,12 @@ void main() {
       uvec2 hc = lgCell(vWorld.xy);
       for (uint k = 0u; k < hc.y; k++) {
         int li = lgAt(hc.x + k);
-        pool += poolLight(lgP(li).xyz, vec3(dot(lgC(li).rgb, vec3(0.299, 0.587, 0.114))));
+        pool += poolLight(lgP(li).xyz, vec3(poolLum(lgC(li).rgb)));
       }
     } else {
       for (int i = 0; i < MAX_POOL; i++) {
         if (i >= uNPool) break;
-        pool += poolLight(uPoolP[i], vec3(dot(uPoolC[i], vec3(0.299, 0.587, 0.114))));
+        pool += poolLight(uPoolP[i], vec3(poolLum(uPoolC[i])));
       }
     }
     // ⚠ IT ADDS INTO THE HEADROOM RATHER THAN ONTO THE ROAD. 'c + k' saturates a pale kerb to
