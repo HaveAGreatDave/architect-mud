@@ -153,7 +153,7 @@ export function makeBody(kind, side, slot, seed) {
     meetPass: undefined, chkAt: undefined, chkN: undefined, tussle: null, hold: undefined, down: undefined,
     fountain: undefined, shatterNext: undefined, holdOff: undefined, plant: undefined, track: undefined,
     gloveHold: undefined, actHold: undefined, bfE: undefined, bfT: undefined,
-    rt: ratingsFor(seed), ctl: null, shaky: 0, lost: false, bobbleAt: undefined, tryAt: undefined, beaten: undefined,
+    rt: ratingsFor(seed), ctl: null, shaky: 0, lost: false, bobbleAt: undefined, tryAt: undefined, beaten: undefined, stam: 1,
   };
 }
 
@@ -1003,6 +1003,24 @@ export function createWorld(ice, seedKey) {
   // forward nearest the puck supports it, the next goes to the net), and `systemSpot` says
   // where a man with a given job stands.
   const isDef = (m) => m.slot === 3 || m.slot === 4;
+  // THE SYSTEMS A CLUB PLAYS without the puck, as data. Each club gets one off its name
+  // (`W.setSystem`); a style record can name one outright later.
+  // - 1-2-2: one man in, two forwards hold the middle, the D give a fair gap. The default.
+  // - 2-1-2: two in. The second takes away the D-to-D, the D stand up close and pinch
+  //   often. More turnovers forced, more odd-man rushes given up.
+  // - trap: nobody chases into their end; the first man waits at our blue line to steer
+  //   the carrier wide, the D sit back. Little pressure, little risk.
+  // `gap` is how far off the puck the D play in the neutral zone (more against a man coming
+  // at speed); `pinch` how often the strong-side D steps up on a puck on the wall at the line.
+  const SYSTEMS = {
+    '1-2-2': { f2: false, trap: false, gap: 26, pinch: 0.25 },
+    '2-1-2': { f2: true, trap: false, gap: 19, pinch: 0.55 },
+    trap: { f2: false, trap: true, gap: 34, pinch: 0.05 },
+  };
+  W.system = { a: '1-2-2', h: '1-2-2' };
+  W.setSystem = (side, name) => { W.system[side] = SYSTEMS[name] ? name : Object.keys(SYSTEMS)[hash('sys:' + (name || '')) % 3]; };
+  const sysOf = (side) => SYSTEMS[W.system[side]] || SYSTEMS['1-2-2'];
+  const pinchFor = { a: null, h: null };
   const laneSign = (side, slot) => Math.sign(laneY(side, slot) - MID_Y) || 0;
   function assignRoles(team, side, carrier) {
     const pk = W.puck, fw = team.filter((m) => !isDef(m) && m !== carrier && !m.rag);
@@ -1073,10 +1091,39 @@ export function createWorld(ice, seedKey) {
       }
       return { tx: sx, ty: sy, mv: 19, face: Math.atan2(py - m.y, px - m.x) };
     }
-    // the neutral zone and theirs: a 1-2-2. One man goes (the forechecker, handled above),
-    // two forwards hold the middle lanes a stride back, the D hold our blue line
-    if (isDef(m)) return { tx: (inOffZone ? bOff - dir * 22 : clamp(px - dir * 28, Math.min(bOwn, bOff) - 30, Math.max(bOwn, bOff) + 30)), ty: MID_Y + ls * 11, mv: 19, face: dir > 0 ? Math.PI : 0 };
-    return { tx: px - dir * 14, ty: MID_Y + ls * 14 + (py - MID_Y) * 0.3, mv: 21 };
+    // The neutral zone and theirs, by the club's system (`SYSTEMS`). One man goes (the
+    // forechecker, handled in `ambient`); the rest play as below.
+    const S = sysOf(side), opp = W.team[side === 'a' ? 'h' : 'a'];
+    if (isDef(m)) {
+      // THE PINCH: their man has it on the wall at our line in their end, and the strong-side
+      // D steps up on him rather than backing off. Decided once a carrier, by the system and
+      // his own checking; a pinch that's beaten leaves an odd-man rush the other way.
+      if (role === 'strongD' && inOffZone && carrier && Math.abs(py - MID_Y) > 14 && (px - bOff) * dir < 22) {
+        const P = pinchFor[side];
+        if (!P || P.c !== carrier) pinchFor[side] = { c: carrier, go: rand() < S.pinch * (0.6 + 0.8 * (m.rt || RT0).check) };
+        if (pinchFor[side].go) return { tx: px - dir * 1.5, ty: py, mv: 23, face: Math.atan2(py - m.y, px - m.x) };
+      }
+      // GAP: off the puck by the system's gap, more against a man coming at speed, and never
+      // so deep he gives up our blue line for nothing
+      const vIn = carrier ? clamp(-((carrier.vx || 0) * dir), 0, 24) : 0, gap = S.gap + vIn * 0.5;
+      return { tx: (inOffZone ? bOff - dir * (S.trap ? 34 : 22) : clamp(px - dir * gap, Math.min(bOwn, bOff) - 30, Math.max(bOwn, bOff) + 30)), ty: MID_Y + ls * 11, mv: 19, face: dir > 0 ? Math.PI : 0 };
+    }
+    // THE SECOND FORECHECKER (a 2-1-2, in their end): on their other D, shading the pass
+    // across to him
+    if (S.f2 && inOffZone && carrier && role !== 'high') {
+      let oD = null, bd = 1e9;
+      for (const o of opp) { if (!o.active || o.rag || o === carrier || !isDef(o)) continue; const d0 = hyp(o.x - px, o.y - py); if (d0 < bd) { bd = d0; oD = o; } }
+      if (oD) return { tx: lerp(oD.x, px, 0.3) - dir * 1.5, ty: lerp(oD.y, py, 0.3), mv: 23 };
+    }
+    // THE BACKCHECK: the high man comes back goal-side of their most dangerous man without the
+    // puck, the one nearest our net, rather than holding his lane
+    if (role === 'high' && !inOffZone) {
+      let th = null, bd = 1e9;
+      for (const o of opp) { if (!o.active || o.rag || o === carrier || isDef(o)) continue; const d0 = Math.abs(o.x - gOwn); if (d0 < bd) { bd = d0; th = o; } }
+      if (th) return { tx: th.x - dir * 4, ty: th.y + (MID_Y - th.y) * 0.15, mv: 23, face: Math.atan2(py - m.y, px - m.x) };
+    }
+    // the rest hold the middle lanes a stride back (deeper in a trap)
+    return { tx: px - dir * (S.trap ? 24 : 14), ty: MID_Y + ls * 14 + (py - MID_Y) * 0.3, mv: 21 };
   }
   const roles = { a: new Map(), h: new Map() }, roleAt = {};
 
@@ -1095,7 +1142,40 @@ export function createWorld(ice, seedKey) {
       const lv = -(o.x - m.x) * Math.sin(m.h) + (o.y - m.y) * Math.cos(m.h), shielded = m.protect && Math.sign(lv) === m.protect;
       press = Math.max(press, (7 - d) / 7 * (0.7 + 0.6 * (o.rt || RT0).check) * (shielded ? 0.55 : 1));
     }
-    return clamp(0.5 + 0.45 * rt.hands - 0.22 * clamp(sp / 24, 0, 1) - 0.2 * clamp(Math.abs(m.turnRate || 0) / 3, 0, 1) - 0.3 * press - (m.shaky || 0), 0.05, 1);
+    return clamp(0.5 + 0.45 * rt.hands - 0.22 * clamp(sp / 24, 0, 1) - 0.2 * clamp(Math.abs(m.turnRate || 0) / 3, 0, 1) - 0.3 * press - (m.shaky || 0) - 0.2 * (1 - (m.stam ?? 1)), 0.05, 1);
+  }
+  // HOW OPEN A PASSING LANE IS: along the line from the carrier to the man, how much sooner
+  // the puck gets to each point than the quickest of theirs can get his stick there (a stick
+  // reaches a couple of feet, so he needs to be that much less far). Negative: he gets there
+  // first. Judged on the line as it is now, at the speed the pass would go.
+  const STICK_T = 0.1;
+  function laneMargin(c, to, spd, opp) {
+    const dx = to.x - c.x, dy = to.y - c.y, L = hyp(dx, dy) || 1;
+    let margin = 9, who = null;
+    for (const o of opp) {
+      if (!o.active || o.rag || o.scripted || o.kind !== 'skater') continue;
+      // (nowhere near the line: skip the sampling)
+      const t0 = clamp(((o.x - c.x) * dx + (o.y - c.y) * dy) / (L * L), 0, 1);
+      if (hyp(c.x + dx * t0 - o.x, c.y + dy * t0 - o.y) > 18) continue;
+      for (let f = 0.15; f < 0.96; f += 0.1) {
+        const m = reachIn(o, c.x + dx * f, c.y + dy * f) - STICK_T - flightT(L * f, spd);
+        if (m < margin) { margin = m; who = o; }
+      }
+    }
+    return { margin, o: who };
+  }
+  // The same for a pass already on its way, along the line it's really on.
+  function pathMargin(pk, to, opp) {
+    const k = 0.35, f = (t) => (1 - Math.exp(-k * t)) / k, tt = flightT(hyp(to.x - pk.x, to.y - pk.y), hyp(pk.vx, pk.vy));
+    let margin = 9, who = null;
+    for (const o of opp) {
+      if (!o.active || o.rag || o.scripted || o.kind !== 'skater') continue;
+      for (let t = 0.06; t < tt; t += 0.06) {
+        const s = f(t), m = reachIn(o, pk.x + pk.vx * s, pk.y + pk.vy * s) - STICK_T - t;
+        if (m < margin) { margin = m; who = o; }
+      }
+    }
+    return { margin, o: who };
   }
   // A DEFENDER GOES AT THE CARRIER, by stick or by body, and what he gets depends on where he
   // is, not on a roll alone. Each man tries at most every so often.
@@ -1175,6 +1255,10 @@ export function createWorld(ice, seedKey) {
         // (control is the between-plays game's: anyone else's puck is on the leash)
         m.ctl = null;
         if (m.shaky) m.shaky = Math.max(0, m.shaky - dt * 0.6);
+        // STAMINA. The same five play all night: flat out drains a man (a good skater less),
+        // easy skating gives a little back, and a whistle gives most. A tired man is slower to
+        // his spot and off the mark, and has less control of the puck.
+        m.stam = clamp((m.stam ?? 1) + dt * (W.frozen ? 0.05 : m.effort > 0.7 ? -0.006 * (1.3 - (m.rt || RT0).skate) : 0.004), 0.4, 1);
         if (m.scripted || m.rag || m.blend) continue;
         const isD = m.slot === 3 || m.slot === 4;
         let tx, ty, mv = 19;
@@ -1230,7 +1314,11 @@ export function createWorld(ice, seedKey) {
             // two of them stood locked together for seconds.
             const dd = hyp(m.x - carrier.x, m.y - carrier.y), a0 = Math.atan2(m.y - carrier.y, m.x - carrier.x) + Math.sin(W.t * 1.3 + m.seed) * 0.35;
             tx = carrier.x + Math.cos(a0) * 2.6 + carrier.vx * 0.25; ty = carrier.y + Math.sin(a0) * 2.6 + carrier.vy * 0.25; mv = dd > 6 ? 24 : 15;
-          } else { tx = c2.x - dir * 1.5; ty = c2.y; mv = 24; }
+          } else if (sysOf(side).trap && carrier && (c2.x - offBlue(side)) * dir > 0) {
+            // (a trap doesn't chase into their end: he waits at our line, on the middle side
+            // of the man, to turn him to the wall)
+            tx = offBlue(side) - dir * 6; ty = lerp(MID_Y, c2.y, 0.5); mv = 20;
+          } else { tx = c2.x - dir * 1.5; ty = c2.y + (MID_Y - c2.y) * 0.12; mv = 24; }
         } else {
           // everyone else plays his position (see `systemSpot`)
           const sp = systemSpot(m, side, attacking ? 'attack' : 'defend', carrier, roles[side]);
@@ -1259,7 +1347,8 @@ export function createWorld(ice, seedKey) {
         // with the puck gives up a stride for it, more the poorer his hands)
         const rt = m.rt || RT0;
         m.tx += (tx - m.tx) * kT; m.ty += (ty - m.ty) * kT;
-        m.maxV = mv * (0.93 + 0.14 * rt.skate) * (m === carrier ? 0.97 - 0.05 * (1 - rt.hands) : 1); m.acc = 26 * (0.88 + 0.24 * rt.skate);
+        const st = m.stam ?? 1;
+        m.maxV = mv * (0.93 + 0.14 * rt.skate) * (0.88 + 0.12 * st) * (m === carrier ? 0.97 - 0.05 * (1 - rt.hands) : 1); m.acc = 26 * (0.88 + 0.24 * rt.skate) * (0.9 + 0.1 * st);
         if (m === carrier && free) m.ctl = control(m, opp);
         // what he does with his stick and his eyes
         m.protect = 0; m.defend = null; m.look = null;
@@ -1327,7 +1416,10 @@ export function createWorld(ice, seedKey) {
         if (d < 8 || d > 70) continue;
         // the plays: in the zone, back to the points, D to D, low to high; through the neutral
         // zone, the stretch pass to a winger in his lane
-        let sc = open * 1.2 + rand() * 6;
+        // (and only through a lane they can't get a stick into first: the worse it is for the
+        // poorer passer, who can't thread it)
+        const lm = laneMargin(carrier, m, 70, opp).margin;
+        let sc = open * 1.2 + rand() * 4 - (lm < 0 ? 22 : lm < 0.3 ? (0.3 - lm) * 45 : 0) * (1.2 - 0.4 * (carrier.rt || RT0).pass);
         if (zone) sc += (isDef(m) && !isDef(carrier) ? 9 : 0) + (isDef(m) && isDef(carrier) ? 11 : 0) + (!isDef(m) && isDef(carrier) && Math.abs(m.x - offGoal(side)) < 30 ? 6 : 0);
         else sc += clamp(fwd, -20, 25) * 0.4 + (m.slot === 0 || m.slot === 2 ? 4 : 0);
         if (sc > bs) { bs = sc; best = m; }
@@ -1348,7 +1440,7 @@ export function createWorld(ice, seedKey) {
         const to = best;
         const lu = (to.x - carrier.x) * Math.cos(carrier.h) + (to.y - carrier.y) * Math.sin(carrier.h);
         const lv = -(to.x - carrier.x) * Math.sin(carrier.h) + (to.y - carrier.y) * Math.cos(carrier.h);
-        const lane = opp.some((o) => { const t = clamp(((o.x - carrier.x) * (to.x - carrier.x) + (o.y - carrier.y) * (to.y - carrier.y)) / ((to.x - carrier.x) ** 2 + (to.y - carrier.y) ** 2 || 1), 0, 1); return hyp(carrier.x + (to.x - carrier.x) * t - o.x, carrier.y + (to.y - carrier.y) * t - o.y) < 3; });
+        const lane = laneMargin(carrier, to, 70, opp).margin < 0.1;
         const pd = hyp(to.x - carrier.x, to.y - carrier.y);
         const kind = lu < -3 && pd < 14 ? 'drop' : lane ? 'saucer' : (lv < -4 && lu < 8) || lu < -3 ? 'backpass' : 'pass';
         W.act(carrier, kind, SHOTS[kind].dur);
@@ -1362,13 +1454,14 @@ export function createWorld(ice, seedKey) {
           if (kind === 'saucer') W.puck.vz = 7;
           const tt = hyp(to.x - carrier.x, to.y - carrier.y) / spd;
           if (!to.scripted) W.act(to, 'receive', tt + 0.25, [carrier.x, carrier.y]);
-          // a pass through traffic can be picked off
+          // A pass through traffic is picked off by the man who can get his stick to its line
+          // before it gets there: certainly if he's well ahead of it, a coin on a close one
+          // (his hands), and a saucer goes over all but the plainest.
           const pk2 = W.puck;
-          for (const o of opp) {
-            if (o.scripted || o.rag) continue;
-            const t = clamp(((o.x - pk2.x) * pk2.vx + (o.y - pk2.y) * pk2.vy) / (pk2.vx * pk2.vx + pk2.vy * pk2.vy || 1), 0, 1.2);
-            const px = pk2.x + pk2.vx * t, py = pk2.y + pk2.vy * t;
-            if (hyp(o.x - px, o.y - py) < 2.4 && rand() < 0.3) { pk2.target = o; break; }
+          if (pk2.target === to) {
+            const { margin, o } = pathMargin(pk2, to, opp);
+            const need = kind === 'saucer' ? -0.3 : -0.06;
+            if (o && (margin < need || (kind !== 'saucer' && margin < 0.06 && rand() < 0.5 * (0.6 + 0.8 * (o.rt || RT0).hands) * (0.06 - margin) / 0.12))) pk2.target = o;
           }
         });
       }

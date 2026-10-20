@@ -156,6 +156,8 @@ export function createDirector(W, opts = {}) {
     D.kitsFor = key;
     W.kits.a = kitFor(p.awayColours, 'a', p.awayTeam);
     W.kits.h = kitFor(p.homeColours, 'h', p.homeTeam);
+    // each club plays its own system without the puck (sim.js `SYSTEMS`)
+    W.setSystem('a', p.awayTeam); W.setSystem('h', p.homeTeam);
     // a re-dress mid-game changes sweaters, not the men in them
     if (sameClubs) return;
     const teams = `${p.awayTeam || ''}|${p.homeTeam || ''}`;
