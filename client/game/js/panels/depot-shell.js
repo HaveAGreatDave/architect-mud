@@ -23,13 +23,13 @@
 
 import { holdToConfirm } from './hold-confirm.js';
 import { playUi } from '../ui-sound.js';
-import { loadCss } from '../../../shared/dom.js';
+import { escapeHtml as esc, loadCss } from '../../../shared/dom.js';
+export { esc };
 
 // depot-shell.css ships beside this file and is fetched when the module loads, so ensureDepotStyles
 // still applies it synchronously on first open. See loadCss in client/shared/dom.js.
 const SHELL_CSS = await loadCss(new URL('./depot-shell.css', import.meta.url));
 
-export const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 /** The one money format: the glyph first, thousands separated. The log prints credits this way. */
 export const money = (n) => `₵${Math.round(Number(n) || 0).toLocaleString()}`;
 export const clamp01 = (v) => Math.max(0, Math.min(1, Number(v) || 0));

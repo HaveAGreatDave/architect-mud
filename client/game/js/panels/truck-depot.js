@@ -53,7 +53,7 @@ import { ensureDepotStyles, headHtml, jobsHtml, mountBay, setBayOpen, bayHtml, l
   statsHtml, serviceListHtml, armHolds, shellClick, clearViewModes, noteAct, notePush, money, readyHtml } from './depot-shell.js';
 import { SHOTS } from './camera-tween.js';
 import { garageBed } from './garage-ambience.js';
-import { loadCss } from '../../../shared/dom.js';
+import { escapeHtml as esc, loadCss } from '../../../shared/dom.js';
 
 // truck-depot.css ships beside this file and is fetched when the module loads, so ensureStyles
 // still applies it synchronously on first open. See loadCss in client/shared/dom.js.
@@ -65,7 +65,6 @@ let yaw = 0;
 let toastT = null;
 let ro = null;
 
-const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 // Icon + label chip, the hangar's `tbtn` verbatim (hangar-bay.js): the glyph is decoration and the
 // word beside it is the button's real name, so the icon is hidden from the accessible tree —
 // otherwise "Sell" is announced as "credit Sell".

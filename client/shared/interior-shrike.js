@@ -46,7 +46,7 @@
 // panel, the seats and the controls have nothing on the outside to measure and are metres.
 //
 // Pure: no clock, no camera, no DOM. `live` arrives as an argument.
-import { makeKit, C, clamp, pedal, SHINY, PANE, TEXTURE } from './interior-kit.js';
+import { makeKit, C, clamp, lerp, pedal, SHINY, PANE, TEXTURE } from './interior-kit.js';
 import { contactShadow, hotspotHalo, facingPanel, panelGps, gpsHotspot } from './interior-cockpit-kit.js';
 import { readings } from './interior-fit-craft.js';
 import { FW_ROWS } from './vehicle-models.js';
@@ -59,7 +59,6 @@ const mul = (a, s) => [a[0] * s, a[1] * s, a[2] * s];
 const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
 const norm = (a) => { const l = Math.hypot(a[0], a[1], a[2]) || 1; return [a[0] / l, a[1] / l, a[2] / l]; };
-const lerp = (a, b, t) => a + (b - a) * t;
 
 // ── THE SCALE AND THE SEAT ───────────────────────────────────────────────────
 export const SHRIKE_LEN_M = 11.0;        // Ju 87 B overall length

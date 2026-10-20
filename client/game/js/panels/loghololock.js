@@ -21,12 +21,11 @@
 // who just stops typing (doors.js, `pendingHack.turns`).
 import { appendHtml } from '../render.js';
 import { boardFor, newLock, act } from '../../../shared/hololock-turns.js';
+import { escapeHtml as esc } from '../../../shared/dom.js';
 
 let _lock = null;
 let _opts = null;
 let _queue = [];
-
-const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
 // net.js prints the player's own echo AFTER the board's handler returns, so a
 // reply written straight away would sit above the command that caused it. Lines

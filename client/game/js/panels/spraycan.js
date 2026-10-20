@@ -28,7 +28,7 @@ import { mountOverlay } from './minigame-common.js';
 import { openColorPicker, closeColorPicker } from './color-picker.js';
 import { tagPreview } from './tag-bake.js';   // a leaf: the preview without fetching GLASS
 import { TAG_FACES } from '../../../shared/tag-strokes.js';
-import { loadCss } from '../../../shared/dom.js';
+import { escapeHtml as esc, loadCss } from '../../../shared/dom.js';
 
 // spraycan.css ships beside this file and is fetched when the module loads, so ensureStyles
 // still applies it synchronously on first open. See loadCss in client/shared/dom.js.
@@ -54,8 +54,6 @@ const FACE_TIP = {
   block: 'Square-cut and upright',
   sharp: 'Leaning, mitred to points, chisel-cut ends',
 };
-
-const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
 // ── The style model ──────────────────────────────────────────────────────────
 // Held as two parallel per-character arrays because that is what the editing

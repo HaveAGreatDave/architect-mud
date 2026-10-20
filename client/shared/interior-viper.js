@@ -48,7 +48,7 @@
 //
 // Pure, like the rest of the interior: no clock, no camera, no DOM, apart from the eased switch
 // throw that interior-cockpit-kit.js keeps for every cockpit. `live` arrives as an argument.
-import { makeKit, C, clamp, pedal, SHINY, PANE, TEXTURE } from './interior-kit.js';
+import { makeKit, C, clamp, lerp, pedal, SHINY, PANE, TEXTURE } from './interior-kit.js';
 import { eased, pressPulse, hotspotHalo, contactShadow, panelGps, gpsHotspot } from './interior-cockpit-kit.js';
 import { MESH_ROWS } from './vehicle-meshes.js';
 
@@ -60,7 +60,6 @@ const mul = (a, s) => [a[0] * s, a[1] * s, a[2] * s];
 const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
 const norm = (a) => { const l = Math.hypot(a[0], a[1], a[2]) || 1; return [a[0] / l, a[1] / l, a[2] / l]; };
-const lerp = (a, b, t) => a + (b - a) * t;
 
 // ── THE CABIN ANCHOR ─────────────────────────────────────────────────────────
 //

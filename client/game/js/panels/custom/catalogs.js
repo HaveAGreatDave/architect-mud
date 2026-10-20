@@ -1,3 +1,5 @@
+import { escapeHtml as esc } from '../../../../shared/dom.js';
+export { esc };
 // Field + widget catalogs for the "derive your own" panel engine.
 //
 // A derived panel = pick one or more FIELD_CATALOG entries + one WIDGET_CATALOG
@@ -11,12 +13,6 @@
 //            'list'   -> [{ label, value, color? }]
 // source:    'player'   -> read live from state.player via get(p)
 //            'snapshot' -> fetched via panel_data, cached under field.key
-
-export function esc(s) {
-  return String(s ?? '').replace(/[&<>"]/g, c => (
-    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]
-  ));
-}
 
 export const FIELD_CATALOG = [
   // Vitals — live off state.player

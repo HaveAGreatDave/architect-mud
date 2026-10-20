@@ -17,6 +17,7 @@
 // Engine code: the wordmark is read from the page header (`#header .logo`), not written here, so
 // another game on THOMAS gets its own name. Nothing under gl/ is imported, and with no veil element
 // in the DOM (the headless smokes, the hangar seat) every call is a Map miss and a null lookup.
+import { escapeHtml as esc } from '../../../shared/dom.js';
 
 const HOLD = 2;         // paints skipped so the veil is composited before the first real one
 const FAST_MS = 45;     // a paint under this means the builds are done
@@ -59,8 +60,6 @@ function wordmark() {
   const t = typeof document !== 'undefined' && document.querySelector('#header .logo')?.textContent;
   return String(t || '').trim() || 'LOADING';
 }
-
-function esc(s) { return s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]); }
 
 // A four-digit tag from the seat id, so each seat reads as its own feed. Flavour, not an address.
 function feedTag(id) {

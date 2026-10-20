@@ -1,3 +1,4 @@
+import { escapeHtml as esc } from '../../../shared/dom.js';
 // Voidwalk staging overlay — the pre-crossing muster.
 //
 // A Tablet-OS-themed window that pops when you `voidwalk` (or walk off the edge):
@@ -9,10 +10,6 @@
 // crossing's move payloads render the void behind it.
 
 let el = null;
-
-function esc(s) {
-  return String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-}
 
 function chatLineHtml(l) {
   return `<div class="vwstage-chat-msg${l.you ? ' me' : ''}">

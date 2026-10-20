@@ -41,6 +41,7 @@
 // registered and nothing here has to learn its name.
 import { sendCmd, sendCmdSilent } from '../net.js';
 import { makeDraggable } from './confirm.js';
+import { escapeHtml as esc } from '../../../shared/dom.js';
 
 let active = false;
 // The last payload, kept so selecting a recipe can re-render without a round
@@ -93,8 +94,6 @@ function panelSend(cmd) {
   if (/^pullid\s/.test(cmd)) claimContainerView += 1;
   sendCmd(cmd);
 }
-
-const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
 function el(id) { return document.getElementById(id); }
 

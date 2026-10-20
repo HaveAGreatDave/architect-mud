@@ -42,6 +42,7 @@ import { getVar, setVar, unsetVar, allVars } from '../variables.js';
 import { evalBool, evalValue, isWellFormed, FUNC_NAMES } from '../expr.js';
 import { applyCaptures } from '../automation-guards.js';
 import { waitForLine } from '../linewait.js';
+import { escapeHtml as escHtml } from '../../../shared/dom.js';
 
 const KEY = 'architect_smartbar_macros';
 const DEFAULT_STAGGER_MS = 350;
@@ -608,7 +609,6 @@ function markLoopsPaced(stack) {
 }
 
 // Minimal HTML escape for the user-set label going into an innerHTML banner.
-const escHtml = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
 // A "*** <label> started…/finished" banner, tinted in the macro's own button
 // colour, printed only for a top-level run (nested `macro <name>` calls stay quiet).

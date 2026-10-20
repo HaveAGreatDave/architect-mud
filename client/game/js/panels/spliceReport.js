@@ -1,3 +1,4 @@
+import { escapeHtml as esc } from '../../../shared/dom.js';
 // Splice lab report — the A+…F grade card the server fires (type:'splice_report')
 // after a splice resolves. Big letter grade, the compound's potency, and a note.
 // F is a bad batch (red); catastrophe never gets here (it's its own text beat).
@@ -5,9 +6,6 @@
 
 let _el = null;
 
-function esc(s) {
-  return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-}
 function close() { _el?.remove(); _el = null; }
 
 const GRADE_CLASS = { 'A+': 'sr-a', 'A': 'sr-a', 'B': 'sr-b', 'C': 'sr-c', 'D': 'sr-d', 'F': 'sr-f' };

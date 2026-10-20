@@ -17,8 +17,7 @@
 // Relative, not the '/shared/…' form the browser also accepts, so this module can
 // be imported and exercised in Node — see scripts/a11y/verb-smoke.mjs.
 import { loadSettings, saveSettings, applySettings, A11Y_OPTIONS, effectiveOptionValue } from '../../shared/settings.js';
-
-const esc = (s) => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+import { escapeHtml as esc } from '../../shared/dom.js';
 
 function commit(settings) {
   saveSettings(settings);

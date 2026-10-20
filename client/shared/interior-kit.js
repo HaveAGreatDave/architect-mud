@@ -66,6 +66,7 @@ setKeyedColourTest((a) => SHINY.has(a) || PANE.has(a) || TEXTURE.has(a));
 export const TONE_TEX = { floor: 'carpet', hdr: 'fabric', seat: 'fabric', dash: 'plastic', pil: 'plastic', post: 'plastic' };
 export const texIndex = (name) => { const i = TEX_KINDS.indexOf(name); return i < 0 ? 0 : i; };
 export const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
+export const lerp = (a, b, t) => a + (b - a) * t;
 // A gate's ear on the lettering (scripts/shapes/cockpit-controls.mjs). `mirrored(str, o, r, u)` hears
 // of every word drawn on a panel whose normal `panel` had to turn round to face the eye: that panel
 // keeps `r` and `u`, so the word reads backwards from the seat (docs/reference/cockpit-lettering.md

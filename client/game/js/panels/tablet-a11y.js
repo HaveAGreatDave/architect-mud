@@ -49,8 +49,7 @@ import {
   loadSettings, saveSettings, applySettings,
   A11Y_OPTIONS, effectiveOptionValue, tabletStyle,
 } from '../../../shared/settings.js';
-
-const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+import { escapeHtml as esc } from '../../../shared/dom.js';
 
 // The display rung last seen on a payload. Settings' own screen ships it
 // (settings-app.js), and Sound Detail needs it to resolve its tri-state default —

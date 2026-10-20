@@ -35,7 +35,7 @@
 // itself whose wings sweep and whose rotor folds with the same two channels the exterior animates.
 //
 // Pure, like the rest of the interior: no clock, no camera, no DOM. `live` arrives as an argument.
-import { makeKit, C, clamp, pedal, SHINY, PANE, TEXTURE } from './interior-kit.js';
+import { makeKit, C, clamp, lerp, pedal, SHINY, PANE, TEXTURE } from './interior-kit.js';
 import { MESH_ROWS } from './vehicle-meshes.js';
 import { legend, LEGEND_MAX_H } from './legend-font.js';
 
@@ -47,7 +47,6 @@ const mul = (a, s) => [a[0] * s, a[1] * s, a[2] * s];
 const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
 const norm = (a) => { const l = Math.hypot(a[0], a[1], a[2]) || 1; return [a[0] / l, a[1] / l, a[2] / l]; };
-const lerp = (a, b, t) => a + (b - a) * t;
 // A deterministic 0..1 hash, so the fur is the same fur every frame.
 const hash = (i, j) => { const s = Math.sin(i * 127.1 + j * 311.7) * 43758.5453; return s - Math.floor(s); };
 

@@ -2,6 +2,7 @@ import { sendCmdSilent } from '../net.js';
 import { state } from '../state.js';
 import { openCircuitHack } from './circuithack.js';
 import { sfx } from './minigame-common.js';
+import { escapeHtml as esc } from '../../../shared/dom.js';
 
 // ── Audio ─────────────────────────────────────────────────────────────────
 
@@ -79,10 +80,6 @@ export function updateAtmPanel(patch) {
 
 function formatC(n) {
   return '₵ ' + (n ?? 0).toLocaleString();
-}
-
-function esc(s) {
-  return String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 }
 
 function renderAtmPanel() {

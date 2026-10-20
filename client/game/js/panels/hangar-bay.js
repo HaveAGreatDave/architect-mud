@@ -27,7 +27,7 @@ import { ensureDepotStyles, headHtml, jobsHtml, mountBay, setBayOpen, bayHtml, l
   armHolds, shellClick, clearViewModes, noteAct, notePush, money, readyHtml } from './depot-shell.js';
 import { SHOTS } from './camera-tween.js';
 import { garageBed } from './garage-ambience.js';
-import { loadCss } from '../../../shared/dom.js';
+import { escapeHtml as esc, loadCss } from '../../../shared/dom.js';
 
 // hangar-bay.css ships beside this file and is fetched when the module loads, so ensureStyles
 // still applies it synchronously on first open. See loadCss in client/shared/dom.js.
@@ -198,7 +198,6 @@ window.addEventListener('keydown', (e) => {
   if (B.screen !== 'floor') { go('floor'); } else if (B.data?.inHangar) { sendCmdSilent(B.data.exitDir || 'out'); } else { closeHangarBay(); sendCmdSilent('look'); }
 });
 
-const esc = (s) => String(s == null ? '' : s).replace(/[<>&"]/g, ch => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[ch]));
 function go(screen) { closeColorPicker({ silent: true }); inspectKeys.clear(); B.screen = screen; render(); }
 // Commands that don't self-refresh the panel (repair/tune/loadout/buy/rent) get a
 // short delayed re-fetch — the same trick fleet.js used for `buy`.

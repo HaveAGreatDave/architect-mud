@@ -45,7 +45,7 @@
 //
 // Frame: metres, the eye at the origin, +x right, +y forward, +z up. The centreline is `xCentre`
 // to the right of the eye; the co-pilot sits at 2·xCentre.
-import { makeKit, C, clamp, pedal, SHINY, PANE, TEXTURE, xfTurn } from './interior-kit.js';
+import { makeKit, C, clamp, lerp, pedal, SHINY, PANE, TEXTURE, xfTurn } from './interior-kit.js';
 import { contactShadow, facingPanel, hotspotHalo, panelGps, gpsHotspot } from './interior-cockpit-kit.js';
 import { FW_ROWS } from './vehicle-models.js';
 
@@ -57,7 +57,6 @@ const mul = (a, s) => [a[0] * s, a[1] * s, a[2] * s];
 const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
 const norm = (a) => { const l = Math.hypot(a[0], a[1], a[2]) || 1; return [a[0] / l, a[1] / l, a[2] / l]; };
-const lerp = (a, b, t) => a + (b - a) * t;
 
 // ── THE ONE SCALE AND THE EYE ────────────────────────────────────────────────
 export const MULE_REAL_LENGTH_M = 15.77;

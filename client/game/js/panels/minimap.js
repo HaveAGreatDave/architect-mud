@@ -8,6 +8,7 @@ import { loadSettings } from '/shared/settings.js';
 // evaluation — see the note at the top of minimap-canvas.js.
 import { renderMinimapCanvas, hideCanvas } from './minimap-canvas.js';
 import { gridOk } from './minimap-cache.js';
+import { escapeHtml } from '../../../shared/dom.js';
 
 // Shared map state that outlives the retired full-screen popup: the overlay label
 // mode (read by the sidebar minimap), the door render style, and the active GPS
@@ -1271,9 +1272,6 @@ export function sendGo(buildingName) { if (buildingName) sendCmd(`go ${buildingN
 // (streetAbbrev/twoLetterAbbrev lived here — the district initials the gateway
 // marker stamped on a foreign tile. The gateway branch is gone with the district
 // clipping it served, and these went with it.)
-function escapeHtml(s) {
-  return String(s).replace(/[&<>"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]));
-}
 
 // Shortest walkable route between two tiles over the currently-shown tiles, stepping
 // only through orthogonal grid-adjacent exits (so every leg can be drawn as a road

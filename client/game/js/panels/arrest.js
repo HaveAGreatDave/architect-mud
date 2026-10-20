@@ -1,3 +1,4 @@
+import { escapeHtml as esc } from '../../../shared/dom.js';
 // Arrest booking record — a dismissible popup the server fires (type:'arrest_notice')
 // when you're processed into Precinct 9 holding. Shows the charge, your sentence,
 // that your property was seized, and the fine levied against your account. Purely
@@ -30,10 +31,6 @@ function makeDraggable(win, handle) {
 }
 
 function close() { _el?.remove(); _el = null; }
-
-function esc(s) {
-  return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-}
 
 // msg: { charge, stars, sentence, confiscated, fine, held }
 export function showArrestNotice(msg) {

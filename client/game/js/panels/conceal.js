@@ -6,14 +6,11 @@
 // seized. On finish, replies `concealresolve <nonce> <palmedIds> <botchedIds>`.
 
 import { sendCmdSilent } from '../net.js';
+import { escapeHtml as esc } from '../../../shared/dom.js';
 
 const TRACK_W = 460, CHIP_W = 66;
 let _el = null, _raf = 0, _done = false, _lineX = 0;
 let _chips = [], _palmed = [], _botched = [], _nonce = '', _maxPalm = 1;
-
-function esc(s) {
-  return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-}
 
 function cleanup() {
   if (_raf) { cancelAnimationFrame(_raf); _raf = 0; }

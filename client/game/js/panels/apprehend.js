@@ -4,12 +4,9 @@
 // wrenches free (+2★ and the chase is back on). Resolves via `apprehendresolve`.
 
 import { sendCmdSilent } from '../net.js';
+import { escapeHtml as esc } from '../../../shared/dom.js';
 
 let _el = null, _timer = null, _resolved = false;
-
-function esc(s) {
-  return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-}
 
 function onKey(e) {
   if (e.key === 'r' || e.key === 'R') { e.preventDefault(); resolve('run'); }

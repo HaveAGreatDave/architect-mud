@@ -5,6 +5,7 @@
 //   • no-arg verbs run on click;
 //   • verbs that take arguments prefill the command box so you can finish typing.
 import { sendCmdSilent } from '../net.js';
+import { escapeHtml as esc } from '../../../shared/dom.js';
 
 let overlay = null;
 let ROLE = '';
@@ -42,8 +43,6 @@ function run(verb, args) {
   if (input) { input.value = `@${verb} `; input.focus(); }
   closeAdmin();
 }
-
-function esc(s) { return String(s == null ? '' : s).replace(/[<>&"]/g, ch => ({ '<':'&lt;', '>':'&gt;', '&':'&amp;', '"':'&quot;' }[ch])); }
 
 function render(commands) {
   const body = document.getElementById('admin-body'); if (!body) return;

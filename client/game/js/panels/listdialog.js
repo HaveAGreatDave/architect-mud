@@ -1,3 +1,4 @@
+import { escapeHtml as esc } from '../../../shared/dom.js';
 // One generic list dialog, for every "pick one of N" surface in the game.
 //
 // This is the thing docs/audits/log-vs-dialog-audit.md asks for by name: not
@@ -37,8 +38,6 @@
 // and focus restoration. Arrow-key navigation is deliberately not added on top: Tab
 // through buttons is standard and needs no state. See the roving-tabindex note in
 // docs/systems-display-mode.md.
-
-const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
 let _send = null;
 

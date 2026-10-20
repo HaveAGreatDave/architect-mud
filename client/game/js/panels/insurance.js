@@ -3,6 +3,7 @@
 // dedicated markup/CSS, themed in the insurer's amber rather than a bank's green,
 // plus a wireframe silhouette of the selected aircraft instead of a balance screen.
 import { sendCmdSilent } from '../net.js';
+import { escapeHtml as esc } from '../../../shared/dom.js';
 // wireframe-plane.js pulls in aircraft3d and the vehicle meshes (about 1.4 MB),
 // so it loads when the panel opens, not at boot. See lazy-views.js.
 let wf3d = null;
@@ -53,7 +54,6 @@ export function closeInsurancePanel() {
   stopWfSpin();
 }
 
-const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const fmt = (n) => '₵ ' + (n ?? 0).toLocaleString();
 
 function render() {
