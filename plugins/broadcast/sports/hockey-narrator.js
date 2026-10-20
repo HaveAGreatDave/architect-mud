@@ -329,6 +329,13 @@ export function narrate(ctx) {
     overlayType: 'sportsfx', kind: 'hockeyfight',
     winner: b.winner || '', loser: b.loser || '', team: b.winnerTeam || '', duration: 3.4,
   });
+  // The play a line calls, for the room watching it (index.js `say`; plugins/sports-banter).
+  // `for` is the side it was good for and `against` the side it hurt.
+  const otherSide = (team) => (team === away.name ? home.name : away.name);
+  const playMeta = (b, kind, forTeam, over = {}) => ({ play: {
+    sport: 'hockey', kind, for: forTeam, against: otherSide(forTeam),
+    away: away.name, home: home.name, awayScore: b.awayScore, homeScore: b.homeScore, ...over,
+  } });
   const deathFx = (b) => ({
     overlayType: 'sportsfx', kind: 'hockeydeath',
     player: b.player || '', team: b.teamName || '', winner: b.winnerTeam || '', duration: 4.6,
@@ -725,7 +732,8 @@ export function narrate(ctx) {
         const rushed = callRush(bb, t, pre, gd, true);
         if (gd.breakaway && !rushAlone) call('pbp.breakaway', t, null, pre, { cue: { ev: 'alone' } });
         const feeder = callShot(bb, t, pre, rushed ? null : gd);
-        call('pbp.goal', t, { team: b.teamName }, sb, { cue: { ev: 'out' } }, null, goalFx(b));
+        const goalPlay = playMeta(b, 'goal', b.teamName, { player: b.shooter || '', strength: b.strength || 'even', sudden: /OT$/.test(b.section || '') });
+        const goalCalled = call('pbp.goal', t, { team: b.teamName }, sb, { cue: { ev: 'out' }, ...goalPlay }, null, goalFx(b));
         // What the rink shows next: the lamp, the scorer peeling away, the pile-on, the
         // goalie on his knees.
         call('pbp.goal.lamp', t, null, sb, { opt: true });
@@ -736,7 +744,7 @@ export function narrate(ctx) {
         const replayed = callReplay(b, t, sb, { breakaway: gd.breakaway, feeder, pass: rushPass });
         // Back live: the credit, then the score. (The plain goal pool names the helper on some
         // lines, so a solo goal takes its own.)
-        say(pick(...(b.assist || key !== 'goal' ? [key, 'goal'] : ['goal.solo', 'goal'])), t, sb, null, null, replayed ? { cue: { ev: 'live' } } : null); said++;
+        say(pick(...(b.assist || key !== 'goal' ? [key, 'goal'] : ['goal.solo', 'goal'])), t, sb, null, null, { ...(replayed ? { cue: { ev: 'live' } } : {}), ...(goalCalled ? {} : goalPlay) }); said++;
         say(pick('score.update'), t, sb); said++;
         break;
       }
@@ -770,7 +778,7 @@ export function narrate(ctx) {
       }
 
       case 'hattrick':
-        say(pick('hattrick'), t, sb); said++;
+        say(pick('hattrick'), t, sb, null, null, playMeta(b, 'hattrick', b.teamName, { player: b.player || '' })); said++;
         break;
 
       case 'chance': {
@@ -820,7 +828,7 @@ export function narrate(ctx) {
         });
         // How it finished, before who it counts for. The rink is staging the same ending.
         if (b.ending) { const l = pick(`fight.${b.ending}`); if (l) { say(l, t, sb, null, null, { cue: { ev: 'end' } }); said++; } }
-        say(pick('fight.result'), t, sb, fightFx(b)); said++;
+        say(pick('fight.result'), t, sb, fightFx(b), null, playMeta(b, 'fight', b.winnerTeam, { player: b.winner || '', loser: b.loser || '' })); said++;
         call('pbp.fight.box', t, null, sb, { cue: { ev: 'box' } });
         boxes.push({ against: b.loserTeam, until: b.clock - 5 * 60 });
         break;
@@ -855,7 +863,7 @@ export function narrate(ctx) {
       // Then the wound, by name, so a viewer reading text knows as much as one watching the
       // arm come off.
       case 'injury':
-        say(pick('injury'), t, sb, null, gameday(b, idx)); said++;
+        say(pick('injury'), t, sb, null, gameday(b, idx), playMeta(b, 'injury', otherSide(b.teamName), { player: b.player || '', sever: !!b.sever })); said++;
         if (pendingHit && pendingHit.hurt && pendingHit.victim === b.player) recallHit('pbp.hit.recall.hurt', t, sb);
         call('pbp.injury.mates', t, null, sb, { opt: true });
         call('pbp.injury.medics', t, null, sb, { cue: { ev: 'medics' } });
@@ -866,7 +874,7 @@ export function narrate(ctx) {
 
       case 'death':
         pendingHit = null;
-        say(pick('death'), t, sb, deathFx(b), gameday(b, idx)); said++;
+        say(pick('death'), t, sb, deathFx(b), gameday(b, idx), playMeta(b, 'death', otherSide(b.teamName), { player: b.player || '' })); said++;
         call('pbp.death.still', t, null, sb, { cue: { ev: 'still' } });
         if (b.wound) { say(pick('death.wound'), t, sb); said++; }
         call('pbp.death.helmets', t, null, sb, { cue: { ev: 'helmets' } });
@@ -925,7 +933,7 @@ export function narrate(ctx) {
     away: away.name, home: home.name, awayScore, homeScore,
     label: ws ? 'Coldwater Cup Champions' : '',
     duration: ws ? 5.4 : 4.4,
-  });
+  }, null, winName ? playMeta({ awayScore, homeScore }, 'final', winName, { champion: !!ws }) : null);
   const outroId = ctx.lastId();
   say(pick(...(ws ? ['cup.outro', 'outro'] : ['outro'])), finalTok, finalBug);
   return { outroId, lines: said };

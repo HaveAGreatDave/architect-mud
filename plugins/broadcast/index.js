@@ -2520,8 +2520,12 @@ function assembleSportsGraph(script, broadcastId, slot, override) {
   // Every spoken line of the booth, the recap reel's included: `lex` is the script's
   // pronunciations for the words in it (its ::say block) and `voice` the booth's own voice
   // (@voice), and both ride to the client with the line.
+  // `meta.play` names the moment a line calls (a goal, a home run, a fight): who it was
+  // good for and who it hurt. It never goes to a client. The tick ships it on
+  // `broadcast.message`, so the people in the room can react to the play rather than
+  // to the words (plugins/sports-banter).
   const booth = (node) => { const lex = sportsLexFor(node.text, script.say); return { ...node, ...(lex ? { lex } : {}), ...(script.voice ? { voice: script.voice } : {}) }; };
-  const say = (line, tok, sb, graphic, gd, meta) => { if (!line) return; const text = sportsFill(line, tok).trim(); if (!text) return; add(booth({ type: 'say', text, style: 'raw', ...(sb ? { scorebug: sb } : {}), ...(graphic ? { graphic } : {}), ...(gd ? { gameday: gd } : {}), ...(meta && meta.cue ? { _cue: meta.cue } : {}), ...(meta && meta.opt ? { _opt: meta.opt } : {}), ...(meta && meta.excite ? { excite: meta.excite } : {}) })); };
+  const say = (line, tok, sb, graphic, gd, meta) => { if (!line) return; const text = sportsFill(line, tok).trim(); if (!text) return; add(booth({ type: 'say', text, style: 'raw', ...(sb ? { scorebug: sb } : {}), ...(graphic ? { graphic } : {}), ...(gd ? { gameday: gd } : {}), ...(meta && meta.cue ? { _cue: meta.cue } : {}), ...(meta && meta.opt ? { _opt: meta.opt } : {}), ...(meta && meta.excite ? { excite: meta.excite } : {}), ...(meta && meta.play ? { play: meta.play } : {}) })); };
 
   // ── the sport seam ──────────────────────────────────────────────────────────
   // Everything above this line is sport-agnostic: the node chain, the say/pick
@@ -2582,6 +2586,14 @@ function assembleSportsGraph(script, broadcastId, slot, override) {
   // The triple play holds a beat longer than the double play. It's the rarest thing the
   // sim can produce (~1 per 400 games) and the card is most of the payoff.
   const tpGraphic = (b) => ({ overlayType: 'sportsfx', kind: 'tripleplay', batter: b.batter || '', duration: 3.6 });
+  // The play a line calls, for the room watching (see `say`). `for` is the side it was
+  // good for. A run that ends the game is the walk-off, on the line that says the score,
+  // so a room reacts to the game ending and not to the run before it.
+  const playMeta = (b, kind, over = {}) => ({ play: {
+    sport: 'baseball', kind, for: b.battingName, against: b.fieldingName, player: b.batter || '',
+    away: away.name, home: home.name, awayScore: b.awayScore, homeScore: b.homeScore, ...over,
+  } });
+  const runMeta = (b) => playMeta(b, b.walkoff ? 'walkoff' : 'run', { runs: b.runs ?? b.rbi ?? 1 });
 
   // Pre-game records from the live standings (module cache, refreshed before airing).
   // When either team has a record on the board, the announcer works it into the
@@ -2627,49 +2639,49 @@ function assembleSportsGraph(script, broadcastId, slot, override) {
         const keys = b.kind === 'doublesteal' && b.out ? ['run.doublesteal.out', 'run.caughtstealing']
           : (scored ? [`run.${b.kind}.score`, `run.${b.kind}`] : [`run.${b.kind}`]);
         say(pick(...keys), tok, sb, null, gd); spoken++;
-        if (scored) { say(scoreUpdate(b), tok, sb); spoken++; }
+        if (scored) { say(scoreUpdate(b), tok, sb, null, null, runMeta(b)); spoken++; }
         if (b.walkoff) { say(pick('walkoff'), tok, sb, walkoffGraphic(b)); spoken++; walkoffHalf = true; }
         continue;
       }
       if (b.kind === 'homerun') {
         const key = b.rbi >= 4 ? 'hr.grand' : (b.rbi === 1 ? 'hr.solo' : 'hr');
-        say(pickPlay(b, key, 'hr'), tok, sb, hrGraphic(b), gd); spoken++;
+        say(pickPlay(b, key, 'hr'), tok, sb, hrGraphic(b), gd, playMeta(b, b.walkoff ? 'walkoff' : 'homerun', { homerun: true, grand: b.rbi >= 4, runs: b.rbi })); spoken++;
         say(scoreUpdate(b), tok, sb); spoken++;
         if (b.walkoff) { say(pick('walkoff'), tok, sb, walkoffGraphic(b)); spoken++; walkoffHalf = true; }
       } else if (b.kind === 'sacfly') {
         say(pickPlay(b, 'atbat.sacfly'), tok, sb, null, gd); spoken++;
-        say(scoreUpdate(b), tok, sb); spoken++;
+        say(scoreUpdate(b), tok, sb, null, null, runMeta(b)); spoken++;
         if (b.walkoff) { say(pick('walkoff'), tok, sb, walkoffGraphic(b)); spoken++; walkoffHalf = true; }
       } else if (b.kind === 'productout') {
         say(pickPlay(b, 'atbat.productout', 'atbat.groundout'), tok, sb, null, gd); spoken++;
-        if ((b.runs ?? b.rbi) > 0) { say(scoreUpdate(b), tok, sb); spoken++; }
+        if ((b.runs ?? b.rbi) > 0) { say(scoreUpdate(b), tok, sb, null, null, runMeta(b)); spoken++; }
         if (b.walkoff) { say(pick('walkoff'), tok, sb, walkoffGraphic(b)); spoken++; walkoffHalf = true; }
       } else if (b.kind === 'tripleplay') {
         // Never chattered over and never padded past — a triple play ends the half and
         // is the only thing anyone in the park is going to talk about.
-        say(pickPlay(b, 'atbat.tripleplay', 'atbat.doubleplay'), tok, sb, tpGraphic(b), gd); spoken++;
+        say(pickPlay(b, 'atbat.tripleplay', 'atbat.doubleplay'), tok, sb, tpGraphic(b), gd, playMeta(b, 'tripleplay', { for: b.fieldingName, against: b.battingName })); spoken++;
       } else if (b.kind === 'doubleplay') {
-        say(pickPlay(b, 'atbat.doubleplay'), tok, sb, dpGraphic(b), gd); spoken++;
+        say(pickPlay(b, 'atbat.doubleplay'), tok, sb, dpGraphic(b), gd, playMeta(b, 'doubleplay', { for: b.fieldingName, against: b.battingName })); spoken++;
         // A double play can drive in a run (man on third, nobody out). The scoreboard
         // has to say so — the DP line itself never mentions it. (Sim v2 credits no RBI for
         // it, so it's the run that counts here.)
         if ((b.runs ?? b.rbi) > 0) { say(scoreUpdate(b), tok, sb); spoken++; }
       } else if (b.kind === 'error') {
         // Sim v2: an error is always called; it goes up on the board as an E.
-        say(pickPlay(b, `atbat.error.${b.errorType}`, 'atbat.error'), tok, sb, null, gd); spoken++;
-        if (b.runs > 0) { say(scoreUpdate(b), tok, sb); spoken++; }
+        say(pickPlay(b, `atbat.error.${b.errorType}`, 'atbat.error'), tok, sb, null, gd, b.walkoff ? null : playMeta(b, 'error', { player: b.fielder || '' })); spoken++;
+        if (b.runs > 0) { say(scoreUpdate(b), tok, sb, null, null, b.walkoff ? runMeta(b) : null); spoken++; }
         if (b.walkoff) { say(pick('walkoff'), tok, sb, walkoffGraphic(b)); spoken++; walkoffHalf = true; }
       } else if ((b.kind === 'hitbypitch' || b.kind === 'walk') && b.runs != null) {
         // Sim v2's free passes: a hit batter has lines of its own, and a run forced in by
         // either is called with the score, not as a base hit.
         if (b.runs > 0 || spoken < target) {
           say(pick(`atbat.${b.kind}`, 'atbat.walk'), tok, sb, null, gd); spoken++;
-          if (b.runs > 0) { say(scoreUpdate(b), tok, sb); spoken++; }
+          if (b.runs > 0) { say(scoreUpdate(b), tok, sb, null, null, runMeta(b)); spoken++; }
           if (b.walkoff) { say(pick('walkoff'), tok, sb, walkoffGraphic(b)); spoken++; walkoffHalf = true; }
         }
       } else if (b.rbi > 0) {
         say(pickPlay(b, 'rbi'), tok, sb, null, gd); spoken++;
-        say(scoreUpdate(b), tok, sb); spoken++;
+        say(scoreUpdate(b), tok, sb, null, null, runMeta(b)); spoken++;
         if (b.walkoff) { say(pick('walkoff'), tok, sb, walkoffGraphic(b)); spoken++; walkoffHalf = true; }
       } else if (b.out) {
         // Call every out. Thread a chatter line between outs (never after the 3rd).
@@ -2709,11 +2721,11 @@ function assembleSportsGraph(script, broadcastId, slot, override) {
       if (b.type === 'run') say(pick(`run.${b.kind}.score`, `run.${b.kind}`), tok, sb, null, gd);
       else if (b.kind === 'error') say(pickPlay(b, `atbat.error.${b.errorType}`, 'atbat.error'), tok, sb, null, gd);
       else if ((b.kind === 'hitbypitch' || b.kind === 'walk' || b.kind === 'doubleplay') && b.runs != null) say(pickPlay(b, `atbat.${b.kind}`, 'atbat.walk'), tok, sb, null, gd);
-      else if (b.kind === 'homerun') { const key = b.rbi >= 4 ? 'hr.grand' : (b.rbi === 1 ? 'hr.solo' : 'hr'); say(pickPlay(b, key, 'hr'), tok, sb, hrGraphic(b), gd); }
+      else if (b.kind === 'homerun') { const key = b.rbi >= 4 ? 'hr.grand' : (b.rbi === 1 ? 'hr.solo' : 'hr'); say(pickPlay(b, key, 'hr'), tok, sb, hrGraphic(b), gd, playMeta(b, b.walkoff ? 'walkoff' : 'homerun', { homerun: true, grand: b.rbi >= 4, runs: b.rbi })); }
       else if (b.kind === 'sacfly') say(pickPlay(b, 'atbat.sacfly'), tok, sb, null, gd);
       else if (b.kind === 'productout') say(pickPlay(b, 'atbat.productout', 'atbat.groundout'), tok, sb, null, gd);
       else say(pickPlay(b, 'rbi'), tok, sb, null, gd);
-      say(scoreUpdate(b), tok, sb);
+      say(scoreUpdate(b), tok, sb, null, null, b.kind === 'homerun' ? null : runMeta(b));
       if (b.walkoff) say(pick('walkoff'), tok, sb, walkoffGraphic(b));
     };
     say(pick('extras.intro'), gameTok, beatBug(extraHalves[0].start),
@@ -2749,7 +2761,10 @@ function assembleSportsGraph(script, broadcastId, slot, override) {
     extras: game.innings > 9, inningOrd: sportsOrdinal(game.innings),
     duration: ws ? 5.4 : 4.4,
   };
-  say(pick(...(ws ? ['worldseries.final', 'final'] : ['final'])), finalTok, finalBug, winGraphic);
+  say(pick(...(ws ? ['worldseries.final', 'final'] : ['final'])), finalTok, finalBug, winGraphic, null, winName ? { play: {
+    sport: 'baseball', kind: 'final', for: winName, against: winName === away.name ? home.name : away.name,
+    away: away.name, home: home.name, awayScore, homeScore, champion: !!ws,
+  } } : null);
   outroId = prevId;
   say(pick(...(ws ? ['worldseries.outro', 'outro'] : ['outro'])), finalTok, finalBug);
 
@@ -5719,6 +5734,9 @@ async function broadcastTick() {
         programName, stationName: state.stationName || null,
         mode: state.currentPlaybackMode || (state.channelType === 'news' ? 'news' : null),
         style: result.style || 'raw',
+        // The moment a sports line calls, when it calls one (a goal, a home run, a
+        // fight): see `say` in assembleSportsGraph. Most beats carry none.
+        ...(result.play ? { play: result.play } : {}),
       });
     }
   }
@@ -7711,7 +7729,7 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
           : (!isVerbatim && !isNarration && !isAmbient && bb.npcAnchor ? `${bb.npcAnchor} says, "${raw}"` : raw);
         // Verbatim lines (microreel dialogue) leak as speech without needing an anchor.
         const isSpeech = (!isNarration && !isAmbient && style_say !== 'ticker' && !!bb.npcAnchor) || isVerbatim;
-        return { text: text_say, key: key_say, style: isAmbient ? 'ambient' : 'raw', duration: holdMs_say / 1000, ...(isSpeech ? { speech: true, speechText: text_say } : {}), ...(node.data?.scorebug ? { scorebug: node.data.scorebug } : {}), ...(node.data?.graphic ? { graphic: node.data.graphic } : {}), ...(node.data?.gameday ? { gameday: gamedayOnAir(node.data.gameday, graph) } : {}), ...(node.data?.excite ? { excite: node.data.excite } : {}), ...(node.data?.lex ? { lex: node.data.lex } : {}), ...(node.data?.voice ? { voice: node.data.voice } : {}) };
+        return { text: text_say, key: key_say, style: isAmbient ? 'ambient' : 'raw', duration: holdMs_say / 1000, ...(isSpeech ? { speech: true, speechText: text_say } : {}), ...(node.data?.scorebug ? { scorebug: node.data.scorebug } : {}), ...(node.data?.graphic ? { graphic: node.data.graphic } : {}), ...(node.data?.gameday ? { gameday: gamedayOnAir(node.data.gameday, graph) } : {}), ...(node.data?.excite ? { excite: node.data.excite } : {}), ...(node.data?.lex ? { lex: node.data.lex } : {}), ...(node.data?.voice ? { voice: node.data.voice } : {}), ...(node.data?.play ? { play: node.data.play } : {}) };
       }
 
       case 'music': {

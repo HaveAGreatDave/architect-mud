@@ -2475,6 +2475,15 @@ game from a sermon without re-deriving the schedule — and would otherwise have
 back up, by which time the next beat could already have replaced it. The studio-floor emit is
 flagged `onStage`, because in there the cast are *saying* the lines rather than watching them.
 
+**The play that just happened** is the `sports-banter` plugin ([README](../plugins/sports-banter/README.md)).
+A sports line that calls a moment carries `play` on the same emit: `{ sport, kind, for, against,
+player, away, home, awayScore, homeScore }`, with `for` the club it was good for. `say` in
+`assembleSportsGraph` takes it as `meta.play` and the tick copies it off the node; it never goes to
+a client. Deadball tags `run`, `homerun`, `walkoff`, `doubleplay`, `tripleplay`, `error` and
+`final`; Cluster Puck tags `goal`, `hattrick`, `fight`, `injury`, `death` and `final`. The room
+reacts by who each NPC backs, and two fans of rival clubs are the likeliest to argue about it.
+tv-reactions leaves any beat with a `play` alone.
+
 **What's on generally** is a banter token. `getTopicContext()` in
 [npc-banter.js](../server/engine/npc-banter.js) now resolves `{tv_program}`, `{tv_station}` and
 `{tv_channel}` for the zone a scene is starting in, alongside the weather and sports tokens that

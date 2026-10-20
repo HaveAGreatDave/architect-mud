@@ -1,0 +1,9 @@
+{
+  "name": "sports-banter",
+  "version": "1.0.0",
+  "description": "The room watches the game. Subscribes to `broadcast.message`, and when a sports line carries a `play` (a goal, a run, a home run, a double play, a fight, a man carried off, the final), sometimes has the NPCs in a room with the game on react: one of them to the room, or two fans on opposite sides in a short exchange, likeliest when their clubs are rivals. Each NPC backs a club per league (the same club gossip's favTeam names). Eligibility is npc-banter's own; shares `_ai.lastSay`. No verbs, no DB, no tick.",
+  "commands": [],
+  "events": {
+    "consumes": ["broadcast.message"]
+  }
+}

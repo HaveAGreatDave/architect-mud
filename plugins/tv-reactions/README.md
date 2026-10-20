@@ -17,6 +17,7 @@ It is not a commentary track. The whole design is the restraint:
 | Never when `onStage` | On a studio floor the cast are *saying* those lines, not watching them. |
 | Never without a player in the room | A camera feed is somebody watching the ROOM. An empty bar muttering at a game show into a spy cam is atmosphere nobody asked to pay for. |
 | Never within 25 s of the speaker's last line | Shared `_ai.lastSay`, which is also how a running banter scene fences this out. |
+| Never on a beat carrying a `play` | A goal or a home run is [sports-banter](../sports-banter/README.md)'s, which reacts by who each person backs. |
 
 The throttle slot is claimed **before** the delay, not after. Several beats can land inside the
 same couple of seconds; without that, each would queue its own reaction and the room would

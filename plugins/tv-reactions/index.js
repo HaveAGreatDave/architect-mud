@@ -191,6 +191,9 @@ function onBroadcastMessage(beat) {
   if (!beat || !beat.zoneId || !beat.text) return;
   if (beat.onStage) return;                            // the cast, not an audience
   if (MUTE_STYLES.has(beat.style)) return;
+  // A sports line that calls a play (a goal, a home run) is sports-banter's: the room
+  // reacts to it by who they back, and two answers to one goal is a laugh track.
+  if (beat.play) return;
 
   const now = Date.now();
   if (now - (lastReactAt.get(beat.zoneId) || 0) < REACT_GAP_MS) return;
