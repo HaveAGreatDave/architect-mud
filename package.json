@@ -152,7 +152,8 @@
     "gates:list": "node scripts/gates/run.mjs --list",
     "perf:sizes": "node scripts/perf/sizes.mjs",
     "perf:retain": "node scripts/perf/retain-check.mjs",
-    "perf:armkeep": "node scripts/perf/armkeep-check.mjs"
+    "perf:armkeep": "node scripts/perf/armkeep-check.mjs",
+    "perf:move": "node scripts/perf/movecost.mjs"
   },
   "dependencies": {
     "@getbrevo/brevo": "^5.0.4",

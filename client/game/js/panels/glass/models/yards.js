@@ -7,7 +7,7 @@
 //   (ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis)
 // An arm that ends early uses `return` where the case used `break`. How a tile becomes a building
 // is in docs/reference/world-rendering.md.
-import {
+import { faceAway,
   DECO_LIFT, DECO_PULL, DETAIL_LIFT, FACE_EPS, SHAPE_SINK, arcStrike, bakeSignText, emitSurfaceText, rgb, blinkLight, clamp, draw3DBoxAt, drawBarrelRoof,
   drawBrandBand, drawFacetDrum, drawPriceBoard, drawRing, drawSmoke, emitDecoFill, emitFlat,
   emitWire, faceY, faceYaw, frac, glowPool, groundPaint, hoistLine, latticeBoom, marqueeBand,
@@ -820,7 +820,7 @@ export const YARDS_ARMS = {
     // ⚠ EVERY STROKE ON A SIDE OR THE BACK ASKS THIS. A stroke has no face to cull, so on the 2-D
     // painter the flank's glazing bars and sills drew straight through the front wall as a ghost grid.
     const faces = (nx, ny, px, py) => { const [ax, ay] = F(px, py), [bx, by] = F(px + nx, py + ny);
-      return (bx - ax) * ((cam.ex || 0) - ax) + (by - ay) * ((cam.ey || 0) - ay) > 0; };
+      return !faceAway(cam, ax, ay, bx - ax, by - ay); };   // through faceAway, so a kept building sees it turn (ARM_FACE)
 
     // 1) THE SHED. A plinth of dark engineering brick, red brick walls to the eaves, and the barrel
     //    over them, wider than the walls on every side so the eaves read as eaves (the warehouse

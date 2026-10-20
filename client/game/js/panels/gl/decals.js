@@ -513,7 +513,8 @@ export function createDecalLayer(gl) {
     const gEntries = [], gLive = [];
     if (groups) for (const G of groups) {
       let k = KEYS.get(G.recs);
-      if (!k || k.ox !== G.ox || k.oy !== G.oy) {
+      // Keyed on the array and its window, not its offset: see the ⚠ in gl/sprites.js `upload`.
+      if (!k || k.w !== G.w) {
         // Split once per array: the records in it never change (bayGroup's promise).
         const by = new Map();
         for (const d of G.recs) {
@@ -522,13 +523,14 @@ export function createDecalLayer(gl) {
           let a = by.get(gk); if (!a) by.set(gk, a = { key: d.key, img: d.img, cull: !!d.cull, smooth: !!d.smooth, solid: !!d.solid, items: [] });
           a.items.push(d);
         }
-        k = { ox: G.ox, oy: G.oy, parts: [...by.values()].map((a) => ({ ...a, id: {} })) };
+        k = { ox: G.ox, oy: G.oy, w: G.w, parts: [...by.values()].map((a) => ({ ...a, id: {} })) };
         KEYS.set(G.recs, k);
       }
+      k.ox = G.ox; k.oy = G.oy;
       for (const a of k.parts) {
         gLive.push(a);
         const sd = keySeed(a.key);
-        gEntries.push({ key: a.id, part: a, floats: a.items.length * 6 * STRIDE, write: (D, o) => { for (const d of a.items) o = putDecal(D, o, d, sd, G.ox, G.oy); return o; } });
+        gEntries.push({ key: a.id, part: a, floats: a.items.length * 6 * STRIDE, write: (D, o) => { for (const d of a.items) o = putDecal(D, o, d, sd, k.ox, k.oy); return o; } });
       }
     }
     arena.retain(gEntries);

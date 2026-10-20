@@ -7,7 +7,7 @@
 //   (ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis)
 // An arm that ends early uses `return` where the case used `break`. How a tile becomes a building
 // is in docs/reference/world-rendering.md.
-import {
+import { faceAway,
   BAY, BERTH_LATCH, BERTH_SETDOWN, DECO_LIFT, DECO_PULL, DETAIL_LIFT, FACE_EPS, nearOrMesh, rgb, TR, WALL_COL, awning,
   bakeSignText, berthBoxColour, berthBoxZ, berthOwnLift, berthPhase, berthPre, berthRow,
   berthRowOut, berthSlot, blinkLight, clamp, cssRgb, draw3DBoxAt, drawBarrelRoof, drawFacetDrum,
@@ -1382,7 +1382,7 @@ export const WATERFRONT_ARMS = {
     const TAR = pal, BOARD = 'ty_oc_board', TIMBER = 'ty_dw_timber';
     const lerp = (a, b) => [0, 1, 2].map((i) => a[i] + (b[i] - a[i]) * dn);
     const faces = (nx, ny, px, py) => { const [ax, ay] = F(px, py), [bx, by] = F(px + nx, py + ny);
-      return (bx - ax) * ((cam.ex || 0) - ax) + (by - ay) * ((cam.ey || 0) - ay) > 0; };
+      return !faceAway(cam, ax, ay, bx - ax, by - ay); };   // through faceAway, so a kept building sees it turn (ARM_FACE)
     const ink = 'rgba(22,20,18,0.92)';
 
     // 1) THE SHED. A concrete footing, tarred weatherboard to the eaves, and a shallow tin barrel

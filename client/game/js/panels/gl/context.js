@@ -1229,7 +1229,8 @@ function splitGroups(list, ox, oy) {
     if (gi < G.length && G[gi].at === i) {
       const g = G[gi++], recs = g.recs, n = recs.length;
       if (n && i + n <= list.length && list[i] === recs[0] && list[i + n - 1] === recs[n - 1]) {
-        groups.push({ recs, ox: g.ox == null ? ox : g.ox, oy: g.oy == null ? oy : g.oy });
+        // `w` is the map window the group was sent in (armReplay): the layers re-send a group when it moves.
+        groups.push({ recs, ox: g.ox == null ? ox : g.ox, oy: g.oy == null ? oy : g.oy, w: g.w });
         i += n - 1; continue;
       }
     }

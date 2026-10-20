@@ -1,7 +1,81 @@
 # GLASS frame headroom
 
-**Status: Stage 1 started (the bench fixed, per-frame GL state queries removed); the 2026-10-01 record caches built (below); Stage 1b built; Stage 3 phases 1-5 built, phase 6 started, kept-arm follow-ups built (2026-10-06 and 07, below); Stage 2 superseded by Stage 3.** The vertex-animated layers it follows from are built (actors,
+**Status: Stage 1 started (the bench fixed, per-frame GL state queries removed); the 2026-10-01 record caches built (below); Stage 1b built; Stage 3 phases 1-5 built, phase 6 started, kept-arm follow-ups built (2026-10-06 and 07, below); kept arms made to work for a moving camera (2026-10-19, below); Stage 2 superseded by Stage 3.** The vertex-animated layers it follows from are built (actors,
 birds, cloth; see [glass-notes.md](../reference/glass-notes.md#vertex-animated-layers-actors-birds-cloth)).
+
+## Built 2026-10-19: a moving camera
+
+Every bench before this one turned the heading over a fixed tile. A flight or a drive moves the camera
+through the tile every frame (`mapOffset`), and the server sends a fresh map window on every context
+push. Under those two conditions most of Stage 3 wasn't working. `npm run perf:move`
+([scripts/perf/movecost.mjs](../../scripts/perf/movecost.mjs)) flies straight ahead under a fake WebGL2.
+`--resend N` replaces the window with fresh JSON every N frames, `--recentre` moves its centre as the
+server does, and `--intern` takes it through the client's intake. It reports floats written, layer
+draws, kept-arm counters and, with `--prof`, phase times. Numbers below are headless at Halcyon in the
+cockpit; node runs about twice the browser.
+
+**A straight run never kept a building.** A probe counts as a camera move only if the pose differs,
+and the pose held the chase offset and the heading but not the travel through the window. So the
+second probe never came. Flying straight, `world:arms` went from 21.7 to 12.7 ms, the paint median from
+32.1 to 25.7 ms and floats written from 269k to 153k a frame (`armPoseMove`).
+
+**Retained groups were re-sent every moving frame.** The sprite, stroke and decal layers keyed a group
+on its offset as well as its records. `armReplay` hands the same records back each frame, shifted, with
+that frame's offset, so the key changed every frame the camera moved. Moving and turning, floats
+written went from 372k to 234k a frame and the worst frame's upload from 11.8M to 354k floats. The
+layers now key a group on its records and its window (`w`), and write it with the offset it carries
+now. ⚠ `splitGroups` in gl/context.js rebuilds every group, so a new field on a group has to be
+copied there or it never reaches the layer.
+
+**Every push threw away every cache.** About 150 buildings probed on the push frame, three arm runs
+each, and again a dozen frames later. The client now interns the window
+([map-intern.js](../../client/game/js/panels/map-intern.js)): an unchanged cell keeps its object, and an
+unchanged window keeps its array. Kept arms are keyed and shifted in world tiles (`armWorld`), so a
+recentre keeps them. Bay records are in the window's frame, so they move by the change of centre.
+Resent every 60 frames with the same centre, the worst frame went from 145 to 49 ms and p99 from
+65.6 to 42.3 ms. With a recentre at each push, probes went from about 500 to 129 over 210 frames, and
+the worst frame from 227 to 106 ms. What's left at a recentre (p99 about 63 ms) is the caches still
+keyed on the window, listed below.
+
+**Three kinds of camera term inside arms, which a turning bench can't see.** A turn moves the
+heading, not the eye, so none of these changed between two probes:
+
+- The signs-only pass draws lettering only inside `signFar`. A building kept from outside that range
+  held no signs and stayed blank as you flew in. It's in the kept key now (`signIn`).
+- Back-face tests against the eye's position: `emitFlat`'s `cullN`, `frontRing`, `ashBand`, a blade's
+  sides, `slumFaceVis` and five local facing helpers in the model files. They all go through
+  `faceAway` now, which records each answer while an arm records (`ARM_FACE`), and a replay that would
+  answer differently drops the kept set, as `webBays` already did. coliseum.js line 341 still reads
+  the eye directly; it was being edited elsewhere.
+- Continuous camera terms (a vat body turned to the eye, `camA` on the waterfront) differ between two
+  probes, so they already went live. They need nothing.
+
+`perf:armkeep` now flies two straight runs and a recentring one as well as the turns; `MOVETURN=0.5`
+adds a turn to the straight runs. All of them match the live draw.
+
+**The reflection cube's key** took the sky colours unrounded, so each hour the server sent re-drew six
+faces and the mips. It rounds them to whole 8-bit steps, as it already did for the ceiling.
+
+### Still to do, in order of what was measured
+
+1. **The caches still keyed on the window.** The ground tile cache (`gcFK` holds the window centre),
+   `OCC_GEOM` and `GROUND_TILE` keyed on the cell but in the window's frame, `GL_CELL_CACHE` and
+   `windowKeyOf` on the array. These are the 106 ms recentre frame. The mass buffer is rebuilt whole
+   on every recentre (about 15 MB from the air); a recentre by one tile should only add and drop an
+   edge.
+2. **Decal draw calls.** One draw, one texture bind and one uniform per texture, and every flat fill
+   gets its own 8x8 texture: about 500 to 850 layer draws a cockpit frame here, repeated by the
+   mirror pass. Colour as a vertex attribute and `cull`/`solid` as attributes would make it a handful.
+3. **The ground is re-packed every frame**, about 12,000 quads. The kerb width and far fade depend on
+   the camera; in the shader, cached tiles could sit in an arena.
+4. **The sweep's lateral cull covers buildings only.** Scatter, wires, steam and parks off the side of
+   the screen still run their drawers. `items.sort` sorts every item although only the occluder pass
+   needs an order.
+5. **The kept-arm key holds `night` and `_frameDpr` unquantised**, so every kept building re-keys
+   through dusk and on each step of the resolution dial.
+6. **Smaller:** the cloud composite runs bloom a second time (GPU, and dropping it changes bright
+   cloud edges); up to four GL-to-2-D canvas copies a frame; other vehicles transformed on the CPU;
+   the adaptive dials read the frame interval and can't tell CPU from GPU.
 
 ## Built 2026-10-07: what kept arms still missed, camps, posed instruments
 

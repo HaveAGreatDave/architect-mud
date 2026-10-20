@@ -29,6 +29,7 @@ import { loadWindshield, isLoaded as windshieldLoaded, paintWindshield, windshie
 export { loadWindshield };
 import { createFreeCam, freeCamHint, freeCamTouchUI, bindFreeCamPointer, bindFreeCamIdle } from './freecam.js';
 import { makeContactTrack } from './world-feed.js';
+import { internMap } from './map-intern.js';
 import { bindBigScreenButton, exitBigScreen, setSidebarHidden, bindSidebarButton, BIGSCREEN_GLYPH, BIGSCREEN_TITLE, SIDEBAR_GLYPH, SIDEBAR_TITLE } from './bigscreen.js';
 import { claimSeatKeyboard, endSeatKeyboard } from './seat-keys.js';
 import { floorZAt } from './seabed-scene.js';
@@ -200,7 +201,8 @@ export function openFreelook(ctx = {}) {
   if (st && ctx.map && (ctx.stand?.mount || null) !== (st.stand?.mount || null)) { closeFreelook(); }
   if (st && ctx.map) {
     const ogx = st.gx, ogy = st.gy;
-    st.map = ctx.map; st.gx = ctx.gx ?? st.gx; st.gy = ctx.gy ?? st.gy; if (ctx.skyline) st.skyline = ctx.skyline;
+    st.map = internMap(st.map, st.gx, st.gy, ctx.map, ctx.gx ?? st.gx, ctx.gy ?? st.gy);   // see panels/map-intern.js
+    st.gx = ctx.gx ?? st.gx; st.gy = ctx.gy ?? st.gy; if (ctx.skyline) st.skyline = ctx.skyline;
     // ⚠ AND THE CAMERA IS REBASED ONLY WHEN IT ASKED. The two re-centres arrive down the same wire
     // and want opposite things: a person typing `freelook 918 903` is naming a place to LOOK AT and
     // keeps the shot while the world slides under it, and the drift follow above is moving the

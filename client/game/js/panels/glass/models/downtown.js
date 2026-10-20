@@ -11,7 +11,7 @@ import {
   DECO_LIFT, DECO_PULL, DETAIL_LIFT, FACE_EPS, FLAT_OFF, GL_CELLS, MESH_SINK, SHAPE_SINK,
   TILE_REACH, TR, TUNE, WALL_COL, _bladeBasis, awning, bakeSignText, blinkLight, clamp,
   clipToAperture, decoHidden, dish, doorReveal, draw3DBoxAt, drawArmPart, drawBarrelRoof, drawFacetDrum,
-  drawGargoyle, drawRing, drawSmoke, dutyPhase, emitDecoFill, emitFace, emitFlat, emitLightRunner,
+  drawGargoyle, drawRing, drawSmoke, dutyPhase, emitDecoFill, emitFace, emitFlat, emitLightRunner, faceAway,
   emitRecessBay, emitSurfaceText, emitWire, facePals, facePt, faceYaw, frac, glowPool, helideck,
   hoistLine, keptOnCanvas, latticeTower, litStyle, markHidden, marqueeBand, mast, motionOn, motionPhase,
   moveSeg, movingBox, mullions, nearOrMesh, neonBlade, reserveSignBand, rgb, roofClutter, roofCross, shadeOf,
@@ -401,10 +401,11 @@ export function slugLine(ctx, cam, W3, path, d0, d1, night, alpha) {
 // DECO_PULL on the whole circle: the back half is behind the drum, and pulling it 0.05 toward the
 // eye brings the ends of it out round the silhouette (`glself`). The near half needs a hair.
 function frontRing(ctx, cam, cx, cy, z, r, N, css, lw, alpha) {
-  const ex = cam.ex || 0, ey = cam.ey || 0;
   for (let i = 0; i < N; i++) {
     const a0 = i / N * 6.2832, a1 = (i + 1) / N * 6.2832;
-    const away = (a) => { const nx = Math.cos(a), ny = Math.sin(a); return nx * (cx + nx * r - ex) + ny * (cy + ny * r - ey) >= 0; };
+    // faceAway rather than the eye read here: which arc faces you depends on where you stand, and a
+    // kept building has to know when that changes (ARM_FACE in windshield.js).
+    const away = (a) => { const nx = Math.cos(a), ny = Math.sin(a); return faceAway(cam, cx + nx * r, cy + ny * r, nx, ny); };
     if (away(a0) || away(a1)) continue;   // turned away, or on the silhouette
     emitWire(ctx, cam, [cx + Math.cos(a0) * r, cy + Math.sin(a0) * r, z], [cx + Math.cos(a1) * r, cy + Math.sin(a1) * r, z], lw, css, alpha, { pull: 0.01 });
   }
@@ -660,7 +661,7 @@ function palaisFoyer(ctx, cam, F, W3, E, m, seed, night, alpha, now, frontVis, o
       const p0 = [cx + Math.cos(a0) * r, cyy + Math.sin(a0) * r], p1 = [cx + Math.cos(a1) * r, cyy + Math.sin(a1) * r];
       if (inBlock(...p0) || inBlock(...p1)) continue;
       const A = W3(p0[0], p0[1], z), Bw = W3(p1[0], p1[1], z);
-      const away = (q) => (q[0] - rx) * (q[0] - (cam.ex || 0)) + (q[1] - ry) * (q[1] - (cam.ey || 0)) >= 0;   // frontRing's test
+      const away = (q) => faceAway(cam, q[0], q[1], q[0] - rx, q[1] - ry);   // frontRing's test, through faceAway (ARM_FACE)
       if (away(A) || away(Bw)) continue;
       emitWire(ctx, cam, A, Bw, lw, css, alpha, { pull: DECO_PULL });
     }
@@ -713,7 +714,7 @@ function palaisBladeText(ctx, cam, k, s, label, dn, alpha) {
   const z0 = PAL.bladeZ0 + 0.04, z1 = PAL.bladeZ1 - 0.04;
   const [cx, cy] = k.at(X, (y0 + y1) / 2), [nx, ny] = k.at(X + s, (y0 + y1) / 2);
   const ox = nx - cx, oy = ny - cy;
-  if (ox * ((cam.ex || 0) - cx) + oy * ((cam.ey || 0) - cy) <= 0) return;
+  if (faceAway(cam, cx, cy, ox, oy)) return;   // through faceAway (ARM_FACE)
   const pj = (y, z) => { const [wx, wy] = k.at(X, y); return cam.proj(wx, wy, z); };
   const a = pj(y0, z1), b = pj(y1, z1), c = pj(y1, z0), d = pj(y0, z0);
   if (![a, b, c, d].every((p) => p.f > 0.12)) return;
@@ -1967,7 +1968,7 @@ export const DOWNTOWN_ARMS = {
         // and the 2-D fallback would not, which is the whole reason this is a test here rather
         // than a thing left to the renderer. It also guarantees the solve below is well behaved:
         // with the eye off the plane, `t` comes back in (0, 1) for every corner of a chamber.
-        if (((cam.ex || 0) - AW[0]) * nx + ((cam.ey || 0) - AW[1]) * ny <= 0) return;
+        if (faceAway(cam, AW[0], AW[1], nx, ny)) return;   // through faceAway (ARM_FACE)
         const zs = z1 - hwd, iw = hwd * 0.84;
         // THE APERTURE — the hole this chamber is seen through, in the plane's own `[u, z]` frame
         // and wound counter-clockwise for `clipToAperture`: the sill, the two jambs, and the
@@ -2878,7 +2879,7 @@ export const DOWNTOWN_ARMS = {
       drawBarrelRoof(ctx, cam, F, hxL, hw, hw, wallTop, archH, 10, alpha, [138, 146, 156]);                        // curved corrugated roof + arched gables
       // Open bay on the apron-facing (+local-y) gable — only when that gable faces the camera.
       const [ox, oy] = F(0, 0), [f1x, f1y] = F(0, 1), FX = f1x - ox, FY = f1y - oy, [gcx, gcy] = F(hxL, hw);
-      if (FX * gcx + FY * gcy - (FX * (cam.ex || 0) + FY * (cam.ey || 0)) < 0) {
+      if (!faceAway(cam, gcx, gcy, FX, FY)) {   // through faceAway (ARM_FACE)
         const P = (llx, lly, z) => { const [wx, wy] = F(llx, lly); return cam.proj(wx, wy, z); };
         const odw = hw * 0.58, oTop = wallTop * 0.82, inset = hw * 0.55;
         const o = [P(hxL - odw, hw + 0.003, 0), P(hxL + odw, hw + 0.003, 0), P(hxL + odw, hw + 0.003, oTop), P(hxL - odw, hw + 0.003, oTop)];

@@ -21,6 +21,7 @@ import { paintWindshield, windshieldHTML, ensureWindshieldStyles, disposeWindshi
   perfBegin, perfEnd, perfTick, lastViewState } from './windshield.js';
 import { TYPES, IDLE, createTruckState, truckReadout, step, truckShift, truckSplit, truckSelectGear, bestGear } from './flight-model.js';
 import { createFreeCam, freeCamHint, bindFreeCamPointer, bindFreeCamIdle } from './freecam.js';
+import { internMap } from './map-intern.js';
 import { bindTouchGestures } from './touch-gestures.js';
 import { tweenOrbit } from './camera-tween.js';
 import { bindBigScreenButton, exitBigScreen, BIGSCREEN_GLYPH, BIGSCREEN_TITLE } from './bigscreen.js';
@@ -3504,7 +3505,8 @@ export function cabContext(ctx) {
   if (ctx.condition != null) st.condition = ctx.condition;
   // The damage HUD repaints on the SERVER push, never in the frame loop — see renderDamage.
   if (ctx.dmg) st.renderDamage?.(ctx.dmg);
-  if (ctx.map) { st.map = ctx.map; st.mapX = ctx.mapX; st.mapY = ctx.mapY; st.renderMapApp?.(); }
+  // Interned: see panels/map-intern.js.
+  if (ctx.map) { st.map = internMap(st.map, st.mapX, st.mapY, ctx.map, ctx.mapX, ctx.mapY); st.mapX = ctx.mapX; st.mapY = ctx.mapY; st.renderMapApp?.(); }
   // The South Lock: you rolled out on amber. The lamps are already red in the map above.
   if (ctx.lockAlarm) lockKlaxon();
   // The road past the edge of that window, as polylines in absolute world tiles — the cab window is

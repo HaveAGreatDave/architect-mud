@@ -208,12 +208,14 @@ export function createStrokeLayer(gl) {
     const gLit = [], gCore = [], gHalo = [];
     if (groups) for (const G of groups) {
       let k = KEYS.get(G.recs);
-      if (!k || k.ox !== G.ox || k.oy !== G.oy || k.deep !== deepOn) { k = { ox: G.ox, oy: G.oy, deep: deepOn, lit: {}, core: {}, halo: {} }; KEYS.set(G.recs, k); }
+      // Keyed on the array and its window, not its offset: see the ⚠ in gl/sprites.js `upload`.
+      if (!k || k.deep !== deepOn || k.w !== G.w) { k = { ox: G.ox, oy: G.oy, w: G.w, deep: deepOn, lit: {}, core: {}, halo: {} }; KEYS.set(G.recs, k); }
+      k.ox = G.ox; k.oy = G.oy;
       const lt = [], co = [], ha = [];
       sort(G.recs, deepOn, lt, co, ha);
-      if (lt.length) gLit.push({ key: k.lit, floats: lt.length * 6 * STRIDE, write: (d, o) => { for (const st of lt) o = putCore(d, o, st, G.ox, G.oy); return o; } });
-      if (co.length) gCore.push({ key: k.core, floats: co.length * 6 * STRIDE, write: (d, o) => { for (const st of co) o = putCore(d, o, st, G.ox, G.oy); return o; } });
-      if (ha.length) gHalo.push({ key: k.halo, floats: ha.length * 6 * STRIDE, write: (d, o) => { for (const st of ha) o = putHalo(d, o, st, G.ox, G.oy); return o; } });
+      if (lt.length) gLit.push({ key: k.lit, floats: lt.length * 6 * STRIDE, write: (d, o) => { for (const st of lt) o = putCore(d, o, st, k.ox, k.oy); return o; } });
+      if (co.length) gCore.push({ key: k.core, floats: co.length * 6 * STRIDE, write: (d, o) => { for (const st of co) o = putCore(d, o, st, k.ox, k.oy); return o; } });
+      if (ha.length) gHalo.push({ key: k.halo, floats: ha.length * 6 * STRIDE, write: (d, o) => { for (const st of ha) o = putHalo(d, o, st, k.ox, k.oy); return o; } });
     }
     arenaLit.retain(gLit); arenaCore.retain(gCore); arenaHalo.retain(gHalo);
     const core = [], halo = [], lit = [];

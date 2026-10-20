@@ -183,12 +183,19 @@ export function createSpriteLayer(gl) {
     blinkT = sprites && sprites.now != null ? (sprites.now * 0.004) % Math.PI : 0;
     const gOver = [], gAdd = [];
     if (groups) for (const G of groups) {
+      // ⚠ KEYED ON THE ARRAY ALONE, NOT ITS OFFSET. A kept set's records are shifted in place by the
+      // camera's move each frame (armReplay) and handed back with that frame's offset, so `x + ox`,
+      // which is what goes on the GPU, doesn't change. Keying on `ox` too re-wrote every kept group on
+      // every frame the camera moved. `write` reads the offset off `k`, so a group the arena re-places
+      // later writes this frame's records with this frame's offset, not the ones it was first seen with.
       let k = KEYS.get(G.recs);
-      if (!k || k.ox !== G.ox || k.oy !== G.oy) { k = { ox: G.ox, oy: G.oy, over: {}, add: {} }; KEYS.set(G.recs, k); }
+      // `w` is the map window the group was sent in: a recentre moves the window frame, so it is sent again.
+      if (!k || k.w !== G.w) { k = { ox: G.ox, oy: G.oy, w: G.w, over: {}, add: {} }; KEYS.set(G.recs, k); }
+      k.ox = G.ox; k.oy = G.oy;
       const ov = [], ad = [];
       for (const r of G.recs) (r.add ? ad : ov).push(r);
-      if (ov.length) gOver.push({ key: k.over, floats: ov.length * 6 * STRIDE, write: (d, o) => { for (const r of ov) o = putSprite(d, o, r, G.ox, G.oy); return o; } });
-      if (ad.length) gAdd.push({ key: k.add, floats: ad.length * 6 * STRIDE, write: (d, o) => { for (const r of ad) o = putSprite(d, o, r, G.ox, G.oy); return o; } });
+      if (ov.length) gOver.push({ key: k.over, floats: ov.length * 6 * STRIDE, write: (d, o) => { for (const r of ov) o = putSprite(d, o, r, k.ox, k.oy); return o; } });
+      if (ad.length) gAdd.push({ key: k.add, floats: ad.length * 6 * STRIDE, write: (d, o) => { for (const r of ad) o = putSprite(d, o, r, k.ox, k.oy); return o; } });
     }
     arenaOver.retain(gOver); arenaAdd.retain(gAdd);
     const over = [], add = [];

@@ -17,6 +17,7 @@ import { state } from '../state.js';
 import { sfx, clampInt, clampNum, esc, mountOverlay, ensureChassisStyles, deviceHeader, bezelScrews, crtOverlays, deckStrip, setDeckLevel } from './minigame-common.js';
 import { updateBoatContacts, stopBoatContacts, KT_TO_MPH } from './boat-audio.js';
 import { tweenOrbit } from './camera-tween.js';
+import { internMap } from './map-intern.js';
 import { seatSpot } from './seat-audio.js';
 import { playCabinAudio, updateEngineAudio, stopEngineAudio, creak, spoolUp, spoolDown, groundFx, flapWhir, stallHorn, varioTick, gearFx, quackStart, QUACK_SQUEEZE_MS, visorFx, detentFx, gunFx, aaWarn, tracerFx, aaGunFx, hitFx, lockTone, mslWarble, missileFx, missileRippleFx, flareFx, spraySfx, diveSiren } from './engine-audio.js';
 import { navHomeHTML, drawNavHome } from './nav-home.js';   // the HOME arrow on the water, boat or sub
@@ -7193,7 +7194,9 @@ export function flightSimContext(msg) {
   if (msg.fuel != null) F.fuel = msg.fuel;
   if (msg.fuelCap != null) F.fuelCap = msg.fuelCap;
   // Update the map AND its window centre together so they stay paired (no recenter jump).
-  if (msg.map) { F.map = msg.map; if (msg.mapX != null) F.mapCenter = { x: msg.mapX, y: msg.mapY }; }
+  // Interned: an unchanged cell keeps its object and an unchanged window its array, or every push
+  // threw away every cache GLASS keeps per building (panels/map-intern.js).
+  if (msg.map) { F.map = internMap(F.map, F.mapCenter?.x, F.mapCenter?.y, msg.map, msg.mapX, msg.mapY); if (msg.mapX != null) F.mapCenter = { x: msg.mapX, y: msg.mapY }; }
   if (msg.skyline) F.skyline = msg.skyline;   // the tall towers outside that window (windshield.js noteSkyline)
   // The highway past the edge of that window, as polylines in absolute world tiles. Assigned
   // unconditionally for the same reason `actors` is: the server sends null the moment there is no

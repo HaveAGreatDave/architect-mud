@@ -146,6 +146,7 @@ export function drawShiftKnob(...a) { return (_m || _cold('drawShiftKnob')).draw
 export function drawWildScatter(...a) { return (_m || _cold('drawWildScatter')).drawWildScatter(...a); }
 export function encounterW(...a) { return (_m || _cold('encounterW')).encounterW(...a); }
 export function ensureWindshieldStyles(...a) { return (_m || _cold('ensureWindshieldStyles')).ensureWindshieldStyles(...a); }
+export function faceAway(...a) { return (_m || _cold('faceAway')).faceAway(...a); }
 export function facePalsSmoke(...a) { return (_m || _cold('facePalsSmoke')).facePalsSmoke(...a); }
 export function falconDiveState(...a) { return (_m || _cold('falconDiveState')).falconDiveState(...a); }
 export function fasciaKindOf(...a) { return (_m || _cold('fasciaKindOf')).fasciaKindOf(...a); }

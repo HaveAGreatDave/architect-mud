@@ -3,7 +3,7 @@
 // Every arm takes drawTypeModelArm's arguments and its prologue locals, in this order:
 //   (ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E, name, board, pal, sign, F, W3, frontVis)
 // How a tile becomes a building is in docs/reference/world-rendering.md.
-import {
+import { faceAway,
   DETAIL_LIFT, FACE_EPS, bakeSignText, clamp, draw3DBoxAt, drawBarrelRoof, drawFacetDrum,
   drawSmoke, emitSurfaceText, emitWire, faceYaw, glowPool, nearOrMesh, rgb, windFlag,
 } from '../../windshield.js';
@@ -68,7 +68,7 @@ function span(ctx, cam, F, E, x0, x1, y0, y1, z0, z1, pal, seed, night, alpha, r
 // the 2-D painter it draws straight through the building (the gym's ⚠ in yards.js).
 function facing(cam, F, nx, ny, px, py) {
   const [ax, ay] = F(px, py), [bx, by] = F(px + nx, py + ny);
-  return (bx - ax) * ((cam.ex || 0) - ax) + (by - ay) * ((cam.ey || 0) - ay) > 0;
+  return !faceAway(cam, ax, ay, bx - ax, by - ay);   // through faceAway, so a kept building sees it turn (ARM_FACE)
 }
 // Letters on a wall: a quad given left to right as seen from outside, lifted a hair off the plane.
 // `pull` decides which of two decals on one wall wins the depth test (a shield over its shadow).

@@ -11,7 +11,7 @@ import {
   ADORN_NEAR, ADORN_TIER, DECO_LIFT, DECO_PULL, DETAIL_LIFT, FACE_EPS, LCK_ROOF_Z, SHAPE_SINK, SLUM_PULL,
   SLUM_RUST, SLUM_TIN, TARPS, TR, WALL_COL, awning, bakeSignText, blinkLight, clamp, draw3DBoxAt,
   drawBarrelRoof, drawFacetDrum, drawRing, drawSmoke, emitDecoFill, emitFlat, emitSurfaceText, emitWire,
-  faceYaw, frac, glowPool, hfChrome, hfGlass, litStyle, marqueeBand, nearOrMesh, neonBlade, rgb,
+  faceAway, faceYaw, frac, glowPool, hfChrome, hfGlass, litStyle, marqueeBand, nearOrMesh, neonBlade, rgb,
   roofClutter, slumCurtain, slumDrape, slumFaceVis, slumHole, slumOpening, slumRope, slumScrawl,
   slumSheet, TILE_REACH,
 } from '../../windshield.js';
@@ -55,10 +55,10 @@ function ashGlow(ctx, cam, W3, pts, out, day, lit, dn, alpha) {
 // An iron band round a drum, the half facing the eye only. ⚠ NOT `drawRing`, which pulls the
 // whole circle toward the eye and brings the back half out round the silhouette (`glself`).
 function ashBand(ctx, cam, cx, cy, z, r, N, css, lw, alpha) {
-  const ex = cam.ex || 0, ey = cam.ey || 0;
   for (let i = 0; i < N; i++) {
     const a0 = i / N * 6.2832, a1 = (i + 1) / N * 6.2832;
-    const away = (a) => { const nx = Math.cos(a), ny = Math.sin(a); return nx * (cx + nx * r - ex) + ny * (cy + ny * r - ey) >= 0; };
+    // faceAway, not the eye read here: a kept building has to know when the arc turns (ARM_FACE).
+    const away = (a) => { const nx = Math.cos(a), ny = Math.sin(a); return faceAway(cam, cx + nx * r, cy + ny * r, nx, ny); };
     if (away(a0) || away(a1)) continue;
     emitWire(ctx, cam, [cx + Math.cos(a0) * r, cy + Math.sin(a0) * r, z], [cx + Math.cos(a1) * r, cy + Math.sin(a1) * r, z], lw, css, alpha, { pull: 0.01 });
   }

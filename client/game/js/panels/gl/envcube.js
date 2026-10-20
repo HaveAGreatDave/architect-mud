@@ -66,8 +66,11 @@ void main() {
 
 
 const r = (v, q) => Math.round(v / q);
+// ⚠ THE COLOURS ARE ROUNDED TO WHOLE 8-BIT STEPS, as `ceil` always was: `skyAt(hour)` interpolates
+// them, so raw they changed with every hour the server sent and each change re-drew six faces and the
+// mips, for a difference no channel can show.
 const keyOf = (s, ground) => [
-  ...(s.top || []), ...(s.hor || []), ...(s.sunCol || []), ...(s.ceil || []).map((v) => Math.round(v)),
+  ...[...(s.top || []), ...(s.hor || []), ...(s.sunCol || []), ...(s.ceil || [])].map((v) => Math.round(v)),
   ...(s.sunDir ? s.sunDir.map((v) => r(v, 0.01)) : ['-']), r(s.nightA || 0, 0.02), r(s.airglow || 0, 0.02),
   r(s.overcast || 0, 0.02), ...(ground || [0, 0, 0]).map((v) => r(v, 0.004)),
 ].join(',');

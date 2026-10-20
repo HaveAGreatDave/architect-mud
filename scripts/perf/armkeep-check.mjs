@@ -8,7 +8,8 @@
 // every buffer and records every draw. The triangles drawn have to be the same multiset frame by
 // frame, to 1e-5 (a kept record is shifted each frame, which costs the last bits). Reports how many
 // buildings were kept. Exits 1 on any difference.
-import { openScene } from './scene.mjs';
+import { openScene, PLACES } from './scene.mjs';
+import { internMap } from '../../client/game/js/panels/map-intern.js';
 const { createGLView } = await import(new URL('../../client/game/js/panels/gl/context.js', import.meta.url).href);
 
 function fakeView() {
@@ -49,7 +50,26 @@ const tris = (draws) => {
 const tri32 = (s) => { let h = 2166136261 >>> 0; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; } return h; };
 const flyArg = process.argv.indexOf('--fly');
 if (flyArg >= 0) {
-  const [place, seat, hourS, keepS] = process.argv.slice(flyArg + 1);
+  const [place, seat, hourS, keepS, moveS, recS] = process.argv.slice(flyArg + 1);
+  // `move` > 0 flies straight ahead that many tiles a frame instead of turning: the travel is in
+  // `mapOffset`, which a turn never moves, and a probe that ignored it never kept anything.
+  const move = Number(moveS || 0);
+  const at = (i) => (move ? { heading: 20 + i * Number(process.env.MOVETURN || 0), mapOffset: { x: 0.3, y: -((i * move) % 1) } } : { heading: 20 + i * 1.5 });
+  // `rec` > 0 also has the server send a window centred on the craft every `rec` frames, as fresh
+  // JSON taken through panels/map-intern.js the way the client takes it: kept sets are keyed in world
+  // tiles (armWorld), so they must survive the recentre and still draw what the arms draw.
+  const rec = Number(recS || 0);
+  let win = null, k = 0;
+  const viewAt = (i) => {
+    if (!rec) return scene.view(place, seat, { hour, ...at(i) });
+    const [X, Y] = PLACES[place], dist = i * move;
+    if (!win || i % rec === 0) {
+      const k0 = k; k = Math.round(dist);
+      const fresh = scene.view([X, Y - k], seat).map.map((r) => r.map((c) => JSON.parse(JSON.stringify(c))));
+      win = internMap(win, X, Y - k0, fresh, X, Y - k);
+    }
+    return scene.view([X, Y - k], seat, { hour, heading: 20 + i * Number(process.env.MOVETURN || 0), mapOffset: { x: 0.3, y: -(dist - k) }, map: win });
+  };
   const scene = await openScene({ record: false });
   let hook = null;
   scene.ws.installGLWorld((cells, cam, o) => { hook = { cam, o }; return { canvas: { width: 640, height: 360 }, faces: 0 }; });
@@ -67,10 +87,10 @@ if (flyArg >= 0) {
   const clock = globalThis.performance, t0 = clock.now();
   globalThis.performance = { ...clock, now: () => t0 };
   // Painted once first: the occlusion pass reads the last frame (see the warm paint in retain-check).
-  scene.ws.paintWindshield('__perf', scene.view(place, seat, { hour, heading: 20 }));
+  scene.ws.paintWindshield('__perf', viewAt(0));
   for (let i = 0; i < 60; i++) {
     globalThis.performance.now = () => t0 + (i + 1) * STEP;
-    scene.ws.paintWindshield('__perf', scene.view(place, seat, { hour, heading: 20 + i * 1.5 }));
+    scene.ws.paintWindshield('__perf', viewAt(i + 1));
     const { cam, o } = hook;
     G.draws.length = 0;
     // The bay sink only: the own ship is not a building, and its first frame after a tune change
@@ -100,13 +120,13 @@ if (flyArg >= 0) {
 
 const { execFileSync } = await import('node:child_process');
 const self = new URL(import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1');
-const fly = (place, seat, hour, keep) => JSON.parse(execFileSync(process.execPath, [self, '--fly', place, seat, String(hour), String(keep)],
+const fly = (place, seat, hour, keep, move = 0, rec = 0) => JSON.parse(execFileSync(process.execPath, [self, '--fly', place, seat, String(hour), String(keep), String(move), String(rec)],
   { maxBuffer: 1 << 30, encoding: 'utf8', env: process.env }));
 let bad = 0, n = 0, extras = 0;
 const shown = [];
-for (const [place, seat, hour] of [['halcyon', 'cockpit', 22], ['nightlife', 'cab', 22], ['residential', 'cockpit', 13], ['oldcoldwater', 'cab', 22]]) {
-  const { frames: a } = fly(place, seat, hour, 0);
-  const { frames: b, st } = fly(place, seat, hour, Number(process.env.KEEPB ?? 1));
+for (const [place, seat, hour, move = 0, rec = 0] of [['halcyon', 'cockpit', 22], ['nightlife', 'cab', 22], ['residential', 'cockpit', 13], ['oldcoldwater', 'cab', 22], ['halcyon', 'cockpit', 13, 0.02], ['nightlife', 'cab', 22, 0.01], ['halcyon', 'cockpit', 22, 0.05, 15]]) {
+  const { frames: a } = fly(place, seat, hour, 0, move, rec);
+  const { frames: b, st } = fly(place, seat, hour, Number(process.env.KEEPB ?? 1), move, rec);
   for (let i = 0; i < a.length; i++) {
     n++;
     // Missing from the kept draw is an error. Extra in it is what the live arm skipped for being
@@ -117,11 +137,11 @@ for (const [place, seat, hour] of [['halcyon', 'cockpit', 22], ['nightlife', 'ca
     for (const x of a[i].t) { const k = cnt.get(x) || 0; if (k) cnt.set(x, k - 1); else miss++; }
     let extra = 0; for (const k of cnt.values()) extra += k;
     extras += extra;
-    if (miss) { bad++; if (shown.length < 4) shown.push(`${place} ${seat} frame ${i}: ${miss} live triangles missing from the kept draw`); }
+    if (miss) { bad++; if (shown.length < 4) shown.push(`${place} ${seat} ${hour}h${move ? " straight" : ""}${rec ? " recentred" : ""} frame ${i}: ${miss} live triangles missing from the kept draw`); }
     const ca = a[i].c.join(';'), cb = b[i].c.join(';');
     if (ca !== cb) { bad++; if (shown.length < 4) shown.push(`${place} ${seat} frame ${i}: light census differs (${a[i].c.length} live, ${b[i].c.length} kept)`); }
   }
-  console.log(`  ${place} ${seat} ${hour}h: kept ${st.kept}, live ${st.live}, replays ${st.replayed}, rechecks ${st.rechecked}, dropped ${st.dropped}`);
+  console.log(`  ${place} ${seat} ${hour}h${move ? ' straight' : ''}${rec ? ' recentred' : ''}: faceRec ${st.faceRec}, faceDrop ${st.faceDrop}, webDrop ${st.webDrop}, kept ${st.kept}, live ${st.live}, replays ${st.replayed}, rechecks ${st.rechecked}, dropped ${st.dropped}`);
 }
 for (const l of shown) console.error('  ✗ ' + l);
 if (bad) { console.error(`armkeep-check: ${bad} of ${n} frames differ`); process.exit(1); }

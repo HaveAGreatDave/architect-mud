@@ -16,7 +16,7 @@
 // smoke aren't mesh and come and go.
 // ⚠ THESE ARE IN CONSTANTS, NOT fh AND h. Each type is one plot on the map, and an arm whose awning
 // and cart were sized off a rolled footprint stood them in the road or inside the wall.
-import {
+import { faceAway,
   DETAIL_LIFT, SHAPE_SINK, bakeSignText, clamp, draw3DBoxAt, drawFacetDrum, drawSmoke, emitSurfaceText,
   emitWire, facePals, faceYaw, glowPool, nearOrMesh, rgb,
 } from '../../windshield.js';
@@ -45,7 +45,7 @@ function kit(ctx, cam, F, W3, E, seed, night, alpha) {
   const SQ = (x, s, y0, y1, z0, z1, col) => Q([[x, y0, z1], [x, y1, z1], [x, y1, z0], [x, y0, z0]], [s, 0, 0], col);
   const front = () => {
     const [ax, ay] = F(0, 0), [bx, by] = F(0, 1);
-    return (bx - ax) * ((cam.ex || 0) - ax) + (by - ay) * ((cam.ey || 0) - ay) > 0;
+    return !faceAway(cam, ax, ay, bx - ax, by - ay);   // through faceAway, so a kept building sees it turn (ARM_FACE)
   };
   const at = (x, y) => F(x, y);
   // A lit window: glass by day, `lit` after dark by `k`.

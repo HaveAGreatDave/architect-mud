@@ -904,6 +904,8 @@ export const RENDER_TUNE = {
   bayCache: 1,   // a shed's GL shell is built once per key and its records replayed (BAY_SHELL); 0 builds it every frame
   lockCache: 1,  // the South Lock's GL faces and lights reuse last frame's record per slot when unchanged (LCK_MEMO); 0 builds every one
   campKeep: 1,   // a camp's replayed records kept on the GPU per facing group and only facing-tested each frame (campKept); 0 replays and projects every record every frame
+  armWorld: 1,   // kept arms keyed and shifted in world tiles (the window's centre added), so a server recentre keeps them; 0 keys them in the window's frame and every recentre re-probes every building
+  armPoseMove: 1, // a kept-arm probe counts the camera's travel through the window (`ox`/`oy`) as a move; 0 counts only the eye's offset and heading, so a straight run never keeps a building
   armLive: 1,    // a kept building's animated helpers (smoke, rings, beams, wind wheels, flags) are left out of its kept set and called again each replay (armLiveCall); 0 makes any such building live
   armRain: 1,    // a kept building records its glows' place in the rain-light census and replays that too; 0 marks any building with a glow live, as before
   occCache: 1,   // a building's occluder geometry (hull, roof, solid boxes) kept per cell in its own frame and only moved and projected each frame (OCC_GEOM); 0 rebuilds it every frame
@@ -41049,7 +41051,7 @@ function slumRope(ctx, cam, W3, a, b, alpha) {
 // turned toward the eye? The arm's own `frontVis` asked of any of the four faces.
 function slumFaceVis(cam, dx, dy, E, nx, ny, off) {
   const wx = nx * E[1] + ny * E[0], wy = -nx * E[0] + ny * E[1];
-  return (wx * (dx + wx * off) + wy * (dy + wy * off) - (wx * (cam.ex || 0) + wy * (cam.ey || 0))) < 0;
+  return !faceAway(cam, dx + wx * off, dy + wy * off, wx, wy);   // through faceAway: see ARM_FACE
 }
 function drawMarquee(ctx, cam, dx, dy, fh, h, bi, seed, night, alpha, now) {
   draw3DBoxAt(ctx, cam, dx, dy, fh, 0, h * 0.7, bi, seed, night, alpha, true);
@@ -43308,8 +43310,7 @@ function emitFlat(ctx, cam, pts, fill, alpha, opts = {}) {
   if (FLAT_OFF && !opts.paint && cssRgb(fill)) { if (PERF.armv) { PERF.n.flatDrop = (PERF.n.flatDrop || 0) + 1; const a = PERF.arm['%drop:' + _PERF_ARM] || (PERF.arm['%drop:' + _PERF_ARM] = { ms: 0, n: 0 }); a.n++; } return; }   // `paint` is never in the mesh — see above
   if (opts.cullN) {
     let cx = 0, cy = 0; for (const p of pts) { cx += p[0]; cy += p[1]; } cx /= pts.length; cy /= pts.length;
-    const nx = opts.cullN[0], ny = opts.cullN[1];
-    if (nx * cx + ny * cy - (nx * (cam.ex || 0) + ny * (cam.ey || 0)) >= 0) return;   // face turned away → skip
+    if (faceAway(cam, cx, cy, opts.cullN[0], opts.cullN[1])) return;   // face turned away → skip
   }
   // ── ⚠ IT CLIPS, IT DOES NOT REJECT ─────────────────────────────────────────
   // This used to drop the whole surface the moment ONE corner crossed the near plane, on the same
@@ -45629,7 +45630,8 @@ function neonBlade(ctx, cam, dx, dy, h0, h1, color, night, alpha, label) {   // 
     // ⚠ THE LETTERED FACE IS NOT CULLED, deliberately. Today a blade reads from every angle because
     // it was a screen-space quad, and culling it would make half the signs in Coldwater blank from
     // the back — a bigger change than this is meant to be, and one to make on purpose if at all.
-    const seen = (cx2, cy2, nx2, ny2) => (nx2 * (cx2 - (cam.ex || 0)) + ny2 * (cy2 - (cam.ey || 0))) < 0;
+    // Through faceAway, so a kept building knows when a side turns to face you (ARM_FACE).
+    const seen = (cx2, cy2, nx2, ny2) => !faceAway(cam, cx2, cy2, nx2, ny2);
     const E0 = basis.E[0], E1 = basis.E[1];
     if (seen(S.kx, S.ky, -E0, -E1)) {
       side([[S.kx + S.px * S.hw, S.ky + S.py * S.hw, S.z1], [S.kx - S.px * S.hw, S.ky - S.py * S.hw, S.z1],
@@ -51804,6 +51806,11 @@ let ITEMS_BUSY = false;
 const ARM_KEEP = new WeakMap();   // cell → entry
 const ARM_RECHECK = 120, ARM_GAP = 12, ARM_NEAR = 1.5;
 let ARM_FRAME = 0, ARM_CHECKS = 0, ARM_OPS = 0, ARM_TUNE = 0, ARM_REC = false, ARM_WHY_SIDE = 'side';
+// The map window's centre tile this frame (RENDER_TUNE.armWorld). A kept set is keyed and shifted in
+// world tiles, so when the server sends a window centred one tile on, the building keeps its set
+// instead of every building in the window probing on the same frame (scripts/perf/movecost.mjs
+// --resend 60 --recentre --intern).
+let ARM_CX = 0, ARM_CY = 0;
 // The glows a recording put through the rain-light census, as [dx, dy, wz, s0, max, rgb, alpha] (glowPool).
 let ARM_RAIN = null;
 // ── LIVE PARTS: WHAT MOVES IN A KEPT BUILDING ────────────────────────────────────────────────────
@@ -51824,6 +51831,19 @@ let ARM_LIVE = null, ARM_NOW = 0, ARM_LIVE_BAD = false, ARM_MOTION = false, ARM_
 // The truss detail a recording chose (webBays), as [dx, dy, h, full, bays]; a replay that would choose
 // differently drops the kept set.
 let ARM_WEB = null;
+// The same for emitFlat's back-face test (`cullN`), as [cx, cy, nx, ny, culled]: whether a face is
+// turned away depends on where the eye STANDS, not where it looks, so a probe that only turned never
+// saw it change, and a kept set flown toward came back without the faces that had turned to face it
+// (a gantry's ends; scripts/perf/armkeep-check.mjs, straight flights).
+let ARM_FACE = null;
+// Whether a face at (px, py) in the camera's frame, outward normal (nx, ny), is turned away from the
+// eye. The test an arm should ask it with (emitFlat's `cullN`, frontRing), because a recording notes
+// the answer in ARM_FACE and armReplay asks again.
+export function faceAway(cam, px, py, nx, ny) {
+  const away = nx * px + ny * py - (nx * (cam.ex || 0) + ny * (cam.ey || 0)) >= 0;
+  if (ARM_FACE && !ARM_IN_LIVE) { ARM_FACE.push([px, py, nx, ny, away]); armKeepStats.faceRec++; }
+  return away;
+}
 // How far a clock-test recording has moved the clock, for the one arm-reachable reader of the wall
 // clock (deadNeon). 0 outside those runs.
 let ARM_SHIFT = 0;
@@ -51864,7 +51884,7 @@ function armLiveCanon(L, ox, oy) {
   }
   return 'C' + parts.join('|');
 }
-export const armKeepStats = { kept: 0, live: 0, probing: 0, replayed: 0, rechecked: 0, dropped: 0, fading: 0, near: 0, gap: 0, liveRun: 0, webDrop: 0 };
+export const armKeepStats = { kept: 0, live: 0, probing: 0, replayed: 0, rechecked: 0, dropped: 0, fading: 0, near: 0, gap: 0, liveRun: 0, webDrop: 0, faceDrop: 0, faceRec: 0 };
 // Why a building went live, by model type, for a harness that sets `armKeepWhy.on`. Off, it costs
 // nothing; on, a clock or pose mismatch also lists the records that differed (first few lines).
 export const armKeepWhy = { on: false, by: {} };
@@ -51894,11 +51914,17 @@ const armSideParts = () => [['scatter', SCATTER_SINK], ['curtain', CURTAIN_SINK]
 // key on its own; decoFar gates the holo-ad and window bloom, which run outside the kept call; glowFar
 // is the 2-D halo (GL reads glGlowFar); shadowFar is the shadow pass. A caller's own tune (a ground
 // camera's) still counts, which is what TUNE_BASE keeps.
-function armKeepFrame() { ARM_FRAME++; ARM_CHECKS = 0; ARM_TUNE = tuneSig() * 7 + (TUNE_BASE !== RENDER_TUNE ? tuneSig(TUNE_BASE) : 0); }
+function armKeepFrame(mc) {
+  ARM_FRAME++; ARM_CHECKS = 0; ARM_TUNE = tuneSig() * 7 + (TUNE_BASE !== RENDER_TUNE ? tuneSig(TUNE_BASE) : 0);
+  const on = RENDER_TUNE.armWorld !== 0 && mc;
+  ARM_CX = on ? mc.x || 0 : 0; ARM_CY = on ? mc.y || 0 : 0;
+}
 const armR6 = (x) => Math.round(x * 1e6);
 const pt = (p, ox, oy) => armR6(p[0] + ox) + ',' + armR6(p[1] + oy) + ',' + armR6(p[2]);
 // A record set in the map window's frame, as a string two recordings can be compared by.
-function armCanon(rec, ox, oy) {
+// `cx`/`cy`: the window's centre, for the bay records, which are in the window's frame rather than the
+// camera's (armWorld; 0 compares them in the window's frame as before).
+function armCanon(rec, ox, oy, cx = 0, cy = 0) {
   const out = [];
   for (const s of rec.sp) out.push('L' + armR6(s.x + ox) + ',' + armR6(s.y + oy) + ',' + armR6(s.z) + '|' + (s.sz ? s.sz.map(armR6).join(',') : 'r' + armR6(s.r))
     + '|' + s.rgb + '|' + armR6(s.a) + '|' + s.hard + s.add + s.wash + s.air + (s.tag || '') + (s.bl ? '|b' + s.bl.map(armR6).join(',') : ''));
@@ -51906,7 +51932,7 @@ function armCanon(rec, ox, oy) {
     + '|' + armR6(s.w) + '|' + s.rgb + '|' + armR6(s.alpha) + '|' + armR6(s.glow || 0) + (s.add ? 'a' : '') + (s.tag || ''));
   for (const d of rec.de) out.push('D' + d.key + '|' + (d.pl > 0 && d.rp ? d.rp.map((p) => pt(p, ox, oy)).join(';') + '|' + d.rc.map((p) => pt(p, ox, oy)).join(';') + '|' + armR6(d.pl)
     : d.p.map((p) => pt(p, ox, oy)).join(';')) + '|' + armR6(d.alpha == null ? 1 : d.alpha) + '|' + !!d.solid + !!d.lit + !!d.cull + !!d.smooth + (d.emit || 0));
-  for (const q of rec.ba) out.push('B' + q.p.map((p) => pt(p, 0, 0)).join(';') + '|' + q.rgb + '|' + armR6(q.a));
+  for (const q of rec.ba) out.push('B' + q.p.map((p) => pt(p, cx, cy)).join(';') + '|' + q.rgb + '|' + armR6(q.a));
   if (rec.live) for (const L of rec.live) out.push(armLiveCanon(L, ox, oy));
   if (rec.rain) for (const r of rec.rain) out.push('R' + pt(r, ox, oy) + '|' + armR6(r[3]) + ',' + r[4] + '|' + r[5] + '|' + armR6(r[6]));
   return out.join('\n');
@@ -51922,6 +51948,7 @@ function armRecord(ctx, run, scratch = false, now = 0, shift = 0) {
   const live = RENDER_TUNE.armLive !== 0 ? [] : null;
   ARM_LIVE = live; ARM_NOW = now; ARM_LIVE_BAD = false; ARM_SHIFT = shift; ARM_MOTION = false;
   const web = []; ARM_WEB = web;
+  const face = []; ARM_FACE = face;
   const signN0 = _signTexN;
   if (scratch) SIGN_ID_SCRATCH = [];
   const side0 = armSide(), ops0 = ARM_OPS, parts0 = armKeepWhy.on ? armSideParts() : null;
@@ -51936,7 +51963,7 @@ function armRecord(ctx, run, scratch = false, now = 0, shift = 0) {
   ARM_REC = true;
   try { run(); } finally {
     ARM_REC = false; for (const [k, own, fn] of wrapped) { if (own) ctx[k] = fn; else delete ctx[k]; }
-    ARM_RAIN = null; ARM_LIVE = null; ARM_SHIFT = 0; ARM_WEB = null;
+    ARM_RAIN = null; ARM_LIVE = null; ARM_SHIFT = 0; ARM_WEB = null; ARM_FACE = null;
     if (SIGN_ID_SCRATCH) { for (const t of SIGN_ID_SCRATCH) _signTexIds.delete(t); _signTexN = signN0; SIGN_ID_SCRATCH = null; }
     if (rain0) { RAIN_LIGHTS.length = 0; for (const r of rain0) RAIN_LIGHTS.push(r); }
   }
@@ -51950,28 +51977,42 @@ function armRecord(ctx, run, scratch = false, now = 0, shift = 0) {
   }
   const L = live || [];
   return { sp: armCut(SPRITE_SINK, s0, L, 0), st: armCut(STROKE_SINK, t0, L, 1), de: armCut(DECAL_SINK, d0, L, 2), ba: armCut(BAY_SINK, b0, L, 3),
-    rain: rain ? armCut(rain, 0, L, 4) : [], live: L, web, marks: [s0, t0, d0, b0] };
+    rain: rain ? armCut(rain, 0, L, 4) : [], live: L, web, face, marks: [s0, t0, d0, b0] };
 }
 // Push a kept set into the sinks as retained groups, moved into this frame's camera frame first.
 // `census` false when this frame already ran the arm live (a recheck, or the frame it was kept), whose
 // glows are in the rain census already.
 // `retain` false sends the records through the ordinary stream rather than as retained groups: a
 // retained group is a draw call per texture, and a camp is a hundred small groups (campKept).
-function armReplay(e, ox, oy, cam, census, ctx, now, retain = true) {
+// `cx`/`cy` is the window's centre when `ox`/`oy` are world offsets (drawTypeModelKept); the GL layers
+// take the camera's own offset and the window it is in, so a recentre re-sends a group once.
+function armReplay(e, ox, oy, cam, census, ctx, now, retain = true, cx = 0, cy = 0) {
   const dx = e.ox - ox, dy = e.oy - oy;
   for (const w of e.rec.web) if (webBaysAt(cam, w[0] + dx, w[1] + dy, w[2], w[3]) !== w[4]) return false;
+  const fex = cam.ex || 0, fey = cam.ey || 0;
+  for (const q of e.rec.face) if ((q[2] * (q[0] + dx) + q[3] * (q[1] + dy) - (q[2] * fex + q[3] * fey) >= 0) !== q[4]) { armKeepStats.faceDrop++; return false; }
   if (dx || dy) {
     for (const s of e.rec.sp) { s.x += dx; s.y += dy; }
     for (const r of e.rec.rain) { r[0] += dx; r[1] += dy; }
     for (const L of e.rec.live) { L.a[L.at.x] += dx; L.a[L.at.y] += dy; }
     for (const w of e.rec.web) { w[0] += dx; w[1] += dy; }
+    for (const q of e.rec.face) { q[0] += dx; q[1] += dy; }
     for (const p of e.pts) { p[0] += dx; p[1] += dy; }
     e.ox = ox; e.oy = oy;
+  }
+  // ⚠ THE BAY RECORDS ARE IN THE WINDOW'S FRAME, NOT THE CAMERA'S, so they move only when the window
+  // does (a recentre, with armWorld), by the change in its centre. A new array, because the solids
+  // retain a bay group by the identity of its array (bayGroup) and would draw the old place.
+  const bx = (e.cx || 0) - cx, by = (e.cy || 0) - cy;
+  if (bx || by) {
+    const seen = new Set();
+    for (const q of e.rec.ba) for (const p of q.p) if (!seen.has(p)) { seen.add(p); p[0] += bx; p[1] += by; }
+    e.rec.ba = e.rec.ba.slice(); e.cx = cx; e.cy = cy;
   }
   const retainOn = TUNE.glRetain !== 0 && retain;
   const put = (sink, recs) => {
     if (!sink || !recs.length) return;
-    if (retainOn) (sink.groups || (sink.groups = [])).push({ recs, at: sink.length, ox, oy });
+    if (retainOn) (sink.groups || (sink.groups = [])).push({ recs, at: sink.length, ox: ox - cx, oy: oy - cy, w: cx * 1e5 + cy });
     for (let i = 0; i < recs.length; i++) sink.push(recs[i]);
   };
   put(SPRITE_SINK, e.rec.sp); put(STROKE_SINK, e.rec.st); put(DECAL_SINK, e.rec.de);
@@ -52015,30 +52056,41 @@ function drawTypeModelKept(ctx, cam, it, face, fh, night, now, run) {
   // three arm runs where running it live is one. A cab measured 0.7-1.5 ms slower for it once the
   // rain census stopped those buildings going live. It runs live until it is fully in.
   if (it.alpha < 1) { armKeepStats.fading++; run(); return; }
-  const ox = cam.ox || 0, oy = cam.oy || 0;
+  // World offsets: the camera's place in the window plus the window's centre (ARM_CX; 0 with armWorld off).
+  const ox = (cam.ox || 0) + ARM_CX, oy = (cam.oy || 0) + ARM_CY;
   // The front's facing, as drawTypeModelArm decides it: a sign on a turned-away front isn't drawn.
   const front = (face[0] * (it.dx + face[0] * fh) + face[1] * (it.dy + face[1] * fh) - (face[0] * (cam.ex || 0) + face[1] * (cam.ey || 0))) < 0;
-  const key = armR6(it.dx + ox) + ',' + armR6(it.dy + oy) + '|' + ADORN_TIER + '|' + front + '|' + it.alpha + '|' + night + '|' + POWER_DUTY + '|' + _frameDpr + '|' + ARM_TUNE;
-  const pose = { x: cam.ex || 0, y: cam.ey || 0, z: cam.EH || 0, h: Math.atan2(cam.sinh || 0, cam.cosh || 1) };
+  // ⚠ AND WHETHER ITS SIGNS ARE IN RANGE. Past the near tier the arm draws its lettering only inside
+  // `signFar` (the signs-only pass in drawAuthoredDetail), a camera term no probe that only turned
+  // could see change: a kept set recorded from outside it held no signs, and flying in, the names
+  // stayed off until a recheck (scripts/perf/armkeep-check.mjs, straight flights).
+  const signIn = ADORN_TIER < ADORN_NEAR && (TUNE.signFar | 0) > 0 && eyeRange(cam, it.dx, it.dy) < TUNE.signFar;
+  const key = armR6(it.dx + ox) + ',' + armR6(it.dy + oy) + '|' + ADORN_TIER + '|' + front + '|' + it.alpha + '|' + night + '|' + POWER_DUTY + '|' + _frameDpr + '|' + ARM_TUNE + '|' + signIn;
+  // ⚠ THE EYE IN THE WINDOW, NOT ONLY ITS OFFSET FROM THE CRAFT. `ex`/`ey` are the chase camera's
+  // offset and stay put while the craft flies; the travel is in `ox`/`oy`. Without them a straight,
+  // level run never counted as a move, so the second probe never came and nothing was kept: Halcyon
+  // cockpit flying straight ran every arm live (scripts/perf/movecost.mjs).
+  const mv = RENDER_TUNE.armPoseMove !== 0;
+  const pose = { x: (cam.ex || 0) + (mv ? ox : 0), y: (cam.ey || 0) + (mv ? oy : 0), z: cam.EH || 0, h: Math.atan2(cam.sinh || 0, cam.cosh || 1) };
   if (!e || e.key !== key) {
-    if (e && armKeepWhy.on) { const A = e.key.split('|'), B = key.split('|'); armWhy(c, 'rekey:' + ['pos', 'tier', 'front', 'alpha', 'night', 'power', 'dpr', 'tune'].filter((_, i) => A[i] !== B[i]).join('+'), e.key, key); }
+    if (e && armKeepWhy.on) { const A = e.key.split('|'), B = key.split('|'); armWhy(c, 'rekey:' + ['pos', 'tier', 'front', 'alpha', 'night', 'power', 'dpr', 'tune', 'sign'].filter((_, i) => A[i] !== B[i]).join('+'), e.key, key); }
     // `tried` carries over: whatever changes the key, a building probes at most once every ARM_GAP frames.
     e = { key, probe: null, kept: null, tried: e ? e.tried : -ARM_GAP }; ARM_KEEP.set(c, e);
   }
   if (e.kept) {
     if (ARM_FRAME - e.checked < ARM_RECHECK || ARM_CHECKS >= 2 || !(cam.rawF && cam.rawF(it.dx, it.dy, 0) > ARM_NEAR + 2 * fh)) {
-      if (armReplay(e.kept, ox, oy, cam, true, ctx, now)) return;
+      if (armReplay(e.kept, ox, oy, cam, true, ctx, now, true, ARM_CX, ARM_CY)) return;
       e.kept = null; e.probe = null; armKeepStats.webDrop++; run(); return;   // the truss detail moved: probed again
     }
     // The recheck: record it live, compare, and put the kept set back in its place.
     ARM_CHECKS++; armKeepStats.rechecked++;
     const rec = armRecord(ctx, run, false, now);
-    const ok = rec && armCanon(rec, ox, oy) === e.kept.canon;
-    if (!ok) { armWhy(c, rec ? 'recheck' : 'recheck:side', rec && armCanon(rec, ox, oy), e.kept.canon); e.live = true; e.liveAt = ARM_FRAME; e.kept = null; armKeepStats.dropped++; return; }   // what it just drew stands
+    const ok = rec && armCanon(rec, ox, oy, ARM_CX, ARM_CY) === e.kept.canon;
+    if (!ok) { armWhy(c, rec ? 'recheck' : 'recheck:side', rec && armCanon(rec, ox, oy, ARM_CX, ARM_CY), e.kept.canon); e.live = true; e.liveAt = ARM_FRAME; e.kept = null; armKeepStats.dropped++; return; }   // what it just drew stands
     SPRITE_SINK.length = rec.marks[0]; if (STROKE_SINK) STROKE_SINK.length = rec.marks[1];
     if (DECAL_SINK) DECAL_SINK.length = rec.marks[2]; if (BAY_SINK) BAY_SINK.length = rec.marks[3];
     e.checked = ARM_FRAME;
-    armReplay(e.kept, ox, oy, cam, false, ctx, now);
+    armReplay(e.kept, ox, oy, cam, false, ctx, now, true, ARM_CX, ARM_CY);
     return;
   }
   // Probing. Record at most once every ARM_GAP frames, only compare across a camera move, and only
@@ -52050,7 +52102,7 @@ function drawTypeModelKept(ctx, cam, it, face, fh, night, now, run) {
   e.tried = ARM_FRAME;
   const rec = armRecord(ctx, run, false, now);
   if (!rec) { armWhy(c, ARM_WHY_SIDE); e.live = true; e.liveAt = ARM_FRAME; armKeepStats.live++; return; }
-  const canon = armCanon(rec, ox, oy);
+  const canon = armCanon(rec, ox, oy, ARM_CX, ARM_CY);
   // ⚠ AND THE CLOCK, TESTED RATHER THAN HOPED FOR. Two probes a dozen frames apart can catch a slow
   // blink in the same state twice, so the arm is run once more with its `now` moved by a second and
   // a bit, into the sinks and straight back out. Any difference and it animates: live.
@@ -52061,18 +52113,18 @@ function drawTypeModelKept(ctx, cam, it, face, fh, night, now, run) {
   for (const dt of [1234.5, 9876.5]) {
     const shadow = armRecord(ctx, () => run(now + dt), true, now + dt, dt);
     if (shadow) { SPRITE_SINK.length = shadow.marks[0]; if (STROKE_SINK) STROKE_SINK.length = shadow.marks[1]; if (DECAL_SINK) DECAL_SINK.length = shadow.marks[2]; if (BAY_SINK) BAY_SINK.length = shadow.marks[3]; }
-    if (!shadow || armCanon(shadow, ox, oy) !== canon) { armWhy(c, shadow ? 'clock' : ARM_WHY_SIDE, canon, shadow && armCanon(shadow, ox, oy)); e.live = true; e.liveAt = ARM_FRAME; armKeepStats.live++; return; }
+    if (!shadow || armCanon(shadow, ox, oy, ARM_CX, ARM_CY) !== canon) { armWhy(c, shadow ? 'clock' : ARM_WHY_SIDE, canon, shadow && armCanon(shadow, ox, oy, ARM_CX, ARM_CY)); e.live = true; e.liveAt = ARM_FRAME; armKeepStats.live++; return; }
   }
   if (e.probe) {
     const p = e.probe.pose, moved = Math.hypot(p.x - pose.x, p.y - pose.y, p.z - pose.z) > 0.02 || Math.abs(p.h - pose.h) > 0.02;
     if (moved) {
       if (canon !== e.probe.canon) { armWhy(c, 'pose', e.probe.canon, canon); e.live = true; e.liveAt = ARM_FRAME; armKeepStats.live++; return; }
-      e.kept = { rec, canon, pts: armPoints(rec), ox, oy };
+      e.kept = { rec, canon, pts: armPoints(rec), ox, oy, cx: ARM_CX, cy: ARM_CY };
       e.checked = ARM_FRAME; e.probe = null; armKeepStats.kept++;
       // What it pushed this frame is the kept set itself; register those as groups for the GPU.
       SPRITE_SINK.length = rec.marks[0]; if (STROKE_SINK) STROKE_SINK.length = rec.marks[1];
       if (DECAL_SINK) DECAL_SINK.length = rec.marks[2]; if (BAY_SINK) BAY_SINK.length = rec.marks[3];
-      armReplay(e.kept, ox, oy, cam, false, ctx, now);
+      armReplay(e.kept, ox, oy, cam, false, ctx, now, true, ARM_CX, ARM_CY);
       return;
     }
   }
@@ -52670,7 +52722,7 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
   pEnd();                      // ── end world:shadow ──
   pBegin('world:arms');
   beginFaces();
-  armKeepFrame();
+  armKeepFrame(v.mapCenter);
   // The frame clock for the sprite shader's blink (blinkLight, glBlinkGPU).
   if (SPRITE_SINK) SPRITE_SINK.now = now;
   // Per-item attribution for the profiler's arms view: the time from one item's start to the next is
