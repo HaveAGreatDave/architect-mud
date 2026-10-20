@@ -303,19 +303,6 @@ export function planPlay(ctx) {
   }
   const atFirst = throwChain.find((x) => x.bag === 1 && x.last);
   const tReach = log.batter ? log.batter.tFirst : tLegs;
-  // A man still on his way once the ball's back in a glove gets the camera at the bag he's going
-  // to, if there's time to see him get there: the last run in at the plate before anything else,
-  // then a man into third, then into second. One cut: the rest of the play is off the screen, as
-  // it would be.
-  if (!isHR) {
-    const done = settled - 0.3, BAG_SHOT = { 2: 'bag', 3: 'third', 4: 'plate' };
-    const going = [...(log.runners || []).map((r) => [r.to, r.to != null ? r.bags[r.to] : null]), ...(log.batter ? [[log.batter.to, log.batter.bags?.[log.batter.to]]] : [])]
-      .filter(([to, t]) => BAG_SHOT[to] && t != null && t > done + 1)
-      .sort((a, b) => b[0] - a[0] || b[1] - a[1]);
-    const [to, t] = going[0] || [];
-    if (to) cuts.push({ at: Math.max(done + 0.25, t - 1.8), shot: BAG_SHOT[to] });
-  }
-
   // ── the base umpires' calls: at first on a play there, and a force or a close one elsewhere ──
   const umps = [];
   const call = (who, out, tCall) => {
@@ -330,6 +317,21 @@ export function planPlay(ctx) {
   };
   if (atFirst && !atFirst.error) log.ump = call('ump:1B', isOut, Math.max(atFirst.catch.t, tReach) + 0.15);
   log.calls = laid.calls.map((c) => ({ ...c, ...(call(c.ump, c.out, c.t) || {}) }));
+
+  // A man still on his way once the primary play is over gets the camera at the bag he's going
+  // to, if there's time to see him get there: the last run in at the plate before anything else,
+  // then a man into third, then into second. The primary play is the ball back in a glove and, on
+  // a play at first, the umpire's call there; the cut waits half a second past it, so the picture
+  // goes batter, ball and fielder, then the runner. One cut: the rest of the play is off the
+  // screen, as it would be.
+  if (!isHR) {
+    const done = Math.max(settled - 0.3, log.ump ? log.ump.t : -Infinity), BAG_SHOT = { 2: 'bag', 3: 'third', 4: 'plate' };
+    const going = [...(log.runners || []).map((r) => [r.to, r.to != null ? r.bags[r.to] : null]), ...(log.batter ? [[log.batter.to, log.batter.bags?.[log.batter.to]]] : [])]
+      .filter(([to, t]) => BAG_SHOT[to] && t != null && t > done + 1)
+      .sort((a, b) => b[0] - a[0] || b[1] - a[1]);
+    const [to, t] = going[0] || [];
+    if (to) { cuts.push({ at: Math.max(done + 0.5, t - 1.8), shot: BAG_SHOT[to] }); log.runnerCut = { to, at: Math.max(done + 0.5, t - 1.8), after: done }; }
+  }
 
   // every head on the field follows the ball from the crack to the landing
   for (const B of [...bodies.values(), ...bases.bodies.filter((b) => b !== H), ...umps]) looks.push({ slot: B.slot, from: tBat - 0.05, full: tBat + 0.35, hold: land + 0.6, to: land + 1.2 });
