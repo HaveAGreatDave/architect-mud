@@ -993,7 +993,9 @@ Built so far (Phases 1 and 2 of the plan):
   rounds first on a single to the outfield and comes back, and trots round on a home run. A throw
   to a bag a man's safe at waits for him, and the play lands with every man on his bag and every
   run in; a man still running once the ball's back in gets the camera at the bag he's going to
-  (the plate, third or second). On ball four or a hit batsman the batter trots to first, every
+  (the plate, third or second), but only after the primary play: the cut waits half a second past
+  the last catch and, on a play at first, the umpire's call there, so the picture goes batter,
+  ball and fielder, then the runner. On ball four or a hit batsman the batter trots to first, every
   man forced trots up a bag and a man not forced walks back to his. When the booth skips an
   at-bat and the next one starts from other bags, it opens on the wide shot over the city while
   everyone takes their places;
