@@ -858,28 +858,6 @@ async function deleteBroadcast(id, name) {
   } catch (err) { toast(err.message, true); }
 }
 
-async function cloneBroadcast(rec) {
-  const body = {
-    name: `${rec.name} (copy)`,
-    description: rec.description || '',
-    category: rec.category || 'general',
-    playback_mode: rec.playback_mode || 'scripted',
-    message_interval: rec.message_interval || 5,
-    override_duration: rec.override_duration || null,
-    loop: rec.loop || 0,
-    enabled: 1,
-    messages: Array.isArray(rec.messages) ? rec.messages : [],
-    broadcast_graph: rec.broadcast_graph || null,
-    channel_id: rec.channel_id || null,
-  };
-  try {
-    const res = await directAPI('/broadcast/broadcasts', 'POST', body);
-    if (res?.error) { toast(res.error, true); return; }
-    toast('Broadcast cloned.');
-    await bcSuiteRefresh('broadcasts');
-  } catch (err) { toast(err.message, true); }
-}
-
 // ── BSM Studio ───────────────────────────────────────────────────────────────
 // The visual editor for the format bcImportBsm() below reads. It is a single
 // self-contained page under client/game/ with no network call of its own — not
@@ -1932,13 +1910,6 @@ async function _bcImportSave({ meta, broadcastGraph, filmScript, sermonScript, w
   _bcImportInProgress = false;
 }
 
-function _bcCancelImport() {
-  document.getElementById('bsm-channel-overlay')?.remove();
-  document.getElementById('bsm-studio-confirm-overlay')?.remove();
-  document.getElementById('bsm-dep-overlay')?.remove();
-  _bcImportInProgress = false;
-}
-
 // ── Commercials Tab ───────────────────────────────────────────────────────────
 
 let _bcCommSelected = null;
@@ -1986,72 +1957,6 @@ function _bcCommSelect(id) {
   _bcCommSelected  = (_bcSuiteData?.broadcasts || []).find(b => b.id === id) || null;
   _bcCommNewActive = false;
   _bcSuiteRender();
-}
-
-function _bcCommEditor(bc, channels) {
-  // Which channels include this commercial in their pool
-  const poolChannels = channels.filter(ch => {
-    const pool = Array.isArray(ch.commercial_pool) ? ch.commercial_pool : (ch.commercial_pool ? JSON.parse(ch.commercial_pool) : []);
-    return pool.includes(bc.id);
-  });
-  const poolList = poolChannels.length
-    ? poolChannels.map(c => `<span class="bc-chip">${escHtml(c.name)}</span>`).join(' ')
-    : `<span class="bc-meta">Not assigned to any channels</span>`;
-
-  const msgs = Array.isArray(bc.messages) ? bc.messages : [];
-  const dur = bc.override_duration || (msgs.length * (bc.message_interval || 5)) || 30;
-
-  return `
-    <div style="max-width:640px;display:flex;flex-direction:column;gap:14px">
-      <div style="display:flex;align-items:center;gap:10px">
-        <input class="form-input" id="bc-comm-name" value="${escHtml(bc.name)}"
-          style="flex:1;font-size:13px;font-weight:600" onblur="_bcCommSaveMeta()">
-        <button class="action-btn danger" onclick="_bcCommDelete('${bc.id}')">Delete</button>
-      </div>
-
-      <div class="bc-section">
-        <div class="bc-section-head">Timing</div>
-        <div class="bc-section-body" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-          <div>
-            <label class="bc-label">Interval (sec between messages)</label>
-            <input class="form-input" type="number" id="bc-comm-interval" value="${bc.message_interval || 5}" min="1" onblur="_bcCommSaveMeta()">
-          </div>
-          <div>
-            <label class="bc-label">Override duration (sec)</label>
-            <input class="form-input" type="number" id="bc-comm-duration" value="${bc.override_duration || ''}" min="1" placeholder="auto (${Math.round(dur)}s)" onblur="_bcCommSaveMeta()">
-          </div>
-        </div>
-      </div>
-
-      <div class="bc-section">
-        <div class="bc-section-head" style="justify-content:space-between">
-          Messages
-          <button class="action-btn" style="font-size:10px" onclick="_bcCommAddMsg('${bc.id}')">+ Add</button>
-        </div>
-        <div class="bc-section-body" style="display:flex;flex-direction:column;gap:6px">
-          ${msgs.length
-            ? msgs.map((m, i) => {
-              const taId = `bc-comm-ta-${bc.id}-${i}`, pvId = `bc-comm-pv-${bc.id}-${i}`;
-              return `<div style="display:flex;gap:6px;align-items:flex-start">
-                <span class="bc-meta" style="padding-top:6px;min-width:20px">${i + 1}.</span>
-                <div style="flex:1;display:flex;flex-direction:column;gap:3px">
-                  <textarea id="${taId}" class="form-input" rows="2" style="width:100%;font-size:11px;resize:vertical"
-                    oninput="_bcMarkupPreview('${pvId}',this.value)"
-                    onblur="_bcCommSaveMsg('${bc.id}',${i},this.value)">${escHtml(m)}</textarea>
-                  <div id="${pvId}" style="font-size:11px;line-height:1.5;padding:4px 6px;background:var(--bg3);border:1px solid var(--border);border-radius:2px;${m?'':'display:none'}">${_bcMarkup(m)}</div>
-                </div>
-                <button class="action-btn danger" style="padding:2px 6px;font-size:10px;margin-top:2px" onclick="_bcCommDelMsg('${bc.id}',${i})">✕</button>
-              </div>`;
-            }).join('')
-            : `<div class="bc-meta">No messages yet</div>`}
-        </div>
-      </div>
-
-      <div class="bc-section">
-        <div class="bc-section-head">Channel Pool Membership</div>
-        <div class="bc-section-body">${poolList}</div>
-      </div>
-    </div>`;
 }
 
 function _bcCancelNewBroadcast() {

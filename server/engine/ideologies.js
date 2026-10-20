@@ -378,16 +378,3 @@ export async function getIdeologyDiscount(playerId, ideologyId) {
   const discounts = { hostile: -0.2, unknown: 0, neutral: 0, known: 0.05, trusted: 0.15, inner_circle: 0.25 };
   return discounts[tier.id] || 0;
 }
-
-export async function isIdeologyHostile(playerId, ideologyId) {
-  const { rows } = await query(
-    `SELECT r.reputation, r.updated_at, o.flags
-       FROM player_ideology_rep r LEFT JOIN orgs o ON o.id = r.ideology_id
-      WHERE r.player_id = $1 AND r.ideology_id = $2`,
-    [playerId, ideologyId]
-  );
-  // Reads the DECAYED value, which is the whole point: an order that wanted you
-  // dead a season ago has cooled to merely not liking you, without anyone
-  // running a job to make that true.
-  return getTier(currentRep_(rows[0], playerId, ideologyId)).id === 'hostile';
-}

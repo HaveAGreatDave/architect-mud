@@ -761,7 +761,6 @@ export async function initMeshEditor(app) {
   pollTimer = setInterval(poll, 1000);
   addEventListener('resize', placeUnderlay);
 }
-export function meshEditorOpen() { return !!curId(); }
 export function meshKeyDown(ev) {
   const k = ev.key.toLowerCase();
   if ((ev.ctrlKey || ev.metaKey) && k === 'z') { ev.preventDefault(); if (ev.shiftKey ? meshRedo() : meshUndo()) APP.draw(); return true; }

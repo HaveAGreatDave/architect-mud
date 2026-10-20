@@ -345,9 +345,6 @@ export const SHELL_PROFILES = {
   get carcass() { return craftProfile('carcass', carcassProfile); },
   // The podracer: an open tub, the nose cowl ahead and the turbines out past it on their cables.
   get podracer() { return craftProfile('podracer', podracerProfile); },
-  // Quicksilver MX: open. ⚠ It builds its own room (`mayflyRoom`): a seat pan, a sling side panel
-  // to your hip, the pusher engine's firewall behind your head and the wing's centre section a
-  // hand's breadth over it. The "side window" is everything above the hip, which is the point.
   // ⚠ A CESSNA 172 NOW, NOT AN OPEN ULTRALIGHT: the airframe became a closed cabin (mesh_ultralight
   // .json), so the seat did too. Side by side, the pilot on the left, a centre strip in the
   // windscreen, a door each side with the window in it; the fit-out is interior-cessna.js.
@@ -1105,26 +1102,6 @@ function seg7Faces(x, z, w, h) {
     V(x + t / 2, mz + i, tz2 - i),             // f
     H(x + i, x + w - i, mz),                   // g
   ];
-}
-
-// ── THE MAYFLY'S ROOM ────────────────────────────────────────────────────────
-//
-// An open ultralight: no doors, no windscreen, no roof but the wing. The sling sides come up to
-// your hip and stop; the pusher engine's firewall is right behind the seat; the wing's centre
-// section is the ceiling.
-function mayflyRoom(P, live, push, rich) {
-  const xL = P.xCentre - P.halfW, xR = P.xCentre + P.halfW, sill = P.winZ[0];
-  push([quad([[xL, P.back, P.floor], [xR, P.back, P.floor], [xR, P.front, P.floor], [xL, P.front, P.floor]], [0, 0, 1])], 'floor', -0.30);
-  push([quad([[xL, P.front, P.roof], [xR, P.front, P.roof], [xR, P.back, P.roof], [xL, P.back, P.roof]], [0, 0, -1])], 'hdr', -0.2);
-  push([quad([[xR, P.back, P.floor], [xL, P.back, P.floor], [xL, P.back, P.roof], [xR, P.back, P.roof]], [0, 1, 0])], 'post', -0.16);
-  for (const [x, nx] of [[xL, 1], [xR, -1]]) {
-    push([quad([[x, P.back, P.floor], [x, P.front, P.floor], [x, P.front, sill], [x, P.back, sill]], [nx, 0, 0])], 'pil', -0.1);
-    push(box(x, P.back, sill - 0.03, x + nx * 0.03, P.front, sill), 'pil', 0.2);
-  }
-  // The nose fairing, low, which is all the "dash" there is.
-  push(box(xL, P.front - 0.20, P.floor, xR, P.front, P.floor + 0.25), 'dash', 0.2);
-  seatFaces(P, push);
-  if (rich) CRAFT_FIT.mayfly(P, live, push);
 }
 
 // The interior's extent in metres, as [x0, y0, z0, x1, y1, z1]. ⚠ THE GATE READS THIS AND SO DOES

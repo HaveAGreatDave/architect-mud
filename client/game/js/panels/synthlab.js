@@ -397,7 +397,6 @@ function wireSkin(g) {
 // skin is installed (the caller should open the canvas bench instead).
 export function startSynthGame(opts) { if (!_skin) return null; openSynthMinigame(opts); return _g; }
 export function stopSynthGame() { closeSynth(); }
-export function synthState() { return _g; }
 
 // The inputs, exactly as wireCook routes them. These are the only things a
 // player can do to a batch; a skin that needs another is a skin changing the game.

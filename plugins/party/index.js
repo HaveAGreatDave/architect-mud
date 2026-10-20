@@ -28,7 +28,6 @@ let _seq = 0;
 
 function handleOf(pid) { return getLivePlayer(pid)?.handle || 'someone'; }
 function partyOf(pid) { const id = playerParty.get(pid); return id ? parties.get(id) : null; }
-function isLeader(pid) { const p = partyOf(pid); return !!p && p.leaderId === pid; }
 
 // Follow wiring — a party member follows the leader so dragFollowers carries them.
 function setFollow(pid, leaderId) { const lp = getLivePlayer(pid); if (lp) lp.following = leaderId; }

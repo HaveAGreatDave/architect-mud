@@ -129,12 +129,6 @@ function colorDistance(a, b) {
 // so any subset is mutually distinct. Custom hex still routes through cmdEdit.
 const CORP_PALETTE = ['#e0413a', '#e8c62e', '#35c95a', '#2f9fd6', '#6a4de8', '#e04db0', '#b07a4a', '#9aa5ad', '#f0f0f0', '#5a6470'];
 
-// Quick-pick preset swatches offered next to the free colour wheel. No
-// distinctness gate — every preset is always selectable (corps may share hues).
-export async function corpColorOptions() {
-  return CORP_PALETTE.map(hex => ({ hex, available: true }));
-}
-
 const liveById = (id) => getAllLivePlayers().find(p => p.id === id) || null;
 const findOnline = (h) => getAllLivePlayers().find(p => (p.handle || '').toLowerCase() === String(h || '').toLowerCase()) || null;
 

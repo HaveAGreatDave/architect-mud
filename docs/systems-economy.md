@@ -211,8 +211,7 @@ reputation value:
 | Trusted | 500…900 | −15% |
 | Inner Circle | 900+ | −25% |
 
-`adjustReputation` clamps to [−1000, 9999] and reports tier changes. `isIdeologyHostile` is available
-for ideology-gated AI. Reputation is read by the vendor discount path and the (engine-side) hostility
+`adjustReputation` clamps to [−1000, 9999] and reports tier changes. Reputation is read by the vendor discount path and the (engine-side) hostility
 checks. (Both live in [ideologies.js](../server/engine/ideologies.js).)
 
 The `ideologies` player command — alias `rep` — (view your standings, stance slider, and leaned

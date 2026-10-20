@@ -28,7 +28,8 @@ The server parses each file once at boot, so comments cost nothing there. The cl
 
 | Finding | Where | Status |
 |---|---|---|
-| `draw curtains` answers "Unknown command." to anyone who isn't awakened. Psionics' `cmdDraw` returns an error instead of `undefined`, so the engine's curtain alias never runs. `reach` and `press` do the same. | `plugins/psionics/index.js:165-178`, `server/engine/commands/housing.js:95` | open |
+| `draw curtains` answered "Unknown command." to anyone who isn't awakened. Psionics' `cmdDraw` returned an error instead of `undefined`, so the engine's curtain alias never ran. (`reach` and `press` have no engine verb behind them, so their error is right.) | `plugins/psionics/index.js:165-178`, `server/engine/commands/housing.js:95` | fixed `c0acdd34f`, with a regress check |
+| Void rooms never use `walkTerrain`. `mkRoom` takes a `pt` for it but rolls terrain with `pick(rng, VOID_TERRAINS)`, so `WALK_TERRAIN` (cliff to plateau, water to sand) never applies, though [systems-wildlands-ground.md](../systems-wildlands-ground.md) says it does. Wiring it in re-rolls every void room's terrain, so it needs a decision. | `plugins/voidwalking/index.js:371-389` | open: decision |
 | `use <furniture>` and about 20 other command paths `SELECT` from `furniture`, although it's a boot-loaded Map with a write funnel. That's one round trip per command. CLAUDE.md said furniture wasn't cached; fixed. | `commands/inventory.js:562` and others; see batch 4 | doc fixed; code open |
 
 ## Dead code
@@ -40,9 +41,9 @@ The server parses each file once at boot, so comments cost nothing there. The cl
 | Unlinked sandbox pages | `tools/sandbox/`: rink-2d-vs-3d, splice-lab-test, canopy-glass-lab, flight-sim-test, tv-fx-test, tv-flatscreen-test | ~4,070 | open |
 | Old backfills | `server/models/temp/`: backfill-npc-{clothing,schedules,sex}, normalize-name-case, drop-craft-time | ~440 | open |
 | Strays | `tmp-cmp-derive.mjs`, `scratch2.cjs`, `docs/proposals/*.gen.mjs` | ~400 | open |
-| Functions with no caller, about 65 of them (comments excluded from the count) | `_bcCommEditor`, `cloneBroadcast` (devpanel broadcast.js), `truckPane`, `availableRoster`, `veLeftClick`/`veRightClick`, `mayflyRoom`, `isIdeologyHostile`, `unschedule`, `registerRoutes`, five `tv.js:2136-2145` wrappers, ~40 small ones | ~450 | open |
-| Superseded body-warmth copy | `server/engine/gameLoop.js:1556-1568` `metabolicWarmth` | 13 | open |
-| Unreachable engine `follow` (the interactions plugin always answers) | `server/engine/commands/movement.js:922-934` | ~15 | open |
+| Functions with no caller (a rescan found 51 that no code names anywhere) | `_bcCommEditor`, `cloneBroadcast` (devpanel broadcast.js), `truckPane`, `availableRoster`, `veLeftClick`/`veRightClick`, `mayflyRoom`, `isIdeologyHostile`, `unschedule`, `registerRoutes`, five `tv.js:2136-2145` wrappers, ~40 small ones | ~450 | 41 removed (about 400 lines). Kept `walkTerrain`, which is unwired rather than dead (see Bugs), and the documented API ones: `unschedule`, `registerRoutes`, `getRegisteredConditionShapes`, `applyTopicalToAll`, `tellPlayerAboutCache`, `vineJumpToQuest`, `setInteriorPose`, the `tv.js` panel wrappers |
+| Superseded body-warmth copy | `server/engine/gameLoop.js:1556-1568` `metabolicWarmth` | 13 | removed |
+| Unreachable engine `follow` (the interactions plugin always answers) | `server/engine/commands/movement.js:922-934` | ~15 | removed |
 
 **Kept on purpose:**
 
@@ -115,9 +116,9 @@ These are open.
 | # | Batch | Status |
 |---|---|---|
 | 0 | This doc; the stale furniture lines in CLAUDE.md and db-burden-audit.md | done |
-| 1 | The `draw` bug | open |
+| 1 | The `draw` bug | done `c0acdd34f` |
 | 2 | Delete one-shots, sandbox pages and strays | open |
-| 3 | Dead functions | open |
+| 3 | Dead functions | done |
 | 4 | Furniture reads from RAM | open |
 | 5 | Shared helpers | open |
 | 6 | CSS out of JS strings; styles.css grouping and dead rules | open |

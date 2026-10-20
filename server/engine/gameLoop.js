@@ -1553,20 +1553,6 @@ const DRIFT_PIVOT_RATE = 0.1125;    // …and the °C/min there, carried over fr
 const DRIFT_COEFF = DRIFT_PIVOT_RATE / Math.pow(DRIFT_PIVOT_DIFF, DRIFT_EXPONENT);
 const driftRate = (absDiff) => DRIFT_COEFF * Math.pow(absDiff, DRIFT_EXPONENT);
 
-// °C of warmth the body is currently generating for itself. `cooling` gates shivering: you
-// don't shiver in a warm room, and you certainly don't shiver in a heatwave.
-function metabolicWarmth(player, cooling) {
-  let warmth = 0;
-  const sinceMove = Date.now() - (player._lastMoveAt ?? 0);
-  if (sinceMove < EXERTION_WINDOW_MS) warmth += player.running ? EXERTION_RUN_C : EXERTION_WALK_C;
-  player._shivering = false;
-  if (cooling && (player.body_temp_c ?? 37) >= SHIVER_FLOOR_C && (player.stamina ?? 0) >= SHIVER_STAMINA_PER_MIN) {
-    player._shivering = true;
-    warmth += SHIVER_WARMTH_C;
-  }
-  return warmth;
-}
-
 // The comfort band's pull back to 37°C, by exponential relaxation compounded over gm so it
 // tracks the game-speed knob. `over` is how far the body's warmth sits above COLD_THRESHOLD;
 // 0 gives the base rate. Returns the new core, unrounded.

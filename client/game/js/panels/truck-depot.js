@@ -592,32 +592,6 @@ function hitchAct(h) {
     : tbtn('⚯', `Hitch ${esc(h.name)}`, `disabled title="${esc(h.why || '')}"`);
 }
 
-// The read-out for one rig: what it is, how worn, how full, and what it is worth. Same facts the
-// log rung prints, in the same order, because they are the same facts.
-function truckPane(t) {
-  return `
-    <div class="td-pane">
-      <div class="td-pane-head">
-        <div><b>${esc(t.name)}</b><div class="td-dim">${esc(t.type)}${t.impound ? ' · <span class="td-warn">IMPOUNDED</span>' : ''}</div></div>
-        <span class="td-band ${t.band}">${esc(t.bandLabel)}</span>
-      </div>
-      <div class="td-dim td-note">${esc(t.bandText)}</div>
-      ${t.grimeBand && t.grimeBand !== 'clean'
-        ? `<div class="td-dim td-note"><b>${esc(t.grimeLabel)}</b>: ${esc(t.grimeText)}.</div>` : ''}
-      <dl class="td-spec">
-        <div><dt>condition</dt><dd>${pct(t.condition)}</dd></div>
-        <div><dt>fuel</dt><dd>${pct(t.fuel)}</dd></div>
-        <div><dt>deck</dt><dd>${t.kg} kg</dd></div>
-        <div><dt>tank</dt><dd>${t.tank}</dd></div>
-        <div><dt>top</dt><dd>${t.top} mph</dd></div>
-        <div><dt>clock</dt><dd>${t.odometer.toLocaleString()}</dd></div>
-      </dl>
-      ${statBars(t.stats)}
-      ${t.kits?.length ? `<div class="td-kits">${t.kits.map(k => `<span class="td-kit">${esc(kitName(k))}</span>`).join('')}</div>` : ''}
-      <div class="td-dim td-note">Trade-in ${money(t.resale)}</div>
-    </div>`;
-}
-
 const kitName = (id) => (B.data.kitCatalog || []).find(k => k.id === id)?.name || id;
 
 // FIVE BARS, and they are the server's numbers (axesFor in plugins/trucking/index.js). With `prev`
@@ -1504,13 +1478,6 @@ function startSpin() {
 }
 
 
-// WHICH BOX TO DRAW, off the one number that already says how big the thing is. The server's own
-// `meshShapeFor` (plugins/trucking/trailers.js) picks the same way for the world renderer, and the
-// two must agree or a trailer changes length when you walk out of the shed.
-function boxShape(ratedKg) {
-  const r = ratedKg || 0;
-  return r >= 5000 ? 'continental' : r >= 3200 ? 'drayman' : r >= 2000 ? 'hauler' : 'scrapper';
-}
 // A box's livery from the one colour the server sends. Deliberately the same shape the trucks go
 // through (truckLivery) rather than a bespoke object, so a trailer and a tractor are painted by
 // one conversion — and the chassis and legs stay dark, because a trailer is a painted box on

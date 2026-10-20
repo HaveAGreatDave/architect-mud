@@ -433,14 +433,6 @@ async function _initMotdEditor() {
     });
   }
 
-  function _getPreview(view) {
-    const dyn = (dynamicBox?.value ?? _motd.dynamic) || '';
-    const news = (_motd.news && _motd.news.length ? _motd.news : ['[No recent broadcasts available]']).join('\n');
-    return (_motd[view] || '')
-      .replace(/<dynamic text>/g, dyn || '[dynamic text]')
-      .replace(/<news>/g, news);
-  }
-
   function _setEditorContent(text) {
     if (!editor) return;
     editor.value = text != null ? text : (_motd[_view] || '');

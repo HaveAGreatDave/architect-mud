@@ -1096,20 +1096,6 @@ export function hexToRgb(hex) {
   const h = (hex || '').replace('#', '');
   return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
 }
-// A street with nothing to inherit from: the legend has not arrived yet, or both
-// its ends carry a district this build has never heard of. Neutral steel, the same
-// grey the safe-danger street already uses — not a district colour, because
-// pretending to be one would be a colour no author chose.
-const STREET_UNKNOWN = '#788ca5';
-function streetColor(a, b, regional) {
-  if (regional) {
-    const [r1, g1, b1] = hexToRgb(FUNC_LEGEND[a.func]?.color || FUNC_LEGEND.residential?.color || STREET_UNKNOWN);
-    const [r2, g2, b2] = hexToRgb(FUNC_LEGEND[b.func]?.color || FUNC_LEGEND.residential?.color || STREET_UNKNOWN);
-    return `rgba(${(r1 + r2) >> 1},${(g1 + g2) >> 1},${(b1 + b2) >> 1},0.5)`;
-  }
-  return DANGER_STREET[Math.max(DANGER_RANK[a.danger] ?? 0, DANGER_RANK[b.danger] ?? 0)];
-}
-
 // Landmark classes — the glyphs must match the server POI_ICON in movement.js, and the
 // keys must match world.js's POI_BY_BUILDING, which is where a building is filed.
 //

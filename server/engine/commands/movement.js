@@ -329,7 +329,11 @@ async function cmdLook(player, targetStr, broadcast) {
   if (!targetStr || targetStr === 'room' || targetStr === 'around') {
     const zone = getZone(player.current_zone);
     if (!zone) return { type:'error', message:"You're nowhere. This is a bug." };
-    return { type:'look', message: await describeZone(zone, player), zone: zone.id, minimap: getMinimapData(zone.id, 8, player), ambience: ambienceFor(zone) };
+    // `visibility` rides the reply, as it does on a move: without it the client
+    // fetched /api/environment/visibility after every look.
+    const out = {};
+    const message = await describeZone(zone, player, out);
+    return { type:'look', message, zone: zone.id, minimap: getMinimapData(zone.id, 8, player), ambience: ambienceFor(zone), visibility: out.vis };
   }
   const inMatch = targetStr.match(/^in\s+(.+)$/i);
   if (inMatch) {
@@ -919,20 +923,6 @@ export async function dragFollowers(leaderId, fromZoneId, direction, broadcast) 
   }
 }
 
-function cmdFollow(args, player, broadcast) {
-  if (!args.length) {
-    if (!player.following) return { type: 'output', message: "You aren't following anyone." };
-    player.following = null;
-    return { type: 'output', message: 'You stop following.' };
-  }
-  const targetHandle = args.join(' ').toLowerCase();
-  const target = getAllLivePlayers().find(p => p.handle.toLowerCase() === targetHandle && p.id !== player.id);
-  if (!target) return { type: 'error', message: `No player named "${args.join(' ')}" is online.` };
-  player.following = target.id;
-  broadcast(player.current_zone, { type: 'zone_event', message: `${player.handle} starts following ${target.handle}.` }, player.id);
-  return { type: 'output', message: `You're now following ${target.handle}. Type "follow" with no arguments to stop.` };
-}
-
 function cmdUnfollow(player, broadcast) {
   if (!player.following) return { type: 'output', message: "You aren't following anyone." };
   player.following = null;
@@ -1183,6 +1173,5 @@ export const handlers = {
   out:   (args, raw, player, broadcast) => cmdMove('out', player, broadcast, exitIndexOpts(args)),
   exit:  (args, raw, player, broadcast) => cmdMove('exit', player, broadcast, exitIndexOpts(args)),
   map:      (args, raw, player) => cmdMap(player, args),
-  follow:   (args, raw, player, broadcast) => cmdFollow(args, player, broadcast),
   unfollow: (args, raw, player, broadcast) => cmdUnfollow(player, broadcast),
 };

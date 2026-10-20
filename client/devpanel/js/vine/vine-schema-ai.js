@@ -26,20 +26,6 @@ function _aiField(label, inputHtml) {
   return `<div style="margin-bottom:8px"><label style="${_AI_LS}">${label}</label>${inputHtml}</div>`;
 }
 
-function _aiInput(field, value, placeholder, type) {
-  const t = type || 'text';
-  return `<input data-vine-field="${field}" ${t !== 'text' ? `data-vine-type="${t}" type="${t}"` : ''} value="${_escAI(value)}" placeholder="${placeholder || ''}" style="${_AI_IS}">`;
-}
-
-function _aiTextarea(field, value, rows) {
-  return `<textarea data-vine-field="${field}" data-vine-type="json" rows="${rows || 3}" style="${_AI_IS};resize:vertical;font-size:11px">${_escAI(typeof value === 'object' ? JSON.stringify(value, null, 2) : (value || ''))}</textarea>`;
-}
-
-function _aiSelect(field, options, current) {
-  const opts = options.map(o => `<option value="${o}" ${o === current ? 'selected' : ''}>${o}</option>`).join('');
-  return `<select data-vine-field="${field}" style="${_AI_IS}">${opts}</select>`;
-}
-
 // ── Condition type catalogue ──────────────────────────────────────────────────
 
 const AI_CONDITIONS = [

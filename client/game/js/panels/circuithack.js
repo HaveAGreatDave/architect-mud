@@ -179,19 +179,6 @@ function buildGraph(cols, rows) {
   return { nodes, adj };
 }
 
-function bfsDist(state, from) {
-  const dist = new Map([[from, 0]]);
-  let frontier = [from];
-  while (frontier.length) {
-    const next = [];
-    for (const n of frontier) for (const nb of neighborsOf(state, n)) {
-      if (!dist.has(nb)) { dist.set(nb, dist.get(n) + 1); next.push(nb); }
-    }
-    frontier = next;
-  }
-  return dist;
-}
-
 function generate() {
   const skill = Math.max(0, _opts.skill);
   const diff = Math.max(1, _opts.difficulty);

@@ -29,11 +29,6 @@ async function renderPowerPanel(zones) {
   renderPowerPanelBody();
 }
 
-function setPowerPanelMode(mode) {
-  powerPanelMode = mode;
-  renderPowerPanelBody();
-}
-
 function setPowerPanelView(view) {
   powerPanelView = view;
   renderPowerPanelBody();

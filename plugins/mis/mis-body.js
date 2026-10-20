@@ -121,11 +121,6 @@ export const COLLAPSE_MSGS = [
 
 const DRY_MS    = 30 * 60 * 1000;   // dried; still visible, no longer smells
 
-export function fluidAgeMs(player) {
-  const at = player?.appearance_data?.ejaculate_state?.at;
-  return at ? Date.now() - at : null;
-}
-
 // Fluid that lands on a clothed slot soaks in rather than sitting on skin —
 // same rule bodily already applies to piss and vomit, and it means a change of
 // trousers is part of cleaning up.

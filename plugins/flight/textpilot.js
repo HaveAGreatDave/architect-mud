@@ -73,8 +73,6 @@ const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
 const fin = (v) => (Number.isFinite(v) ? v : 0);
 const fmTypeOf = (live) => FM_TYPES[String(live.type?.id || '').replace(/^ac_/, '')] || null;
 
-export function isTextPilot(live) { return !!live?.textPilot; }
-
 // ── Start / stop ──────────────────────────────────────────────────────────────
 
 export function startTextPilot(player, live) {

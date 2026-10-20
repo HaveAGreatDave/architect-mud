@@ -157,7 +157,6 @@ function inHangar(pilot) {
   const interior = hangarInteriorOf(cp);
   return pilot.zone_id === cp.field || (!!interior && pilot.zone_id === interior);
 }
-function atWork(pilot) { return !!pilotBusy(pilot.id) || inHangar(pilot); }
 // Bookable right now. The shift check is explicit rather than implied by where they
 // happen to be standing: syncPilots no longer keeps an off-duty pilot out of their
 // own hangar (their graph is free to walk them in early), so presence alone stopped

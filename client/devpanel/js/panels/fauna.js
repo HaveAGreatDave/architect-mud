@@ -30,20 +30,6 @@ async function fetchFauna() {
   return _faunaData;
 }
 
-// A bar drawn from a 0..1 factor. ⚠ The label carries the NUMBER as well as the bar: a bar alone
-// cannot distinguish 0.02 from 0, and the difference between those two is the whole of whether the
-// lean season is a floor or a deletion.
-function factorBar(v, label, hi) {
-  const pct = Math.max(0, Math.min(1, v || 0)) * 100;
-  const col = hi ? 'var(--accent)' : 'var(--text-dim)';
-  return `<div style="display:flex;align-items:center;gap:6px;font-size:11px">
-    <span style="flex:0 0 34px;color:var(--text-dim)">${label}</span>
-    <span style="flex:1;height:9px;background:var(--bg-deep,#111);border-radius:2px;overflow:hidden">
-      <span style="display:block;height:100%;width:${pct.toFixed(1)}%;background:${col}"></span></span>
-    <span style="flex:0 0 42px;text-align:right;font-variant-numeric:tabular-nums">${(v ?? 0).toFixed(3)}</span>
-  </div>`;
-}
-
 function renderCurves(curves, now) {
   const ids = Object.keys(curves || {});
   if (!ids.length) {

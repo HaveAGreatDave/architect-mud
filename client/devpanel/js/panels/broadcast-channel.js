@@ -657,24 +657,6 @@ async function deleteCamera(id) {
   } catch (err) { toast(err.message, true); }
 }
 
-async function clearCameraBuffer(id) {
-  if (!(await dpConfirm('Clear the recording buffer for this camera?', { danger: true }))) return;
-  try {
-    await directAPI(`/broadcast/cameras/${id}/clear-buffer`, 'POST');
-    toast('Buffer cleared.');
-  } catch (err) { toast(err.message, true); }
-}
-
-async function cameraTobroadcast(id) {
-  const name = await dpPrompt('Name for the new broadcast:');
-  if (!name) return;
-  try {
-    const res = await directAPI(`/broadcast/cameras/${id}/to-broadcast`, 'POST', { name });
-    if (res?.error) { toast(res.error, true); return; }
-    toast(`Broadcast created (${res.message_count} frames).`);
-  } catch (err) { toast(err.message, true); }
-}
-
 // ── Utility ──────────────────────────────────────────────────────────────────
 
 function escHtml2(str) {

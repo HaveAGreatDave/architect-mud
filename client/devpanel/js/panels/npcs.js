@@ -407,36 +407,6 @@ function veCloseModal() {
   veUpdateSummary();
 }
 
-function veLeftClick(event, itemId) {
-  const filtered = _veFilteredLeft();
-  const idx = filtered.findIndex(i => i.id === itemId);
-  if (event.shiftKey && _ve.lastLeftIdx !== null) {
-    const lo = Math.min(_ve.lastLeftIdx, idx), hi = Math.max(_ve.lastLeftIdx, idx);
-    for (let i = lo; i <= hi; i++) _ve.leftSel.add(filtered[i].id);
-  } else if (event.ctrlKey || event.metaKey) {
-    _ve.leftSel.has(itemId) ? _ve.leftSel.delete(itemId) : _ve.leftSel.add(itemId);
-  } else {
-    _ve.leftSel.clear(); _ve.leftSel.add(itemId);
-  }
-  _ve.lastLeftIdx = idx;
-  veRenderBuckets();
-}
-
-function veRightClick(event, itemId) {
-  const rightItems = _ve.catalogue.map(e => _ve.allItems.find(i => i.id === e.item_id)).filter(Boolean);
-  const idx = rightItems.findIndex(i => i.id === itemId);
-  if (event.shiftKey && _ve.lastRightIdx !== null) {
-    const lo = Math.min(_ve.lastRightIdx, idx), hi = Math.max(_ve.lastRightIdx, idx);
-    for (let i = lo; i <= hi; i++) _ve.rightSel.add(rightItems[i].id);
-  } else if (event.ctrlKey || event.metaKey) {
-    _ve.rightSel.has(itemId) ? _ve.rightSel.delete(itemId) : _ve.rightSel.add(itemId);
-  } else {
-    _ve.rightSel.clear(); _ve.rightSel.add(itemId);
-  }
-  _ve.lastRightIdx = idx;
-  veRenderBuckets();
-}
-
 function veMoveSelected() {
   for (const id of _ve.leftSel) {
     if (!_ve.catalogue.find(e => e.item_id === id)) {

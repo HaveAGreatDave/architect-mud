@@ -31,10 +31,6 @@ function renderTagsPanel(data) {
 
   function escVal(s) { return (s ?? '').toString().replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
   const STD_KEYS = new Set(['key','label','shape','scope','group','help']);
-  function rowExtraJson(r) {
-    const obj = Object.fromEntries(Object.entries(r).filter(([k]) => !STD_KEYS.has(k)));
-    return Object.keys(obj).length ? JSON.stringify(obj, null, 2) : '';
-  }
 
   function tagDialogForm(r) {
     const fixedScope = r && !EDITABLE_SCOPES.has(r.scope) ? r.scope : null;

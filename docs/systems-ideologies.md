@@ -107,7 +107,7 @@ them existing.
 **Lazily, with no sweep tick** — the same treatment relations gets. `player_ideology_rep.updated_at` stamps the last real change; every reader ages the stored value forward to now (`decayRep`). The stored number is a *checkpoint, not the truth*.
 
 - `adjustReputation` decays **before** applying the delta — otherwise a player who's been away has their stale standing resurrected by earning one more point — and the write restarts the clock with the already-decayed value, so drift is never double-counted.
-- `getIdeologyDiscount` / `isIdeologyHostile` / `getPlayerIdeologyRep` all read the decayed value. An order that wanted you dead a season ago has cooled to merely not liking you, with no job run to make that true.
+- `getIdeologyDiscount` and `getPlayerIdeologyRep` both read the decayed value. An order that wanted you dead a season ago has cooled to merely not liking you, with no job run to make that true.
 - The player's own position (`stance_axis` + strongest `path_*`) is **hydrated at login** onto the live player, because `restingRep` is consulted on every vendor price lookup and five flag round trips there would be indefensible. `ADJUST_STANCE` / `ADJUST_PATH` re-hydrate it so the cache stays coherent — the flag write is the only way it moves.
 - An offline player costs nothing and comes back to standing that has cooled on its own.
 

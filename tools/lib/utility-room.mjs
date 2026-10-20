@@ -55,18 +55,6 @@ async function buildingNetwork(query, startId) {
   return [...visited];
 }
 
-// Does the building network anchored at `anchorId` already have its own power
-// source (a junction box, or the city plant itself sitting in the network)?
-export async function buildingHasPower(query, anchorId) {
-  const network = await buildingNetwork(query, anchorId);
-  const { rows } = await query(
-    `SELECT 1 FROM generators WHERE zone_id = ANY($1::text[])
-       AND generator_type IN ('junction_box','city_plant') LIMIT 1`,
-    [network]
-  );
-  return rows.length > 0;
-}
-
 // Nearest online city plant to (gx,gy) by grid distance, or the first one found
 // if the anchor has no grid coords. null when the world has no city plant yet.
 async function nearestCityPlant(query, gx, gy) {

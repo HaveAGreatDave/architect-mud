@@ -378,13 +378,6 @@ function startInspectHop() {
   if (hop.off <= 1e-3 && Math.abs(hop.vel) < 1e-3) hop.vel = 2.1;
 }
 window.addEventListener('keyup', (e) => { inspectKeys.delete(e.key.toLowerCase()); });
-function barCol(pct) { return pct <= 25 ? '#ff5b5b' : pct <= 55 ? '#ffb23e' : '#46e05a'; }
-function locBadge(c) {
-  if (c.wreck) return '<span class="hb-badge hb-b-wreck">WRECK</span>';
-  if (c.rental) return '<span class="hb-badge hb-b-rent">RENTAL</span>';
-  if (c.location === 'hangar') return '<span class="hb-badge hb-b-bay">IN BAY</span>';
-  return '<span class="hb-badge hb-b-ramp">ON RAMP</span>';
-}
 
 // ── Charter destination picker ─────────────────────────────────────────────
 function charterScreen() {

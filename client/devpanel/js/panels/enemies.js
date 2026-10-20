@@ -116,12 +116,6 @@ async function deleteSpawnQuick(spawnId, zoneId) {
   toast('Enemy removed');
   await refreshEnemiesSection(zoneId);
 }
-async function despawnAllEnemies() {
-  const result = await API('/live-enemies/despawn-all', 'POST');
-  if (result?.error) { toast(result.error, true); return; }
-  toast(result.message || 'All enemies despawned');
-  if (zoneEditCurrentZoneId) await refreshEnemiesSection(zoneEditCurrentZoneId);
-}
 async function despawnAllZoneEnemies(zoneId) {
   const liveData = await directAPI(`/zones/${encodeURIComponent(zoneId)}/live-enemies`);
   const live = Array.isArray(liveData) ? liveData : [];

@@ -485,11 +485,6 @@ async function speakTransform_fallbackSay(player, state, t) {
 const own1 = (list) => (list?.length && Math.random() < OWN_VOICE_SHARE
   ? list[Math.floor(Math.random() * list.length)] : null);
 
-async function killTripPlayer(player) {
-  const { handlePlayerDeath } = await import('../../server/engine/gameLoop.js');
-  await handlePlayerDeath(player, null, { type: 'drug', label: 'Died in a hallucination' });
-}
-
 
 // ── Degrade checks ──────────────────────────────────────────────────────────
 //

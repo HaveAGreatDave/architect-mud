@@ -33,13 +33,6 @@ const range = need => (Array.isArray(need) ? need : [need, need]);
 // should read — "bottle of gin" — and Title-Casing it gave "Bottle Of Gin".
 const sentence = s => { const t = String(s || '').trim(); return t ? t[0].toUpperCase() + t.slice(1) : t; };
 
-function needLine(profile, need) {
-  const [min, max] = range(need);
-  const label = PROFILES[profile]?.label || profile.replace(/_/g, ' ');
-  const qty = min === max ? `${min}` : `${min}–${max}`;
-  return { label: label.replace(/\b\w/g, c => c.toUpperCase()), value: `${qty}` };
-}
-
 // Which food profiles the player is currently carrying, as a count per profile.
 // One query, and it's the only reason this app touches the DB beyond the flags.
 async function carriedProfiles(playerId) {

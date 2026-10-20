@@ -2126,18 +2126,6 @@ export function lightHitPenalty(category) {
   return Math.min(0, idx - base);
 }
 
-// GDD §7.2 feedback lines, for room-description injection on a visibility
-// category change (wire into commands.js room rendering / zone.describeAmbient).
-export function describeVisibilityTransition(prevCategory, nextCategory) {
-  if (prevCategory !== 'dark' && nextCategory === 'dark') {
-    return "It's becoming difficult to make out more than shadows.";
-  }
-  if (prevCategory === 'dark' && nextCategory !== 'dark') {
-    return 'Light returns, revealing your surroundings once again.';
-  }
-  return null;
-}
-
 // ---------------------------------------------------------------------------
 // HUD / Forecast / Power accessors
 // ---------------------------------------------------------------------------

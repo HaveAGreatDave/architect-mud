@@ -945,23 +945,3 @@ export function podracerBurn(s, p, dt) {
   if (!s.running) return 0;
   return (0.0005 + 0.0045 * (s.pedal[0] + s.pedal[1]) / 2) * (p.burn ?? 1) * dt;
 }
-
-export function podracerReadout(s, p) {
-  return {
-    speed: Math.round(s.speed),
-    heading: Math.round(s.heading),
-    rpm: s.rpm.map((r) => Math.round(r * 100)),
-    lever: s.lever.map((v) => +v.toFixed(2)), steer: +(s.steer || 0).toFixed(2),
-    heat: (s.heat || [0, 0]).map((v) => +v.toFixed(2)), boosting: !!s.boosting, sliding: !!s.sliding,
-    mode: s.mode, binderPower: +(s.binderPower || 0).toFixed(2),
-    whip: +(s.whip || 0).toFixed(2), whipping: (s.whipT || 0) > 0,
-    tension: s.cable.map((c) => (c.ok ? Math.round(c.gauge) : -1)),
-    binder: s.binder, binderStrain: +s.binderStrain.toFixed(3),
-    engPct: s.engHp.map((h) => Math.round(h * 100)),
-    hullPct: Math.round(s.hull * 100),
-    running: !!s.running,
-    cranking: (s.crank || 0) > 0,
-    x: +s.x.toFixed(3), y: +s.y.toFixed(3),
-    topSpeed: p.topSpeed,
-  };
-}

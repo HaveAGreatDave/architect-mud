@@ -208,13 +208,6 @@ export function mutationRefusal(npc, player) {
   return `${name} looks at you, and keeps looking, and doesn't move toward the counter. "I'm going to ask you to leave."`;
 }
 
-/** The warning line the gear screen shows for a garment this body can't take. */
-export function conflictNote(player, item) {
-  const conflicts = getClothingConflicts(player, item);
-  if (!conflicts.length) return null;
-  return conflicts.map(c => `${c.mutation.name} makes this a poor fit.`).join(' ');
-}
-
 // ── The mutagen ──────────────────────────────────────────────────────────────
 //
 // Claims any `mutagen`-tagged item off the engine's `consume.begin` offer, the
