@@ -71,8 +71,10 @@ const EQUIP_VERBS = {
 // be async (recomputeArmor runs on equip/login, never on a per-swing hot path —
 // combat reads the finished player.soak from memory), and a throwing one is
 // skipped, never fatal.
-const _armorContributors = [];
-export function registerArmorContributor(fn) { _armorContributors.push(fn); }
+// A hoisted function, not a const: mutations.js registers at load through the
+// inventory -> durability -> mutations cycle, before a const here would exist.
+function armorContributors() { return (armorContributors.list ||= []); }
+export function registerArmorContributor(fn) { armorContributors().push(fn); }
 
 // Merge a typed-soak map into a per-slot bySlot structure, additively.
 // Shared by the equipped-armor pass and augment contributors so both stack the
@@ -100,7 +102,7 @@ export async function recomputeArmor(player, rows = null) {
     for (const s of slots) addSoakToSlot(bySlot, s, sm);
   }
   // Non-armor soak sources (augments, etc.) layer on after the equipped pass.
-  for (const contribute of _armorContributors) {
+  for (const contribute of armorContributors()) {
     try { await contribute(player, bySlot); }
     catch (e) { console.error(`[armor] soak contributor error: ${e.message}`); }
   }
