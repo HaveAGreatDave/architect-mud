@@ -188,6 +188,7 @@ export function keyDir(...a) { return (_m || _cold('keyDir')).keyDir(...a); }
 export function kitLedges(...a) { return (_m || _cold('kitLedges')).kitLedges(...a); }
 export function landSite(...a) { return (_m || _cold('landSite')).landSite(...a); }
 export function lastBow(...a) { return (_m || _cold('lastBow')).lastBow(...a); }
+export function lastFlockAnchors(...a) { return (_m || _cold('lastFlockAnchors')).lastFlockAnchors(...a); }
 export function lastFloorState(...a) { return (_m || _cold('lastFloorState')).lastFloorState(...a); }
 export function lastLightCensus(...a) { return (_m || _cold('lastLightCensus')).lastLightCensus(...a); }
 export function lastOwnShipMask(...a) { return (_m || _cold('lastOwnShipMask')).lastOwnShipMask(...a); }
@@ -246,6 +247,7 @@ export function segFit(...a) { return (_m || _cold('segFit')).segFit(...a); }
 export function setBayVehicles(...a) { return (_m || _cold('setBayVehicles')).setBayVehicles(...a); }
 export function setBirdSeason(...a) { return (_m || _cold('setBirdSeason')).setBirdSeason(...a); }
 export function setBirdWeather(...a) { return (_m || _cold('setBirdWeather')).setBirdWeather(...a); }
+export function setGlass(...a) { return (_m || _cold('setGlass')).setGlass(...a); }
 export function setLockBoardFeed(...a) { return (_m || _cold('setLockBoardFeed')).setLockBoardFeed(...a); }
 export function setObjectTexture(...a) { return (_m || _cold('setObjectTexture')).setObjectTexture(...a); }
 export function setTilePlace(...a) { return (_m || _cold('setTilePlace')).setTilePlace(...a); }

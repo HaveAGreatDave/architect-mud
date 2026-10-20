@@ -571,13 +571,19 @@ function texVariant(key, win) {
 // ⚠ AND ONCE PER VENUE CHANGE. A venue's lights and roof (world-feed.js) are pushed while the window
 // stands still, so the memo carries the venue epoch and a push rebuilds the key once.
 const WINDOW_KEYS = new WeakMap();
-function windowKey(cells) {
+const MASS_REANCHOR = 48;   // tiles the window may move from the kept mass's anchor before a full build (massKeep)
+// `world` keys a tile on its world tile rather than its place in the window (RENDER_TUNE.massKeep),
+// so a recentre that brings no building in or out keeps the key and the buffer.
+function windowKey(cells, world = false) {
   const ep = venueEpoch();
   let k = WINDOW_KEYS.get(cells);
-  if (k === undefined || k.ep !== ep) WINDOW_KEYS.set(cells, k = { key: windowKeyOf(cells), ep });
+  if (k === undefined || k.ep !== ep || k.world !== world) WINDOW_KEYS.set(cells, k = { key: windowKeyOf(cells, world), ep, world });
   return k.key;
 }
-function windowKeyOf(cells) {
+// One tile's part of the key, which with `world` is also its group's key in the kept buffer.
+const tileKeyOf = (it, world) => (world ? it.wx + ',' + it.wy : it.gx + ',' + it.gy) + ':' + (it.c.bt || '') + ':' + (it.c.bn || '') + ':' + meshParams(it)
+  + ':' + (it.c.pw == null ? '' : it.c.pw) + (it.c.em ? 'e' : '') + (it.c.og ? 'o' : '');
+function windowKeyOf(cells, world = false) {
   // ⚠ bt/bn decide WHICH model this is and meshParams decides what that model was BUILT AS.
   // Both halves are needed: the first cannot see a reseeded variant, the second cannot see a
   // different building that happens to share a footprint and a height.
@@ -585,8 +591,7 @@ function windowKeyOf(cells) {
   // other part of this key is geometry and changes when you drive somewhere else; this changes
   // where you are standing, when a storm faults a junction box under your feet. Leave it out and
   // the vertex buffer is not stale, so the blackout arrives at the next corner instead of now.
-  const parts = cells.map((it) => it.gx + ',' + it.gy + ':' + (it.c.bt || '') + ':' + (it.c.bn || '') + ':' + meshParams(it)
-    + ':' + (it.c.pw == null ? '' : it.c.pw) + (it.c.em ? 'e' : '') + (it.c.og ? 'o' : ''));
+  const parts = cells.map((it) => tileKeyOf(it, world));
   parts.sort();
   return parts.join(';');
 }
@@ -1300,7 +1305,15 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
     }
   }
 
-  const key = windowKey(cells);
+  // ── THE MASS KEPT ACROSS A RECENTRE (RENDER_TUNE.massKeep, see uploadKept in context.js) ────────
+  // The buffer's positions are in world tiles less an anchor (g.anchor), the window's centre at the
+  // last full build, and the shader adds the anchor less this window's centre. A cell's world tile
+  // less its place in the window is the centre, exactly: both are whole tiles. The anchor moves, with
+  // a full build, once the window is MASS_REANCHOR tiles from it, so a float32 position stays fine.
+  const keepM = opts.massKeep > 0 && !!g.view.uploadKept;
+  const c0 = cells[0], wcx = c0 ? c0.wx - c0.gx : 0, wcy = c0 ? c0.wy - c0.gy : 0;
+  const key = windowKey(cells, keepM);
+  if (!keepM) g.anchor = null;
   if (CHURN) for (const it of cells) {
     const n = it.c.bn || it.c.bt || '?';
     let set = CHURN.get(n); if (!set) CHURN.set(n, set = new Set());
@@ -1322,6 +1335,9 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
     const groups = [];
     const need = new Set();
     let nFaces = 0;
+    let full = !keepM;
+    if (keepM && (!g.anchor || Math.max(Math.abs(wcx - g.anchor.x), Math.abs(wcy - g.anchor.y)) > MASS_REANCHOR)) { g.anchor = { x: wcx, y: wcy }; full = true; }
+    const ax = keepM ? g.anchor.x : 0, ay = keepM ? g.anchor.y : 0;
     for (const it of cells) {
       const faces = tileMesh(deps, it);
       // ── AND WHAT THE GRID IS DOING TO IT ──────────────────────────────────────────────────
@@ -1336,13 +1352,16 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
       const pwr = deps.glPowerForCell ? deps.glPowerForCell(it.c) : null;
       const win = pwr ? pwr.win : null;
       for (const f of faces) if (f.texKey) need.add(texVariant(f.texKey, win));
-      groups.push({ ox: it.gx, oy: it.gy, jit: it.jit || 0, faces, win, nb: pwr ? pwr.nb : null });
+      groups.push({ ox: keepM ? it.wx - ax : it.gx, oy: keepM ? it.wy - ay : it.gy, key: keepM ? tileKeyOf(it, true) : undefined,
+        jit: it.jit || 0, faces, win, nb: pwr ? pwr.nb : null });
       nFaces += faces.length;
     }
     // The atlas is rebuilt on the SET OF SURFACES, not on the set of buildings. Driving down a
     // street changes which buildings are in the window constantly and what they are MADE of almost
     // never, and repacking a texture page is the one part of this that touches the GPU.
     const akey = [...need].sort().join('|') + '@' + epoch + (matOn ? '#m' : '') + (surfOn ? '#s' : '');
+    // A repacked atlas moves every rect, so the kept mass is packed again whole.
+    if (akey !== g.atlasKey) full = true;
     if (akey !== g.atlasKey) {
       const { wallTexMixed, roofTex, wallMatMixed, wallSurf, roofSurf } = deps;
       const tiles = [];
@@ -1381,12 +1400,16 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
     // tile of a building, so which atlas entry a wall samples is a property of the TILE and not of
     // the face — without it a street where one block is dark and the next is lit would give both
     // whichever entry was resolved first.
-    g.view.uploadGroups(groups, (f, grp) => (g.atlas && f.texKey ? g.atlas.rect.get(texVariant(f.texKey, grp && grp.win)) : null), opts.nb || 0);
+    const rectOf = (f, grp) => (g.atlas && f.texKey ? g.atlas.rect.get(texVariant(f.texKey, grp && grp.win)) : null);
+    if (keepM) g.view.uploadKept(groups, rectOf, opts.nb || 0, full);
+    else g.view.uploadGroups(groups, rectOf, opts.nb || 0);
     builds++;
     g.key = key;
     g.epoch = epoch;
     g.faces = nFaces;
   }
+  // Every frame, built or not: the window moves under a kept buffer without changing its key.
+  if (g.view.setMassShift) g.view.setMassShift(g.anchor ? g.anchor.x - wcx : 0, g.anchor ? g.anchor.y - wcy : 0);
 
   // The sub-tile offset the mesh does not carry. `fx`/`fy` are already the "subtract this from the
   // world position" terms the chase camera uses, so the shift needs no new matrix and no new code in
@@ -1948,6 +1971,7 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   // product of three things that can each be zero for a different reason — the tune, the wetness,
   // and whether the framebuffer was accepted — and a reflection that silently never ran looks
   // exactly like one that ran and was too faint to see.
-  return { interior, faces: g.faces || 0, builds, lights, lit: lightList || [], taa: taaDone ? (g.taaN % TAA_TUNE.samples) + 1 : 0, lightGrid: g.view.groundGrid ? g.view.groundGrid() : null, wallGrid: g.view.wallGrid ? g.view.wallGrid() : null, curtains, decals, decalBinds, strokes, scatter, solids, film, hazeFade, ship: (opts.ship || []).length, bay: (opts.bay || []).length, fauna: (opts.fauna || []).length, actors, bbTex: g.view.billboardTextures ? g.view.billboardTextures() : 0, ground, floor, wet: opts.glWet || 0, snow: opts.glSnow || 0, tracks: opts.tracks ? opts.tracks.n : 0, mirror: reflTex ? mirrorGain : 0, mirrorPeak: mirrorProbe, shadowSize: g.view.shadowSize || 0, hdr: graded, canvas: g.canvas };
+  // `mass` only for a harness that sets globalThis.__massDebug (the kept buffer's check, massKeep).
+  return { interior, faces: g.faces || 0, builds, mass: globalThis.__massDebug && g.view.massDebug ? g.view.massDebug() : undefined, lights, lit: lightList || [], taa: taaDone ? (g.taaN % TAA_TUNE.samples) + 1 : 0, lightGrid: g.view.groundGrid ? g.view.groundGrid() : null, wallGrid: g.view.wallGrid ? g.view.wallGrid() : null, curtains, decals, decalBinds, strokes, scatter, solids, film, hazeFade, ship: (opts.ship || []).length, bay: (opts.bay || []).length, fauna: (opts.fauna || []).length, actors, bbTex: g.view.billboardTextures ? g.view.billboardTextures() : 0, ground, floor, wet: opts.glWet || 0, snow: opts.glSnow || 0, tracks: opts.tracks ? opts.tracks.n : 0, mirror: reflTex ? mirrorGain : 0, mirrorPeak: mirrorProbe, shadowSize: g.view.shadowSize || 0, hdr: graded, canvas: g.canvas };
 }
 

@@ -18,8 +18,9 @@
  * @param {WebGL2RenderingContext} gl
  * @param {WebGLVertexArrayObject} vao   the layer's VAO; the pointers are recorded into it here
  * @param {number} stride                vertex stride in FLOATS (not bytes)
- * @param {Array<[number, number, number]>} attrs  [location, components, byteOffset] per attribute;
- *                                       a location of -1 (the linker dropped it) is skipped
+ * @param {Array<Array>} attrs           [location, components, byteOffset, type?, normalized?] per
+ *                                       attribute (type defaults to FLOAT); a location of -1 (the
+ *                                       linker dropped it) is skipped
  * @param {number} [floor]               initial capacity in floats, to skip the first few grows
  */
 export function makeVertexStream(gl, vao, stride, attrs, floor = 4096) {
@@ -27,8 +28,8 @@ export function makeVertexStream(gl, vao, stride, attrs, floor = 4096) {
   const S = stride * 4;
   gl.bindVertexArray(vao);
   gl.bindBuffer(gl.ARRAY_BUFFER, buf);
-  for (const [l, n, off] of attrs) {
-    if (l >= 0) { gl.enableVertexAttribArray(l); gl.vertexAttribPointer(l, n, gl.FLOAT, false, S, off); }
+  for (const [l, n, off, type, norm] of attrs) {
+    if (l >= 0) { gl.enableVertexAttribArray(l); gl.vertexAttribPointer(l, n, type || gl.FLOAT, !!norm, S, off); }
   }
   gl.bindVertexArray(null);
 

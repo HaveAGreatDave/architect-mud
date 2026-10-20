@@ -905,12 +905,20 @@ export const RENDER_TUNE = {
   lockCache: 1,  // the South Lock's GL faces and lights reuse last frame's record per slot when unchanged (LCK_MEMO); 0 builds every one
   campKeep: 1,   // a camp's replayed records kept on the GPU per facing group and only facing-tested each frame (campKept); 0 replays and projects every record every frame
   armWorld: 1,   // kept arms keyed and shifted in world tiles (the window's centre added), so a server recentre keeps them; 0 keys them in the window's frame and every recentre re-probes every building
+  groundWorld: 1, // the ground-tile cache keeps a road tile across a new map window when its cells and neighbours didn't change (gtWindow) and moves its records by the change in centre; 0 keys it on the window and every recentre records every road again
+  massKeep: 1,   // GLASS 2 keeps the mass buffer tile by tile in world tiles across a recentre and writes only the tiles that came in (uploadKept in gl/context.js); 0 packs and uploads the whole window again on every recentre
+  campWorld: 1,  // a kept camp keyed and shifted in world tiles (the window's centre added), as armWorld does for buildings; 0 keys it in the window's frame and every recentre records every camp again
+  flockShift: 1, // a new map window's flock search takes the last window's habitat answer for each tile whose 3x3 of cells didn't change; 0 asks every tile again
+  footFast: 1,   // the footfall pass reads each tile's settledness pull and Curtain flag into typed arrays once instead of through `at` for 24 neighbours of every tile; 0 reads them per neighbour
+  lutShift: 1,   // a new map window keeps the floor LUT entries whose cells and neighbours didn't change, from the old LUT at the same world tile (lutKeep); 0 rebuilds the whole LUT on every recentre
   armPoseMove: 1, // a kept-arm probe counts the camera's travel through the window (`ox`/`oy`) as a move; 0 counts only the eye's offset and heading, so a straight run never keeps a building
   armLive: 1,    // a kept building's animated helpers (smoke, rings, beams, wind wheels, flags) are left out of its kept set and called again each replay (armLiveCall); 0 makes any such building live
   armRain: 1,    // a kept building records its glows' place in the rain-light census and replays that too; 0 marks any building with a glow live, as before
   occCache: 1,   // a building's occluder geometry (hull, roof, solid boxes) kept per cell in its own frame and only moved and projected each frame (OCC_GEOM); 0 rebuilds it every frame
   glSizeGPU: 1,  // a light pushed through pushLightSized carries its size spec and the sprite shader sizes it from depth; 0 sends the CPU radius only
   glRetain: 1,   // record arrays that come back unchanged (a shed's shell, a hoodoo tile) stay on the GPU (bayGroup); 0 sends them every frame
+  glDecalTint: 1, // a flat or ramp decal fill carries its colour on the vertex (cssTint) and every one draws off one white texel in one batch; 0 gives each colour its own texture, draw and bind
+  glDecalAtlas: 1, // decal artwork (sign pages, flags, banners, cloth pages) is copied onto shared 2048-texel pages, so records on one page share draws (gl/decals.js, the ⚠ on PAGE); 0 gives each artwork its own texture, draw and bind
   hoodooStable: 1,   // hoodoo solids carry no CPU fog (the shader fogs them once) and send every facet, so their records never change; 0 is the old double fog
   glBeam: 0.52,
   // ── ⚠ AND HOW MUCH OF THE SCREEN-SPACE GLARE A WET ROAD TAKES AWAY ───────────────
@@ -15296,20 +15304,63 @@ function footScratch(n) {
   const nn = n * n, N1 = n + 1;
   return (_foot = { n, S: new Float32Array(nn), lane: new Float32Array(nn), wear: new Float32Array(nn), sand: new Uint8Array(nn), sat: new Float32Array(N1 * N1 * 2) });
 }
+let _footF = null;
+function footFlags(n) {
+  if (!_footF || _footF.n !== n) _footF = { n, pull: new Float64Array(n * n), cur: new Uint8Array(n * n) };
+  return _footF;
+}
 const footWater = (c) => !c || c.kind === 'air' || c.biome === 'water' || c.biome === 'hotspring';
 const footRoad = (c) => !!c && (!!c.road || c.kind === 'field' || !!c.rwy);
-export function footfallFill(map, LUT, wcx = 0, wcy = 0) {
+// How far a tile's footfall reads, in tiles each way: the green vote's box (FOOT_GREEN_R) over wear,
+// which reads lanes a tile further, which read cells two further. groundLUT's shift keeps a tile only
+// if nothing this close to it changed.
+const FOOT_REACH = FOOT_GREEN_R + 3;
+// `need`, when given (an n*n mask, from groundLUT's shift), is the tiles to write: the others already
+// hold their answer. Passes 1 and 2 then run only as far out as those tiles read (lanes 7 tiles,
+// wear 6), and the last pass only on them.
+export function footfallFill(map, LUT, wcx = 0, wcy = 0, need = null) {
   const n = map.length, R = (n - 1) / 2;
   if (!n) return;
   const at = (x, y) => (y >= 0 && y < n && x >= 0 && x < map[y].length) ? map[y][x] : null;
   const ground = (x, y) => { const c = at(x, y); return !!c && !!(LUT[y] && LUT[y][x]) && !footWater(c) && !footRoad(c); };
   const { S, lane, wear, sand, sat } = footScratch(n);
+  const near7 = need ? dilateMask(need, n, FOOT_GREEN_R + 1) : null, near6 = need ? dilateMask(need, n, FOOT_GREEN_R) : null;
+  // What each tile adds to its neighbours' settledness (1 a building, 1.3 a camp) and whether it's the
+  // Curtain, read once (footFast): pass 1 asks it of 24 neighbours of every tile, and through `at`
+  // that was most of the LUT's build. The sum runs in the same order, so S comes out the same.
+  const fast = RENDER_TUNE.footFast !== 0;
+  if (fast) {
+    const { pull, cur } = footFlags(n);
+    for (let y = 0; y < n; y++) {
+      const row = map[y];
+      for (let x = 0; x < n; x++) {
+        const c = row && x < row.length ? row[x] : null, i = y * n + x;
+        pull[i] = !c ? 0 : c.bt ? 1 : c.mark === 'camp' ? 1.3 : 0; cur[i] = c && c.cur ? 1 : 0;
+      }
+    }
+  }
   // Pass 1: how settled the ground round each tile is, and which bare tiles are lanes or camps.
   for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+    if (near7 && !near7[y * n + x]) continue;
     if (!ground(x, y)) continue;
     const c = map[y][x];
     let s = 0;
-    for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) {
+    if (fast) {
+      const { pull, cur } = _footF;
+      for (let dy = -2; dy <= 2; dy++) {
+        const yy = y + dy; if (yy < 0 || yy >= n) continue;
+        for (let dx = -2; dx <= 2; dx++) {
+          if (!dx && !dy) continue;
+          const xx = x + dx; if (xx < 0 || xx >= n) continue;
+          const j = yy * n + xx, v = pull[j];
+          if (!v || cur[j]) continue;
+          const adx = dx < 0 ? -dx : dx, ady = dy < 0 ? -dy : dy;
+          if ((adx === 2 || ady === 2) && cur[(y + Math.sign(dy)) * n + x + Math.sign(dx)]) continue;
+          const k = 1 / (adx + ady);
+          s += v === 1 ? k : 1.3 * k;
+        }
+      }
+    } else for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) {
       if (!dx && !dy) continue;
       const nb = at(x + dx, y + dy);
       if (!nb || nb.cur) continue;
@@ -15333,6 +15384,7 @@ export function footfallFill(map, LUT, wcx = 0, wcy = 0) {
   }
   // Pass 2: wear. A lane or camp next door spreads onto turf and into a building's yard.
   for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+    if (near6 && !near6[y * n + x]) continue;
     if (!ground(x, y)) continue;
     const i = y * n + x, c = map[y][x];
     let w = lane[i];
@@ -15368,6 +15420,7 @@ export function footfallFill(map, LUT, wcx = 0, wcy = 0) {
   };
   // Pass 3: paths and litter, onto the LUT entries.
   for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+    if (need && !need[y * n + x]) continue;
     if (!ground(x, y)) continue;
     const i = y * n + x, c = map[y][x], e = LUT[y][x], w = wear[i];
     let bits = 0, roadBits = 0, roads = 0;
@@ -15398,6 +15451,66 @@ export function footfallFill(map, LUT, wcx = 0, wcy = 0) {
     e[10] = gv > 0 ? box(x - FOOT_GREEN_R, y - FOOT_GREEN_R, x + FOOT_GREEN_R, y + FOOT_GREEN_R, 0) / gv : 0.5;
   }
 }
+// A summed-area table over an n*n 0/1 grid, and the count inside a box of it (clipped to the grid).
+function satOf(g, n) {
+  const N1 = n + 1, s = new Int32Array(N1 * N1);
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) s[(y + 1) * N1 + x + 1] = g[y * n + x] + s[y * N1 + x + 1] + s[(y + 1) * N1 + x] - s[y * N1 + x];
+  return (x0, y0, x1, y1) => {
+    x0 = Math.max(0, x0); y0 = Math.max(0, y0); x1 = Math.min(n - 1, x1); y1 = Math.min(n - 1, y1);
+    return x1 < x0 || y1 < y0 ? 0 : s[(y1 + 1) * N1 + x1 + 1] - s[y0 * N1 + x1 + 1] - s[(y1 + 1) * N1 + x0] + s[y0 * N1 + x0];
+  };
+}
+// Every tile within `r` (Chebyshev) of a marked one.
+function dilateMask(mask, n, r) {
+  const box = satOf(mask, n), out = new Uint8Array(n * n);
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) out[y * n + x] = box(x - r, y - r, x + r, y + r) > 0 ? 1 : 0;
+  return out;
+}
+// What changed between two map windows, cell by cell at the same world tile, for the caches that keep
+// what they can across a new window (lutKeep, gtWindow, the flock search). A cell counts as changed
+// when it's a different object from the old window's there (map-intern.js keeps an unchanged one), or
+// has come into or gone out of the window. The grid is padded by `P`, so a cell just outside the new
+// window that the old one had counts against the edge tiles that read it. Returns the count in a box
+// of new-window indices (-P to n - 1 + P), or null when the two can't be lined up.
+function windowChanges(map, wcx, wcy, om, ocx, ocy, P) {
+  const n = map && map.length, on = om && om.length;
+  if (!n || !on || !Array.isArray(map[0]) || !Array.isArray(om[0]) || map[0].length !== n || om[0].length !== on) return null;
+  const dx = wcx - ocx + (on - 1) / 2 - (n - 1) / 2, dy = wcy - ocy + (on - 1) / 2 - (n - 1) / 2;   // new index + d = old index
+  if (!Number.isInteger(dx) || !Number.isInteger(dy)) return null;
+  const N = n + 2 * P, ch = new Uint8Array(N * N);
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+    const nx = x - P, ny = y - P, ox = nx + dx, oy = ny + dy;
+    const inN = nx >= 0 && ny >= 0 && nx < n && ny < n, inO = ox >= 0 && oy >= 0 && ox < on && oy < on;
+    const a = inN ? (map[ny][nx] ?? null) : null, b = inO ? (om[oy][ox] ?? null) : null;
+    ch[y * N + x] = (inN && !inO) || a !== b ? 1 : 0;
+  }
+  const box = satOf(ch, N);
+  return (x0, y0, x1, y1) => box(x0 + P, y0 + P, x1 + P, y1 + P);
+}
+// ── A NEW WINDOW KEEPS THE LUT ENTRIES IT CAN (RENDER_TUNE.lutShift) ──────────────────────────────
+// The server sends the window afresh on every push, recentred on the craft, and with map-intern.js
+// an unchanged cell keeps its object. An entry reads its own cell and world tile, and a built tile
+// reads the cells round it too: nearField one tile each way, and the footfall on bare ground
+// FOOT_REACH. So an entry is taken from the old LUT at the same world tile when no cell within that
+// reach is a different object from the old window's there, or has come into or gone out of the
+// window. A one-tile recentre then rebuilds about FOOT_REACH rows at each end instead of all 73.
+// Returns { k, dx, dy, old }: k per tile is 2 to keep a built entry, 1 an unbuilt one, 0 to build;
+// a new index plus (dx, dy) is the old one. null when the windows can't be lined up.
+function lutKeep(old, map, n, wcx, wcy) {
+  const om = old.map;
+  if (!Array.isArray(om) || !old.LUT || om.length !== n || !n || map[0].length !== n || om[0].length !== n) return null;
+  const dx = wcx - old.wcx, dy = wcy - old.wcy;
+  if (!Number.isInteger(dx) || !Number.isInteger(dy) || Math.abs(dx) >= n || Math.abs(dy) >= n) return null;
+  const box = windowChanges(map, wcx, wcy, om, old.wcx, old.wcy, FOOT_REACH);
+  if (!box) return null;
+  const k = new Uint8Array(n * n);
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+    const c = map[y][x], bi = c && c.biome;
+    const r = !bi ? 0 : (!footWater(c) && !footRoad(c)) ? FOOT_REACH : 1;
+    if (box(x - r, y - r, x + r, y + r) === 0) k[y * n + x] = bi ? 2 : 1;
+  }
+  return { k, dx, dy, old };
+}
 function groundLUT(map, mh, R, wcx, wcy, litX, litY, gTop, st) {
   const store = st || (_lutSlot = _lutSlot || {});
   const c = store._lut;
@@ -15410,10 +15523,24 @@ function groundLUT(map, mh, R, wcx, wcy, litX, litY, gTop, st) {
 
   const LUT = new Array(mh);
   const wildFill = map.map((row) => new Array(row.length).fill(null));   // parallel grid; fillOffMap tags each empty tile sea|scrub|redrock
+  // A new window that only moved (or changed a few cells) keeps every entry whose inputs didn't
+  // change, from the old LUT at the same world tile; see lutKeep. Off-map entries it keeps go in
+  // after the footfall pass, which must see them as unbuilt.
+  const keep = (RENDER_TUNE.lutShift !== 0 && c && c.litX === litX && c.litY === litY && c.g0 === g0 && c.g1 === g1
+    && c.g2 === g2 && c.off === offBucket) ? lutKeep(c, map, mh, wcx, wcy) : null;
+  const need = keep ? new Uint8Array(mh * mh) : null, offKept = keep ? [] : null;
+  let built = false;
   for (let ry = 0; ry < mh; ry++) {
     const row = map[ry], out = new Array(row.length);
     for (let rx = 0; rx < row.length; rx++) {
       const cell = row[rx], bi = cell && cell.biome;
+      if (bi) built = true;
+      if (keep) {
+        const t = ry * mh + rx, k = keep.k[t];
+        if (k === 2 && bi) { out[rx] = keep.old.LUT[ry + keep.dy][rx + keep.dx]; continue; }
+        if (k && !bi) { offKept.push(ry, rx); out[rx] = null; continue; }
+        if (bi) need[t] = 1;
+      }
       let grassy = GRASS_BIOMES.has(bi);
       // Grassed district tile touching a runway → keep it grey tarmac apron, not turf.
       const apron = grassy && nearField(map, rx, ry);
@@ -15435,13 +15562,18 @@ function groundLUT(map, mh, R, wcx, wcy, litX, litY, gTop, st) {
     }
     LUT[ry] = out;
   }
-  footfallFill(map, LUT, wcx, wcy);   // before fillOffMap: only built tiles are walked on
+  footfallFill(map, LUT, wcx, wcy, need);   // before fillOffMap: only built tiles are walked on
+  if (offKept) for (let i = 0; i < offKept.length; i += 2) {
+    const ry = offKept[i], rx = offKept[i + 1], oy = ry + keep.dy, ox = rx + keep.dx;
+    LUT[ry][rx] = keep.old.LUT[oy][ox]; wildFill[ry][rx] = keep.old.wildFill[oy][ox];
+  }
   const filled = fillOffMap(LUT, mh ? map[0].length : 0, mh, R, wcx, wcy, litX, litY, wildFill,
     st ? (st.offLand ?? 0) : null);   // extend the edge → wildlands + irregular coast
   // Everything downstream (the per-pixel sampler, drawWorldObjects' wild-scatter read) treats both
-  // grids as read-only, which is what makes handing the same objects back next frame safe.
+  // grids as read-only, which is what makes handing the same objects back next frame safe, and
+  // what lets lutKeep take entries from the old grid.
   return (store._lut = {
-    LUT: filled.LUT, wildFill, anyBuilt: filled.anyBuilt,
+    LUT: filled.LUT, wildFill, anyBuilt: keep ? built : filled.anyBuilt,
     map, wcx, wcy, litX, litY, g0, g1, g2, off: offBucket,
   });
 }
@@ -15603,7 +15735,9 @@ function drawMode7Floor(ctx, W, H, horizonY, depth0, v, sky, gTop, now, sun, cha
   const [litX, litY] = keyDir(sun, [-0.62, -0.62]);
   let LUT = null, wildFill = null;
   if (map) {
+    perfBegin('floor:lut');
     const built = groundLUT(map, mh, R, wcx, wcy, litX, litY, gTop, st);
+    perfEnd();
     LUT = built.LUT; wildFill = built.wildFill;
     if (built.anyBuilt) rememberOffLand(LUT, R, wcy, st);
   }
@@ -15815,9 +15949,12 @@ function drawMode7Floor(ctx, W, H, horizonY, depth0, v, sky, gTop, now, sun, cha
   // way to tell you why. Harmless while glFloor defaulted to 0 and load-bearing the moment it did
   // not.
   if (TUNE.gl && TUNE.glFloor && GL_HOOK && LUT) {
+    perfBegin('floor:bytes');
+    const lutBytes = floorLutBytes(LUT, mh, windFromView(v).dx, windFromView(v).dy, v.mapCenter);
+    perfEnd();
     FLOOR_STATE = {
       // The same wind vector the spindrift and the windsocks take, rather than a second idea of it.
-      ...floorLutBytes(LUT, mh, windFromView(v).dx, windFromView(v).dy, v.mapCenter),
+      ...lutBytes,
       EH: hullT > 0 ? Math.max(0.005, eyeZ) : EH, depth, cx, halfW: W / 2, LAT, FL, sinh, cosh, ax, ay,
       // The camera's eye height when the Drake has sunk it (plugins/submersible); gl/world.js takes
       // the GL camera to it, below zero once the eye is under.
@@ -22798,7 +22935,10 @@ function gtFinish() {
   const P = GT_PEND;
   if (!P) return;
   GT_PEND = null;
-  if (GT_OPS !== P.ops || GROUND_LATE_N !== P.late || gtSinks() !== P.sinks) { GROUND_TILE.set(P.c, { fk: P.fk, gx: P.gx, gy: P.gy, dyn: true }); return; }
+  // With groundWorld an entry carries the window it is valid in (`wg`, see gtWindow) and the centre
+  // its records were made about, rather than its place in the window.
+  const at = P.w ? { wg: GT_GEN, cx: P.cx, cy: P.cy } : null;
+  if (GT_OPS !== P.ops || GROUND_LATE_N !== P.late || gtSinks() !== P.sinks) { GROUND_TILE.set(P.c, { fk: P.fk, gx: P.gx, gy: P.gy, dyn: true, ...at }); return; }
   const recs = GROUND_MESH.slice(P.g0);
   // ⚠ AND IT MUST COME OUT THE SAME TWICE. Some ground paint moves with the clock rather than the
   // camera (a pulsing ring's radius and alpha), which no key can see. So a tile is recorded on two
@@ -22810,15 +22950,53 @@ function gtFinish() {
     sig = sig * 31 + (r.a / P.tileA) * 7;
     if (r.rgb) sig += r.rgb[0] * 3 + r.rgb[1] * 5 + r.rgb[2] * 11;
     const pts = r._e ? [[r._e[0], r._e[1], 0], [r._e[2], r._e[3], 0]] : r.p;
-    for (const q of pts) sig += q[0] * 13 + q[1] * 17 + q[2] * 19;
+    // In world tiles with groundWorld, rounded, so two recordings either side of a recentre agree.
+    if (P.w) for (const q of pts) sig += Math.round((q[0] + P.cx) * 1e6) * 13 + Math.round((q[1] + P.cy) * 1e6) * 17 + q[2] * 19;
+    else for (const q of pts) sig += q[0] * 13 + q[1] * 17 + q[2] * 19;
     sig %= 1e9;
   }
   const prev = P.prev;
-  if (!prev) { GROUND_TILE.set(P.c, { fk: P.fk, gx: P.gx, gy: P.gy, probe: true, sig, frame: P.frame }); return; }
-  if (prev.sig !== sig) { GROUND_TILE.set(P.c, { fk: P.fk, gx: P.gx, gy: P.gy, dyn: true }); return; }
+  if (!prev) { GROUND_TILE.set(P.c, { fk: P.fk, gx: P.gx, gy: P.gy, probe: true, sig, frame: P.frame, ...at }); return; }
+  if (prev.sig !== sig) { GROUND_TILE.set(P.c, { fk: P.fk, gx: P.gx, gy: P.gy, dyn: true, ...at }); return; }
+  const kept = recs.map((r) => (r._e ? { edge: r._e, rgb: r.rgb, road: r.road } : r));
+  const gullies = GULLY_ALL ? GULLY_ALL.slice(P.u0) : [];
+  // Every point a replay moves at a recentre, once each (gtShift).
+  let pts = null;
+  if (P.w) { const seen = new Set(); for (const r of kept) if (r.p) for (const q of r.p) seen.add(q); pts = [...seen]; }
   GROUND_TILE.set(P.c, { fk: P.fk, gx: P.gx, gy: P.gy, dyn: false,
-    recs: recs.map((r) => (r._e ? { edge: r._e, rgb: r.rgb, road: r.road } : r)), ratio: recs.map((r) => r.a / P.tileA),
-    gullies: GULLY_ALL ? GULLY_ALL.slice(P.u0) : [], walk: RAISED_WALK.get(P.c) === _walkGen });
+    recs: kept, ratio: recs.map((r) => r.a / P.tileA),
+    gullies, walk: RAISED_WALK.get(P.c) === _walkGen, pts, ...at });
+}
+// ── THE GROUND-TILE CACHE ACROSS A NEW WINDOW (RENDER_TUNE.groundWorld) ──────────────────────────
+// A tile's records are in the window's frame and it reads neighbours up to GT_REACH tiles away (a
+// road's block span is BLOCK_MAX), so it was keyed on the window's centre and size and its place in
+// it, and every recentre recorded every road in view twice more. With map-intern.js an unchanged
+// cell keeps its object, so this runs once per new window instead: an entry valid in the old window
+// stays valid (`wg` moves on to the new one) when no cell within GT_REACH of it is a different
+// object from the old window's at the same world tile, or has come into or gone out of the window.
+// A replay then moves its records by the change in centre (gtShift). GT_REACH is BLOCK_MAX + 2,
+// worked out in gtWindow because BLOCK_MAX is declared further down.
+let GT_WIN = null, GT_GEN = 0;
+function gtWindow(map, wcx, wcy) {
+  const W = GT_WIN;
+  if (W && W.map === map && W.wcx === wcx && W.wcy === wcy) return;
+  const gen = ++GT_GEN;
+  GT_WIN = { map, wcx, wcy };
+  const P = BLOCK_MAX + 2;   // GT_REACH
+  const box = W && windowChanges(map, wcx, wcy, W.map, W.wcx, W.wcy, P);
+  if (!box) return;
+  const n = map.length;
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+    const c = map[y][x]; if (!c) continue;
+    const ge = GROUND_TILE.get(c);
+    if (ge && ge.wg === gen - 1 && box(x - P, y - P, x + P, y + P) === 0) ge.wg = gen;
+  }
+}
+// Move a kept tile's records by (sx, sy) tiles, into the frame of the window they're replayed in.
+function gtShift(ge, sx, sy) {
+  for (const q of ge.pts) { q[0] += sx; q[1] += sy; }
+  for (const r of ge.recs) if (r.edge) { r.edge[0] += sx; r.edge[1] += sy; r.edge[2] += sx; r.edge[3] += sy; }
+  for (const u of ge.gullies) { u.x += sx; u.y += sy; }
 }
 // What drawMode7Floor would have rastered, as uniforms plus two LUT planes. See gl/floor.js.
 let FLOOR_STATE = null;
@@ -24067,6 +24245,42 @@ function emitDecoQuad(ctx, cam, corners, key, tex, alpha, paint, lift = DECO_LIF
 // A flat colour as a texture, for the quads whose whole artwork is one fill. Tiny and shared, so
 // every band of the same colour in the city is one bind and one draw call.
 function solidTex(css) { return bakeQuadTex('solid|' + css, 8, 8, (g, W, H) => { g.fillStyle = css; g.fillRect(0, 0, W, H); }); }
+// The same fill as a colour on the vertex (RENDER_TUNE.glDecalTint, see the ⚠ at the top of
+// gl/decals.js): the RGBA8 the 8x8 page holds once uploaded premultiplied, packed little-endian into
+// one uint32. null for a colour this can't read (hsl, a name, the space syntax), which keeps that fill
+// on its texture.
+const TINTS = new Map();
+function cssTint(css) {
+  let v = TINTS.get(css);
+  if (v !== undefined) return v;
+  v = null;
+  let r, g, b, a = 1, m = /^\s*rgba?\(\s*([-\d.]+)\s*,\s*([-\d.]+)\s*,\s*([-\d.]+)\s*(?:,\s*([-\d.]+)\s*)?\)\s*$/i.exec(css);
+  if (m) { r = +m[1]; g = +m[2]; b = +m[3]; if (m[4] !== undefined) a = +m[4]; }
+  else if ((m = /^\s*#([0-9a-f]{3}|[0-9a-f]{4}|[0-9a-f]{6}|[0-9a-f]{8})\s*$/i.exec(css))) {
+    const h = m[1], sh = h.length <= 4, ch = (i) => (sh ? parseInt(h[i] + h[i], 16) : parseInt(h.slice(i * 2, i * 2 + 2), 16));
+    r = ch(0); g = ch(1); b = ch(2); if (h.length === 4 || h.length === 8) a = ch(3) / 255;
+  }
+  if (r !== undefined && Number.isFinite(r + g + b + a)) {
+    const A = Math.round(clamp(a, 0, 1) * 255), q = (c) => Math.round(clamp(Math.round(c), 0, 255) * A / 255);
+    v = (q(r) | (q(g) << 8) | (q(b) << 16) | (A << 24)) >>> 0;
+  }
+  if (TINTS.size > 4096) TINTS.clear();
+  TINTS.set(css, v);
+  return v;
+}
+// What emitDecoFill hangs on its records for the decal layer: the colour of the top edge (all of a
+// flat fill), or null for the textured path: the switch off, a skin with real artwork (a flat skin,
+// clothFlat's, is its colour), or a colour cssTint can't read. tintSince reads a ramp's foot.
+function decoTint(css, ramp, skin) {
+  if (RENDER_TUNE.glDecalTint === 0 || (skin && !skin.flat)) return null;
+  return cssTint(skin ? skin.flat : ramp ? ramp[0] : css);
+}
+// Hang it on the records pushed since `n0`; a ramp whose foot can't be read stays textured.
+function tintSince(n0, top, ramp) {
+  const foot = ramp ? cssTint(ramp[1]) : top;
+  if (top == null || foot == null) return;
+  for (let j = n0; j < DECAL_SINK.length; j++) { const d = DECAL_SINK[j]; d.tint = top; if (foot !== top) d.tint2 = foot; }
+}
 // Its gradient sibling: two stops down the page, for the quads whose artwork is a vertical ramp
 // rather than one fill. Four texels across because nothing varies that way and the sampler is
 // linear; 32 down, which is far more than the two-stop ramp needs and is what stops the page
@@ -24125,9 +24339,11 @@ function emitDecoFill(ctx, cam, W, css, alpha, lift = DECO_LIFT, tag = '', solid
         const KEY = (tag ? tag + '|' : '') + (skin ? skin.key : ramp ? 'ramp|' + ramp[0] + '|' + ramp[1] : 'solid|' + css),
               IMG = skin ? skin.img : ramp ? rampTex(ramp[0], ramp[1]) : solidTex(css), SOL = solid && TUNE.glBoardDepth !== 0;
         const LIT = !!(skin && skin.lit);
+        const n00 = DECAL_SINK.length;
         if (n === 3) DECAL_SINK.push({ key: KEY, img: IMG, alpha, solid: SOL, lit: LIT, p: [w[0], w[1], w[2], w[2]] });
         else if (n === 4) DECAL_SINK.push({ key: KEY, img: IMG, alpha, solid: SOL, lit: LIT, p: w });
         else for (let i = 1; i + 1 < n; i++) DECAL_SINK.push({ key: KEY, img: IMG, alpha, solid: SOL, lit: LIT, p: [w[0], w[i], w[i + 1], w[i + 1]] });
+        tintSince(n00, decoTint(css, ramp, skin), skin ? null : ramp);
         // The raw corners and the pull, for the decal shader to pull itself (glSizeGPU; Stage 3
         // phase 3 of glass-headroom). `rc` is the whole polygon, whose centroid's depth is the mean
         // the pull above was taken from.
@@ -24180,11 +24396,13 @@ function emitDecoFill(ctx, cam, W, css, alpha, lift = DECO_LIFT, tag = '', solid
         IMG = skin ? skin.img : ramp ? rampTex(ramp[0], ramp[1]) : solidTex(css), SOL = solid && TUNE.glBoardDepth !== 0;
   // `lit` rides on the skin: cloth takes the city's lights in the decal shader (see decals.js).
   const LIT = !!(skin && skin.lit);
-  if (w.length < 4) { DECAL_SINK.push({ key: KEY, img: IMG, alpha, solid: SOL, lit: LIT, p: [w[0], w[1], w[2], w[2]] }); return; }
-  if (w.length === 4) { DECAL_SINK.push({ key: KEY, img: IMG, alpha, solid: SOL, lit: LIT, p: w }); return; }
-  for (let i = 1; i + 1 < w.length; i++) {
+  const n00 = DECAL_SINK.length;
+  if (w.length < 4) DECAL_SINK.push({ key: KEY, img: IMG, alpha, solid: SOL, lit: LIT, p: [w[0], w[1], w[2], w[2]] });
+  else if (w.length === 4) DECAL_SINK.push({ key: KEY, img: IMG, alpha, solid: SOL, lit: LIT, p: w });
+  else for (let i = 1; i + 1 < w.length; i++) {
     DECAL_SINK.push({ key: KEY, img: IMG, alpha, solid: SOL, lit: LIT, p: [w[0], w[i], w[i + 1], w[i + 1]] });
   }
+  tintSince(n00, decoTint(css, ramp, skin), skin ? null : ramp);
 }
 function quadBox(p, hx, hy, oy = 0) {
   return [{ sx: p.sx - hx, sy: p.sy - hy + oy, f: p.f }, { sx: p.sx + hx, sy: p.sy - hy + oy, f: p.f },
@@ -29828,6 +30046,10 @@ function raptorDrawnAt(r, f, now) {
   return [st.cx, st.cy, st.z];
 }
 const _flockWindow = new WeakMap();   // map → { wcx, wcy, winR, R, density, rough, anchors }
+let _flockLast = null;   // the last search's window and its habitat answers per world tile (flockShift)
+// The anchors the last flock search found, as a test seam: scripts/perf/recentre-exact.mjs compares
+// them, because a flock the search gets wrong is rarely near enough to change a frame.
+export function lastFlockAnchors() { return _flockLast && _flockLast.anchors; }
 
 // ⚠ THE FORMATION MOVED TO birds.js AND IT WAS NOT TIDYING. A skein is a shape the FLOCK is in —
 // the bird strike has to be able to ask which bird a leg went through, and the text game has a
@@ -32146,7 +32368,23 @@ function drawGeese(ctx, cam, v, map, R, wcx, wcy, sky, frameNow, FAR) {
   let win = _flockWindow.get(map);
   if (!win || win.wcx !== wcx || win.wcy !== wcy || win.winR !== R
       || win.R !== searchR || win.density !== density || win.rough !== rough) {
+    // A tile's habitat reads its cell, the eight round it, its world tile and the weather, so a new
+    // window takes the old window's answer for a tile whose 3x3 didn't change (flockShift).
+    const last = RENDER_TUNE.flockShift !== 0 && _flockLast && _flockLast.winR === R && _flockLast.wx === wxNow ? _flockLast : null;
+    const box = last ? windowChanges(map, wcx, wcy, last.map, last.wcx, last.wcy, 1) : null;
+    const hab = new Map();
     const habitatAt = (wx, wy) => {
+      const hk = (wx + 32768) * 65536 + wy + 32768;
+      if (box && last.hab.has(hk)) {
+        const x = wx - wcx + R, y = wy - wcy + R;
+        if (box(x - 1, y - 1, x + 1, y + 1) === 0) { const h = last.hab.get(hk); hab.set(hk, h); return h; }
+      }
+      const h = habitatOf(wx, wy);
+      hab.set(hk, h);
+      return h;
+    };
+    _flockLast = { map, wcx, wcy, winR: R, wx: wxNow, hab };
+    const habitatOf = (wx, wy) => {
       const cell = map[wy - wcy + R]?.[wx - wcx + R];
       if (!cell || cell.bt) return false;
       // ⚠ THE ROAD IS OFFERED, AND `speciesAt` DECIDES. A blanket refusal here is a habitat rule
@@ -32159,6 +32397,7 @@ function drawGeese(ctx, cam, v, map, R, wcx, wcy, sky, frameNow, FAR) {
     win = { wcx, wcy, winR: R, R: searchR, density, rough,
             anchors: flocksNear(wcx, wcy, searchR, density, habitatAt) };
     _flockWindow.set(map, win);
+    _flockLast.anchors = win.anchors;
   }
   // What freelook's raptor finder reads (`raptorsNow`): the same anchors this frame draws from, so it
   // can only ever point at a bird the renderer would put there.
@@ -38362,7 +38601,11 @@ function drawGroundSurfaces(ctx, cam, v, sky = null, now = 0) {  _walkGen++; con
   // calls are counted while the loop runs, on this context only, and put back after it.
   const gcOn = !!(GROUND_FULL && GROUND_MESH && RENDER_TUNE.groundCache !== 0);
   const gcTune = gcOn ? tuneSig() * 7 + (TUNE !== RENDER_TUNE ? tuneSig(TUNE) : 0) : 0;   // the view's own overrides too (a cab's CAB_VIEW_TUNE)
-  const gcFK = gcOn ? map.length + '|' + wcx + ',' + wcy + '|' + Math.round(nite * 64) + '|' + _frameDpr + '|' + gcTune : '';   // a tile's key is this plus its place in the window
+  // With groundWorld the window is checked once here (gtWindow) and a tile's key is this alone;
+  // without it, the window's size and centre are in it and a tile adds its place in the window.
+  const gcW = gcOn && RENDER_TUNE.groundWorld !== 0;
+  if (gcW) gtWindow(map, wcx, wcy);
+  const gcFK = gcOn ? (gcW ? '' : map.length + '|' + wcx + ',' + wcy + '|') + Math.round(nite * 64) + '|' + _frameDpr + '|' + gcTune : '';
   const gcWrapped = [];
   if (gcOn) for (const k of ['fill', 'stroke', 'drawImage', 'fillRect', 'strokeRect', 'fillText', 'strokeText', 'putImageData']) {
     const fn = ctx[k];
@@ -38404,8 +38647,9 @@ function drawGroundSurfaces(ctx, cam, v, sky = null, now = 0) {  _walkGen++; con
       // tile compares that and its own place in the window.
       const gx = rx - R, gy = ry - R;
       const ge = GROUND_TILE.get(c);
-      const geSame = !!(ge && ge.fk === gcFK && ge.gx === gx && ge.gy === gy);
+      const geSame = !!(ge && ge.fk === gcFK && (gcW ? ge.wg === GT_GEN : ge.gx === gx && ge.gy === gy));
       if (tileA > 1e-6 && geSame && !ge.dyn && !ge.probe) {
+        if (gcW && (ge.cx !== wcx || ge.cy !== wcy)) { gtShift(ge, ge.cx - wcx, ge.cy - wcy); ge.cx = wcx; ge.cy = wcy; }
         const rs = ge.recs, rt = ge.ratio;
         for (let i = 0; i < rs.length; i++) {
           const r = rs[i];
@@ -38431,7 +38675,7 @@ function drawGroundSurfaces(ctx, cam, v, sky = null, now = 0) {  _walkGen++; con
         // A first recording, or the second one on a LATER frame that settles whether it is stable.
         const prev = geSame && ge.probe && ge.frame !== _walkGen ? ge : null;
         if (!(geSame && ge.probe && ge.frame === _walkGen)) {
-          GT_PEND = { c, fk: gcFK, gx, gy, tileA, g0: GROUND_MESH.length, u0: GULLY_ALL ? GULLY_ALL.length : 0, ops: GT_OPS, late: GROUND_LATE_N, sinks: gtSinks(), prev, frame: _walkGen };
+          GT_PEND = { c, fk: gcFK, gx, gy, tileA, g0: GROUND_MESH.length, u0: GULLY_ALL ? GULLY_ALL.length : 0, ops: GT_OPS, late: GROUND_LATE_N, sinks: gtSinks(), prev, frame: _walkGen, w: gcW, cx: wcx, cy: wcy };
         }
       }
     }
@@ -39915,9 +40159,11 @@ function campFillFast(cam, r, dx, dy, alpha) {
     w[i] = [ex + (p[0] + dx - ex) * k, ey + (p[1] + dy - ey) * k, ez + (p[2] - ez) * k];
   }
   const KEY = r._key || (r._key = (r.tag ? r.tag + '|' : '') + 'solid|' + r.css), IMG = solidTex(r.css);
+  const n00 = DECAL_SINK.length;
   if (n === 3) DECAL_SINK.push({ key: KEY, img: IMG, alpha, solid: false, lit: false, p: [w[0], w[1], w[2], w[2]] });
   else if (n === 4) DECAL_SINK.push({ key: KEY, img: IMG, alpha, solid: false, lit: false, p: w });
   else for (let i = 1; i + 1 < n; i++) DECAL_SINK.push({ key: KEY, img: IMG, alpha, solid: false, lit: false, p: [w[0], w[i], w[i + 1], w[i + 1]] });
+  tintSince(n00, decoTint(r.css, null, null), null);
   // Raw corners and the pull for the decal shader, as emitDecoFill does (glSizeGPU). The camp's
   // records are tile-local, so the raw corners are its corners moved to the tile.
   if (pull > 0 && RENDER_TUNE.glSizeGPU !== 0) {
@@ -39949,7 +40195,11 @@ function campKept(ctx, cam, list, key, dx, dy, fh, alpha, now) {
   if (RENDER_TUNE.campKeep === 0 || RENDER_TUNE.armKeep === 0 || RENDER_TUNE.glSizeGPU === 0 || !SPRITE_SINK || SHAPE_SINK || MESH_SINK || alpha < 1) {
     campReplay(ctx, cam, list, dx, dy, alpha, now); return;
   }
-  const ox = cam.ox || 0, oy = cam.oy || 0;
+  // World offsets, as drawTypeModelKept takes them (campWorld): `dx + ox` is then the camp's world
+  // tile, so a recentre keeps it. In the window's frame it was a new key, and every camp in view
+  // recorded again, on every recentre.
+  const cx = RENDER_TUNE.campWorld !== 0 ? ARM_CX : 0, cy = RENDER_TUNE.campWorld !== 0 ? ARM_CY : 0;
+  const ox = (cam.ox || 0) + cx, oy = (cam.oy || 0) + cy;
   const k = key + '|' + armR6(dx + ox) + ',' + armR6(dy + oy) + '|' + POWER_DUTY + '|' + _frameDpr + '|' + ARM_TUNE;
   // ⚠ ONLY WELL IN FRONT, RECORDED AND REPLAYED. campReplay clips a face at the near plane on the CPU
   // (campClip); a kept face is whole and the GPU clips it at its own plane. Close to, a camp runs
@@ -39972,7 +40222,7 @@ function campKept(ctx, cam, list, key, dx, dy, fh, alpha, now) {
       // frame draws from the kept groups like every later one.
       const rec = armRecord(ctx, () => campReplay(ctx, cam, recs, dx, dy, alpha, now, true), true, now);
       if (!rec || rec.live.length || rec.web.length) { ok = false; break; }
-      groups.push({ c, e: { rec, pts: armPoints(rec), ox, oy } });
+      groups.push({ c, e: { rec, pts: armPoints(rec), ox, oy, cx, cy } });
     }
     SPRITE_SINK.length = m0[0]; if (STROKE_SINK) STROKE_SINK.length = m0[1]; if (DECAL_SINK) DECAL_SINK.length = m0[2]; if (BAY_SINK) BAY_SINK.length = m0[3];
     K = ok ? { groups, live } : { off: true };
@@ -39990,7 +40240,7 @@ function campKept(ctx, cam, list, key, dx, dy, fh, alpha, now) {
       }
       if (!ok) continue;
     }
-    armReplay(G.e, ox, oy, cam, true, ctx, now, false);
+    armReplay(G.e, ox, oy, cam, true, ctx, now, false, cx, cy);
   }
   if (K.live.length) campReplay(ctx, cam, K.live, dx, dy, alpha, now);
 }
@@ -40875,9 +41125,10 @@ function clothTex(css, kind = 'cloth') {
 }
 // The flat fill a sheet wears past arm's length, as a page so it still goes through the lit decal
 // path: a sheet that caught the lamps near to and went dead flat one tile further out would pop.
+// `flat` says the page is that one colour, so it can ride on the vertex like any fill (decoTint).
 function clothFlat(css) {
   const key = 'clothflat|' + css;
-  return { key, img: bakeQuadTex(key, 2, 2, (g, W, H) => { g.fillStyle = css; g.fillRect(0, 0, W, H); }), lit: true };
+  return { key, img: bakeQuadTex(key, 2, 2, (g, W, H) => { g.fillStyle = css; g.fillRect(0, 0, W, H); }), lit: true, flat: css };
 }
 // A sheet's corners with its HIGH edge first, so `clothTex`'s foot lands at the bottom. A triangle
 // (a gable) is its apex twice and then its base, which squeezes the page to a point at the top.
@@ -45615,11 +45866,14 @@ function neonBlade(ctx, cam, dx, dy, h0, h1, color, night, alpha, label) {   // 
       // a side keyed as a plain solid is counted against the RECESSED-DOORWAY budget — a different part,
       // with a different reason, whose number would then stop meaning anything. These are the blade: same
       // anchor inside the facade, same BLADE_PROUD clearing it, so they answer to the blade's own reason.
+      // The side is one colour, so it carries it on the vertex and joins the tint batch (glDecalTint).
+      const n0 = DECAL_SINK ? DECAL_SINK.length : 0;
       emitDecoQuad(ctx, cam, pr, 'blade|solid|' + dark, solidTex(dark), alpha, () => {
         ctx.save(); ctx.globalAlpha = alpha; ctx.fillStyle = dark;
         ctx.beginPath(); pr.forEach((q, i) => i ? ctx.lineTo(q.sx, q.sy) : ctx.moveTo(q.sx, q.sy));
         ctx.closePath(); ctx.fill(); ctx.restore();
       }, DECO_LIFT, BLADE_PROUD);
+      if (DECAL_SINK) tintSince(n0, decoTint(dark), null);
     };
     // ⚠ BACKFACE-CULLED, AND THAT IS A COST DECISION AS MUCH AS A CORRECTNESS ONE. A box has six
     // sides and you can see at most three; emitting all of them put `framecost` up 2.9% against a
@@ -53332,7 +53586,8 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
       // Street lamps and neon into the cab, now that this frame's lights are all in the sink.
       applyCabinStreetLight();
       if (STROKE_SINK) STROKE_SINK.deep = true;
-      const out = GL_HOOK(GL_CELLS, cam, { night, nb: clamp((night - 0.30) / 0.20, 0, 1), host: GL_HOST, id: GL_ID, far: FAR, haze: HAZE_BAND, fog: FOG_STATE, skyBand: SKY_BAND, light: LIGHT_STATE, sprites: SPRITE_SINK, strokes: STROKE_SINK, ownWater: OWN_WATER_Z, glLights: TUNE.glLights, glNeonTube: TUNE.glNeonTube, glNeonFlicker: TUNE.glNeonFlicker, glAO: TUNE.glAO, glBakedAo: TUNE.glBakedAo, msaa: TUNE.glMsaa, glFxaa: TUNE.glFxaa, glShadow: TUNE.glShadow, glWet: wetGround(), glPond: pondGround(), glFogH: fogGround(), glScatter: scatterGround(), glPool: TUNE.glPool, glNightDark: (TUNE.nightDark || 0) * (1 - moonLift(sun)), glSnow: snowGround(), glPudRoad: TUNE.glPudRoad, glPuddle: TUNE.glPuddle, glMirrorMass: TUNE.glMirrorMass, glHazeSplit: TUNE.glHazeSplit, glMirrorSky: TUNE.glMirrorSky, glWetDark: TUNE.glWetDark, glGroundBias: TUNE.glGroundBias, lids: lidUpload(), glRipple: TUNE.glRipple, glGlint: TUNE.glGlint, glMirror: TUNE.glMirror, glMirrorRes: TUNE.glMirrorRes, glMat: TUNE.glMat, glSpec: TUNE.glSpec, glBump: TUNE.glBump, glMatPage: TUNE.glMatPage, glEnvCube: TUNE.glEnvCube, glGGX: TUNE.glGGX, envSky: SKY_ENV, glSurfPage: TUNE.glSurfPage, glHeightGain: TUNE.glHeightGain, glEnvCity: TUNE.glEnvCity, glEnvDim: TUNE.glEnvDim, glBevel: TUNE.glBevel, glSsao: TUNE.glSsao, glSsaoRes: TUNE.glSsaoRes, glToon: TUNE.glToon, glToonBands: TUNE.glToonBands, glInk: TUNE.glInk, glInkPx: TUNE.glInkPx, glInkFar: TUNE.glInkFar, glLightSlots: TUNE.glLightSlots, glCluster: TUNE.glCluster, glTaa: TUNE.glTaa, nearFit: TUNE.nearFit, glHdr: TUNE.glHdr, glLinear: TUNE.glLinear, glBloom: TUNE.glBloom, glTonemap: TUNE.glTonemap, glExposure: TUNE.glExposure, sun, worldBlend: WORLD_BLEND,
+      if (DECAL_SINK) DECAL_SINK.atlas = TUNE.glDecalAtlas;
+      const out = GL_HOOK(GL_CELLS, cam, { night, nb: clamp((night - 0.30) / 0.20, 0, 1), host: GL_HOST, id: GL_ID, far: FAR, haze: HAZE_BAND, fog: FOG_STATE, skyBand: SKY_BAND, light: LIGHT_STATE, sprites: SPRITE_SINK, strokes: STROKE_SINK, ownWater: OWN_WATER_Z, glLights: TUNE.glLights, glNeonTube: TUNE.glNeonTube, glNeonFlicker: TUNE.glNeonFlicker, glAO: TUNE.glAO, glBakedAo: TUNE.glBakedAo, msaa: TUNE.glMsaa, glFxaa: TUNE.glFxaa, glShadow: TUNE.glShadow, glWet: wetGround(), glPond: pondGround(), glFogH: fogGround(), glScatter: scatterGround(), glPool: TUNE.glPool, glNightDark: (TUNE.nightDark || 0) * (1 - moonLift(sun)), glSnow: snowGround(), glPudRoad: TUNE.glPudRoad, glPuddle: TUNE.glPuddle, glMirrorMass: TUNE.glMirrorMass, glHazeSplit: TUNE.glHazeSplit, glMirrorSky: TUNE.glMirrorSky, glWetDark: TUNE.glWetDark, glGroundBias: TUNE.glGroundBias, lids: lidUpload(), glRipple: TUNE.glRipple, glGlint: TUNE.glGlint, glMirror: TUNE.glMirror, glMirrorRes: TUNE.glMirrorRes, glMat: TUNE.glMat, glSpec: TUNE.glSpec, glBump: TUNE.glBump, glMatPage: TUNE.glMatPage, massKeep: TUNE.massKeep, glEnvCube: TUNE.glEnvCube, glGGX: TUNE.glGGX, envSky: SKY_ENV, glSurfPage: TUNE.glSurfPage, glHeightGain: TUNE.glHeightGain, glEnvCity: TUNE.glEnvCity, glEnvDim: TUNE.glEnvDim, glBevel: TUNE.glBevel, glSsao: TUNE.glSsao, glSsaoRes: TUNE.glSsaoRes, glToon: TUNE.glToon, glToonBands: TUNE.glToonBands, glInk: TUNE.glInk, glInkPx: TUNE.glInkPx, glInkFar: TUNE.glInkFar, glLightSlots: TUNE.glLightSlots, glCluster: TUNE.glCluster, glTaa: TUNE.glTaa, nearFit: TUNE.nearFit, glHdr: TUNE.glHdr, glLinear: TUNE.glLinear, glBloom: TUNE.glBloom, glTonemap: TUNE.glTonemap, glExposure: TUNE.glExposure, sun, worldBlend: WORLD_BLEND,
         // ⚠ THE DECK, FOR THE REFLECTION AND FOR NOTHING ELSE IN THIS PASS. It is DRAWN by the
         // second hook after the world is blitted; what the world pass wants it for is the mirror
         // prepass, which is the only chance a puddle gets to be handed a sky.

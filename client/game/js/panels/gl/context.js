@@ -84,6 +84,9 @@ in float aBakedAo;
 // barycentric interpolation reproduces the true distance field exactly — see faceEdges in world.js.
 in vec4 aEdge;
 uniform mat4 uViewProj;
+// The kept mass's frame to the window's (RENDER_TUNE.massKeep, see uploadKept): 0 when the buffer
+// was built in the window's own frame.
+uniform vec2 uMassShift;
 out vec3 vNormal;
 out vec3 vColor;
 out vec2 vUV;
@@ -100,7 +103,8 @@ flat out float vMat;
 out vec3 vWorld;
 out vec4 vEdge;
 void main() {
-  vec4 clip = uViewProj * vec4(aPos, 1.0);
+  vec3 P = aPos + vec3(uMassShift, 0.0);
+  vec4 clip = uViewProj * vec4(P, 1.0);
   gl_Position = clip;
   vNormal = aNormal;
   vColor = aColor;
@@ -112,7 +116,7 @@ void main() {
   vBakedAo = aBakedAo;
   vMat = aMat;
   vEdge = aEdge;
-  vWorld = aPos;                // the city own lights need a position to fall off FROM
+  vWorld = P;                   // the city own lights need a position to fall off FROM
   vDepth = clip.w;              // the camera-forward distance, in tiles — the same f GLASS sorts on
 }`;
 
@@ -1222,7 +1226,8 @@ function splitGroups(list, ox, oy) {
   if (!G || !G.length) return { rest: list, groups: null };
   const rest = [], groups = [];
   if (list.deep) rest.deep = list.deep;
-  if (list.now != null) rest.now = list.now;   // the sprites' blink clock, likewise   // the strokes' prepass flag rides on the array
+  if (list.now != null) rest.now = list.now;
+  if (list.atlas != null) rest.atlas = list.atlas;   // the decals' RENDER_TUNE.glDecalAtlas   // the sprites' blink clock, likewise   // the strokes' prepass flag rides on the array
   let gi = 0;
   for (let i = 0; i < list.length; i++) {
     while (gi < G.length && G[gi].at < i) gi++;
@@ -1281,6 +1286,7 @@ export function createGLView(canvas, opts = {}) {
     mat: gl.getAttribLocation(prog, 'aMat'),
     edge: gl.getAttribLocation(prog, 'aEdge'),
     viewProj: gl.getUniformLocation(prog, 'uViewProj'),
+    massShift: gl.getUniformLocation(prog, 'uMassShift'),
     keyDir: gl.getUniformLocation(prog, 'uKeyDir'),
     key: gl.getUniformLocation(prog, 'uKey'),
     shadow: gl.getUniformLocation(prog, 'uShadow'),
@@ -1514,128 +1520,110 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
   // attribute, varying or stride, nothing for 'glCapabilities' to recount.
   // ⚠ FREE ONLY BECAUSE 'texEpoch' QUANTISES DUSK INTO 64 STEPS and world.js forces 'uploadGroups' on
   // each; put 'nb' in the rebuild key some other way and sunset rebuilds every frame.
-  function uploadGroups(groups, rectOf, nb) {
-    const NB = nb > 0 ? (nb < 1 ? nb : 1) : 0;
-    let verts = 0;
-    for (const g of groups) for (const f of g.faces) verts += (f.p.length - 2) * 3;
-    const data = new Float32Array(verts * STRIDE);
-    let o = 0;
-    let bx0 = Infinity, bx1 = -Infinity, by0 = Infinity, by1 = -Infinity, bz0 = Infinity, bz1 = -Infinity;
-    const rs = [];
-    for (const grp of groups) {
-      const ox = grp.ox || 0, oy = grp.oy || 0;
-      const at = o / STRIDE;
-      let gx0 = Infinity, gx1 = -Infinity, gy0 = Infinity, gy1 = -Infinity, gz0 = Infinity, gz1 = -Infinity;
-      // ── AND A GROUP MAY DISAGREE WITH THE FRAME ABOUT WHAT TIME IT IS ──────────────────────
-      //
-      // A face carries a day colour and a night one and the blend picks between them, so every
-      // surface that PAINTS ITSELF DIFFERENTLY AFTER DARK — a lit window bay, a canopy's strip
-      // light, a blade panel, a lit shopfront — is decided here. A building whose feed has failed
-      // has none of those lit, and asking the frame gives it all of them.
-      //
-      // ⚠ IT IS THE ONLY WAY TO REACH THEM. Those colours are baked into the captured mesh, which
-      // is memoised per MODEL and shared by every tile that draws it, so a dark building cannot be
-      // given its own faces — only its own blend.
-      // ⚠ AND `null` IS NOT 0. A group that has no opinion takes the frame's, and a group that
-      // wants day says so; writing `grp.nb || NB` turns the second into the first and the feature
-      // does nothing, quietly, on every building it is meant to reach.
-      const GNB = grp.nb == null ? NB : (grp.nb > 0 ? (grp.nb < 1 ? grp.nb : 1) : 0);
-      for (const f of grp.faces) {
-        // ⚠ A face with no `rgbN` keeps its one colour at every hour, which is right: a textured
-        // wall's day/night lives in the atlas, and a piece of unpainted metalwork genuinely does not
-        // change colour after dark — only the things that are LIT do.
-        const cD = f.rgb || [128, 128, 128], cN = f.rgbN;
-        const r = cN ? cD[0] + (cN[0] - cD[0]) * GNB : cD[0];
-        const g = cN ? cD[1] + (cN[1] - cD[1]) * GNB : cD[1];
-        const b = cN ? cD[2] + (cN[2] - cD[2]) * GNB : cD[2];
-        // ⚠ A ZERO-LENGTH NORMAL IS A NaN FACTORY, AND SOME CAPTURED FACES CARRY ONE. `f.n || …`
-        // only catches a MISSING normal; `[0, 0, 0]` is a perfectly truthy array, and it comes out
-        // of a degenerate face in the capture. `normalize(vec3(0.0))` is 0/0, and the NaN spreads
-        // through every term downstream of the light dot. It had been in the buffer harmlessly for
-        // as long as GL has been shading — `clamp` happens to absorb it in the key term on this
-        // driver — and it surfaced the moment the sun pass fed the same normal to a slope bias,
-        // where it painted 10% of the city solid black. Measured in the Modelshop at 15,021
-        // fragments of 134,445 on one cab frame.
-        const nn = f.n;
-        const n = (nn && (nn[0] || nn[1] || nn[2])) ? nn : [0, 0, 1];
-        // The UV a face was given, mapped into its rect in the atlas. A face with neither keeps a
-        // degenerate rect and samples one texel, which is what an untextured face wants.
-        // ⚠ THE GROUP GOES WITH IT. Which atlas entry a wall samples is a property of the TILE — a
-        // blacked-out block and a lit one share the same face objects and must not share an entry.
-        const uv = f.uv || null, rc = (rectOf ? rectOf(f, grp) : f.rect) || [0, 0, 0, 0];
-        const u0 = rc[0], v0 = rc[1], du = rc[2] - rc[0], dv = rc[3] - rc[1];
-        const cr = r / 255, cg = g / 255, cb = b / 255;
-        const fa = f.alpha == null ? 1 : f.alpha;
-        // ⚠ `flat` IS A LIGHTING ANSWER, NOT A KIND. Most flat-shaded faces are the adornment
-        // surfaces and carry kind 'flat'; a barrel roof is MASS that happens to do its own shading,
-        // and it has to stay mass so the mesh gate goes on comparing it against the captured shape.
-        // ⚠ AND `flat: 2` IS THE THIRD ANSWER — its own colour, lit as a wall (see litOwn in the
-        // shader). Checked first, because `!!2` is true and would collapse it to an ordinary flat.
-        const flat = f.flat === 2 ? 2 : (f.flat != null ? !!f.flat : f.kind === 'flat') ? 1 : 0;
-        // Resolved per model in world.js and carried on the face, exactly as texKey is. A face that
-        // never went through that path — the Modelshop preview, the bench — has none, and 0 is the
-        // default facade rather than a missing value: see the out-of-range note on wallMaterialId.
-        const mat = f.mat ? f.mat : 0;
-        const jit = grp.jit || 0;
-        // The ramp is the vertex's height within its OWN face, 0 at the top: the 2-D renderer paints
-        // its light as a gradient down each wall, so a shader that wants the same picture needs to
-        // know where in the wall it is. A horizontal face has no extent and takes the top end.
-        let z0 = Infinity, z1 = -Infinity;
-        for (const p of f.p) { if (p[2] < z0) z0 = p[2]; if (p[2] > z1) z1 = p[2]; }
-        const dz = (z1 - z0) || 1;
-        for (let i = 1; i + 1 < f.p.length; i++) {
-          for (let e = 0; e < 3; e++) {
-            const k = e === 0 ? 0 : i + e - 1;
-            const p = f.p[k], t = uv ? uv[k] : null;
-            const wx = p[0] + ox, wy = p[1] + oy, wz = p[2];
-            if (wx < bx0) bx0 = wx; if (wx > bx1) bx1 = wx;
-            if (wy < by0) by0 = wy; if (wy > by1) by1 = wy;
-            if (wz < bz0) bz0 = wz; if (wz > bz1) bz1 = wz;
-            if (wx < gx0) gx0 = wx; if (wx > gx1) gx1 = wx;
-            if (wy < gy0) gy0 = wy; if (wy > gy1) gy1 = wy;
-            if (wz < gz0) gz0 = wz; if (wz > gz1) gz1 = wz;
-            data[o] = wx; data[o + 1] = wy; data[o + 2] = wz;
-            data[o + 3] = n[0]; data[o + 4] = n[1]; data[o + 5] = n[2];
-            data[o + 6] = cr; data[o + 7] = cg; data[o + 8] = cb;
-            data[o + 9] = u0 + du * (t ? t[0] : 0); data[o + 10] = v0 + dv * (t ? t[1] : 0);
-            data[o + 11] = (z1 - p[2]) / dz;
-            data[o + 12] = fa;
-            data[o + 13] = flat;
-            data[o + 14] = jit;
-            // Baked occlusion, 1 where the surface sees open sky. ⚠ A face with no bake takes 1.0
-            // rather than 0 — an absent term must be "not occluded", or every surface the bake
-            // could not reach goes black instead of simply staying as it was.
-            data[o + 15] = f.ao ? f.ao[k] : 1;
-            data[o + 16] = mat;
-            // ⚠ A FACE WITH NO EDGE FIELD GETS A DISTANCE NO BEVEL CAN REACH, NOT A ZERO. Zero is
-            // "on the edge", so a drum cap, a roof polygon or a degenerate quad — every face
-            // `faceEdges` declines — would come back fully chamfered over its whole area, which
-            // reads as the model having gone soft rather than as a term being missing.
-            const ed = f.edge;
-            data[o + 17] = ed ? ed[k * 4] : 1e6; data[o + 18] = ed ? ed[k * 4 + 1] : 1e6;
-            data[o + 19] = ed ? ed[k * 4 + 2] : 1e6; data[o + 20] = ed ? ed[k * 4 + 3] : 1e6;
-            o += STRIDE;
-          }
+  // One group's vertices into `data` from float `o`, its box (in the buffer's frame) left in GB.
+  // Returns the offset after it. Shared by uploadGroups and uploadKept, so the two write the same floats.
+  const GB = { x0: 0, x1: 0, y0: 0, y1: 0, z0: 0, z1: 0 };
+  function packGroup(data, o, grp, rectOf, NB) {
+    const ox = grp.ox || 0, oy = grp.oy || 0;
+    let gx0 = Infinity, gx1 = -Infinity, gy0 = Infinity, gy1 = -Infinity, gz0 = Infinity, gz1 = -Infinity;
+    // ── AND A GROUP MAY DISAGREE WITH THE FRAME ABOUT WHAT TIME IT IS ──────────────────────
+    //
+    // A face carries a day colour and a night one and the blend picks between them, so every
+    // surface that PAINTS ITSELF DIFFERENTLY AFTER DARK — a lit window bay, a canopy's strip
+    // light, a blade panel, a lit shopfront — is decided here. A building whose feed has failed
+    // has none of those lit, and asking the frame gives it all of them.
+    //
+    // ⚠ IT IS THE ONLY WAY TO REACH THEM. Those colours are baked into the captured mesh, which
+    // is memoised per MODEL and shared by every tile that draws it, so a dark building cannot be
+    // given its own faces — only its own blend.
+    // ⚠ AND `null` IS NOT 0. A group that has no opinion takes the frame's, and a group that
+    // wants day says so; writing `grp.nb || NB` turns the second into the first and the feature
+    // does nothing, quietly, on every building it is meant to reach.
+    const GNB = grp.nb == null ? NB : (grp.nb > 0 ? (grp.nb < 1 ? grp.nb : 1) : 0);
+    for (const f of grp.faces) {
+      // ⚠ A face with no `rgbN` keeps its one colour at every hour, which is right: a textured
+      // wall's day/night lives in the atlas, and a piece of unpainted metalwork genuinely does not
+      // change colour after dark — only the things that are LIT do.
+      const cD = f.rgb || [128, 128, 128], cN = f.rgbN;
+      const r = cN ? cD[0] + (cN[0] - cD[0]) * GNB : cD[0];
+      const g = cN ? cD[1] + (cN[1] - cD[1]) * GNB : cD[1];
+      const b = cN ? cD[2] + (cN[2] - cD[2]) * GNB : cD[2];
+      // ⚠ A ZERO-LENGTH NORMAL IS A NaN FACTORY, AND SOME CAPTURED FACES CARRY ONE. `f.n || …`
+      // only catches a MISSING normal; `[0, 0, 0]` is a perfectly truthy array, and it comes out
+      // of a degenerate face in the capture. `normalize(vec3(0.0))` is 0/0, and the NaN spreads
+      // through every term downstream of the light dot. It had been in the buffer harmlessly for
+      // as long as GL has been shading — `clamp` happens to absorb it in the key term on this
+      // driver — and it surfaced the moment the sun pass fed the same normal to a slope bias,
+      // where it painted 10% of the city solid black. Measured in the Modelshop at 15,021
+      // fragments of 134,445 on one cab frame.
+      const nn = f.n;
+      const n = (nn && (nn[0] || nn[1] || nn[2])) ? nn : [0, 0, 1];
+      // The UV a face was given, mapped into its rect in the atlas. A face with neither keeps a
+      // degenerate rect and samples one texel, which is what an untextured face wants.
+      // ⚠ THE GROUP GOES WITH IT. Which atlas entry a wall samples is a property of the TILE — a
+      // blacked-out block and a lit one share the same face objects and must not share an entry.
+      const uv = f.uv || null, rc = (rectOf ? rectOf(f, grp) : f.rect) || [0, 0, 0, 0];
+      const u0 = rc[0], v0 = rc[1], du = rc[2] - rc[0], dv = rc[3] - rc[1];
+      const cr = r / 255, cg = g / 255, cb = b / 255;
+      const fa = f.alpha == null ? 1 : f.alpha;
+      // ⚠ `flat` IS A LIGHTING ANSWER, NOT A KIND. Most flat-shaded faces are the adornment
+      // surfaces and carry kind 'flat'; a barrel roof is MASS that happens to do its own shading,
+      // and it has to stay mass so the mesh gate goes on comparing it against the captured shape.
+      // ⚠ AND `flat: 2` IS THE THIRD ANSWER — its own colour, lit as a wall (see litOwn in the
+      // shader). Checked first, because `!!2` is true and would collapse it to an ordinary flat.
+      const flat = f.flat === 2 ? 2 : (f.flat != null ? !!f.flat : f.kind === 'flat') ? 1 : 0;
+      // Resolved per model in world.js and carried on the face, exactly as texKey is. A face that
+      // never went through that path — the Modelshop preview, the bench — has none, and 0 is the
+      // default facade rather than a missing value: see the out-of-range note on wallMaterialId.
+      const mat = f.mat ? f.mat : 0;
+      const jit = grp.jit || 0;
+      // The ramp is the vertex's height within its OWN face, 0 at the top: the 2-D renderer paints
+      // its light as a gradient down each wall, so a shader that wants the same picture needs to
+      // know where in the wall it is. A horizontal face has no extent and takes the top end.
+      let z0 = Infinity, z1 = -Infinity;
+      for (const p of f.p) { if (p[2] < z0) z0 = p[2]; if (p[2] > z1) z1 = p[2]; }
+      const dz = (z1 - z0) || 1;
+      for (let i = 1; i + 1 < f.p.length; i++) {
+        for (let e = 0; e < 3; e++) {
+          const k = e === 0 ? 0 : i + e - 1;
+          const p = f.p[k], t = uv ? uv[k] : null;
+          const wx = p[0] + ox, wy = p[1] + oy, wz = p[2];
+          if (wx < gx0) gx0 = wx; if (wx > gx1) gx1 = wx;
+          if (wy < gy0) gy0 = wy; if (wy > gy1) gy1 = wy;
+          if (wz < gz0) gz0 = wz; if (wz > gz1) gz1 = wz;
+          data[o] = wx; data[o + 1] = wy; data[o + 2] = wz;
+          data[o + 3] = n[0]; data[o + 4] = n[1]; data[o + 5] = n[2];
+          data[o + 6] = cr; data[o + 7] = cg; data[o + 8] = cb;
+          data[o + 9] = u0 + du * (t ? t[0] : 0); data[o + 10] = v0 + dv * (t ? t[1] : 0);
+          data[o + 11] = (z1 - p[2]) / dz;
+          data[o + 12] = fa;
+          data[o + 13] = flat;
+          data[o + 14] = jit;
+          // Baked occlusion, 1 where the surface sees open sky. ⚠ A face with no bake takes 1.0
+          // rather than 0 — an absent term must be "not occluded", or every surface the bake
+          // could not reach goes black instead of simply staying as it was.
+          data[o + 15] = f.ao ? f.ao[k] : 1;
+          data[o + 16] = mat;
+          // ⚠ A FACE WITH NO EDGE FIELD GETS A DISTANCE NO BEVEL CAN REACH, NOT A ZERO. Zero is
+          // "on the edge", so a drum cap, a roof polygon or a degenerate quad — every face
+          // `faceEdges` declines — would come back fully chamfered over its whole area, which
+          // reads as the model having gone soft rather than as a term being missing.
+          const ed = f.edge;
+          data[o + 17] = ed ? ed[k * 4] : 1e6; data[o + 18] = ed ? ed[k * 4 + 1] : 1e6;
+          data[o + 19] = ed ? ed[k * 4 + 2] : 1e6; data[o + 20] = ed ? ed[k * 4 + 3] : 1e6;
+          o += STRIDE;
         }
       }
-      if (o / STRIDE > at) rs.push({ at, n: o / STRIDE - at, x0: gx0, x1: gx1, y0: gy0, y1: gy1, z0: gz0, z1: gz1, jit: grp.jit || 0 });
     }
-    ranges = rs;
-    // ⚠ NO AXIS SWAP, AND THE FIRST CUT HAD ONE. It looked like the obvious hospitality to a GL
-    // convention — trade y and z on the way into the buffer — but the matrix in camera.js is
-    // written to take GLASS's own world coordinates (x east, y north, z up) and do the swap itself,
-    // in the same expression `proj` uses. Swapping here fed it y where it wanted wz, which projects
-    // every vertex somewhere off screen: a full buffer, a clean draw call, and an empty frame.
-    count = verts;
-    meshBuild++;
-    // ⚠ THE GROUND PLANE IS FORCED INTO THE BOX. A city of flat plates — a container yard, a run of
-    // sheds — can have every vertex above z = 0, and a shadow projection fitted to that box has its
-    // near plane above the ground the shadows are meant to land on. Reaching down to 0 costs a
-    // fraction of the depth range and removes the case entirely.
-    bounds = verts ? { x0: bx0, x1: bx1, y0: by0, y1: by1, z0: Math.min(0, bz0), z1: bz1 } : null;
+    GB.x0 = gx0; GB.x1 = gx1; GB.y0 = gy0; GB.y1 = gy1; GB.z0 = gz0; GB.z1 = gz1;
+    return o;
+  }
+  const vertsOf = (grp) => { let n = 0; for (const f of grp.faces) n += (f.p.length - 2) * 3; return n; };
+  // The buffer, its layout and the attribute pointers, from `data`.
+  function massLayout(data, usage) {
     gl.bindVertexArray(vao);
     gl.bindBuffer(gl.ARRAY_BUFFER, buf);
-    gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
+    gl.bufferData(gl.ARRAY_BUFFER, data, usage);
     const S = STRIDE * 4;
     gl.enableVertexAttribArray(loc.pos); gl.vertexAttribPointer(loc.pos, 3, gl.FLOAT, false, S, 0);
     gl.enableVertexAttribArray(loc.normal); gl.vertexAttribPointer(loc.normal, 3, gl.FLOAT, false, S, 12);
@@ -1649,8 +1637,174 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     if (loc.mat >= 0) { gl.enableVertexAttribArray(loc.mat); gl.vertexAttribPointer(loc.mat, 1, gl.FLOAT, false, S, 64); }
     if (loc.edge >= 0) { gl.enableVertexAttribArray(loc.edge); gl.vertexAttribPointer(loc.edge, 4, gl.FLOAT, false, S, 68); }
     gl.bindVertexArray(null);
+  }
+  function uploadGroups(groups, rectOf, nb) {
+    kept = null;
+    const NB = nb > 0 ? (nb < 1 ? nb : 1) : 0;
+    let verts = 0;
+    for (const g of groups) verts += vertsOf(g);
+    const data = new Float32Array(verts * STRIDE);
+    let o = 0;
+    let bx0 = Infinity, bx1 = -Infinity, by0 = Infinity, by1 = -Infinity, bz0 = Infinity, bz1 = -Infinity;
+    const rs = [];
+    for (const grp of groups) {
+      const at = o / STRIDE;
+      o = packGroup(data, o, grp, rectOf, NB);
+      if (GB.x0 < bx0) bx0 = GB.x0; if (GB.x1 > bx1) bx1 = GB.x1;
+      if (GB.y0 < by0) by0 = GB.y0; if (GB.y1 > by1) by1 = GB.y1;
+      if (GB.z0 < bz0) bz0 = GB.z0; if (GB.z1 > bz1) bz1 = GB.z1;
+      if (o / STRIDE > at) rs.push({ at, n: o / STRIDE - at, x0: GB.x0, x1: GB.x1, y0: GB.y0, y1: GB.y1, z0: GB.z0, z1: GB.z1, jit: grp.jit || 0 });
+    }
+    ranges = rs;
+    dbgData = globalThis.__massDebug ? data : null;   // massDebug's, only for a harness that asks
+    // ⚠ NO AXIS SWAP, AND THE FIRST CUT HAD ONE. It looked like the obvious hospitality to a GL
+    // convention — trade y and z on the way into the buffer — but the matrix in camera.js is
+    // written to take GLASS's own world coordinates (x east, y north, z up) and do the swap itself,
+    // in the same expression `proj` uses. Swapping here fed it y where it wanted wz, which projects
+    // every vertex somewhere off screen: a full buffer, a clean draw call, and an empty frame.
+    count = verts;
+    meshBuild++;
+    // ⚠ THE GROUND PLANE IS FORCED INTO THE BOX. A city of flat plates — a container yard, a run of
+    // sheds — can have every vertex above z = 0, and a shadow projection fitted to that box has its
+    // near plane above the ground the shadows are meant to land on. Reaching down to 0 costs a
+    // fraction of the depth range and removes the case entirely.
+    bounds = verts ? { x0: bx0, x1: bx1, y0: by0, y1: by1, z0: Math.min(0, bz0), z1: bz1 } : null;
+    massLayout(data, gl.STATIC_DRAW);
     return count;
   }
+
+  // ── THE MASS KEPT TILE BY TILE ACROSS A RECENTRE (RENDER_TUNE.massKeep) ──────────────────────────
+  // uploadGroups packs the whole window into one buffer, in the window's frame, so every recentre the
+  // server sends rewrote all of it: about ten million floats from the cockpit at Halcyon, 60-100 ms
+  // of packing headless (scripts/perf/recentre-exact.mjs) before the upload. Here each group carries a
+  // `key` (its world tile and everything its mesh was built as, from world.js) and positions in a
+  // frame that stays put between full builds (world.js's anchor); the shader adds `massShift` to put
+  // them in the window's frame. A new window keeps the groups it shares with the last one where they
+  // are, writes the ones that came in over the holes the ones that left made (zeroed: a triangle with
+  // three equal corners draws nothing) or on the end, and sends only those ranges. `full`, a group
+  // that doesn't fit the capacity, or holes over FRAG_MAX of the buffer pack it again from scratch.
+  // ⚠ THE DRAW ORDER IS THE SLOT ORDER, not the cell order uploadGroups keeps. The mass is depth
+  // tested, so only coplanar faces and the faded band can tell.
+  let kept = null;
+  const FRAG_MAX = 0.35, KEPT_ROOM = 1.25;
+  function uploadKept(groups, rectOf, nb, full) {
+    const NB = nb > 0 ? (nb < 1 ? nb : 1) : 0;
+    const K = kept;
+    if (full || !K || K.nb !== NB) return keptFresh(groups, rectOf, NB);   // full when the atlas moved (world.js)
+    const seen = new Set();
+    for (const g of groups) seen.add(g.key);
+    const dirty = [];
+    for (const [key, sl] of K.slots) {
+      if (seen.has(key)) continue;
+      K.data.fill(0, sl.at * STRIDE, (sl.at + sl.n) * STRIDE);
+      dirty.push(sl.at, sl.n);
+      K.free.push([sl.at, sl.n]);
+      K.slots.delete(key);
+    }
+    keptMerge(K);
+    const capV = K.data.length / STRIDE;
+    for (const g of groups) {
+      if (K.slots.has(g.key)) continue;
+      const n = vertsOf(g);
+      let at = -1;
+      for (let i = 0; i < K.free.length; i++) {
+        const fb = K.free[i];
+        if (fb[1] < n) continue;
+        at = fb[0];
+        if (fb[1] === n) K.free.splice(i, 1); else { fb[0] += n; fb[1] -= n; }
+        break;
+      }
+      if (at < 0) {
+        if (K.end + n > capV) return keptFresh(groups, rectOf, NB);
+        at = K.end; K.end += n;
+      }
+      packGroup(K.data, at * STRIDE, g, rectOf, NB);
+      K.slots.set(g.key, { at, n, x0: GB.x0, x1: GB.x1, y0: GB.y0, y1: GB.y1, z0: GB.z0, z1: GB.z1, jit: g.jit || 0 });
+      dirty.push(at, n);
+    }
+    keptMerge(K);
+    let holes = 0;
+    for (const fb of K.free) holes += fb[1];
+    if (holes > FRAG_MAX * K.end) return keptFresh(groups, rectOf, NB);
+    if (!dirty.length) return count;
+    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+    for (let i = 0; i < dirty.length; i += 2) {
+      if (dirty[i + 1] > 0) gl.bufferSubData(gl.ARRAY_BUFFER, dirty[i] * STRIDE * 4, K.data, dirty[i] * STRIDE, dirty[i + 1] * STRIDE);
+    }
+    keptFinish(K);
+    return count;
+  }
+  // Free runs sorted and joined, and a run that ends at the end of the buffer given back to it.
+  function keptMerge(K) {
+    K.free.sort((a, b) => a[0] - b[0]);
+    const out = [];
+    for (const fb of K.free) {
+      const last = out[out.length - 1];
+      if (last && last[0] + last[1] === fb[0]) last[1] += fb[1]; else out.push(fb.slice());
+    }
+    while (out.length && out[out.length - 1][0] + out[out.length - 1][1] === K.end) K.end = out.pop()[0];
+    K.free = out;
+  }
+  function keptFresh(groups, rectOf, NB) {
+    let verts = 0;
+    for (const g of groups) verts += vertsOf(g);
+    const data = new Float32Array(Math.ceil(verts * KEPT_ROOM + 1024) * STRIDE);
+    const K = { data, slots: new Map(), free: [], end: 0, nb: NB };
+    let o = 0;
+    for (const g of groups) {
+      const at = o / STRIDE;
+      o = packGroup(data, o, g, rectOf, NB);
+      // A key seen twice in one window is one tile drawn twice; the second keeps its own slot.
+      K.slots.set(K.slots.has(g.key) ? g.key + '#' + at : g.key, { at, n: o / STRIDE - at, x0: GB.x0, x1: GB.x1, y0: GB.y0, y1: GB.y1, z0: GB.z0, z1: GB.z1, jit: g.jit || 0 });
+    }
+    K.end = o / STRIDE;
+    kept = K;
+    massLayout(data, gl.DYNAMIC_DRAW);
+    keptFinish(K);
+    return count;
+  }
+  // ranges, bounds, count and meshBuild from the slots, as uploadGroups leaves them.
+  function keptFinish(K) {
+    const rs = [];
+    let bx0 = Infinity, bx1 = -Infinity, by0 = Infinity, by1 = -Infinity, bz0 = Infinity, bz1 = -Infinity;
+    for (const sl of K.slots.values()) {
+      if (!sl.n) continue;
+      rs.push({ at: sl.at, n: sl.n, x0: sl.x0, x1: sl.x1, y0: sl.y0, y1: sl.y1, z0: sl.z0, z1: sl.z1, jit: sl.jit });
+      if (sl.x0 < bx0) bx0 = sl.x0; if (sl.x1 > bx1) bx1 = sl.x1;
+      if (sl.y0 < by0) by0 = sl.y0; if (sl.y1 > by1) by1 = sl.y1;
+      if (sl.z0 < bz0) bz0 = sl.z0; if (sl.z1 > bz1) bz1 = sl.z1;
+    }
+    rs.sort((a, b) => a.at - b.at);
+    ranges = rs;
+    count = K.end;
+    meshBuild++;
+    bounds = rs.length ? { x0: bx0, x1: bx1, y0: by0, y1: by1, z0: Math.min(0, bz0), z1: bz1 } : null;
+  }
+  // The kept buffer's frame to the window's, set by world.js every frame (0 for uploadGroups).
+  let massShift = [0, 0];
+  function setMassShift(x, y) { if (x !== massShift[0] || y !== massShift[1]) massShift = [x, y]; }
+  // A column-major view-projection that takes the buffer's frame, from one that takes the window's.
+  function shiftVP(m, sh) {
+    const sx = sh[0], sy = sh[1];
+    if (!sx && !sy) return m;
+    const r = Array.from(m);
+    for (let i = 0; i < 4; i++) r[12 + i] = m[12 + i] + sx * m[i] + sy * m[4 + i];
+    return r;
+  }
+  let boundsW = null, boundsWOf = null, boundsWS = null;
+  function boundsInWindow() {
+    if (!bounds || (!massShift[0] && !massShift[1])) return bounds;
+    if (boundsWOf !== bounds || boundsWS !== massShift) {
+      const [sx, sy] = massShift;
+      boundsW = { x0: bounds.x0 + sx, x1: bounds.x1 + sx, y0: bounds.y0 + sy, y1: bounds.y1 + sy, z0: bounds.z0, z1: bounds.z1 };
+      boundsWOf = bounds; boundsWS = massShift;
+    }
+    return boundsW;
+  }
+  // What the buffer holds now, for scripts/perf/recentre-exact.mjs: the live ranges' floats and the shift.
+  let dbgData = null;
+  function massDebug() { const data = kept ? kept.data : dbgData; return data ? { data, ranges, shift: massShift.slice(), count, kept: !!kept } : null; }
+
   // One mesh at the origin, the way the model preview and the bench hand it over.
   function upload(faces) { return uploadGroups([{ faces }], null); }
 
@@ -1674,9 +1828,12 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     }
     if (!shadow) return null;
     const vp = s.lightVP;
-    if (!(sunKept && sunKept.build === meshBuild && sunKept.count === count && vpClose(sunKept.vp, vp))) {
-      timed('shadow', () => shadow.render(vao, count, vp));
-      sunKept = { build: meshBuild, count, vp: Array.from(vp) };
+    // The light's matrix is in the window's frame and the kept mass may not be (massShift), so the
+    // map is drawn through the shifted one and is drawn again when the shift moves.
+    if (!(sunKept && sunKept.build === meshBuild && sunKept.count === count && vpClose(sunKept.vp, vp)
+        && sunKept.sx === massShift[0] && sunKept.sy === massShift[1])) {
+      timed('shadow', () => shadow.render(vao, count, shiftVP(vp, massShift)));
+      sunKept = { build: meshBuild, count, vp: Array.from(vp), sx: massShift[0], sy: massShift[1] };
     }
     return shadow;
   }
@@ -1732,6 +1889,8 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
       const inkWH = wantInk ? [W, H] : null;
       return timed('ssao', () => ssao.pass(vao, count, new Float32Array(vp), { ...cam, H: camH }, aoWH, inkWH,
         { A, B, radius: opts.ssaoRadius > 0 ? opts.ssaoRadius : 0.5, bias: opts.ssaoBias > 0 ? opts.ssaoBias : 0.02,
+          // The mass's depth through the kept buffer's frame (massShift); the tents' stays on `vp`.
+          massVP: massShift[0] || massShift[1] ? new Float32Array(shiftVP(vp, massShift)) : null,
           inkStep: opts.inkStep, inkCrease: opts.inkCrease, inkSteep: opts.inkSteep,
           // The tents take the lines too: their depth goes in with the mass's (gl/cloth.js).
           extraDepth: wantInk && clothInst ? (vp) => clothLayer().drawDepth(vp, cam) : null }));
@@ -1861,6 +2020,7 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     // world.js. Falls back to H so a caller that already works in one unit is unchanged.
     const vpA = viewProjMatrix(cam, opts.cssH || H);
     gl.uniformMatrix4fv(loc.viewProj, false, mat4f(vpA));
+    gl.uniform2f(loc.massShift, massShift[0], massShift[1]);
     const k = opts.keyDir || [-0.7, 0.35, -0.7];
     gl.uniform3f(loc.keyDir, k[0], k[1], k[2]);
     // ⚠ `shadow` IS THE VERTEX-LIGHT BASE COLOUR AND `sunShadow` IS THE SUN. They were both called
@@ -2102,7 +2262,7 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     if (fade) {
       // Depth first, so only the nearest face of a dissolving block blends over the ground. There
       // is no backface cull (above), and without this its back walls show through its front ones.
-      const runs = fadeRuns(vpA, opts.hazeNear, opts.hazeFar);
+      const runs = fadeRuns(shiftVP(vpA, massShift), opts.hazeNear, opts.hazeFar);   // the ranges are in the buffer's frame
       gl.colorMask(false, false, false, false);
       for (let i = 0; i < runs.length; i += 2) gl.drawArrays(gl.TRIANGLES, runs[i], runs[i + 1]);
       gl.colorMask(true, true, true, true);
@@ -2638,12 +2798,13 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
   // Handed the window's cells and the eye in the MESH frame; see gl/skyline.js and the ⚠ on 
   // in world.js. Called before , because the strip is a uniform that draw reads.
   function setSkyline(cells, eye, facesOf) { try { skylineLayer().update(cells, eye, facesOf); } catch { /* no strip is the flat environment, which is the picture that shipped */ } }
-  const api = { murmurGPU: () => mg, gl, setSkyline, upload, uploadGroups, draw, drawFade, beginTarget, hdrLive, composite, hdrPeak, setMatPage, setSurfPage, drawSeabed, drawSeabedPoints, drawSprites, drawCurtain, drawDecals, decalCost, drawStrokes, drawBillboards, billboardTextures, drawGround, groundGrid: () => (grd ? grd.grid : null), wallGrid: () => massGrid, setLightGrid, taaSplit, drawFloor, drawWater, drawCloudDeck, drawCloudVolume, drawMirror, mirrorPeak, uploadSolids, uploadShip, drawSolids, drawActors, uploadInterior, drawInterior, drawInteriorAlone, setAtlas, lost: () => gl.isContextLost(),
+  const api = { murmurGPU: () => mg, gl, setSkyline, upload, uploadGroups, uploadKept, setMassShift, massDebug, draw, drawFade, beginTarget, hdrLive, composite, hdrPeak, setMatPage, setSurfPage, drawSeabed, drawSeabedPoints, drawSprites, drawCurtain, drawDecals, decalCost, drawStrokes, drawBillboards, billboardTextures, drawGround, groundGrid: () => (grd ? grd.grid : null), wallGrid: () => massGrid, setLightGrid, taaSplit, drawFloor, drawWater, drawCloudDeck, drawCloudVolume, drawMirror, mirrorPeak, uploadSolids, uploadShip, drawSolids, drawActors, uploadInterior, drawInterior, drawInteriorAlone, setAtlas, lost: () => gl.isContextLost(),
     maxTexture: gl.getParameter(gl.MAX_TEXTURE_SIZE), get triangles() { return count / 3; },
     // The mesh's own box, for the caller that has to fit a light projection to it — and the shadow
     // map's size, which is 0 when the driver refused it. A zero there next to a sun that is up is
     // the silent failure this whole layer is written around.
-    get bounds() { return bounds; }, get shadowSize() { return shadow ? shadow.size : 0; } };
+    // In the window's frame, which is the one the sun's matrix is fitted in (massShift).
+    get bounds() { return boundsInWindow(); }, get shadowSize() { return shadow ? shadow.size : 0; } };
   // Fixed arity rather than rest args, so an untimed frame allocates nothing here (no method takes more than six).
   for (const [k, name] of TIMED_PASSES) {
     const f = api[k];

@@ -1,7 +1,7 @@
 // movecost: what a MOVING camera re-sends and re-runs, frame by frame.
 //
 //   node scripts/perf/movecost.mjs [place] [seat] [--resend N] [--recentre] [--intern] [--frames N]
-//     [--turn deg] [--speed tiles] [--prof] [--why] [--rows] [--tune k=v,...]
+//     [--turn deg] [--speed tiles] [--prof] [--why] [--rows] [--tune k=v,...] [--gl]
 //
 // Every other perf tool turns the heading over a fixed tile, which never moves `mapOffset`. A real
 // flight or drive moves it every frame, and the server sends a fresh map window (fresh cell objects)
@@ -11,6 +11,11 @@
 // wire does. `--recentre` also moves the window's centre to the craft's tile at each resend, as the
 // server does, and `--intern` takes each resend through panels/map-intern.js as the client does.
 // Prints per-frame floats written, decal draws, kept-arm counters and, with `--prof`, phase times.
+//
+// `--gl` runs the real GL world pass (gl/install.js, world.js, context.js) under the fake WebGL2
+// instead of a stub hook, so `world:gl` and the floats written include the mass buffer: the cost a
+// recentre pays there (RENDER_TUNE.massKeep) is invisible without it. The sprite, stroke and decal
+// counts are then the pass's own, not a separate view's.
 import { openScene, PLACES } from './scene.mjs';
 import { internMap } from '../../client/game/js/panels/map-intern.js';
 const { createGLView } = await import(new URL('../../client/game/js/panels/gl/context.js', import.meta.url).href);
@@ -41,7 +46,35 @@ const clock = globalThis.performance;   // the real one: openScene freezes it
 const scene = await openScene({ record: false });
 if (args.includes('--why')) scene.ws.armKeepWhy.on = true;
 let hook = null;
-scene.ws.installGLWorld((cells, cam, o) => { hook = { cam, o }; return { canvas: { width: 640, height: 360 }, faces: 0 }; });
+const GLW = args.includes('--gl');
+let glWritten = 0;
+if (GLW) {
+  // The pass makes its own canvases through document.createElement, so they get the fake context too.
+  const fns = {
+    createBuffer: () => ({}), createVertexArray: () => ({}), createTexture: () => ({}), createFramebuffer: () => ({}), createRenderbuffer: () => ({}),
+    createShader: () => ({}), createProgram: () => ({}),
+    bufferData: (t, size) => { if (typeof size !== 'number' && size && size.length) glWritten += size.length; },
+    bufferSubData: (t, off, data, src = 0, len) => { glWritten += len ?? (data.length - src); },
+    getProgramParameter: () => true, getShaderParameter: () => true, getExtension: () => null, isContextLost: () => false,
+    getUniformLocation: () => ({}), getAttribLocation: () => 1, checkFramebufferStatus: () => 0x8CD5,
+    getParameter: (q) => (q === 'MAX_TEXTURE_SIZE' ? 8192 : 16), getContextAttributes: () => ({ antialias: true }),
+    getShaderInfoLog: () => '', getProgramInfoLog: () => '', getSupportedExtensions: () => [],
+    getShaderPrecisionFormat: () => ({ precision: 23, rangeMin: 127, rangeMax: 127 }),
+    fenceSync: () => ({}), clientWaitSync: () => 0x911A, getSyncParameter: () => 0x9119,
+  };
+  const host = { id: 'movecost', width: 640, height: 360, clientWidth: 640, clientHeight: 360, style: {}, addEventListener() {}, removeEventListener() {},
+    getBoundingClientRect: () => ({ width: 640, height: 360, left: 0, top: 0 }) };
+  const gl = new Proxy({}, { get: (o, k) => (k in fns ? fns[k] : k === 'canvas' ? host : typeof k === 'string' && /^[A-Z_0-9]+$/.test(k) ? k : () => ({})) });
+  host.getContext = (t) => (t === 'webgl2' ? gl : null);
+  const ce = document.createElement.bind(document);
+  document.createElement = (t, ...a) => {
+    const el = ce(t, ...a);
+    if (String(t).toLowerCase() === 'canvas') { const g0 = el.getContext; el.getContext = (type, ...b) => (type === 'webgl2' ? gl : g0.call(el, type, ...b)); }
+    return el;
+  };
+  const { installGL } = await import(new URL('../../client/game/js/panels/gl/install.js', import.meta.url).href);
+  installGL(() => host);
+} else scene.ws.installGLWorld((cells, cam, o) => { hook = { cam, o }; return { canvas: { width: 640, height: 360 }, faces: 0 }; });
 for (const kv of (opt('--tune', '') || '').split(',').filter(Boolean)) { const [k, v] = kv.split('='); scene.ws.RENDER_TUNE[k] = Number(v); }
 const G = fakeView();
 const v0 = scene.view(place, seat, { hour: Number(opt('--hour', 13)), heading: 0 });
@@ -53,7 +86,7 @@ const t0 = clock.now();
 let tNow = t0;
 // --prof runs the real clock (the profiler times with it), so the scene clock runs as fast as the
 // frames do, as in the game; without it the clock steps 16 ms a frame and runs can be compared exactly.
-const PROF = args.includes('--prof');
+const PROF = args.includes('--prof'), ROWS = args.includes('--rows');
 if (PROF) { globalThis.performance = clock; scene.ws.setWindshieldProfiler(true); }
 else globalThis.performance = { ...clock, now: () => tNow };
 const PHASES = ['world:build', 'world:sweep', 'world:occlude', 'world:shadow', 'world:arms', 'world:street', 'world:fauna', 'world:gl', 'surfaces', 'ground'];
@@ -77,15 +110,22 @@ for (let i = 0; i < FRAMES; i++) {
   const s0 = snap(), w0 = clock.now();
   scene.ws.paintWindshield('__perf', { ...v0, map, mapCenter: { x: X0, y: Y0 - k }, heading: i * TURN, mapOffset: { x: 0.3, y } });
   const paintMs = clock.now() - w0;
-  const { cam, o } = hook;
-  G.take();
-  const u0 = clock.now();
-  G.view.drawSprites(cam, o.sprites, 360, 1);
-  G.view.drawStrokes(cam, o.strokes, 360);
-  G.view.drawDecals(cam, o.decals, 360, 0, null, null);
-  const glMs = clock.now() - u0;
-  const g = G.take(), s1 = snap();
-  const ph = {}; if (PROF) { const t = scene.ws.perfSnapshot().t; for (const k of PHASES) ph[k] = t[k] || 0; }
+  let glMs = 0, g, o;
+  if (GLW) {
+    g = { written: glWritten, draws: 0, binds: 0 }; glWritten = 0;
+    o = { sprites: [], strokes: [], decals: [] };
+  } else {
+    const { cam } = hook; o = hook.o;
+    G.take();
+    const u0 = clock.now();
+    G.view.drawSprites(cam, o.sprites, 360, 1);
+    G.view.drawStrokes(cam, o.strokes, 360);
+    G.view.drawDecals(cam, o.decals, 360, 0, null, null);
+    glMs = clock.now() - u0;
+    g = G.take();
+  }
+  const s1 = snap();
+  const ph = {}; if (PROF) { const t = scene.ws.perfSnapshot().t; for (const k of PHASES) ph[k] = t[k] || 0; if (ROWS) for (const k in t) if (!(k in ph)) ph[k] = t[k]; }
   const d = {}; for (const k in s1) d[k] = s1[k] - s0[k];
   rows.push({ i, paintMs, glMs, ...g, ...d, ...ph, nSp: o.sprites.length, nSt: o.strokes.length, nDe: o.decals.length, grp: (o.sprites.groups || []).length + (o.decals.groups || []).length + (o.strokes.groups || []).length });
 }

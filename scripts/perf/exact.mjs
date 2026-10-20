@@ -3,6 +3,7 @@
 //   node scripts/perf/exact.mjs flatSkip            # off = 0, on = 1
 //   node scripts/perf/exact.mjs groundCache 0 1
 //   node scripts/perf/exact.mjs decoFast 0 1 --quick   # 12 views instead of 60
+//   node scripts/perf/exact.mjs campWorld --layers     # only the fields the GL layers read
 //
 // For a performance change that is meant to draw exactly what it replaces. Paints the same views with
 // the switch off and on and compares every sink the frame hands the GPU (sprites, strokes, decals,
@@ -14,6 +15,12 @@
 // change paints twice (every call doubled, clearRect included), and a record-and-replay cache needs
 // two recordings before it replays. A comparison of first frames measures neither.
 //
+// `--layers` leaves out a record's CPU fallbacks that no layer reads once the GPU does the job: a
+// decal's pulled `p` and a stroke's pulled `a`/`b` when it carries its pull (`pl`) and raw corners,
+// and a sprite's radius `r` when it carries a size spec (`sz`). A kept set (armKeep, campKeep) holds
+// them from the frame it was recorded at, so a switch that changes which recording a view replays
+// differs there and nowhere the picture can see.
+//
 // Not a gate: it takes a switch to test. It exits 1 if anything differs, and prints the first few.
 import { openScene, PLACES } from './scene.mjs';
 
@@ -23,6 +30,8 @@ const parse = (v, d) => (v == null ? d : v === 'true' ? true : v === 'false' ? f
 const offV = parse(args[1], 0), onV = parse(args[2], 1);
 if (!key) { console.error('usage: node scripts/perf/exact.mjs <tuneKey> [off=0] [on=1] [--quick]'); process.exit(2); }
 const quick = process.argv.includes('--quick');
+const layers = process.argv.includes('--layers');
+const unread = (o, k) => layers && ((o.sz && o.sz[0] > 0 && k === 'r') || (o.pl > 0 && ((o.rp && k === 'p') || (o.ra && (k === 'a' || k === 'b')))));
 
 const near = (a, b) => {
   if (a === b) return true;
@@ -32,7 +41,7 @@ const near = (a, b) => {
     if (!b || typeof b !== 'object') return false;
     if (a.getContext || b.getContext) return !!(a.getContext && b.getContext);   // a texture canvas: same kind is enough
     // Fields starting with _ are a record's own cache bookkeeping (a frame id, a solved copy), never drawn.
-    const ka = Object.keys(a).filter((k) => a[k] !== undefined && k[0] !== '_'), kb = Object.keys(b).filter((k) => b[k] !== undefined && k[0] !== '_');
+    const ka = Object.keys(a).filter((k) => a[k] !== undefined && k[0] !== '_' && !unread(a, k)), kb = Object.keys(b).filter((k) => b[k] !== undefined && k[0] !== '_' && !unread(b, k));
     return ka.length === kb.length && ka.every((k) => near(a[k], b[k]));
   }
   return false;

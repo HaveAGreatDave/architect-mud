@@ -1,7 +1,83 @@
 # GLASS frame headroom
 
-**Status: Stage 1 started (the bench fixed, per-frame GL state queries removed); the 2026-10-01 record caches built (below); Stage 1b built; Stage 3 phases 1-5 built, phase 6 started, kept-arm follow-ups built (2026-10-06 and 07, below); kept arms made to work for a moving camera (2026-10-19, below); Stage 2 superseded by Stage 3.** The vertex-animated layers it follows from are built (actors,
+**Status: Stage 1 started (the bench fixed, per-frame GL state queries removed); the 2026-10-01 record caches built (below); Stage 1b built; Stage 3 phases 1-5 built, phase 6 started, kept-arm follow-ups built (2026-10-06 and 07, below); kept arms made to work for a moving camera (2026-10-19, below); flat decal fills batched (2026-10-19, below); the caches keyed on the map window made to survive a recentre (2026-10-19, below); Stage 2 superseded by Stage 3.** The vertex-animated layers it follows from are built (actors,
 birds, cloth; see [glass-notes.md](../reference/glass-notes.md#vertex-animated-layers-actors-birds-cloth)).
+
+## Built 2026-10-19: what a recentre still paid
+
+The section below left a recentring flight with a worst frame of about 106 ms against a p99 of 42 ms
+when the centre holds still. Per phase (`perf:move --rows` prints every profiler phase now), the push
+frame was the floor's material LUT (25 to 48 ms), the camps inside `world:arms` (11 to 30), the road
+tiles (5 to 15), the flock search (5) and the floor's byte planes (2 to 10). The occluder cache barely
+moved. And `perf:move` stubs the GL pass, so it never saw the biggest one: run for real under the fake
+WebGL2 (`--gl`, new), a recentre spent 73 to 166 ms in `world:gl` rebuilding the whole mass buffer, about
+ten million floats, against 10 ms on other frames.
+
+Each fix has its own `RENDER_TUNE` switch, 0 being the old path:
+
+- **`lutShift`**: a new window takes each floor LUT entry from the old one at the same world tile,
+  unless a cell within its reach is a different object or has come into or gone out of the window
+  (`windowChanges`, `lutKeep` in windshield.js). The reach is one tile for a road or water entry and
+  `FOOT_REACH` (9) for bare ground, which the footfall pass reads that far. `footfallFill` takes a mask
+  of the tiles to write and runs its earlier passes only as far out as those read. A one-tile recentre
+  keeps about 3,950 of 5,329 entries.
+- **`footFast`**: footfall's first pass reads each tile's pull and Curtain flag into typed arrays once,
+  instead of through `at` for 24 neighbours of every tile, summing in the same order. A full pass went
+  from about 12 ms to 5 warm.
+- **`campWorld`**: a kept camp was keyed on its place in the window, so every recentre recorded every
+  camp in view again. It's keyed and shifted in world tiles now, as `armWorld` does for buildings.
+- **`groundWorld`**: a road tile's cache entry carries the window it's valid in and the centre its
+  records were made about. Once per new window `gtWindow` checks each entry's neighbourhood
+  (`BLOCK_MAX` + 2) against the old window, and a replay moves the records by the change in centre
+  (`gtShift`). ⚠ It also fixes a bug: with interning, a resend with the same centre kept a road tile
+  whose neighbour had changed, so its kerbs were stale until the next recentre. With `groundWorld` on,
+  the cache matches no cache at all under churn.
+- **`flockShift`**: the flock search takes the last window's habitat answer for a tile whose 3x3 didn't
+  change. `lastFlockAnchors()` is its test seam.
+- **`massKeep`**: the mass buffer is kept tile by tile (`uploadKept` in gl/context.js). Each group
+  carries a key, its world tile and everything its mesh was built as, and positions in world tiles
+  less an anchor that holds between full builds (gl/world.js). The mass shader adds `uMassShift` (the
+  anchor less the window's centre), and the shift is folded into the sun's, the SSAO depth's and the
+  fade pass's matrices. A new window keeps the groups it shares with the last, writes the new ones over
+  the holes the departed ones left (zeroed, so they draw nothing) or on the end, and sends only those
+  ranges. An atlas repack, a full buffer, holes past 35% or a window 48 tiles from the anchor packs it
+  whole. ⚠ The draw order is now the slot order, which only coplanar faces and the faded band can see.
+
+**Numbers**, headless, Halcyon cockpit, `npm run perf:move -- halcyon cockpit --frames 240 --prof
+--turn 0.2 --resend 60 --recentre --intern`, all six off then on:
+
+| | push frames (ms) | worst | p99 | `world:gl` at a push | floats written at a push |
+|---|---|---|---|---|---|
+| stub GL, off | 72-119 | 110-119 | 48-55 | | 0.4-0.6M |
+| stub GL, on | 36-72 | 72 | 45-54 | | 0.4-0.6M |
+| stub GL, same centre | 18-27 | 50-53 | 37-44 | | 0.25M |
+| `--gl`, off | 144-179 | 179 | 84.8 | 73-88 | 10.4-12.1M |
+| `--gl`, on | 53-85 | 85 | 53.1 | 12-17 | 1.8-3.4M |
+| `--gl`, same centre | 27-36 | 60 | 43.7 | 9-10 | 1.0M |
+
+In the browser (the Modelshop page, real WebGL2, the same flight), a push frame went from 116-181 ms
+to 42-62 ms, and the picture with `massKeep` on differed from the old path by 540 to 1,540 pixels of
+230,400, inside the 600 to 1,300 by which two runs of the old path differ from each other.
+
+**Proved** by `npm run perf:exact` for each switch (60 still views; `campWorld` with `--layers`, see
+below), `npm run perf:armkeep` (its recentring flight included) and `node scripts/gates/run.mjs shapes`
+(140 of 140). A still view never recentres, so there's a new check for the moving case:
+`node scripts/perf/recentre-exact.mjs <key> [off] [on]` flies the `perf:move` route in two processes,
+one per value, and compares every frame: each list the GL hook is handed, the floor's LUT and byte
+planes, the GL cells, the flock anchors and the canvas log. `--churn K` also changes K cells near the
+craft at each resend, because a recentre alone only moves cells at the window's edges and never asks a
+cache whether a neighbour changed. All five CPU switches pass, at Halcyon in the cockpit and Marrow in
+the cab, with and without churn, and a mutant of each one's reach or shift is caught. The mass buffer
+was checked tile by tile instead (per-attribute sums, matched by tile): equal to float32 rounding.
+`perf:exact --layers` leaves out the CPU fallbacks no layer reads once the GPU does the job (a pulled
+decal's `p`, a pulled stroke's `a`/`b`, a sized sprite's `r`). A kept camp holds those from the frame
+it was recorded at, so `campWorld` changes which recording a still view replays, and differs there and
+nowhere the picture can see.
+
+**What a push still pays**, about 30 to 50 ms over a still centre: the LUT's rebuilt edge bands (7 to
+26 ms; the first recentre of a run is cold), the floor's byte planes (2 to 9, rebuilt whole because
+the shelter march and the seabed distance field read the whole window), kept bays shifted and re-sent
+(2 to 6), perch plans (1) and the shadow map drawn again because its matrix moved with the bounds.
 
 ## Built 2026-10-19: a moving camera
 
@@ -58,14 +134,10 @@ faces and the mips. It rounds them to whole 8-bit steps, as it already did for t
 
 ### Still to do, in order of what was measured
 
-1. **The caches still keyed on the window.** The ground tile cache (`gcFK` holds the window centre),
-   `OCC_GEOM` and `GROUND_TILE` keyed on the cell but in the window's frame, `GL_CELL_CACHE` and
-   `windowKeyOf` on the array. These are the 106 ms recentre frame. The mass buffer is rebuilt whole
-   on every recentre (about 15 MB from the air); a recentre by one tile should only add and drop an
-   edge.
-2. **Decal draw calls.** One draw, one texture bind and one uniform per texture, and every flat fill
-   gets its own 8x8 texture: about 500 to 850 layer draws a cockpit frame here, repeated by the
-   mirror pass. Colour as a vertex attribute and `cull`/`solid` as attributes would make it a handful.
+1. **The caches still keyed on the window.** Built, see the section above. What a push still pays is
+   listed at its end: the floor's byte planes, the LUT's edge bands and the kept bays.
+2. **Decal draw calls.** Built, see the next section: 765 decal draws a cockpit frame to 168. What's
+   left is artwork with a texture each.
 3. **The ground is re-packed every frame**, about 12,000 quads. The kerb width and far fade depend on
    the camera; in the shader, cached tiles could sit in an arena.
 4. **The sweep's lateral cull covers buildings only.** Scatter, wires, steam and parks off the side of
@@ -76,6 +148,105 @@ faces and the mips. It rounds them to whole 8-bit steps, as it already did for t
 6. **Smaller:** the cloud composite runs bloom a second time (GPU, and dropping it changes bright
    cloud edges); up to four GL-to-2-D canvas copies a frame; other vehicles transformed on the CPU;
    the adaptive dials read the frame interval and can't tell CPU from GPU.
+
+## Built 2026-10-19: decal draw calls
+
+Every flat fill was its own texture. `emitDecoFill` baked an 8x8 `solidTex` per colour and a 4x32
+`rampTex` per gradient, and the decal layer drew one batch per texture, each with a bind and a `uCull`
+uniform, then the same again in the depth prepass for solid boards. A Halcyon cockpit frame in
+`perf:move` drew 765 of them. All but about 130 of its 1,235 decal records were flat fills: building
+trim through `emitDecoFill`, and camp cloth past arm's length (`clothFlat`, a one-colour page).
+
+`RENDER_TUNE.glDecalTint` (1; 0 is the old path) puts the colour on the vertex. `cssTint` turns the
+fill's CSS into the premultiplied RGBA8 its page would have held, packed into one float slot that the
+shader reads as four normalized bytes (gl/stream.js now takes an attribute type). A ramp carries its
+two stops on its top and bottom corners. Every tinted record draws off one white texel in one batch,
+in the order it arrived and before the artwork. `cull` is a vertex attribute (`aCull`), and the depth
+prepass draws a batch's solid quads as sub-ranges of it. A retained group's tinted records are one
+part, and every kept tint span goes in one `WEBGL_multi_draw` call per pass (a loop of the same
+draws without the extension). Records with real artwork (lettering, flags, near cloth pages) keep the
+old grouping by texture, cull and solid.
+
+Headless, `npm run perf:move -- halcyon cockpit --prof --turn 0.2`, the decal layer alone, three runs
+each:
+
+| | before | after |
+|---|---|---|
+| draws a frame | 765 | 168 (206 without multi-draw) |
+| texture binds | 765 | 168 |
+| `uniform1f` calls | 648 | 8 |
+| floats written | 81k | 95k |
+| layer CPU, median | 2.1 to 2.6 ms | 1.4 to 1.6 ms |
+
+In the Modelshop (Chrome, which has the extension), counting every GL draw in the frame at Halcyon:
+the cab view went from 397 to 311 and the air view from 797 to 458, with binds falling by the same.
+`world:gl` didn't move beyond its noise: medians of five alternating runs were 7.97 and 7.42 ms from
+the cab, 11.58 and 12.07 ms from the air. The mirror pass uploads the same records without groups, so
+on a wet frame its fills are one draw as well (not measured on its own).
+
+The picture: `__glRefShots` with the switch at 0 against a set saved at 1 in the same session
+(Halcyon and Marrow Street, cab and air, noon, dusk, night and storm) moved at most 1.19% of pixels,
+against a floor of 1.27% for 0 against 0. Two differences are expected and small: a ramp is
+interpolated per vertex rather than read from 32 nearest-filtered texels, and fills blend in arrival
+order rather than grouped by colour. `perf:retain` (at 0 and at 1), `perf:armkeep` and
+`run.mjs shapes` pass.
+
+What was left was artwork with a texture each, about 80 textures a frame here and twice that for the
+ones in the prepass. See the next section.
+
+## Built 2026-10-19: decal artwork on shared pages
+
+The 80 were real artwork: sign lettering pages (`st:*`, `gt:*`, the named boards), blade faces, arc
+flags, the lock banners, helideck and pylon art, near cloth pages. A census of one frame found 97
+distinct keys, 3.5 M texels in all, the widest the 1536x112 lock banner and the tallest a 128x512
+blade face.
+
+`RENDER_TUNE.glDecalAtlas` (1; 0 is the old path) copies artwork that fits (at most a quarter of the
+page tall) onto a shared page, 4096x2048 where `MAX_TEXTURE_SIZE` allows and 2048 square otherwise,
+up to two pages. Each vertex carries its artwork's cell in texels (four uint16s, `aCell`; stride 14 to
+16 floats), and `vUV` is still 0..1 across the artwork. Every tap goes through `cellUV`, which clamps
+half a texel inside the cell: that's what `CLAMP_TO_EDGE` did on a texture of its own, so the neon
+shader's neighbour taps, its stand-off shadow and the edge fade never read the next sign. The tube
+maths takes the cell's size (`vCell.zw`), not `textureSize`, which is now the page's. A page is LINEAR
+both ways, so artwork that isn't `smooth` carries a flag bit and the shader snaps its tap to the
+texel centre when one texel covers more than a pixel, where GL would have used the NEAREST magnify
+filter. A texture of its own is the cell (0, 0, w, h), so the 0 path draws what it did.
+
+Draw order doesn't change: records still group by artwork in arrival order, and neighbouring groups
+on one texture become one `range` (one `WEBGL_multi_draw` call, or a loop without it). That's why a
+page is 4096 wide: at 2048 square this set needed two pages, the groups alternated between them, and
+the frame still took 68 binds. Packing is shelves, tallest first then by key, so two layers given the
+same artwork pack it the same way (`perf:retain` compares them byte for byte). When the pages are
+full, a page nothing has drawn for 8 uploads is emptied whole, else a second page is made, else the
+artwork gets a texture of its own (`spill`) and goes back onto a page the next time one is emptied.
+A retained part remembers its cell; if the cell moved, the part gets a new arena id and is written
+again. `prepare` does all of this before a vertex is written. The decal layer's `batches` counter is
+now the last draw's texture binds, and it reports `own` and `pages` beside `textures`.
+
+A blade's dark sides (`'blade|solid|' + dark` through `emitDecoQuad`) now carry their colour on the
+vertex and join the tint batch, as `glDecalTint` intended.
+
+Headless, `perf:move -- halcyon cockpit --prof --turn 0.2`, the decal layer alone (a copy of the
+script that counts only `drawDecals`), three runs each:
+
+| | before (tint only) | blade tinted, atlas 0 | atlas 1 |
+|---|---|---|---|
+| draws a frame, with multi-draw | 168 | 164 | 12 |
+| draws a frame, without | 206 | 206 | 90 |
+| texture binds | 168 | 164 | 12 |
+| floats written | 95k | 108k | 108k |
+| `drawDecals` CPU, median | | 1.48 to 1.53 ms | 1.28 to 1.44 ms |
+
+The fake context's calls cost nothing, so the CPU column says only that packing and the cell lookup
+are cheap; the saving is driver work per call, which this can't time. The floats rose with the stride.
+
+The picture: in the Modelshop, `__glRefShots` with the switch at 1 against a set saved at 0 in the
+same session (16 shots) moved at most 1.43% of pixels (Marrow air noon); two runs of 0 against 0 put
+that shot at 0.83% and 1.85%, and every other shot was within 0.15 of its floor. `perf:retain`,
+`perf:armkeep` and `run.mjs shapes` (140 gates) pass.
+
+Not measured: the Modelshop's own frame counts and `world:gl` with the switch on and off. The pane
+was hidden for this run, so its timings mean nothing.
 
 ## Built 2026-10-07: what kept arms still missed, camps, posed instruments
 

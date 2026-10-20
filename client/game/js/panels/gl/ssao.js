@@ -480,7 +480,9 @@ export function createSSAOLayer(gl, posLoc) {
     gl.disable(gl.CULL_FACE);
     gl.clear(gl.DEPTH_BUFFER_BIT);
     gl.useProgram(depthProg);
-    gl.uniformMatrix4fv(uDepthVP, false, viewProj);
+    // `massVP` is the mass's own matrix when its buffer is kept in another frame (context.js
+    // uploadKept); the extra depth below takes the camera's.
+    gl.uniformMatrix4fv(uDepthVP, false, opts.massVP || viewProj);
     gl.bindVertexArray(vao);
     gl.drawArrays(gl.TRIANGLES, 0, count);
     gl.bindVertexArray(null);

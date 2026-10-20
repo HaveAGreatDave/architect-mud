@@ -19,8 +19,50 @@ import { createArena } from './retain.js';
 import { declareProgram, layerProgram } from './programs.js';
 import { linearOut, applyLinOut } from './colour.js';
 
-// pos3, uv2, alpha1, emit1, seed1
-const STRIDE = 12;
+// pos3, uv2, alpha1, emit1, seed1, cen3, pull1, tint (4 bytes in one slot), flags1 (cull, nearest),
+// cell (4 uint16 in two slots)
+const STRIDE = 16;
+// ── ⚠ ARTWORK SHARES PAGES (RENDER_TUNE.glDecalAtlas) ────────────────────────────────────────────
+//
+// What the tint batch left was about 80 textures a frame, each its own draw and bind (twice for the
+// boards in the depth prepass), because each sign, flag and banner is its own baked canvas. With the
+// switch on, artwork that fits is copied onto a shared page and drawn off it, so records on the
+// same page share draws exactly as the fills do. Draw order doesn't change: records are still grouped
+// by artwork in the order they arrived, and neighbouring groups on one page just stop being separate
+// calls.
+//
+// ⚠ EVERY TAP STAYS IN ITS CELL. `vUV` is still 0..1 across the record's own artwork and `aCell` says
+// where that artwork sits in its texture (texels: x, y, w, h). `cellUV` clamps half a texel inside the
+// cell, which is what CLAMP_TO_EDGE did on a texture of its own, so a tap past the edge (the neon
+// shader's neighbours, the shadow offset) reads the edge texel and never the next sign's lettering.
+// A texture of its own is the cell (0, 0, w, h), and the tint group's white texel is (0, 0, 1, 1).
+// ⚠ AND THE NEON MATHS IS IN CELL TEXELS. `textureSize` is the page's; the tube's taps, its footprint
+// and its sections are sized off `vCell.zw`, which is what `textureSize` was when each sign had one.
+// ⚠ A PAGE HAS ONE FILTER, AND ARTWORK WANTS TWO. A page is LINEAR both ways (no mips, as before:
+// see coreAt). Artwork that isn't `smooth` was NEAREST on magnify, so its records carry flag bit 2 and
+// the shader snaps the tap to its texel's centre when one texel covers more than a pixel, which is
+// where GL would have switched to the magnify filter.
+// ⚠ A RETAINED PART HOLDS ITS CELL. Its vertices are written once, so a cell that moves (its page was
+// reset) gives the part a new arena id and it's written again; see `prepare` and `upload`.
+// ⚠ ONE PAGE SHOULD HOLD THE FRAME. Records keep their order, so artwork split across two pages
+// alternates between them and every switch is a draw: at 2048 square the Halcyon cockpit's set
+// (3.5 M texels) needed two and drew 68 binds where one page draws a handful. So a page is 4096 wide
+// where the device allows it (nearly all do; WebGL2 promises 2048) and 2048 tall: 32 MB.
+const PAGE_H = 2048;
+const PAGES = 2;
+const PAD = 1;              // texels between cells, zero when the page is fresh
+// ── ⚠ A FLAT FILL IS A COLOUR, NOT A TEXTURE (RENDER_TUNE.glDecalTint) ───────────────────────────
+//
+// A record carrying `tint` has no artwork but one colour (or two, a ramp's: `tint` on its top edge and
+// `tint2` on its bottom), packed as the premultiplied RGBA8 its 8x8 page would have held. Every such
+// record is drawn off one shared white texel in one group, in the order it arrived, where a texture
+// apiece had been one draw, one bind and one cull uniform apiece: about 765 of each in a Halcyon
+// cockpit frame, most of them flat fills. `cull` rides on the vertex (`aCull`) for the same reason,
+// and the depth prepass draws the group's solid quads as sub-ranges of it, all in one call.
+// A record without `tint` takes the textured path exactly as before, grouped by texture, cull and
+// solid, so with the switch at 0 no record has one and nothing here changes what is drawn.
+const TINT_KEY = 'decal|tint';   // the tint group's key, which no producer's artwork key can be
+const WHITE = 0xffffffff;
 // What alpha counts as the BOARD rather than as its edge, in the depth-only prepass. A `solid` decal
 // is one flat fill, so its interior is 1 and only the rim is between — but `vAlpha` carries the
 // world's own distance fade, and a board fading out at the edge of the window must stop writing
@@ -85,15 +127,28 @@ in float aSeed;
 // affine, so the centroid's depth is the corners' mean). aPull 0 means aPos arrives already pulled.
 in vec3 aCen;
 in float aPull;
+// The fill's colour, premultiplied (white for artwork); whether the quad has a front (1) and whether
+// its artwork is nearest-filtered on magnify (2); and its cell in the texture, in texels.
+in vec4 aTint;
+in float aCull;
+in vec4 aCell;
 uniform vec3 uEye;
 uniform mat4 uViewProj;
 out vec2 vUV;
 out float vAlpha;
 out float vEmit;
 out vec3 vWorld;
+out vec4 vTint;
 flat out float vSeed;
+flat out float vCull;
+flat out float vNear;
+flat out vec4 vCell;
 void main() {
   vSeed = aSeed;
+  vTint = aTint;
+  vCull = mod(aCull, 2.0);
+  vNear = step(1.5, aCull);
+  vCell = aCell;
   vec3 P = aPos;
   if (aPull > 0.0) {
     float fm = (uViewProj * vec4(aCen, 1.0)).w;
@@ -113,8 +168,14 @@ in vec2 vUV;
 in float vAlpha;
 in float vEmit;
 in vec3 vWorld;
+in vec4 vTint;
 flat in float vSeed;
+flat in float vCull;
+flat in float vNear;
+flat in vec4 vCell;
 uniform sampler2D uTex;
+// One over the bound texture's size, set at the top of main.
+vec2 gInv;
 // Lit cloth (vEmit < 0) — see LIT_MAX and the ⚠ in main.
 uniform int uLitN;
 uniform float uLitGain;
@@ -124,7 +185,6 @@ uniform float uLitR[LIT_MAX];
 uniform float uTube;
 uniform float uFlick;
 uniform float uTime;
-uniform float uCull;
 uniform float uFlip;
 uniform float uEmitGain;
 uniform float uCut;
@@ -143,6 +203,9 @@ out vec4 outColor;
 // thin specular line along the top of the bend. That line is what makes it read as a tube rather
 // than a stroke.
 float nh(float x) { return fract(sin(x * 127.1) * 43758.5453); }
+// A point on the record's own artwork (0..1 across it) to the texture, held half a texel inside its
+// cell. See the ⚠ on glDecalAtlas at the top.
+vec2 cellUV(vec2 uv) { return (vCell.xy + clamp(uv * vCell.zw, vec2(0.5), vCell.zw - 0.5)) * gInv; }
 float coreAt(vec2 uv) {
   // ⚠ COVERAGE, NOT WHITENESS. The bake's three passes describe a white core, and by the time the
   // canvas is uploaded it is not white: measured over the 39 lit signs in one Coldwater frame, the
@@ -152,7 +215,7 @@ float coreAt(vec2 uv) {
   // ⚠ AND LEVEL 0, NEVER THE MIP CHAIN. At street distance a sign is minified several levels and
   // each level above 0 averages the stroke into its halo, so the edge the gradient needs is gone.
   // How far level 0 then aliases is what the fade in main is for.
-  return smoothstep(0.70, 0.98, textureLod(uTex, uv, 0.0).a);
+  return smoothstep(0.70, 0.98, textureLod(uTex, cellUV(uv), 0.0).a);
 }
 // ⚠ FLICKER IS PER SIGN AND PER SECTION, AND IT IS SLOW ON PURPOSE. A failing tube stutters: gas
 // leaking or a worn electrode drops a section out for a moment and it strikes again. About a fifth
@@ -184,6 +247,10 @@ float neonFlicker(float seed, float seg, float t) {
   return mix(1.0, f, uFlick);
 }
 void main() {
+  gInv = 1.0 / vec2(textureSize(uTex, 0));
+  // The tap in cell texels, and its footprint, taken before anything can discard.
+  vec2 tc = vUV * vCell.zw;
+  float rho = max(length(dFdx(tc)), length(dFdy(tc)));
   // ⚠ A SIGN HAS A FRONT. Lettering is PAINT ON A SURFACE, and paint does not read from behind the
   // thing it is painted on — but a textured quad drawn two-sided does, mirrored, and it glows
   // through its own board like printing on glass. Voltage's roof sign read "ƎƆATJOV" from the back
@@ -198,15 +265,21 @@ void main() {
   // decided; it is stated here rather than inferred, because inverting it hides every sign in the
   // city and shows only the ones you are behind.
   //
+  // 'vCull' is per vertex (aCull), so quads that disagree about it share a draw.
   // ⚠ AND A MIRROR REVERSES THAT POLARITY, WHICH IS WHY IT IS A UNIFORM AND NOT A LITERAL. The
   // puddle pass renders the world reflected about the water's plane; the reflection matrix has
   // determinant −1, so every quad's winding flips and the test above selects the exact complement —
   // the reflection would hold only the signs facing AWAY from you, mirrored, which is the
   // "ƎƆATJOV" bug a second time and in a surface where nobody would think to read it.
-  if (uCull > 0.5 && gl_FrontFacing != (uFlip > 0.5)) discard;
+  if (vCull > 0.5 && gl_FrontFacing != (uFlip > 0.5)) discard;
   // The texture is uploaded PREMULTIPLIED, so scaling by alpha is one multiply and the blend is
-  // the canvas's own (ONE, ONE_MINUS_SRC_ALPHA).
-  vec4 t = texture(uTex, vUV) * vAlpha;
+  // the canvas's own (ONE, ONE_MINUS_SRC_ALPHA). A flat fill's colour is premultiplied too, on the
+  // white texel; artwork's tint is white, an exact 1.
+  // Nearest-filtered artwork on a LINEAR page, magnified (one texel over more than a pixel): the
+  // texel's centre, where LINEAR reads the texel alone. See the ⚠ on glDecalAtlas at the top.
+  vec4 t = (vNear > 0.5 && rho <= 1.0
+    ? textureLod(uTex, (vCell.xy + clamp(floor(tc) + 0.5, vec2(0.5), vCell.zw - 0.5)) * gInv, 0.0)
+    : texture(uTex, cellUV(vUV))) * vTint * vAlpha;
   // A sign's canvas is mostly empty; do not pay to blend nothing. 'uCut' is COLOUR_CUT in the
   // ordinary pass — the literal this line has always held — and DEPTH_CUT in the depth-only prepass.
   if (t.a < uCut) discard;
@@ -254,7 +327,8 @@ void main() {
   // non-zero default, where a dropped field reads as a sign that does not light up.
   vec3 rgb = t.rgb;
   if (vEmit > 0.001 && uTube + uFlick > 0.001) {
-    vec2 ts = vec2(textureSize(uTex, 0));
+    // The artwork's own size, not the page's: see the ⚠ on glDecalAtlas at the top.
+    vec2 ts = vCell.zw;
     vec2 px = 1.0 / ts;
     float seg = floor((ts.y > ts.x ? vUV.y : vUV.x) * 12.0);   // about a letter a section
     float fl = neonFlicker(vSeed, seg, uTime);
@@ -305,10 +379,10 @@ void main() {
     // and keep their colour.
     float emW = mix(1.0, mix(0.35, 1.0, smoothstep(0.75, 1.0, H)), body);
     if (body > 0.0) {
-      vec4 cs = textureLod(uTex, vUV, 0.0);
+      vec4 cs = textureLod(uTex, cellUV(vUV), 0.0);
       vec3 hue = cs.a > 0.01 ? cs.rgb / cs.a : vec3(1.0);
       // The baked axis is white and carries no hue, so take the colour from beside it.
-      vec4 side = textureLod(uTex, vUV + normalize(grad + 1e-5) * px * 3.0 * foot, 0.0);
+      vec4 side = textureLod(uTex, cellUV(vUV + normalize(grad + 1e-5) * px * 3.0 * foot), 0.0);
       vec3 sh2 = side.a > 0.01 ? side.rgb / side.a : hue;
       float sat = max(sh2.r, max(sh2.g, sh2.b)) - min(sh2.r, min(sh2.g, sh2.b));
       hue = sat > 0.15 ? sh2 : hue;
@@ -397,7 +471,9 @@ export function createDecalLayer(gl) {
     time: gl.getUniformLocation(prog, 'uTime'),
     viewProj: gl.getUniformLocation(prog, 'uViewProj'),
     tex: gl.getUniformLocation(prog, 'uTex'),
-    cull: gl.getUniformLocation(prog, 'uCull'),
+    tint: gl.getAttribLocation(prog, 'aTint'),
+    cullA: gl.getAttribLocation(prog, 'aCull'),
+    cell: gl.getAttribLocation(prog, 'aCell'),
     flip: gl.getUniformLocation(prog, 'uFlip'),
     emitGain: gl.getUniformLocation(prog, 'uEmitGain'),
     cut: gl.getUniformLocation(prog, 'uCut'),
@@ -413,12 +489,65 @@ export function createDecalLayer(gl) {
   // One stream, set up once: the attribute pointers are recorded into the VAO here and never
   // touched again, and the storage grows by doubling instead of being reallocated every frame.
   // See gl/stream.js.
-  const ATTRS = [[loc.pos, 3, 0], [loc.uv, 2, 12], [loc.alpha, 1, 20], [loc.emit, 1, 24], [loc.seed, 1, 28], [loc.cen, 3, 32], [loc.pullA, 1, 44]];
-  let keptLive = [];
+  const ATTRS = [[loc.pos, 3, 0], [loc.uv, 2, 12], [loc.alpha, 1, 20], [loc.emit, 1, 24], [loc.seed, 1, 28], [loc.cen, 3, 32], [loc.pullA, 1, 44],
+    [loc.tint, 4, 48, gl.UNSIGNED_BYTE, true], [loc.cullA, 1, 52], [loc.cell, 4, 56, gl.UNSIGNED_SHORT, false]];
   const stream = makeVertexStream(gl, vao, STRIDE, ATTRS, 1024);
   let data = new Float32Array(0);
-  const texes = new Map();          // key → WebGLTexture
-  let batches = [];                 // { tex, first, count, cull, solid }
+  // Where each artwork is: key → `{ tex, x, y, w, h, near, page }`, its cell in texels. `own` holds
+  // the ones with a texture apiece (the switch at 0, artwork too big for a page, or no room left on
+  // one: `spill`), `onPage` the ones on a page. See the ⚠ on glDecalAtlas at the top.
+  const own = new Map(), onPage = new Map();
+  const cellOf = (key) => onPage.get(key) || own.get(key);
+  const pages = [];                 // { tex, shelves, top, stamp, keys }
+  // The page's width: see the ⚠ on ONE PAGE at the top. A fake context answers 0, and gets 4096.
+  const PAGE_W = Math.max(2048, Math.min(4096, gl.getParameter(gl.MAX_TEXTURE_SIZE) || 4096));
+  const fitsPage = (w, h) => w > 0 && h > 0 && w + PAD <= PAGE_W && h <= PAGE_H / 4;
+  let frame = 0;
+  let batches = [];                 // { tex, first, count, solid }
+  let binds = 0;                    // the last draw's
+  // The tint group's texture: one white texel, outside the cache so nothing evicts it.
+  let white = null;
+  function whiteOf() {
+    if (white) return white;
+    const t = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, t);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([255, 255, 255, 255]));
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    white = { tex: t, x: 0, y: 0, w: 1, h: 1, near: false, page: null };
+    return white;
+  }
+  const cellFor = (a) => (a.tint ? whiteOf() : cellOf(a.key));
+  // Many draws with the same state in one call, where the browser has it (Chrome does); see keptRun.
+  const md = gl.getExtension('WEBGL_multi_draw');
+  let mdF = new Int32Array(64), mdC = new Int32Array(64), mdK = 0;
+  // A range for the next `multi()`, joined to the last one when it starts where that one ended.
+  function range(at, n) {
+    if (mdK && mdF[mdK - 1] + mdC[mdK - 1] === at) { mdC[mdK - 1] += n; return; }
+    if (mdK === mdF.length) { const F = new Int32Array(mdK * 2), C = new Int32Array(mdK * 2); F.set(mdF); C.set(mdC); mdF = F; mdC = C; }
+    mdF[mdK] = at; mdC[mdK] = n; mdK++;
+  }
+  // Draw what `range` collected off `tex`, on the VAO already bound. A texture already bound isn't
+  // bound again.
+  let bound = null;
+  function multi(tex) {
+    if (!mdK) return;
+    if (tex !== bound) { gl.bindTexture(gl.TEXTURE_2D, tex); bound = tex; binds++; }
+    if (md && mdK > 1) md.multiDrawArraysWEBGL(gl.TRIANGLES, mdF, 0, mdC, 0, mdK);
+    else for (let i = 0; i < mdK; i++) gl.drawArrays(gl.TRIANGLES, mdF[i], mdC[i]);
+    mdK = 0;
+  }
+  // The solid quads of a tint group, as `[first, count]` vertex ranges from the group's start.
+  function solidRuns(items) {
+    const r = [];
+    for (let j = 0; j < items.length; j++) {
+      if (!items[j].solid) continue;
+      if (r.length && r[r.length - 1][0] + r[r.length - 1][1] === j * 6) r[r.length - 1][1] += 6;
+      else r.push([j * 6, 6]);
+    }
+    return r;
+  }
+  let tintRuns = [];               // this frame's, from the start of the stream
 
   // ⚠ EVICTION HAPPENS HERE, BEFORE ANYTHING IS ALLOCATED, AND NEVER TOUCHES A KEY THIS FRAME
   // USES — the same rule as billboards.js, ported 2026-09-17 because this layer still had the
@@ -433,7 +562,7 @@ export function createDecalLayer(gl) {
   //
   // ⚠ THE LIVE SET IS KEYED ON THE TEXTURE, NOT ON THE GROUP, and copying billboards.js literally
   // gets this wrong. `byKey` is keyed on `(cull ? 'B:' : 'F:') + key` while the cache is keyed on
-  // `key` alone, so testing a grouping key against `texes` finds NOTHING live and deletes the lot —
+  // `key` alone, so testing a grouping key against the cache finds NOTHING live and deletes the lot:
   // the original bug back again, wearing the fix's clothes. Two groups can also share one texture
   // (the same artwork culled and unculled), so the live set is the smaller of the two.
   //
@@ -441,21 +570,20 @@ export function createDecalLayer(gl) {
   // one it needs, exactly as the billboard layer does — the cache comes back down on the next frame
   // that draws fewer. That is the safe direction, an overshoot against a decal drawn with somebody
   // else's artwork, and the two layers agreeing is worth more than either being clever on its own.
+  // Only textures of their own count: a page holds its cells until it's reset (`prepare`).
   function evict(live) {
     let need = 0;
-    for (const k of live) if (!texes.has(k)) need++;
-    if (texes.size + need <= MAX_TEX) return;
-    for (const [k, t] of [...texes]) {
-      if (texes.size + need <= MAX_TEX) break;
+    for (const k of live.keys()) if (!cellOf(k)) need++;
+    if (own.size + need <= MAX_TEX) return;
+    for (const [k, c] of [...own]) {
+      if (own.size + need <= MAX_TEX) break;
       if (live.has(k)) continue;                 // drawn this frame — deleting it is the bug
-      gl.deleteTexture(t); texes.delete(k);
+      gl.deleteTexture(c.tex); own.delete(k);
     }
   }
 
-  function textureFor(key, img, smooth) {
-    let t = texes.get(key);
-    if (t) return t;
-    t = gl.createTexture(); MINTED++;
+  function ownCell(key, img, smooth, spill) {
+    const t = gl.createTexture(); MINTED++;
     gl.bindTexture(gl.TEXTURE_2D, t);
     gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
@@ -471,92 +599,181 @@ export function createDecalLayer(gl) {
     // with NEAREST is how you turn a clean letterform into a staircase. A truck parked at a
     // shopfront covers a name board with several hundred screen pixels of a texture whose cell is
     // 72, so magnification is the ordinary case for a sign rather than the exception.
+    // (On a page the same split is the shader's: see the ⚠ on glDecalAtlas at the top.)
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, smooth ? gl.LINEAR : gl.NEAREST);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-    texes.set(key, t);
-    return t;
+    const c = { tex: t, x: 0, y: 0, w: img.width || 1, h: img.height || 1, near: false, page: null, spill };
+    own.set(key, c);
+    return c;
+  }
+
+  // ── THE PAGES ───────────────────────────────────────────────────────────────────────────────
+  function newPage() {
+    const tex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.texStorage2D(gl.TEXTURE_2D, 1, gl.RGBA8, PAGE_W, PAGE_H);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    const pg = { tex, shelves: [], top: 0, stamp: 0, keys: [] };
+    pages.push(pg);
+    return pg;
+  }
+  // Cells are never freed one at a time; a page is emptied whole once nothing on it is drawn.
+  function resetPage(pg) {
+    for (const k of pg.keys) onPage.delete(k);
+    pg.keys = []; pg.shelves = []; pg.top = 0;
+  }
+  // Shelves: a cell goes on the first shelf tall enough and not much taller, else on a new shelf.
+  function place(pg, w, h) {
+    const W = w + PAD, H = h + PAD;
+    for (const s of pg.shelves) if (H <= s.h && s.h <= H + (H >> 1) + 8 && s.x + W <= PAGE_W) { s.x += W; return [s.x - W, s.y]; }
+    if (pg.top + H > PAGE_H) return null;
+    pg.shelves.push({ y: pg.top, h: H, x: W }); pg.top += H;
+    return [0, pg.top - H];
+  }
+  function putOnPage(pg, key, img, smooth) {
+    const at = place(pg, img.width, img.height);
+    if (!at) return null;
+    gl.bindTexture(gl.TEXTURE_2D, pg.tex);
+    gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
+    gl.texSubImage2D(gl.TEXTURE_2D, 0, at[0], at[1], gl.RGBA, gl.UNSIGNED_BYTE, img);
+    gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+    MINTED++;
+    const c = { tex: pg.tex, x: at[0], y: at[1], w: img.width, h: img.height, near: !smooth, page: pg };
+    pg.keys.push(key); pg.stamp = frame; onPage.set(key, c);
+    return c;
+  }
+  // Give every artwork this frame draws (`need`: key → anything with `img` and `smooth`) a cell.
+  // Everything it moves or mints happens here, before a vertex is written.
+  // ⚠ WHEN THE PAGES ARE FULL, A PAGE NOTHING THIS FRAME DRAWS IS EMPTIED, else a new one is made up to
+  // PAGES, else the artwork gets a texture of its own (`spill`), which is today's path. A page that's
+  // drawn from is never touched. Spilled artwork goes back onto a page the next time one is emptied.
+  // ⚠ TALLEST FIRST, THEN BY KEY, so two layers given the same artwork pack it the same way, whatever
+  // order it arrived in: perf:retain compares a retained layer with a plain one byte for byte.
+  function prepare(need, on) {
+    frame++;
+    const miss = [];
+    for (const [k, d] of need) {
+      const c = cellOf(k), want = on && fitsPage(d.img.width, d.img.height);
+      if (c && (c.page ? want : !want || c.spill)) { if (c.page) c.page.stamp = frame; continue; }
+      if (c) { if (c.page) onPage.delete(k); else { gl.deleteTexture(c.tex); own.delete(k); } }
+      miss.push([k, d, want]);
+    }
+    if (!miss.length) return;
+    const order = (a, b) => b[1].img.height - a[1].img.height || b[1].img.width - a[1].img.width || (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0);
+    miss.sort(order);
+    let freed = false;
+    const onto = (k, d) => {
+      let c = null;
+      for (const pg of pages) if ((c = putOnPage(pg, k, d.img, d.smooth))) return c;
+      let pg = null;
+      for (const p of pages) if (frame - p.stamp > 8 && (!pg || p.stamp < pg.stamp)) pg = p;
+      if (pg) { resetPage(pg); freed = true; }
+      else if (pages.length < PAGES) pg = newPage();
+      return pg ? putOnPage(pg, k, d.img, d.smooth) : null;
+    };
+    for (const [k, d, want] of miss) if (!(want && onto(k, d))) ownCell(k, d.img, d.smooth, want);
+    if (!freed) return;
+    const back = [];
+    for (const [k, d] of need) { const c = own.get(k); if (c && c.spill) back.push([k, d]); }
+    back.sort(order);
+    for (const [k, d] of back) {
+      let c = null;
+      for (const pg of pages) if ((c = putOnPage(pg, k, d.img, d.smooth))) break;
+      if (!c) break;
+      gl.deleteTexture(own.get(k).tex); own.delete(k);
+    }
   }
 
   // ⚠ GROUPED BY TEXTURE, because a bind is the expensive part and two signs reading the same
   // baked canvas — every branch of the same chain, every "HOTEL" in the city — are one draw call.
-  // `ox`/`oy`: see the sprite layer's upload.
   // One decal's two triangles into `D` at `o`; returns the next offset. `sd` is the artwork's flicker
-  // seed; `ox`/`oy` see the sprite layer's upload.
-  function putDecal(D, o, d, sd, ox, oy) {
+  // seed; `c` its cell; `ox`/`oy` see the sprite layer's upload.
+  function putDecal(D, o, d, sd, ox, oy, c) {
     let cx = 0, cy = 0, cz = 0, pl = 0;
     // A quad with its pull still to do (d.pl, see emitDecoFill) sends its raw corners and centroid.
     const raw = d.pl > 0 && d.rp;
     const [TL, TR, BR, BL] = raw ? d.rp : d.p, al = d.alpha == null ? 1 : d.alpha;
-    if (raw) { const R = d.rp, n = d.rn || 4; cx = ox; cy = oy; for (let i = 0; i < n; i++) { const c = d.rc ? d.rc[i] : R[i]; cx += c[0] / n; cy += c[1] / n; cz += c[2] / n; } pl = d.pl; }
+    if (raw) { const R = d.rp, n = d.rn || 4; cx = ox; cy = oy; for (let i = 0; i < n; i++) { const q = d.rc ? d.rc[i] : R[i]; cx += q[0] / n; cy += q[1] / n; cz += q[2] / n; } pl = d.pl; }
     // 0 is "this is paint" and is the default, so a producer that has never heard of emission
     // draws exactly what it drew before at any gain — see the ⚠ in the fragment shader.
     // -1 is lit cloth, which is never also an emitter.
     const em = d.lit ? -1 : d.emit > 0 ? d.emit : 0;
+    // The tint is four bytes and the cell four uint16s, written through views of the same storage.
+    if (D !== uD) { uD = D; U = new Uint32Array(D.buffer, D.byteOffset, D.length); S = new Uint16Array(D.buffer, D.byteOffset, D.length * 2); }
+    const t0 = d.tint != null ? d.tint : WHITE, t1 = d.tint2 != null ? d.tint2 : t0;
+    const fl = (d.cull ? 1 : 0) + (c.near ? 2 : 0);
     const put = (p, u, v) => {
       D[o] = p[0] + ox; D[o + 1] = p[1] + oy; D[o + 2] = p[2];
       D[o + 3] = u; D[o + 4] = v; D[o + 5] = al; D[o + 6] = em; D[o + 7] = sd;
       D[o + 8] = cx; D[o + 9] = cy; D[o + 10] = cz; D[o + 11] = pl;
+      U[o + 12] = v ? t1 : t0; D[o + 13] = fl;
+      const s = (o + 14) * 2;
+      S[s] = c.x; S[s + 1] = c.y; S[s + 2] = c.w; S[s + 3] = c.h;
       o += STRIDE;
     };
     put(TL, 0, 0); put(TR, 1, 0); put(BR, 1, 1);
     put(TL, 0, 0); put(BR, 1, 1); put(BL, 0, 1);
     return o;
   }
+  let uD = null, U = null, S = null;
   // `groups` are retained ones (gl/retain.js): `{ recs, ox, oy }`. Each is split into one entry per
   // texture and kind (solid or not), as the frame's own list is batched, and each entry is drawn as its
-  // own range with its own texture: `spans`, not `runs`.
+  // own range with its own texture: `spans`, not `runs`. A group's tinted records are one entry.
   const arena = createArena(gl, STRIDE, ATTRS);
   const KEYS = new WeakMap();
   function upload(list, ox = 0, oy = 0, groups = null) {
-    const gEntries = [], gLive = [];
+    // The switch rides on the list (DECAL_SINK.atlas, RENDER_TUNE.glDecalAtlas); a list without it is on.
+    const on = !list || list.atlas !== 0;
+    const kept = [];
     if (groups) for (const G of groups) {
       let k = KEYS.get(G.recs);
       // Keyed on the array and its window, not its offset: see the ⚠ in gl/sprites.js `upload`.
       if (!k || k.w !== G.w) {
         // Split once per array: the records in it never change (bayGroup's promise).
-        const by = new Map();
+        const by = new Map([[TINT_KEY, null]]);   // holds the tint part's place at the front
         for (const d of G.recs) {
           if (!d || !d.img || !d.p || d.p.length !== 4) continue;
+          if (d.tint != null) {
+            let a = by.get(TINT_KEY); if (!a) by.set(TINT_KEY, a = { key: TINT_KEY, img: null, tint: true, cull: false, smooth: false, solid: false, items: [] });
+            a.items.push(d); if (d.solid) a.solid = true;
+            continue;
+          }
           const gk = (d.cull ? 'B:' : 'F:') + d.key + (d.solid ? '|S' : '|C');
           let a = by.get(gk); if (!a) by.set(gk, a = { key: d.key, img: d.img, cull: !!d.cull, smooth: !!d.smooth, solid: !!d.solid, items: [] });
           a.items.push(d);
         }
-        k = { ox: G.ox, oy: G.oy, w: G.w, parts: [...by.values()].map((a) => ({ ...a, id: {} })) };
+        k = { ox: G.ox, oy: G.oy, w: G.w, parts: [...by.values()].filter(Boolean).map((a) => ({ ...a, id: {}, cell: null, runs: a.tint ? solidRuns(a.items) : null })) };
         KEYS.set(G.recs, k);
       }
       k.ox = G.ox; k.oy = G.oy;
-      for (const a of k.parts) {
-        gLive.push(a);
-        const sd = keySeed(a.key);
-        gEntries.push({ key: a.id, part: a, floats: a.items.length * 6 * STRIDE, write: (D, o) => { for (const d of a.items) o = putDecal(D, o, d, sd, k.ox, k.oy); return o; } });
-      }
+      kept.push(k);
     }
-    arena.retain(gEntries);
-    keptLive = gLive;
     MINTED = 0;
-    const byKey = new Map();
+    // The tint group goes in first, so the fills draw under the artwork, as the kept spans do.
+    const byKey = new Map(), tintA = { img: null, key: TINT_KEY, tint: true, cull: false, smooth: false, items: [], deep: [], solid: false };
+    byKey.set(TINT_KEY, tintA);
     for (const d of list) {
       if (!d || !d.img || !d.p || d.p.length !== 4) continue;
-      // ⚠ `cull` IS IN THE GROUPING KEY, NOT JUST CARRIED ON THE BATCH. It is a uniform, so it is
-      // set once per draw call — two decals sharing a texture and disagreeing about it would be one
-      // batch, and one of them would silently get the other’s answer.
+      // A tinted record joins the one tint group in arrival order, whatever its cull and solid.
+      if (d.tint != null) { tintA.items.push(d); if (d.solid) tintA.solid = true; continue; }
+      // `cull` rides on the vertex now (aCull), but artwork still groups on it and on `solid`, so a
+      // textured decal draws in the order it always did: by texture and cull, each group's plain
+      // quads before its solid ones. `smooth` isn't in the key: the filter belongs to the TEXTURE,
+      // cached on `d.key` alone, and two decals sharing a key share their artwork.
       const gk = (d.cull ? 'B:' : 'F:') + d.key;
-      // `smooth` is NOT in the grouping key, unlike `cull`, and the difference is real: `cull` is a
-      // uniform set per draw call, while the filter is a property of the TEXTURE, which is cached on
-      // `d.key` alone. Two decals sharing a key share their artwork and therefore their producer.
-      // ⚠ `solid` IS GL STATE SET ONCE PER DRAW CALL, so it splits the group into two lists rather
-      // than riding on the item — the same rule `cull` follows above, and the same one billboards.js
-      // follows for `depth`. It stays OUT of the grouping key and out of the texture cache: the same
-      // artwork drawn both ways is one upload.
       let a = byKey.get(gk); if (!a) byKey.set(gk, a = { img: d.img, key: d.key, cull: !!d.cull, smooth: !!d.smooth, items: [], deep: [] });
       (d.solid ? a.deep : a.items).push(d);
     }
-    // Which TEXTURES this frame draws — `a.key`, never the grouping key. See the ⚠ on evict.
-    const liveTex = new Set();
-    for (const a of byKey.values()) liveTex.add(a.key);
-    for (const a of keptLive) liveTex.add(a.key);
+    if (!tintA.items.length) byKey.delete(TINT_KEY);
+    // Which artwork this frame draws: `a.key`, never the grouping key. See the ⚠ on evict.
+    const need = new Map();
+    for (const k of kept) for (const a of k.parts) if (!a.tint && !need.has(a.key)) need.set(a.key, a);
+    for (const a of byKey.values()) if (!a.tint && !need.has(a.key)) need.set(a.key, a);
     // ── WHICH PRODUCER IS MINTING THEM, WHEN THE CACHE IS OVER ITS CAP ────────
     //
     // `textures` can sit at more than twice MAX_TEX with `batches` exactly equal to it, which says
@@ -567,34 +784,46 @@ export function createDecalLayer(gl) {
     if (KEYCENSUS) {
       const t = KEYCENSUS;
       for (const a of byKey.values()) {
+        if (a.tint) continue;
         const k = String(a.key), i = k.indexOf('|');
         const pre = i > 0 ? k.slice(0, i) : k.slice(0, 12);
         t[pre] = (t[pre] | 0) + 1;
       }
     }
-    evict(liveTex);
+    evict(need);
+    prepare(need, on);
+    // A kept part whose artwork moved since its vertices were written gets a new id, so the arena
+    // writes it again. See the ⚠ on glDecalAtlas at the top.
+    const gEntries = [];
+    for (const k of kept) for (const a of k.parts) {
+      const c = cellFor(a);
+      if (a.cell !== c) { a.cell = c; a.id = {}; }
+      const sd = keySeed(a.key);
+      gEntries.push({ key: a.id, part: a, floats: a.items.length * 6 * STRIDE, write: (D, o) => { for (const d of a.items) o = putDecal(D, o, d, sd, k.ox, k.oy, a.cell); return o; } });
+    }
+    arena.retain(gEntries);
     let quads = 0;
     for (const a of byKey.values()) quads += a.items.length + a.deep.length;
     const verts = quads * 6;
     if (data.length < verts * STRIDE) data = new Float32Array(Math.max(verts * STRIDE, 1024));
-    batches = [];
+    batches = []; tintRuns = [];
     let o = 0, first = 0;
-    let sd = 0;
-    const quad = (d) => { o = putDecal(data, o, d, sd, ox, oy); };
     for (const a of byKey.values()) {
       // The TEXTURE cache is keyed on the appearance alone — the same artwork culled and unculled
       // is one upload — so `a.key` and not the grouping key.
-      const tex = textureFor(a.key, a.img, a.smooth);
+      const c = cellFor(a), tex = c.tex;
       // The flicker seed is the ARTWORK's, so it is stable however the map window recentres. A
       // seed off the quad's position would re-roll every sign's fault the moment the window moved.
-      sd = keySeed(a.key);
+      const sd = keySeed(a.key);
       // ⚠ THE COLOUR ORDER IS THE ONE THAT ALWAYS SHIPPED. The prepass reads `solid` batches out of
       // this same buffer, so the split costs no second copy and moves nothing: every quad is still
       // drawn, in group order, in the pass below.
-      for (const d of a.items) quad(d);
-      if (a.items.length) { const n = a.items.length * 6; batches.push({ tex, first, count: n, cull: a.cull, solid: false }); first += n; }
-      for (const d of a.deep) quad(d);
-      if (a.deep.length) { const n = a.deep.length * 6; batches.push({ tex, first, count: n, cull: a.cull, solid: true }); first += n; }
+      // The tint group is one batch in arrival order, and its solid quads are ranges inside it.
+      if (a.tint) tintRuns = solidRuns(a.items).map(([f, n]) => [first + f, n]);
+      for (const d of a.items) o = putDecal(data, o, d, sd, ox, oy, c);
+      if (a.items.length) { const n = a.items.length * 6; batches.push({ tex, first, count: n, solid: false }); first += n; }
+      for (const d of a.deep) o = putDecal(data, o, d, sd, ox, oy, c);
+      if (a.deep.length) { const n = a.deep.length * 6; batches.push({ tex, first, count: n, solid: true }); first += n; }
     }
     stream.write(data, verts * STRIDE);
     return quads;
@@ -606,27 +835,40 @@ export function createDecalLayer(gl) {
   // headroom to hold it is the float target, so the caller only ever sends a gain when there is one.
   function draw(cam, H, emitGain = 0, neon = null, lit = null) {
     const kept = arena.spans;
+    binds = 0;
     if (!batches.length && !kept.length) return 0;
+    // Somebody else has bound textures since the last draw.
+    bound = null;
     const keptRun = (solidOnly) => {
       if (!kept.length) return 0;
       gl.bindVertexArray(arena.vao);
-      // In the arena's own order (they blend), but a span that shares the last one's texture and cull
-      // flag and starts where it ended joins its draw, and an unchanged texture or flag isn't set again.
-      let n = 0, tex0 = null, cull0 = -1, at = 0, run = 0;
+      // ⚠ THE TINT SPANS FIRST, ALL OF THEM IN ONE CALL. Each kept group's fills are one span, but the
+      // spans aren't neighbours in the arena (artwork and groups kept from earlier frames lie between),
+      // so merging neighbours left a draw per group per pass. They share every piece of state, so
+      // WEBGL_multi_draw takes the lot in one call; without it, it's a loop of the same draws. Fills
+      // under artwork is the order a group's own split already gives (its tint part is first).
+      // In the prepass only a span's solid quads go (`runs`).
+      let n = 0;
       for (const sp of kept) {
         const a = sp.g.part;
-        if (solidOnly && !a.solid) continue;
-        const tex = textureFor(a.key, a.img, a.smooth), cull = a.cull ? 1 : 0;
-        if (tex !== tex0 || cull !== cull0) {
-          if (run) { gl.drawArrays(gl.TRIANGLES, at, run); run = 0; }
-          if (cull !== cull0) { gl.uniform1f(loc.cull, cull); cull0 = cull; }
-          if (tex !== tex0) { gl.bindTexture(gl.TEXTURE_2D, tex); tex0 = tex; }
-        }
-        if (run && at + run === sp.at) run += sp.n;
-        else { if (run) gl.drawArrays(gl.TRIANGLES, at, run); at = sp.at; run = sp.n; }
+        if (!a.tint) continue;
+        if (solidOnly) { for (const [f, c] of a.runs) range(sp.at + f, c); continue; }
+        range(sp.at, sp.n);
         n += sp.n / 6;
       }
-      if (run) gl.drawArrays(gl.TRIANGLES, at, run);
+      multi(whiteOf().tex);
+      // Then the artwork in the arena's own order (they blend). Spans in a row on one texture (a page,
+      // usually) are one call, whatever lies between them in the arena. Cull rides on the vertex, so it
+      // no longer splits a run.
+      let tex0 = null;
+      for (const sp of kept) {
+        const a = sp.g.part;
+        if (a.tint || (solidOnly && !a.solid)) continue;
+        if (a.cell.tex !== tex0) { multi(tex0); tex0 = a.cell.tex; }
+        range(sp.at, sp.n);
+        n += sp.n / 6;
+      }
+      multi(tex0);
       gl.bindVertexArray(vao);
       return n;
     };
@@ -667,7 +909,7 @@ export function createDecalLayer(gl) {
     // The silhouette of the boards that ARE a surface, into the depth buffer only — see the ⚠ at
     // the top. Nothing reaches the colour buffer here, so the pass below is unchanged for every
     // decal including these; all this leaves behind is a depth the CLOUD deck can sort against.
-    let deep = 0;
+    let deep = tintRuns.length;
     for (const b of batches) if (b.solid) deep++;
     for (const sp of kept) if (sp.g.part.solid) deep++;
     if (deep) {
@@ -675,23 +917,28 @@ export function createDecalLayer(gl) {
       gl.colorMask(false, false, false, false);
       gl.depthMask(true);
       keptRun(true);
+      for (const [f, c] of tintRuns) range(f, c);
+      multi(whiteOf().tex);
+      // The solid batches on one texture in a row are one call, the plain ones between skipped.
+      let tex0 = null;
       for (const b of batches) {
         if (!b.solid) continue;
-        gl.uniform1f(loc.cull, b.cull ? 1 : 0);
-        gl.bindTexture(gl.TEXTURE_2D, b.tex);
-        gl.drawArrays(gl.TRIANGLES, b.first, b.count);
+        if (b.tex !== tex0) { multi(tex0); tex0 = b.tex; }
+        range(b.first, b.count);
       }
+      multi(tex0);
       gl.depthMask(false);
       gl.colorMask(true, true, true, true);
     }
     gl.uniform1f(loc.cut, COLOUR_CUT);
-    let n = keptRun(false);
+    // Batches lie end to end in the buffer, so a row of them on one texture is one range.
+    let n = keptRun(false), tex0 = null;
     for (const b of batches) {
-      gl.uniform1f(loc.cull, b.cull ? 1 : 0);
-      gl.bindTexture(gl.TEXTURE_2D, b.tex);
-      gl.drawArrays(gl.TRIANGLES, b.first, b.count);
+      if (b.tex !== tex0) { multi(tex0); tex0 = b.tex; }
+      range(b.first, b.count);
       n += b.count / 6;
     }
+    multi(tex0);
     gl.bindVertexArray(null);
     gl.depthMask(true);
     return n;
@@ -701,10 +948,15 @@ export function createDecalLayer(gl) {
   // Quads are grouped by texture, so a thousand decals sharing one baked canvas are ONE draw call
   // and a thousand carrying their own artwork are a thousand — two frames reporting the identical
   // 'decals' number and an order of magnitude apart in binds. 'batches' is the number that tracks
-  // the clock, and until it was published the only figure a bench could read was the one that does
-  // not. 'textures' beside it is how near the cache is to MAX_TEX, which is where it stops merely
-  // filling and starts evicting something every frame.
-  return { upload, draw, get textures() { return texes.size; }, get batches() { return batches.length; }, get minted() { return MINTED; } };
+  // the clock (the last draw's texture binds, both passes), and until it was published the only
+  // figure a bench could read was the one that does not. 'textures' beside it is how much artwork
+  // is resident, on pages or not; 'own' is how near the textures of their own are to MAX_TEX, which
+  // is where it stops merely filling and starts evicting something every frame.
+  return {
+    upload, draw,
+    get textures() { return own.size + onPage.size; }, get own() { return own.size; }, get pages() { return pages.length; },
+    get batches() { return binds; }, get minted() { return MINTED; },
+  };
 }
 
 declareProgram(VERT, FRAG);
