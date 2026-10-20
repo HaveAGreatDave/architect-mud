@@ -172,7 +172,7 @@ async function play(slot) {
   // NO SHOT AT A NET THE VIEWER CAN'T SEE. The camera is run here at 60 Hz, in both views,
   // and at every release and half a second after it, the puck and the net it's going at
   // must both be in frame.
-  const cams = ['broadcast', 'low'].map((view) => { const c = createRinkCamera(W); c.view = view; return { view, c, P: null, last: null }; });
+  const cams = ['broadcast', 'low', 'vertical'].map((view) => { const c = createRinkCamera(W); c.view = view; return { view, c, P: null, last: null }; });
   let camAt = -1;
   const unseen = [], shotChecks = [];
   const inFrame = (P, x, y, z) => { const q = P && P(x, y, z); return !!q && q.x > 900 * 0.02 && q.x < 900 * 0.98 && q.y > 506 * 0.04 && q.y < 506 * 0.96; };

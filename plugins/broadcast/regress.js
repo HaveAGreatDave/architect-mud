@@ -4465,22 +4465,26 @@ export default async function regress({ check, run, getPlayer }) {
     check('venue lights: off air, the towers go dark', venueLit({ x: 896, y: 912 }) === undefined);
     if (z && typeof deriveSurfaceCell === 'function') check('venue lights: and the cell says so', deriveSurfaceCell(z, 896, 912).vl === 0);
   }
-  // The roof follows the weather at the park: it shuts the minute anything falls, stays shut through
-  // twenty dry minutes so a shower's edge doesn't work it, and opens after. The weather is handed in,
-  // so the check doesn't depend on the sky the suite happens to boot under.
+  // The roof follows today's forecast, not the sky: wet forecast shut, dry open, and a staff call
+  // holds over the forecast until it's handed back. The forecast is handed in, so the check doesn't
+  // depend on the day the suite happens to boot on.
   {
-    const { venueRoof, refreshVenueRoofs, _roofState } = _test;
+    const { venueRoof, refreshVenueRoofs, _roofState, setVenueRoof } = _test;
     const saved = new Map(_roofState);
     const t0 = Date.now();
     try {
       _roofState.clear();
       refreshVenueRoofs(t0, false, () => true);
-      check('venue roof: shut in the rain, every tile of the park', venueRoof({ x: 895, y: 911 })?.shut === 1 && venueRoof({ x: 897, y: 913 })?.shut === 1);
+      check('venue roof: shut on a wet forecast, every tile of the park', venueRoof({ x: 895, y: 911 })?.shut === 1 && venueRoof({ x: 897, y: 913 })?.shut === 1);
       check('venue roof: a tile off the park has no roof', venueRoof({ x: 898, y: 912 }) === undefined);
       refreshVenueRoofs(t0 + 60e3, false, () => false);
-      check('venue roof: still shut a minute after the rain stops', venueRoof({ x: 896, y: 912 })?.shut === 1);
-      refreshVenueRoofs(t0 + 21 * 60e3, false, () => false);
-      check('venue roof: open after twenty dry minutes', venueRoof({ x: 896, y: 912 })?.shut === 0);
+      check('venue roof: open on a dry forecast', venueRoof({ x: 896, y: 912 })?.shut === 0);
+      setVenueRoof('shut', t0 + 61e3);
+      refreshVenueRoofs(t0 + 62e3, false, () => false);
+      check('venue roof: a staff call holds over a dry forecast', venueRoof({ x: 896, y: 912 })?.shut === 1);
+      setVenueRoof('auto', t0 + 63e3);
+      refreshVenueRoofs(t0 + 64e3, false, () => false);
+      check('venue roof: and auto hands it back to the forecast', venueRoof({ x: 896, y: 912 })?.shut === 0);
       // and each Gameday line airs with it, so the broadcast's park has its shells where the map's are
       // (gl/ballpark.js setRoof); a script whose site names no block has no roof to send
       const sited = { _venueSite: { x: 897.55, y: 913.55, mid: { x: 896, y: 912 } } };
@@ -4493,10 +4497,10 @@ export default async function regress({ check, run, getPlayer }) {
         check('venue roof: a static bake shows it shut', deriveSurfaceCell(z, 896, 912, undefined, false).vr === 1);
       }
       refreshVenueRoofs(t0 + 22 * 60e3, false, () => true);
-      check('venue roof: and shuts again the minute it rains', venueRoof({ x: 896, y: 912 })?.shut === 1);
+      check('venue roof: and shuts again on a wet forecast', venueRoof({ x: 896, y: 912 })?.shut === 1);
       check('venue roof: …and the next Gameday line airs with it shut', _test.gamedayOnAir({ kind: 'single' }, { _venueSite: { x: 897.55, y: 913.55, mid: { x: 896, y: 912 } } }).roof === 1);
     } finally {
-      _roofState.clear(); for (const [k, v] of saved) _roofState.set(k, v);
+      setVenueRoof('auto'); _roofState.clear(); for (const [k, v] of saved) _roofState.set(k, v);
       refreshVenueRoofs(Date.now(), false);
     }
   }

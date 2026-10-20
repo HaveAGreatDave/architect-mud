@@ -12476,15 +12476,18 @@ html[data-density="compact"][data-pane-claimed] #mobile-hud { display: none; }
 .gdr-hud { position: absolute; inset: 0; width: 100%; height: 100%; display: block; pointer-events: none; }
 /* The glowing-puck toggle (gameday-rink.js), small in the bottom corner of the picture,
    lit while the glow is on. */
-.gdr-glow {
+.gdr-glow, .gdr-cam {
 	position: absolute; right: 8px; bottom: 8px; z-index: 8; width: 28px; height: 28px; padding: 0;
 	display: flex; align-items: center; justify-content: center; cursor: pointer;
 	border-radius: 50%; border: 1px solid rgba(160,190,220,0.35); background: rgba(6,10,16,0.62); color: #6b7a8a;
 }
-.gdr-glow:hover, .gdr-glow:focus-visible { border-color: rgba(159,228,255,0.8); }
-.gdr-glow[aria-pressed="true"] { color: #6bb8ff; border-color: rgba(107,184,255,0.85); box-shadow: 0 0 10px rgba(107,184,255,0.55); }
+.gdr-glow:hover, .gdr-glow:focus-visible, .gdr-cam:hover, .gdr-cam:focus-visible { border-color: rgba(159,228,255,0.8); }
+.gdr-glow[aria-pressed="true"], .gdr-cam[aria-pressed="true"] { color: #6bb8ff; border-color: rgba(107,184,255,0.85); box-shadow: 0 0 10px rgba(107,184,255,0.55); }
 /* the fullscreen button takes the corner, so the glow sits beside it */
 .gdr-rink:has(.view-fs) .gdr-glow { right: 42px; }
+/* the camera toggle (broadcast or the NHL 96 vertical view) sits beside the glow */
+.gdr-cam { right: 42px; }
+.gdr-rink:has(.view-fs) .gdr-cam { right: 76px; }
 /* Fullscreen for a sports view (view-fullscreen.js): the bottom corner of Deadball's park and the
    rink, faint until the picture's hovered, since the park's graphics use that corner too. */
 .view-fs {
@@ -12615,6 +12618,8 @@ html[data-density="compact"][data-pane-claimed] #mobile-hud { display: none; }
 	   corner, and gives it up to the board */
 	.gdr-glow { top: 10px; left: 10px; right: auto; bottom: auto; }
 	.gdr-wrap:has(.gdri.over) .gdr-glow { visibility: hidden; }
+	.gdr-cam { top: 10px; left: 44px; right: auto; bottom: auto; }
+	.gdr-wrap:has(.gdri.over) .gdr-cam { visibility: hidden; }
 }
 
 /* ── Sports graphics (full-screen FX) ──────────────────────────────────────────

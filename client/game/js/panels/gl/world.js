@@ -6,6 +6,7 @@ import { drawSky } from './sky.js';
 import { createGLView, MAX_LIGHTS } from './context.js';
 import { buildAtlas, faceUVs } from './atlas.js';
 import { lightMatrix, eyePos, nearFor, viewProjMatrix, setJitter } from './camera.js';
+import { strokeRuns } from './propshadow.js';
 import { jitterFor, reprojMatrix, TAA_TUNE } from './taa.js';
 import { createSkylineStrip } from './skyline.js';
 import { FOG_H_SCALE } from './fog.js';
@@ -80,10 +81,14 @@ export const LIGHT_TUNE = {
   washK: 0.072,
   wet: 0.45, wrap: 0.35, rise: 0.22, fall: 0.38,
   // Lamps lift the night dim near a light, never past the daytime tone (context.js 'lamp'). 0 is off.
-  lift: 2.2, liftR: 0.8,
+  // ⚠ liftR 0.8 gave a lantern a 2.7-tile lift and lit whole blocks; 0.4 keeps it near the light.
+  lift: 1.6, liftR: 0.4,
   // A sign's light on its own wall (context.js grid loop); needs glCluster 1. 0 is off.
   // ⚠ signR at most liftR, or the grid cuts the reach at a cell edge (scripts/shapes/glcluster.mjs).
   sign: 0, signR: 0.35,
+  // Which sprites light the road and walls. 1: street lamps (tag 'streetlamp', lit white) and bright
+  // saturated neon only; windows, beacons and fittings glow but light nothing. 0 is every sprite.
+  srcGate: 1, neonSat: 0.55, neonMax: 180,
 };
 
 // Contact occlusion falloff, exp(-z * fall) in inverse tiles. Strength (and off) is `RENDER_TUNE.glAO`.
@@ -145,7 +150,14 @@ export function pickLights(cam, sprites, night, held, slots = MAX_LIGHTS, keep =
     const bx = s.x + tx, by = s.y + ty;
     const f = bx * sinh - by * cosh;
     if (!(f > 0.2)) continue;             // behind the eye, or on it
-    const c = s.rgb || WHITE_RGB;
+    let c = s.rgb || WHITE_RGB;
+    if (LIGHT_TUNE.srcGate) {
+      if (s.tag === 'streetlamp') c = WHITE_RGB;
+      else {
+        const mx = Math.max(c[0], c[1], c[2]), mn = Math.min(c[0], c[1], c[2]);
+        if (mx < LIGHT_TUNE.neonMax || (mx - mn) / mx < LIGHT_TUNE.neonSat) continue;
+      }
+    }
     const I = Math.min(1, (c[0] * 0.3 + c[1] * 0.6 + c[2] * 0.1) / 255);
     const r = LIGHT_TUNE.minR + LIGHT_TUNE.span * Math.sqrt(I);
     if (tanH > 0 && Math.abs(bx * cosh + by * sinh) > (f + r) * tanH * 1.3 + r) continue;
@@ -163,7 +175,8 @@ export function pickLights(cam, sprites, night, held, slots = MAX_LIGHTS, keep =
   const sc = PL.score;
   idx.sort((p, q) => sc[q] - sc[p]);
   const make = (i) => {
-    const s = PL.s[i], c = s.rgb || WHITE_RGB, r = PL.r[i], isWash = !!s.wash;
+    const s = PL.s[i], r = PL.r[i], isWash = !!s.wash;
+    const c = LIGHT_TUNE.srcGate && s.tag === 'streetlamp' ? WHITE_RGB : s.rgb || WHITE_RGB;
     const k = s.a * nightGain * (isWash ? LIGHT_TUNE.washK : 1);
     return {
       p: [s.x + ox, s.y + oy, s.z],
@@ -377,6 +390,27 @@ function sunShadowFor(g, opts) {
   return {
     str, lightVP: lightMatrix(sun, b), bias: SHADOW_BIAS_TILES / span,
     sunDir: [sx / sl, sy / sl, 1 / sl],
+  };
+}
+
+// What the street-furniture map gets (gl/propshadow.js, RENDER_TUNE.glPropShadow), or null when off.
+// The casters are the shed and park solids (`bay`), the people (`fauna`) and the plain strokes: lamp
+// posts, signal masts, wires. ⚠ Not the own ship: it lays its own contact shadow (OWN_SHADOWS), and
+// would shade the road twice. `wall` is the mass map's own strength, so a post on a wall reads as a
+// building on a wall; `ground` is as dark as a hull gets (drawBuildingShadow's sun.alpha, 0.4 at most).
+function propShadowFor(cam, camAt, cssH, dpr, opts) {
+  const k = opts.glPropShadow || 0;
+  const sun = opts.sun;
+  if (!(k > 0) || !sun || !(sun.len > 0) || !(sun.castDir || sun.dir) || !(sun.alpha > 0)) return null;
+  const e = eyePos(camAt);
+  return {
+    sun, eye: e, fwd: [camAt.sinh || 0, -(camAt.cosh == null ? 1 : camAt.cosh)],
+    casters: {
+      solids: [opts.bay, opts.fauna],
+      strokes: cam.FL > 0 ? { runs: strokeRuns(opts.strokes, cam.ox || 0, cam.oy || 0), vp: viewProjMatrix(camAt, cssH), FL: cam.FL * (dpr || 1) } : null,
+    },
+    wall: Math.min(1, k * (opts.glShadow > 0 ? opts.glShadow : 0.55)),
+    ground: Math.min(1, k * Math.min(0.4, sun.alpha)),
   };
 }
 
@@ -864,6 +898,7 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   const drawOpts = { ...(opts.draw || {}), lights: wallLights, gridWall: washOn || wetOn || liftOn || signOn, signLift: signOn ? signLift : 0, lampLift: liftOn ? lampLift : 0, lightWrap: LIGHT_TUNE.wrap,
     lightFocus: LIGHT_TUNE.focus, cssH,
     ao: opts.glAO || 0, aoFall: AO_TUNE.fall, bakedAo: opts.glBakedAo || 0, sunShadow: sunShadowFor(g, opts),
+    propShadow: propShadowFor(cam, camAt, cssH, dpr, opts),
     // ⚠ The eye comes off `camAt`, the shifted camera; the plain cam slides every highlight.
     eye: eyePos(camAt),
     // ⚠ The city in the glass is rebuilt every frame, not with the mass buffer, or it snaps per tile.
@@ -1091,6 +1126,6 @@ export function glWorldPass(id, host, cells, cam, deps, opts = {}) {
   // `shadowSize`, `wet`, `hdr` and `mirror` are reported because each can be zero or absent for
   // several reasons that all draw a correct picture; the number says which.
   // `mass` only for a harness that sets globalThis.__massDebug (massKeep's check).
-  return { interior, faces: g.faces || 0, builds, mass: globalThis.__massDebug && g.view.massDebug ? g.view.massDebug() : undefined, lights, lit: lightList || [], taa: taaDone ? (g.taaN % TAA_TUNE.samples) + 1 : 0, lightGrid: g.view.groundGrid ? g.view.groundGrid() : null, wallGrid: g.view.wallGrid ? g.view.wallGrid() : null, curtains, decals, decalBinds, strokes, scatter, solids, film, hazeFade, ship: (opts.ship || []).length, bay: (opts.bay || []).length, fauna: (opts.fauna || []).length, actors, bbTex: g.view.billboardTextures ? g.view.billboardTextures() : 0, ground, floor, wet: opts.glWet || 0, snow: opts.glSnow || 0, tracks: opts.tracks ? opts.tracks.n : 0, mirror: reflTex ? mirrorGain : 0, mirrorPeak: mirrorProbe, shadowSize: g.view.shadowSize || 0, hdr: graded, canvas: g.canvas };
+  return { interior, faces: g.faces || 0, builds, mass: globalThis.__massDebug && g.view.massDebug ? g.view.massDebug() : undefined, lights, lit: lightList || [], taa: taaDone ? (g.taaN % TAA_TUNE.samples) + 1 : 0, lightGrid: g.view.groundGrid ? g.view.groundGrid() : null, wallGrid: g.view.wallGrid ? g.view.wallGrid() : null, curtains, decals, decalBinds, strokes, scatter, solids, film, hazeFade, ship: (opts.ship || []).length, bay: (opts.bay || []).length, fauna: (opts.fauna || []).length, actors, bbTex: g.view.billboardTextures ? g.view.billboardTextures() : 0, ground, floor, wet: opts.glWet || 0, snow: opts.glSnow || 0, tracks: opts.tracks ? opts.tracks.n : 0, mirror: reflTex ? mirrorGain : 0, mirrorPeak: mirrorProbe, shadowSize: g.view.shadowSize || 0, propShadow: g.view.propShadow || null, hdr: graded, canvas: g.canvas };
 }
 

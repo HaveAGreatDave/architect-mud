@@ -52,7 +52,8 @@ export function createRenderer(canvas, W0, ice, { cam: from = null } = {}) {
     const { w, h, u } = fit();
     const rp = W0.replay && W0.replay.active ? W0.replay : null;
     W = rp ? rp.frame() : W0;
-    camera.view = api.view;
+    // (the vertical view yaws and the 2-D ice can't, so this path shows it as broadcast)
+    camera.view = api.view === 'vertical' ? 'broadcast' : api.view;
     // the live camera keeps following the play under a replay, so it's on it when it ends
     const live = camera.update(w, h, now);
     // (what the live picture shows, for the director: a hit it misses is replayed later)

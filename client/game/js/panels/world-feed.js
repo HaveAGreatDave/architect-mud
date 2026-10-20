@@ -133,7 +133,7 @@ export function venueLive(x, y) { return VENUE.size ? VENUE.get(x + ',' + y) : u
 // (gl/world.js `meshParams`), so a roof at rest is mesh and a moving one can't be: while it moves the
 // key says so and the arm draws the shells as decals. `venueEpoch` is what tells the GL pass to
 // rebuild its window, once when a move starts and once when it ends.
-export const ROOF_MS = 90000;
+export const ROOF_MS = 5 * 60 * 1000;   // five minutes end to end
 const ROOF = new Map();       // "x,y" → { to, from, t0, done }
 let _venueEpoch = 0;
 const roofAt = (e, now) => {

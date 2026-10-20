@@ -11,6 +11,7 @@ const TABS = [
   { id: 'weather', label: '☁ Weather' },
   { id: 'time', label: '⏱ Time' },
   { id: 'esp', label: '🚨 ESP' },
+  { id: 'roof', label: '🏟 Roof' },
   { id: 'players', label: '👥 Players' },
   { id: 'staff', label: '💬 Staff chat' },
 ];
@@ -107,6 +108,33 @@ async function espScreen(res) {
   return frame('esp', detail, actions, res);
 }
 
+// The Coliseum's retractable roof. The forecast sets it each day; a button here holds it till tomorrow.
+async function roofScreen(res) {
+  const { roofView } = await import('./index.js');
+  const r = roofView();
+  if (!r.venue) return frame('roof', { hero: { icon: '🏟', title: 'No roof', sub: 'No venue on the map has a retractable roof.' } }, [], res);
+  const f = r.forecast;
+  const detail = {
+    hero: {
+      icon: '🏟',
+      title: r.shut ? 'Roof shut' : 'Roof open',
+      sub: `${r.venue}. The shells take about five minutes to travel.`,
+      badge: r.manual ? 'Staff' : 'Forecast',
+      badgeKind: r.manual ? 'warn' : undefined,
+    },
+    tiles: [
+      { label: 'Forecast', value: f ? `${cap(f.weatherType)}, ${f.precipPct}%` : 'None' },
+      { label: 'Forecast says', value: f ? (f.shut ? 'Shut' : 'Open') : '-' },
+      { label: 'Held', value: r.manual ? `${cap(r.manual)} till tomorrow` : 'No' },
+    ],
+  };
+  const actions = [
+    r.shut ? { id: 'r_open', label: 'Open the roof' } : { id: 'r_shut', label: 'Close the roof' },
+    ...(r.manual ? [{ id: 'r_auto', label: 'Back to the forecast', kind: 'ghost' }] : []),
+  ];
+  return frame('roof', detail, actions, res);
+}
+
 function soonScreen(tab) {
   const t = TABS.find(x => x.id === tab);
   return frame(tab, {
@@ -120,6 +148,7 @@ async function buildScreen(player, screenId, params, res) {
   const tab = String(screenId || 'weather').toLowerCase();
   if (tab === 'time') return timeScreen(res);
   if (tab === 'esp') return espScreen(res);
+  if (tab === 'roof') return roofScreen(res);
   if (tab === 'players' || tab === 'staff') return soonScreen(tab);
   return weatherScreen(res);
 }
@@ -139,6 +168,8 @@ async function handleAction(player, actionId, params) {
     else if (actionId === 't_speed') res = await time.setSpeed(player, val);
     return timeScreen(res);
   }
+
+  if (actionId.startsWith('r_')) return roofScreen(admin.setRoof(player, actionId.slice(2)));
 
   if (actionId.startsWith('e_')) {
     const { setEsp } = await import('./esp.js');

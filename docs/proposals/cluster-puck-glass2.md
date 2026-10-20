@@ -128,6 +128,7 @@ original; nothing copies a network's or a league's marks.
 
 - **The game camera** is the current one: high on the near side, side-on, solved to keep the puck
   and the net in shot. Modern broadcasts frame hockey the same way, so it stays.
+- **The vertical camera** (built) is the NHL 96 one, a toggle on the picture beside the glowing puck: high and steep behind the play, the ice's width across the screen and its length running up it. It's the camera's one yaw (`view = 'vertical'`, in rink/camera.js), so only GLASS 2 draws it; the 2-D fallback shows the broadcast view.
 - **At stoppages** the picture cuts close: the scorer and the bench fly-by, the goalie, the man in
   the box, the bench, the crowd.
 - **Replays** come from the in-net camera, the high end-zone camera and an overhead, in slow motion.

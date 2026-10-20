@@ -19,6 +19,9 @@ Staff controls in the game, in the Tablet Admin app and the `sysop` verb ([plugi
 ## The ESP ✅
 *Built:* `sysop esp [on [message]|off]` and the ESP tab. Starts and stops the city lockdown: the sirens, the Curtain shut across the South Gate, and the South Lock's outer door down ([systems-trucking.md](systems-trucking.md#the-outer-door-and-the-lockdown)). It dispatches `ESP_ACTIVATE`/`ESP_DEACTIVATE` and reads its state off `esp.changed`, so it agrees with the devpanel's button. Lockdown with a message sets the warning players see.
 
+## The Coliseum roof ✅
+*Built:* `sysop roof [open|shut|auto]` and the Roof tab. The Hughson Coliseum's roof follows today's forecast; open or shut moves it now (the shells take about five minutes) and holds it until the forecast day turns over, and auto hands it back sooner. It calls `setVenueRoof` in the broadcast plugin ([hughson-coliseum.md](proposals/hughson-coliseum.md)). The call is RAM-only, so a restart returns the roof to the forecast.
+
 ## Phase 3: Players
 The online list, with chat (a staff DM), kick, mute and set role (admin only).
 

@@ -14,7 +14,7 @@ import { registerCommand } from '../../server/engine/plugins.js';
 import { apiDeleteZone } from '../../server/api/routes.js';
 import { registerViewerChecker, registerNpcScheduleChecker, registerNpcNextShiftLookup, registerNpcStudioZoneLookup, registerZoneWatchedChecker, hasChannelViewers, isNpcScheduledNow, getNpcStudioZone } from '../../server/engine/broadcast-bridge.js';
 import { registerAICondition, registerAIAction } from '../../server/engine/ai-behaviour.js';
-import { getEnvironmentState, getZonePowerStatus, recomputePower, resyncAllLightingStates, fixZonePowerConnections, fixBuildingPowerConnections, markPowerTopologyDirty, getWeatherTypeAtGrid, getPrecipAtGrid, getWeatherEvent } from '../../server/engine/environment.js';
+import { getEnvironmentState, getZonePowerStatus, recomputePower, resyncAllLightingStates, fixZonePowerConnections, fixBuildingPowerConnections, markPowerTopologyDirty, getWeatherTypeAtGrid, getPrecipAtGrid, getWeatherEvent, getForecast } from '../../server/engine/environment.js';
 import { getSongDefByName, getSfxDefByName, getAmbientDefByName, getSampleDefByName } from '../audio/index.js';
 import { getFlag, setFlag } from '../../server/engine/flags.js';
 import { awardSkillUse, effectiveSkill } from '../../server/engine/skills.js';
@@ -2965,17 +2965,20 @@ function refreshVenueLights(chans) {
 }
 
 // ── THE ROOF OVER THE PARK ──────────────────────────────────────────────────────
-// A venue with `flags.venue_roof` on its tiles (the Hughson Coliseum) shuts its roof for the
-// weather: anything falling at the middle of the venue, or a storm, a blizzard or ash over it. It
-// opens again once it has been dry for ROOF_DRY_MS, so a shower's edge passing doesn't work it like
-// a bellows. The tiles of one venue are grouped by `building_name` and share one answer. The map
-// derive asks `venue.roof` for every tile with the flag (plugins/flight/state.js); ⚠ SYNC AND
-// QUERY-FREE, like `venue.lit`, so it answers from this set. A view open when the roof starts to
-// move is told by a `venue_roof` push and animates it (client/game/js/panels/world-feed.js).
-const ROOF_DRY_MS = 20 * 60 * 1000;
-const ROOF_SHUT_WORDS = new Set(['thunderstorm', 'storm', 'blizzard', 'ash']);
+// A venue with `flags.venue_roof` on its tiles (the Hughson Coliseum) sets its roof for the day by
+// the forecast, not the sky over it: shut if today's forecast is a wet one (rain, sleet, snow, a
+// storm, a blizzard, ash) or gives a 40% chance or more of anything falling, open otherwise. It
+// moves when the forecast day turns over, not under every passing shower. Staff can open or shut it
+// (`sysop roof`, the Admin app's Roof tab), and that call holds until the next forecast day.
+// The tiles of one venue are grouped by `building_name` and share one answer. The map derive asks
+// `venue.roof` for every tile with the flag (plugins/flight/state.js); ⚠ SYNC AND QUERY-FREE, like
+// `venue.lit`, so it answers from this set. A view open when the roof starts to move is told by a
+// `venue_roof` push and animates it over minutes (client/game/js/panels/world-feed.js ROOF_MS).
+const ROOF_SHUT_WORDS = new Set(['rain', 'thunderstorm', 'storm', 'sleet', 'snow', 'blizzard', 'ash', 'acid_rain']);
+const ROOF_SHUT_CHANCE = 0.4;
 let _roofShut = new Set();          // "x,y" of every tile of a venue whose roof is shut now
-const _roofState = new Map();       // venue name → { shut, dryAt }
+const _roofState = new Map();       // venue name → { shut }
+let _roofManual = null;             // { shut, date }: a staff call, held until the forecast day changes
 let _roofVenues = null, _roofAt = 0;
 function roofVenues(nowMs) {
   // The tiles change only with content, so the scan is redone every ten minutes rather than every beat.
@@ -2995,20 +2998,35 @@ function roofVenues(nowMs) {
   _roofAt = nowMs;
   return _roofVenues;
 }
-// Is it weather to shut a roof in, at grid (x, y)?
-function roofWeather(x, y) {
-  const p = getPrecipAtGrid(x, y);
-  return (p && p.precipRate > 0) || ROOF_SHUT_WORDS.has(getWeatherTypeAtGrid(x, y));
+const roofToday = () => getForecast()?.[0] || null;
+// Does today's forecast call for the roof shut?
+function roofWeather() {
+  const f = roofToday();
+  return !!f && (ROOF_SHUT_WORDS.has(f.weatherType) || (f.precipChance ?? 0) >= ROOF_SHUT_CHANCE);
 }
-// Where a venue's roof should be now, with the dry spell before it opens. The first answer for a
-// venue is the weather's own, so a restart in the sun doesn't wait twenty minutes to open.
-function roofDecide(v, nowMs, wet = roofWeather(v.cx, v.cy)) {
-  const s = _roofState.get(v.name);
-  if (!s) { const n = { shut: !!wet, dryAt: wet ? 0 : nowMs }; _roofState.set(v.name, n); return n.shut; }
-  if (wet) { s.shut = true; s.dryAt = 0; return true; }
-  if (!s.dryAt) s.dryAt = nowMs;
-  if (s.shut && nowMs - s.dryAt >= ROOF_DRY_MS) s.shut = false;
-  return s.shut;
+// Where a venue's roof should be now: today's staff call if there is one, else the forecast.
+function roofDecide(v, nowMs, wet = roofWeather()) {
+  if (_roofManual && _roofManual.date !== (roofToday()?.date ?? null)) _roofManual = null;
+  const shut = _roofManual ? _roofManual.shut : !!wet;
+  _roofState.set(v.name, { shut });
+  return shut;
+}
+// Staff: 'open' or 'shut' every venue roof now, or 'auto' to hand it back to the forecast.
+export function setVenueRoof(mode, nowMs = Date.now()) {
+  if (mode === 'auto') _roofManual = null;
+  else _roofManual = { shut: mode === 'shut', date: roofToday()?.date ?? null };
+  refreshVenueRoofs(nowMs);
+}
+// What the Admin app shows: where the roof is, who decided it, and what the forecast says.
+export function venueRoofView() {
+  const v = roofVenues(Date.now())[0];
+  const f = roofToday();
+  return {
+    venue: v?.name || null,
+    shut: v ? _roofShut.has(`${v.tiles[0][0]},${v.tiles[0][1]}`) : null,
+    manual: _roofManual ? (_roofManual.shut ? 'shut' : 'open') : null,
+    forecast: f ? { weatherType: f.weatherType, precipPct: Math.round((f.precipChance ?? 0) * 100), shut: roofWeather() } : null,
+  };
 }
 function venueRoof({ x, y } = {}) {
   if (!_roofVenues) refreshVenueRoofs(Date.now(), false);
@@ -10561,7 +10579,7 @@ export const _test = {
   // Lets the regress suite drive a tick by hand and assert what actually reached a
   // player — the Tablet TV's portable tuner has no zone furniture, so "did a program
   // come out the other end" is only observable this way.
-  venueLit, refreshVenueLights, venueRoof, refreshVenueRoofs, roofDecide, _roofState,
+  venueLit, refreshVenueLights, venueRoof, refreshVenueRoofs, roofDecide, _roofState, setVenueRoof,
   broadcastTick, tabletTuners,
   // Exported so regress can assert what actually rides the wire to the Gameday
   // sub-screen — the half-inning changeover payload has no other observable.

@@ -1199,7 +1199,7 @@ export function createBallparkRenderer(canvas, opts = {}) {
       });
     }
     // The roof's travel (roofTrack): a payload's `roof` says where it is going, and a change takes the
-    // map's ninety seconds (world-feed.js ROOF_MS). Shut until a payload says otherwise, as the map's
+    // map's five minutes (world-feed.js ROOF_MS). Shut until a payload says otherwise, as the map's
     // static picture is.
     const roofT = roofTrack(ROOF_MS);
     const clock = () => (opts.now ? opts.now() : typeof performance !== 'undefined' ? performance.now() : Date.now());

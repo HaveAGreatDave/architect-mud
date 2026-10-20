@@ -34,6 +34,7 @@ Engineering notes for the GLASS renderer (`client/game/js/panels/windshield.js` 
 - [What's left on the canvas](#whats-left-on-the-canvas)
 - [GLASS 1 is the plain fallback (2026-10-17)](#glass-1-is-the-plain-fallback-2026-10-17)
 - [Per-pass GPU time (`__glPassMs()`)](#per-pass-gpu-time-__glpassms)
+- [Prop shadows (`RENDER_TUNE.glPropShadow`)](#prop-shadows-render_tuneglpropshadow)
 - [Measuring the frame (`__glFrame()`)](#measuring-the-frame-__glframe)
 - [Hardware coverage](#hardware-coverage)
 - [A pass that didn't draw](#a-pass-that-didnt-draw)
@@ -139,6 +140,18 @@ Engineering notes for the GLASS renderer (`client/game/js/panels/windshield.js` 
 - [Cliff massifs](#cliff-massifs)
 - [The ballpark (`gl/ballpark.js`)](#the-ballpark-glballparkjs)
 - [The light grid and TAA (`glCluster`, `glTaa`)](#the-light-grid-and-taa-glcluster-gltaa)
+- [Viper scale and ground stance](#viper-scale-and-ground-stance)
+- [Truck part sort](#truck-part-sort)
+- [Boat pilothouse](#boat-pilothouse)
+- [Model depth pass](#model-depth-pass)
+- [Truck cab eye height and prop scale](#truck-cab-eye-height-and-prop-scale)
+- [Derived kit budget](#derived-kit-budget)
+- [Uniforms are written every frame](#uniforms-are-written-every-frame)
+- [The interior as a viewmodel pass](#the-interior-as-a-viewmodel-pass)
+- [Ground layer polygon offset](#ground-layer-polygon-offset)
+- [Wall wash switched off](#wall-wash-switched-off)
+- [Light slot fades](#light-slot-fades)
+- [No emission channel](#no-emission-channel)
 
 ## Big screen and seat layout
 
@@ -478,6 +491,30 @@ Readings at 640×360 on the reference machine (2026-10-17). Take three runs: the
 - The haze fade pass was the most expensive pass, at 1.3–2.8 ms on an aircraft over Marrow. It now draws only the tiles whose box reaches the band (`fadeRuns`) and reads about 0.
 - The sun's shadow map is kept until the mesh rebuilds or the light matrix moves by more than 2e-4 of its largest entry, so a still sun costs no shadow pass.
 - What's left is the main mass pass (2.7–3.6 ms), SSAO (1.6–2.5 ms) and the decals (0.9–1.4 ms).
+
+## Prop shadows (`RENDER_TUNE.glPropShadow`)
+
+Until 2026-10-20 only buildings cast in GLASS 2. The sun map ([gl/shadow.js](../../client/game/js/panels/gl/shadow.js)) holds the mass VAO and nothing else, and only walls read it; a building's shadow on the road is the footprint hull `drawBuildingShadow` lays into the ground mesh. So lamp posts, signal masts, wires, park and shed solids and people cast nothing.
+
+They now cast from a second depth map, [gl/propshadow.js](../../client/game/js/panels/gl/propshadow.js), read by the walls (context.js), the ground mesh (ground.js) and the tarmac the floor paints (floor.js).
+
+- **Why a second map.** The mass map is drawn again only when the mesh or the sun moves (`sunKept`); a walking person in it would redraw the city every frame. The road can't read the mass map either, because the hulls already shade it and every building would darken the pavement twice. The prop map has no buildings in it.
+- **Why near.** The mass map spans the window: 62 texels a tile from a cab, 28 from an aircraft. A lamp column is 0.016 of a tile across, under a texel. The prop map is fitted to the ground in front of the eye (`propBox`: half-size `near + eyeH·perEye`, centre `ahead` of the eye), so a 2048 map gives 102 texels a tile from a cab, 81 from a free camera at 0.3 and 66 from an aircraft. Fitting the light box to a square of ground spends texels on its diagonal: the first fit (half-size 9 + 14·eyeH) gave a cab only 68. Shadows fade over the box's last tenth rather than stopping on a line.
+- **What casts.** Built on the CPU from records the frame already has: solid `p` fans from `bay` and `fauna`, strokes as slabs turned square to the light, people as a 1.75 m × 0.5 m slab. A stroke's world width is its pixel width times its depth over the focal length (emitWire's own sum, inverted), clamped to 0.002–0.016 tiles; a wire drawn at the 1-px floor would otherwise be a plank. The own ship is left out: it has its contact shadow (`OWN_SHADOWS`).
+- **Skip anything below 0.02 of a tile** (`PROP_SHADOW_TUNE.flat`), solid or stroke. Crossing stripes are strokes a hair off the road and kerb tops are solids; both cast acne all over a crossing until this cut.
+- **Strength.** On the road, a hull's darkness (`sun.alpha`, 0.34 at most): an umbra measured 30–35% darker at noon. On a wall, `glShadow`'s. Thin casters cover part of a texel and come out fainter. The moon casts when `moonShadow` does, as the hulls do, so a moonlit night moves 0.4% of a cab frame.
+
+Measured 2026-10-20 on Marrow Street (916,909, heading 90, 15:30) with `__street`, the clock and `Math.random` pinned and three paints per sample:
+
+| Seat | Control (0 vs 0) | 0 vs 1 | Caster triangles |
+|---|---|---|---|
+| cab | 0.00% | 0.77%, all darker | 3,619 |
+| free camera, eye 0.3, pitch −30 | 0.02% | 2.01%, all darker | 5,119 |
+| aircraft | 0.67% | 0.88% | 7,843 |
+
+GPU, `glPassTimer`: 0.04 ms for the map in a cab; the mass, ground and floor passes didn't measurably change. CPU: 0.3–0.5 ms to build about 5,000 triangles. It's on by default and off in `PHONE_TIER`.
+
+Two traps in measuring it. Leave TAA and the clock as they are and a 0-vs-0 control moves 70% of the frame: the frame shifts by a row between paints, and the diff is horizontal banding over the sky and the dashboard. Pin `performance.now` and seed `Math.random` per paint, and always run the control. And the Modelshop reloads the page whenever a client file changes, so with peers editing, run a measurement in short steps and keep results in `localStorage`.
 
 ## Measuring the frame (`__glFrame()`)
 
@@ -2055,3 +2092,104 @@ The light grid is on since 2026-10-19 (off on phones); TAA is off. The plan, wha
   subtract the jitter from the pixel position before reprojecting: the history stands for the
   unjittered picture, and that made a still camera's image wander. Read TAA numbers off mode 3 of
   `TAA_TUNE.debug`, not off the canvas, which the composite grades.
+
+## Viper scale and ground stance
+
+The Viper (the armed `heli`) is authored at unit scale and level, then every vertex goes through `viperXf()` in `aircraft3d.js`, which doubles it (`VIPER_SCALE`). The nose-high three-point sit isn't baked into the mesh: like the fixed-wing taildraggers she carries a ground pitch (`VIPER_GROUND_PITCH`, read through `groundPitchFor`) that the renderers apply as an attitude, so the tail can lift first on take-off and settle last on landing. The gear is cut so all three wheel bottoms land on one floor at that pitch.
+
+The rotor mast (0.1, 0, 0.34) and tail rotor (-1.04, 0.07, 0.12) are pre-transform stations. `drawRotorFX` runs its heli anchors through the same `viperXf` when the craft is armed, so the rotor discs scale with the airframe; don't hardcode post-transform anchors. `windshield.js` measures ground contact per class and armed state (`modelLowestH`, `modelGroundDrop`, `modelMidH`), because this mesh hangs much lower than the unarmed Dragonfly that shares its class.
+
+## Truck part sort
+
+A truck is small convex boxes bolted onto bigger ones (grille bars, stack shields, mirror arms, steps, lifter bands), and a per-face painter's sort can't order nested geometry: it flickers as the camera orbits. `sortTruckFaces` in `aircraft3d.js` fixes it in four ways.
+
+1. It sorts parts, not faces. Faces carry a `part` id stamped where `buildTruck` emits each box, so a box's faces move through the order together. Within a part, faces sort by mean depth, which is exact for a convex box.
+2. The key is the nearest vertex, not the mean. A bolt-on protrudes from its host, so its nearest point is nearer while its mean is almost the same.
+3. The key is measured on the ground plane (`hf`, nearest-vertex depth with the camera's elevation removed). A chase camera looks down, so a camera depth lets a tall part (the cab's top corner) beat a low one further forward (a headlamp). Nothing on a truck is in front of anything by being taller. Where parts are truly stacked the key ties and falls back to mesh order, which `buildTruck` emits inside-out. A caller without `hf` gets `nf`, the old behaviour.
+4. Hysteresis instead of quantising. Rounding depths into buckets only moves the instability to bucket edges and turns a smooth swap into a pop. Instead, two adjacent-swap passes against last frame's order keep the old order for pairs within EPS. Adjacent swaps, because a comparator that consults the previous order isn't transitive and `Array#sort` with one is undefined. Hysteresis never holds a pair whose depth ranges don't overlap (`disjoint`): a chassis rail's near end sits beside everything bolted along it, and holding a stale order there painted the rail over a battery box. A part with no far extent falls back to its mean depth, or every pair would read as disjoint and the hysteresis would switch off.
+
+The sort lives beside the mesh, not in the windscreen, because the truck mesh has four renderers (windscreen contacts and own ship, the depot lot, the walkaround). When only the windscreen sorted by part, the depot still showed see-through trucks.
+
+## Boat pilothouse
+
+`buildBoat` in `aircraft3d.js` draws an enclosed pilothouse because no crew is rendered: an open cockpit reads as an empty boat driving itself. Every dimension and curve comes from `client/shared/boat-house.js`, which the interior (`interior-shell.js`) also reads, so the room you sit in is the inside of the same house. Destructure from `G` at the top of the block: a `const` read above its declaration throws (shapes:smoke once caught "Cannot access fw before initialization").
+
+What keeps it from reading as a box: tumblehome (sides lean in as they rise), a lofted wrapped screen, a crowned and swept hardtop that overhangs, and struts with daylight between roof and walls.
+
+- **Side window.** The aperture is a teardrop parameterised from its aft point (`u` 0 at the point, 1 at the screen). `half` is elliptical in `u`, so the aft end is rounded rather than a cusp. The sill is defined first as a near-flat beltline with a slight kick aft, and the head is the sill plus the opening's height, so the shape lives in the top edge.
+- **Pane behind an aperture.** The glass is one coarse straight-edged pane set inboard (`INSET`), few segments so its sheen isn't a row of streaks. The house shell at full width is finely sampled (`NT`) with the teardrop cut out. The pane is inset rather than the wall standing proud, which would push the house past its hardtop. `NT` drops at the coarse tier, where the aperture is a slot.
+- **Painted band.** A livery-coloured band follows the aperture, thin over the glass and swelling into a broad pillar at the aft point (`bandAt`). Beyond it the house is near-black; a full-height livery panel showed through the far glass as a diagonal.
+- **Flat shading.** The renderer is flat-shaded per face, so curved surfaces are a few large planes. Lofted panels are triangles, because a bilinear quad has no single normal and the backface culler drops half of it. Each surface is one `strip` (one part id), or the sort reorders its own segments into sawteeth. Zero-height bands are skipped: a face with no area has no normal and flickers.
+- **Side runs to the wrap.** The side glass runs forward under the pillar to the wrap's foot (`sideF1`), so the pillar's raked aft edge trims it; stopping at `rF` left a square step.
+- **Screen.** Lofted across the beam, `u` 0 at the centreline to 1 at the side wall, pulled aft as `u^BEND`, so the middle stays flat and the outer third turns. `u` is a lateral fraction with y = 0 at u = 0; interpolating from the screen's half-width left only slivers at the flanks and no front window. The top edge lands further aft than the bottom (`screenRakeSide`, authored as a distance), so the corner keeps a rake instead of going vertical.
+- **Pillar.** A broad swept blade of constant width (`pillarW`) on the wrap's outboard edge, foot to head following the screen's rake, in the hull's own livery (no tint) so it reads as a painted column round the greenhouse. It has an inboard return so it keeps thickness edge-on.
+- **Cowl.** A fairing forward off the screen's foot that narrows and settles into the foredeck, riding the sheer (`atF(f).sz`) because the deck rises toward the bow. Without it the house reads as a screen propped on a plank. Its culling centre sits inside the fairing.
+- **Back wall and door.** The door is a recess using `G.door`, the same opening the interior cuts. It runs down to the sole when the well opens straight onto the house.
+- **Hardtop.** One surface with a swept leading edge (`frontAt`), and the lining is the same quad dropped by its thickness. Top and lining are one part each.
+
+## Model depth pass
+
+`depthPassBuild` and `depthPassCommit` in `aircraft3d.js` are the one depth-buffer pass every vehicle renderer shares (trucks, airframes, boats; the panels and the windscreen). It used to be written per renderer, and each time a fix landed in one view it did nothing in the others, so there's exactly one copy and the differences are options. It was once `truckDepthPass`, but an airframe's nacelles, pods, sponsons, gear and stores are the same nested-box problem the sort can't express.
+
+- **Two halves.** The windscreen paints the contact shadow, lifter wash and thrust cones between filling the buffer and landing the model, so build and commit are separate. `modelDepthPass` does both for the panels, which have nothing to paint in between. World occlusion and lighting are hooks (`occlude`, `light`) because `occluderWindow` and `vehicleLightRig` belong to the world pass.
+- **Face records.** Read through `ptsKey`/`zKey`: the panels carry `fc.P` with `{sx, sy, z}`, the windscreen `fc.pts` with `{sx, sy, f}`. Renaming either would be a wide diff for nothing.
+- **Budget.** The pass costs about 30 ns per buffer pixel. A full-pane rig supersampled to a retina ratio would be about 25 ms, so `RASTER_BUDGET_PX` (200k) caps the buffer: the supersampling gives way under load, never the pass. The scale comes from the canvas transform (`canvasScale`). Below `RASTER_MIN_PX` a model keeps the sort.
+- **Opaque only.** The depth test replaces pixels rather than compositing, so a half-faded face would punch a hole showing the scene. Translucent faces stay out of the buffer and are painted afterwards, depth-tested at their centre. The bounding box is still measured off every face.
+- **Light hook gets the same array.** `shadeRaster` reads normals by the face index stored per pixel, so the light hook must get the identical array in the identical order. `w`/`n` ride along only if the caller's records carry them; `rasterFaces` won't light unless every face has them.
+- **Count on success.** `_depthPassCount` increments only when `rasterFaces` returned a buffer, so it moves in lockstep with `rasterCount`; the smoke asserts that, so a renderer that grows its own copy of the pass fails.
+- **World occlusion, then light.** The `occlude` hook rasterises the world's solids over the same box and scale (null unless something overlaps), and `maskRaster` clears pixels a building owns. Lighting runs after the mask so masked pixels aren't shaded.
+- **Commit.** Returns false when the blit can't land (headless harness), which tells the caller to fall back to its sort. `skipBlit` keeps the visibility verdict without drawing, for when the body is already on the GL depth buffer. Each face gets `seen`: a buffered face must still own its centre, an unbuffered one must have nothing opaque in front, and either must also beat the world occlusion window, or it would paint its splatter, sheen or lamp onto the wall in front of it.
+
+## Truck cab eye height and prop scale
+
+The truck cab sends two interior-only overrides to paintWindshield: `eyeH: 0.12` and `fovMul: 1.22`. They're interior-only because the chase camera anchors its model against the shared constants, so changing them there would move the rig rather than the eye. The scale comes from the depot bay, the one building near this camera with a known real size: BAY.RIDGE is 2.2 storeys, 26 ft, so 1.0 world-z is about 61 ft. An eye of 0.17 was a 10-ft eye, a cherry picker; 0.12 is about 7.5 ft, where a conventional cab's eyes sit. The aircraft's 0.24 is lifted so the near ground falls off a bare windscreen, which a truck's dash already does. The stock focal length pulled the world toward the vanishing point and made everything read small and far.
+
+The cab also sends `propMul: 1.75` for both views. Ground scatter (trees, lamps, bollards, pedestrians) is sized in raw pixels, not world-z (see the note over `propS` in windshield.js). At about 61 ft per world-z unit the actor drawer's stock constant gave a 3.4-ft person; 1.75 puts an adult at about 5 ft 10 and scales the street furniture with them. It goes to both seats because it moves only the scatter. Aircraft stay at 1: the constants are just as wrong there, but nothing in that view is close enough to the ground to show it.
+
+## Derived kit budget
+
+The 2-D painter only runs details inside `RENDER_TUNE.detailNear`; the GLASS 2 mesh isn't gated and is built for every tile in the window. `KIT_MAX` is the per-building ceiling in `derived-kit.js`, spent on the biggest surfaces first. The lean column is the CPU fallback, tuned against `framecost` (canvas calls); the rich column feeds GLASS 2.
+
+The rich unit is mesh faces (a `windowBay` is 6 to 7 quads, a `ductRun` up to 32), held to the budget `gl:mesh` prints. The cost is the first, cold capture, not the frame: `tileMesh` memoises, but `bakeFaceAO` runs 9 directions times 2 reaches per vertex. Whole registry, lean to rich: 28,717 to 35,478 faces (+23.5%), capture 282 to 360 ms, AO bake 231 to 321 ms; models over 8 ms on a cold capture went 7 to 14, over 16 ms stayed at 2. The Meridian Lobby (57 ms) and Halcyon Towers (40 ms) were over before the rich kit.
+
+Swept values: `FLOOR_MAX_RICH` 8 is the peak (10 and 12 give fewer faces, since `cols = winMax / floors`). `KIT_MAX_RICH` 30 gives 33,982 faces, 44 gives 35,478, 60 gives 35,534. `WIN_MAX_RICH` 40 isn't binding (`FLOOR_MAX_RICH × COL_MAX_RICH` is). `COL_PITCH_RICH` 0.13 to 0.085 adds 3,600 faces: `main.hw` clamps to 0.44, so at 0.13 a `COL_MAX` above 3 is unreachable. `KIT_MAX_RICH` went 52 to 56 to pay for roof parts (stair head, condenser rank); at 52, `gl:mesh` failed nine models with "the rich kit LOST sign". `WIN_SHARE_RICH` is a fixed 23 (what `round(52 * 0.45)` came to) so raising the ceiling never hands the window grid more.
+
+## Uniforms are written every frame
+
+A uniform keeps its last value, and one GL view is shared by the game, the Modelshop preview and the bench. So every strength and weather uniform in `draw` (materials, snow, wet, fog, the sun shadow, SSAO, the cel look) is written on every frame, including frames where the feature is off. A pass that wrote one only when it had something to say left the city wet after one shower, the skyline white after a blizzard, or the shadows of an hour ago on the city after sunset. Anything written inside the `opts.mat !== matSrc` cache guard runs on one frame only, so per-frame uniforms and texture binds must sit outside it (the skyline reflection once moved 0.00% of the frame because it was inside). `gl:snow` catches the snow case.
+
+Texture units 4 to 7 (material page, env cube, surface page, ink) are bound on every draw, to their texture or to nothing, for the feedback-loop reason in "A pass that didn't draw".
+
+## The interior as a viewmodel pass
+
+The cab you sit in is inside the world camera's near plane: NEAR is 0.06 tiles and a truck cab is about 0.10 of a tile end to end at the driver's eye, so drawn with the world it clips away to nothing. The near plane can't come in for everybody: `nearFor` only ever brings it in, at a cost in depth precision, and 0.004 across a 400-tile city z-fights the skyline. So `drawInterior` gives the room its own clip range (`INTERIOR_NEAR` 0.004 to `INTERIOR_FAR` 1 tile) and clears depth first. Nothing in the world can be between you and your own dashboard, so the room never sorts against the world, only against itself, and gets better precision than the world pass. It's a second instance of the solids layer (one shader, one upload path), never a copy.
+
+In a banked aircraft the room is drawn after the world has been blitted under the bank's canvas rotate, onto a cleared default framebuffer, so it isn't rotated with the world and covers the whole frame (at 30 degrees of bank, drawing it into the world left two corners of the flight deck missing).
+
+## Ground layer polygon offset
+
+Everything on the ground layer (`gl/ground.js`) is held off the floor shader by a lift in world z: SURF_EPS 0.0008, ROAD_EPS 0.002, BEAM_EPS 0.003, SHADOW_EPS 0.004. A depth buffer stores 1/distance, so those lifts are worth less as 1/f². On a 24-bit buffer at near 0.06 / far 400, in depth-buffer units: road 0.002 is 126 at 4 tiles, 20 at 10, 5 at 20, 1.3 at 40 and 0.3 at 80. Under about one unit the road and the shadows z-fight with the floor (the road blinks, shadows come and go). A cab never shows it, since its road is 5 to 30 tiles out; a zoomed-back external view does.
+
+The layer uses a polygon offset, which biases in depth-buffer units and is worth the same at any distance. The eps ladder stays: it orders the ground surfaces against each other. Polygon offset is ignored for a shader that writes `gl_FragDepth`, which the floor does, so the floor keeps its exact depth and the layer is biased toward the eye off it.
+
+Trap: use units only, factor 0. The factor multiplies the polygon's slope, and a ground plane seen nearly edge-on (a cab at kerb height, an apron to the horizon) has a huge slope, so a factor of -1 can carry the paving in front of the building standing on it.
+
+The units value is a knob (`groundBias`, default -4). Four steps beats the 0.3 the ladder is worth at 80 tiles, but a truck cab once lost the whole ground layer to the floor (terrain green everywhere) while an external camera of the same city was fine. A cab is the hard case: the floor recovers depth from f = EH / p with an eye height of 0.24 tiles, so the road compresses into a few rows near the horizon.
+
+## Wall wash switched off
+
+`LIGHT_TUNE.gain` is 0 after a sixth report that the wash reads as a light show rather than a sign lighting its own wall. The last tuned row passed every bench column (area, peak, energy, no white core), but `__glLights()` can't score whether an effect draws attention to itself. At the reported shopfront, with the clock frozen, the wash moved 37.8% of the building half of the frame (mean 34/255, worst 101) and made the lettering on Nuts to That unreadable.
+
+Turn it off with `gain`, never `RENDER_TUNE.glLights` 0. That flag skips `pickLights`, whose list also feeds the wet road and the mirror, so it would remove every neon reflection on a rainy street. `gain` is read by the wall term alone; at 0 `wallLights` is null and the mass shader's light loop costs nothing. On the frozen frame the picked list was identical and the road band moved 0.00%. To restore it, set `gain` back (0.18 last shipped) together with `washK`, whose product with `gain` is the facade glow's 0.18.
+
+`signR` was 0.15 at first, too short to see on the Modelshop street at any strength; 0.35 shows at strength 2 to 4. The `sign` strength is still to be judged on a sign-heavy street.
+
+## Light slot fades
+
+A night city has far more lights near the camera than there are slots, so the chosen set churns as you move. Without a ramp a light's whole wall wash appears or vanishes between two frames: flying a lit street measured a 1,654-pixel step in one frame, read as a strobe. Each slot carries a weight that ramps, and an outgoing light keeps its slot while it fades; the final sort is on `score * weight`, so a fading light gives its slot up by itself. The ramp is in seconds (`LIGHT_TUNE.rise`/`fall`; both 0 restores the instant swap), and `dt` is clamped because a backgrounded tab returns a huge delta that would snap every light on return. Rank on distance from the eye, never view depth: with depth in the score a turn alone reordered the list and slots churned 35/s (`npm run gl:fade` holds it).
+
+## No emission channel
+
+GLASS 2 has no per-vertex emission channel, and that's a measured result. One was built, wired end to end and gated: it derived emission for free by comparing `tileMesh`'s noon and midnight captures (a face brighter after dark is emitting), found 596 faces on 136 of 173 models, and moved 0.0% of wall pixels at every seat and strength (worst difference 1/255). Every one of those faces was flat, and a flat face takes `solid = 0`, which already skips the texture, key shading, wall ramp and material block. GLASS says a surface is lit from within by drawing it as an unshaded adornment.
+
+What's actually missing isn't reachable per vertex: the lit windows still shaded like brickwork are in a facade's atlas texture, where the window grid and the wall share one textured mass face. Fixing that needs a per-texel emissive mask (a second atlas page), a float target to go brighter than white, and a bloom kernel to spread it.

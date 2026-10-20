@@ -1,24 +1,16 @@
-// THE ROAD SURFACE, AS GEOMETRY, AND EVERYTHING ELSE THAT IS A COLOURED POLYGON.
-// Takes a polygon, a colour and an alpha: the road, the headlight pool (an additive range),
-// building shadows (a translucent one) and a CLIFF MASSIF (depth-writing geometry). A massif can't
-// go in the mesh (it's coloured per frame off the sun, night and a world noise) or behind an
-// occlusion probe (it spreads ~1.8 tiles either side, into the gaps between buildings).
-// scripts/shapes/armcost.mjs: once GLASS 2 owns the mass, 97% of canvas calls left are paths, mostly
-// 'stripeA' (road, pavement, lane marks) at ~12,000 a frame on a 33x33 window. This moves them here.
-// ⚠ DEPTH-WRITE ON, unlike every other layer here: the road is a surface, so a building must hide
-// the road behind it and the road must hide what's under it.
-// ⚠ IT UPLOADS EVERY FRAME, DELIBERATELY. The quads are culled per tile against the near plane and
-// far limit, so the set changes within a tile; a cached buffer would bring back the three bugs the
-// mass cache needed fixing (order-sensitive key, camera-relative position, camera-culled set).
-// Make it cacheable by moving the culls first.
+// The ground layer: road, paint, headlight pool (additive), building shadows (translucent) and
+// cliff massifs, each a coloured polygon. A massif is coloured per frame, so it can't be mesh.
+// ⚠ Depth-write on, unlike the other layers: a building hides the road and the road hides the floor.
+// ⚠ Uploads every frame on purpose: the quads are camera-culled. See
+// docs/reference/glass-notes.md#ground-buffer-caching-not-done
 import { viewProjMatrix, mat4f } from './camera.js';
 import { makeVertexStream } from './stream.js';
 import { HEIGHT_FOG_GLSL, LIGHT_SHAFT_GLSL } from './fog.js';
 import { declareProgram, layerProgram } from './programs.js';
 import { linearOut, applyLinOut } from './colour.js';
+import { PROP_SHADOW_GLSL, PROP_SHADOW_UNIFORMS, bindPropShadow } from './propshadow.js';
 import { LIGHTGRID_TUNE, LIGHTGRID_GLSL, LIGHTGRID_UNIFORMS, createLightGridTextures, bindNoLightGrid, makeGroundGrid, buildGroundGrid } from './lightgrid.js';
 
-// pos3, colour3
 const STRIDE = 10;  // pos3, colour3, alpha1, road1, lat1, kerb1
 // One ground vertex into `d` at `o`, the `i`th corner of its quad; returns the next offset.
 function putGround(d, o, v, i, cs, r, g, b, as, qa, rdw, lats, kb) {
@@ -29,21 +21,11 @@ function putGround(d, o, v, i, cs, r, g, b, as, qa, rdw, lats, kb) {
   d[o + 8] = lats ? lats[i] : 0; d[o + 9] = kb;
   return o + STRIDE;
 }
-// ⚠ THE SAME SIX AS THE SHADER'S OWN MAX_WET, AND THEY HAVE TO AGREE. The GLSL one is inside a
-// template literal and cannot be read from here, so this is the second copy — the shader would
-// accept a longer array and silently ignore the tail, which is a reflection that is there on one
-// machine and missing on another. Kept adjacent so a change to one is a visible diff on both.
+// ⚠ These four must match the shader's MAX_WET, MAX_TRACK, MAX_LID and MAX_POOL; the GLSL
+// copies can't be read from here, and a mismatch silently drops or overruns array entries.
 const MAX_WET = 6;
-// ⚠ THE SAME FORTY AS THE SHADER'S OWN MAX_TRACK, AND THEY HAVE TO AGREE — the rule MAX_WET above
-// states for the same reason. The GLSL one is inside a template literal and cannot be read from
-// here, so this is the second copy, kept adjacent so a change to one is a visible diff on both.
 const MAX_TRACK_PTS = 40;
-// ⚠ MUST MATCH `MAX_LID` IN THE SHADER, the same contract MAX_TRACK_PTS carries: the array is
-// declared a fixed size in GLSL and over-filling it from here writes past the uniform.
 const MAX_LID_N = 12;
-// ⚠ THE SAME THIRTY-TWO AS THE SHADER'S OWN MAX_POOL, the contract MAX_WET carries. The pool had
-// borrowed the road's six reflection slots, ranked nearest the eye first, so from the air a lit city
-// had four or five lamps throwing light on the ground and the rest standing over dark tarmac.
 const MAX_POOL = 32;
 const POOL_P = new Float32Array(MAX_POOL * 3);
 const POOL_C = new Float32Array(MAX_POOL * 3);
@@ -551,6 +533,15 @@ uniform float uGlint;           // how hard a light lands IN the water rather th
 // 0.45 is the road that shipped, which is what makes this the revert. It is a LOOK decision, so it
 // is a slider rather than a constant — the same rule the puddle scale is under.
 uniform float uWetDark;
+// What stands in the street casts onto it (gl/propshadow.js, RENDER_TUNE.glPropShadow). The map
+// holds no buildings, so this never doubles a hull. uPropGround is as dark as a hull gets.
+uniform highp sampler2D uPropMap;
+uniform mat4 uPropVP;
+uniform float uPropOn;
+uniform float uPropTexel;
+uniform float uPropBias;
+uniform float uPropGround;
+${PROP_SHADOW_GLSL}
 
 out vec4 outColor;
 
@@ -713,6 +704,9 @@ void main() {
     surf = mix(surf, uLidSlot, lm.y);
   }
   if (uSurface > 0.5) surf *= uNightDim;
+  // Greyer as well as darker after dark, as the walls are (context.js); the pools add colour back.
+  if (uSurface > 0.5) surf = mix(surf, vec3(dot(surf, vec3(0.299, 0.587, 0.114))), clamp((1.0 - uNightDim) * 1.1, 0.0, 0.85));
+  if (uSurface > 0.5 && uPropOn > 0.0) surf *= 1.0 - propShadow(vWorld) * uPropGround;
   vec3 c = mix(surf, uFog, gfog);
   // ⚠ AFTER THE FOG, because the fog is already folded into c above: a road that has receded into
   // the horizon has nothing left to reflect in, and adding light to it would put a streak on top of
@@ -1349,12 +1343,12 @@ void main() {
       uvec2 hc = lgCell(vWorld.xy);
       for (uint k = 0u; k < hc.y; k++) {
         int li = lgAt(hc.x + k);
-        pool += poolLight(lgP(li).xyz, lgC(li).rgb);
+        pool += poolLight(lgP(li).xyz, vec3(dot(lgC(li).rgb, vec3(0.299, 0.587, 0.114))));
       }
     } else {
       for (int i = 0; i < MAX_POOL; i++) {
         if (i >= uNPool) break;
-        pool += poolLight(uPoolP[i], uPoolC[i]);
+        pool += poolLight(uPoolP[i], vec3(dot(uPoolC[i], vec3(0.299, 0.587, 0.114))));
       }
     }
     // ⚠ IT ADDS INTO THE HEADROOM RATHER THAN ONTO THE ROAD. 'c + k' saturates a pale kerb to
@@ -1372,6 +1366,7 @@ void main() {
     // its cell rather than a capped six, and on a lit junction four overlapping pools added
     // linearly took the whole carriageway to white. 1 - exp(-x) is the same as x for one lamp's
     // fringe, rolls off where pools overlap, and 0.6 keeps the brightest spot short of white.
+    // Pools are white whatever lit them: a neon sign colours its own glass, not the street.
     vec3 lit = 1.0 - exp(-pool * (uPool * clamp(uNight, 0.0, 1.0)));
     c += lit * (0.6 * (1.0 - gfog)) * max(vec3(0.0), 1.0 - c);
   }
@@ -1402,9 +1397,7 @@ void main() {
 }`, 'outColor');
 
 
-// A quad is `{ p: [[x,y,z] x4], rgb: [0-255 x3] }` in the MAP WINDOW's frame — the same frame the
-// mass mesh uses, so the caller hands both to the same shifted camera and they cannot disagree
-// about where a kerb is.
+// A quad is `{ p: [[x,y,z] x4], rgb: [0-255 x3] }` in the map window's frame, the same as the mass mesh.
 export function createGroundLayer(gl) {
   const prog = layerProgram(gl, VERT, FRAG, 'ground');
 
@@ -1470,16 +1463,14 @@ export function createGroundLayer(gl) {
   };
 
   const vao = gl.createVertexArray();
-  // One stream, set up once: the attribute pointers are recorded into the VAO here and never
-  // touched again, and the storage grows by doubling instead of being reallocated every frame.
-  // See gl/stream.js.
+  // One stream, set up once (see gl/stream.js).
   const stream = makeVertexStream(gl, vao, STRIDE, [[loc.pos, 3, 0], [loc.color, 3, 12], [loc.alpha, 1, 24], [loc.road, 1, 28], [loc.lat, 1, 32], [loc.kerb, 1, 36]], 65536);
   let data = new Float32Array(0);
   let count = 0, splitA = 0, splitP = 0, splitB = 0;
-  // The light grid (RENDER_TUNE.glCluster): its textures, its reusable buffers, and the ground's own
-  // extent, which is the grid's extent. A fragment of this layer can't fall outside the quads it
-  // belongs to, so the bounds of what was uploaded bound every cell a fragment can read.
+  // The light grid's textures and buffers. Its extent is the bounds of the uploaded quads.
   for (const n of LIGHTGRID_UNIFORMS) loc[n] = gl.getUniformLocation(prog, n);
+  for (const n of PROP_SHADOW_UNIFORMS) loc[n] = gl.getUniformLocation(prog, n);
+  loc.propGround = gl.getUniformLocation(prog, 'uPropGround');
   loc.lgStreakW = gl.getUniformLocation(prog, 'uLGStreakW');
   loc.lgStreakK = gl.getUniformLocation(prog, 'uLGStreakK');
   loc.lgGlintW = gl.getUniformLocation(prog, 'uLGGlintW');
@@ -1491,19 +1482,10 @@ export function createGroundLayer(gl) {
 
   const tris = (list) => list.reduce((n, q) => n + (q.p.length - 2) * 3, 0);
 
-  // ⚠ FILLED STRAIGHT INTO THE TYPED ARRAY: the mass rebuild cost 11.1 ms when it built plain arrays
-  // and converted them, and this path runs ~12,000 quads a frame.
-  // ⚠ FOUR RANGES IN THE CANVAS'S ORDER: base (the road surface, writes depth), paint (lane lines,
-  // kerbs, zebras), add (headlight pool, 'lighter'), over (shadows, translucent, on top of all
-  // three). That's the 2-D pass order (drawGroundSurfaces, drawHeadlightBeam, building shadows);
-  // reversed, a shadow stops falling across the beam. Only base writes depth (a translucent quad
-  // that did would occlude its own plane).
-  // ⚠ PAINT GOES ON PAINT: markings all sit at ROAD_EPS, exactly coplanar, so with depth-write on
-  // they flicker as the camera moves ("flashing white patches over the yellow lines"; 196 pairs on
-  // one junction tile). A lift is worth a fraction of a depth unit at forty tiles, so it's no fix.
-  // Paint tests depth, writes none, and composites in push order.
-  // ⚠ NO CLOSURE PER QUAD (~2,800 a frame in a cockpit), AND EACH RANGE IS COUNTED ONCE: each
-  // vertex goes through 'putGround'.
+  // ⚠ Filled straight into the typed array, no closure per quad: ~12,000 quads a frame.
+  // ⚠ Four ranges in the 2-D pass's order: base (writes depth), paint, add (headlight pool), over
+  // (shadows). Reversed, a shadow stops falling across the beam.
+  // ⚠ Paint writes no depth: markings are coplanar at ROAD_EPS and flicker if they do.
   function upload(quads) {
     const base = [], paint = [], add = [], over = [];
     for (const q of quads) (q.add ? add : q.over ? over : q.paint ? paint : base).push(q);
@@ -1522,25 +1504,14 @@ export function createGroundLayer(gl) {
         if (v[0] < bx0) bx0 = v[0]; if (v[0] > bx1) bx1 = v[0];
         if (v[1] < by0) by0 = v[1]; if (v[1] > by1) by1 = v[1];
       }
-      // ⚠ COLOUR IS PER VERTEX IN THE BUFFER AND USUALLY PER QUAD IN THE CALLER, and the two are
-      // not in tension — a road has one colour and writes it four times. `rgbs` is for the caller
-      // that needs the other: a cliff face is painted with a vertical GRADIENT, which is the one
-      // thing a flat quad cannot say and the reason a massif could not follow the road onto this
-      // layer. Interpolating between the top and bottom vertices is what a gradient IS.
+      // Optional per-vertex colour (a cliff's vertical gradient) and alpha (a headlight pool's
+      // soft edges); most quads give one of each.
       const cs = q.rgbs;
-      // ⚠ AND ALPHA PER VERTEX FOR THE SAME REASON, which is the one thing a flat quad cannot say.
-      // A headlight pool has no edge in the world — it fades out sideways and it fades out with
-      // distance — and drawn as quads of one alpha each it is a fan of hard-edged strips with a
-      // visible seam down every join. That is most of what "harsh" means about it.
       const as = q.as;
       const r = c ? c[0] / 255 : 0, g = c ? c[1] / 255 : 0, b = c ? c[2] / 255 : 0;
       const rdw = q.road ? 1 : 0;
-      // ⚠ PER VERTEX BECAUSE IT VARIES ACROSS THE QUAD, and 'kerb' does not — but a vertex buffer
-      // has no other place to put a per-quad number, and writing it four times costs nothing
-      // measurable against the four positions already being written beside it.
       const lats = q.lat, kb = q.kerb == null ? 0 : q.kerb;
-      // A fan, because a shadow is the convex hull of a footprint and its offset copy and can
-      // carry up to eight corners; a road quad is the four-point case of the same loop.
+      // A fan: a shadow hull can have up to eight corners.
       for (let i = 1; i + 1 < p.length; i++) {
         o = putGround(d, o, p[0], 0, cs, r, g, b, as, qa, rdw, lats, kb);
         o = putGround(d, o, p[i], i, cs, r, g, b, as, qa, rdw, lats, kb);
@@ -1558,10 +1529,7 @@ export function createGroundLayer(gl) {
     const f = opts.fog || {};
     const c = f.col || [0.5, 0.5, 0.55];
     gl.uniform3f(loc.fog, c[0], c[1], c[2]);
-    // ⚠ BOTH DEFAULT TO THE FOG COLOUR, WHICH MAKES AN UNPLUMBED FRAME BIT-IDENTICAL TO THE ONE
-    // THAT SHIPPED. `mix(c, c, t)` is `c` at every `t`, so a caller that hands over no sky band —
-    // the Modelshop's own scenes, a bench, anything that reaches this layer directly — gets the
-    // flat haze fallback exactly as before rather than a gradient built out of a stand-in.
+    // Both ends default to the fog colour, so a caller with no sky band gets flat haze.
     const sb = opts.skyBand || {};
     const sh = sb.hor || c, st = sb.top || c;
     gl.uniform3f(loc.skyHor, sh[0], sh[1], sh[2]);
@@ -1569,28 +1537,16 @@ export function createGroundLayer(gl) {
     gl.uniform1f(loc.fogNear, f.near == null ? 6 : f.near);
     gl.uniform1f(loc.fogFar, f.far == null ? 34 : f.far);
     gl.uniform1f(loc.fogAmt, f.amt || 0);
-    // ⚠ WRITTEN EVERY FRAME, INCLUDING THE DRY ONES. A uniform holds its last value, so a pass that
-    // only set these when it had reflections would leave the last wet frame's streaks lying on the
-    // road long after it stopped raining — the same rule the sun strength in context.js follows.
-    // ⚠ WRITTEN EVERY FRAME, LIKE THE WETNESS ABOVE, or a lamp goes on lighting the road after
-    // the pool is switched off — a uniform holds its last value.
+    // ⚠ Every uniform here is written every frame, dry or not: a uniform keeps its last value, so
+    // skipping one leaves the last frame's streaks or pool on the road.
     gl.uniform1f(loc.pool, opts.pool > 0 ? opts.pool : 0);
     gl.uniform1f(loc.nightDim, opts.nightDim == null ? 1 : opts.nightDim);
     gl.uniform1f(loc.night, opts.night == null ? 0 : opts.night);
-    // ⚠ AND THE LIGHTS ARRIVE ON A DRY NIGHT NOW, WHICH THEY NEVER DID. This read
-    // '(opts.wet > 0 ? opts.wetLights : null)', which is right for a term that is about water and
-    // is the ONLY hand-off the list has: with it, a clear night uploaded 'uNWet' 0 and every loop
-    // in this shader broke on its first iteration. The reflections do not care (they are gated on
-    // 'refl', which is 'uWet' times a coverage and is exactly 0 on a dry road), but two terms that
-    // are NOT about water were dying with them — the pool below, and the light shaft in the air,
-    // which is gated on HAZE and so was silently absent in every fog that came without rain.
+    // ⚠ The lights upload on a dry night too: the pool and the light shaft (gated on haze) need
+    // them, not just the wet road.
     const wl = (opts.wet > 0 || opts.pool > 0 || opts.scatter > 0 ? opts.wetLights : null) || EMPTY_WET;
     const nw = Math.min(MAX_WET, wl.length);
-    // ⚠ NOT `nw ? wet : 0`, WHICH IS THE SAME MISTAKE AS THE CALLER'S AND WAS STILL HERE AFTER THAT
-    // ONE WAS FIXED. Two gates, one layer apart, both saying "no lights means no wetness" — so
-    // removing the outer one moved the daylight road from dry to dry. The wetness DARKENS the
-    // surface and needs nothing to reflect; only the reflection loop needs a light, and it has its
-    // own `uNWet > 0` test.
+    // ⚠ Not 'nw ? wet : 0': wetness darkens the road with no light to reflect.
     gl.uniform1f(loc.wet, opts.wet || 0);
     gl.uniform1i(loc.nWet, nw);
     gl.uniform2f(loc.eye, opts.eyeX || 0, opts.eyeY || 0);
@@ -1598,18 +1554,14 @@ export function createGroundLayer(gl) {
     gl.uniform1f(loc.fogH, opts.fogH || 0);
     gl.uniform1f(loc.fogHScale, opts.fogHScale > 0 ? opts.fogHScale : 0.5);
     gl.uniform1f(loc.scatter, opts.scatter || 0);
-    // The window centre, so the puddle field is phased on ABSOLUTE world tiles. vWorld is
-    // map-window, which slides a whole tile every time the window recentres; without this the
-    // hollows would crawl along the road as you drive, which is the one thing a puddle must not do.
+    // The window centre, so puddles are phased on absolute world tiles and don't crawl when the
+    // window recentres.
     gl.uniform2f(loc.wc, opts.wcX || 0, opts.wcY || 0);
     if (nw) {
       for (let i = 0; i < nw; i++) {
         const L = wl[i];
         WET_P[i * 3] = L.p[0]; WET_P[i * 3 + 1] = L.p[1]; WET_P[i * 3 + 2] = L.p[2];
-        // ⚠ `rgbRaw`, NOT `rgb` — see pickLights. `rgb` carries the night weighting the WALL wash
-        // wants and falls to zero at noon, which would make a wet road stop reflecting in daylight.
-        // A reflection at four in the afternoon is faint because the ground around it is bright,
-        // not because the light was scaled away.
+        // ⚠ rgbRaw, not rgb (see pickLights): rgb is night-weighted and would stop daylight reflections.
         const lc = L.rgbRaw || L.rgb;
         WET_C[i * 3] = lc[0]; WET_C[i * 3 + 1] = lc[1]; WET_C[i * 3 + 2] = lc[2];
         WET_R[i] = L.r;
@@ -1618,8 +1570,7 @@ export function createGroundLayer(gl) {
       gl.uniform3fv(loc.wetC, WET_C.subarray(0, nw * 3));
       gl.uniform1fv(loc.wetR, WET_R.subarray(0, nw));
     }
-    // The pool's own list: every light the walls got, not the road's six. Same colour the old
-    // path read from the six ('rgbRaw'), so a lamp near the eye is unchanged.
+    // The pool's own list: every light the walls got, not the road's six.
     const pl = (opts.pool > 0 ? (opts.poolLights || opts.wetLights) : null) || EMPTY_WET;
     const np = Math.min(MAX_POOL, pl.length);
     for (let i = 0; i < np; i++) {
@@ -1634,33 +1585,23 @@ export function createGroundLayer(gl) {
     }
     gl.uniform1f(loc.hazeNear, opts.hazeNear == null ? 1e9 : opts.hazeNear);
     gl.uniform1f(loc.hazeFar, opts.hazeFar == null ? 1e9 : opts.hazeFar);
-    // ⚠ WRITTEN EVERY FRAME LIKE THE WETNESS ABOVE, AND FOR THE SAME REASON. A uniform holds its
-    // last value, so a dry frame that simply skipped this would go on sampling the last wet frame's
-    // reflection — a city lying in a road that stopped being wet ten minutes ago.
-    // ⚠ AND THE TEXTURE UNIT IS BOUND WHATEVER HAPPENS. Sampling an incomplete unit is undefined
-    // rather than black on some drivers, so the `off` branch has to leave `uReflOn` at 0 AND still
-    // leave a valid binding: the shader's branch is what saves the fetch, not an unbound sampler.
+    // ⚠ Written every frame, or a dry frame keeps sampling the last wet frame's reflection.
+    // ⚠ The texture unit is bound whatever happens: an incomplete unit is undefined on some
+    // drivers, so off means uReflOn 0 plus a valid binding.
     const rt = opts.wet > 0 ? opts.reflTex : null;
     const on = rt && opts.reflGain > 0;
     gl.uniform1f(loc.reflOn, on ? 1 : 0);
     gl.uniform1f(loc.reflGain, on ? opts.reflGain : 0);
     gl.uniform1f(loc.pudScale, opts.pudScale > 0 ? opts.pudScale : 1.9);
-    // ⚠ FALLS BACK TO 'wet', WHICH IS WHAT MAKES A CALLER THAT HAS NOT BEEN TAUGHT ABOUT PONDING
-    // BIT-IDENTICAL. Every bench, the Modelshop and any direct user of this layer hands over a
-    // wetness and no pond; the level then reads exactly the number it always did.
+    // Pond falls back to wet, so a caller with no pond (a bench, the Modelshop) is unchanged.
     gl.uniform1f(loc.pond, opts.pond == null ? (opts.wet || 0) : opts.pond);
-    // ⚠ NOT FALLING BACK TO ANYTHING, UNLIKE THE POND ABOVE IT. A caller that has not been taught
-    // about snow means a bench, the Modelshop or a direct user of this layer, and the honest answer
-    // for all three is BARE GROUND — so this defaults to 0 and every existing harness is unchanged
-    // by construction rather than by anybody remembering to switch it off.
+    // Snow defaults to 0: a caller that doesn't know about snow gets bare ground.
     gl.uniform1f(loc.snow, opts.snow || 0);
-    // The frame's snow colour, night included (see 'uSnowCol'). A caller without one gets the daylight
-    // white the shader used to hard-code, which is what a bench at noon expects.
+    // The frame's snow colour, night included (see 'uSnowCol').
     const sc = opts.snowCol || SNOW_DAY;
     gl.uniform3f(loc.snowCol, sc[0], sc[1], sc[2]);
-    // ⚠ WRITTEN EVERY FRAME, INCLUDING THE FRAMES WITH NO TRACKS. A uniform holds its last value,
-    // so a pass that set these only when it had a path would leave the last one carved into the
-    // snow for the rest of the session — the rule the road segments and the wet lights carry.
+    // ⚠ Written every frame, even with no tracks: a uniform keeps its last value, so the last
+    // path would stay carved in the snow.
     {
       const tk = opts.tracks;
       const tn = tk && tk.pts ? Math.min(MAX_TRACK_PTS, tk.n | 0) : 0;
@@ -1671,10 +1612,7 @@ export function createGroundLayer(gl) {
         gl.uniform4f(loc.trackBox, tk.box[0], tk.box[1], tk.box[2], tk.box[3]);
       }
     }
-    // ⚠ WRITTEN EVERY FRAME, INCLUDING THE FRAMES WITH NONE, for the reason the tracks above
-    // carry: a uniform holds its last value, so a pass that set these only when it had an
-    // opening would leave the last street's manholes stamped into open country for the rest of
-    // the session.
+    // ⚠ Written every frame, for the reason the tracks are.
     {
       const ld = opts.lids;
       const ln = ld && ld.pts ? Math.min(MAX_LID_N, ld.n | 0) : 0;
@@ -1690,27 +1628,19 @@ export function createGroundLayer(gl) {
     gl.uniform2f(loc.reflVP, opts.vpW || 1, opts.vpH || 1);
     gl.uniform1f(loc.time, opts.time || 0);
     gl.uniform1f(loc.ripple, on ? (opts.ripple > 0 ? opts.ripple : 0) : 0);
-    // ⚠ NOT GATED ON `on`, UNLIKE THE RIPPLE ABOVE IT. The ripple bends a lookup into the
-    // reflection buffer and means nothing without one; the glint is the light list reflected in
-    // the water and needs no buffer at all, so it survives `glMirror 0` exactly as the streak does.
+    // ⚠ Not gated on 'on': the glint needs no reflection buffer, so it survives glMirror 0.
     gl.uniform1f(loc.glint, opts.glint > 0 ? opts.glint : 0);
-    // ⚠ NOT `|| 0.45`, because 0 is a legal setting (a wet road exactly as bright as a dry one) and
-    // `0 || 0.45` is 0.45. The caller always sends a number; this only covers an undefined.
+    // ⚠ Not '|| 0.45': 0 is a legal setting.
     gl.uniform1f(loc.wetDark, opts.wetDark == null ? 0.45 : opts.wetDark);
-    // ── THE LIGHT GRID (RENDER_TUNE.glCluster) ─────────────────────────────────────────────────
-    //
-    // With `gridLights` the streak, the glint and the pool walk every light whose footprint covers
-    // the fragment's cell, in place of the six and the pool's list above (those are still uploaded:
-    // the light shaft in the air reads the six whichever path the road takes). Without it, or with
-    // no live term to bin for, uLGOn is 0 and the shader is the uniform path to the bit.
+    // The light grid (RENDER_TUNE.glCluster): streak, glint and pool walk the cell's lights instead
+    // of the lists above. Those still upload, since the light shaft reads the six either way.
     let grid = null;
     if (lgTex && opts.gridLights && opts.gridLights.length && bx1 >= bx0) {
       const night = Math.min(1, Math.max(0, opts.night || 0));
       const poolGain = opts.pool > 0 && night > 0.01 ? opts.pool * night : 0;
       const wet = opts.wet > 0 ? opts.wet : 0;
       if (wet > 0 || poolGain > 0) {
-        // The same numbers the uniforms below get: each footprint is sized by the gain its term
-        // is drawn at (see the ⚠ on footprints in gl/lightgrid.js).
+        // Footprints are sized by the gains the uniforms below get (see gl/lightgrid.js).
         grid = buildGroundGrid(lgGrid, opts.gridLights, [bx0, by0, bx1, by1],
           { x: opts.eyeX || 0, y: opts.eyeY || 0, h: opts.eyeH == null ? 0.2 : opts.eyeH },
           { wet, glint: opts.glint > 0 ? opts.glint : 0, pool: poolGain, streakW: LIGHTGRID_TUNE.streakW, streakK: LIGHTGRID_TUNE.streakK, glintW: LIGHTGRID_TUNE.glintW, glintK: LIGHTGRID_TUNE.glintK });
@@ -1720,14 +1650,15 @@ export function createGroundLayer(gl) {
     gridStats = grid && grid.n ? { lights: grid.n, binned: grid.binned, cells: grid.nx * grid.ny, size: grid.size, entries: grid.entries, maxCell: grid.maxCell, cut: grid.cut } : null;
     // Units 3 to 5: the reflection and the sky hold 1 and 2.
     if (lgTex) lgTex.bind(loc, 3, grid); else bindNoLightGrid(gl, loc, 3);
+    // Unit 6, past the light grid's 3 to 5. Every draw, on or off: a uniform holds its last value.
+    bindPropShadow(gl, loc, 6, opts.prop || null);
+    gl.uniform1f(loc.propGround, opts.prop ? opts.prop.ground : 0);
     gl.uniform1f(loc.lgStreakW, LIGHTGRID_TUNE.streakW > 0 ? LIGHTGRID_TUNE.streakW : 1);
     gl.uniform1f(loc.lgStreakK, LIGHTGRID_TUNE.streakK >= 0 ? LIGHTGRID_TUNE.streakK : 1);
     gl.uniform1f(loc.lgGlintW, LIGHTGRID_TUNE.glintW > 0 ? Math.min(2, LIGHTGRID_TUNE.glintW) : 1);
     gl.uniform1f(loc.lgGlintK, LIGHTGRID_TUNE.glintK >= 0 ? LIGHTGRID_TUNE.glintK : 1);
     gl.uniform1i(loc.refl, 1);
-    // ⚠ UNIT 2, AND BOUND WHATEVER HAPPENS, for the same reason the reflection above is: sampling an
-    // incomplete unit is undefined rather than black on some drivers, so the shader's own branch is
-    // what saves the fetch and `uSkyOn` is what decides.
+    // ⚠ Unit 2, bound whatever happens, like the reflection; uSkyOn decides.
     const skyT = on ? (opts.skyTex || null) : null;
     gl.uniform1i(loc.sky, 2);
     gl.uniform1f(loc.skyOn, skyT ? 1 : 0);
@@ -1737,58 +1668,13 @@ export function createGroundLayer(gl) {
     gl.bindTexture(gl.TEXTURE_2D, on ? rt : null);
     gl.activeTexture(gl.TEXTURE0);
     gl.enable(gl.DEPTH_TEST);
-    // ── ⚠ THE EPS LADDER IS A WORLD LIFT AND THE DEPTH BUFFER IS NOT LINEAR ───
-    //
-    // Everything on this layer lies on the ground and is held off the floor shader by a lift in
-    // WORLD z — SURF_EPS 0.0008, ROAD_EPS 0.002, BEAM_EPS 0.003, SHADOW_EPS 0.004. A depth buffer
-    // does not store distance, it stores 1/distance, so what those lifts are worth collapses as
-    // 1/f². Measured on a 24-bit buffer at near 0.06 / far 400, in depth-buffer units:
-    //
-    //     tiles      road 0.002   shadow 0.004   surface 0.0008
-    //         4          126           251             50
-    //        10           20            40              8
-    //        20            5             10              2
-    //        40            1.3            2.5            0.5
-    //        80            0.3            0.6            0.1
-    //
-    // Under about one unit the test cannot tell the quad from the floor it lies on, so the road
-    // and the shadows z-fight — which reads as the road blinking between light levels and shadows
-    // coming and going. It never showed from a cab, where the road in front of you is five to
-    // thirty tiles out; it shows the moment the external view zooms back, because that pushes the
-    // whole scene further away and every lift in the ladder is worth less.
-    //
-    // A polygon offset is the fix rather than a bigger number: it biases in DEPTH-BUFFER units and
-    // scales with the polygon's own slope, so it is worth the same at four tiles and at eighty, and
-    // a ground plane seen nearly edge-on — the case that fails hardest — is exactly the case the
-    // slope term is for. ⚠ The ladder stays: it still orders these surfaces AGAINST EACH OTHER,
-    // where they are all at the same distance and the lift is still meaningful. This only settles
-    // the whole layer against the floor underneath it.
-    // ⚠ And it works because these quads let the rasteriser interpolate their depth. Polygon offset
-    // is ignored for a shader that writes gl_FragDepth, which the floor does — so the floor keeps
-    // its own exact depth and the layer above is biased toward the eye off it.
+    // ⚠ The eps lifts are worth under one depth unit far out, so the layer z-fights the floor.
+    // A polygon offset fixes it; see docs/reference/glass-notes.md#ground-layer-polygon-offset
     gl.enable(gl.POLYGON_OFFSET_FILL);
-    // ⚠ UNITS ONLY, FACTOR ZERO, AND THE FACTOR IS THE DANGEROUS HALF. A polygon offset is
-    // factor·slope + units·resolution, and the slope of a ground plane seen nearly EDGE ON — a cab
-    // at kerb height, an apron running to the horizon — is enormous. A factor of −1 there is not a
-    // hair of bias, it is a large one, and a large bias toward the eye can carry the paving in
-    // front of the building standing on it.
-    // The units term is what this actually needs: a constant number of DEPTH-BUFFER steps, which is
-    // already resolution-independent and is the whole reason a polygon offset beats a world lift.
-    // Four steps is comfortably more than the 0.3 the eps ladder is worth at eighty tiles, and
-    // cannot grow with the angle.
-    // ⚠ A KNOB, BECAUSE THE FOUR WAS A CALCULATION AND THE CAB DISAGREED WITH IT. The reasoning
-    // above prices four depth-buffer steps against what the eps ladder is worth at eighty tiles,
-    // and it is sound at altitude. Reported from a truck cab: the whole ground layer — tile fills,
-    // kerbs AND lane markings — lost to the floor and the driver saw terrain green everywhere,
-    // while the same city from an external camera was perfect. Both views report floor 1 and ~2500
-    // ground quads, so the quads are built and drawn; they are simply not winning.
-    //
-    // ⚠ WHY A CAB IS THE HARD CASE. The floor recovers its depth from f = EH / p, and EH is the
-    // EYE HEIGHT: a cab sits at 0.24 tiles, so the entire road compresses into a few screen rows
-    // near the horizon and d gets very large very fast. A fixed number of steps that is generous
-    // at an aeroplane s eye height is not obviously generous at a fifth of a tile.
+    // ⚠ Units only, factor 0: an edge-on ground plane's slope makes any factor a huge bias. A knob,
+    // because a truck cab needed more than the computed 4 steps.
     gl.polygonOffset(0, opts.groundBias != null ? opts.groundBias : -4);
-    gl.depthMask(true);         // the road is a surface — see the ⚠ at the top
+    gl.depthMask(true);         // the road is a surface (see the top)
     gl.disable(gl.CULL_FACE);   // a road is looked at from above and from a cab at kerb height
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
@@ -1796,16 +1682,14 @@ export function createGroundLayer(gl) {
     gl.uniform1f(loc.surface, 1);
     if (splitA) { gl.depthMask(true); gl.drawArrays(gl.TRIANGLES, 0, splitA); }
     gl.depthMask(false);
-    // The markings, source-over on the surface they are painted on — still a surface as far as the
+    // The markings, source-over on the surface they are painted on, still a surface as far as the
     // wetness and the reflections are concerned, so uSurface stays 1.
     if (splitP > splitA) gl.drawArrays(gl.TRIANGLES, splitA, splitP - splitA);
     if (splitB > splitP) {
-      // ⚠ ADDITIVE, AND THE ALPHA RIDES ALONG. The fragment output is premultiplied, so under
-      // ONE/ONE the colour adds and so does the coverage — which it has to, because this buffer is
-      // BLITTED source-over onto the 2-D frame and a pool of light over open ground would
-      // otherwise composite onto nothing and vanish. Same compromise the Curtain makes.
+      // ⚠ Additive, alpha included: the buffer is blitted source-over onto the 2-D frame, so a pool
+      // over open ground needs coverage or it vanishes.
       gl.blendFunc(gl.ONE, gl.ONE);
-      // The pool of light is not a surface — see the ⚠ on uSurface.
+      // The pool of light is not a surface; see the ⚠ on uSurface.
       gl.uniform1f(loc.surface, 0);
       gl.drawArrays(gl.TRIANGLES, splitP, splitB - splitP);
       gl.uniform1f(loc.surface, 1);

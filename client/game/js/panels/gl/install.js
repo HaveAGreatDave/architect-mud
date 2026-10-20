@@ -279,6 +279,8 @@ export function installGL(hostFor) {
       // numbers (`dir`, `len`) the ground hulls have always cast with, so the shadow on a wall and
       // the shadow on the pavement come from one source rather than two.
       glShadow: opts.glShadow, sun: opts.sun,
+      // What stands in the street, on its own near map (gl/propshadow.js). Dropped here it is off.
+      glPropShadow: opts.glPropShadow,
       curtain: opts.curtain, decals: opts.decals, strokes: opts.strokes, scatter: opts.scatter, ground: opts.ground,
       // ⚠ AND THE SHED BESIDE IT. Dropped here it is the gl:opts failure exactly: the sink fills,
       // the tune key exists, the slider moves, and the shed is collected into a list one hop short

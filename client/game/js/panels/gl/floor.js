@@ -25,6 +25,7 @@ import { seaSlopeVariance } from '../../../../shared/sea-swell.js';
 import { declareProgram, layerProgram } from './programs.js';
 import { SEA_GLSL } from './sea-glsl.js';   // the ONE GLSL copy of the swell — water.js includes the same string, and client/shared/sea-swell.js is the JS original
 import { linearOut, applyLinOut } from './colour.js';
+import { PROP_SHADOW_GLSL, PROP_SHADOW_UNIFORMS, bindPropShadow } from './propshadow.js';
 
 // A screen-filling triangle rather than a quad: no diagonal seam, one fewer vertex, and the
 // interpolators do not care. The vertex shader synthesises it from gl_VertexID, so there is no
@@ -52,6 +53,15 @@ uniform float uLAT;        // halfW / the camera's lateral focal length — see 
 uniform float uSinh;
 uniform float uCosh;
 uniform vec2  uA;          // the craft's ground point, chase offset already folded in
+// What stands in the street casts on the tarmac this pass paints (gl/propshadow.js). wx, wy are in
+// the map window's frame, the one the prop map is fitted in. uPropOn 0 skips it.
+uniform highp sampler2D uPropMap;
+uniform mat4 uPropVP;
+uniform float uPropOn;
+uniform float uPropTexel;
+uniform float uPropBias;
+uniform float uPropGround;
+${PROP_SHADOW_GLSL}
 uniform float uDpr;        // gl_FragCoord is in device pixels; everything above is in CSS
 uniform float uViewH;
 
@@ -1246,6 +1256,8 @@ void main() {
   vec3 mAdd = moon * ih * vec3(120.0, 140.0, 185.0) / 255.0;
   vec3 col = ((base * tex + spec) * ih + uHor * haze) * uNm
            + mAdd + capAdd * vec3(1.0, 1.0, 1.06);
+  // Greyer as well as darker after dark, as the walls and roads are; the lights below add colour back.
+  col = mix(col, vec3(dot(col, vec3(0.299, 0.587, 0.114))), clamp((1.0 - uNm) * 1.1, 0.0, 0.85));
 
   // Aerial perspective for the arid wildlands. Clear-weather haze is deliberately light, so a dry
   // plain would otherwise keep near-full saturation up to a high horizon and read as a looming
@@ -1333,6 +1345,8 @@ void main() {
     col += neon * (wdeep * clamp(uNight, 0.0, 1.0));
   }
 
+  // Before the fog, so a post's shadow recedes into the haze with the road it lies on.
+  if (uPropOn > 0.0) col *= 1.0 - propShadow(vec3(wx, wy, 0.0)) * uPropGround;
   // N64 distance fog, last and uniformly over every material, so the far field recedes into the
   // sky. A squared ramp: a crisp foreground thickening into the far.
   // ⚠ ONE MIX FOR BOTH, because they are two things the light has to get through and what
@@ -1399,6 +1413,8 @@ export function createFloorLayer(gl) {
   const prog = layerProgram(gl, VERT, FRAG, 'floor');
 
   const U = (n) => gl.getUniformLocation(prog, n);
+  const PL = { propGround: U('uPropGround') };
+  for (const n of PROP_SHADOW_UNIFORMS) PL[n] = U(n);
   const loc = {
     EH: U('uEH'), pitch: U('uPitch'), horizonY: U('uHorizonY'), depth: U('uDepth'), cx: U('uCx'), halfW: U('uHalfW'),
     LAT: U('uLAT'), sinh: U('uSinh'), cosh: U('uCosh'), A: U('uA'), dpr: U('uDpr'), viewH: U('uViewH'),
@@ -1612,6 +1628,9 @@ export function createFloorLayer(gl) {
     gl.enable(gl.DEPTH_TEST);
     gl.depthMask(true);
     gl.disable(gl.BLEND);
+    // Unit 9, clear of the LUTs (0-2) and the wild map (7). Every draw, on or off.
+    bindPropShadow(gl, PL, 9, s.prop || null);
+    gl.uniform1f(PL.propGround, s.prop ? s.prop.ground : 0);
     gl.bindVertexArray(vao);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
     gl.bindVertexArray(null);

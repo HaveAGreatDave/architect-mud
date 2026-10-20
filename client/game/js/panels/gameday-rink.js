@@ -62,11 +62,16 @@ const CARD = {
 const GLOW_KEY = 'rinkGlowPuck';
 function glowSaved(win) { try { return win?.localStorage?.getItem(GLOW_KEY) === '1'; } catch { return false; } }
 function glowSave(win, on) { try { win?.localStorage?.setItem(GLOW_KEY, on ? '1' : '0'); } catch { /* storage blocked */ } }
+// The camera: the broadcast view across the ice, or the NHL 96 view up and down it.
+const CAM_KEY = 'rinkCamView';
+function camSaved(win) { try { return win?.localStorage?.getItem(CAM_KEY) === 'vertical' ? 'vertical' : null; } catch { return null; } }
+function camSave(win, v) { try { win?.localStorage?.setItem(CAM_KEY, v); } catch { /* storage blocked */ } }
 
 export function createRinkView(host, opts = {}) {
   const doc = host ? host.ownerDocument : null;
   const win = doc ? doc.defaultView : null;
   let glow = opts.glow != null ? !!opts.glow : glowSaved(win);
+  let camView = opts.camera || camSaved(win);
   let caption = '', pendingCaption = null, pendingCard = null, cardTimer = null, holdTimer = null;
   let last = null, landed = true, raf = 0, lastFrame = 0, frameAvg = 0, acc = 0, mounted = false, speed = opts.speed || 1;
   let W = null, D = null, R = null, ice = null, canvas = null, modsP = null, mods = null;
@@ -173,6 +178,9 @@ export function createRinkView(host, opts = {}) {
       `<div class="gdr-rink"><canvas class="gdr-canvas" aria-label="Rinkside: the play on the ice"></canvas><canvas class="gdr-hud" aria-hidden="true"></canvas>` +
         `<button type="button" class="gdr-glow" aria-pressed="${glow}" title="Glowing puck" aria-label="Glowing puck">` +
           `<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="currentColor" opacity="0.28"/><ellipse cx="12" cy="13" rx="6" ry="3.4" fill="#0b0c0f"/><ellipse cx="12" cy="11.6" rx="6" ry="3.4" fill="#2c2f36"/></svg>` +
+        `</button>` +
+        `<button type="button" class="gdr-cam" aria-pressed="${camView === 'vertical'}" title="Vertical camera" aria-label="Vertical camera">` +
+          `<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="4" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M8 12h8" stroke="currentColor" stroke-width="1.4"/><path d="M12 5.2l-2 2.2h4zM12 18.8l-2-2.2h4z" fill="currentColor"/></svg>` +
         `</button></div>` +
       `<div class="gdr-strip"></div>` +
       `<div class="gdr-rush" hidden></div>` +
@@ -280,8 +288,13 @@ export function createRinkView(host, opts = {}) {
     const gl = opts.renderer !== '2d' && mods.createArenaRenderer ? mods.createArenaRenderer(canvas, hud, W, ice) : null;
     R = gl || mods.createRenderer(canvas, W, ice);
     rung = 0; slow = quick = 0;
-    if (opts.camera) R.view = opts.camera;
+    if (camView) R.view = camView;
     R.glow = glow;
+  }
+  function setCam(v) {
+    camView = v;
+    if (R) R.view = v;
+    host?.querySelector('.gdr-cam')?.setAttribute('aria-pressed', String(v === 'vertical'));
   }
   function setGlow(on) {
     glow = !!on;
@@ -310,6 +323,7 @@ export function createRinkView(host, opts = {}) {
     addFullscreenButton(host.querySelector('.gdr-rink'), host);
     canvas = host.querySelector('.gdr-canvas');
     host.querySelector('.gdr-glow')?.addEventListener('click', () => { setGlow(!glow); glowSave(win, glow); });
+    host.querySelector('.gdr-cam')?.addEventListener('click', () => { setCam(camView === 'vertical' ? 'broadcast' : 'vertical'); camSave(win, camView); });
     const { createIce, createWorld } = mods;
     ice = createIce(doc);
     W = createWorld(ice, 'rinkside');

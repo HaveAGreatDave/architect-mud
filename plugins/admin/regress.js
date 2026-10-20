@@ -18,6 +18,8 @@ export default async function regress({ run, check, getPlayer }) {
     let r = await run('sysop weather');
     check('sysop refused for a player', /unknown command/i.test(r?.message || ''), r?.message);
     r = await run('sysop weather set storm');
+    r = await run('sysop roof open');
+    check('sysop roof refused for a player', /unknown command/i.test(r?.message || ''), r?.message);
     r = await run('sysop time skip 4');
     check('sysop time skip refused for a player', /unknown command/i.test(r?.message || ''), r?.message);
     check('sysop weather set refused for a player', /unknown command/i.test(r?.message || ''), r?.message);
@@ -82,6 +84,20 @@ export default async function regress({ run, check, getPlayer }) {
     check('Weather tab carries the five tabs', screen?.tabs?.length === 5 && screen.activeTab === 'weather');
 
     // The ESP: on and off through the verb, the tab following it, and a player refused.
+    // The roof tab: the button moves the roof and holds it, and auto hands it back.
+    {
+      const { setVenueRoof } = await import('../broadcast/index.js');
+      const rs = await app.buildScreen(p, 'roof', '');
+      const btn = rs?.actions?.find(a => a.id === 'r_open' || a.id === 'r_shut');
+      check('Roof tab offers to open or close the roof', rs?.activeTab === 'roof' && !!btn, JSON.stringify(rs?.actions?.map(a => a.id)));
+      if (btn) {
+        const after = await app.handleAction(p, btn.id, '');
+        check('Roof tab: the button moves it and holds it', after?.detail?.hero?.badge === 'Staff' && after.actions.some(a => a.id === (btn.id === 'r_open' ? 'r_shut' : 'r_open')), JSON.stringify(after?.detail?.hero));
+      }
+      r = await run('sysop roof auto');
+      check('sysop roof auto hands it back to the forecast', /forecast/i.test(r?.message || ''), r?.message);
+      setVenueRoof('auto');
+    }
     const escr = await app.buildScreen(p, 'esp', '');
     check('ESP tab offers a lockdown while it is off', escr?.activeTab === 'esp' && escr.actions.some(a => a.id === 'e_on' && a.confirm), JSON.stringify(escr?.actions?.map(a => a.id)));
     try {

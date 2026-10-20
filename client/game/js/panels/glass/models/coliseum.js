@@ -485,9 +485,17 @@ export const COLISEUM_ARMS = {
         const wl = hz * ZK * asp[i], ta = tc + r * at, tb = tc + r * (at + wl);
         at += wl;
         if (!inTile((ta + tb) / 2, n[1] * (OUT - 0.01))) return;
-        const quad = (ox, oz, dd) => [[ta, zb], [tb, zb], [tb, za], [ta, za]]
+        const quad = (ox, oz, dd, g = 0) => [[ta - r * g, zb + g], [tb + r * g, zb + g], [tb + r * g, za - g], [ta - r * g, za - g]]
           .map(([t, z]) => B3(...SPT(n, t + r * ox, BAND.d + dd, z + oz))).map((p) => cam.proj(p[0], p[1], p[2]));
         const lay = (tex, q, a) => { if (tex && q.every((p) => p.f > 0.065)) emitSurfaceText(ctx, cam, q, tex, false, a); };
+        // Backlit after dark: a warm wash on the stone round each letter, as if lamps behind the
+        // band were coming out through the cut. Soft, drawn under the cut, never over it.
+        if (dn > 0.05) {
+          lay(bake(w, 'rgb(255,206,140)'), quad(0, 0, 0.0004, hz * 0.06), alpha * 0.22 * dn);
+          lay(bake(w, 'rgb(255,190,110)'), quad(0, 0, 0.0002, hz * 0.14), alpha * 0.1 * dn);
+          const [pu, pv] = SPT(n, (ta + tb) / 2, BAND.d + 0.006, 0);
+          pool(ctx, cam, ...P(pu, pv), (za + zb) / 2, '255,200,130', 10, alpha * 0.14 * dn, { add: true });
+        }
         lay(bake(w, deepCol), quad(-0.0011, 0.0010, 0.0008), alpha * 0.9);
         lay(bake(w, lipCol), quad(0.0014, -0.0013, 0.0014), alpha * 0.85 * (1 - 0.6 * dn));
         lay(cuts[i], quad(0, 0, 0.0022), alpha);

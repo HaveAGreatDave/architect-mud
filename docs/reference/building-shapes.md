@@ -757,3 +757,17 @@ obstacles than "22 floors" implies.
 - Pixel/visual regression of any kind.
 - The remaining 24 inline `shadowBlur` sites in the arms (helix light-runners, holo ads).
 - Content-authored shapes — models are still code; this only made them *readable*.
+
+## Face claims
+
+Without a claim, the derived kit hangs signs with no idea what is on the frontage. A corner blade goes at `main.hw * 0.84 - bw` and the glazing band reaches `main.hw * 0.76`, so on any building wide enough for the blade to clamp at its ceiling the two overlapped by more than half the blade's width, on every building, in both renderers (Cash & Carrion's authored windows at ±0.2915 sat under a trade blade at ±0.2914). The `signfit` gate can't see this: it compares sign decals against strokes (masts, catenary), and a window is quads.
+
+So `faceClaim` gives the kit the rectangles already spoken for on the wall it's about to hang something on. There are two sources in one list: what the author drew (`m.detail`, resolved in `derivedTrim`) and what the kit has pushed so far (recorded by `push`), because the glazing a blade collides with is usually the kit's own. A `windowBay`'s claim includes its surround (`min(half, hh) * 0.26` each side), since a blade on the jamb reads the same as one on the pane.
+
+## Names buried by their own mass
+
+`faceClaim`/`clearsFace` and `paintFoot`/`paintFree` both compare a part's plane against the wall's within a few hundredths, because they ask whether a patch of wall is already taken by a fitting. What buries a painted or hung name is a mass box about a tenth of a tile proud of the wall, which both tests call clear because it's nowhere near the plane, and `blocks` can't see it either since it's built from the detail list, not mass.
+
+It's a consequence of `tileFit`. Shopfronts are authored as boxes pushed out to about `fh * 0.9`; trimmed to the plot line, the box stands a tenth of a tile proud of its facade. The 2-D painter never showed this, because signs carry `DETAIL_LIFT` and sort in front; a depth buffer compares. Measured before the fix: 25 registry models had their own name buried by their own mass (Unit 3, Kessler Street had 67% of its lettering behind the shopfront at every angle).
+
+`clearOfMass` only ever lifts the band up its own wall. Two alternatives were built and measured and rejected. Declining when nothing clears deleted twelve models' front lettering, and The Kept and the church have no flank panel either, so they'd have been nameless; a half-read name beats none. Seating the sign forward on the foremost plane paints the name across a shutter, shop window or lintel, and it overhangs: `anchored` caught the wash house with 0.11 of a tile of name past the end of the box it had been moved onto. So the worst case is the original placement, unchanged.

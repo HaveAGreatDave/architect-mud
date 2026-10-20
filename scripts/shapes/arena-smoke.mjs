@@ -49,7 +49,7 @@ const check = (label, ok, detail) => {
 {
   let seed = 12345;
   const rnd = () => ((seed = (seed * 1103515245 + 12345) >>> 0) / 4294967296);
-  for (const mode of ['broadcast', 'fight', 'zoom', 'push', 'zam', 'death']) for (const view of ['broadcast', 'low']) for (const [w, h] of [[1350, 760], [390, 640]]) {
+  for (const mode of ['broadcast', 'fight', 'zoom', 'push', 'zam', 'death']) for (const view of ['broadcast', 'low', 'vertical']) for (const [w, h] of [[1350, 760], [390, 640]]) {
     const W = { t: 3, cam: { mode, focus: [60 + rnd() * 80, 20 + rnd() * 45], cut: 1, since: 1 } };
     const cam = createRinkCamera(W);
     cam.view = view;

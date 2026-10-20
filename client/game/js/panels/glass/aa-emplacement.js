@@ -395,14 +395,11 @@ export function drawAAEmplacement(o) {
       const Qb = (b, h) => R(Math.sin(tilt) * h - M(0.18), b, zr + Math.cos(tilt) * h);
       face([Qb(-W, 0), Qb(W, 0), Qb(W, Hh), Qb(-W, Hh)], [70, 74, 76], 'metal');
       face([Q(-W, Hh), Q(W, Hh), Qb(W, Hh), Qb(-W, Hh)], [90, 94, 96], 'metal');
-      if (!ruin) lamps.push([...T(mu, mw, zr + M(1.15)), '255,46,36', 26, 0.35 + 0.65 * (Math.sin((o.now || 0) / 260) > 0.2 ? 1 : 0.15), 'beacon']);
+      if (!ruin) lamps.push([...T(mu, mw, zr + M(1.15)), '255,46,36', 6, 0.35 + 0.65 * (Math.sin((o.now || 0) / 260) > 0.2 ? 1 : 0.15), 'beacon']);
     }
     // The turret's status lamp, on the housing's crown.
     if (!ruin) lamps.push([...Gf(-M(0.6), 0, zH + hH + M(0.12)), down ? '255,170,50' : '90,255,140', 9, 0.85, 'status']);
     if (s === 2) lamps.push([...T(-0.05, 0.12, M(2.2)), '255,214,150', 46, 0.5, 'work']);
-    // The pit's own light after dark: low red lamps under the coping, which keep a gun crew's night
-    // eyes and are what the pit reads as from the street.
-    else if (s === 1) for (const a of [Math.PI * 0.7, Math.PI * 1.3]) lamps.push([...T(Math.cos(a) * (R_IN - 0.02), Math.sin(a) * (R_IN - 0.02), M(0.9)), '255,60,44', 30, 0.4, 'pit']);
   }
 
   // ═══ SAM ════════════════════════════════════════════════════════════════════
@@ -467,7 +464,7 @@ export function drawAAEmplacement(o) {
       drum(mu, mw, M(0.1), 0, mh, 6, pal.mast, 'metal');
       const spin = down ? 0.7 : ((o.now || 0) / 1000) * 1.1;
       tbox(mu, mw, M(0.75), M(0.1), mh, mh + M(0.55), spin - tAng, pal.radar, 'metal');   // `r` is off the opening, so this turns it in the world
-      if (!ruin) lamps.push([...T(mu, mw, mh + M(0.8)), '255,52,40', 18, 0.35 + 0.65 * (Math.sin((o.now || 0) / 340) > 0.3 ? 1 : 0.2), 'beacon']);
+      if (!ruin) lamps.push([...T(mu, mw, mh + M(0.8)), '255,52,40', 5, 0.35 + 0.65 * (Math.sin((o.now || 0) / 340) > 0.3 ? 1 : 0.2), 'beacon']);
     }
     if (s === 2) lamps.push([...T(0.08, -0.12, M(2.0)), '255,206,140', 40, 0.5, 'work']);
     // A bare bulb on a cable over the hatch, which is how the crew read at night.

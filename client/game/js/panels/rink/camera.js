@@ -1,9 +1,12 @@
 // Rinkside · the broadcast camera, shared by both renderers (render.js on a 2-D canvas,
 // gl/arena.js on GLASS 2), so a shot is framed the same whichever one draws it.
 //
-// THE CAMERA NEVER YAWS OR ROLLS. It pans, climbs, tilts and zooms. On the 2-D path that is
-// what makes the ice one drawImage per screen row; on GL it keeps the view matrix a pan and
-// a pitch, which `matrices()` writes out by hand so it can be read against `P` line for line.
+// THE CAMERA NEVER ROLLS, AND YAWS ONLY A QUARTER TURN. It pans, climbs, tilts and zooms. On
+// the 2-D path that is what makes the ice one drawImage per screen row; on GL it keeps the
+// view matrix a pan and a pitch, which `matrices()` writes out by hand so it can be read
+// against `P` line for line. The one yaw is the vertical view (`C.yaw`, 0 or 1): the camera
+// stands at the left end looking down the sheet, so the play runs up and down the screen.
+// Only GL draws it; the 2-D renderer shows the broadcast view instead.
 //
 // THE NHL 99 CAMERA. The default framing is the one the old EA games played on: high on the
 // near side, close enough that the players are big, panning with the puck and leading it
@@ -21,11 +24,13 @@
 // starts (`cam.cut` changing), and that happens behind the wipe that covers the switch.
 //
 // Modes come from the director (`W.cam.mode`); `view = 'low'` puts the default framing on
-// the rail just inside the near glass, where the reflections show best. The Zamboni's
-// time-lapse is the one locked-off shot, the whole sheet from high up, in either view.
+// the rail just inside the near glass, where the reflections show best. `view = 'vertical'`
+// is the NHL 96 camera: high and steep behind the play, the width of the ice across the
+// screen and its length running up it, panning end to end with the puck. The Zamboni's
+// time-lapse is the one locked-off shot, the whole sheet from high up, in every view.
 
 import { clamp } from './util.js';
-import { RL, RW, GOAL_X } from './geo.js';
+import { RL, RW, GOAL_X, MID_Y } from './geo.js';
 
 export const NEAR = 0.6, FAR = 600;
 
@@ -43,6 +48,11 @@ function smooth(x, target, st, time, dt, maxV = Infinity) {
   return out;
 }
 
+// The camera's ground axes: forward (where it looks) and right (across the picture).
+// Broadcast looks across the sheet (+Y) with the length left to right; vertical looks down
+// it (+X) with the width across, the near boards (Y = 0) on the left.
+export function camAxes(yaw) { return yaw ? { fx: 1, fy: 0, rx: 0, ry: -1 } : { fx: 0, fy: 1, rx: 1, ry: 0 }; }
+
 const KEYS = ['lx', 'ly', 'lz', 'dist', 'pitch', 'fm'];
 // how long each number takes to settle, seconds
 const TIME = { lx: 0.55, ly: 0.7, lz: 0.6, dist: 0.8, pitch: 0.8, fm: 0.7 };
@@ -53,7 +63,7 @@ export function createRinkCamera(W, { snap = false, from = null } = {}) {
   const cam = { lx: 100, ly: 40, lz: 0, dist: 56, pitch: 0.52, fm: 1, ...(from || {}) };
   const vel = Object.fromEntries(KEYS.map((k) => [k, { v: 0 }]));
   const api = { view: 'broadcast', cam };
-  let lastCut = -1, lastNow = null, first = !from;
+  let lastCut = -1, lastNow = null, first = !from, lastYaw = 0;
   // where the action is heading: the focus's velocity, low-passed, for the look-ahead
   let pf = null, fv = [0, 0];
 
@@ -75,10 +85,55 @@ export function createRinkCamera(W, { snap = false, from = null } = {}) {
       case 'replay': return { lx: f[0] + clamp(fv[0] * 0.3, -10, 10), ly: clamp(f[1] + 3, 24, RW - 4), lz: 1.4, dist: 24, pitch: 0.2, fm: 1 };
       // the Zamboni is a time-lapse, and a time-lapse is shot locked off: high and wide, the
       // whole sheet in the picture, in either view
-      case 'zam': return wholeSheet(aspect);
+      case 'zam': return api.view === 'vertical' ? wholeSheetV(aspect) : wholeSheet(aspect);
       case 'death': return { lx: clamp(f[0], 44, RL - 44), ly: clamp(f[1], 14, RW - 6), lz: 0.8, dist: 28 - Math.min(8, (W.t - (c.since || W.t)) * 0.6), pitch: 0.42, fm: 1 };
-      default: return broadcast(f, c, aspect);
+      default: return api.view === 'vertical' ? vertical(f, c, aspect) : broadcast(f, c, aspect);
     }
+  }
+  // NHL 96: high and steep, set back down the length behind the play, the width of the ice
+  // across the screen. It leads the puck up or down the sheet and stops short of the end
+  // boards, so a net is in the picture whenever the play is near it.
+  function vertical(f, c, aspect) {
+    const pitch = 0.98, cp = Math.cos(pitch), sp = Math.sin(pitch);
+    // the width across: half of it over the depth at the look point fills the frame, pulled
+    // back further on a narrow screen
+    let dist = clamp((RW / 2 + 2) / (0.5 * Math.min(1, aspect / 1.25)) * 0.92, 70, 130);
+    const ax = f[0] + clamp(fv[0] * 0.5, -22, 22), ly = RW / 2 + (f[1] - RW / 2) * 0.25;
+    // the net: the one a shot is going at, or the one whose zone the play is in
+    let net = c.net != null ? c.net : null;
+    if (net == null) for (const gx of GOAL_X) if (Math.abs(f[0] - gx) < 62) net = gx;
+    const must = [[f[0], f[1], 0], [ax, f[1], 0]];
+    if (net != null) must.push([net + (net < RL / 2 ? -4 : 4), MID_Y, 0], [net, MID_Y, 4]);
+    // Then solved as the broadcast framing is: slid along the sheet, and pulled back only
+    // when sliding can't fit them, until everything that must be seen is in the picture.
+    // (the bottom of the frame is 0.44 of its height below the principal point)
+    const vlo = -0.4 / aspect, vhi = 0.5 / aspect;
+    let lx = clamp((Math.min(...must.map((q) => q[0])) + Math.max(...must.map((q) => q[0]))) / 2, 10, RL - 10);
+    for (let it = 0; it < 30; it++) {
+      const cx0 = lx - dist * cp, cz = dist * sp;
+      let v0 = 1e9, v1 = -1e9;
+      for (const q of must) { const dx = q[0] - cx0, dz = q[2] - cz, d = dx * cp - dz * sp, up = dx * sp + dz * cp; v0 = Math.min(v0, up / d); v1 = Math.max(v1, up / d); }
+      if (v1 - v0 > (vhi - vlo) * 0.92) { if (dist >= 170) break; dist = Math.min(170, dist * 1.08); continue; }
+      if (v0 < vlo) lx -= 2; else if (v1 > vhi) lx += 2; else break;
+    }
+    return { lx: clamp(lx, 0, RL), ly, lz: 0, dist, pitch, fm: 1 };
+  }
+  // the whole sheet down its length: the same solve with the axes turned
+  let sheetVFor = null, sheetV = null;
+  function wholeSheetV(aspect) {
+    if (sheetV && Math.abs(aspect - sheetVFor) < 1e-3) return sheetV;
+    const pitch = 1.0, cp = Math.cos(pitch), sp = Math.sin(pitch), vlo = -0.42 / aspect, vhi = 0.42 / aspect;
+    const must = [[-1, -1, 3.5], [RL + 1, -1, 3.5], [-1, RW + 1, 3.5], [RL + 1, RW + 1, 3.5]];
+    let dist = 200, lx = RL / 2;
+    for (let it = 0; it < 80; it++) {
+      const cx0 = lx - dist * cp, cz = dist * sp;
+      let um = 0, v0 = 1e9, v1 = -1e9;
+      for (const q of must) { const dx = q[0] - cx0, dz = q[2] - cz, d = dx * cp - dz * sp, up = dx * sp + dz * cp; um = Math.max(um, Math.abs(q[1] - RW / 2) / d); v0 = Math.min(v0, up / d); v1 = Math.max(v1, up / d); }
+      if (um > 0.47 || v1 - v0 > vhi - vlo) { dist *= 1.04; continue; }
+      if (v0 < vlo) lx -= 2; else if (v1 > vhi) lx += 2; else break;
+    }
+    sheetVFor = aspect; sheetV = { lx, ly: RW / 2, lz: 0, dist, pitch, fm: 1 };
+    return sheetV;
   }
   function broadcast(f, c, aspect) {
     const low = api.view === 'low';
@@ -155,9 +210,13 @@ export function createRinkCamera(W, { snap = false, from = null } = {}) {
       const shot = W.cam.net != null;
       for (const k of KEYS) cam[k] = smooth(cam[k], tg[k], vel[k], k === 'lx' && shot ? 0.38 : TIME[k], dt, k === 'lx' ? 140 : k === 'dist' ? 60 : Infinity);
     }
-    const C = { x: cam.lx, y: cam.ly - cam.dist * Math.cos(cam.pitch), z: cam.lz + cam.dist * Math.sin(cam.pitch), pitch: cam.pitch, f: w * cam.fm, cx: w / 2, cy: h * 0.56, w, h };
+    const yaw = api.view === 'vertical' ? 1 : 0, { fx, fy, rx, ry } = camAxes(yaw);
+    // a change of view is a cut: the eye can't swing a quarter turn on springs
+    if (yaw !== lastYaw) { lastYaw = yaw; Object.assign(cam, tg); for (const k of KEYS) vel[k].v = 0; }
+    const back = cam.dist * Math.cos(cam.pitch);
+    const C = { x: cam.lx - back * fx, y: cam.ly - back * fy, z: cam.lz + cam.dist * Math.sin(cam.pitch), pitch: cam.pitch, yaw, f: w * cam.fm, cx: w / 2, cy: h * 0.56, w, h };
     const cp = Math.cos(C.pitch), sp = Math.sin(C.pitch);
-    const P = (X, Y, Z) => { const dx = X - C.x, dy = Y - C.y, dz = Z - C.z, d = dy * cp - dz * sp; if (d < NEAR) return null; const up = dy * sp + dz * cp; return { x: C.cx + C.f * dx / d, y: C.cy - C.f * up / d, s: C.f / d, d }; };
+    const P = (X, Y, Z) => { const ex = X - C.x, ey = Y - C.y, dz = Z - C.z, dx = ex * rx + ey * ry, dy = ex * fx + ey * fy, d = dy * cp - dz * sp; if (d < NEAR) return null; const up = dy * sp + dz * cp; return { x: C.cx + C.f * dx / d, y: C.cy - C.f * up / d, s: C.f / d, d }; };
     return { C, P, camPos: [C.x, C.y, C.z] };
   };
   return api;
@@ -169,15 +228,16 @@ export function createRinkCamera(W, { snap = false, from = null } = {}) {
 // below the middle of the frame (cy = 0.56 h), which is a shift of y by a multiple of depth.
 // `mirror` flips the world about the ice (z → −z) for the reflection pass.
 export function matrices(C, mirror = false, near = NEAR, far = FAR) {
-  const cp = Math.cos(C.pitch), sp = Math.sin(C.pitch), mz = mirror ? -1 : 1;
+  const cp = Math.cos(C.pitch), sp = Math.sin(C.pitch), mz = mirror ? -1 : 1, { fx, fy, rx, ry } = camAxes(C.yaw);
   // view: rows are right, up, depth (world → camera), written column-major. A mirror only
   // negates the z column: the eye stays put and the world flips under it.
-  const tx = -C.x, ty = -C.y, tz = -C.z;
+  // (along the ground, forward is the axis the camera looks down and right the one across)
+  const tr = -(rx * C.x + ry * C.y), tf = -(fx * C.x + fy * C.y), tz = -C.z;
   const V = [
-    1, 0, 0, 0,
-    0, sp, cp, 0,
+    rx, fx * sp, fx * cp, 0,
+    ry, fy * sp, fy * cp, 0,
     0, cp * mz, -sp * mz, 0,
-    tx, ty * sp + tz * cp, ty * cp - tz * sp, 1,
+    tr, tf * sp + tz * cp, tf * cp - tz * sp, 1,
   ];
   const ax = 2 * C.f / C.w, ay = 2 * C.f / C.h, oy = 1 - 2 * C.cy / C.h;
   const A = (far + near) / (far - near), B = -2 * far * near / (far - near);

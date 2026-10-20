@@ -3,7 +3,7 @@
 // Tablet app in tablet-app.js is a skin over these verbs: every button runs a
 // sysop subcommand, so everything the app can do can also be typed.
 //
-// Built: weather, time and the ESP. Players and the staff channel follow; see
+// Built: weather, time, the ESP and the Coliseum roof. Players and the staff channel follow; see
 // docs/systems-admin.md.
 import {
   WEATHER_TYPES, PRECIP_FORECAST_TYPES, getHUDPayload, getForecast, getWeatherEvent,
@@ -15,6 +15,7 @@ import { logActivity } from '../../server/models/db.js';
 import { heroEventTypes, bringWetCellOver } from '../weather/index.js';
 import { timeView, skipTime, setClock, setFrozen, setSpeed } from './time.js';
 import { espView, setEsp } from './esp.js';
+import { setVenueRoof, venueRoofView } from '../broadcast/index.js';
 import './tablet-app.js';
 
 export const STAFF_ROLES = ['dev', 'admin', 'builder', 'designer'];
@@ -87,6 +88,26 @@ export function fireWeatherEvent(player, type) {
   return { ok: true, message: `Started ${res.label}. It begins to approach.` };
 }
 
+// The Coliseum's roof: open or shut it now, or hand it back to the forecast. A staff call holds
+// until the forecast day turns over. The shells take ROOF_MS (five minutes) to travel.
+export function roofView() { return venueRoofView(); }
+export function setRoof(player, mode) {
+  const m = String(mode || '').toLowerCase();
+  const want = m === 'close' ? 'shut' : m === 'forecast' ? 'auto' : m;
+  if (!['open', 'shut', 'auto'].includes(want)) return { ok: false, error: 'Roof: open, shut or auto.' };
+  if (!venueRoofView().venue) return { ok: false, error: 'No venue has a roof to move.' };
+  setVenueRoof(want);
+  logActivity('admin_cmd', player.handle, null, `roof ${want}`);
+  return { ok: true, message: want === 'auto' ? 'The roof is back on the forecast.' : `The roof is ${want === 'shut' ? 'closing' : 'opening'}. It takes about five minutes.` };
+}
+
+function roofText() {
+  const r = venueRoofView();
+  if (!r.venue) return '<b>Roof</b>: no venue';
+  const f = r.forecast;
+  return `<b>Roof</b> (${r.venue}): ${r.shut ? 'shut' : 'open'} · ${r.manual ? `held ${r.manual} by staff today` : 'on the forecast'}${f ? ` · forecast ${f.weatherType}, ${f.precipPct}% (says ${f.shut ? 'shut' : 'open'})` : ''}`;
+}
+
 export function weatherEventOptions() { return heroEventTypes(); }
 
 function weatherText() {
@@ -107,6 +128,7 @@ const USAGE = [
   'sysop time  |  sysop time skip &lt;4|8|12|24&gt;  |  sysop time set &lt;HH:MM&gt;',
   'sysop time freeze  |  sysop time unfreeze  |  sysop time speed &lt;1|2|3|6&gt;',
   'sysop esp  |  sysop esp on [message]  |  sysop esp off',
+  'sysop roof  |  sysop roof open  |  sysop roof shut  |  sysop roof auto',
 ].map(l => `<span class="text-dim">${l}</span>`).join('<br>');
 
 function timeText() {
@@ -135,7 +157,7 @@ const out = (res) => res.ok
 async function cmdSysop(args, raw, player) {
   if (!isStaff(player)) return DENIED;
   const [area, sub, ...rest] = args || [];
-  if (!area) return { type: 'output', message: `${weatherText()}<br>${timeText()}<br>${espText()}<br><br>${USAGE}` };
+  if (!area) return { type: 'output', message: `${weatherText()}<br>${timeText()}<br>${espText()}<br>${roofText()}<br><br>${USAGE}` };
   if (area === 'time') return cmdTime(player, sub, rest);
   if (area === 'esp') {
     if (!sub) return { type: 'output', message: espText() };
@@ -143,6 +165,7 @@ async function cmdSysop(args, raw, player) {
     if (sub === 'off' || sub === 'stop') return out(await setEsp(player, false));
     return { type: 'error', message: USAGE };
   }
+  if (area === 'roof') return sub ? out(setRoof(player, sub)) : { type: 'output', message: roofText() };
   if (area !== 'weather') return { type: 'error', message: `Unknown sysop area "${area}".<br>${USAGE}` };
 
   if (!sub) return { type: 'output', message: weatherText() };

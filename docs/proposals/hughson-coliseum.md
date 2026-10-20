@@ -247,18 +247,20 @@ plays at the park is on air.
 Deadball is on KSAB, channel 7, at 18:00 on Monday, Wednesday and Friday, so those are the full
 nights, and Ray Dombrowski's hours follow them.
 
-**The roof** shuts for the weather and opens on dry days.
+**The roof** is shut on days forecast wet and open on dry ones.
 
 - The same heartbeat decides it for every venue whose tiles carry `flags.venue_roof`, grouped by
-  `building_name` so one park has one answer, from the weather at the venue's middle tile: anything
-  falling (`getPrecipAtGrid`), or a storm, a blizzard or ash over it (`getWeatherTypeAtGrid`).
-  It shuts the minute that's true and opens after twenty dry minutes, so a shower's edge doesn't
-  work it. A restart takes the weather's own answer without waiting.
+  `building_name` so one park has one answer, from today's forecast, not the sky over the park: shut
+  if the day's forecast is wet (rain, sleet, snow, a storm, a blizzard, ash) or gives a 40% chance or
+  more of anything falling, open otherwise (`roofWeather`). So it moves when the forecast day turns
+  over, not under a passing shower.
+- Staff can open or shut it now with `sysop roof open|shut` or the Admin app's Roof tab. That call
+  holds until the forecast day changes; `sysop roof auto` hands it back sooner.
 - `venue.roof` answers `{ shut }` from that set, synchronous and query-free; the derive puts `vr`
   on the cell (1 shut; a static bake shows it shut, so a picture with no weather behind it is the
   dome), and a change is pushed as `venue_roof`.
 - [world-feed.js](../../client/game/js/panels/world-feed.js) `noteVenueRoof` starts the shells moving
-  from wherever they are, over 90 seconds, eased out of rest and back into it (`ROOF_MS`).
+  from wherever they are, over five minutes, eased out of rest and back into it (`ROOF_MS`).
   `venueState` is the cell as amended by the pushes, and is what the mesh key and the arm both read.
 
 ## 7. On TV
@@ -315,7 +317,7 @@ own, at full size, and the bowl round them is the map's model, transcribed
 - **The roof** is three batches, one a shell, built shut and drawn where the roof has got to
   (`shellShift`, the `uShift` uniform). The broadcast puts the roof on every Gameday line as it airs
   (`roof`, 1 shut and 0 open, from `venue.roof` at the block's middle tile, `gamedayOnAir`). The view
-  hands it to the renderer (`setRoof`), which rolls the shells over the map's 90 seconds
+  hands it to the renderer (`setRoof`), which rolls the shells over the map's five minutes
   (`roofTrack`, world-feed.js `ROOF_MS`) and keeps drawing while they move. Until a payload says, the
   roof is shut, as the map's static picture is.
 - **The lights go with the roof.** There are six: a tower at each corner and a lamp row under each

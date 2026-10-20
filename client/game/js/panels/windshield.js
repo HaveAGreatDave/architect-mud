@@ -632,7 +632,7 @@ export const RENDER_TUNE = {
   // onto the road — a gain that raises the peak without raising `moved` is growing the ball back.
   // 1.2 → 1.6 on 2026-10-02, with `nightDark` (below): a darker street needs its pools brighter to
   // read as lit. Still under the ~2 where the carriageway comes up as one sheet.
-  glPool: 1.6,
+  glPool: 1.0,   // 1.6 → 1.0 on 2026-10-20: the night is dark away from a lamp
   // How much darker the night is OUTSIDE its lights: scales the unlit base of the walls, the floor,
   // the roads and the fog colour by (1 - night * nightDark), BEFORE the city's own lights are added,
   // so a lamp, a sign or a lit window stands out of a darker street rather than dimming with it.
@@ -643,7 +643,11 @@ export const RENDER_TUNE = {
   // thin on about two nights in three, and at 0.6 those nights read too dim. The floor's multiplier
   // (moonNightDim) at full night: 0.35 before 10-02, 0.23 at 0.6 with no moon, 0.29 here, 0.59
   // under a full moon overhead. On screen that's small, and `nightLift` below does the real work.
-  nightDark: 0.5,
+  // 0.5 → 0.75 on 2026-10-20 ("dim the night considerably"), with the light sources cut to street
+  // lamps and bright neon (LIGHT_TUNE.srcGate in gl/world.js).
+  // 0.75 → 0.85 the same day, with the night desaturation in context.js, ground.js and floor.js.
+  // ⚠ 0 FOR A LOOK ONLY (2026-10-20): David is comparing the night undimmed. Put 0.85 back.
+  nightDark: 0,
   // A dark-weighted lift over the whole finished world after dark (see "THE NIGHT, LIFTED OUT OF
   // THE BLACK" in paintWindshield). 0 is off. `nightDark` and `moonLight` can't fix a dim night on
   // their own: on a pinned street frame at 23:00, `nightDark` from 0.6 to 0 moves the world's mean
@@ -1505,6 +1509,17 @@ export const RENDER_TUNE = {
   // ⚠ The 0 ms cost comes from Modelshop benches that pin `resFloor` and `perfDS` on a synthetic
   // city. This is the first knob to try on weaker hardware.
   glShadow: 0.55,
+  // What stands in the street casts by day: lamp posts, signal masts, wires, park and shed solids and
+  // people, onto the road and the walls, from a second depth map fitted to the ground in front of the
+  // eye (gl/propshadow.js). The mass map can't carry them: it is cached, the road doesn't read it, and
+  // at 28-62 texels a tile a lamp column is under a texel. 0 off, 1 full (a hull's darkness on the
+  // road, glShadow's on a wall). Off on phones (PHONE_TIER).
+  // Measured 2026-10-20 on Marrow Street (916,909, 15:30, Modelshop `__street`, clock and RNG pinned):
+  // 0.77% of a cab frame moved, 2.0% from a free camera, 0.9% from an aircraft, every pixel darker;
+  // the control (two renders at 0) 0.00-0.02%. GPU 0.04 ms for the map; the readers measured nothing.
+  // CPU about 0.3-0.5 ms to build ~5,000 caster triangles. Full write-up in
+  // docs/reference/glass-notes.md, "Prop shadows".
+  glPropShadow: 1,
   // ⚠ THE MOON CASTS ONE TOO — AND IT IS OFF, BECAUSE A SHADOW IS THE ABSENCE OF LIGHT AND THERE
   // IS NO LIGHT ON THE GROUND AT NIGHT TO TAKE AWAY. `sunShadowFor` gated the shadow pass hard on
   // the sun being up, and the world half of that is wrong: a full moon high in a clear sky throws
@@ -1648,9 +1663,13 @@ export const RENDER_TUNE = {
   // shipping values on a night street, swinging the key from `#962c78` to full `#ff2e88` moved the
   // picture barely at all: the neon, the lit windows and the wall wash dominate a night facade, and
   // this gradient is what is left over. Pushed here because it is free, not because it is the fix.
-  vlKeyDay: '#c69654', vlKeyNight: '#c22f86',       // sun/key-lit accent (upper wall, lit side)
-  vlSkyDay: '#969e96', vlSkyNight: '#1f74b4',       // sky/neon catch (upper wall, shadow side)
-  vlShadowDay: '#222836', vlShadowNight: '#0a0f2e', // base ambient-occlusion shadow
+  // ⚠ BUT FROM THE AIR IT IS THE WHOLE NIGHT. Every roof faces the key, so on a moonless or rainy
+  // night (no moonTint) the full-magenta `#c22f86` painted the city pink and `#1f74b4` blue. The
+  // night colours are off: each equals its day colour, so night only darkens (nightDark) and the
+  // moon still silvers the key. The neon carries the colour, not the key.
+  vlKeyDay: '#c69654', vlKeyNight: '#c69654',       // sun/key-lit accent (upper wall, lit side)
+  vlSkyDay: '#969e96', vlSkyNight: '#969e96',       // sky/neon catch (upper wall, shadow side)
+  vlShadowDay: '#222836', vlShadowNight: '#222836', // base ambient-occlusion shadow
   bldgH: BUILDING_TUNE.bldgH,              // building height scale (from the user's tuned screenshot); defaults in skyline-scale.js
   bldgStretch: BUILDING_TUNE.bldgStretch,  // extra VERTICAL stretch on top of bldgH — makes buildings stand tall instead of pancakes; live 'Vert stretch' slider
   bldgFoot: BUILDING_TUNE.bldgFoot,        // building footprint (width) scale — 1.0 fills most of the tile (a building owns its whole zone)
@@ -2107,7 +2126,7 @@ export const RENDER_TUNE = {
 // The six materials switches turned on 2026-10-18 (the material and surface pages, the sky cube, GGX,
 // linear light and the tone curve) were only ever measured on one discrete GPU, so a phone keeps the
 // picture from before them too: two of them are whole extra atlas pages, and the last two need glHdr.
-export const PHONE_TIER = Object.freeze({ glSsao: 0, glShadow: 0, glMsaa: 0, glHdr: 0, glCluster: 0,
+export const PHONE_TIER = Object.freeze({ glSsao: 0, glShadow: 0, glPropShadow: 0, glMsaa: 0, glHdr: 0, glCluster: 0,
   glMatPage: 0, glSurfPage: 0, glEnvCube: 0, glGGX: 0, glLinear: 0, glTonemap: 0 });
 export const GL_TIER = (() => {
   try {
@@ -33497,7 +33516,7 @@ function drawSignalMast(ctx, cam, dx, dy, arm, lamp, alpha, night, lit) {
       // in: `s0` is the screen radius multiplied back up by the point's own depth, so `glowPool`
       // dividing it out again lands on exactly the number this used to compute.
       const gr = Math.max(3, 0.042 * cam.FL / cobra.f);
-      if (onGPU) { glowPool(ctx, cam, cbx, cby, MAST_H + 0.01, '255,226,168', gr * cobra.f, alpha * (0.20 + night * 0.34)); } else {
+      if (onGPU) { glowPool(ctx, cam, cbx, cby, MAST_H + 0.01, '255,226,168', gr * cobra.f, alpha * (0.20 + night * 0.34), { tag: 'streetlamp' }); } else {
         const g = ctx.createRadialGradient(cobra.sx, cobra.sy, 0, cobra.sx, cobra.sy, gr);
         g.addColorStop(0, `rgba(255,226,168,${0.20 + night * 0.34})`); g.addColorStop(1, 'rgba(255,226,168,0)');
         ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cobra.sx, cobra.sy, gr, 0, 7); ctx.fill();
@@ -33646,9 +33665,11 @@ function signalHead(ctx, cam, x, y, z, u, face, lamp, s, night, gpu) {
         // the screen radius multiplied back up by the point's own depth, which `glowPool` divides
         // out again — so the lamp lands exactly where and how big it did on the canvas, and a wall
         // in front of it settles the matter per pixel instead of a probe guessing for the whole head.
+        // ⚠ 'air', SO A LENS IS A GLOW AND NOT A SOURCE. A signal lens is a few inches across; as a
+        // source pickLights gave it a street lamp's pool on the road and a wash on the walls.
         const LW3 = W(0, lb, lensC);
-        glowPool(ctx, cam, LW3[0], LW3[1], LW3[2], `${col[0]},${col[1]},${col[2]}`, gr * B.f, gpu.alpha * a0);
-        if (s > 3) glowPool(ctx, cam, LW3[0], LW3[1], LW3[2], '255,255,255', hotR * B.f, gpu.alpha * (0.42 + night * 0.30));
+        glowPool(ctx, cam, LW3[0], LW3[1], LW3[2], `${col[0]},${col[1]},${col[2]}`, gr * B.f, gpu.alpha * a0, { air: true });
+        if (s > 3) glowPool(ctx, cam, LW3[0], LW3[1], LW3[2], '255,255,255', hotR * B.f, gpu.alpha * (0.42 + night * 0.30), { air: true });
       } else {
         const g = ctx.createRadialGradient(c[0], c[1], 0, c[0], c[1], gr);
         // A whitened core, then the plate colour, then out to nothing.
@@ -33759,58 +33780,15 @@ function lampHaloFade(f) {
   const trueR = LAMP_HALO_S0 / Math.max(0.2, f);
   return trueR >= LAMP_FLOOR_PX ? 1 : Math.max(LAMP_FAR_FLOOR, trueR / LAMP_FLOOR_PX);
 }
-// ── WHAT THE STREET BURNS, AND WHY IT IS NOT ALL SODIUM ANY MORE ────────────────────────────────
+// ── WHAT THE STREET BURNS ───────────────────────────────────────────────────────────────────────
 //
-// Every lamp in the game burned one hardcoded sodium — `255,206,132` — and that is most of the
-// answer to "why is everything brown". The September accent pass moved the city's SIGNAGE to
-// neon-noir and left the lighting where it was, so the buildings went cool and the light falling on
-// them stayed 1970s municipal.
-//
-// ⚠ AND IT IS THE PUDDLES, WHICH IS NOT OBVIOUS FROM HERE. A lamp's pool is pushed into
-// `SPRITE_SINK`, `pickLights` ranks it, and the ground shader reads its RAW colour as `uWetC` — the
-// streak on damp tarmac and the glint in standing water are both made of it. Measured on a wet
-// street: switching the glint off moves **36% of road pixels by rgb(25,21,15)**, four times what the
-// reflected city itself contributes (10% of pixels at rgb(6,3,2)). So the colour in a puddle was
-// never a reflection of anything a player could point at — it was six sodium lamps, and it read as
-// brown blotches on the road. Recolour the lamp and the water follows, with no shader touched.
-//
-// ⚠ THE AXIS IS THE BIOME, WHICH IS ALREADY ON EVERY TILE — the same split `MAT_ACCENT` uses, so
-// nothing is authored and the two cannot disagree about where the old city ends.
-//
-// ⚠ AND THE DEFAULT IS SODIUM, WHICH IS THE WHOLE SAFETY OF IT. Amber is RESERVED, not deleted: a
-// works, a yard and a forecourt keep it, and so does every region that is not Coldwater — Terminus
-// and the Scarletwastes are 78% and 71% amber on purpose and must stay that way. Only the four
-// named cool biomes change, so everything else is untouched by construction rather than by a region
-// check somebody has to remember.
-const LAMP_SODIUM = { head: '255,232,190', pool: '255,206,132', wash: '255,198,120' };
-const LAMP_TONE = {
-  // Mercury vapour: the blue-white a real pre-LED city was lit by, and the one cool light that is
-  // period-correct rather than a colour somebody liked. Luminance is held within 3% of the sodium it
-  // replaces (212 → 205 on the pool), so the street is a different colour and not a darker one.
-  citycore: { head: '222,242,255', pool: '168,214,255', wash: '150,205,255' },
-  uptown:   { head: '222,242,255', pool: '168,214,255', wash: '150,205,255' },
-  civic:    { head: '222,242,255', pool: '168,214,255', wash: '150,205,255' },
-  // The strip runs the same tube a half-step colder, so the entertainment quarter reads as its own
-  // block of the city without the LAMPS becoming the light show. Pink on the strip is the signage's
-  // job — blue is the field and pink is the punctuation, and a street light is field.
-  marquee:  { head: '220,232,255', pool: '176,200,255', wash: '158,190,255' },
-};
-// ⚠ AND ABOUT ONE LAMP IN NINE HAS GONE OVER, WHICH IS THE PART THAT IS THERE TO BE ENJOYED. A
-// mercury tube at the end of its life really does shift off-white toward magenta before it fails,
-// so a run of cold blue-white with the occasional pink pool in it is what an under-maintained city
-// of this kind actually looks like — and magenta is Coldwater's own punctuation colour, so the
-// street is quoting the signage rather than introducing a fourth hue.
-//
-// ⚠ SEEDED ON THE TILE, NEVER ROLLED. The seed is `wx * 73 + wy * 149`, so a given lamp is the same
-// lamp every time you drive past it and on every client. A rolled one would twinkle between colours
-// as the map window recentred, which is the one thing a street light must not do.
-const LAMP_FAILING = { head: '255,206,236', pool: '236,130,205', wash: '224,110,190' };
-const LAMP_FAIL_RATE = 0.11;
-function lampToneFor(biome, seed) {
-  const tone = LAMP_TONE[biome];
-  if (!tone) return LAMP_SODIUM;                       // industry, the east, and every other region
-  return frac(seed * 0.0173 + 0.31) < LAMP_FAIL_RATE ? LAMP_FAILING : tone;
-}
+// Every street lamp burns one neutral white, everywhere. Colour at night is the neon's job, never
+// a street light's (2026-10-20: the biome mercury, the reserved sodium and the seeded magenta
+// failing tube all went). The lamp is also the puddle: its pool goes into `SPRITE_SINK` and the
+// ground shader reads its raw colour as `uWetC`, so a tinted lamp tints every wet road near it.
+// scripts/shapes/lamptone.mjs checks that no lamp anywhere is tinted.
+const LAMP_WHITE = { head: '255,255,255', pool: '236,236,236', wash: '226,226,226' };
+function lampToneFor() { return LAMP_WHITE; }
 // ⚠ THE SPAN IS DRAWN FROM THE ROAD TILE, BECAUSE IT BELONGS TO NEITHER BUILDING. Every other
 // fitting on a street here is a BUILDING PART -- it knows its own footprint, entrance and palette,
 // and it is cheap for exactly that reason. A wire is the one thing that is a property of the GAP:
@@ -33926,7 +33904,7 @@ function drawWireSpan(ctx, cam, w, dx, dy, load, alpha, night) {
   }
 }
 
-function drawStreetLamp(ctx, cam, dx, dy, inward, lit, alpha, night, seed, tone = LAMP_SODIUM) {
+function drawStreetLamp(ctx, cam, dx, dy, inward, lit, alpha, night, seed, tone = LAMP_WHITE) {
   const base = cam.proj(dx, dy, 0), top = cam.proj(dx, dy, 0.34);
   // ⚠ CULLED ON THE FARTHEST PART, NOT THE NEAREST — see the same ⚠ in drawSignalMast. The head
   // reaches out over the carriageway, so on a lamp you are passing the column crosses the eye plane
@@ -34012,7 +33990,7 @@ function drawStreetLamp(ctx, cam, dx, dy, inward, lit, alpha, night, seed, tone 
       // that number handed over instead of re-derived.
       // See LAMP_HALO_A for the fade on it.
       glowPool(ctx, cam, ax, ay, 0.33, tone.pool, LAMP_HALO_S0,
-        alpha * (LAMP_HALO_A + night * LAMP_HALO_N) * lampHaloFade(armEnd.f));
+        alpha * (LAMP_HALO_A + night * LAMP_HALO_N) * lampHaloFade(armEnd.f), { tag: 'streetlamp' });
       // ⚠ AND THE SECOND DISC IS THE ROAD POOL'S JOB NOW. This one sits at z 0.01 — on the tarmac —
       // and is a screen-space CIRCLE standing in for light lying on a plane seen almost edge-on,
       // which is the shape the whole complaint is about. With `glPool` on, the ground shader lays
@@ -34034,7 +34012,7 @@ function drawStreetLamp(ctx, cam, dx, dy, inward, lit, alpha, night, seed, tone 
   // ellipse: it closes to a sliver as you come level with it and opens as you drive under it.
   const FB = planeBasis(cam, ax, ay, 0.328, inward, [inward[1], -inward[0]]);
   if (lit) {
-    // The lamp's own tone, and a pool of it on the road below — see LAMP_TONE. The pool is what
+    // The lamp's own tone, and a pool of it on the road below — see LAMP_WHITE. The pool is what
     // actually reads at distance: the lamp itself is two pixels, and a city at night is legible by
     // the ground it lights, not by the fittings doing the lighting.
     // ⚠ THE SAME FADE AS THE GPU PATH, AND FOR THE SAME REASON — see LAMP_HALO_S0. `r * 5` is
@@ -34104,13 +34082,20 @@ function drawStreetLamps(ctx, cam, v, map, R, wcx, wcy, night, now, FAR) {
       const E = faceVec(nc.ent);        // the way that building faces, in world axes
       return E[0] === -kx && E[1] === -ky;   // …straight back at this tile: its door is on this kerb
     };
+    // A kerb with more road beyond it is no kerb: on a street two tiles wide it is the centreline,
+    // and a post there stands in the middle of the carriageway.
+    const midRoad = (sx) => {
+      const nc = map[ry + Math.round(-along[0] * sx)] && map[ry + Math.round(-along[0] * sx)][rx + Math.round(along[1] * sx)];
+      return !!(nc && !nc.bt && (nc.road || nc.rd));
+    };
+    const blocked = (sx) => doorway(sx) || midRoad(sx);
     let side = frac((wx + 512) * 5.17 + (wy + 512) * 9.31) < 0.5 ? -1 : 1;
-    if (doorway(side)) { if (doorway(-side)) continue; side = -side; }
+    if (blocked(side)) { if (blocked(-side)) continue; side = -side; }
     const px = along[1] * VERGE * side, py = -along[0] * VERGE * side;
     const inward = [-Math.sign(px) || 0, -Math.sign(py) || 0];   // from the kerb back toward the road
     // ⚠ RESOLVED HERE, BECAUSE HERE IS WHERE THE TILE IS. `drawStreetLamp` is handed a position and
     // nothing else about where it is standing, and the cell carries the biome already — see
-    // LAMP_TONE for why the biome is the axis and why the default is sodium.
+    // LAMP_WHITE.
     const seed = wx * 73 + wy * 149;
     drawStreetLampQueued(ctx, cam, dx + px, dy + py, inward, c.sl === 1, alpha, night, seed, lampToneFor(c.biome, seed));
   }
@@ -34188,7 +34173,13 @@ function drawTrafficSignals(ctx, cam, v, map, R, wcx, wcy, night, now, FAR) {
       // The pole goes on the corner: out along the approach to the kerb line, and across to the
       // pavement beside it. The BOOM then reaches back across the carriageway from there, which is
       // why the arm vector is the inward perpendicular.
-      const Px = A[1], Py = -A[0];
+      // ⚠ NEVER ON A CENTRELINE: if the tile across that kerb is more road (a street two tiles
+      // wide), the corner is mid-carriageway. The test is the DIAGONAL tile (approach + across),
+      // since the tile straight across is another arm at any crossroads. Try the other corner; if
+      // both are road, no mast.
+      const isRoadAt = (ox, oy) => { const nc = map[ry + oy] && map[ry + oy][rx + ox]; return !!(nc && !nc.bt && (nc.road || nc.rd)); };
+      let Px = A[1], Py = -A[0];
+      if (isRoadAt(A[0] + Px, A[1] + Py)) { if (isRoadAt(A[0] - Px, A[1] - Py)) continue; Px = -Px; Py = -Py; }
       const mx = dx + A[0] * 0.46 + Px * VERGE, my = dy + A[1] * 0.46 + Py * VERGE;
       const arm = [-Px, -Py];
       // Queued at the MAST's own depth, not the tile centre — a signal sits most of a tile off
@@ -53589,7 +53580,7 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
       applyCabinStreetLight();
       if (STROKE_SINK) STROKE_SINK.deep = true;
       if (DECAL_SINK) DECAL_SINK.atlas = TUNE.glDecalAtlas;
-      const out = GL_HOOK(GL_CELLS, cam, { night, nb: clamp((night - 0.30) / 0.20, 0, 1), host: GL_HOST, id: GL_ID, far: FAR, haze: HAZE_BAND, fog: FOG_STATE, skyBand: SKY_BAND, light: LIGHT_STATE, sprites: SPRITE_SINK, strokes: STROKE_SINK, ownWater: OWN_WATER_Z, glLights: TUNE.glLights, glNeonTube: TUNE.glNeonTube, glNeonFlicker: TUNE.glNeonFlicker, glAO: TUNE.glAO, glBakedAo: TUNE.glBakedAo, msaa: TUNE.glMsaa, glFxaa: TUNE.glFxaa, glShadow: TUNE.glShadow, glWet: wetGround(), glPond: pondGround(), glFogH: fogGround(), glScatter: scatterGround(), glPool: TUNE.glPool, glNightDark: (TUNE.nightDark || 0) * (1 - moonLift(sun)), glSnow: snowGround(), glPudRoad: TUNE.glPudRoad, glPuddle: TUNE.glPuddle, glMirrorMass: TUNE.glMirrorMass, glHazeSplit: TUNE.glHazeSplit, glMirrorSky: TUNE.glMirrorSky, glWetDark: TUNE.glWetDark, glGroundBias: TUNE.glGroundBias, lids: lidUpload(), glRipple: TUNE.glRipple, glGlint: TUNE.glGlint, glMirror: TUNE.glMirror, glMirrorRes: TUNE.glMirrorRes, glMat: TUNE.glMat, glSpec: TUNE.glSpec, glBump: TUNE.glBump, glMatPage: TUNE.glMatPage, massKeep: TUNE.massKeep, glEnvCube: TUNE.glEnvCube, glGGX: TUNE.glGGX, envSky: SKY_ENV, glSurfPage: TUNE.glSurfPage, glHeightGain: TUNE.glHeightGain, glEnvCity: TUNE.glEnvCity, glEnvDim: TUNE.glEnvDim, glBevel: TUNE.glBevel, glSsao: TUNE.glSsao, glSsaoRes: TUNE.glSsaoRes, glToon: TUNE.glToon, glToonBands: TUNE.glToonBands, glInk: TUNE.glInk, glInkPx: TUNE.glInkPx, glInkFar: TUNE.glInkFar, glLightSlots: TUNE.glLightSlots, glCluster: TUNE.glCluster, glTaa: TUNE.glTaa, nearFit: TUNE.nearFit, glHdr: TUNE.glHdr, glLinear: TUNE.glLinear, glBloom: TUNE.glBloom, glTonemap: TUNE.glTonemap, glExposure: TUNE.glExposure, sun, worldBlend: WORLD_BLEND,
+      const out = GL_HOOK(GL_CELLS, cam, { night, nb: clamp((night - 0.30) / 0.20, 0, 1), host: GL_HOST, id: GL_ID, far: FAR, haze: HAZE_BAND, fog: FOG_STATE, skyBand: SKY_BAND, light: LIGHT_STATE, sprites: SPRITE_SINK, strokes: STROKE_SINK, ownWater: OWN_WATER_Z, glLights: TUNE.glLights, glNeonTube: TUNE.glNeonTube, glNeonFlicker: TUNE.glNeonFlicker, glAO: TUNE.glAO, glBakedAo: TUNE.glBakedAo, msaa: TUNE.glMsaa, glFxaa: TUNE.glFxaa, glShadow: TUNE.glShadow, glPropShadow: TUNE.glPropShadow, glWet: wetGround(), glPond: pondGround(), glFogH: fogGround(), glScatter: scatterGround(), glPool: TUNE.glPool, glNightDark: (TUNE.nightDark || 0) * (1 - moonLift(sun)), glSnow: snowGround(), glPudRoad: TUNE.glPudRoad, glPuddle: TUNE.glPuddle, glMirrorMass: TUNE.glMirrorMass, glHazeSplit: TUNE.glHazeSplit, glMirrorSky: TUNE.glMirrorSky, glWetDark: TUNE.glWetDark, glGroundBias: TUNE.glGroundBias, lids: lidUpload(), glRipple: TUNE.glRipple, glGlint: TUNE.glGlint, glMirror: TUNE.glMirror, glMirrorRes: TUNE.glMirrorRes, glMat: TUNE.glMat, glSpec: TUNE.glSpec, glBump: TUNE.glBump, glMatPage: TUNE.glMatPage, massKeep: TUNE.massKeep, glEnvCube: TUNE.glEnvCube, glGGX: TUNE.glGGX, envSky: SKY_ENV, glSurfPage: TUNE.glSurfPage, glHeightGain: TUNE.glHeightGain, glEnvCity: TUNE.glEnvCity, glEnvDim: TUNE.glEnvDim, glBevel: TUNE.glBevel, glSsao: TUNE.glSsao, glSsaoRes: TUNE.glSsaoRes, glToon: TUNE.glToon, glToonBands: TUNE.glToonBands, glInk: TUNE.glInk, glInkPx: TUNE.glInkPx, glInkFar: TUNE.glInkFar, glLightSlots: TUNE.glLightSlots, glCluster: TUNE.glCluster, glTaa: TUNE.glTaa, nearFit: TUNE.nearFit, glHdr: TUNE.glHdr, glLinear: TUNE.glLinear, glBloom: TUNE.glBloom, glTonemap: TUNE.glTonemap, glExposure: TUNE.glExposure, sun, worldBlend: WORLD_BLEND,
         // ⚠ THE DECK, FOR THE REFLECTION AND FOR NOTHING ELSE IN THIS PASS. It is DRAWN by the
         // second hook after the world is blitted; what the world pass wants it for is the mirror
         // prepass, which is the only chance a puddle gets to be handed a sky.

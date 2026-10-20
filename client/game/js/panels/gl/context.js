@@ -1,22 +1,7 @@
-// A WebGL2 world pass for GLASS — the spike, not the renderer.
+// GLASS 2's WebGL2 context: the mass pass, its shaders, and the layers drawn on its depth buffer.
 //
-// It draws ONE thing: mass, as triangles, through GLASS's own camera (see camera.js), shaded the
-// way GLASS shades it. No textures, no adornments, no ground, no weather. That is enough to answer
-// the question the spike exists for — can the same city be drawn with a depth buffer, from the same
-// seat, at a cost worth the rewrite — and stopping there is deliberate: a spike that grows features
-// stops being measurable against the thing it is meant to replace.
-//
-// ⚠ IT OWNS NO GEOMETRY AND NO PALETTE. The vertices come from `captureModelMesh`, which records the
-// real primitives; the colours come from the caller, which reads `WALL_COL`. This file knows how to
-// put triangles on a screen and nothing whatever about buildings — the same rule the Modelshop's
-// server follows, for the same reason: two definitions of what a building looks like is the failure
-// this whole effort is trying not to introduce.
-//
-// ⚠ THIS HEADER IS OLDER THAN THE FILE. It said the pass was not wired into the game and that the
-// Modelshop preview was its only caller; GLASS 2 has been the default renderer since 2026-09-09 and
-// `paintWindshield` composites this buffer every frame. The spike framing above is kept because the
-// discipline it describes still holds — this file knows how to put triangles on a screen and
-// nothing whatever about buildings — but the scope has not been "mass only" for a long time.
+// ⚠ It owns no geometry and no palette. Vertices come from `captureModelMesh` and colours from the
+// caller (`WALL_COL`); two definitions of what a building looks like is the failure to avoid.
 import { viewProjMatrix, mat4f } from './camera.js';
 import { HEIGHT_FOG_GLSL, LIGHT_SHAFT_GLSL } from './fog.js';
 import { createSpriteLayer } from './sprites.js';
@@ -30,9 +15,7 @@ import { createFaunaLayer } from './fauna.js';
 import { createActorLayer } from './actors.js';
 import { createClothLayer } from './cloth.js';
 import { createMurmurGPU } from './murmur-gpu.js';
-// The interior's own clip range, in tiles. A cab is about 0.10 of a tile end to end at a driver's
-// eye height, so this brackets it with room to spare — and because the pass clears depth first,
-// neither number has anything to do with the world's. See drawInterior.
+// The interior's own clip range, in tiles (a cab is about 0.10 tile deep). See drawInterior.
 const INTERIOR_NEAR = 0.004, INTERIOR_FAR = 1.0;
 import { createFloorLayer } from './floor.js';
 import { createWaterLayer } from './water.js';
@@ -40,12 +23,12 @@ import { createSeabedLayer } from './seabed.js';
 import { createCloudLayer } from './clouds.js';
 import { createCloudVolume } from './cloudvol.js';
 import { createShadowLayer, SHADOW_BIAS_TILES } from './shadow.js';
+import { createPropShadowLayer, PROP_SHADOW_GLSL, PROP_SHADOW_UNIFORMS, bindPropShadow } from './propshadow.js';
 import { createSSAOLayer } from './ssao.js';
 import { createHDRLayer } from './hdr.js';
 import { createMirrorLayer } from './mirror.js';
 import { createSkylineStrip } from './skyline.js';
-// The clip range the matrix is built with. The SSAO pass inverts the depth buffer back to tiles and
-// has to use the same two constants the vertices went through.
+// SSAO inverts depth back to tiles with the same clip constants the vertices went through.
 import { NEAR, zRow } from './camera.js';
 import { declareProgram, prewarmPrograms, layerProgram } from './programs.js';
 import { linearOut, applyLinOut, LIN, linRgb } from './colour.js';
@@ -56,10 +39,8 @@ import { createEnvCube, ENV_MAX_LOD } from './envcube.js';
 // haze jitter 1, baked occlusion 1, material family 1, edge distances 4.
 const STRIDE = 21;
 
-// The material table's uniform budget, and the loop-free bound the shader's arrays are stamped
-// with. Twenty families exist today (windshield.js's MAT_ORDER); the headroom is so that adding
-// one is a one-line change there rather than a shader edit here.
-// ⚠ AN INDEX PAST THIS IS UNDEFINED BEHAVIOUR IN GLSL ES, not a clamp — see the ⚠ on `wallMaterialId`.
+// The material table's size (windshield.js's MAT_ORDER, with headroom).
+// ⚠ An index past this is undefined behaviour in GLSL ES, never a clamp: see `wallMaterialId`.
 export const MAX_MATERIALS = 24;
 
 // The cel look's ink (RENDER_TUNE.glInk): near black, a little blue, so it sits in the city's palette.
@@ -120,18 +101,9 @@ void main() {
   vDepth = clip.w;              // the camera-forward distance, in tiles — the same f GLASS sorts on
 }`;
 
-// The shading GLASS already does, per fragment: a key-light dot warming the lit side and cooling
-// the shadow side, and a distance fade into the sky. 'uKey'/'uSky'/'uShadow' are RENDER_TUNE's own
-// vertex-light palette, handed in.
-// ── THE LIGHT CEILING, AND WHY IT IS NOT THE THING IN THE WAY ───────────────
-// ⚠ THIS IS THE COMPILED CEILING, NOT THE WORKING COUNT. It's stamped into the source, so it can't
-// be swept; the working count is 'RENDER_TUNE.glLightSlots' (16), and 'SLOTS' clamps to the
-// smaller. Raising this alone changes nothing (the bench reads 0.0%). Raise the TUNE and read its
-// ⚠ first: the wall-wash gain is calibrated to lights per facade, so slots and gain move together.
-// ⚠ THE CEILING IS ALMOST FREE: the loop opens 'if (i >= uNLight) break;', so cost is lights filled.
-// ⚠ THE LIMIT IS THE UNIFORM BUDGET: 3·MAX_LIGHTS + 1 + 2·MAX_MATERIALS + 6 vectors against WebGL2's
-// guaranteed 224 (32 wants 151, 48 wants 199, 56 wants 223, 64 wants 247). Past 56 a floor-spec
-// device gets no GL pass at all; 'glCapabilities' checks the number against the device.
+// ⚠ The compiled light ceiling, not the working count ('RENDER_TUNE.glLightSlots'); raising this alone
+// changes nothing. Cost is lights filled. The limit is uniforms: 3·MAX_LIGHTS + 1 + 2·MAX_MATERIALS + 6
+// vectors against WebGL2's guaranteed 224, so past 56 a floor-spec device gets no GL pass ('glCapabilities').
 export const MAX_LIGHTS = 32;   // uniform slots, and the per-fragment loop CEILING
 
 const FRAG = linearOut(`#version 300 es
@@ -238,6 +210,14 @@ uniform float uShadowStr;
 uniform float uShadowTexel;
 uniform float uShadowBias;
 uniform vec3 uSunDir;
+// What stands in the street, on its own near map (gl/propshadow.js, RENDER_TUNE.glPropShadow).
+// uPropWall is its strength on a wall; uPropOn 0 skips the read and is the frame that shipped.
+uniform highp sampler2D uPropMap;
+uniform mat4 uPropVP;
+uniform float uPropOn;
+uniform float uPropTexel;
+uniform float uPropBias;
+uniform float uPropWall;
 // ── WHAT THE SURFACE IS MADE OF ─────────────────────────────────────────────
 //
 // Until this existed every surface in the city answered the light identically: one half-lambert key
@@ -413,7 +393,7 @@ float sunShadow(vec3 wp, vec3 n) {
           + step(r, textureLod(uShadowMap, uv + vec2( 0.5,  0.5) * t, 0.0).r);
   return (1.0 - s * 0.25) * uShadowStr * inside;
 }
-
+${PROP_SHADOW_GLSL}
 ${HEIGHT_FOG_GLSL}
 ${LIGHT_SHAFT_GLSL}
 // The light grid (gl/lightgrid.js, RENDER_TUNE.glCluster). Declared here rather than in the chunk,
@@ -439,7 +419,8 @@ void massLight(vec3 P, vec3 raw, vec3 C, float R, float LR, vec3 n, vec3 Vw, flo
   float dist = length(d);
   float la = clamp(1.0 - dist / max(0.001, LR), 0.0, 1.0);
   // The lift's weight was tuned on display colours, so it reads them back at level 2.
-  lamp += (uLinIn > 0.5 ? glassSrgb(raw) : raw) * (la * la * max(0.0, (dot(n, d / max(0.001, dist)) + 0.5) / 1.5));
+  // White lift: a neon sign colours its own glass, not the wall round it.
+  lamp += vec3(dot(uLinIn > 0.5 ? glassSrgb(raw) : raw, vec3(0.299, 0.587, 0.114))) * (la * la * max(0.0, (dot(n, d / max(0.001, dist)) + 0.5) / 1.5));
   float att = clamp(1.0 - dist / max(0.001, R), 0.0, 1.0);
   if (att <= 0.0) return;
   // ⚠ WRAPPED, AND MEASURED INTO IT RATHER THAN CHOSEN. Straight lambert is the obvious term and
@@ -715,6 +696,9 @@ void main() {
   // the single most dangerous number in this shader, and it is cheaper to make it impossible than
   // to prove the four things upstream of it can never produce one.
   float shK = shKraw > 0.0 ? min(shKraw, 1.0) : 0.0;
+  // A post or a person between the sun and the wall: the darker of the two maps, never the sum, so
+  // a post standing in a building's shadow adds nothing to it. propShadow sanitises as shK does.
+  if (uPropOn > 0.0) shK = max(shK, propShadow(vWorld) * uPropWall);
   // ── THE CEL LOOK'S LIGHT (RENDER_TUNE.glToon) ───────────────────────────────
   // The key term in a few flat steps, and the sun's shadow with a hard edge at half coverage (the
   // map's four taps give five levels; see sunShadow). shK carries uShadowStr, so it's divided out
@@ -1044,7 +1028,9 @@ void main() {
   // The guess runs on the LIT colour, so a bright reflection escaped the dim and a lit window in
   // shadow fell under it; the page's g is the pane loop's own answer. Elsewhere it's the guess.
   // The guess's thresholds are display values, so a linear base is encoded before it is asked.
-  float litK = mix(smoothstep(0.28, 0.55, dot(uLinIn > 0.5 ? glassSrgb(base) : base, vec3(0.299, 0.587, 0.114))), mpg.g, pageK);
+  // ⚠ The guess starts at 0.55, not 0.28: a tan or whitewashed wall sits near 0.45 and was taken
+  // for a lit window, so whole buildings kept most of their daylight tone at midnight.
+  float litK = mix(smoothstep(0.55, 0.8, dot(uLinIn > 0.5 ? glassSrgb(base) : base, vec3(0.299, 0.587, 0.114))), mpg.g, pageK);
   // ⚠ SNOW IS NEVER A LIT WINDOW. Its 0.9 albedo sits well over the guess's 0.55, so every snowy
   // roof, sill and awning was taken for a light source and kept its daylight white at midnight.
   // snowW is 0 on anything that isn't facing up, so a wall's lit windows are untouched.
@@ -1054,6 +1040,10 @@ void main() {
   // is roughly k^2.2 in linear light, which keeps the night as dark as it was tuned.
   float nightK = lf(uNightDim);
   base *= mix(nightK, 1.0, litK);
+  // And greyer: the dark loses its colour with its light (scotopic). Keyed off the same dim, so a
+  // day frame is untouched; a lit texel keeps its colour, and the lamp lift below mixes toward the
+  // undimmed colour, so the colour comes back only where a light reaches.
+  base = mix(base, vec3(dot(base, vec3(0.299, 0.587, 0.114))), clamp((1.0 - uNightDim) * 1.1, 0.0, 0.85) * (1.0 - litK));
   // The lamps give back what the night took, and no more. Each light lifts the dimmed wall toward
   // its own undimmed colour, tinted by the lamp, capped at 1 per channel, so a wall under a lamp is
   // never brighter than it is by day. The cap is what the additive wash below lacked (it drowned the
@@ -1168,34 +1158,18 @@ void main() {
   outColor = vec4((fogged + scat) * a, a);
 }`, 'outColor');
 
-// The shader source carries a symbolic bound so the loop limit and the array sizes cannot drift
-// apart; there is one number and the GLSL is stamped from it.
+// One number stamps both the loop limit and the array sizes, so they can't drift apart.
 const withLights = (src) => src.split("GLASS_MAX_LIGHTS").join(String(MAX_LIGHTS))
   .split("GLASS_MAX_MAT").join(String(MAX_MATERIALS));
 
 
-// ⚠ MSAA IS A KNOB, AND THE DEFAULT WAS NEVER MEASURED. `antialias: true` was written once and
-// never swept: the 2-D canvas it composites onto has no multisampling at all, so GLASS 2 is buying
-// smoother building edges nobody asked for, at a cost that is paid over the WHOLE frame and scales
-// with the backing store rather than with how much city is in it. That is free on a discrete card
-// and is exactly the shape of thing that is not free on an integrated one — which is every machine
-// this renderer has never been measured on.
+// ⚠ MSAA (`opts.msaa`) is a creation attribute: changing it means a new view, as a resize does in
+// `sceneGL`, so it's never a per-frame dial.
+// Lights, wires and decals are drawn in the map window's frame (the layer adds ox, oy as it writes),
+// so a record kept on the GPU doesn't depend on where the camera sits in its tile.
 //
-// ⚠ AND IT CANNOT BE CHANGED ON A LIVE CONTEXT. It is a creation attribute, so the caller has to
-// drop the view and make a new one; `sceneGL` treats it the way it already treats a resize. Which
-// is also why it is not a per-frame decision — a dial that flipped it under load would rebuild the
-// context, the atlas and the whole vertex buffer twice a second.
-// ── THE MAP WINDOW'S FRAME FOR LIGHTS, WIRES AND DECALS ──────────────────────────────────────
-// Their records are collected in the camera's frame. Drawn in the map window's instead, the frame the
-// mass and the solids are in, a record's numbers stop depending on where the camera sits inside its
-// tile, which a record kept on the GPU needs (Stage 3 phase 2 of glass-headroom). The layer adds
-// (ox, oy) as it writes and draws with the shifted camera, so the picture is the same. The decal
-// lights (pickLights) were already in this frame.
-//
-// ── PER-PASS GPU TIME (`glPassTimer`, the Modelshop's `__glPassMs`) ──────────────────────────
-// Off (null) unless a bench turns it on, so a frame pays nothing. Timer queries can't nest, so a
-// pass timed inside another (the shadow and SSAO passes inside `draw`) pauses the outer one and
-// resumes it afterwards; each name's time is the sum of its segments.
+// Per-pass GPU time: see docs/reference/glass-notes.md#per-pass-gpu-time-__glpassms. Off (null)
+// unless a bench turns it on. Timer queries can't nest, so an inner pass pauses the outer one.
 let PASS_T = null;
 export function glPassTimer(on) {
   const prev = PASS_T;
@@ -1217,17 +1191,15 @@ export async function glPassTimes(t) {
   }
   return disjoint ? null : out;
 }
-// A sink's retained groups (`list.groups`, each `{ recs, at, ox, oy }`), checked and split out: the
-// groups go to the layer whole and their records are left out of the frame's own list. A group whose
-// records aren't where it says (a sink truncated after a throw) is dropped and its records go as usual.
-// `ox`/`oy` default to this frame's, the offset a group collected this frame was taken under.
+// Splits a sink's retained groups (`list.groups`) out of its records. A group whose records aren't
+// where it says (a sink truncated after a throw) is dropped and its records go as usual.
 function splitGroups(list, ox, oy) {
   const G = list && list.groups;
   if (!G || !G.length) return { rest: list, groups: null };
   const rest = [], groups = [];
   if (list.deep) rest.deep = list.deep;
   if (list.now != null) rest.now = list.now;
-  if (list.atlas != null) rest.atlas = list.atlas;   // the decals' RENDER_TUNE.glDecalAtlas   // the sprites' blink clock, likewise   // the strokes' prepass flag rides on the array
+  if (list.atlas != null) rest.atlas = list.atlas;   // the decals' RENDER_TUNE.glDecalAtlas
   let gi = 0;
   for (let i = 0; i < list.length; i++) {
     while (gi < G.length && G[gi].at < i) gi++;
@@ -1250,11 +1222,8 @@ function windowFrame(cam) {
 export function createGLView(canvas, opts = {}) {
   const gl = canvas.getContext('webgl2', { antialias: opts.msaa !== 0, alpha: true, depth: true });
   if (!gl) return null;
-  // ⚠ A LOST CONTEXT IS SILENT. Every call keeps returning, nothing throws, and the canvas simply
-  // stops changing — which with MASS_OFF set is a city of floating lights and no buildings. The
-  // default listener also makes the loss PERMANENT, so preventDefault is what leaves a restore
-  // possible at all; the pass asks `lost()` each frame and hands the world back to the 2-D
-  // renderer the moment the answer is yes.
+  // ⚠ A lost context is silent, and without preventDefault it's permanent. The pass checks `lost()`
+  // each frame; see docs/reference/glass-notes.md#a-pass-that-didnt-draw.
   canvas.addEventListener('webglcontextlost', (e) => e.preventDefault(), false);
   let passExt;   // see glPassTimer; looked up the first time a timed frame needs it
   function timed(name, fn) {
@@ -1304,9 +1273,7 @@ export function createGLView(canvas, opts = {}) {
     textured: gl.getUniformLocation(prog, 'uTextured'),
     sky: gl.getUniformLocation(prog, 'uSky'),
     str: gl.getUniformLocation(prog, 'uStr'),
-    // ⚠ AN ARRAY IS ASKED FOR WITHOUT ITS SUBSCRIPT, which GL answers with element 0's location
-    // and `uniform3fv` then fills from. 'uLightP[0]' would work too and would be a name no
-    // shader in the file declares, which is the thing gl:glsl exists to refuse.
+    // ⚠ Arrays are asked for without a subscript, so the name is one a shader declares (gl:glsl checks).
     nLight: gl.getUniformLocation(prog, 'uNLight'),
     lightP: gl.getUniformLocation(prog, 'uLightP'),
     lightC: gl.getUniformLocation(prog, 'uLightC'),
@@ -1346,8 +1313,7 @@ export function createGLView(canvas, opts = {}) {
     inkStr: gl.getUniformLocation(prog, 'uInkStr'),
     inkFade: gl.getUniformLocation(prog, 'uInkFade'),
     inkCol: gl.getUniformLocation(prog, 'uInkCol'),
-    // Same spelling rule as the light arrays above: asked for WITHOUT the subscript, so the name is
-    // one a shader in this file actually declares and gl:glsl has something to check it against.
+    // No subscript, as for the light arrays above.
     matTab: gl.getUniformLocation(prog, 'uMat'),
     sheenTab: gl.getUniformLocation(prog, 'uSheen'),
     specTab: gl.getUniformLocation(prog, 'uSpec'),
@@ -1372,16 +1338,13 @@ export function createGLView(canvas, opts = {}) {
   };
   // The light grid for the wall (RENDER_TUNE.glCluster; gl/lightgrid.js in mass mode).
   for (const n of LIGHTGRID_UNIFORMS) loc[n] = gl.getUniformLocation(prog, n);
+  for (const n of PROP_SHADOW_UNIFORMS) loc[n] = gl.getUniformLocation(prog, n);
+  loc.propWall = gl.getUniformLocation(prog, 'uPropWall');
   const lgTex = createLightGridTextures(gl);
   const lgGrid = makeGroundGrid();
   let massGrid = null, wallGridNow = null;
-  // ── THE WALL'S LIGHT GRID (RENDER_TUNE.glCluster) ──────────────────────────────────────────
-  //
-  // Every light in the frame, each a disc of its reach (gl/lightgrid.js, mass mode), built once a
-  // frame by world.js right after pickLights so the mirror prepass and the main pass read the same
-  // one. The wall, the people, the solids and the cloth all read it: each binds it through
-  // `bindWallGrid` (handed to the layers as opts.lightGrid) on units 8 to 10. Its extent is the
-  // lights' own; a fragment past it reads the edge cell, which lists what reaches past. null clears.
+  // Built once a frame by world.js after pickLights, so the mirror and main pass read the same grid.
+  // The wall, people, solids and cloth bind it through `bindWallGrid` on units 8 to 10. null clears.
   function setLightGrid(list) {
     wallGridNow = null;
     if (lgTex && list && list.length) {
@@ -1399,56 +1362,41 @@ export function createGLView(canvas, opts = {}) {
     if (lgTex) lgTex.bind(L, unit, wallGridNow); else bindNoLightGrid(gl, L, unit);
   }
 
-  // Scratch, filled per frame and never reallocated: the arrays are the same size every frame and
-  // a fresh Float32Array per light per frame is garbage on the hot path.
+  // Scratch, filled per frame and never reallocated.
   const lightP = new Float32Array(MAX_LIGHTS * 3), lightC = new Float32Array(MAX_LIGHTS * 3);
 const lightRaw = new Float32Array(MAX_LIGHTS * 3);
   const lightR = new Float32Array(MAX_LIGHTS);
   const lightLR = new Float32Array(MAX_LIGHTS);
-  // The material table, flattened once and re-flattened only when the caller hands over a different
-  // one. It is a constant of the build in practice — 19 rows that come from windshield.js — so
-  // rebuilding it per frame would be pure garbage on the hot path, and uploading it per frame is two
-  // calls that cost nothing next to the 12-light arrays already going up beside it.
+  // The material table, re-flattened only when the caller hands over a different one.
   const matTab = new Float32Array(MAX_MATERIALS * 4), sheenTab = new Float32Array(MAX_MATERIALS);
   const specTab = new Float32Array(MAX_MATERIALS);
   let matSrc = null;
-  // ⚠ A ROW NOBODY FILLED MUST STILL BE HARMLESS. The table is sized for headroom, so the tail is
-  // zeros — and gloss 0 is pow(x, 0.0) = 1.0, a full mirror everywhere. `max(1.0, M.x)` in the
-  // shader is what makes that safe, and this default is the belt to its braces.
+  // ⚠ An unfilled row must stay harmless: gloss 0 is pow(x, 0.0) = 1.0, a full mirror.
   for (let i = 0; i < MAX_MATERIALS; i++) matTab[i * 4] = 1;
 
   const vao = gl.createVertexArray();
   const buf = gl.createBuffer();
   let count = 0;
   let atlasTex = null, hasAtlas = false;
-  // The page's own size, for the relief taps. ⚠ It is repacked whenever the SET of surfaces in the
-  // window changes (see the banded packer in atlas.js), so a texel size cached anywhere but here
-  // would go stale the first time you drove past a building made of something new — and the failure
-  // is a relief term that quietly samples the wrong distance away, not an error.
+  // The page's texel size, for the relief taps. ⚠ The page repacks when its surfaces change, so
+  // never cache this anywhere else.
   let atlasW = 0, atlasH = 0;
-  // The mesh's own axis-aligned box, in the frame the vertices are in. Accumulated on the way into
-  // the vertex data rather than derived from the window, because the shadow projection has to
-  // contain every CASTER and the only list that is certainly every caster is the buffer itself.
+  // The mesh's box, taken from the buffer itself so the shadow projection contains every caster.
   let bounds = null;
   // Each upload group's vertex range and box (in the buffer's frame) with its haze jitter, so the
   // fade pass can draw only the tiles that reach the band. See fadeRuns.
   let ranges = [];
   let meshBuild = 0;   // bumped by every uploadGroups, so a kept shadow map knows its mesh changed
-  // ⚠ ONE DEPTH TEXTURE PER VIEW, BUILT ON FIRST USE AND NEVER REBUILT. A shadow map that resized
-  // with the window would reallocate on every seat change; a fixed square costs the same at every
-  // seat and the projection is what tightens onto the geometry.
+  // ⚠ One fixed-size shadow map per view, never rebuilt; the projection tightens, not the texture.
   let shadow = null, shadowTried = false;
   let ssao = null, ssaoTried = false;
   let hdr = null, hdrTried = false;
-  // Whether the last `beginTarget` actually bound the float buffer. ⚠ `opts.hdr` IS ONLY THE ASK:
-  // a driver that refused the float format leaves it at 1 while everything renders into the
-  // eight-bit canvas, and a gain chosen on the ask clips there. See `hdrLive`.
+  // Whether the last `beginTarget` bound the float buffer. ⚠ `opts.hdr` is only the ask; a driver
+  // can refuse the format. See `hdrLive`.
   let targetLive = false;
   let warnedShadowShape = false;   // once per view — see the ⚠ on `opts.shadow` in draw()
 
-  // One texture for the whole city. See gl/atlas.js for why this is an atlas rather than a bind
-  // per face: a draw call can hold one texture, and per-face binds would make a skyline several
-  // hundred draw calls — which is the cost GL is being asked to avoid.
+  // One texture for the whole city (gl/atlas.js), so the skyline is one draw call.
   function setAtlas(canvas) {
     if (!canvas) { hasAtlas = false; atlasW = atlasH = 0; return; }
     atlasW = canvas.width; atlasH = canvas.height;
@@ -1456,14 +1404,8 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     gl.bindTexture(gl.TEXTURE_2D, atlasTex);
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, canvas);
-    // ⚠ NO MIPMAPS AND CLAMP TO EDGE. A mipmap chain blends across tile boundaries at the coarse
-    // levels, which is the atlas seam the padding exists to prevent, arriving by another door.
-    //
-    // ⚠ AND MAGNIFY WITH NEAREST, WHICH IS WHAT GLASS DOES. A wall texture is 16×32 stretched over
-    // a whole facade, and the 2-D renderer draws it with smoothing ON only when the wall is being
-    // MINIFIED (`drawTexQuadP(..., minify)`) — so close up the window rows are crisp blocks of
-    // texel. LINEAR magnification turned every near facade into a soft grey wash with the windows
-    // barely readable, which looked like the GL lighting being wrong and was the sampler.
+    // ⚠ No mipmaps (they blend across atlas tiles) and clamp to edge.
+    // ⚠ Magnify with NEAREST, as the 2-D renderer does; LINEAR washes near facades to soft grey.
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
@@ -1471,9 +1413,7 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     hasAtlas = true;
   }
 
-  // The material page: the atlas's twin (gl/atlas.js), uploaded and sampled the same way so a texel
-  // of one sits over the same texel of the other. ⚠ NEAREST magnification for the atlas's reason: a
-  // pane edge that blurred across two texels would lend the wall beside it half a pane of glass.
+  // The material page: the atlas's twin, same rects. ⚠ NEAREST, or a pane edge blurs into the wall.
   let matPageTex = null, hasMatPage = false;
   function setMatPage(canvas) {
     if (!canvas) { hasMatPage = false; return; }
@@ -1492,8 +1432,7 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
   // The sky as a cube for reflections (RENDER_TUNE.glEnvCube; gl/envcube.js), built on first use.
   let envCube = null;
   // The surface page: height and roughness (RENDER_TUNE.glSurfPage), uploaded like the material page.
-  // ⚠ LINEAR MAGNIFICATION, unlike the other two pages: height is a field, and NEAREST would turn
-  // every joint into a one-texel cliff the relief reads as a step.
+  // ⚠ LINEAR, unlike the other two pages: NEAREST turns every joint into a one-texel cliff.
   let surfPageTex = null, hasSurfPage = false;
   function setSurfPage(canvas) {
     if (!canvas) { hasSurfPage = false; return; }
@@ -1508,78 +1447,44 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     hasSurfPage = true;
   }
 
-  // ⚠ QUADS ARE FANNED: a drum cap is an N-gon and a clipped roof 3 to 5 sides, so 0,1,2 / 0,2,3
-  // would drop the rest of a lid. Every face is convex, which is what makes a fan correct.
-  // ⚠ GROUPS ARRIVE WITH OFFSETS, added here on the way in; vertices are never copied to move them.
-  // ⚠ IT FILLS A TYPED ARRAY DIRECTLY (push-then-convert was most of an 11 ms rebuild per recentre).
-  // ── 'nb' IS THE DUSK BLEND, AND THE COLOUR IS RESOLVED HERE RATHER THAN IN THE SHADER ────────
-  // Flat faces ('solid = 1 - flat', 20,494 of 28,717) are their 'aColor'. 'captureModelMesh' is
-  // memoised on geometry and captured at 'night: 0', so 4,973 faces over 163 of 173 models wore day
-  // colours at midnight. The day and night captures are identical face for face (asserted in
-  // 'gl:mesh'), so both colours ride on the face and blend once per vertex at upload: no new
-  // attribute, varying or stride, nothing for 'glCapabilities' to recount.
-  // ⚠ FREE ONLY BECAUSE 'texEpoch' QUANTISES DUSK INTO 64 STEPS and world.js forces 'uploadGroups' on
-  // each; put 'nb' in the rebuild key some other way and sunset rebuilds every frame.
-  // One group's vertices into `data` from float `o`, its box (in the buffer's frame) left in GB.
-  // Returns the offset after it. Shared by uploadGroups and uploadKept, so the two write the same floats.
+  // ⚠ Faces are fanned (every face is convex; a drum cap is an N-gon). Group offsets are added on the
+  // way in, straight into a typed array.
+  // `nb` is the dusk blend: a face carries day and night colours (identical geometry, asserted in
+  // gl:mesh) and they're blended here at upload. ⚠ Free only because 'texEpoch' quantises dusk into
+  // 64 steps; put 'nb' in the rebuild key any other way and sunset rebuilds every frame.
+  // One group's vertices into `data` from float `o`, its box left in GB; returns the next offset.
+  // Shared by uploadGroups and uploadKept.
   const GB = { x0: 0, x1: 0, y0: 0, y1: 0, z0: 0, z1: 0 };
   function packGroup(data, o, grp, rectOf, NB) {
     const ox = grp.ox || 0, oy = grp.oy || 0;
     let gx0 = Infinity, gx1 = -Infinity, gy0 = Infinity, gy1 = -Infinity, gz0 = Infinity, gz1 = -Infinity;
-    // ── AND A GROUP MAY DISAGREE WITH THE FRAME ABOUT WHAT TIME IT IS ──────────────────────
-    //
-    // A face carries a day colour and a night one and the blend picks between them, so every
-    // surface that PAINTS ITSELF DIFFERENTLY AFTER DARK — a lit window bay, a canopy's strip
-    // light, a blade panel, a lit shopfront — is decided here. A building whose feed has failed
-    // has none of those lit, and asking the frame gives it all of them.
-    //
-    // ⚠ IT IS THE ONLY WAY TO REACH THEM. Those colours are baked into the captured mesh, which
-    // is memoised per MODEL and shared by every tile that draws it, so a dark building cannot be
-    // given its own faces — only its own blend.
-    // ⚠ AND `null` IS NOT 0. A group that has no opinion takes the frame's, and a group that
-    // wants day says so; writing `grp.nb || NB` turns the second into the first and the feature
-    // does nothing, quietly, on every building it is meant to reach.
+    // A group's own blend (a building whose power has failed stays day-coloured). Faces are shared
+    // per model, so the blend is the only per-tile handle. ⚠ null isn't 0: `grp.nb || NB` breaks it.
     const GNB = grp.nb == null ? NB : (grp.nb > 0 ? (grp.nb < 1 ? grp.nb : 1) : 0);
     for (const f of grp.faces) {
-      // ⚠ A face with no `rgbN` keeps its one colour at every hour, which is right: a textured
-      // wall's day/night lives in the atlas, and a piece of unpainted metalwork genuinely does not
-      // change colour after dark — only the things that are LIT do.
+      // A face with no `rgbN` keeps one colour (a textured wall's night lives in the atlas).
       const cD = f.rgb || [128, 128, 128], cN = f.rgbN;
       const r = cN ? cD[0] + (cN[0] - cD[0]) * GNB : cD[0];
       const g = cN ? cD[1] + (cN[1] - cD[1]) * GNB : cD[1];
       const b = cN ? cD[2] + (cN[2] - cD[2]) * GNB : cD[2];
-      // ⚠ A ZERO-LENGTH NORMAL IS A NaN FACTORY, AND SOME CAPTURED FACES CARRY ONE. `f.n || …`
-      // only catches a MISSING normal; `[0, 0, 0]` is a perfectly truthy array, and it comes out
-      // of a degenerate face in the capture. `normalize(vec3(0.0))` is 0/0, and the NaN spreads
-      // through every term downstream of the light dot. It had been in the buffer harmlessly for
-      // as long as GL has been shading — `clamp` happens to absorb it in the key term on this
-      // driver — and it surfaced the moment the sun pass fed the same normal to a slope bias,
-      // where it painted 10% of the city solid black. Measured in the Modelshop at 15,021
-      // fragments of 134,445 on one cab frame.
+      // ⚠ Degenerate faces carry a [0, 0, 0] normal (truthy), and normalize() of it is NaN, which
+      // paints the surface black. Catch zero length, not just a missing normal.
       const nn = f.n;
       const n = (nn && (nn[0] || nn[1] || nn[2])) ? nn : [0, 0, 1];
-      // The UV a face was given, mapped into its rect in the atlas. A face with neither keeps a
-      // degenerate rect and samples one texel, which is what an untextured face wants.
-      // ⚠ THE GROUP GOES WITH IT. Which atlas entry a wall samples is a property of the TILE — a
-      // blacked-out block and a lit one share the same face objects and must not share an entry.
+      // The face's UV mapped into its atlas rect (untextured: one texel). ⚠ The rect is per tile, so
+      // the group goes with it: a blacked-out block and a lit one share face objects.
       const uv = f.uv || null, rc = (rectOf ? rectOf(f, grp) : f.rect) || [0, 0, 0, 0];
       const u0 = rc[0], v0 = rc[1], du = rc[2] - rc[0], dv = rc[3] - rc[1];
       const cr = r / 255, cg = g / 255, cb = b / 255;
       const fa = f.alpha == null ? 1 : f.alpha;
-      // ⚠ `flat` IS A LIGHTING ANSWER, NOT A KIND. Most flat-shaded faces are the adornment
-      // surfaces and carry kind 'flat'; a barrel roof is MASS that happens to do its own shading,
-      // and it has to stay mass so the mesh gate goes on comparing it against the captured shape.
-      // ⚠ AND `flat: 2` IS THE THIRD ANSWER — its own colour, lit as a wall (see litOwn in the
-      // shader). Checked first, because `!!2` is true and would collapse it to an ordinary flat.
+      // ⚠ `flat` is a lighting answer, not a kind (a barrel roof is mass that shades itself).
+      // `flat: 2` is its own colour lit as a wall (litOwn); checked first, since `!!2` is true.
       const flat = f.flat === 2 ? 2 : (f.flat != null ? !!f.flat : f.kind === 'flat') ? 1 : 0;
-      // Resolved per model in world.js and carried on the face, exactly as texKey is. A face that
-      // never went through that path — the Modelshop preview, the bench — has none, and 0 is the
-      // default facade rather than a missing value: see the out-of-range note on wallMaterialId.
+      // Resolved per model in world.js. None (a preview, the bench) is 0, the default facade.
       const mat = f.mat ? f.mat : 0;
       const jit = grp.jit || 0;
-      // The ramp is the vertex's height within its OWN face, 0 at the top: the 2-D renderer paints
-      // its light as a gradient down each wall, so a shader that wants the same picture needs to
-      // know where in the wall it is. A horizontal face has no extent and takes the top end.
+      // The ramp: the vertex's height within its own face, 0 at the top, for the 2-D renderer's
+      // gradient down each wall.
       let z0 = Infinity, z1 = -Infinity;
       for (const p of f.p) { if (p[2] < z0) z0 = p[2]; if (p[2] > z1) z1 = p[2]; }
       const dz = (z1 - z0) || 1;
@@ -1599,15 +1504,10 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
           data[o + 12] = fa;
           data[o + 13] = flat;
           data[o + 14] = jit;
-          // Baked occlusion, 1 where the surface sees open sky. ⚠ A face with no bake takes 1.0
-          // rather than 0 — an absent term must be "not occluded", or every surface the bake
-          // could not reach goes black instead of simply staying as it was.
+          // ⚠ Baked occlusion: no bake is 1.0 (open sky), never 0, or unbaked faces go black.
           data[o + 15] = f.ao ? f.ao[k] : 1;
           data[o + 16] = mat;
-          // ⚠ A FACE WITH NO EDGE FIELD GETS A DISTANCE NO BEVEL CAN REACH, NOT A ZERO. Zero is
-          // "on the edge", so a drum cap, a roof polygon or a degenerate quad — every face
-          // `faceEdges` declines — would come back fully chamfered over its whole area, which
-          // reads as the model having gone soft rather than as a term being missing.
+          // ⚠ No edge field is a distance no bevel reaches; zero means "on the edge" everywhere.
           const ed = f.edge;
           data[o + 17] = ed ? ed[k * 4] : 1e6; data[o + 18] = ed ? ed[k * 4 + 1] : 1e6;
           data[o + 19] = ed ? ed[k * 4 + 2] : 1e6; data[o + 20] = ed ? ed[k * 4 + 3] : 1e6;
@@ -1657,34 +1557,21 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     }
     ranges = rs;
     dbgData = globalThis.__massDebug ? data : null;   // massDebug's, only for a harness that asks
-    // ⚠ NO AXIS SWAP, AND THE FIRST CUT HAD ONE. It looked like the obvious hospitality to a GL
-    // convention — trade y and z on the way into the buffer — but the matrix in camera.js is
-    // written to take GLASS's own world coordinates (x east, y north, z up) and do the swap itself,
-    // in the same expression `proj` uses. Swapping here fed it y where it wanted wz, which projects
-    // every vertex somewhere off screen: a full buffer, a clean draw call, and an empty frame.
+    // ⚠ No axis swap: camera.js's matrix takes GLASS's own coordinates (z up) and swaps itself.
     count = verts;
     meshBuild++;
-    // ⚠ THE GROUND PLANE IS FORCED INTO THE BOX. A city of flat plates — a container yard, a run of
-    // sheds — can have every vertex above z = 0, and a shadow projection fitted to that box has its
-    // near plane above the ground the shadows are meant to land on. Reaching down to 0 costs a
-    // fraction of the depth range and removes the case entirely.
+    // ⚠ The box always reaches z = 0, or a shadow box fitted to raised plates misses the ground.
     bounds = verts ? { x0: bx0, x1: bx1, y0: by0, y1: by1, z0: Math.min(0, bz0), z1: bz1 } : null;
     massLayout(data, gl.STATIC_DRAW);
     return count;
   }
 
-  // ── THE MASS KEPT TILE BY TILE ACROSS A RECENTRE (RENDER_TUNE.massKeep) ──────────────────────────
-  // uploadGroups packs the whole window into one buffer, in the window's frame, so every recentre the
-  // server sends rewrote all of it: about ten million floats from the cockpit at Halcyon, 60-100 ms
-  // of packing headless (scripts/perf/recentre-exact.mjs) before the upload. Here each group carries a
-  // `key` (its world tile and everything its mesh was built as, from world.js) and positions in a
-  // frame that stays put between full builds (world.js's anchor); the shader adds `massShift` to put
-  // them in the window's frame. A new window keeps the groups it shares with the last one where they
-  // are, writes the ones that came in over the holes the ones that left made (zeroed: a triangle with
-  // three equal corners draws nothing) or on the end, and sends only those ranges. `full`, a group
-  // that doesn't fit the capacity, or holes over FRAG_MAX of the buffer pack it again from scratch.
-  // ⚠ THE DRAW ORDER IS THE SLOT ORDER, not the cell order uploadGroups keeps. The mass is depth
-  // tested, so only coplanar faces and the faded band can tell.
+  // The mass kept tile by tile across a recentre (RENDER_TUNE.massKeep). Each group has a `key` and
+  // positions in a frame fixed between full builds (world.js's anchor); the shader adds `massShift`.
+  // A new window keeps shared groups in place, writes new ones into holes (zeroed: degenerate
+  // triangles draw nothing) or on the end, and uploads only those ranges. `full`, an overflow, or
+  // holes over FRAG_MAX repack from scratch.
+  // ⚠ Draw order is slot order, not cell order; only coplanar faces and the faded band can tell.
   let kept = null;
   const FRAG_MAX = 0.35, KEPT_ROOM = 1.25;
   function uploadKept(groups, rectOf, nb, full) {
@@ -1808,17 +1695,8 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
   // One mesh at the origin, the way the model preview and the bench hand it over.
   function upload(faces) { return uploadGroups([{ faces }], null); }
 
-  // ── THE SUN PASS, RUN FROM INSIDE `draw` AND NOT FROM THE CALLER ────────────
-  //
-  // It has to happen before the frame is cleared and before the viewport is set for the canvas, and
-  // it has to put both back. Every one of those is an ordering a call site could get wrong once and
-  // then never think about again, and each failure is silent in a different way: a shadow pass
-  // after the clear wipes the frame, one that leaves the framebuffer bound draws the whole city
-  // into a 2048-square depth texture nobody looks at. So the pass lives at the top of the function
-  // that has to follow it, and the caller hands over data.
-  //
-  // Returns the uniform values the fragment shader needs, or null — and null is a full answer: the
-  // strength goes to 0, the comparison is skipped, and the frame is the one that shipped.
+  // The sun pass, run from inside `draw`. ⚠ It binds its own framebuffer, so it must run before the
+  // clear and the canvas viewport and restore both. Returns the shader's uniforms, or null (off).
   function sunPass(opts) {
     const s = opts.sunShadow;
     if (!s || !(s.str > 0) || !s.lightVP || !count) return null;
@@ -1828,8 +1706,7 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     }
     if (!shadow) return null;
     const vp = s.lightVP;
-    // The light's matrix is in the window's frame and the kept mass may not be (massShift), so the
-    // map is drawn through the shifted one and is drawn again when the shift moves.
+    // Drawn through the shifted matrix (massShift), and again when the shift moves.
     if (!(sunKept && sunKept.build === meshBuild && sunKept.count === count && vpClose(sunKept.vp, vp)
         && sunKept.sx === massShift[0] && sunKept.sy === massShift[1])) {
       timed('shadow', () => shadow.render(vao, count, shiftVP(vp, massShift)));
@@ -1837,12 +1714,8 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     }
     return shadow;
   }
-  // ⚠ THE SUN'S MAP IS DRAWN AGAIN ONLY WHEN IT WOULD COME OUT DIFFERENT. It holds the static mesh
-  // seen from the sun, so it changes only with the mesh (a rebuild) or the light matrix (the sun
-  // moving, or new bounds). Redrawing it every frame was one more full-city draw into a 2048² map.
-  // The sun drifts a hair every frame in game, so "the same matrix" is "within 2e-4 of its largest
-  // entry", about a third of a texel at 2048; the frame then samples with the matrix the map was drawn
-  // with (`sunVP`), so map and lookup always agree.
+  // The sun's map is redrawn only when the mesh or the light matrix changes ("same" is within 2e-4 of
+  // its largest entry, about a third of a texel). ⚠ Lookups use the matrix it was drawn with (`sunVP`).
   let sunKept = null;
   function vpClose(a, b) {
     let m = 0, d = 0;
@@ -1851,20 +1724,29 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
   }
   const sunVP = (opts) => (sunKept ? sunKept.vp : opts.sunShadow.lightVP);
 
-  // ── AND THE SCREEN-SPACE OCCLUSION, ON THE SAME TERMS ──────────────────────
-  //
-  // ⚠ IT LIVES HERE FOR THE REASON WRITTEN ABOVE sunPass: both passes bind their own framebuffer
-  // and both must therefore run BEFORE the clear at the top of draw(), or they are drawn and then
-  // wiped. A pass that leaves a framebuffer bound is worse — it draws the whole city into a texture
-  // nobody looks at and the canvas stays empty.
-  //
-  // ⚠ AND IT TAKES THE CAMERA'S OWN FRAME HEIGHT, NOT THE CANVAS'S. The projection constants it
-  // inverts are built from `cam.W`, `cam.depth` and `cam.horizonY`, which `makeCam` works out in
-  // CSS pixels; handing it the device-pixel height puts the whole vertical axis out by 1/dpr, which
-  // is the bug that once lifted the city 38 px off the ground and is exactly zero at dpr 1 — that
-  // is to say, invisible in every synthetic scene and every headless test.
-  // ⚠ AND THE CEL LOOK'S INK LINES COME OUT OF THE SAME PASS (RENDER_TUNE.glInk), off the same depth
-  // prepass, so either one asks for it. Returns { ao, ink }, each a texture or null, or null.
+  // ── AND WHAT STANDS IN THE STREET, ON A MAP OF ITS OWN ──────────────────────
+  // gl/propshadow.js. Run beside sunPass for sunPass's reasons (its own framebuffer, so before the
+  // clear), but EVERY frame it is asked for: what it holds moves. `propFrame` is this frame's answer,
+  // kept for the ground, which draws later and reads the same map (drawGround). null is off.
+  let propLayer = null, propTried = false, propFrame = null;
+  function propPass(opts) {
+    const P = opts.propShadow;
+    propFrame = null;
+    if (!P || !P.sun) return null;
+    if (!propLayer && !propTried) {
+      propTried = true;
+      try { propLayer = createPropShadowLayer(gl); } catch { propLayer = null; }
+    }
+    if (!propLayer) return null;
+    const r = timed('propshadow', () => propLayer.render(P.sun, P.eye, P.fwd, P.casters));
+    propFrame = r ? { ...r, wall: P.wall, ground: P.ground } : null;
+    return propFrame;
+  }
+
+  // Screen-space occlusion, before the clear for sunPass's reason.
+  // ⚠ Takes the camera's frame height (CSS px), never the canvas's; the error is zero at dpr 1, so
+  // headless tests can't see it. See docs/reference/glass-notes.md#projection-matrix-units.
+  // The ink lines (RENDER_TUNE.glInk) come out of the same pass. Returns { ao, ink } or null.
   function ssaoPass(cam, opts, W, H) {
     const wantAo = opts.ssao > 0, wantInk = opts.ink > 0;
     if (!(wantAo || wantInk) || !count || !cam) return null;
@@ -1875,14 +1757,10 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     if (!ssao) return null;
     const camH = opts.cssH || cam.H || H;
     const vp = viewProjMatrix({ ...cam, H: camH }, camH);
-    // The SAME z row the matrix two lines up was built from. It unprojects a depth sample back
-    // to a view-space distance, so a near plane it does not share is an occlusion radius that
-    // quietly means something else on the seats that fit their own.
+    // ⚠ The same z row the matrix was built from, or the occlusion radius means something else.
     const [A, B] = zRow((cam && cam.near) || NEAR);
     try {
-      // ⚠ AT A FRACTION OF THE FRAME (`glSsaoRes`, 1 = full as shipped). Contact shadow is low
-      // frequency and the result is blurred and sampled in normalised coordinates with LINEAR
-      // filtering, so half resolution costs a quarter of the fill for no visible change.
+      // At a fraction of the frame (`glSsaoRes`); contact shadow is low frequency.
       const rs = opts.ssaoRes > 0 && opts.ssaoRes < 1 ? opts.ssaoRes : 1;
       const aoWH = wantAo ? [Math.max(1, Math.round(W * rs)), Math.max(1, Math.round(H * rs))] : null;
       // The lines at the full backing store, never at the occlusion's fraction: a line is a pixel wide.
@@ -1897,15 +1775,8 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     } catch { return null; }
   }
 
-  // ── THE FLOAT TARGET, OR THE CANVAS ────────────────────────────────────────
-  //
-  // ⚠ IT IS BOUND HERE AND NOWHERE EARLIER, BECAUSE THE TWO PREPASSES UNBIND. Both the sun's depth
-  // pass and the occlusion pass bind their own framebuffer and restore to null when they are done,
-  // so anything bound before them is gone by the time the city is drawn. Everything after this line
-  // — the floor, the ground, the sprites, the curtain, the decals, the strokes, the billboards and
-  // later the cloud deck — renders into whatever this leaves bound, which is the whole point.
-  //
-  // Returns whether the float path is live, so the caller knows whether a composite is owed.
+  // The float target, or the canvas. ⚠ Bound here and nowhere earlier: the prepasses unbind to null.
+  // Returns whether the float path is live (a composite is owed).
   function beginTarget(opts) {
     targetLive = false;
     LIN.out = 0;
@@ -1921,54 +1792,33 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     return true;
   }
 
-  // Whether this frame's layers are drawing into the float buffer. The emissive gains read this
-  // rather than `opts.hdr`, which is only what was asked for.
+  // Whether this frame draws into the float buffer; emissive gains read this, never `opts.hdr`.
   function hdrLive() { return targetLive; }
 
   // The TAA split (RENDER_TUNE.glTaa): see `split` in hdr.js. False, with the frame left as it was,
   // when the float target isn't live or the resolve can't run.
   function taaSplit(o) { return !!(hdr && targetLive && hdr.split && hdr.split(o)); }
 
-  // And the other end of it. A no-op when the float path is not live, which is what makes the
-  // caller free to call it unconditionally.
+  // A no-op when the float path isn't live, so callers can call it unconditionally.
   function composite(opts = {}) {
     // A linear target is encoded back to display values at the end of the composite.
     return hdr ? hdr.composite({ ...opts, linear: targetLive ? LIN.out : 0 }) : null;
   }
 
-  // The peak in the float target, for a bench asking why a bright-pass found nothing. Null when
-  // there is no float path — see hdr.js.
+  // The peak in the float target, for a bench (null with no float path; see hdr.js).
   function hdrPeak() { return hdr && hdr.peak ? hdr.peak() : null; }
 
   // What this frame's main `draw` handed the fade pass: its env cube, sun map and SSAO, or null
   // when it did not split the band off.
   let fadeKept = null;
   function draw(cam, opts = {}) {
-    // ── ⚠ AND THE MIRROR PASS RE-ENTERS THIS WHOLE FUNCTION ─────────────────────────────────────
-    //
-    // `intoTarget` is `[w, h]` when somebody else has already bound a framebuffer and cleared it —
-    // today only `drawMirror`, drawing the city's mass into the reflection buffer. It changes three
-    // things and nothing else: the size the pass works in, that the target is NOT rebound or
-    // cleared (doing so would wipe the caller's buffer and hand the frame back to the canvas), and
-    // that the two SCREEN-SPACE prepasses are skipped.
-    //
-    // ⚠ THE SUN AND SSAO PASSES MUST NOT RUN HERE, AND SKIPPING THEM IS NOT AN OPTIMISATION. Both
-    // bind framebuffers of their own, which would unbind the caller's; and both are screen-space
-    // against the REAL camera, so their buffers describe a city that is the right way up. Handing
-    // the mirror a shadow map built for the unreflected view would put every shadow in the water in
-    // a place no light could have put it. Both are null-guarded downstream already.
-    //
-    // Everything else — the materials, the atlas, the lights, the fog, the bevel, the dusk blend —
-    // is reused verbatim, which is the only way the city in the puddle cannot disagree with the
-    // city above it about what it is made of.
-    // ⚠ THE FADE PASS (drawFade) RE-ENTERS TOO, AND TAKES THIS FRAME'S PREPASSES AS THEY ARE. The
-    // cube, the sun and the SSAO all bind framebuffers of their own, and by then the floor and the
-    // roads are already in the target they would unbind. It skips the target and the clear for the
-    // same reason.
+    // ⚠ The mirror pass re-enters here with `intoTarget` = [w, h]: a framebuffer already bound and
+    // cleared. The target isn't rebound or cleared, and the sun and SSAO passes must not run (they'd
+    // unbind it, and they describe the unreflected view).
+    // ⚠ The fade pass (drawFade) re-enters too, reusing this frame's prepasses as they are.
     const fade = opts.fadePass === 2;
     if (fade && !fadeKept) return 0;
-    // The reflection cube, refreshed when the sky has changed (a string compare otherwise). Before the
-    // target is bound, because a rebuild binds its own framebuffer and hands the old one back.
+    // The reflection cube, refreshed when the sky changes; before the target is bound (it binds its own).
     let envTex = fade ? fadeKept.envTex : null;
     if (!fade && opts.envCube > 0 && opts.envSky) {
       if (!envCube) envCube = createEnvCube(gl);
@@ -1979,29 +1829,25 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     // The city's sun map, kept for the cabin: a cockpit parked in a building's shadow is in it too.
     // ⚠ A COPY OF THE MATRIX, never mat4f's: that one is a shared scratch the next draw overwrites.
     if (!into && !fade) worldSun = sun ? { tex: sun.tex, vp: new Float32Array(sunVP(opts)), texel: sun.texel, bias: opts.sunShadow.bias } : null;
+    // Not skipped with the mass: the road reads it too. The mirror draws without it.
+    const prop = fade ? fadeKept.prop : into ? null : propPass(opts);
     const W = into ? into[0] : canvas.width, H = into ? into[1] : canvas.height;
     const occl = fade ? fadeKept.occl : into ? null : ssaoPass(cam, opts, W, H);
     const ssaoTex = occl ? occl.ao : null, inkTex = occl ? occl.ink : null;
     if (!fade && !into) inkFrame = null;   // set again below when this pass has lines; the cloth reads it
     if (!into && !fade) beginTarget(opts);
     if (!into) gl.viewport(0, 0, W, H);
-    // Split only on the screen, with a band to split on and a later pass to draw it: the mirror has
-    // no floor drawn after it, and with no band the second pass would cost a draw to find nothing.
+    // Split only on the screen and only with a band (the mirror has no floor drawn after it).
     const split = !into && !fade && !!opts.fadeSplit && opts.hazeNear != null && !opts.skipMass && count > 0;
-    if (!fade) fadeKept = split ? { envTex, sun, occl } : null;
+    if (!fade) fadeKept = split ? { envTex, sun, occl, prop } : null;
     gl.enable(gl.DEPTH_TEST);
     gl.depthFunc(gl.LEQUAL);
-    // ⚠ NO BACKFACE CULL. The mesh carries every face of every solid, and a building here is not
-    // guaranteed to be closed — a wall with no back, a soffit, a canopy underside. Culling would
-    // delete exactly the surfaces a cab looks up at.
+    // ⚠ No backface cull: buildings aren't closed (soffits, canopy undersides).
     gl.disable(gl.CULL_FACE);
     const sky = opts.sky || [0.09, 0.11, 0.14];
-    // ⚠ PREMULTIPLIED, WHICH IS WHAT THE CANVAS IS. A transparent clear carrying a colour is not a
-    // valid premultiplied pixel and fringes; a fully faded fragment must contribute nothing at all.
+    // ⚠ Premultiplied, as the canvas is: a transparent clear must carry no colour.
     const ca = opts.clearAlpha == null ? 1 : opts.clearAlpha;
-    // ⚠ NOT WHEN DRAWING INTO SOMEBODY ELSE'S TARGET. The mirror buffer is cleared transparent by
-    // its own `bind()` — a sky-coloured clear here would fill the water with a rectangle of sky and
-    // the ground shader would add it to every wet pixel in the frame.
+    // ⚠ Never clear somebody else's target: the mirror clears itself transparent.
     if (!into && !fade) {
       gl.clearColor(sky[0] * ca, sky[1] * ca, sky[2] * ca, ca);
       gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -2010,41 +1856,20 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
     if (!count) return 0;
 
-    // Level 2 of RENDER_TUNE.glLinear: this layer shades in linear, so its output is already linear
-    // and is not decoded again. Only ever inside the float target (LIN.out; see colour.js).
+    // RENDER_TUNE.glLinear 2: output is already linear. Float target only (LIN.out; colour.js).
     const linIn = LIN.out > 0 && opts.linear >= 2;
     const cIn = linIn ? linRgb : (c) => c;
     gl.useProgram(prog); applyLinOut(gl, prog, linIn ? 0 : LIN.out);
     gl.uniform1f(loc.linIn, linIn ? 1 : 0);
-    // The camera's own frame height (CSS px), never the canvas's (device px) — see the ⚠ in
-    // world.js. Falls back to H so a caller that already works in one unit is unchanged.
+    // The camera's frame height (CSS px), never the canvas's (device px). Falls back to H.
     const vpA = viewProjMatrix(cam, opts.cssH || H);
     gl.uniformMatrix4fv(loc.viewProj, false, mat4f(vpA));
     gl.uniform2f(loc.massShift, massShift[0], massShift[1]);
     const k = opts.keyDir || [-0.7, 0.35, -0.7];
     gl.uniform3f(loc.keyDir, k[0], k[1], k[2]);
-    // ⚠ `shadow` IS THE VERTEX-LIGHT BASE COLOUR AND `sunShadow` IS THE SUN. They were both called
-    // `shadow`, and world.js built its options as `{ ...opts.draw, shadow: sunShadowFor(…) }` — the
-    // spread first, the sun second — so the sun descriptor OVERWROTE the colour on every frame, in
-    // two different ways depending on a flag:
-    //
-    //   glShadow 0 (what shipped) — `sunShadowFor` returns null, `sh` falls back to the literal
-    //     below, and that literal is `#222836`: `RENDER_TUNE.vlShadowDay`. So `vlShadowNight`
-    //     (`#0a0c1a`, indigo-black) had NEVER reached GLASS 2, and since `aBot` is a 0.30-0.52
-    //     overlay, every wall in the night city was being shaded with the DAYTIME base shadow —
-    //     about three times too light, and the wrong hue.
-    //   glShadow > 0 with the sun up — `sh` is the descriptor OBJECT, `sh[0]` is `undefined`, and
-    //     `uniform3f` converts that to NaN without throwing. `mix(surf, vec3(NaN), aBot)` is NaN,
-    //     so every solid fragment came out black at full alpha with a correct silhouette.
-    //
-    // That second one is the whole of the bug report above `RENDER_TUNE.glShadow` — bit-identical
-    // at 0.35 and 1.0 (NaN does not vary), `getUniform` reading the strength back correctly (the
-    // strength was never the broken uniform), skipping the depth pass changing nothing (the bug is
-    // not on the sun path), and a black city. The ground was untouched because `floor.js` is a
-    // separate program that never reads `uShadow`.
-    //
-    // The guard below is the cheap insurance: this class of collision is silent in both directions,
-    // and a shape check is the only thing that would have caught it.
+    // ⚠ `shadow` is the vertex-light base colour and `sunShadow` is the sun. An object in `shadow`
+    // makes `sh[0]` undefined, which uniform3f turns into NaN silently (a black city), so its shape
+    // is checked.
     const key = opts.key || [0.78, 0.59, 0.33];
     let sh = opts.shadow;
     if (sh && !Array.isArray(sh)) { if (!warnedShadowShape) { warnedShadowShape = true; console.warn('GLASS 2: draw({shadow}) wants an [r,g,b]; got', sh, '— the sun descriptor belongs in sunShadow'); } sh = null; }
@@ -2061,8 +1886,7 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     gl.uniform1f(loc.fogNear, opts.fogNear == null ? 6 : opts.fogNear);
     gl.uniform1f(loc.fogFar, opts.fogFar == null ? 34 : opts.fogFar);
     gl.uniform1f(loc.fogAmt, opts.fogAmt == null ? 0 : opts.fogAmt);
-    // No haze band given means none: the far edge stays solid, which is what the model preview and
-    // the bench want. A world pass always gives one.
+    // No haze band means none (the preview and the bench); a world pass always gives one.
     gl.uniform1f(loc.hazeNear, opts.hazeNear == null ? 1e6 : opts.hazeNear);
     gl.uniform1f(loc.hazeFar, opts.hazeFar == null ? 1e6 + 1 : opts.hazeFar);
     gl.uniform1f(loc.fadePass, fade ? 2 : split ? 1 : 0);
@@ -2072,28 +1896,20 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     gl.uniform1f(loc.ao, opts.ao == null ? 0 : opts.ao);
     gl.uniform1f(loc.bakedAo, opts.bakedAo == null ? 0 : opts.bakedAo);
     gl.uniform1f(loc.aoFall, opts.aoFall == null ? 1.6 : opts.aoFall);
-    // The city's own lights. `opts.lights` is a list of { p: [x, y, z], rgb: [r, g, b], r }, already
-    // in the same camera-relative tile frame the vertices are, and already the strongest few — see
-    // world.js for why the selection lives there and not here.
+    // `opts.lights`: { p, rgb, r } in the vertices' frame, already the strongest few (world.js).
     const lights = opts.lights || [];
-    // ⚠ CAPPED BY THE CALLER AS WELL AS BY THE CEILING. world.js has already trimmed the list to
-    // the working count, so this is belt and braces — but it is also the only thing standing between
-    // a caller that hands over a longer list and a write past the end of the uniform arrays.
+    // ⚠ Capped here too: a longer list would write past the end of the uniform arrays.
     const nL = Math.min(lights.length, MAX_LIGHTS);
     for (let i = 0; i < nL; i++) {
       const L = lights[i];
       lightP[i * 3] = L.p[0]; lightP[i * 3 + 1] = L.p[1]; lightP[i * 3 + 2] = L.p[2];
-      // ⚠ A LIGHT'S COLOUR ARRIVES ALREADY SCALED BY ITS STRENGTH, so at level 2 the product is decoded
-      // as one display value. The strengths were tuned by eye on display values anyway.
+      // A light's colour arrives scaled by its strength, so at level 2 the product is decoded as one.
       const lc = linIn ? linRgb(L.rgb) : L.rgb;
       lightC[i * 3] = lc[0]; lightC[i * 3 + 1] = lc[1]; lightC[i * 3 + 2] = lc[2];
-      // Falls back to the weighted colour for a caller that has never heard of the split (a bench,
-      // a preview), so the array is never handed stale numbers from a previous frame.
+      // Falls back to the weighted colour, so the array never keeps a previous frame's numbers.
       const raw = linIn ? linRgb(L.rgbRaw || L.rgb) : (L.rgbRaw || L.rgb);
       lightRaw[i * 3] = raw[0]; lightRaw[i * 3 + 1] = raw[1]; lightRaw[i * 3 + 2] = raw[2];
-      // ⚠ `rw`, THE WALL'S REACH, NOT `r`. They are the same number until pickLights splits them,
-      // and `r` is the WET ROAD'S — a streak on tarmac is as long as it was swept at. A caller that
-      // sets neither (a bench, a preview) gets exactly what it always did.
+      // ⚠ `rw` is the wall's reach; `r` is the wet road's.
       lightR[i] = L.rw == null ? L.r : L.rw;
       // The lamp's reach for the lift: the road's reach, or 0 for a caller that sets no lift.
       lightLR[i] = L.rl || 0;
@@ -2101,45 +1917,29 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     gl.uniform1i(loc.nLight, nL);
     gl.uniform1f(loc.lampLift, opts.lampLift > 0 ? opts.lampLift : 0);
     gl.uniform1f(loc.signLift, opts.signLift > 0 ? opts.signLift : 0);
-    // The wall's light grid (setLightGrid below): the lift, the wash and the wet lobe walk every
-    // light whose reach covers the fragment's cell in place of the slots above, which are still
-    // uploaded, because the light shaft in the air integrates along the view ray and keeps them.
-    // The wall walks it only when one of its own three terms is live (`gridWall`).
+    // With the grid, the lift, wash and wet lobe walk the cell's lights instead of the slots; the
+    // slots still go up for the light shaft. Walked only when one of those terms is live (`gridWall`).
     bindWallGrid(loc, 8);
     if (!(opts.gridWall && wallGridNow)) gl.uniform1i(loc.uLGOn, 0);
     if (nL) {
       gl.uniform3fv(loc.lightP, lightP); gl.uniform3fv(loc.lightC, lightC); gl.uniform3fv(loc.lightRaw, lightRaw); gl.uniform1fv(loc.lightR, lightR); gl.uniform1fv(loc.lightLR, lightLR);
       gl.uniform1f(loc.lightWrap, opts.lightWrap == null ? 0 : opts.lightWrap);
-      // ⚠ DEFAULTS TO 2, THE TERM THIS PASS SHIPPED WITH, so a caller that has never heard of the
-      // focus knob renders what it always rendered rather than pow(att, 0.0) — which is 1.0 at
-      // every distance, a light with no falloff at all and the whole city lit flat.
+      // ⚠ Defaults to 2; 0 would be pow(att, 0.0) = 1.0, a light with no falloff.
       gl.uniform1f(loc.lightFocus, opts.lightFocus > 0 ? opts.lightFocus : 2);
     }
-    // ── THE MATERIAL RESPONSE ───────────────────────────────────────────────────
-    //
-    // ⚠ THE STRENGTH IS WRITTEN ON EVERY FRAME, INCLUDING THE FRAMES WITH NO TABLE, for the same
-    // reason the shadow strength is: a uniform holds its last value, so a pass that only wrote this
-    // when it had something to say would leave the previous caller's strength standing — and this
-    // view object is shared by the game, the Modelshop preview and the bench.
+    // ⚠ Every strength and weather uniform below is written every frame, never conditionally: a
+    // uniform keeps its last value. See docs/reference/glass-notes.md#uniforms-are-written-every-frame.
     const matStr = opts.mat && opts.mat.length ? (opts.matStr == null ? 1 : opts.matStr) : 0;
     gl.uniform1f(loc.matStr, matStr);
-    // ⚠ WRITTEN EVERY FRAME, INCLUDING THE FRAMES WITH NO SNOW. A uniform holds its last value, so
-    // a pass that set this only when it had snow would leave the whole skyline white for the rest
-    // of the session after one blizzard thawed — the rule the road segments in floor.js carry.
+    // ⚠ Every frame, snow or not.
     gl.uniform1f(loc.snow, opts.snow || 0);
-    // ⚠ WRITTEN EVERY FRAME, NEVER ONLY WHEN IT IS RAINING. A uniform holds its last value, so a
-    // pass that set this only when it had weather would leave the whole city wet for the rest of
-    // the session after one shower — the trap `gl:snow` exists to catch, one layer along.
+    // ⚠ Every frame, rain or not (the trap `gl:snow` catches).
     gl.uniform1f(loc.wet, opts.wet || 0);
-    // Written every frame for the reason the line above is: a uniform holds its last value, so a
-    // pass that set this only in fog would leave the city in mist for the rest of the session.
+    // Every frame, fog or not.
     gl.uniform1f(loc.fogH, opts.fogH || 0);
     gl.uniform1f(loc.fogHScale, opts.fogHScale > 0 ? opts.fogHScale : 0.5);
     gl.uniform1f(loc.scatter, opts.scatter || 0);
-    // ⚠ WRITTEN EVERY FRAME AND NEVER CONDITIONALLY, for the reason two comments up: a uniform holds
-    // its last value and this view is shared by the game, the Modelshop preview and the bench, so a
-    // pass that wrote these only when it had something to say would hand the next caller whatever
-    // the last one set. That is the trap already recorded beside uShadowStr and uSunDir.
+    // ⚠ Every frame, unconditionally.
     gl.uniform1f(loc.bevel, opts.bevel > 0 ? opts.bevel : 0);
     gl.uniform1f(loc.bevelTilt, opts.bevelTilt == null ? 1 : opts.bevelTilt);
     if (matStr > 0) {
@@ -2150,15 +1950,13 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
         glassRow = Math.max(0, Math.min(MAX_MATERIALS - 1, opts.mat.findIndex((r) => r && r.name === 'glass')));
         for (let i = 0; i < MAX_MATERIALS; i++) {
           const r = opts.mat[i];
-          // ⚠ A ROW PAST THE END OF THE TABLE KEEPS THE HARMLESS DEFAULT rather than going to zero
-          // — gloss 0 is a mirror, not a matte. See the fill above.
+          // ⚠ A row past the table keeps the harmless default (gloss 0 is a mirror).
           matTab[i * 4] = r ? r.gloss : 1;
           matTab[i * 4 + 1] = r ? r.metal : 0;
           matTab[i * 4 + 2] = r ? r.fres : 0;
           matTab[i * 4 + 3] = r ? r.bump : 0;
           sheenTab[i] = r ? r.sheen : 0;
-          // ⚠ A ROW PAST THE END TAKES THE OLD EXPRESSION, never 0 — an unclassified surface must
-          // look ORDINARY, and 0 here is a material with no sun on it at all.
+          // ⚠ A row past the end takes the old expression, never 0 (no sun at all).
           specTab[i] = r ? r.spec : 0.15;
         }
       }
@@ -2171,20 +1969,11 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
       const eu = opts.envUp ? cIn(opts.envUp) : skyC, ed = opts.envDn ? cIn(opts.envDn) : sh;
       gl.uniform3f(loc.envUp, eu[0], eu[1], eu[2]);
       gl.uniform3f(loc.envDn, ed[0], ed[1], ed[2]);
-      // ⚠ ZERO WHEN THERE IS NO PAGE, which makes the relief taps land on the same texel they
-      // started from and the gradient exactly 0 — the right answer for a frame drawing flat palette
-      // colours, and one that needs no second branch in the shader to say so.
+      // Zero with no page, which makes the relief gradient exactly 0.
       gl.uniform2f(loc.atlasTexel, atlasW ? 1 / atlasW : 0, atlasH ? 1 / atlasH : 0);
     }
-    // ── THE SKYLINE THE REFLECTION SAMPLES ──────────────────────────────────────────────────
-    //
-    // ⚠ OUTSIDE THE MATERIAL-TABLE GUARD, AND IT WAS INSIDE IT FIRST. That block is wrapped in
-    // `if (opts.mat !== matSrc)` — a cache so the table only re-uploads when it CHANGES — so a
-    // uniform written there is written on one frame and never again, and a texture bound there is
-    // bound once while every other pass goes on rebinding unit 3 underneath it. Measured: the
-    // reflection moved 0.00% of the frame with every part of it correctly wired. It is the same
-    // trap the shadow strength and the wet term below are each written around.
-    // ⚠ UNIT 3 IS FREE — 0 is the atlas, 1 the sun's depth, 2 the SSAO.
+    // The skyline the reflection samples. ⚠ Outside the `opts.mat !== matSrc` guard, which runs once.
+    // Unit 3 (0 atlas, 1 sun depth, 2 SSAO).
     const strip = skyline ? skyline.tex : null;
     gl.uniform1f(loc.envCity, strip ? (opts.envCity == null ? 1 : opts.envCity) : 0);
     gl.uniform1f(loc.envDim, opts.envDim == null ? 0.62 : opts.envDim);
@@ -2192,16 +1981,13 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     const textured = hasAtlas && opts.textured !== false;
     gl.uniform1f(loc.textured, textured ? 1 : 0);
     if (textured) { gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, atlasTex); gl.uniform1i(loc.atlas, 0); }
-    // ⚠ UNIT 4 IS BOUND ON EVERY DRAW, TO THE PAGE OR TO NOTHING. A sampler reads whatever its unit
-    // holds whether or not the branch reads it, and a texture there that is also this frame's
-    // render target is a feedback loop the driver answers by dropping the draw (glass-notes.md, "A
-    // pass that didn't draw"). Nothing bound reads as zero, which is "the page says nothing".
+    // ⚠ Unit 4 is bound every draw, to the page or to nothing, or a stale render target there is a
+    // feedback loop and the draw is dropped (docs/reference/glass-notes.md#a-pass-that-didnt-draw).
     const pageOn = textured && hasMatPage && opts.matPage > 0;
     gl.uniform1f(loc.matPageOn, pageOn ? 1 : 0);
     gl.uniform1i(loc.glassMat, glassRow);
     gl.activeTexture(gl.TEXTURE4); gl.bindTexture(gl.TEXTURE_2D, pageOn ? matPageTex : null); gl.uniform1i(loc.matPage, 4);
-    // ⚠ UNIT 5 IS THE CUBE, BOUND ON EVERY DRAW TO THE CUBE OR TO NOTHING, for unit 4's reason. It is
-    // a cube unit and nothing else may point a 2-D sampler at it in this program.
+    // ⚠ Unit 5 is the cube, bound every draw for unit 4's reason; no 2-D sampler may use it.
     gl.uniform1f(loc.envCubeOn, envTex ? 1 : 0);
     gl.uniform1f(loc.envMaxLod, ENV_MAX_LOD);
     gl.activeTexture(gl.TEXTURE5); gl.bindTexture(gl.TEXTURE_CUBE_MAP, envTex); gl.uniform1i(loc.envCube, 5);
@@ -2211,10 +1997,7 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     gl.uniform1f(loc.surfPageOn, surfOn ? 1 : 0);
     gl.uniform1f(loc.heightGain, opts.heightGain > 0 ? opts.heightGain : 0.33);
     gl.activeTexture(gl.TEXTURE6); gl.bindTexture(gl.TEXTURE_2D, surfOn ? surfPageTex : null); gl.uniform1i(loc.surfPage, 6);
-    // ⚠ THE STRENGTH IS WRITTEN ON EVERY FRAME, INCLUDING THE FRAMES WITH NO SUN. A uniform holds
-    // its last value, so a pass that only set this when it had a shadow would leave the previous
-    // frame's strength standing after sunset, against a depth texture belonging to an hour ago —
-    // the city wearing yesterday afternoon's shadows all night.
+    // ⚠ Every frame, sun or not.
     gl.uniform1f(loc.shadowStr, sun ? opts.sunShadow.str : 0);
     if (sun) {
       gl.uniformMatrix4fv(loc.lightVP, false, mat4f(sunVP(opts)));
@@ -2226,22 +2009,20 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
       gl.bindTexture(gl.TEXTURE_2D, sun.tex);
       gl.uniform1i(loc.shadowMap, 1);
     }
-    // ⚠ WRITTEN EVERY FRAME FOR THE SAME REASON THE SHADOW STRENGTH IS — a uniform holds its last
-    // value, and a frame whose SSAO pass declined (a driver that would not complete the framebuffer,
-    // a resize that failed) must not go on multiplying by a texture belonging to a camera that has
-    // since moved. Zero here is the exact off switch: the guard in the shader is on this uniform.
+    // Unit 11, clear of the light grid's 8 to 10. Written every draw, on or off, for the reason the
+    // strength above is; the mirror passes null and so reflects no prop shadow.
+    bindPropShadow(gl, loc, 11, prop);
+    gl.uniform1f(loc.propWall, prop ? prop.wall : 0);
+    // ⚠ Every frame, including when the SSAO pass declined; zero is the exact off switch.
     gl.uniform1f(loc.ssaoStr, ssaoTex ? (opts.ssao > 1 ? 1 : opts.ssao) : 0);
     if (ssaoTex) {
       gl.activeTexture(gl.TEXTURE2);
       gl.bindTexture(gl.TEXTURE_2D, ssaoTex);
       gl.uniform1i(loc.ssao, 2);
-      // The BACKING-STORE size, not the camera's — this is divided into gl_FragCoord, which is in
-      // device pixels, and the occlusion texture was rendered at that same size.
+      // The backing-store size (device px), since it divides gl_FragCoord.
       gl.uniform2f(loc.viewport, W, H);
     }
-    // ── THE CEL LOOK (RENDER_TUNE.glToon, glInk) ────────────────────────────────
-    // Written every frame for the strengths' reason above. ⚠ UNIT 7 IS THE INK, BOUND ON EVERY DRAW
-    // TO THE LINES OR TO NOTHING, for unit 4's reason.
+    // The cel look (RENDER_TUNE.glToon, glInk), every frame. ⚠ Unit 7, bound every draw (unit 4's reason).
     gl.uniform1f(loc.toon, opts.toon > 0 ? Math.min(1, opts.toon) : 0);
     gl.uniform1f(loc.toonBands, opts.toonBands > 0 ? opts.toonBands : 3);
     gl.uniform1f(loc.inkStr, inkTex ? Math.min(1, opts.ink) : 0);
@@ -2256,12 +2037,9 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
       if (!into) inkFrame = { tex: inkTex, str: Math.min(1, opts.ink), fade: [far * 0.15, far * 0.45, far * 0.35, far], col: ic, W, H };
     }
     gl.bindVertexArray(vao);
-    // skipMass (plugins/submersible): the eye is under the sea, and the city is above it — seen from
-    // below only through Snell's window, and everywhere else the surface is a mirror. The clear
-    // above still runs; only the city does not.
+    // skipMass (plugins/submersible): the eye is under the sea. The clear still runs.
     if (fade) {
-      // Depth first, so only the nearest face of a dissolving block blends over the ground. There
-      // is no backface cull (above), and without this its back walls show through its front ones.
+      // Depth first, or a dissolving block's back walls show through (no backface cull).
       const runs = fadeRuns(shiftVP(vpA, massShift), opts.hazeNear, opts.hazeFar);   // the ranges are in the buffer's frame
       gl.colorMask(false, false, false, false);
       for (let i = 0; i < runs.length; i += 2) gl.drawArrays(gl.TRIANGLES, runs[i], runs[i + 1]);
@@ -2274,17 +2052,10 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     return count;
   }
 
-  // ── THE BUILDINGS DISSOLVING AT THE DRAW LIMIT, OVER THE GROUND ─────────────────────────────
-  //
-  // The second half of the split in the shader (uFadePass). Called by the world pass after the
-  // floor, the sea and the roads, with the same camera and options it gave `draw`, so the band
-  // blends over what is actually behind it. 0 when this frame's `draw` did not split.
-  // ⚠ THE FADE PASS DREW THE WHOLE CITY TWICE TO KEEP A RING OF IT. The shader keeps a fragment only
-  // where its forward distance (clip.w) is inside the band, uHazeNear - jit .. uHazeFar - jit, so a
-  // tile whose box can't reach the band draws nothing and can be skipped whole: the picture is the
-  // same. clip.w is linear in position, so its range over a box is exact from the corners. Measured
-  // as the single most expensive GPU pass before this (0.5-2.4 ms at 640x360). Flat [first, count]
-  // pairs, neighbours merged, in a reused array.
+  // The buildings dissolving at the draw limit (uFadePass), drawn after the floor, sea and roads
+  // with `draw`'s camera and options. See docs/reference/glass-notes.md#the-far-dissolve-over-the-ground-render_tuneglhazesplit.
+  // fadeRuns: only tiles whose box reaches the band (clip.w is linear, so the corners are exact), as
+  // flat [first, count] pairs, neighbours merged, in a reused array.
   const fadeBuf = [];
   function fadeRuns(m, near, far) {
     const out = fadeBuf;
@@ -2303,14 +2074,10 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
   }
   function drawFade(cam, opts = {}) { return draw(cam, { ...opts, fadePass: 2 }); }
 
-  // The lights, on the same context and the same depth buffer. Built lazily: a view that never
-  // has a light never compiles the program.
+  // The lights, on the same depth buffer. Lazy, like the layers below.
   let sprites = null;
   const spriteLayer = () => (sprites || (sprites = createSpriteLayer(gl)));
-  // ⚠ TWO HEIGHTS, AND THEY ARE NOT THE SAME NUMBER. The matrix wants the CAMERA's frame height
-  // (CSS px, what `horizonY` and `depth` are measured in — see the ⚠ in world.js); the viewport
-  // wants the CANVAS's (device px), because a sprite's radius arrives already scaled by the
-  // frame's dpr. Passing one for the other lifts every light off the building it sits on.
+  // ⚠ Two heights: the matrix takes the camera's (CSS px), the viewport the canvas's (device px).
   function drawSprites(cam, list, cssH, intensity) {
     if ((!list || !list.length) && !sprites) return 0;
     const L = spriteLayer(), w = windowFrame(cam), sp = splitGroups(list || [], w.ox, w.oy);
@@ -2318,9 +2085,7 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     return L.draw(w.cam, canvas.width, canvas.height, cssH, intensity);
   }
 
-  // The fly-through cloud deck, drawn in a SECOND pass over the same buffer. See gl/clouds.js:
-  // the colour is cleared and the DEPTH IS NOT, so the cards test against the city the world
-  // pass wrote a moment ago without the mass being uploaded twice or the frame reordered.
+  // The cloud deck, a second pass over the same depth buffer (gl/clouds.js).
   let clouds = null;
   const cloudLayer = () => (clouds || (clouds = createCloudLayer(gl)));
   function drawCloudDeck(cam, cards, cssH, opts = {}) {
@@ -2328,17 +2093,14 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     const L = cloudLayer();
     if (opts.noise) L.setNoise(opts.noise);
     gl.viewport(0, 0, canvas.width, canvas.height);
-    // ⚠ COLOUR ONLY. Clearing DEPTH here puts every cloud back in front of every tower, which is
-    // exactly what the 2-D deck did and exactly what this pass exists to stop — and it would look
-    // like the port having no effect rather than like a missing bit.
+    // ⚠ Colour only: clearing depth puts every cloud in front of every tower.
     gl.clearColor(0, 0, 0, 0);
     gl.clear(gl.COLOR_BUFFER_BIT);
     L.upload(cards);
     return L.draw(cam, canvas.width, canvas.height, cssH, opts);
   }
 
-  // The deck as a raymarched VOLUME (RENDER_TUNE.glCloudVol); see gl/cloudvol.js. Same moment and
-  // same depth buffer as drawCloudDeck. It replaces the cards rather than drawing over them.
+  // The deck as a raymarched volume (RENDER_TUNE.glCloudVol; gl/cloudvol.js), replacing the cards.
   let cloudVol = null;
   function drawCloudVolume(cam, vol, cssH, opts = {}) {
     if (!vol || !vol.cells || !vol.cells.length) return 0;
@@ -2346,8 +2108,7 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     return cloudVol.draw(cam, canvas.width, canvas.height, cssH, vol, { ...opts, fb: hdr ? hdr.drawFbo : null });
   }
 
-  // The Curtain, on the same depth buffer as the mass. Built lazily like the lights: a view that
-  // never sees the wall never compiles the program.
+  // The Curtain. Lazy.
   let curtain = null;
   const curtainLayer = () => (curtain || (curtain = createCurtainLayer(gl)));
   function drawCurtain(cam, list, cssH, now) {
@@ -2369,8 +2130,7 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
   // What that cost in BINDS, which is the figure that tracks the clock — see the ⚠ in decals.js.
   const decalCost = () => (decals ? { batches: decals.batches, textures: decals.textures, minted: decals.minted } : { batches: 0, textures: 0, minted: 0 });
 
-  // The wires, on the same depth buffer. Lazy like the others: a view with no mast, no rail and
-  // no light-runner in it never compiles the program.
+  // The wires. Lazy.
   let strokes = null;
   const strokeLayer = () => (strokes || (strokes = createStrokeLayer(gl)));
   function drawStrokes(cam, list, cssH) {
@@ -2383,9 +2143,7 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
   // Ground scatter, on the same depth buffer. Lazy like the others.
   let bbs = null;
   const bbLayer = () => (bbs || (bbs = createBillboardLayer(gl)));
-  // How many billboard textures the cache is holding. Exposed because an unbounded one is not
-  // visible in the picture until it starts evicting live entries, at which point it looks like
-  // corrupted artwork rather than like a cache.
+  // How many billboard textures the cache holds (an overfull cache looks like corrupted artwork).
   const billboardTextures = () => (bbs ? bbs.textures : 0);
   function drawBillboards(cam, list, cssH, fog, snow, lights) {
     if (!list || !list.length) return 0;
@@ -2394,22 +2152,11 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     return L.draw(cam, canvas.width, canvas.height, cssH, fog, snow, lights);
   }
 
-  // ── THE PUDDLE REFLECTION, AS A PREPASS ────────────────────────────────────
-  //
-  // The third of them, and it plays by the same rule the other two do: it binds its own
-  // framebuffer and restores to null, so `beginTarget` a moment later is unaffected. See the ⚠ on
-  // `beginTarget` — anything bound before these prepasses is gone by the time the city is drawn,
-  // which is exactly why the reflection has to be taken BEFORE rather than squeezed in after.
-  //
-  // ⚠ IT RE-UPLOADS, AND THE ALTERNATIVE IS WORSE. The sprite and decal buffers are filled again by
-  // the ordinary passes further down, so this frame fills each one twice. Skipping the second fill
-  // would mean this prepass silently owning the buffer state the main pass depends on — a coupling
-  // that breaks the moment somebody reorders a layer or turns the reflection off. Measured, the two
-  // uploads are a few hundred microseconds against a fill cost that is the real expense here.
+  // The puddle reflection, a prepass: binds its own framebuffer and restores null, before `beginTarget`.
+  // ⚠ It re-uploads the sprite and decal buffers on purpose, so the main pass never depends on it.
   let mirror = null;
   const mirrorLayer = () => (mirror || (mirror = createMirrorLayer(gl)));
-  // The city in the glass. Lazy for the mirror's reason: a seat that never draws a reflective
-  // surface never allocates it, and a machine that refused the context never gets here at all.
+  // The city in the glass. Lazy.
   let skyline = null;
   const skylineLayer = () => (skyline || (skyline = createSkylineStrip(gl)));
   // ⚠ THE MIRROR IS AN EIGHT-BIT BUFFER OF DISPLAY VALUES, whatever the frame's own target is, so
@@ -2421,103 +2168,44 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
   }
   function drawMirrorInto(cam, opts = {}) {
     const sp = opts.sprites, dc = opts.decals, cl = opts.clouds;
-    // ⚠ THE RIG COUNTS AS SOMETHING TO REFLECT. This used to ask only whether there were lights or
-    // signs, which was the whole of what the buffer held — so on an unlit stretch of wet road the
-    // prepass never ran and the truck standing in it had nothing to appear in.
-    // ⚠ AND THE DECK COUNTS TOO. This asked only whether the city had anything emissive in it, which
-    // was the whole of what the buffer held — so on an unlit road under a heavy sky the prepass never
-    // ran and the water had nothing to show but the flat fallback, which is the commonest case there
-    // is rather than an edge one.
+    // ⚠ The rig and the cloud deck count as something to reflect, not only lights and signs.
     if (!(sp && sp.length) && !(dc && dc.length) && !(cl && cl.length) && !solidQuads) return null;
     let M;
     try { M = mirrorLayer(); } catch { return null; }
     if (!M.bind(canvas.width, canvas.height, opts.scale)) return null;
-    // The water's plane, in the frame each layer's own vertices are in. Both are at ground level,
-    // which is z = 0 in every frame this renderer has — see the eps ladder: the road sits
-    // thousandths of a tile above it, which is nothing to a reflection.
+    // The water's plane: z = 0 in every frame.
     const mcam = { ...cam, mirrorZ: opts.plane || 0 };
-    // ⚠ THE MASS IS IN A DIFFERENT FRAME AND NEEDS ITS OWN MIRRORED CAMERA. The lights and the
-    // signage are collected in the camera's own frame; the MESH is built at map-window tiles so it
-    // can be cached, which is why world.js hands `draw` the shifted `camAt`. Reflecting the plain
-    // camera and drawing the mesh through it slides every building in the water by the window
-    // offset — and it would not read as a bug, it would read as the reflection being of somewhere
-    // else. The two frames disagree about the origin and agree exactly about the SCREEN and the
-    // view distance, so a reflection built from each lands on the same pixels at the same depth,
-    // which is what lets them share one buffer and one depth test.
+    // ⚠ The mesh is in map-window tiles, so it needs its own mirrored camera (the shifted `camAt`);
+    // the plain one slides the reflection by the window offset. Both land on the same pixels.
     const mMassCam = opts.massCam ? { ...opts.massCam, mirrorZ: opts.plane || 0 } : mcam;
     const cssH = opts.cssH || canvas.height;
     try {
-      // ── THE BUILDINGS, FIRST, BECAUSE THEY ARE WHAT THE OTHER TWO STAND ON ────────────────────
-      //
-      // ⚠ THE MASS GOES DOWN BEFORE THE EMISSIVE LAYERS AND IT IS THE ONLY ORDER THAT WORKS. It
-      // writes the depth the sign and the glow are then tested against, which is the whole reason
-      // the buffer grew a depth attachment: draw it after and it paints over the very signage it
-      // is supposed to be standing behind.
-      //
-      // ⚠ AND IT IS OPTIONAL, because it is the one part of this pass with a real cost. A puddle
-      // reflecting only light is what shipped; `glMirrorMass 0` is exactly that picture, and on a
-      // machine where the second draw is too dear it is the knob to reach for before `glMirrorRes`.
+      // ⚠ The mass goes first: it writes the depth signs and glows test against.
+      // Optional (`glMirrorMass 0`), as the one costly part of this pass.
       const size = M.size;
       if (opts.mass !== 0 && count) {
         draw(mMassCam, { ...(opts.massOpts || {}), intoTarget: size, cssH,
-          // ⚠ NO SHADOWS, NO SSAO AND NO BLOOM IN THE WATER. All three are screen-space against the
-          // real camera, so their buffers describe a city the right way up; `draw` skips the two
-          // prepasses under `intoTarget` and these make the strengths agree with that.
+          // ⚠ No shadows, SSAO or bloom in the water: all three describe the unreflected view.
           sunShadow: null, ssao: 0, hdr: 0 });
       }
-      // ── AND THE RIG, WHICH IS WHY ANY OF THIS REACHES A PUDDLE ────────────────────────────────
-      //
-      // Solid, so it goes down with the mass rather than with the light: the signage and the glows
-      // below are depth-TESTED and a reflection of a sign behind the truck must not paint over it.
-      //
-      // ⚠ IT TAKES THE MASS CAMERA. The rig is collected in MAP-WINDOW tiles for exactly the reason
-      // the mesh is — see the ⚠ above on mMassCam — so it reflects through the same shifted camera
-      // and lands on the same pixels at the same depth.
+      // The rig, solid, with the mass. ⚠ It takes the mass camera (map-window tiles, like the mesh).
       if (solidQuads || faunaInst || actorInst || clothInst || cloudList.length) drawSolids(mMassCam, cssH, { fog: opts.fog || null, actors: true, noInk: true });
-      // ── AND THE SKY OVER ALL OF IT ────────────────────────────────────────────────────────────
-      //
-      // A puddle shows what is ABOVE it, and above most of a street is sky. The buffer held the city
-      // and the ground shader filled every empty pixel with a two-stop gradient that collapses to ONE
-      // COLOUR at exactly the grazing angles where Fresnel makes the reflection strongest — so the
-      // water was a flat sheet of paint over four fifths of its own area.
-      //
-      // ⚠ IT TAKES THE PLAIN MIRRORED CAMERA, NOT THE MASS ONE. The cards are collected as offsets
-      // from the ship in `cam`'s own frame, exactly as the lights and the signage are; the mesh is
-      // the odd one out because it is cached at map-window tiles.
-      //
-      // ⚠ AFTER THE MASS, SO A CLOUD BEHIND A TOWER IS BEHIND IT IN THE WATER. A card writes no
-      // depth (it is translucent all the way through) and tests LEQUAL, so it cannot hide the signage
-      // and lights that follow — those are nearer, and they win on their own depth.
-      //
-      // ⚠ AND THE VIEWPORT IS THE CANVAS'S, like the lights below and for the same reason: `aSize`
-      // is in device pixels and the shader turns it into an NDC offset, which does not care what
-      // resolution it is rasterised at. Hand it this buffer's own half size and every cloud in the
-      // water comes out twice as wide.
+      // The cloud deck, so the puddle shows sky. ⚠ Plain mirrored camera (the cards are in `cam`'s
+      // frame), after the mass, and the canvas's viewport: sizes become NDC offsets, so the half-size
+      // buffer's own viewport would double every cloud.
       if (cl && cl.length) {
         const L = cloudLayer(), cs = opts.cloudState || {};
         if (cs.noise) L.setNoise(cs.noise);
         L.upload(cl);
         L.draw(mcam, canvas.width, canvas.height, cssH, cs);
       }
-      // Signage next and lights over it, which is the order the frame itself uses — a sign is
-      // artwork and a glow is the light coming off it.
+      // Signage, then lights over it, as in the frame.
       if (dc && dc.length) { const L = decalLayer(); L.upload(dc); L.draw(mcam, cssH); }
-      // ⚠ INTENSITY 1, NOT THE EMISSIVE GAIN. The gain exists to push an emitter above 1.0 so the
-      // bright-pass can find it in the float buffer; this buffer is eight bits and is read back as
-      // a reflection, so the gain would only clip the brightest signs to flat white — which is
-      // precisely the legibility this pass exists to gain.
-      // ⚠ AND THE VIEWPORT STAYS THE CANVAS'S, THOUGH THIS BUFFER IS HALF ITS SIZE. `aRadius` is in
-      // device pixels but what the vertex shader computes from it is an NDC offset — 2·R/viewport —
-      // and NDC is the one frame that does not care what resolution it is rasterised at. Handing it
-      // the half-size buffer makes 2·R/(W/2), so every light in the water comes out at twice its
-      // width: a reflection blurrier than the surface, which reads as the effect being too strong
-      // rather than as a wrong divisor.
+      // ⚠ Intensity 1, not the emissive gain: this buffer is eight bits and the gain clips to white.
+      // ⚠ The canvas's viewport, for the clouds' reason (2·R/viewport is an NDC offset).
       if (sp && sp.length) { const L = spriteLayer(); L.upload(sp); L.draw(mcam, canvas.width, canvas.height, cssH, 1); }
     } catch (e) {
-      // ⚠ ONCE, AND THEN NEVER AGAIN. A throw in here is indistinguishable from a machine that
-      // cannot do the pass — both end as a road with nothing in it — so the fallback is right and
-      // the silence is not. It cost an afternoon the first time: the reflection worked in the cab,
-      // vanished in the chase camera, and the only difference was a shape mismatch in an argument.
+      // ⚠ Warn once: a throw here looks exactly like a machine that can't do the pass.
       if (!drawMirror._warned) { drawMirror._warned = true; console.warn('[gl] the reflection pass threw — falling back to a road with no image in it', e); }
       M.release(); return null;
     }
@@ -2525,27 +2213,15 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     return M.texture;
   }
 
-  // What the reflection buffer actually holds — a bench probe, not a frame report. See the ⚠ on
-  // peak() in mirror.js: an empty buffer and a dead read-back are the same picture from the road.
+  // What the reflection buffer holds, for a bench (see peak() in mirror.js).
   const mirrorPeak = (step) => (mirror && mirror.peak ? mirror.peak(step) : null);
 
   // The road surface. Lazy like the others; a view over open water never compiles it.
   let grd = null;
   const groundLayer = () => (grd || (grd = createGroundLayer(gl)));
-  // ── THE FRAME'S OWN PAINTED SKY, AS A TEXTURE ───────────────────────────────────────────────
-  //
-  // windshield.js hands over a downscaled strip of the canvas above the horizon — see the ⚠ at
-  // `captureSkyStrip`. It is re-uploaded every frame because the sky changes every frame (the sun
-  // moves, the dome drifts, the weather grades), and it is 256x128, which is the whole reason that
-  // is affordable.
-  //
-  // ⚠ FLIP OFF, EXPLICITLY. `UNPACK_FLIP_Y_WEBGL` is global state on the context and this file is
-  // not the only thing uploading images into it. With it left on, the strip arrives upside down and
-  // every puddle reflects the ZENITH along the horizon — which reads as a wrong colour rather than
-  // as a flipped image, because a sky gradient inverted is still a smooth gradient.
-  //
-  // ⚠ CLAMP_TO_EDGE, because the grazing pixels — which is most of a road — sample at v = 1.0
-  // exactly, and those are the ones the whole feature is for.
+  // The frame's painted sky as a 256x128 texture (`captureSkyStrip`), re-uploaded every frame.
+  // ⚠ Set flip off explicitly: UNPACK_FLIP_Y_WEBGL is context-global, and a flipped sky still looks
+  // like a smooth gradient. ⚠ CLAMP_TO_EDGE: grazing pixels sample at v = 1.0 exactly.
   let skyStripTex = null;
   function uploadSkyStrip(src) {
     if (!src) return null;
@@ -2568,48 +2244,33 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     if (!quads || !quads.length) return 0;
     const L = groundLayer();
     L.upload(quads);
-    if (opts) opts.skyTex = uploadSkyStrip(opts.skyStrip);
+    if (opts) { opts.skyTex = uploadSkyStrip(opts.skyStrip); opts.prop = propFrame; }
     return L.draw(cam, cssH || canvas.height, opts);
   }
 
-  // ── THE VEHICLE YOU ARE IN ─────────────────────────────────────────────────────────────────
-  // ⚠ UPLOADED ONCE, DRAWN TWICE, AND THE UPLOAD HAS TO HAPPEN FIRST. The reflection is a PREPASS
-  // (see world.js), so by the time the main pass draws the rig the mirror has already needed it.
-  // Keeping the fill separate from the draw is the whole of what makes one buffer serve both.
+  // The vehicle you're in. ⚠ Uploaded once before the mirror prepass, drawn twice.
   let shp = null;
   const solidsLayer = () => (shp || (shp = createSolidsLayer(gl)));
   let solidQuads = 0;
-  // ⚠ ONE BUFFER FOR BOTH LISTS, AND THE CONCATENATION HAPPENS HERE RATHER THAN AT THE CALL SITE.
-  // The rig and the shed are the same kind of thing to this layer — flat-shaded solids that write
-  // depth — and they are uploaded once and drawn twice (the mirror, then the main pass), so two
-  // buffers would be two uploads and two draw calls for no difference in the picture. What the
-  // caller gets back is the two counts SEPARATELY, because a diagnostic that adds them together
-  // cannot tell a shed that arrived from a rig that did.
-  // ⚠ AND BIRDS MAY ARRIVE IN THE SAME LIST AS INSTANCE RECORDS RATHER THAN FACES (`.inst`), when
-  // windshield.js has been told this context can draw them — see gl/fauna.js. They are split out
-  // HERE, so the fauna list keeps one name from the frame to this layer, and the mirror prepass and
-  // the main pass both get the birds through the two calls they already make, with no new call site.
+  // Rig and shed share one buffer; the counts come back separately so a diagnostic can tell them apart.
+  // Birds may arrive in the same list as instance records (`.inst`, gl/fauna.js), split out here.
   let fnl = null;
   const faunaLayer = () => (fnl || (fnl = createFaunaLayer(gl)));
   let faunaInst = 0;
   const instRecs = [];
-  // …AND PEOPLE, the same way: a pavement figure close enough to be a mesh arrives as a record with
-  // `.actor` (see gl/actors.js and drawActorFigure), in the same list, and is drawn by the same two calls.
+  // People the same way (`.actor`, gl/actors.js).
   let acl = null;
   const actorLayer = () => (acl || (acl = createActorLayer(gl)));
   let actorInst = 0;
   const actorRecs = [];
-  // …AND CLOTH (`.cloth`): windsocks, flags and the Pitch's tents, whose flutter is baked (gl/cloth.js).
-  // Drawn with the birds, by both calls.
+  // Cloth the same way (`.cloth`, gl/cloth.js).
   let cll = null;
   const clothLayer = () => (cll || (cll = createClothLayer(gl)));
   let clothInst = 0;
   // The main pass's ink lines, for the cloth to draw on itself as the walls do (null: none).
   let inkFrame = null;
   const clothRecs = [];
-  // ⚠ AND A MURMURATION ARRIVES AS ONE RECORD (`.cloud`), NOT AS ITS BIRDS. Its simulation is stepped
-  // HERE, once a frame, because this is the one call guaranteed to come before both the mirror prepass
-  // and the main pass — so both draw the flock where it is this frame, not where it was last frame.
+  // ⚠ A murmuration is one record (`.cloud`), stepped here because this call precedes both passes.
   let mg = null;
   const murmurGPU = () => (mg || (mg = createMurmurGPU(gl)));
   const cloudList = [];
@@ -2621,9 +2282,7 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     cloudList.length = 0;
     const clouds = [], groups = [];
     for (const l of lists) if (l && l.length) {
-      // ⚠ A RETAINED GROUP (bayGroup in windshield.js) goes over whole and its records are skipped
-      // here, so they reach the GPU once rather than every frame. A group whose records aren't where
-      // it says they are (a sink truncated after a throw) is ignored, and its records go as usual.
+      // A retained group (bayGroup) goes over whole; see splitGroups.
       const G = l.groups;
       let gi = 0;
       for (let i = 0; i < l.length; i++) {
@@ -2654,11 +2313,8 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     clothInst = (clothRecs.length || cll) ? clothLayer().upload(clothRecs) : 0;
     return solidQuads;
   }
-  // ── THE OWN SHIP, IN ITS OWN FRAME ──────────────────────────────────────────────────────────────
-  // A layer of its own so its records can stay put from frame to frame: they carry the model's local
-  // points (`mp`) and the frame's placement arrives as one matrix, so the incremental upload sends
-  // only the faces that moved (gear, flaps, the gun). `ship` is the normal matrix and the sun term
-  // the shader now applies (see solids.js). Drawn wherever the other solids are: film and mirror too.
+  // The own ship, in its own frame: local points (`mp`) plus one placement matrix, so only moved
+  // faces re-upload. `ship` is the normal matrix and sun term (solids.js).
   let shpOwn = null, ownQuads = 0;
   const ownLayer = () => (shpOwn || (shpOwn = createSolidsLayer(gl)));
   function uploadShip(list, model, ship) {
@@ -2669,16 +2325,14 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     let n = 0;
     opts = opts || {};
     opts.lightGrid = bindWallGrid;
-    // The translucent range alone (rotor blades and discs): see `film` in solids.js. The birds and
-    // the murmuration are drawn by the solid call and must not be drawn twice.
+    // The translucent range alone (`film` in solids.js); birds are drawn by the solid call.
     if (opts && opts.film) return (solidQuads ? solidsLayer().draw(cam, cssH || canvas.height, opts) : 0)
       + (ownQuads ? ownLayer().draw(cam, cssH || canvas.height, opts) : 0);
     if (solidQuads) n += solidsLayer().draw(cam, cssH || canvas.height, opts || {});
     if (ownQuads) n += ownLayer().draw(cam, cssH || canvas.height, opts || {});
     if (faunaInst) faunaLayer().draw(cam, cssH || canvas.height, opts || {});
     if (clothInst) clothLayer().draw(cam, cssH || canvas.height, { ...opts, ink: opts.noInk ? null : inkFrame });
-    // People only when asked: the main pass draws them after the ground instead (drawActors, and the
-    // note beside its call in world.js), and only the mirror prepass wants them here.
+    // People only for the mirror; the main pass draws them after the ground (drawActors).
     if (actorInst && opts && opts.actors) actorLayer().draw(cam, cssH || canvas.height, opts);
     if (cloudList.length) faunaLayer().drawClouds(cam, cssH || canvas.height, canvas.width, canvas.height, opts || {}, cloudList);
     return n;
@@ -2690,33 +2344,10 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     return actorInst ? actorLayer().draw(cam, cssH || canvas.height, opts || {}) : 0;
   }
 
-  // ── THE INTERIOR: A VIEWMODEL PASS, AND IT HAS TO BE ONE ──────────────
-  //
-  // The room you are sitting in is the one solid object in this renderer that is INSIDE the near
-  // clip plane. NEAR is 0.06 tiles; a truck cab is 2.3 m across, which at the seat's own eye
-  // height is about 0.10 of a tile end to end — so the dash, the pillars, the roof and the floor
-  // are ALL nearer than the nearest thing the world camera is able to draw. Collected into the
-  // ordinary solids buffer it arrives, uploads, draws, and clips away to nothing: 72 faces on the
-  // GPU and not one pixel, which is the exact picture of the feature not existing.
-  //
-  // ⚠ THE NEAR PLANE CANNOT SIMPLY COME IN FOR EVERYBODY. `nearFor` already fits it to the seat
-  // and its own note is explicit that it ONLY EVER COMES IN, at a cost: the cockpit and the cab
-  // keep 0.06 and the depth budget that came with it, and the two seats that do move pay 1.3–1.6x
-  // coarser depth for it. A plane at 0.004 is fifteen times coarser again across a 400-tile city,
-  // which buys a cab by z-fighting the skyline.
-  //
-  // ⚠ SO IT GETS ITS OWN RANGE, AND THE DEPTH BUFFER IS CLEARED FOR IT. That is not a trick to
-  // get round the clip plane — it is the physical claim, stated: NOTHING IN THE WORLD CAN BE
-  // BETWEEN YOU AND YOUR OWN DASHBOARD. No building, truck, goose or weather can come inside the
-  // cab, so the interior never needs to sort against any of them, and a range of its own (0.004
-  // to 1 tile, for an object 0.1 of a tile deep) gives it far BETTER precision than the world pass
-  // has rather than worse. It still sorts against ITSELF — the dash in front of the seat behind
-  // it — which is the only ordering the object actually has.
-  //
-  // ⚠ AND IT IS A SECOND INSTANCE OF THE SAME LAYER, NOT A SECOND LAYER. One shader, one upload
-  // path, one set of state; what differs is the buffer and the clip range. A copy would be a
-  // second place for the flat-shaded triangle soup to be defined, and the first edit would land
-  // in one of them.
+  // The interior, a viewmodel pass: the cab sits inside the world's near plane, so it gets its own
+  // clip range and a cleared depth buffer (nothing in the world can be inside the cab). ⚠ It's a
+  // second instance of the solids layer, never a copy. See
+  // docs/reference/glass-notes.md#the-interior-as-a-viewmodel-pass.
   let intQuads = 0, intl = null, worldSun = null;
   const interiorLayer = () => (intl || (intl = createSolidsLayer(gl, { cabin: true })));
   // `model`, when the interior sends one, is its local-to-world matrix: the faces arrive in the cab's own
@@ -2726,9 +2357,7 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     intQuads = list && list.length ? interiorLayer().upload(list, model && list.every((q) => q.mp) ? model : null, light, att) : 0;
     return intQuads;
   }
-  // What the main pass is drawing into: the float target when it is live, else the canvas, at the
-  // canvas size either way (beginTarget binds it so, and draw() sets that viewport). Handed to a pass
-  // that binds a framebuffer of its own, so it can put this one back without a getParameter.
+  // What the main pass draws into (float target or canvas), so a pass can restore it without a getParameter.
   const frameTarget = () => ({ fb: targetLive && hdr ? hdr.drawFbo : null, w: canvas.width, h: canvas.height });
   function drawInterior(cam, cssH, opts) {
     if (!intQuads) return 0;
@@ -2738,16 +2367,8 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
     interiorLayer().draw(cam, cssH || canvas.height, { ...(opts || {}), near: INTERIOR_NEAR, far: INTERIOR_FAR, film: true });
     return n;
   }
-  // ── THE ROOM ON A CANVAS OF ITS OWN ─────────────────────────────────────────
-  //
-  // ⚠ A SECOND MOMENT, NOT A SECOND BUFFER. The world is blitted under the aircraft's BANK — a
-  // canvas rotate — so a cabin drawn into it is rotated too and, worse, only covers the rotated
-  // rectangle: at 30° of bank two corners of the flight deck were simply missing, with the world
-  // showing through the wedges. Drawn here, after the world has been blitted, onto a cleared
-  // default framebuffer, it is composited UNROTATED over the whole frame. The quads were uploaded
-  // by the world pass; this only draws them.
-  // ⚠ CLEARED TO TRANSPARENT, so the only opaque pixels are the room's own, and straight to the
-  // default framebuffer, so it takes the multisampled edges the canvas was created with.
+  // The room drawn after the world is blitted under the bank rotation, so it isn't rotated with it.
+  // ⚠ Cleared transparent, straight to the default framebuffer (multisampled).
   function drawInteriorAlone(cam, cssH, aloneUnder = 0, aloneUnderD = 0) {
     if (!intQuads) return 0;
     LIN.out = 0;   // straight onto the canvas, which holds display values (colour.js)
@@ -2766,45 +2387,34 @@ const lightRaw = new Float32Array(MAX_LIGHTS * 3);
   // The ground itself. Lazy, and only ever built when RENDER_TUNE.glFloor asks for it.
   let flr = null;
   const floorLayer = () => (flr || (flr = createFloorLayer(gl)));
-  function drawFloor(state, near) { return state ? floorLayer().draw(state, near) : 0; }
+  function drawFloor(state, near) { if (state) state.prop = propFrame; return state ? floorLayer().draw(state, near) : 0; }
 
-  // ── THE DISPLACED SEA ───────────────────────────────────────────────────────────────────────
-  //
-  // Lazy like the rest, so a view that never sees water never compiles it — and it reads the
-  // FLOOR's LUT rather than being handed its own, because 'where is the coast' must have one
-  // answer. It therefore has to be drawn after the floor, which is also where it belongs: the
-  // mesh stands ON the flat sea the floor has just painted and hands back to it at the rim.
+  // The displaced sea. Lazy. ⚠ It reads the floor's LUT (one answer for the coast), so it's drawn
+  // after the floor.
   let wtr = null;
   const waterLayer = () => (wtr || (wtr = createWaterLayer(gl)));
   function drawWater(cam, state, cssH, refl) {
     if (!state || !(state.seaRoll > 0) || !(state.swell > 0)) return 0;
     const lut = flr && flr.lut;
     if (!lut) return 0;   // the floor has not uploaded yet; there is nothing to agree with
-    // ⚠ THE SKY ARRIVES AS A CANVAS AND HAS TO BECOME A TEXTURE HERE. windshield.js may not import
-    // gl/, so it hands over the raw strip; this file owns the upload and the one cached texture
-    // that both the sea and the road read. The road uploads the same strip again a moment later —
-    // same 256x128 source into the same texture object, so it is a redundant call rather than a
-    // second texture, and only on frames where the sea is actually reflecting.
+    // The sky arrives as a canvas (windshield.js may not import gl/); one cached texture serves sea and road.
     const r = refl ? { ...refl, sky: refl.sky ? uploadSkyStrip(refl.sky) : null } : null;
     return waterLayer().draw(cam, state, cssH, lut, r);
   }
 
-  // The underwater half (plugins/submersible): the water volume, the bottom and what is in the
-  // water. Lazy, so a view that never goes under never compiles it. See gl/seabed.js.
+  // The underwater half (plugins/submersible; gl/seabed.js). Lazy.
   let sbd = null;
   const seabedLayer = () => (sbd || (sbd = createSeabedLayer(gl)));
   const drawSeabed = (cam, s, cssH, dpr, eye, t) => (s ? seabedLayer().drawBottom(cam, s, cssH, dpr, eye, t) : 0);
   const drawSeabedPoints = (cam, s, cssH, dpr) => (s ? seabedLayer().drawPoints(cam, s, cssH, dpr) : 0);
-  // Handed the window's cells and the eye in the MESH frame; see gl/skyline.js and the ⚠ on 
-  // in world.js. Called before , because the strip is a uniform that draw reads.
+  // The window's cells and the eye in the mesh frame (gl/skyline.js). Called before draw, which reads it.
   function setSkyline(cells, eye, facesOf) { try { skylineLayer().update(cells, eye, facesOf); } catch { /* no strip is the flat environment, which is the picture that shipped */ } }
   const api = { murmurGPU: () => mg, gl, setSkyline, upload, uploadGroups, uploadKept, setMassShift, massDebug, draw, drawFade, beginTarget, hdrLive, composite, hdrPeak, setMatPage, setSurfPage, drawSeabed, drawSeabedPoints, drawSprites, drawCurtain, drawDecals, decalCost, drawStrokes, drawBillboards, billboardTextures, drawGround, groundGrid: () => (grd ? grd.grid : null), wallGrid: () => massGrid, setLightGrid, taaSplit, drawFloor, drawWater, drawCloudDeck, drawCloudVolume, drawMirror, mirrorPeak, uploadSolids, uploadShip, drawSolids, drawActors, uploadInterior, drawInterior, drawInteriorAlone, setAtlas, lost: () => gl.isContextLost(),
     maxTexture: gl.getParameter(gl.MAX_TEXTURE_SIZE), get triangles() { return count / 3; },
-    // The mesh's own box, for the caller that has to fit a light projection to it — and the shadow
-    // map's size, which is 0 when the driver refused it. A zero there next to a sun that is up is
-    // the silent failure this whole layer is written around.
-    // In the window's frame, which is the one the sun's matrix is fitted in (massShift).
-    get bounds() { return boundsInWindow(); }, get shadowSize() { return shadow ? shadow.size : 0; } };
+    // The mesh's box in the window's frame (for the light projection) and the shadow map size (0: refused).
+    get bounds() { return boundsInWindow(); }, get shadowSize() { return shadow ? shadow.size : 0; },
+    // This frame's prop map (gl/propshadow.js): size, triangles, and what went in. null when off.
+    get propShadow() { return propFrame ? { size: propFrame.size, tris: propFrame.tris, ...(propLayer && propLayer.last) } : null; } };
   // Fixed arity rather than rest args, so an untimed frame allocates nothing here (no method takes more than six).
   for (const [k, name] of TIMED_PASSES) {
     const f = api[k];

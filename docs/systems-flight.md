@@ -1725,3 +1725,31 @@ Flight wins several verbs by manifest `after`
 delegates by context: `board`/`look`→gametable (poker), `refuel`→generator,
 `buy`/`sell`→commerce, `eject`/`tune`→broadcast, `examine`→interactions, and `repair`
 falls through to the engine gear-repair builtin off-context.
+
+## Fixed-wing parameter rows
+
+The parametric fixed-wing rows live in `content/vehicle_models/fw_*.json` and reach `aircraft3d.js` through `npm run vehicles:bake` as `FW_ROWS`. An authored row is the resolved set, not a patch over `FW_DEFAULT`; `FW_DEFAULT` is only the starting point for a new class and the fallback for a class with no row. The Mayfly (`ultralight`) and the Grasshopper have no rows: they're hand-authored (`buildCessna`, `buildCub`), and `wingtipStation`, `drawNoseArt`, `groundPitchFor` and `aircraftFaces` read their station tables and wing constants instead.
+
+What each row is modelled on, and the choices that set its numbers:
+
+- **Mule** (DHC-6 Twin Otter): a deep flat-sided box held near-constant (`bodyTube` 0.62), the wing flat on the cabin roof, long nacelles slung along the wing (`nacHalf`). The nose drops its roof hard (`noseVTaper`) while staying wide, and the centreline eases down (`noseZ` -0.05) to a low point, so it reads as a wedge. The flight deck is glazed hull facets (`glaze`): the windscreen bay glazes the whole upper half, split only by the centre post; the side bays glaze k0/k5 so the roof stays solid.
+- **Reaper** (A-10): straight wing, twin fins at the tailplane tips, two fat turbofans high on stub pylons off the rear fuselage. The canopy is a single-seat bubble (`arc` 5, `segs` 8) with the 'reaper' canopy art.
+- **Leviathan** (An-124): a deep near-circular tube (24 sides, so the flight deck can be a narrow strip; glazing works in whole facets), swept high wing with anhedral, four podded turbofans, centipede gear, no lift struts. The nose sheds height (`noseVTaper`) to a round radome (`noseVFloor` 0.60 over a `noseCowl` that compounds with it; too low and the radome is a letterbox). `noseBlunt` 2.2 rounds the snout continuously; a high exponent ends it in a flat disc. `noseDroopK` < 1 spends the droop on the visor so the flight deck stays level. Extra stations: 1.11/1.02 sample the radome (1.13 would evict the 1.15 tip, since an `extraF` within 0.03 evicts a default station), and -0.18/-0.55/-0.95 let the tailcone upsweep curve. The windscreen is k3..k8 of the 24-gon (crown at 6), one bay long (`wsF` 0.74), with side glass k3/k8 to 0.62. The hump peaks at f 0.70 and fades before the wing root at 0.34. The visor is cut aft of the glass, so the flight deck rides the nose, which is what `cockpitTilt` in the first-person view assumes. `maxAng` is 1.20 (about 69 degrees): at 90 the lower lip swings a third of the airframe ahead of the hinge. The nose leg sits mid-way along the nose section (`noseGearAt`) so it's carried by the nose.
+- **Locust** (Air Tractor / Ag Cat): a broad constant-chord square wing, slab-sided fuselage, a fat round cowl (`noseCowl` 0.34) with a big spinner (0.9), cockpit set high and back behind the hopper hump (peak f 0.70, fading by 0.46, clear of the canopy base), spatted taildragger gear, and the spray rig. Extra rings through the cowl, hopper and windscreen step give the hump something to curve over.
+- **Shrike** (Ju 87, futurised): the inverted gull wing (`gull`) so the legs stay short while a big prop clears the ground; trousers from the ag taildragger gear (`gearAg`) rather than a second copy; a long tandem glasshouse (f 0.58 to -0.14); a tapered snout with a deep chin intake; braced tailplane; dive brakes at the knee; square tips. The bomb rack is authored in the row because it's a shape; the load she carries is `data.bombs` on the type.
+
+## Stall on angle of attack
+
+The fixed-wing stall triggers on angle of attack, never on airspeed. `s.aoa` is the single state variable: it feeds lift, drag, the stall, the buffet and the g-meter. The stall speed falls out of the model, so a wing at 2g reaches `aoaCrit` at about 1.41 times Vs on its own, and an accelerated stall (a hard pull at a healthy speed) works. A stall must arm for `STALL_ARM` seconds above `aoaCrit` before it commits, and the flow reattaches only once AoA drops `REATTACH` degrees below it (hysteresis). A developed stall collapses lift by up to `CL_COLLAPSE` over `POST_STALL_BAND` degrees; that lift loss, not a scripted vertical-speed clamp, is what makes a stalled aircraft fall.
+
+## Induced drag and best glide
+
+Every fixed-wing type carries induced drag `CDi = kInd·CL²`, so a hard turn bleeds speed and the power curve has a back side. `kInd` is derived: `ldMax` (the best glide ratio) plus `dragP` fix the speed where parasitic equals induced drag, which is best glide. In sim units the glide ratio is `mass·G_KT / drag`, and at best glide drag is `2·dragP·V²`, giving `V_bg² = mass·G_KT / (2·dragP·ldMax)`. `bestGlide` (the cockpit's blue yoke light) is published from this. `aoaGlide` is the AoA that holds weight at best glide; the power-off nose drop restores toward it, so each type's hands-off glide settles at its own best-glide speed. Each type's `dragP` was re-solved to hold its level top speed with the induced term in.
+
+## The Shrike's automatic dive
+
+A dive-bomb attack is two manoeuvres either side of one button press: push over to near vertical and hold it while the ground fills the windscreen, then pull out hard enough to matter without shedding the wings. Flying both by hand on a keyboard made the Shrike no fun, so the dive computer (B, or the DIVE button) flies them, as the Ju 87's automatic pull-out did.
+
+It's one control with two phases. It pushes over to 68 degrees and holds; the server's confirmation that a bomb left the rack (`flightBurst`) switches it to the pull-out, so a refused release keeps you diving. The pull-out eases off as the nose comes up, so it doesn't sit on the g limit, and lets go once she's climbing. It writes only the elevator input, after the yoke spring and before the flight model, so the model, the g limit, the stall and the chase-view control surfaces see one ordinary input.
+
+The pilot always wins: dragging the yoke pad or deflecting the mouse stick disengages it. Arming the mouse stick alone doesn't, because arming is a mode switch and a deflection is the pilot taking control back.

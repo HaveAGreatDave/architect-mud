@@ -1918,3 +1918,25 @@ one frame behind by construction, and which frame depends on draw order. The **s
 `paintWindshield` runs on `performance.now()`, and so does the rAF timestamp the view passes in. A
 mount sampled off `Date.now()` would leave the camera standing where the deck was at some unrelated
 instant of the swell.
+
+## An arm that signs itself
+
+A landmark arm that letters its own name (the Solenne Residences is the example in `glass/models/downtown.js`) keeps the derived kit off its facade through one mechanism doing three things. `bakeSignText` registers the arm as signing itself (`armSignsItself`) during the capture, so `wants('sign')` goes false and no second board is hung. `marqueeStand` solves the stand-off against the building's own captured front plane, so the plate sits on the podium rather than inside it. `reserveSignBand`, called unconditionally (never inside `frontVis`), marks that band of the facade as taken, which stops the kit stringing a cable run across the lettering. The bake has to run even when the name is missing, because a skipped bake during capture leaves `armSignsItself` false.
+
+A residential tower letters its own stone instead of taking a `marqueeBand`: the lightbox `fasciaKind` rolls is a good shop sign but after dark reads as a flat grey slab. The plate is a flat face, never a box (a box wears its palette's window skin over the letters), and its plane is an absolute constant just inside the plot line. A constant is still affine (`[0, 0, c]`), and a plane measured off the footprint can be moved by `segFit` out from under the words.
+
+## Lift is a sort bias the mesh ignores
+
+`emitFlat` records a polygon, its colour and its normal into the per-model mesh and nothing else. `opts.lift` only reorders the 2-D painter's queue and never reaches the GPU. So nested filled polygons all placed at one `FACE_EPS` (the church's two arch orders, the dark reveal, the door leaf and its ironwork) reach the depth buffer exactly coplanar and z-fight: the outer order broke through the door in fan-shaped slivers.
+
+The church arm in `glass/models/downtown.js` derives each layer's stand-off from its lift (`standOff`: half a `FACE_EPS` per lift layer), so the painter's order and the depth order can't disagree. The deepest layer, a strap hinge at 3.5, still reads as ironwork on the door. The stacking is outermost at the back: `arched` fills its shape, so an outer order set proud of the leaf would cover it.
+
+## A chamber behind an opening
+
+No primitive leaves a face out of a solid, so an open belfry can't be built from boxes (a dark box with ribs reads as a chimney). The church's `recess` uses `slideToPlane` instead: a point slid along its own eye ray projects to the same pixel, so the chamber's back wall, jambs, sill and bell are solved each frame at the live eye and drawn as quads lying in the wall's plane, clipped to the aperture with `clipToAperture`. The parallax is real and the depth buffer only ever sees flat quads in a wall.
+
+It has to be a decal, never mesh: the mesh is captured once at a stub camera and shared by every tile, so a captured chamber would be fixed to one eye. During capture `slideToPlane` returns null and nothing draws. The layers are staggered for `emitRecessBay`'s reason (the jambs cover the back wall, nothing covers the bell). The chamber is solved onto the backstop arch's plane, using the backstop's own lift; solved onto the raw tower face it would sit behind the backstop and vanish. Each layer is clipped and drawn on its own, because at a grazing angle the back wall is the first thing to clip away. The flat dark arch is still emitted as the backstop that distant tiles and the 2-D fallback see.
+
+## A one-storey arm spends its height near 1.0 h
+
+`h` in a building arm is the storey stack, so a fraction that looks modest on a two-floor building gives a different building at `flags.floors: 1`. The Codfather's shell was once `0.58 h` with eaves at `0.70 h`, which at one floor put the top of the fascia at 8.4 ft, under the 7.3 ft eye height of a truck cab plus a margin: from the road you looked over the whole shop and saw a name band and a hoarding standing on nothing. The cobbler's ridge at `0.42 h` was 5 ft, and the amusements' lintel at `0.50 h` was a 6 ft opening. Fractions on a one-storey tile belong near 1.0 of `h` (eaves around 9 ft, a ridge around 11). It's the same defect as a `TYPE_FLOORS` row that is too big for its fractions, arrived at from the other end. Counters and other parts set at real heights (the fish slab at 2.4 to 3.6 ft) are fine as they are.

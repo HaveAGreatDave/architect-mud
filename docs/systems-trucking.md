@@ -4906,3 +4906,23 @@ remaining plan:
   other than physics; an unattended box at a lawless yard arguably should not be safe.
 - **The Coldwater checkpoint recipe.** `flags.checkpoint_cfg` on the yard would search the DRIVER on
   foot, complementing the scale that weighs the trailer. It is a content recipe, not a build.
+
+## Truck fleet tuning and scaling
+
+The truck rows in `TYPES` (client/game/js/panels/flight-model.js) share a few couplings that make a one-knob change wrong.
+
+`tileMph` is the road speed at which a truck covers one corridor tile per second. It decides how long a haul takes. Scaling every speed knob together (topSpeed, tileMph, thrustMax, rollFric, brake by k; dragP by 1/k, since it multiplies v squared) moves the number under the needle and leaves journey time alone. Scaling topSpeed without tileMph changes every journey's length. Changing tileMph alone changes the pace through the world while the dial reads the same.
+
+The verge invariant is `thrustMax × drive > rollFric × drag` on the worst surface. Cut thrust without cutting rolling resistance and a truck can't leave the tarmac; regress checks it by name. A heavy truck should feel ponderous through `mass`, `engineLag` and `wheelbase`, never by starving it of power.
+
+Terminal velocity, not the topSpeed clamp, limits a truck, so `dragP` is solved to put terminal at the ceiling.
+
+Gear ratios meet `tileMph` only as quotients: engine speed is `(mph / tileMph) × ratio`, redline in a gear is `tileMph / ratio`, pulling power is `sqrt(ratio / topRatio)`. Scaling the ladder with tileMph leaves rpm, shift points and the torque curve where they were. Engine braking (`ratio × engBrake`) is the one product, so `engBrake` moves inversely with the ladder. If topSpeed rises without the ladder coming down, top gear's band sits under the ceiling and the truck over-revs instead of reaching it.
+
+First gear is a crawler, deliberately off the geometric ladder (about 25% deeper); reverse borrows it. A bay crawl is a second-gear job.
+
+`wheelbase`, `trailerLen` and `hitchOffset` are in tiles and scale together, which keeps the articulation equilibrium angle unchanged. The yaw rate divides by wheelbase, so a too-long wheelbase can't turn out of a depot.
+
+Tank range is tuned against the real route: about 495 tiles one way to the Reach (44 of Coldwater road, 450 of corridor, one into the yard), so about 990 for a round trip. The Barrow must refuel at the far end, the Drayman only just round-trips and the Orlov does it one and a half times over. Never tune range against the regress fixture's geography.
+
+Hardcoded mph in tests and rules (RECKLESS_MPH, the gearbox cases) are tied to the dial and move when the dial is rescaled.
