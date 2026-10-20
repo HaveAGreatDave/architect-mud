@@ -554,7 +554,10 @@ export default async function regress({ check, getPlayer }) {
       cat.some(d => d.writes === 'grip') && cat.some(d => d.writes === 'heat'));
 
     const cell = allBlocks()[0];
-    const def = cat.find(d => d.writes === 'heat' && d.minBand === 'watchful');
+    // The one that puts a tag up, so 'teardown scrubs the wall' tests a tag this run made. More than
+    // one incident is heat/watchful, and a pamphlet drop leaves the count on a dev DB's old tags.
+    const watchful = cat.filter(d => d.writes === 'heat' && d.minBand === 'watchful');
+    const def = watchful.find(d => d.stage.some(s => s.do === 'graffiti')) || watchful[0];
 
     // ── RULE 1: signal before effect ────────────────────────────────────────
     for (const k of allBlocks()) ledger.force(k, { grip: 100, heat: 100, pressure: 0 });
