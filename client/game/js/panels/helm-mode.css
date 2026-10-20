@@ -1,0 +1,309 @@
+/* Takes over the area pane like the flight sim — the sidebar, top bar and log stay put. Fills
+   the pane's height the way the glass cockpit does; the ⛶ chip toggles true OS fullscreen. */
+/* The helm OWNS the pane — it must never scroll (a scroll steals the orbit drag and can float the
+   console off the ship). Pin the pane + root: no overflow, no touch-scroll/overscroll chaining, so
+   everything always fits and a drag on the sea always orbits. */
+#area-content:has(.helm-root){ height:100%; overflow:hidden; overscroll-behavior:contain; touch-action:none; }
+.helm-root{ position:relative; width:100%; height:100%; min-height:420px; overflow:hidden; overscroll-behavior:contain; touch-action:none;
+  --hs:1;   /* console scale — a fixed constant (desktop-only); the transparent dash keeps the ship clear at any pane size */
+  /* Theme-following palette. The console BODY (frosted glass wings, brushed-metal binnacle/band,
+     telegraph housing, chart window, chips) derives from the player's global theme — so it reads
+     LIGHT on a light theme and DARK on a dark one, with the theme --accent as its accent. The
+     recessed gauge SCREENS stay dark glowing HUD glass (a designed instrument-cluster look that
+     reads over any dashboard); their ink is --screen-* which stays light on both themes, and their
+     accents are tinted from --accent so the whole console still moves with the theme. */
+  --accent-hi:color-mix(in srgb,var(--accent) 40%,#fff); --accent-lo:color-mix(in srgb,var(--accent) 62%,#000);
+  --chart:var(--accent); --hink:var(--text); --hdim:var(--text-dim); --stbd:var(--green);
+  --glass:color-mix(in srgb,var(--bg2) 60%,transparent); --sheen:color-mix(in srgb,var(--accent) 16%,transparent);
+  --metal-hi:color-mix(in srgb,var(--text) 22%,var(--bg3)); --metal:color-mix(in srgb,var(--text) 10%,var(--bg2)); --metal-lo:color-mix(in srgb,#000 16%,var(--bg));
+  --steel-hi:color-mix(in srgb,var(--text) 30%,var(--bg3)); --steel:color-mix(in srgb,var(--text) 15%,var(--bg2)); --steel-lo:color-mix(in srgb,#000 20%,var(--bg2));
+  --screen-dim:color-mix(in srgb,var(--accent) 40%,#8ba0ae);
+  --hmono:'DejaVu Sans Mono','Consolas','Courier New',monospace; --hsans:'Helvetica Neue',Arial,system-ui,sans-serif;
+  --hcarbon:repeating-linear-gradient(45deg,color-mix(in srgb,var(--bg) 82%,#000) 0 3px,color-mix(in srgb,var(--bg) 92%,#000) 3px 6px),repeating-linear-gradient(-45deg,color-mix(in srgb,var(--text) 12%,transparent) 0 3px,transparent 3px 6px);
+  font-family:var(--hsans); color:var(--hink); border-radius:8px; background:var(--bg); }
+.helm-root:fullscreen{ height:100vh; border-radius:0; }
+.helm-chase{ position:absolute; inset:0; z-index:0; touch-action:none; }   /* orbit drag lives here — never let a touch become a scroll/pan */
+.helm-chase canvas{ cursor:grab; } .helm-chase canvas:active{ cursor:grabbing; }
+.helm-placard{ position:absolute; top:12px; left:14px; z-index:6; display:flex; align-items:center; gap:9px; pointer-events:none; }
+.helm-placard .m{ width:20px; height:20px; border-radius:50%; border:1.5px solid var(--accent);
+  background:radial-gradient(circle at 50% 35%,var(--accent-hi),var(--accent-lo)); box-shadow:0 0 12px color-mix(in srgb,var(--accent) 55%,transparent); }
+.helm-placard .n{ font-family:var(--hmono); letter-spacing:5px; color:var(--accent); font-size:13px; font-weight:700; }
+.helm-placard .n small{ color:var(--hdim); letter-spacing:2px; }
+.helm-chips{ position:absolute; top:12px; right:14px; z-index:6; display:flex; gap:8px; align-items:center; font-family:var(--hmono); }
+.helm-chip{ background:color-mix(in srgb,var(--bg) 62%,transparent); border:1px solid color-mix(in srgb,var(--accent) 28%,transparent); border-radius:8px;
+  padding:5px 10px; font-size:12px; letter-spacing:1px; backdrop-filter:blur(3px); color:var(--hink); }
+.helm-chip b{ color:var(--accent-hi); }
+.helm-icon{ background:color-mix(in srgb,var(--bg) 62%,transparent); border:1px solid color-mix(in srgb,var(--accent) 28%,transparent); border-radius:8px;
+  color:var(--accent); font-size:15px; width:34px; height:32px; cursor:pointer; backdrop-filter:blur(3px); line-height:1; }
+.helm-icon:hover{ filter:brightness(1.25); } .helm-icon.on{ background:var(--accent); color:var(--accent-ink,#05141f); }
+.helm-icon.exit{ color:#ff8a7a; border-color:color-mix(in srgb,#ff8a7a 40%,transparent); font-weight:700; }
+/* ── The console ──────────────────────────────────────────────────────────────
+   A single machined brushed-metal helm station laid across the bottom of the view.
+   The ship's wheel rises out of a binnacle at its centre so its lower half tucks
+   behind the console lip; the NAV chart + digital instruments + engine telegraph
+   are milled into the face. Cool cyan HUD glass on brushed steel + carbon fibre. */
+/* The dash spans the pane's whole bottom, but in the windowed state it's mostly TRANSPARENT — so
+   the container chain is pointer-transparent (a drag through the empty gaps falls through to the
+   sea and orbits). Only the actual visible controls (the frosted wings, telegraph, wheel canvas,
+   nav chart) opt pointer events back in below. Without this, the invisible dash rectangle swallowed
+   every drag that began level with it, so you could only orbit by grabbing ABOVE the whole console. */
+.helm-dash{ position:absolute; left:0; right:0; bottom:0; z-index:5; pointer-events:none; }
+/* ⚠ AND NOT AT ALL WITH THE CAMERA OFF ITS MOUNT. The station is the bottom third of the frame,
+   which is most of the shot the free camera exists to compose, and while she is holding her
+   course it is showing numbers about a passage nobody is steering. The class is set and cleared
+   by the same O keypress in helm-view.js — never latched — because unlike the cab's shelf and
+   the cockpit's stick, this one IS how she is steered. */
+body.helm-freecam .helm-dash{ display:none; }
+/* ── AND THE REST OF THE WHEELHOUSE WITH IT ───────────────────────────────
+   The console was the first thing out of the shot and for a while it was the only one, which
+   left a mode for taking photographs with ECHELON · HELM lettered across the top-left corner
+   and a weather chip, a clock and four buttons across the top-right. The placard is a caption
+   and the chips are a readout, and both are in the picture.
+   The placard simply goes. The chips cannot: one of them is ✕, which is a way off the helm, and
+   another is ⛶, which is how you got the pane big enough to photograph in the first place — so
+   they fade on the idle timer instead (see bindFreeCamIdle in freecam.js) and are back on the
+   first thing the player does. The hint strip rides with them for the same reason.
+   ⚠ THE PANE'S OWN LABEL GOES TOO, and the A-pillars with it. '.ws-label' is 'ECHELON · AFT' in
+   the top-left corner of the chase view, which is the same caption a second time, and
+   '.ws-frame's ::after is the glazing down each edge — which the cab and the cockpit also drop
+   while keeping the bezel and the vignette (the reasoning is written out in cab-view.js). */
+body.helm-freecam .helm-placard, body.helm-freecam .ws-label,
+body.helm-freecam .ws-frame::after{ display:none; }
+body.helm-freecam .helm-chips, body.helm-freecam .helm-freecam-hint{ transition:opacity .5s ease; }
+body.helm-freecam.freecam-idle .helm-chips,
+body.helm-freecam.freecam-idle .helm-freecam-hint{ opacity:0; pointer-events:none; }
+/* ── BIG SCREEN: THE SAME QUESTION, A SHORTER ANSWER ─────────────────────
+   The two blocks above ask what is still a CONTROL while the camera is off its mount, and
+   keep the chips because two of them are ways out. This asks what is in the PICTURE, and the
+   answer is everything — the way out of big screen is Esc and the mode's own hint says so, so
+   the chips go with the console and the placard.
+   ⚠ AN ALLOW-LIST, the same shape and for the same reason as the rules above it: the next
+   thing somebody hangs over this chase view is out of the shot the day it is added.
+   '.ws-label' is 'ECHELON · AFT' in the corner, which is a caption, and '.ws-frame''s ::after
+   is glazing on a wheelhouse the camera is not inside. */
+body.bigscreen .helm-root > *:not(.helm-chase){ display:none !important; }
+body.bigscreen .helm-root .ws-label,
+body.bigscreen .helm-root .ws-frame::after{ display:none; }
+body.bigscreen .helm-root{ border-radius:0; }
+.helm-console, .helm-console-face{ pointer-events:none; }
+.helm-left, .helm-right, .helm-tele, .helm-nav-bezel{ pointer-events:auto; }
+/* The console is now a single machined BLACK-GLASS station in every state — an expensive slab of
+   obsidian glass milled with an accent hairline along its lip, so the helm reads as one designed
+   object floating over the water rather than a scatter of controls. A soft top glow lifts it off
+   the sea; the accent seam catches the eye. Fullscreen just deepens it. */
+/* Windowed (non-fullscreen): the console slab is FULLY TRANSPARENT so it never darkens the water
+   or hides the Echelon — the ship reads clean through it. The frosted instrument wings + telegraph
+   carry their own backdrop-glass, so the readouts stay legible with no slab behind them. Only the
+   accent lip seam (::before) marks the console's edge. Fullscreen re-adds the smoked-glass slab. */
+.helm-console{ position:relative; padding:6px 0 env(safe-area-inset-bottom); border-radius:16px 16px 0 0;
+  background:none; box-shadow:none; }
+/* a bright accent seam runs the lip — the money line that says "this cost something" */
+.helm-console::before{ content:''; position:absolute; left:8%; right:8%; top:0; height:1px; pointer-events:none;
+  background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--accent) 20%,transparent) 18%,var(--accent-hi) 50%,color-mix(in srgb,var(--accent) 20%,transparent) 82%,transparent);
+  box-shadow:0 0 10px color-mix(in srgb,var(--accent) 60%,transparent); opacity:.85; }
+/* Fullscreen re-adds the smoked-glass slab, so it's a solid surface again — recapture pointers on
+   it (the windowed click-through is only for the transparent windowed console). */
+body.helm-fullscreen .helm-console{ pointer-events:auto; }
+body.helm-fullscreen .helm-console{ border-radius:0;
+  background:
+    linear-gradient(180deg,color-mix(in srgb,var(--accent) 12%,transparent) 0,transparent 30%),
+    radial-gradient(160% 140% at 50% -20%,color-mix(in srgb,var(--bg2) 88%,transparent) 0,color-mix(in srgb,var(--bg) 92%,transparent) 42%,color-mix(in srgb,var(--bg) 96%,#000) 100%);
+  -webkit-backdrop-filter:blur(2px); backdrop-filter:blur(2px);
+  border-top:1px solid color-mix(in srgb,var(--accent) 34%,transparent);
+  box-shadow:inset 0 1px 0 color-mix(in srgb,var(--accent) 26%,transparent), inset 0 -1px 0 color-mix(in srgb,#000 40%,transparent), 0 -22px 54px color-mix(in srgb,var(--bg) 70%,transparent); }
+/* [ nav+position + gauges ] | WHEEL | telegraph — the wheel is the centred centrepiece, flanked
+   by the instrument cluster (left) and the engine telegraph (right). The 1fr/auto/1fr columns
+   keep the wheel dead-centre in the bar. All still in-bar, so the water above stays clear. */
+.helm-console-face{ position:relative; isolation:isolate; display:grid; grid-template-columns:1fr auto 1fr; align-items:end; gap:calc(20px*var(--hs));
+  padding:calc(3px*var(--hs)) calc(26px*var(--hs)) 0; max-width:1280px; margin:0 auto; }
+/* Left instrument cluster — a FROSTED TRANSLUCENT GLASS panel that floats over the sea: it really
+   blurs the water behind it (backdrop-filter), with chamfered tech-panel corners, a bright glass
+   top edge and a faint accent tint. The instruments read like they are etched into a slab of smoked
+   glass. */
+.helm-left{ justify-self:start; display:flex; align-items:center; gap:calc(16px*var(--hs)); min-width:0; position:relative;
+  padding:calc(9px*var(--hs)) calc(26px*var(--hs)) calc(9px*var(--hs)) calc(18px*var(--hs));
+  background:linear-gradient(180deg,var(--sheen),var(--glass) 46%,color-mix(in srgb,var(--bg) 70%,transparent));
+  -webkit-backdrop-filter:blur(7px) saturate(1.2); backdrop-filter:blur(7px) saturate(1.2);
+  /* raked cockpit wing: the wheel-facing (right) edge slopes inward at the base, chamfered corners */
+  clip-path:polygon(14px 0,100% 0,calc(100% - 24px) 100%,14px 100%,0 calc(100% - 14px),0 14px);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.22), 0 8px 22px rgba(0,0,0,.30); }
+/* accent sheen + a hairline that follows the chamfered glass edge */
+.helm-left::before{ content:''; position:absolute; inset:0; pointer-events:none; clip-path:inherit;
+  background:linear-gradient(180deg,color-mix(in srgb,var(--accent) 20%,transparent),transparent 42%),
+    linear-gradient(0deg,color-mix(in srgb,var(--accent) 10%,transparent),transparent 30%);
+  mix-blend-mode:screen; opacity:.7; }
+/* faint carbon-fibre weave milled into the console face — fullscreen only (part of the panel) */
+body.helm-fullscreen .helm-console-face::before{ content:''; position:absolute; inset:0; pointer-events:none; opacity:.14;
+  background:var(--hcarbon); background-size:6px 6px,6px 6px; mix-blend-mode:overlay; }
+/* ── Brushed-metal binnacle — a machined plinth the wheel rises out of. A trapezoid of vertical
+   brushed-titanium grain with a beveled accent top lip; sits behind the wheel canvas so the ship's
+   wheel emerges from a real turned-metal column, not thin air. Cool shape via the clip-path. */
+.helm-col::before{ content:''; position:absolute; left:50%; bottom:0; transform:translateX(-50%); z-index:-1; pointer-events:none;
+  width:calc(196px*var(--hs)); height:calc(84px*var(--hs));
+  background:
+    repeating-linear-gradient(90deg,rgba(255,255,255,.06) 0 1px,rgba(0,0,0,.10) 1px 2px,transparent 2px 3px),
+    linear-gradient(180deg,var(--metal-hi) 0,var(--metal) 46%,var(--metal-lo) 100%);
+  clip-path:polygon(20% 0,80% 0,100% 100%,0 100%);
+  border-top:1px solid color-mix(in srgb,var(--accent) 45%,transparent);
+  box-shadow:inset 0 2px 0 rgba(255,255,255,.28), inset 0 -6px 14px rgba(0,0,0,.5), 0 -3px 16px rgba(0,0,0,.4); }
+/* the accent lip glows along the top bevel of the binnacle */
+.helm-col::after{ content:''; position:absolute; left:50%; bottom:calc(83px*var(--hs)); transform:translateX(-50%); z-index:-1; pointer-events:none;
+  width:calc(118px*var(--hs)); height:2px; border-radius:2px;
+  background:linear-gradient(90deg,transparent,var(--accent-hi),transparent); box-shadow:0 0 10px color-mix(in srgb,var(--accent) 70%,transparent); opacity:.8; }
+/* A brushed-titanium band milled across the CENTRE of the console face (behind the wheel/binnacle),
+   chamfered at both ends — the solid "brushed metal area" the glass wings flank. Kept central so
+   the frosted panels either side stay over open, translucent console with the sea shimmering behind. */
+.helm-console-face::after{ content:''; position:absolute; left:34%; right:34%; bottom:calc(3px*var(--hs)); height:calc(52px*var(--hs)); z-index:-1; pointer-events:none;
+  background:
+    repeating-linear-gradient(90deg,rgba(255,255,255,.045) 0 1px,rgba(0,0,0,.06) 1px 2px,transparent 2px 4px),
+    linear-gradient(180deg,var(--metal) 0,color-mix(in srgb,var(--metal) 70%,#000) 55%,var(--metal-lo) 100%);
+  clip-path:polygon(26px 0,calc(100% - 26px) 0,100% 100%,0 100%);
+  border-top:1px solid color-mix(in srgb,var(--accent) 22%,transparent);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.16), 0 -2px 12px rgba(0,0,0,.4); }
+
+/* NAV chart — top-down basin scope, sunk into a raised machined bezel so it reads as a real
+   recessed radar screen: a black chamfered frame with corner bolts, the screen dropped below the
+   lip with a deep inner shadow + accent rim glow. The bezel is the expensive frame; the scope is
+   the glass. Clicking it opens the full chart popup (the touch target for plotting a course). */
+.helm-nav{ display:flex; align-items:center; gap:14px; }
+.helm-nav-bezel{ position:relative; flex:0 0 auto; padding:calc(7px*var(--hs)); border-radius:14px; cursor:pointer;
+  background:
+    radial-gradient(circle at calc(7px*var(--hs)) calc(7px*var(--hs)),color-mix(in srgb,var(--text) 24%,var(--bg3)) 0 1.4px,transparent 1.7px),
+    radial-gradient(circle at calc(100% - 7px*var(--hs)) calc(7px*var(--hs)),color-mix(in srgb,var(--text) 24%,var(--bg3)) 0 1.4px,transparent 1.7px),
+    radial-gradient(circle at calc(7px*var(--hs)) calc(100% - 7px*var(--hs)),color-mix(in srgb,var(--text) 24%,var(--bg3)) 0 1.4px,transparent 1.7px),
+    radial-gradient(circle at calc(100% - 7px*var(--hs)) calc(100% - 7px*var(--hs)),color-mix(in srgb,var(--text) 24%,var(--bg3)) 0 1.4px,transparent 1.7px),
+    linear-gradient(180deg,var(--metal),var(--metal-lo) 70%,color-mix(in srgb,var(--bg) 92%,#000));
+  border:1px solid color-mix(in srgb,#000 45%,var(--border));
+  box-shadow:0 1px 0 color-mix(in srgb,var(--accent) 22%,transparent), inset 0 1px 0 rgba(255,255,255,.06), 0 3px 8px rgba(0,0,0,.5); }
+.helm-nav-bezel:hover{ box-shadow:0 1px 0 color-mix(in srgb,var(--accent) 40%,transparent), inset 0 1px 0 rgba(255,255,255,.06), 0 0 12px color-mix(in srgb,var(--accent) 30%,transparent); }
+.helm-nav-scope{ position:relative; width:calc(126px*var(--hs)); height:calc(84px*var(--hs)); border-radius:8px; overflow:hidden;
+  background:radial-gradient(120% 130% at 50% 26%,color-mix(in srgb,var(--accent) 14%,#02121a) 0,#020c11 55%,#010609 100%);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb,var(--accent) 30%,#000),
+    inset 0 0 26px rgba(0,0,0,.94), inset 0 0 11px color-mix(in srgb,var(--accent) 22%,transparent),
+    inset 0 3px 7px rgba(0,0,0,.9); }
+.helm-nav-scope canvas{ display:block; width:100%; height:100%; }
+/* curved-glass glare + faint horizontal scanlines over the screen for a CRT feel */
+.helm-nav-scope::before{ content:''; position:absolute; inset:0; pointer-events:none; z-index:3; border-radius:8px;
+  background:radial-gradient(120% 80% at 50% -10%,rgba(255,255,255,.08),transparent 60%); }
+.helm-nav-scope::after{ content:''; position:absolute; inset:0; pointer-events:none;
+  background:repeating-linear-gradient(0deg,rgba(0,0,0,.24) 0 1px,transparent 1px 3px); mix-blend-mode:multiply; }
+.helm-nav-tag{ position:absolute; left:7px; top:6px; font-family:var(--hmono); font-size:8px; letter-spacing:2px; z-index:4;
+  color:color-mix(in srgb,var(--chart) 82%,#fff); text-shadow:0 0 6px color-mix(in srgb,var(--chart) 70%,transparent); }
+.helm-nav-hint{ position:absolute; right:6px; bottom:5px; font-family:var(--hmono); font-size:7px; letter-spacing:1.5px; z-index:4;
+  color:var(--screen-dim); opacity:.85; }
+
+/* Digital instrument readouts — recessed HUD glass, cyan phosphor. Sized off --hs so the readouts
+   (which drive the bar's HEIGHT) scale WITH the rest of the station as one machined object. */
+.helm-gauges{ display:grid; grid-template-columns:repeat(2,1fr); gap:calc(9px*var(--hs)); }
+/* Right wing — the ETA/status gauge stack riding beside the engine telegraph. Kept a single
+   column so the two readouts sit tall against the telegraph, balancing the nav+heading cluster
+   on the left. */
+.helm-right{ justify-self:end; grid-column:3; display:flex; align-items:stretch; gap:calc(14px*var(--hs)); min-width:0; }
+.helm-gauges.rt{ grid-template-columns:1fr; align-content:center; min-width:calc(112px*var(--hs)); }
+.helm-readout{ position:relative; padding:calc(6px*var(--hs)) calc(11px*var(--hs)) calc(7px*var(--hs)); border-radius:8px; overflow:hidden;
+  /* recessed dark HUD gauge — stays dark on any theme (like a car's instrument cluster), tinted by accent */
+  background:linear-gradient(180deg,color-mix(in srgb,var(--accent) 12%,#04141b) 0,#020a0e 100%);
+  border:1px solid color-mix(in srgb,var(--accent) 28%,#000);
+  box-shadow:inset 0 0 14px rgba(0,0,0,.8), inset 0 1px 0 rgba(255,255,255,.05); }
+.helm-readout.wide{ flex:1; min-width:0; }
+.helm-readout .rk{ display:block; font-family:var(--hmono); font-size:calc(8px*var(--hs)); letter-spacing:2.5px; text-transform:uppercase;
+  color:var(--screen-dim); }
+.helm-readout .rv{ display:block; margin-top:2px; font-family:var(--hmono); font-weight:700; font-size:calc(17px*var(--hs)); letter-spacing:1px;
+  font-variant-numeric:tabular-nums; color:color-mix(in srgb,var(--chart) 85%,#fff);
+  text-shadow:0 0 7px color-mix(in srgb,var(--chart) 55%,transparent); }
+.helm-readout .rv.big{ font-size:calc(22px*var(--hs)); letter-spacing:2px; }
+.helm-readout .rv.sm{ font-size:calc(13px*var(--hs)); letter-spacing:1.5px; }
+.helm-readout .rv i{ font-style:normal; font-size:9px; margin-left:3px; opacity:.6; letter-spacing:.5px; }
+.helm-readout.eta .rv{ color:color-mix(in srgb,var(--accent-hi) 88%,#fff); text-shadow:0 0 7px color-mix(in srgb,var(--accent) 55%,transparent); }
+.helm-readout.eta.idle .rv{ color:var(--screen-dim); text-shadow:none; }
+.helm-readout.st .rv{ color:var(--screen-dim); text-shadow:none; }
+.helm-readout.st.busy .rv{ color:var(--stbd); text-shadow:0 0 7px color-mix(in srgb,var(--stbd) 55%,transparent); }
+
+/* Ship's wheel — a normal column INSIDE the console bar (no longer a floating binnacle above it),
+   so it can never rise into the water/ship view. Sized to sit within the bar's height. */
+/* The wheel is lifted OUT of the flow (absolute, centred) so it no longer stretches the console
+   bar — that lets the bar be thin while the wheel rises out of it like a binnacle, its lower half
+   docked in the bar and its top arc hanging over the lip into the water. bottom:0 seats it on the
+   console floor; being taller than the thin bar, the overhang happens for free. */
+.helm-col{ position:absolute; left:50%; bottom:0; transform:translateX(-50%); z-index:7;
+  display:flex; flex-direction:column; align-items:center; gap:3px; pointer-events:none; }
+.helm-col canvas{ pointer-events:auto; }
+.helm-col .cap{ display:none; }   /* the COURSE cap is redundant — the wheel is self-evident */
+.helm-wheel{ width:calc(150px*var(--hs)); height:calc(150px*var(--hs)); filter:drop-shadow(0 6px 14px rgba(0,0,0,.7)); }
+/* Heading strip — a compass tape riding just above the wheel; display-only (never grabs the pointer). */
+.helm-strip{ width:calc(216px*var(--hs)); height:calc(30px*var(--hs)); pointer-events:none !important;
+  filter:drop-shadow(0 2px 6px rgba(0,0,0,.55)); }
+.helm-col .cap{ font-family:var(--hmono); font-size:8px; letter-spacing:4px; color:color-mix(in srgb,var(--accent) 70%,var(--hdim)); text-transform:uppercase;
+  background:rgba(4,7,11,.6); padding:1px 8px; border-radius:4px; }
+
+/* Engine telegraph — a milled steel lever in a carbon slot, right of the console */
+/* Engine telegraph — housed in its own frosted-glass panel (matching the instrument cluster) so
+   the lever sits in a slab of smoked glass over the sea, chamfered to match. */
+.helm-tele{ display:flex; flex-direction:column; align-items:center; gap:7px; user-select:none; position:relative;
+  padding:calc(9px*var(--hs)) calc(16px*var(--hs)) calc(9px*var(--hs)) calc(24px*var(--hs));
+  background:linear-gradient(180deg,var(--sheen),var(--glass) 46%,color-mix(in srgb,var(--bg) 70%,transparent));
+  -webkit-backdrop-filter:blur(7px) saturate(1.2); backdrop-filter:blur(7px) saturate(1.2);
+  /* mirror of the left wing: the wheel-facing (left) edge slopes inward at the base */
+  clip-path:polygon(24px 0,calc(100% - 14px) 0,100% 14px,100% calc(100% - 14px),calc(100% - 14px) 100%,0 100%);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.22), 0 8px 22px rgba(0,0,0,.30); }
+.helm-tele::before{ content:''; position:absolute; inset:0; pointer-events:none; clip-path:inherit; z-index:0;
+  background:linear-gradient(180deg,color-mix(in srgb,var(--accent) 20%,transparent),transparent 42%); mix-blend-mode:screen; opacity:.7; }
+.helm-tele > *{ position:relative; z-index:1; }
+/* A big, commanding engine telegraph — a taller, wider machined slot so the lever reads as the
+   primary "get underway" control, not an afterthought. Black carbon body, accent-lit when engaged. */
+.helm-tele-track{ position:relative; width:calc(74px*var(--hs)); height:calc(132px*var(--hs)); border-radius:13px;
+  background:var(--hcarbon),linear-gradient(180deg,color-mix(in srgb,var(--bg) 88%,#000),color-mix(in srgb,var(--bg) 95%,#000)); background-size:6px 6px,6px 6px,auto;
+  border:1px solid color-mix(in srgb,var(--accent) 22%,#000);
+  box-shadow:inset 0 2px 12px rgba(0,0,0,.9),0 1px 0 color-mix(in srgb,var(--accent) 16%,transparent); overflow:hidden; }
+.helm-tele-track::before{ content:''; position:absolute; left:50%; top:18px; bottom:18px; width:8px; transform:translateX(-50%);
+  border-radius:5px; background:linear-gradient(180deg,color-mix(in srgb,var(--bg) 92%,#000),color-mix(in srgb,var(--bg3) 60%,#000)); box-shadow:inset 0 0 6px rgba(0,0,0,.95); }
+.helm-tele-mark{ position:absolute; left:0; right:0; text-align:center; font-family:var(--hmono); font-size:9px; letter-spacing:2.5px; color:var(--screen-dim); pointer-events:none; z-index:2; }
+.helm-tele-mark.ahead{ top:9px; color:var(--stbd); } .helm-tele-mark.stop{ bottom:9px; }
+/* brushed-steel knob: fine vertical grain + machined grip ridges */
+.helm-tele-knob{ position:absolute; left:8px; right:8px; height:44px; top:78px; border-radius:9px; cursor:grab; touch-action:none; z-index:3;
+  background:repeating-linear-gradient(90deg,rgba(255,255,255,.14) 0 1px,rgba(0,0,0,.10) 1px 2px,transparent 2px 3px),linear-gradient(180deg,var(--steel-hi),var(--steel) 52%,var(--steel-lo));
+  border:1px solid #20262c; box-shadow:0 4px 10px rgba(0,0,0,.7),inset 0 1px 0 rgba(255,255,255,.7),inset 0 -2px 5px rgba(0,0,0,.4); }
+.helm-tele-knob::after{ content:''; position:absolute; left:8px; right:8px; top:50%; height:9px; transform:translateY(-50%);
+  background:repeating-linear-gradient(90deg,rgba(0,0,0,.42) 0 2px,rgba(255,255,255,.12) 2px 3px,transparent 3px 4px); border-radius:3px; }
+.helm-tele-knob:active{ cursor:grabbing; }
+.helm-tele.engaged .helm-tele-knob{ cursor:not-allowed; box-shadow:0 0 14px var(--stbd),0 3px 8px rgba(0,0,0,.7),inset 0 1px 0 rgba(255,255,255,.7); }
+.helm-tele.engaged .helm-tele-track{ border-color:var(--stbd); box-shadow:inset 0 2px 10px rgba(0,0,0,.85),0 0 12px color-mix(in srgb,var(--stbd) 40%,transparent); }
+.helm-tele-label{ font-family:var(--hmono); font-size:8px; letter-spacing:2.5px; color:var(--hdim); text-transform:uppercase; }
+.helm-tele.warn .helm-tele-label{ color:#ff8a7a; }
+.helm-tele.course .helm-tele-label{ color:var(--accent-hi); }
+
+/* ── Chart popup — a tablet-styled navigation window over the whole helm ── */
+.helm-map{ position:absolute; inset:0; z-index:20; display:none; flex-direction:column;
+  background:radial-gradient(150% 100% at 50% 0,color-mix(in srgb,var(--bg) 82%,transparent),color-mix(in srgb,var(--bg) 95%,#000)); backdrop-filter:blur(7px); }
+.helm-map.open{ display:flex; }
+.helm-map-win{ margin:auto; width:min(600px,94%); max-height:94%; display:flex; flex-direction:column; overflow:hidden;
+  background:linear-gradient(180deg,var(--bg2),var(--bg)); border:1px solid color-mix(in srgb,var(--accent) 32%,var(--border)); border-radius:18px;
+  box-shadow:0 26px 70px rgba(0,0,0,.55), inset 0 1px 0 color-mix(in srgb,var(--accent) 22%,transparent), 0 0 0 1px color-mix(in srgb,#000 40%,transparent); }
+.helm-map-head{ display:flex; align-items:flex-start; justify-content:space-between; padding:14px 18px;
+  border-bottom:1px solid color-mix(in srgb,var(--accent) 16%,transparent); background:linear-gradient(180deg,color-mix(in srgb,var(--accent) 8%,transparent),transparent); }
+.helm-map-head .t{ font-family:var(--hmono); letter-spacing:3px; font-size:13px; color:var(--accent-hi); }
+.helm-map-head .t small{ display:block; margin-top:3px; font-size:9px; letter-spacing:1.5px; color:var(--hdim); }
+.helm-map-close{ background:color-mix(in srgb,var(--text) 6%,transparent); border:1px solid color-mix(in srgb,var(--text) 14%,transparent); color:var(--hink);
+  width:30px; height:28px; border-radius:8px; cursor:pointer; font-size:13px; line-height:1; }
+.helm-map-close:hover{ filter:brightness(1.3); }
+.helm-map-body{ position:relative; padding:16px; }
+.helm-map-canvas{ display:block; width:100%; border-radius:11px; background:#01080c; cursor:crosshair;
+  box-shadow:inset 0 0 34px rgba(0,0,0,.92), 0 0 0 1px color-mix(in srgb,var(--chart) 20%,#000); }
+.helm-map-foot{ display:flex; align-items:center; gap:12px; padding:13px 18px; border-top:1px solid color-mix(in srgb,var(--accent) 16%,transparent); }
+.helm-map-info{ flex:1; font-family:var(--hmono); font-size:11px; letter-spacing:.5px; color:var(--hdim); }
+.helm-map-info b{ color:var(--accent-hi); }
+.helm-map-btn{ font-family:var(--hmono); letter-spacing:2px; font-size:11px; padding:10px 18px; border-radius:10px; cursor:pointer; white-space:nowrap;
+  background:color-mix(in srgb,var(--stbd) 16%,var(--bg2)); color:var(--stbd); border:1px solid color-mix(in srgb,var(--stbd) 45%,transparent); }
+.helm-map-btn:hover{ filter:brightness(1.25); }
+.helm-map-btn[disabled]{ opacity:.35; cursor:not-allowed; filter:none; }
+.helm-map-btn.ghost{ background:color-mix(in srgb,var(--text) 6%,transparent); color:var(--hdim); border-color:color-mix(in srgb,var(--text) 14%,transparent); }
+
+@media (max-width:760px){
+  /* Wheel stays the centred binnacle (absolute) hanging over the bar; left cluster + telegraph
+     flank it below. Extra side padding keeps them clear of the overhanging wheel. */
+  .helm-console-face{ grid-template-columns:1fr auto 1fr; gap:10px; padding:6px 16px 8px; }
+  .helm-left{ flex-wrap:wrap; }
+  .helm-gauges{ grid-template-columns:repeat(2,1fr); }
+  .helm-wheel{ width:calc(128px*var(--hs)); height:calc(128px*var(--hs)); }
+  .helm-nav-scope{ width:100px; height:74px; } }

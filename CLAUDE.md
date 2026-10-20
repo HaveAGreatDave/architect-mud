@@ -2,7 +2,7 @@
 
 ## What this is
 
-A post-singularity browser MUD in the HellMOO tradition: text-driven, real-time, brutal and funny. Node.js server with raw WebSockets, vanilla JS clients (one HTML/JS file per client plus a sibling `styles.css`), PostgreSQL on Neon. No build step, no ORM, no framework.
+A post-singularity browser MUD in the HellMOO tradition: text-driven, real-time, brutal and funny. Node.js server with raw WebSockets, vanilla JS clients (one HTML/JS file per client plus a sibling `styles.css`; a lazy panel's own sheet is a sibling `<panel>.css` read with `loadCss`, never CSS in a template literal), PostgreSQL on Neon. No build step, no ORM, no framework.
 
 ## Names
 

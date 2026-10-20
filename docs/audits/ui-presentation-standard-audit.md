@@ -28,7 +28,9 @@ contract (styling belongs in `styles.css`, not inline) has eroded. This audit re
 1. **Visual styling lives in `styles.css`.** Use a class, not a `style=` attribute or a `cssText` string.
    The exception is a value that is *genuinely dynamic and computed at runtime* (e.g. a width set from a
    live HP percentage) — that may be set via JS `element.style.width`, but the *static* rules around it
-   still belong to a class.
+   still belong to a class. A lazily loaded panel with its own stylesheet keeps it in a sibling
+   `<panel>.css` that the module reads with `loadCss` (client/shared/dom.js) and injects on open;
+   never a CSS template literal in the JS (tablet-os.css and cab-view.css are the pattern).
 2. **Markup files stay readable for design.** An HTML file an agent opens to tweak a room layout, a
    panel, or copy should not force it to scroll past a wall of styling.
 3. **Theme via CSS variables.** Colors come from `var(--accent)`, `var(--red)`, etc. — never hardcoded

@@ -10,3 +10,16 @@ export function escapeHtml(str) {
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
 }
+
+// A panel's stylesheet as text, for a module to `await` at load and inject as a
+// <style> when it opens. A <link> would apply a frame late and let the first open
+// lay out unstyled. Resolves '' when the fetch fails (a Node gate has no file
+// fetch), so a missing sheet leaves the panel unstyled instead of unloadable.
+export async function loadCss(url) {
+  try {
+    const r = await fetch(url);
+    return r.ok ? await r.text() : '';
+  } catch {
+    return '';
+  }
+}

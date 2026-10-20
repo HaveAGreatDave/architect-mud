@@ -31,6 +31,11 @@
 // and darker the shape you're wrestling out of the black water.
 
 import { sfx, clampInt, clampNum, esc, mountOverlay, ensureChassisStyles, deviceHeader, bezelScrews, crtOverlays, deckStrip, setDeckLevel } from './minigame-common.js';
+import { loadCss } from '../../../shared/dom.js';
+
+// fishing.css ships beside this file and is fetched when the module loads, so ensureStyles
+// still applies it synchronously on first open. See loadCss in client/shared/dom.js.
+const FISHING_CSS = await loadCss(new URL('./fishing.css', import.meta.url));
 
 let _overlay = null;
 let _close = null;
@@ -62,186 +67,7 @@ function ensureStyles() {
   if (document.getElementById('fishing-styles')) return;
   const s = document.createElement('style');
   s.id = 'fishing-styles';
-  s.textContent = `
-    #fishing-overlay { --fs-accent:#4fe0a0; --mg-accent:#4fe0a0; position:fixed; inset:0; z-index:9200; display:flex; align-items:center; justify-content:center;
-      background:rgba(0,6,7,0.80); backdrop-filter:blur(3px); font-family:'Courier New',monospace; }
-    /* Moulded brine-green chassis — top-lit multi-stop body (matches the ATM #atm-box). */
-    #fishing-overlay .fs-panel { width:min(860px,96vw); color:var(--fs-accent);
-      background:linear-gradient(180deg, #16302a 0%, #0f231e 7%, #091712 12%, #040d0a 100%);
-      padding:16px 20px 18px; animation:fs-boot .3s ease-out; }
-    @keyframes fs-boot { 0%{opacity:0;transform:scale(.985)} 100%{opacity:1;transform:scale(1)} }
-    #fishing-overlay .fs-hud { display:flex; gap:12px; align-items:center; padding:8px 2px; font-size:12px; color:#7fae99; letter-spacing:1px; flex-wrap:wrap; }
-    #fishing-overlay .fs-hud b { color:var(--fs-accent); font-weight:bold; }
-    /* Phase stepper — AIM › CHARGE › REEL, the active leg lit. */
-    #fishing-overlay .fs-phases { display:inline-flex; align-items:center; gap:6px; }
-    #fishing-overlay .fs-ph { font-size:10px; letter-spacing:1.5px; color:#4c6a5c; transition:color .2s, text-shadow .2s; }
-    #fishing-overlay .fs-ph.on { color:var(--fs-accent); text-shadow:0 0 8px color-mix(in srgb, var(--fs-accent) 60%, transparent); }
-    #fishing-overlay .fs-ph.done { color:#6f9a86; }
-    #fishing-overlay .fs-ph-sep { font-size:9px; color:#33473d; }
-    /* Live readout — the phase's current value (lane / depth / status). */
-    #fishing-overlay .fs-read { font-size:11px; letter-spacing:1.5px; color:#8fc4ab; min-width:98px;
-      padding:2px 8px; border:1px solid #1e3a30; border-radius:3px; background:linear-gradient(180deg,#0b1d18,#071310);
-      box-shadow:inset 0 1px 3px rgba(0,0,0,0.6); white-space:nowrap; }
-    #fishing-overlay .fs-read b { color:var(--fs-accent); }
-    #fishing-overlay .fs-creel-wrap { display:inline-flex; align-items:center; gap:6px; margin-left:auto; }
-    #fishing-overlay .fs-creel-bar { display:inline-block; width:120px; height:8px; background:#0a1a16; border:1px solid #2b5040; border-radius:3px; overflow:hidden; }
-    #fishing-overlay .fs-creel-fill { display:block; height:100%; width:35%; background:#46e05a; transition:width .1s linear, background .2s; }
-    #fishing-overlay .fs-bezel { margin:4px 0 2px; }
-    #fishing-overlay .fs-screen { background:radial-gradient(130% 130% at 50% 42%, color-mix(in srgb, var(--fs-accent) 11%, #02100b) 55%, #01070a 100%); }
-    /* The play area: a tall water shaft (the tube) flanked by a fathom depth scale
-       and the tension rope, with a controllable gaff band + the hooked catch inside. */
-    #fishing-overlay .fs-rig { position:relative; z-index:2; display:flex; gap:16px; padding:18px 22px; align-items:stretch; justify-content:center; }
-    /* Fathom depth scale down the left edge — ticks + numbers, deep at the bottom. */
-    #fishing-overlay .fs-scale { position:relative; width:40px; display:flex; flex-direction:column; justify-content:space-between; padding:2px 0; }
-    #fishing-overlay .fs-scale-mark { position:relative; font-size:8px; letter-spacing:1px; color:#5f8a78; text-align:right; padding-right:9px; white-space:nowrap; }
-    #fishing-overlay .fs-scale-mark::after { content:''; position:absolute; right:0; top:50%; width:6px; height:1px; background:color-mix(in srgb, var(--fs-accent) 55%, transparent); }
-    #fishing-overlay .fs-scale-zone { position:relative; flex:1; font-size:7px; letter-spacing:2px; color:#3f5f53; writing-mode:vertical-rl; text-align:center; display:flex; align-items:center; justify-content:center; opacity:0.75; }
-    /* The water shaft fills the whole screen — a lit-to-black depth gradient:
-       sunlit shallows → murk → the deep. The gaff spans it; the catch fights in it. */
-    #fishing-overlay .fs-column { position:relative; flex:1; min-width:0; min-height:420px; border:1px solid #22463a; border-radius:8px; overflow:hidden; cursor:pointer;
-      background:linear-gradient(180deg,#164439 0%,#0d2c24 22%,#0a231e 45%,#061713 70%,#030c0a 100%);
-      box-shadow:inset 0 2px 8px rgba(0,0,0,0.7), inset 0 0 60px color-mix(in srgb, var(--fs-accent) 12%, transparent); }
-    /* Faint zone labels down the right edge, advertising where the good ones live. */
-    #fishing-overlay .fs-zonecap { position:absolute; right:4px; z-index:3; font-size:7px; letter-spacing:2px; color:color-mix(in srgb, var(--fs-accent) 34%, transparent); writing-mode:vertical-rl; pointer-events:none; }
-    #fishing-overlay .fs-zonecap-1 { top:8%; } #fishing-overlay .fs-zonecap-2 { top:42%; } #fishing-overlay .fs-zonecap-3 { bottom:8%; color:color-mix(in srgb, var(--fs-accent) 22%, #6a4a4a); }
-    /* A dim glow at the very bottom — the unseen seabed. */
-    #fishing-overlay .fs-column::after { content:''; position:absolute; left:0; right:0; bottom:0; height:22%; z-index:1; pointer-events:none;
-      background:radial-gradient(120% 80% at 50% 120%, color-mix(in srgb, var(--fs-accent) 16%, transparent), transparent 70%); }
-    /* Drifting caustic light bands in the water. */
-    #fishing-overlay .fs-column::before { content:''; position:absolute; inset:-40% 0; pointer-events:none; z-index:1;
-      background:repeating-linear-gradient(0deg, transparent 0 22px, color-mix(in srgb, var(--fs-accent) 8%, transparent) 22px 24px);
-      animation:fs-caustic 5.5s linear infinite; }
-    @keyframes fs-caustic { 0%{transform:translateY(0)} 100%{transform:translateY(46px)} }
-    /* Marine snow — slow motes of particulate drifting down through the shaft. */
-    #fishing-overlay .fs-snow { position:absolute; top:-6px; width:2px; height:2px; border-radius:50%; z-index:2; pointer-events:none;
-      background:color-mix(in srgb, var(--fs-accent) 55%, #cfeee0); opacity:0; animation:fs-snow linear infinite; }
-    @keyframes fs-snow { 0%{transform:translateY(0);opacity:0} 10%{opacity:.5} 90%{opacity:.35} 100%{transform:translateY(420px);opacity:0} }
-    /* Rippling surface skin at the top of the column — the waterline. */
-    #fishing-overlay .fs-surface { position:absolute; top:0; left:0; right:0; height:16px; pointer-events:none; z-index:3;
-      background:linear-gradient(180deg, color-mix(in srgb, var(--fs-accent) 30%, transparent), transparent);
-      border-bottom:1px solid color-mix(in srgb, var(--fs-accent) 34%, transparent); opacity:0.7;
-      -webkit-mask:repeating-linear-gradient(90deg,#000 0 6px, transparent 6px 8px); mask:repeating-linear-gradient(90deg,#000 0 6px, transparent 6px 8px);
-      animation:fs-surface 3.4s linear infinite; }
-    @keyframes fs-surface { 0%{background-position:0 0} 100%{background-position:16px 0} }
-    /* Rising bubbles — depth ambience under the surface. */
-    #fishing-overlay .fs-bubble { position:absolute; bottom:-8px; width:4px; height:4px; border-radius:50%; pointer-events:none; z-index:2;
-      background:radial-gradient(circle at 35% 30%, rgba(255,255,255,0.6), color-mix(in srgb, var(--fs-accent) 45%, transparent) 70%, transparent);
-      opacity:0; animation:fs-bubble 5s linear infinite; }
-    @keyframes fs-bubble { 0%{transform:translateY(0) scale(.6);opacity:0} 12%{opacity:.65} 88%{opacity:.5} 100%{transform:translateY(-420px) scale(1.15);opacity:0} }
-    /* Cast stage — a ruled AIM rail across the waterline the tick sweeps along. */
-    #fishing-overlay .fs-ruler { position:absolute; top:0; left:0; right:0; height:15px; z-index:5; pointer-events:none; opacity:0; transition:opacity .3s;
-      -webkit-mask:linear-gradient(90deg, transparent 0, #000 8%, #000 92%, transparent 100%); mask:linear-gradient(90deg, transparent 0, #000 8%, #000 92%, transparent 100%); }
-    #fishing-overlay .fs-ruler.fs-live { opacity:0.5; }
-    #fishing-overlay .fs-ruler::before { content:''; position:absolute; left:0; right:0; bottom:2px; height:6px;
-      background:repeating-linear-gradient(90deg, color-mix(in srgb, var(--fs-accent) 45%, transparent) 0 1px, transparent 1px 9px); }
-    /* Cast stage — AIM: a chevron that sweeps the rail; you lock it to pick a lane. */
-    #fishing-overlay .fs-aim { position:absolute; top:2px; width:14px; height:13px; margin-left:-7px; z-index:6; pointer-events:none; opacity:0; transition:opacity .3s;
-      color:var(--fs-accent); filter:drop-shadow(0 0 5px color-mix(in srgb, var(--fs-accent) 70%, transparent)); }
-    #fishing-overlay .fs-aim.fs-live { opacity:0.95; }
-    #fishing-overlay .fs-aim.fs-lock { color:#46e05a; filter:drop-shadow(0 0 9px rgba(70,224,90,0.75)); }
-    #fishing-overlay .fs-aim svg { display:block; width:100%; height:100%; }
-    /* The lane guide — a soft column of light dropping from the aim into the water,
-       showing which lane the cast drops into. Greens on lock. */
-    #fishing-overlay .fs-lane { position:absolute; top:0; width:11px; margin-left:-5.5px; height:38%; z-index:2; pointer-events:none; opacity:0; transition:opacity .3s, background .2s;
-      background:linear-gradient(180deg, color-mix(in srgb, var(--fs-accent) 34%, transparent), transparent);
-      -webkit-mask:linear-gradient(180deg,#000,transparent); mask:linear-gradient(180deg,#000,transparent); }
-    #fishing-overlay .fs-lane.fs-live { opacity:0.7; }
-    #fishing-overlay .fs-lane.fs-lock { background:linear-gradient(180deg, rgba(70,224,90,0.4), transparent); opacity:0.9; }
-    /* Cast stage — POWER: a vertical depth gauge (SHALLOW bottom, DEEP top) with
-       etched tick marks; it fills while you hold, release height setting the depth. */
-    #fishing-overlay .fs-castmeter { position:absolute; left:50%; top:22px; bottom:22px; width:20px; margin-left:-10px; z-index:6;
-      border:1px solid #2b5040; border-radius:10px; overflow:hidden; opacity:0; transition:opacity .3s;
-      background:linear-gradient(180deg,#0a221c,#061a17); box-shadow:inset 0 2px 6px rgba(0,0,0,0.7), inset 0 0 0 1px rgba(0,0,0,0.4); }
-    #fishing-overlay .fs-castmeter.fs-live { opacity:1; }
-    #fishing-overlay .fs-castmeter.fs-done { opacity:0; }
-    /* Etched depth ticks up the tube — longer marks at the quarters. */
-    #fishing-overlay .fs-castmeter::before { content:''; position:absolute; inset:0; z-index:2; pointer-events:none;
-      background:repeating-linear-gradient(0deg, rgba(0,0,0,0.5) 0 1px, transparent 1px 5px),
-        repeating-linear-gradient(0deg, color-mix(in srgb, var(--fs-accent) 22%, transparent) 0 1px, transparent 1px 25px); }
-    /* The charging fill grows up from the bottom; colour cools as it deepens. */
-    #fishing-overlay .fs-castfill { position:absolute; left:0; right:0; bottom:0; height:0%; z-index:1; transition:height .05s linear, background .15s;
-      background:linear-gradient(180deg, #3ec6ff, #46e05a); box-shadow:0 0 10px color-mix(in srgb, var(--fs-accent) 45%, transparent); }
-    /* A bright meniscus line rides the top of the fill — the "current depth" cursor. */
-    #fishing-overlay .fs-castfill::after { content:''; position:absolute; left:-1px; right:-1px; top:-1px; height:2px; z-index:3;
-      background:#eafff4; box-shadow:0 0 8px #fff, 0 0 14px var(--fs-accent); }
-    #fishing-overlay .fs-castmeter.fs-charging { box-shadow:inset 0 2px 6px rgba(0,0,0,0.7), 0 0 14px color-mix(in srgb, var(--fs-accent) 45%, transparent); }
-    #fishing-overlay .fs-castcap { position:absolute; left:50%; transform:translateX(-50%); z-index:6; font-size:7px; letter-spacing:1.5px; color:#7fae99; pointer-events:none; opacity:0; transition:opacity .3s; text-shadow:0 0 4px rgba(0,0,0,0.8); }
-    #fishing-overlay .fs-castcap.fs-live { opacity:0.8; }
-    #fishing-overlay .fs-castcap-top { top:6px; } #fishing-overlay .fs-castcap-bot { bottom:6px; }
-    /* Cast-off dressing: the pay-out line and a bobber that drops, settles, dips. */
-    #fishing-overlay .fs-castline { position:absolute; left:50%; top:0; width:1px; margin-left:-0.5px; z-index:4; pointer-events:none; height:0;
-      background:linear-gradient(180deg, color-mix(in srgb, var(--fs-accent) 70%, transparent), color-mix(in srgb, var(--fs-accent) 30%, transparent));
-      transition:height .5s cubic-bezier(.3,.9,.3,1), transform .5s cubic-bezier(.3,.9,.3,1); transform-origin:top center; }
-    #fishing-overlay .fs-bobber { position:absolute; left:50%; top:-14px; width:12px; height:12px; margin-left:-6px; z-index:5; pointer-events:none;
-      border-radius:50%; background:radial-gradient(circle at 35% 28%, #ff7a6b 0 40%, #d43a2c 55%, #7c1c15 100%);
-      box-shadow:0 0 8px color-mix(in srgb, var(--fs-accent) 40%, transparent), inset 0 -2px 3px rgba(0,0,0,0.5);
-      opacity:0; transition:top .5s cubic-bezier(.3,.9,.3,1), transform .5s cubic-bezier(.3,.9,.3,1), opacity .2s; }
-    #fishing-overlay .fs-bobber.fs-bob { animation:fs-bob 1.1s ease-in-out infinite; }
-    @keyframes fs-bob { 0%,100%{transform:translateY(0)} 50%{transform:translateY(3px)} }
-    /* A ripple ring where the bobber breaks the surface. */
-    #fishing-overlay .fs-ripple { position:absolute; left:50%; width:10px; height:6px; margin-left:-5px; z-index:4; pointer-events:none;
-      border:1px solid color-mix(in srgb, var(--fs-accent) 60%, transparent); border-radius:50%; opacity:0; transform:scale(.4); }
-    #fishing-overlay .fs-ripple.fs-go { animation:fs-ripple .9s ease-out; }
-    @keyframes fs-ripple { 0%{opacity:.8;transform:scale(.35)} 100%{opacity:0;transform:scale(3.4)} }
-    /* The taut hooked line during the fight — runs from the surface down to the
-       catch and shivers when the tension bites. */
-    #fishing-overlay .fs-line { position:absolute; left:50%; top:0; width:1px; margin-left:-0.5px; z-index:2; pointer-events:none; height:0; opacity:0;
-      background:linear-gradient(180deg, color-mix(in srgb, var(--fs-accent) 65%, transparent), color-mix(in srgb, var(--fs-accent) 22%, transparent));
-      transition:opacity .3s; }
-    #fishing-overlay .fs-line.fs-strain { animation:fs-strain .09s linear infinite; background:linear-gradient(180deg,#ff6a4a,#ffb23e); }
-    @keyframes fs-strain { 0%,100%{transform:translateX(0)} 33%{transform:translateX(0.9px)} 66%{transform:translateX(-0.9px)} }
-    /* The hook — drops in on the cast (baited, under the float) and rides the line
-       down; during the fight it's set in the catch. Rendered where the line ends. */
-    #fishing-overlay .fs-hook { position:absolute; left:50%; width:12px; height:18px; margin-left:-6px; z-index:5; pointer-events:none; opacity:0;
-      color:#dbeee4; filter:drop-shadow(0 0 3px color-mix(in srgb, var(--fs-accent) 70%, transparent)); transition:opacity .3s, top .5s cubic-bezier(.3,.9,.3,1); }
-    #fishing-overlay .fs-hook.fs-set { transition:opacity .3s; }   /* in the fight it snaps to the fish each frame, no lag */
-    #fishing-overlay .fs-hook svg { display:block; width:100%; height:100%; overflow:visible; }
-    /* A speck of bait on the barb, glowing on the cast. */
-    #fishing-overlay .fs-hook .fs-bait { fill:#ff8a5a; filter:drop-shadow(0 0 3px #ff8a5a); }
-    #fishing-overlay .fs-hook.fs-set .fs-bait { display:none; }   /* eaten once it's hooked */
-    /* The gaff — the band you drive up/down to bracket the catch. */
-    #fishing-overlay .fs-gaff { position:absolute; left:3px; right:3px; border-radius:5px; z-index:3; opacity:0;
-      background:linear-gradient(180deg, color-mix(in srgb, var(--fs-accent) 46%, transparent), color-mix(in srgb, var(--fs-accent) 20%, transparent));
-      border:1px solid var(--fs-accent);
-      box-shadow:0 0 12px color-mix(in srgb, var(--fs-accent) 45%, transparent), inset 0 0 8px color-mix(in srgb, var(--fs-accent) 30%, transparent);
-      transition:background .12s, box-shadow .12s, opacity .4s; }
-    /* Serrated inner lip so the band reads as a gaff/net, not a plain bar. */
-    #fishing-overlay .fs-gaff::before, #fishing-overlay .fs-gaff::after { content:''; position:absolute; left:2px; right:2px; height:3px;
-      background:repeating-linear-gradient(90deg, var(--fs-accent) 0 2px, transparent 2px 5px); opacity:0.55; }
-    #fishing-overlay .fs-gaff::before { top:1px; } #fishing-overlay .fs-gaff::after { bottom:1px; }
-    #fishing-overlay .fs-gaff.fs-locked { background:linear-gradient(180deg, rgba(70,224,90,0.5), rgba(70,224,90,0.24)); border-color:#46e05a; box-shadow:0 0 16px rgba(70,224,90,0.5), inset 0 0 8px rgba(70,224,90,0.35); }
-    /* The hooked catch — a silhouette that fights up and down the column. Its
-       scale/darkness ride --fs-menace (set from the catch difficulty). */
-    #fishing-overlay .fs-fish { position:absolute; left:50%; width:66px; height:33px; margin-left:-33px; margin-top:-16.5px; pointer-events:none; z-index:4; opacity:0;
-      transform:scale(var(--fs-menace,1)); transform-origin:center; transition:opacity .4s;
-      color:#081611; filter:drop-shadow(0 0 6px color-mix(in srgb, var(--fs-accent) 60%, transparent)); }
-    #fishing-overlay .fs-fish.fs-hooked { color:#0a0705; filter:drop-shadow(0 0 9px color-mix(in srgb, var(--fs-accent) 85%, transparent)); }
-    #fishing-overlay .fs-fish svg { display:block; width:100%; height:100%; overflow:visible; }
-    #fishing-overlay .fs-fish .fs-tail { transform-box:fill-box; transform-origin:left center; animation:fs-tail .62s ease-in-out infinite alternate; }
-    #fishing-overlay .fs-fish.fs-hooked .fs-tail { animation-duration:.24s; }
-    @keyframes fs-tail { from{transform:rotate(-16deg)} to{transform:rotate(16deg)} }
-    /* Tension rope on the right of the column — stretches to the shaft's height. */
-    #fishing-overlay .fs-tension { position:relative; width:16px; min-height:400px; border:1px solid #22463a; border-radius:6px; overflow:hidden; background:#081712; box-shadow:inset 0 2px 6px rgba(0,0,0,0.6); }
-    #fishing-overlay .fs-tension-fill { position:absolute; left:0; right:0; bottom:0; height:0%; background:linear-gradient(180deg,#ff4a5b,#ffb23e); transition:height .12s linear, opacity .2s; opacity:0.85; }
-    #fishing-overlay .fs-tension-label { position:absolute; top:4px; left:50%; transform:translateX(-50%); font-size:7px; letter-spacing:1px; color:#7fae99; writing-mode:vertical-rl; }
-    /* Big centred beat when the bite lands. */
-    #fishing-overlay .fs-onbanner { position:absolute; inset:0; z-index:7; display:flex; align-items:center; justify-content:center; pointer-events:none;
-      font-size:20px; font-weight:bold; letter-spacing:3px; color:#fff; text-shadow:0 0 16px var(--fs-accent), 0 0 4px #fff; opacity:0; }
-    #fishing-overlay .fs-onbanner.fs-go { animation:fs-onbanner 1s ease-out; }
-    @keyframes fs-onbanner { 0%{opacity:0;transform:scale(.7)} 25%{opacity:1;transform:scale(1.08)} 70%{opacity:1;transform:scale(1)} 100%{opacity:0;transform:scale(1)} }
-    #fishing-overlay .fs-status { min-height:22px; padding:8px 2px 2px; font-size:13px; letter-spacing:1px; font-weight:bold; }
-    #fishing-overlay .fs-status .fs-win { color:#46e05a; }
-    #fishing-overlay .fs-status .fs-lose { color:#ff4a5b; }
-    #fishing-overlay .fs-actions { display:flex; gap:8px; margin-top:8px; }
-    #fishing-overlay .fs-btn { flex:1; padding:11px 6px; background:#0a1a16; color:#8fc4ab; border:1px solid #2b5040;
-      border-radius:2px; cursor:pointer; font-family:'Courier New',monospace; font-size:12px; font-weight:bold; letter-spacing:2px;
-      text-transform:uppercase; box-shadow:inset 0 -2px 0 rgba(0,0,0,0.5); transition:all .12s; user-select:none; -webkit-user-select:none; touch-action:none; }
-    #fishing-overlay .fs-btn-reel.fs-cast { color:#040d0a; background:var(--fs-accent); border-color:var(--fs-accent); animation:fs-castpulse 1s ease-in-out infinite; }
-    @keyframes fs-castpulse { 0%,100%{box-shadow:inset 0 -2px 0 rgba(0,0,0,0.5)} 50%{box-shadow:inset 0 -2px 0 rgba(0,0,0,0.5), 0 0 14px var(--fs-accent)} }
-    #fishing-overlay .fs-btn-reel.fs-down { color:#040d0a; background:var(--fs-accent); border-color:var(--fs-accent); box-shadow:inset 0 2px 4px rgba(0,0,0,0.4); }
-    #fishing-overlay .fs-btn[disabled] { opacity:0.45; cursor:default; }
-    #fishing-overlay .fs-btn-abort:hover { color:#ff4a5b; border-color:#ff4a5b; }
-  `;
+  s.textContent = FISHING_CSS;
   document.head.appendChild(s);
 }
 

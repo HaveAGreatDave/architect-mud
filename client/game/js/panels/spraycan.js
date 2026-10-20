@@ -28,6 +28,11 @@ import { mountOverlay } from './minigame-common.js';
 import { openColorPicker, closeColorPicker } from './color-picker.js';
 import { tagPreview } from './tag-bake.js';   // a leaf: the preview without fetching GLASS
 import { TAG_FACES } from '../../../shared/tag-strokes.js';
+import { loadCss } from '../../../shared/dom.js';
+
+// spraycan.css ships beside this file and is fetched when the module loads, so ensureStyles
+// still applies it synchronously on first open. See loadCss in client/shared/dom.js.
+const SPRAY_CSS = await loadCss(new URL('./spraycan.css', import.meta.url));
 
 const F_BOLD = 1, F_ITALIC = 2, F_UNDER = 4, F_STRIKE = 8;
 
@@ -304,99 +309,7 @@ function ensureStyles() {
   if (document.getElementById('spraycan-styles')) return;
   const st = document.createElement('style');
   st.id = 'spraycan-styles';
-  st.textContent = `
-  #spray-overlay { position:fixed; inset:0; z-index:9200; display:flex; align-items:center; justify-content:center;
-    background:rgba(3,4,6,0.74); backdrop-filter:blur(3px); font-family:'Courier New',monospace; }
-  /* The can's own theme tokens. The shared colour wheel copies these off #sp-root
-     when it opens, which is how one stylesheet gives the paint shop brass and the
-     spray can fluorescent green. */
-  #sp-root { --hb-atm-accent:#39ff88; --hb-surf:#1c211d; --hb-surf-lo:#12150f; --hb-surf-mid:#242a22;
-    --hb-bevel-hi:rgba(255,255,255,0.07); --hb-bevel-lo:rgba(0,0,0,0.55);
-    --tos-fg:#dff7e4; --tos-fg-dim:#7fa98a; --tos-fg-dim2:#5b7d64;
-    width:min(560px, calc(100vw - 24px)); max-height:calc(100vh - 40px); overflow-y:auto; padding:14px 16px 16px;
-    color:var(--tos-fg); border-radius:10px; animation:spBoot .2s ease-out;
-    background:linear-gradient(168deg,#2a3029 0%, #1a1e19 22%, #0c0e0b 100%);
-    border:1px solid color-mix(in srgb, var(--hb-atm-accent) 34%, transparent);
-    box-shadow:0 20px 60px rgba(0,0,0,0.65), inset 0 1px 0 var(--hb-bevel-hi),
-      0 0 26px color-mix(in srgb, var(--hb-atm-accent) 14%, transparent);
-    scrollbar-width:thin; scrollbar-color:color-mix(in srgb, var(--hb-atm-accent) 50%, transparent) transparent; }
-  @keyframes spBoot { from { opacity:0; transform:scale(0.985) } to { opacity:1; transform:none } }
-  #sp-root .sp-brand { font-size:11px; letter-spacing:3px; text-transform:uppercase; color:var(--hb-atm-accent); }
-  #sp-root .sp-sub { font-size:10px; letter-spacing:1.4px; color:var(--tos-fg-dim2); margin-top:2px; }
-  #sp-root .sp-lab { font-size:9px; letter-spacing:2px; text-transform:uppercase; color:var(--tos-fg-dim); margin:12px 0 5px; }
-  /* The honest preview: the tag on a strip of wall, rendered by the same code the
-     room line will use. */
-  #sp-root .sp-wall { margin-top:9px; padding:16px 12px; min-height:56px; border-radius:7px; text-align:center;
-    font-size:19px; line-height:1.35; word-break:break-word; color:#e7e7e7;
-    background:repeating-linear-gradient(0deg,#2a2724 0 13px,#231f1c 13px 15px),
-      repeating-linear-gradient(90deg,rgba(0,0,0,0.22) 0 1px,transparent 1px 46px);
-    box-shadow:inset 0 0 0 1px rgba(0,0,0,0.5), inset 0 10px 26px rgba(0,0,0,0.45); }
-  #sp-root .sp-empty { color:var(--tos-fg-dim2); font-size:11px; letter-spacing:1px; font-style:italic; }
-  /* The piece as the flight window paints it, on the same brick as the strip above. */
-  #sp-root .sp-piece { display:block; width:100%; height:118px; margin-top:7px; border-radius:7px;
-    background:repeating-linear-gradient(0deg,#4a3a31 0 13px,#3f3129 13px 15px),
-      repeating-linear-gradient(90deg,rgba(0,0,0,0.22) 0 1px,transparent 1px 46px);
-    box-shadow:inset 0 0 0 1px rgba(0,0,0,0.5), inset 0 10px 26px rgba(0,0,0,0.35); }
-  #sp-root .sp-piece-note { font-size:9px; letter-spacing:1px; color:var(--tos-fg-dim2); margin-top:4px; min-height:11px; }
-  #sp-root .sp-input { width:100%; box-sizing:border-box; margin-top:10px; padding:8px 10px; font-family:inherit; font-size:14px;
-    letter-spacing:1px; color:var(--tos-fg); background:rgba(0,0,0,0.4); outline:none;
-    border:1px solid color-mix(in srgb, var(--hb-atm-accent) 26%, transparent); border-radius:7px; }
-  #sp-root .sp-input:focus { border-color:var(--hb-atm-accent); box-shadow:0 0 0 2px color-mix(in srgb, var(--hb-atm-accent) 20%, transparent); }
-  #sp-root .sp-row { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
-  #sp-root .sp-count { font-size:10px; letter-spacing:1px; color:var(--tos-fg-dim2); margin-left:auto; }
-  #sp-root .sp-count.sp-over { color:#ff6b7f; }
-  /* The letter strip — one cell per character, which is the whole point of the can.
-     Click one, drag a run, shift-click to extend. */
-  #sp-root .sp-strip { display:flex; flex-wrap:wrap; gap:2px; padding:7px; border-radius:7px; min-height:34px;
-    background:rgba(0,0,0,0.34); box-shadow:inset 0 1px 3px var(--hb-bevel-lo); user-select:none; }
-  #sp-root .sp-cell { min-width:17px; padding:3px 2px; text-align:center; font-size:15px; cursor:pointer; border-radius:3px;
-    border:1px solid transparent; background:rgba(255,255,255,0.03); }
-  #sp-root .sp-cell:hover { border-color:color-mix(in srgb, var(--hb-atm-accent) 45%, transparent); }
-  #sp-root .sp-cell.sp-on { background:color-mix(in srgb, var(--hb-atm-accent) 22%, transparent);
-    border-color:var(--hb-atm-accent); }
-  #sp-root .sp-scope { font-size:10px; letter-spacing:1px; color:var(--hb-atm-accent); }
-  #sp-root .sp-btn { padding:6px 10px; font-family:inherit; font-size:11px; letter-spacing:1px; cursor:pointer;
-    color:var(--tos-fg); background:linear-gradient(165deg,var(--hb-surf),var(--hb-surf-lo));
-    border:1px solid color-mix(in srgb, var(--hb-atm-accent) 28%, transparent); border-radius:6px;
-    box-shadow:inset 0 1px 0 var(--hb-bevel-hi); transition:filter .12s, border-color .12s; }
-  #sp-root .sp-btn:hover:not(:disabled) { filter:brightness(1.15); border-color:var(--hb-atm-accent); }
-  #sp-root .sp-btn:disabled { opacity:0.4; cursor:default; }
-  #sp-root .sp-btn.sp-active { color:#08120b; background:linear-gradient(165deg,var(--hb-atm-accent),#1fbf63); border-color:var(--hb-atm-accent); }
-  #sp-root .sp-btn.sp-go { flex:1 1 auto; font-weight:bold; text-transform:uppercase; color:#08120b;
-    background:linear-gradient(165deg,var(--hb-atm-accent),#1fbf63); border-color:var(--hb-atm-accent);
-    box-shadow:inset 0 1px 0 rgba(255,255,255,0.25), 0 0 14px color-mix(in srgb, var(--hb-atm-accent) 35%, transparent); }
-  #sp-root .sp-swatch { display:inline-flex; align-items:center; gap:6px; padding:3px 8px 3px 4px; cursor:pointer; font-family:inherit;
-    border:1px solid color-mix(in srgb, var(--hb-atm-accent) 40%, transparent); border-radius:7px;
-    background:linear-gradient(165deg,var(--hb-surf),var(--hb-surf-lo)); box-shadow:inset 0 1px 0 var(--hb-bevel-hi); }
-  #sp-root .sp-swatch i { width:24px; height:18px; border-radius:4px; box-shadow:inset 0 1px 0 rgba(255,255,255,0.35), inset 0 0 0 1px rgba(0,0,0,0.4); }
-  #sp-root .sp-swatch em { font-style:normal; font-size:9px; letter-spacing:0.8px; color:var(--tos-fg-dim); }
-  #sp-root .sp-rack { display:grid; grid-template-columns:repeat(16,1fr); gap:3px; margin-top:7px; padding:5px; border-radius:7px;
-    background:rgba(0,0,0,0.3); box-shadow:inset 0 1px 3px var(--hb-bevel-lo); }
-  #sp-root .sp-cap { height:15px; padding:0; border-radius:3px; cursor:pointer; border:1px solid rgba(0,0,0,0.4);
-    box-shadow:inset 0 1px 0 rgba(255,255,255,0.25); transition:transform .1s; }
-  #sp-root .sp-cap:hover { transform:scale(1.2); }
-  #sp-root .sp-stops { display:flex; gap:4px; padding:4px; border-radius:7px;
-    background:rgba(0,0,0,0.3); box-shadow:inset 0 1px 3px var(--hb-bevel-lo); }
-  #sp-root .sp-stop { width:26px; height:20px; }
-  #sp-root .sp-ramp { flex:1 1 90px; min-width:60px; height:20px; border-radius:5px;
-    box-shadow:inset 0 0 0 1px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.2); }
-  #sp-root .sp-shelf { display:flex; flex-direction:column; gap:4px; max-height:132px; overflow-y:auto; }
-  #sp-root .sp-saved { display:flex; align-items:center; gap:7px; padding:3px 5px; border-radius:6px; background:rgba(0,0,0,0.28); }
-  #sp-root .sp-load { flex:1 1 auto; text-align:left; padding:4px 7px; font-family:inherit; font-size:14px; cursor:pointer;
-    color:#e7e7e7; background:rgba(255,255,255,0.04); border:1px solid transparent; border-radius:5px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
-  #sp-root .sp-load:hover { border-color:var(--hb-atm-accent); }
-  #sp-root .sp-saved-name { flex:0 0 auto; max-width:110px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
-    font-size:9px; letter-spacing:1px; color:var(--tos-fg-dim2); }
-  #sp-root .sp-bin { flex:0 0 auto; width:20px; height:20px; padding:0; line-height:1; cursor:pointer; font-family:inherit;
-    color:var(--tos-fg-dim2); background:none; border:1px solid transparent; border-radius:5px; }
-  #sp-root .sp-bin:hover { color:#ff8a8a; border-color:rgba(255,120,120,0.4); }
-  #sp-root .sp-name { flex:0 0 130px; box-sizing:border-box; padding:6px 8px; font-family:inherit; font-size:11px; outline:none;
-    color:var(--tos-fg); background:rgba(0,0,0,0.4); border:1px solid color-mix(in srgb, var(--hb-atm-accent) 26%, transparent); border-radius:6px; }
-  #sp-root .sp-note { min-height:14px; margin-top:7px; font-size:10px; letter-spacing:1px; color:var(--tos-fg-dim2); }
-  #sp-root .sp-note.sp-bad { color:#ff6b7f; }
-  #sp-root .sp-foot { display:flex; gap:8px; margin-top:11px; }
-  @media (max-width:560px) { #sp-root .sp-rack { grid-template-columns:repeat(8,1fr); } }
-  `;
+  st.textContent = SPRAY_CSS;
   document.head.appendChild(st);
 }
 

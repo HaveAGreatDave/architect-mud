@@ -275,7 +275,7 @@ would yank the page every sentence.
 **Minimize.** An explicit Minimize closes the shell and keeps reading, via a flag
 `close()` consumes. **Any other teardown stops narration** — the X, a disconnect,
 a page turn. A pill (book, sentence progress, stop) appears bottom-centre; its CSS
-lives in `client/game/styles.css`, *not* the tablet's injected style block, because
+lives in `client/game/styles.css`, *not* the tablet's own sheet (tablet-os.css, injected on open), because
 that block is scoped to the overlay and dies exactly when the pill is needed.
 
 ### What the synth models (and what it doesn't)

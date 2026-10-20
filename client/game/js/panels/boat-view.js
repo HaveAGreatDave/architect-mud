@@ -44,6 +44,11 @@ import { boatGeom } from '../../../shared/boat-house.js';
 import { BOAT_ROWS } from '../../../shared/vehicle-models.js';
 import { wildlandsAt } from '../../../shared/wildlands.js';
 import { bindTouchGestures } from './touch-gestures.js';
+import { loadCss } from '../../../shared/dom.js';
+
+// boat-view.css ships beside this file and is fetched when the module loads, so ensureBoatStyles
+// still applies it synchronously on first open. See loadCss in client/shared/dom.js.
+const BOAT_CSS = await loadCss(new URL('./boat-view.css', import.meta.url));
 
 const ID = 'boat-sim';
 const RAD = 16;                     // map window half-width, in tiles
@@ -1344,103 +1349,6 @@ export function boatSetWorld(msg = {}) {
 function ensureBoatStyles() {
   const el = document.getElementById('boat-styles') || document.createElement('style');
   el.id = 'boat-styles';
-  el.textContent = `
-    body.boat-hidepanel #area-pane{max-height:none !important;height:auto !important;flex:1 1 auto}
-    body.boat-hidepanel #area-content{flex:1 1 auto;display:flex;min-height:0}
-    body.boat-hidepanel #output, body.boat-hidepanel #look-resize-handle{display:none}
-    .boat-hidebtn.on{ color:#8fd0ff; }
-    #area-content:has(.boat-root){ height:100%; overflow:hidden; overscroll-behavior:contain; touch-action:none; }
-    .boat-root{ position:relative; width:100%; height:100%; min-height:380px; overflow:hidden;
-      overscroll-behavior:contain; touch-action:none; background:#05070b; }
-    .boat-view, .boat-view .ws-wrap{ position:absolute; inset:0; }
-    /* ⚠ THE STRIP UNDER IT HANGS AT -18px, SO THE ROW CANNOT SIT AT 10. '.boat-keys' is absolutely
-       positioned BELOW its own row and the root clips, so at the old offset the one line telling a
-       new driver which keys to press was cut in half by the bottom of the pane — which is exactly
-       the line that matters most on a seat that now starts dead and has to be started. Measured in
-       the pane: it needs the row's own height plus that overhang. */
-    .boat-chrome{ position:absolute; left:10px; bottom:30px; display:flex; align-items:flex-end;
-      gap:12px; pointer-events:none; }
-    .boat-wheel{ width:150px; height:150px; pointer-events:auto; opacity:.92; }
-    .boat-read{ font:600 15px/1.5 ui-monospace,monospace; color:#cfe6ff; letter-spacing:.06em;
-      text-shadow:0 1px 3px #000; padding-bottom:6px; }
-    .boat-keys{ position:absolute; left:0; bottom:-18px; white-space:nowrap;
-      font:500 11px/1.4 ui-monospace,monospace; color:#7d93ab; letter-spacing:.04em; }
-    .boat-chips{ position:absolute; right:10px; top:10px; display:flex; gap:6px; }
-    .boat-chip[hidden]{ display:none !important; }
-    .boat-push{ color:#ffd27a; border-color:#8a6a2a; }
-    .boat-chip{ background:rgba(8,12,18,.72); border:1px solid #24303d; color:#9fb6cc;
-      font:600 13px/1 ui-monospace,monospace; padding:6px 9px; border-radius:4px; cursor:pointer; }
-    .boat-chip:hover{ color:#e6f2ff; border-color:#3a4a5c; }
-    .boat-chip.on{ color:#cfe6ff; border-color:#4a6d8c; background:rgba(24,44,64,.8); }
-    .boat-panel{ position:absolute; right:10px; bottom:30px; display:flex; flex-direction:column;
-      align-items:flex-end; gap:6px; }
-    .boat-hold-row{ display:flex; gap:6px; }
-    .boat-hold{ touch-action:none; user-select:none; min-width:64px; }
-    .boat-nos.on{ color:#fff; border-color:#6fb6ff; background:rgba(30,70,120,.85); }
-    /* The key switch: a bezel with OFF · RUN · START round the top and a key that turns to each. */
-    .boat-ign{ position:relative; width:78px; height:78px; border-radius:50%; cursor:pointer; padding:0;
-      border:2px solid #8a98a8; background:radial-gradient(circle at 40% 35%,#3a4552,#12181f 70%);
-      box-shadow:0 2px 8px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.2); }
-    .boat-ign-face i{ position:absolute; font:700 8px/1 ui-monospace,monospace; font-style:normal;
-      color:#7d93ab; letter-spacing:.06em; }
-    .boat-ign-face i:nth-child(1){ left:6px; top:22px; }
-    .boat-ign-face i:nth-child(2){ left:0; right:0; top:6px; text-align:center; }
-    .boat-ign-face i:nth-child(3){ right:3px; top:22px; color:#ff9c8c; }
-    .boat-ign-key{ position:absolute; left:50%; top:50%; width:10px; height:36px; margin:-18px 0 0 -5px;
-      border-radius:4px; background:linear-gradient(90deg,#9aa6b2,#e8eef4,#9aa6b2);
-      box-shadow:0 0 0 3px #1a2129, 0 2px 4px rgba(0,0,0,.6); transition:transform .12s ease-out;
-      transform:rotate(-60deg); }
-    .boat-ign-cap{ position:absolute; left:50%; top:100%; margin-top:5px; transform:translateX(-50%);
-      white-space:nowrap; font:700 10px/1 ui-monospace,monospace; letter-spacing:.08em; color:#ffb070; }
-    .boat-ign[data-pos="run"] .boat-ign-cap{ color:#8fffb0; }
-    /* Off, the key breathes (no strobe) so it is the first thing a stopped player finds. */
-    .boat-ign[data-pos="off"]{ border-color:#ffb070; animation:boatIgnBreathe 2.4s ease-in-out infinite; }
-    @keyframes boatIgnBreathe{ 0%,100%{ box-shadow:0 2px 8px rgba(0,0,0,.6), 0 0 0 0 rgba(255,176,112,0); }
-      50%{ box-shadow:0 2px 8px rgba(0,0,0,.6), 0 0 14px 4px rgba(255,176,112,.55); } }
-    @media (prefers-reduced-motion: reduce){ .boat-ign[data-pos="off"]{ animation:none; box-shadow:0 0 10px 3px rgba(255,176,112,.5); } }
-    .boat-ign[data-pos="run"] .boat-ign-key{ transform:rotate(0deg); }
-    .boat-ign[data-pos="start"] .boat-ign-key{ transform:rotate(60deg); }
-    .boat-ign[data-pos="run"] .boat-ign-face i:nth-child(2){ color:#8fffb0; }
-    .boat-ign[data-pos="start"] .boat-ign-face i:nth-child(3){ color:#fff; }
-    .boat-lever{ width:66px; height:150px; pointer-events:auto; }
-    /* ⚠ THE STRIP GOES RED WITH THE LEVER, not amber and not merely dimmer: a stopped engine is
-       the one state on this boat you can sit in indefinitely without noticing, and it is the one
-       that makes every other control appear broken. */
-    .boat-read.boat-dead{ color:#ff9c8c; }
-    /* The two flaps. Same shape, same dismissal, and the cab's own wording under both. */
-    .boat-help, .boat-out{ position:absolute; z-index:6; background:rgba(8,12,18,.94);
-      border:1px solid #2b3846; border-radius:6px; padding:14px 16px; color:#aeb9c6;
-      font:500 12px/1.5 ui-monospace,monospace; }
-    .boat-help{ inset:10px 10px auto 10px; max-height:calc(100% - 92px); overflow:auto; cursor:pointer; }
-    .boat-out{ left:50%; top:50%; transform:translate(-50%,-50%); width:min(420px,86%); text-align:left; }
-    .boat-help[hidden], .boat-out[hidden]{ display:none; }
-    .boat-help h4, .boat-out h4{ margin:0 0 10px; font-size:11px; letter-spacing:.18em; color:#8fd0ff; }
-    .boat-help dl{ display:grid; grid-template-columns:max-content 1fr; gap:5px 14px; margin:0; }
-    .boat-help dt{ color:#8fd0ff; font-weight:600; white-space:nowrap; }
-    .boat-help dd{ margin:0; }
-    .boat-help-foot{ margin:12px 0 0; color:#78828e; font-size:11px; }
-    .boat-out-note{ margin:0 0 12px; }
-    .boat-out .boat-chip{ margin-right:8px; }
-    /* The berth line: bottom centre, over the water ahead and above the strip, between the lever and
-       wheel on the left and the switch panel on the right. The top centre ran into the chip row.
-       Amber for the pumps, cyan for the dock, green once she is stopped in the box. */
-    .boat-berth{ position:absolute; z-index:5; left:50%; bottom:84px; transform:translateX(-50%);
-      display:flex; align-items:center; gap:10px; max-width:min(480px, calc(100% - 340px)); padding:7px 10px;
-      background:rgba(8,12,18,.82); border:1px solid #2b3846; border-radius:6px;
-      font:500 12px/1.35 ui-monospace,monospace; color:#c6d7e6; }
-    .boat-berth[hidden]{ display:none; }
-    .boat-berth-head{ font-weight:700; letter-spacing:.12em; font-size:11px; white-space:nowrap; }
-    .boat-berth.fuel{ border-color:#8a6a2a; } .boat-berth.fuel .boat-berth-head{ color:#ffc76a; }
-    .boat-berth.dock{ border-color:#2f5f80; } .boat-berth.dock .boat-berth-head{ color:#8fd0ff; }
-    .boat-berth.ready{ border-color:#3f8a5c; box-shadow:0 0 0 1px rgba(79,174,116,.35), 0 4px 14px rgba(0,0,0,.5); }
-    .boat-berth-go{ white-space:nowrap; color:#d8ffe6; border-color:#3f8a5c; background:rgba(22,58,38,.85); }
-    .boat-berth-go b{ margin-left:6px; padding:1px 5px; border:1px solid #5aa878; border-radius:3px; font-size:11px; }
-    @media (max-width:720px){ .boat-berth{ bottom:200px; max-width:calc(100% - 20px); } }
-    /* ⚠ AN ALLOW-LIST, NOT A HIDE LIST — see the note at the mount. The picture stays and
-       everything else on this glass goes, so the next readout somebody hangs here is outside the
-       shot by default rather than by somebody remembering to add it. */
-    body.bigscreen .boat-root > *:not(.boat-view){ display:none !important; }
-    body.bigscreen .boat-root .ws-label,
-    body.bigscreen .boat-root .ws-frame::after{ display:none; }`;
+  el.textContent = BOAT_CSS;
   if (!el.parentNode) document.head.appendChild(el);
 }

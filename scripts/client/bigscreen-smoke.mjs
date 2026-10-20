@@ -73,7 +73,8 @@ for (const f of seats) {
   const raw = read(join(PANELS, o.chrome));
   const code = blank(raw);
 
-  // ⚠ THE RULE IS CHECKED IN RAW SOURCE, because a seat's stylesheet is a TEMPLATE LITERAL and
+  // ⚠ THE RULE IS CHECKED IN RAW SOURCE (and the seat's sibling .css), because a stylesheet left
+  // in the JS is a TEMPLATE LITERAL and
   // `blank` wipes those — that is right for every other check here and would blank the one thing
   // this one is looking for. A CSS-rule shape rather than the bare class name, so the prose in
   // these files (which quotes it constantly) cannot satisfy it.
@@ -84,8 +85,12 @@ for (const f of seats) {
   // rules already use — hide the root's children EXCEPT the picture — is the thing to test for,
   // because a rule that names what to HIDE is a rule somebody has to remember to add to and the
   // next overlay hung on that glass ships inside the shot.
+  // A seat whose stylesheet moved out of the JS keeps it beside the file as <stem>*.css.
+  const stem = o.chrome.replace(/\.js$/, '');
+  const sheets = readdirSync(PANELS).filter((s) => s.startsWith(stem) && s.endsWith('.css'))
+    .map((s) => read(join(PANELS, s))).join('\n');
   const rule = new RegExp(String.raw`body\.bigscreen ${o.root.replace('.', '\\.')} > \*:not\([^\n]*display\s*:\s*none`);
-  if (!rule.test(raw)) {
+  if (!rule.test(raw + '\n' + sheets)) {
     fail(`${o.chrome}: no allow-list rule 'body.bigscreen ${o.root} > *:not(…){display:none}' — ${f}'s glass keeps its readouts in big screen`);
   }
   if (!code.includes('bindBigScreenButton(')) {

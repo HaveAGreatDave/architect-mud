@@ -1,0 +1,1120 @@
+.fsim{ display:flex; flex-direction:column; gap:6px; font-family:var(--font,monospace); --cy:var(--accent,#8fd0ff); --mg:#ff4a9a; --gr:#5fe0a0; }
+/* ── ⚠ THE COCKPIT FITS ITS PANE, WHICH IT DID NOT ─────────────────────────────────────
+   The view asked for a fraction of the WINDOW — clamp(215px,40vh,460px) — while it sits in a
+   pane that is at most 65% of one column of that window. The two numbers have nothing to do
+   with each other and the arithmetic never worked out: at 1400x900 the view took 360px, the
+   instrument band and the stick band below it wanted 329 more, and the pane had 585 to give.
+   Measured in the ordinary desktop state with nothing folded away: 122px of the stick band
+   BELOW THE FOLD, reachable only by scrolling the room pane — and scrolling down to reach the
+   throttle scrolls the windscreen off the top, so there was no scroll position that showed a
+   pilot the aeroplane and the controls at once. The real client fares worse than this test
+   rig, because main.js caps the pane against the log and the command box as well.
+
+   TWO RULES, and the order matters. First the pane may grow to the ceiling the client already
+   computes for it (--pane-cap: whatever is left after the handle, the command box and 72px of
+   log) rather than to the flat 65% — because 65% is the rule that stops a ROOM DESCRIPTION
+   eating the log, and this is not a room description, it is the aeroplane. Then the pane stops
+   scrolling and the view takes what is left inside it, which is the same contract the truck
+   cab has always had and the reason its glass fits exactly.
+   Measured after, in the layout rig, across window heights: 360px of view and NOTHING below
+   the fold at 900, 333 at 800, 233 at 700 — the view untouched at the size most people fly at,
+   and what pays for it is the scrollback, down from 279px to 145 and never below the 72 the
+   cap reserves. ⚠ THE RIG SITS HIGHER THAN THE REAL CLIENT, whose bottom stack (smartbar,
+   input row, d-pad) is much taller and lowers the cap, so a real pilot gets a smaller view
+   than those figures. The property that does not move is the one worth having: whatever the
+   ceiling turns out to be, the whole cockpit is inside it.
+
+   ⚠ THE FLOOR IS ON THE VIEW AND IT IS A SAFETY NET, NOT THE ALLOCATOR. Below roughly a 650px
+   window there is no layout that fits: 200 + 171 + 152 and the gaps is 535px of cockpit and
+   the pane has less. Something is lost there, and the view is what should lose it — a shorter
+   view is still a view, where half a throttle is not a throttle.
+   ⚠ AND :has() RATHER THAN A BODY CLASS, because the pane has to stop scrolling only while
+   this app is mounted in it. A body class would need adding on open and removing on every exit
+   path, and there are several; a selector that reads the DOM cannot be left switched on. */
+#area-pane:has(.fsim){ overflow:hidden; max-height:var(--pane-cap,65%); }
+#area-content:has(.fsim){ flex:1 1 auto; min-height:0; display:flex; flex-direction:column; }
+#area-content:has(.fsim) > .fsim{ flex:1 1 auto; min-height:0; }
+.fsim-view{ position:relative; height:clamp(215px,40vh,460px); border-radius:8px; overflow:hidden; box-shadow:inset 0 0 0 2px #0f1c28, 0 0 12px rgba(0,0,0,.6); }
+#area-content:has(.fsim) > .fsim > .fsim-view{ flex:1 1 auto; min-height:200px; }
+/* ⚠ AND THE BANDS NEVER GIVE, WHICH WAS TRIED AND MEASURED AND TAKEN BACK OUT. Letting them
+   shrink to their own declared floors buys the view 63px and the floors are not floors: the
+   dial cluster and the stick band are content at fixed sizes, so a 122px control band with
+   152px of radio in it simply paints the bottom of the COM/NAV stack off the edge. The band
+   below the fold was the bug; the band with its bottom cut off is the same bug, smaller. So
+   the view is the only elastic member, with a floor of its own for the pane too short to
+   hold any of this — at which point something has to be lost and a shorter view is still a
+   view, where half a throttle is not a throttle. */
+#area-content:has(.fsim) > .fsim > .fsim-glass,
+#area-content:has(.fsim) > .fsim > .fsim-ctl{ flex:0 0 auto; }
+.fsim-lamp{ position:absolute; top:8px; left:50%; transform:translateX(-50%); font:11px/1 monospace; letter-spacing:2px; z-index:3;
+  color:#ff5a5b; background:rgba(40,4,6,.7); border:1px solid #ff5a5b; border-radius:5px; padding:3px 9px; opacity:0; transition:opacity .12s; }
+/* transient action toast (flap/gear/jettison confirmations) */
+/* The TEXT is deliberately near-white and does NOT use --cy. --cy resolves to the app-wide
+   --accent, which is whatever the player's UI theme happens to be — on a dark accent that put
+   dark grey lettering on an almost-black cockpit and the message was unreadable. The accent
+   still themes the box (border + glow), where a low-contrast colour is decorative rather than
+   load-bearing; legibility rides on the white and the near-opaque backing instead. */
+.fsim-toast{ position:absolute; top:38%; left:50%; transform:translateX(-50%); font:bold 12px/1.25 monospace; letter-spacing:1.6px; z-index:5;
+  color:#f2f8ff; text-shadow:0 0 6px rgba(0,0,0,.95), 0 1px 2px rgba(0,0,0,.9);
+  background:rgba(4,9,14,.94); border:1px solid var(--cy,#8fd0ff); border-radius:5px;
+  box-shadow:0 0 12px rgba(0,0,0,.75), inset 0 0 10px rgba(0,0,0,.6);
+  padding:6px 13px; opacity:0; transition:opacity .18s; pointer-events:none; white-space:nowrap; }
+.fsim-toast.show{ opacity:1; }
+/* CHECKRIDE guidance card — the persistent instruction panel during a checkride. Sits
+   top-left (clear of the centre rings), stays up the whole stage, and re-pulses on a
+   stage change so the eye catches the new brief. Paired with .ck-glow spotlighting the
+   control this stage wants (engine/throttle/yoke). */
+.fsim-ckride{ position:absolute; top:8px; left:8px; max-width:264px; z-index:6; padding:8px 10px;
+  background:rgba(6,14,20,.88); border:1px solid var(--cy); border-radius:6px; box-shadow:0 3px 14px rgba(0,0,0,.6);
+  color:#cfe9f2; font:10px/1.55 monospace; opacity:0; transform:translateY(-5px);
+  transition:opacity .25s, transform .25s; pointer-events:none; }
+.fsim-ckride.show{ opacity:1; transform:none; }
+.fsim-ckride-hd{ color:var(--cy); font-weight:bold; letter-spacing:1px; font-size:9px; margin-bottom:4px; text-shadow:0 0 6px var(--cy); }
+.fsim-ckride.flash{ animation:ckflash .7s ease-out; }
+@keyframes ckflash{ 0%{ box-shadow:0 0 0 2px var(--cy), 0 3px 14px rgba(0,0,0,.6); } 100%{ box-shadow:0 0 0 0 rgba(0,0,0,0), 0 3px 14px rgba(0,0,0,.6); } }
+/* the pulsing spotlight on whichever control the current checkride stage points at */
+.ck-glow{ animation:ckpulse 1.15s ease-in-out infinite; }
+@keyframes ckpulse{ 0%,100%{ box-shadow:0 0 0 0 rgba(120,220,255,0); } 50%{ box-shadow:0 0 15px 3px rgba(120,220,255,.85); } }
+/* FLIGHT-SCHOOL TOUR — the self-paced STARTUP walkthrough. Big, centred over the glass,
+   dismissable (✕ / Skip), one control per step with Back/Next paging. Replaces the small
+   checkride card for the ground-teaching phase; in-flight cards stay top-left, clear of the rings. */
+.fsim-tour{ position:absolute; top:50%; left:50%; transform:translate(-50%,calc(-50% - 6px)); width:min(90%,460px); z-index:12;
+  background:linear-gradient(180deg,rgba(8,18,26,.95),rgba(5,11,17,.95)); border:1px solid var(--cy); border-radius:10px;
+  box-shadow:0 8px 42px rgba(0,0,0,.7), 0 0 22px rgba(95,208,255,.22); color:#daf0f7; font:13px/1.6 monospace;
+  padding:16px 18px 14px; opacity:0; pointer-events:none; transition:opacity .28s, transform .28s;
+  -webkit-backdrop-filter:blur(4px); backdrop-filter:blur(4px); }
+.fsim-tour.show{ opacity:1; transform:translate(-50%,-50%); pointer-events:auto; }
+.fsim-tour.flash{ animation:ckflash .7s ease-out; }
+.fsim-tour-hd{ color:var(--cy); font-weight:bold; letter-spacing:1px; font-size:12px; margin-bottom:9px; text-shadow:0 0 8px var(--cy); }
+.fsim-tour-body{ font-size:13px; line-height:1.65; color:#dbeef6; min-height:82px; }
+.fsim-tour-body b{ color:#fff; }
+.fsim-tour-body .k{ display:inline-block; color:var(--cy); font-weight:bold; border:1px solid rgba(95,208,255,.5); border-radius:4px; padding:0 4px; background:rgba(95,208,255,.08); }
+.fsim-tour-dots{ display:flex; gap:6px; justify-content:center; margin:13px 0 11px; }
+.fsim-tour-dot{ width:7px; height:7px; border-radius:50%; background:rgba(120,150,175,.35); }
+.fsim-tour-dot.on{ background:var(--cy); box-shadow:0 0 6px var(--cy); }
+.fsim-tour-nav{ display:flex; gap:8px; align-items:center; }
+.fsim-tour-btn{ font:bold 12px monospace; letter-spacing:.5px; padding:8px 15px; border-radius:6px; cursor:pointer;
+  background:rgba(10,22,30,.8); color:#bfe0ee; border:1px solid rgba(95,208,255,.4); }
+.fsim-tour-btn:hover{ border-color:var(--cy); color:#fff; }
+.fsim-tour-btn:disabled{ opacity:.35; cursor:default; }
+#fsim-tour-back{ margin-right:auto; }
+.fsim-tour-next{ background:rgba(20,60,80,.72); border-color:var(--cy); color:#eaffff; }
+.fsim-tour-skip{ opacity:.75; }
+.fsim-tour-x{ position:absolute; top:8px; right:9px; width:23px; height:23px; border-radius:50%; border:1px solid rgba(120,150,175,.4);
+  background:rgba(6,12,18,.7); color:#9fb8c8; font:12px monospace; line-height:1; cursor:pointer; }
+.fsim-tour-x:hover{ color:#fff; border-color:var(--cy); }
+/* KILL FEED — big, loud confirmation stack across the top of the glass. Each kill
+   slams in, holds, then fades; the whole column is anchored top-centre above the HUD. */
+.fsim-killfeed{ position:absolute; top:6px; left:50%; transform:translateX(-50%); z-index:9;
+  display:flex; flex-direction:column; align-items:center; gap:5px; pointer-events:none; width:max-content; max-width:92%; }
+.fsim-kill{ font:900 clamp(15px,3.4vw,26px)/1.05 monospace; letter-spacing:2px; text-align:center; white-space:nowrap;
+  color:#5fe0a0; text-shadow:0 0 10px rgba(95,224,160,.9), 0 0 22px rgba(95,224,160,.5), 0 2px 3px rgba(0,0,0,.8);
+  background:linear-gradient(180deg, rgba(8,26,18,.92), rgba(6,16,12,.86)); border:2px solid #5fe0a0; border-radius:7px;
+  padding:6px 18px; box-shadow:0 0 18px rgba(95,224,160,.55), inset 0 0 12px rgba(95,224,160,.18);
+  animation:fsimKillIn .28s cubic-bezier(.15,1.5,.4,1) both, fsimKillOut .5s ease 2.6s forwards; }
+.fsim-kill b{ color:#eaffef; }
+@keyframes fsimKillIn{ 0%{ opacity:0; transform:scale(.5) translateY(-8px); } 60%{ opacity:1; transform:scale(1.12); } 100%{ opacity:1; transform:scale(1); } }
+@keyframes fsimKillOut{ from{ opacity:1; } to{ opacity:0; transform:scale(.94); } }
+/* landing report card — big graded touchdown feedback flashed over the glass */
+.fsim-card{ position:absolute; top:50%; left:50%; transform:translate(-50%,-50%) scale(.7); z-index:8;
+  display:flex; flex-direction:column; align-items:center; gap:1px; padding:12px 26px; pointer-events:none; text-align:center;
+  background:rgba(6,12,18,.86); border:1px solid #16303f; border-radius:12px; opacity:0; font-family:monospace;
+  transition:opacity .3s ease, transform .3s cubic-bezier(.2,1.3,.4,1); }
+.fsim-card.show{ opacity:1; transform:translate(-50%,-50%) scale(1); }
+.fsim-card-hd{ font-size:10px; letter-spacing:3px; color:#8aa0b2; }
+.fsim-card-grade{ font-size:52px; font-weight:900; line-height:1; text-shadow:0 0 14px currentColor; }
+.fsim-card-fpm{ font-size:13px; letter-spacing:1px; color:#cfe0ee; }
+.fsim-card-txt{ font-size:11px; color:#9fb4c4; margin-top:3px; max-width:230px; }
+.fsim-card.butter .fsim-card-grade{ color:#5fe0a0; }
+.fsim-card.good .fsim-card-grade{ color:#8fd0ff; }
+.fsim-card.mid .fsim-card-grade{ color:#ffd24a; }
+.fsim-card.bad .fsim-card-grade{ color:#ff8a3a; }
+.fsim-card.crash{ border-color:#ff4a5a; }
+.fsim-card.crash .fsim-card-grade{ color:#ff4a5a; }
+/* look-direction tag (Q/E/S hold-to-look) */
+.fsim-viewtag{ position:absolute; bottom:8px; left:50%; transform:translateX(-50%); font:10px/1 monospace; letter-spacing:2px; z-index:5;
+  color:#e8f3ff; text-shadow:0 1px 2px rgba(0,0,0,.9); background:rgba(4,9,14,.86); border:1px solid #16303f; border-radius:4px; padding:2px 8px; opacity:0; transition:opacity .12s; pointer-events:none; }   /* same reasoning as .fsim-toast: a message overlay must not take its legibility from --accent */
+.fsim-viewtag.show{ opacity:.9; }
+/* fuel chip (always shown) + a REFUEL button that appears only when parked on a fuelled strip */
+.fsim-fuel{ position:absolute; left:8px; top:22px; z-index:6; display:flex; align-items:center; gap:5px;
+  font:bold 10px/1 monospace; letter-spacing:1px; color:#8fe0a8; background:rgba(6,12,18,.72);
+  border:1px solid #16303f; border-radius:5px; padding:3px 7px; }
+.fsim-fuel-ic{ font-size:11px; filter:saturate(.85); }
+.fsim-fuel-pct{ min-width:30px; }
+.fsim-fuel.low .fsim-fuel-pct{ color:#ffb23e; }
+.fsim-fuel.bingo .fsim-fuel-pct{ color:#ff5b5b; }
+.fsim-refuel{ display:none; font:bold 8px/1 monospace; letter-spacing:1px; cursor:pointer; padding:4px 7px; border-radius:4px;
+  background:linear-gradient(180deg,#12321f,#08160d); border:1px solid #2a6a44; color:#6fe0a0; }
+.fsim-refuel:active{ transform:translateY(1px); }
+.fsim-fuel.can-fuel .fsim-refuel{ display:inline-block; }
+.fsim-fuel.can-fuel.full .fsim-refuel{ opacity:.45; }
+/* weapons (gunship): master-arm + fire strip, and a centre gun reticle when hot */
+.fsim-weap{ position:absolute; left:8px; bottom:8px; z-index:5; display:none; align-items:center; gap:6px;
+  background:rgba(10,8,6,.74); border:1px solid #3a2a12; border-radius:6px; padding:4px 6px; }
+.fsim-weap.show{ display:flex; }
+.fsim-weap-arm,.fsim-weap-fire{ font:8px/1 monospace; letter-spacing:1px; padding:5px 9px; border-radius:4px; cursor:pointer;
+  background:linear-gradient(180deg,#2a2416,#14100a); border:1px solid #4a3a18; color:#c8b070; }
+.fsim-weap-arm:active,.fsim-weap-fire:active{ transform:translateY(1px); }
+.fsim-weap-arm.hot{ color:#ff6a5b; border-color:#ff5a5b; background:linear-gradient(180deg,#3a1414,#1a0a0a); box-shadow:0 0 7px rgba(255,90,91,.5); }
+.fsim-weap-fire{ color:#ff6a3a; border-color:#5a2a10; opacity:.4; pointer-events:none; }
+.fsim-weap-fire.ready{ opacity:1; pointer-events:auto; text-shadow:0 0 6px rgba(255,106,58,.6); }
+.fsim-weap-pips{ font-size:10px; color:#c8b070; letter-spacing:2px; }
+/* The bombsight strip: dive angle, speed, rack. Sits under the stall lamp, out of the
+   way of the view — you fly the dive by looking outside, and glance at this. */
+.fsim-dive{ position:absolute; left:50%; top:12%; transform:translateX(-50%); z-index:4; pointer-events:none;
+  display:flex; gap:10px; align-items:baseline; padding:3px 10px; border-radius:3px;
+  font:600 12px/1.2 ui-monospace,monospace; letter-spacing:1px; color:#c8d2cc;
+  background:rgba(6,10,8,.62); border:1px solid rgba(255,92,176,.24); transition:opacity .18s linear; }
+.fsim-dive.near{ border-color:rgba(255,176,60,.42); }
+.fsim-dive.ready{ border-color:rgba(255,92,176,.92); box-shadow:0 0 10px rgba(255,92,176,.34); }
+.fsim-dive .ok{ color:#7fe6a8; }
+.fsim-dive .fd-rack{ color:#ff5cb0; letter-spacing:2px; }
+.fsim-dive .fd-cue{ color:#ff5cb0; animation:fd-blink .5s steps(2,end) infinite; }
+@keyframes fd-blink{ 50%{ opacity:.25; } }
+.fsim-reticle{ position:absolute; left:50%; top:46%; width:34px; height:34px; margin:-17px 0 0 -17px; z-index:4; opacity:0; transition:opacity .15s; pointer-events:none; }
+.fsim-reticle.on{ opacity:.85; }
+/* firing solution up → the pipper flips from amber to a green lock */
+.fsim-reticle.lock svg{ filter:drop-shadow(0 0 5px rgba(80,255,140,.9)) hue-rotate(96deg) saturate(1.5); }
+.fsim-reticle.lock{ opacity:1; }
+/* missile seeker building a lock — the reticle pulses amber until the tone goes green */
+.fsim-reticle.seek{ opacity:1; animation:fsimSeek .5s ease-in-out infinite; }
+@keyframes fsimSeek{ 0%,100%{ transform:scale(1); } 50%{ transform:scale(1.18); } }
+.fsim-reticle svg{ width:100%; height:100%; filter:drop-shadow(0 0 3px rgba(255,106,58,.6)); }
+/* glass panel row: PFD | MFD (Diamond DA42-inspired) */
+.fsim-glass{ display:flex; gap:6px; height:clamp(138px,19vh,196px); }
+.fsim-pfd,.fsim-mfd,.fsim-gauges{ position:relative; flex:1 1 0; background:#060c12; border:1px solid #16303f; border-radius:8px; overflow:hidden;
+  box-shadow:inset 0 0 10px rgba(0,0,0,.7), 0 0 0 1px rgba(95,208,255,.08); }
+.fsim-pfd{ flex:0.6 1 0; }        /* left PFD */
+.fsim-mfd{ flex:0.6 1 0; }        /* right MFD squeezed to the SAME width as the PFD */
+.fsim-gauges{ flex:2 1 0; }       /* wide centre: gauges hug its edges, the yoke rises up its middle */
+.fsim-rightctl{ flex:0 0 158px; display:flex; gap:6px; }   /* throttle + start + flaps (roomier gate), to the right of the MFD */
+.fsim-pfd canvas,.fsim-mfd canvas,.fsim-gauges canvas{ width:100%; height:100%; display:block; image-rendering:pixelated; }
+.fsim-mfd-tog{ position:absolute; top:5px; right:5px; z-index:2; background:rgba(6,14,22,.8); border:1px solid var(--cy); color:var(--cy);
+  border-radius:4px; font:8px monospace; padding:2px 5px; letter-spacing:1px; cursor:pointer; }
+.fsim-mfd-lbl{ position:absolute; top:6px; left:7px; z-index:2; font:8px monospace; letter-spacing:1px; color:var(--cy); opacity:.85; }
+/* controls: full yoke + throttle quadrant */
+/* control row: badge (bottom-left) | YOKE (aligned under gauges) | transponder (bottom-right) */
+/* min-height (not a fixed height): the radio deck on the right is taller than 120px, so a
+   hard height clipped its bottom row (buttons + knobs) — worst in fullscreen, which only grows
+   the view, never this band. Letting the row grow to its content shows the whole radio. */
+.fsim-ctl{ display:flex; gap:6px; align-items:stretch; min-height:120px; }
+/* ── bottom-left placard: a bolted, brushed-metal maker's plate ──────────── */
+/* display:flex is load-bearing, not cosmetic: as a plain block this flex-item computed a
+   runaway intrinsic height that dragged the whole control band tall (and left justify-content
+   inert). A real flex column packs the stamped lines and lets the band size to the radio. */
+.fsim-placard{ position:relative; display:flex; flex-direction:column; flex:0.6 1 0; justify-content:center; align-items:center; text-align:center; gap:3px; padding:11px 15px; overflow:hidden;
+  border-radius:8px; border:1px solid #10161c;
+  /* four hex-head bolts at the corners, over a brushed-metal field */
+  background:
+    radial-gradient(circle at 10px 10px, #ffffff 0 0.6px, #d6dade 0.6px 1.4px, #9098a0 1.4px 2.6px, #565e66 2.6px 3.6px, rgba(0,0,0,.5) 3.6px 4.4px, transparent 4.6px),
+    radial-gradient(circle at calc(100% - 10px) 10px, #ffffff 0 0.6px, #d6dade 0.6px 1.4px, #9098a0 1.4px 2.6px, #565e66 2.6px 3.6px, rgba(0,0,0,.5) 3.6px 4.4px, transparent 4.6px),
+    radial-gradient(circle at 10px calc(100% - 10px), #ffffff 0 0.6px, #d6dade 0.6px 1.4px, #9098a0 1.4px 2.6px, #565e66 2.6px 3.6px, rgba(0,0,0,.5) 3.6px 4.4px, transparent 4.6px),
+    radial-gradient(circle at calc(100% - 10px) calc(100% - 10px), #ffffff 0 0.6px, #d6dade 0.6px 1.4px, #9098a0 1.4px 2.6px, #565e66 2.6px 3.6px, rgba(0,0,0,.5) 3.6px 4.4px, transparent 4.6px),
+    repeating-linear-gradient(92deg, rgba(255,255,255,.035) 0 1px, rgba(0,0,0,.05) 1px 2px),
+    linear-gradient(157deg, #4c545c 0%, #6b747c 22%, #3a4147 46%, #575f67 68%, #363c42 100%);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.28), inset 0 -2px 5px rgba(0,0,0,.55), 0 2px 5px rgba(0,0,0,.5); }
+/* scene-reactive sheen: a diagonal glint whose opacity is driven by --sheen (bright day → 1, night → 0) */
+.fsim-plac-sheen{ position:absolute; inset:0; pointer-events:none; opacity:var(--sheen,0); transition:opacity .5s linear;
+  background:linear-gradient(133deg, rgba(255,255,255,0) 34%, rgba(255,255,255,.26) 47%, rgba(255,255,255,.04) 52%, rgba(255,255,255,0) 62%); }
+/* engine-turned inner frame — a hairline bevel a few px in from the bolts, so the plate reads
+   as a stamped bezel rather than a flat panel. Themes retint the border via their own rule. */
+.fsim-placard::before{ content:''; position:absolute; inset:6px; border-radius:5px; pointer-events:none; z-index:1;
+  border:1px solid rgba(255,255,255,.10); box-shadow:inset 0 1px 0 rgba(255,255,255,.07), inset 0 -1px 0 rgba(0,0,0,.42), inset 0 0 20px rgba(0,0,0,.24); }
+.fsim-placard>*{ position:relative; z-index:2; }
+/* machined corner rivets — a domed steel head (off-centre catchlight) seated in the plate,
+   its drive slot canted a different way at each corner. Sits over the theme's flat bolt dot. */
+.fsim-plac-rivet{ position:absolute; width:11px; height:11px; border-radius:50%; z-index:3; pointer-events:none;
+  background:radial-gradient(circle at 35% 28%, #f7f9fb 0 8%, #d2d8de 28%, #8b939d 60%, #474d55 86%, #2a2f36 100%);
+  box-shadow:0 1px 2px rgba(0,0,0,.6), inset 0 -1.5px 2px rgba(0,0,0,.5), inset 0 1px 1px rgba(255,255,255,.75), 0 0 0 1px rgba(0,0,0,.42); }
+.fsim-plac-rivet::after{ content:''; position:absolute; inset:2.5px; border-radius:1px; border-top:1.5px solid rgba(0,0,0,.42); transform:rotate(var(--r,32deg)); }
+.fsim-plac-rivet.tl{ top:6px; left:6px } .fsim-plac-rivet.tr{ top:6px; right:6px }
+.fsim-plac-rivet.bl{ bottom:6px; left:6px } .fsim-plac-rivet.br{ bottom:6px; right:6px }
+/* every label is engraved into the plate: a dark recessed top edge + a lit lower lip, so the
+   text reads as cut metal, never printed on top (matches the die-struck registration). */
+.fsim-plac-title{ font-size:9px; letter-spacing:2.5px; color:#20262c; text-shadow:0 -1px 1px rgba(0,0,0,.42), 0 1px 0 rgba(255,255,255,.4); }
+/* die-struck registration: the hero stamp — big, wide-tracked, and punched INTO the plate with a
+   recessed top edge + a lit lower lip + a soft cast shadow below the character. */
+.fsim-plac-reg{ font-size:27px; font-weight:800; letter-spacing:5px; line-height:.98; color:#101418;
+  text-shadow:0 -1px 1px rgba(0,0,0,.78), 0 1px 0 rgba(255,255,255,.62), 0 2px 2px rgba(0,0,0,.55), 0 3px 7px rgba(0,0,0,.34);
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.fsim-plac-model{ font-size:10px; letter-spacing:1.4px; color:#3c434a; text-shadow:0 -1px 1px rgba(0,0,0,.42), 0 1px 0 rgba(255,255,255,.42); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.fsim-plac-own{ font-size:11px; letter-spacing:1.2px; color:#2a3037; text-shadow:0 -1px 1px rgba(0,0,0,.42), 0 1px 0 rgba(255,255,255,.42); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+/* engraved field labels (REG / MODEL / OWNER) — the small caps to the left of each value, so the plate reads like a real registration certificate */
+.fsim-plac-k{ font-size:7px; letter-spacing:1.5px; color:#20262c; text-shadow:0 -1px 1px rgba(0,0,0,.38), 0 1px 0 rgba(255,255,255,.4); opacity:.75; margin-right:5px; }
+.fsim-plac-own.rented{ color:#7a3410; text-shadow:0 -1px 1px rgba(0,0,0,.4), 0 1px 0 rgba(255,255,255,.3); }
+/* cabin-occupancy readout: engraved label + a row of seat "LED" pips on the plate */
+.fsim-plac-seats{ display:flex; align-items:center; justify-content:center; gap:3px; margin-top:3px; }
+.fsim-plac-seats .lbl{ font-size:8px; letter-spacing:1px; color:#20262c; text-shadow:0 -1px 1px rgba(0,0,0,.4), 0 1px 0 rgba(255,255,255,.38); margin-right:2px; }
+.fsim-plac-seats .pip{ width:8px; height:8px; border-radius:50%; box-shadow:inset 0 1px 1px rgba(255,255,255,.4), inset 0 -1px 1px rgba(0,0,0,.4), 0 1px 2px rgba(0,0,0,.5); }
+/* ── engine-turned (guilloché) face: overlapping spun-metal arcs, blended so it reads on any theme skin ── */
+.fsim-plac-guilloche{ position:absolute; inset:0; pointer-events:none; opacity:.16; mix-blend-mode:overlay;
+  background:
+    repeating-radial-gradient(circle at 22% 46%, rgba(255,255,255,.5) 0 0.5px, rgba(0,0,0,.5) 0.5px 2.4px),
+    repeating-radial-gradient(circle at 78% 54%, rgba(255,255,255,.45) 0 0.5px, rgba(0,0,0,.45) 0.5px 2.4px),
+    repeating-radial-gradient(circle at 50% 128%, rgba(255,255,255,.4) 0 0.5px, rgba(0,0,0,.4) 0.5px 3px); }
+/* ── engraved data strip: a barcode ETCHED into the plate — each bar is a groove (dark recess
+   wall + a lit lower lip), tone-matched so it reads as cut metal on any skin, not printed ink ── */
+.fsim-plac-barcode{ display:flex; align-items:center; justify-content:center; gap:6px; margin-top:4px; }
+.fsim-plac-barcode .bars{ height:10px; width:80px; border-radius:1px;
+  background:repeating-linear-gradient(90deg,
+    rgba(0,0,0,.55) 0 1px, rgba(255,255,255,.34) 1px 1.6px, transparent 1.6px 3px,
+    rgba(0,0,0,.55) 3px 4.3px, rgba(255,255,255,.34) 4.3px 4.9px, transparent 4.9px 6px,
+    rgba(0,0,0,.55) 6px 6.7px, rgba(255,255,255,.34) 6.7px 7.3px, transparent 7.3px 9px); }
+.fsim-plac-barcode .sn{ font:7px/1 monospace; letter-spacing:1.5px; color:#20262c; text-shadow:0 -1px 1px rgba(0,0,0,.5), 0 1px 0 rgba(255,255,255,.4); white-space:nowrap; }
+/* ── bottom-right radio: transponder + COM/NAV with an LCD, buttons and knobs ── */
+.fsim-xpdr{ flex:1 1 0; display:flex; flex-direction:column; gap:5px; padding:7px 9px; overflow:hidden;
+  border-radius:8px; border:1px solid #161c22;
+  background:linear-gradient(180deg,#20262c 0%,#161b20 48%,#0c1116 100%);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.14), inset 0 -2px 6px rgba(0,0,0,.6), 0 2px 5px rgba(0,0,0,.5); }
+.fsim-xpdr-title{ font-size:8px; letter-spacing:2px; color:#5a6672; }
+.fsim-radio-lcd{ background:linear-gradient(180deg,#0a2018,#06140e); border:1px solid #0c1a14; border-radius:4px; padding:4px 6px;
+  box-shadow:inset 0 0 8px rgba(0,0,0,.8); display:flex; flex-direction:column; gap:1px; }
+.fsim-radio-frow{ display:flex; align-items:baseline; gap:6px; font-family:monospace; line-height:1.15; }
+.fsim-radio-frow .k{ font-size:8px; letter-spacing:1px; color:#3e7a5e; flex:0 0 26px; }
+.fsim-radio-frow b{ font-size:13px; font-weight:bold; letter-spacing:1px; color:#57e6a0; text-shadow:0 0 5px rgba(87,230,160,.5); }
+.fsim-radio-frow i{ font-size:9px; font-style:normal; color:#2f7d5a; margin-left:auto; }
+.fsim-radio-frow.sq b{ letter-spacing:3px; }
+.fsim-radio-frow i.mode{ color:#e0b23e; text-shadow:0 0 5px rgba(224,178,62,.4); }
+.fsim-radio-frow.tgt{ align-items:center; gap:4px; }
+.fsim-radio-frow.tgt b{ font-size:9px; letter-spacing:.5px; flex:1; text-align:center; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.fsim-tgt-btn{ font:9px/1 monospace; color:#57e6a0; background:linear-gradient(180deg,#0e2419,#081711); border:1px solid #14322a; border-radius:3px; padding:1px 4px; cursor:pointer; flex:0 0 auto; }
+.fsim-tgt-btn:active{ transform:translateY(1px); }
+#fsim-tgt-name{ cursor:pointer; }
+/* The GPS picker (THE GPS PICKER in openFlightSim). It lives on body, outside .fsim, so it
+   carries its own colours rather than the theme's. */
+.fsim-gps{ position:fixed; left:50%; top:50%; transform:translate(-50%,-50%); z-index:61; width:min(360px,calc(100vw - 32px));
+  max-height:min(72vh,540px); display:flex; flex-direction:column; background:rgba(5,14,10,.96); border:1px solid #2f7a55;
+  border-radius:8px; box-shadow:0 8px 28px rgba(0,0,0,.6), inset 0 0 18px rgba(87,230,160,.08); font:12px/1.35 monospace; color:#bff5d8; }
+.fsim-gps-hd{ display:flex; align-items:center; justify-content:space-between; padding:8px 10px; border-bottom:1px solid #1d4a35;
+  color:#57e6a0; letter-spacing:1.5px; }
+.fsim-gps-cur{ display:flex; align-items:center; justify-content:space-between; gap:8px; padding:6px 10px; color:#8fcfae;
+  border-bottom:1px solid #143526; font-size:11px; }
+.fsim-gps-cur b{ color:#ffcf3e; }
+.fsim-gps-body{ overflow-y:auto; padding:4px 0 6px; }
+.fsim-gps button{ font:inherit; color:inherit; background:none; border:0; cursor:pointer; }
+.fsim-gps-x{ color:#57e6a0 !important; font-size:13px !important; padding:0 2px; }
+.fsim-gps-clr{ border:1px solid #6a5a1c !important; border-radius:3px; color:#ffcf3e !important; padding:1px 6px !important; font-size:10px !important; }
+.fsim-gps-reg,.fsim-gps-f{ display:flex; align-items:baseline; gap:8px; width:100%; text-align:left; padding:6px 10px; }
+.fsim-gps-reg{ color:#d8ffe9 !important; letter-spacing:.5px; }
+.fsim-gps-reg.open{ background:rgba(87,230,160,.08); }
+.fsim-gps-reg i{ font-style:normal; color:#57e6a0; width:10px; }
+.fsim-gps-reg span,.fsim-gps-f span{ flex:1 1 auto; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.fsim-gps-reg em{ font-style:normal; color:#5f9a7c; font-size:10px; }
+.fsim-gps-reg b,.fsim-gps-f b{ font-weight:normal; color:#8fcfae; min-width:28px; text-align:right; }
+.fsim-gps-f{ padding-left:28px; color:#bff5d8 !important; }
+.fsim-gps-f.ctr{ color:#8fcfae !important; }
+.fsim-gps-f em{ font-style:normal; color:#c8a84a; font-size:9px; }
+.fsim-gps-reg:hover,.fsim-gps-f:hover{ background:rgba(87,230,160,.14); }
+.fsim-gps-note{ padding:8px 10px 8px 28px; color:#5f9a7c; font-size:11px; }
+.fsim-radio-deck{ display:flex; align-items:center; justify-content:space-between; gap:6px; margin-top:auto; }
+.fsim-radio-btns{ display:grid; grid-template-columns:1fr 1fr; gap:3px; }
+.fsim-radio-btn{ font:7px/1 monospace; letter-spacing:.5px; color:#9fb0bd; padding:3px 5px; min-width:24px; cursor:pointer;
+  background:linear-gradient(180deg,#2b333b,#171d23); border:1px solid #0c1116; border-radius:3px;
+  box-shadow:0 1px 0 rgba(255,255,255,.12) inset, 0 2px 3px rgba(0,0,0,.5); }
+.fsim-radio-btn:active{ transform:translateY(1px); box-shadow:inset 0 2px 4px rgba(0,0,0,.6); }
+.fsim-radio-btn.on{ color:var(--cy); border-color:var(--cy); box-shadow:0 0 6px var(--cy), inset 0 1px 0 rgba(255,255,255,.1); }
+.fsim-radio-knobs{ display:flex; gap:7px; }
+.fsim-radio-knob{ position:relative; width:26px; height:26px; border-radius:50%; cursor:pointer;
+  background:radial-gradient(circle at 50% 34%, #444c54, #20262c 70%, #0c1116);
+  border:1px solid #0a0e12; box-shadow:0 2px 4px rgba(0,0,0,.6), inset 0 1px 1px rgba(255,255,255,.18);
+  background-image:radial-gradient(circle at 50% 34%,#444c54,#20262c 70%,#0c1116), repeating-conic-gradient(from 0deg, rgba(0,0,0,.35) 0 6deg, rgba(255,255,255,.05) 6deg 12deg); }
+.fsim-radio-knob i{ position:absolute; left:50%; top:3px; width:2px; height:9px; margin-left:-1px; border-radius:1px; background:var(--cy); box-shadow:0 0 4px var(--cy); }
+/* ── panel/instrument lights toggle (dash switch) ───────────────────────── */
+.fsim-nightsw{ flex:0 0 auto; align-self:center; display:flex; align-items:center; gap:4px; padding:3px 8px; cursor:pointer; user-select:none;
+  font:8px/1 monospace; letter-spacing:1.5px; color:#6f8698; border-radius:5px;
+  background:linear-gradient(180deg,#141b21,#0a0f14); border:1px solid #16303f; box-shadow:inset 0 1px 0 rgba(255,255,255,.08); }
+.fsim-nightsw-led{ width:6px; height:6px; border-radius:50%; background:#243038; box-shadow:inset 0 0 2px #000; }
+/* switch thrown ON: it lights up hard — accent border, a lit legend, an inner+outer accent bloom
+   and a bright twin-ring LED. Reads as a real backlit rocker snapping on. */
+.fsim-nightsw.on{ color:var(--cy-lit,var(--cy)); border-color:var(--cy-lit,var(--cy));
+  background:linear-gradient(180deg, var(--cy-lit-dim,rgba(95,208,255,.24)), #0a0f14 72%);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.16), inset 0 0 8px var(--cy-lit-dim,rgba(95,208,255,.24)), 0 0 11px var(--cy-lit,var(--cy)), 0 0 24px var(--cy-lit-dim,rgba(95,208,255,.24));
+  text-shadow:0 0 7px var(--cy-lit,var(--cy)); }
+.fsim-nightsw.on .fsim-nightsw-led{ background:var(--cy-lit,var(--cy)); box-shadow:0 0 5px var(--cy-lit,var(--cy)), 0 0 11px var(--cy-lit,var(--cy)), inset 0 0 2px rgba(255,255,255,.7); }
+/* no engine = no power to the light circuits: the switches read dead until the master's on */
+.fsim-nightsw.nopwr{ opacity:.4; cursor:not-allowed; }
+/* ── PANEL lights ON: the flightdeck backlights in --cy-lit (the airframe's VIVID stock accent,
+   not the muted paint) — glass panels bloom from within, legends + titles glow, LCD haloes ── */
+.fsim-nightlit .fsim-pfd,.fsim-nightlit .fsim-mfd,.fsim-nightlit .fsim-gauges{ box-shadow:inset 0 0 32px var(--cy-lit-dim,rgba(95,208,255,.22)), inset 0 0 7px var(--cy-lit,var(--cy)), 0 0 22px var(--cy-lit-dim,rgba(95,208,255,.18)); border-color:var(--cy-lit,var(--cy)); }
+.fsim-nightlit .fsim-mfd-lbl,.fsim-nightlit .fsim-mfd-tog{ color:var(--cy-lit,var(--cy)); text-shadow:0 0 9px var(--cy-lit,var(--cy)), 0 0 3px var(--cy-lit,var(--cy)); }
+.fsim-nightlit .fsim-radio-lcd{ box-shadow:inset 0 0 8px rgba(0,0,0,.85), 0 0 15px var(--cy-lit-dim,rgba(95,208,255,.2)); }
+.fsim-nightlit .fsim-xpdr-title{ color:var(--cy-lit,var(--cy)); text-shadow:0 0 6px var(--cy-lit,var(--cy)); }
+.fsim-nightlit .fsim-thr-slot{ box-shadow:inset 0 0 4px #000, 0 0 9px var(--cy-lit-dim,rgba(95,208,255,.2)); }
+.fsim-yoke{ position:relative; flex:2 1 0; background:radial-gradient(circle at 50% 26%,#0e1a24,#070d13); border:1px solid #16303f;
+  border-radius:12px; touch-action:none; cursor:grab; overflow:visible; perspective:1000px; box-shadow:inset 0 0 14px rgba(0,0,0,.7); }
+.fsim-yoke.drag{ cursor:grabbing; }
+/* Big yoke anchored HIGH: it rises up into the centre of the gauges panel (between the
+   edge gauges) and its pull-down never drags it off the bottom of the frame. Seated so the
+   hub nameplate sits at the glass/band seam — not floating mid-gauges. */
+.fsim-yoke-svg{ position:absolute; left:17%; top:-82%; width:66%; height:188%; transform-style:preserve-3d; will-change:transform;
+  transform-origin:50% 66%; pointer-events:auto; filter:drop-shadow(0 7px 10px rgba(0,0,0,.65)); }
+/* the stick art rises up out of the yoke well; letting its painted shapes catch pointer
+   events (they bubble to the #fsim-yoke pad) means you can grab it anywhere, not just the base */
+/* aircraft name across the yoke hub, in the themed accent (per-craft, set on mount) */
+.fsim-yoke-name{ fill:var(--cy); font:bold 8px monospace; letter-spacing:.5px; }
+.fsim-climbmark{ position:absolute; left:10%; right:10%; top:66%; height:0; border-top:1px dashed rgba(95,224,160,0.55); pointer-events:none; }
+.fsim-climbmark::after{ content:'BEST CLIMB'; position:absolute; right:1px; top:-9px; font-size:7px; letter-spacing:1px; color:var(--gr); }
+.fsim-throttle{ position:relative; flex:0 0 56px; background:linear-gradient(180deg,#0c141c,#080e14); border:1px solid #16303f;
+  border-radius:10px; touch-action:none; cursor:ns-resize; overflow:hidden; }
+/* Throttle baulked by the cargo-nose interlock: the lever won't leave idle, so say so on the
+   quadrant itself rather than letting it feel like the control has broken. */
+.fsim-throttle.baulked{ border-color:#7a2a22; box-shadow:inset 0 0 12px rgba(255,70,60,.16); cursor:not-allowed; }
+.fsim-throttle.baulked .fsim-thr-grip{ filter:saturate(.35) brightness(.7); }
+.fsim-thr-slot{ position:absolute; left:50%; top:12px; bottom:22px; width:8px; margin-left:-4px; background:#04080c; border:1px solid #16303f; border-radius:4px; box-shadow:inset 0 0 4px #000; }
+.fsim-thr-notch{ position:absolute; left:8px; width:7px; height:1px; background:rgba(120,150,175,.4); }
+.fsim-thr-lever{ position:absolute; left:6px; right:6px; height:20px; }
+.fsim-thr-grip{ position:absolute; inset:0; border-radius:6px; background:linear-gradient(180deg,#3a6f8f 0%,#1a3d52 55%,#0e2130 100%);
+  border:1px solid var(--cy); box-shadow:0 2px 6px rgba(0,0,0,.6), inset 0 1px 2px rgba(255,255,255,.35); }
+.fsim-thr-grip::after{ content:''; position:absolute; left:22%; right:22%; top:8px; height:4px; background:repeating-linear-gradient(90deg,#0e2130 0 2px,rgba(95,208,255,.25) 2px 4px); }
+.fsim-thr-val{ position:absolute; bottom:4px; left:0; right:0; text-align:center; font:9px monospace; color:var(--cy); }
+.fsim-side{ flex:1 1 auto; min-height:0; display:flex; flex-direction:column; gap:6px; align-items:stretch; }
+/* flaps + trim share one horizontal row so they sit side by side instead of stacking/overlapping */
+.fsim-ft-row{ flex:1 1 auto; min-height:0; display:flex; gap:6px; align-items:stretch; }
+/* engine master: a round accent button with a power glyph that recesses when running */
+.fsim-engbtn{ flex:0 0 auto; align-self:center; width:52px; height:52px; border-radius:50%; border:2px solid var(--cy); color:var(--cy);
+  background:radial-gradient(circle at 50% 34%,#0e2230,#06121c); font-size:22px; line-height:1; cursor:pointer; user-select:none;
+  display:flex; align-items:center; justify-content:center; box-shadow:0 3px 0 rgba(0,0,0,.55), 0 5px 9px rgba(0,0,0,.5); transition:transform .09s, box-shadow .09s, text-shadow .12s; }
+.fsim-engbtn:active{ transform:translateY(2px); }
+.fsim-engbtn.on{ transform:translateY(3px); box-shadow:inset 0 3px 9px rgba(0,0,0,.85); text-shadow:0 0 10px var(--cy); }
+/* ── Flaps — per-airframe graphic; drag/click the gate to the nearest notch. Bigger +
+   translucent (glassy), so it reads as a real unit and ghosts nicely over the external view. ── */
+.fsim-flap{ flex:1 1 auto; display:flex; flex-direction:column; gap:3px; min-height:0; overflow:hidden; }
+.fsim-flap-body{ flex:1 1 auto; display:flex; gap:6px; align-items:stretch; min-height:46px; }
+.fsim-flap-scale{ flex:0 0 auto; display:flex; flex-direction:column; justify-content:space-between; font:9.5px monospace; letter-spacing:.5px; color:#8aa0b2; padding:2px 0; }
+.fsim-flap-scale span.on{ color:var(--cy); text-shadow:0 0 6px var(--cy); }
+.fsim-flapsw-track{ position:relative; flex:0 0 26px; background:rgba(4,8,12,.5); border:1px solid rgba(120,150,175,.35); border-radius:6px; cursor:pointer; box-shadow:inset 0 0 6px rgba(0,0,0,.6); touch-action:none; }
+.fsim-flapsw-knob{ position:absolute; left:3px; right:3px; height:28%; top:6%; border-radius:5px; background:linear-gradient(180deg,#d6e8f5,#7f9bb0); box-shadow:0 2px 6px rgba(0,0,0,.6); transition:top .1s; }
+.fsim-flap-cap{ flex:0 0 auto; text-align:center; font:8.5px monospace; letter-spacing:1.5px; color:#93aabc; }
+/* Johnson bar (Cessna / light craft) — a chunky WHITE wing-flaps lever in a smoked-glass case. */
+.fsim-flap-johnson{ background:rgba(10,13,17,.5); border:1px solid rgba(120,140,150,.3); border-radius:7px; padding:4px 6px; -webkit-backdrop-filter:blur(5px); backdrop-filter:blur(5px); }
+.fsim-flap-johnson .fsim-flapsw-track{ background:rgba(6,9,12,.55); border-color:rgba(120,140,150,.3); }
+.fsim-flap-johnson .fsim-flapsw-knob{ height:32%; background:linear-gradient(180deg,#fbfbfb,#c6cacc); border:1px solid #9aa0a2; }
+.fsim-flap-johnson .fsim-flap-cap{ color:#bcc2c6; }
+/* Airliner quadrant (the heavy) — a dark gated lever on a translucent brushed-metal plate. */
+.fsim-flap-quadrant{ background:linear-gradient(180deg,rgba(70,76,84,.55),rgba(30,34,40,.55)); border:1px solid rgba(150,160,170,.4); border-radius:6px; padding:4px 6px; box-shadow:inset 0 1px 0 rgba(255,255,255,.1); -webkit-backdrop-filter:blur(5px); backdrop-filter:blur(5px); }
+.fsim-flap-quadrant .fsim-flap-body{ gap:4px; }
+.fsim-flap-quadrant .fsim-flapsw-track{ background:rgba(8,10,12,.6); border-color:rgba(0,0,0,.6); }
+.fsim-flap-quadrant .fsim-flapsw-knob{ height:20%; background:linear-gradient(180deg,#34393e,#101315); border:1px solid #000; box-shadow:0 2px 5px rgba(0,0,0,.7); }
+.fsim-flap-quadrant .fsim-flap-scale{ color:#d2d6d8; }
+.fsim-flap-quadrant .fsim-flap-cap{ color:#d2d6d8; }
+/* elevator trim: NOSE DOWN (top) ↔ NOSE UP (bottom), a scrolling bead-chain wheel with a
+   T/O (take-off / neutral) detent and a bright position handle. drag/roll/click to set. */
+.fsim-trim{ flex:1 1 auto; display:flex; flex-direction:column; align-items:center; gap:3px; min-height:0; }
+.fsim-trim-end{ font:6px monospace; line-height:1.05; letter-spacing:.5px; text-align:center; opacity:.85; }
+.fsim-trim-nd{ color:#e79364; }   /* nose-down warm */
+.fsim-trim-nu{ color:#5fd0e0; }   /* nose-up cool */
+.fsim-trim-wheel{ position:relative; flex:1 1 auto; width:26px; min-height:64px; border-radius:8px; overflow:hidden; cursor:ns-resize; touch-action:none;
+  background:linear-gradient(90deg,#03070b,#0c1620 45%,#0c1620 55%,#03070b); border:1px solid #16303f; box-shadow:inset 0 0 8px #000, 0 1px 2px rgba(255,255,255,.15); }
+/* the bead chain — a vertical run of glossy beads tiled every 20px, scrolled by trim */
+.fsim-trim-drum{ position:absolute; left:50%; margin-left:-8px; width:16px; top:-50%; height:200%; will-change:transform;
+  background-image:radial-gradient(circle at 50% 42%,#8fccff 0 4.4px,#3f86e0 4.4px 6px,rgba(60,120,220,.22) 6px 7.2px,transparent 7.2px);
+  background-size:100% 20px; background-repeat:repeat-y; filter:drop-shadow(0 0 3px rgba(95,180,255,.5)); }
+.fsim-trim-detent{ position:absolute; left:0; right:0; top:50%; height:0; pointer-events:none; }
+.fsim-trim-detent::before{ content:''; position:absolute; left:0; right:0; top:-1px; height:2px; background:var(--cy); box-shadow:0 0 5px var(--cy); opacity:.8; }
+.fsim-trim-detent span{ position:absolute; left:1px; top:0; transform:translateY(-50%); font:5px monospace; letter-spacing:.3px; color:#a7bccb; background:rgba(4,10,16,.72); padding:0 1px; border-radius:1px; }
+.fsim-trim-handle{ position:absolute; left:1px; right:1px; height:6px; margin-top:-3px; border-radius:3px; pointer-events:none; transition:top .06s linear;
+  background:linear-gradient(#f0f7ff,#9fbfe0); box-shadow:0 0 6px var(--cy),0 1px 2px rgba(0,0,0,.6); }
+.fsim-trim-val{ font:9px monospace; color:#6f8698; letter-spacing:.5px; }
+.fsim-trim-val.set{ color:var(--yellow,#ffb43a); text-shadow:0 0 5px var(--yellow,#ffb43a); }
+/* ⚠ THE CORNER ROW IS RIGHT-ANCHORED AND HAND-SPACED, so a button's slot is its own 'right'
+   plus its own width and adding one means moving every button inboard of it. The row, from the
+   corner: ⚙ 8, ⤢ 36, ⛶ 64, ⊟ 92, ◎ EXT 120 (52 wide, so it runs to 172), ⟲ 178. The ladder
+   reads outward — the biggest rung nearest the corner — which is why big screen sits above
+   fullscreen rather than at the far end of the row. */
+.fsim-tunebtn{ position:absolute; top:6px; right:8px; z-index:4; background:rgba(6,12,18,.82); border:1px solid #35586e; color:#eef6ff; text-shadow:0 1px 2px rgba(0,0,0,.75);
+  border-radius:6px; width:24px; height:22px; font-size:12px; line-height:1; cursor:pointer; }
+.fsim-bigbtn{ position:absolute; top:6px; right:36px; z-index:4; background:rgba(6,12,18,.82); border:1px solid #35586e; color:#eef6ff; text-shadow:0 1px 2px rgba(0,0,0,.75);
+  border-radius:6px; width:24px; height:22px; font-size:13px; line-height:1; cursor:pointer; }
+.fsim-bigbtn.on{ background:var(--cy); color:#05141f; border-color:var(--cy); }
+.fsim-fsbtn{ position:absolute; top:6px; right:64px; z-index:4; background:rgba(6,12,18,.82); border:1px solid #35586e; color:#eef6ff; text-shadow:0 1px 2px rgba(0,0,0,.75);
+  border-radius:6px; width:24px; height:22px; font-size:13px; line-height:1; cursor:pointer; }
+.fsim-fsbtn.on{ background:var(--cy); color:#05141f; border-color:var(--cy); }
+.fsim-hidebtn{ position:absolute; top:6px; right:92px; z-index:4; background:rgba(6,12,18,.82); border:1px solid #35586e; color:#eef6ff; text-shadow:0 1px 2px rgba(0,0,0,.75);
+  border-radius:6px; width:24px; height:22px; font-size:12px; line-height:1; cursor:pointer; }
+.fsim-hidebtn.on{ background:var(--cy); color:#05141f; border-color:var(--cy); }
+/* Abort button — top-left, red so it reads as an exit hatch, not a normal control. */
+.fsim-abortbtn{ position:absolute; top:6px; left:8px; z-index:6; height:22px; padding:0 8px; border-radius:5px; font-size:10px; letter-spacing:1px; line-height:20px; cursor:pointer;
+  background:rgba(40,10,10,.72); border:1px solid #7a3a3a; color:#ff8a5b; }
+.fsim-abortbtn:hover{ border-color:#ff8a5b; box-shadow:0 0 8px rgba(255,120,80,.4); }
+.fsim-abortbtn:active{ transform:translateY(1px); }
+.fsim-abortbtn.armed{ background:var(--warn,#ff5b5b); color:#160404; border-color:var(--warn,#ff5b5b); }
+/* Disembark button — sits below the fuel gauge (which occupies the row under ABORT), green so it reads as a safe exit. Hidden unless on the ground. */
+.fsim-disembarkbtn{ display:none; position:absolute; top:44px; left:8px; z-index:6; height:22px; padding:0 8px; border-radius:5px; font-size:10px; letter-spacing:1px; line-height:20px; cursor:pointer;
+  background:rgba(8,32,20,.72); border:1px solid #1c6a44; color:#57e6a0; }
+.fsim-disembarkbtn.on{ display:block; }
+.fsim-disembarkbtn:hover{ border-color:#57e6a0; box-shadow:0 0 8px rgba(70,224,120,.4); }
+.fsim-disembarkbtn:active{ transform:translateY(1px); }
+/* DIVE / SURFACE (plugins/submersible): the Drake on or under the water, just above the spray button. */
+.fsim-sub{ position:absolute; bottom:40px; left:8px; z-index:6; display:flex; gap:6px; align-items:center; }
+.fsim-subbtn{ height:24px; padding:0 10px; border-radius:5px; font:600 11px/1 ui-monospace,monospace; letter-spacing:.06em;
+  color:#bfe9ff; background:rgba(6,30,48,.82); border:1px solid #2f7fae; cursor:pointer; }
+.fsim-subbtn:hover{ border-color:#7fd3ff; box-shadow:0 0 10px rgba(90,190,255,.45); }
+.fsim-subbtn:active{ transform:translateY(1px); }
+.fsim-subread{ font:600 11px/1 ui-monospace,monospace; color:#bfe9ff; text-shadow:0 1px 2px #000; white-space:nowrap; }
+.fsim-subread.low{ color:#ff8a5a; }
+body.fsim-external .fsim-sub{ bottom:198px; }
+.fsim-subcol{ display:flex; flex-direction:column; gap:5px; align-items:flex-start; }
+.fsim-subbal{ font:600 10px/1 ui-monospace,monospace; color:#8fd8ff; letter-spacing:.05em; text-shadow:0 1px 2px #000; white-space:nowrap; }
+.fsim-subgauge{ display:flex; gap:5px; align-items:stretch; height:120px; padding:5px; border-radius:6px;
+  background:rgba(4,14,22,.62); border:1px solid rgba(110,190,230,.35); }
+.fsim-subscale{ position:relative; width:16px; border-radius:3px; overflow:visible;
+  background:linear-gradient(#2b7fa6, #0b3550 55%, #03121e); }
+.fsim-subrating{ position:absolute; left:-3px; right:-3px; height:0; border-top:2px dashed #ff8a5a; }
+.fsim-subfloor{ position:absolute; left:0; right:0; bottom:0; background:repeating-linear-gradient(135deg,#6b5a3a 0 3px,#3e3322 3px 6px); border-top:1px solid #b89b62; }
+.fsim-subnow{ position:absolute; left:-4px; right:-4px; height:0; border-top:2px solid #e8fbff; transition:top .15s linear; }
+.fsim-subnow span{ position:absolute; left:24px; top:-7px; font:600 10px/1 ui-monospace,monospace; color:#e8fbff; white-space:nowrap; text-shadow:0 1px 2px #000; }
+.fsim-subnow.over{ border-top-color:#ff5a3a; }
+.fsim-subnow.over span{ color:#ff8a5a; }
+.fsim-subtanks{ display:flex; gap:3px; margin-left:34px; }
+.fsim-subtank{ position:relative; width:11px; border:1px solid rgba(160,210,235,.6); border-radius:4px; overflow:hidden; background:rgba(200,230,245,.08); }
+.fsim-subfill{ position:absolute; left:-2px; right:-2px; bottom:0; height:0; transform-origin:50% 100%;
+  background:linear-gradient(#5fc4f0, #1a6f9e); }
+.fsim-subfill.moving{ background:linear-gradient(#bfeaff, #3fa3d4 20%, #1a6f9e); }
+/* Crop-duster SPRAY button (ag-planes only) — sits at the lower-left, chem-green. */
+.fsim-spraybtn{ position:absolute; bottom:8px; left:8px; z-index:6; height:24px; padding:0 10px; border-radius:5px;
+  font:bold 10px/22px monospace; letter-spacing:1px; cursor:pointer;
+  background:rgba(12,34,16,.78); border:1px solid #3c7a2e; color:#b6f26a; }
+.fsim-spraybtn:hover{ border-color:#b6f26a; box-shadow:0 0 10px rgba(150,220,90,.45); }
+.fsim-spraybtn:active{ transform:translateY(1px); }
+/* HOPPER button — the SPRAY button's sibling, one step along the same rail: what you press on
+   the ramp, next to what you press in the air. Same chem-green, a shade dimmer. */
+.fsim-hopbtn{ position:absolute; bottom:8px; left:86px; z-index:6; height:24px; padding:0 10px; border-radius:5px;
+  font:bold 10px/22px monospace; letter-spacing:1px; cursor:pointer;
+  background:rgba(12,34,16,.78); border:1px solid #2f6626; color:#8fce62; }
+.fsim-hopbtn:hover{ border-color:#b6f26a; color:#b6f26a; box-shadow:0 0 10px rgba(150,220,90,.35); }
+.fsim-hopbtn:active{ transform:translateY(1px); }
+/* The pour dialog: a small chem-green card over the glass. Each can is a row you press, so the
+   whole interface is "what am I carrying that's wet" — no typing a container's name. */
+.fsim-hop{ position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); z-index:9; width:min(340px,86%);
+  max-height:76%; overflow:auto; padding:10px 12px 12px; border-radius:8px;
+  background:rgba(8,20,10,.94); border:1px solid #3c7a2e; box-shadow:0 6px 26px rgba(0,0,0,.6); display:none; }
+.fsim-hop.on{ display:block; }
+.fsim-hop h4{ margin:0 0 2px; font:bold 11px/1.5 monospace; letter-spacing:1.5px; color:#b6f26a; }
+.fsim-hop .hop-sub{ font:10px/1.5 monospace; color:#7fa06a; margin-bottom:8px; }
+.fsim-hop .hop-gauge{ height:9px; border-radius:4px; background:rgba(60,122,46,.22); border:1px solid #2f6626; overflow:hidden; margin-bottom:9px; }
+.fsim-hop .hop-fill{ height:100%; background:linear-gradient(90deg,#4f9c33,#b6f26a); }
+.fsim-hop .hop-can{ display:block; width:100%; text-align:left; margin:0 0 5px; padding:6px 8px; border-radius:5px; cursor:pointer;
+  background:rgba(16,40,18,.9); border:1px solid #33702a; color:#cfe9b4; font:11px/1.35 monospace; }
+.fsim-hop .hop-can:hover:not(:disabled){ border-color:#b6f26a; box-shadow:0 0 8px rgba(150,220,90,.3); }
+.fsim-hop .hop-can b{ color:#b6f26a; }
+.fsim-hop .hop-can span{ display:block; color:#7fa06a; font-size:10px; }
+.fsim-hop .hop-can:disabled{ opacity:.45; cursor:not-allowed; }
+.fsim-hop .hop-none{ font:10px/1.6 monospace; color:#7fa06a; }
+.fsim-hop .hop-close{ float:right; margin:-2px -2px 0 0; padding:0 6px; border-radius:4px; cursor:pointer;
+  background:transparent; border:1px solid #33702a; color:#8fce62; font:bold 11px/18px monospace; }
+/* Spray mist FX — a fine chemical haze that drifts down the lower windshield on a dusting pass. */
+.fsim-spray-mist{ position:absolute; left:0; right:0; bottom:0; height:46%; z-index:4; pointer-events:none; opacity:0;
+  background:linear-gradient(180deg, rgba(196,230,150,0) 0%, rgba(196,230,150,.16) 55%, rgba(210,240,170,.34) 100%); }
+.fsim-spray-mist.on{ animation:fsim-spray 1.7s ease-out; }
+@keyframes fsim-spray{ 0%{ opacity:0; transform:translateY(-8%); } 22%{ opacity:1; } 100%{ opacity:0; transform:translateY(4%); } }
+/* Crop-duster hopper rig — a schematic of the plane's belly: on a dusting pass the clamshell
+   bay doors swing open and the booms fan atomised spray. Bottom-centre, one pass then closes. */
+.fsim-sprayrig{ position:absolute; left:50%; bottom:7%; transform:translateX(-50%); width:min(48%,230px); z-index:5; pointer-events:none; opacity:0; }
+.fsim-sprayrig.on{ animation:sr-show 1.9s ease-out; }
+@keyframes sr-show{ 0%{ opacity:0; } 8%{ opacity:1; } 82%{ opacity:1; } 100%{ opacity:0; } }
+.fsim-sprayrig svg{ width:100%; height:auto; overflow:visible; filter:drop-shadow(0 0 4px rgba(120,200,80,.4)); }
+.fsim-sprayrig .sr-boom{ stroke:#8fce62; stroke-width:2.4; stroke-linecap:round; }
+.fsim-sprayrig .sr-noz line{ stroke:#8fce62; stroke-width:1.6; }
+.fsim-sprayrig .sr-hopper{ fill:rgba(18,40,18,.9); stroke:#7fbf55; stroke-width:1.6; }
+.fsim-sprayrig .sr-hatch{ stroke:#5c8f3c; stroke-width:1.4; }
+.fsim-sprayrig .sr-door{ fill:rgba(26,52,24,.95); stroke:#b6f26a; stroke-width:1.4; transform-box:fill-box; }
+.fsim-sprayrig .sr-door-l{ transform-origin:left center; }
+.fsim-sprayrig .sr-door-r{ transform-origin:right center; }
+.fsim-sprayrig.on .sr-door-l{ animation:sr-door-l 1.9s ease-in-out; }
+.fsim-sprayrig.on .sr-door-r{ animation:sr-door-r 1.9s ease-in-out; }
+@keyframes sr-door-l{ 0%{ transform:rotate(0); } 16%{ transform:rotate(84deg); } 84%{ transform:rotate(84deg); } 100%{ transform:rotate(0); } }
+@keyframes sr-door-r{ 0%{ transform:rotate(0); } 16%{ transform:rotate(-84deg); } 84%{ transform:rotate(-84deg); } 100%{ transform:rotate(0); } }
+.fsim-sprayrig .sr-drop{ stroke:#c6ee8c; stroke-width:2; stroke-linecap:round; opacity:0; }
+.fsim-sprayrig.on .sr-drop{ animation:sr-drop .7s ease-in infinite; }
+@keyframes sr-drop{ 0%{ opacity:0; transform:translateY(0); } 20%{ opacity:.9; } 100%{ opacity:0; transform:translateY(30px); } }
+.fsim-sprayrig .sr-tag{ display:block; text-align:center; margin-top:2px; font:bold 9px monospace; letter-spacing:2px; color:#b6f26a; text-shadow:0 0 5px rgba(0,0,0,.8); }
+/* Admin-only rewind button — bottom of the left exit column (under ABORT + fuel + DISEMBARK), deliberately red so it never reads as a normal control. */
+.fsim-adminbtn{ position:absolute; top:70px; left:8px; z-index:6; width:26px; height:22px; border-radius:5px; font-size:12px; cursor:pointer;
+  background:rgba(40,10,10,.72); border:1px solid #7a3a3a; color:#ff8a5b; }
+.fsim-adminbtn:hover{ border-color:#ff8a5b; box-shadow:0 0 8px rgba(255,120,80,.4); }
+.fsim-adminbtn:active{ transform:translateY(1px); }
+.fsim-viewbtn{ position:absolute; top:6px; right:120px; z-index:4; background:rgba(6,12,18,.82); border:1px solid #35586e; color:#eef6ff; text-shadow:0 1px 2px rgba(0,0,0,.75);
+  border-radius:6px; height:22px; padding:0 7px; font-size:10px; letter-spacing:1px; line-height:20px; cursor:pointer; }
+.fsim-viewbtn.on{ background:var(--cy); color:#05141f; border-color:var(--cy); }
+/* Orbit-camera reset (⟲) — only meaningful in external view, so hidden until then. Sits just left of ◎ EXT. */
+/* ⚠ CLEAR OF THE VIEW BUTTON, WHICH IT WAS NOT. The row is right-anchored, so a button's slot
+   is 'right' plus its own width: the view button is 52 wide, so at right:120 it runs to
+   right:172 — and this once sat twelve pixels underneath it. Both are only ever shown together
+   (this one is external-view-only, and that is the view the button switches out of), so the
+   orbit reset was permanently half-buried under the corner of ◎ EXT. Whoever adds a button to
+   this row moves every number outboard of it, this one included. */
+.fsim-orbitreset{ display:none; position:absolute; top:6px; right:178px; z-index:4; background:rgba(6,12,18,.82); border:1px solid #35586e; color:#eef6ff; text-shadow:0 1px 2px rgba(0,0,0,.75);
+  border-radius:6px; height:22px; width:24px; padding:0; font-size:13px; line-height:20px; text-align:center; cursor:pointer; }
+.fsim-orbitreset:hover{ background:var(--cy); color:#05141f; border-color:var(--cy); }
+body.fsim-external .fsim-orbitreset{ display:block; }
+/* Rudder pedals — a pair of angled steel foot plates, centred at the base of the view so they
+   flank the flight stick like real rudder pedals. Each plate is a perspective-tilted trapezoid
+   with grip ridges; it tips FORWARD proportional to the live deflection via --d (driven per
+   frame, 0..1), and .act lights the plate in the accent while that side is deflected. The pair
+   is centred with a wide gap so the two plates straddle the flight stick — L to its left, R to
+   its right — instead of sitting as a tight pair beneath it, and floats above the scene so it
+   reads the same in both views. */
+.fsim-pedals{ position:absolute; left:50%; transform:translateX(-50%); bottom:26px; z-index:7; display:flex; gap:150px; pointer-events:none; perspective:210px; }
+.fsim-pedal{ pointer-events:auto; touch-action:none; user-select:none; -webkit-user-select:none; -webkit-tap-highlight-color:transparent;
+  width:38px; height:38px; padding:0; border:0; background:none; cursor:pointer; opacity:.82; transition:opacity .15s; }
+.fsim-pedal:hover{ opacity:1; }
+/* the foot plate itself: wider at the base, tilted back in perspective, ridged for grip */
+.fsim-pedal-face{ display:flex; align-items:flex-end; justify-content:center; height:100%; will-change:transform;
+  transform-origin:50% 100%; transform:rotateX(calc(22deg + var(--d,0) * 30deg)) translateY(calc(var(--d,0) * 2px));
+  clip-path:polygon(20% 0, 80% 0, 100% 100%, 0 100%);
+  background:repeating-linear-gradient(0deg, rgba(0,0,0,.34) 0 2px, rgba(255,255,255,.04) 2px 5px), linear-gradient(180deg,#41525f,#131c24);
+  border-bottom:2px solid #05233a; box-shadow:inset 0 1px 0 rgba(255,255,255,.16), 0 2px 5px rgba(0,0,0,.55);
+  color:#dbeaf6; font:bold 11px/1 monospace; letter-spacing:.5px; padding-bottom:3px; text-shadow:0 1px 1px rgba(0,0,0,.7); }
+.fsim-pedal.act .fsim-pedal-face{ background:repeating-linear-gradient(0deg, rgba(0,0,0,.28) 0 2px, rgba(255,255,255,.06) 2px 5px), linear-gradient(180deg,var(--cy),#123246);
+  color:#04141f; border-bottom-color:var(--cy); box-shadow:inset 0 1px 0 rgba(255,255,255,.25), 0 0 9px var(--cy); }
+/* External view: the chase-cam world fills the WHOLE pane and the flying controls
+   (throttle + cyclic + master/flaps) float over it on TRANSPARENT backgrounds — no black
+   instrument slab. The dashboard (PFD/gauges/MFD, placard, transponder) is dropped, and so
+   is the PANEL lights switch (nothing to light out here). The pane growth is in styles.css. */
+body.fsim-external .fsim{ position:relative; }
+body.fsim-external .fsim-view{ position:absolute; inset:0; height:auto; z-index:0; }
+body.fsim-external .fsim-pfd, body.fsim-external .fsim-gauges, body.fsim-external .fsim-mfd,
+body.fsim-external .fsim-placard, body.fsim-external .fsim-xpdr,
+body.fsim-external .fsim-nightsw, body.fsim-external .fsim-reticle { display:none; }   /* external view draws the two-part gunsight on the canvas instead */
+/* control rows → transparent overlays pinned over the bottom of the view */
+body.fsim-external .fsim-glass{ position:absolute; left:8px; bottom:8px; width:auto; height:150px; gap:6px; z-index:6; background:transparent; }
+body.fsim-external .fsim-rightctl{ flex:0 0 auto; }
+body.fsim-external .fsim-throttle,
+body.fsim-external #fsim-root.fsim-painted .fsim-throttle{ background:rgba(6,12,18,.34); border-color:rgba(120,150,175,.4); }   /* keep the throttle a faint translucent overlay out here — don't let the painted-dashboard rule fill it with the solid cabin colour */
+/* Weapons/flare strip lifted clear of the throttle + trim wheel (the glass sits at bottom:8px, ~150px tall). */
+body.fsim-external .fsim-weap{ bottom:166px; }
+/* SPRAY + HOPPER take the same lift, and for the same reason: out here the throttle overlay
+   lands ON them at bottom:8px, so the buttons are drawn but unpressable. They share the
+   weapons strip's row without a clash — the ag-plane carries no hardpoints, so a craft has
+   one of these two sets or the other, never both. */
+body.fsim-external .fsim-spraybtn, body.fsim-external .fsim-hopbtn{ bottom:166px; }
+body.fsim-external .fsim-ctl{ position:absolute; left:0; right:0; bottom:18px; height:120px; z-index:5; background:transparent; pointer-events:none; justify-content:center; }
+body.fsim-external .fsim-yoke,
+body.fsim-external #fsim-root.fsim-painted .fsim-yoke{ background:transparent; border-color:transparent; box-shadow:none; flex:0 0 140px; pointer-events:auto; }   /* the stick floats over the scene — no interior yoke-well slab out here, even on a painted craft (the painted-dashboard rule must not leak the cabin colour into the exterior view). The grab pad is only 140px (±70) so it clears the rudder pedals that straddle it at ±75px — out here the pad sits ON TOP of the pedals (its .fsim-ctl row is z-index:5, the pedals are trapped in the z-index:0 .fsim-view), so a wide pad would swallow every pedal press. */
+/* External view: the yoke/stick sits a bit higher now (the chase cam rides the craft
+   higher/more centred, leaving room below it), a touch bigger. The SVG is scaled UP and
+   re-centred so the visible stick keeps its old size/position despite the narrower pad
+   (it overflows the pad, which is fine — overflow:visible), and it no longer captures
+   pointers itself: the grab region is exactly the 140px pad, so a wide wheel's rim can't
+   reach over the pedals either. */
+body.fsim-external .fsim-yoke-svg{ top:2%; left:-29%; width:159%; height:150%; pointer-events:none; }
+/* A couple of BIG important gauges, relocated to the bottom-right of the outside view. */
+.fsim-extg{ position:absolute; right:10px; bottom:10px; z-index:5; display:none; flex-direction:column; gap:7px; align-items:flex-end; pointer-events:none; }
+body.fsim-external .fsim-extg{ display:flex; }
+.fsim-extg-row{ display:flex; align-items:baseline; gap:8px; background:rgba(6,12,18,.66); border:1px solid #1c3a4c; border-radius:9px; padding:5px 14px; min-width:172px; justify-content:flex-end; box-shadow:0 2px 10px rgba(0,0,0,.4); }
+.fsim-extg-lbl{ color:var(--cy); font-size:13px; letter-spacing:2px; }
+.fsim-extg-row b{ color:#e8f4ff; font-size:38px; line-height:1; font-variant-numeric:tabular-nums; min-width:92px; text-align:right; }
+.fsim-extg-u{ color:#6f8fa4; font-size:13px; }
+/* Tuning panel. Was 186px wide at 9px type with all ~60 controls in one scroll — unreadable,
+   and you hunted for a slider by scrolling past forty others. Now: legible type, real hit
+   targets, sections that COLLAPSE (state remembered), and a panel you can resize. */
+.fsim-tune{ position:absolute; top:32px; right:8px; z-index:4; width:min(312px, 88vw); max-height:80vh; overflow-y:auto; overscroll-behavior:contain;
+  background:rgba(8,14,20,.96); border:1px solid #1d3242; border-radius:10px; padding:10px; resize:horizontal; box-shadow:0 10px 30px rgba(0,0,0,.6); }
+.fsim-tune-drag{ font-size:11px; letter-spacing:1px; color:var(--cy); background:rgba(20,33,45,.98); border:1px solid #1d3f52; border-radius:6px; padding:7px 9px; margin:-3px 0 8px; cursor:move; user-select:none; touch-action:none; position:sticky; top:-10px; z-index:2; }
+/* Section header doubles as the collapse toggle. */
+.fsim-tune .thdr{ font-size:11px; letter-spacing:1px; color:var(--cy); border-bottom:1px solid #1d3f52; padding:6px 5px; margin:2px 0 7px; position:sticky; top:-10px;
+  background:rgba(10,18,26,.99); z-index:1; cursor:pointer; user-select:none; display:flex; align-items:center; gap:7px; border-radius:6px 6px 0 0; }
+.fsim-tune .thdr:hover{ background:rgba(24,42,56,.99); }
+.fsim-tune .tsec + .thdr{ margin-top:12px; }   /* gap only BETWEEN sections, not above the first */
+.fsim-tune .thdr .car{ flex:0 0 9px; transition:transform .12s; font-size:9px; }
+.fsim-tune .thdr.collapsed .car{ transform:rotate(-90deg); }
+.fsim-tune .thdr .cnt{ margin-left:auto; color:#5f7c91; font-size:10px; letter-spacing:0; }
+.fsim-tune .tsec.collapsed{ display:none; }
+.fsim-tune .trow{ display:flex; align-items:center; gap:8px; margin-bottom:7px; font-size:11px; }
+.fsim-tune .trow label{ flex:0 0 98px; color:#8fa6b8; letter-spacing:.3px; line-height:1.25; }
+.fsim-tune .trow input{ flex:1; min-width:0; }
+.fsim-tune .tv{ flex:0 0 48px; text-align:right; color:var(--cy); font-variant-numeric:tabular-nums; font-size:11px; }
+/* Fatter track + a thumb you can actually grab (the 9px default was a coin-flip on a trackpad). */
+.fsim-tune input[type=range]{ -webkit-appearance:none; appearance:none; height:18px; background:transparent; cursor:pointer; }
+.fsim-tune input[type=range]::-webkit-slider-runnable-track{ height:5px; border-radius:3px; background:#1d3242; }
+.fsim-tune input[type=range]::-webkit-slider-thumb{ -webkit-appearance:none; appearance:none; width:15px; height:15px; margin-top:-5px; border-radius:50%; background:var(--cy); border:1px solid #0a1119; }
+.fsim-tune input[type=range]::-webkit-slider-thumb:hover{ filter:brightness(1.25); }
+.fsim-tune input[type=range]::-moz-range-track{ height:5px; border-radius:3px; background:#1d3242; }
+.fsim-tune input[type=range]::-moz-range-thumb{ width:14px; height:14px; border-radius:50%; background:var(--cy); border:1px solid #0a1119; }
+.fsim-tune input[type=color]{ height:22px; padding:0; border:1px solid #1d3f52; border-radius:4px; background:transparent; cursor:pointer; }
+
+/* ══ PAINTED DASHBOARD — when the craft has a paint job, the whole instrument-panel
+   surround takes the interior CABIN / UPHOLSTERY colour, overriding the per-craft
+   flightdeck skin. ID-scoped (#fsim-root) so it beats the class-only .fsim-theme-*
+   backgrounds. The black glass screens keep their dark faces — only their bezels and
+   the physical slabs (yoke well, throttle body, radio deck, master/panel switches)
+   retint. The --panel-* vars are set on mount from the cabin hex. ══ */
+#fsim-root.fsim-painted .fsim-yoke{ border-color:var(--panel-edge); background:radial-gradient(circle at 50% 26%,var(--panel-hi),var(--panel-lo)); }
+#fsim-root.fsim-painted .fsim-throttle{ border-color:var(--panel-edge); background:linear-gradient(180deg,var(--panel-hi),var(--panel-lo)); }
+#fsim-root.fsim-painted .fsim-xpdr{ border-color:var(--panel-edge); background:linear-gradient(180deg,var(--panel-hi) 0%,var(--panel-mid) 48%,var(--panel-lo) 100%); }
+#fsim-root.fsim-painted .fsim-pfd,#fsim-root.fsim-painted .fsim-mfd,#fsim-root.fsim-painted .fsim-gauges{ border-color:var(--panel-edge); }
+#fsim-root.fsim-painted .fsim-engbtn{ background:radial-gradient(circle at 50% 34%,var(--panel-hi),var(--panel-lo)); }
+#fsim-root.fsim-painted .fsim-nightsw{ background:linear-gradient(180deg,var(--panel-hi),var(--panel-lo)); }
+#fsim-root.fsim-painted .fsim-nightsw.on{ background:linear-gradient(180deg, var(--cy-lit-dim,rgba(95,208,255,.24)), var(--panel-lo) 72%); }
+/* The maker's plate is dashboard too: take the upholstery metal + the paint accent, so EVERY
+   painted airframe gets the stamped plate — not a Mule-only look. Bolts stay steel hardware. */
+#fsim-root.fsim-painted .fsim-placard{ border-color:var(--panel-edge);
+  background:
+    radial-gradient(circle at 11px 11px, #d6dade 0 1.3px, #9098a0 1.3px 2.5px, #565e66 2.5px 3.7px, rgba(0,0,0,.6) 3.7px 4.6px, transparent 4.8px),
+    radial-gradient(circle at calc(100% - 11px) 11px, #d6dade 0 1.3px, #9098a0 1.3px 2.5px, #565e66 2.5px 3.7px, rgba(0,0,0,.6) 3.7px 4.6px, transparent 4.8px),
+    radial-gradient(circle at 11px calc(100% - 11px), #d6dade 0 1.3px, #9098a0 1.3px 2.5px, #565e66 2.5px 3.7px, rgba(0,0,0,.6) 3.7px 4.6px, transparent 4.8px),
+    radial-gradient(circle at calc(100% - 11px) calc(100% - 11px), #d6dade 0 1.3px, #9098a0 1.3px 2.5px, #565e66 2.5px 3.7px, rgba(0,0,0,.6) 3.7px 4.6px, transparent 4.8px),
+    repeating-linear-gradient(96deg, rgba(255,255,255,.055) 0 1px, rgba(0,0,0,.14) 1px 2px),
+    linear-gradient(158deg, var(--panel-hi) 0%, var(--panel-mid) 40%, var(--panel-lo) 78%, var(--panel-hi) 100%);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.24), inset 0 0 0 1px rgba(0,0,0,.32), inset 0 -3px 8px rgba(0,0,0,.58), 0 2px 6px rgba(0,0,0,.5); }
+#fsim-root.fsim-painted .fsim-placard::before{ border-color:rgba(255,255,255,.16); }
+/* light engraved inks clear the (typically dark) upholstery metal; the reg glows in the paint accent */
+#fsim-root.fsim-painted .fsim-plac-title{ color:var(--cy); text-shadow:0 1px 0 rgba(0,0,0,.5); }
+#fsim-root.fsim-painted .fsim-plac-reg{ color:#f6f2ff; text-shadow:0 -1px 1px rgba(0,0,0,.9), 0 1px 0 rgba(255,255,255,.28), 0 2px 3px rgba(0,0,0,.6), 0 0 8px var(--cy); }
+#fsim-root.fsim-painted .fsim-plac-model, #fsim-root.fsim-painted .fsim-plac-own{ color:#e6eaf3; text-shadow:0 -1px 1px rgba(0,0,0,.85), 0 1px 0 rgba(255,255,255,.14); }
+#fsim-root.fsim-painted .fsim-plac-k, #fsim-root.fsim-painted .fsim-plac-seats .lbl{ color:#c2cadb; text-shadow:0 -1px 1px rgba(0,0,0,.8), 0 1px 0 rgba(255,255,255,.12); }
+/* etched serial (the base engraved barcode applies to painted plates too) */
+#fsim-root.fsim-painted .fsim-plac-barcode .sn{ color:#c2cadb; text-shadow:0 -1px 1px rgba(0,0,0,.7); }
+
+/* ══ MULE flightdeck skin — a Grand-Caravan-scale glass cockpit, but cyberpunk: ══
+   carbon-fibre chrome, violet+magenta neon, an aggressive glareshield. All the
+   var(--cy) chrome (radios, knobs, engine master, throttle, night wash, MFD labels)
+   retints for free; below we reskin the hard panels off the brushed-steel/tan look. */
+.fsim-theme-mule{ --cy:#a874ff; --mg:#ff4a9a; --gr:#7dff9e; --cy-dim:rgba(168,116,255,.20); }
+/* deeper glass bezels + a violet-lit windshield surround */
+.fsim-theme-mule .fsim-view{ box-shadow:inset 0 0 0 2px #2a1840, inset 0 4px 20px rgba(168,116,255,.14), 0 0 14px rgba(0,0,0,.72); }
+/* glareshield lip: a dark carbon brow across the top of the forward view */
+.fsim-theme-mule .fsim-view::after{ content:''; position:absolute; left:0; right:0; top:0; height:15px; z-index:2; pointer-events:none;
+  background:linear-gradient(180deg,#151019 0%,#0c0a10 58%,rgba(12,10,16,0) 100%); border-bottom:1px solid rgba(168,116,255,.4); box-shadow:0 1px 9px rgba(168,116,255,.28); }
+.fsim-theme-mule .fsim-pfd,.fsim-theme-mule .fsim-mfd,.fsim-theme-mule .fsim-gauges{ border-color:#3a2a5a; box-shadow:inset 0 0 10px rgba(0,0,0,.78), 0 0 0 1px rgba(168,116,255,.16); }
+/* maker's plate → carbon-fibre weave with a violet etch (kills the brushed-steel tan) */
+.fsim-theme-mule .fsim-placard{ border-color:#241832;
+  background:
+    radial-gradient(circle at 11px 11px, #ffffff 0 0.6px, #cbb6ff 0.6px 1.3px, #7a63b4 1.3px 2.5px, #2a1e48 2.5px 3.7px, rgba(0,0,0,.6) 3.7px 4.6px, transparent 4.8px),
+    radial-gradient(circle at calc(100% - 11px) 11px, #ffffff 0 0.6px, #cbb6ff 0.6px 1.3px, #7a63b4 1.3px 2.5px, #2a1e48 2.5px 3.7px, rgba(0,0,0,.6) 3.7px 4.6px, transparent 4.8px),
+    radial-gradient(circle at 11px calc(100% - 11px), #ffffff 0 0.6px, #cbb6ff 0.6px 1.3px, #7a63b4 1.3px 2.5px, #2a1e48 2.5px 3.7px, rgba(0,0,0,.6) 3.7px 4.6px, transparent 4.8px),
+    radial-gradient(circle at calc(100% - 11px) calc(100% - 11px), #ffffff 0 0.6px, #cbb6ff 0.6px 1.3px, #7a63b4 1.3px 2.5px, #2a1e48 2.5px 3.7px, rgba(0,0,0,.6) 3.7px 4.6px, transparent 4.8px),
+    repeating-linear-gradient(96deg, rgba(200,170,255,.05) 0 1px, rgba(0,0,0,.16) 1px 2px),
+    linear-gradient(158deg,#241a38 0%,#312247 34%,#1a1228 72%,#241a38 100%);
+  box-shadow:inset 0 1px 0 rgba(198,166,255,.30), inset 0 0 0 1px rgba(0,0,0,.35), inset 0 -3px 8px rgba(0,0,0,.6), 0 2px 6px rgba(0,0,0,.55); }
+.fsim-theme-mule .fsim-placard::before{ border-color:rgba(198,166,255,.14); }
+.fsim-theme-mule .fsim-plac-title{ color:#a874ff; text-shadow:0 1px 0 rgba(255,255,255,.12), 0 -1px 0 rgba(0,0,0,.5); }
+/* die-struck into the carbon: deep recessed top edge, a violet-lit lower lip, and an etch-glow rising from the groove */
+.fsim-theme-mule .fsim-plac-reg{ color:#efe7ff;
+  text-shadow:0 -1px 1px rgba(0,0,0,.92), 0 1px 0 rgba(198,166,255,.42), 0 2px 3px rgba(0,0,0,.58), 0 0 8px rgba(168,116,255,.32); }
+/* supporting text engraved into the carbon too: recess above + a faint violet-lit lip below */
+.fsim-theme-mule .fsim-plac-own{ color:#b3a4d6; text-shadow:0 -1px 1px rgba(0,0,0,.85), 0 1px 0 rgba(198,166,255,.16); }
+.fsim-theme-mule .fsim-plac-model{ color:#b3a4d6; text-shadow:0 -1px 1px rgba(0,0,0,.85), 0 1px 0 rgba(198,166,255,.16); }
+.fsim-theme-mule .fsim-plac-k{ color:#8f7dbe; text-shadow:0 -1px 1px rgba(0,0,0,.8), 0 1px 0 rgba(198,166,255,.14); }
+.fsim-theme-mule .fsim-plac-own.rented{ color:#ff4a9a; text-shadow:0 -1px 1px rgba(0,0,0,.7); }
+/* etched serial (the base engraved barcode applies on the carbon too) */
+.fsim-theme-mule .fsim-plac-barcode .sn{ color:#9686bc; text-shadow:0 -1px 1px rgba(0,0,0,.6); }
+/* the day-sheen glint reads violet on the carbon */
+.fsim-theme-mule .fsim-plac-sheen{ background:linear-gradient(133deg, rgba(184,150,255,0) 30%, rgba(184,150,255,.42) 46%, rgba(184,150,255,.06) 52%, rgba(184,150,255,0) 66%); }
+/* radio/transponder deck → carbon */
+.fsim-theme-mule .fsim-xpdr{ border-color:#241832; background:linear-gradient(180deg,#1c1428 0%,#140e1e 48%,#0a0710 100%); box-shadow:inset 0 1px 0 rgba(168,116,255,.16), inset 0 -2px 6px rgba(0,0,0,.62), 0 2px 5px rgba(0,0,0,.5); }
+.fsim-theme-mule .fsim-xpdr-title{ color:#8a6ab0; }
+/* yoke well + throttle body → carbon-violet, grip goes neon */
+.fsim-theme-mule .fsim-yoke{ border-color:#3a2a5a; background:radial-gradient(circle at 50% 26%,#1b1230,#0a0712); }
+.fsim-theme-mule .fsim-throttle{ border-color:#3a2a5a; background:linear-gradient(180deg,#161028,#0a0712); }
+.fsim-theme-mule .fsim-thr-grip{ background:linear-gradient(180deg,#8a5ae0 0%,#3f1f74 55%,#1a0e30 100%); }
+.fsim-theme-mule .fsim-thr-grip::after{ background:repeating-linear-gradient(90deg,#1a0e30 0 2px,rgba(168,116,255,.32) 2px 4px); }
+
+/* ══ LEVIATHAN flightdeck skin — an Antonov An-124 Ruslan: the iconic Soviet turquoise ══
+   instrument panels, riveted alloy plates, a deep teal glow. Utilitarian, vast, brutal. */
+.fsim-theme-leviathan{ --cy:#3fd6c0; --mg:#ff8a3a; --gr:#8dffb4; --cy-dim:rgba(63,214,192,.20); }
+.fsim-theme-leviathan .fsim-view{ box-shadow:inset 0 0 0 2px #123a34, inset 0 4px 20px rgba(63,214,192,.13), 0 0 14px rgba(0,0,0,.72); }
+/* glareshield lip: a dark brow with a teal-lit sill */
+.fsim-theme-leviathan .fsim-view::after{ content:''; position:absolute; left:0; right:0; top:0; height:15px; z-index:2; pointer-events:none;
+  background:linear-gradient(180deg,#0e1a18 0%,#081210 58%,rgba(8,18,16,0) 100%); border-bottom:1px solid rgba(63,214,192,.4); box-shadow:0 1px 9px rgba(63,214,192,.26); }
+.fsim-theme-leviathan .fsim-pfd,.fsim-theme-leviathan .fsim-mfd,.fsim-theme-leviathan .fsim-gauges{ border-color:#1f4a43; box-shadow:inset 0 0 10px rgba(0,0,0,.78), 0 0 0 1px rgba(63,214,192,.16); }
+/* maker's plate → riveted turquoise alloy (a stamped Soviet data plate) */
+.fsim-theme-leviathan .fsim-placard{ border-color:#123330;
+  background:
+    radial-gradient(circle at 10px 10px, #cdd6d2 0 1.4px, #8f9a96 1.4px 2.6px, #4a5652 2.6px 3.6px, rgba(0,0,0,.5) 3.6px 4.4px, transparent 4.6px),
+    radial-gradient(circle at calc(100% - 10px) 10px, #cdd6d2 0 1.4px, #8f9a96 1.4px 2.6px, #4a5652 2.6px 3.6px, rgba(0,0,0,.5) 3.6px 4.4px, transparent 4.6px),
+    radial-gradient(circle at 10px calc(100% - 10px), #cdd6d2 0 1.4px, #8f9a96 1.4px 2.6px, #4a5652 2.6px 3.6px, rgba(0,0,0,.5) 3.6px 4.4px, transparent 4.6px),
+    radial-gradient(circle at calc(100% - 10px) calc(100% - 10px), #cdd6d2 0 1.4px, #8f9a96 1.4px 2.6px, #4a5652 2.6px 3.6px, rgba(0,0,0,.5) 3.6px 4.4px, transparent 4.6px),
+    repeating-linear-gradient(92deg, rgba(190,230,220,.05) 0 1px, rgba(0,0,0,.06) 1px 2px),
+    linear-gradient(157deg,#264c46 0%,#315a52 22%,#1e3d38 46%,#2b514a 68%,#173029 100%);
+  box-shadow:inset 0 1px 0 rgba(190,230,220,.22), inset 0 -2px 5px rgba(0,0,0,.55), 0 2px 5px rgba(0,0,0,.5); }
+.fsim-theme-leviathan .fsim-plac-title{ color:#0c211d; text-shadow:0 1px 0 rgba(180,230,220,.32); }
+.fsim-theme-leviathan .fsim-plac-reg{ color:#08110f; text-shadow:0 1px 0 rgba(180,230,220,.38); }
+.fsim-theme-leviathan .fsim-plac-own{ color:#1c3833; text-shadow:0 1px 0 rgba(180,230,220,.22); }
+.fsim-theme-leviathan .fsim-plac-own.rented{ color:#b0500f; text-shadow:0 1px 0 rgba(180,230,220,.22); }
+.fsim-theme-leviathan .fsim-plac-sheen{ background:linear-gradient(133deg, rgba(180,240,228,0) 30%, rgba(180,240,228,.4) 46%, rgba(180,240,228,.06) 52%, rgba(180,240,228,0) 66%); }
+/* radio/transponder deck → turquoise alloy */
+.fsim-theme-leviathan .fsim-xpdr{ border-color:#123330; background:linear-gradient(180deg,#274c46 0%,#1a3833 48%,#0e211d 100%); box-shadow:inset 0 1px 0 rgba(63,214,192,.16), inset 0 -2px 6px rgba(0,0,0,.6), 0 2px 5px rgba(0,0,0,.5); }
+.fsim-theme-leviathan .fsim-xpdr-title{ color:#5aa89a; }
+/* yoke well + throttle body → turquoise-grey, grip goes teal */
+.fsim-theme-leviathan .fsim-yoke{ border-color:#1f4a43; background:radial-gradient(circle at 50% 26%,#173832,#0a1210); }
+.fsim-theme-leviathan .fsim-throttle{ border-color:#1f4a43; background:linear-gradient(180deg,#153230,#0a1210); }
+.fsim-theme-leviathan .fsim-thr-grip{ background:linear-gradient(180deg,#3fd6c0 0%,#1d7a6c 55%,#0e302b 100%); }
+.fsim-theme-leviathan .fsim-thr-grip::after{ background:repeating-linear-gradient(90deg,#0e302b 0 2px,rgba(63,214,192,.32) 2px 4px); }
+
+/* ══ REAPER flightdeck skin — a Fairchild A-10 Warthog: olive-drab armour plate, ══
+   gunmetal, gunsight-amber instruments, a red master-arm. Built around the gun. */
+.fsim-theme-reaper{ --cy:#ff9a38; --mg:#ff4a3a; --gr:#8de24a; --cy-dim:rgba(255,154,56,.20); }
+.fsim-theme-reaper .fsim-view{ box-shadow:inset 0 0 0 2px #2e2a16, inset 0 4px 20px rgba(255,154,56,.12), 0 0 14px rgba(0,0,0,.72); }
+.fsim-theme-reaper .fsim-view::after{ content:''; position:absolute; left:0; right:0; top:0; height:15px; z-index:2; pointer-events:none;
+  background:linear-gradient(180deg,#171509 0%,#0f0d06 58%,rgba(15,13,6,0) 100%); border-bottom:1px solid rgba(255,154,56,.4); box-shadow:0 1px 9px rgba(255,154,56,.26); }
+.fsim-theme-reaper .fsim-pfd,.fsim-theme-reaper .fsim-mfd,.fsim-theme-reaper .fsim-gauges{ border-color:#4a4426; box-shadow:inset 0 0 10px rgba(0,0,0,.78), 0 0 0 1px rgba(255,154,56,.16); }
+/* maker's plate → olive-drab armour plate w/ steel bolts (mil-spec stencil) */
+.fsim-theme-reaper .fsim-placard{ border-color:#33301a;
+  background:
+    radial-gradient(circle at 10px 10px, #cdd0c2 0 1.4px, #909480 1.4px 2.6px, #52543e 2.6px 3.6px, rgba(0,0,0,.5) 3.6px 4.4px, transparent 4.6px),
+    radial-gradient(circle at calc(100% - 10px) 10px, #cdd0c2 0 1.4px, #909480 1.4px 2.6px, #52543e 2.6px 3.6px, rgba(0,0,0,.5) 3.6px 4.4px, transparent 4.6px),
+    radial-gradient(circle at 10px calc(100% - 10px), #cdd0c2 0 1.4px, #909480 1.4px 2.6px, #52543e 2.6px 3.6px, rgba(0,0,0,.5) 3.6px 4.4px, transparent 4.6px),
+    radial-gradient(circle at calc(100% - 10px) calc(100% - 10px), #cdd0c2 0 1.4px, #909480 1.4px 2.6px, #52543e 2.6px 3.6px, rgba(0,0,0,.5) 3.6px 4.4px, transparent 4.6px),
+    repeating-linear-gradient(92deg, rgba(210,220,180,.04) 0 1px, rgba(0,0,0,.06) 1px 2px),
+    linear-gradient(157deg,#3a3a22 0%,#454528 22%,#2c2c18 46%,#3f3f24 68%,#212112 100%);
+  box-shadow:inset 0 1px 0 rgba(210,220,180,.18), inset 0 -2px 5px rgba(0,0,0,.55), 0 2px 5px rgba(0,0,0,.5); }
+.fsim-theme-reaper .fsim-plac-title{ color:#1a1808; text-shadow:0 1px 0 rgba(210,220,180,.28); }
+.fsim-theme-reaper .fsim-plac-reg{ color:#100e04; text-shadow:0 1px 0 rgba(210,220,180,.32); }
+.fsim-theme-reaper .fsim-plac-own{ color:#33301a; text-shadow:0 1px 0 rgba(210,220,180,.2); }
+.fsim-theme-reaper .fsim-plac-own.rented{ color:#b03010; text-shadow:0 1px 0 rgba(210,220,180,.2); }
+.fsim-theme-reaper .fsim-plac-sheen{ background:linear-gradient(133deg, rgba(255,210,150,0) 30%, rgba(255,210,150,.36) 46%, rgba(255,210,150,.06) 52%, rgba(255,210,150,0) 66%); }
+.fsim-theme-reaper .fsim-xpdr{ border-color:#33301a; background:linear-gradient(180deg,#3a3a22 0%,#26260f 48%,#141406 100%); box-shadow:inset 0 1px 0 rgba(255,154,56,.14), inset 0 -2px 6px rgba(0,0,0,.6), 0 2px 5px rgba(0,0,0,.5); }
+.fsim-theme-reaper .fsim-xpdr-title{ color:#b08a4a; }
+.fsim-theme-reaper .fsim-yoke{ border-color:#4a4426; background:radial-gradient(circle at 50% 26%,#2a2814,#0f0d06); }
+.fsim-theme-reaper .fsim-throttle{ border-color:#4a4426; background:linear-gradient(180deg,#26260f,#0f0d06); }
+.fsim-theme-reaper .fsim-thr-grip{ background:linear-gradient(180deg,#ff9a38 0%,#8a5210 55%,#301c08 100%); }
+.fsim-theme-reaper .fsim-thr-grip::after{ background:repeating-linear-gradient(90deg,#301c08 0 2px,rgba(255,154,56,.32) 2px 4px); }
+
+/* ══ VIPER flightdeck skin — a modern attack-heli GLASS COCKPIT: black composite armour, a ══
+   cool cyan-green phosphor HUD glow, threat-red weapons accents. Sleek and menacing — a gunship
+   deck built around the missile-swarm sight, not a bubble you sightsee from. */
+.fsim-theme-viper{ --cy:#5fe6c0; --mg:#ff5a6a; --gr:#7dffcf; --cy-dim:rgba(95,230,192,.20); }
+.fsim-theme-viper .fsim-view{ box-shadow:inset 0 0 0 2px #10231e, inset 0 4px 22px rgba(95,230,192,.13), 0 0 14px rgba(0,0,0,.78); }
+.fsim-theme-viper .fsim-view::after{ content:''; position:absolute; left:0; right:0; top:0; height:16px; z-index:2; pointer-events:none;
+  background:linear-gradient(180deg,#0a1512 0%,#060d0b 62%,rgba(6,13,11,0) 100%); border-bottom:1px solid rgba(95,230,192,.5); box-shadow:0 1px 10px rgba(95,230,192,.3); }
+.fsim-theme-viper .fsim-pfd,.fsim-theme-viper .fsim-mfd,.fsim-theme-viper .fsim-gauges{ border-color:#1c3a33; box-shadow:inset 0 0 12px rgba(0,0,0,.82), 0 0 0 1px rgba(95,230,192,.18); }
+/* maker's plate → black carbon-composite w/ a fine cyan etch grain + corner bolts */
+.fsim-theme-viper .fsim-placard{ border-color:#132a24;
+  background:
+    radial-gradient(circle at 10px 10px, #9feada 0 1.4px, #3f7a6e 1.4px 2.6px, #123028 2.6px 3.6px, rgba(0,0,0,.55) 3.6px 4.4px, transparent 4.6px),
+    radial-gradient(circle at calc(100% - 10px) 10px, #9feada 0 1.4px, #3f7a6e 1.4px 2.6px, #123028 2.6px 3.6px, rgba(0,0,0,.55) 3.6px 4.4px, transparent 4.6px),
+    radial-gradient(circle at 10px calc(100% - 10px), #9feada 0 1.4px, #3f7a6e 1.4px 2.6px, #123028 2.6px 3.6px, rgba(0,0,0,.55) 3.6px 4.4px, transparent 4.6px),
+    radial-gradient(circle at calc(100% - 10px) calc(100% - 10px), #9feada 0 1.4px, #3f7a6e 1.4px 2.6px, #123028 2.6px 3.6px, rgba(0,0,0,.55) 3.6px 4.4px, transparent 4.6px),
+    repeating-linear-gradient(45deg, rgba(95,230,192,.05) 0 1px, rgba(0,0,0,.16) 1px 3px),
+    linear-gradient(157deg,#16302a 0%,#1d3e36 24%,#0e211d 48%,#183a32 70%,#0a1c18 100%);
+  box-shadow:inset 0 1px 0 rgba(160,240,220,.16), inset 0 -2px 5px rgba(0,0,0,.6), 0 2px 5px rgba(0,0,0,.55); }
+.fsim-theme-viper .fsim-plac-title{ color:#0a201b; text-shadow:0 1px 0 rgba(150,240,215,.3); }
+.fsim-theme-viper .fsim-plac-reg{ color:#04120e; text-shadow:0 1px 0 rgba(150,240,215,.34); }
+.fsim-theme-viper .fsim-plac-own{ color:#173a32; text-shadow:0 1px 0 rgba(150,240,215,.22); }
+.fsim-theme-viper .fsim-plac-own.rented{ color:#c0304a; text-shadow:0 1px 0 rgba(150,240,215,.22); }
+.fsim-theme-viper .fsim-plac-sheen{ background:linear-gradient(133deg, rgba(150,240,215,0) 30%, rgba(150,240,215,.42) 46%, rgba(150,240,215,.07) 52%, rgba(150,240,215,0) 66%); }
+.fsim-theme-viper .fsim-xpdr{ border-color:#132a24; background:linear-gradient(180deg,#1a3630 0%,#102420 48%,#080f0d 100%); box-shadow:inset 0 1px 0 rgba(95,230,192,.16), inset 0 -2px 6px rgba(0,0,0,.62), 0 2px 5px rgba(0,0,0,.5); }
+.fsim-theme-viper .fsim-xpdr-title{ color:#4fbfa4; }
+.fsim-theme-viper .fsim-yoke{ border-color:#1c3a33; background:radial-gradient(circle at 50% 26%,#122a24,#070f0c); }
+.fsim-theme-viper .fsim-throttle{ border-color:#1c3a33; background:linear-gradient(180deg,#102420,#070f0c); }
+.fsim-theme-viper .fsim-thr-grip{ background:linear-gradient(180deg,#5fe6c0 0%,#1d8a72 55%,#0c2e26 100%); }
+.fsim-theme-viper .fsim-thr-grip::after{ background:repeating-linear-gradient(90deg,#0c2e26 0 2px,rgba(95,230,192,.34) 2px 4px); }
+
+/* ══ MAYFLY flightdeck skin — an ultralight trainer: bright daytime plexiglass, ══
+   bare riveted alloy, a clean sky-aqua glow. The lightest, friendliest deck — no
+   carbon, no armour, just an honest little bubble you learn to fly in. */
+.fsim-theme-mayfly{ --cy:#5fe0e6; --mg:#59c8ff; --gr:#7dffb0; --cy-dim:rgba(95,224,230,.20); }
+/* airy plexi surround — a pale, sunlit windshield frame instead of a dark bezel */
+.fsim-theme-mayfly .fsim-view{ box-shadow:inset 0 0 0 2px #1c4750, inset 0 4px 20px rgba(95,224,230,.16), 0 0 14px rgba(0,0,0,.6); }
+/* a thin light glareshield brow — much softer than the transport/gunship lips */
+.fsim-theme-mayfly .fsim-view::after{ content:''; position:absolute; left:0; right:0; top:0; height:12px; z-index:2; pointer-events:none;
+  background:linear-gradient(180deg,#16242a 0%,#0e181c 60%,rgba(14,24,28,0) 100%); border-bottom:1px solid rgba(95,224,230,.42); box-shadow:0 1px 8px rgba(95,224,230,.24); }
+.fsim-theme-mayfly .fsim-pfd,.fsim-theme-mayfly .fsim-mfd,.fsim-theme-mayfly .fsim-gauges{ border-color:#1f5058; box-shadow:inset 0 0 10px rgba(0,0,0,.72), 0 0 0 1px rgba(95,224,230,.16); }
+/* maker's plate → bare riveted aluminium (an unpainted trainer's data plate) */
+.fsim-theme-mayfly .fsim-placard{ border-color:#2a4a50;
+  background:
+    radial-gradient(circle at 10px 10px, #eef4f6 0 1.4px, #b6c4c8 1.4px 2.6px, #6c7c80 2.6px 3.6px, rgba(0,0,0,.4) 3.6px 4.4px, transparent 4.6px),
+    radial-gradient(circle at calc(100% - 10px) 10px, #eef4f6 0 1.4px, #b6c4c8 1.4px 2.6px, #6c7c80 2.6px 3.6px, rgba(0,0,0,.4) 3.6px 4.4px, transparent 4.6px),
+    radial-gradient(circle at 10px calc(100% - 10px), #eef4f6 0 1.4px, #b6c4c8 1.4px 2.6px, #6c7c80 2.6px 3.6px, rgba(0,0,0,.4) 3.6px 4.4px, transparent 4.6px),
+    radial-gradient(circle at calc(100% - 10px) calc(100% - 10px), #eef4f6 0 1.4px, #b6c4c8 1.4px 2.6px, #6c7c80 2.6px 3.6px, rgba(0,0,0,.4) 3.6px 4.4px, transparent 4.6px),
+    repeating-linear-gradient(92deg, rgba(230,244,246,.06) 0 1px, rgba(0,0,0,.05) 1px 2px),
+    linear-gradient(157deg,#516a6f 0%,#61797d 24%,#3f5459 48%,#57706f 70%,#33474b 100%);
+  box-shadow:inset 0 1px 0 rgba(230,244,246,.26), inset 0 -2px 5px rgba(0,0,0,.5), 0 2px 5px rgba(0,0,0,.5); }
+.fsim-theme-mayfly .fsim-plac-title{ color:#0c2226; text-shadow:0 1px 0 rgba(200,240,244,.34); }
+.fsim-theme-mayfly .fsim-plac-reg{ color:#08161a; text-shadow:0 1px 0 rgba(200,240,244,.4); }
+.fsim-theme-mayfly .fsim-plac-own{ color:#1c3a3f; text-shadow:0 1px 0 rgba(200,240,244,.24); }
+.fsim-theme-mayfly .fsim-plac-own.rented{ color:#0f7f88; text-shadow:0 1px 0 rgba(200,240,244,.24); }
+.fsim-theme-mayfly .fsim-plac-sheen{ background:linear-gradient(133deg, rgba(200,244,246,0) 30%, rgba(200,244,246,.44) 46%, rgba(200,244,246,.07) 52%, rgba(200,244,246,0) 66%); }
+/* radio/transponder deck → light alloy */
+.fsim-theme-mayfly .fsim-xpdr{ border-color:#2a4a50; background:linear-gradient(180deg,#3a5459 0%,#26383c 48%,#141d20 100%); box-shadow:inset 0 1px 0 rgba(95,224,230,.16), inset 0 -2px 6px rgba(0,0,0,.55), 0 2px 5px rgba(0,0,0,.5); }
+.fsim-theme-mayfly .fsim-xpdr-title{ color:#5aa8b0; }
+/* yoke well + throttle body → pale alloy, grip goes sky-aqua */
+.fsim-theme-mayfly .fsim-yoke{ border-color:#1f5058; background:radial-gradient(circle at 50% 26%,#173238,#0a1214); }
+.fsim-theme-mayfly .fsim-throttle{ border-color:#1f5058; background:linear-gradient(180deg,#153034,#0a1214); }
+.fsim-theme-mayfly .fsim-thr-grip{ background:linear-gradient(180deg,#5fe0e6 0%,#1d7a80 55%,#0e2e30 100%); }
+.fsim-theme-mayfly .fsim-thr-grip::after{ background:repeating-linear-gradient(90deg,#0e2e30 0 2px,rgba(95,224,230,.32) 2px 4px); }
+
+/* ══ GRASSHOPPER flightdeck skin — a Piper L-4 liaison: olive-drab fabric-and-tube, ══
+   khaki stencilled data plates, a lime instrument glow. Spartan military-observation deck. */
+.fsim-theme-grasshopper{ --cy:#9ad46a; --mg:#d7c24a; --gr:#b6ff8a; --cy-dim:rgba(154,212,106,.20); }
+.fsim-theme-grasshopper .fsim-view{ box-shadow:inset 0 0 0 2px #2c3a1c, inset 0 4px 20px rgba(154,212,106,.13), 0 0 14px rgba(0,0,0,.66); }
+.fsim-theme-grasshopper .fsim-view::after{ content:''; position:absolute; left:0; right:0; top:0; height:13px; z-index:2; pointer-events:none;
+  background:linear-gradient(180deg,#1a1f10 0%,#12160b 60%,rgba(18,22,11,0) 100%); border-bottom:1px solid rgba(154,212,106,.4); box-shadow:0 1px 8px rgba(154,212,106,.22); }
+.fsim-theme-grasshopper .fsim-pfd,.fsim-theme-grasshopper .fsim-mfd,.fsim-theme-grasshopper .fsim-gauges{ border-color:#3a4a24; box-shadow:inset 0 0 10px rgba(0,0,0,.74), 0 0 0 1px rgba(154,212,106,.16); }
+/* maker's plate → stencilled olive-drab data plate w/ steel bolts */
+.fsim-theme-grasshopper .fsim-placard{ border-color:#2c3618;
+  background:
+    radial-gradient(circle at 10px 10px, #c6cdae 0 1.4px, #8b9470 1.4px 2.6px, #4c5432 2.6px 3.6px, rgba(0,0,0,.5) 3.6px 4.4px, transparent 4.6px),
+    radial-gradient(circle at calc(100% - 10px) 10px, #c6cdae 0 1.4px, #8b9470 1.4px 2.6px, #4c5432 2.6px 3.6px, rgba(0,0,0,.5) 3.6px 4.4px, transparent 4.6px),
+    radial-gradient(circle at 10px calc(100% - 10px), #c6cdae 0 1.4px, #8b9470 1.4px 2.6px, #4c5432 2.6px 3.6px, rgba(0,0,0,.5) 3.6px 4.4px, transparent 4.6px),
+    radial-gradient(circle at calc(100% - 10px) calc(100% - 10px), #c6cdae 0 1.4px, #8b9470 1.4px 2.6px, #4c5432 2.6px 3.6px, rgba(0,0,0,.5) 3.6px 4.4px, transparent 4.6px),
+    repeating-linear-gradient(92deg, rgba(200,220,160,.04) 0 1px, rgba(0,0,0,.06) 1px 2px),
+    linear-gradient(157deg,#3c4522 0%,#47512a 24%,#2e3618 48%,#414a26 70%,#232a12 100%);
+  box-shadow:inset 0 1px 0 rgba(200,220,160,.18), inset 0 -2px 5px rgba(0,0,0,.55), 0 2px 5px rgba(0,0,0,.5); }
+.fsim-theme-grasshopper .fsim-plac-title{ color:#18200a; text-shadow:0 1px 0 rgba(200,220,160,.28); }
+.fsim-theme-grasshopper .fsim-plac-reg{ color:#0f1405; text-shadow:0 1px 0 rgba(200,220,160,.32); }
+.fsim-theme-grasshopper .fsim-plac-own{ color:#2c3618; text-shadow:0 1px 0 rgba(200,220,160,.2); }
+.fsim-theme-grasshopper .fsim-plac-own.rented{ color:#9a7a10; text-shadow:0 1px 0 rgba(200,220,160,.2); }
+.fsim-theme-grasshopper .fsim-plac-sheen{ background:linear-gradient(133deg, rgba(210,230,170,0) 30%, rgba(210,230,170,.38) 46%, rgba(210,230,170,.06) 52%, rgba(210,230,170,0) 66%); }
+.fsim-theme-grasshopper .fsim-xpdr{ border-color:#2c3618; background:linear-gradient(180deg,#3a4522 0%,#26300f 48%,#141a06 100%); box-shadow:inset 0 1px 0 rgba(154,212,106,.14), inset 0 -2px 6px rgba(0,0,0,.58), 0 2px 5px rgba(0,0,0,.5); }
+.fsim-theme-grasshopper .fsim-xpdr-title{ color:#8ab05a; }
+.fsim-theme-grasshopper .fsim-yoke{ border-color:#3a4a24; background:radial-gradient(circle at 50% 26%,#232c14,#0c0f07); }
+.fsim-theme-grasshopper .fsim-throttle{ border-color:#3a4a24; background:linear-gradient(180deg,#26300f,#0c0f07); }
+.fsim-theme-grasshopper .fsim-thr-grip{ background:linear-gradient(180deg,#9ad46a 0%,#4d7a2c 55%,#1e3010 100%); }
+.fsim-theme-grasshopper .fsim-thr-grip::after{ background:repeating-linear-gradient(90deg,#1e3010 0 2px,rgba(154,212,106,.32) 2px 4px); }
+
+/* ══ LOCUST flightdeck skin — a crop-duster / ag-plane: a workmanlike deck in scuffed ══
+   safety-yellow, chem-stained enamel and worn alloy, amber-lit dials. Honest and utilitarian —
+   built to fly low passes all day, not to look pretty. */
+.fsim-theme-locust{ --cy:#ffd24a; --mg:#ff8a3a; --gr:#a6ff6a; --cy-dim:rgba(255,210,74,.20); }
+.fsim-theme-locust .fsim-view{ box-shadow:inset 0 0 0 2px #3a2e0e, inset 0 4px 20px rgba(255,210,74,.12), 0 0 14px rgba(0,0,0,.7); }
+.fsim-theme-locust .fsim-view::after{ content:''; position:absolute; left:0; right:0; top:0; height:14px; z-index:2; pointer-events:none;
+  background:linear-gradient(180deg,#191307 0%,#100c04 60%,rgba(16,12,4,0) 100%); border-bottom:1px solid rgba(255,210,74,.42); box-shadow:0 1px 9px rgba(255,210,74,.24); }
+.fsim-theme-locust .fsim-pfd,.fsim-theme-locust .fsim-mfd,.fsim-theme-locust .fsim-gauges{ border-color:#4a3c14; box-shadow:inset 0 0 10px rgba(0,0,0,.78), 0 0 0 1px rgba(255,210,74,.16); }
+/* maker's plate → scuffed chem-stained ag enamel w/ steel bolts (a workhorse data plate) */
+.fsim-theme-locust .fsim-placard{ border-color:#3a3416;
+  background:
+    radial-gradient(circle at 10px 10px, #d9cf9e 0 1.4px, #9c9166 1.4px 2.6px, #57502c 2.6px 3.6px, rgba(0,0,0,.5) 3.6px 4.4px, transparent 4.6px),
+    radial-gradient(circle at calc(100% - 10px) 10px, #d9cf9e 0 1.4px, #9c9166 1.4px 2.6px, #57502c 2.6px 3.6px, rgba(0,0,0,.5) 3.6px 4.4px, transparent 4.6px),
+    radial-gradient(circle at 10px calc(100% - 10px), #d9cf9e 0 1.4px, #9c9166 1.4px 2.6px, #57502c 2.6px 3.6px, rgba(0,0,0,.5) 3.6px 4.4px, transparent 4.6px),
+    radial-gradient(circle at calc(100% - 10px) calc(100% - 10px), #d9cf9e 0 1.4px, #9c9166 1.4px 2.6px, #57502c 2.6px 3.6px, rgba(0,0,0,.5) 3.6px 4.4px, transparent 4.6px),
+    repeating-linear-gradient(92deg, rgba(225,215,150,.05) 0 1px, rgba(0,0,0,.06) 1px 2px),
+    linear-gradient(157deg,#b9a94e 0%,#c8b95e 24%,#8f8236 48%,#b0a24a 70%,#6f6528 100%);
+  box-shadow:inset 0 1px 0 rgba(235,225,160,.22), inset 0 -2px 5px rgba(0,0,0,.5), 0 2px 5px rgba(0,0,0,.5); }
+.fsim-theme-locust .fsim-plac-title{ color:#2a2408; text-shadow:0 1px 0 rgba(235,225,160,.3); }
+.fsim-theme-locust .fsim-plac-reg{ color:#1a1604; text-shadow:0 1px 0 rgba(235,225,160,.34); }
+.fsim-theme-locust .fsim-plac-own{ color:#4a4218; text-shadow:0 1px 0 rgba(235,225,160,.2); }
+.fsim-theme-locust .fsim-plac-own.rented{ color:#9a5010; text-shadow:0 1px 0 rgba(235,225,160,.2); }
+.fsim-theme-locust .fsim-plac-sheen{ background:linear-gradient(133deg, rgba(240,232,180,0) 30%, rgba(240,232,180,.36) 46%, rgba(240,232,180,.06) 52%, rgba(240,232,180,0) 66%); }
+.fsim-theme-locust .fsim-xpdr{ border-color:#231c08; background:linear-gradient(180deg,#2a2010 0%,#1a1408 48%,#0c0904 100%); box-shadow:inset 0 1px 0 rgba(255,210,74,.16), inset 0 -2px 6px rgba(0,0,0,.62), 0 2px 5px rgba(0,0,0,.5); }
+.fsim-theme-locust .fsim-xpdr-title{ color:#b08a3a; }
+.fsim-theme-locust .fsim-yoke{ border-color:#4a3c14; background:radial-gradient(circle at 50% 26%,#1f1808,#0c0904); }
+.fsim-theme-locust .fsim-throttle{ border-color:#4a3c14; background:linear-gradient(180deg,#1a1408,#0c0904); }
+.fsim-theme-locust .fsim-thr-grip{ background:linear-gradient(180deg,#ffd24a 0%,#8a6410 55%,#301c08 100%); }
+.fsim-theme-locust .fsim-thr-grip::after{ background:repeating-linear-gradient(90deg,#301c08 0 2px,rgba(255,210,74,.32) 2px 4px); }
+
+/* Shrike — the bombardier's deck. Dark green crackle enamel, heavy black bezels, and the
+   one magenta lamp that matches the tile crosshair on the glass. */
+.fsim-theme-shrike{ --cy:#ff5cb0; --mg:#ff4a6a; --gr:#7fe6a8; --cy-dim:rgba(255,92,176,.20); }
+.fsim-theme-shrike .fsim-view{ box-shadow:inset 0 0 0 2px #1e2a22, inset 0 4px 20px rgba(255,92,176,.10), 0 0 14px rgba(0,0,0,.72); }
+.fsim-theme-shrike .fsim-view::after{ content:''; position:absolute; left:0; right:0; top:0; height:15px; z-index:2; pointer-events:none;
+  background:linear-gradient(180deg,#0d1512 0%,#080d0b 60%,rgba(8,13,11,0) 100%); border-bottom:1px solid rgba(255,92,176,.38); box-shadow:0 1px 9px rgba(255,92,176,.20); }
+.fsim-theme-shrike .fsim-pfd,.fsim-theme-shrike .fsim-mfd,.fsim-theme-shrike .fsim-gauges{ border-color:#2c3e33; box-shadow:inset 0 0 10px rgba(0,0,0,.80), 0 0 0 1px rgba(255,92,176,.14); }
+.fsim-theme-shrike .fsim-placard{ border-color:#243329;
+  background:repeating-linear-gradient(94deg, rgba(210,225,214,.045) 0 1px, rgba(0,0,0,.07) 1px 2px),
+    linear-gradient(157deg,#3d5245 0%,#48604f 26%,#2c3d33 52%,#3a4e41 74%,#1f2b24 100%);
+  box-shadow:inset 0 1px 0 rgba(200,220,206,.16), inset 0 -2px 5px rgba(0,0,0,.55), 0 2px 5px rgba(0,0,0,.5); }
+.fsim-theme-shrike .fsim-plac-title{ color:#0e1611; text-shadow:0 1px 0 rgba(196,218,202,.28); }
+.fsim-theme-shrike .fsim-plac-reg{ color:#080e0a; text-shadow:0 1px 0 rgba(196,218,202,.30); }
+.fsim-theme-shrike .fsim-plac-own{ color:#22302a; text-shadow:0 1px 0 rgba(196,218,202,.20); }
+.fsim-theme-shrike .fsim-plac-sheen{ background:linear-gradient(133deg, rgba(214,232,220,0) 30%, rgba(214,232,220,.30) 46%, rgba(214,232,220,.05) 52%, rgba(214,232,220,0) 66%); }
+.fsim-theme-shrike .fsim-xpdr{ border-color:#16201a; background:linear-gradient(180deg,#1c2a22 0%,#121b16 48%,#080d0b 100%); box-shadow:inset 0 1px 0 rgba(255,92,176,.14), inset 0 -2px 6px rgba(0,0,0,.64), 0 2px 5px rgba(0,0,0,.5); }
+.fsim-theme-shrike .fsim-xpdr-title{ color:#b0708e; }
+.fsim-theme-shrike .fsim-yoke{ border-color:#2c3e33; background:radial-gradient(circle at 50% 26%,#14201a,#080d0b); }
+.fsim-theme-shrike .fsim-throttle{ border-color:#2c3e33; background:linear-gradient(180deg,#121b16,#080d0b); }
+.fsim-theme-shrike .fsim-thr-grip{ background:linear-gradient(180deg,#ff5cb0 0%,#8a2a58 55%,#2a0c1c 100%); }
+.fsim-theme-shrike .fsim-thr-grip::after{ background:repeating-linear-gradient(90deg,#2a0c1c 0 2px,rgba(255,92,176,.30) 2px 4px); }
+
+/* ══ MOBILE — pare the cockpit to flyable essentials so it fits a phone ══════════
+   On a narrow screen the dashboard is too cramped to fly. We drop the pure-flavour
+   transponder/COM-NAV radio and the maker's-plate placard, and the nav-map MFD (the
+   Tablet has maps) + the PFD — leaving TWO clear gauges: the engine/fuel dial cluster
+   (widened to fill the freed space) and a big, legible SPEED + ALTITUDE overlay pinned
+   over the view (kept live in interior view on mobile — see the frame loop). Throttle,
+   flaps and trim stay grouped on the right; the flight stick + rudder pedals stay. The
+   stick drops into its own full-width bottom band (the same treatment flightsim.html
+   uses) instead of rising up through the gauges. 720px = the client's phone breakpoint. */
+@media (max-width: 720px){
+  /* Give the out-the-window view as much height as we can; the instrument band and the
+     stick band below it stay compact so the window dominates the screen. */
+  .fsim-view{ height: clamp(260px, 64vh, 620px); }
+  .fsim-glass{ height: 104px; }                     /* compact instrument + control band */
+  /* ⚠ 'min-height' AND 'height', BECAUSE THE BASE RULE SETS THE ONE THIS DOES NOT. '.fsim-ctl'
+     carries 'min-height:120px', which a plain 'height:104px' here loses to — so the compact
+     stick band was 120px on every phone that has ever run this, and the 104 was decoration.
+     Measured at 375×812 before the fix: the band reported 120. */
+  .fsim-ctl{ height: 92px; min-height: 0; }         /* compact stick band */
+  /* Drop the flavour radio + maker's-plate placard, and the nav-map screen + PFD: that
+     leaves TWO clear gauges (the engine/fuel dial cluster + the big speed/alt overlay) and
+     hands the whole bottom band to just the flight stick. */
+  .fsim-pfd, .fsim-mfd, .fsim-placard, .fsim-xpdr{ display:none; }
+  .fsim-gauges{ min-width:0; }                       /* let the gauge cluster shrink to the phone width (its canvas has a 300px intrinsic min) so the row never overflows */
+  .fsim-rightctl{ flex:0 0 140px; }                 /* throttle · engine · flaps + trim (need room to sit side by side without overflowing) */
+  .fsim-yoke{ flex:1 1 auto; }                      /* just the flight stick fills the bottom band */
+  .fsim-yoke-svg{ left:7%; top:2%; width:86%; height:96%; transform-origin:50% 58%; }   /* dropped into its own band, clear of the gauges */
+  .fsim-climbmark{ top:60%; }
+  /* ── ⚠ THE READOUTS GO TO THE TOP, BECAUSE THE BOTTOM IS WHERE THE HANDS ARE ──────────
+     Big readable speed + altitude, over the view (normally external-view only). They were
+     pinned bottom-right, which on a phone is the same 120 × 70 patch of glass as the RIGHT
+     RUDDER PEDAL: measured at 375×812 the two overlapped by 54 × 38 px, so a thumb reaching
+     for right rudder pressed a number instead. Nothing else lives under the button row, and a
+     gauge you only ever READ is exactly the thing to put where nobody needs to touch. */
+  .fsim-extg{ display:flex; right:8px; top:38px; bottom:auto; gap:5px; }
+  .fsim-extg-row{ min-width:0; padding:3px 10px; gap:6px; }
+  .fsim-extg-row b{ font-size:24px; min-width:50px; }
+  .fsim-extg-lbl, .fsim-extg-u{ font-size:11px; }
+
+  /* ── THE OUTSIDE VIEW, ON A PHONE ────────────────────────────────────────────────────
+     Out here every control is an overlay on one full-screen pane, and the desktop placement
+     assumes a pane wide enough to lay them out side by side. At 375 px they land on top of
+     each other — measured, before this: the throttle cluster (x 8-178) under the stick pad
+     (118-258), both rudder pedals straddling the stick (75-301), and the readouts (247-367)
+     over the right pedal AND the corner of the pad. Four controls and a gauge in one 150 px
+     strip, which is the "cluttered and not particularly useful" this fixes.
+     One thumb per corner instead: THROTTLE LEFT · STICK CENTRE · RUDDER RIGHT · numbers up
+     top. The pedals stop flanking the stick — that reads well on a desktop pane and there is
+     simply not the width for it here, and a control you cannot press is worth less than one
+     that has moved. */
+  body.fsim-external .fsim-glass{ left:4px; bottom:4px; height:118px; }
+  /* A basis narrower than the cluster's content, which does NOT squeeze the starter (it is a
+     fixed 52 px circle) — it takes the slack out of the flap/trim row beside it, 170 → 146. */
+  body.fsim-external .fsim-rightctl{ flex:0 0 104px; }
+  /* ⚠ THE STICK MOVES OFF CENTRE, THE THROTTLE DOES NOT GET SMALLER. The cluster is 146 px
+     wide because that is what its contents measure — a 56 px lever beside a 52 px starter and
+     a 84 px flap/trim row — and the ways to make it narrower all cost touch target: shrink the
+     children, or scale the whole thing, which takes the 52 px starter under the size a thumb
+     can reliably hit. A phone has 375 px and three controls that each need a real hit area, so
+     the answer is to stop pretending the stick has the whole width to be centred in. It gets
+     the lane between the throttle and the pedals instead, which is 44 px right of centre and
+     reads as deliberate rather than as a collision. */
+  body.fsim-external .fsim-ctl{ bottom:6px; height:100px; padding-left:44px; }
+  body.fsim-external .fsim-yoke,
+  body.fsim-external #fsim-root.fsim-painted .fsim-yoke{ flex:0 0 112px; }
+  /* The stick GRAPHIC overhangs its grab pad by design (the pad is deliberately narrow so it
+     cannot swallow the pedals). At 159% it overhung to x 84-294 here, which is across the
+     throttle at one end and the pedals at the other — visible clutter even though the SVG
+     takes no pointers. Out here it sits exactly on its own pad and overhangs nothing. */
+  body.fsim-external .fsim-yoke-svg{ left:0; width:100%; height:126%; }
+  body.fsim-external .fsim-pedals{ left:auto; right:6px; transform:none; bottom:10px; gap:10px; }
+  body.fsim-external .fsim-pedal{ width:34px; height:34px; }
+  /* The weapons / spray / hopper strip clears the shortened throttle overlay (118 + 4 = 122),
+     not the 150 px one it was written against. */
+  body.fsim-external .fsim-weap,
+  body.fsim-external .fsim-spraybtn, body.fsim-external .fsim-hopbtn{ bottom:130px; }
+}
+/* ── THE CAMERA OFF ITS MOUNT ───────────────────────────────────────────────
+   Everything the pilot flies with, gone, because while the camera is detached the aeroplane is
+   being held rather than flown and none of these is a control any more (see setFreeCamChrome).
+   The big external gauges go too: this is a mode for taking a picture, and a speed readout in
+   the corner of one is a HUD.
+   ⚠ AFTER THE `fsim-external` BLOCK AND WITH `!important`, because several of these are
+   turned ON by a rule up there at the same specificity — `.fsim-extg` most obviously — and
+   the external view is the only view the camera can be detached from, so the two always meet.
+   What stays: the chrome buttons in the corner (◎ is a way back) and the toast, which is what
+   the O key's own hint arrives as. */
+body.fsim-freecam .fsim-ctl, body.fsim-freecam .fsim-glass,
+body.fsim-freecam .fsim-pedals, body.fsim-freecam .fsim-weap,
+body.fsim-freecam .fsim-spraybtn, body.fsim-freecam .fsim-hopbtn,
+body.fsim-freecam .fsim-extg{ display:none !important; }
+/* ── AND SO IS EVERYTHING ELSE OVER THE VIEW ────────────────────────────────
+   The rule above took the flying controls out of the shot and left every readout in it: the
+   fuel chip in the top-left corner and its REFUEL button, the stall lamp, the gunsight, the
+   kill feed, the view tag, the hopper, the boom diagram, ABORT, DISEMBARK and the admin rewind.
+   None of them is a control the pilot still has while the aeroplane is holding its trim, and
+   all of them are in the picture.
+   ⚠ AN ALLOW-LIST, NOT A LIST OF WHAT TO HIDE. `.fsim-view` has picked up a new overlay every
+   few months for as long as it has existed, and a list of things to hide is a list somebody has
+   to remember to add to — this way the next one is out of the shot the day it arrives. What is
+   spared: the picture itself, the toast (transient, and it carries the hint that names the way
+   out), and the corner chrome, which the timer below takes anyway.
+   ⚠ AND THE A-PILLARS, the same half of `.ws-frame` the cab and the wheelhouse drop (the
+   reasoning is written out in cab-view.js): the pillars are glazing and go, the bezel and the
+   vignette are the lens and stay. `.ws-label` is the aircraft's name, which is a caption. */
+body.fsim-freecam .fsim-view > *:not(.ws-wrap):not(.fsim-toast):not(.fsim-fsbtn):not(.fsim-bigbtn):not(.fsim-viewbtn):not(.fsim-orbitreset):not(.fsim-hidebtn):not(.fsim-tunebtn):not(.fsim-tune){ display:none !important; }
+body.fsim-freecam .ws-label, body.fsim-freecam .ws-frame::after{ display:none; }
+/* ── AND THEN THE CORNER, ON A TIMER ────────────────────────────────────────
+   See bindFreeCamIdle in freecam.js. ◎ is the way back, so the row cannot simply go: it fades
+   when nothing has been touched for a couple of seconds and comes back on the first thing the
+   player does. Opacity rather than display, because this one is a look and must not move the
+   layout under a shot being composed — with pointer-events, so a faded button cannot be clicked
+   by a cursor that cannot see it.
+   ⚠ THE TUNING PANEL IS NOT ON IT. A slider you are dragging is one you stop to look at, and a
+   settings panel that faded while you read it would be the mode fighting the player. */
+body.fsim-freecam .fsim-fsbtn, body.fsim-freecam .fsim-bigbtn, body.fsim-freecam .fsim-viewbtn,
+body.fsim-freecam .fsim-orbitreset, body.fsim-freecam .fsim-hidebtn,
+body.fsim-freecam .fsim-tunebtn{ transition:opacity .5s ease; }
+body.fsim-freecam.freecam-idle .fsim-fsbtn, body.fsim-freecam.freecam-idle .fsim-bigbtn,
+body.fsim-freecam.freecam-idle .fsim-viewbtn,
+body.fsim-freecam.freecam-idle .fsim-orbitreset, body.fsim-freecam.freecam-idle .fsim-hidebtn,
+body.fsim-freecam.freecam-idle .fsim-tunebtn{ opacity:0; pointer-events:none; }
+
+/* ── BIG SCREEN: THE SAME QUESTION, A SHORTER ANSWER ───────────────────────
+   The block above asks "what is still a control while the camera is off its mount", and spares
+   the corner so the pilot can get back. This asks "what is in the picture", and the answer is
+   everything: the way out of big screen is Esc and its own hint says so, so even the corner
+   goes. The instrument band, the control row, the stick, the pedals, the gunsight, the fuel
+   chip, the toast — all of it.
+   ⚠ AN ALLOW-LIST, for the reason spelled out above it: '.fsim-view' picks up a new overlay
+   every few months and a list of things to HIDE is a list somebody has to remember to add to.
+   ⚠ AND THE COAMING STAYS. Everything left is drawn INTO the canvas by the renderer — the
+   glare shield, the window posts, the panel top — because that is the aeroplane rather than
+   chrome laid over it. '.ws-label' is the aircraft's name, which is a caption, and
+   '.ws-frame''s ::after is the glazing down each edge; both go, as they do under a free
+   camera and for the same reason. */
+/* The 2-D instrument rows under the view (PFD, gauges, MFD, throttle, radio). Folded by
+   default: the 3-D cockpit carries its own gauges, and every key still works. The button brings them back. */
+/* ⚠ NOT IN THE EXTERNAL VIEW. Out there the rows are the stick and throttle overlay (the
+   dashboard parts are already dropped above), and with no cockpit in front of you they're the
+   only controls drawn, so folding them left every craft but the Drake flying the chase view
+   without a yoke. The Drake keeps them folded: its own overlay (.dkx) takes that spot. */
+body.fsim-noglass:not(.fsim-external) .fsim > *:not(.fsim-view),
+body.fsim-noglass .fsim.fsim-dkx > *:not(.fsim-view){ display:none !important; }
+body.fsim-noglass .fsim-view{ flex:1 1 auto; height:auto; min-height:0; }
+body.fsim-noglass .fsim{ flex:1 1 auto; min-height:0; }
+.fsim-glassbtn{ position:absolute; top:6px; right:120px; z-index:4; background:rgba(6,12,18,.82); border:1px solid #35586e; color:#eef6ff; font:inherit; font-size:11px; padding:1px 6px; border-radius:3px; cursor:pointer; }
+.fsim-glassbtn.on{ background:var(--cy); color:#05141f; border-color:var(--cy); }
+/* The Drake's external-view controls: walnut, gold and a carbon racing wheel, bottom centre. */
+.dkx{ display:none; position:absolute; left:50%; bottom:10px; transform:translateX(-50%); z-index:5; align-items:flex-end; gap:10px;
+  padding:8px 12px; border-radius:14px; border:2px solid #c9a24a;
+  background:linear-gradient(180deg,#6b3f22 0%,#4a2914 55%,#3a200f 100%); box-shadow:0 4px 18px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,226,150,.35); }
+body.fsim-external .dkx{ display:flex; }
+.dkx-strip{ display:grid; grid-template-columns:1fr 1fr; gap:5px; align-self:center; }
+.dkx-btn{ font:700 9px/1 Georgia,serif; letter-spacing:.08em; color:#f3dc9a; padding:6px 7px; border-radius:6px; cursor:pointer;
+  border:1px solid #c9a24a; background:linear-gradient(180deg,#3a2414,#241509); box-shadow:inset 0 1px 0 rgba(255,220,140,.25); }
+.dkx-btn:hover{ border-color:#ffe39a; box-shadow:0 0 8px rgba(255,214,120,.55), inset 0 1px 0 rgba(255,220,140,.35); color:#fff2c8; }
+.dkx-btn:active{ transform:translateY(1px); filter:brightness(1.25); }
+.dkx-thr, .dkx-trim, .dkx-wheel{ cursor:grab; }
+.dkx-thr:hover .dkx-thr-knob, .dkx-trim:hover .dkx-trim-drum{ box-shadow:0 0 8px rgba(255,214,120,.7); }
+.dkx-btn.on{ color:#2a1606; background:linear-gradient(180deg,#ffe9a8,#d8a940 60%,#a8781e); box-shadow:0 0 10px rgba(255,210,110,.55); }
+.dkx-btn.nopwr{ opacity:.45; }
+.dkx-btn[data-dk^="mode"]{ position:relative; padding-left:14px; }    .dkx-btn.rdy::before, .dkx-btn.nordy::before{ content:''; position:absolute; left:4px; top:50%; width:6px; height:6px; margin-top:-3px; border-radius:50%; }    .dkx-btn.rdy::before{ background:#5dff8a; box-shadow:0 0 6px #3dff70; }    .dkx-btn.nordy::before{ background:#ff4a3a; box-shadow:0 0 6px #ff2a1a; }
+.dkx-pwr.on{ color:#fff; background:linear-gradient(180deg,#ff7a66,#c8281c); border-color:#ffb0a0; box-shadow:0 0 12px rgba(255,80,60,.6); }
+.dkx-wheel{ width:200px; height:108px; cursor:grab; touch-action:none; }
+.dkx-wheel.drag{ cursor:grabbing; }
+.dkx-thr{ position:relative; width:34px; height:104px; cursor:ns-resize; touch-action:none; }
+.dkx-thr-slot{ position:absolute; left:14px; top:6px; bottom:16px; width:6px; border-radius:3px; background:#120a05; box-shadow:0 0 0 2px #c9a24a; }
+.dkx-thr-knob{ position:absolute; left:3px; width:28px; height:14px; border-radius:7px; margin-top:-7px;
+  background:radial-gradient(circle at 40% 35%,#fffaf0,#e8dcc0 55%,#a89870); border:1px solid #c9a24a; box-shadow:0 2px 4px rgba(0,0,0,.5); }
+.dkx-thr-lbl{ position:absolute; bottom:0; left:0; right:0; text-align:center; font:700 8px/1 Georgia,serif; color:#f3dc9a; letter-spacing:.1em; }
+/* Trim: a ridged walnut drum with a centre notch and a gold pointer riding beside it. */
+/* Throttle and trim sit together as one quadrant rather than a wheel's width apart. */
+.dkx-levers{ display:flex; align-items:flex-end; gap:2px; }
+.dkx-trim{ position:relative; width:30px; height:104px; cursor:ns-resize; touch-action:none; }
+/* The drum is a window onto a strip of ridges twice its height, which rolls with the trim: the
+   ridges used to be a background moved by a few pixels on a six-pixel repeat, so most of the trim
+   range looked like no change at all. */
+.dkx-trim-drum{ position:absolute; left:6px; top:6px; bottom:16px; width:16px; border-radius:5px; border:1px solid #c9a24a; overflow:hidden; background:#2a170a; }
+.dkx-trim-ridges{ position:absolute; left:0; right:0; top:-50%; height:200%; will-change:transform;
+  background:repeating-linear-gradient(0deg,#2a170a 0 3px,#8a5630 3px 7px); }
+.dkx-trim-drum::after{ content:''; position:absolute; left:0; right:0; top:50%; height:2px; margin-top:-1px; background:#f3dc9a; box-shadow:0 0 4px rgba(255,220,140,.8); }
+.dkx-trim-mark{ position:absolute; left:23px; width:0; height:0; margin-top:-6px; border:6px solid transparent; border-right:9px solid #ffd070; filter:drop-shadow(0 0 3px rgba(255,208,112,.8)); }
+.dkx-trim-val{ position:absolute; top:-12px; left:0; right:0; text-align:center; font:700 10px/1 Georgia,serif; color:#f3dc9a; white-space:nowrap; }
+.dkx-trim-val.set{ color:#ffe28a; text-shadow:0 0 6px rgba(255,210,110,.7); }
+.dkx-wings.moving{ color:#2a1606; background:linear-gradient(180deg,#ffd58a,#e0902a); animation:dkx-conv 0.9s ease-in-out infinite alternate; }
+.dkx-wings.on{ color:#08162e; background:linear-gradient(180deg,#cfe4ff,#6fa6ff 60%,#3f6fd0); border-color:#bcd6ff; box-shadow:0 0 10px rgba(120,170,255,.6); }
+@keyframes dkx-conv{ from{ box-shadow:0 0 4px rgba(255,170,60,.35); } to{ box-shadow:0 0 12px rgba(255,170,60,.85); } }
+/* The Drake's pedals. INSIDE they are 3-D and clickable, in a well in the dash top (interior-drake.js).
+   OUTSIDE they are walnut and gold, small, and off in the bottom-right corner out of the way. */
+body:not(.fsim-external) .fsim-theme-drake .fsim-pedals{ display:none; }
+body.fsim-external .fsim-theme-drake .fsim-pedals{ left:auto; right:10px; transform:none; bottom:10px; gap:8px; }
+body.fsim-external .fsim-theme-drake .fsim-pedal{ width:38px; height:28px; }
+.fsim-theme-drake .fsim-pedal-face{ background:linear-gradient(180deg,#6b3f22,#3a200f) !important; border:2px solid #c9a24a !important; border-radius:8px; color:#f3dc9a !important;
+  box-shadow:inset 0 1px 0 rgba(255,226,150,.35), 0 2px 6px rgba(0,0,0,.5) !important; font-family:Georgia,serif; }
+.fsim-theme-drake .fsim-pedal.act .fsim-pedal-face{ background:linear-gradient(180deg,#ffe9a8,#d8a940 60%,#a8781e) !important; color:#2a1606 !important; }
+body.bigscreen .fsim > *:not(.fsim-view){ display:none !important; }
+body.bigscreen .fsim-view > *:not(.ws-wrap){ display:none !important; }
+body.bigscreen .fsim .ws-label, body.bigscreen .fsim .ws-frame::after{ display:none; }
+/* The pane has no padding in big screen, so the rounded corner and the inset ring round the
+   view are a frame drawn a pixel inside the edge of the screen. */
+body.bigscreen .fsim-view{ border-radius:0; box-shadow:none; }

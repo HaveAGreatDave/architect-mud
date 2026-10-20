@@ -1,0 +1,152 @@
+/* Fill the whole top pane and scale with it — the HUD is a flex column whose
+   instrument grid grows to eat all available height. */
+#area-content:has(.ck-hud) { height:100%; }
+.ck-hud { --acc:#4fb8e0; font-family:'Courier New',monospace; color:#a9d4ec; padding:6px;
+  height:100%; box-sizing:border-box; display:flex; flex-direction:column; overflow:hidden;
+  background:
+    linear-gradient(180deg, rgba(90,110,130,0.10), transparent 30%),
+    repeating-linear-gradient(102deg, #20272e 0px, #20272e 2px, #262e37 3px, #20272e 4px),
+    linear-gradient(160deg, #232b33, #12171c 60%, #0a0e12);
+  border:1px solid #05080b; border-radius:8px;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.06), inset 0 0 40px rgba(0,0,0,0.6); }
+.ck-titlebar { display:flex; align-items:center; gap:10px; padding:2px 6px 6px; border-bottom:1px solid #2a3540; letter-spacing:1px; font-size:12px; }
+.ck-tmark { color:var(--acc); text-shadow:0 0 10px rgba(79,184,224,0.8); animation:ck-br 3.2s ease-in-out infinite; }
+@keyframes ck-br { 50% { text-shadow:0 0 18px rgba(79,184,224,1); } }
+.ck-t-name { color:#eaf6ff; font-weight:bold; letter-spacing:2px; }
+.ck-t-class { color:#5f8299; font-size:10px; }
+.ck-cabin { display:inline-block; width:12px; height:12px; border-radius:3px; border:1px solid rgba(0,0,0,0.45); box-shadow:inset 0 0 3px rgba(0,0,0,0.6); vertical-align:middle; }
+.ck-phase { margin-left:auto; font-size:11px; letter-spacing:1px; }
+.ck-pip { font-size:10px; padding:1px 6px; border:1px solid #2a3540; border-radius:3px; background:rgba(0,0,0,0.3); }
+/* Out-the-window canopy band (pilot) — sits above the instrument grid. */
+.ck-canopy { flex:1.15 1 0; min-height:82px; margin:8px 2px 0; }
+.ck-canopy .ws-wrap { height:100%; }
+/* Passenger cabin: the window IS the panel. */
+.ck-pax .ck-pax-window { flex:1 1 auto; min-height:0; margin:8px 4px 0; position:relative; }
+.ck-pax .ck-pax-window .ws-wrap { height:100%; }
+.ck-pax-strip { display:flex; justify-content:space-around; gap:10px; padding:8px 6px 4px; font-size:11px; letter-spacing:1px; color:#7fae99; }
+.ck-pax-strip b { color:#eaf6ff; }
+.ck-pax-hint { text-align:center; font-size:9px; letter-spacing:1px; color:#4d6a76; padding:0 6px 4px; }
+.ck-pax-hint b { color:#7fae99; }
+/* Big screen / fullscreen / hide-panel — the cabin twin of the flight-sim ⤢ / ⛶ / ⊟ chrome,
+   in the same order: the biggest rung nearest the corner. */
+.ck-pax-bigbtn, .ck-pax-fsbtn, .ck-pax-hidebtn { position:absolute; top:8px; z-index:3; background:rgba(6,12,18,.7);
+  border:1px solid #16303f; color:var(--acc); width:24px; height:24px; border-radius:5px; cursor:pointer;
+  font-size:13px; line-height:1; display:flex; align-items:center; justify-content:center; padding:0; }
+.ck-pax-bigbtn { right:8px; } .ck-pax-fsbtn { right:36px; } .ck-pax-hidebtn { right:64px; }
+.ck-pax-bigbtn.on, .ck-pax-fsbtn.on, .ck-pax-hidebtn.on { background:var(--acc); color:#05141f; border-color:var(--acc); }
+/* Q/E look-direction tag — mirrors the pilot's own fsim-viewtag styling. */
+.ck-pax-viewtag { position:absolute; top:8px; left:50%; transform:translateX(-50%); font:10px monospace;
+  letter-spacing:2px; color:#ffcf3e; background:rgba(6,12,18,0.6); border:1px solid rgba(255,207,62,0.4);
+  padding:2px 10px; border-radius:3px; opacity:0; pointer-events:none; transition:opacity .15s; z-index:2; }
+.ck-pax-viewtag.show { opacity:1; }
+/* Forward view (Q held): the pilot's own yoke + throttle, worked by nobody the
+   passenger can see — the charter autopilot flying the choreography above. */
+.ck-pax-cockpit { position:absolute; left:0; right:0; bottom:6px; display:flex; align-items:flex-end;
+  justify-content:center; gap:10px; opacity:0; pointer-events:none; transition:opacity .2s; z-index:2; }
+.ck-pax-cockpit.show { opacity:1; }
+.ck-pax-yoke { width:78px; filter:drop-shadow(0 3px 6px rgba(0,0,0,0.6)); }
+.ck-pax-yoke svg { width:100%; display:block; transition:transform .1s linear; }
+.ck-pax-thr { position:relative; width:14px; height:60px; }
+.ck-pax-thr-track { position:absolute; inset:0; border-radius:4px; background:linear-gradient(180deg,#171b20,#0a0c0e); border:1px solid #2a3540; }
+.ck-pax-thr-lever { position:absolute; left:-3px; right:-3px; height:9px; bottom:10%; border-radius:2px;
+  background:linear-gradient(180deg,#3aa8e0,#0b2a3c); border:1px solid #05121a; transition:bottom .1s linear; }
+.ck-pax-yoke-lbl { position:absolute; bottom:-13px; left:0; right:0; text-align:center; font-size:8px;
+  letter-spacing:1px; color:#4d6a76; white-space:nowrap; }
+/* Capability-driven flex layout: rows of instrument cards. Which cards exist,
+   and the radar's size, are chosen per aircraft in mountHud(). */
+.ck-grid { display:flex; flex-direction:column; gap:8px; padding:8px 2px 2px; flex:1 1 auto; min-height:0; }
+/* Looking off the nose (Q/E/S): hide the forward instrument panel + dials so the
+   banked side/rear view out the glass gets the whole pane. The canopy flexes to fill. */
+.ck-hud.ck-looking .ck-grid, .ck-hud.ck-looking .ck-dials { display:none; }
+.ck-hud.ck-looking .ck-canopy { flex:1 1 auto; margin-bottom:8px; }
+.ck-row { display:flex; gap:8px; align-items:stretch; flex:1 1 0; min-height:0; }
+.ck-row-top { flex:1.5 1 0; }
+.ck-row-top .ck-inst-adi { flex:1 1 40%; }
+.ck-row > .ck-inst { flex:1 1 0; min-width:0; }
+.ck-radar-sm { flex:1.1 1 0 !important; } .ck-radar-md { flex:1.5 1 0 !important; } .ck-radar-lg { flex:2 1 0 !important; }
+.ck-inst { position:relative; padding:6px; border-radius:8px; display:flex; flex-direction:column; min-height:0;
+  background:linear-gradient(160deg, #2a333c, #161c22 70%);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.05), inset 0 0 0 1px rgba(0,0,0,0.5), 0 3px 8px rgba(0,0,0,0.5); }
+.ck-inst-lbl { position:absolute; top:5px; left:9px; font-size:8px; letter-spacing:2px; color:#5f8299; z-index:2; }
+/* SVG instruments scale to fill their card (aspect preserved via viewBox meet). */
+.ck-svg { display:block; width:100%; height:100%; flex:1 1 0; min-height:0; }
+.ck-inst-radar .ck-svg { max-height:none; }
+.ck-inst-mini, .ck-inst-cargo, .ck-inst-wpn { justify-content:center; }
+.ck-bezel-ring { fill:none; stroke:#39434d; stroke-width:6; filter:drop-shadow(0 1px 1px rgba(0,0,0,0.7)); }
+.ck-bezel-glass { stroke:rgba(180,220,255,0.10); stroke-width:2; }
+.ck-eng-tube { fill:#0a1620; stroke:#2b4a60; stroke-width:1; }
+.ck-eng-band { fill:rgba(70,224,90,0.14); }
+.ck-green,.ck-seg-g { color:#46e05a; } .ck-amber,.ck-seg-a { color:#ffb23e; } .ck-red,.ck-seg-r { color:#ff5b5b; } .ck-seg-c { color:#4fb8e0; } .ck-dim { color:#5f8299; }
+/* Digital seven-segment style */
+.ck-seg { font-family:'Courier New',monospace; font-weight:bold; letter-spacing:3px; font-size:18px;
+  text-shadow:0 0 8px currentColor, 0 0 2px currentColor; background:#050b0f; padding:2px 6px; border-radius:3px;
+  border:1px solid #1a2730; box-shadow:inset 0 0 8px rgba(0,0,0,0.9); }
+.ck-hdg-readout { display:flex; align-items:center; justify-content:center; gap:6px; margin-top:4px; }
+.ck-hdg-card { color:#eaf6ff; font-weight:bold; letter-spacing:1px; }
+.ck-mini { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:0; padding:14px 4px 2px; min-height:70px; background:#04121c; border-radius:5px; box-shadow:inset 0 0 16px rgba(0,0,0,0.7); }
+.ck-mini-row { display:flex; line-height:1.1; }
+.ck-mini-c { width:13px; text-align:center; font-size:12px; }
+.ck-mini-empty { color:#3f5666; font-size:10px; letter-spacing:1px; }
+.ck-surface-row { text-align:center; font-size:10px; color:#7fae99; padding:4px 2px 0; letter-spacing:1px; }
+.ck-surface-row b { color:#a9e6c6; }
+.ck-guide-label { text-align:center; font-size:10px; letter-spacing:1px; min-height:13px; padding-top:2px; }
+.ck-dials { display:flex; gap:8px; padding:8px 4px 2px; justify-content:space-between; }
+.ck-dial { flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; padding:6px 2px;
+  border-radius:6px; background:linear-gradient(160deg, #2a333c, #12171c);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.05), 0 2px 5px rgba(0,0,0,0.5); }
+.ck-dial-lbl { font-size:8px; letter-spacing:2px; color:#5f8299; }
+.ck-dial-u { font-size:8px; color:#5f8299; }
+.ck-warn { margin:6px 2px 0; padding:5px; text-align:center; font-weight:bold; letter-spacing:1px; border-radius:5px;
+  background:rgba(255,91,91,0.10); animation:ck-fl 1s steps(2) infinite; }
+.ck-warn-a { color:#ffb23e; background:rgba(255,178,62,0.10); } .ck-warn-r { color:#ff5b5b; }
+@keyframes ck-fl { 50% { opacity:0.4; } }
+/* Capability panels (present only on craft that carry them) */
+.ck-inst-hover { flex:0.5 1 0 !important; }
+.ck-hover-lamp { text-align:center; font-size:9px; letter-spacing:2px; margin-top:2px; color:#5f8299; border:1px solid #223; border-radius:3px; padding:1px; }
+.ck-hover-lamp.ck-lit { color:#04101a; background:#4fe0a0; border-color:#4fe0a0; }
+.ck-inst-wpn { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:5px; }
+.ck-wpn-arm { font-size:15px; font-weight:bold; letter-spacing:2px; text-shadow:0 0 8px currentColor; }
+.ck-wpn-pips { letter-spacing:4px; font-size:16px; color:#ff6b5b; text-shadow:0 0 8px rgba(255,107,91,0.7); }
+.ck-wpn-note { font-size:8px; letter-spacing:2px; color:#5f8299; }
+.ck-inst-cargo { display:flex; flex-direction:column; justify-content:center; gap:6px; }
+.ck-load { height:16px; background:#0a1620; border:1px solid #2b4a60; border-radius:4px; overflow:hidden; box-shadow:inset 0 0 8px rgba(0,0,0,0.8); }
+.ck-load-fill { height:100%; width:0%; background:var(--acc); transition:width .3s, background .3s; }
+.ck-load-txt { text-align:center; font-size:11px; letter-spacing:1px; color:#a9d4ec; }
+/* Accent-driven bits so each class palette reads through */
+.ck-tmark { color:var(--acc) !important; }
+.ck-seg-c { color:var(--acc); }
+/* Per-class chrome flourishes */
+.ck-chrome-military .ck-titlebar { border-bottom-color:#5a2a2a; }
+.ck-chrome-military .ck-inst-radar { box-shadow:inset 0 1px 0 rgba(255,255,255,0.05), inset 0 0 0 1px rgba(0,0,0,0.5), 0 0 14px rgba(255,107,91,0.18); }
+.ck-chrome-industrial .ck-inst { border-left:2px solid rgba(255,178,62,0.28); }
+.ck-chrome-minimal .ck-inst { background:linear-gradient(160deg,#242c33,#141a1f 70%); }
+.ck-chrome-minimal .ck-titlebar::after { content:'ULTRALIGHT · MINIMAL PANEL'; margin-left:6px; font-size:9px; letter-spacing:2px; color:#3f5666; }
+.ck-chrome-rotor .ck-inst-hover { flex:0.6 1 0 !important; }
+/* Wreck: salvaged, degraded avionics — flicker + desaturation + a warning tag */
+.ck-chrome-degraded .ck-inst { animation:ck-glitch 5s infinite steps(60); filter:saturate(0.55) contrast(0.92) brightness(0.95); }
+.ck-chrome-degraded .ck-inst-adi { position:relative; }
+.ck-chrome-degraded .ck-inst-adi::after { content:'⚠ AVIONICS DEGRADED'; position:absolute; inset:auto 0 8px 0; text-align:center; font-size:9px; letter-spacing:2px; color:#ffb23e; text-shadow:0 0 6px rgba(0,0,0,0.9); }
+.ck-chrome-degraded .ck-titlebar { border-bottom-color:#4a5a2a; }
+@keyframes ck-glitch { 0%,90%,100%{opacity:1} 92%{opacity:0.72} 94%{opacity:1} 96%{opacity:0.85} }
+@media (max-width:560px) { .ck-row { flex-wrap:wrap; } .ck-row-top .ck-inst-adi, .ck-row-top .ck-inst-radar { flex:1 1 100% !important; } }
+
+/* ── BIG SCREEN: THE WINDOW, AND NOTHING ELSE ─────────────────────────────
+   The third rung of the ⊟ / ⛶ ladder in the corner (js/panels/bigscreen.js): the page goes,
+   and so does everything this HUD draws round the glass. Both mounts put the window in its own
+   wrapper — '.ck-pax-window' for a passenger, '.ck-canopy' for the pilot's charter view — with
+   the titlebar, the instrument grid, the dial strip and the warning banner as its siblings, so
+   one allow-list covers both. The shape the three seats use, and for the same reason: a list
+   of things to HIDE is a list somebody has to remember to add to.
+   ⚠ THE PILOT'S CANOPY HAS NO CHROME ROW OF ITS OWN and so has no button — it has no ⛶ today
+   either, which is a gap this inherits rather than one it adds.
+   ⚠ AND THE RULES HAVE TO BE IN THIS SHEET RATHER THAN THE FLIGHT SIM'S, which is where they
+   were written first: the sim's stylesheet is injected when the sim opens and a passenger
+   never opens one, so the cabin had the button, the layout and no stripping at all. */
+body.bigscreen #ck-hud-root > *:not(.ck-pax-window):not(.ck-canopy) { display:none !important; }
+body.bigscreen #ck-hud-root .ck-pax-window > *:not(.ws-wrap) { display:none !important; }
+/* No padding, no margins, no rounded corner: the window IS the screen now, and any inset left
+   on it is a frame drawn a few pixels inside the edge of the display. */
+body.bigscreen #ck-hud-root { padding:0; border:0; border-radius:0; }
+body.bigscreen #ck-hud-root .ck-pax-window,
+body.bigscreen #ck-hud-root .ck-canopy { flex:1 1 auto; min-height:0; height:auto; margin:0; }
+body.bigscreen #ck-hud-root .ws-label { display:none; }

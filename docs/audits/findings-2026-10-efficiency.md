@@ -87,7 +87,15 @@ The server parses each file once at boot, so comments cost nothing there. The cl
 | cardpack.js | | 41 KB |
 | truck-depot.js | | 39 KB |
 
-Only cab-view's string interpolates anything (`${TOUCH_MQ}`), so each can become a plain `.css` file, injected as a `<link>` on first open so lazy loading holds. **Status: open.**
+Only cab-view's string interpolates anything (`${TOUCH_MQ}`).
+
+**Status: done for every block over 75 lines.** 8,821 lines left the JS for 15 sibling `.css` files (`tablet-os.js` 918 KB to 591 KB, `cockpit.js` 592 KB to 461 KB, `cab-view.js` 460 KB to 362 KB). Each was checked to be the same text the template produced, apart from indentation.
+
+- **How it loads:** a `<link>` would apply a frame late, so the first open would lay out unstyled. Instead each module `await`s `loadCss` (`client/shared/dom.js`) when it loads, and `ensure*Styles` still injects the text synchronously on open. All these modules load lazily, so the fetch rides the load the opener already waits for.
+- **cab-view:** its sheet carries `__TOUCH_MQ__`, swapped for `TOUCH_MQ` on inject, so the media query keeps one definition.
+- **Gates:** `bigscreen-smoke` and `a11y:smoke` read the sibling sheets too.
+- **Left in JS:** blocks under 75 lines, and windshield.js's styles, which interpolate live values.
+- **Still open:** styles.css grouping and dead rules.
 
 ## Database habits (cold and warm paths)
 
@@ -121,6 +129,6 @@ These are open.
 | 3 | Dead functions | done |
 | 4 | Furniture reads from RAM | open |
 | 5 | Shared helpers | open |
-| 6 | CSS out of JS strings; styles.css grouping and dead rules | open |
+| 6 | CSS out of JS strings; styles.css grouping and dead rules | CSS moved; styles.css open |
 | 7 | glbench helpers | open |
 | 8 | Comment trim | open |

@@ -13,7 +13,16 @@
 // deleted by accident.
 //
 // Run: node scripts/a11y/smoke.mjs   (also wired into pretest:regress)
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
+import { dirname, basename, join } from 'node:path';
+
+// A panel's JS plus any sibling <stem>*.css, where a panel's stylesheet lives once it
+// moved out of a template literal (see loadCss in client/shared/dom.js).
+const readWithSheets = (jsPath) => {
+  const dir = dirname(jsPath), stem = basename(jsPath, '.js');
+  const sheets = readdirSync(dir).filter((f) => f.startsWith(stem) && f.endsWith('.css'));
+  return [readFileSync(jsPath, 'utf8'), ...sheets.map((f) => readFileSync(join(dir, f), 'utf8'))].join('\n');
+};
 
 let failed = 0;
 const bad = (m) => { console.error(`  ✗ ${m}`); failed++; };
@@ -381,7 +390,7 @@ if (/id="cmd-input"[\s\S]{0,200}?aria-label=/.test(html) || /aria-label=[\s\S]{0
   ];
   const strayJs = [];
   for (const f of SCALES) {
-    const src = readFileSync(`client/game/js/${f}.js`, 'utf8');
+    const src = readWithSheets(`client/game/js/${f}.js`);
     const hits = (src.match(/(^|[^-\w])font-size:\s*[0-9.]+px/g) || []).length;
     if (hits) strayJs.push(`${f}.js (${hits})`);
   }
@@ -399,7 +408,7 @@ if (/id="cmd-input"[\s\S]{0,200}?aria-label=/.test(html) || /aria-label=[\s\S]{0
 
   // A device chassis in px is a box the text outgrows. In rem the DEVICE grows
   // and the viewport clamps take over, which is the behaviour a real handset has.
-  const tosSrc = readFileSync('client/game/js/panels/tablet-os.js', 'utf8');
+  const tosSrc = readWithSheets('client/game/js/panels/tablet-os.js');
   if (/\.tos-panel\s*\{\s*width:min\([0-9.]+rem/.test(tosSrc)) ok('the tablet chassis scales with the type, rather than trapping it');
   else bad('the .tos-panel chassis is back to absolute px — enlarged tablet text now has nowhere to go');
 
