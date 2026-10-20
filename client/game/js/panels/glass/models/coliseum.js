@@ -204,7 +204,9 @@ function parkState(now, night) {
   } else {
     const lit = pl ? venueLive(pl.wx, pl.wy) : undefined;
     game = lit !== undefined ? (lit ? 1 : 0) : (pl && pl.vl ? 1 : 0);
-    const r = pl ? venueRoof(pl.wx, pl.wy, now) : undefined;
+    // ⚠ The wall clock, never the arm's `now`: that is performance.now(), and the push is stamped
+    // with Date.now(), so on the frame clock the move never started and the shells never left.
+    const r = pl ? venueRoof(pl.wx, pl.wy) : undefined;
     if (r) { p = r.p; moving = r.moving; } else p = pl && pl.vr != null ? +pl.vr : 1;
   }
   const lightK = game ? 1 : WORK * clamp((dn - 0.05) / 0.3, 0, 1);
