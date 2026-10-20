@@ -21,7 +21,9 @@ export default async function regress({ check, getPlayer }) {
     const script = rowOf(file);
     const kinds = new Map(), bad = [];
     let finals = 0, games = 0;
-    for (const slot of [3, 41, 206, 777, 1203, 4001]) {
+    // Real slots are absolute 5 s windows, far from 0. A booted sport folds its injury
+    // ledger from 64 slots back, and below 64 that walks the schedule at negative slots.
+    for (const slot of [40003, 40041, 40206, 40777, 41203, 44001]) {
       const g = broadcast.assembleSportsGraph(script, `bc_regress_banter_${sport}`, slot, null);
       if (!g) continue;
       games++;
