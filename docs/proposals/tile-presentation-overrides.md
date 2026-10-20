@@ -237,7 +237,7 @@ the keys cleared from 3,634 files, the next `content:export` would have written
 belong on that list beside `marker` and `audio_theme_id`
 ([content-registry.js](../../server/models/content-registry.js)). 729 files were already
 spelling out an explicit null and were swept by the existing
-[strip-null-overrides.mjs](../../scripts/content/strip-null-overrides.mjs).
+`scripts/content/strip-null-overrides.mjs`.
 
 **3. Two regress laws were NARROWED, not deleted.** `painted ground carries no label` and
 `an auto-tiled road wears no label` both encoded the rule this change removes. Deleting
@@ -293,7 +293,7 @@ palette moved:
 | `grass` | `#5a9e57` | `#2f3a26` | 363 of 429 tiles |
 | `underwater` | `#3f7fb0` | `#14283a` | 70 of 82 tiles — depth, seen from above |
 
-[tile-fill-to-palette.mjs](../../scripts/content/tile-fill-to-palette.mjs) then cleared `bg_color`
+`scripts/content/tile-fill-to-palette.mjs` then cleared `bg_color`
 from the **1,038 tiles whose fill is exactly the value their terrain now states** — those are not
 overrides of anything, they are the default written out longhand in a thousand places. **336 tiles
 kept theirs** (258 water on a second blue, 66 grass on a paler strand, 12 deeper underwater): a

@@ -562,7 +562,7 @@ things the engine READS — **ARC** (a `phases` block), **BITE** (`peak_mods` wi
 **HABIT** (a `tolerance` block) and **COMEDOWN** (`comedown_mods`, for the drugs whose comedown is its own
 event). A report, not a gate, on the `models:quality` precedent. It exists because the alcohol gap was
 invisible: you had to open 39 files and hold them in your head to notice. It went **3.00/4 with 15 of 36
-complete to 4.00/4 with all 36**, via [`drug-arcs.mjs`](../scripts/content/drug-arcs.mjs).
+complete to 4.00/4 with all 36**, via `scripts/content/drug-arcs.mjs`.
 
 ⚠ **A missing `drug_class` is not a finding** — 25 rows carry none and that is the documented design
 above. The audit must never report it as a gap.

@@ -80,8 +80,8 @@ an instance costs no schema and no cleanup beyond forgetting it.
   drugs; 5 generic. An instance is 2–4 rooms, so the number to look at is not the pool but **what
   fraction of it one visit spends**. It used to be 14 sleep rooms and 6 per drug, which meant a single
   trip showed you *over half* of everything a drug had and a second was mostly a re-run. Expanded
-  2026-08-25 ([dreams-sleep-expansion.mjs](../scripts/content/dreams-sleep-expansion.mjs),
-  [dreams-drug-expansion.mjs](../scripts/content/dreams-drug-expansion.mjs)).
+  2026-08-25 (`scripts/content/dreams-sleep-expansion.mjs`,
+  `scripts/content/dreams-drug-expansion.mjs`).
 
   ⚠ **The eight pools are not interchangeable, and a new room has to pick one.** Each drug's rooms obey
   a rule, and the rule is the drug: DMT's rooms were all BUILT by somebody proud of them; the k-hole

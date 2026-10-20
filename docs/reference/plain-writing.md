@@ -774,7 +774,7 @@ the image had already done both. A second rule falls out of the same sort:
 **never tell the player what they think, know, want or decide** — worst of all
 in a room description, which is read cold, out of order, and often by somebody
 walking in for the third time in a minute.
-[scripts/content/prose-audit-pass.mjs](../../scripts/content/prose-audit-pass.mjs)
+`scripts/content/prose-audit-pass.mjs`
 holds the twelve that went and the reasons the rest stayed.
 
 ### Three more: the negation-contrast, the emphatic tautology, the appended verdict
@@ -1348,7 +1348,7 @@ seen. Those three families are the bulk of `filter-word` on the new surfaces and
 none of them is a defect.
 
 The first pass cut 44 distinct phrasings across 78 files and left 18 on purpose.
-[scripts/content/prose-trim-asides.mjs](../../scripts/content/prose-trim-asides.mjs)
+`scripts/content/prose-trim-asides.mjs`
 is the record of which was which, and is idempotent so it stays readable as one.
 
 **Swept again 2026-09-04, and this time the clause was not the whole problem.**

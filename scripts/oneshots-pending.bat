@@ -27,8 +27,8 @@ REM  accumulated clamps in here, the file has quietly become the thing it was
 REM  written to avoid.
 REM
 REM  WHAT IS DELIBERATELY NOT IN HERE
-REM    - build-terminus / build-deadwater / build-scarletwastes / the Reach moves
-REM      and bake-terminus-markers / demote-thornwarren-shells. Every one of those
+REM    - build-terminus / build-scarletwastes / the Reach moves and
+REM      bake-terminus-markers. Every one of those
 REM      writes content FILES, and the files are already committed - the CODEX
 REM      deploy imports them. Running a world builder at prod would duplicate work
 REM      the deploy already did.

@@ -74,7 +74,7 @@ goes, and for the route above when one building gives up its tile to another.
 Three Filaments buildings on the Glasshouse's edge, taken out because they butted up against the
 Halcyon Boulevard towers and looked out of place. They wait on the holding map until the
 Filaments-to-Glasshouse transition along Kettle Green is designed.
-[scripts/content/set-aside-kettle-three.mjs](../../scripts/content/set-aside-kettle-three.mjs) did it.
+`scripts/content/set-aside-kettle-three.mjs` did it.
 
 | Was at | Building | Holding grid | Keeper |
 |---|---|---|---|
@@ -96,7 +96,7 @@ To put one back, follow the Coliseum's steps, and delete or reuse the `zone_kett
 
 Midway Parks Cinema moved from 912,914 onto Florist Gump's plot at 909,914, where it faces
 Fisherman's Green across Meltwater Row, and four buildings came off the map for now.
-[scripts/content/set-aside-meltwater.mjs](../../scripts/content/set-aside-meltwater.mjs) did it.
+`scripts/content/set-aside-meltwater.mjs` did it.
 
 | Was at | Building | Holding grid | Keeper |
 |---|---|---|---|

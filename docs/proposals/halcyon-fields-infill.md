@@ -522,7 +522,7 @@ one; it now draws its own type, `shop`. So the rename is scoped to rows that bel
 them), and anything outside that still sharing an old name is listed and left alone.
 
 ⚠ **It runs after batch0-batch9, and has to.** Those batches still author the old names, so re-running
-any of them puts a pun back; running [batch10.mjs](../../scripts/content/halcyon/batch10.mjs) after
+any of them puts a pun back; running `scripts/content/halcyon/batch10.mjs` after
 takes it out again. It is idempotent, and each prose rewrite in it throws if it finds neither its
 old text nor its new one, so an edit made since cannot be skipped without anyone knowing.
 
