@@ -7,17 +7,17 @@
     "instant": {
       "hunger": -5
     },
-    "onset_message": "<span class=\"msg-system\">It catches, a cheap bright little jolt behind the eyes.</span>",
+    "onset_message": "<span class=\"msg-system\">It kicks in. You feel a quick, cheap jolt of energy.</span>",
     "onset_seconds": 3,
     "overdose": {
       "lethal": true,
-      "message": "Your chest clamps shut around a heart going far too fast to be doing any good."
+      "message": "Your chest goes tight and your heart races far too fast."
     },
     "phases": {
       "comedown_message": [
         "<span class=\"msg-system\">It drops you. The cheap ones always drop you.</span>",
-        "<span class=\"msg-system\">The bottom goes out of it and takes the afternoon with it.</span>",
-        "<span class=\"msg-system\">You get the bill for the last twenty minutes.</span>"
+        "<span class=\"msg-system\">You crash, and you're useless for the rest of the afternoon.</span>",
+        "<span class=\"msg-system\">You crash, and you feel awful.</span>"
       ],
       "comedown_mods": {
         "stat_cool": -1,
@@ -29,8 +29,8 @@
       "comeup_scale": 0.5,
       "comeup_seconds": 10,
       "peak_message": [
-        "<span class=\"msg-system\">The jitter arrives all at once and you go with it.</span>",
-        "<span class=\"msg-system\">Everything speeds up to meet you.</span>",
+        "<span class=\"msg-system\">You're jittery all at once, and you go with it.</span>",
+        "<span class=\"msg-system\">You speed up, and everything feels easy.</span>",
         "<span class=\"msg-system\">Cheap and fast, exactly as advertised.</span>"
       ],
       "peak_mods": {
@@ -45,7 +45,7 @@
       "recovery_per_sec": 0.000011
     },
     "withdrawal": {
-      "message": "Everything you had been doing at speed is still there, and is being done at the other one.",
+      "message": "You're slow and tired, and everything takes twice as long.",
       "mods": {
         "stamina_max": -5,
         "stat_reflexes": -1

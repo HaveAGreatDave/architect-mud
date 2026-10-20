@@ -46,11 +46,11 @@
     "instant": {
       "sanity": -4
     },
-    "onset_message": "<span class=\"msg-system\">The nausea lifts and the world steps forward to be looked at.</span>",
+    "onset_message": "<span class=\"msg-system\">The nausea goes, and everything looks strange and interesting.</span>",
     "onset_seconds": 30,
     "overdose": {
       "lethal": false,
-      "message": "You have gone through the bottom of it. There is no floor and nobody built one.",
+      "message": "It's too much. You're terrified, and it won't stop.",
       "mods": {
         "sanity": -38,
         "stat_brains": -3,
@@ -58,14 +58,14 @@
       }
     },
     "phases": {
-      "comedown_message": "<span class=\"msg-system\">The eyes on the walls close, one by one. The world softens back toward ordinary.</span>",
+      "comedown_message": "<span class=\"msg-system\">The visions fade, and things start to look normal again.</span>",
       "comedown_scale": 0.5,
       "comedown_seconds": 60,
       "comeup_message": "<span class=\"msg-system\">Your stomach turns over and a heaviness settles into your limbs. Something is coming on.</span>",
       "comeup_scale": 0.5,
       "comeup_seconds": 60,
-      "end_message": "<span class=\"msg-system\">You come down gentle and hollowed-out, like you have had a good cry you don't remember.</span>",
-      "peak_message": "<span class=\"msg-system\">The nausea passes and leaves you wide open. Everything means something now.</span>",
+      "end_message": "<span class=\"msg-system\">You come down gently. You feel empty, like you've been crying.</span>",
+      "peak_message": "<span class=\"msg-system\">The nausea passes. Everything seems to mean something.</span>",
       "peak_mods": {
         "stat_cool": 1,
         "stat_reflexes": -1

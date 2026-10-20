@@ -42,18 +42,18 @@
     "instant": {
       "sanity": -2
     },
-    "onset_message": "<span class=\"msg-system\">Everything becomes a throb with a beat to it, and the beat is very funny, and the room agrees.</span>",
+    "onset_message": "<span class=\"msg-system\">Everything throbs in a steady beat, and you can't stop laughing.</span>",
     "onset_seconds": 2,
     "overdose": {
       "lethal": true,
-      "message": "You breathe nothing but the gas for too long, and the part of you that was supposed to notice has gone out."
+      "message": "You breathe the gas for too long and pass out without noticing."
     },
     "phases": {
       "comedown_scale": 0.4,
       "comedown_seconds": 25,
       "comeup_scale": 0.5,
       "comeup_seconds": 2,
-      "end_message": "<span class=\"msg-system\">The beat lets go of the room. You are just a person holding an empty balloon.</span>",
+      "end_message": "<span class=\"msg-system\">It wears off. You're just holding an empty balloon.</span>",
       "peak_mods": {
         "stat_brains": -3,
         "stat_reflexes": -3
@@ -66,17 +66,17 @@
       "max_reduction": 0.3
     },
     "withdrawal": {
-      "message": "Your hands and feet are buzzing and have been for days. It isn't the good buzzing.",
+      "message": "Your hands and feet have been tingling for days, and it's not pleasant.",
       "mods": {
         "stat_reflexes": -2
       },
       "onset_seconds": 1800,
       "stages": {
-        "easing": "It backs off to your fingertips and stays there.",
-        "onset": "Your hands and feet start buzzing, and there's no bulb, and the buzzing goes on anyway.",
-        "peak": "The buzzing hasn't stopped once, and it stopped being funny somewhere in the first hour, and it's still going.",
-        "rising": "It's in your fingers and it's in your feet and it isn't the good buzzing.",
-        "tail": "Mostly gone. Something in your feet hasn't entirely agreed to that."
+        "easing": "It fades back to your fingertips and stays there.",
+        "onset": "Your hands and feet start tingling, with no balloon in sight.",
+        "peak": "The tingling hasn't stopped for an hour, and it's starting to worry you.",
+        "rising": "The tingling spreads through your fingers and feet, and it isn't pleasant.",
+        "tail": "It's mostly gone. Your feet still tingle now and then."
       }
     }
   },

@@ -59,7 +59,7 @@
     },
     "overdose": {
       "lethal": false,
-      "message": "The smoke keeps coming and you can't find the part of the night where you stop.",
+      "message": "You've smoked far too much and you can't stop.",
       "mods": {
         "sanity": -30,
         "stat_cool": -3,
@@ -72,7 +72,7 @@
       "comeup_scale": 0.5,
       "comeup_seconds": 20,
       "end_message": "<span class=\"msg-system\">The mellow lifts. You're mostly just hungry now.</span>",
-      "peak_message": "<span class=\"msg-system\">A soft heaviness settles over you. The edges of the room go plush.</span>",
+      "peak_message": "<span class=\"msg-system\">Your body goes heavy and soft, and you relax.</span>",
       "peak_mods": {
         "stat_cool": 2,
         "stat_reflexes": -1
@@ -86,7 +86,7 @@
       "max_reduction": 0.7
     },
     "withdrawal": {
-      "message": "You can't get to sleep, and the sleep you do get is loud and detailed and full of people.",
+      "message": "You can't get to sleep, and when you do, your dreams are vivid and crowded.",
       "mods": {
         "stamina_max": -5,
         "stat_cool": -2

@@ -49,10 +49,10 @@
     "onset_seconds": 3,
     "overdose": {
       "lethal": true,
-      "message": "You take one pull too many in a room with nothing else in the air. Your heart trips over itself in the dark and doesn't get back up."
+      "message": "You take one pull too many in a closed room. Your heartbeat goes wrong and stops."
     },
     "phases": {
-      "comedown_message": "<span class=\"msg-system\">The headache arrives on schedule and settles behind your eyes.</span>",
+      "comedown_message": "<span class=\"msg-system\">The headache comes, right behind your eyes.</span>",
       "comedown_mods": {
         "stat_brains": -2,
         "stat_endurance": -2
@@ -61,7 +61,7 @@
       "comedown_seconds": 60,
       "comeup_scale": 0.6,
       "comeup_seconds": 8,
-      "end_message": "<span class=\"msg-system\">You come back with a mouth full of solvent and a little less than you started with.</span>",
+      "end_message": "<span class=\"msg-system\">You come round with the taste of solvent in your mouth, and a bit duller than before.</span>",
       "peak_mods": {
         "stat_brains": -3,
         "stat_cool": -2,
@@ -76,18 +76,18 @@
       "recovery_per_sec": 0.000009
     },
     "withdrawal": {
-      "message": "Your hands are unsteady and the workshop shelf keeps catching your eye.",
+      "message": "Your hands shake, and you keep thinking about the solvent.",
       "mods": {
         "stat_brains": -2,
         "stat_cool": -2
       },
       "onset_seconds": 1200,
       "stages": {
-        "easing": "The pressure lets off. Some of what it was pressing on doesn't come back.",
-        "onset": "The taste comes back first, at the back of the teeth, out of nowhere.",
-        "peak": "Your head is packed tight and you have read the same line four times without any of it arriving.",
-        "rising": "Your hands are unsteady enough to be a problem with small screws.",
-        "tail": "Steady hands. A word you wanted this morning has still not turned up."
+        "easing": "The pressure eases off. Some of what it pressed on doesn't come back.",
+        "onset": "You can suddenly taste it again, at the back of your teeth.",
+        "peak": "Your head feels packed tight, and you've read the same line four times without taking it in.",
+        "rising": "Your hands shake too much for fiddly work.",
+        "tail": "Your hands are steady. You still keep losing words."
       }
     }
   },

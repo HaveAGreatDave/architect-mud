@@ -17,18 +17,18 @@
     "phases": {
       "comedown_scale": 0.4,
       "comedown_seconds": 60,
-      "comeup_message": "<span class=\"msg-system\">You spark it up and draw slow. The room exhales with you; the edges go soft and warm.</span>",
+      "comeup_message": "<span class=\"msg-system\">You light it and draw slowly. You relax, and everything goes soft and warm.</span>",
       "comeup_scale": 0.5,
       "comeup_seconds": 8,
       "end_message": [
-        "<span class=\"msg-system\">You come back down, hungry and pleasantly stupid.</span>",
-        "<span class=\"msg-system\">It lets go. You are exactly where you were and fine about it.</span>",
+        "<span class=\"msg-system\">You come down, hungry and a bit stupid.</span>",
+        "<span class=\"msg-system\">It wears off. You feel fine.</span>",
         "<span class=\"msg-system\">The last of it goes. Your mouth is dry and you would eat anything.</span>"
       ],
       "peak_message": [
-        "<span class=\"msg-system\">Everything slows down and stops needing a reason.</span>",
-        "<span class=\"msg-system\">You settle into the room like it has always been the plan.</span>",
-        "<span class=\"msg-system\">Time gets wide. Nothing in it is urgent.</span>"
+        "<span class=\"msg-system\">Everything slows down, and you stop worrying about it.</span>",
+        "<span class=\"msg-system\">You relax and stop wanting to be anywhere else.</span>",
+        "<span class=\"msg-system\">Time slows down. Nothing's urgent.</span>"
       ],
       "peak_mods": {
         "stat_reflexes": -1

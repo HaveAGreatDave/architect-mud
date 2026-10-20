@@ -50,17 +50,17 @@
     "onset_seconds": 10,
     "overdose": {
       "lethal": true,
-      "message": "Your heart goes past what a heart does and the screaming turns out to have been yours."
+      "message": "Your heart races until it stops, and you realise the screaming was you."
     },
     "phases": {
-      "comedown_message": "<span class=\"msg-system\">The worst of it drains away, leaving you shaking and drenched and unconvinced it's really gone.</span>",
+      "comedown_message": "<span class=\"msg-system\">The worst of it passes. You're shaking and soaked in sweat, and you're not sure it's over.</span>",
       "comedown_scale": 0.6,
       "comedown_seconds": 90,
       "comeup_message": "<span class=\"msg-system\">Your pulse spikes and the room lurches. This one isn't going to be kind.</span>",
       "comeup_scale": 0.6,
       "comeup_seconds": 45,
-      "end_message": "<span class=\"msg-system\">You surface. The walls are just walls. You keep checking anyway.</span>",
-      "peak_message": "<span class=\"msg-system\">There's no floor under this. You're in it, and it's in you.</span>",
+      "end_message": "<span class=\"msg-system\">You come out of it. The walls look normal, but you keep checking.</span>",
+      "peak_message": "<span class=\"msg-system\">It's the worst trip you've had, and there's no getting out of it.</span>",
       "peak_mods": {
         "stat_cool": -4,
         "stat_reflexes": -2
@@ -73,7 +73,7 @@
       "max_reduction": 0.85
     },
     "withdrawal": {
-      "message": "The parts of it that weren't real haven't agreed to stop being in the room.",
+      "message": "You still see things that aren't there.",
       "mods": {
         "stat_cool": -3,
         "stat_reflexes": -1

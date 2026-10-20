@@ -117,10 +117,10 @@ const ARC = {
     // peak, so there is nothing here to scale down.
     comedown_scale: 1,
 
-    comeup_message: '<span class="msg-system">It goes down warm, and then does nothing at all, which is the first thing it does.</span>',
-    peak_message: '<span class="msg-system">The warmth catches up with you all at once. The room is friendly. Your opinions are excellent.</span>',
-    comedown_message: '<span class="msg-system">Somewhere in the last while your mouth turned to paper and the lights got louder.</span>',
-    end_message: '<span class="msg-system">It finishes with you, and leaves you tired in a way that sleeping has already failed to fix.</span>',
+    comeup_message: "<span class=\"msg-system\">It goes down warm. You don't feel anything yet.</span>",
+    peak_message: '<span class="msg-system">It hits you all at once. You feel warm and friendly, and very sure of yourself.</span>',
+    comedown_message: '<span class="msg-system">Your mouth has gone dry and the lights seem too bright.</span>',
+    end_message: "<span class=\"msg-system\">It wears off and leaves you tired. Sleep won't fix it.</span>",
 
     // The anxiolytic half, and nothing else. Everything a drinker can feel in
     // their hands or their judgement belongs to the BAC bands.

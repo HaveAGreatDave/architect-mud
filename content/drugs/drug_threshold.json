@@ -34,7 +34,7 @@
     "onset_seconds": 0,
     "overdose": {
       "lethal": false,
-      "message": "You are shown the whole of it at once, and you weren't built to hold the whole of it.",
+      "message": "You see too much at once, and your mind can't take it.",
       "mods": {
         "sanity": -42,
         "stat_brains": -5,
@@ -46,7 +46,7 @@
       "comedown_seconds": 40,
       "comeup_scale": 0.5,
       "comeup_seconds": 4,
-      "end_message": "<span class=\"msg-system\">Four hundred seconds, by the clock. You will be arguing with that clock for a while.</span>",
+      "end_message": "<span class=\"msg-system\">It's over. The clock says it lasted under seven minutes. It felt much longer.</span>",
       "peak_mods": {
         "stat_brains": -4,
         "stat_cool": -4,

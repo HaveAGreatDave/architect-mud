@@ -3,25 +3,25 @@
   "description": "Raw poppy tar, worked into a brown pellet. Older than every other thing on this list put together.",
   "duration_seconds": 900,
   "effects": {
-    "comeon_message": "<span class=\"msg-system\">The first of it arrives as warmth behind the breastbone, and takes its time about the rest.</span>",
+    "comeon_message": "<span class=\"msg-system\">You feel warm in your chest. The rest of it comes on slowly.</span>",
     "diuretic": 0.3,
     "instant": {
       "hunger": -10,
       "sanity": 14
     },
-    "onset_message": "<span class=\"msg-system\">The warmth finishes arriving. Nothing hurts. Nothing is urgent. You could sit here until the building comes down.</span>",
+    "onset_message": "<span class=\"msg-system\">You're warm all over. Nothing hurts and nothing's urgent. You could sit here forever.</span>",
     "onset_seconds": 70,
     "overdose": {
       "lethal": true,
-      "message": "Your breathing gets slower and further apart, and then it stops bothering."
+      "message": "Your breathing slows down more and more, and then it stops."
     },
     "phases": {
       "comedown_scale": 0.5,
       "comedown_seconds": 300,
       "comeup_scale": 0.4,
       "comeup_seconds": 70,
-      "end_message": "<span class=\"msg-system\">The warmth drains off by degrees, the way a room cools. You're left sitting in the shape of it.</span>",
-      "peak_message": "<span class=\"msg-system\">You settle into it. The world is still going on and it's doing so at a polite distance.</span>",
+      "end_message": "<span class=\"msg-system\">The warmth fades slowly, and you just sit there.</span>",
+      "peak_message": "<span class=\"msg-system\">You settle into it. Everything else feels far away.</span>",
       "peak_mods": {
         "hp_regen_per_sec": 2,
         "stat_brains": -1,
@@ -30,14 +30,14 @@
       },
       "peak_seconds": 600
     },
-    "take_line": "You worry a lump of {name} off the pellet and chew it down. It tastes like a hedge burning.",
+    "take_line": "You break a lump of {name} off the pellet and chew it. It tastes like burnt leaves.",
     "tolerance": {
       "gain_per_dose": 0.14,
       "max_reduction": 0.75,
       "recovery_per_sec": 0.00012
     },
     "withdrawal": {
-      "message": "Everything aches at once, evenly, like weather. You know exactly what would fix it.",
+      "message": "Everything aches, all over. You know exactly what would fix it.",
       "mods": {
         "hp_max": -15,
         "stat_cool": -3,

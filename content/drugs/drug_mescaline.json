@@ -47,11 +47,11 @@
       "hunger": -6,
       "sanity": -6
     },
-    "onset_message": "<span class=\"msg-system\">The colours arrive first, and they have opinions.</span>",
+    "onset_message": "<span class=\"msg-system\">The colours come first, too bright and too strong.</span>",
     "onset_seconds": 25,
     "overdose": {
       "lethal": false,
-      "message": "Your stomach turns itself inside out and the desert keeps going anyway.",
+      "message": "You're violently sick, and the visions don't stop.",
       "mods": {
         "hp": -8,
         "sanity": -35,
@@ -60,14 +60,14 @@
       }
     },
     "phases": {
-      "comedown_message": "<span class=\"msg-system\">The gold cools out of the air. The visions settle, unhurried, back into ordinary matter.</span>",
+      "comedown_message": "<span class=\"msg-system\">The colours fade and the visions slowly stop.</span>",
       "comedown_scale": 0.5,
       "comedown_seconds": 90,
       "comeup_message": "<span class=\"msg-system\">Your stomach knots and your skin prickles. The long climb is starting.</span>",
       "comeup_scale": 0.5,
       "comeup_seconds": 90,
-      "end_message": "<span class=\"msg-system\">You come all the way down, wrung out and quietly rearranged.</span>",
-      "peak_message": "<span class=\"msg-system\">The nausea burns off and the world opens up gold and geometric and endless.</span>",
+      "end_message": "<span class=\"msg-system\">You come all the way down, exhausted and not quite the same.</span>",
+      "peak_message": "<span class=\"msg-system\">The nausea goes. Everything glows gold and full of patterns.</span>",
       "peak_mods": {
         "stat_brains": 1,
         "stat_reflexes": -1

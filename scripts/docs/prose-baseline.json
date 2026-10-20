@@ -59,6 +59,9 @@
       "constructed-irony": 2,
       "aphoristic-closer": 1
     },
+    "content/drugs": {
+      "object-contraction": 7
+    },
     "content/enemies": {
       "caps-run": 3,
       "over-length": 11
@@ -70,7 +73,7 @@
       "aphoristic-closer": 2,
       "caps-run": 120,
       "em-dash": 1,
-      "over-length": 379
+      "over-length": 375
     },
     "content/incidents": {
       "constructed-irony": 1,
@@ -122,12 +125,12 @@
     },
     "content/zones": {
       "significance-frame": 1,
-      "constructed-irony": 54,
+      "constructed-irony": 53,
       "aphoristic-closer": 4,
       "fiction-cliche": 34,
       "caps-run": 116,
-      "em-dash": 292,
-      "over-length": 715
+      "em-dash": 286,
+      "over-length": 709
     },
     "docs/adr/0001-action-canonical-mutation-path.md": {
       "em-dash": 4
@@ -244,7 +247,7 @@
       "em-dash": 78
     },
     "docs/devpanel-js.md": {
-      "em-dash": 122
+      "em-dash": 121
     },
     "docs/flags-keys.md": {
       "vocab": 1,
@@ -550,7 +553,7 @@
     },
     "docs/systems-accessibility.md": {
       "jargon-metaphor": 1,
-      "em-dash": 64
+      "em-dash": 63
     },
     "docs/systems-ascension.md": {
       "jargon-metaphor": 1,
@@ -612,7 +615,7 @@
       "negative-parallelism": 2,
       "constructed-irony": 2,
       "caps-run": 1,
-      "em-dash": 215
+      "em-dash": 211
     },
     "docs/systems-dreams.md": {
       "jargon-metaphor": 2,
@@ -628,7 +631,7 @@
       "em-dash": 36
     },
     "docs/systems-economy.md": {
-      "jargon-metaphor": 2,
+      "jargon-metaphor": 1,
       "em-dash": 90
     },
     "docs/systems-faction-arcs.md": {
@@ -727,7 +730,7 @@
     },
     "docs/systems-procedural-audio.md": {
       "aphoristic-closer": 1,
-      "em-dash": 99
+      "em-dash": 97
     },
     "docs/systems-psionics.md": {
       "jargon-metaphor": 1,
@@ -856,7 +859,7 @@
       "em-dash": 28
     },
     "plugins/bartender/README.md": {
-      "em-dash": 7
+      "em-dash": 6
     },
     "plugins/birthday/README.md": {
       "caps-run": 1,

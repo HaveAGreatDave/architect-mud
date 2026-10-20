@@ -54,17 +54,17 @@
     "instant": {
       "sanity": -12
     },
-    "onset_message": "<span class=\"msg-system\">The quiet finishes settling. You're no longer sure you're alone in here.</span>",
+    "onset_message": "<span class=\"msg-system\">It's very quiet. You don't think you're alone in here.</span>",
     "onset_seconds": 40,
     "overdose": {
       "lethal": true,
-      "message": "Your skin is burning dry and nothing in the room is where it was. You don't find the door."
+      "message": "Your skin is hot and dry, and you can't tell where anything is. You never find the door."
     },
     "phases": {
-      "comedown_message": "The air thins out. You're alone again. You think.",
+      "comedown_message": "The feeling fades. You're alone again, you think.",
       "comedown_scale": 0.5,
       "comedown_seconds": 40,
-      "comeup_message": "The room goes very quiet, and its corners feel closer than they were.",
+      "comeup_message": "It goes very quiet, and you feel closed in.",
       "comeup_scale": 0.5,
       "comeup_seconds": 40,
       "peak_mods": {
@@ -80,7 +80,7 @@
       "recovery_per_sec": 0.0002
     },
     "withdrawal": {
-      "message": "The people it introduced you to didn't leave when it did.",
+      "message": "You still see the people it showed you, and they aren't real.",
       "mods": {
         "stat_brains": -1,
         "stat_cool": -2

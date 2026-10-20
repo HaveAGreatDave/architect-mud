@@ -3,7 +3,7 @@
   "description": "A bottle of cough syrup drunk for entirely the wrong reason. Cheap, legal, and a long way down.",
   "duration_seconds": 900,
   "effects": {
-    "comeon_message": "<span class=\"msg-system\">Syrup-thick and cloying. You sit down to wait, which takes a surprisingly long time.</span>",
+    "comeon_message": "<span class=\"msg-system\">It's thick and far too sweet. You sit down to wait, and it takes a long time.</span>",
     "hallucination": {
       "duration_seconds": 700,
       "events": [
@@ -39,14 +39,14 @@
     "instant": {
       "sanity": -8
     },
-    "onset_message": "<span class=\"msg-system\">Your legs report in from a great distance. Everything you do arrives a half-second after you decide to do it.</span>",
+    "onset_message": "<span class=\"msg-system\">Your legs feel far away. You move a half-second after you mean to.</span>",
     "onset_seconds": 45,
     "overdose": {
       "lethal": true,
-      "message": "Your heart goes somewhere fast and your breathing goes somewhere slow, and the two of them don't meet again."
+      "message": "Your heart races and your breathing slows, until both stop."
     },
     "phases": {
-      "comedown_message": "<span class=\"msg-system\">Your legs start answering closer to when you ask them.</span>",
+      "comedown_message": "<span class=\"msg-system\">Your legs start doing what you tell them again.</span>",
       "comedown_mods": {
         "stat_brains": -2,
         "stat_endurance": -1
@@ -55,7 +55,7 @@
       "comedown_seconds": 235,
       "comeup_scale": 0.3,
       "comeup_seconds": 45,
-      "end_message": "<span class=\"msg-system\">Everything is the right distance away again. Your jaw aches and the sweetness is still in your teeth.</span>",
+      "end_message": "<span class=\"msg-system\">You're back in your body. Your jaw aches and you can still taste the syrup.</span>",
       "peak_mods": {
         "stat_brains": -3,
         "stat_endurance": -2,
@@ -70,17 +70,17 @@
       "recovery_per_sec": 0.000005
     },
     "withdrawal": {
-      "message": "Everything is too sharp and too close and moving at the wrong speed. You want the distance back.",
+      "message": "Everything is too sharp and too fast. You want to feel numb again.",
       "mods": {
         "stat_brains": -2
       },
       "onset_seconds": 1800,
       "stages": {
-        "easing": "The plateau lets you down onto flat ground, and the flat ground holds.",
-        "onset": "The distance goes. Everything is at the end of your arms again.",
-        "peak": "Nothing is happening at a remove any more. It's all happening at exactly the range it's happening at, which is here.",
-        "rising": "Sounds arrive on time, at full size, in the room you're in.",
-        "tail": "Near. Everything is near. You have got most of the way to used to it."
+        "easing": "You come down slowly and land on your feet.",
+        "onset": "The distance goes. Everything's within arm's reach again.",
+        "peak": "Nothing feels far away any more. It's all happening right in front of you.",
+        "rising": "Sounds are loud and clear and right here.",
+        "tail": "Everything feels close. You're mostly used to it."
       }
     }
   },

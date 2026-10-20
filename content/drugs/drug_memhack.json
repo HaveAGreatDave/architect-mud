@@ -8,39 +8,39 @@
     },
     "overdose": {
       "lethal": true,
-      "message": "It edits one memory too many: the one where your heart remembers to beat."
+      "message": "It's too much. Your heart stops."
     },
     "phases": {
       "comedown_scale": 0.5,
       "comedown_seconds": 90,
       "comeup_scale": 0.5,
       "comeup_seconds": 30,
-      "end_message": "<span class=\"msg-system\">The edits settle. A few of the barbs quietly grow back.</span>",
-      "peak_message": "<span class=\"msg-system\">Old wounds you carry go soft and distant, like they happened to someone else.</span>",
+      "end_message": "<span class=\"msg-system\">It wears off. Some of the bad memories hurt again.</span>",
+      "peak_message": "<span class=\"msg-system\">Your worst memories stop hurting. They feel like someone else's.</span>",
       "peak_mods": {
         "sanity_regen_per_sec": 1,
         "stat_cool": 3
       },
       "peak_seconds": 240
     },
-    "take_line": "You dose {name} and let it go looking.",
+    "take_line": "You take {name} and wait.",
     "tolerance": {
       "gain_per_dose": 0.12,
       "max_reduction": 0.7
     },
     "withdrawal": {
-      "message": "The memories come back sharp and all at once. Only memhack files them down.",
+      "message": "The bad memories all come back at once, and they hurt. You want memhack.",
       "mods": {
         "sanity_regen_per_sec": -0.05,
         "stat_cool": -2
       },
       "onset_seconds": 1200,
       "stages": {
-        "easing": "They start letting you look away.",
-        "onset": "Something comes back with its barbs on.",
-        "peak": "Everything memhack sanded down is back and it's back sharp, and you're finding out that filing a thing isn't the same as being rid of it.",
-        "rising": "They arrive out of order, unfiled, at full resolution, and none of them knock.",
-        "tail": "Everything is where you left it, with the edges on. That was always going to be the deal."
+        "easing": "You can start looking away from them.",
+        "onset": "A memory comes back, and it still hurts.",
+        "peak": "Everything memhack dulled is back as sharp as ever. Putting a memory away didn't get rid of it.",
+        "rising": "More come back, out of order and perfectly clear, without warning.",
+        "tail": "Your memories are all back, sharp edges and all. That was always the price."
       }
     }
   },

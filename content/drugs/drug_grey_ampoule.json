@@ -34,7 +34,7 @@
     "onset_seconds": 40,
     "overdose": {
       "lethal": false,
-      "message": "Your whole body cramps at once, from the inside out, and something low in you feels wrung dry. It passes. You're fairly sure it passes.",
+      "message": "Your whole body cramps at once and you feel drained. It passes, you think.",
       "mods": {
         "hp": -10,
         "sanity": -20,
@@ -43,25 +43,25 @@
       }
     },
     "phases": {
-      "comedown_message": "The heaviness fades. Something about it lingers anyway.",
+      "comedown_message": "The heaviness fades, but not all the way.",
       "comedown_seconds": 240,
       "comeup_seconds": 60,
-      "end_message": "Whatever that was, it's finished with you for now.",
-      "peak_message": "A deep, unfamiliar heaviness settles low in your gut. Not unpleasant. Not nothing.",
+      "end_message": "It's worn off, for now.",
+      "peak_message": "Your gut feels heavy in a way you don't recognise. It doesn't hurt.",
       "peak_mods": {
         "stamina_max": 5,
         "stat_brawn": 1
       },
       "peak_seconds": 600
     },
-    "take_line": "You push the needle in. There's a long, bright, total moment where the world is only that.",
+    "take_line": "You push the needle in. For a long moment, that's all you feel.",
     "tolerance": {
       "gain_per_dose": 0.1,
       "max_reduction": 0.5,
       "recovery_per_sec": 0.000006
     },
     "withdrawal": {
-      "message": "Everything the syringe was running has gone quiet, and quiet isn't the same as rested.",
+      "message": "The drug's out of you now. You're not rested, just flat.",
       "mods": {
         "stamina_max": -5,
         "stat_brawn": -1

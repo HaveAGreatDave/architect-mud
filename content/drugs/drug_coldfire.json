@@ -3,7 +3,7 @@
   "description": "A combat stim that turns fear into fuel. Frontline mercs swear by it, and at it.",
   "duration_seconds": 240,
   "effects": {
-    "comeon_message": "<span class=\"msg-system\">It hits your blood cold. Somewhere behind your sternum, something starts winding up.</span>",
+    "comeon_message": "<span class=\"msg-system\">It goes in cold. Your heart starts to speed up.</span>",
     "diuretic": 1.5,
     "fx": {
       "intensity": 0.9
@@ -12,11 +12,11 @@
       "hunger": -12,
       "sanity": 6
     },
-    "onset_message": "<span class=\"msg-system\">The fear goes out like a snuffed match. What's left is very calm and very willing.</span>",
+    "onset_message": "<span class=\"msg-system\">Your fear is gone. You feel calm and ready for anything.</span>",
     "onset_seconds": 12,
     "overdose": {
       "lethal": true,
-      "message": "Your body can't tell it's dying. It sprints straight past the edge."
+      "message": "Your heart races until it gives out, and you don't feel it happen."
     },
     "phases": {
       "comedown_mods": {
@@ -28,8 +28,8 @@
       "comedown_seconds": 90,
       "comeup_scale": 0.6,
       "comeup_seconds": 12,
-      "end_message": "<span class=\"msg-system\">The fire gutters out. Every wound you ignored is suddenly very loud.</span>",
-      "peak_message": "<span class=\"msg-system\">Cold fire floods your veins. Pain becomes a distant rumour.</span>",
+      "end_message": "<span class=\"msg-system\">It wears off, and every injury you ignored starts to hurt at once.</span>",
+      "peak_message": "<span class=\"msg-system\">You feel strong and calm, and you can barely feel pain.</span>",
       "peak_mods": {
         "hp_max": 30,
         "hp_regen_per_sec": 1,
@@ -52,11 +52,11 @@
       },
       "onset_seconds": 1200,
       "stages": {
-        "easing": "It burns down into ordinary nerves, and ordinary nerves are survivable.",
-        "onset": "The fear you were converting into fuel arrives unconverted.",
-        "peak": "Everything is a threat and you have no procedure for any of it, and this is what everybody else has been doing all along without help.",
-        "rising": "Your hands go before your head does. You notice them going and can't make them stop.",
-        "tail": "You're frightened of things at roughly the correct size again. It's an unfamiliar amount."
+        "easing": "It fades to ordinary nerves, and ordinary nerves you can handle.",
+        "onset": "The fear you used to turn into energy is just fear again.",
+        "peak": "Everything feels dangerous and you don't know how to handle any of it. This is how most people live, without the help.",
+        "rising": "Your hands start shaking before your nerve goes, and you can't stop them.",
+        "tail": "You're scared of the right things again, about the right amount. It feels strange."
       }
     }
   },

@@ -54,27 +54,27 @@
       "radiation": 5,
       "sanity": -10
     },
-    "onset_message": "<span class=\"msg-system\">Something in the room thins out, and you can see how little is holding it together.</span>",
+    "onset_message": "<span class=\"msg-system\">The room starts to look thin and unreal.</span>",
     "onset_seconds": 6,
     "overdose": {
-      "message": "Reality doesn't tear so much as admit it was never solid. Something looks back through the gap, knows your name, and takes a piece of you with it when it goes.",
+      "message": "Nothing around you looks solid any more. Something looks at you and says your name, and when it goes, part of your mind goes with it.",
       "mods": {
         "hp": -25,
         "sanity": -35
       }
     },
     "phases": {
-      "comedown_message": "<span class=\"msg-system\">The walls firm up, mostly. The corners are still not quite where you left them.</span>",
+      "comedown_message": "<span class=\"msg-system\">The walls stop moving, mostly. Things still look a bit wrong.</span>",
       "comedown_mods": {
         "stat_cool": -3,
         "stat_senses": -2
       },
       "comedown_scale": 1,
       "comedown_seconds": 40,
-      "comeup_message": "<span class=\"msg-system\">The light in the room goes thin and grey, as if the world were a print left too long in the sun.</span>",
+      "comeup_message": "<span class=\"msg-system\">The light goes thin and grey, and the colours fade.</span>",
       "comeup_scale": 0.5,
       "comeup_seconds": 20,
-      "end_message": "<span class=\"msg-system\">The room settles back into being only a room. You're fairly sure you're alone. Fairly.</span>",
+      "end_message": "<span class=\"msg-system\">Things look solid again. You think you're alone.</span>",
       "peak_mods": {
         "stat_brains": -2,
         "stat_cool": -3
@@ -89,18 +89,18 @@
     },
     "withdrawal": {
       "addiction_per_dose": 0.18,
-      "message": "The world is too solid, too loud, too certain of itself. You keep checking the corners of the walls for a seam.",
+      "message": "Everything feels too solid and too loud. You keep staring at the walls, looking for a gap.",
       "mods": {
         "stat_brains": -2,
         "stat_cool": -2
       },
       "onset_seconds": 2400,
       "stages": {
-        "easing": "The certainty stops being aggressive about it.",
-        "onset": "The world thickens up. Everything is exactly as solid as it says it is.",
-        "peak": "It's all completely certain of itself and none of it will admit anything, and the thing you saw through the thin patch is still in the room and has stopped being visible.",
-        "rising": "You keep checking corners for a seam and finding a corner.",
-        "tail": "Solid, ordinary, and closed. The legions are drawing off and not all of them have gone."
+        "easing": "The world stops pressing in so hard.",
+        "onset": "The world goes solid again. Everything looks exactly like what it is.",
+        "peak": "Everything's solid and certain, but what you saw through the gaps is still there. You just can't see it now.",
+        "rising": "You keep checking corners for a gap, and they're just corners.",
+        "tail": "Everything's solid and ordinary again. Not everything you saw has gone away."
       }
     }
   },

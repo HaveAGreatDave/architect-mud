@@ -58,11 +58,11 @@
     "instant": {
       "sanity": -8
     },
-    "onset_message": "<span class=\"msg-system\">The paper wasn't a lie. The walls take their first slow breath.</span>",
+    "onset_message": "<span class=\"msg-system\">It's real. The walls start to breathe.</span>",
     "onset_seconds": 20,
     "overdose": {
       "lethal": false,
-      "message": "Far, far too much. The part of you that was enjoying this is not answering.",
+      "message": "That was far too much. You're terrified, and you can't make it stop.",
       "mods": {
         "sanity": -45,
         "stat_brains": -4,
@@ -70,14 +70,14 @@
       }
     },
     "phases": {
-      "comedown_message": "<span class=\"msg-system\">The peak loosens its grip. The world starts remembering how to be ordinary.</span>",
+      "comedown_message": "<span class=\"msg-system\">The peak passes, and things start to feel normal again.</span>",
       "comedown_scale": 0.5,
       "comedown_seconds": 150,
-      "comeup_message": "<span class=\"msg-system\">Your jaw tightens, your feet won't quite hold still, and the room shimmers at the edges.</span>",
+      "comeup_message": "<span class=\"msg-system\">Your jaw tightens, you can't keep your feet still, and the room shimmers.</span>",
       "comeup_scale": 0.5,
       "comeup_seconds": 90,
-      "end_message": "<span class=\"msg-system\">You're down: wrung-out and wide awake, thoughts still trailing colour.</span>",
-      "peak_message": "<span class=\"msg-system\">The come-up crests and breaks. You're all the way in it now.</span>",
+      "end_message": "<span class=\"msg-system\">You're down, exhausted and wide awake, still seeing some colours.</span>",
+      "peak_message": "<span class=\"msg-system\">You're fully tripping now.</span>",
       "peak_mods": {
         "stat_cool": -1,
         "stat_reflexes": 1

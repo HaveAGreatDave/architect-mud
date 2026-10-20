@@ -3,7 +3,7 @@
   "description": "A dissociative dust that unplugs you from your own body for a while.",
   "duration_seconds": 240,
   "effects": {
-    "comeon_message": "<span class=\"msg-system\">You take the dust and wait, already feeling further away than you were.</span>",
+    "comeon_message": "<span class=\"msg-system\">You take the dust and wait. You already feel far away.</span>",
     "hallucination": {
       "duration_seconds": 200,
       "events": [
@@ -39,14 +39,14 @@
     "instant": {
       "sanity": -8
     },
-    "onset_message": "<span class=\"msg-system\">Your body finishes its sentence without you. You're somewhere behind it now.</span>",
+    "onset_message": "<span class=\"msg-system\">Your body keeps moving but you're not in charge of it. You feel far behind it.</span>",
     "onset_seconds": 8,
     "overdose": {
       "lethal": true,
-      "message": "You go so far down the hole that you forget the way back, and your body forgets to breathe."
+      "message": "You go too deep to come back, and you stop breathing."
     },
     "phases": {
-      "comedown_message": "<span class=\"msg-system\">You are handed your body back a piece at a time, in no particular order.</span>",
+      "comedown_message": "<span class=\"msg-system\">You start to feel your body again, a bit at a time.</span>",
       "comedown_mods": {
         "stat_brains": -2,
         "stat_reflexes": -2
@@ -55,7 +55,7 @@
       "comedown_seconds": 60,
       "comeup_scale": 0.3,
       "comeup_seconds": 8,
-      "end_message": "<span class=\"msg-system\">All of you is in the same place again. You stay where you are for a bit anyway.</span>",
+      "end_message": "<span class=\"msg-system\">You feel like yourself again. You stay put for a bit anyway.</span>",
       "peak_mods": {
         "stat_brains": -3,
         "stat_brawn": -3,
@@ -69,17 +69,17 @@
       "max_reduction": 0.8
     },
     "withdrawal": {
-      "message": "The grey funnel calls. You keep glancing toward the door that isn't there.",
+      "message": "You want to go back under. You can't stop thinking about it.",
       "mods": {
         "stat_brains": -2
       },
       "onset_seconds": 1800,
       "stages": {
-        "easing": "A little room opens back up, on its own, without being asked for.",
-        "onset": "You're very definitely inside your own body and can feel where all of it is.",
-        "peak": "There's no distance left between you and any of it, and the funnel was distance, and it's closed.",
-        "rising": "Your own hands keep being yours. This has stopped being obvious and started being a fact you notice.",
-        "tail": "You're here. You keep checking the corner where the door used to not be."
+        "easing": "A bit of breathing room comes back by itself.",
+        "onset": "You're back in your body and you can feel every part of it.",
+        "peak": "There's no distance between you and anything any more. The drug gave you that distance, and it's gone.",
+        "rising": "You keep noticing your hands are yours, which you never used to think about.",
+        "tail": "You're here. You still look for the way out the drug used to give you."
       }
     }
   },

@@ -9,11 +9,11 @@
       "sanity": 3,
       "thirst": 12
     },
-    "onset_message": "<span class=\"msg-system\">Your head clears. You can breathe through both sides of your nose, which is more than most people here can say.</span>",
+    "onset_message": "<span class=\"msg-system\">Your head clears, and you can breathe through your nose again.</span>",
     "onset_seconds": 20,
     "overdose": {
       "lethal": true,
-      "message": "It was a cold remedy and you ate it like sweets. Your pulse goes thin and fast and then it doesn't go at all."
+      "message": "It was cold medicine and you took far too much. Your pulse races, then stops."
     },
     "phases": {
       "comedown_message": "<span class=\"msg-system\">The lift drains out and leaves you gritty-eyed.</span>",
@@ -35,7 +35,7 @@
       "recovery_per_sec": 0.00001
     },
     "withdrawal": {
-      "message": "Your sinuses shut harder than they were before you opened them.",
+      "message": "Your nose is more blocked than it was before you started.",
       "mods": {
         "stamina_max": -5,
         "stat_cool": -1

@@ -15,14 +15,10 @@
     "onset_seconds": 0,
     "overdose": {
       "lethal": true,
-      "message": "You've had far too much, far too fast. The room spins hard, your stomach heaves, and then everything just… stops. Alcohol poisoning."
+      "message": "You've had far too much, far too fast. The room spins, you throw up, and then you pass out. Alcohol poisoning."
     },
     "phases": {
-      "comedown_message": [
-        "<span class=\"msg-system\">The warmth pulls back in and leaves your head heavy.</span>",
-        "<span class=\"msg-system\">You come down the far side of it, and the far side is dry and loud.</span>",
-        "<span class=\"msg-system\">The good half is over. The rest of it is still in you.</span>"
-      ],
+      "comedown_message": "<span class=\"msg-system\">Your mouth has gone dry and the lights seem too bright.</span>",
       "comedown_mods": {
         "sanity_regen_per_sec": -0.004,
         "stat_brains": -2,
@@ -32,15 +28,11 @@
       },
       "comedown_scale": 1,
       "comedown_seconds": 3600,
-      "comeup_message": "<span class=\"msg-system\">It goes down warm, and then does nothing at all, which is the first thing it does.</span>",
+      "comeup_message": "<span class=\"msg-system\">It goes down warm. You don't feel anything yet.</span>",
       "comeup_scale": 0.3,
       "comeup_seconds": 240,
-      "end_message": "<span class=\"msg-system\">It finishes with you, and leaves you tired in a way that sleeping has already failed to fix.</span>",
-      "peak_message": [
-        "<span class=\"msg-system\">The warmth gets all the way out to your hands.</span>",
-        "<span class=\"msg-system\">Everything in the room becomes easier to be in.</span>",
-        "<span class=\"msg-system\">The drink arrives properly. You are, briefly, excellent company.</span>"
-      ],
+      "end_message": "<span class=\"msg-system\">It wears off and leaves you tired. Sleep won't fix it.</span>",
+      "peak_message": "<span class=\"msg-system\">It hits you all at once. You feel warm and friendly, and very sure of yourself.</span>",
       "peak_mods": {
         "sanity_regen_per_sec": 0.015
       },
@@ -54,7 +46,7 @@
       "recovery_per_sec": 0.0000023
     },
     "withdrawal": {
-      "message": "Your hands won't be still, and the room has started putting things in the corners of itself.",
+      "message": "Your hands shake, and you keep seeing things in the corners that aren't there.",
       "mods": {
         "hp_max": -10,
         "stat_brains": -2,
@@ -63,11 +55,11 @@
       },
       "onset_seconds": 5400,
       "stages": {
-        "easing": "It lets go of your hands before it lets go of the rest. You get an hour of thinking it's finished.",
-        "onset": "Your hands are doing something small and constant, and looking at them doesn't stop it.",
-        "peak": "Everything in here has an extra edge on it, and one or two things have moved since you last looked. Your whole body is ringing like something struck it and nothing will make it stop.",
-        "rising": "You're sweating through a shirt in a cold room, and your own pulse is audible, and neither of those has a reason.",
-        "tail": "You sleep in ninety-minute pieces and come out of each one already sitting up. Four days of that, and the nights are the last thing to come back."
+        "easing": "Your hands steady first. For an hour you think it's over.",
+        "onset": "Your hands have a small shake, and you can't stop it.",
+        "peak": "Your whole body is shaking. Things move at the edge of your vision, and when you look, nothing's there.",
+        "rising": "You're sweating in a cold room and your heart is pounding, and you haven't done anything.",
+        "tail": "You can't sleep more than an hour or two at a time, and you wake up with a jolt every time. It'll be days before you sleep through the night again."
       }
     }
   },

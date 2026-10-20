@@ -3,7 +3,7 @@
   "description": "A designer dissociative that drops you into the static between channels.",
   "duration_seconds": 300,
   "effects": {
-    "comeon_message": "<span class=\"msg-system\">You dose and stand very still, waiting for the channel to change.</span>",
+    "comeon_message": "<span class=\"msg-system\">You take it and stand still, waiting for it to work.</span>",
     "hallucination": {
       "duration_seconds": 260,
       "events": [
@@ -39,14 +39,14 @@
     "instant": {
       "sanity": -14
     },
-    "onset_message": "<span class=\"msg-system\">The signal drops out. You're between stations, and it's quiet here.</span>",
+    "onset_message": "<span class=\"msg-system\">Your mind goes quiet and blank.</span>",
     "onset_seconds": 8,
     "overdose": {
       "lethal": true,
-      "message": "The static pulls you all the way under and keeps the channel dark."
+      "message": "You go blank and don't come back."
     },
     "phases": {
-      "comedown_message": "<span class=\"msg-system\">The signal comes back up, and it is louder than you remember asking for.</span>",
+      "comedown_message": "<span class=\"msg-system\">Your senses come back, too loud.</span>",
       "comedown_mods": {
         "stat_brains": -2,
         "stat_cool": -1
@@ -55,7 +55,7 @@
       "comedown_seconds": 90,
       "comeup_scale": 0.3,
       "comeup_seconds": 8,
-      "end_message": "<span class=\"msg-system\">You are back on the channel with everyone else. It took longer than it should have.</span>",
+      "end_message": "<span class=\"msg-system\">You're back to normal. It took longer than it should have.</span>",
       "peak_mods": {
         "stat_brains": -3,
         "stat_cool": 2,
@@ -70,18 +70,18 @@
     },
     "withdrawal": {
       "addiction_per_dose": 0.1,
-      "message": "The world is too vivid, too present, too full of edges. You miss the blue quiet between the channels.",
+      "message": "Everything is too bright and too sharp. You miss feeling blank.",
       "mods": {
         "stat_brains": -2,
         "stat_cool": -1
       },
       "onset_seconds": 2100,
       "stages": {
-        "easing": "It thins to a hiss you can work through.",
-        "onset": "The blue quiet goes off and the channel comes back in, loud.",
-        "peak": "There's no space between the signals at all. The gap dead air lives in has closed and every surface in this room is saying something.",
-        "rising": "Everything is broadcasting. All of it at once and all of it addressed to you.",
-        "tail": "Tuned in. Occasionally you catch yourself listening for the part between the stations."
+        "easing": "It fades to a hiss you can work through.",
+        "onset": "The calm blue quiet switches off and the noise comes back, loud.",
+        "peak": "There's no quiet left anywhere. Every surface in the room seems to be saying something.",
+        "rising": "Everything feels like it's talking, and all of it's aimed at you.",
+        "tail": "You're back to normal. Now and then you listen for the quiet that isn't there."
       }
     }
   },

@@ -10,11 +10,11 @@
     "instant": {
       "sanity": -6
     },
-    "onset_message": "<span class=\"msg-system\">Your lace comes up to temperature. Thoughts arrive already finished.</span>",
+    "onset_message": "<span class=\"msg-system\">Your lace warms up. You think faster than you ever have.</span>",
     "onset_seconds": 8,
     "overdose": {
       "lethal": true,
-      "message": "Your wetware runs too hot for too long and something delicate inside simply melts."
+      "message": "Your lace runs too hot for too long, and something in your brain burns out."
     },
     "phases": {
       "comedown_mods": {
@@ -24,11 +24,11 @@
       },
       "comedown_scale": 1,
       "comedown_seconds": 78,
-      "comeup_message": "<span class=\"msg-system\">Your lace spins up with a whine only you can hear. The world turns to data.</span>",
+      "comeup_message": "<span class=\"msg-system\">Your lace spins up with a whine only you can hear. You start seeing everything as numbers.</span>",
       "comeup_scale": 0.5,
       "comeup_seconds": 12,
-      "end_message": "<span class=\"msg-system\">The clock drops back to baseline. Your skull throbs where the heat pooled.</span>",
-      "peak_message": "<span class=\"msg-system\">You're thinking in parallel now, a dozen threads, all of them screaming.</span>",
+      "end_message": "<span class=\"msg-system\">Your thinking slows back to normal. You've got a pounding headache.</span>",
+      "peak_message": "<span class=\"msg-system\">You're thinking about a dozen things at once, and it's too much.</span>",
       "peak_mods": {
         "hp_max": 10,
         "sanity_regen_per_sec": -0.12,
@@ -44,18 +44,18 @@
       "recovery_per_sec": 0.000011
     },
     "withdrawal": {
-      "message": "Baseline feels like wading through mud. You want the clock back up.",
+      "message": "Your thinking is slow and heavy. You want another dose.",
       "mods": {
         "stat_brains": -3,
         "stat_reflexes": -2
       },
       "onset_seconds": 900,
       "stages": {
-        "easing": "They start queuing again. Slowly, and in the wrong order.",
-        "onset": "The lace goes quiet. Not off. Quiet, the way a fan you had stopped hearing stops.",
-        "peak": "Every thought you had parked comes back at once and there are far too many to hold and none of them will wait their turn.",
-        "rising": "You reach for a thing you know and it isn't there for about a second, and the second is very long.",
-        "tail": "You think at the speed you were issued with. You keep catching yourself waiting for the other one."
+        "easing": "Your thoughts start lining up again, slowly and out of order.",
+        "onset": "The lace goes quiet, like a fan you'd stopped noticing switching off.",
+        "peak": "Every thought you'd put aside comes back at once, far too many to keep track of.",
+        "rising": "You reach for something you know and for a second it isn't there.",
+        "tail": "You think at your normal speed now. You still catch yourself waiting for the faster one."
       }
     }
   },

@@ -79,14 +79,14 @@
       }
     },
     "phases": {
-      "comedown_message": "<span class=\"msg-system\">The laughter winds down to hiccups and a sore, happy exhaustion.</span>",
+      "comedown_message": "<span class=\"msg-system\">The laughing stops. You've got hiccups and you're tired and happy.</span>",
       "comedown_scale": 0.5,
       "comedown_seconds": 60,
-      "comeup_message": "<span class=\"msg-system\">Something bright and stupid bubbles up in your chest. You're grinning before you know why.</span>",
+      "comeup_message": "<span class=\"msg-system\">You feel giddy, and you're grinning before you know why.</span>",
       "comeup_scale": 0.5,
       "comeup_seconds": 30,
       "end_message": "<span class=\"msg-system\">The funny drains out. Everything's the same as it was, except your face hurts.</span>",
-      "peak_message": "<span class=\"msg-system\">You're helpless now. The whole grim world is the best joke ever told.</span>",
+      "peak_message": "<span class=\"msg-system\">You can't stop laughing. Everything is hilarious.</span>",
       "peak_mods": {
         "stat_cool": 2
       },
@@ -99,7 +99,7 @@
       "max_reduction": 0.8
     },
     "withdrawal": {
-      "message": "Your jaw aches and the world has gone back to running at its own size.",
+      "message": "Your jaw aches and nothing's funny any more.",
       "mods": {
         "sanity_regen_per_sec": -0.04,
         "stat_cool": -2

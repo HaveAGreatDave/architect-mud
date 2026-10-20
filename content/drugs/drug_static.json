@@ -9,15 +9,15 @@
     },
     "overdose": {
       "lethal": true,
-      "message": "Too much signal, no more silence. Your mind whites out and doesn't come back."
+      "message": "It's too much. Your mind goes white and doesn't come back."
     },
     "phases": {
       "comedown_scale": 0.5,
       "comedown_seconds": 90,
       "comeup_scale": 0.5,
       "comeup_seconds": 30,
-      "end_message": "<span class=\"msg-system\">The signal degrades. Thoughts go grainy again.</span>",
-      "peak_message": "<span class=\"msg-system\">The static clears. You can see the shape of every problem at once.</span>",
+      "end_message": "<span class=\"msg-system\">It wears off. You can't think clearly any more.</span>",
+      "peak_message": "<span class=\"msg-system\">Your head clears. Every problem looks easy.</span>",
       "peak_mods": {
         "sanity_regen_per_sec": 1,
         "stat_brains": 4
@@ -30,18 +30,18 @@
       "max_reduction": 0.6
     },
     "withdrawal": {
-      "message": "The clean line through your head is gone and the room is putting out four hundred things at once.",
+      "message": "You can't focus. Everything around you demands your attention at once.",
       "mods": {
         "stat_brains": -2,
         "stat_cool": -1
       },
       "onset_seconds": 900,
       "stages": {
-        "easing": "You can follow one thing at a time. One isn't many but it's a number.",
-        "onset": "The clarity goes off like a light, and you're left holding what you were doing.",
-        "peak": "The clean straight line the mist put through your head is gone and the room is putting out about four hundred things a second, all of them equally important.",
-        "rising": "You read a page and it doesn't stick, and you read it again and it doesn't stick.",
-        "tail": "Ordinary attention, doing ordinary work. You're aware of how much of it there used to be."
+        "easing": "You can follow one thing at a time. It's a start.",
+        "onset": "The clear head is gone in an instant, and you lose track of what you were doing.",
+        "peak": "Your focus is gone, and everything in the room is fighting for your attention at once.",
+        "rising": "You read a page and none of it sticks. You read it again. Still nothing.",
+        "tail": "Your focus is back to normal. You notice how much sharper it used to be."
       }
     }
   },

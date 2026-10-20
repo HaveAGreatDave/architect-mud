@@ -28,7 +28,7 @@
     },
     "overdose": {
       "lethal": true,
-      "message": "One popper too many and your blood pressure bottoms out. You fold like a chair."
+      "message": "One popper too many. Your blood pressure drops and you collapse."
     },
     "phases": {
       "comedown_mods": {
@@ -53,7 +53,7 @@
       "max_reduction": 0.7
     },
     "withdrawal": {
-      "message": "Your head has the shape of the rush left in it and none of the rush.",
+      "message": "You've got a headache and you want another rush.",
       "mods": {
         "stat_brawn": -1,
         "stat_reflexes": -1

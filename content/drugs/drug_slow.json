@@ -8,10 +8,10 @@
       "hp": 5,
       "sanity": 15
     },
-    "onset_message": "<span class=\"msg-system\">The edges come off everything. Whatever was urgent can wait.</span>",
+    "onset_message": "<span class=\"msg-system\">You calm down. Whatever was urgent can wait.</span>",
     "onset_seconds": 8,
     "overdose": {
-      "message": "You take enough to stop feeling anything, which turns out to include your legs. You fold up where you stand, breathing slow and shallow, hours gone before you surface.",
+      "message": "You take so much you can't feel anything, including your legs. You collapse, breathing slow and shallow, and lose hours.",
       "mods": {
         "hp": -15,
         "sanity": -20
@@ -20,14 +20,14 @@
     "phases": {
       "comedown_scale": 0.5,
       "comedown_seconds": 150,
-      "comeup_message": "<span class=\"msg-system\">A grey calm rolls in from somewhere behind your eyes. The sharp things go soft.</span>",
+      "comeup_message": "<span class=\"msg-system\">You go calm and a bit numb. Nothing feels urgent.</span>",
       "comeup_scale": 0.5,
       "comeup_seconds": 30,
-      "end_message": "<span class=\"msg-system\">The calm thins out. The sharp things are still there, waiting exactly where you left them.</span>",
+      "end_message": "<span class=\"msg-system\">The calm wears off. Everything that was bothering you still is.</span>",
       "peak_message": [
-        "<span class=\"msg-system\">The room gets further away and stops mattering.</span>",
-        "<span class=\"msg-system\">You sink a long way into whatever you are sitting on.</span>",
-        "<span class=\"msg-system\">Everything soft-edges. Nothing needs deciding.</span>"
+        "<span class=\"msg-system\">You feel far away from everything, and you don't care.</span>",
+        "<span class=\"msg-system\">You sink deep into whatever you're sitting on.</span>",
+        "<span class=\"msg-system\">You go soft and calm. You don't have to decide anything.</span>"
       ],
       "peak_mods": {
         "sanity_regen_per_sec": 1,
@@ -44,18 +44,18 @@
     },
     "withdrawal": {
       "addiction_per_dose": 0.1,
-      "message": "Everything is loud and close and unbearable, and the one thing that ever made it stop isn't in your hand.",
+      "message": "Everything is too loud and too close, and you can't stand it. You want another dose.",
       "mods": {
         "stat_cool": -3,
         "stat_endurance": -2
       },
       "onset_seconds": 900,
       "stages": {
-        "easing": "It thins out into something you could carry if you had to.",
-        "onset": "Everything has an edge on it again, and the edges are all facing you.",
-        "peak": "The things slow was standing between you and are all in the room and none of them have aged.",
-        "rising": "You keep turning round. There's nothing behind you and you keep turning round.",
-        "tail": "Quieter. Not quiet. You have started to be able to tell the difference."
+        "easing": "It drops to something you can live with.",
+        "onset": "Everything feels sharp again, and all of it seems aimed at you.",
+        "peak": "Everything the slow kept away is back, and it hasn't got any easier to face.",
+        "rising": "You keep looking over your shoulder. Nothing's there.",
+        "tail": "It's quieter now. Not quiet, but you can tell the difference."
       }
     }
   },

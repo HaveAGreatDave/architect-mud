@@ -9,18 +9,18 @@
     },
     "overdose": {
       "lethal": true,
-      "message": "Your breathing slows, and slows, and forgets how."
+      "message": "Your breathing slows, and slows, and stops."
     },
     "phases": {
       "comedown_scale": 0.5,
       "comedown_seconds": 150,
-      "comeup_message": "<span class=\"msg-system\">A warm grey tide rolls up from your feet. Nothing hurts.</span>",
+      "comeup_message": "<span class=\"msg-system\">Warmth spreads up from your feet. Nothing hurts.</span>",
       "comeup_scale": 0.5,
       "comeup_seconds": 25,
-      "end_message": "<span class=\"msg-system\">The warmth recedes and leaves you cold and small on the shore.</span>",
+      "end_message": "<span class=\"msg-system\">The warmth goes, and you feel cold and lonely.</span>",
       "peak_message": [
-        "<span class=\"msg-system\">The ache stops. All of it, everywhere, at once.</span>",
-        "<span class=\"msg-system\">Warmth comes up through you and takes the pain out on the way.</span>",
+        "<span class=\"msg-system\">The pain stops, all of it, all at once.</span>",
+        "<span class=\"msg-system\">Warmth spreads through you and the pain goes.</span>",
         "<span class=\"msg-system\">There is nothing wrong with you. There never was.</span>"
       ],
       "peak_mods": {
@@ -37,7 +37,7 @@
       "recovery_per_sec": 0.00015
     },
     "withdrawal": {
-      "message": "Your skin crawls, your bones ache, and the whole world is a hand held out for more grey.",
+      "message": "Your skin crawls and your bones ache. All you want is more grey.",
       "mods": {
         "hp_max": -15,
         "stat_cool": -3,
@@ -45,11 +45,11 @@
       },
       "onset_seconds": 600,
       "stages": {
-        "easing": "It steps back far enough to be looked at, which isn't the same as going.",
-        "onset": "A cold spot opens between your shoulder blades and stays there.",
-        "peak": "The pain grey was taking is all still there and has been the whole time, waiting, with interest on it.",
-        "rising": "Every joint you own reports in. Nothing is injured. Everything is present.",
-        "tail": "You're functional and about a quarter of you is somewhere else, listening for it."
+        "easing": "The pain backs off a little. It's still there.",
+        "onset": "A cold patch settles between your shoulder blades and stays.",
+        "peak": "All the pain the grey was blocking is back at once, and worse than before.",
+        "rising": "Every joint aches. Nothing's injured. It all just hurts.",
+        "tail": "You can get through the day, but part of you is always waiting for the pain to come back."
       }
     }
   },

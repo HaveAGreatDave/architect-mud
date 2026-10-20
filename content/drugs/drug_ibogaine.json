@@ -3,7 +3,7 @@
   "description": "Bitter yellow root bark. A day and a night of being shown your own life, and a heart that may not agree to it.",
   "duration_seconds": 2400,
   "effects": {
-    "comeon_message": "<span class=\"msg-system\">Bitter enough to close your throat. Your pulse picks up, then does something you don't like.</span>",
+    "comeon_message": "<span class=\"msg-system\">It's so bitter you gag. Your pulse speeds up, then skips.</span>",
     "fx": {
       "intensity": 0.9,
       "phases": {
@@ -65,14 +65,14 @@
     "instant": {
       "sanity": -14
     },
-    "onset_message": "<span class=\"msg-system\">A dry electrical buzzing takes your whole body, and then your life begins playing back to you in order, with notes.</span>",
+    "onset_message": "<span class=\"msg-system\">Your whole body buzzes. Then you start remembering your life, in order, whether you want to or not.</span>",
     "onset_seconds": 90,
     "overdose": {
       "lethal": true,
-      "message": "Your heart finds a rhythm it has never tried before, holds it a moment too long, and stops looking for the old one."
+      "message": "Your heartbeat goes wrong, stays wrong, and stops."
     },
     "phases": {
-      "comedown_message": "<span class=\"msg-system\">The playback stops somewhere in the middle of a scene and does not resume.</span>",
+      "comedown_message": "<span class=\"msg-system\">The memories stop in the middle of one and don't start again.</span>",
       "comedown_mods": {
         "stat_brawn": -1,
         "stat_endurance": -3
@@ -81,7 +81,7 @@
       "comedown_seconds": 610,
       "comeup_scale": 0.3,
       "comeup_seconds": 90,
-      "end_message": "<span class=\"msg-system\">A day and a night of it, and you are still sitting in the same place, and your chest aches.</span>",
+      "end_message": "<span class=\"msg-system\">It's been a day and a night. You haven't moved, and your chest aches.</span>",
       "peak_mods": {
         "hp_max": -12,
         "stat_endurance": -3,
@@ -95,17 +95,17 @@
       "max_reduction": 0.4
     },
     "withdrawal": {
-      "message": "You keep waiting for it to finish telling you the thing. It stopped a while ago.",
+      "message": "You feel like you're waiting for an answer. It's not coming.",
       "mods": {
         "stat_brains": -2
       },
       "onset_seconds": 1800,
       "stages": {
-        "easing": "You stop reaching for it every few minutes.",
-        "onset": "The thread you were being shown goes slack.",
-        "peak": "It laid your whole life out and then left the room, and you're the only one here who saw it, and you can't get it back to check.",
-        "rising": "You keep waiting for it to finish telling you the thing. It stopped a while ago.",
-        "tail": "Whatever it showed you is yours now, unverified, and it isn't coming back to confirm anything."
+        "easing": "You stop trying to get it back.",
+        "onset": "Whatever it was showing you starts to slip away.",
+        "peak": "It showed you your whole life and then stopped, and you can't go back to check what you saw.",
+        "rising": "You keep waiting for it to finish. It already has.",
+        "tail": "You'll never know if what it showed you was true."
       }
     }
   },

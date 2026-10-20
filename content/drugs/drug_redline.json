@@ -9,14 +9,14 @@
       "sanity": 12,
       "thirst": -6
     },
-    "onset_message": "<span class=\"msg-system\">Your heart finds the new gear and stays there.</span>",
+    "onset_message": "<span class=\"msg-system\">Your heart speeds up and stays fast.</span>",
     "onset_seconds": 10,
     "overdose": {
       "lethal": true,
-      "message": "Your heart is a fist clenching until it can't open again."
+      "message": "Your heart clenches and doesn't start again."
     },
     "phases": {
-      "comedown_message": "<span class=\"msg-system\">The wire goes slack. Your hands start to shake.</span>",
+      "comedown_message": "<span class=\"msg-system\">It wears off. Your hands start to shake.</span>",
       "comedown_mods": {
         "stat_cool": -3,
         "stat_endurance": -2,
@@ -24,13 +24,13 @@
       },
       "comedown_scale": 1,
       "comedown_seconds": 90,
-      "comeup_message": "<span class=\"msg-system\">Your pulse redlines. The world drops into slow motion.</span>",
+      "comeup_message": "<span class=\"msg-system\">Your pulse races. Everything around you seems to slow down.</span>",
       "comeup_scale": 0.4,
       "comeup_seconds": 20,
-      "end_message": "<span class=\"msg-system\">The crash lands on you like a dropped ceiling.</span>",
+      "end_message": "<span class=\"msg-system\">You crash hard. You're exhausted.</span>",
       "peak_message": [
-        "<span class=\"msg-system\">You are at the top of it and there is nothing you could not do.</span>",
-        "<span class=\"msg-system\">The whole world drops into gear and you are already moving.</span>",
+        "<span class=\"msg-system\">You're at the peak, and you feel like you could do anything.</span>",
+        "<span class=\"msg-system\">Everything speeds up, and you're already moving.</span>",
         "<span class=\"msg-system\">Everything is loud and fast and yours.</span>"
       ],
       "peak_mods": {
@@ -55,11 +55,11 @@
       },
       "onset_seconds": 900,
       "stages": {
-        "easing": "The world comes back up to its own speed, which turns out to have been the speed the whole time.",
-        "onset": "Your teeth find each other and start working.",
-        "peak": "Your heart has been going for no reason since you sat down, and sitting down was supposed to be the answer.",
-        "rising": "Everything is slow. The lift, the door, the person in front of you, all of it, and none of it actually is.",
-        "tail": "Baseline. It reads as slow because you have spent a fortnight being wrong about what fast is."
+        "easing": "The world feels like it's speeding back up. It was never slow.",
+        "onset": "You start grinding your teeth.",
+        "peak": "Your heart's racing and you've only been sitting down, which was meant to help.",
+        "rising": "Everything seems slow: the lift, the door, the person in front of you. It isn't, really.",
+        "tail": "Normal speed. It still feels slow, because you'd forgotten what normal was."
       }
     }
   },
